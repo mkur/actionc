@@ -1,0 +1,12 @@
+mir6502 program
+global g0 b: byte storage global+0
+
+routine r0 Take
+b0 bb0:
+  return
+
+routine r1 Main
+b0 bb1:
+  v0 =.w lea global g0+0
+  call r0 args=[v0.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

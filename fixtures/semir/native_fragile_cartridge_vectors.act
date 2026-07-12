@@ -1,0 +1,25 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE cartrun=$BFFA,
+     oldrun
+CARD dosini=$0C,
+     dosvec=$0A,
+     setini=$1BBE
+
+PROC Main()
+  oldrun=cartrun
+  cartrun==!$FF
+
+  IF cartrun=oldrun THEN
+    dosini=setini
+    dosvec=$1B48
+    [$A9 $1B
+     $48
+     $A9 $47
+     $48
+     $6C cartrun]
+  ELSE
+    [$4C $E471]
+  FI
+RETURN

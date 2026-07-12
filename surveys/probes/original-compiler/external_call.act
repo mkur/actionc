@@ -1,0 +1,17 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE b
+CARD c
+BYTE ARRAY data=[1 2 3]
+
+PROC Sys=$1234(BYTE a CARD w BYTE POINTER p)
+
+PROC Main()
+  b = $11
+  c = $2233
+  Sys(b,c,data)
+RETURN

@@ -1,0 +1,21 @@
+mir6502 program
+global g0 out: byte storage global+0
+
+routine r0 BackOne
+b0 bb0:
+  v0 =.w load param p0+0
+  v1 =.w v0 sub #$01 carry_in=- carry_out=ignore
+  store.w param p0+0, v1
+  v2 =.w load param p0+0
+  v3 =.b load computed v2[#$01;1]+0
+  store.b global g0+0, v3
+  return
+
+routine r1 Main
+  local l0 init zero_fill=4 section=local mutable=true
+b0 bb1:
+  v0 =.w lea local l0+0
+  store.b local l0+0, #$07
+  v1 =.w lea local l0+0
+  call r0 args=[v1.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

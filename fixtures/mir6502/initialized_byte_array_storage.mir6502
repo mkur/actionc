@@ -1,0 +1,10 @@
+mir6502 program
+global g0 data: byte storage global+0 size=2 init descriptor size=2 backing=g0 bytes=[$01 $02 $03] zero_fill=0 backing_section=global.backing size_word=- section=global mutable=true
+global g1 out: byte storage global+2
+
+routine r0 Main
+b0 bb0:
+  v0 =.w lea global g0+0
+  v1 =.b load *global g0+0+1
+  store.b global g1+0, v1
+  return

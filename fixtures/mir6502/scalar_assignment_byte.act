@@ -1,0 +1,5 @@
+BYTE x
+
+PROC Main()
+  x=7
+RETURN

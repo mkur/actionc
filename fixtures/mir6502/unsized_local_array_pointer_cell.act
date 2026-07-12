@@ -1,0 +1,19 @@
+CARD ARRAY slots(4)
+BYTE out
+
+PROC Setup()
+
+  BYTE ARRAY backing(47), p
+
+  p = backing
+  slots(0) = p
+  p ==+ 10
+  p(0) = 0
+  slots(1) = p
+  p ==+ 1
+  slots(2) = p
+  p ==+ 9
+  slots(3) = p
+  out = p(0)
+
+RETURN

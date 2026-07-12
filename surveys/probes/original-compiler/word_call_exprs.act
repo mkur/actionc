@@ -1,0 +1,16 @@
+; Probe word-expression argument evaluation/staging.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+INT outA, outB
+
+PROC Take(INT a,b)
+  outA = a
+  outB = b
+RETURN
+
+PROC Main(INT x,y,x1,y1)
+  Take(x+x1,y+y1)
+RETURN

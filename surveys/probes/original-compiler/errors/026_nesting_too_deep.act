@@ -1,0 +1,41 @@
+; Original compiler error 26: nesting too deep.
+; This crosses the original compiler's documented nesting limit of 16.
+; actionc accepts deeper nesting, so the final FI is intentionally omitted to
+; keep this malformed corpus deterministic under actionc too.
+
+PROC Main()
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+  IF 1 THEN
+    RETURN
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+  FI
+RETURN

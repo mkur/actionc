@@ -1,0 +1,7 @@
+{
+  "snapshots": [
+    {"pc":"$04C6","label":"segvec","proc":"Hstick","local_index":"$0C04","locals":[{"slot":"$4A","name_addr":"$94CD","name":"n","vtype":"$8A","address":"$3017","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Vstick","local_index":"$0C04","locals":[{"slot":"$4A","name_addr":"$94D9","name":"n","vtype":"$8A","address":"$3053","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$A72E","label":"stop","proc":"MAIN","local_index":"$0C04","locals":[]}
+  ]
+}

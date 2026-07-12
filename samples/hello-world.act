@@ -1,0 +1,4 @@
+; Minimal Action! hello world example.
+PROC Main()
+  PrintE("Hello, world!")
+RETURN

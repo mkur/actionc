@@ -1,0 +1,1071 @@
+source: samples/toolkit/original/extracted/TURTLE.DM1
+
+== original:samples/toolkit/survey/outputs/vm/TURTLE1.COM ==
+load bytes: 1190  code bytes: 1178  code origin: $3000
+segments:
+  00: $3000-$3499 len  1178 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1184 data_off  1188
+      RUNAD $02E2 = $338A
+opcode counts:
+  $00 BRK      98
+  $02 .BYTE    1
+  $04 .BYTE    1
+  $06 ASL      1
+  $07 .BYTE    1
+  $08 PHP      2
+  $09 ORA      1
+  $0A ASL      2
+  $0B .BYTE    1
+  $0D ORA      1
+  $12 .BYTE    1
+  $14 .BYTE    1
+  $16 ASL      1
+  $18 CLC      8
+  $1B .BYTE    1
+  $1D ORA      1
+  $20 JSR      34
+  $21 AND      1
+  $23 .BYTE    1
+  $24 BIT      1
+  $25 .BYTE    1
+  $25 AND      2
+  $28 PLP      3
+  $2A ROL      3
+  $2C BIT      1
+  $30 BMI      2
+  $32 .BYTE    1
+  $34 .BYTE    1
+  $36 ROL      1
+  $38 SEC      8
+  $3A .BYTE    1
+  $3C .BYTE    1
+  $3E ROL      1
+  $41 EOR      1
+  $42 .BYTE    1
+  $44 .BYTE    1
+  $46 LSR      1
+  $47 .BYTE    1
+  $48 PHA      1
+  $49 EOR      2
+  $4B .BYTE    1
+  $4C JMP      21
+  $4D EOR      1
+  $4E LSR      1
+  $51 EOR      1
+  $52 .BYTE    1
+  $54 .BYTE    4
+  $56 LSR      1
+  $57 .BYTE    1
+  $59 EOR      1
+  $5C .BYTE    1
+  $5E LSR      1
+  $60 RTS      9
+  $61 ADC      2
+  $62 .BYTE    1
+  $63 .BYTE    1
+  $64 .BYTE    1
+  $65 ADC      5
+  $66 ROR      1
+  $68 PLA      3
+  $69 ADC      8
+  $6A ROR      1
+  $6B .BYTE    2
+  $6C JMP      2
+  $6D ADC      9
+  $6F .BYTE    5
+  $70 BVS      1
+  $71 ADC      1
+  $72 .BYTE    2
+  $73 .BYTE    3
+  $74 .BYTE    3
+  $75 ADC      3
+  $76 ROR      1
+  $77 .BYTE    2
+  $78 SEI      1
+  $79 ADC      1
+  $7A .BYTE    1
+  $7B .BYTE    1
+  $7C .BYTE    2
+  $7D ADC      1
+  $7E ROR      2
+  $7F .BYTE    2
+  $80 .BYTE    6
+  $85 STA      41
+  $88 DEY      2
+  $8A TXA      8
+  $8C STY      7
+  $8D STA      42
+  $8E STX      6
+  $90 BCC      4
+  $A0 LDY      9
+  $A2 LDX      10
+  $A4 LDY      1
+  $A5 LDA      10
+  $A6 LDX      2
+  $A9 LDA      51
+  $AA TAX      9
+  $AC LDY      1
+  $AD LDA      40
+  $AE LDX      4
+  $B0 BCS      2
+  $B1 LDA      4
+  $C8 INY      2
+  $C9 CMP      1
+  $CD CMP      6
+  $E9 SBC      1
+  $ED SBC      18
+  $EE INC      2
+
+== original disassembly: original:samples/toolkit/survey/outputs/vm/TURTLE1.COM ==
+segment 00 $3000-$3499 len 1178
+TG_Phi: ; final INT
+  $3000 00       BRK
+  $3001 00       BRK
+TG_CurX: ; final CARD
+  $3002 00       BRK
+  $3003 00       BRK
+TG_CurY: ; final CARD
+  $3004 00       BRK
+  $3005 00       BRK
+  $3006 00       BRK
+  $3007 00       BRK
+  $3008 02       .BYTE $02
+  $3009 00       BRK
+  $300A 04       .BYTE $04
+  $300B 00       BRK
+  $300C 07       .BYTE $07
+  $300D 00       BRK
+  $300E 09 00    ORA #$00
+  $3010 0B       .BYTE $0B
+  $3011 00       BRK
+  $3012 0D 00 10 ORA $1000
+  $3015 00       BRK
+  $3016 12       .BYTE $12
+  $3017 00       BRK
+  $3018 14       .BYTE $14
+  $3019 00       BRK
+  $301A 16 00    ASL $00,X
+  $301C 18       CLC
+  $301D 00       BRK
+  $301E 1B       .BYTE $1B
+  $301F 00       BRK
+  $3020 1D 00 1F ORA $1F00,X
+  $3023 00       BRK
+  $3024 21 00    AND ($00,X)
+  $3026 23       .BYTE $23
+  $3027 00       BRK
+  $3028 25 00    AND $00
+  $302A 28       PLP
+  $302B 00       BRK
+  $302C 2A       ROL A
+  $302D 00       BRK
+  $302E 2C 00 2E BIT $2E00
+  $3031 00       BRK
+  $3032 30 00    BMI $3034 ; L3034
+L3034:
+  $3034 32       .BYTE $32
+  $3035 00       BRK
+  $3036 34       .BYTE $34
+  $3037 00       BRK
+  $3038 36 00    ROL $00,X
+  $303A 38       SEC
+  $303B 00       BRK
+  $303C 3A       .BYTE $3A
+  $303D 00       BRK
+  $303E 3C       .BYTE $3C
+  $303F 00       BRK
+  $3040 3E 00 40 ROL $4000,X
+  $3043 00       BRK
+  $3044 42       .BYTE $42
+  $3045 00       BRK
+  $3046 44       .BYTE $44
+  $3047 00       BRK
+  $3048 46 00    LSR $00
+  $304A 48       PHA
+  $304B 00       BRK
+  $304C 49 00    EOR #$00
+  $304E 4B       .BYTE $4B
+  $304F 00       BRK
+  $3050 4D 00 4F EOR $4F00
+  $3053 00       BRK
+  $3054 51 00    EOR ($00),Y
+  $3056 52       .BYTE $52
+  $3057 00       BRK
+  $3058 54       .BYTE $54
+  $3059 00       BRK
+  $305A 56 00    LSR $00,X
+  $305C 57       .BYTE $57
+  $305D 00       BRK
+  $305E 59 00 5B EOR $5B00,Y
+  $3061 00       BRK
+  $3062 5C       .BYTE $5C
+  $3063 00       BRK
+  $3064 5E 00 5F LSR $5F00,X
+  $3067 00       BRK
+  $3068 61 00    ADC ($00,X)
+  $306A 62       .BYTE $62
+  $306B 00       BRK
+  $306C 63       .BYTE $63
+  $306D 00       BRK
+  $306E 65 00    ADC $00
+  $3070 66 00    ROR $00
+  $3072 68       PLA
+  $3073 00       BRK
+  $3074 69 00    ADC #$00
+  $3076 6A       ROR A
+  $3077 00       BRK
+  $3078 6B       .BYTE $6B
+  $3079 00       BRK
+  $307A 6D 00 6E ADC $6E00
+  $307D 00       BRK
+  $307E 6F       .BYTE $6F
+  $307F 00       BRK
+  $3080 70 00    BVS $3082 ; L3082
+L3082:
+  $3082 71 00    ADC ($00),Y
+  $3084 72       .BYTE $72
+  $3085 00       BRK
+  $3086 73       .BYTE $73
+  $3087 00       BRK
+  $3088 74       .BYTE $74
+  $3089 00       BRK
+  $308A 75 00    ADC $00,X
+  $308C 76 00    ROR $00,X
+  $308E 77       .BYTE $77
+  $308F 00       BRK
+  $3090 77       .BYTE $77
+  $3091 00       BRK
+  $3092 78       SEI
+  $3093 00       BRK
+  $3094 79 00 7A ADC $7A00,Y
+  $3097 00       BRK
+  $3098 7A       .BYTE $7A
+  $3099 00       BRK
+  $309A 7B       .BYTE $7B
+  $309B 00       BRK
+  $309C 7C       .BYTE $7C
+  $309D 00       BRK
+  $309E 7C       .BYTE $7C
+  $309F 00       BRK
+  $30A0 7D 00 7D ADC $7D00,X
+  $30A3 00       BRK
+  $30A4 7E 00 7E ROR $7E00,X
+  $30A7 00       BRK
+  $30A8 7E 00 7F ROR $7F00,X
+  $30AB 00       BRK
+  $30AC 7F       .BYTE $7F
+  $30AD 00       BRK
+  $30AE 7F       .BYTE $7F
+  $30AF 00       BRK
+  $30B0 80       .BYTE $80
+  $30B1 00       BRK
+  $30B2 80       .BYTE $80
+  $30B3 00       BRK
+  $30B4 80       .BYTE $80
+  $30B5 00       BRK
+  $30B6 80       .BYTE $80
+  $30B7 00       BRK
+  $30B8 80       .BYTE $80
+  $30B9 00       BRK
+  $30BA 80       .BYTE $80
+  $30BB 00       BRK
+TG_SinTab: ; final CARD ARRAY
+  $30BC 06 30    ASL $30
+  $30BE 00       BRK
+  $30BF 00       BRK
+theta: ; snapshot INT
+  $30C0 00       BRK
+  $30C1 00       BRK
+Turn: ; final PROC
+  $30C2 4C C5 30 JMP $30C5 ; L30C5
+L30C5:
+  $30C5 8E C1 30 STX $30C1 ; theta+1 $30C1
+  $30C8 8D C0 30 STA $30C0 ; theta $30C0
+  $30CB 18       CLC
+  $30CC AD 00 30 LDA $3000 ; TG_Phi $3000
+  $30CF 6D C0 30 ADC $30C0 ; theta $30C0
+  $30D2 8D 00 30 STA $3000 ; TG_Phi $3000
+  $30D5 AD 01 30 LDA $3001 ; TG_Phi+1 $3001
+  $30D8 6D C1 30 ADC $30C1 ; theta+1 $30C1
+  $30DB 8D 01 30 STA $3001 ; TG_Phi+1 $3001
+L30DE:
+  $30DE AD 00 30 LDA $3000 ; TG_Phi $3000
+  $30E1 C9 00    CMP #$00
+  $30E3 AD 01 30 LDA $3001 ; TG_Phi+1 $3001
+  $30E6 E9 00    SBC #$00
+  $30E8 30 03    BMI $30ED ; L30ED
+  $30EA 4C 01 31 JMP $3101 ; L3101
+L30ED:
+  $30ED 18       CLC
+  $30EE AD 00 30 LDA $3000 ; TG_Phi $3000
+  $30F1 69 68    ADC #$68
+  $30F3 8D 00 30 STA $3000 ; TG_Phi $3000
+  $30F6 AD 01 30 LDA $3001 ; TG_Phi+1 $3001
+  $30F9 69 01    ADC #$01
+  $30FB 8D 01 30 STA $3001 ; TG_Phi+1 $3001
+  $30FE 4C DE 30 JMP $30DE ; L30DE
+L3101:
+  $3101 A9 01    LDA #$01
+  $3103 85 85    STA $85
+  $3105 A9 68    LDA #$68
+  $3107 85 84    STA $84
+  $3109 AD 01 30 LDA $3001 ; TG_Phi+1 $3001
+  $310C AA       TAX
+  $310D AD 00 30 LDA $3000 ; TG_Phi $3000
+  $3110 20 DE A0 JSR $A0DE ; LA0DE
+  $3113 8D 00 30 STA $3000 ; TG_Phi $3000
+  $3116 8A       TXA
+  $3117 8D 01 30 STA $3001 ; TG_Phi+1 $3001
+  $311A 60       RTS
+theta: ; snapshot INT
+  $311B 00       BRK
+  $311C 00       BRK
+Right: ; final PROC
+  $311D 4C 20 31 JMP $3120 ; L3120
+L3120:
+  $3120 8E 1C 31 STX $311C ; theta+1 $311C
+  $3123 8D 1B 31 STA $311B ; theta $311B
+  $3126 38       SEC
+  $3127 A9 00    LDA #$00
+  $3129 ED 1B 31 SBC $311B ; theta $311B
+  $312C 85 A0    STA $A0
+  $312E A9 00    LDA #$00
+  $3130 ED 1C 31 SBC $311C ; theta+1 $311C
+  $3133 85 A1    STA $A1
+  $3135 A6 A1    LDX $A1
+  $3137 A5 A0    LDA $A0
+  $3139 20 C2 30 JSR $30C2 ; Turn $30C2
+  $313C 60       RTS
+theta: ; snapshot INT
+  $313D 00       BRK
+  $313E 00       BRK
+Left: ; final PROC
+  $313F 4C 42 31 JMP $3142 ; L3142
+L3142:
+  $3142 8E 3E 31 STX $313E ; theta+1 $313E
+  $3145 8D 3D 31 STA $313D ; theta $313D
+  $3148 AE 3E 31 LDX $313E ; theta+1 $313E
+  $314B AD 3D 31 LDA $313D ; theta $313D
+  $314E 20 C2 30 JSR $30C2 ; Turn $30C2
+  $3151 60       RTS
+theta: ; snapshot CARD
+  $3152 00       BRK
+  $3153 00       BRK
+sign: ; snapshot INT
+  $3154 00       BRK
+  $3155 00       BRK
+TG_ISin: ; final CARD FUNC
+  $3156 4C 59 31 JMP $3159 ; L3159
+L3159:
+  $3159 8E 53 31 STX $3153 ; theta+1 $3153
+  $315C 8D 52 31 STA $3152 ; theta $3152
+  $315F A0 00    LDY #$00
+  $3161 8C 55 31 STY $3155 ; sign+1 $3155
+  $3164 C8       INY
+  $3165 8C 54 31 STY $3154 ; sign $3154
+  $3168 A9 B4    LDA #$B4
+  $316A CD 52 31 CMP $3152 ; theta $3152
+  $316D A9 00    LDA #$00
+  $316F ED 53 31 SBC $3153 ; theta+1 $3153
+  $3172 90 03    BCC $3177 ; L3177
+  $3174 4C 92 31 JMP $3192 ; L3192
+L3177:
+  $3177 38       SEC
+  $3178 A9 68    LDA #$68
+  $317A ED 52 31 SBC $3152 ; theta $3152
+  $317D 8D 52 31 STA $3152 ; theta $3152
+  $3180 A9 01    LDA #$01
+  $3182 ED 53 31 SBC $3153 ; theta+1 $3153
+  $3185 8D 53 31 STA $3153 ; theta+1 $3153
+  $3188 A9 FF    LDA #$FF
+  $318A 8D 55 31 STA $3155 ; sign+1 $3155
+  $318D A9 FF    LDA #$FF
+  $318F 8D 54 31 STA $3154 ; sign $3154
+L3192:
+  $3192 A9 5A    LDA #$5A
+  $3194 CD 52 31 CMP $3152 ; theta $3152
+  $3197 A9 00    LDA #$00
+  $3199 ED 53 31 SBC $3153 ; theta+1 $3153
+  $319C 90 03    BCC $31A1 ; L31A1
+  $319E 4C B2 31 JMP $31B2 ; L31B2
+L31A1:
+  $31A1 38       SEC
+  $31A2 A9 B4    LDA #$B4
+  $31A4 ED 52 31 SBC $3152 ; theta $3152
+  $31A7 8D 52 31 STA $3152 ; theta $3152
+  $31AA A9 00    LDA #$00
+  $31AC ED 53 31 SBC $3153 ; theta+1 $3153
+  $31AF 8D 53 31 STA $3153 ; theta+1 $3153
+L31B2:
+  $31B2 AD 52 31 LDA $3152 ; theta $3152
+  $31B5 0A       ASL A
+  $31B6 08       PHP
+  $31B7 18       CLC
+  $31B8 6D BC 30 ADC $30BC ; TG_SinTab $30BC
+  $31BB 85 AE    STA $AE
+  $31BD AD 53 31 LDA $3153 ; theta+1 $3153
+  $31C0 2A       ROL A
+  $31C1 28       PLP
+  $31C2 6D BD 30 ADC $30BD ; TG_SinTab+1 $30BD
+  $31C5 85 AF    STA $AF
+  $31C7 A0 01    LDY #$01
+  $31C9 B1 AE    LDA ($AE),Y
+  $31CB 85 85    STA $85
+  $31CD 88       DEY
+  $31CE B1 AE    LDA ($AE),Y
+  $31D0 85 84    STA $84
+  $31D2 AD 55 31 LDA $3155 ; sign+1 $3155
+  $31D5 AA       TAX
+  $31D6 AD 54 31 LDA $3154 ; sign $3154
+  $31D9 20 00 A0 JSR $A000 ; LA000
+  $31DC 85 A0    STA $A0
+  $31DE 8A       TXA
+  $31DF 85 A1    STA $A1
+  $31E1 60       RTS
+theta: ; snapshot CARD
+  $31E2 00       BRK
+  $31E3 00       BRK
+sign: ; snapshot INT
+  $31E4 00       BRK
+  $31E5 00       BRK
+TG_ICos: ; final CARD FUNC
+  $31E6 4C E9 31 JMP $31E9 ; L31E9
+L31E9:
+  $31E9 8E E3 31 STX $31E3 ; theta+1 $31E3
+  $31EC 8D E2 31 STA $31E2 ; theta $31E2
+  $31EF A0 00    LDY #$00
+  $31F1 8C E5 31 STY $31E5 ; sign+1 $31E5
+  $31F4 C8       INY
+  $31F5 8C E4 31 STY $31E4 ; sign $31E4
+  $31F8 A9 B4    LDA #$B4
+  $31FA CD E2 31 CMP $31E2 ; theta $31E2
+  $31FD A9 00    LDA #$00
+  $31FF ED E3 31 SBC $31E3 ; theta+1 $31E3
+  $3202 90 03    BCC $3207 ; L3207
+  $3204 4C 18 32 JMP $3218 ; L3218
+L3207:
+  $3207 38       SEC
+  $3208 A9 68    LDA #$68
+  $320A ED E2 31 SBC $31E2 ; theta $31E2
+  $320D 8D E2 31 STA $31E2 ; theta $31E2
+  $3210 A9 01    LDA #$01
+  $3212 ED E3 31 SBC $31E3 ; theta+1 $31E3
+  $3215 8D E3 31 STA $31E3 ; theta+1 $31E3
+L3218:
+  $3218 A9 5A    LDA #$5A
+  $321A CD E2 31 CMP $31E2 ; theta $31E2
+  $321D A9 00    LDA #$00
+  $321F ED E3 31 SBC $31E3 ; theta+1 $31E3
+  $3222 90 03    BCC $3227 ; L3227
+  $3224 4C 42 32 JMP $3242 ; L3242
+L3227:
+  $3227 38       SEC
+  $3228 A9 B4    LDA #$B4
+  $322A ED E2 31 SBC $31E2 ; theta $31E2
+  $322D 8D E2 31 STA $31E2 ; theta $31E2
+  $3230 A9 00    LDA #$00
+  $3232 ED E3 31 SBC $31E3 ; theta+1 $31E3
+  $3235 8D E3 31 STA $31E3 ; theta+1 $31E3
+  $3238 A9 FF    LDA #$FF
+  $323A 8D E5 31 STA $31E5 ; sign+1 $31E5
+  $323D A9 FF    LDA #$FF
+  $323F 8D E4 31 STA $31E4 ; sign $31E4
+L3242:
+  $3242 38       SEC
+  $3243 A9 5A    LDA #$5A
+  $3245 ED E2 31 SBC $31E2 ; theta $31E2
+  $3248 85 AE    STA $AE
+  $324A A9 00    LDA #$00
+  $324C ED E3 31 SBC $31E3 ; theta+1 $31E3
+  $324F 85 AF    STA $AF
+  $3251 A5 AE    LDA $AE
+  $3253 0A       ASL A
+  $3254 08       PHP
+  $3255 18       CLC
+  $3256 6D BC 30 ADC $30BC ; TG_SinTab $30BC
+  $3259 85 AC    STA $AC
+  $325B A5 AF    LDA $AF
+  $325D 2A       ROL A
+  $325E 28       PLP
+  $325F 6D BD 30 ADC $30BD ; TG_SinTab+1 $30BD
+  $3262 85 AD    STA $AD
+  $3264 A0 01    LDY #$01
+  $3266 B1 AC    LDA ($AC),Y
+  $3268 85 85    STA $85
+  $326A 88       DEY
+  $326B B1 AC    LDA ($AC),Y
+  $326D 85 84    STA $84
+  $326F AD E5 31 LDA $31E5 ; sign+1 $31E5
+  $3272 AA       TAX
+  $3273 AD E4 31 LDA $31E4 ; sign $31E4
+  $3276 20 00 A0 JSR $A000 ; LA000
+  $3279 85 A0    STA $A0
+  $327B 8A       TXA
+  $327C 85 A1    STA $A1
+  $327E 60       RTS
+length: ; snapshot INT
+  $327F 00       BRK
+  $3280 00       BRK
+deltaX: ; snapshot INT
+  $3281 00       BRK
+  $3282 00       BRK
+deltaY: ; snapshot INT
+  $3283 00       BRK
+  $3284 00       BRK
+Forward: ; final PROC
+  $3285 4C 88 32 JMP $3288 ; L3288
+L3288:
+  $3288 8E 80 32 STX $3280 ; length+1 $3280
+  $328B 8D 7F 32 STA $327F ; length $327F
+  $328E AE 01 30 LDX $3001 ; TG_Phi+1 $3001
+  $3291 AD 00 30 LDA $3000 ; TG_Phi $3000
+  $3294 20 E6 31 JSR $31E6 ; TG_ICos $31E6
+  $3297 A5 A1    LDA $A1
+  $3299 85 85    STA $85
+  $329B A5 A0    LDA $A0
+  $329D 85 84    STA $84
+  $329F AD 80 32 LDA $3280 ; length+1 $3280
+  $32A2 AA       TAX
+  $32A3 AD 7F 32 LDA $327F ; length $327F
+  $32A6 20 00 A0 JSR $A000 ; LA000
+  $32A9 8D 81 32 STA $3281 ; deltaX $3281
+  $32AC 8A       TXA
+  $32AD 8D 82 32 STA $3282 ; deltaX+1 $3282
+  $32B0 AE 01 30 LDX $3001 ; TG_Phi+1 $3001
+  $32B3 AD 00 30 LDA $3000 ; TG_Phi $3000
+  $32B6 20 56 31 JSR $3156 ; TG_ISin $3156
+  $32B9 A5 A1    LDA $A1
+  $32BB 85 85    STA $85
+  $32BD A5 A0    LDA $A0
+  $32BF 85 84    STA $84
+  $32C1 AD 80 32 LDA $3280 ; length+1 $3280
+  $32C4 AA       TAX
+  $32C5 AD 7F 32 LDA $327F ; length $327F
+  $32C8 20 00 A0 JSR $A000 ; LA000
+  $32CB 8D 83 32 STA $3283 ; deltaY $3283
+  $32CE 8A       TXA
+  $32CF 8D 84 32 STA $3284 ; deltaY+1 $3284
+  $32D2 18       CLC
+  $32D3 AD 02 30 LDA $3002 ; TG_CurX $3002
+  $32D6 6D 81 32 ADC $3281 ; deltaX $3281
+  $32D9 8D 02 30 STA $3002 ; TG_CurX $3002
+  $32DC AD 03 30 LDA $3003 ; TG_CurX+1 $3003
+  $32DF 6D 82 32 ADC $3282 ; deltaX+1 $3282
+  $32E2 8D 03 30 STA $3003 ; TG_CurX+1 $3003
+  $32E5 38       SEC
+  $32E6 AD 04 30 LDA $3004 ; TG_CurY $3004
+  $32E9 ED 83 32 SBC $3283 ; deltaY $3283
+  $32EC 8D 04 30 STA $3004 ; TG_CurY $3004
+  $32EF AD 05 30 LDA $3005 ; TG_CurY+1 $3005
+  $32F2 ED 84 32 SBC $3284 ; deltaY+1 $3284
+  $32F5 8D 05 30 STA $3005 ; TG_CurY+1 $3005
+  $32F8 A9 07    LDA #$07
+  $32FA 85 84    STA $84
+  $32FC AD 03 30 LDA $3003 ; TG_CurX+1 $3003
+  $32FF AA       TAX
+  $3300 AD 02 30 LDA $3002 ; TG_CurX $3002
+  $3303 20 E6 A0 JSR $A0E6 ; LA0E6
+  $3306 85 A0    STA $A0
+  $3308 8A       TXA
+  $3309 85 A1    STA $A1
+  $330B A9 07    LDA #$07
+  $330D 85 84    STA $84
+  $330F AD 05 30 LDA $3005 ; TG_CurY+1 $3005
+  $3312 AA       TAX
+  $3313 AD 04 30 LDA $3004 ; TG_CurY $3004
+  $3316 20 E6 A0 JSR $A0E6 ; LA0E6
+  $3319 85 A2    STA $A2
+  $331B A4 A2    LDY $A2
+  $331D A6 A1    LDX $A1
+  $331F A5 A0    LDA $A0
+  $3321 20 8C A6 JSR $A68C ; LA68C
+  $3324 60       RTS
+x: ; snapshot INT
+  $3325 00       BRK
+  $3326 00       BRK
+y: ; snapshot INT
+  $3327 00       BRK
+  $3328 00       BRK
+theta: ; snapshot INT
+  $3329 00       BRK
+  $332A 00       BRK
+temp: ; snapshot BYTE
+  $332B 00       BRK
+SetTurtle: ; final PROC
+  $332C 4C 2F 33 JMP $332F ; L332F
+L332F:
+  $332F 20 F5 A0 JSR $A0F5 ; LA0F5
+  $3332 25 33 05 .BYTE $25,$33,$05
+  $3335 A9 07    LDA #$07
+  $3337 85 84    STA $84
+  $3339 AD 26 33 LDA $3326 ; x+1 $3326
+  $333C AA       TAX
+  $333D AD 25 33 LDA $3325 ; x $3325
+  $3340 20 C0 B5 JSR $B5C0 ; LB5C0
+  $3343 8D 02 30 STA $3002 ; TG_CurX $3002
+  $3346 8A       TXA
+  $3347 8D 03 30 STA $3003 ; TG_CurX+1 $3003
+  $334A A9 07    LDA #$07
+  $334C 85 84    STA $84
+  $334E AD 28 33 LDA $3328 ; y+1 $3328
+  $3351 AA       TAX
+  $3352 AD 27 33 LDA $3327 ; y $3327
+  $3355 20 C0 B5 JSR $B5C0 ; LB5C0
+  $3358 8D 04 30 STA $3004 ; TG_CurY $3004
+  $335B 8A       TXA
+  $335C 8D 05 30 STA $3005 ; TG_CurY+1 $3005
+  $335F AD 2A 33 LDA $332A ; theta+1 $332A
+  $3362 8D 01 30 STA $3001 ; TG_Phi+1 $3001
+  $3365 AD 29 33 LDA $3329 ; theta $3329
+  $3368 8D 00 30 STA $3000 ; TG_Phi $3000
+  $336B AD FD 02 LDA $02FD
+  $336E 8D 2B 33 STA $332B ; temp $332B
+  $3371 A0 00    LDY #$00
+  $3373 8C FD 02 STY $02FD
+  $3376 AC 27 33 LDY $3327 ; y $3327
+  $3379 AE 26 33 LDX $3326 ; x+1 $3326
+  $337C AD 25 33 LDA $3325 ; x $3325
+  $337F 20 C3 A6 JSR $A6C3 ; LA6C3
+  $3382 AD 2B 33 LDA $332B ; temp $332B
+  $3385 8D FD 02 STA $02FD
+  $3388 60       RTS
+i: ; final BYTE
+  $3389 00       BRK
+TurtleDemo: ; final PROC
+  $338A 4C 8D 33 JMP $338D ; L338D
+L338D:
+  $338D A9 07    LDA #$07
+  $338F 20 54 A6 JSR $A654 ; LA654
+  $3392 4C BB 33 JMP $33BB ; L33BB
+  $3395 25 54    AND $54
+  $3397 68       PLA
+  $3398 69 73    ADC #$73
+  $339A 20 69 73 JSR $7369 ; L7369
+  $339D 20 61 20 JSR $2061 ; L2061
+  $33A0 64       .BYTE $64
+  $33A1 65 6D    ADC $6D
+  $33A3 6F       .BYTE $6F
+  $33A4 20 6F 66 JSR $666F ; L666F
+  $33A7 20 74 68 JSR $6874 ; L6874
+  $33AA 65 20    ADC $20
+  $33AC 54       .BYTE $54
+  $33AD 75 72    ADC $72,X
+  $33AF 74       .BYTE $74
+  $33B0 6C 65 20 JMP ($2065)
+  $33B3 47       .BYTE $47
+  $33B4 72       .BYTE $72
+  $33B5 61 70    ADC ($70,X)
+  $33B7 68       PLA
+  $33B8 69 63    ADC #$63
+  $33BA 73       .BYTE $73
+L33BB:
+  $33BB A2 33    LDX #$33
+  $33BD A9 95    LDA #$95
+  $33BF 20 6C A4 JSR $A46C ; LA46C
+  $33C2 4C EA 33 JMP $33EA ; L33EA
+  $33C5 24 72    BIT $72
+  $33C7 6F       .BYTE $6F
+  $33C8 75 74    ADC $74,X
+  $33CA 69 6E    ADC #$6E
+  $33CC 65 73    ADC $73
+  $33CE 20 6F 6E JSR $6E6F ; L6E6F
+  $33D1 20 74 68 JSR $6874 ; L6874
+  $33D4 65 20    ADC $20
+  $33D6 41 43    EOR ($43,X)
+  $33D8 54       .BYTE $54
+  $33D9 49 4F    EOR #$4F
+  $33DB 4E 21 20 LSR $2021
+  $33DE 54       .BYTE $54
+  $33DF 6F       .BYTE $6F
+  $33E0 6F       .BYTE $6F
+  $33E1 6C 6B 69 JMP ($696B)
+  $33E4 74       .BYTE $74
+  $33E5 20 64 69 JSR $6964 ; L6964
+  $33E8 73       .BYTE $73
+  $33E9 6B       .BYTE $6B
+L33EA:
+  $33EA A2 33    LDX #$33
+  $33EC A9 C5    LDA #$C5
+  $33EE 20 6C A4 JSR $A46C ; LA46C
+L33F1:
+  $33F1 A9 00    LDA #$00
+  $33F3 85 A3    STA $A3
+  $33F5 A9 00    LDA #$00
+  $33F7 85 A5    STA $A5
+  $33F9 A9 64    LDA #$64
+  $33FB 85 A4    STA $A4
+  $33FD A0 37    LDY #$37
+  $33FF A2 00    LDX #$00
+  $3401 A9 64    LDA #$64
+  $3403 20 2C 33 JSR $332C ; SetTurtle $332C
+  $3406 A0 00    LDY #$00
+  $3408 8C 89 33 STY $3389 ; i $3389
+L340B:
+  $340B A9 64    LDA #$64
+  $340D CD 89 33 CMP $3389 ; i $3389
+  $3410 B0 03    BCS $3415 ; L3415
+  $3412 4C 43 34 JMP $3443 ; L3443
+L3415:
+  $3415 A9 00    LDA #$00
+  $3417 85 85    STA $85
+  $3419 A9 03    LDA #$03
+  $341B 85 84    STA $84
+  $341D AD 89 33 LDA $3389 ; i $3389
+  $3420 A2 00    LDX #$00
+  $3422 20 DE A0 JSR $A0DE ; LA0DE
+  $3425 85 AE    STA $AE
+  $3427 18       CLC
+  $3428 A5 AE    LDA $AE
+  $342A 69 01    ADC #$01
+  $342C 8D FD 02 STA $02FD
+  $342F A2 00    LDX #$00
+  $3431 A9 32    LDA #$32
+  $3433 20 85 32 JSR $3285 ; Forward $3285
+  $3436 A2 00    LDX #$00
+  $3438 A9 64    LDA #$64
+  $343A 20 3F 31 JSR $313F ; Left $313F
+  $343D EE 89 33 INC $3389 ; i $3389
+  $3440 4C 0B 34 JMP $340B ; L340B
+L3443:
+  $3443 A9 00    LDA #$00
+  $3445 85 A3    STA $A3
+  $3447 A9 00    LDA #$00
+  $3449 85 A5    STA $A5
+  $344B A9 64    LDA #$64
+  $344D 85 A4    STA $A4
+  $344F A0 2A    LDY #$2A
+  $3451 A2 00    LDX #$00
+  $3453 A9 55    LDA #$55
+  $3455 20 2C 33 JSR $332C ; SetTurtle $332C
+  $3458 A0 00    LDY #$00
+  $345A 8C 89 33 STY $3389 ; i $3389
+L345D:
+  $345D A9 C8    LDA #$C8
+  $345F CD 89 33 CMP $3389 ; i $3389
+  $3462 B0 03    BCS $3467 ; L3467
+  $3464 4C 95 34 JMP $3495 ; L3495
+L3467:
+  $3467 A9 00    LDA #$00
+  $3469 85 85    STA $85
+  $346B A9 03    LDA #$03
+  $346D 85 84    STA $84
+  $346F AD 89 33 LDA $3389 ; i $3389
+  $3472 A2 00    LDX #$00
+  $3474 20 DE A0 JSR $A0DE ; LA0DE
+  $3477 85 AE    STA $AE
+  $3479 18       CLC
+  $347A A5 AE    LDA $AE
+  $347C 69 01    ADC #$01
+  $347E 8D FD 02 STA $02FD
+  $3481 A2 00    LDX #$00
+  $3483 A9 14    LDA #$14
+  $3485 20 85 32 JSR $3285 ; Forward $3285
+  $3488 A2 00    LDX #$00
+  $348A A9 64    LDA #$64
+  $348C 20 3F 31 JSR $313F ; Left $313F
+  $348F EE 89 33 INC $3389 ; i $3389
+  $3492 4C 5D 34 JMP $345D ; L345D
+L3495:
+  $3495 4C F1 33 JMP $33F1 ; L33F1
+  $3498 60       RTS
+  $3499 60       RTS
+
+== compat ==
+load bytes: 1190  code bytes: 1178  code origin: $3000
+segments:
+  00: $3000-$3499 len  1178 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1184 data_off  1188
+      RUNAD $02E2 = $338A
+opcode counts:
+  $00 BRK      98
+  $02 .BYTE    1
+  $04 .BYTE    1
+  $06 ASL      1
+  $07 .BYTE    1
+  $08 PHP      2
+  $09 ORA      1
+  $0A ASL      2
+  $0B .BYTE    1
+  $0D ORA      1
+  $12 .BYTE    1
+  $14 .BYTE    1
+  $16 ASL      1
+  $18 CLC      8
+  $1B .BYTE    1
+  $1D ORA      1
+  $20 JSR      34
+  $21 AND      1
+  $23 .BYTE    1
+  $24 BIT      1
+  $25 .BYTE    1
+  $25 AND      2
+  $28 PLP      3
+  $2A ROL      3
+  $2C BIT      1
+  $30 BMI      2
+  $32 .BYTE    1
+  $34 .BYTE    1
+  $36 ROL      1
+  $38 SEC      8
+  $3A .BYTE    1
+  $3C .BYTE    1
+  $3E ROL      1
+  $41 EOR      1
+  $42 .BYTE    1
+  $44 .BYTE    1
+  $46 LSR      1
+  $47 .BYTE    1
+  $48 PHA      1
+  $49 EOR      2
+  $4B .BYTE    1
+  $4C JMP      21
+  $4D EOR      1
+  $4E LSR      1
+  $51 EOR      1
+  $52 .BYTE    1
+  $54 .BYTE    4
+  $56 LSR      1
+  $57 .BYTE    1
+  $59 EOR      1
+  $5C .BYTE    1
+  $5E LSR      1
+  $60 RTS      9
+  $61 ADC      2
+  $62 .BYTE    1
+  $63 .BYTE    1
+  $64 .BYTE    1
+  $65 ADC      5
+  $66 ROR      1
+  $68 PLA      3
+  $69 ADC      8
+  $6A ROR      1
+  $6B .BYTE    2
+  $6C JMP      2
+  $6D ADC      9
+  $6F .BYTE    5
+  $70 BVS      1
+  $71 ADC      1
+  $72 .BYTE    2
+  $73 .BYTE    3
+  $74 .BYTE    3
+  $75 ADC      3
+  $76 ROR      1
+  $77 .BYTE    2
+  $78 SEI      1
+  $79 ADC      1
+  $7A .BYTE    1
+  $7B .BYTE    1
+  $7C .BYTE    2
+  $7D ADC      1
+  $7E ROR      2
+  $7F .BYTE    2
+  $80 .BYTE    6
+  $85 STA      41
+  $88 DEY      2
+  $8A TXA      8
+  $8C STY      7
+  $8D STA      42
+  $8E STX      6
+  $90 BCC      4
+  $A0 LDY      9
+  $A2 LDX      10
+  $A4 LDY      1
+  $A5 LDA      10
+  $A6 LDX      2
+  $A9 LDA      51
+  $AA TAX      9
+  $AC LDY      1
+  $AD LDA      40
+  $AE LDX      4
+  $B0 BCS      2
+  $B1 LDA      4
+  $C8 INY      2
+  $C9 CMP      1
+  $CD CMP      6
+  $E9 SBC      1
+  $ED SBC      18
+  $EE INC      2
+
+== map: compat ==
+origin $3000  run $338A  routines 8  symbols 19  skipped 0
+routines:
+  Turn                     $30C0-$311A len    91
+  Right                    $311B-$313C len    34
+  Left                     $313D-$3151 len    21
+  TG_ISin                  $3152-$31E1 len   144
+  TG_ICos                  $31E2-$327E len   157
+  Forward                  $327F-$3324 len   166
+  SetTurtle                $3325-$3388 len   100
+  TurtleDemo               $3389-$3498 len   272
+storage symbols:
+  global Storage TG_PHI $3000-$3001
+  global Storage TG_CURX $3002-$3003
+  global Storage TG_CURY $3004-$3005
+  global Storage TG_SINTAB $30BC-$30BD
+  routine Turn Parameter THETA $30C0-$30C1
+  routine Right Parameter THETA $311B-$311C
+  routine Left Parameter THETA $313D-$313E
+  routine TG_ISin Parameter THETA $3152-$3153
+  routine TG_ISin Local SIGN $3154-$3155
+  routine TG_ICos Parameter THETA $31E2-$31E3
+  routine TG_ICos Local SIGN $31E4-$31E5
+  routine Forward Parameter LENGTH $327F-$3280
+  routine Forward Local DELTAX $3281-$3282
+  routine Forward Local DELTAY $3283-$3284
+  routine SetTurtle Parameter X $3325-$3326
+  routine SetTurtle Parameter Y $3327-$3328
+  routine SetTurtle Parameter THETA $3329-$332A
+  routine SetTurtle Local TEMP $332B-$332B
+  routine TurtleDemo Local I $3389-$3389
+trusted effects:
+  Turn                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$C2; writes abs $30C1,$30C0,$3000,$3001
+  Right                    clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$C2; writes abs $311C,$311B,$30C1,$30C0,$3000,$3001
+  Left                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$C2; writes abs $313E,$313D,$30C1,$30C0,$3000,$3001
+  TG_ISin                  clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$AE,$AF,$C0,$C1,$C2; writes abs $3153,$3152,$3155,$3154
+  TG_ICos                  clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$AC,$AD,$AE,$AF,$C0,$C1,$C2; writes abs $31E3,$31E2,$31E5,$31E4
+
+== routines: original:samples/toolkit/survey/outputs/vm/TURTLE1.COM vs compat ==
+  Turn                     len 283 -> 91 (-192)  addr $3000 -> $30C0
+    Turn+$0002 #0002
+      original : $3002 00       BRK
+      generated: $30C2 4C C5 30 JMP $30C5
+      orig owner: TG_CurX $3002
+      source   : Routine Turn samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 950..1066 code $30C0-$311A
+    Turn+$0003 #0003
+      original : $3003 00       BRK
+      generated: $30C5 8E C1 30 STX $30C1
+      orig owner: TG_CurX+1 $3003
+      source   : Routine Turn samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 950..1066 code $30C0-$311A
+    Turn+$0004 #0004
+      original : $3004 00       BRK
+      generated: $30C8 8D C0 30 STA $30C0
+      orig owner: TG_CurY $3004
+      source   : Routine Turn samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 950..1066 code $30C0-$311A
+    Turn+$0005 #0005
+      original : $3005 00       BRK
+      generated: $30CB 18       CLC
+      orig owner: TG_CurY+1 $3005
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 974..993 code $30CB-$30DD
+    Turn+$0006 #0006
+      original : $3006 00       BRK
+      generated: $30CC AD 00 30 LDA $3000
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 974..993 code $30CB-$30DD
+    Turn+$0007 #0007
+      original : $3007 00       BRK
+      generated: $30CF 6D C0 30 ADC $30C0
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 974..993 code $30CB-$30DD
+    Turn+$0008 #0008
+      original : $3008 02       .BYTE $02
+      generated: $30D2 8D 00 30 STA $3000
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 974..993 code $30CB-$30DD
+    Turn+$0009 #0009
+      original : $3009 00       BRK
+      generated: $30D5 AD 01 30 LDA $3001
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 974..993 code $30CB-$30DD
+    Turn+$000A #0010
+      original : $300A 04       .BYTE $04
+      generated: $30D8 6D C1 30 ADC $30C1
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 974..993 code $30CB-$30DD
+    Turn+$000B #0011
+      original : $300B 00       BRK
+      generated: $30DB 8D 01 30 STA $3001
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 974..993 code $30CB-$30DD
+    Turn+$000C #0012
+      original : $300C 07       .BYTE $07
+      generated: $30DE AD 00 30 LDA $3000
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 996..1041 code $30DE-$3100
+    Turn+$000D #0013
+      original : $300D 00       BRK
+      generated: $30E1 C9 00    CMP #$00
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 996..1041 code $30DE-$3100
+    Turn+$000E #0014
+      original : $300E 09 00    ORA #$00
+      generated: $30E3 AD 01 30 LDA $3001
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 996..1041 code $30DE-$3100
+    Turn+$0010 #0015
+      original : $3010 0B       .BYTE $0B
+      generated: $30E6 E9 00    SBC #$00
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 996..1041 code $30DE-$3100
+    Turn+$0011 #0016
+      original : $3011 00       BRK
+      generated: $30E8 30 03    BMI $30ED
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 996..1041 code $30DE-$3100
+    Turn+$0012 #0017
+      original : $3012 0D 00 10 ORA $1000
+      generated: $30EA 4C 01 31 JMP $3101
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 996..1041 code $30DE-$3100
+    Turn+$0015 #0018
+      original : $3015 00       BRK
+      generated: $30ED 18       CLC
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 1022..1034 code $30ED-$30FD
+    Turn+$0016 #0019
+      original : $3016 12       .BYTE $12
+      generated: $30EE AD 00 30 LDA $3000
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 1022..1034 code $30ED-$30FD
+    Turn+$0017 #0020
+      original : $3017 00       BRK
+      generated: $30F1 69 68    ADC #$68
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 1022..1034 code $30ED-$30FD
+    Turn+$0018 #0021
+      original : $3018 14       .BYTE $14
+      generated: $30F3 8D 00 30 STA $3000
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 1022..1034 code $30ED-$30FD
+    Turn+$0019 #0022
+      original : $3019 00       BRK
+      generated: $30F6 AD 01 30 LDA $3001
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 1022..1034 code $30ED-$30FD
+    Turn+$001A #0023
+      original : $301A 16 00    ASL $00,X
+      generated: $30F9 69 01    ADC #$01
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 1022..1034 code $30ED-$30FD
+    Turn+$001C #0024
+      original : $301C 18       CLC
+      generated: $30FB 8D 01 30 STA $3001
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 1022..1034 code $30ED-$30FD
+    Turn+$001D #0025
+      original : $301D 00       BRK
+      generated: $30FE 4C DE 30 JMP $30DE
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 996..1041 code $30DE-$3100
+  TurtleDemo               len 273 -> 272 (-1)  addr $3389 -> $3389
+    TurtleDemo+$009C #0076
+      original : $3425 85 AE    STA $AE
+      generated: $3425 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 2812..2829 code $3415-$342E
+    TurtleDemo+$009F #0078
+      original : $3428 A5 AE    LDA $AE
+      generated: $3428 A5 AC    LDA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 2812..2829 code $3415-$342E
+    TurtleDemo+$00EE #0112
+      original : $3477 85 AE    STA $AE
+      generated: $3477 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 2934..2951 code $3467-$3480
+    TurtleDemo+$00F1 #0114
+      original : $347A A5 AE    LDA $AE
+      generated: $347A A5 AC    LDA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.DM1:29:1 |  | source 2934..2951 code $3467-$3480
+    TurtleDemo+$0110 #0127
+      original : $3499 60       RTS
+      generated: <missing>
+
+== bytes: original:samples/toolkit/survey/outputs/vm/TURTLE1.COM vs compat ==
+exact: false  sizes: 1190 vs 1190
+first diffs:
+  @042C: $AE -> $AC
+  @042F: $AE -> $AC
+  @047E: $AE -> $AC
+  @0481: $AE -> $AC
+
+== instructions: original:samples/toolkit/survey/outputs/vm/TURTLE1.COM vs compat ==
+counts: 594 vs 594
+  #0542
+    left : $3425 85 AE    STA $AE
+    right: $3425 85 AC    STA $AC
+  #0544
+    left : $3428 A5 AE    LDA $AE
+    right: $3428 A5 AC    LDA $AC
+  #0578
+    left : $3477 85 AE    STA $AE
+    right: $3477 85 AC    STA $AC
+  #0580
+    left : $347A A5 AE    LDA $AE
+    right: $347A A5 AC    LDA $AC

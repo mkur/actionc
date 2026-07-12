@@ -1,0 +1,31 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE r2b, r3b
+CARD r1c, rbc, rcb
+
+BYTE FUNC TwoBytes(BYTE a, b)
+RETURN(b)
+
+BYTE FUNC ThreeBytes(BYTE a, b, c)
+RETURN(c)
+
+CARD FUNC OneCard(CARD a)
+RETURN(a)
+
+CARD FUNC ByteCard(BYTE a, CARD b)
+RETURN(b)
+
+CARD FUNC CardByte(CARD a, BYTE b)
+RETURN(a)
+
+PROC Main()
+  r2b = TwoBytes(1, 2)
+  r3b = ThreeBytes(3, 4, 5)
+  r1c = OneCard($1234)
+  rbc = ByteCard(6, $2000)
+  rcb = CardByte($3000, 7)
+RETURN

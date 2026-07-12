@@ -1,0 +1,12 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE a, b, c
+CARD w
+
+PROC Main()
+  a = 1
+  b = 2
+  c = (a + b) ! $80
+  w = (a LSH 1) + b
+RETURN

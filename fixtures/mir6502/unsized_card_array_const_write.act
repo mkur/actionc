@@ -1,0 +1,5 @@
+CARD ARRAY words=$600
+
+PROC Main()
+  words(1) = $1234
+RETURN

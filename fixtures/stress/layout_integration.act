@@ -1,0 +1,76 @@
+; Storage-layout integration stress program.
+;
+; This intentionally mixes fixed-address aliases, inline initialized arrays,
+; unsized descriptor arrays, large local arrays, local initialized arrays, and
+; routine parameter storage. The goal is to catch layout interactions that only
+; emerge in larger toolkit-style sources.
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE DMACTL=$022F,
+     PRIOR=$026F,
+     globalByte=[1],
+     scratch
+
+CARD APPMHI=$000E,
+     globalWord=[0],
+     vectorA,
+     vectorB
+
+BYTE ARRAY hardware(4)=$D000,
+           table(8)=[1 2 3 4 5 6 7 8],
+           text(0)="LAYOUT"
+
+CARD ARRAY sizes=[0 $100 $80],
+           masks=[0 $F800 $FC00]
+
+INT ARRAY signedValues(4)
+
+PROC LocalMix(BYTE mode)
+  BYTE i, sum
+  CARD base, limit
+  BYTE ARRAY temp(32), localText(0)="LOCAL"
+  CARD ARRAY localWords=[0 $1111 $2222]
+
+  i = 0
+  sum = 0
+  WHILE i < 4
+  DO
+    temp(i) = table(i) + localText(0)
+    sum = sum + temp(i)
+    i ==+ 1
+  OD
+
+  base = (APPMHI + sizes(mode) + localWords(mode)) & masks(mode)
+  limit = base + temp(0) + signedValues(mode)
+
+  globalByte = sum
+  globalWord = limit
+  vectorA = base
+  vectorB = localWords(mode)
+RETURN
+
+PROC AliasMix()
+  BYTE old
+
+  old = DMACTL
+  DMACTL = $22
+  PRIOR ==& $C0
+  PRIOR ==% 1
+  hardware(0) = old
+  hardware(1) = globalByte
+RETURN
+
+PROC Main()
+  scratch = 0
+  signedValues(0) = -3
+  signedValues(1) = -1
+  signedValues(2) = 1
+  signedValues(3) = 3
+  LocalMix(1)
+  AliasMix()
+  LocalMix(2)
+RETURN

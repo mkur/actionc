@@ -1,0 +1,15 @@
+BYTE out
+
+PROC BackOne(BYTE ARRAY s)
+  s ==- 1
+  out = s(1)
+RETURN
+
+PROC Main()
+
+  BYTE ARRAY data(4)
+
+  data(0) = 7
+  BackOne(data)
+
+RETURN

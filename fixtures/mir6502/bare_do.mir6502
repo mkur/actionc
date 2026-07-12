@@ -1,0 +1,11 @@
+mir6502 program
+global g0 x: byte storage global+0
+
+routine r0 Spin
+b0 bb0:
+  jump b1
+b1 bb1:
+  v0 =.b load global g0+0
+  v1 =.b v0 add #$01 carry_in=- carry_out=ignore
+  store.b global g0+0, v1
+  jump b1

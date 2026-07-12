@@ -1,0 +1,30 @@
+program modules=1
+  module #0 items=6
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte bytes#74/scope1:Array:Byte array Byte ARRAY(4)->Byte POINTER/Array/Global
+      length 4:Byte:Value:eval4:facts=w1,Unsigned
+    routine Byte FUNC Inc#75/scope1:Func:Byte
+      callable Byte FUNC(Byte)
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      params:
+        Byte x#76/scope2:Param:Byte Value
+      body:
+        return (x:Byte:LValue:eval5:facts=w1,Unsigned + 1:Byte:Value:eval6:facts=w1,Unsigned):Byte:Value:eval7:facts=w1,Unsigned
+    routine PROC Store#77/scope1:Proc:?
+      callable PROC(Byte POINTER,Byte)
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      params:
+        Byte POINTER p#78/scope3:Param:Byte POINTER Value
+        Byte i#79/scope3:Param:Byte Value
+      body:
+        assign p:Byte POINTER:LValue:eval8:facts=w2,ptr,to=Byte,pointee_w1(i:Byte:LValue:eval9:facts=w1,Unsigned):Byte:facts=w1,Unsigned = user Inc(...):Byte:Value:eval11:facts=w1,Unsigned
+        return
+    routine PROC Main#80/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        call user Store -> ? callable=PROC(Byte POINTER,Byte) effects=none
+          arg #0 array_decay/Global bytes:Byte:facts=w1,Unsigned:Byte POINTER:Value:eval12:facts=w2,ptr,to=Byte,pointee_w1
+          arg #1 1:Byte:Value:eval13:facts=w1,Unsigned
+        return

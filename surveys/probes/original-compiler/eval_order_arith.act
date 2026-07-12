@@ -1,0 +1,57 @@
+; Probe side-effecting arithmetic operand evaluation order.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE seq, fSeen, gSeen, outB
+CARD outW
+
+BYTE FUNC FB()
+  seq = seq + 1
+  fSeen = seq
+RETURN(10)
+
+BYTE FUNC GB()
+  seq = seq + 1
+  gSeen = seq
+RETURN(3)
+
+CARD FUNC FW()
+  seq = seq + 1
+  fSeen = seq
+RETURN($0102)
+
+CARD FUNC GW()
+  seq = seq + 1
+  gSeen = seq
+RETURN($0003)
+
+PROC Main()
+  seq = 0
+  outB = FB() + GB()
+
+  seq = 0
+  outB = FB() - GB()
+
+  seq = 0
+  outB = FB() AND GB()
+
+  seq = 0
+  outB = FB() OR GB()
+
+  seq = 0
+  outB = FB() XOR GB()
+
+  seq = 0
+  outW = FW() + GW()
+
+  seq = 0
+  outW = FW() - GW()
+
+  seq = 0
+  outW = FW() * GW()
+
+  seq = 0
+  outW = FW() LSH GB()
+RETURN

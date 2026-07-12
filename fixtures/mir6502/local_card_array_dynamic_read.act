@@ -1,0 +1,8 @@
+PROC Main()
+  CARD ARRAY words(4)
+  BYTE i
+  CARD out
+
+  i = 1
+  out = words(i)
+RETURN

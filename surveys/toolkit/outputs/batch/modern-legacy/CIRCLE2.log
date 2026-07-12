@@ -1,0 +1,8 @@
+source: samples/toolkit/original/extracted/CIRCLE.DM2
+source_policy: auto
+compile_source: samples/toolkit/original/extracted/CIRCLE.DM2
+profile: modern
+backend: legacy
+codegen_source: ast
+status: ok
+detail: wrote samples/toolkit/survey/outputs/batch/modern-legacy/CIRCLE2.COM

@@ -1,0 +1,4 @@
+PROC Main()
+  [$A2 $00]
+  [$E8]
+RETURN

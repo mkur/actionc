@@ -1,0 +1,12 @@
+mir6502 program
+global g1 p: word storage global+0
+
+routine r0 Helper
+b0 bb0:
+  return
+
+routine r1 Main
+b0 bb1:
+  v0 =.w routine_addr r0
+  store.w global g1+0, v0
+  return

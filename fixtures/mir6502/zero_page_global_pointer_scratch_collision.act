@@ -1,0 +1,14 @@
+BYTE i=$E0
+
+SET $E=$E6
+SET $F=$00
+
+BYTE POINTER screen
+BYTE POINTER p
+BYTE x
+
+PROC Main()
+  i = 1
+  p = screen
+  x = p^
+RETURN

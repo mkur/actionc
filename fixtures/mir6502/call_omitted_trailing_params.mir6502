@@ -1,0 +1,15 @@
+mir6502 program
+static s0 __nir_str_Main_0: Char* bytes [$03 $6F $6E $65] section=rodata align=1 mutable=false display="one"
+static s1 __nir_str_Main_1: Char* bytes [$03 $74 $77 $6F] section=rodata align=1 mutable=false display="two"
+static s2 __nir_str_Main_2: Char* bytes [$05 $74 $68 $72 $65 $65] section=rodata align=1 mutable=false display="three"
+
+routine r0 VarPrint
+b0 bb0:
+  return
+
+routine r1 Main
+b0 bb1:
+  call r0 args=[static_addr s0.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[static_addr s1.w -> a:x, word(#$01, #$00).w -> y:fixed_zp $A3] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[static_addr s2.w -> a:x, word(#$01, #$00).w -> y:fixed_zp $A3, word(#$02, #$00).w -> fixed_zp $A4:fixed_zp $A5, word(#$03, #$00).w -> fixed_zp $A6:fixed_zp $A7] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

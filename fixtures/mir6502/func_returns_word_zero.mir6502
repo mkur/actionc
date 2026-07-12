@@ -1,0 +1,14 @@
+mir6502 program
+global g0 result: word storage global+0
+
+routine r0 Zero
+b0 bb0:
+  store.b fixed_zp $A0, #$00
+  store.b fixed_zp $A1, #$00
+  return
+
+routine r1 Main
+b0 bb1:
+  call r0 args=[] result=v0.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.w global g0+0, v0
+  return

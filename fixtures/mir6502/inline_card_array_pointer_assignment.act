@@ -1,0 +1,11 @@
+BYTE ARRAY s
+
+PROC Main()
+  BYTE ARRAY buf(4)
+  CARD ARRAY names(2)
+  BYTE i
+
+  names(1) = buf
+  i = 1
+  s = names(i)
+RETURN

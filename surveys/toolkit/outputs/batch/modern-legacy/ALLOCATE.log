@@ -1,0 +1,8 @@
+source: samples/toolkit/modern/ALLOCATE.ACT
+source_policy: auto
+compile_source: samples/toolkit/modern/ALLOCATE.ACT
+profile: modern
+backend: legacy
+codegen_source: ast
+status: ok
+detail: wrote samples/toolkit/survey/outputs/batch/modern-legacy/ALLOCATE.COM

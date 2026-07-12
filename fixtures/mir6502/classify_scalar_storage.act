@@ -1,0 +1,5 @@
+BYTE b
+
+PROC Main()
+  b=10
+RETURN

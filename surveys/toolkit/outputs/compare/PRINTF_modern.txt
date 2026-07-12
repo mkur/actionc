@@ -1,0 +1,747 @@
+source: samples/toolkit/modern/PRINTF.ACT
+
+== original:samples/toolkit/survey/outputs/vm/PRINTF.COM ==
+load bytes: 1895  code bytes: 1883  code origin: $0E08
+segments:
+  00: $0E08-$1562 len  1883 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1889 data_off  1893
+      RUNAD $02E2 = $1511
+opcode counts:
+  $00 BRK      70
+  $03 .BYTE    1
+  $0D ORA      1
+  $10 BPL      1
+  $12 .BYTE    1
+  $18 CLC      26
+  $20 JSR      25
+  $30 BMI      2
+  $38 SEC      7
+  $49 EOR      16
+  $4C JMP      60
+  $57 .BYTE    1
+  $5A .BYTE    1
+  $60 RTS      8
+  $69 ADC      37
+  $6D ADC      11
+  $85 STA      118
+  $88 DEY      7
+  $8A TXA      3
+  $8C STY      10
+  $8D STA      67
+  $90 BCC      5
+  $91 STA      6
+  $A0 LDY      31
+  $A2 LDX      5
+  $A5 LDA      33
+  $A6 LDX      7
+  $A9 LDA      43
+  $AA TAX      2
+  $AC LDY      1
+  $AD LDA      142
+  $AE LDX      2
+  $B0 BCS      5
+  $B1 LDA      25
+  $C8 INY      3
+  $C9 CMP      4
+  $CD CMP      9
+  $D0 BNE      1
+  $E9 SBC      11
+  $ED SBC      1
+  $EE INC      6
+  $F0 BEQ      19
+  $F1 SBC      2
+
+== modern ==
+load bytes: 1863  code bytes: 1851  code origin: $0E08
+segments:
+  00: $0E08-$1542 len  1851 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1857 data_off  1861
+      RUNAD $02E2 = $14F2
+opcode counts:
+  $00 BRK      72
+  $0D ORA      1
+  $10 BPL      2
+  $12 .BYTE    1
+  $18 CLC      26
+  $20 JSR      24
+  $30 BMI      1
+  $36 .BYTE    1
+  $38 SEC      4
+  $4C JMP      36
+  $4E .BYTE    1
+  $60 RTS      7
+  $69 ADC      45
+  $6D ADC      3
+  $85 STA      115
+  $88 DEY      7
+  $8A TXA      5
+  $8C STY      10
+  $8D STA      82
+  $90 BCC      3
+  $91 STA      6
+  $98 TYA      6
+  $A0 LDY      27
+  $A2 LDX      5
+  $A5 LDA      24
+  $A6 LDX      6
+  $A9 LDA      38
+  $AA TAX      3
+  $AC LDY      9
+  $AD LDA      150
+  $AE LDX      2
+  $B0 BCS      7
+  $B1 LDA      24
+  $C8 INY      1
+  $C9 CMP      19
+  $CD CMP      9
+  $CE DEC      3
+  $D0 BNE      15
+  $E4 .BYTE    1
+  $E9 SBC      7
+  $ED SBC      1
+  $EE INC      6
+  $F0 BEQ      5
+  $F1 SBC      2
+
+== map: modern ==
+origin $0E08  run $14F2  routines 5  symbols 35  skipped 0
+routines:
+  PF_ToLower               $0E08-$0E2B len    36
+  PF_IsDigit               $0E2C-$0E4D len    34
+  PF_Nbase                 $0E4E-$0F35 len   232
+  PrintFD                  $0F36-$14E3 len  1454
+  PrintF                   $14E4-$1541 len    94
+storage symbols:
+  routine PF_ToLower Parameter C $0E08-$0E08
+  routine PF_IsDigit Parameter C $0E2C-$0E2C
+  routine PF_Nbase Parameter N $0E4E-$0E4F
+  routine PF_Nbase Parameter BASE $0E50-$0E51
+  routine PF_Nbase Parameter S $0E52-$0E52
+  routine PF_Nbase Local LENGTH $0E54-$0E54
+  routine PF_Nbase Local PTR $0E55-$0E55
+  routine PF_Nbase Local D $0E56-$0E56
+  routine PrintFD Parameter CHAN $0F36-$0F36
+  routine PrintFD Parameter CONTROL $0F37-$0F37
+  routine PrintFD Parameter C1 $0F39-$0F3A
+  routine PrintFD Parameter C2 $0F3B-$0F3C
+  routine PrintFD Parameter C3 $0F3D-$0F3E
+  routine PrintFD Parameter C4 $0F3F-$0F40
+  routine PrintFD Parameter C5 $0F41-$0F42
+  routine PrintFD Parameter C6 $0F43-$0F44
+  routine PrintFD Local CPTR $0F45-$0F45
+  routine PrintFD Local C $0F46-$0F46
+  routine PrintFD Local RJUSTIFY $0F47-$0F47
+  routine PrintFD Local ZEROFILL $0F48-$0F48
+  routine PrintFD Local K $0F49-$0F49
+  routine PrintFD Local SLEN $0F4A-$0F4A
+  routine PrintFD Local WIDTH $0F4B-$0F4B
+  routine PrintFD Local PRCISN $0F4C-$0F4D
+  routine PrintFD Local PS $0F4E-$0F4F
+  routine PrintFD Local ARGS $0F50-$0F51
+  routine PrintFD Local SARGS $0F52-$0F53
+  routine PrintFD Local S $0F54-$0F54
+  routine PrintF Parameter CONTROL $14E4-$14E4
+  routine PrintF Parameter C1 $14E6-$14E7
+  routine PrintF Parameter C2 $14E8-$14E9
+  routine PrintF Parameter C3 $14EA-$14EB
+  ... 3 more
+trusted effects:
+  PF_ToLower               clobbers A,X,Y; writes zp $A0; writes abs $0E08
+  PF_IsDigit               clobbers A,X,Y; writes zp $A0; writes abs $0E2C
+  PF_Nbase                 clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$A2,$AE,$AF,$C2; writes abs $0E54,$0E55,$0E56,$0E4E,$0E4F; writes unknown-abs
+
+== routines: original:samples/toolkit/survey/outputs/vm/PRINTF.COM vs modern ==
+  PF_ToLower               len 42 -> 36 (-6)  addr $0E08 -> $0E08
+    PF_ToLower+$000C #0005
+      original : $0E14 B0 03    BCS $0E19
+      generated: $0E14 90 07    BCC $0E1D
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:15:3 | IF (c>='A) AND (c<='Z) THEN | source 330..373 code $0E0F-$0E28
+    PF_ToLower+$000E #0006
+      original : $0E16 4C 2C 0E JMP $0E2C
+      generated: $0E16 A9 5A    LDA #$5A
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:15:3 | IF (c>='A) AND (c<='Z) THEN | source 330..373 code $0E0F-$0E28
+    PF_ToLower+$0011 #0007
+      original : $0E19 A9 5A    LDA #$5A
+      generated: $0E18 CD 08 0E CMP $0E08
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:15:3 | IF (c>='A) AND (c<='Z) THEN | source 330..373 code $0E0F-$0E28
+    PF_ToLower+$0013 #0008
+      original : $0E1B CD 08 0E CMP $0E08 ; c $0E08
+      generated: $0E1B B0 03    BCS $0E20
+      orig operand: c $0E08
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:15:3 | IF (c>='A) AND (c<='Z) THEN | source 330..373 code $0E0F-$0E28
+    PF_ToLower+$0016 #0009
+      original : $0E1E B0 03    BCS $0E23
+      generated: $0E1D 4C 29 0E JMP $0E29
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:15:3 | IF (c>='A) AND (c<='Z) THEN | source 330..373 code $0E0F-$0E28
+    PF_ToLower+$0018 #0010
+      original : $0E20 4C 2C 0E JMP $0E2C
+      generated: $0E20 18       CLC
+      source   : Statement compound assignment samples/toolkit/modern/PRINTF.ACT:16:5 | c==+32 | source 362..368 code $0E20-$0E28
+    PF_ToLower+$001B #0011
+      original : $0E23 18       CLC
+      generated: $0E21 AD 08 0E LDA $0E08
+      source   : Statement compound assignment samples/toolkit/modern/PRINTF.ACT:16:5 | c==+32 | source 362..368 code $0E20-$0E28
+    PF_ToLower+$001C #0012
+      original : $0E24 AD 08 0E LDA $0E08 ; c $0E08
+      generated: $0E24 69 20    ADC #$20
+      orig operand: c $0E08
+      source   : Statement compound assignment samples/toolkit/modern/PRINTF.ACT:16:5 | c==+32 | source 362..368 code $0E20-$0E28
+    PF_ToLower+$001F #0013
+      original : $0E27 69 20    ADC #$20
+      generated: $0E26 8D 08 0E STA $0E08
+      source   : Statement compound assignment samples/toolkit/modern/PRINTF.ACT:16:5 | c==+32 | source 362..368 code $0E20-$0E28
+    PF_ToLower+$0021 #0014
+      original : $0E29 8D 08 0E STA $0E08 ; c $0E08
+      generated: $0E29 85 A0    STA $A0
+      orig operand: c $0E08
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:18:8 | RETURN(c) | source 381..382 code $0E29-$0E2B
+    PF_ToLower+$0024 #0015
+      original : $0E2C AD 08 0E LDA $0E08 ; c $0E08
+      generated: $0E2B 60       RTS
+      orig operand: c $0E08
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:18:8 | RETURN(c) | source 381..382 code $0E29-$0E2B
+    PF_ToLower+$0027 #0016
+      original : $0E2F 85 A0    STA $A0
+      generated: <missing>
+    PF_ToLower+$0029 #0017
+      original : $0E31 60       RTS
+      generated: <missing>
+  PF_IsDigit               len 37 -> 34 (-3)  addr $0E32 -> $0E2C
+    PF_IsDigit+$0001 #0001
+      original : $0E33 4C 36 0E JMP $0E36
+      generated: $0E2D 4C 30 0E JMP $0E30
+      orig owner: PF_IsDigit $0E33
+      source   : Routine PF_IsDigit samples/toolkit/modern/PRINTF.ACT:24:1 | BYTE FUNC PF_IsDigit( BYTE c ) | source 489..579 code $0E2C-$0E4D
+    PF_IsDigit+$0004 #0002
+      original : $0E36 8D 32 0E STA $0E32 ; c $0E32
+      generated: $0E30 8D 2C 0E STA $0E2C
+      orig operand: c $0E32
+      source   : Routine PF_IsDigit samples/toolkit/modern/PRINTF.ACT:24:1 | BYTE FUNC PF_IsDigit( BYTE c ) | source 489..579 code $0E2C-$0E4D
+    PF_IsDigit+$0007 #0003
+      original : $0E39 AD 32 0E LDA $0E32 ; c $0E32
+      generated: $0E33 AD 2C 0E LDA $0E2C
+      orig operand: c $0E32
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:26:3 | IF (c>='0) AND (c<='9) THEN | source 523..569 code $0E33-$0E48
+    PF_IsDigit+$000C #0005
+      original : $0E3E B0 03    BCS $0E43
+      generated: $0E38 90 07    BCC $0E41
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:26:3 | IF (c>='0) AND (c<='9) THEN | source 523..569 code $0E33-$0E48
+    PF_IsDigit+$000E #0006
+      original : $0E40 4C 52 0E JMP $0E52
+      generated: $0E3A A9 39    LDA #$39
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:26:3 | IF (c>='0) AND (c<='9) THEN | source 523..569 code $0E33-$0E48
+    PF_IsDigit+$0011 #0007
+      original : $0E43 A9 39    LDA #$39
+      generated: $0E3C CD 2C 0E CMP $0E2C
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:26:3 | IF (c>='0) AND (c<='9) THEN | source 523..569 code $0E33-$0E48
+    PF_IsDigit+$0013 #0008
+      original : $0E45 CD 32 0E CMP $0E32 ; c $0E32
+      generated: $0E3F B0 03    BCS $0E44
+      orig operand: c $0E32
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:26:3 | IF (c>='0) AND (c<='9) THEN | source 523..569 code $0E33-$0E48
+    PF_IsDigit+$0016 #0009
+      original : $0E48 B0 03    BCS $0E4D
+      generated: $0E41 4C 49 0E JMP $0E49
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:26:3 | IF (c>='0) AND (c<='9) THEN | source 523..569 code $0E33-$0E48
+    PF_IsDigit+$0018 #0010
+      original : $0E4A 4C 52 0E JMP $0E52
+      generated: $0E44 A9 01    LDA #$01
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:27:12 | RETURN(1) | source 562..563 code $0E44-$0E48
+    PF_IsDigit+$001B #0011
+      original : $0E4D A9 01    LDA #$01
+      generated: $0E46 85 A0    STA $A0
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:27:12 | RETURN(1) | source 562..563 code $0E44-$0E48
+    PF_IsDigit+$001D #0012
+      original : $0E4F 85 A0    STA $A0
+      generated: $0E48 60       RTS
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:27:12 | RETURN(1) | source 562..563 code $0E44-$0E48
+    PF_IsDigit+$001F #0013
+      original : $0E51 60       RTS
+      generated: $0E49 A9 00    LDA #$00
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:29:8 | RETURN(0) | source 577..578 code $0E49-$0E4D
+    PF_IsDigit+$0020 #0014
+      original : $0E52 A9 00    LDA #$00
+      generated: $0E4B 85 A0    STA $A0
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:29:8 | RETURN(0) | source 577..578 code $0E49-$0E4D
+    PF_IsDigit+$0022 #0015
+      original : $0E54 85 A0    STA $A0
+      generated: $0E4D 60       RTS
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:29:8 | RETURN(0) | source 577..578 code $0E49-$0E4D
+    PF_IsDigit+$0024 #0016
+      original : $0E56 60       RTS
+      generated: <missing>
+  PF_Nbase                 len 259 -> 232 (-27)  addr $0E57 -> $0E4E
+    PF_Nbase+$0009 #0009
+      original : $0E60 4C 63 0E JMP $0E63
+      generated: $0E57 4C 5A 0E JMP $0E5A
+      orig owner: PF_Nbase $0E60
+      source   : Routine PF_Nbase samples/toolkit/modern/PRINTF.ACT:34:1 | CARD FUNC PF_Nbase(CARD n,base  BYTE ARRAY s) | source 659..987 code $0E4E-$0F35
+    PF_Nbase+$000F #0011
+      original : $0E66 57 0E 05 .BYTE $57,$0E,$05
+      generated: $0E5D 4E 0E 05 .BYTE $4E,$0E,$05
+      source   : Routine PF_Nbase samples/toolkit/modern/PRINTF.ACT:34:1 | CARD FUNC PF_Nbase(CARD n,base  BYTE ARRAY s) | source 659..987 code $0E4E-$0F35
+    PF_Nbase+$0012 #0012
+      original : $0E69 AD 57 0E LDA $0E57 ; n $0E57
+      generated: $0E60 AD 4E 0E LDA $0E4E
+      orig operand: n $0E57
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:38:3 | IF n=0 THEN | source 729..782 code $0E60-$0E95
+    PF_Nbase+$0015 #0013
+      original : $0E6C 0D 58 0E ORA $0E58 ; n+1 $0E58
+      generated: $0E63 0D 4F 0E ORA $0E4F
+      orig operand: n+1 $0E58
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:38:3 | IF n=0 THEN | source 729..782 code $0E60-$0E95
+    PF_Nbase+$0018 #0014
+      original : $0E6F F0 03    BEQ $0E74
+      generated: $0E66 D0 2E    BNE $0E96
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:38:3 | IF n=0 THEN | source 729..782 code $0E60-$0E95
+    PF_Nbase+$001A #0015
+      original : $0E71 4C A2 0E JMP $0EA2
+      generated: $0E68 18       CLC
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:39:5 | s(1)='0 | source 745..752 code $0E68-$0E7C
+    PF_Nbase+$001D #0016
+      original : $0E74 18       CLC
+      generated: $0E69 AD 52 0E LDA $0E52
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:39:5 | s(1)='0 | source 745..752 code $0E68-$0E7C
+    PF_Nbase+$001E #0017
+      original : $0E75 AD 5B 0E LDA $0E5B ; s $0E5B
+      generated: $0E6C 69 01    ADC #$01
+      orig operand: s $0E5B
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:39:5 | s(1)='0 | source 745..752 code $0E68-$0E7C
+    PF_Nbase+$0021 #0018
+      original : $0E78 69 01    ADC #$01
+      generated: $0E6E 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:39:5 | s(1)='0 | source 745..752 code $0E68-$0E7C
+    PF_Nbase+$0023 #0019
+      original : $0E7A 85 AE    STA $AE
+      generated: $0E70 AD 53 0E LDA $0E53
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:39:5 | s(1)='0 | source 745..752 code $0E68-$0E7C
+    PF_Nbase+$0025 #0020
+      original : $0E7C AD 5C 0E LDA $0E5C
+      generated: $0E73 69 00    ADC #$00
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:39:5 | s(1)='0 | source 745..752 code $0E68-$0E7C
+    PF_Nbase+$0028 #0021
+      original : $0E7F 69 00    ADC #$00
+      generated: $0E75 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:39:5 | s(1)='0 | source 745..752 code $0E68-$0E7C
+    PF_Nbase+$002A #0022
+      original : $0E81 85 AF    STA $AF
+      generated: $0E77 A9 30    LDA #$30
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:39:5 | s(1)='0 | source 745..752 code $0E68-$0E7C
+    PF_Nbase+$002C #0023
+      original : $0E83 A9 30    LDA #$30
+      generated: $0E79 A0 00    LDY #$00
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:39:5 | s(1)='0 | source 745..752 code $0E68-$0E7C
+    PF_Nbase+$002E #0024
+      original : $0E85 A0 00    LDY #$00
+      generated: $0E7B 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:39:5 | s(1)='0 | source 745..752 code $0E68-$0E7C
+    PF_Nbase+$0030 #0025
+      original : $0E87 91 AE    STA ($AE),Y
+      generated: $0E7D AD 52 0E LDA $0E52
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:40:5 | s(0)=1 | source 757..763 code $0E7D-$0E8A
+    PF_Nbase+$0032 #0026
+      original : $0E89 AD 5B 0E LDA $0E5B ; s $0E5B
+      generated: $0E80 85 AE    STA $AE
+      orig operand: s $0E5B
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:40:5 | s(0)=1 | source 757..763 code $0E7D-$0E8A
+    PF_Nbase+$0035 #0027
+      original : $0E8C 85 AE    STA $AE
+      generated: $0E82 AD 53 0E LDA $0E53
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:40:5 | s(0)=1 | source 757..763 code $0E7D-$0E8A
+    PF_Nbase+$0037 #0028
+      original : $0E8E AD 5C 0E LDA $0E5C
+      generated: $0E85 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:40:5 | s(0)=1 | source 757..763 code $0E7D-$0E8A
+    PF_Nbase+$003A #0029
+      original : $0E91 85 AF    STA $AF
+      generated: $0E87 A9 01    LDA #$01
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:40:5 | s(0)=1 | source 757..763 code $0E7D-$0E8A
+    PF_Nbase+$003C #0030
+      original : $0E93 A9 01    LDA #$01
+      generated: $0E89 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:40:5 | s(0)=1 | source 757..763 code $0E7D-$0E8A
+    PF_Nbase+$003E #0031
+      original : $0E95 91 AE    STA ($AE),Y
+      generated: $0E8B AD 53 0E LDA $0E53
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:41:12 | RETURN(s) | source 775..776 code $0E8B-$0E95
+    PF_Nbase+$0040 #0032
+      original : $0E97 AD 5C 0E LDA $0E5C
+      generated: $0E8E 85 A1    STA $A1
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:41:12 | RETURN(s) | source 775..776 code $0E8B-$0E95
+    PF_Nbase+$0043 #0033
+      original : $0E9A 85 A1    STA $A1
+      generated: $0E90 AD 52 0E LDA $0E52
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:41:12 | RETURN(s) | source 775..776 code $0E8B-$0E95
+    PF_Nbase+$0045 #0034
+      original : $0E9C AD 5B 0E LDA $0E5B ; s $0E5B
+      generated: $0E93 85 A0    STA $A0
+      orig operand: s $0E5B
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:41:12 | RETURN(s) | source 775..776 code $0E8B-$0E95
+    PF_Nbase+$0048 #0035
+      original : $0E9F 85 A0    STA $A0
+      generated: $0E95 60       RTS
+      source   : Statement return samples/toolkit/modern/PRINTF.ACT:41:12 | RETURN(s) | source 775..776 code $0E8B-$0E95
+    PF_Nbase+$004A #0036
+      original : $0EA1 60       RTS
+      generated: $0E96 A0 00    LDY #$00
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:43:3 | length=0 | source 785..793 code $0E96-$0E9A
+    PF_Nbase+$004B #0037
+      original : $0EA2 A0 00    LDY #$00
+      generated: $0E98 8C 54 0E STY $0E54
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:43:3 | length=0 | source 785..793 code $0E96-$0E9A
+    PF_Nbase+$004D #0038
+      original : $0EA4 8C 5D 0E STY $0E5D ; length $0E5D
+      generated: $0E9B A9 11    LDA #$11
+      orig operand: length $0E5D
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:44:3 | ptr=17 | source 796..802 code $0E9B-$0E9F
+    PF_Nbase+$0050 #0039
+      original : $0EA7 A9 11    LDA #$11
+      generated: $0E9D 8D 55 0E STA $0E55
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:44:3 | ptr=17 | source 796..802 code $0E9B-$0E9F
+  PrintFD                  len 1449 -> 1454 (+5)  addr $0F5A -> $0F36
+    PrintFD+$001E #0030
+      original : $0F78 12       .BYTE $12
+      generated: $0F54 00       BRK
+      source   : Declaration PrintFD storage samples/toolkit/modern/PRINTF.ACT:65:1 | PROC PrintFD(BYTE chan  BYTE ARRAY control | source 1087..3828 code $0F36-$0F65
+      owner    : routine PrintFD Local S $0F54-$0F54+0
+    PrintFD+$0020 #0032
+      original : $0F7A 00       BRK
+      generated: $0F56 12       .BYTE $12
+      source   : Declaration PrintFD storage samples/toolkit/modern/PRINTF.ACT:65:1 | PROC PrintFD(BYTE chan  BYTE ARRAY control | source 1087..3828 code $0F36-$0F65
+    PrintFD+$002E #0046
+      original : $0F88 4C 8B 0F JMP $0F8B
+      generated: $0F64 00       BRK
+      orig owner: PrintFD $0F88
+      source   : Declaration PrintFD storage samples/toolkit/modern/PRINTF.ACT:65:1 | PROC PrintFD(BYTE chan  BYTE ARRAY control | source 1087..3828 code $0F36-$0F65
+    PrintFD+$0031 #0047
+      original : $0F8B 20 F5 A0 JSR $A0F5
+      generated: $0F65 00       BRK
+      source   : Declaration PrintFD storage samples/toolkit/modern/PRINTF.ACT:65:1 | PROC PrintFD(BYTE chan  BYTE ARRAY control | source 1087..3828 code $0F36-$0F65
+    PrintFD+$0034 #0048
+      original : $0F8E 5A 0F 0E .BYTE $5A,$0F,$0E
+      generated: $0F66 4C 69 0F JMP $0F69
+      source   : Routine PrintFD samples/toolkit/modern/PRINTF.ACT:65:1 | PROC PrintFD(BYTE chan  BYTE ARRAY control | source 1087..3828 code $0F36-$14E3
+    PrintFD+$0037 #0049
+      original : $0F91 A9 0F    LDA #$0F
+      generated: $0F69 20 F5 A0 JSR $A0F5
+      source   : Routine PrintFD samples/toolkit/modern/PRINTF.ACT:65:1 | PROC PrintFD(BYTE chan  BYTE ARRAY control | source 1087..3828 code $0F36-$14E3
+    PrintFD+$0039 #0050
+      original : $0F93 8D 75 0F STA $0F75 ; args+1 $0F75
+      generated: $0F6C 36 0F 0E .BYTE $36,$0F,$0E
+      orig operand: args+1 $0F75
+      source   : Routine PrintFD samples/toolkit/modern/PRINTF.ACT:65:1 | PROC PrintFD(BYTE chan  BYTE ARRAY control | source 1087..3828 code $0F36-$14E3
+    PrintFD+$003C #0051
+      original : $0F96 A9 5D    LDA #$5D
+      generated: $0F6F A9 0F    LDA #$0F
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:79:3 | args=@c1 | source 1317..1325 code $0F6F-$0F78
+    PrintFD+$003E #0052
+      original : $0F98 8D 74 0F STA $0F74 ; args $0F74
+      generated: $0F71 8D 51 0F STA $0F51
+      orig operand: args $0F74
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:79:3 | args=@c1 | source 1317..1325 code $0F6F-$0F78
+    PrintFD+$0041 #0053
+      original : $0F9B A0 01    LDY #$01
+      generated: $0F74 A9 39    LDA #$39
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:79:3 | args=@c1 | source 1317..1325 code $0F6F-$0F78
+    PrintFD+$0043 #0054
+      original : $0F9D 8C 69 0F STY $0F69 ; cptr $0F69
+      generated: $0F76 8D 50 0F STA $0F50
+      orig operand: cptr $0F69
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:79:3 | args=@c1 | source 1317..1325 code $0F6F-$0F78
+    PrintFD+$0046 #0055
+      original : $0FA0 AD 5B 0F LDA $0F5B ; control $0F5B
+      generated: $0F79 A9 0F    LDA #$0F
+      orig operand: control $0F5B
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:80:3 | sargs=INT POINTER(@c1) | source 1328..1350 code $0F79-$0F82
+    PrintFD+$0049 #0056
+      original : $0FA3 85 AE    STA $AE
+      generated: $0F7B 8D 53 0F STA $0F53
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:80:3 | sargs=INT POINTER(@c1) | source 1328..1350 code $0F79-$0F82
+    PrintFD+$004B #0057
+      original : $0FA5 AD 5C 0F LDA $0F5C
+      generated: $0F7E A9 39    LDA #$39
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:80:3 | sargs=INT POINTER(@c1) | source 1328..1350 code $0F79-$0F82
+    PrintFD+$004E #0058
+      original : $0FA8 85 AF    STA $AF
+      generated: $0F80 8D 52 0F STA $0F52
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:80:3 | sargs=INT POINTER(@c1) | source 1328..1350 code $0F79-$0F82
+    PrintFD+$0050 #0059
+      original : $0FAA A0 00    LDY #$00
+      generated: $0F83 A0 01    LDY #$01
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:81:3 | cptr=1 | source 1353..1359 code $0F83-$0F87
+    PrintFD+$0052 #0060
+      original : $0FAC B1 AE    LDA ($AE),Y
+      generated: $0F85 8C 45 0F STY $0F45
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:81:3 | cptr=1 | source 1353..1359 code $0F83-$0F87
+    PrintFD+$0054 #0061
+      original : $0FAE CD 69 0F CMP $0F69 ; cptr $0F69
+      generated: $0F88 AD 37 0F LDA $0F37
+      orig operand: cptr $0F69
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:83:5 | IF cptr>control(0) THEN | source 1369..1410 code $0F88-$0F9D
+    PrintFD+$0057 #0062
+      original : $0FB1 90 03    BCC $0FB6
+      generated: $0F8B 85 AE    STA $AE
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:83:5 | IF cptr>control(0) THEN | source 1369..1410 code $0F88-$0F9D
+    PrintFD+$0059 #0063
+      original : $0FB3 4C B9 0F JMP $0FB9
+      generated: $0F8D AD 38 0F LDA $0F38
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:83:5 | IF cptr>control(0) THEN | source 1369..1410 code $0F88-$0F9D
+    PrintFD+$005C #0064
+      original : $0FB6 4C 02 15 JMP $1502
+      generated: $0F90 85 AF    STA $AF
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:83:5 | IF cptr>control(0) THEN | source 1369..1410 code $0F88-$0F9D
+    PrintFD+$005F #0065
+      original : $0FB9 18       CLC
+      generated: $0F92 A0 00    LDY #$00
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:83:5 | IF cptr>control(0) THEN | source 1369..1410 code $0F88-$0F9D
+    PrintFD+$0060 #0066
+      original : $0FBA AD 5B 0F LDA $0F5B ; control $0F5B
+      generated: $0F94 B1 AE    LDA ($AE),Y
+      orig operand: control $0F5B
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:83:5 | IF cptr>control(0) THEN | source 1369..1410 code $0F88-$0F9D
+    PrintFD+$0063 #0067
+      original : $0FBD 6D 69 0F ADC $0F69 ; cptr $0F69
+      generated: $0F96 CD 45 0F CMP $0F45
+      orig operand: cptr $0F69
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:83:5 | IF cptr>control(0) THEN | source 1369..1410 code $0F88-$0F9D
+    PrintFD+$0066 #0068
+      original : $0FC0 85 AE    STA $AE
+      generated: $0F99 B0 03    BCS $0F9E
+      source   : Statement if samples/toolkit/modern/PRINTF.ACT:83:5 | IF cptr>control(0) THEN | source 1369..1410 code $0F88-$0F9D
+    PrintFD+$0068 #0069
+      original : $0FC2 AD 5C 0F LDA $0F5C
+      generated: $0F9B 4C E3 14 JMP $14E3
+      source   : Statement exit samples/toolkit/modern/PRINTF.ACT:84:7 | EXIT | source 1399..1403 code $0F9B-$0F9D
+    PrintFD+$006B #0070
+      original : $0FC5 69 00    ADC #$00
+      generated: $0F9E AD 37 0F LDA $0F37
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:86:5 | c=control(cptr) | source 1415..1430 code $0F9E-$0FAF
+    PrintFD+$006D #0071
+      original : $0FC7 85 AF    STA $AF
+      generated: $0FA1 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:86:5 | c=control(cptr) | source 1415..1430 code $0F9E-$0FAF
+    PrintFD+$006F #0072
+      original : $0FC9 A0 00    LDY #$00
+      generated: $0FA3 AD 38 0F LDA $0F38
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:86:5 | c=control(cptr) | source 1415..1430 code $0F9E-$0FAF
+    PrintFD+$0071 #0073
+      original : $0FCB B1 AE    LDA ($AE),Y
+      generated: $0FA6 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/PRINTF.ACT:86:5 | c=control(cptr) | source 1415..1430 code $0F9E-$0FAF
+  PrintF                   len 96 -> 94 (-2)  addr $1503 -> $14E4
+    PrintF+$000E #0014
+      original : $1511 4C 14 15 JMP $1514
+      generated: $14F2 4C F5 14 JMP $14F5
+      orig owner: PrintF $1511
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$0014 #0016
+      original : $1517 03 15 0D .BYTE $03,$15,$0D
+      generated: $14F8 E4 14 0D .BYTE $E4,$14,$0D
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$0017 #0017
+      original : $151A AD 06 15 LDA $1506 ; c1+1 $1506
+      generated: $14FB AD E7 14 LDA $14E7
+      orig operand: c1+1 $1506
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$001C #0019
+      original : $151F AD 05 15 LDA $1505 ; c1 $1505
+      generated: $1500 AD E6 14 LDA $14E6
+      orig operand: c1 $1505
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$0021 #0021
+      original : $1524 AD 08 15 LDA $1508 ; c2+1 $1508
+      generated: $1505 AD E9 14 LDA $14E9
+      orig operand: c2+1 $1508
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$0026 #0023
+      original : $1529 AD 07 15 LDA $1507 ; c2 $1507
+      generated: $150A AD E8 14 LDA $14E8
+      orig operand: c2 $1507
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$002B #0025
+      original : $152E AD 0A 15 LDA $150A ; c3+1 $150A
+      generated: $150F AD EB 14 LDA $14EB
+      orig operand: c3+1 $150A
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$0030 #0027
+      original : $1533 AD 09 15 LDA $1509 ; c3 $1509
+      generated: $1514 AD EA 14 LDA $14EA
+      orig operand: c3 $1509
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$0035 #0029
+      original : $1538 AD 0C 15 LDA $150C ; c4+1 $150C
+      generated: $1519 AD ED 14 LDA $14ED
+      orig operand: c4+1 $150C
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$003A #0031
+      original : $153D AD 0B 15 LDA $150B ; c4 $150B
+      generated: $151E AD EC 14 LDA $14EC
+      orig operand: c4 $150B
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$003F #0033
+      original : $1542 AD 0E 15 LDA $150E ; c5+1 $150E
+      generated: $1523 AD EF 14 LDA $14EF
+      orig operand: c5+1 $150E
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$0044 #0035
+      original : $1547 AD 0D 15 LDA $150D ; c5 $150D
+      generated: $1528 AD EE 14 LDA $14EE
+      orig operand: c5 $150D
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$0049 #0037
+      original : $154C AD 10 15 LDA $1510 ; c6+1 $1510
+      generated: $152D AD F1 14 LDA $14F1
+      orig operand: c6+1 $1510
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$004E #0039
+      original : $1551 AD 0F 15 LDA $150F ; c6 $150F
+      generated: $1532 AD F0 14 LDA $14F0
+      orig operand: c6 $150F
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$0053 #0041
+      original : $1556 AC 04 15 LDY $1504
+      generated: $1537 AC E5 14 LDY $14E5
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$0056 #0042
+      original : $1559 AE 03 15 LDX $1503 ; control $1503
+      generated: $153A AE E4 14 LDX $14E4
+      orig operand: control $1503
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$005B #0044
+      original : $155E 20 88 0F JSR $0F88 ; PrintFD $0F88
+      generated: $153F 4C 66 0F JMP $0F66
+      orig operand: PrintFD $0F88
+      source   : Routine PrintF samples/toolkit/modern/PRINTF.ACT:214:1 | PROC PrintF(BYTE ARRAY control | source 3934..4052 code $14E4-$1541
+    PrintF+$005E #0045
+      original : $1561 60       RTS
+      generated: <missing>
+    PrintF+$005F #0046
+      original : $1562 60       RTS
+      generated: <missing>
+
+== bytes: original:samples/toolkit/survey/outputs/vm/PRINTF.COM vs modern ==
+exact: false  sizes: 1895 vs 1863
+first diffs:
+  @0004: $62 -> $42
+  @0012: $B0 -> $90
+  @0013: $03 -> $07
+  @0014: $4C -> $A9
+  @0015: $2C -> $5A
+  @0016: $0E -> $CD
+  @0017: $A9 -> $08
+  @0018: $5A -> $0E
+  @0019: $CD -> $B0
+  @001A: $08 -> $03
+  @001B: $0E -> $4C
+  @001C: $B0 -> $29
+  @001D: $03 -> $0E
+  @001E: $4C -> $18
+  @001F: $2C -> $AD
+  @0020: $0E -> $08
+  @0021: $18 -> $0E
+  @0022: $AD -> $69
+  @0023: $08 -> $20
+  @0024: $0E -> $8D
+  @0025: $69 -> $08
+  @0026: $20 -> $0E
+  @0027: $8D -> $85
+  @0028: $08 -> $A0
+  @0029: $0E -> $60
+  @002A: $AD -> $00
+  @002B: $08 -> $4C
+  @002C: $0E -> $30
+  @002D: $85 -> $0E
+  @002E: $A0 -> $8D
+
+== instructions: original:samples/toolkit/survey/outputs/vm/PRINTF.COM vs modern ==
+counts: 836 vs 822
+  #0005
+    left : $0E14 B0 03    BCS $0E19
+    right: $0E14 90 07    BCC $0E1D
+  #0006
+    left : $0E16 4C 2C 0E JMP $0E2C
+    right: $0E16 A9 5A    LDA #$5A
+  #0007
+    left : $0E19 A9 5A    LDA #$5A
+    right: $0E18 CD 08 0E CMP $0E08
+  #0008
+    left : $0E1B CD 08 0E CMP $0E08
+    right: $0E1B B0 03    BCS $0E20
+  #0009
+    left : $0E1E B0 03    BCS $0E23
+    right: $0E1D 4C 29 0E JMP $0E29
+  #0010
+    left : $0E20 4C 2C 0E JMP $0E2C
+    right: $0E20 18       CLC
+  #0011
+    left : $0E23 18       CLC
+    right: $0E21 AD 08 0E LDA $0E08
+  #0012
+    left : $0E24 AD 08 0E LDA $0E08
+    right: $0E24 69 20    ADC #$20
+  #0013
+    left : $0E27 69 20    ADC #$20
+    right: $0E26 8D 08 0E STA $0E08
+  #0014
+    left : $0E29 8D 08 0E STA $0E08
+    right: $0E29 85 A0    STA $A0
+  #0015
+    left : $0E2C AD 08 0E LDA $0E08
+    right: $0E2B 60       RTS
+  #0016
+    left : $0E2F 85 A0    STA $A0
+    right: $0E2C 00       BRK
+  #0017
+    left : $0E31 60       RTS
+    right: $0E2D 4C 30 0E JMP $0E30
+  #0018
+    left : $0E32 00       BRK
+    right: $0E30 8D 2C 0E STA $0E2C
+  #0019
+    left : $0E33 4C 36 0E JMP $0E36
+    right: $0E33 AD 2C 0E LDA $0E2C
+  #0020
+    left : $0E36 8D 32 0E STA $0E32
+    right: $0E36 C9 30    CMP #$30
+  #0021
+    left : $0E39 AD 32 0E LDA $0E32
+    right: $0E38 90 07    BCC $0E41
+  #0022
+    left : $0E3C C9 30    CMP #$30
+    right: $0E3A A9 39    LDA #$39
+  #0023
+    left : $0E3E B0 03    BCS $0E43
+    right: $0E3C CD 2C 0E CMP $0E2C
+  #0024
+    left : $0E40 4C 52 0E JMP $0E52
+    right: $0E3F B0 03    BCS $0E44
+  #0025
+    left : $0E43 A9 39    LDA #$39
+    right: $0E41 4C 49 0E JMP $0E49
+  #0026
+    left : $0E45 CD 32 0E CMP $0E32
+    right: $0E44 A9 01    LDA #$01
+  #0027
+    left : $0E48 B0 03    BCS $0E4D
+    right: $0E46 85 A0    STA $A0
+  #0028
+    left : $0E4A 4C 52 0E JMP $0E52
+    right: $0E48 60       RTS
+  #0029
+    left : $0E4D A9 01    LDA #$01
+    right: $0E49 A9 00    LDA #$00
+  #0032
+    left : $0E52 A9 00    LDA #$00
+    right: $0E4E 00       BRK
+  #0033
+    left : $0E54 85 A0    STA $A0
+    right: $0E4F 00       BRK
+  #0034
+    left : $0E56 60       RTS
+    right: $0E50 00       BRK
+  #0041
+    left : $0E5D 00       BRK
+    right: $0E57 4C 5A 0E JMP $0E5A
+  #0042
+    left : $0E5E 00       BRK
+    right: $0E5A 20 F5 A0 JSR $A0F5

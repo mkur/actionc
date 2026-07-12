@@ -1,0 +1,8 @@
+CARD p
+
+PROC Helper()
+RETURN
+
+PROC Main()
+  p=@Helper
+RETURN

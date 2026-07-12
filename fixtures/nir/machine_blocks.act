@@ -1,0 +1,12 @@
+SET $491=$3000
+SET $E=$3000
+
+DEFINE Nop="[$EA]"
+
+PROC Raw=*()
+[$A9 $01 $60]
+
+PROC Main()
+  Nop
+  Raw()
+RETURN

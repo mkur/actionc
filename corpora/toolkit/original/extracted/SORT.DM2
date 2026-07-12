@@ -1,0 +1,41 @@
+; This demonstration program reads
+; the directory of drive 1, sorts
+; it, and prints out the sorted version
+; to the screen.
+
+INCLUDE "D:SORT.ACT"
+
+PROC SortDirectory()
+    BYTE ARRAY buffer( 2000 )
+    CARD ARRAY strings( 65 )
+    BYTE POINTER curPtr
+    BYTE nStrings, index
+
+    ; First, open the directory.
+    Close( 1 )
+    Open( 1, "D:*.*", 6, 0 )
+
+    ; Start out with no strings input.
+    nStrings = 0
+    curPtr = buffer
+    DO      
+        ; Get the next string.
+        InputSD( 1, curPtr )
+        IF Eof( 1 ) THEN
+            EXIT
+        FI
+        ; And add it to our list.
+        strings( nStrings ) = curPtr
+        nStrings ==+ 1
+        curPtr = curPtr + curPtr^ + 1
+    OD
+
+    ; Now sort the input lines
+    SortS( strings, nStrings, 0 )
+
+    ; and print out the sorted version.
+    FOR index = 0 TO nStrings-1
+      DO
+        PrintE( strings( index ) )
+      OD
+RETURN

@@ -1,0 +1,6 @@
+TYPE Pair=[BYTE tag CARD word]
+Pair rec
+
+PROC Main()
+  rec.word = $2233
+RETURN

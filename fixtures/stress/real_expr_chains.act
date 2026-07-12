@@ -1,0 +1,78 @@
+; Real-world expression-chain stress program.
+;
+; This is based on patterns that showed up in the Action! Toolkit:
+; - long left-associative CARD expression chains
+; - indexed CARD ARRAY reads mixed with runtime multiply and shifts
+; - function calls around the expression chain, without relying on original-
+;   invalid nested function-call arithmetic
+; - control flow that consumes the computed values immediately
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE mode, n, shift, flag, byteOut
+CARD base, limit, result, tmp, scaled, masked
+INT signedA, signedB, signedOut
+
+CARD ARRAY waste=[0 768 384],
+           size=[0 $100 $80],
+           mask=[0 $F800 $FC00],
+           bias=[0 $20 $40]
+
+BYTE FUNC NormalizeMode(BYTE value)
+  IF value > 2 THEN
+    RETURN(0)
+  FI
+RETURN(value)
+
+CARD FUNC Scale(BYTE value, CARD unit)
+  CARD r
+
+  r = value * unit
+  r = r + bias(mode)
+RETURN(r)
+
+INT FUNC SignedClamp(INT value, lo, hi)
+  IF value < lo THEN
+    RETURN(lo)
+  FI
+  IF value > hi THEN
+    RETURN(hi)
+  FI
+RETURN(value)
+
+PROC Build()
+  mode = NormalizeMode(mode)
+
+  tmp = base + waste(mode) - $80
+  masked = tmp & mask(mode)
+  scaled = n * size(mode)
+  result = masked + scaled + bias(mode)
+
+  shift = mode + 1
+  result = (result LSH shift) RSH 1
+
+  signedOut = SignedClamp(signedA - signedB, -64, 64)
+
+  IF result >= limit THEN
+    flag = 1
+  ELSEIF SignedClamp(signedOut, -4, 4) = 4 THEN
+    flag = 2
+  ELSE
+    flag = 3
+  FI
+
+  byteOut = NormalizeMode(flag)
+RETURN
+
+PROC Main()
+  base = $6000
+  limit = $7000
+  mode = 1
+  n = 3
+  signedA = -21
+  signedB = 9
+  Build()
+RETURN

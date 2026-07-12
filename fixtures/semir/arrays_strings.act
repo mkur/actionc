@@ -1,0 +1,18 @@
+SET $491=$3000
+SET $E=$3000
+
+DEFINE STRING="CHAR ARRAY"
+
+STRING hello(0)="HELLO"
+CHAR ARRAY raw(4)="DATA"
+BYTE i, b
+
+PROC Take(STRING s)
+  b = s(1)
+RETURN
+
+PROC Main()
+  i = 2
+  raw(i) = hello(i)
+  Take("HI")
+RETURN

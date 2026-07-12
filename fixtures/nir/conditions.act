@@ -1,0 +1,18 @@
+BYTE skstat=$D20F, flag, total
+CARD ptr
+
+PROC Main()
+  IF flag THEN
+    total==+1
+  FI
+
+  WHILE skstat&$04
+  DO
+    total==+1
+    flag=0
+  OD
+
+  IF ptr THEN
+    total==+2
+  FI
+RETURN

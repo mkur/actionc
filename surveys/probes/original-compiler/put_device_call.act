@@ -1,0 +1,13 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE d
+
+PROC Main()
+  d=device
+  PutD(0,'A)
+  PutDE(0)
+RETURN

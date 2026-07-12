@@ -1,0 +1,26 @@
+mir6502 program
+global g0 x: byte storage global+0
+global g1 y: byte storage global+1
+
+routine r0 Main
+b0 bb0:
+  v0 =.b load global g0+0
+  v1 = cmp.b v0 eq #$00
+  branch bool v1 ? b1 : b2
+b1 bb2:
+  store.b global g1+0, #$01
+  jump b6
+b2 bb3:
+  v2 =.b load global g0+0
+  v3 = cmp.b v2 eq #$01
+  branch bool v3 ? b3 : b4
+b3 bb5:
+  store.b global g1+0, #$02
+  jump b5
+b4 bb6:
+  store.b global g1+0, #$03
+  jump b5
+b5 bb4:
+  jump b6
+b6 bb1:
+  return

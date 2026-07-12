@@ -1,0 +1,24 @@
+nir program
+global b: Byte
+global w: Card
+global i: Int
+
+routine <program> params=[-] locals=[-]
+bb1:
+  store @$0491 = $3000
+  store @$000E = $3000
+  fallthrough
+
+routine Main params=[-] locals=[-]
+bb0:
+  %t0:Byte = Neg 1
+  store b = %t0
+  %t1:Byte = load b
+  %t2:Byte = Plus %t1
+  %t3:Card = cast Byte -> Card %t2
+  store w = %t3
+  %t4:Card = load w
+  %t5:Int = cast Card -> Int %t4
+  %t6:Int = Neg %t5
+  store i = %t6
+  return

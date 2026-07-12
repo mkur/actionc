@@ -1,0 +1,6 @@
+BYTE x
+CARD p
+
+PROC Main()
+  p=@x
+RETURN

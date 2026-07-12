@@ -1,0 +1,27 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY dest(8)
+BYTE ARRAY src(8)
+
+BYTE b
+CARD c
+
+PROC Main()
+  b = Rand(10)
+
+  b = Peek(764)
+  c = PeekC(88)
+  Poke(752,1)
+  PokeC(88,$4000)
+
+  Zero(dest,8)
+  SetBlock(dest,8,$55)
+  MoveBlock(dest,src,8)
+
+  Error(1)
+  Break()
+RETURN

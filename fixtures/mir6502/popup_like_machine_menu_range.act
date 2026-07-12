@@ -1,0 +1,98 @@
+BYTE spaces, selected, answer
+
+PROC menu=*()
+[
+  "First" 'F
+  "Second" 'S
+  "Cancel" 'C
+  $00
+]
+
+CHAR FUNC RangeLike(CHAR ARRAY keys, BYTE max, BYTE POINTER c, CHAR ch)
+  BYTE i, len
+
+  len = keys(0)
+
+  FOR i = 1 TO len STEP 2 DO
+    IF keys(i) = ch THEN
+      IF c^ # 0 THEN
+        c^ ==- 1
+      FI
+    ELSEIF keys(i + 1) = ch THEN
+      IF c^ < max THEN
+        c^ ==+ 1
+      FI
+    FI
+  OD
+
+RETURN(ch)
+
+BYTE FUNC MenuKey(BYTE POINTER item)
+  item ==+ item^ + 3
+RETURN(item^)
+
+CARD FUNC Next(BYTE POINTER item)
+RETURN(item + item^ + 5)
+
+BYTE FUNC Items(BYTE POINTER item)
+  BYTE count
+
+  count = 0
+  WHILE item^ DO
+    count ==+ 1
+    item = Next(item)
+  OD
+
+RETURN(count)
+
+BYTE FUNC Ord(BYTE POINTER item, CARD picked_item)
+  BYTE count
+
+  count = 0
+  WHILE item^ DO
+    IF item = picked_item THEN
+      EXIT
+    FI
+    count ==+ 1
+    item = Next(item)
+  OD
+
+RETURN(count)
+
+CARD FUNC FindItem(BYTE POINTER item, CHAR ch)
+  WHILE item^ DO
+    IF MenuKey(item) = ch THEN
+      RETURN(item)
+    FI
+    item = Next(item)
+  OD
+
+RETURN(0)
+
+CHAR FUNC PopLike(BYTE POINTER mp, BYTE c, spc)
+  CHAR ch
+  BYTE limit
+  CARD found, menu_base
+
+  menu_base = mp
+  spaces = spc
+  limit = Items(menu_base) - 1
+
+  ch = RangeLike("+*", limit, @c, '*)
+  found = FindItem(menu_base, ch)
+  IF found THEN
+    mp = found
+    c = Ord(menu_base, mp)
+    ch = 155
+  FI
+
+  IF ch = 155 THEN
+    RETURN(MenuKey(mp))
+  FI
+
+RETURN(27)
+
+PROC Main()
+  selected = 0
+  answer = PopLike(BYTE POINTER(@menu), selected, 3)
+RETURN

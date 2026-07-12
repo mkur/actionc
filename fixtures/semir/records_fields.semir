@@ -1,0 +1,28 @@
+program modules=1
+  module #0 items=8
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte Pair#74/scope1:Type:? type Pair(3 bytes) fields=2
+      field +0 Byte tag
+      field +1 Card word
+    decl Pair rec#75/scope1:Var:Pair scalar
+    decl Byte gb#76/scope1:Var:Byte scalar
+    decl Card gw#77/scope1:Var:Card scalar
+    routine PROC Touch#78/scope1:Proc:?
+      callable PROC(Pair POINTER)
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      params:
+        Pair POINTER rp#79/scope2:Param:Pair POINTER Value
+      body:
+        assign rp:Pair POINTER:facts=w2,ptr,to=Pair,record=Pair.tag:Byte:facts=w1,Unsigned = $11:Card:Value:eval4:facts=w2,Unsigned
+        assign rp:Pair POINTER:facts=w2,ptr,to=Pair,record=Pair.word:Card:facts=w2,Unsigned = $2233:Card:Value:eval5:facts=w2,Unsigned
+        assign gb:Byte:facts=w1,Unsigned = rp:Pair POINTER:facts=w2,ptr,to=Pair,record=Pair.tag:Byte:facts=w1,Unsigned:Byte:LValue:eval6:facts=w1,Unsigned
+        assign gw:Card:facts=w2,Unsigned = rp:Pair POINTER:facts=w2,ptr,to=Pair,record=Pair.word:Card:facts=w2,Unsigned:Card:LValue:eval7:facts=w2,Unsigned
+        return
+    routine PROC Main#80/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        call user Touch -> ? callable=PROC(Pair POINTER) effects=none
+          arg #0 implicit_addr/RecordToPointer rec:Pair:facts=record=Pair:Pair POINTER:Value:eval8:facts=w2,ptr,to=Pair,record=Pair
+        return

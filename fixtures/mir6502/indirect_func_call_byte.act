@@ -1,0 +1,10 @@
+BYTE FUNC Get()
+RETURN(7)
+
+BYTE FUNC POINTER fp
+BYTE out
+
+PROC Main()
+  fp=@Get
+  out=fp()
+RETURN

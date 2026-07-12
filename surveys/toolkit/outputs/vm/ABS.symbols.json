@@ -1,0 +1,10 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$C4","name_addr":"$9400","name":"Abs","vtype":"$C3","address":"$0E0A","class":"INT FUNC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$4A","name_addr":"$9428","name":"n","vtype":"$8B","address":"$0E08","class":"INT","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

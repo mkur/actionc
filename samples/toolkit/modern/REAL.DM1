@@ -1,0 +1,68 @@
+INCLUDE "REAL.ACT"
+
+BYTE keepAlive
+
+PROC RealDemo()
+
+REAL x,y,z
+
+IntToReal(2,x)
+IntToReal(3,y)
+PrintE("x=2")
+PrintE("y=3")
+
+  RealAdd(x,y,z)
+  Print("x+y  :")
+  PrintRE(z)
+  RealSub(x,y,z)
+  Print("x-y  :")
+  PrintRE(z)
+  RealMult(x,y,z)
+  Print("x*y  :")
+  PrintRE(z)
+  RealDiv(x,y,z)
+  Print("x/y  :")
+  PrintRE(z)
+  Exp(x,z)
+  Print("EXP x:")
+  PrintRE(z)
+  Exp10(x,z)
+  Print("X10 x:")
+  PrintRE(z)
+  Ln(x,z)
+  Print("LN x :")
+  PrintRE(z)
+  Log10(x,z)
+  Print("LOG x:")
+  PrintRE(z)
+
+  PutE()
+  RealAdd(y,x,z)
+  Print("y+x  :")
+  PrintRE(z)
+  RealSub(y,x,z)
+  Print("y-x  :")
+  PrintRE(z)
+  RealMult(y,x,z)
+  Print("y*x  :")
+  PrintRE(z)
+  RealDiv(y,x,z)
+  Print("y/x  :")
+  PrintRE(z)
+  Exp(y,z)
+  Print("EXP y:")
+  PrintRE(z)
+  Exp10(y,z)
+  Print("X10 y:")
+  PrintRE(z)
+  Ln(y,z)
+  Print("LN y :")
+  PrintRE(z)
+  Log10(y,z)
+  Print("LOG y:")
+  PrintRE(z)
+
+  DO
+    keepAlive=0
+  OD
+RETURN

@@ -1,0 +1,8 @@
+; Original compiler error 7: invalid argument list / too many arguments.
+
+PROC Take(BYTE x)
+RETURN
+
+PROC Main()
+  Take(1,2)
+RETURN

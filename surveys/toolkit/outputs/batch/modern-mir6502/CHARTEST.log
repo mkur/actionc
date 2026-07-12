@@ -1,0 +1,8 @@
+source: corpora/toolkit/original/extracted/CHARTEST.ACT
+source_policy: auto
+compile_source: [tmp]/toolkit/CHARTEST.ACT
+profile: modern
+backend: mir6502
+codegen_source: n/a (mir6502 uses optimized NIR)
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/modern-mir6502/CHARTEST.COM

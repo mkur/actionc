@@ -1,0 +1,8 @@
+mir6502 program
+global g0 data: byte storage global+0
+machine m0 items=[<data >data]
+
+routine r0 Main
+b0 bb0:
+  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  return

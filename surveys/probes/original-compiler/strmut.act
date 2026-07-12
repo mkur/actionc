@@ -1,0 +1,21 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+DEFINE STRING="CHAR ARRAY"
+
+MODULE
+
+STRING text(0)="ABCD"
+BYTE ARRAY bytes(4)
+BYTE a, b, c
+
+PROC Main()
+  text(1) = 'Z
+  a = text(1)
+
+  bytes(0) = text(0)
+  bytes(1) = text(1)
+  b = bytes(0)
+  c = bytes(1)
+RETURN

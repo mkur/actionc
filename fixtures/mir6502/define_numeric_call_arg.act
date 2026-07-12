@@ -1,0 +1,12 @@
+DEFINE CLEAR="$00"
+
+PROC Block(BYTE mode, dx, dy)
+RETURN
+
+PROC Main()
+  BYTE zdx, zdy
+
+  zdx = 4
+  zdy = 2
+  Block(CLEAR, zdx, zdy)
+RETURN

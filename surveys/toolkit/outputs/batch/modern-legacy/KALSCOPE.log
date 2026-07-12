@@ -1,0 +1,21 @@
+source: samples/toolkit/modern/KALSCOPE.DEM
+source_policy: auto
+compile_source: samples/toolkit/modern/KALSCOPE.DEM
+profile: modern
+backend: legacy
+codegen_source: ast
+status: failed
+detail: samples/toolkit/modern/KALSCOPE.DEM:35:1: compatible code pointer $5000 is before current output $5005 | BYTE low=line,
+
+stderr:
+samples/toolkit/modern/KALSCOPE.DEM:35:1: compatible code pointer $5000 is before current output $5005 | BYTE low=line,
+samples/toolkit/modern/KALSCOPE.DEM:51:1: compatible code pointer $5000 is before current output $5005 | CARD RAMTOP=$69,
+samples/toolkit/modern/KALSCOPE.DEM:56:1: compatible code pointer $5000 is before current output $5005 | CARD aXI,bXI,cXI,aYI,bYI,cYI, ;initial
+samples/toolkit/modern/KALSCOPE.DEM:120:3: codegen only supports constants, scalar variables, simple arithmetic, logic, arrays, and pointer values | dl^=<ystart
+samples/toolkit/modern/KALSCOPE.DEM:122:3: codegen only supports constants, scalar variables, simple arithmetic, logic, arrays, and pointer values | dl^=>ystart
+samples/toolkit/modern/KALSCOPE.DEM:126:5: codegen only supports constants, scalar variables, simple arithmetic, logic, arrays, and pointer values | dl^=<$F0F
+samples/toolkit/modern/KALSCOPE.DEM:128:5: codegen only supports constants, scalar variables, simple arithmetic, logic, arrays, and pointer values | dl^=>$F0F
+samples/toolkit/modern/KALSCOPE.DEM:138:5: codegen only supports constants, scalar variables, simple arithmetic, logic, arrays, and pointer values | dl^=<next
+samples/toolkit/modern/KALSCOPE.DEM:140:5: codegen only supports constants, scalar variables, simple arithmetic, logic, arrays, and pointer values | dl^=>next
+samples/toolkit/modern/KALSCOPE.DEM:146:3: codegen only supports constants, scalar variables, simple arithmetic, logic, arrays, and pointer values | dl^=<DLs
+samples/toolkit/modern/KALSCOPE.DEM:148:3: codegen only supports constants, scalar variables, simple arithmetic, logic, arrays, and pointer values | dl^=>DLs

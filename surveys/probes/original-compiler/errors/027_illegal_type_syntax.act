@@ -1,0 +1,6 @@
+; Original compiler error 27: illegal TYPE syntax.
+
+TYPE Pair=[BYTE left
+
+PROC Main()
+RETURN

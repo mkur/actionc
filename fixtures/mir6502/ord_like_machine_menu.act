@@ -1,0 +1,37 @@
+BYTE result, key
+CARD picked
+
+PROC menu=*()
+[
+  "First" 'F
+  "Second" 'S
+  "Cancel" 'C
+  $00
+]
+
+BYTE FUNC MenuKey(BYTE POINTER item)
+  item ==+ item^ + 3
+RETURN(item^)
+
+CARD FUNC Next(BYTE POINTER item)
+RETURN(item + item^ + 5)
+
+BYTE FUNC Ord(BYTE POINTER item, CARD picked_item)
+  BYTE count
+
+  count = 0
+  WHILE item^ DO
+    IF item = picked_item THEN
+      EXIT
+    FI
+    count ==+ 1
+    item = Next(item)
+  OD
+
+RETURN(count)
+
+PROC Main()
+  picked = Next(BYTE POINTER(@menu))
+  result = Ord(BYTE POINTER(@menu), picked)
+  key = MenuKey(picked)
+RETURN

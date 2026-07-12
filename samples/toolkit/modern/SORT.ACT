@@ -1,0 +1,351 @@
+;                                    
+
+;SORT.ACT - a group of sorting routines
+;which allow you to sort BYTE, CARD,
+;INT, or string data.  The algorithm
+;used is called a quicksort, and is
+;very fast (order N ln N) on unsorted
+;data but is almost as slow as bubble
+;or shell sort on presorted data
+;(worst case order N^2).
+
+;   Copyright (c) 1984 by OSS,Inc.,
+;      Mark Rose, and Mike Fitch
+;                                    
+
+MODULE
+
+; Despite what your Toolkit manual says,
+; the definition of SortMax is ignored
+; by the sort routines does not need
+; to be changed to match your data size.
+; (This is due to an improvement in the
+; way the sort routines work)
+DEFINE SortMax="10000" ;change value to suit yourself
+
+CARD ListSize
+
+BYTE SortKind,
+     SortDescending
+
+BYTE ARRAY BArray
+
+INT ARRAY IArray
+
+CARD ARRAY CArray,
+           List(64) ; big enough for 64K sort elements
+
+;************************************
+;BYTE Comparisions
+;************************************
+
+BYTE FUNC BDescend(CARD i,j)
+
+  IF BArray(i)>BArray(j) THEN
+    RETURN (1)
+  FI
+RETURN (0)
+
+;************************************
+
+BYTE FUNC BAscend(CARD i,j)
+
+  IF BArray(i)<BArray(j) THEN
+    RETURN (1)
+  FI
+RETURN (0)
+
+;************************************
+;CARD Comparisions
+;************************************
+
+BYTE FUNC CDescend(CARD i,j)
+
+  IF CArray(i)>CArray(j) THEN
+    RETURN (1)
+  FI
+RETURN (0)
+
+;************************************
+
+BYTE FUNC CAscend(CARD i,j)
+
+  IF CArray(i)<CArray(j) THEN
+    RETURN (1)
+  FI
+RETURN (0)
+
+;************************************
+;INT Comparisions
+;************************************
+
+BYTE FUNC IDescend(CARD i,j)
+
+  INT left,right
+
+  left=IArray(i)
+  right=IArray(j)
+  IF left>right THEN
+    RETURN (1)
+  FI
+RETURN (0)
+
+;************************************
+
+BYTE FUNC IAscend(CARD i,j)
+
+  INT left,right
+
+  left=IArray(i)
+  right=IArray(j)
+  IF left<right THEN
+    RETURN (1)
+  FI
+RETURN (0)
+
+;************************************
+;String Comparisons
+;************************************
+
+BYTE FUNC SDescend(CARD i,j)
+
+  IF SCompare(CArray(i),CArray(j))>0 THEN
+    RETURN (1)
+  FI
+RETURN (0)
+
+;************************************
+
+BYTE FUNC SAscend(CARD i,j)
+
+  IF SCompare(CArray(i),CArray(j))<0 THEN
+    RETURN (1)
+  FI
+RETURN (0)
+
+;************************************
+;Interchange 2 BYTE sort elements
+;************************************
+
+PROC BSwap(CARD i,j)
+
+  BYTE temp
+
+  temp=BArray(i)
+  BArray(i)=BArray(j)
+  BArray(j)=temp
+RETURN
+
+;************************************
+;Interchange 2 sort elements of CARD
+;or string types
+;************************************
+
+PROC CSwap(CARD i,j)
+
+  CARD temp
+
+  temp=CArray(i)
+  CArray(i)=CArray(j)
+  CArray(j)=temp
+RETURN
+
+;************************************
+;Interchange 2 INT sort elements
+;************************************
+
+PROC ISwap(CARD i,j)
+
+  INT temp
+
+  temp=IArray(i)
+  IArray(i)=IArray(j)
+  IArray(j)=temp
+RETURN
+
+;************************************
+;The following two routines are set
+;to one of the compare and swap routines
+;above, depending on the type of data
+;being sorted and the order of the sort.
+;************************************
+
+BYTE FUNC Compare(CARD i,j)
+
+  IF SortKind=0 THEN
+    IF SortDescending THEN
+      RETURN (BDescend(i,j))
+    FI
+    RETURN (BAscend(i,j))
+  ELSEIF SortKind=1 THEN
+    IF SortDescending THEN
+      RETURN (CDescend(i,j))
+    FI
+    RETURN (CAscend(i,j))
+  ELSEIF SortKind=2 THEN
+    IF SortDescending THEN
+      RETURN (IDescend(i,j))
+    FI
+    RETURN (IAscend(i,j))
+  FI
+  IF SortDescending THEN
+    RETURN (SDescend(i,j))
+  FI
+RETURN (SAscend(i,j))
+
+PROC Swap(CARD i,j)
+
+  IF SortKind=0 THEN
+    BSwap(i,j)
+  ELSEIF SortKind=2 THEN
+    ISwap(i,j)
+  ELSE
+    CSwap(i,j)
+  FI
+RETURN
+
+;************************************
+;Add a partition to the list
+;************************************
+
+PROC AddList(CARD low,high)
+
+  IF high+1>low+1 THEN
+    List(ListSize)=low
+    ListSize==+1
+    List(ListSize)=high
+    ListSize==+1
+  FI
+RETURN
+
+;************************************
+;Retrieve last low,high pair from list
+;of partitions
+;************************************
+
+PROC GetFirst(CARD POINTER lowP,highP)
+
+  ListSize==-1
+  highP^=List(ListSize)
+  ListSize==-1
+  lowP^=List(ListSize)
+RETURN
+  
+;************************************
+;Divide sort array into partitions
+;************************************
+
+CARD FUNC Partition(CARD low,high)
+
+  CARD i,j,pivot,mid
+
+  ; Find median of 1st,middle,and last
+  ; elements to use as pivot for partitioning.
+  mid=(low+high) RSH 1
+  IF Compare(mid,low) THEN
+    Swap(low,mid)
+  FI
+  IF Compare(high,low) THEN
+    Swap(low,high)
+  FI
+  IF Compare(mid,high) THEN
+    Swap(mid,high)
+  FI
+  pivot=high
+  i=low
+  j=high
+  WHILE i<j
+    DO
+    WHILE Compare(i,pivot)
+      DO
+      i==+1
+      OD
+    WHILE (Compare(j,pivot)=0) AND (j>i)
+      DO
+      j==-1
+      OD
+    IF i<j THEN
+      Swap(i,j)
+    FI
+    OD
+  Swap(i,high)
+RETURN (i)
+
+;************************************
+;Sort using the QuickSort algorithm
+;************************************
+
+PROC QuickSort(CARD len)
+
+  CARD low,middle,high,i
+
+  ListSize=0
+  AddList(0,len-1)
+  WHILE ListSize>0
+    DO
+    GetFirst(@low,@high)
+    middle=Partition(low,high)
+    ; Put larger partition onto stack first
+    ; in order to decrease maximum stack size.
+    IF (middle-low) > (high-middle) THEN
+      AddList(low,middle-1)
+      AddList(middle+1,high)
+    ELSE
+      AddList(middle+1,high)
+      AddList(low,middle-1)
+    FI
+    OD
+RETURN
+
+;************************************
+;Sort a BYTE ARRAY
+;************************************
+
+PROC SortB(BYTE ARRAY data CARD len BYTE order)
+
+  SortKind=0
+  SortDescending=order
+  BArray=data
+  QuickSort(len)
+RETURN
+
+;************************************
+;Sort a CARD ARRAY
+;************************************
+
+PROC SortC(CARD ARRAY data CARD len BYTE order)
+
+  SortKind=1
+  SortDescending=order
+  CArray=data
+  QuickSort(len)
+RETURN
+
+;************************************
+;Sort an INT ARRAY
+;************************************
+
+PROC SortI(INT ARRAY data CARD len BYTE order)
+
+  SortKind=2
+  SortDescending=order
+  IArray=data
+  QuickSort(len)
+RETURN
+
+;************************************
+;Sort a CARD ARRAY whose elements are
+;the addresses of strings
+;************************************
+
+PROC SortS(CARD ARRAY data CARD len BYTE order)
+
+  SortKind=3
+  SortDescending=order
+  CArray=data
+  QuickSort(len)
+RETURN
+
+MODULE
+
+; End of SORT.ACT 

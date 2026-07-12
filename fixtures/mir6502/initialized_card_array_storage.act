@@ -1,0 +1,6 @@
+CARD ARRAY words(3)=[0 $1111 $2222]
+CARD out
+
+PROC Main()
+  out = words(1)
+RETURN

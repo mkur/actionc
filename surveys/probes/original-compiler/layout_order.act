@@ -1,0 +1,52 @@
+; Probe source-order compatible layout.
+;
+; This intentionally mixes:
+; - absolute scalar aliases, which should not emit storage
+; - symbol-relative aliases onto allocated pointer storage
+; - current-location machine routines before and after globals
+; - initialized and uninitialized globals
+; - absolute-address arrays and normal owned arrays
+;
+; The expected original-compiler question is whether object code begins with
+; First's machine bytes, and where each real storage reservation appears
+; relative to First, Second, and Main.
+
+SET $491=$3000
+SET $E=$3000
+
+BYTE zp=$E0, zpn=zp+1
+BYTE WSYNC=$D40A
+
+BYTE POINTER screen
+BYTE scl=screen,
+     sch=screen+1
+
+PROC First=*()
+[$A9 $11 $60]
+
+MODULE
+
+BYTE plain
+BYTE inited=[7]
+CARD word
+
+BYTE ARRAY screenbuf(8)=$4000
+BYTE ARRAY bytes(4)
+BYTE ARRAY raw=[1 2 3]
+CHAR ARRAY text(0)="AB"
+
+PROC Second=*()
+[$A9 $22 $60]
+
+PROC Main()
+  First()
+  plain = inited
+  word = screen
+  bytes(0) = plain
+  plain = raw(1)
+  screenbuf(2) = plain
+  scl = plain
+  sch = plain
+  WSYNC = 0
+  Second()
+RETURN

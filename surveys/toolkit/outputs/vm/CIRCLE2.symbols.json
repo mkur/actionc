@@ -1,0 +1,14 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$C4","name_addr":"$9400","name":"Abs","vtype":"$C3","address":"$3002","class":"INT FUNC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]},
+    {"scope":"global","slot":"$16","name_addr":"$9409","name":"Circle","vtype":"$C0","address":"$3047","class":"PROC","numargs":4,"arg_types_raw":["$0B","$0B","$0B","$0B"],"args":["INT","INT","INT","INT"]},
+    {"scope":"global","slot":"$F8","name_addr":"$9418","name":"CircleDemo2","vtype":"$C0","address":"$3265","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$56","name_addr":"$944D","name":"r","vtype":"$8A","address":"$3263","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$68","name_addr":"$9448","name":"x","vtype":"$8B","address":"$3261","class":"INT","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$6B","name_addr":"$9452","name":"y","vtype":"$8A","address":"$3264","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

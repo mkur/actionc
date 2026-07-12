@@ -1,0 +1,16 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE total
+
+BYTE FUNC Echo(BYTE n)
+RETURN(n)
+
+PROC Touch(BYTE a, b)
+  total = a
+RETURN
+
+PROC Main()
+  total = Echo(1)
+  Touch(total, 3)
+RETURN

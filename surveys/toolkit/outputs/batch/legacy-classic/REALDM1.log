@@ -1,0 +1,8 @@
+source: corpora/toolkit/original/extracted/REAL.DM1
+source_policy: auto
+compile_source: corpora/toolkit/original/extracted/REAL.DM1
+profile: legacy
+backend: classic
+codegen_source: ast
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/legacy-classic/REALDM1.COM

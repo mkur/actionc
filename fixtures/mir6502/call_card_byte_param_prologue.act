@@ -1,0 +1,11 @@
+CARD FUNC test(CARD x, BYTE y)
+  CARD z
+
+  z = x + y + 1
+RETURN(z)
+
+PROC Main()
+  CARD c
+
+  c = test(10, 2)
+RETURN

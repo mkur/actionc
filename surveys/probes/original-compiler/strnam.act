@@ -1,0 +1,43 @@
+; Isolate TN LIB.ACT-style CIO filename conversion helpers.
+; This covers local CHAR ARRAY storage in a routine, machine blocks with
+; symbol arithmetic, and calls from machine blocks to local helper routines.
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE Ioerr
+BYTE ARRAY fname(15)
+CARD r
+
+PROC Error()
+RETURN
+
+PROC _Cio=*()
+[$20 $56 $E4 $8C Ioerr $10 $03 $4C Error $60]
+
+PROC _LodChn=*()
+[$0A $0A $0A $0A $AA $60]
+
+PROC _StrNam()
+  CHAR ARRAY fnam(40)
+  CARD localr=$86
+[$85 $86 $84 $87 $A0 $00 $B1 $86 $85 $88 $C8 $B1 $86 $99 fnam+$FFFF $C4 $88 $D0 $F6 $C8 $A9 $9B $99 fnam+$FFFF]
+  localr=fnam
+[$9D $344 $A5 localr+1 $9D $345 $60]
+
+PROC Open=*(BYTE chn CARD s BYTE aux1, aux2)
+[$86 $A1 $20 _LodChn $A5 $A1 $20 _StrNam $A5 $A3 $9D $34A $A5 $A4 $9D $34B $A9 $03 $9D $342 $4C _Cio]
+
+PROC Xio=*(BYTE chn, cmd, aux1, aux2 CARD s)
+[$86 $A1 $20 _LodChn $A5 $A1 $9D $342 $98 $9D $34A $A5 $A3 $9D $34B $A5 $A4 $A4 $A5 $20 _StrNam $4C _Cio]
+
+PROC Main()
+  fname(0)=2
+  fname(1)='D
+  fname(2)=':
+  r=fname
+  Open(1, r, 4, 0)
+  Xio(1, 41, 0, 0, r)
+RETURN

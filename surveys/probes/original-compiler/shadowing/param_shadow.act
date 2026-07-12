@@ -1,0 +1,11 @@
+; Probe routine parameter shadowing a global variable.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE x, result
+
+PROC Main(BYTE x)
+  result = x
+RETURN

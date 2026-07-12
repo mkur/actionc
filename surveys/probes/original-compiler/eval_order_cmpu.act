@@ -1,0 +1,33 @@
+; Probe supported function-call-vs-constant unsigned comparison forms.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE seq, fSeen
+BYTE eqOut, neOut, ltOut, leOut, gtOut, geOut
+
+BYTE FUNC FB()
+  seq = seq + 1
+  fSeen = seq
+RETURN(10)
+
+PROC Main()
+  seq = 0
+  IF FB() = 10 THEN eqOut = 1 ELSE eqOut = 2 FI
+
+  seq = 0
+  IF FB() # 10 THEN neOut = 1 ELSE neOut = 2 FI
+
+  seq = 0
+  IF FB() < 11 THEN ltOut = 1 ELSE ltOut = 2 FI
+
+  seq = 0
+  IF FB() <= 10 THEN leOut = 1 ELSE leOut = 2 FI
+
+  seq = 0
+  IF FB() > 9 THEN gtOut = 1 ELSE gtOut = 2 FI
+
+  seq = 0
+  IF FB() >= 10 THEN geOut = 1 ELSE geOut = 2 FI
+RETURN

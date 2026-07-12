@@ -1,0 +1,9 @@
+BYTE POINTER p
+BYTE x
+
+PROC Main()
+  p = $580
+  IF p THEN
+    x = 1
+  FI
+RETURN

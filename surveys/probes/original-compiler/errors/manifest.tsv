@@ -1,0 +1,32 @@
+code	fixture	original_explanation	coverage
+0	-	Out of system memory	resource/runtime condition; no stable malformed-source fixture
+1	001_missing_double_quote.act	Missing double quote in a string	source fixture
+2	-	Unspecified in manual	unmapped original code
+3	-	Global variable symbol table full	resource limit; no stable malformed-source fixture
+4	-	Local variable symbol table full	resource limit; no stable malformed-source fixture
+5	005_bad_set_directive.act	SET directive syntax error	source fixture
+6	006_bad_declaration.act	Declaration error; wrong declaration format	source fixture
+7	007_too_many_arguments.act	Invalid argument list	source fixture
+8	008_undeclared_symbol.act	Variable not declared	source fixture
+9	009_not_constant.act	Not a constant	source fixture; non-constant FOR step under actionc
+10	010_illegal_assignment.act	Illegal assignment	source fixture
+11	-	Unknown error	runtime/compiler-state condition; no stable malformed-source fixture
+12	012_missing_then.act	Missing THEN	source fixture
+13	013_missing_fi.act	Missing FI	source fixture
+14	-	Out of code space	resource limit; no stable malformed-source fixture
+15	015_missing_do.act	Missing DO	source fixture
+16	016_missing_to.act	Missing TO	source fixture
+17	017_bad_expression.act	Bad expression	source fixture
+18	018_unmatched_parentheses.act	Unmatched parentheses	source fixture
+19	019_missing_od.act	Missing OD	source fixture
+20	-	Cannot allocate memory	resource/runtime condition; no stable malformed-source fixture
+21	021_illegal_array_reference.act	Illegal array reference	source fixture
+22	-	Input file is too large	resource limit; no stable small malformed-source fixture
+23	023_illegal_conditional_expression.act	Illegal conditional expression	source fixture
+24	024_illegal_for_syntax.act	Illegal FOR statement syntax	source fixture
+25	025_illegal_exit.act	Illegal EXIT	source fixture
+26	026_nesting_too_deep.act	Nesting too deep	original compiler limit fixture; missing final FI keeps actionc failure deterministic
+27	027_illegal_type_syntax.act	Illegal TYPE syntax	source fixture
+28	028_illegal_return.act	Illegal RETURN	source fixture
+61	-	Out of symbol table space	resource limit; no stable malformed-source fixture
+128	-	BREAK key stopped program	runtime/user interrupt; no source fixture

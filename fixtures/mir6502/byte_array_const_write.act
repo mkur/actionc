@@ -1,0 +1,5 @@
+BYTE ARRAY data(4)
+
+PROC Main()
+  data(2) = 7
+RETURN

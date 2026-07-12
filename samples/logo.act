@@ -1,0 +1,491 @@
+; CIS Notice:
+		 
+; I am providing the program for you
+; to look at and maybe help you get
+; started with ACTION!.  It was
+; written 'quick and dirty' and as
+; such does not have many comments
+; and is not the best of code in many
+; places.  Feel free to show it to
+; anyone you like as long as you keep
+; the copyright notice.
+
+; In case you are interested, this is
+; the company logo for Action
+; Computer Services (ACS).
+
+;		- Clinton Parker 70435,625
+
+; PS: Hit ESC to exit program
+
+
+; Copyright 1983 by Action Computer Services
+
+; last modified April 13, 1983
+
+MODULE ; LOGO.ACT
+
+DEFINE RTI = "$40",
+		 PHA = "$48",
+		 PLA = "$68",
+		 TXA = "$8A",
+		 TAX = "$AA",
+		 TYA = "$98",
+		 TAY = "$A8"
+
+BYTE start
+BYTE ARRAY display
+CARD ARRAY yLoc(96)
+
+
+PROC NMI()
+  BYTE color=$CB, cnt=$CC
+  BYTE COLPF1=$D017, WSYNC=$D40A,
+		 VCOUNT=$D40B, COLPF2=$D018,
+		 COLPF0=$D016, NMIEN=$D40E
+  BYTE ARRAY col(0)=[$68 $C $96 $38]
+
+  [PHA TXA PHA TYA PHA]
+  NMIEN = $40
+
+  IF VCOUNT=7 THEN
+	 color = start
+	 start = start - 1
+	 IF (start&$1F)=0 THEN cnt = cnt + 1 FI
+  FI
+
+  color = color - 2
+  WSYNC = 1
+  COLPF0 = color
+  COLPF1 = color
+  COLPF2 = col((cnt + VCOUNT) & 3)
+  NMIEN = $C0
+[PLA TAY PLA TAX PLA RTI]
+
+
+PROC Background()
+  BYTE COLBK=$D01A, VCOUNT=$D40B, WSYNC=$D40A
+
+  [PHA TXA PHA TYA PHA]
+  WSYNC = 0
+  IF VCOUNT>50 THEN
+	 COLBK = 0
+  ELSE
+	 COLBK = $D6
+  FI
+[PLA TAY PLA TAX PLA RTI]
+
+
+PROC Init7()
+  BYTE i
+  CARD screen, scrloc=88
+ 
+  Graphics(23)
+  SetColor(0,2,10)
+  SetColor(1,0,12)
+  SetColor(2,0,12)
+
+  display = scrloc
+  screen = scrloc
+  i = 0
+  WHILE i<96 DO
+	 yLoc(i) = screen
+	 screen = screen + 40
+	 i = i + 1
+  OD
+RETURN
+
+
+PROC Plot7(BYTE x, y)
+  BYTE ARRAY pos, bm(0)=[$C0$30$C$3],
+	 cm(0)=[$0 $55 $AA $FF]
+
+  pos = yLoc(y)
+
+  pos(x RSH 2) ==% (bm(x&3)&cm(color))
+RETURN
+
+
+PROC VLine(BYTE x, y1, y2)
+  WHILE y1#y2 DO
+	 Plot7(x, y1)
+	 y1 = y1 + 1
+  OD
+RETURN
+
+
+PROC HLine(BYTE x1, x2, y)
+  WHILE x1#x2 DO
+	 Plot7(x1, y)
+	 x1 = x1 + 1
+  OD
+RETURN
+
+
+PROC DLine(BYTE x1, x2, y1)
+  BYTE incr
+
+  incr = 1
+  IF x2<x1 THEN incr = $FF FI
+
+  WHILE x1#x2 DO
+	 Plot7(x1, y1)
+	 x1 = x1 + incr
+	 Plot7(x1, y1)
+	 y1 = y1 + 1	
+  OD
+RETURN
+
+
+PROC Dot(BYTE x, y)
+  BYTE i	
+
+  i = 0 
+  WHILE i<4 DO
+	 Plot7(x+1, y)	Plot7(x+2, y)
+	 IF i=1 OR i=2 THEN
+		Plot7(x, y)	Plot7(x+3, y)
+	 FI
+	 y = y + 1
+	 i = i + 1
+  OD
+RETURN
+
+
+PROC Pad(BYTE x, y)
+  BYTE i
+
+  i = 0
+  WHILE i<4 DO
+	 Plot7(x, y)
+	 Plot7(x+1, y)
+	 Plot7(x+2, y)
+	 y = y + 1
+	 i = i + 1
+  OD
+RETURN
+
+
+PROC LineX(BYTE x1, y1, x2, y2)
+  Plot(x1, y1)
+  DrawTo(x2, y2)
+  Plot(x1+1, y1)
+  DrawTo(x2+1, y2)
+RETURN
+
+
+PROC LineY(BYTE x1, y1, x2, y2)
+  Plot(x1, y1)
+  DrawTo(x2, y2)
+; Plot(x1, y1+1)
+; DrawTo(x2, y2+1)
+RETURN
+
+
+PROC Curve(BYTE x, y)
+; Plot7(x-1, y-1)
+  VLine(x, y-1, y+2)
+  VLine(x+1, y-1, y+2)
+  VLine(x+2, y-2, y+1)
+  y = y - 4
+  VLine(x+3, y, y+5)
+  VLine(x+4, y, y+4)
+  VLine(x+5, y, y+3)
+  Plot7(x+6, y)	
+  Plot7(x+6, y+1)
+RETURN
+
+
+PROC Draw()
+  BYTE i, j, k 
+  CARD x
+
+; draw fingers
+  i = 0
+  x = 160
+  WHILE i<15 DO
+	 j = 0
+	 WHILE j<3 DO
+		k = 0
+		WHILE k<4 DO
+		  display(x+k) = $55
+		  k = k + 1
+		OD
+		x = x + 40
+		j = j + 1
+	 OD
+	 x = x + 120
+	 i = i + 1
+  OD
+
+; draw the pads
+  i = 64
+  WHILE i<112 DO
+	 Pad(i, 22)
+	 i = i + 6
+  OD
+  Pad(142, 22)
+  Pad(70, 62)
+  Pad(76, 62)
+  Pad(94, 62)
+  Pad(106, 62)
+  Pad(142, 62)
+
+; finger 1, 15 connections
+  i = 0
+  WHILE i<4 DO
+	 display(204+i) = $AA
+	 display(3564+i) = $AA 
+	 i = i + 1
+  OD
+  Dot(31, 3)
+  Dot(29, 88)
+
+; finger 2 connection (A3)
+  LineX(16, 11, 44, 8)
+  HLine(44, 105, 8)
+  DLine(105, 107, 8)
+  VLine(107, 10, 23)
+
+; finger 3 connection (A2)
+  LineX(16, 17, 48, 11)
+  HLine(48, 99, 11)
+  DLine(99, 101, 11)
+  VLine(101, 13, 23)
+
+; finger 4 connection (A1)
+  LineX(16, 23, 52, 14)
+  HLine(52, 93, 14)
+  DLine(93, 95, 14)
+  VLine(95, 16, 23)
+
+; finger 5 connection (A0)
+  LineX(16, 29, 56, 17)
+  HLine(56, 87, 17)
+  DLine(87, 89, 17)
+  VLine(89, 19, 23)
+
+; finger 6 connection (D4)
+  HLine(16, 60, 35)
+  LineY(60, 35, 71, 62)
+				 
+; finger 7 connection (D5)
+  HLine(16, 56, 41)
+  DLine(56, 58, 41)
+  VLine(58, 43, 66)
+  DLine(58, 60, 66)
+  HLine(60, 76, 68)
+  DLine(77, 75, 66)
+
+; finger 8 connection (D2)
+  HLine(16, 34, 47)
+  DLine(34, 58, 47)
+  HLine(58, 79, 71)
+  DLine(80, 78, 70)
+  VLine(80, 60, 70)
+  LineY(80, 60, 71, 25)
+
+; finger 9 connection (D1)
+  HLine(16, 34, 53)
+  DLine(34, 55, 53)
+  HLine(55, 85, 74)
+  DLine(86, 84, 73)
+  VLine(86, 60, 73)
+  LineY(86, 60, 77, 25)
+
+; finger 10 connection (D0)
+  HLine(16, 20, 59)
+  DLine(23, 19, 56)
+  HLine(24, 32, 56)
+  DLine(32, 53, 56)
+  HLine(53, 91, 77)
+  DLine(92, 90, 76)
+  VLine(92, 60, 76)
+  LineY(92, 60, 83, 25)
+
+; finger 11 connection (D6)
+  HLine(16, 24, 65)
+  DLine(27, 23, 62)
+  Dot(26, 60)
+
+; finger 12 connection (CS)
+  DLine(107, 92, 66)
+  HLine(50, 92, 80)
+  DLine(40, 50, 71)
+  HLine(16, 40, 71)
+  VLine(95, 66, 78)
+
+; finger 13 connection (+5)
+  Plot(16, 76)
+  DrawTo(50, 86)
+  Plot(16, 77)
+  DrawTo(50, 87)
+  Plot(16, 78)
+  DrawTo(50, 88)
+  HLine(50, 149, 86)
+  HLine(50, 149, 87)
+  HLine(50, 149, 88)
+  Curve(149, 86)
+  i = 0
+  WHILE i<4 DO
+	 VLine(153+i, 47, 82)
+	 DLine(143+i, 153+i, 37)
+	 VLine(143+i, 22, 37)
+
+	 HLine(142, 155, 62+i)
+
+	 VLine(153+i, 5, 17) ; ground pad
+
+	 i = i + 1
+  OD
+  HLine(143, 146, 21)
+  Plot7(141, 63)
+  Plot7(141, 64)
+  Curve(149, 62)
+  HLine(149, 153, 66)
+  VLine(152, 66, 70)
+  Plot7(151, 67)
+
+; finger 14 connection (cart. select)
+  HLine(16, 35, 82)
+  HLine(16, 38, 83)
+  HLine(16, 41, 84)
+
+; ground pads 
+  Dot(153, 3)
+  Dot(153, 16)
+  HLine(62, 64, 23)
+  HLine(62, 64, 24)
+
+RETURN
+
+
+PROC Letter(BYTE ARRAY pts, BYTE x, y, delay)
+  BYTE i, dx, dy
+
+  WHILE 1 DO
+	 dx = pts^
+	 pts = pts + 1
+	 dy = pts^
+	 pts = pts + 1
+	 IF dx=$FF THEN EXIT FI
+	 Plot7(x+dx, y+dy)
+
+;	i = 0
+;	WHILE i<delay DO i==+1*1*1 OD
+  OD
+RETURN
+
+
+PROC Logo()
+  CHAR CH=$2FC
+  BYTE x, NMIEN=$D40E, COLBK=$D01A
+  CARD j, old, SDLST=$230, VDSLST=$200
+  BYTE i
+  BYTE ARRAY dlist
+  BYTE ARRAY side(0)=[2 0 1 0 0 0 0 1
+     0 2 1 2 2 2 2 3 2 4 1 4 0 4 4 0 4
+     1 4 2 4 3 4 4 6 0 6 1 6 2 6 3 6 4
+     7 0 8 1 8 2 8 3 7 4 10 0 10 1 10
+     2 10 3 10 4 11 0 12 0 11 2 11 4 12
+     4 18 4 18 3 19 2 19 1 20 0 21 1 21
+     2 22 3 22 4 20 2 $FF]
+  BYTE ARRAY copyright(0)=[5 0 4 0 3 0
+     2 0 1 1 0 2 0 3 0 4 0 5 1 6 2 7 3
+     7 4 7 5 7 6 6 7 5 7 4 7 3 7 2 6 1
+     4 2 3 2 2 3 2 4 3 5 4 5 $FF]
+  BYTE ARRAY A(0)=[0 8 1 8 0 7 1 7 0 6
+     1 6 2 6 1 5 2 5 1 4 2 4 1 3 2 3 3
+     3 2 2 3 2 2 1 3 1 3 0 4 0 4 1 5 0
+     5 1 6 1 5 2 6 2 5 3 6 3 7 3 6 4 7
+     4 6 5 7 5 6 6 7 6 8 6 7 7 8 7 7 8
+     8 8 3 5 4 5 5 5 $FF]
+  BYTE ARRAY C(0)=[7 2 6 2 6 1 5 1 5 0
+     4 0 3 0 2 0 2 1 1 1 1 2 0 2 1 3 0
+     3 1 4 0 4 0 5 1 5 0 6 1 6 1 7 2 7
+     2 8 3 8 4 8 5 8 5 7 6 7 6 6 7 6 
+; hier fehlt das Ende
+     $FF]
+  BYTE ARRAY S(0)=[6 2 5 2 5 1 4 1 4 0
+     3 0 2 0 2 1 1 1 0 2 1 2 1 3 2 3 2
+     4 3 4 4 4 4 5 5 5 6 6 5 6 5 7 4 7
+     4 8 3 8 2 8 2 7 1 7 1 6 0 6 $FF]
+  BYTE ARRAY rev(0)=[0 0 0 1 0 2 0 3 0
+     4 0 5 0 6 1 6 1 5 1 4 1 3 1 2 1 1
+     1 0 2 0 3 0 4 1 4 2 3 3 2 3 3 4 4
+     5 4 6 7 0 8 0 7 1 8 1 7 2 8 2 7 3 
+     8 3 7 4 8 4 7 5 8 5 7 6 8 6 11 0 
+     10 0 9 0 10 3 9 3 11 6 10 6 9 6 14
+     0 15 0 14 1 15 1 14 2 15 2 15 3 16
+     3 15 4 16 4 16 5 16 6 17 6 17 5 18
+     4 18 3 19 2 19 1 19 0 22 5 21 5 21
+     6 22 6 27 6 28 6 27 5 28 5 27 4 28
+     4 28 3 29 3 28 2 29 2 29 1 29 0 30
+     0 30 1 31 2 31 3 32 4 32 5 32 6 29
+     5 30 5 31 5 $FF]
+
+  Init7()
+  color = 2
+
+  NMIEN = $40
+  old = VDSLST
+  VDSLST = Background
+  dlist = SDLST
+  dlist(6) ==% $80
+  dlist(97) ==% $80
+  NMIEN = $C0
+
+  Draw()
+
+; j = 0
+; WHILE j<10000 DO j==+1 OD
+
+  color = 3
+  Letter(side, 120, 10, 50)
+  Letter(rev, 105, 75, 50)
+  Letter(copyright, 96, 41, 100)
+  Letter(A, 109, 41, 100)
+  Letter(C, 121, 41, 100)
+  Letter(S, 132, 41, 100)
+
+  j = 0
+  WHILE j<2000 AND CH=$FF DO
+	 i = 0
+	 WHILE i<100 DO i==+1 OD
+	 j = j + 1
+  OD
+
+  NMIEN = $40
+  VDSLST = NMI
+
+  start = 0
+
+  dlist(0) ==% $80
+  dlist(2) ==% $80
+  i = 3
+  WHILE i<101 DO
+	 x = dlist(i)
+	 dlist(i) = x % $80 
+	 IF x#$D THEN
+		i = i + 3
+	 ELSE
+		i = i + 1
+	 FI
+  OD
+
+  NMIEN = $C0
+
+; Draw()
+
+  CH = $FF
+  WHILE CH#$1C DO
+;	SetColor(4, 0, 4)
+;	COLBK = 4
+  OD
+
+  NMIEN = $40
+  VDSLST = old
+
+  GetD(7)
+  Graphics(0)
+RETURN

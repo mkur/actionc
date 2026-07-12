@@ -1,0 +1,13 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY text(8)="X"
+
+PROC Main()
+  PrintD(6,text)
+  InputMD(6,text,7)
+  PrintF("%H%E",1)
+RETURN

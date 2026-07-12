@@ -1,0 +1,37 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE ARRAY fname(15)
+
+PROC SwapScr()
+RETURN
+
+PROC _StrNam=*()
+[$60]
+
+PROC Launch()
+  CARD dosvec=$0A,
+       r=$86
+
+  SwapScr()
+  dosvec=$1B48
+  [$A2 $10]
+  r=fname
+  [$A4 r+1 $20 _StrNam]
+  [$A9 $1B
+   $48
+   $A9 $47
+   $48
+   $A9 $27
+   $8D $352
+   $A9 $00
+   $8D $358
+   $8D $359
+   $A9 $04
+   $8D $35A
+   $4C $E456]
+RETURN
+
+PROC Main()
+  Launch()
+RETURN

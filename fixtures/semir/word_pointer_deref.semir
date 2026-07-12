@@ -1,0 +1,14 @@
+program modules=1
+  module #0 items=5
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Card POINTER p#74/scope1:Var:Card POINTER scalar
+    decl Card out#75/scope1:Var:Card scalar
+    routine PROC Main#76/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign p:Card POINTER:facts=w2,ptr,to=Card,pointee_w2 = $4000:Card:Value:eval4:facts=w2,Unsigned
+        assign p:Card POINTER:LValue:eval5:facts=w2,ptr,to=Card,pointee_w2^:Card:facts=w2,Unsigned = $1234:Card:Value:eval6:facts=w2,Unsigned
+        assign out:Card:facts=w2,Unsigned = p:Card POINTER:LValue:eval7:facts=w2,ptr,to=Card,pointee_w2^:Card:facts=w2,Unsigned:Card:LValue:eval8:facts=w2,Unsigned
+        return

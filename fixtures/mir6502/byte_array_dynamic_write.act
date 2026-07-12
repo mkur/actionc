@@ -1,0 +1,7 @@
+BYTE ARRAY data(4)
+BYTE i
+
+PROC Main()
+  i = 2
+  data(i) = 7
+RETURN

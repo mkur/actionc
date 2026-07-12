@@ -1,0 +1,5 @@
+BYTE b=[10]
+CARD c=[$1234]
+
+PROC Main()
+RETURN

@@ -1,0 +1,10 @@
+file_size: 2361
+segments: 2
+seg 00: $3000-$392C len  2349 header_off     2 data_off     6
+        first: 00 4C 04 30 8D 00 30 AD 00 30 C9 41 B0 03 4C 24
+        last : 6C 37 85 A3 AC 6B 37 A2 39 A9 10 20 09 37 60 60
+seg 01: $02E2-$02E3 len     2 header_off  2355 data_off  2359
+        overlaps/touches previous load range ending at $392C
+        RUNAD  $02E2 = $376D
+        first: 6D 37
+        last : 6D 37

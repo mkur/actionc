@@ -1,0 +1,10 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE alias=$D000, init=[1], scratch
+CARD word=[0], vector
+BYTE ARRAY table(4)=[1 2 3 4], text(0)="OK"
+
+PROC Main()
+  vector = word
+RETURN

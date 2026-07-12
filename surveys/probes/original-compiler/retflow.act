@@ -1,0 +1,59 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE g, h
+CARD w
+
+BYTE FUNC Pick(BYTE x)
+  IF x = 0 THEN
+    RETURN(1)
+  FI
+
+  IF x = 1 THEN
+    RETURN(2)
+  ELSE
+    RETURN(3)
+  FI
+
+RETURN(4)
+
+CARD FUNC PickCard(BYTE x)
+  IF x THEN
+    RETURN($1234)
+  FI
+
+RETURN($5678)
+
+PROC EarlyProc(BYTE x)
+  IF x THEN
+    g = $11
+    RETURN
+  FI
+
+  g = $22
+RETURN
+
+BYTE FUNC LoopReturn(BYTE limit)
+  BYTE i
+
+  i = 0
+  WHILE i < limit
+  DO
+    IF i = 2 THEN
+      RETURN(i)
+    FI
+    i ==+ 1
+  OD
+
+RETURN(255)
+
+PROC Main()
+  g = Pick(0)
+  h = Pick(2)
+  w = PickCard(1)
+  EarlyProc(1)
+  h = LoopReturn(4)
+RETURN

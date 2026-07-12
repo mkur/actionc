@@ -1,0 +1,11 @@
+SET $491=$3000
+SET $E=$3000
+
+CARD vec=512
+
+PROC Target()
+RETURN
+
+PROC Main()
+  vec=Target
+RETURN

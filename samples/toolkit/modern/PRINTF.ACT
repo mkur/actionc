@@ -1,0 +1,222 @@
+;                                    
+;
+;PRINTF.ACT - an highly advanced im-
+;provement of the Library PrintF
+;
+;Copyright (c) 1984 OSS,Inc. and Mark Rose
+;                                    
+
+;************************************
+;Internal ToLower function
+;************************************
+
+BYTE FUNC PF_ToLower(BYTE c)
+
+  IF (c>='A) AND (c<='Z) THEN
+    c==+32
+  FI
+RETURN(c)
+
+;************************************
+;Internal IsDigit function
+;************************************
+
+BYTE FUNC PF_IsDigit( BYTE c )
+
+  IF (c>='0) AND (c<='9) THEN
+    RETURN(1)
+  FI
+RETURN(0)
+
+;************************************
+;************************************
+ 
+CARD FUNC PF_Nbase(CARD n,base  BYTE ARRAY s)
+
+  BYTE length,ptr,d
+
+  IF n=0 THEN
+    s(1)='0
+    s(0)=1
+    RETURN(s)
+  FI
+  length=0
+  ptr=17
+  WHILE n>0
+    DO
+    d=n MOD base
+    IF d<10 THEN
+      d==+'0
+    ELSE
+      d==+55
+    FI
+    s(ptr)=d
+    ptr==-1
+    length==+1
+    n=n/base
+    OD
+  s(ptr)=length
+RETURN(s+ptr)
+
+;************************************
+;PrintF to a channel
+;************************************
+
+PROC PrintFD(BYTE chan  BYTE ARRAY control
+             CARD c1,c2,c3,c4,c5,c6)
+  BYTE cptr,c,rjustify,
+       zerofill,k,slen,width
+
+  INT prcisn
+
+  BYTE POINTER ps
+
+  CARD POINTER args
+  INT POINTER sargs
+
+  BYTE ARRAY s(18)
+
+  args=@c1
+  sargs=INT POINTER(@c1)
+  cptr=1
+  DO
+    IF cptr>control(0) THEN
+      EXIT
+    FI
+    c=control(cptr)
+    cptr==+1
+    IF c='% THEN     ; format character found
+      ; check for options
+      c=control(cptr)
+      IF c='- THEN
+        rjustify=0
+        cptr==+1
+        c=control(cptr)
+      ELSE
+        rjustify=1
+      FI
+      IF c='0 THEN
+        zerofill=1
+      ELSE
+        zerofill=0
+      FI
+      width=0
+      DO
+        c=PF_ToLower(control(cptr))
+        cptr==+1
+        IF PF_IsDigit(c)=0 THEN
+          EXIT
+        FI
+        width=10*width+c-'0
+      OD
+      IF c#'. THEN
+        prcisn=32767
+      ELSE
+        prcisn=0
+        DO
+          c=PF_ToLower(control(cptr))
+          cptr==+1
+          IF PF_IsDigit(c)=0 THEN
+            EXIT
+          FI
+          prcisn=10*prcisn+c-'0
+        OD
+      FI
+      ; process conversion chars
+      c=PF_ToLower(c)
+      IF (c='d) OR (c='i) THEN
+        IF sargs^<0 THEN
+          ps=PF_Nbase(-sargs^,10,s)
+          args==+2
+          sargs==+2
+          ps==-1
+          ps(0)=ps(1)+1
+          ps(1)='-
+        ELSE
+          ps=PF_Nbase(args^,10,s)
+          args==+2
+          sargs==+2
+        FI
+      ELSEIF c='u THEN
+        ps=PF_Nbase(args^,10,s)
+        args==+2
+        sargs==+2
+      ELSEIF (c='x) OR (c='h) THEN
+        ps=PF_Nbase(args^,16,s)
+        args==+2
+        sargs==+2
+      ELSEIF c='o THEN
+        ps=PF_Nbase(args^,8,s)
+        args==+2
+        sargs==+2
+      ELSEIF c='b THEN
+        ps=PF_Nbase(args^,2,s)
+        args==+2
+        sargs==+2
+      ELSEIF c='s THEN
+        ps=args^
+        args==+2
+        sargs==+2
+      ELSEIF c='e THEN
+        s(0)=0
+        ps=s
+        PutDE(chan)
+      ELSE
+        IF c='c THEN
+          c=args^
+          args==+2
+          sargs==+2
+        FI
+        s(1)=c
+        s(0)=1
+        ps=s
+      FI
+      ; now do filling and print result
+      slen=ps(0)
+      IF slen>prcisn THEN
+        slen=prcisn
+      FI
+      IF rjustify=1 THEN
+        WHILE width>slen
+          DO
+          width==-1
+          IF zerofill=1 THEN
+            PutD(chan,'0)
+          ELSE
+            PutD(chan,' )
+          FI
+          OD
+      FI
+      k=1
+      WHILE (k<=ps(0)) AND (k<=prcisn)
+        DO
+        PutD(chan,ps(k))
+        k==+1
+        OD
+      IF rjustify=0 THEN
+        WHILE width>slen
+          DO
+          PutD(chan,' )
+          width==-1
+          OD
+      FI
+    ELSE     ; not a format string
+    ; just put out a char
+    PutD(chan,c)
+    FI
+  OD
+RETURN
+
+;************************************
+;PrintF to default channel
+;************************************
+
+PROC PrintF(BYTE ARRAY control
+            CARD c1,c2,c3,c4,c5,c6)
+
+  PrintFD(device,control,c1,c2,c3,c4,c5,c6)
+RETURN
+
+; End of PRINTF.ACT 
+
+MODULE

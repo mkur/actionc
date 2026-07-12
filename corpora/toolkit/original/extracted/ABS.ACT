@@ -1,0 +1,20 @@
+;This Toolkit disk is version 3.
+ 
+;\{INV:                                    }
+;
+;ABS.ACT - function to return the
+;absolute value of an INTeger variable.
+;
+;   Copyright (c) 1984 by OSS,Inc.
+;\{INV:                                    }
+
+INT FUNC Abs(INT n)
+
+  IF n<0 THEN
+    RETURN(-n)
+  FI
+RETURN(n)
+
+;\{INV: End of ABS.ACT }
+
+MODULE

@@ -1,0 +1,12 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE b
+CARD w
+INT i
+
+PROC Main()
+  b = -1
+  w = CARD(+b)
+  i = -INT(w)
+RETURN

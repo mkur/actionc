@@ -1,0 +1,6 @@
+; Original compiler error 5: SET directive syntax error.
+
+SET $491
+
+PROC Main()
+RETURN

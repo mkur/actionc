@@ -1,0 +1,28 @@
+
+INCLUDE "D:TURTLE.ACT"
+
+PROC TurtleDemo()
+
+  BYTE i=[0]
+
+  Graphics(7)
+  PrintE("This is a demo of the Turtle Graphics")
+  PrintE("routines on the ACTION! Toolkit disk")
+  DO
+    SetTurtle(100,55,100)
+    FOR i=0 TO 100
+      DO  
+      color=(i MOD 3)+1
+      Forward(50)
+      Left(100)
+      OD
+    SetTurtle(85,42,100)
+    FOR i=0 TO 200
+      DO  
+      color=(i MOD 3)+1
+      Forward(20)
+      Left(100)
+      OD
+  OD
+RETURN
+

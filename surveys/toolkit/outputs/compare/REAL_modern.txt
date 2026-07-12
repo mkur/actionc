@@ -1,0 +1,1561 @@
+source: samples/toolkit/modern/REAL.ACT
+
+== original:samples/toolkit/survey/outputs/vm/REAL.COM ==
+load bytes: 1404  code bytes: 1392  code origin: $0E08
+segments:
+  00: $0E08-$1377 len  1392 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1398 data_off  1402
+      RUNAD $02E2 = $1362
+opcode counts:
+  $00 BRK      231
+  $05 ORA      1
+  $0D ORA      1
+  $0E .BYTE    1
+  $14 .BYTE    1
+  $18 CLC      9
+  $20 JSR      64
+  $25 .BYTE    1
+  $26 .BYTE    1
+  $29 AND      2
+  $2F .BYTE    1
+  $38 SEC      2
+  $49 EOR      1
+  $4C JMP      25
+  $55 .BYTE    1
+  $60 RTS      21
+  $65 .BYTE    1
+  $65 ADC      2
+  $69 ADC      13
+  $6D ADC      3
+  $80 .BYTE    3
+  $84 .BYTE    1
+  $84 STY      1
+  $85 STA      69
+  $88 .BYTE    1
+  $88 DEY      4
+  $8B .BYTE    1
+  $8C STY      2
+  $8D STA      10
+  $8E STX      4
+  $91 STA      10
+  $A0 LDY      25
+  $A2 LDX      13
+  $A5 .BYTE    1
+  $A5 LDA      8
+  $A9 LDA      30
+  $AC LDY      18
+  $AD LDA      76
+  $AE LDX      22
+  $B0 BCS      1
+  $B1 LDA      10
+  $B3 .BYTE    1
+  $B6 .BYTE    1
+  $C8 INY      2
+  $CD CMP      1
+  $D0 BNE      2
+  $E2 .BYTE    1
+  $E5 .BYTE    2
+  $E9 SBC      2
+  $EE INC      4
+  $F0 BEQ      1
+
+== modern ==
+load bytes: 1330  code bytes: 1318  code origin: $0E08
+segments:
+  00: $0E08-$132D len  1318 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1324 data_off  1328
+      RUNAD $02E2 = $131B
+opcode counts:
+  $00 BRK      231
+  $04 .BYTE    1
+  $05 ORA      1
+  $0B .BYTE    1
+  $14 .BYTE    1
+  $18 CLC      4
+  $20 .BYTE    1
+  $20 JSR      47
+  $29 AND      2
+  $38 SEC      2
+  $3E .BYTE    1
+  $43 .BYTE    1
+  $4C JMP      41
+  $4E .BYTE    1
+  $55 .BYTE    1
+  $60 RTS      4
+  $65 ADC      2
+  $69 ADC      4
+  $6D ADC      2
+  $70 .BYTE    1
+  $76 .BYTE    1
+  $7C .BYTE    1
+  $80 .BYTE    2
+  $82 .BYTE    1
+  $84 STY      1
+  $85 STA      68
+  $88 DEY      4
+  $8C STY      2
+  $8D STA      8
+  $8E STX      4
+  $91 STA      10
+  $98 TYA      1
+  $A0 LDY      26
+  $A2 LDX      13
+  $A5 LDA      7
+  $A9 LDA      28
+  $AA .BYTE    1
+  $AA TAX      3
+  $AC LDY      19
+  $AD LDA      73
+  $AE LDX      19
+  $B0 BCS      1
+  $B1 LDA      10
+  $C1 .BYTE    1
+  $C5 .BYTE    1
+  $C9 CMP      1
+  $CD CMP      1
+  $D0 BNE      3
+  $E9 SBC      2
+  $EE INC      4
+  $F1 .BYTE    1
+  $F2 .BYTE    1
+
+== map: modern ==
+origin $0E08  run $131B  routines 21  symbols 53  skipped 0
+routines:
+  Junk                     $0E0A-$0E0A len     1
+  RealAssign               $0E0B-$0E75 len   107
+  IntToReal                $0E76-$0E9E len    41
+  RealToInt                $0E9F-$0EC4 len    38
+  RealSub                  $0EC5-$0F03 len    63
+  RealAdd                  $0F04-$0F42 len    63
+  RealMult                 $0F43-$0F81 len    63
+  RealDiv                  $0F82-$0FC0 len    63
+  StrR                     $0FC1-$1054 len   148
+  ValR                     $1055-$10F1 len   157
+  Exp                      $10F2-$111F len    46
+  Exp10                    $1120-$114D len    46
+  Ln                       $114E-$117B len    46
+  Log10                    $117C-$11A9 len    46
+  Power                    $11AA-$11F0 len    71
+  PrintRD                  $11F1-$1229 len    57
+  PrintR                   $122A-$123D len    20
+  PrintRDE                 $123E-$125B len    30
+  PrintRE                  $125C-$126F len    20
+  InputRD                  $1270-$1318 len   169
+  InputR                   $1319-$132C len    20
+storage symbols:
+  global Storage FR0INT $00D4-$00D5
+  global Storage FR0 $00D4-$00D9
+  global Storage FR1 $00E0-$00E5
+  global Storage CIX $00F2-$00F2
+  global Storage INBUFF $00F3-$00F4
+  global Storage LBUFF $0E08-$0E08
+  routine RealAssign Parameter A $0E0B-$0E0C
+  routine RealAssign Parameter B $0E0D-$0E0E
+  routine IntToReal Parameter I $0E76-$0E77
+  routine IntToReal Parameter R $0E78-$0E79
+  routine RealToInt Parameter R $0E9F-$0EA0
+  routine RealSub Parameter A $0EC5-$0EC6
+  routine RealSub Parameter B $0EC7-$0EC8
+  routine RealSub Parameter C $0EC9-$0ECA
+  routine RealAdd Parameter A $0F04-$0F05
+  routine RealAdd Parameter B $0F06-$0F07
+  routine RealAdd Parameter C $0F08-$0F09
+  routine RealMult Parameter A $0F43-$0F44
+  routine RealMult Parameter B $0F45-$0F46
+  routine RealMult Parameter C $0F47-$0F48
+  routine RealDiv Parameter A $0F82-$0F83
+  routine RealDiv Parameter B $0F84-$0F85
+  routine RealDiv Parameter C $0F86-$0F87
+  routine StrR Parameter R $0FC1-$0FC2
+  routine StrR Parameter S $0FC3-$0FC3
+  routine StrR Local I $0FC5-$0FC5
+  routine StrR Local C $0FC6-$0FC6
+  routine StrR Local PTR $0FC7-$0FC8
+  routine ValR Parameter S $1055-$1055
+  routine ValR Parameter R $1057-$1058
+  routine ValR Local I $1059-$1059
+  routine Exp Parameter A $10F2-$10F3
+  ... 21 more
+trusted effects:
+  Junk                     clobbers A,X,Y
+  RealAssign               clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AC,$AD,$AE,$AF; writes unknown-abs
+
+== routines: original:samples/toolkit/survey/outputs/vm/REAL.COM vs modern ==
+  Junk                     len 6 -> 1 (-5)  addr $0E08 -> $0E0A
+    Junk+$0000 #0000
+      original : $0E08 80       .BYTE $80
+      generated: $0E0A 60       RTS
+      orig owner: LBuff $0E08
+      source   : Statement return samples/toolkit/modern/REAL.ACT:1:1 | ; | source 0..0 code $0E0A-$0E0A
+    Junk+$0001 #0001
+      original : $0E09 05 4C    ORA $4C
+      generated: <missing>
+    Junk+$0003 #0002
+      original : $0E0B 0D 0E 60 ORA $600E
+      generated: <missing>
+  RealAssign               len 125 -> 107 (-18)  addr $0E0E -> $0E0B
+    RealAssign+$0004 #0004
+      original : $0E12 4C 15 0E JMP $0E15
+      generated: $0E0F 4C 12 0E JMP $0E12
+      orig owner: RealAssign $0E12
+      source   : Routine RealAssign samples/toolkit/modern/REAL.ACT:53:1 | PROC RealAssign(REAL POINTER a,b) | source 987..1064 code $0E0B-$0E75
+    RealAssign+$000A #0006
+      original : $0E18 0E 0E 03 .BYTE $0E,$0E,$03
+      generated: $0E15 0B 0E 03 .BYTE $0B,$0E,$03
+      source   : Routine RealAssign samples/toolkit/modern/REAL.ACT:53:1 | PROC RealAssign(REAL POINTER a,b) | source 987..1064 code $0E0B-$0E75
+    RealAssign+$000D #0007
+      original : $0E1B AD 10 0E LDA $0E10 ; b $0E10
+      generated: $0E18 AD 0D 0E LDA $0E0D
+      orig operand: b $0E10
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:55:3 | b.r1=a.r1 | source 1024..1033 code $0E18-$0E36
+    RealAssign+$0012 #0009
+      original : $0E20 AD 11 0E LDA $0E11 ; b+1 $0E11
+      generated: $0E1D AD 0E 0E LDA $0E0E
+      orig operand: b+1 $0E11
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:55:3 | b.r1=a.r1 | source 1024..1033 code $0E18-$0E36
+    RealAssign+$0017 #0011
+      original : $0E25 AD 0E 0E LDA $0E0E ; a $0E0E
+      generated: $0E22 AD 0B 0E LDA $0E0B
+      orig operand: a $0E0E
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:55:3 | b.r1=a.r1 | source 1024..1033 code $0E18-$0E36
+    RealAssign+$001C #0013
+      original : $0E2A AD 0F 0E LDA $0E0F ; a+1 $0E0F
+      generated: $0E27 AD 0C 0E LDA $0E0C
+      orig operand: a+1 $0E0F
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:55:3 | b.r1=a.r1 | source 1024..1033 code $0E18-$0E36
+    RealAssign+$002C #0021
+      original : $0E3A 18       CLC
+      generated: $0E37 AD 0D 0E LDA $0E0D
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$002D #0022
+      original : $0E3B AD 10 0E LDA $0E10 ; b $0E10
+      generated: $0E3A 85 AE    STA $AE
+      orig operand: b $0E10
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$0030 #0023
+      original : $0E3E 69 02    ADC #$02
+      generated: $0E3C AD 0E 0E LDA $0E0E
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$0032 #0024
+      original : $0E40 85 AE    STA $AE
+      generated: $0E3F 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$0034 #0025
+      original : $0E42 AD 11 0E LDA $0E11 ; b+1 $0E11
+      generated: $0E41 AD 0B 0E LDA $0E0B
+      orig operand: b+1 $0E11
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$0037 #0026
+      original : $0E45 69 00    ADC #$00
+      generated: $0E44 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$0039 #0027
+      original : $0E47 85 AF    STA $AF
+      generated: $0E46 AD 0C 0E LDA $0E0C
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$003B #0028
+      original : $0E49 18       CLC
+      generated: $0E49 85 AD    STA $AD
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$003C #0029
+      original : $0E4A AD 0E 0E LDA $0E0E ; a $0E0E
+      generated: $0E4B A0 03    LDY #$03
+      orig operand: a $0E0E
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$003F #0030
+      original : $0E4D 69 02    ADC #$02
+      generated: $0E4D B1 AC    LDA ($AC),Y
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$0041 #0031
+      original : $0E4F 85 AC    STA $AC
+      generated: $0E4F 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$0043 #0032
+      original : $0E51 AD 0F 0E LDA $0E0F ; a+1 $0E0F
+      generated: $0E51 88       DEY
+      orig operand: a+1 $0E0F
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$0046 #0033
+      original : $0E54 69 00    ADC #$00
+      generated: $0E52 B1 AC    LDA ($AC),Y
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$0048 #0034
+      original : $0E56 85 AD    STA $AD
+      generated: $0E54 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:56:3 | b.r2=a.r2 | source 1036..1045 code $0E37-$0E55
+    RealAssign+$004A #0035
+      original : $0E58 C8       INY
+      generated: $0E56 AD 0D 0E LDA $0E0D
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:57:3 | b.r3=a.r3 | source 1048..1057 code $0E56-$0E74
+    RealAssign+$004B #0036
+      original : $0E59 B1 AC    LDA ($AC),Y
+      generated: $0E59 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:57:3 | b.r3=a.r3 | source 1048..1057 code $0E56-$0E74
+    RealAssign+$004D #0037
+      original : $0E5B 91 AE    STA ($AE),Y
+      generated: $0E5B AD 0E 0E LDA $0E0E
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:57:3 | b.r3=a.r3 | source 1048..1057 code $0E56-$0E74
+    RealAssign+$004F #0038
+      original : $0E5D 88       DEY
+      generated: $0E5E 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:57:3 | b.r3=a.r3 | source 1048..1057 code $0E56-$0E74
+    RealAssign+$0050 #0039
+      original : $0E5E B1 AC    LDA ($AC),Y
+      generated: $0E60 AD 0B 0E LDA $0E0B
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:57:3 | b.r3=a.r3 | source 1048..1057 code $0E56-$0E74
+    RealAssign+$0052 #0040
+      original : $0E60 91 AE    STA ($AE),Y
+      generated: $0E63 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:57:3 | b.r3=a.r3 | source 1048..1057 code $0E56-$0E74
+    RealAssign+$0054 #0041
+      original : $0E62 18       CLC
+      generated: $0E65 AD 0C 0E LDA $0E0C
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:57:3 | b.r3=a.r3 | source 1048..1057 code $0E56-$0E74
+    RealAssign+$0055 #0042
+      original : $0E63 AD 10 0E LDA $0E10 ; b $0E10
+      generated: $0E68 85 AD    STA $AD
+      orig operand: b $0E10
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:57:3 | b.r3=a.r3 | source 1048..1057 code $0E56-$0E74
+    RealAssign+$0058 #0043
+      original : $0E66 69 04    ADC #$04
+      generated: $0E6A A0 05    LDY #$05
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:57:3 | b.r3=a.r3 | source 1048..1057 code $0E56-$0E74
+    RealAssign+$005A #0044
+      original : $0E68 85 AE    STA $AE
+      generated: $0E6C B1 AC    LDA ($AC),Y
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:57:3 | b.r3=a.r3 | source 1048..1057 code $0E56-$0E74
+  IntToReal                len 52 -> 41 (-11)  addr $0E8B -> $0E76
+    IntToReal+$0004 #0004
+      original : $0E8F 4C 92 0E JMP $0E92
+      generated: $0E7A 4C 7D 0E JMP $0E7D
+      orig owner: IntToReal $0E8F
+      source   : Routine IntToReal samples/toolkit/modern/REAL.ACT:64:1 | PROC IntToReal(INT i  REAL POINTER r) | source 1169..1257 code $0E76-$0E9E
+    IntToReal+$000A #0006
+      original : $0E95 8B 0E 03 .BYTE $8B,$0E,$03
+      generated: $0E80 76 0E 03 .BYTE $76,$0E,$03
+      source   : Routine IntToReal samples/toolkit/modern/REAL.ACT:64:1 | PROC IntToReal(INT i  REAL POINTER r) | source 1169..1257 code $0E76-$0E9E
+    IntToReal+$000D #0007
+      original : $0E98 AD 8C 0E LDA $0E8C ; i+1 $0E8C
+      generated: $0E83 AD 77 0E LDA $0E77
+      orig operand: i+1 $0E8C
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:66:3 | Fr0Int=i | source 1210..1218 code $0E83-$0E8C
+    IntToReal+$0012 #0009
+      original : $0E9D AD 8B 0E LDA $0E8B ; i $0E8B
+      generated: $0E88 AD 76 0E LDA $0E76
+      orig operand: i $0E8B
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:66:3 | Fr0Int=i | source 1210..1218 code $0E83-$0E8C
+    IntToReal+$0017 #0011
+      original : $0EA2 A9 D9    LDA #$D9
+      generated: $0E8D 20 AA D9 JSR $D9AA
+      source   : Statement call samples/toolkit/modern/REAL.ACT:67:3 | ROM_IFP() | source 1221..1230 code $0E8D-$0E8F
+    IntToReal+$0019 #0012
+      original : $0EA4 8D 0C 0E STA $0E0C
+      generated: $0E90 AD 79 0E LDA $0E79
+      source   : Routine IntToReal samples/toolkit/modern/REAL.ACT:64:1 | PROC IntToReal(INT i  REAL POINTER r) | source 1169..1257 code $0E76-$0E9E
+    IntToReal+$001C #0013
+      original : $0EA7 A9 AA    LDA #$AA
+      generated: $0E93 85 A3    STA $A3
+      source   : Routine IntToReal samples/toolkit/modern/REAL.ACT:64:1 | PROC IntToReal(INT i  REAL POINTER r) | source 1169..1257 code $0E76-$0E9E
+    IntToReal+$001E #0014
+      original : $0EA9 8D 0B 0E STA $0E0B
+      generated: $0E95 AC 78 0E LDY $0E78
+      source   : Routine IntToReal samples/toolkit/modern/REAL.ACT:64:1 | PROC IntToReal(INT i  REAL POINTER r) | source 1169..1257 code $0E76-$0E9E
+    IntToReal+$0021 #0015
+      original : $0EAC 20 0A 0E JSR $0E0A ; Junk $0E0A
+      generated: $0E98 A2 00    LDX #$00
+      orig operand: Junk $0E0A
+      source   : Routine IntToReal samples/toolkit/modern/REAL.ACT:64:1 | PROC IntToReal(INT i  REAL POINTER r) | source 1169..1257 code $0E76-$0E9E
+    IntToReal+$0024 #0016
+      original : $0EAF AD 8E 0E LDA $0E8E ; r+1 $0E8E
+      generated: $0E9A A9 D4    LDA #$D4
+      orig operand: r+1 $0E8E
+      source   : Routine IntToReal samples/toolkit/modern/REAL.ACT:64:1 | PROC IntToReal(INT i  REAL POINTER r) | source 1169..1257 code $0E76-$0E9E
+    IntToReal+$0027 #0017
+      original : $0EB2 85 A3    STA $A3
+      generated: $0E9C 4C 0F 0E JMP $0E0F
+      source   : Routine IntToReal samples/toolkit/modern/REAL.ACT:64:1 | PROC IntToReal(INT i  REAL POINTER r) | source 1169..1257 code $0E76-$0E9E
+    IntToReal+$0029 #0018
+      original : $0EB4 AC 8D 0E LDY $0E8D ; r $0E8D
+      generated: <missing>
+      orig operand: r $0E8D
+    IntToReal+$002C #0019
+      original : $0EB7 A2 00    LDX #$00
+      generated: <missing>
+    IntToReal+$002E #0020
+      original : $0EB9 A9 D4    LDA #$D4
+      generated: <missing>
+    IntToReal+$0030 #0021
+      original : $0EBB 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: <missing>
+      orig operand: RealAssign $0E12
+    IntToReal+$0033 #0022
+      original : $0EBE 60       RTS
+      generated: <missing>
+  RealToInt                len 38 -> 38 (+0)  addr $0EBF -> $0E9F
+    RealToInt+$0002 #0002
+      original : $0EC1 4C C4 0E JMP $0EC4
+      generated: $0EA1 4C A4 0E JMP $0EA4
+      orig owner: RealToInt $0EC1
+      source   : Routine RealToInt samples/toolkit/modern/REAL.ACT:75:1 | INT FUNC RealToInt(REAL POINTER r) | source 1362..1444 code $0E9F-$0EC4
+    RealToInt+$0005 #0003
+      original : $0EC4 8E C0 0E STX $0EC0 ; r+1 $0EC0
+      generated: $0EA4 8E A0 0E STX $0EA0
+      orig operand: r+1 $0EC0
+      source   : Routine RealToInt samples/toolkit/modern/REAL.ACT:75:1 | INT FUNC RealToInt(REAL POINTER r) | source 1362..1444 code $0E9F-$0EC4
+    RealToInt+$0008 #0004
+      original : $0EC7 8D BF 0E STA $0EBF ; r $0EBF
+      generated: $0EA7 8D 9F 0E STA $0E9F
+      orig operand: r $0EBF
+      source   : Routine RealToInt samples/toolkit/modern/REAL.ACT:75:1 | INT FUNC RealToInt(REAL POINTER r) | source 1362..1444 code $0E9F-$0EC4
+    RealToInt+$0011 #0008
+      original : $0ED0 AE C0 0E LDX $0EC0 ; r+1 $0EC0
+      generated: $0EB0 AE A0 0E LDX $0EA0
+      orig operand: r+1 $0EC0
+      source   : Statement call samples/toolkit/modern/REAL.ACT:77:3 | RealAssign(r,Fr0) | source 1400..1417 code $0EAA-$0EB8
+    RealToInt+$0014 #0009
+      original : $0ED3 AD BF 0E LDA $0EBF ; r $0EBF
+      generated: $0EB3 AD 9F 0E LDA $0E9F
+      orig operand: r $0EBF
+      source   : Statement call samples/toolkit/modern/REAL.ACT:77:3 | RealAssign(r,Fr0) | source 1400..1417 code $0EAA-$0EB8
+    RealToInt+$0017 #0010
+      original : $0ED6 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0EB6 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:77:3 | RealAssign(r,Fr0) | source 1400..1417 code $0EAA-$0EB8
+  RealSub                  len 64 -> 63 (-1)  addr $0EE5 -> $0EC5
+    RealSub+$0006 #0006
+      original : $0EEB 4C EE 0E JMP $0EEE
+      generated: $0ECB 4C CE 0E JMP $0ECE
+      orig owner: RealSub $0EEB
+      source   : Routine RealSub samples/toolkit/modern/REAL.ACT:85:1 | PROC RealSub(REAL POINTER a,b,c) | source 1540..1653 code $0EC5-$0F03
+    RealSub+$000C #0008
+      original : $0EF1 E5 0E 05 .BYTE $E5,$0E,$05
+      generated: $0ED1 C5 0E 05 .BYTE $C5,$0E,$05
+      source   : Routine RealSub samples/toolkit/modern/REAL.ACT:85:1 | PROC RealSub(REAL POINTER a,b,c) | source 1540..1653 code $0EC5-$0F03
+    RealSub+$0015 #0012
+      original : $0EFA AE E6 0E LDX $0EE6 ; a+1 $0EE6
+      generated: $0EDA AE C6 0E LDX $0EC6
+      orig operand: a+1 $0EE6
+      source   : Statement call samples/toolkit/modern/REAL.ACT:87:3 | RealAssign(a,Fr0) | source 1576..1593 code $0ED4-$0EE2
+    RealSub+$0018 #0013
+      original : $0EFD AD E5 0E LDA $0EE5 ; a $0EE5
+      generated: $0EDD AD C5 0E LDA $0EC5
+      orig operand: a $0EE5
+      source   : Statement call samples/toolkit/modern/REAL.ACT:87:3 | RealAssign(a,Fr0) | source 1576..1593 code $0ED4-$0EE2
+    RealSub+$001B #0014
+      original : $0F00 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0EE0 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:87:3 | RealAssign(a,Fr0) | source 1576..1593 code $0ED4-$0EE2
+    RealSub+$0024 #0018
+      original : $0F09 AE E8 0E LDX $0EE8 ; b+1 $0EE8
+      generated: $0EE9 AE C8 0E LDX $0EC8
+      orig operand: b+1 $0EE8
+      source   : Statement call samples/toolkit/modern/REAL.ACT:88:3 | RealAssign(b,Fr1) | source 1596..1613 code $0EE3-$0EF1
+    RealSub+$0027 #0019
+      original : $0F0C AD E7 0E LDA $0EE7 ; b $0EE7
+      generated: $0EEC AD C7 0E LDA $0EC7
+      orig operand: b $0EE7
+      source   : Statement call samples/toolkit/modern/REAL.ACT:88:3 | RealAssign(b,Fr1) | source 1596..1613 code $0EE3-$0EF1
+    RealSub+$002A #0020
+      original : $0F0F 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0EEF 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:88:3 | RealAssign(b,Fr1) | source 1596..1613 code $0EE3-$0EF1
+    RealSub+$0030 #0022
+      original : $0F15 AD EA 0E LDA $0EEA ; c+1 $0EEA
+      generated: $0EF5 AD CA 0E LDA $0ECA
+      orig operand: c+1 $0EEA
+      source   : Routine RealSub samples/toolkit/modern/REAL.ACT:85:1 | PROC RealSub(REAL POINTER a,b,c) | source 1540..1653 code $0EC5-$0F03
+    RealSub+$0035 #0024
+      original : $0F1A AC E9 0E LDY $0EE9 ; c $0EE9
+      generated: $0EFA AC C9 0E LDY $0EC9
+      orig operand: c $0EE9
+      source   : Routine RealSub samples/toolkit/modern/REAL.ACT:85:1 | PROC RealSub(REAL POINTER a,b,c) | source 1540..1653 code $0EC5-$0F03
+    RealSub+$003C #0027
+      original : $0F21 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0F01 4C 0F 0E JMP $0E0F
+      orig operand: RealAssign $0E12
+      source   : Routine RealSub samples/toolkit/modern/REAL.ACT:85:1 | PROC RealSub(REAL POINTER a,b,c) | source 1540..1653 code $0EC5-$0F03
+    RealSub+$003F #0028
+      original : $0F24 60       RTS
+      generated: <missing>
+  RealAdd                  len 64 -> 63 (-1)  addr $0F25 -> $0F04
+    RealAdd+$0006 #0006
+      original : $0F2B 4C 2E 0F JMP $0F2E
+      generated: $0F0A 4C 0D 0F JMP $0F0D
+      orig owner: RealAdd $0F2B
+      source   : Routine RealAdd samples/toolkit/modern/REAL.ACT:97:1 | PROC RealAdd(REAL POINTER a,b,c) | source 1744..1857 code $0F04-$0F42
+    RealAdd+$000C #0008
+      original : $0F31 25 0F 05 .BYTE $25,$0F,$05
+      generated: $0F10 04 0F 05 .BYTE $04,$0F,$05
+      source   : Routine RealAdd samples/toolkit/modern/REAL.ACT:97:1 | PROC RealAdd(REAL POINTER a,b,c) | source 1744..1857 code $0F04-$0F42
+    RealAdd+$0015 #0012
+      original : $0F3A AE 26 0F LDX $0F26 ; a+1 $0F26
+      generated: $0F19 AE 05 0F LDX $0F05
+      orig operand: a+1 $0F26
+      source   : Statement call samples/toolkit/modern/REAL.ACT:99:3 | RealAssign(a,Fr0) | source 1780..1797 code $0F13-$0F21
+    RealAdd+$0018 #0013
+      original : $0F3D AD 25 0F LDA $0F25 ; a $0F25
+      generated: $0F1C AD 04 0F LDA $0F04
+      orig operand: a $0F25
+      source   : Statement call samples/toolkit/modern/REAL.ACT:99:3 | RealAssign(a,Fr0) | source 1780..1797 code $0F13-$0F21
+    RealAdd+$001B #0014
+      original : $0F40 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0F1F 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:99:3 | RealAssign(a,Fr0) | source 1780..1797 code $0F13-$0F21
+    RealAdd+$0024 #0018
+      original : $0F49 AE 28 0F LDX $0F28 ; b+1 $0F28
+      generated: $0F28 AE 07 0F LDX $0F07
+      orig operand: b+1 $0F28
+      source   : Statement call samples/toolkit/modern/REAL.ACT:100:3 | RealAssign(b,Fr1) | source 1800..1817 code $0F22-$0F30
+    RealAdd+$0027 #0019
+      original : $0F4C AD 27 0F LDA $0F27 ; b $0F27
+      generated: $0F2B AD 06 0F LDA $0F06
+      orig operand: b $0F27
+      source   : Statement call samples/toolkit/modern/REAL.ACT:100:3 | RealAssign(b,Fr1) | source 1800..1817 code $0F22-$0F30
+    RealAdd+$002A #0020
+      original : $0F4F 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0F2E 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:100:3 | RealAssign(b,Fr1) | source 1800..1817 code $0F22-$0F30
+    RealAdd+$0030 #0022
+      original : $0F55 AD 2A 0F LDA $0F2A ; c+1 $0F2A
+      generated: $0F34 AD 09 0F LDA $0F09
+      orig operand: c+1 $0F2A
+      source   : Routine RealAdd samples/toolkit/modern/REAL.ACT:97:1 | PROC RealAdd(REAL POINTER a,b,c) | source 1744..1857 code $0F04-$0F42
+    RealAdd+$0035 #0024
+      original : $0F5A AC 29 0F LDY $0F29 ; c $0F29
+      generated: $0F39 AC 08 0F LDY $0F08
+      orig operand: c $0F29
+      source   : Routine RealAdd samples/toolkit/modern/REAL.ACT:97:1 | PROC RealAdd(REAL POINTER a,b,c) | source 1744..1857 code $0F04-$0F42
+    RealAdd+$003C #0027
+      original : $0F61 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0F40 4C 0F 0E JMP $0E0F
+      orig operand: RealAssign $0E12
+      source   : Routine RealAdd samples/toolkit/modern/REAL.ACT:97:1 | PROC RealAdd(REAL POINTER a,b,c) | source 1744..1857 code $0F04-$0F42
+    RealAdd+$003F #0028
+      original : $0F64 60       RTS
+      generated: <missing>
+  RealMult                 len 64 -> 63 (-1)  addr $0F65 -> $0F43
+    RealMult+$0006 #0006
+      original : $0F6B 4C 6E 0F JMP $0F6E
+      generated: $0F49 4C 4C 0F JMP $0F4C
+      orig owner: RealMult $0F6B
+      source   : Routine RealMult samples/toolkit/modern/REAL.ACT:109:1 | PROC RealMult(REAL POINTER a,b,c) | source 1953..2068 code $0F43-$0F81
+    RealMult+$000C #0008
+      original : $0F71 65 0F 05 .BYTE $65,$0F,$05
+      generated: $0F4F 43 0F 05 .BYTE $43,$0F,$05
+      source   : Routine RealMult samples/toolkit/modern/REAL.ACT:109:1 | PROC RealMult(REAL POINTER a,b,c) | source 1953..2068 code $0F43-$0F81
+    RealMult+$0015 #0012
+      original : $0F7A AE 66 0F LDX $0F66 ; a+1 $0F66
+      generated: $0F58 AE 44 0F LDX $0F44
+      orig operand: a+1 $0F66
+      source   : Statement call samples/toolkit/modern/REAL.ACT:111:3 | RealAssign(a,Fr0) | source 1990..2007 code $0F52-$0F60
+    RealMult+$0018 #0013
+      original : $0F7D AD 65 0F LDA $0F65 ; a $0F65
+      generated: $0F5B AD 43 0F LDA $0F43
+      orig operand: a $0F65
+      source   : Statement call samples/toolkit/modern/REAL.ACT:111:3 | RealAssign(a,Fr0) | source 1990..2007 code $0F52-$0F60
+    RealMult+$001B #0014
+      original : $0F80 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0F5E 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:111:3 | RealAssign(a,Fr0) | source 1990..2007 code $0F52-$0F60
+    RealMult+$0024 #0018
+      original : $0F89 AE 68 0F LDX $0F68 ; b+1 $0F68
+      generated: $0F67 AE 46 0F LDX $0F46
+      orig operand: b+1 $0F68
+      source   : Statement call samples/toolkit/modern/REAL.ACT:112:3 | RealAssign(b,Fr1) | source 2010..2027 code $0F61-$0F6F
+    RealMult+$0027 #0019
+      original : $0F8C AD 67 0F LDA $0F67 ; b $0F67
+      generated: $0F6A AD 45 0F LDA $0F45
+      orig operand: b $0F67
+      source   : Statement call samples/toolkit/modern/REAL.ACT:112:3 | RealAssign(b,Fr1) | source 2010..2027 code $0F61-$0F6F
+    RealMult+$002A #0020
+      original : $0F8F 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0F6D 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:112:3 | RealAssign(b,Fr1) | source 2010..2027 code $0F61-$0F6F
+    RealMult+$0030 #0022
+      original : $0F95 AD 6A 0F LDA $0F6A ; c+1 $0F6A
+      generated: $0F73 AD 48 0F LDA $0F48
+      orig operand: c+1 $0F6A
+      source   : Routine RealMult samples/toolkit/modern/REAL.ACT:109:1 | PROC RealMult(REAL POINTER a,b,c) | source 1953..2068 code $0F43-$0F81
+    RealMult+$0035 #0024
+      original : $0F9A AC 69 0F LDY $0F69 ; c $0F69
+      generated: $0F78 AC 47 0F LDY $0F47
+      orig operand: c $0F69
+      source   : Routine RealMult samples/toolkit/modern/REAL.ACT:109:1 | PROC RealMult(REAL POINTER a,b,c) | source 1953..2068 code $0F43-$0F81
+    RealMult+$003C #0027
+      original : $0FA1 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0F7F 4C 0F 0E JMP $0E0F
+      orig operand: RealAssign $0E12
+      source   : Routine RealMult samples/toolkit/modern/REAL.ACT:109:1 | PROC RealMult(REAL POINTER a,b,c) | source 1953..2068 code $0F43-$0F81
+    RealMult+$003F #0028
+      original : $0FA4 60       RTS
+      generated: <missing>
+  RealDiv                  len 64 -> 63 (-1)  addr $0FA5 -> $0F82
+    RealDiv+$0006 #0006
+      original : $0FAB 4C AE 0F JMP $0FAE
+      generated: $0F88 4C 8B 0F JMP $0F8B
+      orig owner: RealDiv $0FAB
+      source   : Routine RealDiv samples/toolkit/modern/REAL.ACT:121:1 | PROC RealDiv(REAL POINTER a,b,c) | source 2162..2275 code $0F82-$0FC0
+    RealDiv+$000C #0008
+      original : $0FB1 A5 0F 05 .BYTE $A5,$0F,$05
+      generated: $0F8E 82 0F 05 .BYTE $82,$0F,$05
+      source   : Routine RealDiv samples/toolkit/modern/REAL.ACT:121:1 | PROC RealDiv(REAL POINTER a,b,c) | source 2162..2275 code $0F82-$0FC0
+    RealDiv+$0015 #0012
+      original : $0FBA AE A6 0F LDX $0FA6 ; a+1 $0FA6
+      generated: $0F97 AE 83 0F LDX $0F83
+      orig operand: a+1 $0FA6
+      source   : Statement call samples/toolkit/modern/REAL.ACT:123:3 | RealAssign(a,Fr0) | source 2198..2215 code $0F91-$0F9F
+    RealDiv+$0018 #0013
+      original : $0FBD AD A5 0F LDA $0FA5 ; a $0FA5
+      generated: $0F9A AD 82 0F LDA $0F82
+      orig operand: a $0FA5
+      source   : Statement call samples/toolkit/modern/REAL.ACT:123:3 | RealAssign(a,Fr0) | source 2198..2215 code $0F91-$0F9F
+    RealDiv+$001B #0014
+      original : $0FC0 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0F9D 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:123:3 | RealAssign(a,Fr0) | source 2198..2215 code $0F91-$0F9F
+    RealDiv+$0024 #0018
+      original : $0FC9 AE A8 0F LDX $0FA8 ; b+1 $0FA8
+      generated: $0FA6 AE 85 0F LDX $0F85
+      orig operand: b+1 $0FA8
+      source   : Statement call samples/toolkit/modern/REAL.ACT:124:3 | RealAssign(b,Fr1) | source 2218..2235 code $0FA0-$0FAE
+    RealDiv+$0027 #0019
+      original : $0FCC AD A7 0F LDA $0FA7 ; b $0FA7
+      generated: $0FA9 AD 84 0F LDA $0F84
+      orig operand: b $0FA7
+      source   : Statement call samples/toolkit/modern/REAL.ACT:124:3 | RealAssign(b,Fr1) | source 2218..2235 code $0FA0-$0FAE
+    RealDiv+$002A #0020
+      original : $0FCF 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0FAC 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:124:3 | RealAssign(b,Fr1) | source 2218..2235 code $0FA0-$0FAE
+    RealDiv+$0030 #0022
+      original : $0FD5 AD AA 0F LDA $0FAA ; c+1 $0FAA
+      generated: $0FB2 AD 87 0F LDA $0F87
+      orig operand: c+1 $0FAA
+      source   : Routine RealDiv samples/toolkit/modern/REAL.ACT:121:1 | PROC RealDiv(REAL POINTER a,b,c) | source 2162..2275 code $0F82-$0FC0
+    RealDiv+$0035 #0024
+      original : $0FDA AC A9 0F LDY $0FA9 ; c $0FA9
+      generated: $0FB7 AC 86 0F LDY $0F86
+      orig operand: c $0FA9
+      source   : Routine RealDiv samples/toolkit/modern/REAL.ACT:121:1 | PROC RealDiv(REAL POINTER a,b,c) | source 2162..2275 code $0F82-$0FC0
+    RealDiv+$003C #0027
+      original : $0FE1 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0FBE 4C 0F 0E JMP $0E0F
+      orig operand: RealAssign $0E12
+      source   : Routine RealDiv samples/toolkit/modern/REAL.ACT:121:1 | PROC RealDiv(REAL POINTER a,b,c) | source 2162..2275 code $0F82-$0FC0
+    RealDiv+$003F #0028
+      original : $0FE4 60       RTS
+      generated: <missing>
+  StrR                     len 163 -> 148 (-15)  addr $0FE5 -> $0FC1
+    StrR+$0008 #0008
+      original : $0FED 4C F0 0F JMP $0FF0
+      generated: $0FC9 4C CC 0F JMP $0FCC
+      orig owner: StrR $0FED
+      source   : Routine StrR samples/toolkit/modern/REAL.ACT:133:1 | PROC StrR(REAL POINTER r  BYTE ARRAY s) | source 2385..2629 code $0FC1-$1054
+    StrR+$000E #0010
+      original : $0FF3 E5 0F 03 .BYTE $E5,$0F,$03
+      generated: $0FCF C1 0F 03 .BYTE $C1,$0F,$03
+      source   : Routine StrR samples/toolkit/modern/REAL.ACT:133:1 | PROC StrR(REAL POINTER r  BYTE ARRAY s) | source 2385..2629 code $0FC1-$1054
+    StrR+$0017 #0014
+      original : $0FFC AE E6 0F LDX $0FE6 ; r+1 $0FE6
+      generated: $0FD8 AE C2 0F LDX $0FC2
+      orig operand: r+1 $0FE6
+      source   : Statement call samples/toolkit/modern/REAL.ACT:139:3 | RealAssign(r,Fr0) | source 2460..2477 code $0FD2-$0FE0
+    StrR+$001A #0015
+      original : $0FFF AD E5 0F LDA $0FE5 ; r $0FE5
+      generated: $0FDB AD C1 0F LDA $0FC1
+      orig operand: r $0FE5
+      source   : Statement call samples/toolkit/modern/REAL.ACT:139:3 | RealAssign(r,Fr0) | source 2460..2477 code $0FD2-$0FE0
+    StrR+$001D #0016
+      original : $1002 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $0FDE 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:139:3 | RealAssign(r,Fr0) | source 2460..2477 code $0FD2-$0FE0
+    StrR+$0025 #0019
+      original : $100A 8D EC 0F STA $0FEC
+      generated: $0FE6 8D C8 0F STA $0FC8
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:141:3 | ptr=InBuff | source 2493..2503 code $0FE4-$0FED
+    StrR+$002A #0021
+      original : $100F 8D EB 0F STA $0FEB ; ptr $0FEB
+      generated: $0FEB 8D C7 0F STA $0FC7
+      orig operand: ptr $0FEB
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:141:3 | ptr=InBuff | source 2493..2503 code $0FE4-$0FED
+    StrR+$002D #0022
+      original : $1012 AD EB 0F LDA $0FEB ; ptr $0FEB
+      generated: $0FEE 85 AE    STA $AE
+      orig operand: ptr $0FEB
+      source   : Statement while samples/toolkit/modern/REAL.ACT:142:3 | WHILE ptr^='0 | source 2506..2545 code $0FEE-$1007
+    StrR+$0030 #0023
+      original : $1015 85 AE    STA $AE
+      generated: $0FF0 AD C8 0F LDA $0FC8
+      source   : Statement while samples/toolkit/modern/REAL.ACT:142:3 | WHILE ptr^='0 | source 2506..2545 code $0FEE-$1007
+    StrR+$0032 #0024
+      original : $1017 AD EC 0F LDA $0FEC
+      generated: $0FF3 85 AF    STA $AF
+      source   : Statement while samples/toolkit/modern/REAL.ACT:142:3 | WHILE ptr^='0 | source 2506..2545 code $0FEE-$1007
+    StrR+$0035 #0025
+      original : $101A 85 AF    STA $AF
+      generated: $0FF5 A0 00    LDY #$00
+      source   : Statement while samples/toolkit/modern/REAL.ACT:142:3 | WHILE ptr^='0 | source 2506..2545 code $0FEE-$1007
+    StrR+$0037 #0026
+      original : $101C A0 00    LDY #$00
+      generated: $0FF7 B1 AE    LDA ($AE),Y
+      source   : Statement while samples/toolkit/modern/REAL.ACT:142:3 | WHILE ptr^='0 | source 2506..2545 code $0FEE-$1007
+    StrR+$0039 #0027
+      original : $101E B1 AE    LDA ($AE),Y
+      generated: $0FF9 C9 30    CMP #$30
+      source   : Statement while samples/toolkit/modern/REAL.ACT:142:3 | WHILE ptr^='0 | source 2506..2545 code $0FEE-$1007
+    StrR+$003B #0028
+      original : $1020 49 30    EOR #$30
+      generated: $0FFB D0 0B    BNE $1008
+      source   : Statement while samples/toolkit/modern/REAL.ACT:142:3 | WHILE ptr^='0 | source 2506..2545 code $0FEE-$1007
+    StrR+$003D #0029
+      original : $1022 F0 03    BEQ $1027
+      generated: $0FFD EE C7 0F INC $0FC7
+      source   : Statement compound assignment samples/toolkit/modern/REAL.ACT:144:5 | ptr==+1 | source 2531..2538 code $0FFD-$1004
+    StrR+$003F #0030
+      original : $1024 4C 32 10 JMP $1032
+      generated: $1000 D0 03    BNE $1005
+      source   : Statement compound assignment samples/toolkit/modern/REAL.ACT:144:5 | ptr==+1 | source 2531..2538 code $0FFD-$1004
+    StrR+$0042 #0031
+      original : $1027 EE EB 0F INC $0FEB ; ptr $0FEB
+      generated: $1002 EE C8 0F INC $0FC8
+      orig operand: ptr $0FEB
+      source   : Statement compound assignment samples/toolkit/modern/REAL.ACT:144:5 | ptr==+1 | source 2531..2538 code $0FFD-$1004
+    StrR+$0045 #0032
+      original : $102A D0 03    BNE $102F
+      generated: $1005 4C EE 0F JMP $0FEE
+      source   : Statement while samples/toolkit/modern/REAL.ACT:142:3 | WHILE ptr^='0 | source 2506..2545 code $0FEE-$1007
+    StrR+$0047 #0033
+      original : $102C EE EC 0F INC $0FEC
+      generated: $1008 8C C5 0F STY $0FC5
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:146:3 | i=0 | source 2548..2551 code $1008-$100A
+    StrR+$004A #0034
+      original : $102F 4C 12 10 JMP $1012
+      generated: $100B AD C7 0F LDA $0FC7
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:148:5 | c=ptr(i) | source 2561..2569 code $100B-$101C
+    StrR+$004D #0035
+      original : $1032 A0 00    LDY #$00
+      generated: $100E 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:148:5 | c=ptr(i) | source 2561..2569 code $100B-$101C
+    StrR+$004F #0036
+      original : $1034 8C E9 0F STY $0FE9 ; i $0FE9
+      generated: $1010 AD C8 0F LDA $0FC8
+      orig operand: i $0FE9
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:148:5 | c=ptr(i) | source 2561..2569 code $100B-$101C
+    StrR+$0052 #0037
+      original : $1037 18       CLC
+      generated: $1013 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:148:5 | c=ptr(i) | source 2561..2569 code $100B-$101C
+    StrR+$0053 #0038
+      original : $1038 AD EB 0F LDA $0FEB ; ptr $0FEB
+      generated: $1015 AC C5 0F LDY $0FC5
+      orig operand: ptr $0FEB
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:148:5 | c=ptr(i) | source 2561..2569 code $100B-$101C
+    StrR+$0056 #0039
+      original : $103B 6D E9 0F ADC $0FE9 ; i $0FE9
+      generated: $1018 B1 AE    LDA ($AE),Y
+      orig operand: i $0FE9
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:148:5 | c=ptr(i) | source 2561..2569 code $100B-$101C
+    StrR+$0059 #0040
+      original : $103E 85 AE    STA $AE
+      generated: $101A 8D C6 0F STA $0FC6
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:148:5 | c=ptr(i) | source 2561..2569 code $100B-$101C
+    StrR+$005B #0041
+      original : $1040 AD EC 0F LDA $0FEC
+      generated: $101D EE C5 0F INC $0FC5
+      source   : Statement compound assignment samples/toolkit/modern/REAL.ACT:149:5 | i==+1 | source 2574..2579 code $101D-$101F
+    StrR+$005E #0042
+      original : $1043 69 00    ADC #$00
+      generated: $1020 18       CLC
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:150:5 | s(i)=c&$7F | source 2584..2594 code $1020-$1038
+    StrR+$0060 #0043
+      original : $1045 85 AF    STA $AF
+      generated: $1021 AD C3 0F LDA $0FC3
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:150:5 | s(i)=c&$7F | source 2584..2594 code $1020-$1038
+    StrR+$0062 #0044
+      original : $1047 A0 00    LDY #$00
+      generated: $1024 6D C5 0F ADC $0FC5
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:150:5 | s(i)=c&$7F | source 2584..2594 code $1020-$1038
+  ValR                     len 158 -> 157 (-1)  addr $1088 -> $1055
+    ValR+$0005 #0005
+      original : $108D 4C 90 10 JMP $1090
+      generated: $105A 00       BRK
+      orig owner: ValR $108D
+      source   : StorageInitializer modern hidden FOR end cache samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $105A-$105A
+    ValR+$0008 #0006
+      original : $1090 20 F5 A0 JSR $A0F5
+      generated: $105B 4C 5E 10 JMP $105E
+      source   : Routine ValR samples/toolkit/modern/REAL.ACT:160:1 | PROC ValR(BYTE ARRAY s  REAL POINTER r) | source 2733..2933 code $1055-$10F1
+    ValR+$000B #0007
+      original : $1093 88 10 03 .BYTE $88,$10,$03
+      generated: $105E 20 F5 A0 JSR $A0F5
+      source   : Routine ValR samples/toolkit/modern/REAL.ACT:160:1 | PROC ValR(BYTE ARRAY s  REAL POINTER r) | source 2733..2933 code $1055-$10F1
+    ValR+$000E #0008
+      original : $1096 A0 01    LDY #$01
+      generated: $1061 55 10 03 .BYTE $55,$10,$03
+      source   : Routine ValR samples/toolkit/modern/REAL.ACT:160:1 | PROC ValR(BYTE ARRAY s  REAL POINTER r) | source 2733..2933 code $1055-$10F1
+    ValR+$0010 #0009
+      original : $1098 8C 8C 10 STY $108C ; i $108C
+      generated: $1064 A0 01    LDY #$01
+      orig operand: i $108C
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$0013 #0010
+      original : $109B AD 88 10 LDA $1088 ; s $1088
+      generated: $1066 8C 59 10 STY $1059
+      orig operand: s $1088
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$0016 #0011
+      original : $109E 85 AE    STA $AE
+      generated: $1069 AD 55 10 LDA $1055
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$0018 #0012
+      original : $10A0 AD 89 10 LDA $1089
+      generated: $106C 85 AE    STA $AE
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$001B #0013
+      original : $10A3 85 AF    STA $AF
+      generated: $106E AD 56 10 LDA $1056
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$001D #0014
+      original : $10A5 88       DEY
+      generated: $1071 85 AF    STA $AF
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$001E #0015
+      original : $10A6 B1 AE    LDA ($AE),Y
+      generated: $1073 88       DEY
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$0020 #0016
+      original : $10A8 8D B6 10 STA $10B6
+      generated: $1074 B1 AE    LDA ($AE),Y
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$0023 #0017
+      original : $10AB AD B6 10 LDA $10B6
+      generated: $1076 8D 5A 10 STA $105A
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$0026 #0018
+      original : $10AE CD 8C 10 CMP $108C ; i $108C
+      generated: $1079 AD 5A 10 LDA $105A
+      orig operand: i $108C
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$0029 #0019
+      original : $10B1 B0 04    BCS $10B7
+      generated: $107C CD 59 10 CMP $1059
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$002B #0020
+      original : $10B3 4C EA 10 JMP $10EA
+      generated: $107F B0 03    BCS $1084
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$002E #0021
+      original : $10B6 00       BRK
+      generated: $1081 4C B7 10 JMP $10B7
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$0030 #0023
+      original : $10B8 AD 8C 10 LDA $108C ; i $108C
+      generated: $1085 AD 59 10 LDA $1059
+      orig operand: i $108C
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:166:5 | LBuff(i-1)=s(i) | source 2813..2828 code $1084-$10B0
+    ValR+$0047 #0034
+      original : $10CF AD 88 10 LDA $1088 ; s $1088
+      generated: $109C AD 55 10 LDA $1055
+      orig operand: s $1088
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:166:5 | LBuff(i-1)=s(i) | source 2813..2828 code $1084-$10B0
+    ValR+$004A #0035
+      original : $10D2 6D 8C 10 ADC $108C ; i $108C
+      generated: $109F 6D 59 10 ADC $1059
+      orig operand: i $108C
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:166:5 | LBuff(i-1)=s(i) | source 2813..2828 code $1084-$10B0
+    ValR+$004F #0037
+      original : $10D7 AD 89 10 LDA $1089
+      generated: $10A4 AD 56 10 LDA $1056
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:166:5 | LBuff(i-1)=s(i) | source 2813..2828 code $1084-$10B0
+    ValR+$005C #0043
+      original : $10E4 EE 8C 10 INC $108C ; i $108C
+      generated: $10B1 EE 59 10 INC $1059
+      orig operand: i $108C
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$005F #0044
+      original : $10E7 4C AB 10 JMP $10AB
+      generated: $10B4 4C 79 10 JMP $1079
+      source   : Statement for samples/toolkit/modern/REAL.ACT:164:3 | FOR i=1 TO s(0) | source 2786..2835 code $1064-$10B6
+    ValR+$0063 #0046
+      original : $10EB AD 8C 10 LDA $108C ; i $108C
+      generated: $10B8 AD 59 10 LDA $1059
+      orig operand: i $108C
+      source   : Statement assignment samples/toolkit/modern/REAL.ACT:168:3 | LBuff(i-1)=0   ; AN INVALID VALUE | source 2838..2850 code $10B7-$10D3
+    ValR+$008E #0065
+      original : $1116 AD 8B 10 LDA $108B ; r+1 $108B
+      generated: $10E3 AD 58 10 LDA $1058
+      orig operand: r+1 $108B
+      source   : Routine ValR samples/toolkit/modern/REAL.ACT:160:1 | PROC ValR(BYTE ARRAY s  REAL POINTER r) | source 2733..2933 code $1055-$10F1
+    ValR+$0093 #0067
+      original : $111B AC 8A 10 LDY $108A ; r $108A
+      generated: $10E8 AC 57 10 LDY $1057
+      orig operand: r $108A
+      source   : Routine ValR samples/toolkit/modern/REAL.ACT:160:1 | PROC ValR(BYTE ARRAY s  REAL POINTER r) | source 2733..2933 code $1055-$10F1
+    ValR+$009A #0070
+      original : $1122 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $10EF 4C 0F 0E JMP $0E0F
+      orig operand: RealAssign $0E12
+      source   : Routine ValR samples/toolkit/modern/REAL.ACT:160:1 | PROC ValR(BYTE ARRAY s  REAL POINTER r) | source 2733..2933 code $1055-$10F1
+    ValR+$009D #0071
+      original : $1125 60       RTS
+      generated: <missing>
+  Exp                      len 47 -> 46 (-1)  addr $1126 -> $10F2
+    Exp+$0004 #0004
+      original : $112A 4C 2D 11 JMP $112D
+      generated: $10F6 4C F9 10 JMP $10F9
+      orig owner: Exp $112A
+      source   : Routine Exp samples/toolkit/modern/REAL.ACT:179:1 | PROC Exp(REAL POINTER a,b) | source 3036..3122 code $10F2-$111F
+    Exp+$000A #0006
+      original : $1130 26 11 03 .BYTE $26,$11,$03
+      generated: $10FC F2 10 03 .BYTE $F2,$10,$03
+      source   : Routine Exp samples/toolkit/modern/REAL.ACT:179:1 | PROC Exp(REAL POINTER a,b) | source 3036..3122 code $10F2-$111F
+    Exp+$0013 #0010
+      original : $1139 AE 27 11 LDX $1127 ; a+1 $1127
+      generated: $1105 AE F3 10 LDX $10F3
+      orig operand: a+1 $1127
+      source   : Statement call samples/toolkit/modern/REAL.ACT:181:3 | RealAssign(a,Fr0) | source 3066..3083 code $10FF-$110D
+    Exp+$0016 #0011
+      original : $113C AD 26 11 LDA $1126 ; a $1126
+      generated: $1108 AD F2 10 LDA $10F2
+      orig operand: a $1126
+      source   : Statement call samples/toolkit/modern/REAL.ACT:181:3 | RealAssign(a,Fr0) | source 3066..3083 code $10FF-$110D
+    Exp+$0019 #0012
+      original : $113F 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $110B 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:181:3 | RealAssign(a,Fr0) | source 3066..3083 code $10FF-$110D
+    Exp+$001F #0014
+      original : $1145 AD 29 11 LDA $1129 ; b+1 $1129
+      generated: $1111 AD F5 10 LDA $10F5
+      orig operand: b+1 $1129
+      source   : Routine Exp samples/toolkit/modern/REAL.ACT:179:1 | PROC Exp(REAL POINTER a,b) | source 3036..3122 code $10F2-$111F
+    Exp+$0024 #0016
+      original : $114A AC 28 11 LDY $1128 ; b $1128
+      generated: $1116 AC F4 10 LDY $10F4
+      orig operand: b $1128
+      source   : Routine Exp samples/toolkit/modern/REAL.ACT:179:1 | PROC Exp(REAL POINTER a,b) | source 3036..3122 code $10F2-$111F
+    Exp+$002B #0019
+      original : $1151 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $111D 4C 0F 0E JMP $0E0F
+      orig operand: RealAssign $0E12
+      source   : Routine Exp samples/toolkit/modern/REAL.ACT:179:1 | PROC Exp(REAL POINTER a,b) | source 3036..3122 code $10F2-$111F
+    Exp+$002E #0020
+      original : $1154 60       RTS
+      generated: <missing>
+  Exp10                    len 47 -> 46 (-1)  addr $1155 -> $1120
+    Exp10+$0004 #0004
+      original : $1159 4C 5C 11 JMP $115C
+      generated: $1124 4C 27 11 JMP $1127
+      orig owner: Exp10 $1159
+      source   : Routine Exp10 samples/toolkit/modern/REAL.ACT:190:1 | PROC Exp10(REAL POINTER a,b) | source 3226..3316 code $1120-$114D
+    Exp10+$000A #0006
+      original : $115F 55 11 03 .BYTE $55,$11,$03
+      generated: $112A 20 11 03 .BYTE $20,$11,$03
+      source   : Routine Exp10 samples/toolkit/modern/REAL.ACT:190:1 | PROC Exp10(REAL POINTER a,b) | source 3226..3316 code $1120-$114D
+    Exp10+$0013 #0010
+      original : $1168 AE 56 11 LDX $1156 ; a+1 $1156
+      generated: $1133 AE 21 11 LDX $1121
+      orig operand: a+1 $1156
+      source   : Statement call samples/toolkit/modern/REAL.ACT:192:3 | RealAssign(a,Fr0) | source 3258..3275 code $112D-$113B
+    Exp10+$0016 #0011
+      original : $116B AD 55 11 LDA $1155 ; a $1155
+      generated: $1136 AD 20 11 LDA $1120
+      orig operand: a $1155
+      source   : Statement call samples/toolkit/modern/REAL.ACT:192:3 | RealAssign(a,Fr0) | source 3258..3275 code $112D-$113B
+    Exp10+$0019 #0012
+      original : $116E 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $1139 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:192:3 | RealAssign(a,Fr0) | source 3258..3275 code $112D-$113B
+    Exp10+$001F #0014
+      original : $1174 AD 58 11 LDA $1158 ; b+1 $1158
+      generated: $113F AD 23 11 LDA $1123
+      orig operand: b+1 $1158
+      source   : Routine Exp10 samples/toolkit/modern/REAL.ACT:190:1 | PROC Exp10(REAL POINTER a,b) | source 3226..3316 code $1120-$114D
+    Exp10+$0024 #0016
+      original : $1179 AC 57 11 LDY $1157 ; b $1157
+      generated: $1144 AC 22 11 LDY $1122
+      orig operand: b $1157
+      source   : Routine Exp10 samples/toolkit/modern/REAL.ACT:190:1 | PROC Exp10(REAL POINTER a,b) | source 3226..3316 code $1120-$114D
+    Exp10+$002B #0019
+      original : $1180 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $114B 4C 0F 0E JMP $0E0F
+      orig operand: RealAssign $0E12
+      source   : Routine Exp10 samples/toolkit/modern/REAL.ACT:190:1 | PROC Exp10(REAL POINTER a,b) | source 3226..3316 code $1120-$114D
+    Exp10+$002E #0020
+      original : $1183 60       RTS
+      generated: <missing>
+  Ln                       len 47 -> 46 (-1)  addr $1184 -> $114E
+    Ln+$0004 #0004
+      original : $1188 4C 8B 11 JMP $118B
+      generated: $1152 4C 55 11 JMP $1155
+      orig owner: Ln $1188
+      source   : Routine Ln samples/toolkit/modern/REAL.ACT:201:1 | PROC Ln(REAL POINTER a,b ) | source 3415..3501 code $114E-$117B
+    Ln+$000A #0006
+      original : $118E 84 11 03 .BYTE $84,$11,$03
+      generated: $1158 4E 11 03 .BYTE $4E,$11,$03
+      source   : Routine Ln samples/toolkit/modern/REAL.ACT:201:1 | PROC Ln(REAL POINTER a,b ) | source 3415..3501 code $114E-$117B
+    Ln+$0013 #0010
+      original : $1197 AE 85 11 LDX $1185 ; a+1 $1185
+      generated: $1161 AE 4F 11 LDX $114F
+      orig operand: a+1 $1185
+      source   : Statement call samples/toolkit/modern/REAL.ACT:203:3 | RealAssign(a,Fr0) | source 3445..3462 code $115B-$1169
+    Ln+$0016 #0011
+      original : $119A AD 84 11 LDA $1184 ; a $1184
+      generated: $1164 AD 4E 11 LDA $114E
+      orig operand: a $1184
+      source   : Statement call samples/toolkit/modern/REAL.ACT:203:3 | RealAssign(a,Fr0) | source 3445..3462 code $115B-$1169
+    Ln+$0019 #0012
+      original : $119D 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $1167 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:203:3 | RealAssign(a,Fr0) | source 3445..3462 code $115B-$1169
+    Ln+$001F #0014
+      original : $11A3 AD 87 11 LDA $1187 ; b+1 $1187
+      generated: $116D AD 51 11 LDA $1151
+      orig operand: b+1 $1187
+      source   : Routine Ln samples/toolkit/modern/REAL.ACT:201:1 | PROC Ln(REAL POINTER a,b ) | source 3415..3501 code $114E-$117B
+    Ln+$0024 #0016
+      original : $11A8 AC 86 11 LDY $1186 ; b $1186
+      generated: $1172 AC 50 11 LDY $1150
+      orig operand: b $1186
+      source   : Routine Ln samples/toolkit/modern/REAL.ACT:201:1 | PROC Ln(REAL POINTER a,b ) | source 3415..3501 code $114E-$117B
+    Ln+$002B #0019
+      original : $11AF 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $1179 4C 0F 0E JMP $0E0F
+      orig operand: RealAssign $0E12
+      source   : Routine Ln samples/toolkit/modern/REAL.ACT:201:1 | PROC Ln(REAL POINTER a,b ) | source 3415..3501 code $114E-$117B
+    Ln+$002E #0020
+      original : $11B2 60       RTS
+      generated: <missing>
+  Log10                    len 47 -> 46 (-1)  addr $11B3 -> $117C
+    Log10+$0004 #0004
+      original : $11B7 4C BA 11 JMP $11BA
+      generated: $1180 4C 83 11 JMP $1183
+      orig owner: Log10 $11B7
+      source   : Routine Log10 samples/toolkit/modern/REAL.ACT:212:1 | PROC Log10(REAL POINTER a,b) | source 3600..3690 code $117C-$11A9
+    Log10+$000A #0006
+      original : $11BD B3 11 03 .BYTE $B3,$11,$03
+      generated: $1186 7C 11 03 .BYTE $7C,$11,$03
+      source   : Routine Log10 samples/toolkit/modern/REAL.ACT:212:1 | PROC Log10(REAL POINTER a,b) | source 3600..3690 code $117C-$11A9
+    Log10+$0013 #0010
+      original : $11C6 AE B4 11 LDX $11B4 ; a+1 $11B4
+      generated: $118F AE 7D 11 LDX $117D
+      orig operand: a+1 $11B4
+      source   : Statement call samples/toolkit/modern/REAL.ACT:214:3 | RealAssign(a,Fr0) | source 3632..3649 code $1189-$1197
+    Log10+$0016 #0011
+      original : $11C9 AD B3 11 LDA $11B3 ; a $11B3
+      generated: $1192 AD 7C 11 LDA $117C
+      orig operand: a $11B3
+      source   : Statement call samples/toolkit/modern/REAL.ACT:214:3 | RealAssign(a,Fr0) | source 3632..3649 code $1189-$1197
+    Log10+$0019 #0012
+      original : $11CC 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $1195 20 0F 0E JSR $0E0F
+      orig operand: RealAssign $0E12
+      source   : Statement call samples/toolkit/modern/REAL.ACT:214:3 | RealAssign(a,Fr0) | source 3632..3649 code $1189-$1197
+    Log10+$001F #0014
+      original : $11D2 AD B6 11 LDA $11B6 ; b+1 $11B6
+      generated: $119B AD 7F 11 LDA $117F
+      orig operand: b+1 $11B6
+      source   : Routine Log10 samples/toolkit/modern/REAL.ACT:212:1 | PROC Log10(REAL POINTER a,b) | source 3600..3690 code $117C-$11A9
+    Log10+$0024 #0016
+      original : $11D7 AC B5 11 LDY $11B5 ; b $11B5
+      generated: $11A0 AC 7E 11 LDY $117E
+      orig operand: b $11B5
+      source   : Routine Log10 samples/toolkit/modern/REAL.ACT:212:1 | PROC Log10(REAL POINTER a,b) | source 3600..3690 code $117C-$11A9
+    Log10+$002B #0019
+      original : $11DE 20 12 0E JSR $0E12 ; RealAssign $0E12
+      generated: $11A7 4C 0F 0E JMP $0E0F
+      orig operand: RealAssign $0E12
+      source   : Routine Log10 samples/toolkit/modern/REAL.ACT:212:1 | PROC Log10(REAL POINTER a,b) | source 3600..3690 code $117C-$11A9
+    Log10+$002E #0020
+      original : $11E1 60       RTS
+      generated: <missing>
+  Power                    len 77 -> 71 (-6)  addr $11E2 -> $11AA
+    Power+$0006 #0006
+      original : $11E8 4C EB 11 JMP $11EB
+      generated: $11B0 4C B3 11 JMP $11B3
+      orig owner: Power $11E8
+      source   : Routine Power samples/toolkit/modern/REAL.ACT:223:1 | PROC Power(REAL POINTER a,b,c) | source 3786..3863 code $11AA-$11F0
+    Power+$000C #0008
+      original : $11EE E2 11 05 .BYTE $E2,$11,$05
+      generated: $11B6 AA 11 05 .BYTE $AA,$11,$05
+      source   : Routine Power samples/toolkit/modern/REAL.ACT:223:1 | PROC Power(REAL POINTER a,b,c) | source 3786..3863 code $11AA-$11F0
+    Power+$000F #0009
+      original : $11F1 AD E7 11 LDA $11E7 ; c+1 $11E7
+      generated: $11B9 AD AF 11 LDA $11AF
+      orig operand: c+1 $11E7
+      source   : Statement call samples/toolkit/modern/REAL.ACT:225:3 | Ln(a,c) | source 3820..3827 code $11B9-$11C9
+    Power+$0014 #0011
+      original : $11F6 AC E6 11 LDY $11E6 ; c $11E6
+      generated: $11BE AC AE 11 LDY $11AE
+      orig operand: c $11E6
+      source   : Statement call samples/toolkit/modern/REAL.ACT:225:3 | Ln(a,c) | source 3820..3827 code $11B9-$11C9
+    Power+$0017 #0012
+      original : $11F9 AE E3 11 LDX $11E3 ; a+1 $11E3
+      generated: $11C1 AE AB 11 LDX $11AB
+      orig operand: a+1 $11E3
+      source   : Statement call samples/toolkit/modern/REAL.ACT:225:3 | Ln(a,c) | source 3820..3827 code $11B9-$11C9
+    Power+$001A #0013
+      original : $11FC AD E2 11 LDA $11E2 ; a $11E2
+      generated: $11C4 AD AA 11 LDA $11AA
+      orig operand: a $11E2
+      source   : Statement call samples/toolkit/modern/REAL.ACT:225:3 | Ln(a,c) | source 3820..3827 code $11B9-$11C9
+    Power+$001D #0014
+      original : $11FF 20 88 11 JSR $1188 ; Ln $1188
+      generated: $11C7 20 52 11 JSR $1152
+      orig operand: Ln $1188
+      source   : Statement call samples/toolkit/modern/REAL.ACT:225:3 | Ln(a,c) | source 3820..3827 code $11B9-$11C9
+    Power+$0020 #0015
+      original : $1202 AD E7 11 LDA $11E7 ; c+1 $11E7
+      generated: $11CA AD AF 11 LDA $11AF
+      orig operand: c+1 $11E7
+      source   : Statement call samples/toolkit/modern/REAL.ACT:226:3 | RealMult(b,c,c) | source 3830..3845 code $11CA-$11E1
+    Power+$0025 #0017
+      original : $1207 AD E7 11 LDA $11E7 ; c+1 $11E7
+      generated: $11CF 85 A5    STA $A5
+      orig operand: c+1 $11E7
+      source   : Statement call samples/toolkit/modern/REAL.ACT:226:3 | RealMult(b,c,c) | source 3830..3845 code $11CA-$11E1
+    Power+$0028 #0018
+      original : $120A 85 A5    STA $A5
+      generated: $11D1 AD AE 11 LDA $11AE
+      source   : Statement call samples/toolkit/modern/REAL.ACT:226:3 | RealMult(b,c,c) | source 3830..3845 code $11CA-$11E1
+    Power+$002A #0019
+      original : $120C AD E6 11 LDA $11E6 ; c $11E6
+      generated: $11D4 85 A4    STA $A4
+      orig operand: c $11E6
+      source   : Statement call samples/toolkit/modern/REAL.ACT:226:3 | RealMult(b,c,c) | source 3830..3845 code $11CA-$11E1
+    Power+$002D #0020
+      original : $120F 85 A4    STA $A4
+      generated: $11D6 AC AE 11 LDY $11AE
+      source   : Statement call samples/toolkit/modern/REAL.ACT:226:3 | RealMult(b,c,c) | source 3830..3845 code $11CA-$11E1
+    Power+$002F #0021
+      original : $1211 AC E6 11 LDY $11E6 ; c $11E6
+      generated: $11D9 AE AD 11 LDX $11AD
+      orig operand: c $11E6
+      source   : Statement call samples/toolkit/modern/REAL.ACT:226:3 | RealMult(b,c,c) | source 3830..3845 code $11CA-$11E1
+    Power+$0032 #0022
+      original : $1214 AE E5 11 LDX $11E5 ; b+1 $11E5
+      generated: $11DC AD AC 11 LDA $11AC
+      orig operand: b+1 $11E5
+      source   : Statement call samples/toolkit/modern/REAL.ACT:226:3 | RealMult(b,c,c) | source 3830..3845 code $11CA-$11E1
+    Power+$0035 #0023
+      original : $1217 AD E4 11 LDA $11E4 ; b $11E4
+      generated: $11DF 20 49 0F JSR $0F49
+      orig operand: b $11E4
+      source   : Statement call samples/toolkit/modern/REAL.ACT:226:3 | RealMult(b,c,c) | source 3830..3845 code $11CA-$11E1
+    Power+$0038 #0024
+      original : $121A 20 6B 0F JSR $0F6B ; RealMult $0F6B
+      generated: $11E2 AD AF 11 LDA $11AF
+      orig operand: RealMult $0F6B
+      source   : Routine Power samples/toolkit/modern/REAL.ACT:223:1 | PROC Power(REAL POINTER a,b,c) | source 3786..3863 code $11AA-$11F0
+    Power+$003B #0025
+      original : $121D AD E7 11 LDA $11E7 ; c+1 $11E7
+      generated: $11E5 85 A3    STA $A3
+      orig operand: c+1 $11E7
+      source   : Routine Power samples/toolkit/modern/REAL.ACT:223:1 | PROC Power(REAL POINTER a,b,c) | source 3786..3863 code $11AA-$11F0
+    Power+$003E #0026
+      original : $1220 85 A3    STA $A3
+      generated: $11E7 AC AE 11 LDY $11AE
+      source   : Routine Power samples/toolkit/modern/REAL.ACT:223:1 | PROC Power(REAL POINTER a,b,c) | source 3786..3863 code $11AA-$11F0
+    Power+$0040 #0027
+      original : $1222 AC E6 11 LDY $11E6 ; c $11E6
+      generated: $11EA AE AF 11 LDX $11AF
+      orig operand: c $11E6
+      source   : Routine Power samples/toolkit/modern/REAL.ACT:223:1 | PROC Power(REAL POINTER a,b,c) | source 3786..3863 code $11AA-$11F0
+    Power+$0043 #0028
+      original : $1225 AE E7 11 LDX $11E7 ; c+1 $11E7
+      generated: $11ED 98       TYA
+      orig operand: c+1 $11E7
+      source   : Routine Power samples/toolkit/modern/REAL.ACT:223:1 | PROC Power(REAL POINTER a,b,c) | source 3786..3863 code $11AA-$11F0
+    Power+$0046 #0029
+      original : $1228 AD E6 11 LDA $11E6 ; c $11E6
+      generated: $11EE 4C F6 10 JMP $10F6
+      orig operand: c $11E6
+      source   : Routine Power samples/toolkit/modern/REAL.ACT:223:1 | PROC Power(REAL POINTER a,b,c) | source 3786..3863 code $11AA-$11F0
+    Power+$0049 #0030
+      original : $122B 20 2A 11 JSR $112A ; Exp $112A
+      generated: <missing>
+      orig operand: Exp $112A
+    Power+$004C #0031
+      original : $122E 60       RTS
+      generated: <missing>
+  PrintRD                  len 58 -> 57 (-1)  addr $122F -> $11F1
+    PrintRD+$0017 #0023
+      original : $1246 4C 49 12 JMP $1249
+      generated: $1208 4C 0B 12 JMP $120B
+      orig owner: PrintRD $1246
+      source   : Routine PrintRD samples/toolkit/modern/REAL.ACT:234:1 | PROC PrintRD(BYTE d  REAL POINTER a) | source 3964..4063 code $11F1-$1229
+    PrintRD+$001D #0025
+      original : $124C 2F 12 02 .BYTE $2F,$12,$02
+      generated: $120E F1 11 02 .BYTE $F1,$11,$02
+      source   : Routine PrintRD samples/toolkit/modern/REAL.ACT:234:1 | PROC PrintRD(BYTE d  REAL POINTER a) | source 3964..4063 code $11F1-$1229
+    PrintRD+$0020 #0026
+      original : $124F A9 12    LDA #$12
+      generated: $1211 A9 11    LDA #$11
+      source   : Statement call samples/toolkit/modern/REAL.ACT:238:3 | StrR(a,temp) | source 4027..4039 code $1211-$121F
+    PrintRD+$0024 #0028
+      original : $1253 A0 32    LDY #$32
+      generated: $1215 A0 F4    LDY #$F4
+      source   : Statement call samples/toolkit/modern/REAL.ACT:238:3 | StrR(a,temp) | source 4027..4039 code $1211-$121F
+    PrintRD+$0026 #0029
+      original : $1255 AE 31 12 LDX $1231 ; a+1 $1231
+      generated: $1217 AE F3 11 LDX $11F3
+      orig operand: a+1 $1231
+      source   : Statement call samples/toolkit/modern/REAL.ACT:238:3 | StrR(a,temp) | source 4027..4039 code $1211-$121F
+    PrintRD+$0029 #0030
+      original : $1258 AD 30 12 LDA $1230 ; a $1230
+      generated: $121A AD F2 11 LDA $11F2
+      orig operand: a $1230
+      source   : Statement call samples/toolkit/modern/REAL.ACT:238:3 | StrR(a,temp) | source 4027..4039 code $1211-$121F
+    PrintRD+$002C #0031
+      original : $125B 20 ED 0F JSR $0FED ; StrR $0FED
+      generated: $121D 20 C9 0F JSR $0FC9
+      orig operand: StrR $0FED
+      source   : Statement call samples/toolkit/modern/REAL.ACT:238:3 | StrR(a,temp) | source 4027..4039 code $1211-$121F
+    PrintRD+$002F #0032
+      original : $125E A0 12    LDY #$12
+      generated: $1220 A0 11    LDY #$11
+      source   : Routine PrintRD samples/toolkit/modern/REAL.ACT:234:1 | PROC PrintRD(BYTE d  REAL POINTER a) | source 3964..4063 code $11F1-$1229
+    PrintRD+$0031 #0033
+      original : $1260 A2 32    LDX #$32
+      generated: $1222 A2 F4    LDX #$F4
+      source   : Routine PrintRD samples/toolkit/modern/REAL.ACT:234:1 | PROC PrintRD(BYTE d  REAL POINTER a) | source 3964..4063 code $11F1-$1229
+    PrintRD+$0033 #0034
+      original : $1262 AD 2F 12 LDA $122F ; d $122F
+      generated: $1224 AD F1 11 LDA $11F1
+      orig operand: d $122F
+      source   : Routine PrintRD samples/toolkit/modern/REAL.ACT:234:1 | PROC PrintRD(BYTE d  REAL POINTER a) | source 3964..4063 code $11F1-$1229
+    PrintRD+$0036 #0035
+      original : $1265 20 86 A4 JSR $A486
+      generated: $1227 4C 86 A4 JMP $A486
+      source   : Routine PrintRD samples/toolkit/modern/REAL.ACT:234:1 | PROC PrintRD(BYTE d  REAL POINTER a) | source 3964..4063 code $11F1-$1229
+    PrintRD+$0039 #0036
+      original : $1268 60       RTS
+      generated: <missing>
+  PrintR                   len 23 -> 20 (-3)  addr $1269 -> $122A
+    PrintR+$0002 #0002
+      original : $126B 4C 6E 12 JMP $126E
+      generated: $122C 4C 2F 12 JMP $122F
+      orig owner: PrintR $126B
+      source   : Routine PrintR samples/toolkit/modern/REAL.ACT:246:1 | PROC PrintR(REAL POINTER a) | source 4172..4227 code $122A-$123D
+    PrintR+$0005 #0003
+      original : $126E 8E 6A 12 STX $126A ; a+1 $126A
+      generated: $122F 8E 2B 12 STX $122B
+      orig operand: a+1 $126A
+      source   : Routine PrintR samples/toolkit/modern/REAL.ACT:246:1 | PROC PrintR(REAL POINTER a) | source 4172..4227 code $122A-$123D
+    PrintR+$0008 #0004
+      original : $1271 8D 69 12 STA $1269 ; a $1269
+      generated: $1232 8D 2A 12 STA $122A
+      orig operand: a $1269
+      source   : Routine PrintR samples/toolkit/modern/REAL.ACT:246:1 | PROC PrintR(REAL POINTER a) | source 4172..4227 code $122A-$123D
+    PrintR+$000B #0005
+      original : $1274 AC 6A 12 LDY $126A ; a+1 $126A
+      generated: $1235 AC 2B 12 LDY $122B
+      orig operand: a+1 $126A
+      source   : Routine PrintR samples/toolkit/modern/REAL.ACT:246:1 | PROC PrintR(REAL POINTER a) | source 4172..4227 code $122A-$123D
+    PrintR+$000E #0006
+      original : $1277 AE 69 12 LDX $1269 ; a $1269
+      generated: $1238 AA       TAX
+      orig operand: a $1269
+      source   : Routine PrintR samples/toolkit/modern/REAL.ACT:246:1 | PROC PrintR(REAL POINTER a) | source 4172..4227 code $122A-$123D
+    PrintR+$0013 #0008
+      original : $127C 20 46 12 JSR $1246 ; PrintRD $1246
+      generated: $123B 4C 08 12 JMP $1208
+      orig operand: PrintRD $1246
+      source   : Routine PrintR samples/toolkit/modern/REAL.ACT:246:1 | PROC PrintR(REAL POINTER a) | source 4172..4227 code $122A-$123D
+    PrintR+$0016 #0009
+      original : $127F 60       RTS
+      generated: <missing>
+  PrintRDE                 len 31 -> 30 (-1)  addr $1280 -> $123E
+    PrintRDE+$0003 #0003
+      original : $1283 4C 86 12 JMP $1286
+      generated: $1241 4C 44 12 JMP $1244
+      orig owner: PrintRDE $1283
+      source   : Routine PrintRDE samples/toolkit/modern/REAL.ACT:255:1 | PROC PrintRDE(BYTE d  REAL POINTER a) | source 4334..4405 code $123E-$125B
+    PrintRDE+$0009 #0005
+      original : $1289 80 12 02 .BYTE $80,$12,$02
+      generated: $1247 3E 12 02 .BYTE $3E,$12,$02
+      source   : Routine PrintRDE samples/toolkit/modern/REAL.ACT:255:1 | PROC PrintRDE(BYTE d  REAL POINTER a) | source 4334..4405 code $123E-$125B
+    PrintRDE+$000C #0006
+      original : $128C AC 82 12 LDY $1282 ; a+1 $1282
+      generated: $124A AC 40 12 LDY $1240
+      orig operand: a+1 $1282
+      source   : Statement call samples/toolkit/modern/REAL.ACT:257:3 | PrintRD(d,a) | source 4375..4387 code $124A-$1255
+    PrintRDE+$000F #0007
+      original : $128F AE 81 12 LDX $1281 ; a $1281
+      generated: $124D AE 3F 12 LDX $123F
+      orig operand: a $1281
+      source   : Statement call samples/toolkit/modern/REAL.ACT:257:3 | PrintRD(d,a) | source 4375..4387 code $124A-$1255
+    PrintRDE+$0012 #0008
+      original : $1292 AD 80 12 LDA $1280 ; d $1280
+      generated: $1250 AD 3E 12 LDA $123E
+      orig operand: d $1280
+      source   : Statement call samples/toolkit/modern/REAL.ACT:257:3 | PrintRD(d,a) | source 4375..4387 code $124A-$1255
+    PrintRDE+$0015 #0009
+      original : $1295 20 46 12 JSR $1246 ; PrintRD $1246
+      generated: $1253 20 08 12 JSR $1208
+      orig operand: PrintRD $1246
+      source   : Statement call samples/toolkit/modern/REAL.ACT:257:3 | PrintRD(d,a) | source 4375..4387 code $124A-$1255
+    PrintRDE+$0018 #0010
+      original : $1298 AD 80 12 LDA $1280 ; d $1280
+      generated: $1256 AD 3E 12 LDA $123E
+      orig operand: d $1280
+      source   : Routine PrintRDE samples/toolkit/modern/REAL.ACT:255:1 | PROC PrintRDE(BYTE d  REAL POINTER a) | source 4334..4405 code $123E-$125B
+    PrintRDE+$001B #0011
+      original : $129B 20 DA A4 JSR $A4DA
+      generated: $1259 4C DA A4 JMP $A4DA
+      source   : Routine PrintRDE samples/toolkit/modern/REAL.ACT:255:1 | PROC PrintRDE(BYTE d  REAL POINTER a) | source 4334..4405 code $123E-$125B
+    PrintRDE+$001E #0012
+      original : $129E 60       RTS
+      generated: <missing>
+  PrintRE                  len 23 -> 20 (-3)  addr $129F -> $125C
+    PrintRE+$0002 #0002
+      original : $12A1 4C A4 12 JMP $12A4
+      generated: $125E 4C 61 12 JMP $1261
+      orig owner: PrintRE $12A1
+      source   : Routine PrintRE samples/toolkit/modern/REAL.ACT:265:1 | PROC PrintRE(REAL POINTER a) | source 4520..4577 code $125C-$126F
+    PrintRE+$0005 #0003
+      original : $12A4 8E A0 12 STX $12A0 ; a+1 $12A0
+      generated: $1261 8E 5D 12 STX $125D
+      orig operand: a+1 $12A0
+      source   : Routine PrintRE samples/toolkit/modern/REAL.ACT:265:1 | PROC PrintRE(REAL POINTER a) | source 4520..4577 code $125C-$126F
+    PrintRE+$0008 #0004
+      original : $12A7 8D 9F 12 STA $129F ; a $129F
+      generated: $1264 8D 5C 12 STA $125C
+      orig operand: a $129F
+      source   : Routine PrintRE samples/toolkit/modern/REAL.ACT:265:1 | PROC PrintRE(REAL POINTER a) | source 4520..4577 code $125C-$126F
+    PrintRE+$000B #0005
+      original : $12AA AC A0 12 LDY $12A0 ; a+1 $12A0
+      generated: $1267 AC 5D 12 LDY $125D
+      orig operand: a+1 $12A0
+      source   : Routine PrintRE samples/toolkit/modern/REAL.ACT:265:1 | PROC PrintRE(REAL POINTER a) | source 4520..4577 code $125C-$126F
+    PrintRE+$000E #0006
+      original : $12AD AE 9F 12 LDX $129F ; a $129F
+      generated: $126A AA       TAX
+      orig operand: a $129F
+      source   : Routine PrintRE samples/toolkit/modern/REAL.ACT:265:1 | PROC PrintRE(REAL POINTER a) | source 4520..4577 code $125C-$126F
+    PrintRE+$0013 #0008
+      original : $12B2 20 83 12 JSR $1283 ; PrintRDE $1283
+      generated: $126D 4C 41 12 JMP $1241
+      orig operand: PrintRDE $1283
+      source   : Routine PrintRE samples/toolkit/modern/REAL.ACT:265:1 | PROC PrintRE(REAL POINTER a) | source 4520..4577 code $125C-$126F
+    PrintRE+$0016 #0009
+      original : $12B5 60       RTS
+      generated: <missing>
+  InputRD                  len 170 -> 169 (-1)  addr $12B6 -> $1270
+    InputRD+$0083 #0131
+      original : $1339 4C 3C 13 JMP $133C
+      generated: $12F3 4C F6 12 JMP $12F6
+      orig owner: InputRD $1339
+      source   : Routine InputRD samples/toolkit/modern/REAL.ACT:274:1 | PROC InputRD(BYTE d  REAL POINTER a) | source 4682..4787 code $1270-$1318
+    InputRD+$0089 #0133
+      original : $133F B6 12 02 .BYTE $B6,$12,$02
+      generated: $12F9 70 12 02 .BYTE $70,$12,$02
+      source   : Routine InputRD samples/toolkit/modern/REAL.ACT:274:1 | PROC InputRD(BYTE d  REAL POINTER a) | source 4682..4787 code $1270-$1318
+    InputRD+$0092 #0137
+      original : $1348 A2 B9    LDX #$B9
+      generated: $1302 A2 73    LDX #$73
+      source   : Statement call samples/toolkit/modern/REAL.ACT:278:3 | InputMD(d,temp,126) | source 4746..4765 code $12FC-$1309
+    InputRD+$0094 #0138
+      original : $134A AD B6 12 LDA $12B6 ; d $12B6
+      generated: $1304 AD 70 12 LDA $1270
+      orig operand: d $12B6
+      source   : Statement call samples/toolkit/modern/REAL.ACT:278:3 | InputMD(d,temp,126) | source 4746..4765 code $12FC-$1309
+    InputRD+$009A #0140
+      original : $1350 AD B8 12 LDA $12B8 ; a+1 $12B8
+      generated: $130A AD 72 12 LDA $1272
+      orig operand: a+1 $12B8
+      source   : Routine InputRD samples/toolkit/modern/REAL.ACT:274:1 | PROC InputRD(BYTE d  REAL POINTER a) | source 4682..4787 code $1270-$1318
+    InputRD+$009F #0142
+      original : $1355 AC B7 12 LDY $12B7 ; a $12B7
+      generated: $130F AC 71 12 LDY $1271
+      orig operand: a $12B7
+      source   : Routine InputRD samples/toolkit/modern/REAL.ACT:274:1 | PROC InputRD(BYTE d  REAL POINTER a) | source 4682..4787 code $1270-$1318
+    InputRD+$00A4 #0144
+      original : $135A A9 B9    LDA #$B9
+      generated: $1314 A9 73    LDA #$73
+      source   : Routine InputRD samples/toolkit/modern/REAL.ACT:274:1 | PROC InputRD(BYTE d  REAL POINTER a) | source 4682..4787 code $1270-$1318
+    InputRD+$00A6 #0145
+      original : $135C 20 8D 10 JSR $108D ; ValR $108D
+      generated: $1316 4C 5B 10 JMP $105B
+      orig operand: ValR $108D
+      source   : Routine InputRD samples/toolkit/modern/REAL.ACT:274:1 | PROC InputRD(BYTE d  REAL POINTER a) | source 4682..4787 code $1270-$1318
+    InputRD+$00A9 #0146
+      original : $135F 60       RTS
+      generated: <missing>
+  InputR                   len 24 -> 20 (-4)  addr $1360 -> $1319
+    InputR+$0002 #0002
+      original : $1362 4C 65 13 JMP $1365
+      generated: $131B 4C 1E 13 JMP $131E
+      orig owner: InputR $1362
+      source   : Routine InputR samples/toolkit/modern/REAL.ACT:286:1 | PROC InputR(REAL POINTER a) | source 4898..4953 code $1319-$132C
+    InputR+$0005 #0003
+      original : $1365 8E 61 13 STX $1361 ; a+1 $1361
+      generated: $131E 8E 1A 13 STX $131A
+      orig operand: a+1 $1361
+      source   : Routine InputR samples/toolkit/modern/REAL.ACT:286:1 | PROC InputR(REAL POINTER a) | source 4898..4953 code $1319-$132C
+    InputR+$0008 #0004
+      original : $1368 8D 60 13 STA $1360 ; a $1360
+      generated: $1321 8D 19 13 STA $1319
+      orig operand: a $1360
+      source   : Routine InputR samples/toolkit/modern/REAL.ACT:286:1 | PROC InputR(REAL POINTER a) | source 4898..4953 code $1319-$132C
+    InputR+$000B #0005
+      original : $136B AC 61 13 LDY $1361 ; a+1 $1361
+      generated: $1324 AC 1A 13 LDY $131A
+      orig operand: a+1 $1361
+      source   : Routine InputR samples/toolkit/modern/REAL.ACT:286:1 | PROC InputR(REAL POINTER a) | source 4898..4953 code $1319-$132C
+    InputR+$000E #0006
+      original : $136E AE 60 13 LDX $1360 ; a $1360
+      generated: $1327 AA       TAX
+      orig operand: a $1360
+      source   : Routine InputR samples/toolkit/modern/REAL.ACT:286:1 | PROC InputR(REAL POINTER a) | source 4898..4953 code $1319-$132C
+    InputR+$0013 #0008
+      original : $1373 20 39 13 JSR $1339 ; InputRD $1339
+      generated: $132A 4C F3 12 JMP $12F3
+      orig operand: InputRD $1339
+      source   : Routine InputR samples/toolkit/modern/REAL.ACT:286:1 | PROC InputR(REAL POINTER a) | source 4898..4953 code $1319-$132C
+    InputR+$0016 #0009
+      original : $1376 60       RTS
+      generated: <missing>
+    InputR+$0017 #0010
+      original : $1377 60       RTS
+      generated: <missing>
+
+== bytes: original:samples/toolkit/survey/outputs/vm/REAL.COM vs modern ==
+exact: false  sizes: 1404 vs 1330
+first diffs:
+  @0004: $77 -> $2D
+  @0008: $4C -> $60
+  @0009: $0D -> $00
+  @000A: $0E -> $00
+  @000B: $60 -> $00
+  @000D: $00 -> $4C
+  @000E: $00 -> $12
+  @000F: $00 -> $0E
+  @0010: $4C -> $20
+  @0011: $15 -> $F5
+  @0012: $0E -> $A0
+  @0013: $20 -> $0B
+  @0014: $F5 -> $0E
+  @0015: $A0 -> $03
+  @0016: $0E -> $AD
+  @0017: $0E -> $0D
+  @0018: $03 -> $0E
+  @0019: $AD -> $85
+  @001A: $10 -> $AE
+  @001B: $0E -> $AD
+  @001C: $85 -> $0E
+  @001D: $AE -> $0E
+  @001E: $AD -> $85
+  @001F: $11 -> $AF
+  @0020: $0E -> $AD
+  @0021: $85 -> $0B
+  @0022: $AF -> $0E
+  @0023: $AD -> $85
+  @0024: $0E -> $AC
+  @0025: $0E -> $AD
+
+== instructions: original:samples/toolkit/survey/outputs/vm/REAL.COM vs modern ==
+counts: 709 vs 667
+  #0001
+    left : $0E09 05 4C    ORA $4C
+    right: $0E09 05 60    ORA $60
+  #0002
+    left : $0E0B 0D 0E 60 ORA $600E
+    right: $0E0B 00       BRK
+  #0006
+    left : $0E11 00       BRK
+    right: $0E0F 4C 12 0E JMP $0E12
+  #0007
+    left : $0E12 4C 15 0E JMP $0E15
+    right: $0E12 20 F5 A0 JSR $A0F5
+  #0008
+    left : $0E15 20 F5 A0 JSR $A0F5
+    right: $0E15 0B 0E 03 .BYTE $0B,$0E,$03
+  #0009
+    left : $0E18 0E 0E 03 .BYTE $0E,$0E,$03
+    right: $0E18 AD 0D 0E LDA $0E0D
+  #0010
+    left : $0E1B AD 10 0E LDA $0E10
+    right: $0E1B 85 AE    STA $AE
+  #0011
+    left : $0E1E 85 AE    STA $AE
+    right: $0E1D AD 0E 0E LDA $0E0E
+  #0012
+    left : $0E20 AD 11 0E LDA $0E11
+    right: $0E20 85 AF    STA $AF
+  #0013
+    left : $0E23 85 AF    STA $AF
+    right: $0E22 AD 0B 0E LDA $0E0B
+  #0014
+    left : $0E25 AD 0E 0E LDA $0E0E
+    right: $0E25 85 AC    STA $AC
+  #0015
+    left : $0E28 85 AC    STA $AC
+    right: $0E27 AD 0C 0E LDA $0E0C
+  #0016
+    left : $0E2A AD 0F 0E LDA $0E0F
+    right: $0E2A 85 AD    STA $AD
+  #0017
+    left : $0E2D 85 AD    STA $AD
+    right: $0E2C A0 01    LDY #$01
+  #0018
+    left : $0E2F A0 01    LDY #$01
+    right: $0E2E B1 AC    LDA ($AC),Y
+  #0019
+    left : $0E31 B1 AC    LDA ($AC),Y
+    right: $0E30 91 AE    STA ($AE),Y
+  #0020
+    left : $0E33 91 AE    STA ($AE),Y
+    right: $0E32 88       DEY
+  #0021
+    left : $0E35 88       DEY
+    right: $0E33 B1 AC    LDA ($AC),Y
+  #0022
+    left : $0E36 B1 AC    LDA ($AC),Y
+    right: $0E35 91 AE    STA ($AE),Y
+  #0023
+    left : $0E38 91 AE    STA ($AE),Y
+    right: $0E37 AD 0D 0E LDA $0E0D
+  #0024
+    left : $0E3A 18       CLC
+    right: $0E3A 85 AE    STA $AE
+  #0025
+    left : $0E3B AD 10 0E LDA $0E10
+    right: $0E3C AD 0E 0E LDA $0E0E
+  #0026
+    left : $0E3E 69 02    ADC #$02
+    right: $0E3F 85 AF    STA $AF
+  #0027
+    left : $0E40 85 AE    STA $AE
+    right: $0E41 AD 0B 0E LDA $0E0B
+  #0028
+    left : $0E42 AD 11 0E LDA $0E11
+    right: $0E44 85 AC    STA $AC
+  #0029
+    left : $0E45 69 00    ADC #$00
+    right: $0E46 AD 0C 0E LDA $0E0C
+  #0030
+    left : $0E47 85 AF    STA $AF
+    right: $0E49 85 AD    STA $AD
+  #0031
+    left : $0E49 18       CLC
+    right: $0E4B A0 03    LDY #$03
+  #0032
+    left : $0E4A AD 0E 0E LDA $0E0E
+    right: $0E4D B1 AC    LDA ($AC),Y
+  #0033
+    left : $0E4D 69 02    ADC #$02
+    right: $0E4F 91 AE    STA ($AE),Y

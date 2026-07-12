@@ -1,0 +1,27 @@
+; Runtime regression for initialized-array storage and descriptor backing.
+;
+; Fixed result addresses let the host-side VM gate validate behavior without
+; depending on compiler-specific storage layout for the result variables.
+
+BYTE globalByteResult=$0600
+CARD globalCardResult=$0601
+BYTE localByteResult=$0603
+CARD localCardResult=$0604
+
+BYTE ARRAY globalBytes=[1 2 3]
+CARD ARRAY globalCards=[0 $1111 $2222]
+
+PROC Main()
+  BYTE ARRAY localBytes=[4 5 6]
+  CARD ARRAY localCards=[0 $3333 $4444]
+
+  globalByteResult = globalBytes(1)
+  globalCardResult = globalCards(2)
+  localByteResult = localBytes(1)
+  localCardResult = localCards(2)
+
+  ; Keep execution in generated code so the VM can stop on its step limit and
+  ; inspect the result bytes without requiring an Atari OS return path.
+  DO
+  OD
+RETURN

@@ -1,0 +1,6 @@
+CARD ARRAY words(4)
+CARD p
+
+PROC Main()
+  p = @words
+RETURN

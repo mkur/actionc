@@ -1,0 +1,10 @@
+CARD ARRAY words(4)
+CARD out
+
+PROC Take(CARD ARRAY a)
+  out = a(1)
+RETURN
+
+PROC Main()
+  Take(words)
+RETURN

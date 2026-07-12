@@ -1,0 +1,11 @@
+CARD FUNC Take(CARD n)
+RETURN(n)
+
+BYTE w,h
+CARD size
+
+PROC Main()
+  w = 36
+  h = 11
+  size = Take((w+1)*(h+1))
+RETURN

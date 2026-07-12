@@ -1,0 +1,60 @@
+; Standalone exerciser for samples/tn/modern/LIB.ACT.
+; Build/run this instead of the full TN program when debugging the shared LIB UI
+; routines.
+
+SET $22F = 0  ; disable ANTIC while ACTION! sets up the program
+
+INCLUDE "D:../../modern/LIB.ACT"
+
+MODULE
+
+PROC demoMenu=*()
+[
+  "First"  'F
+  "Second" 'S
+  "Third"  'T
+  "Cancel" 'C
+  nil
+]
+
+PROC Main()
+
+  CHAR ans
+
+  Init()
+
+  Window(2, 2, 36, 11)
+  Relpos(1, 0)
+  PrintE("LIB standalone smoke test")
+  Relpos(1, 2)
+  PrintE("Main window: Print/PrintE")
+  PrintE("Nested window opens next")
+
+  Window(8, 7, 24, 4)
+  Relpos(1, 0)
+  PrintE("Nested popup window")
+  PrintE("Press a key to close")
+  Getchar()
+  CloseWindow()
+
+  Relpos(1, 5)
+  PrintE("Choose one item:")
+  Relpos(1, 7)
+  ans = PopUp(BYTE POINTER(@demoMenu), 0, 2)
+
+  Relpos(1, 9)
+  IF ans = ESC THEN
+    PrintE("Popup returned ESC")
+  ELSE
+    Print("Popup returned: ")
+    Putchar(ans)
+    PrintE("")
+  FI
+
+  Relpos(1, 10)
+  Print("Press any key to close")
+  Getchar()
+
+  CloseWindow()
+
+RETURN

@@ -1,0 +1,23 @@
+mir6502 program
+global g0 i: word storage global+0
+global g1 sum: word storage global+2
+
+routine r0 Main
+b0 bb0:
+  store.w global g0+0, #$00
+  jump b1
+b1 bb1:
+  v0 =.w load global g0+0
+  v1 = cmp.w v0 le #$012C
+  branch bool v1 ? b2 : b3
+b2 bb2:
+  v2 =.w load global g0+0
+  v3 =.w load global g1+0
+  v4 =.w v3 add v2 carry_in=- carry_out=ignore
+  store.w global g1+0, v4
+  v5 =.w load global g0+0
+  v6 =.w v5 add #$01 carry_in=- carry_out=ignore
+  store.w global g0+0, v6
+  jump b1
+b3 bb3:
+  return

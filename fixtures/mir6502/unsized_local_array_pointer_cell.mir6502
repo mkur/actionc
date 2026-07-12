@@ -1,0 +1,36 @@
+mir6502 program
+global g0 slots: word storage global+0 size=8 init zero_fill=8 section=global mutable=true
+global g1 out: byte storage global+8
+
+routine r0 Setup
+  local l0 init zero_fill=47 section=local mutable=true
+b0 bb0:
+  v0 =.w lea local l0+0
+  store.w local l1+0, v0
+  v1 =.w lea global g0+0
+  v2 =.w load local l1+0
+  store.w global g0+0, v2
+  v3 =.w load local l1+0
+  v4 =.w v3 add #$0A carry_in=- carry_out=ignore
+  store.w local l1+0, v4
+  v5 =.w load local l1+0
+  store.b computed v5[#$00;1]+0, #$00
+  v6 =.w lea global g0+0
+  v7 =.w load local l1+0
+  store.w global g0+2, v7
+  v8 =.w load local l1+0
+  v9 =.w v8 add #$01 carry_in=- carry_out=ignore
+  store.w local l1+0, v9
+  v10 =.w lea global g0+0
+  v11 =.w load local l1+0
+  store.w global g0+4, v11
+  v12 =.w load local l1+0
+  v13 =.w v12 add #$09 carry_in=- carry_out=ignore
+  store.w local l1+0, v13
+  v14 =.w lea global g0+0
+  v15 =.w load local l1+0
+  store.w global g0+6, v15
+  v16 =.w load local l1+0
+  v17 =.b load computed v16[#$00;1]+0
+  store.b global g1+0, v17
+  return

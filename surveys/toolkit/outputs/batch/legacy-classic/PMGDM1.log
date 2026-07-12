@@ -1,0 +1,12 @@
+source: corpora/toolkit/original/extracted/PMG.DM1
+source_policy: auto
+compile_source: corpora/toolkit/original/extracted/PMG.DM1
+artifact_source: [tmp]/toolkit/PMG.DM1
+profile: legacy
+backend: classic
+codegen_source: ast
+status: ok-modernized
+detail: original rejected as expected: original source passes a byte value where Zero requires BYTE POINTER; compiled replacement: samples/toolkit/modern/PMG.DM1; original diagnostic: corpora/toolkit/original/extracted/PMG.ACT:60:3: `Zero` argument 1 expects ValueType { base: Fund(Byte), pointer: true }, got ValueType { base: Fund(Byte), pointer: false } | Zero(GraphP0,5)
+
+validation_stderr:
+corpora/toolkit/original/extracted/PMG.ACT:60:3: `Zero` argument 1 expects ValueType { base: Fund(Byte), pointer: true }, got ValueType { base: Fund(Byte), pointer: false } | Zero(GraphP0,5)

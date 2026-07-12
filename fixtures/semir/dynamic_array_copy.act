@@ -1,0 +1,10 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE ARRAY src(4)=[1 2 3 4], dst(4)
+BYTE i
+
+PROC Main()
+  i = 2
+  dst(i) = src(i)
+RETURN

@@ -1,0 +1,41 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+CARD a, b
+BYTE eq_true, eq_false, ne_true, ne_false
+
+PROC Main()
+  a = $1234
+  b = $1234
+
+  IF a = b THEN
+    eq_true = 1
+  ELSE
+    eq_true = 2
+  FI
+
+  b = $1235
+
+  IF a = b THEN
+    eq_false = 1
+  ELSE
+    eq_false = 2
+  FI
+
+  IF a # b THEN
+    ne_true = 1
+  ELSE
+    ne_true = 2
+  FI
+
+  b = $1234
+
+  IF a # b THEN
+    ne_false = 1
+  ELSE
+    ne_false = 2
+  FI
+RETURN

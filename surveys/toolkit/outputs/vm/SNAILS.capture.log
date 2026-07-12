@@ -1,0 +1,74 @@
+compiler VM loaded 2 image(s); start PC=$C2AA
+queued key $E5 at PC=$A2E0
+queued 34 scripted CIO byte(s) at PC=$B2F5
+captured symbol snapshot `segvec` at PC=$04C6: proc=<none>, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=Hstick, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=Vstick, 1 local(s)
+stop: max steps reached
+regs: PC=$A72E A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+cart: window=$A000-$BFFF bank=2/3 bank_size=4096
+recent instructions:
+  53681639 PC=$A70E OP=$B1 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  53681642 PC=$A710 OP=$F0 A=$00 X=$00 Y=$00 SP=$F9 P=$33
+  53681644 PC=$A72C OP=$E0 A=$00 X=$00 Y=$00 SP=$F9 P=$33
+  53681646 PC=$A72E OP=$F0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  53681649 PC=$A730 OP=$D0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  53681651 PC=$A6D2 OP=$A0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  53681653 PC=$A6D4 OP=$18 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  53681658 PC=$A6D5 OP=$B1 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  53681660 PC=$A6D7 OP=$69 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  53681662 PC=$A6D9 OP=$E0 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  53681664 PC=$A6DB OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$B0
+  53681666 PC=$A6DD OP=$E0 A=$01 X=$00 Y=$00 SP=$F9 P=$B0
+  53681668 PC=$A6DF OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  53681671 PC=$A6E1 OP=$C4 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  53681674 PC=$A6E3 OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  53681677 PC=$A70A OP=$86 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  53681679 PC=$A70C OP=$A0 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  53681684 PC=$A70E OP=$B1 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  53681687 PC=$A710 OP=$F0 A=$00 X=$00 Y=$00 SP=$F9 P=$33
+  53681689 PC=$A72C OP=$E0 A=$00 X=$00 Y=$00 SP=$F9 P=$33
+CIO summary: calls=290 handled=288 passthrough=2 open=7 close=8 status=0 read=220 write=55 eof=1 bytes_read=3349 bytes_written=1552
+recent CIO:
+  cyc=3309064 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$C1 Y=$01 write E: 1 byte(s)
+  cyc=3309124 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$49 Y=$01 read queued input $49 read="I"
+  cyc=3309294 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$C9 Y=$01 write E: 1 byte(s)
+  cyc=3309354 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4C Y=$01 read queued input $4C read="L"
+  cyc=3309524 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$CC Y=$01 write E: 1 byte(s)
+  cyc=3309584 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$53 Y=$01 read queued input $53 read="S"
+  cyc=3309754 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$D3 Y=$01 write E: 1 byte(s)
+  cyc=3309814 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$2E Y=$01 read queued input $2E read="."
+  cyc=3309984 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$AE Y=$01 write E: 1 byte(s)
+  cyc=3310044 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$43 Y=$01 read queued input $43 read="C"
+  cyc=3310214 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$C3 Y=$01 write E: 1 byte(s)
+  cyc=3310274 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4F Y=$01 read queued input $4F read="O"
+  cyc=3310444 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$CF Y=$01 write E: 1 byte(s)
+  cyc=3310504 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4D Y=$01 read queued input $4D read="M"
+  cyc=3310674 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$CD Y=$01 write E: 1 byte(s)
+  cyc=3310734 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$22 Y=$01 read queued input $22 read="\""
+  cyc=3310904 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$A2 Y=$01 write E: 1 byte(s)
+  cyc=3310964 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$9B Y=$01 read queued input $9B read="\n"
+  cyc=3311177 dcyc=213 x=$00 ch=0 cmd=$0B ret=$B2B2 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$1E Y=$01 write E: 1 byte(s)
+  cyc=3311235 dcyc=58 x=$00 ch=0 cmd=$0B ret=$AD37 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$1F Y=$01 write E: 1 byte(s)
+  cyc=3313603 dcyc=2368 x=$10 ch=1 cmd=$0C ret=$B15A aux=$04/$AE buf=$B0B1 len=155 dev=SNAILS.ACT@3314 handled A=$B0 Y=$01 close harness device
+  cyc=3313735 dcyc=132 x=$10 ch=1 cmd=$03 ret=$B19A aux=$08/$AE buf=$956C len=12 dev=- handled A=$95 Y=$01 open harness device
+  cyc=3313844 dcyc=109 x=$00 ch=0 cmd=$0B ret=$AE50 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$9B Y=$01 write E: 1 byte(s)
+  cyc=3314017 dcyc=173 x=$10 ch=1 cmd=$0B ret=$AECE aux=$08/$AE buf=$00AA len=6 dev=SNAILS.COM@0 handled A=$00 Y=$01 write host 6 byte(s)
+  cyc=3314082 dcyc=65 x=$10 ch=1 cmd=$0B ret=$AEA2 aux=$08/$AE buf=$3000 len=1488 dev=SNAILS.COM@6 handled A=$05 Y=$01 write host 1488 byte(s)
+  cyc=3314271 dcyc=189 x=$10 ch=1 cmd=$0B ret=$AECE aux=$08/$AE buf=$00AA len=6 dev=SNAILS.COM@1494 handled A=$00 Y=$01 write host 6 byte(s)
+  cyc=3314381 dcyc=110 x=$10 ch=1 cmd=$0C ret=$AD5B aux=$08/$AE buf=$B0B1 len=155 dev=SNAILS.COM@1500 handled A=$B0 Y=$01 close harness device
+  cyc=3314495 dcyc=114 x=$70 ch=7 cmd=$0C ret=$A823 aux=$04/$04 buf=$B0B1 len=155 dev=Q: handled A=$B0 Y=$01 close harness device
+  cyc=3314607 dcyc=112 x=$70 ch=7 cmd=$03 ret=$AD23 aux=$04/$AE buf=$A831 len=2 dev=- handled A=$A8 Y=$01 open harness device
+  cyc=3314677 dcyc=70 x=$00 ch=0 cmd=$0B ret=$AD2D aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$FD Y=$01 write E: 1 byte(s)
+  cyc=3315547 dcyc=870 x=$00 ch=0 cmd=$0B ret=$B08D aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$1F Y=$01 write E: 1 byte(s)
+  cyc=3315620 dcyc=73 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$AE buf=$A831 len=0 dev=Q: pass A=-- Y=-- keyboard read waiting
+speaker writes: 1 last=$00
+CIO E: channel 0 output:
+  ............................
+  ....................
+  ..
+captured symbol snapshot `stop` at PC=$A72E: proc=MAIN, 0 local(s)
+wrote host output `SNAILS.COM`: 1500 byte(s) to samples/toolkit/survey/outputs/vm/SNAILS.COM
+wrote symbol dump: 23 global(s), 0 local(s) to samples/toolkit/survey/outputs/vm/SNAILS.symbols.json
+wrote 3 symbol snapshot(s) to samples/toolkit/survey/outputs/vm/SNAILS.symbol-snapshots.json
+stopped after 20000000 step(s), cycles=53681689, PC=$A72E

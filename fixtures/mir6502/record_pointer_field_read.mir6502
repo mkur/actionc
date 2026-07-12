@@ -1,0 +1,13 @@
+mir6502 program
+global g0 Pair: byte storage global+0 size=0
+global g1 rec: Pair storage global+0 size=3
+global g2 rp: word storage global+3
+global g3 out: byte storage global+5
+
+routine r0 Main
+b0 bb0:
+  v0 =.w lea global g1+0
+  store.w global g2+0, v0
+  v1 =.b load *global g2+0+0
+  store.b global g3+0, v1
+  return

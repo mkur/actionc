@@ -1,0 +1,21 @@
+mir6502 program
+global g0 i: byte absolute $00E0
+global g1 screen: word absolute $00E6
+global g2 p: word absolute $00E8
+global g3 x: byte absolute $00EA
+
+routine r0 <program>
+b0 bb1:
+  store.w $000E, #$00E6
+  store.w $000F, #$0000
+  unreachable
+
+routine r1 Main
+b0 bb0:
+  store.b global g0+0, #$01
+  v0 =.w load global g1+0
+  store.w global g2+0, v0
+  v1 =.w load global g2+0
+  v2 =.b load *v1+0
+  store.b global g3+0, v2
+  return

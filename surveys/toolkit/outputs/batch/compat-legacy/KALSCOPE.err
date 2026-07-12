@@ -1,0 +1,11 @@
+samples/toolkit/original/extracted/KALSCOPE.DEM:89:3: cannot dereference non-pointer value | dl^=$70
+samples/toolkit/original/extracted/KALSCOPE.DEM:91:3: cannot dereference non-pointer value | dl^=$4F ; load scan counter
+samples/toolkit/original/extracted/KALSCOPE.DEM:93:3: cannot dereference non-pointer value | dl^=ystart
+samples/toolkit/original/extracted/KALSCOPE.DEM:97:5: cannot dereference non-pointer value | dl^=$F0F
+samples/toolkit/original/extracted/KALSCOPE.DEM:100:3: cannot dereference non-pointer value | dl^=$F
+samples/toolkit/original/extracted/KALSCOPE.DEM:105:5: cannot dereference non-pointer value | dl^=$4F
+samples/toolkit/original/extracted/KALSCOPE.DEM:107:5: cannot dereference non-pointer value | dl^=next
+samples/toolkit/original/extracted/KALSCOPE.DEM:111:3: cannot dereference non-pointer value | dl^=$41
+samples/toolkit/original/extracted/KALSCOPE.DEM:113:3: cannot dereference non-pointer value | dl^=DLs
+samples/toolkit/original/extracted/KALSCOPE.DEM:275:3: `GetParam` argument 3 expects ValueType { base: Fund(Card), pointer: true }, got ValueType { base: Fund(Byte), pointer: false } | GetParam("Period", @period, 0)
+samples/toolkit/original/extracted/KALSCOPE.DEM:276:3: `GetParam` argument 3 expects ValueType { base: Fund(Card), pointer: true }, got ValueType { base: Fund(Byte), pointer: false } | GetParam("Persistence", @npts, 0)

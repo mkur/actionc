@@ -1,0 +1,57 @@
+; Probe side-effecting comparison operand evaluation order.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE seq, fSeen, gSeen
+BYTE eqOut, neOut, ltOut, leOut, gtOut, geOut, andOut, orOut, signedOut
+
+BYTE FUNC FB()
+  seq = seq + 1
+  fSeen = seq
+RETURN(10)
+
+BYTE FUNC GB()
+  seq = seq + 1
+  gSeen = seq
+RETURN(3)
+
+INT FUNC SIdeF()
+  seq = seq + 1
+  fSeen = seq
+RETURN(-2)
+
+INT FUNC SIdeG()
+  seq = seq + 1
+  gSeen = seq
+RETURN(3)
+
+PROC Main()
+  seq = 0
+  IF FB() = 10 THEN eqOut = 1 ELSE eqOut = 2 FI
+
+  seq = 0
+  IF FB() # 10 THEN neOut = 1 ELSE neOut = 2 FI
+
+  seq = 0
+  IF FB() < 11 THEN ltOut = 1 ELSE ltOut = 2 FI
+
+  seq = 0
+  IF FB() <= 10 THEN leOut = 1 ELSE leOut = 2 FI
+
+  seq = 0
+  IF FB() > 9 THEN gtOut = 1 ELSE gtOut = 2 FI
+
+  seq = 0
+  IF FB() >= 10 THEN geOut = 1 ELSE geOut = 2 FI
+
+  seq = 0
+  IF FB() AND 1 THEN andOut = 1 ELSE andOut = 2 FI
+
+  seq = 0
+  IF FB() OR 0 THEN orOut = 1 ELSE orOut = 2 FI
+
+  seq = 0
+  IF SIdeF() < 3 THEN signedOut = 1 ELSE signedOut = 2 FI
+RETURN

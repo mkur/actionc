@@ -1,0 +1,16 @@
+nir program
+global x: Byte
+global y: Byte
+
+routine <program> params=[-] locals=[-]
+bb1:
+  store @$0491 = $3000
+  store @$000E = $3000
+  fallthrough
+
+routine Main params=[-] locals=[-]
+bb0:
+  store x = 1
+  %t0:Byte = load x
+  store y = %t0
+  return

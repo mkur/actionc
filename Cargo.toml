@@ -1,0 +1,8 @@
+[package]
+name = "actionc"
+version = "0.1.0"
+edition = "2024"
+description = "Experimental cross-compiler scaffold for the Atari 8-bit Action! language"
+default-run = "actionc"
+
+[dependencies]

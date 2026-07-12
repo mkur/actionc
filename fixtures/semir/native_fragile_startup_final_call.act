@@ -1,0 +1,17 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE ran
+
+PROC InitPanels()
+  ran=1
+RETURN
+
+PROC Handle()
+  DO
+    ran==+1
+  OD
+
+PROC NavInit()
+  InitPanels()
+  Handle()

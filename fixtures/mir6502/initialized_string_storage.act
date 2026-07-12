@@ -1,0 +1,8 @@
+DEFINE STRING="CHAR ARRAY"
+
+STRING text(0)="HI"
+BYTE out
+
+PROC Main()
+  out = text(0)
+RETURN

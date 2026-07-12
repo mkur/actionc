@@ -1,0 +1,6 @@
+BYTE b
+BYTE POINTER p
+
+PROC Main()
+  p = @b
+RETURN

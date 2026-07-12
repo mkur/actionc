@@ -1,0 +1,11 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$57","name_addr":"$9400","name":"fname","vtype":"$9A","address":"$3000","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$FE","name_addr":"$941D","name":"Main","vtype":"$C0","address":"$3006","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$3B","name_addr":"$9413","name":"offset","vtype":"$8A","address":"$3005","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$AF","name_addr":"$9409","name":"sector","vtype":"$8C","address":"$3003","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]}
+  ],
+  "locals": []
+}

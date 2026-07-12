@@ -1,0 +1,17 @@
+BYTE ARRAY s
+BYTE out
+
+PROC Take(BYTE ARRAY p)
+  out = p(0)
+RETURN
+
+PROC Main()
+
+  BYTE ARRAY data(8), p
+
+  p = data
+  p ==+ 1
+  p(0) = 7
+  s = p
+  Take(s)
+RETURN

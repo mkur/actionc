@@ -1,0 +1,10 @@
+BYTE POINTER p,q
+BYTE out
+
+PROC Main()
+  p = $580
+  q = $580
+  IF p = q THEN
+    out = 1
+  FI
+RETURN

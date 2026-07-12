@@ -1,0 +1,13 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE a, b
+
+PROC Main()
+  a = 1
+  IF a = 1 THEN
+    b = 2
+  ELSE
+    b = 3
+  FI
+RETURN

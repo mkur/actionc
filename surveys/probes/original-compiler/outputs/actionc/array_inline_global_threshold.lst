@@ -1,0 +1,556 @@
+3000  00        BRK
+3001  00        BRK
+3002  80        .BYTE $80
+3003  00        BRK
+3004  00        BRK
+3005  00        BRK
+3006  00        BRK
+3007  00        BRK
+3008  00        BRK
+3009  00        BRK
+300A  00        BRK
+300B  00        BRK
+300C  00        BRK
+300D  00        BRK
+300E  00        BRK
+300F  00        BRK
+3010  00        BRK
+3011  00        BRK
+3012  00        BRK
+3013  00        BRK
+3014  00        BRK
+3015  00        BRK
+3016  00        BRK
+3017  00        BRK
+3018  00        BRK
+3019  00        BRK
+301A  00        BRK
+301B  00        BRK
+301C  00        BRK
+301D  00        BRK
+301E  00        BRK
+301F  00        BRK
+3020  00        BRK
+3021  00        BRK
+3022  00        BRK
+3023  00        BRK
+3024  00        BRK
+3025  00        BRK
+3026  00        BRK
+3027  00        BRK
+3028  00        BRK
+3029  00        BRK
+302A  00        BRK
+302B  00        BRK
+302C  00        BRK
+302D  00        BRK
+302E  00        BRK
+302F  00        BRK
+3030  00        BRK
+3031  00        BRK
+3032  00        BRK
+3033  00        BRK
+3034  00        BRK
+3035  00        BRK
+3036  00        BRK
+3037  00        BRK
+3038  00        BRK
+3039  00        BRK
+303A  00        BRK
+303B  00        BRK
+303C  00        BRK
+303D  00        BRK
+303E  00        BRK
+303F  00        BRK
+3040  00        BRK
+3041  00        BRK
+3042  00        BRK
+3043  00        BRK
+3044  00        BRK
+3045  00        BRK
+3046  00        BRK
+3047  00        BRK
+3048  00        BRK
+3049  00        BRK
+304A  00        BRK
+304B  00        BRK
+304C  00        BRK
+304D  00        BRK
+304E  00        BRK
+304F  00        BRK
+3050  00        BRK
+3051  00        BRK
+3052  00        BRK
+3053  00        BRK
+3054  00        BRK
+3055  00        BRK
+3056  00        BRK
+3057  00        BRK
+3058  00        BRK
+3059  00        BRK
+305A  00        BRK
+305B  00        BRK
+305C  00        BRK
+305D  00        BRK
+305E  00        BRK
+305F  00        BRK
+3060  00        BRK
+3061  00        BRK
+3062  00        BRK
+3063  00        BRK
+3064  00        BRK
+3065  00        BRK
+3066  00        BRK
+3067  00        BRK
+3068  00        BRK
+3069  00        BRK
+306A  00        BRK
+306B  00        BRK
+306C  00        BRK
+306D  00        BRK
+306E  00        BRK
+306F  00        BRK
+3070  00        BRK
+3071  00        BRK
+3072  00        BRK
+3073  00        BRK
+3074  00        BRK
+3075  00        BRK
+3076  00        BRK
+3077  00        BRK
+3078  00        BRK
+3079  00        BRK
+307A  00        BRK
+307B  00        BRK
+307C  00        BRK
+307D  00        BRK
+307E  00        BRK
+307F  00        BRK
+; ===== PROC MarkG128 $3080..$3081 =====
+3080  60        RTS
+; ===== END PROC MarkG128 =====
+3081  00        BRK
+3082  00        BRK
+3083  00        BRK
+3084  01 00     ORA ($00,X)
+3086  00        BRK
+3087  00        BRK
+3088  00        BRK
+3089  00        BRK
+308A  00        BRK
+308B  00        BRK
+308C  00        BRK
+308D  00        BRK
+308E  00        BRK
+308F  00        BRK
+3090  00        BRK
+3091  00        BRK
+3092  00        BRK
+3093  00        BRK
+3094  00        BRK
+3095  00        BRK
+3096  00        BRK
+3097  00        BRK
+3098  00        BRK
+3099  00        BRK
+309A  00        BRK
+309B  00        BRK
+309C  00        BRK
+309D  00        BRK
+309E  00        BRK
+309F  00        BRK
+30A0  00        BRK
+30A1  00        BRK
+30A2  00        BRK
+30A3  00        BRK
+30A4  00        BRK
+30A5  00        BRK
+30A6  00        BRK
+30A7  00        BRK
+30A8  00        BRK
+30A9  00        BRK
+30AA  00        BRK
+30AB  00        BRK
+30AC  00        BRK
+30AD  00        BRK
+30AE  00        BRK
+30AF  00        BRK
+30B0  00        BRK
+30B1  00        BRK
+30B2  00        BRK
+30B3  00        BRK
+30B4  00        BRK
+30B5  00        BRK
+30B6  00        BRK
+30B7  00        BRK
+30B8  00        BRK
+30B9  00        BRK
+30BA  00        BRK
+30BB  00        BRK
+30BC  00        BRK
+30BD  00        BRK
+30BE  00        BRK
+30BF  00        BRK
+30C0  00        BRK
+30C1  00        BRK
+30C2  00        BRK
+30C3  00        BRK
+30C4  00        BRK
+30C5  00        BRK
+30C6  00        BRK
+30C7  00        BRK
+30C8  00        BRK
+30C9  00        BRK
+30CA  00        BRK
+30CB  00        BRK
+30CC  00        BRK
+30CD  00        BRK
+30CE  00        BRK
+30CF  00        BRK
+30D0  00        BRK
+30D1  00        BRK
+30D2  00        BRK
+30D3  00        BRK
+30D4  00        BRK
+30D5  00        BRK
+30D6  00        BRK
+30D7  00        BRK
+30D8  00        BRK
+30D9  00        BRK
+30DA  00        BRK
+30DB  00        BRK
+30DC  00        BRK
+30DD  00        BRK
+30DE  00        BRK
+30DF  00        BRK
+30E0  00        BRK
+30E1  00        BRK
+30E2  00        BRK
+30E3  00        BRK
+30E4  00        BRK
+30E5  00        BRK
+30E6  00        BRK
+30E7  00        BRK
+30E8  00        BRK
+30E9  00        BRK
+30EA  00        BRK
+30EB  00        BRK
+30EC  00        BRK
+30ED  00        BRK
+30EE  00        BRK
+30EF  00        BRK
+30F0  00        BRK
+30F1  00        BRK
+30F2  00        BRK
+30F3  00        BRK
+30F4  00        BRK
+30F5  00        BRK
+30F6  00        BRK
+30F7  00        BRK
+30F8  00        BRK
+30F9  00        BRK
+30FA  00        BRK
+30FB  00        BRK
+30FC  00        BRK
+30FD  00        BRK
+30FE  00        BRK
+30FF  00        BRK
+3100  00        BRK
+3101  00        BRK
+3102  00        BRK
+3103  00        BRK
+3104  00        BRK
+3105  00        BRK
+3106  00        BRK
+3107  00        BRK
+3108  00        BRK
+3109  00        BRK
+310A  00        BRK
+310B  00        BRK
+310C  00        BRK
+310D  00        BRK
+310E  00        BRK
+310F  00        BRK
+3110  00        BRK
+3111  00        BRK
+3112  00        BRK
+3113  00        BRK
+3114  00        BRK
+3115  00        BRK
+3116  00        BRK
+3117  00        BRK
+3118  00        BRK
+3119  00        BRK
+311A  00        BRK
+311B  00        BRK
+311C  00        BRK
+311D  00        BRK
+311E  00        BRK
+311F  00        BRK
+3120  00        BRK
+3121  00        BRK
+3122  00        BRK
+3123  00        BRK
+3124  00        BRK
+3125  00        BRK
+3126  00        BRK
+3127  00        BRK
+3128  00        BRK
+3129  00        BRK
+312A  00        BRK
+312B  00        BRK
+312C  00        BRK
+312D  00        BRK
+312E  00        BRK
+312F  00        BRK
+3130  00        BRK
+3131  00        BRK
+3132  00        BRK
+3133  00        BRK
+3134  00        BRK
+3135  00        BRK
+3136  00        BRK
+3137  00        BRK
+3138  00        BRK
+3139  00        BRK
+313A  00        BRK
+313B  00        BRK
+313C  00        BRK
+313D  00        BRK
+313E  00        BRK
+313F  00        BRK
+3140  00        BRK
+3141  00        BRK
+3142  00        BRK
+3143  00        BRK
+3144  00        BRK
+3145  00        BRK
+3146  00        BRK
+3147  00        BRK
+3148  00        BRK
+3149  00        BRK
+314A  00        BRK
+314B  00        BRK
+314C  00        BRK
+314D  00        BRK
+314E  00        BRK
+314F  00        BRK
+3150  00        BRK
+3151  00        BRK
+3152  00        BRK
+3153  00        BRK
+3154  00        BRK
+3155  00        BRK
+3156  00        BRK
+3157  00        BRK
+3158  00        BRK
+3159  00        BRK
+315A  00        BRK
+315B  00        BRK
+315C  00        BRK
+315D  00        BRK
+315E  00        BRK
+315F  00        BRK
+3160  00        BRK
+3161  00        BRK
+3162  00        BRK
+3163  00        BRK
+3164  00        BRK
+3165  00        BRK
+3166  00        BRK
+3167  00        BRK
+3168  00        BRK
+3169  00        BRK
+316A  00        BRK
+316B  00        BRK
+316C  00        BRK
+316D  00        BRK
+316E  00        BRK
+316F  00        BRK
+3170  00        BRK
+3171  00        BRK
+3172  00        BRK
+3173  00        BRK
+3174  00        BRK
+3175  00        BRK
+3176  00        BRK
+3177  00        BRK
+3178  00        BRK
+3179  00        BRK
+317A  00        BRK
+317B  00        BRK
+317C  00        BRK
+317D  00        BRK
+317E  00        BRK
+317F  00        BRK
+3180  00        BRK
+; ===== PROC MarkG256 $3181..$3182 =====
+3181  60        RTS
+; ===== END PROC MarkG256 =====
+3182  AF        .BYTE $AF
+3183  32        .BYTE $32
+3184  40        RTI
+3185  01 60     ORA ($60,X)
+; ===== END PROC MarkG320 =====
+3187  EF        .BYTE $EF
+3188  33        .BYTE $33
+3189  80        .BYTE $80
+318A  01 60     ORA ($60,X)
+; ===== END PROC MarkG384 =====
+318C  6F        .BYTE $6F
+318D  35 00     AND $00,X
+318F  02        .BYTE $02
+; ===== PROC MarkG512 $3190..$3191 =====
+3190  60        RTS
+; ===== END PROC MarkG512 =====
+3191  6F        .BYTE $6F
+3192  37        .BYTE $37
+3193  80        .BYTE $80
+3194  02        .BYTE $02
+; ===== PROC MarkG640 $3195..$3196 =====
+3195  60        RTS
+; ===== END PROC MarkG640 =====
+3196  EF        .BYTE $EF
+3197  39 00 03  AND $0300,Y
+; ===== PROC MarkG768 $319A..$319B =====
+319A  60        RTS
+; ===== END PROC MarkG768 =====
+319B  EF        .BYTE $EF
+319C  3C        .BYTE $3C
+319D  80        .BYTE $80
+319E  03        .BYTE $03
+; ===== PROC MarkG896 $319F..$31A0 =====
+319F  60        RTS
+; ===== END PROC MarkG896 =====
+31A0  6F        .BYTE $6F
+31A1  40        RTI
+31A2  00        BRK
+31A3  04        .BYTE $04
+; ===== PROC MarkG1024 $31A4..$31A5 =====
+31A4  60        RTS
+; ===== END PROC MarkG1024 =====
+31A5  00        BRK
+; ===== PROC TouchGlobals $31A6..$32A7 =====
+31A6  4C A9 31  JMP $31A9
+31A9  A9 01     LDA #$01
+31AB  8D 00 30  STA $3000
+31AE  A9 02     LDA #$02
+31B0  8D 7F 30  STA $307F
+31B3  A9 01     LDA #$01
+31B5  8D 81 30  STA $3081
+31B8  A9 02     LDA #$02
+31BA  8D 80 31  STA $3180
+31BD  AD 82 31  LDA $3182
+31C0  85 AE     STA $AE
+31C2  AD 83 31  LDA $3183
+31C5  85 AF     STA $AF
+31C7  A9 01     LDA #$01
+31C9  A0 00     LDY #$00
+31CB  91 AE     STA ($AE),Y
+31CD  18        CLC
+31CE  AD 82 31  LDA $3182
+31D1  69 3F     ADC #$3F
+31D3  85 AE     STA $AE
+31D5  AD 83 31  LDA $3183
+31D8  69 01     ADC #$01
+31DA  85 AF     STA $AF
+31DC  A9 02     LDA #$02
+31DE  91 AE     STA ($AE),Y
+31E0  AD 87 31  LDA $3187
+31E3  85 AE     STA $AE
+31E5  AD 88 31  LDA $3188
+31E8  85 AF     STA $AF
+31EA  A9 01     LDA #$01
+31EC  91 AE     STA ($AE),Y
+31EE  18        CLC
+31EF  AD 87 31  LDA $3187
+31F2  69 7F     ADC #$7F
+31F4  85 AE     STA $AE
+31F6  AD 88 31  LDA $3188
+31F9  69 01     ADC #$01
+31FB  85 AF     STA $AF
+31FD  A9 02     LDA #$02
+31FF  91 AE     STA ($AE),Y
+3201  AD 8C 31  LDA $318C
+3204  85 AE     STA $AE
+3206  AD 8D 31  LDA $318D
+3209  85 AF     STA $AF
+320B  A9 01     LDA #$01
+320D  91 AE     STA ($AE),Y
+320F  18        CLC
+3210  AD 8C 31  LDA $318C
+3213  69 FF     ADC #$FF
+3215  85 AE     STA $AE
+3217  AD 8D 31  LDA $318D
+321A  69 01     ADC #$01
+321C  85 AF     STA $AF
+321E  A9 02     LDA #$02
+3220  91 AE     STA ($AE),Y
+3222  AD 91 31  LDA $3191
+3225  85 AE     STA $AE
+3227  AD 92 31  LDA $3192
+322A  85 AF     STA $AF
+322C  A9 01     LDA #$01
+322E  91 AE     STA ($AE),Y
+3230  18        CLC
+3231  AD 91 31  LDA $3191
+3234  69 7F     ADC #$7F
+3236  85 AE     STA $AE
+3238  AD 92 31  LDA $3192
+323B  69 02     ADC #$02
+323D  85 AF     STA $AF
+323F  A9 02     LDA #$02
+3241  91 AE     STA ($AE),Y
+3243  AD 96 31  LDA $3196
+3246  85 AE     STA $AE
+3248  AD 97 31  LDA $3197
+324B  85 AF     STA $AF
+324D  A9 01     LDA #$01
+324F  91 AE     STA ($AE),Y
+3251  18        CLC
+3252  AD 96 31  LDA $3196
+3255  69 FF     ADC #$FF
+3257  85 AE     STA $AE
+3259  AD 97 31  LDA $3197
+325C  69 02     ADC #$02
+325E  85 AF     STA $AF
+3260  A9 02     LDA #$02
+3262  91 AE     STA ($AE),Y
+3264  AD 9B 31  LDA $319B
+3267  85 AE     STA $AE
+3269  AD 9C 31  LDA $319C
+326C  85 AF     STA $AF
+326E  A9 01     LDA #$01
+3270  91 AE     STA ($AE),Y
+3272  18        CLC
+3273  AD 9B 31  LDA $319B
+3276  69 7F     ADC #$7F
+3278  85 AE     STA $AE
+327A  AD 9C 31  LDA $319C
+327D  69 03     ADC #$03
+327F  85 AF     STA $AF
+3281  A9 02     LDA #$02
+3283  91 AE     STA ($AE),Y
+3285  AD A0 31  LDA $31A0
+3288  85 AE     STA $AE
+328A  AD A1 31  LDA $31A1
+328D  85 AF     STA $AF
+328F  A9 01     LDA #$01
+3291  91 AE     STA ($AE),Y
+3293  18        CLC
+3294  AD A0 31  LDA $31A0
+3297  69 FF     ADC #$FF
+3299  85 AE     STA $AE
+329B  AD A1 31  LDA $31A1
+329E  69 03     ADC #$03
+32A0  85 AF     STA $AF
+32A2  A9 02     LDA #$02
+32A4  91 AE     STA ($AE),Y
+32A6  60        RTS
+; ===== END PROC TouchGlobals =====
+; ===== PROC Main $32A7..$32AE =====
+32A7  4C AA 32  JMP $32AA
+32AA  20 A6 31  JSR $31A6
+32AD  60        RTS
+; ===== END PROC Main =====
+32AE  60        RTS

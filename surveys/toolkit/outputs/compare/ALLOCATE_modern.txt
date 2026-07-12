@@ -1,0 +1,781 @@
+source: samples/toolkit/modern/ALLOCATE.ACT
+
+== original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM ==
+load bytes: 1026  code bytes: 1014  code origin: $0E08
+segments:
+  00: $0E08-$11FD len  1014 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1020 data_off  1024
+      RUNAD $02E2 = $1165
+opcode counts:
+  $00 BRK      26
+  $05 ORA      2
+  $0D ORA      5
+  $11 ORA      1
+  $18 CLC      20
+  $20 JSR      4
+  $25 AND      2
+  $38 SEC      2
+  $3A .BYTE    1
+  $4C JMP      18
+  $4D EOR      6
+  $60 RTS      7
+  $64 .BYTE    1
+  $69 ADC      30
+  $6D ADC      4
+  $71 ADC      6
+  $85 STA      73
+  $88 DEY      21
+  $8D STA      28
+  $8E STX      2
+  $90 BCC      2
+  $91 STA      24
+  $A0 LDY      13
+  $A2 LDX      1
+  $A5 LDA      6
+  $A9 LDA      5
+  $AC LDY      1
+  $AD LDA      95
+  $B1 LDA      29
+  $C8 INY      13
+  $CD CMP      2
+  $D0 BNE      6
+  $ED SBC      6
+  $F0 BEQ      4
+
+== modern ==
+load bytes: 947  code bytes: 935  code origin: $0E08
+segments:
+  00: $0E08-$11AE len   935 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   941 data_off   945
+      RUNAD $02E2 = $1143
+opcode counts:
+  $00 BRK      26
+  $05 ORA      2
+  $0D ORA      5
+  $11 ORA      1
+  $18 CLC      5
+  $20 JSR      4
+  $25 AND      2
+  $38 SEC      2
+  $3A .BYTE    1
+  $4C JMP      10
+  $4D EOR      6
+  $51 .BYTE    1
+  $60 RTS      6
+  $6D ADC      8
+  $71 ADC      2
+  $85 STA      76
+  $88 DEY      19
+  $8D STA      28
+  $8E STX      2
+  $90 BCC      2
+  $91 STA      24
+  $A0 LDY      20
+  $A2 LDX      1
+  $A5 LDA      5
+  $A9 LDA      3
+  $AC LDY      1
+  $AD LDA      95
+  $B1 LDA      33
+  $C8 INY      10
+  $CD CMP      2
+  $D0 BNE      7
+  $ED SBC      6
+  $F0 BEQ      3
+
+== map: modern ==
+origin $0E08  run $1143  routines 4  symbols 15  skipped 0
+routines:
+  Alloc                    $0E0C-$0F50 len   325
+  Free                     $0F51-$10D1 len   385
+  AllocInit                $10D2-$1132 len    97
+  PrintFreeList            $1133-$11AE len   124
+storage symbols:
+  global Storage MEMHI $02E5-$02E6
+  global Storage MEMLO $02E7-$02E8
+  global Storage ENDPROG $0E08-$0E09
+  global Storage FREELIST $0E0A-$0E0B
+  routine Alloc Parameter NBYTES $0E0C-$0E0D
+  routine Alloc Local LAST $0E0E-$0E0F
+  routine Alloc Local CURRENT $0E10-$0E11
+  routine Alloc Local TARGET $0E12-$0E13
+  routine Free Parameter TARGET $0F51-$0F52
+  routine Free Parameter NBYTES $0F53-$0F54
+  routine Free Local LAST $0F55-$0F56
+  routine Free Local CURRENT $0F57-$0F58
+  routine AllocInit Parameter USELESS $10D2-$10D3
+  routine AllocInit Local P $10D4-$10D5
+  routine PrintFreeList Local P $1133-$1134
+trusted effects:
+  Alloc                    clobbers A,X,Y; writes zp $A0,$A1,$AC,$AD,$AE,$AF; writes abs $0E0D,$0E0C,$0E0F,$0E0E,$0E11,$0E10,$0E13,$0E12
+  Free                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AA,$AB,$AC,$AD,$AE,$AF; writes abs $0F56,$0F55,$0F58,$0F57; writes unknown-abs
+  AllocInit                clobbers A,X,Y; writes zp $AE,$AF; writes abs $10D3,$10D2,$10D5,$10D4
+
+== routines: original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM vs modern ==
+  Alloc                    len 348 -> 325 (-23)  addr $0E08 -> $0E0C
+    Alloc+$0008 #0008
+      original : $0E10 00       BRK
+      generated: $0E14 4C 17 0E JMP $0E17
+      orig owner: current $0E10
+      source   : Routine Alloc samples/toolkit/modern/ALLOCATE.ACT:40:1 | CARD FUNC Alloc(CARD nBytes) | source 865..1639 code $0E0C-$0F50
+    Alloc+$0009 #0009
+      original : $0E11 00       BRK
+      generated: $0E17 8E 0D 0E STX $0E0D
+      orig owner: current+1 $0E11
+      source   : Routine Alloc samples/toolkit/modern/ALLOCATE.ACT:40:1 | CARD FUNC Alloc(CARD nBytes) | source 865..1639 code $0E0C-$0F50
+    Alloc+$000A #0010
+      original : $0E12 00       BRK
+      generated: $0E1A 8D 0C 0E STA $0E0C
+      orig owner: target $0E12
+      source   : Routine Alloc samples/toolkit/modern/ALLOCATE.ACT:40:1 | CARD FUNC Alloc(CARD nBytes) | source 865..1639 code $0E0C-$0F50
+    Alloc+$000B #0011
+      original : $0E13 00       BRK
+      generated: $0E1D AD 0B 0E LDA $0E0B
+      orig owner: target+1 $0E13
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:45:3 | last=FreeList ; start at beginning of list | source 952..965 code $0E1D-$0E28
+    Alloc+$000C #0012
+      original : $0E14 4C 17 0E JMP $0E17
+      generated: $0E20 8D 0F 0E STA $0E0F
+      orig owner: Alloc $0E14
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:45:3 | last=FreeList ; start at beginning of list | source 952..965 code $0E1D-$0E28
+    Alloc+$000F #0013
+      original : $0E17 8E 0D 0E STX $0E0D ; nBytes+1 $0E0D
+      generated: $0E23 AD 0A 0E LDA $0E0A
+      orig operand: nBytes+1 $0E0D
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:45:3 | last=FreeList ; start at beginning of list | source 952..965 code $0E1D-$0E28
+    Alloc+$0012 #0014
+      original : $0E1A 8D 0C 0E STA $0E0C ; nBytes $0E0C
+      generated: $0E26 8D 0E 0E STA $0E0E
+      orig operand: nBytes $0E0C
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:45:3 | last=FreeList ; start at beginning of list | source 952..965 code $0E1D-$0E28
+    Alloc+$0015 #0015
+      original : $0E1D AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $0E29 AD 0A 0E LDA $0E0A
+      orig operand: FreeList+1 $0E0B
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:46:3 | current=FreeList.next | source 997..1018 code $0E29-$0E3F
+    Alloc+$0018 #0016
+      original : $0E20 8D 0F 0E STA $0E0F ; last+1 $0E0F
+      generated: $0E2C 85 AE    STA $AE
+      orig operand: last+1 $0E0F
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:46:3 | current=FreeList.next | source 997..1018 code $0E29-$0E3F
+    Alloc+$001B #0017
+      original : $0E23 AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $0E2E AD 0B 0E LDA $0E0B
+      orig operand: FreeList $0E0A
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:46:3 | current=FreeList.next | source 997..1018 code $0E29-$0E3F
+    Alloc+$001E #0018
+      original : $0E26 8D 0E 0E STA $0E0E ; last $0E0E
+      generated: $0E31 85 AF    STA $AF
+      orig operand: last $0E0E
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:46:3 | current=FreeList.next | source 997..1018 code $0E29-$0E3F
+    Alloc+$0021 #0019
+      original : $0E29 18       CLC
+      generated: $0E33 A0 03    LDY #$03
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:46:3 | current=FreeList.next | source 997..1018 code $0E29-$0E3F
+    Alloc+$0022 #0020
+      original : $0E2A AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $0E35 B1 AE    LDA ($AE),Y
+      orig operand: FreeList $0E0A
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:46:3 | current=FreeList.next | source 997..1018 code $0E29-$0E3F
+    Alloc+$0025 #0021
+      original : $0E2D 69 02    ADC #$02
+      generated: $0E37 8D 11 0E STA $0E11
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:46:3 | current=FreeList.next | source 997..1018 code $0E29-$0E3F
+    Alloc+$0027 #0022
+      original : $0E2F 85 AE    STA $AE
+      generated: $0E3A 88       DEY
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:46:3 | current=FreeList.next | source 997..1018 code $0E29-$0E3F
+    Alloc+$0029 #0023
+      original : $0E31 AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $0E3B B1 AE    LDA ($AE),Y
+      orig operand: FreeList+1 $0E0B
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:46:3 | current=FreeList.next | source 997..1018 code $0E29-$0E3F
+    Alloc+$002C #0024
+      original : $0E34 69 00    ADC #$00
+      generated: $0E3D 8D 10 0E STA $0E10
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:46:3 | current=FreeList.next | source 997..1018 code $0E29-$0E3F
+    Alloc+$002E #0025
+      original : $0E36 85 AF    STA $AF
+      generated: $0E40 AD 10 0E LDA $0E10
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$0030 #0026
+      original : $0E38 A0 01    LDY #$01
+      generated: $0E43 0D 11 0E ORA $0E11
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$0032 #0027
+      original : $0E3A B1 AE    LDA ($AE),Y
+      generated: $0E46 F0 19    BEQ $0E61
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$0034 #0028
+      original : $0E3C 8D 11 0E STA $0E11 ; current+1 $0E11
+      generated: $0E48 AD 10 0E LDA $0E10
+      orig operand: current+1 $0E11
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$0037 #0029
+      original : $0E3F 88       DEY
+      generated: $0E4B 85 AE    STA $AE
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$0038 #0030
+      original : $0E40 B1 AE    LDA ($AE),Y
+      generated: $0E4D AD 11 0E LDA $0E11
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$003A #0031
+      original : $0E42 8D 10 0E STA $0E10 ; current $0E10
+      generated: $0E50 85 AF    STA $AF
+      orig operand: current $0E10
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$003D #0032
+      original : $0E45 AD 10 0E LDA $0E10 ; current $0E10
+      generated: $0E52 A0 00    LDY #$00
+      orig operand: current $0E10
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$0040 #0033
+      original : $0E48 0D 11 0E ORA $0E11 ; current+1 $0E11
+      generated: $0E54 B1 AE    LDA ($AE),Y
+      orig operand: current+1 $0E11
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$0043 #0034
+      original : $0E4B D0 03    BNE $0E50
+      generated: $0E56 CD 0C 0E CMP $0E0C
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$0045 #0035
+      original : $0E4D 4C 97 0E JMP $0E97
+      generated: $0E59 C8       INY
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$0048 #0036
+      original : $0E50 AD 10 0E LDA $0E10 ; current $0E10
+      generated: $0E5A B1 AE    LDA ($AE),Y
+      orig operand: current $0E10
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+    Alloc+$004B #0037
+      original : $0E53 85 AE    STA $AE
+      generated: $0E5C ED 0D 0E SBC $0E0D
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:49:3 | WHILE (current<>NULL) AND (current.size<nBytes) | source 1068..1171 code $0E40-$0E89
+  Free                     len 399 -> 385 (-14)  addr $0F64 -> $0F51
+    Free+$0008 #0008
+      original : $0F6C 4C 6F 0F JMP $0F6F
+      generated: $0F59 4C 5C 0F JMP $0F5C
+      orig owner: Free $0F6C
+      source   : Routine Free samples/toolkit/modern/ALLOCATE.ACT:77:1 | PROC Free(BLOCK POINTER target  CARD nBYTES) | source 1761..2358 code $0F51-$10D1
+    Free+$000E #0010
+      original : $0F72 64 0F 03 .BYTE $64,$0F,$03
+      generated: $0F5F 51 0F 03 .BYTE $51,$0F,$03
+      source   : Routine Free samples/toolkit/modern/ALLOCATE.ACT:77:1 | PROC Free(BLOCK POINTER target  CARD nBYTES) | source 1761..2358 code $0F51-$10D1
+    Free+$0011 #0011
+      original : $0F75 AD 64 0F LDA $0F64 ; target $0F64
+      generated: $0F62 AD 51 0F LDA $0F51
+      orig operand: target $0F64
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:81:3 | target.size=nBytes | source 1840..1858 code $0F62-$0F78
+    Free+$0016 #0013
+      original : $0F7A AD 65 0F LDA $0F65 ; target+1 $0F65
+      generated: $0F67 AD 52 0F LDA $0F52
+      orig operand: target+1 $0F65
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:81:3 | target.size=nBytes | source 1840..1858 code $0F62-$0F78
+    Free+$001B #0015
+      original : $0F7F AD 67 0F LDA $0F67 ; nBYTES+1 $0F67
+      generated: $0F6C AD 54 0F LDA $0F54
+      orig operand: nBYTES+1 $0F67
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:81:3 | target.size=nBytes | source 1840..1858 code $0F62-$0F78
+    Free+$0022 #0018
+      original : $0F86 AD 66 0F LDA $0F66 ; nBYTES $0F66
+      generated: $0F73 AD 53 0F LDA $0F53
+      orig operand: nBYTES $0F66
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:81:3 | target.size=nBytes | source 1840..1858 code $0F62-$0F78
+    Free+$002B #0022
+      original : $0F8F 8D 69 0F STA $0F69 ; last+1 $0F69
+      generated: $0F7C 8D 56 0F STA $0F56
+      orig operand: last+1 $0F69
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:82:3 | last=FreeList | source 1861..1874 code $0F79-$0F84
+    Free+$0031 #0024
+      original : $0F95 8D 68 0F STA $0F68 ; last $0F68
+      generated: $0F82 8D 55 0F STA $0F55
+      orig operand: last $0F68
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:82:3 | last=FreeList | source 1861..1874 code $0F79-$0F84
+    Free+$0034 #0025
+      original : $0F98 18       CLC
+      generated: $0F85 AD 0A 0E LDA $0E0A
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:83:3 | current=FreeList.next | source 1877..1898 code $0F85-$0F9B
+    Free+$0035 #0026
+      original : $0F99 AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $0F88 85 AE    STA $AE
+      orig operand: FreeList $0E0A
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:83:3 | current=FreeList.next | source 1877..1898 code $0F85-$0F9B
+    Free+$0038 #0027
+      original : $0F9C 69 02    ADC #$02
+      generated: $0F8A AD 0B 0E LDA $0E0B
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:83:3 | current=FreeList.next | source 1877..1898 code $0F85-$0F9B
+    Free+$003A #0028
+      original : $0F9E 85 AE    STA $AE
+      generated: $0F8D 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:83:3 | current=FreeList.next | source 1877..1898 code $0F85-$0F9B
+    Free+$003C #0029
+      original : $0FA0 AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $0F8F A0 03    LDY #$03
+      orig operand: FreeList+1 $0E0B
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:83:3 | current=FreeList.next | source 1877..1898 code $0F85-$0F9B
+    Free+$003F #0030
+      original : $0FA3 69 00    ADC #$00
+      generated: $0F91 B1 AE    LDA ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:83:3 | current=FreeList.next | source 1877..1898 code $0F85-$0F9B
+    Free+$0041 #0031
+      original : $0FA5 85 AF    STA $AF
+      generated: $0F93 8D 58 0F STA $0F58
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:83:3 | current=FreeList.next | source 1877..1898 code $0F85-$0F9B
+    Free+$0043 #0032
+      original : $0FA7 C8       INY
+      generated: $0F96 88       DEY
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:83:3 | current=FreeList.next | source 1877..1898 code $0F85-$0F9B
+    Free+$0046 #0034
+      original : $0FAA 8D 6B 0F STA $0F6B ; current+1 $0F6B
+      generated: $0F99 8D 57 0F STA $0F57
+      orig operand: current+1 $0F6B
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:83:3 | current=FreeList.next | source 1877..1898 code $0F85-$0F9B
+    Free+$0049 #0035
+      original : $0FAD 88       DEY
+      generated: $0F9C AD 57 0F LDA $0F57
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:86:3 | WHILE (current<>NULL) AND (current<target) | source 1944..2042 code $0F9C-$0FDA
+    Free+$004A #0036
+      original : $0FAE B1 AE    LDA ($AE),Y
+      generated: $0F9F 0D 58 0F ORA $0F58
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:86:3 | WHILE (current<>NULL) AND (current<target) | source 1944..2042 code $0F9C-$0FDA
+    Free+$004C #0037
+      original : $0FB0 8D 6A 0F STA $0F6A ; current $0F6A
+      generated: $0FA2 F0 0E    BEQ $0FB2
+      orig operand: current $0F6A
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:86:3 | WHILE (current<>NULL) AND (current<target) | source 1944..2042 code $0F9C-$0FDA
+    Free+$004F #0038
+      original : $0FB3 AD 6A 0F LDA $0F6A ; current $0F6A
+      generated: $0FA4 AD 57 0F LDA $0F57
+      orig operand: current $0F6A
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:86:3 | WHILE (current<>NULL) AND (current<target) | source 1944..2042 code $0F9C-$0FDA
+    Free+$0052 #0039
+      original : $0FB6 0D 6B 0F ORA $0F6B ; current+1 $0F6B
+      generated: $0FA7 CD 51 0F CMP $0F51
+      orig operand: current+1 $0F6B
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:86:3 | WHILE (current<>NULL) AND (current<target) | source 1944..2042 code $0F9C-$0FDA
+    Free+$0055 #0040
+      original : $0FB9 D0 03    BNE $0FBE
+      generated: $0FAA AD 58 0F LDA $0F58
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:86:3 | WHILE (current<>NULL) AND (current<target) | source 1944..2042 code $0F9C-$0FDA
+    Free+$0057 #0041
+      original : $0FBB 4C FA 0F JMP $0FFA
+      generated: $0FAD ED 52 0F SBC $0F52
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:86:3 | WHILE (current<>NULL) AND (current<target) | source 1944..2042 code $0F9C-$0FDA
+    Free+$005A #0042
+      original : $0FBE AD 6A 0F LDA $0F6A ; current $0F6A
+      generated: $0FB0 90 03    BCC $0FB5
+      orig operand: current $0F6A
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:86:3 | WHILE (current<>NULL) AND (current<target) | source 1944..2042 code $0F9C-$0FDA
+    Free+$005D #0043
+      original : $0FC1 CD 64 0F CMP $0F64 ; target $0F64
+      generated: $0FB2 4C DB 0F JMP $0FDB
+      orig operand: target $0F64
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:86:3 | WHILE (current<>NULL) AND (current<target) | source 1944..2042 code $0F9C-$0FDA
+    Free+$0060 #0044
+      original : $0FC4 AD 6B 0F LDA $0F6B ; current+1 $0F6B
+      generated: $0FB5 AD 58 0F LDA $0F58
+      orig operand: current+1 $0F6B
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:88:5 | last=current | source 1998..2010 code $0FB5-$0FC0
+    Free+$0063 #0045
+      original : $0FC7 ED 65 0F SBC $0F65 ; target+1 $0F65
+      generated: $0FB8 8D 56 0F STA $0F56
+      orig operand: target+1 $0F65
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:88:5 | last=current | source 1998..2010 code $0FB5-$0FC0
+    Free+$0066 #0046
+      original : $0FCA 90 03    BCC $0FCF
+      generated: $0FBB AD 57 0F LDA $0F57
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:88:5 | last=current | source 1998..2010 code $0FB5-$0FC0
+    Free+$0068 #0047
+      original : $0FCC 4C FA 0F JMP $0FFA
+      generated: $0FBE 8D 55 0F STA $0F55
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:88:5 | last=current | source 1998..2010 code $0FB5-$0FC0
+  AllocInit                len 112 -> 97 (-15)  addr $10F3 -> $10D2
+    AllocInit+$0004 #0004
+      original : $10F7 4C FA 10 JMP $10FA
+      generated: $10D6 4C D9 10 JMP $10D9
+      orig owner: AllocInit $10F7
+      source   : Routine AllocInit samples/toolkit/modern/ALLOCATE.ACT:111:1 | PROC AllocInit(CARD useless) | source 2459..2575 code $10D2-$1132
+    AllocInit+$0007 #0005
+      original : $10FA 8E F4 10 STX $10F4 ; useless+1 $10F4
+      generated: $10D9 8E D3 10 STX $10D3
+      orig operand: useless+1 $10F4
+      source   : Routine AllocInit samples/toolkit/modern/ALLOCATE.ACT:111:1 | PROC AllocInit(CARD useless) | source 2459..2575 code $10D2-$1132
+    AllocInit+$000A #0006
+      original : $10FD 8D F3 10 STA $10F3 ; useless $10F3
+      generated: $10DC 8D D2 10 STA $10D2
+      orig operand: useless $10F3
+      source   : Routine AllocInit samples/toolkit/modern/ALLOCATE.ACT:111:1 | PROC AllocInit(CARD useless) | source 2459..2575 code $10D2-$1132
+    AllocInit+$0010 #0008
+      original : $1103 8D F6 10 STA $10F6 ; p+1 $10F6
+      generated: $10E2 8D D5 10 STA $10D5
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:115:3 | p=EndProg | source 2510..2519 code $10DF-$10EA
+    AllocInit+$0016 #0010
+      original : $1109 8D F5 10 STA $10F5 ; p $10F5
+      generated: $10E8 8D D4 10 STA $10D4
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:115:3 | p=EndProg | source 2510..2519 code $10DF-$10EA
+    AllocInit+$0019 #0011
+      original : $110C 18       CLC
+      generated: $10EB AD 0A 0E LDA $0E0A
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:116:3 | FreeList.next=P | source 2522..2537 code $10EB-$1101
+    AllocInit+$001A #0012
+      original : $110D AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $10EE 85 AE    STA $AE
+      orig operand: FreeList $0E0A
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:116:3 | FreeList.next=P | source 2522..2537 code $10EB-$1101
+    AllocInit+$001D #0013
+      original : $1110 69 02    ADC #$02
+      generated: $10F0 AD 0B 0E LDA $0E0B
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:116:3 | FreeList.next=P | source 2522..2537 code $10EB-$1101
+    AllocInit+$001F #0014
+      original : $1112 85 AE    STA $AE
+      generated: $10F3 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:116:3 | FreeList.next=P | source 2522..2537 code $10EB-$1101
+    AllocInit+$0021 #0015
+      original : $1114 AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $10F5 AD D5 10 LDA $10D5
+      orig operand: FreeList+1 $0E0B
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:116:3 | FreeList.next=P | source 2522..2537 code $10EB-$1101
+    AllocInit+$0024 #0016
+      original : $1117 69 00    ADC #$00
+      generated: $10F8 A0 03    LDY #$03
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:116:3 | FreeList.next=P | source 2522..2537 code $10EB-$1101
+    AllocInit+$0026 #0017
+      original : $1119 85 AF    STA $AF
+      generated: $10FA 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:116:3 | FreeList.next=P | source 2522..2537 code $10EB-$1101
+    AllocInit+$0028 #0018
+      original : $111B AD F6 10 LDA $10F6 ; p+1 $10F6
+      generated: $10FC AD D4 10 LDA $10D4
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:116:3 | FreeList.next=P | source 2522..2537 code $10EB-$1101
+    AllocInit+$002B #0019
+      original : $111E A0 01    LDY #$01
+      generated: $10FF 88       DEY
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:116:3 | FreeList.next=P | source 2522..2537 code $10EB-$1101
+    AllocInit+$002F #0021
+      original : $1122 AD F5 10 LDA $10F5 ; p $10F5
+      generated: $1102 AD D4 10 LDA $10D4
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:117:3 | p.next=NULL | source 2540..2551 code $1102-$1113
+    AllocInit+$0032 #0022
+      original : $1125 88       DEY
+      generated: $1105 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:117:3 | p.next=NULL | source 2540..2551 code $1102-$1113
+    AllocInit+$0033 #0023
+      original : $1126 91 AE    STA ($AE),Y
+      generated: $1107 AD D5 10 LDA $10D5
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:117:3 | p.next=NULL | source 2540..2551 code $1102-$1113
+    AllocInit+$0035 #0024
+      original : $1128 18       CLC
+      generated: $110A 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:117:3 | p.next=NULL | source 2540..2551 code $1102-$1113
+    AllocInit+$0036 #0025
+      original : $1129 AD F5 10 LDA $10F5 ; p $10F5
+      generated: $110C A9 00    LDA #$00
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:117:3 | p.next=NULL | source 2540..2551 code $1102-$1113
+    AllocInit+$0039 #0026
+      original : $112C 69 02    ADC #$02
+      generated: $110E C8       INY
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:117:3 | p.next=NULL | source 2540..2551 code $1102-$1113
+    AllocInit+$003B #0027
+      original : $112E 85 AE    STA $AE
+      generated: $110F 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:117:3 | p.next=NULL | source 2540..2551 code $1102-$1113
+    AllocInit+$003D #0028
+      original : $1130 AD F6 10 LDA $10F6 ; p+1 $10F6
+      generated: $1111 88       DEY
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:117:3 | p.next=NULL | source 2540..2551 code $1102-$1113
+    AllocInit+$0040 #0029
+      original : $1133 69 00    ADC #$00
+      generated: $1112 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:117:3 | p.next=NULL | source 2540..2551 code $1102-$1113
+    AllocInit+$0042 #0030
+      original : $1135 85 AF    STA $AF
+      generated: $1114 AD D4 10 LDA $10D4
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:118:3 | p.size=MemHi-P | source 2554..2568 code $1114-$1131
+    AllocInit+$0044 #0031
+      original : $1137 A9 00    LDA #$00
+      generated: $1117 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:118:3 | p.size=MemHi-P | source 2554..2568 code $1114-$1131
+    AllocInit+$0046 #0032
+      original : $1139 C8       INY
+      generated: $1119 AD D5 10 LDA $10D5
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:118:3 | p.size=MemHi-P | source 2554..2568 code $1114-$1131
+    AllocInit+$0047 #0033
+      original : $113A 91 AE    STA ($AE),Y
+      generated: $111C 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:118:3 | p.size=MemHi-P | source 2554..2568 code $1114-$1131
+    AllocInit+$0049 #0034
+      original : $113C A9 00    LDA #$00
+      generated: $111E 38       SEC
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:118:3 | p.size=MemHi-P | source 2554..2568 code $1114-$1131
+    AllocInit+$004B #0035
+      original : $113E 88       DEY
+      generated: $111F AD E5 02 LDA $02E5
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:118:3 | p.size=MemHi-P | source 2554..2568 code $1114-$1131
+    AllocInit+$004C #0036
+      original : $113F 91 AE    STA ($AE),Y
+      generated: $1122 ED D4 10 SBC $10D4
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:118:3 | p.size=MemHi-P | source 2554..2568 code $1114-$1131
+  PrintFreeList            len 155 -> 124 (-31)  addr $1163 -> $1133
+    PrintFreeList+$0002 #0002
+      original : $1165 4C 68 11 JMP $1168
+      generated: $1135 0D 25 48 ORA $4825
+      orig owner: PrintFreeList $1165
+      source   : StorageInitializer modern hidden string literal samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1135-$1142
+    PrintFreeList+$0005 #0003
+      original : $1168 18       CLC
+      generated: $1138 3A       .BYTE $3A
+      source   : StorageInitializer modern hidden string literal samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1135-$1142
+    PrintFreeList+$0006 #0004
+      original : $1169 AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $1139 20 25 48 JSR $4825
+      orig operand: FreeList $0E0A
+      source   : StorageInitializer modern hidden string literal samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1135-$1142
+    PrintFreeList+$0009 #0005
+      original : $116C 69 02    ADC #$02
+      generated: $113C 20 1F 20 JSR $201F
+      source   : StorageInitializer modern hidden string literal samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1135-$1142
+    PrintFreeList+$000B #0006
+      original : $116E 85 AE    STA $AE
+      generated: $113F 25 48    AND $48
+      source   : StorageInitializer modern hidden string literal samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1135-$1142
+    PrintFreeList+$000D #0007
+      original : $1170 AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $1141 25 45    AND $45
+      orig operand: FreeList+1 $0E0B
+      source   : StorageInitializer modern hidden string literal samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1135-$1142
+    PrintFreeList+$0010 #0008
+      original : $1173 69 00    ADC #$00
+      generated: $1143 4C 46 11 JMP $1146
+      source   : Routine PrintFreeList samples/toolkit/modern/ALLOCATE.ACT:125:1 | PROC PrintFreeList() | source 2679..2831 code $1133-$11AE
+    PrintFreeList+$0012 #0009
+      original : $1175 85 AF    STA $AF
+      generated: $1146 AD 0A 0E LDA $0E0A
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:129:3 | P=FreeList.next | source 2722..2737 code $1146-$115C
+    PrintFreeList+$0014 #0010
+      original : $1177 A0 01    LDY #$01
+      generated: $1149 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:129:3 | P=FreeList.next | source 2722..2737 code $1146-$115C
+    PrintFreeList+$0016 #0011
+      original : $1179 B1 AE    LDA ($AE),Y
+      generated: $114B AD 0B 0E LDA $0E0B
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:129:3 | P=FreeList.next | source 2722..2737 code $1146-$115C
+    PrintFreeList+$0018 #0012
+      original : $117B 8D 64 11 STA $1164 ; p+1 $1164
+      generated: $114E 85 AF    STA $AF
+      orig operand: p+1 $1164
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:129:3 | P=FreeList.next | source 2722..2737 code $1146-$115C
+    PrintFreeList+$001B #0013
+      original : $117E 88       DEY
+      generated: $1150 A0 03    LDY #$03
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:129:3 | P=FreeList.next | source 2722..2737 code $1146-$115C
+    PrintFreeList+$001E #0015
+      original : $1181 8D 63 11 STA $1163 ; p $1163
+      generated: $1154 8D 34 11 STA $1134
+      orig operand: p $1163
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:129:3 | P=FreeList.next | source 2722..2737 code $1146-$115C
+    PrintFreeList+$0021 #0016
+      original : $1184 AD 63 11 LDA $1163 ; p $1163
+      generated: $1157 88       DEY
+      orig operand: p $1163
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:129:3 | P=FreeList.next | source 2722..2737 code $1146-$115C
+    PrintFreeList+$0024 #0017
+      original : $1187 0D 64 11 ORA $1164 ; p+1 $1164
+      generated: $1158 B1 AE    LDA ($AE),Y
+      orig operand: p+1 $1164
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:129:3 | P=FreeList.next | source 2722..2737 code $1146-$115C
+    PrintFreeList+$0027 #0018
+      original : $118A D0 03    BNE $118F
+      generated: $115A 8D 33 11 STA $1133
+      source   : Statement assignment samples/toolkit/modern/ALLOCATE.ACT:129:3 | P=FreeList.next | source 2722..2737 code $1146-$115C
+    PrintFreeList+$0029 #0019
+      original : $118C 4C FC 11 JMP $11FC
+      generated: $115D AD 33 11 LDA $1133
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:130:3 | WHILE p<>NULL | source 2740..2824 code $115D-$11AD
+    PrintFreeList+$002C #0020
+      original : $118F 4C A0 11 JMP $11A0
+      generated: $1160 0D 34 11 ORA $1134
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:130:3 | WHILE p<>NULL | source 2740..2824 code $115D-$11AD
+    PrintFreeList+$002F #0021
+      original : $1192 0D 25 48 ORA $4825
+      generated: $1163 F0 49    BEQ $11AE
+      source   : Statement while samples/toolkit/modern/ALLOCATE.ACT:130:3 | WHILE p<>NULL | source 2740..2824 code $115D-$11AD
+    PrintFreeList+$0032 #0022
+      original : $1195 3A       .BYTE $3A
+      generated: $1165 AD 34 11 LDA $1134
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+    PrintFreeList+$0033 #0023
+      original : $1196 20 25 48 JSR $4825
+      generated: $1168 85 A3    STA $A3
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+    PrintFreeList+$0036 #0024
+      original : $1199 20 1F 20 JSR $201F
+      generated: $116A AD 33 11 LDA $1133
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+    PrintFreeList+$0039 #0025
+      original : $119C 25 48    AND $48
+      generated: $116D 85 AE    STA $AE
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+    PrintFreeList+$003B #0026
+      original : $119E 25 45    AND $45
+      generated: $116F AD 34 11 LDA $1134
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+    PrintFreeList+$003D #0027
+      original : $11A0 AD 64 11 LDA $1164 ; p+1 $1164
+      generated: $1172 85 AF    STA $AF
+      orig operand: p+1 $1164
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+    PrintFreeList+$0040 #0028
+      original : $11A3 85 A3    STA $A3
+      generated: $1174 A0 01    LDY #$01
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+    PrintFreeList+$0042 #0029
+      original : $11A5 AD 63 11 LDA $1163 ; p $1163
+      generated: $1176 B1 AE    LDA ($AE),Y
+      orig operand: p $1163
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+    PrintFreeList+$0045 #0030
+      original : $11A8 85 AE    STA $AE
+      generated: $1178 85 A5    STA $A5
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+    PrintFreeList+$0047 #0031
+      original : $11AA AD 64 11 LDA $1164 ; p+1 $1164
+      generated: $117A 88       DEY
+      orig operand: p+1 $1164
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+    PrintFreeList+$004A #0032
+      original : $11AD 85 AF    STA $AF
+      generated: $117B B1 AE    LDA ($AE),Y
+      source   : Statement call samples/toolkit/modern/ALLOCATE.ACT:132:5 | PrintF("%H: %H  %H%E",p,p.size,p.next) | source 2765..2804 code $1165-$1193
+
+== bytes: original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM vs modern ==
+exact: false  sizes: 1026 vs 947
+first diffs:
+  @0004: $FD -> $AE
+  @0027: $18 -> $AD
+  @0028: $AD -> $0A
+  @0029: $0A -> $0E
+  @002A: $0E -> $85
+  @002B: $69 -> $AE
+  @002C: $02 -> $AD
+  @002D: $85 -> $0B
+  @002E: $AE -> $0E
+  @002F: $AD -> $85
+  @0030: $0B -> $AF
+  @0031: $0E -> $A0
+  @0032: $69 -> $03
+  @0033: $00 -> $B1
+  @0034: $85 -> $AE
+  @0035: $AF -> $8D
+  @0036: $A0 -> $11
+  @0037: $01 -> $0E
+  @0038: $B1 -> $88
+  @0039: $AE -> $B1
+  @003A: $8D -> $AE
+  @003B: $11 -> $8D
+  @003C: $0E -> $10
+  @003D: $88 -> $0E
+  @003E: $B1 -> $AD
+  @003F: $AE -> $10
+  @0040: $8D -> $0E
+  @0041: $10 -> $0D
+  @0042: $0E -> $11
+  @0043: $AD -> $0E
+
+== instructions: original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM vs modern ==
+counts: 466 vs 418
+  #0019
+    left : $0E29 18       CLC
+    right: $0E29 AD 0A 0E LDA $0E0A
+  #0020
+    left : $0E2A AD 0A 0E LDA $0E0A
+    right: $0E2C 85 AE    STA $AE
+  #0021
+    left : $0E2D 69 02    ADC #$02
+    right: $0E2E AD 0B 0E LDA $0E0B
+  #0022
+    left : $0E2F 85 AE    STA $AE
+    right: $0E31 85 AF    STA $AF
+  #0023
+    left : $0E31 AD 0B 0E LDA $0E0B
+    right: $0E33 A0 03    LDY #$03
+  #0024
+    left : $0E34 69 00    ADC #$00
+    right: $0E35 B1 AE    LDA ($AE),Y
+  #0025
+    left : $0E36 85 AF    STA $AF
+    right: $0E37 8D 11 0E STA $0E11
+  #0026
+    left : $0E38 A0 01    LDY #$01
+    right: $0E3A 88       DEY
+  #0028
+    left : $0E3C 8D 11 0E STA $0E11
+    right: $0E3D 8D 10 0E STA $0E10
+  #0029
+    left : $0E3F 88       DEY
+    right: $0E40 AD 10 0E LDA $0E10
+  #0030
+    left : $0E40 B1 AE    LDA ($AE),Y
+    right: $0E43 0D 11 0E ORA $0E11
+  #0031
+    left : $0E42 8D 10 0E STA $0E10
+    right: $0E46 F0 19    BEQ $0E61
+  #0033
+    left : $0E48 0D 11 0E ORA $0E11
+    right: $0E4B 85 AE    STA $AE
+  #0034
+    left : $0E4B D0 03    BNE $0E50
+    right: $0E4D AD 11 0E LDA $0E11
+  #0035
+    left : $0E4D 4C 97 0E JMP $0E97
+    right: $0E50 85 AF    STA $AF
+  #0036
+    left : $0E50 AD 10 0E LDA $0E10
+    right: $0E52 A0 00    LDY #$00
+  #0037
+    left : $0E53 85 AE    STA $AE
+    right: $0E54 B1 AE    LDA ($AE),Y
+  #0038
+    left : $0E55 AD 11 0E LDA $0E11
+    right: $0E56 CD 0C 0E CMP $0E0C
+  #0039
+    left : $0E58 85 AF    STA $AF
+    right: $0E59 C8       INY
+  #0040
+    left : $0E5A A0 00    LDY #$00
+    right: $0E5A B1 AE    LDA ($AE),Y
+  #0041
+    left : $0E5C B1 AE    LDA ($AE),Y
+    right: $0E5C ED 0D 0E SBC $0E0D
+  #0042
+    left : $0E5E CD 0C 0E CMP $0E0C
+    right: $0E5F 90 03    BCC $0E64
+  #0043
+    left : $0E61 C8       INY
+    right: $0E61 4C 8A 0E JMP $0E8A
+  #0044
+    left : $0E62 B1 AE    LDA ($AE),Y
+    right: $0E64 AD 11 0E LDA $0E11
+  #0045
+    left : $0E64 ED 0D 0E SBC $0E0D
+    right: $0E67 8D 0F 0E STA $0E0F
+  #0046
+    left : $0E67 90 03    BCC $0E6C
+    right: $0E6A AD 10 0E LDA $0E10
+  #0047
+    left : $0E69 4C 97 0E JMP $0E97
+    right: $0E6D 8D 0E 0E STA $0E0E
+  #0048
+    left : $0E6C AD 11 0E LDA $0E11
+    right: $0E70 AD 10 0E LDA $0E10
+  #0049
+    left : $0E6F 8D 0F 0E STA $0E0F
+    right: $0E73 85 AE    STA $AE
+  #0050
+    left : $0E72 AD 10 0E LDA $0E10
+    right: $0E75 AD 11 0E LDA $0E11

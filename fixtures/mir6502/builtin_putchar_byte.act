@@ -1,0 +1,6 @@
+BYTE ch
+
+PROC Main()
+  ch=65
+  Put(ch)
+RETURN

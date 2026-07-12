@@ -1,0 +1,13 @@
+PROC Take(BYTE a,b,c,d)
+
+  BYTE out
+
+  out = a + b + c + d
+
+RETURN
+
+PROC Main()
+
+  Take(1,2,3,4)
+
+RETURN

@@ -1,0 +1,295 @@
+;\{INV:                                    }
+;
+;REAL.ACT - an implementation of real
+;(floating point) numbers in ACTION!
+;
+;   Copyright (c) 1984 by OSS,Inc.
+;\{INV:                                    }
+
+MODULE
+
+TYPE REAL=[CARD r1,r2,r3] ;Atari's FP format is 6 bytes
+
+BYTE Cix=$F2
+
+INT  Fr0Int=$D4
+
+CARD InBuff=$F3
+
+REAL Fr0=$D4, Fr1=$E0
+
+BYTE ARRAY LBuff=$580
+
+;************************************
+;Built-in FP routines
+;************************************
+
+PROC ROM_AFP=$D800()
+PROC ROM_FASC=$D8E6()
+PROC ROM_IFP=$D9AA()
+PROC ROM_FPI=$D9D2()
+PROC ROM_FSUB=$DA60()
+PROC ROM_FADD=$DA66()
+PROC ROM_FMULT=$DADB()
+PROC ROM_FDIV=$DB28()
+PROC ROM_EXP=$DDC0()
+PROC ROM_EXP10=$DDCC()
+PROC ROM_LOG=$DECD()
+PROC ROM_LOG10=$DED1()
+PROC ROM_INIT=$DA51()
+
+;************************************
+;A dummy procedure used to access the
+;FP routines
+;************************************
+
+PROC Junk()
+RETURN
+
+;************************************
+; Move REAL to another REAL
+;************************************
+
+PROC RealAssign(REAL POINTER a,b)
+
+  b.r1=a.r1
+  b.r2=a.r2
+  b.r3=a.r3
+RETURN
+
+;************************************
+; Convert INTeger to REAL
+;************************************
+
+PROC IntToReal(INT i  REAL POINTER r)
+
+  Fr0Int=i
+  Junk=ROM_IFP
+  Junk()
+  RealAssign(Fr0,r)
+RETURN
+
+;************************************
+; Convert REAL to INTeger
+;************************************
+
+INT FUNC RealToInt(REAL POINTER r)
+
+  RealAssign(r,Fr0)
+  ROM_FPI()
+RETURN(Fr0Int)
+
+;************************************
+; Subtract REALs
+;************************************
+
+PROC RealSub(REAL POINTER a,b,c)
+
+  RealAssign(a,Fr0)
+  RealAssign(b,Fr1)
+  ROM_FSUB()
+  RealAssign(Fr0,c)
+RETURN
+
+;************************************
+; Add REALs
+;************************************
+
+PROC RealAdd(REAL POINTER a,b,c)
+
+  RealAssign(a,Fr0)
+  RealAssign(b,Fr1)
+  ROM_FADD()
+  RealAssign(Fr0,c)
+RETURN
+
+;************************************
+; Multiply REALs
+;************************************
+
+PROC RealMult(REAL POINTER a,b,c)
+
+  RealAssign(a,Fr0)
+  RealAssign(b,Fr1)
+  ROM_FMULT()
+  RealAssign(Fr0,c)
+RETURN
+
+;************************************
+; Divide REALs
+;************************************
+
+PROC RealDiv(REAL POINTER a,b,c)
+
+  RealAssign(a,Fr0)
+  RealAssign(b,Fr1)
+  ROM_FDIV()
+  RealAssign(Fr0,c)
+RETURN
+
+;************************************
+; Convert REAL to ASCII string
+;************************************
+
+PROC StrR(REAL POINTER r  BYTE ARRAY s)
+
+  BYTE i,c
+
+  BYTE POINTER ptr
+
+  RealAssign(r,Fr0)
+  ROM_FASC()
+  ptr=InBuff
+  WHILE ptr^='0
+    DO
+    ptr==+1
+    OD
+  i=0
+  DO
+    c=ptr(i)
+    i==+1
+    s(i)=c&$7F
+  UNTIL c&$80
+  OD
+  s(0)=i
+RETURN
+
+;************************************
+; Convert string to REAL
+;************************************
+
+PROC ValR(BYTE ARRAY s  REAL POINTER r)
+
+  BYTE i
+
+  FOR i=1 TO s(0)
+    DO
+    LBuff(i-1)=s(i)
+    OD
+  LBuff(i-1)=0   ; AN INVALID VALUE
+  InBuff=LBuff
+  Cix=0
+  ROM_AFP()
+  RealAssign(Fr0,r)
+RETURN
+
+;************************************
+; Base E exponentiation
+;************************************
+
+PROC Exp(REAL POINTER a,b)
+
+  RealAssign(a,Fr0)
+  ROM_EXP()
+  RealAssign(Fr0,b)
+RETURN
+
+;************************************
+; Base 10 exponentiation
+;************************************
+
+PROC Exp10(REAL POINTER a,b)
+
+  RealAssign(a,Fr0)
+  ROM_EXP10()
+  RealAssign(Fr0,b)
+RETURN
+
+;************************************
+; Natural logarithm
+;************************************
+
+PROC Ln(REAL POINTER a,b )
+
+  RealAssign(a,Fr0)
+  ROM_LOG()
+  RealAssign(Fr0,b)
+RETURN
+
+;************************************
+; Base 10 logarithm
+;************************************
+
+PROC Log10(REAL POINTER a,b)
+
+  RealAssign(a,Fr0)
+  ROM_LOG10()
+  RealAssign(Fr0,b)
+RETURN
+
+;************************************
+; Power function
+;************************************
+
+PROC Power(REAL POINTER a,b,c)
+
+  Ln(a,c)
+  RealMult(b,c,c)
+  Exp(c,c)
+RETURN
+
+;************************************
+;Print REAL to device
+;************************************
+
+PROC PrintRD(BYTE d  REAL POINTER a)
+
+  BYTE ARRAY temp(20)
+
+  StrR(a,temp)
+  PrintD(d,temp)
+RETURN
+
+;************************************
+;Print REAL to default device
+;************************************
+
+PROC PrintR(REAL POINTER a)
+
+  PrintRD(device,a)
+RETURN
+
+;************************************
+;Print REAL to device w/EOL
+;************************************
+
+PROC PrintRDE(BYTE d  REAL POINTER a)
+
+  PrintRD(d,a)
+  PutDE(d)
+RETURN
+
+;************************************
+;Print REAL to default device w/EOL
+;************************************
+
+PROC PrintRE(REAL POINTER a)
+
+  PrintRDE(device,a)
+RETURN
+
+;************************************
+;Input REAL from a device
+;************************************
+
+PROC InputRD(BYTE d  REAL POINTER a)
+
+  BYTE ARRAY temp(128)
+
+  InputMD(d,temp,126)
+  ValR(temp,a)
+RETURN
+
+;************************************
+;Input REAL from default device
+;************************************
+
+PROC InputR(REAL POINTER a)
+
+  InputRD(device,a)
+RETURN
+
+;\{INV: End of REAL.ACT }
+
+MODULE
+

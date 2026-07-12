@@ -1,0 +1,6 @@
+PROC Take(BYTE a CARD b BYTE c)
+RETURN
+
+PROC Main()
+  Take(1, $2345, 6)
+RETURN

@@ -1,0 +1,11 @@
+mir6502 program
+global g0 STRING: define CHAR ARRAY storage global+0
+global g1 text: byte storage global+0 size=3 init bytes=[$02 $48 $49] zero_fill=0 section=global mutable=true
+global g2 x: byte storage global+3
+
+routine r0 Main
+b0 bb0:
+  v0 =.w lea global g1+0
+  v1 =.b load global g1+1
+  store.b global g2+0, v1
+  return

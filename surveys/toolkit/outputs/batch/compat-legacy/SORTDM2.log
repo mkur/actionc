@@ -1,0 +1,11 @@
+source: samples/toolkit/original/extracted/SORT.DM2
+source_policy: auto
+compile_source: samples/toolkit/original/extracted/SORT.DM2
+profile: compat
+backend: legacy
+codegen_source: ast
+status: failed
+detail: samples/toolkit/original/extracted/SORT.ACT:162:1: function `Compare` may exit without RETURN value | BYTE FUNC Compare(CARD i,j)
+
+stderr:
+samples/toolkit/original/extracted/SORT.ACT:162:1: function `Compare` may exit without RETURN value | BYTE FUNC Compare(CARD i,j)

@@ -1,0 +1,7 @@
+BYTE ARRAY data(300)
+BYTE i,out
+
+PROC Main()
+  i = 2
+  out = data(i)
+RETURN

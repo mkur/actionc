@@ -1,0 +1,8 @@
+/target
+**/target
+/build/
+.DS_Store
+scratch/
+fixtures/**/outputs/
+/surveys/stress/outputs/
+experiments/**/outputs/

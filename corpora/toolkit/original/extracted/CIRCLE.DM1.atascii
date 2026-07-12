@@ -1,0 +1,1 @@
+›INCLUDE "D:CIRCLE.ACT"››PROC CircleDemo()›››  BYTE R››  Graphics(8)›  SetColor(2,0,0)›  FOR R=0 TO 75 STEP 5›    DO›    Circle(160,80,75-R,1)›    OD›  DO›  OD›RETURN››

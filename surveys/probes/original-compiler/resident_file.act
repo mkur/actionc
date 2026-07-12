@@ -1,0 +1,18 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY fname(3)="S:"
+
+CARD sector
+BYTE offset
+
+PROC Main()
+  Open(6,fname,$0C,0)
+  Note(6,@sector,@offset)
+  Point(6,sector,offset)
+  XIO(6,0,3,0,0,fname)
+  Close(6)
+RETURN

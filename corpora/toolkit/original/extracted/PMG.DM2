@@ -1,0 +1,51 @@
+INCLUDE "D:PMG.ACT"
+
+PROC main()
+
+  BYTE ARRAY p0,p1,p2,p3,ms
+
+  BYTE ctr,x
+
+  INT y
+
+  CARD CTR1
+
+  PMGraphics(2)
+  p0=PMAdr(0)
+  p1=PMAdr(1)
+  p2=PMAdr(2)
+  p3=PMAdr(3)
+  ms=PMAdr(4)
+  FOR ctr=0 TO 7
+    DO
+    PMClear(ctr)
+    OD
+  FOR ctr=0 TO 7
+    DO
+    p0(ctr)=$FF
+    p1(ctr)=$FF
+    p3(ctr)=$FF
+    p2(ctr)=$FF
+    ms(ctr)=$FF
+    OD
+  PM_Width(4)=$FF
+  FOR ctr=0 TO 3
+    DO
+    PMColor(ctr,ctr LSH 2,ctr LSH 1)
+    OD
+  DO
+    FOR ctr=0 TO 7
+      DO
+      x=Rand(160)+48
+      y=Rand(96)+16
+      PMMove(ctr,x,y)
+      OD
+  OD
+RETURN
+
+
+
+
+
+
+

@@ -1,0 +1,29 @@
+program modules=1
+  module #0 items=9
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte ioerr#74/scope1:Var:Byte scalar
+      init $341:Card:Value:eval4:facts=w2,Unsigned
+    decl Card dosvec#75/scope1:Var:Card scalar
+      init $0A:Card:Value:eval5:facts=w2,Unsigned
+    decl Card dosini#76/scope1:Var:Card scalar
+      init $0C:Card:Value:eval6:facts=w2,Unsigned
+    decl PROC() ErrorHandler#77/scope1:Var:PROC() scalar
+    routine PROC Error#78/scope1:Proc:?
+      callable PROC()
+      flow always_returns=false may_fall_through=true contains_return=false contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+    routine PROC Handler#79/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign ioerr:Byte:facts=w1,Unsigned = 1:Byte:Value:eval7:facts=w1,Unsigned
+        return
+    routine PROC Main#80/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign ErrorHandler:PROC():facts=w2 = @Handler:PROC():Value:eval8:facts=w2
+        assign dosvec:Card:facts=w2,Unsigned = $1B48:Card:Value:eval9:facts=w2,Unsigned
+        assign dosini:Card:facts=w2,Unsigned = @Error:Card:Value:eval10:facts=w2,Unsigned
+        return

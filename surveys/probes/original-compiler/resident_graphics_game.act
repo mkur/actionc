@@ -1,0 +1,26 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE b
+
+PROC Main()
+  Graphics(0)
+  SetColor(0,2,4)
+
+  Plot(1,2)
+  DrawTo(3,4)
+  Fill(5,6)
+  Position(7,8)
+  b = Locate(9,10)
+
+  Sound(0,10,8,4)
+  SndRst()
+
+  b = Paddle(0)
+  b = PTrig(0)
+  b = Stick(0)
+  b = STrig(0)
+RETURN

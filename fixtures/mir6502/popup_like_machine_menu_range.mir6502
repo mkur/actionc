@@ -1,0 +1,230 @@
+mir6502 program
+global g0 spaces: byte storage global+0
+global g1 selected: byte storage global+1
+global g2 answer: byte storage global+2
+static s0 __nir_str_PopLike_0: Char* bytes [$02 $2B $2A] section=rodata align=1 mutable=false display="+*"
+machine m0 items=["First" 'F' "Second" 'S' "Cancel" 'C' $00]
+
+routine r0 menu
+b0 bb0:
+  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  unreachable
+
+routine r1 RangeLike
+b0 bb1:
+  v0 =.w load param p0+0
+  v1 =.b load computed v0[#$00;1]+0
+  store.b local l1+0, v1
+  store.b local l0+0, #$01
+  jump b1
+b1 bb2:
+  v2 =.b load local l0+0
+  v3 =.b load local l1+0
+  v4 = cmp.b v2 le v3
+  branch bool v4 ? b2 : b11
+b2 bb3:
+  v5 =.w load param p0+0
+  v6 =.b load local l0+0
+  v7 =.b load computed v5[v6;1]+0
+  v8 =.b load param p3+0
+  v9 = cmp.b v7 eq v8
+  branch bool v9 ? b3 : b6
+b3 bb6:
+  v10 =.w load param p2+0
+  v11 =.b load *v10+0
+  v12 = cmp.b v11 ne #$00
+  branch bool v12 ? b4 : b5
+b4 bb9:
+  v13 =.w load param p2+0
+  v14 =.b load *v13+0
+  v15 =.b v14 sub #$01 carry_in=- carry_out=ignore
+  store.b *v13+0, v15
+  jump b5
+b5 bb8:
+  jump b10
+b6 bb7:
+  v16 =.w load param p0+0
+  v17 =.b load local l0+0
+  v18 =.b v17 add #$01 carry_in=- carry_out=ignore
+  v19 =.b load computed v16[v18;1]+0
+  v20 =.b load param p3+0
+  v21 = cmp.b v19 eq v20
+  branch bool v21 ? b7 : b10
+b7 bb10:
+  v22 =.w load param p2+0
+  v23 =.b load *v22+0
+  v24 =.b load param p1+0
+  v25 = cmp.b v23 lt v24
+  branch bool v25 ? b8 : b9
+b8 bb12:
+  v26 =.w load param p2+0
+  v27 =.b load *v26+0
+  v28 =.b v27 add #$01 carry_in=- carry_out=ignore
+  store.b *v26+0, v28
+  jump b9
+b9 bb11:
+  jump b10
+b10 bb5:
+  v29 =.b load local l0+0
+  v30 =.b v29 add #$02 carry_in=- carry_out=ignore
+  store.b local l0+0, v30
+  jump b1
+b11 bb4:
+  v31 =.b load param p3+0
+  store.b fixed_zp $A0, v31
+  return
+
+routine r2 MenuKey
+b0 bb13:
+  v0 =.w load param p0+0
+  v1 =.w load param p0+0
+  v2 =.b load *v1+0
+  v3 =.w v0 add v2 carry_in=- carry_out=ignore
+  v4 =.w v3 add #$03 carry_in=- carry_out=ignore
+  store.w param p0+0, v4
+  v5 =.w load param p0+0
+  v6 =.b load *v5+0
+  store.b fixed_zp $A0, v6
+  return
+
+routine r3 Next
+b0 bb14:
+  v0 =.w load param p0+0
+  v1 =.w load param p0+0
+  v2 =.b load *v1+0
+  v3 =.w v0 add v2 carry_in=- carry_out=ignore
+  v4 =.w v3 add #$05 carry_in=- carry_out=ignore
+  store.w fixed_zp $A0, v4
+  return
+
+routine r4 Items
+b0 bb15:
+  store.b local l0+0, #$00
+  jump b1
+b1 bb16:
+  v0 =.w load param p0+0
+  v1 =.b load *v0+0
+  v2 = cmp.b v1 ne #$00
+  branch bool v2 ? b2 : b3
+b2 bb17:
+  v3 =.b load local l0+0
+  v4 =.b v3 add #$01 carry_in=- carry_out=ignore
+  store.b local l0+0, v4
+  v5 =.w load param p0+0
+  call r3 args=[v5.w -> a:x] result=v6.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.w param p0+0, v6
+  jump b1
+b3 bb18:
+  v7 =.b load local l0+0
+  store.b fixed_zp $A0, v7
+  return
+
+routine r5 Ord
+b0 bb19:
+  store.b local l0+0, #$00
+  jump b1
+b1 bb20:
+  v0 =.w load param p0+0
+  v1 =.b load *v0+0
+  v2 = cmp.b v1 ne #$00
+  branch bool v2 ? b2 : b5
+b2 bb21:
+  v3 =.w load param p0+0
+  v4 =.w load param p1+0
+  v5 = cmp.w v3 eq v4
+  branch bool v5 ? b3 : b4
+b3 bb24:
+  jump b5
+b4 bb23:
+  v6 =.b load local l0+0
+  v7 =.b v6 add #$01 carry_in=- carry_out=ignore
+  store.b local l0+0, v7
+  v8 =.w load param p0+0
+  call r3 args=[v8.w -> a:x] result=v9.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.w param p0+0, v9
+  jump b1
+b5 bb22:
+  v10 =.b load local l0+0
+  store.b fixed_zp $A0, v10
+  return
+
+routine r6 FindItem
+b0 bb25:
+  jump b1
+b1 bb26:
+  v0 =.w load param p0+0
+  v1 =.b load *v0+0
+  v2 = cmp.b v1 ne #$00
+  branch bool v2 ? b2 : b5
+b2 bb27:
+  v3 =.w load param p0+0
+  call r2 args=[v3.w -> a:x] result=v4.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  v5 =.b load param p1+0
+  v6 = cmp.b v4 eq v5
+  branch bool v6 ? b3 : b4
+b3 bb30:
+  v7 =.w load param p0+0
+  store.w fixed_zp $A0, v7
+  return
+b4 bb29:
+  v8 =.w load param p0+0
+  call r3 args=[v8.w -> a:x] result=v9.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.w param p0+0, v9
+  jump b1
+b5 bb28:
+  store.b fixed_zp $A0, #$00
+  store.b fixed_zp $A1, #$00
+  return
+
+routine r7 PopLike
+b0 bb31:
+  v0 =.w load param p0+0
+  store.w local l3+0, v0
+  v1 =.b load param p2+0
+  store.b global g0+0, v1
+  v2 =.w load local l3+0
+  call r4 args=[v2.w -> a:x] result=v3.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  v4 =.b v3 sub #$01 carry_in=- carry_out=ignore
+  store.b local l1+0, v4
+  v5 =.b load local l1+0
+  v6 =.w lea param p1+0
+  call r1 args=[static_addr s0.w -> a:x, v5.b -> y, v6.w -> fixed_zp $A3:fixed_zp $A4, #$2A.b -> fixed_zp $A5] result=v7.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.b local l0+0, v7
+  v8 =.w load local l3+0
+  v9 =.b load local l0+0
+  call r6 args=[v8.w -> a:x, v9.b -> y] result=v10.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.w local l2+0, v10
+  v11 =.w load local l2+0
+  v12 = cmp.w v11 ne #$0000
+  branch bool v12 ? b1 : b2
+b1 bb33:
+  v13 =.w load local l2+0
+  store.w param p0+0, v13
+  v14 =.w load local l3+0
+  v15 =.w load param p0+0
+  call r5 args=[v14.w -> a:x, v15.w -> y:fixed_zp $A3] result=v16.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.b param p1+0, v16
+  store.b local l0+0, #$9B
+  jump b2
+b2 bb32:
+  v17 =.b load local l0+0
+  v18 = cmp.b v17 eq #$9B
+  branch bool v18 ? b3 : b4
+b3 bb35:
+  v19 =.w load param p0+0
+  call r2 args=[v19.w -> a:x] result=v20.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.b fixed_zp $A0, v20
+  return
+b4 bb34:
+  store.b fixed_zp $A0, #$1B
+  return
+
+routine r8 Main
+b0 bb36:
+  store.b global g1+0, #$00
+  v0 =.w routine_addr r0
+  v1 =.w v0
+  v2 =.b load global g1+0
+  call r7 args=[v1.w -> a:x, v2.b -> y, #$03.b -> fixed_zp $A3] result=v3.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.b global g2+0, v3
+  return

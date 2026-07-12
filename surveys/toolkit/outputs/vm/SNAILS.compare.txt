@@ -1,0 +1,1255 @@
+source: samples/toolkit/original/extracted/SNAILS.DEM
+
+== original:samples/toolkit/survey/outputs/vm/SNAILS.COM ==
+load bytes: 1500  code bytes: 1488  code origin: $3000
+segments:
+  00: $3000-$35CF len  1488 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1494 data_off  1498
+      RUNAD $02E2 = $308F
+opcode counts:
+  $00 BRK      27
+  $03 .BYTE    1
+  $04 .BYTE    4
+  $05 ORA      1
+  $07 .BYTE    1
+  $0E ASL      2
+  $17 .BYTE    1
+  $18 CLC      5
+  $20 JSR      62
+  $22 .BYTE    1
+  $25 AND      3
+  $29 AND      7
+  $30 BMI      2
+  $31 AND      2
+  $38 SEC      7
+  $3A .BYTE    2
+  $41 EOR      6
+  $43 .BYTE    1
+  $45 EOR      5
+  $48 PHA      1
+  $49 EOR      3
+  $4B .BYTE    1
+  $4C JMP      63
+  $4E LSR      2
+  $4F .BYTE    3
+  $50 BVC      3
+  $52 .BYTE    1
+  $53 .BYTE    4
+  $54 .BYTE    2
+  $57 .BYTE    2
+  $59 EOR      1
+  $60 RTS      8
+  $69 ADC      5
+  $6C JMP      1
+  $6D ADC      2
+  $7F .BYTE    6
+  $84 STY      1
+  $85 STA      27
+  $88 DEY      1
+  $8A TXA      2
+  $8C STY      23
+  $8D STA      38
+  $90 BCC      2
+  $A0 LDY      27
+  $A2 LDX      21
+  $A4 LDY      3
+  $A5 LDA      23
+  $A6 LDX      1
+  $A9 LDA      75
+  $AA TAX      2
+  $AC LDY      7
+  $AD LDA      54
+  $AE LDX      5
+  $B0 BCS      10
+  $C8 INY      3
+  $C9 CMP      2
+  $CD CMP      10
+  $D0 BNE      17
+  $DE DEC      1
+  $ED SBC      13
+  $EE INC      10
+  $F0 BEQ      14
+
+== original disassembly: original:samples/toolkit/survey/outputs/vm/SNAILS.COM ==
+segment 00 $3000-$35CF len 1488
+Score0: ; final BYTE
+  $3000 00       BRK
+Score1: ; final BYTE
+  $3001 00       BRK
+H0: ; final BYTE
+  $3002 00       BRK
+V0: ; final BYTE
+  $3003 00       BRK
+H1: ; final BYTE
+  $3004 00       BRK
+V1: ; final BYTE
+  $3005 00       BRK
+Hmv0: ; final BYTE
+  $3006 00       BRK
+Hmv1: ; final BYTE
+  $3007 00       BRK
+Vmv0: ; final BYTE
+  $3008 00       BRK
+Vmv1: ; final BYTE
+  $3009 00       BRK
+Volume: ; final BYTE
+  $300A 00       BRK
+Bang0: ; final BYTE
+  $300B 00       BRK
+Bang1: ; final BYTE
+  $300C 00       BRK
+HS: ; final BYTE
+  $300D 00       BRK
+VS: ; final BYTE
+  $300E 00       BRK
+Delay: ; final CARD
+  $300F 00       BRK
+  $3010 00       BRK
+Count: ; final CARD
+  $3011 00       BRK
+  $3012 00       BRK
+Move: ; final CARD
+  $3013 00       BRK
+  $3014 00       BRK
+Tempo: ; final CARD
+  $3015 00       BRK
+  $3016 00       BRK
+n: ; snapshot BYTE
+  $3017 00       BRK
+Hstick: ; final BYTE FUNC
+  $3018 4C 1B 30 JMP $301B ; L301B
+L301B:
+  $301B 8D 17 30 STA $3017 ; n $3017
+  $301E AD 17 30 LDA $3017 ; n $3017
+  $3021 20 4E A7 JSR $A74E ; LA74E
+  $3024 A5 A0    LDA $A0
+  $3026 29 08    AND #$08
+  $3028 85 AE    STA $AE
+  $302A A5 AE    LDA $AE
+  $302C F0 03    BEQ $3031 ; L3031
+  $302E 4C 36 30 JMP $3036 ; L3036
+L3031:
+  $3031 A9 01    LDA #$01
+  $3033 85 A0    STA $A0
+  $3035 60       RTS
+L3036:
+  $3036 AD 17 30 LDA $3017 ; n $3017
+  $3039 20 4E A7 JSR $A74E ; LA74E
+  $303C A5 A0    LDA $A0
+  $303E 29 04    AND #$04
+  $3040 85 AE    STA $AE
+  $3042 A5 AE    LDA $AE
+  $3044 F0 03    BEQ $3049 ; L3049
+  $3046 4C 4E 30 JMP $304E ; L304E
+L3049:
+  $3049 A9 FF    LDA #$FF
+  $304B 85 A0    STA $A0
+  $304D 60       RTS
+L304E:
+  $304E A9 00    LDA #$00
+  $3050 85 A0    STA $A0
+  $3052 60       RTS
+n: ; snapshot BYTE
+  $3053 00       BRK
+Vstick: ; final BYTE FUNC
+  $3054 4C 57 30 JMP $3057 ; L3057
+L3057:
+  $3057 8D 53 30 STA $3053 ; n $3053
+  $305A AD 53 30 LDA $3053 ; n $3053
+  $305D 20 4E A7 JSR $A74E ; LA74E
+  $3060 A5 A0    LDA $A0
+  $3062 29 01    AND #$01
+  $3064 85 AE    STA $AE
+  $3066 A5 AE    LDA $AE
+  $3068 F0 03    BEQ $306D ; L306D
+  $306A 4C 72 30 JMP $3072 ; L3072
+L306D:
+  $306D A9 01    LDA #$01
+  $306F 85 A0    STA $A0
+  $3071 60       RTS
+L3072:
+  $3072 AD 53 30 LDA $3053 ; n $3053
+  $3075 20 4E A7 JSR $A74E ; LA74E
+  $3078 A5 A0    LDA $A0
+  $307A 29 02    AND #$02
+  $307C 85 AE    STA $AE
+  $307E A5 AE    LDA $AE
+  $3080 F0 03    BEQ $3085 ; L3085
+  $3082 4C 8A 30 JMP $308A ; L308A
+L3085:
+  $3085 A9 FF    LDA #$FF
+  $3087 85 A0    STA $A0
+  $3089 60       RTS
+L308A:
+  $308A A9 00    LDA #$00
+  $308C 85 A0    STA $A0
+  $308E 60       RTS
+MAIN: ; final PROC
+  $308F 4C 92 30 JMP $3092 ; L3092
+L3092:
+  $3092 A0 00    LDY #$00
+  $3094 8C 00 30 STY $3000 ; Score0 $3000
+  $3097 8C 01 30 STY $3001 ; Score1 $3001
+L309A:
+  $309A A9 07    LDA #$07
+  $309C 20 54 A6 JSR $A654 ; LA654
+  $309F A0 01    LDY #$01
+  $30A1 8C FD 02 STY $02FD
+  $30A4 A0 00    LDY #$00
+  $30A6 A2 00    LDX #$00
+  $30A8 A9 00    LDA #$00
+  $30AA 20 C3 A6 JSR $A6C3 ; LA6C3
+  $30AD A0 4F    LDY #$4F
+L30AF:
+  $30AF A2 00    LDX #$00
+  $30B1 A9 00    LDA #$00
+  $30B3 20 8C A6 JSR $A68C ; LA68C
+  $30B6 A0 4F    LDY #$4F
+  $30B8 A2 00    LDX #$00
+  $30BA A9 9F    LDA #$9F
+  $30BC 20 8C A6 JSR $A68C ; LA68C
+  $30BF A0 00    LDY #$00
+  $30C1 A2 00    LDX #$00
+  $30C3 A9 9F    LDA #$9F
+  $30C5 20 8C A6 JSR $A68C ; LA68C
+  $30C8 A0 00    LDY #$00
+  $30CA A2 00    LDX #$00
+  $30CC A9 00    LDA #$00
+  $30CE 20 8C A6 JSR $A68C ; LA68C
+  $30D1 A0 01    LDY #$01
+  $30D3 8C 16 30 STY $3016 ; Tempo+1 $3016
+  $30D6 A9 90    LDA #$90
+  $30D8 8D 15 30 STA $3015 ; Tempo $3015
+  $30DB 4C E6 30 JMP $30E6 ; L30E6
+  $30DE 07       .BYTE $07
+  $30DF 7F       .BYTE $7F
+  $30E0 7F       .BYTE $7F
+  $30E1 53       .BYTE $53
+  $30E2 43       .BYTE $43
+  $30E3 4F       .BYTE $4F
+  $30E4 52       .BYTE $52
+  $30E5 45 A2    EOR $A2
+  $30E7 30 A9    BMI $3092 ; L3092
+  $30E9 DE 20 6C DEC $6C20,X
+  $30EC A4 4C    LDY $4C
+  $30EE 03       .BYTE $03
+  $30EF 31 12    AND ($12),Y
+  $30F1 50 4C    BVC $313F ; L313F
+  $30F3 41 59    EOR ($59,X)
+  $30F5 45 52    EOR $52
+  $30F7 20 31 7F JSR $7F31 ; L7F31
+  $30FA 7F       .BYTE $7F
+  $30FB 50 4C    BVC $3149 ; L3149
+  $30FD 41 59    EOR ($59,X)
+  $30FF 45 52    EOR $52
+  $3101 20 32 A2 JSR $A232 ; LA232
+  $3104 30 A9    BMI $30AF ; L30AF
+  $3106 F0 20    BEQ $3128 ; L3128
+  $3108 6C A4 4C JMP ($4CA4)
+  $310B 17       .BYTE $17
+  $310C 31 09    AND ($09),Y
+  $310E 25 55    AND $55
+  $3110 7F       .BYTE $7F
+  $3111 7F       .BYTE $7F
+  $3112 7F       .BYTE $7F
+  $3113 25 55    AND $55
+  $3115 25 45    AND $45
+  $3117 A9 00    LDA #$00
+  $3119 85 A3    STA $A3
+  $311B A9 00    LDA #$00
+  $311D 85 A5    STA $A5
+  $311F AD 01 30 LDA $3001 ; Score1 $3001
+  $3122 85 A4    STA $A4
+  $3124 AC 00 30 LDY $3000 ; Score0 $3000
+  $3127 A2 31    LDX #$31
+  $3129 A9 0D    LDA #$0D
+  $312B 20 CC A3 JSR $A3CC ; LA3CC
+  $312E A9 28    LDA #$28
+  $3130 8D 02 30 STA $3002 ; H0 $3002
+  $3133 A9 28    LDA #$28
+  $3135 8D 03 30 STA $3003 ; V0 $3003
+  $3138 A9 77    LDA #$77
+  $313A 8D 04 30 STA $3004 ; H1 $3004
+  $313D A9 28    LDA #$28
+L313F:
+  $313F 8D 05 30 STA $3005 ; V1 $3005
+  $3142 A0 01    LDY #$01
+  $3144 8C 06 30 STY $3006 ; Hmv0 $3006
+  $3147 88       DEY
+  $3148 8C 08 30 STY $3008 ; Vmv0 $3008
+  $314B A9 FF    LDA #$FF
+  $314D 8D 07 30 STA $3007 ; Hmv1 $3007
+  $3150 8C 09 30 STY $3009 ; Vmv1 $3009
+  $3153 A9 02    LDA #$02
+  $3155 8D FD 02 STA $02FD
+  $3158 AC 03 30 LDY $3003 ; V0 $3003
+  $315B A2 00    LDX #$00
+  $315D AD 02 30 LDA $3002 ; H0 $3002
+  $3160 20 C3 A6 JSR $A6C3 ; LA6C3
+  $3163 A9 03    LDA #$03
+  $3165 8D FD 02 STA $02FD
+  $3168 AC 05 30 LDY $3005 ; V1 $3005
+  $316B A2 00    LDX #$00
+  $316D AD 04 30 LDA $3004 ; H1 $3004
+  $3170 20 C3 A6 JSR $A6C3 ; LA6C3
+  $3173 A0 00    LDY #$00
+  $3175 8C 12 30 STY $3012 ; Count+1 $3012
+  $3178 A9 32    LDA #$32
+  $317A 8D 11 30 STA $3011 ; Count $3011
+L317D:
+  $317D A9 96    LDA #$96
+  $317F CD 11 30 CMP $3011 ; Count $3011
+  $3182 A9 00    LDA #$00
+  $3184 ED 12 30 SBC $3012 ; Count+1 $3012
+  $3187 B0 03    BCS $318C ; L318C
+  $3189 4C EA 31 JMP $31EA ; L31EA
+L318C:
+  $318C A0 00    LDY #$00
+  $318E 8C 0A 30 STY $300A ; Volume $300A
+L3191:
+  $3191 A9 0F    LDA #$0F
+  $3193 CD 0A 30 CMP $300A ; Volume $300A
+  $3196 B0 03    BCS $319B ; L319B
+  $3198 4C D6 31 JMP $31D6 ; L31D6
+L319B:
+  $319B 38       SEC
+  $319C A9 0F    LDA #$0F
+  $319E ED 0A 30 SBC $300A ; Volume $300A
+  $31A1 85 A3    STA $A3
+  $31A3 A0 0A    LDY #$0A
+  $31A5 AE 11 30 LDX $3011 ; Count $3011
+  $31A8 A9 00    LDA #$00
+  $31AA 20 04 A7 JSR $A704 ; LA704
+  $31AD A0 00    LDY #$00
+  $31AF 8C 10 30 STY $3010 ; Delay+1 $3010
+  $31B2 C8       INY
+  $31B3 8C 0F 30 STY $300F ; Delay $300F
+L31B6:
+  $31B6 A9 E8    LDA #$E8
+  $31B8 CD 0F 30 CMP $300F ; Delay $300F
+  $31BB A9 03    LDA #$03
+  $31BD ED 10 30 SBC $3010 ; Delay+1 $3010
+  $31C0 B0 03    BCS $31C5 ; L31C5
+  $31C2 4C D0 31 JMP $31D0 ; L31D0
+L31C5:
+  $31C5 EE 0F 30 INC $300F ; Delay $300F
+  $31C8 D0 EC    BNE $31B6 ; L31B6
+  $31CA EE 10 30 INC $3010 ; Delay+1 $3010
+  $31CD 4C B6 31 JMP $31B6 ; L31B6
+L31D0:
+  $31D0 EE 0A 30 INC $300A ; Volume $300A
+  $31D3 4C 91 31 JMP $3191 ; L3191
+L31D6:
+  $31D6 18       CLC
+  $31D7 AD 11 30 LDA $3011 ; Count $3011
+  $31DA 69 32    ADC #$32
+  $31DC 8D 11 30 STA $3011 ; Count $3011
+  $31DF AD 12 30 LDA $3012 ; Count+1 $3012
+  $31E2 69 00    ADC #$00
+  $31E4 8D 12 30 STA $3012 ; Count+1 $3012
+  $31E7 4C 7D 31 JMP $317D ; L317D
+L31EA:
+  $31EA A9 00    LDA #$00
+  $31EC 20 18 30 JSR $3018 ; Hstick $3018
+  $31EF A5 A0    LDA $A0
+  $31F1 D0 03    BNE $31F6 ; L31F6
+  $31F3 4C 00 32 JMP $3200 ; L3200
+L31F6:
+  $31F6 A9 00    LDA #$00
+  $31F8 20 18 30 JSR $3018 ; Hstick $3018
+  $31FB A5 A0    LDA $A0
+  $31FD 8D 06 30 STA $3006 ; Hmv0 $3006
+L3200:
+  $3200 A9 01    LDA #$01
+  $3202 20 18 30 JSR $3018 ; Hstick $3018
+  $3205 A5 A0    LDA $A0
+  $3207 D0 03    BNE $320C ; L320C
+  $3209 4C 16 32 JMP $3216 ; L3216
+L320C:
+  $320C A9 01    LDA #$01
+  $320E 20 18 30 JSR $3018 ; Hstick $3018
+  $3211 A5 A0    LDA $A0
+  $3213 8D 07 30 STA $3007 ; Hmv1 $3007
+L3216:
+  $3216 A0 00    LDY #$00
+  $3218 8C 14 30 STY $3014 ; Move+1 $3014
+  $321B 8C 13 30 STY $3013 ; Move $3013
+L321E:
+  $321E A9 FF    LDA #$FF
+  $3220 CD 13 30 CMP $3013 ; Move $3013
+  $3223 A9 FF    LDA #$FF
+  $3225 ED 14 30 SBC $3014 ; Move+1 $3014
+  $3228 B0 03    BCS $322D ; L322D
+  $322A 4C C5 34 JMP $34C5 ; L34C5
+L322D:
+  $322D A0 00    LDY #$00
+  $322F 84 4D    STY $4D ; Attract $004D
+  $3231 AD 13 30 LDA $3013 ; Move $3013
+  $3234 29 FF    AND #$FF
+  $3236 85 AE    STA $AE
+  $3238 AD 14 30 LDA $3014 ; Move+1 $3014
+  $323B 29 00    AND #$00
+  $323D 85 AF    STA $AF
+  $323F A5 AE    LDA $AE
+  $3241 05 AF    ORA $AF
+  $3243 F0 03    BEQ $3248 ; L3248
+  $3245 4C 85 32 JMP $3285 ; L3285
+L3248:
+  $3248 A9 32    LDA #$32
+  $324A CD 15 30 CMP $3015 ; Tempo $3015
+  $324D A9 00    LDA #$00
+  $324F ED 16 30 SBC $3016 ; Tempo+1 $3016
+  $3252 90 03    BCC $3257 ; L3257
+  $3254 4C 85 32 JMP $3285 ; L3285
+L3257:
+  $3257 A9 00    LDA #$00
+  $3259 85 85    STA $85
+  $325B A9 03    LDA #$03
+  $325D 85 84    STA $84
+  $325F AD 16 30 LDA $3016 ; Tempo+1 $3016
+  $3262 AA       TAX
+  $3263 AD 15 30 LDA $3015 ; Tempo $3015
+  $3266 20 00 A0 JSR $A000 ; LA000
+  $3269 85 AE    STA $AE
+  $326B 8A       TXA
+  $326C 85 AF    STA $AF
+  $326E A9 00    LDA #$00
+  $3270 85 85    STA $85
+  $3272 A9 04    LDA #$04
+  $3274 85 84    STA $84
+  $3276 A5 AF    LDA $AF
+  $3278 AA       TAX
+  $3279 A5 AE    LDA $AE
+  $327B 20 90 A0 JSR $A090 ; LA090
+  $327E 8D 15 30 STA $3015 ; Tempo $3015
+  $3281 8A       TXA
+  $3282 8D 16 30 STA $3016 ; Tempo+1 $3016
+L3285:
+  $3285 A9 00    LDA #$00
+  $3287 20 18 30 JSR $3018 ; Hstick $3018
+  $328A A5 A0    LDA $A0
+  $328C 8D 0D 30 STA $300D ; HS $300D
+  $328F AD 0D 30 LDA $300D ; HS $300D
+  $3292 D0 03    BNE $3297 ; L3297
+  $3294 4C AA 32 JMP $32AA ; L32AA
+L3297:
+  $3297 AD 06 30 LDA $3006 ; Hmv0 $3006
+  $329A F0 03    BEQ $329F ; L329F
+  $329C 4C AA 32 JMP $32AA ; L32AA
+L329F:
+  $329F AD 0D 30 LDA $300D ; HS $300D
+  $32A2 8D 06 30 STA $3006 ; Hmv0 $3006
+  $32A5 A0 00    LDY #$00
+  $32A7 8C 08 30 STY $3008 ; Vmv0 $3008
+L32AA:
+  $32AA A9 00    LDA #$00
+  $32AC 20 54 30 JSR $3054 ; Vstick $3054
+  $32AF A5 A0    LDA $A0
+  $32B1 8D 0E 30 STA $300E ; VS $300E
+  $32B4 AD 0E 30 LDA $300E ; VS $300E
+  $32B7 D0 03    BNE $32BC ; L32BC
+  $32B9 4C CF 32 JMP $32CF ; L32CF
+L32BC:
+  $32BC AD 08 30 LDA $3008 ; Vmv0 $3008
+  $32BF F0 03    BEQ $32C4 ; L32C4
+  $32C1 4C CF 32 JMP $32CF ; L32CF
+L32C4:
+  $32C4 AD 0E 30 LDA $300E ; VS $300E
+  $32C7 8D 08 30 STA $3008 ; Vmv0 $3008
+  $32CA A0 00    LDY #$00
+  $32CC 8C 06 30 STY $3006 ; Hmv0 $3006
+L32CF:
+  $32CF 18       CLC
+  $32D0 AD 02 30 LDA $3002 ; H0 $3002
+  $32D3 6D 06 30 ADC $3006 ; Hmv0 $3006
+  $32D6 8D 02 30 STA $3002 ; H0 $3002
+  $32D9 38       SEC
+  $32DA AD 03 30 LDA $3003 ; V0 $3003
+  $32DD ED 08 30 SBC $3008 ; Vmv0 $3008
+  $32E0 8D 03 30 STA $3003 ; V0 $3003
+  $32E3 AC 03 30 LDY $3003 ; V0 $3003
+  $32E6 A2 00    LDX #$00
+  $32E8 AD 02 30 LDA $3002 ; H0 $3002
+  $32EB 20 BB A6 JSR $A6BB ; LA6BB
+  $32EE A5 A0    LDA $A0
+  $32F0 8D 0B 30 STA $300B ; Bang0 $300B
+  $32F3 AD 0B 30 LDA $300B ; Bang0 $300B
+  $32F6 F0 03    BEQ $32FB ; L32FB
+  $32F8 4C 0B 33 JMP $330B ; L330B
+L32FB:
+  $32FB A9 02    LDA #$02
+  $32FD 8D FD 02 STA $02FD
+  $3300 AC 03 30 LDY $3003 ; V0 $3003
+  $3303 A2 00    LDX #$00
+  $3305 AD 02 30 LDA $3002 ; H0 $3002
+  $3308 20 C3 A6 JSR $A6C3 ; LA6C3
+L330B:
+  $330B A9 01    LDA #$01
+  $330D 20 18 30 JSR $3018 ; Hstick $3018
+  $3310 A5 A0    LDA $A0
+  $3312 8D 0D 30 STA $300D ; HS $300D
+  $3315 AD 0D 30 LDA $300D ; HS $300D
+  $3318 D0 03    BNE $331D ; L331D
+  $331A 4C 30 33 JMP $3330 ; L3330
+L331D:
+  $331D AD 07 30 LDA $3007 ; Hmv1 $3007
+  $3320 F0 03    BEQ $3325 ; L3325
+  $3322 4C 30 33 JMP $3330 ; L3330
+L3325:
+  $3325 AD 0D 30 LDA $300D ; HS $300D
+  $3328 8D 07 30 STA $3007 ; Hmv1 $3007
+  $332B A0 00    LDY #$00
+  $332D 8C 09 30 STY $3009 ; Vmv1 $3009
+L3330:
+  $3330 A9 01    LDA #$01
+  $3332 20 54 30 JSR $3054 ; Vstick $3054
+  $3335 A5 A0    LDA $A0
+  $3337 8D 0E 30 STA $300E ; VS $300E
+  $333A AD 0E 30 LDA $300E ; VS $300E
+  $333D D0 03    BNE $3342 ; L3342
+  $333F 4C 55 33 JMP $3355 ; L3355
+L3342:
+  $3342 AD 09 30 LDA $3009 ; Vmv1 $3009
+  $3345 F0 03    BEQ $334A ; L334A
+  $3347 4C 55 33 JMP $3355 ; L3355
+L334A:
+  $334A AD 0E 30 LDA $300E ; VS $300E
+  $334D 8D 09 30 STA $3009 ; Vmv1 $3009
+  $3350 A0 00    LDY #$00
+  $3352 8C 07 30 STY $3007 ; Hmv1 $3007
+L3355:
+  $3355 18       CLC
+  $3356 AD 04 30 LDA $3004 ; H1 $3004
+  $3359 6D 07 30 ADC $3007 ; Hmv1 $3007
+  $335C 8D 04 30 STA $3004 ; H1 $3004
+  $335F 38       SEC
+  $3360 AD 05 30 LDA $3005 ; V1 $3005
+  $3363 ED 09 30 SBC $3009 ; Vmv1 $3009
+  $3366 8D 05 30 STA $3005 ; V1 $3005
+  $3369 AC 05 30 LDY $3005 ; V1 $3005
+  $336C A2 00    LDX #$00
+  $336E AD 04 30 LDA $3004 ; H1 $3004
+  $3371 20 BB A6 JSR $A6BB ; LA6BB
+  $3374 A5 A0    LDA $A0
+  $3376 8D 0C 30 STA $300C ; Bang1 $300C
+  $3379 AD 0C 30 LDA $300C ; Bang1 $300C
+  $337C F0 03    BEQ $3381 ; L3381
+  $337E 4C 91 33 JMP $3391 ; L3391
+L3381:
+  $3381 A9 03    LDA #$03
+  $3383 8D FD 02 STA $02FD
+  $3386 AC 05 30 LDY $3005 ; V1 $3005
+  $3389 A2 00    LDX #$00
+  $338B AD 04 30 LDA $3004 ; H1 $3004
+  $338E 20 C3 A6 JSR $A6C3 ; LA6C3
+L3391:
+  $3391 AD 0B 30 LDA $300B ; Bang0 $300B
+  $3394 F0 03    BEQ $3399 ; L3399
+  $3396 4C 0A 34 JMP $340A ; L340A
+L3399:
+  $3399 AD 0C 30 LDA $300C ; Bang1 $300C
+  $339C F0 03    BEQ $33A1 ; L33A1
+  $339E 4C 0A 34 JMP $340A ; L340A
+L33A1:
+  $33A1 A0 00    LDY #$00
+  $33A3 8C 0A 30 STY $300A ; Volume $300A
+L33A6:
+  $33A6 A9 0E    LDA #$0E
+  $33A8 CD 0A 30 CMP $300A ; Volume $300A
+  $33AB B0 03    BCS $33B0 ; L33B0
+  $33AD 4C 07 34 JMP $3407 ; L3407
+L33B0:
+  $33B0 AD 13 30 LDA $3013 ; Move $3013
+  $33B3 29 FF    AND #$FF
+  $33B5 85 A1    STA $A1
+  $33B7 38       SEC
+  $33B8 A9 0E    LDA #$0E
+  $33BA ED 0A 30 SBC $300A ; Volume $300A
+  $33BD 85 A3    STA $A3
+  $33BF A0 0A    LDY #$0A
+  $33C1 A6 A1    LDX $A1
+  $33C3 A9 00    LDA #$00
+  $33C5 20 04 A7 JSR $A704 ; LA704
+  $33C8 A0 00    LDY #$00
+  $33CA 8C 10 30 STY $3010 ; Delay+1 $3010
+  $33CD C8       INY
+  $33CE 8C 0F 30 STY $300F ; Delay $300F
+  $33D1 AD 15 30 LDA $3015 ; Tempo $3015
+  $33D4 8D EE 33 STA $33EE
+  $33D7 AD 16 30 LDA $3016 ; Tempo+1 $3016
+  $33DA 8D EF 33 STA $33EF
+L33DD:
+  $33DD AD EE 33 LDA $33EE
+  $33E0 CD 0F 30 CMP $300F ; Delay $300F
+  $33E3 AD EF 33 LDA $33EF
+  $33E6 ED 10 30 SBC $3010 ; Delay+1 $3010
+  $33E9 B0 05    BCS $33F0 ; L33F0
+  $33EB 4C FB 33 JMP $33FB ; L33FB
+  $33EE 00       BRK
+  $33EF 00       BRK
+L33F0:
+  $33F0 EE 0F 30 INC $300F ; Delay $300F
+  $33F3 D0 E8    BNE $33DD ; L33DD
+  $33F5 EE 10 30 INC $3010 ; Delay+1 $3010
+  $33F8 4C DD 33 JMP $33DD ; L33DD
+L33FB:
+  $33FB 18       CLC
+  $33FC AD 0A 30 LDA $300A ; Volume $300A
+  $33FF 69 02    ADC #$02
+  $3401 8D 0A 30 STA $300A ; Volume $300A
+  $3404 4C A6 33 JMP $33A6 ; L33A6
+L3407:
+  $3407 4C B1 34 JMP $34B1 ; L34B1
+L340A:
+  $340A AD 0B 30 LDA $300B ; Bang0 $300B
+  $340D D0 03    BNE $3412 ; L3412
+  $340F 4C 1D 34 JMP $341D ; L341D
+L3412:
+  $3412 AD 0C 30 LDA $300C ; Bang1 $300C
+  $3415 D0 03    BNE $341A ; L341A
+  $3417 4C 1D 34 JMP $341D ; L341D
+L341A:
+  $341A 4C AE 34 JMP $34AE ; L34AE
+L341D:
+  $341D AD 0B 30 LDA $300B ; Bang0 $300B
+  $3420 D0 03    BNE $3425 ; L3425
+  $3422 4C 28 34 JMP $3428 ; L3428
+L3425:
+  $3425 EE 01 30 INC $3001 ; Score1 $3001
+L3428:
+  $3428 AD 0C 30 LDA $300C ; Bang1 $300C
+  $342B D0 03    BNE $3430 ; L3430
+  $342D 4C 33 34 JMP $3433 ; L3433
+L3430:
+  $3430 EE 00 30 INC $3000 ; Score0 $3000
+L3433:
+  $3433 A0 00    LDY #$00
+  $3435 8C 0A 30 STY $300A ; Volume $300A
+L3438:
+  $3438 A9 0F    LDA #$0F
+  $343A CD 0A 30 CMP $300A ; Volume $300A
+  $343D B0 03    BCS $3442 ; L3442
+  $343F 4C AE 34 JMP $34AE ; L34AE
+L3442:
+  $3442 AD 0B 30 LDA $300B ; Bang0 $300B
+  $3445 D0 03    BNE $344A ; L344A
+  $3447 4C 5B 34 JMP $345B ; L345B
+L344A:
+  $344A 38       SEC
+  $344B A9 0F    LDA #$0F
+  $344D ED 0A 30 SBC $300A ; Volume $300A
+  $3450 85 A2    STA $A2
+  $3452 A4 A2    LDY $A2
+  $3454 A2 04    LDX #$04
+  $3456 A9 01    LDA #$01
+  $3458 20 CE A6 JSR $A6CE ; LA6CE
+L345B:
+  $345B AD 0C 30 LDA $300C ; Bang1 $300C
+  $345E D0 03    BNE $3463 ; L3463
+  $3460 4C 74 34 JMP $3474 ; L3474
+L3463:
+  $3463 38       SEC
+  $3464 A9 0F    LDA #$0F
+  $3466 ED 0A 30 SBC $300A ; Volume $300A
+  $3469 85 A2    STA $A2
+  $346B A4 A2    LDY $A2
+  $346D A2 04    LDX #$04
+  $346F A9 02    LDA #$02
+  $3471 20 CE A6 JSR $A6CE ; LA6CE
+L3474:
+  $3474 38       SEC
+  $3475 A9 0F    LDA #$0F
+  $3477 ED 0A 30 SBC $300A ; Volume $300A
+  $347A 85 A3    STA $A3
+  $347C A0 00    LDY #$00
+  $347E A2 17    LDX #$17
+  $3480 A9 00    LDA #$00
+  $3482 20 04 A7 JSR $A704 ; LA704
+  $3485 A0 00    LDY #$00
+  $3487 8C 10 30 STY $3010 ; Delay+1 $3010
+  $348A C8       INY
+  $348B 8C 0F 30 STY $300F ; Delay $300F
+L348E:
+  $348E A9 E8    LDA #$E8
+  $3490 CD 0F 30 CMP $300F ; Delay $300F
+  $3493 A9 03    LDA #$03
+  $3495 ED 10 30 SBC $3010 ; Delay+1 $3010
+  $3498 B0 03    BCS $349D ; L349D
+  $349A 4C A8 34 JMP $34A8 ; L34A8
+L349D:
+  $349D EE 0F 30 INC $300F ; Delay $300F
+  $34A0 D0 EC    BNE $348E ; L348E
+  $34A2 EE 10 30 INC $3010 ; Delay+1 $3010
+  $34A5 4C 8E 34 JMP $348E ; L348E
+L34A8:
+  $34A8 EE 0A 30 INC $300A ; Volume $300A
+  $34AB 4C 38 34 JMP $3438 ; L3438
+L34AE:
+  $34AE 4C C5 34 JMP $34C5 ; L34C5
+L34B1:
+  $34B1 18       CLC
+  $34B2 AD 13 30 LDA $3013 ; Move $3013
+  $34B5 69 04    ADC #$04
+  $34B7 8D 13 30 STA $3013 ; Move $3013
+  $34BA AD 14 30 LDA $3014 ; Move+1 $3014
+  $34BD 69 00    ADC #$00
+  $34BF 8D 14 30 STA $3014 ; Move+1 $3014
+  $34C2 4C 1E 32 JMP $321E ; L321E
+L34C5:
+  $34C5 AD 00 30 LDA $3000 ; Score0 $3000
+  $34C8 C9 0A    CMP #$0A
+  $34CA B0 0A    BCS $34D6 ; L34D6
+  $34CC AD 01 30 LDA $3001 ; Score1 $3001
+  $34CF C9 0A    CMP #$0A
+  $34D1 B0 03    BCS $34D6 ; L34D6
+  $34D3 4C 9A 30 JMP $309A ; L309A
+L34D6:
+  $34D6 A9 02    LDA #$02
+  $34D8 20 54 A6 JSR $A654 ; LA654
+  $34DB AD 00 30 LDA $3000 ; Score0 $3000
+  $34DE CD 01 30 CMP $3001 ; Score1 $3001
+  $34E1 90 03    BCC $34E6 ; L34E6
+  $34E3 4C 36 35 JMP $3536 ; L3536
+L34E6:
+  $34E6 4C F8 34 JMP $34F8 ; L34F8
+  $34E9 0E 50 4C ASL $4C50 ; L4C50
+  $34EC 41 59    EOR ($59,X)
+  $34EE 45 52    EOR $52
+  $34F0 20 32 20 JSR $2032 ; L2032
+  $34F3 57       .BYTE $57
+  $34F4 49 4E    EOR #$4E
+  $34F6 53       .BYTE $53
+  $34F7 3A       .BYTE $3A
+L34F8:
+  $34F8 A0 34    LDY #$34
+  $34FA A2 E9    LDX #$E9
+  $34FC A9 06    LDA #$06
+  $34FE 20 73 A4 JSR $A473 ; LA473
+  $3501 4C 09 35 JMP $3509 ; L3509
+  $3504 04       .BYTE $04
+  $3505 20 20 20 JSR $2020 ; L2020
+  $3508 20 A0 35 JSR $35A0 ; L35A0
+  $350B A2 04    LDX #$04
+  $350D A9 06    LDA #$06
+  $350F 20 86 A4 JSR $A486 ; LA486
+  $3512 AE 01 30 LDX $3001 ; Score1 $3001
+  $3515 A9 06    LDA #$06
+  $3517 20 F4 A4 JSR $A4F4 ; LA4F4
+  $351A 4C 22 35 JMP $3522 ; L3522
+  $351D 04       .BYTE $04
+  $351E 20 54 4F JSR $4F54 ; L4F54
+  $3521 20 A0 35 JSR $35A0 ; L35A0
+  $3524 A2 1D    LDX #$1D
+  $3526 A9 06    LDA #$06
+  $3528 20 86 A4 JSR $A486 ; LA486
+  $352B AE 00 30 LDX $3000 ; Score0 $3000
+  $352E A9 06    LDA #$06
+  $3530 20 F4 A4 JSR $A4F4 ; LA4F4
+  $3533 4C 83 35 JMP $3583 ; L3583
+L3536:
+  $3536 4C 48 35 JMP $3548 ; L3548
+  $3539 0E 50 4C ASL $4C50 ; L4C50
+  $353C 41 59    EOR ($59,X)
+  $353E 45 52    EOR $52
+  $3540 20 31 20 JSR $2031 ; L2031
+  $3543 57       .BYTE $57
+  $3544 49 4E    EOR #$4E
+  $3546 53       .BYTE $53
+  $3547 3A       .BYTE $3A
+L3548:
+  $3548 A0 35    LDY #$35
+  $354A A2 39    LDX #$39
+  $354C A9 06    LDA #$06
+  $354E 20 73 A4 JSR $A473 ; LA473
+  $3551 4C 59 35 JMP $3559 ; L3559
+  $3554 04       .BYTE $04
+  $3555 20 20 20 JSR $2020 ; L2020
+  $3558 20 A0 35 JSR $35A0 ; L35A0
+  $355B A2 54    LDX #$54
+  $355D A9 06    LDA #$06
+  $355F 20 86 A4 JSR $A486 ; LA486
+  $3562 AE 00 30 LDX $3000 ; Score0 $3000
+  $3565 A9 06    LDA #$06
+  $3567 20 F4 A4 JSR $A4F4 ; LA4F4
+  $356A 4C 72 35 JMP $3572 ; L3572
+  $356D 04       .BYTE $04
+  $356E 20 54 4F JSR $4F54 ; L4F54
+  $3571 20 A0 35 JSR $35A0 ; L35A0
+  $3574 A2 6D    LDX #$6D
+  $3576 A9 06    LDA #$06
+  $3578 20 86 A4 JSR $A486 ; LA486
+  $357B AE 01 30 LDX $3001 ; Score1 $3001
+  $357E A9 06    LDA #$06
+  $3580 20 F4 A4 JSR $A4F4 ; LA4F4
+L3583:
+  $3583 4C A9 35 JMP $35A9 ; L35A9
+  $3586 22       .BYTE $22
+  $3587 50 55    BVC $35DE ; L35DE
+  $3589 53       .BYTE $53
+  $358A 48       PHA
+  $358B 20 4A 4F JSR $4F4A ; L4F4A
+  $358E 59 53 54 EOR $5453,Y
+  $3591 49 43    EOR #$43
+  $3593 4B       .BYTE $4B
+  $3594 20 42 55 JSR $5542 ; L5542
+  $3597 54       .BYTE $54
+  $3598 54       .BYTE $54
+  $3599 4F       .BYTE $4F
+  $359A 4E 20 54 LSR $5420
+  $359D 4F       .BYTE $4F
+  $359E 20 50 4C JSR $4C50 ; L4C50
+  $35A1 41 59    EOR ($59,X)
+  $35A3 20 41 47 JSR $4741 ; L4741
+  $35A6 41 49    EOR ($49,X)
+  $35A8 4E A2 35 LSR $35A2
+  $35AB A9 86    LDA #$86
+  $35AD 20 6C A4 JSR $A46C ; LA46C
+L35B0:
+  $35B0 A9 00    LDA #$00
+  $35B2 20 2F AD JSR $AD2F ; LAD2F
+  $35B5 A5 A0    LDA $A0
+  $35B7 D0 03    BNE $35BC ; L35BC
+  $35B9 4C CB 35 JMP $35CB ; L35CB
+L35BC:
+  $35BC A9 01    LDA #$01
+  $35BE 20 2F AD JSR $AD2F ; LAD2F
+  $35C1 A5 A0    LDA $A0
+  $35C3 D0 03    BNE $35C8 ; L35C8
+  $35C5 4C CB 35 JMP $35CB ; L35CB
+L35C8:
+  $35C8 4C B0 35 JMP $35B0 ; L35B0
+L35CB:
+  $35CB 4C 92 30 JMP $3092 ; L3092
+  $35CE 60       RTS
+  $35CF 60       RTS
+
+== compat ==
+load bytes: 1501  code bytes: 1489  code origin: $3000
+segments:
+  00: $3000-$35D0 len  1489 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1495 data_off  1499
+      RUNAD $02E2 = $308F
+opcode counts:
+  $00 BRK      25
+  $03 .BYTE    1
+  $04 .BYTE    4
+  $07 .BYTE    1
+  $0E ASL      2
+  $17 .BYTE    1
+  $18 CLC      5
+  $20 JSR      62
+  $22 .BYTE    1
+  $25 AND      3
+  $29 AND      7
+  $30 BMI      2
+  $31 AND      2
+  $38 SEC      7
+  $3A .BYTE    2
+  $41 EOR      6
+  $43 .BYTE    1
+  $45 EOR      5
+  $48 PHA      1
+  $49 EOR      3
+  $4B .BYTE    1
+  $4C JMP      64
+  $4E LSR      2
+  $4F .BYTE    3
+  $50 BVC      3
+  $52 .BYTE    1
+  $53 .BYTE    4
+  $54 .BYTE    2
+  $57 .BYTE    2
+  $59 EOR      1
+  $60 RTS      8
+  $69 ADC      5
+  $6C JMP      1
+  $6D ADC      2
+  $7F .BYTE    6
+  $84 STY      1
+  $85 STA      27
+  $88 DEY      1
+  $8A TXA      2
+  $8C STY      23
+  $8D STA      36
+  $90 BCC      2
+  $A0 LDY      27
+  $A2 LDX      15
+  $A4 LDY      3
+  $A5 LDA      24
+  $A6 LDX      1
+  $A9 LDA      81
+  $AA TAX      8
+  $AC LDY      7
+  $AD LDA      52
+  $AE LDX      5
+  $B0 BCS      10
+  $C8 INY      3
+  $C9 CMP      4
+  $CD CMP      10
+  $D0 BNE      19
+  $DE DEC      1
+  $ED SBC      13
+  $EE INC      10
+  $F0 BEQ      13
+
+== map: compat ==
+origin $3000  run $308F  routines 3  symbols 22  skipped 0
+routines:
+  Hstick                   $3017-$3052 len    60
+  Vstick                   $3053-$308E len    60
+  MAIN                     $308F-$35CF len  1345
+storage symbols:
+  global Storage ATTRACT $004D-$004D
+  global Storage SCORE0 $3000-$3000
+  global Storage SCORE1 $3001-$3001
+  global Storage H0 $3002-$3002
+  global Storage V0 $3003-$3003
+  global Storage H1 $3004-$3004
+  global Storage V1 $3005-$3005
+  global Storage HMV0 $3006-$3006
+  global Storage HMV1 $3007-$3007
+  global Storage VMV0 $3008-$3008
+  global Storage VMV1 $3009-$3009
+  global Storage VOLUME $300A-$300A
+  global Storage BANG0 $300B-$300B
+  global Storage BANG1 $300C-$300C
+  global Storage HS $300D-$300D
+  global Storage VS $300E-$300E
+  global Storage DELAY $300F-$3010
+  global Storage COUNT $3011-$3012
+  global Storage MOVE $3013-$3014
+  global Storage TEMPO $3015-$3016
+  routine Hstick Parameter N $3017-$3017
+  routine Vstick Parameter N $3053-$3053
+
+== routines: original:samples/toolkit/survey/outputs/vm/SNAILS.COM vs compat ==
+  Hstick                   len 83 -> 60 (-23)  addr $3000 -> $3017
+    Hstick+$0001 #0001
+      original : $3001 00       BRK
+      generated: $3018 4C 1B 30 JMP $301B
+      orig owner: Score1 $3001
+      source   : Routine Hstick samples/toolkit/original/extracted/SNAILS.DEM:23:1 | BYTE FUNC Hstick(BYTE n) | source 525..642 code $3017-$3052
+    Hstick+$0002 #0002
+      original : $3002 00       BRK
+      generated: $301B 8D 17 30 STA $3017
+      orig owner: H0 $3002
+      source   : Routine Hstick samples/toolkit/original/extracted/SNAILS.DEM:23:1 | BYTE FUNC Hstick(BYTE n) | source 525..642 code $3017-$3052
+    Hstick+$0003 #0003
+      original : $3003 00       BRK
+      generated: $301E AD 17 30 LDA $3017
+      orig owner: V0 $3003
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:24:3 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 552..588 code $301E-$3035
+    Hstick+$0004 #0004
+      original : $3004 00       BRK
+      generated: $3021 20 4E A7 JSR $A74E
+      orig owner: H1 $3004
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:24:3 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 552..588 code $301E-$3035
+    Hstick+$0005 #0005
+      original : $3005 00       BRK
+      generated: $3024 A5 A0    LDA $A0
+      orig owner: V1 $3005
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:24:3 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 552..588 code $301E-$3035
+    Hstick+$0006 #0006
+      original : $3006 00       BRK
+      generated: $3026 29 08    AND #$08
+      orig owner: Hmv0 $3006
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:24:3 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 552..588 code $301E-$3035
+    Hstick+$0007 #0007
+      original : $3007 00       BRK
+      generated: $3028 85 AE    STA $AE
+      orig owner: Hmv1 $3007
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:24:3 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 552..588 code $301E-$3035
+    Hstick+$0008 #0008
+      original : $3008 00       BRK
+      generated: $302A A5 AE    LDA $AE
+      orig owner: Vmv0 $3008
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:24:3 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 552..588 code $301E-$3035
+    Hstick+$0009 #0009
+      original : $3009 00       BRK
+      generated: $302C F0 03    BEQ $3031
+      orig owner: Vmv1 $3009
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:24:3 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 552..588 code $301E-$3035
+    Hstick+$000A #0010
+      original : $300A 00       BRK
+      generated: $302E 4C 36 30 JMP $3036
+      orig owner: Volume $300A
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:24:3 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 552..588 code $301E-$3035
+    Hstick+$000B #0011
+      original : $300B 00       BRK
+      generated: $3031 A9 01    LDA #$01
+      orig owner: Bang0 $300B
+      source   : Statement return samples/toolkit/original/extracted/SNAILS.DEM:24:34 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 583..584 code $3031-$3035
+    Hstick+$000C #0012
+      original : $300C 00       BRK
+      generated: $3033 85 A0    STA $A0
+      orig owner: Bang1 $300C
+      source   : Statement return samples/toolkit/original/extracted/SNAILS.DEM:24:34 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 583..584 code $3031-$3035
+    Hstick+$000D #0013
+      original : $300D 00       BRK
+      generated: $3035 60       RTS
+      orig owner: HS $300D
+      source   : Statement return samples/toolkit/original/extracted/SNAILS.DEM:24:34 | IF (Stick(n)&8)=0 THEN RETURN (1) FI | source 583..584 code $3031-$3035
+    Hstick+$000E #0014
+      original : $300E 00       BRK
+      generated: $3036 AD 17 30 LDA $3017
+      orig owner: VS $300E
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:25:3 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 591..629 code $3036-$304D
+    Hstick+$000F #0015
+      original : $300F 00       BRK
+      generated: $3039 20 4E A7 JSR $A74E
+      orig owner: Delay $300F
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:25:3 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 591..629 code $3036-$304D
+    Hstick+$0010 #0016
+      original : $3010 00       BRK
+      generated: $303C A5 A0    LDA $A0
+      orig owner: Delay+1 $3010
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:25:3 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 591..629 code $3036-$304D
+    Hstick+$0011 #0017
+      original : $3011 00       BRK
+      generated: $303E 29 04    AND #$04
+      orig owner: Count $3011
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:25:3 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 591..629 code $3036-$304D
+    Hstick+$0012 #0018
+      original : $3012 00       BRK
+      generated: $3040 85 AE    STA $AE
+      orig owner: Count+1 $3012
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:25:3 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 591..629 code $3036-$304D
+    Hstick+$0013 #0019
+      original : $3013 00       BRK
+      generated: $3042 A5 AE    LDA $AE
+      orig owner: Move $3013
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:25:3 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 591..629 code $3036-$304D
+    Hstick+$0014 #0020
+      original : $3014 00       BRK
+      generated: $3044 F0 03    BEQ $3049
+      orig owner: Move+1 $3014
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:25:3 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 591..629 code $3036-$304D
+    Hstick+$0015 #0021
+      original : $3015 00       BRK
+      generated: $3046 4C 4E 30 JMP $304E
+      orig owner: Tempo $3015
+      source   : Statement if samples/toolkit/original/extracted/SNAILS.DEM:25:3 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 591..629 code $3036-$304D
+    Hstick+$0016 #0022
+      original : $3016 00       BRK
+      generated: $3049 A9 FF    LDA #$FF
+      orig owner: Tempo+1 $3016
+      source   : Statement return samples/toolkit/original/extracted/SNAILS.DEM:25:34 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 622..625 code $3049-$304D
+    Hstick+$0017 #0023
+      original : $3017 00       BRK
+      generated: $304B 85 A0    STA $A0
+      orig owner: n $3017
+      source   : Statement return samples/toolkit/original/extracted/SNAILS.DEM:25:34 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 622..625 code $3049-$304D
+    Hstick+$0018 #0024
+      original : $3018 4C 1B 30 JMP $301B
+      generated: $304D 60       RTS
+      orig owner: Hstick $3018
+      source   : Statement return samples/toolkit/original/extracted/SNAILS.DEM:25:34 | IF (Stick(n)&4)=0 THEN RETURN (255) FI | source 622..625 code $3049-$304D
+  MAIN                     len 1345 -> 1345 (+0)  addr $308F -> $308F
+    MAIN+$00CC #0094
+      original : $315B A2 00    LDX #$00
+      generated: $315B A9 00    LDA #$00
+      source   : Statement call samples/toolkit/original/extracted/SNAILS.DEM:64:9 | color=2:Plot(H0,V0) | source 1209..1220 code $3158-$3163
+    MAIN+$00CE #0095
+      original : $315D AD 02 30 LDA $3002 ; H0 $3002
+      generated: $315D AA       TAX
+      orig operand: H0 $3002
+      source   : Statement call samples/toolkit/original/extracted/SNAILS.DEM:64:9 | color=2:Plot(H0,V0) | source 1209..1220 code $3158-$3163
+    MAIN+$00D1 #0096
+      original : $3160 20 C3 A6 JSR $A6C3
+      generated: $315E AD 02 30 LDA $3002
+      source   : Statement call samples/toolkit/original/extracted/SNAILS.DEM:64:9 | color=2:Plot(H0,V0) | source 1209..1220 code $3158-$3163
+    MAIN+$00D4 #0097
+      original : $3163 A9 03    LDA #$03
+      generated: $3161 20 C3 A6 JSR $A6C3
+      source   : Statement call samples/toolkit/original/extracted/SNAILS.DEM:64:9 | color=2:Plot(H0,V0) | source 1209..1220 code $3158-$3163
+    MAIN+$00D6 #0098
+      original : $3165 8D FD 02 STA $02FD
+      generated: $3164 A9 03    LDA #$03
+      source   : Statement assignment samples/toolkit/original/extracted/SNAILS.DEM:65:1 | color=3:Plot(H1,V1) | source 1222..1229 code $3164-$3168
+    MAIN+$00D9 #0099
+      original : $3168 AC 05 30 LDY $3005 ; V1 $3005
+      generated: $3166 8D FD 02 STA $02FD
+      orig operand: V1 $3005
+      source   : Statement assignment samples/toolkit/original/extracted/SNAILS.DEM:65:1 | color=3:Plot(H1,V1) | source 1222..1229 code $3164-$3168
+    MAIN+$00DC #0100
+      original : $316B A2 00    LDX #$00
+      generated: $3169 AC 05 30 LDY $3005
+      source   : Statement call samples/toolkit/original/extracted/SNAILS.DEM:65:9 | color=3:Plot(H1,V1) | source 1230..1241 code $3169-$3174
+    MAIN+$00DE #0101
+      original : $316D AD 04 30 LDA $3004 ; H1 $3004
+      generated: $316C A9 00    LDA #$00
+      orig operand: H1 $3004
+      source   : Statement call samples/toolkit/original/extracted/SNAILS.DEM:65:9 | color=3:Plot(H1,V1) | source 1230..1241 code $3169-$3174
+    MAIN+$00E1 #0102
+      original : $3170 20 C3 A6 JSR $A6C3
+      generated: $316E AA       TAX
+      source   : Statement call samples/toolkit/original/extracted/SNAILS.DEM:65:9 | color=3:Plot(H1,V1) | source 1230..1241 code $3169-$3174
+    MAIN+$00E4 #0103
+      original : $3173 A0 00    LDY #$00
+      generated: $316F AD 04 30 LDA $3004
+      source   : Statement call samples/toolkit/original/extracted/SNAILS.DEM:65:9 | color=3:Plot(H1,V1) | source 1230..1241 code $3169-$3174
+    MAIN+$00E6 #0104
+      original : $3175 8C 12 30 STY $3012 ; Count+1 $3012
+      generated: $3172 20 C3 A6 JSR $A6C3
+      orig operand: Count+1 $3012
+      source   : Statement call samples/toolkit/original/extracted/SNAILS.DEM:65:9 | color=3:Plot(H1,V1) | source 1230..1241 code $3169-$3174
+    MAIN+$00E9 #0105
+      original : $3178 A9 32    LDA #$32
+      generated: $3175 A0 00    LDY #$00
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:69:1 | For Count=50 To 150 Step 50 | source 1265..1396 code $3175-$31EB
+    MAIN+$00EB #0106
+      original : $317A 8D 11 30 STA $3011 ; Count $3011
+      generated: $3177 8C 12 30 STY $3012
+      orig operand: Count $3011
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:69:1 | For Count=50 To 150 Step 50 | source 1265..1396 code $3175-$31EB
+    MAIN+$00EE #0107
+      original : $317D A9 96    LDA #$96
+      generated: $317A A9 32    LDA #$32
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:69:1 | For Count=50 To 150 Step 50 | source 1265..1396 code $3175-$31EB
+    MAIN+$00F0 #0108
+      original : $317F CD 11 30 CMP $3011 ; Count $3011
+      generated: $317C 8D 11 30 STA $3011
+      orig operand: Count $3011
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:69:1 | For Count=50 To 150 Step 50 | source 1265..1396 code $3175-$31EB
+    MAIN+$00F3 #0109
+      original : $3182 A9 00    LDA #$00
+      generated: $317F A9 96    LDA #$96
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:69:1 | For Count=50 To 150 Step 50 | source 1265..1396 code $3175-$31EB
+    MAIN+$00F5 #0110
+      original : $3184 ED 12 30 SBC $3012 ; Count+1 $3012
+      generated: $3181 CD 11 30 CMP $3011
+      orig operand: Count+1 $3012
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:69:1 | For Count=50 To 150 Step 50 | source 1265..1396 code $3175-$31EB
+    MAIN+$00F8 #0111
+      original : $3187 B0 03    BCS $318C
+      generated: $3184 A9 00    LDA #$00
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:69:1 | For Count=50 To 150 Step 50 | source 1265..1396 code $3175-$31EB
+    MAIN+$00FA #0112
+      original : $3189 4C EA 31 JMP $31EA
+      generated: $3186 ED 12 30 SBC $3012
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:69:1 | For Count=50 To 150 Step 50 | source 1265..1396 code $3175-$31EB
+    MAIN+$00FD #0113
+      original : $318C A0 00    LDY #$00
+      generated: $3189 B0 03    BCS $318E
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:69:1 | For Count=50 To 150 Step 50 | source 1265..1396 code $3175-$31EB
+    MAIN+$00FF #0114
+      original : $318E 8C 0A 30 STY $300A ; Volume $300A
+      generated: $318B 4C EC 31 JMP $31EC
+      orig operand: Volume $300A
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:69:1 | For Count=50 To 150 Step 50 | source 1265..1396 code $3175-$31EB
+    MAIN+$0102 #0115
+      original : $3191 A9 0F    LDA #$0F
+      generated: $318E A0 00    LDY #$00
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:71:4 | For Volume=0 To 15 | source 1299..1393 code $318E-$31D7
+    MAIN+$0104 #0116
+      original : $3193 CD 0A 30 CMP $300A ; Volume $300A
+      generated: $3190 8C 0A 30 STY $300A
+      orig operand: Volume $300A
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:71:4 | For Volume=0 To 15 | source 1299..1393 code $318E-$31D7
+    MAIN+$0107 #0117
+      original : $3196 B0 03    BCS $319B
+      generated: $3193 A9 0F    LDA #$0F
+      source   : Statement for samples/toolkit/original/extracted/SNAILS.DEM:71:4 | For Volume=0 To 15 | source 1299..1393 code $318E-$31D7
+
+== bytes: original:samples/toolkit/survey/outputs/vm/SNAILS.COM vs compat ==
+exact: false  sizes: 1500 vs 1501
+first diffs:
+  @0004: $CF -> $D0
+  @0161: $A2 -> $A9
+  @0163: $AD -> $AA
+  @0164: $02 -> $AD
+  @0165: $30 -> $02
+  @0166: $20 -> $30
+  @0167: $C3 -> $20
+  @0168: $A6 -> $C3
+  @0169: $A9 -> $A6
+  @016A: $03 -> $A9
+  @016B: $8D -> $03
+  @016C: $FD -> $8D
+  @016D: $02 -> $FD
+  @016E: $AC -> $02
+  @016F: $05 -> $AC
+  @0170: $30 -> $05
+  @0171: $A2 -> $30
+  @0172: $00 -> $A9
+  @0173: $AD -> $00
+  @0174: $04 -> $AA
+  @0175: $30 -> $AD
+  @0176: $20 -> $04
+  @0177: $C3 -> $30
+  @0178: $A6 -> $20
+
+== instructions: original:samples/toolkit/survey/outputs/vm/SNAILS.COM vs compat ==
+counts: 640 vs 644
+  #0173
+    left : $315B A2 00    LDX #$00
+    right: $315B A9 00    LDA #$00
+  #0174
+    left : $315D AD 02 30 LDA $3002
+    right: $315D AA       TAX
+  #0175
+    left : $3160 20 C3 A6 JSR $A6C3
+    right: $315E AD 02 30 LDA $3002
+  #0176
+    left : $3163 A9 03    LDA #$03
+    right: $3161 20 C3 A6 JSR $A6C3
+  #0177
+    left : $3165 8D FD 02 STA $02FD
+    right: $3164 A9 03    LDA #$03
+  #0178
+    left : $3168 AC 05 30 LDY $3005
+    right: $3166 8D FD 02 STA $02FD
+  #0179
+    left : $316B A2 00    LDX #$00
+    right: $3169 AC 05 30 LDY $3005
+  #0180
+    left : $316D AD 04 30 LDA $3004
+    right: $316C A9 00    LDA #$00
+  #0181
+    left : $3170 20 C3 A6 JSR $A6C3
+    right: $316E AA       TAX
+  #0182
+    left : $3173 A0 00    LDY #$00
+    right: $316F AD 04 30 LDA $3004
+  #0183
+    left : $3175 8C 12 30 STY $3012
+    right: $3172 20 C3 A6 JSR $A6C3
+  #0184
+    left : $3178 A9 32    LDA #$32
+    right: $3175 A0 00    LDY #$00
+  #0185
+    left : $317A 8D 11 30 STA $3011
+    right: $3177 8C 12 30 STY $3012
+  #0186
+    left : $317D A9 96    LDA #$96
+    right: $317A A9 32    LDA #$32
+  #0187
+    left : $317F CD 11 30 CMP $3011
+    right: $317C 8D 11 30 STA $3011
+  #0188
+    left : $3182 A9 00    LDA #$00
+    right: $317F A9 96    LDA #$96
+  #0189
+    left : $3184 ED 12 30 SBC $3012
+    right: $3181 CD 11 30 CMP $3011
+  #0190
+    left : $3187 B0 03    BCS $318C
+    right: $3184 A9 00    LDA #$00
+  #0191
+    left : $3189 4C EA 31 JMP $31EA
+    right: $3186 ED 12 30 SBC $3012
+  #0192
+    left : $318C A0 00    LDY #$00
+    right: $3189 B0 03    BCS $318E
+  #0193
+    left : $318E 8C 0A 30 STY $300A
+    right: $318B 4C EC 31 JMP $31EC
+  #0194
+    left : $3191 A9 0F    LDA #$0F
+    right: $318E A0 00    LDY #$00
+  #0195
+    left : $3193 CD 0A 30 CMP $300A
+    right: $3190 8C 0A 30 STY $300A
+  #0196
+    left : $3196 B0 03    BCS $319B
+    right: $3193 A9 0F    LDA #$0F

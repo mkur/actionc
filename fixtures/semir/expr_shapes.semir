@@ -1,0 +1,17 @@
+program modules=1
+  module #0 items=7
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte a#74/scope1:Var:Byte scalar
+    decl Byte b#75/scope1:Var:Byte scalar
+    decl Byte c#76/scope1:Var:Byte scalar
+    decl Card w#77/scope1:Var:Card scalar
+    routine PROC Main#78/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign a:Byte:facts=w1,Unsigned = 1:Byte:Value:eval4:facts=w1,Unsigned
+        assign b:Byte:facts=w1,Unsigned = 2:Byte:Value:eval5:facts=w1,Unsigned
+        assign c:Byte:facts=w1,Unsigned = ((a:Byte:LValue:eval6:facts=w1,Unsigned + b:Byte:LValue:eval7:facts=w1,Unsigned):Byte:Value:eval8:facts=w1,Unsigned XOR $80:Card:Value:eval9:facts=w2,Unsigned):Card:Value:eval10:facts=w2,Unsigned
+        assign w:Card:facts=w2,Unsigned = ((a:Byte:LValue:eval11:facts=w1,Unsigned LSH 1:Byte:Value:eval12:facts=w1,Unsigned):Card:Value:eval13:facts=w2,Unsigned + b:Byte:LValue:eval14:facts=w1,Unsigned):Card:Value:eval15:facts=w2,Unsigned
+        return

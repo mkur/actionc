@@ -1,0 +1,8 @@
+source: samples/toolkit/modern/MUSIC.DEM
+source_policy: modernized
+compile_source: [tmp]/toolkit/MUSIC.DEM
+profile: modern
+backend: mir6502
+codegen_source: n/a (mir6502 uses optimized NIR)
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/modern-mir6502/MUSICDEM.COM

@@ -1,0 +1,8 @@
+source: corpora/toolkit/original/extracted/CIRCLE.DM1
+source_policy: auto
+compile_source: [tmp]/toolkit/CIRCLE.DM1
+profile: modern
+backend: classic
+codegen_source: ast
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/modern-classic/CIRCLE1.COM

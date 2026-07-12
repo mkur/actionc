@@ -1,0 +1,13 @@
+BYTE FUNC Pick(BYTE x)
+  IF x=0 THEN
+    RETURN(1)
+  ELSE
+    RETURN(2)
+  FI
+RETURN(3)
+
+BYTE out
+
+PROC Main()
+  out=Pick(0)
+RETURN

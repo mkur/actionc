@@ -1,0 +1,23 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE a0, a1, a2, a3
+CARD w0
+
+PROC Take4(BYTE a, b, c, d)
+  a0 = a
+  a1 = b
+  a2 = c
+  a3 = d
+RETURN
+
+PROC TakeMixed(BYTE a, CARD w, BYTE b)
+  a0 = a
+  w0 = w
+  a1 = b
+RETURN
+
+PROC Main()
+  Take4(1, 2, 3, 4)
+  TakeMixed(5, $1234, 6)
+RETURN

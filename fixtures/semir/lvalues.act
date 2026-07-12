@@ -1,0 +1,13 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE b
+BYTE POINTER bp
+BYTE ARRAY a(4)
+
+PROC Main()
+  bp = @b
+  bp^ = 1
+  a(0) = bp^
+  b = a(0)
+RETURN

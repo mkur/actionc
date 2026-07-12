@@ -1,0 +1,6 @@
+BYTE ARRAY data=[1 2 3]
+BYTE out
+
+PROC Main()
+  out = data(1)
+RETURN

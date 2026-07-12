@@ -1,0 +1,8 @@
+source: corpora/toolkit/original/extracted/CONSOLE.ACT
+source_policy: auto
+compile_source: [tmp]/toolkit/CONSOLE.ACT
+profile: modern
+backend: classic
+codegen_source: ast
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/modern-classic/CONSOLE.COM

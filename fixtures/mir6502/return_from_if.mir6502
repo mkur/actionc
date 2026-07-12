@@ -1,0 +1,20 @@
+mir6502 program
+global g1 out: byte storage global+0
+
+routine r0 Pick
+b0 bb0:
+  v0 =.b load param p0+0
+  v1 = cmp.b v0 eq #$00
+  branch bool v1 ? b1 : b2
+b1 bb2:
+  store.b fixed_zp $A0, #$01
+  return
+b2 bb3:
+  store.b fixed_zp $A0, #$02
+  return
+
+routine r1 Main
+b0 bb4:
+  call r0 args=[#$00.b -> a] result=v0.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.b global g1+0, v0
+  return

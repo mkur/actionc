@@ -1,0 +1,7 @@
+PROC Main()
+  CHAR ARRAY fnam(40)
+  CARD r=$86
+  [$99 fnam+$FFFF]
+  r=fnam
+  [$A5 r+1 $9D$345]
+RETURN

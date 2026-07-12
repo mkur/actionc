@@ -1,0 +1,9 @@
+PROC Helper()
+RETURN
+
+PROC POINTER p
+
+PROC Main()
+  p=@Helper
+  p()
+RETURN

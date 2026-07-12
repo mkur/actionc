@@ -1,0 +1,17 @@
+mir6502 program
+global g1 fp: word storage global+0
+global g2 out: word storage global+2
+
+routine r0 Get
+b0 bb0:
+  store.w fixed_zp $A0, #$1234
+  return
+
+routine r1 Main
+b0 bb1:
+  v0 =.w routine_addr r0
+  store.w global g1+0, v0
+  v2 =.w load global g1+0
+  call indirect v2.w args=[] result=v1.w <- return+0 clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
+  store.w global g2+0, v1
+  return

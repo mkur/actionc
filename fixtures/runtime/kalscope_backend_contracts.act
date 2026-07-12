@@ -1,0 +1,43 @@
+; Runtime regression for the two backend contracts used by KALSCOPE:
+; symbolic byte aliases into an absolute array pointer and observable Action
+; argument homes for a current-location (=*) routine.
+
+SET $E=$CB
+SET $F=0
+BYTE ARRAY line
+
+SET $E=$3000
+SET $491=$3000
+
+BYTE low=line,
+     high=line+1,
+     lineLow=$CB,
+     lineHigh=$CC,
+     argX=$A0,
+     argY=$A1,
+     resultLow=$0600,
+     resultHigh=$0601,
+     resultX=$0602,
+     resultY=$0603,
+     x0,y0,x1,y1
+
+PROC Capture=*(BYTE x,y)
+  resultX=argX
+  resultY=argY
+RETURN
+
+PROC Main()
+  low=$12
+  high=$34
+  resultLow=lineLow
+  resultHigh=lineHigh
+
+  x0=1
+  y0=2
+  x1=8
+  y1=3
+  Capture(127+x0+y0,127+x1-y1)
+
+  DO
+  OD
+RETURN

@@ -1,0 +1,26 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE gb, gc
+CARD gw
+BYTE POINTER gp
+
+PROC ThreeBytes(BYTE a,b,c)
+  gb = a
+  gc = b + c
+RETURN
+
+PROC MixedArgs(BYTE a CARD w BYTE b BYTE POINTER p)
+  gb = a
+  gw = w
+  gc = b
+  gp = p
+RETURN
+
+PROC Main()
+  ThreeBytes(1,2,3)
+  MixedArgs($11, $2233, $44, @gb)
+RETURN

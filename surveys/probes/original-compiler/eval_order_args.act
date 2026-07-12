@@ -1,0 +1,51 @@
+; Probe side-effecting call argument evaluation order.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE seq, fSeen, gSeen, hSeen, iSeen
+BYTE outA, outB, outC
+
+BYTE FUNC F()
+  seq = seq + 1
+  fSeen = seq
+RETURN(1)
+
+BYTE FUNC G()
+  seq = seq + 1
+  gSeen = seq
+RETURN(2)
+
+BYTE FUNC H()
+  seq = seq + 1
+  hSeen = seq
+RETURN(3)
+
+BYTE FUNC I()
+  seq = seq + 1
+  iSeen = seq
+RETURN(4)
+
+BYTE FUNC Pair(BYTE a,b)
+RETURN(a+b)
+
+PROC Take(BYTE a,b,c)
+  outA = a
+  outB = b
+  outC = c
+RETURN
+
+PROC Main()
+  seq = 0
+  Take(F(),G(),H())
+
+  seq = 0
+  Take(F()+1,G()+1,H()+1)
+
+  seq = 0
+  Take(F()+G(),H(),I())
+
+  seq = 0
+  Take(F(),Pair(G(),H()),I())
+RETURN

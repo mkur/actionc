@@ -1,0 +1,14 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE a, b, c, d
+
+PROC Main()
+  a = 1
+  b = 2
+  c = 1
+  d = 0
+RETURN

@@ -1,0 +1,23 @@
+program modules=1
+  module #0 items=6
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte ran#74/scope1:Var:Byte scalar
+    routine PROC InitPanels#75/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign ran:Byte:facts=w1,Unsigned = 1:Byte:Value:eval4:facts=w1,Unsigned
+        return
+    routine PROC Handle#76/scope1:Proc:?
+      callable PROC()
+      flow always_returns=false may_fall_through=false contains_return=false contains_exit=false contains_loop=true max_loop_depth=1
+      body:
+        do-until <missing>
+          assign ran:Byte:facts=w1,Unsigned += 1:Byte:Value:eval5:facts=w1,Unsigned
+    routine PROC NavInit#77/scope1:Proc:?
+      callable PROC()
+      flow always_returns=false may_fall_through=true contains_return=false contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        call user InitPanels -> ? callable=PROC() effects=none
+        call user Handle -> ? callable=PROC() effects=none

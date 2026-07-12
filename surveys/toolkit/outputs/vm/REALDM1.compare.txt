@@ -1,0 +1,1458 @@
+source: samples/toolkit/original/extracted/REAL.DM1
+
+== original:samples/toolkit/survey/outputs/vm/REALDM1.COM ==
+load bytes: 2228  code bytes: 2216  code origin: $3000
+segments:
+  00: $3000-$38A7 len  2216 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  2222 data_off  2226
+      RUNAD $02E2 = $3581
+opcode counts:
+  $00 BRK      249
+  $05 ORA      2
+  $06 .BYTE    1
+  $06 ASL      17
+  $09 ORA      2
+  $14 .BYTE    1
+  $15 ORA      1
+  $18 CLC      9
+  $1D .BYTE    1
+  $1E .BYTE    1
+  $20 JSR      135
+  $27 .BYTE    1
+  $29 AND      2
+  $36 ROL      2
+  $37 .BYTE    1
+  $38 SEC      4
+  $49 EOR      1
+  $4C JMP      45
+  $4D .BYTE    1
+  $5D .BYTE    1
+  $60 RTS      23
+  $65 ADC      2
+  $69 ADC      13
+  $6D ADC      3
+  $6E ROR      2
+  $74 .BYTE    2
+  $78 .BYTE    1
+  $78 SEI      4
+  $79 ADC      4
+  $7C .BYTE    1
+  $80 .BYTE    3
+  $83 .BYTE    1
+  $84 STY      1
+  $85 STA      101
+  $86 STX      1
+  $88 DEY      4
+  $8C STY      2
+  $8D STA      10
+  $8E STX      4
+  $91 STA      10
+  $9D .BYTE    1
+  $A0 LDY      68
+  $A2 LDX      63
+  $A5 LDA      8
+  $A9 LDA      116
+  $AA TAX      2
+  $AB .BYTE    3
+  $AC LDY      18
+  $AD LDA      78
+  $AE .BYTE    1
+  $AE LDX      22
+  $AF .BYTE    2
+  $B0 BCS      1
+  $B1 LDA      12
+  $BA TSX      4
+  $C7 .BYTE    2
+  $C8 INY      2
+  $CD CMP      1
+  $CE DEC      2
+  $CF .BYTE    2
+  $D0 BNE      4
+  $D8 CLD      2
+  $DA .BYTE    1
+  $DD .BYTE    2
+  $E9 SBC      2
+  $EE INC      4
+  $F0 BEQ      1
+  $F2 .BYTE    1
+
+== original disassembly: original:samples/toolkit/survey/outputs/vm/REALDM1.COM ==
+segment 00 $3000-$38A7 len 2216
+LBuff: ; final BYTE ARRAY
+  $3000 80       .BYTE $80
+  $3001 05 4C    ORA $4C
+  $3003 05 30    ORA $30
+  $3005 60       RTS
+a: ; snapshot RECORD POINTER
+  $3006 00       BRK
+  $3007 00       BRK
+b: ; snapshot RECORD POINTER
+  $3008 00       BRK
+  $3009 00       BRK
+RealAssign: ; final PROC
+  $300A 4C 0D 30 JMP $300D ; L300D
+L300D:
+  $300D 20 F5 A0 JSR $A0F5 ; LA0F5
+  $3010 06 30 03 .BYTE $06,$30,$03
+  $3013 AD 08 30 LDA $3008 ; b $3008
+  $3016 85 AE    STA $AE
+  $3018 AD 09 30 LDA $3009 ; b+1 $3009
+  $301B 85 AF    STA $AF
+  $301D AD 06 30 LDA $3006 ; a $3006
+  $3020 85 AC    STA $AC
+  $3022 AD 07 30 LDA $3007 ; a+1 $3007
+  $3025 85 AD    STA $AD
+  $3027 A0 01    LDY #$01
+  $3029 B1 AC    LDA ($AC),Y
+  $302B 91 AE    STA ($AE),Y
+  $302D 88       DEY
+  $302E B1 AC    LDA ($AC),Y
+  $3030 91 AE    STA ($AE),Y
+  $3032 18       CLC
+  $3033 AD 08 30 LDA $3008 ; b $3008
+  $3036 69 02    ADC #$02
+  $3038 85 AE    STA $AE
+  $303A AD 09 30 LDA $3009 ; b+1 $3009
+  $303D 69 00    ADC #$00
+  $303F 85 AF    STA $AF
+  $3041 18       CLC
+  $3042 AD 06 30 LDA $3006 ; a $3006
+  $3045 69 02    ADC #$02
+  $3047 85 AC    STA $AC
+  $3049 AD 07 30 LDA $3007 ; a+1 $3007
+  $304C 69 00    ADC #$00
+  $304E 85 AD    STA $AD
+  $3050 C8       INY
+  $3051 B1 AC    LDA ($AC),Y
+  $3053 91 AE    STA ($AE),Y
+  $3055 88       DEY
+  $3056 B1 AC    LDA ($AC),Y
+  $3058 91 AE    STA ($AE),Y
+  $305A 18       CLC
+  $305B AD 08 30 LDA $3008 ; b $3008
+  $305E 69 04    ADC #$04
+  $3060 85 AE    STA $AE
+  $3062 AD 09 30 LDA $3009 ; b+1 $3009
+  $3065 69 00    ADC #$00
+  $3067 85 AF    STA $AF
+  $3069 18       CLC
+  $306A AD 06 30 LDA $3006 ; a $3006
+  $306D 69 04    ADC #$04
+  $306F 85 AC    STA $AC
+  $3071 AD 07 30 LDA $3007 ; a+1 $3007
+  $3074 69 00    ADC #$00
+  $3076 85 AD    STA $AD
+  $3078 C8       INY
+  $3079 B1 AC    LDA ($AC),Y
+  $307B 91 AE    STA ($AE),Y
+  $307D 88       DEY
+  $307E B1 AC    LDA ($AC),Y
+  $3080 91 AE    STA ($AE),Y
+  $3082 60       RTS
+i: ; snapshot INT
+  $3083 00       BRK
+  $3084 00       BRK
+r: ; snapshot RECORD POINTER
+  $3085 00       BRK
+  $3086 00       BRK
+IntToReal: ; final PROC
+  $3087 4C 8A 30 JMP $308A ; L308A
+L308A:
+  $308A 20 F5 A0 JSR $A0F5 ; LA0F5
+  $308D 83 30 03 .BYTE $83,$30,$03
+  $3090 AD 84 30 LDA $3084 ; i+1 $3084
+  $3093 85 D5    STA $D5 ; Fr0Int+1 $00D5
+  $3095 AD 83 30 LDA $3083 ; i $3083
+  $3098 85 D4    STA $D4 ; Fr0 $00D4
+  $309A A9 D9    LDA #$D9
+  $309C 8D 04 30 STA $3004
+  $309F A9 AA    LDA #$AA
+  $30A1 8D 03 30 STA $3003
+  $30A4 20 02 30 JSR $3002 ; Junk $3002
+  $30A7 AD 86 30 LDA $3086 ; r+1 $3086
+  $30AA 85 A3    STA $A3
+  $30AC AC 85 30 LDY $3085 ; r $3085
+  $30AF A2 00    LDX #$00
+  $30B1 A9 D4    LDA #$D4
+  $30B3 20 0A 30 JSR $300A ; RealAssign $300A
+  $30B6 60       RTS
+r: ; snapshot RECORD POINTER
+  $30B7 00       BRK
+  $30B8 00       BRK
+RealToInt: ; final INT FUNC
+  $30B9 4C BC 30 JMP $30BC ; L30BC
+L30BC:
+  $30BC 8E B8 30 STX $30B8 ; r+1 $30B8
+  $30BF 8D B7 30 STA $30B7 ; r $30B7
+  $30C2 A9 00    LDA #$00
+  $30C4 85 A3    STA $A3
+  $30C6 A0 D4    LDY #$D4
+  $30C8 AE B8 30 LDX $30B8 ; r+1 $30B8
+  $30CB AD B7 30 LDA $30B7 ; r $30B7
+  $30CE 20 0A 30 JSR $300A ; RealAssign $300A
+  $30D1 20 D2 D9 JSR $D9D2 ; ROM_FPI $D9D2
+  $30D4 A5 D5    LDA $D5 ; Fr0Int+1 $00D5
+  $30D6 85 A1    STA $A1
+  $30D8 A5 D4    LDA $D4 ; Fr0 $00D4
+  $30DA 85 A0    STA $A0
+  $30DC 60       RTS
+a: ; snapshot RECORD POINTER
+  $30DD 00       BRK
+  $30DE 00       BRK
+b: ; snapshot RECORD POINTER
+  $30DF 00       BRK
+  $30E0 00       BRK
+c: ; snapshot RECORD POINTER
+  $30E1 00       BRK
+  $30E2 00       BRK
+RealSub: ; final PROC
+  $30E3 4C E6 30 JMP $30E6 ; L30E6
+L30E6:
+  $30E6 20 F5 A0 JSR $A0F5 ; LA0F5
+  $30E9 DD 30 05 .BYTE $DD,$30,$05
+  $30EC A9 00    LDA #$00
+  $30EE 85 A3    STA $A3
+  $30F0 A0 D4    LDY #$D4
+  $30F2 AE DE 30 LDX $30DE ; a+1 $30DE
+  $30F5 AD DD 30 LDA $30DD ; a $30DD
+  $30F8 20 0A 30 JSR $300A ; RealAssign $300A
+  $30FB A9 00    LDA #$00
+  $30FD 85 A3    STA $A3
+  $30FF A0 E0    LDY #$E0
+  $3101 AE E0 30 LDX $30E0 ; b+1 $30E0
+  $3104 AD DF 30 LDA $30DF ; b $30DF
+  $3107 20 0A 30 JSR $300A ; RealAssign $300A
+  $310A 20 60 DA JSR $DA60 ; ROM_FSUB $DA60
+  $310D AD E2 30 LDA $30E2 ; c+1 $30E2
+  $3110 85 A3    STA $A3
+  $3112 AC E1 30 LDY $30E1 ; c $30E1
+  $3115 A2 00    LDX #$00
+  $3117 A9 D4    LDA #$D4
+  $3119 20 0A 30 JSR $300A ; RealAssign $300A
+  $311C 60       RTS
+a: ; snapshot RECORD POINTER
+  $311D 00       BRK
+  $311E 00       BRK
+b: ; snapshot RECORD POINTER
+  $311F 00       BRK
+  $3120 00       BRK
+c: ; snapshot RECORD POINTER
+  $3121 00       BRK
+  $3122 00       BRK
+RealAdd: ; final PROC
+  $3123 4C 26 31 JMP $3126 ; L3126
+L3126:
+  $3126 20 F5 A0 JSR $A0F5 ; LA0F5
+  $3129 1D 31 05 .BYTE $1D,$31,$05
+  $312C A9 00    LDA #$00
+  $312E 85 A3    STA $A3
+  $3130 A0 D4    LDY #$D4
+  $3132 AE 1E 31 LDX $311E ; a+1 $311E
+  $3135 AD 1D 31 LDA $311D ; a $311D
+  $3138 20 0A 30 JSR $300A ; RealAssign $300A
+  $313B A9 00    LDA #$00
+  $313D 85 A3    STA $A3
+  $313F A0 E0    LDY #$E0
+  $3141 AE 20 31 LDX $3120 ; b+1 $3120
+  $3144 AD 1F 31 LDA $311F ; b $311F
+  $3147 20 0A 30 JSR $300A ; RealAssign $300A
+  $314A 20 66 DA JSR $DA66 ; ROM_FADD $DA66
+  $314D AD 22 31 LDA $3122 ; c+1 $3122
+  $3150 85 A3    STA $A3
+  $3152 AC 21 31 LDY $3121 ; c $3121
+  $3155 A2 00    LDX #$00
+  $3157 A9 D4    LDA #$D4
+  $3159 20 0A 30 JSR $300A ; RealAssign $300A
+  $315C 60       RTS
+a: ; snapshot RECORD POINTER
+  $315D 00       BRK
+  $315E 00       BRK
+b: ; snapshot RECORD POINTER
+  $315F 00       BRK
+  $3160 00       BRK
+c: ; snapshot RECORD POINTER
+  $3161 00       BRK
+  $3162 00       BRK
+RealMult: ; final PROC
+  $3163 4C 66 31 JMP $3166 ; L3166
+L3166:
+  $3166 20 F5 A0 JSR $A0F5 ; LA0F5
+  $3169 5D 31 05 .BYTE $5D,$31,$05
+  $316C A9 00    LDA #$00
+  $316E 85 A3    STA $A3
+  $3170 A0 D4    LDY #$D4
+  $3172 AE 5E 31 LDX $315E ; a+1 $315E
+  $3175 AD 5D 31 LDA $315D ; a $315D
+  $3178 20 0A 30 JSR $300A ; RealAssign $300A
+  $317B A9 00    LDA #$00
+  $317D 85 A3    STA $A3
+  $317F A0 E0    LDY #$E0
+  $3181 AE 60 31 LDX $3160 ; b+1 $3160
+  $3184 AD 5F 31 LDA $315F ; b $315F
+  $3187 20 0A 30 JSR $300A ; RealAssign $300A
+  $318A 20 DB DA JSR $DADB ; ROM_FMULT $DADB
+  $318D AD 62 31 LDA $3162 ; c+1 $3162
+  $3190 85 A3    STA $A3
+  $3192 AC 61 31 LDY $3161 ; c $3161
+  $3195 A2 00    LDX #$00
+  $3197 A9 D4    LDA #$D4
+  $3199 20 0A 30 JSR $300A ; RealAssign $300A
+  $319C 60       RTS
+a: ; snapshot RECORD POINTER
+  $319D 00       BRK
+  $319E 00       BRK
+b: ; snapshot RECORD POINTER
+  $319F 00       BRK
+  $31A0 00       BRK
+c: ; snapshot RECORD POINTER
+  $31A1 00       BRK
+  $31A2 00       BRK
+RealDiv: ; final PROC
+  $31A3 4C A6 31 JMP $31A6 ; L31A6
+L31A6:
+  $31A6 20 F5 A0 JSR $A0F5 ; LA0F5
+  $31A9 9D 31 05 .BYTE $9D,$31,$05
+  $31AC A9 00    LDA #$00
+  $31AE 85 A3    STA $A3
+  $31B0 A0 D4    LDY #$D4
+  $31B2 AE 9E 31 LDX $319E ; a+1 $319E
+  $31B5 AD 9D 31 LDA $319D ; a $319D
+  $31B8 20 0A 30 JSR $300A ; RealAssign $300A
+  $31BB A9 00    LDA #$00
+  $31BD 85 A3    STA $A3
+  $31BF A0 E0    LDY #$E0
+  $31C1 AE A0 31 LDX $31A0 ; b+1 $31A0
+  $31C4 AD 9F 31 LDA $319F ; b $319F
+  $31C7 20 0A 30 JSR $300A ; RealAssign $300A
+  $31CA 20 28 DB JSR $DB28 ; ROM_FDIV $DB28
+  $31CD AD A2 31 LDA $31A2 ; c+1 $31A2
+  $31D0 85 A3    STA $A3
+  $31D2 AC A1 31 LDY $31A1 ; c $31A1
+  $31D5 A2 00    LDX #$00
+  $31D7 A9 D4    LDA #$D4
+  $31D9 20 0A 30 JSR $300A ; RealAssign $300A
+  $31DC 60       RTS
+r: ; snapshot RECORD POINTER
+  $31DD 00       BRK
+  $31DE 00       BRK
+s: ; snapshot BYTE ARRAY
+  $31DF 00       BRK
+  $31E0 00       BRK
+i: ; snapshot BYTE
+  $31E1 00       BRK
+c: ; snapshot BYTE
+  $31E2 00       BRK
+ptr: ; snapshot BYTE ARRAY
+  $31E3 00       BRK
+  $31E4 00       BRK
+StrR: ; final PROC
+  $31E5 4C E8 31 JMP $31E8 ; L31E8
+L31E8:
+  $31E8 20 F5 A0 JSR $A0F5 ; LA0F5
+  $31EB DD 31 03 .BYTE $DD,$31,$03
+  $31EE A9 00    LDA #$00
+  $31F0 85 A3    STA $A3
+  $31F2 A0 D4    LDY #$D4
+  $31F4 AE DE 31 LDX $31DE ; r+1 $31DE
+  $31F7 AD DD 31 LDA $31DD ; r $31DD
+  $31FA 20 0A 30 JSR $300A ; RealAssign $300A
+  $31FD 20 E6 D8 JSR $D8E6 ; ROM_FASC $D8E6
+  $3200 A5 F4    LDA $F4 ; InBuff+1 $00F4
+  $3202 8D E4 31 STA $31E4
+  $3205 A5 F3    LDA $F3 ; InBuff $00F3
+  $3207 8D E3 31 STA $31E3 ; ptr $31E3
+L320A:
+  $320A AD E3 31 LDA $31E3 ; ptr $31E3
+  $320D 85 AE    STA $AE
+  $320F AD E4 31 LDA $31E4
+  $3212 85 AF    STA $AF
+  $3214 A0 00    LDY #$00
+  $3216 B1 AE    LDA ($AE),Y
+  $3218 49 30    EOR #$30
+  $321A F0 03    BEQ $321F ; L321F
+  $321C 4C 2A 32 JMP $322A ; L322A
+L321F:
+  $321F EE E3 31 INC $31E3 ; ptr $31E3
+  $3222 D0 03    BNE $3227 ; L3227
+  $3224 EE E4 31 INC $31E4
+L3227:
+  $3227 4C 0A 32 JMP $320A ; L320A
+L322A:
+  $322A A0 00    LDY #$00
+  $322C 8C E1 31 STY $31E1 ; i $31E1
+L322F:
+  $322F 18       CLC
+  $3230 AD E3 31 LDA $31E3 ; ptr $31E3
+  $3233 6D E1 31 ADC $31E1 ; i $31E1
+  $3236 85 AE    STA $AE
+  $3238 AD E4 31 LDA $31E4
+  $323B 69 00    ADC #$00
+  $323D 85 AF    STA $AF
+  $323F A0 00    LDY #$00
+  $3241 B1 AE    LDA ($AE),Y
+  $3243 8D E2 31 STA $31E2 ; c $31E2
+  $3246 EE E1 31 INC $31E1 ; i $31E1
+  $3249 18       CLC
+  $324A AD DF 31 LDA $31DF ; s $31DF
+  $324D 6D E1 31 ADC $31E1 ; i $31E1
+  $3250 85 AE    STA $AE
+  $3252 AD E0 31 LDA $31E0
+  $3255 69 00    ADC #$00
+  $3257 85 AF    STA $AF
+  $3259 AD E2 31 LDA $31E2 ; c $31E2
+  $325C 29 7F    AND #$7F
+  $325E 91 AE    STA ($AE),Y
+  $3260 AD E2 31 LDA $31E2 ; c $31E2
+  $3263 29 80    AND #$80
+  $3265 85 AE    STA $AE
+  $3267 A5 AE    LDA $AE
+  $3269 D0 03    BNE $326E ; L326E
+  $326B 4C 2F 32 JMP $322F ; L322F
+L326E:
+  $326E AD DF 31 LDA $31DF ; s $31DF
+  $3271 85 AE    STA $AE
+  $3273 AD E0 31 LDA $31E0
+  $3276 85 AF    STA $AF
+  $3278 AD E1 31 LDA $31E1 ; i $31E1
+  $327B A0 00    LDY #$00
+  $327D 91 AE    STA ($AE),Y
+  $327F 60       RTS
+s: ; snapshot BYTE ARRAY
+  $3280 00       BRK
+  $3281 00       BRK
+r: ; snapshot RECORD POINTER
+  $3282 00       BRK
+  $3283 00       BRK
+i: ; snapshot BYTE
+  $3284 00       BRK
+ValR: ; final PROC
+  $3285 4C 88 32 JMP $3288 ; L3288
+L3288:
+  $3288 20 F5 A0 JSR $A0F5 ; LA0F5
+  $328B 80 32 03 .BYTE $80,$32,$03
+  $328E A0 01    LDY #$01
+  $3290 8C 84 32 STY $3284 ; i $3284
+  $3293 AD 80 32 LDA $3280 ; s $3280
+  $3296 85 AE    STA $AE
+  $3298 AD 81 32 LDA $3281
+  $329B 85 AF    STA $AF
+  $329D 88       DEY
+  $329E B1 AE    LDA ($AE),Y
+  $32A0 8D AE 32 STA $32AE
+L32A3:
+  $32A3 AD AE 32 LDA $32AE
+  $32A6 CD 84 32 CMP $3284 ; i $3284
+  $32A9 B0 04    BCS $32AF ; L32AF
+  $32AB 4C E2 32 JMP $32E2 ; L32E2
+  $32AE 00       BRK
+L32AF:
+  $32AF 38       SEC
+  $32B0 AD 84 32 LDA $3284 ; i $3284
+  $32B3 E9 01    SBC #$01
+  $32B5 85 AE    STA $AE
+  $32B7 18       CLC
+  $32B8 AD 00 30 LDA $3000 ; LBuff $3000
+  $32BB 65 AE    ADC $AE
+  $32BD 85 AC    STA $AC
+  $32BF AD 01 30 LDA $3001
+  $32C2 69 00    ADC #$00
+  $32C4 85 AD    STA $AD
+  $32C6 18       CLC
+  $32C7 AD 80 32 LDA $3280 ; s $3280
+  $32CA 6D 84 32 ADC $3284 ; i $3284
+  $32CD 85 AE    STA $AE
+  $32CF AD 81 32 LDA $3281
+  $32D2 69 00    ADC #$00
+  $32D4 85 AF    STA $AF
+  $32D6 A0 00    LDY #$00
+  $32D8 B1 AE    LDA ($AE),Y
+  $32DA 91 AC    STA ($AC),Y
+  $32DC EE 84 32 INC $3284 ; i $3284
+  $32DF 4C A3 32 JMP $32A3 ; L32A3
+L32E2:
+  $32E2 38       SEC
+  $32E3 AD 84 32 LDA $3284 ; i $3284
+  $32E6 E9 01    SBC #$01
+  $32E8 85 AE    STA $AE
+  $32EA 18       CLC
+  $32EB AD 00 30 LDA $3000 ; LBuff $3000
+  $32EE 65 AE    ADC $AE
+  $32F0 85 AC    STA $AC
+  $32F2 AD 01 30 LDA $3001
+  $32F5 69 00    ADC #$00
+  $32F7 85 AD    STA $AD
+  $32F9 A9 00    LDA #$00
+  $32FB A0 00    LDY #$00
+  $32FD 91 AC    STA ($AC),Y
+  $32FF AD 01 30 LDA $3001
+  $3302 85 F4    STA $F4 ; InBuff+1 $00F4
+  $3304 AD 00 30 LDA $3000 ; LBuff $3000
+  $3307 85 F3    STA $F3 ; InBuff $00F3
+  $3309 84 F2    STY $F2 ; Cix $00F2
+  $330B 20 00 D8 JSR $D800 ; ROM_AFP $D800
+  $330E AD 83 32 LDA $3283 ; r+1 $3283
+  $3311 85 A3    STA $A3
+  $3313 AC 82 32 LDY $3282 ; r $3282
+  $3316 A2 00    LDX #$00
+  $3318 A9 D4    LDA #$D4
+  $331A 20 0A 30 JSR $300A ; RealAssign $300A
+  $331D 60       RTS
+a: ; snapshot RECORD POINTER
+  $331E 00       BRK
+  $331F 00       BRK
+b: ; snapshot RECORD POINTER
+  $3320 00       BRK
+  $3321 00       BRK
+Exp: ; final PROC
+  $3322 4C 25 33 JMP $3325 ; L3325
+L3325:
+  $3325 20 F5 A0 JSR $A0F5 ; LA0F5
+  $3328 1E 33 03 .BYTE $1E,$33,$03
+  $332B A9 00    LDA #$00
+  $332D 85 A3    STA $A3
+  $332F A0 D4    LDY #$D4
+  $3331 AE 1F 33 LDX $331F ; a+1 $331F
+  $3334 AD 1E 33 LDA $331E ; a $331E
+  $3337 20 0A 30 JSR $300A ; RealAssign $300A
+  $333A 20 C0 DD JSR $DDC0 ; ROM_EXP $DDC0
+  $333D AD 21 33 LDA $3321 ; b+1 $3321
+  $3340 85 A3    STA $A3
+  $3342 AC 20 33 LDY $3320 ; b $3320
+  $3345 A2 00    LDX #$00
+  $3347 A9 D4    LDA #$D4
+  $3349 20 0A 30 JSR $300A ; RealAssign $300A
+  $334C 60       RTS
+a: ; snapshot RECORD POINTER
+  $334D 00       BRK
+  $334E 00       BRK
+b: ; snapshot RECORD POINTER
+  $334F 00       BRK
+  $3350 00       BRK
+Exp10: ; final PROC
+  $3351 4C 54 33 JMP $3354 ; L3354
+L3354:
+  $3354 20 F5 A0 JSR $A0F5 ; LA0F5
+  $3357 4D 33 03 .BYTE $4D,$33,$03
+  $335A A9 00    LDA #$00
+  $335C 85 A3    STA $A3
+  $335E A0 D4    LDY #$D4
+  $3360 AE 4E 33 LDX $334E ; a+1 $334E
+  $3363 AD 4D 33 LDA $334D ; a $334D
+  $3366 20 0A 30 JSR $300A ; RealAssign $300A
+  $3369 20 CC DD JSR $DDCC ; ROM_EXP10 $DDCC
+  $336C AD 50 33 LDA $3350 ; b+1 $3350
+  $336F 85 A3    STA $A3
+  $3371 AC 4F 33 LDY $334F ; b $334F
+  $3374 A2 00    LDX #$00
+  $3376 A9 D4    LDA #$D4
+  $3378 20 0A 30 JSR $300A ; RealAssign $300A
+  $337B 60       RTS
+a: ; snapshot RECORD POINTER
+  $337C 00       BRK
+  $337D 00       BRK
+b: ; snapshot RECORD POINTER
+  $337E 00       BRK
+  $337F 00       BRK
+Ln: ; final PROC
+  $3380 4C 83 33 JMP $3383 ; L3383
+L3383:
+  $3383 20 F5 A0 JSR $A0F5 ; LA0F5
+  $3386 7C 33 03 .BYTE $7C,$33,$03
+  $3389 A9 00    LDA #$00
+  $338B 85 A3    STA $A3
+  $338D A0 D4    LDY #$D4
+  $338F AE 7D 33 LDX $337D ; a+1 $337D
+  $3392 AD 7C 33 LDA $337C ; a $337C
+  $3395 20 0A 30 JSR $300A ; RealAssign $300A
+  $3398 20 CD DE JSR $DECD ; ROM_LOG $DECD
+  $339B AD 7F 33 LDA $337F ; b+1 $337F
+  $339E 85 A3    STA $A3
+  $33A0 AC 7E 33 LDY $337E ; b $337E
+  $33A3 A2 00    LDX #$00
+  $33A5 A9 D4    LDA #$D4
+  $33A7 20 0A 30 JSR $300A ; RealAssign $300A
+  $33AA 60       RTS
+a: ; snapshot RECORD POINTER
+  $33AB 00       BRK
+  $33AC 00       BRK
+b: ; snapshot RECORD POINTER
+  $33AD 00       BRK
+  $33AE 00       BRK
+Log10: ; final PROC
+  $33AF 4C B2 33 JMP $33B2 ; L33B2
+L33B2:
+  $33B2 20 F5 A0 JSR $A0F5 ; LA0F5
+  $33B5 AB 33 03 .BYTE $AB,$33,$03
+  $33B8 A9 00    LDA #$00
+  $33BA 85 A3    STA $A3
+  $33BC A0 D4    LDY #$D4
+  $33BE AE AC 33 LDX $33AC ; a+1 $33AC
+  $33C1 AD AB 33 LDA $33AB ; a $33AB
+  $33C4 20 0A 30 JSR $300A ; RealAssign $300A
+  $33C7 20 D1 DE JSR $DED1 ; ROM_LOG10 $DED1
+  $33CA AD AE 33 LDA $33AE ; b+1 $33AE
+  $33CD 85 A3    STA $A3
+  $33CF AC AD 33 LDY $33AD ; b $33AD
+  $33D2 A2 00    LDX #$00
+  $33D4 A9 D4    LDA #$D4
+  $33D6 20 0A 30 JSR $300A ; RealAssign $300A
+  $33D9 60       RTS
+a: ; snapshot RECORD POINTER
+  $33DA 00       BRK
+  $33DB 00       BRK
+b: ; snapshot RECORD POINTER
+  $33DC 00       BRK
+  $33DD 00       BRK
+c: ; snapshot RECORD POINTER
+  $33DE 00       BRK
+  $33DF 00       BRK
+Power: ; final PROC
+  $33E0 4C E3 33 JMP $33E3 ; L33E3
+L33E3:
+  $33E3 20 F5 A0 JSR $A0F5 ; LA0F5
+  $33E6 DA 33 05 .BYTE $DA,$33,$05
+  $33E9 AD DF 33 LDA $33DF ; c+1 $33DF
+  $33EC 85 A3    STA $A3
+  $33EE AC DE 33 LDY $33DE ; c $33DE
+  $33F1 AE DB 33 LDX $33DB ; a+1 $33DB
+  $33F4 AD DA 33 LDA $33DA ; a $33DA
+  $33F7 20 80 33 JSR $3380 ; Ln $3380
+  $33FA AD DF 33 LDA $33DF ; c+1 $33DF
+  $33FD 85 A3    STA $A3
+  $33FF AD DF 33 LDA $33DF ; c+1 $33DF
+  $3402 85 A5    STA $A5
+  $3404 AD DE 33 LDA $33DE ; c $33DE
+  $3407 85 A4    STA $A4
+  $3409 AC DE 33 LDY $33DE ; c $33DE
+  $340C AE DD 33 LDX $33DD ; b+1 $33DD
+  $340F AD DC 33 LDA $33DC ; b $33DC
+  $3412 20 63 31 JSR $3163 ; RealMult $3163
+  $3415 AD DF 33 LDA $33DF ; c+1 $33DF
+  $3418 85 A3    STA $A3
+  $341A AC DE 33 LDY $33DE ; c $33DE
+  $341D AE DF 33 LDX $33DF ; c+1 $33DF
+  $3420 AD DE 33 LDA $33DE ; c $33DE
+  $3423 20 22 33 JSR $3322 ; Exp $3322
+  $3426 60       RTS
+d: ; snapshot BYTE
+  $3427 00       BRK
+a: ; snapshot RECORD POINTER
+  $3428 00       BRK
+  $3429 00       BRK
+temp: ; snapshot BYTE ARRAY
+  $342A 00       BRK
+  $342B 00       BRK
+  $342C 14       .BYTE $14
+  $342D 00       BRK
+  $342E 00       BRK
+  $342F 00       BRK
+  $3430 00       BRK
+  $3431 00       BRK
+  $3432 00       BRK
+  $3433 00       BRK
+  $3434 00       BRK
+  $3435 00       BRK
+  $3436 00       BRK
+  $3437 00       BRK
+  $3438 00       BRK
+  $3439 00       BRK
+  $343A 00       BRK
+  $343B 00       BRK
+  $343C 00       BRK
+  $343D 00       BRK
+PrintRD: ; final PROC
+  $343E 4C 41 34 JMP $3441 ; L3441
+L3441:
+  $3441 20 F5 A0 JSR $A0F5 ; LA0F5
+  $3444 27 34 02 .BYTE $27,$34,$02
+  $3447 A9 34    LDA #$34
+  $3449 85 A3    STA $A3
+  $344B A0 2A    LDY #$2A
+  $344D AE 29 34 LDX $3429 ; a+1 $3429
+  $3450 AD 28 34 LDA $3428 ; a $3428
+  $3453 20 E5 31 JSR $31E5 ; StrR $31E5
+  $3456 A0 34    LDY #$34
+  $3458 A2 2A    LDX #$2A
+  $345A AD 27 34 LDA $3427 ; d $3427
+  $345D 20 86 A4 JSR $A486 ; LA486
+  $3460 60       RTS
+a: ; snapshot RECORD POINTER
+  $3461 00       BRK
+  $3462 00       BRK
+PrintR: ; final PROC
+  $3463 4C 66 34 JMP $3466 ; L3466
+L3466:
+  $3466 8E 62 34 STX $3462 ; a+1 $3462
+  $3469 8D 61 34 STA $3461 ; a $3461
+  $346C AC 62 34 LDY $3462 ; a+1 $3462
+  $346F AE 61 34 LDX $3461 ; a $3461
+  $3472 A5 B7    LDA $B7
+  $3474 20 3E 34 JSR $343E ; PrintRD $343E
+  $3477 60       RTS
+d: ; snapshot BYTE
+  $3478 00       BRK
+a: ; snapshot RECORD POINTER
+  $3479 00       BRK
+  $347A 00       BRK
+PrintRDE: ; final PROC
+  $347B 4C 7E 34 JMP $347E ; L347E
+L347E:
+  $347E 20 F5 A0 JSR $A0F5 ; LA0F5
+  $3481 78 34 02 .BYTE $78,$34,$02
+  $3484 AC 7A 34 LDY $347A ; a+1 $347A
+  $3487 AE 79 34 LDX $3479 ; a $3479
+  $348A AD 78 34 LDA $3478 ; d $3478
+  $348D 20 3E 34 JSR $343E ; PrintRD $343E
+  $3490 AD 78 34 LDA $3478 ; d $3478
+  $3493 20 DA A4 JSR $A4DA ; LA4DA
+  $3496 60       RTS
+a: ; snapshot RECORD POINTER
+  $3497 00       BRK
+  $3498 00       BRK
+PrintRE: ; final PROC
+  $3499 4C 9C 34 JMP $349C ; L349C
+L349C:
+  $349C 8E 98 34 STX $3498 ; a+1 $3498
+  $349F 8D 97 34 STA $3497 ; a $3497
+  $34A2 AC 98 34 LDY $3498 ; a+1 $3498
+  $34A5 AE 97 34 LDX $3497 ; a $3497
+  $34A8 A5 B7    LDA $B7
+  $34AA 20 7B 34 JSR $347B ; PrintRDE $347B
+  $34AD 60       RTS
+d: ; snapshot BYTE
+  $34AE 00       BRK
+a: ; snapshot RECORD POINTER
+  $34AF 00       BRK
+  $34B0 00       BRK
+temp: ; snapshot BYTE ARRAY
+  $34B1 00       BRK
+  $34B2 00       BRK
+  $34B3 80       .BYTE $80
+  $34B4 00       BRK
+  $34B5 00       BRK
+  $34B6 00       BRK
+  $34B7 00       BRK
+  $34B8 00       BRK
+  $34B9 00       BRK
+  $34BA 00       BRK
+  $34BB 00       BRK
+  $34BC 00       BRK
+  $34BD 00       BRK
+  $34BE 00       BRK
+  $34BF 00       BRK
+  $34C0 00       BRK
+  $34C1 00       BRK
+  $34C2 00       BRK
+  $34C3 00       BRK
+  $34C4 00       BRK
+  $34C5 00       BRK
+  $34C6 00       BRK
+  $34C7 00       BRK
+  $34C8 00       BRK
+  $34C9 00       BRK
+  $34CA 00       BRK
+  $34CB 00       BRK
+  $34CC 00       BRK
+  $34CD 00       BRK
+  $34CE 00       BRK
+  $34CF 00       BRK
+  $34D0 00       BRK
+  $34D1 00       BRK
+  $34D2 00       BRK
+  $34D3 00       BRK
+  $34D4 00       BRK
+  $34D5 00       BRK
+  $34D6 00       BRK
+  $34D7 00       BRK
+  $34D8 00       BRK
+  $34D9 00       BRK
+  $34DA 00       BRK
+  $34DB 00       BRK
+  $34DC 00       BRK
+  $34DD 00       BRK
+  $34DE 00       BRK
+  $34DF 00       BRK
+  $34E0 00       BRK
+  $34E1 00       BRK
+  $34E2 00       BRK
+  $34E3 00       BRK
+  $34E4 00       BRK
+  $34E5 00       BRK
+  $34E6 00       BRK
+  $34E7 00       BRK
+  $34E8 00       BRK
+  $34E9 00       BRK
+  $34EA 00       BRK
+  $34EB 00       BRK
+  $34EC 00       BRK
+  $34ED 00       BRK
+  $34EE 00       BRK
+  $34EF 00       BRK
+  $34F0 00       BRK
+  $34F1 00       BRK
+  $34F2 00       BRK
+  $34F3 00       BRK
+  $34F4 00       BRK
+  $34F5 00       BRK
+  $34F6 00       BRK
+  $34F7 00       BRK
+  $34F8 00       BRK
+  $34F9 00       BRK
+  $34FA 00       BRK
+  $34FB 00       BRK
+  $34FC 00       BRK
+  $34FD 00       BRK
+  $34FE 00       BRK
+  $34FF 00       BRK
+  $3500 00       BRK
+  $3501 00       BRK
+  $3502 00       BRK
+  $3503 00       BRK
+  $3504 00       BRK
+  $3505 00       BRK
+  $3506 00       BRK
+  $3507 00       BRK
+  $3508 00       BRK
+  $3509 00       BRK
+  $350A 00       BRK
+  $350B 00       BRK
+  $350C 00       BRK
+  $350D 00       BRK
+  $350E 00       BRK
+  $350F 00       BRK
+  $3510 00       BRK
+  $3511 00       BRK
+  $3512 00       BRK
+  $3513 00       BRK
+  $3514 00       BRK
+  $3515 00       BRK
+  $3516 00       BRK
+  $3517 00       BRK
+  $3518 00       BRK
+  $3519 00       BRK
+  $351A 00       BRK
+  $351B 00       BRK
+  $351C 00       BRK
+  $351D 00       BRK
+  $351E 00       BRK
+  $351F 00       BRK
+  $3520 00       BRK
+  $3521 00       BRK
+  $3522 00       BRK
+  $3523 00       BRK
+  $3524 00       BRK
+  $3525 00       BRK
+  $3526 00       BRK
+  $3527 00       BRK
+  $3528 00       BRK
+  $3529 00       BRK
+  $352A 00       BRK
+  $352B 00       BRK
+  $352C 00       BRK
+  $352D 00       BRK
+  $352E 00       BRK
+  $352F 00       BRK
+  $3530 00       BRK
+InputRD: ; final PROC
+  $3531 4C 34 35 JMP $3534 ; L3534
+L3534:
+  $3534 20 F5 A0 JSR $A0F5 ; LA0F5
+  $3537 AE 34 02 .BYTE $AE,$34,$02
+  $353A A9 7E    LDA #$7E
+  $353C 85 A3    STA $A3
+  $353E A0 34    LDY #$34
+  $3540 A2 B1    LDX #$B1
+  $3542 AD AE 34 LDA $34AE ; d $34AE
+  $3545 20 99 A4 JSR $A499 ; LA499
+  $3548 AD B0 34 LDA $34B0 ; a+1 $34B0
+  $354B 85 A3    STA $A3
+  $354D AC AF 34 LDY $34AF ; a $34AF
+  $3550 A2 34    LDX #$34
+  $3552 A9 B1    LDA #$B1
+  $3554 20 85 32 JSR $3285 ; ValR $3285
+  $3557 60       RTS
+a: ; snapshot RECORD POINTER
+  $3558 00       BRK
+  $3559 00       BRK
+InputR: ; final PROC
+  $355A 4C 5D 35 JMP $355D ; L355D
+L355D:
+  $355D 8E 59 35 STX $3559 ; a+1 $3559
+  $3560 8D 58 35 STA $3558 ; a $3558
+  $3563 AC 59 35 LDY $3559 ; a+1 $3559
+  $3566 AE 58 35 LDX $3558 ; a $3558
+  $3569 A5 B7    LDA $B7
+  $356B 20 31 35 JSR $3531 ; InputRD $3531
+  $356E 60       RTS
+x: ; final RECORD
+  $356F 00       BRK
+  $3570 00       BRK
+  $3571 00       BRK
+  $3572 00       BRK
+  $3573 00       BRK
+  $3574 00       BRK
+y: ; final RECORD
+  $3575 00       BRK
+  $3576 00       BRK
+  $3577 00       BRK
+  $3578 00       BRK
+  $3579 00       BRK
+  $357A 00       BRK
+z: ; final RECORD
+  $357B 00       BRK
+  $357C 00       BRK
+  $357D 00       BRK
+  $357E 00       BRK
+  $357F 00       BRK
+  $3580 00       BRK
+RealDemo: ; final PROC
+  $3581 4C 84 35 JMP $3584 ; L3584
+L3584:
+  $3584 A9 01    LDA #$01
+  $3586 20 54 A6 JSR $A654 ; LA654
+L3589:
+  $3589 4C 96 35 JMP $3596 ; L3596
+  $358C 09 49    ORA #$49
+  $358E 6E 70 75 ROR $7570
+  $3591 74       .BYTE $74
+  $3592 20 78 3A JSR $3A78 ; L3A78
+  $3595 20 A2 35 JSR $35A2 ; L35A2
+  $3598 A9 8C    LDA #$8C
+  $359A 20 7F A4 JSR $A47F ; LA47F
+  $359D A2 35    LDX #$35
+  $359F A9 6F    LDA #$6F
+  $35A1 20 5A 35 JSR $355A ; InputR $355A
+  $35A4 20 CC A4 JSR $A4CC ; LA4CC
+  $35A7 4C B4 35 JMP $35B4 ; L35B4
+  $35AA 09 49    ORA #$49
+  $35AC 6E 70 75 ROR $7570
+  $35AF 74       .BYTE $74
+  $35B0 20 79 3A JSR $3A79 ; L3A79
+  $35B3 20 A2 35 JSR $35A2 ; L35A2
+  $35B6 A9 AA    LDA #$AA
+  $35B8 20 7F A4 JSR $A47F ; LA47F
+  $35BB A2 35    LDX #$35
+  $35BD A9 75    LDA #$75
+  $35BF 20 5A 35 JSR $355A ; InputR $355A
+  $35C2 20 CC A4 JSR $A4CC ; LA4CC
+  $35C5 A2 7D    LDX #$7D
+  $35C7 A9 06    LDA #$06
+  $35C9 20 D1 A4 JSR $A4D1 ; LA4D1
+  $35CC A9 35    LDA #$35
+  $35CE 85 A3    STA $A3
+  $35D0 A9 35    LDA #$35
+  $35D2 85 A5    STA $A5
+  $35D4 A9 7B    LDA #$7B
+  $35D6 85 A4    STA $A4
+  $35D8 A0 75    LDY #$75
+  $35DA A2 35    LDX #$35
+  $35DC A9 6F    LDA #$6F
+  $35DE 20 23 31 JSR $3123 ; RealAdd $3123
+  $35E1 4C EB 35 JMP $35EB ; L35EB
+  $35E4 06 78    ASL $78
+  $35E6 AB       .BYTE $AB
+  $35E7 79 20 20 ADC $2020,Y
+  $35EA BA       TSX
+L35EB:
+  $35EB A0 35    LDY #$35
+  $35ED A2 E4    LDX #$E4
+  $35EF A9 06    LDA #$06
+  $35F1 20 86 A4 JSR $A486 ; LA486
+  $35F4 A0 35    LDY #$35
+  $35F6 A2 7B    LDX #$7B
+  $35F8 A9 06    LDA #$06
+  $35FA 20 7B 34 JSR $347B ; PrintRDE $347B
+  $35FD A9 35    LDA #$35
+  $35FF 85 A3    STA $A3
+  $3601 A9 35    LDA #$35
+  $3603 85 A5    STA $A5
+  $3605 A9 7B    LDA #$7B
+  $3607 85 A4    STA $A4
+  $3609 A0 75    LDY #$75
+  $360B A2 35    LDX #$35
+  $360D A9 6F    LDA #$6F
+  $360F 20 E3 30 JSR $30E3 ; RealSub $30E3
+  $3612 4C 1C 36 JMP $361C ; L361C
+  $3615 06 78    ASL $78
+  $3617 AD 79 20 LDA $2079
+  $361A 20 BA A0 JSR $A0BA ; LA0BA
+  $361D 36 A2    ROL $A2,X
+  $361F 15 A9    ORA $A9,X
+  $3621 06 20    ASL $20
+  $3623 86 A4    STX $A4
+  $3625 A0 35    LDY #$35
+  $3627 A2 7B    LDX #$7B
+  $3629 A9 06    LDA #$06
+  $362B 20 7B 34 JSR $347B ; PrintRDE $347B
+  $362E A9 35    LDA #$35
+  $3630 85 A3    STA $A3
+  $3632 A9 35    LDA #$35
+  $3634 85 A5    STA $A5
+  $3636 A9 7B    LDA #$7B
+  $3638 85 A4    STA $A4
+  $363A A0 75    LDY #$75
+  $363C A2 35    LDX #$35
+  $363E A9 6F    LDA #$6F
+  $3640 20 63 31 JSR $3163 ; RealMult $3163
+  $3643 4C 4D 36 JMP $364D ; L364D
+  $3646 06 78    ASL $78
+  $3648 AA       TAX
+  $3649 79 20 20 ADC $2020,Y
+  $364C BA       TSX
+L364D:
+  $364D A0 36    LDY #$36
+  $364F A2 46    LDX #$46
+  $3651 A9 06    LDA #$06
+  $3653 20 86 A4 JSR $A486 ; LA486
+  $3656 A0 35    LDY #$35
+  $3658 A2 7B    LDX #$7B
+  $365A A9 06    LDA #$06
+  $365C 20 7B 34 JSR $347B ; PrintRDE $347B
+  $365F A9 35    LDA #$35
+  $3661 85 A3    STA $A3
+  $3663 A9 35    LDA #$35
+  $3665 85 A5    STA $A5
+  $3667 A9 7B    LDA #$7B
+  $3669 85 A4    STA $A4
+  $366B A0 75    LDY #$75
+  $366D A2 35    LDX #$35
+  $366F A9 6F    LDA #$6F
+  $3671 20 A3 31 JSR $31A3 ; RealDiv $31A3
+  $3674 4C 7E 36 JMP $367E ; L367E
+  $3677 06 78    ASL $78
+  $3679 AF       .BYTE $AF
+  $367A 79 20 20 ADC $2020,Y
+  $367D BA       TSX
+L367E:
+  $367E A0 36    LDY #$36
+  $3680 A2 77    LDX #$77
+  $3682 A9 06    LDA #$06
+  $3684 20 86 A4 JSR $A486 ; LA486
+  $3687 A0 35    LDY #$35
+  $3689 A2 7B    LDX #$7B
+  $368B A9 06    LDA #$06
+  $368D 20 7B 34 JSR $347B ; PrintRDE $347B
+  $3690 A9 35    LDA #$35
+  $3692 85 A3    STA $A3
+  $3694 A0 7B    LDY #$7B
+  $3696 A2 35    LDX #$35
+  $3698 A9 6F    LDA #$6F
+  $369A 20 22 33 JSR $3322 ; Exp $3322
+  $369D 4C A7 36 JMP $36A7 ; L36A7
+  $36A0 06 C5    ASL $C5
+  $36A2 D8       CLD
+  $36A3 D0 20    BNE $36C5 ; L36C5
+  $36A5 78       SEI
+  $36A6 BA       TSX
+L36A7:
+  $36A7 A0 36    LDY #$36
+  $36A9 A2 A0    LDX #$A0
+  $36AB A9 06    LDA #$06
+  $36AD 20 86 A4 JSR $A486 ; LA486
+  $36B0 A0 35    LDY #$35
+  $36B2 A2 7B    LDX #$7B
+  $36B4 A9 06    LDA #$06
+  $36B6 20 7B 34 JSR $347B ; PrintRDE $347B
+  $36B9 A9 35    LDA #$35
+  $36BB 85 A3    STA $A3
+  $36BD A0 7B    LDY #$7B
+  $36BF A2 35    LDX #$35
+  $36C1 A9 6F    LDA #$6F
+  $36C3 20 51 33 JSR $3351 ; Exp10 $3351
+  $36C6 4C D0 36 JMP $36D0 ; L36D0
+  $36C9 06 D8    ASL $D8
+  $36CB B1 B0    LDA ($B0),Y
+  $36CD 20 78 BA JSR $BA78 ; LBA78
+L36D0:
+  $36D0 A0 36    LDY #$36
+  $36D2 A2 C9    LDX #$C9
+  $36D4 A9 06    LDA #$06
+  $36D6 20 86 A4 JSR $A486 ; LA486
+  $36D9 A0 35    LDY #$35
+  $36DB A2 7B    LDX #$7B
+  $36DD A9 06    LDA #$06
+  $36DF 20 7B 34 JSR $347B ; PrintRDE $347B
+  $36E2 A9 35    LDA #$35
+  $36E4 85 A3    STA $A3
+  $36E6 A0 7B    LDY #$7B
+  $36E8 A2 35    LDX #$35
+  $36EA A9 6F    LDA #$6F
+  $36EC 20 80 33 JSR $3380 ; Ln $3380
+  $36EF 4C F9 36 JMP $36F9 ; L36F9
+  $36F2 06 CC    ASL $CC
+  $36F4 CE 20 78 DEC $7820
+  $36F7 20 BA A0 JSR $A0BA ; LA0BA
+  $36FA 36 A2    ROL $A2,X
+  $36FC F2       .BYTE $F2
+  $36FD A9 06    LDA #$06
+  $36FF 20 86 A4 JSR $A486 ; LA486
+  $3702 A0 35    LDY #$35
+  $3704 A2 7B    LDX #$7B
+  $3706 A9 06    LDA #$06
+  $3708 20 7B 34 JSR $347B ; PrintRDE $347B
+  $370B A9 35    LDA #$35
+  $370D 85 A3    STA $A3
+  $370F A0 7B    LDY #$7B
+  $3711 A2 35    LDX #$35
+  $3713 A9 6F    LDA #$6F
+  $3715 20 AF 33 JSR $33AF ; Log10 $33AF
+  $3718 4C 22 37 JMP $3722 ; L3722
+  $371B 06 CC    ASL $CC
+  $371D CF       .BYTE $CF
+  $371E C7       .BYTE $C7
+  $371F 20 78 BA JSR $BA78 ; LBA78
+L3722:
+  $3722 A0 37    LDY #$37
+  $3724 A2 1B    LDX #$1B
+  $3726 A9 06    LDA #$06
+  $3728 20 86 A4 JSR $A486 ; LA486
+  $372B A0 35    LDY #$35
+  $372D A2 7B    LDX #$7B
+  $372F A9 06    LDA #$06
+  $3731 20 7B 34 JSR $347B ; PrintRDE $347B
+  $3734 A2 9B    LDX #$9B
+  $3736 A9 06    LDA #$06
+  $3738 20 D1 A4 JSR $A4D1 ; LA4D1
+  $373B A9 35    LDA #$35
+  $373D 85 A3    STA $A3
+  $373F A9 35    LDA #$35
+  $3741 85 A5    STA $A5
+  $3743 A9 7B    LDA #$7B
+  $3745 85 A4    STA $A4
+  $3747 A0 6F    LDY #$6F
+  $3749 A2 35    LDX #$35
+  $374B A9 75    LDA #$75
+  $374D 20 23 31 JSR $3123 ; RealAdd $3123
+  $3750 4C 5A 37 JMP $375A ; L375A
+  $3753 06 79    ASL $79
+  $3755 AB       .BYTE $AB
+  $3756 78       SEI
+  $3757 20 20 BA JSR $BA20 ; LBA20
+L375A:
+  $375A A0 37    LDY #$37
+  $375C A2 53    LDX #$53
+  $375E A9 06    LDA #$06
+  $3760 20 86 A4 JSR $A486 ; LA486
+  $3763 A0 35    LDY #$35
+  $3765 A2 7B    LDX #$7B
+  $3767 A9 06    LDA #$06
+  $3769 20 7B 34 JSR $347B ; PrintRDE $347B
+  $376C A9 35    LDA #$35
+  $376E 85 A3    STA $A3
+  $3770 A9 35    LDA #$35
+  $3772 85 A5    STA $A5
+  $3774 A9 7B    LDA #$7B
+  $3776 85 A4    STA $A4
+  $3778 A0 6F    LDY #$6F
+  $377A A2 35    LDX #$35
+  $377C A9 75    LDA #$75
+  $377E 20 E3 30 JSR $30E3 ; RealSub $30E3
+  $3781 4C 8B 37 JMP $378B ; L378B
+  $3784 06 79    ASL $79
+  $3786 AD 78 20 LDA $2078
+  $3789 20 BA A0 JSR $A0BA ; LA0BA
+  $378C 37       .BYTE $37
+  $378D A2 84    LDX #$84
+  $378F A9 06    LDA #$06
+  $3791 20 86 A4 JSR $A486 ; LA486
+  $3794 A0 35    LDY #$35
+  $3796 A2 7B    LDX #$7B
+  $3798 A9 06    LDA #$06
+  $379A 20 7B 34 JSR $347B ; PrintRDE $347B
+  $379D A9 35    LDA #$35
+  $379F 85 A3    STA $A3
+  $37A1 A9 35    LDA #$35
+  $37A3 85 A5    STA $A5
+  $37A5 A9 7B    LDA #$7B
+  $37A7 85 A4    STA $A4
+  $37A9 A0 6F    LDY #$6F
+  $37AB A2 35    LDX #$35
+  $37AD A9 75    LDA #$75
+  $37AF 20 63 31 JSR $3163 ; RealMult $3163
+  $37B2 4C BC 37 JMP $37BC ; L37BC
+  $37B5 06 79    ASL $79
+  $37B7 AA       TAX
+  $37B8 78       SEI
+  $37B9 20 20 BA JSR $BA20 ; LBA20
+L37BC:
+  $37BC A0 37    LDY #$37
+  $37BE A2 B5    LDX #$B5
+  $37C0 A9 06    LDA #$06
+  $37C2 20 86 A4 JSR $A486 ; LA486
+  $37C5 A0 35    LDY #$35
+  $37C7 A2 7B    LDX #$7B
+  $37C9 A9 06    LDA #$06
+  $37CB 20 7B 34 JSR $347B ; PrintRDE $347B
+  $37CE A9 35    LDA #$35
+  $37D0 85 A3    STA $A3
+  $37D2 A9 35    LDA #$35
+  $37D4 85 A5    STA $A5
+  $37D6 A9 7B    LDA #$7B
+  $37D8 85 A4    STA $A4
+  $37DA A0 6F    LDY #$6F
+  $37DC A2 35    LDX #$35
+  $37DE A9 75    LDA #$75
+  $37E0 20 A3 31 JSR $31A3 ; RealDiv $31A3
+  $37E3 4C ED 37 JMP $37ED ; L37ED
+  $37E6 06 79    ASL $79
+  $37E8 AF       .BYTE $AF
+  $37E9 78       SEI
+  $37EA 20 20 BA JSR $BA20 ; LBA20
+L37ED:
+  $37ED A0 37    LDY #$37
+  $37EF A2 E6    LDX #$E6
+  $37F1 A9 06    LDA #$06
+  $37F3 20 86 A4 JSR $A486 ; LA486
+  $37F6 A0 35    LDY #$35
+  $37F8 A2 7B    LDX #$7B
+  $37FA A9 06    LDA #$06
+  $37FC 20 7B 34 JSR $347B ; PrintRDE $347B
+  $37FF A9 35    LDA #$35
+  $3801 85 A3    STA $A3
+  $3803 A0 7B    LDY #$7B
+  $3805 A2 35    LDX #$35
+  $3807 A9 75    LDA #$75
+  $3809 20 22 33 JSR $3322 ; Exp $3322
+  $380C 4C 16 38 JMP $3816 ; L3816
+  $380F 06 C5    ASL $C5
+  $3811 D8       CLD
+  $3812 D0 20    BNE $3834 ; L3834
+  $3814 79 BA A0 ADC $A0BA,Y
+  $3817 38       SEC
+  $3818 A2 0F    LDX #$0F
+  $381A A9 06    LDA #$06
+  $381C 20 86 A4 JSR $A486 ; LA486
+  $381F A0 35    LDY #$35
+  $3821 A2 7B    LDX #$7B
+  $3823 A9 06    LDA #$06
+  $3825 20 7B 34 JSR $347B ; PrintRDE $347B
+  $3828 A9 35    LDA #$35
+  $382A 85 A3    STA $A3
+  $382C A0 7B    LDY #$7B
+  $382E A2 35    LDX #$35
+  $3830 A9 75    LDA #$75
+  $3832 20 51 33 JSR $3351 ; Exp10 $3351
+  $3835 4C 3F 38 JMP $383F ; L383F
+  $3838 06 D8    ASL $D8
+  $383A B1 B0    LDA ($B0),Y
+  $383C 20 79 BA JSR $BA79 ; LBA79
+L383F:
+  $383F A0 38    LDY #$38
+  $3841 A2 38    LDX #$38
+  $3843 A9 06    LDA #$06
+  $3845 20 86 A4 JSR $A486 ; LA486
+  $3848 A0 35    LDY #$35
+  $384A A2 7B    LDX #$7B
+  $384C A9 06    LDA #$06
+  $384E 20 7B 34 JSR $347B ; PrintRDE $347B
+  $3851 A9 35    LDA #$35
+  $3853 85 A3    STA $A3
+  $3855 A0 7B    LDY #$7B
+  $3857 A2 35    LDX #$35
+  $3859 A9 75    LDA #$75
+  $385B 20 80 33 JSR $3380 ; Ln $3380
+  $385E 4C 68 38 JMP $3868 ; L3868
+  $3861 06 CC    ASL $CC
+  $3863 CE 20 79 DEC $7920
+  $3866 20 BA A0 JSR $A0BA ; LA0BA
+  $3869 38       SEC
+  $386A A2 61    LDX #$61
+  $386C A9 06    LDA #$06
+  $386E 20 86 A4 JSR $A486 ; LA486
+  $3871 A0 35    LDY #$35
+  $3873 A2 7B    LDX #$7B
+  $3875 A9 06    LDA #$06
+  $3877 20 7B 34 JSR $347B ; PrintRDE $347B
+  $387A A9 35    LDA #$35
+  $387C 85 A3    STA $A3
+  $387E A0 7B    LDY #$7B
+  $3880 A2 35    LDX #$35
+  $3882 A9 75    LDA #$75
+  $3884 20 AF 33 JSR $33AF ; Log10 $33AF
+  $3887 4C 91 38 JMP $3891 ; L3891
+  $388A 06 CC    ASL $CC
+  $388C CF       .BYTE $CF
+  $388D C7       .BYTE $C7
+  $388E 20 79 BA JSR $BA79 ; LBA79
+L3891:
+  $3891 A0 38    LDY #$38
+  $3893 A2 8A    LDX #$8A
+  $3895 A9 06    LDA #$06
+  $3897 20 86 A4 JSR $A486 ; LA486
+  $389A A0 35    LDY #$35
+  $389C A2 7B    LDX #$7B
+  $389E A9 06    LDA #$06
+  $38A0 20 7B 34 JSR $347B ; PrintRDE $347B
+  $38A3 4C 89 35 JMP $3589 ; L3589
+  $38A6 60       RTS
+  $38A7 60       RTS
+
+== compat ==
+load bytes: 2228  code bytes: 2216  code origin: $3000
+segments:
+  00: $3000-$38A7 len  2216 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  2222 data_off  2226
+      RUNAD $02E2 = $3581
+opcode counts:
+  $00 BRK      249
+  $05 ORA      2
+  $06 .BYTE    1
+  $06 ASL      17
+  $09 ORA      2
+  $14 .BYTE    1
+  $15 ORA      1
+  $18 CLC      9
+  $1D .BYTE    1
+  $1E .BYTE    1
+  $20 JSR      135
+  $27 .BYTE    1
+  $29 AND      2
+  $36 ROL      2
+  $37 .BYTE    1
+  $38 SEC      4
+  $49 EOR      1
+  $4C JMP      45
+  $4D .BYTE    1
+  $5D .BYTE    1
+  $60 RTS      23
+  $65 ADC      2
+  $69 ADC      13
+  $6D ADC      3
+  $6E ROR      2
+  $74 .BYTE    2
+  $78 .BYTE    1
+  $78 SEI      4
+  $79 ADC      4
+  $7C .BYTE    1
+  $80 .BYTE    3
+  $83 .BYTE    1
+  $84 STY      1
+  $85 STA      101
+  $86 STX      1
+  $88 DEY      4
+  $8C STY      2
+  $8D STA      10
+  $8E STX      4
+  $91 STA      10
+  $9D .BYTE    1
+  $A0 LDY      68
+  $A2 LDX      63
+  $A5 LDA      8
+  $A9 LDA      116
+  $AA TAX      2
+  $AB .BYTE    3
+  $AC LDY      18
+  $AD LDA      78
+  $AE .BYTE    1
+  $AE LDX      22
+  $AF .BYTE    2
+  $B0 BCS      1
+  $B1 LDA      12
+  $BA TSX      4
+  $C7 .BYTE    2
+  $C8 INY      2
+  $CD CMP      1
+  $CE DEC      2
+  $CF .BYTE    2
+  $D0 BNE      4
+  $D8 CLD      2
+  $DA .BYTE    1
+  $DD .BYTE    2
+  $E9 SBC      2
+  $EE INC      4
+  $F0 BEQ      1
+  $F2 .BYTE    1
+
+== map: compat ==
+origin $3000  run $3581  routines 22  symbols 56  skipped 0
+routines:
+  Junk                     $3002-$3005 len     4
+  RealAssign               $3006-$3082 len   125
+  IntToReal                $3083-$30B6 len    52
+  RealToInt                $30B7-$30DC len    38
+  RealSub                  $30DD-$311C len    64
+  RealAdd                  $311D-$315C len    64
+  RealMult                 $315D-$319C len    64
+  RealDiv                  $319D-$31DC len    64
+  StrR                     $31DD-$327F len   163
+  ValR                     $3280-$331D len   158
+  Exp                      $331E-$334C len    47
+  Exp10                    $334D-$337B len    47
+  Ln                       $337C-$33AA len    47
+  Log10                    $33AB-$33D9 len    47
+  Power                    $33DA-$3426 len    77
+  PrintRD                  $3427-$3460 len    58
+  PrintR                   $3461-$3477 len    23
+  PrintRDE                 $3478-$3496 len    31
+  PrintRE                  $3497-$34AD len    23
+  InputRD                  $34AE-$3557 len   170
+  InputR                   $3558-$356E len    23
+  RealDemo                 $356F-$38A6 len   824
+storage symbols:
+  global Storage FR0INT $00D4-$00D5
+  global Storage FR0 $00D4-$00D9
+  global Storage FR1 $00E0-$00E5
+  global Storage CIX $00F2-$00F2
+  global Storage INBUFF $00F3-$00F4
+  global Storage LBUFF $3000-$3000
+  routine RealAssign Parameter A $3006-$3007
+  routine RealAssign Parameter B $3008-$3009
+  routine IntToReal Parameter I $3083-$3084
+  routine IntToReal Parameter R $3085-$3086
+  routine RealToInt Parameter R $30B7-$30B8
+  routine RealSub Parameter A $30DD-$30DE
+  routine RealSub Parameter B $30DF-$30E0
+  routine RealSub Parameter C $30E1-$30E2
+  routine RealAdd Parameter A $311D-$311E
+  routine RealAdd Parameter B $311F-$3120
+  routine RealAdd Parameter C $3121-$3122
+  routine RealMult Parameter A $315D-$315E
+  routine RealMult Parameter B $315F-$3160
+  routine RealMult Parameter C $3161-$3162
+  routine RealDiv Parameter A $319D-$319E
+  routine RealDiv Parameter B $319F-$31A0
+  routine RealDiv Parameter C $31A1-$31A2
+  routine StrR Parameter R $31DD-$31DE
+  routine StrR Parameter S $31DF-$31DF
+  routine StrR Local I $31E1-$31E1
+  routine StrR Local C $31E2-$31E2
+  routine StrR Local PTR $31E3-$31E4
+  routine ValR Parameter S $3280-$3280
+  routine ValR Parameter R $3282-$3283
+  routine ValR Local I $3284-$3284
+  routine Exp Parameter A $331E-$331F
+  ... 24 more
+trusted effects:
+  Junk                     clobbers A,X,Y
+  RealAssign               clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AC,$AD,$AE,$AF; writes unknown-abs
+  IntToReal                clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AC,$AD,$AE,$AF,$D4,$D5; writes unknown-abs
+
+== routines: original:samples/toolkit/survey/outputs/vm/REALDM1.COM vs compat ==
+  Junk                     len 6 -> 4 (-2)  addr $3000 -> $3002
+    Junk+$0000 #0000
+      original : $3000 80       .BYTE $80
+      generated: $3002 4C 05 30 JMP $3005
+      orig owner: LBuff $3000
+      source   : Routine Junk samples/toolkit/original/extracted/REAL.DM1:50:15 | PrintD(6,"y\{INV:*}x  \{INV::}") | source 876..894 code $3002-$3005
+    Junk+$0001 #0001
+      original : $3001 05 4C    ORA $4C
+      generated: $3005 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/REAL.DM1:1:1 | INCLUDE "REAL.ACT" | source 0..0 code $3005-$3005
+    Junk+$0003 #0002
+      original : $3003 05 30    ORA $30
+      generated: <missing>
+    Junk+$0005 #0003
+      original : $3005 60       RTS
+      generated: <missing>
+  RealDemo                 len 825 -> 824 (-1)  addr $356F -> $356F
+    RealDemo+$0338 #0384
+      original : $38A7 60       RTS
+      generated: <missing>
+
+== bytes: original:samples/toolkit/survey/outputs/vm/REALDM1.COM vs compat ==
+exact: true  sizes: 2228 vs 2228
+first diffs: none
+
+== instructions: original:samples/toolkit/survey/outputs/vm/REALDM1.COM vs compat ==
+counts: 1094 vs 1094
+first diffs: none

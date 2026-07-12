@@ -1,0 +1,117 @@
+; Advanced pointer and record-pointer stress program.
+;
+; This intentionally combines record pointers with byte/card/int pointers,
+; pointer reassignment through record fields, pointer-indexed array access, and
+; loops. It is meant to be closer to toolkit-style data plumbing than the
+; narrower pointer probes.
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+TYPE Item=[BYTE kind, state CARD value, next]
+
+Item first
+Item second
+Item third
+Item POINTER cur, tail, temp
+
+BYTE ARRAY bytes(16)
+CARD ARRAY words(8)
+INT ARRAY nums(6)
+
+BYTE POINTER bp, bscan
+CARD POINTER cp
+INT POINTER ip
+
+BYTE idx, count, outB, initKind
+CARD outC, total
+INT outI
+
+PROC InitItem(Item POINTER item CARD initValue)
+  item.kind = initKind
+  item.state = 0
+  item.value = initValue
+  item.next = 0
+RETURN
+
+PROC Link(Item POINTER left, right)
+  left.next = right
+  right.state = left.kind
+RETURN
+
+BYTE FUNC Touch(Item POINTER item BYTE i)
+  BYTE v
+
+  v = item.kind + item.state + bp(i)
+  item.state = v
+RETURN(v)
+
+PROC Scatter(Item POINTER item)
+  BYTE i
+
+  i = 0
+  WHILE i < 4
+  DO
+    bp(i) = item.kind + i
+    cp(i) = item.value + words(i)
+    ip(i) = nums(i) - item.state
+    i ==+ 1
+  OD
+RETURN
+
+PROC Walk(Item POINTER start)
+  BYTE i
+
+  total = 0
+  cur = start
+  i = 0
+
+  WHILE i < 4
+  DO
+    total = total + cur.value
+    outB = Touch(cur, i)
+
+    IF cur.next = 0 THEN
+      EXIT
+    FI
+
+    cur = cur.next
+    i ==+ 1
+  OD
+
+  count = i
+  outC = total
+RETURN
+
+PROC Main()
+  bp = bytes
+  bscan = bytes
+  cp = words
+  ip = nums
+
+  idx = 1
+  words(0) = $0100
+  words(1) = $0020
+  nums(0) = -7
+  nums(1) = 12
+
+  initKind = 3
+  InitItem(first, $0101)
+  initKind = 5
+  InitItem(second, $0020)
+  initKind = 7
+  InitItem(third, $0008)
+
+  Link(first, second)
+  Link(second, third)
+
+  Scatter(first)
+  temp = second
+  temp.value = cp(idx) + first.value
+  bscan(idx) = Touch(temp, idx)
+
+  Walk(first)
+  outI = ip(idx)
+RETURN

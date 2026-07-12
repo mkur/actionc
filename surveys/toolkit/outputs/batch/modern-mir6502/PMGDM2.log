@@ -1,0 +1,8 @@
+source: samples/toolkit/modern/PMG.DM2
+source_policy: auto
+compile_source: [tmp]/toolkit/PMG.DM2
+profile: modern
+backend: mir6502
+codegen_source: n/a (mir6502 uses optimized NIR)
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/modern-mir6502/PMGDM2.COM

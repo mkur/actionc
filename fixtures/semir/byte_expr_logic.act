@@ -1,0 +1,12 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE a, b, c, d, e
+
+PROC Main()
+  a = 7
+  b = 3
+  c = a - b
+  d = c & $0F
+  e = d ! $80
+RETURN

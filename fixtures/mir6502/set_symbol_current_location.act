@@ -1,0 +1,7 @@
+BYTE ARRAY buffer
+
+PROC Main()
+  buffer(0)=7
+RETURN
+
+SET buffer=*

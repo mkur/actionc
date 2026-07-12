@@ -1,0 +1,15 @@
+; Bodyless PROC emission/fallthrough behavior.
+
+SET $491=$3000
+SET $E=$3000
+
+BYTE seen=$A0
+
+PROC Empty()
+
+PROC Mark=*()
+[$A9 $55 $85 seen $60]
+
+PROC Main()
+  Empty()
+RETURN

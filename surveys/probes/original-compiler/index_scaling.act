@@ -1,0 +1,23 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE i, b
+CARD c
+INT n
+BYTE ARRAY ba=[1 2 3 4]
+CARD ARRAY ca=[10 20 30 40]
+INT ARRAY ia(4)
+
+PROC Main()
+  i = 1
+  ia(0) = -1
+  ia(1) = -2
+  ia(2) = -3
+  ia(3) = -4
+  b = ba(i+1)
+  c = ca(i+1)
+  n = ia(i+1)
+RETURN

@@ -1,0 +1,81 @@
+; Record stress program.
+;
+; This intentionally combines:
+; - packed record storage
+; - record pointer parameters
+; - field reads/writes with byte and card fields
+; - field arithmetic and comparisons
+; - record pointer variables passed to routines
+; - pointer reassignment between record objects
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+TYPE Node=[BYTE tag, flags CARD size, next]
+
+Node head
+Node tail
+Node POINTER cur, nextp
+
+BYTE outb, count, initTag
+CARD outw, initSize
+
+PROC Init(Node POINTER n)
+  n.tag = initTag
+  n.flags = 0
+  n.size = initSize
+  n.next = 0
+RETURN
+
+PROC Link(Node POINTER left)
+  left.next = nextp
+  nextp.flags = left.tag
+RETURN
+
+BYTE FUNC Score(Node POINTER n)
+  BYTE v
+
+  v = n.tag + n.flags
+  IF n.size > $0100 THEN
+    v ==+ 1
+  FI
+RETURN(v)
+
+PROC Walk(Node POINTER n)
+  BYTE i
+  CARD total
+
+  i = 0
+  total = 0
+  cur = n
+
+  WHILE i < 3
+  DO
+    total = total + cur.size
+    outb = Score(cur)
+
+    IF cur.next = 0 THEN
+      EXIT
+    FI
+
+    cur = cur.next
+    i ==+ 1
+  OD
+
+  count = i
+  outw = total
+RETURN
+
+PROC Main()
+  initTag = 3
+  initSize = $0101
+  Init(head)
+  initTag = 5
+  initSize = $0020
+  Init(tail)
+  nextp = tail
+  Link(head)
+  Walk(head)
+RETURN

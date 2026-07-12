@@ -1,0 +1,173 @@
+; Control-flow stress program.
+;
+; This intentionally combines every supported structured control-flow form:
+; - early RETURN from functions and procedures
+; - IF / ELSEIF / ELSE / FI
+; - WHILE / DO / OD
+; - DO / UNTIL / OD
+; - FOR / TO / STEP / DO / OD
+; - EXIT from loops
+;
+; The condition shapes are deliberately dense. Action has AND, OR, and XOR as
+; boolean/bitwise operators; it does not have a unary NOT keyword, so this file
+; exercises negation through explicit "=0" tests and the NotFlag helper.
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE i, j, k, flags, gate, done, seen, outb
+CARD acc, outw
+INT si, sj, signedOut
+
+BYTE FUNC NotFlag(BYTE value)
+  IF value = 0 THEN
+    RETURN(1)
+  ELSE
+    RETURN(0)
+  FI
+RETURN(0)
+
+BYTE FUNC Bit(BYTE value, mask)
+  IF value AND mask THEN
+    RETURN(1)
+  FI
+RETURN(0)
+
+BYTE FUNC Negative(INT value)
+  IF value < 0 THEN
+    RETURN(1)
+  FI
+RETURN(0)
+
+BYTE FUNC ComplexGate(BYTE a, b, c)
+  BYTE left, right
+
+  left = (a AND $03) XOR (b AND $05)
+  right = NotFlag(c AND $01)
+
+  IF ((left AND 1) XOR right) # 0 THEN
+    RETURN(1)
+  ELSEIF (((a XOR b) AND $02) # 0) AND ((c = 0) OR (NotFlag(b AND 1) = 1)) THEN
+    RETURN(2)
+  ELSEIF ((a = b) OR ((a AND c) # 0)) AND ((b XOR c) # $FF) THEN
+    RETURN(3)
+  ELSE
+    RETURN(0)
+  FI
+RETURN(0)
+
+INT FUNC SignedGate(INT a, b)
+  BYTE aneg, bneg
+
+  aneg = Negative(a)
+  bneg = Negative(b)
+
+  IF (aneg XOR bneg) # 0 THEN
+    RETURN(0 - a)
+  ELSEIF (a >= b) AND (b # 0) THEN
+    RETURN(a - b)
+  ELSE
+    RETURN(a + b)
+  FI
+RETURN(0)
+
+PROC WhileSweep()
+  i = 0
+  seen = 0
+
+  WHILE (i < 8) AND ((done = 0) OR (((flags XOR i) AND 1) # 0))
+  DO
+    gate = ComplexGate(i, flags, seen)
+
+    IF ((gate = 1) AND (NotFlag(seen) = 1)) OR ((i AND 2) # 0) THEN
+      seen = 1
+      acc = acc + i
+    ELSEIF (((gate AND 1) XOR ((flags RSH 2) AND 1)) # 0) AND (i # 5) THEN
+      acc = acc XOR $0101
+    ELSE
+      acc = acc + gate
+    FI
+
+    IF ((gate = 0) AND (seen # 0)) OR ((i > 6) AND (NotFlag(done) = 1)) THEN
+      EXIT
+    FI
+
+    i ==+ 1
+  OD
+RETURN
+
+PROC UntilSweep()
+  j = 0
+
+  DO
+    gate = ComplexGate(j, flags, done)
+
+    IF ((gate # 0) AND ((j XOR flags) # 0)) OR (NotFlag(seen) = 1) THEN
+      outb = outb + gate
+    ELSEIF (((j XOR flags) AND 1) = 0) THEN
+      outb = outb XOR $55
+    ELSE
+      outb = outb + 1
+    FI
+
+    j ==+ 1
+  UNTIL (j >= 6) OR (((gate XOR outb) AND 1) # 0) OR (done # 0)
+  OD
+RETURN
+
+PROC ForSweep()
+  FOR k = 0 TO 7
+  DO
+    IF ((k = 3) AND (seen # 0)) OR (((k XOR flags) AND 1) # 0) THEN
+      outb = outb + k
+    ELSEIF (((k AND 4) XOR NotFlag(done)) # 0) THEN
+      EXIT
+    ELSE
+      acc = acc + k
+    FI
+  OD
+
+  FOR k = 6 TO 0 STEP -2
+  DO
+    IF ((k = 2) OR (k = 4)) AND ((flags AND k) = 0) THEN
+      acc = acc XOR k
+    ELSEIF (k = 0) OR ((NotFlag(seen) = 1) AND (done = 0)) THEN
+      EXIT
+    ELSE
+      outb = outb XOR k
+    FI
+  OD
+RETURN
+
+PROC Main()
+  flags = $3D
+  done = 0
+  seen = 0
+  outb = 0
+  acc = 1
+
+  si = -9
+  sj = 4
+  signedOut = SignedGate(si, sj)
+
+  IF ((ComplexGate(flags, outb, seen) # 0) AND (signedOut >= 0)) OR (NotFlag(done) = 1) THEN
+    WhileSweep()
+  ELSEIF ((flags XOR outb) # 0) AND ((signedOut < 0) OR (NotFlag(seen) = 1)) THEN
+    UntilSweep()
+  ELSE
+    ForSweep()
+  FI
+
+  UntilSweep()
+  ForSweep()
+
+  IF (outb # 0) AND ((acc > $0100) OR ((flags XOR outb) # $FF)) THEN
+    done = 1
+  ELSE
+    done = 0
+  FI
+
+  outw = acc
+RETURN

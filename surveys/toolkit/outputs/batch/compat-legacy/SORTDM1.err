@@ -1,0 +1,1 @@
+samples/toolkit/original/extracted/SORT.ACT:162:1: function `Compare` may exit without RETURN value | BYTE FUNC Compare(CARD i,j)

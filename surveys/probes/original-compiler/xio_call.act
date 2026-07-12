@@ -1,0 +1,11 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY fname="D:FOO"
+
+PROC Main()
+  XIO(5,0,32,0,0,fname)
+RETURN

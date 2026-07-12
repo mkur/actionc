@@ -1,0 +1,6 @@
+PROC Take(CHAR ARRAY s)
+RETURN
+
+PROC Main()
+  Take("HI")
+RETURN

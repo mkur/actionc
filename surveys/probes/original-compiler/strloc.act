@@ -1,0 +1,23 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+DEFINE STRING="CHAR ARRAY"
+
+MODULE
+
+BYTE g0, g1, g2, g3
+
+PROC LocalStrings()
+  STRING local(0)="LOCAL"
+  CHAR ARRAY raw(3)="XYZ"
+
+  g0 = local(0)
+  g1 = local(1)
+  g2 = raw(0)
+  g3 = raw(2)
+RETURN
+
+PROC Main()
+  LocalStrings()
+RETURN

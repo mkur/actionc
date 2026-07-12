@@ -1,0 +1,64 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+INT lo, hi, neg, pos, sameNeg
+BYTE r1, r2, r3, r4, r5, r6, r7, r8
+
+PROC Main()
+  lo = -32768
+  hi = 32767
+  neg = -1
+  pos = 1
+  sameNeg = -1
+
+  IF hi < neg THEN
+    r1 = 1
+  ELSE
+    r1 = 2
+  FI
+
+  IF neg < hi THEN
+    r2 = 1
+  ELSE
+    r2 = 2
+  FI
+
+  IF lo < pos THEN
+    r3 = 1
+  ELSE
+    r3 = 2
+  FI
+
+  IF pos < lo THEN
+    r4 = 1
+  ELSE
+    r4 = 2
+  FI
+
+  IF hi >= neg THEN
+    r5 = 1
+  ELSE
+    r5 = 2
+  FI
+
+  IF neg >= hi THEN
+    r6 = 1
+  ELSE
+    r6 = 2
+  FI
+
+  IF neg = sameNeg THEN
+    r7 = 1
+  ELSE
+    r7 = 2
+  FI
+
+  IF lo # hi THEN
+    r8 = 1
+  ELSE
+    r8 = 2
+  FI
+RETURN

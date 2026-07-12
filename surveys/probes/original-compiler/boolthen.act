@@ -1,0 +1,20 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE a, b, eq_out, ne_out
+
+PROC Main()
+  a = 1
+  b = 1
+
+  IF a = b THEN
+    eq_out = 1
+  FI
+
+  IF a # b THEN
+    ne_out = 1
+  FI
+RETURN

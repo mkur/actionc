@@ -1,0 +1,27 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE choice=[1]
+CARD seen
+
+PROC View()
+  seen=$1111
+RETURN
+
+PROC Quit()
+  seen=$2222
+RETURN
+
+PROC Jmp=*()
+[
+  <View >View
+  <Quit >Quit
+]
+
+PROC Main()
+  CARD ARRAY adr(2)=Jmp
+  CARD go
+
+  go=adr(choice-1)
+  [$6C go]
+RETURN

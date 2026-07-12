@@ -1,0 +1,12 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$C4","name_addr":"$9400","name":"Abs","vtype":"$C3","address":"$3002","class":"INT FUNC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]},
+    {"scope":"global","slot":"$16","name_addr":"$9409","name":"Circle","vtype":"$C0","address":"$3047","class":"PROC","numargs":4,"arg_types_raw":["$0B","$0B","$0B","$0B"],"args":["INT","INT","INT","INT"]},
+    {"scope":"global","slot":"$63","name_addr":"$9418","name":"CircleDemo","vtype":"$C0","address":"$3262","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$56","name_addr":"$9447","name":"R","vtype":"$8A","address":"$3261","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

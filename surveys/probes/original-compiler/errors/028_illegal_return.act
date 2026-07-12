@@ -1,0 +1,4 @@
+; Original compiler error 28: illegal RETURN.
+
+PROC Main()
+  RETURN(1)

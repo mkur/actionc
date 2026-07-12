@@ -1,0 +1,29 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE g, rb
+CHAR rc
+CARD cw
+INT iw
+
+BYTE FUNC AddOne(BYTE x)
+RETURN(x + 1)
+
+CHAR FUNC ToChar(BYTE x)
+RETURN(x)
+
+CARD FUNC AddCard(CARD x,y)
+RETURN(x + y)
+
+INT FUNC NegInt(INT x)
+RETURN(0 - x)
+
+PROC Main()
+  rb = AddOne(g)
+  rc = ToChar(65)
+  cw = AddCard($1234, $0022)
+  iw = NegInt(5)
+RETURN

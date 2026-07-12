@@ -1,0 +1,10 @@
+{
+  "snapshots": [
+    {"pc":"$04C6","label":"segvec","proc":"IsAlpha","local_index":"$0C04","locals":[{"slot":"$29","name_addr":"$942C","name":"c","vtype":"$8A","address":"$0E08","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"IsUpper","local_index":"$0C04","locals":[{"slot":"$29","name_addr":"$9439","name":"c","vtype":"$8A","address":"$0E3E","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"IsLower","local_index":"$0C04","locals":[{"slot":"$29","name_addr":"$9446","name":"c","vtype":"$8A","address":"$0E63","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"IsDigit","local_index":"$0C04","locals":[{"slot":"$29","name_addr":"$9453","name":"c","vtype":"$8A","address":"$0E88","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"ToUpper","local_index":"$0C04","locals":[{"slot":"$29","name_addr":"$9460","name":"c","vtype":"$8A","address":"$0EAD","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$A72C","label":"stop","proc":"ToLower","local_index":"$0C04","locals":[{"slot":"$29","name_addr":"$946D","name":"c","vtype":"$8A","address":"$0ED0","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}]}
+  ]
+}

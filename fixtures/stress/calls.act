@@ -1,0 +1,85 @@
+; Call-frame stress program.
+;
+; This intentionally combines:
+; - routines with 1, 2, 3, 4, and 6 argument bytes
+; - mixed BYTE/CARD/pointer arguments
+; - SArgs-style callee prologues
+; - optional trailing arguments
+; - return values staged into later calls
+; - calls assigning through pointer/array-derived arguments
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE a0, a1, a2, a3, a4, a5
+CARD w0, w1, w2
+
+BYTE ARRAY bytes(8)
+CARD ARRAY words(4)
+
+BYTE POINTER bp
+CARD POINTER wp
+
+BYTE FUNC Inc(BYTE x)
+RETURN(x + 1)
+
+CARD FUNC Pair(BYTE lo, hi)
+RETURN(lo + (hi LSH 8))
+
+PROC Take3(BYTE a, b, c)
+  a0 = a
+  a1 = b
+  a2 = c
+RETURN
+
+PROC Take4(BYTE a, b, c, d)
+  a0 = a
+  a1 = b
+  a2 = c
+  a3 = d
+RETURN
+
+PROC TakeMixed(BYTE a, CARD b, BYTE c, CARD d)
+  a0 = a
+  w0 = b
+  a1 = c
+  w1 = d
+RETURN
+
+PROC TakePointers(BYTE POINTER p, CARD POINTER q, BYTE i)
+  p(i) = Inc(i)
+  q(i) = Pair(p(i), i)
+  bp = p
+  wp = q
+RETURN
+
+PROC Optional(BYTE a, b, c)
+  a3 = a
+  a4 = b
+  a5 = c
+RETURN
+
+PROC Caller()
+  BYTE x, y
+  CARD z, t
+
+  x = Inc(1)
+  y = Inc(x)
+  z = Pair(x, y)
+
+  x = Inc(y)
+  Take3(x, y, x)
+  Take4(1, 2, 3, 4)
+  t = Pair(7, 8)
+  TakeMixed(5, z, 6, t)
+  TakePointers(bytes, words, 1)
+
+  Optional(9)
+  Optional(10, 11)
+RETURN
+
+PROC Main()
+  Caller()
+RETURN

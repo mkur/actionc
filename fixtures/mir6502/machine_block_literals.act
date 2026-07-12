@@ -1,0 +1,5 @@
+PROC Main()
+[
+  "AB" 'C
+]
+RETURN

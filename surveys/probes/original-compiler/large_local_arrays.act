@@ -1,0 +1,42 @@
+; Probe large local BYTE ARRAY layout and Atari load-file segmentation.
+;
+; The motivating TN case declares two 1171-byte local byte arrays inside
+; SetWin(). If original Action! skips large uninitialized storage in saved
+; object files, this probe should show either a shorter load file, multiple
+; load segments, or code after the large buffers at a different address than
+; actionc's contiguous output.
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE sink
+
+PROC BigOne()
+  BYTE ARRAY big(1171)
+
+  big(0) = 1
+  big(1170) = 2
+  sink = big(0)
+RETURN
+
+PROC BigMany()
+  BYTE ARRAY small(8),
+             left(1171), right(1171)
+
+  small(0) = 3
+  left(0) = small(0)
+  right(1170) = left(0)
+  sink = right(1170)
+RETURN
+
+PROC After()
+  sink = 9
+RETURN
+
+PROC Main()
+  BigOne()
+  BigMany()
+  After()
+RETURN

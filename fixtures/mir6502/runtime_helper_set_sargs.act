@@ -1,0 +1,11 @@
+SET $4EE=r_Par
+
+PROC r_Par=*()
+[$60]
+
+PROC Take(BYTE a,b,c)
+RETURN
+
+PROC Main()
+  Take(1,2,3)
+RETURN

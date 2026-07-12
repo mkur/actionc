@@ -1,0 +1,12 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$26","name_addr":"$940F","name":"b","vtype":"$8A","address":"$3010","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$29","name_addr":"$9414","name":"c","vtype":"$8C","address":"$3011","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$51","name_addr":"$9400","name":"dest","vtype":"$9A","address":"$3000","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$FE","name_addr":"$9419","name":"Main","vtype":"$C0","address":"$3013","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$AB","name_addr":"$9408","name":"src","vtype":"$9A","address":"$3008","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}
+  ],
+  "locals": []
+}

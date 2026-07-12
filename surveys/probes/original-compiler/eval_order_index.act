@@ -1,0 +1,39 @@
+; Probe side-effecting array index and indexed assignment evaluation order.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY ba(8)
+CARD ARRAY ca(8)
+BYTE seq, fSeen, gSeen, outB
+CARD outW
+
+BYTE FUNC FB()
+  seq = seq + 1
+  fSeen = seq
+RETURN(1)
+
+BYTE FUNC GB()
+  seq = seq + 1
+  gSeen = seq
+RETURN(2)
+
+PROC Main()
+  ba(1) = 11
+  ba(2) = 22
+  ca(1) = $1111
+  ca(2) = $2222
+
+  seq = 0
+  outB = ba(FB())
+
+  seq = 0
+  ba(FB()) = 33
+
+  seq = 0
+  outW = ca(FB())
+
+  seq = 0
+  ca(FB()) = $3333
+RETURN

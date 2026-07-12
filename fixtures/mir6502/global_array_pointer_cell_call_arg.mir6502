@@ -1,0 +1,24 @@
+mir6502 program
+global g0 s: byte storage global+0 size=2
+global g1 left: byte storage global+2 size=8 init zero_fill=8 section=global mutable=true
+global g2 right: byte storage global+10 size=8 init zero_fill=8 section=global mutable=true
+global g3 out: byte storage global+18
+
+routine r0 Take
+b0 bb0:
+  v0 =.w load param p0+0
+  v1 =.b load computed v0[#$00;1]+0
+  store.b global g3+0, v1
+  return
+
+routine r1 Main
+b0 bb1:
+  v0 =.w lea global g1+0
+  store.w global g0+0, v0
+  v1 =.w load global g0+0
+  call r0 args=[v1.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  v2 =.w lea global g2+0
+  store.w global g0+0, v2
+  v3 =.w load global g0+0
+  call r0 args=[v3.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

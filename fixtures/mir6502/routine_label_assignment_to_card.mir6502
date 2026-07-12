@@ -1,0 +1,18 @@
+mir6502 program
+global g0 vec: word absolute $0200
+
+routine r0 <program>
+b0 bb2:
+  store.w $0491, #$3000
+  store.w $000E, #$3000
+  unreachable
+
+routine r1 Target
+b0 bb0:
+  return
+
+routine r2 Main
+b0 bb1:
+  v0 =.w routine_addr r1
+  store.w global g0+0, v0
+  return

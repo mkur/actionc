@@ -1,0 +1,92 @@
+
+;\{INV:                                    }
+;
+;CONSOLE.ACT - routines implementing a
+;debounce of the START,SELECT,OPTION
+;keys through the use of a timer, as
+;well as the ability to call a speci-
+;fic routine depending on the key
+;pressed.
+;
+;Copyright (c) 1984 OSS,Inc. and Mike Fitch
+;\{INV:                                    }
+
+MODULE
+
+CARD Timer2=$21A,TempVec,
+     Start,Select,Option
+
+;************************************
+;Dummy for initialization
+;************************************
+
+PROC RTS()
+RETURN
+
+;************************************
+;Do the console key routine
+;************************************
+
+PROC DoConsole()
+
+  [$6C TempVec]
+RETURN
+
+;************************************
+;Timer routine to debounce and vector
+;the console keys
+;************************************
+
+PROC ConsoleTimer()
+
+  BYTE console=$D01F
+
+  DEFINE SaveTemps="[$A2 7 $B5 $A8
+                   $48 $CA $10 $FA]",
+         GetTemps="[$A2 0 $68 $95 $A8
+                  $E8 $E0 8 $D0 $F8]"
+
+  SaveTemps
+  IF (console&1)=0 THEN
+    TempVec=Start
+    Timer2=30
+    DoConsole()
+    GetTemps
+    RETURN
+  FI
+  IF (console&2)=0 THEN
+    TempVec=Select
+    Timer2=30
+    DoConsole()
+    GetTemps
+    RETURN
+  FI
+  IF (console&4)=0 THEN
+    TempVec=Option
+    Timer2=30
+    DoConsole()
+    GetTemps
+    RETURN
+  FI
+  Timer2=2
+  GetTemps
+RETURN
+
+;************************************
+;Set up the console routine on timer2
+;************************************
+
+PROC InitConsole()
+
+  CARD Timer2Addr=$228
+
+  Start=RTS
+  Select=RTS
+  Option=RTS
+  Timer2Addr=ConsoleTimer
+  Timer2=2
+RETURN
+
+;\{INV: End of CONSOLE.ACT }
+
+MODULE

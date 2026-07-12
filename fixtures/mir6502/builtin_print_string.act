@@ -1,0 +1,5 @@
+CHAR ARRAY text(0)="HI"
+
+PROC Main()
+  Print(text)
+RETURN

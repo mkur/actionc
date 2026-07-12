@@ -1,0 +1,111 @@
+compiler VM loaded 2 image(s); start PC=$C2AA
+queued key $E5 at PC=$A2E0
+queued 34 scripted CIO byte(s) at PC=$B2F5
+captured symbol snapshot `segvec` at PC=$04C6: proc=<none>, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=reset, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=pauz, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=sign, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=gr1init, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=charpats, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=scrninit, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=plot1, 4 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=locate1, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=newdir, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=walls, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=initsnd, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=plotgem, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=rinit, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=scores, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=regen, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=ahead, 5 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=getdir, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=explode, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=cease_fire, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=kill, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=findr, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=getgem, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=qwin, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=drawbot, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=move, 5 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=initfire, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=bullet, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=action, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=shots, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=reward, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=tick, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=round, 7 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=intro, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=playagain, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=plotim, 7 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=announce, 7 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=rdmize, 4 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=gwarp, 9 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=titles, 6 local(s)
+stop: max steps reached
+regs: PC=$A6D7 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+cart: window=$A000-$BFFF bank=2/3 bank_size=4096
+recent instructions:
+  54671185 PC=$A6D2 OP=$A0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  54671187 PC=$A6D4 OP=$18 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  54671192 PC=$A6D5 OP=$B1 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  54671194 PC=$A6D7 OP=$69 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  54671196 PC=$A6D9 OP=$E0 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  54671198 PC=$A6DB OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$B0
+  54671200 PC=$A6DD OP=$E0 A=$01 X=$00 Y=$00 SP=$F9 P=$B0
+  54671202 PC=$A6DF OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  54671205 PC=$A6E1 OP=$C4 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  54671208 PC=$A6E3 OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  54671211 PC=$A70A OP=$86 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  54671213 PC=$A70C OP=$A0 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  54671218 PC=$A70E OP=$B1 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  54671221 PC=$A710 OP=$F0 A=$00 X=$00 Y=$00 SP=$F9 P=$33
+  54671223 PC=$A72C OP=$E0 A=$00 X=$00 Y=$00 SP=$F9 P=$33
+  54671225 PC=$A72E OP=$F0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  54671228 PC=$A730 OP=$D0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  54671230 PC=$A6D2 OP=$A0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  54671232 PC=$A6D4 OP=$18 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  54671237 PC=$A6D5 OP=$B1 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+CIO summary: calls=950 handled=948 passthrough=2 open=7 close=8 status=0 read=880 write=55 eof=1 bytes_read=12889 bytes_written=10363
+recent CIO:
+  cyc=8229573 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$CD Y=$01 write E: 1 byte(s)
+  cyc=8229633 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$44 Y=$01 read queued input $44 read="D"
+  cyc=8229803 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$C4 Y=$01 write E: 1 byte(s)
+  cyc=8229863 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$45 Y=$01 read queued input $45 read="E"
+  cyc=8230033 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$C5 Y=$01 write E: 1 byte(s)
+  cyc=8230093 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4D Y=$01 read queued input $4D read="M"
+  cyc=8230263 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$CD Y=$01 write E: 1 byte(s)
+  cyc=8230323 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$2E Y=$01 read queued input $2E read="."
+  cyc=8230493 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$AE Y=$01 write E: 1 byte(s)
+  cyc=8230553 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$43 Y=$01 read queued input $43 read="C"
+  cyc=8230723 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$C3 Y=$01 write E: 1 byte(s)
+  cyc=8230783 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4F Y=$01 read queued input $4F read="O"
+  cyc=8230953 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$CF Y=$01 write E: 1 byte(s)
+  cyc=8231013 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4D Y=$01 read queued input $4D read="M"
+  cyc=8231183 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$CD Y=$01 write E: 1 byte(s)
+  cyc=8231243 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$22 Y=$01 read queued input $22 read="\""
+  cyc=8231413 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$A2 Y=$01 write E: 1 byte(s)
+  cyc=8231473 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$9B Y=$01 read queued input $9B read="\n"
+  cyc=8231686 dcyc=213 x=$00 ch=0 cmd=$0B ret=$B2B2 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$1E Y=$01 write E: 1 byte(s)
+  cyc=8231744 dcyc=58 x=$00 ch=0 cmd=$0B ret=$AD37 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$1F Y=$01 write E: 1 byte(s)
+  cyc=8234112 dcyc=2368 x=$10 ch=1 cmd=$0C ret=$B15A aux=$04/$AE buf=$B0B1 len=155 dev=GEMDEM.ACT@12854 handled A=$B0 Y=$01 close harness device
+  cyc=8234244 dcyc=132 x=$10 ch=1 cmd=$03 ret=$B19A aux=$08/$AE buf=$9728 len=12 dev=- handled A=$97 Y=$01 open harness device
+  cyc=8234353 dcyc=109 x=$00 ch=0 cmd=$0B ret=$AE50 aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$9B Y=$01 write E: 1 byte(s)
+  cyc=8234526 dcyc=173 x=$10 ch=1 cmd=$0B ret=$AECE aux=$08/$AE buf=$00AA len=6 dev=GEMDEM.COM@0 handled A=$00 Y=$01 write host 6 byte(s)
+  cyc=8234591 dcyc=65 x=$10 ch=1 cmd=$0B ret=$AEA2 aux=$08/$AE buf=$3000 len=10299 dev=GEMDEM.COM@6 handled A=$28 Y=$01 write host 10299 byte(s)
+  cyc=8234780 dcyc=189 x=$10 ch=1 cmd=$0B ret=$AECE aux=$08/$AE buf=$00AA len=6 dev=GEMDEM.COM@10305 handled A=$00 Y=$01 write host 6 byte(s)
+  cyc=8234890 dcyc=110 x=$10 ch=1 cmd=$0C ret=$AD5B aux=$08/$AE buf=$B0B1 len=155 dev=GEMDEM.COM@10311 handled A=$B0 Y=$01 close harness device
+  cyc=8235004 dcyc=114 x=$70 ch=7 cmd=$0C ret=$A823 aux=$04/$04 buf=$B0B1 len=155 dev=Q: handled A=$B0 Y=$01 close harness device
+  cyc=8235116 dcyc=112 x=$70 ch=7 cmd=$03 ret=$AD23 aux=$04/$AE buf=$A831 len=2 dev=- handled A=$A8 Y=$01 open harness device
+  cyc=8235186 dcyc=70 x=$00 ch=0 cmd=$0B ret=$AD2D aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$FD Y=$01 write E: 1 byte(s)
+  cyc=8236056 dcyc=870 x=$00 ch=0 cmd=$0B ret=$B08D aux=$0C/$AC buf=$B328 len=0 dev=- handled A=$1F Y=$01 write E: 1 byte(s)
+  cyc=8236129 dcyc=73 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$AE buf=$A831 len=0 dev=Q: pass A=-- Y=-- keyboard read waiting
+speaker writes: 1 last=$00
+CIO E: channel 0 output:
+  ............................
+  ....................
+  ..
+captured symbol snapshot `stop` at PC=$A6D7: proc=game, 1 local(s)
+wrote host output `GEMDEM.COM`: 10311 byte(s) to samples/toolkit/survey/outputs/vm/GEMDEM.COM
+wrote symbol dump: 75 global(s), 1 local(s) to samples/toolkit/survey/outputs/vm/GEMDEM.symbols.json
+wrote 40 symbol snapshot(s) to samples/toolkit/survey/outputs/vm/GEMDEM.symbol-snapshots.json
+stopped after 20000000 step(s), cycles=54671237, PC=$A6D7

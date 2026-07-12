@@ -1,0 +1,100 @@
+compiler VM loaded 2 image(s); start PC=$C2AA
+queued key $E5 at PC=$A2E0
+queued 36 scripted CIO byte(s) at PC=$B2F5
+captured symbol snapshot `segvec` at PC=$04C6: proc=<none>, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=DLI, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=Init7, 4 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=DLSetUp, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=ScrollColors, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=HStick, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=VStick, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=Draw7, 6 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=FastDraw, 8 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=PMGRAPHICS, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=PMADR, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=PMCLEAR, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=EraseShip, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=ShowInfo, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=ShowScore, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=ShowShips, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=TestHit, 4 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=ShipFly, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=MissileFire, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=MissileMove, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=ShipDraw, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=ShipMove, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=DARKEN, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=ShootBack, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=Align, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=BALLMOVE, 1 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=HITBALL, 4 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=EndGame, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=BlownAway, 3 local(s)
+stop: max steps reached
+regs: PC=$A6DB A=$01 X=$00 Y=$00 SP=$F9 P=$B0
+cart: window=$A000-$BFFF bank=2/3 bank_size=4096
+recent instructions:
+  54529822 PC=$A6D5 OP=$B1 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  54529824 PC=$A6D7 OP=$69 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  54529826 PC=$A6D9 OP=$E0 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  54529828 PC=$A6DB OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$B0
+  54529830 PC=$A6DD OP=$E0 A=$01 X=$00 Y=$00 SP=$F9 P=$B0
+  54529832 PC=$A6DF OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  54529835 PC=$A6E1 OP=$C4 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  54529838 PC=$A6E3 OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  54529841 PC=$A70A OP=$86 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  54529843 PC=$A70C OP=$A0 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  54529848 PC=$A70E OP=$B1 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  54529851 PC=$A710 OP=$F0 A=$00 X=$00 Y=$00 SP=$F9 P=$33
+  54529853 PC=$A72C OP=$E0 A=$00 X=$00 Y=$00 SP=$F9 P=$33
+  54529855 PC=$A72E OP=$F0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  54529858 PC=$A730 OP=$D0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  54529860 PC=$A6D2 OP=$A0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  54529862 PC=$A6D4 OP=$18 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  54529867 PC=$A6D5 OP=$B1 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  54529869 PC=$A6D7 OP=$69 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  54529871 PC=$A6D9 OP=$E0 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+CIO summary: calls=927 handled=925 passthrough=2 open=8 close=9 status=0 read=852 write=58 eof=2 bytes_read=16366 bytes_written=7208
+recent CIO:
+  cyc=7677445 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$D0 Y=$01 write E: 1 byte(s)
+  cyc=7677505 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$44 Y=$01 read queued input $44 read="D"
+  cyc=7677675 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$C4 Y=$01 write E: 1 byte(s)
+  cyc=7677735 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$45 Y=$01 read queued input $45 read="E"
+  cyc=7677905 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$C5 Y=$01 write E: 1 byte(s)
+  cyc=7677965 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4D Y=$01 read queued input $4D read="M"
+  cyc=7678135 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$CD Y=$01 write E: 1 byte(s)
+  cyc=7678195 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$2E Y=$01 read queued input $2E read="."
+  cyc=7678365 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$AE Y=$01 write E: 1 byte(s)
+  cyc=7678425 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$43 Y=$01 read queued input $43 read="C"
+  cyc=7678595 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$C3 Y=$01 write E: 1 byte(s)
+  cyc=7678655 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4F Y=$01 read queued input $4F read="O"
+  cyc=7678825 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$CF Y=$01 write E: 1 byte(s)
+  cyc=7678885 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4D Y=$01 read queued input $4D read="M"
+  cyc=7679055 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$CD Y=$01 write E: 1 byte(s)
+  cyc=7679115 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$22 Y=$01 read queued input $22 read="\""
+  cyc=7679285 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$A2 Y=$01 write E: 1 byte(s)
+  cyc=7679345 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$9B Y=$01 read queued input $9B read="\n"
+  cyc=7679558 dcyc=213 x=$00 ch=0 cmd=$0B ret=$B2B2 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$1E Y=$01 write E: 1 byte(s)
+  cyc=7679616 dcyc=58 x=$00 ch=0 cmd=$0B ret=$AD37 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$1F Y=$01 write E: 1 byte(s)
+  cyc=7682207 dcyc=2591 x=$10 ch=1 cmd=$0C ret=$B15A aux=$04/$AE buf=$B0B1 len=155 dev=WARPDEM.ACT@15487 handled A=$B0 Y=$01 close harness device
+  cyc=7682339 dcyc=132 x=$10 ch=1 cmd=$03 ret=$B19A aux=$08/$AE buf=$994B len=13 dev=- handled A=$99 Y=$01 open harness device
+  cyc=7682448 dcyc=109 x=$00 ch=0 cmd=$0B ret=$AE50 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$9B Y=$01 write E: 1 byte(s)
+  cyc=7682621 dcyc=173 x=$10 ch=1 cmd=$0B ret=$AECE aux=$08/$AE buf=$00AA len=6 dev=WARPDEM.COM@0 handled A=$00 Y=$01 write host 6 byte(s)
+  cyc=7682686 dcyc=65 x=$10 ch=1 cmd=$0B ret=$AEA2 aux=$08/$AE buf=$3000 len=7121 dev=WARPDEM.COM@6 handled A=$1B Y=$01 write host 7121 byte(s)
+  cyc=7682875 dcyc=189 x=$10 ch=1 cmd=$0B ret=$AECE aux=$08/$AE buf=$00AA len=6 dev=WARPDEM.COM@7127 handled A=$00 Y=$01 write host 6 byte(s)
+  cyc=7682985 dcyc=110 x=$10 ch=1 cmd=$0C ret=$AD5B aux=$08/$AE buf=$B0B1 len=155 dev=WARPDEM.COM@7133 handled A=$B0 Y=$01 close harness device
+  cyc=7683099 dcyc=114 x=$70 ch=7 cmd=$0C ret=$A823 aux=$04/$04 buf=$B0B1 len=155 dev=Q: handled A=$B0 Y=$01 close harness device
+  cyc=7683211 dcyc=112 x=$70 ch=7 cmd=$03 ret=$AD23 aux=$04/$AE buf=$A831 len=2 dev=- handled A=$A8 Y=$01 open harness device
+  cyc=7683281 dcyc=70 x=$00 ch=0 cmd=$0B ret=$AD2D aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$FD Y=$01 write E: 1 byte(s)
+  cyc=7684151 dcyc=870 x=$00 ch=0 cmd=$0B ret=$B08D aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$1F Y=$01 write E: 1 byte(s)
+  cyc=7684224 dcyc=73 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$AE buf=$A831 len=0 dev=Q: pass A=-- Y=-- keyboard read waiting
+speaker writes: 1 last=$00
+CIO E: channel 0 output:
+  .............................
+  INCLUDE "JOYSTIX.ACT".....................
+  ..
+captured symbol snapshot `stop` at PC=$A6DB: proc=MAIN, 3 local(s)
+wrote host output `WARPDEM.COM`: 7133 byte(s) to samples/toolkit/survey/outputs/vm/WARPDEM.COM
+wrote symbol dump: 110 global(s), 3 local(s) to samples/toolkit/survey/outputs/vm/WARPDEM.symbols.json
+wrote 29 symbol snapshot(s) to samples/toolkit/survey/outputs/vm/WARPDEM.symbol-snapshots.json
+stopped after 20000000 step(s), cycles=54529871, PC=$A6DB

@@ -1,0 +1,8 @@
+source: corpora/toolkit/original/extracted/WARP.DEM
+source_policy: auto
+compile_source: corpora/toolkit/original/extracted/WARP.DEM
+profile: legacy
+backend: classic
+codegen_source: ast
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/legacy-classic/WARPDEM.COM

@@ -1,0 +1,8 @@
+source: samples/toolkit/modern/PMG.DM1
+source_policy: auto
+compile_source: [tmp]/toolkit/PMG.DM1
+profile: modern
+backend: classic
+codegen_source: ast
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/modern-classic/PMGDM1.COM

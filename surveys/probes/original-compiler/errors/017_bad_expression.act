@@ -1,0 +1,7 @@
+; Original compiler error 17: bad expression.
+
+BYTE x
+
+PROC Main()
+  x=1+
+RETURN

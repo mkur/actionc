@@ -1,0 +1,5 @@
+CARD a,b,out
+
+PROC Main()
+  out=a/b
+RETURN

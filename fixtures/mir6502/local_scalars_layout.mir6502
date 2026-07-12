@@ -1,0 +1,7 @@
+mir6502 program
+
+routine r0 Main
+b0 bb0:
+  store.b local l0+0, #$01
+  store.w local l1+0, #$1234
+  return

@@ -1,0 +1,8 @@
+mir6502 program
+global g0 data: byte storage global+0 size=4 init zero_fill=4 section=global mutable=true
+
+routine r0 Main
+b0 bb0:
+  v0 =.w lea global g0+0
+  store.b global g0+2, #$07
+  return

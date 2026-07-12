@@ -1,0 +1,23 @@
+mir6502 program
+global g1 w: byte storage global+0
+global g2 h: byte storage global+1
+global g3 size: word storage global+2
+
+routine r0 Take
+b0 bb0:
+  v0 =.w load param p0+0
+  store.w fixed_zp $A0, v0
+  return
+
+routine r1 Main
+b0 bb1:
+  store.b global g1+0, #$24
+  store.b global g2+0, #$0B
+  v0 =.b load global g1+0
+  v1 =.w v0 add #$01 carry_in=- carry_out=ignore
+  v2 =.b load global g2+0
+  v3 =.w v2 add #$01 carry_in=- carry_out=ignore
+  v4 =.w v1 mul v3 carry_in=- carry_out=ignore
+  call r0 args=[v4.w -> a:x] result=v5.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.w global g3+0, v5
+  return

@@ -1,0 +1,17 @@
+mir6502 program
+
+routine r0 Helper
+b0 bb0:
+  return
+
+routine r1 Invoke
+b0 bb1:
+  v0 =.w load param p0+0
+  call indirect v0.w args=[] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
+  return
+
+routine r2 Main
+b0 bb2:
+  v0 =.w routine_addr r0
+  call r1 args=[v0.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

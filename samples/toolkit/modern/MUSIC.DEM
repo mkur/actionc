@@ -1,0 +1,250 @@
+;Copyright (c) 1984 OSS,Inc. and Mike Fitch
+;Version 2
+;
+; Modernization notes for actionc modern/MIR6502:
+; - Store the display-list routine label with explicit address syntax:
+;   DLptr=@DL15 instead of the old bare DL15-as-CARD idiom.
+; - Include PMG.ACT so PMG's Zero(@GraphP0,5) pointer argument is
+;   explicit.
+; - Keep fixed-array pointer values in the original `screen^`/`text^` form.
+;   Use explicit <label >label bytes only for the DL15 routine address.
+; - Hoist hbase/vbase out of PutFinger. A local DEFINE before local arrays is
+;   an original compiler convenience, but modern lowering treats executable
+;   DEFINE statements as metadata, so these constants are global here.
+
+ ;The arrays Hpos, Vpos, and notes
+ ;use the actual keyboard matrix key
+ ;ordination as their internal order.
+ ;The keyboard matrix is ordered as
+ ;follows:
+ ;L   J   ;   0   0   K   +   *   O
+ ;0   P   U   R   I   -   =   V   0
+ ;C   0   0   B   X   Z   4   0   3
+ ;6  ESC  5   2   1   ,       .   N
+ ;0   M   /   A   R   0   E   Y   T
+ ;T   W   Q   9   0   0   7   B   8
+ ;<   >   F   H   D   0   C   G   S
+ ;A
+
+;************************************
+;Routines & variables to implement
+;graphics mode 7.5 on 800s and 400s.
+;************************************
+
+DEFINE hbase="46",
+       vbase="38"
+
+BYTE ARRAY screen=$8010,text=$9E80
+
+PROC DL15=*()
+ [112 112 112 78 screen^  14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  78 $9000 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  14 14 14 14 14 14 14 14 14 14 14 14
+  66 text^ 2  2  2  65 <DL15 >DL15]
+
+PROC Graphics15()
+
+  CARD HiMem=$2E5,DLptr=$230,
+       Scrptr=$58,Txtptr=$294
+
+  BYTE grindex=$57,tindex=$293,
+       tlines=$2BF
+
+  Close(6)
+  Zero(screen,$1FF0)
+  grindex=15
+  tindex=0
+  ; Modern: routine label used as data address is written explicitly.
+  Dlptr=@DL15
+  Scrptr=screen
+  Txtptr=text
+  tlines=4
+  HiMem=screen
+RETURN
+
+MODULE ;The rest of the program
+
+BYTE ARRAY nail(3)=[$18 $18 $10],
+
+           hand1(47)=[
+  $00 $02 $02 $03 $03 $03 $07 $07
+  $07 $07 $07 $07 $07 $07 $07 $07
+  $07 $07 $07 $0F $0F $0F $0F $0F
+  $1F $3F $7F $7F $FF $FF $FF $FF
+  $FF $FF $FF $FF $7F $7F $3F $3F
+  $3F $1F $1F $1F $1F $0F $0F],
+
+           hand2(47)=[
+  $00 $40 $C0 $C0 $C0 $C0 $C0 $C0
+  $C0 $C0 $C0 $C0 $C0 $C0 $C0 $CC
+  $DE $DF $FF $FF $FF $FF $FF $FF
+  $FF $FF $FF $FF $FF $FF $FF $FF
+  $FF $FF $FF $FF $FF $FF $FF $FF
+  $FF $FF $FF $FF $FF $FF $FF],
+
+           hand3(28)=[
+  $60 $F0 $F0 $F4 $FE
+  $FE $FE $FE $FF $FF $FF $FF $FF
+  $FF $FF $FF $FF $FF $FF $FE $FC
+  $FC $F8 $F8 $F8 $F0 $F0 $F0]
+
+; Modern: use the existing modern PMG shim for explicit pointer arguments.
+INCLUDE "PMG.ACT"
+
+INCLUDE "../original/extracted/IO.ACT"
+
+;************************************
+;Put the finger on the depressed key
+;************************************
+
+PROC PutFinger(BYTE chr)
+
+  BYTE ARRAY Hpos(0)=[
+   21  7   28 100 100  14  35  42 100
+  100  25  4  100  11  32  39 100 100
+  100 100 100 100 100 100 100 100 100
+  100 100 100 100 100 100 100 100 100
+  100 100 100 100 100 100 100 100 100
+  100 100 100 100 100 100 100 100 100
+  100 100 100  0 100 100   49 100 100
+  100],
+
+  Vpos(0)=[
+   11  11  11  0   0   11  11  11  0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   11  0   0   11   0   0
+   0]
+
+  BYTE vp,hp,tmp
+
+  tmp=chr&$3F
+  IF Hpos(tmp)=100 THEN
+    PMMove(0,0,PMVPos(0))
+    PMMove(1,0,PMVPos(1))
+    PMMove(2,0,PMVPos(2))
+    PMMove(3,0,PMVPos(3))
+    RETURN
+  FI
+  hp=hBase+Hpos(tmp)+((chr RSH 6)*49)
+  vp=vbase+Vpos(tmp)
+  PMMove(0,hp+4,vp)
+  PMMove(1,hp,vp)
+  PMMove(2,hp+8,vp)
+  PMMove(3,hp+16,vp+19)
+RETURN
+
+;************************************
+;Play a note as long as a key is being
+;depressed.
+;************************************
+
+PROC PlayNote(BYTE note)
+
+  BYTE ARRAY notes($C0)=[
+  ;**********************************
+  ;This array uses the actual keyboard
+  ;matrix values for keys as element
+  ;number, and puts the proper note to
+  ;play in those elements which corres-
+  ;pond to the keys used.
+  ;Pressing SHIFT adds $60
+  ;Pressing CONTROL adds $80
+  ;**********************************
+
+  ;Low Notes (neither SHIFT nor CONTROL)
+
+  182 217 162  0   0  193 144 128  0
+   0  173 230  0  204 153 136  0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0  243  0   0  121  0   0
+   0
+  ;Medium Notes (SHIFT only)
+   91 108  81  0   0   96  72  64  0
+   0   85 114  0  102  76  68  0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0  121  0   0   60  0   0
+   0
+  ;High Notes (CONTROL only)
+   45  53  40  0   0   47  35  31  0
+   0   42  57  0   50  37  33  0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   0   0   0   0   0   0
+   0   0   0   60  0   0   29  0   0
+   0]
+
+  BYTE skstat=$D20F
+
+  PutFinger(note)
+  Sound(0,notes(note),10,8)
+  WHILE (skstat&4)=0
+    DO OD
+  Sound(0,0,10,0)
+  PutFinger($1C)
+RETURN
+
+;************************************
+;Controlling procedure
+;************************************
+
+PROC main()
+
+  CARD scrptr=$58
+
+  BYTE chr=$2FC
+
+  Graphics15()
+  Close(3)
+  SetColor(0,7,14)
+  SetColor(1,0,6)
+  SetColor(2,5,2)
+  Open(3,"D:MUSIC.SCR",4,0)
+  BGet(3,scrptr,40*90)
+  PutE()
+  Print("          ESCape to Quit.")
+  PMGraphics(2)
+  PMClear(0)
+  PMClear(1)
+  PMClear(2)
+  PMClear(3)
+  PMCreate(0,nail,3,1,0,0)
+  PMCreate(1,hand1,47,1,0,0)
+  PMCreate(2,hand2,47,1,0,0)
+  PMCreate(3,hand3,28,1,0,0)
+  PMColor(0,6,2)
+  PMColor(1,5,6)
+  PMColor(2,5,6)
+  PMColor(3,5,6)
+  SndRst()
+  DO
+    chr=$FF
+    WHILE chr=$FF
+      DO OD
+    PlayNote(chr)
+  UNTIL chr=$1C
+  OD
+  SndRst()
+  PMGraphics(0)
+RETURN

@@ -1,0 +1,27 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+INT a, b
+BYTE out
+
+PROC Main()
+  a = -1
+  b = 1
+
+  IF a < b THEN
+    out = 1
+  FI
+
+  WHILE a < b
+  DO
+    a = a + 1
+  OD
+
+  DO
+    b = b - 1
+  UNTIL b = 0
+  OD
+RETURN

@@ -1,0 +1,2 @@
+corpora/toolkit/original/extracted/PRINTF.ACT:78:8: cannot assign ValueType { base: Fund(Card), pointer: true } to ValueType { base: Fund(Int), pointer: true } | args=@c1
+corpora/toolkit/original/extracted/PRINTF.ACT:149:12: cannot assign ValueType { base: Fund(Int), pointer: false } to ValueType { base: Fund(Byte), pointer: true } | ps=args^

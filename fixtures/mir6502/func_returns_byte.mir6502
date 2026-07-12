@@ -1,0 +1,13 @@
+mir6502 program
+global g1 out: byte storage global+0
+
+routine r0 Get
+b0 bb0:
+  store.b fixed_zp $A0, #$09
+  return
+
+routine r1 Main
+b0 bb1:
+  call r0 args=[] result=v0.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.b global g1+0, v0
+  return

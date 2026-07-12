@@ -1,0 +1,8 @@
+source: corpora/toolkit/original/extracted/ABS.ACT
+source_policy: auto
+compile_source: corpora/toolkit/original/extracted/ABS.ACT
+profile: legacy
+backend: classic
+codegen_source: ast
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/legacy-classic/ABS.COM

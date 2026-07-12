@@ -1,0 +1,245 @@
+; Probe original Action! BYTE ARRAY inline-storage thresholds.
+;
+; Sizes advance in 128-byte steps.  Each global array is followed by a
+; one-byte machine PROC marker so the original symbol dump/load listing can
+; show whether that array was emitted inline before the marker or moved to
+; skipped/backing storage.  Each local PROC repeats the same shape inside a
+; routine-local storage block.
+
+SET $491=$3000
+SET $E=$3000
+
+BYTE sink
+
+MODULE
+BYTE ARRAY g128(128)
+PROC MarkG128=*() [$60]
+
+MODULE
+BYTE ARRAY g256(256)
+PROC MarkG256=*() [$60]
+
+MODULE
+BYTE ARRAY g384(384)
+PROC MarkG384=*() [$60]
+
+MODULE
+BYTE ARRAY g512(512)
+PROC MarkG512=*() [$60]
+
+MODULE
+BYTE ARRAY g640(640)
+PROC MarkG640=*() [$60]
+
+MODULE
+BYTE ARRAY g768(768)
+PROC MarkG768=*() [$60]
+
+MODULE
+BYTE ARRAY g896(896)
+PROC MarkG896=*() [$60]
+
+MODULE
+BYTE ARRAY g1024(1024)
+PROC MarkG1024=*() [$60]
+
+MODULE
+BYTE ARRAY g1152(1152)
+PROC MarkG1152=*() [$60]
+
+MODULE
+BYTE ARRAY g1280(1280)
+PROC MarkG1280=*() [$60]
+
+MODULE
+BYTE ARRAY g1408(1408)
+PROC MarkG1408=*() [$60]
+
+MODULE
+BYTE ARRAY g1536(1536)
+PROC MarkG1536=*() [$60]
+
+MODULE
+BYTE ARRAY g1664(1664)
+PROC MarkG1664=*() [$60]
+
+MODULE
+BYTE ARRAY g1792(1792)
+PROC MarkG1792=*() [$60]
+
+MODULE
+BYTE ARRAY g1920(1920)
+PROC MarkG1920=*() [$60]
+
+MODULE
+BYTE ARRAY g2048(2048)
+PROC MarkG2048=*() [$60]
+
+MODULE
+
+PROC Local128()
+  BYTE ARRAY l128(128)
+  l128(0) = 1
+  l128(127) = 2
+  sink = l128(0)
+RETURN
+
+PROC Local256()
+  BYTE ARRAY l256(256)
+  l256(0) = 1
+  l256(255) = 2
+  sink = l256(0)
+RETURN
+
+PROC Local384()
+  BYTE ARRAY l384(384)
+  l384(0) = 1
+  l384(383) = 2
+  sink = l384(0)
+RETURN
+
+PROC Local512()
+  BYTE ARRAY l512(512)
+  l512(0) = 1
+  l512(511) = 2
+  sink = l512(0)
+RETURN
+
+PROC Local640()
+  BYTE ARRAY l640(640)
+  l640(0) = 1
+  l640(639) = 2
+  sink = l640(0)
+RETURN
+
+PROC Local768()
+  BYTE ARRAY l768(768)
+  l768(0) = 1
+  l768(767) = 2
+  sink = l768(0)
+RETURN
+
+PROC Local896()
+  BYTE ARRAY l896(896)
+  l896(0) = 1
+  l896(895) = 2
+  sink = l896(0)
+RETURN
+
+PROC Local1024()
+  BYTE ARRAY l1024(1024)
+  l1024(0) = 1
+  l1024(1023) = 2
+  sink = l1024(0)
+RETURN
+
+PROC Local1152()
+  BYTE ARRAY l1152(1152)
+  l1152(0) = 1
+  l1152(1151) = 2
+  sink = l1152(0)
+RETURN
+
+PROC Local1280()
+  BYTE ARRAY l1280(1280)
+  l1280(0) = 1
+  l1280(1279) = 2
+  sink = l1280(0)
+RETURN
+
+PROC Local1408()
+  BYTE ARRAY l1408(1408)
+  l1408(0) = 1
+  l1408(1407) = 2
+  sink = l1408(0)
+RETURN
+
+PROC Local1536()
+  BYTE ARRAY l1536(1536)
+  l1536(0) = 1
+  l1536(1535) = 2
+  sink = l1536(0)
+RETURN
+
+PROC Local1664()
+  BYTE ARRAY l1664(1664)
+  l1664(0) = 1
+  l1664(1663) = 2
+  sink = l1664(0)
+RETURN
+
+PROC Local1792()
+  BYTE ARRAY l1792(1792)
+  l1792(0) = 1
+  l1792(1791) = 2
+  sink = l1792(0)
+RETURN
+
+PROC Local1920()
+  BYTE ARRAY l1920(1920)
+  l1920(0) = 1
+  l1920(1919) = 2
+  sink = l1920(0)
+RETURN
+
+PROC Local2048()
+  BYTE ARRAY l2048(2048)
+  l2048(0) = 1
+  l2048(2047) = 2
+  sink = l2048(0)
+RETURN
+
+PROC TouchGlobals()
+  g128(0) = 1
+  g128(127) = 2
+  g256(0) = 1
+  g256(255) = 2
+  g384(0) = 1
+  g384(383) = 2
+  g512(0) = 1
+  g512(511) = 2
+  g640(0) = 1
+  g640(639) = 2
+  g768(0) = 1
+  g768(767) = 2
+  g896(0) = 1
+  g896(895) = 2
+  g1024(0) = 1
+  g1024(1023) = 2
+  g1152(0) = 1
+  g1152(1151) = 2
+  g1280(0) = 1
+  g1280(1279) = 2
+  g1408(0) = 1
+  g1408(1407) = 2
+  g1536(0) = 1
+  g1536(1535) = 2
+  g1664(0) = 1
+  g1664(1663) = 2
+  g1792(0) = 1
+  g1792(1791) = 2
+  g1920(0) = 1
+  g1920(1919) = 2
+  g2048(0) = 1
+  g2048(2047) = 2
+RETURN
+
+PROC Main()
+  TouchGlobals()
+  Local128()
+  Local256()
+  Local384()
+  Local512()
+  Local640()
+  Local768()
+  Local896()
+  Local1024()
+  Local1152()
+  Local1280()
+  Local1408()
+  Local1536()
+  Local1664()
+  Local1792()
+  Local1920()
+  Local2048()
+RETURN

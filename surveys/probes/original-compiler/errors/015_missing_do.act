@@ -1,0 +1,7 @@
+; Original compiler error 15: missing DO.
+
+PROC Main()
+  WHILE 1
+    RETURN
+  OD
+RETURN

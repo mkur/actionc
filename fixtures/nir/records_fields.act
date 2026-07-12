@@ -1,0 +1,19 @@
+SET $491=$3000
+SET $E=$3000
+
+TYPE Pair=[BYTE tag CARD word]
+
+Pair rec
+BYTE gb
+CARD gw
+
+PROC Touch(Pair POINTER rp)
+  rp.tag = $11
+  rp.word = $2233
+  gb = rp.tag
+  gw = rp.word
+RETURN
+
+PROC Main()
+  Touch(rec)
+RETURN

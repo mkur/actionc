@@ -1,0 +1,8 @@
+CHAR ARRAY text(4)
+BYTE i
+CHAR ch
+
+PROC Main()
+  i = 1
+  ch = text(i)
+RETURN

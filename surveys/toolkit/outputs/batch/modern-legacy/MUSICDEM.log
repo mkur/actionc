@@ -1,0 +1,8 @@
+source: samples/toolkit/modern/MUSIC.DEM
+source_policy: modernized
+compile_source: samples/toolkit/modern/MUSIC.DEM
+profile: modern
+backend: legacy
+codegen_source: ast
+status: ok
+detail: wrote samples/toolkit/survey/outputs/batch/modern-legacy/MUSICDEM.COM

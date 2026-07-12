@@ -1,0 +1,1708 @@
+source: samples/toolkit/original/extracted/IO.ACT
+
+== original:samples/toolkit/survey/outputs/vm/IO.COM ==
+load bytes: 480  code bytes: 468  code origin: $0E08
+segments:
+  00: $0E08-$0FDB len   468 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   474 data_off   478
+      RUNAD $02E2 = $0FB7
+opcode counts:
+  $00 BRK      30
+  $0A ASL      8
+  $18 CLC      5
+  $20 JSR      11
+  $29 AND      1
+  $4C JMP      8
+  $60 RTS      9
+  $65 ADC      1
+  $69 ADC      9
+  $73 .BYTE    1
+  $85 STA      40
+  $88 DEY      3
+  $8D STA      10
+  $8E STX      5
+  $91 STA      5
+  $A0 LDY      7
+  $A2 LDX      7
+  $A5 LDA      2
+  $A6 LDX      1
+  $A9 LDA      18
+  $AC LDY      2
+  $AD LDA      36
+  $B1 LDA      2
+  $B2 .BYTE    1
+  $C8 INY      2
+  $CB .BYTE    1
+
+== compat ==
+load bytes: 480  code bytes: 468  code origin: $0E08
+segments:
+  00: $0E08-$0FDB len   468 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   474 data_off   478
+      RUNAD $02E2 = $0FB7
+opcode counts:
+  $00 BRK      30
+  $0A ASL      8
+  $18 CLC      5
+  $20 JSR      11
+  $29 AND      1
+  $4C JMP      8
+  $60 RTS      9
+  $65 ADC      1
+  $69 ADC      9
+  $73 .BYTE    1
+  $85 STA      40
+  $88 DEY      3
+  $8D STA      10
+  $8E STX      5
+  $91 STA      5
+  $A0 LDY      7
+  $A2 LDX      7
+  $A5 LDA      2
+  $A6 LDX      1
+  $A9 LDA      18
+  $AC LDY      2
+  $AD LDA      36
+  $B1 LDA      2
+  $B2 .BYTE    1
+  $C8 INY      2
+  $CB .BYTE    1
+
+== modern ==
+load bytes: 427  code bytes: 415  code origin: $0E08
+segments:
+  00: $0E08-$0FA6 len   415 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   421 data_off   425
+      RUNAD $02E2 = $0F83
+opcode counts:
+  $00 BRK      30
+  $0A ASL      8
+  $18 CLC      1
+  $20 JSR      5
+  $29 AND      1
+  $44 .BYTE    1
+  $4C JMP      14
+  $60 RTS      3
+  $65 ADC      1
+  $69 ADC      1
+  $7E .BYTE    1
+  $85 STA      40
+  $88 DEY      3
+  $8A TXA      5
+  $8D STA      10
+  $8E STX      5
+  $91 STA      5
+  $A0 LDY      9
+  $A2 LDX      7
+  $A5 LDA      1
+  $A9 LDA      13
+  $AA TAX      1
+  $AC LDY      2
+  $AD LDA      29
+  $B1 LDA      2
+  $B2 .BYTE    1
+
+== map: compat ==
+origin $0E08  run $0FB7  routines 8  symbols 17  skipped 0
+routines:
+  Rename                   $0E08-$0E2E len    39
+  Erase                    $0E2F-$0E55 len    39
+  Protect                  $0E56-$0E7C len    39
+  UnProtect                $0E7D-$0EA3 len    39
+  Format                   $0EA4-$0ECA len    39
+  Burst                    $0ECB-$0F72 len   168
+  BGet                     $0F73-$0FB1 len    63
+  BPut                     $0FB2-$0FDA len    41
+storage symbols:
+  routine Rename Parameter FILENAME $0E08-$0E08
+  routine Erase Parameter FILENAME $0E2F-$0E2F
+  routine Protect Parameter FILENAME $0E56-$0E56
+  routine UnProtect Parameter FILENAME $0E7D-$0E7D
+  routine Format Parameter DRIVESPEC $0EA4-$0EA4
+  routine Burst Parameter CHAN $0ECB-$0ECB
+  routine Burst Parameter MODE $0ECC-$0ECC
+  routine Burst Parameter ADDR $0ECD-$0ECE
+  routine Burst Parameter BUFLEN $0ECF-$0ED0
+  routine Burst Local IPTR $0ED1-$0ED2
+  routine BGet Parameter CHAN $0F73-$0F73
+  routine BGet Parameter ADDR $0F74-$0F75
+  routine BGet Parameter LEN $0F76-$0F77
+  routine BGet Local TEMP $0F78-$0F79
+  routine BPut Parameter CHAN $0FB2-$0FB2
+  routine BPut Parameter ADDR $0FB3-$0FB4
+  routine BPut Parameter LEN $0FB5-$0FB6
+trusted effects:
+  Burst                    clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AE,$AF; writes abs $0ECB,$0ED1,$0ED2,$0340-$03BF; writes unknown-abs
+  BGet                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AE,$AF; writes abs $0ECB,$0ED1,$0ED2,$0340-$03BF,$0F79,$0F78; writes unknown-abs
+  BPut                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AE,$AF; writes abs $0ECB,$0ED1,$0ED2,$0340-$03BF; writes unknown-abs
+
+== map: modern ==
+origin $0E08  run $0F83  routines 8  symbols 17  skipped 0
+routines:
+  Rename                   $0E08-$0E29 len    34
+  Erase                    $0E2A-$0E4B len    34
+  Protect                  $0E4C-$0E6D len    34
+  UnProtect                $0E6E-$0E8F len    34
+  Format                   $0E90-$0EB1 len    34
+  Burst                    $0EB2-$0F43 len   146
+  BGet                     $0F44-$0F7D len    58
+  BPut                     $0F7E-$0FA5 len    40
+storage symbols:
+  routine Rename Parameter FILENAME $0E08-$0E08
+  routine Erase Parameter FILENAME $0E2A-$0E2A
+  routine Protect Parameter FILENAME $0E4C-$0E4C
+  routine UnProtect Parameter FILENAME $0E6E-$0E6E
+  routine Format Parameter DRIVESPEC $0E90-$0E90
+  routine Burst Parameter CHAN $0EB2-$0EB2
+  routine Burst Parameter MODE $0EB3-$0EB3
+  routine Burst Parameter ADDR $0EB4-$0EB5
+  routine Burst Parameter BUFLEN $0EB6-$0EB7
+  routine Burst Local IPTR $0EB8-$0EB9
+  routine BGet Parameter CHAN $0F44-$0F44
+  routine BGet Parameter ADDR $0F45-$0F46
+  routine BGet Parameter LEN $0F47-$0F48
+  routine BGet Local TEMP $0F49-$0F4A
+  routine BPut Parameter CHAN $0F7E-$0F7E
+  routine BPut Parameter ADDR $0F7F-$0F80
+  routine BPut Parameter LEN $0F81-$0F82
+trusted effects:
+  Burst                    clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AE,$AF; writes abs $0EB2,$0EB8,$0EB9,$0340-$03BF; writes unknown-abs
+  BGet                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AE,$AF; writes abs $0EB2,$0EB8,$0EB9,$0340-$03BF,$0F49,$0F4A; writes unknown-abs
+  BPut                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AE,$AF; writes abs $0EB2,$0EB8,$0EB9,$0340-$03BF; writes unknown-abs
+
+== routines: original:samples/toolkit/survey/outputs/vm/IO.COM vs compat ==
+  BPut                     len 42 -> 41 (-1)  addr $0FB2 -> $0FB2
+    BPut+$0029 #0019
+      original : $0FDB 60       RTS
+      generated: <missing>
+
+== routines: original:samples/toolkit/survey/outputs/vm/IO.COM vs modern ==
+  Rename                   len 39 -> 34 (-5)  addr $0E08 -> $0E08
+    Rename+$000F #0007
+      original : $0E17 A9 00    LDA #$00
+      generated: $0E17 85 A4    STA $A4
+      source   : Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    Rename+$0011 #0008
+      original : $0E19 85 A4    STA $A4
+      generated: $0E19 8A       TXA
+      source   : Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    Rename+$0013 #0009
+      original : $0E1B AD 09 0E LDA $0E09
+      generated: $0E1A 85 A6    STA $A6
+      source   : Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    Rename+$0016 #0010
+      original : $0E1E 85 A6    STA $A6
+      generated: $0E1C AD 08 0E LDA $0E08
+      source   : Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    Rename+$0018 #0011
+      original : $0E20 AD 08 0E LDA $0E08 ; filename $0E08
+      generated: $0E1F 85 A5    STA $A5
+      orig operand: filename $0E08
+      source   : Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    Rename+$001B #0012
+      original : $0E23 85 A5    STA $A5
+      generated: $0E21 A0 20    LDY #$20
+      source   : Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    Rename+$001D #0013
+      original : $0E25 A0 20    LDY #$20
+      generated: $0E23 A2 00    LDX #$00
+      source   : Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    Rename+$001F #0014
+      original : $0E27 A2 00    LDX #$00
+      generated: $0E25 A9 05    LDA #$05
+      source   : Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    Rename+$0021 #0015
+      original : $0E29 A9 05    LDA #$05
+      generated: $0E27 4C DE A4 JMP $A4DE
+      source   : Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    Rename+$0023 #0016
+      original : $0E2B 20 DE A4 JSR $A4DE
+      generated: <missing>
+    Rename+$0026 #0017
+      original : $0E2E 60       RTS
+      generated: <missing>
+  Erase                    len 39 -> 34 (-5)  addr $0E2F -> $0E2A
+    Erase+$0002 #0002
+      original : $0E31 4C 34 0E JMP $0E34
+      generated: $0E2C 4C 2F 0E JMP $0E2F
+      orig owner: Erase $0E31
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$0005 #0003
+      original : $0E34 8E 30 0E STX $0E30
+      generated: $0E2F 8E 2B 0E STX $0E2B
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$0008 #0004
+      original : $0E37 8D 2F 0E STA $0E2F ; filename $0E2F
+      generated: $0E32 8D 2A 0E STA $0E2A
+      orig operand: filename $0E2F
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$000F #0007
+      original : $0E3E A9 00    LDA #$00
+      generated: $0E39 85 A4    STA $A4
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$0011 #0008
+      original : $0E40 85 A4    STA $A4
+      generated: $0E3B 8A       TXA
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$0013 #0009
+      original : $0E42 AD 30 0E LDA $0E30
+      generated: $0E3C 85 A6    STA $A6
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$0016 #0010
+      original : $0E45 85 A6    STA $A6
+      generated: $0E3E AD 2A 0E LDA $0E2A
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$0018 #0011
+      original : $0E47 AD 2F 0E LDA $0E2F ; filename $0E2F
+      generated: $0E41 85 A5    STA $A5
+      orig operand: filename $0E2F
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$001B #0012
+      original : $0E4A 85 A5    STA $A5
+      generated: $0E43 A0 21    LDY #$21
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$001D #0013
+      original : $0E4C A0 21    LDY #$21
+      generated: $0E45 A2 00    LDX #$00
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$001F #0014
+      original : $0E4E A2 00    LDX #$00
+      generated: $0E47 A9 05    LDA #$05
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$0021 #0015
+      original : $0E50 A9 05    LDA #$05
+      generated: $0E49 4C DE A4 JMP $A4DE
+      source   : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    Erase+$0023 #0016
+      original : $0E52 20 DE A4 JSR $A4DE
+      generated: <missing>
+    Erase+$0026 #0017
+      original : $0E55 60       RTS
+      generated: <missing>
+  Protect                  len 39 -> 34 (-5)  addr $0E56 -> $0E4C
+    Protect+$0002 #0002
+      original : $0E58 4C 5B 0E JMP $0E5B
+      generated: $0E4E 4C 51 0E JMP $0E51
+      orig owner: Protect $0E58
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$0005 #0003
+      original : $0E5B 8E 57 0E STX $0E57
+      generated: $0E51 8E 4D 0E STX $0E4D
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$0008 #0004
+      original : $0E5E 8D 56 0E STA $0E56 ; filename $0E56
+      generated: $0E54 8D 4C 0E STA $0E4C
+      orig operand: filename $0E56
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$000F #0007
+      original : $0E65 A9 00    LDA #$00
+      generated: $0E5B 85 A4    STA $A4
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$0011 #0008
+      original : $0E67 85 A4    STA $A4
+      generated: $0E5D 8A       TXA
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$0013 #0009
+      original : $0E69 AD 57 0E LDA $0E57
+      generated: $0E5E 85 A6    STA $A6
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$0016 #0010
+      original : $0E6C 85 A6    STA $A6
+      generated: $0E60 AD 4C 0E LDA $0E4C
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$0018 #0011
+      original : $0E6E AD 56 0E LDA $0E56 ; filename $0E56
+      generated: $0E63 85 A5    STA $A5
+      orig operand: filename $0E56
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$001B #0012
+      original : $0E71 85 A5    STA $A5
+      generated: $0E65 A0 23    LDY #$23
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$001D #0013
+      original : $0E73 A0 23    LDY #$23
+      generated: $0E67 A2 00    LDX #$00
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$001F #0014
+      original : $0E75 A2 00    LDX #$00
+      generated: $0E69 A9 05    LDA #$05
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$0021 #0015
+      original : $0E77 A9 05    LDA #$05
+      generated: $0E6B 4C DE A4 JMP $A4DE
+      source   : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    Protect+$0023 #0016
+      original : $0E79 20 DE A4 JSR $A4DE
+      generated: <missing>
+    Protect+$0026 #0017
+      original : $0E7C 60       RTS
+      generated: <missing>
+  UnProtect                len 39 -> 34 (-5)  addr $0E7D -> $0E6E
+    UnProtect+$0002 #0002
+      original : $0E7F 4C 82 0E JMP $0E82
+      generated: $0E70 4C 73 0E JMP $0E73
+      orig owner: UnProtect $0E7F
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$0005 #0003
+      original : $0E82 8E 7E 0E STX $0E7E
+      generated: $0E73 8E 6F 0E STX $0E6F
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$0008 #0004
+      original : $0E85 8D 7D 0E STA $0E7D ; filename $0E7D
+      generated: $0E76 8D 6E 0E STA $0E6E
+      orig operand: filename $0E7D
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$000F #0007
+      original : $0E8C A9 00    LDA #$00
+      generated: $0E7D 85 A4    STA $A4
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$0011 #0008
+      original : $0E8E 85 A4    STA $A4
+      generated: $0E7F 8A       TXA
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$0013 #0009
+      original : $0E90 AD 7E 0E LDA $0E7E
+      generated: $0E80 85 A6    STA $A6
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$0016 #0010
+      original : $0E93 85 A6    STA $A6
+      generated: $0E82 AD 6E 0E LDA $0E6E
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$0018 #0011
+      original : $0E95 AD 7D 0E LDA $0E7D ; filename $0E7D
+      generated: $0E85 85 A5    STA $A5
+      orig operand: filename $0E7D
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$001B #0012
+      original : $0E98 85 A5    STA $A5
+      generated: $0E87 A0 24    LDY #$24
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$001D #0013
+      original : $0E9A A0 24    LDY #$24
+      generated: $0E89 A2 00    LDX #$00
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$001F #0014
+      original : $0E9C A2 00    LDX #$00
+      generated: $0E8B A9 05    LDA #$05
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$0021 #0015
+      original : $0E9E A9 05    LDA #$05
+      generated: $0E8D 4C DE A4 JMP $A4DE
+      source   : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    UnProtect+$0023 #0016
+      original : $0EA0 20 DE A4 JSR $A4DE
+      generated: <missing>
+    UnProtect+$0026 #0017
+      original : $0EA3 60       RTS
+      generated: <missing>
+  Format                   len 39 -> 34 (-5)  addr $0EA4 -> $0E90
+    Format+$0002 #0002
+      original : $0EA6 4C A9 0E JMP $0EA9
+      generated: $0E92 4C 95 0E JMP $0E95
+      orig owner: Format $0EA6
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$0005 #0003
+      original : $0EA9 8E A5 0E STX $0EA5
+      generated: $0E95 8E 91 0E STX $0E91
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$0008 #0004
+      original : $0EAC 8D A4 0E STA $0EA4 ; DriveSpec $0EA4
+      generated: $0E98 8D 90 0E STA $0E90
+      orig operand: DriveSpec $0EA4
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$000F #0007
+      original : $0EB3 A9 00    LDA #$00
+      generated: $0E9F 85 A4    STA $A4
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$0011 #0008
+      original : $0EB5 85 A4    STA $A4
+      generated: $0EA1 8A       TXA
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$0013 #0009
+      original : $0EB7 AD A5 0E LDA $0EA5
+      generated: $0EA2 85 A6    STA $A6
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$0016 #0010
+      original : $0EBA 85 A6    STA $A6
+      generated: $0EA4 AD 90 0E LDA $0E90
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$0018 #0011
+      original : $0EBC AD A4 0E LDA $0EA4 ; DriveSpec $0EA4
+      generated: $0EA7 85 A5    STA $A5
+      orig operand: DriveSpec $0EA4
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$001B #0012
+      original : $0EBF 85 A5    STA $A5
+      generated: $0EA9 A0 FE    LDY #$FE
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$001D #0013
+      original : $0EC1 A0 FE    LDY #$FE
+      generated: $0EAB A2 00    LDX #$00
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$001F #0014
+      original : $0EC3 A2 00    LDX #$00
+      generated: $0EAD A9 05    LDA #$05
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$0021 #0015
+      original : $0EC5 A9 05    LDA #$05
+      generated: $0EAF 4C DE A4 JMP $A4DE
+      source   : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    Format+$0023 #0016
+      original : $0EC7 20 DE A4 JSR $A4DE
+      generated: <missing>
+    Format+$0026 #0017
+      original : $0ECA 60       RTS
+      generated: <missing>
+  Burst                    len 168 -> 146 (-22)  addr $0ECB -> $0EB2
+    Burst+$0008 #0008
+      original : $0ED3 4C D6 0E JMP $0ED6
+      generated: $0EBA 4C BD 0E JMP $0EBD
+      orig owner: Burst $0ED3
+      source   : Routine Burst samples/toolkit/original/extracted/IO.ACT:67:1 | CARD FUNC Burst(BYTE chan,mode, | source 1303..1623 code $0EB2-$0F43
+    Burst+$000E #0010
+      original : $0ED9 CB 0E 05 .BYTE $CB,$0E,$05
+      generated: $0EC0 B2 0E 05 .BYTE $B2,$0E,$05
+      source   : Routine Burst samples/toolkit/original/extracted/IO.ACT:67:1 | CARD FUNC Burst(BYTE chan,mode, | source 1303..1623 code $0EB2-$0F43
+    Burst+$0011 #0011
+      original : $0EDC AD CB 0E LDA $0ECB ; areg $0ECB
+      generated: $0EC3 AD B2 0E LDA $0EB2
+      orig operand: areg $0ECB
+      source   : Statement compound assignment samples/toolkit/original/extracted/IO.ACT:76:3 | chan==&$07 | source 1498..1508 code $0EC3-$0ECA
+    Burst+$0016 #0013
+      original : $0EE1 8D CB 0E STA $0ECB ; areg $0ECB
+      generated: $0EC8 8D B2 0E STA $0EB2
+      orig operand: areg $0ECB
+      source   : Statement compound assignment samples/toolkit/original/extracted/IO.ACT:76:3 | chan==&$07 | source 1498..1508 code $0EC3-$0ECA
+    Burst+$0019 #0014
+      original : $0EE4 AD CB 0E LDA $0ECB ; areg $0ECB
+      generated: $0ECB 0A       ASL A
+      orig operand: areg $0ECB
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    Burst+$001F #0018
+      original : $0EEA 0A       ASL A
+      generated: $0ECF 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    Burst+$0020 #0019
+      original : $0EEB 85 AE    STA $AE
+      generated: $0ED1 18       CLC
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    Burst+$0022 #0020
+      original : $0EED 18       CLC
+      generated: $0ED2 A9 40    LDA #$40
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    Burst+$0023 #0021
+      original : $0EEE A9 40    LDA #$40
+      generated: $0ED4 65 AE    ADC $AE
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    Burst+$0025 #0022
+      original : $0EF0 65 AE    ADC $AE
+      generated: $0ED6 8D B8 0E STA $0EB8
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    Burst+$0027 #0023
+      original : $0EF2 8D D1 0E STA $0ED1 ; iptr $0ED1
+      generated: $0ED9 A9 03    LDA #$03
+      orig operand: iptr $0ED1
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    Burst+$002A #0024
+      original : $0EF5 A9 03    LDA #$03
+      generated: $0EDB 69 00    ADC #$00
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    Burst+$002C #0025
+      original : $0EF7 69 00    ADC #$00
+      generated: $0EDD 8D B9 0E STA $0EB9
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    Burst+$002E #0026
+      original : $0EF9 8D D2 0E STA $0ED2 ; iptr+1 $0ED2
+      generated: $0EE0 AD B8 0E LDA $0EB8
+      orig operand: iptr+1 $0ED2
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    Burst+$0031 #0027
+      original : $0EFC 18       CLC
+      generated: $0EE3 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    Burst+$0032 #0028
+      original : $0EFD AD D1 0E LDA $0ED1 ; iptr $0ED1
+      generated: $0EE5 AD B9 0E LDA $0EB9
+      orig operand: iptr $0ED1
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    Burst+$0035 #0029
+      original : $0F00 69 02    ADC #$02
+      generated: $0EE8 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    Burst+$0037 #0030
+      original : $0F02 85 AE    STA $AE
+      generated: $0EEA AD B3 0E LDA $0EB3
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    Burst+$0039 #0031
+      original : $0F04 AD D2 0E LDA $0ED2 ; iptr+1 $0ED2
+      generated: $0EED A0 02    LDY #$02
+      orig operand: iptr+1 $0ED2
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    Burst+$003C #0032
+      original : $0F07 69 00    ADC #$00
+      generated: $0EEF 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    Burst+$003E #0033
+      original : $0F09 85 AF    STA $AF
+      generated: $0EF1 AD B8 0E LDA $0EB8
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    Burst+$0040 #0034
+      original : $0F0B AD CC 0E LDA $0ECC ; mode $0ECC
+      generated: $0EF4 85 AE    STA $AE
+      orig operand: mode $0ECC
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    Burst+$0043 #0035
+      original : $0F0E A0 00    LDY #$00
+      generated: $0EF6 AD B9 0E LDA $0EB9
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    Burst+$0045 #0036
+      original : $0F10 91 AE    STA ($AE),Y
+      generated: $0EF9 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    Burst+$0047 #0037
+      original : $0F12 18       CLC
+      generated: $0EFB AD B7 0E LDA $0EB7
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    Burst+$0048 #0038
+      original : $0F13 AD D1 0E LDA $0ED1 ; iptr $0ED1
+      generated: $0EFE A0 09    LDY #$09
+      orig operand: iptr $0ED1
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    Burst+$004B #0039
+      original : $0F16 69 08    ADC #$08
+      generated: $0F00 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    Burst+$004D #0040
+      original : $0F18 85 AE    STA $AE
+      generated: $0F02 AD B6 0E LDA $0EB6
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    Burst+$004F #0041
+      original : $0F1A AD D2 0E LDA $0ED2 ; iptr+1 $0ED2
+      generated: $0F05 88       DEY
+      orig operand: iptr+1 $0ED2
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    Burst+$0052 #0042
+      original : $0F1D 69 00    ADC #$00
+      generated: $0F06 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+  BGet                     len 63 -> 58 (-5)  addr $0F73 -> $0F44
+    BGet+$0007 #0007
+      original : $0F7A 4C 7D 0F JMP $0F7D
+      generated: $0F4B 4C 4E 0F JMP $0F4E
+      orig owner: BGet $0F7A
+      source   : Routine BGet samples/toolkit/original/extracted/IO.ACT:86:1 | CARD FUNC BGet(BYTE chan CARD addr,len) | source 1664..1761 code $0F44-$0F7D
+    BGet+$000D #0009
+      original : $0F80 73 0F 04 .BYTE $73,$0F,$04
+      generated: $0F51 44 0F 04 .BYTE $44,$0F,$04
+      source   : Routine BGet samples/toolkit/original/extracted/IO.ACT:86:1 | CARD FUNC BGet(BYTE chan CARD addr,len) | source 1664..1761 code $0F44-$0F7D
+    BGet+$0010 #0010
+      original : $0F83 AD 75 0F LDA $0F75 ; addr+1 $0F75
+      generated: $0F54 AD 46 0F LDA $0F46
+      orig operand: addr+1 $0F75
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    BGet+$0015 #0012
+      original : $0F88 AD 77 0F LDA $0F77 ; len+1 $0F77
+      generated: $0F59 AD 48 0F LDA $0F48
+      orig operand: len+1 $0F77
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    BGet+$001A #0014
+      original : $0F8D AD 76 0F LDA $0F76 ; len $0F76
+      generated: $0F5E AD 47 0F LDA $0F47
+      orig operand: len $0F76
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    BGet+$001F #0016
+      original : $0F92 AC 74 0F LDY $0F74 ; addr $0F74
+      generated: $0F63 AC 45 0F LDY $0F45
+      orig operand: addr $0F74
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    BGet+$0024 #0018
+      original : $0F97 AD 73 0F LDA $0F73 ; chan $0F73
+      generated: $0F68 AD 44 0F LDA $0F44
+      orig operand: chan $0F73
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    BGet+$0027 #0019
+      original : $0F9A 20 D3 0E JSR $0ED3 ; Burst $0ED3
+      generated: $0F6B 20 BA 0E JSR $0EBA
+      orig operand: Burst $0ED3
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    BGet+$002A #0020
+      original : $0F9D A5 A1    LDA $A1
+      generated: $0F6E 8D 49 0F STA $0F49
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    BGet+$002C #0021
+      original : $0F9F 8D 79 0F STA $0F79 ; temp+1 $0F79
+      generated: $0F71 A5 A1    LDA $A1
+      orig operand: temp+1 $0F79
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    BGet+$002F #0022
+      original : $0FA2 A5 A0    LDA $A0
+      generated: $0F73 8D 4A 0F STA $0F4A
+      source   : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    BGet+$0031 #0023
+      original : $0FA4 8D 78 0F STA $0F78 ; temp $0F78
+      generated: $0F76 85 A1    STA $A1
+      orig operand: temp $0F78
+      source   : Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0F76-$0F7D
+    BGet+$0034 #0024
+      original : $0FA7 AD 79 0F LDA $0F79 ; temp+1 $0F79
+      generated: $0F78 AD 49 0F LDA $0F49
+      orig operand: temp+1 $0F79
+      source   : Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0F76-$0F7D
+    BGet+$0037 #0025
+      original : $0FAA 85 A1    STA $A1
+      generated: $0F7B 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0F76-$0F7D
+    BGet+$0039 #0026
+      original : $0FAC AD 78 0F LDA $0F78 ; temp $0F78
+      generated: $0F7D 60       RTS
+      orig operand: temp $0F78
+      source   : Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0F76-$0F7D
+    BGet+$003C #0027
+      original : $0FAF 85 A0    STA $A0
+      generated: <missing>
+    BGet+$003E #0028
+      original : $0FB1 60       RTS
+      generated: <missing>
+  BPut                     len 42 -> 40 (-2)  addr $0FB2 -> $0F7E
+    BPut+$0005 #0005
+      original : $0FB7 4C BA 0F JMP $0FBA
+      generated: $0F83 4C 86 0F JMP $0F86
+      orig owner: BPut $0FB7
+      source   : Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    BPut+$000B #0007
+      original : $0FBD B2 0F 04 .BYTE $B2,$0F,$04
+      generated: $0F89 7E 0F 04 .BYTE $7E,$0F,$04
+      source   : Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    BPut+$000E #0008
+      original : $0FC0 AD B4 0F LDA $0FB4 ; addr+1 $0FB4
+      generated: $0F8C AD 80 0F LDA $0F80
+      orig operand: addr+1 $0FB4
+      source   : Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    BPut+$0013 #0010
+      original : $0FC5 AD B6 0F LDA $0FB6 ; len+1 $0FB6
+      generated: $0F91 AD 82 0F LDA $0F82
+      orig operand: len+1 $0FB6
+      source   : Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    BPut+$0018 #0012
+      original : $0FCA AD B5 0F LDA $0FB5 ; len $0FB5
+      generated: $0F96 AD 81 0F LDA $0F81
+      orig operand: len $0FB5
+      source   : Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    BPut+$001D #0014
+      original : $0FCF AC B3 0F LDY $0FB3 ; addr $0FB3
+      generated: $0F9B AC 7F 0F LDY $0F7F
+      orig operand: addr $0FB3
+      source   : Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    BPut+$0022 #0016
+      original : $0FD4 AD B2 0F LDA $0FB2 ; chan $0FB2
+      generated: $0FA0 AD 7E 0F LDA $0F7E
+      orig operand: chan $0FB2
+      source   : Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    BPut+$0025 #0017
+      original : $0FD7 20 D3 0E JSR $0ED3 ; Burst $0ED3
+      generated: $0FA3 4C BA 0E JMP $0EBA
+      orig operand: Burst $0ED3
+      source   : Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    BPut+$0028 #0018
+      original : $0FDA 60       RTS
+      generated: <missing>
+    BPut+$0029 #0019
+      original : $0FDB 60       RTS
+      generated: <missing>
+
+== expected modern wins ==
+  call fact preserved      count 1    saved    0 bytes
+  call result materialization removed count 1    saved    2 bytes
+  register reload removed  count 13   saved   27 bytes
+  tail call                count 6    saved    6 bytes
+details:
+  register reload removed  saved   2 bytes  $0E17   Rename           suppressed redundant LDA #$00
+  register reload removed  saved   2 bytes  $0E19   Rename           reused X via TXA instead of absolute accumulator reload
+  tail call                saved   1 bytes  $0E2A   Rename           lowered final call at $0E13 to tail jump
+  register reload removed  saved   2 bytes  $0E39   Erase            suppressed redundant LDA #$00
+  register reload removed  saved   2 bytes  $0E3B   Erase            reused X via TXA instead of absolute accumulator reload
+  tail call                saved   1 bytes  $0E4C   Erase            lowered final call at $0E35 to tail jump
+  register reload removed  saved   2 bytes  $0E5B   Protect          suppressed redundant LDA #$00
+  register reload removed  saved   2 bytes  $0E5D   Protect          reused X via TXA instead of absolute accumulator reload
+  tail call                saved   1 bytes  $0E6E   Protect          lowered final call at $0E57 to tail jump
+  register reload removed  saved   2 bytes  $0E7D   UnProtect        suppressed redundant LDA #$00
+  register reload removed  saved   2 bytes  $0E7F   UnProtect        reused X via TXA instead of absolute accumulator reload
+  tail call                saved   1 bytes  $0E90   UnProtect        lowered final call at $0E79 to tail jump
+  register reload removed  saved   2 bytes  $0E9F   Format           suppressed redundant LDA #$00
+  register reload removed  saved   2 bytes  $0EA1   Format           reused X via TXA instead of absolute accumulator reload
+  tail call                saved   1 bytes  $0EB2   Format           lowered final call at $0E9B to tail jump
+  register reload removed  saved   3 bytes  $0ECB   Burst            suppressed accumulator reload from known memory alias
+  register reload removed  saved   1 bytes  $0F28   Burst            reused accumulator via TAX instead of reloading X
+  call fact preserved      saved   0 bytes  $0F2E   Burst            preserved 2 stable memory facts across known-effect call
+  call result materialization removed saved   2 bytes  $0F76   BGet             stored low byte of word return directly from accumulator
+  register reload removed  saved   3 bytes  $0F76   BGet             suppressed accumulator reload from known memory alias
+  tail call                saved   1 bytes  $0FA6   BPut             lowered final call at $0F8C to tail jump
+
+== routines: compat vs modern ==
+  Rename                   len 39 -> 34 (-5)  addr $0E08 -> $0E08
+    source-range deltas:
+      Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405  diffs 9
+        left : $0E08-$0E2E len 39 owner routine Rename Parameter FILENAME $0E08-$0E08+0
+        right: $0E08-$0E29 len 34 owner routine Rename Parameter FILENAME $0E08-$0E08+0
+      Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398  diffs 10
+        left : $0E13-$0E2D len 27
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0  diffs 1
+        left : $0E2E-$0E2E len 1
+        right: <missing>
+    #0007
+      left : $0E17 A9 00    LDA #$00
+      right: $0E17 85 A4    STA $A4
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398 code $0E13-$0E2D
+      right source: Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    #0008
+      left : $0E19 85 A4    STA $A4
+      right: $0E19 8A       TXA
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398 code $0E13-$0E2D
+      right source: Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    #0009
+      left : $0E1B AD 09 0E LDA $0E09
+      right: $0E1A 85 A6    STA $A6
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398 code $0E13-$0E2D
+      right source: Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    #0010
+      left : $0E1E 85 A6    STA $A6
+      right: $0E1C AD 08 0E LDA $0E08
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398 code $0E13-$0E2D
+      right source: Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    #0011
+      left : $0E20 AD 08 0E LDA $0E08
+      right: $0E1F 85 A5    STA $A5
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398 code $0E13-$0E2D
+      right source: Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    #0012
+      left : $0E23 85 A5    STA $A5
+      right: $0E21 A0 20    LDY #$20
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398 code $0E13-$0E2D
+      right source: Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    #0013
+      left : $0E25 A0 20    LDY #$20
+      right: $0E23 A2 00    LDX #$00
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398 code $0E13-$0E2D
+      right source: Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    #0014
+      left : $0E27 A2 00    LDX #$00
+      right: $0E25 A9 05    LDA #$05
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398 code $0E13-$0E2D
+      right source: Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    #0015
+      left : $0E29 A9 05    LDA #$05
+      right: $0E27 4C DE A4 JMP $A4DE
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398 code $0E13-$0E2D
+      right source: Routine Rename samples/toolkit/original/extracted/IO.ACT:16:1 | PROC Rename(BYTE ARRAY filename) | source 338..405 code $0E08-$0E29
+    #0016
+      left : $0E2B 20 DE A4 JSR $A4DE
+      right: <missing>
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:18:3 | XIO(5,0,32,0,0,filename) | source 374..398 code $0E13-$0E2D
+    #0017
+      left : $0E2E 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0 code $0E2E-$0E2E
+  Erase                    len 39 -> 34 (-5)  addr $0E2F -> $0E2A
+    source-range deltas:
+      Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569  diffs 15
+        left : $0E2F-$0E55 len 39 owner routine Erase Parameter FILENAME $0E2F-$0E2F+0
+        right: $0E2A-$0E4B len 34 owner routine Erase Parameter FILENAME $0E2A-$0E2A+0
+      Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562  diffs 10
+        left : $0E3A-$0E54 len 27
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0  diffs 1
+        left : $0E55-$0E55 len 1
+        right: <missing>
+    #0002
+      left : $0E31 4C 34 0E JMP $0E34
+      right: $0E2C 4C 2F 0E JMP $0E2F
+      left source : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2F-$0E55
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0003
+      left : $0E34 8E 30 0E STX $0E30
+      right: $0E2F 8E 2B 0E STX $0E2B
+      left source : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2F-$0E55
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0004
+      left : $0E37 8D 2F 0E STA $0E2F
+      right: $0E32 8D 2A 0E STA $0E2A
+      left source : Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2F-$0E55
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0007
+      left : $0E3E A9 00    LDA #$00
+      right: $0E39 85 A4    STA $A4
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562 code $0E3A-$0E54
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0008
+      left : $0E40 85 A4    STA $A4
+      right: $0E3B 8A       TXA
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562 code $0E3A-$0E54
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0009
+      left : $0E42 AD 30 0E LDA $0E30
+      right: $0E3C 85 A6    STA $A6
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562 code $0E3A-$0E54
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0010
+      left : $0E45 85 A6    STA $A6
+      right: $0E3E AD 2A 0E LDA $0E2A
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562 code $0E3A-$0E54
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0011
+      left : $0E47 AD 2F 0E LDA $0E2F
+      right: $0E41 85 A5    STA $A5
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562 code $0E3A-$0E54
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0012
+      left : $0E4A 85 A5    STA $A5
+      right: $0E43 A0 21    LDY #$21
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562 code $0E3A-$0E54
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0013
+      left : $0E4C A0 21    LDY #$21
+      right: $0E45 A2 00    LDX #$00
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562 code $0E3A-$0E54
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0014
+      left : $0E4E A2 00    LDX #$00
+      right: $0E47 A9 05    LDA #$05
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562 code $0E3A-$0E54
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0015
+      left : $0E50 A9 05    LDA #$05
+      right: $0E49 4C DE A4 JMP $A4DE
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562 code $0E3A-$0E54
+      right source: Routine Erase samples/toolkit/original/extracted/IO.ACT:25:1 | PROC Erase(BYTE ARRAY filename) | source 503..569 code $0E2A-$0E4B
+    #0016
+      left : $0E52 20 DE A4 JSR $A4DE
+      right: <missing>
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:27:3 | XIO(5,0,33,0,0,filename) | source 538..562 code $0E3A-$0E54
+    #0017
+      left : $0E55 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0 code $0E55-$0E55
+  Protect                  len 39 -> 34 (-5)  addr $0E56 -> $0E4C
+    source-range deltas:
+      Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737  diffs 15
+        left : $0E56-$0E7C len 39 owner routine Protect Parameter FILENAME $0E56-$0E56+0
+        right: $0E4C-$0E6D len 34 owner routine Protect Parameter FILENAME $0E4C-$0E4C+0
+      Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730  diffs 10
+        left : $0E61-$0E7B len 27
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0  diffs 1
+        left : $0E7C-$0E7C len 1
+        right: <missing>
+    #0002
+      left : $0E58 4C 5B 0E JMP $0E5B
+      right: $0E4E 4C 51 0E JMP $0E51
+      left source : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E56-$0E7C
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0003
+      left : $0E5B 8E 57 0E STX $0E57
+      right: $0E51 8E 4D 0E STX $0E4D
+      left source : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E56-$0E7C
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0004
+      left : $0E5E 8D 56 0E STA $0E56
+      right: $0E54 8D 4C 0E STA $0E4C
+      left source : Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E56-$0E7C
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0007
+      left : $0E65 A9 00    LDA #$00
+      right: $0E5B 85 A4    STA $A4
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730 code $0E61-$0E7B
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0008
+      left : $0E67 85 A4    STA $A4
+      right: $0E5D 8A       TXA
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730 code $0E61-$0E7B
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0009
+      left : $0E69 AD 57 0E LDA $0E57
+      right: $0E5E 85 A6    STA $A6
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730 code $0E61-$0E7B
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0010
+      left : $0E6C 85 A6    STA $A6
+      right: $0E60 AD 4C 0E LDA $0E4C
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730 code $0E61-$0E7B
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0011
+      left : $0E6E AD 56 0E LDA $0E56
+      right: $0E63 85 A5    STA $A5
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730 code $0E61-$0E7B
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0012
+      left : $0E71 85 A5    STA $A5
+      right: $0E65 A0 23    LDY #$23
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730 code $0E61-$0E7B
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0013
+      left : $0E73 A0 23    LDY #$23
+      right: $0E67 A2 00    LDX #$00
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730 code $0E61-$0E7B
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0014
+      left : $0E75 A2 00    LDX #$00
+      right: $0E69 A9 05    LDA #$05
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730 code $0E61-$0E7B
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0015
+      left : $0E77 A9 05    LDA #$05
+      right: $0E6B 4C DE A4 JMP $A4DE
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730 code $0E61-$0E7B
+      right source: Routine Protect samples/toolkit/original/extracted/IO.ACT:34:1 | PROC Protect(BYTE ARRAY filename) | source 669..737 code $0E4C-$0E6D
+    #0016
+      left : $0E79 20 DE A4 JSR $A4DE
+      right: <missing>
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:36:3 | XIO(5,0,35,0,0,filename) | source 706..730 code $0E61-$0E7B
+    #0017
+      left : $0E7C 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0 code $0E7C-$0E7C
+  UnProtect                len 39 -> 34 (-5)  addr $0E7D -> $0E6E
+    source-range deltas:
+      Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909  diffs 15
+        left : $0E7D-$0EA3 len 39 owner routine UnProtect Parameter FILENAME $0E7D-$0E7D+0
+        right: $0E6E-$0E8F len 34 owner routine UnProtect Parameter FILENAME $0E6E-$0E6E+0
+      Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902  diffs 10
+        left : $0E88-$0EA2 len 27
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0  diffs 1
+        left : $0EA3-$0EA3 len 1
+        right: <missing>
+    #0002
+      left : $0E7F 4C 82 0E JMP $0E82
+      right: $0E70 4C 73 0E JMP $0E73
+      left source : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E7D-$0EA3
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0003
+      left : $0E82 8E 7E 0E STX $0E7E
+      right: $0E73 8E 6F 0E STX $0E6F
+      left source : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E7D-$0EA3
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0004
+      left : $0E85 8D 7D 0E STA $0E7D
+      right: $0E76 8D 6E 0E STA $0E6E
+      left source : Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E7D-$0EA3
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0007
+      left : $0E8C A9 00    LDA #$00
+      right: $0E7D 85 A4    STA $A4
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902 code $0E88-$0EA2
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0008
+      left : $0E8E 85 A4    STA $A4
+      right: $0E7F 8A       TXA
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902 code $0E88-$0EA2
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0009
+      left : $0E90 AD 7E 0E LDA $0E7E
+      right: $0E80 85 A6    STA $A6
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902 code $0E88-$0EA2
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0010
+      left : $0E93 85 A6    STA $A6
+      right: $0E82 AD 6E 0E LDA $0E6E
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902 code $0E88-$0EA2
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0011
+      left : $0E95 AD 7D 0E LDA $0E7D
+      right: $0E85 85 A5    STA $A5
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902 code $0E88-$0EA2
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0012
+      left : $0E98 85 A5    STA $A5
+      right: $0E87 A0 24    LDY #$24
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902 code $0E88-$0EA2
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0013
+      left : $0E9A A0 24    LDY #$24
+      right: $0E89 A2 00    LDX #$00
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902 code $0E88-$0EA2
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0014
+      left : $0E9C A2 00    LDX #$00
+      right: $0E8B A9 05    LDA #$05
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902 code $0E88-$0EA2
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0015
+      left : $0E9E A9 05    LDA #$05
+      right: $0E8D 4C DE A4 JMP $A4DE
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902 code $0E88-$0EA2
+      right source: Routine UnProtect samples/toolkit/original/extracted/IO.ACT:43:1 | PROC UnProtect(BYTE ARRAY filename) | source 839..909 code $0E6E-$0E8F
+    #0016
+      left : $0EA0 20 DE A4 JSR $A4DE
+      right: <missing>
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:45:3 | XIO(5,0,36,0,0,filename) | source 878..902 code $0E88-$0EA2
+    #0017
+      left : $0EA3 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0 code $0EA3-$0EA3
+  Format                   len 39 -> 34 (-5)  addr $0EA4 -> $0E90
+    source-range deltas:
+      Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077  diffs 15
+        left : $0EA4-$0ECA len 39 owner routine Format Parameter DRIVESPEC $0EA4-$0EA4+0
+        right: $0E90-$0EB1 len 34 owner routine Format Parameter DRIVESPEC $0E90-$0E90+0
+      Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070  diffs 10
+        left : $0EAF-$0EC9 len 27
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0  diffs 1
+        left : $0ECA-$0ECA len 1
+        right: <missing>
+    #0002
+      left : $0EA6 4C A9 0E JMP $0EA9
+      right: $0E92 4C 95 0E JMP $0E95
+      left source : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0EA4-$0ECA
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0003
+      left : $0EA9 8E A5 0E STX $0EA5
+      right: $0E95 8E 91 0E STX $0E91
+      left source : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0EA4-$0ECA
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0004
+      left : $0EAC 8D A4 0E STA $0EA4
+      right: $0E98 8D 90 0E STA $0E90
+      left source : Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0EA4-$0ECA
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0007
+      left : $0EB3 A9 00    LDA #$00
+      right: $0E9F 85 A4    STA $A4
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070 code $0EAF-$0EC9
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0008
+      left : $0EB5 85 A4    STA $A4
+      right: $0EA1 8A       TXA
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070 code $0EAF-$0EC9
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0009
+      left : $0EB7 AD A5 0E LDA $0EA5
+      right: $0EA2 85 A6    STA $A6
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070 code $0EAF-$0EC9
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0010
+      left : $0EBA 85 A6    STA $A6
+      right: $0EA4 AD 90 0E LDA $0E90
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070 code $0EAF-$0EC9
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0011
+      left : $0EBC AD A4 0E LDA $0EA4
+      right: $0EA7 85 A5    STA $A5
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070 code $0EAF-$0EC9
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0012
+      left : $0EBF 85 A5    STA $A5
+      right: $0EA9 A0 FE    LDY #$FE
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070 code $0EAF-$0EC9
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0013
+      left : $0EC1 A0 FE    LDY #$FE
+      right: $0EAB A2 00    LDX #$00
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070 code $0EAF-$0EC9
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0014
+      left : $0EC3 A2 00    LDX #$00
+      right: $0EAD A9 05    LDA #$05
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070 code $0EAF-$0EC9
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0015
+      left : $0EC5 A9 05    LDA #$05
+      right: $0EAF 4C DE A4 JMP $A4DE
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070 code $0EAF-$0EC9
+      right source: Routine Format samples/toolkit/original/extracted/IO.ACT:52:1 | PROC Format(BYTE ARRAY DriveSpec) | source 1007..1077 code $0E90-$0EB1
+    #0016
+      left : $0EC7 20 DE A4 JSR $A4DE
+      right: <missing>
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:54:3 | XIO(5,0,254,0,0,DriveSpec) | source 1044..1070 code $0EAF-$0EC9
+    #0017
+      left : $0ECA 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0 code $0ECA-$0ECA
+  Burst                    len 168 -> 146 (-22)  addr $0ECB -> $0EB2
+    source-range deltas:
+      Routine Burst samples/toolkit/original/extracted/IO.ACT:67:1 | CARD FUNC Burst(BYTE chan,mode, | source 1303..1623  diffs 4
+        left : $0ECB-$0F72 len 168 owner routine Burst Parameter CHAN $0ECB-$0ECB+0
+        right: $0EB2-$0F43 len 146 owner routine Burst Parameter CHAN $0EB2-$0EB2+0
+      Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533  diffs 19
+        left : $0EE4-$0EFB len 24
+        right: $0ECB-$0EDF len 21
+      Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549  diffs 17
+        left : $0EFC-$0F11 len 22
+        right: $0EE0-$0EF0 len 17
+      Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568  diffs 22
+        left : $0F12-$0F2C len 27
+        right: $0EF1-$0F07 len 23
+      Statement assignment samples/toolkit/original/extracted/IO.ACT:80:3 | iptr.badr=addr | source 1571..1585  diffs 22
+        left : $0F2D-$0F47 len 27
+        right: $0F08-$0F1E len 23
+      Statement call samples/toolkit/original/extracted/IO.ACT:81:3 | CIO(0,chan LSH 4) | source 1588..1605  diffs 17
+        left : $0F48-$0F57 len 16
+        right: $0F1F-$0F2D len 15
+      Statement compound assignment samples/toolkit/original/extracted/IO.ACT:76:3 | chan==&$07 | source 1498..1508  diffs 4
+        left : $0EDC-$0EE3 len 8
+        right: $0EC3-$0ECA len 8
+      Statement return samples/toolkit/original/extracted/IO.ACT:82:8 | RETURN(iptr.blen) | source 1613..1622  diffs 24
+        left : $0F58-$0F72 len 27
+        right: $0F2E-$0F43 len 22
+    #0008
+      left : $0ED3 4C D6 0E JMP $0ED6
+      right: $0EBA 4C BD 0E JMP $0EBD
+      left source : Routine Burst samples/toolkit/original/extracted/IO.ACT:67:1 | CARD FUNC Burst(BYTE chan,mode, | source 1303..1623 code $0ECB-$0F72
+      right source: Routine Burst samples/toolkit/original/extracted/IO.ACT:67:1 | CARD FUNC Burst(BYTE chan,mode, | source 1303..1623 code $0EB2-$0F43
+    #0010
+      left : $0ED9 CB 0E 05 .BYTE $CB,$0E,$05
+      right: $0EC0 B2 0E 05 .BYTE $B2,$0E,$05
+      left source : Routine Burst samples/toolkit/original/extracted/IO.ACT:67:1 | CARD FUNC Burst(BYTE chan,mode, | source 1303..1623 code $0ECB-$0F72
+      right source: Routine Burst samples/toolkit/original/extracted/IO.ACT:67:1 | CARD FUNC Burst(BYTE chan,mode, | source 1303..1623 code $0EB2-$0F43
+    #0011
+      left : $0EDC AD CB 0E LDA $0ECB
+      right: $0EC3 AD B2 0E LDA $0EB2
+      left source : Statement compound assignment samples/toolkit/original/extracted/IO.ACT:76:3 | chan==&$07 | source 1498..1508 code $0EDC-$0EE3
+      right source: Statement compound assignment samples/toolkit/original/extracted/IO.ACT:76:3 | chan==&$07 | source 1498..1508 code $0EC3-$0ECA
+    #0013
+      left : $0EE1 8D CB 0E STA $0ECB
+      right: $0EC8 8D B2 0E STA $0EB2
+      left source : Statement compound assignment samples/toolkit/original/extracted/IO.ACT:76:3 | chan==&$07 | source 1498..1508 code $0EDC-$0EE3
+      right source: Statement compound assignment samples/toolkit/original/extracted/IO.ACT:76:3 | chan==&$07 | source 1498..1508 code $0EC3-$0ECA
+    #0014
+      left : $0EE4 AD CB 0E LDA $0ECB
+      right: $0ECB 0A       ASL A
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0EE4-$0EFB
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    #0018
+      left : $0EEA 0A       ASL A
+      right: $0ECF 85 AE    STA $AE
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0EE4-$0EFB
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    #0019
+      left : $0EEB 85 AE    STA $AE
+      right: $0ED1 18       CLC
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0EE4-$0EFB
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    #0020
+      left : $0EED 18       CLC
+      right: $0ED2 A9 40    LDA #$40
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0EE4-$0EFB
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    #0021
+      left : $0EEE A9 40    LDA #$40
+      right: $0ED4 65 AE    ADC $AE
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0EE4-$0EFB
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    #0022
+      left : $0EF0 65 AE    ADC $AE
+      right: $0ED6 8D B8 0E STA $0EB8
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0EE4-$0EFB
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    #0023
+      left : $0EF2 8D D1 0E STA $0ED1
+      right: $0ED9 A9 03    LDA #$03
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0EE4-$0EFB
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    #0024
+      left : $0EF5 A9 03    LDA #$03
+      right: $0EDB 69 00    ADC #$00
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0EE4-$0EFB
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    #0025
+      left : $0EF7 69 00    ADC #$00
+      right: $0EDD 8D B9 0E STA $0EB9
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0EE4-$0EFB
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0ECB-$0EDF
+    #0026
+      left : $0EF9 8D D2 0E STA $0ED2
+      right: $0EE0 AD B8 0E LDA $0EB8
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:77:3 | iptr=$340+(chan LSH 4) | source 1511..1533 code $0EE4-$0EFB
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    #0027
+      left : $0EFC 18       CLC
+      right: $0EE3 85 AE    STA $AE
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EFC-$0F11
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    #0028
+      left : $0EFD AD D1 0E LDA $0ED1
+      right: $0EE5 AD B9 0E LDA $0EB9
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EFC-$0F11
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    #0029
+      left : $0F00 69 02    ADC #$02
+      right: $0EE8 85 AF    STA $AF
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EFC-$0F11
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    #0030
+      left : $0F02 85 AE    STA $AE
+      right: $0EEA AD B3 0E LDA $0EB3
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EFC-$0F11
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    #0031
+      left : $0F04 AD D2 0E LDA $0ED2
+      right: $0EED A0 02    LDY #$02
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EFC-$0F11
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    #0032
+      left : $0F07 69 00    ADC #$00
+      right: $0EEF 91 AE    STA ($AE),Y
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EFC-$0F11
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EE0-$0EF0
+    #0033
+      left : $0F09 85 AF    STA $AF
+      right: $0EF1 AD B8 0E LDA $0EB8
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EFC-$0F11
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    #0034
+      left : $0F0B AD CC 0E LDA $0ECC
+      right: $0EF4 85 AE    STA $AE
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EFC-$0F11
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    #0035
+      left : $0F0E A0 00    LDY #$00
+      right: $0EF6 AD B9 0E LDA $0EB9
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EFC-$0F11
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    #0036
+      left : $0F10 91 AE    STA ($AE),Y
+      right: $0EF9 85 AF    STA $AF
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:78:3 | iptr.cmd=mode | source 1536..1549 code $0EFC-$0F11
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    #0037
+      left : $0F12 18       CLC
+      right: $0EFB AD B7 0E LDA $0EB7
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0F12-$0F2C
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    #0038
+      left : $0F13 AD D1 0E LDA $0ED1
+      right: $0EFE A0 09    LDY #$09
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0F12-$0F2C
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    #0039
+      left : $0F16 69 08    ADC #$08
+      right: $0F00 91 AE    STA ($AE),Y
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0F12-$0F2C
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    #0040
+      left : $0F18 85 AE    STA $AE
+      right: $0F02 AD B6 0E LDA $0EB6
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0F12-$0F2C
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    #0041
+      left : $0F1A AD D2 0E LDA $0ED2
+      right: $0F05 88       DEY
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0F12-$0F2C
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+    #0042
+      left : $0F1D 69 00    ADC #$00
+      right: $0F06 91 AE    STA ($AE),Y
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0F12-$0F2C
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:79:3 | iptr.blen=buflen | source 1552..1568 code $0EF1-$0F07
+  BGet                     len 63 -> 58 (-5)  addr $0F73 -> $0F44
+    source-range deltas:
+      Routine BGet samples/toolkit/original/extracted/IO.ACT:86:1 | CARD FUNC BGet(BYTE chan CARD addr,len) | source 1664..1761  diffs 4
+        left : $0F73-$0FB1 len 63 owner routine BGet Parameter CHAN $0F73-$0F73+0
+        right: $0F44-$0F7D len 58 owner routine BGet Parameter CHAN $0F44-$0F44+0
+      Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747  diffs 19
+        left : $0F83-$0FA6 len 36
+        right: $0F54-$0F75 len 34
+      Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760  diffs 9
+        left : $0FA7-$0FB1 len 11
+        right: $0F76-$0F7D len 8
+    #0007
+      left : $0F7A 4C 7D 0F JMP $0F7D
+      right: $0F4B 4C 4E 0F JMP $0F4E
+      left source : Routine BGet samples/toolkit/original/extracted/IO.ACT:86:1 | CARD FUNC BGet(BYTE chan CARD addr,len) | source 1664..1761 code $0F73-$0FB1
+      right source: Routine BGet samples/toolkit/original/extracted/IO.ACT:86:1 | CARD FUNC BGet(BYTE chan CARD addr,len) | source 1664..1761 code $0F44-$0F7D
+    #0009
+      left : $0F80 73 0F 04 .BYTE $73,$0F,$04
+      right: $0F51 44 0F 04 .BYTE $44,$0F,$04
+      left source : Routine BGet samples/toolkit/original/extracted/IO.ACT:86:1 | CARD FUNC BGet(BYTE chan CARD addr,len) | source 1664..1761 code $0F73-$0FB1
+      right source: Routine BGet samples/toolkit/original/extracted/IO.ACT:86:1 | CARD FUNC BGet(BYTE chan CARD addr,len) | source 1664..1761 code $0F44-$0F7D
+    #0010
+      left : $0F83 AD 75 0F LDA $0F75
+      right: $0F54 AD 46 0F LDA $0F46
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F83-$0FA6
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    #0012
+      left : $0F88 AD 77 0F LDA $0F77
+      right: $0F59 AD 48 0F LDA $0F48
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F83-$0FA6
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    #0014
+      left : $0F8D AD 76 0F LDA $0F76
+      right: $0F5E AD 47 0F LDA $0F47
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F83-$0FA6
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    #0016
+      left : $0F92 AC 74 0F LDY $0F74
+      right: $0F63 AC 45 0F LDY $0F45
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F83-$0FA6
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    #0018
+      left : $0F97 AD 73 0F LDA $0F73
+      right: $0F68 AD 44 0F LDA $0F44
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F83-$0FA6
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    #0019
+      left : $0F9A 20 D3 0E JSR $0ED3
+      right: $0F6B 20 BA 0E JSR $0EBA
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F83-$0FA6
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    #0020
+      left : $0F9D A5 A1    LDA $A1
+      right: $0F6E 8D 49 0F STA $0F49
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F83-$0FA6
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    #0021
+      left : $0F9F 8D 79 0F STA $0F79
+      right: $0F71 A5 A1    LDA $A1
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F83-$0FA6
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    #0022
+      left : $0FA2 A5 A0    LDA $A0
+      right: $0F73 8D 4A 0F STA $0F4A
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F83-$0FA6
+      right source: Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F54-$0F75
+    #0023
+      left : $0FA4 8D 78 0F STA $0F78
+      right: $0F76 85 A1    STA $A1
+      left source : Statement assignment samples/toolkit/original/extracted/IO.ACT:90:3 | temp=Burst(chan,7,addr,len) | source 1720..1747 code $0F83-$0FA6
+      right source: Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0F76-$0F7D
+    #0024
+      left : $0FA7 AD 79 0F LDA $0F79
+      right: $0F78 AD 49 0F LDA $0F49
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0FA7-$0FB1
+      right source: Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0F76-$0F7D
+    #0025
+      left : $0FAA 85 A1    STA $A1
+      right: $0F7B 85 A0    STA $A0
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0FA7-$0FB1
+      right source: Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0F76-$0F7D
+    #0026
+      left : $0FAC AD 78 0F LDA $0F78
+      right: $0F7D 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0FA7-$0FB1
+      right source: Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0F76-$0F7D
+    #0027
+      left : $0FAF 85 A0    STA $A0
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0FA7-$0FB1
+    #0028
+      left : $0FB1 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:91:9 | RETURN (temp) | source 1756..1760 code $0FA7-$0FB1
+  BPut                     len 41 -> 40 (-1)  addr $0FB2 -> $0F7E
+    source-range deltas:
+      Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870  diffs 10
+        left : $0FB2-$0FDA len 41 owner routine BPut Parameter CHAN $0FB2-$0FB2+0
+        right: $0F7E-$0FA5 len 40 owner routine BPut Parameter CHAN $0F7E-$0F7E+0
+      Statement call samples/toolkit/original/extracted/IO.ACT:97:3 | Burst(chan,11,addr,len) | source 1840..1863  diffs 6
+        left : $0FC0-$0FD9 len 26
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0  diffs 1
+        left : $0FDA-$0FDA len 1
+        right: <missing>
+    #0005
+      left : $0FB7 4C BA 0F JMP $0FBA
+      right: $0F83 4C 86 0F JMP $0F86
+      left source : Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0FB2-$0FDA
+      right source: Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    #0007
+      left : $0FBD B2 0F 04 .BYTE $B2,$0F,$04
+      right: $0F89 7E 0F 04 .BYTE $7E,$0F,$04
+      left source : Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0FB2-$0FDA
+      right source: Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    #0008
+      left : $0FC0 AD B4 0F LDA $0FB4
+      right: $0F8C AD 80 0F LDA $0F80
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:97:3 | Burst(chan,11,addr,len) | source 1840..1863 code $0FC0-$0FD9
+      right source: Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    #0010
+      left : $0FC5 AD B6 0F LDA $0FB6
+      right: $0F91 AD 82 0F LDA $0F82
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:97:3 | Burst(chan,11,addr,len) | source 1840..1863 code $0FC0-$0FD9
+      right source: Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    #0012
+      left : $0FCA AD B5 0F LDA $0FB5
+      right: $0F96 AD 81 0F LDA $0F81
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:97:3 | Burst(chan,11,addr,len) | source 1840..1863 code $0FC0-$0FD9
+      right source: Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    #0014
+      left : $0FCF AC B3 0F LDY $0FB3
+      right: $0F9B AC 7F 0F LDY $0F7F
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:97:3 | Burst(chan,11,addr,len) | source 1840..1863 code $0FC0-$0FD9
+      right source: Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    #0016
+      left : $0FD4 AD B2 0F LDA $0FB2
+      right: $0FA0 AD 7E 0F LDA $0F7E
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:97:3 | Burst(chan,11,addr,len) | source 1840..1863 code $0FC0-$0FD9
+      right source: Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    #0017
+      left : $0FD7 20 D3 0E JSR $0ED3
+      right: $0FA3 4C BA 0E JMP $0EBA
+      left source : Statement call samples/toolkit/original/extracted/IO.ACT:97:3 | Burst(chan,11,addr,len) | source 1840..1863 code $0FC0-$0FD9
+      right source: Routine BPut samples/toolkit/original/extracted/IO.ACT:95:1 | PROC BPut(BYTE chan CARD addr,len) | source 1802..1870 code $0F7E-$0FA5
+    #0018
+      left : $0FDA 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/IO.ACT:1:1 |  | source 0..0 code $0FDA-$0FDA
+
+== bytes: original:samples/toolkit/survey/outputs/vm/IO.COM vs compat ==
+exact: true  sizes: 480 vs 480
+first diffs: none
+
+== instructions: original:samples/toolkit/survey/outputs/vm/IO.COM vs compat ==
+counts: 225 vs 225
+first diffs: none
+
+== bytes: original:samples/toolkit/survey/outputs/vm/IO.COM vs modern ==
+exact: false  sizes: 480 vs 427
+first diffs:
+  @0004: $DB -> $A6
+  @0015: $A9 -> $85
+  @0016: $00 -> $A4
+  @0017: $85 -> $8A
+  @0018: $A4 -> $85
+  @0019: $AD -> $A6
+  @001A: $09 -> $AD
+  @001B: $0E -> $08
+  @001C: $85 -> $0E
+  @001D: $A6 -> $85
+  @001E: $AD -> $A5
+  @001F: $08 -> $A0
+  @0020: $0E -> $20
+  @0021: $85 -> $A2
+  @0022: $A5 -> $00
+  @0023: $A0 -> $A9
+  @0024: $20 -> $05
+  @0025: $A2 -> $4C
+  @0026: $00 -> $DE
+  @0027: $A9 -> $A4
+  @0028: $05 -> $00
+  @0029: $20 -> $00
+  @002A: $DE -> $4C
+  @002B: $A4 -> $2F
+  @002C: $60 -> $0E
+  @002D: $00 -> $8E
+  @002E: $00 -> $2B
+  @002F: $4C -> $0E
+  @0030: $34 -> $8D
+  @0031: $0E -> $2A
+
+== instructions: original:samples/toolkit/survey/outputs/vm/IO.COM vs modern ==
+counts: 225 vs 199
+  #0007
+    left : $0E17 A9 00    LDA #$00
+    right: $0E17 85 A4    STA $A4
+  #0008
+    left : $0E19 85 A4    STA $A4
+    right: $0E19 8A       TXA
+  #0009
+    left : $0E1B AD 09 0E LDA $0E09
+    right: $0E1A 85 A6    STA $A6
+  #0010
+    left : $0E1E 85 A6    STA $A6
+    right: $0E1C AD 08 0E LDA $0E08
+  #0011
+    left : $0E20 AD 08 0E LDA $0E08
+    right: $0E1F 85 A5    STA $A5
+  #0012
+    left : $0E23 85 A5    STA $A5
+    right: $0E21 A0 20    LDY #$20
+  #0013
+    left : $0E25 A0 20    LDY #$20
+    right: $0E23 A2 00    LDX #$00
+  #0014
+    left : $0E27 A2 00    LDX #$00
+    right: $0E25 A9 05    LDA #$05
+  #0015
+    left : $0E29 A9 05    LDA #$05
+    right: $0E27 4C DE A4 JMP $A4DE
+  #0016
+    left : $0E2B 20 DE A4 JSR $A4DE
+    right: $0E2A 00       BRK
+  #0017
+    left : $0E2E 60       RTS
+    right: $0E2B 00       BRK
+  #0018
+    left : $0E2F 00       BRK
+    right: $0E2C 4C 2F 0E JMP $0E2F
+  #0019
+    left : $0E30 00       BRK
+    right: $0E2F 8E 2B 0E STX $0E2B
+  #0020
+    left : $0E31 4C 34 0E JMP $0E34
+    right: $0E32 8D 2A 0E STA $0E2A
+  #0021
+    left : $0E34 8E 30 0E STX $0E30
+    right: $0E35 A9 00    LDA #$00
+  #0022
+    left : $0E37 8D 2F 0E STA $0E2F
+    right: $0E37 85 A3    STA $A3
+  #0023
+    left : $0E3A A9 00    LDA #$00
+    right: $0E39 85 A4    STA $A4
+  #0024
+    left : $0E3C 85 A3    STA $A3
+    right: $0E3B 8A       TXA
+  #0025
+    left : $0E3E A9 00    LDA #$00
+    right: $0E3C 85 A6    STA $A6
+  #0026
+    left : $0E40 85 A4    STA $A4
+    right: $0E3E AD 2A 0E LDA $0E2A
+  #0027
+    left : $0E42 AD 30 0E LDA $0E30
+    right: $0E41 85 A5    STA $A5
+  #0028
+    left : $0E45 85 A6    STA $A6
+    right: $0E43 A0 21    LDY #$21
+  #0029
+    left : $0E47 AD 2F 0E LDA $0E2F
+    right: $0E45 A2 00    LDX #$00
+  #0030
+    left : $0E4A 85 A5    STA $A5
+    right: $0E47 A9 05    LDA #$05
+  #0031
+    left : $0E4C A0 21    LDY #$21
+    right: $0E49 4C DE A4 JMP $A4DE
+  #0032
+    left : $0E4E A2 00    LDX #$00
+    right: $0E4C 00       BRK
+  #0033
+    left : $0E50 A9 05    LDA #$05
+    right: $0E4D 00       BRK
+  #0034
+    left : $0E52 20 DE A4 JSR $A4DE
+    right: $0E4E 4C 51 0E JMP $0E51
+  #0035
+    left : $0E55 60       RTS
+    right: $0E51 8E 4D 0E STX $0E4D
+  #0036
+    left : $0E56 00       BRK
+    right: $0E54 8D 4C 0E STA $0E4C
+
+== bytes: compat vs modern ==
+exact: false  sizes: 480 vs 427
+first diffs:
+  @0004: $DB -> $A6
+  @0015: $A9 -> $85
+  @0016: $00 -> $A4
+  @0017: $85 -> $8A
+  @0018: $A4 -> $85
+  @0019: $AD -> $A6
+  @001A: $09 -> $AD
+  @001B: $0E -> $08
+  @001C: $85 -> $0E
+  @001D: $A6 -> $85
+  @001E: $AD -> $A5
+  @001F: $08 -> $A0
+  @0020: $0E -> $20
+  @0021: $85 -> $A2
+  @0022: $A5 -> $00
+  @0023: $A0 -> $A9
+  @0024: $20 -> $05
+  @0025: $A2 -> $4C
+  @0026: $00 -> $DE
+  @0027: $A9 -> $A4
+  @0028: $05 -> $00
+  @0029: $20 -> $00
+  @002A: $DE -> $4C
+  @002B: $A4 -> $2F
+  @002C: $60 -> $0E
+  @002D: $00 -> $8E
+  @002E: $00 -> $2B
+  @002F: $4C -> $0E
+  @0030: $34 -> $8D
+  @0031: $0E -> $2A
+
+== instructions: compat vs modern ==
+counts: 225 vs 199
+  #0007
+    left : $0E17 A9 00    LDA #$00
+    right: $0E17 85 A4    STA $A4
+  #0008
+    left : $0E19 85 A4    STA $A4
+    right: $0E19 8A       TXA
+  #0009
+    left : $0E1B AD 09 0E LDA $0E09
+    right: $0E1A 85 A6    STA $A6
+  #0010
+    left : $0E1E 85 A6    STA $A6
+    right: $0E1C AD 08 0E LDA $0E08
+  #0011
+    left : $0E20 AD 08 0E LDA $0E08
+    right: $0E1F 85 A5    STA $A5
+  #0012
+    left : $0E23 85 A5    STA $A5
+    right: $0E21 A0 20    LDY #$20
+  #0013
+    left : $0E25 A0 20    LDY #$20
+    right: $0E23 A2 00    LDX #$00
+  #0014
+    left : $0E27 A2 00    LDX #$00
+    right: $0E25 A9 05    LDA #$05
+  #0015
+    left : $0E29 A9 05    LDA #$05
+    right: $0E27 4C DE A4 JMP $A4DE
+  #0016
+    left : $0E2B 20 DE A4 JSR $A4DE
+    right: $0E2A 00       BRK
+  #0017
+    left : $0E2E 60       RTS
+    right: $0E2B 00       BRK
+  #0018
+    left : $0E2F 00       BRK
+    right: $0E2C 4C 2F 0E JMP $0E2F
+  #0019
+    left : $0E30 00       BRK
+    right: $0E2F 8E 2B 0E STX $0E2B
+  #0020
+    left : $0E31 4C 34 0E JMP $0E34
+    right: $0E32 8D 2A 0E STA $0E2A
+  #0021
+    left : $0E34 8E 30 0E STX $0E30
+    right: $0E35 A9 00    LDA #$00
+  #0022
+    left : $0E37 8D 2F 0E STA $0E2F
+    right: $0E37 85 A3    STA $A3
+  #0023
+    left : $0E3A A9 00    LDA #$00
+    right: $0E39 85 A4    STA $A4
+  #0024
+    left : $0E3C 85 A3    STA $A3
+    right: $0E3B 8A       TXA
+  #0025
+    left : $0E3E A9 00    LDA #$00
+    right: $0E3C 85 A6    STA $A6
+  #0026
+    left : $0E40 85 A4    STA $A4
+    right: $0E3E AD 2A 0E LDA $0E2A
+  #0027
+    left : $0E42 AD 30 0E LDA $0E30
+    right: $0E41 85 A5    STA $A5
+  #0028
+    left : $0E45 85 A6    STA $A6
+    right: $0E43 A0 21    LDY #$21
+  #0029
+    left : $0E47 AD 2F 0E LDA $0E2F
+    right: $0E45 A2 00    LDX #$00
+  #0030
+    left : $0E4A 85 A5    STA $A5
+    right: $0E47 A9 05    LDA #$05
+  #0031
+    left : $0E4C A0 21    LDY #$21
+    right: $0E49 4C DE A4 JMP $A4DE
+  #0032
+    left : $0E4E A2 00    LDX #$00
+    right: $0E4C 00       BRK
+  #0033
+    left : $0E50 A9 05    LDA #$05
+    right: $0E4D 00       BRK
+  #0034
+    left : $0E52 20 DE A4 JSR $A4DE
+    right: $0E4E 4C 51 0E JMP $0E51
+  #0035
+    left : $0E55 60       RTS
+    right: $0E51 8E 4D 0E STX $0E4D
+  #0036
+    left : $0E56 00       BRK
+    right: $0E54 8D 4C 0E STA $0E4C

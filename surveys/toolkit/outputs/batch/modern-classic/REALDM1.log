@@ -1,0 +1,8 @@
+source: samples/toolkit/modern/REAL.DM1
+source_policy: auto
+compile_source: [tmp]/toolkit/REAL.DM1
+profile: modern
+backend: classic
+codegen_source: ast
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/modern-classic/REALDM1.COM

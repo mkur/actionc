@@ -1,0 +1,17 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE ARRAY bytes(4)
+CARD POINTER words
+
+CARD FUNC Pair(BYTE lo, hi)
+RETURN(lo + (hi LSH 8))
+
+PROC Store(BYTE POINTER p, CARD POINTER q, BYTE i)
+  q(i) = Pair(p(i), i)
+RETURN
+
+PROC Main()
+  words = $4000
+  Store(bytes, words, 1)
+RETURN

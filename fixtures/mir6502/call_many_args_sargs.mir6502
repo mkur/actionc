@@ -1,0 +1,10 @@
+mir6502 program
+
+routine r0 Take
+b0 bb0:
+  return
+
+routine r1 Main
+b0 bb1:
+  call r0 args=[#$01.b -> a, #$2345.w -> x:y, #$06.b -> fixed_zp $A3] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

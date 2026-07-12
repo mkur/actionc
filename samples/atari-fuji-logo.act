@@ -1,0 +1,174 @@
+; Atari LOGO
+; Translated from the BASIC
+; by Leo Laporte, 10/19/83
+
+
+PROC fuji()
+
+  BYTE top, bottom, xpos, cntr = [0]
+
+  BYTE ARRAY data = 
+  [ 37 41 43 45 46 29 48 35 49 37 50
+	 39 51 41 52 43 53 44 54 45 55 46 
+	 55 47 56 48 57 48 57 49 58 49 58
+	 50 59 50 59 51 59 51 59 52 60 52
+	 60 52 60 52 60 52 60 52 60 52 60 ]
+
+  CARD x
+
+  color = 1
+
+  top = 5
+  bottom = 61
+
+  FOR xpos = 80 TO 84
+	 DO
+		Plot(xpos, top)
+		Drawto(xpos, bottom)
+		Plot(160-xpos, top)
+		Drawto(160-xpos, bottom)
+	 OD
+									
+  FOR xpos = 86 TO 115
+	 DO
+		IF xpos > 90 THEN
+		  top = data(cntr) cntr ==+ 1
+		FI
+
+		bottom = data(cntr) cntr ==+ 1
+	  
+		Plot(xpos, top)
+		Drawto(xpos, bottom)
+		Plot(160-xpos, top)
+		Drawto(160-xpos, bottom)
+	 OD
+
+RETURN
+
+PROC letters()
+
+	BYTE x,y,i
+
+	CARD cntr=[0]
+
+	BYTE ARRAY atari = [
+	  49 55 61 76 81 87 93 104 0
+	  48 56 61 76 80 88 93 105 0
+	  47 57 61 76 79 89 93 106 0
+	  46 58 61 76 78 90 93 107 0
+	  45 50 54 59 67 70 77 82 86 91 93 96 103 108 0
+	  45 49 55 59 67 70 77 81 87 91 93 96 104 108 0
+	  45 48 56 59 67 70 77 80 88 91 93 96 104 108 0
+	  45 48 56 59 67 70 77 80 88 91 93 96 104 108 0
+	  45 48 56 59 67 70 77 80 88 91 93 96 104 108 0
+	  45 48 56 59 67 70 77 80 88 91 93 96 103 108 0
+	  45 59 67 70 77 91 93 107 0
+	  45 59 67 70 77 91 93 106 0
+	  45 59 67 70 77 91 93 105 0
+	  45 59 67 70 77 91 93 104 0
+	  45 48 56 59 67 70 77 80 88 91 93 96 100 105 0
+	  45 48 56 59 67 70 77 80 88 91 93 96 101 106 0
+	  45 48 56 59 67 70 77 80 88 91 93 96 102 107 0
+	  45 48 56 59 67 70 77 80 88 91 93 96 103 108 0
+	  45 48 56 59 67 70 77 80 88 91 93 96 104 109 0
+	  45 48 56 59 67 70 77 80 88 91 93 96 105 109 0 1 1 ]
+
+	i = 66
+	color = 1
+
+	DO
+	  x = atari(cntr) cntr ==+ 1
+
+	  IF x = 0 THEN
+		  x = 112
+		  y = 115
+		  Plot(x,i)
+		  Drawto(y,i)
+		  i ==+ 1
+
+	  ELSE y = atari(cntr) cntr ==+ 1
+		  IF x = 1 AND y = 1 THEN EXIT FI
+		  Plot(x,i)
+		  Drawto(y,i)
+		  IF x = 112 THEN i ==+ 1 FI
+	  FI
+	OD
+
+RETURN
+
+PROC delay(BYTE time)
+
+  BYTE jifs = 20
+
+  jifs = 0
+
+  DO	
+  UNTIL (jifs >= time)
+  OD
+
+RETURN
+
+
+PROC jingle()
+
+  BYTE ARRAY music=
+  [ 121  121  121  121 
+     91   96  108  121  0 ] 
+
+  BYTE note, cntr = [0]
+	
+  DO
+	 note = music(cntr) cntr ==+ 1
+	 IF note = 0 THEN EXIT FI
+	 SndRst()
+	 Delay(2)
+	 Sound(0, note, 10, 8)
+	 Delay(8)
+  OD
+  Delay(12)
+  SndRst()
+
+RETURN
+
+PROC scroll()
+
+  BYTE wsync = 54282,
+		 vcount = 54283,
+		 clr = 53270,
+		 ch = 764,
+		 cntr, chgclr = [0],
+		 incclr, delay
+
+  DO
+	 FOR cntr = 1 TO 4 
+		 DO
+			incclr = chgclr
+			FOR delay = 1 TO 9 DO OD
+			DO
+			  wsync = 0
+			  clr = incclr
+			  incclr ==+ 1
+			UNTIL vcount & 128
+			OD
+		 OD
+	 chgclr ==+ 1
+  UNTIL ch <> 255 
+  OD
+
+RETURN
+
+
+
+
+PROC main()
+
+  Graphics(23)
+  
+  fuji()
+  letters()
+  jingle()
+  scroll()
+
+RETURN
+
+

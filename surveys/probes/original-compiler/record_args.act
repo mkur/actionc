@@ -1,0 +1,22 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+TYPE Pair=[BYTE tag CARD word]
+
+Pair rec
+BYTE out
+CARD wide
+
+PROC Take(BYTE b, CARD c)
+  out = b
+  wide = c
+RETURN
+
+PROC Main()
+  rec.tag = $12
+  rec.word = $3456
+  Take(rec.tag,rec.word)
+RETURN

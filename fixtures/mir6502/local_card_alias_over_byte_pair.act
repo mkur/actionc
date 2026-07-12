@@ -1,0 +1,10 @@
+BYTE low_out, high_out
+
+PROC Main()
+  BYTE low, high
+  CARD word=low
+
+  word=$1234
+  low_out=low
+  high_out=high
+RETURN

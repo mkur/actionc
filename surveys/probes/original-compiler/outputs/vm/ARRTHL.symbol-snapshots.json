@@ -1,0 +1,14 @@
+{
+  "snapshots": [
+    {"pc":"$04C6","label":"segvec","proc":"Local128","local_index":"$0C04","locals":[{"slot":"$83","name_addr":"$9435","name":"l128","vtype":"$9A","address":"$3001","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Local256","local_index":"$0C04","locals":[{"slot":"$8B","name_addr":"$9442","name":"l256","vtype":"$9A","address":"$3095","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Local320","local_index":"$0C04","locals":[{"slot":"$83","name_addr":"$944F","name":"l320","vtype":"$92","address":"$31A9","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Local384","local_index":"$0C04","locals":[{"slot":"$93","name_addr":"$945C","name":"l384","vtype":"$92","address":"$31E3","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Local512","local_index":"$0C04","locals":[{"slot":"$8B","name_addr":"$9469","name":"l512","vtype":"$92","address":"$321D","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Local640","local_index":"$0C04","locals":[{"slot":"$93","name_addr":"$9476","name":"l640","vtype":"$92","address":"$3257","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Local768","local_index":"$0C04","locals":[{"slot":"$A3","name_addr":"$9483","name":"l768","vtype":"$92","address":"$3291","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Local896","local_index":"$0C04","locals":[{"slot":"$AB","name_addr":"$9490","name":"l896","vtype":"$92","address":"$32CB","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Local1024","local_index":"$0C04","locals":[{"slot":"$26","name_addr":"$949E","name":"l1024","vtype":"$92","address":"$3305","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$A6E1","label":"stop","proc":"Main","local_index":"$0C04","locals":[]}
+  ]
+}

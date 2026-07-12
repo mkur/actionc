@@ -1,0 +1,54 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ga, gb, gc, gd, ge, gf
+CARD gw, gz
+
+BYTE ARRAY data(4)
+
+CHAR POINTER cp
+CARD POINTER wp
+
+PROC B3(BYTE a, b, c)
+  ga = a
+  gb = b
+  gc = c
+RETURN
+
+PROC B4(BYTE a, b, c, d)
+  ga = a
+  gb = b
+  gc = c
+  gd = d
+RETURN
+
+PROC C2(CARD a, b)
+  gw = a
+  gz = b
+RETURN
+
+PROC Mix(BYTE a, CARD b, BYTE c)
+  ga = a
+  gw = b
+  gb = c
+RETURN
+
+PROC Ptrs(CHAR POINTER p, CARD POINTER q)
+  cp = p
+  wp = q
+RETURN
+
+PROC Caller()
+  B3(1, 2, 3)
+  B4(4, 5, 6, 7)
+  C2($1234, $5678)
+  Mix(8, $9ABC, 9)
+  Ptrs(data, @gz)
+RETURN
+
+PROC Main()
+  Caller()
+RETURN

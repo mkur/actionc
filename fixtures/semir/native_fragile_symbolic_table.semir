@@ -1,0 +1,37 @@
+program modules=1
+  module #0 items=8
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte choice#74/scope1:Var:Byte scalar
+      init raw([ 1 ]):<error>:Unknown:eval4:facts=error
+    decl Card seen#75/scope1:Var:Card scalar
+    routine PROC View#76/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign seen:Card:facts=w2,Unsigned = $1111:Card:Value:eval5:facts=w2,Unsigned
+        return
+    routine PROC Quit#77/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign seen:Card:facts=w2,Unsigned = $2222:Card:Value:eval6:facts=w2,Unsigned
+        return
+    routine PROC Jmp#78/scope1:Proc:?
+      callable PROC()
+      system *:Card:Value:eval7:facts=w2,Unsigned
+      flow always_returns=true may_fall_through=false contains_return=false contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        machine items=4 effects=none
+    routine PROC Main#79/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      locals:
+        decl Card adr#80/scope5:Array:Card array Card ARRAY(2)->Card POINTER/Array/Local
+          init Jmp:<error>:Callable:eval9:facts=error
+          length 2:Byte:Value:eval8:facts=w1,Unsigned
+        decl Card go#81/scope5:Var:Card scalar
+      body:
+        assign go:Card:facts=w2,Unsigned = array_decay/Local adr:Card:facts=w2,Unsigned:Card POINTER:Value:eval10:facts=w2,ptr,to=Card,pointee_w2((choice:Byte:LValue:eval11:facts=w1,Unsigned - 1:Byte:Value:eval12:facts=w1,Unsigned):Byte:Value:eval13:facts=w1,Unsigned):Card:facts=w2,Unsigned:Card:LValue:eval14:facts=w2,Unsigned
+        machine items=2 effects=none
+        return

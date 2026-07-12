@@ -1,0 +1,30 @@
+program modules=1
+  module #0 items=9
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    define STRING#74/scope1:Define:? = "CHAR ARRAY"
+    decl Char hello#75/scope1:Array:Char array Char ARRAY(0)->Char POINTER/Array/Global
+      init "HELLO":Char POINTER:Value:eval5:facts=w2,ptr,to=Char,pointee_w1
+      length 0:Byte:Value:eval4:facts=w1,Unsigned
+    decl Char raw#76/scope1:Array:Char array Char ARRAY(4)->Char POINTER/Array/Global
+      init "DATA":Char POINTER:Value:eval7:facts=w2,ptr,to=Char,pointee_w1
+      length 4:Byte:Value:eval6:facts=w1,Unsigned
+    decl Byte i#77/scope1:Var:Byte scalar
+    decl Byte b#78/scope1:Var:Byte scalar
+    routine PROC Take#79/scope1:Proc:?
+      callable PROC(Char POINTER)
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      params:
+        Char s#80/scope2:Param:Char Array Char ARRAY(?)->Char POINTER
+      body:
+        assign b:Byte:facts=w1,Unsigned = array_decay/Parameter s:Char:facts=w1,Unsigned:Char POINTER:Value:eval8:facts=w2,ptr,to=Char,pointee_w1(1:Byte:Value:eval9:facts=w1,Unsigned):Char:facts=w1,Unsigned:Char:LValue:eval10:facts=w1,Unsigned
+        return
+    routine PROC Main#81/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign i:Byte:facts=w1,Unsigned = 2:Byte:Value:eval11:facts=w1,Unsigned
+        assign array_decay/Global raw:Char:facts=w1,Unsigned:Char POINTER:Value:eval12:facts=w2,ptr,to=Char,pointee_w1(i:Byte:LValue:eval13:facts=w1,Unsigned):Char:facts=w1,Unsigned = array_decay/Global hello:Char:facts=w1,Unsigned:Char POINTER:Value:eval14:facts=w2,ptr,to=Char,pointee_w1(i:Byte:LValue:eval15:facts=w1,Unsigned):Char:facts=w1,Unsigned:Char:LValue:eval16:facts=w1,Unsigned
+        call user Take -> ? callable=PROC(Char POINTER) effects=none
+          arg #0 "HI":Char POINTER:Value:eval17:facts=w2,ptr,to=Char,pointee_w1
+        return

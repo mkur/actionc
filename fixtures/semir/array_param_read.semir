@@ -1,0 +1,23 @@
+program modules=1
+  module #0 items=6
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Char text#74/scope1:Array:Char array Char ARRAY(0)->Char POINTER/Array/Global
+      init "HI":Char POINTER:Value:eval5:facts=w2,ptr,to=Char,pointee_w1
+      length 0:Byte:Value:eval4:facts=w1,Unsigned
+    decl Byte b#75/scope1:Var:Byte scalar
+    routine PROC Take#76/scope1:Proc:?
+      callable PROC(Char POINTER)
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      params:
+        Char s#77/scope2:Param:Char Array Char ARRAY(?)->Char POINTER
+      body:
+        assign b:Byte:facts=w1,Unsigned = array_decay/Parameter s:Char:facts=w1,Unsigned:Char POINTER:Value:eval6:facts=w2,ptr,to=Char,pointee_w1(1:Byte:Value:eval7:facts=w1,Unsigned):Char:facts=w1,Unsigned:Char:LValue:eval8:facts=w1,Unsigned
+        return
+    routine PROC Main#78/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        call user Take -> ? callable=PROC(Char POINTER) effects=none
+          arg #0 array_decay/Global text:Char:facts=w1,Unsigned:Char POINTER:Value:eval9:facts=w2,ptr,to=Char,pointee_w1
+        return

@@ -1,0 +1,7 @@
+mir6502 program
+global g0 b: byte storage global+0
+
+routine r0 Main
+b0 bb0:
+  store.b global g0+0, #$0A
+  return

@@ -1,0 +1,7 @@
+; Original compiler error 24: illegal FOR statement syntax.
+
+PROC Main()
+  BYTE i
+  FOR i DO
+  OD
+RETURN

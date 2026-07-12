@@ -1,0 +1,6 @@
+; Original compiler error 19: missing OD.
+
+PROC Main()
+  WHILE 1 DO
+    RETURN
+RETURN

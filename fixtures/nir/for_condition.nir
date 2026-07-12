@@ -1,0 +1,28 @@
+nir program
+global i: Byte
+global total: Byte
+
+routine <program> params=[-] locals=[-]
+bb4:
+  store @$0491 = $3000
+  store @$000E = $3000
+  fallthrough
+
+routine Main params=[-] locals=[-]
+bb0:
+  store i = 0
+  goto bb1
+bb1:
+  %t0:Byte = load i
+  %t1:condition = cmp %t0 Le 2
+  branch %t1 ? bb2 : bb3
+bb2:
+  %t2:Byte = load total
+  %t3:Byte = %t2 Add 1
+  store total = %t3
+  %t4:Byte = load i
+  %t5:Byte = %t4 Add 1
+  store i = %t5
+  goto bb1
+bb3:
+  return

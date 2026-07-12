@@ -1,0 +1,13 @@
+; Isolate TN LIB.ACT's fixed-address sized byte array declaration.
+; Original Action! emits a four-byte descriptor/pointer pair for
+; `BYTE ARRAY allocbuf($800)=$2000` before the following current-location PROC.
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY allocbuf($800)=$2000
+
+PROC Main=*()
+[$60]

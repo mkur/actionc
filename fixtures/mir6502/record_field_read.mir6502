@@ -1,0 +1,10 @@
+mir6502 program
+global g0 Pair: byte storage global+0 size=0
+global g1 rec: Pair storage global+0 size=3
+global g2 x: byte storage global+3
+
+routine r0 Main
+b0 bb0:
+  v0 =.b load global g1+0
+  store.b global g2+0, v0
+  return

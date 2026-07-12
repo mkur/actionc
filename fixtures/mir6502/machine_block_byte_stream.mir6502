@@ -1,0 +1,12 @@
+mir6502 program
+global g0 ZP: byte absolute $00E4
+machine m0 items=[$34 $0348 $F2F8 $FFFF @ZP @ZP+1 <@ZP >@ZP @Target <Target >Target]
+
+routine r0 Target
+b0 bb0:
+  return
+
+routine r1 Main
+b0 bb1:
+  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  return

@@ -1,0 +1,48 @@
+
+;\{INV:                                    }
+;
+;JOYSTIX.ACT - routines which make
+;interpreting joystick values much
+;easier.
+;
+;   Copyright (c) 1984 OSS,Inc.
+;\{INV:                                    }
+
+;************************************
+;Make horizontal joystick movement
+;easy:  -1 \{$1E} 0 \{$1F} 1
+;************************************
+
+INT FUNC HStick(BYTE port)
+
+  BYTE ARRAY ports(4)=$278
+
+  INT ARRAY value(4)=[0 1 $FFFF 0]
+
+  port==&3
+RETURN (value((ports(port)&$C) RSH 2))
+
+;************************************
+;                      -1
+;To make vertical       \{$1C}
+;joystick movement      0
+;easy.                  \{$1D}
+;                       1
+;************************************
+
+INT FUNC VStick(BYTE port)
+
+  BYTE ARRAY ports(4)=$278
+
+  INT ARRAY value(4)=[0 1 $FFFF 0]
+
+  port==&3
+RETURN (value(ports(port)&3))
+
+;\{INV: End of JOYSTIX.ACT }
+
+MODULE
+
+
+
+

@@ -1,0 +1,13 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$AF","name_addr":"$9400","name":"HStick","vtype":"$C3","address":"$0E15","class":"INT FUNC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$EA","name_addr":"$940C","name":"VStick","vtype":"$C3","address":"$0E5F","class":"INT FUNC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$95","name_addr":"$9437","name":"port","vtype":"$8A","address":"$0E52","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$9E","name_addr":"$943F","name":"ports","vtype":"$9A","address":"$0278","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$2A","name_addr":"$9448","name":"value","vtype":"$93","address":"$0E5B","class":"INT ARRAY","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

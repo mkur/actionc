@@ -1,0 +1,6 @@
+PROC Callee()
+RETURN
+
+PROC Main()
+  Callee()
+RETURN

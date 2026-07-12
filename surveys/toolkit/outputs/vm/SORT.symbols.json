@@ -1,0 +1,38 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$FB","name_addr":"$94F5","name":"AddList","vtype":"$C0","address":"$1247","class":"PROC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$6F","name_addr":"$941E","name":"BArray","vtype":"$92","address":"$0E0A","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$D4","name_addr":"$9453","name":"BAscend","vtype":"$C2","address":"$0E5C","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$ED","name_addr":"$9444","name":"BDescend","vtype":"$C2","address":"$0E18","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$0C","name_addr":"$94B8","name":"BSwap","vtype":"$C0","address":"$10BD","class":"PROC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$D0","name_addr":"$9432","name":"CArray","vtype":"$94","address":"$0E0E","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$97","name_addr":"$9470","name":"CAscend","vtype":"$C2","address":"$0EF1","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$73","name_addr":"$9461","name":"CDescend","vtype":"$C2","address":"$0EA0","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$55","name_addr":"$94DC","name":"Compare","vtype":"$C2","address":"$122D","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$3A","name_addr":"$94C4","name":"CSwap","vtype":"$C0","address":"$1121","class":"PROC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$36","name_addr":"$9503","name":"GetFirst","vtype":"$C0","address":"$12D3","class":"PROC","numargs":2,"arg_types_raw":["$14","$14"],"args":["CARD ARRAY","CARD ARRAY"]},
+    {"scope":"global","slot":"$0E","name_addr":"$9428","name":"IArray","vtype":"$93","address":"$0E0C","class":"INT ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$13","name_addr":"$948D","name":"IAscend","vtype":"$C2","address":"$0F93","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$6A","name_addr":"$947E","name":"IDescend","vtype":"$C2","address":"$0F42","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$5B","name_addr":"$94D0","name":"ISwap","vtype":"$C0","address":"$11A8","class":"PROC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$20","name_addr":"$943C","name":"List","vtype":"$94","address":"$0E10","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$9B","name_addr":"$9412","name":"ListSize","vtype":"$8C","address":"$0E08","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$A6","name_addr":"$9512","name":"Partition","vtype":"$C4","address":"$135E","class":"CARD FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$B9","name_addr":"$9522","name":"QuickSort","vtype":"$C0","address":"$14E6","class":"PROC","numargs":1,"arg_types_raw":["$0C"],"args":["CARD"]},
+    {"scope":"global","slot":"$8B","name_addr":"$94AA","name":"SAscend","vtype":"$C2","address":"$1050","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$5A","name_addr":"$949B","name":"SDescend","vtype":"$C2","address":"$0FE4","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$1D","name_addr":"$9531","name":"SortB","vtype":"$C0","address":"$15F1","class":"PROC","numargs":3,"arg_types_raw":["$12","$0C","$8A"],"args":["BYTE ARRAY","CARD","BYTE"]},
+    {"scope":"global","slot":"$1E","name_addr":"$953E","name":"SortC","vtype":"$C0","address":"$1644","class":"PROC","numargs":3,"arg_types_raw":["$14","$0C","$8A"],"args":["CARD ARRAY","CARD","BYTE"]},
+    {"scope":"global","slot":"$24","name_addr":"$954B","name":"SortI","vtype":"$C0","address":"$1697","class":"PROC","numargs":3,"arg_types_raw":["$13","$0C","$8A"],"args":["INT ARRAY","CARD","BYTE"]},
+    {"scope":"global","slot":"$DB","name_addr":"$9400","name":"SortMax","vtype":"$1B","address":null,"class":"DEFINE `10000`","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$2E","name_addr":"$9558","name":"SortS","vtype":"$C0","address":"$16EA","class":"PROC","numargs":3,"arg_types_raw":["$14","$0C","$8A"],"args":["CARD ARRAY","CARD","BYTE"]},
+    {"scope":"global","slot":"$D7","name_addr":"$94EA","name":"Swap","vtype":"$C0","address":"$123A","class":"PROC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$30","name_addr":"$9582","name":"data","vtype":"$94","address":"$16E5","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$49","name_addr":"$958A","name":"len","vtype":"$8C","address":"$16E7","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$2C","name_addr":"$9591","name":"order","vtype":"$8A","address":"$16E9","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

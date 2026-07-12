@@ -1,0 +1,1189 @@
+source: samples/toolkit/original/extracted/CONSOLE.ACT
+
+== original:samples/toolkit/survey/outputs/vm/CONSOLE.COM ==
+load bytes: 284  code bytes: 272  code origin: $0E08
+segments:
+  00: $0E08-$0F17 len   272 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   278 data_off   282
+      RUNAD $02E2 = $0ED9
+opcode counts:
+  $00 BRK      16
+  $10 BPL      1
+  $20 JSR      3
+  $29 AND      3
+  $48 PHA      1
+  $4C JMP      7
+  $60 RTS      8
+  $68 PLA      4
+  $6C JMP      1
+  $85 STA      3
+  $8C STY      5
+  $8D STA      19
+  $95 STA      4
+  $A0 LDY      5
+  $A2 LDX      5
+  $A5 LDA      3
+  $A9 LDA      5
+  $AD LDA      17
+  $B5 LDA      1
+  $CA DEX      1
+  $D0 BNE      4
+  $E0 CPX      4
+  $E8 INX      4
+  $F0 BEQ      3
+
+== compat ==
+load bytes: 284  code bytes: 272  code origin: $0E08
+segments:
+  00: $0E08-$0F17 len   272 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   278 data_off   282
+      RUNAD $02E2 = $0ED9
+opcode counts:
+  $00 BRK      16
+  $10 BPL      1
+  $20 JSR      3
+  $29 AND      3
+  $48 PHA      1
+  $4C JMP      7
+  $60 RTS      8
+  $68 PLA      4
+  $6C JMP      1
+  $85 STA      3
+  $8C STY      5
+  $8D STA      19
+  $95 STA      4
+  $A0 LDY      5
+  $A2 LDX      5
+  $A5 LDA      3
+  $A9 LDA      5
+  $AD LDA      17
+  $B5 LDA      1
+  $CA DEX      1
+  $D0 BNE      4
+  $E0 CPX      4
+  $E8 INX      4
+  $F0 BEQ      3
+
+== modern ==
+load bytes: 248  code bytes: 236  code origin: $0E08
+segments:
+  00: $0E08-$0EF3 len   236 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   242 data_off   246
+      RUNAD $02E2 = $0EC1
+opcode counts:
+  $00 BRK      16
+  $10 BPL      1
+  $20 JSR      3
+  $29 AND      3
+  $48 PHA      1
+  $60 RTS      7
+  $68 PLA      4
+  $6C JMP      1
+  $85 STA      3
+  $8C STY      5
+  $8D STA      19
+  $95 STA      4
+  $A0 LDY      5
+  $A2 LDX      5
+  $A9 LDA      13
+  $AD LDA      9
+  $B5 LDA      1
+  $CA DEX      1
+  $D0 BNE      7
+  $E0 CPX      4
+  $E8 INX      4
+
+== map: compat ==
+origin $0E08  run $0ED9  routines 4  symbols 7  skipped 0
+routines:
+  RTS                      $0E18-$0E1B len     4
+  DoConsole                $0E1C-$0E22 len     7
+  ConsoleTimer             $0E23-$0ED8 len   182
+  InitConsole              $0ED9-$0F16 len    62
+storage symbols:
+  global Storage TIMER2 $021A-$021B
+  routine InitConsole Local TIMER2ADDR $0228-$0229
+  global Storage TEMPVEC $0E08-$0E09
+  global Storage START $0E0C-$0E0D
+  global Storage SELECT $0E10-$0E11
+  global Storage OPTION $0E14-$0E15
+  routine ConsoleTimer Local CONSOLE $D01F-$D01F
+trusted effects:
+  RTS                      clobbers A,X,Y
+  InitConsole              clobbers A,X,Y; writes abs $0E0D,$0E0C,$0E11,$0E10,$0E15,$0E14,$0229,$0228,$021B,$021A
+machine-block advisory:
+  DoConsole                $0E1F advisory: opaque/unsupported machine block
+
+== map: modern ==
+origin $0E08  run $0EC1  routines 4  symbols 7  skipped 0
+routines:
+  RTS                      $0E18-$0E18 len     1
+  DoConsole                $0E19-$0E1C len     4
+  ConsoleTimer             $0E1D-$0EC0 len   164
+  InitConsole              $0EC1-$0EF3 len    51
+storage symbols:
+  global Storage TIMER2 $021A-$021B
+  routine InitConsole Local TIMER2ADDR $0228-$0229
+  global Storage TEMPVEC $0E08-$0E09
+  global Storage START $0E0C-$0E0D
+  global Storage SELECT $0E10-$0E11
+  global Storage OPTION $0E14-$0E15
+  routine ConsoleTimer Local CONSOLE $D01F-$D01F
+trusted effects:
+  RTS                      clobbers A,X,Y
+  InitConsole              clobbers A,X,Y; writes abs $0E0D,$0E0C,$0E11,$0E10,$0E15,$0E14,$0229,$0228,$021B,$021A
+machine-block advisory:
+  DoConsole                $0E19 advisory: opaque/unsupported machine block
+
+== routines: original:samples/toolkit/survey/outputs/vm/CONSOLE.COM vs compat ==
+  RTS                      len 20 -> 4 (-16)  addr $0E08 -> $0E18
+    RTS+$0000 #0000
+      original : $0E08 00       BRK
+      generated: $0E18 4C 1B 0E JMP $0E1B
+      orig owner: TempVec $0E08
+      source   : Routine RTS samples/toolkit/original/extracted/CONSOLE.ACT:23:1 | PROC RTS() | source 484..501 code $0E18-$0E1B
+    RTS+$0001 #0001
+      original : $0E09 00       BRK
+      generated: $0E1B 60       RTS
+      orig owner: TempVec+1 $0E09
+      source   : Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0E1B-$0E1B
+    RTS+$0002 #0002
+      original : $0E0A 00       BRK
+      generated: <missing>
+    RTS+$0003 #0003
+      original : $0E0B 00       BRK
+      generated: <missing>
+    RTS+$0004 #0004
+      original : $0E0C 00       BRK
+      generated: <missing>
+      orig owner: Start $0E0C
+    RTS+$0005 #0005
+      original : $0E0D 00       BRK
+      generated: <missing>
+      orig owner: Start+1 $0E0D
+    RTS+$0006 #0006
+      original : $0E0E 00       BRK
+      generated: <missing>
+    RTS+$0007 #0007
+      original : $0E0F 00       BRK
+      generated: <missing>
+    RTS+$0008 #0008
+      original : $0E10 00       BRK
+      generated: <missing>
+      orig owner: Select $0E10
+    RTS+$0009 #0009
+      original : $0E11 00       BRK
+      generated: <missing>
+      orig owner: Select+1 $0E11
+    RTS+$000A #0010
+      original : $0E12 00       BRK
+      generated: <missing>
+    RTS+$000B #0011
+      original : $0E13 00       BRK
+      generated: <missing>
+    RTS+$000C #0012
+      original : $0E14 00       BRK
+      generated: <missing>
+      orig owner: Option $0E14
+    RTS+$000D #0013
+      original : $0E15 00       BRK
+      generated: <missing>
+      orig owner: Option+1 $0E15
+    RTS+$000E #0014
+      original : $0E16 00       BRK
+      generated: <missing>
+    RTS+$000F #0015
+      original : $0E17 00       BRK
+      generated: <missing>
+    RTS+$0010 #0016
+      original : $0E18 4C 1B 0E JMP $0E1B
+      generated: <missing>
+      orig owner: RTS $0E18
+    RTS+$0013 #0017
+      original : $0E1B 60       RTS
+      generated: <missing>
+  InitConsole              len 63 -> 62 (-1)  addr $0ED9 -> $0ED9
+    InitConsole+$003E #0022
+      original : $0F17 60       RTS
+      generated: <missing>
+
+== routines: original:samples/toolkit/survey/outputs/vm/CONSOLE.COM vs modern ==
+  RTS                      len 20 -> 1 (-19)  addr $0E08 -> $0E18
+    RTS+$0000 #0000
+      original : $0E08 00       BRK
+      generated: $0E18 60       RTS
+      orig owner: TempVec $0E08
+      source   : Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0E18-$0E18
+    RTS+$0001 #0001
+      original : $0E09 00       BRK
+      generated: <missing>
+      orig owner: TempVec+1 $0E09
+    RTS+$0002 #0002
+      original : $0E0A 00       BRK
+      generated: <missing>
+    RTS+$0003 #0003
+      original : $0E0B 00       BRK
+      generated: <missing>
+    RTS+$0004 #0004
+      original : $0E0C 00       BRK
+      generated: <missing>
+      orig owner: Start $0E0C
+    RTS+$0005 #0005
+      original : $0E0D 00       BRK
+      generated: <missing>
+      orig owner: Start+1 $0E0D
+    RTS+$0006 #0006
+      original : $0E0E 00       BRK
+      generated: <missing>
+    RTS+$0007 #0007
+      original : $0E0F 00       BRK
+      generated: <missing>
+    RTS+$0008 #0008
+      original : $0E10 00       BRK
+      generated: <missing>
+      orig owner: Select $0E10
+    RTS+$0009 #0009
+      original : $0E11 00       BRK
+      generated: <missing>
+      orig owner: Select+1 $0E11
+    RTS+$000A #0010
+      original : $0E12 00       BRK
+      generated: <missing>
+    RTS+$000B #0011
+      original : $0E13 00       BRK
+      generated: <missing>
+    RTS+$000C #0012
+      original : $0E14 00       BRK
+      generated: <missing>
+      orig owner: Option $0E14
+    RTS+$000D #0013
+      original : $0E15 00       BRK
+      generated: <missing>
+      orig owner: Option+1 $0E15
+    RTS+$000E #0014
+      original : $0E16 00       BRK
+      generated: <missing>
+    RTS+$000F #0015
+      original : $0E17 00       BRK
+      generated: <missing>
+    RTS+$0010 #0016
+      original : $0E18 4C 1B 0E JMP $0E1B
+      generated: <missing>
+      orig owner: RTS $0E18
+    RTS+$0013 #0017
+      original : $0E1B 60       RTS
+      generated: <missing>
+  DoConsole                len 7 -> 4 (-3)  addr $0E1C -> $0E19
+    DoConsole+$0000 #0000
+      original : $0E1C 4C 1F 0E JMP $0E1F
+      generated: $0E19 6C 08 0E JMP ($0E08)
+      orig owner: DoConsole $0E1C
+      source   : MachineBlock machine block samples/toolkit/original/extracted/CONSOLE.ACT:32:3 | [$6C TempVec] | source 628..641 code $0E19-$0E1B
+    DoConsole+$0003 #0001
+      original : $0E1F 6C 08 0E JMP ($0E08)
+      generated: $0E1C 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0E1C-$0E1C
+    DoConsole+$0006 #0002
+      original : $0E22 60       RTS
+      generated: <missing>
+  ConsoleTimer             len 182 -> 164 (-18)  addr $0E23 -> $0E1D
+    ConsoleTimer+$0000 #0000
+      original : $0E23 4C 26 0E JMP $0E26
+      generated: $0E1D A2 07    LDX #$07
+      orig owner: ConsoleTimer $0E23
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E1D-$0E24
+    ConsoleTimer+$0003 #0001
+      original : $0E26 A2 07    LDX #$07
+      generated: $0E1F B5 A8    LDA $A8,X
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E1D-$0E24
+    ConsoleTimer+$0005 #0002
+      original : $0E28 B5 A8    LDA $A8,X
+      generated: $0E21 48       PHA
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E1D-$0E24
+    ConsoleTimer+$0007 #0003
+      original : $0E2A 48       PHA
+      generated: $0E22 CA       DEX
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E1D-$0E24
+    ConsoleTimer+$0008 #0004
+      original : $0E2B CA       DEX
+      generated: $0E23 10 FA    BPL $0E1F
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E1D-$0E24
+    ConsoleTimer+$0009 #0005
+      original : $0E2C 10 FA    BPL $0E28
+      generated: $0E25 AD 1F D0 LDA $D01F
+      source   : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E25-$0E51
+    ConsoleTimer+$000B #0006
+      original : $0E2E AD 1F D0 LDA $D01F ; console $D01F
+      generated: $0E28 29 01    AND #$01
+      orig operand: console $D01F
+      source   : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E25-$0E51
+    ConsoleTimer+$000E #0007
+      original : $0E31 29 01    AND #$01
+      generated: $0E2A 85 AE    STA $AE
+      source   : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E25-$0E51
+    ConsoleTimer+$0010 #0008
+      original : $0E33 85 AE    STA $AE
+      generated: $0E2C D0 24    BNE $0E52
+      source   : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E25-$0E51
+    ConsoleTimer+$0012 #0009
+      original : $0E35 A5 AE    LDA $AE
+      generated: $0E2E AD 0D 0E LDA $0E0D
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E2E-$0E39
+    ConsoleTimer+$0014 #0010
+      original : $0E37 F0 03    BEQ $0E3C
+      generated: $0E31 8D 09 0E STA $0E09
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E2E-$0E39
+    ConsoleTimer+$0016 #0011
+      original : $0E39 4C 60 0E JMP $0E60
+      generated: $0E34 AD 0C 0E LDA $0E0C
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E2E-$0E39
+    ConsoleTimer+$0019 #0012
+      original : $0E3C AD 0D 0E LDA $0E0D ; Start+1 $0E0D
+      generated: $0E37 8D 08 0E STA $0E08
+      orig operand: Start+1 $0E0D
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E2E-$0E39
+    ConsoleTimer+$001C #0013
+      original : $0E3F 8D 09 0E STA $0E09 ; TempVec+1 $0E09
+      generated: $0E3A A0 00    LDY #$00
+      orig operand: TempVec+1 $0E09
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E3A-$0E43
+    ConsoleTimer+$001F #0014
+      original : $0E42 AD 0C 0E LDA $0E0C ; Start $0E0C
+      generated: $0E3C 8C 1B 02 STY $021B
+      orig operand: Start $0E0C
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E3A-$0E43
+    ConsoleTimer+$0022 #0015
+      original : $0E45 8D 08 0E STA $0E08 ; TempVec $0E08
+      generated: $0E3F A9 1E    LDA #$1E
+      orig operand: TempVec $0E08
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E3A-$0E43
+    ConsoleTimer+$0025 #0016
+      original : $0E48 A0 00    LDY #$00
+      generated: $0E41 8D 1A 02 STA $021A
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E3A-$0E43
+    ConsoleTimer+$0027 #0017
+      original : $0E4A 8C 1B 02 STY $021B ; Timer2+1 $021B
+      generated: $0E44 20 19 0E JSR $0E19
+      orig operand: Timer2+1 $021B
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:53:5 | DoConsole() | source 1048..1059 code $0E44-$0E46
+    ConsoleTimer+$002A #0018
+      original : $0E4D A9 1E    LDA #$1E
+      generated: $0E47 A2 00    LDX #$00
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    ConsoleTimer+$002C #0019
+      original : $0E4F 8D 1A 02 STA $021A ; Timer2 $021A
+      generated: $0E49 68       PLA
+      orig operand: Timer2 $021A
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    ConsoleTimer+$002F #0020
+      original : $0E52 20 1C 0E JSR $0E1C ; DoConsole $0E1C
+      generated: $0E4A 95 A8    STA $A8,X
+      orig operand: DoConsole $0E1C
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    ConsoleTimer+$0032 #0021
+      original : $0E55 A2 00    LDX #$00
+      generated: $0E4C E8       INX
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    ConsoleTimer+$0034 #0022
+      original : $0E57 68       PLA
+      generated: $0E4D E0 08    CPX #$08
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    ConsoleTimer+$0035 #0023
+      original : $0E58 95 A8    STA $A8,X
+      generated: $0E4F D0 F8    BNE $0E49
+      source   : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    ConsoleTimer+$0037 #0024
+      original : $0E5A E8       INX
+      generated: $0E51 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0E51-$0E51
+    ConsoleTimer+$0038 #0025
+      original : $0E5B E0 08    CPX #$08
+      generated: $0E52 AD 1F D0 LDA $D01F
+      source   : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190 code $0E52-$0E7E
+    ConsoleTimer+$003A #0026
+      original : $0E5D D0 F8    BNE $0E57
+      generated: $0E55 29 02    AND #$02
+      source   : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190 code $0E52-$0E7E
+    ConsoleTimer+$003C #0027
+      original : $0E5F 60       RTS
+      generated: $0E57 85 AE    STA $AE
+      source   : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190 code $0E52-$0E7E
+    ConsoleTimer+$003D #0028
+      original : $0E60 AD 1F D0 LDA $D01F ; console $D01F
+      generated: $0E59 D0 24    BNE $0E7F
+      orig operand: console $D01F
+      source   : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190 code $0E52-$0E7E
+    ConsoleTimer+$0040 #0029
+      original : $0E63 29 02    AND #$02
+      generated: $0E5B AD 11 0E LDA $0E11
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:58:5 | TempVec=Select | source 1117..1131 code $0E5B-$0E66
+  InitConsole              len 63 -> 51 (-12)  addr $0ED9 -> $0EC1
+    InitConsole+$0000 #0000
+      original : $0ED9 4C DC 0E JMP $0EDC
+      generated: $0EC1 A9 0E    LDA #$0E
+      orig owner: InitConsole $0ED9
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EC1-$0ECA
+    InitConsole+$0003 #0001
+      original : $0EDC AD 1A 0E LDA $0E1A
+      generated: $0EC3 8D 0D 0E STA $0E0D
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EC1-$0ECA
+    InitConsole+$0006 #0002
+      original : $0EDF 8D 0D 0E STA $0E0D ; Start+1 $0E0D
+      generated: $0EC6 A9 18    LDA #$18
+      orig operand: Start+1 $0E0D
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EC1-$0ECA
+    InitConsole+$0009 #0003
+      original : $0EE2 AD 19 0E LDA $0E19
+      generated: $0EC8 8D 0C 0E STA $0E0C
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EC1-$0ECA
+    InitConsole+$000C #0004
+      original : $0EE5 8D 0C 0E STA $0E0C ; Start $0E0C
+      generated: $0ECB A9 0E    LDA #$0E
+      orig operand: Start $0E0C
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0ECB-$0ED4
+    InitConsole+$000F #0005
+      original : $0EE8 AD 1A 0E LDA $0E1A
+      generated: $0ECD 8D 11 0E STA $0E11
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0ECB-$0ED4
+    InitConsole+$0012 #0006
+      original : $0EEB 8D 11 0E STA $0E11 ; Select+1 $0E11
+      generated: $0ED0 A9 18    LDA #$18
+      orig operand: Select+1 $0E11
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0ECB-$0ED4
+    InitConsole+$0015 #0007
+      original : $0EEE AD 19 0E LDA $0E19
+      generated: $0ED2 8D 10 0E STA $0E10
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0ECB-$0ED4
+    InitConsole+$0018 #0008
+      original : $0EF1 8D 10 0E STA $0E10 ; Select $0E10
+      generated: $0ED5 A9 0E    LDA #$0E
+      orig operand: Select $0E10
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0ED5-$0EDE
+    InitConsole+$001B #0009
+      original : $0EF4 AD 1A 0E LDA $0E1A
+      generated: $0ED7 8D 15 0E STA $0E15
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0ED5-$0EDE
+    InitConsole+$001E #0010
+      original : $0EF7 8D 15 0E STA $0E15 ; Option+1 $0E15
+      generated: $0EDA A9 18    LDA #$18
+      orig operand: Option+1 $0E15
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0ED5-$0EDE
+    InitConsole+$0021 #0011
+      original : $0EFA AD 19 0E LDA $0E19
+      generated: $0EDC 8D 14 0E STA $0E14
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0ED5-$0EDE
+    InitConsole+$0024 #0012
+      original : $0EFD 8D 14 0E STA $0E14 ; Option $0E14
+      generated: $0EDF A9 0E    LDA #$0E
+      orig operand: Option $0E14
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0EDF-$0EE8
+    InitConsole+$0027 #0013
+      original : $0F00 AD 25 0E LDA $0E25
+      generated: $0EE1 8D 29 02 STA $0229
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0EDF-$0EE8
+    InitConsole+$002A #0014
+      original : $0F03 8D 29 02 STA $0229 ; Timer2Addr+1 $0229
+      generated: $0EE4 A9 1D    LDA #$1D
+      orig operand: Timer2Addr+1 $0229
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0EDF-$0EE8
+    InitConsole+$002D #0015
+      original : $0F06 AD 24 0E LDA $0E24
+      generated: $0EE6 8D 28 02 STA $0228
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0EDF-$0EE8
+    InitConsole+$0030 #0016
+      original : $0F09 8D 28 02 STA $0228 ; Timer2Addr $0228
+      generated: $0EE9 A0 00    LDY #$00
+      orig operand: Timer2Addr $0228
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0EE9-$0EF2
+    InitConsole+$0033 #0017
+      original : $0F0C A0 00    LDY #$00
+      generated: $0EEB 8C 1B 02 STY $021B
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0EE9-$0EF2
+    InitConsole+$0035 #0018
+      original : $0F0E 8C 1B 02 STY $021B ; Timer2+1 $021B
+      generated: $0EEE A9 02    LDA #$02
+      orig operand: Timer2+1 $021B
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0EE9-$0EF2
+    InitConsole+$0038 #0019
+      original : $0F11 A9 02    LDA #$02
+      generated: $0EF0 8D 1A 02 STA $021A
+      source   : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0EE9-$0EF2
+    InitConsole+$003A #0020
+      original : $0F13 8D 1A 02 STA $021A ; Timer2 $021A
+      generated: $0EF3 60       RTS
+      orig operand: Timer2 $021A
+      source   : Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0EF3-$0EF3
+    InitConsole+$003D #0021
+      original : $0F16 60       RTS
+      generated: <missing>
+    InitConsole+$003E #0022
+      original : $0F17 60       RTS
+      generated: <missing>
+
+== expected modern wins ==
+  branch inverted          count 3    saved    9 bytes
+  final RTS removed        count 1    saved    1 bytes
+  register reload removed  count 3    saved    6 bytes
+  trampoline elided        count 4    saved   12 bytes
+details:
+  trampoline elided        saved   3 bytes  $0E18   RTS              elided entry trampoline for RTS
+  trampoline elided        saved   3 bytes  $0E19   DoConsole        elided entry trampoline for DoConsole
+  trampoline elided        saved   3 bytes  $0E1D   ConsoleTimer     elided entry trampoline for ConsoleTimer
+  register reload removed  saved   2 bytes  $0E2C   ConsoleTimer     suppressed redundant LDA $AE
+  branch inverted          saved   3 bytes  $0E2C   ConsoleTimer     inverted branch to condition:true:2 and removed long jump to if:next:1
+  register reload removed  saved   2 bytes  $0E59   ConsoleTimer     suppressed redundant LDA $AE
+  branch inverted          saved   3 bytes  $0E59   ConsoleTimer     inverted branch to condition:true:5 and removed long jump to if:next:4
+  register reload removed  saved   2 bytes  $0E86   ConsoleTimer     suppressed redundant LDA $AE
+  branch inverted          saved   3 bytes  $0E86   ConsoleTimer     inverted branch to condition:true:8 and removed long jump to if:next:7
+  trampoline elided        saved   3 bytes  $0EC1   InitConsole      elided entry trampoline for InitConsole
+  final RTS removed        saved   1 bytes  $0EF4   InitConsole      removed duplicate final program RTS
+
+== routines: compat vs modern ==
+  RTS                      len 4 -> 1 (-3)  addr $0E18 -> $0E18
+    source-range deltas:
+      Routine RTS samples/toolkit/original/extracted/CONSOLE.ACT:23:1 | PROC RTS() | source 484..501  diffs 1
+        left : $0E18-$0E1B len 4
+        right: $0E18-$0E18 len 1
+      Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0  diffs 2
+        left : $0E1B-$0E1B len 1
+        right: $0E18-$0E18 len 1
+    #0000
+      left : $0E18 4C 1B 0E JMP $0E1B
+      right: $0E18 60       RTS
+      left source : Routine RTS samples/toolkit/original/extracted/CONSOLE.ACT:23:1 | PROC RTS() | source 484..501 code $0E18-$0E1B
+      right source: Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0E18-$0E18
+    #0001
+      left : $0E1B 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0E1B-$0E1B
+  DoConsole                len 7 -> 4 (-3)  addr $0E1C -> $0E19
+    source-range deltas:
+      Routine DoConsole samples/toolkit/original/extracted/CONSOLE.ACT:30:1 | PROC DoConsole() | source 608..648  diffs 1
+        left : $0E1C-$0E22 len 7
+        right: $0E19-$0E1C len 4
+      Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0  diffs 2
+        left : $0E1B-$0E1B len 1
+        right: $0E1C-$0E1C len 1
+      MachineBlock machine block samples/toolkit/original/extracted/CONSOLE.ACT:32:3 | [$6C TempVec] | source 628..641  diffs 2
+        left : $0E1F-$0E21 len 3
+        right: $0E19-$0E1B len 3
+    #0000
+      left : $0E1C 4C 1F 0E JMP $0E1F
+      right: $0E19 6C 08 0E JMP ($0E08)
+      left source : Routine DoConsole samples/toolkit/original/extracted/CONSOLE.ACT:30:1 | PROC DoConsole() | source 608..648 code $0E1C-$0E22
+      right source: MachineBlock machine block samples/toolkit/original/extracted/CONSOLE.ACT:32:3 | [$6C TempVec] | source 628..641 code $0E19-$0E1B
+    #0001
+      left : $0E1F 6C 08 0E JMP ($0E08)
+      right: $0E1C 60       RTS
+      left source : MachineBlock machine block samples/toolkit/original/extracted/CONSOLE.ACT:32:3 | [$6C TempVec] | source 628..641 code $0E1F-$0E21
+      right source: Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0E1C-$0E1C
+    #0002
+      left : $0E22 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0E22-$0E22
+  ConsoleTimer             len 182 -> 164 (-18)  addr $0E23 -> $0E1D
+    source-range deltas:
+      Routine ConsoleTimer samples/toolkit/original/extracted/CONSOLE.ACT:40:1 | PROC ConsoleTimer() | source 783..1321  diffs 1
+        left : $0E23-$0ED8 len 182
+        right: $0E1D-$0EC0 len 164
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029  diffs 8
+        left : $0E3C-$0E47 len 12
+        right: $0E2E-$0E39 len 12
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043  diffs 8
+        left : $0E48-$0E51 len 10
+        right: $0E3A-$0E43 len 10
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:58:5 | TempVec=Select | source 1117..1131  diffs 8
+        left : $0E6E-$0E79 len 12
+        right: $0E5B-$0E66 len 12
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:59:5 | Timer2=30 | source 1136..1145  diffs 8
+        left : $0E7A-$0E83 len 10
+        right: $0E67-$0E70 len 10
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:65:5 | TempVec=Option | source 1219..1233  diffs 8
+        left : $0EA0-$0EAB len 12
+        right: $0E88-$0E93 len 12
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:66:5 | Timer2=30 | source 1238..1247  diffs 8
+        left : $0EAC-$0EB5 len 10
+        right: $0E94-$0E9D len 10
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:71:3 | Timer2=2 | source 1295..1303  diffs 8
+        left : $0EC4-$0ECD len 10
+        right: $0EAC-$0EB5 len 10
+      Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987  diffs 10
+        left : $0E26-$0E2D len 8
+        right: $0E1D-$0E24 len 8
+      Statement call samples/toolkit/original/extracted/CONSOLE.ACT:53:5 | DoConsole() | source 1048..1059  diffs 2
+        left : $0E52-$0E54 len 3
+        right: $0E44-$0E46 len 3
+      Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072  diffs 12
+        left : $0E55-$0E5E len 10
+        right: $0E47-$0E50 len 10
+      Statement call samples/toolkit/original/extracted/CONSOLE.ACT:60:5 | DoConsole() | source 1150..1161  diffs 2
+        left : $0E84-$0E86 len 3
+        right: $0E71-$0E73 len 3
+      Statement call samples/toolkit/original/extracted/CONSOLE.ACT:61:5 | GetTemps | source 1166..1174  diffs 12
+        left : $0E87-$0E90 len 10
+        right: $0E74-$0E7D len 10
+      Statement call samples/toolkit/original/extracted/CONSOLE.ACT:67:5 | DoConsole() | source 1252..1263  diffs 2
+        left : $0EB6-$0EB8 len 3
+        right: $0E9E-$0EA0 len 3
+      Statement call samples/toolkit/original/extracted/CONSOLE.ACT:68:5 | GetTemps | source 1268..1276  diffs 12
+        left : $0EB9-$0EC2 len 10
+        right: $0EA1-$0EAA len 10
+      Statement call samples/toolkit/original/extracted/CONSOLE.ACT:72:3 | GetTemps | source 1306..1314  diffs 12
+        left : $0ECE-$0ED7 len 10
+        right: $0EB6-$0EBF len 10
+      Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088  diffs 10
+        left : $0E2E-$0E5F len 50
+        right: $0E25-$0E51 len 45
+      Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190  diffs 10
+        left : $0E60-$0E91 len 50
+        right: $0E52-$0E7E len 45
+      Statement if samples/toolkit/original/extracted/CONSOLE.ACT:64:3 | IF (console&4)=0 THEN | source 1193..1292  diffs 10
+        left : $0E92-$0EC3 len 50
+        right: $0E7F-$0EAB len 45
+      Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0  diffs 8
+        left : $0E1B-$0E1B len 1
+        right: $0E51-$0E51 len 1
+    #0000
+      left : $0E23 4C 26 0E JMP $0E26
+      right: $0E1D A2 07    LDX #$07
+      left source : Routine ConsoleTimer samples/toolkit/original/extracted/CONSOLE.ACT:40:1 | PROC ConsoleTimer() | source 783..1321 code $0E23-$0ED8
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E1D-$0E24
+    #0001
+      left : $0E26 A2 07    LDX #$07
+      right: $0E1F B5 A8    LDA $A8,X
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E26-$0E2D
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E1D-$0E24
+    #0002
+      left : $0E28 B5 A8    LDA $A8,X
+      right: $0E21 48       PHA
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E26-$0E2D
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E1D-$0E24
+    #0003
+      left : $0E2A 48       PHA
+      right: $0E22 CA       DEX
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E26-$0E2D
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E1D-$0E24
+    #0004
+      left : $0E2B CA       DEX
+      right: $0E23 10 FA    BPL $0E1F
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E26-$0E2D
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E1D-$0E24
+    #0005
+      left : $0E2C 10 FA    BPL $0E28
+      right: $0E25 AD 1F D0 LDA $D01F
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:49:3 | SaveTemps | source 978..987 code $0E26-$0E2D
+      right source: Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E25-$0E51
+    #0006
+      left : $0E2E AD 1F D0 LDA $D01F
+      right: $0E28 29 01    AND #$01
+      left source : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E2E-$0E5F
+      right source: Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E25-$0E51
+    #0007
+      left : $0E31 29 01    AND #$01
+      right: $0E2A 85 AE    STA $AE
+      left source : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E2E-$0E5F
+      right source: Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E25-$0E51
+    #0008
+      left : $0E33 85 AE    STA $AE
+      right: $0E2C D0 24    BNE $0E52
+      left source : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E2E-$0E5F
+      right source: Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E25-$0E51
+    #0009
+      left : $0E35 A5 AE    LDA $AE
+      right: $0E2E AD 0D 0E LDA $0E0D
+      left source : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E2E-$0E5F
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E2E-$0E39
+    #0010
+      left : $0E37 F0 03    BEQ $0E3C
+      right: $0E31 8D 09 0E STA $0E09
+      left source : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E2E-$0E5F
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E2E-$0E39
+    #0011
+      left : $0E39 4C 60 0E JMP $0E60
+      right: $0E34 AD 0C 0E LDA $0E0C
+      left source : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:50:3 | IF (console&1)=0 THEN | source 990..1088 code $0E2E-$0E5F
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E2E-$0E39
+    #0012
+      left : $0E3C AD 0D 0E LDA $0E0D
+      right: $0E37 8D 08 0E STA $0E08
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E3C-$0E47
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E2E-$0E39
+    #0013
+      left : $0E3F 8D 09 0E STA $0E09
+      right: $0E3A A0 00    LDY #$00
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E3C-$0E47
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E3A-$0E43
+    #0014
+      left : $0E42 AD 0C 0E LDA $0E0C
+      right: $0E3C 8C 1B 02 STY $021B
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E3C-$0E47
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E3A-$0E43
+    #0015
+      left : $0E45 8D 08 0E STA $0E08
+      right: $0E3F A9 1E    LDA #$1E
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:51:5 | TempVec=Start | source 1016..1029 code $0E3C-$0E47
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E3A-$0E43
+    #0016
+      left : $0E48 A0 00    LDY #$00
+      right: $0E41 8D 1A 02 STA $021A
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E48-$0E51
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E3A-$0E43
+    #0017
+      left : $0E4A 8C 1B 02 STY $021B
+      right: $0E44 20 19 0E JSR $0E19
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E48-$0E51
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:53:5 | DoConsole() | source 1048..1059 code $0E44-$0E46
+    #0018
+      left : $0E4D A9 1E    LDA #$1E
+      right: $0E47 A2 00    LDX #$00
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E48-$0E51
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    #0019
+      left : $0E4F 8D 1A 02 STA $021A
+      right: $0E49 68       PLA
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:52:5 | Timer2=30 | source 1034..1043 code $0E48-$0E51
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    #0020
+      left : $0E52 20 1C 0E JSR $0E1C
+      right: $0E4A 95 A8    STA $A8,X
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:53:5 | DoConsole() | source 1048..1059 code $0E52-$0E54
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    #0021
+      left : $0E55 A2 00    LDX #$00
+      right: $0E4C E8       INX
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E55-$0E5E
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    #0022
+      left : $0E57 68       PLA
+      right: $0E4D E0 08    CPX #$08
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E55-$0E5E
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    #0023
+      left : $0E58 95 A8    STA $A8,X
+      right: $0E4F D0 F8    BNE $0E49
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E55-$0E5E
+      right source: Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E47-$0E50
+    #0024
+      left : $0E5A E8       INX
+      right: $0E51 60       RTS
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E55-$0E5E
+      right source: Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0E51-$0E51
+    #0025
+      left : $0E5B E0 08    CPX #$08
+      right: $0E52 AD 1F D0 LDA $D01F
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E55-$0E5E
+      right source: Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190 code $0E52-$0E7E
+    #0026
+      left : $0E5D D0 F8    BNE $0E57
+      right: $0E55 29 02    AND #$02
+      left source : Statement call samples/toolkit/original/extracted/CONSOLE.ACT:54:5 | GetTemps | source 1064..1072 code $0E55-$0E5E
+      right source: Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190 code $0E52-$0E7E
+    #0027
+      left : $0E5F 60       RTS
+      right: $0E57 85 AE    STA $AE
+      left source : Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0E5F-$0E5F
+      right source: Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190 code $0E52-$0E7E
+    #0028
+      left : $0E60 AD 1F D0 LDA $D01F
+      right: $0E59 D0 24    BNE $0E7F
+      left source : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190 code $0E60-$0E91
+      right source: Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190 code $0E52-$0E7E
+    #0029
+      left : $0E63 29 02    AND #$02
+      right: $0E5B AD 11 0E LDA $0E11
+      left source : Statement if samples/toolkit/original/extracted/CONSOLE.ACT:57:3 | IF (console&2)=0 THEN | source 1091..1190 code $0E60-$0E91
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:58:5 | TempVec=Select | source 1117..1131 code $0E5B-$0E66
+  InitConsole              len 62 -> 51 (-11)  addr $0ED9 -> $0EC1
+    source-range deltas:
+      Routine InitConsole samples/toolkit/original/extracted/CONSOLE.ACT:79:1 | PROC InitConsole() | source 1438..1563  diffs 1
+        left : $0ED9-$0F16 len 62
+        right: $0EC1-$0EF3 len 51
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493  diffs 8
+        left : $0EDC-$0EE7 len 12
+        right: $0EC1-$0ECA len 10
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506  diffs 8
+        left : $0EE8-$0EF3 len 12
+        right: $0ECB-$0ED4 len 10
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519  diffs 8
+        left : $0EF4-$0EFF len 12
+        right: $0ED5-$0EDE len 10
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545  diffs 8
+        left : $0F00-$0F0B len 12
+        right: $0EDF-$0EE8 len 10
+      Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556  diffs 8
+        left : $0F0C-$0F15 len 10
+        right: $0EE9-$0EF2 len 10
+      Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0  diffs 2
+        left : $0E1B-$0E1B len 1
+        right: $0EF3-$0EF3 len 1
+    #0000
+      left : $0ED9 4C DC 0E JMP $0EDC
+      right: $0EC1 A9 0E    LDA #$0E
+      left source : Routine InitConsole samples/toolkit/original/extracted/CONSOLE.ACT:79:1 | PROC InitConsole() | source 1438..1563 code $0ED9-$0F16
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EC1-$0ECA
+    #0001
+      left : $0EDC AD 1A 0E LDA $0E1A
+      right: $0EC3 8D 0D 0E STA $0E0D
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EDC-$0EE7
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EC1-$0ECA
+    #0002
+      left : $0EDF 8D 0D 0E STA $0E0D
+      right: $0EC6 A9 18    LDA #$18
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EDC-$0EE7
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EC1-$0ECA
+    #0003
+      left : $0EE2 AD 19 0E LDA $0E19
+      right: $0EC8 8D 0C 0E STA $0E0C
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EDC-$0EE7
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EC1-$0ECA
+    #0004
+      left : $0EE5 8D 0C 0E STA $0E0C
+      right: $0ECB A9 0E    LDA #$0E
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:83:3 | Start=RTS | source 1484..1493 code $0EDC-$0EE7
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0ECB-$0ED4
+    #0005
+      left : $0EE8 AD 1A 0E LDA $0E1A
+      right: $0ECD 8D 11 0E STA $0E11
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0EE8-$0EF3
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0ECB-$0ED4
+    #0006
+      left : $0EEB 8D 11 0E STA $0E11
+      right: $0ED0 A9 18    LDA #$18
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0EE8-$0EF3
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0ECB-$0ED4
+    #0007
+      left : $0EEE AD 19 0E LDA $0E19
+      right: $0ED2 8D 10 0E STA $0E10
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0EE8-$0EF3
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0ECB-$0ED4
+    #0008
+      left : $0EF1 8D 10 0E STA $0E10
+      right: $0ED5 A9 0E    LDA #$0E
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:84:3 | Select=RTS | source 1496..1506 code $0EE8-$0EF3
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0ED5-$0EDE
+    #0009
+      left : $0EF4 AD 1A 0E LDA $0E1A
+      right: $0ED7 8D 15 0E STA $0E15
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0EF4-$0EFF
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0ED5-$0EDE
+    #0010
+      left : $0EF7 8D 15 0E STA $0E15
+      right: $0EDA A9 18    LDA #$18
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0EF4-$0EFF
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0ED5-$0EDE
+    #0011
+      left : $0EFA AD 19 0E LDA $0E19
+      right: $0EDC 8D 14 0E STA $0E14
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0EF4-$0EFF
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0ED5-$0EDE
+    #0012
+      left : $0EFD 8D 14 0E STA $0E14
+      right: $0EDF A9 0E    LDA #$0E
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:85:3 | Option=RTS | source 1509..1519 code $0EF4-$0EFF
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0EDF-$0EE8
+    #0013
+      left : $0F00 AD 25 0E LDA $0E25
+      right: $0EE1 8D 29 02 STA $0229
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0F00-$0F0B
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0EDF-$0EE8
+    #0014
+      left : $0F03 8D 29 02 STA $0229
+      right: $0EE4 A9 1D    LDA #$1D
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0F00-$0F0B
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0EDF-$0EE8
+    #0015
+      left : $0F06 AD 24 0E LDA $0E24
+      right: $0EE6 8D 28 02 STA $0228
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0F00-$0F0B
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0EDF-$0EE8
+    #0016
+      left : $0F09 8D 28 02 STA $0228
+      right: $0EE9 A0 00    LDY #$00
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:86:3 | Timer2Addr=ConsoleTimer | source 1522..1545 code $0F00-$0F0B
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0EE9-$0EF2
+    #0017
+      left : $0F0C A0 00    LDY #$00
+      right: $0EEB 8C 1B 02 STY $021B
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0F0C-$0F15
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0EE9-$0EF2
+    #0018
+      left : $0F0E 8C 1B 02 STY $021B
+      right: $0EEE A9 02    LDA #$02
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0F0C-$0F15
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0EE9-$0EF2
+    #0019
+      left : $0F11 A9 02    LDA #$02
+      right: $0EF0 8D 1A 02 STA $021A
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0F0C-$0F15
+      right source: Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0EE9-$0EF2
+    #0020
+      left : $0F13 8D 1A 02 STA $021A
+      right: $0EF3 60       RTS
+      left source : Statement assignment samples/toolkit/original/extracted/CONSOLE.ACT:87:3 | Timer2=2 | source 1548..1556 code $0F0C-$0F15
+      right source: Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0EF3-$0EF3
+    #0021
+      left : $0F16 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CONSOLE.ACT:1:1 |  | source 0..0 code $0F16-$0F16
+
+== bytes: original:samples/toolkit/survey/outputs/vm/CONSOLE.COM vs compat ==
+exact: true  sizes: 284 vs 284
+first diffs: none
+
+== instructions: original:samples/toolkit/survey/outputs/vm/CONSOLE.COM vs compat ==
+counts: 127 vs 127
+first diffs: none
+
+== bytes: original:samples/toolkit/survey/outputs/vm/CONSOLE.COM vs modern ==
+exact: false  sizes: 284 vs 248
+first diffs:
+  @0004: $17 -> $F3
+  @0005: $0F -> $0E
+  @0016: $4C -> $60
+  @0017: $1B -> $6C
+  @0018: $0E -> $08
+  @0019: $60 -> $0E
+  @001A: $4C -> $60
+  @001B: $1F -> $A2
+  @001C: $0E -> $07
+  @001D: $6C -> $B5
+  @001E: $08 -> $A8
+  @001F: $0E -> $48
+  @0020: $60 -> $CA
+  @0021: $4C -> $10
+  @0022: $26 -> $FA
+  @0023: $0E -> $AD
+  @0024: $A2 -> $1F
+  @0025: $07 -> $D0
+  @0026: $B5 -> $29
+  @0027: $A8 -> $01
+  @0028: $48 -> $85
+  @0029: $CA -> $AE
+  @002A: $10 -> $D0
+  @002B: $FA -> $24
+  @002D: $1F -> $0D
+  @002E: $D0 -> $0E
+  @002F: $29 -> $8D
+  @0030: $01 -> $09
+  @0031: $85 -> $0E
+  @0032: $AE -> $AD
+
+== instructions: original:samples/toolkit/survey/outputs/vm/CONSOLE.COM vs modern ==
+counts: 127 vs 116
+  #0016
+    left : $0E18 4C 1B 0E JMP $0E1B
+    right: $0E18 60       RTS
+  #0017
+    left : $0E1B 60       RTS
+    right: $0E19 6C 08 0E JMP ($0E08)
+  #0018
+    left : $0E1C 4C 1F 0E JMP $0E1F
+    right: $0E1C 60       RTS
+  #0019
+    left : $0E1F 6C 08 0E JMP ($0E08)
+    right: $0E1D A2 07    LDX #$07
+  #0020
+    left : $0E22 60       RTS
+    right: $0E1F B5 A8    LDA $A8,X
+  #0021
+    left : $0E23 4C 26 0E JMP $0E26
+    right: $0E21 48       PHA
+  #0022
+    left : $0E26 A2 07    LDX #$07
+    right: $0E22 CA       DEX
+  #0023
+    left : $0E28 B5 A8    LDA $A8,X
+    right: $0E23 10 FA    BPL $0E1F
+  #0024
+    left : $0E2A 48       PHA
+    right: $0E25 AD 1F D0 LDA $D01F
+  #0025
+    left : $0E2B CA       DEX
+    right: $0E28 29 01    AND #$01
+  #0026
+    left : $0E2C 10 FA    BPL $0E28
+    right: $0E2A 85 AE    STA $AE
+  #0027
+    left : $0E2E AD 1F D0 LDA $D01F
+    right: $0E2C D0 24    BNE $0E52
+  #0028
+    left : $0E31 29 01    AND #$01
+    right: $0E2E AD 0D 0E LDA $0E0D
+  #0029
+    left : $0E33 85 AE    STA $AE
+    right: $0E31 8D 09 0E STA $0E09
+  #0030
+    left : $0E35 A5 AE    LDA $AE
+    right: $0E34 AD 0C 0E LDA $0E0C
+  #0031
+    left : $0E37 F0 03    BEQ $0E3C
+    right: $0E37 8D 08 0E STA $0E08
+  #0032
+    left : $0E39 4C 60 0E JMP $0E60
+    right: $0E3A A0 00    LDY #$00
+  #0033
+    left : $0E3C AD 0D 0E LDA $0E0D
+    right: $0E3C 8C 1B 02 STY $021B
+  #0034
+    left : $0E3F 8D 09 0E STA $0E09
+    right: $0E3F A9 1E    LDA #$1E
+  #0035
+    left : $0E42 AD 0C 0E LDA $0E0C
+    right: $0E41 8D 1A 02 STA $021A
+  #0036
+    left : $0E45 8D 08 0E STA $0E08
+    right: $0E44 20 19 0E JSR $0E19
+  #0037
+    left : $0E48 A0 00    LDY #$00
+    right: $0E47 A2 00    LDX #$00
+  #0038
+    left : $0E4A 8C 1B 02 STY $021B
+    right: $0E49 68       PLA
+  #0039
+    left : $0E4D A9 1E    LDA #$1E
+    right: $0E4A 95 A8    STA $A8,X
+  #0040
+    left : $0E4F 8D 1A 02 STA $021A
+    right: $0E4C E8       INX
+  #0041
+    left : $0E52 20 1C 0E JSR $0E1C
+    right: $0E4D E0 08    CPX #$08
+  #0042
+    left : $0E55 A2 00    LDX #$00
+    right: $0E4F D0 F8    BNE $0E49
+  #0043
+    left : $0E57 68       PLA
+    right: $0E51 60       RTS
+  #0044
+    left : $0E58 95 A8    STA $A8,X
+    right: $0E52 AD 1F D0 LDA $D01F
+  #0045
+    left : $0E5A E8       INX
+    right: $0E55 29 02    AND #$02
+
+== bytes: compat vs modern ==
+exact: false  sizes: 284 vs 248
+first diffs:
+  @0004: $17 -> $F3
+  @0005: $0F -> $0E
+  @0016: $4C -> $60
+  @0017: $1B -> $6C
+  @0018: $0E -> $08
+  @0019: $60 -> $0E
+  @001A: $4C -> $60
+  @001B: $1F -> $A2
+  @001C: $0E -> $07
+  @001D: $6C -> $B5
+  @001E: $08 -> $A8
+  @001F: $0E -> $48
+  @0020: $60 -> $CA
+  @0021: $4C -> $10
+  @0022: $26 -> $FA
+  @0023: $0E -> $AD
+  @0024: $A2 -> $1F
+  @0025: $07 -> $D0
+  @0026: $B5 -> $29
+  @0027: $A8 -> $01
+  @0028: $48 -> $85
+  @0029: $CA -> $AE
+  @002A: $10 -> $D0
+  @002B: $FA -> $24
+  @002D: $1F -> $0D
+  @002E: $D0 -> $0E
+  @002F: $29 -> $8D
+  @0030: $01 -> $09
+  @0031: $85 -> $0E
+  @0032: $AE -> $AD
+
+== instructions: compat vs modern ==
+counts: 127 vs 116
+  #0016
+    left : $0E18 4C 1B 0E JMP $0E1B
+    right: $0E18 60       RTS
+  #0017
+    left : $0E1B 60       RTS
+    right: $0E19 6C 08 0E JMP ($0E08)
+  #0018
+    left : $0E1C 4C 1F 0E JMP $0E1F
+    right: $0E1C 60       RTS
+  #0019
+    left : $0E1F 6C 08 0E JMP ($0E08)
+    right: $0E1D A2 07    LDX #$07
+  #0020
+    left : $0E22 60       RTS
+    right: $0E1F B5 A8    LDA $A8,X
+  #0021
+    left : $0E23 4C 26 0E JMP $0E26
+    right: $0E21 48       PHA
+  #0022
+    left : $0E26 A2 07    LDX #$07
+    right: $0E22 CA       DEX
+  #0023
+    left : $0E28 B5 A8    LDA $A8,X
+    right: $0E23 10 FA    BPL $0E1F
+  #0024
+    left : $0E2A 48       PHA
+    right: $0E25 AD 1F D0 LDA $D01F
+  #0025
+    left : $0E2B CA       DEX
+    right: $0E28 29 01    AND #$01
+  #0026
+    left : $0E2C 10 FA    BPL $0E28
+    right: $0E2A 85 AE    STA $AE
+  #0027
+    left : $0E2E AD 1F D0 LDA $D01F
+    right: $0E2C D0 24    BNE $0E52
+  #0028
+    left : $0E31 29 01    AND #$01
+    right: $0E2E AD 0D 0E LDA $0E0D
+  #0029
+    left : $0E33 85 AE    STA $AE
+    right: $0E31 8D 09 0E STA $0E09
+  #0030
+    left : $0E35 A5 AE    LDA $AE
+    right: $0E34 AD 0C 0E LDA $0E0C
+  #0031
+    left : $0E37 F0 03    BEQ $0E3C
+    right: $0E37 8D 08 0E STA $0E08
+  #0032
+    left : $0E39 4C 60 0E JMP $0E60
+    right: $0E3A A0 00    LDY #$00
+  #0033
+    left : $0E3C AD 0D 0E LDA $0E0D
+    right: $0E3C 8C 1B 02 STY $021B
+  #0034
+    left : $0E3F 8D 09 0E STA $0E09
+    right: $0E3F A9 1E    LDA #$1E
+  #0035
+    left : $0E42 AD 0C 0E LDA $0E0C
+    right: $0E41 8D 1A 02 STA $021A
+  #0036
+    left : $0E45 8D 08 0E STA $0E08
+    right: $0E44 20 19 0E JSR $0E19
+  #0037
+    left : $0E48 A0 00    LDY #$00
+    right: $0E47 A2 00    LDX #$00
+  #0038
+    left : $0E4A 8C 1B 02 STY $021B
+    right: $0E49 68       PLA
+  #0039
+    left : $0E4D A9 1E    LDA #$1E
+    right: $0E4A 95 A8    STA $A8,X
+  #0040
+    left : $0E4F 8D 1A 02 STA $021A
+    right: $0E4C E8       INX
+  #0041
+    left : $0E52 20 1C 0E JSR $0E1C
+    right: $0E4D E0 08    CPX #$08
+  #0042
+    left : $0E55 A2 00    LDX #$00
+    right: $0E4F D0 F8    BNE $0E49
+  #0043
+    left : $0E57 68       PLA
+    right: $0E51 60       RTS
+  #0044
+    left : $0E58 95 A8    STA $A8,X
+    right: $0E52 AD 1F D0 LDA $D01F
+  #0045
+    left : $0E5A E8       INX
+    right: $0E55 29 02    AND #$02

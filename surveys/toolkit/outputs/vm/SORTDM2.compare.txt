@@ -1,0 +1,1 @@
+3168..3195: function `Compare` may exit without RETURN value

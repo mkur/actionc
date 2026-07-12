@@ -1,0 +1,12 @@
+; Probe user global shadowing the predefined/resident color variable.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE color, result
+
+PROC Main()
+  color = $22
+  result = color
+RETURN

@@ -1,0 +1,13 @@
+program modules=1
+  module #0 items=5
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte x#74/scope1:Var:Byte scalar
+    decl Byte y#75/scope1:Var:Byte scalar
+    routine PROC Main#76/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign x:Byte:facts=w1,Unsigned = 1:Byte:Value:eval4:facts=w1,Unsigned
+        assign y:Byte:facts=w1,Unsigned = x:Byte:LValue:eval5:facts=w1,Unsigned
+        return

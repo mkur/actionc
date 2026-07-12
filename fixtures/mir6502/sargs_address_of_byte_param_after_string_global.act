@@ -1,0 +1,15 @@
+CHAR ARRAY banner(0)="ABCDEFGHIJKLMNOP"
+BYTE observed
+
+PROC Touch(BYTE POINTER p)
+  p^ = 7
+RETURN
+
+PROC Caller(BYTE a,b,c,d)
+  Touch(@c)
+  observed = c
+RETURN
+
+PROC Main()
+  Caller(1,2,3,4)
+RETURN

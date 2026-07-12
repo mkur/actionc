@@ -1,0 +1,52 @@
+; Isolate TN DrawWinFrame-style code shape:
+; - byte multiply assignment
+; - negative byte literal argument
+; - string literal arguments
+; - indexed string pointer argument
+; - short FOR loop around repeated string output
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE winnum, drive, nestLevel, zx, zy, i
+BYTE ARRAY root(0)="ROOT", sub(0)="SUB"
+CARD ARRAY dirnames(2)
+
+PROC Relpos(BYTE x, y)
+RETURN
+
+PROC Putchar(CHAR ch)
+RETURN
+
+PROC Print(CHAR ARRAY s)
+RETURN
+
+PROC PrintE(CHAR ARRAY s)
+RETURN
+
+PROC Block(BYTE mode, width, fill)
+RETURN
+
+PROC Main()
+  dirnames(0)=root
+  dirnames(1)=sub
+  zx=20*winnum
+  zy=3
+  Relpos(0, -1)
+  Print("   D")
+  Putchar('0%drive)
+  Print(">            ")
+  Relpos(7, -1)
+  Print(dirnames(nestLevel))
+  Relpos(0, -1)
+  Block(128, 19, 0)
+  Relpos(0, 0)
+  PrintE("+----------+---+---+")
+  FOR i=0 TO 3 DO
+    PrintE("|          |   |   |")
+  OD
+  PrintE("+----------+---+---+")
+  zx==+1 zy==+1
+RETURN

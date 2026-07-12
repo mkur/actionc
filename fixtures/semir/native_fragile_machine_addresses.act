@@ -1,0 +1,14 @@
+SET $491=$3000
+SET $E=$3000
+
+CARD vec=$0A,
+     tmp=$86
+
+PROC Main()
+  tmp=$3456
+  [$A9 <tmp
+   $85 vec
+   $A9 >tmp
+   $85 vec+1
+   $6C vec]
+RETURN

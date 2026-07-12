@@ -1,0 +1,27 @@
+nir program
+global Pair: type RecordType { name: "Pair", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "word", ty: ValueType { base: Fund(Card), pointer: false }, offset: 1 }], size: 3 } fields=2
+global rec: Pair
+global gb: Byte
+global gw: Card
+
+routine <program> params=[-] locals=[-]
+bb2:
+  store @$0491 = $3000
+  store @$000E = $3000
+  fallthrough
+
+routine Touch params=[rp] locals=[-]
+bb0:
+  store rp.+0 = $11
+  store rp.+1 = $2233
+  %t0:Byte = load rp.+0
+  store gb = %t0
+  %t1:Card = load rp.+1
+  store gw = %t1
+  return
+
+routine Main params=[-] locals=[-]
+bb1:
+  %t0:Pair* = addr rec
+  call Touch(%t0)
+  return

@@ -1,0 +1,13 @@
+mir6502 program
+global g0 data: byte storage global+0 size=300 init zero_fill=300 section=global mutable=true
+global g1 i: byte storage global+300
+global g2 out: byte storage global+301
+
+routine r0 Main
+b0 bb0:
+  store.b global g1+0, #$02
+  v0 =.w lea global g0+0
+  v1 =.b load global g1+0
+  v2 =.b load computed global_addr g0[v1;1]+0
+  store.b global g2+0, v2
+  return

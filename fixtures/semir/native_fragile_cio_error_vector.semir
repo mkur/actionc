@@ -1,0 +1,30 @@
+program modules=1
+  module #0 items=8
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte ioerr#74/scope1:Var:Byte scalar
+      init $341:Card:Value:eval4:facts=w2,Unsigned
+    decl PROC() ErrorHandler#75/scope1:Var:PROC() scalar
+    routine PROC Error#76/scope1:Proc:?
+      callable PROC()
+      flow always_returns=false may_fall_through=true contains_return=false contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+    routine PROC Handler#77/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign ioerr:Byte:facts=w1,Unsigned = 2:Byte:Value:eval5:facts=w1,Unsigned
+        return
+    routine PROC Cio#78/scope1:Proc:?
+      callable PROC()
+      system *:Card:Value:eval6:facts=w2,Unsigned
+      flow always_returns=true may_fall_through=false contains_return=false contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        machine items=10 effects=none
+    routine PROC Main#79/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign ErrorHandler:PROC():facts=w2 = @Handler:PROC():Value:eval7:facts=w2
+        call user Cio -> ? callable=PROC() effects=none
+        return

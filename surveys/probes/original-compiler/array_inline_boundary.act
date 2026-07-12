@@ -1,0 +1,56 @@
+; Probe the exact original Action! BYTE ARRAY inline boundary.
+;
+; The 128-byte increment probe shows 256-byte arrays inline and 320-byte
+; arrays descriptor-backed.  This narrows the boundary with 255/256/257 for
+; both global and local sized BYTE ARRAY declarations.
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+BYTE ARRAY g255(255)
+PROC MarkG255=*() [$60]
+
+MODULE
+BYTE ARRAY g256(256)
+PROC MarkG256=*() [$60]
+
+MODULE
+BYTE ARRAY g257(257)
+PROC MarkG257=*() [$60]
+
+MODULE
+BYTE sink
+
+PROC Local255()
+  BYTE ARRAY l255(255)
+  l255(0) = 1
+  l255(254) = 2
+  sink = l255(0)
+RETURN
+
+PROC Local256()
+  BYTE ARRAY l256(256)
+  l256(0) = 1
+  l256(255) = 2
+  sink = l256(0)
+RETURN
+
+PROC Local257()
+  BYTE ARRAY l257(257)
+  l257(0) = 1
+  l257(256) = 2
+  sink = l257(0)
+RETURN
+
+PROC Main()
+  g255(0) = 1
+  g255(254) = 2
+  g256(0) = 1
+  g256(255) = 2
+  g257(0) = 1
+  g257(256) = 2
+  Local255()
+  Local256()
+  Local257()
+RETURN

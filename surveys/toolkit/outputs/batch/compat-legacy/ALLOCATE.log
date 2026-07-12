@@ -1,0 +1,8 @@
+source: samples/toolkit/original/extracted/ALLOCATE.ACT
+source_policy: auto
+compile_source: [tmp]/ALLOCATE-harness.act
+profile: compat
+backend: legacy
+codegen_source: ast
+status: ok
+detail: wrote samples/toolkit/survey/outputs/batch/compat-legacy/ALLOCATE.COM

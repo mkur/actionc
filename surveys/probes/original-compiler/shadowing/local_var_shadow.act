@@ -1,0 +1,14 @@
+; Probe local variable shadowing a global variable.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE x, result
+
+PROC Main()
+  BYTE x
+
+  x = $11
+  result = x
+RETURN

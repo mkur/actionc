@@ -1,0 +1,5 @@
+mir6502 program
+
+routine r0 Main
+b0 bb0:
+  return

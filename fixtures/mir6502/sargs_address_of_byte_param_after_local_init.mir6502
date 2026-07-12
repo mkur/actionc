@@ -1,0 +1,27 @@
+mir6502 program
+global g0 observed: byte storage global+0
+
+routine r0 Noise
+  local l0 init bytes=[$10 $41 $42 $43 $44 $45 $46 $47 $48 $49 $4A $4B $4C $4D $4E $4F $50] zero_fill=0 section=local mutable=true
+b0 bb0:
+  return
+
+routine r1 Touch
+b0 bb1:
+  v0 =.w load param p0+0
+  store.b *v0+0, #$07
+  return
+
+routine r2 Caller
+b0 bb2:
+  v0 =.w lea param p2+0
+  call r1 args=[v0.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  v1 =.b load param p2+0
+  store.b global g0+0, v1
+  return
+
+routine r3 Main
+b0 bb3:
+  call r0 args=[] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r2 args=[#$01.b -> a, #$02.b -> x, #$03.b -> y, #$04.b -> fixed_zp $A3] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

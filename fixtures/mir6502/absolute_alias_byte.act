@@ -1,0 +1,5 @@
+BYTE COLOR=$02C8
+
+PROC Main()
+  COLOR=4
+RETURN

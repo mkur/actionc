@@ -1,0 +1,15 @@
+PROC Target=*()
+RETURN
+
+PROC Table=*()
+  [<Target >Target]
+
+PROC Main()
+
+  CARD ARRAY adr(1)=Table
+  CARD go
+
+  go = adr(0)
+  [$6C go]
+
+RETURN

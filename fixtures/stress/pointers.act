@@ -1,0 +1,90 @@
+; Pointer stress program.
+;
+; This is intentionally broader than the narrow pointer probe. It stresses:
+; - byte/card/int pointer dereference
+; - pointer indexed load/store
+; - pointer increment/decrement
+; - pointer arguments
+; - calls used as RHS for pointer-indexed assignment
+; - source and destination pointer aliasing pressure
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY bytes(8)
+CARD ARRAY words(6)
+INT ARRAY nums(4)
+
+BYTE b0, b1, b2, idx
+CARD c0, c1, c2
+INT n0
+
+BYTE POINTER bp, bq
+CARD POINTER cp, cq
+INT POINTER ip
+
+BYTE FUNC ReadInc(BYTE POINTER p, BYTE i)
+  BYTE v
+  v = p(i)
+  v ==+ 1
+RETURN(v)
+
+PROC StoreThrough(BYTE POINTER p, CARD POINTER q)
+  p^ = $12
+  p(1) = $34
+
+  q^ = $1234
+  q(1) = q^ + 1
+RETURN
+
+PROC CopyCard(CARD POINTER dst, CARD POINTER src)
+  dst^ = src^
+  dst(1) = src(1)
+RETURN
+
+PROC Walk(BYTE POINTER p)
+  p ==+ 2
+  p^ = p^ + 1
+  p ==- 1
+  b0 = p^
+RETURN
+
+PROC Main()
+  bp = bytes
+  bq = bytes
+  cp = words
+  cq = @c2
+  ip = nums
+  idx = 1
+
+  bp^ = $AA
+  bp(idx) = $BB
+  b0 = bp^
+  b1 = bp(idx)
+
+  cp^ = $1122
+  cp(idx) = $3344
+  c0 = cp^
+  c1 = cp(idx)
+
+  ip^ = -1
+  n0 = ip^
+
+  cq^ = cp(idx)
+  cp(idx) = cq^
+
+  IF bp^ = bq^ THEN
+    b2 = 1
+  ELSE
+    b2 = 0
+  FI
+
+  b2 = ReadInc(bp, idx)
+  bp(idx) = ReadInc(bq, 0)
+
+  StoreThrough(bp, cp)
+  CopyCard(cp, cq)
+  Walk(bp)
+RETURN

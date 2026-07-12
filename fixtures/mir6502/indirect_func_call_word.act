@@ -1,0 +1,10 @@
+CARD FUNC Get()
+RETURN($1234)
+
+CARD FUNC POINTER fp
+CARD out
+
+PROC Main()
+  fp=@Get
+  out=fp()
+RETURN

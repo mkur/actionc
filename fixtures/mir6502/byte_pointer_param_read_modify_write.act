@@ -1,0 +1,19 @@
+BYTE value
+
+PROC Dec(BYTE POINTER p)
+  IF p^ # 0 THEN
+    p^ = p^ - 1
+  FI
+RETURN
+
+PROC Inc(BYTE POINTER p, BYTE max)
+  IF p^ < max THEN
+    p^ = p^ + 1
+  FI
+RETURN
+
+PROC Main()
+  value = 1
+  Dec(@value)
+  Inc(@value, 4)
+RETURN

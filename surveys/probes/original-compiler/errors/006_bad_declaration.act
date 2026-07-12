@@ -1,0 +1,6 @@
+; Original compiler error 6: declaration error / wrong declaration format.
+
+BYTE =
+
+PROC Main()
+RETURN

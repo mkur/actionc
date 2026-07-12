@@ -1,0 +1,8 @@
+{
+  "snapshots": [
+    {"pc":"$04C6","label":"segvec","proc":"RTS","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"DoConsole","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"ConsoleTimer","local_index":"$0C04","locals":[{"slot":"$AA","name_addr":"$9479","name":"console","vtype":"$8A","address":"$D01F","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},{"slot":"$DE","name_addr":"$94C5","name":"GetTemps","vtype":"$1B","address":null,"class":"DEFINE `[$A2 0 $68 $95 $A8.                  $E8 $E0 8 $D0 $F8]`","numargs":0,"arg_types_raw":[],"args":[]},{"slot":"$4D","name_addr":"$9484","name":"SaveTemps","vtype":"$1B","address":null,"class":"DEFINE `[$A2 7 $B5 $A8.                   $48 $CA $10 $FA]`","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$A6D2","label":"stop","proc":"InitConsole","local_index":"$0C04","locals":[{"slot":"$69","name_addr":"$9489","name":"Timer2Addr","vtype":"$8C","address":"$0228","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]}]}
+  ]
+}

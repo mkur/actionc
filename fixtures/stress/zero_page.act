@@ -1,0 +1,64 @@
+; Zero-page stress program.
+;
+; This intentionally combines:
+; - pre-code zero-page scalar and pointer aliases
+; - direct zero-page array/pointer access
+; - compound pointer increments
+; - indexed reads/writes through zero-page pointers
+; - card arithmetic using zero-page operands
+
+SET $491=$3000
+SET $E=$3000
+
+BYTE zp_b=$E0
+BYTE zp_i=$E1
+CARD zp_w=$E2
+BYTE POINTER zp_p=$E4
+CARD POINTER zp_q=$E6
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY data(16)
+CARD ARRAY words(8)
+
+BYTE outb
+CARD outw
+
+PROC Init()
+  zp_i = 0
+  zp_b = $10
+  zp_w = $1234
+  zp_p = data
+  zp_q = words
+RETURN
+
+PROC Fill()
+  WHILE zp_i < 6
+  DO
+    zp_p(zp_i) = zp_b
+    zp_q(zp_i) = zp_w + zp_i
+    zp_b ==+ 1
+    zp_i ==+ 1
+  OD
+RETURN
+
+PROC Walk()
+  zp_p ==+ 2
+  outb = zp_p^
+  zp_p ==- 1
+  zp_p^ = outb + 1
+
+  zp_q ==+ 2
+  outw = zp_q^
+  zp_q ==- 1
+  zp_q^ = outw + 1
+RETURN
+
+PROC Main()
+  Init()
+  Fill()
+  Walk()
+RETURN

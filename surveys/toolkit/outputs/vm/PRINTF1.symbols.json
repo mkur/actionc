@@ -1,0 +1,16 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$FE","name_addr":"$9456","name":"Main","vtype":"$C0","address":"$376D","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$EA","name_addr":"$9410","name":"PF_IsDigit","vtype":"$C2","address":"$302B","class":"BYTE FUNC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$38","name_addr":"$9420","name":"PF_Nbase","vtype":"$C4","address":"$3058","class":"CARD FUNC","numargs":3,"arg_types_raw":["$0C","$0C","$12"],"args":["CARD","CARD","BYTE ARRAY"]},
+    {"scope":"global","slot":"$21","name_addr":"$9400","name":"PF_ToLower","vtype":"$C2","address":"$3001","class":"BYTE FUNC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$75","name_addr":"$9444","name":"PrintF","vtype":"$C0","address":"$3709","class":"PROC","numargs":7,"arg_types_raw":["$12","$0C","$0C","$0C","$0C","$0C","$0C"],"args":["BYTE ARRAY","CARD","CARD","CARD","CARD","CARD","CARD"]},
+    {"scope":"global","slot":"$4E","name_addr":"$9430","name":"PrintFD","vtype":"$C0","address":"$3180","class":"PROC","numargs":8,"arg_types_raw":["$8A","$12","$0C","$0C","$0C","$0C","$0C","$0C"],"args":["BYTE","BYTE ARRAY","CARD","CARD","CARD","CARD","CARD","CARD"]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$3B","name_addr":"$947F","name":"i","vtype":"$8C","address":"$375A","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$DD","name_addr":"$9484","name":"string","vtype":"$92","address":"$376B","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

@@ -1,0 +1,647 @@
+
+DEFINE nil  = "0",    
+       true = "1",
+       false = "0",
+       EOL  = "155",
+       ESC  = "27"
+
+BYTE i=$E0,j=$E1,r0=$70
+BYTE kx=$FF,ky=$FE
+
+BYTE zx=$5A,zy=zx+1,zdx=zx+2,zdy=zx+3
+
+SET $E=$E6
+SET $F=$00
+SET $491=$E6
+SET $492=$00
+
+BYTE POINTER screen
+BYTE scl=screen,
+     sch=screen+1
+CARD POINTER allocp
+
+SET $E=$2C00
+SET $491=$2C00
+
+
+PROC r_1=*()
+[$85 $86 $86 $87 $38 $A9 $00 $E5 $86
+ $A8 $A9 $00 $E5 $87 $AA $98 $60]
+
+PROC r_2=*()
+[$F0 $1B $CA $86 $C1 $AA $F0 $15 $86
+ $C0 $A9 $00 $A2 $08 $0A $06 $C0 $90
+ $02 $65 $C1 $CA $D0 $F6 $18 $65 $87
+ $85 $87 $A5 $86 $A6 $87 $60]
+
+PROC r_3=*()
+[$86 $C2 $E0 $00 $10 $03 $20 r_1 $85
+ $82 $86 $83 $A5 $85 $10 $0E $AA $45
+ $C2 $85 $C2 $A5 $84 $20 r_1 $85 $84
+ $86 $85 $A9 $00 $85 $87 $60]
+
+PROC r_Mul=*()
+[$20 r_3 $A6 $82 $F0 $1B $86 $C0 $A6
+ $84 $F0 $15 $CA $86 $C1 $A2 $08 $0A
+ $26 $87 $06 $C0 $90 $06 $65 $C1 $90
+ $02 $E6 $87 $CA $D0 $F0 $85 $86 $A5
+ $82 $A6 $85 $20 r_2 $A5 $83 $A6 $84
+ $20 r_2 $A4 $C2 $10 $03 $4C r_1 $60]
+
+PROC r_Div=*()
+[$20 r_3 $A5 $85 $F0 $27 $A2 $08 $26
+ $82 $26 $83 $26 $87 $38 $A5 $83 $E5
+ $84 $A8 $A5 $87 $E5 $85 $90 $04 $85
+ $87 $84 $83 $CA $D0 $E7 $A5 $82 $2A
+ $A2 $00 $A4 $83 $84 $86 $18 $90 $1D
+ $A2 $10 $26 $82 $26 $83 $2A $B0 $04
+ $C5 $84 $90 $03 $E5 $84 $38 $CA $D0
+ $EF $26 $82 $26 $83 $85 $86 $A5 $82
+ $A6 $83 $A4 $C2 $10 $10 $85 $84 $86
+ $85 $38 $A9 $00 $E5 $84 $A8 $A9 $00
+ $E5 $85 $AA $98 $60]
+
+PROC r_Mod=*()
+[$20 r_Div $A5 $86 $A6 $87 $60]
+
+PROC r_Lsh=*()
+[$A4 $84 $F0 $0A $86 $85 $0A $26 $85
+ $88 $D0 $FA $A6 $85 $60] 
+
+PROC r_Rsh=*()
+[$A4 $84 $F0 $0A $86 $85 $46 $85 $6A
+ $88 $D0 $FA $A6 $85 $60]
+
+PROC r_Par=*()
+[$85 $A0 $86 $A1 $84 $A2 $18 $68 $85
+ $84 $69 $03 $A8 $68 $85 $85 $69 $00
+ $48 $98 $48 $A0 $01 $B1 $84 $85 $82
+ $C8 $B1 $84 $85 $83 $C8 $B1 $84 $A8
+ $B9 $A0 $00 $91 $82 $88 $10 $F8 $60]
+
+SET $4E4=r_Lsh
+SET $4E6=r_Rsh
+SET $4E8=r_Mul
+SET $4EA=r_Div
+SET $4EC=r_Mod
+SET $4EE=r_Par
+
+
+;\{INV:                     }
+;\{INV: memory allocation   }
+;\{INV:                     }
+
+MODULE
+  
+BYTE ARRAY allocbuf($800)=$2000
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers $A0-$A2
+;@actionc writes $0100-$FFFF
+
+PROC MovePage=*(CARD dst, src BYTE len)
+[$85 $A0 $86 $A1 $84 $A2 $A4 $A4 $88 $B1 $A2 $91 $A0 $88 $C0 $FF $D0 $F7 $60]
+
+;@actionc profile compat 
+CARD FUNC Alloc(CARD n)
+
+  allocp==+n
+RETURN(allocp-n)
+
+;@actionc profile compat 
+PROC Free(CARD adr)
+
+  allocp = adr
+RETURN
+
+;@actionc profile compat 
+PROC Push(CARD data)
+
+  allocp^ = data  
+  allocp==+2
+RETURN
+
+;@actionc profile compat 
+CARD FUNC Pull=*()
+
+  allocp==-2
+RETURN(allocp^)
+
+
+;\{INV:                     }
+;\{INV:    gfx routines     }
+;\{INV:                     }
+
+MODULE
+  
+DEFINE  CLEAR="$00",
+         FILL="$40",
+       INVERT="$80"
+
+BYTE ARRAY quickmul(48)
+
+;@actionc preserves Y $AC/$AD $AE/$AF
+;@actionc clobbers $E6/$E7
+PROC CalcAdr=*()
+[$A6 ky $A5 $58 $18 $7D quickmul    
+ $85 scl $A5 $59 $7D quickmul+24
+ $85 sch $A5 scl $65 kx $85 scl $90 $02 $E6 sch $60]
+
+
+;@actionc preserves A X Y $AC/$AD $AE/$AF
+;@actionc clobbers kx/ky
+PROC Position=*(BYTE x, y)
+[$85 kx $86 ky $60]
+
+
+;@actionc preserves X Y $AC/$AD $AE/$AF
+;@actionc clobbers kx/ky
+PROC Relpos=*(BYTE x, y)
+[$18 $65 zx $85 kx $8A $65 zy $85 ky $60]
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers $A0
+;@actionc returns A=$A0
+BYTE FUNC Internal=*(CHAR ch)
+[
+$A8 $2A $2A $2A $2A $29 $03 $AA 
+$98 $29 $9F $1D $49 $FB $85 $A0 
+$60
+]
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers $A0
+;@actionc returns A=$A0
+BYTE FUNC Ascii=*(CHAR ch)
+[
+$A8 $2A $2A $2A $2A $29 $03 $AA 
+$98 $29 $9F $1D $4D $FB $85 $A0 
+$60
+]
+
+;@actionc clobbers $A0
+;@actionc returns A=$A0
+CHAR FUNC Getchar=*()
+[$20 $F2F8 $85 $A0 $60]
+
+
+PROC Putchar(CHAR ch)
+
+  CalcAdr()
+  Screen^ = Internal(ch)
+  kx==+1
+RETURN
+
+
+PROC Print(CHAR ARRAY s)
+
+  BYTE i
+
+  FOR i=1 TO s(0) DO
+    Putchar(s(i))
+  OD
+RETURN 
+
+
+PROC PrintE(CHAR ARRAY s)
+
+  Print(s)
+  kx=zx ky==+1
+RETURN
+
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y r0 $A0 scl/sch
+;@actionc writes $0100-$FFFF
+PROC Block=*(BYTE mode, dx, dy)
+[
+$48 $86 $A0 $20 CalcAdr $98 $AA
+$68 $C9 $80 $F0 $20 $C9 $40 $F0
+$04 $A9 $00 $85  r0 $A4 $A0 $A5
+ r0 $91 scl $88 $10 $FB $18 $A5
+scl $69 $28 $85 scl $90 $02 $E6
+sch $CA $10 $E9 $60 $A4 $A0
+$B1 scl $49 $80 $91 scl $88
+$10 $F7 $18 $A5 scl $69 $28 $85
+scl $90 $02 $E6 sch $CA $10 $E7
+$60
+]
+
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y $A0-$A4 scl/sch
+;@actionc writes $0100-$FFFF
+PROC GetImage=*(CARD adr BYTE dx, dy)
+[ 
+$85 $A0 $86 $A1 $84 $A2 $C8 $84
+$A4 $20 CalcAdr $A6 $A3 $A4 $A2 $B1 scl $91 $A0 $88
+$10 $F9 $18 $A5 scl $69 $28 $85
+scl $90 $03 $E6 sch $18 $A5 $A0
+$65 $A4 $85 $A0 $90 $02 $E6 $A1
+$CA $10 $DE $60
+]
+
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y $A0-$A4 scl/sch
+;@actionc writes $0100-$FFFF
+PROC PutImage=*(CARD adr BYTE dx, dy)
+[
+$85 $A0 $86 $A1 $84 $A2 $C8 $84
+$A4 $20 CalcAdr $A6 $A3 $A4 $A2 $B1 $A0 $91 scl $88
+$10 $F9 $18 $A5 scl $69 $28 $85
+scl $90 $03 $E6 sch $18 $A5 $A0
+$65 $A4 $85 $A0 $90 $02 $E6 $A1
+$CA $10 $DE $60
+]
+
+
+;\{INV:                  }
+;\{INV:     files        }
+;\{INV:                  }
+
+MODULE
+
+BYTE Ioerr 
+PROC POINTER ErrorHandler
+
+PROC Error()
+
+;@actionc writes Ioerr $0340-$03BF
+PROC _Cio=*()
+[$20 $56 $E4 $8C Ioerr $10 $03 $6C ErrorHandler $60]
+
+;@actionc preserves Y $AC/$AD $AE/$AF
+;@actionc clobbers A X
+PROC _LodChn=*()
+[$0A$0A$0A$0A$AA$60]
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A Y $86-$88
+;@actionc writes fnam $0340-$03BF
+PROC _StrNam()
+ CHAR ARRAY fnam(40) CARD r=$86
+[$85$86$84$87$A0$00$B1$86$85$88$C8$B1$86$99 fnam+$FFFF $C4$88$D0$F6$C8$A9$9B$99 fnam+$FFFF]
+ r=fnam
+[$9D$344$A5 r+1 $9D$345 $60]
+ 
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y $A0
+;@actionc writes Ioerr $0340-$03BF
+;@actionc returns A=$A0
+CHAR FUNC GetD=*(BYTE chn)
+[$20 _LodChn $A9$00$9D$348$9D$349$A9$07$9D$342$20 _Cio $85$A0$60]
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y $A0
+;@actionc writes Ioerr $0340-$03BF
+PROC PutD=*(BYTE chn, ch)
+[$86$A0$20 _LodChn $A9$00$9D$348$9D$349$A9$0B$9D$342$A5$A0$4C _Cio]
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y $86-$88 $A1 $A3/$A4
+;@actionc writes $0100-$FFFF
+PROC Open=*(BYTE chn CARD s BYTE aux1,aux2)
+[$86$A1$20 _LodChn $A5$A1$20 _StrNam $A5$A3$9D$34A$A5$A4$9D$34B$A9$03$9D$342$4C _Cio]
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y
+;@actionc writes Ioerr $0340-$03BF
+PROC Close=*(BYTE chn)
+[$20 _LodChn $A9$0C$9D$42$03$4C _Cio]
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y $A1 $A3
+;@actionc writes $0100-$FFFF
+PROC Input=*(BYTE chn CARD buf BYTE len)
+[$86$A1$20 _LodChn $A5$A1$9D$344$98$9D$345$A5$A3$9D$348$A9$00$9D$349$A9$05$9D$342$4C _Cio]
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y $A1 $A3/$A4
+;@actionc writes $0100-$FFFF
+PROC Bget=*(BYTE chn CARD buf, len)
+[$86$A1$20 _LodChn $A5$A1$9D$344$98$9D$345$A5$A3$9D$348$A5$A4$9D$349$A9$07$9D$342$4C _Cio]
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y $A1 $A3/$A4
+;@actionc writes Ioerr $0340-$03BF
+PROC Bput=*(BYTE chn CARD buf, len)
+[$86$A1$20 _LodChn $A5$A1$9D$344$98$9D$345$A5$A3$9D$348$A5$A4$9D$349$A9$0B$9D$342$4C _Cio]
+
+;@actionc preserves $AC/$AD $AE/$AF
+;@actionc clobbers A X Y $86-$88 $A1 $A3-$A5
+;@actionc writes $0100-$FFFF
+PROC Xio=*(BYTE chn, cmd, aux1, aux2 CARD s)
+[$86$A1$20 _LodChn $A5$A1$9D$342$98$9D$34A$A5$A3$9D$34B$A5$A4 $A4$A5$20 _StrNam $4C _Cio]
+
+;PROC Note=*(BYTE chn CARD sectorptr, offsetptr)
+;[$86$A1$84$A2$20 _LodChn $A9$26$9D$342$20 _Cio $A0$00$BD$34C$91$A1$BD$34E $91$A3$BD$34D$C8$91$A1$60]
+
+;PROC Point=*(BYTE chn CARD sector BYTE offset)
+;[$86$A1$20 _LodChn $A5$A1$9D$34C$98$9D$34D$A5$A3$9D$34E$A9$25$9D$342$4C _Cio]
+
+
+;\{INV:                  }
+;\{INV:    windows       }
+;\{INV:                  }
+
+MODULE
+
+ BYTE openwindows
+ CHAR ARRAY frame(8)="\{$11}\{$12}\{$05}||\{$1A}\{$12}\{$03}"
+
+;@actionc profile compat       
+PROC SavePos()
+
+ CARD adr
+  
+  adr = Alloc(4)
+  MovePage(adr, @zx, 4)
+RETURN
+
+;@actionc profile compat 
+PROC RestorePos=*()
+
+  allocp==-4
+  MovePage(@zx, allocp, 4)  
+RETURN
+
+
+;@actionc profile compat 
+PROC Window(BYTE x, y, dx, dy)
+
+ CARD buf BYTE h
+ 
+  SavePos()
+
+  openwindows==+1
+
+  zx = x      zy = y
+  zdx = dx    zdy = dy
+
+  Relpos(0,0)
+ 
+  buf = Alloc((zdx+1)*(zdy+1))
+  Push(buf)
+  GetImage(buf, zdx, zdy)
+  SavePos()
+
+  Block(CLEAR, zdx, zdy)
+
+  CalcAdr()
+
+  screen^ = frame(0)
+  h = 40-zdx
+ 
+  FOR i=2 TO zdx DO
+    screen==+1
+    screen^=frame(1)
+  OD
+
+  screen==+1
+  screen^ = frame(2)
+
+  FOR i=2 TO zdy DO
+    screen==+h
+    screen^ = frame(3)
+    screen==+zdx   
+    screen^ = frame(4)
+  OD
+
+  screen==+h
+  screen^ = frame(5)
+  screen==+1
+  FOR i=2 TO zdx DO
+    screen^ = frame(6)
+    screen==+1
+  OD
+
+  screen^ = frame(7)
+
+  zx==+1  zy==+1
+  zdx==-1 zdy==-1
+
+  Relpos(0,0)
+RETURN
+
+;@actionc profile compat 
+PROC CloseWindow()
+   
+ CARD buf
+
+  RestorePos()
+
+  openwindows==-1
+
+  Relpos(0,0)
+  buf = Pull()
+  Free(buf)
+  PutImage(buf, zdx, zdy)
+  RestorePos()
+RETURN
+
+;@actionc profile compat 
+CHAR FUNC Range(CHAR ARRAY s, BYTE max, BYTE POINTER c)
+
+ BYTE i=$A0,len=$A1,f=$A2
+ CHAR ch=$A3
+
+  len=s(0)
+  DO
+    ch=getchar() f=true
+    FOR i=1 TO len STEP 2 DO
+      IF s(i)=ch THEN
+        IF c^#0 THEN c^==-1 ELSE f=false FI
+      ELSEIF s(i+1)=ch THEN
+        IF c^<max THEN c^==+1 ELSE f=false FI
+      FI
+    OD
+    UNTIL f
+  OD
+RETURN(ch)
+
+;@actionc profile compat 
+BYTE FUNC InputLine(CHAR ARRAY string, BYTE maxlen, curpos)
+
+ CHAR ch
+
+  SavePos()
+  zx=kx zy=ky
+ 
+  DO
+    Relpos(curpos,0)
+    Block(INVERT,0,0)
+    ch=Getchar()
+    Block(INVERT,0,0)
+  
+    IF ch=126 THEN
+      IF curpos#0 THEN
+        curpos==-1
+        Relpos(curpos,0)
+        Putchar(32)
+      FI
+    ELSEIF ch=156 THEN
+      curpos=0
+      Relpos(0,0)
+      Block(CLEAR,MaxLen-1,0)
+    ELSEIF ch=ESC OR ch=EOL THEN EXIT
+    ELSEIF curpos<MaxLen THEN
+      string(curpos+1)=ch
+      Putchar(ch)
+      curpos==+1
+    FI
+  OD
+  string(0)=curpos
+  RestorePos()
+  IF ch=ESC OR curpos=0 THEN RETURN(0) FI
+RETURN(1)
+
+
+MODULE
+
+BYTE spaces
+
+;@actionc profile compat 
+BYTE FUNC Key( BYTE POINTER menu )
+
+  menu ==+ menu^ + 3
+RETURN( menu^ )
+
+
+;@actionc profile compat 
+CARD FUNC Next( BYTE POINTER menu )
+RETURN( menu + menu^ + 5 )
+
+
+;@actionc profile compat 
+BYTE FUNC Ord( BYTE POINTER menu, item )
+
+ BYTE c
+
+  c = 0
+
+  WHILE menu^ DO
+    IF menu = item THEN
+      EXIT
+    FI
+    c ==+ 1
+    menu = Next( menu )
+  OD
+RETURN( c )
+
+
+;@actionc profile compat 
+BYTE FUNC Items(BYTE POINTER menu)
+               
+ BYTE c
+
+  c = 0
+
+  WHILE menu^ DO
+    c ==+ 1
+    menu = Next( menu )
+  OD
+RETURN( c )
+
+;@actionc profile compat                    
+CARD FUNC FindItem( BYTE POINTER menu CHAR ch )
+
+  WHILE menu^ DO
+    IF Key( menu ) = ch THEN RETURN( menu ) FI
+    menu = Next( menu )
+  OD
+RETURN( nil )
+
+;@actionc profile compat 
+PROC DrawMenu( BYTE POINTER menu )
+
+  zx = kx
+  zy = ky 
+
+  WHILE menu^ DO
+    Print( CHAR POINTER(menu) )
+    kx ==+ spaces
+    menu = Next( menu )
+  OD
+RETURN
+
+;@actionc profile compat 
+CARD FUNC MoveMenuBar( BYTE POINTER menu BYTE c )
+
+ BYTE p, a
+
+  p = 0
+
+  WHILE c DO
+    a = menu^ + spaces
+    p ==+ a
+    c ==- 1
+    menu = Next( menu )
+  OD
+
+  Relpos( p, 0 )
+  Block( INVERT, menu^-1, 0 )
+
+RETURN( menu )
+
+
+;@actionc profile compat 
+CHAR FUNC PopUp( BYTE POINTER mp BYTE c, spc )
+
+ CHAR ch, value BYTE d, limit CARD menu
+ 
+  Push( menu )
+  SavePos()
+
+  menu = mp
+  spaces = spc
+  limit = Items( menu ) - 1
+
+  DrawMenu( menu )
+  mp = MoveMenuBar( menu, c )
+          
+  DO
+    d = c
+    ch = Range( "+*\{$1E}\{$1F}", limit, @c )
+
+    IF FindItem( menu, ch ) THEN
+      mp = FindItem( menu, ch )
+      c = Ord( menu, mp )
+      ch = EOL
+    FI
+
+    IF c # d THEN
+      MoveMenuBar( menu, d )
+      mp = MoveMenuBar( menu, c )
+    FI   
+
+  UNTIL ch = ESC OR ch = EOL OD
+
+  RestorePos()
+  menu = Pull()
+
+  IF ch = EOL THEN
+    RETURN( Key( mp ) )
+  ELSE
+    RETURN( ESC )
+  FI
+
+;@actionc profile compat 
+PROC Init()
+ 
+ CARD h
+ 
+  h = 0
+  FOR i = 0 TO 23 DO
+    quickmul(i) = h
+    quickmul(i + 24) = h rsh 8
+    h ==+ 40
+  OD
+
+  FOR i = 0 TO 8 DO
+    frame(i) = Internal(frame(i + 1))
+  OD    
+
+  allocp = CARD POINTER(@allocbuf)
+  openwindows = 0
+RETURN

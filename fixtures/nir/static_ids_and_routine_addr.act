@@ -1,0 +1,19 @@
+BYTE POINTER menu_ptr
+
+PROC Use(CHAR ARRAY s)
+RETURN
+
+PROC First()
+  Use("ONE")
+RETURN
+
+PROC Menu=*()
+[
+  "Yes" 'Y
+  0
+]
+
+PROC Second()
+  Use("TWO")
+  menu_ptr = BYTE POINTER(@Menu)
+RETURN

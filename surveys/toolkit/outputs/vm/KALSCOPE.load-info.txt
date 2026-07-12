@@ -1,0 +1,10 @@
+file_size: 2938
+segments: 2
+seg 00: $5000-$5B6D len  2926 header_off     2 data_off     6
+        first: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+        last : 59 A0 01 8C F2 59 4C 6A 5A A9 00 20 54 A6 60 60
+seg 01: $02E2-$02E3 len     2 header_off  2932 data_off  2936
+        overlaps/touches previous load range ending at $5B6D
+        RUNAD  $02E2 = $59FD
+        first: FD 59
+        last : FD 59

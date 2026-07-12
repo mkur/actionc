@@ -1,0 +1,15 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE ARRAY bytes(4)
+
+BYTE FUNC Inc(BYTE x)
+RETURN(x + 1)
+
+PROC Store(BYTE POINTER p, BYTE i)
+  p(i) = Inc(i)
+RETURN
+
+PROC Main()
+  Store(bytes, 1)
+RETURN

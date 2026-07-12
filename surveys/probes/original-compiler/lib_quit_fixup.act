@@ -1,0 +1,66 @@
+; Compile the real TN LIB.ACT before a minimized-but-real Quit body.
+;
+; The tiny quit_fixup.act probe compiles cleanly in the VM, so the TN hang
+; likely depends on compiler state/layout accumulated before Quit. This probe
+; keeps LIB.ACT and the suspicious Quit code while stubbing unrelated TN code.
+;
+; Run manually with action-compiler-vm:
+;   --host-file LIB.ACT:samples/tn/modern/LIB.ACT
+;   --host-file LIBQUIT.ACT:surveys/probes/original-compiler/lib_quit_fixup.act
+;   --trace-action-fixups
+
+SET $491=$3000
+SET $E=$3000
+
+INCLUDE "D:LIB.ACT"
+
+MODULE
+
+PROC yescancel=*()
+[  "Yes"    'Y
+   "Cancel" 'C nil]
+
+PROC SwapScr()
+RETURN
+
+PROC Quit=*()
+
+ BYTE cartrun=$BFFA
+ CARD setini=$1BBE,
+      dosini=$0C,
+      dosvec=$0A
+
+  Window( 12, 8, 15, 5 )
+  Print( " Quit    TN ?" )
+  Relpos( 1, 2 )
+
+  IF PopUp( yescancel, 0, 3 ) = 'Y THEN
+
+    SwapScr()
+
+    i = cartrun cartrun ==! $FF
+
+    IF cartrun = i THEN
+
+      dosini = setini
+
+      dosvec = $1B48
+
+      [$A9 $1B      ; LDA #$1B
+       $48          ; PHA
+       $A9 $47      ; LDA #$47
+       $48]         ; PHA
+
+      [$6C cartrun] ; run cartrige
+
+    ELSE
+
+      [$4C $E471] ; run self-test
+
+    FI
+  FI
+RETURN
+
+PROC Main()
+  Quit()
+RETURN

@@ -1,0 +1,5 @@
+; Original compiler error 8: variable not declared.
+
+PROC Main()
+  missing=1
+RETURN

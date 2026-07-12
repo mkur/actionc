@@ -1,0 +1,13 @@
+nir program
+global x: Byte
+
+routine Spin params=[-] locals=[-]
+bb0:
+  goto bb1
+bb1:
+  %t0:Byte = load x
+  %t1:Byte = %t0 Add 1
+  store x = %t1
+  goto bb1
+bb2:
+  return

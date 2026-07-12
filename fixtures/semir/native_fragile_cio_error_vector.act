@@ -1,0 +1,23 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE ioerr=$341
+PROC POINTER ErrorHandler
+
+PROC Error()
+
+PROC Handler()
+  ioerr=2
+RETURN
+
+PROC Cio=*()
+[$20 $56 $E4
+ $8C ioerr
+ $10 $03
+ $6C ErrorHandler
+ $60]
+
+PROC Main()
+  ErrorHandler=@Handler
+  Cio()
+RETURN

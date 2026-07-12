@@ -1,0 +1,24 @@
+program modules=1
+  module #0 items=10
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte alias#74/scope1:Var:Byte scalar
+      init $D000:Card:Value:eval4:facts=w2,Unsigned
+    decl Byte init#75/scope1:Var:Byte scalar
+      init raw([ 1 ]):<error>:Unknown:eval5:facts=error
+    decl Byte scratch#76/scope1:Var:Byte scalar
+    decl Card word#77/scope1:Var:Card scalar
+      init raw([ 0 ]):<error>:Unknown:eval6:facts=error
+    decl Card vector#78/scope1:Var:Card scalar
+    decl Byte table#79/scope1:Array:Byte array Byte ARRAY(4)->Byte POINTER/Array/Global
+      init raw([ 1 2 3 4 ]):<error>:Unknown:eval8:facts=error
+      length 4:Byte:Value:eval7:facts=w1,Unsigned
+    decl Byte text#80/scope1:Array:Byte array Byte ARRAY(0)->Byte POINTER/Array/Global
+      init "OK":Char POINTER:Value:eval10:facts=w2,ptr,to=Char,pointee_w1
+      length 0:Byte:Value:eval9:facts=w1,Unsigned
+    routine PROC Main#81/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign vector:Card:facts=w2,Unsigned = word:Card:LValue:eval11:facts=w2,Unsigned
+        return

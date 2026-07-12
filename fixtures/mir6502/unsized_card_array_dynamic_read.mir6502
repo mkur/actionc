@@ -1,0 +1,12 @@
+mir6502 program
+global g0 words: word storage global+0 init bytes=[$00 $06] zero_fill=0 section=global mutable=true
+global g1 i: byte storage global+2
+global g2 out: word storage global+3
+
+routine r0 Main
+b0 bb0:
+  store.b global g1+0, #$01
+  v0 =.b load global g1+0
+  v1 =.w load computed #$0600[v0;2]+0
+  store.w global g2+0, v1
+  return

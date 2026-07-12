@@ -1,0 +1,1858 @@
+use super::call_result::{
+    PreparedStoreAddress, call_preserves_prepared_store_addr, call_result_store_addr_supported,
+    materialize_call_result_to_prepared_store_addr, materialize_call_result_to_store_addr,
+    prepare_call_result_store_addr,
+};
+use super::indexes::{
+    DelayedByteIndexPlan, indexed_addr_has_delayed_index, indexed_addr_parts,
+    materialize_indexed_address_for_consumer, materialize_indexed_read_to_def,
+};
+use super::*;
+use std::collections::BTreeMap;
+
+pub(super) fn fold_call_arg_producers(ops: Vec<MirOp>) -> Vec<MirOp> {
+    let mut out = Vec::new();
+    let mut index = 0usize;
+    while index < ops.len() {
+        if let Some((consumed, rewritten)) = try_fold_call_arg_producers(&ops, index) {
+            out.push(rewritten);
+            index += consumed;
+            continue;
+        }
+        out.push(ops[index].clone());
+        index += 1;
+    }
+    out
+}
+
+pub(super) fn try_materialize_call_arg_expr_producers(
+    ops: &[MirOp],
+    index: usize,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(plan) = collect_call_arg_expr_plan(ops, index, config, layout) else {
+        return 0;
+    };
+    materialize_call_arg_expr_plan(&plan, layout, helpers, out);
+    plan.consumed
+}
+
+#[derive(Debug, Clone)]
+enum CallArgExpr {
+    Value {
+        value: MirValue,
+        width: MirWidth,
+    },
+    Binary {
+        op: MirBinaryOp,
+        left: Box<CallArgExpr>,
+        right: Box<CallArgExpr>,
+        width: MirWidth,
+    },
+}
+
+#[derive(Debug, Clone)]
+struct CallArgExprPlan {
+    consumed: usize,
+    target: MirCallTarget,
+    abi: MirCallAbi,
+    args: Vec<PlannedCallArg>,
+    result: Option<super::super::ir::MirCallResult>,
+    effects: MirEffects,
+}
+
+#[derive(Debug, Clone)]
+enum PlannedCallArg {
+    Expr {
+        expr: CallArgExpr,
+        width: MirWidth,
+        home: MirArgHome,
+    },
+    Existing(MirCallArg),
+}
+
+fn collect_call_arg_expr_plan(
+    ops: &[MirOp],
+    index: usize,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+) -> Option<CallArgExprPlan> {
+    let mut exprs = BTreeMap::<MirTempId, CallArgExpr>::new();
+    let mut cursor = index;
+    while let Some((temp, expr)) = call_arg_expr_producer(ops.get(cursor)?, &exprs, config, layout)
+    {
+        exprs.insert(temp, expr);
+        cursor += 1;
+    }
+    if exprs.is_empty() {
+        return None;
+    }
+
+    let MirOp::Call {
+        target,
+        abi,
+        args,
+        result,
+        effects,
+    } = ops.get(cursor)?
+    else {
+        return None;
+    };
+    if call_target_uses_collected_temp(target, &exprs) || !call_arg_expr_homes_supported(args) {
+        return None;
+    }
+
+    for temp in exprs.keys().copied() {
+        if temp_is_used_after(ops, cursor.saturating_add(1), temp) {
+            return None;
+        }
+    }
+
+    let mut planned_args = Vec::new();
+    let mut saw_expr = false;
+    for arg in args {
+        if let Some(temp) = call_arg_expr_temp(&arg.value, arg.width)
+            && let Some(expr) = exprs.get(&temp)
+        {
+            saw_expr = true;
+            planned_args.push(PlannedCallArg::Expr {
+                expr: expr.clone(),
+                width: arg.width,
+                home: arg.home.clone(),
+            });
+            continue;
+        }
+        if value_uses_collected_temp(&arg.value, &exprs) {
+            return None;
+        }
+        if matches!(arg.home, MirArgHome::RegisterPair { .. }) {
+            return None;
+        }
+        planned_args.push(PlannedCallArg::Existing(arg.clone()));
+    }
+    if !saw_expr {
+        return None;
+    }
+
+    Some(CallArgExprPlan {
+        consumed: cursor + 1 - index,
+        target: target.clone(),
+        abi: abi.clone(),
+        args: planned_args,
+        result: result.clone(),
+        effects: effects.clone(),
+    })
+}
+
+fn call_arg_expr_producer(
+    op: &MirOp,
+    exprs: &BTreeMap<MirTempId, CallArgExpr>,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+) -> Option<(MirTempId, CallArgExpr)> {
+    match op {
+        MirOp::LoadImm { dst, value, width } => {
+            let temp = split_def_as_temp(dst)?;
+            let value = match width {
+                MirWidth::Byte => MirValue::ConstU8(*value as u8),
+                MirWidth::Word => MirValue::ConstU16(*value),
+            };
+            Some((
+                temp,
+                CallArgExpr::Value {
+                    value,
+                    width: *width,
+                },
+            ))
+        }
+        MirOp::Load {
+            dst,
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } => Some((
+            split_def_as_temp(dst)?,
+            CallArgExpr::Value {
+                value: MirValue::PointerCell(mem.clone()),
+                width: MirWidth::Byte,
+            },
+        )),
+        MirOp::Load {
+            dst,
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Word,
+        } => Some((
+            split_def_as_temp(dst)?,
+            CallArgExpr::Value {
+                value: pointer_value_from_mem(mem),
+                width: MirWidth::Word,
+            },
+        )),
+        MirOp::Move { dst, src, width } => Some((
+            split_def_as_temp(dst)?,
+            CallArgExpr::Value {
+                value: call_arg_expr_value(src, exprs, layout)?,
+                width: *width,
+            },
+        )),
+        MirOp::Binary {
+            op,
+            dst,
+            left,
+            right,
+            width,
+            carry_in,
+            carry_out: MirCarryOut::Ignore,
+        } if call_arg_expr_binary_is_supported(*op, *width, *carry_in, config) => {
+            Some((split_def_as_temp(dst)?, {
+                let left = call_arg_expr_operand(left, exprs, layout)?;
+                let right = call_arg_expr_operand(right, exprs, layout)?;
+                if !call_arg_expr_operands_supported(*op, *width, &left, &right) {
+                    return None;
+                }
+                CallArgExpr::Binary {
+                    op: *op,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    width: *width,
+                }
+            }))
+        }
+        _ => None,
+    }
+}
+
+fn call_arg_expr_operands_supported(
+    op: MirBinaryOp,
+    width: MirWidth,
+    left: &CallArgExpr,
+    right: &CallArgExpr,
+) -> bool {
+    if matches!((op, width), (MirBinaryOp::Mul, MirWidth::Byte)) {
+        return call_arg_expr_can_materialize_byte(left)
+            && call_arg_expr_can_materialize_byte(right);
+    }
+    matches!(left, CallArgExpr::Value { .. }) && matches!(right, CallArgExpr::Value { .. })
+}
+
+fn call_arg_expr_can_materialize_byte(expr: &CallArgExpr) -> bool {
+    match expr {
+        CallArgExpr::Value { .. } => true,
+        CallArgExpr::Binary {
+            op: MirBinaryOp::Add | MirBinaryOp::Sub,
+            left,
+            right,
+            ..
+        } => matches!(
+            (&**left, &**right),
+            (CallArgExpr::Value { .. }, CallArgExpr::Value { .. })
+        ),
+        CallArgExpr::Binary { .. } => false,
+    }
+}
+
+fn call_arg_expr_binary_is_supported(
+    op: MirBinaryOp,
+    width: MirWidth,
+    carry_in: Option<MirCarryIn>,
+    config: &Mir6502Config,
+) -> bool {
+    match (op, width, carry_in) {
+        (MirBinaryOp::Add, _, None | Some(MirCarryIn::Clear))
+        | (MirBinaryOp::Sub, _, None | Some(MirCarryIn::Set)) => true,
+        (MirBinaryOp::Mul, MirWidth::Byte, None) => config.select_runtime_helpers,
+        _ => false,
+    }
+}
+
+fn call_arg_expr_operand(
+    value: &MirValue,
+    exprs: &BTreeMap<MirTempId, CallArgExpr>,
+    layout: &MaterializeLayout,
+) -> Option<CallArgExpr> {
+    if let Some(temp) = value_as_temp(value)
+        && let Some(expr) = exprs.get(&temp)
+    {
+        return Some(expr.clone());
+    }
+    let width = match value {
+        MirValue::ConstU16(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::PointerCell(_) => MirWidth::Word,
+        _ => MirWidth::Byte,
+    };
+    Some(CallArgExpr::Value {
+        value: call_arg_expr_value(value, exprs, layout)?,
+        width,
+    })
+}
+
+fn call_arg_expr_value(
+    value: &MirValue,
+    exprs: &BTreeMap<MirTempId, CallArgExpr>,
+    layout: &MaterializeLayout,
+) -> Option<MirValue> {
+    if let Some(temp) = value_as_temp(value) {
+        let expr = exprs.get(&temp)?;
+        return expr_as_plain_value(expr, layout);
+    }
+    if value_uses_temp(value) {
+        None
+    } else {
+        Some(value.clone())
+    }
+}
+
+fn expr_as_plain_value(expr: &CallArgExpr, layout: &MaterializeLayout) -> Option<MirValue> {
+    match expr {
+        CallArgExpr::Value { value, .. } => Some(value.clone()),
+        CallArgExpr::Binary { .. } => {
+            let (lo, hi) = expr_word_byte_values(expr, layout)?;
+            Some(MirValue::Word {
+                lo: Box::new(lo),
+                hi: Box::new(hi),
+            })
+        }
+    }
+}
+
+fn call_arg_expr_homes_supported(args: &[MirCallArg]) -> bool {
+    let has_register_pair = args.iter().any(|arg| {
+        matches!(
+            arg.home,
+            MirArgHome::RegisterPair {
+                lo: MirReg::A,
+                hi: MirReg::X
+            }
+        )
+    });
+    args.iter().all(|arg| match arg.home {
+        MirArgHome::Reg(MirReg::A | MirReg::X) if has_register_pair => false,
+        MirArgHome::Reg(_) => true,
+        MirArgHome::RegisterPair {
+            lo: MirReg::A,
+            hi: MirReg::X,
+        } => true,
+        _ => false,
+    })
+}
+
+fn materialize_call_arg_expr_plan(
+    plan: &CallArgExprPlan,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) {
+    let target = materialize_call_target(plan.target.clone(), layout, out);
+    for arg in &plan.args {
+        if let Some(reg) = planned_call_arg_reg_home(arg)
+            && reg != MirReg::A
+        {
+            materialize_planned_call_arg(arg, layout, helpers, out);
+        }
+    }
+    for arg in &plan.args {
+        if planned_call_arg_reg_home(arg) == Some(MirReg::A) {
+            materialize_planned_call_arg(arg, layout, helpers, out);
+        }
+    }
+    for arg in &plan.args {
+        if matches!(
+            arg,
+            PlannedCallArg::Expr {
+                home: MirArgHome::RegisterPair { .. },
+                ..
+            } | PlannedCallArg::Existing(MirCallArg {
+                home: MirArgHome::RegisterPair { .. },
+                ..
+            })
+        ) {
+            materialize_planned_call_arg(arg, layout, helpers, out);
+        }
+    }
+    let args = plan
+        .args
+        .iter()
+        .flat_map(materialized_planned_call_args)
+        .collect::<Vec<_>>();
+    out.push(MirOp::Call {
+        target,
+        abi: MirCallAbi {
+            params: plan
+                .args
+                .iter()
+                .flat_map(materialized_planned_call_homes)
+                .collect(),
+            result: None,
+            clobbers: plan.abi.clobbers,
+            preserves: plan.abi.preserves,
+        },
+        args,
+        result: None,
+        effects: plan.effects.clone(),
+    });
+    if let Some(result) = &plan.result {
+        materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
+    }
+}
+
+fn planned_call_arg_reg_home(arg: &PlannedCallArg) -> Option<MirReg> {
+    match arg {
+        PlannedCallArg::Expr {
+            home: MirArgHome::Reg(reg),
+            ..
+        }
+        | PlannedCallArg::Existing(MirCallArg {
+            home: MirArgHome::Reg(reg),
+            ..
+        }) => Some(*reg),
+        _ => None,
+    }
+}
+
+fn materialize_planned_call_arg(
+    arg: &PlannedCallArg,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) {
+    match arg {
+        PlannedCallArg::Expr {
+            expr,
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(reg),
+        } => materialize_expr_byte_to_reg(expr, *reg, layout, out),
+        PlannedCallArg::Expr {
+            expr,
+            width: MirWidth::Word,
+            home:
+                MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+        } => materialize_expr_word_to_ax(expr, layout, helpers, out),
+        PlannedCallArg::Existing(arg) => materialize_call_arg(arg, out),
+        PlannedCallArg::Expr { .. } => {}
+    }
+}
+
+fn materialize_expr_byte_to_reg(
+    expr: &CallArgExpr,
+    reg: MirReg,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) {
+    match expr {
+        CallArgExpr::Binary {
+            op,
+            left,
+            right,
+            width,
+        } if matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub) => {
+            let Some((left, right)) = expr_binary_low_operands(left, right, layout) else {
+                return;
+            };
+            let right = materialize_binary_rhs_to_fixed_scratch_avoiding(right, 0, &left, &[], out);
+            materialize_call_arg_to_reg(left, MirReg::A, out);
+            out.push(MirOp::Binary {
+                op: *op,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right,
+                width: MirWidth::Byte,
+                carry_in: Some(match op {
+                    MirBinaryOp::Add => MirCarryIn::Clear,
+                    MirBinaryOp::Sub => MirCarryIn::Set,
+                    _ => unreachable!(),
+                }),
+                carry_out: if matches!(width, MirWidth::Word) {
+                    MirCarryOut::Produce
+                } else {
+                    MirCarryOut::Ignore
+                },
+            });
+            if reg != MirReg::A {
+                materialize_call_arg_to_reg(MirValue::Def(MirDef::Reg(MirReg::A)), reg, out);
+            }
+        }
+        _ => {
+            let Some(value) = expr_low_value(expr, layout) else {
+                return;
+            };
+            materialize_call_arg_to_reg(value, reg, out);
+        }
+    }
+}
+
+fn materialize_expr_word_to_ax(
+    expr: &CallArgExpr,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) {
+    match expr {
+        CallArgExpr::Binary {
+            op: MirBinaryOp::Mul,
+            left,
+            right,
+            width: MirWidth::Byte,
+        } => {
+            helpers.push(MirRuntimeHelper::Mul);
+            materialize_byte_mul_expr_to_ax(left, right, layout, out);
+        }
+        CallArgExpr::Binary {
+            op,
+            left,
+            right,
+            width: MirWidth::Word,
+        } if matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub) => {
+            let Some((left_lo, right_lo)) = expr_binary_low_operands(left, right, layout) else {
+                return;
+            };
+            let Some((left_hi, right_hi)) = expr_binary_high_operands(left, right, layout) else {
+                return;
+            };
+            let right_lo =
+                materialize_binary_rhs_to_fixed_scratch_avoiding(right_lo, 1, &left_lo, &[0], out);
+            materialize_call_arg_to_reg(left_lo, MirReg::A, out);
+            out.push(MirOp::Binary {
+                op: *op,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: right_lo,
+                width: MirWidth::Byte,
+                carry_in: Some(match op {
+                    MirBinaryOp::Add => MirCarryIn::Clear,
+                    MirBinaryOp::Sub => MirCarryIn::Set,
+                    _ => unreachable!(),
+                }),
+                carry_out: MirCarryOut::Produce,
+            });
+            out.push(MirOp::Store {
+                dst: MirAddr::Direct(return_slot_mem(0)),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            });
+            let right_hi =
+                materialize_binary_rhs_to_fixed_scratch_avoiding(right_hi, 1, &left_hi, &[0], out);
+            materialize_call_arg_to_reg(left_hi, MirReg::A, out);
+            out.push(MirOp::Binary {
+                op: *op,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: right_hi,
+                width: MirWidth::Byte,
+                carry_in: Some(MirCarryIn::FromPrevious),
+                carry_out: MirCarryOut::Ignore,
+            });
+            out.push(MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            });
+            materialize_call_arg_to_reg(MirValue::PointerCell(return_slot_mem(0)), MirReg::A, out);
+        }
+        _ => {
+            let Some((lo, hi)) = expr_word_byte_values(expr, layout) else {
+                return;
+            };
+            materialize_call_arg_to_reg(hi, MirReg::X, out);
+            materialize_call_arg_to_reg(lo, MirReg::A, out);
+        }
+    }
+}
+
+fn materialize_byte_mul_expr_to_ax(
+    left: &CallArgExpr,
+    right: &CallArgExpr,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) {
+    let left_scratch = return_slot_mem(4);
+    materialize_expr_byte_to_reg(left, MirReg::A, layout, out);
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(left_scratch.clone()),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    materialize_expr_byte_to_reg(right, MirReg::A, layout, out);
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x84))),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x85))),
+        src: MirValue::ConstU8(0),
+        width: MirWidth::Byte,
+    });
+    materialize_call_arg_to_reg(MirValue::PointerCell(left_scratch), MirReg::A, out);
+    out.push(MirOp::Move {
+        dst: MirDef::Reg(MirReg::X),
+        src: MirValue::ConstU8(0),
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::RuntimeHelper {
+        helper: MirRuntimeHelper::Mul,
+        args: Vec::new(),
+        result: None,
+        effects: helper_effects(),
+    });
+}
+
+fn materialize_binary_rhs_to_fixed_scratch_avoiding(
+    value: MirValue,
+    preferred_scratch_offset: u16,
+    left: &MirValue,
+    reserved_offsets: &[u16],
+    out: &mut Vec<MirOp>,
+) -> MirValue {
+    let MirValue::PointerCell(mem) = value else {
+        return value;
+    };
+    let scratch_offset =
+        binary_rhs_scratch_offset(preferred_scratch_offset, left, reserved_offsets);
+    let scratch = return_slot_mem(scratch_offset);
+    materialize_call_arg_to_mem(MirValue::PointerCell(mem), scratch.clone(), out);
+    MirValue::PointerCell(scratch)
+}
+
+fn binary_rhs_scratch_offset(preferred: u16, left: &MirValue, reserved_offsets: &[u16]) -> u16 {
+    [preferred, 0, 1, 2, 3]
+        .into_iter()
+        .find(|offset| {
+            !reserved_offsets.contains(offset) && !value_reads_mem(left, &return_slot_mem(*offset))
+        })
+        .unwrap_or(preferred)
+}
+
+fn value_reads_mem(value: &MirValue, mem: &MirMem) -> bool {
+    match value {
+        MirValue::PointerCell(source) => source == mem,
+        MirValue::Word { lo, hi } => value_reads_mem(lo, mem) || value_reads_mem(hi, mem),
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => false,
+    }
+}
+
+fn expr_binary_low_operands(
+    left: &CallArgExpr,
+    right: &CallArgExpr,
+    layout: &MaterializeLayout,
+) -> Option<(MirValue, MirValue)> {
+    Some((
+        expr_low_value(left, layout)?,
+        expr_low_value(right, layout)?,
+    ))
+}
+
+fn expr_binary_high_operands(
+    left: &CallArgExpr,
+    right: &CallArgExpr,
+    layout: &MaterializeLayout,
+) -> Option<(MirValue, MirValue)> {
+    Some((
+        expr_high_value(left, layout)?,
+        expr_high_value(right, layout)?,
+    ))
+}
+
+fn expr_word_byte_values(
+    expr: &CallArgExpr,
+    layout: &MaterializeLayout,
+) -> Option<(MirValue, MirValue)> {
+    match expr {
+        CallArgExpr::Value { value, width } => match width {
+            MirWidth::Byte => Some((value.clone(), MirValue::ConstU8(0))),
+            MirWidth::Word => Some(split_value(value.clone(), layout)),
+        },
+        CallArgExpr::Binary { .. } => None,
+    }
+}
+
+fn expr_low_value(expr: &CallArgExpr, layout: &MaterializeLayout) -> Option<MirValue> {
+    expr_word_byte_values(expr, layout).map(|(lo, _)| lo)
+}
+
+fn expr_high_value(expr: &CallArgExpr, layout: &MaterializeLayout) -> Option<MirValue> {
+    expr_word_byte_values(expr, layout).map(|(_, hi)| hi)
+}
+
+fn materialized_planned_call_args(arg: &PlannedCallArg) -> Vec<MirCallArg> {
+    match arg {
+        PlannedCallArg::Expr {
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(reg),
+            ..
+        } => vec![MirCallArg {
+            value: MirValue::Def(MirDef::Reg(*reg)),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(*reg),
+        }],
+        PlannedCallArg::Expr {
+            width: MirWidth::Word,
+            home:
+                MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+            ..
+        } => vec![
+            MirCallArg {
+                value: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+                home: MirArgHome::Reg(MirReg::A),
+            },
+            MirCallArg {
+                value: MirValue::Def(MirDef::Reg(MirReg::X)),
+                width: MirWidth::Byte,
+                home: MirArgHome::Reg(MirReg::X),
+            },
+        ],
+        PlannedCallArg::Existing(arg) => vec![materialized_call_arg_summary(arg)],
+        PlannedCallArg::Expr { .. } => Vec::new(),
+    }
+}
+
+fn materialized_planned_call_homes(arg: &PlannedCallArg) -> Vec<MirArgHome> {
+    materialized_planned_call_args(arg)
+        .into_iter()
+        .map(|arg| arg.home)
+        .collect()
+}
+
+fn value_as_temp(value: &MirValue) -> Option<MirTempId> {
+    match value {
+        MirValue::Def(MirDef::VTemp(temp)) => Some(*temp),
+        _ => None,
+    }
+}
+
+fn call_arg_expr_temp(value: &MirValue, width: MirWidth) -> Option<MirTempId> {
+    match (value, width) {
+        (MirValue::Def(MirDef::VTemp(temp)), _) => Some(*temp),
+        (MirValue::Def(MirDef::VTempByte { id, byte: 0 }), MirWidth::Byte) => Some(*id),
+        (MirValue::Word { lo, hi }, MirWidth::Word) if matches!(&**hi, MirValue::ConstU8(0)) => {
+            value_as_temp(lo)
+        }
+        _ => None,
+    }
+}
+
+fn value_uses_collected_temp(value: &MirValue, exprs: &BTreeMap<MirTempId, CallArgExpr>) -> bool {
+    exprs
+        .keys()
+        .any(|temp| count_temp_uses_in_value(value, *temp) > 0)
+}
+
+fn call_target_uses_collected_temp(
+    target: &MirCallTarget,
+    exprs: &BTreeMap<MirTempId, CallArgExpr>,
+) -> bool {
+    exprs.keys().any(|temp| {
+        let mut count = 0;
+        count_call_target_temp_uses(target, *temp, &mut count);
+        count > 0
+    })
+}
+
+fn count_temp_uses_in_value(value: &MirValue, temp: MirTempId) -> usize {
+    let mut count = 0;
+    count_value_temp_uses(value, temp, &mut count);
+    count
+}
+
+fn try_fold_call_arg_producers(ops: &[MirOp], index: usize) -> Option<(usize, MirOp)> {
+    let mut producers = Vec::new();
+    let mut cursor = index;
+    while let Some((temp, value)) = call_arg_producer_value(ops.get(cursor)?) {
+        if producers
+            .iter()
+            .any(|producer: &(MirTempId, MirValue, usize)| op_uses_temp(&ops[cursor], producer.0))
+        {
+            return None;
+        }
+        producers.push((temp, value, cursor));
+        cursor += 1;
+    }
+    if producers.is_empty() {
+        return None;
+    }
+
+    let MirOp::Call {
+        target,
+        abi,
+        args,
+        result,
+        effects,
+    } = ops.get(cursor)?
+    else {
+        return None;
+    };
+
+    for (temp, _, producer_index) in &producers {
+        if ops[producer_index.saturating_add(1)..cursor]
+            .iter()
+            .any(|op| op_uses_temp(op, *temp))
+        {
+            return None;
+        }
+        if temp_is_used_after(ops, cursor.saturating_add(1), *temp) {
+            return None;
+        }
+        let mut call_uses = 0usize;
+        count_call_target_temp_uses(target, *temp, &mut call_uses);
+        for arg in args {
+            count_value_temp_uses(&arg.value, *temp, &mut call_uses);
+        }
+        if call_uses != 1 {
+            return None;
+        }
+    }
+
+    let mut rewritten_target = target.clone();
+    let mut rewritten_args = args.clone();
+    for (temp, replacement, _) in &producers {
+        rewritten_target = replace_call_target_temp(rewritten_target, *temp, replacement);
+        for arg in &mut rewritten_args {
+            arg.value = replace_temp_value(arg.value.clone(), *temp, replacement);
+        }
+    }
+
+    Some((
+        cursor + 1 - index,
+        MirOp::Call {
+            target: rewritten_target,
+            abi: abi.clone(),
+            args: rewritten_args,
+            result: result.clone(),
+            effects: effects.clone(),
+        },
+    ))
+}
+
+fn replace_call_target_temp(
+    target: MirCallTarget,
+    temp: MirTempId,
+    replacement: &MirValue,
+) -> MirCallTarget {
+    match target {
+        MirCallTarget::Indirect { target, width } => MirCallTarget::Indirect {
+            target: replace_temp_value(target, temp, replacement),
+            width,
+        },
+        other => other,
+    }
+}
+
+fn call_arg_producer_value(op: &MirOp) -> Option<(MirTempId, MirValue)> {
+    match op {
+        MirOp::LoadImm { dst, value, width } => {
+            let temp = split_def_as_temp(dst)?;
+            let value = match width {
+                MirWidth::Byte => MirValue::ConstU8(*value as u8),
+                MirWidth::Word => MirValue::ConstU16(*value),
+            };
+            Some((temp, value))
+        }
+        MirOp::Load {
+            dst,
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } => Some((split_def_as_temp(dst)?, MirValue::PointerCell(mem.clone()))),
+        MirOp::Load {
+            dst,
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Word,
+        } => Some((split_def_as_temp(dst)?, pointer_value_from_mem(mem))),
+        MirOp::LeaAddr {
+            dst,
+            target,
+            width: MirWidth::Word,
+        } => Some((split_def_as_temp(dst)?, storage_address_value(target))),
+        MirOp::Move { dst, src, .. } if !value_uses_temp(src) => {
+            Some((split_def_as_temp(dst)?, src.clone()))
+        }
+        _ => None,
+    }
+}
+
+pub(super) fn forward_param_register_homes(ops: Vec<MirOp>) -> Vec<MirOp> {
+    let mut available = Vec::<(MirMem, MirReg)>::new();
+    let mut out = Vec::new();
+    let mut index = 0usize;
+    while index < ops.len() {
+        if let Some(consumed) =
+            try_forward_param_word_store_consumer(&ops, index, &mut available, &mut out)
+        {
+            index += consumed;
+            continue;
+        }
+        let op = ops[index].clone();
+        if let Some(rewritten) = forward_param_reload(&op, &available) {
+            if let Some(rewritten) = rewritten {
+                invalidate_forwarded_param_homes(&mut available, &rewritten);
+                out.push(rewritten);
+            }
+            index += 1;
+            continue;
+        }
+        if let Some(rewritten) = forward_param_call_target(&op, &available) {
+            invalidate_forwarded_param_homes(&mut available, &rewritten);
+            out.push(rewritten);
+            index += 1;
+            continue;
+        }
+
+        invalidate_forwarded_param_homes(&mut available, &op);
+        note_forwarded_param_home(&mut available, &op);
+        out.push(op);
+        index += 1;
+    }
+    out
+}
+
+fn try_forward_param_word_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    available: &mut Vec<(MirMem, MirReg)>,
+    out: &mut Vec<MirOp>,
+) -> Option<usize> {
+    let MirOp::Load {
+        dst: load_dst,
+        src: MirAddr::Direct(src),
+        width: MirWidth::Word,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let MirOp::Store {
+        dst: MirAddr::Direct(store_dst),
+        src: MirValue::Def(store_src),
+        width: MirWidth::Word,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    if store_src != load_dst || def_is_used_after(ops, index + 2, load_dst) {
+        return None;
+    }
+    let lo = forwarded_param_reg(available, src)?;
+    let hi = forwarded_param_reg(available, &offset_mem(src, 1))?;
+    let emitted = [
+        MirOp::Store {
+            dst: MirAddr::Direct(store_dst.clone()),
+            src: MirValue::Def(MirDef::Reg(lo)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::Def(MirDef::Reg(hi)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(offset_mem(store_dst, 1)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ];
+    for op in emitted {
+        invalidate_forwarded_param_homes(available, &op);
+        out.push(op);
+    }
+    Some(2)
+}
+
+fn forward_param_reload(op: &MirOp, available: &[(MirMem, MirReg)]) -> Option<Option<MirOp>> {
+    let MirOp::Load {
+        dst: MirDef::Reg(dst_reg),
+        src: MirAddr::Direct(src),
+        width: MirWidth::Byte,
+    } = op
+    else {
+        return None;
+    };
+    if !matches!(src, MirMem::Param { .. }) {
+        return None;
+    }
+    let src_reg = available
+        .iter()
+        .rev()
+        .find_map(|(mem, reg)| (mem == src).then_some(*reg))?;
+    if src_reg == *dst_reg {
+        return Some(None);
+    }
+    Some(Some(MirOp::Move {
+        dst: MirDef::Reg(*dst_reg),
+        src: MirValue::Def(MirDef::Reg(src_reg)),
+        width: MirWidth::Byte,
+    }))
+}
+
+fn forward_param_call_target(op: &MirOp, available: &[(MirMem, MirReg)]) -> Option<MirOp> {
+    let MirOp::Call {
+        target:
+            MirCallTarget::Indirect {
+                target,
+                width: target_width,
+            },
+        abi,
+        args,
+        result,
+        effects,
+    } = op
+    else {
+        return None;
+    };
+    let rewritten_target = forward_param_call_target_value(target, available);
+    if rewritten_target == *target {
+        return None;
+    }
+    Some(MirOp::Call {
+        target: MirCallTarget::Indirect {
+            target: rewritten_target,
+            width: *target_width,
+        },
+        abi: abi.clone(),
+        args: args.clone(),
+        result: result.clone(),
+        effects: effects.clone(),
+    })
+}
+
+fn forward_param_call_target_value(value: &MirValue, available: &[(MirMem, MirReg)]) -> MirValue {
+    match value {
+        MirValue::PointerCell(mem) if matches!(mem, MirMem::Param { .. }) => {
+            forwarded_param_reg(available, mem)
+                .map(|reg| MirValue::Def(MirDef::Reg(reg)))
+                .unwrap_or_else(|| value.clone())
+        }
+        MirValue::Word { lo, hi } => MirValue::Word {
+            lo: Box::new(forward_param_call_target_value(lo, available)),
+            hi: Box::new(forward_param_call_target_value(hi, available)),
+        },
+        _ => value.clone(),
+    }
+}
+
+fn forwarded_param_reg(available: &[(MirMem, MirReg)], mem: &MirMem) -> Option<MirReg> {
+    available
+        .iter()
+        .rev()
+        .find_map(|(available_mem, reg)| (available_mem == mem).then_some(*reg))
+}
+
+fn note_forwarded_param_home(available: &mut Vec<(MirMem, MirReg)>, op: &MirOp) {
+    let MirOp::Store {
+        dst: MirAddr::Direct(dst),
+        src: MirValue::Def(MirDef::Reg(src_reg)),
+        width: MirWidth::Byte,
+    } = op
+    else {
+        return;
+    };
+    if !matches!(dst, MirMem::Param { .. }) {
+        return;
+    }
+    available.retain(|(mem, _)| mem != dst);
+    available.push((dst.clone(), *src_reg));
+}
+
+fn invalidate_forwarded_param_homes(available: &mut Vec<(MirMem, MirReg)>, op: &MirOp) {
+    available.retain(|(mem, reg)| {
+        !op_writes_reg(op, *reg)
+            && !op_may_write_forwarded_param_mem(op, mem)
+            && !op_has_unknown_param_memory_effects(op)
+    });
+}
+
+fn op_may_write_forwarded_param_mem(op: &MirOp, mem: &MirMem) -> bool {
+    match op {
+        MirOp::Store {
+            dst: MirAddr::Direct(dst),
+            ..
+        } => dst == mem,
+        MirOp::UpdateMem { mem: dst, .. } => dst == mem,
+        _ => false,
+    }
+}
+
+fn op_has_unknown_param_memory_effects(op: &MirOp) -> bool {
+    match op {
+        MirOp::Call { effects, .. } | MirOp::RuntimeHelper { effects, .. } => {
+            !matches!(effects.memory_writes, MirMemoryEffect::None)
+        }
+        MirOp::Barrier { effects } | MirOp::MachineBlock { effects, .. } => {
+            effects.opaque || !matches!(effects.memory_writes, MirMemoryEffect::None)
+        }
+        MirOp::Store { .. }
+        | MirOp::UpdateMem { .. }
+        | MirOp::AddByteToWordMem { .. }
+        | MirOp::SubByteFromWordMem { .. }
+        | MirOp::LoadImm { .. }
+        | MirOp::Load { .. }
+        | MirOp::Move { .. }
+        | MirOp::LeaAddr { .. }
+        | MirOp::Extend { .. }
+        | MirOp::Truncate { .. }
+        | MirOp::Unary { .. }
+        | MirOp::Binary { .. }
+        | MirOp::Compare { .. }
+        | MirOp::MaterializeAddress { .. }
+        | MirOp::MaterializeIndexedAddress { .. }
+        | MirOp::AdvanceAddress { .. }
+        | MirOp::LoadIndirect { .. } => false,
+        MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => true,
+    }
+}
+
+pub(super) fn materialize_call(
+    target: MirCallTarget,
+    abi: MirCallAbi,
+    args: Vec<MirCallArg>,
+    result: Option<super::super::ir::MirCallResult>,
+    effects: MirEffects,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) {
+    let target = materialize_call_target(target, layout, out);
+    let mut byte_args = Vec::new();
+    let mut byte_homes = Vec::new();
+    for arg in args {
+        match arg {
+            MirCallArg {
+                value,
+                width: MirWidth::Word,
+                home: MirArgHome::RegisterPair { lo, hi },
+            } => {
+                let (lo_value, hi_value) = split_value(value, layout);
+                byte_args.push(MirCallArg {
+                    value: lo_value,
+                    width: MirWidth::Byte,
+                    home: MirArgHome::Reg(lo),
+                });
+                byte_args.push(MirCallArg {
+                    value: hi_value,
+                    width: MirWidth::Byte,
+                    home: MirArgHome::Reg(hi),
+                });
+                byte_homes.push(MirArgHome::Reg(lo));
+                byte_homes.push(MirArgHome::Reg(hi));
+            }
+            MirCallArg {
+                value,
+                width: MirWidth::Word,
+                home:
+                    MirArgHome::BytePair {
+                        lo: lo_home,
+                        hi: hi_home,
+                    },
+            } => {
+                let (lo_value, hi_value) = split_value(value, layout);
+                let lo_home = *lo_home;
+                let hi_home = *hi_home;
+                byte_args.push(MirCallArg {
+                    value: lo_value,
+                    width: MirWidth::Byte,
+                    home: lo_home.clone(),
+                });
+                byte_args.push(MirCallArg {
+                    value: hi_value,
+                    width: MirWidth::Byte,
+                    home: hi_home.clone(),
+                });
+                byte_homes.push(lo_home);
+                byte_homes.push(hi_home);
+            }
+            MirCallArg {
+                value,
+                width: MirWidth::Word,
+                home: MirArgHome::FixedZeroPage(slot),
+            } => {
+                let (lo, hi) = split_value(value, layout);
+                byte_args.push(MirCallArg {
+                    value: lo,
+                    width: MirWidth::Byte,
+                    home: MirArgHome::FixedZeroPage(slot),
+                });
+                byte_args.push(MirCallArg {
+                    value: hi,
+                    width: MirWidth::Byte,
+                    home: MirArgHome::FixedZeroPage(MirFixedZpSlot(slot.0.saturating_add(1))),
+                });
+                byte_homes.push(MirArgHome::FixedZeroPage(slot));
+                byte_homes.push(MirArgHome::FixedZeroPage(MirFixedZpSlot(
+                    slot.0.saturating_add(1),
+                )));
+            }
+            MirCallArg {
+                value,
+                width: MirWidth::Word,
+                home: MirArgHome::StackFrame { base, offset },
+            } => {
+                let (lo, hi) = split_value(value, layout);
+                byte_args.push(MirCallArg {
+                    value: lo,
+                    width: MirWidth::Byte,
+                    home: MirArgHome::StackFrame { base, offset },
+                });
+                byte_args.push(MirCallArg {
+                    value: hi,
+                    width: MirWidth::Byte,
+                    home: MirArgHome::StackFrame {
+                        base,
+                        offset: offset.saturating_add(1),
+                    },
+                });
+                byte_homes.push(MirArgHome::StackFrame { base, offset });
+                byte_homes.push(MirArgHome::StackFrame {
+                    base,
+                    offset: offset.saturating_add(1),
+                });
+            }
+            other => {
+                byte_homes.push(other.home.clone());
+                byte_args.push(other);
+            }
+        }
+    }
+
+    for arg in &byte_args {
+        if !matches!(arg.home, MirArgHome::Reg(_)) {
+            materialize_call_arg(arg, out);
+        }
+    }
+    for arg in &byte_args {
+        if matches!(arg.home, MirArgHome::Reg(_)) {
+            materialize_call_arg(arg, out);
+        }
+    }
+    let materialized_args = byte_args
+        .iter()
+        .map(materialized_call_arg_summary)
+        .collect::<Vec<_>>();
+    out.push(MirOp::Call {
+        target,
+        abi: MirCallAbi {
+            params: byte_homes,
+            result: None,
+            clobbers: abi.clobbers,
+            preserves: abi.preserves,
+        },
+        args: materialized_args,
+        result: None,
+        effects,
+    });
+    if let Some(result) = result {
+        materialize_call_result(result.dst, result.width, result.home, out);
+    }
+}
+
+fn materialize_call_arg(arg: &MirCallArg, out: &mut Vec<MirOp>) {
+    match arg.home {
+        MirArgHome::Reg(reg) => materialize_call_arg_to_reg(arg.value.clone(), reg, out),
+        MirArgHome::StackFrame { base, offset } => {
+            materialize_call_arg_to_mem(
+                arg.value.clone(),
+                MirMem::Absolute(base.saturating_add(offset)),
+                out,
+            );
+        }
+        MirArgHome::FixedZeroPage(slot) => {
+            materialize_call_arg_to_mem(arg.value.clone(), MirMem::FixedZeroPage(slot), out);
+        }
+        MirArgHome::Absolute(address) => {
+            materialize_call_arg_to_mem(arg.value.clone(), MirMem::Absolute(address), out);
+        }
+        MirArgHome::RegisterPair { .. } | MirArgHome::BytePair { .. } | MirArgHome::ZeroPage(_) => {
+        }
+    }
+}
+
+fn materialize_call_arg_to_reg(value: MirValue, reg: MirReg, out: &mut Vec<MirOp>) {
+    match value {
+        MirValue::PointerCell(mem) => out.push(MirOp::Load {
+            dst: MirDef::Reg(reg),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        }),
+        value => out.push(MirOp::Move {
+            dst: MirDef::Reg(reg),
+            src: value,
+            width: MirWidth::Byte,
+        }),
+    }
+}
+
+fn materialize_call_arg_to_mem(value: MirValue, dst: MirMem, out: &mut Vec<MirOp>) {
+    let src = match value {
+        MirValue::PointerCell(mem) => {
+            out.push(MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(mem),
+                width: MirWidth::Byte,
+            });
+            MirValue::Def(MirDef::Reg(MirReg::A))
+        }
+        value => value,
+    };
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(dst),
+        src,
+        width: MirWidth::Byte,
+    });
+}
+
+fn materialized_call_arg_summary(arg: &MirCallArg) -> MirCallArg {
+    match arg.home {
+        MirArgHome::Reg(reg) => MirCallArg {
+            value: MirValue::Def(MirDef::Reg(reg)),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(reg),
+        },
+        MirArgHome::StackFrame { base, offset } => MirCallArg {
+            value: call_stack_arg_summary_value(&arg.value),
+            width: MirWidth::Byte,
+            home: MirArgHome::StackFrame { base, offset },
+        },
+        MirArgHome::FixedZeroPage(slot) => MirCallArg {
+            value: call_stack_arg_summary_value(&arg.value),
+            width: MirWidth::Byte,
+            home: MirArgHome::FixedZeroPage(slot),
+        },
+        MirArgHome::Absolute(address) => MirCallArg {
+            value: call_stack_arg_summary_value(&arg.value),
+            width: MirWidth::Byte,
+            home: MirArgHome::Absolute(address),
+        },
+        MirArgHome::RegisterPair { .. } | MirArgHome::BytePair { .. } | MirArgHome::ZeroPage(_) => {
+            arg.clone()
+        }
+    }
+}
+
+pub(super) fn try_fuse_call_result_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    peephole_stats: &mut MirPeepholeStats,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Call {
+        target,
+        abi,
+        args,
+        result: Some(result),
+        effects,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some(MirOp::Store {
+        dst: store_dst,
+        src: MirValue::Def(store_src),
+        width,
+    }) = ops.get(index + 1)
+    else {
+        return 0;
+    };
+    if store_src != &result.dst || width != &result.width {
+        return 0;
+    }
+    if !matches!(result.home, MirResultHome::ReturnSlot { .. }) {
+        return 0;
+    }
+    if def_is_used_after(ops, index + 2, &result.dst) {
+        return 0;
+    }
+    if !call_result_store_addr_supported(result.width, store_dst) {
+        return 0;
+    }
+
+    let prepared_dst = resolve_store_addr_producers(ops, index, store_dst.clone());
+    let mut prepared_out = Vec::new();
+    if let Some(prepared) = prepare_call_result_store_addr_with_delayed_index(
+        result.width,
+        &prepared_dst,
+        routine_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        &mut prepared_out,
+    ) {
+        peephole_stats.record(routine_id, "call-result-ea-preserve-candidate");
+        if call_preserves_prepared_store_addr(target, abi, args, effects, prepared) {
+            out.extend(prepared_out);
+            materialize_call(
+                target.clone(),
+                abi.clone(),
+                args.clone(),
+                None,
+                effects.clone(),
+                layout,
+                out,
+            );
+            materialize_call_result_to_prepared_store_addr(
+                result.width,
+                result.home.clone(),
+                prepared,
+                layout,
+                out,
+            );
+            peephole_stats.record(routine_id, "call-result-ea-preserve");
+            return 2;
+        }
+        peephole_stats.record(routine_id, "call-result-ea-preserve-blocked-clobber");
+    }
+
+    materialize_call(
+        target.clone(),
+        abi.clone(),
+        args.clone(),
+        None,
+        effects.clone(),
+        layout,
+        out,
+    );
+    materialize_call_result_to_store_addr(
+        result.width,
+        result.home.clone(),
+        store_dst.clone(),
+        routine_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        out,
+    );
+    2
+}
+
+pub(super) fn try_fuse_loaded_arg_call_result_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    peephole_stats: &mut MirPeepholeStats,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Load {
+        dst: load_dst,
+        src: load_src,
+        width: MirWidth::Byte,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some(load_temp) = split_def_as_temp(load_dst) else {
+        return 0;
+    };
+    let Some(MirOp::Call {
+        target,
+        abi,
+        args,
+        result: Some(result),
+        effects,
+    }) = ops.get(index + 1)
+    else {
+        return 0;
+    };
+    let Some(MirOp::Store {
+        dst: store_dst,
+        src: MirValue::Def(store_src),
+        width,
+    }) = ops.get(index + 2)
+    else {
+        return 0;
+    };
+    if args.len() != 1
+        || store_src != &result.dst
+        || width != &result.width
+        || result.width != MirWidth::Byte
+        || !matches!(result.home, MirResultHome::ReturnSlot { .. })
+        || def_is_used_after(ops, index + 3, &result.dst)
+        || temp_is_used_after(ops, index + 2, load_temp)
+        || !call_result_store_addr_supported(result.width, store_dst)
+        || load_addr_reads_fixed_pair(load_src, super::DEST_POINTER_SCRATCH_LO)
+    {
+        return 0;
+    }
+    if count_loaded_arg_uses(target, args, load_temp) != 1 {
+        return 0;
+    }
+    if !matches!(args[0].value, MirValue::Def(ref def) if def == load_dst) {
+        return 0;
+    }
+
+    let prepared_dst = resolve_store_addr_producers(ops, index, store_dst.clone());
+    let mut prepared_out = Vec::new();
+    let Some(prepared) = prepare_call_result_store_addr_with_delayed_index(
+        result.width,
+        &prepared_dst,
+        routine_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        &mut prepared_out,
+    ) else {
+        return 0;
+    };
+    peephole_stats.record(routine_id, "call-result-ea-preserve-loaded-arg-candidate");
+    if !call_preserves_prepared_store_addr(target, abi, args, effects, prepared) {
+        peephole_stats.record(
+            routine_id,
+            "call-result-ea-preserve-loaded-arg-blocked-clobber",
+        );
+        return 0;
+    }
+
+    out.extend(prepared_out);
+    materialize_byte_load_addr_to_a(
+        load_src.clone(),
+        routine_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        out,
+    );
+    let mut rewritten_args = args.clone();
+    rewritten_args[0].value = MirValue::Def(MirDef::Reg(MirReg::A));
+    materialize_call(
+        target.clone(),
+        abi.clone(),
+        rewritten_args,
+        None,
+        effects.clone(),
+        layout,
+        out,
+    );
+    materialize_call_result_to_prepared_store_addr(
+        result.width,
+        result.home.clone(),
+        prepared,
+        layout,
+        out,
+    );
+    peephole_stats.record(routine_id, "call-result-ea-preserve-loaded-arg");
+    3
+}
+
+fn count_loaded_arg_uses(target: &MirCallTarget, args: &[MirCallArg], temp: MirTempId) -> usize {
+    let mut uses = 0usize;
+    count_call_target_temp_uses(target, temp, &mut uses);
+    for arg in args {
+        count_value_temp_uses(&arg.value, temp, &mut uses);
+    }
+    uses
+}
+
+fn prepare_call_result_store_addr_with_delayed_index(
+    width: MirWidth,
+    dst: &MirAddr,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    out: &mut Vec<MirOp>,
+) -> Option<PreparedStoreAddress> {
+    if let Some(prepared) =
+        prepare_delayed_index_store_addr(width, dst, delayed_byte_indexes, layout, out)
+    {
+        return Some(prepared);
+    }
+    prepare_call_result_store_addr(width, dst, routine_id, layout, temp_widths, out)
+}
+
+fn prepare_delayed_index_store_addr(
+    width: MirWidth,
+    dst: &MirAddr,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> Option<PreparedStoreAddress> {
+    let consumer = super::DEST_POINTER_PAIR;
+    match dst {
+        MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. } => {
+            let parts = indexed_addr_parts(dst)?;
+            checked_indirect_offset(parts.offset, width)?;
+            indexed_addr_has_delayed_index(&parts, delayed_byte_indexes).then_some(())?;
+            materialize_indexed_address_for_consumer(
+                parts.clone(),
+                consumer,
+                layout,
+                Some(delayed_byte_indexes),
+                out,
+            );
+            Some(PreparedStoreAddress {
+                consumer,
+                offset: parts.offset,
+            })
+        }
+        _ => None,
+    }
+}
+
+fn checked_indirect_offset(offset: u16, width: MirWidth) -> Option<u16> {
+    let last_byte = offset.checked_add(width_bytes(width).saturating_sub(1))?;
+    (last_byte <= u8::MAX as u16).then_some(offset)
+}
+
+fn materialize_byte_load_addr_to_a(
+    src: MirAddr,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    out: &mut Vec<MirOp>,
+) {
+    match src {
+        MirAddr::Deref { ptr, offset } => super::materialize_pointer_deref_read_byte(
+            MirDef::Reg(MirReg::A),
+            ptr,
+            offset,
+            routine_id,
+            layout,
+            temp_widths,
+            out,
+        ),
+        MirAddr::PointerCell { ptr, offset } => super::materialize_pointer_deref_read_byte(
+            MirDef::Reg(MirReg::A),
+            pointer_value_from_mem(&ptr),
+            offset,
+            routine_id,
+            layout,
+            temp_widths,
+            out,
+        ),
+        MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. } => {
+            let parts = indexed_addr_parts(&src).expect("indexed byte load matched above");
+            materialize_indexed_read_to_def(
+                MirDef::Reg(MirReg::A),
+                parts,
+                MirWidth::Byte,
+                layout,
+                Some(delayed_byte_indexes),
+                out,
+            );
+        }
+        other => out.push(MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: other,
+            width: MirWidth::Byte,
+        }),
+    }
+}
+
+fn load_addr_reads_fixed_pair(addr: &MirAddr, lo: u8) -> bool {
+    match addr {
+        MirAddr::ComputedIndex { base, index, .. } => {
+            value_reads_fixed_pair(base, lo) || value_reads_fixed_pair(index, lo)
+        }
+        MirAddr::PointerIndex { ptr, index, .. } => {
+            mem_is_fixed_pair(ptr, lo) || value_reads_fixed_pair(index, lo)
+        }
+        MirAddr::PointerCell { ptr, .. } => mem_is_fixed_pair(ptr, lo),
+        MirAddr::Deref { ptr, .. } => value_reads_fixed_pair(ptr, lo),
+        MirAddr::Direct(_)
+        | MirAddr::Label(_)
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::AbsoluteIndexedX { .. }
+        | MirAddr::AbsoluteIndexedY { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. } => false,
+    }
+}
+
+fn value_reads_fixed_pair(value: &MirValue, lo: u8) -> bool {
+    match value {
+        MirValue::PointerCell(mem) => mem_is_fixed_pair(mem, lo),
+        MirValue::Word { lo: low, hi } => {
+            value_reads_fixed_pair(low, lo) || value_reads_fixed_pair(hi, lo)
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => false,
+    }
+}
+
+fn mem_is_fixed_pair(mem: &MirMem, lo: u8) -> bool {
+    matches!(mem, MirMem::FixedZeroPage(slot) if slot.0 == lo || slot.0 == lo.saturating_add(1))
+}
+
+fn resolve_store_addr_producers(ops: &[MirOp], use_index: usize, addr: MirAddr) -> MirAddr {
+    match addr {
+        MirAddr::ComputedIndex {
+            base,
+            index,
+            elem_size,
+            offset,
+        } => MirAddr::ComputedIndex {
+            base: resolve_prepared_base_producer(ops, use_index, base),
+            index,
+            elem_size,
+            offset,
+        },
+        MirAddr::PointerIndex {
+            ptr,
+            index,
+            elem_size,
+            offset,
+        } => MirAddr::PointerIndex {
+            ptr,
+            index,
+            elem_size,
+            offset,
+        },
+        MirAddr::Deref { ptr, offset } => MirAddr::Deref {
+            ptr: resolve_prepared_base_producer(ops, use_index, ptr),
+            offset,
+        },
+        other => other,
+    }
+}
+
+fn resolve_prepared_base_producer(ops: &[MirOp], use_index: usize, value: MirValue) -> MirValue {
+    let MirValue::Def(MirDef::VTemp(temp)) = value else {
+        return value;
+    };
+    let Some((producer_index, producer)) = find_temp_producer(ops, use_index, temp) else {
+        return MirValue::Def(MirDef::VTemp(temp));
+    };
+    match producer {
+        MirOp::Load {
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Word,
+            ..
+        } if prepared_producer_mem_is_stable_source(mem)
+            && mem_is_stable_until(ops, producer_index + 1, use_index, mem)
+            && mem_is_stable_until(ops, producer_index + 1, use_index, &offset_mem(mem, 1)) =>
+        {
+            pointer_value_from_mem(mem)
+        }
+        MirOp::LeaAddr {
+            target,
+            width: MirWidth::Word,
+            ..
+        } => storage_address_value(target),
+        _ => MirValue::Def(MirDef::VTemp(temp)),
+    }
+}
+
+fn find_temp_producer(ops: &[MirOp], use_index: usize, temp: MirTempId) -> Option<(usize, &MirOp)> {
+    ops[..use_index]
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, op)| op_def(op).and_then(split_def_as_temp) == Some(temp))
+}
+
+fn mem_is_stable_until(ops: &[MirOp], start: usize, end: usize, mem: &MirMem) -> bool {
+    ops[start..end].iter().all(|op| !op_may_write_mem(op, mem))
+}
+
+fn prepared_producer_mem_is_stable_source(mem: &MirMem) -> bool {
+    !matches!(
+        mem,
+        MirMem::Spill { .. } | MirMem::ZeroPage(_) | MirMem::FixedZeroPage(_)
+    )
+}
+
+fn materialize_call_target(
+    target: MirCallTarget,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> MirCallTarget {
+    let MirCallTarget::Indirect { target, width } = target else {
+        return target;
+    };
+    let (lo, hi) = split_value_as_word(target, layout);
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+            INDIRECT_CALL_TARGET_LO,
+        ))),
+        src: lo,
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+            INDIRECT_CALL_TARGET_HI,
+        ))),
+        src: hi,
+        width: MirWidth::Byte,
+    });
+    MirCallTarget::Indirect {
+        target: MirValue::Word {
+            lo: Box::new(MirValue::PointerCell(MirMem::FixedZeroPage(
+                MirFixedZpSlot(INDIRECT_CALL_TARGET_LO),
+            ))),
+            hi: Box::new(MirValue::PointerCell(MirMem::FixedZeroPage(
+                MirFixedZpSlot(INDIRECT_CALL_TARGET_HI),
+            ))),
+        },
+        width,
+    }
+}
+
+fn call_stack_arg_summary_value(value: &MirValue) -> MirValue {
+    match value {
+        MirValue::ConstU8(_) | MirValue::Def(MirDef::Reg(_)) => value.clone(),
+        _ => MirValue::ConstU8(0),
+    }
+}
+
+fn materialize_call_result(
+    dst: MirDef,
+    width: MirWidth,
+    home: MirResultHome,
+    out: &mut Vec<MirOp>,
+) {
+    let MirResultHome::ReturnSlot { offset } = home else {
+        return;
+    };
+    match width {
+        MirWidth::Byte => out.push(MirOp::Load {
+            dst,
+            src: MirAddr::Direct(return_slot_mem(offset)),
+            width: MirWidth::Byte,
+        }),
+        MirWidth::Word => {
+            if let Some((lo_dst, hi_dst)) = split_def(dst.clone()) {
+                out.push(MirOp::Load {
+                    dst: lo_dst,
+                    src: MirAddr::Direct(return_slot_mem(offset)),
+                    width: MirWidth::Byte,
+                });
+                out.push(MirOp::Load {
+                    dst: hi_dst,
+                    src: MirAddr::Direct(return_slot_mem(offset.saturating_add(1))),
+                    width: MirWidth::Byte,
+                });
+            } else {
+                out.push(MirOp::Load {
+                    dst,
+                    src: MirAddr::Direct(return_slot_mem(offset)),
+                    width,
+                });
+            }
+        }
+    }
+}

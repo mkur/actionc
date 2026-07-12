@@ -1,0 +1,32 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$6C","name_addr":"$94DA","name":"Graphics","vtype":"$C0","address":"$370B","class":"PROC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$FE","name_addr":"$94E8","name":"main","vtype":"$C0","address":"$374F","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$26","name_addr":"$9495","name":"PMAdr","vtype":"$C4","address":"$31DD","class":"CARD FUNC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$F9","name_addr":"$94A0","name":"PMClear","vtype":"$C0","address":"$3263","class":"PROC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$49","name_addr":"$9486","name":"PMColor","vtype":"$C0","address":"$31B0","class":"PROC","numargs":3,"arg_types_raw":["$8A","$8A","$8A"],"args":["BYTE","BYTE","BYTE"]},
+    {"scope":"global","slot":"$BB","name_addr":"$94BB","name":"PMCreate","vtype":"$C0","address":"$357A","class":"PROC","numargs":6,"arg_types_raw":["$8A","$12","$8A","$8A","$8A","$8A"],"args":["BYTE","BYTE ARRAY","BYTE","BYTE","BYTE","BYTE"]},
+    {"scope":"global","slot":"$7D","name_addr":"$9476","name":"PMGraphics","vtype":"$C0","address":"$303C","class":"PROC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$50","name_addr":"$94CE","name":"PMHit","vtype":"$C2","address":"$368E","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$8A","$8A"],"args":["BYTE","BYTE"]},
+    {"scope":"global","slot":"$56","name_addr":"$940B","name":"PMHitClr","vtype":"$8A","address":"$D01E","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$25","name_addr":"$9430","name":"PMHpos","vtype":"$9A","address":"$3003","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$4A","name_addr":"$94AD","name":"PMMove","vtype":"$C0","address":"$3436","class":"PROC","numargs":3,"arg_types_raw":["$8A","$8A","$8A"],"args":["BYTE","BYTE","BYTE"]},
+    {"scope":"global","slot":"$98","name_addr":"$943A","name":"PMVpos","vtype":"$9A","address":"$300B","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$AE","name_addr":"$9417","name":"PM_BaseAdr","vtype":"$8C","address":"$3001","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$F4","name_addr":"$945E","name":"PM_BSize","vtype":"$94","address":"$301D","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$F1","name_addr":"$9425","name":"PM_Hpos","vtype":"$9A","address":"$D000","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$C9","name_addr":"$9444","name":"PM_MisMask","vtype":"$9A","address":"$3013","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$F0","name_addr":"$9400","name":"PM_Mode","vtype":"$8A","address":"$3000","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$CF","name_addr":"$946A","name":"PM_Waste","vtype":"$94","address":"$3025","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$D6","name_addr":"$9452","name":"PM_Width","vtype":"$9A","address":"$D008","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$E3","name_addr":"$9533","name":"clock","vtype":"$8A","address":"$0014","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$FF","name_addr":"$9527","name":"ctr","vtype":"$8A","address":"$374D","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$10","name_addr":"$951C","name":"Misdata","vtype":"$9A","address":"$3745","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$8C","name_addr":"$9511","name":"plData1","vtype":"$9A","address":"$373D","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$68","name_addr":"$952E","name":"x","vtype":"$8A","address":"$374E","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

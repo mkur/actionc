@@ -1,0 +1,17 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE i,total
+
+PROC Main()
+  i=0
+  WHILE i<3
+  DO
+    IF i=1 THEN
+      total==+2
+    ELSE
+      total==+1
+    FI
+    i==+1
+  OD
+RETURN

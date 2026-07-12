@@ -1,0 +1,6 @@
+PROC Take(BYTE x)
+RETURN
+
+PROC Main()
+  Take(7)
+RETURN

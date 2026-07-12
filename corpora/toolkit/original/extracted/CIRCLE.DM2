@@ -1,0 +1,25 @@
+
+INCLUDE "D:CIRCLE.ACT"
+
+PROC CircleDemo2()
+
+  INT x
+
+  BYTE r,y
+
+  Graphics(8)
+  SetColor(2,0,0)
+  PrintE("\{INV:                                     }")
+  PrintE("\{INV:This is a Demo of the Circle Drawing }")
+  PrintE("\{INV: routine on the ACTION! Toolkit disk }")
+  Print("\{INV:                                    }")
+  DO
+    r=Rand(30)
+    x=Rand(160-r)
+    x==*2+r
+    y=Rand(160-(2*r))
+    y==+r
+    Circle(x,y,r,1)
+  OD
+RETURN
+

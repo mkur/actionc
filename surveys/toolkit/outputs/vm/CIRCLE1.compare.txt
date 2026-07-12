@@ -1,0 +1,715 @@
+source: samples/toolkit/original/extracted/CIRCLE.DM1
+
+== original:samples/toolkit/survey/outputs/vm/CIRCLE1.COM ==
+load bytes: 704  code bytes: 692  code origin: $3000
+segments:
+  00: $3000-$32B3 len   692 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   698 data_off   702
+      RUNAD $02E2 = $3262
+opcode counts:
+  $00 BRK      21
+  $18 CLC      14
+  $20 JSR      14
+  $30 BMI      3
+  $35 .BYTE    1
+  $38 SEC      13
+  $48 PHA      2
+  $4C JMP      9
+  $60 RTS      5
+  $68 PLA      2
+  $69 ADC      7
+  $6D ADC      16
+  $85 STA      45
+  $8C STY      5
+  $8D STA      15
+  $8E STX      1
+  $A0 LDY      4
+  $A2 LDX      2
+  $A4 LDY      8
+  $A5 LDA      22
+  $A6 LDX      8
+  $A9 LDA      11
+  $AD LDA      46
+  $AE LDX      2
+  $B0 BCS      1
+  $C5 CMP      1
+  $C9 CMP      1
+  $CD CMP      2
+  $D0 BNE      1
+  $E5 SBC      1
+  $E9 SBC      3
+  $ED SBC      20
+  $EE INC      2
+
+== original disassembly: original:samples/toolkit/survey/outputs/vm/CIRCLE1.COM ==
+segment 00 $3000-$32B3 len 692
+n: ; snapshot INT
+  $3000 00       BRK
+  $3001 00       BRK
+Abs: ; final INT FUNC
+  $3002 4C 05 30 JMP $3005 ; L3005
+L3005:
+  $3005 8E 01 30 STX $3001 ; n+1 $3001
+  $3008 8D 00 30 STA $3000 ; n $3000
+  $300B AD 00 30 LDA $3000 ; n $3000
+  $300E C9 00    CMP #$00
+  $3010 AD 01 30 LDA $3001 ; n+1 $3001
+  $3013 E9 00    SBC #$00
+  $3015 30 03    BMI $301A ; L301A
+  $3017 4C 2A 30 JMP $302A ; L302A
+L301A:
+  $301A 38       SEC
+  $301B A9 00    LDA #$00
+  $301D ED 00 30 SBC $3000 ; n $3000
+  $3020 85 A0    STA $A0
+  $3022 A9 00    LDA #$00
+  $3024 ED 01 30 SBC $3001 ; n+1 $3001
+  $3027 85 A1    STA $A1
+  $3029 60       RTS
+L302A:
+  $302A AD 01 30 LDA $3001 ; n+1 $3001
+  $302D 85 A1    STA $A1
+  $302F AD 00 30 LDA $3000 ; n $3000
+  $3032 85 A0    STA $A0
+  $3034 60       RTS
+x: ; snapshot INT
+  $3035 00       BRK
+  $3036 00       BRK
+y: ; snapshot INT
+  $3037 00       BRK
+  $3038 00       BRK
+r: ; snapshot INT
+  $3039 00       BRK
+  $303A 00       BRK
+c: ; snapshot INT
+  $303B 00       BRK
+  $303C 00       BRK
+Phi: ; snapshot INT
+  $303D 00       BRK
+  $303E 00       BRK
+Phiy: ; snapshot INT
+  $303F 00       BRK
+  $3040 00       BRK
+Phixy: ; snapshot INT
+  $3041 00       BRK
+  $3042 00       BRK
+x1: ; snapshot INT
+  $3043 00       BRK
+  $3044 00       BRK
+y1: ; snapshot INT
+  $3045 00       BRK
+  $3046 00       BRK
+Circle: ; final PROC
+  $3047 4C 4A 30 JMP $304A ; L304A
+L304A:
+  $304A 20 F5 A0 JSR $A0F5 ; LA0F5
+  $304D 35 30 07 .BYTE $35,$30,$07
+  $3050 A0 00    LDY #$00
+  $3052 8C 3E 30 STY $303E ; Phi+1 $303E
+  $3055 8C 3D 30 STY $303D ; Phi $303D
+  $3058 AD 3A 30 LDA $303A ; r+1 $303A
+  $305B 8D 44 30 STA $3044 ; x1+1 $3044
+  $305E AD 39 30 LDA $3039 ; r $3039
+  $3061 8D 43 30 STA $3043 ; x1 $3043
+  $3064 8C 46 30 STY $3046 ; y1+1 $3046
+  $3067 8C 45 30 STY $3045 ; y1 $3045
+  $306A AD 3B 30 LDA $303B ; c $303B
+  $306D 8D FD 02 STA $02FD
+L3070:
+  $3070 18       CLC
+  $3071 AD 3D 30 LDA $303D ; Phi $303D
+  $3074 6D 45 30 ADC $3045 ; y1 $3045
+  $3077 85 AE    STA $AE
+  $3079 AD 3E 30 LDA $303E ; Phi+1 $303E
+  $307C 6D 46 30 ADC $3046 ; y1+1 $3046
+  $307F 85 AF    STA $AF
+  $3081 18       CLC
+  $3082 A5 AE    LDA $AE
+  $3084 6D 45 30 ADC $3045 ; y1 $3045
+  $3087 85 AC    STA $AC
+  $3089 A5 AF    LDA $AF
+  $308B 6D 46 30 ADC $3046 ; y1+1 $3046
+  $308E 85 AD    STA $AD
+  $3090 18       CLC
+  $3091 A5 AC    LDA $AC
+  $3093 69 01    ADC #$01
+  $3095 8D 3F 30 STA $303F ; Phiy $303F
+  $3098 A5 AD    LDA $AD
+  $309A 69 00    ADC #$00
+  $309C 8D 40 30 STA $3040 ; Phiy+1 $3040
+  $309F 38       SEC
+  $30A0 AD 3F 30 LDA $303F ; Phiy $303F
+  $30A3 ED 43 30 SBC $3043 ; x1 $3043
+  $30A6 85 AE    STA $AE
+  $30A8 AD 40 30 LDA $3040 ; Phiy+1 $3040
+  $30AB ED 44 30 SBC $3044 ; x1+1 $3044
+  $30AE 85 AF    STA $AF
+  $30B0 38       SEC
+  $30B1 A5 AE    LDA $AE
+  $30B3 ED 43 30 SBC $3043 ; x1 $3043
+  $30B6 85 AC    STA $AC
+  $30B8 A5 AF    LDA $AF
+  $30BA ED 44 30 SBC $3044 ; x1+1 $3044
+  $30BD 85 AD    STA $AD
+  $30BF 18       CLC
+  $30C0 A5 AC    LDA $AC
+  $30C2 69 01    ADC #$01
+  $30C4 8D 41 30 STA $3041 ; Phixy $3041
+  $30C7 A5 AD    LDA $AD
+  $30C9 69 00    ADC #$00
+  $30CB 8D 42 30 STA $3042 ; Phixy+1 $3042
+  $30CE 18       CLC
+  $30CF AD 35 30 LDA $3035 ; x $3035
+  $30D2 6D 43 30 ADC $3043 ; x1 $3043
+  $30D5 85 A0    STA $A0
+  $30D7 AD 36 30 LDA $3036 ; x+1 $3036
+  $30DA 6D 44 30 ADC $3044 ; x1+1 $3044
+  $30DD 85 A1    STA $A1
+  $30DF 18       CLC
+  $30E0 AD 37 30 LDA $3037 ; y $3037
+  $30E3 6D 45 30 ADC $3045 ; y1 $3045
+  $30E6 85 A2    STA $A2
+  $30E8 A4 A2    LDY $A2
+  $30EA A6 A1    LDX $A1
+  $30EC A5 A0    LDA $A0
+  $30EE 20 C3 A6 JSR $A6C3 ; LA6C3
+  $30F1 38       SEC
+  $30F2 AD 35 30 LDA $3035 ; x $3035
+  $30F5 ED 43 30 SBC $3043 ; x1 $3043
+  $30F8 85 A0    STA $A0
+  $30FA AD 36 30 LDA $3036 ; x+1 $3036
+  $30FD ED 44 30 SBC $3044 ; x1+1 $3044
+  $3100 85 A1    STA $A1
+  $3102 18       CLC
+  $3103 AD 37 30 LDA $3037 ; y $3037
+  $3106 6D 45 30 ADC $3045 ; y1 $3045
+  $3109 85 A2    STA $A2
+  $310B A4 A2    LDY $A2
+  $310D A6 A1    LDX $A1
+  $310F A5 A0    LDA $A0
+  $3111 20 C3 A6 JSR $A6C3 ; LA6C3
+  $3114 18       CLC
+  $3115 AD 35 30 LDA $3035 ; x $3035
+  $3118 6D 43 30 ADC $3043 ; x1 $3043
+  $311B 85 A0    STA $A0
+  $311D AD 36 30 LDA $3036 ; x+1 $3036
+  $3120 6D 44 30 ADC $3044 ; x1+1 $3044
+  $3123 85 A1    STA $A1
+  $3125 38       SEC
+  $3126 AD 37 30 LDA $3037 ; y $3037
+  $3129 ED 45 30 SBC $3045 ; y1 $3045
+  $312C 85 A2    STA $A2
+  $312E A4 A2    LDY $A2
+  $3130 A6 A1    LDX $A1
+  $3132 A5 A0    LDA $A0
+  $3134 20 C3 A6 JSR $A6C3 ; LA6C3
+  $3137 38       SEC
+  $3138 AD 35 30 LDA $3035 ; x $3035
+  $313B ED 43 30 SBC $3043 ; x1 $3043
+  $313E 85 A0    STA $A0
+  $3140 AD 36 30 LDA $3036 ; x+1 $3036
+  $3143 ED 44 30 SBC $3044 ; x1+1 $3044
+  $3146 85 A1    STA $A1
+  $3148 38       SEC
+  $3149 AD 37 30 LDA $3037 ; y $3037
+  $314C ED 45 30 SBC $3045 ; y1 $3045
+  $314F 85 A2    STA $A2
+  $3151 A4 A2    LDY $A2
+  $3153 A6 A1    LDX $A1
+  $3155 A5 A0    LDA $A0
+  $3157 20 C3 A6 JSR $A6C3 ; LA6C3
+  $315A 18       CLC
+  $315B AD 35 30 LDA $3035 ; x $3035
+  $315E 6D 45 30 ADC $3045 ; y1 $3045
+  $3161 85 A0    STA $A0
+  $3163 AD 36 30 LDA $3036 ; x+1 $3036
+  $3166 6D 46 30 ADC $3046 ; y1+1 $3046
+  $3169 85 A1    STA $A1
+  $316B 18       CLC
+  $316C AD 37 30 LDA $3037 ; y $3037
+  $316F 6D 43 30 ADC $3043 ; x1 $3043
+  $3172 85 A2    STA $A2
+  $3174 A4 A2    LDY $A2
+  $3176 A6 A1    LDX $A1
+  $3178 A5 A0    LDA $A0
+  $317A 20 C3 A6 JSR $A6C3 ; LA6C3
+  $317D 38       SEC
+  $317E AD 35 30 LDA $3035 ; x $3035
+  $3181 ED 45 30 SBC $3045 ; y1 $3045
+  $3184 85 A0    STA $A0
+  $3186 AD 36 30 LDA $3036 ; x+1 $3036
+  $3189 ED 46 30 SBC $3046 ; y1+1 $3046
+  $318C 85 A1    STA $A1
+  $318E 18       CLC
+  $318F AD 37 30 LDA $3037 ; y $3037
+  $3192 6D 43 30 ADC $3043 ; x1 $3043
+  $3195 85 A2    STA $A2
+  $3197 A4 A2    LDY $A2
+  $3199 A6 A1    LDX $A1
+  $319B A5 A0    LDA $A0
+  $319D 20 C3 A6 JSR $A6C3 ; LA6C3
+  $31A0 18       CLC
+  $31A1 AD 35 30 LDA $3035 ; x $3035
+  $31A4 6D 45 30 ADC $3045 ; y1 $3045
+  $31A7 85 A0    STA $A0
+  $31A9 AD 36 30 LDA $3036 ; x+1 $3036
+  $31AC 6D 46 30 ADC $3046 ; y1+1 $3046
+  $31AF 85 A1    STA $A1
+  $31B1 38       SEC
+  $31B2 AD 37 30 LDA $3037 ; y $3037
+  $31B5 ED 43 30 SBC $3043 ; x1 $3043
+  $31B8 85 A2    STA $A2
+  $31BA A4 A2    LDY $A2
+  $31BC A6 A1    LDX $A1
+  $31BE A5 A0    LDA $A0
+  $31C0 20 C3 A6 JSR $A6C3 ; LA6C3
+  $31C3 38       SEC
+  $31C4 AD 35 30 LDA $3035 ; x $3035
+  $31C7 ED 45 30 SBC $3045 ; y1 $3045
+  $31CA 85 A0    STA $A0
+  $31CC AD 36 30 LDA $3036 ; x+1 $3036
+  $31CF ED 46 30 SBC $3046 ; y1+1 $3046
+  $31D2 85 A1    STA $A1
+  $31D4 38       SEC
+  $31D5 AD 37 30 LDA $3037 ; y $3037
+  $31D8 ED 43 30 SBC $3043 ; x1 $3043
+  $31DB 85 A2    STA $A2
+  $31DD A4 A2    LDY $A2
+  $31DF A6 A1    LDX $A1
+  $31E1 A5 A0    LDA $A0
+  $31E3 20 C3 A6 JSR $A6C3 ; LA6C3
+  $31E6 AD 40 30 LDA $3040 ; Phiy+1 $3040
+  $31E9 8D 3E 30 STA $303E ; Phi+1 $303E
+  $31EC AD 3F 30 LDA $303F ; Phiy $303F
+  $31EF 8D 3D 30 STA $303D ; Phi $303D
+  $31F2 EE 45 30 INC $3045 ; y1 $3045
+  $31F5 D0 03    BNE $31FA ; L31FA
+  $31F7 EE 46 30 INC $3046 ; y1+1 $3046
+L31FA:
+  $31FA AE 42 30 LDX $3042 ; Phixy+1 $3042
+  $31FD AD 41 30 LDA $3041 ; Phixy $3041
+  $3200 20 02 30 JSR $3002 ; Abs $3002
+  $3203 18       CLC
+  $3204 A5 A0    LDA $A0
+  $3206 69 00    ADC #$00
+  $3208 85 AE    STA $AE
+  $320A A5 A1    LDA $A1
+  $320C 69 00    ADC #$00
+  $320E 85 AF    STA $AF
+  $3210 A5 AF    LDA $AF
+  $3212 48       PHA
+  $3213 A5 AE    LDA $AE
+  $3215 48       PHA
+  $3216 AE 40 30 LDX $3040 ; Phiy+1 $3040
+  $3219 AD 3F 30 LDA $303F ; Phiy $303F
+  $321C 20 02 30 JSR $3002 ; Abs $3002
+  $321F 68       PLA
+  $3220 85 AE    STA $AE
+  $3222 68       PLA
+  $3223 85 AF    STA $AF
+  $3225 A5 AE    LDA $AE
+  $3227 C5 A0    CMP $A0
+  $3229 A5 AF    LDA $AF
+  $322B E5 A1    SBC $A1
+  $322D 30 03    BMI $3232 ; L3232
+  $322F 4C 4F 32 JMP $324F ; L324F
+L3232:
+  $3232 AD 42 30 LDA $3042 ; Phixy+1 $3042
+  $3235 8D 3E 30 STA $303E ; Phi+1 $303E
+  $3238 AD 41 30 LDA $3041 ; Phixy $3041
+  $323B 8D 3D 30 STA $303D ; Phi $303D
+  $323E 38       SEC
+  $323F AD 43 30 LDA $3043 ; x1 $3043
+  $3242 E9 01    SBC #$01
+  $3244 8D 43 30 STA $3043 ; x1 $3043
+  $3247 AD 44 30 LDA $3044 ; x1+1 $3044
+  $324A E9 00    SBC #$00
+  $324C 8D 44 30 STA $3044 ; x1+1 $3044
+L324F:
+  $324F AD 43 30 LDA $3043 ; x1 $3043
+  $3252 CD 45 30 CMP $3045 ; y1 $3045
+  $3255 AD 44 30 LDA $3044 ; x1+1 $3044
+  $3258 ED 46 30 SBC $3046 ; y1+1 $3046
+  $325B 30 03    BMI $3260 ; L3260
+  $325D 4C 70 30 JMP $3070 ; L3070
+L3260:
+  $3260 60       RTS
+R: ; final BYTE
+  $3261 00       BRK
+CircleDemo: ; final PROC
+  $3262 4C 65 32 JMP $3265 ; L3265
+L3265:
+  $3265 A9 08    LDA #$08
+  $3267 20 54 A6 JSR $A654 ; LA654
+  $326A A0 00    LDY #$00
+  $326C A2 00    LDX #$00
+  $326E A9 02    LDA #$02
+  $3270 20 CE A6 JSR $A6CE ; LA6CE
+  $3273 A0 00    LDY #$00
+  $3275 8C 61 32 STY $3261 ; R $3261
+L3278:
+  $3278 A9 4B    LDA #$4B
+  $327A CD 61 32 CMP $3261 ; R $3261
+  $327D B0 03    BCS $3282 ; L3282
+  $327F 4C AF 32 JMP $32AF ; L32AF
+L3282:
+  $3282 A9 00    LDA #$00
+  $3284 85 A3    STA $A3
+  $3286 38       SEC
+  $3287 A9 4B    LDA #$4B
+  $3289 ED 61 32 SBC $3261 ; R $3261
+  $328C 85 A4    STA $A4
+  $328E A9 00    LDA #$00
+  $3290 85 A5    STA $A5
+  $3292 A9 00    LDA #$00
+  $3294 85 A7    STA $A7
+  $3296 A9 01    LDA #$01
+  $3298 85 A6    STA $A6
+  $329A A0 50    LDY #$50
+  $329C A2 00    LDX #$00
+  $329E A9 A0    LDA #$A0
+  $32A0 20 47 30 JSR $3047 ; Circle $3047
+  $32A3 18       CLC
+  $32A4 AD 61 32 LDA $3261 ; R $3261
+  $32A7 69 05    ADC #$05
+  $32A9 8D 61 32 STA $3261 ; R $3261
+  $32AC 4C 78 32 JMP $3278 ; L3278
+L32AF:
+  $32AF 4C AF 32 JMP $32AF ; L32AF
+  $32B2 60       RTS
+  $32B3 60       RTS
+
+== compat ==
+load bytes: 698  code bytes: 686  code origin: $3000
+segments:
+  00: $3000-$32AD len   686 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   692 data_off   696
+      RUNAD $02E2 = $325D
+opcode counts:
+  $00 BRK      21
+  $18 CLC      13
+  $20 JSR      14
+  $30 BMI      3
+  $35 .BYTE    1
+  $38 SEC      13
+  $48 PHA      2
+  $4C JMP      9
+  $60 RTS      5
+  $68 PLA      2
+  $69 ADC      5
+  $6D ADC      16
+  $84 STY      2
+  $85 STA      43
+  $8C STY      5
+  $8D STA      15
+  $8E STX      1
+  $A0 LDY      5
+  $A2 LDX      2
+  $A4 LDY      8
+  $A5 LDA      22
+  $A6 LDX      8
+  $A9 LDA      9
+  $AD LDA      46
+  $AE LDX      2
+  $B0 BCS      1
+  $C5 CMP      1
+  $C8 INY      1
+  $C9 CMP      1
+  $CD CMP      2
+  $D0 BNE      1
+  $E5 SBC      1
+  $E9 SBC      3
+  $ED SBC      20
+  $EE INC      2
+
+== map: compat ==
+origin $3000  run $325D  routines 3  symbols 11  skipped 0
+routines:
+  Abs                      $3000-$3034 len    53
+  Circle                   $3035-$325B len   551
+  CircleDemo               $325C-$32AC len    81
+storage symbols:
+  routine Abs Parameter N $3000-$3001
+  routine Circle Parameter X $3035-$3036
+  routine Circle Parameter Y $3037-$3038
+  routine Circle Parameter R $3039-$303A
+  routine Circle Parameter C $303B-$303C
+  routine Circle Local PHI $303D-$303E
+  routine Circle Local PHIY $303F-$3040
+  routine Circle Local PHIXY $3041-$3042
+  routine Circle Local X1 $3043-$3044
+  routine Circle Local Y1 $3045-$3046
+  routine CircleDemo Local R $325C-$325C
+trusted effects:
+  Abs                      clobbers A,X,Y; writes zp $A0,$A1; writes abs $3001,$3000
+
+== routines: original:samples/toolkit/survey/outputs/vm/CIRCLE1.COM vs compat ==
+  Circle                   len 556 -> 551 (-5)  addr $3035 -> $3035
+    Circle+$0042 #0035
+      original : $3077 85 AE    STA $AE
+      generated: $3077 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 656..672 code $3070-$309E
+    Circle+$004A #0038
+      original : $307F 85 AF    STA $AF
+      generated: $307F 85 AD    STA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 656..672 code $3070-$309E
+    Circle+$004D #0040
+      original : $3082 A5 AE    LDA $AE
+      generated: $3082 A5 AC    LDA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 656..672 code $3070-$309E
+    Circle+$0054 #0043
+      original : $3089 A5 AF    LDA $AF
+      generated: $3089 A5 AD    LDA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 656..672 code $3070-$309E
+    Circle+$0071 #0056
+      original : $30A6 85 AE    STA $AE
+      generated: $30A6 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 677..695 code $309F-$30CD
+    Circle+$0079 #0059
+      original : $30AE 85 AF    STA $AF
+      generated: $30AE 85 AD    STA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 677..695 code $309F-$30CD
+    Circle+$007C #0061
+      original : $30B1 A5 AE    LDA $AE
+      generated: $30B1 A5 AC    LDA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 677..695 code $309F-$30CD
+    Circle+$0083 #0064
+      original : $30B8 A5 AF    LDA $AF
+      generated: $30B8 A5 AD    LDA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 677..695 code $309F-$30CD
+    Circle+$01CE #0204
+      original : $3203 18       CLC
+      generated: $3203 A5 A1    LDA $A1
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01CF #0205
+      original : $3204 A5 A0    LDA $A0
+      generated: $3205 85 AF    STA $AF
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01D1 #0206
+      original : $3206 69 00    ADC #$00
+      generated: $3207 A5 A0    LDA $A0
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01D5 #0208
+      original : $320A A5 A1    LDA $A1
+      generated: $320B A5 AF    LDA $AF
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01D7 #0209
+      original : $320C 69 00    ADC #$00
+      generated: $320D 48       PHA
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01D9 #0210
+      original : $320E 85 AF    STA $AF
+      generated: $320E A5 AE    LDA $AE
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01DB #0211
+      original : $3210 A5 AF    LDA $AF
+      generated: $3210 48       PHA
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01DD #0212
+      original : $3212 48       PHA
+      generated: $3211 AE 40 30 LDX $3040
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01DE #0213
+      original : $3213 A5 AE    LDA $AE
+      generated: $3214 AD 3F 30 LDA $303F
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01E0 #0214
+      original : $3215 48       PHA
+      generated: $3217 20 02 30 JSR $3002
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01E1 #0215
+      original : $3216 AE 40 30 LDX $3040 ; Phiy+1 $3040
+      generated: $321A 68       PLA
+      orig operand: Phiy+1 $3040
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01E4 #0216
+      original : $3219 AD 3F 30 LDA $303F ; Phiy $303F
+      generated: $321B 85 AE    STA $AE
+      orig operand: Phiy $303F
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01E7 #0217
+      original : $321C 20 02 30 JSR $3002 ; Abs $3002
+      generated: $321D 68       PLA
+      orig operand: Abs $3002
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01EA #0218
+      original : $321F 68       PLA
+      generated: $321E 85 AF    STA $AF
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01EB #0219
+      original : $3220 85 AE    STA $AE
+      generated: $3220 A5 AE    LDA $AE
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+    Circle+$01ED #0220
+      original : $3222 68       PLA
+      generated: $3222 C5 A0    CMP $A0
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 960..1027 code $31FA-$3249
+  CircleDemo               len 83 -> 81 (-2)  addr $3261 -> $325C
+    CircleDemo+$0001 #0001
+      original : $3262 4C 65 32 JMP $3265
+      generated: $325D 4C 60 32 JMP $3260
+      orig owner: CircleDemo $3262
+      source   : Routine CircleDemo samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1093..1234 code $325C-$32AC
+    CircleDemo+$0014 #0009
+      original : $3275 8C 61 32 STY $3261 ; R $3261
+      generated: $3270 8C 5C 32 STY $325C
+      orig operand: R $3261
+      source   : Statement for samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1157..1217 code $326E-$32A8
+    CircleDemo+$0019 #0011
+      original : $327A CD 61 32 CMP $3261 ; R $3261
+      generated: $3275 CD 5C 32 CMP $325C
+      orig operand: R $3261
+      source   : Statement for samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1157..1217 code $326E-$32A8
+    CircleDemo+$001E #0013
+      original : $327F 4C AF 32 JMP $32AF
+      generated: $327A 4C A9 32 JMP $32A9
+      source   : Statement for samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1157..1217 code $326E-$32A8
+    CircleDemo+$0028 #0018
+      original : $3289 ED 61 32 SBC $3261 ; R $3261
+      generated: $3284 ED 5C 32 SBC $325C
+      orig operand: R $3261
+      source   : Statement call samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1189..1210 code $327D-$329C
+    CircleDemo+$0031 #0022
+      original : $3292 A9 00    LDA #$00
+      generated: $328D A0 00    LDY #$00
+      source   : Statement call samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1189..1210 code $327D-$329C
+    CircleDemo+$0033 #0023
+      original : $3294 85 A7    STA $A7
+      generated: $328F 84 A7    STY $A7
+      source   : Statement call samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1189..1210 code $327D-$329C
+    CircleDemo+$0035 #0024
+      original : $3296 A9 01    LDA #$01
+      generated: $3291 C8       INY
+      source   : Statement call samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1189..1210 code $327D-$329C
+    CircleDemo+$0037 #0025
+      original : $3298 85 A6    STA $A6
+      generated: $3292 84 A6    STY $A6
+      source   : Statement call samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1189..1210 code $327D-$329C
+    CircleDemo+$0042 #0030
+      original : $32A3 18       CLC
+      generated: $329D AD 5C 32 LDA $325C
+      source   : Statement for samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1157..1217 code $326E-$32A8
+    CircleDemo+$0043 #0031
+      original : $32A4 AD 61 32 LDA $3261 ; R $3261
+      generated: $32A0 18       CLC
+      orig operand: R $3261
+      source   : Statement for samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1157..1217 code $326E-$32A8
+    CircleDemo+$0048 #0033
+      original : $32A9 8D 61 32 STA $3261 ; R $3261
+      generated: $32A3 8D 5C 32 STA $325C
+      orig operand: R $3261
+      source   : Statement for samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1157..1217 code $326E-$32A8
+    CircleDemo+$004B #0034
+      original : $32AC 4C 78 32 JMP $3278
+      generated: $32A6 4C 73 32 JMP $3273
+      source   : Statement for samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1157..1217 code $326E-$32A8
+    CircleDemo+$004E #0035
+      original : $32AF 4C AF 32 JMP $32AF
+      generated: $32A9 4C A9 32 JMP $32A9
+      source   : Statement do-until samples/toolkit/original/extracted/CIRCLE.DM1:19:1 |  | source 1220..1227 code $32A9-$32AB
+    CircleDemo+$0052 #0037
+      original : $32B3 60       RTS
+      generated: <missing>
+
+== bytes: original:samples/toolkit/survey/outputs/vm/CIRCLE1.COM vs compat ==
+exact: false  sizes: 704 vs 698
+first diffs:
+  @0004: $B3 -> $AD
+  @007E: $AE -> $AC
+  @0086: $AF -> $AD
+  @0089: $AE -> $AC
+  @0090: $AF -> $AD
+  @00AD: $AE -> $AC
+  @00B5: $AF -> $AD
+  @00B8: $AE -> $AC
+  @00BF: $AF -> $AD
+  @0209: $18 -> $A5
+  @020A: $A5 -> $A1
+  @020B: $A0 -> $85
+  @020C: $69 -> $AF
+  @020D: $00 -> $A5
+  @020E: $85 -> $A0
+  @020F: $AE -> $85
+  @0210: $A5 -> $AE
+  @0211: $A1 -> $A5
+  @0212: $69 -> $AF
+  @0213: $00 -> $48
+  @0214: $85 -> $A5
+  @0215: $AF -> $AE
+  @0216: $A5 -> $48
+  @0217: $AF -> $AE
+
+== instructions: original:samples/toolkit/survey/outputs/vm/CIRCLE1.COM vs compat ==
+counts: 308 vs 305
+  #0059
+    left : $3077 85 AE    STA $AE
+    right: $3077 85 AC    STA $AC
+  #0062
+    left : $307F 85 AF    STA $AF
+    right: $307F 85 AD    STA $AD
+  #0064
+    left : $3082 A5 AE    LDA $AE
+    right: $3082 A5 AC    LDA $AC
+  #0067
+    left : $3089 A5 AF    LDA $AF
+    right: $3089 A5 AD    LDA $AD
+  #0080
+    left : $30A6 85 AE    STA $AE
+    right: $30A6 85 AC    STA $AC
+  #0083
+    left : $30AE 85 AF    STA $AF
+    right: $30AE 85 AD    STA $AD
+  #0085
+    left : $30B1 A5 AE    LDA $AE
+    right: $30B1 A5 AC    LDA $AC
+  #0088
+    left : $30B8 A5 AF    LDA $AF
+    right: $30B8 A5 AD    LDA $AD
+  #0228
+    left : $3203 18       CLC
+    right: $3203 A5 A1    LDA $A1
+  #0229
+    left : $3204 A5 A0    LDA $A0
+    right: $3205 85 AF    STA $AF
+  #0230
+    left : $3206 69 00    ADC #$00
+    right: $3207 A5 A0    LDA $A0
+  #0232
+    left : $320A A5 A1    LDA $A1
+    right: $320B A5 AF    LDA $AF
+  #0233
+    left : $320C 69 00    ADC #$00
+    right: $320D 48       PHA
+  #0234
+    left : $320E 85 AF    STA $AF
+    right: $320E A5 AE    LDA $AE
+  #0235
+    left : $3210 A5 AF    LDA $AF
+    right: $3210 48       PHA
+  #0236
+    left : $3212 48       PHA
+    right: $3211 AE 40 30 LDX $3040
+  #0237
+    left : $3213 A5 AE    LDA $AE
+    right: $3214 AD 3F 30 LDA $303F
+  #0238
+    left : $3215 48       PHA
+    right: $3217 20 02 30 JSR $3002
+  #0239
+    left : $3216 AE 40 30 LDX $3040
+    right: $321A 68       PLA
+  #0240
+    left : $3219 AD 3F 30 LDA $303F
+    right: $321B 85 AE    STA $AE
+  #0241
+    left : $321C 20 02 30 JSR $3002
+    right: $321D 68       PLA
+  #0242
+    left : $321F 68       PLA
+    right: $321E 85 AF    STA $AF
+  #0243
+    left : $3220 85 AE    STA $AE
+    right: $3220 A5 AE    LDA $AE
+  #0244
+    left : $3222 68       PLA
+    right: $3222 C5 A0    CMP $A0

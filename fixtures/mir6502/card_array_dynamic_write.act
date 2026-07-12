@@ -1,0 +1,7 @@
+CARD ARRAY words(4)
+BYTE i
+
+PROC Main()
+  i = 1
+  words(i) = $1234
+RETURN

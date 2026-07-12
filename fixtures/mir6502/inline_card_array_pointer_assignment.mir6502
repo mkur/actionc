@@ -1,0 +1,16 @@
+mir6502 program
+global g0 s: byte storage global+0 size=2
+
+routine r0 Main
+  local l0 init zero_fill=4 section=local mutable=true
+  local l1 init zero_fill=4 section=local mutable=true
+b0 bb0:
+  v0 =.w lea local l1+0
+  v1 =.w lea local l0+0
+  store.w local l1+2, v1
+  store.b local l2+0, #$01
+  v2 =.w lea local l1+0
+  v3 =.b load local l2+0
+  v4 =.w load computed v2[v3;2]+0
+  store.w global g0+0, v4
+  return

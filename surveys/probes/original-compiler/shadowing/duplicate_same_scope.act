@@ -1,0 +1,12 @@
+; Probe duplicate variables in the same scope.
+; Expected original-compiler result: compile error, no object file.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE x
+BYTE x
+
+PROC Main()
+RETURN

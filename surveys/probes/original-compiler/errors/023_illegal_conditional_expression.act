@@ -1,0 +1,10 @@
+; Original compiler error 23: illegal conditional expression.
+
+PROC P()
+RETURN
+
+PROC Main()
+  IF P THEN
+    RETURN
+  FI
+RETURN

@@ -1,0 +1,33 @@
+; Example from Action! manual
+
+PROC pointerusage()
+    BYTE num=$E0,       ;declare and place two 
+         chr=$E1        ;BYTE variables.
+         
+    BYTE POINTER bptr   ;declare a pointer to BYTE type.
+    bptr=@num           ;make bptr point to num;
+    Print("bptr now points to address ")
+    PrintF("$H",bptr)   ;prints out num's address.
+    PutE()
+    bptr^=255           ;puts 255 into the location bptr
+                        ;points to (i;e;, into num).
+    Print("num now equals ")
+    PrintBE(num)        ;shows that 255 really went into
+                        ;num.
+    bptr^=0             ;puts 0 into num
+    Print("num now equals ")
+    PrintBE(num)        ;shows that num equals 0 now.
+    bptr=@chr           ;makes bptr point to chr now.
+    Print("bptr now points to address ")
+    PrintF("%H",bptr)   ;prints out chr's address, so we
+    PutE()              ;know that bptr really changed.
+    bptr^='q            ;puts 'q into the location bptr
+    ;points to (i.e., into chr);
+    Print("chr now equals ")
+    Put(chr)            ;shows that chr really equals 'q
+    PutE()
+    bptr^='z            ;changes chr to 'z
+    Print("chr now equals ")
+    Put(chr)            ;shows that chr is equal to 'z
+    PutE()
+RETURN

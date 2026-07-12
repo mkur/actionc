@@ -1,0 +1,18 @@
+mir6502 program
+
+routine r0 test
+b0 bb0:
+  v0 =.w load param p0+0
+  v1 =.b load param p1+0
+  v2 =.w v0 add v1 carry_in=- carry_out=ignore
+  v3 =.w v2 add #$01 carry_in=- carry_out=ignore
+  store.w local l0+0, v3
+  v4 =.w load local l0+0
+  store.w fixed_zp $A0, v4
+  return
+
+routine r1 Main
+b0 bb1:
+  call r0 args=[word(#$0A, #$00).w -> a:x, #$02.b -> y] result=v0.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.w local l0+0, v0
+  return

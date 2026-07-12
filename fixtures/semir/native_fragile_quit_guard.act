@@ -1,0 +1,27 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE observed
+
+PROC Guard=*()
+  BYTE cartrun=$BFFA,
+       oldrun
+  CARD setini=$1BBE,
+       dosini=$0C,
+       dosvec=$0A
+
+  oldrun=cartrun
+  cartrun==!$FF
+
+  IF cartrun=oldrun THEN
+    dosini=setini
+    dosvec=$1B48
+    observed=1
+  ELSE
+    observed=2
+  FI
+RETURN
+
+PROC Main()
+  Guard()
+RETURN

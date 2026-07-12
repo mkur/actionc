@@ -1,0 +1,5 @@
+; Original compiler error 10: illegal assignment.
+
+PROC Main()
+  5=7
+RETURN

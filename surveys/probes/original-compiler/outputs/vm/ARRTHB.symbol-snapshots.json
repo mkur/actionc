@@ -1,0 +1,11 @@
+{
+  "snapshots": [
+    {"pc":"$04C6","label":"segvec","proc":"MarkG255","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"MarkG256","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"MarkG257","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"Local255","local_index":"$0C04","locals":[{"slot":"$8A","name_addr":"$9474","name":"l255","vtype":"$9A","address":"$3207","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Local256","local_index":"$0C04","locals":[{"slot":"$8B","name_addr":"$9481","name":"l256","vtype":"$9A","address":"$331A","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$04C6","label":"segvec","proc":"Local257","local_index":"$0C04","locals":[{"slot":"$8C","name_addr":"$948E","name":"l257","vtype":"$92","address":"$342E","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$A6DB","label":"stop","proc":"Main","local_index":"$0C04","locals":[]}
+  ]
+}

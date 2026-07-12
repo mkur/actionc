@@ -1,0 +1,18 @@
+mir6502 program
+global g0 p: word storage global+0
+global g1 q: word storage global+2
+global g2 out: byte storage global+4
+
+routine r0 Main
+b0 bb0:
+  store.w global g0+0, #$0580
+  store.w global g1+0, #$0580
+  v0 =.w load global g0+0
+  v1 =.w load global g1+0
+  v2 = cmp.w v0 eq v1
+  branch bool v2 ? b1 : b2
+b1 bb2:
+  store.b global g2+0, #$01
+  jump b2
+b2 bb1:
+  return

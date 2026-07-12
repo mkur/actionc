@@ -1,0 +1,8 @@
+source: corpora/toolkit/original/extracted/IO.ACT
+source_policy: auto
+compile_source: [tmp]/toolkit/IO.ACT
+profile: modern
+backend: classic
+codegen_source: ast
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/modern-classic/IO.COM

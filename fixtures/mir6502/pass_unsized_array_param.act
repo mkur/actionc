@@ -1,0 +1,10 @@
+BYTE ARRAY screen=$580
+BYTE out
+
+PROC Take(BYTE ARRAY a)
+  out = a(0)
+RETURN
+
+PROC Main()
+  Take(screen)
+RETURN

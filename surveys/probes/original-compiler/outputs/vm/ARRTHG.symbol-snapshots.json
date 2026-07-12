@@ -1,0 +1,15 @@
+{
+  "snapshots": [
+    {"pc":"$04C6","label":"segvec","proc":"MarkG128","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"MarkG256","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"MarkG320","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"MarkG384","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"MarkG512","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"MarkG640","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"MarkG768","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"MarkG896","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"MarkG1024","local_index":"$0C04","locals":[]},
+    {"pc":"$04C6","label":"segvec","proc":"TouchGlobals","local_index":"$0C04","locals":[]},
+    {"pc":"$A6D9","label":"stop","proc":"Main","local_index":"$0C04","locals":[]}
+  ]
+}

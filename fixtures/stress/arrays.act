@@ -1,0 +1,116 @@
+; Array stress program.
+;
+; This intentionally combines:
+; - global byte/card/int arrays
+; - local byte/card/int arrays
+; - array parameters
+; - dynamic indexes and calls used as indexes
+; - card/int arithmetic around indexed loads and stores
+; - signed comparisons after indexed INT access
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY gb(16)
+CARD ARRAY gw(8)
+INT ARRAY gi(8)
+
+BYTE i, j, outb
+CARD outw
+INT signed, outs
+
+BYTE FUNC NextIndex(BYTE x)
+  x ==+ 1
+RETURN(x)
+
+CARD FUNC AddWord(CARD a, b)
+RETURN(a + b)
+
+INT FUNC Neg(INT x)
+RETURN(0 - x)
+
+PROC FillBytes(BYTE ARRAY a, BYTE start, count)
+  BYTE n, v
+
+  n = 0
+  v = start
+
+  WHILE n < count
+  DO
+    a(n) = v
+    v ==+ 1
+    n ==+ 1
+  OD
+RETURN
+
+PROC MixArrays(CARD ARRAY words, INT ARRAY nums, BYTE idx)
+  CARD w
+  INT n
+
+  words(0) = $1000
+  words(1) = words(0) + idx
+
+  w = words(idx)
+  words(NextIndex(0)) = w + $20
+
+  nums(0) = -1
+  n = 0 - idx
+  nums(idx) = n
+
+  IF nums(idx) < 0 THEN
+    outb = 1
+  ELSE
+    outb = 0
+  FI
+RETURN
+
+PROC LocalWork(BYTE seed)
+  BYTE n
+  BYTE ARRAY lb(6)
+  CARD ARRAY lw(4)
+  INT ARRAY li(4)
+
+  n = seed
+
+  lb(0) = gb(0)
+  lb(n) = gb(n)
+  gb(NextIndex(n)) = lb(n)
+
+  lw(0) = gw(0)
+  lw(n) = gw(n) + $0100
+  gw(n) = lw(n)
+
+  li(0) = gi(0)
+  li(n) = Neg(li(0))
+  gi(n) = li(n)
+RETURN
+
+PROC Main()
+  i = 1
+  j = 2
+
+  FillBytes(gb, $10, 6)
+
+  gw(0) = $1234
+  gw(i) = AddWord(gw(0), $0101)
+
+  signed = -3
+  gi(0) = -7
+  gi(i) = Neg(signed)
+
+  MixArrays(gw, gi, i)
+
+  outb = gb(NextIndex(i))
+  outw = gw(j)
+  outs = gi(i)
+
+  IF outw > $1200 THEN
+    IF outs < 0 THEN
+      outb ==+ 1
+    FI
+  FI
+
+  LocalWork(i)
+RETURN

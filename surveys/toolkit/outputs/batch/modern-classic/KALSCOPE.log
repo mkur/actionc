@@ -1,0 +1,8 @@
+source: samples/toolkit/modern/KALSCOPE.DEM
+source_policy: auto
+compile_source: [tmp]/toolkit/KALSCOPE.DEM
+profile: modern
+backend: classic
+codegen_source: ast
+status: ok
+detail: wrote surveys/toolkit/outputs/batch/modern-classic/KALSCOPE.COM

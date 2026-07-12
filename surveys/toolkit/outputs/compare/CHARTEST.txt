@@ -1,0 +1,1338 @@
+source: samples/toolkit/original/extracted/CHARTEST.ACT
+
+== original:samples/toolkit/survey/outputs/vm/CHARTEST.COM ==
+load bytes: 248  code bytes: 236  code origin: $0E08
+segments:
+  00: $0E08-$0EF3 len   236 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   242 data_off   246
+      RUNAD $02E2 = $0ED1
+opcode counts:
+  $00 BRK      6
+  $18 CLC      1
+  $20 JSR      2
+  $38 SEC      1
+  $4C JMP      17
+  $60 RTS      11
+  $69 ADC      1
+  $85 STA      10
+  $8D STA      8
+  $A5 LDA      2
+  $A9 LDA      13
+  $AD LDA      11
+  $B0 BCS      10
+  $C9 CMP      5
+  $CD CMP      5
+  $D0 BNE      2
+  $E9 SBC      1
+
+== compat ==
+load bytes: 248  code bytes: 236  code origin: $0E08
+segments:
+  00: $0E08-$0EF3 len   236 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   242 data_off   246
+      RUNAD $02E2 = $0ED1
+opcode counts:
+  $00 BRK      6
+  $18 CLC      1
+  $20 JSR      2
+  $38 SEC      1
+  $4C JMP      17
+  $60 RTS      11
+  $69 ADC      1
+  $85 STA      10
+  $8D STA      8
+  $A5 LDA      2
+  $A9 LDA      13
+  $AD LDA      11
+  $B0 BCS      10
+  $C9 CMP      5
+  $CD CMP      5
+  $D0 BNE      2
+  $E9 SBC      1
+
+== modern ==
+load bytes: 210  code bytes: 198  code origin: $0E08
+segments:
+  00: $0E08-$0ECD len   198 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   204 data_off   208
+      RUNAD $02E2 = $0EB7
+opcode counts:
+  $00 BRK      6
+  $18 CLC      1
+  $20 JSR      2
+  $38 SEC      1
+  $4C JMP      10
+  $60 RTS      10
+  $69 ADC      1
+  $85 STA      10
+  $8D STA      8
+  $90 BCC      5
+  $A9 LDA      13
+  $AD LDA      7
+  $B0 BCS      5
+  $C9 CMP      5
+  $CD CMP      5
+  $E9 SBC      1
+  $F0 BEQ      2
+
+== map: compat ==
+origin $0E08  run $0ED1  routines 6  symbols 6  skipped 0
+routines:
+  IsAlpha                  $0E08-$0E3D len    54
+  IsUpper                  $0E3E-$0E62 len    37
+  IsLower                  $0E63-$0E87 len    37
+  IsDigit                  $0E88-$0EAC len    37
+  ToUpper                  $0EAD-$0ECF len    35
+  ToLower                  $0ED0-$0EF2 len    35
+storage symbols:
+  routine IsAlpha Parameter C $0E08-$0E08
+  routine IsUpper Parameter C $0E3E-$0E3E
+  routine IsLower Parameter C $0E63-$0E63
+  routine IsDigit Parameter C $0E88-$0E88
+  routine ToUpper Parameter C $0EAD-$0EAD
+  routine ToLower Parameter C $0ED0-$0ED0
+trusted effects:
+  IsAlpha                  clobbers A,X,Y; writes zp $A0; writes abs $0E08
+  IsUpper                  clobbers A,X,Y; writes zp $A0; writes abs $0E3E
+  IsLower                  clobbers A,X,Y; writes zp $A0; writes abs $0E63
+  IsDigit                  clobbers A,X,Y; writes zp $A0; writes abs $0E88
+  ToUpper                  clobbers A,X,Y; writes zp $A0; writes abs $0EAD,$0E63
+  ToLower                  clobbers A,X,Y; writes zp $A0; writes abs $0ED0,$0E3E
+
+== map: modern ==
+origin $0E08  run $0EB7  routines 6  symbols 6  skipped 0
+routines:
+  IsAlpha                  $0E08-$0E37 len    48
+  IsUpper                  $0E38-$0E59 len    34
+  IsLower                  $0E5A-$0E7B len    34
+  IsDigit                  $0E7C-$0E9D len    34
+  ToUpper                  $0E9E-$0EB5 len    24
+  ToLower                  $0EB6-$0ECD len    24
+storage symbols:
+  routine IsAlpha Parameter C $0E08-$0E08
+  routine IsUpper Parameter C $0E38-$0E38
+  routine IsLower Parameter C $0E5A-$0E5A
+  routine IsDigit Parameter C $0E7C-$0E7C
+  routine ToUpper Parameter C $0E9E-$0E9E
+  routine ToLower Parameter C $0EB6-$0EB6
+trusted effects:
+  IsAlpha                  clobbers A,X,Y; writes zp $A0; writes abs $0E08
+  IsUpper                  clobbers A,X,Y; writes zp $A0; writes abs $0E38
+  IsLower                  clobbers A,X,Y; writes zp $A0; writes abs $0E5A
+  IsDigit                  clobbers A,X,Y; writes zp $A0; writes abs $0E7C
+  ToUpper                  clobbers A,X,Y; writes zp $A0; writes abs $0E9E,$0E5A
+  ToLower                  clobbers A,X,Y; writes zp $A0; writes abs $0EB6,$0E38
+
+== routines: original:samples/toolkit/survey/outputs/vm/CHARTEST.COM vs compat ==
+  ToLower                  len 36 -> 35 (-1)  addr $0ED0 -> $0ED0
+    ToLower+$0023 #0015
+      original : $0EF3 60       RTS
+      generated: <missing>
+
+== routines: original:samples/toolkit/survey/outputs/vm/CHARTEST.COM vs modern ==
+  IsAlpha                  len 54 -> 48 (-6)  addr $0E08 -> $0E08
+    IsAlpha+$000C #0005
+      original : $0E14 B0 03    BCS $0E19
+      generated: $0E14 90 07    BCC $0E1D
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$000E #0006
+      original : $0E16 4C 20 0E JMP $0E20
+      generated: $0E16 A9 5A    LDA #$5A
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$0011 #0007
+      original : $0E19 A9 5A    LDA #$5A
+      generated: $0E18 CD 08 0E CMP $0E08
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$0013 #0008
+      original : $0E1B CD 08 0E CMP $0E08 ; c $0E08
+      generated: $0E1B B0 11    BCS $0E2E
+      orig operand: c $0E08
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$0016 #0009
+      original : $0E1E B0 14    BCS $0E34
+      generated: $0E1D AD 08 0E LDA $0E08
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$0018 #0010
+      original : $0E20 AD 08 0E LDA $0E08 ; c $0E08
+      generated: $0E20 C9 61    CMP #$61
+      orig operand: c $0E08
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$001B #0011
+      original : $0E23 C9 61    CMP #$61
+      generated: $0E22 90 07    BCC $0E2B
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$001D #0012
+      original : $0E25 B0 03    BCS $0E2A
+      generated: $0E24 A9 7A    LDA #$7A
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$001F #0013
+      original : $0E27 4C 39 0E JMP $0E39
+      generated: $0E26 CD 08 0E CMP $0E08
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$0022 #0014
+      original : $0E2A A9 7A    LDA #$7A
+      generated: $0E29 B0 03    BCS $0E2E
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$0024 #0015
+      original : $0E2C CD 08 0E CMP $0E08 ; c $0E08
+      generated: $0E2B 4C 33 0E JMP $0E33
+      orig operand: c $0E08
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    IsAlpha+$0027 #0016
+      original : $0E2F B0 03    BCS $0E34
+      generated: $0E2E A9 01    LDA #$01
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:19:12 | RETURN(1) | source 418..419 code $0E2E-$0E32
+    IsAlpha+$0029 #0017
+      original : $0E31 4C 39 0E JMP $0E39
+      generated: $0E30 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:19:12 | RETURN(1) | source 418..419 code $0E2E-$0E32
+    IsAlpha+$002C #0018
+      original : $0E34 A9 01    LDA #$01
+      generated: $0E32 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:19:12 | RETURN(1) | source 418..419 code $0E2E-$0E32
+    IsAlpha+$002E #0019
+      original : $0E36 85 A0    STA $A0
+      generated: $0E33 A9 00    LDA #$00
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:21:8 | RETURN(0) | source 433..434 code $0E33-$0E37
+    IsAlpha+$0030 #0020
+      original : $0E38 60       RTS
+      generated: $0E35 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:21:8 | RETURN(0) | source 433..434 code $0E33-$0E37
+    IsAlpha+$0031 #0021
+      original : $0E39 A9 00    LDA #$00
+      generated: $0E37 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:21:8 | RETURN(0) | source 433..434 code $0E33-$0E37
+    IsAlpha+$0033 #0022
+      original : $0E3B 85 A0    STA $A0
+      generated: <missing>
+    IsAlpha+$0035 #0023
+      original : $0E3D 60       RTS
+      generated: <missing>
+  IsUpper                  len 37 -> 34 (-3)  addr $0E3E -> $0E38
+    IsUpper+$0001 #0001
+      original : $0E3F 4C 42 0E JMP $0E42
+      generated: $0E39 4C 3C 0E JMP $0E3C
+      orig owner: IsUpper $0E3F
+      source   : Routine IsUpper samples/toolkit/original/extracted/CHARTEST.ACT:27:1 | BYTE FUNC IsUpper(BYTE c) | source 551..636 code $0E38-$0E59
+    IsUpper+$0004 #0002
+      original : $0E42 8D 3E 0E STA $0E3E ; c $0E3E
+      generated: $0E3C 8D 38 0E STA $0E38
+      orig operand: c $0E3E
+      source   : Routine IsUpper samples/toolkit/original/extracted/CHARTEST.ACT:27:1 | BYTE FUNC IsUpper(BYTE c) | source 551..636 code $0E38-$0E59
+    IsUpper+$0007 #0003
+      original : $0E45 AD 3E 0E LDA $0E3E ; c $0E3E
+      generated: $0E3F AD 38 0E LDA $0E38
+      orig operand: c $0E3E
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    IsUpper+$000C #0005
+      original : $0E4A B0 03    BCS $0E4F
+      generated: $0E44 90 07    BCC $0E4D
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    IsUpper+$000E #0006
+      original : $0E4C 4C 5E 0E JMP $0E5E
+      generated: $0E46 A9 5A    LDA #$5A
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    IsUpper+$0011 #0007
+      original : $0E4F A9 5A    LDA #$5A
+      generated: $0E48 CD 38 0E CMP $0E38
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    IsUpper+$0013 #0008
+      original : $0E51 CD 3E 0E CMP $0E3E ; c $0E3E
+      generated: $0E4B B0 03    BCS $0E50
+      orig operand: c $0E3E
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    IsUpper+$0016 #0009
+      original : $0E54 B0 03    BCS $0E59
+      generated: $0E4D 4C 55 0E JMP $0E55
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    IsUpper+$0018 #0010
+      original : $0E56 4C 5E 0E JMP $0E5E
+      generated: $0E50 A9 01    LDA #$01
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:30:12 | RETURN(1) | source 619..620 code $0E50-$0E54
+    IsUpper+$001B #0011
+      original : $0E59 A9 01    LDA #$01
+      generated: $0E52 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:30:12 | RETURN(1) | source 619..620 code $0E50-$0E54
+    IsUpper+$001D #0012
+      original : $0E5B 85 A0    STA $A0
+      generated: $0E54 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:30:12 | RETURN(1) | source 619..620 code $0E50-$0E54
+    IsUpper+$001F #0013
+      original : $0E5D 60       RTS
+      generated: $0E55 A9 00    LDA #$00
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:32:8 | RETURN(0) | source 634..635 code $0E55-$0E59
+    IsUpper+$0020 #0014
+      original : $0E5E A9 00    LDA #$00
+      generated: $0E57 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:32:8 | RETURN(0) | source 634..635 code $0E55-$0E59
+    IsUpper+$0022 #0015
+      original : $0E60 85 A0    STA $A0
+      generated: $0E59 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:32:8 | RETURN(0) | source 634..635 code $0E55-$0E59
+    IsUpper+$0024 #0016
+      original : $0E62 60       RTS
+      generated: <missing>
+  IsLower                  len 37 -> 34 (-3)  addr $0E63 -> $0E5A
+    IsLower+$0001 #0001
+      original : $0E64 4C 67 0E JMP $0E67
+      generated: $0E5B 4C 5E 0E JMP $0E5E
+      orig owner: IsLower $0E64
+      source   : Routine IsLower samples/toolkit/original/extracted/CHARTEST.ACT:38:1 | BYTE FUNC IsLower(BYTE c) | source 752..837 code $0E5A-$0E7B
+    IsLower+$0004 #0002
+      original : $0E67 8D 63 0E STA $0E63 ; c $0E63
+      generated: $0E5E 8D 5A 0E STA $0E5A
+      orig operand: c $0E63
+      source   : Routine IsLower samples/toolkit/original/extracted/CHARTEST.ACT:38:1 | BYTE FUNC IsLower(BYTE c) | source 752..837 code $0E5A-$0E7B
+    IsLower+$0007 #0003
+      original : $0E6A AD 63 0E LDA $0E63 ; c $0E63
+      generated: $0E61 AD 5A 0E LDA $0E5A
+      orig operand: c $0E63
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    IsLower+$000C #0005
+      original : $0E6F B0 03    BCS $0E74
+      generated: $0E66 90 07    BCC $0E6F
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    IsLower+$000E #0006
+      original : $0E71 4C 83 0E JMP $0E83
+      generated: $0E68 A9 7A    LDA #$7A
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    IsLower+$0011 #0007
+      original : $0E74 A9 7A    LDA #$7A
+      generated: $0E6A CD 5A 0E CMP $0E5A
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    IsLower+$0013 #0008
+      original : $0E76 CD 63 0E CMP $0E63 ; c $0E63
+      generated: $0E6D B0 03    BCS $0E72
+      orig operand: c $0E63
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    IsLower+$0016 #0009
+      original : $0E79 B0 03    BCS $0E7E
+      generated: $0E6F 4C 77 0E JMP $0E77
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    IsLower+$0018 #0010
+      original : $0E7B 4C 83 0E JMP $0E83
+      generated: $0E72 A9 01    LDA #$01
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:41:12 | RETURN(1) | source 820..821 code $0E72-$0E76
+    IsLower+$001B #0011
+      original : $0E7E A9 01    LDA #$01
+      generated: $0E74 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:41:12 | RETURN(1) | source 820..821 code $0E72-$0E76
+    IsLower+$001D #0012
+      original : $0E80 85 A0    STA $A0
+      generated: $0E76 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:41:12 | RETURN(1) | source 820..821 code $0E72-$0E76
+    IsLower+$001F #0013
+      original : $0E82 60       RTS
+      generated: $0E77 A9 00    LDA #$00
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:43:8 | RETURN(0) | source 835..836 code $0E77-$0E7B
+    IsLower+$0020 #0014
+      original : $0E83 A9 00    LDA #$00
+      generated: $0E79 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:43:8 | RETURN(0) | source 835..836 code $0E77-$0E7B
+    IsLower+$0022 #0015
+      original : $0E85 85 A0    STA $A0
+      generated: $0E7B 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:43:8 | RETURN(0) | source 835..836 code $0E77-$0E7B
+    IsLower+$0024 #0016
+      original : $0E87 60       RTS
+      generated: <missing>
+  IsDigit                  len 37 -> 34 (-3)  addr $0E88 -> $0E7C
+    IsDigit+$0001 #0001
+      original : $0E89 4C 8C 0E JMP $0E8C
+      generated: $0E7D 4C 80 0E JMP $0E80
+      orig owner: IsDigit $0E89
+      source   : Routine IsDigit samples/toolkit/original/extracted/CHARTEST.ACT:49:1 | BYTE FUNC IsDigit(BYTE c) | source 946..1031 code $0E7C-$0E9D
+    IsDigit+$0004 #0002
+      original : $0E8C 8D 88 0E STA $0E88 ; c $0E88
+      generated: $0E80 8D 7C 0E STA $0E7C
+      orig operand: c $0E88
+      source   : Routine IsDigit samples/toolkit/original/extracted/CHARTEST.ACT:49:1 | BYTE FUNC IsDigit(BYTE c) | source 946..1031 code $0E7C-$0E9D
+    IsDigit+$0007 #0003
+      original : $0E8F AD 88 0E LDA $0E88 ; c $0E88
+      generated: $0E83 AD 7C 0E LDA $0E7C
+      orig operand: c $0E88
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    IsDigit+$000C #0005
+      original : $0E94 B0 03    BCS $0E99
+      generated: $0E88 90 07    BCC $0E91
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    IsDigit+$000E #0006
+      original : $0E96 4C A8 0E JMP $0EA8
+      generated: $0E8A A9 39    LDA #$39
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    IsDigit+$0011 #0007
+      original : $0E99 A9 39    LDA #$39
+      generated: $0E8C CD 7C 0E CMP $0E7C
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    IsDigit+$0013 #0008
+      original : $0E9B CD 88 0E CMP $0E88 ; c $0E88
+      generated: $0E8F B0 03    BCS $0E94
+      orig operand: c $0E88
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    IsDigit+$0016 #0009
+      original : $0E9E B0 03    BCS $0EA3
+      generated: $0E91 4C 99 0E JMP $0E99
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    IsDigit+$0018 #0010
+      original : $0EA0 4C A8 0E JMP $0EA8
+      generated: $0E94 A9 01    LDA #$01
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:52:12 | RETURN(1) | source 1014..1015 code $0E94-$0E98
+    IsDigit+$001B #0011
+      original : $0EA3 A9 01    LDA #$01
+      generated: $0E96 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:52:12 | RETURN(1) | source 1014..1015 code $0E94-$0E98
+    IsDigit+$001D #0012
+      original : $0EA5 85 A0    STA $A0
+      generated: $0E98 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:52:12 | RETURN(1) | source 1014..1015 code $0E94-$0E98
+    IsDigit+$001F #0013
+      original : $0EA7 60       RTS
+      generated: $0E99 A9 00    LDA #$00
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:54:8 | RETURN(0) | source 1029..1030 code $0E99-$0E9D
+    IsDigit+$0020 #0014
+      original : $0EA8 A9 00    LDA #$00
+      generated: $0E9B 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:54:8 | RETURN(0) | source 1029..1030 code $0E99-$0E9D
+    IsDigit+$0022 #0015
+      original : $0EAA 85 A0    STA $A0
+      generated: $0E9D 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:54:8 | RETURN(0) | source 1029..1030 code $0E99-$0E9D
+    IsDigit+$0024 #0016
+      original : $0EAC 60       RTS
+      generated: <missing>
+  ToUpper                  len 35 -> 24 (-11)  addr $0EAD -> $0E9E
+    ToUpper+$0001 #0001
+      original : $0EAE 4C B1 0E JMP $0EB1
+      generated: $0E9F 4C A2 0E JMP $0EA2
+      orig owner: ToUpper $0EAE
+      source   : Routine ToUpper samples/toolkit/original/extracted/CHARTEST.ACT:60:1 | BYTE FUNC ToUpper(BYTE c) | source 1148..1222 code $0E9E-$0EB5
+    ToUpper+$0004 #0002
+      original : $0EB1 8D AD 0E STA $0EAD ; c $0EAD
+      generated: $0EA2 8D 9E 0E STA $0E9E
+      orig operand: c $0EAD
+      source   : Routine ToUpper samples/toolkit/original/extracted/CHARTEST.ACT:60:1 | BYTE FUNC ToUpper(BYTE c) | source 1148..1222 code $0E9E-$0EB5
+    ToUpper+$0007 #0003
+      original : $0EB4 AD AD 0E LDA $0EAD ; c $0EAD
+      generated: $0EA5 20 5B 0E JSR $0E5B
+      orig operand: c $0EAD
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:62:3 | IF IsLower(c) THEN | source 1177..1212 code $0EA5-$0EB2
+    ToUpper+$000A #0004
+      original : $0EB7 20 64 0E JSR $0E64 ; IsLower $0E64
+      generated: $0EA8 F0 09    BEQ $0EB3
+      orig operand: IsLower $0E64
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:62:3 | IF IsLower(c) THEN | source 1177..1212 code $0EA5-$0EB2
+    ToUpper+$000D #0005
+      original : $0EBA A5 A0    LDA $A0
+      generated: $0EAA 38       SEC
+      source   : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EAA-$0EB2
+    ToUpper+$000F #0006
+      original : $0EBC D0 03    BNE $0EC1
+      generated: $0EAB AD 9E 0E LDA $0E9E
+      source   : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EAA-$0EB2
+    ToUpper+$0011 #0007
+      original : $0EBE 4C CA 0E JMP $0ECA
+      generated: $0EAE E9 20    SBC #$20
+      source   : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EAA-$0EB2
+    ToUpper+$0014 #0008
+      original : $0EC1 38       SEC
+      generated: $0EB0 8D 9E 0E STA $0E9E
+      source   : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EAA-$0EB2
+    ToUpper+$0015 #0009
+      original : $0EC2 AD AD 0E LDA $0EAD ; c $0EAD
+      generated: $0EB3 85 A0    STA $A0
+      orig operand: c $0EAD
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:65:8 | RETURN(c) | source 1220..1221 code $0EB3-$0EB5
+    ToUpper+$0018 #0010
+      original : $0EC5 E9 20    SBC #$20
+      generated: $0EB5 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:65:8 | RETURN(c) | source 1220..1221 code $0EB3-$0EB5
+    ToUpper+$001A #0011
+      original : $0EC7 8D AD 0E STA $0EAD ; c $0EAD
+      generated: <missing>
+      orig operand: c $0EAD
+    ToUpper+$001D #0012
+      original : $0ECA AD AD 0E LDA $0EAD ; c $0EAD
+      generated: <missing>
+      orig operand: c $0EAD
+    ToUpper+$0020 #0013
+      original : $0ECD 85 A0    STA $A0
+      generated: <missing>
+    ToUpper+$0022 #0014
+      original : $0ECF 60       RTS
+      generated: <missing>
+  ToLower                  len 36 -> 24 (-12)  addr $0ED0 -> $0EB6
+    ToLower+$0001 #0001
+      original : $0ED1 4C D4 0E JMP $0ED4
+      generated: $0EB7 4C BA 0E JMP $0EBA
+      orig owner: ToLower $0ED1
+      source   : Routine ToLower samples/toolkit/original/extracted/CHARTEST.ACT:71:1 | BYTE FUNC ToLower(BYTE c) | source 1339..1413 code $0EB6-$0ECD
+    ToLower+$0004 #0002
+      original : $0ED4 8D D0 0E STA $0ED0 ; c $0ED0
+      generated: $0EBA 8D B6 0E STA $0EB6
+      orig operand: c $0ED0
+      source   : Routine ToLower samples/toolkit/original/extracted/CHARTEST.ACT:71:1 | BYTE FUNC ToLower(BYTE c) | source 1339..1413 code $0EB6-$0ECD
+    ToLower+$0007 #0003
+      original : $0ED7 AD D0 0E LDA $0ED0 ; c $0ED0
+      generated: $0EBD 20 39 0E JSR $0E39
+      orig operand: c $0ED0
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:73:3 | IF IsUpper(c) THEN | source 1368..1403 code $0EBD-$0ECA
+    ToLower+$000A #0004
+      original : $0EDA 20 3F 0E JSR $0E3F ; IsUpper $0E3F
+      generated: $0EC0 F0 09    BEQ $0ECB
+      orig operand: IsUpper $0E3F
+      source   : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:73:3 | IF IsUpper(c) THEN | source 1368..1403 code $0EBD-$0ECA
+    ToLower+$000D #0005
+      original : $0EDD A5 A0    LDA $A0
+      generated: $0EC2 18       CLC
+      source   : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EC2-$0ECA
+    ToLower+$000F #0006
+      original : $0EDF D0 03    BNE $0EE4
+      generated: $0EC3 AD B6 0E LDA $0EB6
+      source   : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EC2-$0ECA
+    ToLower+$0011 #0007
+      original : $0EE1 4C ED 0E JMP $0EED
+      generated: $0EC6 69 20    ADC #$20
+      source   : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EC2-$0ECA
+    ToLower+$0014 #0008
+      original : $0EE4 18       CLC
+      generated: $0EC8 8D B6 0E STA $0EB6
+      source   : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EC2-$0ECA
+    ToLower+$0015 #0009
+      original : $0EE5 AD D0 0E LDA $0ED0 ; c $0ED0
+      generated: $0ECB 85 A0    STA $A0
+      orig operand: c $0ED0
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:76:8 | RETURN(c) | source 1411..1412 code $0ECB-$0ECD
+    ToLower+$0018 #0010
+      original : $0EE8 69 20    ADC #$20
+      generated: $0ECD 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:76:8 | RETURN(c) | source 1411..1412 code $0ECB-$0ECD
+    ToLower+$001A #0011
+      original : $0EEA 8D D0 0E STA $0ED0 ; c $0ED0
+      generated: <missing>
+      orig operand: c $0ED0
+    ToLower+$001D #0012
+      original : $0EED AD D0 0E LDA $0ED0 ; c $0ED0
+      generated: <missing>
+      orig operand: c $0ED0
+    ToLower+$0020 #0013
+      original : $0EF0 85 A0    STA $A0
+      generated: <missing>
+    ToLower+$0022 #0014
+      original : $0EF2 60       RTS
+      generated: <missing>
+    ToLower+$0023 #0015
+      original : $0EF3 60       RTS
+      generated: <missing>
+
+== expected modern wins ==
+  argument store removed   count 2    saved    6 bytes
+  branch inverted          count 7    saved   21 bytes
+  final RTS removed        count 1    saved    1 bytes
+  register reload removed  count 4    saved   10 bytes
+details:
+  branch inverted          saved   3 bytes  $0E14   IsAlpha          inverted branch to condition:true:4 and removed long jump to condition:false:3
+  branch inverted          saved   3 bytes  $0E22   IsAlpha          inverted branch to condition:true:6 and removed long jump to condition:false:5
+  branch inverted          saved   3 bytes  $0E44   IsUpper          inverted branch to condition:true:11 and removed long jump to condition:false:10
+  branch inverted          saved   3 bytes  $0E66   IsLower          inverted branch to condition:true:16 and removed long jump to condition:false:15
+  branch inverted          saved   3 bytes  $0E88   IsDigit          inverted branch to condition:true:21 and removed long jump to condition:false:20
+  argument store removed   saved   3 bytes  $0EA5   ToUpper          forwarded recently stored accumulator into call argument
+  register reload removed  saved   2 bytes  $0EA8   ToUpper          suppressed accumulator reload from known memory alias
+  branch inverted          saved   3 bytes  $0EA8   ToUpper          inverted branch to condition:true:24 and removed long jump to if:next:23
+  register reload removed  saved   3 bytes  $0EB3   ToUpper          stored accumulator directly instead of reloading slot copy source
+  argument store removed   saved   3 bytes  $0EBD   ToLower          forwarded recently stored accumulator into call argument
+  register reload removed  saved   2 bytes  $0EC0   ToLower          suppressed accumulator reload from known memory alias
+  branch inverted          saved   3 bytes  $0EC0   ToLower          inverted branch to condition:true:27 and removed long jump to if:next:26
+  register reload removed  saved   3 bytes  $0ECB   ToLower          stored accumulator directly instead of reloading slot copy source
+  final RTS removed        saved   1 bytes  $0ECE   ToLower          removed duplicate final program RTS
+
+== routines: compat vs modern ==
+  IsAlpha                  len 54 -> 48 (-6)  addr $0E08 -> $0E08
+    source-range deltas:
+      Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425  diffs 24
+        left : $0E0F-$0E38 len 42
+        right: $0E0F-$0E32 len 36
+      Statement return samples/toolkit/original/extracted/CHARTEST.ACT:19:12 | RETURN(1) | source 418..419  diffs 6
+        left : $0E34-$0E38 len 5
+        right: $0E2E-$0E32 len 5
+      Statement return samples/toolkit/original/extracted/CHARTEST.ACT:21:8 | RETURN(0) | source 433..434  diffs 6
+        left : $0E39-$0E3D len 5
+        right: $0E33-$0E37 len 5
+    #0005
+      left : $0E14 B0 03    BCS $0E19
+      right: $0E14 90 07    BCC $0E1D
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0006
+      left : $0E16 4C 20 0E JMP $0E20
+      right: $0E16 A9 5A    LDA #$5A
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0007
+      left : $0E19 A9 5A    LDA #$5A
+      right: $0E18 CD 08 0E CMP $0E08
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0008
+      left : $0E1B CD 08 0E CMP $0E08
+      right: $0E1B B0 11    BCS $0E2E
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0009
+      left : $0E1E B0 14    BCS $0E34
+      right: $0E1D AD 08 0E LDA $0E08
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0010
+      left : $0E20 AD 08 0E LDA $0E08
+      right: $0E20 C9 61    CMP #$61
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0011
+      left : $0E23 C9 61    CMP #$61
+      right: $0E22 90 07    BCC $0E2B
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0012
+      left : $0E25 B0 03    BCS $0E2A
+      right: $0E24 A9 7A    LDA #$7A
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0013
+      left : $0E27 4C 39 0E JMP $0E39
+      right: $0E26 CD 08 0E CMP $0E08
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0014
+      left : $0E2A A9 7A    LDA #$7A
+      right: $0E29 B0 03    BCS $0E2E
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0015
+      left : $0E2C CD 08 0E CMP $0E08
+      right: $0E2B 4C 33 0E JMP $0E33
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E32
+    #0016
+      left : $0E2F B0 03    BCS $0E34
+      right: $0E2E A9 01    LDA #$01
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:19:12 | RETURN(1) | source 418..419 code $0E2E-$0E32
+    #0017
+      left : $0E31 4C 39 0E JMP $0E39
+      right: $0E30 85 A0    STA $A0
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:17:3 | IF ((c>='A) AND (c<='Z)) OR | source 345..425 code $0E0F-$0E38
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:19:12 | RETURN(1) | source 418..419 code $0E2E-$0E32
+    #0018
+      left : $0E34 A9 01    LDA #$01
+      right: $0E32 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:19:12 | RETURN(1) | source 418..419 code $0E34-$0E38
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:19:12 | RETURN(1) | source 418..419 code $0E2E-$0E32
+    #0019
+      left : $0E36 85 A0    STA $A0
+      right: $0E33 A9 00    LDA #$00
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:19:12 | RETURN(1) | source 418..419 code $0E34-$0E38
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:21:8 | RETURN(0) | source 433..434 code $0E33-$0E37
+    #0020
+      left : $0E38 60       RTS
+      right: $0E35 85 A0    STA $A0
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:19:12 | RETURN(1) | source 418..419 code $0E34-$0E38
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:21:8 | RETURN(0) | source 433..434 code $0E33-$0E37
+    #0021
+      left : $0E39 A9 00    LDA #$00
+      right: $0E37 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:21:8 | RETURN(0) | source 433..434 code $0E39-$0E3D
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:21:8 | RETURN(0) | source 433..434 code $0E33-$0E37
+    #0022
+      left : $0E3B 85 A0    STA $A0
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:21:8 | RETURN(0) | source 433..434 code $0E39-$0E3D
+    #0023
+      left : $0E3D 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:21:8 | RETURN(0) | source 433..434 code $0E39-$0E3D
+  IsUpper                  len 37 -> 34 (-3)  addr $0E3E -> $0E38
+    source-range deltas:
+      Routine IsUpper samples/toolkit/original/extracted/CHARTEST.ACT:27:1 | BYTE FUNC IsUpper(BYTE c) | source 551..636  diffs 4
+        left : $0E3E-$0E62 len 37 owner routine IsUpper Parameter C $0E3E-$0E3E+0
+        right: $0E38-$0E59 len 34 owner routine IsUpper Parameter C $0E38-$0E38+0
+      Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626  diffs 13
+        left : $0E45-$0E5D len 25
+        right: $0E3F-$0E54 len 22
+      Statement return samples/toolkit/original/extracted/CHARTEST.ACT:30:12 | RETURN(1) | source 619..620  diffs 6
+        left : $0E59-$0E5D len 5
+        right: $0E50-$0E54 len 5
+      Statement return samples/toolkit/original/extracted/CHARTEST.ACT:32:8 | RETURN(0) | source 634..635  diffs 6
+        left : $0E5E-$0E62 len 5
+        right: $0E55-$0E59 len 5
+    #0001
+      left : $0E3F 4C 42 0E JMP $0E42
+      right: $0E39 4C 3C 0E JMP $0E3C
+      left source : Routine IsUpper samples/toolkit/original/extracted/CHARTEST.ACT:27:1 | BYTE FUNC IsUpper(BYTE c) | source 551..636 code $0E3E-$0E62
+      right source: Routine IsUpper samples/toolkit/original/extracted/CHARTEST.ACT:27:1 | BYTE FUNC IsUpper(BYTE c) | source 551..636 code $0E38-$0E59
+    #0002
+      left : $0E42 8D 3E 0E STA $0E3E
+      right: $0E3C 8D 38 0E STA $0E38
+      left source : Routine IsUpper samples/toolkit/original/extracted/CHARTEST.ACT:27:1 | BYTE FUNC IsUpper(BYTE c) | source 551..636 code $0E3E-$0E62
+      right source: Routine IsUpper samples/toolkit/original/extracted/CHARTEST.ACT:27:1 | BYTE FUNC IsUpper(BYTE c) | source 551..636 code $0E38-$0E59
+    #0003
+      left : $0E45 AD 3E 0E LDA $0E3E
+      right: $0E3F AD 38 0E LDA $0E38
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E45-$0E5D
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    #0005
+      left : $0E4A B0 03    BCS $0E4F
+      right: $0E44 90 07    BCC $0E4D
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E45-$0E5D
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    #0006
+      left : $0E4C 4C 5E 0E JMP $0E5E
+      right: $0E46 A9 5A    LDA #$5A
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E45-$0E5D
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    #0007
+      left : $0E4F A9 5A    LDA #$5A
+      right: $0E48 CD 38 0E CMP $0E38
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E45-$0E5D
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    #0008
+      left : $0E51 CD 3E 0E CMP $0E3E
+      right: $0E4B B0 03    BCS $0E50
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E45-$0E5D
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    #0009
+      left : $0E54 B0 03    BCS $0E59
+      right: $0E4D 4C 55 0E JMP $0E55
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E45-$0E5D
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E3F-$0E54
+    #0010
+      left : $0E56 4C 5E 0E JMP $0E5E
+      right: $0E50 A9 01    LDA #$01
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:29:3 | IF (c>='A) AND (c<='Z) THEN | source 580..626 code $0E45-$0E5D
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:30:12 | RETURN(1) | source 619..620 code $0E50-$0E54
+    #0011
+      left : $0E59 A9 01    LDA #$01
+      right: $0E52 85 A0    STA $A0
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:30:12 | RETURN(1) | source 619..620 code $0E59-$0E5D
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:30:12 | RETURN(1) | source 619..620 code $0E50-$0E54
+    #0012
+      left : $0E5B 85 A0    STA $A0
+      right: $0E54 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:30:12 | RETURN(1) | source 619..620 code $0E59-$0E5D
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:30:12 | RETURN(1) | source 619..620 code $0E50-$0E54
+    #0013
+      left : $0E5D 60       RTS
+      right: $0E55 A9 00    LDA #$00
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:30:12 | RETURN(1) | source 619..620 code $0E59-$0E5D
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:32:8 | RETURN(0) | source 634..635 code $0E55-$0E59
+    #0014
+      left : $0E5E A9 00    LDA #$00
+      right: $0E57 85 A0    STA $A0
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:32:8 | RETURN(0) | source 634..635 code $0E5E-$0E62
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:32:8 | RETURN(0) | source 634..635 code $0E55-$0E59
+    #0015
+      left : $0E60 85 A0    STA $A0
+      right: $0E59 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:32:8 | RETURN(0) | source 634..635 code $0E5E-$0E62
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:32:8 | RETURN(0) | source 634..635 code $0E55-$0E59
+    #0016
+      left : $0E62 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:32:8 | RETURN(0) | source 634..635 code $0E5E-$0E62
+  IsLower                  len 37 -> 34 (-3)  addr $0E63 -> $0E5A
+    source-range deltas:
+      Routine IsLower samples/toolkit/original/extracted/CHARTEST.ACT:38:1 | BYTE FUNC IsLower(BYTE c) | source 752..837  diffs 4
+        left : $0E63-$0E87 len 37 owner routine IsLower Parameter C $0E63-$0E63+0
+        right: $0E5A-$0E7B len 34 owner routine IsLower Parameter C $0E5A-$0E5A+0
+      Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827  diffs 13
+        left : $0E6A-$0E82 len 25
+        right: $0E61-$0E76 len 22
+      Statement return samples/toolkit/original/extracted/CHARTEST.ACT:41:12 | RETURN(1) | source 820..821  diffs 6
+        left : $0E7E-$0E82 len 5
+        right: $0E72-$0E76 len 5
+      Statement return samples/toolkit/original/extracted/CHARTEST.ACT:43:8 | RETURN(0) | source 835..836  diffs 6
+        left : $0E83-$0E87 len 5
+        right: $0E77-$0E7B len 5
+    #0001
+      left : $0E64 4C 67 0E JMP $0E67
+      right: $0E5B 4C 5E 0E JMP $0E5E
+      left source : Routine IsLower samples/toolkit/original/extracted/CHARTEST.ACT:38:1 | BYTE FUNC IsLower(BYTE c) | source 752..837 code $0E63-$0E87
+      right source: Routine IsLower samples/toolkit/original/extracted/CHARTEST.ACT:38:1 | BYTE FUNC IsLower(BYTE c) | source 752..837 code $0E5A-$0E7B
+    #0002
+      left : $0E67 8D 63 0E STA $0E63
+      right: $0E5E 8D 5A 0E STA $0E5A
+      left source : Routine IsLower samples/toolkit/original/extracted/CHARTEST.ACT:38:1 | BYTE FUNC IsLower(BYTE c) | source 752..837 code $0E63-$0E87
+      right source: Routine IsLower samples/toolkit/original/extracted/CHARTEST.ACT:38:1 | BYTE FUNC IsLower(BYTE c) | source 752..837 code $0E5A-$0E7B
+    #0003
+      left : $0E6A AD 63 0E LDA $0E63
+      right: $0E61 AD 5A 0E LDA $0E5A
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E6A-$0E82
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    #0005
+      left : $0E6F B0 03    BCS $0E74
+      right: $0E66 90 07    BCC $0E6F
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E6A-$0E82
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    #0006
+      left : $0E71 4C 83 0E JMP $0E83
+      right: $0E68 A9 7A    LDA #$7A
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E6A-$0E82
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    #0007
+      left : $0E74 A9 7A    LDA #$7A
+      right: $0E6A CD 5A 0E CMP $0E5A
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E6A-$0E82
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    #0008
+      left : $0E76 CD 63 0E CMP $0E63
+      right: $0E6D B0 03    BCS $0E72
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E6A-$0E82
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    #0009
+      left : $0E79 B0 03    BCS $0E7E
+      right: $0E6F 4C 77 0E JMP $0E77
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E6A-$0E82
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E61-$0E76
+    #0010
+      left : $0E7B 4C 83 0E JMP $0E83
+      right: $0E72 A9 01    LDA #$01
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:40:3 | IF (c>='a) AND (c<='z) THEN | source 781..827 code $0E6A-$0E82
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:41:12 | RETURN(1) | source 820..821 code $0E72-$0E76
+    #0011
+      left : $0E7E A9 01    LDA #$01
+      right: $0E74 85 A0    STA $A0
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:41:12 | RETURN(1) | source 820..821 code $0E7E-$0E82
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:41:12 | RETURN(1) | source 820..821 code $0E72-$0E76
+    #0012
+      left : $0E80 85 A0    STA $A0
+      right: $0E76 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:41:12 | RETURN(1) | source 820..821 code $0E7E-$0E82
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:41:12 | RETURN(1) | source 820..821 code $0E72-$0E76
+    #0013
+      left : $0E82 60       RTS
+      right: $0E77 A9 00    LDA #$00
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:41:12 | RETURN(1) | source 820..821 code $0E7E-$0E82
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:43:8 | RETURN(0) | source 835..836 code $0E77-$0E7B
+    #0014
+      left : $0E83 A9 00    LDA #$00
+      right: $0E79 85 A0    STA $A0
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:43:8 | RETURN(0) | source 835..836 code $0E83-$0E87
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:43:8 | RETURN(0) | source 835..836 code $0E77-$0E7B
+    #0015
+      left : $0E85 85 A0    STA $A0
+      right: $0E7B 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:43:8 | RETURN(0) | source 835..836 code $0E83-$0E87
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:43:8 | RETURN(0) | source 835..836 code $0E77-$0E7B
+    #0016
+      left : $0E87 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:43:8 | RETURN(0) | source 835..836 code $0E83-$0E87
+  IsDigit                  len 37 -> 34 (-3)  addr $0E88 -> $0E7C
+    source-range deltas:
+      Routine IsDigit samples/toolkit/original/extracted/CHARTEST.ACT:49:1 | BYTE FUNC IsDigit(BYTE c) | source 946..1031  diffs 4
+        left : $0E88-$0EAC len 37 owner routine IsDigit Parameter C $0E88-$0E88+0
+        right: $0E7C-$0E9D len 34 owner routine IsDigit Parameter C $0E7C-$0E7C+0
+      Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021  diffs 13
+        left : $0E8F-$0EA7 len 25
+        right: $0E83-$0E98 len 22
+      Statement return samples/toolkit/original/extracted/CHARTEST.ACT:52:12 | RETURN(1) | source 1014..1015  diffs 6
+        left : $0EA3-$0EA7 len 5
+        right: $0E94-$0E98 len 5
+      Statement return samples/toolkit/original/extracted/CHARTEST.ACT:54:8 | RETURN(0) | source 1029..1030  diffs 6
+        left : $0EA8-$0EAC len 5
+        right: $0E99-$0E9D len 5
+    #0001
+      left : $0E89 4C 8C 0E JMP $0E8C
+      right: $0E7D 4C 80 0E JMP $0E80
+      left source : Routine IsDigit samples/toolkit/original/extracted/CHARTEST.ACT:49:1 | BYTE FUNC IsDigit(BYTE c) | source 946..1031 code $0E88-$0EAC
+      right source: Routine IsDigit samples/toolkit/original/extracted/CHARTEST.ACT:49:1 | BYTE FUNC IsDigit(BYTE c) | source 946..1031 code $0E7C-$0E9D
+    #0002
+      left : $0E8C 8D 88 0E STA $0E88
+      right: $0E80 8D 7C 0E STA $0E7C
+      left source : Routine IsDigit samples/toolkit/original/extracted/CHARTEST.ACT:49:1 | BYTE FUNC IsDigit(BYTE c) | source 946..1031 code $0E88-$0EAC
+      right source: Routine IsDigit samples/toolkit/original/extracted/CHARTEST.ACT:49:1 | BYTE FUNC IsDigit(BYTE c) | source 946..1031 code $0E7C-$0E9D
+    #0003
+      left : $0E8F AD 88 0E LDA $0E88
+      right: $0E83 AD 7C 0E LDA $0E7C
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E8F-$0EA7
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    #0005
+      left : $0E94 B0 03    BCS $0E99
+      right: $0E88 90 07    BCC $0E91
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E8F-$0EA7
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    #0006
+      left : $0E96 4C A8 0E JMP $0EA8
+      right: $0E8A A9 39    LDA #$39
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E8F-$0EA7
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    #0007
+      left : $0E99 A9 39    LDA #$39
+      right: $0E8C CD 7C 0E CMP $0E7C
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E8F-$0EA7
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    #0008
+      left : $0E9B CD 88 0E CMP $0E88
+      right: $0E8F B0 03    BCS $0E94
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E8F-$0EA7
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    #0009
+      left : $0E9E B0 03    BCS $0EA3
+      right: $0E91 4C 99 0E JMP $0E99
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E8F-$0EA7
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E83-$0E98
+    #0010
+      left : $0EA0 4C A8 0E JMP $0EA8
+      right: $0E94 A9 01    LDA #$01
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:51:3 | IF (c>='0) AND (c<='9) THEN | source 975..1021 code $0E8F-$0EA7
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:52:12 | RETURN(1) | source 1014..1015 code $0E94-$0E98
+    #0011
+      left : $0EA3 A9 01    LDA #$01
+      right: $0E96 85 A0    STA $A0
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:52:12 | RETURN(1) | source 1014..1015 code $0EA3-$0EA7
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:52:12 | RETURN(1) | source 1014..1015 code $0E94-$0E98
+    #0012
+      left : $0EA5 85 A0    STA $A0
+      right: $0E98 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:52:12 | RETURN(1) | source 1014..1015 code $0EA3-$0EA7
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:52:12 | RETURN(1) | source 1014..1015 code $0E94-$0E98
+    #0013
+      left : $0EA7 60       RTS
+      right: $0E99 A9 00    LDA #$00
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:52:12 | RETURN(1) | source 1014..1015 code $0EA3-$0EA7
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:54:8 | RETURN(0) | source 1029..1030 code $0E99-$0E9D
+    #0014
+      left : $0EA8 A9 00    LDA #$00
+      right: $0E9B 85 A0    STA $A0
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:54:8 | RETURN(0) | source 1029..1030 code $0EA8-$0EAC
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:54:8 | RETURN(0) | source 1029..1030 code $0E99-$0E9D
+    #0015
+      left : $0EAA 85 A0    STA $A0
+      right: $0E9D 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:54:8 | RETURN(0) | source 1029..1030 code $0EA8-$0EAC
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:54:8 | RETURN(0) | source 1029..1030 code $0E99-$0E9D
+    #0016
+      left : $0EAC 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:54:8 | RETURN(0) | source 1029..1030 code $0EA8-$0EAC
+  ToUpper                  len 35 -> 24 (-11)  addr $0EAD -> $0E9E
+    source-range deltas:
+      Routine ToUpper samples/toolkit/original/extracted/CHARTEST.ACT:60:1 | BYTE FUNC ToUpper(BYTE c) | source 1148..1222  diffs 4
+        left : $0EAD-$0ECF len 35 owner routine ToUpper Parameter C $0EAD-$0EAD+0
+        right: $0E9E-$0EB5 len 24 owner routine ToUpper Parameter C $0E9E-$0E9E+0
+      Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207  diffs 8
+        left : $0EC1-$0EC9 len 9
+        right: $0EAA-$0EB2 len 9
+      Statement if samples/toolkit/original/extracted/CHARTEST.ACT:62:3 | IF IsLower(c) THEN | source 1177..1212  diffs 7
+        left : $0EB4-$0EC9 len 22
+        right: $0EA5-$0EB2 len 14
+      Statement return samples/toolkit/original/extracted/CHARTEST.ACT:65:8 | RETURN(c) | source 1220..1221  diffs 5
+        left : $0ECA-$0ECF len 6
+        right: $0EB3-$0EB5 len 3
+    #0001
+      left : $0EAE 4C B1 0E JMP $0EB1
+      right: $0E9F 4C A2 0E JMP $0EA2
+      left source : Routine ToUpper samples/toolkit/original/extracted/CHARTEST.ACT:60:1 | BYTE FUNC ToUpper(BYTE c) | source 1148..1222 code $0EAD-$0ECF
+      right source: Routine ToUpper samples/toolkit/original/extracted/CHARTEST.ACT:60:1 | BYTE FUNC ToUpper(BYTE c) | source 1148..1222 code $0E9E-$0EB5
+    #0002
+      left : $0EB1 8D AD 0E STA $0EAD
+      right: $0EA2 8D 9E 0E STA $0E9E
+      left source : Routine ToUpper samples/toolkit/original/extracted/CHARTEST.ACT:60:1 | BYTE FUNC ToUpper(BYTE c) | source 1148..1222 code $0EAD-$0ECF
+      right source: Routine ToUpper samples/toolkit/original/extracted/CHARTEST.ACT:60:1 | BYTE FUNC ToUpper(BYTE c) | source 1148..1222 code $0E9E-$0EB5
+    #0003
+      left : $0EB4 AD AD 0E LDA $0EAD
+      right: $0EA5 20 5B 0E JSR $0E5B
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:62:3 | IF IsLower(c) THEN | source 1177..1212 code $0EB4-$0EC9
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:62:3 | IF IsLower(c) THEN | source 1177..1212 code $0EA5-$0EB2
+    #0004
+      left : $0EB7 20 64 0E JSR $0E64
+      right: $0EA8 F0 09    BEQ $0EB3
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:62:3 | IF IsLower(c) THEN | source 1177..1212 code $0EB4-$0EC9
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:62:3 | IF IsLower(c) THEN | source 1177..1212 code $0EA5-$0EB2
+    #0005
+      left : $0EBA A5 A0    LDA $A0
+      right: $0EAA 38       SEC
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:62:3 | IF IsLower(c) THEN | source 1177..1212 code $0EB4-$0EC9
+      right source: Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EAA-$0EB2
+    #0006
+      left : $0EBC D0 03    BNE $0EC1
+      right: $0EAB AD 9E 0E LDA $0E9E
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:62:3 | IF IsLower(c) THEN | source 1177..1212 code $0EB4-$0EC9
+      right source: Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EAA-$0EB2
+    #0007
+      left : $0EBE 4C CA 0E JMP $0ECA
+      right: $0EAE E9 20    SBC #$20
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:62:3 | IF IsLower(c) THEN | source 1177..1212 code $0EB4-$0EC9
+      right source: Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EAA-$0EB2
+    #0008
+      left : $0EC1 38       SEC
+      right: $0EB0 8D 9E 0E STA $0E9E
+      left source : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EC1-$0EC9
+      right source: Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EAA-$0EB2
+    #0009
+      left : $0EC2 AD AD 0E LDA $0EAD
+      right: $0EB3 85 A0    STA $A0
+      left source : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EC1-$0EC9
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:65:8 | RETURN(c) | source 1220..1221 code $0EB3-$0EB5
+    #0010
+      left : $0EC5 E9 20    SBC #$20
+      right: $0EB5 60       RTS
+      left source : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EC1-$0EC9
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:65:8 | RETURN(c) | source 1220..1221 code $0EB3-$0EB5
+    #0011
+      left : $0EC7 8D AD 0E STA $0EAD
+      right: <missing>
+      left source : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:63:5 | c==-$20 | source 1200..1207 code $0EC1-$0EC9
+    #0012
+      left : $0ECA AD AD 0E LDA $0EAD
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:65:8 | RETURN(c) | source 1220..1221 code $0ECA-$0ECF
+    #0013
+      left : $0ECD 85 A0    STA $A0
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:65:8 | RETURN(c) | source 1220..1221 code $0ECA-$0ECF
+    #0014
+      left : $0ECF 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:65:8 | RETURN(c) | source 1220..1221 code $0ECA-$0ECF
+  ToLower                  len 35 -> 24 (-11)  addr $0ED0 -> $0EB6
+    source-range deltas:
+      Routine ToLower samples/toolkit/original/extracted/CHARTEST.ACT:71:1 | BYTE FUNC ToLower(BYTE c) | source 1339..1413  diffs 4
+        left : $0ED0-$0EF2 len 35 owner routine ToLower Parameter C $0ED0-$0ED0+0
+        right: $0EB6-$0ECD len 24 owner routine ToLower Parameter C $0EB6-$0EB6+0
+      Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398  diffs 8
+        left : $0EE4-$0EEC len 9
+        right: $0EC2-$0ECA len 9
+      Statement if samples/toolkit/original/extracted/CHARTEST.ACT:73:3 | IF IsUpper(c) THEN | source 1368..1403  diffs 7
+        left : $0ED7-$0EEC len 22
+        right: $0EBD-$0ECA len 14
+      Statement return samples/toolkit/original/extracted/CHARTEST.ACT:76:8 | RETURN(c) | source 1411..1412  diffs 5
+        left : $0EED-$0EF2 len 6
+        right: $0ECB-$0ECD len 3
+    #0001
+      left : $0ED1 4C D4 0E JMP $0ED4
+      right: $0EB7 4C BA 0E JMP $0EBA
+      left source : Routine ToLower samples/toolkit/original/extracted/CHARTEST.ACT:71:1 | BYTE FUNC ToLower(BYTE c) | source 1339..1413 code $0ED0-$0EF2
+      right source: Routine ToLower samples/toolkit/original/extracted/CHARTEST.ACT:71:1 | BYTE FUNC ToLower(BYTE c) | source 1339..1413 code $0EB6-$0ECD
+    #0002
+      left : $0ED4 8D D0 0E STA $0ED0
+      right: $0EBA 8D B6 0E STA $0EB6
+      left source : Routine ToLower samples/toolkit/original/extracted/CHARTEST.ACT:71:1 | BYTE FUNC ToLower(BYTE c) | source 1339..1413 code $0ED0-$0EF2
+      right source: Routine ToLower samples/toolkit/original/extracted/CHARTEST.ACT:71:1 | BYTE FUNC ToLower(BYTE c) | source 1339..1413 code $0EB6-$0ECD
+    #0003
+      left : $0ED7 AD D0 0E LDA $0ED0
+      right: $0EBD 20 39 0E JSR $0E39
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:73:3 | IF IsUpper(c) THEN | source 1368..1403 code $0ED7-$0EEC
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:73:3 | IF IsUpper(c) THEN | source 1368..1403 code $0EBD-$0ECA
+    #0004
+      left : $0EDA 20 3F 0E JSR $0E3F
+      right: $0EC0 F0 09    BEQ $0ECB
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:73:3 | IF IsUpper(c) THEN | source 1368..1403 code $0ED7-$0EEC
+      right source: Statement if samples/toolkit/original/extracted/CHARTEST.ACT:73:3 | IF IsUpper(c) THEN | source 1368..1403 code $0EBD-$0ECA
+    #0005
+      left : $0EDD A5 A0    LDA $A0
+      right: $0EC2 18       CLC
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:73:3 | IF IsUpper(c) THEN | source 1368..1403 code $0ED7-$0EEC
+      right source: Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EC2-$0ECA
+    #0006
+      left : $0EDF D0 03    BNE $0EE4
+      right: $0EC3 AD B6 0E LDA $0EB6
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:73:3 | IF IsUpper(c) THEN | source 1368..1403 code $0ED7-$0EEC
+      right source: Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EC2-$0ECA
+    #0007
+      left : $0EE1 4C ED 0E JMP $0EED
+      right: $0EC6 69 20    ADC #$20
+      left source : Statement if samples/toolkit/original/extracted/CHARTEST.ACT:73:3 | IF IsUpper(c) THEN | source 1368..1403 code $0ED7-$0EEC
+      right source: Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EC2-$0ECA
+    #0008
+      left : $0EE4 18       CLC
+      right: $0EC8 8D B6 0E STA $0EB6
+      left source : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EE4-$0EEC
+      right source: Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EC2-$0ECA
+    #0009
+      left : $0EE5 AD D0 0E LDA $0ED0
+      right: $0ECB 85 A0    STA $A0
+      left source : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EE4-$0EEC
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:76:8 | RETURN(c) | source 1411..1412 code $0ECB-$0ECD
+    #0010
+      left : $0EE8 69 20    ADC #$20
+      right: $0ECD 60       RTS
+      left source : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EE4-$0EEC
+      right source: Statement return samples/toolkit/original/extracted/CHARTEST.ACT:76:8 | RETURN(c) | source 1411..1412 code $0ECB-$0ECD
+    #0011
+      left : $0EEA 8D D0 0E STA $0ED0
+      right: <missing>
+      left source : Statement compound assignment samples/toolkit/original/extracted/CHARTEST.ACT:74:5 | c==+$20 | source 1391..1398 code $0EE4-$0EEC
+    #0012
+      left : $0EED AD D0 0E LDA $0ED0
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:76:8 | RETURN(c) | source 1411..1412 code $0EED-$0EF2
+    #0013
+      left : $0EF0 85 A0    STA $A0
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:76:8 | RETURN(c) | source 1411..1412 code $0EED-$0EF2
+    #0014
+      left : $0EF2 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CHARTEST.ACT:76:8 | RETURN(c) | source 1411..1412 code $0EED-$0EF2
+
+== bytes: original:samples/toolkit/survey/outputs/vm/CHARTEST.COM vs compat ==
+exact: true  sizes: 248 vs 248
+first diffs: none
+
+== instructions: original:samples/toolkit/survey/outputs/vm/CHARTEST.COM vs compat ==
+counts: 106 vs 106
+first diffs: none
+
+== bytes: original:samples/toolkit/survey/outputs/vm/CHARTEST.COM vs modern ==
+exact: false  sizes: 248 vs 210
+first diffs:
+  @0004: $F3 -> $CD
+  @0012: $B0 -> $90
+  @0013: $03 -> $07
+  @0014: $4C -> $A9
+  @0015: $20 -> $5A
+  @0016: $0E -> $CD
+  @0017: $A9 -> $08
+  @0018: $5A -> $0E
+  @0019: $CD -> $B0
+  @001A: $08 -> $11
+  @001B: $0E -> $AD
+  @001C: $B0 -> $08
+  @001D: $14 -> $0E
+  @001E: $AD -> $C9
+  @001F: $08 -> $61
+  @0020: $0E -> $90
+  @0021: $C9 -> $07
+  @0022: $61 -> $A9
+  @0023: $B0 -> $7A
+  @0024: $03 -> $CD
+  @0025: $4C -> $08
+  @0026: $39 -> $0E
+  @0027: $0E -> $B0
+  @0028: $A9 -> $03
+  @0029: $7A -> $4C
+  @002A: $CD -> $33
+  @002B: $08 -> $0E
+  @002C: $0E -> $A9
+  @002D: $B0 -> $01
+  @002E: $03 -> $85
+
+== instructions: original:samples/toolkit/survey/outputs/vm/CHARTEST.COM vs modern ==
+counts: 106 vs 92
+  #0005
+    left : $0E14 B0 03    BCS $0E19
+    right: $0E14 90 07    BCC $0E1D
+  #0006
+    left : $0E16 4C 20 0E JMP $0E20
+    right: $0E16 A9 5A    LDA #$5A
+  #0007
+    left : $0E19 A9 5A    LDA #$5A
+    right: $0E18 CD 08 0E CMP $0E08
+  #0008
+    left : $0E1B CD 08 0E CMP $0E08
+    right: $0E1B B0 11    BCS $0E2E
+  #0009
+    left : $0E1E B0 14    BCS $0E34
+    right: $0E1D AD 08 0E LDA $0E08
+  #0010
+    left : $0E20 AD 08 0E LDA $0E08
+    right: $0E20 C9 61    CMP #$61
+  #0011
+    left : $0E23 C9 61    CMP #$61
+    right: $0E22 90 07    BCC $0E2B
+  #0012
+    left : $0E25 B0 03    BCS $0E2A
+    right: $0E24 A9 7A    LDA #$7A
+  #0013
+    left : $0E27 4C 39 0E JMP $0E39
+    right: $0E26 CD 08 0E CMP $0E08
+  #0014
+    left : $0E2A A9 7A    LDA #$7A
+    right: $0E29 B0 03    BCS $0E2E
+  #0015
+    left : $0E2C CD 08 0E CMP $0E08
+    right: $0E2B 4C 33 0E JMP $0E33
+  #0016
+    left : $0E2F B0 03    BCS $0E34
+    right: $0E2E A9 01    LDA #$01
+  #0017
+    left : $0E31 4C 39 0E JMP $0E39
+    right: $0E30 85 A0    STA $A0
+  #0018
+    left : $0E34 A9 01    LDA #$01
+    right: $0E32 60       RTS
+  #0019
+    left : $0E36 85 A0    STA $A0
+    right: $0E33 A9 00    LDA #$00
+  #0020
+    left : $0E38 60       RTS
+    right: $0E35 85 A0    STA $A0
+  #0021
+    left : $0E39 A9 00    LDA #$00
+    right: $0E37 60       RTS
+  #0022
+    left : $0E3B 85 A0    STA $A0
+    right: $0E38 00       BRK
+  #0023
+    left : $0E3D 60       RTS
+    right: $0E39 4C 3C 0E JMP $0E3C
+  #0024
+    left : $0E3E 00       BRK
+    right: $0E3C 8D 38 0E STA $0E38
+  #0025
+    left : $0E3F 4C 42 0E JMP $0E42
+    right: $0E3F AD 38 0E LDA $0E38
+  #0026
+    left : $0E42 8D 3E 0E STA $0E3E
+    right: $0E42 C9 41    CMP #$41
+  #0027
+    left : $0E45 AD 3E 0E LDA $0E3E
+    right: $0E44 90 07    BCC $0E4D
+  #0028
+    left : $0E48 C9 41    CMP #$41
+    right: $0E46 A9 5A    LDA #$5A
+  #0029
+    left : $0E4A B0 03    BCS $0E4F
+    right: $0E48 CD 38 0E CMP $0E38
+  #0030
+    left : $0E4C 4C 5E 0E JMP $0E5E
+    right: $0E4B B0 03    BCS $0E50
+  #0031
+    left : $0E4F A9 5A    LDA #$5A
+    right: $0E4D 4C 55 0E JMP $0E55
+  #0032
+    left : $0E51 CD 3E 0E CMP $0E3E
+    right: $0E50 A9 01    LDA #$01
+  #0033
+    left : $0E54 B0 03    BCS $0E59
+    right: $0E52 85 A0    STA $A0
+  #0034
+    left : $0E56 4C 5E 0E JMP $0E5E
+    right: $0E54 60       RTS
+
+== bytes: compat vs modern ==
+exact: false  sizes: 248 vs 210
+first diffs:
+  @0004: $F3 -> $CD
+  @0012: $B0 -> $90
+  @0013: $03 -> $07
+  @0014: $4C -> $A9
+  @0015: $20 -> $5A
+  @0016: $0E -> $CD
+  @0017: $A9 -> $08
+  @0018: $5A -> $0E
+  @0019: $CD -> $B0
+  @001A: $08 -> $11
+  @001B: $0E -> $AD
+  @001C: $B0 -> $08
+  @001D: $14 -> $0E
+  @001E: $AD -> $C9
+  @001F: $08 -> $61
+  @0020: $0E -> $90
+  @0021: $C9 -> $07
+  @0022: $61 -> $A9
+  @0023: $B0 -> $7A
+  @0024: $03 -> $CD
+  @0025: $4C -> $08
+  @0026: $39 -> $0E
+  @0027: $0E -> $B0
+  @0028: $A9 -> $03
+  @0029: $7A -> $4C
+  @002A: $CD -> $33
+  @002B: $08 -> $0E
+  @002C: $0E -> $A9
+  @002D: $B0 -> $01
+  @002E: $03 -> $85
+
+== instructions: compat vs modern ==
+counts: 106 vs 92
+  #0005
+    left : $0E14 B0 03    BCS $0E19
+    right: $0E14 90 07    BCC $0E1D
+  #0006
+    left : $0E16 4C 20 0E JMP $0E20
+    right: $0E16 A9 5A    LDA #$5A
+  #0007
+    left : $0E19 A9 5A    LDA #$5A
+    right: $0E18 CD 08 0E CMP $0E08
+  #0008
+    left : $0E1B CD 08 0E CMP $0E08
+    right: $0E1B B0 11    BCS $0E2E
+  #0009
+    left : $0E1E B0 14    BCS $0E34
+    right: $0E1D AD 08 0E LDA $0E08
+  #0010
+    left : $0E20 AD 08 0E LDA $0E08
+    right: $0E20 C9 61    CMP #$61
+  #0011
+    left : $0E23 C9 61    CMP #$61
+    right: $0E22 90 07    BCC $0E2B
+  #0012
+    left : $0E25 B0 03    BCS $0E2A
+    right: $0E24 A9 7A    LDA #$7A
+  #0013
+    left : $0E27 4C 39 0E JMP $0E39
+    right: $0E26 CD 08 0E CMP $0E08
+  #0014
+    left : $0E2A A9 7A    LDA #$7A
+    right: $0E29 B0 03    BCS $0E2E
+  #0015
+    left : $0E2C CD 08 0E CMP $0E08
+    right: $0E2B 4C 33 0E JMP $0E33
+  #0016
+    left : $0E2F B0 03    BCS $0E34
+    right: $0E2E A9 01    LDA #$01
+  #0017
+    left : $0E31 4C 39 0E JMP $0E39
+    right: $0E30 85 A0    STA $A0
+  #0018
+    left : $0E34 A9 01    LDA #$01
+    right: $0E32 60       RTS
+  #0019
+    left : $0E36 85 A0    STA $A0
+    right: $0E33 A9 00    LDA #$00
+  #0020
+    left : $0E38 60       RTS
+    right: $0E35 85 A0    STA $A0
+  #0021
+    left : $0E39 A9 00    LDA #$00
+    right: $0E37 60       RTS
+  #0022
+    left : $0E3B 85 A0    STA $A0
+    right: $0E38 00       BRK
+  #0023
+    left : $0E3D 60       RTS
+    right: $0E39 4C 3C 0E JMP $0E3C
+  #0024
+    left : $0E3E 00       BRK
+    right: $0E3C 8D 38 0E STA $0E38
+  #0025
+    left : $0E3F 4C 42 0E JMP $0E42
+    right: $0E3F AD 38 0E LDA $0E38
+  #0026
+    left : $0E42 8D 3E 0E STA $0E3E
+    right: $0E42 C9 41    CMP #$41
+  #0027
+    left : $0E45 AD 3E 0E LDA $0E3E
+    right: $0E44 90 07    BCC $0E4D
+  #0028
+    left : $0E48 C9 41    CMP #$41
+    right: $0E46 A9 5A    LDA #$5A
+  #0029
+    left : $0E4A B0 03    BCS $0E4F
+    right: $0E48 CD 38 0E CMP $0E38
+  #0030
+    left : $0E4C 4C 5E 0E JMP $0E5E
+    right: $0E4B B0 03    BCS $0E50
+  #0031
+    left : $0E4F A9 5A    LDA #$5A
+    right: $0E4D 4C 55 0E JMP $0E55
+  #0032
+    left : $0E51 CD 3E 0E CMP $0E3E
+    right: $0E50 A9 01    LDA #$01
+  #0033
+    left : $0E54 B0 03    BCS $0E59
+    right: $0E52 85 A0    STA $A0
+  #0034
+    left : $0E56 4C 5E 0E JMP $0E5E
+    right: $0E54 60       RTS

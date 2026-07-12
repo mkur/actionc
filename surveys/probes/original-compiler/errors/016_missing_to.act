@@ -1,0 +1,7 @@
+; Original compiler error 16: missing TO.
+
+PROC Main()
+  BYTE i
+  FOR i=0 10 DO
+  OD
+RETURN

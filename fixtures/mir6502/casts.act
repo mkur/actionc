@@ -1,0 +1,8 @@
+BYTE b
+CARD w
+
+PROC Main()
+  b=7
+  w=CARD(b)
+  b=BYTE(w)
+RETURN

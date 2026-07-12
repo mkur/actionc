@@ -1,0 +1,25 @@
+nir program
+global b: Byte
+global bp: Byte*
+global a: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(4) } length=4 storage=Array origin=global init zero_fill=4 section=global mutable=true
+
+routine <program> params=[-] locals=[-]
+bb1:
+  store @$0491 = $3000
+  store @$000E = $3000
+  fallthrough
+
+routine Main params=[-] locals=[-]
+bb0:
+  %t0:Byte* = addr b
+  store bp = %t0
+  %t1:Byte* = load bp
+  store *%t1 = 1
+  %t2:Byte* = addr a
+  %t3:Byte* = load bp
+  %t4:Byte = load *%t3
+  store %t2[0;1] = %t4
+  %t5:Byte* = addr a
+  %t6:Byte = load %t5[0;1]
+  store b = %t6
+  return

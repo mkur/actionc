@@ -1,0 +1,21 @@
+BYTE i, done, out
+BYTE ARRAY data(4) = [0 1 0 1]
+
+BYTE FUNC More(BYTE n)
+  IF n < 4 THEN
+    RETURN (1)
+  FI
+RETURN (0)
+
+PROC Main()
+  i = 0
+  done = 0
+  WHILE More(i) # 0 AND (data(i) = 0 OR done = 0)
+  DO
+    out ==+ data(i)
+    i ==+ 1
+    IF i = 3 THEN
+      done = 1
+    FI
+  OD
+RETURN

@@ -1,0 +1,32 @@
+
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+PROC TEST_IP()
+
+    INT POINTER ip = $4000
+
+    INT i = 5
+
+    IF ip^ = 0 THEN
+        ip==+1
+    ELSEIF ip^ > 0 THEN
+        ip==+i
+    FI
+
+    IF ip^ < 0 THEN
+        ip==-2
+    FI
+
+    ip^=-ip^
+
+RETURN
+
+
+
+
+
+

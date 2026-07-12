@@ -1,0 +1,28 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+DEFINE STRING="CHAR ARRAY"
+
+MODULE
+
+STRING empty(0)=""
+STRING one(0)="A"
+STRING hello(0)="HELLO"
+STRING quoted(0)="A""B"
+CHAR ARRAY fixed(6)="ATARI!"
+
+BYTE e0, o0, h0, h1, h4, q0, q1, q2, f0, f5
+
+PROC Main()
+  e0 = empty(0)
+  o0 = one(0)
+  h0 = hello(0)
+  h1 = hello(1)
+  h4 = hello(4)
+  q0 = quoted(0)
+  q1 = quoted(1)
+  q2 = quoted(2)
+  f0 = fixed(0)
+  f5 = fixed(5)
+RETURN

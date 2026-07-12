@@ -1,0 +1,548 @@
+source: samples/toolkit/original/extracted/ABS.ACT
+
+== original:samples/toolkit/survey/outputs/vm/ABS.COM ==
+load bytes: 66  code bytes: 54  code origin: $0E08
+segments:
+  00: $0E08-$0E3D len    54 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off    60 data_off    64
+      RUNAD $02E2 = $0E0A
+opcode counts:
+  $00 BRK      2
+  $30 BMI      1
+  $38 SEC      1
+  $4C JMP      2
+  $60 RTS      3
+  $85 STA      4
+  $8D STA      1
+  $8E STX      1
+  $A9 LDA      2
+  $AD LDA      4
+  $C9 CMP      1
+  $E9 SBC      1
+  $ED SBC      2
+
+== compat ==
+load bytes: 66  code bytes: 54  code origin: $0E08
+segments:
+  00: $0E08-$0E3D len    54 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off    60 data_off    64
+      RUNAD $02E2 = $0E0A
+opcode counts:
+  $00 BRK      2
+  $30 BMI      1
+  $38 SEC      1
+  $4C JMP      2
+  $60 RTS      3
+  $85 STA      4
+  $8D STA      1
+  $8E STX      1
+  $A9 LDA      2
+  $AD LDA      4
+  $C9 CMP      1
+  $E9 SBC      1
+  $ED SBC      2
+
+== modern ==
+load bytes: 33  code bytes: 21  code origin: $0E08
+segments:
+  00: $0E08-$0E1C len    21 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off    27 data_off    31
+      RUNAD $02E2 = $0E08
+opcode counts:
+  $10 BPL      1
+  $38 SEC      1
+  $60 RTS      1
+  $85 STA      3
+  $86 STX      1
+  $8A TXA      1
+  $A9 LDA      2
+  $E5 SBC      2
+
+== map: compat ==
+origin $0E08  run $0E0A  routines 1  symbols 1  skipped 0
+routines:
+  Abs                      $0E08-$0E3C len    53
+storage symbols:
+  routine Abs Parameter N $0E08-$0E09
+trusted effects:
+  Abs                      clobbers A,X,Y; writes zp $A0,$A1; writes abs $0E09,$0E08
+
+== map: modern ==
+origin $0E08  run $0E08  routines 1  symbols 0  skipped 0
+routines:
+  Abs                      $0E08-$0E1C len    21
+trusted effects:
+  Abs                      clobbers A,X,Y; writes zp $A0,$A1
+
+== routines: original:samples/toolkit/survey/outputs/vm/ABS.COM vs compat ==
+  Abs                      len 54 -> 53 (-1)  addr $0E08 -> $0E08
+    Abs+$0035 #0024
+      original : $0E3D 60       RTS
+      generated: <missing>
+
+== routines: original:samples/toolkit/survey/outputs/vm/ABS.COM vs modern ==
+  Abs                      len 54 -> 21 (-33)  addr $0E08 -> $0E08
+    Abs+$0000 #0000
+      original : $0E08 00       BRK
+      generated: $0E08 85 A0    STA $A0
+      orig owner: n $0E08
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$0001 #0001
+      original : $0E09 00       BRK
+      generated: $0E0A 86 A1    STX $A1
+      orig owner: n+1 $0E09
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$0002 #0002
+      original : $0E0A 4C 0D 0E JMP $0E0D
+      generated: $0E0C 8A       TXA
+      orig owner: Abs $0E0A
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$0005 #0003
+      original : $0E0D 8E 09 0E STX $0E09 ; n+1 $0E09
+      generated: $0E0D 10 0D    BPL $0E1C
+      orig operand: n+1 $0E09
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$0008 #0004
+      original : $0E10 8D 08 0E STA $0E08 ; n $0E08
+      generated: $0E0F 38       SEC
+      orig operand: n $0E08
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$000B #0005
+      original : $0E13 AD 08 0E LDA $0E08 ; n $0E08
+      generated: $0E10 A9 00    LDA #$00
+      orig operand: n $0E08
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$000E #0006
+      original : $0E16 C9 00    CMP #$00
+      generated: $0E12 E5 A0    SBC $A0
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$0010 #0007
+      original : $0E18 AD 09 0E LDA $0E09 ; n+1 $0E09
+      generated: $0E14 85 A0    STA $A0
+      orig operand: n+1 $0E09
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$0013 #0008
+      original : $0E1B E9 00    SBC #$00
+      generated: $0E16 A9 00    LDA #$00
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$0015 #0009
+      original : $0E1D 30 03    BMI $0E22
+      generated: $0E18 E5 A1    SBC $A1
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$0017 #0010
+      original : $0E1F 4C 32 0E JMP $0E32
+      generated: $0E1A 85 A1    STA $A1
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$001A #0011
+      original : $0E22 38       SEC
+      generated: $0E1C 60       RTS
+      source   : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    Abs+$001B #0012
+      original : $0E23 A9 00    LDA #$00
+      generated: <missing>
+    Abs+$001D #0013
+      original : $0E25 ED 08 0E SBC $0E08 ; n $0E08
+      generated: <missing>
+      orig operand: n $0E08
+    Abs+$0020 #0014
+      original : $0E28 85 A0    STA $A0
+      generated: <missing>
+    Abs+$0022 #0015
+      original : $0E2A A9 00    LDA #$00
+      generated: <missing>
+    Abs+$0024 #0016
+      original : $0E2C ED 09 0E SBC $0E09 ; n+1 $0E09
+      generated: <missing>
+      orig operand: n+1 $0E09
+    Abs+$0027 #0017
+      original : $0E2F 85 A1    STA $A1
+      generated: <missing>
+    Abs+$0029 #0018
+      original : $0E31 60       RTS
+      generated: <missing>
+    Abs+$002A #0019
+      original : $0E32 AD 09 0E LDA $0E09 ; n+1 $0E09
+      generated: <missing>
+      orig operand: n+1 $0E09
+    Abs+$002D #0020
+      original : $0E35 85 A1    STA $A1
+      generated: <missing>
+    Abs+$002F #0021
+      original : $0E37 AD 08 0E LDA $0E08 ; n $0E08
+      generated: <missing>
+      orig operand: n $0E08
+    Abs+$0032 #0022
+      original : $0E3A 85 A0    STA $A0
+      generated: <missing>
+    Abs+$0034 #0023
+      original : $0E3C 60       RTS
+      generated: <missing>
+    Abs+$0035 #0024
+      original : $0E3D 60       RTS
+      generated: <missing>
+
+== expected modern wins ==
+  final RTS removed        count 1    saved    1 bytes
+details:
+  final RTS removed        saved   1 bytes  $0E1D   Abs              removed duplicate final program RTS
+
+== routines: compat vs modern ==
+  Abs                      len 53 -> 21 (-32)  addr $0E08 -> $0E08
+    source-range deltas:
+      Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289  diffs 15
+        left : $0E08-$0E3C len 53 owner routine Abs Parameter N $0E08-$0E09+0
+        right: $0E08-$0E1C len 21
+      Statement if samples/toolkit/original/extracted/ABS.ACT:13:3 | IF n<0 THEN | source 248..279  diffs 6
+        left : $0E13-$0E31 len 31
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/ABS.ACT:14:12 | RETURN(-n) | source 271..273  diffs 8
+        left : $0E22-$0E31 len 16
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/ABS.ACT:16:8 | RETURN(n) | source 287..288  diffs 5
+        left : $0E32-$0E3C len 11
+        right: <missing>
+      Declaration Abs storage samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289  diffs 2
+        left : $0E08-$0E09 len 2 owner routine Abs Parameter N $0E08-$0E09+0
+        right: <missing>
+    #0000
+      left : $0E08 00       BRK
+      right: $0E08 85 A0    STA $A0
+      left source : Declaration Abs storage samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E09
+      left owner  : routine Abs Parameter N $0E08-$0E09+0
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0001
+      left : $0E09 00       BRK
+      right: $0E0A 86 A1    STX $A1
+      left source : Declaration Abs storage samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E09
+      left owner  : routine Abs Parameter N $0E08-$0E09+1
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0002
+      left : $0E0A 4C 0D 0E JMP $0E0D
+      right: $0E0C 8A       TXA
+      left source : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E3C
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0003
+      left : $0E0D 8E 09 0E STX $0E09
+      right: $0E0D 10 0D    BPL $0E1C
+      left source : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E3C
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0004
+      left : $0E10 8D 08 0E STA $0E08
+      right: $0E0F 38       SEC
+      left source : Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E3C
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0005
+      left : $0E13 AD 08 0E LDA $0E08
+      right: $0E10 A9 00    LDA #$00
+      left source : Statement if samples/toolkit/original/extracted/ABS.ACT:13:3 | IF n<0 THEN | source 248..279 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0006
+      left : $0E16 C9 00    CMP #$00
+      right: $0E12 E5 A0    SBC $A0
+      left source : Statement if samples/toolkit/original/extracted/ABS.ACT:13:3 | IF n<0 THEN | source 248..279 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0007
+      left : $0E18 AD 09 0E LDA $0E09
+      right: $0E14 85 A0    STA $A0
+      left source : Statement if samples/toolkit/original/extracted/ABS.ACT:13:3 | IF n<0 THEN | source 248..279 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0008
+      left : $0E1B E9 00    SBC #$00
+      right: $0E16 A9 00    LDA #$00
+      left source : Statement if samples/toolkit/original/extracted/ABS.ACT:13:3 | IF n<0 THEN | source 248..279 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0009
+      left : $0E1D 30 03    BMI $0E22
+      right: $0E18 E5 A1    SBC $A1
+      left source : Statement if samples/toolkit/original/extracted/ABS.ACT:13:3 | IF n<0 THEN | source 248..279 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0010
+      left : $0E1F 4C 32 0E JMP $0E32
+      right: $0E1A 85 A1    STA $A1
+      left source : Statement if samples/toolkit/original/extracted/ABS.ACT:13:3 | IF n<0 THEN | source 248..279 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0011
+      left : $0E22 38       SEC
+      right: $0E1C 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:14:12 | RETURN(-n) | source 271..273 code $0E22-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/ABS.ACT:11:1 | INT FUNC Abs(INT n) | source 225..289 code $0E08-$0E1C
+    #0012
+      left : $0E23 A9 00    LDA #$00
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:14:12 | RETURN(-n) | source 271..273 code $0E22-$0E31
+    #0013
+      left : $0E25 ED 08 0E SBC $0E08
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:14:12 | RETURN(-n) | source 271..273 code $0E22-$0E31
+    #0014
+      left : $0E28 85 A0    STA $A0
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:14:12 | RETURN(-n) | source 271..273 code $0E22-$0E31
+    #0015
+      left : $0E2A A9 00    LDA #$00
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:14:12 | RETURN(-n) | source 271..273 code $0E22-$0E31
+    #0016
+      left : $0E2C ED 09 0E SBC $0E09
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:14:12 | RETURN(-n) | source 271..273 code $0E22-$0E31
+    #0017
+      left : $0E2F 85 A1    STA $A1
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:14:12 | RETURN(-n) | source 271..273 code $0E22-$0E31
+    #0018
+      left : $0E31 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:14:12 | RETURN(-n) | source 271..273 code $0E22-$0E31
+    #0019
+      left : $0E32 AD 09 0E LDA $0E09
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:16:8 | RETURN(n) | source 287..288 code $0E32-$0E3C
+    #0020
+      left : $0E35 85 A1    STA $A1
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:16:8 | RETURN(n) | source 287..288 code $0E32-$0E3C
+    #0021
+      left : $0E37 AD 08 0E LDA $0E08
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:16:8 | RETURN(n) | source 287..288 code $0E32-$0E3C
+    #0022
+      left : $0E3A 85 A0    STA $A0
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:16:8 | RETURN(n) | source 287..288 code $0E32-$0E3C
+    #0023
+      left : $0E3C 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/ABS.ACT:16:8 | RETURN(n) | source 287..288 code $0E32-$0E3C
+
+== bytes: original:samples/toolkit/survey/outputs/vm/ABS.COM vs compat ==
+exact: true  sizes: 66 vs 66
+first diffs: none
+
+== instructions: original:samples/toolkit/survey/outputs/vm/ABS.COM vs compat ==
+counts: 25 vs 25
+first diffs: none
+
+== bytes: original:samples/toolkit/survey/outputs/vm/ABS.COM vs modern ==
+exact: false  sizes: 66 vs 33
+first diffs:
+  @0004: $3D -> $1C
+  @0006: $00 -> $85
+  @0007: $00 -> $A0
+  @0008: $4C -> $86
+  @0009: $0D -> $A1
+  @000A: $0E -> $8A
+  @000B: $8E -> $10
+  @000C: $09 -> $0D
+  @000D: $0E -> $38
+  @000E: $8D -> $A9
+  @000F: $08 -> $00
+  @0010: $0E -> $E5
+  @0011: $AD -> $A0
+  @0012: $08 -> $85
+  @0013: $0E -> $A0
+  @0014: $C9 -> $A9
+  @0016: $AD -> $E5
+  @0017: $09 -> $A1
+  @0018: $0E -> $85
+  @0019: $E9 -> $A1
+  @001A: $00 -> $60
+  @001B: $30 -> $E2
+  @001C: $03 -> $02
+  @001D: $4C -> $E3
+  @001E: $32 -> $02
+  @001F: $0E -> $08
+  @0020: $38 -> $0E
+  @0021: $A9 -> <eof>
+  @0022: $00 -> <eof>
+  @0023: $ED -> <eof>
+
+== instructions: original:samples/toolkit/survey/outputs/vm/ABS.COM vs modern ==
+counts: 25 vs 12
+  #0000
+    left : $0E08 00       BRK
+    right: $0E08 85 A0    STA $A0
+  #0001
+    left : $0E09 00       BRK
+    right: $0E0A 86 A1    STX $A1
+  #0002
+    left : $0E0A 4C 0D 0E JMP $0E0D
+    right: $0E0C 8A       TXA
+  #0003
+    left : $0E0D 8E 09 0E STX $0E09
+    right: $0E0D 10 0D    BPL $0E1C
+  #0004
+    left : $0E10 8D 08 0E STA $0E08
+    right: $0E0F 38       SEC
+  #0005
+    left : $0E13 AD 08 0E LDA $0E08
+    right: $0E10 A9 00    LDA #$00
+  #0006
+    left : $0E16 C9 00    CMP #$00
+    right: $0E12 E5 A0    SBC $A0
+  #0007
+    left : $0E18 AD 09 0E LDA $0E09
+    right: $0E14 85 A0    STA $A0
+  #0008
+    left : $0E1B E9 00    SBC #$00
+    right: $0E16 A9 00    LDA #$00
+  #0009
+    left : $0E1D 30 03    BMI $0E22
+    right: $0E18 E5 A1    SBC $A1
+  #0010
+    left : $0E1F 4C 32 0E JMP $0E32
+    right: $0E1A 85 A1    STA $A1
+  #0011
+    left : $0E22 38       SEC
+    right: $0E1C 60       RTS
+  #0012
+    left : $0E23 A9 00    LDA #$00
+    right: <missing>
+  #0013
+    left : $0E25 ED 08 0E SBC $0E08
+    right: <missing>
+  #0014
+    left : $0E28 85 A0    STA $A0
+    right: <missing>
+  #0015
+    left : $0E2A A9 00    LDA #$00
+    right: <missing>
+  #0016
+    left : $0E2C ED 09 0E SBC $0E09
+    right: <missing>
+  #0017
+    left : $0E2F 85 A1    STA $A1
+    right: <missing>
+  #0018
+    left : $0E31 60       RTS
+    right: <missing>
+  #0019
+    left : $0E32 AD 09 0E LDA $0E09
+    right: <missing>
+  #0020
+    left : $0E35 85 A1    STA $A1
+    right: <missing>
+  #0021
+    left : $0E37 AD 08 0E LDA $0E08
+    right: <missing>
+  #0022
+    left : $0E3A 85 A0    STA $A0
+    right: <missing>
+  #0023
+    left : $0E3C 60       RTS
+    right: <missing>
+  #0024
+    left : $0E3D 60       RTS
+    right: <missing>
+
+== bytes: compat vs modern ==
+exact: false  sizes: 66 vs 33
+first diffs:
+  @0004: $3D -> $1C
+  @0006: $00 -> $85
+  @0007: $00 -> $A0
+  @0008: $4C -> $86
+  @0009: $0D -> $A1
+  @000A: $0E -> $8A
+  @000B: $8E -> $10
+  @000C: $09 -> $0D
+  @000D: $0E -> $38
+  @000E: $8D -> $A9
+  @000F: $08 -> $00
+  @0010: $0E -> $E5
+  @0011: $AD -> $A0
+  @0012: $08 -> $85
+  @0013: $0E -> $A0
+  @0014: $C9 -> $A9
+  @0016: $AD -> $E5
+  @0017: $09 -> $A1
+  @0018: $0E -> $85
+  @0019: $E9 -> $A1
+  @001A: $00 -> $60
+  @001B: $30 -> $E2
+  @001C: $03 -> $02
+  @001D: $4C -> $E3
+  @001E: $32 -> $02
+  @001F: $0E -> $08
+  @0020: $38 -> $0E
+  @0021: $A9 -> <eof>
+  @0022: $00 -> <eof>
+  @0023: $ED -> <eof>
+
+== instructions: compat vs modern ==
+counts: 25 vs 12
+  #0000
+    left : $0E08 00       BRK
+    right: $0E08 85 A0    STA $A0
+  #0001
+    left : $0E09 00       BRK
+    right: $0E0A 86 A1    STX $A1
+  #0002
+    left : $0E0A 4C 0D 0E JMP $0E0D
+    right: $0E0C 8A       TXA
+  #0003
+    left : $0E0D 8E 09 0E STX $0E09
+    right: $0E0D 10 0D    BPL $0E1C
+  #0004
+    left : $0E10 8D 08 0E STA $0E08
+    right: $0E0F 38       SEC
+  #0005
+    left : $0E13 AD 08 0E LDA $0E08
+    right: $0E10 A9 00    LDA #$00
+  #0006
+    left : $0E16 C9 00    CMP #$00
+    right: $0E12 E5 A0    SBC $A0
+  #0007
+    left : $0E18 AD 09 0E LDA $0E09
+    right: $0E14 85 A0    STA $A0
+  #0008
+    left : $0E1B E9 00    SBC #$00
+    right: $0E16 A9 00    LDA #$00
+  #0009
+    left : $0E1D 30 03    BMI $0E22
+    right: $0E18 E5 A1    SBC $A1
+  #0010
+    left : $0E1F 4C 32 0E JMP $0E32
+    right: $0E1A 85 A1    STA $A1
+  #0011
+    left : $0E22 38       SEC
+    right: $0E1C 60       RTS
+  #0012
+    left : $0E23 A9 00    LDA #$00
+    right: <missing>
+  #0013
+    left : $0E25 ED 08 0E SBC $0E08
+    right: <missing>
+  #0014
+    left : $0E28 85 A0    STA $A0
+    right: <missing>
+  #0015
+    left : $0E2A A9 00    LDA #$00
+    right: <missing>
+  #0016
+    left : $0E2C ED 09 0E SBC $0E09
+    right: <missing>
+  #0017
+    left : $0E2F 85 A1    STA $A1
+    right: <missing>
+  #0018
+    left : $0E31 60       RTS
+    right: <missing>
+  #0019
+    left : $0E32 AD 09 0E LDA $0E09
+    right: <missing>
+  #0020
+    left : $0E35 85 A1    STA $A1
+    right: <missing>
+  #0021
+    left : $0E37 AD 08 0E LDA $0E08
+    right: <missing>
+  #0022
+    left : $0E3A 85 A0    STA $A0
+    right: <missing>
+  #0023
+    left : $0E3C 60       RTS
+    right: <missing>
+  #0024
+    left : $0E3D 60       RTS
+    right: <missing>

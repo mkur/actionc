@@ -1,0 +1,83 @@
+mir6502 program
+global g0 choice: byte storage global+0
+global g1 answer: byte storage global+1
+static s0 __nir_str_Main_0: Char* bytes [$04 $2B $2A $4C $52] section=rodata align=1 mutable=false display="+*LR"
+
+routine r0 RangeLike
+b0 bb0:
+  v0 =.w load param p0+0
+  v1 =.b load computed v0[#$00;1]+0
+  store.b local l1+0, v1
+  store.b local l2+0, #$00
+  store.b local l0+0, #$01
+  jump b1
+b1 bb1:
+  v2 =.b load local l0+0
+  v3 =.b load local l1+0
+  v4 = cmp.b v2 le v3
+  branch bool v4 ? b2 : b13
+b2 bb2:
+  v5 =.w load param p0+0
+  v6 =.b load local l0+0
+  v7 =.b load computed v5[v6;1]+0
+  v8 =.b load param p3+0
+  v9 = cmp.b v7 eq v8
+  branch bool v9 ? b3 : b7
+b3 bb5:
+  v10 =.w load param p2+0
+  v11 =.b load *v10+0
+  v12 = cmp.b v11 ne #$00
+  branch bool v12 ? b4 : b5
+b4 bb8:
+  v13 =.w load param p2+0
+  v14 =.b load *v13+0
+  v15 =.b v14 sub #$01 carry_in=- carry_out=ignore
+  store.b *v13+0, v15
+  jump b6
+b5 bb9:
+  store.b local l2+0, #$01
+  jump b6
+b6 bb7:
+  jump b12
+b7 bb6:
+  v16 =.w load param p0+0
+  v17 =.b load local l0+0
+  v18 =.b v17 add #$01 carry_in=- carry_out=ignore
+  v19 =.b load computed v16[v18;1]+0
+  v20 =.b load param p3+0
+  v21 = cmp.b v19 eq v20
+  branch bool v21 ? b8 : b12
+b8 bb10:
+  v22 =.w load param p2+0
+  v23 =.b load *v22+0
+  v24 =.b load param p1+0
+  v25 = cmp.b v23 lt v24
+  branch bool v25 ? b9 : b10
+b9 bb12:
+  v26 =.w load param p2+0
+  v27 =.b load *v26+0
+  v28 =.b v27 add #$01 carry_in=- carry_out=ignore
+  store.b *v26+0, v28
+  jump b11
+b10 bb13:
+  store.b local l2+0, #$01
+  jump b11
+b11 bb11:
+  jump b12
+b12 bb4:
+  v29 =.b load local l0+0
+  v30 =.b v29 add #$02 carry_in=- carry_out=ignore
+  store.b local l0+0, v30
+  jump b1
+b13 bb3:
+  v31 =.b load param p3+0
+  store.b fixed_zp $A0, v31
+  return
+
+routine r1 Main
+b0 bb14:
+  store.b global g0+0, #$01
+  v0 =.w lea global g0+0
+  call r0 args=[static_addr s0.w -> a:x, #$03.b -> y, v0.w -> fixed_zp $A3:fixed_zp $A4, #$2A.b -> fixed_zp $A5] result=v1.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  store.b global g1+0, v1
+  return

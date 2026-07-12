@@ -1,0 +1,15 @@
+BYTE ARRAY s
+BYTE ARRAY left(8), right(8)
+BYTE out
+
+PROC Take(BYTE ARRAY p)
+  out = p(0)
+RETURN
+
+PROC Main()
+  s = left
+  Take(s)
+
+  s = right
+  Take(s)
+RETURN

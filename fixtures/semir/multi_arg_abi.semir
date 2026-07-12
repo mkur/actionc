@@ -1,0 +1,49 @@
+program modules=1
+  module #0 items=10
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte a0#74/scope1:Var:Byte scalar
+    decl Byte a1#75/scope1:Var:Byte scalar
+    decl Byte a2#76/scope1:Var:Byte scalar
+    decl Byte a3#77/scope1:Var:Byte scalar
+    decl Card w0#78/scope1:Var:Card scalar
+    routine PROC Take4#79/scope1:Proc:?
+      callable PROC(Byte,Byte,Byte,Byte)
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      params:
+        Byte a#80/scope2:Param:Byte Value
+        Byte b#81/scope2:Param:Byte Value
+        Byte c#82/scope2:Param:Byte Value
+        Byte d#83/scope2:Param:Byte Value
+      body:
+        assign a0:Byte:facts=w1,Unsigned = a:Byte:LValue:eval4:facts=w1,Unsigned
+        assign a1:Byte:facts=w1,Unsigned = b:Byte:LValue:eval5:facts=w1,Unsigned
+        assign a2:Byte:facts=w1,Unsigned = c:Byte:LValue:eval6:facts=w1,Unsigned
+        assign a3:Byte:facts=w1,Unsigned = d:Byte:LValue:eval7:facts=w1,Unsigned
+        return
+    routine PROC TakeMixed#84/scope1:Proc:?
+      callable PROC(Byte,Card,Byte)
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      params:
+        Byte a#85/scope3:Param:Byte Value
+        Card w#86/scope3:Param:Card Value
+        Byte b#87/scope3:Param:Byte Value
+      body:
+        assign a0:Byte:facts=w1,Unsigned = a:Byte:LValue:eval8:facts=w1,Unsigned
+        assign w0:Card:facts=w2,Unsigned = w:Card:LValue:eval9:facts=w2,Unsigned
+        assign a1:Byte:facts=w1,Unsigned = b:Byte:LValue:eval10:facts=w1,Unsigned
+        return
+    routine PROC Main#88/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        call user Take4 -> ? callable=PROC(Byte,Byte,Byte,Byte) effects=none
+          arg #0 1:Byte:Value:eval11:facts=w1,Unsigned
+          arg #1 2:Byte:Value:eval12:facts=w1,Unsigned
+          arg #2 3:Byte:Value:eval13:facts=w1,Unsigned
+          arg #3 4:Byte:Value:eval14:facts=w1,Unsigned
+        call user TakeMixed -> ? callable=PROC(Byte,Card,Byte) effects=none
+          arg #0 5:Byte:Value:eval15:facts=w1,Unsigned
+          arg #1 $1234:Card:Value:eval16:facts=w2,Unsigned
+          arg #2 6:Byte:Value:eval17:facts=w1,Unsigned
+        return

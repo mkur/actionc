@@ -1,0 +1,7 @@
+TYPE Pair=[BYTE tag CARD word]
+Pair rec
+BYTE x
+
+PROC Main()
+  x = rec.tag
+RETURN

@@ -1,0 +1,19 @@
+program modules=1
+  module #0 items=5
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte i#74/scope1:Var:Byte scalar
+    decl Byte total#75/scope1:Var:Byte scalar
+    routine PROC Main#76/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=true max_loop_depth=1
+      body:
+        assign i:Byte:facts=w1,Unsigned = 0:Byte:Value:eval4:facts=w1,Unsigned
+        while Compare (i:Byte:LValue:eval5:facts=w1,Unsigned < 3:Byte:Value:eval6:facts=w1,Unsigned):Byte:Condition:eval7:facts=w1,Unsigned
+          if
+            when Compare (i:Byte:LValue:eval8:facts=w1,Unsigned = 1:Byte:Value:eval9:facts=w1,Unsigned):Byte:Condition:eval10:facts=w1,Unsigned
+              assign total:Byte:facts=w1,Unsigned += 2:Byte:Value:eval11:facts=w1,Unsigned
+            else
+              assign total:Byte:facts=w1,Unsigned += 1:Byte:Value:eval12:facts=w1,Unsigned
+          assign i:Byte:facts=w1,Unsigned += 1:Byte:Value:eval13:facts=w1,Unsigned
+        return

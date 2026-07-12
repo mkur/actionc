@@ -1,0 +1,8 @@
+BYTE ZP=$00E4
+
+PROC Target()
+RETURN
+
+PROC Main()
+  [$34 $0348 $F2F8 $FFFF @ZP @ZP+1 <@ZP >@ZP @Target <Target >Target]
+RETURN

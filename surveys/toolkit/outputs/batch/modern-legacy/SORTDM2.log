@@ -1,0 +1,8 @@
+source: samples/toolkit/modern/SORT.DM2
+source_policy: auto
+compile_source: samples/toolkit/modern/SORT.DM2
+profile: modern
+backend: legacy
+codegen_source: ast
+status: ok
+detail: wrote samples/toolkit/survey/outputs/batch/modern-legacy/SORTDM2.COM

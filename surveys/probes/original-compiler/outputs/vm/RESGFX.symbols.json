@@ -1,0 +1,9 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$26","name_addr":"$9400","name":"b","vtype":"$8A","address":"$3000","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$FE","name_addr":"$9405","name":"Main","vtype":"$C0","address":"$3001","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]}
+  ],
+  "locals": []
+}

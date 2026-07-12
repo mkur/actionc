@@ -1,0 +1,3 @@
+; Original compiler error 1: missing double quote in a string.
+
+CHAR ARRAY text="unterminated

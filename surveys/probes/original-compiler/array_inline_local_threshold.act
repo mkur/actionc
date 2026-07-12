@@ -1,0 +1,85 @@
+; Probe original Action! local BYTE ARRAY inline-storage threshold.
+;
+; Sizes advance in 128-byte steps, with an extra 320-byte case to pin the
+; transition between the observed 256-byte inline case and 384-byte compact
+; descriptor/backing case.
+
+SET $491=$3000
+SET $E=$3000
+
+BYTE sink
+
+PROC Local128()
+  BYTE ARRAY l128(128)
+  l128(0) = 1
+  l128(127) = 2
+  sink = l128(0)
+RETURN
+
+PROC Local256()
+  BYTE ARRAY l256(256)
+  l256(0) = 1
+  l256(255) = 2
+  sink = l256(0)
+RETURN
+
+PROC Local320()
+  BYTE ARRAY l320(320)
+  l320(0) = 1
+  l320(319) = 2
+  sink = l320(0)
+RETURN
+
+PROC Local384()
+  BYTE ARRAY l384(384)
+  l384(0) = 1
+  l384(383) = 2
+  sink = l384(0)
+RETURN
+
+PROC Local512()
+  BYTE ARRAY l512(512)
+  l512(0) = 1
+  l512(511) = 2
+  sink = l512(0)
+RETURN
+
+PROC Local640()
+  BYTE ARRAY l640(640)
+  l640(0) = 1
+  l640(639) = 2
+  sink = l640(0)
+RETURN
+
+PROC Local768()
+  BYTE ARRAY l768(768)
+  l768(0) = 1
+  l768(767) = 2
+  sink = l768(0)
+RETURN
+
+PROC Local896()
+  BYTE ARRAY l896(896)
+  l896(0) = 1
+  l896(895) = 2
+  sink = l896(0)
+RETURN
+
+PROC Local1024()
+  BYTE ARRAY l1024(1024)
+  l1024(0) = 1
+  l1024(1023) = 2
+  sink = l1024(0)
+RETURN
+
+PROC Main()
+  Local128()
+  Local256()
+  Local320()
+  Local384()
+  Local512()
+  Local640()
+  Local768()
+  Local896()
+  Local1024()
+RETURN

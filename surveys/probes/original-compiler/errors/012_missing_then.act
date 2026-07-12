@@ -1,0 +1,7 @@
+; Original compiler error 12: missing THEN.
+
+PROC Main()
+  IF 1
+    RETURN
+  FI
+RETURN

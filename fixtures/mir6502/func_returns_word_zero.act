@@ -1,0 +1,8 @@
+CARD result
+
+CARD FUNC Zero()
+RETURN(0)
+
+PROC Main()
+  result = Zero()
+RETURN

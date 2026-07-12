@@ -1,0 +1,8 @@
+CARD FUNC Get()
+RETURN($1234)
+
+CARD out
+
+PROC Main()
+  out = Get()
+RETURN

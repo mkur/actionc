@@ -1,0 +1,25 @@
+BYTE observed
+BYTE dummy
+
+PROC Touch(BYTE POINTER p)
+  p^ = 7
+RETURN
+
+PROC Noise(CHAR ARRAY s)
+  BYTE i
+  CHAR c
+
+  FOR i=1 TO s(0) DO
+    c = s(i)
+  OD
+  dummy = c
+RETURN
+
+PROC Caller(BYTE a,b,c,d)
+  Touch(@c)
+  observed = c
+RETURN
+
+PROC Main()
+  Caller(1,2,3,4)
+RETURN

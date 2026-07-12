@@ -1,0 +1,37 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY data(4)
+
+CHAR POINTER cp
+CARD POINTER wp
+
+BYTE x, y
+CARD w, z
+
+PROC Touch(CHAR POINTER p, CARD POINTER q)
+  p^ = $22
+  x = p^
+
+  q^ = $3344
+  w = q^
+RETURN
+
+PROC Main()
+  cp = data
+  cp^ = $11
+  x = cp^
+
+  cp ==+ 1
+  cp^ = $33
+  y = cp^
+
+  wp = @z
+  wp^ = $1234
+  w = wp^
+
+  Touch(data, @z)
+RETURN

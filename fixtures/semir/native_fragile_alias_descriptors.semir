@@ -1,0 +1,17 @@
+program modules=1
+  module #0 items=5
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Card p#74/scope1:Var:Card scalar
+    decl Byte seen#75/scope1:Var:Byte scalar
+    routine PROC Main#76/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      locals:
+        decl Byte alias#77/scope2:Array:Byte array Byte ARRAY(300)->Byte POINTER/Array/Local
+          init $4000:Card:Value:eval5:facts=w2,Unsigned
+          length 300:Int:Value:eval4:facts=w2,Signed
+      body:
+        assign p:Card:facts=w2,Unsigned = array_decay/Local alias:Byte:facts=w1,Unsigned:Byte POINTER:Value:eval6:facts=w2,ptr,to=Byte,pointee_w1
+        assign seen:Byte:facts=w1,Unsigned = array_decay/Local alias:Byte:facts=w1,Unsigned:Byte POINTER:Value:eval7:facts=w2,ptr,to=Byte,pointee_w1(1:Byte:Value:eval8:facts=w1,Unsigned):Byte:facts=w1,Unsigned:Byte:LValue:eval9:facts=w1,Unsigned
+        return

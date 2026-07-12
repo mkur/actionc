@@ -1,0 +1,73 @@
+; Probe original Action! global BYTE ARRAY inline-storage threshold.
+;
+; Each declaration is followed by a one-byte marker routine.  If a sized byte
+; array is emitted inline, the following marker moves by roughly that size.  If
+; it is descriptor/backing storage, the marker should move only by the compact
+; descriptor shape.
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+BYTE ARRAY g128(128)
+PROC MarkG128=*() [$60]
+
+MODULE
+BYTE ARRAY g256(256)
+PROC MarkG256=*() [$60]
+
+MODULE
+BYTE ARRAY g320(320)
+PROC MarkG320=*() [$60]
+
+MODULE
+BYTE ARRAY g384(384)
+PROC MarkG384=*() [$60]
+
+MODULE
+BYTE ARRAY g512(512)
+PROC MarkG512=*() [$60]
+
+MODULE
+BYTE ARRAY g640(640)
+PROC MarkG640=*() [$60]
+
+MODULE
+BYTE ARRAY g768(768)
+PROC MarkG768=*() [$60]
+
+MODULE
+BYTE ARRAY g896(896)
+PROC MarkG896=*() [$60]
+
+MODULE
+BYTE ARRAY g1024(1024)
+PROC MarkG1024=*() [$60]
+
+MODULE
+BYTE sink
+
+PROC TouchGlobals()
+  g128(0) = 1
+  g128(127) = 2
+  g256(0) = 1
+  g256(255) = 2
+  g320(0) = 1
+  g320(319) = 2
+  g384(0) = 1
+  g384(383) = 2
+  g512(0) = 1
+  g512(511) = 2
+  g640(0) = 1
+  g640(639) = 2
+  g768(0) = 1
+  g768(767) = 2
+  g896(0) = 1
+  g896(895) = 2
+  g1024(0) = 1
+  g1024(1023) = 2
+RETURN
+
+PROC Main()
+  TouchGlobals()
+RETURN

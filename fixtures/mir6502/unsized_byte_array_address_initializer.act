@@ -1,0 +1,6 @@
+BYTE ARRAY screen=$580
+BYTE x
+
+PROC Main()
+  x = screen(0)
+RETURN

@@ -1,0 +1,3 @@
+PROC Main()
+  [$A9 $00 $60]
+RETURN

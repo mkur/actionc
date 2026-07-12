@@ -1,0 +1,762 @@
+;\{INV:                                    }
+
+;WARP ATTACK copyright (c) 1984 by
+;      OSS and Dave Plotkin
+
+;\{INV:                                    }
+
+MODULE
+
+DEFINE PushAXY="[$48 $8A $48 $98 $48]", 
+       PullYXA="[$68 $A8 $68 $AA $68]",
+       SaveTemps="[$A2 7 $B5 $A8 $48 $CA $10 $FA]",
+       GetTemps ="[$A2 0 $68 $95 $A8 $E8 $E0 8 $D0 $F8]"
+
+CARD DLptr=560,
+     DLIptr=512,
+     ScrPtr=88,
+     Timer2=$21A,
+     Timer2Ptr=$228,
+     HiMem=$2E5,
+     PM_BASEADR,
+     Adres,AdresB,      
+     Score=[0],
+     Old
+
+INT  SX=[1],SY=[1] 
+
+INT ARRAY BXDR=[0 0 0 0],
+          BYDR=[0 0 0 0]
+
+BYTE NMIEnable=$D40E,
+     Hard_ColorBAK=$D01A,
+     Hard_ColorPF2=$D018,
+     T=$DA,
+     VCount=$D40B,
+     WSync=$D40A,
+     Count=[0],
+     PM_HitClr=$D01E,
+     DMACtl=$22F,
+     GRACtl=$D01D,
+     PM_Base=$D407,
+     GPriority=$26F,
+     X0,Y0,
+     ShipX,
+     ShipY,
+     ShipStatus=[0],
+     Color0=708,
+     Color1=709,
+     Color2=710,
+     Color3=711,
+     Color4=712,
+     Fate=53770,
+     NumShips=[4],
+     CursorInhibit=752,
+     TxtRow=656,
+     TxtCol=657,
+     Level=[10],
+     Level1=[10],
+     SerialCtl=$D20F,
+     AudioCtl=$D208
+     
+BYTE ARRAY DLIST,
+           YLOCL(80),
+           YLOCH(80),
+           RSH2(160),
+           PMHPOS(8)=$D000,         
+           PMVPOS(8)=[0 0 0 0 0 0 0 0],
+           PM_WIDTH(5)=$D008,
+           PLPTR,
+           PM_MISMASK(4)=[$FC $F3 $CF $3F],
+           BALL1=[0 0 0 0 
+                  $E1 $21 $1B $2E
+                  $7C $D8 $8C $87
+                  0 0 0 0],
+           BALL2=[0 0 0 0  
+                  $0C $62 $B6 $9C
+                  $39 $6D $46 $30
+                  0 0 0 0],
+           BSTAT=[0 0 0 0],
+           BX=[0 0 0 0],
+           BY=[0 0 0 0],
+           PCOLR(4)=704,
+           BLANK=[0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0],
+           CLRS(0)=[64 66 68 70 72 74
+                    64 66 68 70 72 74
+                    64 66 68 70 72 74
+                    64 66 68 70 72 74
+                    64 66 68],
+           BM(0)=[$C0 $30 $C $3],
+           CM(0)=[$0 $55 $AA $FF],
+           SHIPSHAPE(0)=[0 0 0 0 66 36 24 165 
+                         231 165 24 36 66 0 0
+                         0 0],
+           MSTATUS(0)=[0 0 0 0],
+           MX(0)=[0 0 0 0],
+           MY(0)=[0 0 0 0],
+           MXOLD(0)=[0 0 0 0],
+           MYOLD(0)=[0 0 0 0],
+           SHIP(100)=['\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}
+              '\{$00}'\{$00}'\{$00}'\{$00}'@'\{$00}'\{$02}'\{$85}'X'\{INV: }'\{$00}
+              '\{$01}'\{$00}'\{$00}'@'P'\{$00}'\{$9F}'\{INV:v}'\{$80}'\{$05}'\{$01}
+              '\{$00}'\{$00}'A'\{INV:t}'U'\{$7F}'\{$FD}'U'\{$1F}'A'\{$00}
+              '\{$00}'W'\{$FD}'j'\{$7F}'\{$FD}'\{INV:)}'\{$7F}'\{INV:U}'\{$00}'\{$00}
+              'W'\{$FD}'j'\{$7F}'\{$FD}'\{INV:)}'\{$7F}'\{INV:U}'\{$00}'\{$00}'A
+              '\{INV:t}'U'\{$7F}'\{$FD}'U'\{$1F}'A'\{$00}'\{$00}'@'P
+              '\{$00}'\{$9F}'\{INV:v}'\{$80}'\{$05}'\{$01}'\{$00}'\{$00}'@'\{$00}'\{$02}
+              '\{$85}'X'\{INV: }'\{$00}'\{$01}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}
+              '\{$00}'\{$00}'\{$00}'\{$00}'\{$00}],
+           NOLEFT(100)=['\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}
+              '\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$02}'\{$85}'X'\{INV: }
+              '\{$00}'\{$01}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$9F}'\{INV:v}'\{$80}'\{$05}
+              '\{$01}'\{$00}'\{$00}'\{$00}'\{$04}'U'\{$7F}'\{$FD}'U'\{$1F}'A
+              '\{$00}'\{$00}'\{$00}'\{$01}'j'\{$7F}'\{$FD}'\{INV:)}'\{$7F}'\{INV:U}'\{$00}
+              '\{$00}'\{$00}'\{$04}'j'\{$7F}'\{$FD}'\{INV:)}'\{$7F}'\{INV:U}'\{$00}'\{$00}
+              '\{$00}'\{$11}'U'\{$7F}'\{$FD}'U'\{$1F}'A'\{$00}'\{$00}'\{$00}
+              '\{$00}'\{$00}'\{$9F}'\{INV:v}'\{$80}'\{$05}'\{$01}'\{$00}'\{$00}'\{$00}'\{$00}
+              '\{$02}'\{$85}'X'\{INV: }'\{$00}'\{$01}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}
+              '\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}],
+           NOENG(100)= ['\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}
+              '\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$02}'\{$85}'X'\{INV: }
+              '\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$9F}'\{INV:v}'\{$80}'\{$00}
+              '\{$00}'\{$00}'\{$00}'\{$00}'\{$04}'U'\{$7F}'\{$FD}'U'D'\{$00}
+              '\{$00}'\{$00}'\{$00}'\{$01}'j'\{$7F}'\{$FD}'\{INV:)}'\{$10}'\{$00}'\{$00}
+              '\{$00}'\{$00}'\{$04}'j'\{$7F}'\{$FD}'\{INV:)}'\{$10}'\{$00}'\{$00}'\{$00}
+              '\{$00}'\{$11}'U'\{$7F}'\{$FD}'U'D'\{$00}'\{$00}'\{$00}'\{$00}
+              '\{$00}'\{$00}'\{$9F}'\{INV:v}'\{$80}'\{$10}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}
+              '\{$02}'\{$85}'X'\{INV: }'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}
+              '\{$00}'\{$00}'\{$00}'\{$00}'\{$00}'\{$00}],
+           LINE
+
+BYTE LOW=LINE,
+     HIGH=LINE+1
+
+;************************************
+;DLI to create color bars on screen
+;************************************
+
+PROC DLI()
+
+  BYTE dum
+
+  PushAXY
+  IF VCount>94 THEN 
+    WSync=1
+    Hard_ColorBAK=0
+    Hard_ColorPF2=0
+  ELSE
+    dum=CLRS(Count)   
+    WSync=1
+    Hard_ColorBAK=dum 
+  FI
+  Count==+1
+  IF Count=27 THEN Count=0 FI
+  PullYXA
+  [$40]
+
+;************************************
+;Initialize graphics 7 screen and set
+;up line pointers
+;************************************
+
+PROC Init7()
+
+  BYTE low1,high1,i
+
+  CARD screen=low1
+
+  Graphics(7)
+  Color0=44
+  Color1=102
+  Color2=52
+  Color4=0
+  screen=ScrPtr
+  FOR i=0 TO 79
+    DO
+    YLOCL(i)=low1
+    YLOCH(i)=high1
+    screen==+40
+    OD
+  FOR i=0 TO 159
+    DO RSH2(i)=i RSH 2 OD  
+RETURN
+
+;************************************
+;Put the DLI calls into the display
+;list.
+;************************************
+
+PROC DLSetUp()
+
+  BYTE i
+
+  Init7()
+  NMIEnable=$40
+  DLIST=DLptr
+  DLIptr=DLI
+  FOR i=30 TO 40
+    DO DLIST(i)=141 OD
+  FOR i=42 TO 54 STEP 2
+    DO DLIST(i)=141 OD
+  FOR i=57 TO 72 STEP 3
+    DO DLIST(i)=141 OD
+  FOR i=76 TO 84 STEP 4
+    DO DLIST(i)=141 OD
+  NMIEnable=$C0
+RETURN
+
+;************************************
+;VBI to rotate the colors of the bars
+;on the screen.
+;************************************
+
+PROC ScrollColors()
+
+  BYTE temp,i
+
+  PushAXY
+  SaveTemps
+  temp=CLRS(26)
+  FOR i=0 TO 25 
+    DO CLRS(26-i)=CLRS(25-i) OD
+  CLRS(0)=temp
+  Timer2=2
+  GetTemps
+  PullYXA
+RETURN
+
+;************************************
+;Include the joystick routines
+;************************************
+
+INCLUDE "JOYSTIX.ACT"
+
+;************************************
+;Special Mode 7 Draw
+;************************************
+
+PROC Draw7(BYTE X,Y,CLR)
+
+  BYTE x1=$A0,
+       y1=$A1,
+       clr1=$A2
+
+  LOW=YLOCL(y1)
+  HIGH=YLOCH(y1)
+  T=RSH2(x1)
+  LINE(T)=(((BM(x1&3)!$FF)&LINE(T))%
+        (BM(x1&3)&CM(clr1)))
+RETURN
+
+;************************************
+;Special Mode 7 picture Draw
+;************************************
+
+PROC FastDraw(BYTE ARRAY picture BYTE width,height,xx,yy)
+
+  BYTE lctr1,lctr2  
+
+  CARD lctr3
+
+  FOR lctr1=0 TO height-1
+    DO
+    LOW=YLOCL(yy+lctr1)
+    HIGH=YLOCH(yy+lctr1)
+    lctr2=xx+width
+    lctr3=(lctr1+1)*width-1
+      DO 
+      LINE(lctr2)=picture(lctr3)
+      lctr3==-1
+      lctr2==-1
+    UNTIL lctr2=xx  
+      OD
+    OD
+ RETURN
+
+;************************************
+;************************************
+
+PROC PMGRAPHICS()
+ZERO(PMHPOS,8) ZERO(PMVPOS,8)
+ZERO(PM_WIDTH,5) 
+DMACtl=$3E 
+PM_BASEADR=(HiMem-$800)&$F800
+PM_Base=PM_BASEADR RSH 8
+HiMem=PM_BASEADR+768
+GPriority==&$C0%17 GRACtl=3
+RETURN
+
+;************************************
+;************************************
+
+CARD FUNC PMADR(BYTE N)
+IF N>=4 THEN N=0 ELSE N==+1 FI
+RETURN(PM_BASEADR+768+(N*$100))
+
+;************************************
+;************************************
+
+PROC PMCLEAR(BYTE N)
+CARD CTR
+BYTE ARRAY PLAYADR
+PLAYADR=PMADR(N)
+IF N<4 THEN ZERO(PLAYADR,$100)
+ ELSE N==-4
+FOR CTR=0 TO $100-1
+DO PLAYADR(CTR)==&PM_MISMASK(N) OD
+FI
+RETURN
+
+;************************************
+;Erase mother ship so we can move it
+;************************************
+
+PROC EraseShip()
+
+  BYTE loopX,loopY,temp
+
+  temp=ShipX LSH 2
+  FOR loopY=ShipY TO ShipY+10
+    DO
+    FOR loopX=temp TO temp+39
+      DO Draw7(loopX,loopY,0) OD
+    OD
+  Level==+2
+  IF Level>20 THEN Level=20 FI
+  Level1==+5
+  IF Level1>200 THEN Level1=200 FI
+RETURN
+
+;************************************
+;Print out the text window info
+;************************************
+
+PROC ShowInfo()
+
+  BYTE i
+
+ \{INV:_}CursorInhibit=1
+  TxtRow=0 TxtCol=0
+  Print("\{$11}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$05}")   
+  FOR i=1 TO 2
+    DO
+    TxtRow=i TxtCol=0
+    Print("|")
+    TxtCol=38
+    Print("|")
+    OD
+  TxtRow=3 TxtCol=0
+  Print("\{$1A}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$03}")      
+  TxtRow=1 TxtCol=5
+  Print("SCORE: ")
+  TxtCol=12
+  PrintC(Score)
+  TxtCol=20
+  Print("SHIPS LEFT: ")
+  FOR i=1 TO 5
+    DO
+    TxtCol=31+i
+    IF NumShips>=i THEN Print("{")
+    ELSE Print(" ")
+    FI
+    OD
+RETURN
+
+;************************************
+;Update the score display
+;************************************
+
+PROC ShowScore()
+
+  TxtRow=1 TxtCol=12
+  PrintC(Score)
+RETURN
+
+;************************************
+;Update the ships left display
+;************************************
+
+PROC ShowShips()
+
+  BYTE i
+
+  TxtRow=1
+  FOR i=1 TO 5
+     DO
+    TxtCol=31+i
+    IF NumShips>=i THEN Print("{")
+    ELSE Print(" ")
+    FI
+    OD
+RETURN
+
+;************************************
+;See if hit to mother ship
+;************************************
+
+PROC TestHit(BYTE m)
+
+  BYTE misY,misX,XShip
+
+  IF ShipStatus=0 THEN RETURN FI
+  misY=(MY(m)-30) RSH 1
+  misX=MX(m)-48
+  XShip=ShipX LSH 2
+  IF misY<ShipY+4 OR misY>ShipY+7 THEN
+    RETURN
+  FI
+  IF ShipStatus=1 THEN
+    IF misX>XShip+9 AND misX<XShip+15 THEN
+      ShipStatus=2 Color4=14
+      Score==+20   ShowScore()
+    FI
+    RETURN
+  FI
+  IF ShipStatus=2 THEN
+    IF misX>XShip+31 AND misX<XShip+37 THEN
+      ShipStatus=3 Color4=14
+      Score==+20   ShowScore()
+    FI
+    RETURN
+  FI
+  IF misX>XShip+20 AND misX<XShip+26 THEN
+    ShipStatus=0 Color4=14
+    Score==+50   ShowScore()
+    Sound(1,Color4 LSH 4,8,4)
+    EraseShip()
+    Sound(2,0,0,0)
+  FI
+RETURN
+
+;************************************
+;Make player's ship fly
+;************************************
+
+PROC ShipFly()
+
+  Sound(0,Y0,8,2)
+  IF Stick(0)=15 THEN RETURN FI
+  X0==+HStick(0) LSH 1 
+  Y0==+VStick(0) LSH 1
+  IF X0>190 THEN X0=190 FI
+  IF X0<50 THEN X0=50 FI
+  IF Y0>170 THEN Y0=170 FI
+  IF Y0<50 THEN Y0=50 FI
+  Adres=PMAdr(0)+Y0
+  MoveBlock(Adres,SHIPSHAPE,17)
+  PMHPOS(0)=X0  
+RETURN
+
+;************************************
+;Fire missiles
+;************************************
+
+PROC MissileFire()
+
+  BYTE i
+
+  IF STrig(0) THEN RETURN FI
+  ;Trigger pressed, so \{INV:FIRE}!
+  FOR i=0 TO 3
+  DO
+  IF MSTATUS(i)=0 THEN 
+    MSTATUS(i)=1   MY(i)=Y0+6
+    MYOLD(i)=MY(i) MX(i)=X0
+    IF i=1 OR i=3 THEN 
+      MX(i)=X0+15
+    FI
+    MXOLD(i)=MX(i)
+    PLPTR(MY(i))==%(PM_MISMASK(i)!$FF)
+    PMHPOS(i+4)=MX(i)
+    EXIT             
+  FI
+  OD
+RETURN
+
+;************************************
+;Move the missiles
+;************************************
+
+PROC MissileMove()
+
+  BYTE i,del
+
+  FOR i=0 TO 3
+    DO
+    IF MSTATUS(i)=1 THEN 
+      PLPTR(MY(i))==&PM_MISMASK(i)
+      MY(i)==-2
+      IF MYOLD(i)-MY(i)>44 THEN
+        MSTATUS(i)=0 Sound(2,0,0,0)
+      ELSE
+        PLPTR(MY(i))==%(PM_MISMASK(i)!$FF)
+        del=(MYOLD(i)-MY(i))/6
+        IF i=0 OR i=2 THEN MX(i)=MXOLD(i)+del
+        ELSE MX(i)=MXOLD(i)-del
+        FI
+        PMHPOS(i+4)=MX(i)
+        Sound(2,del LSH 2,10,4)
+        TestHit(i)
+      FI
+    FI
+    OD
+RETURN
+
+;************************************
+;Draw the ship
+;************************************
+
+PROC ShipDraw()
+
+BYTE time=20
+
+  IF ShipStatus<>0 OR Fate<250 THEN RETURN FI
+  ShipStatus=1
+  Color0=14 Color1=14 Color2=14 Color4=14
+  ShipX=Rand(24)+2  ShipY=Rand(30)+2
+  FastDraw(SHIP,10,10,ShipX,ShipY)
+  time=1
+    DO
+    Sound(1,100,8,12-time RSH 1)
+    IF (time&3)=0 THEN
+      ShipFly() MissileMove()
+    FI
+  UNTIL time=15
+    OD
+  WHILE Color4>0   
+    DO
+    Color4==-1       Color2=RAND(250)
+    Color0=Rand(250) Color1=RAND(250)
+    time=0
+    DO UNTIL time=2 OD
+    Sound(1,Color4 LSH 4,8,4)
+    ShipFly() MissileMove()
+    OD
+    Color0=44 Color1=102 Color2=52
+    Sound(1,0,0,0)
+RETURN
+  
+;************************************
+;Move the mother ship
+;************************************
+
+PROC ShipMove()
+
+  IF ShipStatus=0 THEN RETURN FI
+  ShipX==+SX ShipY==+SY
+  IF ShipX<2 OR ShipX>28 THEN SX=-SX
+  ELSEIF Fate>(255-Level) THEN SX=-SX
+  FI
+  IF ShipY<2 OR ShipY>55 THEN SY=-SY
+  ELSEIF Fate<Level THEN SY=-SY
+  FI
+  IF ShipStatus=1 THEN
+    FastDraw(SHIP,10,10,ShipX,ShipY)
+  ELSEIF ShipStatus=2 THEN
+    FastDraw(NOLEFT,10,10,ShipX,ShipY)
+  ELSE
+    FastDraw(NOENG,10,10,ShipX,ShipY)
+  FI
+RETURN
+
+;************************************
+;************************************
+
+PROC DARKEN()
+
+  IF Color4=0 THEN RETURN FI
+  Color4==-1 Sound(1,Color4 LSH 4,8,4)
+  IF Color4=0 THEN Sound(1,0,0,0) FI
+RETURN
+
+;************************************
+;************************************
+
+PROC ShootBack()
+
+BYTE i  
+
+  IF ShipStatus=0 OR Fate>Level1 THEN RETURN FI
+  FOR i=1 TO 3
+    DO
+    IF BSTAT(i)=0 THEN
+      BSTAT(i)=1
+      BX(i)=(ShipX LSH 2)+68
+      BY(i)=(ShipY LSH 1)+34
+      PCOLR(i)=Rand(15) LSH 4
+      PCOLR(i)==+10
+      AdresB=PMADR(i)+BY(i)
+      MoveBlock(AdresB,BALL1,16)
+      PMHPOS(i)=BX(i)
+      EXIT
+    FI
+    OD
+RETURN
+
+;************************************
+;************************************
+
+PROC Align()
+
+BYTE i,clunk=[0]
+
+  IF Level1>50 THEN clunk=1 
+  ELSEIF Level1>150 THEN clunk=2 
+  FI
+  FOR i=1 TO 3
+    DO
+    IF BSTAT(i)<>0 THEN   
+      IF BX(i)>(X0+4) THEN BXDR(i)=-2-clunk
+      ELSEIF BX(i)<(X0+4) THEN BXDR(i)=2+clunk
+      ELSE BXDR(i)=0
+      FI
+      IF BY(i)>(Y0+4) THEN BYDR(i)=-2-clunk
+      ELSEIF BY(i)<(Y0+4) THEN BYDR(i)=2+clunk
+      ELSE BYDR(i)=0
+      FI
+    FI
+    OD
+RETURN
+
+;************************************
+;************************************
+
+PROC BALLMOVE()
+BYTE i    
+FOR i=0 TO 3 DO
+IF BSTAT(i)<>0 THEN  
+ IF BSTAT(i)=1 THEN BSTAT(i)=2
+    ELSE BSTAT(i)=1
+ FI
+ BX(i)==+BXDR(i)                
+ BY(i)==+BYDR(i)
+ AdresB=PMADR(i)+BY(i)
+ IF BX(i)<50 OR BX(i)>190 OR
+    BY(i)<34 OR BY(i)>182 THEN
+    BSTAT(i)=0
+    MOVEBLOCK(AdresB,BLANK,16)
+ FI
+ PMHPOS(i)=BX(i)
+ IF BSTAT(i)=1 THEN
+    MOVEBLOCK(AdresB,BALL1,16) 
+    ELSEIF BSTAT(i)=2 THEN
+    MOVEBLOCK(AdresB,BALL2,16)
+ FI
+FI
+OD
+RETURN
+
+;************************************
+;************************************
+
+PROC HITBALL()
+BYTE ARRAY MISCOL(3)=$D008
+BYTE IND,PLY,DUMMI
+FOR IND=0 TO 3 DO
+IF MISCOL(IND)>1 THEN MSTATUS(IND)=0
+   PLPTR(MY(IND))==&PM_MISMASK(IND)
+   DUMMI=MISCOL(IND)          
+   IF (DUMMI&2)=2 THEN PLY=1
+     ELSEIF (DUMMI&4)=4 THEN PLY=2
+     ELSE PLY=3
+   FI
+   AdresB=PMADR(PLY)+BY(PLY)
+   MOVEBLOCK(AdresB,BLANK,16)
+   Color4=10 SOUND(1,Color4 LSH 4,8,4)
+   BSTAT(PLY)=0 PM_HitClr=1
+   Score==+10 ShowScore()
+FI
+OD RETURN
+
+;************************************
+;Show game over info, and init values
+;if replay
+;************************************
+
+PROC EndGame()
+
+  EraseShip()
+  TxtRow=2 TxtCol=2
+  Print("GAME OVER..PRESS \{INV:FIRE} TO PLAY AGAIN")
+  DO UNTIL STrig(0)=0 OD
+  NumShips=4 Score=0 TxtRow=2 TxtCol=2
+  Level=10 Level1=10 ShipStatus=0
+  Print("                                   ")
+  TxtRow=1 TxtCol=12 PRINT("        ")
+  ShowScore() ShowShips()
+RETURN
+
+;************************************
+;************************************
+
+PROC BlownAway()
+
+BYTE shipH=53260,i,timeR=20
+
+  IF shipH=0 THEN\{INV:_}RETURN FI
+  PM_WIDTH(0)=0
+  FOR i=0 TO 3
+    DO
+    IF MSTATUS(i)=1 THEN
+      MSTATUS(i)=0
+      PLPTR(MY(i))==&PM_MISMASK(i)
+      Sound(2,0,0,0)
+    FI
+    PMClear(i) BSTAT(i)=1 BX(i)=X0
+    BY(i)=Y0 AdresB=PMAdr(i)+BY(i)
+    Moveblock(AdresB,BALL1,16)
+    PMHPOS(i)=BX(i)
+    PCOLR(i)=(Rand(15) LSH 4)+10
+    OD
+  Color4=14 Sound(1,Color4 LSH 4,8,8)
+  BXDR(0)=2 BYDR(0)=2 BXDR(1)=2        
+  BYDR(1)=-2 BXDR(2)=-2 BYDR(2)=2
+  BXDR(3)=-2 BYDR(3)=-2
+  DO
+    IF BSTAT(0)=0 AND BSTAT(1)=0 AND 
+       BSTAT(2)=0 AND BSTAT(3)=0 THEN
+      EXIT
+    FI 
+    BALLMOVE() 
+    timeR=0 DO UNTIL timeR=3 OD
+  OD
+  Color4=0
+  SOUND(1,0,0,0) PM_HitClr=1
+  NumShips==-1   ShowShips()
+  IF NumShips=0 THEN EndGame() FI
+  X0=120 Y0=170 
+  PM_WIDTH(0)=1 PCOLR(0)=170
+  Adres=PMADR(0)+Y0
+  MOVEBLOCK(Adres,SHIPSHAPE,17)
+  PMHPOS(0)=X0  
+RETURN
+
+;************************************
+;************************************
+
+PROC MAIN()
+BYTE XX,Count,timeR=20
+SerialCtl=3 AudioCtl=0
+DLSetUp()
+PMGRAPHICS()
+FOR XX=0 TO 7 DO PMCLEAR(XX) OD
+Y0=120 X0=120 PCOLR(0)=170 Color3=14
+Adres=PMADR(0)+Y0 PLPTR=PMADR(4)
+MOVEBLOCK(Adres,SHIPSHAPE,17)
+PMHPOS(0)=X0 PM_WIDTH(0)=1
+ShowInfo()
+Timer2Ptr=ScrollColors
+Timer2=2
+DO 
+ShipDraw()
+ShipMove() ShootBack()
+Align()    BALLMOVE()
+FOR Count=1 TO 3
+ DO
+ timeR=0 DO UNTIL timeR=1 OD
+ ShipFly() MissileFire() MissileMove()
+ DARKEN() HITBALL() BlownAway()
+ OD
+OD
+RETURN
+

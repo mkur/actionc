@@ -1,0 +1,8 @@
+PROC VarPrint(BYTE ARRAY control CARD c1,c2,c3)
+RETURN
+
+PROC Main()
+  VarPrint("one")
+  VarPrint("two",1)
+  VarPrint("three",1,2,3)
+RETURN

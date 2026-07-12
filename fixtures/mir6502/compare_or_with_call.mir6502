@@ -1,0 +1,34 @@
+mir6502 program
+global g0 files: byte storage global+0
+global g1 flag: byte storage global+1
+global g2 out: byte storage global+2
+
+routine r0 Next
+b0 bb0:
+  store.b fixed_zp $A0, #$FF
+  return
+
+routine r1 Main
+b0 bb1:
+  store.b global g0+0, #$10
+  store.b global g1+0, #$00
+  v0 =.b load global g0+0
+  v1 = cmp.b v0 eq #$10
+  v2 =.b load global g1+0
+  v3 = cmp.b v2 ne #$00
+  v4 =.b v1 or v3 carry_in=- carry_out=ignore
+  v5 =.b load global g0+0
+  v6 =.b v5 add #$01 carry_in=- carry_out=ignore
+  call r0 args=[v6.b -> a] result=v7.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  v8 = cmp.b v7 eq #$FF
+  v9 =.b v4 or v8 carry_in=- carry_out=ignore
+  v10 = cmp.b v9 ne #$00
+  branch bool v10 ? b1 : b2
+b1 bb3:
+  store.b global g2+0, #$01
+  jump b3
+b2 bb4:
+  store.b global g2+0, #$02
+  jump b3
+b3 bb2:
+  return

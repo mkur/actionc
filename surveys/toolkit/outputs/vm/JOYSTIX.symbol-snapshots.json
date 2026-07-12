@@ -1,0 +1,6 @@
+{
+  "snapshots": [
+    {"pc":"$04C6","label":"segvec","proc":"HStick","local_index":"$0C04","locals":[{"slot":"$95","name_addr":"$942B","name":"port","vtype":"$8A","address":"$0E08","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},{"slot":"$9E","name_addr":"$9433","name":"ports","vtype":"$9A","address":"$0278","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},{"slot":"$2A","name_addr":"$943C","name":"value","vtype":"$93","address":"$0E11","class":"INT ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]},
+    {"pc":"$A6D2","label":"stop","proc":"VStick","local_index":"$0C04","locals":[{"slot":"$95","name_addr":"$9437","name":"port","vtype":"$8A","address":"$0E52","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},{"slot":"$9E","name_addr":"$943F","name":"ports","vtype":"$9A","address":"$0278","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},{"slot":"$2A","name_addr":"$9448","name":"value","vtype":"$93","address":"$0E5B","class":"INT ARRAY","numargs":0,"arg_types_raw":[],"args":[]}]}
+  ]
+}

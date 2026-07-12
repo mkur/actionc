@@ -1,0 +1,9 @@
+BYTE b
+CARD w
+INT i
+
+PROC Main()
+  b=1
+  w=$1234
+  i=-1
+RETURN

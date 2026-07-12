@@ -1,0 +1,10 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+PROC Main()
+  color=3
+  Plot(1,2)
+RETURN

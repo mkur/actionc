@@ -1,0 +1,11 @@
+1482..1485: cannot dereference non-pointer value
+1501..1504: cannot dereference non-pointer value
+1540..1543: cannot dereference non-pointer value
+1595..1598: cannot dereference non-pointer value
+1624..1627: cannot dereference non-pointer value
+1695..1698: cannot dereference non-pointer value
+1718..1721: cannot dereference non-pointer value
+1766..1769: cannot dereference non-pointer value
+1785..1788: cannot dereference non-pointer value
+4528..4558: `GetParam` argument 3 expects ValueType { base: Fund(Card), pointer: true }, got ValueType { base: Fund(Byte), pointer: false }
+4561..4594: `GetParam` argument 3 expects ValueType { base: Fund(Card), pointer: true }, got ValueType { base: Fund(Byte), pointer: false }

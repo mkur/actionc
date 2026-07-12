@@ -1,0 +1,8 @@
+source: samples/toolkit/original/extracted/IO.ACT
+source_policy: auto
+compile_source: samples/toolkit/original/extracted/IO.ACT
+profile: compat
+backend: legacy
+codegen_source: ast
+status: ok
+detail: wrote samples/toolkit/survey/outputs/batch/compat-legacy/IO.COM

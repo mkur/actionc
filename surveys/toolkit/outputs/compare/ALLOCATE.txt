@@ -1,0 +1,2324 @@
+source: samples/toolkit/survey/allocate_harness.act
+
+== original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM ==
+load bytes: 1026  code bytes: 1014  code origin: $0E08
+segments:
+  00: $0E08-$11FD len  1014 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1020 data_off  1024
+      RUNAD $02E2 = $1165
+opcode counts:
+  $00 BRK      26
+  $05 ORA      2
+  $0D ORA      5
+  $11 ORA      1
+  $18 CLC      20
+  $20 JSR      4
+  $25 AND      2
+  $38 SEC      2
+  $3A .BYTE    1
+  $4C JMP      18
+  $4D EOR      6
+  $60 RTS      7
+  $64 .BYTE    1
+  $69 ADC      30
+  $6D ADC      4
+  $71 ADC      6
+  $85 STA      73
+  $88 DEY      21
+  $8D STA      28
+  $8E STX      2
+  $90 BCC      2
+  $91 STA      24
+  $A0 LDY      13
+  $A2 LDX      1
+  $A5 LDA      6
+  $A9 LDA      5
+  $AC LDY      1
+  $AD LDA      95
+  $B1 LDA      29
+  $C8 INY      13
+  $CD CMP      2
+  $D0 BNE      6
+  $ED SBC      6
+  $F0 BEQ      4
+
+== compat ==
+load bytes: 1024  code bytes: 1012  code origin: $0E08
+segments:
+  00: $0E08-$11FB len  1012 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1018 data_off  1022
+      RUNAD $02E2 = $1163
+opcode counts:
+  $00 BRK      26
+  $05 ORA      2
+  $0D ORA      5
+  $11 ORA      1
+  $18 CLC      20
+  $20 JSR      4
+  $25 AND      2
+  $38 SEC      2
+  $3A .BYTE    1
+  $4C JMP      18
+  $4D EOR      6
+  $60 RTS      7
+  $64 .BYTE    1
+  $69 ADC      30
+  $6D ADC      8
+  $71 ADC      2
+  $85 STA      72
+  $88 DEY      19
+  $8D STA      28
+  $8E STX      2
+  $90 BCC      2
+  $91 STA      24
+  $A0 LDY      15
+  $A2 LDX      1
+  $A5 LDA      5
+  $A9 LDA      5
+  $AC LDY      1
+  $AD LDA      91
+  $B1 LDA      33
+  $C8 INY      13
+  $CD CMP      2
+  $D0 BNE      6
+  $ED SBC      6
+  $F0 BEQ      4
+
+== modern ==
+load bytes: 917  code bytes: 905  code origin: $0E08
+segments:
+  00: $0E08-$1190 len   905 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   911 data_off   915
+      RUNAD $02E2 = $1125
+opcode counts:
+  $00 BRK      26
+  $05 ORA      2
+  $0D ORA      5
+  $11 ORA      1
+  $18 CLC      5
+  $20 JSR      4
+  $25 AND      2
+  $38 SEC      2
+  $3A .BYTE    1
+  $47 .BYTE    1
+  $4C JMP      10
+  $4D EOR      6
+  $60 RTS      6
+  $6D ADC      8
+  $71 ADC      2
+  $85 STA      70
+  $88 DEY      19
+  $8D STA      28
+  $8E STX      2
+  $90 BCC      2
+  $91 STA      24
+  $A0 LDY      20
+  $A2 LDX      1
+  $A5 LDA      5
+  $A9 LDA      3
+  $AC LDY      1
+  $AD LDA      89
+  $B1 LDA      33
+  $C8 INY      10
+  $CD CMP      2
+  $D0 BNE      7
+  $ED SBC      6
+  $F0 BEQ      3
+
+== map: compat ==
+origin $0E08  run $1163  routines 4  symbols 15  skipped 0
+routines:
+  Alloc                    $0E0C-$0F63 len   344
+  Free                     $0F64-$10F5 len   402
+  AllocInit                $10F6-$1160 len   107
+  PrintFreeList            $1161-$11FA len   154
+storage symbols:
+  global Storage MEMHI $02E5-$02E6
+  global Storage MEMLO $02E7-$02E8
+  global Storage ENDPROG $0E08-$0E09
+  global Storage FREELIST $0E0A-$0E0B
+  routine Alloc Parameter NBYTES $0E0C-$0E0D
+  routine Alloc Local LAST $0E0E-$0E0F
+  routine Alloc Local CURRENT $0E10-$0E11
+  routine Alloc Local TARGET $0E12-$0E13
+  routine Free Parameter TARGET $0F64-$0F65
+  routine Free Parameter NBYTES $0F66-$0F67
+  routine Free Local LAST $0F68-$0F69
+  routine Free Local CURRENT $0F6A-$0F6B
+  routine AllocInit Parameter USELESS $10F6-$10F7
+  routine AllocInit Local P $10F8-$10F9
+  routine PrintFreeList Local P $1161-$1162
+trusted effects:
+  Alloc                    clobbers A,X,Y; writes zp $A0,$A1,$AC,$AD,$AE,$AF; writes abs $0E0D,$0E0C,$0E0F,$0E0E,$0E11,$0E10,$0E13,$0E12
+  Free                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AA,$AC,$AD,$AE,$AF; writes abs $0F69,$0F68,$0F6B,$0F6A; writes unknown-abs
+  AllocInit                clobbers A,X,Y; writes zp $AE,$AF; writes abs $10F7,$10F6,$10F9,$10F8
+
+== map: modern ==
+origin $0E08  run $1125  routines 4  symbols 15  skipped 0
+routines:
+  Alloc                    $0E0C-$0F46 len   315
+  Free                     $0F47-$10B3 len   365
+  AllocInit                $10B4-$1114 len    97
+  PrintFreeList            $1115-$1190 len   124
+storage symbols:
+  global Storage MEMHI $02E5-$02E6
+  global Storage MEMLO $02E7-$02E8
+  global Storage ENDPROG $0E08-$0E09
+  global Storage FREELIST $0E0A-$0E0B
+  routine Alloc Parameter NBYTES $0E0C-$0E0D
+  routine Alloc Local LAST $0E0E-$0E0F
+  routine Alloc Local CURRENT $0E10-$0E11
+  routine Alloc Local TARGET $0E12-$0E13
+  routine Free Parameter TARGET $0F47-$0F48
+  routine Free Parameter NBYTES $0F49-$0F4A
+  routine Free Local LAST $0F4B-$0F4C
+  routine Free Local CURRENT $0F4D-$0F4E
+  routine AllocInit Parameter USELESS $10B4-$10B5
+  routine AllocInit Local P $10B6-$10B7
+  routine PrintFreeList Local P $1115-$1116
+trusted effects:
+  Alloc                    clobbers A,X,Y; writes zp $A0,$A1,$AC,$AD,$AE,$AF; writes abs $0E0D,$0E0C,$0E0F,$0E0E,$0E11,$0E10,$0E13,$0E12
+  Free                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AA,$AC,$AD,$AE,$AF; writes abs $0F4C,$0F4B,$0F4E,$0F4D; writes unknown-abs
+  AllocInit                clobbers A,X,Y; writes zp $AE,$AF; writes abs $10B5,$10B4,$10B7,$10B6
+
+== routines: original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM vs compat ==
+  Alloc                    len 348 -> 344 (-4)  addr $0E08 -> $0E0C
+    Alloc+$0008 #0008
+      original : $0E10 00       BRK
+      generated: $0E14 4C 17 0E JMP $0E17
+      orig owner: current $0E10
+      source   : Routine Alloc samples/toolkit/survey/allocate_harness.act:3:1 |  | source 823..1586 code $0E0C-$0F63
+    Alloc+$0009 #0009
+      original : $0E11 00       BRK
+      generated: $0E17 8E 0D 0E STX $0E0D
+      orig owner: current+1 $0E11
+      source   : Routine Alloc samples/toolkit/survey/allocate_harness.act:3:1 |  | source 823..1586 code $0E0C-$0F63
+    Alloc+$000A #0010
+      original : $0E12 00       BRK
+      generated: $0E1A 8D 0C 0E STA $0E0C
+      orig owner: target $0E12
+      source   : Routine Alloc samples/toolkit/survey/allocate_harness.act:3:1 |  | source 823..1586 code $0E0C-$0F63
+    Alloc+$000B #0011
+      original : $0E13 00       BRK
+      generated: $0E1D AD 0B 0E LDA $0E0B
+      orig owner: target+1 $0E13
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 910..923 code $0E1D-$0E28
+    Alloc+$000C #0012
+      original : $0E14 4C 17 0E JMP $0E17
+      generated: $0E20 8D 0F 0E STA $0E0F
+      orig owner: Alloc $0E14
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 910..923 code $0E1D-$0E28
+    Alloc+$000F #0013
+      original : $0E17 8E 0D 0E STX $0E0D ; nBytes+1 $0E0D
+      generated: $0E23 AD 0A 0E LDA $0E0A
+      orig operand: nBytes+1 $0E0D
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 910..923 code $0E1D-$0E28
+    Alloc+$0012 #0014
+      original : $0E1A 8D 0C 0E STA $0E0C ; nBytes $0E0C
+      generated: $0E26 8D 0E 0E STA $0E0E
+      orig operand: nBytes $0E0C
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 910..923 code $0E1D-$0E28
+    Alloc+$0015 #0015
+      original : $0E1D AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $0E29 18       CLC
+      orig operand: FreeList+1 $0E0B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$0018 #0016
+      original : $0E20 8D 0F 0E STA $0E0F ; last+1 $0E0F
+      generated: $0E2A AD 0A 0E LDA $0E0A
+      orig operand: last+1 $0E0F
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$001B #0017
+      original : $0E23 AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $0E2D 69 02    ADC #$02
+      orig operand: FreeList $0E0A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$001E #0018
+      original : $0E26 8D 0E 0E STA $0E0E ; last $0E0E
+      generated: $0E2F 85 AE    STA $AE
+      orig operand: last $0E0E
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$0021 #0019
+      original : $0E29 18       CLC
+      generated: $0E31 AD 0B 0E LDA $0E0B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$0022 #0020
+      original : $0E2A AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $0E34 69 00    ADC #$00
+      orig operand: FreeList $0E0A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$0025 #0021
+      original : $0E2D 69 02    ADC #$02
+      generated: $0E36 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$0027 #0022
+      original : $0E2F 85 AE    STA $AE
+      generated: $0E38 A0 01    LDY #$01
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$0029 #0023
+      original : $0E31 AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $0E3A B1 AE    LDA ($AE),Y
+      orig operand: FreeList+1 $0E0B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$002C #0024
+      original : $0E34 69 00    ADC #$00
+      generated: $0E3C 8D 11 0E STA $0E11
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$002E #0025
+      original : $0E36 85 AF    STA $AF
+      generated: $0E3F 88       DEY
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$0030 #0026
+      original : $0E38 A0 01    LDY #$01
+      generated: $0E40 B1 AE    LDA ($AE),Y
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$0032 #0027
+      original : $0E3A B1 AE    LDA ($AE),Y
+      generated: $0E42 8D 10 0E STA $0E10
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+    Alloc+$0034 #0028
+      original : $0E3C 8D 11 0E STA $0E11 ; current+1 $0E11
+      generated: $0E45 AD 10 0E LDA $0E10
+      orig operand: current+1 $0E11
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+    Alloc+$0037 #0029
+      original : $0E3F 88       DEY
+      generated: $0E48 0D 11 0E ORA $0E11
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+    Alloc+$0038 #0030
+      original : $0E40 B1 AE    LDA ($AE),Y
+      generated: $0E4B D0 03    BNE $0E50
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+    Alloc+$003A #0031
+      original : $0E42 8D 10 0E STA $0E10 ; current $0E10
+      generated: $0E4D 4C 97 0E JMP $0E97
+      orig operand: current $0E10
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+    Alloc+$0040 #0033
+      original : $0E48 0D 11 0E ORA $0E11 ; current+1 $0E11
+      generated: $0E53 85 AE    STA $AE
+      orig operand: current+1 $0E11
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+    Alloc+$0043 #0034
+      original : $0E4B D0 03    BNE $0E50
+      generated: $0E55 AD 11 0E LDA $0E11
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+    Alloc+$0045 #0035
+      original : $0E4D 4C 97 0E JMP $0E97
+      generated: $0E58 85 AF    STA $AF
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+    Alloc+$0048 #0036
+      original : $0E50 AD 10 0E LDA $0E10 ; current $0E10
+      generated: $0E5A A0 00    LDY #$00
+      orig operand: current $0E10
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+    Alloc+$004B #0037
+      original : $0E53 85 AE    STA $AE
+      generated: $0E5C B1 AE    LDA ($AE),Y
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+    Alloc+$004D #0038
+      original : $0E55 AD 11 0E LDA $0E11 ; current+1 $0E11
+      generated: $0E5E CD 0C 0E CMP $0E0C
+      orig operand: current+1 $0E11
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+  Free                     len 399 -> 402 (+3)  addr $0F64 -> $0F64
+    Free+$00A1 #0071
+      original : $1005 AD 68 0F LDA $0F68 ; last $0F68
+      generated: $1005 A0 00    LDY #$00
+      orig operand: last $0F68
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2035..2144 code $0FFA-$1081
+    Free+$00A4 #0072
+      original : $1008 A0 00    LDY #$00
+      generated: $1007 B1 AE    LDA ($AE),Y
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2035..2144 code $0FFA-$1081
+    Free+$00A6 #0073
+      original : $100A 71 AE    ADC ($AE),Y
+      generated: $1009 6D 68 0F ADC $0F68
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2035..2144 code $0FFA-$1081
+    Free+$00AA #0075
+      original : $100E AD 69 0F LDA $0F69 ; last+1 $0F69
+      generated: $100E C8       INY
+      orig operand: last+1 $0F69
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2035..2144 code $0FFA-$1081
+    Free+$00AD #0076
+      original : $1011 C8       INY
+      generated: $100F B1 AE    LDA ($AE),Y
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2035..2144 code $0FFA-$1081
+    Free+$00AE #0077
+      original : $1012 71 AE    ADC ($AE),Y
+      generated: $1011 6D 69 0F ADC $0F69
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2035..2144 code $0FFA-$1081
+    Free+$00C0 #0085
+      original : $1024 4C 4A 10 JMP $104A
+      generated: $1024 4C 4B 10 JMP $104B
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2035..2144 code $0FFA-$1081
+    Free+$00CE #0091
+      original : $1032 88       DEY
+      generated: $1032 A0 00    LDY #$00
+      source   : Statement compound assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2069..2087 code $1027-$1047
+    Free+$00E3 #0102
+      original : $1047 4C 7F 10 JMP $107F
+      generated: $1048 4C 82 10 JMP $1082
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2035..2144 code $0FFA-$1081
+    Free+$00F8 #0111
+      original : $105C 91 AE    STA ($AE),Y
+      generated: $105D A0 01    LDY #$01
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2099..2118 code $104B-$1066
+    Free+$00FA #0112
+      original : $105E AD 6A 0F LDA $0F6A ; current $0F6A
+      generated: $105F 91 AE    STA ($AE),Y
+      orig operand: current $0F6A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2099..2118 code $104B-$1066
+    Free+$00FD #0113
+      original : $1061 88       DEY
+      generated: $1061 AD 6A 0F LDA $0F6A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2099..2118 code $104B-$1066
+    Free+$00FE #0114
+      original : $1062 91 AE    STA ($AE),Y
+      generated: $1064 88       DEY
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2099..2118 code $104B-$1066
+    Free+$0100 #0115
+      original : $1064 18       CLC
+      generated: $1065 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2099..2118 code $104B-$1066
+    Free+$0101 #0116
+      original : $1065 AD 68 0F LDA $0F68 ; last $0F68
+      generated: $1067 18       CLC
+      orig operand: last $0F68
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$0104 #0117
+      original : $1068 69 02    ADC #$02
+      generated: $1068 AD 68 0F LDA $0F68
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$0106 #0118
+      original : $106A 85 AE    STA $AE
+      generated: $106B 69 02    ADC #$02
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$0108 #0119
+      original : $106C AD 69 0F LDA $0F69 ; last+1 $0F69
+      generated: $106D 85 AE    STA $AE
+      orig operand: last+1 $0F69
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$010B #0120
+      original : $106F 69 00    ADC #$00
+      generated: $106F AD 69 0F LDA $0F69
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$010D #0121
+      original : $1071 85 AF    STA $AF
+      generated: $1072 69 00    ADC #$00
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$010F #0122
+      original : $1073 AD 65 0F LDA $0F65 ; target+1 $0F65
+      generated: $1074 85 AF    STA $AF
+      orig operand: target+1 $0F65
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$0112 #0123
+      original : $1076 C8       INY
+      generated: $1076 AD 65 0F LDA $0F65
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$0113 #0124
+      original : $1077 91 AE    STA ($AE),Y
+      generated: $1079 C8       INY
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$0115 #0125
+      original : $1079 AD 64 0F LDA $0F64 ; target $0F64
+      generated: $107A 91 AE    STA ($AE),Y
+      orig operand: target $0F64
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$0118 #0126
+      original : $107C 88       DEY
+      generated: $107C AD 64 0F LDA $0F64
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$0119 #0127
+      original : $107D 91 AE    STA ($AE),Y
+      generated: $107F 88       DEY
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$011B #0128
+      original : $107F 18       CLC
+      generated: $1080 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139 code $1067-$1081
+    Free+$011C #0129
+      original : $1080 AD 64 0F LDA $0F64 ; target $0F64
+      generated: $1082 18       CLC
+      orig operand: target $0F64
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2186..2280 code $1082-$10F4
+    Free+$011F #0130
+      original : $1083 6D 66 0F ADC $0F66 ; nBYTES $0F66
+      generated: $1083 AD 64 0F LDA $0F64
+      orig operand: nBYTES $0F66
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2186..2280 code $1082-$10F4
+    Free+$0122 #0131
+      original : $1086 85 AE    STA $AE
+      generated: $1086 6D 66 0F ADC $0F66
+      source   : Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2186..2280 code $1082-$10F4
+  AllocInit                len 112 -> 107 (-5)  addr $10F3 -> $10F6
+    AllocInit+$0004 #0004
+      original : $10F7 4C FA 10 JMP $10FA
+      generated: $10FA 4C FD 10 JMP $10FD
+      orig owner: AllocInit $10F7
+      source   : Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10F6-$1160
+    AllocInit+$0007 #0005
+      original : $10FA 8E F4 10 STX $10F4 ; useless+1 $10F4
+      generated: $10FD 8E F7 10 STX $10F7
+      orig operand: useless+1 $10F4
+      source   : Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10F6-$1160
+    AllocInit+$000A #0006
+      original : $10FD 8D F3 10 STA $10F3 ; useless $10F3
+      generated: $1100 8D F6 10 STA $10F6
+      orig operand: useless $10F3
+      source   : Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10F6-$1160
+    AllocInit+$0010 #0008
+      original : $1103 8D F6 10 STA $10F6 ; p+1 $10F6
+      generated: $1106 8D F9 10 STA $10F9
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2439..2448 code $1103-$110E
+    AllocInit+$0016 #0010
+      original : $1109 8D F5 10 STA $10F5 ; p $10F5
+      generated: $110C 8D F8 10 STA $10F8
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2439..2448 code $1103-$110E
+    AllocInit+$0028 #0018
+      original : $111B AD F6 10 LDA $10F6 ; p+1 $10F6
+      generated: $111E AD F9 10 LDA $10F9
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+    AllocInit+$002F #0021
+      original : $1122 AD F5 10 LDA $10F5 ; p $10F5
+      generated: $1125 AD F8 10 LDA $10F8
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+    AllocInit+$0036 #0025
+      original : $1129 AD F5 10 LDA $10F5 ; p $10F5
+      generated: $112C AD F8 10 LDA $10F8
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+    AllocInit+$003D #0028
+      original : $1130 AD F6 10 LDA $10F6 ; p+1 $10F6
+      generated: $1133 AD F9 10 LDA $10F9
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+    AllocInit+$004E #0037
+      original : $1141 AD F5 10 LDA $10F5 ; p $10F5
+      generated: $1144 AD F8 10 LDA $10F8
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $1144-$115F
+    AllocInit+$0053 #0039
+      original : $1146 AD F6 10 LDA $10F6 ; p+1 $10F6
+      generated: $1149 AD F9 10 LDA $10F9
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $1144-$115F
+    AllocInit+$005C #0043
+      original : $114F ED F5 10 SBC $10F5 ; p $10F5
+      generated: $1152 ED F8 10 SBC $10F8
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $1144-$115F
+    AllocInit+$005F #0044
+      original : $1152 85 AC    STA $AC
+      generated: $1155 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $1144-$115F
+    AllocInit+$0064 #0046
+      original : $1157 ED F6 10 SBC $10F6 ; p+1 $10F6
+      generated: $115A ED F9 10 SBC $10F9
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $1144-$115F
+    AllocInit+$006A #0049
+      original : $115D A5 AC    LDA $AC
+      generated: $1160 60       RTS
+      source   : Statement return samples/toolkit/survey/allocate_harness.act:1:1 | CARD EndProg | source 0..0 code $1160-$1160
+    AllocInit+$006C #0050
+      original : $115F 88       DEY
+      generated: <missing>
+    AllocInit+$006D #0051
+      original : $1160 91 AE    STA ($AE),Y
+      generated: <missing>
+    AllocInit+$006F #0052
+      original : $1162 60       RTS
+      generated: <missing>
+  PrintFreeList            len 155 -> 154 (-1)  addr $1163 -> $1161
+    PrintFreeList+$0002 #0002
+      original : $1165 4C 68 11 JMP $1168
+      generated: $1163 4C 66 11 JMP $1166
+      orig owner: PrintFreeList $1165
+      source   : Routine PrintFreeList samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2608..2760 code $1161-$11FA
+    PrintFreeList+$0018 #0012
+      original : $117B 8D 64 11 STA $1164 ; p+1 $1164
+      generated: $1179 8D 62 11 STA $1162
+      orig operand: p+1 $1164
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+    PrintFreeList+$001E #0015
+      original : $1181 8D 63 11 STA $1163 ; p $1163
+      generated: $117F 8D 61 11 STA $1161
+      orig operand: p $1163
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+    PrintFreeList+$0021 #0016
+      original : $1184 AD 63 11 LDA $1163 ; p $1163
+      generated: $1182 AD 61 11 LDA $1161
+      orig operand: p $1163
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $1182-$11F9
+    PrintFreeList+$0024 #0017
+      original : $1187 0D 64 11 ORA $1164 ; p+1 $1164
+      generated: $1185 0D 62 11 ORA $1162
+      orig operand: p+1 $1164
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $1182-$11F9
+    PrintFreeList+$0029 #0019
+      original : $118C 4C FC 11 JMP $11FC
+      generated: $118A 4C FA 11 JMP $11FA
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $1182-$11F9
+    PrintFreeList+$002C #0020
+      original : $118F 4C A0 11 JMP $11A0
+      generated: $118D 4C 9E 11 JMP $119E
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$003D #0027
+      original : $11A0 AD 64 11 LDA $1164 ; p+1 $1164
+      generated: $119E AD 62 11 LDA $1162
+      orig operand: p+1 $1164
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$0042 #0029
+      original : $11A5 AD 63 11 LDA $1163 ; p $1163
+      generated: $11A3 AD 61 11 LDA $1161
+      orig operand: p $1163
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$0047 #0031
+      original : $11AA AD 64 11 LDA $1164 ; p+1 $1164
+      generated: $11A8 AD 62 11 LDA $1162
+      orig operand: p+1 $1164
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$0058 #0040
+      original : $11BB AD 63 11 LDA $1163 ; p $1163
+      generated: $11B9 AD 61 11 LDA $1161
+      orig operand: p $1163
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$005D #0042
+      original : $11C0 85 AC    STA $AC
+      generated: $11BE 85 AE    STA $AE
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$005F #0043
+      original : $11C2 AD 64 11 LDA $1164 ; p+1 $1164
+      generated: $11C0 AD 62 11 LDA $1162
+      orig operand: p+1 $1164
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$0064 #0045
+      original : $11C7 85 AD    STA $AD
+      generated: $11C5 85 AF    STA $AF
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$0067 #0047
+      original : $11CA B1 AC    LDA ($AC),Y
+      generated: $11C8 B1 AE    LDA ($AE),Y
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$006C #0050
+      original : $11CF B1 AC    LDA ($AC),Y
+      generated: $11CD B1 AE    LDA ($AE),Y
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$0070 #0052
+      original : $11D3 AC 63 11 LDY $1163 ; p $1163
+      generated: $11D1 AC 61 11 LDY $1161
+      orig operand: p $1163
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$0075 #0054
+      original : $11D8 A9 92    LDA #$92
+      generated: $11D6 A9 90    LDA #$90
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+    PrintFreeList+$007B #0057
+      original : $11DE AD 63 11 LDA $1163 ; p $1163
+      generated: $11DC AD 61 11 LDA $1161
+      orig operand: p $1163
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2738..2746 code $11DB-$11F6
+    PrintFreeList+$0082 #0060
+      original : $11E5 AD 64 11 LDA $1164 ; p+1 $1164
+      generated: $11E3 AD 62 11 LDA $1162
+      orig operand: p+1 $1164
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2738..2746 code $11DB-$11F6
+    PrintFreeList+$008D #0065
+      original : $11F0 8D 64 11 STA $1164 ; p+1 $1164
+      generated: $11EE 8D 62 11 STA $1162
+      orig operand: p+1 $1164
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2738..2746 code $11DB-$11F6
+    PrintFreeList+$0093 #0068
+      original : $11F6 8D 63 11 STA $1163 ; p $1163
+      generated: $11F4 8D 61 11 STA $1161
+      orig operand: p $1163
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2738..2746 code $11DB-$11F6
+    PrintFreeList+$0096 #0069
+      original : $11F9 4C 84 11 JMP $1184
+      generated: $11F7 4C 82 11 JMP $1182
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $1182-$11F9
+    PrintFreeList+$009A #0071
+      original : $11FD 60       RTS
+      generated: <missing>
+
+== routines: original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM vs modern ==
+  Alloc                    len 348 -> 315 (-33)  addr $0E08 -> $0E0C
+    Alloc+$0008 #0008
+      original : $0E10 00       BRK
+      generated: $0E14 4C 17 0E JMP $0E17
+      orig owner: current $0E10
+      source   : Routine Alloc samples/toolkit/survey/allocate_harness.act:3:1 |  | source 823..1586 code $0E0C-$0F46
+    Alloc+$0009 #0009
+      original : $0E11 00       BRK
+      generated: $0E17 8E 0D 0E STX $0E0D
+      orig owner: current+1 $0E11
+      source   : Routine Alloc samples/toolkit/survey/allocate_harness.act:3:1 |  | source 823..1586 code $0E0C-$0F46
+    Alloc+$000A #0010
+      original : $0E12 00       BRK
+      generated: $0E1A 8D 0C 0E STA $0E0C
+      orig owner: target $0E12
+      source   : Routine Alloc samples/toolkit/survey/allocate_harness.act:3:1 |  | source 823..1586 code $0E0C-$0F46
+    Alloc+$000B #0011
+      original : $0E13 00       BRK
+      generated: $0E1D AD 0B 0E LDA $0E0B
+      orig owner: target+1 $0E13
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 910..923 code $0E1D-$0E28
+    Alloc+$000C #0012
+      original : $0E14 4C 17 0E JMP $0E17
+      generated: $0E20 8D 0F 0E STA $0E0F
+      orig owner: Alloc $0E14
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 910..923 code $0E1D-$0E28
+    Alloc+$000F #0013
+      original : $0E17 8E 0D 0E STX $0E0D ; nBytes+1 $0E0D
+      generated: $0E23 AD 0A 0E LDA $0E0A
+      orig operand: nBytes+1 $0E0D
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 910..923 code $0E1D-$0E28
+    Alloc+$0012 #0014
+      original : $0E1A 8D 0C 0E STA $0E0C ; nBytes $0E0C
+      generated: $0E26 8D 0E 0E STA $0E0E
+      orig operand: nBytes $0E0C
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 910..923 code $0E1D-$0E28
+    Alloc+$0015 #0015
+      original : $0E1D AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $0E29 AD 0A 0E LDA $0E0A
+      orig operand: FreeList+1 $0E0B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    Alloc+$0018 #0016
+      original : $0E20 8D 0F 0E STA $0E0F ; last+1 $0E0F
+      generated: $0E2C 85 AE    STA $AE
+      orig operand: last+1 $0E0F
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    Alloc+$001B #0017
+      original : $0E23 AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $0E2E AD 0B 0E LDA $0E0B
+      orig operand: FreeList $0E0A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    Alloc+$001E #0018
+      original : $0E26 8D 0E 0E STA $0E0E ; last $0E0E
+      generated: $0E31 85 AF    STA $AF
+      orig operand: last $0E0E
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    Alloc+$0021 #0019
+      original : $0E29 18       CLC
+      generated: $0E33 A0 03    LDY #$03
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    Alloc+$0022 #0020
+      original : $0E2A AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $0E35 B1 AE    LDA ($AE),Y
+      orig operand: FreeList $0E0A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    Alloc+$0025 #0021
+      original : $0E2D 69 02    ADC #$02
+      generated: $0E37 8D 11 0E STA $0E11
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    Alloc+$0027 #0022
+      original : $0E2F 85 AE    STA $AE
+      generated: $0E3A 88       DEY
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    Alloc+$0029 #0023
+      original : $0E31 AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $0E3B B1 AE    LDA ($AE),Y
+      orig operand: FreeList+1 $0E0B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    Alloc+$002C #0024
+      original : $0E34 69 00    ADC #$00
+      generated: $0E3D 8D 10 0E STA $0E10
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    Alloc+$002E #0025
+      original : $0E36 85 AF    STA $AF
+      generated: $0E40 AD 10 0E LDA $0E10
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$0030 #0026
+      original : $0E38 A0 01    LDY #$01
+      generated: $0E43 0D 11 0E ORA $0E11
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$0032 #0027
+      original : $0E3A B1 AE    LDA ($AE),Y
+      generated: $0E46 F0 19    BEQ $0E61
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$0034 #0028
+      original : $0E3C 8D 11 0E STA $0E11 ; current+1 $0E11
+      generated: $0E48 AD 10 0E LDA $0E10
+      orig operand: current+1 $0E11
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$0037 #0029
+      original : $0E3F 88       DEY
+      generated: $0E4B 85 AE    STA $AE
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$0038 #0030
+      original : $0E40 B1 AE    LDA ($AE),Y
+      generated: $0E4D AD 11 0E LDA $0E11
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$003A #0031
+      original : $0E42 8D 10 0E STA $0E10 ; current $0E10
+      generated: $0E50 85 AF    STA $AF
+      orig operand: current $0E10
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$003D #0032
+      original : $0E45 AD 10 0E LDA $0E10 ; current $0E10
+      generated: $0E52 A0 00    LDY #$00
+      orig operand: current $0E10
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$0040 #0033
+      original : $0E48 0D 11 0E ORA $0E11 ; current+1 $0E11
+      generated: $0E54 B1 AE    LDA ($AE),Y
+      orig operand: current+1 $0E11
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$0043 #0034
+      original : $0E4B D0 03    BNE $0E50
+      generated: $0E56 CD 0C 0E CMP $0E0C
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$0045 #0035
+      original : $0E4D 4C 97 0E JMP $0E97
+      generated: $0E59 C8       INY
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$0048 #0036
+      original : $0E50 AD 10 0E LDA $0E10 ; current $0E10
+      generated: $0E5A B1 AE    LDA ($AE),Y
+      orig operand: current $0E10
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    Alloc+$004B #0037
+      original : $0E53 85 AE    STA $AE
+      generated: $0E5C ED 0D 0E SBC $0E0D
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+  Free                     len 399 -> 365 (-34)  addr $0F64 -> $0F47
+    Free+$0008 #0008
+      original : $0F6C 4C 6F 0F JMP $0F6F
+      generated: $0F4F 4C 52 0F JMP $0F52
+      orig owner: Free $0F6C
+      source   : Routine Free samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1708..2287 code $0F47-$10B3
+    Free+$000E #0010
+      original : $0F72 64 0F 03 .BYTE $64,$0F,$03
+      generated: $0F55 47 0F 03 .BYTE $47,$0F,$03
+      source   : Routine Free samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1708..2287 code $0F47-$10B3
+    Free+$0011 #0011
+      original : $0F75 AD 64 0F LDA $0F64 ; target $0F64
+      generated: $0F58 AD 47 0F LDA $0F47
+      orig operand: target $0F64
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F58-$0F6E
+    Free+$0016 #0013
+      original : $0F7A AD 65 0F LDA $0F65 ; target+1 $0F65
+      generated: $0F5D AD 48 0F LDA $0F48
+      orig operand: target+1 $0F65
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F58-$0F6E
+    Free+$001B #0015
+      original : $0F7F AD 67 0F LDA $0F67 ; nBYTES+1 $0F67
+      generated: $0F62 AD 4A 0F LDA $0F4A
+      orig operand: nBYTES+1 $0F67
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F58-$0F6E
+    Free+$0022 #0018
+      original : $0F86 AD 66 0F LDA $0F66 ; nBYTES $0F66
+      generated: $0F69 AD 49 0F LDA $0F49
+      orig operand: nBYTES $0F66
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F58-$0F6E
+    Free+$002B #0022
+      original : $0F8F 8D 69 0F STA $0F69 ; last+1 $0F69
+      generated: $0F72 8D 4C 0F STA $0F4C
+      orig operand: last+1 $0F69
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1808..1821 code $0F6F-$0F7A
+    Free+$0031 #0024
+      original : $0F95 8D 68 0F STA $0F68 ; last $0F68
+      generated: $0F78 8D 4B 0F STA $0F4B
+      orig operand: last $0F68
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1808..1821 code $0F6F-$0F7A
+    Free+$0034 #0025
+      original : $0F98 18       CLC
+      generated: $0F7B AD 0A 0E LDA $0E0A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    Free+$0035 #0026
+      original : $0F99 AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $0F7E 85 AE    STA $AE
+      orig operand: FreeList $0E0A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    Free+$0038 #0027
+      original : $0F9C 69 02    ADC #$02
+      generated: $0F80 AD 0B 0E LDA $0E0B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    Free+$003A #0028
+      original : $0F9E 85 AE    STA $AE
+      generated: $0F83 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    Free+$003C #0029
+      original : $0FA0 AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $0F85 A0 03    LDY #$03
+      orig operand: FreeList+1 $0E0B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    Free+$003F #0030
+      original : $0FA3 69 00    ADC #$00
+      generated: $0F87 B1 AE    LDA ($AE),Y
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    Free+$0041 #0031
+      original : $0FA5 85 AF    STA $AF
+      generated: $0F89 8D 4E 0F STA $0F4E
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    Free+$0043 #0032
+      original : $0FA7 C8       INY
+      generated: $0F8C 88       DEY
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    Free+$0046 #0034
+      original : $0FAA 8D 6B 0F STA $0F6B ; current+1 $0F6B
+      generated: $0F8F 8D 4D 0F STA $0F4D
+      orig operand: current+1 $0F6B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    Free+$0049 #0035
+      original : $0FAD 88       DEY
+      generated: $0F92 AD 4D 0F LDA $0F4D
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    Free+$004A #0036
+      original : $0FAE B1 AE    LDA ($AE),Y
+      generated: $0F95 0D 4E 0F ORA $0F4E
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    Free+$004C #0037
+      original : $0FB0 8D 6A 0F STA $0F6A ; current $0F6A
+      generated: $0F98 F0 0E    BEQ $0FA8
+      orig operand: current $0F6A
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    Free+$004F #0038
+      original : $0FB3 AD 6A 0F LDA $0F6A ; current $0F6A
+      generated: $0F9A AD 4D 0F LDA $0F4D
+      orig operand: current $0F6A
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    Free+$0052 #0039
+      original : $0FB6 0D 6B 0F ORA $0F6B ; current+1 $0F6B
+      generated: $0F9D CD 47 0F CMP $0F47
+      orig operand: current+1 $0F6B
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    Free+$0055 #0040
+      original : $0FB9 D0 03    BNE $0FBE
+      generated: $0FA0 AD 4E 0F LDA $0F4E
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    Free+$0057 #0041
+      original : $0FBB 4C FA 0F JMP $0FFA
+      generated: $0FA3 ED 48 0F SBC $0F48
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    Free+$005A #0042
+      original : $0FBE AD 6A 0F LDA $0F6A ; current $0F6A
+      generated: $0FA6 90 03    BCC $0FAB
+      orig operand: current $0F6A
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    Free+$005D #0043
+      original : $0FC1 CD 64 0F CMP $0F64 ; target $0F64
+      generated: $0FA8 4C D1 0F JMP $0FD1
+      orig operand: target $0F64
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    Free+$0060 #0044
+      original : $0FC4 AD 6B 0F LDA $0F6B ; current+1 $0F6B
+      generated: $0FAB AD 4E 0F LDA $0F4E
+      orig operand: current+1 $0F6B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1945..1957 code $0FAB-$0FB6
+    Free+$0063 #0045
+      original : $0FC7 ED 65 0F SBC $0F65 ; target+1 $0F65
+      generated: $0FAE 8D 4C 0F STA $0F4C
+      orig operand: target+1 $0F65
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1945..1957 code $0FAB-$0FB6
+    Free+$0066 #0046
+      original : $0FCA 90 03    BCC $0FCF
+      generated: $0FB1 AD 4D 0F LDA $0F4D
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1945..1957 code $0FAB-$0FB6
+    Free+$0068 #0047
+      original : $0FCC 4C FA 0F JMP $0FFA
+      generated: $0FB4 8D 4B 0F STA $0F4B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1945..1957 code $0FAB-$0FB6
+  AllocInit                len 112 -> 97 (-15)  addr $10F3 -> $10B4
+    AllocInit+$0004 #0004
+      original : $10F7 4C FA 10 JMP $10FA
+      generated: $10B8 4C BB 10 JMP $10BB
+      orig owner: AllocInit $10F7
+      source   : Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10B4-$1114
+    AllocInit+$0007 #0005
+      original : $10FA 8E F4 10 STX $10F4 ; useless+1 $10F4
+      generated: $10BB 8E B5 10 STX $10B5
+      orig operand: useless+1 $10F4
+      source   : Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10B4-$1114
+    AllocInit+$000A #0006
+      original : $10FD 8D F3 10 STA $10F3 ; useless $10F3
+      generated: $10BE 8D B4 10 STA $10B4
+      orig operand: useless $10F3
+      source   : Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10B4-$1114
+    AllocInit+$0010 #0008
+      original : $1103 8D F6 10 STA $10F6 ; p+1 $10F6
+      generated: $10C4 8D B7 10 STA $10B7
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2439..2448 code $10C1-$10CC
+    AllocInit+$0016 #0010
+      original : $1109 8D F5 10 STA $10F5 ; p $10F5
+      generated: $10CA 8D B6 10 STA $10B6
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2439..2448 code $10C1-$10CC
+    AllocInit+$0019 #0011
+      original : $110C 18       CLC
+      generated: $10CD AD 0A 0E LDA $0E0A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    AllocInit+$001A #0012
+      original : $110D AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $10D0 85 AE    STA $AE
+      orig operand: FreeList $0E0A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    AllocInit+$001D #0013
+      original : $1110 69 02    ADC #$02
+      generated: $10D2 AD 0B 0E LDA $0E0B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    AllocInit+$001F #0014
+      original : $1112 85 AE    STA $AE
+      generated: $10D5 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    AllocInit+$0021 #0015
+      original : $1114 AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $10D7 AD B7 10 LDA $10B7
+      orig operand: FreeList+1 $0E0B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    AllocInit+$0024 #0016
+      original : $1117 69 00    ADC #$00
+      generated: $10DA A0 03    LDY #$03
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    AllocInit+$0026 #0017
+      original : $1119 85 AF    STA $AF
+      generated: $10DC 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    AllocInit+$0028 #0018
+      original : $111B AD F6 10 LDA $10F6 ; p+1 $10F6
+      generated: $10DE AD B6 10 LDA $10B6
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    AllocInit+$002B #0019
+      original : $111E A0 01    LDY #$01
+      generated: $10E1 88       DEY
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    AllocInit+$002F #0021
+      original : $1122 AD F5 10 LDA $10F5 ; p $10F5
+      generated: $10E4 AD B6 10 LDA $10B6
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    AllocInit+$0032 #0022
+      original : $1125 88       DEY
+      generated: $10E7 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    AllocInit+$0033 #0023
+      original : $1126 91 AE    STA ($AE),Y
+      generated: $10E9 AD B7 10 LDA $10B7
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    AllocInit+$0035 #0024
+      original : $1128 18       CLC
+      generated: $10EC 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    AllocInit+$0036 #0025
+      original : $1129 AD F5 10 LDA $10F5 ; p $10F5
+      generated: $10EE A9 00    LDA #$00
+      orig operand: p $10F5
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    AllocInit+$0039 #0026
+      original : $112C 69 02    ADC #$02
+      generated: $10F0 C8       INY
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    AllocInit+$003B #0027
+      original : $112E 85 AE    STA $AE
+      generated: $10F1 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    AllocInit+$003D #0028
+      original : $1130 AD F6 10 LDA $10F6 ; p+1 $10F6
+      generated: $10F3 88       DEY
+      orig operand: p+1 $10F6
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    AllocInit+$0040 #0029
+      original : $1133 69 00    ADC #$00
+      generated: $10F4 91 AE    STA ($AE),Y
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    AllocInit+$0042 #0030
+      original : $1135 85 AF    STA $AF
+      generated: $10F6 AD B6 10 LDA $10B6
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    AllocInit+$0044 #0031
+      original : $1137 A9 00    LDA #$00
+      generated: $10F9 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    AllocInit+$0046 #0032
+      original : $1139 C8       INY
+      generated: $10FB AD B7 10 LDA $10B7
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    AllocInit+$0047 #0033
+      original : $113A 91 AE    STA ($AE),Y
+      generated: $10FE 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    AllocInit+$0049 #0034
+      original : $113C A9 00    LDA #$00
+      generated: $1100 38       SEC
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    AllocInit+$004B #0035
+      original : $113E 88       DEY
+      generated: $1101 AD E5 02 LDA $02E5
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    AllocInit+$004C #0036
+      original : $113F 91 AE    STA ($AE),Y
+      generated: $1104 ED B6 10 SBC $10B6
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+  PrintFreeList            len 155 -> 124 (-31)  addr $1163 -> $1115
+    PrintFreeList+$0002 #0002
+      original : $1165 4C 68 11 JMP $1168
+      generated: $1117 0D 25 48 ORA $4825
+      orig owner: PrintFreeList $1165
+      source   : StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    PrintFreeList+$0005 #0003
+      original : $1168 18       CLC
+      generated: $111A 3A       .BYTE $3A
+      source   : StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    PrintFreeList+$0006 #0004
+      original : $1169 AD 0A 0E LDA $0E0A ; FreeList $0E0A
+      generated: $111B 20 25 48 JSR $4825
+      orig operand: FreeList $0E0A
+      source   : StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    PrintFreeList+$0009 #0005
+      original : $116C 69 02    ADC #$02
+      generated: $111E 20 1F 20 JSR $201F
+      source   : StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    PrintFreeList+$000B #0006
+      original : $116E 85 AE    STA $AE
+      generated: $1121 25 48    AND $48
+      source   : StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    PrintFreeList+$000D #0007
+      original : $1170 AD 0B 0E LDA $0E0B ; FreeList+1 $0E0B
+      generated: $1123 25 45    AND $45
+      orig operand: FreeList+1 $0E0B
+      source   : StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    PrintFreeList+$0010 #0008
+      original : $1173 69 00    ADC #$00
+      generated: $1125 4C 28 11 JMP $1128
+      source   : Routine PrintFreeList samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2608..2760 code $1115-$1190
+    PrintFreeList+$0012 #0009
+      original : $1175 85 AF    STA $AF
+      generated: $1128 AD 0A 0E LDA $0E0A
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    PrintFreeList+$0014 #0010
+      original : $1177 A0 01    LDY #$01
+      generated: $112B 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    PrintFreeList+$0016 #0011
+      original : $1179 B1 AE    LDA ($AE),Y
+      generated: $112D AD 0B 0E LDA $0E0B
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    PrintFreeList+$0018 #0012
+      original : $117B 8D 64 11 STA $1164 ; p+1 $1164
+      generated: $1130 85 AF    STA $AF
+      orig operand: p+1 $1164
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    PrintFreeList+$001B #0013
+      original : $117E 88       DEY
+      generated: $1132 A0 03    LDY #$03
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    PrintFreeList+$001E #0015
+      original : $1181 8D 63 11 STA $1163 ; p $1163
+      generated: $1136 8D 16 11 STA $1116
+      orig operand: p $1163
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    PrintFreeList+$0021 #0016
+      original : $1184 AD 63 11 LDA $1163 ; p $1163
+      generated: $1139 88       DEY
+      orig operand: p $1163
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    PrintFreeList+$0024 #0017
+      original : $1187 0D 64 11 ORA $1164 ; p+1 $1164
+      generated: $113A B1 AE    LDA ($AE),Y
+      orig operand: p+1 $1164
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    PrintFreeList+$0027 #0018
+      original : $118A D0 03    BNE $118F
+      generated: $113C 8D 15 11 STA $1115
+      source   : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    PrintFreeList+$0029 #0019
+      original : $118C 4C FC 11 JMP $11FC
+      generated: $113F AD 15 11 LDA $1115
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $113F-$118F
+    PrintFreeList+$002C #0020
+      original : $118F 4C A0 11 JMP $11A0
+      generated: $1142 0D 16 11 ORA $1116
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $113F-$118F
+    PrintFreeList+$002F #0021
+      original : $1192 0D 25 48 ORA $4825
+      generated: $1145 F0 49    BEQ $1190
+      source   : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $113F-$118F
+    PrintFreeList+$0032 #0022
+      original : $1195 3A       .BYTE $3A
+      generated: $1147 AD 16 11 LDA $1116
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    PrintFreeList+$0033 #0023
+      original : $1196 20 25 48 JSR $4825
+      generated: $114A 85 A3    STA $A3
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    PrintFreeList+$0036 #0024
+      original : $1199 20 1F 20 JSR $201F
+      generated: $114C AD 15 11 LDA $1115
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    PrintFreeList+$0039 #0025
+      original : $119C 25 48    AND $48
+      generated: $114F 85 AE    STA $AE
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    PrintFreeList+$003B #0026
+      original : $119E 25 45    AND $45
+      generated: $1151 AD 16 11 LDA $1116
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    PrintFreeList+$003D #0027
+      original : $11A0 AD 64 11 LDA $1164 ; p+1 $1164
+      generated: $1154 85 AF    STA $AF
+      orig operand: p+1 $1164
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    PrintFreeList+$0040 #0028
+      original : $11A3 85 A3    STA $A3
+      generated: $1156 A0 01    LDY #$01
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    PrintFreeList+$0042 #0029
+      original : $11A5 AD 63 11 LDA $1163 ; p $1163
+      generated: $1158 B1 AE    LDA ($AE),Y
+      orig operand: p $1163
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    PrintFreeList+$0045 #0030
+      original : $11A8 85 AE    STA $AE
+      generated: $115A 85 A5    STA $A5
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    PrintFreeList+$0047 #0031
+      original : $11AA AD 64 11 LDA $1164 ; p+1 $1164
+      generated: $115C 88       DEY
+      orig operand: p+1 $1164
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    PrintFreeList+$004A #0032
+      original : $11AD 85 AF    STA $AF
+      generated: $115D B1 AE    LDA ($AE),Y
+      source   : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+
+== expected modern wins ==
+  branch inverted          count 7    saved   21 bytes
+  final RTS removed        count 1    saved    1 bytes
+  pointer reload removed   count 1    saved    4 bytes
+  register reload removed  count 2    saved    4 bytes
+details:
+  branch inverted          saved   3 bytes  $0E46   Alloc            inverted branch to condition:true:4 and removed long jump to condition:false:3
+  register reload removed  saved   2 bytes  $0E96   Alloc            suppressed redundant LDA #$00
+  branch inverted          saved   3 bytes  $0E90   Alloc            inverted branch to condition:true:7 and removed long jump to if:next:6
+  branch inverted          saved   3 bytes  $0EB2   Alloc            inverted branch to condition:true:10 and removed long jump to if:next:9
+  branch inverted          saved   3 bytes  $0F98   Free             inverted branch to condition:true:16 and removed long jump to condition:false:15
+  branch inverted          saved   3 bytes  $0FF9   Free             inverted branch to condition:true:19 and removed long jump to if:next:18
+  branch inverted          saved   3 bytes  $1069   Free             inverted branch to condition:true:23 and removed long jump to if:next:22
+  register reload removed  saved   2 bytes  $10F3   AllocInit        suppressed redundant LDA #$00
+  pointer reload removed   saved   4 bytes  $1161   PrintFreeList    reused prepared pointer $AE/$AF for record-base:P
+  branch inverted          saved   3 bytes  $1145   PrintFreeList    inverted branch to condition:true:27 and removed long jump to while:end:26
+  final RTS removed        saved   1 bytes  $1191   PrintFreeList    removed duplicate final program RTS
+
+== routines: compat vs modern ==
+  Alloc                    len 344 -> 315 (-29)  addr $0E0C -> $0E0C
+    source-range deltas:
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976  diffs 21
+        left : $0E29-$0E44 len 28
+        right: $0E29-$0E3F len 23
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1085..1097  diffs 8
+        left : $0E6C-$0E77 len 12
+        right: $0E64-$0E6F len 12
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1102..1122  diffs 23
+        left : $0E78-$0E93 len 28
+        right: $0E70-$0E86 len 23
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1282..1304  diffs 33
+        left : $0EC9-$0EEF len 39
+        right: $0EB4-$0ED2 len 31
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1334..1348  diffs 8
+        left : $0EF0-$0EFB len 12
+        right: $0ED3-$0EDE len 12
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1498..1525  diffs 21
+        left : $0F28-$0F43 len 28
+        right: $0F0B-$0F26 len 28
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1553..1571  diffs 18
+        left : $0F44-$0F58 len 21
+        right: $0F27-$0F3B len 21
+      Statement compound assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1454..1475  diffs 29
+        left : $0F07-$0F27 len 33
+        right: $0EEA-$0F0A len 33
+      Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1133..1198  diffs 6
+        left : $0E97-$0EAA len 20
+        right: $0E8A-$0E98 len 15
+      Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1250..1402  diffs 24
+        left : $0EAB-$0F06 len 92
+        right: $0E99-$0EE9 len 81
+      Statement return samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1165..1169  diffs 9
+        left : $0EA2-$0EAA len 9
+        right: $0E92-$0E98 len 7
+      Statement return samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1389..1395  diffs 10
+        left : $0EFC-$0F06 len 11
+        right: $0EDF-$0EE9 len 11
+      Statement return samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1579..1585  diffs 10
+        left : $0F59-$0F63 len 11
+        right: $0F3C-$0F46 len 11
+      Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129  diffs 31
+        left : $0E45-$0E96 len 82
+        right: $0E40-$0E89 len 74
+    #0015
+      left : $0E29 18       CLC
+      right: $0E29 AD 0A 0E LDA $0E0A
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    #0016
+      left : $0E2A AD 0A 0E LDA $0E0A
+      right: $0E2C 85 AE    STA $AE
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    #0017
+      left : $0E2D 69 02    ADC #$02
+      right: $0E2E AD 0B 0E LDA $0E0B
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    #0018
+      left : $0E2F 85 AE    STA $AE
+      right: $0E31 85 AF    STA $AF
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    #0019
+      left : $0E31 AD 0B 0E LDA $0E0B
+      right: $0E33 A0 03    LDY #$03
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    #0020
+      left : $0E34 69 00    ADC #$00
+      right: $0E35 B1 AE    LDA ($AE),Y
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    #0021
+      left : $0E36 85 AF    STA $AF
+      right: $0E37 8D 11 0E STA $0E11
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    #0022
+      left : $0E38 A0 01    LDY #$01
+      right: $0E3A 88       DEY
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    #0024
+      left : $0E3C 8D 11 0E STA $0E11
+      right: $0E3D 8D 10 0E STA $0E10
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E3F
+    #0025
+      left : $0E3F 88       DEY
+      right: $0E40 AD 10 0E LDA $0E10
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0026
+      left : $0E40 B1 AE    LDA ($AE),Y
+      right: $0E43 0D 11 0E ORA $0E11
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0027
+      left : $0E42 8D 10 0E STA $0E10
+      right: $0E46 F0 19    BEQ $0E61
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 955..976 code $0E29-$0E44
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0029
+      left : $0E48 0D 11 0E ORA $0E11
+      right: $0E4B 85 AE    STA $AE
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0030
+      left : $0E4B D0 03    BNE $0E50
+      right: $0E4D AD 11 0E LDA $0E11
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0031
+      left : $0E4D 4C 97 0E JMP $0E97
+      right: $0E50 85 AF    STA $AF
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0032
+      left : $0E50 AD 10 0E LDA $0E10
+      right: $0E52 A0 00    LDY #$00
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0033
+      left : $0E53 85 AE    STA $AE
+      right: $0E54 B1 AE    LDA ($AE),Y
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0034
+      left : $0E55 AD 11 0E LDA $0E11
+      right: $0E56 CD 0C 0E CMP $0E0C
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0035
+      left : $0E58 85 AF    STA $AF
+      right: $0E59 C8       INY
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0036
+      left : $0E5A A0 00    LDY #$00
+      right: $0E5A B1 AE    LDA ($AE),Y
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0037
+      left : $0E5C B1 AE    LDA ($AE),Y
+      right: $0E5C ED 0D 0E SBC $0E0D
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0038
+      left : $0E5E CD 0C 0E CMP $0E0C
+      right: $0E5F 90 03    BCC $0E64
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0039
+      left : $0E61 C8       INY
+      right: $0E61 4C 8A 0E JMP $0E8A
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E40-$0E89
+    #0040
+      left : $0E62 B1 AE    LDA ($AE),Y
+      right: $0E64 AD 11 0E LDA $0E11
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1085..1097 code $0E64-$0E6F
+    #0041
+      left : $0E64 ED 0D 0E SBC $0E0D
+      right: $0E67 8D 0F 0E STA $0E0F
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1085..1097 code $0E64-$0E6F
+    #0042
+      left : $0E67 90 03    BCC $0E6C
+      right: $0E6A AD 10 0E LDA $0E10
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1085..1097 code $0E64-$0E6F
+    #0043
+      left : $0E69 4C 97 0E JMP $0E97
+      right: $0E6D 8D 0E 0E STA $0E0E
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1026..1129 code $0E45-$0E96
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1085..1097 code $0E64-$0E6F
+    #0044
+      left : $0E6C AD 11 0E LDA $0E11
+      right: $0E70 AD 10 0E LDA $0E10
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1085..1097 code $0E6C-$0E77
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1102..1122 code $0E70-$0E86
+    #0045
+      left : $0E6F 8D 0F 0E STA $0E0F
+      right: $0E73 85 AE    STA $AE
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1085..1097 code $0E6C-$0E77
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1102..1122 code $0E70-$0E86
+    #0046
+      left : $0E72 AD 10 0E LDA $0E10
+      right: $0E75 AD 11 0E LDA $0E11
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1085..1097 code $0E6C-$0E77
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1102..1122 code $0E70-$0E86
+  Free                     len 402 -> 365 (-37)  addr $0F64 -> $0F47
+    source-range deltas:
+      Routine Free samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1708..2287  diffs 4
+        left : $0F64-$10F5 len 402 owner routine Free Parameter TARGET $0F64-$0F65+0
+        right: $0F47-$10B3 len 365 owner routine Free Parameter TARGET $0F47-$0F48+0
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805  diffs 8
+        left : $0F75-$0F8B len 23
+        right: $0F58-$0F6E len 23
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1808..1821  diffs 4
+        left : $0F8C-$0F97 len 12
+        right: $0F6F-$0F7A len 12
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845  diffs 21
+        left : $0F98-$0FB2 len 27
+        right: $0F7B-$0F91 len 23
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1945..1957  diffs 8
+        left : $0FCF-$0FDA len 12
+        right: $0FAB-$0FB6 len 12
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1962..1982  diffs 23
+        left : $0FDB-$0FF6 len 28
+        right: $0FB7-$0FCD len 23
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2099..2118  diffs 21
+        left : $104B-$1066 len 28
+        right: $101F-$1035 len 23
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2123..2139  diffs 22
+        left : $1067-$1081 len 27
+        right: $1036-$104B len 22
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2251..2275  diffs 34
+        left : $10CD-$10F4 len 40
+        right: $1094-$10B2 len 31
+      Statement compound assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2069..2087  diffs 31
+        left : $1027-$1047 len 33
+        right: $0FFB-$101B len 33
+      Statement compound assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2220..2246  diffs 39
+        left : $10A4-$10CC len 41
+        right: $106B-$1093 len 41
+      Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2035..2144  diffs 41
+        left : $0FFA-$1081 len 136
+        right: $0FD1-$104B len 123
+      Statement if samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2186..2280  diffs 26
+        left : $1082-$10F4 len 115
+        right: $104C-$10B2 len 103
+      Statement return samples/toolkit/survey/allocate_harness.act:1:1 | CARD EndProg | source 0..0  diffs 2
+        left : $10F5-$10F5 len 1
+        right: $10B3-$10B3 len 1
+      Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989  diffs 21
+        left : $0FB3-$0FF9 len 71
+        right: $0F92-$0FD0 len 63
+    #0008
+      left : $0F6C 4C 6F 0F JMP $0F6F
+      right: $0F4F 4C 52 0F JMP $0F52
+      left source : Routine Free samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1708..2287 code $0F64-$10F5
+      right source: Routine Free samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1708..2287 code $0F47-$10B3
+    #0010
+      left : $0F72 64 0F 03 .BYTE $64,$0F,$03
+      right: $0F55 47 0F 03 .BYTE $47,$0F,$03
+      left source : Routine Free samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1708..2287 code $0F64-$10F5
+      right source: Routine Free samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1708..2287 code $0F47-$10B3
+    #0011
+      left : $0F75 AD 64 0F LDA $0F64
+      right: $0F58 AD 47 0F LDA $0F47
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F75-$0F8B
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F58-$0F6E
+    #0013
+      left : $0F7A AD 65 0F LDA $0F65
+      right: $0F5D AD 48 0F LDA $0F48
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F75-$0F8B
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F58-$0F6E
+    #0015
+      left : $0F7F AD 67 0F LDA $0F67
+      right: $0F62 AD 4A 0F LDA $0F4A
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F75-$0F8B
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F58-$0F6E
+    #0018
+      left : $0F86 AD 66 0F LDA $0F66
+      right: $0F69 AD 49 0F LDA $0F49
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F75-$0F8B
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1787..1805 code $0F58-$0F6E
+    #0022
+      left : $0F8F 8D 69 0F STA $0F69
+      right: $0F72 8D 4C 0F STA $0F4C
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1808..1821 code $0F8C-$0F97
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1808..1821 code $0F6F-$0F7A
+    #0024
+      left : $0F95 8D 68 0F STA $0F68
+      right: $0F78 8D 4B 0F STA $0F4B
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1808..1821 code $0F8C-$0F97
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1808..1821 code $0F6F-$0F7A
+    #0025
+      left : $0F98 18       CLC
+      right: $0F7B AD 0A 0E LDA $0E0A
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    #0026
+      left : $0F99 AD 0A 0E LDA $0E0A
+      right: $0F7E 85 AE    STA $AE
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    #0027
+      left : $0F9C 69 02    ADC #$02
+      right: $0F80 AD 0B 0E LDA $0E0B
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    #0028
+      left : $0F9E 85 AE    STA $AE
+      right: $0F83 85 AF    STA $AF
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    #0029
+      left : $0FA0 AD 0B 0E LDA $0E0B
+      right: $0F85 A0 03    LDY #$03
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    #0030
+      left : $0FA3 69 00    ADC #$00
+      right: $0F87 B1 AE    LDA ($AE),Y
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    #0031
+      left : $0FA5 85 AF    STA $AF
+      right: $0F89 8D 4E 0F STA $0F4E
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    #0032
+      left : $0FA7 C8       INY
+      right: $0F8C 88       DEY
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    #0034
+      left : $0FAA 8D 6B 0F STA $0F6B
+      right: $0F8F 8D 4D 0F STA $0F4D
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F7B-$0F91
+    #0035
+      left : $0FAD 88       DEY
+      right: $0F92 AD 4D 0F LDA $0F4D
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    #0036
+      left : $0FAE B1 AE    LDA ($AE),Y
+      right: $0F95 0D 4E 0F ORA $0F4E
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    #0037
+      left : $0FB0 8D 6A 0F STA $0F6A
+      right: $0F98 F0 0E    BEQ $0FA8
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1824..1845 code $0F98-$0FB2
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    #0038
+      left : $0FB3 AD 6A 0F LDA $0F6A
+      right: $0F9A AD 4D 0F LDA $0F4D
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0FB3-$0FF9
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    #0039
+      left : $0FB6 0D 6B 0F ORA $0F6B
+      right: $0F9D CD 47 0F CMP $0F47
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0FB3-$0FF9
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    #0040
+      left : $0FB9 D0 03    BNE $0FBE
+      right: $0FA0 AD 4E 0F LDA $0F4E
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0FB3-$0FF9
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    #0041
+      left : $0FBB 4C FA 0F JMP $0FFA
+      right: $0FA3 ED 48 0F SBC $0F48
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0FB3-$0FF9
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    #0042
+      left : $0FBE AD 6A 0F LDA $0F6A
+      right: $0FA6 90 03    BCC $0FAB
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0FB3-$0FF9
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    #0043
+      left : $0FC1 CD 64 0F CMP $0F64
+      right: $0FA8 4C D1 0F JMP $0FD1
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0FB3-$0FF9
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0F92-$0FD0
+    #0044
+      left : $0FC4 AD 6B 0F LDA $0F6B
+      right: $0FAB AD 4E 0F LDA $0F4E
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0FB3-$0FF9
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1945..1957 code $0FAB-$0FB6
+    #0045
+      left : $0FC7 ED 65 0F SBC $0F65
+      right: $0FAE 8D 4C 0F STA $0F4C
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0FB3-$0FF9
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1945..1957 code $0FAB-$0FB6
+    #0046
+      left : $0FCA 90 03    BCC $0FCF
+      right: $0FB1 AD 4D 0F LDA $0F4D
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0FB3-$0FF9
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1945..1957 code $0FAB-$0FB6
+    #0047
+      left : $0FCC 4C FA 0F JMP $0FFA
+      right: $0FB4 8D 4B 0F STA $0F4B
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1891..1989 code $0FB3-$0FF9
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 1945..1957 code $0FAB-$0FB6
+  AllocInit                len 107 -> 97 (-10)  addr $10F6 -> $10B4
+    source-range deltas:
+      Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504  diffs 6
+        left : $10F6-$1160 len 107 owner routine AllocInit Parameter USELESS $10F6-$10F7+0
+        right: $10B4-$1114 len 97 owner routine AllocInit Parameter USELESS $10B4-$10B5+0
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2439..2448  diffs 4
+        left : $1103-$110E len 12
+        right: $10C1-$10CC len 12
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466  diffs 21
+        left : $110F-$112A len 28
+        right: $10CD-$10E3 len 23
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480  diffs 22
+        left : $112B-$1143 len 25
+        right: $10E4-$10F5 len 18
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497  diffs 25
+        left : $1144-$115F len 28
+        right: $10F6-$1113 len 30
+      Statement return samples/toolkit/survey/allocate_harness.act:1:1 | CARD EndProg | source 0..0  diffs 2
+        left : $10F5-$10F5 len 1
+        right: $1114-$1114 len 1
+    #0004
+      left : $10FA 4C FD 10 JMP $10FD
+      right: $10B8 4C BB 10 JMP $10BB
+      left source : Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10F6-$1160
+      right source: Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10B4-$1114
+    #0005
+      left : $10FD 8E F7 10 STX $10F7
+      right: $10BB 8E B5 10 STX $10B5
+      left source : Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10F6-$1160
+      right source: Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10B4-$1114
+    #0006
+      left : $1100 8D F6 10 STA $10F6
+      right: $10BE 8D B4 10 STA $10B4
+      left source : Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10F6-$1160
+      right source: Routine AllocInit samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2388..2504 code $10B4-$1114
+    #0008
+      left : $1106 8D F9 10 STA $10F9
+      right: $10C4 8D B7 10 STA $10B7
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2439..2448 code $1103-$110E
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2439..2448 code $10C1-$10CC
+    #0010
+      left : $110C 8D F8 10 STA $10F8
+      right: $10CA 8D B6 10 STA $10B6
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2439..2448 code $1103-$110E
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2439..2448 code $10C1-$10CC
+    #0011
+      left : $110F 18       CLC
+      right: $10CD AD 0A 0E LDA $0E0A
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    #0012
+      left : $1110 AD 0A 0E LDA $0E0A
+      right: $10D0 85 AE    STA $AE
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    #0013
+      left : $1113 69 02    ADC #$02
+      right: $10D2 AD 0B 0E LDA $0E0B
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    #0014
+      left : $1115 85 AE    STA $AE
+      right: $10D5 85 AF    STA $AF
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    #0015
+      left : $1117 AD 0B 0E LDA $0E0B
+      right: $10D7 AD B7 10 LDA $10B7
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    #0016
+      left : $111A 69 00    ADC #$00
+      right: $10DA A0 03    LDY #$03
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    #0017
+      left : $111C 85 AF    STA $AF
+      right: $10DC 91 AE    STA ($AE),Y
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    #0018
+      left : $111E AD F9 10 LDA $10F9
+      right: $10DE AD B6 10 LDA $10B6
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    #0019
+      left : $1121 A0 01    LDY #$01
+      right: $10E1 88       DEY
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $10CD-$10E3
+    #0021
+      left : $1125 AD F8 10 LDA $10F8
+      right: $10E4 AD B6 10 LDA $10B6
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    #0022
+      left : $1128 88       DEY
+      right: $10E7 85 AE    STA $AE
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    #0023
+      left : $1129 91 AE    STA ($AE),Y
+      right: $10E9 AD B7 10 LDA $10B7
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2451..2466 code $110F-$112A
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    #0024
+      left : $112B 18       CLC
+      right: $10EC 85 AF    STA $AF
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    #0025
+      left : $112C AD F8 10 LDA $10F8
+      right: $10EE A9 00    LDA #$00
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    #0026
+      left : $112F 69 02    ADC #$02
+      right: $10F0 C8       INY
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    #0027
+      left : $1131 85 AE    STA $AE
+      right: $10F1 91 AE    STA ($AE),Y
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    #0028
+      left : $1133 AD F9 10 LDA $10F9
+      right: $10F3 88       DEY
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    #0029
+      left : $1136 69 00    ADC #$00
+      right: $10F4 91 AE    STA ($AE),Y
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $10E4-$10F5
+    #0030
+      left : $1138 85 AF    STA $AF
+      right: $10F6 AD B6 10 LDA $10B6
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    #0031
+      left : $113A A9 00    LDA #$00
+      right: $10F9 85 AE    STA $AE
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    #0032
+      left : $113C C8       INY
+      right: $10FB AD B7 10 LDA $10B7
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    #0033
+      left : $113D 91 AE    STA ($AE),Y
+      right: $10FE 85 AF    STA $AF
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    #0034
+      left : $113F A9 00    LDA #$00
+      right: $1100 38       SEC
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    #0035
+      left : $1141 88       DEY
+      right: $1101 AD E5 02 LDA $02E5
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+    #0036
+      left : $1142 91 AE    STA ($AE),Y
+      right: $1104 ED B6 10 SBC $10B6
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2469..2480 code $112B-$1143
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2483..2497 code $10F6-$1113
+  PrintFreeList            len 154 -> 124 (-30)  addr $1161 -> $1115
+    source-range deltas:
+      Routine PrintFreeList samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2608..2760  diffs 2
+        left : $1161-$11FA len 154 owner routine PrintFreeList Local P $1161-$1162+0
+        right: $1115-$1190 len 124 owner routine PrintFreeList Local P $1115-$1116+0
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666  diffs 21
+        left : $1166-$1181 len 28
+        right: $1128-$113E len 23
+      Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2738..2746  diffs 23
+        left : $11DB-$11F6 len 28
+        right: $1176-$118C len 23
+      Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733  diffs 58
+        left : $118D-$11DA len 78
+        right: $1147-$1175 len 47
+      Statement return samples/toolkit/survey/allocate_harness.act:1:1 | CARD EndProg | source 0..0  diffs 2
+        left : $10F5-$10F5 len 1
+        right: $1190-$1190 len 1
+      Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753  diffs 9
+        left : $1182-$11F9 len 120
+        right: $113F-$118F len 81
+      StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733  diffs 6
+        left : <missing>
+        right: $1117-$1124 len 14
+    #0002
+      left : $1163 4C 66 11 JMP $1166
+      right: $1117 0D 25 48 ORA $4825
+      left source : Routine PrintFreeList samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2608..2760 code $1161-$11FA
+      right source: StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    #0003
+      left : $1166 18       CLC
+      right: $111A 3A       .BYTE $3A
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    #0004
+      left : $1167 AD 0A 0E LDA $0E0A
+      right: $111B 20 25 48 JSR $4825
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    #0005
+      left : $116A 69 02    ADC #$02
+      right: $111E 20 1F 20 JSR $201F
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    #0006
+      left : $116C 85 AE    STA $AE
+      right: $1121 25 48    AND $48
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    #0007
+      left : $116E AD 0B 0E LDA $0E0B
+      right: $1123 25 45    AND $45
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: StorageInitializer modern hidden string literal samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1117-$1124
+    #0008
+      left : $1171 69 00    ADC #$00
+      right: $1125 4C 28 11 JMP $1128
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: Routine PrintFreeList samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2608..2760 code $1115-$1190
+    #0009
+      left : $1173 85 AF    STA $AF
+      right: $1128 AD 0A 0E LDA $0E0A
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    #0010
+      left : $1175 A0 01    LDY #$01
+      right: $112B 85 AE    STA $AE
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    #0011
+      left : $1177 B1 AE    LDA ($AE),Y
+      right: $112D AD 0B 0E LDA $0E0B
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    #0012
+      left : $1179 8D 62 11 STA $1162
+      right: $1130 85 AF    STA $AF
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    #0013
+      left : $117C 88       DEY
+      right: $1132 A0 03    LDY #$03
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    #0015
+      left : $117F 8D 61 11 STA $1161
+      right: $1136 8D 16 11 STA $1116
+      left source : Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1166-$1181
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    #0016
+      left : $1182 AD 61 11 LDA $1161
+      right: $1139 88       DEY
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $1182-$11F9
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    #0017
+      left : $1185 0D 62 11 ORA $1162
+      right: $113A B1 AE    LDA ($AE),Y
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $1182-$11F9
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    #0018
+      left : $1188 D0 03    BNE $118D
+      right: $113C 8D 15 11 STA $1115
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $1182-$11F9
+      right source: Statement assignment samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2651..2666 code $1128-$113E
+    #0019
+      left : $118A 4C FA 11 JMP $11FA
+      right: $113F AD 15 11 LDA $1115
+      left source : Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $1182-$11F9
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $113F-$118F
+    #0020
+      left : $118D 4C 9E 11 JMP $119E
+      right: $1142 0D 16 11 ORA $1116
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $113F-$118F
+    #0021
+      left : $1190 0D 25 48 ORA $4825
+      right: $1145 F0 49    BEQ $1190
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement while samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2669..2753 code $113F-$118F
+    #0022
+      left : $1193 3A       .BYTE $3A
+      right: $1147 AD 16 11 LDA $1116
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    #0023
+      left : $1194 20 25 48 JSR $4825
+      right: $114A 85 A3    STA $A3
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    #0024
+      left : $1197 20 1F 20 JSR $201F
+      right: $114C AD 15 11 LDA $1115
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    #0025
+      left : $119A 25 48    AND $48
+      right: $114F 85 AE    STA $AE
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    #0026
+      left : $119C 25 45    AND $45
+      right: $1151 AD 16 11 LDA $1116
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    #0027
+      left : $119E AD 62 11 LDA $1162
+      right: $1154 85 AF    STA $AF
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    #0028
+      left : $11A1 85 A3    STA $A3
+      right: $1156 A0 01    LDY #$01
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    #0029
+      left : $11A3 AD 61 11 LDA $1161
+      right: $1158 B1 AE    LDA ($AE),Y
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    #0030
+      left : $11A6 85 AE    STA $AE
+      right: $115A 85 A5    STA $A5
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    #0031
+      left : $11A8 AD 62 11 LDA $1162
+      right: $115C 88       DEY
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+    #0032
+      left : $11AB 85 AF    STA $AF
+      right: $115D B1 AE    LDA ($AE),Y
+      left source : Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $118D-$11DA
+      right source: Statement call samples/toolkit/survey/allocate_harness.act:3:1 |  | source 2694..2733 code $1147-$1175
+
+== bytes: original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM vs compat ==
+exact: false  sizes: 1026 vs 1024
+first diffs:
+  @0004: $FD -> $FB
+  @0131: $AD -> $B1
+  @0132: $10 -> $AE
+  @0133: $0E -> $6D
+  @0134: $71 -> $10
+  @0135: $AE -> $0E
+  @0139: $AD -> $C8
+  @013A: $11 -> $B1
+  @013B: $0E -> $AE
+  @013C: $C8 -> $6D
+  @013D: $71 -> $11
+  @013E: $AE -> $0E
+  @0203: $AD -> $A0
+  @0204: $68 -> $00
+  @0205: $0F -> $B1
+  @0206: $A0 -> $AE
+  @0207: $00 -> $6D
+  @0208: $71 -> $68
+  @0209: $AE -> $0F
+  @020C: $AD -> $C8
+  @020D: $69 -> $B1
+  @020E: $0F -> $AE
+  @020F: $C8 -> $6D
+  @0210: $71 -> $69
+  @0211: $AE -> $0F
+  @0223: $4A -> $4B
+  @0230: $88 -> $A0
+  @0231: $B1 -> $00
+  @0232: $AE -> $B1
+  @0233: $6D -> $AE
+
+== instructions: original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM vs compat ==
+counts: 466 vs 464
+  #0137
+    left : $0F33 AD 10 0E LDA $0E10
+    right: $0F33 B1 AE    LDA ($AE),Y
+  #0138
+    left : $0F36 71 AE    ADC ($AE),Y
+    right: $0F35 6D 10 0E ADC $0E10
+  #0140
+    left : $0F3B AD 11 0E LDA $0E11
+    right: $0F3B C8       INY
+  #0141
+    left : $0F3E C8       INY
+    right: $0F3C B1 AE    LDA ($AE),Y
+  #0142
+    left : $0F3F 71 AE    ADC ($AE),Y
+    right: $0F3E 6D 11 0E ADC $0E11
+  #0229
+    left : $1005 AD 68 0F LDA $0F68
+    right: $1005 A0 00    LDY #$00
+  #0230
+    left : $1008 A0 00    LDY #$00
+    right: $1007 B1 AE    LDA ($AE),Y
+  #0231
+    left : $100A 71 AE    ADC ($AE),Y
+    right: $1009 6D 68 0F ADC $0F68
+  #0233
+    left : $100E AD 69 0F LDA $0F69
+    right: $100E C8       INY
+  #0234
+    left : $1011 C8       INY
+    right: $100F B1 AE    LDA ($AE),Y
+  #0235
+    left : $1012 71 AE    ADC ($AE),Y
+    right: $1011 6D 69 0F ADC $0F69
+  #0243
+    left : $1024 4C 4A 10 JMP $104A
+    right: $1024 4C 4B 10 JMP $104B
+  #0249
+    left : $1032 88       DEY
+    right: $1032 A0 00    LDY #$00
+  #0260
+    left : $1047 4C 7F 10 JMP $107F
+    right: $1048 4C 82 10 JMP $1082
+  #0269
+    left : $105C 91 AE    STA ($AE),Y
+    right: $105D A0 01    LDY #$01
+  #0270
+    left : $105E AD 6A 0F LDA $0F6A
+    right: $105F 91 AE    STA ($AE),Y
+  #0271
+    left : $1061 88       DEY
+    right: $1061 AD 6A 0F LDA $0F6A
+  #0272
+    left : $1062 91 AE    STA ($AE),Y
+    right: $1064 88       DEY
+  #0273
+    left : $1064 18       CLC
+    right: $1065 91 AE    STA ($AE),Y
+  #0274
+    left : $1065 AD 68 0F LDA $0F68
+    right: $1067 18       CLC
+  #0275
+    left : $1068 69 02    ADC #$02
+    right: $1068 AD 68 0F LDA $0F68
+  #0276
+    left : $106A 85 AE    STA $AE
+    right: $106B 69 02    ADC #$02
+  #0277
+    left : $106C AD 69 0F LDA $0F69
+    right: $106D 85 AE    STA $AE
+  #0278
+    left : $106F 69 00    ADC #$00
+    right: $106F AD 69 0F LDA $0F69
+  #0279
+    left : $1071 85 AF    STA $AF
+    right: $1072 69 00    ADC #$00
+  #0280
+    left : $1073 AD 65 0F LDA $0F65
+    right: $1074 85 AF    STA $AF
+  #0281
+    left : $1076 C8       INY
+    right: $1076 AD 65 0F LDA $0F65
+  #0282
+    left : $1077 91 AE    STA ($AE),Y
+    right: $1079 C8       INY
+  #0283
+    left : $1079 AD 64 0F LDA $0F64
+    right: $107A 91 AE    STA ($AE),Y
+  #0284
+    left : $107C 88       DEY
+    right: $107C AD 64 0F LDA $0F64
+
+== bytes: original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM vs modern ==
+exact: false  sizes: 1026 vs 917
+first diffs:
+  @0004: $FD -> $90
+  @0027: $18 -> $AD
+  @0028: $AD -> $0A
+  @0029: $0A -> $0E
+  @002A: $0E -> $85
+  @002B: $69 -> $AE
+  @002C: $02 -> $AD
+  @002D: $85 -> $0B
+  @002E: $AE -> $0E
+  @002F: $AD -> $85
+  @0030: $0B -> $AF
+  @0031: $0E -> $A0
+  @0032: $69 -> $03
+  @0033: $00 -> $B1
+  @0034: $85 -> $AE
+  @0035: $AF -> $8D
+  @0036: $A0 -> $11
+  @0037: $01 -> $0E
+  @0038: $B1 -> $88
+  @0039: $AE -> $B1
+  @003A: $8D -> $AE
+  @003B: $11 -> $8D
+  @003C: $0E -> $10
+  @003D: $88 -> $0E
+  @003E: $B1 -> $AD
+  @003F: $AE -> $10
+  @0040: $8D -> $0E
+  @0041: $10 -> $0D
+  @0042: $0E -> $11
+  @0043: $AD -> $0E
+
+== instructions: original:samples/toolkit/survey/outputs/vm/ALLOCATE.COM vs modern ==
+counts: 466 vs 406
+  #0019
+    left : $0E29 18       CLC
+    right: $0E29 AD 0A 0E LDA $0E0A
+  #0020
+    left : $0E2A AD 0A 0E LDA $0E0A
+    right: $0E2C 85 AE    STA $AE
+  #0021
+    left : $0E2D 69 02    ADC #$02
+    right: $0E2E AD 0B 0E LDA $0E0B
+  #0022
+    left : $0E2F 85 AE    STA $AE
+    right: $0E31 85 AF    STA $AF
+  #0023
+    left : $0E31 AD 0B 0E LDA $0E0B
+    right: $0E33 A0 03    LDY #$03
+  #0024
+    left : $0E34 69 00    ADC #$00
+    right: $0E35 B1 AE    LDA ($AE),Y
+  #0025
+    left : $0E36 85 AF    STA $AF
+    right: $0E37 8D 11 0E STA $0E11
+  #0026
+    left : $0E38 A0 01    LDY #$01
+    right: $0E3A 88       DEY
+  #0028
+    left : $0E3C 8D 11 0E STA $0E11
+    right: $0E3D 8D 10 0E STA $0E10
+  #0029
+    left : $0E3F 88       DEY
+    right: $0E40 AD 10 0E LDA $0E10
+  #0030
+    left : $0E40 B1 AE    LDA ($AE),Y
+    right: $0E43 0D 11 0E ORA $0E11
+  #0031
+    left : $0E42 8D 10 0E STA $0E10
+    right: $0E46 F0 19    BEQ $0E61
+  #0033
+    left : $0E48 0D 11 0E ORA $0E11
+    right: $0E4B 85 AE    STA $AE
+  #0034
+    left : $0E4B D0 03    BNE $0E50
+    right: $0E4D AD 11 0E LDA $0E11
+  #0035
+    left : $0E4D 4C 97 0E JMP $0E97
+    right: $0E50 85 AF    STA $AF
+  #0036
+    left : $0E50 AD 10 0E LDA $0E10
+    right: $0E52 A0 00    LDY #$00
+  #0037
+    left : $0E53 85 AE    STA $AE
+    right: $0E54 B1 AE    LDA ($AE),Y
+  #0038
+    left : $0E55 AD 11 0E LDA $0E11
+    right: $0E56 CD 0C 0E CMP $0E0C
+  #0039
+    left : $0E58 85 AF    STA $AF
+    right: $0E59 C8       INY
+  #0040
+    left : $0E5A A0 00    LDY #$00
+    right: $0E5A B1 AE    LDA ($AE),Y
+  #0041
+    left : $0E5C B1 AE    LDA ($AE),Y
+    right: $0E5C ED 0D 0E SBC $0E0D
+  #0042
+    left : $0E5E CD 0C 0E CMP $0E0C
+    right: $0E5F 90 03    BCC $0E64
+  #0043
+    left : $0E61 C8       INY
+    right: $0E61 4C 8A 0E JMP $0E8A
+  #0044
+    left : $0E62 B1 AE    LDA ($AE),Y
+    right: $0E64 AD 11 0E LDA $0E11
+  #0045
+    left : $0E64 ED 0D 0E SBC $0E0D
+    right: $0E67 8D 0F 0E STA $0E0F
+  #0046
+    left : $0E67 90 03    BCC $0E6C
+    right: $0E6A AD 10 0E LDA $0E10
+  #0047
+    left : $0E69 4C 97 0E JMP $0E97
+    right: $0E6D 8D 0E 0E STA $0E0E
+  #0048
+    left : $0E6C AD 11 0E LDA $0E11
+    right: $0E70 AD 10 0E LDA $0E10
+  #0049
+    left : $0E6F 8D 0F 0E STA $0E0F
+    right: $0E73 85 AE    STA $AE
+  #0050
+    left : $0E72 AD 10 0E LDA $0E10
+    right: $0E75 AD 11 0E LDA $0E11
+
+== bytes: compat vs modern ==
+exact: false  sizes: 1024 vs 917
+first diffs:
+  @0004: $FB -> $90
+  @0027: $18 -> $AD
+  @0028: $AD -> $0A
+  @0029: $0A -> $0E
+  @002A: $0E -> $85
+  @002B: $69 -> $AE
+  @002C: $02 -> $AD
+  @002D: $85 -> $0B
+  @002E: $AE -> $0E
+  @002F: $AD -> $85
+  @0030: $0B -> $AF
+  @0031: $0E -> $A0
+  @0032: $69 -> $03
+  @0033: $00 -> $B1
+  @0034: $85 -> $AE
+  @0035: $AF -> $8D
+  @0036: $A0 -> $11
+  @0037: $01 -> $0E
+  @0038: $B1 -> $88
+  @0039: $AE -> $B1
+  @003A: $8D -> $AE
+  @003B: $11 -> $8D
+  @003C: $0E -> $10
+  @003D: $88 -> $0E
+  @003E: $B1 -> $AD
+  @003F: $AE -> $10
+  @0040: $8D -> $0E
+  @0041: $10 -> $0D
+  @0042: $0E -> $11
+  @0043: $AD -> $0E
+
+== instructions: compat vs modern ==
+counts: 464 vs 406
+  #0019
+    left : $0E29 18       CLC
+    right: $0E29 AD 0A 0E LDA $0E0A
+  #0020
+    left : $0E2A AD 0A 0E LDA $0E0A
+    right: $0E2C 85 AE    STA $AE
+  #0021
+    left : $0E2D 69 02    ADC #$02
+    right: $0E2E AD 0B 0E LDA $0E0B
+  #0022
+    left : $0E2F 85 AE    STA $AE
+    right: $0E31 85 AF    STA $AF
+  #0023
+    left : $0E31 AD 0B 0E LDA $0E0B
+    right: $0E33 A0 03    LDY #$03
+  #0024
+    left : $0E34 69 00    ADC #$00
+    right: $0E35 B1 AE    LDA ($AE),Y
+  #0025
+    left : $0E36 85 AF    STA $AF
+    right: $0E37 8D 11 0E STA $0E11
+  #0026
+    left : $0E38 A0 01    LDY #$01
+    right: $0E3A 88       DEY
+  #0028
+    left : $0E3C 8D 11 0E STA $0E11
+    right: $0E3D 8D 10 0E STA $0E10
+  #0029
+    left : $0E3F 88       DEY
+    right: $0E40 AD 10 0E LDA $0E10
+  #0030
+    left : $0E40 B1 AE    LDA ($AE),Y
+    right: $0E43 0D 11 0E ORA $0E11
+  #0031
+    left : $0E42 8D 10 0E STA $0E10
+    right: $0E46 F0 19    BEQ $0E61
+  #0033
+    left : $0E48 0D 11 0E ORA $0E11
+    right: $0E4B 85 AE    STA $AE
+  #0034
+    left : $0E4B D0 03    BNE $0E50
+    right: $0E4D AD 11 0E LDA $0E11
+  #0035
+    left : $0E4D 4C 97 0E JMP $0E97
+    right: $0E50 85 AF    STA $AF
+  #0036
+    left : $0E50 AD 10 0E LDA $0E10
+    right: $0E52 A0 00    LDY #$00
+  #0037
+    left : $0E53 85 AE    STA $AE
+    right: $0E54 B1 AE    LDA ($AE),Y
+  #0038
+    left : $0E55 AD 11 0E LDA $0E11
+    right: $0E56 CD 0C 0E CMP $0E0C
+  #0039
+    left : $0E58 85 AF    STA $AF
+    right: $0E59 C8       INY
+  #0040
+    left : $0E5A A0 00    LDY #$00
+    right: $0E5A B1 AE    LDA ($AE),Y
+  #0041
+    left : $0E5C B1 AE    LDA ($AE),Y
+    right: $0E5C ED 0D 0E SBC $0E0D
+  #0042
+    left : $0E5E CD 0C 0E CMP $0E0C
+    right: $0E5F 90 03    BCC $0E64
+  #0043
+    left : $0E61 C8       INY
+    right: $0E61 4C 8A 0E JMP $0E8A
+  #0044
+    left : $0E62 B1 AE    LDA ($AE),Y
+    right: $0E64 AD 11 0E LDA $0E11
+  #0045
+    left : $0E64 ED 0D 0E SBC $0E0D
+    right: $0E67 8D 0F 0E STA $0E0F
+  #0046
+    left : $0E67 90 03    BCC $0E6C
+    right: $0E6A AD 10 0E LDA $0E10
+  #0047
+    left : $0E69 4C 97 0E JMP $0E97
+    right: $0E6D 8D 0E 0E STA $0E0E
+  #0048
+    left : $0E6C AD 11 0E LDA $0E11
+    right: $0E70 AD 10 0E LDA $0E10
+  #0049
+    left : $0E6F 8D 0F 0E STA $0E0F
+    right: $0E73 85 AE    STA $AE
+  #0050
+    left : $0E72 AD 10 0E LDA $0E10
+    right: $0E75 AD 11 0E LDA $0E11

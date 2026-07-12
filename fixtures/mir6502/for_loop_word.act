@@ -1,0 +1,8 @@
+CARD i,sum
+
+PROC Main()
+  FOR i=0 TO 300
+  DO
+    sum==+i
+  OD
+RETURN

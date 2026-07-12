@@ -1,0 +1,25 @@
+ 
+Using ST.ACT is very simple.  All you
+need to do is:
+  1) boot ACTION! using Boot command
+     in monitor.
+
+  2) RUN "ST.ACT"  from monitor
+
+  3) make sure you have the printer 
+     on before you compile another
+     program.
+
+The symbol table listing will be 
+sent to the device specified in the
+Open routine in SPLEnd in ST.ACT.
+This is initially the printer put you
+can change it to another device if
+you want to.
+
+Note that addresses given for TYPE
+declarations are the size of that
+type in bytes.  The address field for
+type fields is the byte offset within
+that type.
+

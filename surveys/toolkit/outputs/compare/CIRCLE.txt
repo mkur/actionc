@@ -1,0 +1,1263 @@
+source: samples/toolkit/original/extracted/CIRCLE.ACT
+
+== original:samples/toolkit/survey/outputs/vm/CIRCLE.COM ==
+load bytes: 622  code bytes: 610  code origin: $0E08
+segments:
+  00: $0E08-$1069 len   610 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   616 data_off   620
+      RUNAD $02E2 = $0E4F
+opcode counts:
+  $00 BRK      20
+  $18 CLC      13
+  $20 JSR      11
+  $30 BMI      3
+  $38 SEC      12
+  $3D .BYTE    1
+  $48 PHA      2
+  $4C JMP      5
+  $60 RTS      4
+  $68 PLA      2
+  $69 ADC      6
+  $6D ADC      16
+  $85 STA      40
+  $8C STY      4
+  $8D STA      14
+  $8E STX      1
+  $A0 LDY      1
+  $A4 LDY      8
+  $A5 LDA      22
+  $A6 LDX      8
+  $A9 LDA      2
+  $AD LDA      45
+  $AE LDX      2
+  $C5 CMP      1
+  $C9 CMP      1
+  $CD CMP      1
+  $D0 BNE      1
+  $E5 SBC      1
+  $E9 SBC      3
+  $ED SBC      19
+  $EE INC      2
+
+== compat ==
+load bytes: 613  code bytes: 601  code origin: $0E08
+segments:
+  00: $0E08-$1060 len   601 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   607 data_off   611
+      RUNAD $02E2 = $0E4F
+opcode counts:
+  $00 BRK      20
+  $18 CLC      12
+  $20 JSR      11
+  $30 BMI      3
+  $38 SEC      12
+  $3D .BYTE    1
+  $4C JMP      5
+  $60 RTS      4
+  $69 ADC      4
+  $6D ADC      16
+  $85 STA      40
+  $8C STY      4
+  $8D STA      14
+  $8E STX      1
+  $A0 LDY      1
+  $A4 LDY      8
+  $A5 LDA      22
+  $A6 LDX      8
+  $A9 LDA      2
+  $AD LDA      45
+  $AE LDX      2
+  $C5 CMP      1
+  $C9 CMP      1
+  $CD CMP      1
+  $D0 BNE      1
+  $E5 SBC      1
+  $E9 SBC      3
+  $ED SBC      19
+  $EE INC      2
+
+== modern ==
+load bytes: 553  code bytes: 541  code origin: $0E08
+segments:
+  00: $0E08-$1024 len   541 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   547 data_off   551
+      RUNAD $02E2 = $0E2F
+opcode counts:
+  $00 BRK      18
+  $10 BPL      2
+  $18 CLC      12
+  $1D .BYTE    1
+  $20 JSR      11
+  $30 BMI      1
+  $38 SEC      12
+  $4C JMP      2
+  $60 RTS      2
+  $69 ADC      4
+  $6D ADC      16
+  $85 STA      31
+  $86 STX      1
+  $8A TXA      1
+  $8C STY      4
+  $8D STA      13
+  $A0 LDY      1
+  $A5 LDA      22
+  $A6 LDX      8
+  $A8 TAY      8
+  $A9 LDA      2
+  $AD LDA      41
+  $AE LDX      2
+  $C5 CMP      1
+  $CD CMP      1
+  $D0 BNE      1
+  $E5 SBC      3
+  $E9 SBC      2
+  $ED SBC      17
+  $EE INC      2
+
+== map: compat ==
+origin $0E08  run $0E4F  routines 2  symbols 10  skipped 0
+routines:
+  Abs                      $0E08-$0E3C len    53
+  Circle                   $0E3D-$105F len   547
+storage symbols:
+  routine Abs Parameter N $0E08-$0E09
+  routine Circle Parameter X $0E3D-$0E3E
+  routine Circle Parameter Y $0E3F-$0E40
+  routine Circle Parameter R $0E41-$0E42
+  routine Circle Parameter C $0E43-$0E44
+  routine Circle Local PHI $0E45-$0E46
+  routine Circle Local PHIY $0E47-$0E48
+  routine Circle Local PHIXY $0E49-$0E4A
+  routine Circle Local X1 $0E4B-$0E4C
+  routine Circle Local Y1 $0E4D-$0E4E
+trusted effects:
+  Abs                      clobbers A,X,Y; writes zp $A0,$A1; writes abs $0E09,$0E08
+
+== map: modern ==
+origin $0E08  run $0E2F  routines 2  symbols 9  skipped 0
+routines:
+  Abs                      $0E08-$0E1C len    21
+  Circle                   $0E1D-$1024 len   520
+storage symbols:
+  routine Circle Parameter X $0E1D-$0E1E
+  routine Circle Parameter Y $0E1F-$0E20
+  routine Circle Parameter R $0E21-$0E22
+  routine Circle Parameter C $0E23-$0E24
+  routine Circle Local PHI $0E25-$0E26
+  routine Circle Local PHIY $0E27-$0E28
+  routine Circle Local PHIXY $0E29-$0E2A
+  routine Circle Local X1 $0E2B-$0E2C
+  routine Circle Local Y1 $0E2D-$0E2E
+trusted effects:
+  Abs                      clobbers A,X,Y; writes zp $A0,$A1
+
+== routines: original:samples/toolkit/survey/outputs/vm/CIRCLE.COM vs compat ==
+  Circle                   len 557 -> 547 (-10)  addr $0E3D -> $0E3D
+    Circle+$0042 #0035
+      original : $0E7F 85 AE    STA $AE
+      generated: $0E7F 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+    Circle+$004A #0038
+      original : $0E87 85 AF    STA $AF
+      generated: $0E87 85 AD    STA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+    Circle+$004D #0040
+      original : $0E8A A5 AE    LDA $AE
+      generated: $0E8A A5 AC    LDA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+    Circle+$0054 #0043
+      original : $0E91 A5 AF    LDA $AF
+      generated: $0E91 A5 AD    LDA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+    Circle+$0071 #0056
+      original : $0EAE 85 AE    STA $AE
+      generated: $0EAE 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+    Circle+$0079 #0059
+      original : $0EB6 85 AF    STA $AF
+      generated: $0EB6 85 AD    STA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+    Circle+$007C #0061
+      original : $0EB9 A5 AE    LDA $AE
+      generated: $0EB9 A5 AC    LDA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+    Circle+$0083 #0064
+      original : $0EC0 A5 AF    LDA $AF
+      generated: $0EC0 A5 AD    LDA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+    Circle+$01CE #0204
+      original : $100B 18       CLC
+      generated: $100B A5 A1    LDA $A1
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01CF #0205
+      original : $100C A5 A0    LDA $A0
+      generated: $100D 85 AD    STA $AD
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01D1 #0206
+      original : $100E 69 00    ADC #$00
+      generated: $100F A5 A0    LDA $A0
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01D3 #0207
+      original : $1010 85 AE    STA $AE
+      generated: $1011 85 AC    STA $AC
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01D5 #0208
+      original : $1012 A5 A1    LDA $A1
+      generated: $1013 AE 48 0E LDX $0E48
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01D7 #0209
+      original : $1014 69 00    ADC #$00
+      generated: $1016 AD 47 0E LDA $0E47
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01D9 #0210
+      original : $1016 85 AF    STA $AF
+      generated: $1019 20 0A 0E JSR $0E0A
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01DB #0211
+      original : $1018 A5 AF    LDA $AF
+      generated: $101C A5 A1    LDA $A1
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01DD #0212
+      original : $101A 48       PHA
+      generated: $101E 85 C1    STA $C1
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01DE #0213
+      original : $101B A5 AE    LDA $AE
+      generated: $1020 A5 A0    LDA $A0
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01E0 #0214
+      original : $101D 48       PHA
+      generated: $1022 85 C0    STA $C0
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01E1 #0215
+      original : $101E AE 48 0E LDX $0E48 ; Phiy+1 $0E48
+      generated: $1024 A5 AC    LDA $AC
+      orig operand: Phiy+1 $0E48
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01E4 #0216
+      original : $1021 AD 47 0E LDA $0E47 ; Phiy $0E47
+      generated: $1026 C5 C0    CMP $C0
+      orig operand: Phiy $0E47
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01E7 #0217
+      original : $1024 20 0A 0E JSR $0E0A ; Abs $0E0A
+      generated: $1028 A5 AD    LDA $AD
+      orig operand: Abs $0E0A
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01EA #0218
+      original : $1027 68       PLA
+      generated: $102A E5 C1    SBC $C1
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01EB #0219
+      original : $1028 85 AE    STA $AE
+      generated: $102C 30 03    BMI $1031
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01ED #0220
+      original : $102A 68       PLA
+      generated: $102E 4C 4E 10 JMP $104E
+      source   : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992 code $1002-$104D
+    Circle+$01EE #0221
+      original : $102B 85 AF    STA $AF
+      generated: $1031 AD 4A 0E LDA $0E4A
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:48:7 | Phi=Phixy | source 962..971 code $1031-$103C
+    Circle+$01F0 #0222
+      original : $102D A5 AE    LDA $AE
+      generated: $1034 8D 46 0E STA $0E46
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:48:7 | Phi=Phixy | source 962..971 code $1031-$103C
+    Circle+$01F2 #0223
+      original : $102F C5 A0    CMP $A0
+      generated: $1037 AD 49 0E LDA $0E49
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:48:7 | Phi=Phixy | source 962..971 code $1031-$103C
+    Circle+$01F4 #0224
+      original : $1031 A5 AF    LDA $AF
+      generated: $103A 8D 45 0E STA $0E45
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:48:7 | Phi=Phixy | source 962..971 code $1031-$103C
+    Circle+$01F6 #0225
+      original : $1033 E5 A1    SBC $A1
+      generated: $103D 38       SEC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:49:7 | x1=x1-1 | source 978..985 code $103D-$104D
+
+== routines: original:samples/toolkit/survey/outputs/vm/CIRCLE.COM vs modern ==
+  Abs                      len 53 -> 21 (-32)  addr $0E08 -> $0E08
+    Abs+$0000 #0000
+      original : $0E08 00       BRK
+      generated: $0E08 85 A0    STA $A0
+      orig owner: n $0E08
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$0001 #0001
+      original : $0E09 00       BRK
+      generated: $0E0A 86 A1    STX $A1
+      orig owner: n+1 $0E09
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$0002 #0002
+      original : $0E0A 4C 0D 0E JMP $0E0D
+      generated: $0E0C 8A       TXA
+      orig owner: Abs $0E0A
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$0005 #0003
+      original : $0E0D 8E 09 0E STX $0E09 ; n+1 $0E09
+      generated: $0E0D 10 0D    BPL $0E1C
+      orig operand: n+1 $0E09
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$0008 #0004
+      original : $0E10 8D 08 0E STA $0E08 ; n $0E08
+      generated: $0E0F 38       SEC
+      orig operand: n $0E08
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$000B #0005
+      original : $0E13 AD 08 0E LDA $0E08 ; n $0E08
+      generated: $0E10 A9 00    LDA #$00
+      orig operand: n $0E08
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$000E #0006
+      original : $0E16 C9 00    CMP #$00
+      generated: $0E12 E5 A0    SBC $A0
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$0010 #0007
+      original : $0E18 AD 09 0E LDA $0E09 ; n+1 $0E09
+      generated: $0E14 85 A0    STA $A0
+      orig operand: n+1 $0E09
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$0013 #0008
+      original : $0E1B E9 00    SBC #$00
+      generated: $0E16 A9 00    LDA #$00
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$0015 #0009
+      original : $0E1D 30 03    BMI $0E22
+      generated: $0E18 E5 A1    SBC $A1
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$0017 #0010
+      original : $0E1F 4C 32 0E JMP $0E32
+      generated: $0E1A 85 A1    STA $A1
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$001A #0011
+      original : $0E22 38       SEC
+      generated: $0E1C 60       RTS
+      source   : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    Abs+$001B #0012
+      original : $0E23 A9 00    LDA #$00
+      generated: <missing>
+    Abs+$001D #0013
+      original : $0E25 ED 08 0E SBC $0E08 ; n $0E08
+      generated: <missing>
+      orig operand: n $0E08
+    Abs+$0020 #0014
+      original : $0E28 85 A0    STA $A0
+      generated: <missing>
+    Abs+$0022 #0015
+      original : $0E2A A9 00    LDA #$00
+      generated: <missing>
+    Abs+$0024 #0016
+      original : $0E2C ED 09 0E SBC $0E09 ; n+1 $0E09
+      generated: <missing>
+      orig operand: n+1 $0E09
+    Abs+$0027 #0017
+      original : $0E2F 85 A1    STA $A1
+      generated: <missing>
+    Abs+$0029 #0018
+      original : $0E31 60       RTS
+      generated: <missing>
+    Abs+$002A #0019
+      original : $0E32 AD 09 0E LDA $0E09 ; n+1 $0E09
+      generated: <missing>
+      orig operand: n+1 $0E09
+    Abs+$002D #0020
+      original : $0E35 85 A1    STA $A1
+      generated: <missing>
+    Abs+$002F #0021
+      original : $0E37 AD 08 0E LDA $0E08 ; n $0E08
+      generated: <missing>
+      orig operand: n $0E08
+    Abs+$0032 #0022
+      original : $0E3A 85 A0    STA $A0
+      generated: <missing>
+    Abs+$0034 #0023
+      original : $0E3C 60       RTS
+      generated: <missing>
+  Circle                   len 557 -> 520 (-37)  addr $0E3D -> $0E1D
+    Circle+$0012 #0018
+      original : $0E4F 4C 52 0E JMP $0E52
+      generated: $0E2F 4C 32 0E JMP $0E32
+      orig owner: Circle $0E4F
+      source   : Routine Circle samples/toolkit/original/extracted/CIRCLE.ACT:25:1 | PROC Circle(INT x,y,r,c) | source 539..1018 code $0E1D-$1024
+    Circle+$0018 #0020
+      original : $0E55 3D 0E 07 .BYTE $3D,$0E,$07
+      generated: $0E35 1D 0E 07 .BYTE $1D,$0E,$07
+      source   : Routine Circle samples/toolkit/original/extracted/CIRCLE.ACT:25:1 | PROC Circle(INT x,y,r,c) | source 539..1018 code $0E1D-$1024
+    Circle+$001D #0022
+      original : $0E5A 8C 46 0E STY $0E46 ; Phi+1 $0E46
+      generated: $0E3A 8C 26 0E STY $0E26
+      orig operand: Phi+1 $0E46
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:30:3 | Phi=0 | source 602..607 code $0E38-$0E3F
+    Circle+$0020 #0023
+      original : $0E5D 8C 45 0E STY $0E45 ; Phi $0E45
+      generated: $0E3D 8C 25 0E STY $0E25
+      orig operand: Phi $0E45
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:30:3 | Phi=0 | source 602..607 code $0E38-$0E3F
+    Circle+$0023 #0024
+      original : $0E60 AD 42 0E LDA $0E42 ; r+1 $0E42
+      generated: $0E40 AD 22 0E LDA $0E22
+      orig operand: r+1 $0E42
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E40-$0E4B
+    Circle+$0026 #0025
+      original : $0E63 8D 4C 0E STA $0E4C ; x1+1 $0E4C
+      generated: $0E43 8D 2C 0E STA $0E2C
+      orig operand: x1+1 $0E4C
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E40-$0E4B
+    Circle+$0029 #0026
+      original : $0E66 AD 41 0E LDA $0E41 ; r $0E41
+      generated: $0E46 AD 21 0E LDA $0E21
+      orig operand: r $0E41
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E40-$0E4B
+    Circle+$002C #0027
+      original : $0E69 8D 4B 0E STA $0E4B ; x1 $0E4B
+      generated: $0E49 8D 2B 0E STA $0E2B
+      orig operand: x1 $0E4B
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E40-$0E4B
+    Circle+$002F #0028
+      original : $0E6C 8C 4E 0E STY $0E4E ; y1+1 $0E4E
+      generated: $0E4C 8C 2E 0E STY $0E2E
+      orig operand: y1+1 $0E4E
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:32:3 | y1=0 | source 617..621 code $0E4C-$0E51
+    Circle+$0032 #0029
+      original : $0E6F 8C 4D 0E STY $0E4D ; y1 $0E4D
+      generated: $0E4F 8C 2D 0E STY $0E2D
+      orig operand: y1 $0E4D
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:32:3 | y1=0 | source 617..621 code $0E4C-$0E51
+    Circle+$0035 #0030
+      original : $0E72 AD 43 0E LDA $0E43 ; c $0E43
+      generated: $0E52 AD 23 0E LDA $0E23
+      orig operand: c $0E43
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:33:3 | color=c | source 624..631 code $0E52-$0E57
+    Circle+$003C #0033
+      original : $0E79 AD 45 0E LDA $0E45 ; Phi $0E45
+      generated: $0E59 AD 25 0E LDA $0E25
+      orig operand: Phi $0E45
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$003F #0034
+      original : $0E7C 6D 4D 0E ADC $0E4D ; y1 $0E4D
+      generated: $0E5C 6D 2D 0E ADC $0E2D
+      orig operand: y1 $0E4D
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$0042 #0035
+      original : $0E7F 85 AE    STA $AE
+      generated: $0E5F 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$0044 #0036
+      original : $0E81 AD 46 0E LDA $0E46 ; Phi+1 $0E46
+      generated: $0E61 AD 26 0E LDA $0E26
+      orig operand: Phi+1 $0E46
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$0047 #0037
+      original : $0E84 6D 4E 0E ADC $0E4E ; y1+1 $0E4E
+      generated: $0E64 6D 2E 0E ADC $0E2E
+      orig operand: y1+1 $0E4E
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$004A #0038
+      original : $0E87 85 AF    STA $AF
+      generated: $0E67 85 AD    STA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$004D #0040
+      original : $0E8A A5 AE    LDA $AE
+      generated: $0E6A A5 AC    LDA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$004F #0041
+      original : $0E8C 6D 4D 0E ADC $0E4D ; y1 $0E4D
+      generated: $0E6C 6D 2D 0E ADC $0E2D
+      orig operand: y1 $0E4D
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$0054 #0043
+      original : $0E91 A5 AF    LDA $AF
+      generated: $0E71 A5 AD    LDA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$0056 #0044
+      original : $0E93 6D 4E 0E ADC $0E4E ; y1+1 $0E4E
+      generated: $0E73 6D 2E 0E ADC $0E2E
+      orig operand: y1+1 $0E4E
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$0060 #0049
+      original : $0E9D 8D 47 0E STA $0E47 ; Phiy $0E47
+      generated: $0E7D 8D 27 0E STA $0E27
+      orig operand: Phiy $0E47
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$0067 #0052
+      original : $0EA4 8D 48 0E STA $0E48 ; Phiy+1 $0E48
+      generated: $0E84 8D 28 0E STA $0E28
+      orig operand: Phiy+1 $0E48
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    Circle+$006B #0054
+      original : $0EA8 AD 47 0E LDA $0E47 ; Phiy $0E47
+      generated: $0E88 AD 27 0E LDA $0E27
+      orig operand: Phiy $0E47
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    Circle+$006E #0055
+      original : $0EAB ED 4B 0E SBC $0E4B ; x1 $0E4B
+      generated: $0E8B ED 2B 0E SBC $0E2B
+      orig operand: x1 $0E4B
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    Circle+$0071 #0056
+      original : $0EAE 85 AE    STA $AE
+      generated: $0E8E 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    Circle+$0073 #0057
+      original : $0EB0 AD 48 0E LDA $0E48 ; Phiy+1 $0E48
+      generated: $0E90 AD 28 0E LDA $0E28
+      orig operand: Phiy+1 $0E48
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    Circle+$0076 #0058
+      original : $0EB3 ED 4C 0E SBC $0E4C ; x1+1 $0E4C
+      generated: $0E93 ED 2C 0E SBC $0E2C
+      orig operand: x1+1 $0E4C
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    Circle+$0079 #0059
+      original : $0EB6 85 AF    STA $AF
+      generated: $0E96 85 AD    STA $AD
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    Circle+$007C #0061
+      original : $0EB9 A5 AE    LDA $AE
+      generated: $0E99 A5 AC    LDA $AC
+      source   : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+
+== expected modern wins ==
+  argument store removed   count 8    saved   24 bytes
+  branch inverted          count 1    saved    3 bytes
+  final RTS removed        count 1    saved    1 bytes
+details:
+  argument store removed   saved   3 bytes  $0ECF   Circle           forwarded final third argument byte from A to Y instead of staging through $A2
+  argument store removed   saved   3 bytes  $0EEF   Circle           forwarded final third argument byte from A to Y instead of staging through $A2
+  argument store removed   saved   3 bytes  $0F0F   Circle           forwarded final third argument byte from A to Y instead of staging through $A2
+  argument store removed   saved   3 bytes  $0F2F   Circle           forwarded final third argument byte from A to Y instead of staging through $A2
+  argument store removed   saved   3 bytes  $0F4F   Circle           forwarded final third argument byte from A to Y instead of staging through $A2
+  argument store removed   saved   3 bytes  $0F6F   Circle           forwarded final third argument byte from A to Y instead of staging through $A2
+  argument store removed   saved   3 bytes  $0F8F   Circle           forwarded final third argument byte from A to Y instead of staging through $A2
+  argument store removed   saved   3 bytes  $0FAF   Circle           forwarded final third argument byte from A to Y instead of staging through $A2
+  branch inverted          saved   3 bytes  $0FF4   Circle           inverted branch to condition:true:6 and removed long jump to if:next:5
+  final RTS removed        saved   1 bytes  $1025   Circle           removed duplicate final program RTS
+
+== routines: compat vs modern ==
+  Abs                      len 53 -> 21 (-32)  addr $0E08 -> $0E08
+    source-range deltas:
+      Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432  diffs 15
+        left : $0E08-$0E3C len 53 owner routine Abs Parameter N $0E08-$0E09+0
+        right: $0E08-$0E1C len 21
+      Statement if samples/toolkit/original/extracted/CIRCLE.ACT:18:4 | IF n<0 THEN RETURN( -n ) FI | source 390..417  diffs 6
+        left : $0E13-$0E31 len 31
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/CIRCLE.ACT:18:24 | IF n<0 THEN RETURN( -n ) FI | source 410..412  diffs 8
+        left : $0E22-$0E31 len 16
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/CIRCLE.ACT:19:12 | RETURN( n ) | source 429..430  diffs 5
+        left : $0E32-$0E3C len 11
+        right: <missing>
+      Declaration Abs storage samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432  diffs 2
+        left : $0E08-$0E09 len 2 owner routine Abs Parameter N $0E08-$0E09+0
+        right: <missing>
+    #0000
+      left : $0E08 00       BRK
+      right: $0E08 85 A0    STA $A0
+      left source : Declaration Abs storage samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E09
+      left owner  : routine Abs Parameter N $0E08-$0E09+0
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0001
+      left : $0E09 00       BRK
+      right: $0E0A 86 A1    STX $A1
+      left source : Declaration Abs storage samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E09
+      left owner  : routine Abs Parameter N $0E08-$0E09+1
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0002
+      left : $0E0A 4C 0D 0E JMP $0E0D
+      right: $0E0C 8A       TXA
+      left source : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E3C
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0003
+      left : $0E0D 8E 09 0E STX $0E09
+      right: $0E0D 10 0D    BPL $0E1C
+      left source : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E3C
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0004
+      left : $0E10 8D 08 0E STA $0E08
+      right: $0E0F 38       SEC
+      left source : Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E3C
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0005
+      left : $0E13 AD 08 0E LDA $0E08
+      right: $0E10 A9 00    LDA #$00
+      left source : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:18:4 | IF n<0 THEN RETURN( -n ) FI | source 390..417 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0006
+      left : $0E16 C9 00    CMP #$00
+      right: $0E12 E5 A0    SBC $A0
+      left source : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:18:4 | IF n<0 THEN RETURN( -n ) FI | source 390..417 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0007
+      left : $0E18 AD 09 0E LDA $0E09
+      right: $0E14 85 A0    STA $A0
+      left source : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:18:4 | IF n<0 THEN RETURN( -n ) FI | source 390..417 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0008
+      left : $0E1B E9 00    SBC #$00
+      right: $0E16 A9 00    LDA #$00
+      left source : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:18:4 | IF n<0 THEN RETURN( -n ) FI | source 390..417 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0009
+      left : $0E1D 30 03    BMI $0E22
+      right: $0E18 E5 A1    SBC $A1
+      left source : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:18:4 | IF n<0 THEN RETURN( -n ) FI | source 390..417 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0010
+      left : $0E1F 4C 32 0E JMP $0E32
+      right: $0E1A 85 A1    STA $A1
+      left source : Statement if samples/toolkit/original/extracted/CIRCLE.ACT:18:4 | IF n<0 THEN RETURN( -n ) FI | source 390..417 code $0E13-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0011
+      left : $0E22 38       SEC
+      right: $0E1C 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:18:24 | IF n<0 THEN RETURN( -n ) FI | source 410..412 code $0E22-$0E31
+      right source: Routine Abs samples/toolkit/original/extracted/CIRCLE.ACT:16:1 | INT FUNC Abs(INT n) | source 366..432 code $0E08-$0E1C
+    #0012
+      left : $0E23 A9 00    LDA #$00
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:18:24 | IF n<0 THEN RETURN( -n ) FI | source 410..412 code $0E22-$0E31
+    #0013
+      left : $0E25 ED 08 0E SBC $0E08
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:18:24 | IF n<0 THEN RETURN( -n ) FI | source 410..412 code $0E22-$0E31
+    #0014
+      left : $0E28 85 A0    STA $A0
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:18:24 | IF n<0 THEN RETURN( -n ) FI | source 410..412 code $0E22-$0E31
+    #0015
+      left : $0E2A A9 00    LDA #$00
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:18:24 | IF n<0 THEN RETURN( -n ) FI | source 410..412 code $0E22-$0E31
+    #0016
+      left : $0E2C ED 09 0E SBC $0E09
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:18:24 | IF n<0 THEN RETURN( -n ) FI | source 410..412 code $0E22-$0E31
+    #0017
+      left : $0E2F 85 A1    STA $A1
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:18:24 | IF n<0 THEN RETURN( -n ) FI | source 410..412 code $0E22-$0E31
+    #0018
+      left : $0E31 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:18:24 | IF n<0 THEN RETURN( -n ) FI | source 410..412 code $0E22-$0E31
+    #0019
+      left : $0E32 AD 09 0E LDA $0E09
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:19:12 | RETURN( n ) | source 429..430 code $0E32-$0E3C
+    #0020
+      left : $0E35 85 A1    STA $A1
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:19:12 | RETURN( n ) | source 429..430 code $0E32-$0E3C
+    #0021
+      left : $0E37 AD 08 0E LDA $0E08
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:19:12 | RETURN( n ) | source 429..430 code $0E32-$0E3C
+    #0022
+      left : $0E3A 85 A0    STA $A0
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:19:12 | RETURN( n ) | source 429..430 code $0E32-$0E3C
+    #0023
+      left : $0E3C 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/CIRCLE.ACT:19:12 | RETURN( n ) | source 429..430 code $0E32-$0E3C
+  Circle                   len 547 -> 520 (-27)  addr $0E3D -> $0E1D
+    source-range deltas:
+      Routine Circle samples/toolkit/original/extracted/CIRCLE.ACT:25:1 | PROC Circle(INT x,y,r,c) | source 539..1018  diffs 4
+        left : $0E3D-$105F len 547 owner routine Circle Parameter X $0E3D-$0E3E+0
+        right: $0E1D-$1024 len 520 owner routine Circle Parameter X $0E1D-$0E1E+0
+      Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:30:3 | Phi=0 | source 602..607  diffs 4
+        left : $0E58-$0E5F len 8
+        right: $0E38-$0E3F len 8
+      Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614  diffs 8
+        left : $0E60-$0E6B len 12
+        right: $0E40-$0E4B len 12
+      Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:32:3 | y1=0 | source 617..621  diffs 4
+        left : $0E6C-$0E71 len 6
+        right: $0E4C-$0E51 len 6
+      Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:33:3 | color=c | source 624..631  diffs 2
+        left : $0E72-$0E77 len 6
+        right: $0E52-$0E57 len 6
+      Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657  diffs 16
+        left : $0E78-$0EA6 len 47
+        right: $0E58-$0E86 len 47
+      Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680  diffs 16
+        left : $0EA7-$0ED5 len 47
+        right: $0E87-$0EB5 len 47
+      Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:45:5 | Phi=Phiy | source 900..908  diffs 8
+        left : $0FEE-$0FF9 len 12
+        right: $0FB6-$0FC1 len 12
+      Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:46:5 | y1=y1+1 | source 913..920  diffs 6
+        left : $0FFA-$1001 len 8
+        right: $0FC2-$0FC9 len 8
+      Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:48:7 | Phi=Phixy | source 962..971  diffs 8
+        left : $1031-$103C len 12
+        right: $0FF6-$1001 len 12
+      Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:49:7 | x1=x1-1 | source 978..985  diffs 14
+        left : $103D-$104D len 17
+        right: $1002-$1012 len 17
+      Statement call samples/toolkit/original/extracted/CIRCLE.ACT:37:5 | Plot(x+x1,y+y1) ; | source 685..700  diffs 21
+        left : $0ED6-$0EF8 len 35
+        right: $0EB6-$0ED5 len 32
+      Statement call samples/toolkit/original/extracted/CIRCLE.ACT:38:5 | Plot(x-x1,y+y1) ;| | source 708..723  diffs 29
+        left : $0EF9-$0F1B len 35
+        right: $0ED6-$0EF5 len 32
+      Statement call samples/toolkit/original/extracted/CIRCLE.ACT:39:5 | Plot(x+x1,y-y1) ;| | source 731..746  diffs 29
+        left : $0F1C-$0F3E len 35
+        right: $0EF6-$0F15 len 32
+      Statement call samples/toolkit/original/extracted/CIRCLE.ACT:40:5 | Plot(x-x1,y-y1) ; 8 way symmetry | source 754..769  diffs 29
+        left : $0F3F-$0F61 len 35
+        right: $0F16-$0F35 len 32
+      Statement call samples/toolkit/original/extracted/CIRCLE.ACT:41:5 | Plot(x+y1,y+x1) ; plotting points | source 792..807  diffs 29
+        left : $0F62-$0F84 len 35
+        right: $0F36-$0F55 len 32
+      Statement call samples/toolkit/original/extracted/CIRCLE.ACT:42:5 | Plot(x-y1,y+x1) ;| | source 831..846  diffs 29
+        left : $0F85-$0FA7 len 35
+        right: $0F56-$0F75 len 32
+      Statement call samples/toolkit/original/extracted/CIRCLE.ACT:43:5 | Plot(x+y1,y-x1) ;| | source 854..869  diffs 29
+        left : $0FA8-$0FCA len 35
+        right: $0F76-$0F95 len 32
+      Statement call samples/toolkit/original/extracted/CIRCLE.ACT:44:5 | Plot(x-y1,y-x1) ; | source 877..892  diffs 27
+        left : $0FCB-$0FED len 35
+        right: $0F96-$0FB5 len 32
+      Statement do-until samples/toolkit/original/extracted/CIRCLE.ACT:34:3 | DO | source 634..1011  diffs 12
+        left : $0E78-$105E len 487
+        right: $0E58-$1023 len 460
+      Statement if samples/toolkit/original/extracted/CIRCLE.ACT:47:5 | IF Abs(Phixy)+0<Abs(Phiy) THEN | source 925..992  diffs 39
+        left : $1002-$104D len 76
+        right: $0FCA-$1012 len 73
+      Statement return samples/toolkit/original/extracted/CIRCLE.ACT:1:1 |  | source 0..0  diffs 2
+        left : $105F-$105F len 1
+        right: $1024-$1024 len 1
+    #0018
+      left : $0E4F 4C 52 0E JMP $0E52
+      right: $0E2F 4C 32 0E JMP $0E32
+      left source : Routine Circle samples/toolkit/original/extracted/CIRCLE.ACT:25:1 | PROC Circle(INT x,y,r,c) | source 539..1018 code $0E3D-$105F
+      right source: Routine Circle samples/toolkit/original/extracted/CIRCLE.ACT:25:1 | PROC Circle(INT x,y,r,c) | source 539..1018 code $0E1D-$1024
+    #0020
+      left : $0E55 3D 0E 07 .BYTE $3D,$0E,$07
+      right: $0E35 1D 0E 07 .BYTE $1D,$0E,$07
+      left source : Routine Circle samples/toolkit/original/extracted/CIRCLE.ACT:25:1 | PROC Circle(INT x,y,r,c) | source 539..1018 code $0E3D-$105F
+      right source: Routine Circle samples/toolkit/original/extracted/CIRCLE.ACT:25:1 | PROC Circle(INT x,y,r,c) | source 539..1018 code $0E1D-$1024
+    #0022
+      left : $0E5A 8C 46 0E STY $0E46
+      right: $0E3A 8C 26 0E STY $0E26
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:30:3 | Phi=0 | source 602..607 code $0E58-$0E5F
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:30:3 | Phi=0 | source 602..607 code $0E38-$0E3F
+    #0023
+      left : $0E5D 8C 45 0E STY $0E45
+      right: $0E3D 8C 25 0E STY $0E25
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:30:3 | Phi=0 | source 602..607 code $0E58-$0E5F
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:30:3 | Phi=0 | source 602..607 code $0E38-$0E3F
+    #0024
+      left : $0E60 AD 42 0E LDA $0E42
+      right: $0E40 AD 22 0E LDA $0E22
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E60-$0E6B
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E40-$0E4B
+    #0025
+      left : $0E63 8D 4C 0E STA $0E4C
+      right: $0E43 8D 2C 0E STA $0E2C
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E60-$0E6B
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E40-$0E4B
+    #0026
+      left : $0E66 AD 41 0E LDA $0E41
+      right: $0E46 AD 21 0E LDA $0E21
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E60-$0E6B
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E40-$0E4B
+    #0027
+      left : $0E69 8D 4B 0E STA $0E4B
+      right: $0E49 8D 2B 0E STA $0E2B
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E60-$0E6B
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:31:3 | x1=r | source 610..614 code $0E40-$0E4B
+    #0028
+      left : $0E6C 8C 4E 0E STY $0E4E
+      right: $0E4C 8C 2E 0E STY $0E2E
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:32:3 | y1=0 | source 617..621 code $0E6C-$0E71
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:32:3 | y1=0 | source 617..621 code $0E4C-$0E51
+    #0029
+      left : $0E6F 8C 4D 0E STY $0E4D
+      right: $0E4F 8C 2D 0E STY $0E2D
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:32:3 | y1=0 | source 617..621 code $0E6C-$0E71
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:32:3 | y1=0 | source 617..621 code $0E4C-$0E51
+    #0030
+      left : $0E72 AD 43 0E LDA $0E43
+      right: $0E52 AD 23 0E LDA $0E23
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:33:3 | color=c | source 624..631 code $0E72-$0E77
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:33:3 | color=c | source 624..631 code $0E52-$0E57
+    #0033
+      left : $0E79 AD 45 0E LDA $0E45
+      right: $0E59 AD 25 0E LDA $0E25
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    #0034
+      left : $0E7C 6D 4D 0E ADC $0E4D
+      right: $0E5C 6D 2D 0E ADC $0E2D
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    #0036
+      left : $0E81 AD 46 0E LDA $0E46
+      right: $0E61 AD 26 0E LDA $0E26
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    #0037
+      left : $0E84 6D 4E 0E ADC $0E4E
+      right: $0E64 6D 2E 0E ADC $0E2E
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    #0041
+      left : $0E8C 6D 4D 0E ADC $0E4D
+      right: $0E6C 6D 2D 0E ADC $0E2D
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    #0044
+      left : $0E93 6D 4E 0E ADC $0E4E
+      right: $0E73 6D 2E 0E ADC $0E2E
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    #0049
+      left : $0E9D 8D 47 0E STA $0E47
+      right: $0E7D 8D 27 0E STA $0E27
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    #0052
+      left : $0EA4 8D 48 0E STA $0E48
+      right: $0E84 8D 28 0E STA $0E28
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E78-$0EA6
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:35:5 | Phiy=Phi+y1+y1+1 | source 641..657 code $0E58-$0E86
+    #0054
+      left : $0EA8 AD 47 0E LDA $0E47
+      right: $0E88 AD 27 0E LDA $0E27
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    #0055
+      left : $0EAB ED 4B 0E SBC $0E4B
+      right: $0E8B ED 2B 0E SBC $0E2B
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    #0057
+      left : $0EB0 AD 48 0E LDA $0E48
+      right: $0E90 AD 28 0E LDA $0E28
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    #0058
+      left : $0EB3 ED 4C 0E SBC $0E4C
+      right: $0E93 ED 2C 0E SBC $0E2C
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    #0062
+      left : $0EBB ED 4B 0E SBC $0E4B
+      right: $0E9B ED 2B 0E SBC $0E2B
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    #0065
+      left : $0EC2 ED 4C 0E SBC $0E4C
+      right: $0EA2 ED 2C 0E SBC $0E2C
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    #0070
+      left : $0ECC 8D 49 0E STA $0E49
+      right: $0EAC 8D 29 0E STA $0E29
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    #0073
+      left : $0ED3 8D 4A 0E STA $0E4A
+      right: $0EB3 8D 2A 0E STA $0E2A
+      left source : Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0EA7-$0ED5
+      right source: Statement assignment samples/toolkit/original/extracted/CIRCLE.ACT:36:5 | Phixy=Phiy-x1-x1+1 | source 662..680 code $0E87-$0EB5
+    #0075
+      left : $0ED7 AD 3D 0E LDA $0E3D
+      right: $0EB7 AD 1D 0E LDA $0E1D
+      left source : Statement call samples/toolkit/original/extracted/CIRCLE.ACT:37:5 | Plot(x+x1,y+y1) ; | source 685..700 code $0ED6-$0EF8
+      right source: Statement call samples/toolkit/original/extracted/CIRCLE.ACT:37:5 | Plot(x+x1,y+y1) ; | source 685..700 code $0EB6-$0ED5
+    #0076
+      left : $0EDA 6D 4B 0E ADC $0E4B
+      right: $0EBA 6D 2B 0E ADC $0E2B
+      left source : Statement call samples/toolkit/original/extracted/CIRCLE.ACT:37:5 | Plot(x+x1,y+y1) ; | source 685..700 code $0ED6-$0EF8
+      right source: Statement call samples/toolkit/original/extracted/CIRCLE.ACT:37:5 | Plot(x+x1,y+y1) ; | source 685..700 code $0EB6-$0ED5
+    #0078
+      left : $0EDF AD 3E 0E LDA $0E3E
+      right: $0EBF AD 1E 0E LDA $0E1E
+      left source : Statement call samples/toolkit/original/extracted/CIRCLE.ACT:37:5 | Plot(x+x1,y+y1) ; | source 685..700 code $0ED6-$0EF8
+      right source: Statement call samples/toolkit/original/extracted/CIRCLE.ACT:37:5 | Plot(x+x1,y+y1) ; | source 685..700 code $0EB6-$0ED5
+
+== bytes: original:samples/toolkit/survey/outputs/vm/CIRCLE.COM vs compat ==
+exact: false  sizes: 622 vs 613
+first diffs:
+  @0004: $69 -> $60
+  @007E: $AE -> $AC
+  @0086: $AF -> $AD
+  @0089: $AE -> $AC
+  @0090: $AF -> $AD
+  @00AD: $AE -> $AC
+  @00B5: $AF -> $AD
+  @00B8: $AE -> $AC
+  @00BF: $AF -> $AD
+  @0209: $18 -> $A5
+  @020A: $A5 -> $A1
+  @020B: $A0 -> $85
+  @020C: $69 -> $AD
+  @020D: $00 -> $A5
+  @020E: $85 -> $A0
+  @020F: $AE -> $85
+  @0210: $A5 -> $AC
+  @0211: $A1 -> $AE
+  @0212: $69 -> $48
+  @0213: $00 -> $0E
+  @0214: $85 -> $AD
+  @0215: $AF -> $47
+  @0216: $A5 -> $0E
+  @0217: $AF -> $20
+  @0218: $48 -> $0A
+  @0219: $A5 -> $0E
+  @021A: $AE -> $A5
+  @021B: $48 -> $A1
+  @021C: $AE -> $85
+  @021D: $48 -> $C1
+
+== instructions: original:samples/toolkit/survey/outputs/vm/CIRCLE.COM vs compat ==
+counts: 271 vs 264
+  #0059
+    left : $0E7F 85 AE    STA $AE
+    right: $0E7F 85 AC    STA $AC
+  #0062
+    left : $0E87 85 AF    STA $AF
+    right: $0E87 85 AD    STA $AD
+  #0064
+    left : $0E8A A5 AE    LDA $AE
+    right: $0E8A A5 AC    LDA $AC
+  #0067
+    left : $0E91 A5 AF    LDA $AF
+    right: $0E91 A5 AD    LDA $AD
+  #0080
+    left : $0EAE 85 AE    STA $AE
+    right: $0EAE 85 AC    STA $AC
+  #0083
+    left : $0EB6 85 AF    STA $AF
+    right: $0EB6 85 AD    STA $AD
+  #0085
+    left : $0EB9 A5 AE    LDA $AE
+    right: $0EB9 A5 AC    LDA $AC
+  #0088
+    left : $0EC0 A5 AF    LDA $AF
+    right: $0EC0 A5 AD    LDA $AD
+  #0228
+    left : $100B 18       CLC
+    right: $100B A5 A1    LDA $A1
+  #0229
+    left : $100C A5 A0    LDA $A0
+    right: $100D 85 AD    STA $AD
+  #0230
+    left : $100E 69 00    ADC #$00
+    right: $100F A5 A0    LDA $A0
+  #0231
+    left : $1010 85 AE    STA $AE
+    right: $1011 85 AC    STA $AC
+  #0232
+    left : $1012 A5 A1    LDA $A1
+    right: $1013 AE 48 0E LDX $0E48
+  #0233
+    left : $1014 69 00    ADC #$00
+    right: $1016 AD 47 0E LDA $0E47
+  #0234
+    left : $1016 85 AF    STA $AF
+    right: $1019 20 0A 0E JSR $0E0A
+  #0235
+    left : $1018 A5 AF    LDA $AF
+    right: $101C A5 A1    LDA $A1
+  #0236
+    left : $101A 48       PHA
+    right: $101E 85 C1    STA $C1
+  #0237
+    left : $101B A5 AE    LDA $AE
+    right: $1020 A5 A0    LDA $A0
+  #0238
+    left : $101D 48       PHA
+    right: $1022 85 C0    STA $C0
+  #0239
+    left : $101E AE 48 0E LDX $0E48
+    right: $1024 A5 AC    LDA $AC
+  #0240
+    left : $1021 AD 47 0E LDA $0E47
+    right: $1026 C5 C0    CMP $C0
+  #0241
+    left : $1024 20 0A 0E JSR $0E0A
+    right: $1028 A5 AD    LDA $AD
+  #0242
+    left : $1027 68       PLA
+    right: $102A E5 C1    SBC $C1
+  #0243
+    left : $1028 85 AE    STA $AE
+    right: $102C 30 03    BMI $1031
+  #0244
+    left : $102A 68       PLA
+    right: $102E 4C 4E 10 JMP $104E
+  #0245
+    left : $102B 85 AF    STA $AF
+    right: $1031 AD 4A 0E LDA $0E4A
+  #0246
+    left : $102D A5 AE    LDA $AE
+    right: $1034 8D 46 0E STA $0E46
+  #0247
+    left : $102F C5 A0    CMP $A0
+    right: $1037 AD 49 0E LDA $0E49
+  #0248
+    left : $1031 A5 AF    LDA $AF
+    right: $103A 8D 45 0E STA $0E45
+  #0249
+    left : $1033 E5 A1    SBC $A1
+    right: $103D 38       SEC
+
+== bytes: original:samples/toolkit/survey/outputs/vm/CIRCLE.COM vs modern ==
+exact: false  sizes: 622 vs 553
+first diffs:
+  @0004: $69 -> $24
+  @0006: $00 -> $85
+  @0007: $00 -> $A0
+  @0008: $4C -> $86
+  @0009: $0D -> $A1
+  @000A: $0E -> $8A
+  @000B: $8E -> $10
+  @000C: $09 -> $0D
+  @000D: $0E -> $38
+  @000E: $8D -> $A9
+  @000F: $08 -> $00
+  @0010: $0E -> $E5
+  @0011: $AD -> $A0
+  @0012: $08 -> $85
+  @0013: $0E -> $A0
+  @0014: $C9 -> $A9
+  @0016: $AD -> $E5
+  @0017: $09 -> $A1
+  @0018: $0E -> $85
+  @0019: $E9 -> $A1
+  @001A: $00 -> $60
+  @001B: $30 -> $00
+  @001C: $03 -> $00
+  @001D: $4C -> $00
+  @001E: $32 -> $00
+  @001F: $0E -> $00
+  @0020: $38 -> $00
+  @0021: $A9 -> $00
+  @0023: $ED -> $00
+  @0024: $08 -> $00
+
+== instructions: original:samples/toolkit/survey/outputs/vm/CIRCLE.COM vs modern ==
+counts: 271 vs 242
+  #0000
+    left : $0E08 00       BRK
+    right: $0E08 85 A0    STA $A0
+  #0001
+    left : $0E09 00       BRK
+    right: $0E0A 86 A1    STX $A1
+  #0002
+    left : $0E0A 4C 0D 0E JMP $0E0D
+    right: $0E0C 8A       TXA
+  #0003
+    left : $0E0D 8E 09 0E STX $0E09
+    right: $0E0D 10 0D    BPL $0E1C
+  #0004
+    left : $0E10 8D 08 0E STA $0E08
+    right: $0E0F 38       SEC
+  #0005
+    left : $0E13 AD 08 0E LDA $0E08
+    right: $0E10 A9 00    LDA #$00
+  #0006
+    left : $0E16 C9 00    CMP #$00
+    right: $0E12 E5 A0    SBC $A0
+  #0007
+    left : $0E18 AD 09 0E LDA $0E09
+    right: $0E14 85 A0    STA $A0
+  #0008
+    left : $0E1B E9 00    SBC #$00
+    right: $0E16 A9 00    LDA #$00
+  #0009
+    left : $0E1D 30 03    BMI $0E22
+    right: $0E18 E5 A1    SBC $A1
+  #0010
+    left : $0E1F 4C 32 0E JMP $0E32
+    right: $0E1A 85 A1    STA $A1
+  #0011
+    left : $0E22 38       SEC
+    right: $0E1C 60       RTS
+  #0012
+    left : $0E23 A9 00    LDA #$00
+    right: $0E1D 00       BRK
+  #0013
+    left : $0E25 ED 08 0E SBC $0E08
+    right: $0E1E 00       BRK
+  #0014
+    left : $0E28 85 A0    STA $A0
+    right: $0E1F 00       BRK
+  #0015
+    left : $0E2A A9 00    LDA #$00
+    right: $0E20 00       BRK
+  #0016
+    left : $0E2C ED 09 0E SBC $0E09
+    right: $0E21 00       BRK
+  #0017
+    left : $0E2F 85 A1    STA $A1
+    right: $0E22 00       BRK
+  #0018
+    left : $0E31 60       RTS
+    right: $0E23 00       BRK
+  #0019
+    left : $0E32 AD 09 0E LDA $0E09
+    right: $0E24 00       BRK
+  #0020
+    left : $0E35 85 A1    STA $A1
+    right: $0E25 00       BRK
+  #0021
+    left : $0E37 AD 08 0E LDA $0E08
+    right: $0E26 00       BRK
+  #0022
+    left : $0E3A 85 A0    STA $A0
+    right: $0E27 00       BRK
+  #0023
+    left : $0E3C 60       RTS
+    right: $0E28 00       BRK
+  #0030
+    left : $0E43 00       BRK
+    right: $0E2F 4C 32 0E JMP $0E32
+  #0031
+    left : $0E44 00       BRK
+    right: $0E32 20 F5 A0 JSR $A0F5
+  #0032
+    left : $0E45 00       BRK
+    right: $0E35 1D 0E 07 .BYTE $1D,$0E,$07
+  #0033
+    left : $0E46 00       BRK
+    right: $0E38 A0 00    LDY #$00
+  #0034
+    left : $0E47 00       BRK
+    right: $0E3A 8C 26 0E STY $0E26
+  #0035
+    left : $0E48 00       BRK
+    right: $0E3D 8C 25 0E STY $0E25
+
+== bytes: compat vs modern ==
+exact: false  sizes: 613 vs 553
+first diffs:
+  @0004: $60 -> $24
+  @0006: $00 -> $85
+  @0007: $00 -> $A0
+  @0008: $4C -> $86
+  @0009: $0D -> $A1
+  @000A: $0E -> $8A
+  @000B: $8E -> $10
+  @000C: $09 -> $0D
+  @000D: $0E -> $38
+  @000E: $8D -> $A9
+  @000F: $08 -> $00
+  @0010: $0E -> $E5
+  @0011: $AD -> $A0
+  @0012: $08 -> $85
+  @0013: $0E -> $A0
+  @0014: $C9 -> $A9
+  @0016: $AD -> $E5
+  @0017: $09 -> $A1
+  @0018: $0E -> $85
+  @0019: $E9 -> $A1
+  @001A: $00 -> $60
+  @001B: $30 -> $00
+  @001C: $03 -> $00
+  @001D: $4C -> $00
+  @001E: $32 -> $00
+  @001F: $0E -> $00
+  @0020: $38 -> $00
+  @0021: $A9 -> $00
+  @0023: $ED -> $00
+  @0024: $08 -> $00
+
+== instructions: compat vs modern ==
+counts: 264 vs 242
+  #0000
+    left : $0E08 00       BRK
+    right: $0E08 85 A0    STA $A0
+  #0001
+    left : $0E09 00       BRK
+    right: $0E0A 86 A1    STX $A1
+  #0002
+    left : $0E0A 4C 0D 0E JMP $0E0D
+    right: $0E0C 8A       TXA
+  #0003
+    left : $0E0D 8E 09 0E STX $0E09
+    right: $0E0D 10 0D    BPL $0E1C
+  #0004
+    left : $0E10 8D 08 0E STA $0E08
+    right: $0E0F 38       SEC
+  #0005
+    left : $0E13 AD 08 0E LDA $0E08
+    right: $0E10 A9 00    LDA #$00
+  #0006
+    left : $0E16 C9 00    CMP #$00
+    right: $0E12 E5 A0    SBC $A0
+  #0007
+    left : $0E18 AD 09 0E LDA $0E09
+    right: $0E14 85 A0    STA $A0
+  #0008
+    left : $0E1B E9 00    SBC #$00
+    right: $0E16 A9 00    LDA #$00
+  #0009
+    left : $0E1D 30 03    BMI $0E22
+    right: $0E18 E5 A1    SBC $A1
+  #0010
+    left : $0E1F 4C 32 0E JMP $0E32
+    right: $0E1A 85 A1    STA $A1
+  #0011
+    left : $0E22 38       SEC
+    right: $0E1C 60       RTS
+  #0012
+    left : $0E23 A9 00    LDA #$00
+    right: $0E1D 00       BRK
+  #0013
+    left : $0E25 ED 08 0E SBC $0E08
+    right: $0E1E 00       BRK
+  #0014
+    left : $0E28 85 A0    STA $A0
+    right: $0E1F 00       BRK
+  #0015
+    left : $0E2A A9 00    LDA #$00
+    right: $0E20 00       BRK
+  #0016
+    left : $0E2C ED 09 0E SBC $0E09
+    right: $0E21 00       BRK
+  #0017
+    left : $0E2F 85 A1    STA $A1
+    right: $0E22 00       BRK
+  #0018
+    left : $0E31 60       RTS
+    right: $0E23 00       BRK
+  #0019
+    left : $0E32 AD 09 0E LDA $0E09
+    right: $0E24 00       BRK
+  #0020
+    left : $0E35 85 A1    STA $A1
+    right: $0E25 00       BRK
+  #0021
+    left : $0E37 AD 08 0E LDA $0E08
+    right: $0E26 00       BRK
+  #0022
+    left : $0E3A 85 A0    STA $A0
+    right: $0E27 00       BRK
+  #0023
+    left : $0E3C 60       RTS
+    right: $0E28 00       BRK
+  #0030
+    left : $0E43 00       BRK
+    right: $0E2F 4C 32 0E JMP $0E32
+  #0031
+    left : $0E44 00       BRK
+    right: $0E32 20 F5 A0 JSR $A0F5
+  #0032
+    left : $0E45 00       BRK
+    right: $0E35 1D 0E 07 .BYTE $1D,$0E,$07
+  #0033
+    left : $0E46 00       BRK
+    right: $0E38 A0 00    LDY #$00
+  #0034
+    left : $0E47 00       BRK
+    right: $0E3A 8C 26 0E STY $0E26
+  #0035
+    left : $0E48 00       BRK
+    right: $0E3D 8C 25 0E STY $0E25

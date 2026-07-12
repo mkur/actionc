@@ -1,0 +1,8 @@
+source: samples/toolkit/original/extracted/GEM.DEM
+source_policy: auto
+compile_source: samples/toolkit/original/extracted/GEM.DEM
+profile: compat
+backend: legacy
+codegen_source: ast
+status: ok
+detail: wrote samples/toolkit/survey/outputs/batch/compat-legacy/GEMDEM.COM

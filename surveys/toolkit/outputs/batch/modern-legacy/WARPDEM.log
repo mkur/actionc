@@ -1,0 +1,16 @@
+source: samples/toolkit/original/extracted/WARP.DEM
+source_policy: auto
+compile_source: samples/toolkit/original/extracted/WARP.DEM
+profile: modern
+backend: legacy
+codegen_source: ast
+status: failed
+detail: 8365..8366: unexpected character `\`
+
+stderr:
+8365..8366: unexpected character `\`
+8366..8367: unexpected character `{`
+8372..8373: unexpected character `}`
+15844..15845: unexpected character `\`
+15845..15846: unexpected character `{`
+15851..15852: unexpected character `}`

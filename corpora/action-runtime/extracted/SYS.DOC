@@ -1,0 +1,202 @@
+Online documentation for ACTION! run-
+time library package.
+
+(C) 1983 Action Computer Services
+All Rights Reserved.
+
+
+
+
+
+The ACTION! runtime library package
+consists of a number of files that
+are intended to be INCLUDEd in other
+ACTION! programs so that they may be
+run without the ACTION! cartridge.
+
+The file SYS.ACT contains the entire
+set of ACTION! runtime routines
+supported by the ACTION! cartridge.
+This file may simply be INCUDEd at
+the beginning of an ACTION! program
+before it is compiled.  The file
+SYSALL.ACT is similar to SYS.ACT but
+it consists of serveral other INCLUDE
+directives which make up the entire
+set of runtime routines.  Listed
+below is a brief description of each
+INCLUDE file in SYSALL.ACT and the
+routines that make up each file:
+
+SYSLIB.ACT - This file contains the
+primative runtime support routines 
+plus a few declarations used by the
+rest of the INCLUDE files.
+   Clos - close channel
+   Output - output string, no EOL
+   In - input string   
+   XIOstr - do CIO call
+   Opn - open file
+   Prt - output string with EOL
+
+   Error - calls DOSVEC, see OS doc.
+   Break
+
+   LShift - left shift routine
+   RShift - right shift routine
+   SetSign - internal PROC
+   SS1 - internal PROC
+   SMops - internal PROC
+   MultB - internal PROC
+   MultI - multiply  routine
+   DivI - divide routine
+   RemI - remainder (MOD) routine
+   SArgs - routine to save arguments
+
+SYSIO.ACT - IO routines.  All of
+these routines assume the existence
+of SYSLIB.ACT.  Names in parentheses
+are other routines needed for that
+routine to work.  Note that ordering
+is very important and should not be
+changed from that of file.
+   ChkErr - internal
+   Break1 - internal
+   Open - (ChkErr)
+   PrintE - (PrintDE)
+   PrintDE - (ChkErr)
+   Close - (ChkErr)
+   Print - (PrintD)
+   PrintE - (ChkErr)
+   InS - internal
+   InputS - (InputSD)
+   InputSD - (InputMD)
+   InputMD - (InputD)
+   InputD - (InS, ChkErr)
+   GetD - (CCIO)
+   CCIO - internal
+   PutE - (Put)
+   Put - (PutD)
+   PutD - (PutD1)
+   PutD1 - internal
+   PutDE - (PutD1)
+   XIO - (ChkErr)
+   CToStr - internal
+   PrintB - (PrintC)
+   PrintC - (CToStr, PNum)
+   PNum - internal (ChkErr)
+   PrintBE - (PrintCE)
+   PrintCE - (PrintC, PutE)
+   PrintBD - (PrintCD)
+   PrintCD - (CToStr, PNum)
+   PritnBDE - (PrintCDE)
+   PrintCDE - (PrintCD, PutE)
+   PrintI - (PrintID)
+   PrintID - (PutD1, PrintCD)
+   PrintIE - (PrintI, PutE)
+   PrintIDE - (PrintID, PutE)
+   StrB - (StrC)
+   StrC - (CToStr)
+   StrI - (CToStr)
+   InputB - (InputC)
+   InputC - (InputI)
+   InputI - (InputBD)
+   InputBD - (InputCD)
+   InputCD - (InputID)
+   InputID - (InputD, ValB)
+   ValB - (ValC)
+   ValC - (ValI)
+   ValI
+   PrintH - internal
+   PrintF - (PF2)
+   PF2 - internal (Put, Print,
+         PrintI, PrintH, PrintC)
+   Note - (ChkErr)
+   Point - (ChkErr)
+
+SYSGR.ACT - Graphics routines.  See
+SYSLIB.ACT and SYSIO.ACT comments.
+   Graphics - (Close, Open)
+   Position - (Pos1)
+   Pos1 - internal
+   GrIO - internal (Pos1)
+   DrawTo - (GrIO, XIO)
+   Locate - (Position, GetD)
+   Plot - (Pos1, PutD)
+   SetColor
+   Fill - (GrIO, XIO)
+
+SYSMISC.ACT - Miscellaneous routines.
+See SYSLIB.ACT.
+   Rand
+   Sound
+   SndRst
+   Paddle
+   PTrig
+   Stick
+   STrig
+   Peek - (PeekC)
+   PeekC
+   Poke
+   PokeC - (Poke)
+
+SYSBLK.ACT - Block memory routines.
+   Zero - (SetBlock)
+   SetBlock
+   MoveBlock
+
+SYSSTR.ACT - String handling routines
+   SCompare
+   SCopy
+   SCopyS - (SCopy)
+   SAssign - (SCopy)
+
+
+Please note that the trace option is
+not available in the runtime package
+and that it is recommended that the
+system variable 'device' be set to
+zero if the resulting object file is
+to be used with other software that
+might set this memory location ($B7)
+to a nonzero value before the ACTION!
+code is referenced.  If it is not
+possible to use this memory location,
+device can be redefined by placing
+the following declaration before the
+runtime library INCLUDE(s):
+    BYTE device=$xx
+Note that xx must be a zero-page
+location.  If a zero-page location is
+not available, then you will have to
+use the IO routines that require you
+to provide the IO channel (device).
+
+The IO routines Clos, Output, In,
+XIOstr, Opn and Prt can be referenced
+in your program but there is no 
+equivalent of these routines in the
+cartridge library.  Clos, Output,
+XIOstr and Prt are the same as Close,
+PrintD, XIO and PrintDE.  Opn is the
+same as Open except it is up to you
+to make sure that the filespec has an
+EOL at the end of it if one is needed
+(for disk file names without a three
+letter extension).  In is similar to
+InputMD except you are responsible
+for storing the maximum size in the
+first byte of the string before In is
+called.  NONE OF THESE ROUTINES DO
+ERROR CHECKING.
+
+NOTE that the system should be Booted
+(B command in monitor) after you have
+finished with the program(s) that use
+the runtime package.  If you try to
+run a program that does not use the
+runtime package after you have
+compiled a program that does use the
+runtime package, there is a good 
+chance that the system will crash.
+

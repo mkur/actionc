@@ -1,0 +1,16 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE total
+
+BYTE FUNC Inc(BYTE n)
+RETURN(n+1)
+
+PROC Add(BYTE a, b)
+  total = a + b
+RETURN
+
+PROC Main()
+  total = Inc(1)
+  Add(total, 3)
+RETURN

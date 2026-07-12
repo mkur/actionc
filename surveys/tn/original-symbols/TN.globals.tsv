@@ -1,0 +1,159 @@
+name	scope	class	vtype	address	slot	name_addr	numargs	args
+Alloc	global	CARD FUNC	$C4	$2D5F	$8A	$9500	1	CARD
+allocbuf	global	BYTE ARRAY	$92	$2D46	$14	$94E4	0	
+allocp	global	CARD ARRAY	$94	$00E8	$7F	$9486	0	
+allTagged	global	BYTE	$8A	$38E0	$FF	$97DD	0	
+ans	global	BYTE	$8A	$38EB	$DE	$985A	0	
+Ascii	global	BYTE FUNC	$CA	$2E49	$95	$9594	1	CHAR
+Attrib	global	PROC	$C0	$4DDE	$49	$9A5A	0	
+Bget	global	PROC	$C8	$306C	$0D	$9667	3	BYTE,CARD,CARD
+Block	global	PROC	$C8	$2EE3	$B4	$95CF	3	BYTE,BYTE,BYTE
+Bput	global	PROC	$C8	$308C	$52	$9673	3	BYTE,CARD,CARD
+buffer	global	BYTE ARRAY	$92	$38C2	$21	$9773	0	
+c	global	BYTE	$8A	$38E1	$2A	$97EA	0	
+CalcAdr	global	PROC	$C8	$2E0C	$0E	$955E	0	
+Cio	global	PROC	$C8	$2F90	$E7	$960F	0	
+CLEAR	global	DEFINE `$00`	$1B		$BE	$9528	0	
+Close	global	PROC	$C8	$3041	$FD	$964F	1	BYTE
+CloseAll	global	PROC	$C8	$3A72	$B6	$98D0	0	
+CloseWindow	global	PROC	$C0	$328D	$25	$96CE	0	
+cnt	global	BYTE	$8A	$38E2	$F5	$97EF	0	
+Convert	global	PROC	$C0	$3F41	$B7	$992D	1	BYTE ARRAY
+Copy	global	PROC	$C0	$5168	$66	$9A8F	0	
+copyflag	global	BYTE	$8A	$38E9	$0C	$9842	0	
+currentDir	global	CARD ARRAY	$94	$38E7	$01	$9834	0	
+currentDirSh	global	CARD	$8C	$38E3	$30	$97F6	0	
+delcancel	global	PROC	$C8	$48B7	$A0	$99DE	0	
+Delete	global	PROC	$C8	$4A84	$1E	$9A37	0	
+density	global	PROC	$C8	$48CE	$37	$99EC	0	
+Dir	global	PROC	$C8	$47E9	$F6	$99BF	0	
+dirnames	global	CARD ARRAY	$94	$38C8	$94	$9790	0	
+dirsectors	global	CARD ARRAY	$94	$38C6	$11	$9782	0	
+dos	global	BYTE	$8A	$0700	$02	$980F	0	
+dostst	global	BYTE	$8A	$076F	$3A	$9816	0	
+Draw	global	PROC	$C0	$3CF3	$64	$98FE	1	BYTE
+DrawMenu	global	PROC	$C0	$3628	$93	$973D	1	BYTE ARRAY
+DrawWinFrame	global	PROC	$C8	$3DF7	$61	$991C	0	
+drive	global	BYTE	$8A	$070B	$4B	$982B	0	
+drives	global	PROC	$C8	$4872	$09	$99D3	0	
+driveSh	global	BYTE	$8A	$38DF	$7B	$97D2	0	
+dummy	global	CARD	$8C	$38E5	$73	$9806	0	
+EOL	global	DEFINE `155`	$1B		$07	$9421	0	
+Error	global	PROC	$C0	$2F8D	$9D	$9605	0	
+ESC	global	DEFINE `27`	$1B		$06	$942D	0	
+false	global	DEFINE `0`	$1B		$29	$9415	0	
+files	global	BYTE	$8A	$38DD	$5A	$97BC	0	
+FILL	global	DEFINE `$40`	$1B		$7A	$9536	0	
+FindItem	global	CARD FUNC	$C4	$35CD	$B0	$972E	2	BYTE ARRAY,CHAR
+FindNext	global	BYTE FUNC	$C2	$41E3	$C9	$9998	1	BYTE
+fname	global	BYTE ARRAY	$9A	$38CC	$57	$979C	0	
+Fnamecmp	global	BYTE FUNC	$C2	$3A85	$9B	$98DD	2	CHAR ARRAY,CHAR ARRAY
+fnamelen	global	BYTE	$8A	$38CC	$A2	$97A5	0	
+Format	global	PROC	$C0	$4B6D	$B9	$9A42	0	
+frame	global	CHAR ARRAY	$99	$30CA	$78	$969B	0	
+Free	global	PROC	$C0	$2D89	$8B	$950B	1	CARD
+GetAnyKey	global	PROC	$C8	$3A40	$9A	$98AB	0	
+Getchar	global	CHAR FUNC	$C9	$2E5A	$20	$959F	0	
+GetD	global	CHAR FUNC	$C9	$2FF8	$8F	$962D	1	BYTE
+GetImage	global	PROC	$C8	$2F2A	$1B	$95DC	3	CARD,BYTE,BYTE
+GoTo	global	PROC	$C0	$493F	$BD	$9A22	1	BYTE
+h	global	BYTE	$8A	$38EC	$38	$9861	0	
+Handle	global	PROC	$C0	$5552	$5C	$9AB6	0	
+i	global	BYTE	$8A	$00E0	$3B	$9438	0	
+Init	global	PROC	$C0	$3838	$D8	$976A	0	
+InitPannels	global	PROC	$C0	$591F	$AD	$9AC1	0	
+Input	global	PROC	$C8	$304C	$43	$965A	3	BYTE,CARD,BYTE
+InputLine	global	BYTE FUNC	$C2	$33AF	$79	$96EB	3	CHAR ARRAY,BYTE,BYTE
+Instr	global	BYTE FUNC	$C2	$399E	$4C	$988F	2	CHAR ARRAY,CHAR
+Internal	global	BYTE FUNC	$CA	$2E38	$71	$9586	1	CHAR
+Inv	global	PROC	$C0	$3DA8	$3F	$9908	1	BYTE
+INVERT	global	DEFINE `$80`	$1B		$E6	$9543	0	
+Ioerr	global	BYTE	$8A	$2F8C	$17	$95FC	0	
+IsDirectory	global	BYTE FUNC	$C2	$409D	$E8	$9973	1	BYTE
+IsProtected	global	BYTE FUNC	$C2	$4055	$F2	$9962	1	BYTE
+IsTagged	global	BYTE FUNC	$C2	$4023	$03	$9954	1	BYTE
+Items	global	BYTE FUNC	$C2	$358A	$36	$9723	1	BYTE ARRAY
+j	global	BYTE	$8A	$00E1	$3E	$943D	0	
+Jmp	global	PROC	$C8	$5503	$44	$9AA1	0	
+Key	global	BYTE FUNC	$C2	$34B6	$48	$9706	1	BYTE ARRAY
+kx	global	BYTE	$8A	$00FF	$FA	$9448	0	
+ky	global	BYTE	$8A	$00FE	$FB	$944E	0	
+linebuf	global	CARD	$8C	$38DB	$10	$97B1	0	
+lockunlock	global	PROC	$C8	$4915	$AC	$9A05	0	
+LodChn	global	PROC	$C8	$2F9C	$62	$9617	0	
+MakeJmp	global	PROC	$C0	$551C	$BF	$9AA9	1	BYTE
+MkDir	global	PROC	$C8	$4FA2	$A4	$9A7A	0	
+MoveMenuBar	global	CARD FUNC	$C4	$3679	$CA	$974B	2	BYTE ARRAY,BYTE
+MovePage	global	PROC	$C8	$2D4A	$AB	$94F0	3	CARD,CARD,BYTE
+NavError	global	PROC	$C8	$599E	$1F	$9AD1	0	
+NavInit	global	PROC	$C0	$5A19	$5D	$9ADE	0	
+nestLevel	global	BYTE	$8A	$38DE	$00	$97C5	0	
+NewDrive	global	PROC	$C0	$4CC3	$0B	$9A4D	0	
+Next	global	CARD FUNC	$C4	$34FA	$4A	$970F	1	BYTE ARRAY
+nil	global	DEFINE `0`	$1B		$67	$9400	0	
+Open	global	PROC	$C8	$3025	$60	$9642	4	BYTE,CARD,BYTE,BYTE
+openwindows	global	BYTE	$8A	$30C9	$15	$968C	0	
+Ord	global	BYTE FUNC	$C2	$3531	$7C	$9719	2	BYTE ARRAY,BYTE ARRAY
+Path	global	PROC	$C8	$3C8C	$58	$98F5	0	
+PopUp	global	CHAR FUNC	$C1	$3706	$97	$975D	3	BYTE ARRAY,BYTE,BYTE
+Position	global	PROC	$C8	$2E28	$5E	$956A	2	BYTE,BYTE
+Print	global	PROC	$C0	$2E7C	$8D	$95B8	1	CHAR ARRAY
+PrintB	global	PROC	$C0	$47F3	$72	$99C7	1	BYTE
+PrintE	global	PROC	$C0	$2ECA	$74	$95C3	1	CHAR ARRAY
+PrintFname	global	PROC	$C0	$39F3	$84	$989B	1	CHAR ARRAY
+Pull	global	CARD FUNC	$CC	$2DC3	$99	$951F	0	
+Push	global	PROC	$C0	$2D9F	$A3	$9515	1	CARD
+Putchar	global	PROC	$C0	$2E61	$DB	$95AB	1	CHAR
+PutD	global	PROC	$C8	$300E	$A1	$9637	2	BYTE,BYTE
+PutImage	global	PROC	$C8	$2F5B	$8E	$95EC	3	CARD,BYTE,BYTE
+quickmul	global	BYTE ARRAY	$9A	$2DDC	$90	$9552	0	
+Quit	global	PROC	$C8	$5485	$BA	$9A98	0	
+r0	global	BYTE	$8A	$0070	$DC	$9442	0	
+ramdisk	global	BYTE	$8A	$070A	$98	$9820	0	
+Range	global	CHAR FUNC	$C1	$32D1	$56	$96DE	3	CHAR ARRAY,BYTE,BYTE ARRAY
+Relpos	global	PROC	$C8	$2E2D	$8C	$9579	2	BYTE,BYTE
+Rename	global	PROC	$C8	$5044	$4D	$9A84	0	
+RestorePos	global	PROC	$C8	$30FD	$31	$96B0	0	
+r_1	global	PROC	$C8	$2C02	$87	$9490	0	
+r_2	global	PROC	$C8	$2C13	$88	$9498	0	
+r_3	global	PROC	$C8	$2C35	$89	$94A0	0	
+r_Div	global	PROC	$C8	$2C93	$33	$94B2	0	
+r_Lsh	global	PROC	$C8	$2CFB	$59	$94C6	0	
+r_Mod	global	PROC	$C8	$2CF3	$51	$94BC	0	
+r_Mul	global	PROC	$C8	$2C59	$65	$94A8	0	
+r_Par	global	PROC	$C8	$2D19	$4F	$94DA	0	
+r_Rsh	global	PROC	$C8	$2D0A	$70	$94D0	0	
+s	global	BYTE ARRAY	$92	$38EE	$5B	$9870	0	
+SavePos	global	PROC	$C0	$30D5	$08	$96A4	0	
+sch	global	BYTE	$8A	$00E7	$92	$947F	0	
+scl	global	BYTE	$8A	$00E6	$96	$9478	0	
+screen	global	BYTE ARRAY	$92	$00E6	$B3	$946E	0	
+SetWin	global	PROC	$C0	$42A6	$34	$99A6	2	BYTE,BYTE
+Sort	global	PROC	$C0	$3B61	$E0	$98EC	0	
+spaces	global	BYTE	$8A	$34B3	$FE	$96FC	0	
+Store	global	PROC	$C8	$3A52	$39	$98B9	2	CARD,BYTE
+Strcat	global	PROC	$C0	$3926	$B8	$9882	2	CHAR ARRAY,CHAR ARRAY
+Strcpy	global	PROC	$C0	$38F4	$DF	$9875	2	CHAR ARRAY,CHAR ARRAY
+StrNam	global	PROC	$C0	$2FCA	$DD	$9622	0	
+SwapScr	global	PROC	$C0	$4E5C	$C1	$9A65	0	
+SwapWin	global	PROC	$C8	$47BE	$D9	$99B3	0	
+Tag	global	PROC	$C0	$40E6	$9E	$9984	1	BYTE
+TagAll	global	PROC	$C8	$416F	$9F	$998D	0	
+tagged	global	BYTE ARRAY	$9A	$4014	$9C	$993A	0	
+TaggedFiles	global	BYTE FUNC	$C2	$4016	$D4	$9944	0	
+true	global	DEFINE `1`	$1B		$F8	$940A	0	
+UpdDis	global	PROC	$C8	$3DE2	$E2	$9911	0	
+v	global	CARD ARRAY	$94	$38C4	$63	$977D	0	
+validdir	global	BYTE	$8A	$38EA	$5F	$984E	0	
+Value	global	BYTE FUNC	$C2	$3A5E	$2B	$98C5	1	CARD
+View	global	PROC	$C8	$4F2F	$F7	$9A71	0	
+Window	global	PROC	$C0	$3123	$91	$96BF	4	BYTE,BYTE,BYTE,BYTE
+winnum	global	BYTE	$8A	$38ED	$B5	$9866	0	
+Xio	global	PROC	$C8	$30AC	$E1	$967F	5	BYTE,BYTE,BYTE,BYTE,CARD
+Xloop	global	PROC	$C0	$4969	$EC	$9A2C	1	BYTE
+yesabort	global	PROC	$C8	$4902	$68	$99F8	0	
+yescancel	global	PROC	$C8	$492A	$0A	$9A14	0	
+zdx	global	BYTE	$8A	$005C	$F9	$9460	0	
+zdy	global	BYTE	$8A	$005D	$FC	$9467	0	
+zx	global	BYTE	$8A	$005A	$54	$9454	0	
+zy	global	BYTE	$8A	$005B	$55	$945A	0	

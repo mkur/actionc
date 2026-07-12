@@ -1,0 +1,180 @@
+proc	name	class	vtype	address	slot	name_addr	numargs	args
+MovePage	dst	CARD	$8C	$2D4A	$0B	$951D	0	
+MovePage	len	BYTE	$8A	$2D4A	$49	$952B	0	
+MovePage	src	CARD	$8C	$2D4A	$AB	$9524	0	
+Alloc	n	CARD	$8C	$2D5D	$4A	$952A	0	
+Free	adr	CARD	$8C	$2D87	$C7	$9534	0	
+Push	data	CARD	$8C	$2D9D	$30	$953E	0	
+Position	x	BYTE	$8A	$2E28	$68	$9597	0	
+Position	y	BYTE	$8A	$2E28	$6B	$959C	0	
+Relpos	x	BYTE	$8A	$2E2D	$68	$95A4	0	
+Relpos	y	BYTE	$8A	$2E2D	$6B	$95A9	0	
+Internal	ch	CHAR	$89	$2E38	$BA	$95B3	0	
+Ascii	ch	CHAR	$89	$2E49	$BA	$95BE	0	
+Putchar	ch	CHAR	$89	$2E60	$BA	$95D7	0	
+Print	i	BYTE	$8A	$2E7B	$3B	$95E7	0	
+Print	s	CHAR ARRAY	$91	$2E79	$59	$95E2	0	
+PrintE	s	CHAR ARRAY	$91	$2EC8	$59	$95EE	0	
+Block	dx	BYTE	$8A	$2EE3	$D0	$9601	0	
+Block	dy	BYTE	$8A	$2EE3	$D1	$9607	0	
+Block	mode	BYTE	$8A	$2EE3	$23	$95F9	0	
+GetImage	adr	CARD	$8C	$2F2A	$C7	$9609	0	
+GetImage	dx	BYTE	$8A	$2F2A	$D0	$9610	0	
+GetImage	dy	BYTE	$8A	$2F2A	$D1	$9616	0	
+PutImage	adr	CARD	$8C	$2F5B	$C7	$9619	0	
+PutImage	dx	BYTE	$8A	$2F5B	$D0	$9620	0	
+PutImage	dy	BYTE	$8A	$2F5B	$D1	$9626	0	
+StrNam	fnam	CHAR ARRAY	$99	$2FA2	$79	$964D	0	
+StrNam	r	CARD	$8C	$0086	$56	$9655	0	
+GetD	chn	BYTE	$8A	$2FF8	$E3	$9656	0	
+PutD	ch	BYTE	$8A	$300E	$BA	$9667	0	
+PutD	chn	BYTE	$8A	$300E	$E3	$9660	0	
+Open	aux1	BYTE	$8A	$3025	$10	$9677	0	
+Open	aux2	BYTE	$8A	$3025	$11	$967F	0	
+Open	chn	BYTE	$8A	$3025	$E3	$966B	0	
+Open	s	CARD	$8C	$3025	$59	$9672	0	
+Close	chn	BYTE	$8A	$3041	$E3	$9679	0	
+Input	buf	CARD	$8C	$304C	$E9	$968B	0	
+Input	chn	BYTE	$8A	$304C	$E3	$9684	0	
+Input	len	BYTE	$8A	$304C	$49	$9692	0	
+Bget	buf	CARD	$8C	$306C	$E9	$9697	0	
+Bget	chn	BYTE	$8A	$306C	$E3	$9690	0	
+Bget	len	CARD	$8C	$306C	$49	$969E	0	
+Bput	buf	CARD	$8C	$308C	$E9	$96A3	0	
+Bput	chn	BYTE	$8A	$308C	$E3	$969C	0	
+Bput	len	CARD	$8C	$308C	$49	$96AA	0	
+Xio	aux1	BYTE	$8A	$30AC	$10	$96B5	0	
+Xio	aux2	BYTE	$8A	$30AC	$11	$96BD	0	
+Xio	cmd..0.aux1..0.aux2..0.s..0.MODULE..............	RECORD	$00	$0000	$E4	$96AE	0	
+Xio	ePos..0cmd..0.aux1..0.aux2..0.s..0.MODULE.............................................................................	RECORD	$00	$0000	$E3	$96A7	0	
+Xio	s	CARD	$8C	$30AC	$59	$96C5	0	
+SavePos	adr	CARD	$8C	$30D3	$C7	$96D0	0	
+Window	buf	CARD	$8C	$3120	$E9	$9700	0	
+Window	dx	BYTE	$8A	$311E	$D0	$96F4	0	
+Window	dy	BYTE	$8A	$311F	$D1	$96FA	0	
+Window	h	BYTE	$8A	$3122	$38	$9707	0	
+Window	x	BYTE	$8A	$311C	$68	$96EA	0	
+Window	y	BYTE	$8A	$311D	$6B	$96EF	0	
+CloseWindow	buf	CARD	$8C	$328B	$E9	$96FE	0	
+Range	c	BYTE ARRAY	$92	$32CF	$29	$9714	0	
+Range	ch	CHAR	$89	$00A3	$BA	$972A	0	
+Range	f	BYTE	$8A	$00A2	$32	$9725	0	
+Range	i	BYTE	$8A	$00A0	$3B	$9719	0	
+Range	len	BYTE	$8A	$00A1	$49	$971E	0	
+Range	max	BYTE	$8A	$32CE	$57	$970D	0	
+Range	s	CHAR ARRAY	$91	$32CC	$59	$9708	0	
+InputLine	ch	CHAR	$89	$33AE	$BA	$9737	0	
+InputLine	curpos	BYTE	$8A	$33AD	$19	$972D	0	
+InputLine	maxlen	BYTE	$8A	$33AC	$A1	$9723	0	
+InputLine	string	CHAR ARRAY	$91	$33AA	$DD	$9719	0	
+Key	menu	BYTE ARRAY	$92	$34B4	$1F	$972E	0	
+Next	menu	BYTE ARRAY	$92	$34F8	$1F	$9738	0	
+Ord	c	BYTE	$8A	$3530	$29	$9751	0	
+Ord	item	BYTE ARRAY	$92	$352E	$E1	$9749	0	
+Ord	menu	BYTE ARRAY	$92	$352C	$1F	$9741	0	
+Items	c	BYTE	$8A	$3589	$29	$9755	0	
+Items	menu	BYTE ARRAY	$92	$3587	$1F	$974D	0	
+FindItem	ch	CHAR	$89	$35CC	$BA	$9763	0	
+FindItem	menu	BYTE ARRAY	$92	$35CA	$1F	$975B	0	
+DrawMenu	menu	BYTE ARRAY	$92	$3626	$1F	$976A	0	
+MoveMenuBar	a	BYTE	$8A	$3678	$23	$978D	0	
+MoveMenuBar	c	BYTE	$8A	$3676	$29	$9783	0	
+MoveMenuBar	menu	BYTE ARRAY	$92	$3674	$1F	$977B	0	
+MoveMenuBar	p	BYTE	$8A	$3677	$50	$9788	0	
+PopUp	c	BYTE	$8A	$36FE	$29	$978D	0	
+PopUp	ch	CHAR	$89	$3700	$BA	$9799	0	
+PopUp	d	BYTE	$8A	$3702	$2C	$97A8	0	
+PopUp	limit	BYTE	$8A	$3703	$86	$97AD	0	
+PopUp	menu	CARD	$8C	$3704	$1F	$97B6	0	
+PopUp	mp	BYTE ARRAY	$92	$36FC	$FE	$9787	0	
+PopUp	spc	BYTE	$8A	$36FF	$A7	$9792	0	
+PopUp	value	CHAR	$89	$3701	$2A	$979F	0	
+Init	names..8.fname..8.fnamelen..8.linebuf..8.files..8.nestLevel..8.driveSh..8.allTagged..8.c..8.cnt..8.currentDirSh..8	record field	$05	$7564	$38	$9793	0	
+Strcpy	s	CHAR ARRAY	$91	$38F0	$59	$98A0	0	
+Strcpy	t	CHAR ARRAY	$91	$38F2	$5C	$98A5	0	
+Strcat	s	CHAR ARRAY	$91	$3922	$59	$98AD	0	
+Strcat	t	CHAR ARRAY	$91	$3924	$5C	$98B2	0	
+Instr	ch	CHAR	$89	$399D	$BA	$98BE	0	
+Instr	s	CHAR ARRAY	$91	$399B	$59	$98B9	0	
+PrintFname	i	BYTE	$8A	$39F2	$3B	$98CF	0	
+PrintFname	s	CHAR ARRAY	$91	$39F0	$59	$98CA	0	
+GetAnyKey	skstat	BYTE	$8A	$D20F	$74	$98D9	0	
+Store	p	CARD	$8C	$3A52	$50	$98E3	0	
+Store	value	BYTE	$8A	$3A52	$2A	$98E8	0	
+Value	p	CARD	$8C	$3A5C	$50	$98EF	0	
+Fnamecmp	s	CHAR ARRAY	$91	$3A81	$59	$990A	0	
+Fnamecmp	t	CHAR ARRAY	$91	$3A83	$5C	$990F	0	
+Sort	gap	BYTE	$8A	$3B5E	$07	$9915	0	
+Sort	h	CARD	$8C	$3B5F	$38	$991C	0	
+Draw	cnt	BYTE	$8A	$3CF2	$F5	$9927	0	
+Draw	max	BYTE	$8A	$0070	$57	$992E	0	
+Inv	cnt	BYTE	$8A	$3DA7	$F5	$9930	0	
+Convert	s	BYTE ARRAY	$92	$3F3F	$59	$9959	0	
+IsTagged	i	BYTE	$8A	$4022	$3B	$9981	0	
+IsProtected	i	BYTE	$8A	$4054	$3B	$9992	0	
+IsDirectory	i	BYTE	$8A	$409C	$3B	$99A3	0	
+Tag	a	BYTE	$8A	$40E5	$23	$99B1	0	
+Tag	i	BYTE	$8A	$40E4	$3B	$99AC	0	
+FindNext	c	BYTE	$8A	$41E2	$29	$99C5	0	
+SetWin	dirBuf	BYTE ARRAY	$92	$4293	$84	$9A43	0	
+SetWin	drvnum	BYTE	$8A	$421E	$69	$99D6	0	
+SetWin	k	BYTE	$8A	$42A5	$41	$9A77	0	
+SetWin	leftPannel	BYTE ARRAY	$9A	$4223	$15	$99FF	0	
+SetWin	lp_DirBuf	BYTE ARRAY	$92	$4295	$81	$9A4D	0	
+SetWin	lp_PathBuf	BYTE ARRAY	$9A	$4233	$79	$9A1C	0	
+SetWin	lp_v	CARD ARRAY	$94	$429D	$56	$9A67	0	
+SetWin	n	BYTE	$8A	$421D	$4A	$99D1	0	
+SetWin	pannelData	CARD	$8C	$421F	$CF	$99E0	0	
+SetWin	pannelDataOld	CARD	$8C	$4221	$75	$99EE	0	
+SetWin	pathBuf	BYTE ARRAY	$92	$4291	$7A	$9A38	0	
+SetWin	rightPannel	BYTE ARRAY	$9A	$422B	$5E	$9A0D	0	
+SetWin	rp_DirBuf	BYTE ARRAY	$92	$4299	$6F	$9A5A	0	
+SetWin	rp_PathBuf	BYTE ARRAY	$9A	$4262	$64	$9A2A	0	
+SetWin	rp_v	CARD ARRAY	$94	$42A1	$E5	$9A6F	0	
+PrintB	b	BYTE	$8A	$47F2	$26	$99F2	0	
+GoTo	b	BYTE	$8A	$493E	$26	$9A4B	0	
+Xloop	cmd	BYTE	$8A	$4967	$E3	$9A56	0	
+Xloop	j	BYTE	$8A	$4968	$3E	$9A5D	0	
+Format	aux	BYTE	$8A	$4B65	$EF	$9A6D	0	
+Format	fname	CHAR ARRAY	$99	$4B67	$57	$9A8E	0	
+Format	fset1	BYTE ARRAY	$9A	$07C3	$6A	$9A7C	0	
+Format	fset2	BYTE ARRAY	$9A	$07CB	$6B	$9A85	0	
+Format	h	CARD	$8C	$4B6B	$38	$9A97	0	
+Format	last	BYTE	$8A	$4B66	$00	$9A74	0	
+NewDrive	h	BYTE	$8A	$4CC2	$38	$9A7A	0	
+Attrib	cmd	BYTE	$8A	$4DDD	$E3	$9A85	0	
+SwapScr	a	CARD	$8C	$4E5A	$23	$9AB2	0	
+SwapScr	buffer	CARD	$8C	$4E58	$21	$9AA8	0	
+SwapScr	firstTime	BYTE	$8A	$4E56	$82	$9A91	0	
+SwapScr	scrnum	BYTE	$8A	$4E57	$F6	$9A9E	0	
+View	ch	BYTE	$8A	$38EC	$BA	$9A9A	0	
+Copy	copytab	BYTE ARRAY	$9A	$514E	$F5	$9AC2	0	
+Copy	diskswap	BYTE	$8A	$5166	$29	$9B0A	0	
+Copy	files	BYTE	$8A	$5162	$59	$9AEF	0	
+Copy	flag	BYTE	$8A	$5165	$6B	$9B02	0	
+Copy	isopen	BYTE	$8A	$5167	$0A	$9B16	0	
+Copy	j	BYTE	$8A	$5163	$3E	$9AF8	0	
+Copy	k	BYTE	$8A	$5164	$41	$9AFD	0	
+Copy	len	CARD	$8C	$5160	$49	$9AD4	0	
+Copy	lentab	CARD ARRAY	$94	$514A	$3C	$9AB8	0	
+Copy	mem	CARD	$8C	$515E	$54	$9ACD	0	
+Copy	memtop	CARD	$8C	$02E5	$BF	$9AE5	0	
+Copy	transf	CARD	$8C	$0358	$B2	$9ADB	0	
+Quit	cartrun	BYTE	$8A	$BFFA	$5B	$9AC1	0	
+Quit	dosini	CARD	$8C	$000C	$F9	$9AD6	0	
+Quit	dosvec	CARD	$8C	$000A	$15	$9AE0	0	
+Quit	setini	CARD	$8C	$1BBE	$00	$9ACC	0	
+MakeJmp	adr	CARD ARRAY	$94	$5516	$C7	$9ADA	0	
+MakeJmp	c	BYTE	$8A	$5515	$29	$9AD5	0	
+MakeJmp	go	CARD	$8C	$551A	$D9	$9AE1	0	
+Handle	a	BYTE	$8A	$554E	$23	$9AE7	0	
+Handle	ch	CHAR	$89	$554D	$BA	$9AE1	0	
+Handle	d	BYTE	$8A	$554F	$2C	$9AEC	0	
+Handle	dosvec	CARD	$8C	$000A	$15	$9AF1	0	
+Handle	icbufa	CARD	$8C	$0354	$AC	$9B00	0	
+Handle	p	CARD ARRAY	$94	$5550	$50	$9B0A	0	
+Handle	r	CARD	$8C	$0086	$56	$9AFB	0	
+InitPannels	times	BYTE	$8A	$591E	$FC	$9AF1	0	
+NavInit	keyrep	BYTE	$8A	$02DA	$42	$9B14	0	
+NavInit	krpdel	BYTE	$8A	$02D9	$8F	$9B0A	0	
+NavInit	shflok	BYTE	$8A	$02BE	$D0	$9B1E	0	

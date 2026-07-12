@@ -1,0 +1,7 @@
+CARD POINTER p
+CARD x
+
+PROC Main()
+  p = $580
+  x = p^
+RETURN

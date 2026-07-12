@@ -1,0 +1,14 @@
+BYTE files, flag, out
+
+BYTE FUNC Next(BYTE start)
+RETURN (255)
+
+PROC Main()
+  files = 16
+  flag = 0
+  IF files = 16 OR flag # 0 OR Next(files + 1) = 255 THEN
+    out = 1
+  ELSE
+    out = 2
+  FI
+RETURN

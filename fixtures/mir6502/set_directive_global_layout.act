@@ -1,0 +1,13 @@
+BYTE zx=$5A, zy=zx+1, zdx=zx+2, zdy=zx+3
+
+SET $E=$E6
+SET $F=$00
+
+BYTE POINTER screen
+BYTE scl=screen, sch=screen+1
+CARD POINTER allocp
+
+BYTE ARRAY drvdef_1(8)=$7CB
+
+PROC Main()
+RETURN

@@ -1,0 +1,9 @@
+PROC Take(CHAR ARRAY s)
+  CARD p
+
+  p=s
+RETURN
+
+PROC Main()
+  Take("OK")
+RETURN

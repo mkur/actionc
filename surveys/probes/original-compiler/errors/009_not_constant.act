@@ -1,0 +1,8 @@
+; Original compiler error 9: not a constant.
+
+BYTE i
+
+PROC Main()
+  FOR i=0 TO 10 STEP i DO
+  OD
+RETURN

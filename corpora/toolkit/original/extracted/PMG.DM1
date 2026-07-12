@@ -1,0 +1,53 @@
+
+INCLUDE "PMG.ACT"
+
+PROC main()
+
+  BYTE ARRAY plData1(8)=
+               [$C3  ; \{INV:  }----\{INV:  }
+                $24  ; --\{INV: }--\{INV: }--
+                $18  ; ---\{INV:  }---
+                $3C  ; --\{INV:    }--
+                $3C  ; --\{INV:    }--
+                $18  ; ---\{INV:  }---
+                $7E  ; -\{INV:      }-
+                $C3],; \{INV:  }----\{INV:  }
+             Misdata(8)=
+               [$AA  ; \{INV: }-\{INV: }-\{INV: }-\{INV: }-
+                $55  ; -\{INV: }-\{INV: }-\{INV: }-\{INV: }
+                $AA  ; \{INV: }-\{INV: }-\{INV: }-\{INV: }-
+                $55  ; -\{INV: }-\{INV: }-\{INV: }-\{INV: }
+                $AA  ; \{INV: }-\{INV: }-\{INV: }-\{INV: }-
+                $55  ; -\{INV: }-\{INV: }-\{INV: }-\{INV: }
+                $AA  ; \{INV: }-\{INV: }-\{INV: }-\{INV: }-
+                $55] ; -\{INV: }-\{INV: }-\{INV: }-\{INV: }
+
+  BYTE ctr,x,
+       clock=20
+
+  PMGraphics(2)
+  SetColor(2,0,0)
+  FOR ctr=0 TO 3
+    DO
+    PMClear(ctr)
+    PMCreate(ctr,plData1,8,1,0,0)
+    OD
+  FOR ctr=4 TO 7
+    DO
+    PMClear(ctr)
+    PMCreate(ctr,MisData,8,4,0,0)
+    OD
+  FOR ctr=0 TO 3
+    DO
+    PMColor(ctr,(ctr LSH 2)+1,(ctr LSH 1)+2)
+    OD
+  DO
+   FOR x=0 to 55 DO
+    FOR ctr=0 TO 7
+      DO
+      PMMove(ctr,x+48+(ctr LSH 3),x+16+(ctr LSH 3))
+      OD
+   OD
+  OD
+RETURN
+

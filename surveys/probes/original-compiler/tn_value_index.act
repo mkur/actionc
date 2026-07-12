@@ -1,0 +1,40 @@
+; Probe TN-sized value/index call expressions that show up in routine drift.
+;
+; This isolates:
+; - RETURN(Value(v(i)))
+; - IF Value(v(i)+1) = const THEN ...
+; - the Instr() string scan loop used by TN command dispatch
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE i, out
+CARD ARRAY v, table=[$3100 $3200 $3300 $3400]
+
+BYTE FUNC Value(CARD p)
+[$85 $A0 $86 $A1 $A0 $00 $B1 $A0 $85 $A0 $60]
+
+BYTE FUNC IsTagged(BYTE i)
+RETURN(Value(v(i)))
+
+BYTE FUNC IsProtected(BYTE i)
+  IF Value(v(i) + 1) = $0A THEN
+    RETURN(1)
+  ELSE
+    RETURN(0)
+  FI
+
+BYTE FUNC Instr(CHAR ARRAY s, CHAR ch)
+  FOR i=1 TO s(0) DO
+    IF s(i)=ch THEN RETURN(i) FI
+  OD
+RETURN(0)
+
+PROC Main()
+  v = table
+  out = IsTagged(1)
+  out = IsProtected(2)
+  out = Instr("VADR", 'A)
+RETURN

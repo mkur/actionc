@@ -1,0 +1,13 @@
+SET $491=$3000
+SET $E=$3000
+
+CARD ARRAY words(4)
+CARD POINTER seen
+
+PROC Take(CARD POINTER p)
+  seen = p
+RETURN
+
+PROC Main()
+  Take(words)
+RETURN

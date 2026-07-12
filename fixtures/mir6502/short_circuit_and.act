@@ -1,0 +1,9 @@
+BYTE a,b,out
+
+PROC Main()
+  IF a#0 AND b#0 THEN
+    out=1
+  ELSE
+    out=2
+  FI
+RETURN

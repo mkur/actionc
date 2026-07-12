@@ -1,0 +1,2 @@
+1315..1318: cannot assign ValueType { base: Fund(Card), pointer: true } to ValueType { base: Fund(Int), pointer: true }
+2757..2762: cannot assign ValueType { base: Fund(Int), pointer: false } to ValueType { base: Fund(Byte), pointer: true }

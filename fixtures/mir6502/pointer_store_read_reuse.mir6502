@@ -1,0 +1,15 @@
+mir6502 program
+global g0 data: byte storage global+0 size=2 init zero_fill=2 section=global mutable=true
+global g1 cp: word storage global+2
+global g2 x: byte storage global+4
+
+routine r0 Main
+b0 bb0:
+  v0 =.w lea global g0+0
+  store.w global g1+0, v0
+  v1 =.w load global g1+0
+  store.b *v1+0, #$0011
+  v2 =.w load global g1+0
+  v3 =.b load *v2+0
+  store.b global g2+0, v3
+  return

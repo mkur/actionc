@@ -1,0 +1,10 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE i,total
+
+PROC Main()
+  FOR i=0 TO 2 DO
+    total==+1
+  OD
+RETURN

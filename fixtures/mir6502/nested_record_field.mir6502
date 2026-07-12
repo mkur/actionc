@@ -1,0 +1,14 @@
+mir6502 program
+global g0 Inner: byte storage global+0 size=0
+global g1 Outer: byte storage global+0 size=0
+global g2 rec: Outer storage global+0 size=4
+global g3 out: byte storage global+4
+global g4 w: word storage global+5
+
+routine r0 Main
+b0 bb0:
+  v0 =.b load global g2+1
+  store.b global g3+0, v0
+  v1 =.w load global g2+2
+  store.w global g4+0, v1
+  return

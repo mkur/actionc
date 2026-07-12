@@ -1,0 +1,15 @@
+program modules=1
+  module #0 items=5
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Card vec#74/scope1:Var:Card scalar
+      init $0A:Card:Value:eval4:facts=w2,Unsigned
+    decl Card tmp#75/scope1:Var:Card scalar
+      init $86:Card:Value:eval5:facts=w2,Unsigned
+    routine PROC Main#76/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign tmp:Card:facts=w2,Unsigned = $3456:Card:Value:eval6:facts=w2,Unsigned
+        machine items=10 effects=none
+        return

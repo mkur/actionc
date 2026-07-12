@@ -1,0 +1,7 @@
+; Original compiler error 18: unmatched parentheses.
+
+BYTE x
+
+PROC Main()
+  x=(1+2
+RETURN

@@ -1,0 +1,13 @@
+BYTE x,y
+
+PROC Main()
+  IF x=0 THEN
+    y=1
+  ELSE
+    IF x=1 THEN
+      y=2
+    ELSE
+      y=3
+    FI
+  FI
+RETURN

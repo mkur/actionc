@@ -1,0 +1,32 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE b, c
+CARD xw, yw, cw
+INT si, sj, sk
+
+PROC Main()
+  b = $0F
+  c = b AND $03
+  c = b OR $80
+  c = b XOR $55
+
+  xw = $1234
+  yw = $0102
+  cw = xw + yw
+  cw = xw - yw
+  cw = xw AND $0FF0
+  cw = xw OR $00F0
+  cw = xw XOR $0F0F
+  cw = xw LSH 1
+  cw = xw RSH 1
+
+  si = -20
+  sj = 3
+  sk = si * sj
+  sk = si / sj
+  sk = si MOD sj
+RETURN

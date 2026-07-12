@@ -1,0 +1,209 @@
+source: samples/toolkit/original/extracted/REAL.ACT
+
+== original:samples/toolkit/survey/outputs/vm/REAL.COM ==
+load bytes: 1404  code bytes: 1392  code origin: $0E08
+segments:
+  00: $0E08-$1377 len  1392 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1398 data_off  1402
+      RUNAD $02E2 = $1362
+opcode counts:
+  $00 BRK      231
+  $05 ORA      1
+  $0D ORA      1
+  $0E .BYTE    1
+  $14 .BYTE    1
+  $18 CLC      9
+  $20 JSR      64
+  $25 .BYTE    1
+  $26 .BYTE    1
+  $29 AND      2
+  $2F .BYTE    1
+  $38 SEC      2
+  $49 EOR      1
+  $4C JMP      25
+  $55 .BYTE    1
+  $60 RTS      21
+  $65 .BYTE    1
+  $65 ADC      2
+  $69 ADC      13
+  $6D ADC      3
+  $80 .BYTE    3
+  $84 .BYTE    1
+  $84 STY      1
+  $85 STA      69
+  $88 .BYTE    1
+  $88 DEY      4
+  $8B .BYTE    1
+  $8C STY      2
+  $8D STA      10
+  $8E STX      4
+  $91 STA      10
+  $A0 LDY      25
+  $A2 LDX      13
+  $A5 .BYTE    1
+  $A5 LDA      8
+  $A9 LDA      30
+  $AC LDY      18
+  $AD LDA      76
+  $AE LDX      22
+  $B0 BCS      1
+  $B1 LDA      10
+  $B3 .BYTE    1
+  $B6 .BYTE    1
+  $C8 INY      2
+  $CD CMP      1
+  $D0 BNE      2
+  $E2 .BYTE    1
+  $E5 .BYTE    2
+  $E9 SBC      2
+  $EE INC      4
+  $F0 BEQ      1
+
+== compat ==
+load bytes: 1404  code bytes: 1392  code origin: $0E08
+segments:
+  00: $0E08-$1377 len  1392 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1398 data_off  1402
+      RUNAD $02E2 = $1362
+opcode counts:
+  $00 BRK      231
+  $05 ORA      1
+  $0D ORA      1
+  $0E .BYTE    1
+  $14 .BYTE    1
+  $18 CLC      9
+  $20 JSR      64
+  $25 .BYTE    1
+  $26 .BYTE    1
+  $29 AND      2
+  $2F .BYTE    1
+  $38 SEC      2
+  $49 EOR      1
+  $4C JMP      25
+  $55 .BYTE    1
+  $60 RTS      21
+  $65 .BYTE    1
+  $65 ADC      2
+  $69 ADC      13
+  $6D ADC      3
+  $80 .BYTE    3
+  $84 .BYTE    1
+  $84 STY      1
+  $85 STA      69
+  $88 .BYTE    1
+  $88 DEY      4
+  $8B .BYTE    1
+  $8C STY      2
+  $8D STA      10
+  $8E STX      4
+  $91 STA      10
+  $A0 LDY      25
+  $A2 LDX      13
+  $A5 .BYTE    1
+  $A5 LDA      8
+  $A9 LDA      30
+  $AC LDY      18
+  $AD LDA      76
+  $AE LDX      22
+  $B0 BCS      1
+  $B1 LDA      10
+  $B3 .BYTE    1
+  $B6 .BYTE    1
+  $C8 INY      2
+  $CD CMP      1
+  $D0 BNE      2
+  $E2 .BYTE    1
+  $E5 .BYTE    2
+  $E9 SBC      2
+  $EE INC      4
+  $F0 BEQ      1
+
+== map: compat ==
+origin $0E08  run $1362  routines 21  symbols 53  skipped 0
+routines:
+  Junk                     $0E0A-$0E0D len     4
+  RealAssign               $0E0E-$0E8A len   125
+  IntToReal                $0E8B-$0EBE len    52
+  RealToInt                $0EBF-$0EE4 len    38
+  RealSub                  $0EE5-$0F24 len    64
+  RealAdd                  $0F25-$0F64 len    64
+  RealMult                 $0F65-$0FA4 len    64
+  RealDiv                  $0FA5-$0FE4 len    64
+  StrR                     $0FE5-$1087 len   163
+  ValR                     $1088-$1125 len   158
+  Exp                      $1126-$1154 len    47
+  Exp10                    $1155-$1183 len    47
+  Ln                       $1184-$11B2 len    47
+  Log10                    $11B3-$11E1 len    47
+  Power                    $11E2-$122E len    77
+  PrintRD                  $122F-$1268 len    58
+  PrintR                   $1269-$127F len    23
+  PrintRDE                 $1280-$129E len    31
+  PrintRE                  $129F-$12B5 len    23
+  InputRD                  $12B6-$135F len   170
+  InputR                   $1360-$1376 len    23
+storage symbols:
+  global Storage FR0INT $00D4-$00D5
+  global Storage FR0 $00D4-$00D9
+  global Storage FR1 $00E0-$00E5
+  global Storage CIX $00F2-$00F2
+  global Storage INBUFF $00F3-$00F4
+  global Storage LBUFF $0E08-$0E08
+  routine RealAssign Parameter A $0E0E-$0E0F
+  routine RealAssign Parameter B $0E10-$0E11
+  routine IntToReal Parameter I $0E8B-$0E8C
+  routine IntToReal Parameter R $0E8D-$0E8E
+  routine RealToInt Parameter R $0EBF-$0EC0
+  routine RealSub Parameter A $0EE5-$0EE6
+  routine RealSub Parameter B $0EE7-$0EE8
+  routine RealSub Parameter C $0EE9-$0EEA
+  routine RealAdd Parameter A $0F25-$0F26
+  routine RealAdd Parameter B $0F27-$0F28
+  routine RealAdd Parameter C $0F29-$0F2A
+  routine RealMult Parameter A $0F65-$0F66
+  routine RealMult Parameter B $0F67-$0F68
+  routine RealMult Parameter C $0F69-$0F6A
+  routine RealDiv Parameter A $0FA5-$0FA6
+  routine RealDiv Parameter B $0FA7-$0FA8
+  routine RealDiv Parameter C $0FA9-$0FAA
+  routine StrR Parameter R $0FE5-$0FE6
+  routine StrR Parameter S $0FE7-$0FE7
+  routine StrR Local I $0FE9-$0FE9
+  routine StrR Local C $0FEA-$0FEA
+  routine StrR Local PTR $0FEB-$0FEC
+  routine ValR Parameter S $1088-$1088
+  routine ValR Parameter R $108A-$108B
+  routine ValR Local I $108C-$108C
+  routine Exp Parameter A $1126-$1127
+  ... 21 more
+trusted effects:
+  Junk                     clobbers A,X,Y
+  RealAssign               clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AC,$AD,$AE,$AF; writes unknown-abs
+  IntToReal                clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AC,$AD,$AE,$AF,$D4,$D5; writes unknown-abs
+
+== routines: original:samples/toolkit/survey/outputs/vm/REAL.COM vs compat ==
+  Junk                     len 6 -> 4 (-2)  addr $0E08 -> $0E0A
+    Junk+$0000 #0000
+      original : $0E08 80       .BYTE $80
+      generated: $0E0A 4C 0D 0E JMP $0E0D
+      orig owner: LBuff $0E08
+      source   : Routine Junk samples/toolkit/original/extracted/REAL.ACT:46:1 | PROC Junk() | source 862..880 code $0E0A-$0E0D
+    Junk+$0001 #0001
+      original : $0E09 05 4C    ORA $4C
+      generated: $0E0D 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/REAL.ACT:1:1 | ; | source 0..0 code $0E0D-$0E0D
+    Junk+$0003 #0002
+      original : $0E0B 0D 0E 60 ORA $600E
+      generated: <missing>
+  InputR                   len 24 -> 23 (-1)  addr $1360 -> $1360
+    InputR+$0017 #0010
+      original : $1377 60       RTS
+      generated: <missing>
+
+== bytes: original:samples/toolkit/survey/outputs/vm/REAL.COM vs compat ==
+exact: true  sizes: 1404 vs 1404
+first diffs: none
+
+== instructions: original:samples/toolkit/survey/outputs/vm/REAL.COM vs compat ==
+counts: 709 vs 709
+first diffs: none

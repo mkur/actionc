@@ -1,0 +1,8 @@
+BYTE FUNC Get()
+RETURN(9)
+
+BYTE out
+
+PROC Main()
+  out = Get()
+RETURN

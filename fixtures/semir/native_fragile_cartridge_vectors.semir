@@ -1,0 +1,27 @@
+program modules=1
+  module #0 items=8
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte cartrun#74/scope1:Var:Byte scalar
+      init $BFFA:Card:Value:eval4:facts=w2,Unsigned
+    decl Byte oldrun#75/scope1:Var:Byte scalar
+    decl Card dosini#76/scope1:Var:Card scalar
+      init $0C:Card:Value:eval5:facts=w2,Unsigned
+    decl Card dosvec#77/scope1:Var:Card scalar
+      init $0A:Card:Value:eval6:facts=w2,Unsigned
+    decl Card setini#78/scope1:Var:Card scalar
+      init $1BBE:Card:Value:eval7:facts=w2,Unsigned
+    routine PROC Main#79/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign oldrun:Byte:facts=w1,Unsigned = cartrun:Byte:LValue:eval8:facts=w1,Unsigned
+        assign cartrun:Byte:facts=w1,Unsigned XOR= $FF:Card:Value:eval9:facts=w2,Unsigned
+        if
+          when Compare (cartrun:Byte:LValue:eval10:facts=w1,Unsigned = oldrun:Byte:LValue:eval11:facts=w1,Unsigned):Byte:Condition:eval12:facts=w1,Unsigned
+            assign dosini:Card:facts=w2,Unsigned = setini:Card:LValue:eval13:facts=w2,Unsigned
+            assign dosvec:Card:facts=w2,Unsigned = $1B48:Card:Value:eval14:facts=w2,Unsigned
+            machine items=8 effects=none
+          else
+            machine items=2 effects=none
+        return

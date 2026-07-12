@@ -1,0 +1,8 @@
+BYTE x
+
+PROC Main()
+  WHILE x<3
+  DO
+    x==+1
+  OD
+RETURN

@@ -1,0 +1,7 @@
+mir6502 program
+global g0 b: byte storage global+0 init bytes=[$0A] zero_fill=0 section=global mutable=true
+global g1 c: word storage global+1 init bytes=[$34 $12] zero_fill=0 section=global mutable=true
+
+routine r0 Main
+b0 bb0:
+  return

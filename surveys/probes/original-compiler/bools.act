@@ -1,0 +1,67 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE a, b
+BYTE eqv, nev, ltu, geu, lts, ges, andv, orv
+CARD cu, cv
+INT si, sj
+
+PROC Main()
+  a = 1
+  b = 0
+  cu = $0100
+  cv = $0200
+  si = -1
+  sj = 1
+
+  IF a = b THEN
+    eqv = 1
+  ELSE
+    eqv = 2
+  FI
+
+  IF a # b THEN
+    nev = 1
+  ELSE
+    nev = 2
+  FI
+
+  IF cu < cv THEN
+    ltu = 1
+  ELSE
+    ltu = 2
+  FI
+
+  IF cu >= cv THEN
+    geu = 1
+  ELSE
+    geu = 2
+  FI
+
+  IF si < sj THEN
+    lts = 1
+  ELSE
+    lts = 2
+  FI
+
+  IF si >= sj THEN
+    ges = 1
+  ELSE
+    ges = 2
+  FI
+
+  IF a AND b THEN
+    andv = 1
+  ELSE
+    andv = 2
+  FI
+
+  IF a OR b THEN
+    orv = 1
+  ELSE
+    orv = 2
+  FI
+RETURN

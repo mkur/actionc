@@ -1,0 +1,5 @@
+3557..3572: `Zero` argument 1 expects ValueType { base: Fund(Byte), pointer: true }, got ValueType { base: Fund(Byte), pointer: false }
+10795..10802: undefined symbol `chr`
+10952..10984: undefined symbol `hBase`
+10952..10984: undefined symbol `chr`
+10990..11005: undefined symbol `vbase`

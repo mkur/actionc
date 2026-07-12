@@ -1,0 +1,6 @@
+PROC Target()
+RETURN
+
+PROC Main()
+  [<Target >Target]
+RETURN

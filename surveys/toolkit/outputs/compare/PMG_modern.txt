@@ -1,0 +1,1640 @@
+source: samples/toolkit/modern/PMG.ACT
+
+== original:samples/toolkit/survey/outputs/vm/PMG.COM ==
+load bytes: 1866  code bytes: 1854  code origin: $0E08
+segments:
+  00: $0E08-$1545 len  1854 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1860 data_off  1864
+      RUNAD $02E2 = $1513
+opcode counts:
+  $00 BRK      330
+  $01 ORA      4
+  $02 .BYTE    1
+  $03 .BYTE    2
+  $04 .BYTE    1
+  $05 ORA      1
+  $08 PHP      9
+  $09 ORA      1
+  $0A ASL      13
+  $0D ORA      2
+  $0E ASL      6
+  $10 BPL      1
+  $11 ORA      1
+  $13 .BYTE    1
+  $18 CLC      18
+  $1D ORA      1
+  $1F .BYTE    1
+  $20 JSR      20
+  $28 PLP      8
+  $29 AND      14
+  $2A ROL      8
+  $2D AND      4
+  $31 .BYTE    1
+  $31 AND      2
+  $34 .BYTE    1
+  $38 SEC      8
+  $3A .BYTE    1
+  $3C .BYTE    1
+  $3D AND      1
+  $3F .BYTE    1
+  $49 EOR      3
+  $4C JMP      37
+  $53 .BYTE    1
+  $60 RTS      14
+  $65 ADC      3
+  $69 ADC      4
+  $6D ADC      22
+  $6E .BYTE    1
+  $71 ADC      4
+  $7C .BYTE    1
+  $80 .BYTE    1
+  $85 STA      67
+  $88 DEY      3
+  $8A TXA      1
+  $8C STY      10
+  $8D STA      56
+  $8E STX      1
+  $90 BCC      8
+  $91 STA      3
+  $99 STA      1
+  $9D STA      10
+  $A0 LDY      25
+  $A2 LDX      11
+  $A4 LDY      1
+  $A5 LDA      20
+  $A6 LDX      1
+  $A9 LDA      30
+  $AA TAX      1
+  $AC LDY      1
+  $AD LDA      98
+  $AE LDX      16
+  $B0 BCS      3
+  $B1 LDA      12
+  $B5 .BYTE    1
+  $BD LDA      4
+  $C5 CMP      1
+  $C8 INY      7
+  $C9 CMP      8
+  $CC CPY      2
+  $CD CMP      3
+  $CF .BYTE    1
+  $D0 BNE      5
+  $E5 SBC      1
+  $E8 INX      1
+  $E9 SBC      10
+  $EC CPX      1
+  $ED SBC      1
+  $EE INC      4
+  $F0 BEQ      4
+  $F1 SBC      2
+  $F3 .BYTE    1
+  $F8 SED      1
+  $FC .BYTE    2
+  $FD SBC      1
+
+== modern ==
+load bytes: 1604  code bytes: 1592  code origin: $0E08
+segments:
+  00: $0E08-$143F len  1592 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off  1598 data_off  1602
+      RUNAD $02E2 = $1416
+opcode counts:
+  $00 BRK      78
+  $01 ORA      4
+  $02 .BYTE    1
+  $03 .BYTE    2
+  $04 .BYTE    1
+  $05 ORA      1
+  $08 PHP      4
+  $09 ORA      1
+  $0A ASL      13
+  $0D ORA      2
+  $0E ASL      6
+  $11 ORA      1
+  $14 .BYTE    1
+  $18 CLC      15
+  $1D ORA      1
+  $1F .BYTE    1
+  $20 JSR      19
+  $25 AND      2
+  $28 PLP      3
+  $29 AND      14
+  $2A ROL      3
+  $2D AND      5
+  $30 BMI      1
+  $32 .BYTE    1
+  $38 SEC      7
+  $3A .BYTE    2
+  $3F .BYTE    1
+  $40 RTI      1
+  $49 EOR      2
+  $4C JMP      20
+  $53 .BYTE    1
+  $5F .BYTE    1
+  $60 RTS      13
+  $65 ADC      6
+  $69 ADC      10
+  $6D ADC      16
+  $80 .BYTE    1
+  $85 STA      86
+  $88 DEY      1
+  $8A TXA      1
+  $8C STY      10
+  $8D STA      61
+  $8E STX      1
+  $90 BCC      3
+  $91 STA      3
+  $98 TYA      1
+  $99 STA      1
+  $9D STA      10
+  $9E .BYTE    1
+  $A0 LDY      24
+  $A2 LDX      11
+  $A4 .BYTE    1
+  $A4 LDY      1
+  $A5 LDA      18
+  $A8 TAY      7
+  $A9 LDA      29
+  $AA TAX      2
+  $AC LDY      2
+  $AD LDA      104
+  $AE LDX      12
+  $B0 BCS      8
+  $B1 LDA      18
+  $B9 LDA      3
+  $BD LDA      2
+  $C5 CMP      2
+  $C8 INY      8
+  $C9 CMP      8
+  $CC CPY      2
+  $CD CMP      2
+  $CE DEC      1
+  $CF .BYTE    1
+  $D0 BNE      8
+  $E5 SBC      1
+  $E8 INX      1
+  $E9 SBC      8
+  $EC CPX      1
+  $ED SBC      1
+  $EE INC      4
+  $F0 BEQ      2
+  $F1 SBC      3
+  $F3 .BYTE    1
+  $F8 SED      1
+  $FC .BYTE    2
+
+== map: modern ==
+origin $0E08  run $1416  routines 8  symbols 62  skipped 1
+routines:
+  PMGraphics               $0E2F-$0FA3 len   373
+  PMColor                  $0FA4-$0FCE len    43
+  PMAdr                    $0FCF-$1068 len   154
+  PMClear                  $1069-$115E len   246
+  PMMove                   $115F-$129D len   319
+  PMCreate                 $129E-$139C len   255
+  PMHit                    $139D-$1411 len   117
+  Graphics                 $1412-$143E len    45
+skipped ranges:
+  $1440-$153F len 256
+storage symbols:
+  routine PMGraphics Local APPMHI $000E-$000F
+  routine PMGraphics Local DMACTL $022F-$022F
+  routine PMGraphics Local PRIORITY $026F-$026F
+  routine PMColor Local PM_COLOR $02C0-$02C0
+  routine PMGraphics Local HIMEM $02E5-$02E6
+  global Storage PM_MODE $0E08-$0E08
+  global Storage PM_BASEADR $0E09-$0E0A
+  global Storage PMHPOS $0E0B-$0E0B
+  global Storage PMVPOS $0E13-$0E13
+  global Storage PM_MISMASK $0E1B-$0E1B
+  global Storage PM_BSIZE $0E25-$0E26
+  global Storage PM_WASTE $0E2D-$0E2E
+  routine PMGraphics Parameter MODE $0E2F-$0E2F
+  routine PMGraphics Local OLDHIMEM $0E30-$0E31
+  routine PMGraphics Local PM_ADRMASK $0E38-$0E39
+  routine PMGraphics Local PM_MEMSIZE $0E40-$0E41
+  routine PMColor Parameter N $0FA4-$0FA4
+  routine PMColor Parameter HUE $0FA5-$0FA5
+  routine PMColor Parameter LUM $0FA6-$0FA6
+  routine PMAdr Parameter N $0FCF-$0FCF
+  routine PMAdr Local ADDRESS $0FD0-$0FD1
+  routine PMAdr Local OFFSET $0FD2-$0FD3
+  routine PMClear Parameter N $1069-$1069
+  routine PMClear Local CTR $106A-$106B
+  routine PMClear Local LIMIT $106C-$106D
+  routine PMClear Local PLAYADR $106E-$106F
+  routine PMClear Local MASK $1070-$1070
+  routine PMMove Parameter N $115F-$115F
+  routine PMMove Parameter X $1160-$1160
+  routine PMMove Parameter Y $1161-$1161
+  routine PMMove Local I $1162-$1163
+  routine PMMove Local YOFFSET $1164-$1164
+  ... 30 more
+trusted effects:
+  PMColor                  clobbers A,X,Y; writes zp $82,$83,$84,$85,$A0,$A1,$A2,$AC,$C0; writes abs $0FA4; writes unknown-abs
+  PMAdr                    clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$AE,$AF,$C0,$C1,$C2; writes abs $0FCF,$0FD1,$0FD0,$0FD2,$0FD3
+  PMCreate                 clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$A2,$AA,$AC,$AD,$AE,$AF,$C0,$C1,$C2; writes abs $129E,$12A6,$12A8,$0FCF,$0FD1,$0FD0,$0FD2,$0FD3,$12AA,$12AB,$12A5,$12A2,$12A7,$12A9,$D00C; writes unknown-abs
+  PMHit                    clobbers A,X,Y; writes zp $84,$85,$A0,$AC; writes abs $139E,$139D
+machine-block advisory:
+  PMMove                   $1241 advisory: zp writes $A0,$A1
+  PMMove                   $125B advisory: zp writes $A0,$A1
+effect gaps:
+  PMMove                   advisory writes but no trusted effect: advisory: zp writes $A0,$A1
+
+== routines: original:samples/toolkit/survey/outputs/vm/PMG.COM vs modern ==
+  PMGraphics               len 429 -> 373 (-56)  addr $0E08 -> $0E2F
+    PMGraphics+$0006 #0006
+      original : $0E0E 00       BRK
+      generated: $0E35 F8       SED
+      source   : Declaration PMGraphics storage samples/toolkit/modern/PMG.ACT:35:1 | PROC PMGraphics(BYTE mode) | source 698..1754 code $0E2F-$0E41
+    PMGraphics+$0008 #0008
+      original : $0E10 00       BRK
+      generated: $0E37 FC       .BYTE $FC
+      source   : Declaration PMGraphics storage samples/toolkit/modern/PMG.ACT:35:1 | PROC PMGraphics(BYTE mode) | source 698..1754 code $0E2F-$0E41
+    PMGraphics+$0009 #0009
+      original : $0E11 00       BRK
+      generated: $0E38 32       .BYTE $32
+      source   : Declaration PMGraphics storage samples/toolkit/modern/PMG.ACT:35:1 | PROC PMGraphics(BYTE mode) | source 698..1754 code $0E2F-$0E41
+      owner    : routine PMGraphics Local PM_ADRMASK $0E38-$0E39+0
+    PMGraphics+$000A #0010
+      original : $0E12 00       BRK
+      generated: $0E39 0E 00 00 ASL $0000
+      source   : Declaration PMGraphics storage samples/toolkit/modern/PMG.ACT:35:1 | PROC PMGraphics(BYTE mode) | source 698..1754 code $0E2F-$0E41
+      owner    : routine PMGraphics Local PM_ADRMASK $0E38-$0E39+1
+    PMGraphics+$000C #0012
+      original : $0E14 00       BRK
+      generated: $0E3D 08       PHP
+      source   : Declaration PMGraphics storage samples/toolkit/modern/PMG.ACT:35:1 | PROC PMGraphics(BYTE mode) | source 698..1754 code $0E2F-$0E41
+    PMGraphics+$000E #0014
+      original : $0E16 00       BRK
+      generated: $0E3F 04       .BYTE $04
+      source   : Declaration PMGraphics storage samples/toolkit/modern/PMG.ACT:35:1 | PROC PMGraphics(BYTE mode) | source 698..1754 code $0E2F-$0E41
+    PMGraphics+$000F #0015
+      original : $0E17 00       BRK
+      generated: $0E40 3A       .BYTE $3A
+      source   : Declaration PMGraphics storage samples/toolkit/modern/PMG.ACT:35:1 | PROC PMGraphics(BYTE mode) | source 698..1754 code $0E2F-$0E41
+      owner    : routine PMGraphics Local PM_MEMSIZE $0E40-$0E41+0
+    PMGraphics+$0010 #0016
+      original : $0E18 00       BRK
+      generated: $0E41 0E 4C 45 ASL $454C
+      source   : Declaration PMGraphics storage samples/toolkit/modern/PMG.ACT:35:1 | PROC PMGraphics(BYTE mode) | source 698..1754 code $0E2F-$0E41
+      owner    : routine PMGraphics Local PM_MEMSIZE $0E40-$0E41+1
+    PMGraphics+$0011 #0017
+      original : $0E19 00       BRK
+      generated: $0E44 0E 8D 2F ASL $2F8D
+      source   : Routine PMGraphics samples/toolkit/modern/PMG.ACT:35:1 | PROC PMGraphics(BYTE mode) | source 698..1754 code $0E2F-$0FA3
+    PMGraphics+$0012 #0018
+      original : $0E1A 00       BRK
+      generated: $0E47 0E A9 02 ASL $02A9
+      source   : Routine PMGraphics samples/toolkit/modern/PMG.ACT:35:1 | PROC PMGraphics(BYTE mode) | source 698..1754 code $0E2F-$0FA3
+    PMGraphics+$0013 #0019
+      original : $0E1B FC       .BYTE $FC
+      generated: $0E4A CD 2F 0E CMP $0E2F
+      orig owner: PM_MisMask $0E1B
+      source   : Statement if samples/toolkit/modern/PMG.ACT:52:3 | IF mode > 2 THEN | source 1060..1094 code $0E48-$0E53
+    PMGraphics+$0014 #0020
+      original : $0E1C F3       .BYTE $F3
+      generated: $0E4D B0 05    BCS $0E54
+      source   : Statement if samples/toolkit/modern/PMG.ACT:52:3 | IF mode > 2 THEN | source 1060..1094 code $0E48-$0E53
+    PMGraphics+$0015 #0021
+      original : $0E1D CF       .BYTE $CF
+      generated: $0E4F A0 00    LDY #$00
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:53:5 | mode = 0 | source 1081..1089 code $0E4F-$0E53
+    PMGraphics+$0016 #0022
+      original : $0E1E 3F       .BYTE $3F
+      generated: $0E51 8C 2F 0E STY $0E2F
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:53:5 | mode = 0 | source 1081..1089 code $0E4F-$0E53
+    PMGraphics+$0017 #0023
+      original : $0E1F 00       BRK
+      generated: $0E54 A9 00    LDA #$00
+      source   : Statement call samples/toolkit/modern/PMG.ACT:56:3 | Zero(PM_Hpos,8)  ; move them off the screen | source 1098..1113 code $0E54-$0E5E
+    PMGraphics+$0018 #0024
+      original : $0E20 00       BRK
+      generated: $0E56 85 A3    STA $A3
+      source   : Statement call samples/toolkit/modern/PMG.ACT:56:3 | Zero(PM_Hpos,8)  ; move them off the screen | source 1098..1113 code $0E54-$0E5E
+    PMGraphics+$0019 #0025
+      original : $0E21 00       BRK
+      generated: $0E58 A0 08    LDY #$08
+      source   : Statement call samples/toolkit/modern/PMG.ACT:56:3 | Zero(PM_Hpos,8)  ; move them off the screen | source 1098..1113 code $0E54-$0E5E
+    PMGraphics+$001A #0026
+      original : $0E22 01 80    ORA ($80,X)
+      generated: $0E5A A2 D0    LDX #$D0
+      source   : Statement call samples/toolkit/modern/PMG.ACT:56:3 | Zero(PM_Hpos,8)  ; move them off the screen | source 1098..1113 code $0E54-$0E5E
+    PMGraphics+$001C #0027
+      original : $0E24 00       BRK
+      generated: $0E5C 20 8A A7 JSR $A78A
+      source   : Statement call samples/toolkit/modern/PMG.ACT:56:3 | Zero(PM_Hpos,8)  ; move them off the screen | source 1098..1113 code $0E54-$0E5E
+    PMGraphics+$001D #0028
+      original : $0E25 1F       .BYTE $1F
+      generated: $0E5F A9 00    LDA #$00
+      orig owner: PM_BSize $0E25
+      source   : Statement call samples/toolkit/modern/PMG.ACT:57:3 | Zero(PMHpos,8) | source 1144..1158 code $0E5F-$0E6B
+    PMGraphics+$001E #0029
+      original : $0E26 0E 00 00 ASL $0000
+      generated: $0E61 85 A3    STA $A3
+      orig owner: PM_BSize+1 $0E26
+      source   : Statement call samples/toolkit/modern/PMG.ACT:57:3 | Zero(PMHpos,8) | source 1144..1158 code $0E5F-$0E6B
+    PMGraphics+$0021 #0030
+      original : $0E29 00       BRK
+      generated: $0E63 A0 08    LDY #$08
+      source   : Statement call samples/toolkit/modern/PMG.ACT:57:3 | Zero(PMHpos,8) | source 1144..1158 code $0E5F-$0E6B
+    PMGraphics+$0022 #0031
+      original : $0E2A 03       .BYTE $03
+      generated: $0E65 A2 0E    LDX #$0E
+      source   : Statement call samples/toolkit/modern/PMG.ACT:57:3 | Zero(PMHpos,8) | source 1144..1158 code $0E5F-$0E6B
+    PMGraphics+$0023 #0032
+      original : $0E2B 80       .BYTE $80
+      generated: $0E67 A9 0B    LDA #$0B
+      source   : Statement call samples/toolkit/modern/PMG.ACT:57:3 | Zero(PMHpos,8) | source 1144..1158 code $0E5F-$0E6B
+    PMGraphics+$0024 #0033
+      original : $0E2C 01 27    ORA ($27,X)
+      generated: $0E69 20 8A A7 JSR $A78A
+      source   : Statement call samples/toolkit/modern/PMG.ACT:57:3 | Zero(PMHpos,8) | source 1144..1158 code $0E5F-$0E6B
+    PMGraphics+$0026 #0034
+      original : $0E2E 0E 00 00 ASL $0000
+      generated: $0E6C A9 00    LDA #$00
+      orig owner: PM_Waste+1 $0E2E
+      source   : Statement call samples/toolkit/modern/PMG.ACT:58:3 | Zero(PMVpos,8) | source 1161..1175 code $0E6C-$0E78
+    PMGraphics+$0029 #0035
+      original : $0E31 00       BRK
+      generated: $0E6E 85 A3    STA $A3
+      orig owner: OldHimem+1 $0E31
+      source   : Statement call samples/toolkit/modern/PMG.ACT:58:3 | Zero(PMVpos,8) | source 1161..1175 code $0E6C-$0E78
+    PMGraphics+$002A #0036
+      original : $0E32 00       BRK
+      generated: $0E70 A0 08    LDY #$08
+      source   : Statement call samples/toolkit/modern/PMG.ACT:58:3 | Zero(PMVpos,8) | source 1161..1175 code $0E6C-$0E78
+    PMGraphics+$002B #0037
+      original : $0E33 00       BRK
+      generated: $0E72 A2 0E    LDX #$0E
+      source   : Statement call samples/toolkit/modern/PMG.ACT:58:3 | Zero(PMVpos,8) | source 1161..1175 code $0E6C-$0E78
+    PMGraphics+$002C #0038
+      original : $0E34 00       BRK
+      generated: $0E74 A9 13    LDA #$13
+      source   : Statement call samples/toolkit/modern/PMG.ACT:58:3 | Zero(PMVpos,8) | source 1161..1175 code $0E6C-$0E78
+    PMGraphics+$002D #0039
+      original : $0E35 00       BRK
+      generated: $0E76 20 8A A7 JSR $A78A
+      source   : Statement call samples/toolkit/modern/PMG.ACT:58:3 | Zero(PMVpos,8) | source 1161..1175 code $0E6C-$0E78
+    PMGraphics+$002E #0040
+      original : $0E36 00       BRK
+      generated: $0E79 A9 00    LDA #$00
+      source   : Statement call samples/toolkit/modern/PMG.ACT:59:3 | Zero(PM_Width,5) | source 1178..1194 code $0E79-$0E85
+    PMGraphics+$002F #0041
+      original : $0E37 F8       SED
+      generated: $0E7B 85 A3    STA $A3
+      source   : Statement call samples/toolkit/modern/PMG.ACT:59:3 | Zero(PM_Width,5) | source 1178..1194 code $0E79-$0E85
+    PMGraphics+$0030 #0042
+      original : $0E38 00       BRK
+      generated: $0E7D A0 05    LDY #$05
+      source   : Statement call samples/toolkit/modern/PMG.ACT:59:3 | Zero(PM_Width,5) | source 1178..1194 code $0E79-$0E85
+    PMGraphics+$0031 #0043
+      original : $0E39 FC       .BYTE $FC
+      generated: $0E7F A2 D0    LDX #$D0
+      source   : Statement call samples/toolkit/modern/PMG.ACT:59:3 | Zero(PM_Width,5) | source 1178..1194 code $0E79-$0E85
+    PMGraphics+$0032 #0044
+      original : $0E3A 34       .BYTE $34
+      generated: $0E81 A9 08    LDA #$08
+      orig owner: PM_AdrMask $0E3A
+      source   : Statement call samples/toolkit/modern/PMG.ACT:59:3 | Zero(PM_Width,5) | source 1178..1194 code $0E79-$0E85
+    PMGraphics+$0033 #0045
+      original : $0E3B 0E 00 00 ASL $0000
+      generated: $0E83 20 8A A7 JSR $A78A
+      orig owner: PM_AdrMask+1 $0E3B
+      source   : Statement call samples/toolkit/modern/PMG.ACT:59:3 | Zero(PM_Width,5) | source 1178..1194 code $0E79-$0E85
+    PMGraphics+$0036 #0046
+      original : $0E3E 00       BRK
+      generated: $0E86 A9 00    LDA #$00
+      source   : Statement call samples/toolkit/modern/PMG.ACT:60:3 | Zero(@GraphP0,5) | source 1197..1213 code $0E86-$0E92
+    PMGraphics+$0037 #0047
+      original : $0E3F 08       PHP
+      generated: $0E88 85 A3    STA $A3
+      source   : Statement call samples/toolkit/modern/PMG.ACT:60:3 | Zero(@GraphP0,5) | source 1197..1213 code $0E86-$0E92
+    PMGraphics+$0038 #0048
+      original : $0E40 00       BRK
+      generated: $0E8A A0 05    LDY #$05
+      source   : Statement call samples/toolkit/modern/PMG.ACT:60:3 | Zero(@GraphP0,5) | source 1197..1213 code $0E86-$0E92
+  PMColor                  len 47 -> 43 (-4)  addr $0FB5 -> $0FA4
+    PMColor+$0003 #0003
+      original : $0FB8 4C BB 0F JMP $0FBB
+      generated: $0FA7 4C AA 0F JMP $0FAA
+      orig owner: PMColor $0FB8
+      source   : Routine PMColor samples/toolkit/modern/PMG.ACT:94:1 | PROC PMColor(BYTE n,hue,lum) | source 1857..1972 code $0FA4-$0FCE
+    PMColor+$0009 #0005
+      original : $0FBE B5 0F 02 .BYTE $B5,$0F,$02
+      generated: $0FAD A4 0F 02 .BYTE $A4,$0F,$02
+      source   : Routine PMColor samples/toolkit/modern/PMG.ACT:94:1 | PROC PMColor(BYTE n,hue,lum) | source 1857..1972 code $0FA4-$0FCE
+    PMColor+$000C #0006
+      original : $0FC1 AD B5 0F LDA $0FB5 ; n $0FB5
+      generated: $0FB0 AD A4 0F LDA $0FA4
+      orig operand: n $0FB5
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:98:3 | n==&3 | source 1920..1925 code $0FB0-$0FB7
+    PMColor+$0011 #0008
+      original : $0FC6 8D B5 0F STA $0FB5 ; n $0FB5
+      generated: $0FB5 8D A4 0F STA $0FA4
+      orig operand: n $0FB5
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:98:3 | n==&3 | source 1920..1925 code $0FB0-$0FB7
+    PMColor+$0014 #0009
+      original : $0FC9 AD B6 0F LDA $0FB6 ; hue $0FB6
+      generated: $0FB8 AA       TAX
+      orig operand: hue $0FB6
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$0017 #0010
+      original : $0FCC 0A       ASL A
+      generated: $0FB9 AD A6 0F LDA $0FA6
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$0018 #0011
+      original : $0FCD 0A       ASL A
+      generated: $0FBC 29 0F    AND #$0F
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$0019 #0012
+      original : $0FCE 0A       ASL A
+      generated: $0FBE 85 C0    STA $C0
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$001A #0013
+      original : $0FCF 0A       ASL A
+      generated: $0FC0 AD A5 0F LDA $0FA5
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$001B #0014
+      original : $0FD0 85 AE    STA $AE
+      generated: $0FC3 0A       ASL A
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$001D #0015
+      original : $0FD2 AD B7 0F LDA $0FB7 ; lum $0FB7
+      generated: $0FC4 0A       ASL A
+      orig operand: lum $0FB7
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$0020 #0016
+      original : $0FD5 29 0F    AND #$0F
+      generated: $0FC5 0A       ASL A
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$0022 #0017
+      original : $0FD7 85 AC    STA $AC
+      generated: $0FC6 0A       ASL A
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$0024 #0018
+      original : $0FD9 A5 AE    LDA $AE
+      generated: $0FC7 85 AC    STA $AC
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$0026 #0019
+      original : $0FDB 05 AC    ORA $AC
+      generated: $0FC9 05 C0    ORA $C0
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$0028 #0020
+      original : $0FDD AE B5 0F LDX $0FB5 ; n $0FB5
+      generated: $0FCB 9D C0 02 STA $02C0,X
+      orig operand: n $0FB5
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:99:3 | PM_Color(n)=(hue LSH 4) % (lum & $0F) | source 1928..1965 code $0FB8-$0FCD
+    PMColor+$002B #0021
+      original : $0FE0 9D C0 02 STA $02C0,X ; PM_Color $02C0
+      generated: $0FCE 60       RTS
+      orig operand: PM_Color $02C0
+      source   : Statement return samples/toolkit/modern/PMG.ACT:1:1 | ; | source 0..0 code $0FCE-$0FCE
+    PMColor+$002E #0022
+      original : $0FE3 60       RTS
+      generated: <missing>
+  PMAdr                    len 130 -> 154 (+24)  addr $0FE4 -> $0FCF
+    PMAdr+$0001 #0001
+      original : $0FE5 4C E8 0F JMP $0FE8
+      generated: $0FD0 00       BRK
+      orig owner: PMAdr $0FE5
+      source   : Declaration PMAdr storage samples/toolkit/modern/PMG.ACT:107:1 | CARD FUNC PMAdr(BYTE n) | source 2093..2310 code $0FCF-$0FD3
+      owner    : routine PMAdr Local ADDRESS $0FD0-$0FD1+0
+    PMAdr+$0004 #0002
+      original : $0FE8 8D E4 0F STA $0FE4 ; n $0FE4
+      generated: $0FD1 00       BRK
+      orig operand: n $0FE4
+      source   : Declaration PMAdr storage samples/toolkit/modern/PMG.ACT:107:1 | CARD FUNC PMAdr(BYTE n) | source 2093..2310 code $0FCF-$0FD3
+      owner    : routine PMAdr Local ADDRESS $0FD0-$0FD1+1
+    PMAdr+$0007 #0003
+      original : $0FEB AD E4 0F LDA $0FE4 ; n $0FE4
+      generated: $0FD2 00       BRK
+      orig operand: n $0FE4
+      source   : Declaration PMAdr storage samples/toolkit/modern/PMG.ACT:107:1 | CARD FUNC PMAdr(BYTE n) | source 2093..2310 code $0FCF-$0FD3
+      owner    : routine PMAdr Local OFFSET $0FD2-$0FD3+0
+    PMAdr+$000A #0004
+      original : $0FEE 29 07    AND #$07
+      generated: $0FD3 00       BRK
+      source   : Declaration PMAdr storage samples/toolkit/modern/PMG.ACT:107:1 | CARD FUNC PMAdr(BYTE n) | source 2093..2310 code $0FCF-$0FD3
+      owner    : routine PMAdr Local OFFSET $0FD2-$0FD3+1
+    PMAdr+$000C #0005
+      original : $0FF0 8D E4 0F STA $0FE4 ; n $0FE4
+      generated: $0FD4 4C D7 0F JMP $0FD7
+      orig operand: n $0FE4
+      source   : Routine PMAdr samples/toolkit/modern/PMG.ACT:107:1 | CARD FUNC PMAdr(BYTE n) | source 2093..2310 code $0FCF-$1068
+    PMAdr+$000F #0006
+      original : $0FF3 AD E4 0F LDA $0FE4 ; n $0FE4
+      generated: $0FD7 8D CF 0F STA $0FCF
+      orig operand: n $0FE4
+      source   : Routine PMAdr samples/toolkit/modern/PMG.ACT:107:1 | CARD FUNC PMAdr(BYTE n) | source 2093..2310 code $0FCF-$1068
+    PMAdr+$0012 #0007
+      original : $0FF6 C9 04    CMP #$04
+      generated: $0FDA AD CF 0F LDA $0FCF
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:112:3 | n==&7 | source 2151..2156 code $0FDA-$0FE1
+    PMAdr+$0014 #0008
+      original : $0FF8 B0 03    BCS $0FFD
+      generated: $0FDD 29 07    AND #$07
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:112:3 | n==&7 | source 2151..2156 code $0FDA-$0FE1
+    PMAdr+$0016 #0009
+      original : $0FFA 4C 05 10 JMP $1005
+      generated: $0FDF 8D CF 0F STA $0FCF
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:112:3 | n==&7 | source 2151..2156 code $0FDA-$0FE1
+    PMAdr+$0019 #0010
+      original : $0FFD A0 00    LDY #$00
+      generated: $0FE2 AD CF 0F LDA $0FCF
+      source   : Statement if samples/toolkit/modern/PMG.ACT:113:3 | IF n>=4 THEN | source 2159..2201 code $0FE2-$0FF3
+    PMAdr+$001B #0011
+      original : $0FFF 8C E4 0F STY $0FE4 ; n $0FE4
+      generated: $0FE5 C9 04    CMP #$04
+      orig operand: n $0FE4
+      source   : Statement if samples/toolkit/modern/PMG.ACT:113:3 | IF n>=4 THEN | source 2159..2201 code $0FE2-$0FF3
+    PMAdr+$001E #0012
+      original : $1002 4C 08 10 JMP $1008
+      generated: $0FE7 90 08    BCC $0FF1
+      source   : Statement if samples/toolkit/modern/PMG.ACT:113:3 | IF n>=4 THEN | source 2159..2201 code $0FE2-$0FF3
+    PMAdr+$0021 #0013
+      original : $1005 EE E4 0F INC $0FE4 ; n $0FE4
+      generated: $0FE9 A0 00    LDY #$00
+      orig operand: n $0FE4
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:114:5 | n=0 | source 2176..2179 code $0FE9-$0FED
+    PMAdr+$0024 #0014
+      original : $1008 AD 08 0E LDA $0E08 ; PM_Mode $0E08
+      generated: $0FEB 8C CF 0F STY $0FCF
+      orig operand: PM_Mode $0E08
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:114:5 | n=0 | source 2176..2179 code $0FE9-$0FED
+    PMAdr+$0027 #0015
+      original : $100B 0A       ASL A
+      generated: $0FEE 4C F4 0F JMP $0FF4
+      source   : Statement if samples/toolkit/modern/PMG.ACT:113:3 | IF n>=4 THEN | source 2159..2201 code $0FE2-$0FF3
+    PMAdr+$0028 #0016
+      original : $100C 08       PHP
+      generated: $0FF1 EE CF 0F INC $0FCF
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:116:5 | n==+1 | source 2191..2196 code $0FF1-$0FF3
+    PMAdr+$0029 #0017
+      original : $100D 18       CLC
+      generated: $0FF4 AD 08 0E LDA $0E08
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$002A #0018
+      original : $100E 6D 2D 0E ADC $0E2D ; PM_Waste $0E2D
+      generated: $0FF7 0A       ASL A
+      orig operand: PM_Waste $0E2D
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$002D #0019
+      original : $1011 85 AE    STA $AE
+      generated: $0FF8 A8       TAY
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$002F #0020
+      original : $1013 A9 00    LDA #$00
+      generated: $0FF9 AD 2D 0E LDA $0E2D
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0031 #0021
+      original : $1015 2A       ROL A
+      generated: $0FFC 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0032 #0022
+      original : $1016 28       PLP
+      generated: $0FFE AD 2E 0E LDA $0E2E
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0033 #0023
+      original : $1017 6D 2E 0E ADC $0E2E ; PM_Waste+1 $0E2E
+      generated: $1001 85 AF    STA $AF
+      orig operand: PM_Waste+1 $0E2E
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0036 #0024
+      original : $101A 85 AF    STA $AF
+      generated: $1003 69 00    ADC #$00
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0038 #0025
+      original : $101C 18       CLC
+      generated: $1005 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0039 #0026
+      original : $101D AD 09 0E LDA $0E09 ; PM_BaseAdr $0E09
+      generated: $1007 18       CLC
+      orig operand: PM_BaseAdr $0E09
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$003C #0027
+      original : $1020 A0 00    LDY #$00
+      generated: $1008 B1 AE    LDA ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$003E #0028
+      original : $1022 71 AE    ADC ($AE),Y
+      generated: $100A 6D 09 0E ADC $0E09
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0040 #0029
+      original : $1024 85 AC    STA $AC
+      generated: $100D 85 A0    STA $A0
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0042 #0030
+      original : $1026 AD 0A 0E LDA $0E0A ; PM_BaseAdr+1 $0E0A
+      generated: $100F C8       INY
+      orig operand: PM_BaseAdr+1 $0E0A
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0045 #0031
+      original : $1029 C8       INY
+      generated: $1010 B1 AE    LDA ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0046 #0032
+      original : $102A 71 AE    ADC ($AE),Y
+      generated: $1012 6D 0A 0E ADC $0E0A
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$0048 #0033
+      original : $102C 85 AD    STA $AD
+      generated: $1015 8D D1 0F STA $0FD1
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$004A #0034
+      original : $102E AD 08 0E LDA $0E08 ; PM_Mode $0E08
+      generated: $1018 A5 A0    LDA $A0
+      orig operand: PM_Mode $0E08
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$004D #0035
+      original : $1031 0A       ASL A
+      generated: $101A 8D D0 0F STA $0FD0
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:118:3 | address=PM_BaseAdr+PM_Waste(PM_Mode) | source 2204..2240 code $0FF4-$101C
+    PMAdr+$004E #0036
+      original : $1032 08       PHP
+      generated: $101D AD 08 0E LDA $0E08
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:119:3 | offset=n*PM_BSize(PM_Mode) | source 2243..2269 code $101D-$104A
+    PMAdr+$004F #0037
+      original : $1033 18       CLC
+      generated: $1020 0A       ASL A
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:119:3 | offset=n*PM_BSize(PM_Mode) | source 2243..2269 code $101D-$104A
+    PMAdr+$0050 #0038
+      original : $1034 6D 25 0E ADC $0E25 ; PM_BSize $0E25
+      generated: $1021 08       PHP
+      orig operand: PM_BSize $0E25
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:119:3 | offset=n*PM_BSize(PM_Mode) | source 2243..2269 code $101D-$104A
+    PMAdr+$0053 #0039
+      original : $1037 85 AA    STA $AA
+      generated: $1022 18       CLC
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:119:3 | offset=n*PM_BSize(PM_Mode) | source 2243..2269 code $101D-$104A
+    PMAdr+$0055 #0040
+      original : $1039 A9 00    LDA #$00
+      generated: $1023 6D 25 0E ADC $0E25
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:119:3 | offset=n*PM_BSize(PM_Mode) | source 2243..2269 code $101D-$104A
+  PMClear                  len 203 -> 246 (+43)  addr $1066 -> $1069
+    PMClear+$0005 #0005
+      original : $106B 4C 6E 10 JMP $106E
+      generated: $106E 00       BRK
+      orig owner: PMClear $106B
+      source   : Declaration PMClear storage samples/toolkit/modern/PMG.ACT:127:1 | PROC PMClear(BYTE n) | source 2420..2730 code $1069-$1070
+      owner    : routine PMClear Local PLAYADR $106E-$106F+0
+    PMClear+$0008 #0006
+      original : $106E 8D 66 10 STA $1066 ; n $1066
+      generated: $106F 00       BRK
+      orig operand: n $1066
+      source   : Declaration PMClear storage samples/toolkit/modern/PMG.ACT:127:1 | PROC PMClear(BYTE n) | source 2420..2730 code $1069-$1070
+      owner    : routine PMClear Local PLAYADR $106E-$106F+1
+    PMClear+$000B #0007
+      original : $1071 AD 66 10 LDA $1066 ; n $1066
+      generated: $1070 00       BRK
+      orig operand: n $1066
+      source   : Declaration PMClear storage samples/toolkit/modern/PMG.ACT:127:1 | PROC PMClear(BYTE n) | source 2420..2730 code $1069-$1070
+      owner    : routine PMClear Local MASK $1070-$1070+0
+    PMClear+$000E #0008
+      original : $1074 29 07    AND #$07
+      generated: $1071 4C 74 10 JMP $1074
+      source   : Routine PMClear samples/toolkit/modern/PMG.ACT:127:1 | PROC PMClear(BYTE n) | source 2420..2730 code $1069-$115E
+    PMClear+$0010 #0009
+      original : $1076 8D 66 10 STA $1066 ; n $1066
+      generated: $1074 8D 69 10 STA $1069
+      orig operand: n $1066
+      source   : Routine PMClear samples/toolkit/modern/PMG.ACT:127:1 | PROC PMClear(BYTE n) | source 2420..2730 code $1069-$115E
+    PMClear+$0013 #0010
+      original : $1079 AD 66 10 LDA $1066 ; n $1066
+      generated: $1077 AD 69 10 LDA $1069
+      orig operand: n $1066
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:136:3 | n==&7 | source 2507..2512 code $1077-$107E
+    PMClear+$0016 #0011
+      original : $107C 20 E5 0F JSR $0FE5 ; PMAdr $0FE5
+      generated: $107A 29 07    AND #$07
+      orig operand: PMAdr $0FE5
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:136:3 | n==&7 | source 2507..2512 code $1077-$107E
+    PMClear+$0019 #0012
+      original : $107F A5 A1    LDA $A1
+      generated: $107C 8D 69 10 STA $1069
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:136:3 | n==&7 | source 2507..2512 code $1077-$107E
+    PMClear+$001B #0013
+      original : $1081 8D 6A 10 STA $106A
+      generated: $107F 20 D4 0F JSR $0FD4
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:137:3 | playAdr=PMAdr(n) | source 2515..2531 code $107F-$1089
+    PMClear+$001E #0014
+      original : $1084 A5 A0    LDA $A0
+      generated: $1082 8D 6E 10 STA $106E
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:137:3 | playAdr=PMAdr(n) | source 2515..2531 code $107F-$1089
+    PMClear+$0020 #0015
+      original : $1086 8D 69 10 STA $1069 ; PlayAdr $1069
+      generated: $1085 A5 A1    LDA $A1
+      orig operand: PlayAdr $1069
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:137:3 | playAdr=PMAdr(n) | source 2515..2531 code $107F-$1089
+    PMClear+$0023 #0016
+      original : $1089 AD 66 10 LDA $1066 ; n $1066
+      generated: $1087 8D 6F 10 STA $106F
+      orig operand: n $1066
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:137:3 | playAdr=PMAdr(n) | source 2515..2531 code $107F-$1089
+    PMClear+$0026 #0017
+      original : $108C C9 04    CMP #$04
+      generated: $108A AD 69 10 LDA $1069
+      source   : Statement if samples/toolkit/modern/PMG.ACT:138:3 | IF n<4 THEN | source 2534..2723 code $108A-$115D
+    PMClear+$0028 #0018
+      original : $108E 90 03    BCC $1093
+      generated: $108D C9 04    CMP #$04
+      source   : Statement if samples/toolkit/modern/PMG.ACT:138:3 | IF n<4 THEN | source 2534..2723 code $108A-$115D
+    PMClear+$002A #0019
+      original : $1090 4C C0 10 JMP $10C0
+      generated: $108F B0 2A    BCS $10BB
+      source   : Statement if samples/toolkit/modern/PMG.ACT:138:3 | IF n<4 THEN | source 2534..2723 code $108A-$115D
+    PMClear+$0031 #0022
+      original : $1097 08       PHP
+      generated: $1095 A8       TAY
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$0032 #0023
+      original : $1098 18       CLC
+      generated: $1096 AD 25 0E LDA $0E25
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$0033 #0024
+      original : $1099 6D 25 0E ADC $0E25 ; PM_BSize $0E25
+      generated: $1099 85 AE    STA $AE
+      orig operand: PM_BSize $0E25
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$0036 #0025
+      original : $109C 85 AE    STA $AE
+      generated: $109B AD 26 0E LDA $0E26
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$0038 #0026
+      original : $109E A9 00    LDA #$00
+      generated: $109E 85 AF    STA $AF
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$003A #0027
+      original : $10A0 2A       ROL A
+      generated: $10A0 69 00    ADC #$00
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$003B #0028
+      original : $10A1 28       PLP
+      generated: $10A2 85 AF    STA $AF
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$003C #0029
+      original : $10A2 6D 26 0E ADC $0E26 ; PM_BSize+1 $0E26
+      generated: $10A4 B1 AE    LDA ($AE),Y
+      orig operand: PM_BSize+1 $0E26
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$003F #0030
+      original : $10A5 85 AF    STA $AF
+      generated: $10A6 85 A2    STA $A2
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$0041 #0031
+      original : $10A7 A0 01    LDY #$01
+      generated: $10A8 C8       INY
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$0047 #0034
+      original : $10AD 88       DEY
+      generated: $10AD A4 A2    LDY $A2
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$0048 #0035
+      original : $10AE B1 AE    LDA ($AE),Y
+      generated: $10AF AE 6F 10 LDX $106F
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$004A #0036
+      original : $10B0 85 A2    STA $A2
+      generated: $10B2 AD 6E 10 LDA $106E
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$004C #0037
+      original : $10B2 A4 A2    LDY $A2
+      generated: $10B5 20 8A A7 JSR $A78A
+      source   : Statement call samples/toolkit/modern/PMG.ACT:139:5 | Zero(PlayAdr,PM_BSize(PM_Mode)) | source 2550..2581 code $1091-$10B7
+    PMClear+$004E #0038
+      original : $10B4 AE 6A 10 LDX $106A
+      generated: $10B8 4C 5E 11 JMP $115E
+      source   : Statement if samples/toolkit/modern/PMG.ACT:138:3 | IF n<4 THEN | source 2534..2723 code $108A-$115D
+    PMClear+$0051 #0039
+      original : $10B7 AD 69 10 LDA $1069 ; PlayAdr $1069
+      generated: $10BB 38       SEC
+      orig operand: PlayAdr $1069
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:141:5 | n==-4 | source 2593..2598 code $10BB-$10C3
+    PMClear+$0054 #0040
+      original : $10BA 20 8A A7 JSR $A78A
+      generated: $10BC AD 69 10 LDA $1069
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:141:5 | n==-4 | source 2593..2598 code $10BB-$10C3
+    PMClear+$0057 #0041
+      original : $10BD 4C 30 11 JMP $1130
+      generated: $10BF E9 04    SBC #$04
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:141:5 | n==-4 | source 2593..2598 code $10BB-$10C3
+    PMClear+$005A #0042
+      original : $10C0 38       SEC
+      generated: $10C1 8D 69 10 STA $1069
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:141:5 | n==-4 | source 2593..2598 code $10BB-$10C3
+    PMClear+$005B #0043
+      original : $10C1 AD 66 10 LDA $1066 ; n $1066
+      generated: $10C4 A8       TAY
+      orig operand: n $1066
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:142:5 | mask=PM_MisMask(n) | source 2603..2621 code $10C4-$10CA
+    PMClear+$005E #0044
+      original : $10C4 E9 04    SBC #$04
+      generated: $10C5 B9 1B 0E LDA $0E1B,Y
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:142:5 | mask=PM_MisMask(n) | source 2603..2621 code $10C4-$10CA
+    PMClear+$0060 #0045
+      original : $10C6 8D 66 10 STA $1066 ; n $1066
+      generated: $10C8 8D 70 10 STA $1070
+      orig operand: n $1066
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:142:5 | mask=PM_MisMask(n) | source 2603..2621 code $10C4-$10CA
+    PMClear+$0063 #0046
+      original : $10C9 A0 00    LDY #$00
+      generated: $10CB AD 08 0E LDA $0E08
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:143:5 | limit=PM_BSize(PM_Mode)-1 | source 2626..2651 code $10CB-$10F5
+    PMClear+$0065 #0047
+      original : $10CB 8C 68 10 STY $1068 ; ctr+1 $1068
+      generated: $10CE 0A       ASL A
+      orig operand: ctr+1 $1068
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:143:5 | limit=PM_BSize(PM_Mode)-1 | source 2626..2651 code $10CB-$10F5
+    PMClear+$0068 #0048
+      original : $10CE 8C 67 10 STY $1067 ; ctr $1067
+      generated: $10CF A8       TAY
+      orig operand: ctr $1067
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:143:5 | limit=PM_BSize(PM_Mode)-1 | source 2626..2651 code $10CB-$10F5
+  PMMove                   len 573 -> 319 (-254)  addr $1131 -> $115F
+    PMMove+$000B #0011
+      original : $113C 00       BRK
+      generated: $116A 40       RTI
+      orig owner: temp $113C
+      source   : Declaration PMMove storage samples/toolkit/modern/PMG.ACT:156:1 | PROC PMMove(BYTE n,x,y); | source 2854..4554 code $115F-$116F
+      owner    : routine PMMove Local TEMP $116A-$116A+0
+    PMMove+$000C #0012
+      original : $113D 00       BRK
+      generated: $116B 14       .BYTE $14
+      source   : Declaration PMMove storage samples/toolkit/modern/PMG.ACT:156:1 | PROC PMMove(BYTE n,x,y); | source 2854..4554 code $115F-$116F
+    PMMove+$0011 #0016
+      original : $1142 00       BRK
+      generated: $1170 4C 73 11 JMP $1173
+      source   : Routine PMMove samples/toolkit/modern/PMG.ACT:156:1 | PROC PMMove(BYTE n,x,y); | source 2854..4554 code $115F-$129D
+    PMMove+$0012 #0017
+      original : $1143 00       BRK
+      generated: $1173 20 F5 A0 JSR $A0F5
+      source   : Routine PMMove samples/toolkit/modern/PMG.ACT:156:1 | PROC PMMove(BYTE n,x,y); | source 2854..4554 code $115F-$129D
+    PMMove+$0013 #0018
+      original : $1144 00       BRK
+      generated: $1176 5F 11 02 .BYTE $5F,$11,$02
+      source   : Routine PMMove samples/toolkit/modern/PMG.ACT:156:1 | PROC PMMove(BYTE n,x,y); | source 2854..4554 code $115F-$129D
+    PMMove+$0014 #0019
+      original : $1145 00       BRK
+      generated: $1179 AD 08 0E LDA $0E08
+      source   : Statement if samples/toolkit/modern/PMG.ACT:168:3 | IF PM_Mode=0 THEN | source 2989..3022 code $1179-$117E
+    PMMove+$0015 #0020
+      original : $1146 00       BRK
+      generated: $117C D0 01    BNE $117F
+      source   : Statement if samples/toolkit/modern/PMG.ACT:168:3 | IF PM_Mode=0 THEN | source 2989..3022 code $1179-$117E
+    PMMove+$0016 #0021
+      original : $1147 00       BRK
+      generated: $117E 60       RTS
+      source   : Statement return samples/toolkit/modern/PMG.ACT:1:1 | ; | source 0..0 code $117E-$117E
+    PMMove+$0017 #0022
+      original : $1148 00       BRK
+      generated: $117F AD 5F 11 LDA $115F
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:171:3 | n==&7 | source 3025..3030 code $117F-$1186
+    PMMove+$0018 #0023
+      original : $1149 00       BRK
+      generated: $1182 29 07    AND #$07
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:171:3 | n==&7 | source 3025..3030 code $117F-$1186
+    PMMove+$0019 #0024
+      original : $114A 00       BRK
+      generated: $1184 8D 5F 11 STA $115F
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:171:3 | n==&7 | source 3025..3030 code $117F-$1186
+    PMMove+$001A #0025
+      original : $114B 00       BRK
+      generated: $1187 A9 00    LDA #$00
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:172:3 | deltaY = y | source 3033..3043 code $1187-$1191
+    PMMove+$001B #0026
+      original : $114C 00       BRK
+      generated: $1189 8D 69 11 STA $1169
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:172:3 | deltaY = y | source 3033..3043 code $1187-$1191
+    PMMove+$001C #0027
+      original : $114D 00       BRK
+      generated: $118C AD 61 11 LDA $1161
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:172:3 | deltaY = y | source 3033..3043 code $1187-$1191
+    PMMove+$001D #0028
+      original : $114E 00       BRK
+      generated: $118F 8D 68 11 STA $1168
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:172:3 | deltaY = y | source 3033..3043 code $1187-$1191
+    PMMove+$001E #0029
+      original : $114F 00       BRK
+      generated: $1192 18       CLC
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$001F #0030
+      original : $1150 00       BRK
+      generated: $1193 A9 13    LDA #$13
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$0020 #0031
+      original : $1151 00       BRK
+      generated: $1195 6D 5F 11 ADC $115F
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$0021 #0032
+      original : $1152 00       BRK
+      generated: $1198 85 AE    STA $AE
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$0022 #0033
+      original : $1153 00       BRK
+      generated: $119A A9 0E    LDA #$0E
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$0023 #0034
+      original : $1154 00       BRK
+      generated: $119C 69 00    ADC #$00
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$0024 #0035
+      original : $1155 00       BRK
+      generated: $119E 85 AF    STA $AF
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$0025 #0036
+      original : $1156 00       BRK
+      generated: $11A0 38       SEC
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$0026 #0037
+      original : $1157 00       BRK
+      generated: $11A1 AD 68 11 LDA $1168
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$0027 #0038
+      original : $1158 00       BRK
+      generated: $11A4 A0 00    LDY #$00
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$0028 #0039
+      original : $1159 00       BRK
+      generated: $11A6 F1 AE    SBC ($AE),Y
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$0029 #0040
+      original : $115A 00       BRK
+      generated: $11A8 8D 68 11 STA $1168
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$002A #0041
+      original : $115B 00       BRK
+      generated: $11AB 98       TYA
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$002B #0042
+      original : $115C 00       BRK
+      generated: $11AC E9 00    SBC #$00
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$002C #0043
+      original : $115D 00       BRK
+      generated: $11AE 8D 69 11 STA $1169
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:173:3 | deltaY = deltaY-PMVpos(n) | source 3046..3071 code $1192-$11B0
+    PMMove+$002D #0044
+      original : $115E 00       BRK
+      generated: $11B1 AD 68 11 LDA $1168
+      source   : Statement if samples/toolkit/modern/PMG.ACT:174:3 | IF deltaY=0 THEN | source 3074..3139 code $11B1-$11CB
+    PMMove+$002E #0045
+      original : $115F 00       BRK
+      generated: $11B4 0D 69 11 ORA $1169
+      source   : Statement if samples/toolkit/modern/PMG.ACT:174:3 | IF deltaY=0 THEN | source 3074..3139 code $11B1-$11CB
+    PMMove+$002F #0046
+      original : $1160 00       BRK
+      generated: $11B7 D0 13    BNE $11CC
+      source   : Statement if samples/toolkit/modern/PMG.ACT:174:3 | IF deltaY=0 THEN | source 3074..3139 code $11B1-$11CB
+    PMMove+$0030 #0047
+      original : $1161 00       BRK
+      generated: $11B9 AD 60 11 LDA $1160
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:175:5 | PM_Hpos(n)=x | source 3095..3107 code $11B9-$11C1
+    PMMove+$0031 #0048
+      original : $1162 00       BRK
+      generated: $11BC AE 5F 11 LDX $115F
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:175:5 | PM_Hpos(n)=x | source 3095..3107 code $11B9-$11C1
+    PMMove+$0032 #0049
+      original : $1163 00       BRK
+      generated: $11BF 9D 00 D0 STA $D000,X
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:175:5 | PM_Hpos(n)=x | source 3095..3107 code $11B9-$11C1
+    PMMove+$0033 #0050
+      original : $1164 00       BRK
+      generated: $11C2 AD 60 11 LDA $1160
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:176:5 | PMHpos(n)=x | source 3112..3123 code $11C2-$11CA
+    PMMove+$0034 #0051
+      original : $1165 00       BRK
+      generated: $11C5 AE 5F 11 LDX $115F
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:176:5 | PMHpos(n)=x | source 3112..3123 code $11C2-$11CA
+    PMMove+$0035 #0052
+      original : $1166 00       BRK
+      generated: $11C8 9D 0B 0E STA $0E0B,X
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:176:5 | PMHpos(n)=x | source 3112..3123 code $11C2-$11CA
+    PMMove+$0036 #0053
+      original : $1167 00       BRK
+      generated: $11CB 60       RTS
+      source   : Statement return samples/toolkit/modern/PMG.ACT:1:1 | ; | source 0..0 code $11CB-$11CB
+  PMCreate                 len 294 -> 255 (-39)  addr $136E -> $129E
+    PMCreate+$0012 #0017
+      original : $1380 7C       .BYTE $7C
+      generated: $12B0 4C B3 12 JMP $12B3
+      orig owner: miswidth $1380
+      source   : Routine PMCreate samples/toolkit/modern/PMG.ACT:258:1 | PROC PMCreate(BYTE n  BYTE ARRAY pm BYTE len,width,x,y) | source 4647..5170 code $129E-$139C
+    PMCreate+$0013 #0018
+      original : $1381 13       .BYTE $13
+      generated: $12B3 20 F5 A0 JSR $A0F5
+      source   : Routine PMCreate samples/toolkit/modern/PMG.ACT:258:1 | PROC PMCreate(BYTE n  BYTE ARRAY pm BYTE len,width,x,y) | source 4647..5170 code $129E-$139C
+    PMCreate+$0014 #0019
+      original : $1382 4C 85 13 JMP $1385
+      generated: $12B6 9E 12 06 .BYTE $9E,$12,$06
+      orig owner: PMCreate $1382
+      source   : Routine PMCreate samples/toolkit/modern/PMG.ACT:258:1 | PROC PMCreate(BYTE n  BYTE ARRAY pm BYTE len,width,x,y) | source 4647..5170 code $129E-$139C
+    PMCreate+$0017 #0020
+      original : $1385 20 F5 A0 JSR $A0F5
+      generated: $12B9 AD 9E 12 LDA $129E
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:266:3 | n==&7 | source 4806..4811 code $12B9-$12C0
+    PMCreate+$001A #0021
+      original : $1388 6E 13 06 .BYTE $6E,$13,$06
+      generated: $12BC 29 07    AND #$07
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:266:3 | n==&7 | source 4806..4811 code $12B9-$12C0
+    PMCreate+$001D #0022
+      original : $138B AD 6E 13 LDA $136E ; n $136E
+      generated: $12BE 8D 9E 12 STA $129E
+      orig operand: n $136E
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:266:3 | n==&7 | source 4806..4811 code $12B9-$12C0
+    PMCreate+$0020 #0023
+      original : $138E 29 07    AND #$07
+      generated: $12C1 C9 04    CMP #$04
+      source   : Statement if samples/toolkit/modern/PMG.ACT:267:3 | IF n<4 THEN | source 4814..4889 code $12C1-$12DB
+    PMCreate+$0022 #0024
+      original : $1390 8D 6E 13 STA $136E ; n $136E
+      generated: $12C3 B0 08    BCS $12CD
+      orig operand: n $136E
+      source   : Statement if samples/toolkit/modern/PMG.ACT:267:3 | IF n<4 THEN | source 4814..4889 code $12C1-$12DB
+    PMCreate+$0025 #0025
+      original : $1393 AD 6E 13 LDA $136E ; n $136E
+      generated: $12C5 A0 00    LDY #$00
+      orig operand: n $136E
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:268:5 | mask=0 | source 4830..4836 code $12C5-$12C9
+    PMCreate+$0028 #0026
+      original : $1396 C9 04    CMP #$04
+      generated: $12C7 8C A6 12 STY $12A6
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:268:5 | mask=0 | source 4830..4836 code $12C5-$12C9
+    PMCreate+$002A #0027
+      original : $1398 90 03    BCC $139D
+      generated: $12CA 4C DC 12 JMP $12DC
+      source   : Statement if samples/toolkit/modern/PMG.ACT:267:3 | IF n<4 THEN | source 4814..4889 code $12C1-$12DB
+    PMCreate+$002C #0028
+      original : $139A 4C A5 13 JMP $13A5
+      generated: $12CD AD 9E 12 LDA $129E
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:270:5 | ntemp=n&3 | source 4848..4857 code $12CD-$12D4
+    PMCreate+$002F #0029
+      original : $139D A0 00    LDY #$00
+      generated: $12D0 29 03    AND #$03
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:270:5 | ntemp=n&3 | source 4848..4857 code $12CD-$12D4
+    PMCreate+$0031 #0030
+      original : $139F 8C 76 13 STY $1376 ; mask $1376
+      generated: $12D2 8D A8 12 STA $12A8
+      orig operand: mask $1376
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:270:5 | ntemp=n&3 | source 4848..4857 code $12CD-$12D4
+    PMCreate+$0034 #0031
+      original : $13A2 4C B6 13 JMP $13B6
+      generated: $12D5 A8       TAY
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:271:5 | mask=PM_MisMask(ntemp) | source 4862..4884 code $12D5-$12DB
+    PMCreate+$0037 #0032
+      original : $13A5 AD 6E 13 LDA $136E ; n $136E
+      generated: $12D6 B9 1B 0E LDA $0E1B,Y
+      orig operand: n $136E
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:271:5 | mask=PM_MisMask(ntemp) | source 4862..4884 code $12D5-$12DB
+    PMCreate+$003A #0033
+      original : $13A8 29 03    AND #$03
+      generated: $12D9 8D A6 12 STA $12A6
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:271:5 | mask=PM_MisMask(ntemp) | source 4862..4884 code $12D5-$12DB
+    PMCreate+$003C #0034
+      original : $13AA 8D 78 13 STA $1378 ; ntemp $1378
+      generated: $12DC AD 9E 12 LDA $129E
+      orig operand: ntemp $1378
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:273:3 | plPtr=PMAdr(n) | source 4892..4906 code $12DC-$12E9
+    PMCreate+$003F #0035
+      original : $13AD AE 78 13 LDX $1378 ; ntemp $1378
+      generated: $12DF 20 D4 0F JSR $0FD4
+      orig operand: ntemp $1378
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:273:3 | plPtr=PMAdr(n) | source 4892..4906 code $12DC-$12E9
+    PMCreate+$0042 #0036
+      original : $13B0 BD 1B 0E LDA $0E1B,X ; PM_MisMask $0E1B
+      generated: $12E2 8D AA 12 STA $12AA
+      orig operand: PM_MisMask $0E1B
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:273:3 | plPtr=PMAdr(n) | source 4892..4906 code $12DC-$12E9
+    PMCreate+$0045 #0037
+      original : $13B3 8D 76 13 STA $1376 ; mask $1376
+      generated: $12E5 A5 A1    LDA $A1
+      orig operand: mask $1376
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:273:3 | plPtr=PMAdr(n) | source 4892..4906 code $12DC-$12E9
+    PMCreate+$0048 #0038
+      original : $13B6 AD 6E 13 LDA $136E ; n $136E
+      generated: $12E7 8D AB 12 STA $12AB
+      orig operand: n $136E
+      source   : Statement assignment samples/toolkit/modern/PMG.ACT:273:3 | plPtr=PMAdr(n) | source 4892..4906 code $12DC-$12E9
+    PMCreate+$004B #0039
+      original : $13B9 20 E5 0F JSR $0FE5 ; PMAdr $0FE5
+      generated: $12EA A0 00    LDY #$00
+      orig operand: PMAdr $0FE5
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$004E #0040
+      original : $13BC A5 A1    LDA $A1
+      generated: $12EC 8C A5 12 STY $12A5
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$0050 #0041
+      original : $13BE 8D 7B 13 STA $137B
+      generated: $12EF AD A5 12 LDA $12A5
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$0053 #0042
+      original : $13C1 A5 A0    LDA $A0
+      generated: $12F2 85 AC    STA $AC
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$0055 #0043
+      original : $13C3 8D 7A 13 STA $137A ; plPtr $137A
+      generated: $12F4 38       SEC
+      orig operand: plPtr $137A
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$0058 #0044
+      original : $13C6 A0 00    LDY #$00
+      generated: $12F5 AD A1 12 LDA $12A1
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$005A #0045
+      original : $13C8 8C 75 13 STY $1375 ; i $1375
+      generated: $12F8 E9 01    SBC #$01
+      orig operand: i $1375
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$005D #0046
+      original : $13CB 38       SEC
+      generated: $12FA 85 C0    STA $C0
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$005E #0047
+      original : $13CC AD 71 13 LDA $1371 ; len $1371
+      generated: $12FC A5 AC    LDA $AC
+      orig operand: len $1371
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$0061 #0048
+      original : $13CF E9 01    SBC #$01
+      generated: $12FE C5 C0    CMP $C0
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$0063 #0049
+      original : $13D1 8D DF 13 STA $13DF
+      generated: $1300 90 05    BCC $1307
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$0066 #0050
+      original : $13D4 AD DF 13 LDA $13DF
+      generated: $1302 F0 03    BEQ $1307
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$0069 #0051
+      original : $13D7 CD 75 13 CMP $1375 ; i $1375
+      generated: $1304 4C 44 13 JMP $1344
+      orig operand: i $1375
+      source   : Statement for samples/toolkit/modern/PMG.ACT:274:3 | FOR i=0 to len-1 | source 4909..4965 code $12EA-$1343
+    PMCreate+$006C #0052
+      original : $13DA B0 04    BCS $13E0
+      generated: $1307 18       CLC
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:276:5 | plPtr(i+y)==&mask%pm(i) | source 4936..4959 code $1307-$133D
+    PMCreate+$006E #0053
+      original : $13DC 4C 1D 14 JMP $141D
+      generated: $1308 AD A5 12 LDA $12A5
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:276:5 | plPtr(i+y)==&mask%pm(i) | source 4936..4959 code $1307-$133D
+    PMCreate+$0071 #0054
+      original : $13DF 00       BRK
+      generated: $130B 6D A4 12 ADC $12A4
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:276:5 | plPtr(i+y)==&mask%pm(i) | source 4936..4959 code $1307-$133D
+    PMCreate+$0072 #0055
+      original : $13E0 18       CLC
+      generated: $130E 85 AE    STA $AE
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:276:5 | plPtr(i+y)==&mask%pm(i) | source 4936..4959 code $1307-$133D
+    PMCreate+$0073 #0056
+      original : $13E1 AD 75 13 LDA $1375 ; i $1375
+      generated: $1310 18       CLC
+      orig operand: i $1375
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:276:5 | plPtr(i+y)==&mask%pm(i) | source 4936..4959 code $1307-$133D
+  PMHit                    len 126 -> 117 (-9)  addr $1494 -> $139D
+    PMHit+$0002 #0002
+      original : $1496 4C 99 14 JMP $1499
+      generated: $139F 4C A2 13 JMP $13A2
+      orig owner: PMHit $1496
+      source   : Routine PMHit samples/toolkit/modern/PMG.ACT:295:1 | BYTE FUNC PMHit(BYTE n,cnum) | source 5273..5543 code $139D-$1411
+    PMHit+$0005 #0003
+      original : $1499 8E 95 14 STX $1495 ; cnum $1495
+      generated: $13A2 8E 9E 13 STX $139E
+      orig operand: cnum $1495
+      source   : Routine PMHit samples/toolkit/modern/PMG.ACT:295:1 | BYTE FUNC PMHit(BYTE n,cnum) | source 5273..5543 code $139D-$1411
+    PMHit+$0008 #0004
+      original : $149C 8D 94 14 STA $1494 ; n $1494
+      generated: $13A5 8D 9D 13 STA $139D
+      orig operand: n $1494
+      source   : Routine PMHit samples/toolkit/modern/PMG.ACT:295:1 | BYTE FUNC PMHit(BYTE n,cnum) | source 5273..5543 code $139D-$1411
+    PMHit+$000B #0005
+      original : $149F AD 94 14 LDA $1494 ; n $1494
+      generated: $13A8 AD 9D 13 LDA $139D
+      orig operand: n $1494
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:300:3 | n==&7 | source 5364..5369 code $13A8-$13AF
+    PMHit+$0010 #0007
+      original : $14A4 8D 94 14 STA $1494 ; n $1494
+      generated: $13AD 8D 9D 13 STA $139D
+      orig operand: n $1494
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:300:3 | n==&7 | source 5364..5369 code $13A8-$13AF
+    PMHit+$0013 #0008
+      original : $14A7 AD 94 14 LDA $1494 ; n $1494
+      generated: $13B0 AD 9D 13 LDA $139D
+      orig operand: n $1494
+      source   : Statement if samples/toolkit/modern/PMG.ACT:301:3 | IF n<4 THEN | source 5372..5415 code $13B0-$13CB
+    PMHit+$0018 #0010
+      original : $14AC 90 03    BCC $14B1
+      generated: $13B5 B0 0C    BCS $13C3
+      source   : Statement if samples/toolkit/modern/PMG.ACT:301:3 | IF n<4 THEN | source 5372..5415 code $13B0-$13CB
+    PMHit+$001A #0011
+      original : $14AE 4C BD 14 JMP $14BD
+      generated: $13B7 18       CLC
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:302:5 | n==+4 | source 5388..5393 code $13B7-$13BF
+    PMHit+$001D #0012
+      original : $14B1 18       CLC
+      generated: $13B8 AD 9D 13 LDA $139D
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:302:5 | n==+4 | source 5388..5393 code $13B7-$13BF
+    PMHit+$001E #0013
+      original : $14B2 AD 94 14 LDA $1494 ; n $1494
+      generated: $13BB 69 04    ADC #$04
+      orig operand: n $1494
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:302:5 | n==+4 | source 5388..5393 code $13B7-$13BF
+    PMHit+$0021 #0014
+      original : $14B5 69 04    ADC #$04
+      generated: $13BD 8D 9D 13 STA $139D
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:302:5 | n==+4 | source 5388..5393 code $13B7-$13BF
+    PMHit+$0023 #0015
+      original : $14B7 8D 94 14 STA $1494 ; n $1494
+      generated: $13C0 4C CC 13 JMP $13CC
+      orig operand: n $1494
+      source   : Statement if samples/toolkit/modern/PMG.ACT:301:3 | IF n<4 THEN | source 5372..5415 code $13B0-$13CB
+    PMHit+$0026 #0016
+      original : $14BA 4C C6 14 JMP $14C6
+      generated: $13C3 38       SEC
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:304:5 | n==-4 | source 5405..5410 code $13C3-$13CB
+    PMHit+$0029 #0017
+      original : $14BD 38       SEC
+      generated: $13C4 AD 9D 13 LDA $139D
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:304:5 | n==-4 | source 5405..5410 code $13C3-$13CB
+    PMHit+$002A #0018
+      original : $14BE AD 94 14 LDA $1494 ; n $1494
+      generated: $13C7 E9 04    SBC #$04
+      orig operand: n $1494
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:304:5 | n==-4 | source 5405..5410 code $13C3-$13CB
+    PMHit+$002D #0019
+      original : $14C1 E9 04    SBC #$04
+      generated: $13C9 8D 9D 13 STA $139D
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:304:5 | n==-4 | source 5405..5410 code $13C3-$13CB
+    PMHit+$002F #0020
+      original : $14C3 8D 94 14 STA $1494 ; n $1494
+      generated: $13CC AD 9E 13 LDA $139E
+      orig operand: n $1494
+      source   : Statement if samples/toolkit/modern/PMG.ACT:306:3 | IF cnum<4 THEN | source 5418..5532 code $13CC-$140C
+    PMHit+$0032 #0021
+      original : $14C6 AD 95 14 LDA $1495 ; cnum $1495
+      generated: $13CF C9 04    CMP #$04
+      orig operand: cnum $1495
+      source   : Statement if samples/toolkit/modern/PMG.ACT:306:3 | IF cnum<4 THEN | source 5418..5532 code $13CC-$140C
+    PMHit+$0035 #0022
+      original : $14C9 C9 04    CMP #$04
+      generated: $13D1 B0 19    BCS $13EC
+      source   : Statement if samples/toolkit/modern/PMG.ACT:306:3 | IF cnum<4 THEN | source 5418..5532 code $13CC-$140C
+    PMHit+$0037 #0023
+      original : $14CB 90 03    BCC $14D0
+      generated: $13D3 AE 9D 13 LDX $139D
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$0039 #0024
+      original : $14CD 4C EC 14 JMP $14EC
+      generated: $13D6 AD 9E 13 LDA $139E
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$003C #0025
+      original : $14D0 AD 95 14 LDA $1495 ; cnum $1495
+      generated: $13D9 85 84    STA $84
+      orig operand: cnum $1495
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$003F #0026
+      original : $14D3 85 84    STA $84
+      generated: $13DB BD 08 D0 LDA $D008,X
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$0041 #0027
+      original : $14D5 AE 94 14 LDX $1494 ; n $1494
+      generated: $13DE A2 00    LDX #$00
+      orig operand: n $1494
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$0044 #0028
+      original : $14D8 BD 08 D0 LDA $D008,X ; PM_Width $D008
+      generated: $13E0 20 E6 A0 JSR $A0E6
+      orig operand: PM_Width $D008
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$0047 #0029
+      original : $14DB A2 00    LDX #$00
+      generated: $13E3 85 AC    STA $AC
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$0049 #0030
+      original : $14DD 20 E6 A0 JSR $A0E6
+      generated: $13E5 A5 AC    LDA $AC
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$004C #0031
+      original : $14E0 85 AE    STA $AE
+      generated: $13E7 29 01    AND #$01
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$004E #0032
+      original : $14E2 A5 AE    LDA $AE
+      generated: $13E9 85 A0    STA $A0
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$0050 #0033
+      original : $14E4 29 01    AND #$01
+      generated: $13EB 60       RTS
+      source   : Statement return samples/toolkit/modern/PMG.ACT:307:13 | RETURN ((pmtop(n) RSH cnum) & 1) | source 5445..5468 code $13D3-$13EB
+    PMHit+$0052 #0034
+      original : $14E6 85 A0    STA $A0
+      generated: $13EC AD 9E 13 LDA $139E
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:309:5 | cnum==&3 | source 5481..5489 code $13EC-$13F3
+    PMHit+$0054 #0035
+      original : $14E8 60       RTS
+      generated: $13EF 29 03    AND #$03
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:309:5 | cnum==&3 | source 5481..5489 code $13EC-$13F3
+    PMHit+$0055 #0036
+      original : $14E9 4C 0D 15 JMP $150D
+      generated: $13F1 8D 9E 13 STA $139E
+      source   : Statement compound assignment samples/toolkit/modern/PMG.ACT:309:5 | cnum==&3 | source 5481..5489 code $13EC-$13F3
+    PMHit+$0058 #0037
+      original : $14EC AD 95 14 LDA $1495 ; cnum $1495
+      generated: $13F4 AE 9D 13 LDX $139D
+      orig operand: cnum $1495
+      source   : Statement return samples/toolkit/modern/PMG.ACT:310:13 | RETURN ((pmtopf(n) RSH cnum) & 1) | source 5502..5526 code $13F4-$140C
+    PMHit+$005B #0038
+      original : $14EF 29 03    AND #$03
+      generated: $13F7 AD 9E 13 LDA $139E
+      source   : Statement return samples/toolkit/modern/PMG.ACT:310:13 | RETURN ((pmtopf(n) RSH cnum) & 1) | source 5502..5526 code $13F4-$140C
+    PMHit+$005D #0039
+      original : $14F1 8D 95 14 STA $1495 ; cnum $1495
+      generated: $13FA 85 84    STA $84
+      orig operand: cnum $1495
+      source   : Statement return samples/toolkit/modern/PMG.ACT:310:13 | RETURN ((pmtopf(n) RSH cnum) & 1) | source 5502..5526 code $13F4-$140C
+    PMHit+$0060 #0040
+      original : $14F4 AD 95 14 LDA $1495 ; cnum $1495
+      generated: $13FC BD 00 D0 LDA $D000,X
+      orig operand: cnum $1495
+      source   : Statement return samples/toolkit/modern/PMG.ACT:310:13 | RETURN ((pmtopf(n) RSH cnum) & 1) | source 5502..5526 code $13F4-$140C
+    PMHit+$0063 #0041
+      original : $14F7 85 84    STA $84
+      generated: $13FF A2 00    LDX #$00
+      source   : Statement return samples/toolkit/modern/PMG.ACT:310:13 | RETURN ((pmtopf(n) RSH cnum) & 1) | source 5502..5526 code $13F4-$140C
+    PMHit+$0065 #0042
+      original : $14F9 AE 94 14 LDX $1494 ; n $1494
+      generated: $1401 20 E6 A0 JSR $A0E6
+      orig operand: n $1494
+      source   : Statement return samples/toolkit/modern/PMG.ACT:310:13 | RETURN ((pmtopf(n) RSH cnum) & 1) | source 5502..5526 code $13F4-$140C
+    PMHit+$0068 #0043
+      original : $14FC BD 00 D0 LDA $D000,X ; PM_Hpos $D000
+      generated: $1404 85 AC    STA $AC
+      orig operand: PM_Hpos $D000
+      source   : Statement return samples/toolkit/modern/PMG.ACT:310:13 | RETURN ((pmtopf(n) RSH cnum) & 1) | source 5502..5526 code $13F4-$140C
+  Graphics                 len 52 -> 45 (-7)  addr $1512 -> $1412
+    Graphics+$0001 #0001
+      original : $1513 4C 16 15 JMP $1516
+      generated: $1413 02       .BYTE $02
+      orig owner: Graphics $1513
+      source   : StorageInitializer modern hidden string literal samples/toolkit/modern/PMG.ACT:323:3 | Open(6,"S:",(mode&$F0)!$1C,mode) | source 5766..5798 code $1413-$1415
+    Graphics+$0004 #0002
+      original : $1516 8D 12 15 STA $1512 ; mode $1512
+      generated: $1414 53       .BYTE $53
+      orig operand: mode $1512
+      source   : StorageInitializer modern hidden string literal samples/toolkit/modern/PMG.ACT:323:3 | Open(6,"S:",(mode&$F0)!$1C,mode) | source 5766..5798 code $1413-$1415
+    Graphics+$0007 #0003
+      original : $1519 A9 00    LDA #$00
+      generated: $1415 3A       .BYTE $3A
+      source   : StorageInitializer modern hidden string literal samples/toolkit/modern/PMG.ACT:323:3 | Open(6,"S:",(mode&$F0)!$1C,mode) | source 5766..5798 code $1413-$1415
+    Graphics+$0009 #0004
+      original : $151B 20 44 0E JSR $0E44 ; PMGraphics $0E44
+      generated: $1416 4C 19 14 JMP $1419
+      orig operand: PMGraphics $0E44
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$000C #0005
+      original : $151E A9 06    LDA #$06
+      generated: $1419 8D 12 14 STA $1412
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$000E #0006
+      original : $1520 20 79 A4 JSR $A479
+      generated: $141C A9 00    LDA #$00
+      source   : Statement call samples/toolkit/modern/PMG.ACT:321:3 | PMGraphics(0) | source 5739..5752 code $141C-$1420
+    Graphics+$0011 #0007
+      original : $1523 4C 29 15 JMP $1529
+      generated: $141E 20 42 0E JSR $0E42
+      source   : Statement call samples/toolkit/modern/PMG.ACT:321:3 | PMGraphics(0) | source 5739..5752 code $141C-$1420
+    Graphics+$0014 #0008
+      original : $1526 02       .BYTE $02
+      generated: $1421 A9 06    LDA #$06
+      source   : Statement call samples/toolkit/modern/PMG.ACT:322:3 | Close(6) | source 5755..5763 code $1421-$1425
+    Graphics+$0015 #0009
+      original : $1527 53       .BYTE $53
+      generated: $1423 20 79 A4 JSR $A479
+      source   : Statement call samples/toolkit/modern/PMG.ACT:322:3 | Close(6) | source 5755..5763 code $1421-$1425
+    Graphics+$0016 #0010
+      original : $1528 3A       .BYTE $3A
+      generated: $1426 AD 12 14 LDA $1412
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$0017 #0011
+      original : $1529 AD 12 15 LDA $1512 ; mode $1512
+      generated: $1429 29 F0    AND #$F0
+      orig operand: mode $1512
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$001A #0012
+      original : $152C 29 F0    AND #$F0
+      generated: $142B 85 AC    STA $AC
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$001C #0013
+      original : $152E 85 AE    STA $AE
+      generated: $142D 49 1C    EOR #$1C
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$001E #0014
+      original : $1530 A5 AE    LDA $AE
+      generated: $142F 85 A3    STA $A3
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$0020 #0015
+      original : $1532 49 1C    EOR #$1C
+      generated: $1431 AD 12 14 LDA $1412
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$0022 #0016
+      original : $1534 85 A3    STA $A3
+      generated: $1434 85 A4    STA $A4
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$0024 #0017
+      original : $1536 AD 12 15 LDA $1512 ; mode $1512
+      generated: $1436 A0 14    LDY #$14
+      orig operand: mode $1512
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$0027 #0018
+      original : $1539 85 A4    STA $A4
+      generated: $1438 A2 13    LDX #$13
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$0029 #0019
+      original : $153B A0 15    LDY #$15
+      generated: $143A A9 06    LDA #$06
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$002B #0020
+      original : $153D A2 26    LDX #$26
+      generated: $143C 4C 44 A4 JMP $A444
+      source   : Routine Graphics samples/toolkit/modern/PMG.ACT:320:1 | PROC Graphics(BYTE mode) | source 5712..5805 code $1412-$143E
+    Graphics+$002D #0021
+      original : $153F A9 06    LDA #$06
+      generated: <missing>
+    Graphics+$002F #0022
+      original : $1541 20 44 A4 JSR $A444
+      generated: <missing>
+    Graphics+$0032 #0023
+      original : $1544 60       RTS
+      generated: <missing>
+    Graphics+$0033 #0024
+      original : $1545 60       RTS
+      generated: <missing>
+
+== bytes: original:samples/toolkit/survey/outputs/vm/PMG.COM vs modern ==
+exact: false  sizes: 1866 vs 1604
+first diffs:
+  @0004: $45 -> $3F
+  @0005: $15 -> $14
+  @0033: $00 -> $F8
+  @0035: $F8 -> $FC
+  @0036: $00 -> $32
+  @0037: $FC -> $0E
+  @0038: $34 -> $00
+  @0039: $0E -> $00
+  @003B: $00 -> $08
+  @003D: $08 -> $04
+  @003E: $00 -> $3A
+  @003F: $04 -> $0E
+  @0040: $3C -> $4C
+  @0041: $0E -> $45
+  @0042: $4C -> $0E
+  @0043: $47 -> $8D
+  @0044: $0E -> $2F
+  @0045: $8D -> $0E
+  @0046: $2F -> $A9
+  @0047: $0E -> $02
+  @0048: $A9 -> $CD
+  @0049: $02 -> $2F
+  @004A: $CD -> $0E
+  @004B: $2F -> $B0
+  @004C: $0E -> $05
+  @004D: $90 -> $A0
+  @004E: $03 -> $00
+  @004F: $4C -> $8C
+  @0050: $59 -> $2F
+  @0052: $A0 -> $A9
+  @0054: $8C -> $85
+  @0055: $2F -> $A3
+  @0056: $0E -> $A0
+  @0057: $A9 -> $08
+  @0058: $00 -> $A2
+  @0059: $85 -> $D0
+  @005A: $A3 -> $20
+  @005B: $A0 -> $8A
+  @005C: $08 -> $A7
+  @005D: $A2 -> $A9
+
+== instructions: original:samples/toolkit/survey/outputs/vm/PMG.COM vs modern ==
+counts: 994 vs 739
+  #0039
+    left : $0E35 00       BRK
+    right: $0E35 F8       SED
+  #0041
+    left : $0E37 F8       SED
+    right: $0E37 FC       .BYTE $FC
+  #0042
+    left : $0E38 00       BRK
+    right: $0E38 32       .BYTE $32
+  #0043
+    left : $0E39 FC       .BYTE $FC
+    right: $0E39 0E 00 00 ASL $0000
+  #0044
+    left : $0E3A 34       .BYTE $34
+    right: $0E3C 00       BRK
+  #0045
+    left : $0E3B 0E 00 00 ASL $0000
+    right: $0E3D 08       PHP
+  #0047
+    left : $0E3F 08       PHP
+    right: $0E3F 04       .BYTE $04
+  #0048
+    left : $0E40 00       BRK
+    right: $0E40 3A       .BYTE $3A
+  #0049
+    left : $0E41 04       .BYTE $04
+    right: $0E41 0E 4C 45 ASL $454C
+  #0050
+    left : $0E42 3C       .BYTE $3C
+    right: $0E44 0E 8D 2F ASL $2F8D
+  #0051
+    left : $0E43 0E 4C 47 ASL $474C
+    right: $0E47 0E A9 02 ASL $02A9
+  #0052
+    left : $0E46 0E 8D 2F ASL $2F8D
+    right: $0E4A CD 2F 0E CMP $0E2F
+  #0053
+    left : $0E49 0E A9 02 ASL $02A9
+    right: $0E4D B0 05    BCS $0E54
+  #0054
+    left : $0E4C CD 2F 0E CMP $0E2F
+    right: $0E4F A0 00    LDY #$00
+  #0055
+    left : $0E4F 90 03    BCC $0E54
+    right: $0E51 8C 2F 0E STY $0E2F
+  #0056
+    left : $0E51 4C 59 0E JMP $0E59
+    right: $0E54 A9 00    LDA #$00
+  #0057
+    left : $0E54 A0 00    LDY #$00
+    right: $0E56 85 A3    STA $A3
+  #0058
+    left : $0E56 8C 2F 0E STY $0E2F
+    right: $0E58 A0 08    LDY #$08
+  #0059
+    left : $0E59 A9 00    LDA #$00
+    right: $0E5A A2 D0    LDX #$D0
+  #0060
+    left : $0E5B 85 A3    STA $A3
+    right: $0E5C 20 8A A7 JSR $A78A
+  #0061
+    left : $0E5D A0 08    LDY #$08
+    right: $0E5F A9 00    LDA #$00
+  #0062
+    left : $0E5F A2 D0    LDX #$D0
+    right: $0E61 85 A3    STA $A3
+  #0063
+    left : $0E61 A9 00    LDA #$00
+    right: $0E63 A0 08    LDY #$08
+  #0064
+    left : $0E63 20 8A A7 JSR $A78A
+    right: $0E65 A2 0E    LDX #$0E
+  #0065
+    left : $0E66 A9 00    LDA #$00
+    right: $0E67 A9 0B    LDA #$0B
+  #0066
+    left : $0E68 85 A3    STA $A3
+    right: $0E69 20 8A A7 JSR $A78A
+  #0067
+    left : $0E6A A0 08    LDY #$08
+    right: $0E6C A9 00    LDA #$00
+  #0068
+    left : $0E6C A2 0E    LDX #$0E
+    right: $0E6E 85 A3    STA $A3
+  #0069
+    left : $0E6E A9 0B    LDA #$0B
+    right: $0E70 A0 08    LDY #$08
+  #0070
+    left : $0E70 20 8A A7 JSR $A78A
+    right: $0E72 A2 0E    LDX #$0E
+  #0071
+    left : $0E73 A9 00    LDA #$00
+    right: $0E74 A9 13    LDA #$13
+  #0072
+    left : $0E75 85 A3    STA $A3
+    right: $0E76 20 8A A7 JSR $A78A
+  #0073
+    left : $0E77 A0 08    LDY #$08
+    right: $0E79 A9 00    LDA #$00
+  #0074
+    left : $0E79 A2 0E    LDX #$0E
+    right: $0E7B 85 A3    STA $A3
+  #0075
+    left : $0E7B A9 13    LDA #$13
+    right: $0E7D A0 05    LDY #$05
+  #0076
+    left : $0E7D 20 8A A7 JSR $A78A
+    right: $0E7F A2 D0    LDX #$D0
+  #0077
+    left : $0E80 A9 00    LDA #$00
+    right: $0E81 A9 08    LDA #$08
+  #0078
+    left : $0E82 85 A3    STA $A3
+    right: $0E83 20 8A A7 JSR $A78A
+  #0079
+    left : $0E84 A0 05    LDY #$05
+    right: $0E86 A9 00    LDA #$00
+  #0080
+    left : $0E86 A2 D0    LDX #$D0
+    right: $0E88 85 A3    STA $A3

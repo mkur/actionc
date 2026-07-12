@@ -1,0 +1,6 @@
+; Original compiler error 13: missing FI.
+
+PROC Main()
+  IF 1 THEN
+    RETURN
+RETURN

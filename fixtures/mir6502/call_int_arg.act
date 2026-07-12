@@ -1,0 +1,6 @@
+PROC Take(INT x)
+RETURN
+
+PROC Main()
+  Take($0102)
+RETURN

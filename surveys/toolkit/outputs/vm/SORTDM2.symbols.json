@@ -1,0 +1,41 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$FB","name_addr":"$94F5","name":"AddList","vtype":"$C0","address":"$343F","class":"PROC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$6F","name_addr":"$941E","name":"BArray","vtype":"$92","address":"$3002","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$D4","name_addr":"$9453","name":"BAscend","vtype":"$C2","address":"$3054","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$ED","name_addr":"$9444","name":"BDescend","vtype":"$C2","address":"$3010","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$0C","name_addr":"$94B8","name":"BSwap","vtype":"$C0","address":"$32B5","class":"PROC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$D0","name_addr":"$9432","name":"CArray","vtype":"$94","address":"$3006","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$97","name_addr":"$9470","name":"CAscend","vtype":"$C2","address":"$30E9","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$73","name_addr":"$9461","name":"CDescend","vtype":"$C2","address":"$3098","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$55","name_addr":"$94DC","name":"Compare","vtype":"$C2","address":"$3425","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$3A","name_addr":"$94C4","name":"CSwap","vtype":"$C0","address":"$3319","class":"PROC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$36","name_addr":"$9503","name":"GetFirst","vtype":"$C0","address":"$34CB","class":"PROC","numargs":2,"arg_types_raw":["$14","$14"],"args":["CARD ARRAY","CARD ARRAY"]},
+    {"scope":"global","slot":"$0E","name_addr":"$9428","name":"IArray","vtype":"$93","address":"$3004","class":"INT ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$13","name_addr":"$948D","name":"IAscend","vtype":"$C2","address":"$318B","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$6A","name_addr":"$947E","name":"IDescend","vtype":"$C2","address":"$313A","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$5B","name_addr":"$94D0","name":"ISwap","vtype":"$C0","address":"$33A0","class":"PROC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$20","name_addr":"$943C","name":"List","vtype":"$94","address":"$3008","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$9B","name_addr":"$9412","name":"ListSize","vtype":"$8C","address":"$3000","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$A6","name_addr":"$9512","name":"Partition","vtype":"$C4","address":"$3556","class":"CARD FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$B9","name_addr":"$9522","name":"QuickSort","vtype":"$C0","address":"$36DE","class":"PROC","numargs":1,"arg_types_raw":["$0C"],"args":["CARD"]},
+    {"scope":"global","slot":"$8B","name_addr":"$94AA","name":"SAscend","vtype":"$C2","address":"$3248","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$5A","name_addr":"$949B","name":"SDescend","vtype":"$C2","address":"$31DC","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]},
+    {"scope":"global","slot":"$1D","name_addr":"$9531","name":"SortB","vtype":"$C0","address":"$37E9","class":"PROC","numargs":3,"arg_types_raw":["$12","$0C","$8A"],"args":["BYTE ARRAY","CARD","BYTE"]},
+    {"scope":"global","slot":"$1E","name_addr":"$953E","name":"SortC","vtype":"$C0","address":"$383C","class":"PROC","numargs":3,"arg_types_raw":["$14","$0C","$8A"],"args":["CARD ARRAY","CARD","BYTE"]},
+    {"scope":"global","slot":"$FE","name_addr":"$9565","name":"SortDirectory","vtype":"$C0","address":"$393C","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$24","name_addr":"$954B","name":"SortI","vtype":"$C0","address":"$388F","class":"PROC","numargs":3,"arg_types_raw":["$13","$0C","$8A"],"args":["INT ARRAY","CARD","BYTE"]},
+    {"scope":"global","slot":"$DB","name_addr":"$9400","name":"SortMax","vtype":"$1B","address":null,"class":"DEFINE `10000`","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$2E","name_addr":"$9558","name":"SortS","vtype":"$C0","address":"$38E2","class":"PROC","numargs":3,"arg_types_raw":["$14","$0C","$8A"],"args":["CARD ARRAY","CARD","BYTE"]},
+    {"scope":"global","slot":"$D7","name_addr":"$94EA","name":"Swap","vtype":"$C0","address":"$3432","class":"PROC","numargs":2,"arg_types_raw":["$0C","$0C"],"args":["CARD","CARD"]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$21","name_addr":"$9597","name":"buffer","vtype":"$92","address":"$3930","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$22","name_addr":"$95AC","name":"curPtr","vtype":"$92","address":"$3938","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$F7","name_addr":"$95C2","name":"index","vtype":"$8A","address":"$393B","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$B2","name_addr":"$95B6","name":"nStrings","vtype":"$8A","address":"$393A","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$2E","name_addr":"$95A1","name":"strings","vtype":"$94","address":"$3934","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

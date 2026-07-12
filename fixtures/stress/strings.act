@@ -1,0 +1,91 @@
+; String stress program.
+;
+; This intentionally combines:
+; - global and local STRING/CHAR ARRAY storage
+; - length-byte reads and writes
+; - string literal arguments
+; - string/byte-array parameter indexing
+; - dynamic indexes in loops
+; - indexed mutation inside nested control flow
+
+SET $491=$3000
+SET $E=$3000
+
+DEFINE STRING="CHAR ARRAY"
+
+MODULE
+
+STRING title(0)="ACTION"
+STRING temp(0)="------"
+CHAR ARRAY raw(8)="ABCDEFGH"
+BYTE ARRAY mirror(12)
+
+BYTE i, j, total, marker
+
+BYTE FUNC At(STRING s, BYTE pos)
+RETURN(s(pos))
+
+PROC CopyString(STRING dst, src)
+  BYTE n
+
+  n = 0
+  WHILE n <= src(0)
+  DO
+    dst(n) = src(n)
+    n ==+ 1
+  OD
+RETURN
+
+PROC Mix(STRING s, BYTE ARRAY out)
+  BYTE n, limit
+
+  limit = s(0)
+  n = 1
+
+  WHILE n <= limit
+  DO
+    out(n) = s(n)
+    IF out(n) = 'A THEN
+      marker = n
+    ELSEIF out(n) = 'Z THEN
+      marker = 0
+    FI
+    n ==+ 1
+  OD
+RETURN
+
+PROC LocalStrings(BYTE seed)
+  STRING local(0)="local"
+  CHAR ARRAY pad(6)="......"
+  BYTE n
+
+  n = 1
+  local(n) = At(title, seed)
+  pad(n) = local(n)
+
+  DO
+    pad(n) ==! $20
+    n ==+ 1
+  UNTIL n > local(0)
+  OD
+
+  mirror(seed) = pad(seed)
+RETURN
+
+PROC Main()
+  i = 1
+  j = 3
+
+  CopyString(temp, title)
+  Mix(temp, mirror)
+
+  title(j) = 'Z
+  total = At(title, j)
+  mirror(0) = title(0)
+  mirror(i) = At("HI", i)
+  mirror(j) = raw(j)
+
+  IF title(j) = 'Z THEN
+    LocalStrings(i)
+  FI
+RETURN

@@ -1,0 +1,143 @@
+3000  00        .BYTE $00
+3001  00        .BYTE $00
+3002  00        .BYTE $00
+3003  00        .BYTE $00
+3004  00        .BYTE $00
+3005  00        .BYTE $00
+3006  01        .BYTE $01
+3007  02        .BYTE $02
+3008  03        .BYTE $03
+3009  04        .BYTE $04
+300A  06        .BYTE $06
+300B  30 0A     BMI $3017
+300D  00        .BYTE $00
+300E  14        .BYTE $14
+300F  00        .BYTE $00
+3010  1E        .BYTE $1E
+3011  00        .BYTE $00
+3012  28        PLP
+3013  00        .BYTE $00
+3014  0C        .BYTE $0C
+3015  30 F8     BMI $300F
+3017  30 08     BMI $3021
+3019  00        .BYTE $00
+301A  4C 1D 30  JMP $301D
+301D  A0 01     LDY #$01
+301F  8C 00 30  STY $3000
+3022  AD 16 30  LDA $3016
+3025  85 AE     STA $AE
+3027  AD 17 30  LDA $3017
+302A  85 AF     STA $AF
+302C  A9 FF     LDA #$FF
+302E  91 AE     STA ($AE),Y
+3030  A9 FF     LDA #$FF
+3032  88        DEY
+3033  91 AE     STA ($AE),Y
+3035  A9 01     LDA #$01
+3037  0A        ASL A
+3038  08        PHP
+3039  18        CLC
+303A  6D 16 30  ADC $3016
+303D  85 AE     STA $AE
+303F  A9 00     LDA #$00
+3041  2A        ROL A
+3042  28        PLP
+3043  6D 17 30  ADC $3017
+3046  85 AF     STA $AF
+3048  A9 FF     LDA #$FF
+304A  C8        INY
+304B  91 AE     STA ($AE),Y
+304D  A9 FE     LDA #$FE
+304F  88        DEY
+3050  91 AE     STA ($AE),Y
+3052  A9 02     LDA #$02
+3054  0A        ASL A
+3055  08        PHP
+3056  18        CLC
+3057  6D 16 30  ADC $3016
+305A  85 AE     STA $AE
+305C  A9 00     LDA #$00
+305E  2A        ROL A
+305F  28        PLP
+3060  6D 17 30  ADC $3017
+3063  85 AF     STA $AF
+3065  A9 FF     LDA #$FF
+3067  C8        INY
+3068  91 AE     STA ($AE),Y
+306A  A9 FD     LDA #$FD
+306C  88        DEY
+306D  91 AE     STA ($AE),Y
+306F  A9 03     LDA #$03
+3071  0A        ASL A
+3072  08        PHP
+3073  18        CLC
+3074  6D 16 30  ADC $3016
+3077  85 AE     STA $AE
+3079  A9 00     LDA #$00
+307B  2A        ROL A
+307C  28        PLP
+307D  6D 17 30  ADC $3017
+3080  85 AF     STA $AF
+3082  A9 FF     LDA #$FF
+3084  C8        INY
+3085  91 AE     STA ($AE),Y
+3087  A9 FC     LDA #$FC
+3089  88        DEY
+308A  91 AE     STA ($AE),Y
+308C  18        CLC
+308D  AD 00 30  LDA $3000
+3090  69 01     ADC #$01
+3092  85 AE     STA $AE
+3094  18        CLC
+3095  AD 0A 30  LDA $300A
+3098  65 AE     ADC $AE
+309A  85 AC     STA $AC
+309C  AD 0B 30  LDA $300B
+309F  69 00     ADC #$00
+30A1  85 AD     STA $AD
+30A3  B1 AC     LDA ($AC),Y
+30A5  8D 01 30  STA $3001
+30A8  18        CLC
+30A9  AD 00 30  LDA $3000
+30AC  69 01     ADC #$01
+30AE  85 AE     STA $AE
+30B0  A5 AE     LDA $AE
+30B2  0A        ASL A
+30B3  08        PHP
+30B4  18        CLC
+30B5  6D 14 30  ADC $3014
+30B8  85 AC     STA $AC
+30BA  A9 00     LDA #$00
+30BC  2A        ROL A
+30BD  28        PLP
+30BE  6D 15 30  ADC $3015
+30C1  85 AD     STA $AD
+30C3  C8        INY
+30C4  B1 AC     LDA ($AC),Y
+30C6  8D 03 30  STA $3003
+30C9  88        DEY
+30CA  B1 AC     LDA ($AC),Y
+30CC  8D 02 30  STA $3002
+30CF  18        CLC
+30D0  AD 00 30  LDA $3000
+30D3  69 01     ADC #$01
+30D5  85 AE     STA $AE
+30D7  A5 AE     LDA $AE
+30D9  0A        ASL A
+30DA  08        PHP
+30DB  18        CLC
+30DC  6D 16 30  ADC $3016
+30DF  85 AC     STA $AC
+30E1  A9 00     LDA #$00
+30E3  2A        ROL A
+30E4  28        PLP
+30E5  6D 17 30  ADC $3017
+30E8  85 AD     STA $AD
+30EA  C8        INY
+30EB  B1 AC     LDA ($AC),Y
+30ED  8D 05 30  STA $3005
+30F0  88        DEY
+30F1  B1 AC     LDA ($AC),Y
+30F3  8D 04 30  STA $3004
+30F6  60        RTS
+30F7  60        RTS

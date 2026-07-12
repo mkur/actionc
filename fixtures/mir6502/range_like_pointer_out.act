@@ -1,0 +1,31 @@
+BYTE choice
+CHAR answer
+
+CHAR FUNC RangeLike(CHAR ARRAY keys, BYTE max, BYTE POINTER c, CHAR ch)
+  BYTE i, len, done
+
+  len = keys(0)
+  done = 0
+
+  FOR i = 1 TO len STEP 2 DO
+    IF keys(i) = ch THEN
+      IF c^ # 0 THEN
+        c^ ==- 1
+      ELSE
+        done = 1
+      FI
+    ELSEIF keys(i + 1) = ch THEN
+      IF c^ < max THEN
+        c^ ==+ 1
+      ELSE
+        done = 1
+      FI
+    FI
+  OD
+
+RETURN(ch)
+
+PROC Main()
+  choice = 1
+  answer = RangeLike("+*LR", 3, @choice, '*)
+RETURN

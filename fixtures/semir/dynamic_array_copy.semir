@@ -1,0 +1,17 @@
+program modules=1
+  module #0 items=6
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte src#74/scope1:Array:Byte array Byte ARRAY(4)->Byte POINTER/Array/Global
+      init raw([ 1 2 3 4 ]):<error>:Unknown:eval5:facts=error
+      length 4:Byte:Value:eval4:facts=w1,Unsigned
+    decl Byte dst#75/scope1:Array:Byte array Byte ARRAY(4)->Byte POINTER/Array/Global
+      length 4:Byte:Value:eval6:facts=w1,Unsigned
+    decl Byte i#76/scope1:Var:Byte scalar
+    routine PROC Main#77/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign i:Byte:facts=w1,Unsigned = 2:Byte:Value:eval7:facts=w1,Unsigned
+        assign array_decay/Global dst:Byte:facts=w1,Unsigned:Byte POINTER:Value:eval8:facts=w2,ptr,to=Byte,pointee_w1(i:Byte:LValue:eval9:facts=w1,Unsigned):Byte:facts=w1,Unsigned = array_decay/Global src:Byte:facts=w1,Unsigned:Byte POINTER:Value:eval10:facts=w2,ptr,to=Byte,pointee_w1(i:Byte:LValue:eval11:facts=w1,Unsigned):Byte:facts=w1,Unsigned:Byte:LValue:eval12:facts=w1,Unsigned
+        return

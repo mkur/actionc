@@ -1,0 +1,10 @@
+PROC Main()
+
+  BYTE krpdel=$2D9, keyrep=$2DA, shflok=$2BE
+
+  shflok = 64
+  krpdel = 14
+  keyrep = 3
+
+RETURN
+

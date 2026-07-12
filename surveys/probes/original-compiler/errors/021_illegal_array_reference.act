@@ -1,0 +1,7 @@
+; Original compiler error 21: illegal array reference.
+
+BYTE x
+
+PROC Main()
+  x=x(0)
+RETURN

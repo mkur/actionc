@@ -1,0 +1,10 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE g
+
+PROC Main(BYTE p)
+  BYTE l
+  l = p
+  g = l
+RETURN

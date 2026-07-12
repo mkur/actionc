@@ -1,0 +1,7 @@
+mir6502 program
+machine m0 items=["AB" 'C']
+
+routine r0 Main
+b0 bb0:
+  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  return

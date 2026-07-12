@@ -1,0 +1,6 @@
+PROC Take(BYTE a,b,c,d,e CARD f)
+RETURN
+
+PROC Main()
+  Take(1,2,3,4,5,$1234)
+RETURN

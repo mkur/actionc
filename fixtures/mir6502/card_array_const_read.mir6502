@@ -1,0 +1,10 @@
+mir6502 program
+global g0 words: word storage global+0 size=8 init zero_fill=8 section=global mutable=true
+global g1 x: word storage global+8
+
+routine r0 Main
+b0 bb0:
+  v0 =.w lea global g0+0
+  v1 =.w load global g0+2
+  store.w global g1+0, v1
+  return

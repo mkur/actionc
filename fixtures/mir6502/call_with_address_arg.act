@@ -1,0 +1,8 @@
+BYTE b
+
+PROC Take(BYTE POINTER p)
+RETURN
+
+PROC Main()
+  Take(@b)
+RETURN

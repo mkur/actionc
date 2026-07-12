@@ -1,0 +1,27 @@
+nir program
+global menu_ptr: Byte*
+static __nir_str_First_0:Char* bytes=[$03 $4F $4E $45] = "ONE"
+static __nir_str_Second_1:Char* bytes=[$03 $54 $57 $4F] = "TWO"
+
+routine Use params=[s] locals=[-]
+bb0:
+  return
+
+routine First params=[-] locals=[-]
+bb1:
+  call Use(&__nir_str_First_0)
+  return
+
+routine Menu params=[-] locals=[-]
+  note system-address *
+bb2:
+  machine items=3 effects=opaque
+  fallthrough
+
+routine Second params=[-] locals=[-]
+bb3:
+  call Use(&__nir_str_Second_1)
+  %t0:Proc = addr Menu
+  %t1:Byte* = cast Proc -> Byte* %t0
+  store menu_ptr = %t1
+  return

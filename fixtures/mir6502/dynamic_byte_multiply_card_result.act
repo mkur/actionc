@@ -1,0 +1,8 @@
+BYTE w,h
+CARD size
+
+PROC Main()
+  w = 3
+  h = 4
+  size = (w+1)*(h+1)
+RETURN

@@ -1,0 +1,10 @@
+TYPE Pair=[BYTE tag CARD word]
+
+Pair ARRAY recs(2)
+BYTE out
+CARD w
+
+PROC Main()
+  out = recs(1).tag
+  w = recs(1).word
+RETURN

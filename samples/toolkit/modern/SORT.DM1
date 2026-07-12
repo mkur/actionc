@@ -1,0 +1,39 @@
+INCLUDE "SORT.ACT"
+
+PROC Test()
+
+  BYTE LMargin=$52
+
+  CARD i
+
+  BYTE ARRAY d(500)
+
+  LMargin=0
+  FOR i=0 TO 499
+    DO
+    d(i)=Rand(0)
+    OD
+  PrintE("Unsorted")
+  FOR i=0 TO 499 STEP 10
+    DO
+    PrintF("%B %B %B %B %B ",d(i),d(i+1),d(i+2),d(i+3),d(i+4))
+    PrintF("%B %B %B %B %B%E",d(i+5),d(i+6),d(i+7),d(i+8),d(i+9))
+    OD
+  Printe("Ascending")
+  SortB(d,500,0)
+  FOR i=0 TO 499 STEP 10
+    DO
+    PrintF("%B %B %B %B %B ",d(i),d(i+1),d(i+2),d(i+3),d(i+4))
+    PrintF("%B %B %B %B %B%E",d(i+5),d(i+6),d(i+7),d(i+8),d(i+9))
+    OD
+  ;You can see how much slower this sorting
+  ;pass is due to the fact the data is
+  ;presorted.
+  Printe("Descending")
+  SortB(d,500,1)
+  FOR i=0 TO 499 STEP 10
+    DO
+    PrintF("%B %B %B %B %B ",d(i),d(i+1),d(i+2),d(i+3),d(i+4))
+    PrintF("%B %B %B %B %B%E",d(i+5),d(i+6),d(i+7),d(i+8),d(i+9))
+    OD
+RETURN

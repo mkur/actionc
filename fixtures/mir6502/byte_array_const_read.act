@@ -1,0 +1,6 @@
+BYTE ARRAY data(4)
+BYTE x
+
+PROC Main()
+  x = data(2)
+RETURN

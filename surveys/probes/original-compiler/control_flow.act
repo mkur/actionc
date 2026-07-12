@@ -1,0 +1,47 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE i, x
+CARD w
+INT n
+
+PROC Main()
+  IF x THEN
+    x = 1
+  ELSEIF x = 1 THEN
+    x = 3
+  ELSE
+    x = 2
+  FI
+
+  WHILE x < 4
+  DO
+    x ==+ 1
+  OD
+
+  DO
+    x ==+ 1
+  UNTIL x = 6
+  OD
+
+  WHILE x
+  DO
+    EXIT
+  OD
+
+  FOR i = 1 TO 3
+  DO
+    x ==+ 1
+  OD
+
+  FOR i = 3 TO 1 STEP -1
+  DO
+    x ==+ 1
+  OD
+
+  w = 12 * 34
+  n = -5
+RETURN

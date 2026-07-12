@@ -1,0 +1,10 @@
+BYTE POINTER p
+BYTE out
+
+PROC Main()
+  IF p THEN
+    out=1
+  ELSE
+    out=2
+  FI
+RETURN

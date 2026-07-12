@@ -1,0 +1,5 @@
+{
+  "snapshots": [
+    {"pc":"$A6DF","label":"stop","proc":"Abs","local_index":"$0C04","locals":[{"slot":"$4A","name_addr":"$9428","name":"n","vtype":"$8B","address":"$0E08","class":"INT","numargs":0,"arg_types_raw":[],"args":[]}]}
+  ]
+}

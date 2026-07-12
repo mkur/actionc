@@ -1,0 +1,35 @@
+program modules=1
+  module #0 items=7
+    set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
+    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    decl Byte bytes#74/scope1:Array:Byte array Byte ARRAY(4)->Byte POINTER/Array/Global
+      length 4:Byte:Value:eval4:facts=w1,Unsigned
+    decl Card POINTER words#75/scope1:Var:Card POINTER scalar
+    routine Card FUNC Pair#76/scope1:Func:Card
+      callable Card FUNC(Byte,Byte)
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      params:
+        Byte lo#77/scope2:Param:Byte Value
+        Byte hi#78/scope2:Param:Byte Value
+      body:
+        return (lo:Byte:LValue:eval5:facts=w1,Unsigned + (hi:Byte:LValue:eval6:facts=w1,Unsigned LSH 8:Byte:Value:eval7:facts=w1,Unsigned):Byte:Value:eval8:facts=w1,Unsigned):Byte:Value:eval9:facts=w1,Unsigned
+    routine PROC Store#79/scope1:Proc:?
+      callable PROC(Byte POINTER,Card POINTER,Byte)
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      params:
+        Byte POINTER p#80/scope3:Param:Byte POINTER Value
+        Card POINTER q#81/scope3:Param:Card POINTER Value
+        Byte i#82/scope3:Param:Byte Value
+      body:
+        assign q:Card POINTER:LValue:eval10:facts=w2,ptr,to=Card,pointee_w2(i:Byte:LValue:eval11:facts=w1,Unsigned):Card:facts=w2,Unsigned = user Pair(...):Card:Value:eval16:facts=w2,Unsigned
+        return
+    routine PROC Main#83/scope1:Proc:?
+      callable PROC()
+      flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
+      body:
+        assign words:Card POINTER:facts=w2,ptr,to=Card,pointee_w2 = $4000:Card:Value:eval17:facts=w2,Unsigned
+        call user Store -> ? callable=PROC(Byte POINTER,Card POINTER,Byte) effects=none
+          arg #0 array_decay/Global bytes:Byte:facts=w1,Unsigned:Byte POINTER:Value:eval18:facts=w2,ptr,to=Byte,pointee_w1
+          arg #1 words:Card POINTER:LValue:eval19:facts=w2,ptr,to=Card,pointee_w2
+          arg #2 1:Byte:Value:eval20:facts=w1,Unsigned
+        return

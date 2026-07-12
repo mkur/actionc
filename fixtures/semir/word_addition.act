@@ -1,0 +1,10 @@
+SET $491=$3000
+SET $E=$3000
+
+CARD a, b
+
+PROC Main()
+  a = $1234
+  b = $0101
+  a = a + b
+RETURN

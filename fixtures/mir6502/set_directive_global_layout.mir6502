@@ -1,0 +1,20 @@
+mir6502 program
+global g0 zx: byte absolute $005A
+global g1 zy: byte absolute $005B
+global g2 zdx: byte absolute $005C
+global g3 zdy: byte absolute $005D
+global g4 screen: word absolute $00E6
+global g5 scl: byte absolute $00E6
+global g6 sch: byte absolute $00E7
+global g7 allocp: word absolute $00E8
+global g8 drvdef_1: byte absolute $07CB size=8
+
+routine r0 <program>
+b0 bb1:
+  store.w $000E, #$00E6
+  store.w $000F, #$0000
+  unreachable
+
+routine r1 Main
+b0 bb0:
+  return

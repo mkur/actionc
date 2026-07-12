@@ -1,0 +1,841 @@
+; GEM by Joel Gluck
+; 4 players, joysticks
+; Copyright (c) 1984 OSS,Inc. and Joel Gluck
+
+DEFINE max="255"  ; max robots
+
+BYTE rb=[1], bl=[0], ms=[70],     
+     wa=[135], ex=[72], gm=[204],
+     nm=[77],
+     gemtaken, numbots, winner,
+     winning=[0],
+     playto=[10], ;winning score
+     maxbots=[5] ;max robots at end 
+
+INT ARRAY xd(max), yd(max),
+          bxd(max), byd(max)
+
+CARD ARRAY linept(24)
+
+BYTE ARRAY alive(max), 
+           expl(max),
+           fire(max),
+           image(max),
+           havegem(4),
+           charset(2048),
+           x(max), y(max),
+           bx(max), by(max),
+           score(4)=[0 0 0 0], 
+           xst(4)=[1 18 1 18],
+           yst(4)=[1 1 22 22],
+           xsc(4)=[1 17 1 17],
+           ysc(4)=[0 0 23 23]
+
+CARD cset
+
+PROC reset()
+   BYTE i
+
+   FOR i=0 TO 3
+   DO score(i)=0 OD
+
+RETURN
+
+PROC pauz(CARD p)
+   CARD loop
+
+   FOR loop = 0 TO p
+   DO
+   ;
+   OD
+
+RETURN
+
+INT FUNC sign(INT n)
+   
+   IF n<0
+   THEN RETURN(-1)
+   ELSEIF n>0
+       THEN RETURN(1)
+       ELSE RETURN(0)
+   FI
+
+     
+PROC gr1init()
+   CARD scrn, line
+  
+   Graphics(1+16)
+   scrn = Peek(88) 
+   scrn ==+ Peek(89) * 256
+   FOR line = 0 TO 23
+   DO
+   linept(line) = scrn + (20 * line)
+   OD
+
+RETURN
+
+PROC charpats()
+   BYTE i,b
+   BYTE ARRAY foo(104)= 
+   [0 0 0 0 0 0 0 0 
+
+    126 129 165 129 165 189 129 126
+    195 195 129 165 129 189 231 60
+    195 36 126 219 126 36 36 231
+    255 219 90 126 60 82 66 126
+    60 60 24 255 153 60 102 102
+
+    0 0 0 16 56 16 0 0
+
+    255 170 255 85 255 170 255 85
+
+    145 137 51 170 101 138 209 68
+    17 128 48 10 97 138 144 68
+    17 128 32 8 1 144 0 68
+    1 32 0 0 0 0 1 64
+    
+    0 56 124 254 254 124 56 16]
+
+    FOR i = 0 TO 103
+    DO
+    Poke(cset+i,foo(i))
+    OD
+
+    FOR i = 0 TO 80
+    DO
+    b = Peek(57344+i+128) 
+    Poke(cset+i+104,b)
+    OD
+
+RETURN
+                        
+PROC scrninit()
+   CARD i
+   
+   gr1init()
+
+   FOR i=0 TO 4
+   DO Setcolor(i,0,0) OD
+
+   cset = (charset + 1023) & $FC00
+
+   FOR i = 0 TO 1023 
+   DO Poke(cset+i,0) OD
+
+   Poke(756,cset/256)
+
+   charpats()
+
+   Setcolor(0,13,8)
+   Setcolor(1,0,15)
+   Setcolor(2,6,4)
+   Setcolor(3,9,6)
+
+RETURN
+
+ 
+PROC plot1(BYTE x,y,col)
+
+   BYTE POINTER pixel
+
+   pixel = linept(y) + x
+
+   pixel^ = col
+
+RETURN
+
+BYTE FUNC locate1(BYTE x,y)
+
+   BYTE POINTER pixel
+
+   pixel = (linept(y) + x)
+
+RETURN(pixel^)
+
+PROC newdir(BYTE r)
+   
+   DO
+   xd(r)=Rand(3) + -1
+
+   yd(r)=Rand(3) + -1
+   UNTIL xd(r)<>0 OR yd(r)<>0
+   OD
+ 
+RETURN
+
+PROC walls()
+   BYTE i,x,y
+
+   FOR i = 0 TO 19
+   DO
+   plot1(i,0,wa) plot1(i,23,wa)
+   OD
+
+   FOR i = 0 TO 23
+   DO
+   plot1(0,i,wa) plot1(19,i,wa)
+   OD
+
+   FOR i = 0 TO 30
+   DO
+   x = Rand(10)+5
+   y = Rand(12)+6 
+   plot1(x,y,wa)
+   OD
+   
+   FOR i=0 TO 3
+   DO
+   plot1(2,i,wa) plot1(17,23-i,wa)
+   plot1(i,21,wa) plot1(19-i,2,wa)
+   OD
+  
+RETURN
+
+PROC initsnd()
+   Poke($D20F,3) ; Damn OS Bug!
+   Poke($D208,0) ; cost me 5 minutes!
+RETURN
+
+
+PROC plotgem()
+   plot1(9,11,gm)
+   gemtaken=0
+RETURN
+   
+PROC rinit()
+   BYTE pix,r
+ 
+   walls()
+   plotgem()
+   initsnd()
+
+   FOR r = 0 TO numbots-1
+   DO
+      
+      IF r<4
+      THEN x(r)=xst(r) y(r)=yst(r)
+      ELSE DO 
+           x(r)=Rand(10)+5 y(r)=Rand(12)+6
+           pix = locate1(x(r),y(r))
+           
+              IF pix = bl OR pix=4+rb
+              THEN EXIT 
+              FI
+
+           OD
+      FI
+
+   alive(r)=1  
+   IF r<4 THEN image(r)=r+rb
+               havegem(r)=0
+          ELSE image(r)=4+rb
+   FI
+   expl(r)=0 fire(r)=0
+   bx(r)=0 by(r)=0
+   plot1(x(r),y(r),image(r))
+   newdir(r)
+   OD
+
+RETURN
+
+PROC scores()
+   BYTE i
+
+   winning = 0
+
+   FOR i = 0 TO 3
+   DO
+      IF score(i)>9
+      THEN plot1(xsc(i),ysc(i),score(i)/10+nm)
+      FI
+      
+      plot1(xsc(i)+1,ysc(i),(score(i) MOD 10)+nm)
+      
+      IF score(i)>score(winning)
+      THEN winning=i
+      FI   
+   OD
+
+RETURN
+
+PROC regen(BYTE r)
+   BYTE pix
+
+      IF r=0 THEN x(r)=1 y(r)=1
+      ELSEIF r=1 THEN x(r)=18 y(r)=1
+      ELSEIF r=2 THEN x(r)=1 y(r)=22
+      ELSEIF r=3 THEN x(r)=18 y(r)=22
+      ELSE x(r)=Rand(14)+3 y(r)=Rand(18)+3
+      FI
+
+      pix = locate1(x(r),y(r))
+      IF pix = bl 
+      THEN alive(r)=1 
+           plot1(x(r),y(r),image(r))
+      FI     
+
+RETURN
+   
+BYTE FUNC ahead(BYTE a,b INT ad,bd)
+   BYTE pix
+   pix = locate1(a+ad,b+bd)
+   
+   IF pix=bl OR (pix>=ex AND pix<=ex+4)
+   THEN RETURN(0)  ;blank
+   ELSEIF pix=wa OR (pix>=nm AND pix<=nm+9)
+   THEN RETURN(2)  ;wall or score
+   ELSEIF (pix>=rb AND pix<=rb+4)
+          OR (pix>=rb+192 AND pix<=rb+196) 
+   THEN RETURN(1)  ;robot
+   ELSEIF pix=ms
+   THEN RETURN(3)  ;missile
+   ELSEIF pix=gm
+   THEN RETURN(4)  ;gem
+   FI
+
+PrintF("%ECollision error: AHEAD%E")
+Break()
+
+RETURN(0) ;dummy
+
+PROC getdir(BYTE r)
+   BYTE ARRAY sdir(31)=
+        [1 1 1 1 1 1 1 1
+         1 1 2 2 2 0 2 1
+         1 1 0 2 0 0 0 1
+         1 1 1 2 1 0 1 1]
+   BYTE stk
+
+   stk = Stick(r)
+   
+   xd(r) = sdir(stk*2) + -1
+   yd(r) = sdir((stk*2)+1) + -1
+
+RETURN
+
+PROC explode(BYTE r)
+     CARD pix
+
+     IF expl(r)>1 
+     THEN plot1(x(r),y(r),(5-expl(r))+ex)
+          Sound(0,100,8,expl(r)*3)
+     ELSE plot1(x(r),y(r),bl)
+          Sound(0,0,0,0)
+     FI
+     
+     expl(r) ==- 1
+
+RETURN
+
+PROC cease_fire(BYTE r)
+
+   IF locate1(bx(r),by(r))=ms
+   THEN plot1(bx(r),by(r),bl)
+   FI
+
+   fire(r)=0
+   Sound(1,0,0,0)
+
+RETURN
+   
+PROC kill(BYTE r) 
+
+   alive(r) = 0 ; DEAD
+   expl(r) = 5
+   explode(r)
+   cease_fire(r)
+
+   IF r<4
+   THEN IF havegem(r)=1
+        THEN plotgem()
+             havegem(r)=0
+             Sound(2,0,0,0)
+             Sound(3,0,0,0)
+        FI
+   FI
+
+RETURN
+
+BYTE FUNC findr(BYTE a,b)  ;find robot
+   BYTE i
+
+   FOR i = 0 TO numbots-1
+   DO
+      IF x(i)=a AND y(i)=b AND alive(i)=1
+      THEN RETURN(i)
+      FI
+   OD
+
+   PrintF("%EError: findr x=%U y=%U%E", a, b)
+   Break()
+RETURN(0);
+
+PROC getgem(BYTE r)
+
+     havegem(r)=1
+
+     plot1(9,11,bl)
+
+RETURN
+
+PROC qwin(BYTE r)
+    
+     IF x(r)=xst(r) AND y(r)=yst(r)
+     THEN winner=r+1
+     FI
+
+RETURN
+
+PROC drawbot(BYTE r)
+
+   IF r>3
+   THEN plot1(x(r),y(r),image(r))
+   ELSEIF havegem(r)=1
+   THEN plot1(x(r),y(r),image(r)+192)
+        qwin(r)
+   ELSE plot1(x(r),y(r),image(r))
+   FI
+
+RETURN
+
+PROC move(BYTE r)
+   BYTE targ,a,b,pix
+
+   IF r<4 
+   THEN getdir(r) 
+        IF Strig(r)=0 
+        THEN IF fire(r)=0
+             THEN fire(r)=1
+             FI
+             RETURN
+        FI
+   ELSEIF Rand(0)<32 THEN newdir(r) 
+          IF gemtaken=1 AND fire(r)=0
+          THEN fire(r)=1
+          FI
+   FI
+
+   IF xd(r)=0 AND yd(r)=0
+   THEN drawbot(r)
+        RETURN
+   FI
+
+   pix=ahead(x(r),y(r),xd(r),yd(r))
+   IF pix=1
+   THEN kill(r)
+        a=x(r)+xd(r) b=y(r)+yd(r) 
+        targ = findr(a,b)
+        kill(targ)
+        RETURN
+   ELSEIF pix=2 OR (pix=4 AND r>3)
+   THEN IF r>3 
+        THEN newdir(r) 
+        FI
+        RETURN
+   ELSEIF pix=3
+   THEN kill(r)
+        RETURN
+   ELSEIF pix=4 AND r<4
+   THEN gemtaken=1
+        getgem(r)
+   FI
+
+   plot1(x(r),y(r),bl)
+   x(r) ==+ xd(r)
+   y(r) ==+ yd(r)
+   drawbot(r)
+
+RETURN
+
+
+PROC initfire(BYTE r)
+   BYTE targ,pix
+
+   IF xd(r)=0 AND yd(r)=0
+   THEN fire(r)=0 RETURN
+   FI
+
+   bx(r)=x(r) by(r)=y(r)
+   bxd(r)=xd(r) byd(r)=yd(r)
+
+   pix=ahead(bx(r),by(r),bxd(r),byd(r))
+   IF pix=1
+   THEN targ = findr(bx(r)+bxd(r),by(r)+byd(r))
+        kill(targ)
+        cease_fire(r)
+        RETURN
+   ELSEIF pix=2 OR pix=4
+   THEN cease_fire(r) RETURN
+   FI
+
+   bx(r) ==+ bxd(r)
+   by(r) ==+ byd(r)
+   plot1(bx(r),by(r),ms)
+   Sound(1,0,8,8)
+   fire(r)=2
+
+RETURN
+   
+PROC bullet(BYTE r)
+   BYTE targ,pix
+
+   IF fire(r)=1
+   THEN initfire(r) RETURN
+   FI
+
+   pix=ahead(bx(r),by(r),bxd(r),byd(r))
+   IF pix=1
+   THEN targ = findr(bx(r)+bxd(r),by(r)+byd(r))
+        kill(targ)
+        cease_fire(r)
+        RETURN
+   ELSEIF pix=2 OR pix=4
+   THEN cease_fire(r) RETURN
+   FI
+   
+   ; move it:
+   plot1(bx(r),by(r),bl)
+   bx(r) ==+ bxd(r)
+   by(r) ==+ byd(r)
+   plot1(bx(r),by(r),ms)
+   Sound(1,fire(r)*2,8,8)
+   fire(r) ==+ 1
+
+RETURN
+
+PROC action(BYTE r)  
+   
+   IF alive(r)
+   THEN move(r)
+   ELSEIF expl(r)>0 
+   THEN explode(r)
+   ELSE IF r<4 OR gemtaken=1 
+        THEN regen(r)
+        FI
+   FI
+
+RETURN
+
+PROC shots()
+   BYTE r
+
+   FOR r= 0 TO numbots-1
+   DO
+   IF fire(r) THEN bullet(r)
+   FI
+   OD
+
+RETURN
+
+PROC reward(BYTE r)
+   score(r) ==+ 1
+RETURN
+
+PROC tick()
+   BYTE c
+
+   c=Peek(20)
+
+   DO
+   UNTIL c<>Peek(20)
+   OD
+
+RETURN
+
+PROC round(CARD num)
+   BYTE r,c,count=[0],count2=[0],vol=[0]
+   CARD speed
+
+   numbots=num
+
+   IF 800-(numbots*40)<0
+   THEN speed=0
+   ELSE speed=800-(numbots*40)
+   FI
+
+   scrninit()
+   rinit()
+   scores()
+   Poke(764,255) Poke(77,0)
+   winner=0
+   DO
+      FOR r = 0 TO numbots-1
+      DO
+      action(r)
+
+      count ==+ 1
+      IF count = (numbots RSH 1)-1 
+      THEN count = 0 shots() 
+      FI
+
+      IF gemtaken=0 
+      THEN plotgem()
+      ELSE Sound(2,50,10,15-vol)
+           vol=(vol+1) & 15
+      FI 
+
+      count2 ==+ 1
+      IF count2 = (numbots RSH 1)
+      THEN count2=0 tick() tick()
+      FI
+
+      OD
+
+   c=Peek(20) Poke(711,c)
+   UNTIL winner>0 
+   OD
+  
+   Sndrst()
+
+   reward(winner-1)
+
+RETURN
+
+PROC intro()
+
+   Graphics(0)
+
+   PrintF("%E%EWelcome to GEM, by Joel Gluck.%E%E")
+
+   DO
+   PrintF("%EHow many points wins? ")
+   playto = InputB()
+   UNTIL playto>0
+   OD
+
+   PrintF("%E%EHow many robots in final round? ")
+   maxbots = InputB()
+
+   PrintF("%E%EPress START to begin...")
+
+   DO
+   UNTIL Peek(53279)=6
+   OD
+
+RETURN
+
+BYTE FUNC playagain()
+   BYTE k
+
+   Graphics(0)
+   PrintF("%E%EGame over!%E")
+   DO
+      PrintF("%EPlay again (y/n)? ")
+      k=GetD(1)
+      IF k='y OR k='Y THEN RETURN(1)
+      ELSEIF k='n OR k='N THEN RETURN(0)
+      FI
+   OD
+
+
+PROC plotim(BYTE r)
+   BYTE x,y,pix,vol,p
+   BYTE ARRAY mask(8) = [128 64 32 16
+                           8  4  2  1]
+   
+   FOR x=0 TO 7
+   DO
+      FOR y=0 TO 7
+      DO
+         pix = mask(x) & 
+               Peek(cset+((r+1)*8)+y)
+         IF pix<>0
+         THEN plot1(x*2+2,y*2+4,image(r))
+              plot1(x*2+3,y*2+4,image(r))
+              plot1(x*2+2,y*2+5,image(r))
+              plot1(x*2+3,y*2+5,image(r))
+         FI
+      OD
+   OD    
+
+   FOR vol = 0 TO 15
+   DO
+      Sound(0,50,10,15-vol)
+      Sound(1,100,10,15-vol)
+      Sound(2,150,10,15-vol)
+      Sound(3,200,10,15-vol)
+      Setcolor(0,vol/2+2,10)
+         FOR p = 1 TO 8
+         DO tick() OD
+   OD
+
+   FOR p = 1 TO 90
+   DO
+   tick()
+   OD
+
+RETURN
+
+
+
+PROC announce(BYTE r)
+   BYTE i,n
+   INT xd,yd,xx,yy
+   
+   scores()
+ 
+   FOR i = 0 TO 15
+   DO
+      FOR n=0 TO 100
+      DO
+      Sound(0,n,8,15-i)
+      Setcolor(2,6,n/10)
+      OD
+   tick()
+   OD
+   
+   Setcolor(2,0,0) Setcolor(3,9,6)
+ 
+   FOR i=0 TO 11
+   DO
+      Sound(0,11-i,8,15)
+      Sound(1,24-(i*2),10,8)
+      Setcolor(0,i,12)
+      FOR n=0 TO numbots-1
+      DO
+         IF alive(n)=1 AND n<>r
+         THEN xx=x(n)
+              yy=y(n)
+              xd=sign(9-xx) 
+              yd=sign(11-yy)
+              plot1(x(n),y(n),bl)
+              x(n)=x(n)+xd
+              y(n)=y(n)+yd
+              plot1(x(n),y(n),image(n))
+         FI
+      
+      OD
+      tick() tick()
+   OD
+
+Sndrst() plot1(9,11,bl)
+
+plotim(r)
+  
+RETURN
+
+PROC rdmize()
+   BYTE a,b,i,j
+
+   FOR a=0 TO 16
+   DO
+      FOR b=0 TO 6
+      DO
+      bx(b+a*7) = a
+      by(b+a*7) = b
+      OD
+   OD
+
+   FOR i=0 TO 118
+   DO
+      j=Rand(119)
+      a=bx(i)  b=by(i)
+      bx(i)=bx(j)  by(i)=by(j)
+      bx(j)=a  by(j)=b
+   OD
+
+RETURN
+
+PROC gwarp(BYTE x,y)
+   BYTE g,h,f,freq
+   CARD a,b,loop
+
+   DO
+   a=Rand(3)-1  b=Rand(3)-1
+   UNTIL a<>0 OR b<>0
+   OD
+
+   g = locate1(x,y)
+   f = 0  freq = 0
+
+   DO
+      h = locate1(x+a,y+b)
+      plot1(x,y,f) f=h
+      x ==+ a  y ==+ b
+      plot1(x,y,g)
+      freq ==+ 1 Sound(0,freq*10,8,15)
+      IF y=0 OR y=23 OR x=0 OR x=19
+      THEN EXIT
+      FI
+
+      FOR loop=1 TO 750
+      DO
+      OD
+
+   OD
+
+   plot1(x,y,f)
+   Sndrst()
+
+RETURN
+
+PROC titles()
+   BYTE x,y,i,c=[0],a,b
+
+   scrninit()
+
+   color = 12
+   x=2 y=8
+   Plot(x+4,y) Drawto(x,y) Drawto(x,y+6) 
+   Drawto(x+4,y+6) Drawto(x+4,y+3) Drawto(x+2,y+3)
+
+   Plot(x+10,y) Drawto(x+6,y) Drawto(x+6,y+6)
+   Drawto(x+10,y+6) Plot(x+7,y+3) Plot(x+8,y+3)
+ 
+   Plot(x+12,y+6) Drawto(x+12,y) Drawto(x+14,y+2)
+   Drawto(x+16,y) Drawto(x+16,y+6)  
+   
+   rdmize()
+
+   FOR i = 1 TO 120
+   DO
+      Sound(0,255,10,i RSH 3)
+      Sound(1,254,10,i RSH 3)
+      c ==+ 3   Poke(709,c)
+      tick()
+   OD 
+
+   Poke(709,120)
+
+   Sndrst()
+
+   FOR i = 0 TO 118
+   DO
+      a = bx(i)    b = by(i)
+      IF locate1(a+x,b+y)<>0
+      THEN gwarp(a+x,b+y)
+      FI
+     
+   OD
+
+RETURN
+
+
+PROC game()
+   CARD num
+
+      Close(1)
+      Open(1,"K:",4,1)
+
+   titles()
+   
+DO
+   intro()
+   reset()
+   DO
+
+   IF playto>1 
+   THEN num = 4+(score(winning)*maxbots/(playto-1))
+   ELSE num = 4+maxbots
+   FI
+
+   round(num)
+   num ==+ 1
+   UNTIL score(winner-1)=playto
+   OD
+
+   announce(winner-1)
+   UNTIL playagain()=0
+OD
+   Close(1)
+RETURN

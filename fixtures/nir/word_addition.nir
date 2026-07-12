@@ -1,0 +1,19 @@
+nir program
+global a: Card
+global b: Card
+
+routine <program> params=[-] locals=[-]
+bb1:
+  store @$0491 = $3000
+  store @$000E = $3000
+  fallthrough
+
+routine Main params=[-] locals=[-]
+bb0:
+  store a = $1234
+  store b = $101
+  %t0:Card = load a
+  %t1:Card = load b
+  %t2:Card = %t0 Add %t1
+  store a = %t2
+  return

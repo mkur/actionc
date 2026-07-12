@@ -1,0 +1,38 @@
+; Probe TN Fnamecmp-style pointer dereference control flow.
+;
+; This isolates:
+; - pointer parameter increments with ==+
+; - s^ / t^ byte comparisons
+; - nested IF / ELSEIF on dereferenced pointer values
+; - WHILE s^=t^ pointer scan
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE out
+CHAR ARRAY left(0)="D:ALPHA"
+CHAR ARRAY right(0)="D:BETA"
+
+BYTE FUNC Fnamecmp(CHAR POINTER s, t)
+
+  s==+1 t==+1
+  IF s^#t^ THEN
+    IF s^=': THEN RETURN(0)
+    ELSEIF t^=': THEN RETURN(1) FI
+  FI
+  s==+1 t==+1
+  WHILE s^=t^ DO
+    s==+1 t==+1
+  OD
+  IF s^>t^ THEN
+    RETURN(1)
+  ELSE
+    RETURN(0)
+  FI
+
+PROC Main()
+  out=Fnamecmp(left, right)
+  out=Fnamecmp(right, left)
+RETURN

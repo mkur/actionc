@@ -1,0 +1,104 @@
+; Arithmetic/control-flow stress program.
+;
+; This intentionally combines:
+; - nested calls and return values
+; - byte/card/int arithmetic and logic
+; - runtime helper operators: *, /, MOD, LSH, RSH
+; - signed comparisons
+; - early RETURN from functions
+; - WHILE, DO/UNTIL, FOR, nested IF/ELSEIF, and EXIT
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE i, j, flag, outb
+CARD acc, outw
+INT si, sj, sk, outs
+
+BYTE FUNC ClampByte(BYTE x, lo, hi)
+  IF x < lo THEN
+    RETURN(lo)
+  FI
+  IF x > hi THEN
+    RETURN(hi)
+  FI
+RETURN(x)
+
+CARD FUNC MixWord(CARD a, b, BYTE shift)
+  CARD r
+
+  r = a + b
+  r = r XOR $55AA
+  r = r LSH shift
+  r = r RSH 1
+RETURN(r)
+
+INT FUNC SignedMix(INT a, b)
+  INT r
+
+  r = a * b
+  r = r / 3
+  r = r MOD 17
+  IF r < 0 THEN
+    r = 0 - r
+  FI
+RETURN(r)
+
+BYTE FUNC Nested(BYTE x)
+  BYTE t
+
+  t = ClampByte(x + 3, 2, 20)
+RETURN(ClampByte(t, 4, 18))
+
+PROC Loops()
+  BYTE n
+
+  n = 0
+  acc = 1
+
+  WHILE n < 6
+  DO
+    acc = MixWord(acc, n + 1, 1)
+    n ==+ 1
+  OD
+
+  DO
+    acc = acc + n
+    n ==- 1
+  UNTIL n = 0
+  OD
+
+  FOR i = 0 TO 5
+  DO
+    IF i = 3 THEN
+      EXIT
+    FI
+    outb = Nested(i)
+  OD
+RETURN
+
+PROC Main()
+  i = 2
+  j = 9
+  flag = 0
+
+  outb = Nested(j)
+  outw = MixWord($1234, $0101, i)
+
+  si = -21
+  sj = 5
+  sk = SignedMix(si, sj)
+
+  IF sk >= 0 THEN
+    flag = 1
+  ELSEIF si < sj THEN
+    flag = 2
+  ELSE
+    flag = 3
+  FI
+
+  Loops()
+  outs = sk
+RETURN

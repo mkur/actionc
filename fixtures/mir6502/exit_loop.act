@@ -1,0 +1,11 @@
+BYTE x
+
+PROC Main()
+  WHILE x<10
+  DO
+    IF x=4 THEN
+      EXIT
+    FI
+    x==+1
+  OD
+RETURN

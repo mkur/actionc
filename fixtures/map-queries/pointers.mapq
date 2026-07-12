@@ -1,0 +1,12 @@
+# Pointers stress-test map-query batch.
+# Run with:
+# cargo run --bin actionc-map-query -- --profile compat --queries fixtures/map-queries/pointers.mapq fixtures/stress/pointers.act
+
+symbol BP
+symbol IP
+owner $3026
+owner $3268
+source $3268
+routine Main
+range $3000 $3030
+range $3250 $3290

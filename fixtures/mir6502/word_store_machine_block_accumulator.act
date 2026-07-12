@@ -1,0 +1,10 @@
+PROC Main()
+
+  BYTE ARRAY fnam(4)
+  CARD r=$86
+
+  [$A2$00]
+  r = fnam
+  [$9D$0344$A5 r+1 $9D$0345]
+
+RETURN

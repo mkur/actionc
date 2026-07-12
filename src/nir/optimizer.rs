@@ -1,0 +1,644 @@
+use std::collections::{BTreeMap, BTreeSet};
+
+use super::facts::{NirType, NirTypeKind, NirValue, TempId, value_width};
+use super::ir::*;
+use super::verifier::{NirDiagnostic, verify_program};
+
+pub(super) fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
+    verify_program(program)?;
+    let mut optimized = program.clone();
+    for routine in &mut optimized.routines {
+        optimize_routine(routine);
+    }
+    verify_program(&optimized)?;
+    Ok(optimized)
+}
+
+fn optimize_routine(routine: &mut NirRoutine) {
+    remove_unreachable_blocks(routine);
+    for block in &mut routine.blocks {
+        optimize_values_in_block(block);
+    }
+    simplify_constant_branches(routine);
+    for block in &mut routine.blocks {
+        eliminate_dead_pure_temps(block);
+    }
+    routine.temps = collect_temps(&routine.blocks);
+}
+
+fn remove_unreachable_blocks(routine: &mut NirRoutine) {
+    let Some(entry) = routine.blocks.first().map(|block| block.label.clone()) else {
+        return;
+    };
+    let by_label = routine
+        .blocks
+        .iter()
+        .map(|block| (block.label.as_str(), block))
+        .collect::<BTreeMap<_, _>>();
+    let mut reachable = BTreeSet::new();
+    let mut stack = vec![entry];
+    while let Some(label) = stack.pop() {
+        if !reachable.insert(label.clone()) {
+            continue;
+        }
+        let Some(block) = by_label.get(label.as_str()) else {
+            continue;
+        };
+        match &block.terminator {
+            NirTerminator::Goto(target) => stack.push(target.clone()),
+            NirTerminator::Branch {
+                then_label,
+                else_label,
+                ..
+            } => {
+                stack.push(then_label.clone());
+                stack.push(else_label.clone());
+            }
+            NirTerminator::Open
+            | NirTerminator::Fallthrough
+            | NirTerminator::Return(_)
+            | NirTerminator::Exit
+            | NirTerminator::Unknown(_) => {}
+        }
+    }
+    routine
+        .blocks
+        .retain(|block| reachable.contains(block.label.as_str()));
+}
+
+fn optimize_values_in_block(block: &mut NirBlock) {
+    let mut replacements = BTreeMap::new();
+    let mut offsets = BTreeMap::new();
+    let mut folded = Vec::new();
+    for op in &block.ops {
+        let mut op = op.clone();
+        rewrite_op_values(&mut op, &replacements);
+        if let Some((id, value)) = folded_constant(&op) {
+            replacements.insert(id, value);
+            offsets.remove(&id);
+            continue;
+        }
+        if let Some((id, value)) = identity_alias(&op) {
+            replacements.insert(id, value);
+            offsets.remove(&id);
+            continue;
+        }
+        if let Some(simplification) = offset_simplification(&op, &offsets) {
+            match simplification {
+                OffsetSimplification::Alias { dest, value } => {
+                    replacements.insert(dest, value);
+                    offsets.remove(&dest);
+                    continue;
+                }
+                OffsetSimplification::Keep {
+                    dest,
+                    offset,
+                    op: new_op,
+                } => {
+                    replacements.remove(&dest);
+                    offsets.insert(dest, offset);
+                    if let Some(new_op) = new_op {
+                        op = new_op;
+                    }
+                }
+            }
+        } else if let Some(id) = op_def(&op).map(|(id, _)| id) {
+            replacements.remove(&id);
+            offsets.remove(&id);
+        }
+        folded.push(op);
+    }
+    block.ops = folded;
+    rewrite_terminator_values(&mut block.terminator, &replacements);
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OffsetAlias {
+    base: NirValue,
+    offset: u16,
+    width: u16,
+}
+
+enum OffsetSimplification {
+    Alias {
+        dest: TempId,
+        value: NirValue,
+    },
+    Keep {
+        dest: TempId,
+        offset: OffsetAlias,
+        op: Option<NirOp>,
+    },
+}
+
+fn identity_alias(op: &NirOp) -> Option<(TempId, NirValue)> {
+    let NirOp::Binary {
+        dest,
+        ty,
+        op,
+        left,
+        right,
+    } = op
+    else {
+        return None;
+    };
+    if !is_optimizable_integer_type(ty) {
+        return None;
+    }
+    let alias = match op {
+        NirBinaryOp::Add | NirBinaryOp::Or | NirBinaryOp::Xor if is_zero(right) => left,
+        NirBinaryOp::Add | NirBinaryOp::Or | NirBinaryOp::Xor if is_zero(left) => right,
+        NirBinaryOp::Sub if is_zero(right) => left,
+        NirBinaryOp::And if is_all_ones(right, ty) => left,
+        NirBinaryOp::And if is_all_ones(left, ty) => right,
+        NirBinaryOp::Mul
+        | NirBinaryOp::Div
+        | NirBinaryOp::Mod
+        | NirBinaryOp::Lsh
+        | NirBinaryOp::Rsh
+        | NirBinaryOp::Sub
+        | NirBinaryOp::And
+        | NirBinaryOp::Add
+        | NirBinaryOp::Or
+        | NirBinaryOp::Xor => return None,
+    };
+    alias_value_for_type(alias, ty).map(|value| (*dest, value))
+}
+
+fn offset_simplification(
+    op: &NirOp,
+    offsets: &BTreeMap<TempId, OffsetAlias>,
+) -> Option<OffsetSimplification> {
+    let NirOp::Binary {
+        dest,
+        ty,
+        op,
+        left,
+        right,
+    } = op
+    else {
+        return None;
+    };
+    if !is_optimizable_integer_type(ty) {
+        return None;
+    }
+    let width = ty.width?;
+    let mask = width_mask(width)?;
+    let (base, offset, uses_prior_offset) = match op {
+        NirBinaryOp::Add => {
+            if let Some(right_const) = const_u16(right) {
+                let left = offset_base(left, ty, offsets)?;
+                (
+                    left.base,
+                    left.offset.wrapping_add(right_const) & mask,
+                    left.uses_prior_offset,
+                )
+            } else if let Some(left_const) = const_u16(left) {
+                let right = offset_base(right, ty, offsets)?;
+                (
+                    right.base,
+                    right.offset.wrapping_add(left_const) & mask,
+                    right.uses_prior_offset,
+                )
+            } else {
+                return None;
+            }
+        }
+        NirBinaryOp::Sub => {
+            let right_const = const_u16(right)?;
+            let left = offset_base(left, ty, offsets)?;
+            (
+                left.base,
+                left.offset.wrapping_sub(right_const) & mask,
+                left.uses_prior_offset,
+            )
+        }
+        NirBinaryOp::Mul
+        | NirBinaryOp::Div
+        | NirBinaryOp::Mod
+        | NirBinaryOp::Lsh
+        | NirBinaryOp::Rsh
+        | NirBinaryOp::And
+        | NirBinaryOp::Or
+        | NirBinaryOp::Xor => return None,
+    };
+
+    let base = alias_value_for_type(&base, ty)?;
+    if offset == 0 {
+        return Some(OffsetSimplification::Alias {
+            dest: *dest,
+            value: base,
+        });
+    }
+
+    let offset = OffsetAlias {
+        base: base.clone(),
+        offset,
+        width,
+    };
+    let op = if uses_prior_offset {
+        Some(NirOp::Binary {
+            dest: *dest,
+            ty: ty.clone(),
+            op: NirBinaryOp::Add,
+            left: base,
+            right: value_for_type(offset.offset, ty)?,
+        })
+    } else {
+        None
+    };
+    Some(OffsetSimplification::Keep {
+        dest: *dest,
+        offset,
+        op,
+    })
+}
+
+struct OffsetBase {
+    base: NirValue,
+    offset: u16,
+    uses_prior_offset: bool,
+}
+
+fn offset_base(
+    value: &NirValue,
+    ty: &NirType,
+    offsets: &BTreeMap<TempId, OffsetAlias>,
+) -> Option<OffsetBase> {
+    if let NirValue::Temp { id, .. } = value
+        && let Some(offset) = offsets.get(id)
+        && offset.width == ty.width?
+    {
+        return Some(OffsetBase {
+            base: offset.base.clone(),
+            offset: offset.offset,
+            uses_prior_offset: true,
+        });
+    }
+    Some(OffsetBase {
+        base: alias_value_for_type(value, ty)?,
+        offset: 0,
+        uses_prior_offset: false,
+    })
+}
+
+fn alias_value_for_type(value: &NirValue, ty: &NirType) -> Option<NirValue> {
+    if is_optimizable_integer_type(ty) && value_width(value) == ty.width {
+        Some(value.clone())
+    } else {
+        None
+    }
+}
+
+fn is_optimizable_integer_type(ty: &NirType) -> bool {
+    matches!(
+        ty.kind,
+        NirTypeKind::U8 | NirTypeKind::I8 | NirTypeKind::U16 | NirTypeKind::I16
+    ) && matches!(ty.width, Some(1 | 2))
+        && !ty.pointer
+}
+
+fn is_zero(value: &NirValue) -> bool {
+    matches!(const_u16(value), Some(0))
+}
+
+fn is_all_ones(value: &NirValue, ty: &NirType) -> bool {
+    let Some(mask) = ty.width.and_then(width_mask) else {
+        return false;
+    };
+    matches!(const_u16(value), Some(value) if value == mask)
+}
+
+fn width_mask(width: u16) -> Option<u16> {
+    match width {
+        1 => Some(0x00FF),
+        2 => Some(0xFFFF),
+        _ => None,
+    }
+}
+
+fn simplify_constant_branches(routine: &mut NirRoutine) {
+    for block in &mut routine.blocks {
+        if let NirTerminator::Branch {
+            condition: NirValue::ConstU8(value),
+            then_label,
+            else_label,
+        } = &block.terminator
+        {
+            block.terminator = if *value == 0 {
+                NirTerminator::Goto(else_label.clone())
+            } else {
+                NirTerminator::Goto(then_label.clone())
+            };
+        }
+    }
+    remove_unreachable_blocks(routine);
+}
+
+fn eliminate_dead_pure_temps(block: &mut NirBlock) {
+    let mut used = BTreeSet::new();
+    for op in &block.ops {
+        collect_op_uses(op, &mut used);
+    }
+    collect_terminator_uses(&block.terminator, &mut used);
+    block.ops.retain(|op| {
+        if let Some((id, _)) = op_def(op)
+            && is_pure_temp_op(op)
+            && !used.contains(&id)
+        {
+            return false;
+        }
+        true
+    });
+}
+
+fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
+    match op {
+        NirOp::Unary { dest, ty, op, src } => {
+            let value = const_u16(src)?;
+            let result = match op {
+                NirUnaryOp::Plus => value,
+                NirUnaryOp::Neg => value.wrapping_neg(),
+            };
+            Some((*dest, value_for_type(result, ty)?))
+        }
+        NirOp::Cast { dest, src, to, .. } => Some((*dest, value_for_type(const_u16(src)?, to)?)),
+        NirOp::Binary {
+            dest,
+            ty,
+            op,
+            left,
+            right,
+        } => Some((*dest, value_for_type(eval_binary(*op, left, right)?, ty)?)),
+        NirOp::Compare {
+            dest,
+            ty,
+            op,
+            left,
+            right,
+        } => {
+            if !matches!(ty.kind, NirTypeKind::Bool) {
+                return None;
+            }
+            let left = const_u16(left)?;
+            let right = const_u16(right)?;
+            let result = match op {
+                NirCompareOp::Eq => left == right,
+                NirCompareOp::Ne => left != right,
+                NirCompareOp::Lt => left < right,
+                NirCompareOp::Le => left <= right,
+                NirCompareOp::Gt => left > right,
+                NirCompareOp::Ge => left >= right,
+            };
+            Some((*dest, NirValue::ConstU8(u8::from(result))))
+        }
+        NirOp::Define { .. }
+        | NirOp::Set { .. }
+        | NirOp::Declare { .. }
+        | NirOp::Assign { .. }
+        | NirOp::CompoundAssign { .. }
+        | NirOp::Load { .. }
+        | NirOp::AddrOf { .. }
+        | NirOp::Store { .. }
+        | NirOp::Call { .. }
+        | NirOp::MachineBlock { .. }
+        | NirOp::Unsupported { .. }
+        | NirOp::Note { .. } => None,
+    }
+}
+
+fn eval_binary(op: NirBinaryOp, left: &NirValue, right: &NirValue) -> Option<u16> {
+    let left = const_u16(left)?;
+    let right = const_u16(right)?;
+    match op {
+        NirBinaryOp::Add => Some(left.wrapping_add(right)),
+        NirBinaryOp::Sub => Some(left.wrapping_sub(right)),
+        NirBinaryOp::Mul => Some(left.wrapping_mul(right)),
+        NirBinaryOp::Div if right != 0 => Some(left / right),
+        NirBinaryOp::Mod if right != 0 => Some(left % right),
+        NirBinaryOp::Lsh if right < 16 => Some(left.wrapping_shl(u32::from(right))),
+        NirBinaryOp::Rsh if right < 16 => Some(left.wrapping_shr(u32::from(right))),
+        NirBinaryOp::And => Some(left & right),
+        NirBinaryOp::Or => Some(left | right),
+        NirBinaryOp::Xor => Some(left ^ right),
+        NirBinaryOp::Div | NirBinaryOp::Mod | NirBinaryOp::Lsh | NirBinaryOp::Rsh => None,
+    }
+}
+
+fn value_for_type(value: u16, ty: &NirType) -> Option<NirValue> {
+    match ty.width {
+        Some(1) => u8::try_from(value & 0x00FF).ok().map(NirValue::ConstU8),
+        Some(2) => Some(NirValue::ConstU16(value)),
+        _ => None,
+    }
+}
+
+fn const_u16(value: &NirValue) -> Option<u16> {
+    match value {
+        NirValue::ConstU8(value) => Some(u16::from(*value)),
+        NirValue::ConstU16(value) => Some(*value),
+        NirValue::StaticAddr { .. }
+        | NirValue::Temp { .. }
+        | NirValue::Param(_)
+        | NirValue::GlobalAddr(_) => None,
+    }
+}
+
+fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
+    match op {
+        NirOp::Store { place, src, .. } => {
+            rewrite_place_values(place, constants);
+            rewrite_value(src, constants);
+        }
+        NirOp::Load { place, .. } | NirOp::AddrOf { place, .. } => {
+            rewrite_place_values(place, constants);
+        }
+        NirOp::Unary { src, .. } | NirOp::Cast { src, .. } => rewrite_value(src, constants),
+        NirOp::Binary { left, right, .. } | NirOp::Compare { left, right, .. } => {
+            rewrite_value(left, constants);
+            rewrite_value(right, constants);
+        }
+        NirOp::Call { callee, args, .. } => {
+            if let NirCallee::Indirect { target, .. } = callee {
+                rewrite_value(target, constants);
+            }
+            for arg in args {
+                rewrite_value(arg, constants);
+            }
+        }
+        NirOp::MachineBlock { .. }
+        | NirOp::Unsupported { .. }
+        | NirOp::Define { .. }
+        | NirOp::Set { .. }
+        | NirOp::Declare { .. }
+        | NirOp::Assign { .. }
+        | NirOp::CompoundAssign { .. }
+        | NirOp::Note { .. } => {}
+    }
+}
+
+fn rewrite_terminator_values(
+    terminator: &mut NirTerminator,
+    constants: &BTreeMap<TempId, NirValue>,
+) {
+    match terminator {
+        NirTerminator::Branch { condition, .. } | NirTerminator::Return(Some(condition)) => {
+            rewrite_value(condition, constants);
+        }
+        NirTerminator::Open
+        | NirTerminator::Fallthrough
+        | NirTerminator::Goto(_)
+        | NirTerminator::Return(None)
+        | NirTerminator::Exit
+        | NirTerminator::Unknown(_) => {}
+    }
+}
+
+fn rewrite_place_values(place: &mut NirPlace, constants: &BTreeMap<TempId, NirValue>) {
+    match &mut place.kind {
+        NirPlaceKind::Deref { addr } => rewrite_value(addr, constants),
+        NirPlaceKind::Index {
+            base_addr, index, ..
+        } => {
+            rewrite_value(base_addr, constants);
+            rewrite_value(index, constants);
+        }
+        NirPlaceKind::Field { base, .. } => rewrite_place_values(base, constants),
+        NirPlaceKind::Symbol(_)
+        | NirPlaceKind::Param { .. }
+        | NirPlaceKind::Local { .. }
+        | NirPlaceKind::Global { .. }
+        | NirPlaceKind::Absolute(_)
+        | NirPlaceKind::UnresolvedName(_) => {}
+    }
+}
+
+fn rewrite_value(value: &mut NirValue, constants: &BTreeMap<TempId, NirValue>) {
+    if let NirValue::Temp { id, .. } = value
+        && let Some(replacement) = constants.get(id)
+        && value_width(replacement) == value_width(value)
+    {
+        *value = replacement.clone();
+    }
+}
+
+fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
+    match op {
+        NirOp::Store { place, src, .. } => {
+            collect_place_uses(place, out);
+            collect_value_use(src, out);
+        }
+        NirOp::Load { place, .. } | NirOp::AddrOf { place, .. } => collect_place_uses(place, out),
+        NirOp::Unary { src, .. } | NirOp::Cast { src, .. } => collect_value_use(src, out),
+        NirOp::Binary { left, right, .. } | NirOp::Compare { left, right, .. } => {
+            collect_value_use(left, out);
+            collect_value_use(right, out);
+        }
+        NirOp::Call { callee, args, .. } => {
+            if let NirCallee::Indirect { target, .. } = callee {
+                collect_value_use(target, out);
+            }
+            for arg in args {
+                collect_value_use(arg, out);
+            }
+        }
+        NirOp::Define { .. }
+        | NirOp::Set { .. }
+        | NirOp::Declare { .. }
+        | NirOp::Assign { .. }
+        | NirOp::CompoundAssign { .. }
+        | NirOp::MachineBlock { .. }
+        | NirOp::Unsupported { .. }
+        | NirOp::Note { .. } => {}
+    }
+}
+
+fn collect_terminator_uses(terminator: &NirTerminator, out: &mut BTreeSet<TempId>) {
+    match terminator {
+        NirTerminator::Branch { condition, .. } | NirTerminator::Return(Some(condition)) => {
+            collect_value_use(condition, out);
+        }
+        NirTerminator::Open
+        | NirTerminator::Fallthrough
+        | NirTerminator::Goto(_)
+        | NirTerminator::Return(None)
+        | NirTerminator::Exit
+        | NirTerminator::Unknown(_) => {}
+    }
+}
+
+fn collect_place_uses(place: &NirPlace, out: &mut BTreeSet<TempId>) {
+    match &place.kind {
+        NirPlaceKind::Deref { addr } => collect_value_use(addr, out),
+        NirPlaceKind::Index {
+            base_addr, index, ..
+        } => {
+            collect_value_use(base_addr, out);
+            collect_value_use(index, out);
+        }
+        NirPlaceKind::Field { base, .. } => collect_place_uses(base, out),
+        NirPlaceKind::Symbol(_)
+        | NirPlaceKind::Param { .. }
+        | NirPlaceKind::Local { .. }
+        | NirPlaceKind::Global { .. }
+        | NirPlaceKind::Absolute(_)
+        | NirPlaceKind::UnresolvedName(_) => {}
+    }
+}
+
+fn collect_value_use(value: &NirValue, out: &mut BTreeSet<TempId>) {
+    if let NirValue::Temp { id, .. } = value {
+        out.insert(*id);
+    }
+}
+
+fn is_pure_temp_op(op: &NirOp) -> bool {
+    matches!(
+        op,
+        NirOp::Unary { .. } | NirOp::Cast { .. } | NirOp::Binary { .. } | NirOp::Compare { .. }
+    )
+}
+
+fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
+    match op {
+        NirOp::Load { dest, ty, .. }
+        | NirOp::AddrOf { dest, ty, .. }
+        | NirOp::Unary { dest, ty, .. }
+        | NirOp::Binary { dest, ty, .. }
+        | NirOp::Compare { dest, ty, .. } => Some((*dest, ty)),
+        NirOp::Cast { dest, to, .. } => Some((*dest, to)),
+        NirOp::Call {
+            result: Some(result),
+            ..
+        } => Some((result.dest, &result.ty)),
+        NirOp::Define { .. }
+        | NirOp::Set { .. }
+        | NirOp::Declare { .. }
+        | NirOp::Assign { .. }
+        | NirOp::CompoundAssign { .. }
+        | NirOp::Store { .. }
+        | NirOp::Call { result: None, .. }
+        | NirOp::MachineBlock { .. }
+        | NirOp::Unsupported { .. }
+        | NirOp::Note { .. } => None,
+    }
+}
+
+fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
+    let mut temps = Vec::new();
+    for block in blocks {
+        for (op_index, op) in block.ops.iter().enumerate() {
+            if let Some((id, ty)) = op_def(op) {
+                temps.push(NirTemp {
+                    id,
+                    ty: ty.clone(),
+                    def: NirTempDef {
+                        block: block.id,
+                        op_index,
+                    },
+                });
+            }
+        }
+    }
+    temps
+}

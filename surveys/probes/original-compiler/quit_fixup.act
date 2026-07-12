@@ -1,0 +1,32 @@
+; Isolate the TN Quit() pattern that sends the compiler VM into a cyclic
+; Action! branch-fixup chain.
+;
+; This intentionally keeps the suspicious source shape from TN:
+; - BYTE mapped directly onto the cartridge start flag at $BFFA
+; - destructive compound assignment to that mapped BYTE
+; - comparison immediately after the compound assignment
+; - CARD assignment to a zero-page OS vector inside the THEN branch
+;
+; Use manually with action-compiler-vm and --trace-action-fixups. It is not
+; part of the default probe sweep because a reproducing VM run can stall.
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+PROC Quit=*()
+  BYTE cartrun=$BFFA, i
+  CARD setini=$1BBE,
+       dosini=$0C,
+       dosvec=$0A
+
+  i = cartrun cartrun ==! $FF
+  IF cartrun = i THEN
+    dosini = setini
+  FI
+RETURN
+
+PROC Main()
+  Quit()
+RETURN

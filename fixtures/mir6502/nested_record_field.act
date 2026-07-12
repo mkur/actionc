@@ -1,0 +1,11 @@
+TYPE Inner=[BYTE tag CARD word]
+TYPE Outer=[BYTE prefix Inner inner]
+
+Outer rec
+BYTE out
+CARD w
+
+PROC Main()
+  out = rec.inner.tag
+  w = rec.inner.word
+RETURN

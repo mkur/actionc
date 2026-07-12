@@ -1,0 +1,21 @@
+nir program
+global b: Byte
+static __nir_str_Main_0:Char* bytes=[$02 $48 $49] = "HI"
+
+routine <program> params=[-] locals=[-]
+bb2:
+  store @$0491 = $3000
+  store @$000E = $3000
+  fallthrough
+
+routine Take params=[s] locals=[-]
+bb0:
+  %t0:Char* = load s
+  %t1:Char = load %t0[1;1]
+  store b = %t1
+  return
+
+routine Main params=[-] locals=[-]
+bb1:
+  call Take(&__nir_str_Main_0)
+  return

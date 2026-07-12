@@ -1,0 +1,50 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE gb, gr
+CARD gw, gc
+CHAR POINTER gp
+
+PROC LocalOnly()
+  BYTE lb
+  CARD lw
+  BYTE ARRAY buf(3)
+  CHAR POINTER p
+
+  lb = $11
+  lw = $2233
+  buf(0) = lb
+  buf(1) = $44
+  p = buf
+  gb = p^
+  gw = lw
+  gp = p
+RETURN
+
+BYTE FUNC ParamLocal(BYTE a, CARD w)
+  BYTE lb
+  CARD lw
+
+  lb = a
+  lw = w
+  gr = lb
+  gc = lw
+RETURN(lb)
+
+CARD FUNC CardLocal(CARD w)
+  CARD tmp
+  BYTE flag
+
+  tmp = w
+  flag = $55
+  gb = flag
+RETURN(tmp)
+
+PROC Main()
+  LocalOnly()
+  gr = ParamLocal($12, $3456)
+  gc = CardLocal($789A)
+RETURN

@@ -1,0 +1,19 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE ioerr=$341
+CARD dosvec=$0A,
+     dosini=$0C
+PROC POINTER ErrorHandler
+
+PROC Error()
+
+PROC Handler()
+  ioerr=1
+RETURN
+
+PROC Main()
+  ErrorHandler=@Handler
+  dosvec=$1B48
+  dosini=Error
+RETURN

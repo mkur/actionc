@@ -1,0 +1,11 @@
+SET $491=$3000
+SET $E=$3000
+
+CARD POINTER p
+CARD out
+
+PROC Main()
+  p = $4000
+  p^ = $1234
+  out = p^
+RETURN

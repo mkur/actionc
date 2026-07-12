@@ -1,0 +1,181 @@
+MODULE
+
+;  Rem --- SLIME TRAILS --
+;  Rem 
+;  Rem (FROM THE MOVIE OF THE SAME NAME)
+;  Rem 
+;  Rem THIS GAME REQUIRES TWO JOYSTICKS PLUGGED INTO CONNECTORS
+;  Rem NUMBER 1 AND 2 (STICKS 0 AND 1)
+;
+;This game was translated directly
+;from BASIC XL to ACTION!, line by
+;line.  Please forgive the non-ACTION!
+;format of the program, but it works,
+;and the translation only took about
+;an hour.
+
+BYTE Score0,Score1,H0,V0,H1,V1,
+     Hmv0,Hmv1,Vmv0,Vmv1,Volume,
+     Bang0,Bang1,HS,VS
+BYTE Attract=77
+CARD Delay,Count,Move,Tempo
+
+BYTE FUNC Hstick(BYTE n)
+  IF (Stick(n)&8)=0 THEN RETURN (1) FI
+  IF (Stick(n)&4)=0 THEN RETURN (255) FI
+  RETURN (0)
+
+BYTE FUNC Vstick(BYTE n)
+  IF (Stick(n)&1)=0 THEN RETURN (1) FI
+  IF (Stick(n)&2)=0 THEN RETURN (255) FI
+  RETURN (0)
+
+
+
+PROC MAIN()
+; init for new game !!!!
+DO ; infinite loop
+
+Score0=0:Score1=0
+;  Rem 
+;  Rem 
+;  Rem ROUND INITIALIZATION
+
+DO ; terminated by the UNTIL far below
+
+Graphics(7)
+
+color=1 
+Plot(0,0):Drawto(0,79) 
+Drawto(159,79):Drawto(159,0) 
+Drawto(0,0)
+
+
+tempo=400
+
+PrintE("\{$7F}\{$7F}SCORE")
+PrintE("PLAYER 1\{$7F}\{$7F}PLAYER 2")
+PrintF("%U\{$7F}\{$7F}\{$7F}%U%E", Score0, Score1)
+
+H0=40:V0=40:H1=119:V1=40
+Hmv0=1:Vmv0=0:Hmv1=-1:Vmv1=0
+
+
+color=2:Plot(H0,V0) 
+color=3:Plot(H1,V1)
+
+;  Rem START A ROUND
+
+For Count=50 To 150 Step 50
+DO
+   For Volume=0 To 15
+   DO
+     Sound(0,Count,10,15-Volume)
+     For Delay=1 to 1000 DO OD
+   OD
+OD                
+
+IF Hstick(0) THEN Hmv0=Hstick(0) FI
+IF Hstick(1) THEN Hmv1=Hstick(1) FI
+
+FOR Move = 0 TO 65535 STEP 4
+DO
+Attract=0
+IF (Move&255)=0 AND TEMPO>50
+     THEN TEMPO= (TEMPO * 3)/4  FI
+                
+; Rem SENSE AND MOVE PLAYER 0
+
+   HS=Hstick(0)
+   If HS<>0 AND Hmv0=0 Then 
+    Hmv0=HS:Vmv0=0
+    FI
+
+   VS=Vstick(0)
+   If VS<>0 AND Vmv0=0 Then 
+    Vmv0=VS:Hmv0=0
+    FI
+
+   H0=H0+Hmv0:V0=V0-Vmv0
+
+   Bang0=Locate(H0,V0)
+   If Bang0=0 THEN   
+      color=2:Plot(H0,V0)
+      FI
+
+; Rem SENSE AND MOVE PLAYER 1
+
+   HS=Hstick(1)
+   If HS<>0 AND Hmv1=0 Then 
+    Hmv1=HS:Vmv1=0
+    FI
+
+   VS=Vstick(1)
+   If VS<>0 AND Vmv1=0 Then 
+    Vmv1=VS:Hmv1=0
+    FI
+
+   H1=H1+Hmv1:V1=V1-Vmv1
+
+   Bang1=Locate(H1,V1)
+   If Bang1=0 THEN  
+      color=3:Plot(H1,V1)
+      FI
+
+   If Bang0=0 AND Bang1=0 THEN
+      For Volume=0 To 14 Step 2 
+        DO
+        Sound(0,Move&255,10,14-Volume)
+        For Delay=1 to TEMPO  DO OD
+        OD 
+   
+;  Rem SOMEBODY GOT BANGED
+ 
+   Else
+
+     IF Bang0<>0 AND Bang1<>0 THEN 
+     ;  do nothing 
+     ELSE
+       IF Bang0 THEN Score1=Score1+1 FI
+       IF Bang1 THEN Score0=Score0+1 FI
+
+       For Volume=0 TO 15
+         DO
+         If Bang0 Then Setcolor(1,4,15-Volume) FI
+         If Bang1 Then Setcolor(2,4,15-Volume) FI
+         Sound(0,23,0,15-Volume)
+         For Delay=1 to 1000 DO OD
+         OD       
+      FI
+    EXIT
+    Fi
+
+
+  OD
+; Rem CHECK FOR END OF GAME
+
+  UNTIL (Score0>=10 OR Score1>=10) OD
+
+  Graphics(2)
+
+  If (Score0<Score1) Then     
+    PrintDE(6,"PLAYER 2 WINS:")
+    PrintD(6,"    ") PrintBD(6,Score1)
+    PrintD(6," TO ") PrintBD(6,Score0)
+  Else       
+    PrintDE(6,"PLAYER 1 WINS:")
+    PrintD(6,"    ") PrintBD(6,Score0)
+    PrintD(6," TO ") PrintBD(6,Score1)
+  Fi
+
+; Rem END OF A GAME
+
+  PrintE("PUSH JOYSTICK BUTTON TO PLAY AGAIN")
+
+; Rem WAIT FOR A BUTTON TO BE PUSHED
+
+  WHILE (Strig(0)<>0 AND Strig(1)<>0) DO OD 
+
+OD ; !!!! main loop !!!!
+RETURN
+

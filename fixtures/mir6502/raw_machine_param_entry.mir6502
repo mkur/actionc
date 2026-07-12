@@ -1,0 +1,12 @@
+mir6502 program
+machine m0 items=[$85 $A0 $86 $A1 $84 $A2 $60]
+
+routine r0 Raw
+b0 bb0:
+  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  unreachable
+
+routine r1 Main
+b0 bb1:
+  call r0 args=[#$1234.w -> fixed_zp $A0:fixed_zp $A1, #$5678.w -> fixed_zp $A2:fixed_zp $A3, #$1234.w -> a:x, #$5678.w -> y:fixed_zp $A3, #$09.b -> fixed_zp $A4] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

@@ -1,0 +1,23 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$1B","name_addr":"$9466","name":"Forward","vtype":"$C0","address":"$108D","class":"PROC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]},
+    {"scope":"global","slot":"$F6","name_addr":"$9442","name":"Left","vtype":"$C0","address":"$0F47","class":"PROC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]},
+    {"scope":"global","slot":"$8B","name_addr":"$9437","name":"Right","vtype":"$C0","address":"$0F25","class":"PROC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]},
+    {"scope":"global","slot":"$27","name_addr":"$9473","name":"SetTurtle","vtype":"$C0","address":"$1134","class":"PROC","numargs":3,"arg_types_raw":["$0B","$0B","$0B"],"args":["INT","INT","INT"]},
+    {"scope":"global","slot":"$25","name_addr":"$940A","name":"TG_CurX","vtype":"$8C","address":"$0E0A","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$26","name_addr":"$9415","name":"TG_CurY","vtype":"$8C","address":"$0E0C","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$02","name_addr":"$9459","name":"TG_ICos","vtype":"$C4","address":"$0FEE","class":"CARD FUNC","numargs":1,"arg_types_raw":["$0C"],"args":["CARD"]},
+    {"scope":"global","slot":"$31","name_addr":"$944C","name":"TG_ISin","vtype":"$C4","address":"$0F5E","class":"CARD FUNC","numargs":1,"arg_types_raw":["$0C"],"args":["CARD"]},
+    {"scope":"global","slot":"$E7","name_addr":"$9400","name":"TG_Phi","vtype":"$8B","address":"$0E08","class":"INT","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$C8","name_addr":"$9420","name":"TG_SinTab","vtype":"$94","address":"$0EC4","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$07","name_addr":"$942D","name":"Turn","vtype":"$C0","address":"$0ECA","class":"PROC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$BF","name_addr":"$94B4","name":"temp","vtype":"$8A","address":"$1133","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$E0","name_addr":"$94AB","name":"theta","vtype":"$8B","address":"$1131","class":"INT","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$68","name_addr":"$94A1","name":"x","vtype":"$8B","address":"$112D","class":"INT","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$6B","name_addr":"$94A6","name":"y","vtype":"$8B","address":"$112F","class":"INT","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

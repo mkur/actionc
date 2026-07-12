@@ -1,0 +1,23 @@
+; Probe MODULE boundaries with VM-side Action! local symbol snapshots.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE g1
+
+PROC One(BYTE a)
+  BYTE x
+  x = a
+RETURN
+
+MODULE
+
+BYTE g2
+
+PROC Two(CARD c)
+  BYTE y
+  y = c
+RETURN
+
+MODULE

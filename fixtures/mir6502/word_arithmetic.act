@@ -1,0 +1,7 @@
+CARD x,y
+
+PROC Main()
+  x=1
+  y=x+$0102
+  y==-1
+RETURN

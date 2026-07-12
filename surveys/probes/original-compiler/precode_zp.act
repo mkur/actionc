@@ -1,0 +1,19 @@
+; Isolate TN LIB.ACT's pre-code zero-page allocation pattern.
+; The original declares zero-page working pointers, then resets CODE/CODEBASE
+; to the real program origin before the first current-location PROC.
+
+SET $491=$E6
+SET $492=$00
+SET $E=$E6
+SET $F=$00
+
+BYTE POINTER screen
+BYTE scl=screen, sch=screen+1
+CARD POINTER allocp
+
+SET $491=$3000
+SET $E=$3000
+
+PROC Main=*()
+  allocp==+2
+[$60]

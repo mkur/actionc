@@ -1,0 +1,8 @@
+source: samples/toolkit/original/extracted/SNAILS.DEM
+source_policy: auto
+compile_source: samples/toolkit/original/extracted/SNAILS.DEM
+profile: modern
+backend: legacy
+codegen_source: ast
+status: ok
+detail: wrote samples/toolkit/survey/outputs/batch/modern-legacy/SNAILS.COM

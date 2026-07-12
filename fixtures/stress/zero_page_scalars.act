@@ -1,0 +1,46 @@
+; Original-compatible zero-page scalar stress program.
+;
+; This intentionally keeps pointer declarations out of the test. Scalar
+; declarations like BYTE zp_b=$E0 and CARD zp_w=$E2 are zero-page aliases in
+; both original Action! and actionc, while pointer declarations with initial
+; values are a separate policy question.
+
+SET $491=$3000
+SET $E=$3000
+
+BYTE zp_b=$E0
+BYTE zp_i=$E1
+CARD zp_w=$E2
+CARD zp_sum=$E4
+
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE outb
+CARD outw
+
+PROC Init()
+  zp_i = 0
+  zp_b = $10
+  zp_w = $1234
+  zp_sum = 0
+RETURN
+
+PROC Work()
+  WHILE zp_i < 6
+  DO
+    zp_sum = zp_sum + zp_w
+    zp_b ==+ 1
+    zp_i ==+ 1
+  OD
+
+  outb = zp_b
+  outw = zp_sum
+RETURN
+
+PROC Main()
+  Init()
+  Work()
+RETURN

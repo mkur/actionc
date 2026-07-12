@@ -1,0 +1,21 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$1B","name_addr":"$9466","name":"Forward","vtype":"$C0","address":"$3285","class":"PROC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]},
+    {"scope":"global","slot":"$F6","name_addr":"$9442","name":"Left","vtype":"$C0","address":"$313F","class":"PROC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]},
+    {"scope":"global","slot":"$8B","name_addr":"$9437","name":"Right","vtype":"$C0","address":"$311D","class":"PROC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]},
+    {"scope":"global","slot":"$27","name_addr":"$9473","name":"SetTurtle","vtype":"$C0","address":"$332C","class":"PROC","numargs":3,"arg_types_raw":["$0B","$0B","$0B"],"args":["INT","INT","INT"]},
+    {"scope":"global","slot":"$25","name_addr":"$940A","name":"TG_CurX","vtype":"$8C","address":"$3002","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$26","name_addr":"$9415","name":"TG_CurY","vtype":"$8C","address":"$3004","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$02","name_addr":"$9459","name":"TG_ICos","vtype":"$C4","address":"$31E6","class":"CARD FUNC","numargs":1,"arg_types_raw":["$0C"],"args":["CARD"]},
+    {"scope":"global","slot":"$31","name_addr":"$944C","name":"TG_ISin","vtype":"$C4","address":"$3156","class":"CARD FUNC","numargs":1,"arg_types_raw":["$0C"],"args":["CARD"]},
+    {"scope":"global","slot":"$E7","name_addr":"$9400","name":"TG_Phi","vtype":"$8B","address":"$3000","class":"INT","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$C8","name_addr":"$9420","name":"TG_SinTab","vtype":"$94","address":"$30BC","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$07","name_addr":"$942D","name":"Turn","vtype":"$C0","address":"$30C2","class":"PROC","numargs":1,"arg_types_raw":["$0B"],"args":["INT"]},
+    {"scope":"global","slot":"$1F","name_addr":"$9484","name":"TurtleDemo","vtype":"$C0","address":"$338A","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$3B","name_addr":"$94B3","name":"i","vtype":"$8A","address":"$3389","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

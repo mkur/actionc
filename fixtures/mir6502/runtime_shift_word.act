@@ -1,0 +1,7 @@
+CARD a,out
+BYTE count
+
+PROC Main()
+  out=a LSH count
+  out=a RSH count
+RETURN

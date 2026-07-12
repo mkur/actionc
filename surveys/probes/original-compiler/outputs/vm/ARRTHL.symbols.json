@@ -1,0 +1,18 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$40","name_addr":"$9470","name":"Local1024","vtype":"$C0","address":"$3309","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$10","name_addr":"$9408","name":"Local128","vtype":"$C0","address":"$3081","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$18","name_addr":"$9415","name":"Local256","vtype":"$C0","address":"$3195","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$11","name_addr":"$9422","name":"Local320","vtype":"$C0","address":"$31AD","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$20","name_addr":"$942F","name":"Local384","vtype":"$C0","address":"$31E7","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$19","name_addr":"$943C","name":"Local512","vtype":"$C0","address":"$3221","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$21","name_addr":"$9449","name":"Local640","vtype":"$C0","address":"$325B","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$30","name_addr":"$9456","name":"Local768","vtype":"$C0","address":"$3295","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$39","name_addr":"$9463","name":"Local896","vtype":"$C0","address":"$32CF","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$FE","name_addr":"$947E","name":"Main","vtype":"$C0","address":"$333F","class":"PROC","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$B4","name_addr":"$9400","name":"sink","vtype":"$8A","address":"$3000","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}
+  ],
+  "locals": []
+}

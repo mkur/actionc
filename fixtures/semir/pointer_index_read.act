@@ -1,0 +1,10 @@
+SET $491=$3000
+SET $E=$3000
+
+BYTE POINTER p
+BYTE out
+
+PROC Main()
+  p = $4000
+  out = p(1)
+RETURN

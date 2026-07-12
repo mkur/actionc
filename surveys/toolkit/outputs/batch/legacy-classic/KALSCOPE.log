@@ -1,0 +1,13 @@
+source: corpora/toolkit/original/extracted/KALSCOPE.DEM
+source_policy: auto
+compile_source: corpora/toolkit/original/extracted/KALSCOPE.DEM
+artifact_source: [tmp]/toolkit/KALSCOPE.DEM
+profile: legacy
+backend: classic
+codegen_source: ast
+status: ok-modernized
+detail: original rejected as expected: original source passes untyped 0 where GetParam requires CARD POINTER; compiled replacement: samples/toolkit/modern/KALSCOPE.DEM; original diagnostic: corpora/toolkit/original/extracted/KALSCOPE.DEM:275:3: `GetParam` argument 3 expects ValueType { base: Fund(Card), pointer: true }, got ValueType { base: Fund(Byte), pointer: false } | GetParam("Period", @period, 0)
+
+validation_stderr:
+corpora/toolkit/original/extracted/KALSCOPE.DEM:275:3: `GetParam` argument 3 expects ValueType { base: Fund(Card), pointer: true }, got ValueType { base: Fund(Byte), pointer: false } | GetParam("Period", @period, 0)
+corpora/toolkit/original/extracted/KALSCOPE.DEM:276:3: `GetParam` argument 3 expects ValueType { base: Fund(Card), pointer: true }, got ValueType { base: Fund(Byte), pointer: false } | GetParam("Persistence", @npts, 0)

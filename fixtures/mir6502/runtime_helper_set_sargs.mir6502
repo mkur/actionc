@@ -1,0 +1,20 @@
+mir6502 program
+machine m0 items=[$60]
+
+routine r0 <program>
+b0 bb3:
+  unreachable
+
+routine r1 r_Par
+b0 bb0:
+  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  unreachable
+
+routine r2 Take
+b0 bb1:
+  return
+
+routine r3 Main
+b0 bb2:
+  call r2 args=[#$01.b -> a, #$02.b -> x, #$03.b -> y] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

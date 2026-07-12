@@ -1,0 +1,93 @@
+compiler VM loaded 2 image(s); start PC=$C2AA
+queued key $E5 at PC=$A2E0
+queued 36 scripted CIO byte(s) at PC=$B2F5
+captured symbol snapshot `segvec` at PC=$04C6: proc=<none>, 0 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=BDescend, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=BAscend, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=CDescend, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=CAscend, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=IDescend, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=IAscend, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=SDescend, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=SAscend, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=BSwap, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=CSwap, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=ISwap, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=Compare, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=Swap, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=AddList, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=GetFirst, 2 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=Partition, 6 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=QuickSort, 5 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=SortB, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=SortC, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=SortI, 3 local(s)
+captured symbol snapshot `segvec` at PC=$04C6: proc=SortS, 3 local(s)
+stop: max steps reached
+regs: PC=$A70A A=$01 X=$00 Y=$00 SP=$F9 P=$33
+cart: window=$A000-$BFFF bank=2/3 bank_size=4096
+recent instructions:
+  53721247 PC=$A6DF OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  53721250 PC=$A6E1 OP=$C4 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  53721253 PC=$A6E3 OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  53721256 PC=$A70A OP=$86 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  53721258 PC=$A70C OP=$A0 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  53721263 PC=$A70E OP=$B1 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+  53721266 PC=$A710 OP=$F0 A=$00 X=$00 Y=$00 SP=$F9 P=$33
+  53721268 PC=$A72C OP=$E0 A=$00 X=$00 Y=$00 SP=$F9 P=$33
+  53721270 PC=$A72E OP=$F0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  53721273 PC=$A730 OP=$D0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  53721275 PC=$A6D2 OP=$A0 A=$00 X=$00 Y=$00 SP=$F9 P=$B0
+  53721277 PC=$A6D4 OP=$18 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  53721282 PC=$A6D5 OP=$B1 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  53721284 PC=$A6D7 OP=$69 A=$00 X=$00 Y=$00 SP=$F9 P=$32
+  53721286 PC=$A6D9 OP=$E0 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  53721288 PC=$A6DB OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$B0
+  53721290 PC=$A6DD OP=$E0 A=$01 X=$00 Y=$00 SP=$F9 P=$B0
+  53721292 PC=$A6DF OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  53721295 PC=$A6E1 OP=$C4 A=$01 X=$00 Y=$00 SP=$F9 P=$30
+  53721298 PC=$A6E3 OP=$F0 A=$01 X=$00 Y=$00 SP=$F9 P=$33
+CIO summary: calls=485 handled=483 passthrough=2 open=8 close=9 status=0 read=410 write=58 eof=2 bytes_read=6924 bytes_written=2694
+recent CIO:
+  cyc=3576858 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$D4 Y=$01 write E: 1 byte(s)
+  cyc=3576918 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$44 Y=$01 read queued input $44 read="D"
+  cyc=3577088 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$C4 Y=$01 write E: 1 byte(s)
+  cyc=3577148 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4D Y=$01 read queued input $4D read="M"
+  cyc=3577318 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$CD Y=$01 write E: 1 byte(s)
+  cyc=3577378 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$32 Y=$01 read queued input $32 read="2"
+  cyc=3577548 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$B2 Y=$01 write E: 1 byte(s)
+  cyc=3577608 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$2E Y=$01 read queued input $2E read="."
+  cyc=3577778 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$AE Y=$01 write E: 1 byte(s)
+  cyc=3577838 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$43 Y=$01 read queued input $43 read="C"
+  cyc=3578008 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$C3 Y=$01 write E: 1 byte(s)
+  cyc=3578068 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4F Y=$01 read queued input $4F read="O"
+  cyc=3578238 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$CF Y=$01 write E: 1 byte(s)
+  cyc=3578298 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$4D Y=$01 read queued input $4D read="M"
+  cyc=3578468 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$CD Y=$01 write E: 1 byte(s)
+  cyc=3578528 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$22 Y=$01 read queued input $22 read="\""
+  cyc=3578698 dcyc=170 x=$00 ch=0 cmd=$0B ret=$A6F9 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$A2 Y=$01 write E: 1 byte(s)
+  cyc=3578758 dcyc=60 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$04 buf=$A831 len=0 dev=Q: handled A=$9B Y=$01 read queued input $9B read="\n"
+  cyc=3578971 dcyc=213 x=$00 ch=0 cmd=$0B ret=$B2B2 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$1E Y=$01 write E: 1 byte(s)
+  cyc=3579029 dcyc=58 x=$00 ch=0 cmd=$0B ret=$AD37 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$1F Y=$01 write E: 1 byte(s)
+  cyc=3581467 dcyc=2438 x=$10 ch=1 cmd=$0C ret=$B15A aux=$04/$AE buf=$B0B1 len=155 dev=SORTDM2.ACT@925 handled A=$B0 Y=$01 close harness device
+  cyc=3581599 dcyc=132 x=$10 ch=1 cmd=$03 ret=$B19A aux=$08/$AE buf=$95FE len=13 dev=- handled A=$95 Y=$01 open harness device
+  cyc=3581708 dcyc=109 x=$00 ch=0 cmd=$0B ret=$AE50 aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$9B Y=$01 write E: 1 byte(s)
+  cyc=3581881 dcyc=173 x=$10 ch=1 cmd=$0B ret=$AECE aux=$08/$AE buf=$00AA len=6 dev=SORTDM2.COM@0 handled A=$00 Y=$01 write host 6 byte(s)
+  cyc=3581946 dcyc=65 x=$10 ch=1 cmd=$0B ret=$AEA2 aux=$08/$AE buf=$3000 len=2608 dev=SORTDM2.COM@6 handled A=$0A Y=$01 write host 2608 byte(s)
+  cyc=3582135 dcyc=189 x=$10 ch=1 cmd=$0B ret=$AECE aux=$08/$AE buf=$00AA len=6 dev=SORTDM2.COM@2614 handled A=$00 Y=$01 write host 6 byte(s)
+  cyc=3582245 dcyc=110 x=$10 ch=1 cmd=$0C ret=$AD5B aux=$08/$AE buf=$B0B1 len=155 dev=SORTDM2.COM@2620 handled A=$B0 Y=$01 close harness device
+  cyc=3582359 dcyc=114 x=$70 ch=7 cmd=$0C ret=$A823 aux=$04/$04 buf=$B0B1 len=155 dev=Q: handled A=$B0 Y=$01 close harness device
+  cyc=3582471 dcyc=112 x=$70 ch=7 cmd=$03 ret=$AD23 aux=$04/$AE buf=$A831 len=2 dev=- handled A=$A8 Y=$01 open harness device
+  cyc=3582541 dcyc=70 x=$00 ch=0 cmd=$0B ret=$AD2D aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$FD Y=$01 write E: 1 byte(s)
+  cyc=3583411 dcyc=870 x=$00 ch=0 cmd=$0B ret=$B08D aux=$0C/$AC buf=$0901 len=0 dev=- handled A=$1F Y=$01 write E: 1 byte(s)
+  cyc=3583484 dcyc=73 x=$70 ch=7 cmd=$07 ret=$A2E9 aux=$04/$AE buf=$A831 len=0 dev=Q: pass A=-- Y=-- keyboard read waiting
+speaker writes: 1 last=$00
+CIO E: channel 0 output:
+  .............................
+  INCLUDE "D:SORT.ACT".....................
+  ..
+captured symbol snapshot `stop` at PC=$A70A: proc=SortDirectory, 5 local(s)
+wrote host output `SORTDM2.COM`: 2620 byte(s) to samples/toolkit/survey/outputs/vm/SORTDM2.COM
+wrote symbol dump: 28 global(s), 5 local(s) to samples/toolkit/survey/outputs/vm/SORTDM2.symbols.json
+wrote 22 symbol snapshot(s) to samples/toolkit/survey/outputs/vm/SORTDM2.symbol-snapshots.json
+stopped after 20000000 step(s), cycles=53721298, PC=$A70A

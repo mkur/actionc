@@ -1,0 +1,30 @@
+nir program
+global total: Byte
+
+routine <program> params=[-] locals=[-]
+bb3:
+  store @$0491 = $3000
+  store @$000E = $3000
+  fallthrough
+
+routine Inc params=[n] locals=[-]
+bb0:
+  %t0:Byte = load n
+  %t1:Byte = %t0 Add 1
+  return %t1
+
+routine Add params=[a, b] locals=[-]
+bb1:
+  %t0:Byte = load a
+  %t1:Byte = load b
+  %t2:Byte = %t0 Add %t1
+  store total = %t2
+  return
+
+routine Main params=[-] locals=[-]
+bb2:
+  %t0:Byte = call Inc(1)
+  store total = %t0
+  %t1:Byte = load total
+  call Add(%t1, 3)
+  return

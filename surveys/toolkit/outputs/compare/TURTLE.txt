@@ -1,0 +1,2340 @@
+source: samples/toolkit/original/extracted/TURTLE.ACT
+
+== original:samples/toolkit/survey/outputs/vm/TURTLE.COM ==
+load bytes: 918  code bytes: 906  code origin: $0E08
+segments:
+  00: $0E08-$1191 len   906 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   912 data_off   916
+      RUNAD $02E2 = $1134
+opcode counts:
+  $00 BRK      96
+  $02 .BYTE    1
+  $04 .BYTE    1
+  $07 .BYTE    1
+  $08 PHP      2
+  $09 ORA      1
+  $0A ASL      2
+  $0B .BYTE    1
+  $0D ORA      1
+  $0E ASL      1
+  $12 .BYTE    1
+  $14 .BYTE    1
+  $16 ASL      1
+  $18 CLC      6
+  $1B .BYTE    1
+  $1D ORA      1
+  $20 JSR      16
+  $21 AND      1
+  $23 .BYTE    1
+  $25 AND      1
+  $28 PLP      3
+  $2A ROL      3
+  $2C BIT      1
+  $2D .BYTE    1
+  $30 BMI      2
+  $32 .BYTE    1
+  $34 .BYTE    1
+  $36 ROL      1
+  $38 SEC      8
+  $3A .BYTE    1
+  $3C .BYTE    1
+  $3E ROL      1
+  $42 .BYTE    1
+  $44 .BYTE    1
+  $46 LSR      1
+  $48 PHA      1
+  $49 EOR      1
+  $4B .BYTE    1
+  $4C JMP      13
+  $4D EOR      1
+  $51 EOR      1
+  $52 .BYTE    1
+  $54 .BYTE    1
+  $56 LSR      1
+  $57 .BYTE    1
+  $59 EOR      1
+  $5C .BYTE    1
+  $5E LSR      1
+  $60 RTS      8
+  $61 ADC      1
+  $62 .BYTE    1
+  $63 .BYTE    1
+  $65 ADC      1
+  $66 ROR      1
+  $68 PLA      1
+  $69 ADC      3
+  $6A ROR      1
+  $6B .BYTE    1
+  $6D ADC      9
+  $6F .BYTE    1
+  $70 BVS      1
+  $71 ADC      1
+  $72 .BYTE    1
+  $73 .BYTE    1
+  $74 .BYTE    1
+  $75 ADC      1
+  $76 ROR      1
+  $77 .BYTE    2
+  $78 SEI      1
+  $79 ADC      1
+  $7A .BYTE    1
+  $7B .BYTE    1
+  $7C .BYTE    2
+  $7D ADC      1
+  $7E ROR      2
+  $7F .BYTE    2
+  $80 .BYTE    6
+  $85 STA      29
+  $88 DEY      2
+  $8A TXA      8
+  $8C STY      5
+  $8D STA      40
+  $8E STX      6
+  $90 BCC      4
+  $A0 LDY      5
+  $A4 LDY      1
+  $A5 LDA      8
+  $A6 LDX      2
+  $A9 LDA      30
+  $AA TAX      9
+  $AC LDY      1
+  $AD LDA      38
+  $AE LDX      4
+  $B1 LDA      4
+  $C8 INY      2
+  $C9 CMP      1
+  $CD CMP      4
+  $E9 SBC      1
+  $ED SBC      18
+
+== compat ==
+load bytes: 918  code bytes: 906  code origin: $0E08
+segments:
+  00: $0E08-$1191 len   906 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   912 data_off   916
+      RUNAD $02E2 = $1134
+opcode counts:
+  $00 BRK      96
+  $02 .BYTE    1
+  $04 .BYTE    1
+  $07 .BYTE    1
+  $08 PHP      2
+  $09 ORA      1
+  $0A ASL      2
+  $0B .BYTE    1
+  $0D ORA      1
+  $0E ASL      1
+  $12 .BYTE    1
+  $14 .BYTE    1
+  $16 ASL      1
+  $18 CLC      6
+  $1B .BYTE    1
+  $1D ORA      1
+  $20 JSR      16
+  $21 AND      1
+  $23 .BYTE    1
+  $25 AND      1
+  $28 PLP      3
+  $2A ROL      3
+  $2C BIT      1
+  $2D .BYTE    1
+  $30 BMI      2
+  $32 .BYTE    1
+  $34 .BYTE    1
+  $36 ROL      1
+  $38 SEC      8
+  $3A .BYTE    1
+  $3C .BYTE    1
+  $3E ROL      1
+  $42 .BYTE    1
+  $44 .BYTE    1
+  $46 LSR      1
+  $48 PHA      1
+  $49 EOR      1
+  $4B .BYTE    1
+  $4C JMP      13
+  $4D EOR      1
+  $51 EOR      1
+  $52 .BYTE    1
+  $54 .BYTE    1
+  $56 LSR      1
+  $57 .BYTE    1
+  $59 EOR      1
+  $5C .BYTE    1
+  $5E LSR      1
+  $60 RTS      8
+  $61 ADC      1
+  $62 .BYTE    1
+  $63 .BYTE    1
+  $65 ADC      1
+  $66 ROR      1
+  $68 PLA      1
+  $69 ADC      3
+  $6A ROR      1
+  $6B .BYTE    1
+  $6D ADC      9
+  $6F .BYTE    1
+  $70 BVS      1
+  $71 ADC      1
+  $72 .BYTE    1
+  $73 .BYTE    1
+  $74 .BYTE    1
+  $75 ADC      1
+  $76 ROR      1
+  $77 .BYTE    2
+  $78 SEI      1
+  $79 ADC      1
+  $7A .BYTE    1
+  $7B .BYTE    1
+  $7C .BYTE    2
+  $7D ADC      1
+  $7E ROR      2
+  $7F .BYTE    2
+  $80 .BYTE    6
+  $85 STA      29
+  $88 DEY      2
+  $8A TXA      8
+  $8C STY      5
+  $8D STA      40
+  $8E STX      6
+  $90 BCC      4
+  $A0 LDY      5
+  $A4 LDY      1
+  $A5 LDA      8
+  $A6 LDX      2
+  $A9 LDA      30
+  $AA TAX      9
+  $AC LDY      1
+  $AD LDA      38
+  $AE LDX      4
+  $B1 LDA      4
+  $C8 INY      2
+  $C9 CMP      1
+  $CD CMP      4
+  $E9 SBC      1
+  $ED SBC      18
+
+== modern ==
+load bytes: 878  code bytes: 866  code origin: $0E08
+segments:
+  00: $0E08-$1169 len   866 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   872 data_off   876
+      RUNAD $02E2 = $110D
+opcode counts:
+  $00 BRK      96
+  $02 .BYTE    1
+  $04 .BYTE    1
+  $06 .BYTE    1
+  $07 .BYTE    1
+  $08 PHP      2
+  $09 ORA      1
+  $0A ASL      2
+  $0B .BYTE    1
+  $0D ORA      1
+  $0E ASL      1
+  $10 BPL      1
+  $12 .BYTE    1
+  $14 .BYTE    1
+  $16 ASL      1
+  $18 CLC      6
+  $1B .BYTE    1
+  $1D ORA      1
+  $20 JSR      13
+  $21 AND      1
+  $23 .BYTE    1
+  $25 AND      1
+  $28 PLP      3
+  $2A ROL      3
+  $2C BIT      1
+  $30 BMI      1
+  $32 .BYTE    1
+  $34 .BYTE    1
+  $36 ROL      1
+  $38 SEC      8
+  $3A .BYTE    1
+  $3C .BYTE    1
+  $3E ROL      1
+  $42 .BYTE    1
+  $44 .BYTE    1
+  $46 LSR      1
+  $48 PHA      1
+  $49 EOR      1
+  $4B .BYTE    1
+  $4C JMP      11
+  $4D EOR      1
+  $51 EOR      1
+  $52 .BYTE    1
+  $54 .BYTE    1
+  $56 LSR      1
+  $57 .BYTE    1
+  $59 EOR      1
+  $5C .BYTE    1
+  $5E LSR      1
+  $60 RTS      4
+  $61 ADC      1
+  $62 .BYTE    1
+  $63 .BYTE    1
+  $65 ADC      1
+  $66 ROR      1
+  $68 PLA      1
+  $69 ADC      3
+  $6A ROR      1
+  $6B .BYTE    1
+  $6D ADC      9
+  $6F .BYTE    1
+  $70 BVS      1
+  $71 ADC      1
+  $72 .BYTE    1
+  $73 .BYTE    1
+  $74 .BYTE    1
+  $75 ADC      1
+  $76 ROR      1
+  $77 .BYTE    2
+  $78 SEI      1
+  $79 ADC      1
+  $7A .BYTE    1
+  $7B .BYTE    1
+  $7C .BYTE    2
+  $7D ADC      1
+  $7E ROR      2
+  $7F .BYTE    2
+  $80 .BYTE    6
+  $85 STA      29
+  $88 DEY      2
+  $8A TXA      8
+  $8C STY      5
+  $8D STA      40
+  $8E STX      6
+  $98 TYA      2
+  $A0 LDY      5
+  $A4 LDY      1
+  $A5 LDA      6
+  $A6 LDX      1
+  $A9 LDA      26
+  $AA TAX      10
+  $AC LDY      1
+  $AD LDA      36
+  $AE LDX      4
+  $B0 BCS      4
+  $B1 LDA      4
+  $C8 INY      2
+  $CD CMP      4
+  $ED SBC      18
+
+== map: compat ==
+origin $0E08  run $1134  routines 7  symbols 18  skipped 0
+routines:
+  Turn                     $0EC8-$0F22 len    91
+  Right                    $0F23-$0F44 len    34
+  Left                     $0F45-$0F59 len    21
+  TG_ISin                  $0F5A-$0FE9 len   144
+  TG_ICos                  $0FEA-$1086 len   157
+  Forward                  $1087-$112C len   166
+  SetTurtle                $112D-$1190 len   100
+storage symbols:
+  global Storage TG_PHI $0E08-$0E09
+  global Storage TG_CURX $0E0A-$0E0B
+  global Storage TG_CURY $0E0C-$0E0D
+  global Storage TG_SINTAB $0EC4-$0EC5
+  routine Turn Parameter THETA $0EC8-$0EC9
+  routine Right Parameter THETA $0F23-$0F24
+  routine Left Parameter THETA $0F45-$0F46
+  routine TG_ISin Parameter THETA $0F5A-$0F5B
+  routine TG_ISin Local SIGN $0F5C-$0F5D
+  routine TG_ICos Parameter THETA $0FEA-$0FEB
+  routine TG_ICos Local SIGN $0FEC-$0FED
+  routine Forward Parameter LENGTH $1087-$1088
+  routine Forward Local DELTAX $1089-$108A
+  routine Forward Local DELTAY $108B-$108C
+  routine SetTurtle Parameter X $112D-$112E
+  routine SetTurtle Parameter Y $112F-$1130
+  routine SetTurtle Parameter THETA $1131-$1132
+  routine SetTurtle Local TEMP $1133-$1133
+trusted effects:
+  Turn                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$C2; writes abs $0EC9,$0EC8,$0E08,$0E09
+  Right                    clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$C2; writes abs $0F24,$0F23,$0EC9,$0EC8,$0E08,$0E09
+  Left                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$C2; writes abs $0F46,$0F45,$0EC9,$0EC8,$0E08,$0E09
+  TG_ISin                  clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$AE,$AF,$C0,$C1,$C2; writes abs $0F5B,$0F5A,$0F5D,$0F5C
+  TG_ICos                  clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$AC,$AD,$AE,$AF,$C0,$C1,$C2; writes abs $0FEB,$0FEA,$0FED,$0FEC
+
+== map: modern ==
+origin $0E08  run $110D  routines 7  symbols 18  skipped 0
+routines:
+  Turn                     $0EC8-$0F18 len    81
+  Right                    $0F19-$0F38 len    32
+  Left                     $0F39-$0F49 len    17
+  TG_ISin                  $0F4A-$0FD0 len   135
+  TG_ICos                  $0FD1-$1064 len   148
+  Forward                  $1065-$1105 len   161
+  SetTurtle                $1106-$1169 len   100
+storage symbols:
+  global Storage TG_PHI $0E08-$0E09
+  global Storage TG_CURX $0E0A-$0E0B
+  global Storage TG_CURY $0E0C-$0E0D
+  global Storage TG_SINTAB $0EC4-$0EC5
+  routine Turn Parameter THETA $0EC8-$0EC9
+  routine Right Parameter THETA $0F19-$0F1A
+  routine Left Parameter THETA $0F39-$0F3A
+  routine TG_ISin Parameter THETA $0F4A-$0F4B
+  routine TG_ISin Local SIGN $0F4C-$0F4D
+  routine TG_ICos Parameter THETA $0FD1-$0FD2
+  routine TG_ICos Local SIGN $0FD3-$0FD4
+  routine Forward Parameter LENGTH $1065-$1066
+  routine Forward Local DELTAX $1067-$1068
+  routine Forward Local DELTAY $1069-$106A
+  routine SetTurtle Parameter X $1106-$1107
+  routine SetTurtle Parameter Y $1108-$1109
+  routine SetTurtle Parameter THETA $110A-$110B
+  routine SetTurtle Local TEMP $110C-$110C
+trusted effects:
+  Turn                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$C2; writes abs $0EC9,$0EC8,$0E08,$0E09
+  Right                    clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$C2; writes abs $0F1A,$0F19,$0EC9,$0EC8,$0E08,$0E09
+  Left                     clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$C2; writes abs $0F3A,$0F39,$0EC9,$0EC8,$0E08,$0E09
+  TG_ISin                  clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$AE,$AF,$C0,$C1,$C2; writes abs $0F4B,$0F4A,$0F4D,$0F4C
+  TG_ICos                  clobbers A,X,Y; writes zp $82,$83,$84,$85,$86,$87,$A0,$A1,$AC,$AD,$AE,$AF,$C0,$C1,$C2; writes abs $0FD2,$0FD1,$0FD4,$0FD3
+
+== routines: original:samples/toolkit/survey/outputs/vm/TURTLE.COM vs compat ==
+  Turn                     len 283 -> 91 (-192)  addr $0E08 -> $0EC8
+    Turn+$0002 #0002
+      original : $0E0A 00       BRK
+      generated: $0ECA 4C CD 0E JMP $0ECD
+      orig owner: TG_CurX $0E0A
+      source   : Routine Turn samples/toolkit/original/extracted/TURTLE.ACT:40:1 | PROC Turn(INT theta) | source 935..1051 code $0EC8-$0F22
+    Turn+$0003 #0003
+      original : $0E0B 00       BRK
+      generated: $0ECD 8E C9 0E STX $0EC9
+      orig owner: TG_CurX+1 $0E0B
+      source   : Routine Turn samples/toolkit/original/extracted/TURTLE.ACT:40:1 | PROC Turn(INT theta) | source 935..1051 code $0EC8-$0F22
+    Turn+$0004 #0004
+      original : $0E0C 00       BRK
+      generated: $0ED0 8D C8 0E STA $0EC8
+      orig owner: TG_CurY $0E0C
+      source   : Routine Turn samples/toolkit/original/extracted/TURTLE.ACT:40:1 | PROC Turn(INT theta) | source 935..1051 code $0EC8-$0F22
+    Turn+$0005 #0005
+      original : $0E0D 00       BRK
+      generated: $0ED3 18       CLC
+      orig owner: TG_CurY+1 $0E0D
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$0006 #0006
+      original : $0E0E 00       BRK
+      generated: $0ED4 AD 08 0E LDA $0E08
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$0007 #0007
+      original : $0E0F 00       BRK
+      generated: $0ED7 6D C8 0E ADC $0EC8
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$0008 #0008
+      original : $0E10 02       .BYTE $02
+      generated: $0EDA 8D 08 0E STA $0E08
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$0009 #0009
+      original : $0E11 00       BRK
+      generated: $0EDD AD 09 0E LDA $0E09
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$000A #0010
+      original : $0E12 04       .BYTE $04
+      generated: $0EE0 6D C9 0E ADC $0EC9
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$000B #0011
+      original : $0E13 00       BRK
+      generated: $0EE3 8D 09 0E STA $0E09
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$000C #0012
+      original : $0E14 07       .BYTE $07
+      generated: $0EE6 AD 08 0E LDA $0E08
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+    Turn+$000D #0013
+      original : $0E15 00       BRK
+      generated: $0EE9 C9 00    CMP #$00
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+    Turn+$000E #0014
+      original : $0E16 09 00    ORA #$00
+      generated: $0EEB AD 09 0E LDA $0E09
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+    Turn+$0010 #0015
+      original : $0E18 0B       .BYTE $0B
+      generated: $0EEE E9 00    SBC #$00
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+    Turn+$0011 #0016
+      original : $0E19 00       BRK
+      generated: $0EF0 30 03    BMI $0EF5
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+    Turn+$0012 #0017
+      original : $0E1A 0D 00 10 ORA $1000
+      generated: $0EF2 4C 09 0F JMP $0F09
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+    Turn+$0015 #0018
+      original : $0E1D 00       BRK
+      generated: $0EF5 18       CLC
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+    Turn+$0016 #0019
+      original : $0E1E 12       .BYTE $12
+      generated: $0EF6 AD 08 0E LDA $0E08
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+    Turn+$0017 #0020
+      original : $0E1F 00       BRK
+      generated: $0EF9 69 68    ADC #$68
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+    Turn+$0018 #0021
+      original : $0E20 14       .BYTE $14
+      generated: $0EFB 8D 08 0E STA $0E08
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+    Turn+$0019 #0022
+      original : $0E21 00       BRK
+      generated: $0EFE AD 09 0E LDA $0E09
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+    Turn+$001A #0023
+      original : $0E22 16 00    ASL $00,X
+      generated: $0F01 69 01    ADC #$01
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+    Turn+$001C #0024
+      original : $0E24 18       CLC
+      generated: $0F03 8D 09 0E STA $0E09
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+    Turn+$001D #0025
+      original : $0E25 00       BRK
+      generated: $0F06 4C E6 0E JMP $0EE6
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+    Turn+$001E #0026
+      original : $0E26 1B       .BYTE $1B
+      generated: $0F09 A9 01    LDA #$01
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+    Turn+$001F #0027
+      original : $0E27 00       BRK
+      generated: $0F0B 85 85    STA $85
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+    Turn+$0020 #0028
+      original : $0E28 1D 00 1F ORA $1F00,X
+      generated: $0F0D A9 68    LDA #$68
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+    Turn+$0023 #0029
+      original : $0E2B 00       BRK
+      generated: $0F0F 85 84    STA $84
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+    Turn+$0024 #0030
+      original : $0E2C 21 00    AND ($00,X)
+      generated: $0F11 AD 09 0E LDA $0E09
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+    Turn+$0026 #0031
+      original : $0E2E 23       .BYTE $23
+      generated: $0F14 AA       TAX
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+  SetTurtle                len 101 -> 100 (-1)  addr $112D -> $112D
+    SetTurtle+$0064 #0043
+      original : $1191 60       RTS
+      generated: <missing>
+
+== routines: original:samples/toolkit/survey/outputs/vm/TURTLE.COM vs modern ==
+  Turn                     len 283 -> 81 (-202)  addr $0E08 -> $0EC8
+    Turn+$0002 #0002
+      original : $0E0A 00       BRK
+      generated: $0ECA 4C CD 0E JMP $0ECD
+      orig owner: TG_CurX $0E0A
+      source   : Routine Turn samples/toolkit/original/extracted/TURTLE.ACT:40:1 | PROC Turn(INT theta) | source 935..1051 code $0EC8-$0F18
+    Turn+$0003 #0003
+      original : $0E0B 00       BRK
+      generated: $0ECD 8E C9 0E STX $0EC9
+      orig owner: TG_CurX+1 $0E0B
+      source   : Routine Turn samples/toolkit/original/extracted/TURTLE.ACT:40:1 | PROC Turn(INT theta) | source 935..1051 code $0EC8-$0F18
+    Turn+$0004 #0004
+      original : $0E0C 00       BRK
+      generated: $0ED0 8D C8 0E STA $0EC8
+      orig owner: TG_CurY $0E0C
+      source   : Routine Turn samples/toolkit/original/extracted/TURTLE.ACT:40:1 | PROC Turn(INT theta) | source 935..1051 code $0EC8-$0F18
+    Turn+$0005 #0005
+      original : $0E0D 00       BRK
+      generated: $0ED3 18       CLC
+      orig owner: TG_CurY+1 $0E0D
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$0006 #0006
+      original : $0E0E 00       BRK
+      generated: $0ED4 AD 08 0E LDA $0E08
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$0007 #0007
+      original : $0E0F 00       BRK
+      generated: $0ED7 6D C8 0E ADC $0EC8
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$0008 #0008
+      original : $0E10 02       .BYTE $02
+      generated: $0EDA 8D 08 0E STA $0E08
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$0009 #0009
+      original : $0E11 00       BRK
+      generated: $0EDD AD 09 0E LDA $0E09
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$000A #0010
+      original : $0E12 04       .BYTE $04
+      generated: $0EE0 6D C9 0E ADC $0EC9
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$000B #0011
+      original : $0E13 00       BRK
+      generated: $0EE3 8D 09 0E STA $0E09
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:42:3 | TG_Phi=TG_Phi+theta | source 959..978 code $0ED3-$0EE5
+    Turn+$000C #0012
+      original : $0E14 07       .BYTE $07
+      generated: $0EE6 AD 09 0E LDA $0E09
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0EFE
+    Turn+$000D #0013
+      original : $0E15 00       BRK
+      generated: $0EE9 10 14    BPL $0EFF
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0EFE
+    Turn+$000E #0014
+      original : $0E16 09 00    ORA #$00
+      generated: $0EEB 18       CLC
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    Turn+$0010 #0015
+      original : $0E18 0B       .BYTE $0B
+      generated: $0EEC AD 08 0E LDA $0E08
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    Turn+$0011 #0016
+      original : $0E19 00       BRK
+      generated: $0EEF 69 68    ADC #$68
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    Turn+$0012 #0017
+      original : $0E1A 0D 00 10 ORA $1000
+      generated: $0EF1 8D 08 0E STA $0E08
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    Turn+$0015 #0018
+      original : $0E1D 00       BRK
+      generated: $0EF4 AD 09 0E LDA $0E09
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    Turn+$0016 #0019
+      original : $0E1E 12       .BYTE $12
+      generated: $0EF7 69 01    ADC #$01
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    Turn+$0017 #0020
+      original : $0E1F 00       BRK
+      generated: $0EF9 8D 09 0E STA $0E09
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    Turn+$0018 #0021
+      original : $0E20 14       .BYTE $14
+      generated: $0EFC 4C E6 0E JMP $0EE6
+      source   : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0EFE
+    Turn+$0019 #0022
+      original : $0E21 00       BRK
+      generated: $0EFF A9 01    LDA #$01
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    Turn+$001A #0023
+      original : $0E22 16 00    ASL $00,X
+      generated: $0F01 85 85    STA $85
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    Turn+$001C #0024
+      original : $0E24 18       CLC
+      generated: $0F03 A9 68    LDA #$68
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    Turn+$001D #0025
+      original : $0E25 00       BRK
+      generated: $0F05 85 84    STA $84
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    Turn+$001E #0026
+      original : $0E26 1B       .BYTE $1B
+      generated: $0F07 AD 09 0E LDA $0E09
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    Turn+$001F #0027
+      original : $0E27 00       BRK
+      generated: $0F0A AA       TAX
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    Turn+$0020 #0028
+      original : $0E28 1D 00 1F ORA $1F00,X
+      generated: $0F0B AD 08 0E LDA $0E08
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    Turn+$0023 #0029
+      original : $0E2B 00       BRK
+      generated: $0F0E 20 DE A0 JSR $A0DE
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    Turn+$0024 #0030
+      original : $0E2C 21 00    AND ($00,X)
+      generated: $0F11 8D 08 0E STA $0E08
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    Turn+$0026 #0031
+      original : $0E2E 23       .BYTE $23
+      generated: $0F14 8A       TXA
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+  Right                    len 34 -> 32 (-2)  addr $0F23 -> $0F19
+    Right+$0002 #0002
+      original : $0F25 4C 28 0F JMP $0F28
+      generated: $0F1B 4C 1E 0F JMP $0F1E
+      orig owner: Right $0F25
+      source   : Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    Right+$0005 #0003
+      original : $0F28 8E 24 0F STX $0F24 ; theta+1 $0F24
+      generated: $0F1E 8E 1A 0F STX $0F1A
+      orig operand: theta+1 $0F24
+      source   : Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    Right+$0008 #0004
+      original : $0F2B 8D 23 0F STA $0F23 ; theta $0F23
+      generated: $0F21 8D 19 0F STA $0F19
+      orig operand: theta $0F23
+      source   : Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    Right+$000E #0007
+      original : $0F31 ED 23 0F SBC $0F23 ; theta $0F23
+      generated: $0F27 ED 19 0F SBC $0F19
+      orig operand: theta $0F23
+      source   : Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    Right+$0015 #0010
+      original : $0F38 ED 24 0F SBC $0F24 ; theta+1 $0F24
+      generated: $0F2E ED 1A 0F SBC $0F1A
+      orig operand: theta+1 $0F24
+      source   : Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    Right+$001A #0012
+      original : $0F3D A6 A1    LDX $A1
+      generated: $0F33 AA       TAX
+      source   : Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    Right+$001E #0014
+      original : $0F41 20 CA 0E JSR $0ECA ; Turn $0ECA
+      generated: $0F36 4C CA 0E JMP $0ECA
+      orig operand: Turn $0ECA
+      source   : Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    Right+$0021 #0015
+      original : $0F44 60       RTS
+      generated: <missing>
+  Left                     len 21 -> 17 (-4)  addr $0F45 -> $0F39
+    Left+$0002 #0002
+      original : $0F47 4C 4A 0F JMP $0F4A
+      generated: $0F3B 4C 3E 0F JMP $0F3E
+      orig owner: Left $0F47
+      source   : Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F39-$0F49
+    Left+$0005 #0003
+      original : $0F4A 8E 46 0F STX $0F46 ; theta+1 $0F46
+      generated: $0F3E 8E 3A 0F STX $0F3A
+      orig operand: theta+1 $0F46
+      source   : Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F39-$0F49
+    Left+$0008 #0004
+      original : $0F4D 8D 45 0F STA $0F45 ; theta $0F45
+      generated: $0F41 8D 39 0F STA $0F39
+      orig operand: theta $0F45
+      source   : Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F39-$0F49
+    Left+$000B #0005
+      original : $0F50 AE 46 0F LDX $0F46 ; theta+1 $0F46
+      generated: $0F44 AE 3A 0F LDX $0F3A
+      orig operand: theta+1 $0F46
+      source   : Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F39-$0F49
+    Left+$000E #0006
+      original : $0F53 AD 45 0F LDA $0F45 ; theta $0F45
+      generated: $0F47 4C CA 0E JMP $0ECA
+      orig operand: theta $0F45
+      source   : Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F39-$0F49
+    Left+$0011 #0007
+      original : $0F56 20 CA 0E JSR $0ECA ; Turn $0ECA
+      generated: <missing>
+      orig operand: Turn $0ECA
+    Left+$0014 #0008
+      original : $0F59 60       RTS
+      generated: <missing>
+  TG_ISin                  len 144 -> 135 (-9)  addr $0F5A -> $0F4A
+    TG_ISin+$0004 #0004
+      original : $0F5E 4C 61 0F JMP $0F61
+      generated: $0F4E 4C 51 0F JMP $0F51
+      orig owner: TG_ISin $0F5E
+      source   : Routine TG_ISin samples/toolkit/original/extracted/TURTLE.ACT:72:1 | CARD FUNC TG_ISin(CARD theta) | source 1451..1633 code $0F4A-$0FD0
+    TG_ISin+$0007 #0005
+      original : $0F61 8E 5B 0F STX $0F5B ; theta+1 $0F5B
+      generated: $0F51 8E 4B 0F STX $0F4B
+      orig operand: theta+1 $0F5B
+      source   : Routine TG_ISin samples/toolkit/original/extracted/TURTLE.ACT:72:1 | CARD FUNC TG_ISin(CARD theta) | source 1451..1633 code $0F4A-$0FD0
+    TG_ISin+$000A #0006
+      original : $0F64 8D 5A 0F STA $0F5A ; theta $0F5A
+      generated: $0F54 8D 4A 0F STA $0F4A
+      orig operand: theta $0F5A
+      source   : Routine TG_ISin samples/toolkit/original/extracted/TURTLE.ACT:72:1 | CARD FUNC TG_ISin(CARD theta) | source 1451..1633 code $0F4A-$0FD0
+    TG_ISin+$000F #0008
+      original : $0F69 8C 5D 0F STY $0F5D ; sign+1 $0F5D
+      generated: $0F59 8C 4D 0F STY $0F4D
+      orig operand: sign+1 $0F5D
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:76:3 | sign=1 | source 1496..1502 code $0F57-$0F5F
+    TG_ISin+$0013 #0010
+      original : $0F6D 8C 5C 0F STY $0F5C ; sign $0F5C
+      generated: $0F5D 8C 4C 0F STY $0F4C
+      orig operand: sign $0F5C
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:76:3 | sign=1 | source 1496..1502 code $0F57-$0F5F
+    TG_ISin+$0018 #0012
+      original : $0F72 CD 5A 0F CMP $0F5A ; theta $0F5A
+      generated: $0F62 CD 4A 0F CMP $0F4A
+      orig operand: theta $0F5A
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559 code $0F60-$0F83
+    TG_ISin+$001D #0014
+      original : $0F77 ED 5B 0F SBC $0F5B ; theta+1 $0F5B
+      generated: $0F67 ED 4B 0F SBC $0F4B
+      orig operand: theta+1 $0F5B
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559 code $0F60-$0F83
+    TG_ISin+$0020 #0015
+      original : $0F7A 90 03    BCC $0F7F
+      generated: $0F6A B0 18    BCS $0F84
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559 code $0F60-$0F83
+    TG_ISin+$0022 #0016
+      original : $0F7C 4C 9A 0F JMP $0F9A
+      generated: $0F6C 38       SEC
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    TG_ISin+$0025 #0017
+      original : $0F7F 38       SEC
+      generated: $0F6D A9 68    LDA #$68
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    TG_ISin+$0026 #0018
+      original : $0F80 A9 68    LDA #$68
+      generated: $0F6F ED 4A 0F SBC $0F4A
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    TG_ISin+$0028 #0019
+      original : $0F82 ED 5A 0F SBC $0F5A ; theta $0F5A
+      generated: $0F72 8D 4A 0F STA $0F4A
+      orig operand: theta $0F5A
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    TG_ISin+$002B #0020
+      original : $0F85 8D 5A 0F STA $0F5A ; theta $0F5A
+      generated: $0F75 98       TYA
+      orig operand: theta $0F5A
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    TG_ISin+$002E #0021
+      original : $0F88 A9 01    LDA #$01
+      generated: $0F76 ED 4B 0F SBC $0F4B
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    TG_ISin+$0030 #0022
+      original : $0F8A ED 5B 0F SBC $0F5B ; theta+1 $0F5B
+      generated: $0F79 8D 4B 0F STA $0F4B
+      orig operand: theta+1 $0F5B
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    TG_ISin+$0033 #0023
+      original : $0F8D 8D 5B 0F STA $0F5B ; theta+1 $0F5B
+      generated: $0F7C A9 FF    LDA #$FF
+      orig operand: theta+1 $0F5B
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554 code $0F7C-$0F83
+    TG_ISin+$0036 #0024
+      original : $0F90 A9 FF    LDA #$FF
+      generated: $0F7E 8D 4D 0F STA $0F4D
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554 code $0F7C-$0F83
+    TG_ISin+$0038 #0025
+      original : $0F92 8D 5D 0F STA $0F5D ; sign+1 $0F5D
+      generated: $0F81 8D 4C 0F STA $0F4C
+      orig operand: sign+1 $0F5D
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554 code $0F7C-$0F83
+    TG_ISin+$003B #0026
+      original : $0F95 A9 FF    LDA #$FF
+      generated: $0F84 A9 5A    LDA #$5A
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F84-$0FA0
+    TG_ISin+$003D #0027
+      original : $0F97 8D 5C 0F STA $0F5C ; sign $0F5C
+      generated: $0F86 CD 4A 0F CMP $0F4A
+      orig operand: sign $0F5C
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F84-$0FA0
+    TG_ISin+$0040 #0028
+      original : $0F9A A9 5A    LDA #$5A
+      generated: $0F89 A9 00    LDA #$00
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F84-$0FA0
+    TG_ISin+$0042 #0029
+      original : $0F9C CD 5A 0F CMP $0F5A ; theta $0F5A
+      generated: $0F8B ED 4B 0F SBC $0F4B
+      orig operand: theta $0F5A
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F84-$0FA0
+    TG_ISin+$0045 #0030
+      original : $0F9F A9 00    LDA #$00
+      generated: $0F8E B0 11    BCS $0FA1
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F84-$0FA0
+    TG_ISin+$0047 #0031
+      original : $0FA1 ED 5B 0F SBC $0F5B ; theta+1 $0F5B
+      generated: $0F90 38       SEC
+      orig operand: theta+1 $0F5B
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    TG_ISin+$004A #0032
+      original : $0FA4 90 03    BCC $0FA9
+      generated: $0F91 A9 B4    LDA #$B4
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    TG_ISin+$004C #0033
+      original : $0FA6 4C BA 0F JMP $0FBA
+      generated: $0F93 ED 4A 0F SBC $0F4A
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    TG_ISin+$004F #0034
+      original : $0FA9 38       SEC
+      generated: $0F96 8D 4A 0F STA $0F4A
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    TG_ISin+$0050 #0035
+      original : $0FAA A9 B4    LDA #$B4
+      generated: $0F99 A9 00    LDA #$00
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    TG_ISin+$0052 #0036
+      original : $0FAC ED 5A 0F SBC $0F5A ; theta $0F5A
+      generated: $0F9B ED 4B 0F SBC $0F4B
+      orig operand: theta $0F5A
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    TG_ISin+$0055 #0037
+      original : $0FAF 8D 5A 0F STA $0F5A ; theta $0F5A
+      generated: $0F9E 8D 4B 0F STA $0F4B
+      orig operand: theta $0F5A
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+  TG_ICos                  len 157 -> 148 (-9)  addr $0FEA -> $0FD1
+    TG_ICos+$0004 #0004
+      original : $0FEE 4C F1 0F JMP $0FF1
+      generated: $0FD5 4C D8 0F JMP $0FD8
+      orig owner: TG_ICos $0FEE
+      source   : Routine TG_ICos samples/toolkit/original/extracted/TURTLE.ACT:90:1 | CARD FUNC TG_ICos(CARD theta) | source 1738..1923 code $0FD1-$1064
+    TG_ICos+$0007 #0005
+      original : $0FF1 8E EB 0F STX $0FEB ; theta+1 $0FEB
+      generated: $0FD8 8E D2 0F STX $0FD2
+      orig operand: theta+1 $0FEB
+      source   : Routine TG_ICos samples/toolkit/original/extracted/TURTLE.ACT:90:1 | CARD FUNC TG_ICos(CARD theta) | source 1738..1923 code $0FD1-$1064
+    TG_ICos+$000A #0006
+      original : $0FF4 8D EA 0F STA $0FEA ; theta $0FEA
+      generated: $0FDB 8D D1 0F STA $0FD1
+      orig operand: theta $0FEA
+      source   : Routine TG_ICos samples/toolkit/original/extracted/TURTLE.ACT:90:1 | CARD FUNC TG_ICos(CARD theta) | source 1738..1923 code $0FD1-$1064
+    TG_ICos+$000F #0008
+      original : $0FF9 8C ED 0F STY $0FED ; sign+1 $0FED
+      generated: $0FE0 8C D4 0F STY $0FD4
+      orig operand: sign+1 $0FED
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:94:3 | sign=1 | source 1783..1789 code $0FDE-$0FE6
+    TG_ICos+$0013 #0010
+      original : $0FFD 8C EC 0F STY $0FEC ; sign $0FEC
+      generated: $0FE4 8C D3 0F STY $0FD3
+      orig operand: sign $0FEC
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:94:3 | sign=1 | source 1783..1789 code $0FDE-$0FE6
+    TG_ICos+$0018 #0012
+      original : $1002 CD EA 0F CMP $0FEA ; theta $0FEA
+      generated: $0FE9 CD D1 0F CMP $0FD1
+      orig operand: theta $0FEA
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834 code $0FE7-$1002
+    TG_ICos+$001D #0014
+      original : $1007 ED EB 0F SBC $0FEB ; theta+1 $0FEB
+      generated: $0FEE ED D2 0F SBC $0FD2
+      orig operand: theta+1 $0FEB
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834 code $0FE7-$1002
+    TG_ICos+$0020 #0015
+      original : $100A 90 03    BCC $100F
+      generated: $0FF1 B0 10    BCS $1003
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834 code $0FE7-$1002
+    TG_ICos+$0022 #0016
+      original : $100C 4C 20 10 JMP $1020
+      generated: $0FF3 38       SEC
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    TG_ICos+$0025 #0017
+      original : $100F 38       SEC
+      generated: $0FF4 A9 68    LDA #$68
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    TG_ICos+$0026 #0018
+      original : $1010 A9 68    LDA #$68
+      generated: $0FF6 ED D1 0F SBC $0FD1
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    TG_ICos+$0028 #0019
+      original : $1012 ED EA 0F SBC $0FEA ; theta $0FEA
+      generated: $0FF9 8D D1 0F STA $0FD1
+      orig operand: theta $0FEA
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    TG_ICos+$002B #0020
+      original : $1015 8D EA 0F STA $0FEA ; theta $0FEA
+      generated: $0FFC 98       TYA
+      orig operand: theta $0FEA
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    TG_ICos+$002E #0021
+      original : $1018 A9 01    LDA #$01
+      generated: $0FFD ED D2 0F SBC $0FD2
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    TG_ICos+$0030 #0022
+      original : $101A ED EB 0F SBC $0FEB ; theta+1 $0FEB
+      generated: $1000 8D D2 0F STA $0FD2
+      orig operand: theta+1 $0FEB
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    TG_ICos+$0033 #0023
+      original : $101D 8D EB 0F STA $0FEB ; theta+1 $0FEB
+      generated: $1003 A9 5A    LDA #$5A
+      orig operand: theta+1 $0FEB
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1003-$1027
+    TG_ICos+$0036 #0024
+      original : $1020 A9 5A    LDA #$5A
+      generated: $1005 CD D1 0F CMP $0FD1
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1003-$1027
+    TG_ICos+$0038 #0025
+      original : $1022 CD EA 0F CMP $0FEA ; theta $0FEA
+      generated: $1008 A9 00    LDA #$00
+      orig operand: theta $0FEA
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1003-$1027
+    TG_ICos+$003B #0026
+      original : $1025 A9 00    LDA #$00
+      generated: $100A ED D2 0F SBC $0FD2
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1003-$1027
+    TG_ICos+$003D #0027
+      original : $1027 ED EB 0F SBC $0FEB ; theta+1 $0FEB
+      generated: $100D B0 19    BCS $1028
+      orig operand: theta+1 $0FEB
+      source   : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1003-$1027
+    TG_ICos+$0040 #0028
+      original : $102A 90 03    BCC $102F
+      generated: $100F 38       SEC
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    TG_ICos+$0042 #0029
+      original : $102C 4C 4A 10 JMP $104A
+      generated: $1010 A9 B4    LDA #$B4
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    TG_ICos+$0045 #0030
+      original : $102F 38       SEC
+      generated: $1012 ED D1 0F SBC $0FD1
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    TG_ICos+$0046 #0031
+      original : $1030 A9 B4    LDA #$B4
+      generated: $1015 8D D1 0F STA $0FD1
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    TG_ICos+$0048 #0032
+      original : $1032 ED EA 0F SBC $0FEA ; theta $0FEA
+      generated: $1018 A9 00    LDA #$00
+      orig operand: theta $0FEA
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    TG_ICos+$004B #0033
+      original : $1035 8D EA 0F STA $0FEA ; theta $0FEA
+      generated: $101A ED D2 0F SBC $0FD2
+      orig operand: theta $0FEA
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    TG_ICos+$004E #0034
+      original : $1038 A9 00    LDA #$00
+      generated: $101D 8D D2 0F STA $0FD2
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    TG_ICos+$0050 #0035
+      original : $103A ED EB 0F SBC $0FEB ; theta+1 $0FEB
+      generated: $1020 A9 FF    LDA #$FF
+      orig operand: theta+1 $0FEB
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:100:5 | sign=-1 | source 1878..1885 code $1020-$1027
+    TG_ICos+$0053 #0036
+      original : $103D 8D EB 0F STA $0FEB ; theta+1 $0FEB
+      generated: $1022 8D D4 0F STA $0FD4
+      orig operand: theta+1 $0FEB
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:100:5 | sign=-1 | source 1878..1885 code $1020-$1027
+    TG_ICos+$0056 #0037
+      original : $1040 A9 FF    LDA #$FF
+      generated: $1025 8D D3 0F STA $0FD3
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:100:5 | sign=-1 | source 1878..1885 code $1020-$1027
+  Forward                  len 166 -> 161 (-5)  addr $1087 -> $1065
+    Forward+$0006 #0006
+      original : $108D 4C 90 10 JMP $1090
+      generated: $106B 4C 6E 10 JMP $106E
+      orig owner: Forward $108D
+      source   : Routine Forward samples/toolkit/original/extracted/TURTLE.ACT:108:1 | PROC Forward(INT length) | source 2042..2258 code $1065-$1105
+    Forward+$0009 #0007
+      original : $1090 8E 88 10 STX $1088 ; length+1 $1088
+      generated: $106E 8E 66 10 STX $1066
+      orig operand: length+1 $1088
+      source   : Routine Forward samples/toolkit/original/extracted/TURTLE.ACT:108:1 | PROC Forward(INT length) | source 2042..2258 code $1065-$1105
+    Forward+$000C #0008
+      original : $1093 8D 87 10 STA $1087 ; length $1087
+      generated: $1071 8D 65 10 STA $1065
+      orig operand: length $1087
+      source   : Routine Forward samples/toolkit/original/extracted/TURTLE.ACT:108:1 | PROC Forward(INT length) | source 2042..2258 code $1065-$1105
+    Forward+$0015 #0011
+      original : $109C 20 EE 0F JSR $0FEE ; TG_ICos $0FEE
+      generated: $107A 20 D5 0F JSR $0FD5
+      orig operand: TG_ICos $0FEE
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$0018 #0012
+      original : $109F A5 A1    LDA $A1
+      generated: $107D 85 85    STA $85
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$001A #0013
+      original : $10A1 85 85    STA $85
+      generated: $107F A5 A0    LDA $A0
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$001C #0014
+      original : $10A3 A5 A0    LDA $A0
+      generated: $1081 85 84    STA $84
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$001E #0015
+      original : $10A5 85 84    STA $84
+      generated: $1083 AD 66 10 LDA $1066
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$0020 #0016
+      original : $10A7 AD 88 10 LDA $1088 ; length+1 $1088
+      generated: $1086 AA       TAX
+      orig operand: length+1 $1088
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$0023 #0017
+      original : $10AA AA       TAX
+      generated: $1087 AD 65 10 LDA $1065
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$0024 #0018
+      original : $10AB AD 87 10 LDA $1087 ; length $1087
+      generated: $108A 20 00 A0 JSR $A000
+      orig operand: length $1087
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$0027 #0019
+      original : $10AE 20 00 A0 JSR $A000
+      generated: $108D 8D 67 10 STA $1067
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$002A #0020
+      original : $10B1 8D 89 10 STA $1089 ; deltaX $1089
+      generated: $1090 8A       TXA
+      orig operand: deltaX $1089
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$002D #0021
+      original : $10B4 8A       TXA
+      generated: $1091 8D 68 10 STA $1068
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    Forward+$002E #0022
+      original : $10B5 8D 8A 10 STA $108A ; deltaX+1 $108A
+      generated: $1094 AE 09 0E LDX $0E09
+      orig operand: deltaX+1 $108A
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$0031 #0023
+      original : $10B8 AE 09 0E LDX $0E09 ; TG_Phi+1 $0E09
+      generated: $1097 AD 08 0E LDA $0E08
+      orig operand: TG_Phi+1 $0E09
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$0034 #0024
+      original : $10BB AD 08 0E LDA $0E08 ; TG_Phi $0E08
+      generated: $109A 20 4E 0F JSR $0F4E
+      orig operand: TG_Phi $0E08
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$0037 #0025
+      original : $10BE 20 5E 0F JSR $0F5E ; TG_ISin $0F5E
+      generated: $109D 85 85    STA $85
+      orig operand: TG_ISin $0F5E
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$003A #0026
+      original : $10C1 A5 A1    LDA $A1
+      generated: $109F A5 A0    LDA $A0
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$003C #0027
+      original : $10C3 85 85    STA $85
+      generated: $10A1 85 84    STA $84
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$003E #0028
+      original : $10C5 A5 A0    LDA $A0
+      generated: $10A3 AD 66 10 LDA $1066
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$0040 #0029
+      original : $10C7 85 84    STA $84
+      generated: $10A6 AA       TAX
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$0042 #0030
+      original : $10C9 AD 88 10 LDA $1088 ; length+1 $1088
+      generated: $10A7 AD 65 10 LDA $1065
+      orig operand: length+1 $1088
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$0045 #0031
+      original : $10CC AA       TAX
+      generated: $10AA 20 00 A0 JSR $A000
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$0046 #0032
+      original : $10CD AD 87 10 LDA $1087 ; length $1087
+      generated: $10AD 8D 69 10 STA $1069
+      orig operand: length $1087
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$0049 #0033
+      original : $10D0 20 00 A0 JSR $A000
+      generated: $10B0 8A       TXA
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$004C #0034
+      original : $10D3 8D 8B 10 STA $108B ; deltaY $108B
+      generated: $10B1 8D 6A 10 STA $106A
+      orig operand: deltaY $108B
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    Forward+$004F #0035
+      original : $10D6 8A       TXA
+      generated: $10B4 18       CLC
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:114:3 | TG_CurX==+deltaX | source 2178..2194 code $10B4-$10C6
+    Forward+$0050 #0036
+      original : $10D7 8D 8C 10 STA $108C ; deltaY+1 $108C
+      generated: $10B5 AD 0A 0E LDA $0E0A
+      orig operand: deltaY+1 $108C
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:114:3 | TG_CurX==+deltaX | source 2178..2194 code $10B4-$10C6
+    Forward+$0053 #0037
+      original : $10DA 18       CLC
+      generated: $10B8 6D 67 10 ADC $1067
+      source   : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:114:3 | TG_CurX==+deltaX | source 2178..2194 code $10B4-$10C6
+  SetTurtle                len 101 -> 100 (-1)  addr $112D -> $1106
+    SetTurtle+$0007 #0007
+      original : $1134 4C 37 11 JMP $1137
+      generated: $110D 4C 10 11 JMP $1110
+      orig owner: SetTurtle $1134
+      source   : Routine SetTurtle samples/toolkit/original/extracted/TURTLE.ACT:124:1 | PROC SetTurtle(INT x,y,theta) | source 2394..2543 code $1106-$1169
+    SetTurtle+$000D #0009
+      original : $113A 2D 11 05 .BYTE $2D,$11,$05
+      generated: $1113 06 11 05 .BYTE $06,$11,$05
+      source   : Routine SetTurtle samples/toolkit/original/extracted/TURTLE.ACT:124:1 | PROC SetTurtle(INT x,y,theta) | source 2394..2543 code $1106-$1169
+    SetTurtle+$0014 #0012
+      original : $1141 AD 2E 11 LDA $112E ; x+1 $112E
+      generated: $111A AD 07 11 LDA $1107
+      orig operand: x+1 $112E
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:128:3 | TG_CurX=x LSH 7 | source 2440..2455 code $1116-$112A
+    SetTurtle+$0018 #0014
+      original : $1145 AD 2D 11 LDA $112D ; x $112D
+      generated: $111E AD 06 11 LDA $1106
+      orig operand: x $112D
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:128:3 | TG_CurX=x LSH 7 | source 2440..2455 code $1116-$112A
+    SetTurtle+$0029 #0021
+      original : $1156 AD 30 11 LDA $1130 ; y+1 $1130
+      generated: $112F AD 09 11 LDA $1109
+      orig operand: y+1 $1130
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:129:3 | TG_CurY=y LSH 7 | source 2458..2473 code $112B-$113F
+    SetTurtle+$002D #0023
+      original : $115A AD 2F 11 LDA $112F ; y $112F
+      generated: $1133 AD 08 11 LDA $1108
+      orig operand: y $112F
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:129:3 | TG_CurY=y LSH 7 | source 2458..2473 code $112B-$113F
+    SetTurtle+$003A #0028
+      original : $1167 AD 32 11 LDA $1132 ; theta+1 $1132
+      generated: $1140 AD 0B 11 LDA $110B
+      orig operand: theta+1 $1132
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:130:3 | TG_Phi=theta | source 2476..2488 code $1140-$114B
+    SetTurtle+$0040 #0030
+      original : $116D AD 31 11 LDA $1131 ; theta $1131
+      generated: $1146 AD 0A 11 LDA $110A
+      orig operand: theta $1131
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:130:3 | TG_Phi=theta | source 2476..2488 code $1140-$114B
+    SetTurtle+$0049 #0033
+      original : $1176 8D 33 11 STA $1133 ; temp $1133
+      generated: $114F 8D 0C 11 STA $110C
+      orig operand: temp $1133
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:131:3 | temp=color | source 2491..2501 code $114C-$1151
+    SetTurtle+$0051 #0036
+      original : $117E AC 2F 11 LDY $112F ; y $112F
+      generated: $1157 AC 08 11 LDY $1108
+      orig operand: y $112F
+      source   : Statement call samples/toolkit/original/extracted/TURTLE.ACT:133:3 | Plot(x,y) | source 2514..2523 code $1157-$1162
+    SetTurtle+$0054 #0037
+      original : $1181 AE 2E 11 LDX $112E ; x+1 $112E
+      generated: $115A AE 07 11 LDX $1107
+      orig operand: x+1 $112E
+      source   : Statement call samples/toolkit/original/extracted/TURTLE.ACT:133:3 | Plot(x,y) | source 2514..2523 code $1157-$1162
+    SetTurtle+$0057 #0038
+      original : $1184 AD 2D 11 LDA $112D ; x $112D
+      generated: $115D AD 06 11 LDA $1106
+      orig operand: x $112D
+      source   : Statement call samples/toolkit/original/extracted/TURTLE.ACT:133:3 | Plot(x,y) | source 2514..2523 code $1157-$1162
+    SetTurtle+$005D #0040
+      original : $118A AD 33 11 LDA $1133 ; temp $1133
+      generated: $1163 AD 0C 11 LDA $110C
+      orig operand: temp $1133
+      source   : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:134:3 | color=temp | source 2526..2536 code $1163-$1168
+    SetTurtle+$0064 #0043
+      original : $1191 60       RTS
+      generated: <missing>
+
+== expected modern wins ==
+  branch inverted          count 5    saved   15 bytes
+  call fact preserved      count 1    saved    0 bytes
+  final RTS removed        count 1    saved    1 bytes
+  register reload removed  count 8    saved   14 bytes
+  tail call                count 3    saved    3 bytes
+details:
+  branch inverted          saved   3 bytes  $0EE9   Turn             inverted branch to condition:true:2 and removed long jump to while:end:1
+  register reload removed  saved   1 bytes  $0F33   Right            reused accumulator via TAX instead of reloading X
+  call fact preserved      saved   0 bytes  $0F39   Right            preserved 2 stable memory facts across known-effect call
+  tail call                saved   1 bytes  $0F39   Right            lowered final call at $0F24 to tail jump
+  register reload removed  saved   3 bytes  $0F47   Left             suppressed accumulator reload where flags are not observed
+  tail call                saved   1 bytes  $0F4A   Left             lowered final call at $0F44 to tail jump
+  register reload removed  saved   1 bytes  $0F75   TG_ISin          reused Y via TYA instead of LDA #$01
+  register reload removed  saved   2 bytes  $0F81   TG_ISin          suppressed redundant LDA #$FF
+  branch inverted          saved   3 bytes  $0F6A   TG_ISin          inverted branch to condition:true:5 and removed long jump to if:next:4
+  branch inverted          saved   3 bytes  $0F8E   TG_ISin          inverted branch to condition:true:8 and removed long jump to if:next:7
+  register reload removed  saved   1 bytes  $0FFC   TG_ICos          reused Y via TYA instead of LDA #$01
+  branch inverted          saved   3 bytes  $0FF1   TG_ICos          inverted branch to condition:true:11 and removed long jump to if:next:10
+  register reload removed  saved   2 bytes  $1025   TG_ICos          suppressed redundant LDA #$FF
+  branch inverted          saved   3 bytes  $100D   TG_ICos          inverted branch to condition:true:14 and removed long jump to if:next:13
+  register reload removed  saved   2 bytes  $107D   Forward          suppressed redundant LDA $A1
+  register reload removed  saved   2 bytes  $109D   Forward          suppressed redundant LDA $A1
+  tail call                saved   1 bytes  $1106   Forward          lowered final call at $10DA to tail jump
+  final RTS removed        saved   1 bytes  $116A   SetTurtle        removed duplicate final program RTS
+
+== routines: compat vs modern ==
+  Turn                     len 91 -> 81 (-10)  addr $0EC8 -> $0EC8
+    source-range deltas:
+      Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019  diffs 14
+        left : $0EF5-$0F05 len 17
+        right: $0EEB-$0EFB len 17
+      Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044  diffs 22
+        left : $0F09-$0F21 len 25
+        right: $0EFF-$0F17 len 25
+      Statement return samples/toolkit/original/extracted/TURTLE.ACT:1:1 | ; | source 0..0  diffs 2
+        left : $0F22-$0F22 len 1
+        right: $0F18-$0F18 len 1
+      Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026  diffs 10
+        left : $0EE6-$0F08 len 35
+        right: $0EE6-$0EFE len 25
+    #0012
+      left : $0EE6 AD 08 0E LDA $0E08
+      right: $0EE6 AD 09 0E LDA $0E09
+      left source : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+      right source: Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0EFE
+    #0013
+      left : $0EE9 C9 00    CMP #$00
+      right: $0EE9 10 14    BPL $0EFF
+      left source : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+      right source: Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0EFE
+    #0014
+      left : $0EEB AD 09 0E LDA $0E09
+      right: $0EEB 18       CLC
+      left source : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    #0015
+      left : $0EEE E9 00    SBC #$00
+      right: $0EEC AD 08 0E LDA $0E08
+      left source : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    #0016
+      left : $0EF0 30 03    BMI $0EF5
+      right: $0EEF 69 68    ADC #$68
+      left source : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    #0017
+      left : $0EF2 4C 09 0F JMP $0F09
+      right: $0EF1 8D 08 0E STA $0E08
+      left source : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    #0018
+      left : $0EF5 18       CLC
+      right: $0EF4 AD 09 0E LDA $0E09
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    #0019
+      left : $0EF6 AD 08 0E LDA $0E08
+      right: $0EF7 69 01    ADC #$01
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    #0020
+      left : $0EF9 69 68    ADC #$68
+      right: $0EF9 8D 09 0E STA $0E09
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EEB-$0EFB
+    #0021
+      left : $0EFB 8D 08 0E STA $0E08
+      right: $0EFC 4C E6 0E JMP $0EE6
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+      right source: Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0EFE
+    #0022
+      left : $0EFE AD 09 0E LDA $0E09
+      right: $0EFF A9 01    LDA #$01
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0023
+      left : $0F01 69 01    ADC #$01
+      right: $0F01 85 85    STA $85
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0024
+      left : $0F03 8D 09 0E STA $0E09
+      right: $0F03 A9 68    LDA #$68
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:45:5 | TG_Phi==+360 | source 1007..1019 code $0EF5-$0F05
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0025
+      left : $0F06 4C E6 0E JMP $0EE6
+      right: $0F05 85 84    STA $84
+      left source : Statement while samples/toolkit/original/extracted/TURTLE.ACT:43:3 | WHILE TG_Phi<0 | source 981..1026 code $0EE6-$0F08
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0026
+      left : $0F09 A9 01    LDA #$01
+      right: $0F07 AD 09 0E LDA $0E09
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0027
+      left : $0F0B 85 85    STA $85
+      right: $0F0A AA       TAX
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0028
+      left : $0F0D A9 68    LDA #$68
+      right: $0F0B AD 08 0E LDA $0E08
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0029
+      left : $0F0F 85 84    STA $84
+      right: $0F0E 20 DE A0 JSR $A0DE
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0030
+      left : $0F11 AD 09 0E LDA $0E09
+      right: $0F11 8D 08 0E STA $0E08
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0031
+      left : $0F14 AA       TAX
+      right: $0F14 8A       TXA
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0032
+      left : $0F15 AD 08 0E LDA $0E08
+      right: $0F15 8D 09 0E STA $0E09
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0EFF-$0F17
+    #0033
+      left : $0F18 20 DE A0 JSR $A0DE
+      right: $0F18 60       RTS
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+      right source: Statement return samples/toolkit/original/extracted/TURTLE.ACT:1:1 | ; | source 0..0 code $0F18-$0F18
+    #0034
+      left : $0F1B 8D 08 0E STA $0E08
+      right: <missing>
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+    #0035
+      left : $0F1E 8A       TXA
+      right: <missing>
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+    #0036
+      left : $0F1F 8D 09 0E STA $0E09
+      right: <missing>
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:47:3 | TG_Phi==MOD 360 | source 1029..1044 code $0F09-$0F21
+    #0037
+      left : $0F22 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/TURTLE.ACT:1:1 | ; | source 0..0 code $0F22-$0F22
+  Right                    len 34 -> 32 (-2)  addr $0F23 -> $0F19
+    source-range deltas:
+      Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197  diffs 10
+        left : $0F23-$0F44 len 34 owner routine Right Parameter THETA $0F23-$0F24+0
+        right: $0F19-$0F38 len 32 owner routine Right Parameter THETA $0F19-$0F1A+0
+      Statement call samples/toolkit/original/extracted/TURTLE.ACT:56:3 | Turn(-theta) | source 1178..1190  diffs 4
+        left : $0F2E-$0F43 len 22
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/TURTLE.ACT:1:1 | ; | source 0..0  diffs 1
+        left : $0F44-$0F44 len 1
+        right: $0F18-$0F18 len 1
+    #0002
+      left : $0F25 4C 28 0F JMP $0F28
+      right: $0F1B 4C 1E 0F JMP $0F1E
+      left source : Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F23-$0F44
+      right source: Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    #0003
+      left : $0F28 8E 24 0F STX $0F24
+      right: $0F1E 8E 1A 0F STX $0F1A
+      left source : Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F23-$0F44
+      right source: Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    #0004
+      left : $0F2B 8D 23 0F STA $0F23
+      right: $0F21 8D 19 0F STA $0F19
+      left source : Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F23-$0F44
+      right source: Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    #0007
+      left : $0F31 ED 23 0F SBC $0F23
+      right: $0F27 ED 19 0F SBC $0F19
+      left source : Statement call samples/toolkit/original/extracted/TURTLE.ACT:56:3 | Turn(-theta) | source 1178..1190 code $0F2E-$0F43
+      right source: Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    #0010
+      left : $0F38 ED 24 0F SBC $0F24
+      right: $0F2E ED 1A 0F SBC $0F1A
+      left source : Statement call samples/toolkit/original/extracted/TURTLE.ACT:56:3 | Turn(-theta) | source 1178..1190 code $0F2E-$0F43
+      right source: Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    #0012
+      left : $0F3D A6 A1    LDX $A1
+      right: $0F33 AA       TAX
+      left source : Statement call samples/toolkit/original/extracted/TURTLE.ACT:56:3 | Turn(-theta) | source 1178..1190 code $0F2E-$0F43
+      right source: Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    #0014
+      left : $0F41 20 CA 0E JSR $0ECA
+      right: $0F36 4C CA 0E JMP $0ECA
+      left source : Statement call samples/toolkit/original/extracted/TURTLE.ACT:56:3 | Turn(-theta) | source 1178..1190 code $0F2E-$0F43
+      right source: Routine Right samples/toolkit/original/extracted/TURTLE.ACT:54:1 | PROC Right(INT theta) | source 1153..1197 code $0F19-$0F38
+    #0015
+      left : $0F44 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/TURTLE.ACT:1:1 | ; | source 0..0 code $0F44-$0F44
+  Left                     len 21 -> 17 (-4)  addr $0F45 -> $0F39
+    source-range deltas:
+      Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348  diffs 8
+        left : $0F45-$0F59 len 21 owner routine Left Parameter THETA $0F45-$0F46+0
+        right: $0F39-$0F49 len 17 owner routine Left Parameter THETA $0F39-$0F3A+0
+      Statement call samples/toolkit/original/extracted/TURTLE.ACT:65:3 | Turn(theta) | source 1330..1341  diffs 3
+        left : $0F50-$0F58 len 9
+        right: <missing>
+      Statement return samples/toolkit/original/extracted/TURTLE.ACT:1:1 | ; | source 0..0  diffs 1
+        left : $0F59-$0F59 len 1
+        right: $0F18-$0F18 len 1
+    #0002
+      left : $0F47 4C 4A 0F JMP $0F4A
+      right: $0F3B 4C 3E 0F JMP $0F3E
+      left source : Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F45-$0F59
+      right source: Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F39-$0F49
+    #0003
+      left : $0F4A 8E 46 0F STX $0F46
+      right: $0F3E 8E 3A 0F STX $0F3A
+      left source : Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F45-$0F59
+      right source: Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F39-$0F49
+    #0004
+      left : $0F4D 8D 45 0F STA $0F45
+      right: $0F41 8D 39 0F STA $0F39
+      left source : Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F45-$0F59
+      right source: Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F39-$0F49
+    #0005
+      left : $0F50 AE 46 0F LDX $0F46
+      right: $0F44 AE 3A 0F LDX $0F3A
+      left source : Statement call samples/toolkit/original/extracted/TURTLE.ACT:65:3 | Turn(theta) | source 1330..1341 code $0F50-$0F58
+      right source: Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F39-$0F49
+    #0006
+      left : $0F53 AD 45 0F LDA $0F45
+      right: $0F47 4C CA 0E JMP $0ECA
+      left source : Statement call samples/toolkit/original/extracted/TURTLE.ACT:65:3 | Turn(theta) | source 1330..1341 code $0F50-$0F58
+      right source: Routine Left samples/toolkit/original/extracted/TURTLE.ACT:63:1 | PROC Left(INT theta) | source 1306..1348 code $0F39-$0F49
+    #0007
+      left : $0F56 20 CA 0E JSR $0ECA
+      right: <missing>
+      left source : Statement call samples/toolkit/original/extracted/TURTLE.ACT:65:3 | Turn(theta) | source 1330..1341 code $0F50-$0F58
+    #0008
+      left : $0F59 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/TURTLE.ACT:1:1 | ; | source 0..0 code $0F59-$0F59
+  TG_ISin                  len 144 -> 135 (-9)  addr $0F5A -> $0F4A
+    source-range deltas:
+      Routine TG_ISin samples/toolkit/original/extracted/TURTLE.ACT:72:1 | CARD FUNC TG_ISin(CARD theta) | source 1451..1633  diffs 6
+        left : $0F5A-$0FE9 len 144 owner routine TG_ISin Parameter THETA $0F5A-$0F5B+0
+        right: $0F4A-$0FD0 len 135 owner routine TG_ISin Parameter THETA $0F4A-$0F4B+0
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:76:3 | sign=1 | source 1496..1502  diffs 4
+        left : $0F67-$0F6F len 9
+        right: $0F57-$0F5F len 9
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542  diffs 14
+        left : $0F7F-$0F8F len 17
+        right: $0F6C-$0F7B len 16
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554  diffs 7
+        left : $0F90-$0F99 len 10
+        right: $0F7C-$0F83 len 8
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598  diffs 14
+        left : $0FA9-$0FB9 len 17
+        right: $0F90-$0FA0 len 17
+      Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559  diffs 7
+        left : $0F70-$0F99 len 42
+        right: $0F60-$0F83 len 36
+      Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603  diffs 11
+        left : $0F9A-$0FB9 len 32
+        right: $0F84-$0FA0 len 29
+      Statement return samples/toolkit/original/extracted/TURTLE.ACT:84:8 | RETURN(sign*TG_SinTab(theta)) | source 1611..1632  diffs 48
+        left : $0FBA-$0FE9 len 48
+        right: $0FA1-$0FD0 len 48
+    #0004
+      left : $0F5E 4C 61 0F JMP $0F61
+      right: $0F4E 4C 51 0F JMP $0F51
+      left source : Routine TG_ISin samples/toolkit/original/extracted/TURTLE.ACT:72:1 | CARD FUNC TG_ISin(CARD theta) | source 1451..1633 code $0F5A-$0FE9
+      right source: Routine TG_ISin samples/toolkit/original/extracted/TURTLE.ACT:72:1 | CARD FUNC TG_ISin(CARD theta) | source 1451..1633 code $0F4A-$0FD0
+    #0005
+      left : $0F61 8E 5B 0F STX $0F5B
+      right: $0F51 8E 4B 0F STX $0F4B
+      left source : Routine TG_ISin samples/toolkit/original/extracted/TURTLE.ACT:72:1 | CARD FUNC TG_ISin(CARD theta) | source 1451..1633 code $0F5A-$0FE9
+      right source: Routine TG_ISin samples/toolkit/original/extracted/TURTLE.ACT:72:1 | CARD FUNC TG_ISin(CARD theta) | source 1451..1633 code $0F4A-$0FD0
+    #0006
+      left : $0F64 8D 5A 0F STA $0F5A
+      right: $0F54 8D 4A 0F STA $0F4A
+      left source : Routine TG_ISin samples/toolkit/original/extracted/TURTLE.ACT:72:1 | CARD FUNC TG_ISin(CARD theta) | source 1451..1633 code $0F5A-$0FE9
+      right source: Routine TG_ISin samples/toolkit/original/extracted/TURTLE.ACT:72:1 | CARD FUNC TG_ISin(CARD theta) | source 1451..1633 code $0F4A-$0FD0
+    #0008
+      left : $0F69 8C 5D 0F STY $0F5D
+      right: $0F59 8C 4D 0F STY $0F4D
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:76:3 | sign=1 | source 1496..1502 code $0F67-$0F6F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:76:3 | sign=1 | source 1496..1502 code $0F57-$0F5F
+    #0010
+      left : $0F6D 8C 5C 0F STY $0F5C
+      right: $0F5D 8C 4C 0F STY $0F4C
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:76:3 | sign=1 | source 1496..1502 code $0F67-$0F6F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:76:3 | sign=1 | source 1496..1502 code $0F57-$0F5F
+    #0012
+      left : $0F72 CD 5A 0F CMP $0F5A
+      right: $0F62 CD 4A 0F CMP $0F4A
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559 code $0F70-$0F99
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559 code $0F60-$0F83
+    #0014
+      left : $0F77 ED 5B 0F SBC $0F5B
+      right: $0F67 ED 4B 0F SBC $0F4B
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559 code $0F70-$0F99
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559 code $0F60-$0F83
+    #0015
+      left : $0F7A 90 03    BCC $0F7F
+      right: $0F6A B0 18    BCS $0F84
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559 code $0F70-$0F99
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559 code $0F60-$0F83
+    #0016
+      left : $0F7C 4C 9A 0F JMP $0F9A
+      right: $0F6C 38       SEC
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:77:3 | IF theta>180 THEN | source 1505..1559 code $0F70-$0F99
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    #0017
+      left : $0F7F 38       SEC
+      right: $0F6D A9 68    LDA #$68
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F7F-$0F8F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    #0018
+      left : $0F80 A9 68    LDA #$68
+      right: $0F6F ED 4A 0F SBC $0F4A
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F7F-$0F8F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    #0019
+      left : $0F82 ED 5A 0F SBC $0F5A
+      right: $0F72 8D 4A 0F STA $0F4A
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F7F-$0F8F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    #0020
+      left : $0F85 8D 5A 0F STA $0F5A
+      right: $0F75 98       TYA
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F7F-$0F8F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    #0021
+      left : $0F88 A9 01    LDA #$01
+      right: $0F76 ED 4B 0F SBC $0F4B
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F7F-$0F8F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    #0022
+      left : $0F8A ED 5B 0F SBC $0F5B
+      right: $0F79 8D 4B 0F STA $0F4B
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F7F-$0F8F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F6C-$0F7B
+    #0023
+      left : $0F8D 8D 5B 0F STA $0F5B
+      right: $0F7C A9 FF    LDA #$FF
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:78:5 | theta=360-theta | source 1527..1542 code $0F7F-$0F8F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554 code $0F7C-$0F83
+    #0024
+      left : $0F90 A9 FF    LDA #$FF
+      right: $0F7E 8D 4D 0F STA $0F4D
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554 code $0F90-$0F99
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554 code $0F7C-$0F83
+    #0025
+      left : $0F92 8D 5D 0F STA $0F5D
+      right: $0F81 8D 4C 0F STA $0F4C
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554 code $0F90-$0F99
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554 code $0F7C-$0F83
+    #0026
+      left : $0F95 A9 FF    LDA #$FF
+      right: $0F84 A9 5A    LDA #$5A
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554 code $0F90-$0F99
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F84-$0FA0
+    #0027
+      left : $0F97 8D 5C 0F STA $0F5C
+      right: $0F86 CD 4A 0F CMP $0F4A
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:79:5 | sign=-1 | source 1547..1554 code $0F90-$0F99
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F84-$0FA0
+    #0028
+      left : $0F9A A9 5A    LDA #$5A
+      right: $0F89 A9 00    LDA #$00
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F9A-$0FB9
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F84-$0FA0
+    #0029
+      left : $0F9C CD 5A 0F CMP $0F5A
+      right: $0F8B ED 4B 0F SBC $0F4B
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F9A-$0FB9
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F84-$0FA0
+    #0030
+      left : $0F9F A9 00    LDA #$00
+      right: $0F8E B0 11    BCS $0FA1
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F9A-$0FB9
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F84-$0FA0
+    #0031
+      left : $0FA1 ED 5B 0F SBC $0F5B
+      right: $0F90 38       SEC
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F9A-$0FB9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    #0032
+      left : $0FA4 90 03    BCC $0FA9
+      right: $0F91 A9 B4    LDA #$B4
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F9A-$0FB9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    #0033
+      left : $0FA6 4C BA 0F JMP $0FBA
+      right: $0F93 ED 4A 0F SBC $0F4A
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:81:3 | IF theta>90 THEN | source 1562..1603 code $0F9A-$0FB9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    #0034
+      left : $0FA9 38       SEC
+      right: $0F96 8D 4A 0F STA $0F4A
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0FA9-$0FB9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    #0035
+      left : $0FAA A9 B4    LDA #$B4
+      right: $0F99 A9 00    LDA #$00
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0FA9-$0FB9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    #0036
+      left : $0FAC ED 5A 0F SBC $0F5A
+      right: $0F9B ED 4B 0F SBC $0F4B
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0FA9-$0FB9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+    #0037
+      left : $0FAF 8D 5A 0F STA $0F5A
+      right: $0F9E 8D 4B 0F STA $0F4B
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0FA9-$0FB9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:82:5 | theta=180-theta | source 1583..1598 code $0F90-$0FA0
+  TG_ICos                  len 157 -> 148 (-9)  addr $0FEA -> $0FD1
+    source-range deltas:
+      Routine TG_ICos samples/toolkit/original/extracted/TURTLE.ACT:90:1 | CARD FUNC TG_ICos(CARD theta) | source 1738..1923  diffs 6
+        left : $0FEA-$1086 len 157 owner routine TG_ICos Parameter THETA $0FEA-$0FEB+0
+        right: $0FD1-$1064 len 148 owner routine TG_ICos Parameter THETA $0FD1-$0FD2+0
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:94:3 | sign=1 | source 1783..1789  diffs 4
+        left : $0FF7-$0FFF len 9
+        right: $0FDE-$0FE6 len 9
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829  diffs 14
+        left : $100F-$101F len 17
+        right: $0FF3-$1002 len 16
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873  diffs 14
+        left : $102F-$103F len 17
+        right: $100F-$101F len 17
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:100:5 | sign=-1 | source 1878..1885  diffs 7
+        left : $1040-$1049 len 10
+        right: $1020-$1027 len 8
+      Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834  diffs 7
+        left : $1000-$101F len 32
+        right: $0FE7-$1002 len 28
+      Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890  diffs 11
+        left : $1020-$1049 len 42
+        right: $1003-$1027 len 37
+      Statement return samples/toolkit/original/extracted/TURTLE.ACT:102:8 | RETURN(sign*TG_SinTab(90-theta)) | source 1898..1922  diffs 62
+        left : $104A-$1086 len 61
+        right: $1028-$1064 len 61
+    #0004
+      left : $0FEE 4C F1 0F JMP $0FF1
+      right: $0FD5 4C D8 0F JMP $0FD8
+      left source : Routine TG_ICos samples/toolkit/original/extracted/TURTLE.ACT:90:1 | CARD FUNC TG_ICos(CARD theta) | source 1738..1923 code $0FEA-$1086
+      right source: Routine TG_ICos samples/toolkit/original/extracted/TURTLE.ACT:90:1 | CARD FUNC TG_ICos(CARD theta) | source 1738..1923 code $0FD1-$1064
+    #0005
+      left : $0FF1 8E EB 0F STX $0FEB
+      right: $0FD8 8E D2 0F STX $0FD2
+      left source : Routine TG_ICos samples/toolkit/original/extracted/TURTLE.ACT:90:1 | CARD FUNC TG_ICos(CARD theta) | source 1738..1923 code $0FEA-$1086
+      right source: Routine TG_ICos samples/toolkit/original/extracted/TURTLE.ACT:90:1 | CARD FUNC TG_ICos(CARD theta) | source 1738..1923 code $0FD1-$1064
+    #0006
+      left : $0FF4 8D EA 0F STA $0FEA
+      right: $0FDB 8D D1 0F STA $0FD1
+      left source : Routine TG_ICos samples/toolkit/original/extracted/TURTLE.ACT:90:1 | CARD FUNC TG_ICos(CARD theta) | source 1738..1923 code $0FEA-$1086
+      right source: Routine TG_ICos samples/toolkit/original/extracted/TURTLE.ACT:90:1 | CARD FUNC TG_ICos(CARD theta) | source 1738..1923 code $0FD1-$1064
+    #0008
+      left : $0FF9 8C ED 0F STY $0FED
+      right: $0FE0 8C D4 0F STY $0FD4
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:94:3 | sign=1 | source 1783..1789 code $0FF7-$0FFF
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:94:3 | sign=1 | source 1783..1789 code $0FDE-$0FE6
+    #0010
+      left : $0FFD 8C EC 0F STY $0FEC
+      right: $0FE4 8C D3 0F STY $0FD3
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:94:3 | sign=1 | source 1783..1789 code $0FF7-$0FFF
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:94:3 | sign=1 | source 1783..1789 code $0FDE-$0FE6
+    #0012
+      left : $1002 CD EA 0F CMP $0FEA
+      right: $0FE9 CD D1 0F CMP $0FD1
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834 code $1000-$101F
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834 code $0FE7-$1002
+    #0014
+      left : $1007 ED EB 0F SBC $0FEB
+      right: $0FEE ED D2 0F SBC $0FD2
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834 code $1000-$101F
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834 code $0FE7-$1002
+    #0015
+      left : $100A 90 03    BCC $100F
+      right: $0FF1 B0 10    BCS $1003
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834 code $1000-$101F
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834 code $0FE7-$1002
+    #0016
+      left : $100C 4C 20 10 JMP $1020
+      right: $0FF3 38       SEC
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:95:3 | IF theta>180 THEN | source 1792..1834 code $1000-$101F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    #0017
+      left : $100F 38       SEC
+      right: $0FF4 A9 68    LDA #$68
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $100F-$101F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    #0018
+      left : $1010 A9 68    LDA #$68
+      right: $0FF6 ED D1 0F SBC $0FD1
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $100F-$101F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    #0019
+      left : $1012 ED EA 0F SBC $0FEA
+      right: $0FF9 8D D1 0F STA $0FD1
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $100F-$101F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    #0020
+      left : $1015 8D EA 0F STA $0FEA
+      right: $0FFC 98       TYA
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $100F-$101F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    #0021
+      left : $1018 A9 01    LDA #$01
+      right: $0FFD ED D2 0F SBC $0FD2
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $100F-$101F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    #0022
+      left : $101A ED EB 0F SBC $0FEB
+      right: $1000 8D D2 0F STA $0FD2
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $100F-$101F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $0FF3-$1002
+    #0023
+      left : $101D 8D EB 0F STA $0FEB
+      right: $1003 A9 5A    LDA #$5A
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:96:5 | theta=360-theta | source 1814..1829 code $100F-$101F
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1003-$1027
+    #0024
+      left : $1020 A9 5A    LDA #$5A
+      right: $1005 CD D1 0F CMP $0FD1
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1020-$1049
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1003-$1027
+    #0025
+      left : $1022 CD EA 0F CMP $0FEA
+      right: $1008 A9 00    LDA #$00
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1020-$1049
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1003-$1027
+    #0026
+      left : $1025 A9 00    LDA #$00
+      right: $100A ED D2 0F SBC $0FD2
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1020-$1049
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1003-$1027
+    #0027
+      left : $1027 ED EB 0F SBC $0FEB
+      right: $100D B0 19    BCS $1028
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1020-$1049
+      right source: Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1003-$1027
+    #0028
+      left : $102A 90 03    BCC $102F
+      right: $100F 38       SEC
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1020-$1049
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    #0029
+      left : $102C 4C 4A 10 JMP $104A
+      right: $1010 A9 B4    LDA #$B4
+      left source : Statement if samples/toolkit/original/extracted/TURTLE.ACT:98:3 | IF theta>90 THEN | source 1837..1890 code $1020-$1049
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    #0030
+      left : $102F 38       SEC
+      right: $1012 ED D1 0F SBC $0FD1
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $102F-$103F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    #0031
+      left : $1030 A9 B4    LDA #$B4
+      right: $1015 8D D1 0F STA $0FD1
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $102F-$103F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    #0032
+      left : $1032 ED EA 0F SBC $0FEA
+      right: $1018 A9 00    LDA #$00
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $102F-$103F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    #0033
+      left : $1035 8D EA 0F STA $0FEA
+      right: $101A ED D2 0F SBC $0FD2
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $102F-$103F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    #0034
+      left : $1038 A9 00    LDA #$00
+      right: $101D 8D D2 0F STA $0FD2
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $102F-$103F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $100F-$101F
+    #0035
+      left : $103A ED EB 0F SBC $0FEB
+      right: $1020 A9 FF    LDA #$FF
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $102F-$103F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:100:5 | sign=-1 | source 1878..1885 code $1020-$1027
+    #0036
+      left : $103D 8D EB 0F STA $0FEB
+      right: $1022 8D D4 0F STA $0FD4
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:99:5 | theta=180-theta | source 1858..1873 code $102F-$103F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:100:5 | sign=-1 | source 1878..1885 code $1020-$1027
+    #0037
+      left : $1040 A9 FF    LDA #$FF
+      right: $1025 8D D3 0F STA $0FD3
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:100:5 | sign=-1 | source 1878..1885 code $1040-$1049
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:100:5 | sign=-1 | source 1878..1885 code $1020-$1027
+  Forward                  len 166 -> 161 (-5)  addr $1087 -> $1065
+    source-range deltas:
+      Routine Forward samples/toolkit/original/extracted/TURTLE.ACT:108:1 | PROC Forward(INT length) | source 2042..2258  diffs 26
+        left : $1087-$112C len 166 owner routine Forward Parameter LENGTH $1087-$1088+0
+        right: $1065-$1105 len 161 owner routine Forward Parameter LENGTH $1065-$1066+0
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143  diffs 23
+        left : $1096-$10B7 len 34
+        right: $1074-$1093 len 32
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175  diffs 27
+        left : $10B8-$10D9 len 34
+        right: $1094-$10B3 len 32
+      Statement call samples/toolkit/original/extracted/TURTLE.ACT:116:3 | Drawto(TG_CurX RSH 7,TG_CurY RSH 7) | source 2216..2251  diffs 20
+        left : $1100-$112B len 44
+        right: <missing>
+      Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:114:3 | TG_CurX==+deltaX | source 2178..2194  diffs 14
+        left : $10DA-$10EC len 19
+        right: $10B4-$10C6 len 19
+      Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:115:3 | TG_CurY==-deltaY | source 2197..2213  diffs 14
+        left : $10ED-$10FF len 19
+        right: $10C7-$10D9 len 19
+      Statement return samples/toolkit/original/extracted/TURTLE.ACT:1:1 | ; | source 0..0  diffs 1
+        left : $112C-$112C len 1
+        right: $0F18-$0F18 len 1
+    #0006
+      left : $108D 4C 90 10 JMP $1090
+      right: $106B 4C 6E 10 JMP $106E
+      left source : Routine Forward samples/toolkit/original/extracted/TURTLE.ACT:108:1 | PROC Forward(INT length) | source 2042..2258 code $1087-$112C
+      right source: Routine Forward samples/toolkit/original/extracted/TURTLE.ACT:108:1 | PROC Forward(INT length) | source 2042..2258 code $1065-$1105
+    #0007
+      left : $1090 8E 88 10 STX $1088
+      right: $106E 8E 66 10 STX $1066
+      left source : Routine Forward samples/toolkit/original/extracted/TURTLE.ACT:108:1 | PROC Forward(INT length) | source 2042..2258 code $1087-$112C
+      right source: Routine Forward samples/toolkit/original/extracted/TURTLE.ACT:108:1 | PROC Forward(INT length) | source 2042..2258 code $1065-$1105
+    #0008
+      left : $1093 8D 87 10 STA $1087
+      right: $1071 8D 65 10 STA $1065
+      left source : Routine Forward samples/toolkit/original/extracted/TURTLE.ACT:108:1 | PROC Forward(INT length) | source 2042..2258 code $1087-$112C
+      right source: Routine Forward samples/toolkit/original/extracted/TURTLE.ACT:108:1 | PROC Forward(INT length) | source 2042..2258 code $1065-$1105
+    #0011
+      left : $109C 20 EE 0F JSR $0FEE
+      right: $107A 20 D5 0F JSR $0FD5
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0012
+      left : $109F A5 A1    LDA $A1
+      right: $107D 85 85    STA $85
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0013
+      left : $10A1 85 85    STA $85
+      right: $107F A5 A0    LDA $A0
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0014
+      left : $10A3 A5 A0    LDA $A0
+      right: $1081 85 84    STA $84
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0015
+      left : $10A5 85 84    STA $84
+      right: $1083 AD 66 10 LDA $1066
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0016
+      left : $10A7 AD 88 10 LDA $1088
+      right: $1086 AA       TAX
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0017
+      left : $10AA AA       TAX
+      right: $1087 AD 65 10 LDA $1065
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0018
+      left : $10AB AD 87 10 LDA $1087
+      right: $108A 20 00 A0 JSR $A000
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0019
+      left : $10AE 20 00 A0 JSR $A000
+      right: $108D 8D 67 10 STA $1067
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0020
+      left : $10B1 8D 89 10 STA $1089
+      right: $1090 8A       TXA
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0021
+      left : $10B4 8A       TXA
+      right: $1091 8D 68 10 STA $1068
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1074-$1093
+    #0022
+      left : $10B5 8D 8A 10 STA $108A
+      right: $1094 AE 09 0E LDX $0E09
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:112:3 | deltaX=length*TG_ICos(TG_Phi) | source 2114..2143 code $1096-$10B7
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0023
+      left : $10B8 AE 09 0E LDX $0E09
+      right: $1097 AD 08 0E LDA $0E08
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0024
+      left : $10BB AD 08 0E LDA $0E08
+      right: $109A 20 4E 0F JSR $0F4E
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0025
+      left : $10BE 20 5E 0F JSR $0F5E
+      right: $109D 85 85    STA $85
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0026
+      left : $10C1 A5 A1    LDA $A1
+      right: $109F A5 A0    LDA $A0
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0027
+      left : $10C3 85 85    STA $85
+      right: $10A1 85 84    STA $84
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0028
+      left : $10C5 A5 A0    LDA $A0
+      right: $10A3 AD 66 10 LDA $1066
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0029
+      left : $10C7 85 84    STA $84
+      right: $10A6 AA       TAX
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0030
+      left : $10C9 AD 88 10 LDA $1088
+      right: $10A7 AD 65 10 LDA $1065
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0031
+      left : $10CC AA       TAX
+      right: $10AA 20 00 A0 JSR $A000
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0032
+      left : $10CD AD 87 10 LDA $1087
+      right: $10AD 8D 69 10 STA $1069
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0033
+      left : $10D0 20 00 A0 JSR $A000
+      right: $10B0 8A       TXA
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0034
+      left : $10D3 8D 8B 10 STA $108B
+      right: $10B1 8D 6A 10 STA $106A
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $1094-$10B3
+    #0035
+      left : $10D6 8A       TXA
+      right: $10B4 18       CLC
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:114:3 | TG_CurX==+deltaX | source 2178..2194 code $10B4-$10C6
+    #0036
+      left : $10D7 8D 8C 10 STA $108C
+      right: $10B5 AD 0A 0E LDA $0E0A
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:113:3 | deltaY=length*TG_ISin(TG_Phi) | source 2146..2175 code $10B8-$10D9
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:114:3 | TG_CurX==+deltaX | source 2178..2194 code $10B4-$10C6
+    #0037
+      left : $10DA 18       CLC
+      right: $10B8 6D 67 10 ADC $1067
+      left source : Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:114:3 | TG_CurX==+deltaX | source 2178..2194 code $10DA-$10EC
+      right source: Statement compound assignment samples/toolkit/original/extracted/TURTLE.ACT:114:3 | TG_CurX==+deltaX | source 2178..2194 code $10B4-$10C6
+  SetTurtle                len 100 -> 100 (+0)  addr $112D -> $1106
+    source-range deltas:
+      Routine SetTurtle samples/toolkit/original/extracted/TURTLE.ACT:124:1 | PROC SetTurtle(INT x,y,theta) | source 2394..2543  diffs 4
+        left : $112D-$1190 len 100 owner routine SetTurtle Parameter X $112D-$112E+0
+        right: $1106-$1169 len 100 owner routine SetTurtle Parameter X $1106-$1107+0
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:128:3 | TG_CurX=x LSH 7 | source 2440..2455  diffs 4
+        left : $113D-$1151 len 21
+        right: $1116-$112A len 21
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:129:3 | TG_CurY=y LSH 7 | source 2458..2473  diffs 4
+        left : $1152-$1166 len 21
+        right: $112B-$113F len 21
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:130:3 | TG_Phi=theta | source 2476..2488  diffs 4
+        left : $1167-$1172 len 12
+        right: $1140-$114B len 12
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:131:3 | temp=color | source 2491..2501  diffs 2
+        left : $1173-$1178 len 6
+        right: $114C-$1151 len 6
+      Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:134:3 | color=temp | source 2526..2536  diffs 2
+        left : $118A-$118F len 6
+        right: $1163-$1168 len 6
+      Statement call samples/toolkit/original/extracted/TURTLE.ACT:133:3 | Plot(x,y) | source 2514..2523  diffs 6
+        left : $117E-$1189 len 12
+        right: $1157-$1162 len 12
+    #0007
+      left : $1134 4C 37 11 JMP $1137
+      right: $110D 4C 10 11 JMP $1110
+      left source : Routine SetTurtle samples/toolkit/original/extracted/TURTLE.ACT:124:1 | PROC SetTurtle(INT x,y,theta) | source 2394..2543 code $112D-$1190
+      right source: Routine SetTurtle samples/toolkit/original/extracted/TURTLE.ACT:124:1 | PROC SetTurtle(INT x,y,theta) | source 2394..2543 code $1106-$1169
+    #0009
+      left : $113A 2D 11 05 .BYTE $2D,$11,$05
+      right: $1113 06 11 05 .BYTE $06,$11,$05
+      left source : Routine SetTurtle samples/toolkit/original/extracted/TURTLE.ACT:124:1 | PROC SetTurtle(INT x,y,theta) | source 2394..2543 code $112D-$1190
+      right source: Routine SetTurtle samples/toolkit/original/extracted/TURTLE.ACT:124:1 | PROC SetTurtle(INT x,y,theta) | source 2394..2543 code $1106-$1169
+    #0012
+      left : $1141 AD 2E 11 LDA $112E
+      right: $111A AD 07 11 LDA $1107
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:128:3 | TG_CurX=x LSH 7 | source 2440..2455 code $113D-$1151
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:128:3 | TG_CurX=x LSH 7 | source 2440..2455 code $1116-$112A
+    #0014
+      left : $1145 AD 2D 11 LDA $112D
+      right: $111E AD 06 11 LDA $1106
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:128:3 | TG_CurX=x LSH 7 | source 2440..2455 code $113D-$1151
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:128:3 | TG_CurX=x LSH 7 | source 2440..2455 code $1116-$112A
+    #0021
+      left : $1156 AD 30 11 LDA $1130
+      right: $112F AD 09 11 LDA $1109
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:129:3 | TG_CurY=y LSH 7 | source 2458..2473 code $1152-$1166
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:129:3 | TG_CurY=y LSH 7 | source 2458..2473 code $112B-$113F
+    #0023
+      left : $115A AD 2F 11 LDA $112F
+      right: $1133 AD 08 11 LDA $1108
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:129:3 | TG_CurY=y LSH 7 | source 2458..2473 code $1152-$1166
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:129:3 | TG_CurY=y LSH 7 | source 2458..2473 code $112B-$113F
+    #0028
+      left : $1167 AD 32 11 LDA $1132
+      right: $1140 AD 0B 11 LDA $110B
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:130:3 | TG_Phi=theta | source 2476..2488 code $1167-$1172
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:130:3 | TG_Phi=theta | source 2476..2488 code $1140-$114B
+    #0030
+      left : $116D AD 31 11 LDA $1131
+      right: $1146 AD 0A 11 LDA $110A
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:130:3 | TG_Phi=theta | source 2476..2488 code $1167-$1172
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:130:3 | TG_Phi=theta | source 2476..2488 code $1140-$114B
+    #0033
+      left : $1176 8D 33 11 STA $1133
+      right: $114F 8D 0C 11 STA $110C
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:131:3 | temp=color | source 2491..2501 code $1173-$1178
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:131:3 | temp=color | source 2491..2501 code $114C-$1151
+    #0036
+      left : $117E AC 2F 11 LDY $112F
+      right: $1157 AC 08 11 LDY $1108
+      left source : Statement call samples/toolkit/original/extracted/TURTLE.ACT:133:3 | Plot(x,y) | source 2514..2523 code $117E-$1189
+      right source: Statement call samples/toolkit/original/extracted/TURTLE.ACT:133:3 | Plot(x,y) | source 2514..2523 code $1157-$1162
+    #0037
+      left : $1181 AE 2E 11 LDX $112E
+      right: $115A AE 07 11 LDX $1107
+      left source : Statement call samples/toolkit/original/extracted/TURTLE.ACT:133:3 | Plot(x,y) | source 2514..2523 code $117E-$1189
+      right source: Statement call samples/toolkit/original/extracted/TURTLE.ACT:133:3 | Plot(x,y) | source 2514..2523 code $1157-$1162
+    #0038
+      left : $1184 AD 2D 11 LDA $112D
+      right: $115D AD 06 11 LDA $1106
+      left source : Statement call samples/toolkit/original/extracted/TURTLE.ACT:133:3 | Plot(x,y) | source 2514..2523 code $117E-$1189
+      right source: Statement call samples/toolkit/original/extracted/TURTLE.ACT:133:3 | Plot(x,y) | source 2514..2523 code $1157-$1162
+    #0040
+      left : $118A AD 33 11 LDA $1133
+      right: $1163 AD 0C 11 LDA $110C
+      left source : Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:134:3 | color=temp | source 2526..2536 code $118A-$118F
+      right source: Statement assignment samples/toolkit/original/extracted/TURTLE.ACT:134:3 | color=temp | source 2526..2536 code $1163-$1168
+
+== bytes: original:samples/toolkit/survey/outputs/vm/TURTLE.COM vs compat ==
+exact: true  sizes: 918 vs 918
+first diffs: none
+
+== instructions: original:samples/toolkit/survey/outputs/vm/TURTLE.COM vs compat ==
+counts: 466 vs 466
+first diffs: none
+
+== bytes: original:samples/toolkit/survey/outputs/vm/TURTLE.COM vs modern ==
+exact: false  sizes: 918 vs 878
+first diffs:
+  @0004: $91 -> $69
+  @00E5: $08 -> $09
+  @00E7: $C9 -> $10
+  @00E8: $00 -> $14
+  @00E9: $AD -> $18
+  @00EA: $09 -> $AD
+  @00EB: $0E -> $08
+  @00EC: $E9 -> $0E
+  @00ED: $00 -> $69
+  @00EE: $30 -> $68
+  @00EF: $03 -> $8D
+  @00F0: $4C -> $08
+  @00F1: $09 -> $0E
+  @00F2: $0F -> $AD
+  @00F3: $18 -> $09
+  @00F4: $AD -> $0E
+  @00F5: $08 -> $69
+  @00F6: $0E -> $01
+  @00F7: $69 -> $8D
+  @00F8: $68 -> $09
+  @00F9: $8D -> $0E
+  @00FA: $08 -> $4C
+  @00FB: $0E -> $E6
+  @00FC: $AD -> $0E
+  @00FD: $09 -> $A9
+  @00FE: $0E -> $01
+  @00FF: $69 -> $85
+  @0100: $01 -> $85
+  @0101: $8D -> $A9
+  @0102: $09 -> $68
+
+== instructions: original:samples/toolkit/survey/outputs/vm/TURTLE.COM vs modern ==
+counts: 466 vs 449
+  #0160
+    left : $0EE6 AD 08 0E LDA $0E08
+    right: $0EE6 AD 09 0E LDA $0E09
+  #0161
+    left : $0EE9 C9 00    CMP #$00
+    right: $0EE9 10 14    BPL $0EFF
+  #0162
+    left : $0EEB AD 09 0E LDA $0E09
+    right: $0EEB 18       CLC
+  #0163
+    left : $0EEE E9 00    SBC #$00
+    right: $0EEC AD 08 0E LDA $0E08
+  #0164
+    left : $0EF0 30 03    BMI $0EF5
+    right: $0EEF 69 68    ADC #$68
+  #0165
+    left : $0EF2 4C 09 0F JMP $0F09
+    right: $0EF1 8D 08 0E STA $0E08
+  #0166
+    left : $0EF5 18       CLC
+    right: $0EF4 AD 09 0E LDA $0E09
+  #0167
+    left : $0EF6 AD 08 0E LDA $0E08
+    right: $0EF7 69 01    ADC #$01
+  #0168
+    left : $0EF9 69 68    ADC #$68
+    right: $0EF9 8D 09 0E STA $0E09
+  #0169
+    left : $0EFB 8D 08 0E STA $0E08
+    right: $0EFC 4C E6 0E JMP $0EE6
+  #0170
+    left : $0EFE AD 09 0E LDA $0E09
+    right: $0EFF A9 01    LDA #$01
+  #0171
+    left : $0F01 69 01    ADC #$01
+    right: $0F01 85 85    STA $85
+  #0172
+    left : $0F03 8D 09 0E STA $0E09
+    right: $0F03 A9 68    LDA #$68
+  #0173
+    left : $0F06 4C E6 0E JMP $0EE6
+    right: $0F05 85 84    STA $84
+  #0174
+    left : $0F09 A9 01    LDA #$01
+    right: $0F07 AD 09 0E LDA $0E09
+  #0175
+    left : $0F0B 85 85    STA $85
+    right: $0F0A AA       TAX
+  #0176
+    left : $0F0D A9 68    LDA #$68
+    right: $0F0B AD 08 0E LDA $0E08
+  #0177
+    left : $0F0F 85 84    STA $84
+    right: $0F0E 20 DE A0 JSR $A0DE
+  #0178
+    left : $0F11 AD 09 0E LDA $0E09
+    right: $0F11 8D 08 0E STA $0E08
+  #0179
+    left : $0F14 AA       TAX
+    right: $0F14 8A       TXA
+  #0180
+    left : $0F15 AD 08 0E LDA $0E08
+    right: $0F15 8D 09 0E STA $0E09
+  #0181
+    left : $0F18 20 DE A0 JSR $A0DE
+    right: $0F18 60       RTS
+  #0182
+    left : $0F1B 8D 08 0E STA $0E08
+    right: $0F19 00       BRK
+  #0183
+    left : $0F1E 8A       TXA
+    right: $0F1A 00       BRK
+  #0184
+    left : $0F1F 8D 09 0E STA $0E09
+    right: $0F1B 4C 1E 0F JMP $0F1E
+  #0185
+    left : $0F22 60       RTS
+    right: $0F1E 8E 1A 0F STX $0F1A
+  #0186
+    left : $0F23 00       BRK
+    right: $0F21 8D 19 0F STA $0F19
+  #0187
+    left : $0F24 00       BRK
+    right: $0F24 38       SEC
+  #0188
+    left : $0F25 4C 28 0F JMP $0F28
+    right: $0F25 A9 00    LDA #$00
+  #0189
+    left : $0F28 8E 24 0F STX $0F24
+    right: $0F27 ED 19 0F SBC $0F19
+
+== bytes: compat vs modern ==
+exact: false  sizes: 918 vs 878
+first diffs:
+  @0004: $91 -> $69
+  @00E5: $08 -> $09
+  @00E7: $C9 -> $10
+  @00E8: $00 -> $14
+  @00E9: $AD -> $18
+  @00EA: $09 -> $AD
+  @00EB: $0E -> $08
+  @00EC: $E9 -> $0E
+  @00ED: $00 -> $69
+  @00EE: $30 -> $68
+  @00EF: $03 -> $8D
+  @00F0: $4C -> $08
+  @00F1: $09 -> $0E
+  @00F2: $0F -> $AD
+  @00F3: $18 -> $09
+  @00F4: $AD -> $0E
+  @00F5: $08 -> $69
+  @00F6: $0E -> $01
+  @00F7: $69 -> $8D
+  @00F8: $68 -> $09
+  @00F9: $8D -> $0E
+  @00FA: $08 -> $4C
+  @00FB: $0E -> $E6
+  @00FC: $AD -> $0E
+  @00FD: $09 -> $A9
+  @00FE: $0E -> $01
+  @00FF: $69 -> $85
+  @0100: $01 -> $85
+  @0101: $8D -> $A9
+  @0102: $09 -> $68
+
+== instructions: compat vs modern ==
+counts: 466 vs 449
+  #0160
+    left : $0EE6 AD 08 0E LDA $0E08
+    right: $0EE6 AD 09 0E LDA $0E09
+  #0161
+    left : $0EE9 C9 00    CMP #$00
+    right: $0EE9 10 14    BPL $0EFF
+  #0162
+    left : $0EEB AD 09 0E LDA $0E09
+    right: $0EEB 18       CLC
+  #0163
+    left : $0EEE E9 00    SBC #$00
+    right: $0EEC AD 08 0E LDA $0E08
+  #0164
+    left : $0EF0 30 03    BMI $0EF5
+    right: $0EEF 69 68    ADC #$68
+  #0165
+    left : $0EF2 4C 09 0F JMP $0F09
+    right: $0EF1 8D 08 0E STA $0E08
+  #0166
+    left : $0EF5 18       CLC
+    right: $0EF4 AD 09 0E LDA $0E09
+  #0167
+    left : $0EF6 AD 08 0E LDA $0E08
+    right: $0EF7 69 01    ADC #$01
+  #0168
+    left : $0EF9 69 68    ADC #$68
+    right: $0EF9 8D 09 0E STA $0E09
+  #0169
+    left : $0EFB 8D 08 0E STA $0E08
+    right: $0EFC 4C E6 0E JMP $0EE6
+  #0170
+    left : $0EFE AD 09 0E LDA $0E09
+    right: $0EFF A9 01    LDA #$01
+  #0171
+    left : $0F01 69 01    ADC #$01
+    right: $0F01 85 85    STA $85
+  #0172
+    left : $0F03 8D 09 0E STA $0E09
+    right: $0F03 A9 68    LDA #$68
+  #0173
+    left : $0F06 4C E6 0E JMP $0EE6
+    right: $0F05 85 84    STA $84
+  #0174
+    left : $0F09 A9 01    LDA #$01
+    right: $0F07 AD 09 0E LDA $0E09
+  #0175
+    left : $0F0B 85 85    STA $85
+    right: $0F0A AA       TAX
+  #0176
+    left : $0F0D A9 68    LDA #$68
+    right: $0F0B AD 08 0E LDA $0E08
+  #0177
+    left : $0F0F 85 84    STA $84
+    right: $0F0E 20 DE A0 JSR $A0DE
+  #0178
+    left : $0F11 AD 09 0E LDA $0E09
+    right: $0F11 8D 08 0E STA $0E08
+  #0179
+    left : $0F14 AA       TAX
+    right: $0F14 8A       TXA
+  #0180
+    left : $0F15 AD 08 0E LDA $0E08
+    right: $0F15 8D 09 0E STA $0E09
+  #0181
+    left : $0F18 20 DE A0 JSR $A0DE
+    right: $0F18 60       RTS
+  #0182
+    left : $0F1B 8D 08 0E STA $0E08
+    right: $0F19 00       BRK
+  #0183
+    left : $0F1E 8A       TXA
+    right: $0F1A 00       BRK
+  #0184
+    left : $0F1F 8D 09 0E STA $0E09
+    right: $0F1B 4C 1E 0F JMP $0F1E
+  #0185
+    left : $0F22 60       RTS
+    right: $0F1E 8E 1A 0F STX $0F1A
+  #0186
+    left : $0F23 00       BRK
+    right: $0F21 8D 19 0F STA $0F19
+  #0187
+    left : $0F24 00       BRK
+    right: $0F24 38       SEC
+  #0188
+    left : $0F25 4C 28 0F JMP $0F28
+    right: $0F25 A9 00    LDA #$00
+  #0189
+    left : $0F28 8E 24 0F STX $0F24
+    right: $0F27 ED 19 0F SBC $0F19

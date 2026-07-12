@@ -1,0 +1,6 @@
+BYTE ARRAY data(4)
+CARD p
+
+PROC Main()
+  p=@data
+RETURN

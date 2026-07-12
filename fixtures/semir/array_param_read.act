@@ -1,0 +1,13 @@
+SET $491=$3000
+SET $E=$3000
+
+CHAR ARRAY text(0)="HI"
+BYTE b
+
+PROC Take(CHAR ARRAY s)
+  b = s(1)
+RETURN
+
+PROC Main()
+  Take(text)
+RETURN

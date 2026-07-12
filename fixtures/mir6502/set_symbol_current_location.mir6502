@@ -1,0 +1,8 @@
+mir6502 program
+global g0 buffer: byte storage global+0 size=2 init program_end_word section=global mutable=true
+
+routine r0 Main
+b0 bb0:
+  v0 =.w load global g0+0
+  store.b computed v0[#$00;1]+0, #$07
+  return

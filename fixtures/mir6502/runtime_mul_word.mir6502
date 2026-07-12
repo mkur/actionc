@@ -1,0 +1,12 @@
+mir6502 program
+global g0 a: word storage global+0
+global g1 b: word storage global+2
+global g2 out: word storage global+4
+
+routine r0 Main
+b0 bb0:
+  v0 =.w load global g0+0
+  v1 =.w load global g1+0
+  v2 =.w v0 mul v1 carry_in=- carry_out=ignore
+  store.w global g2+0, v2
+  return

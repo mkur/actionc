@@ -1,0 +1,6 @@
+PROC Raw=*(CARD dst, src BYTE len)
+[$85 $A0 $86 $A1 $84 $A2 $60]
+
+PROC Main()
+  Raw($1234, $5678, 9)
+RETURN

@@ -1,0 +1,10 @@
+INT a,b
+BYTE out
+
+PROC Main()
+  IF a<b THEN
+    out=1
+  ELSE
+    out=2
+  FI
+RETURN

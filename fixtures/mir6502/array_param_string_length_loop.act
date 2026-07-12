@@ -1,0 +1,13 @@
+PROC Print(CHAR ARRAY s)
+
+  BYTE i,j
+
+  FOR i=1 TO s(0) DO
+    j=j+1
+  OD
+
+RETURN
+
+PROC Main()
+  Print("TEST!!!")
+RETURN

@@ -1,0 +1,10 @@
+PROC Helper()
+RETURN
+
+PROC Invoke(PROC POINTER cb)
+  cb()
+RETURN
+
+PROC Main()
+  Invoke(@Helper)
+RETURN

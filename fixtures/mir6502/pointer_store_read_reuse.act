@@ -1,0 +1,9 @@
+BYTE ARRAY data(2)
+CHAR POINTER cp
+BYTE x
+
+PROC Main()
+  cp = data
+  cp^ = $11
+  x = cp^
+RETURN

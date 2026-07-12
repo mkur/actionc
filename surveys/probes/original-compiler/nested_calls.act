@@ -1,0 +1,21 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE g, r
+
+BYTE FUNC Inner(BYTE x)
+RETURN(x + 1)
+
+BYTE FUNC Outer(BYTE a,b)
+  BYTE t
+
+  t = Inner(a)
+RETURN(t + b)
+
+PROC Main()
+  g = Inner(1)
+  r = Outer(g, 3)
+RETURN

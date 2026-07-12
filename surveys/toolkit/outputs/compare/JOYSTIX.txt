@@ -1,0 +1,950 @@
+source: samples/toolkit/original/extracted/JOYSTIX.ACT
+
+== original:samples/toolkit/survey/outputs/vm/JOYSTIX.COM ==
+load bytes: 155  code bytes: 143  code origin: $0E08
+segments:
+  00: $0E08-$0E96 len   143 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   149 data_off   153
+      RUNAD $02E2 = $0E5F
+opcode counts:
+  $00 BRK      12
+  $01 ORA      2
+  $08 PHP      2
+  $09 ORA      1
+  $0A ASL      2
+  $0E ASL      1
+  $18 CLC      2
+  $28 PLP      2
+  $29 AND      4
+  $2A ROL      2
+  $4A LSR      2
+  $4C JMP      2
+  $53 .BYTE    1
+  $60 RTS      3
+  $6D ADC      4
+  $85 STA      11
+  $88 DEY      2
+  $8D STA      4
+  $A0 LDY      2
+  $A5 LDA      3
+  $A9 LDA      2
+  $AD LDA      2
+  $AE LDX      2
+  $B1 LDA      4
+  $BD LDA      2
+  $FF .BYTE    4
+
+== compat ==
+load bytes: 155  code bytes: 143  code origin: $0E08
+segments:
+  00: $0E08-$0E96 len   143 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   149 data_off   153
+      RUNAD $02E2 = $0E5F
+opcode counts:
+  $00 BRK      12
+  $01 ORA      2
+  $08 PHP      2
+  $09 ORA      1
+  $0A ASL      2
+  $0E ASL      1
+  $18 CLC      2
+  $28 PLP      2
+  $29 AND      4
+  $2A ROL      2
+  $4A LSR      2
+  $4C JMP      2
+  $53 .BYTE    1
+  $60 RTS      3
+  $6D ADC      4
+  $85 STA      11
+  $88 DEY      2
+  $8D STA      4
+  $A0 LDY      2
+  $A5 LDA      3
+  $A9 LDA      2
+  $AD LDA      2
+  $AE LDX      2
+  $B1 LDA      4
+  $BD LDA      2
+  $FF .BYTE    4
+
+== modern ==
+load bytes: 152  code bytes: 140  code origin: $0E08
+segments:
+  00: $0E08-$0E93 len   140 header_off     2 data_off     6
+  01: $02E2-$02E3 len     2 header_off   146 data_off   150
+      RUNAD $02E2 = $0E5D
+opcode counts:
+  $00 BRK      14
+  $01 ORA      2
+  $08 PHP      2
+  $09 ORA      1
+  $0A ASL      2
+  $18 CLC      2
+  $28 PLP      2
+  $29 AND      4
+  $2A ROL      2
+  $4A LSR      2
+  $4C JMP      2
+  $51 EOR      1
+  $60 RTS      2
+  $6D ADC      4
+  $85 STA      11
+  $88 DEY      2
+  $8D STA      4
+  $A0 LDY      2
+  $A5 LDA      2
+  $A9 LDA      2
+  $AC LDY      2
+  $AD LDA      2
+  $B1 LDA      4
+  $B9 LDA      2
+  $FF .BYTE    4
+
+== map: compat ==
+origin $0E08  run $0E5F  routines 2  symbols 6  skipped 0
+routines:
+  HStick                   $0E08-$0E51 len    74
+  VStick                   $0E52-$0E95 len    68
+storage symbols:
+  routine HStick Local PORTS $0278-$0278
+  routine VStick Local PORTS $0278-$0278
+  routine HStick Parameter PORT $0E08-$0E08
+  routine HStick Local VALUE $0E11-$0E12
+  routine VStick Parameter PORT $0E52-$0E52
+  routine VStick Local VALUE $0E5B-$0E5C
+trusted effects:
+  HStick                   clobbers A,X,Y; writes zp $A0,$A1,$AC,$AD,$AE; writes abs $0E08
+  VStick                   clobbers A,X,Y; writes zp $A0,$A1,$AC,$AD,$AE; writes abs $0E52
+
+== map: modern ==
+origin $0E08  run $0E5D  routines 2  symbols 6  skipped 0
+routines:
+  HStick                   $0E08-$0E4F len    72
+  VStick                   $0E50-$0E93 len    68
+storage symbols:
+  routine HStick Local PORTS $0278-$0278
+  routine VStick Local PORTS $0278-$0278
+  routine HStick Parameter PORT $0E08-$0E08
+  routine HStick Local VALUE $0E11-$0E12
+  routine VStick Parameter PORT $0E50-$0E50
+  routine VStick Local VALUE $0E59-$0E5A
+trusted effects:
+  HStick                   clobbers A,X,Y; writes zp $A0,$A1,$AC,$AD,$AE; writes abs $0E08
+  VStick                   clobbers A,X,Y; writes zp $A0,$A1,$AC,$AD,$AE; writes abs $0E50
+
+== routines: original:samples/toolkit/survey/outputs/vm/JOYSTIX.COM vs compat ==
+  HStick                   len 74 -> 74 (+0)  addr $0E08 -> $0E08
+    HStick+$0029 #0023
+      original : $0E31 85 AC    STA $AC
+      generated: $0E31 85 AE    STA $AE
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+    HStick+$002B #0024
+      original : $0E33 A5 AC    LDA $AC
+      generated: $0E33 A5 AE    LDA $AE
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+    HStick+$0033 #0029
+      original : $0E3B 85 AE    STA $AE
+      generated: $0E3B 85 AC    STA $AC
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+    HStick+$003C #0034
+      original : $0E44 85 AF    STA $AF
+      generated: $0E44 85 AD    STA $AD
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+    HStick+$0040 #0036
+      original : $0E48 B1 AE    LDA ($AE),Y
+      generated: $0E48 B1 AC    LDA ($AC),Y
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+    HStick+$0045 #0039
+      original : $0E4D B1 AE    LDA ($AE),Y
+      generated: $0E4D B1 AC    LDA ($AC),Y
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+  VStick                   len 69 -> 68 (-1)  addr $0E52 -> $0E52
+    VStick+$0044 #0037
+      original : $0E96 60       RTS
+      generated: <missing>
+
+== routines: original:samples/toolkit/survey/outputs/vm/JOYSTIX.COM vs modern ==
+  HStick                   len 74 -> 72 (-2)  addr $0E08 -> $0E08
+    HStick+$001B #0016
+      original : $0E23 AE 08 0E LDX $0E08 ; port $0E08
+      generated: $0E23 AC 08 0E LDY $0E08
+      orig operand: port $0E08
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$001E #0017
+      original : $0E26 BD 78 02 LDA $0278,X ; ports $0278
+      generated: $0E26 B9 78 02 LDA $0278,Y
+      orig operand: ports $0278
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0029 #0023
+      original : $0E31 85 AC    STA $AC
+      generated: $0E31 85 AE    STA $AE
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$002B #0024
+      original : $0E33 A5 AC    LDA $AC
+      generated: $0E33 0A       ASL A
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$002D #0025
+      original : $0E35 0A       ASL A
+      generated: $0E34 08       PHP
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$002E #0026
+      original : $0E36 08       PHP
+      generated: $0E35 18       CLC
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$002F #0027
+      original : $0E37 18       CLC
+      generated: $0E36 6D 11 0E ADC $0E11
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0030 #0028
+      original : $0E38 6D 11 0E ADC $0E11 ; value $0E11
+      generated: $0E39 85 AC    STA $AC
+      orig operand: value $0E11
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0033 #0029
+      original : $0E3B 85 AE    STA $AE
+      generated: $0E3B A9 00    LDA #$00
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0035 #0030
+      original : $0E3D A9 00    LDA #$00
+      generated: $0E3D 2A       ROL A
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0037 #0031
+      original : $0E3F 2A       ROL A
+      generated: $0E3E 28       PLP
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0038 #0032
+      original : $0E40 28       PLP
+      generated: $0E3F 6D 12 0E ADC $0E12
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0039 #0033
+      original : $0E41 6D 12 0E ADC $0E12 ; value+1 $0E12
+      generated: $0E42 85 AD    STA $AD
+      orig operand: value+1 $0E12
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$003C #0034
+      original : $0E44 85 AF    STA $AF
+      generated: $0E44 A0 01    LDY #$01
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$003E #0035
+      original : $0E46 A0 01    LDY #$01
+      generated: $0E46 B1 AC    LDA ($AC),Y
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0040 #0036
+      original : $0E48 B1 AE    LDA ($AE),Y
+      generated: $0E48 85 A1    STA $A1
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0042 #0037
+      original : $0E4A 85 A1    STA $A1
+      generated: $0E4A 88       DEY
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0044 #0038
+      original : $0E4C 88       DEY
+      generated: $0E4B B1 AC    LDA ($AC),Y
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0045 #0039
+      original : $0E4D B1 AE    LDA ($AE),Y
+      generated: $0E4D 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0047 #0040
+      original : $0E4F 85 A0    STA $A0
+      generated: $0E4F 60       RTS
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    HStick+$0049 #0041
+      original : $0E51 60       RTS
+      generated: <missing>
+  VStick                   len 69 -> 68 (-1)  addr $0E52 -> $0E50
+    VStick+$0009 #0008
+      original : $0E5B 53       .BYTE $53
+      generated: $0E59 51 0E    EOR ($0E),Y
+      orig owner: value $0E5B
+      source   : Declaration VStick storage samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E50-$0E5C
+      owner    : routine VStick Local VALUE $0E59-$0E5A+0
+    VStick+$000A #0009
+      original : $0E5C 0E 00 00 ASL $0000
+      generated: $0E5B 00       BRK
+      orig owner: value+1 $0E5C
+      source   : Declaration VStick storage samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E50-$0E5C
+    VStick+$000D #0010
+      original : $0E5F 4C 62 0E JMP $0E62
+      generated: $0E5C 00       BRK
+      orig owner: VStick $0E5F
+      source   : Declaration VStick storage samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E50-$0E5C
+    VStick+$0010 #0011
+      original : $0E62 8D 52 0E STA $0E52 ; port $0E52
+      generated: $0E5D 4C 60 0E JMP $0E60
+      orig operand: port $0E52
+      source   : Routine VStick samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E50-$0E93
+    VStick+$0013 #0012
+      original : $0E65 AD 52 0E LDA $0E52 ; port $0E52
+      generated: $0E60 8D 50 0E STA $0E50
+      orig operand: port $0E52
+      source   : Routine VStick samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E50-$0E93
+    VStick+$0016 #0013
+      original : $0E68 29 03    AND #$03
+      generated: $0E63 AD 50 0E LDA $0E50
+      source   : Statement compound assignment samples/toolkit/original/extracted/JOYSTIX.ACT:39:3 | port==&3 | source 768..776 code $0E63-$0E6A
+    VStick+$0018 #0014
+      original : $0E6A 8D 52 0E STA $0E52 ; port $0E52
+      generated: $0E66 29 03    AND #$03
+      orig operand: port $0E52
+      source   : Statement compound assignment samples/toolkit/original/extracted/JOYSTIX.ACT:39:3 | port==&3 | source 768..776 code $0E63-$0E6A
+    VStick+$001B #0015
+      original : $0E6D AE 52 0E LDX $0E52 ; port $0E52
+      generated: $0E68 8D 50 0E STA $0E50
+      orig operand: port $0E52
+      source   : Statement compound assignment samples/toolkit/original/extracted/JOYSTIX.ACT:39:3 | port==&3 | source 768..776 code $0E63-$0E6A
+    VStick+$001E #0016
+      original : $0E70 BD 78 02 LDA $0278,X ; ports $0278
+      generated: $0E6B AC 50 0E LDY $0E50
+      orig operand: ports $0278
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0021 #0017
+      original : $0E73 29 03    AND #$03
+      generated: $0E6E B9 78 02 LDA $0278,Y
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0023 #0018
+      original : $0E75 85 AE    STA $AE
+      generated: $0E71 29 03    AND #$03
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0025 #0019
+      original : $0E77 A5 AE    LDA $AE
+      generated: $0E73 85 AE    STA $AE
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0027 #0020
+      original : $0E79 0A       ASL A
+      generated: $0E75 A5 AE    LDA $AE
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0028 #0021
+      original : $0E7A 08       PHP
+      generated: $0E77 0A       ASL A
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0029 #0022
+      original : $0E7B 18       CLC
+      generated: $0E78 08       PHP
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$002A #0023
+      original : $0E7C 6D 5B 0E ADC $0E5B ; value $0E5B
+      generated: $0E79 18       CLC
+      orig operand: value $0E5B
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$002D #0024
+      original : $0E7F 85 AC    STA $AC
+      generated: $0E7A 6D 59 0E ADC $0E59
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$002F #0025
+      original : $0E81 A9 00    LDA #$00
+      generated: $0E7D 85 AC    STA $AC
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0031 #0026
+      original : $0E83 2A       ROL A
+      generated: $0E7F A9 00    LDA #$00
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0032 #0027
+      original : $0E84 28       PLP
+      generated: $0E81 2A       ROL A
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0033 #0028
+      original : $0E85 6D 5C 0E ADC $0E5C ; value+1 $0E5C
+      generated: $0E82 28       PLP
+      orig operand: value+1 $0E5C
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0036 #0029
+      original : $0E88 85 AD    STA $AD
+      generated: $0E83 6D 5A 0E ADC $0E5A
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0038 #0030
+      original : $0E8A A0 01    LDY #$01
+      generated: $0E86 85 AD    STA $AD
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$003A #0031
+      original : $0E8C B1 AC    LDA ($AC),Y
+      generated: $0E88 A0 01    LDY #$01
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$003C #0032
+      original : $0E8E 85 A1    STA $A1
+      generated: $0E8A B1 AC    LDA ($AC),Y
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$003E #0033
+      original : $0E90 88       DEY
+      generated: $0E8C 85 A1    STA $A1
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$003F #0034
+      original : $0E91 B1 AC    LDA ($AC),Y
+      generated: $0E8E 88       DEY
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0041 #0035
+      original : $0E93 85 A0    STA $A0
+      generated: $0E8F B1 AC    LDA ($AC),Y
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    VStick+$0043 #0036
+      original : $0E95 60       RTS
+      generated: $0E91 85 A0    STA $A0
+      source   : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+
+== expected modern wins ==
+  effective address lowered count 2    saved    0 bytes
+  final RTS removed        count 1    saved    1 bytes
+  register reload removed  count 1    saved    2 bytes
+details:
+  effective address lowered saved   0 bytes  $0E29   HStick           lowered inline byte array index through proof-guided absolute,Y
+  register reload removed  saved   2 bytes  $0E33   HStick           suppressed accumulator reload where flags are not observed
+  effective address lowered saved   0 bytes  $0E71   VStick           lowered inline byte array index through proof-guided absolute,Y
+  final RTS removed        saved   1 bytes  $0E94   VStick           removed duplicate final program RTS
+
+== routines: compat vs modern ==
+  HStick                   len 74 -> 72 (-2)  addr $0E08 -> $0E08
+    source-range deltas:
+      Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464  diffs 39
+        left : $0E23-$0E51 len 47
+        right: $0E23-$0E4F len 45
+    #0016
+      left : $0E23 AE 08 0E LDX $0E08
+      right: $0E23 AC 08 0E LDY $0E08
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0017
+      left : $0E26 BD 78 02 LDA $0278,X
+      right: $0E26 B9 78 02 LDA $0278,Y
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0024
+      left : $0E33 A5 AE    LDA $AE
+      right: $0E33 0A       ASL A
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0025
+      left : $0E35 0A       ASL A
+      right: $0E34 08       PHP
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0026
+      left : $0E36 08       PHP
+      right: $0E35 18       CLC
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0027
+      left : $0E37 18       CLC
+      right: $0E36 6D 11 0E ADC $0E11
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0028
+      left : $0E38 6D 11 0E ADC $0E11
+      right: $0E39 85 AC    STA $AC
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0029
+      left : $0E3B 85 AC    STA $AC
+      right: $0E3B A9 00    LDA #$00
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0030
+      left : $0E3D A9 00    LDA #$00
+      right: $0E3D 2A       ROL A
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0031
+      left : $0E3F 2A       ROL A
+      right: $0E3E 28       PLP
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0032
+      left : $0E40 28       PLP
+      right: $0E3F 6D 12 0E ADC $0E12
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0033
+      left : $0E41 6D 12 0E ADC $0E12
+      right: $0E42 85 AD    STA $AD
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0034
+      left : $0E44 85 AD    STA $AD
+      right: $0E44 A0 01    LDY #$01
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0035
+      left : $0E46 A0 01    LDY #$01
+      right: $0E46 B1 AC    LDA ($AC),Y
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0036
+      left : $0E48 B1 AC    LDA ($AC),Y
+      right: $0E48 85 A1    STA $A1
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0037
+      left : $0E4A 85 A1    STA $A1
+      right: $0E4A 88       DEY
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0038
+      left : $0E4C 88       DEY
+      right: $0E4B B1 AC    LDA ($AC),Y
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0039
+      left : $0E4D B1 AC    LDA ($AC),Y
+      right: $0E4D 85 A0    STA $A0
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0040
+      left : $0E4F 85 A0    STA $A0
+      right: $0E4F 60       RTS
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E4F
+    #0041
+      left : $0E51 60       RTS
+      right: <missing>
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:23:9 | RETURN (value((ports(port)&$C) RSH 2)) | source 435..464 code $0E23-$0E51
+  VStick                   len 68 -> 68 (+0)  addr $0E52 -> $0E50
+    source-range deltas:
+      Routine VStick samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806  diffs 4
+        left : $0E52-$0E95 len 68 owner routine VStick Parameter PORT $0E52-$0E52+0
+        right: $0E50-$0E93 len 68 owner routine VStick Parameter PORT $0E50-$0E50+0
+      Statement compound assignment samples/toolkit/original/extracted/JOYSTIX.ACT:39:3 | port==&3 | source 768..776  diffs 6
+        left : $0E65-$0E6C len 8
+        right: $0E63-$0E6A len 8
+      Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805  diffs 44
+        left : $0E6D-$0E95 len 41
+        right: $0E6B-$0E93 len 41
+      Declaration VStick storage samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806  diffs 5
+        left : $0E52-$0E5E len 13 owner routine VStick Parameter PORT $0E52-$0E52+0
+        right: $0E50-$0E5C len 13 owner routine VStick Parameter PORT $0E50-$0E50+0
+    #0008
+      left : $0E5B 53       .BYTE $53
+      right: $0E59 51 0E    EOR ($0E),Y
+      left source : Declaration VStick storage samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E52-$0E5E
+      left owner  : routine VStick Local VALUE $0E5B-$0E5C+0
+      right source: Declaration VStick storage samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E50-$0E5C
+      right owner : routine VStick Local VALUE $0E59-$0E5A+0
+    #0009
+      left : $0E5C 0E 00 00 ASL $0000
+      right: $0E5B 00       BRK
+      left source : Declaration VStick storage samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E52-$0E5E
+      left owner  : routine VStick Local VALUE $0E5B-$0E5C+1
+      right source: Declaration VStick storage samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E50-$0E5C
+    #0010
+      left : $0E5F 4C 62 0E JMP $0E62
+      right: $0E5C 00       BRK
+      left source : Routine VStick samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E52-$0E95
+      right source: Declaration VStick storage samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E50-$0E5C
+    #0011
+      left : $0E62 8D 52 0E STA $0E52
+      right: $0E5D 4C 60 0E JMP $0E60
+      left source : Routine VStick samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E52-$0E95
+      right source: Routine VStick samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E50-$0E93
+    #0012
+      left : $0E65 AD 52 0E LDA $0E52
+      right: $0E60 8D 50 0E STA $0E50
+      left source : Statement compound assignment samples/toolkit/original/extracted/JOYSTIX.ACT:39:3 | port==&3 | source 768..776 code $0E65-$0E6C
+      right source: Routine VStick samples/toolkit/original/extracted/JOYSTIX.ACT:33:1 | INT FUNC VStick(BYTE port) | source 674..806 code $0E50-$0E93
+    #0013
+      left : $0E68 29 03    AND #$03
+      right: $0E63 AD 50 0E LDA $0E50
+      left source : Statement compound assignment samples/toolkit/original/extracted/JOYSTIX.ACT:39:3 | port==&3 | source 768..776 code $0E65-$0E6C
+      right source: Statement compound assignment samples/toolkit/original/extracted/JOYSTIX.ACT:39:3 | port==&3 | source 768..776 code $0E63-$0E6A
+    #0014
+      left : $0E6A 8D 52 0E STA $0E52
+      right: $0E66 29 03    AND #$03
+      left source : Statement compound assignment samples/toolkit/original/extracted/JOYSTIX.ACT:39:3 | port==&3 | source 768..776 code $0E65-$0E6C
+      right source: Statement compound assignment samples/toolkit/original/extracted/JOYSTIX.ACT:39:3 | port==&3 | source 768..776 code $0E63-$0E6A
+    #0015
+      left : $0E6D AE 52 0E LDX $0E52
+      right: $0E68 8D 50 0E STA $0E50
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement compound assignment samples/toolkit/original/extracted/JOYSTIX.ACT:39:3 | port==&3 | source 768..776 code $0E63-$0E6A
+    #0016
+      left : $0E70 BD 78 02 LDA $0278,X
+      right: $0E6B AC 50 0E LDY $0E50
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0017
+      left : $0E73 29 03    AND #$03
+      right: $0E6E B9 78 02 LDA $0278,Y
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0018
+      left : $0E75 85 AE    STA $AE
+      right: $0E71 29 03    AND #$03
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0019
+      left : $0E77 A5 AE    LDA $AE
+      right: $0E73 85 AE    STA $AE
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0020
+      left : $0E79 0A       ASL A
+      right: $0E75 A5 AE    LDA $AE
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0021
+      left : $0E7A 08       PHP
+      right: $0E77 0A       ASL A
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0022
+      left : $0E7B 18       CLC
+      right: $0E78 08       PHP
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0023
+      left : $0E7C 6D 5B 0E ADC $0E5B
+      right: $0E79 18       CLC
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0024
+      left : $0E7F 85 AC    STA $AC
+      right: $0E7A 6D 59 0E ADC $0E59
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0025
+      left : $0E81 A9 00    LDA #$00
+      right: $0E7D 85 AC    STA $AC
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0026
+      left : $0E83 2A       ROL A
+      right: $0E7F A9 00    LDA #$00
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0027
+      left : $0E84 28       PLP
+      right: $0E81 2A       ROL A
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0028
+      left : $0E85 6D 5C 0E ADC $0E5C
+      right: $0E82 28       PLP
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0029
+      left : $0E88 85 AD    STA $AD
+      right: $0E83 6D 5A 0E ADC $0E5A
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0030
+      left : $0E8A A0 01    LDY #$01
+      right: $0E86 85 AD    STA $AD
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0031
+      left : $0E8C B1 AC    LDA ($AC),Y
+      right: $0E88 A0 01    LDY #$01
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0032
+      left : $0E8E 85 A1    STA $A1
+      right: $0E8A B1 AC    LDA ($AC),Y
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0033
+      left : $0E90 88       DEY
+      right: $0E8C 85 A1    STA $A1
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0034
+      left : $0E91 B1 AC    LDA ($AC),Y
+      right: $0E8E 88       DEY
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0035
+      left : $0E93 85 A0    STA $A0
+      right: $0E8F B1 AC    LDA ($AC),Y
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0036
+      left : $0E95 60       RTS
+      right: $0E91 85 A0    STA $A0
+      left source : Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6D-$0E95
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+    #0037
+      left : <missing>
+      right: $0E93 60       RTS
+      right source: Statement return samples/toolkit/original/extracted/JOYSTIX.ACT:40:9 | RETURN (value(ports(port)&3)) | source 785..805 code $0E6B-$0E93
+
+== bytes: original:samples/toolkit/survey/outputs/vm/JOYSTIX.COM vs compat ==
+exact: false  sizes: 155 vs 155
+first diffs:
+  @0030: $AC -> $AE
+  @0032: $AC -> $AE
+  @003A: $AE -> $AC
+  @0043: $AF -> $AD
+  @0047: $AE -> $AC
+  @004C: $AE -> $AC
+
+== instructions: original:samples/toolkit/survey/outputs/vm/JOYSTIX.COM vs compat ==
+counts: 80 vs 80
+  #0023
+    left : $0E31 85 AC    STA $AC
+    right: $0E31 85 AE    STA $AE
+  #0024
+    left : $0E33 A5 AC    LDA $AC
+    right: $0E33 A5 AE    LDA $AE
+  #0029
+    left : $0E3B 85 AE    STA $AE
+    right: $0E3B 85 AC    STA $AC
+  #0034
+    left : $0E44 85 AF    STA $AF
+    right: $0E44 85 AD    STA $AD
+  #0036
+    left : $0E48 B1 AE    LDA ($AE),Y
+    right: $0E48 B1 AC    LDA ($AC),Y
+  #0039
+    left : $0E4D B1 AE    LDA ($AE),Y
+    right: $0E4D B1 AC    LDA ($AC),Y
+
+== bytes: original:samples/toolkit/survey/outputs/vm/JOYSTIX.COM vs modern ==
+exact: false  sizes: 155 vs 152
+first diffs:
+  @0004: $96 -> $93
+  @0021: $AE -> $AC
+  @0024: $BD -> $B9
+  @0030: $AC -> $AE
+  @0031: $A5 -> $0A
+  @0032: $AC -> $08
+  @0033: $0A -> $18
+  @0034: $08 -> $6D
+  @0035: $18 -> $11
+  @0036: $6D -> $0E
+  @0037: $11 -> $85
+  @0038: $0E -> $AC
+  @0039: $85 -> $A9
+  @003A: $AE -> $00
+  @003B: $A9 -> $2A
+  @003C: $00 -> $28
+  @003D: $2A -> $6D
+  @003E: $28 -> $12
+  @003F: $6D -> $0E
+  @0040: $12 -> $85
+  @0041: $0E -> $AD
+  @0042: $85 -> $A0
+  @0043: $AF -> $01
+  @0044: $A0 -> $B1
+  @0045: $01 -> $AC
+  @0046: $B1 -> $85
+  @0047: $AE -> $A1
+  @0048: $85 -> $88
+  @0049: $A1 -> $B1
+  @004A: $88 -> $AC
+
+== instructions: original:samples/toolkit/survey/outputs/vm/JOYSTIX.COM vs modern ==
+counts: 80 vs 79
+  #0016
+    left : $0E23 AE 08 0E LDX $0E08
+    right: $0E23 AC 08 0E LDY $0E08
+  #0017
+    left : $0E26 BD 78 02 LDA $0278,X
+    right: $0E26 B9 78 02 LDA $0278,Y
+  #0023
+    left : $0E31 85 AC    STA $AC
+    right: $0E31 85 AE    STA $AE
+  #0024
+    left : $0E33 A5 AC    LDA $AC
+    right: $0E33 0A       ASL A
+  #0025
+    left : $0E35 0A       ASL A
+    right: $0E34 08       PHP
+  #0026
+    left : $0E36 08       PHP
+    right: $0E35 18       CLC
+  #0027
+    left : $0E37 18       CLC
+    right: $0E36 6D 11 0E ADC $0E11
+  #0028
+    left : $0E38 6D 11 0E ADC $0E11
+    right: $0E39 85 AC    STA $AC
+  #0029
+    left : $0E3B 85 AE    STA $AE
+    right: $0E3B A9 00    LDA #$00
+  #0030
+    left : $0E3D A9 00    LDA #$00
+    right: $0E3D 2A       ROL A
+  #0031
+    left : $0E3F 2A       ROL A
+    right: $0E3E 28       PLP
+  #0032
+    left : $0E40 28       PLP
+    right: $0E3F 6D 12 0E ADC $0E12
+  #0033
+    left : $0E41 6D 12 0E ADC $0E12
+    right: $0E42 85 AD    STA $AD
+  #0034
+    left : $0E44 85 AF    STA $AF
+    right: $0E44 A0 01    LDY #$01
+  #0035
+    left : $0E46 A0 01    LDY #$01
+    right: $0E46 B1 AC    LDA ($AC),Y
+  #0036
+    left : $0E48 B1 AE    LDA ($AE),Y
+    right: $0E48 85 A1    STA $A1
+  #0037
+    left : $0E4A 85 A1    STA $A1
+    right: $0E4A 88       DEY
+  #0038
+    left : $0E4C 88       DEY
+    right: $0E4B B1 AC    LDA ($AC),Y
+  #0039
+    left : $0E4D B1 AE    LDA ($AE),Y
+    right: $0E4D 85 A0    STA $A0
+  #0040
+    left : $0E4F 85 A0    STA $A0
+    right: $0E4F 60       RTS
+  #0041
+    left : $0E51 60       RTS
+    right: $0E50 00       BRK
+  #0044
+    left : $0E54 00       BRK
+    right: $0E53 01 00    ORA ($00,X)
+  #0045
+    left : $0E55 01 00    ORA ($00,X)
+    right: $0E55 FF       .BYTE $FF
+  #0047
+    left : $0E58 FF       .BYTE $FF
+    right: $0E57 00       BRK
+  #0049
+    left : $0E5A 00       BRK
+    right: $0E59 51 0E    EOR ($0E),Y
+  #0050
+    left : $0E5B 53       .BYTE $53
+    right: $0E5B 00       BRK
+  #0051
+    left : $0E5C 0E 00 00 ASL $0000
+    right: $0E5C 00       BRK
+  #0052
+    left : $0E5F 4C 62 0E JMP $0E62
+    right: $0E5D 4C 60 0E JMP $0E60
+  #0053
+    left : $0E62 8D 52 0E STA $0E52
+    right: $0E60 8D 50 0E STA $0E50
+  #0054
+    left : $0E65 AD 52 0E LDA $0E52
+    right: $0E63 AD 50 0E LDA $0E50
+
+== bytes: compat vs modern ==
+exact: false  sizes: 155 vs 152
+first diffs:
+  @0004: $96 -> $93
+  @0021: $AE -> $AC
+  @0024: $BD -> $B9
+  @0031: $A5 -> $0A
+  @0032: $AE -> $08
+  @0033: $0A -> $18
+  @0034: $08 -> $6D
+  @0035: $18 -> $11
+  @0036: $6D -> $0E
+  @0037: $11 -> $85
+  @0038: $0E -> $AC
+  @0039: $85 -> $A9
+  @003A: $AC -> $00
+  @003B: $A9 -> $2A
+  @003C: $00 -> $28
+  @003D: $2A -> $6D
+  @003E: $28 -> $12
+  @003F: $6D -> $0E
+  @0040: $12 -> $85
+  @0041: $0E -> $AD
+  @0042: $85 -> $A0
+  @0043: $AD -> $01
+  @0044: $A0 -> $B1
+  @0045: $01 -> $AC
+  @0046: $B1 -> $85
+  @0047: $AC -> $A1
+  @0048: $85 -> $88
+  @0049: $A1 -> $B1
+  @004A: $88 -> $AC
+  @004B: $B1 -> $85
+
+== instructions: compat vs modern ==
+counts: 80 vs 79
+  #0016
+    left : $0E23 AE 08 0E LDX $0E08
+    right: $0E23 AC 08 0E LDY $0E08
+  #0017
+    left : $0E26 BD 78 02 LDA $0278,X
+    right: $0E26 B9 78 02 LDA $0278,Y
+  #0024
+    left : $0E33 A5 AE    LDA $AE
+    right: $0E33 0A       ASL A
+  #0025
+    left : $0E35 0A       ASL A
+    right: $0E34 08       PHP
+  #0026
+    left : $0E36 08       PHP
+    right: $0E35 18       CLC
+  #0027
+    left : $0E37 18       CLC
+    right: $0E36 6D 11 0E ADC $0E11
+  #0028
+    left : $0E38 6D 11 0E ADC $0E11
+    right: $0E39 85 AC    STA $AC
+  #0029
+    left : $0E3B 85 AC    STA $AC
+    right: $0E3B A9 00    LDA #$00
+  #0030
+    left : $0E3D A9 00    LDA #$00
+    right: $0E3D 2A       ROL A
+  #0031
+    left : $0E3F 2A       ROL A
+    right: $0E3E 28       PLP
+  #0032
+    left : $0E40 28       PLP
+    right: $0E3F 6D 12 0E ADC $0E12
+  #0033
+    left : $0E41 6D 12 0E ADC $0E12
+    right: $0E42 85 AD    STA $AD
+  #0034
+    left : $0E44 85 AD    STA $AD
+    right: $0E44 A0 01    LDY #$01
+  #0035
+    left : $0E46 A0 01    LDY #$01
+    right: $0E46 B1 AC    LDA ($AC),Y
+  #0036
+    left : $0E48 B1 AC    LDA ($AC),Y
+    right: $0E48 85 A1    STA $A1
+  #0037
+    left : $0E4A 85 A1    STA $A1
+    right: $0E4A 88       DEY
+  #0038
+    left : $0E4C 88       DEY
+    right: $0E4B B1 AC    LDA ($AC),Y
+  #0039
+    left : $0E4D B1 AC    LDA ($AC),Y
+    right: $0E4D 85 A0    STA $A0
+  #0040
+    left : $0E4F 85 A0    STA $A0
+    right: $0E4F 60       RTS
+  #0041
+    left : $0E51 60       RTS
+    right: $0E50 00       BRK
+  #0044
+    left : $0E54 00       BRK
+    right: $0E53 01 00    ORA ($00,X)
+  #0045
+    left : $0E55 01 00    ORA ($00,X)
+    right: $0E55 FF       .BYTE $FF
+  #0047
+    left : $0E58 FF       .BYTE $FF
+    right: $0E57 00       BRK
+  #0049
+    left : $0E5A 00       BRK
+    right: $0E59 51 0E    EOR ($0E),Y
+  #0050
+    left : $0E5B 53       .BYTE $53
+    right: $0E5B 00       BRK
+  #0051
+    left : $0E5C 0E 00 00 ASL $0000
+    right: $0E5C 00       BRK
+  #0052
+    left : $0E5F 4C 62 0E JMP $0E62
+    right: $0E5D 4C 60 0E JMP $0E60
+  #0053
+    left : $0E62 8D 52 0E STA $0E52
+    right: $0E60 8D 50 0E STA $0E50
+  #0054
+    left : $0E65 AD 52 0E LDA $0E52
+    right: $0E63 AD 50 0E LDA $0E50
+  #0056
+    left : $0E6A 8D 52 0E STA $0E52
+    right: $0E68 8D 50 0E STA $0E50

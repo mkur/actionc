@@ -1,0 +1,15 @@
+mir6502 program
+global g0 CLEAR: define $00 storage global+0
+
+routine r0 Block
+b0 bb0:
+  return
+
+routine r1 Main
+b0 bb1:
+  store.b local l0+0, #$04
+  store.b local l1+0, #$02
+  v0 =.b load local l0+0
+  v1 =.b load local l1+0
+  call r0 args=[#$0000.b -> a, v0.b -> x, v1.b -> y] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

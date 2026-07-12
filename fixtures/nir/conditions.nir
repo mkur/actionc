@@ -1,0 +1,40 @@
+nir program
+global skstat: Byte absolute $D20F
+global flag: Byte
+global total: Byte
+global ptr: Card
+
+routine Main params=[-] locals=[-]
+bb0:
+  %t0:Byte = load flag
+  %t1:condition = cmp %t0 Ne 0
+  branch %t1 ? bb2 : bb1
+bb2:
+  %t2:Byte = load total
+  %t3:Byte = %t2 Add 1
+  store total = %t3
+  goto bb1
+bb1:
+  goto bb3
+bb3:
+  %t4:Byte = load skstat
+  %t5:Card = %t4 And $4
+  %t6:condition = cmp %t5 Ne $0
+  branch %t6 ? bb4 : bb5
+bb4:
+  %t7:Byte = load total
+  %t8:Byte = %t7 Add 1
+  store total = %t8
+  store flag = 0
+  goto bb3
+bb5:
+  %t9:Card = load ptr
+  %t10:condition = cmp %t9 Ne $0
+  branch %t10 ? bb7 : bb6
+bb7:
+  %t11:Byte = load total
+  %t12:Byte = %t11 Add 2
+  store total = %t12
+  goto bb6
+bb6:
+  return

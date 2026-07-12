@@ -1,0 +1,29 @@
+; Force original compiler code origin to $3000.
+SET $491=$3000
+SET $E=$3000
+
+MODULE
+
+BYTE ARRAY left(16)="123"
+BYTE ARRAY right(16)="124"
+BYTE ARRAY out(16)=""
+
+BYTE b
+CARD c
+INT i
+
+PROC Main()
+  i = SCompare(left,right)
+
+  SCopy(out,left)
+  SCopyS(out,left,1,2)
+  SAssign(out,left,1,2)
+
+  StrB(12,out)
+  StrC(1234,out)
+  StrI(-123,out)
+
+  b = ValB(left)
+  c = ValC(left)
+  i = ValI(left)
+RETURN

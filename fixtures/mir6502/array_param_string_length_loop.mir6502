@@ -1,0 +1,28 @@
+mir6502 program
+static s0 __nir_str_Main_0: Char* bytes [$07 $54 $45 $53 $54 $21 $21 $21] section=rodata align=1 mutable=false display="TEST!!!"
+
+routine r0 Print
+b0 bb0:
+  store.b local l0+0, #$01
+  jump b1
+b1 bb1:
+  v0 =.b load local l0+0
+  v1 =.w load param p0+0
+  v2 =.b load computed v1[#$00;1]+0
+  v3 = cmp.b v0 le v2
+  branch bool v3 ? b2 : b3
+b2 bb2:
+  v4 =.b load local l1+0
+  v5 =.b v4 add #$01 carry_in=- carry_out=ignore
+  store.b local l1+0, v5
+  v6 =.b load local l0+0
+  v7 =.b v6 add #$01 carry_in=- carry_out=ignore
+  store.b local l0+0, v7
+  jump b1
+b3 bb3:
+  return
+
+routine r1 Main
+b0 bb4:
+  call r0 args=[static_addr s0.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  return

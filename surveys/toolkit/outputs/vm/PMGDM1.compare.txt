@@ -1,0 +1,1 @@
+1212..1227: `Zero` argument 1 expects ValueType { base: Fund(Byte), pointer: true }, got ValueType { base: Fund(Byte), pointer: false }

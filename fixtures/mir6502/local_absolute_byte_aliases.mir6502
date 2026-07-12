@@ -1,0 +1,8 @@
+mir6502 program
+
+routine r0 Main
+b0 bb0:
+  store.b $02BE, #$40
+  store.b $02D9, #$0E
+  store.b $02DA, #$03
+  return

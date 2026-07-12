@@ -1,0 +1,328 @@
+;                                    
+;
+;PMG.ACT - routines to implement and
+;manipulate the P/M capabilities of
+;the Atari.
+;
+;   Copyright (c) 1984 by OSS,Inc.,
+;      Mark Rose, and Mike Fitch
+;                                    
+
+MODULE
+
+BYTE PM_Mode=[0],
+     PMHitClr=$D01E
+
+CARD PM_BaseAdr
+
+BYTE ARRAY
+      PM_Hpos(8)=$D000,
+      PMHpos(8)=[0 0 0 0 0 0 0 0],
+      PMVpos(8)=[0 0 0 0 0 0 0 0],
+      PM_MisMask(4)=[$FC $F3 $CF $3F],
+      PM_Width(5)=$D008
+
+CARD ARRAY
+      PM_BSize=[0 $100 $80],
+      PM_Waste=[0 768 384]
+
+;************************************
+;Routine to turn P/Ms on and off.
+;When allocating memory it works from
+;HiMem down.
+;************************************
+
+PROC PMGraphics(BYTE mode)
+
+  BYTE DMACtl=$22F,   ;P/M enable loc.
+       Priority=$26F,
+       GRACtl=$D01D,
+       PMBase=$D407,
+       GraphP0=$D00D
+
+  CARD HiMem=$2E5,
+       OldHimem,
+       AppMHi=$E
+
+  CARD ARRAY PM_AdrMask=[0 $F800 $FC00],
+             PM_MemSize=[0 $800 $400]
+
+  ; insure that mode is valid-- ignore
+  ;   graphics request otherwise.
+  IF mode > 2 THEN
+    mode = 0
+  FI
+
+  Zero(PM_Hpos,8)  ; move them off the screen
+  Zero(PMHpos,8)
+  Zero(PMVpos,8)
+  Zero(PM_Width,5)
+  Zero(@GraphP0,5)
+  IF PM_Mode#0 THEN
+    Himem=OldHiMem
+    DMACtl=$22
+    GRACtl=0
+  FI
+  IF mode=0 THEN   ; turn off pmg
+    DMACtl=$22
+    GRACtl=0
+  ELSE
+    IF mode=1 THEN ;sgl line
+      DMACtl=$3E
+    ELSE           ;dbl line
+      DMACtl=$2E
+    FI
+    OldHiMem=HiMem
+    PM_BaseAdr=(HiMem-PM_MemSize(mode)-$80)&PM_AdrMask(mode)
+    PMBase=PM_BaseAdr RSH 8
+    IF PM_BaseAdr<AppMHi THEN
+      DMACtl=$22
+      GRACtl=0
+      RETURN
+    FI
+    HiMem=PM_BaseAdr+PM_Waste(mode)
+    Priority==&$C0%1
+    GRACtl=3
+  FI
+  PM_Mode=mode   ; save mode
+RETURN
+
+;************************************
+;Set the color of a P/M
+;************************************
+
+PROC PMColor(BYTE n,hue,lum)
+
+  BYTE ARRAY PM_Color(4)=$2C0
+
+  n==&3
+  PM_Color(n)=(hue LSH 4) % (lum & $0F)
+RETURN
+
+;************************************
+;Get the address of a P/M's memory
+;block
+;************************************
+
+CARD FUNC PMAdr(BYTE n)
+
+  CARD address,
+       offset
+
+  n==&7
+  IF n>=4 THEN
+    n=0
+  ELSE
+    n==+1
+  FI
+  address=PM_BaseAdr+PM_Waste(PM_Mode)
+  offset=n*PM_BSize(PM_Mode)
+  address=address+offset
+RETURN(address)
+
+;************************************
+;Zero out a P/M's memory block
+;************************************
+
+PROC PMClear(BYTE n)
+
+  CARD ctr,
+       limit
+
+  BYTE POINTER PlayAdr
+
+  BYTE mask
+
+  n==&7
+  playAdr=PMAdr(n)
+  IF n<4 THEN
+    Zero(PlayAdr,PM_BSize(PM_Mode))
+  ELSE
+    n==-4
+    mask=PM_MisMask(n)
+    limit=PM_BSize(PM_Mode)-1
+    FOR ctr=0 TO limit
+      DO
+      PlayAdr(ctr)==&mask
+      OD
+  FI
+RETURN
+
+;************************************
+;Move a P/M to an absolute (x,y) po-
+;sition
+;************************************
+
+PROC PMMove(BYTE n,x,y);
+
+  CARD i
+
+  BYTE yOffset,
+       plLength,
+       mask1,mask2
+
+  INT deltaY
+
+  BYTE ARRAY temp(256),PlPtr
+
+  IF PM_Mode=0 THEN
+    RETURN
+  FI
+  n==&7
+  deltaY = y
+  deltaY = deltaY-PMVpos(n)
+  IF deltaY=0 THEN
+    PM_Hpos(n)=x
+    PMHpos(n)=x
+    RETURN
+  FI
+  plPtr=PMAdr(n)
+  plLength=PM_BSize(PM_Mode)
+  IF deltaY>=0 THEN
+    yOffset=deltaY
+  ELSE
+    yOffset=plLength+deltaY
+  FI
+  IF n<4 THEN
+    mask1=255
+    mask2=0
+  ELSE
+    mask2=PM_MisMask(n&3)
+    mask1=mask2!$FF
+  FI
+
+;This piece of code was replaced by the 
+;following code block to increase speed.
+;
+; FOR i=0 to plLength-1
+;  DO
+;   temp(i)=plPtr(i)&mask1
+;  OD
+
+[ $A0 0        ; LDY #0
+  $AD PlPtr    ; LDA PLPTR
+  $85 $A0      ; STA $A0
+  $AD PlPtr+1  ; LDA PLPTR+1
+  $85 $A1      ; STA $A1
+;LOOP
+  $B1 $A0      ; LDA ($A0),Y
+  $2D mask1    ; AND MASK1
+  $99 temp     ; STA TEMP,Y
+  $C8          ; INY
+  $CC plLength ; CPY PLLENGTH
+  $D0 $F2      ; BNE LOOP
+]
+
+;This piece of code was replaced by the 
+;following code block to increase speed.
+;
+; FOR i=0 to plLength-1
+;  DO
+;   plPtr(yOffset)==&mask2 %temp(i)
+;   yOffset==+1
+;   IF yOffset>=plLength THEN
+;     yOffset=0
+;   FI
+;  OD
+
+[ $A2 0        ; LDX #0
+  $AC yOffset  ; LDY YOFFSET
+  $AD PlPtr    ; LDA PLPTR
+  $85 $A0      ; STA $A0
+  $AD PlPtr+1  ; LDA PLPTR+1
+  $85 $A1      ; STA $A1
+;LOOP
+  $B1 $A0      ; LDA ($A0),Y
+  $2D mask2    ; AND MASK2
+  $1D temp     ; ORA TEMP,X
+  $91 $A0      ; STA ($A0),Y
+  $C8          ; INY
+  $CC plLength ; CPY PLLENGTH
+  $D0 2        ; BNE ISLOW
+  $A0 0        ; LDY #0
+;ISLOW
+  $E8          ; INX
+  $EC plLength ; CPX PLLENGTH
+  $D0 $E8      ; BNE LOOP
+]
+
+  PMVpos(n)=y
+  PM_Hpos(n)=x
+  PMHpos(n)=x
+RETURN
+
+;************************************
+;Create a P/M
+;************************************
+
+PROC PMCreate(BYTE n  BYTE ARRAY pm BYTE len,width,x,y)
+
+  BYTE i,mask,temp,ntemp,
+       oldwidth=[0]
+
+  BYTE ARRAY plPtr,
+             miswidth=[0 1 0 3]
+
+  n==&7
+  IF n<4 THEN
+    mask=0
+  ELSE
+    ntemp=n&3
+    mask=PM_MisMask(ntemp)
+  FI
+  plPtr=PMAdr(n)
+  FOR i=0 to len-1
+   DO
+    plPtr(i+y)==&mask%pm(i)
+   OD
+  width==-1
+  IF n<4 THEN
+    PM_Width(n)=width
+  ELSE
+    temp=(miswidth(width) LSH (ntemp LSH 1))
+    oldwidth==&mask%temp
+    PM_Width(4)=oldwidth
+  FI
+  PM_Hpos(n)=x
+  PMHpos(n)=x
+  PMVpos(n)=y
+RETURN
+
+;************************************
+;Test for P/M collision
+;************************************
+
+BYTE FUNC PMHit(BYTE n,cnum)
+
+  BYTE ARRAY pmtopf(8)=$D000,
+             pmtop(8)=$D008
+
+  n==&7
+  IF n<4 THEN
+    n==+4
+  ELSE
+    n==-4
+  FI
+  IF cnum<4 THEN
+    RETURN ((pmtop(n) RSH cnum) & 1)
+  ELSE
+    cnum==&3
+    RETURN ((pmtopf(n) RSH cnum) & 1)
+  FI
+RETURN (0)
+
+;************************************
+;Replace Library Graphics routine so
+;that P/Ms are reset when bitmap modes
+;are changed.
+;************************************
+
+PROC Graphics(BYTE mode)
+  PMGraphics(0)
+  Close(6)
+  Open(6,"S:",(mode&$F0)!$1C,mode)
+RETURN
+
+; End of PMG.ACT 
+
+MODULE

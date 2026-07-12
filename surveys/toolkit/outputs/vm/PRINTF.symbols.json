@@ -1,0 +1,20 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$EA","name_addr":"$9410","name":"PF_IsDigit","vtype":"$C2","address":"$0E33","class":"BYTE FUNC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$38","name_addr":"$9420","name":"PF_Nbase","vtype":"$C4","address":"$0E60","class":"CARD FUNC","numargs":3,"arg_types_raw":["$0C","$0C","$12"],"args":["CARD","CARD","BYTE ARRAY"]},
+    {"scope":"global","slot":"$21","name_addr":"$9400","name":"PF_ToLower","vtype":"$C2","address":"$0E09","class":"BYTE FUNC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$75","name_addr":"$9444","name":"PrintF","vtype":"$C0","address":"$1511","class":"PROC","numargs":7,"arg_types_raw":["$12","$0C","$0C","$0C","$0C","$0C","$0C"],"args":["BYTE ARRAY","CARD","CARD","CARD","CARD","CARD","CARD"]},
+    {"scope":"global","slot":"$4E","name_addr":"$9430","name":"PrintFD","vtype":"$C0","address":"$0F88","class":"PROC","numargs":8,"arg_types_raw":["$8A","$12","$0C","$0C","$0C","$0C","$0C","$0C"],"args":["BYTE","BYTE ARRAY","CARD","CARD","CARD","CARD","CARD","CARD"]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$83","name_addr":"$947A","name":"c1","vtype":"$8C","address":"$1505","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$84","name_addr":"$9480","name":"c2","vtype":"$8C","address":"$1507","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$85","name_addr":"$9486","name":"c3","vtype":"$8C","address":"$1509","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$86","name_addr":"$948C","name":"c4","vtype":"$8C","address":"$150B","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$87","name_addr":"$9492","name":"c5","vtype":"$8C","address":"$150D","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$88","name_addr":"$9498","name":"c6","vtype":"$8C","address":"$150F","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"local","slot":"$CB","name_addr":"$946F","name":"control","vtype":"$92","address":"$1503","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

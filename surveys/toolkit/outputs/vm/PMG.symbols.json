@@ -1,0 +1,27 @@
+{
+  "global_index": "$0A04",
+  "local_index": "$0C04",
+  "globals": [
+    {"scope":"global","slot":"$6C","name_addr":"$94DA","name":"Graphics","vtype":"$C0","address":"$1513","class":"PROC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$26","name_addr":"$9495","name":"PMAdr","vtype":"$C4","address":"$0FE5","class":"CARD FUNC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$F9","name_addr":"$94A0","name":"PMClear","vtype":"$C0","address":"$106B","class":"PROC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$49","name_addr":"$9486","name":"PMColor","vtype":"$C0","address":"$0FB8","class":"PROC","numargs":3,"arg_types_raw":["$8A","$8A","$8A"],"args":["BYTE","BYTE","BYTE"]},
+    {"scope":"global","slot":"$BB","name_addr":"$94BB","name":"PMCreate","vtype":"$C0","address":"$1382","class":"PROC","numargs":6,"arg_types_raw":["$8A","$12","$8A","$8A","$8A","$8A"],"args":["BYTE","BYTE ARRAY","BYTE","BYTE","BYTE","BYTE"]},
+    {"scope":"global","slot":"$7D","name_addr":"$9476","name":"PMGraphics","vtype":"$C0","address":"$0E44","class":"PROC","numargs":1,"arg_types_raw":["$8A"],"args":["BYTE"]},
+    {"scope":"global","slot":"$50","name_addr":"$94CE","name":"PMHit","vtype":"$C2","address":"$1496","class":"BYTE FUNC","numargs":2,"arg_types_raw":["$8A","$8A"],"args":["BYTE","BYTE"]},
+    {"scope":"global","slot":"$56","name_addr":"$940B","name":"PMHitClr","vtype":"$8A","address":"$D01E","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$25","name_addr":"$9430","name":"PMHpos","vtype":"$9A","address":"$0E0B","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$4A","name_addr":"$94AD","name":"PMMove","vtype":"$C0","address":"$123E","class":"PROC","numargs":3,"arg_types_raw":["$8A","$8A","$8A"],"args":["BYTE","BYTE","BYTE"]},
+    {"scope":"global","slot":"$98","name_addr":"$943A","name":"PMVpos","vtype":"$9A","address":"$0E13","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$AE","name_addr":"$9417","name":"PM_BaseAdr","vtype":"$8C","address":"$0E09","class":"CARD","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$F4","name_addr":"$945E","name":"PM_BSize","vtype":"$94","address":"$0E25","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$F1","name_addr":"$9425","name":"PM_Hpos","vtype":"$9A","address":"$D000","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$C9","name_addr":"$9444","name":"PM_MisMask","vtype":"$9A","address":"$0E1B","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$F0","name_addr":"$9400","name":"PM_Mode","vtype":"$8A","address":"$0E08","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$CF","name_addr":"$946A","name":"PM_Waste","vtype":"$94","address":"$0E2D","class":"CARD ARRAY","numargs":0,"arg_types_raw":[],"args":[]},
+    {"scope":"global","slot":"$D6","name_addr":"$9452","name":"PM_Width","vtype":"$9A","address":"$D008","class":"BYTE ARRAY","numargs":0,"arg_types_raw":[],"args":[]}
+  ],
+  "locals": [
+    {"scope":"local","slot":"$23","name_addr":"$9507","name":"mode","vtype":"$8A","address":"$1512","class":"BYTE","numargs":0,"arg_types_raw":[],"args":[]}
+  ]
+}

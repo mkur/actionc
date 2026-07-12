@@ -1,0 +1,12 @@
+SET $491=$3000
+SET $E=$3000
+
+CARD p
+BYTE seen
+
+PROC Main()
+  BYTE ARRAY alias(300)=$4000
+
+  p=alias
+  seen=alias(1)
+RETURN

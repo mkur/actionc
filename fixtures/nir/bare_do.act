@@ -1,0 +1,7 @@
+BYTE x
+
+PROC Spin()
+  DO
+    x==+1
+  OD
+RETURN
