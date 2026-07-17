@@ -13484,6 +13484,179 @@ fn modern_profile_inverts_short_false_branches() {
 }
 
 #[test]
+fn modern_profile_fixed_point_inverts_empty_while_backedge() {
+    let source = "BYTE a PROC Main() WHILE a DO OD RETURN";
+    let compatible =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Compat).unwrap();
+    let modern =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+
+    assert!(compatible.bytes.windows(5).any(|bytes| {
+        invert_branch_opcode(bytes[0]).is_some() && bytes[1] == 3 && bytes[2] == opcode::JMP_ABS
+    }));
+    assert!(
+        !modern.bytes.windows(5).any(|bytes| {
+            invert_branch_opcode(bytes[0]).is_some() && bytes[1] == 3 && bytes[2] == opcode::JMP_ABS
+        }),
+        "modern bytes: {:02X?}; optimizations: {:?}",
+        modern.bytes,
+        modern.optimizations
+    );
+    assert_eq!(
+        modern
+            .optimizations
+            .iter()
+            .filter(|optimization| {
+                optimization.routine.as_deref() == Some("Main")
+                    && optimization.kind == CodegenOptimizationKind::BranchInverted
+            })
+            .count(),
+        2,
+        "the routine-end fixed point should remove the shape exposed by eager inversion"
+    );
+}
+
+#[test]
+fn modern_profile_inverts_dynamic_for_exit_branch_over_jump() {
+    let source = concat!(
+        "BYTE i,n BYTE FUNC Flag(BYTE x) RETURN(x) ",
+        "BYTE FUNC Main(BYTE c) FOR i=c TO n-1 DO ",
+        "IF Flag(i) THEN RETURN(i) FI OD RETURN(255)"
+    );
+    let modern =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+
+    assert!(modern.optimizations.iter().any(|optimization| {
+        optimization.routine.as_deref() == Some("Main")
+            && optimization.kind == CodegenOptimizationKind::BranchInverted
+            && optimization.message.contains("fallthrough label")
+    }));
+}
+
+#[test]
+fn modern_routine_finalizer_inverts_structured_branch_over_jump() {
+    let mut generator = test_generator(CodegenProfile::Modern);
+    let span = Span::new(0, 0);
+    generator
+        .emitter
+        .emit_branch_label(opcode::BNE_REL, "fallthrough", span);
+    generator
+        .emitter
+        .bind_label("compare:done:0", span)
+        .unwrap();
+    generator
+        .emitter
+        .bind_label("condition:false:1", span)
+        .unwrap();
+    generator.emitter.emit_jmp_label("target", span);
+    generator.emitter.bind_label("fallthrough", span).unwrap();
+    generator.emitter.emit_u8(0xEA);
+    generator.emitter.bind_label("target", span).unwrap();
+
+    generator.finalize_modern_branch_inversions(0);
+
+    assert_eq!(generator.emitter.bytes, [opcode::BEQ_REL, 0x00, 0xEA]);
+    assert!(generator.emitter.patches.iter().any(|patch| {
+        patch.offset == 1 && patch.kind == PatchKind::Relative8 && patch.label == "target"
+    }));
+    assert!(!generator.emitter.labels.contains_key("compare:done:0"));
+    assert!(!generator.emitter.labels.contains_key("condition:false:1"));
+    assert!(generator.optimizations.iter().any(|optimization| {
+        optimization.kind == CodegenOptimizationKind::BranchInverted
+            && optimization.message.contains("fallthrough label")
+    }));
+}
+
+#[test]
+fn modern_debug_compat_routine_keeps_branch_over_jump_shape() {
+    let modern = generate_profile_source_with_origin(
+        "BYTE a ;@actionc profile compat\nPROC Main() WHILE a DO OD RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(modern.bytes.windows(5).any(|bytes| {
+        invert_branch_opcode(bytes[0]).is_some() && bytes[1] == 3 && bytes[2] == opcode::JMP_ABS
+    }));
+    assert!(!modern.optimizations.iter().any(|optimization| {
+        optimization.routine.as_deref() == Some("Main")
+            && optimization.kind == CodegenOptimizationKind::BranchInverted
+    }));
+}
+
+#[test]
+fn modern_profile_adjusts_machine_block_metadata_after_late_branch_inversion() {
+    let modern = generate_profile_source_with_origin(
+        "BYTE a PROC Main() WHILE a DO OD [$EA $60]",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    let machine_block = modern
+        .map
+        .machine_blocks
+        .first()
+        .expect("missing machine block analysis");
+    let machine_offset = machine_block.address.wrapping_sub(modern.origin) as usize;
+    assert_eq!(modern.bytes.get(machine_offset), Some(&0xEA));
+    assert!(modern.map.source_ranges.iter().any(|range| {
+        range.kind == CodegenSourceRangeKind::MachineBlock
+            && range.start == machine_block.address
+            && range.end == machine_block.address + 2
+    }));
+}
+
+#[test]
+fn modern_profile_does_not_delete_labeled_jump_instruction() {
+    let mut generator = test_generator(CodegenProfile::Modern);
+    let span = Span::new(0, 0);
+    generator
+        .emitter
+        .emit_branch_label(opcode::BEQ_REL, "fallthrough", span);
+    generator.emitter.bind_label("jump-entry", span).unwrap();
+    generator.emitter.emit_jmp_label("target", span);
+    generator.emitter.bind_label("fallthrough", span).unwrap();
+    generator.emitter.emit_u8(0xEA);
+    generator.emitter.bind_label("target", span).unwrap();
+
+    generator.finalize_modern_branch_inversions(0);
+
+    assert_eq!(generator.emitter.bytes[2], opcode::JMP_ABS);
+    assert!(generator.optimizations.is_empty());
+}
+
+#[test]
+fn modern_profile_does_not_rewrite_across_resolved_machine_branch() {
+    let mut generator = test_generator(CodegenProfile::Modern);
+    let span = Span::new(0, 0);
+    generator.emitter.emit_u8(opcode::BNE_REL);
+    generator.emitter.emit_u8(8);
+    generator.emitter.emit_u8(0xEA);
+    generator.emitter.emit_u8(0xEA);
+    generator
+        .emitter
+        .emit_branch_label(opcode::BEQ_REL, "fallthrough", span);
+    generator.emitter.emit_jmp_label("target", span);
+    generator.emitter.bind_label("fallthrough", span).unwrap();
+    generator.emitter.emit_u8(0xEA);
+    generator.emitter.bind_label("target", span).unwrap();
+    generator.source_ranges.push(CodegenSourceRange {
+        kind: CodegenSourceRangeKind::MachineBlock,
+        name: Some("machine block".to_string()),
+        source_span: span,
+        start: 0x3000,
+        end: 0x3002,
+    });
+
+    generator.finalize_modern_branch_inversions(0);
+
+    assert_eq!(generator.emitter.bytes[6], opcode::JMP_ABS);
+    assert!(generator.optimizations.is_empty());
+}
+
+#[test]
 fn modern_profile_signed_zero_compare_uses_high_byte_sign_branch() {
     let output = generate_profile_source_with_origin(
         "INT n BYTE x PROC Main() IF n<0 THEN x=1 FI IF n>=0 THEN x=2 FI RETURN",

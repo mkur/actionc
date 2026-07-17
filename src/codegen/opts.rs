@@ -100,6 +100,15 @@ pub(super) struct BranchInversionCandidate {
     pub(super) span: Span,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BranchOverJumpRewrite {
+    branch_start: usize,
+    branch_opcode: u8,
+    fallthrough_label: String,
+    target_label: String,
+    span: Span,
+}
+
 impl Generator {
     // Extracted from src/codegen.rs: optimization logging
     pub(super) fn record_modern_optimization(
@@ -214,11 +223,13 @@ impl Generator {
             patch.offset == branch_start + 1
                 && patch.kind == PatchKind::Relative8
                 && patch.label == true_label
+                && patch.addend == 0
         });
         let has_absolute_jump_patch = self.emitter.patches.iter().any(|patch| {
             patch.offset == branch_start + 3
                 && patch.kind == PatchKind::Absolute16
                 && patch.label == false_label
+                && patch.addend == 0
         });
         if !has_relative_branch_patch || !has_absolute_jump_patch {
             return;
@@ -255,11 +266,34 @@ impl Generator {
             return;
         };
 
+        let Some(relative_patch) = self.emitter.patches.iter_mut().find(|patch| {
+            patch.offset == candidate.branch_start + 1
+                && patch.kind == PatchKind::Relative8
+                && patch.label == candidate.true_label
+                && patch.addend == 0
+        }) else {
+            return;
+        };
+        relative_patch.label = candidate.false_label.clone();
         self.emitter.bytes[candidate.branch_start] = inverted_opcode;
-        self.emitter.bytes[candidate.branch_start + 1] = delta as i8 as u8;
         self.emitter.patches.retain(|patch| {
-            patch.offset != candidate.branch_start + 1 && patch.offset != candidate.branch_start + 3
+            !(patch.offset == candidate.branch_start + 3
+                && patch.kind == PatchKind::Absolute16
+                && patch.label == candidate.false_label
+                && patch.addend == 0)
         });
+        if self.emitter.labels.get(&candidate.true_label) == Some(&(candidate.branch_start + 5))
+            && !self
+                .emitter
+                .patches
+                .iter()
+                .any(|patch| patch.label == candidate.true_label)
+        {
+            // Retargeting the only branch can orphan the synthetic fallthrough label on
+            // the next instruction. Drop that private label so a later fixed-point
+            // rewrite is not blocked by a label that no executable edge can reach.
+            self.emitter.labels.remove(&candidate.true_label);
+        }
         self.delete_emitted_bytes(candidate.branch_start + 2, 3);
         self.optimizations.push(CodegenOptimization {
             kind: CodegenOptimizationKind::BranchInverted,
@@ -277,6 +311,178 @@ impl Generator {
                 candidate.true_label, candidate.false_label
             ),
         });
+    }
+
+    /// Revisit generated control flow after every label in the current routine is bound.
+    ///
+    /// Some statement lowerings emit their own `branch; JMP; fallthrough` shapes, and an
+    /// eager branch inversion can expose another copy of that shape. Keep applying the
+    /// structured rewrite until no emitter-owned patch/label pattern remains.
+    pub(super) fn finalize_modern_branch_inversions(&mut self, routine_start: usize) {
+        if !self.profile.enables_modern_optimizations() {
+            self.branch_inversion_candidates
+                .retain(|candidate| candidate.branch_start < routine_start);
+            return;
+        }
+
+        while let Some(rewrite) = self.find_branch_over_jump_rewrite(routine_start) {
+            if !self.apply_branch_over_jump_rewrite(rewrite) {
+                break;
+            }
+        }
+
+        // All labels in this routine are now bound. Candidates left behind by the eager
+        // path cannot become actionable later and must not leak into the next routine.
+        self.branch_inversion_candidates
+            .retain(|candidate| candidate.branch_start < routine_start);
+    }
+
+    fn find_branch_over_jump_rewrite(&self, routine_start: usize) -> Option<BranchOverJumpRewrite> {
+        let routine_end = self.emitter.position();
+        let mut relative_patches = self
+            .emitter
+            .patches
+            .iter()
+            .filter(|patch| patch.kind == PatchKind::Relative8 && patch.addend == 0)
+            .collect::<Vec<_>>();
+        relative_patches.sort_by_key(|patch| patch.offset);
+
+        for relative_patch in relative_patches {
+            let Some(branch_start) = relative_patch.offset.checked_sub(1) else {
+                continue;
+            };
+            if branch_start < routine_start || branch_start + 5 > routine_end {
+                continue;
+            }
+            let Some(&branch_opcode) = self.emitter.bytes.get(branch_start) else {
+                continue;
+            };
+            if invert_branch_opcode(branch_opcode).is_none()
+                || self.emitter.bytes.get(branch_start + 2) != Some(&opcode::JMP_ABS)
+            {
+                continue;
+            }
+            if self.emitter.labels.get(&relative_patch.label) != Some(&(branch_start + 5)) {
+                continue;
+            }
+            let Some(jump_patch) = self.emitter.patches.iter().find(|patch| {
+                patch.offset == branch_start + 3
+                    && patch.kind == PatchKind::Absolute16
+                    && patch.addend == 0
+            }) else {
+                continue;
+            };
+            let Some(&target_position) = self.emitter.labels.get(&jump_patch.label) else {
+                continue;
+            };
+
+            let delete_start = branch_start + 2;
+            let delete_end = delete_start + 3;
+            if self.emitter.labels.iter().any(|(label, position)| {
+                (delete_start..delete_end).contains(position)
+                    && !self.is_removable_synthetic_fallthrough_label(label)
+            }) {
+                continue;
+            }
+            if self.emitter.patches.iter().any(|patch| {
+                (delete_start..delete_end).contains(&patch.offset)
+                    && !(patch.offset == jump_patch.offset
+                        && patch.kind == PatchKind::Absolute16
+                        && patch.label == jump_patch.label
+                        && patch.addend == 0)
+            }) {
+                continue;
+            }
+            if self.resolved_machine_branch_crosses_delete(delete_start, 3) {
+                continue;
+            }
+
+            let mut target_after_deletion = target_position;
+            adjust_position_after_delete(&mut target_after_deletion, delete_start, 3);
+            let branch_origin = branch_start + 2;
+            let delta = target_after_deletion as isize - branch_origin as isize;
+            if !(-128..=127).contains(&delta) {
+                continue;
+            }
+
+            return Some(BranchOverJumpRewrite {
+                branch_start,
+                branch_opcode,
+                fallthrough_label: relative_patch.label.clone(),
+                target_label: jump_patch.label.clone(),
+                span: relative_patch.span,
+            });
+        }
+
+        None
+    }
+
+    fn is_removable_synthetic_fallthrough_label(&self, label: &str) -> bool {
+        (label.starts_with("compare:done:") || label.starts_with("condition:false:"))
+            && !self
+                .emitter
+                .patches
+                .iter()
+                .any(|patch| patch.label == label)
+    }
+
+    fn apply_branch_over_jump_rewrite(&mut self, rewrite: BranchOverJumpRewrite) -> bool {
+        let Some(inverted_opcode) = invert_branch_opcode(rewrite.branch_opcode) else {
+            return false;
+        };
+        let Some(relative_patch) = self.emitter.patches.iter_mut().find(|patch| {
+            patch.offset == rewrite.branch_start + 1
+                && patch.kind == PatchKind::Relative8
+                && patch.label == rewrite.fallthrough_label
+                && patch.addend == 0
+        }) else {
+            return false;
+        };
+        relative_patch.label = rewrite.target_label.clone();
+
+        let Some(jump_patch_index) = self.emitter.patches.iter().position(|patch| {
+            patch.offset == rewrite.branch_start + 3
+                && patch.kind == PatchKind::Absolute16
+                && patch.label == rewrite.target_label
+                && patch.addend == 0
+        }) else {
+            return false;
+        };
+
+        self.emitter.bytes[rewrite.branch_start] = inverted_opcode;
+        self.emitter.patches.remove(jump_patch_index);
+        let delete_start = rewrite.branch_start + 2;
+        let removable_labels = self
+            .emitter
+            .labels
+            .iter()
+            .filter(|(label, position)| {
+                (delete_start..delete_start + 3).contains(position)
+                    && self.is_removable_synthetic_fallthrough_label(label)
+            })
+            .map(|(label, _)| label.clone())
+            .collect::<Vec<_>>();
+        for label in removable_labels {
+            self.emitter.labels.remove(&label);
+        }
+        self.delete_emitted_bytes(rewrite.branch_start + 2, 3);
+        self.optimizations.push(CodegenOptimization {
+            kind: CodegenOptimizationKind::BranchInverted,
+            profile: self.profile,
+            routine: self.current_routine_name(),
+            source_span: Some(rewrite.span),
+            address: Some(
+                self.emitter
+                    .origin
+                    .wrapping_add(rewrite.branch_start as u16),
+            ),
+            bytes_saved: 3,
+            message: format!(
+                "inverted branch over fallthrough label {} and removed long jump to {}",
+                rewrite.fallthrough_label, rewrite.target_label
+            ),
+        });
+        true
     }
 
     pub(super) fn delete_emitted_bytes(&mut self, start: usize, len: usize) {
@@ -328,7 +534,52 @@ impl Generator {
         false
     }
 
+    fn resolved_machine_branch_crosses_delete(&self, start: usize, len: usize) -> bool {
+        let origin = self.emitter.origin;
+        for range in self
+            .source_ranges
+            .iter()
+            .filter(|range| range.kind == CodegenSourceRangeKind::MachineBlock)
+        {
+            let block_start = range.start.wrapping_sub(origin) as usize;
+            let block_end = range.end.wrapping_sub(origin) as usize;
+            if block_start >= block_end || block_end > self.emitter.bytes.len() {
+                continue;
+            }
+            if start < block_end && block_start < start + len {
+                return true;
+            }
+
+            let mut offset = block_start;
+            while offset < block_end {
+                let Some(instruction) = decode_instruction(self.emitter.bytes[offset]) else {
+                    break;
+                };
+                if offset + instruction.len > block_end {
+                    break;
+                }
+                if instruction.mode == AddressingMode::Relative {
+                    let operand = self.emitter.bytes[offset + 1] as i8 as isize;
+                    let target = offset as isize + 2 + operand;
+                    if target >= 0 {
+                        let target = target as usize;
+                        let delete_end = start + len;
+                        if (start..delete_end).contains(&target)
+                            || (offset < start && target >= delete_end)
+                            || (target < start && offset >= delete_end)
+                        {
+                            return true;
+                        }
+                    }
+                }
+                offset += instruction.len;
+            }
+        }
+        false
+    }
+
     pub(super) fn adjust_recorded_addresses_after_delete(&mut self, start: usize, len: usize) {
+        let start_position = start;
         let start = self.emitter.origin.wrapping_add(start as u16);
         let len = len as u16;
         for routine in &mut self.routine_addresses {
@@ -347,6 +598,22 @@ impl Generator {
             if let Some(address) = &mut optimization.address {
                 adjust_address_after_delete(address, start, len);
             }
+        }
+        for proof in &mut self.proofs {
+            if let Some(address) = &mut proof.address {
+                adjust_address_after_delete(address, start, len);
+            }
+        }
+        for attempt in &mut self.proof_attempts {
+            if let Some(address) = &mut attempt.address {
+                adjust_address_after_delete(address, start, len);
+            }
+        }
+        for machine_block in &mut self.machine_blocks {
+            adjust_address_after_delete(&mut machine_block.address, start, len);
+        }
+        if let Some(position) = &mut self.last_label_position {
+            adjust_position_after_delete(position, start_position, len as usize);
         }
         if let Some(cursor) = &mut self.compatible_cursor {
             adjust_address_after_delete(cursor, start, len);

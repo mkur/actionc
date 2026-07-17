@@ -130,6 +130,8 @@ impl Generator {
         if should_emit_implicit_rts {
             self.emit_return_rts(routine.span);
         }
+        let routine_start_position = routine_start.wrapping_sub(self.emitter.origin) as usize;
+        self.finalize_modern_branch_inversions(routine_start_position);
         self.last_routine_ended_with_rts =
             !routine.body.is_empty() && self.emitter.bytes.last() == Some(&opcode::RTS);
         self.routine_ranges.push(RoutineRange {
