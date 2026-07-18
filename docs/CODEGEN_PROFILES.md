@@ -106,15 +106,26 @@ single-pass cartridge compiler. Current layout differences include:
 - routine entry can be emitted directly after its parameter/local storage when
   the routine does not need a patchable entry trampoline; this also applies to
   public routine addresses and descriptor-backed local arrays;
+- an internal routine's one- or two-byte parameter storage can be omitted when
+  proof-guided classic lowering consumes every incoming A/X byte without a
+  physical storage reference;
 - an extra final `RTS` can be removed when the preceding routine already ended
   with one.
 
-Explicit parameters, locals, externally visible calls, and public Action! ABI
-boundaries remain part of the observable contract. The modern profile may use
-internal facts about registers or temporaries, but generated code must still
-materialize public call and return behavior where user code can observe it.
-Direct entry changes only the physical `JMP`: calls, `@routine`, machine-block
-routine addresses, and `RUNAD` still resolve to the stable executable entry.
+Externally visible calls and public Action! ABI boundaries remain part of the
+observable contract. The modern profile may use internal facts about registers
+or temporaries, but generated code must still accept the public A/X argument
+placement and materialize public return behavior where user code can observe
+it. Direct entry changes only the physical `JMP`: calls, `@routine`,
+machine-block routine addresses, and `RUNAD` still resolve to the stable
+executable entry.
+
+The classic backend's parameter-storage elision is deliberately narrower than
+the public ABI. It applies only to modern, direct A/X parameter frames with at
+most two bytes. The emitted body must contain no reference to the parameter
+cells, no parameter address may escape, and the routine may not contain machine
+blocks, effect annotations, current-location expressions, locals, or hidden
+storage. Otherwise the normal parameter cells and entry stores remain.
 
 ## Codegen Optimizations
 
@@ -135,6 +146,7 @@ Current optimization categories include:
 - inverting short branches when that avoids extra jumps;
 - turning suitable call/return sequences into tail calls;
 - removing jumps to an immediately following `RTS`;
+- removing proved-unused internal parameter cells and their ABI capture stores;
 - preserving known call facts for later local lowering.
 
 The processor-state tracker records known immediate values in `A`, `X`, and
@@ -148,6 +160,8 @@ Some modern optimizations are backed by explicit proof records. The current
 proof consumers include:
 
 - `index-address`, used for byte-array/index addressing choices;
+- `parameter-storage`, used to prove that direct A/X parameter bytes have no
+  physical storage consumers or observable addresses;
 - `value-availability`, used for call-result and scalar byte materialization.
 
 Use `--emit-proofs` to see accepted proof-guided lowering events:

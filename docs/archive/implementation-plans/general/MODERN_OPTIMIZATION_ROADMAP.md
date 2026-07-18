@@ -49,6 +49,14 @@ recognizing names. Good first cases:
 This should reduce local storage, copies, and unnecessary routine trampolines in
 small helper functions.
 
+The first conservative parameter-storage slice is implemented for the
+modern/classic path. After ordinary lowering proves that a direct one- or
+two-byte A/X frame has no body references, codegen removes both the parameter
+cells and their entry capture stores. Address-taking, machine blocks, effect
+annotations, current-location expressions, locals, hidden storage, and wider
+SARGS frames keep the normal layout. Accepted and rejected decisions are
+reported as `parameter-storage` proof attempts.
+
 ## Phase 2: Idiomatic Register Use
 
 Expand the processor-state model cautiously:
@@ -107,7 +115,10 @@ layout.
 
 Current policy:
 
-- explicit parameters and locals remain in the routine storage block;
+- explicit locals remain in the routine storage block;
+- explicit parameter cells remain by default, but a modern internal routine's
+  direct one- or two-byte A/X frame may be removed when a parameter-storage
+  proof finds no physical consumer or observable address;
 - hidden routine-owned data is also emitted in that block, before the entry
   label/body;
 - string literals used inside a routine are pooled in routine hidden storage
@@ -157,6 +168,8 @@ Current policy:
 - compatible profile keeps the public ABI as the only required contract;
 - modern profile may consume internal result locations such as `A` when facts or
   lowering prove them;
+- modern/classic may consume direct incoming parameter bytes from `A`/`X` and
+  omit their private cells when the `parameter-storage` proof succeeds;
 - public return-slot materialization is still required at externally callable
   routine boundaries;
 - inlining should lower into internal result locations first, then materialize
@@ -218,14 +231,16 @@ source-pattern shortcuts.
 
 ### Proof-Guided Lowering Status
 
-Update: 2026-05-23.
+Update: 2026-07-18.
 
 The first narrow proof consumers are wired into direct codegen:
 
 - value-availability proofs feed scalar call-result byte loads and the
   assignment fallback;
 - index-address proofs feed inline byte-array scalar-index loads, including
-  call-argument loading before the generic lvalue fallback.
+  call-argument loading before the generic lvalue fallback;
+- parameter-storage proofs remove private one- or two-byte parameter cells and
+  their capture stores only after lowering leaves no physical storage consumer.
 
 `actionc-emit --emit-proofs --profile modern <file.act>` prints accepted proof-guided
 lowering events with the source location, output address, routine, proof kind,

@@ -1056,6 +1056,14 @@ struct Generator {
     inline_byte_constant_shift: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RoutineParameterCapture {
+    slot: StorageSlot,
+    byte_index: u16,
+    store_start: usize,
+    store_len: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct CallablePointerInfo {
     kind: RoutineKind,

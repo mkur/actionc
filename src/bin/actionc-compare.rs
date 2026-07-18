@@ -451,6 +451,7 @@ fn print_expected_modern_wins(artifact: &Artifact) {
 fn format_optimization_kind(kind: CodegenOptimizationKind) -> &'static str {
     match kind {
         CodegenOptimizationKind::TrampolineElided => "trampoline elided",
+        CodegenOptimizationKind::ParameterStorageElided => "parameter storage elided",
         CodegenOptimizationKind::FinalRtsRemoved => "final RTS removed",
         CodegenOptimizationKind::RegisterReloadRemoved => "register reload removed",
         CodegenOptimizationKind::ConstantStoreReusedRegister => "constant store reused register",

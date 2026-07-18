@@ -1722,6 +1722,7 @@ fn parse_codegen_source_or_exit(value: &str) -> CodegenSource {
 fn format_optimization_kind(kind: CodegenOptimizationKind) -> &'static str {
     match kind {
         CodegenOptimizationKind::TrampolineElided => "trampoline-elided",
+        CodegenOptimizationKind::ParameterStorageElided => "parameter-storage-elided",
         CodegenOptimizationKind::FinalRtsRemoved => "final-rts-removed",
         CodegenOptimizationKind::RegisterReloadRemoved => "register-reload-removed",
         CodegenOptimizationKind::ConstantStoreReusedRegister => "constant-store-reused-register",

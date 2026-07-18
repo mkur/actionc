@@ -299,7 +299,31 @@ legacy routine-assignment fact, not an inventory of ordinary label relocations.
 Current use:
 
 - supports modern entry/trampoline decisions;
+- excludes public or patchable entries from internal parameter-storage elision;
 - protects Action routine assignment semantics.
+
+## Parameter-Storage Proof Attempts
+
+Event kind: `parameter-storage`.
+
+This is a post-lowering proof for the modern/classic backend. It combines the
+routine-boundary proof, source observability checks, the allocated routine
+layout, and the emitted body. It does not change the public Action! argument
+placement: direct incoming bytes still arrive in `A` and `X`.
+
+Acceptance requires:
+
+- a direct one- or two-byte A/X parameter frame;
+- an internal ABI candidate with no effect contract;
+- no machine block, current-location expression, local, or hidden storage;
+- no address-taking of a parameter;
+- no emitted body operand referring to a parameter cell.
+
+On acceptance, codegen removes the private parameter initializer bytes and the
+entry stores that captured A/X into them. SARGS frames and all rejected cases
+keep their normal addressable storage. `--emit-proof-attempts` reports the first
+blocking condition for each instrumented routine, while `--emit-proofs` reports
+accepted removals.
 
 ## Call Boundary Proofs
 

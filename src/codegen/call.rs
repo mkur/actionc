@@ -1877,7 +1877,10 @@ impl Generator {
         }
     }
 
-    pub(super) fn emit_routine_parameter_prologue(&mut self, routine: &Routine) {
+    pub(super) fn emit_routine_parameter_prologue(
+        &mut self,
+        routine: &Routine,
+    ) -> Vec<RoutineParameterCapture> {
         if let Some((frame_base, arg_bytes)) = self.routine_sargs_frame(routine) {
             debug_assert_sargs_helper_abi(
                 &self.runtime_helpers.target(RuntimeHelperSlot::SArgs),
@@ -1893,7 +1896,7 @@ impl Generator {
             self.emitter.emit_u8(frame_base.low());
             self.emitter.emit_u8(frame_base.high());
             self.emitter.emit_u8(arg_bytes.wrapping_sub(1));
-            return;
+            return Vec::new();
         }
 
         let mut bindings = Vec::new();
@@ -1918,15 +1921,24 @@ impl Generator {
             }
         }
 
-        if self.segment_storage && bindings.len() == 2 {
-            for (arg_offset, slot, byte_index) in bindings.into_iter().rev() {
-                self.emit_store_call_abi_byte_to_slot(arg_offset, slot, byte_index);
-            }
+        let ordered_bindings = if self.segment_storage && bindings.len() == 2 {
+            bindings.into_iter().rev().collect::<Vec<_>>()
         } else {
-            for (arg_offset, slot, byte_index) in bindings {
+            bindings
+        };
+        ordered_bindings
+            .into_iter()
+            .map(|(arg_offset, slot, byte_index)| {
+                let store_start = self.emitter.position();
                 self.emit_store_call_abi_byte_to_slot(arg_offset, slot, byte_index);
-            }
-        }
+                RoutineParameterCapture {
+                    slot,
+                    byte_index,
+                    store_start,
+                    store_len: self.emitter.position().saturating_sub(store_start),
+                }
+            })
+            .collect()
     }
 
     pub(super) fn routine_sargs_frame(&self, routine: &Routine) -> Option<(u16, u8)> {

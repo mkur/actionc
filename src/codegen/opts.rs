@@ -15,6 +15,7 @@ pub struct CodegenOptimization {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CodegenOptimizationKind {
     TrampolineElided,
+    ParameterStorageElided,
     FinalRtsRemoved,
     RegisterReloadRemoved,
     ConstantStoreReusedRegister,

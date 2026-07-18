@@ -249,6 +249,25 @@ impl RoutineEffects {
         self.refresh_pointer_write_flags();
     }
 
+    pub(super) fn clear_absolute_write(&mut self, address: u16, size: u16) {
+        if !self.known {
+            return;
+        }
+        let size = size.max(1);
+        if address < 0x100 && address.saturating_add(size) <= 0x100 {
+            for byte in address..address.saturating_add(size) {
+                self.clear_zero_page_write(ZeroPage::new(byte as u8));
+            }
+            return;
+        }
+        let range = EffectRange { address, size };
+        for slot in &mut self.absolute_writes {
+            if *slot == Some(range) {
+                *slot = None;
+            }
+        }
+    }
+
     pub(super) fn refresh_pointer_write_flags(&mut self) {
         self.writes_array_addr = self.writes_pointer_pair_raw(runtime_zp::ARRAY_ADDR);
         self.writes_element_addr = self.writes_pointer_pair_raw(runtime_zp::ELEMENT_ADDR);

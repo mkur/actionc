@@ -60,6 +60,170 @@ pub(super) fn routine_is_current_location(routine: &Routine) -> bool {
     )
 }
 
+pub(super) fn routine_parameter_names(routine: &Routine) -> HashSet<String> {
+    routine
+        .params
+        .iter()
+        .flat_map(|param| param.entries.iter())
+        .map(|entry| normalize_name(&entry.name))
+        .collect()
+}
+
+pub(super) fn stmt_list_contains_machine_block(body: &[Stmt]) -> bool {
+    body.iter().any(stmt_contains_machine_block)
+}
+
+fn stmt_contains_machine_block(stmt: &Stmt) -> bool {
+    match stmt {
+        Stmt::MachineBlock { .. } => true,
+        Stmt::If {
+            branches,
+            else_body,
+            ..
+        } => {
+            branches
+                .iter()
+                .any(|branch| stmt_list_contains_machine_block(&branch.body))
+                || stmt_list_contains_machine_block(else_body)
+        }
+        Stmt::While { body, .. } | Stmt::DoUntil { body, .. } | Stmt::For { body, .. } => {
+            stmt_list_contains_machine_block(body)
+        }
+        Stmt::Define(_)
+        | Stmt::Assign { .. }
+        | Stmt::CompoundAssign { .. }
+        | Stmt::Return(_)
+        | Stmt::Exit { .. }
+        | Stmt::Call { .. }
+        | Stmt::Unsupported { .. } => false,
+    }
+}
+
+pub(super) fn stmt_list_takes_address_of_names(body: &[Stmt], names: &HashSet<String>) -> bool {
+    stmt_list_exprs_any(body, &|expr| {
+        matches!(
+            &expr.kind,
+            ExprKind::Unary {
+                op: UnaryOp::AddressOf,
+                expr,
+            } if expr_references_names(expr, names)
+        )
+    })
+}
+
+pub(super) fn stmt_list_contains_current_location(body: &[Stmt]) -> bool {
+    stmt_list_exprs_any(body, &|expr| matches!(expr.kind, ExprKind::CurrentLocation))
+}
+
+fn stmt_list_exprs_any(body: &[Stmt], predicate: &impl Fn(&Expr) -> bool) -> bool {
+    body.iter().any(|stmt| stmt_exprs_any(stmt, predicate))
+}
+
+fn stmt_exprs_any(stmt: &Stmt, predicate: &impl Fn(&Expr) -> bool) -> bool {
+    match stmt {
+        Stmt::Assign { target, value, .. } | Stmt::CompoundAssign { target, value, .. } => {
+            expr_tree_any(target, predicate) || expr_tree_any(value, predicate)
+        }
+        Stmt::Return(Some(expr)) | Stmt::Call { expr, .. } => expr_tree_any(expr, predicate),
+        Stmt::If {
+            branches,
+            else_body,
+            ..
+        } => {
+            branches.iter().any(|branch| {
+                expr_tree_any(&branch.condition, predicate)
+                    || stmt_list_exprs_any(&branch.body, predicate)
+            }) || stmt_list_exprs_any(else_body, predicate)
+        }
+        Stmt::While {
+            condition, body, ..
+        } => expr_tree_any(condition, predicate) || stmt_list_exprs_any(body, predicate),
+        Stmt::DoUntil {
+            condition, body, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|condition| expr_tree_any(condition, predicate))
+                || stmt_list_exprs_any(body, predicate)
+        }
+        Stmt::For {
+            target,
+            start,
+            end,
+            step,
+            body,
+            ..
+        } => {
+            expr_tree_any(target, predicate)
+                || expr_tree_any(start, predicate)
+                || expr_tree_any(end, predicate)
+                || step
+                    .as_ref()
+                    .is_some_and(|step| expr_tree_any(step, predicate))
+                || stmt_list_exprs_any(body, predicate)
+        }
+        Stmt::Define(_)
+        | Stmt::Return(None)
+        | Stmt::Exit { .. }
+        | Stmt::MachineBlock { .. }
+        | Stmt::Unsupported { .. } => false,
+    }
+}
+
+fn expr_tree_any(expr: &Expr, predicate: &impl Fn(&Expr) -> bool) -> bool {
+    if predicate(expr) {
+        return true;
+    }
+    match &expr.kind {
+        ExprKind::Unary { expr, .. } | ExprKind::Cast { expr, .. } => {
+            expr_tree_any(expr, predicate)
+        }
+        ExprKind::Binary { left, right, .. } => {
+            expr_tree_any(left, predicate) || expr_tree_any(right, predicate)
+        }
+        ExprKind::Call { callee, args } => {
+            expr_tree_any(callee, predicate) || args.iter().any(|arg| expr_tree_any(arg, predicate))
+        }
+        ExprKind::Index { base, index } => {
+            expr_tree_any(base, predicate) || expr_tree_any(index, predicate)
+        }
+        ExprKind::Field { base, .. } => expr_tree_any(base, predicate),
+        ExprKind::Number(_)
+        | ExprKind::Char(_)
+        | ExprKind::String(_)
+        | ExprKind::Name(_)
+        | ExprKind::CurrentLocation
+        | ExprKind::Missing
+        | ExprKind::Raw => false,
+    }
+}
+
+fn expr_references_names(expr: &Expr, names: &HashSet<String>) -> bool {
+    match &expr.kind {
+        ExprKind::Name(name) => names.contains(&normalize_name(name)),
+        ExprKind::Unary { expr, .. } | ExprKind::Cast { expr, .. } => {
+            expr_references_names(expr, names)
+        }
+        ExprKind::Binary { left, right, .. } => {
+            expr_references_names(left, names) || expr_references_names(right, names)
+        }
+        ExprKind::Call { callee, args } => {
+            expr_references_names(callee, names)
+                || args.iter().any(|arg| expr_references_names(arg, names))
+        }
+        ExprKind::Index { base, index } => {
+            expr_references_names(base, names) || expr_references_names(index, names)
+        }
+        ExprKind::Field { base, .. } => expr_references_names(base, names),
+        ExprKind::Number(_)
+        | ExprKind::Char(_)
+        | ExprKind::String(_)
+        | ExprKind::CurrentLocation
+        | ExprKind::Missing
+        | ExprKind::Raw => false,
+    }
+}
+
 pub(super) fn single_int_scalar_param_name(routine: &Routine) -> Option<&str> {
     if !matches!(
         routine.kind,

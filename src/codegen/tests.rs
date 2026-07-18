@@ -15813,11 +15813,34 @@ fn modern_profile_forwards_parameter_values_into_straight_line_consumers() {
     )
     .unwrap();
 
-    assert!(output.bytes.windows(6).any(|bytes| {
-        bytes[0] == opcode::STA_ABS
-            && bytes[3] == opcode::CLC
-            && bytes[4] == opcode::ADC_IMM
-            && bytes[5] == 1
+    let entry = routine_address(&output, "AddOne").unwrap();
+    let offset = usize::from(entry.wrapping_sub(output.origin));
+    assert_eq!(output.bytes[offset], opcode::CLC);
+    assert!(!output.map.storage_symbols.iter().any(|symbol| {
+        symbol.scope == CodegenSymbolScope::Routine("AddOne".to_string())
+            && symbol.kind == CodegenSymbolKind::Parameter
+    }));
+    assert!(!output.map.source_ranges.iter().any(|range| {
+        range.name.as_deref() == Some("AddOne storage")
+            && matches!(
+                range.kind,
+                CodegenSourceRangeKind::Declaration | CodegenSourceRangeKind::StorageInitializer
+            )
+    }));
+    let effects = output
+        .map
+        .routine_effects
+        .iter()
+        .find(|effects| effects.routine == "AddOne")
+        .expect("missing AddOne effects");
+    assert!(!effects.summary.contains("$3001"));
+    assert!(output.optimizations.iter().any(|optimization| {
+        optimization.routine.as_deref() == Some("AddOne")
+            && optimization.kind == CodegenOptimizationKind::ParameterStorageElided
+            && optimization.bytes_saved == 4
+    }));
+    assert!(output.proofs.iter().any(|proof| {
+        proof.routine.as_deref() == Some("AddOne") && proof.kind == "parameter-storage"
     }));
 }
 
@@ -15830,15 +15853,214 @@ fn modern_profile_forwards_array_parameter_registers_into_pointer_setup() {
     )
     .unwrap();
 
-    assert!(output.bytes.windows(11).any(|bytes| {
-        bytes[0] == opcode::STX_ABS
-            && bytes[3] == opcode::STA_ABS
-            && bytes[6] == opcode::STA_ZP
-            && bytes[7] == runtime_zp::ARRAY_ADDR.address()
-            && bytes[8] == opcode::TXA
-            && bytes[9] == opcode::STA_ZP
-            && bytes[10] == runtime_zp::ARRAY_ADDR.offset(1).address()
+    assert!(output.bytes.windows(5).any(|bytes| {
+        bytes
+            == [
+                opcode::STA_ZP,
+                runtime_zp::ARRAY_ADDR.address(),
+                opcode::TXA,
+                opcode::STA_ZP,
+                runtime_zp::ARRAY_ADDR.offset(1).address(),
+            ]
     }));
+    assert!(!output.map.storage_symbols.iter().any(|symbol| {
+        symbol.scope == CodegenSymbolScope::Routine("Read".to_string())
+            && symbol.kind == CodegenSymbolKind::Parameter
+    }));
+    assert!(output.optimizations.iter().any(|optimization| {
+        optimization.routine.as_deref() == Some("Read")
+            && optimization.kind == CodegenOptimizationKind::ParameterStorageElided
+            && optimization.bytes_saved == 8
+    }));
+}
+
+#[test]
+fn modern_parameter_storage_elision_falls_back_after_register_clobber() {
+    let output = generate_profile_source_with_origin(
+        "BYTE out PROC Touch() RETURN PROC Keep(BYTE value) Touch() out=value RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.map.storage_symbols.iter().any(|symbol| {
+        symbol.name == "VALUE"
+            && symbol.scope == CodegenSymbolScope::Routine("Keep".to_string())
+            && symbol.kind == CodegenSymbolKind::Parameter
+    }));
+    assert!(!output.optimizations.iter().any(|optimization| {
+        optimization.routine.as_deref() == Some("Keep")
+            && optimization.kind == CodegenOptimizationKind::ParameterStorageElided
+    }));
+    assert!(output.proof_attempts.iter().any(|attempt| {
+        attempt.routine.as_deref() == Some("Keep")
+            && attempt.kind == "parameter-storage"
+            && !attempt.accepted
+            && attempt.summary.contains("still reads or writes")
+    }));
+}
+
+#[test]
+fn modern_parameter_storage_elision_keeps_shared_local_storage_layout() {
+    let output = generate_profile_source_with_origin(
+        "BYTE out PROC Keep(BYTE value) BYTE local local=value out=local RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.map.storage_symbols.iter().any(|symbol| {
+        symbol.name == "VALUE"
+            && symbol.scope == CodegenSymbolScope::Routine("Keep".to_string())
+            && symbol.kind == CodegenSymbolKind::Parameter
+    }));
+    assert!(output.proof_attempts.iter().any(|attempt| {
+        attempt.routine.as_deref() == Some("Keep")
+            && attempt.kind == "parameter-storage"
+            && !attempt.accepted
+            && attempt.summary.contains("local storage")
+    }));
+}
+
+#[test]
+fn modern_parameter_storage_elision_keeps_hidden_storage_layout() {
+    let output = generate_profile_source_with_origin(
+        "PROC Sink(BYTE POINTER text) RETURN PROC Keep(BYTE value) Sink(\"X\") RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.map.storage_symbols.iter().any(|symbol| {
+        symbol.name == "VALUE"
+            && symbol.scope == CodegenSymbolScope::Routine("Keep".to_string())
+            && symbol.kind == CodegenSymbolKind::Parameter
+    }));
+    assert!(output.proof_attempts.iter().any(|attempt| {
+        attempt.routine.as_deref() == Some("Keep")
+            && attempt.kind == "parameter-storage"
+            && !attempt.accepted
+            && attempt.summary.contains("hidden storage")
+    }));
+}
+
+#[test]
+fn modern_parameter_storage_elision_rejects_address_taken_parameters() {
+    let output = generate_profile_source_with_origin(
+        "BYTE POINTER ptr PROC Keep(BYTE value) ptr=@value RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.map.storage_symbols.iter().any(|symbol| {
+        symbol.name == "VALUE"
+            && symbol.scope == CodegenSymbolScope::Routine("Keep".to_string())
+            && symbol.kind == CodegenSymbolKind::Parameter
+    }));
+    assert!(output.proof_attempts.iter().any(|attempt| {
+        attempt.routine.as_deref() == Some("Keep")
+            && attempt.kind == "parameter-storage"
+            && !attempt.accepted
+            && attempt.summary.contains("address escapes")
+    }));
+}
+
+#[test]
+fn modern_parameter_storage_elision_rejects_machine_blocks() {
+    let output = generate_profile_source_with_origin(
+        "PROC Keep(BYTE value) [$85 $A0] RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.map.storage_symbols.iter().any(|symbol| {
+        symbol.name == "VALUE"
+            && symbol.scope == CodegenSymbolScope::Routine("Keep".to_string())
+            && symbol.kind == CodegenSymbolKind::Parameter
+    }));
+    assert!(output.proof_attempts.iter().any(|attempt| {
+        attempt.routine.as_deref() == Some("Keep")
+            && attempt.kind == "parameter-storage"
+            && !attempt.accepted
+            && attempt.summary.contains("machine blocks")
+    }));
+}
+
+#[test]
+fn modern_parameter_storage_elision_rejects_effect_annotated_entries() {
+    let output = generate_profile_source_with_origin(
+        ";@actionc preserves A\nPROC Keep(BYTE value) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.map.storage_symbols.iter().any(|symbol| {
+        symbol.name == "VALUE"
+            && symbol.scope == CodegenSymbolScope::Routine("Keep".to_string())
+            && symbol.kind == CodegenSymbolKind::Parameter
+    }));
+    assert!(output.proof_attempts.iter().any(|attempt| {
+        attempt.routine.as_deref() == Some("Keep")
+            && attempt.kind == "parameter-storage"
+            && !attempt.accepted
+            && attempt.summary.contains("effect annotations")
+    }));
+}
+
+#[test]
+fn modern_parameter_storage_elision_keeps_sargs_frames() {
+    let output = generate_profile_source_with_origin(
+        "PROC Keep(BYTE a,b,c) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert_eq!(
+        output
+            .map
+            .storage_symbols
+            .iter()
+            .filter(|symbol| {
+                symbol.scope == CodegenSymbolScope::Routine("Keep".to_string())
+                    && symbol.kind == CodegenSymbolKind::Parameter
+            })
+            .count(),
+        3
+    );
+    assert!(output.proof_attempts.iter().any(|attempt| {
+        attempt.routine.as_deref() == Some("Keep")
+            && attempt.kind == "parameter-storage"
+            && !attempt.accepted
+            && attempt.summary.contains("SARGS")
+    }));
+}
+
+#[test]
+fn compatible_profile_keeps_parameter_storage_and_capture() {
+    let output = generate_profile_source_with_origin(
+        "BYTE out PROC AddOne(BYTE value) out=value+1 RETURN",
+        0x3000,
+        CodegenProfile::Compat,
+    )
+    .unwrap();
+
+    let parameter = storage_symbol(
+        &output,
+        CodegenSymbolScope::Routine("AddOne".to_string()),
+        "VALUE",
+    );
+    let address = parameter.address.to_le_bytes();
+    assert!(
+        output
+            .bytes
+            .windows(3)
+            .any(|bytes| { bytes == [opcode::STA_ABS, address[0], address[1]] })
+    );
+    assert!(output.optimizations.is_empty());
 }
 
 #[test]

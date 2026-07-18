@@ -105,9 +105,12 @@ impl Generator {
         let mut emitted_specialized_body =
             !routine_is_current_location(routine) && self.emit_modern_abs_return_routine(routine);
 
-        if !routine_is_current_location(routine) && !emitted_specialized_body {
-            self.emit_routine_parameter_prologue(routine);
-        }
+        let parameter_captures =
+            if !routine_is_current_location(routine) && !emitted_specialized_body {
+                self.emit_routine_parameter_prologue(routine)
+            } else {
+                Vec::new()
+            };
         if debug_compat_profile {
             self.profile = CodegenProfile::Compat;
             self.preserve_modern_routine_layout = true;
@@ -132,6 +135,13 @@ impl Generator {
         }
         let routine_start_position = routine_start.wrapping_sub(self.emitter.origin) as usize;
         self.finalize_modern_branch_inversions(routine_start_position);
+        if !debug_compat_profile {
+            self.elide_internal_parameter_storage(
+                routine,
+                routine_start_position,
+                &parameter_captures,
+            );
+        }
         self.last_routine_ended_with_rts =
             !routine.body.is_empty() && self.emitter.bytes.last() == Some(&opcode::RTS);
         self.routine_ranges.push(RoutineRange {
@@ -270,6 +280,184 @@ impl Generator {
                     *slot,
                 )
             }));
+    }
+
+    fn elide_internal_parameter_storage(
+        &mut self,
+        routine: &Routine,
+        routine_start: usize,
+        captures: &[RoutineParameterCapture],
+    ) {
+        if self.profile != CodegenProfile::Modern || !self.segment_storage {
+            return;
+        }
+        if captures.is_empty() {
+            if self.routine_sargs_frame(routine).is_some() {
+                self.record_codegen_proof_rejection(
+                    "parameter-storage",
+                    routine.span,
+                    "SARGS parameter frames require addressable storage",
+                );
+            }
+            return;
+        }
+        if captures.len() > 2 {
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "direct parameter-storage elision is limited to the A/X ABI frame",
+            );
+            return;
+        }
+        if self.current_routine_has_effect_contract {
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "routine effect annotations make its physical entry contract observable",
+            );
+            return;
+        }
+        if stmt_list_contains_machine_block(&routine.body) {
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "machine blocks may observe routine parameter storage",
+            );
+            return;
+        }
+        if stmt_list_contains_current_location(&routine.body) {
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "current-location expressions make post-emission relocation unsafe",
+            );
+            return;
+        }
+        if routine
+            .locals
+            .iter()
+            .any(|declaration| matches!(declaration, Decl::Var(_)))
+        {
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "routine declares local storage",
+            );
+            return;
+        }
+        let Some(boundary) = self.routine_boundary_proof(&routine.name) else {
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "routine boundary facts are unavailable",
+            );
+            return;
+        };
+        if !boundary.internal_abi_candidate {
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "routine boundary requires an externally observable ABI entry",
+            );
+            return;
+        }
+
+        let parameter_names = routine_parameter_names(routine);
+        if stmt_list_takes_address_of_names(&routine.body, &parameter_names) {
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "a parameter address escapes the routine storage block",
+            );
+            return;
+        }
+
+        let entry_label = format!("routine:{}", routine.name);
+        let Some(entry) = self.emitter.labels.get(&entry_label).copied() else {
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "routine entry label is unavailable",
+            );
+            return;
+        };
+        let parameter_bytes = captures.len();
+        if entry != routine_start.saturating_add(parameter_bytes) {
+            // Modern hidden storage follows the parameter cells. Removing the
+            // cells would require retargeting already-emitted absolute operands.
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "hidden storage shares the routine storage block",
+            );
+            return;
+        }
+
+        let body_start = captures
+            .iter()
+            .map(|capture| capture.store_start.saturating_add(capture.store_len))
+            .max()
+            .unwrap_or(entry);
+        let body = &self.emitter.bytes[body_start..];
+        if captures.iter().any(|capture| {
+            let address = capture.slot.byte_address(capture.byte_index).to_le_bytes();
+            body.windows(2).any(|bytes| bytes == address)
+        }) {
+            self.record_codegen_proof_rejection(
+                "parameter-storage",
+                routine.span,
+                "generated body still reads or writes a parameter storage address",
+            );
+            return;
+        }
+
+        let capture_bytes = captures
+            .iter()
+            .map(|capture| capture.store_len)
+            .sum::<usize>();
+        if let Some(effects) = &mut self.current_routine_effects {
+            for capture in captures {
+                effects.clear_absolute_write(capture.slot.byte_address(capture.byte_index), 1);
+            }
+        }
+        for capture in captures.iter().rev() {
+            self.delete_emitted_bytes(capture.store_start, capture.store_len);
+        }
+
+        let scope = CodegenSymbolScope::Routine(routine.name.clone());
+        self.storage_symbols
+            .retain(|symbol| symbol.scope != scope || symbol.kind != CodegenSymbolKind::Parameter);
+        self.delete_emitted_bytes(routine_start, parameter_bytes);
+        let storage_range_name = format!("{} storage", routine.name);
+        self.source_ranges.retain(|range| {
+            !matches!(
+                range.kind,
+                CodegenSourceRangeKind::Declaration | CodegenSourceRangeKind::StorageInitializer
+            ) || range.name.as_deref() != Some(storage_range_name.as_str())
+                || range.start != range.end
+        });
+
+        self.record_codegen_proof(
+            "parameter-storage",
+            routine.span,
+            format!(
+                "proved all {} incoming parameter byte{} {} consumed from A/X without storage references",
+                parameter_bytes,
+                if parameter_bytes == 1 { "" } else { "s" },
+                if parameter_bytes == 1 { "is" } else { "are" },
+            ),
+        );
+        self.record_modern_optimization(
+            CodegenOptimizationKind::ParameterStorageElided,
+            (capture_bytes + parameter_bytes) as i16,
+            Some(routine.span),
+            format!(
+                "elided {} internal parameter byte{} and its ABI capture in {}",
+                parameter_bytes,
+                if parameter_bytes == 1 { "" } else { "s" },
+                routine.name
+            ),
+        );
     }
 
     fn emit_compatible_routine_preamble(
