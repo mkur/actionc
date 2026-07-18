@@ -448,7 +448,28 @@ if [[ -n "$os_rom" ]]; then
   os_rom="$(abs_path "$os_rom")"
 fi
 
-actionc_build_atari800_launch_args "$os_rom" "$cart_rom" "${ATARI800_ARGS:-}"
+no_cart_config=""
+if [[ -z "$cart_rom" ]]; then
+  resolved_atari800="$atari800_bin"
+  if command -v "$atari800_bin" >/dev/null 2>&1; then
+    resolved_atari800="$(command -v "$atari800_bin")"
+  fi
+  portable_config="$(dirname "$resolved_atari800")/.atari800.cfg"
+  user_config="${HOME:-}/.atari800.cfg"
+  source_config=""
+  if [[ -f "$portable_config" ]]; then
+    source_config="$portable_config"
+  elif [[ -n "${HOME:-}" && -f "$user_config" ]]; then
+    source_config="$user_config"
+  fi
+  if [[ -n "$source_config" ]]; then
+    no_cart_config="$out_dir/atari800-no-cart.cfg"
+    actionc_write_no_cart_config "$source_config" "$no_cart_config"
+  fi
+fi
+
+actionc_build_atari800_launch_args \
+  "$os_rom" "$cart_rom" "${ATARI800_ARGS:-}" "$no_cart_config"
 atari800_args=("${ACTIONC_ATARI800_LAUNCH_ARGS[@]}")
 case "$run_mode" in
   disk)
