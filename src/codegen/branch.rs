@@ -2421,6 +2421,25 @@ impl Generator {
         true
     }
 
+    pub(super) fn emit_load_simple_byte_value_only(
+        &mut self,
+        expr: &Expr,
+        byte_index: u16,
+    ) -> bool {
+        if let ExprKind::Cast { expr, .. } = &expr.kind {
+            return self.emit_load_simple_byte_value_only(expr, byte_index);
+        }
+        if let Some(slot) = self.direct_scalar_slot(expr) {
+            if byte_index >= slot.size {
+                self.emit_lda_imm(0);
+            } else {
+                self.emit_lda_slot_byte_value_only(slot, byte_index);
+            }
+            return true;
+        }
+        self.emit_load_simple_byte(expr, byte_index)
+    }
+
     fn emit_load_routine_address_byte(&mut self, name: &str, byte_index: u16, span: Span) -> bool {
         if byte_index > 1 {
             self.emit_lda_imm(0);
@@ -2621,7 +2640,7 @@ impl Generator {
             );
             return false;
         }
-        self.emit_ldy_slot_byte(index, 0);
+        self.emit_ldy_slot_byte_value_only(index, 0);
         self.emit_lda_absolute_y(Absolute::new(proof.base.address));
         self.record_codegen_proof(
             "index-address",
@@ -2646,7 +2665,7 @@ impl Generator {
         byte_index: u16,
     ) -> bool {
         if let Some(value) = self.constant_u16(right) {
-            if !self.emit_load_simple_byte(left, byte_index) {
+            if !self.emit_load_simple_byte_value_only(left, byte_index) {
                 return false;
             }
             self.emit_cmp_immediate(Immediate::new(value), byte_index);
@@ -2670,7 +2689,7 @@ impl Generator {
         }
 
         if let Some(slot) = self.prepare_compare_rhs_slot(right) {
-            if !self.emit_load_simple_byte(left, byte_index) {
+            if !self.emit_load_simple_byte_value_only(left, byte_index) {
                 return false;
             }
             if byte_index >= slot.size {
@@ -2681,7 +2700,7 @@ impl Generator {
             return true;
         }
 
-        if !self.emit_load_simple_byte(left, byte_index) {
+        if !self.emit_load_simple_byte_value_only(left, byte_index) {
             return false;
         }
 
@@ -2717,7 +2736,7 @@ impl Generator {
         right: &Expr,
         byte_index: u16,
     ) -> bool {
-        self.emit_lda_slot_byte(left, byte_index);
+        self.emit_lda_slot_byte_value_only(left, byte_index);
         if let Some(value) = self.constant_u16(right) {
             self.emit_cmp_immediate(Immediate::new(value), byte_index);
             return true;
@@ -2743,7 +2762,7 @@ impl Generator {
         right: StorageSlot,
         byte_index: u16,
     ) {
-        self.emit_lda_slot_byte(left, byte_index);
+        self.emit_lda_slot_byte_value_only(left, byte_index);
         if byte_index >= right.size {
             self.emit_cmp_imm(0);
         } else {

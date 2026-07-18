@@ -1204,41 +1204,6 @@ impl Generator {
         }
     }
 
-    pub(super) fn emit_ldx_absolute(&mut self, absolute: Absolute) {
-        let slot = StorageSlot::absolute(absolute.address(), 1);
-        let memory_value = self.processor.memory_value(slot, 0);
-        let load_value = memory_value.unwrap_or(ValueFact::SlotByte {
-            slot,
-            byte_index: 0,
-        });
-        if let Some(memory_value) = memory_value
-            && self.profile.enables_modern_optimizations()
-            && self.processor.x_matches_load_result(memory_value)
-        {
-            self.record_modern_optimization(
-                CodegenOptimizationKind::RegisterReloadRemoved,
-                3,
-                None,
-                "suppressed X reload from known absolute memory alias",
-            );
-            return;
-        }
-        if self.profile.enables_modern_optimizations()
-            && self.processor.accumulator_value_matches(load_value)
-        {
-            self.record_modern_optimization(
-                CodegenOptimizationKind::RegisterReloadRemoved,
-                2,
-                None,
-                "reused accumulator via TAX instead of absolute X reload",
-            );
-            self.emit_tax();
-            return;
-        }
-        self.emitter.emit_ldx_absolute(absolute);
-        self.processor.set_x_fact(load_value);
-    }
-
     pub(super) fn emit_ldy_zero_page(&mut self, zero_page: ZeroPage) {
         let tracked_value = self.processor.zp_value(zero_page);
         let slot = StorageSlot::zero_page(zero_page.address(), 1);

@@ -63,6 +63,66 @@ impl Generator {
         self.emit_lda_slot_byte(slot, byte_index);
     }
 
+    pub(super) fn emit_ldx_slot_byte_value_only(&mut self, slot: StorageSlot, byte_index: u16) {
+        debug_assert_slot_byte_access(slot, byte_index, "value-only load x");
+        let value = self
+            .processor
+            .memory_value(slot, byte_index)
+            .unwrap_or_else(|| self.slot_byte_value_fact(slot, byte_index));
+        if self.profile.enables_modern_optimizations() {
+            if self.processor.x_value_matches(value) {
+                self.record_modern_optimization(
+                    CodegenOptimizationKind::RegisterReloadRemoved,
+                    slot_load_instruction_len(slot),
+                    None,
+                    "suppressed X reload where flags are not observed",
+                );
+                return;
+            }
+            if self.processor.accumulator_value_matches(value) {
+                self.record_modern_optimization(
+                    CodegenOptimizationKind::RegisterReloadRemoved,
+                    slot_load_instruction_len(slot).saturating_sub(1),
+                    None,
+                    "reused accumulator via TAX for value-only X load",
+                );
+                self.emit_tax();
+                return;
+            }
+        }
+        self.emit_ldx_slot_byte(slot, byte_index);
+    }
+
+    pub(super) fn emit_ldy_slot_byte_value_only(&mut self, slot: StorageSlot, byte_index: u16) {
+        debug_assert_slot_byte_access(slot, byte_index, "value-only load y");
+        let value = self
+            .processor
+            .memory_value(slot, byte_index)
+            .unwrap_or_else(|| self.slot_byte_value_fact(slot, byte_index));
+        if self.profile.enables_modern_optimizations() {
+            if self.processor.y_value_matches(value) {
+                self.record_modern_optimization(
+                    CodegenOptimizationKind::RegisterReloadRemoved,
+                    slot_load_instruction_len(slot),
+                    None,
+                    "suppressed Y reload where flags are not observed",
+                );
+                return;
+            }
+            if self.processor.accumulator_value_matches(value) {
+                self.record_modern_optimization(
+                    CodegenOptimizationKind::RegisterReloadRemoved,
+                    slot_load_instruction_len(slot).saturating_sub(1),
+                    None,
+                    "reused accumulator via TAY for value-only Y load",
+                );
+                self.emit_tay();
+                return;
+            }
+        }
+        self.emit_ldy_slot_byte(slot, byte_index);
+    }
+
     pub(super) fn emit_lda_zero_page_value_only(&mut self, zero_page: ZeroPage) {
         self.emit_lda_slot_byte_value_only(StorageSlot::zero_page(zero_page.address(), 1), 0);
     }
@@ -360,24 +420,6 @@ impl Generator {
             AddressSpace::ZeroPage => self.emit_ldy_zero_page(slot.zero_page_byte(byte_index)),
             AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY => {
                 self.emit_ldy_absolute(Absolute::new(slot.byte_address(byte_index)));
-            }
-        }
-        self.processor.set_y_value_fact(value);
-    }
-
-    pub(super) fn emit_raw_ldy_slot_byte(&mut self, slot: StorageSlot, byte_index: u16) {
-        debug_assert_slot_byte_access(slot, byte_index, "raw load y");
-        let value = self.slot_byte_value_fact(slot, byte_index);
-        match slot.space {
-            AddressSpace::Absolute => self
-                .emitter
-                .emit_ldy_absolute(slot.absolute_byte(byte_index)),
-            AddressSpace::ZeroPage => self
-                .emitter
-                .emit_ldy_zero_page(slot.zero_page_byte(byte_index)),
-            AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY => {
-                self.emitter
-                    .emit_ldy_absolute(Absolute::new(slot.byte_address(byte_index)));
             }
         }
         self.processor.set_y_value_fact(value);

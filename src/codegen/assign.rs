@@ -542,9 +542,9 @@ impl Generator {
             return true;
         }
         if preserve_pointer {
-            self.emit_lda_zero_page(pointer.offset(1));
+            self.emit_lda_zero_page_value_only(pointer.offset(1));
             self.emitter.emit_pha();
-            self.emit_lda_zero_page(pointer);
+            self.emit_lda_zero_page_value_only(pointer);
             self.emitter.emit_pha();
         } else {
             self.record_modern_optimization(
@@ -1034,9 +1034,9 @@ impl Generator {
         }
 
         let temp = StorageSlot::zero_page(runtime_zp::ARGS.address(), target.size);
-        self.emit_lda_zero_page(pointer.offset(1));
+        self.emit_lda_zero_page_value_only(pointer.offset(1));
         self.emitter.emit_pha();
-        self.emit_lda_zero_page(pointer);
+        self.emit_lda_zero_page_value_only(pointer);
         self.emitter.emit_pha();
         if !self.emit_expr_to_slot(value, temp) {
             return false;
@@ -1268,7 +1268,7 @@ impl Generator {
         if !info.facts.returns_a_equals_a0 {
             self.emit_lda_slot_byte(info.return_slot.unwrap(), 0);
         }
-        self.emit_ldy_slot_byte(address.index, 0);
+        self.emit_ldy_slot_byte_value_only(address.index, 0);
         self.emit_store_prepared_indirect_y(address.pointer);
         self.record_modern_optimization(
             CodegenOptimizationKind::EffectiveAddressReused,
@@ -1305,7 +1305,7 @@ impl Generator {
             }
             EffectiveAddressStoreSource::Slot(_) => self.emit_lda_imm(0),
             EffectiveAddressStoreSource::ArrayValue(slot) => {
-                self.emit_load_array_pointer_value_slot_byte(slot, byte_index);
+                self.emit_load_array_pointer_value_slot_byte_value_only(slot, byte_index);
             }
         }
     }

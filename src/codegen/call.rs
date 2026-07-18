@@ -1358,10 +1358,16 @@ impl Generator {
                     self.emit_ldx_imm(byte);
                     true
                 } else if let Some(zero_page) = self.call_arg_zero_page_byte(arg, byte_index) {
-                    self.emit_ldx_zero_page(zero_page);
+                    self.emit_ldx_slot_byte_value_only(
+                        StorageSlot::zero_page(zero_page.address(), 1),
+                        0,
+                    );
                     true
                 } else if let Some(absolute) = self.call_arg_absolute_byte(arg, byte_index) {
-                    self.emit_ldx_absolute(absolute);
+                    self.emit_ldx_slot_byte_value_only(
+                        StorageSlot::absolute(absolute.address(), 1),
+                        0,
+                    );
                     true
                 } else if self.emit_load_call_arg_byte(arg, slot, byte_index, literal_address) {
                     self.emit_tax();
@@ -1378,11 +1384,17 @@ impl Generator {
                     self.straight_line_store_y = None;
                     true
                 } else if let Some(zero_page) = self.call_arg_zero_page_byte(arg, byte_index) {
-                    self.emit_ldy_slot_byte(StorageSlot::zero_page(zero_page.address(), 1), 0);
+                    self.emit_ldy_slot_byte_value_only(
+                        StorageSlot::zero_page(zero_page.address(), 1),
+                        0,
+                    );
                     self.straight_line_store_y = None;
                     true
                 } else if let Some(absolute) = self.call_arg_absolute_byte(arg, byte_index) {
-                    self.emit_ldy_slot_byte(StorageSlot::absolute(absolute.address(), 1), 0);
+                    self.emit_ldy_slot_byte_value_only(
+                        StorageSlot::absolute(absolute.address(), 1),
+                        0,
+                    );
                     self.straight_line_store_y = None;
                     true
                 } else if self.emit_load_call_arg_byte(arg, slot, byte_index, literal_address) {
@@ -1610,7 +1622,7 @@ impl Generator {
             } else if let Some(deferred) = plan.deferred_word_at(1) {
                 self.emit_deferred_call_register_arg(2, deferred, 1);
             } else {
-                self.emit_raw_ldy_slot_byte(
+                self.emit_ldy_slot_byte_value_only(
                     StorageSlot::zero_page(runtime_zp::ARGS.offset(2).address(), 1),
                     0,
                 );
@@ -1625,7 +1637,7 @@ impl Generator {
             } else if let Some(deferred) = plan.deferred_word_at(0) {
                 self.emit_deferred_call_register_arg(1, deferred, 1);
             } else {
-                self.emit_ldx_slot_byte(
+                self.emit_ldx_slot_byte_value_only(
                     StorageSlot::zero_page(runtime_zp::ARGS.offset(1).address(), 1),
                     0,
                 );
@@ -1641,7 +1653,17 @@ impl Generator {
             } else if self.rewrite_zero_extended_staged_first_arg_to_stack() {
                 // Rewritten suffix leaves the low byte in A and high byte zero in X.
             } else {
-                self.emit_lda_zero_page(runtime_zp::ARGS);
+                let arg = StorageSlot::zero_page(runtime_zp::ARGS.address(), 1);
+                if self.can_forward_recent_a_store(arg, 0) {
+                    self.record_modern_optimization(
+                        CodegenOptimizationKind::RegisterReloadRemoved,
+                        2,
+                        None,
+                        "forwarded staged first argument from accumulator",
+                    );
+                } else {
+                    self.emit_lda_zero_page_value_only(runtime_zp::ARGS);
+                }
             }
         }
     }

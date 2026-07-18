@@ -43,6 +43,27 @@ impl Generator {
         }
     }
 
+    pub(super) fn emit_load_array_pointer_value_slot_byte_value_only(
+        &mut self,
+        slot: StorageSlot,
+        byte_index: u16,
+    ) {
+        match slot.array {
+            Some(ArrayStorage::Inline) if byte_index < 2 => {
+                self.emit_lda_immediate(Immediate::new(slot.address), byte_index);
+            }
+            Some(ArrayStorage::Inline) => self.emit_lda_imm(0),
+            Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) if byte_index < 2 => {
+                self.emit_lda_slot_byte_value_only(
+                    StorageSlot::absolute(slot.address.wrapping_add(byte_index), 1),
+                    0,
+                );
+            }
+            Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) => self.emit_lda_imm(0),
+            None => unreachable!(),
+        }
+    }
+
     pub(super) fn emit_load_array_descriptor_pointer_byte(
         &mut self,
         expr: &Expr,
@@ -56,7 +77,10 @@ impl Generator {
         };
         match slot.array {
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) if byte_index < 2 => {
-                self.emit_lda_absolute(Absolute::new(slot.address.wrapping_add(byte_index)));
+                self.emit_lda_slot_byte_value_only(
+                    StorageSlot::absolute(slot.address.wrapping_add(byte_index), 1),
+                    0,
+                );
                 true
             }
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) => {
@@ -69,9 +93,9 @@ impl Generator {
 
     pub(super) fn emit_pointer_slot_to_addr(&mut self, slot: StorageSlot, addr: ZeroPage) -> bool {
         if slot.array.is_some() {
-            self.emit_load_array_pointer_value_slot_byte(slot, 0);
+            self.emit_load_array_pointer_value_slot_byte_value_only(slot, 0);
             self.emit_sta_zero_page(addr);
-            self.emit_load_array_pointer_value_slot_byte(slot, 1);
+            self.emit_load_array_pointer_value_slot_byte_value_only(slot, 1);
             self.emit_sta_zero_page(addr.offset(1));
             return true;
         }
@@ -306,7 +330,7 @@ impl Generator {
                 if byte_index != 0 || !self.emit_effective_address_base_to_pointer(address) {
                     return false;
                 }
-                self.emit_ldy_slot_byte(address.index, 0);
+                self.emit_ldy_slot_byte_value_only(address.index, 0);
                 true
             }
             2 => {
@@ -362,7 +386,7 @@ impl Generator {
             return true;
         }
         if base.array.is_some() {
-            self.emit_load_array_pointer_value_slot_byte(base, byte_index);
+            self.emit_load_array_pointer_value_slot_byte_value_only(base, byte_index);
             return true;
         }
         false
@@ -497,7 +521,7 @@ impl Generator {
             if !self.profile.enables_modern_optimizations() || index.size != 1 {
                 return false;
             }
-            self.emit_ldy_slot_byte(index, 0);
+            self.emit_ldy_slot_byte_value_only(index, 0);
             self.emit_lda_absolute_y(Absolute::new(array.address));
         } else {
             let index = StorageSlot::zero_page(runtime_zp::ELEMENT_ADDR.address(), 1);
@@ -799,7 +823,7 @@ impl Generator {
                 }
                 true
             }
-            _ => self.emit_load_simple_byte(index, 0),
+            _ => self.emit_load_simple_byte_value_only(index, 0),
         }
     }
 
@@ -826,10 +850,9 @@ impl Generator {
                 self.emit_sta_zero_page(pointer.offset(1));
             }
             ArrayStorage::Pointer | ArrayStorage::Descriptor => {
-                self.emit_lda_absolute(Absolute::new(array.address));
+                self.emit_load_array_pointer_value_slot_byte_value_only(array, 0);
                 self.emit_sta_zero_page(pointer);
-                self.emitter
-                    .emit_lda_absolute(Absolute::new(array.address.wrapping_add(1)));
+                self.emit_load_array_pointer_value_slot_byte_value_only(array, 1);
                 self.emit_sta_zero_page(pointer.offset(1));
             }
         }

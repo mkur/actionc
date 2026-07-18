@@ -15626,6 +15626,108 @@ fn modern_profile_reuses_value_only_zero_page_load_before_shift() {
 }
 
 #[test]
+fn modern_profile_reuses_value_only_index_register_loads_after_flags_change() {
+    let mut generator = test_generator(CodegenProfile::Modern);
+    let x_slot = StorageSlot::absolute(0x3000, 1);
+    let y_slot = StorageSlot::absolute(0x3010, 1);
+
+    generator.emit_stx_slot_byte(x_slot, 0);
+    generator.emit_cmp_imm(0);
+    generator.emit_ldx_slot_byte_value_only(x_slot, 0);
+    generator.emit_sty_slot_byte(y_slot, 0);
+    generator.emit_cmp_imm(0);
+    generator.emit_ldy_slot_byte_value_only(y_slot, 0);
+
+    assert_eq!(
+        generator.emitter.bytes,
+        [
+            opcode::STX_ABS,
+            0x00,
+            0x30,
+            opcode::CMP_IMM,
+            0x00,
+            opcode::STY_ABS,
+            0x10,
+            0x30,
+            opcode::CMP_IMM,
+            0x00,
+        ]
+    );
+}
+
+#[test]
+fn modern_profile_forwards_parameter_values_into_straight_line_consumers() {
+    let output = generate_profile_source_with_origin(
+        "BYTE out PROC AddOne(BYTE value) out=value+1 RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.bytes.windows(6).any(|bytes| {
+        bytes[0] == opcode::STA_ABS
+            && bytes[3] == opcode::CLC
+            && bytes[4] == opcode::ADC_IMM
+            && bytes[5] == 1
+    }));
+}
+
+#[test]
+fn modern_profile_forwards_array_parameter_registers_into_pointer_setup() {
+    let output = generate_profile_source_with_origin(
+        "BYTE out PROC Read(BYTE ARRAY values) out=values(0) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.bytes.windows(11).any(|bytes| {
+        bytes[0] == opcode::STX_ABS
+            && bytes[3] == opcode::STA_ABS
+            && bytes[6] == opcode::STA_ZP
+            && bytes[7] == runtime_zp::ARRAY_ADDR.address()
+            && bytes[8] == opcode::TXA
+            && bytes[9] == opcode::STA_ZP
+            && bytes[10] == runtime_zp::ARRAY_ADDR.offset(1).address()
+    }));
+}
+
+#[test]
+fn modern_profile_reuses_comparison_left_value_on_branch_fallthrough() {
+    let output = generate_profile_source_with_origin(
+        "BYTE out PROC Check(BYTE value) IF value='A OR value='B THEN out=1 FI RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.bytes.windows(6).any(|bytes| {
+        bytes[0] == opcode::CMP_IMM
+            && bytes[1] == b'A'
+            && bytes[2] == opcode::BEQ_REL
+            && bytes[4] == opcode::CMP_IMM
+            && bytes[5] == b'B'
+    }));
+}
+
+#[test]
+fn modern_profile_keeps_parameter_reload_when_branch_observes_load_flags() {
+    let output = generate_profile_source_with_origin(
+        "BYTE out PROC Check(BYTE value) IF value THEN out=1 FI RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.bytes.windows(6).any(|bytes| {
+        bytes[0] == opcode::STA_ABS
+            && bytes[3] == opcode::LDA_ABS
+            && bytes[1] == bytes[4]
+            && bytes[2] == bytes[5]
+    }));
+}
+
+#[test]
 fn zero_page_tracking_is_cleared_at_label_joins() {
     let mut generator = test_generator(CodegenProfile::Modern);
 

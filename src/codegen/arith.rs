@@ -235,9 +235,9 @@ impl Generator {
         byte_index: u16,
     ) -> bool {
         match source {
-            BinaryByteSource::Expr(expr) => self.emit_load_simple_byte(expr, byte_index),
+            BinaryByteSource::Expr(expr) => self.emit_load_simple_byte_value_only(expr, byte_index),
             BinaryByteSource::Slot(slot) => {
-                self.emit_lda_slot_byte(slot, byte_index);
+                self.emit_lda_slot_byte_value_only(slot, byte_index);
                 true
             }
         }
@@ -746,7 +746,7 @@ impl Generator {
         left: &Expr,
         count: u16,
     ) -> bool {
-        if !self.emit_load_simple_byte(left, 0) {
+        if !self.emit_load_simple_byte_value_only(left, 0) {
             return false;
         }
         for _ in 0..count {
@@ -1712,7 +1712,7 @@ impl Generator {
         }
 
         self.emit_arithmetic_carry_setup(arithmetic_op);
-        self.emit_lda_slot_byte(source, 0);
+        self.emit_lda_slot_byte_value_only(source, 0);
         self.emit_arithmetic_immediate(arithmetic_op, Immediate::new(value), 0);
         self.emit_sta_slot_byte(target, 0);
         true
@@ -1958,12 +1958,12 @@ impl Generator {
         target: StorageSlot,
     ) -> bool {
         self.emit_clc();
-        self.emit_load_array_pointer_value_slot_byte(array_slot, 0);
+        self.emit_load_array_pointer_value_slot_byte_value_only(array_slot, 0);
         if !self.emit_add_simple_byte(addend, 0) {
             return false;
         }
         self.emit_sta_slot_byte(target, 0);
-        self.emit_load_array_pointer_value_slot_byte(array_slot, 1);
+        self.emit_load_array_pointer_value_slot_byte_value_only(array_slot, 1);
         self.emit_adc_imm(0);
         self.emit_sta_slot_byte(target, 1);
         true
