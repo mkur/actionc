@@ -7,7 +7,7 @@ vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 source_path="$runtime_dir/scaled_card_indexes.act"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
 os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
-expected="00 11 01 22 7f 33 80 44 ff 55 80 44 7f 33 ff 55"
+expected="00 11 01 22 7f 33 80 44 ff 55 80 44 7f 33 ff 55 7f a1 80 66 ff 77 7f 88 80 99 80 aa 01 6a 7f ff ef be"
 
 require_file() {
   local path="$1"
@@ -48,10 +48,10 @@ cargo run --quiet --manifest-path "$vm_root/Cargo.toml" -- run \
   --os "$os_rom" \
   --load-object "$object_path" \
   --dump-memory-on-stop "$memory_path" \
-  --max-steps 800 \
+  --max-steps 1600 \
   --history 8
 
-actual="$(od -An -tx1 -j "$((0x0600))" -N 16 "$memory_path" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+actual="$(od -An -tx1 -j "$((0x0600))" -N 34 "$memory_path" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
 if [[ "$actual" != "$expected" ]]; then
   echo "FAILED: modern/classic scaled CARD index results" >&2
   echo "  expected: $expected" >&2
@@ -59,5 +59,5 @@ if [[ "$actual" != "$expected" ]]; then
   exit 1
 fi
 
-echo "    results at \$0600-\$060F: $actual"
+echo "    results at \$0600-\$0621: $actual"
 echo "scaled CARD index runtime gate passed"

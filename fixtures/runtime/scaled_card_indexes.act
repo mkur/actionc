@@ -12,13 +12,35 @@ CARD result255=$0608
 CARD callResult=$060A
 CARD computedResult=$060C
 CARD pointerResult=$060E
+CARD scalarStoreResult=$0610
+CARD descriptorResult=$0612
+CARD pointerStoreResult=$0614
+CARD aliasResult=$0616
+CARD callStoreResult=$0618
+CARD wrapResult=$061A
+CARD arrayPointerResult=$061C
+INT signedResult=$061E
+CARD selfDescriptorResult=$0620
 
 CARD ARRAY words(256)=$6001
+CARD ARRAY wrapWords(256)=$FF80
+CARD ARRAY aliasSource
+CARD ARRAY aliasDestination
+CARD ARRAY descriptorWords
+CARD ARRAY selfWords
+INT ARRAY signedWords(256)=$6801
 CARD POINTER wordPointer
+CARD POINTER inspectPointer
+BYTE ARRAY bytePointer
 BYTE index
+CARD scalarValue
+INT signedValue
 
 CARD FUNC Identity(CARD value)
   RETURN(value)
+
+CARD FUNC Clobber=*(CARD value)
+  [$85 $A0 $86 $A1 $A0 $DE $84 $AE $C8 $84 $AF $A0 $7E $60]
 
 PROC Main()
   index=0
@@ -45,6 +67,63 @@ PROC Main()
   wordPointer=$6001
   index=255
   pointerResult=wordPointer(index)
+
+  ; Store a non-constant word through the scaled address.
+  index=127
+  scalarValue=$A17F
+  words(index)=scalarValue
+  scalarStoreResult=words(index)
+
+  ; Exercise a descriptor-backed base and a typed-pointer store.
+  descriptorWords=$6301
+  index=128
+  descriptorWords(index)=$6680
+  descriptorResult=descriptorWords(index)
+  wordPointer=$6501
+  index=255
+  scalarValue=$77FF
+  wordPointer(index)=scalarValue
+  pointerStoreResult=wordPointer(index)
+
+  ; The destination low byte overlaps the source high byte. Both source bytes
+  ; must be staged before the first indirect store.
+  aliasSource=$6401
+  aliasDestination=$6402
+  index=127
+  aliasSource(index)=$887F
+  aliasDestination(index)=aliasSource(index)
+  aliasResult=aliasDestination(index)
+
+  ; A call is a preparation barrier. Clobber deliberately destroys Y and the
+  ; classic array-address scratch pair while leaving its A/X value unchanged.
+  index=128
+  words(index)=Clobber($9980)
+  callStoreResult=words(index)
+
+  ; Adding the ASL carry to a $FF base high byte must wrap to page zero.
+  index=128
+  wrapWords(index)=$AA80
+  wrapResult=wrapWords(index)
+
+  ; Array-pointer values use a staged two-byte source, and signed two-byte
+  ; arrays share the same scaled address identity.
+  bytePointer=$6A01
+  descriptorWords=$6301
+  index=128
+  descriptorWords(index)=bytePointer
+  arrayPointerResult=descriptorWords(index)
+  index=255
+  signedValue=-129
+  signedWords(index)=signedValue
+  signedResult=signedWords(index)
+
+  ; The indirect destination is the descriptor itself. Address preparation
+  ; must read both descriptor bytes before the low-byte store overwrites one.
+  selfWords=@selfWords
+  inspectPointer=@selfWords
+  index=0
+  selfWords(index)=$BEEF
+  selfDescriptorResult=inspectPointer^
 
   DO
   OD

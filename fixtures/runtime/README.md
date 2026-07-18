@@ -36,11 +36,14 @@ pointer, and calls to a current-location (`=*`) routine must expose their first
 arguments in the public Action ABI homes `$A0/$A1`. Both classic and MIR6502
 must produce `12 34 82 84` at `$0600-$0603`.
 
-The scaled CARD-index fixture writes and reads an unaligned fixed-base word
-table at indexes 0, 1, 127, 128, and 255. It also covers a word call argument,
-a computed byte index, and a typed CARD pointer, checking the sixteen result
-bytes at `$0600-$060F`. The page boundary at index 127 and the ASL carry at
-indexes 128 and 255 guard the scaled `(zp),Y` address identity at runtime.
+The scaled CARD-index fixture writes and reads unaligned fixed-base,
+descriptor-backed, and typed-pointer word storage at indexes 0, 1, 127, 128,
+and 255. It covers constant and scalar stores, word call arguments, computed
+indexes, signed words, array-pointer values, an overlapping two-address copy,
+and a call on the right-hand side of a store. The 34 result bytes at
+`$0600-$0621` also exercise a destination that overwrites its own descriptor,
+a page crossing, the high-byte access at `Y=$FF`, the ASL carry for indexes 128
+through 255, and wrapping the corrected base high byte from `$FF` to `$00`.
 
 It is also part of the opt-in compatibility integration tests:
 

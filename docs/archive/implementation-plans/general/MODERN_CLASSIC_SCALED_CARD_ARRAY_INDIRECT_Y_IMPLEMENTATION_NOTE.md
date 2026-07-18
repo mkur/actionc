@@ -29,8 +29,12 @@ Implementation progress:
   ROM path. It was not caused by the emitted instruction change. The runner
   now selects XL/XE explicitly and isolates saved cartridge state for
   `--no-cart` runs.
-- A runtime boundary fixture now verifies indexes 0, 1, 127, 128, and 255 on
-  an unaligned base, plus direct-call, computed-index, and typed-pointer paths.
+- The runtime boundary fixture verifies indexes 0, 1, 127, 128, and 255 across
+  fixed, descriptor-backed, typed-pointer, and signed-word storage. It covers
+  loads, constant and scalar stores, direct-call and computed-index consumers,
+  an overlapping two-address copy, array-pointer values, a call that clobbers
+  `Y` and `$AE/$AF`, a destination that overwrites its own descriptor, and
+  corrected-high-byte wrap from `$FF` to `$00`.
 
 ## Objective
 

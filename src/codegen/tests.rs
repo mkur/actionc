@@ -1893,6 +1893,155 @@ fn modern_same_effective_address_call_assignment_reuses_pointer() {
 }
 
 #[test]
+fn modern_local_initialized_card_array_dynamic_load_and_store_use_scaled_indirect_y() {
+    let output = generate_profile_source_with_origin(
+        "CARD out PROC Main() BYTE i CARD ARRAY words=[0 $1111 $2222 $3333] i=2 words(i)=$ABCD out=words(i) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(
+        output
+            .bytes
+            .windows(2)
+            .filter(|bytes| *bytes == [opcode::ASL_A, opcode::TAY])
+            .count()
+            >= 2
+    );
+    assert!(
+        output
+            .bytes
+            .windows(2)
+            .filter(|bytes| *bytes == [opcode::STA_IZY, runtime_zp::ARRAY_ADDR.address()])
+            .count()
+            >= 2
+    );
+    assert!(
+        output
+            .bytes
+            .windows(2)
+            .filter(|bytes| *bytes == [opcode::LDA_IZY, runtime_zp::ARRAY_ADDR.address()])
+            .count()
+            >= 2
+    );
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP])
+    );
+}
+
+#[test]
+fn modern_int_pointer_dynamic_load_and_store_use_scaled_indirect_y() {
+    let output = generate_profile_source_with_origin(
+        "INT POINTER p BYTE i INT value,out PROC Main() p=$6801 i=255 value=-129 p(i)=value out=p(i) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(
+        output
+            .bytes
+            .windows(2)
+            .filter(|bytes| *bytes == [opcode::ASL_A, opcode::TAY])
+            .count()
+            >= 2
+    );
+    assert_eq!(
+        output
+            .bytes
+            .windows(2)
+            .filter(|bytes| *bytes == [opcode::STA_IZY, runtime_zp::ARRAY_ADDR.address()])
+            .count(),
+        2
+    );
+    assert_eq!(
+        output
+            .bytes
+            .windows(2)
+            .filter(|bytes| *bytes == [opcode::LDA_IZY, runtime_zp::ARRAY_ADDR.address()])
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn modern_card_array_call_store_restores_prepared_address_after_call_barrier() {
+    let output = generate_profile_source_with_origin(
+        "CARD ARRAY words BYTE i CARD FUNC Clobber=*(CARD value) [$85 $A0 $86 $A1 $A0 $DE $84 $AE $C8 $84 $AF $A0 $7E $60] PROC Main() words=$6001 i=128 words(i)=Clobber($9980) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    let call = output
+        .bytes
+        .windows(3)
+        .position(|bytes| bytes[0] == opcode::JSR_ABS)
+        .expect("expected call to Clobber");
+    assert!(
+        output.bytes[..call]
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP]),
+        "call RHS must use the conservative materialized-address fallback"
+    );
+    assert!(
+        output.bytes[call + 3..].windows(6).any(|bytes| bytes
+            == [
+                opcode::PLA,
+                opcode::STA_ZP,
+                runtime_zp::ARRAY_ADDR.address(),
+                opcode::PLA,
+                opcode::STA_ZP,
+                runtime_zp::ARRAY_ADDR.offset(1).address(),
+            ]),
+        "the address scratch pair must be restored after the call"
+    );
+    assert!(output.bytes[call + 3..].windows(4).any(|bytes| bytes
+        == [
+            opcode::LDA_ZP,
+            runtime_zp::ARGS.offset(1).address(),
+            opcode::LDY_IMM,
+            1,
+        ]));
+    assert_eq!(
+        output.bytes[call + 3..]
+            .windows(2)
+            .filter(|bytes| *bytes == [opcode::STA_IZY, runtime_zp::ARRAY_ADDR.address()])
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn modern_scaled_card_store_rejects_source_overlapping_address_scratch() {
+    let output = generate_profile_source_with_origin(
+        "CARD value=$AE CARD ARRAY words BYTE i PROC Main() words=$6001 i=128 value=$1234 words(i)=value RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(
+        output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP]),
+        "overlapping source storage must use the conservative address path"
+    );
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::TAY]),
+        "scaled preparation would overwrite the source in $AE/$AF"
+    );
+}
+
+#[test]
 fn modern_byte_index_call_arg_loads_with_effective_y() {
     let output = generate_profile_source_with_origin(
         "BYTE POINTER s BYTE i PROC Put(BYTE ch) RETURN PROC Main() s=$4000 i=2 Put(s(i)) RETURN",
@@ -2132,9 +2281,9 @@ fn modern_abi_spilled_word_index_uses_scaled_indirect_y() {
 }
 
 #[test]
-fn modern_two_address_word_assignment_stages_then_scales_both_addresses() {
+fn modern_overlapping_two_address_word_assignment_stages_then_scales_both_addresses() {
     let output = generate_profile_source_with_origin(
-        "CARD ARRAY dst CARD ARRAY src BYTE i,j PROC Main() dst=$5001 src=$6001 i=128 j=126 dst(i)=src(j+1) RETURN",
+        "CARD ARRAY dst CARD ARRAY src BYTE i,j PROC Main() dst=$6002 src=$6001 i=127 j=126 dst(i)=src(j+1) RETURN",
         0x3000,
         CodegenProfile::Modern,
     )
