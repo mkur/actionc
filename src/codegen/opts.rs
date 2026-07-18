@@ -662,25 +662,18 @@ impl Generator {
     }
 
     // Extracted from src/codegen.rs: routine entry planning
-    pub(super) fn compatible_routine_entry_plan(
-        &self,
-        routine: &Routine,
-        allocation: &RoutineAllocation,
-    ) -> RoutineEntryPlan {
+    pub(super) fn routine_entry_plan(&self, routine: &Routine) -> RoutineEntryPlan {
         if !self.profile.enables_modern_optimizations() {
             return RoutineEntryPlan::trampoline(RoutineTrampolineReason::CompatibleProfile);
         }
-        if self
-            .routine_assignment_targets
-            .contains(&normalize_name(&routine.name))
-        {
+        let Some(proof) = self.routine_boundary_proof(&routine.name) else {
+            return RoutineEntryPlan::trampoline(RoutineTrampolineReason::UnprovenBoundary);
+        };
+        // Public and address-observable routines may bind their stable entry label
+        // directly to the prologue. Only compatible routine-name assignment needs
+        // a writable JMP operand at that label.
+        if proof.patchable_entry_required {
             return RoutineEntryPlan::trampoline(RoutineTrampolineReason::RetargetableRoutine);
-        }
-        if !allocation.initializers.is_empty() {
-            return RoutineEntryPlan::trampoline(RoutineTrampolineReason::ExplicitStorage);
-        }
-        if !allocation.array_backings.is_empty() {
-            return RoutineEntryPlan::trampoline(RoutineTrampolineReason::ArrayBackingStorage);
         }
         RoutineEntryPlan::direct()
     }

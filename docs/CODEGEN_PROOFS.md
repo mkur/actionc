@@ -277,9 +277,15 @@ Kinds:
 Main rules:
 
 - system routines are public boundaries;
-- retargetable/address-taken routines require public and patchable entry
-  behavior;
+- compatible routine-name assignment makes its target retargetable and requires
+  public, patchable entry behavior;
 - plain non-retargetable routines are internal ABI candidates.
+
+An address-observable entry does not by itself require a trampoline. A direct
+entry label remains stable for calls, `@routine`, machine-block address bytes,
+and `RUNAD`; only code that rewrites the entry `JMP` operand requires that
+physical instruction. The current `address_taken` fact is the conservative
+legacy routine-assignment fact, not an inventory of ordinary label relocations.
 
 Current use:
 

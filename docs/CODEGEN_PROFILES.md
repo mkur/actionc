@@ -103,8 +103,9 @@ single-pass cartridge compiler. Current layout differences include:
   instead of being emitted inline behind a local jump;
 - dynamic `FOR` end-bound caches can be allocated in routine hidden storage
   instead of being embedded at the loop site;
-- routine entry can be emitted directly when the routine does not need a
-  patchable entry trampoline;
+- routine entry can be emitted directly after its parameter/local storage when
+  the routine does not need a patchable entry trampoline; this also applies to
+  public routine addresses and descriptor-backed local arrays;
 - an extra final `RTS` can be removed when the preceding routine already ended
   with one.
 
@@ -112,6 +113,8 @@ Explicit parameters, locals, externally visible calls, and public Action! ABI
 boundaries remain part of the observable contract. The modern profile may use
 internal facts about registers or temporaries, but generated code must still
 materialize public call and return behavior where user code can observe it.
+Direct entry changes only the physical `JMP`: calls, `@routine`, machine-block
+routine addresses, and `RUNAD` still resolve to the stable executable entry.
 
 ## Codegen Optimizations
 

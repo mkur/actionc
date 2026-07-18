@@ -39,8 +39,13 @@ only for the compat path.
 ## Routine Storage
 
 Routine parameters and locals live in the routine's storage area before the
-routine body. This is why compatible routines usually need an entry trampoline:
-calls enter after the storage bytes and jump over them to the executable body.
+routine body. Compatible layout retains the historical patchable entry `JMP`
+after those bytes, even when its target is the immediately following prologue.
+Modern layout binds an ordinary routine's stable entry label directly to that
+prologue. Explicit parameters, locals, and local array descriptors therefore do
+not require a trampoline; they remain before the entry and are never executed.
+Only a boundary that must support routine-name retargeting needs the writable
+`JMP` operand.
 
 Examples:
 

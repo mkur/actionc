@@ -298,7 +298,10 @@ impl Generator {
             .machine_symbol_addresses
             .extend(allocation.machine_symbol_addresses.clone());
 
-        let entry_plan = self.compatible_routine_entry_plan(routine, &allocation);
+        let entry_plan = self.routine_entry_plan(routine);
+        self.layout
+            .array_backings
+            .splice(0..0, allocation.array_backings.into_iter().rev());
         if entry_plan.is_direct() {
             self.bind_routine_entry(routine);
             self.record_modern_optimization(
@@ -313,10 +316,6 @@ impl Generator {
         let body_label = format!("routine:{}:body", routine.name);
         self.emit_routine_entry_trampoline(routine, &body_label);
         self.bind_codegen_label(body_label, routine.span);
-
-        self.layout
-            .array_backings
-            .splice(0..0, allocation.array_backings.into_iter().rev());
 
         allocation.symbols
     }

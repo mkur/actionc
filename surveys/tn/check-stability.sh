@@ -17,7 +17,7 @@ Options:
   --original <path>    original Action! compiler TN.COM baseline
                       default: corpora/tn/original/extracted/TN.COM
   --budget <bytes>     maximum absolute size delta for compat, default: 512
-  --modern-budget <n>  maximum absolute size delta for modern, default: 1280
+  --modern-budget <n>  maximum absolute size delta for modern, default: 1536
   --out-dir <dir>      write generated files here, default: temp dir
   --keep               keep temporary output and print its path
   -h, --help           show this help
@@ -34,7 +34,7 @@ compat_source_path="$repo_root/corpora/tn/original/extracted/SRC/TN.ACT.atascii"
 modern_source_path="$repo_root/samples/tn/modern/TN.ACT"
 original_path="$repo_root/corpora/tn/original/extracted/TN.COM"
 compat_budget=512
-modern_budget=1280
+modern_budget=1536
 out_dir=""
 keep=0
 

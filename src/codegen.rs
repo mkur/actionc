@@ -191,8 +191,7 @@ enum RoutineEntryKind {
 enum RoutineTrampolineReason {
     CompatibleProfile,
     RetargetableRoutine,
-    ExplicitStorage,
-    ArrayBackingStorage,
+    UnprovenBoundary,
 }
 
 impl RoutineEntryPlan {

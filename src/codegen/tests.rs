@@ -2321,6 +2321,18 @@ fn modern_large_local_sized_byte_arrays_use_skipped_backing_storage() {
             len: 300
         }]
     );
+    let local_only = routine_address(&output, "LocalOnly").expect("LocalOnly address");
+    assert_eq!(local_only, output.origin.wrapping_add(4));
+    assert_ne!(
+        output.bytes[usize::from(local_only.wrapping_sub(output.origin))],
+        opcode::JMP_ABS,
+        "descriptor-backed storage must not force an entry trampoline"
+    );
+    assert!(output.optimizations.iter().any(|optimization| {
+        optimization.routine.as_deref() == Some("LocalOnly")
+            && optimization.kind == CodegenOptimizationKind::TrampolineElided
+            && optimization.bytes_saved == 3
+    }));
 }
 
 #[test]
@@ -2948,18 +2960,30 @@ fn modern_card_value_argument_to_pointer_param_passes_stored_pointer_value() {
     )
     .unwrap();
 
-    assert!(
-        output
-            .bytes
-            .windows(4)
-            .any(|bytes| { bytes == [opcode::LDX_ABS, 0x0E, 0x30, opcode::JSR_ABS,] })
+    let menu = storage_symbol(
+        &output,
+        CodegenSymbolScope::Routine("Main".to_string()),
+        "MENU",
     );
-    assert!(
-        !output
-            .bytes
-            .windows(4)
-            .any(|bytes| { bytes == [opcode::LDX_IMM, 0x30, opcode::LDA_IMM, 0x0D,] })
-    );
+    let menu_high = Absolute::new(menu.address.wrapping_add(1));
+    assert!(output.bytes.windows(4).any(|bytes| {
+        bytes
+            == [
+                opcode::LDX_ABS,
+                menu_high.low(),
+                menu_high.high(),
+                opcode::JSR_ABS,
+            ]
+    }));
+    assert!(!output.bytes.windows(4).any(|bytes| {
+        bytes
+            == [
+                opcode::LDX_IMM,
+                Absolute::new(menu.address).high(),
+                opcode::LDA_IMM,
+                Absolute::new(menu.address).low(),
+            ]
+    }));
 }
 
 #[test]
@@ -5580,6 +5604,52 @@ fn modern_proc_pointer_call_emits_indirect_trampoline() {
 
     assert!(output.bytes.windows(9).any(|bytes| {
         bytes[0] == opcode::JSR_ABS && bytes[3] == opcode::JMP_ABS && bytes[6] == opcode::JMP_IND
+    }));
+}
+
+#[test]
+fn modern_public_routine_pointer_targets_direct_entry_after_local_storage() {
+    let output = generate_profile_source_with_origin(
+        "BYTE seen PROC Target() BYTE local local=1 seen=local RETURN PROC POINTER p PROC Main() p=@Target p() seen=2 RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    let target = routine_address(&output, "Target").expect("Target address");
+    let local = storage_symbol(
+        &output,
+        CodegenSymbolScope::Routine("Target".to_string()),
+        "LOCAL",
+    );
+    assert_eq!(target, local.address.wrapping_add(local.size));
+    assert_ne!(
+        output.bytes[usize::from(target.wrapping_sub(output.origin))],
+        opcode::JMP_ABS,
+        "the address-observable entry should be the routine prologue itself"
+    );
+    let pointer = storage_symbol(&output, CodegenSymbolScope::Global, "P");
+    assert!(output.bytes.windows(10).any(|bytes| {
+        bytes
+            == [
+                opcode::LDA_IMM,
+                Absolute::new(target).high(),
+                opcode::STA_ABS,
+                Absolute::new(pointer.address.wrapping_add(1)).low(),
+                Absolute::new(pointer.address.wrapping_add(1)).high(),
+                opcode::LDA_IMM,
+                Absolute::new(target).low(),
+                opcode::STA_ABS,
+                Absolute::new(pointer.address).low(),
+                Absolute::new(pointer.address).high(),
+            ]
+    }));
+    assert!(output.bytes.windows(9).any(|bytes| {
+        bytes[0] == opcode::JSR_ABS && bytes[3] == opcode::JMP_ABS && bytes[6] == opcode::JMP_IND
+    }));
+    assert!(output.optimizations.iter().any(|optimization| {
+        optimization.routine.as_deref() == Some("Target")
+            && optimization.kind == CodegenOptimizationKind::TrampolineElided
     }));
 }
 
@@ -10985,6 +11055,68 @@ fn modern_profile_elides_empty_routine_trampoline() {
     assert_eq!(modern.run_address, 0x3004);
     assert_eq!(modern.bytes.len() + 4, compatible.bytes.len());
     assert_eq!(modern.bytes.last(), Some(&opcode::RTS));
+}
+
+#[test]
+fn modern_profile_elides_entry_trampoline_after_explicit_routine_storage() {
+    let output = generate_profile_source_with_origin(
+        "BYTE g PROC Copy(BYTE value) BYTE local local=value g=local RETURN PROC Main() Copy(1) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    let copy = routine_address(&output, "Copy").expect("Copy address");
+    let scope = CodegenSymbolScope::Routine("Copy".to_string());
+    let value = storage_symbol(&output, scope.clone(), "VALUE");
+    let local = storage_symbol(&output, scope, "LOCAL");
+    assert!(value.address < copy);
+    assert!(local.address < copy);
+    assert_eq!(
+        &output.bytes[usize::from(copy.wrapping_sub(output.origin))..][..3],
+        &[
+            opcode::STA_ABS,
+            Absolute::new(value.address).low(),
+            Absolute::new(value.address).high(),
+        ],
+        "the stable routine entry should bind directly to the parameter prologue"
+    );
+    assert!(output.optimizations.iter().any(|optimization| {
+        optimization.routine.as_deref() == Some("Copy")
+            && optimization.kind == CodegenOptimizationKind::TrampolineElided
+            && optimization.bytes_saved == 3
+    }));
+}
+
+#[test]
+fn modern_main_run_address_is_direct_entry_after_routine_storage() {
+    let output = generate_profile_source_with_origin(
+        "BYTE g PROC Main(BYTE value) BYTE local local=value g=local RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    let main = routine_address(&output, "Main").expect("Main address");
+    let scope = CodegenSymbolScope::Routine("Main".to_string());
+    let value = storage_symbol(&output, scope.clone(), "VALUE");
+    let local = storage_symbol(&output, scope, "LOCAL");
+    assert_eq!(output.run_address, main);
+    assert!(value.address < main);
+    assert!(local.address < main);
+    assert_eq!(
+        &output.bytes[usize::from(main.wrapping_sub(output.origin))..][..3],
+        &[
+            opcode::STA_ABS,
+            Absolute::new(value.address).low(),
+            Absolute::new(value.address).high(),
+        ]
+    );
+    assert!(
+        output.map.routine_ranges.iter().any(|routine| {
+            routine.name == "Main" && routine.start < main && routine.end > main
+        })
+    );
 }
 
 #[test]

@@ -118,16 +118,21 @@ model without committing to whole-program storage coalescing yet. Later TAC/SSA
 lowering can treat these hidden slots as routine-local temporaries and decide
 whether to keep, reuse, stack-allocate, or eliminate them.
 
-Routine entry is now planned explicitly. A routine can use direct entry or a
-patchable entry trampoline. For now modern direct entry is allowed only when the
-routine has no explicit parameter/local storage and is not a routine-assignment
-target. Hidden modern storage does not force a trampoline, because it is emitted
-before the routine entry. The important future relaxation is explicit
-routine-local storage: once the centralized layout is trusted for parameters,
-locals, and array backing placement, modern can bind the routine entry after
-that storage and omit the trampoline for ordinary routines. Routines that can be
-assigned a new body still need a patchable trampoline unless that language
-feature is modeled with a different indirection strategy.
+Routine entry is planned explicitly. Modern binds the entry label directly to
+the executable prologue whenever the routine-boundary proof does not require a
+patchable entry. Explicit parameters, locals, hidden storage, and local array
+descriptors are emitted before that label and do not force a trampoline;
+descriptor-backed array ranges remain registered with the program layout.
+Public calls, `@routine`, machine-block routine addresses, and `RUNAD` all use
+the same direct label, so address observability does not require an extra jump.
+Compatible routine-name assignment still retains a writable trampoline operand.
+
+On the modern/classic TN sample this relaxation removes 48 additional
+fall-through entry jumps, or 144 raw bytes. The measured code segment shrinks
+from 10,797 to 10,654 bytes (143 net): moving the routine/data addresses removes
+one unrelated 1-byte register-reload optimization in `Format`, whose old
+`$4848` address allowed `TXA` where the new `$47D0` address needs an immediate
+load.
 
 ## Modern Internal ABI
 
