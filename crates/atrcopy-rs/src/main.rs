@@ -332,14 +332,12 @@ impl AtrImage {
         }
 
         let mut used = self.used_sector_map(additions)?;
-        let mut allocated_sectors = Vec::new();
         for addition in additions {
             let data = fs::read(&addition.host_path)
                 .map_err(|err| format!("failed to read {}: {err}", addition.host_path.display()))?;
             let target = addition.target_name()?;
             let (directory_slot, flags) = self.root_entry_slot(&target)?;
             let sectors = self.allocate_file_sectors(data.len(), &mut used)?;
-            allocated_sectors.extend(sectors.iter().copied());
             self.write_file_chain(&sectors, &data, directory_slot)?;
             let encoded_name = encode_dos_filename(&target)?;
             self.write_root_dir_slot(
@@ -357,27 +355,35 @@ impl AtrImage {
                 sectors.len()
             );
         }
-        self.mark_vtoc_sectors_used(&allocated_sectors)?;
+        self.write_vtoc_used_sector_map(&used)?;
         Ok(self)
     }
 
     fn used_sector_map(&self, additions: &[AddSpec]) -> Result<Vec<bool>, String> {
-        let mut used = vec![false; self.sectors + 1];
-        for sector in 1..=3.min(self.sectors) {
-            used[sector] = true;
-        }
-        for sector in 360..=368 {
-            if sector <= self.sectors {
-                used[sector] = true;
-            }
-        }
+        let mut used = self.vtoc_used_sector_map()?;
 
         let replacement_names: HashSet<String> = additions
             .iter()
             .map(|addition| addition.target_name())
             .collect::<Result<HashSet<_>, _>>()?;
 
-        for entry in self.directory_tree()? {
+        let entries = self.directory_tree()?;
+        for entry in &entries {
+            if entry.entry.is_deleted() {
+                continue;
+            }
+            let normalized = normalize_filename(&entry.path);
+            if !normalized.contains('/') && replacement_names.contains(&normalized) {
+                if entry.entry.is_directory() {
+                    return Err(format!(
+                        "cannot replace directory {} with a file",
+                        entry.entry.name
+                    ));
+                }
+                self.mark_file_chain_free(&entry.entry, &mut used)?;
+            }
+        }
+        for entry in &entries {
             if entry.entry.is_deleted() {
                 continue;
             }
@@ -385,24 +391,67 @@ impl AtrImage {
             if !normalized.contains('/') && replacement_names.contains(&normalized) {
                 continue;
             }
-            self.mark_file_chain_used(&entry.entry, &mut used)?;
+            self.mark_entry_sectors_used(&entry.entry, &mut used)?;
         }
 
+        self.reserve_filesystem_sectors(&mut used)?;
         Ok(used)
     }
 
-    fn mark_file_chain_used(&self, entry: &DirEntry, used: &mut [bool]) -> Result<(), String> {
+    fn mark_file_chain_free(&self, entry: &DirEntry, used: &mut [bool]) -> Result<(), String> {
+        for sector in self.file_chain_sectors(entry)? {
+            used[sector] = false;
+        }
+        Ok(())
+    }
+
+    fn mark_entry_sectors_used(&self, entry: &DirEntry, used: &mut [bool]) -> Result<(), String> {
+        if entry.is_directory() {
+            let start = usize::from(entry.start_sector);
+            let end = start
+                .checked_add(usize::from(entry.sector_count))
+                .ok_or_else(|| format!("directory {} sector range overflows", entry.name))?;
+            if end > used.len() {
+                return Err(format!(
+                    "directory {} references sectors outside the disk",
+                    entry.name
+                ));
+            }
+            used[start..end].fill(true);
+        } else {
+            for sector in self.file_chain_sectors(entry)? {
+                used[sector] = true;
+            }
+        }
+        Ok(())
+    }
+
+    fn file_chain_sectors(&self, entry: &DirEntry) -> Result<Vec<usize>, String> {
         let mut sector = entry.start_sector;
         let mut remaining = entry.sector_count;
-        while sector != 0 && remaining > 0 {
+        let mut visited = HashSet::new();
+        let mut sectors = Vec::with_capacity(usize::from(remaining));
+        while remaining > 0 {
+            if sector == 0 {
+                return Err(format!(
+                    "file {} chain ends before its {} sectors were read",
+                    entry.name, entry.sector_count
+                ));
+            }
+            if !visited.insert(sector) {
+                return Err(format!(
+                    "file {} contains a cycle at sector {sector}",
+                    entry.name
+                ));
+            }
             let index = usize::from(sector);
-            if index >= used.len() {
+            if index > self.sectors {
                 return Err(format!(
                     "file {} references missing sector {sector}",
                     entry.name
                 ));
             }
-            used[index] = true;
+            sectors.push(index);
             let data = self
                 .sector(sector)
                 .ok_or_else(|| format!("file {} references missing sector {sector}", entry.name))?;
@@ -410,16 +459,125 @@ impl AtrImage {
             sector = tail.next_sector;
             remaining -= 1;
         }
+        Ok(sectors)
+    }
+
+    fn vtoc_used_sector_map(&self) -> Result<Vec<bool>, String> {
+        let version = self.vtoc_version()?;
+        let mut used = vec![true; self.sectors + 1];
+        for (sector, is_used) in used.iter_mut().enumerate().skip(1) {
+            let (vtoc_sector, byte_index, mask) = self.vtoc_bitmap_location(sector, version)?;
+            let vtoc = self
+                .sector(vtoc_sector)
+                .ok_or_else(|| format!("missing VTOC sector {vtoc_sector}"))?;
+            *is_used = vtoc[byte_index] & mask == 0;
+        }
+        self.reserve_filesystem_sectors(&mut used)?;
+        Ok(used)
+    }
+
+    fn write_vtoc_used_sector_map(&mut self, used: &[bool]) -> Result<(), String> {
+        if used.len() <= self.sectors {
+            return Err("VTOC allocation map is smaller than the disk".to_string());
+        }
+
+        let version = self.vtoc_version()?;
+        for (sector, &is_used) in used.iter().enumerate().take(self.sectors + 1).skip(1) {
+            let (vtoc_sector, byte_index, mask) = self.vtoc_bitmap_location(sector, version)?;
+            let vtoc = self
+                .sector_mut(vtoc_sector)
+                .ok_or_else(|| format!("missing VTOC sector {vtoc_sector}"))?;
+            if is_used {
+                vtoc[byte_index] &= !mask;
+            } else {
+                vtoc[byte_index] |= mask;
+            }
+        }
+
+        let free_count = used[1..=self.sectors]
+            .iter()
+            .filter(|&&is_used| !is_used)
+            .count();
+        let free_count = u16::try_from(free_count)
+            .map_err(|_| format!("free sector count {free_count} exceeds the VTOC field"))?;
+        let vtoc = self
+            .sector_mut(360)
+            .ok_or_else(|| "missing VTOC sector 360".to_string())?;
+        vtoc[3..5].copy_from_slice(&free_count.to_le_bytes());
+        Ok(())
+    }
+
+    fn vtoc_version(&self) -> Result<u8, String> {
+        let version = self
+            .sector(360)
+            .and_then(|vtoc| vtoc.first())
+            .copied()
+            .ok_or_else(|| "missing VTOC sector 360".to_string())?;
+        if matches!(version, 0x02 | 0x03) {
+            Ok(version)
+        } else {
+            Err(format!("unsupported VTOC format ${version:02X}"))
+        }
+    }
+
+    fn vtoc_bitmap_location(&self, sector: usize, version: u8) -> Result<(u16, usize, u8), String> {
+        let first_bitmap_bits = (self.sector_size - 10) * 8;
+        let (vtoc_sector, byte_index) = if sector < first_bitmap_bits {
+            (360, 10 + sector / 8)
+        } else {
+            // MYDOS continues its bitmap at byte 0 of sectors 359, 358, and so on.
+            if version != 0x03 {
+                return Err(format!(
+                    "VTOC format ${version:02X} does not describe sector {sector}"
+                ));
+            }
+            let extension_bit = sector - first_bitmap_bits;
+            let bits_per_sector = self.sector_size * 8;
+            let extension_index = extension_bit / bits_per_sector;
+            let extension_index = u16::try_from(extension_index)
+                .map_err(|_| format!("sector {sector} needs too many VTOC extensions"))?;
+            let vtoc_sector = 359u16.checked_sub(extension_index).ok_or_else(|| {
+                format!("sector {sector} cannot be represented by this MYDOS VTOC")
+            })?;
+            (vtoc_sector, (extension_bit % bits_per_sector) / 8)
+        };
+        let mask = 1 << (7 - sector % 8);
+        Ok((vtoc_sector, byte_index, mask))
+    }
+
+    fn reserve_filesystem_sectors(&self, used: &mut [bool]) -> Result<(), String> {
+        if self.sectors >= 1 {
+            used[1..=3.min(self.sectors)].fill(true);
+        }
+        if self.sectors >= 360 {
+            used[360..=368.min(self.sectors)].fill(true);
+        }
+
+        let version = self.vtoc_version()?;
+        if self.sectors > 0 {
+            let (lowest_vtoc_sector, _, _) = self.vtoc_bitmap_location(self.sectors, version)?;
+            for sector in lowest_vtoc_sector..360 {
+                let sector = usize::from(sector);
+                if sector < used.len() {
+                    used[sector] = true;
+                }
+            }
+        }
         Ok(())
     }
 
     fn allocate_file_sectors(&self, len: usize, used: &mut [bool]) -> Result<Vec<u16>, String> {
         let capacity = self.data_sector_capacity();
-        let needed = (len.max(1) + capacity - 1) / capacity;
+        let needed = len.max(1).div_ceil(capacity);
         let mut sectors = Vec::with_capacity(needed);
-        for sector in 4..=self.sectors {
-            if !used[sector] {
-                used[sector] = true;
+        for (sector, is_used) in used
+            .iter_mut()
+            .enumerate()
+            .take(self.sectors.min(0x03ff) + 1)
+            .skip(4)
+        {
+            if !*is_used {
+                *is_used = true;
                 sectors.push(sector as u16);
                 if sectors.len() == needed {
                     return Ok(sectors);
@@ -514,43 +672,6 @@ impl AtrImage {
         entry[1..3].copy_from_slice(&sector_count.to_le_bytes());
         entry[3..5].copy_from_slice(&start_sector.to_le_bytes());
         entry[5..16].copy_from_slice(encoded_name);
-        Ok(())
-    }
-
-    fn mark_vtoc_sectors_used(&mut self, sectors: &[u16]) -> Result<(), String> {
-        let image_sector_size = self.sector_size;
-        let bitmap_start = 10usize;
-        let vtoc = self
-            .sector_mut(360)
-            .ok_or_else(|| "missing VTOC sector 360".to_string())?;
-        if vtoc.first().copied() != Some(0x03) {
-            return Ok(());
-        }
-        let mut free_count = if image_sector_size == 256 {
-            u16::from_le_bytes([vtoc[3], vtoc[4]])
-        } else {
-            u16::from_le_bytes([vtoc[1], vtoc[2]])
-        };
-
-        for &sector in sectors {
-            let sector = usize::from(sector);
-            let byte_index = bitmap_start + sector / 8;
-            if byte_index >= vtoc.len() {
-                continue;
-            }
-            let bit = 7 - (sector % 8);
-            let mask = 1 << bit;
-            if vtoc[byte_index] & mask != 0 {
-                vtoc[byte_index] &= !mask;
-                free_count = free_count.saturating_sub(1);
-            }
-        }
-        let free_bytes = free_count.to_le_bytes();
-        if image_sector_size == 256 {
-            vtoc[3..5].copy_from_slice(&free_bytes);
-        } else {
-            vtoc[1..3].copy_from_slice(&free_bytes);
-        }
         Ok(())
     }
 }
@@ -928,8 +1049,53 @@ fn wanted_matches_entry(wanted: &str, entry: &TreeEntry) -> bool {
 mod tests {
     use super::{
         encode_dos_filename, host_path, parse_add_specs, raw_atascii_path, should_decode_text,
-        wanted_matches_entry, DirEntry, SectorTail, TextMode, TreeEntry,
+        wanted_matches_entry, AddSpec, AtrImage, DirEntry, SectorTail, TextMode, TreeEntry,
     };
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn image_with_vtoc(sector_size: usize, sectors: usize, version: u8) -> AtrImage {
+        let payload_size = if sector_size == 128 {
+            sectors * 128
+        } else {
+            3 * 128 + sectors.saturating_sub(3) * sector_size
+        };
+        let mut bytes = vec![0; 16 + payload_size];
+        bytes[0..2].copy_from_slice(&0x0296u16.to_le_bytes());
+        bytes[4..6].copy_from_slice(&(sector_size as u16).to_le_bytes());
+        let mut image = AtrImage::parse(bytes).unwrap();
+        image.sector_mut(360).unwrap()[0] = version;
+        image
+    }
+
+    fn blank_dos_image(sector_size: usize, sectors: usize, version: u8) -> AtrImage {
+        let mut image = image_with_vtoc(sector_size, sectors, version);
+        let mut used = vec![false; sectors + 1];
+        image.reserve_filesystem_sectors(&mut used).unwrap();
+        image.write_vtoc_used_sector_map(&used).unwrap();
+        let free_count = used[1..].iter().filter(|&&is_used| !is_used).count() as u16;
+        image.sector_mut(360).unwrap()[1..3].copy_from_slice(&free_count.to_le_bytes());
+        image
+    }
+
+    fn temp_host_file(name: &str, data: &[u8]) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("atrcopy-rs-{}-{unique}-{name}", std::process::id()));
+        fs::write(&path, data).unwrap();
+        path
+    }
+
+    fn add_spec(path: PathBuf, atari_name: &str) -> AddSpec {
+        AddSpec {
+            host_path: path,
+            atari_name: Some(atari_name.to_string()),
+        }
+    }
 
     #[test]
     fn parses_128_byte_atari_dos_sector_tail() {
@@ -1007,6 +1173,127 @@ mod tests {
         assert_eq!(sector[253], 0x1e);
         assert_eq!(sector[254], 0x34);
         assert_eq!(sector[255], 253);
+    }
+
+    #[test]
+    fn add_uses_and_updates_dos_2_vtoc_bitmap() {
+        let mut image = blank_dos_image(256, 720, 0x02);
+        let mut used = image.vtoc_used_sector_map().unwrap();
+        used[4] = true;
+        image.write_vtoc_used_sector_map(&used).unwrap();
+        let free_before =
+            u16::from_le_bytes([image.sector(360).unwrap()[3], image.sector(360).unwrap()[4]]);
+
+        let host_path = temp_host_file("new.bin", b"new file");
+        let output = image
+            .add_files(&[add_spec(host_path.clone(), "NEW.BIN")])
+            .unwrap();
+        fs::remove_file(host_path).unwrap();
+
+        let entries = output.directory_from_range(361, 8).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].start_sector, 5);
+        assert_eq!(output.read_file(&entries[0]).unwrap(), b"new file");
+
+        let used = output.vtoc_used_sector_map().unwrap();
+        assert!(used[4], "an allocated but unreferenced sector was reused");
+        assert!(used[5], "the new file sector was left free in the VTOC");
+        assert!(!used[6], "the next DOS allocation should start at sector 6");
+        let free_after = u16::from_le_bytes([
+            output.sector(360).unwrap()[3],
+            output.sector(360).unwrap()[4],
+        ]);
+        assert_eq!(free_after, free_before - 1);
+    }
+
+    #[test]
+    fn replacing_file_releases_unused_tail_sectors_in_vtoc() {
+        let mut image = blank_dos_image(256, 720, 0x02);
+        image.write_file_chain(&[4, 5], &[0x55; 300], 0).unwrap();
+        image
+            .write_root_dir_slot(0, b"REPLACE BIN", 2, 4, 0x42)
+            .unwrap();
+        let mut used = image.vtoc_used_sector_map().unwrap();
+        used[4] = true;
+        used[5] = true;
+        image.write_vtoc_used_sector_map(&used).unwrap();
+        let free_before =
+            u16::from_le_bytes([image.sector(360).unwrap()[3], image.sector(360).unwrap()[4]]);
+
+        let host_path = temp_host_file("replacement.bin", b"short");
+        let output = image
+            .add_files(&[add_spec(host_path.clone(), "REPLACE.BIN")])
+            .unwrap();
+        fs::remove_file(host_path).unwrap();
+
+        let entry = &output.directory_from_range(361, 8).unwrap()[0];
+        assert_eq!((entry.start_sector, entry.sector_count), (4, 1));
+        assert_eq!(output.read_file(entry).unwrap(), b"short");
+        let used = output.vtoc_used_sector_map().unwrap();
+        assert!(used[4]);
+        assert!(!used[5], "the unused part of the old chain was leaked");
+        let free_after = u16::from_le_bytes([
+            output.sector(360).unwrap()[3],
+            output.sector(360).unwrap()[4],
+        ]);
+        assert_eq!(free_after, free_before + 1);
+    }
+
+    #[test]
+    fn add_repairs_vtoc_bits_for_existing_directory_chains() {
+        let mut image = blank_dos_image(256, 720, 0x02);
+        image.write_file_chain(&[4], b"existing", 0).unwrap();
+        image
+            .write_root_dir_slot(0, b"EXIST   BIN", 1, 4, 0x42)
+            .unwrap();
+        assert!(
+            !image.vtoc_used_sector_map().unwrap()[4],
+            "the fixture must reproduce the old atr-copy corruption"
+        );
+
+        let host_path = temp_host_file("new.bin", b"new");
+        let output = image
+            .add_files(&[add_spec(host_path.clone(), "NEW.BIN")])
+            .unwrap();
+        fs::remove_file(host_path).unwrap();
+
+        let entries = output.directory_from_range(361, 8).unwrap();
+        assert_eq!(entries[0].start_sector, 4);
+        assert_eq!(entries[1].start_sector, 5);
+        assert_eq!(output.read_file(&entries[0]).unwrap(), b"existing");
+        let used = output.vtoc_used_sector_map().unwrap();
+        assert!(
+            used[4],
+            "the pre-existing file was not repaired in the VTOC"
+        );
+        assert!(used[5], "the added file was not recorded in the VTOC");
+    }
+
+    #[test]
+    fn updates_extended_128_byte_mydos_vtoc_and_free_count() {
+        let mut image = blank_dos_image(128, 1040, 0x03);
+        let total_before = image.sector(360).unwrap()[1..3].to_vec();
+        let free_before =
+            u16::from_le_bytes([image.sector(360).unwrap()[3], image.sector(360).unwrap()[4]]);
+        let mut used = image.vtoc_used_sector_map().unwrap();
+        assert!(!used[1000]);
+        used[1000] = true;
+        image.write_vtoc_used_sector_map(&used).unwrap();
+
+        let updated = image.vtoc_used_sector_map().unwrap();
+        assert!(updated[1000]);
+        assert_eq!(image.sector(360).unwrap()[1..3], total_before);
+        let free_after =
+            u16::from_le_bytes([image.sector(360).unwrap()[3], image.sector(360).unwrap()[4]]);
+        assert_eq!(free_after, free_before - 1);
+        assert_eq!(image.sector(359).unwrap()[7] & 0x80, 0);
+    }
+
+    #[test]
+    fn rejects_ambiguous_extended_dos_2_vtoc() {
+        let image = image_with_vtoc(128, 1040, 0x02);
+        let error = image.vtoc_used_sector_map().unwrap_err();
+        assert!(error.contains("does not describe sector 944"), "{error}");
     }
 
     #[test]

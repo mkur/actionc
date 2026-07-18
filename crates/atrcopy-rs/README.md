@@ -38,7 +38,10 @@ Binary-looking files, such as `.COM`, are written raw. Use `--text=always` or
 leaving the source image untouched. Each file spec is `host-path` or
 `host-path=ATARI.EXT`; omitted Atari names are inferred from the host filename.
 Writing currently targets the root directory and uses Atari DOS/MyDOS sector
-chains.
+chains. Allocation follows the on-disk VTOC bitmap, reconciles live directory
+chains, and updates both the bitmap and free-sector count. Standard DOS 2 and
+MYDOS VTOCs are supported; ambiguous extended DOS 2.5 VTOCs are rejected
+instead of being modified.
 
 The ASCII encoding uses the same escape spellings accepted by `actionc`:
 
