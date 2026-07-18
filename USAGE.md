@@ -247,7 +247,9 @@ Helper options:
 - `--atari800 <path>` selects the emulator executable. The default is
   `$ATARI800` or `atari800`.
 - `--cart <rom>` attaches an Atari cartridge ROM when launching the emulator.
-- `--no-cart` ignores `ACTIONC_ATARI800_CART` and `ACTION_VM_CART`.
+- `--no-cart` launches with no cartridge, ignoring both the cartridge
+  environment variables and any cartridge saved in Atari800's user
+  configuration.
 - `--os <rom>` selects the Atari XL/XE OS ROM passed to `atari800`.
 - `--no-os` uses the emulator's configured/default OS ROM.
 - `--no-run` builds the ATR without launching `atari800`.

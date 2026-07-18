@@ -3,6 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
+source "$script_dir/lib/atari800-launch.sh"
 
 profile="legacy"
 backend="${ACTIONC_BACKEND:-classic}"
@@ -43,7 +44,7 @@ Options:
   --run-mode <disk|host>     disk: boot/attach ATR; host: atari800 -run object
   --atari800 <path>          atari800 executable, default: \$ATARI800 or atari800
   --cart <rom>               attach an Atari cartridge ROM when launching
-  --no-cart                  ignore ACTIONC_ATARI800_CART/ACTION_VM_CART
+  --no-cart                  launch without a configured or explicit cartridge
   --os <rom>                 Atari XL/XE OS ROM for atari800, default: roms/rev02.rom
   --no-os                    use atari800 config/default OS ROM
   --no-run                   build the ATR but do not start atari800
@@ -447,18 +448,8 @@ if [[ -n "$os_rom" ]]; then
   os_rom="$(abs_path "$os_rom")"
 fi
 
-atari800_args=()
-if [[ -n "$os_rom" ]]; then
-  atari800_args+=(-xlxe_rom "$os_rom")
-fi
-if [[ -n "$cart_rom" ]]; then
-  atari800_args+=(-cart "$cart_rom")
-fi
-if [[ -n "${ATARI800_ARGS:-}" ]]; then
-  extra_atari800_args=()
-  read -r -a extra_atari800_args <<< "$ATARI800_ARGS"
-  atari800_args+=("${extra_atari800_args[@]}")
-fi
+actionc_build_atari800_launch_args "$os_rom" "$cart_rom" "${ATARI800_ARGS:-}"
+atari800_args=("${ACTIONC_ATARI800_LAUNCH_ARGS[@]}")
 case "$run_mode" in
   disk)
     echo "==> atari800: boot/attach ATR"
