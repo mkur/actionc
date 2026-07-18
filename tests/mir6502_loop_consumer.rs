@@ -14,7 +14,11 @@ fn while_loop_condition_and_increment_avoid_spills() {
     assert!(formatted.contains("flags = cmp.b a lt #$03"));
     assert!(formatted.contains("branch fused b1:1 c_clear ? b2 : b3"));
     assert!(formatted.contains("inc.b global g0+0"));
-    assert!(bytes.windows(3).any(|bytes| bytes == [0xC9, 0x03, 0x90]));
+    assert!(
+        bytes
+            .windows(3)
+            .any(|bytes| matches!(bytes, [0xC9, 0x03, 0x90 | 0xB0]))
+    );
     assert!(bytes.windows(3).any(|bytes| bytes == [0xEE, 0x00, 0x30]));
 }
 
@@ -27,7 +31,11 @@ fn byte_for_loop_bound_and_body_consumers_avoid_spills() {
     assert!(formatted.contains("a =.b a add *global g0+0 carry_in=clear carry_out=ignore"));
     assert!(formatted.contains("store.b global g1+0, a"));
     assert!(formatted.contains("inc.b global g0+0"));
-    assert!(bytes.windows(3).any(|bytes| bytes == [0xC9, 0x03, 0x90]));
+    assert!(
+        bytes
+            .windows(3)
+            .any(|bytes| matches!(bytes, [0xC9, 0x03, 0x90 | 0xB0]))
+    );
     assert!(bytes.windows(3).any(|bytes| bytes == [0x6D, 0x00, 0x30]));
 }
 

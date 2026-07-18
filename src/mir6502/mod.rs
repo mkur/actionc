@@ -5243,27 +5243,19 @@ mod tests {
 
         assert_eq!(
             branch_program(MirFlagTest::ZSet),
-            vec![
-                0xA9, 0x05, 0xC9, 0x05, 0xF0, 0x03, 0x4C, 0x0A, 0x30, 0x60, 0x60
-            ]
+            vec![0xA9, 0x05, 0xC9, 0x05, 0xD0, 0x01, 0x60, 0x60]
         );
         assert_eq!(
             branch_program(MirFlagTest::ZClear),
-            vec![
-                0xA9, 0x05, 0xC9, 0x05, 0xD0, 0x03, 0x4C, 0x0A, 0x30, 0x60, 0x60
-            ]
+            vec![0xA9, 0x05, 0xC9, 0x05, 0xF0, 0x01, 0x60, 0x60]
         );
         assert_eq!(
             branch_program(MirFlagTest::CClear),
-            vec![
-                0xA9, 0x05, 0xC9, 0x05, 0x90, 0x03, 0x4C, 0x0A, 0x30, 0x60, 0x60
-            ]
+            vec![0xA9, 0x05, 0xC9, 0x05, 0xB0, 0x01, 0x60, 0x60]
         );
         assert_eq!(
             branch_program(MirFlagTest::CSet),
-            vec![
-                0xA9, 0x05, 0xC9, 0x05, 0xB0, 0x03, 0x4C, 0x0A, 0x30, 0x60, 0x60
-            ]
+            vec![0xA9, 0x05, 0xC9, 0x05, 0x90, 0x01, 0x60, 0x60]
         );
     }
 
@@ -5326,7 +5318,7 @@ mod tests {
         emit_program(&mir, &mut emitter).expect("emit zero compare branch MIR");
         assert_eq!(
             emitter.finish().expect("finish emitter"),
-            vec![0xA9, 0x00, 0xF0, 0x03, 0x4C, 0x08, 0x30, 0x60, 0x60]
+            vec![0xA9, 0x00, 0xD0, 0x01, 0x60, 0x60]
         );
     }
 
@@ -6372,7 +6364,175 @@ mod tests {
         let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit relaxed branch");
         let bytes = emitter.finish().expect("finish emitter");
-        assert_eq!(bytes, vec![0xF0, 0x03, 0x4C, 0x06, 0x30, 0x60, 0x60]);
+        assert_eq!(bytes, vec![0xD0, 0x01, 0x60, 0x60]);
+    }
+
+    #[test]
+    fn mir6502_emission_relaxes_any_flag_forward_branches() {
+        fn branch_program(then_is_next: bool) -> Vec<u8> {
+            let then_block = MirBlock {
+                id: MirBlockId(1),
+                label: "then".to_string(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Return,
+            };
+            let else_block = MirBlock {
+                id: MirBlockId(2),
+                label: "else".to_string(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Return,
+            };
+            let mut blocks = vec![MirBlock {
+                id: MirBlockId(0),
+                label: "branch".to_string(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Branch {
+                    cond: MirCond::AnyFlagTest([MirFlagTest::CClear, MirFlagTest::ZSet]),
+                    then_block: MirBlockId(1),
+                    else_block: MirBlockId(2),
+                },
+            }];
+            if then_is_next {
+                blocks.extend([then_block, else_block]);
+            } else {
+                blocks.extend([else_block, then_block]);
+            }
+            let mir = MirProgram {
+                statics: Vec::new(),
+                globals: Vec::new(),
+                routines: vec![MirRoutine {
+                    id: RoutineId(0),
+                    name: "Main".to_string(),
+                    abi: MirRoutineAbi::Action,
+                    frame: MirFrame::default(),
+                    temps: Vec::new(),
+                    blocks,
+                    effects: MirEffects::default(),
+                }],
+                machine_blocks: Vec::new(),
+                runtime_helpers: Vec::new(),
+            };
+
+            let mut emitter =
+                crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+            emit_program(&mir, &mut emitter).expect("emit any-flag forward branch");
+            emitter.finish().expect("finish emitter")
+        }
+
+        assert_eq!(
+            branch_program(false),
+            vec![0x90, 0x03, 0xF0, 0x01, 0x60, 0x60]
+        );
+        assert_eq!(
+            branch_program(true),
+            vec![0x90, 0x02, 0xD0, 0x01, 0x60, 0x60]
+        );
+    }
+
+    #[test]
+    fn mir6502_emission_keeps_far_forward_branch_over_jmp_shape() {
+        let mir = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![MirRoutine {
+                id: RoutineId(0),
+                name: "Main".to_string(),
+                abi: MirRoutineAbi::Action,
+                frame: MirFrame::default(),
+                temps: Vec::new(),
+                blocks: vec![
+                    MirBlock {
+                        id: MirBlockId(0),
+                        label: "branch".to_string(),
+                        ops: Vec::new(),
+                        terminator: MirTerminator::Branch {
+                            cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                            then_block: MirBlockId(2),
+                            else_block: MirBlockId(1),
+                        },
+                    },
+                    MirBlock {
+                        id: MirBlockId(1),
+                        label: "padding".to_string(),
+                        ops: vec![MirOp::MachineBlock {
+                            id: MirMachineBlockId(0),
+                            effects: MirEffects::default(),
+                        }],
+                        terminator: MirTerminator::Return,
+                    },
+                    MirBlock {
+                        id: MirBlockId(2),
+                        label: "then".to_string(),
+                        ops: Vec::new(),
+                        terminator: MirTerminator::Return,
+                    },
+                ],
+                effects: MirEffects::default(),
+            }],
+            machine_blocks: vec![MirMachineBlock {
+                id: MirMachineBlockId(0),
+                items: vec![MirMachineItem::Byte(0xEA); 127],
+            }],
+            runtime_helpers: Vec::new(),
+        };
+
+        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        emit_program(&mir, &mut emitter).expect("emit far forward branch MIR");
+        let bytes = emitter.finish().expect("finish emitter");
+        assert_eq!(&bytes[..5], &[0xD0, 0x03, 0x4C, 0x85, 0x30]);
+    }
+
+    #[test]
+    fn mir6502_emission_relaxes_self_enabling_forward_branch() {
+        let mir = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![MirRoutine {
+                id: RoutineId(0),
+                name: "Main".to_string(),
+                abi: MirRoutineAbi::Action,
+                frame: MirFrame::default(),
+                temps: Vec::new(),
+                blocks: vec![
+                    MirBlock {
+                        id: MirBlockId(0),
+                        label: "branch".to_string(),
+                        ops: Vec::new(),
+                        terminator: MirTerminator::Branch {
+                            cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                            then_block: MirBlockId(2),
+                            else_block: MirBlockId(1),
+                        },
+                    },
+                    MirBlock {
+                        id: MirBlockId(1),
+                        label: "padding".to_string(),
+                        ops: vec![MirOp::MachineBlock {
+                            id: MirMachineBlockId(0),
+                            effects: MirEffects::default(),
+                        }],
+                        terminator: MirTerminator::Return,
+                    },
+                    MirBlock {
+                        id: MirBlockId(2),
+                        label: "then".to_string(),
+                        ops: Vec::new(),
+                        terminator: MirTerminator::Return,
+                    },
+                ],
+                effects: MirEffects::default(),
+            }],
+            machine_blocks: vec![MirMachineBlock {
+                id: MirMachineBlockId(0),
+                items: vec![MirMachineItem::Byte(0xEA); 125],
+            }],
+            runtime_helpers: Vec::new(),
+        };
+
+        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        emit_program(&mir, &mut emitter).expect("emit self-enabling forward branch MIR");
+        let bytes = emitter.finish().expect("finish emitter");
+        assert_eq!(&bytes[..2], &[0xF0, 0x7E]);
     }
 
     #[test]
@@ -8081,7 +8241,7 @@ mod tests {
 
         assert!(bytes_contain(
             &output.bytes,
-            &[0xA5, 0xE0, 0xC5, 0x5C, 0x90]
+            &[0xA5, 0xE0, 0xC5, 0x5C, 0xB0]
         ));
     }
 

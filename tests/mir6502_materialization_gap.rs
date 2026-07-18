@@ -721,7 +721,11 @@ fn signed_int_relational_branch_materializes_sign_split() {
     assert!(!formatted.contains("cmp.w"));
     assert!(!formatted.contains("branch bool"));
     assert!(!formatted.contains(" v0"));
-    assert!(bytes.windows(2).any(|bytes| bytes[0] == 0x70));
+    assert!(
+        bytes
+            .windows(2)
+            .any(|bytes| matches!(bytes[0], 0x50 | 0x70))
+    );
     assert!(bytes.windows(2).any(|bytes| bytes[0] == 0x10));
     assert!(bytes.windows(2).any(|bytes| bytes[0] == 0x30));
 }
@@ -756,8 +760,8 @@ fn compare_or_with_call_materializes_compare_temps_to_bytes() {
     );
     assert!(
         bytes
-            .windows(6)
-            .any(|bytes| matches!(bytes, [0x0D, _, _, 0xD0, _, 0x4C]))
+            .windows(5)
+            .any(|bytes| matches!(bytes, [0x0D, _, _, 0xD0 | 0xF0, _]))
     );
     assert!(
         bytes

@@ -5,6 +5,9 @@ program. The small original-compiler probes catch narrow codegen shapes; TN
 catches broad layout regressions, include handling, and routine-local storage
 changes that only become visible in a substantial source file.
 
+The current MIR6502 listing baseline and ranked optimization backlog are in
+[`mir6502-optimization-opportunities.md`](mir6502-optimization-opportunities.md).
+
 Run from the `actionc` repo root:
 
 ```sh

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::codegen::native_emitter::NativeTrackedEmitter;
 use crate::codegen::{
@@ -49,18 +49,20 @@ pub(super) fn emit_program(
     let mut deferred_base = inline_probe.storage_end;
     let mut layout = inline_probe;
     let mut routine_code_size = 0;
+    let mut branch_plan = MirBranchRelaxationPlan::default();
     let mut converged = false;
     for _ in 0..16 {
         let mut iteration_diagnostics = Vec::new();
         let candidate =
             MirObjectLayout::new(mir, origin, Some(deferred_base), &mut iteration_diagnostics);
-        let emitted_size =
+        let (emitted_size, candidate_branch_plan) =
             emitted_size_for_layout(mir, origin, candidate.clone(), &mut iteration_diagnostics);
         let storage_size = candidate.storage_end.saturating_sub(origin);
         let candidate_code_size = emitted_size.saturating_sub(storage_size);
         let next_deferred_base = candidate.storage_end.saturating_add(candidate_code_size);
         layout = candidate;
         routine_code_size = candidate_code_size;
+        branch_plan = candidate_branch_plan;
         if next_deferred_base <= deferred_base {
             layout_diagnostics.append(&mut iteration_diagnostics);
             converged = true;
@@ -78,7 +80,7 @@ pub(super) fn emit_program(
     layout
         .plan
         .push(MirSegmentKind::Code, layout.storage_end, routine_code_size);
-    let mut ctx = MirEmitContext::with_layout(mir, origin, layout);
+    let mut ctx = MirEmitContext::with_layout(mir, origin, layout, branch_plan);
     ctx.diagnostics.append(&mut layout_diagnostics);
     emit_storage(&mut ctx, emitter);
     for routine in &mir.routines {
@@ -96,15 +98,230 @@ fn emitted_size_for_layout(
     origin: u16,
     layout: MirObjectLayout,
     diagnostics: &mut Vec<MirDiagnostic>,
-) -> u16 {
-    let mut ctx = MirEmitContext::with_layout(mir, origin, layout);
+) -> (u16, MirBranchRelaxationPlan) {
+    let mut branch_plan = MirBranchRelaxationPlan::default();
+    let branch_count = mir
+        .routines
+        .iter()
+        .flat_map(|routine| &routine.blocks)
+        .filter(|block| matches!(block.terminator, MirTerminator::Branch { .. }))
+        .count();
+
+    for _ in 0..=branch_count.saturating_mul(2) {
+        let (emitted_size, measurements, mut probe_diagnostics) =
+            emission_probe_for_layout(mir, origin, layout.clone(), branch_plan.clone());
+        if extend_branch_relaxation_plan(mir, &measurements, &mut branch_plan) {
+            continue;
+        }
+        if let Some(target) =
+            find_self_enabling_branch_relaxation(mir, origin, &layout, &measurements, &branch_plan)
+        {
+            branch_plan.direct_targets.insert(target);
+            continue;
+        }
+        diagnostics.append(&mut probe_diagnostics);
+        return (emitted_size, branch_plan);
+    }
+
+    diagnostics.push(MirDiagnostic {
+        routine: None,
+        block: None,
+        message: "MIR forward-branch relaxation did not converge".to_string(),
+    });
+    let (emitted_size, _, mut probe_diagnostics) =
+        emission_probe_for_layout(mir, origin, layout, branch_plan.clone());
+    diagnostics.append(&mut probe_diagnostics);
+    (emitted_size, branch_plan)
+}
+
+fn emission_probe_for_layout(
+    mir: &MirProgram,
+    origin: u16,
+    layout: MirObjectLayout,
+    branch_plan: MirBranchRelaxationPlan,
+) -> (u16, MirEmissionMeasurements, Vec<MirDiagnostic>) {
+    let mut ctx = MirEmitContext::with_layout(mir, origin, layout, branch_plan);
     let mut emitter = NativeTrackedEmitter::with_origin(origin);
     emit_storage(&mut ctx, &mut emitter);
     for routine in &mir.routines {
         emit_routine(&mut ctx, routine, &mut emitter);
     }
-    diagnostics.append(&mut ctx.diagnostics);
-    emitter.position() as u16
+    (emitter.position() as u16, ctx.measurements, ctx.diagnostics)
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+struct MirBranchRelaxationPlan {
+    direct_targets: HashSet<(RoutineId, MirBlockId, MirBlockId)>,
+}
+
+impl MirBranchRelaxationPlan {
+    fn contains(&self, routine: RoutineId, block: MirBlockId, target: MirBlockId) -> bool {
+        self.direct_targets.contains(&(routine, block, target))
+    }
+}
+
+#[derive(Debug, Default)]
+struct MirEmissionMeasurements {
+    block_positions: HashMap<(RoutineId, MirBlockId), usize>,
+    branch_positions: HashMap<(RoutineId, MirBlockId), usize>,
+}
+
+fn extend_branch_relaxation_plan(
+    mir: &MirProgram,
+    measurements: &MirEmissionMeasurements,
+    plan: &mut MirBranchRelaxationPlan,
+) -> bool {
+    let mut changed = false;
+    for routine in &mir.routines {
+        for block in &routine.blocks {
+            let MirTerminator::Branch {
+                cond,
+                then_block,
+                else_block,
+            } = &block.terminator
+            else {
+                continue;
+            };
+            let Some(&branch_position) = measurements.branch_positions.get(&(routine.id, block.id))
+            else {
+                continue;
+            };
+            let Some(&then_position) = measurements.block_positions.get(&(routine.id, *then_block))
+            else {
+                continue;
+            };
+            let Some(&else_position) = measurements.block_positions.get(&(routine.id, *else_block))
+            else {
+                continue;
+            };
+
+            let then_fits = measured_branch_target_fits(
+                cond,
+                *then_block,
+                *then_block,
+                *else_block,
+                branch_position,
+                then_position,
+            );
+            if then_fits {
+                changed |= plan
+                    .direct_targets
+                    .insert((routine.id, block.id, *then_block));
+            }
+            if else_block != then_block
+                && measured_branch_target_fits(
+                    cond,
+                    *else_block,
+                    *then_block,
+                    *else_block,
+                    branch_position,
+                    else_position,
+                )
+            {
+                changed |= plan
+                    .direct_targets
+                    .insert((routine.id, block.id, *else_block));
+            }
+        }
+    }
+    changed
+}
+
+fn find_self_enabling_branch_relaxation(
+    mir: &MirProgram,
+    origin: u16,
+    layout: &MirObjectLayout,
+    measurements: &MirEmissionMeasurements,
+    plan: &MirBranchRelaxationPlan,
+) -> Option<(RoutineId, MirBlockId, MirBlockId)> {
+    const MAX_SELF_RELAXATION_SAVING: isize = 3;
+
+    for routine in &mir.routines {
+        for block in &routine.blocks {
+            let MirTerminator::Branch {
+                cond,
+                then_block,
+                else_block,
+            } = &block.terminator
+            else {
+                continue;
+            };
+            let Some(&branch_position) = measurements.branch_positions.get(&(routine.id, block.id))
+            else {
+                continue;
+            };
+            for (is_then_target, target) in [(true, *then_block), (false, *else_block)] {
+                let key = (routine.id, block.id, target);
+                if plan.direct_targets.contains(&key) || !is_then_target && target == *then_block {
+                    continue;
+                }
+                let Some(&target_position) =
+                    measurements.block_positions.get(&(routine.id, target))
+                else {
+                    continue;
+                };
+                let latest_branch_position =
+                    if matches!(cond, MirCond::AnyFlagTest(_)) && target == *else_block {
+                        branch_position.saturating_add(2)
+                    } else {
+                        branch_position
+                    };
+                let offset = target_position as isize - (latest_branch_position as isize + 2);
+                if !(128..=127 + MAX_SELF_RELAXATION_SAVING).contains(&offset) {
+                    continue;
+                }
+
+                let mut trial_plan = plan.clone();
+                trial_plan.direct_targets.insert(key);
+                let (_, trial_measurements, _) =
+                    emission_probe_for_layout(mir, origin, layout.clone(), trial_plan);
+                let Some(&trial_branch_position) = trial_measurements
+                    .branch_positions
+                    .get(&(routine.id, block.id))
+                else {
+                    continue;
+                };
+                let Some(&trial_target_position) = trial_measurements
+                    .block_positions
+                    .get(&(routine.id, target))
+                else {
+                    continue;
+                };
+                if measured_branch_target_fits(
+                    cond,
+                    target,
+                    *then_block,
+                    *else_block,
+                    trial_branch_position,
+                    trial_target_position,
+                ) {
+                    return Some(key);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn measured_branch_target_fits(
+    cond: &MirCond,
+    target: MirBlockId,
+    then_block: MirBlockId,
+    else_block: MirBlockId,
+    branch_position: usize,
+    target_position: usize,
+) -> bool {
+    if matches!(cond, MirCond::AnyFlagTest(_)) && target == then_block {
+        branch_offset_fits(branch_position, target_position)
+            && branch_offset_fits(branch_position.saturating_add(2), target_position)
+    } else {
+        let branch_position = if matches!(cond, MirCond::AnyFlagTest(_)) && target == else_block {
+            branch_position.saturating_add(2)
+        } else {
+            branch_position
+        };
+        branch_offset_fits(branch_position, target_position)
+    }
 }
 
 struct MirEmitContext<'a> {
@@ -114,10 +331,17 @@ struct MirEmitContext<'a> {
     summary: MirEmissionSummary,
     mir: &'a MirProgram,
     indirect_call_counter: u32,
+    branch_plan: MirBranchRelaxationPlan,
+    measurements: MirEmissionMeasurements,
 }
 
 impl<'a> MirEmitContext<'a> {
-    fn with_layout(mir: &'a MirProgram, origin: u16, layout: MirObjectLayout) -> Self {
+    fn with_layout(
+        mir: &'a MirProgram,
+        origin: u16,
+        layout: MirObjectLayout,
+        branch_plan: MirBranchRelaxationPlan,
+    ) -> Self {
         let summary = MirEmissionSummary {
             storage_symbols: layout.storage_symbols(mir),
             skipped_ranges: layout.plan.skipped_ranges(),
@@ -130,6 +354,8 @@ impl<'a> MirEmitContext<'a> {
             summary,
             mir,
             indirect_call_counter: 0,
+            branch_plan,
+            measurements: MirEmissionMeasurements::default(),
         }
     }
 }
@@ -1153,6 +1379,9 @@ fn emit_routine(
         .routine_signatures
         .push(mir_routine_signature(routine));
     for (index, block) in routine.blocks.iter().enumerate() {
+        ctx.measurements
+            .block_positions
+            .insert((routine.id, block.id), emitter.position());
         bind_label(
             ctx,
             emitter,
@@ -2462,9 +2691,13 @@ fn emit_terminator(
             then_block,
             else_block,
         } => {
+            ctx.measurements
+                .branch_positions
+                .insert((routine, block), emitter.position());
             if emit_direct_branch_if_in_range(
                 ctx,
                 routine,
+                block,
                 cond,
                 *then_block,
                 *else_block,
@@ -2490,6 +2723,7 @@ fn emit_terminator(
 fn emit_direct_branch_if_in_range(
     ctx: &mut MirEmitContext<'_>,
     routine: RoutineId,
+    block: MirBlockId,
     cond: &MirCond,
     then_block: MirBlockId,
     else_block: MirBlockId,
@@ -2503,11 +2737,77 @@ fn emit_direct_branch_if_in_range(
         let Some(second_opcode) = branch_flag_opcode(tests[1].clone()) else {
             return false;
         };
-        if branch_target_is_in_range(ctx, emitter, routine, then_block, next_block) {
+        let then_is_in_range = branch_target_is_in_range(
+            ctx,
+            emitter,
+            routine,
+            block,
+            then_block,
+            next_block,
+            emitter.position(),
+        ) && branch_target_is_in_range(
+            ctx,
+            emitter,
+            routine,
+            block,
+            then_block,
+            next_block,
+            emitter.position().saturating_add(2),
+        );
+        let else_is_in_range = branch_target_is_in_range(
+            ctx,
+            emitter,
+            routine,
+            block,
+            else_block,
+            next_block,
+            emitter.position().saturating_add(2),
+        );
+        if Some(else_block) == next_block && then_is_in_range {
             let then_label = ctx.layout.block_label(routine, then_block);
             emitter.emit_branch_label(first_opcode, then_label.clone(), SYNTHETIC_SPAN);
             emitter.emit_branch_label(second_opcode, then_label, SYNTHETIC_SPAN);
-            emitter.emit_jmp_label(ctx.layout.block_label(routine, else_block), SYNTHETIC_SPAN);
+        } else if Some(then_block) == next_block && else_is_in_range {
+            let Some(inverted_second_opcode) = invert_branch_opcode(second_opcode) else {
+                return false;
+            };
+            emitter.emit_branch_label(
+                first_opcode,
+                ctx.layout.block_label(routine, then_block),
+                SYNTHETIC_SPAN,
+            );
+            emitter.emit_branch_label(
+                inverted_second_opcode,
+                ctx.layout.block_label(routine, else_block),
+                SYNTHETIC_SPAN,
+            );
+        } else if then_is_in_range {
+            let then_label = ctx.layout.block_label(routine, then_block);
+            emitter.emit_branch_label(first_opcode, then_label.clone(), SYNTHETIC_SPAN);
+            emitter.emit_branch_label(second_opcode, then_label, SYNTHETIC_SPAN);
+            if Some(else_block) != next_block {
+                emitter.emit_jmp_label(ctx.layout.block_label(routine, else_block), SYNTHETIC_SPAN);
+            }
+        } else if else_is_in_range {
+            let Some(inverted_second_opcode) = invert_branch_opcode(second_opcode) else {
+                return false;
+            };
+            let then_jump_label = format!(
+                "__mir6502_branch_then_{}_{}_{}",
+                routine.0,
+                then_block.0,
+                emitter.position()
+            );
+            emitter.emit_branch_label(first_opcode, then_jump_label.clone(), SYNTHETIC_SPAN);
+            emitter.emit_branch_label(
+                inverted_second_opcode,
+                ctx.layout.block_label(routine, else_block),
+                SYNTHETIC_SPAN,
+            );
+            bind_label(ctx, emitter, routine, None, then_jump_label);
+            if Some(then_block) != next_block {
+                emitter.emit_jmp_label(ctx.layout.block_label(routine, then_block), SYNTHETIC_SPAN);
+            }
         } else {
             let then_jump_label = format!(
                 "__mir6502_branch_then_{}_{}_{}",
@@ -2523,26 +2823,66 @@ fn emit_direct_branch_if_in_range(
         }
         return true;
     }
-    if let Some(opcode) = branch_cond_opcode(cond)
-        && branch_target_is_in_range(ctx, emitter, routine, then_block, next_block)
+    let then_is_in_range = branch_target_is_in_range(
+        ctx,
+        emitter,
+        routine,
+        block,
+        then_block,
+        next_block,
+        emitter.position(),
+    );
+    let else_is_in_range = branch_target_is_in_range(
+        ctx,
+        emitter,
+        routine,
+        block,
+        else_block,
+        next_block,
+        emitter.position(),
+    );
+    if Some(else_block) == next_block
+        && then_is_in_range
+        && let Some(opcode) = branch_cond_opcode(cond)
     {
         emitter.emit_branch_label(
             opcode,
             ctx.layout.block_label(routine, then_block),
             SYNTHETIC_SPAN,
         );
-        emitter.emit_jmp_label(ctx.layout.block_label(routine, else_block), SYNTHETIC_SPAN);
         return true;
     }
-    if let Some(opcode) = inverted_branch_opcode(cond)
-        && branch_target_is_in_range(ctx, emitter, routine, else_block, next_block)
+    if Some(then_block) == next_block
+        && else_is_in_range
+        && let Some(opcode) = inverted_branch_opcode(cond)
     {
         emitter.emit_branch_label(
             opcode,
             ctx.layout.block_label(routine, else_block),
             SYNTHETIC_SPAN,
         );
-        emitter.emit_jmp_label(ctx.layout.block_label(routine, then_block), SYNTHETIC_SPAN);
+        return true;
+    }
+    if then_is_in_range && let Some(opcode) = branch_cond_opcode(cond) {
+        emitter.emit_branch_label(
+            opcode,
+            ctx.layout.block_label(routine, then_block),
+            SYNTHETIC_SPAN,
+        );
+        if Some(else_block) != next_block {
+            emitter.emit_jmp_label(ctx.layout.block_label(routine, else_block), SYNTHETIC_SPAN);
+        }
+        return true;
+    }
+    if else_is_in_range && let Some(opcode) = inverted_branch_opcode(cond) {
+        emitter.emit_branch_label(
+            opcode,
+            ctx.layout.block_label(routine, else_block),
+            SYNTHETIC_SPAN,
+        );
+        if Some(then_block) != next_block {
+            emitter.emit_jmp_label(ctx.layout.block_label(routine, then_block), SYNTHETIC_SPAN);
+        }
         return true;
     }
     false
@@ -2552,8 +2892,10 @@ fn branch_target_is_in_range(
     ctx: &MirEmitContext<'_>,
     emitter: &NativeTrackedEmitter,
     routine: RoutineId,
+    block: MirBlockId,
     target: MirBlockId,
     next_block: Option<MirBlockId>,
+    branch_position: usize,
 ) -> bool {
     if Some(target) == next_block {
         return true;
@@ -2561,7 +2903,22 @@ fn branch_target_is_in_range(
     let label = ctx.layout.block_label(routine, target);
     emitter
         .label_position(&label)
-        .is_some_and(|position| branch_offset_fits(emitter.position(), position))
+        .is_some_and(|position| branch_offset_fits(branch_position, position))
+        || ctx.branch_plan.contains(routine, block, target)
+}
+
+fn invert_branch_opcode(opcode: u8) -> Option<u8> {
+    match opcode {
+        opcode::BEQ_REL => Some(opcode::BNE_REL),
+        opcode::BNE_REL => Some(opcode::BEQ_REL),
+        opcode::BCS_REL => Some(opcode::BCC_REL),
+        opcode::BCC_REL => Some(opcode::BCS_REL),
+        opcode::BMI_REL => Some(opcode::BPL_REL),
+        opcode::BPL_REL => Some(opcode::BMI_REL),
+        opcode::BVS_REL => Some(opcode::BVC_REL),
+        opcode::BVC_REL => Some(opcode::BVS_REL),
+        _ => None,
+    }
 }
 
 fn branch_offset_fits(branch_position: usize, target_position: usize) -> bool {
