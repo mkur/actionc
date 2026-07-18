@@ -346,7 +346,7 @@ impl Generator {
         let index_width = self.expr_size(index);
         let index_range = self.expr_value_range_fact(index);
         let byte_index = index_width == Some(1) || index_range.is_byte();
-        let (mode, reject_reason) = if !effects.is_read_only() {
+        let (mode, reject_reason) = if !effects.is_read_only() || effects.reads_volatile {
             (
                 IndexAddressMode::Unsupported,
                 Some(IndexAddressRejectReason::IndexHasSideEffects),

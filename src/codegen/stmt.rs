@@ -857,6 +857,12 @@ impl Generator {
         if self.emit_same_effective_address_call_assignment(target, value, span) {
             return;
         }
+        if self.emit_scaled_word_two_address_assignment(target, value) {
+            return;
+        }
+        if self.emit_computed_scaled_word_constant_assignment(target, value) {
+            return;
+        }
         if self.emit_effective_address_assignment(target, value) {
             return;
         }

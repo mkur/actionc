@@ -1619,8 +1619,12 @@ fn modern_absolute_card_array_scaled_index_keeps_carry_live_through_base_loads()
             opcode::STA_ZP,
             runtime_zp::ARRAY_ADDR.offset(1).address(),
         ]));
-    assert!(!output.bytes.contains(&opcode::PHP));
-    assert!(!output.bytes.contains(&opcode::PLP));
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP])
+    );
 }
 
 #[test]
@@ -2003,6 +2007,200 @@ fn modern_word_index_call_arg_loads_with_effective_y() {
             runtime_zp::ARGS.offset(1).address(),
             opcode::LDX_ZP
         ]));
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP])
+    );
+}
+
+#[test]
+fn modern_computed_word_index_call_arg_uses_scaled_indirect_y_once() {
+    let output = generate_profile_source_with_origin(
+        "CARD ARRAY words BYTE i CARD out CARD FUNC Identity(CARD value) RETURN(value) PROC Main() words=$4001 i=128 out=Identity(words(i-1)) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert_eq!(
+        output
+            .bytes
+            .windows(2)
+            .filter(|bytes| *bytes == [opcode::ASL_A, opcode::TAY])
+            .count(),
+        1
+    );
+    assert_eq!(
+        output
+            .bytes
+            .windows(2)
+            .filter(|bytes| *bytes == [opcode::LDA_IZY, runtime_zp::ARRAY_ADDR.address()])
+            .count(),
+        2
+    );
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP])
+    );
+    assert!(output.proofs.iter().any(|proof| {
+        proof.kind == "index-address"
+            && proof.summary.contains("computed byte index")
+            && proof.summary.contains("scaled indirect-Y")
+    }));
+}
+
+#[test]
+fn modern_scaled_word_call_arg_records_volatile_index_rejection() {
+    let output = generate_profile_source_with_origin(
+        "BYTE i=$82 CARD ARRAY words PROC Sink(CARD value) RETURN PROC Main() words=$4001 Sink(words(i)) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.proof_attempts.iter().any(|attempt| {
+        !attempt.accepted
+            && attempt.kind == "index-address"
+            && attempt.summary.contains("IndexHasSideEffects")
+    }));
+    assert!(
+        output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP])
+    );
+}
+
+#[test]
+fn modern_word_plus_constant_call_arg_uses_scaled_indirect_y() {
+    let output = generate_profile_source_with_origin(
+        "CARD ARRAY words BYTE i CARD out CARD FUNC AddOne(CARD value) RETURN(value) PROC Main() words=$4001 i=128 out=AddOne(words(i)+1) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(
+        output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::TAY])
+    );
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP])
+    );
+    assert!(output.optimizations.iter().any(|optimization| {
+        optimization.kind == CodegenOptimizationKind::EffectiveAddressLowered
+            && optimization.message.contains("word-plus-constant")
+    }));
+}
+
+#[test]
+fn modern_abi_spilled_word_index_uses_scaled_indirect_y() {
+    let output = generate_profile_source_with_origin(
+        "CARD ARRAY words BYTE i PROC Sink(BYTE a,b,c CARD value) RETURN PROC Main() words=$4001 i=128 Sink(1,2,3,words(i)) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(
+        output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::TAY])
+    );
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP])
+    );
+    assert!(
+        output
+            .bytes
+            .windows(2)
+            .any(|bytes| { bytes == [opcode::STA_ZP, runtime_zp::ARGS.offset(4).address(),] })
+    );
+}
+
+#[test]
+fn modern_two_address_word_assignment_stages_then_scales_both_addresses() {
+    let output = generate_profile_source_with_origin(
+        "CARD ARRAY dst CARD ARRAY src BYTE i,j PROC Main() dst=$5001 src=$6001 i=128 j=126 dst(i)=src(j+1) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert_eq!(
+        output
+            .bytes
+            .windows(2)
+            .filter(|bytes| *bytes == [opcode::ASL_A, opcode::TAY])
+            .count(),
+        2
+    );
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP])
+    );
+    assert_eq!(
+        output
+            .bytes
+            .iter()
+            .filter(|byte| **byte == opcode::PHA)
+            .count(),
+        2
+    );
+    assert_eq!(
+        output
+            .bytes
+            .iter()
+            .filter(|byte| **byte == opcode::PLA)
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn modern_array_pointer_value_store_stages_before_scaled_destination() {
+    let output = generate_profile_source_with_origin(
+        "BYTE ARRAY path CARD ARRAY slots BYTE i PROC Main() path=$6001 slots=$5001 i=128 slots(i)=path RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(
+        output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::TAY])
+    );
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP])
+    );
+    assert!(output.bytes.contains(&opcode::PHA));
+    assert!(output.bytes.contains(&opcode::PLA));
+    assert!(output.bytes.contains(&opcode::TAX));
+    assert!(output.bytes.contains(&opcode::TXA));
+    assert!(output.optimizations.iter().any(|optimization| {
+        optimization.kind == CodegenOptimizationKind::EffectiveAddressLowered
+            && optimization.message.contains("array-pointer value")
+    }));
 }
 
 #[test]
@@ -11736,6 +11934,32 @@ fn index_address_proof_rejects_effectful_indexes() {
 
     let proof = generator.index_address_proof(&expr).unwrap();
 
+    assert_eq!(proof.mode, IndexAddressMode::Unsupported);
+    assert_eq!(
+        proof.reject_reason,
+        Some(IndexAddressRejectReason::IndexHasSideEffects)
+    );
+}
+
+#[test]
+fn index_address_proof_rejects_volatile_indexes() {
+    let mut generator = test_generator(CodegenProfile::Modern);
+    generator.layout.symbols.insert(
+        normalize_name("words"),
+        StorageSlot::array(0x4000, 2, ArrayStorage::Inline),
+    );
+    generator
+        .layout
+        .symbols
+        .insert(normalize_name("i"), StorageSlot::zero_page(0x82, 1));
+    let expr = test_expr(ExprKind::Call {
+        callee: Box::new(test_name_expr("words")),
+        args: vec![test_name_expr("i")],
+    });
+
+    let proof = generator.index_address_proof(&expr).unwrap();
+
+    assert!(proof.effects.reads_volatile);
     assert_eq!(proof.mode, IndexAddressMode::Unsupported);
     assert_eq!(
         proof.reject_reason,

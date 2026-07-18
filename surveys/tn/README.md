@@ -18,9 +18,10 @@ profile exceeds its size budget.
 
 The modern budget is wider because the maintained TN source is newer than the
 archived 1.22 source used by the original baseline and intentionally uses a
-different optimized layout. Its default is currently +/- 1536 bytes. After
-modern routine-entry trampoline elision, the accepted load-size delta is -1461
-bytes (10666 generated versus 12127 in the original baseline).
+different optimized layout. Its default is currently +/- 1664 bytes. After
+modern routine-entry trampoline elision and scaled `(zp),Y` word-index
+lowering, the accepted load-size delta is -1569 bytes (10558 generated versus
+12127 in the original baseline).
 
 Default inputs:
 

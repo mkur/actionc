@@ -1089,6 +1089,11 @@ impl Generator {
         };
         let source = if let Some(value) = self.constant_u16(value) {
             EffectiveAddressStoreSource::Constant(value)
+        } else if let Some(slot) = self.array_pointer_value_slot(value) {
+            if slot_overlaps_zero_page(slot, address.pointer, 2) {
+                return false;
+            }
+            EffectiveAddressStoreSource::ArrayValue(slot)
         } else {
             let Some(slot) = self.direct_scalar_slot(value) else {
                 return false;
@@ -1098,6 +1103,29 @@ impl Generator {
             }
             EffectiveAddressStoreSource::Slot(slot)
         };
+
+        if address.element_size == 2 && matches!(source, EffectiveAddressStoreSource::ArrayValue(_))
+        {
+            self.emit_effective_address_store_source_byte(source, 1);
+            self.emit_tax();
+            self.emit_effective_address_store_source_byte(source, 0);
+            self.emitter.emit_pha();
+            if !self.emit_effective_address_pointer_and_y(address, 0) {
+                return false;
+            }
+            self.emit_pla();
+            self.emit_store_prepared_indirect_y(address.pointer);
+            self.emit_iny();
+            self.emit_txa();
+            self.emit_store_prepared_indirect_y(address.pointer);
+            self.record_modern_optimization(
+                CodegenOptimizationKind::EffectiveAddressLowered,
+                0,
+                Some(target.span),
+                "staged an array-pointer value before a scaled (zp),Y word store",
+            );
+            return true;
+        }
 
         if !self.emit_effective_address_pointer_and_y(address, 0) {
             return false;
@@ -1114,6 +1142,88 @@ impl Generator {
             if address.element_size == 1 { 4 } else { 8 },
             Some(target.span),
             "stored through byte-indexed effective address without materializing element pointer",
+        );
+        true
+    }
+
+    pub(super) fn emit_computed_scaled_word_constant_assignment(
+        &mut self,
+        target: &Expr,
+        value: &Expr,
+    ) -> bool {
+        let Some(value) = self.constant_u16(value) else {
+            return false;
+        };
+        if self
+            .byte_index_effective_address(target, runtime_zp::ARRAY_ADDR)
+            .is_some()
+            || self
+                .scaled_word_effective_address_parts(target, runtime_zp::ARRAY_ADDR)
+                .is_none()
+        {
+            return false;
+        }
+        if !self.emit_scaled_word_effective_address_pointer_and_y(target, runtime_zp::ARRAY_ADDR, 0)
+        {
+            return false;
+        }
+        self.emit_lda_immediate(Immediate::new(value), 0);
+        self.emit_store_prepared_indirect_y(runtime_zp::ARRAY_ADDR);
+        self.emit_iny();
+        self.emit_lda_immediate(Immediate::new(value), 1);
+        self.emit_store_prepared_indirect_y(runtime_zp::ARRAY_ADDR);
+        self.record_modern_optimization(
+            CodegenOptimizationKind::EffectiveAddressLowered,
+            4,
+            Some(target.span),
+            "stored a constant through a computed scaled (zp),Y word address",
+        );
+        true
+    }
+
+    pub(super) fn emit_scaled_word_two_address_assignment(
+        &mut self,
+        target: &Expr,
+        value: &Expr,
+    ) -> bool {
+        if self
+            .scaled_word_effective_address_parts(target, runtime_zp::ARRAY_ADDR)
+            .is_none()
+            || self
+                .scaled_word_effective_address_parts(value, runtime_zp::ELEMENT_ADDR)
+                .is_none()
+        {
+            return false;
+        }
+
+        if !self.emit_scaled_word_effective_address_pointer_and_y(
+            value,
+            runtime_zp::ELEMENT_ADDR,
+            0,
+        ) {
+            return false;
+        }
+        self.emit_iny();
+        self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ELEMENT_ADDR));
+        self.emitter.emit_pha();
+        self.emit_dey();
+        self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ELEMENT_ADDR));
+        self.emitter.emit_pha();
+
+        if !self.emit_scaled_word_effective_address_pointer_and_y(target, runtime_zp::ARRAY_ADDR, 0)
+        {
+            return false;
+        }
+        self.emit_pla();
+        self.emit_store_prepared_indirect_y(runtime_zp::ARRAY_ADDR);
+        self.emit_iny();
+        self.emit_pla();
+        self.emit_store_prepared_indirect_y(runtime_zp::ARRAY_ADDR);
+        self.record_modern_optimization(
+            CodegenOptimizationKind::EffectiveAddressLowered,
+            4,
+            Some(target.span),
+            "staged a word before a two-address scaled (zp),Y assignment",
         );
         true
     }
@@ -1194,6 +1304,9 @@ impl Generator {
                 self.emit_lda_slot_byte_value_only(slot, byte_index);
             }
             EffectiveAddressStoreSource::Slot(_) => self.emit_lda_imm(0),
+            EffectiveAddressStoreSource::ArrayValue(slot) => {
+                self.emit_load_array_pointer_value_slot_byte(slot, byte_index);
+            }
         }
     }
 

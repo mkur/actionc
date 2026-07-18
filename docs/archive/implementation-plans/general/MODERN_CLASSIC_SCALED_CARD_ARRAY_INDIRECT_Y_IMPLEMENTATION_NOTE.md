@@ -1,6 +1,6 @@
 # Modern/Classic Scaled CARD-Array `(zp),Y` Implementation Note
 
-Status: in progress; proof model and existing-consumer emission implemented
+Status: implemented and validated
 
 Date: 2026-07-18
 
@@ -13,14 +13,24 @@ Implementation progress:
   indexes.
 - Slice 2 is implemented for the six existing effective-address consumers:
   the base high byte is corrected with the live `ASL` carry and stored once.
-  This reduces the TN code range from 10,654 to 10,642 bytes.
+  This reduced the TN code range from 10,654 to 10,642 bytes.
+- Slices 3 and 4 are implemented for direct and computed byte-index word
+  consumers. Word call arguments, word-plus-constant arguments, ABI spills,
+  scalar loads, constant stores, and array-pointer-value stores now share the
+  carry-preserving scaled-address preparation.
+- Slice 5 is implemented for profitable two-address assignments by staging the
+  complete source word before preparing the destination. Twenty-five of the 28
+  remaining TN full-address sites migrated; three zero-net-gain transfers keep
+  the established lowering.
+- The final TN modern/classic code segment is 10,546 bytes and the load file is
+  10,558 bytes, both 96 bytes smaller than the pre-Slice-3 baseline.
 - The apparent garbled-screen regression was traced to Atari800 inheriting an
   Atari 400/800 machine configuration while the runner only supplied an XL/XE
   ROM path. It was not caused by the emitted instruction change. The runner
   now selects XL/XE explicitly and isolates saved cartridge state for
   `--no-cart` runs.
-- The generic word call-argument and assignment consumers in Slices 3 through
-  5 remain pending.
+- A runtime boundary fixture now verifies indexes 0, 1, 127, 128, and 255 on
+  an unaligned base, plus direct-call, computed-index, and typed-pointer paths.
 
 ## Objective
 
@@ -53,8 +63,8 @@ cargo run --quiet --bin actionc-emit -- \
 ```
 
 The original roadmap estimate was 33 full-address sequences and therefore a
-nominal opportunity of about 132 static bytes at four bytes per site. At
-current commit `f5632f4`, a fresh listing contains 28 remaining adjacent
+nominal opportunity of about 132 static bytes at four bytes per site. Before
+Slices 3 through 5, a fresh listing at `eafa82a` contained 28 adjacent
 `ASL`/`PHP` full-address sequences:
 
 | Routine | Remaining full-address sites |
@@ -68,19 +78,22 @@ current commit `f5632f4`, a fresh listing contains 28 remaining adjacent
 | `Delete`, `DrawWinFrame`, `IsDirectory`, `IsProtected`, `IsTagged`, `MakeJmp`, `Path`, `Rename`, `Tag`, `TagAll`, `View` | 1 each |
 | **Total** | **28** |
 
-There are also six sites already using the intended `ASL`/`TAY` addressing
+There were also six sites already using the intended `ASL`/`TAY` addressing
 model: two in `Sort`, two in `Copy`, one in `SetWin`, and one in `Handle`.
 Their base materialization now loads the high byte without storing it first,
 then corrects it with the live `ASL` carry and stores it once.
 
-Consequently:
+After this implementation:
 
-- 132 bytes remains the estimate for the older 33-site baseline;
-- the current four-byte-per-site estimate for the 28 remaining full sequences
-  is about 112 bytes before consumer-specific staging costs;
-- tightening the six existing scaled sites has recovered 12 bytes;
-- the remaining gross opportunity is about 112 bytes, but the measured net
-  code-segment change is the acceptance metric.
+- 25 of those 28 sequences use scaled `(zp),Y` lowering;
+- the listing has 31 scaled `ASL`/`TAY` sites: the six prior consumers plus 25
+  migrated consumers;
+- the 25 migrations have a 100-byte gross expectation at four bytes each;
+- consumer staging costs four bytes in aggregate, yielding a measured 96-byte
+  code-segment and load-file reduction;
+- the complete scaled-address work, including Slice 2, reduces the load file
+  from 10,666 bytes after trampoline elision to 10,558 bytes, a total of 108
+  bytes.
 
 The 28 remaining sites split into two main consumer families:
 
@@ -90,10 +103,18 @@ The 28 remaining sites split into two main consumer families:
 - 9 word assignments, including array-to-array moves in `Sort`, array-pointer
   stores in `SetWin`, and indirect/array transfers in `Handle`.
 
-This explains why the existing scaled helper has not removed them: generic
-word argument transfer and generic lvalue assignment currently request a
-fully materialized `StorageSlot::indirect_indexed_y` whose byte offsets assume
-`Y = 0` or `Y = 1`.
+The three retained full-address sites are all two-home transfers where keeping
+one scaled offset live requires four bytes of staging or register restoration,
+exactly cancelling the four-byte address saving:
+
+| Routine/source | Reason retained |
+| --- | --- |
+| `Sort`: `v(j+gap)=h` | Computed scaled destination plus scalar source needs alias-safe source staging; net zero bytes. |
+| `Handle`: `dirsectors(nestLevel)=currentDir^` | Scaled destination plus direct pointer dereference needs a second Y home or full staging; net zero bytes. |
+| `Handle`: `currentDir^=dirsectors(nestLevel)` | Direct pointer destination plus scaled source needs Y restoration or staging; net zero bytes. |
+
+Keeping these established forms is the explicit profitability decision; none
+is an unclassified missed consumer.
 
 ## Target 6502 Sequence
 
@@ -236,6 +257,8 @@ could insert `CLC`, arithmetic, a call, or a machine block.
 
 ### Slice 3: Migrate direct-index word consumers
 
+Status: implemented.
+
 Add consumer-level helpers that prepare the scaled address once and then emit
 the required byte order. Prefer these helpers before the generic
 fully-materialized-lvalue fallback.
@@ -274,6 +297,8 @@ Expected TN coverage from this slice includes the simple-index sites in
 
 ### Slice 4: Materialize computed byte indexes once
 
+Status: implemented.
+
 1. Add a preparation entry point that accepts a proved byte index expression,
    evaluates it once into `A`, and immediately performs `ASL`/`TAY`.
 2. Reuse `emit_index_low_expr_to_acc` for supported read-only expressions.
@@ -292,6 +317,9 @@ This slice targets the remaining computed-index sites in `Sort`, `Draw`,
 `TagAll`, `SetWin`, `Copy`, and `MakeJmp`.
 
 ### Slice 5: Handle two-address word assignments profitably
+
+Status: implemented for profitable scaled-source/scaled-destination transfers;
+the three zero-net TN forms retain their existing lowering.
 
 The array-to-array and array-to-indirect assignments in `Sort` and `Handle`
 need two addresses while only one scaled value can live in `Y`.
@@ -316,6 +344,10 @@ The goal is not an unconditional zero count. Every surviving TN full-address
 sequence must have a documented safety or profitability reason.
 
 ### Slice 6: Observability and documentation
+
+Status: implemented for accepted lowerings and profitability results. Rejected
+index proofs distinguish side-effecting/volatile, non-byte, unsupported-width,
+and unsupported-base cases.
 
 1. Record `EffectiveAddressLowered` with a message that distinguishes scaled
    `(zp),Y` lowering and with the actual local byte delta, not the historical

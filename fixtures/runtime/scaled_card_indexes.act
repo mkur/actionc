@@ -1,0 +1,51 @@
+; Runtime regression for modern/classic scaled (zp),Y CARD access.
+;
+; The deliberately unaligned table base makes index 127 place the low byte at
+; the end of a page. Indexes 128 and 255 exercise the carry from ASL into the
+; pointer high byte, including another page crossing at index 255.
+
+CARD result0=$0600
+CARD result1=$0602
+CARD result127=$0604
+CARD result128=$0606
+CARD result255=$0608
+CARD callResult=$060A
+CARD computedResult=$060C
+CARD pointerResult=$060E
+
+CARD ARRAY words(256)=$6001
+CARD POINTER wordPointer
+BYTE index
+
+CARD FUNC Identity(CARD value)
+  RETURN(value)
+
+PROC Main()
+  index=0
+  words(index)=$1100
+  result0=words(index)
+  index=1
+  words(index)=$2201
+  result1=words(index)
+  index=127
+  words(index)=$337F
+  result127=words(index)
+  index=128
+  words(index)=$4480
+  result128=words(index)
+  index=255
+  words(index)=$55FF
+  result255=words(index)
+
+  ; Exercise direct word-call, computed-index, and typed-pointer consumers.
+  index=128
+  callResult=Identity(words(index))
+  index=128
+  computedResult=words(index-1)
+  wordPointer=$6001
+  index=255
+  pointerResult=wordPointer(index)
+
+  DO
+  OD
+RETURN

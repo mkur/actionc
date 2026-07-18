@@ -52,6 +52,7 @@ pub(super) struct EffectiveAddress {
 pub(super) enum EffectiveAddressStoreSource {
     Constant(u16),
     Slot(StorageSlot),
+    ArrayValue(StorageSlot),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

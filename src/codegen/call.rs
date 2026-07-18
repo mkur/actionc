@@ -676,7 +676,9 @@ impl Generator {
         args.specs
             .iter()
             .filter(|spec| spec.offset >= 3)
-            .all(|spec| spec.slot.size == 1 && self.constant_u16(spec.expr).is_some())
+            .all(|spec| {
+                spec.offset <= 5 && spec.slot.size == 1 && self.constant_u16(spec.expr).is_some()
+            })
     }
 
     pub(super) fn call_arg_y_can_load_without_accumulator(
@@ -907,6 +909,15 @@ impl Generator {
         if arg_offset != 0 || (arg_bytes != 2 && arg_bytes != 3) {
             return false;
         }
+        if self.emit_scaled_word_high_to_x_low_to_a(arg, runtime_zp::ARRAY_ADDR) {
+            self.record_modern_optimization(
+                CodegenOptimizationKind::ArgumentStoreRemoved,
+                6,
+                Some(arg.span),
+                "forwarded staged word lvalue directly into A/X",
+            );
+            return true;
+        }
         let Some(source) = self
             .reusable_lvalue_slot_with_pointer(arg, runtime_zp::ARRAY_ADDR)
             .or_else(|| self.dynamic_indexed_word_slot(arg))
@@ -938,6 +949,33 @@ impl Generator {
     ) -> bool {
         if spec.offset != 0 || spec.slot.size != 2 {
             return false;
+        }
+        if self.emit_scaled_word_effective_address_pointer_and_y(arg, runtime_zp::ARRAY_ADDR, 0) {
+            self.emit_iny();
+            self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ARRAY_ADDR));
+            self.emit_tax();
+            for late in args.late_constant_byte_args() {
+                if !self.emit_expr_to_slot(late.expr, late.slot) {
+                    return false;
+                }
+                plan.mark_staged(late.offset);
+            }
+            self.emit_dey();
+            self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ARRAY_ADDR));
+            plan.mark_preloaded_word(spec.offset);
+            self.record_modern_optimization(
+                CodegenOptimizationKind::EffectiveAddressLowered,
+                4,
+                Some(arg.span),
+                "used scaled (zp),Y for a staged word argument with late constants",
+            );
+            self.record_modern_optimization(
+                CodegenOptimizationKind::ArgumentStoreRemoved,
+                5,
+                Some(arg.span),
+                "forwarded staged word directly into A/X after staging late constants",
+            );
+            return true;
         }
         let Some(source) = self
             .reusable_lvalue_slot_with_pointer(arg, runtime_zp::ARRAY_ADDR)
@@ -976,6 +1014,28 @@ impl Generator {
     ) -> bool {
         if arg_offset != 0 {
             return false;
+        }
+        if self.emit_scaled_word_high_to_x_low_to_a(arg, runtime_zp::ARRAY_ADDR) {
+            if stack_low {
+                self.emitter.emit_pha();
+            } else {
+                self.emit_sta_zero_page(runtime_zp::ARGS);
+            }
+            self.record_modern_optimization(
+                if stack_low {
+                    CodegenOptimizationKind::ArgumentStackForwarded
+                } else {
+                    CodegenOptimizationKind::ArgumentStoreRemoved
+                },
+                if stack_low { 3 } else { 1 },
+                Some(arg.span),
+                if stack_low {
+                    "forwarded scaled word high byte into X and kept low byte on stack"
+                } else {
+                    "forwarded scaled word high byte into X and kept low byte in $A0"
+                },
+            );
+            return true;
         }
         let Some(source) = self
             .reusable_lvalue_slot_with_pointer(arg, runtime_zp::ARRAY_ADDR)
@@ -1030,10 +1090,64 @@ impl Generator {
         } else {
             return false;
         };
+        let immediate = Immediate::new(value);
+
+        if matches!(arg_offset, 0 | 1)
+            && self
+                .scaled_word_effective_address_parts(indexed, runtime_zp::ARRAY_ADDR)
+                .is_some()
+        {
+            if !self.emit_scaled_word_effective_address_pointer_and_y(
+                indexed,
+                runtime_zp::ARRAY_ADDR,
+                0,
+            ) {
+                return false;
+            }
+            self.emit_clc();
+            self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ARRAY_ADDR));
+            self.emit_adc_immediate(immediate, 0);
+            if arg_offset == 0 {
+                self.emitter.emit_pha();
+            } else {
+                self.emit_tax();
+            }
+            self.emit_iny();
+            self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ARRAY_ADDR));
+            self.emit_adc_immediate(immediate, 1);
+            if arg_offset == 0 {
+                self.emit_tax();
+                self.emit_pla();
+            } else {
+                self.emit_tay();
+                self.straight_line_store_y = None;
+            }
+            self.record_modern_optimization(
+                CodegenOptimizationKind::EffectiveAddressLowered,
+                4,
+                Some(indexed.span),
+                "used scaled (zp),Y for an indexed word-plus-constant argument",
+            );
+            self.record_modern_optimization(
+                if arg_offset == 0 {
+                    CodegenOptimizationKind::ArgumentStackForwarded
+                } else {
+                    CodegenOptimizationKind::ArgumentStoreRemoved
+                },
+                if arg_offset == 0 { 5 } else { 6 },
+                Some(arg.span),
+                if arg_offset == 0 {
+                    "forwarded staged indexed word through stack directly into A/X"
+                } else {
+                    "forwarded staged indexed word bytes directly into X/Y"
+                },
+            );
+            return true;
+        }
+
         let Some(source) = self.dynamic_indexed_word_slot(indexed) else {
             return false;
         };
-        let immediate = Immediate::new(value);
 
         match arg_offset {
             0 => {
@@ -1162,6 +1276,21 @@ impl Generator {
         if !self.segment_storage || slot.size != 2 || arg_offset < 3 {
             return false;
         }
+        if self.emit_scaled_word_effective_address_pointer_and_y(arg, runtime_zp::ARRAY_ADDR, 0) {
+            self.emit_iny();
+            self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ARRAY_ADDR));
+            self.emit_sta_zero_page(runtime_zp::ARGS.offset(arg_offset.wrapping_add(1)));
+            self.emit_dey();
+            self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ARRAY_ADDR));
+            self.emit_sta_zero_page(runtime_zp::ARGS.offset(arg_offset));
+            self.record_modern_optimization(
+                CodegenOptimizationKind::EffectiveAddressLowered,
+                4,
+                Some(arg.span),
+                "used scaled (zp),Y for an ABI-spilled word argument",
+            );
+            return true;
+        }
         let Some(source) = self.reusable_lvalue_slot_with_pointer(arg, runtime_zp::ARRAY_ADDR)
         else {
             return false;
@@ -1175,6 +1304,24 @@ impl Generator {
         self.emit_dey();
         self.emit_lda_slot_byte(source, 0);
         self.emit_sta_zero_page(runtime_zp::ARGS.offset(arg_offset));
+        true
+    }
+
+    fn emit_scaled_word_high_to_x_low_to_a(&mut self, arg: &Expr, pointer: ZeroPage) -> bool {
+        if !self.emit_scaled_word_effective_address_pointer_and_y(arg, pointer, 0) {
+            return false;
+        }
+        self.emit_iny();
+        self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(pointer));
+        self.emit_tax();
+        self.emit_dey();
+        self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(pointer));
+        self.record_modern_optimization(
+            CodegenOptimizationKind::EffectiveAddressLowered,
+            4,
+            Some(arg.span),
+            "forwarded scaled (zp),Y word directly into A/X",
+        );
         true
     }
 

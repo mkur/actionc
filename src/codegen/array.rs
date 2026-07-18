@@ -160,6 +160,142 @@ impl Generator {
         })
     }
 
+    pub(super) fn scaled_word_effective_address_parts<'a>(
+        &self,
+        expr: &'a Expr,
+        pointer: ZeroPage,
+    ) -> Option<(StorageSlot, &'a Expr)> {
+        if !self.profile.enables_modern_optimizations() || pointer.address() == 0xFF {
+            return None;
+        }
+        let proof = self.index_address_proof(expr)?;
+        if proof.mode != IndexAddressMode::ScaledIndirectY
+            || proof.element_size != 2
+            || !proof.effects.is_read_only()
+            || proof.effects.reads_volatile
+        {
+            return None;
+        }
+        if proof.base.pointee_size.is_some() {
+            let pointer_proof = self.pointer_dereference_proof(expr)?;
+            if pointer_proof.kind != PointerDereferenceKind::Indexed
+                || pointer_proof.mode != PointerDereferenceMode::ScaledIndirectY
+            {
+                return None;
+            }
+        }
+        Some((proof.base, indexed_expr_index(expr)?))
+    }
+
+    pub(super) fn emit_scaled_word_effective_address_pointer_and_y(
+        &mut self,
+        expr: &Expr,
+        pointer: ZeroPage,
+        byte_index: u16,
+    ) -> bool {
+        if byte_index > 1 {
+            return false;
+        }
+        if !self.profile.enables_modern_optimizations() {
+            return false;
+        }
+        if pointer.address() == 0xFF {
+            self.record_codegen_proof_rejection(
+                "index-address",
+                expr.span,
+                "scaled indirect-Y consumer requires a non-wrapping zero-page pointer pair",
+            );
+            return false;
+        }
+        let Some(proof) = self.index_address_proof(expr) else {
+            return false;
+        };
+        if proof.mode != IndexAddressMode::ScaledIndirectY || proof.element_size != 2 {
+            self.record_codegen_proof_rejection(
+                "index-address",
+                expr.span,
+                format!(
+                    "requires scaled indirect-Y word element, got mode {:?}, element_size {}, reason {:?}",
+                    proof.mode, proof.element_size, proof.reject_reason
+                ),
+            );
+            return false;
+        }
+        if !proof.effects.is_read_only() || proof.effects.reads_volatile {
+            self.record_codegen_proof_rejection(
+                "index-address",
+                expr.span,
+                "scaled indirect-Y index is side-effecting or volatile",
+            );
+            return false;
+        }
+        if proof.base.pointee_size.is_some() {
+            let Some(pointer_proof) = self.pointer_dereference_proof(expr) else {
+                self.record_codegen_proof_rejection(
+                    "index-address",
+                    expr.span,
+                    "missing indexed-pointer proof for scaled indirect-Y consumer",
+                );
+                return false;
+            };
+            if pointer_proof.kind != PointerDereferenceKind::Indexed
+                || pointer_proof.mode != PointerDereferenceMode::ScaledIndirectY
+            {
+                self.record_codegen_proof_rejection(
+                    "index-address",
+                    expr.span,
+                    format!(
+                        "indexed pointer requires scaled indirect-Y, got mode {:?}, reason {:?}",
+                        pointer_proof.mode, pointer_proof.reject_reason
+                    ),
+                );
+                return false;
+            }
+        }
+        let Some(index) = indexed_expr_index(expr) else {
+            self.record_codegen_proof_rejection(
+                "index-address",
+                expr.span,
+                "indexed expression has no index operand",
+            );
+            return false;
+        };
+        let direct_index = self.direct_scalar_slot(index).is_some();
+        if !self.emit_index_low_expr_to_acc(index) {
+            self.record_codegen_proof_rejection(
+                "index-address",
+                expr.span,
+                "scaled indirect-Y consumer could not evaluate the proved byte index",
+            );
+            return false;
+        }
+        self.emit_asl_a();
+        self.emit_tay();
+        if !self.emit_scaled_effective_address_base_to_pointer_preserving_carry(proof.base, pointer)
+        {
+            self.record_codegen_proof_rejection(
+                "index-address",
+                expr.span,
+                "scaled indirect-Y consumer could not materialize the proved base",
+            );
+            return false;
+        }
+        self.emit_adc_imm(0);
+        self.emit_sta_zero_page(pointer.offset(1));
+        if byte_index == 1 {
+            self.emit_iny();
+        }
+        self.record_codegen_proof(
+            "index-address",
+            expr.span,
+            format!(
+                "proved {} byte index over a two-byte element as scaled indirect-Y",
+                if direct_index { "direct" } else { "computed" }
+            ),
+        );
+        true
+    }
+
     pub(super) fn emit_effective_address_pointer_and_y(
         &mut self,
         address: EffectiveAddress,
@@ -180,7 +316,10 @@ impl Generator {
                 self.emit_lda_slot_byte_value_only(address.index, 0);
                 self.emit_asl_a();
                 self.emit_tay();
-                if !self.emit_scaled_effective_address_base_to_pointer_preserving_carry(address) {
+                if !self.emit_scaled_effective_address_base_to_pointer_preserving_carry(
+                    address.base,
+                    address.pointer,
+                ) {
                     return false;
                 }
                 self.emit_adc_imm(0);
@@ -196,33 +335,34 @@ impl Generator {
 
     fn emit_scaled_effective_address_base_to_pointer_preserving_carry(
         &mut self,
-        address: EffectiveAddress,
+        base: StorageSlot,
+        pointer: ZeroPage,
     ) -> bool {
         debug_assert!(
-            address.pointer.address() < 0xFF,
+            pointer.address() < 0xFF,
             "scaled indirect-Y address requires a non-wrapping zero-page pointer pair"
         );
-        if !self.emit_effective_address_base_byte_preserving_carry(address, 0) {
+        if !self.emit_effective_address_base_byte_preserving_carry(base, 0) {
             return false;
         }
-        self.emit_sta_zero_page(address.pointer);
-        self.emit_effective_address_base_byte_preserving_carry(address, 1)
+        self.emit_sta_zero_page(pointer);
+        self.emit_effective_address_base_byte_preserving_carry(base, 1)
     }
 
     fn emit_effective_address_base_byte_preserving_carry(
         &mut self,
-        address: EffectiveAddress,
+        base: StorageSlot,
         byte_index: u16,
     ) -> bool {
-        if address.base.pointee_size.is_some() {
-            if byte_index >= address.base.size {
+        if base.pointee_size.is_some() {
+            if byte_index >= base.size {
                 return false;
             }
-            self.emit_lda_slot_byte_value_only(address.base, byte_index);
+            self.emit_lda_slot_byte_value_only(base, byte_index);
             return true;
         }
-        if address.base.array.is_some() {
-            self.emit_load_array_pointer_value_slot_byte(address.base, byte_index);
+        if base.array.is_some() {
+            self.emit_load_array_pointer_value_slot_byte(base, byte_index);
             return true;
         }
         false
@@ -246,6 +386,32 @@ impl Generator {
             AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY
         ) {
             return false;
+        }
+        if slot.size >= 2
+            && !slot_overlaps_zero_page(slot, runtime_zp::ARRAY_ADDR, 2)
+            && self
+                .scaled_word_effective_address_parts(expr, runtime_zp::ARRAY_ADDR)
+                .is_some()
+        {
+            if !self.emit_scaled_word_effective_address_pointer_and_y(
+                expr,
+                runtime_zp::ARRAY_ADDR,
+                0,
+            ) {
+                return false;
+            }
+            self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ARRAY_ADDR));
+            self.emit_sta_slot_byte(slot, 0);
+            self.emit_iny();
+            self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ARRAY_ADDR));
+            self.emit_sta_slot_byte(slot, 1);
+            self.record_modern_optimization(
+                CodegenOptimizationKind::EffectiveAddressLowered,
+                4,
+                Some(expr.span),
+                "loaded scaled (zp),Y word without materializing its element pointer",
+            );
+            return true;
         }
         let Some(address) = self.byte_index_effective_address(expr, runtime_zp::ARRAY_ADDR) else {
             return false;

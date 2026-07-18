@@ -111,7 +111,7 @@ Reject reasons:
 
 Main rules:
 
-- indexes with side effects are unsupported;
+- indexes with side effects or volatile reads are unsupported;
 - non-byte indexes are unsupported;
 - two-byte elements with a byte-ranged index and a supported base use scaled
   `(zp),Y` addressing;
@@ -122,13 +122,19 @@ Main rules:
 
 Current consumers:
 
-- `byte_index_effective_address` for `(zp),Y` style loads/stores;
+- `byte_index_effective_address` for direct-slot `(zp),Y` loads and stores;
+- `scaled_word_effective_address_parts` for read-only direct and computed byte
+  indexes of two-byte elements;
+- word call arguments, including A/X, X/Y, and ABI-spilled forms;
+- word-plus-constant call arguments;
+- scalar, constant, array-pointer-value, and staged two-address assignments;
 - inline byte-array scalar-index loads;
 - call-argument loading for inline byte arrays before generic lvalue fallback.
 
 Instrumented observability:
 
-- accepted `index-address` events for proof-guided `absolute,Y` lowering;
+- accepted `index-address` events for proof-guided `absolute,Y`, `(zp),Y`, and
+  scaled `(zp),Y` lowering;
 - rejected `index-address` events for unsupported/mismatched shapes in that
   consumer.
 
