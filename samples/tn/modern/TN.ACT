@@ -141,8 +141,6 @@ BYTE FUNC Fnamecmp(CHAR POINTER s, t)
     RETURN(0)
   FI
 
-
-;@actionc profile compat
 PROC Sort()
 
  BYTE gap CARD h
@@ -364,8 +362,6 @@ BYTE FUNC FindNext(BYTE c)
   OD
 RETURN( -1 ) 
 
-
-;@actionc profile compat
 PROC SetWin(BYTE n, drvnum)
 
  CARD panelData, panelDataOld
@@ -801,8 +797,6 @@ PROC Rename=*()
   FI
 RETURN
 
-
-;@actionc profile compat
 PROC Copy()
 
  CARD ARRAY lentab(16)

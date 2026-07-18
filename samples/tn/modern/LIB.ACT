@@ -102,26 +102,26 @@ BYTE ARRAY allocbuf($800)=$2000
 PROC MovePage=*(CARD dst, src BYTE len)
 [$85 $A0 $86 $A1 $84 $A2 $A4 $A4 $88 $B1 $A2 $91 $A0 $88 $C0 $FF $D0 $F7 $60]
 
-;@actionc profile compat 
+
 CARD FUNC Alloc(CARD n)
 
   allocp==+n
 RETURN(allocp-n)
 
-;@actionc profile compat 
+
 PROC Free(CARD adr)
 
   allocp = adr
 RETURN
 
-;@actionc profile compat 
+
 PROC Push(CARD data)
 
   allocp^ = data  
   allocp==+2
 RETURN
 
-;@actionc profile compat 
+
 CARD FUNC Pull=*()
 
   allocp==-2
@@ -350,7 +350,7 @@ MODULE
  BYTE openwindows
  CHAR ARRAY frame(8)="\{$11}\{$12}\{$05}||\{$1A}\{$12}\{$03}"
 
-;@actionc profile compat       
+
 PROC SavePos()
 
  CARD adr
@@ -359,7 +359,7 @@ PROC SavePos()
   MovePage(adr, @zx, 4)
 RETURN
 
-;@actionc profile compat 
+
 PROC RestorePos=*()
 
   allocp==-4
@@ -367,7 +367,7 @@ PROC RestorePos=*()
 RETURN
 
 
-;@actionc profile compat 
+
 PROC Window(BYTE x, y, dx, dy)
 
  CARD buf BYTE h
@@ -424,7 +424,7 @@ PROC Window(BYTE x, y, dx, dy)
   Relpos(0,0)
 RETURN
 
-;@actionc profile compat 
+
 PROC CloseWindow()
    
  CARD buf
@@ -440,7 +440,7 @@ PROC CloseWindow()
   RestorePos()
 RETURN
 
-;@actionc profile compat 
+
 CHAR FUNC Range(CHAR ARRAY s, BYTE max, BYTE POINTER c)
 
  BYTE i=$A0,len=$A1,f=$A2
@@ -460,7 +460,7 @@ CHAR FUNC Range(CHAR ARRAY s, BYTE max, BYTE POINTER c)
   OD
 RETURN(ch)
 
-;@actionc profile compat 
+
 BYTE FUNC InputLine(CHAR ARRAY string, BYTE maxlen, curpos)
 
  CHAR ch
@@ -501,19 +501,18 @@ MODULE
 
 BYTE spaces
 
-;@actionc profile compat 
 BYTE FUNC Key( BYTE POINTER menu )
 
   menu ==+ menu^ + 3
 RETURN( menu^ )
 
 
-;@actionc profile compat 
+
 CARD FUNC Next( BYTE POINTER menu )
 RETURN( menu + menu^ + 5 )
 
 
-;@actionc profile compat 
+
 BYTE FUNC Ord( BYTE POINTER menu, item )
 
  BYTE c
@@ -530,7 +529,7 @@ BYTE FUNC Ord( BYTE POINTER menu, item )
 RETURN( c )
 
 
-;@actionc profile compat 
+
 BYTE FUNC Items(BYTE POINTER menu)
                
  BYTE c
@@ -543,7 +542,7 @@ BYTE FUNC Items(BYTE POINTER menu)
   OD
 RETURN( c )
 
-;@actionc profile compat                    
+
 CARD FUNC FindItem( BYTE POINTER menu CHAR ch )
 
   WHILE menu^ DO
@@ -552,7 +551,7 @@ CARD FUNC FindItem( BYTE POINTER menu CHAR ch )
   OD
 RETURN( nil )
 
-;@actionc profile compat 
+
 PROC DrawMenu( BYTE POINTER menu )
 
   zx = kx
@@ -565,7 +564,7 @@ PROC DrawMenu( BYTE POINTER menu )
   OD
 RETURN
 
-;@actionc profile compat 
+
 CARD FUNC MoveMenuBar( BYTE POINTER menu BYTE c )
 
  BYTE p, a
@@ -585,7 +584,7 @@ CARD FUNC MoveMenuBar( BYTE POINTER menu BYTE c )
 RETURN( menu )
 
 
-;@actionc profile compat 
+
 CHAR FUNC PopUp( BYTE POINTER mp BYTE c, spc )
 
  CHAR ch, value BYTE d, limit CARD menu
@@ -626,7 +625,6 @@ CHAR FUNC PopUp( BYTE POINTER mp BYTE c, spc )
     RETURN( ESC )
   FI
 
-;@actionc profile compat 
 PROC Init()
  
  CARD h
