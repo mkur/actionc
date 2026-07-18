@@ -127,6 +127,9 @@ Current optimization categories include:
 - removing redundant register reloads and constant stores;
 - reusing already prepared pointer and effective-address values;
 - lowering proven indexed byte-array access to direct 6502 addressing modes;
+- lowering proved byte-indexed two-byte elements by keeping `2 * index` in
+  `Y`, carrying the scale overflow into the pointer high byte, and using
+  `(zp),Y`;
 - removing unnecessary call-result materialization;
 - removing call-argument stores or forwarding arguments through the stack;
 - inverting short branches when that avoids extra jumps;

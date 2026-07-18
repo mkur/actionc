@@ -85,6 +85,9 @@ Use existing pointer/index tracking to reduce repeated setup:
 - prefer stable `(zp),Y` forms where they are safe
 - avoid redundant `LDY #0` / `LDY #1` when Y is known
 
+The modern/classic two-byte element work is tracked in
+`MODERN_CLASSIC_SCALED_CARD_ARRAY_INDIRECT_Y_IMPLEMENTATION_NOTE.md`.
+
 ## Phase 5: Observability
 
 Modern optimization work should be explainable by the tooling:

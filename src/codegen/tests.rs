@@ -1545,6 +1545,34 @@ fn modern_pointer_card_array_dynamic_index_prepares_effective_address_once() {
             .windows(5)
             .any(|bytes| bytes == [opcode::STA_ABS, 0x02, 0x30, opcode::ASL_A, opcode::TAY])
     );
+    assert!(output.bytes.windows(14).any(|bytes| bytes
+        == [
+            opcode::ASL_A,
+            opcode::TAY,
+            opcode::LDA_ABS,
+            0x00,
+            0x30,
+            opcode::STA_ZP,
+            runtime_zp::ARRAY_ADDR.address(),
+            opcode::LDA_ABS,
+            0x01,
+            0x30,
+            opcode::ADC_IMM,
+            0x00,
+            opcode::STA_ZP,
+            runtime_zp::ARRAY_ADDR.offset(1).address(),
+        ]));
+    assert_eq!(
+        output
+            .bytes
+            .windows(2)
+            .filter(|bytes| {
+                *bytes == [opcode::STA_ZP, runtime_zp::ARRAY_ADDR.offset(1).address()]
+            })
+            .count(),
+        1,
+        "scaled base high byte must be stored only after applying ASL carry"
+    );
     assert_eq!(
         output
             .bytes
@@ -1568,6 +1596,57 @@ fn modern_pointer_card_array_dynamic_index_prepares_effective_address_once() {
 }
 
 #[test]
+fn modern_absolute_card_array_scaled_index_keeps_carry_live_through_base_loads() {
+    let output = generate_profile_source_with_origin(
+        "CARD x CARD ARRAY ca(256)=$FF80 PROC Main() BYTE i i=255 x=ca(i) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.bytes.windows(12).any(|bytes| bytes
+        == [
+            opcode::ASL_A,
+            opcode::TAY,
+            opcode::LDA_IMM,
+            0x80,
+            opcode::STA_ZP,
+            runtime_zp::ARRAY_ADDR.address(),
+            opcode::LDA_IMM,
+            0xFF,
+            opcode::ADC_IMM,
+            0x00,
+            opcode::STA_ZP,
+            runtime_zp::ARRAY_ADDR.offset(1).address(),
+        ]));
+    assert!(!output.bytes.contains(&opcode::PHP));
+    assert!(!output.bytes.contains(&opcode::PLP));
+}
+
+#[test]
+fn compatible_card_array_dynamic_index_keeps_full_address_materialization() {
+    let output = generate_profile_source_with_origin(
+        "CARD ARRAY ca BYTE i CARD x PROC Main() ca=$4000 i=3 x=ca(i) RETURN",
+        0x3000,
+        CodegenProfile::Compat,
+    )
+    .unwrap();
+
+    assert!(
+        output
+            .bytes
+            .windows(4)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::PHP, opcode::CLC, opcode::ADC_ABS,])
+    );
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::ASL_A, opcode::TAY])
+    );
+}
+
+#[test]
 fn modern_pointer_card_array_arithmetic_uses_effective_address_source() {
     let output = generate_profile_source_with_origin(
         "CARD POINTER cp CARD out,add BYTE i PROC Main() cp=$4000 i=3 add=$0100 out=cp(i)+add RETURN",
@@ -1582,6 +1661,23 @@ fn modern_pointer_card_array_arithmetic_uses_effective_address_source() {
             .windows(2)
             .any(|bytes| bytes == [opcode::ASL_A, opcode::TAY])
     );
+    assert!(output.bytes.windows(14).any(|bytes| bytes
+        == [
+            opcode::ASL_A,
+            opcode::TAY,
+            opcode::LDA_ABS,
+            0x00,
+            0x30,
+            opcode::STA_ZP,
+            runtime_zp::ARRAY_ADDR.address(),
+            opcode::LDA_ABS,
+            0x01,
+            0x30,
+            opcode::ADC_IMM,
+            0x00,
+            opcode::STA_ZP,
+            runtime_zp::ARRAY_ADDR.offset(1).address(),
+        ]));
     assert_eq!(
         output
             .bytes
@@ -11550,7 +11646,7 @@ fn index_address_proof_classifies_inline_byte_array_byte_index_as_absolute_y() {
 }
 
 #[test]
-fn index_address_proof_requires_scaling_for_word_arrays() {
+fn index_address_proof_accepts_scaled_indirect_y_for_word_arrays() {
     let mut generator = test_generator(CodegenProfile::Modern);
     generator.layout.symbols.insert(
         normalize_name("words"),
@@ -11568,7 +11664,30 @@ fn index_address_proof_requires_scaling_for_word_arrays() {
     let proof = generator.index_address_proof(&expr).unwrap();
 
     assert_eq!(proof.element_size, 2);
-    assert_eq!(proof.mode, IndexAddressMode::NeedsScaling);
+    assert_eq!(proof.mode, IndexAddressMode::ScaledIndirectY);
+    assert_eq!(proof.reject_reason, None);
+}
+
+#[test]
+fn index_address_proof_rejects_unsupported_element_scaling() {
+    let mut generator = test_generator(CodegenProfile::Modern);
+    generator.layout.symbols.insert(
+        normalize_name("wide"),
+        StorageSlot::array(0x4000, 3, ArrayStorage::Inline),
+    );
+    generator
+        .layout
+        .symbols
+        .insert(normalize_name("i"), StorageSlot::absolute(0x3000, 1));
+    let expr = test_expr(ExprKind::Call {
+        callee: Box::new(test_name_expr("wide")),
+        args: vec![test_name_expr("i")],
+    });
+
+    let proof = generator.index_address_proof(&expr).unwrap();
+
+    assert_eq!(proof.element_size, 3);
+    assert_eq!(proof.mode, IndexAddressMode::Unsupported);
     assert_eq!(
         proof.reject_reason,
         Some(IndexAddressRejectReason::ElementNeedsScaling)
@@ -11690,7 +11809,7 @@ fn pointer_dereference_proof_classifies_indexed_pointer() {
 }
 
 #[test]
-fn pointer_dereference_proof_marks_word_pointer_index_as_needing_scaling() {
+fn pointer_dereference_proof_accepts_scaled_word_pointer_index() {
     let mut generator = test_generator(CodegenProfile::Modern);
     generator
         .layout
@@ -11708,11 +11827,9 @@ fn pointer_dereference_proof_marks_word_pointer_index_as_needing_scaling() {
     let proof = generator.pointer_dereference_proof(&expr).unwrap();
 
     assert_eq!(proof.kind, PointerDereferenceKind::Indexed);
-    assert_eq!(proof.mode, PointerDereferenceMode::NeedsIndexScaling);
-    assert_eq!(
-        proof.reject_reason,
-        Some(PointerDereferenceRejectReason::ElementNeedsScaling)
-    );
+    assert_eq!(proof.mode, PointerDereferenceMode::ScaledIndirectY);
+    assert_eq!(proof.reject_reason, None);
+    assert_eq!(proof.index.unwrap().mode, IndexAddressMode::ScaledIndirectY);
 }
 
 #[test]

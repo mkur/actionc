@@ -28,7 +28,7 @@ pub(super) enum ValueRangeFact {
 pub(super) enum IndexAddressMode {
     AbsoluteY,
     IndirectY,
-    NeedsScaling,
+    ScaledIndirectY,
     Unsupported,
 }
 
@@ -63,7 +63,7 @@ pub(super) enum PointerDereferenceMode {
     IndirectY,
     IndirectYWithOffset,
     NeedsAddressArithmetic,
-    NeedsIndexScaling,
+    ScaledIndirectY,
     Unsupported,
 }
 
@@ -356,17 +356,21 @@ impl Generator {
                 IndexAddressMode::Unsupported,
                 Some(IndexAddressRejectReason::NonByteIndex),
             )
-        } else if element_size != 1 {
-            (
-                IndexAddressMode::NeedsScaling,
-                Some(IndexAddressRejectReason::ElementNeedsScaling),
-            )
         } else {
-            match (base.array, base.pointee_size) {
-                (Some(ArrayStorage::Inline), _) => (IndexAddressMode::AbsoluteY, None),
-                (Some(ArrayStorage::Pointer | ArrayStorage::Descriptor), _) | (None, Some(_)) => {
-                    (IndexAddressMode::IndirectY, None)
-                }
+            match (element_size, base.array, base.pointee_size) {
+                (1, Some(ArrayStorage::Inline), _) => (IndexAddressMode::AbsoluteY, None),
+                (1, Some(ArrayStorage::Pointer | ArrayStorage::Descriptor), _)
+                | (1, None, Some(_)) => (IndexAddressMode::IndirectY, None),
+                (
+                    2,
+                    Some(ArrayStorage::Inline | ArrayStorage::Pointer | ArrayStorage::Descriptor),
+                    _,
+                )
+                | (2, None, Some(_)) => (IndexAddressMode::ScaledIndirectY, None),
+                (_, Some(_), _) | (_, None, Some(_)) => (
+                    IndexAddressMode::Unsupported,
+                    Some(IndexAddressRejectReason::ElementNeedsScaling),
+                ),
                 _ => (
                     IndexAddressMode::Unsupported,
                     Some(IndexAddressRejectReason::UnsupportedBase),
@@ -663,12 +667,11 @@ fn pointer_index_mode_from_index_proof(
         None if index.mode == IndexAddressMode::IndirectY => {
             (PointerDereferenceMode::IndirectY, None)
         }
+        None if index.mode == IndexAddressMode::ScaledIndirectY => {
+            (PointerDereferenceMode::ScaledIndirectY, None)
+        }
         Some(IndexAddressRejectReason::ElementNeedsScaling) => (
-            PointerDereferenceMode::NeedsIndexScaling,
-            Some(PointerDereferenceRejectReason::ElementNeedsScaling),
-        ),
-        None if index.mode == IndexAddressMode::NeedsScaling => (
-            PointerDereferenceMode::NeedsIndexScaling,
+            PointerDereferenceMode::Unsupported,
             Some(PointerDereferenceRejectReason::ElementNeedsScaling),
         ),
         Some(IndexAddressRejectReason::IndexHasSideEffects) => (

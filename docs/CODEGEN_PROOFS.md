@@ -99,7 +99,7 @@ Modes:
 
 - `AbsoluteY`
 - `IndirectY`
-- `NeedsScaling`
+- `ScaledIndirectY`
 - `Unsupported`
 
 Reject reasons:
@@ -113,7 +113,9 @@ Main rules:
 
 - indexes with side effects are unsupported;
 - non-byte indexes are unsupported;
-- element sizes other than one byte require scaling;
+- two-byte elements with a byte-ranged index and a supported base use scaled
+  `(zp),Y` addressing;
+- element sizes wider than two bytes still require unsupported scaling;
 - inline arrays with byte elements and byte indexes can use `absolute,Y`;
 - pointer/descriptor arrays and pointer variables with byte elements can use
   `(zp),Y`.
@@ -156,7 +158,7 @@ Modes:
 - `IndirectY`
 - `IndirectYWithOffset`
 - `NeedsAddressArithmetic`
-- `NeedsIndexScaling`
+- `ScaledIndirectY`
 - `Unsupported`
 
 Reject reasons:
@@ -174,7 +176,8 @@ Main rules:
 - `p^` where `p` is a pointer can use `(zp),Y`;
 - `p(i)` derives its mode from the nested index-address proof;
 - byte-indexed byte pointers can use `(zp),Y`;
-- wider pointee sizes require index scaling;
+- byte-indexed two-byte pointers can use scaled `(zp),Y`;
+- wider pointee sizes require unsupported index scaling;
 - record pointer fields can use `(zp),Y` with an offset when the field offset
   fits in Y addressing;
 - record fields crossing the one-byte Y offset limit require address arithmetic.

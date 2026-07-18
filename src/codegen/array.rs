@@ -131,7 +131,7 @@ impl Generator {
         let proof = self.index_address_proof(expr)?;
         if !matches!(
             proof.mode,
-            IndexAddressMode::IndirectY | IndexAddressMode::NeedsScaling
+            IndexAddressMode::IndirectY | IndexAddressMode::ScaledIndirectY
         ) || !matches!(proof.element_size, 1 | 2)
         {
             return None;
@@ -141,7 +141,7 @@ impl Generator {
             if pointer_proof.kind != PointerDereferenceKind::Indexed
                 || !matches!(
                     pointer_proof.mode,
-                    PointerDereferenceMode::IndirectY | PointerDereferenceMode::NeedsIndexScaling
+                    PointerDereferenceMode::IndirectY | PointerDereferenceMode::ScaledIndirectY
                 )
             {
                 return None;
@@ -180,10 +180,9 @@ impl Generator {
                 self.emit_lda_slot_byte_value_only(address.index, 0);
                 self.emit_asl_a();
                 self.emit_tay();
-                if !self.emit_effective_address_base_to_pointer(address) {
+                if !self.emit_scaled_effective_address_base_to_pointer_preserving_carry(address) {
                     return false;
                 }
-                self.emit_lda_zero_page_value_only(address.pointer.offset(1));
                 self.emit_adc_imm(0);
                 self.emit_sta_zero_page(address.pointer.offset(1));
                 if byte_index == 1 {
@@ -193,6 +192,40 @@ impl Generator {
             }
             _ => false,
         }
+    }
+
+    fn emit_scaled_effective_address_base_to_pointer_preserving_carry(
+        &mut self,
+        address: EffectiveAddress,
+    ) -> bool {
+        debug_assert!(
+            address.pointer.address() < 0xFF,
+            "scaled indirect-Y address requires a non-wrapping zero-page pointer pair"
+        );
+        if !self.emit_effective_address_base_byte_preserving_carry(address, 0) {
+            return false;
+        }
+        self.emit_sta_zero_page(address.pointer);
+        self.emit_effective_address_base_byte_preserving_carry(address, 1)
+    }
+
+    fn emit_effective_address_base_byte_preserving_carry(
+        &mut self,
+        address: EffectiveAddress,
+        byte_index: u16,
+    ) -> bool {
+        if address.base.pointee_size.is_some() {
+            if byte_index >= address.base.size {
+                return false;
+            }
+            self.emit_lda_slot_byte_value_only(address.base, byte_index);
+            return true;
+        }
+        if address.base.array.is_some() {
+            self.emit_load_array_pointer_value_slot_byte(address.base, byte_index);
+            return true;
+        }
+        false
     }
 
     fn emit_effective_address_base_to_pointer(&mut self, address: EffectiveAddress) -> bool {
