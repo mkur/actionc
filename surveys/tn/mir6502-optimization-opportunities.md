@@ -1,6 +1,6 @@
 # TN MIR6502 Listing Optimization Survey
 
-Status: forward-branch relaxation and spill-pressure slices 1-2 implemented;
+Status: forward-branch relaxation and spill-pressure slices 1-3 implemented;
 remaining backlog ranked
 
 Date: 2026-07-18
@@ -136,7 +136,7 @@ recommended implementation order.
 | Rank | Opportunity | Evidence / ceiling | Expected impact | Risk |
 | ---: | --- | --- | --- | --- |
 | 1 | Forward conditional-branch relaxation (implemented) | 122 branch-over-`JMP` pairs relaxed after convergence; two fall-through jumps removed | Measured 372 bytes | Complete |
-| 2 | Reduce spill pressure through value propagation, scheduling, and transient-home elimination (in progress) | Slices 1-2 reduce 276 spill accesses to 136, remove 17 spill cells, and save 408 bytes; substantial propagation/scheduling headroom remains | Hundreds of bytes across multiple slices; the original 899-byte gross ceiling is unattainable | Medium-high, best delivered in narrow consumer slices |
+| 2 | Reduce spill pressure through value propagation, scheduling, and transient-home elimination (in progress) | Slices 1-3 reduce 276 spill accesses to 131, remove 19 spill cells, and save 425 bytes; substantial propagation/scheduling headroom remains | Hundreds of bytes across multiple slices; the original 899-byte gross ceiling is unattainable | Medium-high, best delivered in narrow consumer slices |
 | 3 | Elide unused and lazy direct-ABI parameter homes | 134 parameter bytes: 56 entirely unreferenced, 36 direct-ABI, 42 SARGS; direct capture costs 108 bytes | Immediate 56 data bytes, then up to 144 bytes plus reload traffic from direct homes | Medium; address escape and call/CFG lifetime must remain explicit |
 | 4 | Scaled `(zp),Y` addressing for two-byte indexed elements | 34 genuine `ASL/PHP/CLC/ADC/.../PLP` full-address sites | About 100-136 bytes; nominal gross ceiling is 136 | Medium; carry and two-address consumers need proof-guided lowering |
 | 5 | Fold byte add-one read/modify/write sequences to `INC` | Six exact `LDA m; CLC; ADC #1; STA m` sites | 32 bytes when carry/overflow are dead | Low-medium; requires flag-liveness check |
@@ -238,11 +238,36 @@ traffic is `SetWin` at 52 accesses, `Handle` at 25, `Xloop` at 16, and `Copy`
 at 14. `SwapScr` falls from 24 to zero, `Window` from 23 to four, and `Rename`
 from 20 to zero.
 
-- 58 redundant reloads, 74 dead full-temp definitions, 57 dead direct-load
-  byte-lane definitions, and 193 direct-memory rewrites are now reported;
+#### Implemented slice 3: direct-memory indexed-address inputs
+
+The third slice forwards a tracked byte value into `MaterializeIndexedAddress`
+and `AdvanceAddress`. Indexed loads and stores have already been split into
+address construction followed by the actual memory consumer at this point, so
+this does not reorder a store value. Temp materialization explicitly loads a
+direct-memory index into `A` before the address pseudo writes pointer scratch;
+a focused same-fixed-zero-page test locks down that ordering.
+
+| Metric | After slice 2 | After slice 3 | Slice change |
+| --- | ---: | ---: | ---: |
+| TN load file | 13,365 bytes | 13,348 bytes | -17 |
+| Spill cells | 54 | 52 | -2 |
+| Spill accesses | 136 | 131 | -5 |
+| Spill reads | 65 | 63 | -2 |
+| Spill writes | 71 | 68 | -3 |
+| Direct-memory copy-prop uses | 193 | 219 | +26 |
+| Removed full-temp definitions | 74 | 100 | +26 |
+
+The byte saving is smaller than the number of forwarded indexes because most
+replace a spill reload with a same-sized direct load. The main traffic change
+is in `Handle`, which falls from 25 spill accesses to 20. Cumulatively, slices
+1-3 save 425 bytes after branch relaxation and 797 bytes from the original
+pre-relaxation MIR6502 listing.
+
+- 58 redundant reloads, 100 dead full-temp definitions, 57 dead direct-load
+  byte-lane definitions, and 219 direct-memory rewrites are now reported;
 - four later consumer forwards and three cross-block forwards currently fire;
 - the v2 census still reports 720 copy-propagation candidates, 964 replaceable
-  temp uses, 23 memory-forward candidates, and 460 stores retained because the
+  temp uses, 23 memory-forward candidates, and 456 stores retained because the
   read consumer is not handled;
 - 95 single-edge seeds yield only three cross-block forwards, while 143 joins
   and 44 backedges are conservatively skipped.
@@ -262,10 +287,10 @@ counts are:
 
 Recommended slices:
 
-1. Extend consumer rewriting for the 460 currently classified unhandled reads.
+1. Extend consumer rewriting for the 456 currently classified unhandled reads.
    Direct byte stores, byte moves, byte call arguments, and compare operands
-   are handled; indexed-address inputs and carefully staged indirect stores are
-   the next boundaries.
+   and indexed-address inputs are handled; carefully staged indirect stores are
+   the next boundary.
 2. Remove the now-dead producer and allocate no spill/home for a temp that no
    longer reaches an addressable use.
 3. Extend across single-predecessor, non-backedge block boundaries. Do not merge
@@ -282,8 +307,8 @@ predecessors. They are useful regression metrics for CFG-aware propagation.
 Spill traffic is the concrete first target of this work. At the post-branch
 baseline, 71 one-byte spill cells received 147 reads and 129 writes: 276
 absolute-memory instructions occupying 828 code bytes. Including the storage
-gave a 899-byte gross footprint. After slices 1-2, 54 cells receive 65 reads
-and 71 writes, leaving 408 access bytes plus 54 storage bytes. This is still not
+gave a 899-byte gross footprint. After slices 1-3, 52 cells receive 63 reads
+and 68 writes, leaving 393 access bytes plus 52 storage bytes. This is still not
 a realizable all-removable saving because values live across calls, joins, or
 constrained-register consumers need a stable home, but it confirms that spill
 pressure is a substantial part of the MIR/classic gap.
@@ -291,14 +316,14 @@ pressure is a substantial part of the MIR/classic gap.
 | Routine | Spill reads | Spill writes | Total traffic |
 | --- | ---: | ---: | ---: |
 | `SetWin` | 26 | 26 | 52 |
-| `Handle` | 12 | 13 | 25 |
+| `Handle` | 10 | 10 | 20 |
 | `Xloop` | 8 | 8 | 16 |
 | `Copy` | 7 | 7 | 14 |
 | `Window` | 2 | 2 | 4 |
 | `SwapScr` | 0 | 0 | 0 |
 | `Rename` | 0 | 0 | 0 |
 
-These seven routines now account for 111 of 136 accesses, or 81.6%. They remain
+These seven routines now account for 106 of 131 accesses, or 80.9%. They remain
 the acceptance corpus for spill-pressure work, with `SetWin` and `Handle` the
 clearest residual targets.
 
@@ -326,8 +351,8 @@ best sequence of improvements is therefore:
    routine-local `$E0-$EF` allocations currently overlap; global slot coloring
    requires normal CFG liveness rather than the current single-block interval.
 
-The initial 100-300 byte target has been exceeded: the first two slices save
-408 bytes. The exact result must continue to come from each consumer slice;
+The initial 100-300 byte target has been exceeded: the first three slices save
+425 bytes. The exact result must continue to come from each consumer slice;
 treating the original 899 bytes as removable would repeat the mistake of
 quoting a theoretical spill ceiling as an estimate.
 
@@ -420,7 +445,7 @@ precede the structural work above.
 - There are no absolute `$00xx` accesses that should have used a zero-page
   opcode.
 - There are no `LDA x; CMP #0; BEQ/BNE` sequences left.
-- Spill cells now consume 54 static bytes and their 136 accesses occupy 408
+- Spill cells now consume 52 static bytes and their 131 accesses occupy 393
   code bytes. Eliminating unnecessary homes still ranks highly; coloring those
   cells for storage alone does not.
 - Only four address-reuse candidates are reported. A standalone address-cache

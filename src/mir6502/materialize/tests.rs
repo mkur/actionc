@@ -9347,6 +9347,62 @@ fn mir_copy_prop_forwards_const_temp_into_address_advance_index() {
 }
 
 #[test]
+fn mir_copy_prop_forwards_direct_mem_temp_into_address_advance_and_removes_home() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let index = MirDef::VTemp(MirTempId(90));
+    let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(MirZpSlot(3)));
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = fold_mir_copy_prop_const_uses_with_terminator(
+        vec![
+            MirOp::Load {
+                dst: index.clone(),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::AdvanceAddress {
+                consumer,
+                index: MirValue::Def(index),
+                scale: 3,
+            },
+        ],
+        &MirTerminator::Return,
+        RoutineId(0),
+        &layout,
+        &mut stats,
+    );
+
+    assert_eq!(ops.len(), 1);
+    assert!(matches!(
+        &ops[0],
+        MirOp::AdvanceAddress {
+            index: MirValue::PointerCell(mem),
+            scale: 3,
+            ..
+        } if *mem == source
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-direct-mem-uses")
+            .copied(),
+        Some(1)
+    );
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-dead-temp-defs")
+            .copied(),
+        Some(1)
+    );
+}
+
+#[test]
 fn mir_copy_prop_forwards_const_temp_into_indexed_address_index() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
@@ -9388,6 +9444,115 @@ fn mir_copy_prop_forwards_const_temp_into_indexed_address_index() {
             .copied(),
         Some(1)
     );
+}
+
+#[test]
+fn mir_copy_prop_forwards_direct_mem_temp_into_indexed_address_and_removes_home() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let index = MirDef::VTemp(MirTempId(88));
+    let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(MirZpSlot(4)));
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = fold_mir_copy_prop_const_uses_with_terminator(
+        vec![
+            MirOp::Load {
+                dst: index.clone(),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::MaterializeIndexedAddress {
+                consumer,
+                base: MirValue::ConstU16(0x4000),
+                index: MirValue::Def(index),
+                scale: 2,
+            },
+        ],
+        &MirTerminator::Return,
+        RoutineId(0),
+        &layout,
+        &mut stats,
+    );
+
+    assert_eq!(ops.len(), 1);
+    assert!(matches!(
+        &ops[0],
+        MirOp::MaterializeIndexedAddress {
+            index: MirValue::PointerCell(mem),
+            scale: 2,
+            ..
+        } if *mem == source
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-direct-mem-uses")
+            .copied(),
+        Some(1)
+    );
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-dead-temp-defs")
+            .copied(),
+        Some(1)
+    );
+}
+
+#[test]
+fn mir_copy_prop_stages_index_before_overwriting_same_fixed_zp_pointer() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::FixedZeroPage(MirFixedZpSlot(0x80));
+    let index = MirDef::VTemp(MirTempId(89));
+    let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(0x80),
+    });
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = fold_mir_copy_prop_const_uses_with_terminator(
+        vec![
+            MirOp::Load {
+                dst: index.clone(),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::MaterializeIndexedAddress {
+                consumer,
+                base: MirValue::ConstU16(0x4000),
+                index: MirValue::Def(index),
+                scale: 1,
+            },
+        ],
+        &MirTerminator::Return,
+        RoutineId(0),
+        &layout,
+        &mut stats,
+    );
+    let mut spills = Vec::new();
+    let ops = materialize_temp_ops(ops, &mut spills);
+
+    assert!(spills.is_empty());
+    assert!(matches!(
+        ops.as_slice(),
+        [
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(mem),
+                width: MirWidth::Byte,
+            },
+            MirOp::MaterializeIndexedAddress {
+                consumer: staged_consumer,
+                index: MirValue::Def(MirDef::Reg(MirReg::A)),
+                scale: 1,
+                ..
+            }
+        ] if *mem == source && *staged_consumer == consumer
+    ));
 }
 
 #[test]

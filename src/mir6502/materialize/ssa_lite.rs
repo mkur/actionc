@@ -2461,7 +2461,7 @@ fn rewrite_mir_copy_prop_const_op(
             index,
             scale,
         } => {
-            let (index, count) = rewrite_mir_copy_prop_const_value(index, env);
+            let (index, count) = rewrite_mir_copy_prop_byte_value(index, env);
             (
                 MirOp::AdvanceAddress {
                     consumer,
@@ -2478,7 +2478,7 @@ fn rewrite_mir_copy_prop_const_op(
             scale,
         } => {
             let (base, base_count) = rewrite_mir_copy_prop_const_value(base, env);
-            let (index, count) = rewrite_mir_copy_prop_const_value(index, env);
+            let (index, count) = rewrite_mir_copy_prop_byte_value(index, env);
             (
                 MirOp::MaterializeIndexedAddress {
                     consumer,
