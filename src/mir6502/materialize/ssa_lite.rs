@@ -2325,7 +2325,7 @@ fn rewrite_mir_copy_prop_const_op(
             src,
             width: MirWidth::Byte,
         } => {
-            let (src, count) = rewrite_mir_copy_prop_const_value(src, env);
+            let (src, count) = rewrite_mir_copy_prop_byte_value(src, env);
             (
                 MirOp::Move {
                     dst,
@@ -2501,7 +2501,7 @@ fn rewrite_mir_copy_prop_const_op(
                 .into_iter()
                 .map(|mut arg| {
                     if arg.width == MirWidth::Byte {
-                        let (value, count) = rewrite_mir_copy_prop_const_value(arg.value, env);
+                        let (value, count) = rewrite_mir_copy_prop_byte_value(arg.value, env);
                         arg.value = value;
                         rewritten_count += count;
                     }

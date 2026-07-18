@@ -8740,6 +8740,119 @@ fn mir_copy_prop_forwards_const_temp_through_byte_move() {
 }
 
 #[test]
+fn mir_copy_prop_forwards_direct_mem_temp_into_register_move_and_removes_home() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let temp = MirDef::VTemp(MirTempId(86));
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = fold_mir_copy_prop_const_uses_with_terminator(
+        vec![
+            MirOp::Load {
+                dst: temp.clone(),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::Def(temp),
+                width: MirWidth::Byte,
+            },
+        ],
+        &MirTerminator::Return,
+        RoutineId(0),
+        &layout,
+        &mut stats,
+    );
+
+    assert_eq!(ops.len(), 1);
+    assert!(matches!(
+        &ops[0],
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::PointerCell(mem),
+            width: MirWidth::Byte,
+        } if *mem == source
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-direct-mem-uses")
+            .copied(),
+        Some(1)
+    );
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-dead-temp-defs")
+            .copied(),
+        Some(1)
+    );
+}
+
+#[test]
+fn mir_copy_prop_keeps_captured_register_move_across_call_barrier() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let temp = MirDef::VTemp(MirTempId(87));
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = fold_mir_copy_prop_const_uses(
+        vec![
+            MirOp::Load {
+                dst: temp.clone(),
+                src: MirAddr::Direct(source),
+                width: MirWidth::Byte,
+            },
+            MirOp::Call {
+                target: MirCallTarget::Routine(RoutineId(1)),
+                abi: MirCallAbi {
+                    params: Vec::new(),
+                    result: None,
+                    clobbers: MirRegisterSet::default(),
+                    preserves: MirRegisterSet::default(),
+                },
+                args: Vec::new(),
+                result: None,
+                effects: MirEffects::default(),
+            },
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::Def(temp.clone()),
+                width: MirWidth::Byte,
+            },
+        ],
+        RoutineId(0),
+        &layout,
+        &mut stats,
+    );
+
+    assert!(matches!(
+        &ops[2],
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::Def(def),
+            width: MirWidth::Byte,
+        } if *def == temp
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-direct-mem-uses")
+            .copied(),
+        None
+    );
+}
+
+#[test]
 fn mir_copy_prop_forwards_const_temp_into_extend_src() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
@@ -9839,6 +9952,140 @@ fn mir_copy_prop_forwards_const_temp_into_byte_call_arg() {
             .get("mir-copy-prop-const-uses")
             .copied(),
         Some(1)
+    );
+}
+
+#[test]
+fn mir_copy_prop_forwards_direct_mem_temp_into_byte_call_arg_and_removes_home() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let arg_temp = MirDef::VTemp(MirTempId(84));
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = fold_mir_copy_prop_const_uses_with_terminator(
+        vec![
+            MirOp::Load {
+                dst: arg_temp.clone(),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::Call {
+                target: MirCallTarget::Routine(RoutineId(1)),
+                abi: MirCallAbi {
+                    params: vec![MirArgHome::Reg(MirReg::A)],
+                    result: None,
+                    clobbers: MirRegisterSet::default(),
+                    preserves: MirRegisterSet::default(),
+                },
+                args: vec![MirCallArg {
+                    value: MirValue::Def(arg_temp),
+                    width: MirWidth::Byte,
+                    home: MirArgHome::Reg(MirReg::A),
+                }],
+                result: None,
+                effects: MirEffects::default(),
+            },
+        ],
+        &MirTerminator::Return,
+        RoutineId(0),
+        &layout,
+        &mut stats,
+    );
+
+    assert_eq!(ops.len(), 1);
+    assert!(matches!(
+        &ops[0],
+        MirOp::Call {
+            args,
+            ..
+        } if matches!(args.as_slice(), [MirCallArg {
+            value: MirValue::PointerCell(mem),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::A),
+        }] if *mem == source)
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-direct-mem-uses")
+            .copied(),
+        Some(1)
+    );
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-dead-temp-defs")
+            .copied(),
+        Some(1)
+    );
+}
+
+#[test]
+fn mir_copy_prop_keeps_captured_call_arg_after_source_memory_changes() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let arg_temp = MirDef::VTemp(MirTempId(85));
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = fold_mir_copy_prop_const_uses(
+        vec![
+            MirOp::Load {
+                dst: arg_temp.clone(),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(source),
+                src: MirValue::ConstU8(7),
+                width: MirWidth::Byte,
+            },
+            MirOp::Call {
+                target: MirCallTarget::Routine(RoutineId(1)),
+                abi: MirCallAbi {
+                    params: vec![MirArgHome::Reg(MirReg::A)],
+                    result: None,
+                    clobbers: MirRegisterSet::default(),
+                    preserves: MirRegisterSet::default(),
+                },
+                args: vec![MirCallArg {
+                    value: MirValue::Def(arg_temp.clone()),
+                    width: MirWidth::Byte,
+                    home: MirArgHome::Reg(MirReg::A),
+                }],
+                result: None,
+                effects: MirEffects::default(),
+            },
+        ],
+        RoutineId(0),
+        &layout,
+        &mut stats,
+    );
+
+    assert!(matches!(
+        &ops[2],
+        MirOp::Call {
+            args,
+            ..
+        } if matches!(args.as_slice(), [MirCallArg {
+            value: MirValue::Def(value),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::A),
+        }] if *value == arg_temp)
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-direct-mem-uses")
+            .copied(),
+        None
     );
 }
 
