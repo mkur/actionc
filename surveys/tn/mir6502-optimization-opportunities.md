@@ -1,6 +1,7 @@
 # TN MIR6502 Listing Optimization Survey
 
-Status: forward-branch relaxation implemented; remaining backlog ranked
+Status: forward-branch relaxation and spill-pressure slice 1 implemented;
+remaining backlog ranked
 
 Date: 2026-07-18
 
@@ -135,7 +136,7 @@ recommended implementation order.
 | Rank | Opportunity | Evidence / ceiling | Expected impact | Risk |
 | ---: | --- | --- | --- | --- |
 | 1 | Forward conditional-branch relaxation (implemented) | 122 branch-over-`JMP` pairs relaxed after convergence; two fall-through jumps removed | Measured 372 bytes | Complete |
-| 2 | Reduce spill pressure through value propagation, scheduling, and transient-home elimination | 71 cells and 276 absolute spill accesses consume 899 data-plus-code bytes; 720 copy-propagation candidates, 964 replaceable temp uses, and 633 retained unhandled reads remain | Hundreds of bytes; largest remaining ceiling, although the 899-byte gross ceiling is unattainable | Medium-high, best delivered in narrow consumer slices |
+| 2 | Reduce spill pressure through value propagation, scheduling, and transient-home elimination (in progress) | Slice 1 reduces 276 spill accesses to 247 and saves 12 bytes; 71 cells and substantial propagation/scheduling headroom remain | Hundreds of bytes across multiple slices; the original 899-byte gross ceiling is unattainable | Medium-high, best delivered in narrow consumer slices |
 | 3 | Elide unused and lazy direct-ABI parameter homes | 134 parameter bytes: 56 entirely unreferenced, 36 direct-ABI, 42 SARGS; direct capture costs 108 bytes | Immediate 56 data bytes, then up to 144 bytes plus reload traffic from direct homes | Medium; address escape and call/CFG lifetime must remain explicit |
 | 4 | Scaled `(zp),Y` addressing for two-byte indexed elements | 34 genuine `ASL/PHP/CLC/ADC/.../PLP` full-address sites | About 100-136 bytes; nominal gross ceiling is 136 | Medium; carry and two-address consumers need proof-guided lowering |
 | 5 | Fold byte add-one read/modify/write sequences to `INC` | Six exact `LDA m; CLC; ADC #1; STA m` sites | 32 bytes when carry/overflow are dead | Low-medium; requires flag-liveness check |
@@ -178,6 +179,35 @@ above.
 
 This has the largest strategic ceiling. The current passes are useful but have
 not exhausted the MIR facts they already discover:
+
+#### Implemented slice 1: block-local direct byte-store propagation
+
+The first slice forwards a tracked direct-memory value through a temporary into
+a direct byte store. It also supports block-local temp aliases and invalidates
+alias facts when their source temp is redefined. Calls, indirect writes,
+absolute memory, machine blocks, and other barriers retain the existing
+conservative fact kills.
+
+| Metric | Post-branch baseline | After slice 1 | Change |
+| --- | ---: | ---: | ---: |
+| TN load file | 13,773 bytes | 13,761 bytes | -12 |
+| Spill cells | 71 | 71 | 0 |
+| Spill accesses | 276 | 247 | -29 |
+| Spill reads | 147 | 121 | -26 |
+| Spill writes | 129 | 126 | -3 |
+| Direct-memory copy-prop uses | 34 | 97 | +63 |
+| Removed full-temp definitions | 39 | 42 | +3 |
+
+Most of the 26 avoided spill reads become direct reads from the original stable
+storage, so they reduce pressure and avoid a temporary dependency without
+removing an instruction. The static saving comes from the three transient
+producer stores/definitions that become dead, plus final layout effects. No TN
+temp-alias site fired; that part is general support and is covered by focused
+source-redefinition tests.
+
+The largest traffic reductions are `SetWin` 70 to 62, `SwapScr` 24 to 16,
+`Window` 23 to 18, `Copy` 22 to 20, `Xloop` 26 to 24, and `DrawWinFrame` 13 to
+12. `Handle` remains at 29 and is an important target for later slices.
 
 - 56 redundant reloads, 39 dead temp definitions, seven dead direct-load lane
   definitions, 34 constant uses, and 34 direct-memory uses are already removed;

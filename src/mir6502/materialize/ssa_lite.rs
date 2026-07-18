@@ -704,7 +704,7 @@ impl SsaLiteV2ObserveEnv {
     }
 
     fn kill_def(&mut self, def: &MirDef, reason: SsaLiteV2KillReason) {
-        let killed = match def {
+        let mut killed = match def {
             MirDef::Reg(reg) => self.kill_reg(*reg),
             MirDef::VTemp(_) | MirDef::VTempByte { .. } => {
                 let before = self.temps.len();
@@ -712,6 +712,9 @@ impl SsaLiteV2ObserveEnv {
                 before.saturating_sub(self.temps.len())
             }
         };
+        if matches!(def, MirDef::VTemp(_) | MirDef::VTempByte { .. }) {
+            killed += self.kill_value_dependencies(&SsaLiteV2ValueKey::Temp(def.clone()));
+        }
         self.record_kills(reason, killed);
     }
 
@@ -1072,6 +1075,11 @@ fn fold_mir_copy_prop_const_uses_inner(
         routine_id,
         "mir-copy-prop-direct-mem-uses",
         rewritten_uses.direct_mem,
+    );
+    peephole_stats.record_many(
+        routine_id,
+        "mir-copy-prop-temp-alias-uses",
+        rewritten_uses.temp_alias,
     );
     peephole_stats.record_many(routine_id, "mir-copy-prop-dead-temp-defs", dead_temp_defs);
     peephole_stats.record_many(
@@ -2126,6 +2134,7 @@ fn scan_ssa_lite_block_env_from(
 struct MirCopyPropRewriteCounts {
     total: usize,
     direct_mem: usize,
+    temp_alias: usize,
 }
 
 impl MirCopyPropRewriteCounts {
@@ -2133,6 +2142,7 @@ impl MirCopyPropRewriteCounts {
         Self {
             total: 1,
             direct_mem: 0,
+            temp_alias: 0,
         }
     }
 
@@ -2140,6 +2150,15 @@ impl MirCopyPropRewriteCounts {
         Self {
             total: 1,
             direct_mem: 1,
+            temp_alias: 0,
+        }
+    }
+
+    fn one_temp_alias() -> Self {
+        Self {
+            total: 1,
+            direct_mem: 0,
+            temp_alias: 1,
         }
     }
 }
@@ -2151,6 +2170,7 @@ impl std::ops::Add for MirCopyPropRewriteCounts {
         Self {
             total: self.total + rhs.total,
             direct_mem: self.direct_mem + rhs.direct_mem,
+            temp_alias: self.temp_alias + rhs.temp_alias,
         }
     }
 }
@@ -2159,6 +2179,7 @@ impl std::ops::AddAssign for MirCopyPropRewriteCounts {
     fn add_assign(&mut self, rhs: Self) {
         self.total += rhs.total;
         self.direct_mem += rhs.direct_mem;
+        self.temp_alias += rhs.temp_alias;
     }
 }
 
@@ -2267,6 +2288,21 @@ fn rewrite_mir_copy_prop_const_op(
                     width,
                 },
                 ptr_count + src_count,
+            )
+        }
+        MirOp::Store {
+            dst: MirAddr::Direct(dst),
+            src,
+            width: MirWidth::Byte,
+        } => {
+            let (src, count) = rewrite_mir_copy_prop_byte_value(src, env);
+            (
+                MirOp::Store {
+                    dst: MirAddr::Direct(dst),
+                    src,
+                    width: MirWidth::Byte,
+                },
+                count,
             )
         }
         MirOp::Store {
@@ -2574,6 +2610,10 @@ fn rewrite_mir_copy_prop_byte_value(
                     MirValue::PointerCell(mem.clone()),
                     MirCopyPropRewriteCounts::one_direct_mem(),
                 ),
+                Some(SsaLiteV2ValueKey::Temp(source)) if source != &def => (
+                    MirValue::Def(source.clone()),
+                    MirCopyPropRewriteCounts::one_temp_alias(),
+                ),
                 Some(SsaLiteV2ValueKey::Temp(_)) | None => {
                     (MirValue::Def(def), MirCopyPropRewriteCounts::default())
                 }
@@ -2593,6 +2633,10 @@ fn rewrite_mir_copy_prop_const_value(
                 Some(SsaLiteV2ValueKey::ConstU8(value)) => (
                     MirValue::ConstU8(*value),
                     MirCopyPropRewriteCounts::one_const(),
+                ),
+                Some(SsaLiteV2ValueKey::Temp(source)) if source != &def => (
+                    MirValue::Def(source.clone()),
+                    MirCopyPropRewriteCounts::one_temp_alias(),
                 ),
                 Some(SsaLiteV2ValueKey::DirectMem(_) | SsaLiteV2ValueKey::Temp(_)) | None => {
                     (MirValue::Def(def), MirCopyPropRewriteCounts::default())

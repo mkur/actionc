@@ -7565,6 +7565,179 @@ fn mir_copy_prop_forwards_direct_mem_temp_into_byte_compare() {
 }
 
 #[test]
+fn mir_copy_prop_forwards_direct_mem_temp_into_direct_byte_store() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let destination = MirMem::Local {
+        id: LocalId(2),
+        offset: 0,
+    };
+    let temp = MirDef::VTemp(MirTempId(79));
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = fold_mir_copy_prop_const_uses_with_terminator(
+        vec![
+            MirOp::Load {
+                dst: temp.clone(),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(destination.clone()),
+                src: MirValue::Def(temp),
+                width: MirWidth::Byte,
+            },
+        ],
+        &MirTerminator::Return,
+        RoutineId(0),
+        &layout,
+        &mut stats,
+    );
+
+    assert_eq!(ops.len(), 1);
+    assert!(matches!(
+        &ops[0],
+        MirOp::Store {
+            dst: MirAddr::Direct(dst),
+            src: MirValue::PointerCell(src),
+            width: MirWidth::Byte,
+        } if *dst == destination && *src == source
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-direct-mem-uses")
+            .copied(),
+        Some(1)
+    );
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-dead-temp-defs")
+            .copied(),
+        Some(1)
+    );
+}
+
+#[test]
+fn mir_copy_prop_forwards_block_local_temp_alias_and_removes_transient_def() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirDef::VTemp(MirTempId(80));
+    let alias = MirDef::VTemp(MirTempId(81));
+    let destination = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = fold_mir_copy_prop_const_uses_with_terminator(
+        vec![
+            MirOp::Load {
+                dst: source.clone(),
+                src: MirAddr::Direct(MirMem::Absolute(0xD01F)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Move {
+                dst: alias.clone(),
+                src: MirValue::Def(source.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(destination.clone()),
+                src: MirValue::Def(alias),
+                width: MirWidth::Byte,
+            },
+        ],
+        &MirTerminator::Return,
+        RoutineId(0),
+        &layout,
+        &mut stats,
+    );
+
+    assert_eq!(ops.len(), 2);
+    assert!(matches!(
+        &ops[1],
+        MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            src: MirValue::Def(def),
+            width: MirWidth::Byte,
+        } if *mem == destination && *def == source
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-temp-alias-uses")
+            .copied(),
+        Some(1)
+    );
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("mir-copy-prop-dead-temp-defs")
+            .copied(),
+        Some(1)
+    );
+}
+
+#[test]
+fn mir_copy_prop_invalidates_alias_when_source_temp_is_redefined() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirDef::VTemp(MirTempId(82));
+    let alias = MirDef::VTemp(MirTempId(83));
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = fold_mir_copy_prop_const_uses(
+        vec![
+            MirOp::Load {
+                dst: source.clone(),
+                src: MirAddr::Direct(MirMem::Absolute(0xD01F)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Move {
+                dst: alias.clone(),
+                src: MirValue::Def(source.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::LoadImm {
+                dst: source,
+                value: 7,
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Local {
+                    id: LocalId(1),
+                    offset: 0,
+                }),
+                src: MirValue::Def(alias.clone()),
+                width: MirWidth::Byte,
+            },
+        ],
+        RoutineId(0),
+        &layout,
+        &mut stats,
+    );
+
+    assert!(matches!(
+        &ops[3],
+        MirOp::Store {
+            src: MirValue::Def(def),
+            ..
+        } if *def == alias
+    ));
+    assert!(
+        !stats
+            .aggregate_counts()
+            .contains_key("mir-copy-prop-temp-alias-uses")
+    );
+}
+
+#[test]
 fn mir_copy_prop_removes_dead_forwarded_direct_mem_temp_def() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
