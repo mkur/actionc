@@ -1,8 +1,8 @@
 use super::dead_spills::block_successor_indices;
 use super::stats::MirPeepholeStats;
 use crate::mir6502::ir::{
-    MirAddr, MirBlock, MirCallTarget, MirDef, MirOp, MirRoutine, MirTempId, MirTerminator,
-    MirValue, RoutineId,
+    MirAddr, MirBlock, MirBlockParam, MirCallTarget, MirDef, MirOp, MirRoutine, MirTempId,
+    MirTerminator, MirValue, MirWidth, RoutineId,
 };
 use std::collections::BTreeSet;
 
@@ -213,6 +213,9 @@ pub(super) fn analyze_temp_liveness(routine: &MirRoutine) -> MirTempLiveness {
 
 fn temp_block_uses_and_defs(block: &MirBlock) -> MirTempBlockLiveness {
     let mut liveness = MirTempBlockLiveness::default();
+    for param in &block.params {
+        observe_block_param_def(param, &mut liveness.defs);
+    }
     for op in &block.ops {
         observe_op_uses(op, &mut liveness.uses, &liveness.defs);
         observe_op_def(op, &mut liveness.defs);
@@ -220,6 +223,17 @@ fn temp_block_uses_and_defs(block: &MirBlock) -> MirTempBlockLiveness {
     observe_terminator_uses(&block.terminator, &mut liveness.uses, &liveness.defs);
     liveness.live_in = liveness.uses.clone();
     liveness
+}
+
+fn observe_block_param_def(param: &MirBlockParam, defs: &mut MirTempLiveSet) {
+    match param.width {
+        MirWidth::Byte => defs.insert_exact(param.dest, 0),
+        MirWidth::Word => {
+            defs.insert_full(param.dest);
+            defs.insert_exact(param.dest, 0);
+            defs.insert_exact(param.dest, 1);
+        }
+    }
 }
 
 fn observe_op_def(op: &MirOp, defs: &mut MirTempLiveSet) {
@@ -336,6 +350,44 @@ fn observe_terminator_uses(
     {
         observe_value(value, uses, defs);
     }
+    match terminator {
+        MirTerminator::Jump(edge) => observe_edge_uses(edge, uses, defs),
+        MirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } => {
+            observe_edge_uses(then_edge, uses, defs);
+            observe_edge_uses(else_edge, uses, defs);
+        }
+        MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => {}
+    }
+}
+
+fn observe_edge_uses(
+    edge: &crate::mir6502::ir::MirEdge,
+    uses: &mut MirTempLiveSet,
+    defs: &MirTempLiveSet,
+) {
+    for arg in &edge.args {
+        observe_typed_value(&arg.value, arg.width, uses, defs);
+    }
+}
+
+fn observe_typed_value(
+    value: &MirValue,
+    width: MirWidth,
+    uses: &mut MirTempLiveSet,
+    defs: &MirTempLiveSet,
+) {
+    match value {
+        MirValue::Def(MirDef::VTemp(id)) if width == MirWidth::Byte => {
+            if !defs.defines_lane(*id, 0) {
+                uses.insert_exact(*id, 0);
+            }
+        }
+        _ => observe_value(value, uses, defs),
+    }
 }
 
 fn observe_value(value: &MirValue, uses: &mut MirTempLiveSet, defs: &MirTempLiveSet) {
@@ -361,5 +413,63 @@ fn observe_value(value: &MirValue, uses: &mut MirTempLiveSet, defs: &MirTempLive
         | MirValue::RoutineAddrByte { .. }
         | MirValue::StorageAddrByte { .. }
         | MirValue::PointerCell(_) => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mir6502::ir::{
+        MirBlockId, MirBlockParam, MirEdge, MirEdgeArg, MirEffects, MirFrame, MirRoutineAbi,
+        MirTemp, MirWidth, RoutineId,
+    };
+
+    #[test]
+    fn edge_arguments_are_predecessor_uses_and_block_params_are_entry_defs() {
+        let routine = MirRoutine {
+            id: RoutineId(0),
+            name: "Liveness".to_string(),
+            abi: MirRoutineAbi::Action,
+            frame: MirFrame::default(),
+            temps: vec![MirTemp { id: MirTempId(0) }, MirTemp { id: MirTempId(1) }],
+            blocks: vec![
+                MirBlock {
+                    id: MirBlockId(0),
+                    label: "entry".to_string(),
+                    params: Vec::new(),
+                    ops: Vec::new(),
+                    terminator: MirTerminator::Jump(MirEdge {
+                        target: MirBlockId(1),
+                        args: vec![MirEdgeArg {
+                            value: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                            width: MirWidth::Byte,
+                        }],
+                    }),
+                },
+                MirBlock {
+                    id: MirBlockId(1),
+                    label: "join".to_string(),
+                    params: vec![MirBlockParam {
+                        dest: MirTempId(1),
+                        width: MirWidth::Byte,
+                    }],
+                    ops: vec![MirOp::Store {
+                        dst: MirAddr::Direct(crate::mir6502::ir::MirMem::Absolute(0x4000)),
+                        src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                        width: MirWidth::Byte,
+                    }],
+                    terminator: MirTerminator::Return,
+                },
+            ],
+            effects: MirEffects::default(),
+        };
+
+        let liveness = analyze_temp_liveness(&routine);
+        let entry = liveness.block(0).expect("entry liveness");
+        assert!(entry.uses.exact_lane_live(MirTempId(0), 0));
+        assert!(!entry.uses.full_temp_live(MirTempId(0)));
+        let join = liveness.block(1).expect("join liveness");
+        assert!(!join.live_in.exact_lane_live(MirTempId(1), 0));
+        assert!(!join.live_in.full_temp_live(MirTempId(1)));
     }
 }

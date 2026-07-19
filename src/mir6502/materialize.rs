@@ -10,6 +10,7 @@ use super::passes::Mir6502Config;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod abi;
+mod block_args;
 mod call_result;
 mod calls;
 mod cfg;
@@ -39,6 +40,7 @@ mod values;
 mod zp;
 
 use abi::{prepend_action_abi_param_prologue, width_bytes};
+use block_args::lower_block_arguments;
 use calls::{
     fold_call_arg_producers, forward_param_register_homes, materialize_call,
     try_fuse_call_result_store_consumer, try_fuse_loaded_arg_call_result_store_consumer,
@@ -189,6 +191,7 @@ pub(super) fn materialize_program(
     let layout = MaterializeLayout::new(&program, object_origin);
     for routine in &mut program.routines {
         cleanup_pre_materialization_temp_artifacts(routine);
+        lower_block_arguments(routine).map_err(|diagnostic| vec![diagnostic])?;
         fold_compare_operand_producers_before_branches(
             &mut routine.blocks,
             routine.id,

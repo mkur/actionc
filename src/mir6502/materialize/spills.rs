@@ -89,16 +89,16 @@ fn block_predecessor_counts(blocks: &[MirBlock]) -> BTreeMap<MirBlockId, usize> 
     let mut counts = BTreeMap::new();
     for block in blocks {
         match &block.terminator {
-            MirTerminator::Jump(target) => {
-                *counts.entry(*target).or_insert(0) += 1;
+            MirTerminator::Jump(edge) => {
+                *counts.entry(edge.target).or_insert(0) += 1;
             }
             MirTerminator::Branch {
-                then_block,
-                else_block,
+                then_edge,
+                else_edge,
                 ..
             } => {
-                *counts.entry(*then_block).or_insert(0) += 1;
-                *counts.entry(*else_block).or_insert(0) += 1;
+                *counts.entry(then_edge.target).or_insert(0) += 1;
+                *counts.entry(else_edge.target).or_insert(0) += 1;
             }
             MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => {}
         }

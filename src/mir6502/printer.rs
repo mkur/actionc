@@ -2,9 +2,9 @@ use std::fmt::Write as _;
 
 use super::ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirCallTarget, MirCarryIn, MirCarryOut,
-    MirCompareOp, MirCond, MirCondDest, MirDef, MirFlagTest, MirGlobalBacking, MirGlobalInit,
-    MirMem, MirMemoryEffect, MirOp, MirPointerPair, MirProgram, MirReg, MirResultHome,
-    MirRuntimeHelper, MirStorageInit, MirTerminator, MirUnaryOp, MirValue, MirWidth,
+    MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirFlagTest, MirGlobalBacking,
+    MirGlobalInit, MirMem, MirMemoryEffect, MirOp, MirPointerPair, MirProgram, MirReg,
+    MirResultHome, MirRuntimeHelper, MirStorageInit, MirTerminator, MirUnaryOp, MirValue, MirWidth,
 };
 
 pub(super) fn format_program(program: &MirProgram) -> String {
@@ -77,7 +77,17 @@ pub(super) fn format_program(program: &MirProgram) -> String {
             );
         }
         for block in &routine.blocks {
-            let _ = writeln!(out, "b{} {}:", block.id.0, block.label);
+            let params = block
+                .params
+                .iter()
+                .map(|param| format!("v{}:{}", param.dest.0, width_name(param.width)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            if params.is_empty() {
+                let _ = writeln!(out, "b{} {}:", block.id.0, block.label);
+            } else {
+                let _ = writeln!(out, "b{} {}({params}):", block.id.0, block.label);
+            }
             for op in &block.ops {
                 let _ = writeln!(out, "  {}", op_summary(op));
             }
@@ -831,21 +841,36 @@ fn register_set_summary(registers: &super::ir::MirRegisterSet) -> String {
 
 fn terminator_summary(terminator: &MirTerminator) -> String {
     match terminator {
-        MirTerminator::Jump(block) => format!("jump b{}", block.0),
+        MirTerminator::Jump(edge) => format!("jump {}", edge_summary(edge)),
         MirTerminator::Branch {
             cond,
-            then_block,
-            else_block,
+            then_edge,
+            else_edge,
         } => format!(
-            "branch {} ? b{} : b{}",
+            "branch {} ? {} : {}",
             cond_summary(cond),
-            then_block.0,
-            else_block.0
+            edge_summary(then_edge),
+            edge_summary(else_edge)
         ),
         MirTerminator::Return => "return".to_string(),
         MirTerminator::Exit => "exit".to_string(),
         MirTerminator::Unreachable => "unreachable".to_string(),
     }
+}
+
+fn edge_summary(edge: &MirEdge) -> String {
+    if edge.args.is_empty() {
+        return format!("b{}", edge.target.0);
+    }
+    format!(
+        "b{}({})",
+        edge.target.0,
+        edge.args
+            .iter()
+            .map(|arg| format!("{}:{}", value_summary(&arg.value), width_name(arg.width)))
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
 }
 
 fn cond_summary(cond: &MirCond) -> String {

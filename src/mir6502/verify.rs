@@ -2,10 +2,10 @@ use std::collections::BTreeSet;
 
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCondDest, MirDef, MirFrame, MirGlobal,
-    MirGlobalInit, MirMachineBlockId, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram,
-    MirRoutine, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator, MirValue,
-    RoutineId,
+    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCondDest, MirDef, MirEdge, MirFrame,
+    MirGlobal, MirGlobalInit, MirMachineBlockId, MirMem, MirOp, MirPhase, MirPointerPair,
+    MirProgram, MirRoutine, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator,
+    MirValue, RoutineId,
 };
 use crate::nir::SymbolId;
 
@@ -266,7 +266,69 @@ impl MirVerifier {
             }
         }
 
+        let mut predecessor_counts = routine
+            .blocks
+            .iter()
+            .map(|block| (block.id, 0usize))
+            .collect::<std::collections::BTreeMap<_, _>>();
         for block in &routine.blocks {
+            let edges: [Option<&MirEdge>; 2] = match &block.terminator {
+                MirTerminator::Jump(edge) => [Some(edge), None],
+                MirTerminator::Branch {
+                    then_edge,
+                    else_edge,
+                    ..
+                } => [Some(then_edge), Some(else_edge)],
+                MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => {
+                    [None, None]
+                }
+            };
+            for edge in edges.into_iter().flatten() {
+                if let Some(count) = predecessor_counts.get_mut(&edge.target) {
+                    *count = count.saturating_add(1);
+                }
+            }
+        }
+
+        let mut block_param_defs = BTreeSet::new();
+        for block in &routine.blocks {
+            let mut param_temps = BTreeSet::new();
+            for param in &block.params {
+                if !param_temps.insert(param.dest) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("duplicate block parameter `v{}`", param.dest.0),
+                    ));
+                }
+                if !block_param_defs.insert(param.dest) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!(
+                            "block parameter temp `v{}` is defined by more than one block",
+                            param.dest.0
+                        ),
+                    ));
+                }
+                self.verify_def(routine, block.label.as_str(), &MirDef::VTemp(param.dest));
+            }
+            if !block.params.is_empty()
+                && predecessor_counts.get(&block.id).copied().unwrap_or(0) == 0
+            {
+                self.diagnostics.push(MirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    "block parameters require at least one predecessor contribution",
+                ));
+            }
+            if !matches!(self.phase, MirPhase::PreMaterialization) && !block.params.is_empty() {
+                self.diagnostics.push(MirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    "materialized MIR cannot contain block parameters",
+                ));
+            }
             for op in &block.ops {
                 self.verify_op(
                     routine,
@@ -280,13 +342,20 @@ impl MirVerifier {
             }
 
             match &block.terminator {
-                MirTerminator::Jump(target) => {
-                    self.require_block_target(routine, block.label.as_str(), &block_ids, *target)
-                }
+                MirTerminator::Jump(edge) => self.verify_edge(
+                    routine,
+                    block.label.as_str(),
+                    &block_ids,
+                    edge,
+                    static_ids,
+                    global_ids,
+                    routine_ids,
+                    "jump",
+                ),
                 MirTerminator::Branch {
                     cond,
-                    then_block,
-                    else_block,
+                    then_edge,
+                    else_edge,
                 } => {
                     self.verify_cond(
                         routine,
@@ -296,23 +365,88 @@ impl MirVerifier {
                         global_ids,
                         routine_ids,
                     );
-                    self.require_named_block_target(
+                    self.verify_edge(
                         routine,
                         block.label.as_str(),
                         &block_ids,
-                        *then_block,
+                        then_edge,
+                        static_ids,
+                        global_ids,
+                        routine_ids,
                         "branch then",
                     );
-                    self.require_named_block_target(
+                    self.verify_edge(
                         routine,
                         block.label.as_str(),
                         &block_ids,
-                        *else_block,
+                        else_edge,
+                        static_ids,
+                        global_ids,
+                        routine_ids,
                         "branch else",
                     );
                 }
                 MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => {}
             }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn verify_edge(
+        &mut self,
+        routine: &MirRoutine,
+        block: &str,
+        block_ids: &BTreeSet<MirBlockId>,
+        edge: &MirEdge,
+        static_ids: &BTreeSet<SymbolId>,
+        global_ids: &BTreeSet<SymbolId>,
+        routine_ids: &BTreeSet<RoutineId>,
+        label: &str,
+    ) {
+        self.require_named_block_target(routine, block, block_ids, edge.target, label);
+        let Some(target) = routine
+            .blocks
+            .iter()
+            .find(|candidate| candidate.id == edge.target)
+        else {
+            return;
+        };
+        if edge.args.len() != target.params.len() {
+            self.diagnostics.push(MirDiagnostic::block(
+                &routine.name,
+                block,
+                format!(
+                    "{label} edge supplies {} argument(s), expected {}",
+                    edge.args.len(),
+                    target.params.len()
+                ),
+            ));
+        }
+        for (index, arg) in edge.args.iter().enumerate() {
+            self.verify_value(
+                routine,
+                block,
+                &arg.value,
+                static_ids,
+                global_ids,
+                routine_ids,
+            );
+            if let Some(param) = target.params.get(index)
+                && arg.width != param.width
+            {
+                self.diagnostics.push(MirDiagnostic::block(
+                    &routine.name,
+                    block,
+                    format!("{label} edge argument {index} width does not match target parameter"),
+                ));
+            }
+        }
+        if !matches!(self.phase, MirPhase::PreMaterialization) && !edge.args.is_empty() {
+            self.diagnostics.push(MirDiagnostic::block(
+                &routine.name,
+                block,
+                "materialized MIR cannot contain edge arguments",
+            ));
         }
     }
 
@@ -1305,16 +1439,6 @@ impl MirVerifier {
         }
     }
 
-    fn require_block_target(
-        &mut self,
-        routine: &MirRoutine,
-        block: &str,
-        block_ids: &BTreeSet<MirBlockId>,
-        target: MirBlockId,
-    ) {
-        self.require_named_block_target(routine, block, block_ids, target, "jump");
-    }
-
     fn require_named_block_target(
         &mut self,
         routine: &MirRoutine,
@@ -1429,7 +1553,7 @@ mod tests {
             vec![block(
                 MirBlockId(0),
                 "bb0",
-                MirTerminator::Jump(MirBlockId(99)),
+                MirTerminator::Jump(MirEdge::plain(MirBlockId(99))),
             )],
         )]);
 
@@ -1452,8 +1576,8 @@ mod tests {
                 "bb0",
                 MirTerminator::Branch {
                     cond: crate::mir6502::MirCond::Deferred,
-                    then_block: MirBlockId(1),
-                    else_block: MirBlockId(2),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(2)),
                 },
             )],
         )]);
@@ -1470,6 +1594,101 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.message.contains("branch else target `b2`"))
         );
+    }
+
+    #[test]
+    fn rejects_block_argument_arity_mismatch() {
+        let mut main = routine(
+            RoutineId(0),
+            "Main",
+            vec![
+                block(
+                    MirBlockId(0),
+                    "entry",
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+                ),
+                block(MirBlockId(1), "join", MirTerminator::Return),
+            ],
+        );
+        main.temps.push(MirTemp { id: MirTempId(0) });
+        main.blocks[1].params.push(crate::mir6502::MirBlockParam {
+            dest: MirTempId(0),
+            width: MirWidth::Byte,
+        });
+
+        let diagnostics = verify_program(
+            &program_with_routines(vec![main]),
+            MirPhase::PreMaterialization,
+        )
+        .expect_err("missing block argument rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("supplies 0 argument(s), expected 1")
+        }));
+    }
+
+    #[test]
+    fn rejects_block_argument_width_mismatch() {
+        let mut main = routine(
+            RoutineId(0),
+            "Main",
+            vec![
+                block(
+                    MirBlockId(0),
+                    "entry",
+                    MirTerminator::Jump(MirEdge {
+                        target: MirBlockId(1),
+                        args: vec![crate::mir6502::MirEdgeArg {
+                            value: MirValue::ConstU16(1),
+                            width: MirWidth::Word,
+                        }],
+                    }),
+                ),
+                block(MirBlockId(1), "join", MirTerminator::Return),
+            ],
+        );
+        main.temps.push(MirTemp { id: MirTempId(0) });
+        main.blocks[1].params.push(crate::mir6502::MirBlockParam {
+            dest: MirTempId(0),
+            width: MirWidth::Byte,
+        });
+
+        let diagnostics = verify_program(
+            &program_with_routines(vec![main]),
+            MirPhase::PreMaterialization,
+        )
+        .expect_err("mismatched block argument width rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("argument 0 width does not match target parameter")
+        }));
+    }
+
+    #[test]
+    fn rejects_block_parameters_without_predecessor_contribution() {
+        let mut main = routine(
+            RoutineId(0),
+            "Main",
+            vec![block(MirBlockId(0), "entry", MirTerminator::Return)],
+        );
+        main.temps.push(MirTemp { id: MirTempId(0) });
+        main.blocks[0].params.push(crate::mir6502::MirBlockParam {
+            dest: MirTempId(0),
+            width: MirWidth::Byte,
+        });
+
+        let diagnostics = verify_program(
+            &program_with_routines(vec![main]),
+            MirPhase::PreMaterialization,
+        )
+        .expect_err("orphan block parameter rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("require at least one predecessor contribution")
+        }));
     }
 
     #[test]
@@ -1621,6 +1840,7 @@ mod tests {
         MirBlock {
             id,
             label: label.to_string(),
+            params: Vec::new(),
             ops,
             terminator,
         }

@@ -265,8 +265,15 @@ pub enum MirStorageBase {
 pub struct MirBlock {
     pub id: MirBlockId,
     pub label: String,
+    pub params: Vec<MirBlockParam>,
     pub ops: Vec<MirOp>,
     pub terminator: MirTerminator,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MirBlockParam {
+    pub dest: MirTempId,
+    pub width: MirWidth,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -649,15 +656,36 @@ pub struct MirMachineBlockId(pub u32);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MirTerminator {
-    Jump(MirBlockId),
+    Jump(MirEdge),
     Branch {
         cond: MirCond,
-        then_block: MirBlockId,
-        else_block: MirBlockId,
+        then_edge: MirEdge,
+        else_edge: MirEdge,
     },
     Return,
     Exit,
     Unreachable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MirEdge {
+    pub target: MirBlockId,
+    pub args: Vec<MirEdgeArg>,
+}
+
+impl MirEdge {
+    pub fn plain(target: MirBlockId) -> Self {
+        Self {
+            target,
+            args: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MirEdgeArg {
+    pub value: MirValue,
+    pub width: MirWidth,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

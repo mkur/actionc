@@ -8,11 +8,15 @@ pub(super) fn collapse_empty_jump_blocks(routine: &mut MirRoutine) {
     let jump_blocks = routine
         .blocks
         .iter()
-        .filter_map(|block| match block.terminator {
-            MirTerminator::Jump(target)
-                if block.id != entry && target != block.id && block.ops.is_empty() =>
+        .filter_map(|block| match &block.terminator {
+            MirTerminator::Jump(edge)
+                if block.id != entry
+                    && edge.target != block.id
+                    && edge.args.is_empty()
+                    && block.params.is_empty()
+                    && block.ops.is_empty() =>
             {
-                Some((block.id, target))
+                Some((block.id, edge.target))
             }
             _ => None,
         })
@@ -34,14 +38,16 @@ fn redirect_empty_jump_targets(
     jump_blocks: &BTreeMap<MirBlockId, MirBlockId>,
 ) {
     match terminator {
-        MirTerminator::Jump(target) => *target = resolved_empty_jump_target(*target, jump_blocks),
+        MirTerminator::Jump(edge) => {
+            edge.target = resolved_empty_jump_target(edge.target, jump_blocks)
+        }
         MirTerminator::Branch {
-            then_block,
-            else_block,
+            then_edge,
+            else_edge,
             ..
         } => {
-            *then_block = resolved_empty_jump_target(*then_block, jump_blocks);
-            *else_block = resolved_empty_jump_target(*else_block, jump_blocks);
+            then_edge.target = resolved_empty_jump_target(then_edge.target, jump_blocks);
+            else_edge.target = resolved_empty_jump_target(else_edge.target, jump_blocks);
         }
         MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => {}
     }

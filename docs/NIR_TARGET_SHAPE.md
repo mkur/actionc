@@ -388,6 +388,19 @@ Rules:
 - Fallthrough should either be made explicit as `Return(None)` where appropriate
   or represented by a documented terminator with clear MIR6502 behavior.
 
+### MIR6502 merge handoff
+
+Pre-materialization MIR6502 preserves the same typed merge contract with
+`MirBlockParam` and typed `MirEdgeArg` values. This is a target representation,
+not a request for NIR to choose registers or storage.
+
+Before ordinary 6502 materialization, conditional edges that carry arguments
+are split so their copies execute only on the selected edge. Each argument is
+then lowered to its target parameter temp as a parallel copy. Copy cycles use a
+fresh MIR temp, whose eventual register, zero-page, or spill placement remains
+a MIR6502 decision. Post-materialization and pre-emission MIR contain neither
+block parameters nor edge arguments.
+
 ## Conditions
 
 Recommended initial condition model: value-producing bool temps.

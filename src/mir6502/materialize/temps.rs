@@ -917,17 +917,17 @@ pub(super) fn materialize_terminator(
     }
     let MirTerminator::Branch {
         cond,
-        then_block,
-        else_block,
+        then_edge,
+        else_edge,
     } = terminator
     else {
         return terminator.clone();
     };
 
     match cond {
-        MirCond::BoolValue(MirValue::ConstU8(0)) => MirTerminator::Jump(*else_block),
+        MirCond::BoolValue(MirValue::ConstU8(0)) => MirTerminator::Jump(else_edge.clone()),
         MirCond::BoolValue(MirValue::ConstU8(_)) | MirCond::BoolValue(MirValue::ConstU16(_)) => {
-            MirTerminator::Jump(*then_block)
+            MirTerminator::Jump(then_edge.clone())
         }
         MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))) => {
             if let Some((op_index, op)) = ops.iter().enumerate().next_back()
@@ -950,8 +950,8 @@ pub(super) fn materialize_terminator(
                         },
                         flag_test,
                     },
-                    then_block: *then_block,
-                    else_block: *else_block,
+                    then_edge: then_edge.clone(),
+                    else_edge: else_edge.clone(),
                 };
             }
             terminator.clone()

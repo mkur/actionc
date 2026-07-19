@@ -496,6 +496,16 @@ fn analyze_home_demand(routine: &MirRoutine, liveness: &MirTempLiveness) -> Home
     let widths = routine_temp_widths(routine);
     let mut facts = BTreeMap::<TempLane, LaneFacts>::new();
     for (block_index, block) in routine.blocks.iter().enumerate() {
+        for param in &block.params {
+            for lane in lanes_for_width(param.dest, param.width) {
+                facts.entry(lane).or_default().defs.push(DefSite {
+                    block: block_index,
+                    op: 0,
+                    natural_reg: None,
+                    coupled: param.width == MirWidth::Word,
+                });
+            }
+        }
         for (op_index, op) in block.ops.iter().enumerate() {
             record_op_defs(op, block_index, op_index, &mut facts);
             record_op_uses(op, block_index, op_index, &widths, &mut facts);
@@ -831,6 +841,9 @@ fn retain_home(
 fn routine_temp_widths(routine: &MirRoutine) -> BTreeMap<MirTempId, MirWidth> {
     let mut widths = BTreeMap::new();
     for block in &routine.blocks {
+        for param in &block.params {
+            note_width(&mut widths, param.dest, param.width);
+        }
         for (id, width) in collect_temp_widths(&block.ops) {
             note_width(&mut widths, id, width);
         }
@@ -1224,6 +1237,28 @@ fn record_terminator_uses(
     {
         record_value_uses(value, MirWidth::Byte, block, None, false, facts);
     }
+    match terminator {
+        MirTerminator::Jump(edge) => record_edge_uses(edge, block, facts),
+        MirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } => {
+            record_edge_uses(then_edge, block, facts);
+            record_edge_uses(else_edge, block, facts);
+        }
+        MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => {}
+    }
+}
+
+fn record_edge_uses(
+    edge: &crate::mir6502::ir::MirEdge,
+    block: usize,
+    facts: &mut BTreeMap<TempLane, LaneFacts>,
+) {
+    for arg in &edge.args {
+        record_value_uses(&arg.value, arg.width, block, None, false, facts);
+    }
 }
 
 fn predecessor_counts(routine: &MirRoutine) -> Vec<usize> {
@@ -1419,7 +1454,8 @@ fn op_may_clobber_accumulator_during_materialization(op: &MirOp) -> bool {
 mod tests {
     use super::*;
     use crate::mir6502::ir::{
-        MirBlock, MirBlockId, MirEffects, MirFrame, MirMem, MirRoutineAbi, MirTemp, RoutineId,
+        MirBlock, MirBlockId, MirEdge, MirEffects, MirFrame, MirMem, MirRoutineAbi, MirTemp,
+        RoutineId,
     };
     use crate::mir6502::materialize::temp_liveness::analyze_temp_liveness;
     use crate::mir6502::materialize::temps::materialize_temp_ops;
@@ -1440,6 +1476,7 @@ mod tests {
         MirBlock {
             id: MirBlockId(id),
             label: format!("b{id}"),
+            params: Vec::new(),
             ops,
             terminator,
         }
@@ -2124,13 +2161,25 @@ mod tests {
                     }],
                     MirTerminator::Branch {
                         cond: MirCond::BoolValue(temp_value(0)),
-                        then_block: MirBlockId(1),
-                        else_block: MirBlockId(2),
+                        then_edge: MirEdge::plain(MirBlockId(1)),
+                        else_edge: MirEdge::plain(MirBlockId(2)),
                     },
                 ),
-                block(1, Vec::new(), MirTerminator::Jump(MirBlockId(3))),
-                block(2, Vec::new(), MirTerminator::Jump(MirBlockId(3))),
-                block(3, vec![store_temp(0)], MirTerminator::Jump(MirBlockId(3))),
+                block(
+                    1,
+                    Vec::new(),
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+                ),
+                block(
+                    2,
+                    Vec::new(),
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+                ),
+                block(
+                    3,
+                    vec![store_temp(0)],
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+                ),
             ],
             1,
         );

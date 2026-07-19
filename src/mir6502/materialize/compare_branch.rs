@@ -10,8 +10,8 @@ use super::temps::{def_is_used_after, temp_is_used_after};
 use super::values::split_value_as_word;
 use crate::mir6502::ir::{
     MirAddr, MirBinaryOp, MirBlock, MirBlockId, MirCarryIn, MirCarryOut, MirCompareOp, MirCond,
-    MirCondDest, MirDef, MirFlagTest, MirOp, MirReg, MirTempId, MirTerminator, MirValue, MirWidth,
-    RoutineId,
+    MirCondDest, MirDef, MirEdge, MirFlagTest, MirOp, MirReg, MirTempId, MirTerminator, MirValue,
+    MirWidth, RoutineId,
 };
 use crate::mir6502::passes::Mir6502Config;
 use std::collections::{BTreeMap, BTreeSet};
@@ -585,7 +585,7 @@ fn try_expand_word_compare_branch(
     let entry = append_word_compare_branch_blocks(
         blocks, next_id, op, signed, left_lo, left_hi, right_lo, right_hi, then_block, else_block,
     );
-    blocks[block_index].terminator = MirTerminator::Jump(entry);
+    blocks[block_index].terminator = jump_terminator(entry);
     true
 }
 
@@ -666,6 +666,7 @@ fn try_expand_short_circuit_branch(
             blocks.push(MirBlock {
                 id,
                 label: format!("cmp_sc_{}", id.0),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: MirTerminator::Return,
             });
@@ -887,7 +888,7 @@ fn materialize_short_circuit_compare_branch(
                 blocks, next_id, op, signed, left_lo, left_hi, right_lo, right_hi, then_block,
                 else_block,
             );
-            MirTerminator::Jump(entry)
+            jump_terminator(entry)
         }
     }
 }
@@ -911,31 +912,27 @@ fn materialize_byte_compare_branch(
         signed: false,
     });
     match op {
-        MirCompareOp::Eq => MirTerminator::Branch {
-            cond: MirCond::FlagTest(MirFlagTest::ZSet),
+        MirCompareOp::Eq => {
+            branch_terminator(MirCond::FlagTest(MirFlagTest::ZSet), then_block, else_block)
+        }
+        MirCompareOp::Ne => branch_terminator(
+            MirCond::FlagTest(MirFlagTest::ZClear),
             then_block,
             else_block,
-        },
-        MirCompareOp::Ne => MirTerminator::Branch {
-            cond: MirCond::FlagTest(MirFlagTest::ZClear),
+        ),
+        MirCompareOp::Lt => branch_terminator(
+            MirCond::FlagTest(MirFlagTest::CClear),
             then_block,
             else_block,
-        },
-        MirCompareOp::Lt => MirTerminator::Branch {
-            cond: MirCond::FlagTest(MirFlagTest::CClear),
+        ),
+        MirCompareOp::Ge => {
+            branch_terminator(MirCond::FlagTest(MirFlagTest::CSet), then_block, else_block)
+        }
+        MirCompareOp::Le => branch_terminator(
+            MirCond::AnyFlagTest([MirFlagTest::CClear, MirFlagTest::ZSet]),
             then_block,
             else_block,
-        },
-        MirCompareOp::Ge => MirTerminator::Branch {
-            cond: MirCond::FlagTest(MirFlagTest::CSet),
-            then_block,
-            else_block,
-        },
-        MirCompareOp::Le => MirTerminator::Branch {
-            cond: MirCond::AnyFlagTest([MirFlagTest::CClear, MirFlagTest::ZSet]),
-            then_block,
-            else_block,
-        },
+        ),
         MirCompareOp::Gt => {
             let eq = fresh_block_id(next_id);
             blocks.push(flag_branch_block(
@@ -945,11 +942,7 @@ fn materialize_byte_compare_branch(
                 else_block,
                 then_block,
             ));
-            MirTerminator::Branch {
-                cond: MirCond::FlagTest(MirFlagTest::CClear),
-                then_block: else_block,
-                else_block: eq,
-            }
+            branch_terminator(MirCond::FlagTest(MirFlagTest::CClear), else_block, eq)
         }
     }
 }
@@ -969,13 +962,13 @@ fn compare_temp_index(ops: &[MirOp], temp: MirTempId) -> Option<usize> {
 fn branch_bool_temp(block: &MirBlock) -> Option<(MirTempId, MirBlockId, MirBlockId)> {
     let MirTerminator::Branch {
         cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))),
-        then_block,
-        else_block,
+        ref then_edge,
+        ref else_edge,
     } = block.terminator
     else {
         return None;
     };
-    Some((id, then_block, else_block))
+    Some((id, then_edge.target, else_edge.target))
 }
 
 fn append_word_compare_branch_blocks(
@@ -1171,6 +1164,7 @@ fn append_signed_lt_blocks(
     blocks.push(MirBlock {
         id: subtract,
         label: format!("cmp_i16_sub_{}", subtract.0),
+        params: Vec::new(),
         ops: vec![
             MirOp::Move {
                 dst: MirDef::Reg(MirReg::A),
@@ -1201,11 +1195,11 @@ fn append_signed_lt_blocks(
                 carry_out: MirCarryOut::Ignore,
             },
         ],
-        terminator: MirTerminator::Branch {
-            cond: MirCond::FlagTest(MirFlagTest::VSet),
-            then_block: overflow_set,
-            else_block: overflow_clear,
-        },
+        terminator: branch_terminator(
+            MirCond::FlagTest(MirFlagTest::VSet),
+            overflow_set,
+            overflow_clear,
+        ),
     });
     blocks.push(flag_branch_block(
         overflow_set,
@@ -1293,6 +1287,7 @@ fn compare_branch_block(
     MirBlock {
         id,
         label: format!("{}_{}", label_prefix, id.0),
+        params: Vec::new(),
         ops: vec![MirOp::Compare {
             dst: MirCondDest::Flags,
             op,
@@ -1301,11 +1296,7 @@ fn compare_branch_block(
             width: MirWidth::Byte,
             signed: false,
         }],
-        terminator: MirTerminator::Branch {
-            cond: MirCond::FlagTest(flag_test),
-            then_block,
-            else_block,
-        },
+        terminator: branch_terminator(MirCond::FlagTest(flag_test), then_block, else_block),
     }
 }
 
@@ -1319,12 +1310,25 @@ fn flag_branch_block(
     MirBlock {
         id,
         label: format!("{}_{}", label_prefix, id.0),
+        params: Vec::new(),
         ops: Vec::new(),
-        terminator: MirTerminator::Branch {
-            cond: MirCond::FlagTest(flag_test),
-            then_block,
-            else_block,
-        },
+        terminator: branch_terminator(MirCond::FlagTest(flag_test), then_block, else_block),
+    }
+}
+
+fn jump_terminator(target: MirBlockId) -> MirTerminator {
+    MirTerminator::Jump(MirEdge::plain(target))
+}
+
+fn branch_terminator(
+    cond: MirCond,
+    then_block: MirBlockId,
+    else_block: MirBlockId,
+) -> MirTerminator {
+    MirTerminator::Branch {
+        cond,
+        then_edge: MirEdge::plain(then_block),
+        else_edge: MirEdge::plain(else_block),
     }
 }
 

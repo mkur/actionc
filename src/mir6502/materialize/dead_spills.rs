@@ -80,14 +80,14 @@ pub(super) fn block_successor_indices(
 ) -> Vec<usize> {
     let mut successors = Vec::new();
     match terminator {
-        MirTerminator::Jump(target) => successors.push(*target),
+        MirTerminator::Jump(edge) => successors.push(edge.target),
         MirTerminator::Branch {
-            then_block,
-            else_block,
+            then_edge,
+            else_edge,
             ..
         } => {
-            successors.push(*then_block);
-            successors.push(*else_block);
+            successors.push(then_edge.target);
+            successors.push(else_edge.target);
         }
         MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => {}
     }

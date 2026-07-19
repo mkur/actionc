@@ -176,8 +176,8 @@ fn extend_branch_relaxation_plan(
         for block in &routine.blocks {
             let MirTerminator::Branch {
                 cond,
-                then_block,
-                else_block,
+                then_edge,
+                else_edge,
             } = &block.terminator
             else {
                 continue;
@@ -186,41 +186,43 @@ fn extend_branch_relaxation_plan(
             else {
                 continue;
             };
-            let Some(&then_position) = measurements.block_positions.get(&(routine.id, *then_block))
+            let then_block = then_edge.target;
+            let else_block = else_edge.target;
+            let Some(&then_position) = measurements.block_positions.get(&(routine.id, then_block))
             else {
                 continue;
             };
-            let Some(&else_position) = measurements.block_positions.get(&(routine.id, *else_block))
+            let Some(&else_position) = measurements.block_positions.get(&(routine.id, else_block))
             else {
                 continue;
             };
 
             let then_fits = measured_branch_target_fits(
                 cond,
-                *then_block,
-                *then_block,
-                *else_block,
+                then_block,
+                then_block,
+                else_block,
                 branch_position,
                 then_position,
             );
             if then_fits {
                 changed |= plan
                     .direct_targets
-                    .insert((routine.id, block.id, *then_block));
+                    .insert((routine.id, block.id, then_block));
             }
             if else_block != then_block
                 && measured_branch_target_fits(
                     cond,
-                    *else_block,
-                    *then_block,
-                    *else_block,
+                    else_block,
+                    then_block,
+                    else_block,
                     branch_position,
                     else_position,
                 )
             {
                 changed |= plan
                     .direct_targets
-                    .insert((routine.id, block.id, *else_block));
+                    .insert((routine.id, block.id, else_block));
             }
         }
     }
@@ -240,8 +242,8 @@ fn find_self_enabling_branch_relaxation(
         for block in &routine.blocks {
             let MirTerminator::Branch {
                 cond,
-                then_block,
-                else_block,
+                then_edge,
+                else_edge,
             } = &block.terminator
             else {
                 continue;
@@ -250,9 +252,11 @@ fn find_self_enabling_branch_relaxation(
             else {
                 continue;
             };
-            for (is_then_target, target) in [(true, *then_block), (false, *else_block)] {
+            let then_block = then_edge.target;
+            let else_block = else_edge.target;
+            for (is_then_target, target) in [(true, then_block), (false, else_block)] {
                 let key = (routine.id, block.id, target);
-                if plan.direct_targets.contains(&key) || !is_then_target && target == *then_block {
+                if plan.direct_targets.contains(&key) || !is_then_target && target == then_block {
                     continue;
                 }
                 let Some(&target_position) =
@@ -261,7 +265,7 @@ fn find_self_enabling_branch_relaxation(
                     continue;
                 };
                 let latest_branch_position =
-                    if matches!(cond, MirCond::AnyFlagTest(_)) && target == *else_block {
+                    if matches!(cond, MirCond::AnyFlagTest(_)) && target == else_block {
                         branch_position.saturating_add(2)
                     } else {
                         branch_position
@@ -290,8 +294,8 @@ fn find_self_enabling_branch_relaxation(
                 if measured_branch_target_fits(
                     cond,
                     target,
-                    *then_block,
-                    *else_block,
+                    then_block,
+                    else_block,
                     trial_branch_position,
                     trial_target_position,
                 ) {
@@ -2682,27 +2686,25 @@ fn emit_terminator(
     match terminator {
         MirTerminator::Return | MirTerminator::Exit => emitter.emit_rts(),
         MirTerminator::Jump(target) => {
-            if Some(*target) != next_block {
-                emitter.emit_jmp_label(ctx.layout.block_label(routine, *target), SYNTHETIC_SPAN);
+            if Some(target.target) != next_block {
+                emitter.emit_jmp_label(
+                    ctx.layout.block_label(routine, target.target),
+                    SYNTHETIC_SPAN,
+                );
             }
         }
         MirTerminator::Branch {
             cond,
-            then_block,
-            else_block,
+            then_edge,
+            else_edge,
         } => {
+            let then_block = then_edge.target;
+            let else_block = else_edge.target;
             ctx.measurements
                 .branch_positions
                 .insert((routine, block), emitter.position());
             if emit_direct_branch_if_in_range(
-                ctx,
-                routine,
-                block,
-                cond,
-                *then_block,
-                *else_block,
-                next_block,
-                emitter,
+                ctx, routine, block, cond, then_block, else_block, next_block, emitter,
             ) {
                 return;
             }
@@ -2712,9 +2714,9 @@ fn emit_terminator(
             };
             let else_jump_label = format!("__mir6502_branch_else_{}_{}", routine.0, block.0);
             emitter.emit_branch_label(opcode, else_jump_label.clone(), SYNTHETIC_SPAN);
-            emitter.emit_jmp_label(ctx.layout.block_label(routine, *then_block), SYNTHETIC_SPAN);
+            emitter.emit_jmp_label(ctx.layout.block_label(routine, then_block), SYNTHETIC_SPAN);
             bind_label(ctx, emitter, routine, Some(block), else_jump_label);
-            emitter.emit_jmp_label(ctx.layout.block_label(routine, *else_block), SYNTHETIC_SPAN);
+            emitter.emit_jmp_label(ctx.layout.block_label(routine, else_block), SYNTHETIC_SPAN);
         }
         MirTerminator::Unreachable => {}
     }

@@ -17,13 +17,13 @@ use super::classify::{
 };
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirBinaryOp, MirBlock, MirBlockId, MirCarryOut, MirCompareOp, MirCond, MirCondDest,
-    MirDataBacking, MirDef, MirEffects, MirFixedZpSlot, MirFrame, MirGlobal, MirGlobalBacking,
-    MirGlobalInit, MirMachineAtom, MirMachineBlock, MirMachineBlockId, MirMachineByteSelector,
-    MirMachineItem, MirMem, MirOp, MirProgram, MirRoutine, MirRoutineAbi, MirRuntimeHelper,
-    MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic, MirStorageBacking, MirStorageBase,
-    MirStorageId, MirStorageInit, MirStorageSlot, MirTemp, MirTempId, MirTerminator, MirUnaryOp,
-    MirValue, MirWidth, RoutineId,
+    MirAddr, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam, MirCarryOut, MirCompareOp, MirCond,
+    MirCondDest, MirDataBacking, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFrame,
+    MirGlobal, MirGlobalBacking, MirGlobalInit, MirMachineAtom, MirMachineBlock, MirMachineBlockId,
+    MirMachineByteSelector, MirMachineItem, MirMem, MirOp, MirProgram, MirRoutine, MirRoutineAbi,
+    MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic, MirStorageBacking,
+    MirStorageBase, MirStorageId, MirStorageInit, MirStorageSlot, MirTemp, MirTempId,
+    MirTerminator, MirUnaryOp, MirValue, MirWidth, RoutineId,
 };
 
 pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>> {
@@ -116,13 +116,6 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                 .iter()
                 .enumerate()
                 .map(|(block_index, block)| {
-                    if !block.params.is_empty() {
-                        diagnostics.push(MirDiagnostic::block(
-                            &routine.name,
-                            &block.label,
-                            "NIR block parameters require MIR6502 Phase 5 lowering",
-                        ));
-                    }
                     let mut ops = lower_ops(
                         &routine.name,
                         &block.label,
@@ -148,6 +141,28 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                     MirBlock {
                         id: MirBlockId(block_index as u32),
                         label: block.label.clone(),
+                        params: block
+                            .params
+                            .iter()
+                            .filter_map(|param| {
+                                mir_width(&param.ty)
+                                    .map(|width| MirBlockParam {
+                                        dest: MirTempId(param.dest.0),
+                                        width,
+                                    })
+                                    .or_else(|| {
+                                        diagnostics.push(MirDiagnostic::block(
+                                            &routine.name,
+                                            &block.label,
+                                            format!(
+                                                "NIR block parameter `%t{}` has unsupported width",
+                                                param.dest.0
+                                            ),
+                                        ));
+                                        None
+                                    })
+                            })
+                            .collect(),
                         ops,
                         terminator: lower_terminator(
                             &routine.name,
@@ -1757,45 +1772,26 @@ fn lower_terminator(
 ) -> MirTerminator {
     match terminator {
         NirTerminator::Fallthrough => MirTerminator::Unreachable,
-        NirTerminator::Goto(edge) => {
-            if !edge.args.is_empty() {
-                diagnostics.push(MirDiagnostic::block(
-                    routine,
-                    block,
-                    "NIR edge arguments require MIR6502 Phase 5 lowering",
-                ));
-            }
-            block_ids
-                .get(&edge.target)
-                .copied()
-                .map(MirTerminator::Jump)
-                .unwrap_or(MirTerminator::Unreachable)
-        }
+        NirTerminator::Goto(edge) => lower_edge(routine, block, edge, block_ids, diagnostics)
+            .map(MirTerminator::Jump)
+            .unwrap_or(MirTerminator::Unreachable),
         NirTerminator::Branch {
             condition,
             then_edge,
             else_edge,
             ..
         } => {
-            if !then_edge.args.is_empty() || !else_edge.args.is_empty() {
-                diagnostics.push(MirDiagnostic::block(
-                    routine,
-                    block,
-                    "NIR edge arguments require MIR6502 Phase 5 lowering",
-                ));
-            }
-            MirTerminator::Branch {
-                cond: lower_value(routine, block, condition, diagnostics)
-                    .map(MirCond::BoolValue)
-                    .unwrap_or(MirCond::Deferred),
-                then_block: block_ids
-                    .get(&then_edge.target)
-                    .copied()
-                    .unwrap_or(MirBlockId(u32::MAX)),
-                else_block: block_ids
-                    .get(&else_edge.target)
-                    .copied()
-                    .unwrap_or(MirBlockId(u32::MAX)),
+            let then_edge = lower_edge(routine, block, then_edge, block_ids, diagnostics);
+            let else_edge = lower_edge(routine, block, else_edge, block_ids, diagnostics);
+            match (then_edge, else_edge) {
+                (Some(then_edge), Some(else_edge)) => MirTerminator::Branch {
+                    cond: lower_value(routine, block, condition, diagnostics)
+                        .map(MirCond::BoolValue)
+                        .unwrap_or(MirCond::Deferred),
+                    then_edge,
+                    else_edge,
+                },
+                _ => MirTerminator::Unreachable,
             }
         }
         NirTerminator::Return(_) => MirTerminator::Return,
@@ -1803,7 +1799,33 @@ fn lower_terminator(
         NirTerminator::Open | NirTerminator::Unknown(_) => block_ids
             .get(&block_id)
             .copied()
-            .map(MirTerminator::Jump)
+            .map(|target| MirTerminator::Jump(MirEdge::plain(target)))
             .unwrap_or(MirTerminator::Unreachable),
     }
+}
+
+fn lower_edge(
+    routine: &str,
+    block: &str,
+    edge: &nir::NirEdge,
+    block_ids: &BTreeMap<BlockId, MirBlockId>,
+    diagnostics: &mut Vec<MirDiagnostic>,
+) -> Option<MirEdge> {
+    let target = block_ids.get(&edge.target).copied()?;
+    let mut args = Vec::with_capacity(edge.args.len());
+    for arg in &edge.args {
+        let Some(width) = value_width(arg) else {
+            diagnostics.push(MirDiagnostic::block(
+                routine,
+                block,
+                "NIR edge argument has unsupported width",
+            ));
+            continue;
+        };
+        let Some(value) = lower_value(routine, block, arg, diagnostics) else {
+            continue;
+        };
+        args.push(MirEdgeArg { value, width });
+    }
+    Some(MirEdge { target, args })
 }

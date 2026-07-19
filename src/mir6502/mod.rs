@@ -13,15 +13,15 @@ mod verify;
 
 pub use diagnostics::MirDiagnostic;
 pub use ir::{
-    MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirBlock, MirBlockId, MirCallAbi,
-    MirCallArg, MirCallResult, MirCallTarget, MirCarryIn, MirCarryOut, MirCompareOp, MirCond,
-    MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlag, MirFlagTest, MirFrame, MirGlobal,
-    MirGlobalBacking, MirLabel, MirMachineBlockId, MirMem, MirMemoryEffect, MirMemoryRegion,
-    MirMemoryRegionKind, MirOp, MirOpRef, MirPhase, MirPointerPair, MirProgram, MirReg,
-    MirRegisterSet, MirResultHome, MirRoutine, MirRoutineAbi, MirRuntimeHelper,
-    MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirSpillId, MirStatic, MirStorageBase,
-    MirStorageId, MirStorageSlot, MirTemp, MirTempId, MirTerminator, MirUnaryOp, MirUpdateOp,
-    MirValue, MirWidth, MirZpAllocation, MirZpSlot, RoutineId,
+    MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam,
+    MirCallAbi, MirCallArg, MirCallResult, MirCallTarget, MirCarryIn, MirCarryOut, MirCompareOp,
+    MirCond, MirCondDest, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFlag,
+    MirFlagTest, MirFrame, MirGlobal, MirGlobalBacking, MirLabel, MirMachineBlockId, MirMem,
+    MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase,
+    MirPointerPair, MirProgram, MirReg, MirRegisterSet, MirResultHome, MirRoutine, MirRoutineAbi,
+    MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirSpillId, MirStatic,
+    MirStorageBase, MirStorageId, MirStorageSlot, MirTemp, MirTempId, MirTerminator, MirUnaryOp,
+    MirUpdateOp, MirValue, MirWidth, MirZpAllocation, MirZpSlot, RoutineId,
 };
 pub use passes::{Mir6502Config, MirPeepholeReportMode};
 
@@ -158,7 +158,8 @@ fn phase_diagnostics(phase: &str, diagnostics: Vec<MirDiagnostic>) -> Vec<MirDia
 #[cfg(test)]
 mod tests {
     use super::ir::{
-        MirGlobalInit, MirMachineAtom, MirMachineBlock, MirMachineByteSelector, MirMachineItem,
+        MirEdge, MirGlobalInit, MirMachineAtom, MirMachineBlock, MirMachineByteSelector,
+        MirMachineItem,
     };
     use super::*;
     use crate::nir::{
@@ -582,7 +583,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_nir_block_arguments_until_target_level_merge_lowering_exists() {
+    fn lowers_nir_block_arguments_through_target_parallel_copies() {
         let ty = crate::nir::NirType {
             kind: crate::nir::NirTypeKind::U8,
             summary: "Byte".to_string(),
@@ -630,12 +631,37 @@ mod tests {
             }],
         };
 
-        let diagnostics = lower_program(&nir).expect_err("block arguments need Phase 5 lowering");
-        assert!(diagnostics.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("block parameters require MIR6502 Phase 5 lowering")
-        }));
+        let mir = lower_program(&nir).expect("lower typed block arguments");
+        assert_eq!(
+            mir.routines[0].blocks[1].params,
+            vec![MirBlockParam {
+                dest: MirTempId(0),
+                width: MirWidth::Byte,
+            }]
+        );
+        assert_eq!(
+            mir.routines[0].blocks[0].terminator,
+            MirTerminator::Jump(MirEdge {
+                target: MirBlockId(1),
+                args: vec![MirEdgeArg {
+                    value: MirValue::ConstU8(1),
+                    width: MirWidth::Byte,
+                }],
+            })
+        );
+        let printed = format_program(&mir);
+        assert!(printed.contains("b1 join(v0:byte):"));
+        assert!(printed.contains("jump b1(#$01:byte)"));
+
+        let materialized = materialize_program(mir, &Mir6502Config::default())
+            .expect("materialize typed block arguments");
+        assert!(
+            materialized
+                .routines
+                .iter()
+                .flat_map(|routine| &routine.blocks)
+                .all(|block| block.params.is_empty())
+        );
     }
 
     #[test]
@@ -902,6 +928,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -950,6 +977,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Store {
                                 dst: MirAddr::Direct(MirMem::Global {
@@ -1067,6 +1095,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -1206,6 +1235,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -1342,6 +1372,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -1449,6 +1480,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -1536,6 +1568,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::LeaAddr {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -1631,6 +1664,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::LeaAddr {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -1705,6 +1739,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Move {
                                 dst: MirDef::Reg(MirReg::A),
@@ -1772,6 +1807,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -1786,6 +1822,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Move {
                                     dst: MirDef::Reg(MirReg::A),
@@ -1866,6 +1903,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Move {
                                 dst: MirDef::Reg(MirReg::A),
@@ -1969,6 +2007,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Binary {
                                 op: MirBinaryOp::Add,
@@ -2066,6 +2105,7 @@ mod tests {
         let mut blocks = vec![MirBlock {
             id: MirBlockId(0),
             label: "bb0".to_string(),
+            params: Vec::new(),
             ops,
             terminator: terminator.clone(),
         }];
@@ -2073,12 +2113,14 @@ mod tests {
             blocks.push(MirBlock {
                 id: MirBlockId(1),
                 label: "bb1".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: MirTerminator::Return,
             });
             blocks.push(MirBlock {
                 id: MirBlockId(2),
                 label: "bb2".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: MirTerminator::Return,
             });
@@ -2167,8 +2209,8 @@ mod tests {
                 Vec::new(),
                 MirTerminator::Branch {
                     cond: MirCond::FlagTest(MirFlagTest::ZSet),
-                    then_block: MirBlockId(1),
-                    else_block: MirBlockId(2),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(2)),
                 },
             ),
             &Mir6502Config::default(),
@@ -2213,6 +2255,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -2386,6 +2429,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -2469,6 +2513,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -2537,6 +2582,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![MirOp::Binary {
                             op: MirBinaryOp::Add,
                             dst: MirDef::VTemp(MirTempId(0)),
@@ -2597,6 +2643,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::LoadImm {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -2654,6 +2701,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(1),
                             label: "noop".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -2668,6 +2716,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Binary {
                                     op: MirBinaryOp::Add,
@@ -2755,6 +2804,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::LoadImm {
                                 dst: MirDef::Reg(MirReg::A),
@@ -2902,6 +2952,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::LoadImm {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -2971,6 +3022,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::Reg(MirReg::A),
@@ -3067,6 +3119,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -3171,6 +3224,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -3258,6 +3312,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Load {
                                     dst: MirDef::VTemp(MirTempId(0)),
@@ -3301,6 +3356,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(1),
                             label: "bb1".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -3357,6 +3413,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::LoadImm {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -3432,6 +3489,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -3500,6 +3558,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -3514,6 +3573,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Load {
                                     dst: MirDef::VTemp(MirTempId(0)),
@@ -3594,6 +3654,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Load {
                                 dst: MirDef::VTemp(MirTempId(0)),
@@ -3659,16 +3720,18 @@ mod tests {
                         MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![MirOp::LoadImm {
                                 dst: MirDef::VTemp(MirTempId(0)),
                                 value: 1,
                                 width: MirWidth::Byte,
                             }],
-                            terminator: MirTerminator::Jump(MirBlockId(1)),
+                            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
                         },
                         MirBlock {
                             id: MirBlockId(1),
                             label: "bb1".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Store {
                                     dst: MirAddr::Direct(MirMem::Global {
@@ -3733,6 +3796,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -3747,6 +3811,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Call {
                                     target: MirCallTarget::Routine(RoutineId(0)),
@@ -3821,6 +3886,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -3835,6 +3901,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Call {
                                     target: MirCallTarget::Routine(RoutineId(0)),
@@ -3927,6 +3994,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -3945,6 +4013,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Load {
                                     dst: MirDef::VTemp(MirTempId(0)),
@@ -4081,6 +4150,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -4095,6 +4165,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Load {
                                     dst: MirDef::VTemp(MirTempId(0)),
@@ -4225,6 +4296,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(1),
                             label: "noop".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -4239,6 +4311,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(2),
                             label: "take".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -4253,6 +4326,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::LeaAddr {
                                     dst: MirDef::VTemp(MirTempId(0)),
@@ -4364,6 +4438,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -4378,6 +4453,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Load {
                                     dst: MirDef::VTemp(MirTempId(0)),
@@ -4454,6 +4530,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         }],
@@ -4468,6 +4545,7 @@ mod tests {
                         blocks: vec![MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![MirOp::Call {
                                 target: MirCallTarget::Routine(RoutineId(0)),
                                 abi: MirCallAbi {
@@ -4547,6 +4625,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Store {
                                 dst: MirAddr::Direct(MirMem::Global {
@@ -4625,6 +4704,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Store {
                                 dst: MirAddr::Direct(MirMem::Global {
@@ -4722,6 +4802,7 @@ mod tests {
                         MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::Binary {
                                     op: MirBinaryOp::Mul,
@@ -4753,19 +4834,21 @@ mod tests {
                                 cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(
                                     1,
                                 )))),
-                                then_block: MirBlockId(1),
-                                else_block: MirBlockId(2),
+                                then_edge: MirEdge::plain(MirBlockId(1)),
+                                else_edge: MirEdge::plain(MirBlockId(2)),
                             },
                         },
                         MirBlock {
                             id: MirBlockId(1),
                             label: "then".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         },
                         MirBlock {
                             id: MirBlockId(2),
                             label: "else".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         },
@@ -4846,22 +4929,25 @@ mod tests {
                     MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops,
                         terminator: MirTerminator::Branch {
                             cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
-                            then_block: MirBlockId(1),
-                            else_block: MirBlockId(2),
+                            then_edge: MirEdge::plain(MirBlockId(1)),
+                            else_edge: MirEdge::plain(MirBlockId(2)),
                         },
                     },
                     MirBlock {
                         id: MirBlockId(1),
                         label: "then".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
                     MirBlock {
                         id: MirBlockId(2),
                         label: "else".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
@@ -4888,6 +4974,7 @@ mod tests {
                     MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![MirOp::LoadImm {
                             dst: MirDef::VTemp(MirTempId(0)),
                             value: 1,
@@ -4895,13 +4982,14 @@ mod tests {
                         }],
                         terminator: MirTerminator::Branch {
                             cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
-                            then_block: MirBlockId(1),
-                            else_block: MirBlockId(1),
+                            then_edge: MirEdge::plain(MirBlockId(1)),
+                            else_edge: MirEdge::plain(MirBlockId(1)),
                         },
                     },
                     MirBlock {
                         id: MirBlockId(1),
                         label: "done".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
@@ -4957,6 +5045,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
@@ -5019,6 +5108,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
@@ -5071,6 +5161,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::Load {
                         dst: MirDef::Reg(MirReg::A),
                         src: MirAddr::Direct(MirMem::Static {
@@ -5110,6 +5201,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
@@ -5161,6 +5253,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
@@ -5204,6 +5297,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
@@ -5256,6 +5350,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
@@ -5334,6 +5429,7 @@ mod tests {
                         MirBlock {
                             id: MirBlockId(0),
                             label: "bb0".to_string(),
+                            params: Vec::new(),
                             ops: vec![
                                 MirOp::LoadImm {
                                     dst: MirDef::Reg(MirReg::A),
@@ -5351,19 +5447,21 @@ mod tests {
                             ],
                             terminator: MirTerminator::Branch {
                                 cond: MirCond::FlagTest(test),
-                                then_block: MirBlockId(1),
-                                else_block: MirBlockId(2),
+                                then_edge: MirEdge::plain(MirBlockId(1)),
+                                else_edge: MirEdge::plain(MirBlockId(2)),
                             },
                         },
                         MirBlock {
                             id: MirBlockId(1),
                             label: "then".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         },
                         MirBlock {
                             id: MirBlockId(2),
                             label: "else".to_string(),
+                            params: Vec::new(),
                             ops: Vec::new(),
                             terminator: MirTerminator::Return,
                         },
@@ -5413,6 +5511,7 @@ mod tests {
                     MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::LoadImm {
                                 dst: MirDef::Reg(MirReg::A),
@@ -5430,19 +5529,21 @@ mod tests {
                         ],
                         terminator: MirTerminator::Branch {
                             cond: MirCond::FlagTest(MirFlagTest::ZSet),
-                            then_block: MirBlockId(1),
-                            else_block: MirBlockId(2),
+                            then_edge: MirEdge::plain(MirBlockId(1)),
+                            else_edge: MirEdge::plain(MirBlockId(2)),
                         },
                     },
                     MirBlock {
                         id: MirBlockId(1),
                         label: "then".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
                     MirBlock {
                         id: MirBlockId(2),
                         label: "else".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
@@ -5476,16 +5577,18 @@ mod tests {
                     MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
                             value: 1,
                             width: MirWidth::Byte,
                         }],
-                        terminator: MirTerminator::Jump(MirBlockId(1)),
+                        terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
                     },
                     MirBlock {
                         id: MirBlockId(1),
                         label: "bb1".to_string(),
+                        params: Vec::new(),
                         ops: vec![MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
                             value: 2,
@@ -5546,6 +5649,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -5622,6 +5726,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
@@ -5680,6 +5785,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -5741,6 +5847,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -5789,6 +5896,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -5829,6 +5937,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::MaterializeAddress {
                             consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
@@ -5882,6 +5991,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::MaterializeIndexedAddress {
                         consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
                             lo: MirFixedZpSlot(0xAC),
@@ -5924,6 +6034,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     }],
@@ -5938,6 +6049,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![MirOp::Call {
                             target: MirCallTarget::Routine(RoutineId(0)),
                             abi: MirCallAbi {
@@ -5979,6 +6091,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::RuntimeHelper {
                         helper: MirRuntimeHelper::Mul,
                         args: Vec::new(),
@@ -6024,6 +6137,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     }],
@@ -6038,6 +6152,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::Call {
                                 target: MirCallTarget::Routine(RoutineId(0)),
@@ -6086,6 +6201,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Move {
                             dst: MirDef::Reg(MirReg::X),
@@ -6126,6 +6242,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::Call {
                         target: MirCallTarget::Builtin {
                             name: "Put".to_string(),
@@ -6182,6 +6299,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::Call {
                         target: MirCallTarget::Builtin {
                             name: "PrintH".to_string(),
@@ -6228,6 +6346,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::MachineBlock {
                         id: MirMachineBlockId(0),
                         effects: MirEffects::default(),
@@ -6278,6 +6397,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     }],
@@ -6292,6 +6412,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![MirOp::MachineBlock {
                             id: MirMachineBlockId(0),
                             effects: MirEffects::default(),
@@ -6350,6 +6471,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::MachineBlock {
                         id: MirMachineBlockId(0),
                         effects: MirEffects::default(),
@@ -6391,6 +6513,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::Unary {
                         op: MirUnaryOp::Neg,
                         dst: MirDef::Reg(MirReg::A),
@@ -6425,6 +6548,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Binary {
                             op: MirBinaryOp::Rsh,
@@ -6474,22 +6598,25 @@ mod tests {
                     MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Branch {
                             cond: MirCond::FlagTest(MirFlagTest::ZSet),
-                            then_block: MirBlockId(1),
-                            else_block: MirBlockId(2),
+                            then_edge: MirEdge::plain(MirBlockId(1)),
+                            else_edge: MirEdge::plain(MirBlockId(2)),
                         },
                     },
                     MirBlock {
                         id: MirBlockId(1),
                         label: "bb1".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
                     MirBlock {
                         id: MirBlockId(2),
                         label: "bb2".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
@@ -6512,23 +6639,26 @@ mod tests {
             let then_block = MirBlock {
                 id: MirBlockId(1),
                 label: "then".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: MirTerminator::Return,
             };
             let else_block = MirBlock {
                 id: MirBlockId(2),
                 label: "else".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: MirTerminator::Return,
             };
             let mut blocks = vec![MirBlock {
                 id: MirBlockId(0),
                 label: "branch".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: MirTerminator::Branch {
                     cond: MirCond::AnyFlagTest([MirFlagTest::CClear, MirFlagTest::ZSet]),
-                    then_block: MirBlockId(1),
-                    else_block: MirBlockId(2),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(2)),
                 },
             }];
             if then_is_next {
@@ -6583,16 +6713,18 @@ mod tests {
                     MirBlock {
                         id: MirBlockId(0),
                         label: "branch".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Branch {
                             cond: MirCond::FlagTest(MirFlagTest::ZSet),
-                            then_block: MirBlockId(2),
-                            else_block: MirBlockId(1),
+                            then_edge: MirEdge::plain(MirBlockId(2)),
+                            else_edge: MirEdge::plain(MirBlockId(1)),
                         },
                     },
                     MirBlock {
                         id: MirBlockId(1),
                         label: "padding".to_string(),
+                        params: Vec::new(),
                         ops: vec![MirOp::MachineBlock {
                             id: MirMachineBlockId(0),
                             effects: MirEffects::default(),
@@ -6602,6 +6734,7 @@ mod tests {
                     MirBlock {
                         id: MirBlockId(2),
                         label: "then".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
@@ -6636,16 +6769,18 @@ mod tests {
                     MirBlock {
                         id: MirBlockId(0),
                         label: "branch".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Branch {
                             cond: MirCond::FlagTest(MirFlagTest::ZSet),
-                            then_block: MirBlockId(2),
-                            else_block: MirBlockId(1),
+                            then_edge: MirEdge::plain(MirBlockId(2)),
+                            else_edge: MirEdge::plain(MirBlockId(1)),
                         },
                     },
                     MirBlock {
                         id: MirBlockId(1),
                         label: "padding".to_string(),
+                        params: Vec::new(),
                         ops: vec![MirOp::MachineBlock {
                             id: MirMachineBlockId(0),
                             effects: MirEffects::default(),
@@ -6655,6 +6790,7 @@ mod tests {
                     MirBlock {
                         id: MirBlockId(2),
                         label: "then".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
@@ -6689,32 +6825,36 @@ mod tests {
                     MirBlock {
                         id: MirBlockId(1),
                         label: "then".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
                     MirBlock {
                         id: MirBlockId(2),
                         label: "else".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     },
                     MirBlock {
                         id: MirBlockId(3),
                         label: "padding".to_string(),
+                        params: Vec::new(),
                         ops: vec![MirOp::MachineBlock {
                             id: MirMachineBlockId(0),
                             effects: MirEffects::default(),
                         }],
-                        terminator: MirTerminator::Jump(MirBlockId(4)),
+                        terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(4))),
                     },
                     MirBlock {
                         id: MirBlockId(4),
                         label: "branch".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Branch {
                             cond: MirCond::FlagTest(MirFlagTest::ZSet),
-                            then_block: MirBlockId(1),
-                            else_block: MirBlockId(2),
+                            then_edge: MirEdge::plain(MirBlockId(1)),
+                            else_edge: MirEdge::plain(MirBlockId(2)),
                         },
                     },
                 ],
@@ -6755,6 +6895,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::MachineBlock {
                         id: MirMachineBlockId(0),
                         effects: MirEffects::default(),
@@ -6878,6 +7019,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::MachineBlock {
                         id: MirMachineBlockId(0),
                         effects: MirEffects::default(),
@@ -6916,6 +7058,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![MirOp::MachineBlock {
                         id: MirMachineBlockId(0),
                         effects: MirEffects::default(),
@@ -6965,6 +7108,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: MirTerminator::Return,
                 }],
@@ -7001,6 +7145,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: MirTerminator::Return,
                 }],
@@ -7047,6 +7192,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: MirTerminator::Return,
                 }],
@@ -7474,6 +7620,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
@@ -7538,6 +7685,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -7619,6 +7767,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -7726,6 +7875,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -7821,6 +7971,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -7903,6 +8054,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -8009,6 +8161,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -8108,6 +8261,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -8164,6 +8318,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::LoadImm {
                             dst: MirDef::Reg(MirReg::A),
@@ -8242,6 +8397,7 @@ mod tests {
                 blocks: vec![MirBlock {
                     id: MirBlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
@@ -8299,6 +8455,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: vec![
                             MirOp::LoadImm {
                                 dst: MirDef::Reg(MirReg::A),
@@ -8347,6 +8504,7 @@ mod tests {
                     blocks: vec![MirBlock {
                         id: MirBlockId(0),
                         label: "bb0".to_string(),
+                        params: Vec::new(),
                         ops: Vec::new(),
                         terminator: MirTerminator::Return,
                     }],

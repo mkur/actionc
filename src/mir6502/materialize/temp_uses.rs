@@ -19,7 +19,7 @@ pub(super) fn value_uses_temp(value: &MirValue) -> bool {
 }
 
 pub(super) fn terminator_uses_temp(terminator: &MirTerminator, temp: MirTempId) -> bool {
-    match terminator {
+    let condition_uses = match terminator {
         MirTerminator::Branch {
             cond: MirCond::BoolValue(value),
             ..
@@ -29,7 +29,26 @@ pub(super) fn terminator_uses_temp(terminator: &MirTerminator, temp: MirTempId) 
         | MirTerminator::Return
         | MirTerminator::Exit
         | MirTerminator::Unreachable => false,
-    }
+    };
+    condition_uses
+        || terminator_edges(terminator)
+            .flat_map(|edge| &edge.args)
+            .any(|arg| value_uses_specific_temp(&arg.value, temp))
+}
+
+fn terminator_edges(
+    terminator: &MirTerminator,
+) -> impl Iterator<Item = &crate::mir6502::ir::MirEdge> {
+    let edges = match terminator {
+        MirTerminator::Jump(edge) => [Some(edge), None],
+        MirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } => [Some(then_edge), Some(else_edge)],
+        MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => [None, None],
+    };
+    edges.into_iter().flatten()
 }
 
 pub(super) fn op_uses_temp(op: &MirOp, temp: MirTempId) -> bool {

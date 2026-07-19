@@ -1,6 +1,7 @@
 use super::*;
 use crate::mir6502::ir::{
-    MirBlock, MirCallResult, MirRegisterSet, MirStatic, MirStorageBacking, MirStorageInit, MirTemp,
+    MirBlock, MirCallResult, MirEdge, MirRegisterSet, MirStatic, MirStorageBacking, MirStorageInit,
+    MirTemp,
 };
 use crate::mir6502::passes::MirPeepholeReportMode;
 use crate::mir6502::{
@@ -122,28 +123,32 @@ fn collapse_empty_jump_blocks_redirects_predecessors() {
             MirBlock {
                 id: MirBlockId(0),
                 label: "entry".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: MirTerminator::Branch {
                     cond: MirCond::BoolValue(MirValue::ConstU8(1)),
-                    then_block: MirBlockId(1),
-                    else_block: MirBlockId(2),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(2)),
                 },
             },
             MirBlock {
                 id: MirBlockId(1),
                 label: "jump_one".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
-                terminator: MirTerminator::Jump(MirBlockId(3)),
+                terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
             },
             MirBlock {
                 id: MirBlockId(2),
                 label: "jump_two".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
-                terminator: MirTerminator::Jump(MirBlockId(1)),
+                terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
             },
             MirBlock {
                 id: MirBlockId(3),
                 label: "done".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: MirTerminator::Return,
             },
@@ -161,14 +166,14 @@ fn collapse_empty_jump_blocks_redirects_predecessors() {
             .collect::<Vec<_>>(),
         vec![MirBlockId(0), MirBlockId(3)]
     );
-    assert!(matches!(
+    assert_eq!(
         routine.blocks[0].terminator,
         MirTerminator::Branch {
-            then_block: MirBlockId(3),
-            else_block: MirBlockId(3),
-            ..
+            cond: MirCond::BoolValue(MirValue::ConstU8(1)),
+            then_edge: MirEdge::plain(MirBlockId(3)),
+            else_edge: MirEdge::plain(MirBlockId(3)),
         }
-    ));
+    );
 }
 
 #[test]
@@ -183,30 +188,34 @@ fn collapse_empty_jump_blocks_keeps_self_loop_targets() {
             MirBlock {
                 id: MirBlockId(0),
                 label: "entry".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: MirTerminator::Branch {
                     cond: MirCond::BoolValue(MirValue::ConstU8(1)),
-                    then_block: MirBlockId(1),
-                    else_block: MirBlockId(2),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(2)),
                 },
             },
             MirBlock {
                 id: MirBlockId(1),
                 label: "body".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: MirTerminator::Return,
             },
             MirBlock {
                 id: MirBlockId(2),
                 label: "to_forever".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
-                terminator: MirTerminator::Jump(MirBlockId(3)),
+                terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
             },
             MirBlock {
                 id: MirBlockId(3),
                 label: "forever".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
-                terminator: MirTerminator::Jump(MirBlockId(3)),
+                terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
             },
         ],
         effects: MirEffects::default(),
@@ -222,18 +231,18 @@ fn collapse_empty_jump_blocks_keeps_self_loop_targets() {
             .collect::<Vec<_>>(),
         vec![MirBlockId(0), MirBlockId(1), MirBlockId(3)]
     );
-    assert!(matches!(
+    assert_eq!(
         routine.blocks[0].terminator,
         MirTerminator::Branch {
-            then_block: MirBlockId(1),
-            else_block: MirBlockId(3),
-            ..
+            cond: MirCond::BoolValue(MirValue::ConstU8(1)),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(3)),
         }
-    ));
-    assert!(matches!(
+    );
+    assert_eq!(
         routine.blocks[2].terminator,
-        MirTerminator::Jump(MirBlockId(3))
-    ));
+        MirTerminator::Jump(MirEdge::plain(MirBlockId(3)))
+    );
 }
 
 #[test]
@@ -244,6 +253,7 @@ fn byte_le_branch_expands_to_any_flag_test() {
         MirBlock {
             id: MirBlockId(0),
             label: "entry".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Compare {
                 dst: MirCondDest::Temp(MirTempId(0)),
                 op: MirCompareOp::Le,
@@ -254,19 +264,21 @@ fn byte_le_branch_expands_to_any_flag_test() {
             }],
             terminator: MirTerminator::Branch {
                 cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
-                then_block: MirBlockId(1),
-                else_block: MirBlockId(2),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
             },
         },
         MirBlock {
             id: MirBlockId(1),
             label: "then".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
         MirBlock {
             id: MirBlockId(2),
             label: "else".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
@@ -285,14 +297,14 @@ fn byte_le_branch_expands_to_any_flag_test() {
             ..
         }]
     ));
-    assert!(matches!(
+    assert_eq!(
         blocks[0].terminator,
         MirTerminator::Branch {
             cond: MirCond::AnyFlagTest([MirFlagTest::CClear, MirFlagTest::ZSet]),
-            then_block: MirBlockId(1),
-            else_block: MirBlockId(2),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
         }
-    ));
+    );
 }
 
 #[test]
@@ -335,6 +347,7 @@ fn signed_word_lt_branch_uses_compact_overflow_path_for_direct_values() {
         MirBlock {
             id: MirBlockId(0),
             label: "entry".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Compare {
                 dst: MirCondDest::Temp(MirTempId(0)),
                 op: MirCompareOp::Lt,
@@ -351,19 +364,21 @@ fn signed_word_lt_branch_uses_compact_overflow_path_for_direct_values() {
             }],
             terminator: MirTerminator::Branch {
                 cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
-                then_block: MirBlockId(1),
-                else_block: MirBlockId(2),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
             },
         },
         MirBlock {
             id: MirBlockId(1),
             label: "then".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
         MirBlock {
             id: MirBlockId(2),
             label: "else".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
@@ -415,6 +430,7 @@ fn compare_operand_prebranch_fold_enables_compact_signed_word_branch() {
         MirBlock {
             id: MirBlockId(0),
             label: "entry".to_string(),
+            params: Vec::new(),
             ops: vec![
                 MirOp::Load {
                     dst: MirDef::VTemp(MirTempId(1)),
@@ -435,19 +451,21 @@ fn compare_operand_prebranch_fold_enables_compact_signed_word_branch() {
             ],
             terminator: MirTerminator::Branch {
                 cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
-                then_block: MirBlockId(1),
-                else_block: MirBlockId(2),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
             },
         },
         MirBlock {
             id: MirBlockId(1),
             label: "then".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
         MirBlock {
             id: MirBlockId(2),
             label: "else".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
@@ -1085,6 +1103,7 @@ fn carry_observability_counts_unspecified_add_sub_carry() {
     program.routines[0].blocks = vec![MirBlock {
         id: MirBlockId(0),
         label: "entry".to_string(),
+        params: Vec::new(),
         ops: vec![
             MirOp::Binary {
                 op: MirBinaryOp::Add,
@@ -2199,8 +2218,8 @@ fn word_binary_byte_store_consumer_keeps_full_word_when_flags_live() {
         ],
         &MirTerminator::Branch {
             cond: MirCond::FlagTest(MirFlagTest::ZSet),
-            then_block: MirBlockId(1),
-            else_block: MirBlockId(2),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
         },
         &Mir6502Config::default(),
         &layout,
@@ -5720,7 +5739,7 @@ fn dead_private_scratch_store_keeps_values_live_into_successors() {
         dead_private_scratch_store_at(
             std::slice::from_ref(&store),
             0,
-            &MirTerminator::Jump(MirBlockId(1)),
+            &MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         ),
         None
     );
@@ -5736,7 +5755,7 @@ fn dead_private_scratch_store_keeps_values_live_into_successors() {
                 },
             ],
             0,
-            &MirTerminator::Jump(MirBlockId(1))
+            &MirTerminator::Jump(MirEdge::plain(MirBlockId(1)))
         ),
         Some(1)
     );
@@ -5784,7 +5803,7 @@ fn staged_rhs_keeps_private_scratch_values_live_into_successors() {
 
     assert!(staged_compare_rhs_at(&ops, 0, &MirTerminator::Return).is_some());
     assert_eq!(
-        staged_compare_rhs_at(&ops, 0, &MirTerminator::Jump(MirBlockId(1))),
+        staged_compare_rhs_at(&ops, 0, &MirTerminator::Jump(MirEdge::plain(MirBlockId(1)))),
         None
     );
 }
@@ -5819,7 +5838,7 @@ fn spill_store_reload_pair_keeps_values_live_into_successors() {
     assert!(!can_remove_spill_store_reload_pair_at(
         &ops,
         0,
-        &MirTerminator::Jump(MirBlockId(1))
+        &MirTerminator::Jump(MirEdge::plain(MirBlockId(1)))
     ));
 }
 
@@ -5839,6 +5858,7 @@ fn ssa_lite_forwards_memory_facts_over_single_forward_predecessor() {
         MirBlock {
             id: MirBlockId(0),
             label: "entry".to_string(),
+            params: Vec::new(),
             ops: vec![
                 MirOp::Load {
                     dst: MirDef::Reg(MirReg::A),
@@ -5851,11 +5871,12 @@ fn ssa_lite_forwards_memory_facts_over_single_forward_predecessor() {
                     width: MirWidth::Byte,
                 },
             ],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "next".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Load {
                 dst: MirDef::Reg(MirReg::X),
                 src: MirAddr::Direct(scratch),
@@ -5908,6 +5929,7 @@ fn ssa_lite_does_not_forward_memory_facts_into_joins() {
         MirBlock {
             id: MirBlockId(0),
             label: "left".to_string(),
+            params: Vec::new(),
             ops: vec![
                 MirOp::Load {
                     dst: MirDef::Reg(MirReg::A),
@@ -5920,17 +5942,19 @@ fn ssa_lite_does_not_forward_memory_facts_into_joins() {
                     width: MirWidth::Byte,
                 },
             ],
-            terminator: MirTerminator::Jump(MirBlockId(2)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(2))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "right".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
-            terminator: MirTerminator::Jump(MirBlockId(2)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(2))),
         },
         MirBlock {
             id: MirBlockId(2),
             label: "join".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Load {
                 dst: MirDef::Reg(MirReg::X),
                 src: MirAddr::Direct(scratch.clone()),
@@ -5981,6 +6005,7 @@ fn ssa_lite_carries_memory_facts_through_linear_chains() {
         MirBlock {
             id: MirBlockId(0),
             label: "entry".to_string(),
+            params: Vec::new(),
             ops: vec![
                 MirOp::Load {
                     dst: MirDef::Reg(MirReg::A),
@@ -5993,17 +6018,19 @@ fn ssa_lite_carries_memory_facts_through_linear_chains() {
                     width: MirWidth::Byte,
                 },
             ],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "middle".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
-            terminator: MirTerminator::Jump(MirBlockId(2)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(2))),
         },
         MirBlock {
             id: MirBlockId(2),
             label: "exit".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Load {
                 dst: MirDef::Reg(MirReg::X),
                 src: MirAddr::Direct(scratch),
@@ -6047,6 +6074,7 @@ fn temp_liveness_tracks_lane_use_in_successor() {
         MirBlock {
             id: MirBlockId(0),
             label: "define".to_string(),
+            params: Vec::new(),
             ops: vec![
                 MirOp::Load {
                     dst: MirDef::VTempByte { id, byte: 0 },
@@ -6062,11 +6090,12 @@ fn temp_liveness_tracks_lane_use_in_successor() {
                     width: MirWidth::Byte,
                 },
             ],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "compare".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Compare {
                 dst: MirCondDest::Flags,
                 op: MirCompareOp::Eq,
@@ -6111,6 +6140,7 @@ fn temp_liveness_tracks_full_temp_use_in_successor() {
         MirBlock {
             id: MirBlockId(0),
             label: "define".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Load {
                 dst: MirDef::VTempByte { id, byte: 0 },
                 src: MirAddr::Direct(MirMem::Local {
@@ -6119,21 +6149,23 @@ fn temp_liveness_tracks_full_temp_use_in_successor() {
                 }),
                 width: MirWidth::Byte,
             }],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "branch".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Branch {
                 cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))),
-                then_block: MirBlockId(2),
-                else_block: MirBlockId(2),
+                then_edge: MirEdge::plain(MirBlockId(2)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
             },
         },
         MirBlock {
             id: MirBlockId(2),
             label: "exit".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
@@ -6168,6 +6200,7 @@ fn temp_liveness_kills_full_temp_use_after_both_lanes_are_defined() {
         MirBlock {
             id: MirBlockId(0),
             label: "define".to_string(),
+            params: Vec::new(),
             ops: vec![
                 MirOp::LoadImm {
                     dst: MirDef::VTempByte { id, byte: 0 },
@@ -6180,21 +6213,23 @@ fn temp_liveness_kills_full_temp_use_after_both_lanes_are_defined() {
                     width: MirWidth::Byte,
                 },
             ],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "branch".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Branch {
                 cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))),
-                then_block: MirBlockId(2),
-                else_block: MirBlockId(2),
+                then_edge: MirEdge::plain(MirBlockId(2)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
             },
         },
         MirBlock {
             id: MirBlockId(2),
             label: "exit".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
@@ -6222,26 +6257,29 @@ fn temp_liveness_narrows_full_use_to_low_lane_after_high_lane_def() {
         MirBlock {
             id: MirBlockId(0),
             label: "define_high".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::LoadImm {
                 dst: MirDef::VTempByte { id, byte: 1 },
                 value: 2,
                 width: MirWidth::Byte,
             }],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "branch".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Branch {
                 cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))),
-                then_block: MirBlockId(2),
-                else_block: MirBlockId(2),
+                then_edge: MirEdge::plain(MirBlockId(2)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
             },
         },
         MirBlock {
             id: MirBlockId(2),
             label: "exit".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
@@ -6269,16 +6307,18 @@ fn temp_liveness_join_preserves_full_requirement_from_one_successor() {
         MirBlock {
             id: MirBlockId(0),
             label: "entry".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Branch {
                 cond: MirCond::BoolValue(MirValue::ConstU8(1)),
-                then_block: MirBlockId(1),
-                else_block: MirBlockId(2),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
             },
         },
         MirBlock {
             id: MirBlockId(1),
             label: "use_low".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Compare {
                 dst: MirCondDest::Flags,
                 op: MirCompareOp::Eq,
@@ -6287,21 +6327,23 @@ fn temp_liveness_join_preserves_full_requirement_from_one_successor() {
                 width: MirWidth::Byte,
                 signed: false,
             }],
-            terminator: MirTerminator::Jump(MirBlockId(3)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
         },
         MirBlock {
             id: MirBlockId(2),
             label: "use_full".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Branch {
                 cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))),
-                then_block: MirBlockId(3),
-                else_block: MirBlockId(3),
+                then_edge: MirEdge::plain(MirBlockId(3)),
+                else_edge: MirEdge::plain(MirBlockId(3)),
             },
         },
         MirBlock {
             id: MirBlockId(3),
             label: "exit".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
@@ -6335,26 +6377,29 @@ fn temp_liveness_loop_converges_with_lane_definition_in_preheader() {
         MirBlock {
             id: MirBlockId(0),
             label: "define_high".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::LoadImm {
                 dst: MirDef::VTempByte { id, byte: 1 },
                 value: 2,
                 width: MirWidth::Byte,
             }],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "loop".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Branch {
                 cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))),
-                then_block: MirBlockId(1),
-                else_block: MirBlockId(2),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
             },
         },
         MirBlock {
             id: MirBlockId(2),
             label: "exit".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
@@ -6381,6 +6426,7 @@ fn temp_liveness_word_op_after_low_def_requires_only_high_lane() {
     let routine = ssa_lite_edge_test_routine(vec![MirBlock {
         id: MirBlockId(0),
         label: "compare".to_string(),
+        params: Vec::new(),
         ops: vec![
             MirOp::LoadImm {
                 dst: MirDef::VTempByte { id, byte: 0 },
@@ -6413,6 +6459,7 @@ fn temp_liveness_word_op_after_high_def_requires_only_low_lane() {
     let routine = ssa_lite_edge_test_routine(vec![MirBlock {
         id: MirBlockId(0),
         label: "compare".to_string(),
+        params: Vec::new(),
         ops: vec![
             MirOp::LoadImm {
                 dst: MirDef::VTempByte { id, byte: 1 },
@@ -6446,6 +6493,7 @@ fn temp_liveness_word_terminator_after_lane_def_requires_only_missing_lane() {
         MirBlock {
             id: MirBlockId(0),
             label: "branch".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::LoadImm {
                 dst: MirDef::VTempByte { id, byte: 0 },
                 value: 1,
@@ -6453,13 +6501,14 @@ fn temp_liveness_word_terminator_after_lane_def_requires_only_missing_lane() {
             }],
             terminator: MirTerminator::Branch {
                 cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))),
-                then_block: MirBlockId(1),
-                else_block: MirBlockId(1),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(1)),
             },
         },
         MirBlock {
             id: MirBlockId(1),
             label: "exit".to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: MirTerminator::Return,
         },
@@ -6807,8 +6856,8 @@ fn ssa_lite_keeps_redundant_reload_when_flags_feed_branch() {
     ];
     let terminator = MirTerminator::Branch {
         cond: MirCond::FlagTest(MirFlagTest::ZSet),
-        then_block: MirBlockId(1),
-        else_block: MirBlockId(2),
+        then_edge: MirEdge::plain(MirBlockId(1)),
+        else_edge: MirEdge::plain(MirBlockId(2)),
     };
     let mut stats = MirPeepholeStats::default();
 
@@ -6878,7 +6927,7 @@ fn dead_private_scratch_store_reports_live_out_retention() {
     let rewritten = fold_dead_private_scratch_stores(
         ops,
         RoutineId(0),
-        &MirTerminator::Jump(MirBlockId(1)),
+        &MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         &mut stats,
     );
 
@@ -7266,6 +7315,7 @@ fn ssa_lite_forwards_byte_consumers_over_linear_edges() {
         MirBlock {
             id: MirBlockId(0),
             label: "entry".to_string(),
+            params: Vec::new(),
             ops: vec![
                 MirOp::Load {
                     dst: MirDef::Reg(MirReg::A),
@@ -7278,11 +7328,12 @@ fn ssa_lite_forwards_byte_consumers_over_linear_edges() {
                     width: MirWidth::Byte,
                 },
             ],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "compare".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Compare {
                 dst: MirCondDest::Flags,
                 op: MirCompareOp::Eq,
@@ -7803,8 +7854,8 @@ fn mir_copy_prop_keeps_temp_def_used_by_terminator() {
         }],
         &MirTerminator::Branch {
             cond: MirCond::BoolValue(MirValue::Def(temp)),
-            then_block: MirBlockId(1),
-            else_block: MirBlockId(2),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
         },
         RoutineId(0),
         &layout,
@@ -7829,16 +7880,18 @@ fn mir_copy_prop_keeps_full_temp_def_live_into_successor() {
         MirBlock {
             id: MirBlockId(0),
             label: "define".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::LoadImm {
                 dst: MirDef::VTemp(id),
                 value: 1,
                 width: MirWidth::Byte,
             }],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "compare".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Compare {
                 dst: MirCondDest::Flags,
                 op: MirCompareOp::Eq,
@@ -7980,8 +8033,8 @@ fn mir_copy_prop_blocks_temp_byte_def_used_by_full_temp_terminator() {
         }],
         &MirTerminator::Branch {
             cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))),
-            then_block: MirBlockId(1),
-            else_block: MirBlockId(2),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
         },
         RoutineId(0),
         &layout,
@@ -8180,16 +8233,18 @@ fn mir_copy_prop_keeps_temp_byte_direct_load_def_live_into_successor() {
         MirBlock {
             id: MirBlockId(0),
             label: "define".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Load {
                 dst: MirDef::VTempByte { id, byte: 0 },
                 src: MirAddr::Direct(source),
                 width: MirWidth::Byte,
             }],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "compare".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Compare {
                 dst: MirCondDest::Flags,
                 op: MirCompareOp::Eq,
@@ -8465,16 +8520,18 @@ fn mir_copy_prop_keeps_temp_byte_move_def_live_into_successor() {
         MirBlock {
             id: MirBlockId(0),
             label: "define".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Move {
                 dst: MirDef::VTempByte { id, byte: 0 },
                 src: MirValue::Def(source),
                 width: MirWidth::Byte,
             }],
-            terminator: MirTerminator::Jump(MirBlockId(1)),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
         },
         MirBlock {
             id: MirBlockId(1),
             label: "compare".to_string(),
+            params: Vec::new(),
             ops: vec![MirOp::Compare {
                 dst: MirCondDest::Flags,
                 op: MirCompareOp::Eq,
@@ -8576,8 +8633,8 @@ fn mir_copy_prop_keeps_temp_byte_direct_load_def_with_full_temp_terminator_use()
         }],
         &MirTerminator::Branch {
             cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))),
-            then_block: MirBlockId(1),
-            else_block: MirBlockId(2),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
         },
         RoutineId(0),
         &layout,
@@ -10370,6 +10427,7 @@ fn descriptor_lea_materializes_pointer_bytes_for_index_base() {
     program.routines[0].blocks = vec![MirBlock {
         id: MirBlockId(0),
         label: "entry".to_string(),
+        params: Vec::new(),
         ops: vec![
             MirOp::LeaAddr {
                 dst: MirDef::VTemp(MirTempId(0)),
