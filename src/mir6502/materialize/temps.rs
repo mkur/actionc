@@ -615,7 +615,7 @@ pub(super) fn materialize_temp_ops(ops: Vec<MirOp>, spills: &mut Vec<MirSpillId>
                 width: MirWidth::Byte,
                 carry_in,
                 carry_out,
-            } if value_uses_temp(&left) || value_uses_temp(&right) => {
+            } if value_needs_accumulator_materialization(&left) || value_uses_temp(&right) => {
                 let left = materialize_value_to_a(&mut out, left, spills);
                 let right = materialize_rhs_temp(right, spills);
                 out.push(MirOp::Binary {
@@ -663,6 +663,10 @@ pub(super) fn materialize_temp_ops(ops: Vec<MirOp>, spills: &mut Vec<MirSpillId>
         }
     }
     out
+}
+
+fn value_needs_accumulator_materialization(value: &MirValue) -> bool {
+    value_uses_temp(value) || matches!(value, MirValue::PointerCell(_))
 }
 
 fn invalidate_staged_address_for_op(

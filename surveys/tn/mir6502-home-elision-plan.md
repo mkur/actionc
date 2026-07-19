@@ -155,6 +155,8 @@ byte-identical to Slice 1.
 
 ## Slice 3: Same-block single-use accumulator residency
 
+Status: implemented on 2026-07-19.
+
 Implement the first behavior-changing rule for a byte value when:
 
 - it has one definition and one use in the same block;
@@ -176,6 +178,56 @@ store and reload. Initially exclude:
 Add focused positive tests for load, move, arithmetic, compare, call-argument,
 and store consumers as they become supported. Add negative tests for every
 barrier and clobber class. Commit this slice independently and measure TN.
+
+The implemented plan now retains the exact block, definition, and unique-use
+locations for each register decision. Application is atomic per lane: both
+endpoints must still match before either is rewritten, otherwise the residual
+temp takes the existing materialization path. Applied ranges and stale-plan
+fallbacks are observable through `home-elision-*` counters and sites.
+
+The initial application of all 73 Slice 2 candidates grew TN by 64 bytes. This
+confirmed that the census's gross store/reload ceiling was not a savings
+estimate: later structural combines, spill forwarding, and ZP promotion had
+already made many of those homes free or cheaper than early A residency. The
+profitability gate therefore enables only independently winning, general MIR
+shapes:
+
+- byte move to direct store;
+- byte binary result to compare.
+
+Direct load/store, direct load/indirect-store, indirect-load/call-argument,
+load/binary, binary/move, and protected binary/indirect-store shapes remain
+materialized. Some were byte-neutral on TN because later passes already remove
+their homes; the others grew the program by displacing stronger combines. All
+are reported with the typed `Profitability` reason rather than silently
+disappearing from the plan.
+
+Validation also found that fixed-pointer `MaterializeAddress` was missing from
+the accumulator-clobber classifier. Such an operation stages the pointer low
+and high bytes through A and therefore cannot preserve an earlier source in A.
+The planner now treats it as a clobber; a focused `$AC/$AD` pointer-scratch
+alias regression proves that source loading remains correctly ordered after
+pointer staging. This tightens the current TN census from the original 73 safe
+candidates to 67 eligible ranges and raises accumulator-clobber rejections
+from 15 to 21.
+
+After the safety and profitability gates, TN applies six A-resident ranges:
+
+- three move-to-store ranges;
+- three binary-to-compare ranges.
+
+Compared with the accepted Slice 2 artifact:
+
+- the load file shrinks from 13,348 to 13,335 bytes (13 bytes);
+- listing instructions fall from 5,471 to 5,468 and measured code bytes from
+  12,320 to 12,311;
+- `LDA` falls from 1,636 to 1,633 and `STA` from 1,304 to 1,298;
+- measured data bytes fall from 448 to 444;
+- final logical temp homes fall from 171 to 169: virtual ZP remains 119 while
+  ordinary spill cells fall from 52 to 50.
+
+The other 61 safe but non-winning ranges retain homes for profitability. All
+1,490 tests and all 157 MIR6502 sweep fixtures pass.
 
 ## Slice 4: Profitable rematerialization and forwarding
 

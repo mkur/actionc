@@ -32,6 +32,13 @@ struct UseSite {
     accepts_a: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RegisterHomeRange {
+    block: usize,
+    def_op: usize,
+    use_op: usize,
+}
+
 #[derive(Debug, Default)]
 struct LaneFacts {
     defs: Vec<DefSite>,
@@ -96,6 +103,7 @@ impl HomeMaterializationReason {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct HomePlan {
     decisions: BTreeMap<TempLane, HomeDecision>,
+    register_ranges: BTreeMap<TempLane, RegisterHomeRange>,
 }
 
 impl HomePlan {
@@ -135,6 +143,7 @@ pub(super) struct HomeDemandCensus {
     pub(super) coupled_lanes: usize,
     pub(super) blocked_clobber_lanes: usize,
     pub(super) unsupported_consumer_lanes: usize,
+    pub(super) same_block_a_eligible_lanes: usize,
     pub(super) same_block_a_candidates: usize,
     pub(super) retained_unused_lanes: usize,
     pub(super) retained_non_single_def_lanes: usize,
@@ -150,6 +159,7 @@ pub(super) struct HomeDemandCensus {
     pub(super) retained_non_accumulator_lanes: usize,
     pub(super) retained_clobber_lanes: usize,
     pub(super) retained_unsupported_consumer_lanes: usize,
+    pub(super) retained_profitability_lanes: usize,
     pub(super) gross_store_instructions: usize,
     pub(super) gross_reload_instructions: usize,
     pub(super) gross_absolute_code_bytes: usize,
@@ -197,6 +207,10 @@ pub(super) fn record_home_demand_census(
         (
             "home-demand-unsupported-consumer-lanes",
             census.unsupported_consumer_lanes,
+        ),
+        (
+            "home-demand-same-block-a-eligible-lanes",
+            census.same_block_a_eligible_lanes,
         ),
         (
             "home-demand-same-block-a-candidates",
@@ -259,6 +273,10 @@ pub(super) fn record_home_demand_census(
             census.retained_unsupported_consumer_lanes,
         ),
         (
+            "home-demand-retained-profitability-lanes",
+            census.retained_profitability_lanes,
+        ),
+        (
             "home-demand-gross-store-instructions",
             census.gross_store_instructions,
         ),
@@ -279,6 +297,126 @@ pub(super) fn record_home_demand_census(
     }
     record_home_plan(routine_id, &analysis.plan, stats);
     analysis.plan
+}
+
+/// Applies the register-resident subset of a home plan before generic temp
+/// materialization. A lane is changed only when both planned endpoints still
+/// match, so stale analysis falls back to the existing spill path.
+pub(super) fn apply_register_home_plan(
+    routine: &mut MirRoutine,
+    plan: &HomePlan,
+    stats: &mut MirPeepholeStats,
+) {
+    let routine_id = routine.id;
+    for (lane, range) in &plan.register_ranges {
+        let Some(HomeDecision::ElideInRegister(reg)) = plan.decisions.get(lane) else {
+            continue;
+        };
+        let Some(block) = routine.blocks.get_mut(range.block) else {
+            stats.record(routine_id, "home-elision-stale-plan");
+            continue;
+        };
+        let (Some(producer), Some(consumer)) =
+            (block.ops.get(range.def_op), block.ops.get(range.use_op))
+        else {
+            stats.record(routine_id, "home-elision-stale-plan");
+            continue;
+        };
+
+        let mut rewritten_producer = producer.clone();
+        let mut rewritten_consumer = consumer.clone();
+        let producer_kind = op_kind(producer);
+        let consumer_kind = op_kind(consumer);
+        if !replace_op_def_lane(&mut rewritten_producer, *lane, *reg)
+            || replace_op_use_lane(&mut rewritten_consumer, *lane, *reg) != 1
+        {
+            stats.record(routine_id, "home-elision-stale-plan");
+            continue;
+        }
+
+        block.ops[range.def_op] = rewritten_producer;
+        block.ops[range.use_op] = rewritten_consumer;
+        match reg {
+            MirReg::A => stats.record(routine_id, "home-elision-register-a-lanes"),
+            MirReg::X => stats.record(routine_id, "home-elision-register-x-lanes"),
+            MirReg::Y => stats.record(routine_id, "home-elision-register-y-lanes"),
+        }
+        stats.record_site(
+            routine_id,
+            "home-elision-register-range",
+            format!(
+                "block {} ops {}..{}: {producer_kind} -> {consumer_kind} via {reg:?}",
+                range.block, range.def_op, range.use_op
+            ),
+        );
+    }
+}
+
+fn replace_op_def_lane(op: &mut MirOp, lane: TempLane, reg: MirReg) -> bool {
+    let Some(def) = op_def_mut(op) else {
+        return false;
+    };
+    let matches = match def {
+        MirDef::VTemp(id) => *id == lane.id && lane.byte == 0,
+        MirDef::VTempByte { id, byte } => *id == lane.id && *byte == lane.byte,
+        MirDef::Reg(_) => false,
+    };
+    if matches {
+        *def = MirDef::Reg(reg);
+    }
+    matches
+}
+
+fn op_def_mut(op: &mut MirOp) -> Option<&mut MirDef> {
+    match op {
+        MirOp::Move { dst, .. } | MirOp::Binary { dst, .. } => Some(dst),
+        _ => None,
+    }
+}
+
+fn replace_op_use_lane(op: &mut MirOp, lane: TempLane, reg: MirReg) -> usize {
+    let replacement = MirValue::Def(MirDef::Reg(reg));
+    match op {
+        MirOp::Store {
+            src,
+            width: MirWidth::Byte,
+            ..
+        }
+        | MirOp::Compare {
+            left: src,
+            width: MirWidth::Byte,
+            ..
+        } => replace_value_lane(src, lane, &replacement),
+        _ => 0,
+    }
+}
+
+fn replace_value_lane(value: &mut MirValue, lane: TempLane, replacement: &MirValue) -> usize {
+    let matches = match value {
+        MirValue::Def(MirDef::VTemp(id)) => *id == lane.id && lane.byte == 0,
+        MirValue::Def(MirDef::VTempByte { id, byte }) => *id == lane.id && *byte == lane.byte,
+        _ => false,
+    };
+    if matches {
+        *value = replacement.clone();
+        return 1;
+    }
+    match value {
+        MirValue::Word { lo, hi } => {
+            replace_value_lane(lo, lane, replacement) + replace_value_lane(hi, lane, replacement)
+        }
+        _ => 0,
+    }
+}
+
+fn op_kind(op: &MirOp) -> &'static str {
+    match op {
+        MirOp::Move { .. } => "move",
+        MirOp::Binary { .. } => "binary",
+        MirOp::Store { .. } => "store",
+        MirOp::Compare { .. } => "compare",
+        _ => "unsupported",
+    }
 }
 
 fn record_home_plan(
@@ -575,9 +713,31 @@ fn analyze_home_demand(routine: &MirRoutine, liveness: &MirTempLiveness) -> Home
                 HomeMaterializationReason::UnsupportedConsumer,
             );
         } else {
+            census.same_block_a_eligible_lanes =
+                census.same_block_a_eligible_lanes.saturating_add(1);
+            if !register_home_range_is_profitable(routine, def, use_op) {
+                retain_home(
+                    &mut census,
+                    &mut plan,
+                    *lane,
+                    HomeMaterializationReason::Profitability,
+                );
+                continue;
+            }
             census.same_block_a_candidates = census.same_block_a_candidates.saturating_add(1);
-            plan.decisions
+            let previous = plan
+                .decisions
                 .insert(*lane, HomeDecision::ElideInRegister(MirReg::A));
+            debug_assert!(previous.is_none());
+            let previous = plan.register_ranges.insert(
+                *lane,
+                RegisterHomeRange {
+                    block: def.block,
+                    def_op: def.op,
+                    use_op,
+                },
+            );
+            debug_assert!(previous.is_none());
         }
     }
     census.gross_absolute_code_bytes = census
@@ -586,6 +746,19 @@ fn analyze_home_demand(routine: &MirRoutine, liveness: &MirTempLiveness) -> Home
         .saturating_mul(3);
     debug_assert_eq!(plan.len(), census.temp_lanes);
     HomeDemandAnalysis { census, plan }
+}
+
+fn register_home_range_is_profitable(routine: &MirRoutine, def: DefSite, use_op: usize) -> bool {
+    let Some(block) = routine.blocks.get(def.block) else {
+        return false;
+    };
+    let (Some(producer), Some(consumer)) = (block.ops.get(def.op), block.ops.get(use_op)) else {
+        return false;
+    };
+    matches!(
+        (producer, consumer),
+        (MirOp::Move { .. }, MirOp::Store { .. }) | (MirOp::Binary { .. }, MirOp::Compare { .. })
+    )
 }
 
 fn retain_home(
@@ -643,8 +816,11 @@ fn retain_home(
             census.retained_unsupported_consumer_lanes =
                 census.retained_unsupported_consumer_lanes.saturating_add(1)
         }
-        HomeMaterializationReason::ObservableStorage | HomeMaterializationReason::Profitability => {
+        HomeMaterializationReason::Profitability => {
+            census.retained_profitability_lanes =
+                census.retained_profitability_lanes.saturating_add(1)
         }
+        HomeMaterializationReason::ObservableStorage => {}
     }
     let previous = plan
         .decisions
@@ -1222,6 +1398,7 @@ fn op_may_clobber_accumulator_during_materialization(op: &MirOp) -> bool {
             ..
         }
         | MirOp::StoreIndirect { .. }
+        | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }
         | MirOp::AdvanceAddress { .. } => true,
         MirOp::Store {
@@ -1245,6 +1422,7 @@ mod tests {
         MirBlock, MirBlockId, MirEffects, MirFrame, MirMem, MirRoutineAbi, MirTemp, RoutineId,
     };
     use crate::mir6502::materialize::temp_liveness::analyze_temp_liveness;
+    use crate::mir6502::materialize::temps::materialize_temp_ops;
 
     fn routine(blocks: Vec<MirBlock>, temps: u32) -> MirRoutine {
         MirRoutine {
@@ -1283,6 +1461,18 @@ mod tests {
         }
     }
 
+    fn store_indirect_temp(id: u32) -> MirOp {
+        MirOp::StoreIndirect {
+            consumer: crate::mir6502::ir::MirAddressConsumer::IndirectIndexedY(
+                crate::mir6502::ir::MirPointerPair::Fixed {
+                    lo: crate::mir6502::ir::MirFixedZpSlot(0xAC),
+                },
+            ),
+            src: temp_value(id),
+            offset: 0,
+        }
+    }
+
     fn store_word_temp(id: u32) -> MirOp {
         MirOp::Store {
             dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
@@ -1310,7 +1500,8 @@ mod tests {
                 + census.retained_cross_block_lanes
                 + census.retained_non_accumulator_lanes
                 + census.retained_clobber_lanes
-                + census.retained_unsupported_consumer_lanes,
+                + census.retained_unsupported_consumer_lanes
+                + census.retained_profitability_lanes,
             "candidate and retained-home reasons must partition temp lanes"
         );
         census
@@ -1321,15 +1512,22 @@ mod tests {
         scan_home_plan(routine, &liveness)
     }
 
+    fn apply_plan(routine: &mut MirRoutine) -> MirPeepholeStats {
+        let home_plan = plan(routine);
+        let mut stats = MirPeepholeStats::default();
+        apply_register_home_plan(routine, &home_plan, &mut stats);
+        stats
+    }
+
     #[test]
     fn census_finds_same_block_single_use_accumulator_candidate() {
         let routine = routine(
             vec![block(
                 0,
                 vec![
-                    MirOp::LoadImm {
+                    MirOp::Move {
                         dst: temp(0),
-                        value: 7,
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
                         width: MirWidth::Byte,
                     },
                     store_temp(0),
@@ -1347,6 +1545,7 @@ mod tests {
         assert_eq!(census.single_use_lanes, 1);
         assert_eq!(census.same_block_lanes, 1);
         assert_eq!(census.natural_a_lanes, 1);
+        assert_eq!(census.same_block_a_eligible_lanes, 1);
         assert_eq!(census.same_block_a_candidates, 1);
         assert_eq!(census.gross_absolute_code_bytes, 6);
         assert_eq!(census.gross_storage_bytes, 1);
@@ -1357,14 +1556,331 @@ mod tests {
     }
 
     #[test]
+    fn census_retains_safe_but_unprofitable_load_indirect_store_home() {
+        let routine = routine(
+            vec![block(
+                0,
+                vec![
+                    MirOp::Load {
+                        dst: temp(0),
+                        src: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                        width: MirWidth::Byte,
+                    },
+                    store_indirect_temp(0),
+                ],
+                MirTerminator::Return,
+            )],
+            1,
+        );
+
+        let census = scan(&routine);
+
+        assert_eq!(census.same_block_a_eligible_lanes, 1);
+        assert_eq!(census.same_block_a_candidates, 0);
+        assert_eq!(census.retained_profitability_lanes, 1);
+        assert_eq!(
+            plan(&routine).decision(MirTempId(0), 0),
+            Some(&HomeDecision::MustMaterialize(
+                HomeMaterializationReason::Profitability
+            ))
+        );
+    }
+
+    #[test]
+    fn register_home_plan_elides_byte_move_store_home() {
+        let mut routine = routine(
+            vec![block(
+                0,
+                vec![
+                    MirOp::Move {
+                        dst: temp(0),
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                    },
+                    store_temp(0),
+                ],
+                MirTerminator::Return,
+            )],
+            1,
+        );
+
+        apply_plan(&mut routine);
+        let ops = materialize_temp_ops(
+            std::mem::take(&mut routine.blocks[0].ops),
+            &mut routine.frame.spills,
+        );
+
+        assert_eq!(ops.len(), 1, "the redundant A-to-A move is removed");
+        assert!(matches!(
+            ops[0],
+            MirOp::Store {
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                ..
+            }
+        ));
+        assert!(routine.frame.spills.is_empty());
+    }
+
+    #[test]
+    fn register_home_plan_keeps_byte_binary_compare_in_accumulator() {
+        let mut routine = routine(
+            vec![block(
+                0,
+                vec![
+                    MirOp::Binary {
+                        op: crate::mir6502::ir::MirBinaryOp::Add,
+                        dst: temp(0),
+                        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        right: MirValue::ConstU8(1),
+                        width: MirWidth::Byte,
+                        carry_in: Some(MirCarryIn::Clear),
+                        carry_out: MirCarryOut::Ignore,
+                    },
+                    MirOp::Compare {
+                        dst: MirCondDest::Flags,
+                        op: crate::mir6502::ir::MirCompareOp::Eq,
+                        left: temp_value(0),
+                        right: MirValue::ConstU8(2),
+                        width: MirWidth::Byte,
+                        signed: false,
+                    },
+                ],
+                MirTerminator::Return,
+            )],
+            1,
+        );
+
+        let stats = apply_plan(&mut routine);
+        let ops = materialize_temp_ops(
+            std::mem::take(&mut routine.blocks[0].ops),
+            &mut routine.frame.spills,
+        );
+
+        assert!(matches!(
+            ops[0],
+            MirOp::Binary {
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                ..
+            }
+        ));
+        assert!(matches!(
+            ops[1],
+            MirOp::Compare {
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                ..
+            }
+        ));
+        assert!(routine.frame.spills.is_empty());
+        assert_eq!(
+            stats
+                .aggregate_counts()
+                .get("home-elision-register-a-lanes"),
+            Some(&1)
+        );
+    }
+
+    #[test]
+    fn register_home_binary_still_legalizes_pointer_cell_source() {
+        let mut routine = routine(
+            vec![block(
+                0,
+                vec![
+                    MirOp::Binary {
+                        op: crate::mir6502::ir::MirBinaryOp::Xor,
+                        dst: temp(0),
+                        left: MirValue::PointerCell(MirMem::Global {
+                            id: crate::nir::SymbolId(0),
+                            offset: 0,
+                        }),
+                        right: MirValue::ConstU8(1),
+                        width: MirWidth::Byte,
+                        carry_in: None,
+                        carry_out: MirCarryOut::Ignore,
+                    },
+                    MirOp::Compare {
+                        dst: MirCondDest::Flags,
+                        op: crate::mir6502::ir::MirCompareOp::Eq,
+                        left: temp_value(0),
+                        right: MirValue::ConstU8(2),
+                        width: MirWidth::Byte,
+                        signed: false,
+                    },
+                ],
+                MirTerminator::Return,
+            )],
+            1,
+        );
+
+        apply_plan(&mut routine);
+        let ops = materialize_temp_ops(
+            std::mem::take(&mut routine.blocks[0].ops),
+            &mut routine.frame.spills,
+        );
+
+        assert_eq!(ops.len(), 3);
+        assert!(matches!(
+            ops[0],
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                ..
+            }
+        ));
+        assert!(matches!(
+            ops[1],
+            MirOp::Binary {
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                ..
+            }
+        ));
+        assert!(matches!(
+            ops[2],
+            MirOp::Compare {
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                ..
+            }
+        ));
+        assert!(routine.frame.spills.is_empty());
+    }
+
+    #[test]
+    fn census_retains_safe_but_unprofitable_accumulator_call_argument_home() {
+        let routine = routine(
+            vec![block(
+                0,
+                vec![
+                    MirOp::LoadIndirect {
+                        consumer: crate::mir6502::ir::MirAddressConsumer::IndirectIndexedY(
+                            crate::mir6502::ir::MirPointerPair::Fixed {
+                                lo: crate::mir6502::ir::MirFixedZpSlot(0xAC),
+                            },
+                        ),
+                        dst: temp(0),
+                        offset: 0,
+                    },
+                    MirOp::Move {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: temp_value(0),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Call {
+                        target: MirCallTarget::Builtin {
+                            name: "consume_a".to_string(),
+                            address: Some(0x5000),
+                        },
+                        abi: crate::mir6502::ir::MirCallAbi {
+                            params: vec![MirArgHome::Reg(MirReg::A)],
+                            result: None,
+                            clobbers: Default::default(),
+                            preserves: Default::default(),
+                        },
+                        args: vec![crate::mir6502::ir::MirCallArg {
+                            value: MirValue::Def(MirDef::Reg(MirReg::A)),
+                            width: MirWidth::Byte,
+                            home: MirArgHome::Reg(MirReg::A),
+                        }],
+                        result: None,
+                        effects: MirEffects::default(),
+                    },
+                ],
+                MirTerminator::Return,
+            )],
+            1,
+        );
+
+        let census = scan(&routine);
+
+        assert_eq!(census.same_block_a_eligible_lanes, 1);
+        assert_eq!(census.same_block_a_candidates, 0);
+        assert_eq!(census.retained_profitability_lanes, 1);
+        assert_eq!(
+            plan(&routine).decision(MirTempId(0), 0),
+            Some(&HomeDecision::MustMaterialize(
+                HomeMaterializationReason::Profitability
+            ))
+        );
+    }
+
+    #[test]
+    fn register_home_plan_leaves_clobbered_candidate_materialized() {
+        let original_ops = vec![
+            MirOp::LoadImm {
+                dst: temp(0),
+                value: 7,
+                width: MirWidth::Byte,
+            },
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 9,
+                width: MirWidth::Byte,
+            },
+            store_temp(0),
+        ];
+        let mut routine = routine(
+            vec![block(0, original_ops.clone(), MirTerminator::Return)],
+            1,
+        );
+
+        let stats = apply_plan(&mut routine);
+
+        assert_eq!(routine.blocks[0].ops, original_ops);
+        assert_eq!(
+            stats
+                .aggregate_counts()
+                .get("home-elision-register-a-lanes"),
+            None
+        );
+    }
+
+    #[test]
+    fn register_home_plan_falls_back_atomically_when_consumer_is_stale() {
+        let mut routine = routine(
+            vec![block(
+                0,
+                vec![
+                    MirOp::Move {
+                        dst: temp(0),
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                    },
+                    store_temp(0),
+                ],
+                MirTerminator::Return,
+            )],
+            1,
+        );
+        let home_plan = plan(&routine);
+        let MirOp::Store { src, .. } = &mut routine.blocks[0].ops[1] else {
+            unreachable!()
+        };
+        *src = MirValue::ConstU8(1);
+        let mut stats = MirPeepholeStats::default();
+
+        apply_register_home_plan(&mut routine, &home_plan, &mut stats);
+
+        assert!(matches!(
+            routine.blocks[0].ops[0],
+            MirOp::Move {
+                dst: MirDef::VTemp(MirTempId(0)),
+                ..
+            }
+        ));
+        assert_eq!(
+            stats.aggregate_counts().get("home-elision-stale-plan"),
+            Some(&1)
+        );
+    }
+
+    #[test]
     fn census_records_aggregate_reporting_counters() {
         let routine = routine(
             vec![block(
                 0,
                 vec![
-                    MirOp::LoadImm {
+                    MirOp::Move {
                         dst: temp(0),
-                        value: 7,
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
                         width: MirWidth::Byte,
                     },
                     store_temp(0),
@@ -1380,6 +1896,10 @@ mod tests {
 
         let counts = stats.aggregate_counts();
         assert_eq!(counts.get("home-demand-temp-lanes"), Some(&1));
+        assert_eq!(
+            counts.get("home-demand-same-block-a-eligible-lanes"),
+            Some(&1)
+        );
         assert_eq!(counts.get("home-demand-same-block-a-candidates"), Some(&1));
         assert_eq!(
             counts.get("home-demand-gross-absolute-code-bytes"),
@@ -1387,6 +1907,37 @@ mod tests {
         );
         assert_eq!(counts.get("home-plan-temp-lanes"), Some(&1));
         assert_eq!(counts.get("home-plan-elide-register-a-lanes"), Some(&1));
+    }
+
+    #[test]
+    fn census_retains_safe_but_unprofitable_direct_load_store_home() {
+        let routine = routine(
+            vec![block(
+                0,
+                vec![
+                    MirOp::Load {
+                        dst: temp(0),
+                        src: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                        width: MirWidth::Byte,
+                    },
+                    store_temp(0),
+                ],
+                MirTerminator::Return,
+            )],
+            1,
+        );
+
+        let census = scan(&routine);
+
+        assert_eq!(census.same_block_a_eligible_lanes, 1);
+        assert_eq!(census.same_block_a_candidates, 0);
+        assert_eq!(census.retained_profitability_lanes, 1);
+        assert_eq!(
+            plan(&routine).decision(MirTempId(0), 0),
+            Some(&HomeDecision::MustMaterialize(
+                HomeMaterializationReason::Profitability
+            ))
+        );
     }
 
     #[test]
@@ -1455,6 +2006,48 @@ mod tests {
 
         assert_eq!(census.blocked_clobber_lanes, 1);
         assert_eq!(census.retained_unused_lanes, 1);
+        assert_eq!(census.same_block_a_candidates, 0);
+        assert_eq!(
+            plan(&routine).decision(MirTempId(0), 0),
+            Some(&HomeDecision::MustMaterialize(
+                HomeMaterializationReason::AccumulatorClobber
+            ))
+        );
+    }
+
+    #[test]
+    fn census_blocks_accumulator_home_across_pointer_materialization() {
+        let routine = routine(
+            vec![block(
+                0,
+                vec![
+                    MirOp::Load {
+                        dst: temp(0),
+                        src: MirAddr::Direct(MirMem::Absolute(0x005C)),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::MaterializeAddress {
+                        consumer: crate::mir6502::ir::MirAddressConsumer::IndirectIndexedY(
+                            crate::mir6502::ir::MirPointerPair::Fixed {
+                                lo: crate::mir6502::ir::MirFixedZpSlot(0xAC),
+                            },
+                        ),
+                        value: MirValue::Word {
+                            lo: Box::new(MirValue::PointerCell(MirMem::Absolute(0x3000))),
+                            hi: Box::new(MirValue::PointerCell(MirMem::Absolute(0x3001))),
+                        },
+                    },
+                    store_indirect_temp(0),
+                ],
+                MirTerminator::Return,
+            )],
+            1,
+        );
+
+        let census = scan(&routine);
+
+        assert_eq!(census.blocked_clobber_lanes, 1);
+        assert_eq!(census.same_block_a_eligible_lanes, 0);
         assert_eq!(census.same_block_a_candidates, 0);
         assert_eq!(
             plan(&routine).decision(MirTempId(0), 0),

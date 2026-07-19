@@ -56,7 +56,9 @@ use flags::{
     op_clobbers_unknown_flag_or_a_effects, op_has_opaque_flag_or_a_effects, op_overwrites_carry,
     op_overwrites_overflow, op_uses_previous_carry, op_writes_flags, terminator_consumes_flags,
 };
-use home_census::{record_final_home_allocations, record_home_demand_census};
+use home_census::{
+    apply_register_home_plan, record_final_home_allocations, record_home_demand_census,
+};
 #[cfg(test)]
 use indexes::{
     DelayedByteIndexExpr, materialize_computed_index_read, materialize_computed_index_write,
@@ -232,7 +234,8 @@ pub(super) fn materialize_program(
             block.ops = ops;
         }
         let home_liveness = analyze_temp_liveness(routine);
-        let _home_plan = record_home_demand_census(routine, &home_liveness, &mut peephole_stats);
+        let home_plan = record_home_demand_census(routine, &home_liveness, &mut peephole_stats);
+        apply_register_home_plan(routine, &home_plan, &mut peephole_stats);
         for (block_index, block) in routine.blocks.iter_mut().enumerate() {
             let live_out = temp_liveness
                 .live_out(block_index)
