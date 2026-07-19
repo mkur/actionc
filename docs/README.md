@@ -15,6 +15,8 @@ crowding the active reference set.
 - [SEMANTIC_INVARIANTS.md](SEMANTIC_INVARIANTS.md) - semantic rules the compiler
   should preserve.
 - [NIR_TARGET_SHAPE.md](NIR_TARGET_SHAPE.md) - target NIR contract.
+- [NIR_QUALITY_IMPLEMENTATION_PLAN.md](NIR_QUALITY_IMPLEMENTATION_PLAN.md) -
+  active plan for storage-to-value promotion and routine-wide NIR quality.
 - [MIR6502_PSEUDO_MACHINE_CONTRACT.md](MIR6502_PSEUDO_MACHINE_CONTRACT.md) -
   MIR6502 contract and verifier shape.
 - [TAC_BOUNDARY_FOR_6502_MIR.md](TAC_BOUNDARY_FOR_6502_MIR.md) - TAC/MIR
