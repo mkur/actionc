@@ -263,6 +263,26 @@ is in `Handle`, which falls from 25 spill accesses to 20. Cumulatively, slices
 1-3 save 425 bytes after branch relaxation and 797 bytes from the original
 pre-relaxation MIR6502 listing.
 
+#### Rejected follow-up consumer experiments
+
+Three broader consumer switches were measured and reverted rather than being
+committed:
+
+- forwarding direct-memory data into `StoreIndirect` grew TN by 12 bytes,
+  increased spill cells from 52 to 53 and spill accesses from 131 to 135, and
+  disabled all three `word-array-store-value-staging` combines;
+- allowing direct-memory left operands for `ADD`/`SUB` displaced the two
+  `binary-word-store-producer-forward` sites and broke the required compact
+  carry/borrow word-update shapes, even though the aggregate TN file happened
+  to shrink by 12 bytes;
+- right-side logic forwarding and unsigned byte-extension forwarding removed
+  two additional transient definitions but produced no TN byte or final-spill
+  change.
+
+These results establish that the remaining consumer work needs a profitability
+and pass-order contract with the existing store/word-update combines. A blanket
+"forward every addressable value" rule is no longer a safe next slice.
+
 - 58 redundant reloads, 100 dead full-temp definitions, 57 dead direct-load
   byte-lane definitions, and 219 direct-memory rewrites are now reported;
 - four later consumer forwards and three cross-block forwards currently fire;
@@ -287,14 +307,15 @@ counts are:
 
 Recommended slices:
 
-1. Extend consumer rewriting for the 456 currently classified unhandled reads.
-   Direct byte stores, byte moves, byte call arguments, and compare operands
-   and indexed-address inputs are handled; carefully staged indirect stores are
-   the next boundary.
-2. Remove the now-dead producer and allocate no spill/home for a temp that no
-   longer reaches an addressable use.
-3. Extend across single-predecessor, non-backedge block boundaries. Do not merge
-   facts through joins until dominance and lane identity prove the value.
+1. Add profitability-aware consumer rewriting for the 456 reads still
+   classified unhandled. It must preserve `word-array-store-value-staging` and
+   carry/borrow word-update combines; direct stores, byte moves, byte call
+   arguments, compares, and indexed-address inputs are already handled.
+2. Add block-local constrained-register scheduling for remaining short-lived
+   values instead of creating an addressable home immediately.
+3. Extend value facts across single-predecessor, non-backedge block boundaries.
+   Do not merge facts through joins until dominance and lane identity prove the
+   value.
 4. Preserve memory facts across calls only when structured, transitive effects
    prove that the particular storage cannot be read or written. Calls currently
    kill 1,036 v2 facts and 44 reloads are explicitly retained at call barriers;
