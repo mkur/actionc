@@ -469,6 +469,13 @@ mir6502: lower typed block arguments
 
 ## Phase 6: Pruned Private-Scalar Promotion
 
+Status: implemented with a pressure-guarded initial candidate set. Pruned SSA
+promotion is available for private scalar homes; automatic TN promotion is
+currently limited to hot ordinary byte locals with small definition sets.
+MIR6502 coalesces edge-only producers into merge destinations so block
+arguments do not add redundant copies. `Sort::gap` and `InputLine::ch` are the
+first enabled candidates.
+
 ### Algorithm
 
 Implement pruned mem2reg for each promotable home:
@@ -537,6 +544,11 @@ nir: promote private scalar storage
 
 ## Phase 7: Dead Stores And Source-Home Elision
 
+Status: implemented. Backward storage liveness removes unobserved stores for
+safe private locals, and declarations are erased only after accesses, effects,
+initializers, aliases, ABI requirements, persistence, and machine visibility
+have been excluded.
+
 Run backward storage liveness after promotion. Remove a direct store only when
 no read, call effect, machine block, exit persistence rule, or external observer
 can see it before the next store.
@@ -569,6 +581,14 @@ nir: eliminate dead scalar homes
 ```
 
 ## Phase 8: Optimizations Unlocked By Better Value Flow
+
+Status: the pressure-safe core is implemented. Sparse value propagation and
+CFG cleanup run to a fixed point, equal incoming block arguments fold, and
+dominance-scoped GVN handles pure arithmetic, casts, compares, and `AddrOf`
+without extending a canonical temp's live range. Existing structured-effect
+storage propagation continues to reuse global loads across calls proven not to
+write them. Range inference and loop-invariant motion remain deferred until
+their target-pressure interaction can be costed without regressing TN.
 
 After promotion is stable, prioritize:
 

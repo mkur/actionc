@@ -250,7 +250,7 @@ fn verifier_rejects_edge_value_unavailable_at_predecessor_terminator() {
 }
 
 #[test]
-fn optimizer_preserves_typed_block_edges_and_rebuilds_parameter_definitions() {
+fn optimizer_folds_uniform_typed_block_arguments_and_rebuilds_temp_definitions() {
     let optimized = optimize_program(&typed_block_argument_program())
         .expect("optimize verifier-clean block arguments");
     let routine = &optimized.routines[0];
@@ -258,27 +258,9 @@ fn optimizer_preserves_typed_block_edges_and_rebuilds_parameter_definitions() {
         panic!("expected goto");
     };
 
-    assert_eq!(
-        edge.args,
-        vec![
-            NirValue::ConstU8(7),
-            NirValue::ConstU8(3),
-            NirValue::ConstU16(3),
-            NirValue::StaticAddr {
-                id: SymbolId(0),
-                name: "table".to_string(),
-                ty: byte_pointer_type(),
-            },
-        ]
-    );
-    assert_eq!(routine.blocks[1].params.len(), 4);
-    assert!(
-        routine
-            .temps
-            .iter()
-            .filter(|temp| temp.def.op_index.is_none())
-            .all(|temp| temp.def.block == BlockId(1))
-    );
+    assert!(edge.args.is_empty());
+    assert!(routine.blocks[1].params.is_empty());
+    assert!(routine.temps.is_empty());
     assert_eq!(verify_program(&optimized), Ok(()));
 }
 

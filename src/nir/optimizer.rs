@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use super::analysis::{
     cfg::NirCfg,
     dataflow::{NirDataflowDirection, NirDataflowProblem, solve_dataflow},
+    dominance::NirDominance,
     liveness::NirTempLiveness,
     use_def::NirUseDef,
 };
@@ -22,10 +23,266 @@ pub(super) fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<N
 
 fn optimize_routine(routine: &mut NirRoutine) {
     remove_unreachable_blocks(routine);
-    optimize_values_in_routine(routine);
-    simplify_constant_branches(routine);
-    eliminate_dead_pure_temps(routine);
-    routine.temps = collect_temps(&routine.blocks);
+    loop {
+        let before = routine.blocks.clone();
+        fold_uniform_block_parameters(routine);
+        optimize_values_in_routine(routine);
+        simplify_constant_branches(routine);
+        eliminate_dominated_pure_redundancy(routine);
+        eliminate_dead_pure_temps(routine);
+        routine.temps = collect_temps(&routine.blocks);
+        if routine.blocks == before {
+            break;
+        }
+    }
+}
+
+fn fold_uniform_block_parameters(routine: &mut NirRoutine) {
+    let cfg = NirCfg::from_routine(routine);
+    let dominance = NirDominance::from_cfg(&cfg);
+    let mut replacements = BTreeMap::<TempId, NirValue>::new();
+    let mut removed = BTreeMap::<BlockId, Vec<usize>>::new();
+
+    for block in &routine.blocks {
+        for (index, param) in block.params.iter().enumerate() {
+            let incoming = routine
+                .blocks
+                .iter()
+                .flat_map(|predecessor| terminator_edges(&predecessor.terminator))
+                .filter(|edge| edge.target == block.id)
+                .filter_map(|edge| edge.args.get(index))
+                .collect::<Vec<_>>();
+            let Some(value) = incoming.first().cloned().cloned() else {
+                continue;
+            };
+            if !incoming.iter().all(|candidate| **candidate == value)
+                || !uniform_value_dominates(&value, block.id, routine, &dominance)
+            {
+                continue;
+            }
+            replacements.insert(param.dest, value);
+            removed.entry(block.id).or_default().push(index);
+        }
+    }
+
+    if replacements.is_empty() {
+        return;
+    }
+    for block in &mut routine.blocks {
+        if let Some(indices) = removed.get(&block.id) {
+            for index in indices.iter().rev() {
+                block.params.remove(*index);
+            }
+        }
+        for edge in terminator_edges_mut(&mut block.terminator) {
+            if let Some(indices) = removed.get(&edge.target) {
+                for index in indices.iter().rev() {
+                    edge.args.remove(*index);
+                }
+            }
+        }
+        for op in &mut block.ops {
+            rewrite_op_values(op, &replacements);
+        }
+        rewrite_terminator_values(&mut block.terminator, &replacements);
+    }
+}
+
+fn uniform_value_dominates(
+    value: &NirValue,
+    target: BlockId,
+    routine: &NirRoutine,
+    dominance: &NirDominance,
+) -> bool {
+    match value {
+        NirValue::ConstU8(_) | NirValue::ConstU16(_) | NirValue::StaticAddr { .. } => true,
+        NirValue::Temp { id, .. } => routine
+            .temps
+            .iter()
+            .find(|temp| temp.id == *id)
+            .is_some_and(|temp| {
+                temp.def.op_index.is_some() && dominance.dominates(temp.def.block, target)
+            }),
+        NirValue::Param(_) | NirValue::GlobalAddr(_) => false,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PureExpression {
+    AddrOf {
+        ty: NirType,
+        place: NirPlace,
+    },
+    Unary {
+        ty: NirType,
+        op: NirUnaryOp,
+        src: NirValue,
+    },
+    Cast {
+        from: NirType,
+        to: NirType,
+        src: NirValue,
+    },
+    Binary {
+        ty: NirType,
+        op: NirBinaryOp,
+        left: NirValue,
+        right: NirValue,
+    },
+    Compare {
+        ty: NirType,
+        op: NirCompareOp,
+        left: NirValue,
+        right: NirValue,
+    },
+}
+
+fn eliminate_dominated_pure_redundancy(routine: &mut NirRoutine) {
+    let cfg = NirCfg::from_routine(routine);
+    let dominance = NirDominance::from_cfg(&cfg);
+    let use_def = NirUseDef::from_routine(routine);
+    let Some(entry) = dominance.root() else {
+        return;
+    };
+    gvn_block(
+        routine,
+        entry,
+        Vec::new(),
+        BTreeMap::new(),
+        &dominance,
+        &use_def,
+    );
+}
+
+fn gvn_block(
+    routine: &mut NirRoutine,
+    block_id: BlockId,
+    mut available: Vec<(PureExpression, NirValue)>,
+    mut replacements: BTreeMap<TempId, NirValue>,
+    dominance: &NirDominance,
+    use_def: &NirUseDef,
+) {
+    let Some(index) = routine.blocks.iter().position(|block| block.id == block_id) else {
+        return;
+    };
+    let ops = std::mem::take(&mut routine.blocks[index].ops);
+    let mut retained = Vec::with_capacity(ops.len());
+    for mut op in ops {
+        rewrite_op_values(&mut op, &replacements);
+        let Some((dest, ty)) = op_def(&op) else {
+            retained.push(op);
+            continue;
+        };
+        let Some(expression) = pure_expression(&op) else {
+            replacements.remove(&dest);
+            retained.push(op);
+            continue;
+        };
+        if let Some((_, value)) = available
+            .iter()
+            .rev()
+            .find(|(candidate, _)| candidate == &expression)
+            && reuse_does_not_extend_live_range(value, dest, block_id, use_def)
+        {
+            replacements.insert(dest, value.clone());
+            continue;
+        }
+        let value = NirValue::Temp {
+            id: dest,
+            ty: ty.clone(),
+        };
+        available.push((expression, value));
+        replacements.remove(&dest);
+        retained.push(op);
+    }
+    rewrite_terminator_values(&mut routine.blocks[index].terminator, &replacements);
+    routine.blocks[index].ops = retained;
+
+    for child in dominance.children(block_id) {
+        gvn_block(
+            routine,
+            *child,
+            available.clone(),
+            replacements.clone(),
+            dominance,
+            use_def,
+        );
+    }
+}
+
+fn reuse_does_not_extend_live_range(
+    canonical: &NirValue,
+    duplicate: TempId,
+    block: BlockId,
+    use_def: &NirUseDef,
+) -> bool {
+    // MIR6502 can rematerialize many pure values more cheaply than preserving a
+    // long-lived temp. Reuse only when the canonical temp already lives at
+    // least as long as the redundant result, so GVN cannot create spill
+    // pressure merely to remove an operation.
+    let NirValue::Temp { id: canonical, .. } = canonical else {
+        return false;
+    };
+    let last_use = |temp| {
+        let uses = use_def.uses(temp);
+        if uses.is_empty() || uses.iter().any(|site| site.block() != block) {
+            return None;
+        }
+        uses.iter()
+            .map(|site| site.op_index().unwrap_or(usize::MAX))
+            .max()
+    };
+    let Some(canonical_last_use) = last_use(*canonical) else {
+        return false;
+    };
+    let Some(duplicate_last_use) = last_use(duplicate) else {
+        return false;
+    };
+    canonical_last_use >= duplicate_last_use
+}
+
+fn pure_expression(op: &NirOp) -> Option<PureExpression> {
+    match op {
+        NirOp::AddrOf { ty, place, .. } => Some(PureExpression::AddrOf {
+            ty: ty.clone(),
+            place: place.clone(),
+        }),
+        NirOp::Unary { ty, op, src, .. } => Some(PureExpression::Unary {
+            ty: ty.clone(),
+            op: *op,
+            src: src.clone(),
+        }),
+        NirOp::Cast { src, from, to, .. } => Some(PureExpression::Cast {
+            from: from.clone(),
+            to: to.clone(),
+            src: src.clone(),
+        }),
+        NirOp::Binary {
+            ty,
+            op,
+            left,
+            right,
+            ..
+        } => Some(PureExpression::Binary {
+            ty: ty.clone(),
+            op: *op,
+            left: left.clone(),
+            right: right.clone(),
+        }),
+        NirOp::Compare {
+            ty,
+            op,
+            left,
+            right,
+            ..
+        } => Some(PureExpression::Compare {
+            ty: ty.clone(),
+            op: *op,
+            left: left.clone(),
+            right: right.clone(),
+        }),
+        _ => None,
+    }
 }
 
 fn remove_unreachable_blocks(routine: &mut NirRoutine) {
@@ -635,12 +892,53 @@ fn rewrite_place_values(place: &mut NirPlace, constants: &BTreeMap<TempId, NirVa
 }
 
 fn rewrite_value(value: &mut NirValue, constants: &BTreeMap<TempId, NirValue>) {
-    if let NirValue::Temp { id, .. } = value
-        && let Some(replacement) = constants.get(id)
-        && value_width(replacement) == value_width(value)
-    {
+    let mut visited = BTreeSet::new();
+    while let NirValue::Temp { id, .. } = value {
+        if !visited.insert(*id) {
+            break;
+        }
+        let Some(replacement) = constants.get(id) else {
+            break;
+        };
+        if value_width(replacement) != value_width(value) {
+            break;
+        }
         *value = replacement.clone();
     }
+}
+
+fn terminator_edges(terminator: &NirTerminator) -> impl Iterator<Item = &NirEdge> {
+    let edges = match terminator {
+        NirTerminator::Goto(edge) => [Some(edge), None],
+        NirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } => [Some(then_edge), Some(else_edge)],
+        NirTerminator::Open
+        | NirTerminator::Fallthrough
+        | NirTerminator::Return(_)
+        | NirTerminator::Exit
+        | NirTerminator::Unknown(_) => [None, None],
+    };
+    edges.into_iter().flatten()
+}
+
+fn terminator_edges_mut(terminator: &mut NirTerminator) -> impl Iterator<Item = &mut NirEdge> {
+    let edges = match terminator {
+        NirTerminator::Goto(edge) => [Some(edge), None],
+        NirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } => [Some(then_edge), Some(else_edge)],
+        NirTerminator::Open
+        | NirTerminator::Fallthrough
+        | NirTerminator::Return(_)
+        | NirTerminator::Exit
+        | NirTerminator::Unknown(_) => [None, None],
+    };
+    edges.into_iter().flatten()
 }
 
 fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
@@ -789,6 +1087,7 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
 #[cfg(test)]
 mod value_fact_tests {
     use super::*;
+    use crate::nir::LocalId;
 
     fn condition_type() -> NirType {
         NirType {
@@ -896,5 +1195,169 @@ mod value_fact_tests {
 
         assert!(matches!(result.in_state(BlockId(1)), Some(Some(_))));
         assert_eq!(result.in_state(BlockId(2)), Some(&None));
+    }
+
+    #[test]
+    fn uniform_incoming_block_arguments_fold_to_the_common_value() {
+        let byte = NirType {
+            kind: NirTypeKind::U8,
+            summary: "Byte".to_string(),
+            width: Some(1),
+            pointer: false,
+        };
+        let mut routine = NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps: vec![NirTemp {
+                id: TempId(0),
+                ty: byte.clone(),
+                def: NirTempDef {
+                    block: BlockId(3),
+                    op_index: None,
+                },
+            }],
+            notes: Vec::new(),
+            blocks: vec![
+                NirBlock {
+                    id: BlockId(0),
+                    label: "entry".to_string(),
+                    params: Vec::new(),
+                    ops: Vec::new(),
+                    terminator: NirTerminator::Branch {
+                        condition: NirValue::ConstU8(1),
+                        then_edge: NirEdge {
+                            target: BlockId(1),
+                            args: Vec::new(),
+                        },
+                        else_edge: NirEdge {
+                            target: BlockId(2),
+                            args: Vec::new(),
+                        },
+                    },
+                },
+                NirBlock {
+                    id: BlockId(1),
+                    label: "left".to_string(),
+                    params: Vec::new(),
+                    ops: Vec::new(),
+                    terminator: NirTerminator::Goto(NirEdge {
+                        target: BlockId(3),
+                        args: vec![NirValue::ConstU8(7)],
+                    }),
+                },
+                NirBlock {
+                    id: BlockId(2),
+                    label: "right".to_string(),
+                    params: Vec::new(),
+                    ops: Vec::new(),
+                    terminator: NirTerminator::Goto(NirEdge {
+                        target: BlockId(3),
+                        args: vec![NirValue::ConstU8(7)],
+                    }),
+                },
+                NirBlock {
+                    id: BlockId(3),
+                    label: "join".to_string(),
+                    params: vec![NirBlockParam {
+                        dest: TempId(0),
+                        ty: byte.clone(),
+                    }],
+                    ops: Vec::new(),
+                    terminator: NirTerminator::Return(Some(NirValue::Temp {
+                        id: TempId(0),
+                        ty: byte,
+                    })),
+                },
+            ],
+        };
+
+        fold_uniform_block_parameters(&mut routine);
+
+        assert!(routine.blocks[3].params.is_empty());
+        assert!(matches!(
+            routine.blocks[3].terminator,
+            NirTerminator::Return(Some(NirValue::ConstU8(7)))
+        ));
+        assert!(matches!(
+            &routine.blocks[1].terminator,
+            NirTerminator::Goto(NirEdge { args, .. }) if args.is_empty()
+        ));
+    }
+
+    #[test]
+    fn gvn_reuses_a_dominating_address_value() {
+        let pointer = NirType {
+            kind: NirTypeKind::Ptr16 {
+                pointee: Some(Box::new(NirTypeKind::U8)),
+            },
+            summary: "Byte*".to_string(),
+            width: Some(2),
+            pointer: true,
+        };
+        let place = NirPlace {
+            kind: NirPlaceKind::Local {
+                id: LocalId(0),
+                name: "value".to_string(),
+            },
+            ty: None,
+        };
+        let mut routine = NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps: Vec::new(),
+            notes: Vec::new(),
+            blocks: vec![NirBlock {
+                id: BlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: vec![
+                    NirOp::AddrOf {
+                        dest: TempId(0),
+                        ty: pointer.clone(),
+                        place: place.clone(),
+                    },
+                    NirOp::AddrOf {
+                        dest: TempId(1),
+                        ty: pointer.clone(),
+                        place,
+                    },
+                    NirOp::Store {
+                        place: NirPlace {
+                            kind: NirPlaceKind::Local {
+                                id: LocalId(1),
+                                name: "out".to_string(),
+                            },
+                            ty: Some(pointer.clone()),
+                        },
+                        src: NirValue::Temp {
+                            id: TempId(1),
+                            ty: pointer.clone(),
+                        },
+                        ty: pointer.clone(),
+                    },
+                ],
+                terminator: NirTerminator::Return(Some(NirValue::Temp {
+                    id: TempId(0),
+                    ty: pointer.clone(),
+                })),
+            }],
+        };
+
+        eliminate_dominated_pure_redundancy(&mut routine);
+
+        assert_eq!(routine.blocks[0].ops.len(), 2);
+        assert!(matches!(
+            &routine.blocks[0].ops[1],
+            NirOp::Store {
+                src: NirValue::Temp { id: TempId(0), .. },
+                ..
+            }
+        ));
+        assert!(matches!(
+            &routine.blocks[0].terminator,
+            NirTerminator::Return(Some(NirValue::Temp { id: TempId(0), .. }))
+        ));
     }
 }

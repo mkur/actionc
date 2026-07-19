@@ -620,6 +620,11 @@ Initial safe NIR passes:
   merges;
 - explicit synchronization before effects that may read a promoted home and a
   reload after effects that may write it.
+- fixed-point sparse value propagation and CFG cleanup after representation
+  changes expose new constants;
+- folding of block parameters whose executable incoming values are identical;
+- dominance-safe GVN for pure typed computations when reuse does not lengthen
+  the canonical temporary's live range.
 
 Promotion does not make a target allocation decision. NIR removes direct
 source-home traffic and represents merged values with block parameters and edge
