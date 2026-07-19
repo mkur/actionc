@@ -582,7 +582,7 @@ Initial safe NIR passes:
 - constant folding;
 - constant condition folding;
 - routine-wide constant, copy, and algebraic-identity propagation with
-  conservative joins;
+  conservative joins and sparse propagation over executable branch edges;
 - branch simplification;
 - routine-wide, liveness-based dead temp elimination;
 - local load/store forwarding only when storage identity and effects make it

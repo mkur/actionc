@@ -72,13 +72,15 @@ impl NirValueFacts {
 
 struct NirValuePropagationProblem<'a> {
     entry: Option<BlockId>,
+    cfg: &'a NirCfg,
     blocks: BTreeMap<BlockId, &'a NirBlock>,
 }
 
 impl<'a> NirValuePropagationProblem<'a> {
-    fn new(routine: &'a NirRoutine, cfg: &NirCfg) -> Self {
+    fn new(routine: &'a NirRoutine, cfg: &'a NirCfg) -> Self {
         Self {
             entry: cfg.entry(),
+            cfg,
             blocks: routine
                 .blocks
                 .iter()
@@ -120,6 +122,48 @@ impl NirDataflowProblem for NirValuePropagationProblem<'_> {
             simplify_op_with_facts(op.clone(), &mut facts);
         }
         Some(facts)
+    }
+
+    fn forward_edge_is_executable(
+        &self,
+        from: BlockId,
+        to: BlockId,
+        from_out: &Self::State,
+    ) -> bool {
+        let Some(facts) = from_out else {
+            return false;
+        };
+        let Some(block) = self.blocks.get(&from) else {
+            return false;
+        };
+        match &block.terminator {
+            NirTerminator::Goto(label) => self.cfg.resolve_label(label) == Some(to),
+            NirTerminator::Branch {
+                condition,
+                then_label,
+                else_label,
+            } => {
+                let mut condition = condition.clone();
+                rewrite_value(&mut condition, &facts.replacements);
+                match condition {
+                    NirValue::ConstU8(0) => self.cfg.resolve_label(else_label) == Some(to),
+                    NirValue::ConstU8(_) => self.cfg.resolve_label(then_label) == Some(to),
+                    NirValue::ConstU16(_)
+                    | NirValue::StaticAddr { .. }
+                    | NirValue::Temp { .. }
+                    | NirValue::Param(_)
+                    | NirValue::GlobalAddr(_) => {
+                        self.cfg.resolve_label(then_label) == Some(to)
+                            || self.cfg.resolve_label(else_label) == Some(to)
+                    }
+                }
+            }
+            NirTerminator::Open
+            | NirTerminator::Fallthrough
+            | NirTerminator::Return(_)
+            | NirTerminator::Exit
+            | NirTerminator::Unknown(_) => false,
+        }
     }
 }
 
@@ -715,6 +759,15 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
 mod value_fact_tests {
     use super::*;
 
+    fn condition_type() -> NirType {
+        NirType {
+            kind: NirTypeKind::Bool,
+            summary: "condition".to_string(),
+            width: Some(1),
+            pointer: false,
+        }
+    }
+
     #[test]
     fn join_keeps_only_facts_available_with_the_same_value_on_every_path() {
         let mut left = NirValueFacts {
@@ -746,5 +799,62 @@ mod value_fact_tests {
             BTreeMap::from([(TempId(0), NirValue::ConstU8(1))])
         );
         assert!(left.offsets.is_empty());
+    }
+
+    #[test]
+    fn folded_branch_condition_marks_only_the_selected_edge_executable() {
+        let condition = condition_type();
+        let routine = NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps: vec![NirTemp {
+                id: TempId(0),
+                ty: condition.clone(),
+                def: NirTempDef {
+                    block: BlockId(0),
+                    op_index: 0,
+                },
+            }],
+            notes: Vec::new(),
+            blocks: vec![
+                NirBlock {
+                    id: BlockId(0),
+                    label: "entry".to_string(),
+                    ops: vec![NirOp::Compare {
+                        dest: TempId(0),
+                        ty: condition.clone(),
+                        op: NirCompareOp::Eq,
+                        left: NirValue::ConstU8(1),
+                        right: NirValue::ConstU8(1),
+                    }],
+                    terminator: NirTerminator::Branch {
+                        condition: NirValue::Temp {
+                            id: TempId(0),
+                            ty: condition,
+                        },
+                        then_label: "taken".to_string(),
+                        else_label: "dead".to_string(),
+                    },
+                },
+                NirBlock {
+                    id: BlockId(1),
+                    label: "taken".to_string(),
+                    ops: Vec::new(),
+                    terminator: NirTerminator::Return(None),
+                },
+                NirBlock {
+                    id: BlockId(2),
+                    label: "dead".to_string(),
+                    ops: Vec::new(),
+                    terminator: NirTerminator::Return(None),
+                },
+            ],
+        };
+        let cfg = NirCfg::from_routine(&routine);
+        let result = solve_dataflow(&cfg, &NirValuePropagationProblem::new(&routine, &cfg));
+
+        assert!(matches!(result.in_state(BlockId(1)), Some(Some(_))));
+        assert_eq!(result.in_state(BlockId(2)), Some(&None));
     }
 }

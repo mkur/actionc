@@ -21,6 +21,20 @@ pub(in crate::nir) trait NirDataflowProblem {
     fn boundary(&self, block: BlockId) -> Option<Self::State>;
     fn join(&self, into: &mut Self::State, other: &Self::State);
     fn transfer(&self, block: BlockId, state: &Self::State) -> Self::State;
+
+    /// Whether a forward-flow fact may propagate from `from` to `to`.
+    ///
+    /// The default keeps every CFG edge executable. Sparse forward clients may
+    /// override this when the source block's output proves that an edge cannot
+    /// execute, for example after resolving a constant branch condition.
+    fn forward_edge_is_executable(
+        &self,
+        _from: BlockId,
+        _to: BlockId,
+        _from_out: &Self::State,
+    ) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,7 +96,9 @@ where
                 }
                 for predecessor in cfg.predecessors(block) {
                     if let Some(state) = out_states.get(predecessor) {
-                        problem.join(&mut input, state);
+                        if problem.forward_edge_is_executable(*predecessor, block, state) {
+                            problem.join(&mut input, state);
+                        }
                     }
                 }
                 let output = problem.transfer(block, &input);
@@ -146,6 +162,12 @@ mod tests {
         entry: BlockId,
     }
 
+    struct SparseReachableHistory {
+        entry: BlockId,
+        branch: BlockId,
+        taken: BlockId,
+    }
+
     impl NirDataflowProblem for ReachableHistory {
         type State = BTreeSet<BlockId>;
 
@@ -169,6 +191,48 @@ mod tests {
             let mut state = state.clone();
             state.insert(block);
             state
+        }
+    }
+
+    impl NirDataflowProblem for SparseReachableHistory {
+        type State = Option<BTreeSet<BlockId>>;
+
+        fn direction(&self) -> NirDataflowDirection {
+            NirDataflowDirection::Forward
+        }
+
+        fn bottom(&self) -> Self::State {
+            None
+        }
+
+        fn boundary(&self, block: BlockId) -> Option<Self::State> {
+            (block == self.entry).then(|| Some(BTreeSet::new()))
+        }
+
+        fn join(&self, into: &mut Self::State, other: &Self::State) {
+            let Some(other) = other else {
+                return;
+            };
+            if let Some(into) = into {
+                into.extend(other);
+            } else {
+                *into = Some(other.clone());
+            }
+        }
+
+        fn transfer(&self, block: BlockId, state: &Self::State) -> Self::State {
+            let mut state = state.clone()?;
+            state.insert(block);
+            Some(state)
+        }
+
+        fn forward_edge_is_executable(
+            &self,
+            from: BlockId,
+            to: BlockId,
+            from_out: &Self::State,
+        ) -> bool {
+            from_out.is_some() && (from != self.branch || to == self.taken)
         }
     }
 
@@ -221,5 +285,86 @@ mod tests {
             ]))
         );
         assert!(result.evaluations() >= routine.blocks.len());
+    }
+
+    #[test]
+    fn forward_solver_excludes_non_executable_edges_from_joins() {
+        let routine = NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps: Vec::new(),
+            notes: Vec::new(),
+            blocks: vec![
+                block(
+                    0,
+                    "entry",
+                    NirTerminator::Branch {
+                        condition: NirValue::ConstU8(1),
+                        then_label: "left".to_string(),
+                        else_label: "right".to_string(),
+                    },
+                ),
+                block(1, "left", NirTerminator::Goto("join".to_string())),
+                block(2, "right", NirTerminator::Goto("join".to_string())),
+                block(3, "join", NirTerminator::Return(None)),
+            ],
+        };
+        let cfg = NirCfg::from_routine(&routine);
+        let result = solve_dataflow(
+            &cfg,
+            &SparseReachableHistory {
+                entry: BlockId(0),
+                branch: BlockId(0),
+                taken: BlockId(1),
+            },
+        );
+
+        assert_eq!(result.in_state(BlockId(2)), Some(&None));
+        assert_eq!(result.out_state(BlockId(2)), Some(&None));
+        assert_eq!(
+            result.in_state(BlockId(3)),
+            Some(&Some(BTreeSet::from([BlockId(0), BlockId(1)])))
+        );
+    }
+
+    #[test]
+    fn sparse_forward_solver_converges_with_a_dead_loop_exit() {
+        let routine = NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps: Vec::new(),
+            notes: Vec::new(),
+            blocks: vec![
+                block(0, "entry", NirTerminator::Goto("loop".to_string())),
+                block(
+                    1,
+                    "loop",
+                    NirTerminator::Branch {
+                        condition: NirValue::ConstU8(1),
+                        then_label: "body".to_string(),
+                        else_label: "exit".to_string(),
+                    },
+                ),
+                block(2, "body", NirTerminator::Goto("loop".to_string())),
+                block(3, "exit", NirTerminator::Return(None)),
+            ],
+        };
+        let cfg = NirCfg::from_routine(&routine);
+        let result = solve_dataflow(
+            &cfg,
+            &SparseReachableHistory {
+                entry: BlockId(0),
+                branch: BlockId(1),
+                taken: BlockId(2),
+            },
+        );
+
+        assert_eq!(result.in_state(BlockId(3)), Some(&None));
+        assert_eq!(
+            result.out_state(BlockId(1)),
+            Some(&Some(BTreeSet::from([BlockId(0), BlockId(1), BlockId(2),])))
+        );
     }
 }
