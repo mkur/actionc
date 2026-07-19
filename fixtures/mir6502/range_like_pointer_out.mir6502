@@ -8,7 +8,6 @@ b0 bb0:
   v0 =.w load param p0+0
   v1 =.b load computed v0[#$00;1]+0
   store.b local l1+0, v1
-  store.b local l2+0, #$00
   store.b local l0+0, #$01
   jump b1
 b1 bb1:
@@ -35,7 +34,6 @@ b4 bb8:
   store.b *v13+0, v15
   jump b6
 b5 bb9:
-  store.b local l2+0, #$01
   jump b6
 b6 bb7:
   jump b12
@@ -60,7 +58,6 @@ b9 bb12:
   store.b *v26+0, v28
   jump b11
 b10 bb13:
-  store.b local l2+0, #$01
   jump b11
 b11 bb11:
   jump b12

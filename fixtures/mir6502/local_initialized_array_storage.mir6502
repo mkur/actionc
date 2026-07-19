@@ -5,5 +5,4 @@ routine r0 Main
 b0 bb0:
   v0 =.w lea local l0+0
   v1 =.w load *local l0+0+2
-  store.w local l1+0, v1
   return

@@ -1,6 +1,6 @@
-PROC Take(BYTE a,b,c,d)
+BYTE out=$4000
 
-  BYTE out
+PROC Take(BYTE a,b,c,d)
 
   out = a + b + c + d
 

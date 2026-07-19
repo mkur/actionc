@@ -105,14 +105,11 @@ fn callee_captures_action_abi_params_on_entry() {
         0xA9, 0x0A, // LDA #x low
         0xA2, 0x00, // LDX #x high
         0xA0, 0x02, // LDY #y
-        0x20, // JSR test
     ];
     assert!(bytes.windows(prologue.len()).any(|bytes| bytes == prologue));
-    assert!(
-        bytes
-            .windows(call_args.len())
-            .any(|bytes| bytes == call_args)
-    );
+    assert!(bytes.windows(call_args.len() + 1).any(|bytes| {
+        bytes[..call_args.len()] == call_args && matches!(bytes[call_args.len()], 0x20 | 0x4C)
+    }));
     assert!(!bytes.windows(3).any(|bytes| bytes == [0xAD, 0x02, 0x00]));
 }
 

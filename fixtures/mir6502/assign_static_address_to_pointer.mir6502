@@ -4,7 +4,6 @@ static s0 __nir_str_Main_0: Char* bytes [$02 $4F $4B] section=rodata align=1 mut
 routine r0 Take
 b0 bb0:
   v0 =.w load param p0+0
-  store.w local l0+0, v0
   return
 
 routine r1 Main

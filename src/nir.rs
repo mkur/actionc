@@ -1,6 +1,7 @@
 mod analysis;
 mod classifier;
 mod facts;
+mod home_elision;
 mod ir;
 mod lowerer;
 mod optimizer;
@@ -57,5 +58,6 @@ pub fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagn
     let optimized = optimizer::optimize_program(program)?;
     let optimized = storage_optimizer::propagate_program(&optimized)?;
     let optimized = promotion::promote_program(&optimized)?;
+    let optimized = home_elision::elide_program(&optimized)?;
     optimizer::optimize_program(&optimized)
 }

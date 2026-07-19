@@ -15,7 +15,6 @@ b2 bb2:
   v4 =.w load param p0+0
   v5 =.b load local l0+0
   v6 =.b load computed v4[v5;1]+0
-  store.b local l1+0, v6
   v7 =.b load local l0+0
   v8 =.b v7 add #$01 carry_in=- carry_out=ignore
   store.b local l0+0, v8

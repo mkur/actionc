@@ -8,7 +8,6 @@ b0 bb0:
   v0 =.w lea local l1+0
   v1 =.w lea local l0+0
   store.w local l1+2, v1
-  store.b local l2+0, #$01
   v2 =.w lea local l1+0
   v4 =.w load local l1+2
   store.w global g0+0, v4

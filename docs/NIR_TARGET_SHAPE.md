@@ -630,6 +630,13 @@ address-taken, aliased, absolute, machine-visible, wider, parameter, and colder
 homes remain in storage form until target home coloring can carry them without
 regressing output.
 
+After promotion, backward storage liveness may remove a direct private-local
+store only when no later load, structured effect read, machine barrier, or exit
+persistence rule observes the value. A source local declaration may then be
+removed only when it has no remaining access, address, initializer, alias,
+effect-region reference, or machine visibility. Parameter homes remain ABI
+owned, and globals remain observable storage; neither is erased by this pass.
+
 Do not perform aggressive alias-sensitive optimization until all of these are
 strong enough:
 

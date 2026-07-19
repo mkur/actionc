@@ -7,7 +7,5 @@ b0 bb0:
 
 routine r1 Main
 b0 bb1:
-  store.b local l0+0, #$04
-  store.b local l1+0, #$02
   call r0 args=[#$0000.b -> a, #$04.b -> x, #$02.b -> y] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return
