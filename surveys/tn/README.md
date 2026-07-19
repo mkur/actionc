@@ -10,6 +10,8 @@ The current MIR6502 listing baseline and ranked optimization backlog are in
 The implementation roadmap for avoiding transient temp and internal scalar
 storage is in
 [`mir6502-home-elision-plan.md`](mir6502-home-elision-plan.md).
+The follow-on plan for reducing costly MIR lanes before home planning is in
+[`mir6502-residual-lane-reduction-plan.md`](mir6502-residual-lane-reduction-plan.md).
 
 Run from the `actionc` repo root:
 
