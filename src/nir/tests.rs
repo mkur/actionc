@@ -1451,6 +1451,245 @@ fn optimizer_eliminates_dead_pure_temp_chain_across_blocks_to_fixed_point() {
 }
 
 #[test]
+fn optimizer_propagates_folded_constant_to_successor_block() {
+    let ty = byte_type();
+    let program = optimizer_program(
+        vec![temp_table_entry(0, ty.clone(), 0, 0)],
+        vec![
+            NirBlock {
+                id: BlockId(0),
+                label: "entry".to_string(),
+                ops: vec![NirOp::Binary {
+                    dest: TempId(0),
+                    ty: ty.clone(),
+                    op: NirBinaryOp::Add,
+                    left: byte_value(1),
+                    right: byte_value(2),
+                }],
+                terminator: NirTerminator::Goto("use".to_string()),
+            },
+            NirBlock {
+                id: BlockId(1),
+                label: "use".to_string(),
+                ops: vec![NirOp::Store {
+                    place: byte_place("output"),
+                    src: temp_value(0, ty.clone()),
+                    ty: ty.clone(),
+                }],
+                terminator: NirTerminator::Return(None),
+            },
+        ],
+    );
+
+    let optimized = optimize_program(&program).expect("optimize verifier-clean NIR");
+    assert!(optimized.routines[0].blocks[0].ops.is_empty());
+    assert!(matches!(
+        &optimized.routines[0].blocks[1].ops[0],
+        NirOp::Store {
+            src: NirValue::ConstU8(3),
+            ..
+        }
+    ));
+    assert!(optimized.routines[0].temps.is_empty());
+}
+
+#[test]
+fn optimizer_propagates_common_alias_through_diamond_join() {
+    let byte = byte_type();
+    let condition = NirType {
+        kind: NirTypeKind::Bool,
+        summary: "condition".to_string(),
+        width: Some(1),
+        pointer: false,
+    };
+    let program = optimizer_program(
+        vec![
+            temp_table_entry(0, byte.clone(), 0, 0),
+            temp_table_entry(1, byte.clone(), 0, 1),
+            temp_table_entry(2, condition.clone(), 0, 2),
+        ],
+        vec![
+            NirBlock {
+                id: BlockId(0),
+                label: "entry".to_string(),
+                ops: vec![
+                    NirOp::Load {
+                        dest: TempId(0),
+                        ty: byte.clone(),
+                        place: byte_place("input"),
+                    },
+                    NirOp::Binary {
+                        dest: TempId(1),
+                        ty: byte.clone(),
+                        op: NirBinaryOp::Add,
+                        left: temp_value(0, byte.clone()),
+                        right: byte_value(0),
+                    },
+                    NirOp::Compare {
+                        dest: TempId(2),
+                        ty: condition.clone(),
+                        op: NirCompareOp::Ne,
+                        left: temp_value(0, byte.clone()),
+                        right: byte_value(0),
+                    },
+                ],
+                terminator: NirTerminator::Branch {
+                    condition: temp_value(2, condition),
+                    then_label: "left".to_string(),
+                    else_label: "right".to_string(),
+                },
+            },
+            NirBlock {
+                id: BlockId(1),
+                label: "left".to_string(),
+                ops: Vec::new(),
+                terminator: NirTerminator::Goto("join".to_string()),
+            },
+            NirBlock {
+                id: BlockId(2),
+                label: "right".to_string(),
+                ops: Vec::new(),
+                terminator: NirTerminator::Goto("join".to_string()),
+            },
+            NirBlock {
+                id: BlockId(3),
+                label: "join".to_string(),
+                ops: vec![NirOp::Store {
+                    place: byte_place("output"),
+                    src: temp_value(1, byte.clone()),
+                    ty: byte.clone(),
+                }],
+                terminator: NirTerminator::Return(None),
+            },
+        ],
+    );
+
+    let optimized = optimize_program(&program).expect("optimize verifier-clean NIR");
+    assert!(matches!(
+        &optimized.routines[0].blocks[3].ops[0],
+        NirOp::Store {
+            src: NirValue::Temp { id: TempId(0), .. },
+            ..
+        }
+    ));
+    assert!(
+        optimized.routines[0]
+            .temps
+            .iter()
+            .all(|temp| temp.id != TempId(1))
+    );
+}
+
+#[test]
+fn optimizer_cancels_constant_offsets_across_blocks() {
+    let ty = byte_type();
+    let program = optimizer_program(
+        vec![
+            temp_table_entry(0, ty.clone(), 0, 0),
+            temp_table_entry(1, ty.clone(), 0, 1),
+            temp_table_entry(2, ty.clone(), 1, 0),
+        ],
+        vec![
+            NirBlock {
+                id: BlockId(0),
+                label: "entry".to_string(),
+                ops: vec![
+                    NirOp::Load {
+                        dest: TempId(0),
+                        ty: ty.clone(),
+                        place: byte_place("input"),
+                    },
+                    NirOp::Binary {
+                        dest: TempId(1),
+                        ty: ty.clone(),
+                        op: NirBinaryOp::Add,
+                        left: temp_value(0, ty.clone()),
+                        right: byte_value(5),
+                    },
+                ],
+                terminator: NirTerminator::Goto("cancel".to_string()),
+            },
+            NirBlock {
+                id: BlockId(1),
+                label: "cancel".to_string(),
+                ops: vec![
+                    NirOp::Binary {
+                        dest: TempId(2),
+                        ty: ty.clone(),
+                        op: NirBinaryOp::Sub,
+                        left: temp_value(1, ty.clone()),
+                        right: byte_value(5),
+                    },
+                    NirOp::Store {
+                        place: byte_place("output"),
+                        src: temp_value(2, ty.clone()),
+                        ty: ty.clone(),
+                    },
+                ],
+                terminator: NirTerminator::Return(None),
+            },
+        ],
+    );
+
+    let optimized = optimize_program(&program).expect("optimize verifier-clean NIR");
+    assert!(matches!(
+        optimized.routines[0].blocks[0].ops.as_slice(),
+        [NirOp::Load {
+            dest: TempId(0),
+            ..
+        }]
+    ));
+    assert!(matches!(
+        optimized.routines[0].blocks[1].ops.as_slice(),
+        [NirOp::Store {
+            src: NirValue::Temp { id: TempId(0), .. },
+            ..
+        }]
+    ));
+}
+
+#[test]
+fn optimizer_propagates_constant_through_loop_backedge() {
+    let ty = byte_type();
+    let program = optimizer_program(
+        vec![temp_table_entry(0, ty.clone(), 0, 0)],
+        vec![
+            NirBlock {
+                id: BlockId(0),
+                label: "entry".to_string(),
+                ops: vec![NirOp::Binary {
+                    dest: TempId(0),
+                    ty: ty.clone(),
+                    op: NirBinaryOp::Add,
+                    left: byte_value(1),
+                    right: byte_value(2),
+                }],
+                terminator: NirTerminator::Goto("loop".to_string()),
+            },
+            NirBlock {
+                id: BlockId(1),
+                label: "loop".to_string(),
+                ops: vec![NirOp::Store {
+                    place: byte_place("output"),
+                    src: temp_value(0, ty.clone()),
+                    ty: ty.clone(),
+                }],
+                terminator: NirTerminator::Goto("loop".to_string()),
+            },
+        ],
+    );
+
+    let optimized = optimize_program(&program).expect("optimize verifier-clean NIR");
+    assert!(matches!(
+        &optimized.routines[0].blocks[1].ops[0],
+        NirOp::Store {
+            src: NirValue::ConstU8(3),
+            ..
+        }
+    ));
+}
+
+#[test]
 fn optimizer_aliases_algebraic_identity_temps() {
     let ty = byte_type();
     let program = NirProgram {
@@ -1840,6 +2079,21 @@ fn temp_table_entry(id: u32, ty: NirType, block: u32, op_index: usize) -> NirTem
             block: BlockId(block),
             op_index,
         },
+    }
+}
+
+fn optimizer_program(temps: Vec<NirTemp>, blocks: Vec<NirBlock>) -> NirProgram {
+    NirProgram {
+        globals: Vec::new(),
+        statics: Vec::new(),
+        routines: vec![NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps,
+            notes: Vec::new(),
+            blocks,
+        }],
     }
 }
 

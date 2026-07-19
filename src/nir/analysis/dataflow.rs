@@ -5,7 +5,6 @@ use crate::nir::BlockId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::nir) enum NirDataflowDirection {
-    #[allow(dead_code)] // Reserved for the first forward routine analysis client.
     Forward,
     Backward,
 }

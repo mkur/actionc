@@ -1,7 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::analysis::{cfg::NirCfg, liveness::NirTempLiveness, use_def::NirUseDef};
-use super::facts::{NirType, NirTypeKind, NirValue, TempId, value_width};
+use super::analysis::{
+    cfg::NirCfg,
+    dataflow::{NirDataflowDirection, NirDataflowProblem, solve_dataflow},
+    liveness::NirTempLiveness,
+    use_def::NirUseDef,
+};
+use super::facts::{BlockId, NirType, NirTypeKind, NirValue, TempId, value_width};
 use super::ir::*;
 use super::verifier::{NirDiagnostic, verify_program};
 
@@ -17,9 +22,7 @@ pub(super) fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<N
 
 fn optimize_routine(routine: &mut NirRoutine) {
     remove_unreachable_blocks(routine);
-    for block in &mut routine.blocks {
-        optimize_values_in_block(block);
-    }
+    optimize_values_in_routine(routine);
     simplify_constant_branches(routine);
     eliminate_dead_pure_temps(routine);
     routine.temps = collect_temps(&routine.blocks);
@@ -31,50 +34,131 @@ fn remove_unreachable_blocks(routine: &mut NirRoutine) {
     routine.blocks.retain(|block| reachable.contains(&block.id));
 }
 
-fn optimize_values_in_block(block: &mut NirBlock) {
-    let mut replacements = BTreeMap::new();
-    let mut offsets = BTreeMap::new();
-    let mut folded = Vec::new();
-    for op in &block.ops {
-        let mut op = op.clone();
-        rewrite_op_values(&mut op, &replacements);
-        if let Some((id, value)) = folded_constant(&op) {
-            replacements.insert(id, value);
-            offsets.remove(&id);
-            continue;
+fn optimize_values_in_routine(routine: &mut NirRoutine) {
+    let cfg = NirCfg::from_routine(routine);
+    let result = solve_dataflow(&cfg, &NirValuePropagationProblem::new(routine, &cfg));
+
+    for block in &mut routine.blocks {
+        let mut facts = result
+            .in_state(block.id)
+            .and_then(Option::as_ref)
+            .cloned()
+            .unwrap_or_default();
+        let mut optimized = Vec::with_capacity(block.ops.len());
+        for op in block.ops.drain(..) {
+            if let Some(op) = simplify_op_with_facts(op, &mut facts) {
+                optimized.push(op);
+            }
         }
-        if let Some((id, value)) = identity_alias(&op) {
-            replacements.insert(id, value);
-            offsets.remove(&id);
-            continue;
+        block.ops = optimized;
+        rewrite_terminator_values(&mut block.terminator, &facts.replacements);
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+struct NirValueFacts {
+    replacements: BTreeMap<TempId, NirValue>,
+    offsets: BTreeMap<TempId, OffsetAlias>,
+}
+
+impl NirValueFacts {
+    fn intersect_with(&mut self, other: &Self) {
+        self.replacements
+            .retain(|temp, value| other.replacements.get(temp) == Some(value));
+        self.offsets
+            .retain(|temp, offset| other.offsets.get(temp) == Some(offset));
+    }
+}
+
+struct NirValuePropagationProblem<'a> {
+    entry: Option<BlockId>,
+    blocks: BTreeMap<BlockId, &'a NirBlock>,
+}
+
+impl<'a> NirValuePropagationProblem<'a> {
+    fn new(routine: &'a NirRoutine, cfg: &NirCfg) -> Self {
+        Self {
+            entry: cfg.entry(),
+            blocks: routine
+                .blocks
+                .iter()
+                .map(|block| (block.id, block))
+                .collect(),
         }
-        if let Some(simplification) = offset_simplification(&op, &offsets) {
-            match simplification {
-                OffsetSimplification::Alias { dest, value } => {
-                    replacements.insert(dest, value);
-                    offsets.remove(&dest);
-                    continue;
-                }
-                OffsetSimplification::Keep {
-                    dest,
-                    offset,
-                    op: new_op,
-                } => {
-                    replacements.remove(&dest);
-                    offsets.insert(dest, offset);
-                    if let Some(new_op) = new_op {
-                        op = new_op;
-                    }
+    }
+}
+
+impl NirDataflowProblem for NirValuePropagationProblem<'_> {
+    type State = Option<NirValueFacts>;
+
+    fn direction(&self) -> NirDataflowDirection {
+        NirDataflowDirection::Forward
+    }
+
+    fn bottom(&self) -> Self::State {
+        None
+    }
+
+    fn boundary(&self, block: BlockId) -> Option<Self::State> {
+        (Some(block) == self.entry).then(|| Some(NirValueFacts::default()))
+    }
+
+    fn join(&self, into: &mut Self::State, other: &Self::State) {
+        let Some(other) = other else {
+            return;
+        };
+        if let Some(into) = into {
+            into.intersect_with(other);
+        } else {
+            *into = Some(other.clone());
+        }
+    }
+
+    fn transfer(&self, block: BlockId, input: &Self::State) -> Self::State {
+        let mut facts = input.clone()?;
+        for op in &self.blocks.get(&block)?.ops {
+            simplify_op_with_facts(op.clone(), &mut facts);
+        }
+        Some(facts)
+    }
+}
+
+fn simplify_op_with_facts(mut op: NirOp, facts: &mut NirValueFacts) -> Option<NirOp> {
+    rewrite_op_values(&mut op, &facts.replacements);
+    if let Some((id, value)) = folded_constant(&op) {
+        facts.replacements.insert(id, value);
+        facts.offsets.remove(&id);
+        return None;
+    }
+    if let Some((id, value)) = identity_alias(&op) {
+        facts.replacements.insert(id, value);
+        facts.offsets.remove(&id);
+        return None;
+    }
+    if let Some(simplification) = offset_simplification(&op, &facts.offsets) {
+        match simplification {
+            OffsetSimplification::Alias { dest, value } => {
+                facts.replacements.insert(dest, value);
+                facts.offsets.remove(&dest);
+                return None;
+            }
+            OffsetSimplification::Keep {
+                dest,
+                offset,
+                op: new_op,
+            } => {
+                facts.replacements.remove(&dest);
+                facts.offsets.insert(dest, offset);
+                if let Some(new_op) = new_op {
+                    op = new_op;
                 }
             }
-        } else if let Some(id) = op_def(&op).map(|(id, _)| id) {
-            replacements.remove(&id);
-            offsets.remove(&id);
         }
-        folded.push(op);
+    } else if let Some(id) = op_def(&op).map(|(id, _)| id) {
+        facts.replacements.remove(&id);
+        facts.offsets.remove(&id);
     }
-    block.ops = folded;
-    rewrite_terminator_values(&mut block.terminator, &replacements);
+    Some(op)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -625,4 +709,42 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
         }
     }
     temps
+}
+
+#[cfg(test)]
+mod value_fact_tests {
+    use super::*;
+
+    #[test]
+    fn join_keeps_only_facts_available_with_the_same_value_on_every_path() {
+        let mut left = NirValueFacts {
+            replacements: BTreeMap::from([
+                (TempId(0), NirValue::ConstU8(1)),
+                (TempId(1), NirValue::ConstU8(2)),
+            ]),
+            offsets: BTreeMap::from([(
+                TempId(2),
+                OffsetAlias {
+                    base: NirValue::ConstU8(3),
+                    offset: 4,
+                    width: 1,
+                },
+            )]),
+        };
+        let right = NirValueFacts {
+            replacements: BTreeMap::from([
+                (TempId(0), NirValue::ConstU8(1)),
+                (TempId(1), NirValue::ConstU8(9)),
+            ]),
+            offsets: BTreeMap::new(),
+        };
+
+        left.intersect_with(&right);
+
+        assert_eq!(
+            left.replacements,
+            BTreeMap::from([(TempId(0), NirValue::ConstU8(1))])
+        );
+        assert!(left.offsets.is_empty());
+    }
 }
