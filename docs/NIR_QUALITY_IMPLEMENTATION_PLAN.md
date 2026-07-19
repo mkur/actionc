@@ -78,6 +78,12 @@ must not be mixed in one patch.
 
 ## Phase 0: Observable Optimized NIR
 
+Status: implemented. `--emit-optimized-nir` prints the post-optimizer program,
+and `--emit-nir-stats` prints deterministic lowered and optimized censuses plus
+the aggregate `optimize_program` delta. The current optimizer is exposed as one
+pipeline total; named per-pass attribution can extend the census when the pass
+driver exposes stable pass boundaries.
+
 ### Scope
 
 Add a CLI mode that prints exactly the NIR passed to MIR6502. Acceptable command

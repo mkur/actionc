@@ -5,6 +5,7 @@ mod ir;
 mod lowerer;
 mod optimizer;
 mod printer;
+mod stats;
 mod verifier;
 
 #[cfg(test)]
@@ -21,6 +22,7 @@ pub use ir::{
     NirPlaceKind, NirProgram, NirRoutine, NirRoutineNote, NirRoutineNoteKind, NirStaticData,
     NirStorageBacking, NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirUnaryOp,
 };
+pub use stats::{NirPlaceStats, NirProgramStats, collect_program_stats, format_stats_comparison};
 pub use verifier::NirDiagnostic;
 
 pub fn lower_program(program: &SemProgram) -> NirProgram {

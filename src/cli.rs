@@ -73,6 +73,8 @@ fn run_main(flavor: CliFlavor) {
     let mut emit_proof_attempts = false;
     let mut emit_semir = false;
     let mut emit_nir = false;
+    let mut emit_optimized_nir = false;
+    let mut emit_nir_stats = false;
     let mut emit_mir6502 = false;
     let mut emit_materialized_mir6502 = false;
     let mut diagnostic_byte_ranges = false;
@@ -100,6 +102,8 @@ fn run_main(flavor: CliFlavor) {
             "--emit-proof-attempts" | "--emit-proof-debug" => emit_proof_attempts = true,
             "--emit-semir" => emit_semir = true,
             "--emit-nir" => emit_nir = true,
+            "--emit-optimized-nir" => emit_optimized_nir = true,
+            "--emit-nir-stats" => emit_nir_stats = true,
             "--emit-mir6502" => emit_mir6502 = true,
             "--emit-materialized-mir6502" | "--emit-mir6502-materialized" => {
                 emit_materialized_mir6502 = true
@@ -247,6 +251,8 @@ fn run_main(flavor: CliFlavor) {
                 emit_proof_attempts,
                 emit_semir,
                 emit_nir,
+                emit_optimized_nir,
+                emit_nir_stats,
                 emit_mir6502,
                 emit_materialized_mir6502,
             ) {
@@ -281,6 +287,8 @@ fn run_main(flavor: CliFlavor) {
         emit_proof_attempts,
         emit_semir,
         emit_nir,
+        emit_optimized_nir,
+        emit_nir_stats,
         emit_mir6502,
         emit_materialized_mir6502,
     ) {
@@ -369,6 +377,24 @@ fn run_main(flavor: CliFlavor) {
             process::exit(1);
         }
         print!("{}", nir::format_program(&nir));
+        return;
+    }
+
+    if emit_optimized_nir || emit_nir_stats {
+        reject_nir_unsupported_legacy_routine_retargeting_or_exit(
+            &loaded.program,
+            &loaded.source,
+            Some(&loaded.source_map),
+            diagnostic_byte_ranges,
+        );
+        let semir = ir::lower_program(&loaded.program, &model);
+        let lowered = nir::lower_program(&semir);
+        let optimized = optimize_nir_or_exit(lowered.clone());
+        if emit_nir_stats {
+            print!("{}", nir::format_stats_comparison(&lowered, &optimized));
+        } else {
+            print!("{}", nir::format_program(&optimized));
+        }
         return;
     }
 
@@ -744,6 +770,8 @@ fn emit_mode_error(
     emit_proof_attempts: bool,
     emit_semir: bool,
     emit_nir: bool,
+    emit_optimized_nir: bool,
+    emit_nir_stats: bool,
     emit_mir6502: bool,
     emit_materialized_mir6502: bool,
 ) -> Option<String> {
@@ -756,6 +784,12 @@ fn emit_mode_error(
     }
     if emit_nir {
         modes.push("--emit-nir");
+    }
+    if emit_optimized_nir {
+        modes.push("--emit-optimized-nir");
+    }
+    if emit_nir_stats {
+        modes.push("--emit-nir-stats");
     }
     if emit_mir6502 {
         modes.push("--emit-mir6502");
@@ -800,6 +834,8 @@ fn emit_mode_selected(
     emit_proof_attempts: bool,
     emit_semir: bool,
     emit_nir: bool,
+    emit_optimized_nir: bool,
+    emit_nir_stats: bool,
     emit_mir6502: bool,
     emit_materialized_mir6502: bool,
 ) -> bool {
@@ -813,6 +849,8 @@ fn emit_mode_selected(
         || emit_proof_attempts
         || emit_semir
         || emit_nir
+        || emit_optimized_nir
+        || emit_nir_stats
         || emit_mir6502
         || emit_materialized_mir6502
 }
@@ -1205,7 +1243,7 @@ fn print_compile_help() {
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>"
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>"
     );
 }
 
@@ -1883,12 +1921,14 @@ mod tests {
         assert_eq!(
             emit_mode_error(
                 false, false, true, false, true, false, false, false, false, false, false, false,
+                false, false,
             ),
             Some("multiple emit modes selected: --emit-listing, --emit-load".to_string())
         );
         assert_eq!(
             emit_mode_error(
                 false, false, false, false, true, false, false, false, false, false, false, false,
+                false, false,
             ),
             None
         );

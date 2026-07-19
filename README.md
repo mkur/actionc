@@ -154,6 +154,9 @@ cargo run --quiet --bin actionc-emit -- \
   --emit-nir samples/hello-world.act
 
 cargo run --quiet --bin actionc-emit -- \
+  --emit-optimized-nir samples/hello-world.act
+
+cargo run --quiet --bin actionc-emit -- \
   --profile modern \
   --backend mir6502 \
   --emit-source-listing samples/hello-world.act

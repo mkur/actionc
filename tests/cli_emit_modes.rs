@@ -33,6 +33,30 @@ fn multiple_emit_modes_are_rejected_by_cli() {
 }
 
 #[test]
+fn lowered_and_optimized_nir_modes_are_mutually_exclusive() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("nir")
+        .join("scalar_assignments.act");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .arg("--emit-nir")
+        .arg("--emit-optimized-nir")
+        .arg(&fixture)
+        .output()
+        .unwrap_or_else(|err| panic!("run actionc with multiple NIR emit modes: {err}"));
+
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("multiple emit modes selected: --emit-nir, --emit-optimized-nir"),
+        "unexpected stderr for multiple NIR emit modes\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn source_codegen_settings_drive_default_backend() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("samples")

@@ -35,14 +35,14 @@ The surveyed output contained 3,412 lines and 80,351 bytes. Its SHA-256 was:
 ```
 
 `--emit-nir` currently prints verified NIR before `nir::optimize_program` runs.
-MIR6502 lowering receives optimized NIR internally. The storage conclusions in
-this note remain valid because the current NIR optimizer propagates temporary
-values and offsets but does not maintain facts for local, parameter, or global
-storage.
+Use `--emit-optimized-nir` to print the exact post-optimizer NIR passed to
+MIR6502, and `--emit-nir-stats` to compare deterministic lowered and optimized
+censuses. The storage conclusions in this note remain valid because the current
+NIR optimizer propagates temporary values and offsets but does not maintain
+facts for local, parameter, or global storage.
 
-A dedicated optimized-NIR output mode is recommended so future surveys can
-compare pre-optimization NIR, optimized NIR, MIR6502, and final bytes without
-adding temporary instrumentation.
+Future surveys can therefore compare pre-optimization NIR, optimized NIR,
+MIR6502, and final bytes without adding temporary instrumentation.
 
 ## Whole-Program Census
 

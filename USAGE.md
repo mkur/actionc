@@ -61,6 +61,9 @@ Inspect NIR:
 ```sh
 cargo run --quiet --bin actionc-emit -- \
   --emit-nir samples/hello-world.act
+
+cargo run --quiet --bin actionc-emit -- \
+  --emit-optimized-nir samples/hello-world.act
 ```
 
 Try the experimental MIR6502 backend:
@@ -98,7 +101,11 @@ hex-text behavior.
   is accepted as an alias.
 - `--emit-tokens` writes lexer tokens.
 - `--emit-semir` writes the semantic IR.
-- `--emit-nir` writes NIR. The old `--emit-tac` alias has been removed.
+- `--emit-nir` writes verified NIR before optimization. The old `--emit-tac`
+  alias has been removed.
+- `--emit-optimized-nir` writes the optimized NIR passed to MIR6502.
+- `--emit-nir-stats` writes deterministic lowered/optimized NIR censuses and
+  the aggregate optimizer delta.
 - `--emit-mir6502` writes MIR6502 before materialization.
 - `--emit-materialized-mir6502` writes MIR6502 after materialization.
   `--emit-mir6502-materialized` is accepted as an alias.
