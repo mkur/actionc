@@ -11,12 +11,12 @@ b0 bb0:
 routine r1 Caller
 b0 bb1:
   v0 =.w lea param p2+0
-  call r0 args=[v0.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[v0.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   v1 =.b load param p2+0
   store.b global g1+0, v1
   return
 
 routine r2 Main
 b0 bb2:
-  call r1 args=[#$01.b -> a, #$02.b -> x, #$03.b -> y, #$04.b -> fixed_zp $A3] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r1 args=[#$01.b -> a, #$02.b -> x, #$03.b -> y, #$04.b -> fixed_zp $A3] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

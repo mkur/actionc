@@ -22,5 +22,5 @@ b0 bb1:
   v4 =.w load local l1+0
   store.w global g0+0, v4
   v5 =.w load global g0+0
-  call r0 args=[v5.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[v5.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

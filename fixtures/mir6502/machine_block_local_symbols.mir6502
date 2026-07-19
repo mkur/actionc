@@ -5,8 +5,8 @@ machine m1 items=[$A5 r+1 $9D $0345]
 routine r0 Main
   local l0 init zero_fill=40 section=local mutable=true
 b0 bb0:
-  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   v0 =.w lea local l0+0
   store.w $0086, v0
-  machine m1 effects=opaque,stack=?,reads=none,writes=none
+  machine m1 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   return

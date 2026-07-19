@@ -329,8 +329,6 @@ Arguments are value-only. A result, when present, defines `result.dest` with
 
 `TacCallEffects` carries:
 
-- `clobbers: TacRegisterSet`
-- `preserves: TacRegisterSet`
 - `reads: usize`
 - `writes: usize`
 - `may_call_os: bool`
@@ -339,7 +337,9 @@ Arguments are value-only. A result, when present, defines `result.dest` with
 The current `reads` and `writes` are counts, not structured memory regions.
 For MIR scheduling, treat calls conservatively. If `opaque` or `may_call_os` is
 true, the call is a full ordering barrier for memory and machine state unless a
-later effect model proves otherwise.
+later effect model proves otherwise. TAC/NIR does not describe physical
+registers or flags; MIR6502 derives their volatility from the Action calling
+convention and the selected call target.
 
 ## Terminators
 

@@ -38,7 +38,7 @@ routine r2 Main
 b0 bb6:
   store.b global g0+0, #$01
   v0 =.w lea global g0+0
-  call r0 args=[v0.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[v0.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   v1 =.w lea global g0+0
-  call r1 args=[v1.w -> a:x, #$04.b -> y] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r1 args=[v1.w -> a:x, #$04.b -> y] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

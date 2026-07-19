@@ -668,45 +668,10 @@ pub enum SemAddressSpace {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SemEffects {
-    pub registers: SemRegisterEffects,
     pub writes: Vec<SemWriteEffect>,
     pub reads: Vec<SemReadEffect>,
     pub may_call_os: bool,
     pub opaque: bool,
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct SemRegisterEffects {
-    pub clobbers: SemRegisterSet,
-    pub preserves: SemRegisterSet,
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct SemRegisterSet {
-    pub a: bool,
-    pub x: bool,
-    pub y: bool,
-    pub flags: bool,
-}
-
-impl SemRegisterSet {
-    pub const fn empty() -> Self {
-        Self {
-            a: false,
-            x: false,
-            y: false,
-            flags: false,
-        }
-    }
-
-    pub const fn all_6502() -> Self {
-        Self {
-            a: true,
-            x: true,
-            y: true,
-            flags: true,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1250,14 +1215,6 @@ fn effects_summary(effects: &SemEffects) -> String {
         return "opaque".to_string();
     }
     let mut parts = Vec::new();
-    let clobbers = register_set_summary(effects.registers.clobbers);
-    if !clobbers.is_empty() {
-        parts.push(format!("clobbers={clobbers}"));
-    }
-    let preserves = register_set_summary(effects.registers.preserves);
-    if !preserves.is_empty() {
-        parts.push(format!("preserves={preserves}"));
-    }
     if !effects.reads.is_empty() {
         parts.push(format!("reads={}", effects.reads.len()));
     }
@@ -1272,23 +1229,6 @@ fn effects_summary(effects: &SemEffects) -> String {
     } else {
         parts.join(",")
     }
-}
-
-fn register_set_summary(set: SemRegisterSet) -> String {
-    let mut registers = String::new();
-    if set.a {
-        registers.push('A');
-    }
-    if set.x {
-        registers.push('X');
-    }
-    if set.y {
-        registers.push('Y');
-    }
-    if set.flags {
-        registers.push('P');
-    }
-    registers
 }
 
 fn unary_op_summary(op: UnaryOp) -> &'static str {

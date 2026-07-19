@@ -15,6 +15,6 @@ b2 bb3:
 
 routine r1 Main
 b0 bb4:
-  call r0 args=[#$00.b -> a] result=v0.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[#$00.b -> a] result=v0.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.b global g1+0, v0
   return

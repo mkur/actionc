@@ -78,6 +78,6 @@ routine r1 Main
 b0 bb14:
   store.b global g0+0, #$01
   v0 =.w lea global g0+0
-  call r0 args=[static_addr s0.w -> a:x, #$03.b -> y, v0.w -> fixed_zp $A3:fixed_zp $A4, #$2A.b -> fixed_zp $A5] result=v1.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[static_addr s0.w -> a:x, #$03.b -> y, v0.w -> fixed_zp $A3:fixed_zp $A4, #$2A.b -> fixed_zp $A5] result=v1.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.b global g1+0, v1
   return

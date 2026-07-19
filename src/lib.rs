@@ -22,12 +22,11 @@ pub mod tac {
         NirMachineItem as TacMachineItem, NirMemoryAccess as TacMemoryAccess,
         NirMemoryEffects as TacMemoryEffects, NirOp as TacOp, NirOperand as TacOperand,
         NirOperandKind as TacOperandKind, NirParam as TacParam, NirPlace as TacPlace,
-        NirPlaceKind as TacPlaceKind, NirProgram as TacProgram, NirRegisterSet as TacRegisterSet,
-        NirRoutine as TacRoutine, NirRoutineNote as TacRoutineNote,
-        NirRoutineNoteKind as TacRoutineNoteKind, NirStaticData as TacStaticData,
-        NirTemp as TacTemp, NirTempDef as TacTempDef, NirTerminator as TacTerminator,
-        NirType as TacType, NirTypeKind as TacTypeKind, NirUnaryOp as TacUnaryOp,
-        NirValue as TacValue, ParamId, SymbolId, TempId, format_program, lower_program,
-        optimize_program, verify_program,
+        NirPlaceKind as TacPlaceKind, NirProgram as TacProgram, NirRoutine as TacRoutine,
+        NirRoutineNote as TacRoutineNote, NirRoutineNoteKind as TacRoutineNoteKind,
+        NirStaticData as TacStaticData, NirTemp as TacTemp, NirTempDef as TacTempDef,
+        NirTerminator as TacTerminator, NirType as TacType, NirTypeKind as TacTypeKind,
+        NirUnaryOp as TacUnaryOp, NirValue as TacValue, ParamId, SymbolId, TempId, format_program,
+        lower_program, optimize_program, verify_program,
     };
 }

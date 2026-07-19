@@ -217,8 +217,6 @@ pub enum NirCallee {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirCallEffects {
-    pub clobbers: NirRegisterSet,
-    pub preserves: NirRegisterSet,
     pub memory: NirMemoryEffects,
     pub may_call_os: bool,
     pub opaque: bool,
@@ -236,14 +234,6 @@ pub enum NirMemoryAccess {
     Known { regions: usize },
     Unknown,
     All,
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct NirRegisterSet {
-    pub a: bool,
-    pub x: bool,
-    pub y: bool,
-    pub flags: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -456,7 +446,6 @@ pub enum NirMachineByteSelector {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirMachineEffects {
-    pub registers: NirRegisterSet,
     pub memory: NirMemoryEffects,
     pub may_call_os: bool,
     pub opaque: bool,

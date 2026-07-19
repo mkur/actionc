@@ -18,6 +18,6 @@ b0 bb1:
   v2 =.b load global g2+0
   v3 =.w v2 add #$01 carry_in=- carry_out=ignore
   v4 =.w v1 mul v3 carry_in=- carry_out=ignore
-  call r0 args=[v4.w -> a:x] result=v5.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[v4.w -> a:x] result=v5.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.w global g3+0, v5
   return

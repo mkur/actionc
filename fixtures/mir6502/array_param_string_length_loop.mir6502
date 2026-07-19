@@ -24,5 +24,5 @@ b3 bb3:
 
 routine r1 Main
 b0 bb4:
-  call r0 args=[static_addr s0.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[static_addr s0.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

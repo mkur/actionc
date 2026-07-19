@@ -8,6 +8,6 @@ b0 bb0:
 
 routine r1 Main
 b0 bb1:
-  call r0 args=[] result=v0.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[] result=v0.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.w global g1+0, v0
   return

@@ -4,5 +4,5 @@ machine m0 items=[<data >data]
 
 routine r0 Main
 b0 bb0:
-  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   return

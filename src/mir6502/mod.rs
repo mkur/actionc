@@ -164,8 +164,8 @@ mod tests {
     use crate::nir::{
         BlockId, LocalId, NirBlock, NirMachineAtom as NirAtom,
         NirMachineByteSelector as NirByteSelector, NirMachineEffects, NirMachineItem,
-        NirMemoryAccess, NirMemoryEffects, NirOp, NirProgram, NirRegisterSet, NirRoutine,
-        NirTerminator, ParamId, SymbolId,
+        NirMemoryAccess, NirMemoryEffects, NirOp, NirProgram, NirRoutine, NirTerminator, ParamId,
+        SymbolId,
     };
 
     #[test]
@@ -597,7 +597,6 @@ mod tests {
                     ops: vec![NirOp::MachineBlock {
                         items: vec![NirMachineItem::Raw("*".to_string())],
                         effects: NirMachineEffects {
-                            registers: NirRegisterSet::default(),
                             memory: NirMemoryEffects {
                                 reads: NirMemoryAccess::None,
                                 writes: NirMemoryAccess::None,
@@ -636,7 +635,6 @@ mod tests {
                     ops: vec![NirOp::MachineBlock {
                         items: vec![NirMachineItem::Raw("+".to_string())],
                         effects: NirMachineEffects {
-                            registers: NirRegisterSet::default(),
                             memory: NirMemoryEffects {
                                 reads: NirMemoryAccess::None,
                                 writes: NirMemoryAccess::None,
@@ -676,7 +674,6 @@ mod tests {
                     ops: vec![NirOp::MachineBlock {
                         items: vec![NirMachineItem::Raw("$12345".to_string())],
                         effects: NirMachineEffects {
-                            registers: NirRegisterSet::default(),
                             memory: NirMemoryEffects {
                                 reads: NirMemoryAccess::None,
                                 writes: NirMemoryAccess::None,
@@ -722,7 +719,6 @@ mod tests {
                             text: "<@TARGET+1".to_string(),
                         }],
                         effects: NirMachineEffects {
-                            registers: NirRegisterSet::default(),
                             memory: NirMemoryEffects {
                                 reads: NirMemoryAccess::None,
                                 writes: NirMemoryAccess::None,

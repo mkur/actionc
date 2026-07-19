@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::nir::{NirCallEffects, NirCallableSignature, NirCallee};
 
-use super::abi::{mir_memory_effect, mir_register_set};
+use super::abi::{action_call_clobbers, mir_memory_effect};
 use super::builtin::{MirBuiltinResolution, resolve_builtin_target};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
@@ -236,8 +236,8 @@ fn mir_call_effects(effects: &NirCallEffects) -> MirEffects {
     MirEffects {
         memory_reads: mir_memory_effect(&effects.memory.reads),
         memory_writes: mir_memory_effect(&effects.memory.writes),
-        clobbers: mir_register_set(effects.clobbers),
-        preserves: mir_register_set(effects.preserves),
+        clobbers: action_call_clobbers(),
+        preserves: MirRegisterSet::default(),
         stack_depth_delta: None,
         may_call_os: effects.may_call_os,
         opaque: effects.opaque,

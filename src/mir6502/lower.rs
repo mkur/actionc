@@ -1317,7 +1317,7 @@ fn lower_machine_effects(effects: &NirMachineEffects) -> MirEffects {
     MirEffects {
         memory_reads: super::abi::mir_memory_effect(&effects.memory.reads),
         memory_writes: super::abi::mir_memory_effect(&effects.memory.writes),
-        clobbers: super::abi::mir_register_set(effects.registers),
+        clobbers: super::abi::opaque_machine_clobbers(),
         preserves: Default::default(),
         stack_depth_delta: None,
         may_call_os: effects.may_call_os,

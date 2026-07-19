@@ -439,8 +439,6 @@ hardware, runtime calls, OS calls, and machine blocks.
 pub struct NirEffects {
     pub memory_reads: NirMemoryEffect,
     pub memory_writes: NirMemoryEffect,
-    pub clobbers: NirRegisterSet,
-    pub preserves: NirRegisterSet,
     pub may_call_os: bool,
     pub opaque: bool,
 }
@@ -452,16 +450,13 @@ pub enum NirMemoryEffect {
     All,
 }
 
-pub struct NirRegisterSet {
-    pub a: bool,
-    pub x: bool,
-    pub y: bool,
-    pub flags: bool,
-}
 ```
 
 Rules:
 
+- NIR effects describe target-independent memory and ordering behavior only.
+- Physical registers, condition flags, stack state, and ABI volatility are not
+  represented in NIR. MIR derives those facts from the selected target and ABI.
 - Unknown or opaque effects are full ordering barriers unless a later effect model
   proves a narrower behavior.
 - Runtime and OS calls should be conservative by default.

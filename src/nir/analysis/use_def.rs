@@ -266,7 +266,7 @@ mod tests {
     use super::*;
     use crate::nir::{
         NirBinaryOp, NirBlock, NirCallEffects, NirCallResult, NirCompareOp, NirMemoryAccess,
-        NirMemoryEffects, NirPlace, NirPlaceKind, NirRegisterSet, NirType, NirTypeKind, NirUnaryOp,
+        NirMemoryEffects, NirPlace, NirPlaceKind, NirType, NirTypeKind, NirUnaryOp,
     };
 
     fn byte_type() -> NirType {
@@ -323,8 +323,6 @@ mod tests {
                         }),
                         signature: None,
                         effects: NirCallEffects {
-                            clobbers: NirRegisterSet::default(),
-                            preserves: NirRegisterSet::default(),
                             memory: NirMemoryEffects {
                                 reads: NirMemoryAccess::None,
                                 writes: NirMemoryAccess::None,

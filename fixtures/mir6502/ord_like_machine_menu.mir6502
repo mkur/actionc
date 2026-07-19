@@ -6,7 +6,7 @@ machine m0 items=["First" 'F' "Second" 'S' "Cancel" 'C' $00]
 
 routine r0 menu
 b0 bb0:
-  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   unreachable
 
 routine r1 MenuKey
@@ -53,7 +53,7 @@ b4 bb7:
   v7 =.b v6 add #$01 carry_in=- carry_out=ignore
   store.b local l0+0, v7
   v8 =.w load param p0+0
-  call r2 args=[v8.w -> a:x] result=v9.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r2 args=[v8.w -> a:x] result=v9.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.w param p0+0, v9
   jump b1
 b5 bb6:
@@ -65,14 +65,14 @@ routine r4 Main
 b0 bb9:
   v0 =.w routine_addr r0
   v1 =.w v0
-  call r2 args=[v1.w -> a:x] result=v2.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r2 args=[v1.w -> a:x] result=v2.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.w global g2+0, v2
   v3 =.w routine_addr r0
   v4 =.w v3
   v5 =.w load global g2+0
-  call r3 args=[v4.w -> a:x, v5.w -> y:fixed_zp $A3] result=v6.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r3 args=[v4.w -> a:x, v5.w -> y:fixed_zp $A3] result=v6.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.b global g0+0, v6
   v7 =.w load global g2+0
-  call r1 args=[v7.w -> a:x] result=v8.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r1 args=[v7.w -> a:x] result=v8.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.b global g1+0, v8
   return

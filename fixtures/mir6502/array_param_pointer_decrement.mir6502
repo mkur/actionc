@@ -17,5 +17,5 @@ b0 bb1:
   v0 =.w lea local l0+0
   store.b local l0+0, #$07
   v1 =.w lea local l0+0
-  call r0 args=[v1.w -> a:x] result=- clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[v1.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

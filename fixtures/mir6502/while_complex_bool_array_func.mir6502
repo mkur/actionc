@@ -23,7 +23,7 @@ b0 bb3:
   jump b1
 b1 bb4:
   v0 =.b load global g0+0
-  call r0 args=[v0.b -> a] result=v1.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r0 args=[v0.b -> a] result=v1.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   v2 = cmp.b v1 ne #$00
   v3 =.w lea global g3+0
   v4 =.b load global g0+0

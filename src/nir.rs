@@ -18,9 +18,8 @@ pub use ir::{
     NirCompareOp, NirDataBacking, NirGlobal, NirGlobalBacking, NirGlobalInit, NirLocal,
     NirLocalBacking, NirMachineAtom, NirMachineByteSelector, NirMachineEffects, NirMachineItem,
     NirMemoryAccess, NirMemoryEffects, NirOp, NirOperand, NirOperandKind, NirParam, NirPlace,
-    NirPlaceKind, NirProgram, NirRegisterSet, NirRoutine, NirRoutineNote, NirRoutineNoteKind,
-    NirStaticData, NirStorageBacking, NirStorageInit, NirTemp, NirTempDef, NirTerminator,
-    NirUnaryOp,
+    NirPlaceKind, NirProgram, NirRoutine, NirRoutineNote, NirRoutineNoteKind, NirStaticData,
+    NirStorageBacking, NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirUnaryOp,
 };
 pub use verifier::NirDiagnostic;
 

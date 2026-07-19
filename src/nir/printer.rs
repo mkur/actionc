@@ -387,10 +387,6 @@ fn machine_effects_summary(effects: &NirMachineEffects) -> &'static str {
         "opaque"
     } else if matches!(effects.memory.reads, NirMemoryAccess::None)
         && matches!(effects.memory.writes, NirMemoryAccess::None)
-        && !effects.registers.a
-        && !effects.registers.x
-        && !effects.registers.y
-        && !effects.registers.flags
     {
         "none"
     } else {

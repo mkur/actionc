@@ -8,7 +8,7 @@ b0 bb0:
 
 routine r1 Table
 b0 bb1:
-  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   unreachable
 
 routine r2 Main
@@ -17,5 +17,5 @@ b0 bb2:
   v0 =.w lea local l0+0
   v1 =.w load *local l0+0+0
   store.w local l1+0, v1
-  machine m1 effects=opaque,stack=?,reads=none,writes=none
+  machine m1 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   return

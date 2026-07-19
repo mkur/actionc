@@ -7,7 +7,7 @@ machine m0 items=["First" 'F' "Second" 'S' "Cancel" 'C' $00]
 
 routine r0 menu
 b0 bb0:
-  machine m0 effects=opaque,stack=?,reads=none,writes=none
+  machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   unreachable
 
 routine r1 RangeLike
@@ -111,7 +111,7 @@ b2 bb17:
   v4 =.b v3 add #$01 carry_in=- carry_out=ignore
   store.b local l0+0, v4
   v5 =.w load param p0+0
-  call r3 args=[v5.w -> a:x] result=v6.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r3 args=[v5.w -> a:x] result=v6.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.w param p0+0, v6
   jump b1
 b3 bb18:
@@ -140,7 +140,7 @@ b4 bb23:
   v7 =.b v6 add #$01 carry_in=- carry_out=ignore
   store.b local l0+0, v7
   v8 =.w load param p0+0
-  call r3 args=[v8.w -> a:x] result=v9.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r3 args=[v8.w -> a:x] result=v9.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.w param p0+0, v9
   jump b1
 b5 bb22:
@@ -158,7 +158,7 @@ b1 bb26:
   branch bool v2 ? b2 : b5
 b2 bb27:
   v3 =.w load param p0+0
-  call r2 args=[v3.w -> a:x] result=v4.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r2 args=[v3.w -> a:x] result=v4.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   v5 =.b load param p1+0
   v6 = cmp.b v4 eq v5
   branch bool v6 ? b3 : b4
@@ -168,7 +168,7 @@ b3 bb30:
   return
 b4 bb29:
   v8 =.w load param p0+0
-  call r3 args=[v8.w -> a:x] result=v9.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r3 args=[v8.w -> a:x] result=v9.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.w param p0+0, v9
   jump b1
 b5 bb28:
@@ -183,16 +183,16 @@ b0 bb31:
   v1 =.b load param p2+0
   store.b global g0+0, v1
   v2 =.w load local l3+0
-  call r4 args=[v2.w -> a:x] result=v3.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r4 args=[v2.w -> a:x] result=v3.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   v4 =.b v3 sub #$01 carry_in=- carry_out=ignore
   store.b local l1+0, v4
   v5 =.b load local l1+0
   v6 =.w lea param p1+0
-  call r1 args=[static_addr s0.w -> a:x, v5.b -> y, v6.w -> fixed_zp $A3:fixed_zp $A4, #$2A.b -> fixed_zp $A5] result=v7.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r1 args=[static_addr s0.w -> a:x, v5.b -> y, v6.w -> fixed_zp $A3:fixed_zp $A4, #$2A.b -> fixed_zp $A5] result=v7.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.b local l0+0, v7
   v8 =.w load local l3+0
   v9 =.b load local l0+0
-  call r6 args=[v8.w -> a:x, v9.b -> y] result=v10.w <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r6 args=[v8.w -> a:x, v9.b -> y] result=v10.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.w local l2+0, v10
   v11 =.w load local l2+0
   v12 = cmp.w v11 ne #$0000
@@ -202,7 +202,7 @@ b1 bb33:
   store.w param p0+0, v13
   v14 =.w load local l3+0
   v15 =.w load param p0+0
-  call r5 args=[v14.w -> a:x, v15.w -> y:fixed_zp $A3] result=v16.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r5 args=[v14.w -> a:x, v15.w -> y:fixed_zp $A3] result=v16.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.b param p1+0, v16
   store.b local l0+0, #$9B
   jump b2
@@ -212,7 +212,7 @@ b2 bb32:
   branch bool v18 ? b3 : b4
 b3 bb35:
   v19 =.w load param p0+0
-  call r2 args=[v19.w -> a:x] result=v20.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r2 args=[v19.w -> a:x] result=v20.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.b fixed_zp $A0, v20
   return
 b4 bb34:
@@ -225,6 +225,6 @@ b0 bb36:
   v0 =.w routine_addr r0
   v1 =.w v0
   v2 =.b load global g1+0
-  call r7 args=[v1.w -> a:x, v2.b -> y, #$03.b -> fixed_zp $A3] result=v3.b <- return+0 clobbers=- preserves=- effects=stack=?,reads=none,writes=none
+  call r7 args=[v1.w -> a:x, v2.b -> y, #$03.b -> fixed_zp $A3] result=v3.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   store.b global g2+0, v3
   return

@@ -10,7 +10,7 @@ use crate::semantic::{
     ir::{
         SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind, SemDeclaration,
         SemDeclarationStorage, SemEffects, SemExpr, SemExprKind, SemLValue, SemLValueKind,
-        SemLiteral, SemProgram, SemRegisterSet as SemEffectRegisterSet, SemSet, SemStmt,
+        SemLiteral, SemProgram, SemSet, SemStmt,
     },
 };
 use crate::source::source_char_byte;
@@ -2719,8 +2719,6 @@ fn callable_summary(callable: &SemCallable) -> String {
 
 fn nir_call_effects(effects: &SemEffects) -> NirCallEffects {
     NirCallEffects {
-        clobbers: nir_register_set(effects.registers.clobbers),
-        preserves: nir_register_set(effects.registers.preserves),
         memory: NirMemoryEffects {
             reads: nir_memory_access(effects.reads.len(), effects.opaque),
             writes: nir_memory_access(effects.writes.len(), effects.opaque),
@@ -2732,7 +2730,6 @@ fn nir_call_effects(effects: &SemEffects) -> NirCallEffects {
 
 fn nir_machine_effects(effects: &SemEffects) -> NirMachineEffects {
     NirMachineEffects {
-        registers: nir_register_set(effects.registers.clobbers),
         memory: NirMemoryEffects {
             reads: nir_memory_access(effects.reads.len(), effects.opaque),
             writes: nir_memory_access(effects.writes.len(), effects.opaque),
@@ -2835,15 +2832,6 @@ fn nir_memory_access(regions: usize, opaque: bool) -> NirMemoryAccess {
         NirMemoryAccess::None
     } else {
         NirMemoryAccess::Known { regions }
-    }
-}
-
-fn nir_register_set(registers: SemEffectRegisterSet) -> NirRegisterSet {
-    NirRegisterSet {
-        a: registers.a,
-        x: registers.x,
-        y: registers.y,
-        flags: registers.flags,
     }
 }
 
