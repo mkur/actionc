@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::analysis::cfg::NirCfg;
+use super::analysis::dominance::NirDominance;
+use super::analysis::use_def::{NirDefSite, NirUseDef};
 use super::facts::{
-    BlockId, NirType, NirTypeKind, NirValue, SymbolId, TempId, value_is_oversized_literal,
-    value_width,
+    NirType, NirTypeKind, NirValue, SymbolId, TempId, value_is_oversized_literal, value_width,
 };
 use super::ir::*;
 
@@ -48,7 +49,8 @@ struct NirVerifier {
 
 struct NirTempFacts<'a> {
     temps: BTreeMap<TempId, &'a NirTemp>,
-    dominators: BTreeMap<BlockId, BTreeSet<BlockId>>,
+    dominance: NirDominance,
+    use_def: NirUseDef,
 }
 
 impl NirVerifier {
@@ -267,15 +269,10 @@ impl NirVerifier {
             temp_map.entry(temp.id).or_insert(temp);
         }
 
-        let dominators = compute_dominators(
-            cfg.entry()
-                .expect("nonempty NIR routine has an entry block"),
-            &cfg,
-        );
-
         let temp_facts = NirTempFacts {
             temps: temp_map,
-            dominators,
+            dominance: NirDominance::from_cfg(&cfg),
+            use_def: NirUseDef::from_routine(routine),
         };
 
         for block in &routine.blocks {
@@ -1074,13 +1071,23 @@ impl NirVerifier {
             return;
         };
 
-        let available = if temp.def.block == block.id {
-            temp.def.op_index < use_index
+        let use_site_index = (use_index < block.ops.len()).then_some(use_index);
+        debug_assert!(
+            temp_facts.use_def.has_use_at(id, block.id, use_site_index),
+            "shared NIR use-def facts must include every verified temp use"
+        );
+
+        let definition = temp_facts
+            .use_def
+            .unique_definition(id)
+            .unwrap_or(NirDefSite {
+                block: temp.def.block,
+                op_index: temp.def.op_index,
+            });
+        let available = if definition.block == block.id {
+            definition.op_index < use_index
         } else {
-            temp_facts
-                .dominators
-                .get(&block.id)
-                .is_some_and(|dominators| dominators.contains(&temp.def.block))
+            temp_facts.dominance.dominates(definition.block, block.id)
         };
 
         if !available {
@@ -1211,51 +1218,6 @@ fn place_has_symbol_identity(place: &NirPlace) -> bool {
         | NirPlaceKind::Deref { .. }
         | NirPlaceKind::Index { .. } => false,
     }
-}
-
-fn compute_dominators(entry: BlockId, cfg: &NirCfg) -> BTreeMap<BlockId, BTreeSet<BlockId>> {
-    let all_blocks = cfg.block_ids().clone();
-    let mut dominators = BTreeMap::new();
-    for block in cfg.block_ids() {
-        if *block == entry {
-            dominators.insert(*block, BTreeSet::from([*block]));
-        } else {
-            dominators.insert(*block, all_blocks.clone());
-        }
-    }
-
-    let mut changed = true;
-    while changed {
-        changed = false;
-        for block in cfg.block_ids() {
-            if *block == entry {
-                continue;
-            }
-            let predecessors = cfg.predecessors(*block);
-            let mut next = if predecessors.is_empty() {
-                BTreeSet::new()
-            } else {
-                let mut iter = predecessors.iter();
-                let first = iter
-                    .next()
-                    .and_then(|pred| dominators.get(pred))
-                    .cloned()
-                    .unwrap_or_default();
-                iter.fold(first, |acc, pred| {
-                    acc.intersection(dominators.get(pred).unwrap_or(&BTreeSet::new()))
-                        .copied()
-                        .collect()
-                })
-            };
-            next.insert(*block);
-            if dominators.get(block) != Some(&next) {
-                dominators.insert(*block, next);
-                changed = true;
-            }
-        }
-    }
-
-    dominators
 }
 
 fn is_runtime_helper_set(address: &NirOperand, value: &NirOperand) -> bool {
