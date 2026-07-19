@@ -38,6 +38,82 @@ struct LaneFacts {
     uses: Vec<UseSite>,
 }
 
+// Slice 2 establishes the full decision vocabulary. Rematerialization and
+// direct forwarding are populated only by their later profitability slices.
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum HomeDecision {
+    ElideInRegister(MirReg),
+    Rematerialize(MirValue),
+    ForwardToConsumer(MirValue),
+    MustMaterialize(HomeMaterializationReason),
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) enum HomeMaterializationReason {
+    Unused,
+    NonSingleDefinition,
+    MultipleUses,
+    TerminatorUse,
+    CoupledLanes,
+    LiveAcrossCall,
+    LiveAcrossMachineBlock,
+    LiveAcrossBarrier,
+    LiveAcrossBackedge,
+    LiveAtJoin,
+    CrossBlock,
+    NonAccumulatorProducer,
+    AccumulatorClobber,
+    UnsupportedConsumer,
+    ObservableStorage,
+    Profitability,
+}
+
+impl HomeMaterializationReason {
+    fn metric_name(self) -> &'static str {
+        match self {
+            Self::Unused => "home-plan-materialize-unused-lanes",
+            Self::NonSingleDefinition => "home-plan-materialize-non-single-def-lanes",
+            Self::MultipleUses => "home-plan-materialize-multi-use-lanes",
+            Self::TerminatorUse => "home-plan-materialize-terminator-lanes",
+            Self::CoupledLanes => "home-plan-materialize-coupled-lanes",
+            Self::LiveAcrossCall => "home-plan-materialize-call-live-lanes",
+            Self::LiveAcrossMachineBlock => "home-plan-materialize-machine-live-lanes",
+            Self::LiveAcrossBarrier => "home-plan-materialize-barrier-live-lanes",
+            Self::LiveAcrossBackedge => "home-plan-materialize-backedge-live-lanes",
+            Self::LiveAtJoin => "home-plan-materialize-join-live-lanes",
+            Self::CrossBlock => "home-plan-materialize-cross-block-lanes",
+            Self::NonAccumulatorProducer => "home-plan-materialize-non-accumulator-lanes",
+            Self::AccumulatorClobber => "home-plan-materialize-accumulator-clobber-lanes",
+            Self::UnsupportedConsumer => "home-plan-materialize-unsupported-consumer-lanes",
+            Self::ObservableStorage => "home-plan-materialize-observable-storage-lanes",
+            Self::Profitability => "home-plan-materialize-profitability-lanes",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct HomePlan {
+    decisions: BTreeMap<TempLane, HomeDecision>,
+}
+
+impl HomePlan {
+    #[cfg(test)]
+    fn decision(&self, id: MirTempId, byte: u8) -> Option<&HomeDecision> {
+        self.decisions.get(&TempLane { id, byte })
+    }
+
+    fn len(&self) -> usize {
+        self.decisions.len()
+    }
+}
+
+struct HomeDemandAnalysis {
+    census: HomeDemandCensus,
+    plan: HomePlan,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct HomeDemandCensus {
     pub(super) temp_lanes: usize,
@@ -84,8 +160,9 @@ pub(super) fn record_home_demand_census(
     routine: &MirRoutine,
     liveness: &MirTempLiveness,
     stats: &mut MirPeepholeStats,
-) {
-    let census = scan_home_demand_census(routine, liveness);
+) -> HomePlan {
+    let analysis = analyze_home_demand(routine, liveness);
+    let census = analysis.census;
     let routine_id = routine.id;
     stats.record_many(
         routine_id,
@@ -200,6 +277,45 @@ pub(super) fn record_home_demand_census(
     ] {
         stats.record_many(routine_id, name, count);
     }
+    record_home_plan(routine_id, &analysis.plan, stats);
+    analysis.plan
+}
+
+fn record_home_plan(
+    routine_id: crate::mir6502::ir::RoutineId,
+    plan: &HomePlan,
+    stats: &mut MirPeepholeStats,
+) {
+    stats.record_many(routine_id, "home-plan-temp-lanes", plan.len());
+    let mut must_materialize = 0usize;
+    for decision in plan.decisions.values() {
+        match decision {
+            HomeDecision::ElideInRegister(MirReg::A) => {
+                stats.record(routine_id, "home-plan-elide-register-a-lanes")
+            }
+            HomeDecision::ElideInRegister(MirReg::X) => {
+                stats.record(routine_id, "home-plan-elide-register-x-lanes")
+            }
+            HomeDecision::ElideInRegister(MirReg::Y) => {
+                stats.record(routine_id, "home-plan-elide-register-y-lanes")
+            }
+            HomeDecision::Rematerialize(_) => {
+                stats.record(routine_id, "home-plan-rematerialize-lanes")
+            }
+            HomeDecision::ForwardToConsumer(_) => {
+                stats.record(routine_id, "home-plan-forward-to-consumer-lanes")
+            }
+            HomeDecision::MustMaterialize(reason) => {
+                must_materialize = must_materialize.saturating_add(1);
+                stats.record(routine_id, reason.metric_name());
+            }
+        }
+    }
+    stats.record_many(
+        routine_id,
+        "home-plan-must-materialize-lanes",
+        must_materialize,
+    );
 }
 
 pub(super) fn record_final_home_allocations(program: &MirProgram, stats: &mut MirPeepholeStats) {
@@ -225,10 +341,20 @@ pub(super) fn record_final_home_allocations(program: &MirProgram, stats: &mut Mi
     }
 }
 
+#[cfg(test)]
 pub(super) fn scan_home_demand_census(
     routine: &MirRoutine,
     liveness: &MirTempLiveness,
 ) -> HomeDemandCensus {
+    analyze_home_demand(routine, liveness).census
+}
+
+#[cfg(test)]
+fn scan_home_plan(routine: &MirRoutine, liveness: &MirTempLiveness) -> HomePlan {
+    analyze_home_demand(routine, liveness).plan
+}
+
+fn analyze_home_demand(routine: &MirRoutine, liveness: &MirTempLiveness) -> HomeDemandAnalysis {
     let widths = routine_temp_widths(routine);
     let mut facts = BTreeMap::<TempLane, LaneFacts>::new();
     for (block_index, block) in routine.blocks.iter().enumerate() {
@@ -246,6 +372,7 @@ pub(super) fn scan_home_demand_census(
         live_across_barriers(routine, liveness, &widths, &keys);
 
     let mut census = HomeDemandCensus::default();
+    let mut plan = HomePlan::default();
     census.temp_lanes = facts.len();
     for (lane, lane_facts) in &facts {
         census.definitions = census.definitions.saturating_add(lane_facts.defs.len());
@@ -312,80 +439,217 @@ pub(super) fn scan_home_demand_census(
         }
 
         if lane_facts.uses.is_empty() {
-            census.retained_unused_lanes = census.retained_unused_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::Unused,
+            );
             continue;
         }
         if lane_facts.defs.len() != 1 {
-            census.retained_non_single_def_lanes =
-                census.retained_non_single_def_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::NonSingleDefinition,
+            );
             continue;
         }
         if lane_facts.uses.len() != 1 {
-            census.retained_multi_use_lanes = census.retained_multi_use_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::MultipleUses,
+            );
             continue;
         }
         if terminator_use {
-            census.retained_terminator_lanes = census.retained_terminator_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::TerminatorUse,
+            );
             continue;
         }
         if coupled {
-            census.retained_coupled_lanes = census.retained_coupled_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::CoupledLanes,
+            );
             continue;
         }
         if call_live.contains(lane) {
-            census.retained_call_live_lanes = census.retained_call_live_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::LiveAcrossCall,
+            );
             continue;
         }
         if machine_live.contains(lane) {
-            census.retained_machine_live_lanes =
-                census.retained_machine_live_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::LiveAcrossMachineBlock,
+            );
             continue;
         }
         if barrier_live.contains(lane) {
-            census.retained_barrier_live_lanes =
-                census.retained_barrier_live_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::LiveAcrossBarrier,
+            );
             continue;
         }
         if backedge_live.contains(lane) {
-            census.retained_backedge_live_lanes =
-                census.retained_backedge_live_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::LiveAcrossBackedge,
+            );
             continue;
         }
         if lane_live_at_join(routine, liveness, &predecessors, *lane) {
-            census.retained_join_live_lanes = census.retained_join_live_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::LiveAtJoin,
+            );
             continue;
         }
         if !same_block {
-            census.retained_cross_block_lanes = census.retained_cross_block_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::CrossBlock,
+            );
             continue;
         }
         if natural_reg != Some(MirReg::A) {
-            census.retained_non_accumulator_lanes =
-                census.retained_non_accumulator_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::NonAccumulatorProducer,
+            );
             continue;
         }
 
         let def = lane_facts.defs[0];
         let use_site = lane_facts.uses[0];
         let Some(use_op) = use_site.op else {
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::TerminatorUse,
+            );
             continue;
         };
         if accumulator_clobbered_between(routine, def.block, def.op, use_op) {
             census.blocked_clobber_lanes = census.blocked_clobber_lanes.saturating_add(1);
-            census.retained_clobber_lanes = census.retained_clobber_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::AccumulatorClobber,
+            );
         } else if !use_site.accepts_a {
             census.unsupported_consumer_lanes = census.unsupported_consumer_lanes.saturating_add(1);
-            census.retained_unsupported_consumer_lanes =
-                census.retained_unsupported_consumer_lanes.saturating_add(1);
+            retain_home(
+                &mut census,
+                &mut plan,
+                *lane,
+                HomeMaterializationReason::UnsupportedConsumer,
+            );
         } else {
             census.same_block_a_candidates = census.same_block_a_candidates.saturating_add(1);
+            plan.decisions
+                .insert(*lane, HomeDecision::ElideInRegister(MirReg::A));
         }
     }
     census.gross_absolute_code_bytes = census
         .gross_store_instructions
         .saturating_add(census.gross_reload_instructions)
         .saturating_mul(3);
-    census
+    debug_assert_eq!(plan.len(), census.temp_lanes);
+    HomeDemandAnalysis { census, plan }
+}
+
+fn retain_home(
+    census: &mut HomeDemandCensus,
+    plan: &mut HomePlan,
+    lane: TempLane,
+    reason: HomeMaterializationReason,
+) {
+    match reason {
+        HomeMaterializationReason::Unused => {
+            census.retained_unused_lanes = census.retained_unused_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::NonSingleDefinition => {
+            census.retained_non_single_def_lanes =
+                census.retained_non_single_def_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::MultipleUses => {
+            census.retained_multi_use_lanes = census.retained_multi_use_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::TerminatorUse => {
+            census.retained_terminator_lanes = census.retained_terminator_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::CoupledLanes => {
+            census.retained_coupled_lanes = census.retained_coupled_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::LiveAcrossCall => {
+            census.retained_call_live_lanes = census.retained_call_live_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::LiveAcrossMachineBlock => {
+            census.retained_machine_live_lanes =
+                census.retained_machine_live_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::LiveAcrossBarrier => {
+            census.retained_barrier_live_lanes =
+                census.retained_barrier_live_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::LiveAcrossBackedge => {
+            census.retained_backedge_live_lanes =
+                census.retained_backedge_live_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::LiveAtJoin => {
+            census.retained_join_live_lanes = census.retained_join_live_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::CrossBlock => {
+            census.retained_cross_block_lanes = census.retained_cross_block_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::NonAccumulatorProducer => {
+            census.retained_non_accumulator_lanes =
+                census.retained_non_accumulator_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::AccumulatorClobber => {
+            census.retained_clobber_lanes = census.retained_clobber_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::UnsupportedConsumer => {
+            census.retained_unsupported_consumer_lanes =
+                census.retained_unsupported_consumer_lanes.saturating_add(1)
+        }
+        HomeMaterializationReason::ObservableStorage | HomeMaterializationReason::Profitability => {
+        }
+    }
+    let previous = plan
+        .decisions
+        .insert(lane, HomeDecision::MustMaterialize(reason));
+    debug_assert!(previous.is_none());
 }
 
 fn routine_temp_widths(routine: &MirRoutine) -> BTreeMap<MirTempId, MirWidth> {
@@ -1019,6 +1283,14 @@ mod tests {
         }
     }
 
+    fn store_word_temp(id: u32) -> MirOp {
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+            src: temp_value(id),
+            width: MirWidth::Word,
+        }
+    }
+
     fn scan(routine: &MirRoutine) -> HomeDemandCensus {
         let liveness = analyze_temp_liveness(routine);
         let census = scan_home_demand_census(routine, &liveness);
@@ -1042,6 +1314,11 @@ mod tests {
             "candidate and retained-home reasons must partition temp lanes"
         );
         census
+    }
+
+    fn plan(routine: &MirRoutine) -> HomePlan {
+        let liveness = analyze_temp_liveness(routine);
+        scan_home_plan(routine, &liveness)
     }
 
     #[test]
@@ -1073,6 +1350,10 @@ mod tests {
         assert_eq!(census.same_block_a_candidates, 1);
         assert_eq!(census.gross_absolute_code_bytes, 6);
         assert_eq!(census.gross_storage_bytes, 1);
+        assert_eq!(
+            plan(&routine).decision(MirTempId(0), 0),
+            Some(&HomeDecision::ElideInRegister(MirReg::A))
+        );
     }
 
     #[test]
@@ -1104,6 +1385,8 @@ mod tests {
             counts.get("home-demand-gross-absolute-code-bytes"),
             Some(&6)
         );
+        assert_eq!(counts.get("home-plan-temp-lanes"), Some(&1));
+        assert_eq!(counts.get("home-plan-elide-register-a-lanes"), Some(&1));
     }
 
     #[test]
@@ -1133,6 +1416,12 @@ mod tests {
 
         assert_eq!(census.blocked_clobber_lanes, 1);
         assert_eq!(census.same_block_a_candidates, 0);
+        assert_eq!(
+            plan(&routine).decision(MirTempId(0), 0),
+            Some(&HomeDecision::MustMaterialize(
+                HomeMaterializationReason::AccumulatorClobber
+            ))
+        );
     }
 
     #[test]
@@ -1167,6 +1456,12 @@ mod tests {
         assert_eq!(census.blocked_clobber_lanes, 1);
         assert_eq!(census.retained_unused_lanes, 1);
         assert_eq!(census.same_block_a_candidates, 0);
+        assert_eq!(
+            plan(&routine).decision(MirTempId(0), 0),
+            Some(&HomeDecision::MustMaterialize(
+                HomeMaterializationReason::AccumulatorClobber
+            ))
+        );
     }
 
     #[test]
@@ -1215,6 +1510,12 @@ mod tests {
         assert_eq!(census.machine_live_lanes, 1);
         assert_eq!(census.barrier_live_lanes, 1);
         assert_eq!(census.same_block_a_candidates, 0);
+        assert_eq!(
+            plan(&routine).decision(MirTempId(0), 0),
+            Some(&HomeDecision::MustMaterialize(
+                HomeMaterializationReason::LiveAcrossCall
+            ))
+        );
     }
 
     #[test]
@@ -1260,6 +1561,7 @@ mod tests {
                         value: 0x1234,
                         width: MirWidth::Word,
                     },
+                    store_word_temp(0),
                     MirOp::Move {
                         dst: temp(1),
                         src: MirValue::Def(MirDef::Reg(MirReg::X)),
@@ -1278,6 +1580,18 @@ mod tests {
         assert_eq!(census.coupled_lanes, 2);
         assert_eq!(census.natural_x_lanes, 1);
         assert_eq!(census.same_block_a_candidates, 0);
+        assert_eq!(
+            plan(&routine).decision(MirTempId(0), 0),
+            Some(&HomeDecision::MustMaterialize(
+                HomeMaterializationReason::CoupledLanes
+            ))
+        );
+        assert_eq!(
+            plan(&routine).decision(MirTempId(1), 0),
+            Some(&HomeDecision::MustMaterialize(
+                HomeMaterializationReason::NonAccumulatorProducer
+            ))
+        );
     }
 
     #[test]
@@ -1310,5 +1624,11 @@ mod tests {
 
         assert_eq!(census.unsupported_consumer_lanes, 1);
         assert_eq!(census.coupled_lanes, 0);
+        assert_eq!(
+            plan(&routine).decision(MirTempId(0), 0),
+            Some(&HomeDecision::MustMaterialize(
+                HomeMaterializationReason::UnsupportedConsumer
+            ))
+        );
     }
 }

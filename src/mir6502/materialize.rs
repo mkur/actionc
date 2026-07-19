@@ -232,7 +232,7 @@ pub(super) fn materialize_program(
             block.ops = ops;
         }
         let home_liveness = analyze_temp_liveness(routine);
-        record_home_demand_census(routine, &home_liveness, &mut peephole_stats);
+        let _home_plan = record_home_demand_census(routine, &home_liveness, &mut peephole_stats);
         for (block_index, block) in routine.blocks.iter_mut().enumerate() {
             let live_out = temp_liveness
                 .live_out(block_index)

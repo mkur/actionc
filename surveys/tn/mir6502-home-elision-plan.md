@@ -105,6 +105,8 @@ listing match the accepted pre-census artifacts.
 
 ## Slice 2: Explicit home planning
 
+Status: implemented on 2026-07-19.
+
 Introduce an internal analysis keyed by temp ID and byte lane. Its conceptual
 result is one of:
 
@@ -130,6 +132,26 @@ The plan is internal MIR6502 analysis, not a new NIR form. Rewriting consumes
 accepted decisions; any residual `VTemp` is passed unchanged to
 `materialize_temp_ops` and receives the existing conservative spill treatment.
 Commit the analysis and reason reporting before enabling broad transformations.
+
+The implemented `HomePlan` contains exactly one decision for every residual
+temp lane. Its stable decision vocabulary includes register elision,
+rematerialization, direct consumer forwarding, and mandatory materialization
+with a typed reason. Slice 2 deliberately populates only the decisions already
+proved by the Slice 1 census; rematerialization and forwarding remain reserved
+for their profitability slice.
+
+For TN, the plan contains 501 decisions:
+
+- 73 `ElideInRegister(A)` candidates;
+- 428 `MustMaterialize` decisions, partitioned into 228 coupled lanes, 109
+  terminator uses, 32 multi-use lanes, 27 unsupported consumers, 15 accumulator
+  clobbers, 12 values live across calls, four unused lanes, and one cross-block
+  lane.
+
+The planner records aggregate and per-routine `home-plan-*` counters. It does
+not yet rewrite MIR, but returns the plan at the temp-materialization boundary
+for Slice 3 to consume. The 13,348-byte TN load file and listing remain
+byte-identical to Slice 1.
 
 ## Slice 3: Same-block single-use accumulator residency
 
