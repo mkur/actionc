@@ -7,6 +7,9 @@ changes that only become visible in a substantial source file.
 
 The current MIR6502 listing baseline and ranked optimization backlog are in
 [`mir6502-optimization-opportunities.md`](mir6502-optimization-opportunities.md).
+The implementation roadmap for avoiding transient temp and internal scalar
+storage is in
+[`mir6502-home-elision-plan.md`](mir6502-home-elision-plan.md).
 
 Run from the `actionc` repo root:
 

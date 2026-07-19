@@ -50,6 +50,10 @@ impl MirPeepholeStats {
         aggregate
     }
 
+    pub(super) fn count_for(&self, routine: RoutineId, name: &'static str) -> usize {
+        self.counts.get(&(routine, name)).copied().unwrap_or(0)
+    }
+
     fn per_routine_counts(&self) -> BTreeMap<RoutineId, BTreeMap<&'static str, usize>> {
         let mut per_routine = BTreeMap::new();
         for ((routine, name), count) in &self.counts {

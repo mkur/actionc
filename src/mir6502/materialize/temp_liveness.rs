@@ -20,6 +20,10 @@ impl MirTempLiveness {
     pub(super) fn live_out(&self, index: usize) -> Option<&MirTempLiveSet> {
         self.blocks.get(index).map(|block| &block.live_out)
     }
+
+    pub(super) fn live_in(&self, index: usize) -> Option<&MirTempLiveSet> {
+        self.blocks.get(index).map(|block| &block.live_in)
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
