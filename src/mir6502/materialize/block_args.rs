@@ -3,7 +3,7 @@ use crate::mir6502::ir::{
     MirBlock, MirBlockId, MirDef, MirEdge, MirOp, MirRoutine, MirTemp, MirTempId, MirTerminator,
     MirValue, MirWidth,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParallelCopy {
@@ -20,6 +20,7 @@ pub(super) fn lower_block_arguments(routine: &mut MirRoutine) -> Result<(), MirD
         return Ok(());
     }
 
+    coalesce_exclusive_edge_sources(routine);
     let params = routine
         .blocks
         .iter()
@@ -84,6 +85,174 @@ pub(super) fn lower_block_arguments(routine: &mut MirRoutine) -> Result<(), MirD
         block.params.clear();
     }
     Ok(())
+}
+
+/// Coalesce a value produced solely for one block-argument edge with the
+/// destination block parameter. Once block arguments are lowered, the
+/// destination temp intentionally has one definition on each predecessor.
+/// Giving an edge-only producer that identity removes a redundant copy while
+/// retaining a target-owned transient home for the merged value.
+fn coalesce_exclusive_edge_sources(routine: &mut MirRoutine) {
+    let params = routine
+        .blocks
+        .iter()
+        .map(|block| (block.id, block.params.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let param_temps = params
+        .values()
+        .flatten()
+        .map(|param| param.dest)
+        .collect::<BTreeSet<_>>();
+
+    let mut edge_uses = BTreeMap::<MirTempId, usize>::new();
+    let mut non_edge_uses = BTreeSet::<MirTempId>::new();
+    let mut definitions = BTreeMap::<MirTempId, usize>::new();
+    for block in &routine.blocks {
+        for op in &block.ops {
+            if let Some(temp) = op_def_temp(op) {
+                *definitions.entry(temp).or_default() += 1;
+            }
+            for temp in &routine.temps {
+                if super::temp_uses::op_uses_temp(op, temp.id) {
+                    non_edge_uses.insert(temp.id);
+                }
+            }
+        }
+        if let MirTerminator::Branch {
+            cond: crate::mir6502::ir::MirCond::BoolValue(value),
+            ..
+        } = &block.terminator
+        {
+            collect_value_temps(value, &mut non_edge_uses);
+        }
+        for edge in terminator_edges(&block.terminator) {
+            for arg in &edge.args {
+                collect_value_temp_counts(&arg.value, &mut edge_uses);
+            }
+        }
+    }
+
+    let mut replacements = BTreeMap::<MirTempId, MirTempId>::new();
+    for block in &routine.blocks {
+        for edge in terminator_edges(&block.terminator) {
+            let Some(target_params) = params.get(&edge.target) else {
+                continue;
+            };
+            for (arg, param) in edge.args.iter().zip(target_params) {
+                let MirValue::Def(MirDef::VTemp(source)) = arg.value else {
+                    continue;
+                };
+                if source == param.dest
+                    || param_temps.contains(&source)
+                    || non_edge_uses.contains(&source)
+                    || edge_uses.get(&source) != Some(&1)
+                    || definitions.get(&source) != Some(&1)
+                    || arg.width != param.width
+                {
+                    continue;
+                }
+                replacements.insert(source, param.dest);
+            }
+        }
+    }
+
+    if replacements.is_empty() {
+        return;
+    }
+    for block in &mut routine.blocks {
+        for op in &mut block.ops {
+            if let Some(temp) = op_def_temp_mut(op)
+                && let Some(replacement) = replacements.get(temp)
+            {
+                *temp = *replacement;
+            }
+        }
+        for edge in terminator_edges_mut(&mut block.terminator) {
+            for arg in &mut edge.args {
+                for (source, destination) in &replacements {
+                    replace_temp(&mut arg.value, *source, *destination);
+                }
+            }
+        }
+    }
+    routine
+        .temps
+        .retain(|temp| !replacements.contains_key(&temp.id));
+}
+
+fn op_def_temp(op: &MirOp) -> Option<MirTempId> {
+    match op {
+        MirOp::LoadImm { dst, .. }
+        | MirOp::Load { dst, .. }
+        | MirOp::Move { dst, .. }
+        | MirOp::LeaAddr { dst, .. }
+        | MirOp::Extend { dst, .. }
+        | MirOp::Truncate { dst, .. }
+        | MirOp::Unary { dst, .. }
+        | MirOp::Binary { dst, .. }
+        | MirOp::LoadIndirect { dst, .. } => def_temp(dst),
+        MirOp::Call {
+            result: Some(result),
+            ..
+        } => def_temp(&result.dst),
+        _ => None,
+    }
+}
+
+fn op_def_temp_mut(op: &mut MirOp) -> Option<&mut MirTempId> {
+    let def = match op {
+        MirOp::LoadImm { dst, .. }
+        | MirOp::Load { dst, .. }
+        | MirOp::Move { dst, .. }
+        | MirOp::LeaAddr { dst, .. }
+        | MirOp::Extend { dst, .. }
+        | MirOp::Truncate { dst, .. }
+        | MirOp::Unary { dst, .. }
+        | MirOp::Binary { dst, .. }
+        | MirOp::LoadIndirect { dst, .. } => dst,
+        MirOp::Call {
+            result: Some(result),
+            ..
+        } => &mut result.dst,
+        _ => return None,
+    };
+    match def {
+        MirDef::VTemp(id) => Some(id),
+        MirDef::VTempByte { .. } | MirDef::Reg(_) => None,
+    }
+}
+
+fn def_temp(def: &MirDef) -> Option<MirTempId> {
+    match def {
+        MirDef::VTemp(id) => Some(*id),
+        MirDef::VTempByte { .. } | MirDef::Reg(_) => None,
+    }
+}
+
+fn collect_value_temps(value: &MirValue, temps: &mut BTreeSet<MirTempId>) {
+    match value {
+        MirValue::Def(MirDef::VTemp(id) | MirDef::VTempByte { id, .. }) => {
+            temps.insert(*id);
+        }
+        MirValue::Word { lo, hi } => {
+            collect_value_temps(lo, temps);
+            collect_value_temps(hi, temps);
+        }
+        _ => {}
+    }
+}
+
+fn collect_value_temp_counts(value: &MirValue, counts: &mut BTreeMap<MirTempId, usize>) {
+    match value {
+        MirValue::Def(MirDef::VTemp(id) | MirDef::VTempByte { id, .. }) => {
+            *counts.entry(*id).or_default() += 1;
+        }
+        MirValue::Word { lo, hi } => {
+            collect_value_temp_counts(lo, counts);
+            collect_value_temp_counts(hi, counts);
+        }
+        _ => {}
+    }
 }
 
 fn split_conditional_argument_edges(routine: &mut MirRoutine) -> Result<(), MirDiagnostic> {
@@ -230,6 +399,19 @@ fn replace_temp(value: &mut MirValue, old: MirTempId, new: MirTempId) {
 }
 
 fn terminator_edges(terminator: &MirTerminator) -> impl Iterator<Item = &MirEdge> {
+    let edges = match terminator {
+        MirTerminator::Jump(edge) => [Some(edge), None],
+        MirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } => [Some(then_edge), Some(else_edge)],
+        MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => [None, None],
+    };
+    edges.into_iter().flatten()
+}
+
+fn terminator_edges_mut(terminator: &mut MirTerminator) -> impl Iterator<Item = &mut MirEdge> {
     let edges = match terminator {
         MirTerminator::Jump(edge) => [Some(edge), None],
         MirTerminator::Branch {
@@ -424,6 +606,59 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn edge_only_producer_is_coalesced_with_the_block_parameter() {
+        let mut routine = routine(
+            vec![
+                MirBlock {
+                    id: MirBlockId(0),
+                    label: "entry".to_string(),
+                    params: Vec::new(),
+                    ops: vec![MirOp::Move {
+                        dst: MirDef::VTemp(MirTempId(0)),
+                        src: MirValue::ConstU8(7),
+                        width: MirWidth::Byte,
+                    }],
+                    terminator: MirTerminator::Jump(MirEdge {
+                        target: MirBlockId(1),
+                        args: vec![arg(
+                            MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                            MirWidth::Byte,
+                        )],
+                    }),
+                },
+                MirBlock {
+                    id: MirBlockId(1),
+                    label: "join".to_string(),
+                    params: vec![param(1, MirWidth::Byte)],
+                    ops: vec![MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                        src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                        width: MirWidth::Byte,
+                    }],
+                    terminator: MirTerminator::Return,
+                },
+            ],
+            2,
+        );
+
+        lower_block_arguments(&mut routine).unwrap();
+
+        assert_eq!(
+            routine.blocks[0].ops,
+            vec![MirOp::Move {
+                dst: MirDef::VTemp(MirTempId(1)),
+                src: MirValue::ConstU8(7),
+                width: MirWidth::Byte,
+            }]
+        );
+        assert_eq!(
+            routine.blocks[0].terminator,
+            MirTerminator::Jump(MirEdge::plain(MirBlockId(1)))
+        );
+        assert_eq!(routine.temps, vec![MirTemp { id: MirTempId(1) }]);
     }
 
     #[test]

@@ -5,6 +5,7 @@ mod ir;
 mod lowerer;
 mod optimizer;
 mod printer;
+mod promotion;
 mod stats;
 mod storage_optimizer;
 mod verifier;
@@ -55,5 +56,6 @@ pub fn verify_program(program: &NirProgram) -> Result<(), Vec<NirDiagnostic>> {
 pub fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
     let optimized = optimizer::optimize_program(program)?;
     let optimized = storage_optimizer::propagate_program(&optimized)?;
+    let optimized = promotion::promote_program(&optimized)?;
     optimizer::optimize_program(&optimized)
 }

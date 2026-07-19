@@ -6,18 +6,22 @@ use crate::nir::BlockId;
 /// Dominance facts derived from one immutable NIR CFG.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::nir) struct NirDominance {
+    root: Option<BlockId>,
     dominators: BTreeMap<BlockId, BTreeSet<BlockId>>,
     immediate_dominators: BTreeMap<BlockId, BlockId>,
     children: BTreeMap<BlockId, Vec<BlockId>>,
+    frontiers: BTreeMap<BlockId, BTreeSet<BlockId>>,
 }
 
 impl NirDominance {
     pub(in crate::nir) fn from_cfg(cfg: &NirCfg) -> Self {
         let Some(entry) = cfg.entry() else {
             return Self {
+                root: None,
                 dominators: BTreeMap::new(),
                 immediate_dominators: BTreeMap::new(),
                 children: BTreeMap::new(),
+                frontiers: BTreeMap::new(),
             };
         };
 
@@ -100,10 +104,33 @@ impl NirDominance {
             child_blocks.sort_unstable();
         }
 
+        let mut frontiers = cfg
+            .reachable()
+            .iter()
+            .copied()
+            .map(|block| (block, BTreeSet::new()))
+            .collect::<BTreeMap<_, _>>();
+        for block in cfg.reachable() {
+            if cfg.predecessors(*block).len() < 2 {
+                continue;
+            }
+            let stop = immediate_dominators.get(block).copied();
+            for predecessor in cfg.predecessors(*block) {
+                let mut runner = Some(*predecessor);
+                while runner.is_some() && runner != stop {
+                    let current = runner.expect("dominance-frontier runner");
+                    frontiers.entry(current).or_default().insert(*block);
+                    runner = immediate_dominators.get(&current).copied();
+                }
+            }
+        }
+
         Self {
+            root: Some(entry),
             dominators,
             immediate_dominators,
             children,
+            frontiers,
         }
     }
 
@@ -111,6 +138,10 @@ impl NirDominance {
         self.dominators
             .get(&block)
             .is_some_and(|set| set.contains(&dominator))
+    }
+
+    pub(in crate::nir) fn root(&self) -> Option<BlockId> {
+        self.root
     }
 
     #[allow(dead_code)] // Used by dominance-scoped optimizer slices.
@@ -121,6 +152,30 @@ impl NirDominance {
     #[allow(dead_code)] // Used by dominance-scoped optimizer slices.
     pub(in crate::nir) fn children(&self, block: BlockId) -> &[BlockId] {
         self.children.get(&block).map_or(&[], Vec::as_slice)
+    }
+
+    pub(in crate::nir) fn dominance_frontier(&self, block: BlockId) -> &BTreeSet<BlockId> {
+        self.frontiers.get(&block).unwrap_or(&EMPTY_BLOCK_SET)
+    }
+
+    pub(in crate::nir) fn pruned_iterated_frontier(
+        &self,
+        definitions: &BTreeSet<BlockId>,
+        live_in: &BTreeSet<BlockId>,
+    ) -> BTreeSet<BlockId> {
+        let mut result = BTreeSet::new();
+        let mut work = definitions.clone();
+        while let Some(block) = work.pop_first() {
+            for frontier in self.dominance_frontier(block) {
+                if !live_in.contains(frontier) || !result.insert(*frontier) {
+                    continue;
+                }
+                if !definitions.contains(frontier) {
+                    work.insert(*frontier);
+                }
+            }
+        }
+        result
     }
 
     #[allow(dead_code)] // Used by loop-aware optimizer slices.
@@ -190,6 +245,17 @@ mod tests {
             dominance.children(BlockId(0)),
             &[BlockId(1), BlockId(2), BlockId(3)]
         );
+        assert_eq!(
+            dominance.dominance_frontier(BlockId(1)),
+            &BTreeSet::from([BlockId(3)])
+        );
+        assert_eq!(
+            dominance.pruned_iterated_frontier(
+                &BTreeSet::from([BlockId(1), BlockId(2)]),
+                &BTreeSet::from([BlockId(3)]),
+            ),
+            BTreeSet::from([BlockId(3)])
+        );
     }
 
     #[test]
@@ -214,5 +280,13 @@ mod tests {
         assert_eq!(dominance.immediate_dominator(BlockId(2)), Some(BlockId(1)));
         assert!(dominance.is_backedge(BlockId(2), BlockId(1)));
         assert!(!dominance.is_backedge(BlockId(1), BlockId(2)));
+        assert!(
+            dominance
+                .pruned_iterated_frontier(
+                    &BTreeSet::from([BlockId(2)]),
+                    &BTreeSet::from([BlockId(1)]),
+                )
+                .contains(&BlockId(1))
+        );
     }
 }

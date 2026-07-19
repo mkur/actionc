@@ -615,6 +615,20 @@ Initial safe NIR passes:
 - routine-wide, liveness-based dead temp elimination;
 - local load/store forwarding only when storage identity and effects make it
   safe.
+- pruned private-scalar promotion, using storage live-in sets and iterated
+  dominance frontiers to introduce typed block parameters only at required
+  merges;
+- explicit synchronization before effects that may read a promoted home and a
+  reload after effects that may write it.
+
+Promotion does not make a target allocation decision. NIR removes direct
+source-home traffic and represents merged values with block parameters and edge
+arguments. MIR owns the transient home, register, and spill strategy. The
+initial automatic policy is deliberately pressure guarded: it promotes hot
+ordinary byte locals with small definition sets, while initialized,
+address-taken, aliased, absolute, machine-visible, wider, parameter, and colder
+homes remain in storage form until target home coloring can carry them without
+regressing output.
 
 Do not perform aggressive alias-sensitive optimization until all of these are
 strong enough:
