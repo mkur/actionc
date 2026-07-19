@@ -1315,6 +1315,142 @@ fn optimizer_eliminates_dead_pure_temps_but_keeps_loads() {
 }
 
 #[test]
+fn optimizer_keeps_pure_temp_used_in_successor_block() {
+    let ty = byte_type();
+    let program = NirProgram {
+        globals: Vec::new(),
+        statics: Vec::new(),
+        routines: vec![NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps: vec![
+                temp_table_entry(0, ty.clone(), 0, 0),
+                temp_table_entry(1, ty.clone(), 0, 1),
+            ],
+            notes: Vec::new(),
+            blocks: vec![
+                NirBlock {
+                    id: BlockId(0),
+                    label: "entry".to_string(),
+                    ops: vec![
+                        NirOp::Load {
+                            dest: TempId(0),
+                            ty: ty.clone(),
+                            place: byte_place("input"),
+                        },
+                        NirOp::Binary {
+                            dest: TempId(1),
+                            ty: ty.clone(),
+                            op: NirBinaryOp::Add,
+                            left: temp_value(0, ty.clone()),
+                            right: byte_value(1),
+                        },
+                    ],
+                    terminator: NirTerminator::Goto("use".to_string()),
+                },
+                NirBlock {
+                    id: BlockId(1),
+                    label: "use".to_string(),
+                    ops: vec![NirOp::Store {
+                        place: byte_place("output"),
+                        src: temp_value(1, ty.clone()),
+                        ty: ty.clone(),
+                    }],
+                    terminator: NirTerminator::Return(None),
+                },
+            ],
+        }],
+    };
+
+    let optimized = optimize_program(&program).expect("optimize verifier-clean NIR");
+    assert!(matches!(
+        optimized.routines[0].blocks[0].ops.as_slice(),
+        [
+            NirOp::Load {
+                dest: TempId(0),
+                ..
+            },
+            NirOp::Binary {
+                dest: TempId(1),
+                ..
+            }
+        ]
+    ));
+}
+
+#[test]
+fn optimizer_eliminates_dead_pure_temp_chain_across_blocks_to_fixed_point() {
+    let ty = byte_type();
+    let program = NirProgram {
+        globals: Vec::new(),
+        statics: Vec::new(),
+        routines: vec![NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps: vec![
+                temp_table_entry(0, ty.clone(), 0, 0),
+                temp_table_entry(1, ty.clone(), 0, 1),
+                temp_table_entry(2, ty.clone(), 1, 0),
+            ],
+            notes: Vec::new(),
+            blocks: vec![
+                NirBlock {
+                    id: BlockId(0),
+                    label: "entry".to_string(),
+                    ops: vec![
+                        NirOp::Load {
+                            dest: TempId(0),
+                            ty: ty.clone(),
+                            place: byte_place("input"),
+                        },
+                        NirOp::Binary {
+                            dest: TempId(1),
+                            ty: ty.clone(),
+                            op: NirBinaryOp::Add,
+                            left: temp_value(0, ty.clone()),
+                            right: byte_value(1),
+                        },
+                    ],
+                    terminator: NirTerminator::Goto("dead".to_string()),
+                },
+                NirBlock {
+                    id: BlockId(1),
+                    label: "dead".to_string(),
+                    ops: vec![NirOp::Binary {
+                        dest: TempId(2),
+                        ty: ty.clone(),
+                        op: NirBinaryOp::Add,
+                        left: temp_value(1, ty.clone()),
+                        right: byte_value(1),
+                    }],
+                    terminator: NirTerminator::Return(None),
+                },
+            ],
+        }],
+    };
+
+    let optimized = optimize_program(&program).expect("optimize verifier-clean NIR");
+    assert!(matches!(
+        optimized.routines[0].blocks[0].ops.as_slice(),
+        [NirOp::Load {
+            dest: TempId(0),
+            ..
+        }]
+    ));
+    assert!(optimized.routines[0].blocks[1].ops.is_empty());
+    assert_eq!(
+        optimized.routines[0]
+            .temps
+            .iter()
+            .map(|temp| temp.id)
+            .collect::<Vec<_>>(),
+        vec![TempId(0)]
+    );
+}
+
+#[test]
 fn optimizer_aliases_algebraic_identity_temps() {
     let ty = byte_type();
     let program = NirProgram {

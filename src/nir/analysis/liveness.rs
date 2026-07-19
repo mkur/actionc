@@ -7,13 +7,11 @@ use super::dataflow::{
 use super::use_def::{NirDefSite, NirUseDef, NirUseSite};
 use crate::nir::{BlockId, NirRoutine, TempId};
 
-#[allow(dead_code)] // Exposed for the subsequent routine-wide optimizer slices.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::nir) struct NirTempLiveness {
     result: NirDataflowResult<BTreeSet<TempId>>,
 }
 
-#[allow(dead_code)] // Exposed for the subsequent routine-wide optimizer slices.
 impl NirTempLiveness {
     pub(in crate::nir) fn analyze(routine: &NirRoutine, cfg: &NirCfg, use_def: &NirUseDef) -> Self {
         let problem = TempLivenessProblem::new(routine, cfg, use_def);
@@ -22,6 +20,7 @@ impl NirTempLiveness {
         }
     }
 
+    #[allow(dead_code)] // Part of the shared query surface; DCE currently needs live-out only.
     pub(in crate::nir) fn live_in(&self, block: BlockId) -> &BTreeSet<TempId> {
         self.result.in_state(block).unwrap_or(&EMPTY_TEMP_SET)
     }
@@ -30,6 +29,7 @@ impl NirTempLiveness {
         self.result.out_state(block).unwrap_or(&EMPTY_TEMP_SET)
     }
 
+    #[allow(dead_code)] // Retained for convergence diagnostics and focused solver tests.
     pub(in crate::nir) fn evaluations(&self) -> usize {
         self.result.evaluations()
     }

@@ -583,7 +583,7 @@ Initial safe NIR passes:
 - constant condition folding;
 - copy propagation;
 - branch simplification;
-- dead temp elimination;
+- routine-wide, liveness-based dead temp elimination;
 - local load/store forwarding only when storage identity and effects make it
   safe.
 

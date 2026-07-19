@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::analysis::cfg::NirCfg;
+use super::analysis::{cfg::NirCfg, liveness::NirTempLiveness, use_def::NirUseDef};
 use super::facts::{NirType, NirTypeKind, NirValue, TempId, value_width};
 use super::ir::*;
 use super::verifier::{NirDiagnostic, verify_program};
@@ -21,9 +21,7 @@ fn optimize_routine(routine: &mut NirRoutine) {
         optimize_values_in_block(block);
     }
     simplify_constant_branches(routine);
-    for block in &mut routine.blocks {
-        eliminate_dead_pure_temps(block);
-    }
+    eliminate_dead_pure_temps(routine);
     routine.temps = collect_temps(&routine.blocks);
 }
 
@@ -302,21 +300,40 @@ fn simplify_constant_branches(routine: &mut NirRoutine) {
     remove_unreachable_blocks(routine);
 }
 
-fn eliminate_dead_pure_temps(block: &mut NirBlock) {
-    let mut used = BTreeSet::new();
-    for op in &block.ops {
-        collect_op_uses(op, &mut used);
-    }
-    collect_terminator_uses(&block.terminator, &mut used);
-    block.ops.retain(|op| {
-        if let Some((id, _)) = op_def(op)
-            && is_pure_temp_op(op)
-            && !used.contains(&id)
-        {
-            return false;
+fn eliminate_dead_pure_temps(routine: &mut NirRoutine) {
+    loop {
+        let cfg = NirCfg::from_routine(routine);
+        let use_def = NirUseDef::from_routine(routine);
+        let liveness = NirTempLiveness::analyze(routine, &cfg, &use_def);
+        let mut changed = false;
+
+        for block in &mut routine.blocks {
+            let mut live = liveness.live_out(block.id).clone();
+            collect_terminator_uses(&block.terminator, &mut live);
+            let mut kept = Vec::with_capacity(block.ops.len());
+
+            for op in block.ops.drain(..).rev() {
+                if let Some((dest, _)) = op_def(&op)
+                    && is_pure_temp_op(&op)
+                    && !live.contains(&dest)
+                {
+                    changed = true;
+                    continue;
+                }
+                if let Some((dest, _)) = op_def(&op) {
+                    live.remove(&dest);
+                }
+                collect_op_uses(&op, &mut live);
+                kept.push(op);
+            }
+            kept.reverse();
+            block.ops = kept;
         }
-        true
-    });
+
+        if !changed {
+            break;
+        }
+    }
 }
 
 fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
