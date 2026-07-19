@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::analysis::cfg::NirCfg;
 use super::facts::{NirType, NirTypeKind, NirValue, TempId, value_width};
 use super::ir::*;
 use super::verifier::{NirDiagnostic, verify_program};
@@ -27,43 +28,9 @@ fn optimize_routine(routine: &mut NirRoutine) {
 }
 
 fn remove_unreachable_blocks(routine: &mut NirRoutine) {
-    let Some(entry) = routine.blocks.first().map(|block| block.label.clone()) else {
-        return;
-    };
-    let by_label = routine
-        .blocks
-        .iter()
-        .map(|block| (block.label.as_str(), block))
-        .collect::<BTreeMap<_, _>>();
-    let mut reachable = BTreeSet::new();
-    let mut stack = vec![entry];
-    while let Some(label) = stack.pop() {
-        if !reachable.insert(label.clone()) {
-            continue;
-        }
-        let Some(block) = by_label.get(label.as_str()) else {
-            continue;
-        };
-        match &block.terminator {
-            NirTerminator::Goto(target) => stack.push(target.clone()),
-            NirTerminator::Branch {
-                then_label,
-                else_label,
-                ..
-            } => {
-                stack.push(then_label.clone());
-                stack.push(else_label.clone());
-            }
-            NirTerminator::Open
-            | NirTerminator::Fallthrough
-            | NirTerminator::Return(_)
-            | NirTerminator::Exit
-            | NirTerminator::Unknown(_) => {}
-        }
-    }
-    routine
-        .blocks
-        .retain(|block| reachable.contains(block.label.as_str()));
+    let cfg = NirCfg::from_routine(routine);
+    let reachable = cfg.reachable().clone();
+    routine.blocks.retain(|block| reachable.contains(&block.id));
 }
 
 fn optimize_values_in_block(block: &mut NirBlock) {

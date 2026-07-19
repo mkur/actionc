@@ -1,5 +1,6 @@
-use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
+use std::collections::{BTreeMap, BTreeSet};
 
+use super::analysis::cfg::NirCfg;
 use super::facts::{
     BlockId, NirType, NirTypeKind, NirValue, SymbolId, TempId, value_is_oversized_literal,
     value_width,
@@ -43,14 +44,6 @@ impl NirDiagnostic {
 struct NirVerifier {
     diagnostics: Vec<NirDiagnostic>,
     static_ids: BTreeSet<SymbolId>,
-}
-
-#[derive(Default)]
-struct NirCfgFacts<'a> {
-    block_ids: BTreeSet<BlockId>,
-    labels: BTreeMap<&'a str, BlockId>,
-    predecessors: BTreeMap<BlockId, BTreeSet<BlockId>>,
-    successors: BTreeMap<BlockId, BTreeSet<BlockId>>,
 }
 
 struct NirTempFacts<'a> {
@@ -227,11 +220,11 @@ impl NirVerifier {
             return;
         }
 
-        let mut cfg = NirCfgFacts::default();
+        let cfg = NirCfg::from_routine(routine);
+        let mut block_ids = BTreeSet::new();
+        let mut block_labels = BTreeSet::new();
         for block in &routine.blocks {
-            cfg.predecessors.entry(block.id).or_default();
-            cfg.successors.entry(block.id).or_default();
-            if !cfg.block_ids.insert(block.id) {
+            if !block_ids.insert(block.id) {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
                     &block.label,
@@ -243,17 +236,12 @@ impl NirVerifier {
                     &routine.name,
                     "block label must not be empty",
                 ));
-            } else {
-                match cfg.labels.entry(block.label.as_str()) {
-                    Entry::Vacant(entry) => {
-                        entry.insert(block.id);
-                    }
-                    Entry::Occupied(_) => self.diagnostics.push(NirDiagnostic::block(
-                        &routine.name,
-                        &block.label,
-                        format!("duplicate block label `{}`", block.label),
-                    )),
-                }
+            } else if !block_labels.insert(block.label.as_str()) {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("duplicate block label `{}`", block.label),
+                ));
             }
         }
 
@@ -267,7 +255,7 @@ impl NirVerifier {
                 ));
             }
             self.type_shape_static(&temp.ty, &format!("temp `%t{}`", temp.id.0));
-            if !cfg.block_ids.contains(&temp.def.block) {
+            if !cfg.block_ids().contains(&temp.def.block) {
                 self.diagnostics.push(NirDiagnostic::routine(
                     &routine.name,
                     format!(
@@ -279,23 +267,11 @@ impl NirVerifier {
             temp_map.entry(temp.id).or_insert(temp);
         }
 
-        for block in &routine.blocks {
-            for target in terminator_targets(&block.terminator) {
-                let Some(target_id) = cfg.labels.get(target.as_str()).copied() else {
-                    continue;
-                };
-                cfg.successors
-                    .entry(block.id)
-                    .or_default()
-                    .insert(target_id);
-                cfg.predecessors
-                    .entry(target_id)
-                    .or_default()
-                    .insert(block.id);
-            }
-        }
-
-        let dominators = compute_dominators(routine.blocks[0].id, &cfg);
+        let dominators = compute_dominators(
+            cfg.entry()
+                .expect("nonempty NIR routine has an entry block"),
+            &cfg,
+        );
 
         let temp_facts = NirTempFacts {
             temps: temp_map,
@@ -1199,10 +1175,10 @@ impl NirVerifier {
         &mut self,
         routine: &NirRoutine,
         block: &NirBlock,
-        cfg: &NirCfgFacts<'_>,
+        cfg: &NirCfg,
         target: &str,
     ) {
-        let Some(target_id) = cfg.labels.get(target).copied() else {
+        let Some(target_id) = cfg.resolve_label(target) else {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
@@ -1210,7 +1186,7 @@ impl NirVerifier {
             ));
             return;
         };
-        if !cfg.block_ids.contains(&target_id) {
+        if !cfg.block_ids().contains(&target_id) {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
@@ -1220,22 +1196,6 @@ impl NirVerifier {
                 ),
             ));
         }
-    }
-}
-
-fn terminator_targets(terminator: &NirTerminator) -> Vec<String> {
-    match terminator {
-        NirTerminator::Goto(label) => vec![label.clone()],
-        NirTerminator::Branch {
-            then_label,
-            else_label,
-            ..
-        } => vec![then_label.clone(), else_label.clone()],
-        NirTerminator::Open
-        | NirTerminator::Fallthrough
-        | NirTerminator::Return(_)
-        | NirTerminator::Exit
-        | NirTerminator::Unknown(_) => Vec::new(),
     }
 }
 
@@ -1253,13 +1213,10 @@ fn place_has_symbol_identity(place: &NirPlace) -> bool {
     }
 }
 
-fn compute_dominators(
-    entry: BlockId,
-    cfg: &NirCfgFacts<'_>,
-) -> BTreeMap<BlockId, BTreeSet<BlockId>> {
-    let all_blocks = cfg.block_ids.clone();
+fn compute_dominators(entry: BlockId, cfg: &NirCfg) -> BTreeMap<BlockId, BTreeSet<BlockId>> {
+    let all_blocks = cfg.block_ids().clone();
     let mut dominators = BTreeMap::new();
-    for block in &cfg.block_ids {
+    for block in cfg.block_ids() {
         if *block == entry {
             dominators.insert(*block, BTreeSet::from([*block]));
         } else {
@@ -1270,11 +1227,11 @@ fn compute_dominators(
     let mut changed = true;
     while changed {
         changed = false;
-        for block in &cfg.block_ids {
+        for block in cfg.block_ids() {
             if *block == entry {
                 continue;
             }
-            let predecessors = cfg.predecessors.get(block).cloned().unwrap_or_default();
+            let predecessors = cfg.predecessors(*block);
             let mut next = if predecessors.is_empty() {
                 BTreeSet::new()
             } else {

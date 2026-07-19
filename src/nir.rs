@@ -1,3 +1,4 @@
+mod analysis;
 mod classifier;
 mod facts;
 mod ir;
