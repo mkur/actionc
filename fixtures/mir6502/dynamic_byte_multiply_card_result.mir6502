@@ -7,10 +7,5 @@ routine r0 Main
 b0 bb0:
   store.b global g0+0, #$03
   store.b global g1+0, #$04
-  v0 =.b load global g0+0
-  v1 =.w v0 add #$01 carry_in=- carry_out=ignore
-  v2 =.b load global g1+0
-  v3 =.w v2 add #$01 carry_in=- carry_out=ignore
-  v4 =.w v1 mul v3 carry_in=- carry_out=ignore
-  store.w global g2+0, v4
+  store.w global g2+0, #$0014
   return

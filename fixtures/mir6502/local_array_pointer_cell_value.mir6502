@@ -14,13 +14,10 @@ routine r1 Main
 b0 bb1:
   v0 =.w lea local l0+0
   store.w local l1+0, v0
-  v1 =.w load local l1+0
-  v2 =.w v1 add #$01 carry_in=- carry_out=ignore
+  v2 =.w v0 add #$01 carry_in=- carry_out=ignore
   store.w local l1+0, v2
-  v3 =.w load local l1+0
-  store.b computed v3[#$00;1]+0, #$07
+  store.b computed v2[#$00;1]+0, #$07
   v4 =.w load local l1+0
   store.w global g0+0, v4
-  v5 =.w load global g0+0
-  call r0 args=[v5.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  call r0 args=[v4.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

@@ -9,8 +9,7 @@ b0 bb0:
   branch bool v2 ? b1 : b2
 b1 bb2:
   v3 =.w load param p0+0
-  v4 =.w load param p0+0
-  v5 =.b load *v4+0
+  v5 =.b load *v3+0
   v6 =.b v5 sub #$01 carry_in=- carry_out=ignore
   store.b *v3+0, v6
   jump b2
@@ -26,8 +25,7 @@ b0 bb3:
   branch bool v3 ? b1 : b2
 b1 bb5:
   v4 =.w load param p0+0
-  v5 =.w load param p0+0
-  v6 =.b load *v5+0
+  v6 =.b load *v4+0
   v7 =.b v6 add #$01 carry_in=- carry_out=ignore
   store.b *v4+0, v7
   jump b2

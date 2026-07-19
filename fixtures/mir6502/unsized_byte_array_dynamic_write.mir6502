@@ -5,6 +5,5 @@ global g1 i: byte storage global+2
 routine r0 Main
 b0 bb0:
   store.b global g1+0, #$02
-  v0 =.b load global g1+0
-  store.b computed #$0580[v0;1]+0, #$07
+  store.b computed #$0580[#$02;1]+0, #$07
   return

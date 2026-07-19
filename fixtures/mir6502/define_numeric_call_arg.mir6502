@@ -9,7 +9,5 @@ routine r1 Main
 b0 bb1:
   store.b local l0+0, #$04
   store.b local l1+0, #$02
-  v0 =.b load local l0+0
-  v1 =.b load local l1+0
-  call r0 args=[#$0000.b -> a, v0.b -> x, v1.b -> y] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  call r0 args=[#$0000.b -> a, #$04.b -> x, #$02.b -> y] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

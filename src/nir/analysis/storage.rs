@@ -23,6 +23,7 @@ pub enum NirPromotionBlocker {
     UnsupportedType,
     AbsoluteBacking,
     AliasBacking,
+    AliasedStorage,
     InitializedStorage,
     AddressTaken,
     MachineVisibility,
@@ -32,12 +33,13 @@ pub enum NirPromotionBlocker {
 }
 
 impl NirPromotionBlocker {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::GlobalStorage,
         Self::NonScalarStorage,
         Self::UnsupportedType,
         Self::AbsoluteBacking,
         Self::AliasBacking,
+        Self::AliasedStorage,
         Self::InitializedStorage,
         Self::AddressTaken,
         Self::MachineVisibility,
@@ -53,6 +55,7 @@ impl NirPromotionBlocker {
             Self::UnsupportedType => "unsupported_type",
             Self::AbsoluteBacking => "absolute_backing",
             Self::AliasBacking => "alias_backing",
+            Self::AliasedStorage => "aliased_storage",
             Self::InitializedStorage => "initialized_storage",
             Self::AddressTaken => "address_taken",
             Self::MachineVisibility => "machine_visibility",
@@ -69,6 +72,7 @@ pub struct NirStorageFacts {
     pub name: String,
     pub ty: Option<NirType>,
     pub width: Option<u16>,
+    pub direct_access_ty: Option<NirType>,
     pub storage_class: Option<NirStorageClass>,
     pub backing: NirStorageBackingClass,
     pub load_blocks: BTreeSet<BlockId>,
@@ -87,6 +91,26 @@ pub struct NirStorageFacts {
 impl NirStorageFacts {
     pub fn is_promotable(&self) -> bool {
         self.blockers.is_empty()
+    }
+
+    /// Whether exact load values may be cached while effect barriers remain in
+    /// place. This is intentionally broader than full home promotion:
+    /// initialized, persistent, and global storage can still participate in
+    /// load forwarding because stores are not removed.
+    pub fn is_value_trackable(&self) -> bool {
+        let pointer_cell = self.storage_class == Some(NirStorageClass::Array)
+            && self.direct_access_ty.as_ref().is_some_and(|ty| {
+                matches!(ty.kind, NirTypeKind::Ptr16 { .. }) && ty.width == Some(2)
+            });
+        self.blockers.iter().all(|blocker| {
+            matches!(
+                blocker,
+                NirPromotionBlocker::GlobalStorage
+                    | NirPromotionBlocker::InitializedStorage
+                    | NirPromotionBlocker::ReadBeforeDefinition
+                    | NirPromotionBlocker::NoDirectAccess
+            ) || (*blocker == NirPromotionBlocker::NonScalarStorage && pointer_cell)
+        })
     }
 }
 
@@ -122,7 +146,7 @@ pub fn analyze_program_storage(program: &NirProgram) -> NirProgramStorageAnalysi
     let global_names = program
         .globals
         .iter()
-        .map(|global| (global.name.as_str(), global.id))
+        .map(|global| (global.name.to_ascii_lowercase(), global.id))
         .collect::<BTreeMap<_, _>>();
     NirProgramStorageAnalysis {
         routines: program
@@ -136,7 +160,7 @@ pub fn analyze_program_storage(program: &NirProgram) -> NirProgramStorageAnalysi
 fn analyze_routine_storage(
     routine: &NirRoutine,
     globals: &BTreeMap<crate::nir::SymbolId, &NirGlobal>,
-    global_names: &BTreeMap<&str, crate::nir::SymbolId>,
+    global_names: &BTreeMap<String, crate::nir::SymbolId>,
 ) -> NirRoutineStorageAnalysis {
     let cfg = NirCfg::from_routine(routine);
     let mut homes = BTreeMap::new();
@@ -176,6 +200,13 @@ fn analyze_routine_storage(
             ),
         );
     }
+    for local in &routine.locals {
+        if let NirLocalBacking::Alias { target, .. } = local.backing
+            && let Some(target) = homes.get_mut(&NirStorageId::Local(target))
+        {
+            target.blockers.insert(NirPromotionBlocker::AliasedStorage);
+        }
+    }
 
     // Globals are routine facts only when the routine names them directly (or
     // a machine item names them). This avoids multiplying every program global
@@ -193,7 +224,7 @@ fn analyze_routine_storage(
             });
             if let NirOp::MachineBlock { items, .. } = op {
                 for name in machine_item_names(items) {
-                    if let Some(id) = global_names.get(name.as_str()) {
+                    if let Some(id) = global_names.get(&name.to_ascii_lowercase()) {
                         referenced_globals.insert(*id);
                     }
                 }
@@ -205,10 +236,25 @@ fn analyze_routine_storage(
             homes.insert(NirStorageId::Global(id), global_facts(global));
         }
     }
+    for local in &routine.locals {
+        if let NirLocalBacking::GlobalAlias { target, .. } = local.backing
+            && let Some(target) = homes.get_mut(&NirStorageId::Global(target))
+        {
+            target.blockers.insert(NirPromotionBlocker::AliasedStorage);
+        }
+    }
+    for global in globals.values() {
+        if let NirGlobalBacking::Alias { target, .. } = &global.backing
+            && let Some(target) = global_names.get(&target.to_ascii_lowercase())
+            && let Some(target) = homes.get_mut(&NirStorageId::Global(*target))
+        {
+            target.blockers.insert(NirPromotionBlocker::AliasedStorage);
+        }
+    }
 
     let names = homes
         .values()
-        .map(|facts| (facts.name.clone(), facts.id))
+        .map(|facts| (facts.name.to_ascii_lowercase(), facts.id))
         .collect::<BTreeMap<_, _>>();
     for block in &routine.blocks {
         if !cfg.reachable().contains(&block.id) {
@@ -248,7 +294,7 @@ fn analyze_routine_storage(
                         }
                     } else {
                         for name in names_used {
-                            if let Some(id) = names.get(&name)
+                            if let Some(id) = names.get(&name.to_ascii_lowercase())
                                 && let Some(facts) = homes.get_mut(id)
                             {
                                 facts.machine_visible = true;
@@ -336,6 +382,7 @@ fn new_facts(
         name,
         ty,
         width,
+        direct_access_ty: None,
         storage_class,
         backing,
         load_blocks: BTreeSet::new(),
@@ -414,8 +461,19 @@ fn record_direct_access(
         facts.direct_stores = facts.direct_stores.saturating_add(1);
         facts.store_blocks.insert(block);
     }
+    if let Some(direct_ty) = &facts.direct_access_ty {
+        if !same_type(direct_ty, access_ty) {
+            facts
+                .blockers
+                .insert(NirPromotionBlocker::AccessTypeMismatch);
+        }
+    } else {
+        facts.direct_access_ty = Some(access_ty.clone());
+    }
     let place_matches = place.ty.as_ref().is_some_and(|ty| same_type(ty, access_ty));
-    let home_matches = facts.ty.as_ref().is_some_and(|ty| same_type(ty, access_ty));
+    let home_matches = facts.storage_class == Some(NirStorageClass::Array)
+        && matches!(access_ty.kind, NirTypeKind::Ptr16 { .. })
+        || facts.ty.as_ref().is_some_and(|ty| same_type(ty, access_ty));
     if !place_matches || !home_matches {
         facts
             .blockers
@@ -662,8 +720,8 @@ mod tests {
         absolute.backing = NirLocalBacking::Absolute(0xD000);
         let mut alias = local(4, "alias");
         alias.backing = NirLocalBacking::Alias {
-            target: LocalId(0),
-            target_name: "good".to_string(),
+            target: LocalId(7),
+            target_name: "alias_target".to_string(),
             offset: 0,
         };
         let mut array = local(5, "array");
@@ -692,6 +750,7 @@ mod tests {
                 alias,
                 array,
                 local(6, "escaped"),
+                local(7, "alias_target"),
             ],
             temps: Vec::new(),
             notes: Vec::new(),
@@ -770,6 +829,13 @@ mod tests {
                 .unwrap()
                 .blockers
                 .contains(&NirPromotionBlocker::AliasBacking)
+        );
+        assert!(
+            routine
+                .storage_by_name("alias_target")
+                .unwrap()
+                .blockers
+                .contains(&NirPromotionBlocker::AliasedStorage)
         );
         assert!(
             routine

@@ -5,10 +5,6 @@ global g1 y: word storage global+2
 routine r0 Main
 b0 bb0:
   store.w global g0+0, #$01
-  v0 =.w load global g0+0
-  v1 =.w v0 add #$0102 carry_in=- carry_out=ignore
-  store.w global g1+0, v1
-  v2 =.w load global g1+0
-  v3 =.w v2 sub #$01 carry_in=- carry_out=ignore
-  store.w global g1+0, v3
+  store.w global g1+0, #$0103
+  store.w global g1+0, #$0102
   return

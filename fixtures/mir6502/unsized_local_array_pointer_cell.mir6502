@@ -13,8 +13,7 @@ b0 bb0:
   v3 =.w load local l1+0
   v4 =.w v3 add #$0A carry_in=- carry_out=ignore
   store.w local l1+0, v4
-  v5 =.w load local l1+0
-  store.b computed v5[#$00;1]+0, #$00
+  store.b computed v4[#$00;1]+0, #$00
   v6 =.w lea global g0+0
   v7 =.w load local l1+0
   store.w global g0+2, v7

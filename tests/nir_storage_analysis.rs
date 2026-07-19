@@ -40,4 +40,28 @@ fn tn_exposes_high_value_scalar_promotion_candidates() {
             "Copy::{name} should be a scalar-promotion candidate: {facts:#?}"
         );
     }
+
+    let optimized = nir::optimize_program(&lowered)
+        .unwrap_or_else(|diagnostics| panic!("optimize {}: {diagnostics:?}", source.display()));
+    for routine_name in ["SetWin", "Copy", "Sort"] {
+        let lowered_loads = routine_loads(&lowered, routine_name);
+        let optimized_loads = routine_loads(&optimized, routine_name);
+        assert!(
+            optimized_loads < lowered_loads,
+            "{routine_name} should contain fewer loads after exact storage-value propagation: lowered={lowered_loads} optimized={optimized_loads}"
+        );
+    }
+}
+
+fn routine_loads(program: &nir::NirProgram, name: &str) -> usize {
+    program
+        .routines
+        .iter()
+        .find(|routine| routine.name == name)
+        .unwrap_or_else(|| panic!("{name} routine"))
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter(|op| matches!(op, nir::NirOp::Load { .. }))
+        .count()
 }

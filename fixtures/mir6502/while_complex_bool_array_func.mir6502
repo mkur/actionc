@@ -45,8 +45,7 @@ b2 bb5:
   v17 =.b load global g0+0
   v18 =.b v17 add #$01 carry_in=- carry_out=ignore
   store.b global g0+0, v18
-  v19 =.b load global g0+0
-  v20 = cmp.b v19 eq #$03
+  v20 = cmp.b v18 eq #$03
   branch bool v20 ? b3 : b4
 b3 bb8:
   store.b global g1+0, #$01

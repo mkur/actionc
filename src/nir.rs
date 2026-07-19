@@ -6,6 +6,7 @@ mod lowerer;
 mod optimizer;
 mod printer;
 mod stats;
+mod storage_optimizer;
 mod verifier;
 
 #[cfg(test)]
@@ -52,5 +53,7 @@ pub fn verify_program(program: &NirProgram) -> Result<(), Vec<NirDiagnostic>> {
 }
 
 pub fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
-    optimizer::optimize_program(program)
+    let optimized = optimizer::optimize_program(program)?;
+    let optimized = storage_optimizer::propagate_program(&optimized)?;
+    optimizer::optimize_program(&optimized)
 }

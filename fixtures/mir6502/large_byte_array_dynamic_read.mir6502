@@ -7,7 +7,6 @@ routine r0 Main
 b0 bb0:
   store.b global g1+0, #$02
   v0 =.w lea global g0+0
-  v1 =.b load global g1+0
-  v2 =.b load computed global_addr g0[v1;1]+0
+  v2 =.b load global g0+2
   store.b global g2+0, v2
   return

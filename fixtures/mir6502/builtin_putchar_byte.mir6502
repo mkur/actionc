@@ -4,6 +4,5 @@ global g0 ch: byte storage global+0
 routine r0 Main
 b0 bb0:
   store.b global g0+0, #$41
-  v0 =.b load global g0+0
-  call Put@$A4CE args=[v0.b -> a] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
+  call Put@$A4CE args=[#$41.b -> a] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
   return

@@ -12,21 +12,18 @@ b0 bb0:
 routine r1 MenuKey
 b0 bb1:
   v0 =.w load param p0+0
-  v1 =.w load param p0+0
-  v2 =.b load *v1+0
+  v2 =.b load *v0+0
   v3 =.w v0 add v2 carry_in=- carry_out=ignore
   v4 =.w v3 add #$03 carry_in=- carry_out=ignore
   store.w param p0+0, v4
-  v5 =.w load param p0+0
-  v6 =.b load *v5+0
+  v6 =.b load *v4+0
   store.b fixed_zp $A0, v6
   return
 
 routine r2 Next
 b0 bb2:
   v0 =.w load param p0+0
-  v1 =.w load param p0+0
-  v2 =.b load *v1+0
+  v2 =.b load *v0+0
   v3 =.w v0 add v2 carry_in=- carry_out=ignore
   v4 =.w v3 add #$05 carry_in=- carry_out=ignore
   store.w fixed_zp $A0, v4

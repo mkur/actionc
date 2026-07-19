@@ -6,7 +6,6 @@ global g2 x: byte storage global+3
 routine r0 Main
 b0 bb0:
   store.b global g1+0, #$02
-  v0 =.b load global g1+0
-  v1 =.b load computed #$0580[v0;1]+0
+  v1 =.b load computed #$0580[#$02;1]+0
   store.b global g2+0, v1
   return

@@ -208,6 +208,36 @@ nir: classify promotable scalar storage
 
 ## Phase 2: Exact Storage-Value Propagation
 
+Status: implemented. The optimizer now carries a separate
+`NirStorageId -> NirValue` fact map, rewrites direct loads from known compatible
+values, intersects equal facts at CFG joins, and runs ordinary value folding
+again after storage propagation. Stores remain explicit.
+
+The pass tracks ordinary scalar homes and exact pointer cells used by
+pointer-backed arrays. Absolute, aliased, address-taken, and machine-visible
+storage remains excluded. Indirect/absolute writes and opaque effects clear the
+fact map. Until Phase 3 provides named call-effect regions, direct calls clear
+global facts; unknown, OS, recursive, and indirect calls are full barriers.
+
+Temp-backed facts are pressure guarded: the pass does not create a new
+cross-block temp live range, and it retains a transient temp across a competing
+definition only when that temp was already live there. Constants remain freely
+propagatable. This avoids replacing source-home reloads with MIR spills before
+typed block arguments and full promotion exist.
+
+On TN, optimized NIR changes from 1,993 operations / 762 loads after Phase 1 to
+1,963 operations / 732 loads. The hotspot load counts change as follows:
+
+| Routine | Phase 1 | Phase 2 |
+| --- | ---: | ---: |
+| `SetWin` | 92 | 83 |
+| `Copy` | 56 | 55 |
+| `Sort` | 32 | 31 |
+
+Against commit `0e7e7eb`, the TN load image shrinks from 13,335 to 13,282 bytes
+and materialized-MIR spill references decrease from 115 to 113. These are
+implementation measurements, not stable output-size guarantees.
+
 ### Fact Domain
 
 Extend routine value facts with:

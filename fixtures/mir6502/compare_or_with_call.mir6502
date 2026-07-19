@@ -12,16 +12,9 @@ routine r1 Main
 b0 bb1:
   store.b global g0+0, #$10
   store.b global g1+0, #$00
-  v0 =.b load global g0+0
-  v1 = cmp.b v0 eq #$10
-  v2 =.b load global g1+0
-  v3 = cmp.b v2 ne #$00
-  v4 =.b v1 or v3 carry_in=- carry_out=ignore
-  v5 =.b load global g0+0
-  v6 =.b v5 add #$01 carry_in=- carry_out=ignore
-  call r0 args=[v6.b -> a] result=v7.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  call r0 args=[#$11.b -> a] result=v7.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   v8 = cmp.b v7 eq #$FF
-  v9 =.b v4 or v8 carry_in=- carry_out=ignore
+  v9 =.b #$01 or v8 carry_in=- carry_out=ignore
   v10 = cmp.b v9 ne #$00
   branch bool v10 ? b1 : b2
 b1 bb3:

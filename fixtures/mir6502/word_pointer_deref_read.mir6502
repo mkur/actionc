@@ -5,7 +5,6 @@ global g1 x: word storage global+2
 routine r0 Main
 b0 bb0:
   store.w global g0+0, #$0580
-  v0 =.w load global g0+0
-  v1 =.w load *v0+0
+  v1 =.w load *#$0580+0
   store.w global g1+0, v1
   return

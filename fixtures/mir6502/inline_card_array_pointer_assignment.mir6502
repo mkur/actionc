@@ -10,7 +10,6 @@ b0 bb0:
   store.w local l1+2, v1
   store.b local l2+0, #$01
   v2 =.w lea local l1+0
-  v3 =.b load local l2+0
-  v4 =.w load computed v2[v3;2]+0
+  v4 =.w load local l1+2
   store.w global g0+0, v4
   return

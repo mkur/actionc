@@ -5,9 +5,7 @@ global g1 x: byte storage global+2
 routine r0 Main
 b0 bb0:
   store.w global g0+0, #$0580
-  v0 =.w load global g0+0
-  v1 = cmp.w v0 ne #$0000
-  branch bool v1 ? b1 : b2
+  jump b1
 b1 bb2:
   store.b global g1+0, #$01
   jump b2

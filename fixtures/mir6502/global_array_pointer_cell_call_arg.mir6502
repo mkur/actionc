@@ -15,10 +15,8 @@ routine r1 Main
 b0 bb1:
   v0 =.w lea global g1+0
   store.w global g0+0, v0
-  v1 =.w load global g0+0
-  call r0 args=[v1.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  call r0 args=[v0.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   v2 =.w lea global g2+0
   store.w global g0+0, v2
-  v3 =.w load global g0+0
-  call r0 args=[v3.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  call r0 args=[v2.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

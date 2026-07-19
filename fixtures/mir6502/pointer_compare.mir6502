@@ -7,10 +7,7 @@ routine r0 Main
 b0 bb0:
   store.w global g0+0, #$0580
   store.w global g1+0, #$0580
-  v0 =.w load global g0+0
-  v1 =.w load global g1+0
-  v2 = cmp.w v0 eq v1
-  branch bool v2 ? b1 : b2
+  jump b1
 b1 bb2:
   store.b global g2+0, #$01
   jump b2

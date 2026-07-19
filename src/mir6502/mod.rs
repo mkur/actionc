@@ -7104,7 +7104,7 @@ mod tests {
 
     #[test]
     fn materialization_uses_indirect_source_for_deref_byte_add() {
-        let output = generate_mir6502_source_with_origin(
+        let output = generate_unoptimized_nir_mir6502_source_with_origin(
             "SET $491=$3000 SET $E=$3000 BYTE POINTER s,t PROC Main() s=$4000 t=$4100 s^==+t^ RETURN",
             0x3000,
         );
@@ -7122,7 +7122,7 @@ mod tests {
 
     #[test]
     fn materialization_uses_indirect_source_for_deref_byte_sub() {
-        let output = generate_mir6502_source_with_origin(
+        let output = generate_unoptimized_nir_mir6502_source_with_origin(
             "SET $491=$3000 SET $E=$3000 BYTE POINTER s,t PROC Main() s=$4000 t=$4100 s^==-t^ RETURN",
             0x3000,
         );
@@ -7140,7 +7140,7 @@ mod tests {
 
     #[test]
     fn materialization_uses_direct_source_for_deref_byte_add() {
-        let output = generate_mir6502_source_with_origin(
+        let output = generate_unoptimized_nir_mir6502_source_with_origin(
             "SET $491=$3000 SET $E=$3000 BYTE POINTER p BYTE x=$5C PROC Main() p=$4000 x=3 p^==+x RETURN",
             0x3000,
         );
@@ -7157,7 +7157,7 @@ mod tests {
 
     #[test]
     fn materialization_uses_direct_source_for_deref_byte_sub() {
-        let output = generate_mir6502_source_with_origin(
+        let output = generate_unoptimized_nir_mir6502_source_with_origin(
             "SET $491=$3000 SET $E=$3000 BYTE POINTER p BYTE x=$5C PROC Main() p=$4000 x=3 p^==-x RETURN",
             0x3000,
         );
@@ -7174,7 +7174,7 @@ mod tests {
 
     #[test]
     fn materialization_keeps_deref_byte_rhs_when_it_aliases_pointer_scratch() {
-        let output = generate_mir6502_source_with_origin(
+        let output = generate_unoptimized_nir_mir6502_source_with_origin(
             "SET $491=$3000 SET $E=$3000 BYTE POINTER p BYTE x=$AC PROC Main() p=$4000 x=3 p^==+x RETURN",
             0x3000,
         );
@@ -7191,7 +7191,7 @@ mod tests {
 
     #[test]
     fn materialization_uses_const_source_for_deref_byte_add() {
-        let output = generate_mir6502_source_with_origin(
+        let output = generate_unoptimized_nir_mir6502_source_with_origin(
             "SET $491=$3000 SET $E=$3000 BYTE POINTER p PROC Main() p=$4000 p^==+3 RETURN",
             0x3000,
         );
@@ -7211,7 +7211,7 @@ mod tests {
 
     #[test]
     fn materialization_uses_const_source_for_deref_byte_sub() {
-        let output = generate_mir6502_source_with_origin(
+        let output = generate_unoptimized_nir_mir6502_source_with_origin(
             "SET $491=$3000 SET $E=$3000 BYTE POINTER p PROC Main() p=$4000 p^==-3 RETURN",
             0x3000,
         );
@@ -7231,7 +7231,7 @@ mod tests {
 
     #[test]
     fn materialization_uses_direct_source_for_deref_byte_store() {
-        let output = generate_mir6502_source_with_origin(
+        let output = generate_unoptimized_nir_mir6502_source_with_origin(
             "SET $491=$3000 SET $E=$3000 BYTE POINTER p BYTE x=$5C PROC Main() p=$4000 p^=x RETURN",
             0x3000,
         );
@@ -7248,7 +7248,7 @@ mod tests {
 
     #[test]
     fn materialization_reloads_recent_store_for_deref_byte_store() {
-        let output = generate_mir6502_source_with_origin(
+        let output = generate_unoptimized_nir_mir6502_source_with_origin(
             "SET $491=$3000 SET $E=$3000 BYTE POINTER p BYTE x=$5C PROC Main() p=$4000 x=3 p^=x RETURN",
             0x3000,
         );
@@ -7265,7 +7265,7 @@ mod tests {
 
     #[test]
     fn materialization_keeps_deref_byte_store_rhs_when_it_aliases_pointer_scratch() {
-        let output = generate_mir6502_source_with_origin(
+        let output = generate_unoptimized_nir_mir6502_source_with_origin(
             "SET $491=$3000 SET $E=$3000 BYTE POINTER p BYTE x=$AC PROC Main() p=$4000 p^=x RETURN",
             0x3000,
         );
@@ -8648,6 +8648,20 @@ mod tests {
         let nir =
             crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
         generate_output_with_config(&nir, origin, config).expect("generate mir6502 output")
+    }
+
+    fn generate_unoptimized_nir_mir6502_source_with_origin(
+        source: &str,
+        origin: u16,
+    ) -> crate::codegen::CodegenOutput {
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze(&program).expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir = crate::nir::lower_program(&semir);
+        crate::nir::verify_program(&nir).expect("verify lowered NIR");
+        generate_output_with_config(&nir, origin, &Mir6502Config::default())
+            .expect("generate mir6502 output")
     }
 
     fn generate_mir6502_sample(path: &str, origin: u16) -> crate::codegen::CodegenOutput {

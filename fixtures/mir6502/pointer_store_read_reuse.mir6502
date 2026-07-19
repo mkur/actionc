@@ -7,8 +7,7 @@ routine r0 Main
 b0 bb0:
   v0 =.w lea global g0+0
   store.w global g1+0, v0
-  v1 =.w load global g1+0
-  store.b *v1+0, #$0011
+  store.b *v0+0, #$0011
   v2 =.w load global g1+0
   v3 =.b load *v2+0
   store.b global g2+0, v3

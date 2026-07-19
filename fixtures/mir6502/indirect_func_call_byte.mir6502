@@ -11,7 +11,6 @@ routine r1 Main
 b0 bb1:
   v0 =.w routine_addr r0
   store.w global g1+0, v0
-  v2 =.w load global g1+0
-  call indirect v2.w args=[] result=v1.b <- return+0 clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
+  call indirect v0.w args=[] result=v1.b <- return+0 clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
   store.b global g2+0, v1
   return

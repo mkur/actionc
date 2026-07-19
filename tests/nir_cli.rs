@@ -50,8 +50,9 @@ fn emit_nir_stats_compares_lowered_and_optimized_programs() {
     assert!(first.contains("optimizer_total\n"));
     assert!(first.contains("block_parameters=0\n"));
     assert!(first.contains("edge_arguments=0\n"));
-    assert!(first.contains("operations.removed=1\n"));
-    assert!(first.contains("temp_definitions.removed=1\n"));
+    assert!(first.contains("operations.removed=7\n"));
+    assert!(first.contains("temp_definitions.removed=7\n"));
+    assert!(first.contains("loads.removed=2\n"));
 }
 
 #[test]

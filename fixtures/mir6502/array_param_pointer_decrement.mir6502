@@ -6,8 +6,7 @@ b0 bb0:
   v0 =.w load param p0+0
   v1 =.w v0 sub #$01 carry_in=- carry_out=ignore
   store.w param p0+0, v1
-  v2 =.w load param p0+0
-  v3 =.b load computed v2[#$01;1]+0
+  v3 =.b load computed v1[#$01;1]+0
   store.b global g0+0, v3
   return
 
