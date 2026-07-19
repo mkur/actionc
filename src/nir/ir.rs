@@ -1,4 +1,4 @@
-use super::facts::{BlockId, LocalId, NirType, NirValue, ParamId, SymbolId, TempId};
+use super::facts::{BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, SymbolId, TempId};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirProgram {
@@ -231,9 +231,39 @@ pub struct NirMemoryEffects {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirMemoryAccess {
     None,
-    Known { regions: usize },
+    Regions(Vec<NirMemoryRegion>),
     Unknown,
     All,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NirMemoryRegion {
+    pub kind: NirMemoryRegionKind,
+    pub offset: u16,
+    pub size: u16,
+}
+
+impl NirMemoryRegion {
+    pub fn overlaps(&self, other: &Self) -> bool {
+        self.kind == other.kind && ranges_overlap(self.offset, self.size, other.offset, other.size)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NirMemoryRegionKind {
+    Storage(NirStorageId),
+    Static(SymbolId),
+    AbsoluteRange,
+    ZeroPage,
+}
+
+fn ranges_overlap(left: u16, left_size: u16, right: u16, right_size: u16) -> bool {
+    if left_size == 0 || right_size == 0 {
+        return false;
+    }
+    let left = u32::from(left)..u32::from(left) + u32::from(left_size);
+    let right = u32::from(right)..u32::from(right) + u32::from(right_size);
+    left.start < right.end && right.start < left.end
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -478,4 +508,25 @@ pub enum NirTerminator {
     Return(Option<NirValue>),
     Exit,
     Unknown(String),
+}
+
+#[cfg(test)]
+mod memory_region_tests {
+    use super::*;
+
+    fn local_region(id: u32, offset: u16, size: u16) -> NirMemoryRegion {
+        NirMemoryRegion {
+            kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(id))),
+            offset,
+            size,
+        }
+    }
+
+    #[test]
+    fn overlap_requires_the_same_identity_and_intersecting_byte_ranges() {
+        assert!(local_region(0, 0, 2).overlaps(&local_region(0, 1, 1)));
+        assert!(!local_region(0, 0, 1).overlaps(&local_region(0, 1, 1)));
+        assert!(!local_region(0, 0, 2).overlaps(&local_region(1, 0, 2)));
+        assert!(!local_region(0, 1, 0).overlaps(&local_region(0, 0, 2)));
+    }
 }

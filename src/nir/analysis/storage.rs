@@ -5,8 +5,8 @@ use super::dataflow::{NirDataflowDirection, NirDataflowProblem, solve_dataflow};
 use crate::nir::facts::{NirStorageId, root_storage_id};
 use crate::nir::{
     BlockId, NirGlobal, NirGlobalBacking, NirLocalBacking, NirMachineAtom, NirMachineItem,
-    NirMemoryAccess, NirOp, NirPlace, NirProgram, NirRoutine, NirStorageClass, NirType,
-    NirTypeKind,
+    NirMemoryAccess, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirPlace, NirProgram, NirRoutine,
+    NirStorageClass, NirType, NirTypeKind,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -276,11 +276,11 @@ fn analyze_routine_storage(
                     }
                 }
                 NirOp::Call { effects, .. } => {
-                    let may_read = memory_accesses(&effects.memory.reads);
-                    let may_write = memory_accesses(&effects.memory.writes);
                     for facts in homes.values_mut() {
-                        facts.calls_may_read |= may_read;
-                        facts.calls_may_write |= may_write;
+                        facts.calls_may_read |=
+                            memory_accesses_storage(&effects.memory.reads, facts.id, facts.width);
+                        facts.calls_may_write |=
+                            memory_accesses_storage(&effects.memory.writes, facts.id, facts.width);
                     }
                 }
                 NirOp::MachineBlock { items, effects } => {
@@ -485,10 +485,24 @@ fn same_type(left: &NirType, right: &NirType) -> bool {
     left.kind == right.kind && left.width == right.width
 }
 
-fn memory_accesses(access: &NirMemoryAccess) -> bool {
+fn memory_accesses_storage(
+    access: &NirMemoryAccess,
+    storage: NirStorageId,
+    width: Option<u16>,
+) -> bool {
     match access {
         NirMemoryAccess::None => false,
-        NirMemoryAccess::Known { regions } => *regions != 0,
+        NirMemoryAccess::Regions(regions) => {
+            let Some(width) = width else {
+                return true;
+            };
+            let storage = NirMemoryRegion {
+                kind: NirMemoryRegionKind::Storage(storage),
+                offset: 0,
+                size: width,
+            };
+            regions.iter().any(|region| region.overlaps(&storage))
+        }
         NirMemoryAccess::Unknown | NirMemoryAccess::All => true,
     }
 }
@@ -956,5 +970,44 @@ mod tests {
                 .blockers
                 .contains(&NirPromotionBlocker::MachineVisibility)
         );
+    }
+
+    #[test]
+    fn structured_call_regions_mark_only_overlapping_storage() {
+        let routine = NirRoutine {
+            name: "Effects".to_string(),
+            params: Vec::new(),
+            locals: vec![local(0, "x"), local(1, "y")],
+            temps: Vec::new(),
+            notes: Vec::new(),
+            blocks: vec![block(
+                0,
+                "entry",
+                vec![NirOp::Call {
+                    callee: crate::nir::NirCallee::Builtin("TouchX".to_string()),
+                    args: Vec::new(),
+                    result: None,
+                    signature: None,
+                    effects: crate::nir::NirCallEffects {
+                        memory: NirMemoryEffects {
+                            reads: NirMemoryAccess::None,
+                            writes: NirMemoryAccess::Regions(vec![NirMemoryRegion {
+                                kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(0))),
+                                offset: 0,
+                                size: 1,
+                            }]),
+                        },
+                        may_call_os: false,
+                        opaque: false,
+                    },
+                }],
+                NirTerminator::Return(None),
+            )],
+        };
+
+        let analysis = analyze_program_storage(&program(routine));
+        let routine = analysis.routine("Effects").unwrap();
+        assert!(routine.storage_by_name("x").unwrap().calls_may_write);
+        assert!(!routine.storage_by_name("y").unwrap().calls_may_write);
     }
 }

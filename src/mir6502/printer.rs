@@ -784,7 +784,22 @@ fn effects_summary(effects: &super::ir::MirEffects) -> String {
 fn memory_effect_summary(effect: &MirMemoryEffect) -> String {
     match effect {
         MirMemoryEffect::None => "none".to_string(),
-        MirMemoryEffect::Regions(regions) => format!("regions{}", regions.len()),
+        MirMemoryEffect::Regions(regions) => regions
+            .iter()
+            .map(|region| {
+                let kind = match region.kind {
+                    super::ir::MirMemoryRegionKind::Local(id) => format!("local{}", id.0),
+                    super::ir::MirMemoryRegionKind::Param(id) => format!("param{}", id.0),
+                    super::ir::MirMemoryRegionKind::Global(id) => format!("global{}", id.0),
+                    super::ir::MirMemoryRegionKind::Static(id) => format!("static{}", id.0),
+                    super::ir::MirMemoryRegionKind::AbsoluteRange => "absolute".to_string(),
+                    super::ir::MirMemoryRegionKind::ZeroPage => "zeropage".to_string(),
+                    super::ir::MirMemoryRegionKind::Stack => "stack".to_string(),
+                };
+                format!("{kind}+{}:{}", region.offset, region.size)
+            })
+            .collect::<Vec<_>>()
+            .join("|"),
         MirMemoryEffect::Unknown => "unknown".to_string(),
         MirMemoryEffect::All => "all".to_string(),
     }

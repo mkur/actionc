@@ -164,8 +164,8 @@ mod tests {
     use crate::nir::{
         BlockId, LocalId, NirBlock, NirMachineAtom as NirAtom,
         NirMachineByteSelector as NirByteSelector, NirMachineEffects, NirMachineItem,
-        NirMemoryAccess, NirMemoryEffects, NirOp, NirProgram, NirRoutine, NirTerminator, ParamId,
-        SymbolId,
+        NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirProgram,
+        NirRoutine, NirStorageId, NirTerminator, ParamId, SymbolId,
     };
 
     #[test]
@@ -578,6 +578,86 @@ mod tests {
             mir.routines[0].blocks[0].terminator,
             MirTerminator::Return
         ));
+    }
+
+    #[test]
+    fn internal_calls_retain_exact_nir_memory_regions() {
+        let byte = crate::nir::NirType {
+            kind: crate::nir::NirTypeKind::U8,
+            summary: "Byte".to_string(),
+            width: Some(1),
+            pointer: false,
+        };
+        let empty_routine = |name: &str, block_id: u32| NirRoutine {
+            name: name.to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps: Vec::new(),
+            notes: Vec::new(),
+            blocks: vec![NirBlock {
+                id: BlockId(block_id),
+                label: format!("{name}.entry"),
+                ops: Vec::new(),
+                terminator: NirTerminator::Return(None),
+            }],
+        };
+        let mut main = empty_routine("Main", 0);
+        main.blocks[0].ops.push(NirOp::Call {
+            callee: crate::nir::NirCallee::User("Touch".to_string()),
+            args: Vec::new(),
+            result: None,
+            signature: Some(crate::nir::NirCallableSignature {
+                params: Vec::new(),
+                variadic: None,
+                result: None,
+                kind: "Proc".to_string(),
+                abi: "action".to_string(),
+            }),
+            effects: crate::nir::NirCallEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::None,
+                    writes: NirMemoryAccess::Regions(vec![NirMemoryRegion {
+                        kind: NirMemoryRegionKind::Storage(NirStorageId::Global(SymbolId(0))),
+                        offset: 0,
+                        size: 1,
+                    }]),
+                },
+                may_call_os: false,
+                opaque: false,
+            },
+        });
+        let nir = NirProgram {
+            globals: vec![crate::nir::NirGlobal {
+                id: SymbolId(0),
+                name: "g".to_string(),
+                kind: "Byte".to_string(),
+                ty: Some(byte),
+                storage_size: 1,
+                array: None,
+                init: None,
+                backing: crate::nir::NirGlobalBacking::Ordinary,
+            }],
+            statics: Vec::new(),
+            routines: vec![empty_routine("Touch", 0), main],
+        };
+
+        let mir = lower_program(&nir).expect("lower exact call effects");
+        let call = mir.routines[1].blocks[0]
+            .ops
+            .iter()
+            .find_map(|op| match op {
+                MirOp::Call { effects, .. } => Some(effects),
+                _ => None,
+            })
+            .expect("lowered call");
+        assert_eq!(
+            call.memory_writes,
+            MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                kind: MirMemoryRegionKind::Global(SymbolId(0)),
+                offset: 0,
+                size: 1,
+            }])
+        );
     }
 
     #[test]

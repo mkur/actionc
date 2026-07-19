@@ -4,7 +4,8 @@ use super::analysis::cfg::NirCfg;
 use super::analysis::dominance::NirDominance;
 use super::analysis::use_def::{NirDefSite, NirUseDef};
 use super::facts::{
-    NirType, NirTypeKind, NirValue, SymbolId, TempId, value_is_oversized_literal, value_width,
+    NirStorageId, NirType, NirTypeKind, NirValue, SymbolId, TempId, value_is_oversized_literal,
+    value_width,
 };
 use super::ir::*;
 
@@ -45,6 +46,8 @@ impl NirDiagnostic {
 struct NirVerifier {
     diagnostics: Vec<NirDiagnostic>,
     static_ids: BTreeSet<SymbolId>,
+    static_sizes: BTreeMap<SymbolId, u16>,
+    global_sizes: BTreeMap<SymbolId, u16>,
 }
 
 struct NirTempFacts<'a> {
@@ -58,6 +61,7 @@ impl NirVerifier {
         let mut globals = BTreeSet::new();
         let mut global_ids = BTreeSet::new();
         for global in &program.globals {
+            self.global_sizes.insert(global.id, global.storage_size);
             if !global_ids.insert(global.id) {
                 self.diagnostics.push(NirDiagnostic::program(format!(
                     "duplicate global id `{}`",
@@ -96,6 +100,10 @@ impl NirVerifier {
 
         let mut statics = BTreeSet::new();
         for static_data in &program.statics {
+            self.static_sizes.insert(
+                static_data.id,
+                u16::try_from(static_data.bytes.len()).unwrap_or(u16::MAX),
+            );
             if static_data.name.is_empty() {
                 self.diagnostics
                     .push(NirDiagnostic::program("static data name must not be empty"));
@@ -652,7 +660,7 @@ impl NirVerifier {
                 args,
                 result,
                 signature,
-                ..
+                effects,
             } => {
                 self.callee_type(routine, block, callee, op_index, temp_facts);
                 for arg in args {
@@ -679,6 +687,7 @@ impl NirVerifier {
                         "indirect call has no callable signature",
                     ));
                 }
+                self.call_effects(routine, block, effects);
             }
             NirOp::Define { .. } | NirOp::Declare { .. } | NirOp::Note { .. } => {
                 self.diagnostics.push(NirDiagnostic::block(
@@ -870,6 +879,11 @@ impl NirVerifier {
         }
     }
 
+    fn call_effects(&mut self, routine: &NirRoutine, block: &NirBlock, effects: &NirCallEffects) {
+        self.memory_access(routine, block, &effects.memory.reads, "call read effects");
+        self.memory_access(routine, block, &effects.memory.writes, "call write effects");
+    }
+
     fn memory_access(
         &mut self,
         routine: &NirRoutine,
@@ -877,13 +891,87 @@ impl NirVerifier {
         access: &NirMemoryAccess,
         label: &str,
     ) {
-        if let NirMemoryAccess::Known { regions } = access
-            && *regions == 0
-        {
+        let NirMemoryAccess::Regions(regions) = access else {
+            return;
+        };
+        if regions.is_empty() {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
-                format!("{label} cannot use a zero-region Known effect"),
+                format!("{label} cannot use an empty region collection"),
+            ));
+        }
+        for region in regions {
+            self.memory_region(routine, block, region, label);
+        }
+    }
+
+    fn memory_region(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        region: &NirMemoryRegion,
+        label: &str,
+    ) {
+        if region.size == 0 {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("{label} contains a zero-size region"),
+            ));
+            return;
+        }
+        let Some(end) = region.offset.checked_add(region.size.saturating_sub(1)) else {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("{label} region exceeds the 16-bit address space"),
+            ));
+            return;
+        };
+        let available = match region.kind {
+            NirMemoryRegionKind::Storage(NirStorageId::Local(id)) => routine
+                .locals
+                .iter()
+                .find(|local| local.id == id)
+                .map(|local| local.ty.width),
+            NirMemoryRegionKind::Storage(NirStorageId::Param(id)) => routine
+                .params
+                .iter()
+                .find(|param| param.id == id)
+                .map(|param| param.ty.width),
+            NirMemoryRegionKind::Storage(NirStorageId::Global(id)) => {
+                Some(self.global_sizes.get(&id).copied())
+            }
+            NirMemoryRegionKind::Static(id) => Some(self.static_sizes.get(&id).copied()),
+            NirMemoryRegionKind::AbsoluteRange => return,
+            NirMemoryRegionKind::ZeroPage => {
+                if end > u16::from(u8::MAX) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("{label} zero-page region extends past $00FF"),
+                    ));
+                }
+                return;
+            }
+        };
+        let Some(Some(available)) = available else {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("{label} references missing storage identity"),
+            ));
+            return;
+        };
+        if u32::from(region.offset) + u32::from(region.size) > u32::from(available) {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!(
+                    "{label} region {}+{} exceeds storage size {available}",
+                    region.offset, region.size
+                ),
             ));
         }
     }

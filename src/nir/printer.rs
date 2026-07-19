@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-use super::facts::{NirValue, TempId};
+use super::facts::{NirStorageId, NirValue, TempId};
 use super::ir::*;
 
 #[derive(Default)]
@@ -351,7 +351,7 @@ fn op_summary(op: &NirOp) -> String {
             args,
             result,
             signature: _,
-            effects: _,
+            effects,
         } => {
             let callee = callee_summary(callee);
             let args = args
@@ -359,7 +359,7 @@ fn op_summary(op: &NirOp) -> String {
                 .map(value_summary)
                 .collect::<Vec<_>>()
                 .join(", ");
-            result
+            let call = result
                 .as_ref()
                 .map(|result| {
                     format!(
@@ -368,7 +368,8 @@ fn op_summary(op: &NirOp) -> String {
                         result.ty.summary
                     )
                 })
-                .unwrap_or_else(|| format!("call {callee}({args})"))
+                .unwrap_or_else(|| format!("call {callee}({args})"));
+            format!("{call}{}", call_effects_suffix(effects))
         }
         NirOp::MachineBlock { items, effects } => {
             format!(
@@ -382,16 +383,62 @@ fn op_summary(op: &NirOp) -> String {
     }
 }
 
-fn machine_effects_summary(effects: &NirMachineEffects) -> &'static str {
+fn call_effects_suffix(effects: &NirCallEffects) -> String {
+    if !effects.opaque
+        && !effects.may_call_os
+        && matches!(effects.memory.reads, NirMemoryAccess::None)
+        && matches!(effects.memory.writes, NirMemoryAccess::None)
+    {
+        return String::new();
+    }
+    format!(
+        " effects=reads:{} writes:{}{}{}",
+        memory_access_summary(&effects.memory.reads),
+        memory_access_summary(&effects.memory.writes),
+        if effects.may_call_os { " os" } else { "" },
+        if effects.opaque { " opaque" } else { "" },
+    )
+}
+
+fn machine_effects_summary(effects: &NirMachineEffects) -> String {
     if effects.opaque || effects.may_call_os {
-        "opaque"
+        "opaque".to_string()
     } else if matches!(effects.memory.reads, NirMemoryAccess::None)
         && matches!(effects.memory.writes, NirMemoryAccess::None)
     {
-        "none"
+        "none".to_string()
     } else {
-        "known"
+        format!(
+            "reads:{} writes:{}",
+            memory_access_summary(&effects.memory.reads),
+            memory_access_summary(&effects.memory.writes)
+        )
     }
+}
+
+fn memory_access_summary(access: &NirMemoryAccess) -> String {
+    match access {
+        NirMemoryAccess::None => "none".to_string(),
+        NirMemoryAccess::Unknown => "unknown".to_string(),
+        NirMemoryAccess::All => "all".to_string(),
+        NirMemoryAccess::Regions(regions) => regions
+            .iter()
+            .map(memory_region_summary)
+            .collect::<Vec<_>>()
+            .join("|"),
+    }
+}
+
+fn memory_region_summary(region: &NirMemoryRegion) -> String {
+    let kind = match region.kind {
+        NirMemoryRegionKind::Storage(NirStorageId::Local(id)) => format!("local{}", id.0),
+        NirMemoryRegionKind::Storage(NirStorageId::Param(id)) => format!("param{}", id.0),
+        NirMemoryRegionKind::Storage(NirStorageId::Global(id)) => format!("global{}", id.0),
+        NirMemoryRegionKind::Static(id) => format!("static{}", id.0),
+        NirMemoryRegionKind::AbsoluteRange => "absolute".to_string(),
+        NirMemoryRegionKind::ZeroPage => "zeropage".to_string(),
+    };
+    format!("{kind}+{}:{}", region.offset, region.size)
 }
 
 fn callee_summary(callee: &NirCallee) -> String {

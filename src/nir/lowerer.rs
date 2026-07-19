@@ -10,15 +10,15 @@ use crate::semantic::{
     ir::{
         SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind, SemDeclaration,
         SemDeclarationStorage, SemEffects, SemExpr, SemExprKind, SemLValue, SemLValueKind,
-        SemLiteral, SemProgram, SemSet, SemStmt,
+        SemLiteral, SemProgram, SemReadEffect, SemSet, SemStmt, SemStorageRef, SemWriteEffect,
     },
 };
 use crate::source::source_char_byte;
 
 use super::classifier::NirClassifier;
 use super::facts::{
-    BlockId, LocalId, NirFacts, NirType, NirTypeKind, NirValue, ParamId, SymbolId, TempId,
-    type_summary,
+    BlockId, LocalId, NirFacts, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, SymbolId,
+    TempId, type_summary,
 };
 use super::ir::*;
 
@@ -744,7 +744,7 @@ impl NirBuilder {
                 if let Some(items) = self.machine_define_call_items(call) {
                     self.push(NirOp::MachineBlock {
                         items,
-                        effects: nir_machine_effects(&SemEffects::default()),
+                        effects: self.nir_machine_effects(&SemEffects::default()),
                     });
                     return;
                 }
@@ -759,7 +759,7 @@ impl NirBuilder {
                     args,
                     result,
                     signature: Some(nir_call_signature(call)),
-                    effects: nir_call_effects(&call.effects),
+                    effects: self.nir_call_effects(&call.effects),
                 });
             }
             SemStmt::MachineBlock { items, effects, .. } => {
@@ -768,7 +768,7 @@ impl NirBuilder {
                 }
                 self.push(NirOp::MachineBlock {
                     items: self.nir_machine_items(items),
-                    effects: nir_machine_effects(effects),
+                    effects: self.nir_machine_effects(effects),
                 });
             }
             SemStmt::If {
@@ -1224,7 +1224,7 @@ impl NirBuilder {
                         ty: ty.clone(),
                     }),
                     signature: Some(nir_call_signature(call)),
-                    effects: nir_call_effects(&call.effects),
+                    effects: self.nir_call_effects(&call.effects),
                 });
                 NirOperand {
                     kind: NirOperandKind::Temp(dest),
@@ -1549,6 +1549,156 @@ impl NirBuilder {
                 address: *address,
             },
         }
+    }
+
+    fn nir_call_effects(&self, effects: &SemEffects) -> NirCallEffects {
+        NirCallEffects {
+            memory: NirMemoryEffects {
+                reads: self.nir_read_effects(&effects.reads, effects.opaque),
+                writes: self.nir_write_effects(&effects.writes, effects.opaque),
+            },
+            may_call_os: effects.may_call_os,
+            opaque: effects.opaque,
+        }
+    }
+
+    fn nir_machine_effects(&self, effects: &SemEffects) -> NirMachineEffects {
+        NirMachineEffects {
+            memory: NirMemoryEffects {
+                reads: self.nir_read_effects(&effects.reads, effects.opaque),
+                writes: self.nir_write_effects(&effects.writes, effects.opaque),
+            },
+            may_call_os: effects.may_call_os,
+            opaque: true,
+        }
+    }
+
+    fn nir_read_effects(&self, effects: &[SemReadEffect], opaque: bool) -> NirMemoryAccess {
+        if opaque {
+            return NirMemoryAccess::Unknown;
+        }
+        collect_memory_regions(effects.iter().map(|effect| match effect {
+            SemReadEffect::Storage(storage) => self.nir_storage_region(storage),
+            SemReadEffect::ZeroPage { start, end } => Some(inclusive_region(
+                NirMemoryRegionKind::ZeroPage,
+                u16::from(*start),
+                u16::from(*end),
+            )),
+            SemReadEffect::Absolute { start, end } => Some(inclusive_region(
+                NirMemoryRegionKind::AbsoluteRange,
+                *start,
+                *end,
+            )),
+            SemReadEffect::Symbol(name) => self.nir_symbol_region(name),
+            SemReadEffect::Unknown => None,
+        }))
+    }
+
+    fn nir_write_effects(&self, effects: &[SemWriteEffect], opaque: bool) -> NirMemoryAccess {
+        if opaque {
+            return NirMemoryAccess::Unknown;
+        }
+        collect_memory_regions(effects.iter().map(|effect| match effect {
+            SemWriteEffect::Storage(storage) => self.nir_storage_region(storage),
+            SemWriteEffect::ZeroPage { start, end } => Some(inclusive_region(
+                NirMemoryRegionKind::ZeroPage,
+                u16::from(*start),
+                u16::from(*end),
+            )),
+            SemWriteEffect::Absolute { start, end } => Some(inclusive_region(
+                NirMemoryRegionKind::AbsoluteRange,
+                *start,
+                *end,
+            )),
+            SemWriteEffect::Symbol(name) => self.nir_symbol_region(name),
+            SemWriteEffect::Unknown => None,
+        }))
+    }
+
+    fn nir_storage_region(&self, storage: &SemStorageRef) -> Option<NirMemoryRegion> {
+        use crate::semantic::ir::SemAddressSpace;
+
+        let size = storage.width;
+        match storage.space {
+            SemAddressSpace::Absolute => Some(NirMemoryRegion {
+                kind: NirMemoryRegionKind::AbsoluteRange,
+                offset: storage.address?.checked_add(storage.offset)?,
+                size,
+            }),
+            SemAddressSpace::ZeroPage | SemAddressSpace::RuntimeZeroPage => Some(NirMemoryRegion {
+                kind: NirMemoryRegionKind::ZeroPage,
+                offset: storage.address?.checked_add(storage.offset)?,
+                size,
+            }),
+            SemAddressSpace::RoutineLocal => Some(NirMemoryRegion {
+                kind: NirMemoryRegionKind::Storage(NirStorageId::Local(
+                    self.local_id(storage.symbol.as_ref()?.name.as_str())?,
+                )),
+                offset: storage.offset,
+                size,
+            }),
+            SemAddressSpace::Parameter => Some(NirMemoryRegion {
+                kind: NirMemoryRegionKind::Storage(NirStorageId::Param(
+                    self.param_id(storage.symbol.as_ref()?.name.as_str())?,
+                )),
+                offset: storage.offset,
+                size,
+            }),
+            SemAddressSpace::Unknown => {
+                let symbol = storage.symbol.as_ref()?;
+                let mut region = self.nir_symbol_region(&symbol.name)?;
+                region.offset = region.offset.checked_add(storage.offset)?;
+                region.size = size;
+                Some(region)
+            }
+            SemAddressSpace::InlineStatic | SemAddressSpace::IndirectIndexedY => None,
+        }
+    }
+
+    fn nir_symbol_region(&self, name: &str) -> Option<NirMemoryRegion> {
+        let (id, size) = self
+            .params
+            .iter()
+            .find(|param| param.name.eq_ignore_ascii_case(name))
+            .map(|param| (NirStorageId::Param(param.id), param.ty.width))
+            .or_else(|| {
+                self.locals
+                    .iter()
+                    .find(|local| local.name.eq_ignore_ascii_case(name))
+                    .map(|local| (NirStorageId::Local(local.id), local.ty.width))
+            })
+            .or_else(|| {
+                self.global_ids
+                    .iter()
+                    .find(|(candidate, _)| candidate.eq_ignore_ascii_case(name))
+                    .map(|(candidate, id)| {
+                        (
+                            NirStorageId::Global(*id),
+                            self.symbol_storage_types
+                                .get(candidate)
+                                .and_then(|ty| ty.width),
+                        )
+                    })
+            })?;
+        Some(NirMemoryRegion {
+            kind: NirMemoryRegionKind::Storage(id),
+            offset: 0,
+            size: size?,
+        })
+    }
+
+    fn local_id(&self, name: &str) -> Option<LocalId> {
+        self.locals
+            .iter()
+            .find(|local| local.name.eq_ignore_ascii_case(name))
+            .map(|local| local.id)
+    }
+
+    fn param_id(&self, name: &str) -> Option<ParamId> {
+        self.params
+            .iter()
+            .find(|param| param.name.eq_ignore_ascii_case(name))
+            .map(|param| param.id)
     }
 
     fn terminate(&mut self, terminator: NirTerminator) {
@@ -2735,28 +2885,6 @@ fn callable_summary(callable: &SemCallable) -> String {
     }
 }
 
-fn nir_call_effects(effects: &SemEffects) -> NirCallEffects {
-    NirCallEffects {
-        memory: NirMemoryEffects {
-            reads: nir_memory_access(effects.reads.len(), effects.opaque),
-            writes: nir_memory_access(effects.writes.len(), effects.opaque),
-        },
-        may_call_os: effects.may_call_os,
-        opaque: effects.opaque,
-    }
-}
-
-fn nir_machine_effects(effects: &SemEffects) -> NirMachineEffects {
-    NirMachineEffects {
-        memory: NirMemoryEffects {
-            reads: nir_memory_access(effects.reads.len(), effects.opaque),
-            writes: nir_memory_access(effects.writes.len(), effects.opaque),
-        },
-        may_call_os: effects.may_call_os,
-        opaque: true,
-    }
-}
-
 fn nir_machine_item(item: &MachineItem) -> NirMachineItem {
     match item {
         MachineItem::Number(number) => number
@@ -2843,13 +2971,33 @@ fn nir_call_signature(call: &SemCall) -> NirCallableSignature {
     }
 }
 
-fn nir_memory_access(regions: usize, opaque: bool) -> NirMemoryAccess {
-    if opaque {
-        NirMemoryAccess::Unknown
-    } else if regions == 0 {
+fn collect_memory_regions(
+    regions: impl Iterator<Item = Option<NirMemoryRegion>>,
+) -> NirMemoryAccess {
+    let mut collected = Vec::new();
+    for region in regions {
+        let Some(region) = region else {
+            return NirMemoryAccess::Unknown;
+        };
+        if !collected.contains(&region) {
+            collected.push(region);
+        }
+    }
+    if collected.is_empty() {
         NirMemoryAccess::None
     } else {
-        NirMemoryAccess::Known { regions }
+        NirMemoryAccess::Regions(collected)
+    }
+}
+
+fn inclusive_region(kind: NirMemoryRegionKind, start: u16, end: u16) -> NirMemoryRegion {
+    NirMemoryRegion {
+        kind,
+        offset: start,
+        size: end
+            .checked_sub(start)
+            .and_then(|size| size.checked_add(1))
+            .unwrap_or(0),
     }
 }
 
@@ -2956,5 +3104,119 @@ fn literal_u16(operand: &NirOperand) -> Option<u16> {
             value: Some(value), ..
         } => Some(value),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod memory_effect_tests {
+    use super::*;
+    use crate::semantic::{ScopeId, SymbolId as SemSymbolId};
+
+    fn builder() -> NirBuilder {
+        let mut global_ids = BTreeMap::new();
+        global_ids.insert("g".to_string(), SymbolId(7));
+        let mut storage_types = BTreeMap::new();
+        storage_types.insert(
+            "g".to_string(),
+            NirType {
+                kind: NirTypeKind::U16,
+                summary: "Card".to_string(),
+                width: Some(2),
+                pointer: false,
+            },
+        );
+        let mut builder = NirBuilder::new(
+            "Main",
+            "bb0".to_string(),
+            0,
+            global_ids,
+            storage_types,
+            BTreeMap::new(),
+            BTreeMap::new(),
+            BTreeMap::new(),
+            BTreeMap::new(),
+            BTreeMap::new(),
+        );
+        builder.params.push(NirParam {
+            id: ParamId(2),
+            name: "p".to_string(),
+            storage: NirStorageClass::Scalar,
+            ty: NirType {
+                kind: NirTypeKind::U8,
+                summary: "Byte".to_string(),
+                width: Some(1),
+                pointer: false,
+            },
+        });
+        builder.locals.push(NirLocal {
+            id: LocalId(3),
+            name: "x".to_string(),
+            kind: "Byte".to_string(),
+            storage: NirStorageClass::Scalar,
+            ty: NirType {
+                kind: NirTypeKind::U8,
+                summary: "Byte".to_string(),
+                width: Some(1),
+                pointer: false,
+            },
+            backing: NirLocalBacking::Ordinary,
+            init: None,
+        });
+        builder
+    }
+
+    #[test]
+    fn semir_storage_effects_keep_exact_nir_storage_ids_and_ranges() {
+        let builder = builder();
+        let symbol = crate::semantic::ir::SemSymbolRef {
+            id: SemSymbolId(9),
+            name: "x".to_string(),
+            class: SymbolClass::Var,
+            ty: None,
+            scope: ScopeId(1),
+            span: crate::source::Span::new(0, 1),
+        };
+        let access = builder.nir_write_effects(
+            &[
+                SemWriteEffect::Storage(SemStorageRef {
+                    symbol: Some(symbol),
+                    space: crate::semantic::ir::SemAddressSpace::RoutineLocal,
+                    address: None,
+                    offset: 0,
+                    width: 1,
+                    signed: false,
+                    span: crate::source::Span::new(0, 1),
+                }),
+                SemWriteEffect::Absolute {
+                    start: 0xD000,
+                    end: 0xD003,
+                },
+            ],
+            false,
+        );
+
+        assert_eq!(
+            access,
+            NirMemoryAccess::Regions(vec![
+                NirMemoryRegion {
+                    kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(3))),
+                    offset: 0,
+                    size: 1,
+                },
+                NirMemoryRegion {
+                    kind: NirMemoryRegionKind::AbsoluteRange,
+                    offset: 0xD000,
+                    size: 4,
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn unresolved_semir_effect_regions_become_unknown() {
+        assert_eq!(
+            builder().nir_read_effects(&[SemReadEffect::Symbol("missing".to_string())], false),
+            NirMemoryAccess::Unknown
+        );
     }
 }

@@ -297,6 +297,28 @@ TN loop variables require a merge representation.
 
 ## Phase 3: Structured Memory-Effect Regions
 
+Status: implemented. `NirMemoryAccess::Regions` now carries exact
+`NirMemoryRegion` values with stable storage/static identity, byte offset, and
+size. SemIR storage, zero-page, and absolute effects are lowered without
+collapsing the collection to a count; unresolved identities become `Unknown`.
+
+Verification rejects empty collections, zero-size or overflowing ranges,
+missing storage/static identities, out-of-bounds storage ranges, and zero-page
+ranges extending past `$00FF`. NIR and MIR printers expose the identities and
+ranges when structured effects are present.
+
+Storage analysis and exact value propagation use byte-range overlap, so a
+structured write invalidates only intersecting homes. Unknown, opaque,
+indirect, recursive, and OS-call effects remain full barriers. MIR6502 retains
+the same regions, including parameter identities, while adding target register
+and flag effects independently.
+
+The source pipeline does not yet infer complete interprocedural summaries for
+all direct calls. Until it does, an unannotated direct call with `None` writes
+retains the Phase 2 rule that preserves private local/parameter facts but clears
+global facts. This keeps the new representation sound without blocking the
+later private-scalar promotion phases.
+
 ### NIR Effect Model
 
 Replace the current region-count shape:

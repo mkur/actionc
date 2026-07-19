@@ -2031,6 +2031,86 @@ fn optimizer_keeps_non_identity_subtraction_and_pointer_arithmetic() {
     )));
 }
 
+#[test]
+fn verifier_and_printer_expose_structured_memory_effect_regions() {
+    let program = memory_effect_program(NirMemoryRegion {
+        kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(0))),
+        offset: 0,
+        size: 1,
+    });
+
+    verify_program(&program).expect("valid exact local effect region");
+    assert!(format_program(&program).contains("writes:local0+0:1"));
+}
+
+#[test]
+fn verifier_rejects_missing_and_malformed_memory_effect_regions() {
+    let missing = verify_program(&memory_effect_program(NirMemoryRegion {
+        kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(9))),
+        offset: 0,
+        size: 1,
+    }))
+    .expect_err("missing effect-region storage must fail verification");
+    assert!(
+        missing
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("missing storage identity"))
+    );
+
+    let zero_size = verify_program(&memory_effect_program(NirMemoryRegion {
+        kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(0))),
+        offset: 0,
+        size: 0,
+    }))
+    .expect_err("zero-size effect region must fail verification");
+    assert!(
+        zero_size
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("zero-size region"))
+    );
+}
+
+fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
+    NirProgram {
+        globals: Vec::new(),
+        statics: Vec::new(),
+        routines: vec![NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: vec![NirLocal {
+                id: LocalId(0),
+                name: "x".to_string(),
+                kind: "Byte".to_string(),
+                storage: NirStorageClass::Scalar,
+                ty: byte_type(),
+                backing: NirLocalBacking::Ordinary,
+                init: None,
+            }],
+            temps: Vec::new(),
+            notes: Vec::new(),
+            blocks: vec![NirBlock {
+                id: BlockId(0),
+                label: "bb0".to_string(),
+                ops: vec![NirOp::Call {
+                    callee: NirCallee::Builtin("Touch".to_string()),
+                    args: Vec::new(),
+                    result: None,
+                    signature: None,
+                    effects: NirCallEffects {
+                        memory: NirMemoryEffects {
+                            reads: NirMemoryAccess::None,
+                            writes: NirMemoryAccess::Regions(vec![region]),
+                        },
+                        may_call_os: false,
+                        opaque: false,
+                    },
+                }],
+                terminator: NirTerminator::Return(None),
+            }],
+        }],
+    }
+}
+
 fn byte_place(name: &str) -> NirPlace {
     NirPlace {
         kind: NirPlaceKind::Local {

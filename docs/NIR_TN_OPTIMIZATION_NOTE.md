@@ -165,27 +165,28 @@ subtractions, and two XOR operations. These are mostly counters and pointer
 updates. They are evidence for scalar promotion, not a reason to add a
 target-specific increment operation to NIR.
 
-## Missing Memory-Effect Precision
+## Structured Memory-Effect Precision
 
-SemIR records read and write regions, but SemIR-to-NIR lowering currently maps
-them to:
+SemIR records read and write regions. Phase 3 now preserves them in NIR as:
 
 ```text
 None
-Known { regions: count }
+Regions([{ stable identity, offset, size }, ...])
 Unknown
 All
 ```
 
-The identities of known regions are discarded. An optimizer can learn that a
-call writes one region but cannot determine whether that region is the home it
-is tracking.
+The storage optimizer invalidates only tracked homes whose byte range overlaps
+a structured call write. Unresolved, unknown, opaque, indirect, OS, and
+recursive effects remain conservative full barriers. Unannotated direct calls
+continue to clear globals because complete interprocedural summaries are not
+yet inferred for the source pipeline.
 
 This matters for TN because it contains 342 calls. It is particularly visible
 in `Copy`, which has 58 local accesses and 37 calls. Treating every call as a
-full barrier is safe but restricts promotion to short fragments. Preserving
-stable storage or region identities would let a call kill only facts for
-locations it may write.
+full barrier would restrict promotion to short fragments. The exact-region
+representation now supplies the identity needed by later scalar promotion and
+synchronization work when structured summaries are available.
 
 Machine blocks should remain opaque full barriers unless their structured
 effects prove something narrower. Absolute memory and hardware-visible storage

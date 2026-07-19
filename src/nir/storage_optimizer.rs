@@ -27,8 +27,15 @@ fn propagate_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnaly
         .homes
         .values()
         .filter(|facts| facts.is_value_trackable())
-        .map(|facts| facts.id)
-        .collect::<BTreeSet<_>>();
+        .filter_map(|facts| {
+            facts
+                .direct_access_ty
+                .as_ref()
+                .and_then(|ty| ty.width)
+                .or(facts.width)
+                .map(|width| (facts.id, width))
+        })
+        .collect::<BTreeMap<_, _>>();
     if trackable.is_empty() {
         return;
     }
@@ -98,7 +105,7 @@ struct StorageValueProblem<'a> {
     blocks: BTreeMap<BlockId, &'a NirBlock>,
     dominance: &'a NirDominance,
     use_def: &'a NirUseDef,
-    trackable: &'a BTreeSet<NirStorageId>,
+    trackable: &'a BTreeMap<NirStorageId, u16>,
     routine_name: &'a str,
 }
 
@@ -108,7 +115,7 @@ impl<'a> StorageValueProblem<'a> {
         cfg: &NirCfg,
         dominance: &'a NirDominance,
         use_def: &'a NirUseDef,
-        trackable: &'a BTreeSet<NirStorageId>,
+        trackable: &'a BTreeMap<NirStorageId, u16>,
         routine_name: &'a str,
     ) -> Self {
         Self {
@@ -174,7 +181,7 @@ fn transfer_op(
     mut op: NirOp,
     block: BlockId,
     op_index: usize,
-    trackable: &BTreeSet<NirStorageId>,
+    trackable: &BTreeMap<NirStorageId, u16>,
     use_def: &NirUseDef,
     dominance: &NirDominance,
     routine_name: &str,
@@ -185,7 +192,7 @@ fn transfer_op(
         NirOp::Load {
             dest, ty, place, ..
         } => {
-            let direct = direct_storage_id(place).filter(|id| trackable.contains(id));
+            let direct = direct_storage_id(place).filter(|id| trackable.contains_key(id));
             if let Some(id) = direct
                 && let Some(value) = facts.storage.get(&id)
             {
@@ -212,7 +219,7 @@ fn transfer_op(
         NirOp::Store { place, src, ty } => {
             if let Some(id) = direct_storage_id(place) {
                 let value = resolve_value(src, &facts.replacements);
-                let value = if trackable.contains(&id) {
+                let value = if trackable.contains_key(&id) {
                     value_for_storage(value, ty)
                 } else {
                     None
@@ -239,7 +246,7 @@ fn transfer_op(
                 facts.replacements.remove(&result.dest);
             }
             retain_available_storage_values(facts, block, op_index, use_def);
-            apply_call_barrier(facts, callee, effects, routine_name);
+            apply_call_barrier(facts, callee, effects, trackable, routine_name);
         }
         NirOp::MachineBlock { .. }
         | NirOp::Unsupported { .. }
@@ -295,25 +302,40 @@ fn apply_call_barrier(
     facts: &mut StorageValueFacts,
     callee: &NirCallee,
     effects: &NirCallEffects,
+    trackable: &BTreeMap<NirStorageId, u16>,
     routine_name: &str,
 ) {
-    if effects.opaque
-        || effects.may_call_os
-        || !matches!(effects.memory.writes, NirMemoryAccess::None)
-        || matches!(callee, NirCallee::Indirect { .. })
-    {
+    if effects.opaque || effects.may_call_os || matches!(callee, NirCallee::Indirect { .. }) {
         facts.storage.clear();
         return;
     }
 
-    // Phase 3 will name exact call-effect regions. Until then every direct
-    // call may change globals, while ordinary caller-private homes survive a
-    // direct call unless it can recurse into the current routine.
-    facts
-        .storage
-        .retain(|id, _| !matches!(id, NirStorageId::Global(_)));
     if matches!(callee, NirCallee::User(name) if name.eq_ignore_ascii_case(routine_name)) {
         facts.storage.clear();
+        return;
+    }
+
+    match &effects.memory.writes {
+        NirMemoryAccess::None => {
+            // The current source pipeline has not yet annotated every direct
+            // call with a trustworthy summary. Keep the Phase 2 transitional
+            // rule for globals while allowing private caller storage to flow.
+            facts
+                .storage
+                .retain(|id, _| !matches!(id, NirStorageId::Global(_)));
+        }
+        NirMemoryAccess::Regions(regions) => facts.storage.retain(|id, _| {
+            let Some(size) = trackable.get(id) else {
+                return false;
+            };
+            let storage = NirMemoryRegion {
+                kind: NirMemoryRegionKind::Storage(*id),
+                offset: 0,
+                size: *size,
+            };
+            !regions.iter().any(|region| region.overlaps(&storage))
+        }),
+        NirMemoryAccess::Unknown | NirMemoryAccess::All => facts.storage.clear(),
     }
 }
 
@@ -922,6 +944,61 @@ mod tests {
         ));
 
         assert_eq!(loads(&routine), 1);
+    }
+
+    #[test]
+    fn structured_call_writes_kill_only_the_overlapping_storage_fact() {
+        let routine = optimized(program(
+            vec![local(0, "x"), local(1, "y"), local(2, "out")],
+            vec![block(
+                0,
+                "entry",
+                vec![
+                    store(0, "x", NirValue::ConstU8(3)),
+                    store(1, "y", NirValue::ConstU8(4)),
+                    NirOp::Call {
+                        callee: NirCallee::Builtin("WritesX".to_string()),
+                        args: Vec::new(),
+                        result: None,
+                        signature: None,
+                        effects: NirCallEffects {
+                            memory: NirMemoryEffects {
+                                reads: NirMemoryAccess::None,
+                                writes: NirMemoryAccess::Regions(vec![NirMemoryRegion {
+                                    kind: NirMemoryRegionKind::Storage(NirStorageId::Local(
+                                        LocalId(0),
+                                    )),
+                                    offset: 0,
+                                    size: 1,
+                                }]),
+                            },
+                            may_call_os: false,
+                            opaque: false,
+                        },
+                    },
+                    load(0, 0, "x"),
+                    load(1, 1, "y"),
+                    store(
+                        2,
+                        "out",
+                        NirValue::Temp {
+                            id: TempId(1),
+                            ty: byte_type(),
+                        },
+                    ),
+                ],
+                NirTerminator::Return(None),
+            )],
+        ));
+
+        assert_eq!(loads(&routine), 1);
+        assert!(matches!(
+            routine.blocks[0].ops.last(),
+            Some(NirOp::Store {
+                src: NirValue::ConstU8(4),
+                ..
+            })
+        ));
     }
 
     #[test]

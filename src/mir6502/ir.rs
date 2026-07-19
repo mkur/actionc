@@ -720,6 +720,7 @@ pub struct MirMemoryRegion {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MirMemoryRegionKind {
     Local(LocalId),
+    Param(ParamId),
     Global(SymbolId),
     Static(SymbolId),
     AbsoluteRange,
