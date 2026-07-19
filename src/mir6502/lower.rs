@@ -1736,7 +1736,7 @@ fn local_pointer_backed_array(local: &nir::NirLocal) -> bool {
     matches!(
         local.init.as_ref(),
         Some(nir::NirStorageInit::Descriptor { .. })
-    ) || (local.init.is_none() && local.kind.contains("length=? storage=Array"))
+    ) || (local.init.is_none() && local.storage == nir::NirStorageClass::Array)
         || local_pointer_init_symbol(local).is_some()
 }
 

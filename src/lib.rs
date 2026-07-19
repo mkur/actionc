@@ -24,9 +24,10 @@ pub mod tac {
         NirOperandKind as TacOperandKind, NirParam as TacParam, NirPlace as TacPlace,
         NirPlaceKind as TacPlaceKind, NirProgram as TacProgram, NirRoutine as TacRoutine,
         NirRoutineNote as TacRoutineNote, NirRoutineNoteKind as TacRoutineNoteKind,
-        NirStaticData as TacStaticData, NirTemp as TacTemp, NirTempDef as TacTempDef,
+        NirStaticData as TacStaticData, NirStorageClass as TacStorageClass,
+        NirStorageId as TacStorageId, NirTemp as TacTemp, NirTempDef as TacTempDef,
         NirTerminator as TacTerminator, NirType as TacType, NirTypeKind as TacTypeKind,
-        NirUnaryOp as TacUnaryOp, NirValue as TacValue, ParamId, SymbolId, TempId, format_program,
-        lower_program, optimize_program, verify_program,
+        NirUnaryOp as TacUnaryOp, NirValue as TacValue, ParamId, SymbolId, TempId,
+        direct_storage_id, format_program, lower_program, optimize_program, verify_program,
     };
 }

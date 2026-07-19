@@ -1,6 +1,6 @@
 use crate::semantic::{ScalarType, ValueType, ValueTypeBase, ValueTypeKind};
 
-use super::ir::{NirOperand, NirOperandKind};
+use super::ir::{NirOperand, NirOperandKind, NirPlace, NirPlaceKind};
 
 pub(super) struct NirFacts;
 
@@ -100,6 +100,39 @@ pub struct BlockId(pub u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SymbolId(pub u32);
+
+/// Stable identity for storage that can be named exactly by a direct NIR place.
+///
+/// Absolute addresses, dereferences, indexed places, and fields deliberately do
+/// not have a `NirStorageId`: they may alias other storage and need a richer
+/// region model before storage-value propagation can reason about them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NirStorageId {
+    Local(LocalId),
+    Param(ParamId),
+    Global(SymbolId),
+}
+
+pub fn direct_storage_id(place: &NirPlace) -> Option<NirStorageId> {
+    match place.kind {
+        NirPlaceKind::Local { id, .. } => Some(NirStorageId::Local(id)),
+        NirPlaceKind::Param { id, .. } => Some(NirStorageId::Param(id)),
+        NirPlaceKind::Global { id, .. } => Some(NirStorageId::Global(id)),
+        NirPlaceKind::Symbol(_)
+        | NirPlaceKind::Absolute(_)
+        | NirPlaceKind::UnresolvedName(_)
+        | NirPlaceKind::Deref { .. }
+        | NirPlaceKind::Index { .. }
+        | NirPlaceKind::Field { .. } => None,
+    }
+}
+
+pub(super) fn root_storage_id(place: &NirPlace) -> Option<NirStorageId> {
+    match &place.kind {
+        NirPlaceKind::Field { base, .. } => root_storage_id(base),
+        _ => direct_storage_id(place),
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirValue {

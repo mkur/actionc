@@ -256,9 +256,22 @@ pub struct NirLocal {
     pub id: LocalId,
     pub name: String,
     pub kind: String,
+    pub storage: NirStorageClass,
     pub ty: NirType,
     pub backing: NirLocalBacking,
     pub init: Option<NirStorageInit>,
+}
+
+/// Source-independent storage shape retained for NIR consumers.
+///
+/// `kind` remains printable/debug metadata; analyses must use this structured
+/// classification instead of parsing that text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NirStorageClass {
+    Scalar,
+    Array,
+    Record,
+    Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -281,6 +294,7 @@ pub enum NirLocalBacking {
 pub struct NirParam {
     pub id: ParamId,
     pub name: String,
+    pub storage: NirStorageClass,
     pub ty: NirType,
 }
 

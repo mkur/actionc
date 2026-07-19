@@ -13,16 +13,27 @@ mod tests;
 
 use crate::semantic::ir::SemProgram;
 
-pub use facts::{BlockId, LocalId, NirType, NirTypeKind, NirValue, ParamId, SymbolId, TempId};
+pub use analysis::storage::{
+    NirProgramStorageAnalysis, NirPromotionBlocker, NirRoutineStorageAnalysis,
+    NirStorageBackingClass, NirStorageFacts, analyze_program_storage,
+};
+pub use facts::{
+    BlockId, LocalId, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, SymbolId, TempId,
+    direct_storage_id,
+};
 pub use ir::{
     NirBinaryOp, NirBlock, NirCallEffects, NirCallResult, NirCallableSignature, NirCallee,
     NirCompareOp, NirDataBacking, NirGlobal, NirGlobalBacking, NirGlobalInit, NirLocal,
     NirLocalBacking, NirMachineAtom, NirMachineByteSelector, NirMachineEffects, NirMachineItem,
     NirMemoryAccess, NirMemoryEffects, NirOp, NirOperand, NirOperandKind, NirParam, NirPlace,
     NirPlaceKind, NirProgram, NirRoutine, NirRoutineNote, NirRoutineNoteKind, NirStaticData,
-    NirStorageBacking, NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirUnaryOp,
+    NirStorageBacking, NirStorageClass, NirStorageInit, NirTemp, NirTempDef, NirTerminator,
+    NirUnaryOp,
 };
-pub use stats::{NirPlaceStats, NirProgramStats, collect_program_stats, format_stats_comparison};
+pub use stats::{
+    NirPlaceStats, NirProgramStats, NirStorageKindStats, NirStorageStats, collect_program_stats,
+    format_stats_comparison,
+};
 pub use verifier::NirDiagnostic;
 
 pub fn lower_program(program: &SemProgram) -> NirProgram {

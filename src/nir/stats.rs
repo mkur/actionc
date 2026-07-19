@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use super::analysis::use_def::NirUseDef;
-use super::{NirOp, NirPlace, NirPlaceKind, NirProgram};
+use super::{
+    NirOp, NirPlace, NirPlaceKind, NirProgram, NirPromotionBlocker, NirStorageId,
+    analyze_program_storage,
+};
 
 const OP_KINDS: [&str; 16] = [
     "define",
@@ -47,12 +50,29 @@ pub struct NirProgramStats {
     pub operation_kinds: BTreeMap<&'static str, usize>,
     pub loads: NirPlaceStats,
     pub stores: NirPlaceStats,
+    pub storage: NirStorageStats,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct NirPlaceStats {
     pub total: usize,
     pub kinds: BTreeMap<&'static str, usize>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct NirStorageStats {
+    pub homes: usize,
+    pub promotable: usize,
+    pub locals: NirStorageKindStats,
+    pub params: NirStorageKindStats,
+    pub globals: NirStorageKindStats,
+    pub blocker_counts: BTreeMap<&'static str, usize>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct NirStorageKindStats {
+    pub homes: usize,
+    pub promotable: usize,
 }
 
 pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
@@ -116,6 +136,32 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
     // changing the census format.
     stats.block_parameters = 0;
     stats.edge_arguments = 0;
+    stats.storage.blocker_counts = NirPromotionBlocker::ALL
+        .iter()
+        .map(|blocker| (blocker.code(), 0))
+        .collect();
+    for routine in analyze_program_storage(program).routines {
+        for facts in routine.homes.values() {
+            stats.storage.homes += 1;
+            let kind = match facts.id {
+                NirStorageId::Local(_) => &mut stats.storage.locals,
+                NirStorageId::Param(_) => &mut stats.storage.params,
+                NirStorageId::Global(_) => &mut stats.storage.globals,
+            };
+            kind.homes += 1;
+            if facts.is_promotable() {
+                stats.storage.promotable += 1;
+                kind.promotable += 1;
+            }
+            for blocker in &facts.blockers {
+                *stats
+                    .storage
+                    .blocker_counts
+                    .entry(blocker.code())
+                    .or_default() += 1;
+            }
+        }
+    }
     stats
 }
 
@@ -187,6 +233,34 @@ fn write_stage(output: &mut String, name: &str, stats: &NirProgramStats) {
     }
     write_place_stats(output, "load", &stats.loads);
     write_place_stats(output, "store", &stats.stores);
+    writeln!(output, "storage.homes={}", stats.storage.homes)
+        .expect("write NIR storage-home count");
+    writeln!(output, "storage.promotable={}", stats.storage.promotable)
+        .expect("write NIR promotable-storage count");
+    write_storage_kind_stats(output, "local", &stats.storage.locals);
+    write_storage_kind_stats(output, "param", &stats.storage.params);
+    write_storage_kind_stats(output, "global", &stats.storage.globals);
+    for blocker in NirPromotionBlocker::ALL {
+        writeln!(
+            output,
+            "storage.blocker.{}={}",
+            blocker.code(),
+            stats
+                .storage
+                .blocker_counts
+                .get(blocker.code())
+                .copied()
+                .unwrap_or(0)
+        )
+        .expect("write NIR storage-blocker count");
+    }
+}
+
+fn write_storage_kind_stats(output: &mut String, name: &str, stats: &NirStorageKindStats) {
+    writeln!(output, "storage.{name}.homes={}", stats.homes)
+        .expect("write NIR storage-kind home count");
+    writeln!(output, "storage.{name}.promotable={}", stats.promotable)
+        .expect("write NIR storage-kind promotable count");
 }
 
 fn write_place_stats(output: &mut String, prefix: &str, stats: &NirPlaceStats) {
@@ -275,6 +349,7 @@ mod tests {
             id: crate::nir::LocalId(0),
             name: "value".to_string(),
             kind: "scalar".to_string(),
+            storage: crate::nir::NirStorageClass::Scalar,
             ty: ty.clone(),
             backing: NirLocalBacking::Ordinary,
             init: None,
@@ -338,5 +413,9 @@ mod tests {
         assert_eq!(stats.loads.kinds["local"], 1);
         assert_eq!(stats.stores.total, 1);
         assert_eq!(stats.stores.kinds["local"], 1);
+        assert_eq!(stats.storage.homes, 1);
+        assert_eq!(stats.storage.promotable, 0);
+        assert_eq!(stats.storage.locals.homes, 1);
+        assert_eq!(stats.storage.blocker_counts["read_before_definition"], 1);
     }
 }

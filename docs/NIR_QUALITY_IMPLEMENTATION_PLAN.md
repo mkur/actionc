@@ -130,6 +130,20 @@ cli: expose optimized NIR output
 
 ## Phase 1: Direct Storage Identity And Promotability
 
+Status: implemented. NIR now retains structured scalar/array/record/type
+storage shape for locals and parameters, and analyses use stable
+`NirStorageId` identities rather than parsing printable declaration text. The
+read-only routine analysis reports backing, access blocks, address escape,
+definite-assignment, exit persistence, call effects, machine visibility, and a
+deterministic set of promotion blockers. It does not rewrite NIR or affect code
+generation.
+
+`--emit-nir-stats` includes aggregate home, promotable-home, home-kind, and
+blocker counts for both lowered and optimized NIR. On the Phase 1 TN baseline,
+the lowered analysis reports 384 referenced/declared homes and 77 narrow
+promotion candidates (34 locals and 43 parameters). The regression coverage
+checks `Sort::gap` and the ordinary `Copy` scalars explicitly.
+
 ### Storage Identity
 
 Introduce a target-independent identity used by NIR analyses:

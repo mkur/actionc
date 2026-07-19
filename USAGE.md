@@ -104,8 +104,9 @@ hex-text behavior.
 - `--emit-nir` writes verified NIR before optimization. The old `--emit-tac`
   alias has been removed.
 - `--emit-optimized-nir` writes the optimized NIR passed to MIR6502.
-- `--emit-nir-stats` writes deterministic lowered/optimized NIR censuses and
-  the aggregate optimizer delta.
+- `--emit-nir-stats` writes deterministic lowered/optimized NIR censuses,
+  scalar-home promotability and blocker counts, and the aggregate optimizer
+  delta.
 - `--emit-mir6502` writes MIR6502 before materialization.
 - `--emit-materialized-mir6502` writes MIR6502 after materialization.
   `--emit-mir6502-materialized` is accepted as an alias.

@@ -186,6 +186,14 @@ impl NirLowerer {
                             builder.params.push(NirParam {
                                 id: ParamId(index as u32),
                                 name: param.symbol.name.clone(),
+                                storage: match param.storage {
+                                    crate::semantic::ir::SemParamStorage::Value => {
+                                        NirStorageClass::Scalar
+                                    }
+                                    crate::semantic::ir::SemParamStorage::Array => {
+                                        NirStorageClass::Array
+                                    }
+                                },
                                 ty,
                             });
                         }
@@ -219,6 +227,7 @@ impl NirLowerer {
                                 id: LocalId(index as u32),
                                 name: local.symbol.name.clone(),
                                 kind: declaration_kind(local),
+                                storage: declaration_storage_class(&local.storage),
                                 ty: NirFacts::type_from_value(&local.ty.value),
                                 init: declaration_local_init(
                                     local,
@@ -1872,6 +1881,15 @@ fn declaration_kind(declaration: &SemDeclaration) -> String {
         kind.push_str(&format!(" pointer_init={symbol}"));
     }
     kind
+}
+
+fn declaration_storage_class(storage: &SemDeclarationStorage) -> NirStorageClass {
+    match storage {
+        SemDeclarationStorage::Scalar => NirStorageClass::Scalar,
+        SemDeclarationStorage::Array { .. } => NirStorageClass::Array,
+        SemDeclarationStorage::Record { .. } => NirStorageClass::Record,
+        SemDeclarationStorage::Type { .. } => NirStorageClass::Type,
+    }
 }
 
 fn routine_symbol_initializer(declaration: &SemDeclaration) -> Option<&str> {
