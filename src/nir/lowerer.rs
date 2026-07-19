@@ -576,6 +576,7 @@ pub(super) struct NirBuilder {
     machine_define_names: BTreeMap<String, Vec<MachineItem>>,
     notes: Vec<NirRoutineNote>,
     blocks: Vec<NirBlock>,
+    block_ids: BTreeMap<String, BlockId>,
     current: usize,
     loop_exits: Vec<String>,
     next_block: u32,
@@ -597,6 +598,8 @@ impl NirBuilder {
         machine_defines: BTreeMap<usize, Vec<MachineItem>>,
         machine_define_names: BTreeMap<String, Vec<MachineItem>>,
     ) -> Self {
+        let entry_id = BlockId(0);
+        let block_ids = BTreeMap::from([(entry_label.clone(), entry_id)]);
         Self {
             name: name.to_string(),
             params: Vec::new(),
@@ -610,11 +613,13 @@ impl NirBuilder {
             machine_define_names,
             notes: Vec::new(),
             blocks: vec![NirBlock {
-                id: BlockId(0),
+                id: entry_id,
                 label: entry_label,
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: NirTerminator::Open,
             }],
+            block_ids,
             current: 0,
             loop_exits: Vec::new(),
             next_block: 1,
@@ -718,8 +723,8 @@ impl NirBuilder {
                 self.terminate(NirTerminator::Return(value));
             }
             SemStmt::Exit { .. } => {
-                if let Some(label) = self.loop_exits.last() {
-                    self.terminate(NirTerminator::Goto(label.clone()));
+                if let Some(label) = self.loop_exits.last().cloned() {
+                    self.terminate_goto(&label);
                 } else {
                     self.terminate(NirTerminator::Exit);
                 }
@@ -785,19 +790,15 @@ impl NirBuilder {
                         lowering.next_block_label()
                     };
                     let condition = self.condition(&branch.condition);
-                    self.terminate(NirTerminator::Branch {
-                        condition,
-                        then_label: body_label.clone(),
-                        else_label: next_label.clone(),
-                    });
+                    self.terminate_branch(condition, &body_label, &next_label);
                     self.start_block(body_label);
                     self.stmt_list(&branch.body, lowering);
-                    self.finish_open_with(NirTerminator::Goto(after_label.clone()));
+                    self.finish_open_goto(&after_label);
                     self.start_block(next_label);
                 }
                 if !else_body.is_empty() {
                     self.stmt_list(else_body, lowering);
-                    self.finish_open_with(NirTerminator::Goto(after_label.clone()));
+                    self.finish_open_goto(&after_label);
                 }
                 if self.current_label() != after_label {
                     self.start_block(after_label);
@@ -809,18 +810,14 @@ impl NirBuilder {
                 let test_label = lowering.next_block_label();
                 let body_label = lowering.next_block_label();
                 let after_label = lowering.next_block_label();
-                self.finish_open_with(NirTerminator::Goto(test_label.clone()));
+                self.finish_open_goto(&test_label);
                 self.start_block(test_label.clone());
                 let condition = self.condition(condition);
-                self.terminate(NirTerminator::Branch {
-                    condition,
-                    then_label: body_label.clone(),
-                    else_label: after_label.clone(),
-                });
+                self.terminate_branch(condition, &body_label, &after_label);
                 self.loop_exits.push(after_label.clone());
                 self.start_block(body_label);
                 self.stmt_list(body, lowering);
-                self.finish_open_with(NirTerminator::Goto(test_label));
+                self.finish_open_goto(&test_label);
                 self.loop_exits.pop();
                 self.start_block(after_label);
             }
@@ -829,19 +826,15 @@ impl NirBuilder {
             } => {
                 let body_label = lowering.next_block_label();
                 let after_label = lowering.next_block_label();
-                self.finish_open_with(NirTerminator::Goto(body_label.clone()));
+                self.finish_open_goto(&body_label);
                 self.loop_exits.push(after_label.clone());
                 self.start_block(body_label.clone());
                 self.stmt_list(body, lowering);
                 if let Some(condition) = condition {
                     let condition = self.condition(condition);
-                    self.finish_open_with(NirTerminator::Branch {
-                        condition,
-                        then_label: after_label.clone(),
-                        else_label: body_label,
-                    });
+                    self.finish_open_branch(condition, &after_label, &body_label);
                 } else {
-                    self.finish_open_with(NirTerminator::Goto(body_label));
+                    self.finish_open_goto(&body_label);
                 }
                 self.loop_exits.pop();
                 self.start_block(after_label);
@@ -861,14 +854,10 @@ impl NirBuilder {
                 let after_label = lowering.next_block_label();
                 let start = self.value(start);
                 self.assign_or_store(target.clone(), target_ty.clone(), start);
-                self.finish_open_with(NirTerminator::Goto(test_label.clone()));
+                self.finish_open_goto(&test_label);
                 self.start_block(test_label.clone());
                 let condition = self.for_limit_condition(&target, end);
-                self.terminate(NirTerminator::Branch {
-                    condition,
-                    then_label: body_label.clone(),
-                    else_label: after_label.clone(),
-                });
+                self.terminate_branch(condition, &body_label, &after_label);
                 self.loop_exits.push(after_label.clone());
                 self.start_block(body_label);
                 self.stmt_list(body, lowering);
@@ -888,7 +877,7 @@ impl NirBuilder {
                         }),
                     });
                 self.compound_or_legacy(target, target_ty, BinaryOp::Add, value);
-                self.finish_open_with(NirTerminator::Goto(test_label));
+                self.finish_open_goto(&test_label);
                 self.loop_exits.pop();
                 self.start_block(after_label);
             }
@@ -1709,10 +1698,40 @@ impl NirBuilder {
         self.blocks[self.current].terminator = terminator;
     }
 
+    fn terminate_goto(&mut self, label: &str) {
+        let edge = self.edge(label);
+        self.terminate(NirTerminator::Goto(edge));
+    }
+
+    fn terminate_branch(&mut self, condition: NirValue, then_label: &str, else_label: &str) {
+        let then_edge = self.edge(then_label);
+        let else_edge = self.edge(else_label);
+        self.terminate(NirTerminator::Branch {
+            condition,
+            then_edge,
+            else_edge,
+        });
+    }
+
     fn finish_open_with(&mut self, terminator: NirTerminator) {
         if self.current_is_open() {
             self.blocks[self.current].terminator = terminator;
         }
+    }
+
+    fn finish_open_goto(&mut self, label: &str) {
+        let edge = self.edge(label);
+        self.finish_open_with(NirTerminator::Goto(edge));
+    }
+
+    fn finish_open_branch(&mut self, condition: NirValue, then_label: &str, else_label: &str) {
+        let then_edge = self.edge(then_label);
+        let else_edge = self.edge(else_label);
+        self.finish_open_with(NirTerminator::Branch {
+            condition,
+            then_edge,
+            else_edge,
+        });
     }
 
     fn current_is_open(&self) -> bool {
@@ -1724,15 +1743,32 @@ impl NirBuilder {
     }
 
     fn start_block(&mut self, label: String) {
-        let id = BlockId(self.next_block);
-        self.next_block += 1;
+        let id = self.block_id_for_label(&label);
         self.blocks.push(NirBlock {
             id,
             label,
+            params: Vec::new(),
             ops: Vec::new(),
             terminator: NirTerminator::Open,
         });
         self.current = self.blocks.len() - 1;
+    }
+
+    fn block_id_for_label(&mut self, label: &str) -> BlockId {
+        if let Some(id) = self.block_ids.get(label) {
+            return *id;
+        }
+        let id = BlockId(self.next_block);
+        self.next_block += 1;
+        self.block_ids.insert(label.to_string(), id);
+        id
+    }
+
+    fn edge(&mut self, label: &str) -> NirEdge {
+        NirEdge {
+            target: self.block_id_for_label(label),
+            args: Vec::new(),
+        }
     }
 }
 
@@ -1956,6 +1992,14 @@ fn parse_machine_define_value(value: &str) -> Option<Vec<MachineItem>> {
 fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
     let mut temps = Vec::new();
     for block in blocks {
+        temps.extend(block.params.iter().map(|param| NirTemp {
+            id: param.dest,
+            ty: param.ty.clone(),
+            def: NirTempDef {
+                block: block.id,
+                op_index: None,
+            },
+        }));
         for (op_index, op) in block.ops.iter().enumerate() {
             if let Some((id, ty)) = op_temp_def(op) {
                 temps.push(NirTemp {
@@ -1963,7 +2007,7 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
                     ty: ty.clone(),
                     def: NirTempDef {
                         block: block.id,
-                        op_index,
+                        op_index: Some(op_index),
                     },
                 });
             }

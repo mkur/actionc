@@ -240,8 +240,16 @@ mod tests {
         NirBlock {
             id: BlockId(id),
             label: label.to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator,
+        }
+    }
+
+    fn edge(target: u32) -> crate::nir::NirEdge {
+        crate::nir::NirEdge {
+            target: BlockId(target),
+            args: Vec::new(),
         }
     }
 
@@ -259,12 +267,12 @@ mod tests {
                     "entry",
                     NirTerminator::Branch {
                         condition: NirValue::ConstU8(1),
-                        then_label: "left".to_string(),
-                        else_label: "right".to_string(),
+                        then_edge: edge(1),
+                        else_edge: edge(2),
                     },
                 ),
-                block(1, "left", NirTerminator::Goto("join".to_string())),
-                block(2, "right", NirTerminator::Goto("join".to_string())),
+                block(1, "left", NirTerminator::Goto(edge(3))),
+                block(2, "right", NirTerminator::Goto(edge(3))),
                 block(3, "join", NirTerminator::Return(None)),
             ],
         };
@@ -301,12 +309,12 @@ mod tests {
                     "entry",
                     NirTerminator::Branch {
                         condition: NirValue::ConstU8(1),
-                        then_label: "left".to_string(),
-                        else_label: "right".to_string(),
+                        then_edge: edge(1),
+                        else_edge: edge(2),
                     },
                 ),
-                block(1, "left", NirTerminator::Goto("join".to_string())),
-                block(2, "right", NirTerminator::Goto("join".to_string())),
+                block(1, "left", NirTerminator::Goto(edge(3))),
+                block(2, "right", NirTerminator::Goto(edge(3))),
                 block(3, "join", NirTerminator::Return(None)),
             ],
         };
@@ -337,17 +345,17 @@ mod tests {
             temps: Vec::new(),
             notes: Vec::new(),
             blocks: vec![
-                block(0, "entry", NirTerminator::Goto("loop".to_string())),
+                block(0, "entry", NirTerminator::Goto(edge(1))),
                 block(
                     1,
                     "loop",
                     NirTerminator::Branch {
                         condition: NirValue::ConstU8(1),
-                        then_label: "body".to_string(),
-                        else_label: "exit".to_string(),
+                        then_edge: edge(2),
+                        else_edge: edge(3),
                     },
                 ),
-                block(2, "body", NirTerminator::Goto("loop".to_string())),
+                block(2, "body", NirTerminator::Goto(edge(1))),
                 block(3, "exit", NirTerminator::Return(None)),
             ],
         };

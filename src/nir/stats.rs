@@ -3,7 +3,7 @@ use std::fmt::Write;
 
 use super::analysis::use_def::NirUseDef;
 use super::{
-    NirOp, NirPlace, NirPlaceKind, NirProgram, NirPromotionBlocker, NirStorageId,
+    NirOp, NirPlace, NirPlaceKind, NirProgram, NirPromotionBlocker, NirStorageId, NirTerminator,
     analyze_program_storage,
 };
 
@@ -106,6 +106,20 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
         }
 
         for block in &routine.blocks {
+            stats.block_parameters += block.params.len();
+            stats.edge_arguments += match &block.terminator {
+                NirTerminator::Goto(edge) => edge.args.len(),
+                NirTerminator::Branch {
+                    then_edge,
+                    else_edge,
+                    ..
+                } => then_edge.args.len() + else_edge.args.len(),
+                NirTerminator::Open
+                | NirTerminator::Fallthrough
+                | NirTerminator::Return(_)
+                | NirTerminator::Exit
+                | NirTerminator::Unknown(_) => 0,
+            };
             stats.operations += block.ops.len();
             for op in &block.ops {
                 increment(&mut stats.operation_kinds, op_kind(op));
@@ -131,11 +145,6 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
         }
     }
 
-    // The current NIR contract has no block-parameter or edge-argument fields.
-    // Keep the counters visible now so Phase 4 can populate them without
-    // changing the census format.
-    stats.block_parameters = 0;
-    stats.edge_arguments = 0;
     stats.storage.blocker_counts = NirPromotionBlocker::ALL
         .iter()
         .map(|blocker| (blocker.code(), 0))
@@ -329,8 +338,8 @@ fn place_kind(place: &NirPlace) -> &'static str {
 mod tests {
     use super::*;
     use crate::nir::{
-        BlockId, NirBlock, NirLocal, NirLocalBacking, NirRoutine, NirTerminator, NirType,
-        NirTypeKind, NirValue, TempId,
+        BlockId, NirBlock, NirBlockParam, NirEdge, NirLocal, NirLocalBacking, NirRoutine,
+        NirTerminator, NirType, NirTypeKind, NirValue, TempId,
     };
 
     fn byte_type() -> NirType {
@@ -374,7 +383,7 @@ mod tests {
                     ty: ty.clone(),
                     def: crate::nir::NirTempDef {
                         block: BlockId(0),
-                        op_index: 0,
+                        op_index: Some(0),
                     },
                 }],
                 notes: Vec::new(),
@@ -382,16 +391,21 @@ mod tests {
                     NirBlock {
                         id: BlockId(0),
                         label: "entry".to_string(),
+                        params: Vec::new(),
                         ops: vec![NirOp::Load {
                             dest: temp,
                             ty: ty.clone(),
                             place: place.clone(),
                         }],
-                        terminator: NirTerminator::Goto("use".to_string()),
+                        terminator: NirTerminator::Goto(crate::nir::NirEdge {
+                            target: BlockId(1),
+                            args: Vec::new(),
+                        }),
                     },
                     NirBlock {
                         id: BlockId(1),
                         label: "use".to_string(),
+                        params: Vec::new(),
                         ops: vec![NirOp::Store {
                             place,
                             src: NirValue::Temp { id: temp, ty },
@@ -417,5 +431,55 @@ mod tests {
         assert_eq!(stats.storage.promotable, 0);
         assert_eq!(stats.storage.locals.homes, 1);
         assert_eq!(stats.storage.blocker_counts["read_before_definition"], 1);
+    }
+
+    #[test]
+    fn census_counts_block_parameters_and_edge_arguments() {
+        let ty = byte_type();
+        let program = NirProgram {
+            globals: Vec::new(),
+            statics: Vec::new(),
+            routines: vec![NirRoutine {
+                name: "Main".to_string(),
+                params: Vec::new(),
+                locals: Vec::new(),
+                temps: vec![crate::nir::NirTemp {
+                    id: TempId(0),
+                    ty: ty.clone(),
+                    def: crate::nir::NirTempDef {
+                        block: BlockId(1),
+                        op_index: None,
+                    },
+                }],
+                notes: Vec::new(),
+                blocks: vec![
+                    NirBlock {
+                        id: BlockId(0),
+                        label: "entry".to_string(),
+                        params: Vec::new(),
+                        ops: Vec::new(),
+                        terminator: NirTerminator::Goto(NirEdge {
+                            target: BlockId(1),
+                            args: vec![NirValue::ConstU8(7)],
+                        }),
+                    },
+                    NirBlock {
+                        id: BlockId(1),
+                        label: "join".to_string(),
+                        params: vec![NirBlockParam {
+                            dest: TempId(0),
+                            ty,
+                        }],
+                        ops: Vec::new(),
+                        terminator: NirTerminator::Return(None),
+                    },
+                ],
+            }],
+        };
+
+        let stats = collect_program_stats(&program);
+        assert_eq!(stats.block_parameters, 1);
+        assert_eq!(stats.edge_arguments, 1);
+        assert_eq!(stats.temp_definitions, 1);
     }
 }

@@ -562,6 +562,7 @@ mod tests {
                 blocks: vec![NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 }],
@@ -581,6 +582,63 @@ mod tests {
     }
 
     #[test]
+    fn rejects_nir_block_arguments_until_target_level_merge_lowering_exists() {
+        let ty = crate::nir::NirType {
+            kind: crate::nir::NirTypeKind::U8,
+            summary: "Byte".to_string(),
+            width: Some(1),
+            pointer: false,
+        };
+        let nir = NirProgram {
+            globals: Vec::new(),
+            statics: Vec::new(),
+            routines: vec![NirRoutine {
+                name: "Main".to_string(),
+                params: Vec::new(),
+                locals: Vec::new(),
+                temps: vec![crate::nir::NirTemp {
+                    id: crate::nir::TempId(0),
+                    ty: ty.clone(),
+                    def: crate::nir::NirTempDef {
+                        block: BlockId(1),
+                        op_index: None,
+                    },
+                }],
+                notes: Vec::new(),
+                blocks: vec![
+                    NirBlock {
+                        id: BlockId(0),
+                        label: "entry".to_string(),
+                        params: Vec::new(),
+                        ops: Vec::new(),
+                        terminator: NirTerminator::Goto(crate::nir::NirEdge {
+                            target: BlockId(1),
+                            args: vec![crate::nir::NirValue::ConstU8(1)],
+                        }),
+                    },
+                    NirBlock {
+                        id: BlockId(1),
+                        label: "join".to_string(),
+                        params: vec![crate::nir::NirBlockParam {
+                            dest: crate::nir::TempId(0),
+                            ty,
+                        }],
+                        ops: Vec::new(),
+                        terminator: NirTerminator::Return(None),
+                    },
+                ],
+            }],
+        };
+
+        let diagnostics = lower_program(&nir).expect_err("block arguments need Phase 5 lowering");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("block parameters require MIR6502 Phase 5 lowering")
+        }));
+    }
+
+    #[test]
     fn internal_calls_retain_exact_nir_memory_regions() {
         let byte = crate::nir::NirType {
             kind: crate::nir::NirTypeKind::U8,
@@ -597,6 +655,7 @@ mod tests {
             blocks: vec![NirBlock {
                 id: BlockId(block_id),
                 label: format!("{name}.entry"),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: NirTerminator::Return(None),
             }],
@@ -674,6 +733,7 @@ mod tests {
                 blocks: vec![NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::MachineBlock {
                         items: vec![NirMachineItem::Raw("*".to_string())],
                         effects: NirMachineEffects {
@@ -712,6 +772,7 @@ mod tests {
                 blocks: vec![NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::MachineBlock {
                         items: vec![NirMachineItem::Raw("+".to_string())],
                         effects: NirMachineEffects {
@@ -751,6 +812,7 @@ mod tests {
                 blocks: vec![NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::MachineBlock {
                         items: vec![NirMachineItem::Raw("$12345".to_string())],
                         effects: NirMachineEffects {
@@ -790,6 +852,7 @@ mod tests {
                 blocks: vec![NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::MachineBlock {
                         items: vec![NirMachineItem::AddressExpr {
                             selector: Some(NirByteSelector::Low),

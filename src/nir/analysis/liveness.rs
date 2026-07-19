@@ -122,9 +122,10 @@ fn definition_precedes_use(definition: NirDefSite, usage: NirUseSite) -> bool {
     if definition.block != usage.block() {
         return false;
     }
-    match usage.op_index() {
-        Some(use_index) => definition.op_index < use_index,
-        None => true,
+    match (definition.op_index, usage.op_index()) {
+        (None, _) => true,
+        (Some(definition), Some(usage)) => definition < usage,
+        (Some(_), None) => true,
     }
 }
 
@@ -133,7 +134,10 @@ static EMPTY_TEMP_SET: BTreeSet<TempId> = BTreeSet::new();
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nir::{NirBinaryOp, NirBlock, NirOp, NirTerminator, NirType, NirTypeKind, NirValue};
+    use crate::nir::{
+        NirBinaryOp, NirBlock, NirBlockParam, NirEdge, NirOp, NirTerminator, NirType, NirTypeKind,
+        NirValue,
+    };
 
     fn byte_type() -> NirType {
         NirType {
@@ -165,8 +169,16 @@ mod tests {
         NirBlock {
             id: BlockId(id),
             label: label.to_string(),
+            params: Vec::new(),
             ops,
             terminator,
+        }
+    }
+
+    fn edge(target: u32) -> crate::nir::NirEdge {
+        crate::nir::NirEdge {
+            target: BlockId(target),
+            args: Vec::new(),
         }
     }
 
@@ -190,22 +202,17 @@ mod tests {
                 vec![binary(0, NirValue::ConstU8(1))],
                 NirTerminator::Branch {
                     condition: NirValue::ConstU8(1),
-                    then_label: "left".to_string(),
-                    else_label: "right".to_string(),
+                    then_edge: edge(1),
+                    else_edge: edge(2),
                 },
             ),
             block(
                 1,
                 "left",
                 vec![binary(1, temp(0))],
-                NirTerminator::Goto("join".to_string()),
+                NirTerminator::Goto(edge(3)),
             ),
-            block(
-                2,
-                "right",
-                Vec::new(),
-                NirTerminator::Goto("join".to_string()),
-            ),
+            block(2, "right", Vec::new(), NirTerminator::Goto(edge(3))),
             block(3, "join", Vec::new(), NirTerminator::Return(Some(temp(0)))),
             block(9, "dead", Vec::new(), NirTerminator::Return(Some(temp(99)))),
         ]);
@@ -231,7 +238,7 @@ mod tests {
                 0,
                 "entry",
                 vec![binary(0, NirValue::ConstU8(1))],
-                NirTerminator::Goto("header".to_string()),
+                NirTerminator::Goto(edge(1)),
             ),
             block(
                 1,
@@ -239,15 +246,15 @@ mod tests {
                 vec![binary(1, temp(0))],
                 NirTerminator::Branch {
                     condition: temp(1),
-                    then_label: "body".to_string(),
-                    else_label: "exit".to_string(),
+                    then_edge: edge(2),
+                    else_edge: edge(3),
                 },
             ),
             block(
                 2,
                 "body",
                 vec![binary(2, temp(0))],
-                NirTerminator::Goto("header".to_string()),
+                NirTerminator::Goto(edge(1)),
             ),
             block(3, "exit", Vec::new(), NirTerminator::Return(None)),
         ]);
@@ -262,5 +269,40 @@ mod tests {
         assert!(!liveness.live_in(BlockId(1)).contains(&TempId(1)));
         assert!(!liveness.live_out(BlockId(2)).contains(&TempId(2)));
         assert!(liveness.evaluations() > routine.blocks.len());
+    }
+
+    #[test]
+    fn maps_edge_value_liveness_without_leaking_block_parameter_identity() {
+        let mut join = block(2, "join", Vec::new(), NirTerminator::Return(Some(temp(1))));
+        join.params.push(NirBlockParam {
+            dest: TempId(1),
+            ty: byte_type(),
+        });
+        let routine = routine(vec![
+            block(
+                0,
+                "define",
+                vec![binary(0, NirValue::ConstU8(1))],
+                NirTerminator::Goto(edge(1)),
+            ),
+            block(
+                1,
+                "pass",
+                Vec::new(),
+                NirTerminator::Goto(NirEdge {
+                    target: BlockId(2),
+                    args: vec![temp(0)],
+                }),
+            ),
+            join,
+        ]);
+        let cfg = NirCfg::from_routine(&routine);
+        let use_def = NirUseDef::from_routine(&routine);
+        let liveness = NirTempLiveness::analyze(&routine, &cfg, &use_def);
+
+        assert_eq!(liveness.live_out(BlockId(0)), &BTreeSet::from([TempId(0)]));
+        assert_eq!(liveness.live_in(BlockId(1)), &BTreeSet::from([TempId(0)]));
+        assert!(liveness.live_in(BlockId(2)).is_empty());
+        assert!(!liveness.live_out(BlockId(1)).contains(&TempId(1)));
     }
 }

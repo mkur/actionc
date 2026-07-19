@@ -72,15 +72,13 @@ impl NirValueFacts {
 
 struct NirValuePropagationProblem<'a> {
     entry: Option<BlockId>,
-    cfg: &'a NirCfg,
     blocks: BTreeMap<BlockId, &'a NirBlock>,
 }
 
 impl<'a> NirValuePropagationProblem<'a> {
-    fn new(routine: &'a NirRoutine, cfg: &'a NirCfg) -> Self {
+    fn new(routine: &'a NirRoutine, cfg: &NirCfg) -> Self {
         Self {
             entry: cfg.entry(),
-            cfg,
             blocks: routine
                 .blocks
                 .iter()
@@ -137,25 +135,22 @@ impl NirDataflowProblem for NirValuePropagationProblem<'_> {
             return false;
         };
         match &block.terminator {
-            NirTerminator::Goto(label) => self.cfg.resolve_label(label) == Some(to),
+            NirTerminator::Goto(edge) => edge.target == to,
             NirTerminator::Branch {
                 condition,
-                then_label,
-                else_label,
+                then_edge,
+                else_edge,
             } => {
                 let mut condition = condition.clone();
                 rewrite_value(&mut condition, &facts.replacements);
                 match condition {
-                    NirValue::ConstU8(0) => self.cfg.resolve_label(else_label) == Some(to),
-                    NirValue::ConstU8(_) => self.cfg.resolve_label(then_label) == Some(to),
+                    NirValue::ConstU8(0) => else_edge.target == to,
+                    NirValue::ConstU8(_) => then_edge.target == to,
                     NirValue::ConstU16(_)
                     | NirValue::StaticAddr { .. }
                     | NirValue::Temp { .. }
                     | NirValue::Param(_)
-                    | NirValue::GlobalAddr(_) => {
-                        self.cfg.resolve_label(then_label) == Some(to)
-                            || self.cfg.resolve_label(else_label) == Some(to)
-                    }
+                    | NirValue::GlobalAddr(_) => then_edge.target == to || else_edge.target == to,
                 }
             }
             NirTerminator::Open
@@ -414,14 +409,14 @@ fn simplify_constant_branches(routine: &mut NirRoutine) {
     for block in &mut routine.blocks {
         if let NirTerminator::Branch {
             condition: NirValue::ConstU8(value),
-            then_label,
-            else_label,
+            then_edge,
+            else_edge,
         } = &block.terminator
         {
             block.terminator = if *value == 0 {
-                NirTerminator::Goto(else_label.clone())
+                NirTerminator::Goto(else_edge.clone())
             } else {
-                NirTerminator::Goto(then_label.clone())
+                NirTerminator::Goto(then_edge.clone())
             };
         }
     }
@@ -594,12 +589,26 @@ fn rewrite_terminator_values(
     constants: &BTreeMap<TempId, NirValue>,
 ) {
     match terminator {
-        NirTerminator::Branch { condition, .. } | NirTerminator::Return(Some(condition)) => {
+        NirTerminator::Goto(edge) => {
+            for arg in &mut edge.args {
+                rewrite_value(arg, constants);
+            }
+        }
+        NirTerminator::Branch {
+            condition,
+            then_edge,
+            else_edge,
+        } => {
+            rewrite_value(condition, constants);
+            for arg in then_edge.args.iter_mut().chain(&mut else_edge.args) {
+                rewrite_value(arg, constants);
+            }
+        }
+        NirTerminator::Return(Some(condition)) => {
             rewrite_value(condition, constants);
         }
         NirTerminator::Open
         | NirTerminator::Fallthrough
-        | NirTerminator::Goto(_)
         | NirTerminator::Return(None)
         | NirTerminator::Exit
         | NirTerminator::Unknown(_) => {}
@@ -667,12 +676,26 @@ fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
 
 fn collect_terminator_uses(terminator: &NirTerminator, out: &mut BTreeSet<TempId>) {
     match terminator {
-        NirTerminator::Branch { condition, .. } | NirTerminator::Return(Some(condition)) => {
+        NirTerminator::Goto(edge) => {
+            for arg in &edge.args {
+                collect_value_use(arg, out);
+            }
+        }
+        NirTerminator::Branch {
+            condition,
+            then_edge,
+            else_edge,
+        } => {
+            collect_value_use(condition, out);
+            for arg in then_edge.args.iter().chain(&else_edge.args) {
+                collect_value_use(arg, out);
+            }
+        }
+        NirTerminator::Return(Some(condition)) => {
             collect_value_use(condition, out);
         }
         NirTerminator::Open
         | NirTerminator::Fallthrough
-        | NirTerminator::Goto(_)
         | NirTerminator::Return(None)
         | NirTerminator::Exit
         | NirTerminator::Unknown(_) => {}
@@ -739,6 +762,14 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
 fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
     let mut temps = Vec::new();
     for block in blocks {
+        temps.extend(block.params.iter().map(|param| NirTemp {
+            id: param.dest,
+            ty: param.ty.clone(),
+            def: NirTempDef {
+                block: block.id,
+                op_index: None,
+            },
+        }));
         for (op_index, op) in block.ops.iter().enumerate() {
             if let Some((id, ty)) = op_def(op) {
                 temps.push(NirTemp {
@@ -746,7 +777,7 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
                     ty: ty.clone(),
                     def: NirTempDef {
                         block: block.id,
-                        op_index,
+                        op_index: Some(op_index),
                     },
                 });
             }
@@ -813,7 +844,7 @@ mod value_fact_tests {
                 ty: condition.clone(),
                 def: NirTempDef {
                     block: BlockId(0),
-                    op_index: 0,
+                    op_index: Some(0),
                 },
             }],
             notes: Vec::new(),
@@ -821,6 +852,7 @@ mod value_fact_tests {
                 NirBlock {
                     id: BlockId(0),
                     label: "entry".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::Compare {
                         dest: TempId(0),
                         ty: condition.clone(),
@@ -833,19 +865,27 @@ mod value_fact_tests {
                             id: TempId(0),
                             ty: condition,
                         },
-                        then_label: "taken".to_string(),
-                        else_label: "dead".to_string(),
+                        then_edge: NirEdge {
+                            target: BlockId(1),
+                            args: Vec::new(),
+                        },
+                        else_edge: NirEdge {
+                            target: BlockId(2),
+                            args: Vec::new(),
+                        },
                     },
                 },
                 NirBlock {
                     id: BlockId(1),
                     label: "taken".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 },
                 NirBlock {
                     id: BlockId(2),
                     label: "dead".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 },

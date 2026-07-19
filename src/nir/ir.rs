@@ -350,7 +350,9 @@ pub struct NirTemp {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirTempDef {
     pub block: BlockId,
-    pub op_index: usize,
+    /// `None` denotes a block-entry parameter definition. Ordinary operation
+    /// definitions carry their operation index.
+    pub op_index: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -367,8 +369,15 @@ pub struct NirRoutine {
 pub struct NirBlock {
     pub id: BlockId,
     pub label: String,
+    pub params: Vec<NirBlockParam>,
     pub ops: Vec<NirOp>,
     pub terminator: NirTerminator,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NirBlockParam {
+    pub dest: TempId,
+    pub ty: NirType,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -496,14 +505,20 @@ pub struct NirMachineEffects {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NirEdge {
+    pub target: BlockId,
+    pub args: Vec<NirValue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirTerminator {
     Open,
     Fallthrough,
-    Goto(String),
+    Goto(NirEdge),
     Branch {
         condition: NirValue,
-        then_label: String,
-        else_label: String,
+        then_edge: NirEdge,
+        else_edge: NirEdge,
     },
     Return(Option<NirValue>),
     Exit,

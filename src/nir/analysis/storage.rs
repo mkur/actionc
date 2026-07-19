@@ -709,8 +709,16 @@ mod tests {
         NirBlock {
             id: BlockId(id),
             label: label.to_string(),
+            params: Vec::new(),
             ops,
             terminator,
+        }
+    }
+
+    fn edge(target: u32) -> crate::nir::NirEdge {
+        crate::nir::NirEdge {
+            target: BlockId(target),
+            args: Vec::new(),
         }
     }
 
@@ -889,8 +897,8 @@ mod tests {
                     Vec::new(),
                     NirTerminator::Branch {
                         condition: NirValue::ConstU8(1),
-                        then_label: "left".to_string(),
-                        else_label: "right".to_string(),
+                        then_edge: edge(1),
+                        else_edge: edge(2),
                     },
                 ),
                 block(
@@ -901,14 +909,9 @@ mod tests {
                         src: NirValue::ConstU8(1),
                         ty: byte_type(),
                     }],
-                    NirTerminator::Goto("join".to_string()),
+                    NirTerminator::Goto(edge(3)),
                 ),
-                block(
-                    2,
-                    "right",
-                    Vec::new(),
-                    NirTerminator::Goto("join".to_string()),
-                ),
+                block(2, "right", Vec::new(), NirTerminator::Goto(edge(3))),
                 block(
                     3,
                     "join",

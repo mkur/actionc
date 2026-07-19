@@ -353,12 +353,15 @@ fn value_available(
         return false;
     };
     if definition.block == block {
-        definition.op_index < op_index
+        definition
+            .op_index
+            .is_none_or(|definition| definition < op_index)
     } else {
         // Do not create a new cross-block temp live range merely to remove a
-        // source-home load. Until typed block arguments exist, that exchange
-        // can turn a cheap home reload into a spill. Constants remain freely
-        // propagatable, and an already-live temp may be reused safely.
+        // source-home load. Until private-scalar promotion explicitly inserts
+        // typed block arguments, that exchange can turn a cheap home reload
+        // into a spill. Constants remain freely propagatable, and an
+        // already-live temp may be reused safely.
         dominance.dominates(definition.block, block)
             && use_def.uses(*id).iter().any(|site| site.block() == block)
     }
@@ -442,12 +445,26 @@ fn rewrite_value(value: &mut NirValue, replacements: &BTreeMap<TempId, NirValue>
 
 fn rewrite_terminator(terminator: &mut NirTerminator, replacements: &BTreeMap<TempId, NirValue>) {
     match terminator {
-        NirTerminator::Branch { condition, .. } | NirTerminator::Return(Some(condition)) => {
+        NirTerminator::Goto(edge) => {
+            for arg in &mut edge.args {
+                rewrite_value(arg, replacements);
+            }
+        }
+        NirTerminator::Branch {
+            condition,
+            then_edge,
+            else_edge,
+        } => {
+            rewrite_value(condition, replacements);
+            for arg in then_edge.args.iter_mut().chain(&mut else_edge.args) {
+                rewrite_value(arg, replacements);
+            }
+        }
+        NirTerminator::Return(Some(condition)) => {
             rewrite_value(condition, replacements);
         }
         NirTerminator::Open
         | NirTerminator::Fallthrough
-        | NirTerminator::Goto(_)
         | NirTerminator::Return(None)
         | NirTerminator::Exit
         | NirTerminator::Unknown(_) => {}
@@ -482,6 +499,14 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
 fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
     let mut temps = Vec::new();
     for block in blocks {
+        temps.extend(block.params.iter().map(|param| NirTemp {
+            id: param.dest,
+            ty: param.ty.clone(),
+            def: NirTempDef {
+                block: block.id,
+                op_index: None,
+            },
+        }));
         for (op_index, op) in block.ops.iter().enumerate() {
             if let Some((id, ty)) = op_definition(op) {
                 temps.push(NirTemp {
@@ -489,7 +514,7 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
                     ty: ty.clone(),
                     def: NirTempDef {
                         block: block.id,
-                        op_index,
+                        op_index: Some(op_index),
                     },
                 });
             }
@@ -554,8 +579,16 @@ mod tests {
         NirBlock {
             id: BlockId(id),
             label: label.to_string(),
+            params: Vec::new(),
             ops,
             terminator,
+        }
+    }
+
+    fn edge(target: u32) -> NirEdge {
+        NirEdge {
+            target: BlockId(target),
+            args: Vec::new(),
         }
     }
 
@@ -682,8 +715,8 @@ mod tests {
                     }],
                     NirTerminator::Branch {
                         condition: NirValue::ConstU8(1),
-                        then_label: "left".to_string(),
-                        else_label: "right".to_string(),
+                        then_edge: edge(1),
+                        else_edge: edge(2),
                     },
                 ),
                 block(
@@ -697,7 +730,7 @@ mod tests {
                             ty: byte_type(),
                         },
                     )],
-                    NirTerminator::Goto("join".to_string()),
+                    NirTerminator::Goto(edge(3)),
                 ),
                 block(
                     2,
@@ -710,7 +743,7 @@ mod tests {
                             ty: byte_type(),
                         },
                     )],
-                    NirTerminator::Goto("join".to_string()),
+                    NirTerminator::Goto(edge(3)),
                 ),
                 block(
                     3,
@@ -774,7 +807,7 @@ mod tests {
                             },
                         ),
                     ],
-                    NirTerminator::Goto("next".to_string()),
+                    NirTerminator::Goto(edge(1)),
                 ),
                 block(
                     1,
@@ -808,21 +841,21 @@ mod tests {
                     Vec::new(),
                     NirTerminator::Branch {
                         condition: NirValue::ConstU8(1),
-                        then_label: "left".to_string(),
-                        else_label: "right".to_string(),
+                        then_edge: edge(1),
+                        else_edge: edge(2),
                     },
                 ),
                 block(
                     1,
                     "left",
                     vec![store(0, "x", NirValue::ConstU8(left))],
-                    NirTerminator::Goto("join".to_string()),
+                    NirTerminator::Goto(edge(3)),
                 ),
                 block(
                     2,
                     "right",
                     vec![store(0, "x", NirValue::ConstU8(right))],
-                    NirTerminator::Goto("join".to_string()),
+                    NirTerminator::Goto(edge(3)),
                 ),
                 block(
                     3,
@@ -853,7 +886,7 @@ mod tests {
                     0,
                     "entry",
                     vec![store(0, "x", NirValue::ConstU8(0))],
-                    NirTerminator::Goto("header".to_string()),
+                    NirTerminator::Goto(edge(1)),
                 ),
                 block(
                     1,
@@ -871,15 +904,15 @@ mod tests {
                     ],
                     NirTerminator::Branch {
                         condition: NirValue::ConstU8(1),
-                        then_label: "body".to_string(),
-                        else_label: "exit".to_string(),
+                        then_edge: edge(2),
+                        else_edge: edge(3),
                     },
                 ),
                 block(
                     2,
                     "body",
                     vec![store(0, "x", NirValue::ConstU8(1))],
-                    NirTerminator::Goto("header".to_string()),
+                    NirTerminator::Goto(edge(1)),
                 ),
                 block(3, "exit", Vec::new(), NirTerminator::Return(None)),
             ],

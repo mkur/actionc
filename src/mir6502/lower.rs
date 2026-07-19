@@ -92,12 +92,6 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                 .enumerate()
                 .map(|(index, block)| (block.id, MirBlockId(index as u32)))
                 .collect::<BTreeMap<_, _>>();
-            let label_ids = routine
-                .blocks
-                .iter()
-                .enumerate()
-                .map(|(index, block)| (block.label.as_str(), MirBlockId(index as u32)))
-                .collect::<BTreeMap<_, _>>();
             let local_absolute_addresses = routine
                 .locals
                 .iter()
@@ -122,6 +116,13 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                 .iter()
                 .enumerate()
                 .map(|(block_index, block)| {
+                    if !block.params.is_empty() {
+                        diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            &block.label,
+                            "NIR block parameters require MIR6502 Phase 5 lowering",
+                        ));
+                    }
                     let mut ops = lower_ops(
                         &routine.name,
                         &block.label,
@@ -154,7 +155,6 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                             block.id,
                             &block.terminator,
                             &block_ids,
-                            &label_ids,
                             &mut diagnostics,
                         ),
                     }
@@ -1753,34 +1753,51 @@ fn lower_terminator(
     block_id: BlockId,
     terminator: &NirTerminator,
     block_ids: &BTreeMap<BlockId, MirBlockId>,
-    label_ids: &BTreeMap<&str, MirBlockId>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> MirTerminator {
     match terminator {
         NirTerminator::Fallthrough => MirTerminator::Unreachable,
-        NirTerminator::Goto(label) => label_ids
-            .get(label.as_str())
-            .copied()
-            .map(MirTerminator::Jump)
-            .unwrap_or(MirTerminator::Unreachable),
+        NirTerminator::Goto(edge) => {
+            if !edge.args.is_empty() {
+                diagnostics.push(MirDiagnostic::block(
+                    routine,
+                    block,
+                    "NIR edge arguments require MIR6502 Phase 5 lowering",
+                ));
+            }
+            block_ids
+                .get(&edge.target)
+                .copied()
+                .map(MirTerminator::Jump)
+                .unwrap_or(MirTerminator::Unreachable)
+        }
         NirTerminator::Branch {
             condition,
-            then_label,
-            else_label,
+            then_edge,
+            else_edge,
             ..
-        } => MirTerminator::Branch {
-            cond: lower_value(routine, block, condition, diagnostics)
-                .map(MirCond::BoolValue)
-                .unwrap_or(MirCond::Deferred),
-            then_block: label_ids
-                .get(then_label.as_str())
-                .copied()
-                .unwrap_or(MirBlockId(u32::MAX)),
-            else_block: label_ids
-                .get(else_label.as_str())
-                .copied()
-                .unwrap_or(MirBlockId(u32::MAX)),
-        },
+        } => {
+            if !then_edge.args.is_empty() || !else_edge.args.is_empty() {
+                diagnostics.push(MirDiagnostic::block(
+                    routine,
+                    block,
+                    "NIR edge arguments require MIR6502 Phase 5 lowering",
+                ));
+            }
+            MirTerminator::Branch {
+                cond: lower_value(routine, block, condition, diagnostics)
+                    .map(MirCond::BoolValue)
+                    .unwrap_or(MirCond::Deferred),
+                then_block: block_ids
+                    .get(&then_edge.target)
+                    .copied()
+                    .unwrap_or(MirBlockId(u32::MAX)),
+                else_block: block_ids
+                    .get(&else_edge.target)
+                    .copied()
+                    .unwrap_or(MirBlockId(u32::MAX)),
+            }
+        }
         NirTerminator::Return(_) => MirTerminator::Return,
         NirTerminator::Exit => MirTerminator::Exit,
         NirTerminator::Open | NirTerminator::Unknown(_) => block_ids

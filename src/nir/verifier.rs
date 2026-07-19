@@ -282,9 +282,46 @@ impl NirVerifier {
             dominance: NirDominance::from_cfg(&cfg),
             use_def: NirUseDef::from_routine(routine),
         };
+        for temp in &routine.temps {
+            let definitions = temp_facts.use_def.definitions(temp.id);
+            if definitions.len() != 1 {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "temp `%t{}` must have exactly one definition, found {}",
+                        temp.id.0,
+                        definitions.len()
+                    ),
+                ));
+            }
+        }
 
         for block in &routine.blocks {
             let mut defined_temps = BTreeSet::new();
+            if !block.params.is_empty() && cfg.predecessors(block.id).is_empty() {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    "block parameters require at least one predecessor edge",
+                ));
+            }
+            for (param_index, param) in block.params.iter().enumerate() {
+                self.op_type(routine, block, &param.ty, "block parameter");
+                self.block_param_def_matches_table(
+                    routine,
+                    block,
+                    param.dest,
+                    &param.ty,
+                    param_index,
+                );
+                if !defined_temps.insert(param.dest) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("duplicate block parameter definition `%t{}`", param.dest.0),
+                    ));
+                }
+            }
             for (op_index, op) in block.ops.iter().enumerate() {
                 self.op(
                     routine,
@@ -301,13 +338,13 @@ impl NirVerifier {
                     &block.label,
                     "block has no terminator",
                 )),
-                NirTerminator::Goto(label) => {
-                    self.require_target(routine, block, &cfg, label);
+                NirTerminator::Goto(edge) => {
+                    self.require_edge(routine, block, edge, &temp_facts);
                 }
                 NirTerminator::Branch {
                     condition,
-                    then_label,
-                    else_label,
+                    then_edge,
+                    else_edge,
                 } => {
                     self.value_type(routine, block, condition, "branch condition");
                     self.branch_condition_type(routine, block, condition);
@@ -319,8 +356,8 @@ impl NirVerifier {
                         &temp_facts,
                         "branch condition",
                     );
-                    self.require_target(routine, block, &cfg, then_label);
-                    self.require_target(routine, block, &cfg, else_label);
+                    self.require_edge(routine, block, then_edge, &temp_facts);
+                    self.require_edge(routine, block, else_edge, &temp_facts);
                 }
                 NirTerminator::Return(Some(value)) => {
                     self.value_type(routine, block, value, "return value");
@@ -1173,7 +1210,9 @@ impl NirVerifier {
                 op_index: temp.def.op_index,
             });
         let available = if definition.block == block.id {
-            definition.op_index < use_index
+            definition
+                .op_index
+                .is_none_or(|definition| definition < use_index)
         } else {
             temp_facts.dominance.dominates(definition.block, block.id)
         };
@@ -1203,7 +1242,7 @@ impl NirVerifier {
             ));
             return;
         };
-        if temp.def.block != block.id || temp.def.op_index != op_index {
+        if temp.def.block != block.id || temp.def.op_index != Some(op_index) {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
@@ -1216,6 +1255,41 @@ impl NirVerifier {
                 &block.label,
                 format!(
                     "temp definition `%t{}` type does not match temp table",
+                    id.0
+                ),
+            ));
+        }
+    }
+
+    fn block_param_def_matches_table(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        id: TempId,
+        ty: &NirType,
+        _param_index: usize,
+    ) {
+        let Some(temp) = routine.temps.iter().find(|temp| temp.id == id) else {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("block parameter `%t{}` is missing from temp table", id.0),
+            ));
+            return;
+        };
+        if temp.def.block != block.id || temp.def.op_index.is_some() {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("block parameter `%t{}` has stale temp table location", id.0),
+            ));
+        }
+        if &temp.ty != ty {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!(
+                    "block parameter `%t{}` type does not match temp table",
                     id.0
                 ),
             ));
@@ -1266,31 +1340,67 @@ impl NirVerifier {
         }
     }
 
-    fn require_target(
+    fn require_edge(
         &mut self,
         routine: &NirRoutine,
         block: &NirBlock,
-        cfg: &NirCfg,
-        target: &str,
+        edge: &NirEdge,
+        temp_facts: &NirTempFacts<'_>,
     ) {
-        let Some(target_id) = cfg.resolve_label(target) else {
+        let Some(target) = routine
+            .blocks
+            .iter()
+            .find(|target| target.id == edge.target)
+        else {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
-                format!("branch target `{target}` does not exist"),
+                format!("edge target block id `{}` does not exist", edge.target.0),
             ));
             return;
         };
-        if !cfg.block_ids().contains(&target_id) {
+        if edge.args.len() != target.params.len() {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
                 format!(
-                    "branch target `{target}` resolved to missing block id `{}`",
-                    target_id.0
+                    "edge to block id `{}` supplies {} argument(s), expected {}",
+                    edge.target.0,
+                    edge.args.len(),
+                    target.params.len()
                 ),
             ));
         }
+        for (index, (arg, param)) in edge.args.iter().zip(&target.params).enumerate() {
+            self.value_type(routine, block, arg, "edge argument");
+            self.value_temp_use(
+                routine,
+                block,
+                arg,
+                block.ops.len(),
+                temp_facts,
+                "edge argument",
+            );
+            if !value_matches_type(arg, &param.ty) {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!(
+                        "edge argument {index} to block id `{}` does not match parameter type {}",
+                        edge.target.0, param.ty.summary
+                    ),
+                ));
+            }
+        }
+    }
+}
+
+fn value_matches_type(value: &NirValue, expected: &NirType) -> bool {
+    match value {
+        NirValue::ConstU8(_) => expected.width == Some(1),
+        NirValue::ConstU16(_) => expected.width == Some(2),
+        NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty == expected,
+        NirValue::Param(_) | NirValue::GlobalAddr(_) => false,
     }
 }
 

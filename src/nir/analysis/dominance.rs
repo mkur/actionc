@@ -134,7 +134,14 @@ static EMPTY_BLOCK_SET: BTreeSet<BlockId> = BTreeSet::new();
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nir::{NirBlock, NirRoutine, NirTerminator, NirValue};
+    use crate::nir::{NirBlock, NirEdge, NirRoutine, NirTerminator, NirValue};
+
+    fn edge(target: u32) -> NirEdge {
+        NirEdge {
+            target: BlockId(target),
+            args: Vec::new(),
+        }
+    }
 
     fn routine(blocks: Vec<NirBlock>) -> NirRoutine {
         NirRoutine {
@@ -151,6 +158,7 @@ mod tests {
         NirBlock {
             id: BlockId(id),
             label: label.to_string(),
+            params: Vec::new(),
             ops: Vec::new(),
             terminator,
         }
@@ -164,12 +172,12 @@ mod tests {
                 "entry",
                 NirTerminator::Branch {
                     condition: NirValue::ConstU8(1),
-                    then_label: "left".to_string(),
-                    else_label: "right".to_string(),
+                    then_edge: edge(1),
+                    else_edge: edge(2),
                 },
             ),
-            block(1, "left", NirTerminator::Goto("join".to_string())),
-            block(2, "right", NirTerminator::Goto("join".to_string())),
+            block(1, "left", NirTerminator::Goto(edge(3))),
+            block(2, "right", NirTerminator::Goto(edge(3))),
             block(3, "join", NirTerminator::Return(None)),
         ]);
         let cfg = NirCfg::from_routine(&routine);
@@ -187,17 +195,17 @@ mod tests {
     #[test]
     fn identifies_loop_backedges() {
         let routine = routine(vec![
-            block(0, "entry", NirTerminator::Goto("header".to_string())),
+            block(0, "entry", NirTerminator::Goto(edge(1))),
             block(
                 1,
                 "header",
                 NirTerminator::Branch {
                     condition: NirValue::ConstU8(1),
-                    then_label: "body".to_string(),
-                    else_label: "exit".to_string(),
+                    then_edge: edge(2),
+                    else_edge: edge(3),
                 },
             ),
-            block(2, "body", NirTerminator::Goto("header".to_string())),
+            block(2, "body", NirTerminator::Goto(edge(1))),
             block(3, "exit", NirTerminator::Return(None)),
         ]);
         let cfg = NirCfg::from_routine(&routine);

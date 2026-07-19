@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-use super::facts::{NirStorageId, NirValue, TempId};
+use super::facts::{BlockId, NirStorageId, NirValue, TempId};
 use super::ir::*;
 
 #[derive(Default)]
@@ -119,12 +119,30 @@ impl NirPrinter {
             }
             self.line(format!("  note {}", note.text));
         }
+        let block_labels = routine
+            .blocks
+            .iter()
+            .map(|block| (block.id, block.label.as_str()))
+            .collect::<std::collections::BTreeMap<_, _>>();
         for block in &routine.blocks {
-            self.line(format!("{}:", block.label));
+            let params = block
+                .params
+                .iter()
+                .map(|param| format!("{}:{}", temp_summary(param.dest), param.ty.summary))
+                .collect::<Vec<_>>()
+                .join(", ");
+            if params.is_empty() {
+                self.line(format!("{}:", block.label));
+            } else {
+                self.line(format!("{}({params}):", block.label));
+            }
             for op in &block.ops {
                 self.line(format!("  {}", op_summary(op)));
             }
-            self.line(format!("  {}", terminator_summary(&block.terminator)));
+            self.line(format!(
+                "  {}",
+                terminator_summary(&block.terminator, &block_labels)
+            ));
         }
     }
 
@@ -484,18 +502,23 @@ fn compare_op_summary(op: NirCompareOp) -> &'static str {
     }
 }
 
-fn terminator_summary(terminator: &NirTerminator) -> String {
+fn terminator_summary(
+    terminator: &NirTerminator,
+    labels: &std::collections::BTreeMap<BlockId, &str>,
+) -> String {
     match terminator {
         NirTerminator::Open => "open".to_string(),
         NirTerminator::Fallthrough => "fallthrough".to_string(),
-        NirTerminator::Goto(label) => format!("goto {label}"),
+        NirTerminator::Goto(edge) => format!("goto {}", edge_summary(edge, labels)),
         NirTerminator::Branch {
             condition,
-            then_label,
-            else_label,
+            then_edge,
+            else_edge,
         } => format!(
-            "branch {} ? {then_label} : {else_label}",
-            value_summary(condition)
+            "branch {} ? {} : {}",
+            value_summary(condition),
+            edge_summary(then_edge, labels),
+            edge_summary(else_edge, labels)
         ),
         NirTerminator::Return(value) => value
             .as_ref()
@@ -503,6 +526,25 @@ fn terminator_summary(terminator: &NirTerminator) -> String {
             .unwrap_or_else(|| "return".to_string()),
         NirTerminator::Exit => "exit".to_string(),
         NirTerminator::Unknown(note) => format!("unknown {note}"),
+    }
+}
+
+fn edge_summary(edge: &NirEdge, labels: &std::collections::BTreeMap<BlockId, &str>) -> String {
+    let target = labels
+        .get(&edge.target)
+        .copied()
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("bbid{}", edge.target.0));
+    if edge.args.is_empty() {
+        target
+    } else {
+        let args = edge
+            .args
+            .iter()
+            .map(value_summary)
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("{target}({args})")
     }
 }
 fn operand_summary(operand: &NirOperand) -> String {

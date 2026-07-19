@@ -96,8 +96,14 @@ pub struct NirRoutine {
 pub struct NirBlock {
     pub id: BlockId,
     pub label: String,
+    pub params: Vec<NirBlockParam>,
     pub ops: Vec<NirOp>,
     pub terminator: NirTerminator,
+}
+
+pub struct NirBlockParam {
+    pub dest: TempId,
+    pub ty: NirType,
 }
 ```
 
@@ -351,21 +357,30 @@ Every block has exactly one terminator.
 
 ```rust
 pub enum NirTerminator {
-    Goto(BlockId),
+    Goto(NirEdge),
     Branch {
         condition: NirValue,
-        then_block: BlockId,
-        else_block: BlockId,
+        then_edge: NirEdge,
+        else_edge: NirEdge,
     },
     Return(Option<NirValue>),
     Exit,
     Unreachable,
+}
+
+pub struct NirEdge {
+    pub target: BlockId,
+    pub args: Vec<NirValue>,
 }
 ```
 
 Rules:
 
 - Branch targets are `BlockId`, not strings.
+- Edge argument arity and types exactly match the target block parameters.
+- Edge arguments are uses at the predecessor terminator; block parameters are
+  definitions at target block entry.
+- Every parameterized block has at least one predecessor contribution.
 - Branch conditions must be `Bool` values, or a future explicitly documented test
   terminator must be added.
 - There is no `Open` terminator in verifier-clean NIR.

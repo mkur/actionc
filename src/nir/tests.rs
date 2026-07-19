@@ -3,6 +3,13 @@ use super::*;
 use crate::ast::FundType;
 use crate::semantic::ValueType;
 
+fn edge(target: u32) -> NirEdge {
+    NirEdge {
+        target: BlockId(target),
+        args: Vec::new(),
+    }
+}
+
 #[test]
 fn formats_labeled_blocks() {
     let program = NirProgram {
@@ -34,6 +41,7 @@ fn formats_labeled_blocks() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Store {
                     place: byte_place("i"),
                     src: byte_value(0),
@@ -133,12 +141,14 @@ fn verifier_accepts_valid_targets() {
                 NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
-                    terminator: NirTerminator::Goto("bb1".to_string()),
+                    terminator: NirTerminator::Goto(edge(1)),
                 },
                 NirBlock {
                     id: BlockId(1),
                     label: "bb1".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 },
@@ -147,6 +157,129 @@ fn verifier_accepts_valid_targets() {
     };
 
     assert_eq!(verify_program(&program), Ok(()));
+}
+
+#[test]
+fn verifier_accepts_typed_block_arguments_and_printer_keeps_labels_readable() {
+    let program = typed_block_argument_program();
+
+    assert_eq!(verify_program(&program), Ok(()));
+    let formatted = format_program(&program);
+    assert!(formatted.contains("goto join(7, %t0, %t1, &table)"));
+    assert!(formatted.contains("join(%t2:Byte, %t3:Byte, %t4:Card, %t5:Byte*):"));
+}
+
+#[test]
+fn verifier_rejects_block_argument_arity_mismatch() {
+    let mut program = typed_block_argument_program();
+    let NirTerminator::Goto(edge) = &mut program.routines[0].blocks[0].terminator else {
+        panic!("expected goto");
+    };
+    edge.args.pop();
+
+    let diagnostics = verify_program(&program).expect_err("expected verifier error");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("supplies 3 argument(s), expected 4")
+    }));
+}
+
+#[test]
+fn verifier_rejects_block_argument_type_mismatch() {
+    let mut program = typed_block_argument_program();
+    let NirTerminator::Goto(edge) = &mut program.routines[0].blocks[0].terminator else {
+        panic!("expected goto");
+    };
+    edge.args[1] = temp_value(0, card_type());
+
+    let diagnostics = verify_program(&program).expect_err("expected verifier error");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("does not match parameter type Byte")
+    }));
+}
+
+#[test]
+fn verifier_rejects_duplicate_block_parameter_definition() {
+    let mut program = typed_block_argument_program();
+    program.routines[0].blocks[1].params[1].dest = TempId(2);
+
+    let diagnostics = verify_program(&program).expect_err("expected verifier error");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("duplicate block parameter definition `%t2`")
+    }));
+}
+
+#[test]
+fn verifier_rejects_block_parameters_without_predecessor_contributions() {
+    let mut program = typed_block_argument_program();
+    program.routines[0].blocks[0].params.push(NirBlockParam {
+        dest: TempId(6),
+        ty: byte_type(),
+    });
+    program.routines[0]
+        .temps
+        .push(block_temp_table_entry(6, byte_type(), 0));
+
+    let diagnostics = verify_program(&program).expect_err("expected verifier error");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("block parameters require at least one predecessor edge")
+    }));
+}
+
+#[test]
+fn verifier_rejects_edge_value_unavailable_at_predecessor_terminator() {
+    let mut program = typed_block_argument_program();
+    let NirTerminator::Goto(edge) = &mut program.routines[0].blocks[0].terminator else {
+        panic!("expected goto");
+    };
+    edge.args[1] = temp_value(3, byte_type());
+
+    let diagnostics = verify_program(&program).expect_err("expected verifier error");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("edge argument uses temp `%t3` before its definition")
+    }));
+}
+
+#[test]
+fn optimizer_preserves_typed_block_edges_and_rebuilds_parameter_definitions() {
+    let optimized = optimize_program(&typed_block_argument_program())
+        .expect("optimize verifier-clean block arguments");
+    let routine = &optimized.routines[0];
+    let NirTerminator::Goto(edge) = &routine.blocks[0].terminator else {
+        panic!("expected goto");
+    };
+
+    assert_eq!(
+        edge.args,
+        vec![
+            NirValue::ConstU8(7),
+            NirValue::ConstU8(3),
+            NirValue::ConstU16(3),
+            NirValue::StaticAddr {
+                id: SymbolId(0),
+                name: "table".to_string(),
+                ty: byte_pointer_type(),
+            },
+        ]
+    );
+    assert_eq!(routine.blocks[1].params.len(), 4);
+    assert!(
+        routine
+            .temps
+            .iter()
+            .filter(|temp| temp.def.op_index.is_none())
+            .all(|temp| temp.def.block == BlockId(1))
+    );
+    assert_eq!(verify_program(&optimized), Ok(()));
 }
 
 #[test]
@@ -163,6 +296,7 @@ fn verifier_rejects_open_block() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: NirTerminator::Open,
             }],
@@ -365,6 +499,7 @@ fn verifier_rejects_unknown_terminator() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: NirTerminator::Unknown("unsupported branch shape".to_string()),
             }],
@@ -403,6 +538,7 @@ fn verifier_rejects_executable_error_type() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Load {
                     dest: TempId(0),
                     ty: error,
@@ -442,11 +578,12 @@ fn verifier_rejects_missing_branch_target() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: NirTerminator::Branch {
                     condition: temp_value(0, byte_type()),
-                    then_label: "bb1".to_string(),
-                    else_label: "bb2".to_string(),
+                    then_edge: edge(1),
+                    else_edge: edge(2),
                 },
             }],
         }],
@@ -476,6 +613,7 @@ fn verifier_rejects_non_bool_branch_condition() {
                 NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::Binary {
                         dest: TempId(0),
                         ty: byte_type(),
@@ -485,13 +623,14 @@ fn verifier_rejects_non_bool_branch_condition() {
                     }],
                     terminator: NirTerminator::Branch {
                         condition: temp_value(0, byte_type()),
-                        then_label: "bb1".to_string(),
-                        else_label: "bb1".to_string(),
+                        then_edge: edge(1),
+                        else_edge: edge(1),
                     },
                 },
                 NirBlock {
                     id: BlockId(1),
                     label: "bb1".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 },
@@ -523,12 +662,14 @@ fn verifier_rejects_duplicate_block_labels() {
                 NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Fallthrough,
                 },
                 NirBlock {
                     id: BlockId(1),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 },
@@ -560,12 +701,14 @@ fn verifier_rejects_duplicate_block_ids() {
                 NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Fallthrough,
                 },
                 NirBlock {
                     id: BlockId(0),
                     label: "bb1".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 },
@@ -611,6 +754,7 @@ fn verifier_rejects_metadata_ops_in_executable_blocks() {
                 blocks: vec![NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![op],
                     terminator: NirTerminator::Return(None),
                 }],
@@ -641,6 +785,7 @@ fn verifier_rejects_legacy_assign_ops() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Assign {
                     target: NirPlace {
                         kind: NirPlaceKind::Symbol("x".to_string()),
@@ -682,6 +827,7 @@ fn verifier_rejects_legacy_set_ops() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Set {
                     address: card_literal_with_value("$491", 0x0491),
                     value: card_literal_with_value("$3000", 0x3000),
@@ -714,6 +860,7 @@ fn verifier_rejects_store_with_untyped_place() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Store {
                     place: NirPlace {
                         kind: NirPlaceKind::Symbol("x".to_string()),
@@ -750,6 +897,7 @@ fn verifier_rejects_legacy_compound_assignment_ops() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::CompoundAssign {
                     target: byte_place("x"),
                     op: "Add".to_string(),
@@ -783,6 +931,7 @@ fn verifier_rejects_legacy_for_step_compound_assignment() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::CompoundAssign {
                     target: byte_place("i"),
                     op: "ForStep".to_string(),
@@ -816,6 +965,7 @@ fn verifier_accepts_literal_that_fits_narrow_store() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Store {
                     place: byte_place("x"),
                     src: NirValue::ConstU16(0x0011),
@@ -843,6 +993,7 @@ fn verifier_accepts_defined_temp_use() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Binary {
                         dest: TempId(0),
@@ -879,6 +1030,7 @@ fn verifier_accepts_store_with_defined_temp_use() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Binary {
                         dest: TempId(0),
@@ -915,6 +1067,7 @@ fn verifier_rejects_store_width_mismatch() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Store {
                     place: byte_place("x"),
                     src: NirValue::ConstU16(0x1234),
@@ -948,6 +1101,7 @@ fn verifier_rejects_undefined_temp_use() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Store {
                     place: byte_place("x"),
                     src: temp_value(0, byte_type()),
@@ -981,6 +1135,7 @@ fn verifier_rejects_string_storage_identity_in_scalar_load() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Load {
                     dest: TempId(0),
                     ty: byte_type(),
@@ -1018,6 +1173,7 @@ fn verifier_accepts_temp_use_from_dominating_block() {
                 NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::Binary {
                         dest: TempId(0),
                         ty: byte_type(),
@@ -1025,11 +1181,12 @@ fn verifier_accepts_temp_use_from_dominating_block() {
                         left: byte_value(1),
                         right: byte_value(2),
                     }],
-                    terminator: NirTerminator::Goto("bb1".to_string()),
+                    terminator: NirTerminator::Goto(edge(1)),
                 },
                 NirBlock {
                     id: BlockId(1),
                     label: "bb1".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::Store {
                         place: byte_place("x"),
                         src: temp_value(0, byte_type()),
@@ -1059,16 +1216,18 @@ fn verifier_rejects_temp_use_from_non_dominating_block() {
                 NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Branch {
                         condition: byte_value(1),
-                        then_label: "bb1".to_string(),
-                        else_label: "bb2".to_string(),
+                        then_edge: edge(1),
+                        else_edge: edge(2),
                     },
                 },
                 NirBlock {
                     id: BlockId(1),
                     label: "bb1".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::Binary {
                         dest: TempId(0),
                         ty: byte_type(),
@@ -1076,11 +1235,12 @@ fn verifier_rejects_temp_use_from_non_dominating_block() {
                         left: byte_value(1),
                         right: byte_value(2),
                     }],
-                    terminator: NirTerminator::Goto("bb2".to_string()),
+                    terminator: NirTerminator::Goto(edge(2)),
                 },
                 NirBlock {
                     id: BlockId(2),
                     label: "bb2".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::Store {
                         place: byte_place("x"),
                         src: temp_value(0, byte_type()),
@@ -1115,6 +1275,7 @@ fn verifier_rejects_missing_static_addr() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
                 terminator: NirTerminator::Return(Some(NirValue::StaticAddr {
                     id: SymbolId(99),
@@ -1148,6 +1309,7 @@ fn verifier_rejects_duplicate_temp_definition() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Binary {
                         dest: TempId(0),
@@ -1193,12 +1355,14 @@ fn optimizer_removes_unreachable_blocks() {
                 NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 },
                 NirBlock {
                     id: BlockId(1),
                     label: "dead".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 },
@@ -1232,6 +1396,7 @@ fn optimizer_folds_constants_and_simplifies_branches() {
                 NirBlock {
                     id: BlockId(0),
                     label: "bb0".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::Compare {
                         dest: TempId(0),
                         ty: condition.clone(),
@@ -1241,19 +1406,21 @@ fn optimizer_folds_constants_and_simplifies_branches() {
                     }],
                     terminator: NirTerminator::Branch {
                         condition: temp_value(0, condition.clone()),
-                        then_label: "then".to_string(),
-                        else_label: "else".to_string(),
+                        then_edge: edge(1),
+                        else_edge: edge(2),
                     },
                 },
                 NirBlock {
                     id: BlockId(1),
                     label: "then".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 },
                 NirBlock {
                     id: BlockId(2),
                     label: "else".to_string(),
+                    params: Vec::new(),
                     ops: Vec::new(),
                     terminator: NirTerminator::Return(None),
                 },
@@ -1264,10 +1431,7 @@ fn optimizer_folds_constants_and_simplifies_branches() {
     let optimized = optimize_program(&program).expect("optimize verifier-clean NIR");
     let routine = &optimized.routines[0];
     assert!(routine.blocks[0].ops.is_empty());
-    assert_eq!(
-        routine.blocks[0].terminator,
-        NirTerminator::Goto("then".to_string())
-    );
+    assert_eq!(routine.blocks[0].terminator, NirTerminator::Goto(edge(1)));
     assert!(routine.blocks.iter().all(|block| block.label != "else"));
     assert!(routine.temps.is_empty());
 }
@@ -1289,6 +1453,7 @@ fn optimizer_eliminates_dead_pure_temps_but_keeps_loads() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Load {
                         dest: TempId(0),
@@ -1335,6 +1500,7 @@ fn optimizer_keeps_pure_temp_used_in_successor_block() {
                 NirBlock {
                     id: BlockId(0),
                     label: "entry".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         NirOp::Load {
                             dest: TempId(0),
@@ -1349,11 +1515,12 @@ fn optimizer_keeps_pure_temp_used_in_successor_block() {
                             right: byte_value(1),
                         },
                     ],
-                    terminator: NirTerminator::Goto("use".to_string()),
+                    terminator: NirTerminator::Goto(edge(1)),
                 },
                 NirBlock {
                     id: BlockId(1),
                     label: "use".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::Store {
                         place: byte_place("output"),
                         src: temp_value(1, ty.clone()),
@@ -1401,6 +1568,7 @@ fn optimizer_eliminates_dead_pure_temp_chain_across_blocks_to_fixed_point() {
                 NirBlock {
                     id: BlockId(0),
                     label: "entry".to_string(),
+                    params: Vec::new(),
                     ops: vec![
                         NirOp::Load {
                             dest: TempId(0),
@@ -1415,11 +1583,12 @@ fn optimizer_eliminates_dead_pure_temp_chain_across_blocks_to_fixed_point() {
                             right: byte_value(1),
                         },
                     ],
-                    terminator: NirTerminator::Goto("dead".to_string()),
+                    terminator: NirTerminator::Goto(edge(1)),
                 },
                 NirBlock {
                     id: BlockId(1),
                     label: "dead".to_string(),
+                    params: Vec::new(),
                     ops: vec![NirOp::Binary {
                         dest: TempId(2),
                         ty: ty.clone(),
@@ -1461,6 +1630,7 @@ fn optimizer_propagates_folded_constant_to_successor_block() {
             NirBlock {
                 id: BlockId(0),
                 label: "entry".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Binary {
                     dest: TempId(0),
                     ty: ty.clone(),
@@ -1468,11 +1638,12 @@ fn optimizer_propagates_folded_constant_to_successor_block() {
                     left: byte_value(1),
                     right: byte_value(2),
                 }],
-                terminator: NirTerminator::Goto("use".to_string()),
+                terminator: NirTerminator::Goto(edge(1)),
             },
             NirBlock {
                 id: BlockId(1),
                 label: "use".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Store {
                     place: byte_place("output"),
                     src: temp_value(0, ty.clone()),
@@ -1514,6 +1685,7 @@ fn optimizer_propagates_common_alias_through_diamond_join() {
             NirBlock {
                 id: BlockId(0),
                 label: "entry".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Load {
                         dest: TempId(0),
@@ -1537,25 +1709,28 @@ fn optimizer_propagates_common_alias_through_diamond_join() {
                 ],
                 terminator: NirTerminator::Branch {
                     condition: temp_value(2, condition),
-                    then_label: "left".to_string(),
-                    else_label: "right".to_string(),
+                    then_edge: edge(1),
+                    else_edge: edge(2),
                 },
             },
             NirBlock {
                 id: BlockId(1),
                 label: "left".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
-                terminator: NirTerminator::Goto("join".to_string()),
+                terminator: NirTerminator::Goto(edge(3)),
             },
             NirBlock {
                 id: BlockId(2),
                 label: "right".to_string(),
+                params: Vec::new(),
                 ops: Vec::new(),
-                terminator: NirTerminator::Goto("join".to_string()),
+                terminator: NirTerminator::Goto(edge(3)),
             },
             NirBlock {
                 id: BlockId(3),
                 label: "join".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Store {
                     place: byte_place("output"),
                     src: temp_value(1, byte.clone()),
@@ -1595,6 +1770,7 @@ fn optimizer_cancels_constant_offsets_across_blocks() {
             NirBlock {
                 id: BlockId(0),
                 label: "entry".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Load {
                         dest: TempId(0),
@@ -1609,11 +1785,12 @@ fn optimizer_cancels_constant_offsets_across_blocks() {
                         right: byte_value(5),
                     },
                 ],
-                terminator: NirTerminator::Goto("cancel".to_string()),
+                terminator: NirTerminator::Goto(edge(1)),
             },
             NirBlock {
                 id: BlockId(1),
                 label: "cancel".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Binary {
                         dest: TempId(2),
@@ -1659,6 +1836,7 @@ fn optimizer_propagates_constant_through_loop_backedge() {
             NirBlock {
                 id: BlockId(0),
                 label: "entry".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Binary {
                     dest: TempId(0),
                     ty: ty.clone(),
@@ -1666,17 +1844,18 @@ fn optimizer_propagates_constant_through_loop_backedge() {
                     left: byte_value(1),
                     right: byte_value(2),
                 }],
-                terminator: NirTerminator::Goto("loop".to_string()),
+                terminator: NirTerminator::Goto(edge(1)),
             },
             NirBlock {
                 id: BlockId(1),
                 label: "loop".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Store {
                     place: byte_place("output"),
                     src: temp_value(0, ty.clone()),
                     ty: ty.clone(),
                 }],
-                terminator: NirTerminator::Goto("loop".to_string()),
+                terminator: NirTerminator::Goto(edge(1)),
             },
         ],
     );
@@ -1708,6 +1887,7 @@ fn optimizer_aliases_algebraic_identity_temps() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Load {
                         dest: TempId(0),
@@ -1805,6 +1985,7 @@ fn optimizer_aliases_word_all_ones_identity() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Load {
                         dest: TempId(0),
@@ -1852,6 +2033,7 @@ fn optimizer_cancels_local_constant_offsets() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Load {
                         dest: TempId(0),
@@ -1906,6 +2088,7 @@ fn optimizer_canonicalizes_local_constant_offset_chains() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Load {
                         dest: TempId(0),
@@ -1975,6 +2158,7 @@ fn optimizer_keeps_non_identity_subtraction_and_pointer_arithmetic() {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Load {
                         dest: TempId(0),
@@ -2091,6 +2275,7 @@ fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "bb0".to_string(),
+                params: Vec::new(),
                 ops: vec![NirOp::Call {
                     callee: NirCallee::Builtin("Touch".to_string()),
                     args: Vec::new(),
@@ -2159,8 +2344,112 @@ fn temp_table_entry(id: u32, ty: NirType, block: u32, op_index: usize) -> NirTem
         ty,
         def: NirTempDef {
             block: BlockId(block),
-            op_index,
+            op_index: Some(op_index),
         },
+    }
+}
+
+fn block_temp_table_entry(id: u32, ty: NirType, block: u32) -> NirTemp {
+    NirTemp {
+        id: TempId(id),
+        ty,
+        def: NirTempDef {
+            block: BlockId(block),
+            op_index: None,
+        },
+    }
+}
+
+fn typed_block_argument_program() -> NirProgram {
+    let byte = byte_type();
+    let card = card_type();
+    let pointer = byte_pointer_type();
+    NirProgram {
+        globals: Vec::new(),
+        statics: vec![NirStaticData {
+            id: SymbolId(0),
+            name: "table".to_string(),
+            ty: byte.clone(),
+            bytes: vec![0],
+            display: "table".to_string(),
+            alignment: 1,
+            mutable: true,
+            section: "data".to_string(),
+        }],
+        routines: vec![NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps: vec![
+                temp_table_entry(0, byte.clone(), 0, 0),
+                temp_table_entry(1, card.clone(), 0, 1),
+                block_temp_table_entry(2, byte.clone(), 1),
+                block_temp_table_entry(3, byte.clone(), 1),
+                block_temp_table_entry(4, card.clone(), 1),
+                block_temp_table_entry(5, pointer.clone(), 1),
+            ],
+            notes: Vec::new(),
+            blocks: vec![
+                NirBlock {
+                    id: BlockId(0),
+                    label: "entry".to_string(),
+                    params: Vec::new(),
+                    ops: vec![
+                        NirOp::Binary {
+                            dest: TempId(0),
+                            ty: byte.clone(),
+                            op: NirBinaryOp::Add,
+                            left: NirValue::ConstU8(1),
+                            right: NirValue::ConstU8(2),
+                        },
+                        NirOp::Binary {
+                            dest: TempId(1),
+                            ty: card.clone(),
+                            op: NirBinaryOp::Add,
+                            left: NirValue::ConstU16(1),
+                            right: NirValue::ConstU16(2),
+                        },
+                    ],
+                    terminator: NirTerminator::Goto(NirEdge {
+                        target: BlockId(1),
+                        args: vec![
+                            NirValue::ConstU8(7),
+                            temp_value(0, byte.clone()),
+                            temp_value(1, card.clone()),
+                            NirValue::StaticAddr {
+                                id: SymbolId(0),
+                                name: "table".to_string(),
+                                ty: pointer.clone(),
+                            },
+                        ],
+                    }),
+                },
+                NirBlock {
+                    id: BlockId(1),
+                    label: "join".to_string(),
+                    params: vec![
+                        NirBlockParam {
+                            dest: TempId(2),
+                            ty: byte.clone(),
+                        },
+                        NirBlockParam {
+                            dest: TempId(3),
+                            ty: byte,
+                        },
+                        NirBlockParam {
+                            dest: TempId(4),
+                            ty: card,
+                        },
+                        NirBlockParam {
+                            dest: TempId(5),
+                            ty: pointer,
+                        },
+                    ],
+                    ops: Vec::new(),
+                    terminator: NirTerminator::Return(None),
+                },
+            ],
+        }],
     }
 }
 

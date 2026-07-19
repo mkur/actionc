@@ -1,13 +1,14 @@
 use std::collections::BTreeMap;
 
 use crate::nir::{
-    BlockId, NirCallee, NirOp, NirPlace, NirPlaceKind, NirRoutine, NirTerminator, NirValue, TempId,
+    BlockId, NirCallee, NirEdge, NirOp, NirPlace, NirPlaceKind, NirRoutine, NirTerminator,
+    NirValue, TempId,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(in crate::nir) struct NirDefSite {
     pub(in crate::nir) block: BlockId,
-    pub(in crate::nir) op_index: usize,
+    pub(in crate::nir) op_index: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -25,6 +26,7 @@ pub(in crate::nir) enum NirUseKind {
     IndirectCallee,
     CallArgument(usize),
     BranchCondition,
+    EdgeArgument { target: BlockId, index: usize },
     ReturnValue,
 }
 
@@ -69,11 +71,21 @@ impl NirUseDef {
             uses: BTreeMap::new(),
         };
         for block in &routine.blocks {
+            for param in &block.params {
+                facts
+                    .definitions
+                    .entry(param.dest)
+                    .or_default()
+                    .push(NirDefSite {
+                        block: block.id,
+                        op_index: None,
+                    });
+            }
             for (op_index, op) in block.ops.iter().enumerate() {
                 if let Some(temp) = op_definition(op) {
                     facts.definitions.entry(temp).or_default().push(NirDefSite {
                         block: block.id,
-                        op_index,
+                        op_index: Some(op_index),
                     });
                 }
                 record_op_uses(&mut facts.uses, block.id, op_index, op);
@@ -211,14 +223,23 @@ fn record_terminator_uses(
     terminator: &NirTerminator,
 ) {
     match terminator {
-        NirTerminator::Branch { condition, .. } => record_value(
-            uses,
+        NirTerminator::Goto(edge) => record_edge_uses(uses, block, edge),
+        NirTerminator::Branch {
             condition,
-            NirUseSite::Terminator {
-                block,
-                kind: NirUseKind::BranchCondition,
-            },
-        ),
+            then_edge,
+            else_edge,
+        } => {
+            record_value(
+                uses,
+                condition,
+                NirUseSite::Terminator {
+                    block,
+                    kind: NirUseKind::BranchCondition,
+                },
+            );
+            record_edge_uses(uses, block, then_edge);
+            record_edge_uses(uses, block, else_edge);
+        }
         NirTerminator::Return(Some(value)) => record_value(
             uses,
             value,
@@ -229,10 +250,25 @@ fn record_terminator_uses(
         ),
         NirTerminator::Open
         | NirTerminator::Fallthrough
-        | NirTerminator::Goto(_)
         | NirTerminator::Return(None)
         | NirTerminator::Exit
         | NirTerminator::Unknown(_) => {}
+    }
+}
+
+fn record_edge_uses(uses: &mut BTreeMap<TempId, Vec<NirUseSite>>, block: BlockId, edge: &NirEdge) {
+    for (index, value) in edge.args.iter().enumerate() {
+        record_value(
+            uses,
+            value,
+            NirUseSite::Terminator {
+                block,
+                kind: NirUseKind::EdgeArgument {
+                    target: edge.target,
+                    index,
+                },
+            },
+        );
     }
 }
 
@@ -265,8 +301,9 @@ fn record_value(uses: &mut BTreeMap<TempId, Vec<NirUseSite>>, value: &NirValue, 
 mod tests {
     use super::*;
     use crate::nir::{
-        NirBinaryOp, NirBlock, NirCallEffects, NirCallResult, NirCompareOp, NirMemoryAccess,
-        NirMemoryEffects, NirPlace, NirPlaceKind, NirType, NirTypeKind, NirUnaryOp,
+        NirBinaryOp, NirBlock, NirBlockParam, NirCallEffects, NirCallResult, NirCompareOp,
+        NirMemoryAccess, NirMemoryEffects, NirPlace, NirPlaceKind, NirType, NirTypeKind,
+        NirUnaryOp,
     };
 
     fn byte_type() -> NirType {
@@ -296,6 +333,7 @@ mod tests {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "entry".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Binary {
                         dest: TempId(1),
@@ -342,10 +380,13 @@ mod tests {
             use_def.unique_definition(TempId(1)),
             Some(NirDefSite {
                 block: BlockId(0),
-                op_index: 0
+                op_index: Some(0)
             })
         );
-        assert_eq!(use_def.unique_definition(TempId(3)).unwrap().op_index, 2);
+        assert_eq!(
+            use_def.unique_definition(TempId(3)).unwrap().op_index,
+            Some(2)
+        );
         assert_eq!(
             use_def.uses(TempId(1)),
             &[
@@ -401,6 +442,7 @@ mod tests {
             blocks: vec![NirBlock {
                 id: BlockId(0),
                 label: "entry".to_string(),
+                params: Vec::new(),
                 ops: vec![
                     NirOp::Load {
                         dest: TempId(1),
@@ -432,8 +474,14 @@ mod tests {
                 ],
                 terminator: NirTerminator::Branch {
                     condition: temp(27),
-                    then_label: "entry".to_string(),
-                    else_label: "entry".to_string(),
+                    then_edge: NirEdge {
+                        target: BlockId(0),
+                        args: Vec::new(),
+                    },
+                    else_edge: NirEdge {
+                        target: BlockId(0),
+                        args: Vec::new(),
+                    },
                 },
             }],
         };
@@ -467,5 +515,81 @@ mod tests {
         for temp in 1..=4 {
             assert!(use_def.unique_definition(TempId(temp)).is_some());
         }
+    }
+
+    #[test]
+    fn indexes_edge_arguments_as_uses_and_block_parameters_as_entry_definitions() {
+        let routine = NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: Vec::new(),
+            temps: Vec::new(),
+            notes: Vec::new(),
+            blocks: vec![
+                NirBlock {
+                    id: BlockId(0),
+                    label: "define".to_string(),
+                    params: Vec::new(),
+                    ops: vec![NirOp::Binary {
+                        dest: TempId(0),
+                        ty: byte_type(),
+                        op: NirBinaryOp::Add,
+                        left: NirValue::ConstU8(1),
+                        right: NirValue::ConstU8(2),
+                    }],
+                    terminator: NirTerminator::Goto(NirEdge {
+                        target: BlockId(1),
+                        args: Vec::new(),
+                    }),
+                },
+                NirBlock {
+                    id: BlockId(1),
+                    label: "pass".to_string(),
+                    params: Vec::new(),
+                    ops: Vec::new(),
+                    terminator: NirTerminator::Goto(NirEdge {
+                        target: BlockId(2),
+                        args: vec![temp(0)],
+                    }),
+                },
+                NirBlock {
+                    id: BlockId(2),
+                    label: "join".to_string(),
+                    params: vec![NirBlockParam {
+                        dest: TempId(1),
+                        ty: byte_type(),
+                    }],
+                    ops: Vec::new(),
+                    terminator: NirTerminator::Return(Some(temp(1))),
+                },
+            ],
+        };
+
+        let use_def = NirUseDef::from_routine(&routine);
+
+        assert_eq!(
+            use_def.unique_definition(TempId(1)),
+            Some(NirDefSite {
+                block: BlockId(2),
+                op_index: None,
+            })
+        );
+        assert_eq!(
+            use_def.uses(TempId(0)),
+            &[NirUseSite::Terminator {
+                block: BlockId(1),
+                kind: NirUseKind::EdgeArgument {
+                    target: BlockId(2),
+                    index: 0,
+                },
+            }]
+        );
+        assert_eq!(
+            use_def.uses(TempId(1)),
+            &[NirUseSite::Terminator {
+                block: BlockId(2),
+                kind: NirUseKind::ReturnValue,
+            }]
+        );
     }
 }
