@@ -1,116 +1,30 @@
-use crate::mir6502::ir::{
-    MirBinaryOp, MirCarryIn, MirCond, MirCondDest, MirDef, MirOp, MirTerminator,
-};
+use crate::mir6502::analysis::effects::{classify_op, classify_terminator};
+use crate::mir6502::ir::{MirOp, MirTerminator};
 
 pub(super) fn op_uses_previous_carry(op: &MirOp) -> bool {
-    matches!(
-        op,
-        MirOp::Binary {
-            carry_in: Some(MirCarryIn::FromPrevious),
-            ..
-        }
-    )
+    classify_op(op).machine.uses_previous_carry
 }
 
 pub(super) fn op_overwrites_carry(op: &MirOp) -> bool {
-    matches!(
-        op,
-        MirOp::Binary {
-            op: MirBinaryOp::Add | MirBinaryOp::Sub,
-            carry_in: None | Some(MirCarryIn::Clear | MirCarryIn::Set),
-            ..
-        } | MirOp::Compare {
-            dst: MirCondDest::Flags,
-            ..
-        }
-    )
+    classify_op(op).machine.definitely_overwrites_carry
 }
 
 pub(super) fn op_overwrites_overflow(op: &MirOp) -> bool {
-    matches!(
-        op,
-        MirOp::Binary {
-            op: MirBinaryOp::Add | MirBinaryOp::Sub,
-            carry_in: None | Some(MirCarryIn::Clear | MirCarryIn::Set),
-            ..
-        }
-    )
+    classify_op(op).machine.definitely_overwrites_overflow
 }
 
 pub(super) fn op_clobbers_unknown_flag_or_a_effects(op: &MirOp) -> bool {
-    matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. })
+    classify_op(op).machine.unknown_flag_or_a_effects
 }
 
 pub(super) fn op_has_opaque_flag_or_a_effects(op: &MirOp) -> bool {
-    matches!(op, MirOp::Barrier { .. } | MirOp::MachineBlock { .. })
+    classify_op(op).machine.opaque_flag_or_a_effects
 }
 
 pub(super) fn terminator_consumes_flags(terminator: &MirTerminator) -> bool {
-    matches!(
-        terminator,
-        MirTerminator::Branch {
-            cond: MirCond::FlagTest(_) | MirCond::FusedCompare { .. },
-            ..
-        }
-    )
+    classify_terminator(terminator).consumes_flags_compat
 }
 
 pub(super) fn op_writes_flags(op: &MirOp) -> bool {
-    match op {
-        MirOp::Load {
-            dst: MirDef::Reg(_),
-            ..
-        }
-        | MirOp::LoadImm {
-            dst: MirDef::Reg(_),
-            ..
-        }
-        | MirOp::Move {
-            dst: MirDef::Reg(_),
-            ..
-        }
-        | MirOp::Extend {
-            dst: MirDef::Reg(_),
-            ..
-        }
-        | MirOp::Truncate {
-            dst: MirDef::Reg(_),
-            ..
-        }
-        | MirOp::Unary {
-            dst: MirDef::Reg(_),
-            ..
-        }
-        | MirOp::Binary {
-            dst: MirDef::Reg(_),
-            ..
-        }
-        | MirOp::LoadIndirect {
-            dst: MirDef::Reg(_),
-            ..
-        }
-        | MirOp::Compare { .. }
-        | MirOp::UpdateMem { .. } => true,
-        MirOp::AddByteToWordMem { .. }
-        | MirOp::SubByteFromWordMem { .. }
-        | MirOp::MaterializeIndexedAddress { .. }
-        | MirOp::IndirectByteCompound { .. } => true,
-        MirOp::Call { .. } => true,
-        MirOp::RuntimeHelper { .. } => true,
-        MirOp::Store { .. }
-        | MirOp::Load { .. }
-        | MirOp::Move { .. }
-        | MirOp::Extend { .. }
-        | MirOp::Truncate { .. }
-        | MirOp::Unary { .. }
-        | MirOp::Binary { .. }
-        | MirOp::LoadImm { .. }
-        | MirOp::LeaAddr { .. }
-        | MirOp::MaterializeAddress { .. }
-        | MirOp::AdvanceAddress { .. }
-        | MirOp::LoadIndirect { .. }
-        | MirOp::StoreIndirect { .. }
-        | MirOp::Barrier { .. }
-        | MirOp::MachineBlock { .. } => false,
-    }
+    classify_op(op).machine.writes_any_flags_compat
 }

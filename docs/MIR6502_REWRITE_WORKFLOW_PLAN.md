@@ -875,7 +875,22 @@ Suggested commit: `mir6502: add immutable routine CFG facts`.
 
 ### Slice 3: centralize MIR effects
 
-Status: planned.
+Status: complete (`mir6502: centralize operation effects`).
+
+Implemented one exhaustive classifier for every MIR6502 operation and
+terminator. It reports logical temp accesses, private-home bytes, direct and
+unknown memory behavior, registers, individual flags, address-consumer pairs,
+projected spill accesses, and dead-result removability. The existing temp,
+memory, register, flag, home, and spill queries now delegate to the classifier;
+small documented compatibility views preserve their prior local semantics for
+runtime ABI homes, edge arguments, compare/call projected definitions, and
+opaque call memory effects.
+
+Table-driven tests exercise all 23 operation families, all terminator shapes,
+typed effect domains, and conservative call/machine behavior. The full test
+suite passed (1,611 library tests plus integration/doc tests). TN optimized
+NIR, materialized MIR, and XEX remained byte-identical to Slice 2:
+`1715e20b...`, `bb90d361...`, and `f9f26cb3...`, respectively.
 
 - Introduce logical, home, memory, register, flag, and address-consumer effect
   summaries.
