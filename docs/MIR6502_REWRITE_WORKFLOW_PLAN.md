@@ -6,8 +6,9 @@ Status: in progress. Slice 6.1 (compare producers, narrowing, and consumers) is
 complete, and the first part of 6.2 moves simple call-argument producers to the
 routine-aware driver. Return-slot result-to-argument forwarding is also
 complete, as are call-argument expression selection, call-result store
-consumers, and unused-`LeaAddr` elimination. Parameter-home forwarding is
-deferred to the post-home workflow; sub-slices 3–5 are pending. Migrated shape
+consumers, and unused-`LeaAddr` elimination. The hybrid parameter-home family
+is split out for the later location/machine-state workflow; sub-slices 3–5 are
+pending. Migrated shape
 recognizers no longer make suffix-liveness decisions: exact definition
 identity, reaching definitions, and routine-wide lane deadness come from the
 shared snapshot. Later local, terminator, exact-lane successor, and full-temp
@@ -1023,14 +1024,15 @@ Status: in progress. Sub-slice 1 is complete: compare producers, narrowing, and
 compare consumers use the routine-aware driver. In sub-slice 2, simple
 call-argument producers and return-slot result-to-argument forwarding are
 complete. Expression selection, call-result store consumers, and unused
-`LeaAddr` elimination are also complete. Parameter-home forwarding is the only
-remaining family still classified in sub-slice 2. Sub-slices 3–5 remain
-pending.
+`LeaAddr` elimination are also complete. Parameter-home forwarding is no longer
+part of this sub-slice because its current helper combines pre-home temp
+rewrites with physical-register availability and post-home flag behavior.
+Sub-slice 2 is therefore complete; sub-slices 3–5 remain pending.
 
 Migrate in behaviorally coherent sub-slices:
 
 1. compare producers, narrowing, and compare consumers;
-2. call-argument, return-slot, parameter-home, and call-result consumers;
+2. call-argument, return-slot, and call-result consumers;
 3. direct copy, cast, store-expression, byte-store, and word-store consumers;
 4. pointer rematerialization and pointer consumers;
 5. delayed index, indexed copy, and dynamic index preparation.
@@ -1055,6 +1057,25 @@ Acceptance:
 
 Suggested commits: one commit for each numbered family.
 
+#### Deferred parameter-home split
+
+Do not migrate `forward_param_register_homes` as one matcher. It currently
+combines operations that belong to different proof domains:
+
+- `try_forward_param_word_store_consumer` removes logical temp definitions and
+  `forward_param_call_target` changes pre-home values. They must remain before
+  home assignment, but use shared forward parameter/register availability plus
+  reaching-definition and temp-deadness proofs;
+- `forward_param_reload` rewrites or deletes physical register loads. In
+  particular, deleting a same-register reload changes N/Z production, so that
+  decision belongs to the post-home machine-liveness group.
+
+Until those facts exist, the current block-local helper remains scheduled as a
+legacy compatibility pass. This is an explicit deferral, not a completed
+migration. Slice 7 supplies the location and machine facts; Slice 8 splits and
+migrates the consumers without moving temp-based matching after temp
+materialization.
+
 ### Slice 7: build post-home location and machine liveness
 
 Status: planned.
@@ -1062,6 +1083,8 @@ Status: planned.
 - Implement private home-byte identities and backward home liveness.
 - Treat address consumers as reads of their pair bytes.
 - Implement per-register and per-flag machine liveness.
+- Implement forward parameter-home/register availability with call, memory,
+  and register invalidation.
 - Seed ABI and flag-test terminator boundary uses.
 - Add typed `PostHomeRewriteContext` queries.
 - Retain the existing conservative helper until differential tests agree.
@@ -1090,7 +1113,9 @@ Migrate in conservative sub-slices:
 2. word-array value staging and indexed base-pointer staging;
 3. indirect compound and direct/constant store families;
 4. staged RHS, adjacent reload, spill forwarding, and dead scratch stores;
-5. inc/dec, dead register writes, reload forwarding, and parameter reloads.
+5. inc/dec, dead register writes, and reload forwarding; split parameter-home
+   forwarding into pre-home availability consumers and post-home reload
+   consumers.
 
 Each matcher declares removed home stores and its machine-state exit delta. The
 shared post-home context proves home, pointer-pair, register, and flag deadness.

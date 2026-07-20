@@ -1405,6 +1405,8 @@ fn call_arg_producer_value(op: &MirOp) -> Option<(MirTempId, MirValue)> {
     }
 }
 
+// Legacy hybrid pass. Slice 8 splits temp-based consumers from physical reload
+// rewrites once shared parameter/register availability and flag liveness exist.
 pub(super) fn forward_param_register_homes(ops: Vec<MirOp>) -> Vec<MirOp> {
     let mut available = Vec::<(MirMem, MirReg)>::new();
     let mut out = Vec::new();

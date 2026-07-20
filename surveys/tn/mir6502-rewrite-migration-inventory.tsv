@@ -7,7 +7,7 @@ PRE-005	pre-home-selection	5	temp	src/mir6502/materialize/compare_branch.rs	try_
 PRE-006	pre-home-selection	5	temp	src/mir6502/materialize/calls.rs	fold_call_arg_producers	missing-cfg-live-out
 PRE-007	pre-home-selection	5	temp	src/mir6502/materialize/calls.rs	try_materialize_call_arg_expr_producers	missing-cfg-live-out
 PRE-008	pre-home-selection	5	temp	src/mir6502/materialize/calls.rs	forward_return_slot_call_result_args	missing-cfg-live-out
-PRE-009	pre-home-selection	5	temp	src/mir6502/materialize/calls.rs	try_forward_param_word_store_consumer	missing-cfg-live-out
+PRE-009	pre-home-machine-selection	8	temp-register	src/mir6502/materialize/calls.rs	try_forward_param_word_store_consumer	missing-cfg-live-out-and-register-availability
 PRE-010	pre-home-selection	migrated	temp	src/mir6502/rewrite/pilots.rs	call_result_store_plan	analyzed-reaching-def-and-routine-deadness
 PRE-011	pre-home-selection	migrated	temp	src/mir6502/rewrite/pilots.rs	loaded_arg_call_result_store_plan	analyzed-reaching-def-and-routine-deadness
 PRE-012	pre-home-selection	5	temp	src/mir6502/materialize/store_consumers.rs	try_materialize_store_expr_producers	missing-cfg-live-out
