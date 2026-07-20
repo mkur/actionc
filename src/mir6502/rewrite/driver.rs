@@ -76,10 +76,30 @@ impl MirPreHomeRewriteDriver {
     pub(in crate::mir6502) fn run_fixed_point<Discover>(
         &mut self,
         routine: &mut MirRoutine,
-        mut discover: Discover,
+        discover: Discover,
     ) -> Result<MirRewriteRunResult, MirRewriteError>
     where
         Discover: FnMut(&MirRoutine, &PreHomeRewriteContext<'_, '_>) -> Vec<MirRewritePlan>,
+    {
+        self.run_fixed_point_by_key(routine, discover, |routine| {
+            routine
+                .blocks
+                .iter()
+                .map(|block| block.ops.len())
+                .sum::<usize>()
+        })
+    }
+
+    pub(in crate::mir6502) fn run_fixed_point_by_key<Discover, Metric, Key>(
+        &mut self,
+        routine: &mut MirRoutine,
+        mut discover: Discover,
+        mut metric: Metric,
+    ) -> Result<MirRewriteRunResult, MirRewriteError>
+    where
+        Discover: FnMut(&MirRoutine, &PreHomeRewriteContext<'_, '_>) -> Vec<MirRewritePlan>,
+        Metric: FnMut(&MirRoutine) -> Key,
+        Key: Ord,
     {
         let mut result = MirRewriteRunResult::default();
         for _ in 0..self.max_rounds {
@@ -96,26 +116,18 @@ impl MirPreHomeRewriteDriver {
                 return Ok(result);
             }
 
-            let before_ops = routine
-                .blocks
-                .iter()
-                .map(|block| block.ops.len())
-                .sum::<usize>();
+            let before = metric(routine);
             let batch = self.apply_batch(routine, plans)?;
             result.overlap_rejections += batch.overlap_rejections;
             result.applied += batch.applied.len();
             for stat in batch.applied {
                 *result.applied_by_stat.entry(stat).or_default() += 1;
             }
-            let after_ops = routine
-                .blocks
-                .iter()
-                .map(|block| block.ops.len())
-                .sum::<usize>();
-            if after_ops >= before_ops {
+            let after = metric(routine);
+            if after >= before {
                 return Err(MirRewriteError::InvalidDeclaration {
                     stat: "pre-home-fixed-point",
-                    message: "pilot batch did not reduce operation count".to_string(),
+                    message: "rewrite batch did not reduce its declared metric".to_string(),
                 });
             }
         }
@@ -541,5 +553,54 @@ mod tests {
             MirPreHomeRewriteDriver::default().apply_batch(&mut routine, vec![plan]),
             Err(MirRewriteError::InvalidDeclaration { .. })
         ));
+    }
+
+    #[test]
+    fn explicit_metric_allows_terminating_same_count_rewrites() {
+        let mut routine = routine(MirOp::LoadImm {
+            dst: MirDef::VTemp(MirTempId(1)),
+            value: 1,
+            width: MirWidth::Byte,
+        });
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point_by_key(
+                &mut routine,
+                |routine, context| {
+                    let MirOp::LoadImm {
+                        dst,
+                        value: 1,
+                        width,
+                    } = &routine.blocks[0].ops[0]
+                    else {
+                        return Vec::new();
+                    };
+                    vec![MirRewritePlan {
+                        generation: context.generation(),
+                        block: MirBlockId(0),
+                        range: 0..1,
+                        replacement: vec![MirOp::LoadImm {
+                            dst: dst.clone(),
+                            value: 0,
+                            width: *width,
+                        }],
+                        removed_defs: Vec::new(),
+                        exit_effect_delta: MirEffectDelta::Unchanged,
+                        change_set: MirChangeSet::prehome_operation_change(),
+                        stat: "same-count",
+                        family_priority: 1,
+                        estimated_byte_saving: 1,
+                        estimated_cycle_saving: 0,
+                    }]
+                },
+                |routine| {
+                    usize::from(matches!(
+                        routine.blocks[0].ops[0],
+                        MirOp::LoadImm { value: 1, .. }
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!((result.applied, result.rounds), (1, 2));
+        assert!(result.converged);
     }
 }

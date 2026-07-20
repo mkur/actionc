@@ -2,14 +2,15 @@
 
 Snapshot date: 2026-07-20.
 
-Status: in progress. The pre-branch compare-operand producer family now uses
-the routine-aware driver; the remaining compare narrowing and consumer
-families are pending. Its local shape recognizer no longer makes suffix-
-liveness decisions; exact definition identity, reaching definitions, and
-routine-wide deadness come from the shared snapshot. Later local, terminator,
-exact-lane successor, and full-temp successor uses have negative coverage. TN
-retains 112 folds and its materialized MIR and XEX remain byte-identical to
-Slice 5 (`bb90d361...` and `f9f26cb3...`).
+Status: in progress. The pre-branch compare-operand producer and word-to-byte
+compare narrowing families now use the routine-aware driver; the remaining
+compare consumers are pending. Their local shape recognizers no longer make
+suffix-liveness decisions; exact definition identity, reaching definitions,
+and routine-wide lane deadness come from the shared snapshot. Later local,
+terminator, exact-lane successor, and full-temp successor uses have negative
+coverage. TN retains 112 producer folds and three narrowing folds, and its
+materialized MIR and XEX remain byte-identical to Slice 5 (`bb90d361...` and
+`f9f26cb3...`).
 
 This note defines the implementation plan for integrating MIR6502 peepholes
 into a routine-aware compiler workflow. Local pattern matching remains useful,
@@ -993,9 +994,9 @@ Suggested commit: `mir6502: drive pre-home rewrites from shared facts`.
 
 ### Slice 6: migrate pre-home rewrites
 
-Status: in progress. The pre-branch compare-operand producer family now uses
-the routine-aware driver; the remaining compare narrowing and consumer
-families are pending.
+Status: in progress. Pre-branch compare-operand producers and compare narrowing
+now use the routine-aware driver; compare consumers and sub-slices 2–5 remain
+pending.
 
 Migrate in behaviorally coherent sub-slices:
 

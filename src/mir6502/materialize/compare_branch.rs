@@ -1,6 +1,7 @@
 use super::defs::split_def_as_temp;
 use super::layout::MaterializeLayout;
 use super::pointers::pointer_value_from_mem;
+#[cfg(test)]
 use super::stats::MirPeepholeStats;
 use super::temp_rewrite::replace_temp_value;
 use super::temp_uses::{
@@ -9,10 +10,12 @@ use super::temp_uses::{
 use super::temp_widths::collect_temp_widths;
 use super::temps::{def_is_used_after, temp_is_used_after};
 use super::values::split_value_as_word;
+#[cfg(test)]
+use crate::mir6502::ir::RoutineId;
 use crate::mir6502::ir::{
     MirAddr, MirBinaryOp, MirBlock, MirBlockId, MirCarryIn, MirCarryOut, MirCompareOp, MirCond,
     MirCondDest, MirDef, MirEdge, MirFlagTest, MirOp, MirReg, MirTempId, MirTerminator, MirValue,
-    MirWidth, RoutineId,
+    MirWidth,
 };
 use crate::mir6502::passes::Mir6502Config;
 use std::collections::{BTreeMap, BTreeSet};
@@ -74,99 +77,99 @@ pub(super) fn fold_compare_operand_producers_before_branches(
     }
 }
 
-pub(super) fn narrow_compare_producers_before_branches(
-    blocks: &mut [MirBlock],
-    routine_id: RoutineId,
-    peephole_stats: &mut MirPeepholeStats,
-) {
-    for block in blocks {
-        let narrowed = narrow_byte_bitwise_zero_compares(&mut block.ops, &block.terminator);
-        peephole_stats.record_many(
-            routine_id,
-            "byte-derived-word-bitwise-zero-compare-narrowed",
-            narrowed,
-        );
-    }
-}
-
+#[cfg(test)]
 fn narrow_byte_bitwise_zero_compares(ops: &mut [MirOp], terminator: &MirTerminator) -> usize {
-    let temp_widths = collect_temp_widths(ops);
     let mut narrowed = 0usize;
     for index in 0..ops.len().saturating_sub(1) {
-        let MirOp::Binary {
-            op,
-            dst,
-            left,
-            right,
-            width: MirWidth::Word,
-            carry_in,
-            carry_out: MirCarryOut::Ignore,
-        } = &ops[index]
-        else {
+        let Some(candidate) = byte_bitwise_zero_compare_narrowing_candidate(ops, index) else {
             continue;
         };
-        if !matches!(op, MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor)
-            || carry_in.is_some()
+        if temp_is_used_after(ops, index + 2, candidate.temp)
+            || terminator_uses_temp(terminator, candidate.temp)
         {
             continue;
         }
-        let Some(temp) = split_def_as_temp(dst) else {
-            continue;
-        };
-        let MirOp::Compare {
-            op: MirCompareOp::Eq | MirCompareOp::Ne,
-            left: compare_left,
-            right: MirValue::ConstU8(0) | MirValue::ConstU16(0),
-            width: MirWidth::Word,
-            signed: false,
-            ..
-        } = &ops[index + 1]
-        else {
-            continue;
-        };
-        if compare_left != &MirValue::Def(dst.clone())
-            || op_uses_temp_more_than_once(&ops[index + 1], temp)
-            || temp_is_used_after(ops, index + 2, temp)
-            || terminator_uses_temp(terminator, temp)
-        {
-            continue;
-        }
-        let Some(left) = byte_derived_word_operand(left, &temp_widths) else {
-            continue;
-        };
-        let Some(right) = byte_derived_word_operand(right, &temp_widths) else {
-            continue;
-        };
-
-        let mut binary = ops[index].clone();
-        let MirOp::Binary {
-            left: binary_left,
-            right: binary_right,
-            width: binary_width,
-            ..
-        } = &mut binary
-        else {
-            unreachable!()
-        };
-        *binary_left = left;
-        *binary_right = right;
-        *binary_width = MirWidth::Byte;
-        let mut compare = ops[index + 1].clone();
-        let MirOp::Compare {
-            right: compare_right,
-            width: compare_width,
-            ..
-        } = &mut compare
-        else {
-            unreachable!()
-        };
-        *compare_right = MirValue::ConstU8(0);
-        *compare_width = MirWidth::Byte;
-        ops[index] = binary;
-        ops[index + 1] = compare;
+        ops[index] = candidate.replacement[0].clone();
+        ops[index + 1] = candidate.replacement[1].clone();
         narrowed += 1;
     }
     narrowed
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct CompareNarrowingCandidate {
+    pub temp: MirTempId,
+    pub replacement: [MirOp; 2],
+}
+
+pub(in crate::mir6502) fn byte_bitwise_zero_compare_narrowing_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<CompareNarrowingCandidate> {
+    let temp_widths = collect_temp_widths(ops);
+    let MirOp::Binary {
+        op,
+        dst,
+        left,
+        right,
+        width: MirWidth::Word,
+        carry_in,
+        carry_out: MirCarryOut::Ignore,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    if !matches!(op, MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor) || carry_in.is_some() {
+        return None;
+    }
+    let temp = split_def_as_temp(dst)?;
+    let MirOp::Compare {
+        op: MirCompareOp::Eq | MirCompareOp::Ne,
+        left: compare_left,
+        right: MirValue::ConstU8(0) | MirValue::ConstU16(0),
+        width: MirWidth::Word,
+        signed: false,
+        ..
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    if compare_left != &MirValue::Def(dst.clone())
+        || op_uses_temp_more_than_once(&ops[index + 1], temp)
+    {
+        return None;
+    }
+    let left = byte_derived_word_operand(left, &temp_widths)?;
+    let right = byte_derived_word_operand(right, &temp_widths)?;
+
+    let mut binary = ops[index].clone();
+    let MirOp::Binary {
+        left: binary_left,
+        right: binary_right,
+        width: binary_width,
+        ..
+    } = &mut binary
+    else {
+        unreachable!()
+    };
+    *binary_left = left;
+    *binary_right = right;
+    *binary_width = MirWidth::Byte;
+    let mut compare = ops[index + 1].clone();
+    let MirOp::Compare {
+        right: compare_right,
+        width: compare_width,
+        ..
+    } = &mut compare
+    else {
+        unreachable!()
+    };
+    *compare_right = MirValue::ConstU8(0);
+    *compare_width = MirWidth::Byte;
+    Some(CompareNarrowingCandidate {
+        temp,
+        replacement: [binary, compare],
+    })
 }
 
 fn byte_derived_word_operand(
