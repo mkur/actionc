@@ -909,7 +909,7 @@ Suggested commit: `mir6502: centralize operation effects`.
 
 ### Slice 4: build the pre-home analysis snapshot
 
-Status: in progress.
+Status: complete (`mir6502: expose typed pre-home rewrite facts`).
 
 - Complete: lane-aware routine use/definition index with stable definition and
   use sites, typed operand/address/call/branch/edge uses, block-entry parameter
@@ -917,8 +917,15 @@ Status: in progress.
 - Complete: forward may-reaching definitions on the shared solver, including
   exact-lane kills, multi-definition joins, definition-identity queries, and
   explicit unreachable-block results.
-- Pending: shared-solver temp liveness, MIR dominance, and the typed pre-home
-  context.
+- Complete: backward may-liveness moved behind the shared solver with the old
+  materializer API retained as an adapter; MIR dominance combines block facts
+  with intra-block ordering; a generation-scoped snapshot and typed proof
+  facade expose reaching, availability, dominance, live-out, and dead-after-
+  window queries with stable blocker categories.
+
+The full suite passed with 1,619 library tests plus integration/doc tests. TN
+optimized NIR, materialized MIR, and XEX remained byte-identical to Slice 3:
+`1715e20b...`, `bb90d361...`, and `f9f26cb3...`, respectively.
 
 - Add lane-aware use/def sites.
 - Move MIR temp liveness to the shared solver.

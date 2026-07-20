@@ -119,6 +119,9 @@ pub(in crate::mir6502) struct MirLogicalEffects {
     pub temp_uses: Vec<MirTempAccess>,
     pub classified_temp_uses: Vec<MirTempUse>,
     pub temp_defs: Vec<MirTempAccess>,
+    /// Legacy whole-temp definition shape used by the compatibility liveness
+    /// domain. Exact lane definitions above remain the reaching-def truth.
+    pub full_temp_defs_compat: BTreeSet<MirTempId>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -680,6 +683,7 @@ fn record_temp_use(access: MirTempAccess, kind: MirTempUseKind, summary: &mut Mi
 fn record_def(def: &MirDef, width: MirWidth, summary: &mut MirOpEffectSummary) {
     match def {
         MirDef::VTemp(temp) => {
+            summary.logical.full_temp_defs_compat.insert(*temp);
             summary.logical.temp_defs.push(MirTempAccess::Exact {
                 temp: *temp,
                 byte: 0,

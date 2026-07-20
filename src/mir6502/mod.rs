@@ -10,6 +10,7 @@ mod lower;
 mod materialize;
 mod passes;
 mod printer;
+mod rewrite;
 mod verify;
 
 pub use diagnostics::MirDiagnostic;
