@@ -950,7 +950,22 @@ Suggested commits:
 
 ### Slice 5: add the transactional pre-home driver
 
-Status: planned.
+Status: complete (`mir6502: drive pre-home rewrites from shared facts`).
+
+Implemented immutable plans with routine generations, removed-definition and
+effect-delta declarations, fact invalidation sets, deterministic overlap/cost
+ordering, reverse-index batch application, fixed-point snapshot rebuilding,
+and convergence accounting. Validation rejects stale plans, malformed ranges,
+missing site-indexed invalidations, mismatched removed definitions, and
+undeclared non-logical effect changes.
+
+The analyzed pilots cover unused `LeaAddr` definitions and a literal compare
+producer. Driver tests compare the ordinary local folds while proving that
+terminator and successor uses block LEA removal; they also cover idempotence,
+overlap priority, stale generations, and declaration failures. Production
+matcher scheduling remains unchanged until the coherent migrations in Slice 6.
+The full suite passed with 1,625 library tests plus integration/doc tests, and
+TN optimized NIR, materialized MIR, and XEX remain byte-identical to Slice 4.
 
 - Add immutable candidate discovery, rewrite plans, overlap resolution,
   generations, batch application, and snapshot rebuilding.

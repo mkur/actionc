@@ -6,7 +6,7 @@ use crate::mir6502::analysis::sites::{
     MirProgramPoint, MirProgramPointError, MirRoutineGeneration, MirSite,
 };
 use crate::mir6502::analysis::use_def::{MirDefSite, MirTempLane, MirUseSite};
-use crate::mir6502::ir::MirBlockId;
+use crate::mir6502::ir::{MirBlockId, MirTempId};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirProof<T> {
@@ -200,6 +200,29 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
                 facts.live_out.exact_lane_live(lane.temp, lane.byte)
                     || facts.live_out.full_temp_live(lane.temp)
             })
+    }
+
+    pub(in crate::mir6502) fn definitions_at(
+        &self,
+        temp: MirTempId,
+        site: MirSite,
+    ) -> Vec<MirDefSite> {
+        self.snapshot
+            .use_def()
+            .definitions_of_temp(temp)
+            .copied()
+            .filter(|definition| definition.site == site)
+            .collect()
+    }
+
+    pub(in crate::mir6502) fn uses_at(&self, temp: MirTempId, site: MirSite) -> Vec<MirUseSite> {
+        self.snapshot
+            .use_def()
+            .uses_of_temp(temp)
+            .iter()
+            .copied()
+            .filter(|usage| usage.site == site)
+            .collect()
     }
 }
 
