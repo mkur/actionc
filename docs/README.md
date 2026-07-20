@@ -19,6 +19,9 @@ crowding the active reference set.
   active plan for storage-to-value promotion and routine-wide NIR quality.
 - [MIR6502_PSEUDO_MACHINE_CONTRACT.md](MIR6502_PSEUDO_MACHINE_CONTRACT.md) -
   MIR6502 contract and verifier shape.
+- [MIR6502_REWRITE_WORKFLOW_PLAN.md](MIR6502_REWRITE_WORKFLOW_PLAN.md) -
+  implementation plan for routine-aware analyses and transactional MIR6502
+  rewrites.
 - [TAC_BOUNDARY_FOR_6502_MIR.md](TAC_BOUNDARY_FOR_6502_MIR.md) - TAC/MIR
   boundary vocabulary.
 
