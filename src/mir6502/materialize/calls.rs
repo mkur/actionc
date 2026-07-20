@@ -10,19 +10,32 @@ use super::indexes::{
 use super::*;
 use std::collections::BTreeMap;
 
+#[cfg(test)]
 pub(super) fn fold_call_arg_producers(ops: Vec<MirOp>) -> Vec<MirOp> {
     let mut out = Vec::new();
     let mut index = 0usize;
     while index < ops.len() {
-        if let Some((consumed, rewritten)) = try_fold_call_arg_producers(&ops, index) {
-            out.push(rewritten);
-            index += consumed;
+        if let Some(candidate) = call_arg_producer_rewrite_candidate(&ops, index)
+            && candidate
+                .temps
+                .iter()
+                .all(|temp| !temp_is_used_after(&ops, index + candidate.consumed, *temp))
+        {
+            out.push(candidate.replacement);
+            index += candidate.consumed;
             continue;
         }
         out.push(ops[index].clone());
         index += 1;
     }
     out
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct CallArgProducerRewriteCandidate {
+    pub consumed: usize,
+    pub temps: Vec<MirTempId>,
+    pub replacement: MirOp,
 }
 
 pub(super) fn try_materialize_call_arg_expr_producers(
@@ -1197,7 +1210,10 @@ fn count_temp_uses_in_value(value: &MirValue, temp: MirTempId) -> usize {
     count
 }
 
-fn try_fold_call_arg_producers(ops: &[MirOp], index: usize) -> Option<(usize, MirOp)> {
+pub(in crate::mir6502) fn call_arg_producer_rewrite_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<CallArgProducerRewriteCandidate> {
     let mut producers = Vec::new();
     let mut cursor = index;
     while let Some((temp, value)) = call_arg_producer_value(ops.get(cursor)?) {
@@ -1232,9 +1248,6 @@ fn try_fold_call_arg_producers(ops: &[MirOp], index: usize) -> Option<(usize, Mi
         {
             return None;
         }
-        if temp_is_used_after(ops, cursor.saturating_add(1), *temp) {
-            return None;
-        }
         let mut call_uses = 0usize;
         count_call_target_temp_uses(target, *temp, &mut call_uses);
         for arg in args {
@@ -1254,16 +1267,17 @@ fn try_fold_call_arg_producers(ops: &[MirOp], index: usize) -> Option<(usize, Mi
         }
     }
 
-    Some((
-        cursor + 1 - index,
-        MirOp::Call {
+    Some(CallArgProducerRewriteCandidate {
+        consumed: cursor + 1 - index,
+        temps: producers.iter().map(|(temp, _, _)| *temp).collect(),
+        replacement: MirOp::Call {
             target: rewritten_target,
             abi: abi.clone(),
             args: rewritten_args,
             result: result.clone(),
             effects: effects.clone(),
         },
-    ))
+    })
 }
 
 fn replace_call_target_temp(

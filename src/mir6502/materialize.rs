@@ -51,10 +51,13 @@ use super::rewrite::pilots::{
 };
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
+#[cfg(test)]
+use calls::fold_call_arg_producers;
 use calls::{
-    fold_call_arg_producers, forward_param_register_homes, forward_return_slot_call_result_args,
-    materialize_call, try_fuse_call_result_store_consumer,
-    try_fuse_loaded_arg_call_result_store_consumer, try_materialize_call_arg_expr_producers,
+    CallArgProducerRewriteCandidate, call_arg_producer_rewrite_candidate,
+    forward_param_register_homes, forward_return_slot_call_result_args, materialize_call,
+    try_fuse_call_result_store_consumer, try_fuse_loaded_arg_call_result_store_consumer,
+    try_materialize_call_arg_expr_producers,
 };
 use cfg::collapse_empty_jump_blocks;
 #[cfg(test)]
@@ -214,6 +217,13 @@ pub(in crate::mir6502) fn analyzed_byte_binary_compare_candidate(
     byte_binary_compare_rewrite_candidate(ops, index)
 }
 
+pub(in crate::mir6502) fn analyzed_call_arg_producer_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<CallArgProducerRewriteCandidate> {
+    call_arg_producer_rewrite_candidate(ops, index)
+}
+
 pub(super) fn materialize_program(
     mut program: MirProgram,
     config: &Mir6502Config,
@@ -241,6 +251,10 @@ pub(super) fn materialize_program(
         collapse_empty_jump_blocks(routine);
         verify_cfg_after_transform(routine, "empty-jump collapse")?;
         run_analyzed_byte_binary_compare_consumers(routine, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
+            block.ops = rematerialize_direct_pointer_temp_derefs(std::mem::take(&mut block.ops));
+        }
+        run_analyzed_call_arg_producers(routine, &mut peephole_stats)?;
         let word_load_address_forwards =
             forward_unique_word_load_address_consumers(routine, &layout);
         peephole_stats.record_many(
@@ -429,6 +443,23 @@ fn run_analyzed_byte_binary_compare_consumers(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("byte binary compare selection failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_call_arg_producers(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, super::rewrite::pilots::discover_call_arg_producers)
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("call argument producer rewrite failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
@@ -1052,7 +1083,9 @@ fn materialize_ops(
     helpers: &mut Vec<MirRuntimeHelper>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Vec<MirOp> {
+    #[cfg(test)]
     let ops = rematerialize_direct_pointer_temp_derefs(ops);
+    #[cfg(test)]
     let ops = fold_call_arg_producers(ops);
     let (ops, call_result_forwards) = forward_return_slot_call_result_args(ops, terminator);
     peephole_stats.record_many(

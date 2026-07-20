@@ -3,8 +3,10 @@
 Snapshot date: 2026-07-20.
 
 Status: in progress. Slice 6.1 (compare producers, narrowing, and consumers) is
-complete; call families and sub-slices 3–5 are pending. Compare shape
-recognizers no longer make suffix-liveness decisions; exact definition
+complete, and the first part of 6.2 moves simple call-argument producers to the
+routine-aware driver; the remaining call families and sub-slices 3–5 are
+pending. Compare shape recognizers no longer make suffix-liveness decisions;
+exact definition
 identity, reaching definitions, and routine-wide lane deadness come from the
 shared snapshot. Later local, terminator, exact-lane successor, and full-temp
 successor uses have negative coverage. The common producer matcher subsumes
@@ -12,6 +14,8 @@ the old one- and two-load byte compare consumers, while binary-result selection
 declares its explicit A-register projection. TN retains 112 producer folds and
 three narrowing folds, has no binary-result candidates, and its materialized
 MIR and XEX remain byte-identical to Slice 5 (`bb90d361...` and `f9f26cb3...`).
+TN applies 71 simple call-argument producer plans; 11 overlapping candidates
+are rejected deterministically, with byte-identical materialized MIR and XEX.
 
 This note defines the implementation plan for integrating MIR6502 peepholes
 into a routine-aware compiler workflow. Local pattern matching remains useful,
@@ -1004,7 +1008,10 @@ Suggested commit: `mir6502: drive pre-home rewrites from shared facts`.
 ### Slice 6: migrate pre-home rewrites
 
 Status: in progress. Sub-slice 1 is complete: compare producers, narrowing, and
-compare consumers use the routine-aware driver. Sub-slices 2–5 remain pending.
+compare consumers use the routine-aware driver. In sub-slice 2, simple
+call-argument producers are complete; expression selection, return-slot,
+parameter-home, and call-result families remain pending. Sub-slices 3–5 remain
+pending.
 
 Migrate in behaviorally coherent sub-slices:
 
