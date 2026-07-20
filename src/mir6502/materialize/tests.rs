@@ -10367,6 +10367,195 @@ fn mir_copy_prop_forwards_const_temp_bytes_into_materialize_address_word() {
     );
 }
 
+#[test]
+fn pre_home_fixed_point_removes_newly_dead_producer_on_second_change_round() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let source_temp = MirTempId(0);
+    let dead_temp = MirTempId(1);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(source_temp),
+                src: MirAddr::Direct(source),
+                width: MirWidth::Byte,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::VTempByte {
+                    id: dead_temp,
+                    byte: 0,
+                },
+                left: MirValue::Def(MirDef::VTemp(source_temp)),
+                right: MirValue::ConstU8(1),
+                width: MirWidth::Byte,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: source_temp }, MirTemp { id: dead_temp }];
+    let mut stats = MirPeepholeStats::default();
+
+    let result = run_pre_home_cleanup_fixed_point(&mut routine, &layout, &mut stats);
+
+    assert!(routine.blocks[0].ops.is_empty());
+    assert_eq!(result.change_rounds, 2);
+    assert_eq!(result.rounds, 3);
+    assert_eq!(result.removed_ops, 2);
+    assert!(result.converged);
+    assert_eq!(
+        routine.temps,
+        vec![MirTemp { id: source_temp }, MirTemp { id: dead_temp }]
+    );
+}
+
+#[test]
+fn pre_home_fixed_point_removes_dead_word_lane_and_keeps_live_sibling() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let word_temp = MirTempId(0);
+    let destination = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let high_def = MirDef::VTempByte {
+        id: word_temp,
+        byte: 1,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::LoadImm {
+                dst: MirDef::VTempByte {
+                    id: word_temp,
+                    byte: 0,
+                },
+                value: 7,
+                width: MirWidth::Byte,
+            },
+            MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                dst: high_def.clone(),
+                offset: 1,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(destination),
+                src: MirValue::Def(high_def.clone()),
+                width: MirWidth::Byte,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: word_temp }];
+    let mut stats = MirPeepholeStats::default();
+
+    let result = run_pre_home_cleanup_fixed_point(&mut routine, &layout, &mut stats);
+
+    assert!(result.converged);
+    assert!(!routine.blocks[0].ops.iter().any(|op| matches!(
+        op,
+        MirOp::LoadImm {
+            dst: MirDef::VTempByte { id, byte: 0 },
+            ..
+        } if *id == word_temp
+    )));
+    assert!(routine.blocks[0].ops.iter().any(|op| matches!(
+        op,
+        MirOp::LoadIndirect { dst, .. } if *dst == high_def
+    )));
+    assert!(routine.blocks[0].ops.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            src: MirValue::Def(src),
+            ..
+        } if *src == high_def
+    )));
+}
+
+#[test]
+fn pre_home_fixed_point_preserves_successor_live_temp() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let temp = MirTempId(0);
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "define".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::LoadImm {
+                dst: MirDef::VTemp(temp),
+                value: 1,
+                width: MirWidth::Byte,
+            }],
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "use".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::Compare {
+                dst: MirCondDest::Flags,
+                op: MirCompareOp::Eq,
+                left: MirValue::Def(MirDef::VTemp(temp)),
+                right: MirValue::ConstU8(0),
+                width: MirWidth::Byte,
+                signed: false,
+            }],
+            terminator: MirTerminator::Return,
+        },
+    ]);
+    routine.temps = vec![MirTemp { id: temp }];
+    let before = routine.blocks.clone();
+    let mut stats = MirPeepholeStats::default();
+
+    let result = run_pre_home_cleanup_fixed_point(&mut routine, &layout, &mut stats);
+
+    assert!(result.converged);
+    assert_eq!(result.rounds, 1);
+    assert_eq!(routine.blocks, before);
+}
+
+#[test]
+fn pre_home_fixed_point_is_idempotent_after_convergence() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let temp = MirTempId(0);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![MirOp::LoadImm {
+            dst: MirDef::VTemp(temp),
+            value: 1,
+            width: MirWidth::Byte,
+        }],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: temp }];
+    let mut stats = MirPeepholeStats::default();
+
+    let first = run_pre_home_cleanup_fixed_point(&mut routine, &layout, &mut stats);
+    let converged_blocks = routine.blocks.clone();
+    let second = run_pre_home_cleanup_fixed_point(&mut routine, &layout, &mut stats);
+
+    assert!(first.converged);
+    assert!(second.converged);
+    assert_eq!(second.rounds, 1);
+    assert_eq!(second.change_rounds, 0);
+    assert_eq!(routine.blocks, converged_blocks);
+}
+
 fn ssa_lite_edge_test_routine(blocks: Vec<MirBlock>) -> MirRoutine {
     MirRoutine {
         id: RoutineId(0),

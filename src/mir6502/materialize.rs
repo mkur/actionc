@@ -143,9 +143,10 @@ use temp_uses::{
 };
 use temp_widths::collect_temp_widths;
 use temps::{
-    cleanup_pre_materialization_temp_artifacts, def_is_used_after, is_unused_lea_addr,
-    materialize_fused_compare_dest, materialize_temp_ops, materialize_terminator, store_a_to_spill,
-    temp_is_used_after,
+    cleanup_pre_materialization_temp_artifacts,
+    cleanup_pre_materialization_temp_artifacts_with_liveness, def_is_used_after,
+    is_unused_lea_addr, materialize_fused_compare_dest, materialize_temp_ops,
+    materialize_terminator, store_a_to_spill, temp_is_used_after,
 };
 use values::{
     offset_mem, return_slot_mem, split_address, split_def, split_value, split_value_as_word,
@@ -222,31 +223,13 @@ pub(super) fn materialize_program(
             );
         }
         materialize_word_compare_temp_ops(routine, &layout);
-        let temp_liveness = analyze_temp_liveness(routine);
-        record_temp_liveness_observability(routine.id, &temp_liveness, &mut peephole_stats);
-        for (block_index, block) in routine.blocks.iter_mut().enumerate() {
-            let ops = std::mem::take(&mut block.ops);
-            record_ssa_lite_v2_observability(&ops, routine.id, &layout, &mut peephole_stats);
-            let live_out = temp_liveness
-                .live_out(block_index)
-                .expect("block liveness exists");
-            let ops = fold_mir_copy_prop_const_uses_with_terminator_and_live_out(
-                ops,
-                &block.terminator,
-                live_out,
-                block.id,
-                routine.id,
-                &layout,
-                &mut peephole_stats,
-            );
-            block.ops = ops;
-        }
+        run_pre_home_cleanup_fixed_point(routine, &layout, &mut peephole_stats);
         let home_liveness = analyze_temp_liveness(routine);
         let home_plan = record_home_demand_census(routine, &home_liveness, &mut peephole_stats);
         home_fates.insert(routine.id, HomeFateTracker::from_plan(&home_plan));
         apply_register_home_plan(routine, &home_plan, &mut peephole_stats);
         for (block_index, block) in routine.blocks.iter_mut().enumerate() {
-            let live_out = temp_liveness
+            let live_out = home_liveness
                 .live_out(block_index)
                 .expect("block liveness exists");
             block.ops =
@@ -334,6 +317,145 @@ pub(super) fn materialize_program(
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
     maybe_report_peepholes(&program, &peephole_stats, config);
     Ok(program)
+}
+
+const PRE_HOME_CLEANUP_MAX_ROUNDS: usize = 8;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PreHomeCleanupResult {
+    rounds: usize,
+    change_rounds: usize,
+    changed_blocks: usize,
+    removed_ops: usize,
+    converged: bool,
+}
+
+fn run_pre_home_cleanup_fixed_point(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> PreHomeCleanupResult {
+    let original_temps = routine.temps.clone();
+    let initial_liveness = analyze_temp_liveness(routine);
+    record_temp_liveness_observability(routine.id, &initial_liveness, peephole_stats);
+    for block in &routine.blocks {
+        record_ssa_lite_v2_observability(&block.ops, routine.id, layout, peephole_stats);
+    }
+
+    let mut result = PreHomeCleanupResult {
+        rounds: 0,
+        change_rounds: 0,
+        changed_blocks: 0,
+        removed_ops: 0,
+        converged: false,
+    };
+
+    for round in 0..PRE_HOME_CLEANUP_MAX_ROUNDS {
+        result.rounds += 1;
+        let before = routine
+            .blocks
+            .iter()
+            .map(|block| block.ops.clone())
+            .collect::<Vec<_>>();
+        let before_op_count = before.iter().map(Vec::len).sum::<usize>();
+        let liveness = analyze_temp_liveness(routine);
+
+        for (block_index, block) in routine.blocks.iter_mut().enumerate() {
+            let ops = std::mem::take(&mut block.ops);
+            let live_out = liveness
+                .live_out(block_index)
+                .expect("block liveness exists");
+            block.ops = if round == 0 {
+                fold_mir_copy_prop_const_uses_with_terminator_and_live_out(
+                    ops,
+                    &block.terminator,
+                    live_out,
+                    block.id,
+                    routine.id,
+                    layout,
+                    peephole_stats,
+                )
+            } else {
+                // Candidate/blocker observability is recorded from the first round.
+                // Later rounds contribute only structural fixed-point counters.
+                let mut scratch_stats = MirPeepholeStats::default();
+                fold_mir_copy_prop_const_uses_with_terminator_and_live_out(
+                    ops,
+                    &block.terminator,
+                    live_out,
+                    block.id,
+                    routine.id,
+                    layout,
+                    &mut scratch_stats,
+                )
+            };
+        }
+
+        let cleanup_liveness = analyze_temp_liveness(routine);
+        cleanup_pre_materialization_temp_artifacts_with_liveness(routine, &cleanup_liveness);
+
+        assert_eq!(
+            routine.temps, original_temps,
+            "pre-home cleanup must not create or remove temp IDs"
+        );
+        let after_op_count = routine
+            .blocks
+            .iter()
+            .map(|block| block.ops.len())
+            .sum::<usize>();
+        assert!(
+            after_op_count <= before_op_count,
+            "pre-home cleanup must not add operations"
+        );
+        let changed_blocks = routine
+            .blocks
+            .iter()
+            .zip(&before)
+            .filter(|(block, before_ops)| block.ops != **before_ops)
+            .count();
+        if changed_blocks == 0 {
+            result.converged = true;
+            break;
+        }
+
+        let removed_ops = before_op_count - after_op_count;
+        result.change_rounds += 1;
+        result.changed_blocks += changed_blocks;
+        result.removed_ops += removed_ops;
+        peephole_stats.record_many_dynamic(
+            routine.id,
+            format!("pre-home-fixed-point-round-{}-changed-blocks", round + 1),
+            changed_blocks,
+        );
+        peephole_stats.record_many_dynamic(
+            routine.id,
+            format!("pre-home-fixed-point-round-{}-removed-ops", round + 1),
+            removed_ops,
+        );
+    }
+
+    peephole_stats.record_many(routine.id, "pre-home-fixed-point-rounds", result.rounds);
+    peephole_stats.record_many(
+        routine.id,
+        "pre-home-fixed-point-change-rounds",
+        result.change_rounds,
+    );
+    peephole_stats.record_many(
+        routine.id,
+        "pre-home-fixed-point-changed-blocks",
+        result.changed_blocks,
+    );
+    peephole_stats.record_many(
+        routine.id,
+        "pre-home-fixed-point-removed-ops",
+        result.removed_ops,
+    );
+    if result.converged {
+        peephole_stats.record(routine.id, "pre-home-fixed-point-converged");
+    } else {
+        peephole_stats.record(routine.id, "pre-home-fixed-point-limit-hit");
+    }
+    result
 }
 
 fn materialize_remaining_pointer_cell_values(program: &mut MirProgram) {

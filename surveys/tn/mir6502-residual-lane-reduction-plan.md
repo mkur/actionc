@@ -1,6 +1,6 @@
 # MIR6502 Residual-Lane Reduction Plan
 
-Status: Slice 1 final-fate attribution implemented; Slice 2 bounded cleanup is
+Status: Slices 1-2 implemented; Slice 5A whole-word destination propagation is
 next.
 
 Snapshot date: 2026-07-20.
@@ -298,7 +298,7 @@ Commit this instrumentation separately.
 
 ## Slice 2: Bounded propagation and cleanup fixed point
 
-Status: next implementation slice.
+Status: implemented; infrastructure-only and TN-byte-identical.
 
 Several existing passes run once even though removing one temp can expose a new
 copy, dead definition, constant use, or consumer combine. Establish a bounded
@@ -337,6 +337,36 @@ Acceptance criteria:
   traffic to be retained.
 
 Commit the fixed-point driver independently from new rewrite rules.
+
+### Slice 2 results
+
+The pre-home cleanup now recomputes routine CFG temp liveness on every round,
+runs the existing copy/constant propagation and dead full/byte-temp cleanup,
+then reruns the existing temp replacement and producer-sinking canonicalizer.
+The latter is now explicitly live-out-aware when used after block-argument
+lowering. Every round is monotonic in operation count, preserves the exact temp
+ID table, and is capped at eight rounds.
+
+On TN, all 105 routines converged in one or two total rounds. The aggregate
+report records 147 rounds: 42 routines changed in round one and therefore
+needed a second no-change round, while 63 routines were already stable. The
+first round changed 84 blocks and removed 182 pre-home MIR operations. No TN
+routine required a second change round, so this slice exposes no additional TN
+optimization beyond the previously single-shot pass. A focused regression
+does require two change rounds, proving that the fixed point handles a dead
+byte-lane consumer that exposes a dead direct-load producer.
+
+The TN census remains 497 residual lanes, 175 final logical homes (126 ZP and
+49 RAM), 232 stores, and 282 reloads. The load file remains byte-identical at
+13,258 bytes with SHA-256
+`799de79c99ede76fd99ff38ec7a11e274b968bdbed58c22bf64f5f6f53b02b94`.
+This is retained as bounded infrastructure for subsequent behavior-changing
+word/address rewrites, which will automatically receive iterative cleanup.
+Outside TN, an existing accumulator-chain regression improves intentionally:
+after the original value's last store, canonical producer sinking keeps the
+dependent add in A and removes one virtual-ZP store/reload pair. The test now
+asserts the preserved store/add/store order and the absence of that transient
+home.
 
 ## Slice 3: Early terminator and flag forwarding
 

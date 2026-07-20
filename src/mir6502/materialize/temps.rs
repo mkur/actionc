@@ -3,7 +3,21 @@ use super::*;
 pub(super) fn cleanup_pre_materialization_temp_artifacts(
     routine: &mut super::super::ir::MirRoutine,
 ) {
-    for block in &mut routine.blocks {
+    cleanup_pre_materialization_temp_artifacts_inner(routine, None);
+}
+
+pub(super) fn cleanup_pre_materialization_temp_artifacts_with_liveness(
+    routine: &mut super::super::ir::MirRoutine,
+    liveness: &super::temp_liveness::MirTempLiveness,
+) {
+    cleanup_pre_materialization_temp_artifacts_inner(routine, Some(liveness));
+}
+
+fn cleanup_pre_materialization_temp_artifacts_inner(
+    routine: &mut super::super::ir::MirRoutine,
+    liveness: Option<&super::temp_liveness::MirTempLiveness>,
+) {
+    for (block_index, block) in routine.blocks.iter_mut().enumerate() {
         if matches!(
             block.terminator,
             MirTerminator::Branch {
@@ -13,10 +27,15 @@ pub(super) fn cleanup_pre_materialization_temp_artifacts(
         ) {
             continue;
         }
+        let live_out = liveness.map(|liveness| {
+            liveness
+                .live_out(block_index)
+                .expect("block liveness exists")
+        });
         let mut ops = std::mem::take(&mut block.ops);
         loop {
             let (cleaned, changed) =
-                cleanup_pre_materialization_block_temps(ops, &block.terminator);
+                cleanup_pre_materialization_block_temps(ops, &block.terminator, live_out);
             ops = cleaned;
             if !changed {
                 break;
@@ -29,18 +48,19 @@ pub(super) fn cleanup_pre_materialization_temp_artifacts(
 fn cleanup_pre_materialization_block_temps(
     ops: Vec<MirOp>,
     terminator: &MirTerminator,
+    live_out: Option<&MirTempLiveSet>,
 ) -> (Vec<MirOp>, bool) {
     let mut out = Vec::with_capacity(ops.len());
     let mut changed = false;
     let mut index = 0usize;
     while index < ops.len() {
-        if can_drop_unused_temp_def(&ops, index, terminator) {
+        if can_drop_unused_temp_def(&ops, index, terminator, live_out) {
             changed = true;
             index += 1;
             continue;
         }
         if let Some((consumer_index, replacement)) =
-            single_use_temp_replacement(&ops, index, terminator)
+            single_use_temp_replacement(&ops, index, terminator, live_out)
         {
             out.extend(ops[index + 1..consumer_index].iter().cloned());
             let mut consumer = ops[consumer_index].clone();
@@ -53,7 +73,8 @@ fn cleanup_pre_materialization_block_temps(
                 continue;
             }
         }
-        if let Some(consumer_index) = single_use_temp_sink_index(&ops, index, terminator) {
+        if let Some(consumer_index) = single_use_temp_sink_index(&ops, index, terminator, live_out)
+        {
             out.extend(ops[index + 1..consumer_index].iter().cloned());
             out.push(ops[index].clone());
             changed = true;
@@ -66,7 +87,12 @@ fn cleanup_pre_materialization_block_temps(
     (out, changed)
 }
 
-fn can_drop_unused_temp_def(ops: &[MirOp], index: usize, terminator: &MirTerminator) -> bool {
+fn can_drop_unused_temp_def(
+    ops: &[MirOp],
+    index: usize,
+    terminator: &MirTerminator,
+    live_out: Option<&MirTempLiveSet>,
+) -> bool {
     let Some(def) = op_def(ops.get(index).expect("op index")) else {
         return false;
     };
@@ -76,6 +102,9 @@ fn can_drop_unused_temp_def(ops: &[MirOp], index: usize, terminator: &MirTermina
     let Some(temp) = split_def_as_temp(def) else {
         return false;
     };
+    if live_out.is_some_and(|live_out| temp_is_live_out(live_out, temp)) {
+        return false;
+    }
     !ops[index + 1..].iter().any(|op| op_uses_temp(op, temp))
         && !terminator_uses_temp(terminator, temp)
 }
@@ -84,11 +113,14 @@ fn single_use_temp_replacement(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
+    live_out: Option<&MirTempLiveSet>,
 ) -> Option<(usize, MirValue)> {
     let producer = ops.get(index)?;
     let def = op_def(producer)?;
     let temp = split_def_as_temp(def)?;
-    if terminator_uses_temp(terminator, temp) {
+    if terminator_uses_temp(terminator, temp)
+        || live_out.is_some_and(|live_out| temp_is_live_out(live_out, temp))
+    {
         return None;
     }
     let replacement = temp_replacement_value(producer)?;
@@ -110,11 +142,15 @@ fn single_use_temp_sink_index(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
+    live_out: Option<&MirTempLiveSet>,
 ) -> Option<usize> {
     let producer = ops.get(index)?;
     let def = op_def(producer)?;
     let temp = split_def_as_temp(def)?;
-    if terminator_uses_temp(terminator, temp) || !op_is_sinkable_temp_producer(producer) {
+    if terminator_uses_temp(terminator, temp)
+        || live_out.is_some_and(|live_out| temp_is_live_out(live_out, temp))
+        || !op_is_sinkable_temp_producer(producer)
+    {
         return None;
     }
     let use_indices = ops[index + 1..]
@@ -135,6 +171,13 @@ fn single_use_temp_sink_index(
         return None;
     }
     Some(consumer_index)
+}
+
+fn temp_is_live_out(live_out: &MirTempLiveSet, temp: MirTempId) -> bool {
+    live_out.full_temps().any(|candidate| candidate == temp)
+        || live_out
+            .exact_lanes()
+            .any(|(candidate, _byte)| candidate == temp)
 }
 
 fn op_is_side_effect_free_temp_def(op: &MirOp) -> bool {

@@ -3380,7 +3380,7 @@ mod tests {
     }
 
     #[test]
-    fn keeps_chain_spill_when_original_temp_is_reused() {
+    fn sinks_chain_after_original_temp_last_use_without_spill() {
         let mir = materialize_program(
             MirProgram {
                 statics: Vec::new(),
@@ -3458,11 +3458,19 @@ mod tests {
         .expect("materialize reused accumulator op chain");
 
         let formatted = format_program(&mir);
-        assert!(formatted.contains("store.b zp0, a"));
-        assert!(formatted.contains("a =.b load zp0"));
+        assert!(!formatted.contains("store.b zp0, a"));
+        assert!(!formatted.contains("load zp0"));
         assert!(!formatted.contains("spill"));
-        assert!(formatted.contains("store.b global g0+0, a"));
-        assert!(formatted.contains("store.b global g1+0, a"));
+        let first_store = formatted
+            .find("store.b global g0+0, a")
+            .expect("original value is stored first");
+        let add = formatted
+            .find("a =.b a add #$01")
+            .expect("the chain producer remains in A");
+        let second_store = formatted
+            .find("store.b global g1+0, a")
+            .expect("chain result is stored last");
+        assert!(first_store < add && add < second_store);
         verify_program(&mir, MirPhase::PreEmission).expect("reused chain spill is ready");
     }
 
