@@ -48,6 +48,7 @@ use super::rewrite::driver::{MirPreHomeRewriteDriver, MirRewriteRunResult};
 use super::rewrite::pilots::{
     byte_binary_compare_consumer_rank, compare_narrowing_rank,
     discover_byte_binary_compare_consumers, discover_compare_narrowing, discover_compare_producers,
+    discover_unused_lea_addrs,
 };
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
@@ -164,8 +165,8 @@ use temp_widths::collect_temp_widths;
 use temps::{
     cleanup_pre_materialization_temp_artifacts,
     cleanup_pre_materialization_temp_artifacts_with_liveness, def_is_used_after,
-    is_unused_lea_addr, materialize_fused_compare_dest, materialize_temp_ops,
-    materialize_terminator, store_a_to_spill, temp_is_used_after,
+    materialize_fused_compare_dest, materialize_temp_ops, materialize_terminator, store_a_to_spill,
+    temp_is_used_after,
 };
 use values::{
     offset_mem, return_slot_mem, split_address, split_def, split_value, split_value_as_word,
@@ -279,6 +280,7 @@ pub(super) fn materialize_program(
             block.ops = normalize_byte_add_sub_carry(std::mem::take(&mut block.ops));
         }
         run_analyzed_call_arg_exprs(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
+        run_analyzed_unused_lea_addrs(routine, &mut peephole_stats)?;
         let word_load_address_forwards =
             forward_unique_word_load_address_consumers(routine, &layout);
         peephole_stats.record_many(
@@ -544,6 +546,23 @@ fn run_analyzed_call_arg_exprs(
             helpers.push(helper.clone());
         }
     }
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_unused_lea_addrs(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, discover_unused_lea_addrs)
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("unused address rewrite failed: {error:?}"),
+            )]
+        })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
     Ok(())
 }
@@ -1382,11 +1401,6 @@ fn materialize_ops(
         if maybe_fused > 0 {
             peephole_stats.record(routine_id, "call-result-store-consumer");
             index += maybe_fused;
-            continue;
-        }
-
-        if is_unused_lea_addr(&ops, index) {
-            index += 1;
             continue;
         }
 

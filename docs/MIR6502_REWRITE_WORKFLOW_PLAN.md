@@ -1023,8 +1023,9 @@ Suggested commit: `mir6502: drive pre-home rewrites from shared facts`.
 Status: in progress. Sub-slice 1 is complete: compare producers, narrowing, and
 compare consumers use the routine-aware driver. In sub-slice 2, simple
 call-argument producers and return-slot result-to-argument forwarding are
-complete. Expression selection is also complete; parameter-home and call-result
-families remain pending. Sub-slices 3–5 remain pending.
+complete. Expression selection and unused `LeaAddr` elimination are also
+complete; parameter-home and call-result families remain pending. Sub-slices
+3–5 remain pending.
 
 Migrate in behaviorally coherent sub-slices:
 

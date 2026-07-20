@@ -438,18 +438,6 @@ fn replace_call_target_temp_value(
     }
 }
 
-pub(super) fn is_unused_lea_addr(ops: &[MirOp], index: usize) -> bool {
-    let Some(MirOp::LeaAddr { dst, .. }) = ops.get(index) else {
-        return false;
-    };
-    let Some(temp) = split_def_as_temp(dst) else {
-        return false;
-    };
-    !ops[index.saturating_add(1)..]
-        .iter()
-        .any(|op| op_uses_temp(op, temp))
-}
-
 pub(super) fn temp_is_used_after(ops: &[MirOp], start: usize, temp: MirTempId) -> bool {
     ops[start..].iter().any(|op| op_uses_temp(op, temp))
 }

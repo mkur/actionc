@@ -101,7 +101,7 @@ const AUDITED_PRODUCER_REMOVERS: &[(&str, &str)] = &[
         "src/mir6502/materialize.rs",
         "try_fuse_address_store_consumer",
     ),
-    ("src/mir6502/materialize/temps.rs", "is_unused_lea_addr"),
+    ("src/mir6502/rewrite/pilots.rs", "discover_unused_lea_addrs"),
     (
         "src/mir6502/materialize/peepholes.rs",
         "next_style_word_store_forward_at",

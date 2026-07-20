@@ -26,7 +26,7 @@ PRE-024	pre-home-selection	5	temp	src/mir6502/materialize/indexes.rs	try_fuse_dy
 PRE-025	pre-home-selection	5	temp	src/mir6502/materialize/indexes.rs	try_prepare_dynamic_byte_index	missing-cfg-live-out
 PRE-026	pre-home-selection	5	temp	src/mir6502/materialize/indexes.rs	try_prepare_dynamic_word_index	missing-cfg-live-out
 PRE-027	pre-home-selection	5	temp	src/mir6502/materialize.rs	try_fuse_address_store_consumer	missing-cfg-live-out
-PRE-028	pre-home-canonicalization	5	temp	src/mir6502/materialize/temps.rs	is_unused_lea_addr	missing-terminator-and-live-out
+PRE-028	pre-home-canonicalization	migrated	temp	src/mir6502/rewrite/pilots.rs	discover_unused_lea_addrs	analyzed-routine-use-def
 PRE-029	pre-home-canonicalization	migrated	temp	src/mir6502/materialize/temps.rs	cleanup_pre_materialization_temp_artifacts_with_liveness	guarded-routine-live-out
 PRE-030	pre-home-canonicalization	migrated	temp	src/mir6502/materialize/word_values.rs	forward_unique_word_load_address_consumers	guarded-routine-live-out
 PRE-031	pre-home-canonicalization	migrated	temp	src/mir6502/materialize/ssa_lite.rs	fold_mir_copy_prop_const_uses_with_terminator_and_live_out	guarded-routine-live-out
