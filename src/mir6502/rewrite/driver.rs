@@ -8,7 +8,7 @@ use crate::mir6502::analysis::effects::{
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 use crate::mir6502::analysis::use_def::{MirDefSite, MirTempLane};
-use crate::mir6502::ir::{MirBlockId, MirOp, MirRegisterSet, MirRoutine};
+use crate::mir6502::ir::{MirBlockId, MirMem, MirOp, MirRegisterSet, MirRoutine};
 use crate::mir6502::rewrite::context::PreHomeRewriteContext;
 use crate::mir6502::rewrite::plan::{MirEffectDelta, MirFactClass, MirRewritePlan};
 
@@ -331,9 +331,14 @@ fn observable_effects(ops: &[MirOp]) -> ObservableEffects {
         out.home_reads.extend(effects.homes.reads);
         out.home_writes.extend(effects.homes.writes);
         out.memory_reads
-            .extend(effects.memory.direct_reads.iter().map(range_key));
-        out.memory_writes
-            .extend(effects.memory.direct_writes.iter().map(range_key));
+            .extend(effects.memory.direct_reads.iter().flat_map(range_byte_keys));
+        out.memory_writes.extend(
+            effects
+                .memory
+                .direct_writes
+                .iter()
+                .flat_map(range_byte_keys),
+        );
         if !matches!(
             effects.memory.structured_reads,
             crate::mir6502::ir::MirMemoryEffect::None
@@ -366,8 +371,33 @@ fn observable_effects(ops: &[MirOp]) -> ObservableEffects {
     out
 }
 
-fn range_key(range: &MirMemoryRange) -> String {
-    format!("{:?}:{}", range.base, range.bytes)
+fn range_byte_keys(range: &MirMemoryRange) -> Vec<String> {
+    (0..range.bytes)
+        .map(|offset| memory_byte_key(&range.base, offset))
+        .collect()
+}
+
+fn memory_byte_key(mem: &MirMem, delta: u16) -> String {
+    match mem {
+        MirMem::Absolute(address) => format!("absolute:{}", address.saturating_add(delta)),
+        MirMem::Static { id, offset } => {
+            format!("static:{id:?}:{}", offset.saturating_add(delta))
+        }
+        MirMem::Global { id, offset } => {
+            format!("global:{id:?}:{}", offset.saturating_add(delta))
+        }
+        MirMem::Local { id, offset } => {
+            format!("local:{id:?}:{}", offset.saturating_add(delta))
+        }
+        MirMem::Param { id, offset } => {
+            format!("param:{id:?}:{}", offset.saturating_add(delta))
+        }
+        MirMem::Spill { id, offset } => {
+            format!("spill:{id:?}:{}", offset.saturating_add(delta))
+        }
+        MirMem::ZeroPage(slot) => format!("zp:{slot:?}"),
+        MirMem::FixedZeroPage(slot) => format!("fixed-zp:{}", slot.0.saturating_add(delta as u8)),
+    }
 }
 
 fn merge_registers(into: &mut MirRegisterSet, other: MirRegisterSet) {

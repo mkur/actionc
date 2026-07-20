@@ -44,6 +44,8 @@ mod values;
 mod word_values;
 mod zp;
 
+use super::rewrite::driver::MirPreHomeRewriteDriver;
+use super::rewrite::pilots::discover_compare_producers;
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
 use calls::{
@@ -52,9 +54,12 @@ use calls::{
     try_fuse_loaded_arg_call_result_store_consumer, try_materialize_call_arg_expr_producers,
 };
 use cfg::collapse_empty_jump_blocks;
+#[cfg(test)]
+use compare_branch::fold_compare_operand_producers_before_branches;
 use compare_branch::{
-    byte_binary_compare_consumer_observation, compare_branch_plan, expand_compare_branch_consumers,
-    fold_compare_operand_producers_before_branches, try_fuse_byte_binary_compare_consumer,
+    CompareOperandRewriteCandidate, byte_binary_compare_consumer_observation, compare_branch_plan,
+    compare_operand_rewrite_candidate, expand_compare_branch_consumers,
+    narrow_compare_producers_before_branches, try_fuse_byte_binary_compare_consumer,
     try_fuse_byte_compare_consumer, try_fuse_compare_operand_producers,
 };
 use dead_spills::remove_dead_spill_stores;
@@ -181,6 +186,13 @@ const DEST_POINTER_PAIR: MirAddressConsumer =
         lo: MirFixedZpSlot(DEST_POINTER_SCRATCH_LO),
     });
 
+pub(in crate::mir6502) fn analyzed_compare_operand_rewrite_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<CompareOperandRewriteCandidate> {
+    compare_operand_rewrite_candidate(ops, index)
+}
+
 pub(super) fn materialize_program(
     mut program: MirProgram,
     config: &Mir6502Config,
@@ -201,7 +213,8 @@ pub(super) fn materialize_program(
     for routine in &mut program.routines {
         cleanup_pre_materialization_temp_artifacts(routine, &layout);
         lower_block_arguments(routine).map_err(|diagnostic| vec![diagnostic])?;
-        fold_compare_operand_producers_before_branches(
+        run_analyzed_compare_producer_rewrites(routine, &mut peephole_stats)?;
+        narrow_compare_producers_before_branches(
             &mut routine.blocks,
             routine.id,
             &mut peephole_stats,
@@ -347,6 +360,38 @@ pub(super) fn materialize_program(
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
     maybe_report_peepholes(&program, &peephole_stats, config);
     Ok(program)
+}
+
+fn run_analyzed_compare_producer_rewrites(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, discover_compare_producers)
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("pre-branch compare rewrite failed: {error:?}"),
+            )]
+        })?;
+    for (stat, count) in result.applied_by_stat {
+        peephole_stats.record_many(routine.id, stat, count);
+    }
+    peephole_stats.record_many(
+        routine.id,
+        "prehome-rewrite-analysis-builds",
+        result.analysis_builds,
+    );
+    peephole_stats.record_many(routine.id, "prehome-rewrite-rounds", result.rounds);
+    peephole_stats.record_many(routine.id, "prehome-rewrite-candidates", result.candidates);
+    peephole_stats.record_many(routine.id, "prehome-rewrite-applied", result.applied);
+    peephole_stats.record_many(
+        routine.id,
+        "prehome-rewrite-overlap-rejections",
+        result.overlap_rejections,
+    );
+    Ok(())
 }
 
 fn verify_cfg_after_transform(

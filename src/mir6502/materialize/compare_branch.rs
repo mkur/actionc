@@ -40,6 +40,7 @@ pub(super) fn expand_compare_branch_consumers(
     }
 }
 
+#[cfg(test)]
 pub(super) fn fold_compare_operand_producers_before_branches(
     blocks: &mut [MirBlock],
     routine_id: RoutineId,
@@ -64,6 +65,21 @@ pub(super) fn fold_compare_operand_producers_before_branches(
         if changed {
             block.ops = out;
         }
+        let narrowed = narrow_byte_bitwise_zero_compares(&mut block.ops, &block.terminator);
+        peephole_stats.record_many(
+            routine_id,
+            "byte-derived-word-bitwise-zero-compare-narrowed",
+            narrowed,
+        );
+    }
+}
+
+pub(super) fn narrow_compare_producers_before_branches(
+    blocks: &mut [MirBlock],
+    routine_id: RoutineId,
+    peephole_stats: &mut MirPeepholeStats,
+) {
+    for block in blocks {
         let narrowed = narrow_byte_bitwise_zero_compares(&mut block.ops, &block.terminator);
         peephole_stats.record_many(
             routine_id,
@@ -254,6 +270,30 @@ pub(super) fn try_fuse_compare_operand_producers(
     plan.consumed
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct CompareOperandRewriteCandidate {
+    pub consumed: usize,
+    pub replacement: MirOp,
+}
+
+pub(in crate::mir6502) fn compare_operand_rewrite_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<CompareOperandRewriteCandidate> {
+    let plan = collect_compare_operand_shape(ops, index)?;
+    Some(CompareOperandRewriteCandidate {
+        consumed: plan.consumed,
+        replacement: MirOp::Compare {
+            dst: plan.dst,
+            op: plan.op,
+            left: plan.left,
+            right: plan.right,
+            width: plan.width,
+            signed: plan.signed,
+        },
+    })
+}
+
 struct CompareOperandPlan {
     consumed: usize,
     dst: MirCondDest,
@@ -269,6 +309,19 @@ fn collect_compare_operand_plan(
     index: usize,
     terminator: &MirTerminator,
 ) -> Option<CompareOperandPlan> {
+    let plan = collect_compare_operand_shape(ops, index)?;
+    let compare_index = index + plan.consumed - 1;
+    for temp in compare_operand_producer_temps(&ops[index..compare_index]) {
+        if temp_is_used_after(ops, compare_index.saturating_add(1), temp)
+            || terminator_uses_temp(terminator, temp)
+        {
+            return None;
+        }
+    }
+    Some(plan)
+}
+
+fn collect_compare_operand_shape(ops: &[MirOp], index: usize) -> Option<CompareOperandPlan> {
     let mut replacements = BTreeMap::<MirTempId, MirValue>::new();
     let mut cursor = index;
     while let Some((temp, value)) = compare_operand_producer(ops.get(cursor)?, &replacements) {
@@ -298,10 +351,7 @@ fn collect_compare_operand_plan(
     }
     let mut saw_use = false;
     for temp in replacements.keys().copied() {
-        if temp_is_used_after(ops, cursor.saturating_add(1), temp)
-            || terminator_uses_temp(terminator, temp)
-            || !compare_operand_temp_has_single_consumer(ops, index, cursor, temp)
-        {
+        if !compare_operand_temp_has_single_consumer(ops, index, cursor, temp) {
             return None;
         }
         saw_use |= op_uses_temp(ops.get(cursor)?, temp);
@@ -319,6 +369,19 @@ fn collect_compare_operand_plan(
         width: *width,
         signed: *signed,
     })
+}
+
+fn compare_operand_producer_temps(ops: &[MirOp]) -> BTreeSet<MirTempId> {
+    let mut replacements = BTreeMap::<MirTempId, MirValue>::new();
+    let mut temps = BTreeSet::new();
+    for op in ops {
+        let Some((temp, value)) = compare_operand_producer(op, &replacements) else {
+            break;
+        };
+        replacements.insert(temp, value);
+        temps.insert(temp);
+    }
+    temps
 }
 
 fn compare_operand_producer(

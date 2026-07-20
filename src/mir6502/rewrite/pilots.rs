@@ -1,7 +1,8 @@
-#![allow(dead_code)] // Production migration begins in the next slice.
+#![allow(dead_code)] // Families become live incrementally during Slice 6.
 
+use crate::mir6502::analysis::effects::{MirTempAccess, classify_op};
 use crate::mir6502::analysis::sites::MirSite;
-use crate::mir6502::ir::{MirDef, MirOp, MirRoutine, MirTempId, MirValue, MirWidth};
+use crate::mir6502::ir::{MirDef, MirOp, MirRoutine};
 use crate::mir6502::rewrite::context::{MirProof, PreHomeRewriteContext};
 use crate::mir6502::rewrite::plan::{
     MirChangeSet, MirEffectDelta, MirRemovedDefinition, MirRewritePlan,
@@ -17,8 +18,39 @@ pub(in crate::mir6502) fn discover_prehome_pilots(
             if let Some(plan) = unused_lea_plan(block.id, &block.ops, index, context) {
                 plans.push(plan);
             }
-            if let Some(plan) = literal_compare_producer_plan(block.id, &block.ops, index, context)
+            if let Some(plan) = compare_operand_producer_plan(block.id, &block.ops, index, context)
             {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn discover_compare_producers(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some(plan) = compare_operand_producer_plan(block.id, &block.ops, index, context)
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn discover_unused_lea_addrs(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some(plan) = unused_lea_plan(block.id, &block.ops, index, context) {
                 plans.push(plan);
             }
         }
@@ -71,61 +103,56 @@ fn unused_lea_plan(
     })
 }
 
-fn literal_compare_producer_plan(
+fn compare_operand_producer_plan(
     block: crate::mir6502::ir::MirBlockId,
     ops: &[MirOp],
     index: usize,
     context: &PreHomeRewriteContext<'_, '_>,
 ) -> Option<MirRewritePlan> {
-    let MirOp::LoadImm {
-        dst: MirDef::VTemp(temp),
-        value,
-        width,
-    } = ops.get(index)?
-    else {
-        return None;
-    };
-    let MirOp::Compare {
-        dst,
-        op,
-        left,
-        right,
-        width: compare_width,
-        signed,
-    } = ops.get(index + 1)?
-    else {
-        return None;
-    };
-    let replacement_value = match width {
-        MirWidth::Byte => MirValue::ConstU8(*value as u8),
-        MirWidth::Word => MirValue::ConstU16(*value),
-    };
-    let (left, left_uses) = replace_temp(left, *temp, &replacement_value);
-    let (right, right_uses) = replace_temp(right, *temp, &replacement_value);
-    if left_uses + right_uses != 1 {
-        return None;
-    }
-    let producer_site = MirSite::Op {
-        block,
-        op_index: index,
-    };
+    let candidate =
+        crate::mir6502::materialize::analyzed_compare_operand_rewrite_candidate(ops, index)?;
+    let compare_index = index + candidate.consumed - 1;
     let compare_site = MirSite::Op {
         block,
-        op_index: index + 1,
+        op_index: compare_index,
     };
-    let definitions = context.definitions_at(*temp, producer_site);
-    let uses = context.uses_at(*temp, compare_site);
-    if definitions.is_empty() || uses.len() != 1 {
+    let mut definitions = Vec::new();
+    for producer_index in index..compare_index {
+        let site = MirSite::Op {
+            block,
+            op_index: producer_index,
+        };
+        for access in classify_op(&ops[producer_index]).logical.temp_defs {
+            let temp = match access {
+                MirTempAccess::Full(temp) | MirTempAccess::Exact { temp, .. } => temp,
+            };
+            definitions.extend(context.definitions_at(temp, site));
+        }
+    }
+    definitions.sort_unstable();
+    definitions.dedup();
+    if definitions.is_empty() {
         return None;
     }
     for definition in &definitions {
-        if uses[0].requirement.requires(definition.lane)
-            && !matches!(
-                context.unique_reaching_definition(uses[0], definition.lane),
-                MirProof::Proven(reaching) if reaching == *definition
-            )
-        {
-            return None;
+        let temp = definition.lane.temp;
+        for usage_index in index + 1..=compare_index {
+            for usage in context.uses_at(
+                temp,
+                MirSite::Op {
+                    block,
+                    op_index: usage_index,
+                },
+            ) {
+                if usage.requirement.requires(definition.lane)
+                    && !matches!(
+                        context.unique_reaching_definition(usage, definition.lane),
+                        MirProof::Proven(reaching) if reaching == *definition
+                    )
+                {
+                    return None;
+                }
+            }
         }
         if !context
             .temp_definition_dead_after(*definition, context.point(compare_site))
@@ -137,53 +164,19 @@ fn literal_compare_producer_plan(
     Some(MirRewritePlan {
         generation: context.generation(),
         block,
-        range: index..index + 2,
-        replacement: vec![MirOp::Compare {
-            dst: dst.clone(),
-            op: *op,
-            left,
-            right,
-            width: *compare_width,
-            signed: *signed,
-        }],
+        range: index..index + candidate.consumed,
+        replacement: vec![candidate.replacement],
         removed_defs: definitions
             .into_iter()
             .map(|definition| MirRemovedDefinition { definition })
             .collect(),
         exit_effect_delta: MirEffectDelta::Unchanged,
         change_set: MirChangeSet::prehome_operation_change(),
-        stat: "analyzed-literal-compare-producer",
+        stat: "compare-operand-consumer-prebranch",
         family_priority: 20,
         estimated_byte_saving: 1,
         estimated_cycle_saving: 1,
     })
-}
-
-fn replace_temp(value: &MirValue, temp: MirTempId, replacement: &MirValue) -> (MirValue, usize) {
-    match value {
-        MirValue::Def(MirDef::VTemp(id)) if *id == temp => (replacement.clone(), 1),
-        MirValue::Def(MirDef::VTempByte { id, byte }) if *id == temp => {
-            let replacement = match (replacement, byte) {
-                (MirValue::ConstU16(value), 0) => MirValue::ConstU8(*value as u8),
-                (MirValue::ConstU16(value), 1) => MirValue::ConstU8((value >> 8) as u8),
-                (value, 0) => value.clone(),
-                _ => return (value.clone(), 0),
-            };
-            (replacement, 1)
-        }
-        MirValue::Word { lo, hi } => {
-            let (lo, lo_uses) = replace_temp(lo, temp, replacement);
-            let (hi, hi_uses) = replace_temp(hi, temp, replacement);
-            (
-                MirValue::Word {
-                    lo: Box::new(lo),
-                    hi: Box::new(hi),
-                },
-                lo_uses + hi_uses,
-            )
-        }
-        _ => (value.clone(), 0),
-    }
 }
 
 #[cfg(test)]
@@ -192,7 +185,7 @@ mod tests {
     use crate::mir6502::analysis::sites::MirRoutineGeneration;
     use crate::mir6502::ir::{
         MirAddr, MirBlock, MirCompareOp, MirCondDest, MirEdge, MirEdgeArg, MirEffects, MirFrame,
-        MirMem, MirRoutineAbi, MirTerminator, RoutineId,
+        MirMem, MirRoutineAbi, MirTempId, MirTerminator, MirValue, MirWidth, RoutineId,
     };
     use crate::mir6502::rewrite::driver::MirPreHomeRewriteDriver;
 
@@ -286,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    fn literal_compare_producer_folds_with_definition_identity_proof() {
+    fn compare_operand_producer_folds_with_definition_identity_proof() {
         let mut routine = routine(vec![block(
             0,
             vec![
@@ -317,6 +310,90 @@ mod tests {
                 ..
             }]
         ));
+    }
+
+    #[test]
+    fn compare_operand_producer_preserves_later_terminator_and_successor_uses() {
+        fn word_compare_ops() -> Vec<MirOp> {
+            vec![
+                MirOp::LoadImm {
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    value: 7,
+                    width: MirWidth::Word,
+                },
+                MirOp::Compare {
+                    dst: MirCondDest::Flags,
+                    op: MirCompareOp::Eq,
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    right: MirValue::ConstU16(9),
+                    width: MirWidth::Word,
+                    signed: false,
+                },
+            ]
+        }
+
+        fn assert_blocked(mut candidate: MirRoutine) {
+            let original_ops = candidate.blocks[0].ops.clone();
+            let result = MirPreHomeRewriteDriver::default()
+                .run_fixed_point(&mut candidate, discover_compare_producers)
+                .unwrap();
+            assert_eq!(result.applied, 0);
+            assert_eq!(candidate.blocks[0].ops, original_ops);
+        }
+
+        let mut local_ops = word_compare_ops();
+        local_ops.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x5000)),
+            src: MirValue::Def(MirDef::VTempByte {
+                id: MirTempId(1),
+                byte: 1,
+            }),
+            width: MirWidth::Byte,
+        });
+        assert_blocked(routine(vec![block(0, local_ops, MirTerminator::Return)]));
+
+        assert_blocked(routine(vec![
+            block(
+                0,
+                word_compare_ops(),
+                MirTerminator::Jump(MirEdge {
+                    target: crate::mir6502::ir::MirBlockId(1),
+                    args: vec![MirEdgeArg {
+                        value: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                        width: MirWidth::Word,
+                    }],
+                }),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+        ]));
+
+        for (src, width) in [
+            (
+                MirValue::Def(MirDef::VTempByte {
+                    id: MirTempId(1),
+                    byte: 1,
+                }),
+                MirWidth::Byte,
+            ),
+            (MirValue::Def(MirDef::VTemp(MirTempId(1))), MirWidth::Word),
+        ] {
+            assert_blocked(routine(vec![
+                block(
+                    0,
+                    word_compare_ops(),
+                    MirTerminator::Jump(MirEdge::plain(crate::mir6502::ir::MirBlockId(1))),
+                ),
+                block(
+                    1,
+                    vec![MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Absolute(0x5000)),
+                        src,
+                        width,
+                    }],
+                    MirTerminator::Return,
+                ),
+            ]));
+        }
     }
 
     #[test]
