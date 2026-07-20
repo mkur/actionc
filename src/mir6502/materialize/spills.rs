@@ -2,7 +2,7 @@ use super::peepholes::private_scratch_store_removal_is_safe_after;
 use super::*;
 use crate::mir6502::ir::{
     MirAddr, MirBlock, MirBlockId, MirCallTarget, MirDef, MirMem, MirOp, MirRoutine, MirSpillId,
-    MirTerminator, MirValue,
+    MirTerminator, MirValue, MirZpSlot, RoutineId,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -16,6 +16,208 @@ pub(in crate::mir6502) struct MirSpillAccounting {
     pub one_write_one_immediate_read: usize,
     pub live_across_calls: usize,
     pub live_across_block_joins: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) enum MirHomeStorage {
+    Spill(MirSpillId),
+    ZeroPage(MirZpSlot),
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) struct MirHomeAccessCount {
+    pub(super) reads: usize,
+    pub(super) writes: usize,
+}
+
+pub(super) fn home_access_counts(
+    routine: &MirRoutine,
+) -> BTreeMap<MirHomeStorage, MirHomeAccessCount> {
+    let mut counts = BTreeMap::<MirHomeStorage, MirHomeAccessCount>::new();
+    for block in &routine.blocks {
+        for op in &block.ops {
+            for home in op_read_homes(op) {
+                counts.entry(home).or_default().reads += 1;
+            }
+            for home in op_write_homes(op) {
+                counts.entry(home).or_default().writes += 1;
+            }
+        }
+        if let MirTerminator::Branch {
+            cond: MirCond::BoolValue(value),
+            ..
+        } = &block.terminator
+        {
+            let mut reads = BTreeSet::new();
+            collect_value_read_homes(value, &mut reads);
+            for home in reads {
+                counts.entry(home).or_default().reads += 1;
+            }
+        }
+    }
+    counts
+}
+
+fn op_read_homes(op: &MirOp) -> BTreeSet<MirHomeStorage> {
+    let mut homes = BTreeSet::new();
+    match op {
+        MirOp::Load { src, .. } => collect_addr_read_homes(src, &mut homes),
+        MirOp::Store { dst, src, .. } => {
+            collect_store_addr_read_homes(dst, &mut homes);
+            collect_value_read_homes(src, &mut homes);
+        }
+        MirOp::Move { src, .. }
+        | MirOp::Extend { src, .. }
+        | MirOp::Truncate { src, .. }
+        | MirOp::Unary { src, .. } => collect_value_read_homes(src, &mut homes),
+        MirOp::MaterializeAddress { value, .. } => collect_value_read_homes(value, &mut homes),
+        MirOp::MaterializeIndexedAddress { base, index, .. } => {
+            collect_value_read_homes(base, &mut homes);
+            collect_value_read_homes(index, &mut homes);
+        }
+        MirOp::UpdateMem { mem, .. } => collect_mem_home(mem, &mut homes),
+        MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
+            collect_mem_home(mem, &mut homes);
+            collect_value_read_homes(value, &mut homes);
+        }
+        MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
+            collect_value_read_homes(left, &mut homes);
+            collect_value_read_homes(right, &mut homes);
+        }
+        MirOp::Call { target, args, .. } => {
+            if let MirCallTarget::Indirect { target, .. } = target {
+                collect_value_read_homes(target, &mut homes);
+            }
+            for arg in args {
+                collect_value_read_homes(&arg.value, &mut homes);
+            }
+        }
+        MirOp::AdvanceAddress { index, .. } | MirOp::StoreIndirect { src: index, .. } => {
+            collect_value_read_homes(index, &mut homes);
+        }
+        MirOp::LoadImm { .. }
+        | MirOp::LeaAddr { .. }
+        | MirOp::RuntimeHelper { .. }
+        | MirOp::LoadIndirect { .. }
+        | MirOp::IndirectByteCompound { .. }
+        | MirOp::Barrier { .. }
+        | MirOp::MachineBlock { .. } => {}
+    }
+    homes
+}
+
+fn op_write_homes(op: &MirOp) -> BTreeSet<MirHomeStorage> {
+    let mut homes = BTreeSet::new();
+    match op {
+        MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            ..
+        }
+        | MirOp::UpdateMem { mem, .. }
+        | MirOp::AddByteToWordMem { mem, .. }
+        | MirOp::SubByteFromWordMem { mem, .. } => collect_mem_home(mem, &mut homes),
+        MirOp::Load { .. }
+        | MirOp::Move { .. }
+        | MirOp::Extend { .. }
+        | MirOp::Truncate { .. }
+        | MirOp::Unary { .. }
+        | MirOp::Binary { .. }
+        | MirOp::LoadImm { .. }
+        | MirOp::LeaAddr { .. }
+        | MirOp::LoadIndirect { .. }
+        | MirOp::Compare { .. }
+        | MirOp::Call { .. }
+        | MirOp::RuntimeHelper { .. }
+        | MirOp::MaterializeAddress { .. }
+        | MirOp::MaterializeIndexedAddress { .. }
+        | MirOp::AdvanceAddress { .. }
+        | MirOp::Store { .. }
+        | MirOp::StoreIndirect { .. }
+        | MirOp::IndirectByteCompound { .. }
+        | MirOp::Barrier { .. }
+        | MirOp::MachineBlock { .. } => {}
+    }
+    homes
+}
+
+fn collect_addr_read_homes(addr: &MirAddr, homes: &mut BTreeSet<MirHomeStorage>) {
+    match addr {
+        MirAddr::Direct(mem)
+        | MirAddr::AbsoluteIndexedX { base: mem }
+        | MirAddr::AbsoluteIndexedY { base: mem }
+        | MirAddr::PointerCell { ptr: mem, .. } => collect_mem_home(mem, homes),
+        MirAddr::ComputedIndex { base, index, .. } => {
+            collect_value_read_homes(base, homes);
+            collect_value_read_homes(index, homes);
+        }
+        MirAddr::PointerIndex { ptr, index, .. } => {
+            collect_mem_home(ptr, homes);
+            collect_value_read_homes(index, homes);
+        }
+        MirAddr::Deref { ptr, .. } => collect_value_read_homes(ptr, homes),
+        MirAddr::Label(_)
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. } => {}
+    }
+}
+
+fn collect_store_addr_read_homes(addr: &MirAddr, homes: &mut BTreeSet<MirHomeStorage>) {
+    match addr {
+        MirAddr::PointerCell { ptr, .. } => collect_mem_home(ptr, homes),
+        MirAddr::ComputedIndex { base, index, .. } => {
+            collect_value_read_homes(base, homes);
+            collect_value_read_homes(index, homes);
+        }
+        MirAddr::PointerIndex { ptr, index, .. } => {
+            collect_mem_home(ptr, homes);
+            collect_value_read_homes(index, homes);
+        }
+        MirAddr::Deref { ptr, .. } => collect_value_read_homes(ptr, homes),
+        MirAddr::Direct(_)
+        | MirAddr::Label(_)
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::AbsoluteIndexedX { .. }
+        | MirAddr::AbsoluteIndexedY { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. } => {}
+    }
+}
+
+fn collect_value_read_homes(value: &MirValue, homes: &mut BTreeSet<MirHomeStorage>) {
+    match value {
+        MirValue::PointerCell(mem) | MirValue::StorageAddrByte { mem, .. } => {
+            collect_mem_home(mem, homes)
+        }
+        MirValue::Word { lo, hi } => {
+            collect_value_read_homes(lo, homes);
+            collect_value_read_homes(hi, homes);
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. } => {}
+    }
+}
+
+fn collect_mem_home(mem: &MirMem, homes: &mut BTreeSet<MirHomeStorage>) {
+    match mem {
+        MirMem::Spill { id, .. } => {
+            homes.insert(MirHomeStorage::Spill(*id));
+        }
+        MirMem::ZeroPage(slot) => {
+            homes.insert(MirHomeStorage::ZeroPage(*slot));
+        }
+        MirMem::Param { .. }
+        | MirMem::Local { .. }
+        | MirMem::Static { .. }
+        | MirMem::Global { .. }
+        | MirMem::Absolute(_)
+        | MirMem::FixedZeroPage(_) => {}
+    }
 }
 
 #[allow(dead_code)]
@@ -917,8 +1119,11 @@ pub(super) fn prune_unused_spills(routine: &mut MirRoutine) {
     routine.frame.spills.retain(|spill| used.contains(spill));
 }
 
-pub(super) fn lower_block_local_byte_spills_to_zero_page(program: &mut MirProgram) {
+pub(super) fn lower_block_local_byte_spills_to_zero_page(
+    program: &mut MirProgram,
+) -> BTreeMap<RoutineId, BTreeMap<MirSpillId, MirZpSlot>> {
     let source_zero_page = source_zero_page_slots(program);
+    let mut remaps = BTreeMap::new();
     for routine in &mut program.routines {
         let mut used = [false; 256];
         for fixed in &source_zero_page {
@@ -969,6 +1174,7 @@ pub(super) fn lower_block_local_byte_spills_to_zero_page(program: &mut MirProgra
         if remap.is_empty() {
             continue;
         }
+        remaps.insert(routine.id, remap.clone());
         for block in &mut routine.blocks {
             for op in &mut block.ops {
                 remap_op_spills_to_zero_page(op, &remap);
@@ -977,6 +1183,7 @@ pub(super) fn lower_block_local_byte_spills_to_zero_page(program: &mut MirProgra
         }
         prune_unused_spills(routine);
     }
+    remaps
 }
 
 fn spill_crosses_call(routine: &MirRoutine, interval: &SpillUseInterval) -> bool {
@@ -1048,10 +1255,12 @@ struct SpillUseBuilder {
     terminator_use: bool,
 }
 
-pub(super) fn color_basic_block_spills(routine: &mut MirRoutine) {
+pub(super) fn color_basic_block_spills(
+    routine: &mut MirRoutine,
+) -> BTreeMap<MirSpillId, MirSpillId> {
     let intervals = basic_block_spill_intervals(routine);
     if intervals.len() <= 1 {
-        return;
+        return BTreeMap::new();
     }
 
     let mut remap = BTreeMap::<MirSpillId, MirSpillId>::new();
@@ -1088,7 +1297,7 @@ pub(super) fn color_basic_block_spills(routine: &mut MirRoutine) {
 
     remap.retain(|from, to| from != to);
     if remap.is_empty() {
-        return;
+        return remap;
     }
 
     for block in &mut routine.blocks {
@@ -1097,6 +1306,7 @@ pub(super) fn color_basic_block_spills(routine: &mut MirRoutine) {
         }
         remap_terminator_spills(&mut block.terminator, &remap);
     }
+    remap
 }
 
 fn basic_block_spill_intervals(routine: &MirRoutine) -> Vec<SpillUseInterval> {

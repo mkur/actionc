@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 #[derive(Default)]
 pub(super) struct MirPeepholeStats {
-    counts: BTreeMap<(RoutineId, &'static str), usize>,
+    counts: BTreeMap<(RoutineId, String), usize>,
     sites: Vec<MirPeepholeSite>,
 }
 
@@ -16,12 +16,25 @@ struct MirPeepholeSite {
 
 impl MirPeepholeStats {
     pub(super) fn record(&mut self, routine: RoutineId, name: &'static str) {
-        *self.counts.entry((routine, name)).or_default() += 1;
+        self.record_dynamic(routine, name);
     }
 
     pub(super) fn record_many(&mut self, routine: RoutineId, name: &'static str, count: usize) {
+        self.record_many_dynamic(routine, name, count);
+    }
+
+    pub(super) fn record_dynamic(&mut self, routine: RoutineId, name: impl Into<String>) {
+        *self.counts.entry((routine, name.into())).or_default() += 1;
+    }
+
+    pub(super) fn record_many_dynamic(
+        &mut self,
+        routine: RoutineId,
+        name: impl Into<String>,
+        count: usize,
+    ) {
         if count > 0 {
-            *self.counts.entry((routine, name)).or_default() += count;
+            *self.counts.entry((routine, name.into())).or_default() += count;
         }
     }
 
@@ -42,25 +55,28 @@ impl MirPeepholeStats {
         self.counts.is_empty() && self.sites.is_empty()
     }
 
-    pub(super) fn aggregate_counts(&self) -> BTreeMap<&'static str, usize> {
+    pub(super) fn aggregate_counts(&self) -> BTreeMap<String, usize> {
         let mut aggregate = BTreeMap::new();
         for ((_routine, name), count) in &self.counts {
-            *aggregate.entry(*name).or_default() += *count;
+            *aggregate.entry(name.clone()).or_default() += *count;
         }
         aggregate
     }
 
     pub(super) fn count_for(&self, routine: RoutineId, name: &'static str) -> usize {
-        self.counts.get(&(routine, name)).copied().unwrap_or(0)
+        self.counts
+            .get(&(routine, name.to_string()))
+            .copied()
+            .unwrap_or(0)
     }
 
-    fn per_routine_counts(&self) -> BTreeMap<RoutineId, BTreeMap<&'static str, usize>> {
+    fn per_routine_counts(&self) -> BTreeMap<RoutineId, BTreeMap<String, usize>> {
         let mut per_routine = BTreeMap::new();
         for ((routine, name), count) in &self.counts {
             *per_routine
                 .entry(*routine)
                 .or_insert_with(BTreeMap::new)
-                .entry(*name)
+                .entry(name.clone())
                 .or_default() += *count;
         }
         per_routine

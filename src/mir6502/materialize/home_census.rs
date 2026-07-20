@@ -1,13 +1,13 @@
 use super::dead_spills::block_successor_indices;
 use super::defs::op_def;
-use super::spills::op_may_clobber_reg;
+use super::spills::{MirHomeStorage, home_access_counts, op_may_clobber_reg};
 use super::stats::MirPeepholeStats;
 use super::temp_liveness::{MirTempLiveSet, MirTempLiveness};
 use super::temp_widths::collect_temp_widths;
 use crate::mir6502::ir::{
     MirAddr, MirArgHome, MirCallTarget, MirCarryIn, MirCarryOut, MirCond, MirCondDest, MirDef,
-    MirOp, MirProgram, MirReg, MirResultHome, MirRoutine, MirTempId, MirTerminator, MirValue,
-    MirWidth,
+    MirOp, MirProgram, MirReg, MirResultHome, MirRoutine, MirSpillId, MirTempId, MirTerminator,
+    MirValue, MirWidth, MirZpSlot,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -78,6 +78,27 @@ pub(super) enum HomeMaterializationReason {
 }
 
 impl HomeMaterializationReason {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Unused => "unused",
+            Self::NonSingleDefinition => "non-single-def",
+            Self::MultipleUses => "multi-use",
+            Self::TerminatorUse => "terminator",
+            Self::CoupledLanes => "coupled",
+            Self::LiveAcrossCall => "call-live",
+            Self::LiveAcrossMachineBlock => "machine-live",
+            Self::LiveAcrossBarrier => "barrier-live",
+            Self::LiveAcrossBackedge => "backedge-live",
+            Self::LiveAtJoin => "join-live",
+            Self::CrossBlock => "cross-block",
+            Self::NonAccumulatorProducer => "non-accumulator",
+            Self::AccumulatorClobber => "accumulator-clobber",
+            Self::UnsupportedConsumer => "unsupported-consumer",
+            Self::ObservableStorage => "observable-storage",
+            Self::Profitability => "profitability",
+        }
+    }
+
     fn metric_name(self) -> &'static str {
         match self {
             Self::Unused => "home-plan-materialize-unused-lanes",
@@ -104,6 +125,7 @@ impl HomeMaterializationReason {
 pub(super) struct HomePlan {
     decisions: BTreeMap<TempLane, HomeDecision>,
     register_ranges: BTreeMap<TempLane, RegisterHomeRange>,
+    attributions: BTreeMap<TempLane, LaneAttribution>,
 }
 
 impl HomePlan {
@@ -114,6 +136,215 @@ impl HomePlan {
 
     fn len(&self) -> usize {
         self.decisions.len()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LaneAttribution {
+    producer: &'static str,
+    consumer: &'static str,
+    width: &'static str,
+    coupled: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TrackedHome {
+    Spill(MirSpillId),
+    ZeroPage(MirZpSlot),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TrackedLane {
+    attribution: LaneAttribution,
+    decision: HomeDecision,
+    home: Option<TrackedHome>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct HomeFateTracker {
+    lanes: BTreeMap<TempLane, TrackedLane>,
+}
+
+impl HomeFateTracker {
+    pub(super) fn from_plan(plan: &HomePlan) -> Self {
+        let lanes = plan
+            .decisions
+            .iter()
+            .map(|(lane, decision)| {
+                let home = matches!(decision, HomeDecision::MustMaterialize(_)).then_some(
+                    TrackedHome::Spill(MirSpillId(
+                        lane.id
+                            .0
+                            .saturating_mul(2)
+                            .saturating_add(u32::from(lane.byte)),
+                    )),
+                );
+                let attribution = plan
+                    .attributions
+                    .get(lane)
+                    .copied()
+                    .expect("every planned lane has attribution");
+                (
+                    *lane,
+                    TrackedLane {
+                        attribution,
+                        decision: decision.clone(),
+                        home,
+                    },
+                )
+            })
+            .collect();
+        Self { lanes }
+    }
+
+    pub(super) fn apply_spill_remap(&mut self, remap: &BTreeMap<MirSpillId, MirSpillId>) {
+        for lane in self.lanes.values_mut() {
+            let Some(TrackedHome::Spill(spill)) = lane.home else {
+                continue;
+            };
+            if let Some(replacement) = remap.get(&spill) {
+                lane.home = Some(TrackedHome::Spill(*replacement));
+            }
+        }
+    }
+
+    pub(super) fn apply_zero_page_remap(&mut self, remap: &BTreeMap<MirSpillId, MirZpSlot>) {
+        for lane in self.lanes.values_mut() {
+            let Some(TrackedHome::Spill(spill)) = lane.home else {
+                continue;
+            };
+            if let Some(replacement) = remap.get(&spill) {
+                lane.home = Some(TrackedHome::ZeroPage(*replacement));
+            }
+        }
+    }
+
+    pub(super) fn record_final_fates(&self, routine: &MirRoutine, stats: &mut MirPeepholeStats) {
+        let accesses = home_access_counts(routine);
+        let ram = routine
+            .frame
+            .spills
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        let zp = routine
+            .frame
+            .virtual_zero_page
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        let mut surviving_homes = BTreeSet::new();
+        let mut reconciled = 0usize;
+
+        for (lane, tracked) in &self.lanes {
+            let (fate, home) = match tracked.home {
+                None => ("elided-plan", None),
+                Some(TrackedHome::Spill(spill)) if ram.contains(&spill) => {
+                    ("ram", Some(MirHomeStorage::Spill(spill)))
+                }
+                Some(TrackedHome::ZeroPage(slot)) if zp.contains(&slot) => {
+                    ("zp", Some(MirHomeStorage::ZeroPage(slot)))
+                }
+                Some(TrackedHome::Spill(_)) | Some(TrackedHome::ZeroPage(_)) => {
+                    ("eliminated", None)
+                }
+            };
+            reconciled = reconciled.saturating_add(1);
+            stats.record_dynamic(routine.id, format!("residual-lane-final-{fate}"));
+            stats.record_dynamic(
+                routine.id,
+                format!("residual-lane-producer-{}", tracked.attribution.producer),
+            );
+            stats.record_dynamic(
+                routine.id,
+                format!("residual-lane-consumer-{}", tracked.attribution.consumer),
+            );
+            stats.record_dynamic(
+                routine.id,
+                format!(
+                    "residual-lane-{}-to-{}",
+                    tracked.attribution.producer, tracked.attribution.consumer
+                ),
+            );
+            stats.record_dynamic(
+                routine.id,
+                format!(
+                    "residual-lane-decision-{}-to-{fate}",
+                    decision_name(&tracked.decision)
+                ),
+            );
+            stats.record_dynamic(
+                routine.id,
+                format!(
+                    "residual-lane-width-{}-to-{fate}",
+                    tracked.attribution.width
+                ),
+            );
+            if tracked.attribution.coupled {
+                stats.record_dynamic(routine.id, format!("residual-lane-coupled-to-{fate}"));
+            }
+
+            let access = home.and_then(|home| {
+                surviving_homes.insert(home);
+                accesses.get(&home).copied()
+            });
+            if access.is_some_and(|count| count.writes > 0) {
+                stats.record(routine.id, "residual-lane-final-with-stores");
+            }
+            if access.is_some_and(|count| count.reads > 0) {
+                stats.record(routine.id, "residual-lane-final-with-reloads");
+            }
+            stats.record_site(
+                routine.id,
+                "residual-lane-final-fate",
+                format!(
+                    "temp={} byte={} producer={} consumer={} decision={} fate={} reads={} writes={}",
+                    lane.id.0,
+                    lane.byte,
+                    tracked.attribution.producer,
+                    tracked.attribution.consumer,
+                    decision_name(&tracked.decision),
+                    fate,
+                    access.map_or(0, |count| count.reads),
+                    access.map_or(0, |count| count.writes),
+                ),
+            );
+        }
+
+        stats.record_many(
+            routine.id,
+            "residual-lane-final-reconciled-lanes",
+            reconciled,
+        );
+        for home in surviving_homes {
+            let fate = match home {
+                MirHomeStorage::Spill(_) => "ram",
+                MirHomeStorage::ZeroPage(_) => "zp",
+            };
+            stats.record_dynamic(routine.id, format!("residual-home-final-{fate}"));
+            let access = accesses.get(&home).copied().unwrap_or_default();
+            stats.record_many_dynamic(
+                routine.id,
+                format!("residual-home-final-{fate}-stores"),
+                access.writes,
+            );
+            stats.record_many_dynamic(
+                routine.id,
+                format!("residual-home-final-{fate}-reloads"),
+                access.reads,
+            );
+        }
+    }
+}
+
+fn decision_name(decision: &HomeDecision) -> &'static str {
+    match decision {
+        HomeDecision::ElideInRegister(MirReg::A) => "elide-a",
+        HomeDecision::ElideInRegister(MirReg::X) => "elide-x",
+        HomeDecision::ElideInRegister(MirReg::Y) => "elide-y",
+        HomeDecision::Rematerialize(_) => "rematerialize",
+        HomeDecision::ForwardToConsumer(_) => "forward",
+        HomeDecision::MustMaterialize(reason) => reason.name(),
     }
 }
 
@@ -411,11 +642,29 @@ fn replace_value_lane(value: &mut MirValue, lane: TempLane, replacement: &MirVal
 
 fn op_kind(op: &MirOp) -> &'static str {
     match op {
+        MirOp::LoadImm { .. } => "load-imm",
+        MirOp::Load { .. } => "load",
         MirOp::Move { .. } => "move",
+        MirOp::LeaAddr { .. } => "lea",
+        MirOp::Extend { .. } => "extend",
+        MirOp::Truncate { .. } => "truncate",
+        MirOp::Unary { .. } => "unary",
         MirOp::Binary { .. } => "binary",
         MirOp::Store { .. } => "store",
         MirOp::Compare { .. } => "compare",
-        _ => "unsupported",
+        MirOp::Call { .. } => "call",
+        MirOp::RuntimeHelper { .. } => "runtime-helper",
+        MirOp::MaterializeAddress { .. } => "materialize-address",
+        MirOp::MaterializeIndexedAddress { .. } => "materialize-indexed-address",
+        MirOp::AdvanceAddress { .. } => "advance-address",
+        MirOp::LoadIndirect { .. } => "load-indirect",
+        MirOp::StoreIndirect { .. } => "store-indirect",
+        MirOp::IndirectByteCompound { .. } => "indirect-byte-compound",
+        MirOp::UpdateMem { .. } => "update-mem",
+        MirOp::AddByteToWordMem { .. } => "add-byte-to-word",
+        MirOp::SubByteFromWordMem { .. } => "sub-byte-from-word",
+        MirOp::Barrier { .. } => "barrier",
+        MirOp::MachineBlock { .. } => "machine-block",
     }
 }
 
@@ -754,8 +1003,61 @@ fn analyze_home_demand(routine: &MirRoutine, liveness: &MirTempLiveness) -> Home
         .gross_store_instructions
         .saturating_add(census.gross_reload_instructions)
         .saturating_mul(3);
+    for (lane, lane_facts) in &facts {
+        let coupled = widths.get(&lane.id) == Some(&MirWidth::Word)
+            || lane_facts.defs.iter().any(|site| site.coupled);
+        plan.attributions.insert(
+            *lane,
+            LaneAttribution {
+                producer: lane_producer_kind(routine, *lane, lane_facts),
+                consumer: lane_consumer_kind(routine, lane_facts),
+                width: if widths.get(&lane.id) == Some(&MirWidth::Word) {
+                    "word"
+                } else {
+                    "byte"
+                },
+                coupled,
+            },
+        );
+    }
     debug_assert_eq!(plan.len(), census.temp_lanes);
+    debug_assert_eq!(plan.attributions.len(), census.temp_lanes);
     HomeDemandAnalysis { census, plan }
+}
+
+fn lane_producer_kind(routine: &MirRoutine, lane: TempLane, facts: &LaneFacts) -> &'static str {
+    let [def] = facts.defs.as_slice() else {
+        return if facts.defs.is_empty() {
+            "none"
+        } else {
+            "multiple"
+        };
+    };
+    let Some(block) = routine.blocks.get(def.block) else {
+        return "unknown";
+    };
+    if block.params.iter().any(|param| param.dest == lane.id) {
+        return "block-param";
+    }
+    block.ops.get(def.op).map_or("unknown", op_kind)
+}
+
+fn lane_consumer_kind(routine: &MirRoutine, facts: &LaneFacts) -> &'static str {
+    let [use_site] = facts.uses.as_slice() else {
+        return if facts.uses.is_empty() {
+            "unused"
+        } else {
+            "multiple"
+        };
+    };
+    let Some(op) = use_site.op else {
+        return "terminator";
+    };
+    routine
+        .blocks
+        .get(use_site.block)
+        .and_then(|block| block.ops.get(op))
+        .map_or("unknown", op_kind)
 }
 
 fn register_home_range_is_profitable(routine: &MirRoutine, def: DefSite, use_op: usize) -> bool {
@@ -1944,6 +2246,57 @@ mod tests {
         );
         assert_eq!(counts.get("home-plan-temp-lanes"), Some(&1));
         assert_eq!(counts.get("home-plan-elide-register-a-lanes"), Some(&1));
+    }
+
+    #[test]
+    fn final_fate_tracker_attributes_zero_page_home_and_accesses() {
+        let mut routine = routine(
+            vec![block(
+                0,
+                vec![
+                    MirOp::Load {
+                        dst: temp(0),
+                        src: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                        width: MirWidth::Byte,
+                    },
+                    store_temp(0),
+                ],
+                MirTerminator::Return,
+            )],
+            1,
+        );
+        let plan = plan(&routine);
+        let mut tracker = HomeFateTracker::from_plan(&plan);
+        let slot = MirZpSlot(0);
+        tracker.apply_zero_page_remap(&BTreeMap::from([(MirSpillId(0), slot)]));
+        routine.frame.virtual_zero_page.push(slot);
+        routine.blocks[0].ops = vec![
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::ZeroPage(slot)),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(MirMem::ZeroPage(slot)),
+                width: MirWidth::Byte,
+            },
+        ];
+        let mut stats = MirPeepholeStats::default();
+
+        tracker.record_final_fates(&routine, &mut stats);
+
+        let counts = stats.aggregate_counts();
+        assert_eq!(counts.get("residual-lane-final-reconciled-lanes"), Some(&1));
+        assert_eq!(counts.get("residual-lane-final-zp"), Some(&1));
+        assert_eq!(counts.get("residual-home-final-zp"), Some(&1));
+        assert_eq!(counts.get("residual-home-final-zp-stores"), Some(&1));
+        assert_eq!(counts.get("residual-home-final-zp-reloads"), Some(&1));
+        assert_eq!(counts.get("residual-lane-load-to-store"), Some(&1));
+        assert_eq!(
+            counts.get("residual-lane-decision-profitability-to-zp"),
+            Some(&1)
+        );
     }
 
     #[test]

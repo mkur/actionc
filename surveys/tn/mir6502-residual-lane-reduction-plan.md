@@ -1,10 +1,11 @@
 # MIR6502 Residual-Lane Reduction Plan
 
-Status: planned.
+Status: Slice 1 final-fate attribution implemented; Slice 2 bounded cleanup is
+next.
 
-Snapshot date: 2026-07-19.
+Snapshot date: 2026-07-20.
 
-Baseline commit: `21a37f0` (`Elide profitable MIR6502 accumulator homes`).
+Baseline commit: `0e0ac1b` (`nir: exploit promoted routine value flow`).
 
 Scope: `samples/tn/modern/TN.ACT`, `--profile modern --backend mir6502`.
 
@@ -24,8 +25,9 @@ loaded from a source variable.
 Home elision has shown that trying to recover register residency at this late
 boundary has limited leverage. Applying all locally safe A-residency decisions
 grew TN because later structural combines and spill cleanup already handled
-many of them better. The accepted narrow rule saves 13 bytes, but leaves 501
-residual lanes and 169 final logical temp homes.
+many of them better. The accepted narrow rule saves 13 bytes. Subsequent NIR
+promotion and home elision reduce source-home traffic, but the current MIR
+boundary still contains 497 residual lanes and 175 final logical temp homes.
 
 The next phase should reduce the number of costly lanes that reach home
 planning. It must optimize producer/consumer structure earlier without making
@@ -35,54 +37,79 @@ already removes the final home.
 
 ## Current TN baseline
 
-The accepted post-Slice-3 home census reports:
+The accepted post-NIR-Phase-8 home census reports:
 
 | Metric | Count |
 | --- | ---: |
-| Residual temp lanes | 501 |
-| Definitions | 501 |
-| Uses | 529 |
-| Same-block lanes | 490 |
-| Single-use lanes | 465 |
-| Cross-block lanes | 11 |
-| Natural A producers | 253 |
+| Residual temp lanes | 497 |
+| Definitions | 497 |
+| Uses | 563 |
+| Same-block lanes | 483 |
+| Single-use lanes | 434 |
+| Cross-block lanes | 14 |
+| Natural A producers | 251 |
 | Natural X/Y producers | 0 / 0 |
-| Final logical temp homes | 169 |
-| Final virtual-ZP homes | 119 |
-| Final ordinary spill homes | 50 |
+| Final logical temp homes | 175 |
+| Final virtual-ZP homes | 126 |
+| Final ordinary spill homes | 49 |
 
-The mutually exclusive home-plan decisions partition the 501 lanes:
+The mutually exclusive home-plan decisions partition the 497 lanes:
 
 | Primary decision | Lanes |
 | --- | ---: |
-| Coupled word/carry lanes | 228 |
+| Coupled word/carry lanes | 196 |
 | Terminator uses | 109 |
-| Safe but not profitable for late A residency | 61 |
-| Multiple uses | 32 |
+| Safe but not profitable for late A residency | 62 |
+| Multiple uses | 57 |
 | Unsupported consumer | 27 |
 | Accumulator clobber | 21 |
 | Live across call | 12 |
 | Unused | 4 |
+| Non-single definition | 2 |
 | Cross-block | 1 |
 | Elided in A | 6 |
 
 Join, backedge, call, and machine-block exposure counters overlap these primary
 reasons. They are constraints, not additional lanes.
 
-Two conclusions control this plan:
+The overlapping exposure census now includes 245 coupled lanes, 110 lanes live
+across calls, 93 lanes live at joins, 82 lanes live across backedges, and 53
+lanes live across machine blocks. These counts are constraints and are not
+additive.
 
-- block locality alone is not the principal limit: 490 of 501 lanes are
+Three conclusions control this plan:
+
+- block locality alone is not the principal limit: 483 of 497 lanes are
   already block-local;
-- word/coupled values and terminator values are the largest early-reduction
-  targets, while the 61 profitability-retained lanes show why residual count
-  must be correlated with final code and home fate.
+- word/coupled values and terminator values are the largest gross classes, but
+  their final cost is not yet attributed lane by lane;
+- the 62 profitability-retained lanes and the growth seen with unrestricted
+  NIR GVN show why residual count must be correlated with final code, live-range
+  extension, and home fate.
 
-The accepted TN artifact is 13,335 bytes, with 5,468 listing instructions,
-12,311 measured code bytes, 444 measured data bytes, 1,633 `LDA`, and 1,298
+The accepted TN artifact is 13,258 bytes, with 5,451 listing instructions,
+12,243 measured code bytes, 435 measured data bytes, 1,632 `LDA`, and 1,296
 `STA` instructions.
+
+The optimized NIR feeding this artifact contains 1,942 operations, 717 loads,
+346 stores, 379 source storage homes, one block parameter, two edge arguments,
+and 13 cross-block temporary uses. The complete current NIR optimizer removes
+45 loads, five stores, and five source homes relative to lowered NIR. Phase 8
+deliberately restricts GVN to reuse that does not extend the canonical temp's
+live range: unrestricted GVN grew TN by 228 bytes even though it removed more
+NIR operations.
+
+The rise from 169 to 175 final logical temp homes is therefore not by itself a
+regression. NIR promotion has exchanged some persistent source-home traffic for
+explicit value flow, while the final load file has fallen by 24 bytes from the
+immediately pre-promotion 13,282-byte artifact. The next analysis must connect
+each new value lane to its final code and storage cost before choosing another
+rewrite family.
 
 ## Goals
 
+- Attribute every residual lane to its final eliminated, ZP, or RAM fate and
+  its actual materialized traffic.
 - Eliminate temps whose values can reach branches, stores, ABI homes, returns,
   or address consumers directly.
 - Run propagation and dead-temp cleanup to a bounded fixed point so one rewrite
@@ -96,6 +123,35 @@ The accepted TN artifact is 13,335 bytes, with 5,468 listing instructions,
 - Preserve NIR/MIR ownership boundaries and verifier-clean typed MIR.
 - Attribute every reduction to a producer/consumer class and measure its final
   code, memory-traffic, and storage effect.
+
+## Revised execution order
+
+The implementation order after NIR phases 6-8 is:
+
+1. use the completed Slice 1 final-fate attribution as the current 497-lane
+   baseline;
+2. implement Slice 2 as a bounded, monotonic pre-home fixed point over existing
+   safe rewrites;
+3. regenerate the census and choose the first behavior-changing family by
+   actual surviving homes and accesses, not by the gross lane count;
+4. proceed to Slice 5A whole-word destination propagation: attribution confirms
+   that 154 primary coupled lanes survive in final homes; do not implement
+   Slice 3 for the current compare-to-terminator population because all 109 of
+   those lanes are already eliminated later;
+5. add routine-wide spill interference coloring after avoidable homes have been
+   reduced;
+6. only then widen NIR scalar promotion into more call-heavy `Copy` and `Handle`
+   shapes.
+
+This separates two problems that must remain distinct:
+
+- Slices 2-6 avoid creating unnecessary homes and their load/store traffic.
+- Routine-wide coloring and later pool work find better physical locations for
+  unavoidable homes.
+
+Range inference and loop-invariant motion remain deferred. Both can lengthen
+live ranges, and the unrestricted-GVN result shows that operation-count wins at
+NIR are not sufficient evidence of a 6502 win.
 
 ## Non-goals
 
@@ -141,11 +197,11 @@ Every rewrite must preserve:
 MIR6502 must not consult SemIR to reconstruct facts that should already be in
 NIR or MIR. No new stringly executable form is permitted.
 
-## Slice 1: Residual-lane attribution
+## Slice 1: Final-fate residual-lane attribution
 
-Status: planned; instrumentation only.
+Status: implemented; instrumentation only and byte-identical.
 
-Extend the home census so the 501-lane total can be ranked by actual shape and
+Extend the home census so the 497-lane total can be ranked by actual shape and
 downstream fate. For every residual lane, record:
 
 - producer operation and width;
@@ -180,11 +236,69 @@ Acceptance criteria:
 - the note is updated with the ranked producer/consumer matrix before choosing
   later sub-slices.
 
+The report must also explain the current 497-to-175 funnel: 497 residual lanes,
+491 mandatory-materialization decisions, and 175 final logical homes. Counts at
+these stages are not expected to match one-for-one because dead-store removal,
+consumer folding, coloring, and ZP allocation happen after the home plan.
+
+### Slice 1 results
+
+The tracker preserves each lane's provenance through both basic-block spill
+coloring rounds and through conversion of RAM spills to virtual ZP. It reports
+producer, consumer, width, home-plan decision, final fate, and whether the final
+home has reads or writes. Dynamic producer/consumer matrices are available in
+aggregate and per-routine modes, while lane sites remain opt-in.
+
+The final lane-fate partition is:
+
+| Final lane fate | Lanes |
+| --- | ---: |
+| Eliminated by later combines and cleanup | 235 |
+| Elided by the accepted register plan | 6 |
+| Associated with a final virtual-ZP home | 191 |
+| Associated with a final RAM home | 65 |
+| **Total reconciled** | **497** |
+
+Coloring allows multiple non-overlapping lane lifetimes to share one final
+home. The 256 surviving lane associations therefore occupy only 175 homes:
+
+| Final homes | Homes | Stores | Reloads |
+| --- | ---: | ---: | ---: |
+| Virtual ZP | 126 | 185 | 197 |
+| RAM | 49 | 47 | 85 |
+| **Total** | **175** | **232** | **282** |
+
+The highest producer/consumer classes are:
+
+| Producer to consumer | Lanes | Interpretation |
+| --- | ---: | --- |
+| Compare to terminator | 109 | All are eliminated later; not a current target |
+| Load to indexed-address materialization | 51 | Whole-address propagation candidate |
+| Load to address materialization | 48 | Whole-address propagation candidate |
+| Load to multiple consumers | 32 | Retention/rematerialization candidate |
+| Load to binary | 27 | Destination-propagation candidate |
+| Indirect load to move | 27 | ABI/store destination candidate |
+| Load to indirect store | 21 | Alias-sensitive destination candidate |
+| Indirect load to compare | 19 | Existing late combines remove part of the cost |
+
+The home-plan reason-to-fate matrix resolves several false ceilings:
+
+- all 109 terminator lanes are eliminated before final home allocation;
+- 56 of 62 profitability-retained accumulator candidates are also eliminated,
+  leaving only three RAM and three ZP associations;
+- 42 of 196 primary coupled lanes are eliminated, while 128 reach ZP and 26
+  reach RAM;
+- all four unused lanes and the one primary cross-block lane are eliminated;
+- all 12 primary call-live lanes remain RAM-resident.
+
+This selects whole-word/address destination propagation over early terminator
+forwarding as the first new rewrite family after Slice 2.
+
 Commit this instrumentation separately.
 
 ## Slice 2: Bounded propagation and cleanup fixed point
 
-Status: planned.
+Status: next implementation slice.
 
 Several existing passes run once even though removing one temp can expose a new
 copy, dead definition, constant use, or consumer combine. Establish a bounded
@@ -226,11 +340,18 @@ Commit the fixed-point driver independently from new rewrite rules.
 
 ## Slice 3: Early terminator and flag forwarding
 
-Status: planned; first behavior-changing priority.
+Status: planned; conditional behavior-changing priority after final-fate
+attribution.
 
-The 109 terminator lanes are the largest byte-oriented class. Move compatible
-condition lowering before home planning so a boolean result does not require a
-temp home merely to select a branch.
+The 109 terminator lanes are the largest byte-oriented class. Later compare and
+branch fusion already removes some of their cost, however, so the gross count
+is not an achievable saving estimate. Enable this slice only for attributed
+shapes that still allocate a home, emit a store/reload, or block another
+profitable combine.
+
+For those surviving shapes, move compatible condition lowering before home
+planning so a boolean result does not require a temp home merely to select a
+branch.
 
 Start with a compare temp that:
 
@@ -307,9 +428,11 @@ Commit producer/consumer families separately.
 
 ## Slice 5: Coupled word-lane reduction
 
-Status: planned; largest ceiling and highest risk.
+Status: planned; default first behavior-changing family if Slice 1 confirms
+that coupled lanes survive final materialization.
 
-The 228 primary coupled lanes dominate the residual population. Do not begin
+The 196 primary retained coupled lanes dominate the current residual
+population. Do not begin
 with a general word register allocator. First propagate complete word values
 into consumers that already define a safe physical or logical destination.
 
@@ -391,16 +514,33 @@ Acceptance criteria:
 
 Commit constant/address classes separately from any memory-derived class.
 
-## Slice 7: Re-census and next boundary
+## Slice 7: Re-census, routine-wide coloring, and next boundary
 
 After each behavior-changing slice, regenerate the attribution census rather
-than carrying the original 501-lane ranking forward. When Slices 2-6 are
+than carrying the current 497-lane ranking forward. When Slices 2-6 are
 complete or cease to win:
 
 - measure peak simultaneously live byte lanes and word pairs per routine;
 - separate caller-clobbered from call-surviving homes;
 - measure the interference-coloring lower bound for RAM and ZP pools;
 - compare remaining code traffic with modern/classic TN directionally.
+
+The current allocator already reuses the `$E0-$EF` virtual-ZP scratch range
+between routines. Do not introduce a second common ZP pool merely to rename
+that mechanism. Improve eligibility or allocation only when the census shows
+pressure within a routine.
+
+Ordinary spill coloring is currently limited to values wholly contained in one
+basic block. The next placement slice should use routine CFG liveness to color
+non-interfering surviving homes across blocks. It must preserve contiguous word
+and pointer pairs, keep call-live values distinct from clobbered pools, and
+fall back conservatively for terminator, machine-block, or unknown-effect
+exposure.
+
+Cross-routine RAM pooling is later work. It requires call-graph, recursion,
+indirect-call, and caller-live reasoning; its maximum direct storage benefit is
+currently bounded by the 49 ordinary RAM temp homes and it normally removes no
+load/store instructions.
 
 Only then decide between:
 
@@ -409,7 +549,7 @@ Only then decide between:
 - straight-line CFG propagation;
 - broader call/ABI coalescing.
 
-Cross-block propagation is not an initial priority because only 11 current
+Cross-block propagation is not an initial priority because only 14 current
 lanes have cross-block uses and only one reaches that primary rejection reason.
 If earlier reductions materially change that population, create a separate CFG
 plan with dominance, edge-state, and join rules.

@@ -4,10 +4,13 @@ use super::ir::{
     MirCallTarget, MirCarryIn, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDef, MirEffects,
     MirFixedZpSlot, MirFlagTest, MirMem, MirMemoryEffect, MirOp, MirOpRef, MirPointerPair,
     MirProgram, MirReg, MirResultHome, MirRuntimeHelper, MirSpillId, MirTemp, MirTempId,
-    MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth, MirZpSlot, RoutineId,
+    MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth, RoutineId,
 };
 use super::passes::Mir6502Config;
 use std::collections::{BTreeMap, BTreeSet};
+
+#[cfg(test)]
+use super::ir::MirZpSlot;
 
 mod abi;
 mod block_args;
@@ -59,7 +62,8 @@ use flags::{
     op_overwrites_overflow, op_uses_previous_carry, op_writes_flags, terminator_consumes_flags,
 };
 use home_census::{
-    apply_register_home_plan, record_final_home_allocations, record_home_demand_census,
+    HomeFateTracker, apply_register_home_plan, record_final_home_allocations,
+    record_home_demand_census,
 };
 #[cfg(test)]
 use indexes::{
@@ -180,6 +184,7 @@ pub(super) fn materialize_program(
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let mut helpers = Vec::new();
     let mut peephole_stats = MirPeepholeStats::default();
+    let mut home_fates = BTreeMap::<RoutineId, HomeFateTracker>::new();
     reserve_pointer_scratch_slots(&mut program);
     allocate_zero_page_slots(&mut program);
     {
@@ -238,6 +243,7 @@ pub(super) fn materialize_program(
         }
         let home_liveness = analyze_temp_liveness(routine);
         let home_plan = record_home_demand_census(routine, &home_liveness, &mut peephole_stats);
+        home_fates.insert(routine.id, HomeFateTracker::from_plan(&home_plan));
         apply_register_home_plan(routine, &home_plan, &mut peephole_stats);
         for (block_index, block) in routine.blocks.iter_mut().enumerate() {
             let live_out = temp_liveness
@@ -270,7 +276,10 @@ pub(super) fn materialize_program(
         }
         fold_ssa_lite_single_predecessor_loads(routine, &layout, &mut peephole_stats);
         remove_dead_spill_stores(routine);
-        color_basic_block_spills(routine);
+        let remap = color_basic_block_spills(routine);
+        if let Some(tracker) = home_fates.get_mut(&routine.id) {
+            tracker.apply_spill_remap(&remap);
+        }
         prune_unused_spills(routine);
         reserve_used_fixed_zero_page_slots(routine);
     }
@@ -301,14 +310,27 @@ pub(super) fn materialize_program(
         }
         fold_ssa_lite_single_predecessor_loads(routine, &layout, &mut peephole_stats);
         remove_dead_spill_stores(routine);
-        color_basic_block_spills(routine);
+        let remap = color_basic_block_spills(routine);
+        if let Some(tracker) = home_fates.get_mut(&routine.id) {
+            tracker.apply_spill_remap(&remap);
+        }
         prune_unused_spills(routine);
         reserve_used_fixed_zero_page_slots(routine);
     }
-    lower_block_local_byte_spills_to_zero_page(&mut program);
+    let zero_page_remaps = lower_block_local_byte_spills_to_zero_page(&mut program);
+    for (routine, remap) in zero_page_remaps {
+        if let Some(tracker) = home_fates.get_mut(&routine) {
+            tracker.apply_zero_page_remap(&remap);
+        }
+    }
     allocate_zero_page_slots(&mut program);
     materialize_remaining_pointer_cell_values(&mut program);
     record_final_home_allocations(&program, &mut peephole_stats);
+    for routine in &program.routines {
+        if let Some(tracker) = home_fates.get(&routine.id) {
+            tracker.record_final_fates(routine, &mut peephole_stats);
+        }
+    }
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
     maybe_report_peepholes(&program, &peephole_stats, config);
     Ok(program)
