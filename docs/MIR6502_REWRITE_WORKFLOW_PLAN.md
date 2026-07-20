@@ -853,7 +853,11 @@ Suggested commit: `analysis: share deterministic dataflow solver`.
 
 ### Slice 2: add MIR CFG, sites, and generation tracking
 
-Status: planned.
+Status: complete. MIR6502 now has an immutable `MirCfg` implementing the shared
+graph interface, generation-scoped operation/terminator sites, and snapshot
+validation that rejects stale program points. Materialization verifies the CFG
+after compare/branch expansion and empty-jump collapse. The TN optimized NIR,
+materialized MIR, and XEX remained byte-identical.
 
 - Implement immutable `MirCfg` and its shared-graph adapter.
 - Add stable sites/program points and routine generation IDs.

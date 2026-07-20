@@ -1,4 +1,5 @@
 mod abi;
+mod analysis;
 mod builtin;
 mod call_plan;
 mod classify;

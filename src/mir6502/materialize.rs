@@ -1,3 +1,4 @@
+use super::analysis::cfg::{MirCfg, MirCfgError};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirBlockId, MirCallAbi, MirCallArg,
@@ -206,7 +207,9 @@ pub(super) fn materialize_program(
             &mut peephole_stats,
         );
         expand_compare_branch_consumers(&mut routine.blocks, &layout, config);
+        verify_cfg_after_transform(routine, "compare/branch expansion")?;
         collapse_empty_jump_blocks(routine);
+        verify_cfg_after_transform(routine, "empty-jump collapse")?;
         let word_load_address_forwards =
             forward_unique_word_load_address_consumers(routine, &layout);
         peephole_stats.record_many(
@@ -344,6 +347,31 @@ pub(super) fn materialize_program(
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
     maybe_report_peepholes(&program, &peephole_stats, config);
     Ok(program)
+}
+
+fn verify_cfg_after_transform(
+    routine: &super::ir::MirRoutine,
+    transform: &str,
+) -> Result<(), Vec<MirDiagnostic>> {
+    MirCfg::from_routine(routine).map(|_| ()).map_err(|errors| {
+        errors
+            .into_iter()
+            .map(|error| cfg_diagnostic(routine, transform, error))
+            .collect()
+    })
+}
+
+fn cfg_diagnostic(
+    routine: &super::ir::MirRoutine,
+    transform: &str,
+    error: MirCfgError,
+) -> MirDiagnostic {
+    let message = format!("{transform} produced invalid CFG: {}", error.message);
+    if let Some(block) = routine.blocks.iter().find(|block| block.id == error.block) {
+        MirDiagnostic::block(&routine.name, &block.label, message)
+    } else {
+        MirDiagnostic::routine(&routine.name, message)
+    }
 }
 
 const PRE_HOME_CLEANUP_MAX_ROUNDS: usize = 8;
