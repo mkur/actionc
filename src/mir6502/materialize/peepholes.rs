@@ -33,7 +33,7 @@ pub(super) fn fold_structural_peepholes(
         peephole_stats,
     );
     ops = fold_word_temp_producer_forwards(ops, routine_id, peephole_stats);
-    ops = fold_staged_word_store_forwards(ops, routine_id, layout, peephole_stats);
+    ops = fold_staged_word_store_forwards(ops, routine_id, layout, terminator, peephole_stats);
     ops = fold_indirect_byte_const_stores(ops, routine_id, peephole_stats);
     ops = fold_indirect_y_const_stores(ops, routine_id, layout, peephole_stats);
     ops = fold_word_array_store_value_staging(ops, routine_id, layout, peephole_stats);
@@ -85,13 +85,14 @@ fn fold_staged_word_store_forwards(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
     layout: &MaterializeLayout,
+    terminator: &MirTerminator,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Vec<MirOp> {
     let mut out = Vec::new();
     let mut index = 0;
     while index < ops.len() {
         if let Some((consumed, mut replacement)) =
-            staged_word_store_forward_at(&ops, index, routine_id, layout)
+            staged_word_store_forward_at(&ops, index, routine_id, layout, terminator)
         {
             peephole_stats.record(routine_id, "staged-word-store-forward");
             out.append(&mut replacement);
@@ -723,6 +724,7 @@ fn staged_word_store_forward_at(
     index: usize,
     routine_id: RoutineId,
     layout: &MaterializeLayout,
+    terminator: &MirTerminator,
 ) -> Option<(usize, Vec<MirOp>)> {
     let source_lo = load_a_direct_byte(ops.get(index)?)?;
     let (op, _value) = binary_a_const_update(ops.get(index + 1)?)?;
@@ -750,6 +752,12 @@ fn staged_word_store_forward_at(
     }
     if mem_may_overlap_word_target(routine_id, layout, &source_lo, &target_lo)
         || mem_may_overlap_word_target(routine_id, layout, &source_hi, &target_lo)
+    {
+        return None;
+    }
+    let after_forward = index + 10;
+    if !private_scratch_store_removal_is_safe_after(ops, after_forward, terminator, &staged_lo)
+        || !private_scratch_store_removal_is_safe_after(ops, after_forward, terminator, &staged_hi)
     {
         return None;
     }

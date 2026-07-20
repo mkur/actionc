@@ -2645,6 +2645,69 @@ fn word_binary_direct_store_block_reports_temp_producers() {
     ));
 }
 
+fn staged_word_store_ops(source_lo: &MirMem, source_hi: &MirMem, target_lo: &MirMem) -> Vec<MirOp> {
+    vec![
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source_lo.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(5),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Produce,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(source_lo.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source_hi.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::FromPrevious),
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(source_hi.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source_lo.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(target_lo.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source_hi.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(offset_mem(target_lo, 1)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ]
+}
+
 #[test]
 fn staged_word_store_forward_stores_updated_word_directly_to_target() {
     let program = empty_test_program();
@@ -2656,66 +2719,7 @@ fn staged_word_store_forward_stores_updated_word_directly_to_target() {
     let mut stats = MirPeepholeStats::default();
 
     let ops = peepholes::fold_structural_peepholes(
-        vec![
-            MirOp::Load {
-                dst: MirDef::Reg(MirReg::A),
-                src: MirAddr::Direct(source_lo.clone()),
-                width: MirWidth::Byte,
-            },
-            MirOp::Binary {
-                op: MirBinaryOp::Add,
-                dst: MirDef::Reg(MirReg::A),
-                left: MirValue::Def(MirDef::Reg(MirReg::A)),
-                right: MirValue::ConstU8(5),
-                width: MirWidth::Byte,
-                carry_in: Some(MirCarryIn::Clear),
-                carry_out: MirCarryOut::Produce,
-            },
-            MirOp::Store {
-                dst: MirAddr::Direct(source_lo.clone()),
-                src: MirValue::Def(MirDef::Reg(MirReg::A)),
-                width: MirWidth::Byte,
-            },
-            MirOp::Load {
-                dst: MirDef::Reg(MirReg::A),
-                src: MirAddr::Direct(source_hi.clone()),
-                width: MirWidth::Byte,
-            },
-            MirOp::Binary {
-                op: MirBinaryOp::Add,
-                dst: MirDef::Reg(MirReg::A),
-                left: MirValue::Def(MirDef::Reg(MirReg::A)),
-                right: MirValue::ConstU8(0),
-                width: MirWidth::Byte,
-                carry_in: Some(MirCarryIn::FromPrevious),
-                carry_out: MirCarryOut::Ignore,
-            },
-            MirOp::Store {
-                dst: MirAddr::Direct(source_hi),
-                src: MirValue::Def(MirDef::Reg(MirReg::A)),
-                width: MirWidth::Byte,
-            },
-            MirOp::Load {
-                dst: MirDef::Reg(MirReg::A),
-                src: MirAddr::Direct(source_lo),
-                width: MirWidth::Byte,
-            },
-            MirOp::Store {
-                dst: MirAddr::Direct(target_lo.clone()),
-                src: MirValue::Def(MirDef::Reg(MirReg::A)),
-                width: MirWidth::Byte,
-            },
-            MirOp::Load {
-                dst: MirDef::Reg(MirReg::A),
-                src: MirAddr::Direct(MirMem::ZeroPage(MirZpSlot(4))),
-                width: MirWidth::Byte,
-            },
-            MirOp::Store {
-                dst: MirAddr::Direct(target_hi.clone()),
-                src: MirValue::Def(MirDef::Reg(MirReg::A)),
-                width: MirWidth::Byte,
-            },
-        ],
+        staged_word_store_ops(&source_lo, &source_hi, &target_lo),
         RoutineId(0),
         &layout,
         &MirTerminator::Return,
@@ -2744,6 +2748,95 @@ fn staged_word_store_forward_stores_updated_word_directly_to_target() {
             .get("staged-word-store-forward")
             .copied(),
         Some(1)
+    );
+}
+
+#[test]
+fn staged_word_store_forward_keeps_staging_home_read_later() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source_lo = MirMem::ZeroPage(MirZpSlot(2));
+    let source_hi = MirMem::ZeroPage(MirZpSlot(4));
+    let target_lo = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+    let readback = MirMem::FixedZeroPage(MirFixedZpSlot(0xA2));
+    let mut stats = MirPeepholeStats::default();
+    let mut input = staged_word_store_ops(&source_lo, &source_hi, &target_lo);
+    input.extend([
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source_lo.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(readback),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ]);
+
+    let ops = peepholes::fold_structural_peepholes(
+        input,
+        RoutineId(0),
+        &layout,
+        &MirTerminator::Return,
+        true,
+        &mut stats,
+    );
+
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            ..
+        } if mem == &source_lo
+    )));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("staged-word-store-forward")
+            .copied(),
+        None
+    );
+}
+
+#[test]
+fn staged_word_store_forward_keeps_staging_homes_before_successor() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source_lo = MirMem::ZeroPage(MirZpSlot(2));
+    let source_hi = MirMem::ZeroPage(MirZpSlot(4));
+    let target_lo = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+    let mut stats = MirPeepholeStats::default();
+
+    let ops = peepholes::fold_structural_peepholes(
+        staged_word_store_ops(&source_lo, &source_hi, &target_lo),
+        RoutineId(0),
+        &layout,
+        &MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+        true,
+        &mut stats,
+    );
+
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            ..
+        } if mem == &source_lo
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            ..
+        } if mem == &source_hi
+    )));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("staged-word-store-forward")
+            .copied(),
+        None
     );
 }
 
