@@ -45,9 +45,9 @@ mod zp;
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
 use calls::{
-    fold_call_arg_producers, forward_param_register_homes, materialize_call,
-    try_fuse_call_result_store_consumer, try_fuse_loaded_arg_call_result_store_consumer,
-    try_materialize_call_arg_expr_producers,
+    fold_call_arg_producers, forward_param_register_homes, forward_return_slot_call_result_args,
+    materialize_call, try_fuse_call_result_store_consumer,
+    try_fuse_loaded_arg_call_result_store_consumer, try_materialize_call_arg_expr_producers,
 };
 use cfg::collapse_empty_jump_blocks;
 use compare_branch::{
@@ -890,6 +890,22 @@ fn materialize_ops(
 ) -> Vec<MirOp> {
     let ops = rematerialize_direct_pointer_temp_derefs(ops);
     let ops = fold_call_arg_producers(ops);
+    let (ops, call_result_forwards) = forward_return_slot_call_result_args(ops, terminator);
+    peephole_stats.record_many(
+        routine_id,
+        "return-slot-call-arg-forward-candidates",
+        call_result_forwards.candidates,
+    );
+    peephole_stats.record_many(
+        routine_id,
+        "return-slot-call-arg-forwards",
+        call_result_forwards.forwarded,
+    );
+    peephole_stats.record_many(
+        routine_id,
+        "return-slot-call-arg-forward-blocked-home-overlap",
+        call_result_forwards.blocked_home_overlap,
+    );
     let ops = forward_param_register_homes(ops);
     let ops = normalize_byte_add_sub_carry(ops);
     let mut out = Vec::new();

@@ -74,6 +74,173 @@ enum PlannedCallArg {
     Existing(MirCallArg),
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(super) struct ReturnSlotCallArgForwardStats {
+    pub(super) candidates: usize,
+    pub(super) forwarded: usize,
+    pub(super) blocked_home_overlap: usize,
+}
+
+pub(super) fn forward_return_slot_call_result_args(
+    ops: Vec<MirOp>,
+    terminator: &MirTerminator,
+) -> (Vec<MirOp>, ReturnSlotCallArgForwardStats) {
+    let mut out = Vec::with_capacity(ops.len());
+    let mut stats = ReturnSlotCallArgForwardStats::default();
+    let mut index = 0usize;
+    while index < ops.len() {
+        let Some((first, second, blocked_home_overlap)) =
+            return_slot_call_result_arg_forward_at(&ops, index, terminator)
+        else {
+            out.push(ops[index].clone());
+            index += 1;
+            continue;
+        };
+        stats.candidates += 1;
+        if blocked_home_overlap {
+            stats.blocked_home_overlap += 1;
+            out.push(ops[index].clone());
+            index += 1;
+            continue;
+        }
+        stats.forwarded += 1;
+        out.push(first);
+        out.push(second);
+        index += 2;
+    }
+    (out, stats)
+}
+
+fn return_slot_call_result_arg_forward_at(
+    ops: &[MirOp],
+    index: usize,
+    terminator: &MirTerminator,
+) -> Option<(MirOp, MirOp, bool)> {
+    let MirOp::Call {
+        target: first_target,
+        abi: first_abi,
+        args: first_args,
+        result: Some(result),
+        effects: first_effects,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let MirResultHome::ReturnSlot { offset } = result.home else {
+        return None;
+    };
+    let temp = split_def_as_temp(&result.dst)?;
+    let MirOp::Call {
+        target,
+        abi,
+        args,
+        result: second_result,
+        effects,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    if !op_uses_temp(&ops[index + 1], temp)
+        || temp_is_used_after(ops, index + 2, temp)
+        || terminator_uses_temp(terminator, temp)
+    {
+        return None;
+    }
+
+    let blocked_home_overlap = args.iter().any(|arg| {
+        call_arg_home_overlaps_return_slot(&arg.home, arg.width, offset, result.width)
+            && !(arg.value == MirValue::Def(result.dst.clone()) && arg.width == result.width)
+    });
+    if blocked_home_overlap {
+        return Some((ops[index].clone(), ops[index + 1].clone(), true));
+    }
+
+    let replacement = match result.width {
+        MirWidth::Byte => MirValue::PointerCell(return_slot_mem(offset)),
+        MirWidth::Word => pointer_value_from_mem(&return_slot_mem(offset)),
+    };
+    let rewritten_target = replace_call_target_temp(target.clone(), temp, &replacement);
+    let rewritten_args = args
+        .iter()
+        .cloned()
+        .map(|mut arg| {
+            arg.value = replace_temp_value(arg.value, temp, &replacement);
+            arg
+        })
+        .collect();
+
+    Some((
+        MirOp::Call {
+            target: first_target.clone(),
+            abi: first_abi.clone(),
+            args: first_args.clone(),
+            result: None,
+            effects: first_effects.clone(),
+        },
+        MirOp::Call {
+            target: rewritten_target,
+            abi: abi.clone(),
+            args: rewritten_args,
+            result: second_result.clone(),
+            effects: effects.clone(),
+        },
+        false,
+    ))
+}
+
+fn call_arg_home_overlaps_return_slot(
+    home: &MirArgHome,
+    width: MirWidth,
+    result_offset: u16,
+    result_width: MirWidth,
+) -> bool {
+    let result_start = return_slot_address(result_offset);
+    let result_end = result_start.saturating_add(match result_width {
+        MirWidth::Byte => 0,
+        MirWidth::Word => 1,
+    });
+    let mut addresses = Vec::new();
+    collect_call_arg_home_addresses(home, width, &mut addresses);
+    addresses
+        .into_iter()
+        .any(|address| (result_start..=result_end).contains(&address))
+}
+
+fn return_slot_address(offset: u16) -> u16 {
+    let MirMem::FixedZeroPage(slot) = return_slot_mem(offset) else {
+        unreachable!("return slots are fixed zero-page storage")
+    };
+    u16::from(slot.0)
+}
+
+fn collect_call_arg_home_addresses(home: &MirArgHome, width: MirWidth, out: &mut Vec<u16>) {
+    match home {
+        MirArgHome::FixedZeroPage(slot) => {
+            out.push(u16::from(slot.0));
+            if width == MirWidth::Word {
+                out.push(u16::from(slot.0.saturating_add(1)));
+            }
+        }
+        MirArgHome::Absolute(address) => {
+            out.push(*address);
+            if width == MirWidth::Word {
+                out.push(address.saturating_add(1));
+            }
+        }
+        MirArgHome::StackFrame { base, offset } => {
+            out.push(base.saturating_add(*offset));
+            if width == MirWidth::Word {
+                out.push(base.saturating_add(*offset).saturating_add(1));
+            }
+        }
+        MirArgHome::BytePair { lo, hi } => {
+            collect_call_arg_home_addresses(lo, MirWidth::Byte, out);
+            collect_call_arg_home_addresses(hi, MirWidth::Byte, out);
+        }
+        MirArgHome::Reg(_) | MirArgHome::RegisterPair { .. } | MirArgHome::ZeroPage(_) => {}
+    }
+}
+
 fn collect_call_arg_expr_plan(
     ops: &[MirOp],
     index: usize,

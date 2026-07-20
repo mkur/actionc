@@ -10524,6 +10524,143 @@ fn pre_materialization_does_not_forward_storage_address_into_arithmetic() {
 }
 
 #[test]
+fn return_slot_word_result_forwards_to_repeated_next_call_args() {
+    let temp = MirTempId(0);
+    let value = MirValue::Def(MirDef::VTemp(temp));
+    let first = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: Some(MirResultHome::ReturnSlot { offset: 0 }),
+            clobbers: MirRegisterSet::default(),
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: Some(MirCallResult {
+            dst: MirDef::VTemp(temp),
+            width: MirWidth::Word,
+            home: MirResultHome::ReturnSlot { offset: 0 },
+        }),
+        effects: MirEffects::default(),
+    };
+    let second = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(2)),
+        abi: MirCallAbi {
+            params: vec![
+                MirArgHome::BytePair {
+                    lo: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                    hi: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA1))),
+                },
+                MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+            ],
+            result: None,
+            clobbers: MirRegisterSet::default(),
+            preserves: MirRegisterSet::default(),
+        },
+        args: vec![
+            MirCallArg {
+                value: value.clone(),
+                width: MirWidth::Word,
+                home: MirArgHome::BytePair {
+                    lo: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                    hi: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA1))),
+                },
+            },
+            MirCallArg {
+                value,
+                width: MirWidth::Word,
+                home: MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+            },
+        ],
+        result: None,
+        effects: MirEffects::default(),
+    };
+
+    let (ops, stats) =
+        forward_return_slot_call_result_args(vec![first, second], &MirTerminator::Return);
+
+    assert_eq!(stats.candidates, 1);
+    assert_eq!(stats.forwarded, 1);
+    assert_eq!(stats.blocked_home_overlap, 0);
+    assert!(matches!(&ops[0], MirOp::Call { result: None, .. }));
+    let expected = pointer_value_from_mem(&return_slot_mem(0));
+    assert!(matches!(
+        &ops[1],
+        MirOp::Call { args, .. } if args.len() == 2
+            && args[0].value == expected
+            && args[1].value == expected
+    ));
+}
+
+#[test]
+fn return_slot_result_forward_blocks_overlapping_different_arg_home() {
+    let temp = MirTempId(0);
+    let first = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: Some(MirResultHome::ReturnSlot { offset: 0 }),
+            clobbers: MirRegisterSet::default(),
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: Some(MirCallResult {
+            dst: MirDef::VTemp(temp),
+            width: MirWidth::Word,
+            home: MirResultHome::ReturnSlot { offset: 0 },
+        }),
+        effects: MirEffects::default(),
+    };
+    let second = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(2)),
+        abi: MirCallAbi {
+            params: vec![
+                MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA0)),
+                MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+            ],
+            result: None,
+            clobbers: MirRegisterSet::default(),
+            preserves: MirRegisterSet::default(),
+        },
+        args: vec![
+            MirCallArg {
+                value: MirValue::ConstU16(0x1234),
+                width: MirWidth::Word,
+                home: MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA0)),
+            },
+            MirCallArg {
+                value: MirValue::Def(MirDef::VTemp(temp)),
+                width: MirWidth::Word,
+                home: MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+            },
+        ],
+        result: None,
+        effects: MirEffects::default(),
+    };
+    let original = vec![first, second];
+
+    let (ops, stats) =
+        forward_return_slot_call_result_args(original.clone(), &MirTerminator::Return);
+
+    assert_eq!(stats.candidates, 1);
+    assert_eq!(stats.forwarded, 0);
+    assert_eq!(stats.blocked_home_overlap, 1);
+    assert_eq!(ops, original);
+}
+
+#[test]
 fn pre_home_fixed_point_removes_dead_word_lane_and_keeps_live_sibling() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

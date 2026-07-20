@@ -1,7 +1,7 @@
 # MIR6502 Residual-Lane Reduction Plan
 
-Status: Slices 1-2 and the first Slice 5A whole-address forwarding family are
-implemented; further Slice 5A ABI/value families are next.
+Status: Slices 1-2 and two Slice 5A whole-address/ABI forwarding families are
+implemented; remaining word-load/address consumers are next.
 
 Snapshot date: 2026-07-20.
 
@@ -502,6 +502,21 @@ Final attribution improves from 235 to 237 eliminated lanes and from 191 to
 `prepare-dynamic-word-index` falls from one to zero because the direct storage
 base now enters the generic indexed-address path; protected indexed-copy,
 word-array-store-staging, scaled-addressing, and direct-update counters are
+unchanged.
+
+The second accepted family forwards an adjacent call's byte or word return-slot
+result directly into every use in the next call. It removes the result temp
+definition only when there are no later or terminator uses. Because call
+arguments are materialized in home order, the rewrite also enumerates fixed-ZP,
+absolute, stack, and byte-pair argument homes and rejects a different argument
+that could overwrite either return-slot byte before a register use.
+
+On TN the single candidate is `SavePos`: a word result in `$A0/$A1` is passed
+both back to `$A0/$A1` and to `A:X` in the next call. Forwarding removes two
+more ZP homes, stores, and reloads and another eight code bytes. The cumulative
+Slice 5A result is 13,242 bytes, 495 residual lanes, 171 final homes (122 ZP and
+49 RAM), 228 home stores, and 278 reloads. The `load`-to-`move` class falls by
+two lanes. Protected word-store, indexed-copy, and scaled-index counters remain
 unchanged.
 
 ### Slice 5B: Loads, pointer pairs, and address consumers
