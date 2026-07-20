@@ -506,6 +506,169 @@ fn compare_operand_prebranch_fold_enables_compact_signed_word_branch() {
 }
 
 #[test]
+fn prebranch_narrows_byte_derived_word_bitmask_zero_compare() {
+    let mut blocks = vec![byte_derived_word_bitmask_compare_block(MirWidth::Byte)];
+    let mut stats = MirPeepholeStats::default();
+
+    fold_compare_operand_producers_before_branches(&mut blocks, RoutineId(0), &mut stats);
+
+    assert!(matches!(
+        &blocks[0].ops[1],
+        MirOp::Binary {
+            op: MirBinaryOp::And,
+            left: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+            right: MirValue::ConstU8(4),
+            width: MirWidth::Byte,
+            ..
+        }
+    ));
+    assert!(matches!(
+        &blocks[0].ops[2],
+        MirOp::Compare {
+            op: MirCompareOp::Ne,
+            right: MirValue::ConstU8(0),
+            width: MirWidth::Byte,
+            signed: false,
+            ..
+        }
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("byte-derived-word-bitwise-zero-compare-narrowed"),
+        Some(&1)
+    );
+}
+
+#[test]
+fn prebranch_keeps_word_bitmask_when_operand_is_not_byte_derived() {
+    let mut blocks = vec![byte_derived_word_bitmask_compare_block(MirWidth::Word)];
+    let mut stats = MirPeepholeStats::default();
+
+    fold_compare_operand_producers_before_branches(&mut blocks, RoutineId(0), &mut stats);
+
+    assert!(matches!(
+        &blocks[0].ops[1],
+        MirOp::Binary {
+            width: MirWidth::Word,
+            ..
+        }
+    ));
+    assert!(matches!(
+        &blocks[0].ops[2],
+        MirOp::Compare {
+            width: MirWidth::Word,
+            ..
+        }
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("byte-derived-word-bitwise-zero-compare-narrowed"),
+        None
+    );
+}
+
+#[test]
+fn prebranch_keeps_byte_word_bitmask_with_a_nonzero_high_mask() {
+    let mut block = byte_derived_word_bitmask_compare_block(MirWidth::Byte);
+    let MirOp::Binary { right, .. } = &mut block.ops[1] else {
+        panic!("expected binary")
+    };
+    *right = MirValue::ConstU16(0x0100);
+    let mut blocks = vec![block];
+    let mut stats = MirPeepholeStats::default();
+
+    fold_compare_operand_producers_before_branches(&mut blocks, RoutineId(0), &mut stats);
+
+    assert!(matches!(
+        &blocks[0].ops[1],
+        MirOp::Binary {
+            right: MirValue::ConstU16(0x0100),
+            width: MirWidth::Word,
+            ..
+        }
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("byte-derived-word-bitwise-zero-compare-narrowed"),
+        None
+    );
+}
+
+#[test]
+fn prebranch_keeps_byte_word_bitmask_result_with_a_later_use() {
+    let mut block = byte_derived_word_bitmask_compare_block(MirWidth::Byte);
+    block.ops.push(MirOp::Store {
+        dst: MirAddr::Direct(MirMem::Local {
+            id: LocalId(0),
+            offset: 0,
+        }),
+        src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+        width: MirWidth::Word,
+    });
+    let mut blocks = vec![block];
+    let mut stats = MirPeepholeStats::default();
+
+    fold_compare_operand_producers_before_branches(&mut blocks, RoutineId(0), &mut stats);
+
+    assert!(matches!(
+        &blocks[0].ops[1],
+        MirOp::Binary {
+            width: MirWidth::Word,
+            ..
+        }
+    ));
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("byte-derived-word-bitwise-zero-compare-narrowed"),
+        None
+    );
+}
+
+fn byte_derived_word_bitmask_compare_block(source_width: MirWidth) -> MirBlock {
+    MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(0)),
+                src: MirAddr::Direct(MirMem::Param {
+                    id: ParamId(0),
+                    offset: 0,
+                }),
+                width: source_width,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::And,
+                dst: MirDef::VTemp(MirTempId(1)),
+                left: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                right: MirValue::ConstU16(4),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Compare {
+                dst: MirCondDest::Temp(MirTempId(2)),
+                op: MirCompareOp::Ne,
+                left: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                right: MirValue::ConstU16(0),
+                width: MirWidth::Word,
+                signed: false,
+            },
+        ],
+        terminator: MirTerminator::Branch {
+            cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(2)))),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        },
+    }
+}
+
+#[test]
 fn byte_binary_compare_consumer_forwards_logic_result_to_a() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

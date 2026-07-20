@@ -1,8 +1,8 @@
 # MIR6502 Residual-Lane Reduction Plan
 
-Status: Slices 1-2, two Slice 5A families, two Slice 5B word/address families,
-and the first Slice 5C arithmetic family are implemented; remaining word and
-arithmetic families require re-census.
+Status: Slices 1-2, the first Slice 3 width/terminator family, two Slice 5A
+families, two Slice 5B word/address families, and the first Slice 5C arithmetic
+family are implemented; remaining families require re-census.
 
 Snapshot date: 2026-07-20.
 
@@ -371,8 +371,8 @@ home.
 
 ## Slice 3: Early terminator and flag forwarding
 
-Status: planned; conditional behavior-changing priority after final-fate
-attribution.
+Status: byte-derived word bitwise zero-compare narrowing implemented; direct
+flag-forwarding sub-families remain conditional on surviving final cost.
 
 The 109 terminator lanes are the largest byte-oriented class. Later compare and
 branch fusion already removes some of their cost, however, so the gross count
@@ -417,6 +417,33 @@ Acceptance criteria:
 
 Commit each word-width or signedness expansion separately if it changes a new
 flag contract.
+
+### Slice 3 results
+
+The first accepted family handles a source byte that was widened only because
+a bitwise mask expression and its equality/non-equality-to-zero compare were
+typed as words. When both bitwise operands have proven zero high bytes, the
+mask has no high bits, the result has one compare use, and the result is not
+live afterward, MIR6502 narrows both the bitwise operation and zero compare to
+byte width before branch expansion. This preserves Action! value semantics but
+avoids constructing the generic multi-block word comparison. Word inputs,
+nonzero high masks, signed/ordered comparisons, carry-dependent operations,
+and later result uses retain the word path.
+
+TN has three accepted sites: one hardware-status mask in `GetAnyKey` and two
+file-attribute masks in `DrawWinFrame`. Relative to the preceding Slice 5C
+result, the load file falls from 12,801 to 12,711 bytes and final homes from
+114 to 108 (74 ZP and 34 RAM). Home stores fall from 117 to 111 and reloads
+from 167 to 161. The raw residual-lane count remains 371: this family changes
+the width/branch expansion and final fate rather than removing the typed
+producer identities counted at the earlier boundary.
+
+Relative to the original Slice 1 baseline, the accepted families now save 547
+load-file bytes, 67 final homes, 121 home stores, and 121 home reloads. The
+measured code body is 11,696 bytes and data remains 435 bytes. The recognized
+listing instruction count is 5,102, including 1,529 `LDA` and 1,187 `STA`
+instructions. Protected indexed-copy, word-array-store, direct-update,
+return-slot-forwarding, and scaled-addressing counters remain unchanged.
 
 ## Slice 4: Unique-use destination propagation
 
