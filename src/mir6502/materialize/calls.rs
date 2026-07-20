@@ -32,12 +32,34 @@ pub(super) fn try_materialize_call_arg_expr_producers(
     layout: &MaterializeLayout,
     helpers: &mut Vec<MirRuntimeHelper>,
     out: &mut Vec<MirOp>,
-) -> usize {
+) -> CallArgExprMaterializeResult {
     let Some(plan) = collect_call_arg_expr_plan(ops, index, config, layout) else {
-        return 0;
+        return CallArgExprMaterializeResult::default();
     };
+    let indexed_word_loads = plan
+        .args
+        .iter()
+        .filter(|arg| {
+            matches!(
+                arg,
+                PlannedCallArg::Expr {
+                    expr: CallArgExpr::IndexedWordLoad { .. },
+                    ..
+                }
+            )
+        })
+        .count();
     materialize_call_arg_expr_plan(&plan, layout, helpers, out);
-    plan.consumed
+    CallArgExprMaterializeResult {
+        consumed: plan.consumed,
+        indexed_word_loads,
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(super) struct CallArgExprMaterializeResult {
+    pub(super) consumed: usize,
+    pub(super) indexed_word_loads: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +67,9 @@ enum CallArgExpr {
     Value {
         value: MirValue,
         width: MirWidth,
+    },
+    IndexedWordLoad {
+        addr: MirAddr,
     },
     Binary {
         op: MirBinaryOp,
@@ -271,6 +296,24 @@ fn collect_call_arg_expr_plan(
     if call_target_uses_collected_temp(target, &exprs) || !call_arg_expr_homes_supported(args) {
         return None;
     }
+    let has_indexed_word_load = exprs
+        .values()
+        .any(|expr| matches!(expr, CallArgExpr::IndexedWordLoad { .. }));
+    if has_indexed_word_load
+        && args
+            .iter()
+            .any(|arg| matches!(arg.home, MirArgHome::Reg(MirReg::Y)))
+    {
+        return None;
+    }
+    if has_indexed_word_load
+        && matches!(target, MirCallTarget::Indirect { .. })
+        && exprs
+            .values()
+            .any(indexed_word_load_reads_indirect_target_scratch)
+    {
+        return None;
+    }
 
     for temp in exprs.keys().copied() {
         if temp_is_used_after(ops, cursor.saturating_add(1), temp) {
@@ -284,6 +327,14 @@ fn collect_call_arg_expr_plan(
         if let Some(temp) = call_arg_expr_temp(&arg.value, arg.width)
             && let Some(expr) = exprs.get(&temp)
         {
+            if matches!(expr, CallArgExpr::IndexedWordLoad { .. })
+                && !matches!(
+                    (&arg.value, arg.width),
+                    (MirValue::Def(MirDef::VTemp(id)), MirWidth::Word) if *id == temp
+                )
+            {
+                return None;
+            }
             saw_expr = true;
             planned_args.push(PlannedCallArg::Expr {
                 expr: expr.clone(),
@@ -357,6 +408,16 @@ fn call_arg_expr_producer(
                 width: MirWidth::Word,
             },
         )),
+        MirOp::Load {
+            dst,
+            src,
+            width: MirWidth::Word,
+        } if indexed_addr_parts(src).is_some() => Some((
+            split_def_as_temp(dst)?,
+            CallArgExpr::IndexedWordLoad {
+                addr: resolve_call_arg_indexed_addr(src, exprs, layout)?,
+            },
+        )),
         MirOp::Move { dst, src, width } => Some((
             split_def_as_temp(dst)?,
             CallArgExpr::Value {
@@ -391,6 +452,36 @@ fn call_arg_expr_producer(
     }
 }
 
+fn resolve_call_arg_indexed_addr(
+    addr: &MirAddr,
+    exprs: &BTreeMap<MirTempId, CallArgExpr>,
+    layout: &MaterializeLayout,
+) -> Option<MirAddr> {
+    let mut resolved = addr.clone();
+    for (temp, expr) in exprs {
+        let replacement = expr_as_plain_value(expr, layout)?;
+        resolved = replace_temp_addr(resolved, *temp, &replacement);
+    }
+    let parts = indexed_addr_parts(&resolved)?;
+    if value_uses_temp(&parts.base) || value_uses_temp(&parts.index) {
+        return None;
+    }
+    Some(resolved)
+}
+
+fn indexed_word_load_reads_indirect_target_scratch(expr: &CallArgExpr) -> bool {
+    let CallArgExpr::IndexedWordLoad { addr } = expr else {
+        return false;
+    };
+    let Some(parts) = indexed_addr_parts(addr) else {
+        return false;
+    };
+    [INDIRECT_CALL_TARGET_LO, INDIRECT_CALL_TARGET_HI]
+        .into_iter()
+        .map(|slot| MirMem::FixedZeroPage(MirFixedZpSlot(slot)))
+        .any(|mem| value_reads_mem(&parts.base, &mem) || value_reads_mem(&parts.index, &mem))
+}
+
 fn call_arg_expr_operands_supported(
     op: MirBinaryOp,
     width: MirWidth,
@@ -407,6 +498,7 @@ fn call_arg_expr_operands_supported(
 fn call_arg_expr_can_materialize_byte(expr: &CallArgExpr) -> bool {
     match expr {
         CallArgExpr::Value { .. } => true,
+        CallArgExpr::IndexedWordLoad { .. } => false,
         CallArgExpr::Binary {
             op: MirBinaryOp::Add | MirBinaryOp::Sub,
             left,
@@ -477,6 +569,7 @@ fn call_arg_expr_value(
 fn expr_as_plain_value(expr: &CallArgExpr, layout: &MaterializeLayout) -> Option<MirValue> {
     match expr {
         CallArgExpr::Value { value, .. } => Some(value.clone()),
+        CallArgExpr::IndexedWordLoad { .. } => None,
         CallArgExpr::Binary { .. } => {
             let (lo, hi) = expr_word_byte_values(expr, layout)?;
             Some(MirValue::Word {
@@ -662,6 +755,39 @@ fn materialize_expr_word_to_ax(
     out: &mut Vec<MirOp>,
 ) {
     match expr {
+        CallArgExpr::IndexedWordLoad { addr } => {
+            let Some(parts) = indexed_addr_parts(addr) else {
+                return;
+            };
+            materialize_indexed_address_for_consumer(
+                parts.clone(),
+                DEFAULT_POINTER_PAIR,
+                layout,
+                None,
+                out,
+            );
+            out.push(MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                dst: MirDef::Reg(MirReg::A),
+                offset: parts.offset,
+            });
+            out.push(MirOp::Store {
+                dst: MirAddr::Direct(return_slot_mem(0)),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            });
+            out.push(MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                dst: MirDef::Reg(MirReg::A),
+                offset: parts.offset.saturating_add(1),
+            });
+            out.push(MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            });
+            materialize_call_arg_to_reg(MirValue::PointerCell(return_slot_mem(0)), MirReg::A, out);
+        }
         CallArgExpr::Binary {
             op: MirBinaryOp::Mul,
             left,
@@ -843,6 +969,7 @@ fn expr_word_byte_values(
             MirWidth::Byte => Some((value.clone(), MirValue::ConstU8(0))),
             MirWidth::Word => Some(split_value(value.clone(), layout)),
         },
+        CallArgExpr::IndexedWordLoad { .. } => None,
         CallArgExpr::Binary { .. } => None,
     }
 }

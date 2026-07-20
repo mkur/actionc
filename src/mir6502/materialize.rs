@@ -929,11 +929,16 @@ fn materialize_ops(
             continue;
         }
 
-        let maybe_fused =
+        let call_arg_expr =
             try_materialize_call_arg_expr_producers(&ops, index, config, layout, helpers, &mut out);
-        if maybe_fused > 0 {
+        if call_arg_expr.consumed > 0 {
             peephole_stats.record(routine_id, "call-arg-expr-consumer");
-            index += maybe_fused;
+            peephole_stats.record_many(
+                routine_id,
+                "indexed-word-load-ax-call-arg",
+                call_arg_expr.indexed_word_loads,
+            );
+            index += call_arg_expr.consumed;
             continue;
         }
 

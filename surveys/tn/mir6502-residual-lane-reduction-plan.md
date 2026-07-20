@@ -1,8 +1,8 @@
 # MIR6502 Residual-Lane Reduction Plan
 
-Status: Slices 1-2, two Slice 5A families, and the first Slice 5B direct word
-load/address family are implemented; remaining word and arithmetic families
-require re-census.
+Status: Slices 1-2, two Slice 5A families, and two Slice 5B word/address
+families are implemented; remaining word and arithmetic families require
+re-census.
 
 Snapshot date: 2026-07-20.
 
@@ -522,7 +522,8 @@ unchanged.
 
 ### Slice 5B: Loads, pointer pairs, and address consumers
 
-Status: direct stable word-load to unique address-consumer family implemented.
+Status: direct stable word-load to unique address-consumer and indexed word-load
+to AX call-argument families implemented.
 
 Forward word loads and computed addresses directly into:
 
@@ -554,7 +555,7 @@ falls from 48 lanes to two and `load`-to-`materialize-indexed-address` from 51
 to one.
 
 Relative to the original 13,258-byte Slice 1 baseline, the three word/address
-families save 390 bytes, 36 final homes, 87 `STA`, and 91 `LDA` instructions.
+families save 390 bytes, 40 final homes, 87 `STA`, and 91 `LDA` instructions.
 The measured code body is 11,853 bytes and data remains 435 bytes. The raw
 listing instruction count falls by 175.
 
@@ -566,6 +567,30 @@ one becomes an indirect-direct-store fold. Indexed-copy,
 word-array-store-staging, scaled-indexed-addressing, direct word updates, and
 return-slot forwarding counts remain unchanged. Full tests and the complete
 MIR fixture sweep remain green.
+
+The second family recognizes a unique-use indexed word load whose sole final
+consumer is an `A:X` call argument. It forms the indexed address once, loads
+the low byte to A, parks it in the fixed return-slot scratch at `$A0`, loads the
+high byte into X, and restores the low byte to A immediately before the call.
+This replaces two logical lane homes with one short-lived fixed scratch byte.
+Calls with another argument in Y are rejected because indexed address
+formation uses Y; non-whole-word arguments and values used after the call also
+retain the existing materialization path.
+
+TN has ten accepted sites in `Path`, `DrawWinFrame`, `IsTagged`, `Xloop`,
+`Delete`, `View`, `Rename`, `Copy`, and `Handle`. Relative to the preceding
+stable-load/address family, the load file falls from 12,868 to 12,823 bytes,
+residual lanes from 399 to 379, and final homes from 135 to 118 (78 ZP and 40
+RAM). Home stores fall from 145 to 125 and reloads from 195 to 175. The
+`load-indirect`-to-`move` class falls from 27 lanes to seven.
+
+Relative to the original Slice 1 baseline, the four accepted word/address
+families now save 435 load-file bytes, 57 final homes, 107 home stores, and 107
+home reloads. The measured code body is 11,808 bytes and data remains 435
+bytes. The recognized listing instruction count is 5,144, including 1,543
+`LDA` and 1,199 `STA` instructions. Indexed byte/word copies, word-array-store
+staging, direct word updates, return-slot forwarding, and scaled-indexed
+addressing counters remain unchanged.
 
 ### Slice 5C: Arithmetic and carry chains
 

@@ -11416,3 +11416,237 @@ fn call_arg_expr_preserves_byte_mul_high_byte_for_word_arg() {
         ] && abi.params == vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)]
     ));
 }
+
+#[test]
+fn call_arg_expr_materializes_indexed_word_load_directly_to_ax() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = indexed_word_ax_call_ops(false);
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::default(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(result.consumed, 3);
+    assert_eq!(result.indexed_word_loads, 1);
+    assert!(helpers.is_empty());
+    assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(0))));
+    assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(1))));
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::LoadIndirect {
+            consumer: DEFAULT_POINTER_PAIR,
+            dst: MirDef::Reg(MirReg::A),
+            offset: 0,
+        }
+    )));
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::LoadIndirect {
+            consumer: DEFAULT_POINTER_PAIR,
+            dst: MirDef::Reg(MirReg::A),
+            offset: 1,
+        }
+    )));
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        } if *mem == return_slot_mem(0)
+    )));
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } if *mem == return_slot_mem(0)
+    )));
+    assert!(matches!(
+        out.last(),
+        Some(MirOp::Call { args, .. }) if args == &vec![
+            MirCallArg {
+                value: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+                home: MirArgHome::Reg(MirReg::A),
+            },
+            MirCallArg {
+                value: MirValue::Def(MirDef::Reg(MirReg::X)),
+                width: MirWidth::Byte,
+                home: MirArgHome::Reg(MirReg::X),
+            },
+        ]
+    ));
+}
+
+#[test]
+fn call_arg_expr_keeps_indexed_word_load_when_y_is_another_call_arg() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = indexed_word_ax_call_ops(true);
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::default(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(
+        result,
+        super::calls::CallArgExprMaterializeResult::default()
+    );
+    assert!(helpers.is_empty());
+    assert!(out.is_empty());
+}
+
+#[test]
+fn call_arg_expr_keeps_indexed_word_load_on_indirect_target_scratch_alias() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut ops = indexed_word_ax_call_ops(false);
+    ops[0] = MirOp::Load {
+        dst: MirDef::VTemp(MirTempId(0)),
+        src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+            INDIRECT_CALL_TARGET_LO,
+        ))),
+        width: MirWidth::Byte,
+    };
+    let MirOp::Call { target, .. } = ops.last_mut().expect("call exists") else {
+        panic!("expected call")
+    };
+    *target = MirCallTarget::Indirect {
+        target: MirValue::ConstU16(0x4000),
+        width: MirWidth::Word,
+    };
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::default(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(
+        result,
+        super::calls::CallArgExprMaterializeResult::default()
+    );
+    assert!(helpers.is_empty());
+    assert!(out.is_empty());
+}
+
+#[test]
+fn call_arg_expr_keeps_indexed_word_load_with_a_later_use() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut ops = indexed_word_ax_call_ops(false);
+    ops.push(MirOp::Store {
+        dst: MirAddr::Direct(MirMem::Local {
+            id: LocalId(8),
+            offset: 0,
+        }),
+        src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+        width: MirWidth::Word,
+    });
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::default(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(
+        result,
+        super::calls::CallArgExprMaterializeResult::default()
+    );
+    assert!(helpers.is_empty());
+    assert!(out.is_empty());
+}
+
+fn indexed_word_ax_call_ops(include_y_arg: bool) -> Vec<MirOp> {
+    let mut ops = vec![
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(0)),
+            src: MirAddr::Direct(MirMem::Local {
+                id: LocalId(0),
+                offset: 0,
+            }),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(1)),
+            src: MirAddr::ComputedIndex {
+                base: MirValue::GlobalAddr(crate::nir::SymbolId(1)),
+                index: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                elem_size: 2,
+                offset: 0,
+            },
+            width: MirWidth::Word,
+        },
+    ];
+    if include_y_arg {
+        ops.push(MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(2)),
+            src: MirAddr::Direct(MirMem::Local {
+                id: LocalId(1),
+                offset: 0,
+            }),
+            width: MirWidth::Byte,
+        });
+    }
+    let mut params = Vec::new();
+    let mut args = Vec::new();
+    if include_y_arg {
+        params.push(MirArgHome::Reg(MirReg::Y));
+        args.push(MirCallArg {
+            value: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::Y),
+        });
+    }
+    let ax = MirArgHome::RegisterPair {
+        lo: MirReg::A,
+        hi: MirReg::X,
+    };
+    params.push(ax.clone());
+    args.push(MirCallArg {
+        value: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+        width: MirWidth::Word,
+        home: ax,
+    });
+    ops.push(MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(7)),
+        abi: MirCallAbi {
+            params,
+            result: None,
+            clobbers: MirRegisterSet::default(),
+            preserves: MirRegisterSet::default(),
+        },
+        args,
+        result: None,
+        effects: MirEffects::default(),
+    });
+    ops
+}
