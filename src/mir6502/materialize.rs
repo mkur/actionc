@@ -938,6 +938,11 @@ fn materialize_ops(
                 "indexed-word-load-ax-call-arg",
                 call_arg_expr.indexed_word_loads,
             );
+            peephole_stats.record_many(
+                routine_id,
+                "indexed-word-arithmetic-ax-call-arg",
+                call_arg_expr.indexed_word_arithmetic,
+            );
             index += call_arg_expr.consumed;
             continue;
         }

@@ -11489,6 +11489,119 @@ fn call_arg_expr_materializes_indexed_word_load_directly_to_ax() {
 }
 
 #[test]
+fn call_arg_expr_materializes_indexed_word_constant_add_directly_to_ax() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = indexed_word_const_binary_ax_call_ops(MirBinaryOp::Add, true);
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::default(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(result.consumed, 4);
+    assert_eq!(result.indexed_word_loads, 0);
+    assert_eq!(result.indexed_word_arithmetic, 1);
+    assert!(helpers.is_empty());
+    assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(0))));
+    assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(1))));
+    assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(3))));
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            right: MirValue::ConstU8(1),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Produce,
+            ..
+        }
+    )));
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            right: MirValue::ConstU8(0),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::FromPrevious),
+            carry_out: MirCarryOut::Ignore,
+            ..
+        }
+    )));
+}
+
+#[test]
+fn call_arg_expr_preserves_borrow_for_indexed_word_constant_sub_to_ax() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = indexed_word_const_binary_ax_call_ops(MirBinaryOp::Sub, true);
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::default(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(result.indexed_word_arithmetic, 1);
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::Sub,
+            carry_in: Some(MirCarryIn::Set),
+            carry_out: MirCarryOut::Produce,
+            ..
+        }
+    )));
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::Sub,
+            carry_in: Some(MirCarryIn::FromPrevious),
+            carry_out: MirCarryOut::Ignore,
+            ..
+        }
+    )));
+}
+
+#[test]
+fn call_arg_expr_keeps_constant_minus_indexed_word_load() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = indexed_word_const_binary_ax_call_ops(MirBinaryOp::Sub, false);
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::default(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(
+        result,
+        super::calls::CallArgExprMaterializeResult::default()
+    );
+    assert!(helpers.is_empty());
+    assert!(out.is_empty());
+}
+
+#[test]
 fn call_arg_expr_keeps_indexed_word_load_when_y_is_another_call_arg() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
@@ -11648,5 +11761,35 @@ fn indexed_word_ax_call_ops(include_y_arg: bool) -> Vec<MirOp> {
         result: None,
         effects: MirEffects::default(),
     });
+    ops
+}
+
+fn indexed_word_const_binary_ax_call_ops(
+    op: MirBinaryOp,
+    indexed_value_is_left: bool,
+) -> Vec<MirOp> {
+    let mut ops = indexed_word_ax_call_ops(false);
+    let mut call = ops.pop().expect("call exists");
+    let indexed = MirValue::Def(MirDef::VTemp(MirTempId(1)));
+    let constant = MirValue::ConstU16(1);
+    let (left, right) = if indexed_value_is_left {
+        (indexed, constant)
+    } else {
+        (constant, indexed)
+    };
+    ops.push(MirOp::Binary {
+        op,
+        dst: MirDef::VTemp(MirTempId(3)),
+        left,
+        right,
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    });
+    let MirOp::Call { args, .. } = &mut call else {
+        panic!("expected call")
+    };
+    args[0].value = MirValue::Def(MirDef::VTemp(MirTempId(3)));
+    ops.push(call);
     ops
 }

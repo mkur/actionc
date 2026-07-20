@@ -1,8 +1,8 @@
 # MIR6502 Residual-Lane Reduction Plan
 
-Status: Slices 1-2, two Slice 5A families, and two Slice 5B word/address
-families are implemented; remaining word and arithmetic families require
-re-census.
+Status: Slices 1-2, two Slice 5A families, two Slice 5B word/address families,
+and the first Slice 5C arithmetic family are implemented; remaining word and
+arithmetic families require re-census.
 
 Snapshot date: 2026-07-20.
 
@@ -594,6 +594,8 @@ addressing counters remain unchanged.
 
 ### Slice 5C: Arithmetic and carry chains
 
+Status: indexed word load plus constant to AX call-argument family implemented.
+
 Only after non-arithmetic word propagation is stable, forward complete
 low/high arithmetic chains into a final store or ABI home. Treat the carry or
 borrow edge as part of the value:
@@ -602,6 +604,29 @@ borrow edge as part of the value:
 - nothing may clobber carry between lanes;
 - source/destination overlap must be explicitly legal;
 - compact direct word-update and word-store combines take precedence.
+
+The first accepted family fuses a unique-use indexed word load followed by a
+word add/subtract with a constant when the result is consumed immediately by
+an `A:X` call argument. The low byte is loaded and adjusted in A, then parked
+in `$A0`; the high byte is loaded and adjusted with `FromPrevious` carry or
+borrow before moving to X and restoring the low byte to A. Constant-plus-load
+is accepted for addition, while subtraction preserves operand order. The
+existing Y-argument, later-use, whole-word, and indirect-target scratch-alias
+guards apply to the complete chain.
+
+TN has two accepted additions, in `IsProtected` and `IsDirectory`. Relative to
+the preceding Slice 5B result, the load file falls from 12,823 to 12,801 bytes,
+residual lanes from 379 to 371, and final homes from 118 to 114 (74 ZP and 40
+RAM). Home stores fall from 125 to 117 and reloads from 175 to 167. The eight
+removed residual lanes are the two low/high indexed-load pairs and their two
+low/high arithmetic-result pairs.
+
+Relative to the original Slice 1 baseline, the accepted families now save 457
+load-file bytes, 61 final homes, 115 home stores, and 115 home reloads. The
+measured code body is 11,786 bytes and data remains 435 bytes. The recognized
+listing instruction count is 5,126, including 1,536 `LDA` and 1,193 `STA`
+instructions. Protected indexed-copy, word-array-store, direct-update,
+return-slot-forwarding, and scaled-addressing counters remain unchanged.
 
 Acceptance criteria for every word sub-slice:
 

@@ -49,10 +49,22 @@ pub(super) fn try_materialize_call_arg_expr_producers(
             )
         })
         .count();
+    let indexed_word_arithmetic = plan
+        .args
+        .iter()
+        .filter(|arg| {
+            matches!(
+                arg,
+                PlannedCallArg::Expr { expr, .. }
+                    if indexed_word_const_binary_parts(expr).is_some()
+            )
+        })
+        .count();
     materialize_call_arg_expr_plan(&plan, layout, helpers, out);
     CallArgExprMaterializeResult {
         consumed: plan.consumed,
         indexed_word_loads,
+        indexed_word_arithmetic,
     }
 }
 
@@ -60,6 +72,7 @@ pub(super) fn try_materialize_call_arg_expr_producers(
 pub(super) struct CallArgExprMaterializeResult {
     pub(super) consumed: usize,
     pub(super) indexed_word_loads: usize,
+    pub(super) indexed_word_arithmetic: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -492,7 +505,54 @@ fn call_arg_expr_operands_supported(
         return call_arg_expr_can_materialize_byte(left)
             && call_arg_expr_can_materialize_byte(right);
     }
+    if indexed_word_const_binary_operands(op, width, left, right).is_some() {
+        return true;
+    }
     matches!(left, CallArgExpr::Value { .. }) && matches!(right, CallArgExpr::Value { .. })
+}
+
+fn indexed_word_const_binary_parts(expr: &CallArgExpr) -> Option<(&MirAddr, u16, MirBinaryOp)> {
+    let CallArgExpr::Binary {
+        op,
+        left,
+        right,
+        width: MirWidth::Word,
+    } = expr
+    else {
+        return None;
+    };
+    indexed_word_const_binary_operands(*op, MirWidth::Word, left, right)
+}
+
+fn indexed_word_const_binary_operands<'a>(
+    op: MirBinaryOp,
+    width: MirWidth,
+    left: &'a CallArgExpr,
+    right: &'a CallArgExpr,
+) -> Option<(&'a MirAddr, u16, MirBinaryOp)> {
+    if width != MirWidth::Word {
+        return None;
+    }
+    match (op, left, right) {
+        (MirBinaryOp::Add | MirBinaryOp::Sub, CallArgExpr::IndexedWordLoad { addr }, value) => {
+            Some((addr, call_arg_expr_constant(value)?, op))
+        }
+        (MirBinaryOp::Add, value, CallArgExpr::IndexedWordLoad { addr }) => {
+            Some((addr, call_arg_expr_constant(value)?, op))
+        }
+        _ => None,
+    }
+}
+
+fn call_arg_expr_constant(expr: &CallArgExpr) -> Option<u16> {
+    let CallArgExpr::Value { value, .. } = expr else {
+        return None;
+    };
+    match value {
+        MirValue::ConstU8(value) => Some(u16::from(*value)),
+        MirValue::ConstU16(value) => Some(*value),
+        _ => None,
+    }
 }
 
 fn call_arg_expr_can_materialize_byte(expr: &CallArgExpr) -> bool {
@@ -788,6 +848,15 @@ fn materialize_expr_word_to_ax(
             });
             materialize_call_arg_to_reg(MirValue::PointerCell(return_slot_mem(0)), MirReg::A, out);
         }
+        expr @ CallArgExpr::Binary {
+            width: MirWidth::Word,
+            ..
+        } if indexed_word_const_binary_parts(expr).is_some() => {
+            let Some((addr, constant, op)) = indexed_word_const_binary_parts(expr) else {
+                return;
+            };
+            materialize_indexed_word_const_binary_to_ax(addr, constant, op, layout, out);
+        }
         CallArgExpr::Binary {
             op: MirBinaryOp::Mul,
             left,
@@ -857,6 +926,68 @@ fn materialize_expr_word_to_ax(
             materialize_call_arg_to_reg(lo, MirReg::A, out);
         }
     }
+}
+
+fn materialize_indexed_word_const_binary_to_ax(
+    addr: &MirAddr,
+    constant: u16,
+    op: MirBinaryOp,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) {
+    let Some(parts) = indexed_addr_parts(addr) else {
+        return;
+    };
+    materialize_indexed_address_for_consumer(
+        parts.clone(),
+        DEFAULT_POINTER_PAIR,
+        layout,
+        None,
+        out,
+    );
+    out.push(MirOp::LoadIndirect {
+        consumer: DEFAULT_POINTER_PAIR,
+        dst: MirDef::Reg(MirReg::A),
+        offset: parts.offset,
+    });
+    out.push(MirOp::Binary {
+        op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(constant as u8),
+        width: MirWidth::Byte,
+        carry_in: Some(match op {
+            MirBinaryOp::Add => MirCarryIn::Clear,
+            MirBinaryOp::Sub => MirCarryIn::Set,
+            _ => unreachable!("indexed word constant arithmetic only supports add/sub"),
+        }),
+        carry_out: MirCarryOut::Produce,
+    });
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(return_slot_mem(0)),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::LoadIndirect {
+        consumer: DEFAULT_POINTER_PAIR,
+        dst: MirDef::Reg(MirReg::A),
+        offset: parts.offset.saturating_add(1),
+    });
+    out.push(MirOp::Binary {
+        op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8((constant >> 8) as u8),
+        width: MirWidth::Byte,
+        carry_in: Some(MirCarryIn::FromPrevious),
+        carry_out: MirCarryOut::Ignore,
+    });
+    out.push(MirOp::Move {
+        dst: MirDef::Reg(MirReg::X),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    materialize_call_arg_to_reg(MirValue::PointerCell(return_slot_mem(0)), MirReg::A, out);
 }
 
 fn materialize_byte_mul_expr_to_ax(
