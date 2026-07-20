@@ -2,15 +2,16 @@
 
 Snapshot date: 2026-07-20.
 
-Status: in progress. The pre-branch compare-operand producer and word-to-byte
-compare narrowing families now use the routine-aware driver; the remaining
-compare consumers are pending. Their local shape recognizers no longer make
-suffix-liveness decisions; exact definition identity, reaching definitions,
-and routine-wide lane deadness come from the shared snapshot. Later local,
-terminator, exact-lane successor, and full-temp successor uses have negative
-coverage. TN retains 112 producer folds and three narrowing folds, and its
-materialized MIR and XEX remain byte-identical to Slice 5 (`bb90d361...` and
-`f9f26cb3...`).
+Status: in progress. Slice 6.1 (compare producers, narrowing, and consumers) is
+complete; call families and sub-slices 3–5 are pending. Compare shape
+recognizers no longer make suffix-liveness decisions; exact definition
+identity, reaching definitions, and routine-wide lane deadness come from the
+shared snapshot. Later local, terminator, exact-lane successor, and full-temp
+successor uses have negative coverage. The common producer matcher subsumes
+the old one- and two-load byte compare consumers, while binary-result selection
+declares its explicit A-register projection. TN retains 112 producer folds and
+three narrowing folds, has no binary-result candidates, and its materialized
+MIR and XEX remain byte-identical to Slice 5 (`bb90d361...` and `f9f26cb3...`).
 
 This note defines the implementation plan for integrating MIR6502 peepholes
 into a routine-aware compiler workflow. Local pattern matching remains useful,
@@ -610,6 +611,14 @@ the plan. `MirEffectDelta` records observable machine state present at the
 window exit in only one sequence. `MirChangeSet` describes invalidated fact
 classes.
 
+Pre-home selection may additionally declare `SelectedResultRegister(reg)` when
+it makes an abstract operation's eventual result register explicit and routes
+an in-window consumer through that register. Validation permits differences
+only in reads/writes of the named register and still requires all memory, home,
+other-register, and flag effects to match. This is a target-selection
+projection, not a general register-liveness exemption; post-home rewrites must
+use machine liveness for register changes that can escape their window.
+
 In debug and test builds, validate declarations against the original and
 replacement operations. A matcher must not silently remove an undeclared
 definition or change an undeclared machine location.
@@ -994,9 +1003,8 @@ Suggested commit: `mir6502: drive pre-home rewrites from shared facts`.
 
 ### Slice 6: migrate pre-home rewrites
 
-Status: in progress. Pre-branch compare-operand producers and compare narrowing
-now use the routine-aware driver; compare consumers and sub-slices 2–5 remain
-pending.
+Status: in progress. Sub-slice 1 is complete: compare producers, narrowing, and
+compare consumers use the routine-aware driver. Sub-slices 2–5 remain pending.
 
 Migrate in behaviorally coherent sub-slices:
 

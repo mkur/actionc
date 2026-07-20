@@ -75,6 +75,40 @@ pub(in crate::mir6502) fn compare_narrowing_rank(routine: &MirRoutine) -> usize 
         .sum()
 }
 
+pub(in crate::mir6502) fn discover_byte_binary_compare_consumers(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some(plan) =
+                byte_binary_compare_consumer_plan(block.id, &block.ops, index, context)
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn byte_binary_compare_consumer_rank(routine: &MirRoutine) -> usize {
+    routine
+        .blocks
+        .iter()
+        .map(|block| {
+            (0..block.ops.len())
+                .filter(|index| {
+                    crate::mir6502::materialize::analyzed_byte_binary_compare_candidate(
+                        &block.ops, *index,
+                    )
+                    .is_some()
+                })
+                .count()
+        })
+        .sum()
+}
+
 pub(in crate::mir6502) fn discover_unused_lea_addrs(
     routine: &MirRoutine,
     context: &PreHomeRewriteContext<'_, '_>,
@@ -263,6 +297,64 @@ fn compare_narrowing_plan(
     })
 }
 
+fn byte_binary_compare_consumer_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    let candidate =
+        crate::mir6502::materialize::analyzed_byte_binary_compare_candidate(ops, index)?;
+    let producer_site = MirSite::Op {
+        block,
+        op_index: index,
+    };
+    let compare_site = MirSite::Op {
+        block,
+        op_index: index + 1,
+    };
+    let definitions = context.definitions_at(candidate.temp, producer_site);
+    if definitions.is_empty() {
+        return None;
+    }
+    for definition in &definitions {
+        let uses = context
+            .uses_at(candidate.temp, compare_site)
+            .into_iter()
+            .filter(|usage| usage.requirement.requires(definition.lane))
+            .collect::<Vec<_>>();
+        if uses.is_empty()
+            || uses.iter().any(|usage| {
+                !matches!(
+                    context.unique_reaching_definition(*usage, definition.lane),
+                    MirProof::Proven(reaching) if reaching == *definition
+                )
+            })
+            || !context
+                .temp_definition_dead_after(*definition, context.point(compare_site))
+                .is_proven()
+        {
+            return None;
+        }
+    }
+    Some(MirRewritePlan {
+        generation: context.generation(),
+        block,
+        range: index..index + 2,
+        replacement: candidate.replacement.into_iter().collect(),
+        removed_defs: definitions
+            .into_iter()
+            .map(|definition| MirRemovedDefinition { definition })
+            .collect(),
+        exit_effect_delta: MirEffectDelta::SelectedResultRegister(crate::mir6502::ir::MirReg::A),
+        change_set: MirChangeSet::prehome_operation_change(),
+        stat: "byte-binary-compare-consumer",
+        family_priority: 40,
+        estimated_byte_saving: 1,
+        estimated_cycle_saving: 1,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -391,6 +483,46 @@ mod tests {
             &routine.blocks[0].ops[..],
             [MirOp::Compare {
                 left: MirValue::ConstU8(7),
+                ..
+            }]
+        ));
+    }
+
+    #[test]
+    fn compare_operand_producer_subsumes_two_loaded_byte_consumer() {
+        let mut routine = routine(vec![block(
+            0,
+            vec![
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    src: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(2)),
+                    src: MirAddr::Direct(MirMem::Absolute(0x4001)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Compare {
+                    dst: MirCondDest::Flags,
+                    op: MirCompareOp::Eq,
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    right: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                    width: MirWidth::Byte,
+                    signed: false,
+                },
+            ],
+            MirTerminator::Return,
+        )]);
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point(&mut routine, discover_compare_producers)
+            .unwrap();
+        assert_eq!(result.applied, 1);
+        assert!(matches!(
+            &routine.blocks[0].ops[..],
+            [MirOp::Compare {
+                left: MirValue::PointerCell(MirMem::Absolute(0x4000)),
+                right: MirValue::PointerCell(MirMem::Absolute(0x4001)),
                 ..
             }]
         ));
@@ -586,6 +718,109 @@ mod tests {
                         dst: MirAddr::Direct(MirMem::Absolute(0x5000)),
                         src,
                         width,
+                    }],
+                    MirTerminator::Return,
+                ),
+            ]);
+            assert_eq!(run(&mut successor_use), 0);
+        }
+    }
+
+    #[test]
+    fn byte_binary_compare_selection_uses_routine_deadness() {
+        fn compare_ops() -> Vec<MirOp> {
+            vec![
+                MirOp::Binary {
+                    op: crate::mir6502::ir::MirBinaryOp::Xor,
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    left: MirValue::ConstU8(0xaa),
+                    right: MirValue::ConstU8(0x55),
+                    width: MirWidth::Byte,
+                    carry_in: None,
+                    carry_out: crate::mir6502::ir::MirCarryOut::Ignore,
+                },
+                MirOp::Compare {
+                    dst: MirCondDest::Flags,
+                    op: MirCompareOp::Eq,
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    right: MirValue::ConstU8(0),
+                    width: MirWidth::Byte,
+                    signed: false,
+                },
+            ]
+        }
+
+        fn run(candidate: &mut MirRoutine) -> usize {
+            MirPreHomeRewriteDriver::default()
+                .run_fixed_point_by_key(
+                    candidate,
+                    discover_byte_binary_compare_consumers,
+                    byte_binary_compare_consumer_rank,
+                )
+                .unwrap()
+                .applied
+        }
+
+        let mut local = routine(vec![block(0, compare_ops(), MirTerminator::Return)]);
+        assert_eq!(run(&mut local), 1);
+        assert!(matches!(
+            &local.blocks[0].ops[..],
+            [
+                MirOp::Binary {
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::A),
+                    ..
+                },
+                MirOp::Compare {
+                    left: MirValue::Def(MirDef::Reg(crate::mir6502::ir::MirReg::A)),
+                    ..
+                }
+            ]
+        ));
+
+        let mut local_use_ops = compare_ops();
+        local_use_ops.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x5000)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+            width: MirWidth::Byte,
+        });
+        let mut local_use = routine(vec![block(0, local_use_ops, MirTerminator::Return)]);
+        assert_eq!(run(&mut local_use), 0);
+
+        let mut terminator_use = routine(vec![
+            block(
+                0,
+                compare_ops(),
+                MirTerminator::Jump(MirEdge {
+                    target: crate::mir6502::ir::MirBlockId(1),
+                    args: vec![MirEdgeArg {
+                        value: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                        width: MirWidth::Byte,
+                    }],
+                }),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+        ]);
+        assert_eq!(run(&mut terminator_use), 0);
+
+        for src in [
+            MirValue::Def(MirDef::VTempByte {
+                id: MirTempId(1),
+                byte: 0,
+            }),
+            MirValue::Def(MirDef::VTemp(MirTempId(1))),
+        ] {
+            let mut successor_use = routine(vec![
+                block(
+                    0,
+                    compare_ops(),
+                    MirTerminator::Jump(MirEdge::plain(crate::mir6502::ir::MirBlockId(1))),
+                ),
+                block(
+                    1,
+                    vec![MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Absolute(0x5000)),
+                        src,
+                        width: MirWidth::Byte,
                     }],
                     MirTerminator::Return,
                 ),

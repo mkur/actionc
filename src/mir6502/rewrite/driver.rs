@@ -8,7 +8,7 @@ use crate::mir6502::analysis::effects::{
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 use crate::mir6502::analysis::use_def::{MirDefSite, MirTempLane};
-use crate::mir6502::ir::{MirBlockId, MirMem, MirOp, MirRegisterSet, MirRoutine};
+use crate::mir6502::ir::{MirBlockId, MirMem, MirOp, MirReg, MirRegisterSet, MirRoutine};
 use crate::mir6502::rewrite::context::PreHomeRewriteContext;
 use crate::mir6502::rewrite::plan::{MirEffectDelta, MirFactClass, MirRewritePlan};
 
@@ -261,16 +261,53 @@ fn validate_plan(
         });
     }
     validate_removed_definitions(block.id, &block.ops[plan.range.clone()], plan)?;
-    if matches!(plan.exit_effect_delta, MirEffectDelta::Unchanged)
-        && observable_effects(&block.ops[plan.range.clone()])
-            != observable_effects(&plan.replacement)
-    {
+    if !effect_delta_is_valid(
+        &block.ops[plan.range.clone()],
+        &plan.replacement,
+        plan.exit_effect_delta,
+    ) {
         return Err(MirRewriteError::InvalidDeclaration {
             stat: plan.stat,
-            message: "replacement changed undeclared non-logical effects".to_string(),
+            message: "replacement effects do not match the declared delta".to_string(),
         });
     }
     Ok(())
+}
+
+fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEffectDelta) -> bool {
+    let mut original = observable_effects(original);
+    let mut replacement = observable_effects(replacement);
+    match delta {
+        MirEffectDelta::Unchanged => original == replacement,
+        MirEffectDelta::SelectedResultRegister(register) => {
+            if !register_is_set(replacement.register_writes, register) {
+                return false;
+            }
+            clear_register(&mut original.register_reads, register);
+            clear_register(&mut original.register_writes, register);
+            clear_register(&mut original.register_clobbers, register);
+            clear_register(&mut replacement.register_reads, register);
+            clear_register(&mut replacement.register_writes, register);
+            clear_register(&mut replacement.register_clobbers, register);
+            original == replacement
+        }
+    }
+}
+
+fn register_is_set(registers: MirRegisterSet, register: MirReg) -> bool {
+    match register {
+        MirReg::A => registers.a,
+        MirReg::X => registers.x,
+        MirReg::Y => registers.y,
+    }
+}
+
+fn clear_register(registers: &mut MirRegisterSet, register: MirReg) {
+    match register {
+        MirReg::A => registers.a = false,
+        MirReg::X => registers.x = false,
+        MirReg::Y => registers.y = false,
+    }
 }
 
 fn validate_removed_definitions(

@@ -5,7 +5,7 @@ use std::ops::Range;
 
 use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::analysis::use_def::MirDefSite;
-use crate::mir6502::ir::{MirBlockId, MirOp};
+use crate::mir6502::ir::{MirBlockId, MirOp, MirReg};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(in crate::mir6502) enum MirFactClass {
@@ -49,6 +49,9 @@ pub(in crate::mir6502) enum MirEffectDelta {
     /// Original and replacement have identical non-logical effects.
     #[default]
     Unchanged,
+    /// A pre-home selection makes an operation's eventual result register
+    /// explicit and routes a consumer through it. Other effects stay equal.
+    SelectedResultRegister(MirReg),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -4,10 +4,11 @@ use super::pointers::pointer_value_from_mem;
 #[cfg(test)]
 use super::stats::MirPeepholeStats;
 use super::temp_rewrite::replace_temp_value;
-use super::temp_uses::{
-    op_uses_temp, op_uses_temp_more_than_once, terminator_uses_temp, value_uses_temp,
-};
+#[cfg(test)]
+use super::temp_uses::terminator_uses_temp;
+use super::temp_uses::{op_uses_temp, op_uses_temp_more_than_once, value_uses_temp};
 use super::temp_widths::collect_temp_widths;
+#[cfg(test)]
 use super::temps::{def_is_used_after, temp_is_used_after};
 use super::values::split_value_as_word;
 #[cfg(test)]
@@ -194,6 +195,7 @@ fn byte_derived_word_operand(
     }
 }
 
+#[cfg(test)]
 pub(super) fn try_fuse_byte_compare_consumer(
     ops: &[MirOp],
     index: usize,
@@ -253,6 +255,7 @@ pub(super) fn try_fuse_byte_compare_consumer(
     2
 }
 
+#[cfg(test)]
 pub(super) fn try_fuse_compare_operand_producers(
     ops: &[MirOp],
     index: usize,
@@ -307,6 +310,7 @@ struct CompareOperandPlan {
     signed: bool,
 }
 
+#[cfg(test)]
 fn collect_compare_operand_plan(
     ops: &[MirOp],
     index: usize,
@@ -374,6 +378,7 @@ fn collect_compare_operand_shape(ops: &[MirOp], index: usize) -> Option<CompareO
     })
 }
 
+#[cfg(test)]
 fn compare_operand_producer_temps(ops: &[MirOp]) -> BTreeSet<MirTempId> {
     let mut replacements = BTreeMap::<MirTempId, MirValue>::new();
     let mut temps = BTreeSet::new();
@@ -448,6 +453,7 @@ fn compare_operand_temp_has_single_consumer(
     uses == 1
 }
 
+#[cfg(test)]
 pub(super) fn byte_binary_compare_consumer_observation(
     ops: &[MirOp],
     index: usize,
@@ -499,18 +505,37 @@ pub(super) fn byte_binary_compare_consumer_observation(
     Some("byte-binary-compare-forwardable")
 }
 
+#[cfg(test)]
 pub(super) fn try_fuse_byte_binary_compare_consumer(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
     out: &mut Vec<MirOp>,
 ) -> usize {
-    let Some(binary) = ops.get(index) else {
+    let Some(candidate) = byte_binary_compare_rewrite_candidate(ops, index) else {
         return 0;
     };
-    let Some(compare) = ops.get(index + 1) else {
+    if temp_is_used_after(ops, index + 2, candidate.temp)
+        || terminator_uses_temp(terminator, candidate.temp)
+    {
         return 0;
-    };
+    }
+    out.extend(candidate.replacement);
+    2
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct ByteBinaryCompareRewriteCandidate {
+    pub temp: MirTempId,
+    pub replacement: [MirOp; 2],
+}
+
+pub(in crate::mir6502) fn byte_binary_compare_rewrite_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<ByteBinaryCompareRewriteCandidate> {
+    let binary = ops.get(index)?;
+    let compare = ops.get(index + 1)?;
     let MirOp::Binary {
         op,
         dst,
@@ -521,20 +546,15 @@ pub(super) fn try_fuse_byte_binary_compare_consumer(
         carry_out,
     } = binary
     else {
-        return 0;
+        return None;
     };
     if !byte_binary_compare_op_is_safe(*op, *carry_in, *carry_out) {
-        return 0;
+        return None;
     }
     if value_uses_temp(left) || value_uses_temp(right) {
-        return 0;
+        return None;
     }
-    let Some(dst_temp) = split_def_as_byte_compare_temp(dst) else {
-        return 0;
-    };
-    if temp_is_used_after(ops, index + 2, dst_temp) || terminator_uses_temp(terminator, dst_temp) {
-        return 0;
-    }
+    let temp = split_def_as_byte_compare_temp(dst)?;
 
     let MirOp::Compare {
         dst: compare_dst,
@@ -545,32 +565,36 @@ pub(super) fn try_fuse_byte_binary_compare_consumer(
         signed,
     } = compare
     else {
-        return 0;
+        return None;
     };
     if compare_left != &MirValue::Def(dst.clone())
         || !matches!(compare_right, MirValue::ConstU8(_) | MirValue::ConstU16(_))
     {
-        return 0;
+        return None;
     }
 
-    out.push(MirOp::Binary {
-        op: *op,
-        dst: MirDef::Reg(MirReg::A),
-        left: left.clone(),
-        right: right.clone(),
-        width: MirWidth::Byte,
-        carry_in: *carry_in,
-        carry_out: *carry_out,
-    });
-    out.push(MirOp::Compare {
-        dst: compare_dst.clone(),
-        op: *compare_op,
-        left: MirValue::Def(MirDef::Reg(MirReg::A)),
-        right: compare_right.clone(),
-        width: MirWidth::Byte,
-        signed: *signed,
-    });
-    2
+    Some(ByteBinaryCompareRewriteCandidate {
+        temp,
+        replacement: [
+            MirOp::Binary {
+                op: *op,
+                dst: MirDef::Reg(MirReg::A),
+                left: left.clone(),
+                right: right.clone(),
+                width: MirWidth::Byte,
+                carry_in: *carry_in,
+                carry_out: *carry_out,
+            },
+            MirOp::Compare {
+                dst: compare_dst.clone(),
+                op: *compare_op,
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: compare_right.clone(),
+                width: MirWidth::Byte,
+                signed: *signed,
+            },
+        ],
+    })
 }
 
 fn split_def_as_byte_compare_temp(def: &MirDef) -> Option<MirTempId> {
@@ -608,6 +632,7 @@ fn byte_binary_compare_op_blocker(
     }
 }
 
+#[cfg(test)]
 fn try_fuse_two_loaded_byte_compare_consumer(
     ops: &[MirOp],
     index: usize,

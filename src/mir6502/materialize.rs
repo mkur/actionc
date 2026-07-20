@@ -46,7 +46,8 @@ mod zp;
 
 use super::rewrite::driver::{MirPreHomeRewriteDriver, MirRewriteRunResult};
 use super::rewrite::pilots::{
-    compare_narrowing_rank, discover_compare_narrowing, discover_compare_producers,
+    byte_binary_compare_consumer_rank, compare_narrowing_rank,
+    discover_byte_binary_compare_consumers, discover_compare_narrowing, discover_compare_producers,
 };
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
@@ -59,11 +60,14 @@ use cfg::collapse_empty_jump_blocks;
 #[cfg(test)]
 use compare_branch::fold_compare_operand_producers_before_branches;
 use compare_branch::{
-    CompareNarrowingCandidate, CompareOperandRewriteCandidate,
-    byte_binary_compare_consumer_observation, byte_bitwise_zero_compare_narrowing_candidate,
+    ByteBinaryCompareRewriteCandidate, CompareNarrowingCandidate, CompareOperandRewriteCandidate,
+    byte_binary_compare_rewrite_candidate, byte_bitwise_zero_compare_narrowing_candidate,
     compare_branch_plan, compare_operand_rewrite_candidate, expand_compare_branch_consumers,
-    try_fuse_byte_binary_compare_consumer, try_fuse_byte_compare_consumer,
-    try_fuse_compare_operand_producers,
+};
+#[cfg(test)]
+use compare_branch::{
+    byte_binary_compare_consumer_observation, try_fuse_byte_binary_compare_consumer,
+    try_fuse_byte_compare_consumer, try_fuse_compare_operand_producers,
 };
 use dead_spills::remove_dead_spill_stores;
 use defs::{op_def, split_def_as_temp};
@@ -203,6 +207,13 @@ pub(in crate::mir6502) fn analyzed_compare_narrowing_candidate(
     byte_bitwise_zero_compare_narrowing_candidate(ops, index)
 }
 
+pub(in crate::mir6502) fn analyzed_byte_binary_compare_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<ByteBinaryCompareRewriteCandidate> {
+    byte_binary_compare_rewrite_candidate(ops, index)
+}
+
 pub(super) fn materialize_program(
     mut program: MirProgram,
     config: &Mir6502Config,
@@ -229,6 +240,7 @@ pub(super) fn materialize_program(
         verify_cfg_after_transform(routine, "compare/branch expansion")?;
         collapse_empty_jump_blocks(routine);
         verify_cfg_after_transform(routine, "empty-jump collapse")?;
+        run_analyzed_byte_binary_compare_consumers(routine, &mut peephole_stats)?;
         let word_load_address_forwards =
             forward_unique_word_load_address_consumers(routine, &layout);
         peephole_stats.record_many(
@@ -396,6 +408,27 @@ fn run_analyzed_compare_narrowing(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("pre-branch compare narrowing failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_byte_binary_compare_consumers(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            discover_byte_binary_compare_consumers,
+            byte_binary_compare_consumer_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("byte binary compare selection failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
@@ -1113,6 +1146,7 @@ fn materialize_ops(
             continue;
         }
 
+        #[cfg(test)]
         if let Some(stat) = byte_binary_compare_consumer_observation(&ops, index, terminator) {
             peephole_stats.record(routine_id, "byte-binary-compare-candidates");
             peephole_stats.record(routine_id, stat);
@@ -1125,25 +1159,29 @@ fn materialize_ops(
             peephole_stats,
         );
 
-        let maybe_fused = try_fuse_byte_binary_compare_consumer(&ops, index, terminator, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "byte-binary-compare-consumer");
-            index += maybe_fused;
-            continue;
-        }
+        #[cfg(test)]
+        {
+            let maybe_fused =
+                try_fuse_byte_binary_compare_consumer(&ops, index, terminator, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "byte-binary-compare-consumer");
+                index += maybe_fused;
+                continue;
+            }
 
-        let maybe_fused = try_fuse_compare_operand_producers(&ops, index, terminator, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "compare-operand-consumer");
-            index += maybe_fused;
-            continue;
-        }
+            let maybe_fused = try_fuse_compare_operand_producers(&ops, index, terminator, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "compare-operand-consumer");
+                index += maybe_fused;
+                continue;
+            }
 
-        let maybe_fused = try_fuse_byte_compare_consumer(&ops, index, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "byte-compare-consumer");
-            index += maybe_fused;
-            continue;
+            let maybe_fused = try_fuse_byte_compare_consumer(&ops, index, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "byte-compare-consumer");
+                index += maybe_fused;
+                continue;
+            }
         }
 
         let maybe_fused = try_fuse_cast_store_consumer(&ops, index, layout, &mut out);
