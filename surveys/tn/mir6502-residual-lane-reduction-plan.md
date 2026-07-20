@@ -2,7 +2,8 @@
 
 Status: Slices 1-2, the first Slice 3 width/terminator family, two Slice 5A
 families, two Slice 5B word/address families, and the first Slice 5C arithmetic
-family are implemented; remaining families require re-census.
+family are implemented. Slice 6 has no currently safe TN candidates, and the
+first Slice 7 routine-wide RAM coloring family is implemented.
 
 Snapshot date: 2026-07-20.
 
@@ -668,7 +669,7 @@ Commit 5A, 5B, and 5C separately.
 
 ## Slice 6: Cheap multi-use rematerialization
 
-Status: planned; reassess after Slices 2-5.
+Status: reassessed after Slices 2-5; no safe current TN candidate.
 
 The current 32 multi-use lanes are not candidates for unique-use forwarding.
 Eliminate a home only when reproducing the value at every use is cheaper than
@@ -697,7 +698,17 @@ Acceptance criteria:
 
 Commit constant/address classes separately from any memory-derived class.
 
+The post-Slice-3/5 census has no surviving constant, static-address, global-
+address, or routine-address multi-use home. Every surviving multi-use TN home
+is memory-derived, indirect-load-derived, arithmetic-derived, or has multiple
+definitions. Rematerializing those values would duplicate observable reads or
+require alias, volatility, and path-sensitive cost proof beyond this slice.
+No byte-neutral rewrite is retained.
+
 ## Slice 7: Re-census, routine-wide coloring, and next boundary
+
+Status: first zero-offset nonlocal RAM interference-coloring family
+implemented.
 
 After each behavior-changing slice, regenerate the attribution census rather
 than carrying the current 497-lane ranking forward. When Slices 2-6 are
@@ -722,8 +733,25 @@ exposure.
 
 Cross-routine RAM pooling is later work. It requires call-graph, recursion,
 indirect-call, and caller-live reasoning; its maximum direct storage benefit is
-currently bounded by the 49 ordinary RAM temp homes and it normally removes no
+now bounded by the 32 ordinary RAM temp homes and it normally removes no
 load/store instructions.
+
+The first routine-wide placement family builds spill use/def sets, solves
+backward CFG liveness to a fixed point, constructs a deterministic interference
+graph, and greedily colors zero-offset homes that were ineligible for the
+existing basic-block allocator. It deliberately keeps already block-local
+homes in their separate ZP-eligible pool; mixing the pools made TN larger by
+moving cheap ZP accesses back to absolute RAM. Compare destinations whose
+physical identity is still derived from a temp ID and nonzero-offset homes are
+also excluded until their representation supports remapping.
+
+TN has two accepted nonlocal remaps, one each in `Key` and `SetWin`. Relative
+to the preceding result, the load file falls from 12,711 to 12,703 bytes and
+final homes from 108 to 106 (74 ZP and 32 RAM). Home stores remain 111; reloads
+fall from 161 to 159. Relative to the original Slice 1 baseline, the accepted
+families save 555 load-file bytes, 69 final homes, 121 home stores, and 123
+home reloads. The recognized listing instruction count is 5,100, including
+1,529 `LDA` and 1,187 `STA` instructions.
 
 Only then decide between:
 

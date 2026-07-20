@@ -6006,6 +6006,124 @@ fn spill_store_reload_pair_keeps_values_live_into_successors() {
 }
 
 #[test]
+fn routine_spill_coloring_shares_nonoverlapping_cross_block_homes() {
+    let first = MirSpillId(30);
+    let second = MirSpillId(31);
+    let mut routine = cross_block_spill_coloring_routine(first, second, false);
+
+    let remap = color_routine_spills(&mut routine);
+
+    assert_eq!(remap.get(&second), Some(&first));
+    assert!(matches!(
+        &routine.blocks[1].ops[1],
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Spill { id, offset: 0 }),
+            ..
+        } if *id == first
+    ));
+    assert!(matches!(
+        &routine.blocks[2].ops[0],
+        MirOp::Load {
+            src: MirAddr::Direct(MirMem::Spill { id, offset: 0 }),
+            ..
+        } if *id == first
+    ));
+}
+
+#[test]
+fn routine_spill_coloring_keeps_overlapping_cross_block_homes_distinct() {
+    let first = MirSpillId(30);
+    let second = MirSpillId(31);
+    let mut routine = cross_block_spill_coloring_routine(first, second, true);
+
+    let remap = color_routine_spills(&mut routine);
+
+    assert!(remap.is_empty());
+}
+
+#[test]
+fn routine_spill_coloring_keeps_block_local_zp_pool_separate() {
+    let local = MirSpillId(30);
+    let nonlocal = MirSpillId(31);
+    let mut routine = cross_block_spill_coloring_routine(local, nonlocal, false);
+    routine.blocks[0].ops.push(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(MirMem::Spill {
+            id: local,
+            offset: 0,
+        }),
+        width: MirWidth::Byte,
+    });
+    routine.blocks[1].ops.remove(0);
+
+    let remap = color_routine_spills(&mut routine);
+
+    assert!(remap.is_empty());
+}
+
+fn cross_block_spill_coloring_routine(
+    first: MirSpillId,
+    second: MirSpillId,
+    overlap: bool,
+) -> MirRoutine {
+    let write = |spill, value| MirOp::Store {
+        dst: MirAddr::Direct(MirMem::Spill {
+            id: spill,
+            offset: 0,
+        }),
+        src: MirValue::ConstU8(value),
+        width: MirWidth::Byte,
+    };
+    let read = |spill| MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(MirMem::Spill {
+            id: spill,
+            offset: 0,
+        }),
+        width: MirWidth::Byte,
+    };
+    let middle_ops = if overlap {
+        vec![write(second, 2), read(first)]
+    } else {
+        vec![read(first), write(second, 2)]
+    };
+    MirRoutine {
+        id: RoutineId(0),
+        name: "spill_colors".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame {
+            spills: vec![first, second],
+            ..MirFrame::default()
+        },
+        temps: Vec::new(),
+        blocks: vec![
+            MirBlock {
+                id: MirBlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: vec![write(first, 1)],
+                terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            },
+            MirBlock {
+                id: MirBlockId(1),
+                label: "middle".to_string(),
+                params: Vec::new(),
+                ops: middle_ops,
+                terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(2))),
+            },
+            MirBlock {
+                id: MirBlockId(2),
+                label: "exit".to_string(),
+                params: Vec::new(),
+                ops: vec![read(second)],
+                terminator: MirTerminator::Return,
+            },
+        ],
+        effects: MirEffects::default(),
+    }
+}
+
+#[test]
 fn ssa_lite_forwards_memory_facts_over_single_forward_predecessor() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

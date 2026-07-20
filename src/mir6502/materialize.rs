@@ -112,7 +112,7 @@ use spills::can_remove_spill_store_reload_pair_at;
 pub(super) use spills::spill_accounting_for_routine;
 use spills::{
     can_remove_spill_reload_at, can_remove_spill_reload_before_later_a_use,
-    color_basic_block_spills, fold_indirect_load_spill_consumers,
+    color_basic_block_spills, color_routine_spills, fold_indirect_load_spill_consumers,
     forward_block_local_spill_accumulator, lower_block_local_byte_spills_to_zero_page,
     op_may_clobber_reg, prune_unused_spills,
 };
@@ -272,6 +272,15 @@ pub(super) fn materialize_program(
         if let Some(tracker) = home_fates.get_mut(&routine.id) {
             tracker.apply_spill_remap(&remap);
         }
+        let routine_remap = color_routine_spills(routine);
+        peephole_stats.record_many(
+            routine.id,
+            "routine-spill-color-remaps",
+            routine_remap.len(),
+        );
+        if let Some(tracker) = home_fates.get_mut(&routine.id) {
+            tracker.apply_spill_remap(&routine_remap);
+        }
         prune_unused_spills(routine);
         reserve_used_fixed_zero_page_slots(routine);
     }
@@ -305,6 +314,15 @@ pub(super) fn materialize_program(
         let remap = color_basic_block_spills(routine);
         if let Some(tracker) = home_fates.get_mut(&routine.id) {
             tracker.apply_spill_remap(&remap);
+        }
+        let routine_remap = color_routine_spills(routine);
+        peephole_stats.record_many(
+            routine.id,
+            "routine-spill-color-remaps",
+            routine_remap.len(),
+        );
+        if let Some(tracker) = home_fates.get_mut(&routine.id) {
+            tracker.apply_spill_remap(&routine_remap);
         }
         prune_unused_spills(routine);
         reserve_used_fixed_zero_page_slots(routine);

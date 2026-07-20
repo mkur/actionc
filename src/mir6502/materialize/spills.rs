@@ -1,3 +1,4 @@
+use super::dead_spills::block_successor_indices;
 use super::peepholes::private_scratch_store_removal_is_safe_after;
 use super::*;
 use crate::mir6502::ir::{
@@ -1307,6 +1308,205 @@ pub(super) fn color_basic_block_spills(
         remap_terminator_spills(&mut block.terminator, &remap);
     }
     remap
+}
+
+pub(super) fn color_routine_spills(routine: &mut MirRoutine) -> BTreeMap<MirSpillId, MirSpillId> {
+    let already_block_local = basic_block_spill_intervals(routine)
+        .into_iter()
+        .map(|interval| interval.spill)
+        .collect::<BTreeSet<_>>();
+    let used = routine
+        .blocks
+        .iter()
+        .flat_map(|block| {
+            block
+                .ops
+                .iter()
+                .flat_map(|op| {
+                    op_direct_read_spills(op)
+                        .into_iter()
+                        .chain(op_direct_write_spills(op))
+                })
+                .chain(terminator_spills(&block.terminator))
+        })
+        .collect::<BTreeSet<_>>();
+    let eligible = routine
+        .frame
+        .spills
+        .iter()
+        .copied()
+        .filter(|spill| {
+            used.contains(spill)
+                && !already_block_local.contains(spill)
+                && spill_uses_zero_offset_only(routine, *spill)
+                && !spill_has_unremappable_temp_identity(routine, *spill)
+        })
+        .collect::<BTreeSet<_>>();
+    if eligible.len() <= 1 {
+        return BTreeMap::new();
+    }
+
+    let block_facts = routine
+        .blocks
+        .iter()
+        .map(|block| routine_spill_block_facts(block, &eligible))
+        .collect::<Vec<_>>();
+    let mut live_in = vec![BTreeSet::<MirSpillId>::new(); routine.blocks.len()];
+    let mut live_out = live_in.clone();
+    loop {
+        let mut changed = false;
+        for block_index in (0..routine.blocks.len()).rev() {
+            let mut next_out = BTreeSet::new();
+            for successor in
+                block_successor_indices(routine, &routine.blocks[block_index].terminator)
+            {
+                next_out.extend(live_in[successor].iter().copied());
+            }
+            let mut next_in = block_facts[block_index].uses.clone();
+            next_in.extend(
+                next_out
+                    .iter()
+                    .filter(|spill| !block_facts[block_index].defs.contains(spill))
+                    .copied(),
+            );
+            changed |= live_in[block_index] != next_in || live_out[block_index] != next_out;
+            live_in[block_index] = next_in;
+            live_out[block_index] = next_out;
+        }
+        if !changed {
+            break;
+        }
+    }
+
+    let mut graph = eligible
+        .iter()
+        .copied()
+        .map(|spill| (spill, BTreeSet::new()))
+        .collect::<BTreeMap<_, _>>();
+    for (block_index, block) in routine.blocks.iter().enumerate() {
+        let mut live = live_out[block_index].clone();
+        live.extend(
+            terminator_spills(&block.terminator)
+                .into_iter()
+                .filter(|spill| eligible.contains(spill)),
+        );
+        for op in block.ops.iter().rev() {
+            let reads = op_direct_read_spills(op)
+                .into_iter()
+                .filter(|spill| eligible.contains(spill))
+                .collect::<BTreeSet<_>>();
+            let writes = op_direct_write_spills(op)
+                .into_iter()
+                .filter(|spill| eligible.contains(spill))
+                .collect::<BTreeSet<_>>();
+            for spill in &writes {
+                for other in live.iter().chain(reads.iter()).chain(writes.iter()) {
+                    if spill != other {
+                        add_spill_interference(&mut graph, *spill, *other);
+                    }
+                }
+            }
+            for spill in &writes {
+                live.remove(spill);
+            }
+            live.extend(reads);
+        }
+    }
+
+    let mut nodes = eligible.into_iter().collect::<Vec<_>>();
+    nodes.sort_by_key(|spill| {
+        (
+            std::cmp::Reverse(graph.get(spill).map_or(0, BTreeSet::len)),
+            *spill,
+        )
+    });
+    let mut assigned = BTreeMap::<MirSpillId, MirSpillId>::new();
+    let mut colors = Vec::<MirSpillId>::new();
+    for spill in nodes {
+        let color = colors
+            .iter()
+            .copied()
+            .find(|color| {
+                graph[&spill]
+                    .iter()
+                    .all(|neighbor| assigned.get(neighbor) != Some(color))
+            })
+            .unwrap_or_else(|| {
+                colors.push(spill);
+                spill
+            });
+        assigned.insert(spill, color);
+    }
+
+    let mut remap = assigned
+        .into_iter()
+        .filter(|(from, to)| from != to)
+        .collect::<BTreeMap<_, _>>();
+    if remap.is_empty() {
+        return remap;
+    }
+    for block in &mut routine.blocks {
+        for op in &mut block.ops {
+            remap_op_spills(op, &remap);
+        }
+        remap_terminator_spills(&mut block.terminator, &remap);
+    }
+    remap.retain(|from, to| from != to);
+    remap
+}
+
+fn spill_has_unremappable_temp_identity(routine: &MirRoutine, spill: MirSpillId) -> bool {
+    routine.blocks.iter().any(|block| {
+        block.ops.iter().any(|op| {
+            matches!(
+                op,
+                MirOp::Compare {
+                    dst: MirCondDest::Temp(temp),
+                    ..
+                } if MirSpillId(temp.0.saturating_mul(2)) == spill
+            )
+        })
+    })
+}
+
+#[derive(Debug, Default)]
+struct RoutineSpillBlockFacts {
+    uses: BTreeSet<MirSpillId>,
+    defs: BTreeSet<MirSpillId>,
+}
+
+fn routine_spill_block_facts(
+    block: &MirBlock,
+    eligible: &BTreeSet<MirSpillId>,
+) -> RoutineSpillBlockFacts {
+    let mut facts = RoutineSpillBlockFacts::default();
+    for op in &block.ops {
+        for spill in op_direct_read_spills(op) {
+            if eligible.contains(&spill) && !facts.defs.contains(&spill) {
+                facts.uses.insert(spill);
+            }
+        }
+        facts.defs.extend(
+            op_direct_write_spills(op)
+                .into_iter()
+                .filter(|spill| eligible.contains(spill)),
+        );
+    }
+    for spill in terminator_spills(&block.terminator) {
+        if eligible.contains(&spill) && !facts.defs.contains(&spill) {
+            facts.uses.insert(spill);
+        }
+    }
+    facts
+}
+
+fn add_spill_interference(
+    graph: &mut BTreeMap<MirSpillId, BTreeSet<MirSpillId>>,
+    left: MirSpillId,
+    right: MirSpillId,
+) {
+    graph.entry(left).or_default().insert(right);
+    graph.entry(right).or_default().insert(left);
 }
 
 fn basic_block_spill_intervals(routine: &MirRoutine) -> Vec<SpillUseInterval> {
