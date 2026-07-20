@@ -1,7 +1,8 @@
 # MIR6502 Residual-Lane Reduction Plan
 
-Status: Slices 1-2 and two Slice 5A whole-address/ABI forwarding families are
-implemented; remaining word-load/address consumers are next.
+Status: Slices 1-2, two Slice 5A families, and the first Slice 5B direct word
+load/address family are implemented; remaining word and arithmetic families
+require re-census.
 
 Snapshot date: 2026-07-20.
 
@@ -521,6 +522,8 @@ unchanged.
 
 ### Slice 5B: Loads, pointer pairs, and address consumers
 
+Status: direct stable word-load to unique address-consumer family implemented.
+
 Forward word loads and computed addresses directly into:
 
 - final word storage;
@@ -530,6 +533,39 @@ Forward word loads and computed addresses directly into:
 
 Preserve alias ordering when the source or destination overlaps pointer
 scratch. Calls and unknown writes invalidate memory-backed forwarding.
+
+The accepted first family forwards a unique-use word load as a complete
+memory-backed pointer into a typed load/store or materialized address operand.
+It is deliberately narrower than general load propagation:
+
+- eligible sources are locals, parameters, statics, and globals with ordinary
+  backing;
+- absolute, hardware/fixed-ZP, virtual-ZP, and spill sources are excluded;
+- calls, runtime helpers, machine blocks, barriers, every direct or indirect
+  write, pointer compound, and unknown memory effect block forwarding;
+- successor-live, terminator-used, multiple-use, and non-address uses retain
+  the original load.
+
+TN has 71 accepted whole-word forwards. Relative to the two Slice 5A families,
+the load file falls from 13,242 to 12,868 bytes, residual lanes from 495 to 399,
+and final homes from 171 to 135 (92 ZP and 43 RAM). Home stores fall from 228
+to 145 and reloads from 278 to 195. The `load`-to-`materialize-address` class
+falls from 48 lanes to two and `load`-to-`materialize-indexed-address` from 51
+to one.
+
+Relative to the original 13,258-byte Slice 1 baseline, the three word/address
+families save 390 bytes, 36 final homes, 87 `STA`, and 91 `LDA` instructions.
+The measured code body is 11,853 bytes and data remains 435 bytes. The raw
+listing instruction count falls by 175.
+
+Four indexed-base staging combines disappear because their inputs now reach
+indexed lowering as direct pointer values; this removes their staging rather
+than losing the final addressing mode. The three indirect-constant-store
+counter hits are likewise reclassified after their pointer homes disappear;
+one becomes an indirect-direct-store fold. Indexed-copy,
+word-array-store-staging, scaled-indexed-addressing, direct word updates, and
+return-slot forwarding counts remain unchanged. Full tests and the complete
+MIR fixture sweep remain green.
 
 ### Slice 5C: Arithmetic and carry chains
 

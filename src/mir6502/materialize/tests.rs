@@ -10661,6 +10661,186 @@ fn return_slot_result_forward_blocks_overlapping_different_arg_home() {
 }
 
 #[test]
+fn unique_word_load_forwards_as_whole_indexed_address() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let address_temp = MirTempId(0);
+    let result_temp = MirTempId(1);
+    let source = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(address_temp),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(result_temp),
+                src: MirAddr::ComputedIndex {
+                    base: MirValue::Def(MirDef::VTemp(address_temp)),
+                    index: MirValue::ConstU8(2),
+                    elem_size: 1,
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: address_temp }, MirTemp { id: result_temp }];
+
+    let count = forward_unique_word_load_address_consumers(&mut routine, &layout);
+
+    assert_eq!(count, 1);
+    assert_eq!(routine.blocks[0].ops.len(), 1);
+    assert!(matches!(
+        &routine.blocks[0].ops[0],
+        MirOp::Load {
+            src: MirAddr::ComputedIndex { base, .. },
+            ..
+        } if *base == pointer_value_from_mem(&source)
+    ));
+}
+
+#[test]
+fn unique_word_load_address_forward_stops_at_intervening_store() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let address_temp = MirTempId(0);
+    let result_temp = MirTempId(1);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(address_temp),
+                src: MirAddr::Direct(MirMem::Param {
+                    id: ParamId(0),
+                    offset: 0,
+                }),
+                width: MirWidth::Word,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Local {
+                    id: LocalId(0),
+                    offset: 0,
+                }),
+                src: MirValue::ConstU8(1),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(result_temp),
+                src: MirAddr::Deref {
+                    ptr: MirValue::Def(MirDef::VTemp(address_temp)),
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: address_temp }, MirTemp { id: result_temp }];
+    let original = routine.blocks[0].ops.clone();
+
+    let count = forward_unique_word_load_address_consumers(&mut routine, &layout);
+
+    assert_eq!(count, 0);
+    assert_eq!(routine.blocks[0].ops, original);
+}
+
+#[test]
+fn unique_word_load_address_forward_stops_at_call_barrier() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let address_temp = MirTempId(0);
+    let result_temp = MirTempId(1);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(address_temp),
+                src: MirAddr::Direct(MirMem::Param {
+                    id: ParamId(0),
+                    offset: 0,
+                }),
+                width: MirWidth::Word,
+            },
+            MirOp::Call {
+                target: MirCallTarget::Routine(RoutineId(1)),
+                abi: MirCallAbi {
+                    params: Vec::new(),
+                    result: None,
+                    clobbers: MirRegisterSet::default(),
+                    preserves: MirRegisterSet::default(),
+                },
+                args: Vec::new(),
+                result: None,
+                effects: MirEffects::default(),
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(result_temp),
+                src: MirAddr::Deref {
+                    ptr: MirValue::Def(MirDef::VTemp(address_temp)),
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: address_temp }, MirTemp { id: result_temp }];
+
+    let count = forward_unique_word_load_address_consumers(&mut routine, &layout);
+
+    assert_eq!(count, 0);
+    assert_eq!(routine.blocks[0].ops.len(), 3);
+}
+
+#[test]
+fn unique_word_load_address_forward_rejects_absolute_source() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let address_temp = MirTempId(0);
+    let result_temp = MirTempId(1);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(address_temp),
+                src: MirAddr::Direct(MirMem::Absolute(0xD000)),
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(result_temp),
+                src: MirAddr::Deref {
+                    ptr: MirValue::Def(MirDef::VTemp(address_temp)),
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: address_temp }, MirTemp { id: result_temp }];
+
+    let count = forward_unique_word_load_address_consumers(&mut routine, &layout);
+
+    assert_eq!(count, 0);
+    assert_eq!(routine.blocks[0].ops.len(), 2);
+}
+
+#[test]
 fn pre_home_fixed_point_removes_dead_word_lane_and_keeps_live_sibling() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

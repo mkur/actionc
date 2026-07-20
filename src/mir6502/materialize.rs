@@ -40,6 +40,7 @@ mod temp_uses;
 mod temp_widths;
 mod temps;
 mod values;
+mod word_values;
 mod zp;
 
 use abi::{prepend_action_abi_param_prologue, width_bytes};
@@ -152,6 +153,7 @@ use values::{
     offset_mem, return_slot_mem, split_address, split_def, split_value, split_value_as_word,
     split_value_with_storage_widths, split_value_with_temp_widths,
 };
+use word_values::forward_unique_word_load_address_consumers;
 use zp::{
     allocate_zero_page_slots, find_zp_range, mark_zp_range, reserve_pointer_scratch_slots,
     reserve_used_fixed_zero_page_slots, source_zero_page_slots,
@@ -205,6 +207,13 @@ pub(super) fn materialize_program(
         );
         expand_compare_branch_consumers(&mut routine.blocks, &layout, config);
         collapse_empty_jump_blocks(routine);
+        let word_load_address_forwards =
+            forward_unique_word_load_address_consumers(routine, &layout);
+        peephole_stats.record_many(
+            routine.id,
+            "word-load-address-consumer-forwards",
+            word_load_address_forwards,
+        );
         for block in &mut routine.blocks {
             block.ops = materialize_ops(
                 routine.id,

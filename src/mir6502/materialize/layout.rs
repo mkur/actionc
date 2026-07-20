@@ -131,6 +131,32 @@ impl MaterializeLayout {
         false
     }
 
+    pub(super) fn mem_allows_deferred_direct_read(&self, mem: &MirMem) -> bool {
+        match mem {
+            MirMem::Local { .. } | MirMem::Param { .. } | MirMem::Static { .. } => true,
+            MirMem::Global { id, .. } => self.global_has_ordinary_backing(*id),
+            MirMem::Absolute(_)
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_)
+            | MirMem::FixedZeroPage(_) => false,
+        }
+    }
+
+    fn global_has_ordinary_backing(&self, id: SymbolId) -> bool {
+        self.globals
+            .iter()
+            .find_map(|(global_id, backing, _)| {
+                (*global_id == id).then(|| match backing {
+                    MirGlobalBacking::Ordinary { .. } => true,
+                    MirGlobalBacking::Alias { target, .. } => {
+                        self.global_has_ordinary_backing(*target)
+                    }
+                    MirGlobalBacking::Absolute(_) => false,
+                })
+            })
+            .unwrap_or(false)
+    }
+
     pub(super) fn is_descriptor_storage(&self, routine_id: RoutineId, mem: &MirMem) -> bool {
         match mem {
             MirMem::Global { id, offset } if *offset == 0 => self
