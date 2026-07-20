@@ -510,7 +510,12 @@ pub(in crate::mir6502) fn classify_terminator(
     match terminator {
         MirTerminator::Jump(edge) => {
             for arg in &edge.args {
-                record_terminator_value(&arg.value, MirTempUseKind::EdgeArgument, &mut summary);
+                record_terminator_value(
+                    &arg.value,
+                    Some(arg.width),
+                    MirTempUseKind::EdgeArgument,
+                    &mut summary,
+                );
             }
         }
         MirTerminator::Branch {
@@ -520,9 +525,12 @@ pub(in crate::mir6502) fn classify_terminator(
         } => {
             match cond {
                 MirCond::Deferred => {}
-                MirCond::BoolValue(value) => {
-                    record_terminator_value(value, MirTempUseKind::BranchCondition, &mut summary)
-                }
+                MirCond::BoolValue(value) => record_terminator_value(
+                    value,
+                    None,
+                    MirTempUseKind::BranchCondition,
+                    &mut summary,
+                ),
                 MirCond::FlagTest(test) => record_flag_test(test, &mut summary.machine.flag_reads),
                 MirCond::AnyFlagTest(tests) => {
                     for test in tests {
@@ -537,7 +545,12 @@ pub(in crate::mir6502) fn classify_terminator(
                 matches!(cond, MirCond::FlagTest(_) | MirCond::FusedCompare { .. });
             for edge in [then_edge, else_edge] {
                 for arg in &edge.args {
-                    record_terminator_value(&arg.value, MirTempUseKind::EdgeArgument, &mut summary);
+                    record_terminator_value(
+                        &arg.value,
+                        Some(arg.width),
+                        MirTempUseKind::EdgeArgument,
+                        &mut summary,
+                    );
                 }
             }
         }
@@ -563,10 +576,11 @@ pub(in crate::mir6502) fn count_call_target_temp_uses(
 
 fn record_terminator_value(
     value: &MirValue,
+    width: Option<MirWidth>,
     kind: MirTempUseKind,
     summary: &mut MirTerminatorEffectSummary,
 ) {
-    let value_summary = classify_value(value);
+    let value_summary = classify_typed_value(value, width);
     summary.logical.classified_temp_uses.extend(
         value_summary
             .logical
@@ -588,6 +602,28 @@ fn record_terminator_value(
     summary
         .projected_spill_reads
         .extend(value_summary.projected_spill_reads);
+}
+
+fn classify_typed_value(value: &MirValue, width: Option<MirWidth>) -> MirOpEffectSummary {
+    if matches!(width, Some(MirWidth::Byte))
+        && let MirValue::Def(MirDef::VTemp(temp)) = value
+    {
+        let mut summary = MirOpEffectSummary::new(MirOpKind::Move);
+        record_temp_use(
+            MirTempAccess::Exact {
+                temp: *temp,
+                byte: 0,
+            },
+            MirTempUseKind::Operand,
+            &mut summary,
+        );
+        summary
+            .projected_spill_reads
+            .insert(projected_temp_spill(*temp, 0));
+        summary
+    } else {
+        classify_value(value)
+    }
 }
 
 fn record_value(value: &MirValue, summary: &mut MirOpEffectSummary) {
