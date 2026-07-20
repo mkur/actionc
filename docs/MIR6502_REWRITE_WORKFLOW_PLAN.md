@@ -802,7 +802,10 @@ acceptance criteria explicitly permit it.
 
 ### Slice 0: freeze baseline and migration inventory
 
-Status: planned.
+Status: complete. The frozen measurements and reproduction commands are in the
+[TN rewrite workflow baseline](../surveys/tn/mir6502-rewrite-workflow-baseline.md),
+with its machine-readable migration checklist in
+[`mir6502-rewrite-migration-inventory.tsv`](../surveys/tn/mir6502-rewrite-migration-inventory.tsv).
 
 - Generate current TN MIR, materialized MIR, final listing, XEX, and peephole
   report.

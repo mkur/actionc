@@ -22,6 +22,9 @@ crowding the active reference set.
 - [MIR6502_REWRITE_WORKFLOW_PLAN.md](MIR6502_REWRITE_WORKFLOW_PLAN.md) -
   implementation plan for routine-aware analyses and transactional MIR6502
   rewrites.
+- [MIR6502 rewrite workflow baseline](../surveys/tn/mir6502-rewrite-workflow-baseline.md)
+  - reproducible TN artifacts and the checked migration inventory for that
+  plan.
 - [TAC_BOUNDARY_FOR_6502_MIR.md](TAC_BOUNDARY_FOR_6502_MIR.md) - TAC/MIR
   boundary vocabulary.
 
