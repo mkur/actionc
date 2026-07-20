@@ -292,6 +292,71 @@ pub(in crate::mir6502) fn discover_store_consumers(
 }
 
 pub(in crate::mir6502) fn store_consumer_rank(routine: &MirRoutine) -> usize {
+    logical_definition_lane_count(routine)
+}
+
+pub(in crate::mir6502) fn discover_direct_pointer_temp_rematerializations(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let Some(candidate) =
+                crate::mir6502::materialize::analyzed_direct_pointer_temp_rematerialization_candidate(
+                    &block.ops,
+                    index,
+                )
+            else {
+                continue;
+            };
+            if let Some(plan) = direct_pointer_temp_rematerialization_plan(
+                block.id, &block.ops, index, candidate, context,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn discover_pointer_rewrites(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> Vec<MirRewritePlan> {
+    let mut plans = discover_direct_pointer_temp_rematerializations(routine, context);
+    plans.extend(discover_pointer_temp_derefs(routine, context, layout));
+    plans
+}
+
+pub(in crate::mir6502) fn discover_pointer_temp_derefs(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (index, candidate) in
+            crate::mir6502::materialize::analyzed_pointer_temp_deref_candidates(
+                block, routine.id, layout,
+            )
+        {
+            if let Some(plan) =
+                pointer_temp_deref_plan(block.id, &block.ops, index, candidate, context)
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn pointer_rewrite_rank(routine: &MirRoutine) -> usize {
+    logical_definition_lane_count(routine)
+}
+
+fn logical_definition_lane_count(routine: &MirRoutine) -> usize {
     routine
         .blocks
         .iter()
@@ -308,6 +373,80 @@ pub(in crate::mir6502) fn store_consumer_rank(routine: &MirRoutine) -> usize {
                 .sum::<usize>()
         })
         .sum()
+}
+
+fn direct_pointer_temp_rematerialization_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    candidate: crate::mir6502::materialize::PointerRewriteCandidate,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    pointer_rewrite_plan(
+        block,
+        ops,
+        index,
+        candidate,
+        context,
+        MirEffectDelta::Unchanged,
+        "direct-pointer-temp-rematerialization",
+        10,
+    )
+}
+
+fn pointer_temp_deref_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    candidate: crate::mir6502::materialize::PointerRewriteCandidate,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    pointer_rewrite_plan(
+        block,
+        ops,
+        index,
+        candidate,
+        context,
+        MirEffectDelta::MaterializedPointerConsumer,
+        "pointer-temp-deref",
+        20,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn pointer_rewrite_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    candidate: crate::mir6502::materialize::PointerRewriteCandidate,
+    context: &PreHomeRewriteContext<'_, '_>,
+    exit_effect_delta: MirEffectDelta,
+    stat: &'static str,
+    family_priority: u16,
+) -> Option<MirRewritePlan> {
+    let end = index.checked_add(candidate.consumed)?;
+    if end > ops.len() {
+        return None;
+    }
+    let definitions =
+        prove_removed_window_definitions(block, ops, index, end, &candidate.replacement, context)?;
+    Some(MirRewritePlan {
+        generation: context.generation(),
+        block,
+        range: index..end,
+        replacement: candidate.replacement,
+        removed_defs: definitions
+            .into_iter()
+            .map(|definition| MirRemovedDefinition { definition })
+            .collect(),
+        exit_effect_delta,
+        change_set: MirChangeSet::prehome_operation_change(),
+        stat,
+        observations: Vec::new(),
+        family_priority,
+        estimated_byte_saving: 1,
+        estimated_cycle_saving: 1,
+    })
 }
 
 type StoreConsumerCandidate = crate::mir6502::materialize::StoreConsumerRewriteCandidate;
@@ -2283,6 +2422,159 @@ mod tests {
                 }
             )
         }));
+    }
+
+    #[test]
+    fn pointer_rewrites_use_definition_identity_and_routine_deadness() {
+        fn pointer_ops() -> Vec<MirOp> {
+            vec![
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    src: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                    width: MirWidth::Word,
+                },
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(2)),
+                    src: MirAddr::Deref {
+                        ptr: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                        offset: 3,
+                    },
+                    width: MirWidth::Byte,
+                },
+            ]
+        }
+
+        let program = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: Vec::new(),
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+        let layout = crate::mir6502::materialize::MaterializeLayout::new(&program, 0x3000);
+        let run = |candidate: &mut MirRoutine| {
+            MirPreHomeRewriteDriver::default()
+                .run_fixed_point_by_key(
+                    candidate,
+                    |routine, context| discover_pointer_rewrites(routine, context, &layout),
+                    pointer_rewrite_rank,
+                )
+                .unwrap()
+                .applied
+        };
+
+        let mut local = routine(vec![block(0, pointer_ops(), MirTerminator::Return)]);
+        assert_eq!(run(&mut local), 1);
+        assert!(matches!(
+            &local.blocks[0].ops[..],
+            [MirOp::Load {
+                src: MirAddr::Deref {
+                    ptr: MirValue::Word { lo, hi },
+                    offset: 3,
+                },
+                ..
+            }] if matches!(lo.as_ref(), MirValue::PointerCell(MirMem::Absolute(0x4000)))
+                && matches!(hi.as_ref(), MirValue::PointerCell(MirMem::Absolute(0x4001)))
+        ));
+
+        let mut selected = routine(vec![block(0, pointer_ops(), MirTerminator::Return)]);
+        let selected_count = MirPreHomeRewriteDriver::default()
+            .run_fixed_point_by_key(
+                &mut selected,
+                |routine, context| discover_pointer_temp_derefs(routine, context, &layout),
+                pointer_rewrite_rank,
+            )
+            .unwrap()
+            .applied;
+        assert_eq!(selected_count, 1);
+        assert!(matches!(
+            &selected.blocks[0].ops[..],
+            [
+                MirOp::MaterializeAddress { .. },
+                MirOp::LoadIndirect { offset: 3, .. }
+            ]
+        ));
+
+        let mut later_ops = pointer_ops();
+        later_ops.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x5000)),
+            src: MirValue::Def(MirDef::VTempByte {
+                id: MirTempId(1),
+                byte: 0,
+            }),
+            width: MirWidth::Byte,
+        });
+        let mut later_use = routine(vec![block(0, later_ops, MirTerminator::Return)]);
+        assert_eq!(run(&mut later_use), 0);
+
+        let mut terminator_use = routine(vec![
+            block(
+                0,
+                pointer_ops(),
+                MirTerminator::Jump(MirEdge {
+                    target: crate::mir6502::ir::MirBlockId(1),
+                    args: vec![MirEdgeArg {
+                        value: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                        width: MirWidth::Word,
+                    }],
+                }),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+        ]);
+        assert_eq!(run(&mut terminator_use), 0);
+
+        for (src, width) in [
+            (
+                MirValue::Def(MirDef::VTempByte {
+                    id: MirTempId(1),
+                    byte: 1,
+                }),
+                MirWidth::Byte,
+            ),
+            (MirValue::Def(MirDef::VTemp(MirTempId(1))), MirWidth::Word),
+        ] {
+            let mut successor_use = routine(vec![
+                block(
+                    0,
+                    pointer_ops(),
+                    MirTerminator::Jump(MirEdge::plain(crate::mir6502::ir::MirBlockId(1))),
+                ),
+                block(
+                    1,
+                    vec![MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Absolute(0x5000)),
+                        src,
+                        width,
+                    }],
+                    MirTerminator::Return,
+                ),
+            ]);
+            assert_eq!(run(&mut successor_use), 0);
+        }
+
+        let mut redefined_ops = pointer_ops();
+        redefined_ops.insert(
+            1,
+            MirOp::LoadImm {
+                dst: MirDef::VTemp(MirTempId(1)),
+                value: 0x1234,
+                width: MirWidth::Word,
+            },
+        );
+        let mut redefined = routine(vec![block(0, redefined_ops, MirTerminator::Return)]);
+        assert_eq!(run(&mut redefined), 0);
+
+        let mut clobbered_ops = pointer_ops();
+        clobbered_ops.insert(
+            1,
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                src: MirValue::ConstU16(0),
+                width: MirWidth::Word,
+            },
+        );
+        let mut clobbered = routine(vec![block(0, clobbered_ops, MirTerminator::Return)]);
+        assert_eq!(run(&mut clobbered), 0);
     }
 
     #[test]

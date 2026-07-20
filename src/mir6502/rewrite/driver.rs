@@ -358,7 +358,11 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             }
             original == replacement
         }
-        MirEffectDelta::MaterializedStoreConsumer => {
+        MirEffectDelta::MaterializedStoreConsumer | MirEffectDelta::MaterializedPointerConsumer => {
+            let materialized_pointer = matches!(delta, MirEffectDelta::MaterializedPointerConsumer);
+            if materialized_pointer && !pointer_source_is_preserved(original_ops, replacement_ops) {
+                return false;
+            }
             clear_machine_effects(&mut original);
             clear_machine_effects(&mut replacement);
             // Storage-address byte operands name a home without reading its
@@ -369,8 +373,12 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             original.home_writes.clear();
             replacement.home_reads.clear();
             replacement.home_writes.clear();
-            strip_store_materialization_projection(&mut original, original_ops);
-            strip_store_materialization_projection(&mut replacement, replacement_ops);
+            strip_materialized_consumer_projection(&mut original, original_ops);
+            strip_materialized_consumer_projection(&mut replacement, replacement_ops);
+            if materialized_pointer {
+                strip_pointer_producer_projection(&mut original, original_ops);
+                strip_pointer_producer_projection(&mut replacement, replacement_ops);
+            }
             // A selector may avoid reading lanes which do not contribute to
             // the stored value (for example, the high lane of a word that is
             // immediately truncated). It may not introduce a new data read,
@@ -401,7 +409,125 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
     }
 }
 
-fn strip_store_materialization_projection(effects: &mut ObservableEffects, ops: &[MirOp]) {
+fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> bool {
+    let sources = original
+        .iter()
+        .filter_map(|op| match op {
+            MirOp::Load {
+                dst: crate::mir6502::ir::MirDef::VTemp(_),
+                src: MirAddr::Direct(mem),
+                width: MirWidth::Word,
+            } => Some(mem),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let [source] = sources.as_slice() else {
+        return false;
+    };
+    let expected = (0..2)
+        .map(|offset| memory_byte_key(source, offset))
+        .collect::<BTreeSet<_>>();
+
+    let materializations = replacement
+        .iter()
+        .filter_map(|op| match op {
+            MirOp::MaterializeAddress { consumer, value } => {
+                let mut inputs = BTreeSet::new();
+                collect_value_pointer_reads(value, &mut inputs);
+                Some((*consumer, inputs))
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let access_consumers = replacement
+        .iter()
+        .filter_map(|op| match op {
+            MirOp::LoadIndirect { consumer, .. } | MirOp::StoreIndirect { consumer, .. } => {
+                Some(*consumer)
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let Some(selected_consumer) = access_consumers.first().copied() else {
+        return false;
+    };
+    if access_consumers
+        .iter()
+        .any(|consumer| *consumer != selected_consumer)
+    {
+        return false;
+    }
+    match materializations.as_slice() {
+        [(consumer, inputs)] if *consumer == selected_consumer && *inputs == expected => {
+            return true;
+        }
+        [] => {}
+        _ => return false,
+    }
+
+    let mut selected = BTreeSet::new();
+    collect_consumer_keys(selected_consumer, &mut selected);
+    let exact_direct_home = expected
+        .iter()
+        .map(|key| canonical_zero_page_key(key))
+        .collect::<BTreeSet<_>>()
+        == selected
+            .iter()
+            .map(|key| canonical_zero_page_key(key))
+            .collect::<BTreeSet<_>>();
+    if exact_direct_home {
+        return true;
+    }
+
+    let source_can_have_a_selected_layout_home = matches!(
+        source,
+        MirMem::Static { .. }
+            | MirMem::Global { .. }
+            | MirMem::Local { .. }
+            | MirMem::Param { .. }
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_)
+    );
+    let selected_is_direct_zero_page = !selected.is_empty()
+        && selected
+            .iter()
+            .all(|key| key.starts_with("fixed-zp:") || key.starts_with("zp:"));
+    let selected_uses_private_staging = selected.iter().any(|key| {
+        key.strip_prefix("fixed-zp:")
+            .and_then(|slot| slot.parse::<u8>().ok())
+            .is_some_and(|slot| (0xAC..=0xAF).contains(&slot))
+    });
+    source_can_have_a_selected_layout_home
+        && selected_is_direct_zero_page
+        && !selected_uses_private_staging
+}
+
+fn canonical_zero_page_key(key: &str) -> String {
+    key.strip_prefix("absolute:")
+        .and_then(|address| address.parse::<u16>().ok())
+        .filter(|address| *address <= u8::MAX as u16)
+        .map_or_else(|| key.to_string(), |address| format!("fixed-zp:{address}"))
+}
+
+fn strip_pointer_producer_projection(effects: &mut ObservableEffects, ops: &[MirOp]) {
+    let pointer_loads = ops
+        .iter()
+        .filter_map(|op| match op {
+            MirOp::Load {
+                dst: crate::mir6502::ir::MirDef::VTemp(_),
+                src: MirAddr::Direct(mem),
+                width: MirWidth::Word,
+            } => Some(mem),
+            _ => None,
+        })
+        .flat_map(|mem| (0..2).map(move |offset| memory_byte_key(mem, offset)))
+        .collect::<BTreeSet<_>>();
+    effects
+        .memory_reads
+        .retain(|key| !pointer_loads.contains(key));
+}
+
+fn strip_materialized_consumer_projection(effects: &mut ObservableEffects, ops: &[MirOp]) {
     const PRIVATE_POINTER_SCRATCH_FIRST: u8 = 0xAC;
     const PRIVATE_POINTER_SCRATCH_LAST: u8 = 0xAF;
     let is_private = |key: &String| {
@@ -998,6 +1124,38 @@ mod tests {
             &original,
             &replacement,
             MirEffectDelta::MaterializedStoreConsumer,
+        ));
+    }
+
+    #[test]
+    fn pointer_selection_delta_rejects_an_uninitialized_address_consumer() {
+        let original = vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(1)),
+                src: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(2)),
+                src: MirAddr::Deref {
+                    ptr: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+        ];
+        let replacement = vec![MirOp::LoadIndirect {
+            consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                lo: MirFixedZpSlot(0xAC),
+            }),
+            dst: MirDef::VTemp(MirTempId(2)),
+            offset: 0,
+        }];
+
+        assert!(!effect_delta_is_valid(
+            &original,
+            &replacement,
+            MirEffectDelta::MaterializedPointerConsumer,
         ));
     }
 

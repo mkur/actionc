@@ -17,8 +17,8 @@ PRE-015	pre-home-selection	migrated	temp	src/mir6502/rewrite/pilots.rs	word_stor
 PRE-016	pre-home-selection	migrated	temp	src/mir6502/rewrite/pilots.rs	byte_mul_add_sub_word_store_consumer_plan	analyzed-reaching-def-and-routine-deadness
 PRE-017	pre-home-selection	migrated	temp	src/mir6502/rewrite/pilots.rs	byte_mul_word_store_consumer_plan	analyzed-reaching-def-and-routine-deadness
 PRE-018	pre-home-selection	migrated	temp	src/mir6502/rewrite/pilots.rs	byte_store_consumer_plan	analyzed-reaching-def-and-routine-deadness
-PRE-019	pre-home-selection	5	temp	src/mir6502/materialize/pointers.rs	rematerialize_direct_pointer_temp_derefs	missing-cfg-live-out
-PRE-020	pre-home-selection	5	temp	src/mir6502/materialize/pointers.rs	try_fuse_pointer_temp_deref	missing-cfg-live-out
+PRE-019	pre-home-selection	migrated	temp	src/mir6502/rewrite/pilots.rs	direct_pointer_temp_rematerialization_plan	analyzed-reaching-def-and-routine-deadness
+PRE-020	pre-home-selection	migrated	temp	src/mir6502/rewrite/pilots.rs	pointer_temp_deref_plan	analyzed-reaching-def-and-routine-deadness
 PRE-021	pre-home-selection	5	temp	src/mir6502/materialize/indexes.rs	collect_delayed_byte_index_plan	missing-cfg-live-out
 PRE-022	pre-home-selection	5	temp	src/mir6502/materialize/indexes.rs	try_fuse_indexed_byte_copy	missing-cfg-live-out
 PRE-023	pre-home-selection	5	temp	src/mir6502/materialize/indexes.rs	try_fuse_indexed_word_copy	missing-cfg-live-out

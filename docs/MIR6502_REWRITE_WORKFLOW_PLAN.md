@@ -3,11 +3,11 @@
 Snapshot date: 2026-07-20.
 
 Status: in progress. Slice 6.1 (compare producers, narrowing, and consumers),
-6.2 (call families), and 6.3 (store consumers) are complete. Unused-`LeaAddr`
-elimination is also complete. The hybrid parameter-home family is split out
-for the later location/machine-state workflow; sub-slices 4–5 are pending.
-Migrated shape
-recognizers no longer make suffix-liveness decisions: exact definition
+6.2 (call families), 6.3 (store consumers), and 6.4 (pointer consumers) are
+complete. Unused-`LeaAddr` elimination is also complete. The hybrid
+parameter-home family is split out for the later location/machine-state
+workflow; sub-slice 5 is pending. Migrated shape recognizers no longer make
+suffix-liveness decisions: exact definition
 identity, reaching definitions, and routine-wide lane deadness come from the
 shared snapshot. Later local, terminator, exact-lane successor, and full-temp
 successor uses have negative coverage. The common producer matcher subsumes
@@ -21,7 +21,8 @@ result-store materializations. TN has no removable unused-`LeaAddr` candidate
 at this point. Materialized MIR and XEX remained byte-identical to Slice 5
 through Slice 6.2 (`bb90d361...` and `f9f26cb3...`). Slice 6.3 intentionally
 changes both artifacts because shared deadness rejects five previously unsafe
-TN folds; the detailed result is recorded under Slice 6.
+TN folds. Slice 6.4 is byte-identical to Slice 6.3; the detailed results are
+recorded under Slice 6.
 
 This note defines the implementation plan for integrating MIR6502 peepholes
 into a routine-aware compiler workflow. Local pattern matching remains useful,
@@ -644,6 +645,15 @@ reads of the addressed storage. The address-store machine-block compatibility
 reload may read a byte just written by the same selected window. Removed
 logical definitions are still declared and proved separately.
 
+Pointer-consumer selection uses the parallel `MaterializedPointerConsumer`
+delta. It permits an abstract pointer load/dereference pair to expose the
+selected address-consumer home and private staging strategy while preserving
+the indirect data access. The pointer producer's memory read is matched as an
+address-carrier input rather than by its pre-layout symbolic home. Absolute
+pointer loads are not dropped: the shape selector must carry them into the
+replacement address materialization. Removed pointer-temp lanes remain subject
+to exact reaching-definition and routine-deadness proofs.
+
 In debug and test builds, validate declarations against the original and
 replacement operations. A matcher must not silently remove an undeclared
 definition or change an undeclared machine location.
@@ -1035,7 +1045,7 @@ complete. Expression selection, call-result store consumers, and unused
 `LeaAddr` elimination are also complete. Parameter-home forwarding is no longer
 part of this sub-slice because its current helper combines pre-home temp
 rewrites with physical-register availability and post-home flag behavior.
-Sub-slices 2 and 3 are therefore complete; sub-slices 4–5 remain pending.
+Sub-slices 2–4 are therefore complete; sub-slice 5 remains pending.
 
 Migrate in behaviorally coherent sub-slices:
 
@@ -1069,6 +1079,21 @@ the XEX SHA-256 is
 `8127b508d0d3ca74937edff304e2bb8783ba7cee88a1398223c8cf174d4a0b28`.
 The extra per-routine driver raises TN analysis builds from 935 to 1,082; Slice
 9 still owns pass-group consolidation.
+
+Sub-slice 4 routes direct pointer-temp rematerialization and the adjacent
+pointer-temp dereference selector through one analyzed batch. Production shape
+recognizers no longer inspect the block suffix for temp deadness. The shared
+plan proves the exact pointer definition reaches the dereference and that both
+lanes are dead after the complete window; pointer-source memory clobbers remain
+shape-level barriers. Redefinition, later local use, terminator use, exact-lane
+successor use, and full-temp successor use have negative coverage.
+
+TN applies 34 direct pointer rematerializations. The adjacent materializing
+selector discovers 22 overlapping candidates, all of which are intentionally
+subsumed by the earlier direct-rematerialization priority, matching the legacy
+pass order. Materialized MIR, XEX size, and hashes remain byte-identical to
+Slice 6.3. The additional routine batch raises TN analysis builds from 1,082
+to 1,201; Slice 9 owns consolidation of these currently separate batches.
 
 For every migrated family:
 

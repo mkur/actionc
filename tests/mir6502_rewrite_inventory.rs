@@ -59,13 +59,10 @@ const AUDITED_PRODUCER_REMOVERS: &[(&str, &str)] = &[
     ),
     ("src/mir6502/rewrite/pilots.rs", "byte_store_consumer_plan"),
     (
-        "src/mir6502/materialize/pointers.rs",
-        "rematerialize_direct_pointer_temp_derefs",
+        "src/mir6502/rewrite/pilots.rs",
+        "direct_pointer_temp_rematerialization_plan",
     ),
-    (
-        "src/mir6502/materialize/pointers.rs",
-        "try_fuse_pointer_temp_deref",
-    ),
+    ("src/mir6502/rewrite/pilots.rs", "pointer_temp_deref_plan"),
     (
         "src/mir6502/materialize/indexes.rs",
         "collect_delayed_byte_index_plan",

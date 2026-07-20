@@ -48,7 +48,7 @@ use super::rewrite::driver::{MirPreHomeRewriteDriver, MirRewriteRunResult};
 use super::rewrite::pilots::{
     byte_binary_compare_consumer_rank, compare_narrowing_rank,
     discover_byte_binary_compare_consumers, discover_compare_narrowing, discover_compare_producers,
-    discover_unused_lea_addrs,
+    discover_pointer_rewrites, discover_unused_lea_addrs,
 };
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
@@ -122,9 +122,11 @@ use pointers::{
     is_zero_word_value, materialize_pointer_deref_address, materialize_pointer_deref_read,
     materialize_pointer_deref_read_byte, materialize_pointer_deref_write,
     materialize_pointer_deref_write_byte, pointer_value_from_mem,
-    rematerialize_direct_pointer_temp_derefs, try_fuse_pointer_temp_deref,
+    select_direct_pointer_temp_rematerialization, select_pointer_temp_deref,
     word_value_splits_to_constants,
 };
+#[cfg(test)]
+use pointers::{rematerialize_direct_pointer_temp_derefs, try_fuse_pointer_temp_deref};
 use regs::{op_reads_reg, op_writes_reg, value_reads_reg};
 use runtime::{
     ensure_helper_decl, helper_for_binary, materialize_runtime_helper_binary,
@@ -276,6 +278,33 @@ pub(in crate::mir6502) struct StoreConsumerRewriteCandidate {
     pub replacement: Vec<MirOp>,
     pub stat: &'static str,
     pub family_priority: u16,
+}
+
+#[derive(Debug, Clone)]
+pub(in crate::mir6502) struct PointerRewriteCandidate {
+    pub consumed: usize,
+    pub replacement: Vec<MirOp>,
+}
+
+pub(in crate::mir6502) fn analyzed_direct_pointer_temp_rematerialization_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<PointerRewriteCandidate> {
+    select_direct_pointer_temp_rematerialization(ops, index, false)
+}
+
+pub(in crate::mir6502) fn analyzed_pointer_temp_deref_candidates(
+    block: &super::ir::MirBlock,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Vec<(usize, PointerRewriteCandidate)> {
+    let temp_widths = collect_temp_widths(&block.ops);
+    (0..block.ops.len())
+        .filter_map(|index| {
+            select_pointer_temp_deref(&block.ops, index, routine_id, layout, &temp_widths, false)
+                .map(|candidate| (index, candidate))
+        })
+        .collect()
 }
 
 pub(in crate::mir6502) fn analyzed_store_consumer_candidates(
@@ -503,9 +532,7 @@ pub(super) fn materialize_program(
         collapse_empty_jump_blocks(routine);
         verify_cfg_after_transform(routine, "empty-jump collapse")?;
         run_analyzed_byte_binary_compare_consumers(routine, &mut peephole_stats)?;
-        for block in &mut routine.blocks {
-            block.ops = rematerialize_direct_pointer_temp_derefs(std::mem::take(&mut block.ops));
-        }
+        run_analyzed_pointer_rewrites(routine, &layout, &mut peephole_stats)?;
         run_analyzed_call_arg_producers(routine, &mut peephole_stats)?;
         run_analyzed_return_slot_call_arg_forwards(routine, &mut peephole_stats)?;
         for block in &mut routine.blocks {
@@ -704,6 +731,28 @@ fn run_analyzed_byte_binary_compare_consumers(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("byte binary compare selection failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_pointer_rewrites(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            |routine, context| discover_pointer_rewrites(routine, context, layout),
+            super::rewrite::pilots::pointer_rewrite_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("pointer rewrite failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
@@ -1778,12 +1827,21 @@ fn materialize_ops(
             }
         }
 
-        let maybe_fused =
-            try_fuse_pointer_temp_deref(&ops, index, routine_id, layout, &temp_widths, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "pointer-temp-deref");
-            index += maybe_fused;
-            continue;
+        #[cfg(test)]
+        {
+            let maybe_fused = try_fuse_pointer_temp_deref(
+                &ops,
+                index,
+                routine_id,
+                layout,
+                &temp_widths,
+                &mut out,
+            );
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "pointer-temp-deref");
+                index += maybe_fused;
+                continue;
+            }
         }
 
         match ops[index].clone() {

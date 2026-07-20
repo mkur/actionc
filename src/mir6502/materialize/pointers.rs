@@ -1,15 +1,15 @@
 use super::*;
 
-pub(super) fn try_fuse_pointer_temp_deref(
+pub(super) fn select_pointer_temp_deref(
     ops: &[MirOp],
     index: usize,
     routine_id: RoutineId,
     layout: &MaterializeLayout,
     temp_widths: &BTreeMap<MirTempId, MirWidth>,
-    out: &mut Vec<MirOp>,
-) -> usize {
+    require_local_deadness: bool,
+) -> Option<PointerRewriteCandidate> {
     let Some(load) = ops.get(index) else {
-        return 0;
+        return None;
     };
     let MirOp::Load {
         dst,
@@ -17,21 +17,22 @@ pub(super) fn try_fuse_pointer_temp_deref(
         width: MirWidth::Word,
     } = load
     else {
-        return 0;
+        return None;
     };
 
     let next = match ops.get(index + 1) {
         Some(op) => op,
-        None => return 0,
+        None => return None,
     };
 
     let Some(ptr_temp) = split_def_as_temp(dst) else {
-        return 0;
+        return None;
     };
-    if temp_is_used_after(ops, index + 2, ptr_temp) {
-        return 0;
+    if require_local_deadness && temp_is_used_after(ops, index + 2, ptr_temp) {
+        return None;
     }
     let producer_ptr = pointer_value_from_mem(src_mem);
+    let mut replacement = Vec::new();
 
     match next {
         MirOp::Load {
@@ -45,7 +46,7 @@ pub(super) fn try_fuse_pointer_temp_deref(
             ..
         } if *use_temp == ptr_temp => {
             let Some((lo_use, hi_use)) = split_def(use_dst.clone()) else {
-                return 0;
+                return None;
             };
             materialize_pointer_deref_read(
                 lo_use,
@@ -55,9 +56,12 @@ pub(super) fn try_fuse_pointer_temp_deref(
                 routine_id,
                 layout,
                 temp_widths,
-                out,
+                &mut replacement,
             );
-            return 2;
+            return Some(PointerRewriteCandidate {
+                consumed: 2,
+                replacement,
+            });
         }
         MirOp::Store {
             dst:
@@ -76,9 +80,12 @@ pub(super) fn try_fuse_pointer_temp_deref(
                 routine_id,
                 layout,
                 temp_widths,
-                out,
+                &mut replacement,
             );
-            return 2;
+            return Some(PointerRewriteCandidate {
+                consumed: 2,
+                replacement,
+            });
         }
         MirOp::Load {
             dst: use_dst,
@@ -97,9 +104,12 @@ pub(super) fn try_fuse_pointer_temp_deref(
                 routine_id,
                 layout,
                 temp_widths,
-                out,
+                &mut replacement,
             );
-            return 2;
+            return Some(PointerRewriteCandidate {
+                consumed: 2,
+                replacement,
+            });
         }
         MirOp::Store {
             dst:
@@ -118,26 +128,45 @@ pub(super) fn try_fuse_pointer_temp_deref(
                 routine_id,
                 layout,
                 temp_widths,
-                out,
+                &mut replacement,
             );
-            return 2;
+            return Some(PointerRewriteCandidate {
+                consumed: 2,
+                replacement,
+            });
         }
         _ => {}
     }
 
-    0
+    None
 }
 
+#[cfg(test)]
+pub(super) fn try_fuse_pointer_temp_deref(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(candidate) =
+        select_pointer_temp_deref(ops, index, routine_id, layout, temp_widths, true)
+    else {
+        return 0;
+    };
+    out.extend(candidate.replacement);
+    candidate.consumed
+}
+
+#[cfg(test)]
 pub(super) fn rematerialize_direct_pointer_temp_derefs(ops: Vec<MirOp>) -> Vec<MirOp> {
     let mut out = Vec::new();
     let mut index = 0;
     while index < ops.len() {
-        if let Some((consumed, replacement)) =
-            try_rematerialize_direct_pointer_temp_deref(&ops, index)
-        {
-            out.extend(ops[index + 1..index + consumed - 1].iter().cloned());
-            out.push(replacement);
-            index += consumed;
+        if let Some(candidate) = select_direct_pointer_temp_rematerialization(&ops, index, true) {
+            out.extend(candidate.replacement);
+            index += candidate.consumed;
         } else {
             out.push(ops[index].clone());
             index += 1;
@@ -146,10 +175,11 @@ pub(super) fn rematerialize_direct_pointer_temp_derefs(ops: Vec<MirOp>) -> Vec<M
     out
 }
 
-fn try_rematerialize_direct_pointer_temp_deref(
+pub(super) fn select_direct_pointer_temp_rematerialization(
     ops: &[MirOp],
     index: usize,
-) -> Option<(usize, MirOp)> {
+    require_local_deadness: bool,
+) -> Option<PointerRewriteCandidate> {
     let Some(MirOp::Load {
         dst,
         src: MirAddr::Direct(ptr_mem),
@@ -163,20 +193,31 @@ fn try_rematerialize_direct_pointer_temp_deref(
     for use_index in index + 1..ops.len() {
         let op = &ops[use_index];
         if !op_uses_temp(op, ptr_temp) {
+            if op_def(op).is_some_and(|definition| match definition {
+                MirDef::VTemp(temp) | MirDef::VTempByte { id: temp, .. } => *temp == ptr_temp,
+                MirDef::Reg(_) => false,
+            }) {
+                return None;
+            }
             if op_may_write_mem(op, ptr_mem) || op_may_write_mem(op, &offset_mem(ptr_mem, 1)) {
                 return None;
             }
             continue;
         }
         if op_uses_temp_more_than_once(op, ptr_temp)
-            || temp_is_used_after(ops, use_index + 1, ptr_temp)
+            || (require_local_deadness && temp_is_used_after(ops, use_index + 1, ptr_temp))
         {
             return None;
         }
 
         let rewritten =
             replace_deref_temp_pointer(op.clone(), ptr_temp, pointer_value_from_mem(ptr_mem))?;
-        return Some((use_index + 1 - index, rewritten));
+        let mut replacement = ops[index + 1..use_index].to_vec();
+        replacement.push(rewritten);
+        return Some(PointerRewriteCandidate {
+            consumed: use_index + 1 - index,
+            replacement,
+        });
     }
 
     None
