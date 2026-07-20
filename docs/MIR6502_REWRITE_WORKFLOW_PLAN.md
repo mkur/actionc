@@ -909,7 +909,13 @@ Suggested commit: `mir6502: centralize operation effects`.
 
 ### Slice 4: build the pre-home analysis snapshot
 
-Status: planned.
+Status: in progress.
+
+- Complete: lane-aware routine use/definition index with stable definition and
+  use sites, typed operand/address/call/branch/edge uses, block-entry parameter
+  definitions, and window/terminator/successor queries.
+- Pending: shared-solver temp liveness, reaching definitions, MIR dominance,
+  and the typed pre-home context.
 
 - Add lane-aware use/def sites.
 - Move MIR temp liveness to the shared solver.

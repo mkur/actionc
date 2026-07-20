@@ -22,6 +22,7 @@ impl MirRoutineGeneration {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(in crate::mir6502) enum MirSite {
+    BlockEntry { block: MirBlockId },
     Op { block: MirBlockId, op_index: usize },
     Terminator { block: MirBlockId },
 }
@@ -29,7 +30,9 @@ pub(in crate::mir6502) enum MirSite {
 impl MirSite {
     pub(in crate::mir6502) fn block(self) -> MirBlockId {
         match self {
-            Self::Op { block, .. } | Self::Terminator { block } => block,
+            Self::BlockEntry { block } | Self::Op { block, .. } | Self::Terminator { block } => {
+                block
+            }
         }
     }
 }

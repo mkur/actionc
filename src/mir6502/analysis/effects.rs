@@ -15,6 +15,22 @@ pub(in crate::mir6502) enum MirTempAccess {
     Exact { temp: MirTempId, byte: u8 },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(in crate::mir6502) enum MirTempUseKind {
+    Operand,
+    Address,
+    CallTarget,
+    CallArgument,
+    BranchCondition,
+    EdgeArgument,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(in crate::mir6502) struct MirTempUse {
+    pub access: MirTempAccess,
+    pub kind: MirTempUseKind,
+}
+
 impl MirTempAccess {
     pub(in crate::mir6502) fn temp(self) -> MirTempId {
         match self {
@@ -101,6 +117,7 @@ pub(in crate::mir6502) enum MirOpKind {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirLogicalEffects {
     pub temp_uses: Vec<MirTempAccess>,
+    pub classified_temp_uses: Vec<MirTempUse>,
     pub temp_defs: Vec<MirTempAccess>,
 }
 
@@ -392,7 +409,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         } => {
             record_call_target(target, &mut summary);
             for arg in args {
-                record_value(&arg.value, &mut summary);
+                record_value_as(&arg.value, MirTempUseKind::CallArgument, &mut summary);
             }
             if let Some(result) = result {
                 record_def(&result.dst, result.width, &mut summary);
@@ -422,7 +439,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.machine.unknown_flag_or_a_effects = true;
         }
         MirOp::MaterializeAddress { consumer, value } => {
-            record_value(value, &mut summary);
+            record_value_as(value, MirTempUseKind::Address, &mut summary);
             record_consumer_write(*consumer, &mut summary);
         }
         MirOp::MaterializeIndexedAddress {
@@ -433,8 +450,8 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         } => {
             record_consumer_read(*consumer, &mut summary);
             record_consumer_write(*consumer, &mut summary);
-            record_value(base, &mut summary);
-            record_value(index, &mut summary);
+            record_value_as(base, MirTempUseKind::Address, &mut summary);
+            record_value_as(index, MirTempUseKind::Address, &mut summary);
             summary.machine.conservative_register_clobbers.a = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
             summary.machine.writes_any_flags_compat = true;
@@ -444,7 +461,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         } => {
             record_consumer_read(*consumer, &mut summary);
             record_consumer_write(*consumer, &mut summary);
-            record_value(index, &mut summary);
+            record_value_as(index, MirTempUseKind::Address, &mut summary);
         }
         MirOp::LoadIndirect { consumer, dst, .. } => {
             record_consumer_read(*consumer, &mut summary);
@@ -493,7 +510,7 @@ pub(in crate::mir6502) fn classify_terminator(
     match terminator {
         MirTerminator::Jump(edge) => {
             for arg in &edge.args {
-                record_terminator_value(&arg.value, &mut summary);
+                record_terminator_value(&arg.value, MirTempUseKind::EdgeArgument, &mut summary);
             }
         }
         MirTerminator::Branch {
@@ -503,7 +520,9 @@ pub(in crate::mir6502) fn classify_terminator(
         } => {
             match cond {
                 MirCond::Deferred => {}
-                MirCond::BoolValue(value) => record_terminator_value(value, &mut summary),
+                MirCond::BoolValue(value) => {
+                    record_terminator_value(value, MirTempUseKind::BranchCondition, &mut summary)
+                }
                 MirCond::FlagTest(test) => record_flag_test(test, &mut summary.machine.flag_reads),
                 MirCond::AnyFlagTest(tests) => {
                     for test in tests {
@@ -518,7 +537,7 @@ pub(in crate::mir6502) fn classify_terminator(
                 matches!(cond, MirCond::FlagTest(_) | MirCond::FusedCompare { .. });
             for edge in [then_edge, else_edge] {
                 for arg in &edge.args {
-                    record_terminator_value(&arg.value, &mut summary);
+                    record_terminator_value(&arg.value, MirTempUseKind::EdgeArgument, &mut summary);
                 }
             }
         }
@@ -542,8 +561,20 @@ pub(in crate::mir6502) fn count_call_target_temp_uses(
     summary.temp_use_count(temp)
 }
 
-fn record_terminator_value(value: &MirValue, summary: &mut MirTerminatorEffectSummary) {
+fn record_terminator_value(
+    value: &MirValue,
+    kind: MirTempUseKind,
+    summary: &mut MirTerminatorEffectSummary,
+) {
     let value_summary = classify_value(value);
+    summary.logical.classified_temp_uses.extend(
+        value_summary
+            .logical
+            .temp_uses
+            .iter()
+            .copied()
+            .map(|access| MirTempUse { access, kind }),
+    );
     summary
         .logical
         .temp_uses
@@ -560,18 +591,26 @@ fn record_terminator_value(value: &MirValue, summary: &mut MirTerminatorEffectSu
 }
 
 fn record_value(value: &MirValue, summary: &mut MirOpEffectSummary) {
+    record_value_as(value, MirTempUseKind::Operand, summary);
+}
+
+fn record_value_as(value: &MirValue, kind: MirTempUseKind, summary: &mut MirOpEffectSummary) {
     match value {
         MirValue::Def(MirDef::VTemp(temp)) => {
-            summary.logical.temp_uses.push(MirTempAccess::Full(*temp));
+            record_temp_use(MirTempAccess::Full(*temp), kind, summary);
             summary
                 .projected_spill_reads
                 .insert(projected_temp_spill(*temp, 0));
         }
         MirValue::Def(MirDef::VTempByte { id, byte }) => {
-            summary.logical.temp_uses.push(MirTempAccess::Exact {
-                temp: *id,
-                byte: *byte,
-            });
+            record_temp_use(
+                MirTempAccess::Exact {
+                    temp: *id,
+                    byte: *byte,
+                },
+                kind,
+                summary,
+            );
             if *byte <= 1 {
                 summary
                     .projected_spill_reads
@@ -580,8 +619,8 @@ fn record_value(value: &MirValue, summary: &mut MirOpEffectSummary) {
         }
         MirValue::Def(MirDef::Reg(reg)) => set_register(&mut summary.machine.register_reads, *reg),
         MirValue::Word { lo, hi } => {
-            record_value(lo, summary);
-            record_value(hi, summary);
+            record_value_as(lo, kind, summary);
+            record_value_as(hi, kind, summary);
         }
         MirValue::PointerCell(mem) => record_memory_read(mem, summary),
         MirValue::StorageAddrByte { mem, .. } => record_home_reference(mem, summary),
@@ -594,10 +633,27 @@ fn record_value(value: &MirValue, summary: &mut MirOpEffectSummary) {
     }
 }
 
-fn record_def(def: &MirDef, _width: MirWidth, summary: &mut MirOpEffectSummary) {
+fn record_temp_use(access: MirTempAccess, kind: MirTempUseKind, summary: &mut MirOpEffectSummary) {
+    summary.logical.temp_uses.push(access);
+    summary
+        .logical
+        .classified_temp_uses
+        .push(MirTempUse { access, kind });
+}
+
+fn record_def(def: &MirDef, width: MirWidth, summary: &mut MirOpEffectSummary) {
     match def {
         MirDef::VTemp(temp) => {
-            summary.logical.temp_defs.push(MirTempAccess::Full(*temp));
+            summary.logical.temp_defs.push(MirTempAccess::Exact {
+                temp: *temp,
+                byte: 0,
+            });
+            if width == MirWidth::Word {
+                summary.logical.temp_defs.push(MirTempAccess::Exact {
+                    temp: *temp,
+                    byte: 1,
+                });
+            }
             summary
                 .projected_spill_writes
                 .insert(projected_temp_spill(*temp, 0));
@@ -629,17 +685,17 @@ fn record_load_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectSu
             summary.memory.indirect_reads = true;
         }
         MirAddr::ComputedIndex { base, index, .. } => {
-            record_value(base, summary);
-            record_value(index, summary);
+            record_value_as(base, MirTempUseKind::Address, summary);
+            record_value_as(index, MirTempUseKind::Address, summary);
             summary.memory.indirect_reads = true;
         }
         MirAddr::PointerIndex { ptr, index, .. } => {
             record_memory_range_read(ptr, MirWidth::Word, summary);
-            record_value(index, summary);
+            record_value_as(index, MirTempUseKind::Address, summary);
             summary.memory.indirect_reads = true;
         }
         MirAddr::Deref { ptr, .. } => {
-            record_value(ptr, summary);
+            record_value_as(ptr, MirTempUseKind::Address, summary);
             summary.memory.indirect_reads = true;
         }
         MirAddr::IndirectIndexedY { zp } => {
@@ -671,19 +727,19 @@ fn record_store_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectS
             mark_may_write_any(summary);
         }
         MirAddr::ComputedIndex { base, index, .. } => {
-            record_value(base, summary);
-            record_value(index, summary);
+            record_value_as(base, MirTempUseKind::Address, summary);
+            record_value_as(index, MirTempUseKind::Address, summary);
             summary.memory.indirect_writes = true;
             mark_may_write_any(summary);
         }
         MirAddr::PointerIndex { ptr, index, .. } => {
             record_memory_range_read(ptr, MirWidth::Word, summary);
-            record_value(index, summary);
+            record_value_as(index, MirTempUseKind::Address, summary);
             summary.memory.indirect_writes = true;
             mark_may_write_any(summary);
         }
         MirAddr::Deref { ptr, .. } => {
-            record_value(ptr, summary);
+            record_value_as(ptr, MirTempUseKind::Address, summary);
             summary.memory.indirect_writes = true;
             mark_may_write_any(summary);
         }
@@ -715,7 +771,7 @@ fn record_store_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectS
 
 fn record_call_target(target: &MirCallTarget, summary: &mut MirOpEffectSummary) {
     if let MirCallTarget::Indirect { target, .. } = target {
-        record_value(target, summary);
+        record_value_as(target, MirTempUseKind::CallTarget, summary);
     }
 }
 
