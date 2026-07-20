@@ -1,5 +1,5 @@
 use super::values::offset_mem;
-use crate::mir6502::ir::{MirDef, MirTempId, MirValue};
+use crate::mir6502::ir::{MirAddr, MirDef, MirTempId, MirValue};
 
 pub(super) fn replace_temp_value(
     value: MirValue,
@@ -14,6 +14,38 @@ pub(super) fn replace_temp_value(
         MirValue::Word { lo, hi } => MirValue::Word {
             lo: Box::new(replace_temp_value(*lo, temp, replacement)),
             hi: Box::new(replace_temp_value(*hi, temp, replacement)),
+        },
+        other => other,
+    }
+}
+
+pub(super) fn replace_temp_addr(addr: MirAddr, temp: MirTempId, replacement: &MirValue) -> MirAddr {
+    match addr {
+        MirAddr::ComputedIndex {
+            base,
+            index,
+            elem_size,
+            offset,
+        } => MirAddr::ComputedIndex {
+            base: replace_temp_value(base, temp, replacement),
+            index: replace_temp_value(index, temp, replacement),
+            elem_size,
+            offset,
+        },
+        MirAddr::PointerIndex {
+            ptr,
+            index,
+            elem_size,
+            offset,
+        } => MirAddr::PointerIndex {
+            ptr,
+            index: replace_temp_value(index, temp, replacement),
+            elem_size,
+            offset,
+        },
+        MirAddr::Deref { ptr, offset } => MirAddr::Deref {
+            ptr: replace_temp_value(ptr, temp, replacement),
+            offset,
         },
         other => other,
     }

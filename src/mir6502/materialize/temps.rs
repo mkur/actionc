@@ -2,19 +2,22 @@ use super::*;
 
 pub(super) fn cleanup_pre_materialization_temp_artifacts(
     routine: &mut super::super::ir::MirRoutine,
+    layout: &MaterializeLayout,
 ) {
-    cleanup_pre_materialization_temp_artifacts_inner(routine, None);
+    cleanup_pre_materialization_temp_artifacts_inner(routine, layout, None);
 }
 
 pub(super) fn cleanup_pre_materialization_temp_artifacts_with_liveness(
     routine: &mut super::super::ir::MirRoutine,
+    layout: &MaterializeLayout,
     liveness: &super::temp_liveness::MirTempLiveness,
 ) {
-    cleanup_pre_materialization_temp_artifacts_inner(routine, Some(liveness));
+    cleanup_pre_materialization_temp_artifacts_inner(routine, layout, Some(liveness));
 }
 
 fn cleanup_pre_materialization_temp_artifacts_inner(
     routine: &mut super::super::ir::MirRoutine,
+    layout: &MaterializeLayout,
     liveness: Option<&super::temp_liveness::MirTempLiveness>,
 ) {
     for (block_index, block) in routine.blocks.iter_mut().enumerate() {
@@ -34,8 +37,13 @@ fn cleanup_pre_materialization_temp_artifacts_inner(
         });
         let mut ops = std::mem::take(&mut block.ops);
         loop {
-            let (cleaned, changed) =
-                cleanup_pre_materialization_block_temps(ops, &block.terminator, live_out);
+            let (cleaned, changed) = cleanup_pre_materialization_block_temps(
+                ops,
+                &block.terminator,
+                live_out,
+                routine.id,
+                layout,
+            );
             ops = cleaned;
             if !changed {
                 break;
@@ -49,6 +57,8 @@ fn cleanup_pre_materialization_block_temps(
     ops: Vec<MirOp>,
     terminator: &MirTerminator,
     live_out: Option<&MirTempLiveSet>,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
 ) -> (Vec<MirOp>, bool) {
     let mut out = Vec::with_capacity(ops.len());
     let mut changed = false;
@@ -60,7 +70,7 @@ fn cleanup_pre_materialization_block_temps(
             continue;
         }
         if let Some((consumer_index, replacement)) =
-            single_use_temp_replacement(&ops, index, terminator, live_out)
+            single_use_temp_replacement(&ops, index, terminator, live_out, routine_id, layout)
         {
             out.extend(ops[index + 1..consumer_index].iter().cloned());
             let mut consumer = ops[consumer_index].clone();
@@ -114,6 +124,8 @@ fn single_use_temp_replacement(
     index: usize,
     terminator: &MirTerminator,
     live_out: Option<&MirTempLiveSet>,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
 ) -> Option<(usize, MirValue)> {
     let producer = ops.get(index)?;
     let def = op_def(producer)?;
@@ -123,7 +135,7 @@ fn single_use_temp_replacement(
     {
         return None;
     }
-    let replacement = temp_replacement_value(producer)?;
+    let replacement = temp_replacement_value(producer, routine_id, layout)?;
     let use_indices = ops[index + 1..]
         .iter()
         .enumerate()
@@ -132,7 +144,7 @@ fn single_use_temp_replacement(
     let &[consumer_index] = use_indices.as_slice() else {
         return None;
     };
-    if !temp_replacement_allowed_for_consumer(&replacement, ops.get(consumer_index)?) {
+    if !temp_replacement_allowed_for_consumer(&replacement, ops.get(consumer_index)?, temp) {
         return None;
     }
     Some((consumer_index, replacement))
@@ -241,7 +253,11 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
     }
 }
 
-fn temp_replacement_value(op: &MirOp) -> Option<MirValue> {
+fn temp_replacement_value(
+    op: &MirOp,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<MirValue> {
     match op {
         MirOp::LoadImm { value, width, .. } => Some(match width {
             MirWidth::Byte => MirValue::ConstU8(*value as u8),
@@ -252,16 +268,61 @@ fn temp_replacement_value(op: &MirOp) -> Option<MirValue> {
             target,
             width: MirWidth::Word,
             ..
-        } => Some(storage_address_value(target)),
+        } => Some(if layout.is_descriptor_storage(routine_id, target) {
+            pointer_value_from_mem(target)
+        } else {
+            storage_address_value(target)
+        }),
         _ => None,
     }
 }
 
-fn temp_replacement_allowed_for_consumer(replacement: &MirValue, consumer: &MirOp) -> bool {
+fn temp_replacement_allowed_for_consumer(
+    replacement: &MirValue,
+    consumer: &MirOp,
+    temp: MirTempId,
+) -> bool {
     if value_contains_storage_address_byte(replacement) {
-        return matches!(consumer, MirOp::Call { .. });
+        return matches!(consumer, MirOp::Call { .. })
+            || op_address_uses_temp(consumer, temp)
+            || matches!(
+                consumer,
+                MirOp::MaterializeAddress { .. } | MirOp::MaterializeIndexedAddress { .. }
+            );
     }
     true
+}
+
+fn op_address_uses_temp(op: &MirOp, temp: MirTempId) -> bool {
+    match op {
+        MirOp::Load { src, .. } => addr_uses_temp(src, temp),
+        MirOp::Store { dst, .. } => addr_uses_temp(dst, temp),
+        _ => false,
+    }
+}
+
+fn addr_uses_temp(addr: &MirAddr, temp: MirTempId) -> bool {
+    match addr {
+        MirAddr::ComputedIndex { base, index, .. } => {
+            value_uses_specific_temp(base, temp) || value_uses_specific_temp(index, temp)
+        }
+        MirAddr::PointerIndex { index, .. } => value_uses_specific_temp(index, temp),
+        MirAddr::Deref { ptr, .. } => value_uses_specific_temp(ptr, temp),
+        MirAddr::Direct(_)
+        | MirAddr::Label(_)
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::AbsoluteIndexedX { .. }
+        | MirAddr::AbsoluteIndexedY { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. }
+        | MirAddr::PointerCell { .. } => false,
+    }
+}
+
+fn value_uses_specific_temp(value: &MirValue, temp: MirTempId) -> bool {
+    let mut uses = 0;
+    count_value_temp_uses(value, temp, &mut uses);
+    uses > 0
 }
 
 fn value_contains_storage_address_byte(value: &MirValue) -> bool {
@@ -322,8 +383,14 @@ fn op_blocks_temp_producer_sink(producer: &MirOp, op: &MirOp) -> bool {
 fn replace_op_temp_values(op: &mut MirOp, temp: MirTempId, replacement: &MirValue) -> bool {
     let before = op.clone();
     match op {
-        MirOp::Store { src, .. }
-        | MirOp::Move { src, .. }
+        MirOp::Load { src, .. } => {
+            *src = replace_temp_addr(src.clone(), temp, replacement);
+        }
+        MirOp::Store { dst, src, .. } => {
+            *dst = replace_temp_addr(dst.clone(), temp, replacement);
+            *src = replace_temp_value(src.clone(), temp, replacement);
+        }
+        MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
         | MirOp::Unary { src, .. }
@@ -349,8 +416,7 @@ fn replace_op_temp_values(op: &mut MirOp, temp: MirTempId, replacement: &MirValu
                 arg.value = replace_temp_value(arg.value.clone(), temp, replacement);
             }
         }
-        MirOp::Load { .. }
-        | MirOp::LoadImm { .. }
+        MirOp::LoadImm { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateMem { .. }
         | MirOp::RuntimeHelper { .. }

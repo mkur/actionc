@@ -136,7 +136,7 @@ use store_consumers::{
     try_fuse_word_store_consumer, try_materialize_store_expr_producers,
 };
 use temp_liveness::{MirTempLiveSet, analyze_temp_liveness, record_temp_liveness_observability};
-use temp_rewrite::replace_temp_value;
+use temp_rewrite::{replace_temp_addr, replace_temp_value};
 use temp_uses::{
     count_call_target_temp_uses, count_value_temp_uses, op_uses_temp, op_uses_temp_more_than_once,
     terminator_uses_temp, value_uses_temp,
@@ -196,7 +196,7 @@ pub(super) fn materialize_program(
     }
     let layout = MaterializeLayout::new(&program, object_origin);
     for routine in &mut program.routines {
-        cleanup_pre_materialization_temp_artifacts(routine);
+        cleanup_pre_materialization_temp_artifacts(routine, &layout);
         lower_block_arguments(routine).map_err(|diagnostic| vec![diagnostic])?;
         fold_compare_operand_producers_before_branches(
             &mut routine.blocks,
@@ -392,7 +392,11 @@ fn run_pre_home_cleanup_fixed_point(
         }
 
         let cleanup_liveness = analyze_temp_liveness(routine);
-        cleanup_pre_materialization_temp_artifacts_with_liveness(routine, &cleanup_liveness);
+        cleanup_pre_materialization_temp_artifacts_with_liveness(
+            routine,
+            layout,
+            &cleanup_liveness,
+        );
 
         assert_eq!(
             routine.temps, original_temps,

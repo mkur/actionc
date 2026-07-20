@@ -1,7 +1,7 @@
 # MIR6502 Residual-Lane Reduction Plan
 
-Status: Slices 1-2 implemented; Slice 5A whole-word destination propagation is
-next.
+Status: Slices 1-2 and the first Slice 5A whole-address forwarding family are
+implemented; further Slice 5A ABI/value families are next.
 
 Snapshot date: 2026-07-20.
 
@@ -468,6 +468,8 @@ into consumers that already define a safe physical or logical destination.
 
 ### Slice 5A: Non-arithmetic word values
 
+Status: first whole-address-to-address-consumer family implemented.
+
 Start with values whose low and high lanes are independent:
 
 - constants and static/routine addresses;
@@ -478,6 +480,29 @@ Start with values whose low and high lanes are independent:
 
 Forward both lanes as one decision. Never eliminate only one lane when the
 producer or consumer observes a coupled word identity.
+
+The first accepted family forwards a unique-use storage address as one word
+through a load/store address operand. Temp replacement now rewrites the typed
+`MirAddr` tree as well as ordinary values. Storage-address byte forms remain
+restricted to calls and explicit address consumers; arithmetic remains a
+negative case.
+
+On TN this removes `Copy`'s two-lane local-array base home before its indexed
+word store. The existing indexed-address lowering receives
+`word(storage_addr_lo, storage_addr_hi)` directly. TN falls from 13,258 to
+13,250 bytes, from 175 to 173 final homes, from 126 to 124 virtual-ZP homes,
+from 232 to 230 home stores, and from 282 to 280 reloads. `LDA` and `STA` each
+fall by two; the measured code size falls by eight bytes while data is
+unchanged.
+
+The raw residual count remains 497 because the direct address form changes the
+downstream producer shape rather than suppressing MIR identities globally.
+Final attribution improves from 235 to 237 eliminated lanes and from 191 to
+189 ZP-associated lanes. The two `lea`-to-indexed-address lanes disappear.
+`prepare-dynamic-word-index` falls from one to zero because the direct storage
+base now enters the generic indexed-address path; protected indexed-copy,
+word-array-store-staging, scaled-addressing, and direct-update counters are
+unchanged.
 
 ### Slice 5B: Loads, pointer pairs, and address consumers
 

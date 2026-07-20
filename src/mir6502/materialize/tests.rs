@@ -10419,6 +10419,111 @@ fn pre_home_fixed_point_removes_newly_dead_producer_on_second_change_round() {
 }
 
 #[test]
+fn pre_materialization_forwards_whole_storage_address_into_indexed_store() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let address_temp = MirTempId(0);
+    let target = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::LeaAddr {
+                dst: MirDef::VTemp(address_temp),
+                target: target.clone(),
+                width: MirWidth::Word,
+            },
+            MirOp::Store {
+                dst: MirAddr::ComputedIndex {
+                    base: MirValue::Def(MirDef::VTemp(address_temp)),
+                    index: MirValue::ConstU8(3),
+                    elem_size: 2,
+                    offset: 0,
+                },
+                src: MirValue::ConstU16(0x1234),
+                width: MirWidth::Word,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: address_temp }];
+
+    cleanup_pre_materialization_temp_artifacts(&mut routine, &layout);
+
+    assert_eq!(routine.blocks[0].ops.len(), 1);
+    assert!(matches!(
+        &routine.blocks[0].ops[0],
+        MirOp::Store {
+            dst: MirAddr::ComputedIndex { base, .. },
+            ..
+        } if *base == storage_address_value(&target)
+    ));
+}
+
+#[test]
+fn pre_materialization_does_not_forward_storage_address_into_arithmetic() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let address_temp = MirTempId(0);
+    let result_temp = MirTempId(1);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::LeaAddr {
+                dst: MirDef::VTemp(address_temp),
+                target: MirMem::Local {
+                    id: LocalId(0),
+                    offset: 0,
+                },
+                width: MirWidth::Word,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::VTemp(result_temp),
+                left: MirValue::Def(MirDef::VTemp(address_temp)),
+                right: MirValue::ConstU16(2),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Local {
+                    id: LocalId(1),
+                    offset: 0,
+                }),
+                src: MirValue::Def(MirDef::VTemp(result_temp)),
+                width: MirWidth::Word,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: address_temp }, MirTemp { id: result_temp }];
+
+    cleanup_pre_materialization_temp_artifacts(&mut routine, &layout);
+
+    assert!(routine.blocks[0].ops.iter().any(|op| matches!(
+        op,
+        MirOp::LeaAddr {
+            dst: MirDef::VTemp(id),
+            ..
+        } if *id == address_temp
+    )));
+    assert!(routine.blocks[0].ops.iter().any(|op| matches!(
+        op,
+        MirOp::Binary {
+            left: MirValue::Def(MirDef::VTemp(id)),
+            ..
+        } if *id == address_temp
+    )));
+}
+
+#[test]
 fn pre_home_fixed_point_removes_dead_word_lane_and_keeps_live_sibling() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
