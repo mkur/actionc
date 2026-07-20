@@ -1,13 +1,13 @@
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+#[cfg(test)]
+use std::collections::BTreeSet;
 
 use super::cfg::NirCfg;
+use crate::analysis::dataflow::{
+    DataflowProblem, DataflowResult, solve_dataflow as solve_shared_dataflow,
+};
 use crate::nir::BlockId;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::nir) enum NirDataflowDirection {
-    Forward,
-    Backward,
-}
+pub(in crate::nir) use crate::analysis::dataflow::DataflowDirection as NirDataflowDirection;
 
 /// A finite, monotone block data-flow problem.
 ///
@@ -39,22 +39,58 @@ pub(in crate::nir) trait NirDataflowProblem {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::nir) struct NirDataflowResult<State> {
-    in_states: BTreeMap<BlockId, State>,
-    out_states: BTreeMap<BlockId, State>,
-    evaluations: usize,
+    shared: DataflowResult<BlockId, State>,
 }
 
 impl<State> NirDataflowResult<State> {
     pub(in crate::nir) fn in_state(&self, block: BlockId) -> Option<&State> {
-        self.in_states.get(&block)
+        self.shared.in_state(block)
     }
 
     pub(in crate::nir) fn out_state(&self, block: BlockId) -> Option<&State> {
-        self.out_states.get(&block)
+        self.shared.out_state(block)
     }
 
     pub(in crate::nir) fn evaluations(&self) -> usize {
-        self.evaluations
+        self.shared.evaluations()
+    }
+}
+
+struct NirProblemAdapter<'a, Problem>(&'a Problem);
+
+impl<Problem> DataflowProblem<NirCfg> for NirProblemAdapter<'_, Problem>
+where
+    Problem: NirDataflowProblem,
+{
+    type State = Problem::State;
+
+    fn direction(&self) -> NirDataflowDirection {
+        self.0.direction()
+    }
+
+    fn bottom(&self) -> Self::State {
+        self.0.bottom()
+    }
+
+    fn boundary(&self, block: BlockId) -> Option<Self::State> {
+        self.0.boundary(block)
+    }
+
+    fn join(&self, into: &mut Self::State, other: &Self::State) {
+        self.0.join(into, other);
+    }
+
+    fn transfer(&self, block: BlockId, state: &Self::State) -> Self::State {
+        self.0.transfer(block, state)
+    }
+
+    fn forward_edge_is_executable(
+        &self,
+        from: BlockId,
+        to: BlockId,
+        from_out: &Self::State,
+    ) -> bool {
+        self.0.forward_edge_is_executable(from, to, from_out)
     }
 }
 
@@ -65,91 +101,8 @@ pub(in crate::nir) fn solve_dataflow<Problem>(
 where
     Problem: NirDataflowProblem,
 {
-    let direction = problem.direction();
-    let order = match direction {
-        NirDataflowDirection::Forward => cfg.reverse_postorder(),
-        NirDataflowDirection::Backward => cfg.postorder(),
-    };
-    let mut in_states = order
-        .iter()
-        .copied()
-        .map(|block| (block, problem.bottom()))
-        .collect::<BTreeMap<_, _>>();
-    let mut out_states = order
-        .iter()
-        .copied()
-        .map(|block| (block, problem.bottom()))
-        .collect::<BTreeMap<_, _>>();
-    let mut worklist = order.iter().copied().collect::<VecDeque<_>>();
-    let mut queued = order.iter().copied().collect::<BTreeSet<_>>();
-    let mut evaluations = 0usize;
-
-    while let Some(block) = worklist.pop_front() {
-        queued.remove(&block);
-        evaluations = evaluations.saturating_add(1);
-
-        let (next_in, next_out) = match direction {
-            NirDataflowDirection::Forward => {
-                let mut input = problem.bottom();
-                if let Some(boundary) = problem.boundary(block) {
-                    problem.join(&mut input, &boundary);
-                }
-                for predecessor in cfg.predecessors(block) {
-                    if let Some(state) = out_states.get(predecessor) {
-                        if problem.forward_edge_is_executable(*predecessor, block, state) {
-                            problem.join(&mut input, state);
-                        }
-                    }
-                }
-                let output = problem.transfer(block, &input);
-                (input, output)
-            }
-            NirDataflowDirection::Backward => {
-                let mut output = problem.bottom();
-                if let Some(boundary) = problem.boundary(block) {
-                    problem.join(&mut output, &boundary);
-                }
-                for successor in cfg.successors(block) {
-                    if let Some(state) = in_states.get(successor) {
-                        problem.join(&mut output, state);
-                    }
-                }
-                let input = problem.transfer(block, &output);
-                (input, output)
-            }
-        };
-
-        let input_changed = in_states.get(&block) != Some(&next_in);
-        let output_changed = out_states.get(&block) != Some(&next_out);
-        if input_changed {
-            in_states.insert(block, next_in);
-        }
-        if output_changed {
-            out_states.insert(block, next_out);
-        }
-
-        let propagates = match direction {
-            NirDataflowDirection::Forward => output_changed,
-            NirDataflowDirection::Backward => input_changed,
-        };
-        if !propagates {
-            continue;
-        }
-        let adjacent = match direction {
-            NirDataflowDirection::Forward => cfg.successors(block),
-            NirDataflowDirection::Backward => cfg.predecessors(block),
-        };
-        for adjacent in adjacent {
-            if cfg.reachable().contains(adjacent) && queued.insert(*adjacent) {
-                worklist.push_back(*adjacent);
-            }
-        }
-    }
-
     NirDataflowResult {
-        in_states,
-        out_states,
-        evaluations,
+        shared: solve_shared_dataflow(cfg, &NirProblemAdapter(problem)),
     }
 }
 

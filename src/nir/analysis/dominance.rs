@@ -1,161 +1,43 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use super::cfg::NirCfg;
+use crate::analysis::dominance::Dominance;
 use crate::nir::BlockId;
 
 /// Dominance facts derived from one immutable NIR CFG.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::nir) struct NirDominance {
-    root: Option<BlockId>,
-    dominators: BTreeMap<BlockId, BTreeSet<BlockId>>,
-    immediate_dominators: BTreeMap<BlockId, BlockId>,
-    children: BTreeMap<BlockId, Vec<BlockId>>,
-    frontiers: BTreeMap<BlockId, BTreeSet<BlockId>>,
+    shared: Dominance<BlockId>,
 }
 
 impl NirDominance {
     pub(in crate::nir) fn from_cfg(cfg: &NirCfg) -> Self {
-        let Some(entry) = cfg.entry() else {
-            return Self {
-                root: None,
-                dominators: BTreeMap::new(),
-                immediate_dominators: BTreeMap::new(),
-                children: BTreeMap::new(),
-                frontiers: BTreeMap::new(),
-            };
-        };
-
-        // Preserve the verifier's established treatment of unreachable blocks:
-        // they participate in the set calculation but are excluded from the
-        // immediate-dominator tree used by optimizer traversals.
-        let all_blocks = cfg.block_ids().clone();
-        let mut dominators = BTreeMap::new();
-        for block in cfg.block_ids() {
-            if *block == entry {
-                dominators.insert(*block, BTreeSet::from([*block]));
-            } else {
-                dominators.insert(*block, all_blocks.clone());
-            }
-        }
-
-        let mut changed = true;
-        while changed {
-            changed = false;
-            for block in cfg.block_ids() {
-                if *block == entry {
-                    continue;
-                }
-                let predecessors = cfg.predecessors(*block);
-                let mut next = if predecessors.is_empty() {
-                    BTreeSet::new()
-                } else {
-                    let mut iter = predecessors.iter();
-                    let first = iter
-                        .next()
-                        .and_then(|pred| dominators.get(pred))
-                        .cloned()
-                        .unwrap_or_default();
-                    iter.fold(first, |acc, pred| {
-                        acc.intersection(dominators.get(pred).unwrap_or(&EMPTY_BLOCK_SET))
-                            .copied()
-                            .collect()
-                    })
-                };
-                next.insert(*block);
-                if dominators.get(block) != Some(&next) {
-                    dominators.insert(*block, next);
-                    changed = true;
-                }
-            }
-        }
-
-        let mut immediate_dominators = BTreeMap::new();
-        let mut children = cfg
-            .reachable()
-            .iter()
-            .copied()
-            .map(|block| (block, Vec::new()))
-            .collect::<BTreeMap<_, _>>();
-        for block in cfg.reachable() {
-            if *block == entry {
-                continue;
-            }
-            let strict = dominators
-                .get(block)
-                .into_iter()
-                .flatten()
-                .copied()
-                .filter(|dominator| dominator != block)
-                .collect::<Vec<_>>();
-            let immediate = strict.iter().copied().find(|candidate| {
-                !strict.iter().copied().any(|other| {
-                    other != *candidate
-                        && dominators
-                            .get(&other)
-                            .is_some_and(|set| set.contains(candidate))
-                })
-            });
-            if let Some(immediate) = immediate {
-                immediate_dominators.insert(*block, immediate);
-                children.entry(immediate).or_default().push(*block);
-            }
-        }
-        for child_blocks in children.values_mut() {
-            child_blocks.sort_unstable();
-        }
-
-        let mut frontiers = cfg
-            .reachable()
-            .iter()
-            .copied()
-            .map(|block| (block, BTreeSet::new()))
-            .collect::<BTreeMap<_, _>>();
-        for block in cfg.reachable() {
-            if cfg.predecessors(*block).len() < 2 {
-                continue;
-            }
-            let stop = immediate_dominators.get(block).copied();
-            for predecessor in cfg.predecessors(*block) {
-                let mut runner = Some(*predecessor);
-                while runner.is_some() && runner != stop {
-                    let current = runner.expect("dominance-frontier runner");
-                    frontiers.entry(current).or_default().insert(*block);
-                    runner = immediate_dominators.get(&current).copied();
-                }
-            }
-        }
-
         Self {
-            root: Some(entry),
-            dominators,
-            immediate_dominators,
-            children,
-            frontiers,
+            shared: Dominance::from_graph(cfg),
         }
     }
 
     pub(in crate::nir) fn dominates(&self, dominator: BlockId, block: BlockId) -> bool {
-        self.dominators
-            .get(&block)
-            .is_some_and(|set| set.contains(&dominator))
+        self.shared.dominates(dominator, block)
     }
 
     pub(in crate::nir) fn root(&self) -> Option<BlockId> {
-        self.root
+        self.shared.root()
     }
 
     #[allow(dead_code)] // Used by dominance-scoped optimizer slices.
     pub(in crate::nir) fn immediate_dominator(&self, block: BlockId) -> Option<BlockId> {
-        self.immediate_dominators.get(&block).copied()
+        self.shared.immediate_dominator(block)
     }
 
     #[allow(dead_code)] // Used by dominance-scoped optimizer slices.
     pub(in crate::nir) fn children(&self, block: BlockId) -> &[BlockId] {
-        self.children.get(&block).map_or(&[], Vec::as_slice)
+        self.shared.children(block)
     }
 
+    #[allow(dead_code)] // Used by dominance tests and later optimizer slices.
     pub(in crate::nir) fn dominance_frontier(&self, block: BlockId) -> &BTreeSet<BlockId> {
-        self.frontiers.get(&block).unwrap_or(&EMPTY_BLOCK_SET)
+        self.shared.dominance_frontier(block)
     }
 
     pub(in crate::nir) fn pruned_iterated_frontier(
@@ -163,28 +45,14 @@ impl NirDominance {
         definitions: &BTreeSet<BlockId>,
         live_in: &BTreeSet<BlockId>,
     ) -> BTreeSet<BlockId> {
-        let mut result = BTreeSet::new();
-        let mut work = definitions.clone();
-        while let Some(block) = work.pop_first() {
-            for frontier in self.dominance_frontier(block) {
-                if !live_in.contains(frontier) || !result.insert(*frontier) {
-                    continue;
-                }
-                if !definitions.contains(frontier) {
-                    work.insert(*frontier);
-                }
-            }
-        }
-        result
+        self.shared.pruned_iterated_frontier(definitions, live_in)
     }
 
     #[allow(dead_code)] // Used by loop-aware optimizer slices.
     pub(in crate::nir) fn is_backedge(&self, from: BlockId, to: BlockId) -> bool {
-        self.dominates(to, from)
+        self.shared.is_backedge(from, to)
     }
 }
-
-static EMPTY_BLOCK_SET: BTreeSet<BlockId> = BTreeSet::new();
 
 #[cfg(test)]
 mod tests {

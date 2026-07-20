@@ -827,7 +827,11 @@ Suggested commit: `docs: freeze MIR6502 rewrite workflow baseline`.
 
 ### Slice 1: extract the shared graph/data-flow/dominance kernel
 
-Status: planned.
+Status: complete. `src/analysis/` now owns the target-neutral stable-node graph,
+deterministic forward/backward solver, sparse forward-edge filtering, evaluation
+counters, and generic dominance/frontier implementation. NIR retains thin
+compatibility adapters and its previous unreachable-block policy. The TN
+optimized NIR, materialized MIR, and XEX remained byte-identical.
 
 - Add the target-neutral graph and monotone worklist interfaces.
 - Preserve deterministic sparse forward-edge behavior.

@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::super::facts::BlockId;
 use super::super::ir::{NirRoutine, NirTerminator};
+use crate::analysis::graph::DataflowGraph;
 
 /// Target-independent control-flow facts for one NIR routine.
 ///
@@ -109,6 +110,38 @@ impl NirCfg {
     #[allow(dead_code)] // Consumed by the later backward data-flow slice.
     pub(in crate::nir) fn exits(&self) -> &BTreeSet<BlockId> {
         &self.exits
+    }
+}
+
+impl DataflowGraph for NirCfg {
+    type Node = BlockId;
+
+    fn entry(&self) -> Option<Self::Node> {
+        self.entry
+    }
+
+    fn nodes(&self) -> &BTreeSet<Self::Node> {
+        &self.block_ids
+    }
+
+    fn predecessors(&self, node: Self::Node) -> &BTreeSet<Self::Node> {
+        self.predecessors.get(&node).unwrap_or(&EMPTY_BLOCK_SET)
+    }
+
+    fn successors(&self, node: Self::Node) -> &BTreeSet<Self::Node> {
+        self.successors.get(&node).unwrap_or(&EMPTY_BLOCK_SET)
+    }
+
+    fn reachable(&self) -> &BTreeSet<Self::Node> {
+        &self.reachable
+    }
+
+    fn postorder(&self) -> &[Self::Node] {
+        &self.postorder
+    }
+
+    fn reverse_postorder(&self) -> &[Self::Node] {
+        &self.reverse_postorder
     }
 }
 
