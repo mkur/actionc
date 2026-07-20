@@ -5,23 +5,22 @@ Snapshot date: 2026-07-20.
 Status: in progress. Slice 6.1 (compare producers, narrowing, and consumers) is
 complete, and the first part of 6.2 moves simple call-argument producers to the
 routine-aware driver. Return-slot result-to-argument forwarding is also
-complete, as is call-argument expression selection; the remaining call
-families and sub-slices 3–5 are
-pending. Compare shape recognizers no longer make suffix-liveness decisions;
-exact definition
+complete, as are call-argument expression selection, call-result store
+consumers, and unused-`LeaAddr` elimination. Parameter-home forwarding is
+deferred to the post-home workflow; sub-slices 3–5 are pending. Migrated shape
+recognizers no longer make suffix-liveness decisions: exact definition
 identity, reaching definitions, and routine-wide lane deadness come from the
 shared snapshot. Later local, terminator, exact-lane successor, and full-temp
 successor uses have negative coverage. The common producer matcher subsumes
-the old one- and two-load byte compare consumers, while binary-result selection
-declares its explicit A-register projection. TN retains 112 producer folds and
-three narrowing folds, has no binary-result candidates, and its materialized
-MIR and XEX remain byte-identical to Slice 5 (`bb90d361...` and `f9f26cb3...`).
-TN applies 71 simple call-argument producer plans; 11 overlapping candidates
-are rejected deterministically, with byte-identical materialized MIR and XEX.
-Its one return-slot argument forward is retained and now declares the ABI-home
-read made explicit by removing the transient result temp.
-All 21 call-expression selections are retained, including ten indexed-word
-loads and two indexed-word arithmetic arguments.
+the old one- and two-load byte compare consumers, while binary-result and
+loaded-call-argument selection declare their explicit A-register projections.
+TN retains 112 compare-producer folds, three narrowing folds, 71 simple
+call-argument producer plans, one return-slot argument forward, and all 21
+call-expression selections. Call-result analysis applies 25 direct result-store
+plans plus nine loaded-argument plans; the lowering stage retains all 34 legacy
+result-store materializations. TN has no removable unused-`LeaAddr` candidate
+at this point. Materialized MIR and XEX remain byte-identical to Slice 5
+(`bb90d361...` and `f9f26cb3...`).
 
 This note defines the implementation plan for integrating MIR6502 peepholes
 into a routine-aware compiler workflow. Local pattern matching remains useful,
@@ -1023,9 +1022,10 @@ Suggested commit: `mir6502: drive pre-home rewrites from shared facts`.
 Status: in progress. Sub-slice 1 is complete: compare producers, narrowing, and
 compare consumers use the routine-aware driver. In sub-slice 2, simple
 call-argument producers and return-slot result-to-argument forwarding are
-complete. Expression selection and unused `LeaAddr` elimination are also
-complete; parameter-home and call-result families remain pending. Sub-slices
-3–5 remain pending.
+complete. Expression selection, call-result store consumers, and unused
+`LeaAddr` elimination are also complete. Parameter-home forwarding is the only
+remaining family still classified in sub-slice 2. Sub-slices 3–5 remain
+pending.
 
 Migrate in behaviorally coherent sub-slices:
 

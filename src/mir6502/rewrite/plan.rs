@@ -61,6 +61,14 @@ pub(in crate::mir6502) enum MirEffectDelta {
     /// Abstract call-argument expressions were selected into explicit ABI
     /// staging operations while preserving the calls and their effects.
     MaterializedCallArguments,
+    /// A call-result logical temp is replaced by a direct read from its public
+    /// return slot. The optional register records a simultaneously selected
+    /// loaded argument home.
+    ForwardedCallResultStore {
+        base: MirFixedZpSlot,
+        width: MirWidth,
+        selected_arg_register: Option<MirReg>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

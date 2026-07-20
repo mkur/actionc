@@ -8,7 +8,9 @@ use crate::mir6502::analysis::effects::{
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 use crate::mir6502::analysis::use_def::{MirDefSite, MirTempLane};
-use crate::mir6502::ir::{MirBlockId, MirMem, MirOp, MirReg, MirRegisterSet, MirRoutine};
+use crate::mir6502::ir::{
+    MirBlockId, MirFixedZpSlot, MirMem, MirOp, MirReg, MirRegisterSet, MirRoutine, MirWidth,
+};
 use crate::mir6502::rewrite::context::PreHomeRewriteContext;
 use crate::mir6502::rewrite::plan::{MirEffectDelta, MirFactClass, MirRewritePlan};
 
@@ -284,6 +286,13 @@ fn validate_plan(
 }
 
 fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEffectDelta) -> bool {
+    if matches!(
+        delta,
+        MirEffectDelta::MaterializedCallArguments | MirEffectDelta::ForwardedCallResultStore { .. }
+    ) && !calls_and_effects_are_preserved(original, replacement)
+    {
+        return false;
+    }
     if matches!(delta, MirEffectDelta::MaterializedCallArguments) {
         return calls_and_effects_are_preserved(original, replacement);
     }
@@ -319,7 +328,47 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             original == replacement
         }
         MirEffectDelta::MaterializedCallArguments => unreachable!("handled before projection"),
+        MirEffectDelta::ForwardedCallResultStore {
+            base,
+            width,
+            selected_arg_register,
+        } => {
+            add_fixed_home_reads(&mut original, base, width);
+            if let Some(register) = selected_arg_register {
+                if !register_is_set(replacement.register_reads, register)
+                    || !register_is_set(replacement.register_writes, register)
+                {
+                    return false;
+                }
+                clear_register(&mut original.register_reads, register);
+                clear_register(&mut original.register_writes, register);
+                clear_register(&mut original.register_clobbers, register);
+                clear_register(&mut replacement.register_reads, register);
+                clear_register(&mut replacement.register_writes, register);
+                clear_register(&mut replacement.register_clobbers, register);
+                // Selecting a byte load into a real 6502 register also makes
+                // its transient Z/N writes explicit. The immediately
+                // following preserved call clobbers those flags before the
+                // rewritten window exits.
+                original.flag_writes = MirFlagSet::default();
+                replacement.flag_writes = MirFlagSet::default();
+            }
+            original == replacement
+        }
     }
+}
+
+fn add_fixed_home_reads(effects: &mut ObservableEffects, base: MirFixedZpSlot, width: MirWidth) {
+    let bytes = match width {
+        MirWidth::Byte => 1,
+        MirWidth::Word => 2,
+    };
+    for offset in 0..bytes {
+        let slot = MirFixedZpSlot(base.0.saturating_add(offset as u8));
+        effects.home_reads.insert(MirHomeByte::FixedZeroPage(slot));
+        effects.memory_reads.push(format!("fixed-zp:{}", slot.0));
+    }
+    effects.memory_reads.sort();
 }
 
 fn calls_and_effects_are_preserved(original: &[MirOp], replacement: &[MirOp]) -> bool {

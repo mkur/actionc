@@ -37,13 +37,10 @@ const AUDITED_PRODUCER_REMOVERS: &[(&str, &str)] = &[
         "src/mir6502/materialize/calls.rs",
         "try_forward_param_word_store_consumer",
     ),
+    ("src/mir6502/rewrite/pilots.rs", "call_result_store_plan"),
     (
-        "src/mir6502/materialize/calls.rs",
-        "try_fuse_call_result_store_consumer",
-    ),
-    (
-        "src/mir6502/materialize/calls.rs",
-        "try_fuse_loaded_arg_call_result_store_consumer",
+        "src/mir6502/rewrite/pilots.rs",
+        "loaded_arg_call_result_store_plan",
     ),
     (
         "src/mir6502/materialize/store_consumers.rs",

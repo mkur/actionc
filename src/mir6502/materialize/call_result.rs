@@ -301,7 +301,7 @@ fn ranges_overlap(left_start: u16, left_len: u16, right_start: u16, right_len: u
     left_start < right_end && right_start < left_end
 }
 
-fn call_result_value(width: MirWidth, home: MirResultHome) -> Option<MirValue> {
+pub(super) fn call_result_value(width: MirWidth, home: MirResultHome) -> Option<MirValue> {
     let MirResultHome::ReturnSlot { offset } = home else {
         return None;
     };

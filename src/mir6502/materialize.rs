@@ -52,16 +52,22 @@ use super::rewrite::pilots::{
 };
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
-#[cfg(test)]
-use calls::try_materialize_call_arg_expr_producers;
 use calls::{
-    CallArgExprRewriteCandidate, CallArgProducerRewriteCandidate, call_arg_expr_rewrite_candidate,
-    call_arg_producer_rewrite_candidate, forward_param_register_homes, materialize_call,
-    try_fuse_call_result_store_consumer, try_fuse_loaded_arg_call_result_store_consumer,
+    CallArgExprRewriteCandidate, CallArgProducerRewriteCandidate, CallResultStoreRewriteCandidate,
+    LoadedArgCallResultStoreRewriteCandidate, call_arg_expr_rewrite_candidate,
+    call_arg_producer_rewrite_candidate, call_result_store_rewrite_candidate,
+    forward_param_register_homes, loaded_arg_call_result_store_rewrite_candidate, materialize_call,
+    try_materialize_forwarded_call_result_store,
+    try_materialize_loaded_arg_forwarded_call_result_store,
 };
 use calls::{ReturnSlotCallArgForwardCandidate, return_slot_call_arg_forward_candidate};
 #[cfg(test)]
 use calls::{fold_call_arg_producers, forward_return_slot_call_result_args};
+#[cfg(test)]
+use calls::{
+    try_fuse_call_result_store_consumer, try_fuse_loaded_arg_call_result_store_consumer,
+    try_materialize_call_arg_expr_producers,
+};
 use cfg::collapse_empty_jump_blocks;
 #[cfg(test)]
 use compare_branch::fold_compare_operand_producers_before_branches;
@@ -243,6 +249,20 @@ pub(in crate::mir6502) fn analyzed_call_arg_expr_candidate(
     call_arg_expr_rewrite_candidate(ops, index, config, layout)
 }
 
+pub(in crate::mir6502) fn analyzed_call_result_store_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<CallResultStoreRewriteCandidate> {
+    call_result_store_rewrite_candidate(ops, index)
+}
+
+pub(in crate::mir6502) fn analyzed_loaded_arg_call_result_store_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<LoadedArgCallResultStoreRewriteCandidate> {
+    loaded_arg_call_result_store_rewrite_candidate(ops, index)
+}
+
 pub(super) fn materialize_program(
     mut program: MirProgram,
     config: &Mir6502Config,
@@ -280,6 +300,7 @@ pub(super) fn materialize_program(
             block.ops = normalize_byte_add_sub_carry(std::mem::take(&mut block.ops));
         }
         run_analyzed_call_arg_exprs(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
+        run_analyzed_call_result_store_consumers(routine, &mut peephole_stats)?;
         run_analyzed_unused_lea_addrs(routine, &mut peephole_stats)?;
         let word_load_address_forwards =
             forward_unique_word_load_address_consumers(routine, &layout);
@@ -561,6 +582,27 @@ fn run_analyzed_unused_lea_addrs(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("unused address rewrite failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_call_result_store_consumers(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            super::rewrite::pilots::discover_call_result_store_consumers,
+            super::rewrite::pilots::call_result_store_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("call-result store rewrite failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
@@ -1372,7 +1414,42 @@ fn materialize_ops(
             continue;
         }
 
-        let maybe_fused = try_fuse_loaded_arg_call_result_store_consumer(
+        #[cfg(test)]
+        {
+            let maybe_fused = try_fuse_loaded_arg_call_result_store_consumer(
+                &ops,
+                index,
+                routine_id,
+                layout,
+                &temp_widths,
+                &delayed_byte_indexes,
+                peephole_stats,
+                &mut out,
+            );
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "call-result-loaded-arg-store-consumer");
+                index += maybe_fused;
+                continue;
+            }
+
+            let maybe_fused = try_fuse_call_result_store_consumer(
+                &ops,
+                index,
+                routine_id,
+                layout,
+                &temp_widths,
+                &delayed_byte_indexes,
+                peephole_stats,
+                &mut out,
+            );
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "call-result-store-consumer");
+                index += maybe_fused;
+                continue;
+            }
+        }
+
+        let materialized = try_materialize_loaded_arg_forwarded_call_result_store(
             &ops,
             index,
             routine_id,
@@ -1382,13 +1459,13 @@ fn materialize_ops(
             peephole_stats,
             &mut out,
         );
-        if maybe_fused > 0 {
+        if materialized > 0 {
             peephole_stats.record(routine_id, "call-result-loaded-arg-store-consumer");
-            index += maybe_fused;
+            index += materialized;
             continue;
         }
 
-        let maybe_fused = try_fuse_call_result_store_consumer(
+        let materialized = try_materialize_forwarded_call_result_store(
             &ops,
             index,
             routine_id,
@@ -1398,9 +1475,9 @@ fn materialize_ops(
             peephole_stats,
             &mut out,
         );
-        if maybe_fused > 0 {
+        if materialized > 0 {
             peephole_stats.record(routine_id, "call-result-store-consumer");
-            index += maybe_fused;
+            index += materialized;
             continue;
         }
 

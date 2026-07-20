@@ -1,7 +1,7 @@
 use super::call_result::{
     PreparedStoreAddress, call_preserves_prepared_store_addr, call_result_store_addr_supported,
-    materialize_call_result_to_prepared_store_addr, materialize_call_result_to_store_addr,
-    prepare_call_result_store_addr,
+    call_result_value, materialize_call_result_to_prepared_store_addr,
+    materialize_call_result_to_store_addr, prepare_call_result_store_addr,
 };
 use super::indexes::{
     DelayedByteIndexPlan, indexed_addr_has_delayed_index, indexed_addr_parts,
@@ -1859,6 +1859,160 @@ fn materialized_call_arg_summary(arg: &MirCallArg) -> MirCallArg {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct CallResultStoreRewriteCandidate {
+    pub result_temp: MirTempId,
+    pub result_width: MirWidth,
+    pub return_slot: MirFixedZpSlot,
+    pub replacement: [MirOp; 2],
+}
+
+pub(in crate::mir6502) fn call_result_store_rewrite_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<CallResultStoreRewriteCandidate> {
+    let MirOp::Call {
+        target,
+        abi,
+        args,
+        result: Some(result),
+        effects,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let MirOp::Store {
+        dst,
+        src: MirValue::Def(store_src),
+        width,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    let MirResultHome::ReturnSlot { offset } = result.home else {
+        return None;
+    };
+    if store_src != &result.dst
+        || width != &result.width
+        || !call_result_store_addr_supported(result.width, dst)
+    {
+        return None;
+    }
+    let result_temp = split_def_as_temp(&result.dst)?;
+    let return_slot = match return_slot_mem(offset) {
+        MirMem::FixedZeroPage(slot) => slot,
+        _ => unreachable!("return slots use fixed zero page"),
+    };
+    Some(CallResultStoreRewriteCandidate {
+        result_temp,
+        result_width: result.width,
+        return_slot,
+        replacement: [
+            MirOp::Call {
+                target: target.clone(),
+                abi: abi.clone(),
+                args: args.clone(),
+                result: None,
+                effects: effects.clone(),
+            },
+            MirOp::Store {
+                dst: dst.clone(),
+                src: call_result_value(result.width, result.home.clone())?,
+                width: result.width,
+            },
+        ],
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct LoadedArgCallResultStoreRewriteCandidate {
+    pub arg_temp: MirTempId,
+    pub result_temp: MirTempId,
+    pub result_width: MirWidth,
+    pub return_slot: MirFixedZpSlot,
+    pub replacement: [MirOp; 3],
+}
+
+pub(in crate::mir6502) fn loaded_arg_call_result_store_rewrite_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<LoadedArgCallResultStoreRewriteCandidate> {
+    let MirOp::Load {
+        dst: load_dst,
+        src,
+        width: MirWidth::Byte,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let arg_temp = split_def_as_temp(load_dst)?;
+    let MirOp::Call {
+        target,
+        abi,
+        args,
+        result: Some(result),
+        effects,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    let MirOp::Store {
+        dst,
+        src: MirValue::Def(store_src),
+        width,
+    } = ops.get(index + 2)?
+    else {
+        return None;
+    };
+    let MirResultHome::ReturnSlot { offset } = result.home else {
+        return None;
+    };
+    if args.len() != 1
+        || store_src != &result.dst
+        || width != &result.width
+        || result.width != MirWidth::Byte
+        || !call_result_store_addr_supported(result.width, dst)
+        || load_addr_reads_fixed_pair(src, super::DEST_POINTER_SCRATCH_LO)
+        || count_loaded_arg_uses(target, args, arg_temp) != 1
+        || !matches!(args[0].value, MirValue::Def(ref def) if def == load_dst)
+    {
+        return None;
+    }
+    let result_temp = split_def_as_temp(&result.dst)?;
+    let return_slot = match return_slot_mem(offset) {
+        MirMem::FixedZeroPage(slot) => slot,
+        _ => unreachable!("return slots use fixed zero page"),
+    };
+    let mut rewritten_args = args.clone();
+    rewritten_args[0].value = MirValue::Def(MirDef::Reg(MirReg::A));
+    Some(LoadedArgCallResultStoreRewriteCandidate {
+        arg_temp,
+        result_temp,
+        result_width: result.width,
+        return_slot,
+        replacement: [
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: src.clone(),
+                width: MirWidth::Byte,
+            },
+            MirOp::Call {
+                target: target.clone(),
+                abi: abi.clone(),
+                args: rewritten_args,
+                result: None,
+                effects: effects.clone(),
+            },
+            MirOp::Store {
+                dst: dst.clone(),
+                src: call_result_value(result.width, result.home.clone())?,
+                width: result.width,
+            },
+        ],
+    })
+}
+
+#[cfg(test)]
 pub(super) fn try_fuse_call_result_store_consumer(
     ops: &[MirOp],
     index: usize,
@@ -1958,6 +2112,7 @@ pub(super) fn try_fuse_call_result_store_consumer(
     2
 }
 
+#[cfg(test)]
 pub(super) fn try_fuse_loaded_arg_call_result_store_consumer(
     ops: &[MirOp],
     index: usize,
@@ -2065,6 +2220,181 @@ pub(super) fn try_fuse_loaded_arg_call_result_store_consumer(
         layout,
         out,
     );
+    peephole_stats.record(routine_id, "call-result-ea-preserve-loaded-arg");
+    3
+}
+
+pub(super) fn try_materialize_forwarded_call_result_store(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    peephole_stats: &mut MirPeepholeStats,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Call {
+        target,
+        abi,
+        args,
+        result: None,
+        effects,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some(MirOp::Store { dst, src, width }) = ops.get(index + 1) else {
+        return 0;
+    };
+    let Some(home) = abi.result.clone() else {
+        return 0;
+    };
+    if call_result_value(*width, home.clone()).as_ref() != Some(src)
+        || !call_result_store_addr_supported(*width, dst)
+    {
+        return 0;
+    }
+
+    let prepared_dst = resolve_store_addr_producers(ops, index, dst.clone());
+    let mut prepared_out = Vec::new();
+    if let Some(prepared) = prepare_call_result_store_addr_with_delayed_index(
+        *width,
+        &prepared_dst,
+        routine_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        &mut prepared_out,
+    ) {
+        peephole_stats.record(routine_id, "call-result-ea-preserve-candidate");
+        if call_preserves_prepared_store_addr(target, abi, args, effects, prepared) {
+            out.extend(prepared_out);
+            materialize_call(
+                target.clone(),
+                abi.clone(),
+                args.clone(),
+                None,
+                effects.clone(),
+                layout,
+                out,
+            );
+            materialize_call_result_to_prepared_store_addr(*width, home, prepared, layout, out);
+            peephole_stats.record(routine_id, "call-result-ea-preserve");
+            return 2;
+        }
+        peephole_stats.record(routine_id, "call-result-ea-preserve-blocked-clobber");
+    }
+
+    materialize_call(
+        target.clone(),
+        abi.clone(),
+        args.clone(),
+        None,
+        effects.clone(),
+        layout,
+        out,
+    );
+    materialize_call_result_to_store_addr(
+        *width,
+        home,
+        dst.clone(),
+        routine_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        out,
+    );
+    2
+}
+
+pub(super) fn try_materialize_loaded_arg_forwarded_call_result_store(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    peephole_stats: &mut MirPeepholeStats,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src,
+        width: MirWidth::Byte,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some(MirOp::Call {
+        target,
+        abi,
+        args,
+        result: None,
+        effects,
+    }) = ops.get(index + 1)
+    else {
+        return 0;
+    };
+    let Some(MirOp::Store {
+        dst,
+        src: store_src,
+        width: MirWidth::Byte,
+    }) = ops.get(index + 2)
+    else {
+        return 0;
+    };
+    let Some(home) = abi.result.clone() else {
+        return 0;
+    };
+    if args.len() != 1
+        || args[0].value != MirValue::Def(MirDef::Reg(MirReg::A))
+        || call_result_value(MirWidth::Byte, home.clone()).as_ref() != Some(store_src)
+    {
+        return 0;
+    }
+
+    let prepared_dst = resolve_store_addr_producers(ops, index, dst.clone());
+    let mut prepared_out = Vec::new();
+    let Some(prepared) = prepare_call_result_store_addr_with_delayed_index(
+        MirWidth::Byte,
+        &prepared_dst,
+        routine_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        &mut prepared_out,
+    ) else {
+        return 0;
+    };
+    peephole_stats.record(routine_id, "call-result-ea-preserve-loaded-arg-candidate");
+    if !call_preserves_prepared_store_addr(target, abi, args, effects, prepared) {
+        peephole_stats.record(
+            routine_id,
+            "call-result-ea-preserve-loaded-arg-blocked-clobber",
+        );
+        return 0;
+    }
+
+    out.extend(prepared_out);
+    materialize_byte_load_addr_to_a(
+        src.clone(),
+        routine_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        out,
+    );
+    materialize_call(
+        target.clone(),
+        abi.clone(),
+        args.clone(),
+        None,
+        effects.clone(),
+        layout,
+        out,
+    );
+    materialize_call_result_to_prepared_store_addr(MirWidth::Byte, home, prepared, layout, out);
     peephole_stats.record(routine_id, "call-result-ea-preserve-loaded-arg");
     3
 }
