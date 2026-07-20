@@ -38,6 +38,7 @@ pub(in crate::mir6502) struct CallArgProducerRewriteCandidate {
     pub replacement: MirOp,
 }
 
+#[cfg(test)]
 pub(super) fn try_materialize_call_arg_expr_producers(
     ops: &[MirOp],
     index: usize,
@@ -46,9 +47,42 @@ pub(super) fn try_materialize_call_arg_expr_producers(
     helpers: &mut Vec<MirRuntimeHelper>,
     out: &mut Vec<MirOp>,
 ) -> CallArgExprMaterializeResult {
-    let Some(plan) = collect_call_arg_expr_plan(ops, index, config, layout) else {
+    let Some(candidate) = call_arg_expr_rewrite_candidate(ops, index, config, layout) else {
         return CallArgExprMaterializeResult::default();
     };
+    if candidate
+        .temps
+        .iter()
+        .any(|temp| temp_is_used_after(ops, index + candidate.consumed, *temp))
+    {
+        return CallArgExprMaterializeResult::default();
+    }
+    helpers.extend(candidate.required_helpers);
+    out.extend(candidate.replacement);
+    CallArgExprMaterializeResult {
+        consumed: candidate.consumed,
+        indexed_word_loads: candidate.indexed_word_loads,
+        indexed_word_arithmetic: candidate.indexed_word_arithmetic,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct CallArgExprRewriteCandidate {
+    pub consumed: usize,
+    pub temps: Vec<MirTempId>,
+    pub replacement: Vec<MirOp>,
+    pub required_helpers: Vec<MirRuntimeHelper>,
+    pub indexed_word_loads: usize,
+    pub indexed_word_arithmetic: usize,
+}
+
+pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
+    ops: &[MirOp],
+    index: usize,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+) -> Option<CallArgExprRewriteCandidate> {
+    let plan = collect_call_arg_expr_plan(ops, index, config, layout)?;
     let indexed_word_loads = plan
         .args
         .iter()
@@ -73,14 +107,20 @@ pub(super) fn try_materialize_call_arg_expr_producers(
             )
         })
         .count();
-    materialize_call_arg_expr_plan(&plan, layout, helpers, out);
-    CallArgExprMaterializeResult {
+    let mut replacement = Vec::new();
+    let mut required_helpers = Vec::new();
+    materialize_call_arg_expr_plan(&plan, layout, &mut required_helpers, &mut replacement);
+    Some(CallArgExprRewriteCandidate {
         consumed: plan.consumed,
+        temps: plan.temps,
+        replacement,
+        required_helpers,
         indexed_word_loads,
         indexed_word_arithmetic,
-    }
+    })
 }
 
+#[cfg(test)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(super) struct CallArgExprMaterializeResult {
     pub(super) consumed: usize,
@@ -108,6 +148,7 @@ enum CallArgExpr {
 #[derive(Debug, Clone)]
 struct CallArgExprPlan {
     consumed: usize,
+    temps: Vec<MirTempId>,
     target: MirCallTarget,
     abi: MirCallAbi,
     args: Vec<PlannedCallArg>,
@@ -384,12 +425,6 @@ fn collect_call_arg_expr_plan(
         return None;
     }
 
-    for temp in exprs.keys().copied() {
-        if temp_is_used_after(ops, cursor.saturating_add(1), temp) {
-            return None;
-        }
-    }
-
     let mut planned_args = Vec::new();
     let mut saw_expr = false;
     for arg in args {
@@ -426,6 +461,7 @@ fn collect_call_arg_expr_plan(
 
     Some(CallArgExprPlan {
         consumed: cursor + 1 - index,
+        temps: exprs.keys().copied().collect(),
         target: target.clone(),
         abi: abi.clone(),
         args: planned_args,

@@ -123,6 +123,9 @@ impl MirPreHomeRewriteDriver {
             for stat in batch.applied {
                 *result.applied_by_stat.entry(stat).or_default() += 1;
             }
+            for (stat, count) in batch.observations {
+                *result.applied_by_stat.entry(stat).or_default() += count;
+            }
             let after = metric(routine);
             if after >= before {
                 return Err(MirRewriteError::InvalidDeclaration {
@@ -152,6 +155,7 @@ impl MirPreHomeRewriteDriver {
             by_block.entry(plan.block).or_default().push(plan);
         }
         let mut applied = Vec::new();
+        let mut observations = BTreeMap::new();
         for (block, mut plans) in by_block {
             let block_index = routine
                 .blocks
@@ -160,6 +164,9 @@ impl MirPreHomeRewriteDriver {
                 .expect("validated rewrite block");
             plans.sort_by_key(|plan| std::cmp::Reverse(plan.range.start));
             for plan in plans {
+                for (stat, count) in &plan.observations {
+                    *observations.entry(*stat).or_default() += *count;
+                }
                 routine.blocks[block_index]
                     .ops
                     .splice(plan.range.clone(), plan.replacement);
@@ -172,6 +179,7 @@ impl MirPreHomeRewriteDriver {
         Ok(MirAppliedBatch {
             applied,
             overlap_rejections,
+            observations,
         })
     }
 }
@@ -180,6 +188,7 @@ impl MirPreHomeRewriteDriver {
 pub(in crate::mir6502) struct MirAppliedBatch {
     pub applied: Vec<&'static str>,
     pub overlap_rejections: usize,
+    pub observations: BTreeMap<&'static str, usize>,
 }
 
 fn select_non_overlapping(
@@ -275,6 +284,9 @@ fn validate_plan(
 }
 
 fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEffectDelta) -> bool {
+    if matches!(delta, MirEffectDelta::MaterializedCallArguments) {
+        return calls_and_effects_are_preserved(original, replacement);
+    }
     let mut original = observable_effects(original);
     let mut replacement = observable_effects(replacement);
     match delta {
@@ -306,7 +318,74 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             original.memory_reads.sort();
             original == replacement
         }
+        MirEffectDelta::MaterializedCallArguments => unreachable!("handled before projection"),
     }
+}
+
+fn calls_and_effects_are_preserved(original: &[MirOp], replacement: &[MirOp]) -> bool {
+    let original_calls = original
+        .iter()
+        .filter_map(call_effect_identity)
+        .collect::<Vec<_>>();
+    let replacement_calls = replacement
+        .iter()
+        .filter_map(call_effect_identity)
+        .collect::<Vec<_>>();
+    !original_calls.is_empty() && original_calls == replacement_calls
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MirCallTargetIdentity {
+    Routine(crate::mir6502::ir::RoutineId),
+    Indirect(crate::mir6502::ir::MirWidth),
+    Builtin { name: String, address: Option<u16> },
+    Runtime { name: String, address: Option<u16> },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MirCallEffectIdentity {
+    target: MirCallTargetIdentity,
+    clobbers: MirRegisterSet,
+    preserves: MirRegisterSet,
+    effects: crate::mir6502::ir::MirEffects,
+}
+
+fn call_effect_identity(op: &MirOp) -> Option<MirCallEffectIdentity> {
+    let MirOp::Call {
+        target,
+        abi,
+        effects,
+        ..
+    } = op
+    else {
+        return None;
+    };
+    let target = match target {
+        crate::mir6502::ir::MirCallTarget::Routine(routine) => {
+            MirCallTargetIdentity::Routine(*routine)
+        }
+        crate::mir6502::ir::MirCallTarget::Indirect { width, .. } => {
+            MirCallTargetIdentity::Indirect(*width)
+        }
+        crate::mir6502::ir::MirCallTarget::Builtin { name, address } => {
+            MirCallTargetIdentity::Builtin {
+                name: name.clone(),
+                address: *address,
+            }
+        }
+        crate::mir6502::ir::MirCallTarget::Runtime { name, address } => {
+            MirCallTargetIdentity::Runtime {
+                name: name.clone(),
+                address: *address,
+            }
+        }
+    };
+    Some(MirCallEffectIdentity {
+        target,
+        clobbers: abi.clobbers,
+        preserves: abi.preserves,
+        effects: effects.clone(),
+    })
 }
 
 fn register_is_set(registers: MirRegisterSet, register: MirReg) -> bool {
@@ -526,6 +605,7 @@ mod tests {
             exit_effect_delta: MirEffectDelta::Unchanged,
             change_set: MirChangeSet::default(),
             stat,
+            observations: Vec::new(),
             family_priority: 0,
             estimated_byte_saving: saving,
             estimated_cycle_saving: 0,
@@ -571,6 +651,7 @@ mod tests {
             exit_effect_delta: MirEffectDelta::Unchanged,
             change_set: MirChangeSet::default(),
             stat: "invalid",
+            observations: Vec::new(),
             family_priority: 0,
             estimated_byte_saving: 1,
             estimated_cycle_saving: 1,
@@ -597,6 +678,7 @@ mod tests {
             exit_effect_delta: MirEffectDelta::Unchanged,
             change_set: MirChangeSet::prehome_operation_change(),
             stat: "invalid-effects",
+            observations: Vec::new(),
             family_priority: 0,
             estimated_byte_saving: 1,
             estimated_cycle_saving: 1,
@@ -639,6 +721,7 @@ mod tests {
                         exit_effect_delta: MirEffectDelta::Unchanged,
                         change_set: MirChangeSet::prehome_operation_change(),
                         stat: "same-count",
+                        observations: Vec::new(),
                         family_priority: 1,
                         estimated_byte_saving: 1,
                         estimated_cycle_saving: 0,

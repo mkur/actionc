@@ -4,7 +4,7 @@ use crate::mir6502::ir::{
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 
-pub(super) struct MaterializeLayout {
+pub(in crate::mir6502) struct MaterializeLayout {
     origin: u16,
     globals: Vec<(SymbolId, MirGlobalBacking, bool)>,
     statics: Vec<(SymbolId, u16, u16)>,
@@ -21,7 +21,7 @@ struct MaterializeRoutineStorage {
 }
 
 impl MaterializeLayout {
-    pub(super) fn new(program: &MirProgram, origin: u16) -> Self {
+    pub(in crate::mir6502) fn new(program: &MirProgram, origin: u16) -> Self {
         let global_bytes = program
             .globals
             .iter()

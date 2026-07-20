@@ -5,7 +5,8 @@ Snapshot date: 2026-07-20.
 Status: in progress. Slice 6.1 (compare producers, narrowing, and consumers) is
 complete, and the first part of 6.2 moves simple call-argument producers to the
 routine-aware driver. Return-slot result-to-argument forwarding is also
-complete; the remaining call families and sub-slices 3–5 are
+complete, as is call-argument expression selection; the remaining call
+families and sub-slices 3–5 are
 pending. Compare shape recognizers no longer make suffix-liveness decisions;
 exact definition
 identity, reaching definitions, and routine-wide lane deadness come from the
@@ -19,6 +20,8 @@ TN applies 71 simple call-argument producer plans; 11 overlapping candidates
 are rejected deterministically, with byte-identical materialized MIR and XEX.
 Its one return-slot argument forward is retained and now declares the ABI-home
 read made explicit by removing the transient result temp.
+All 21 call-expression selections are retained, including ten indexed-word
+loads and two indexed-word arithmetic arguments.
 
 This note defines the implementation plan for integrating MIR6502 peepholes
 into a routine-aware compiler workflow. Local pattern matching remains useful,
@@ -626,6 +629,13 @@ other-register, and flag effects to match. This is a target-selection
 projection, not a general register-liveness exemption; post-home rewrites must
 use machine liveness for register changes that can escape their window.
 
+Call-argument expression selection uses the separate
+`MaterializedCallArguments` delta because it expands abstract values into ABI
+staging, and ordinary operation-effect equality is not meaningful across that
+boundary. Its validator requires the same ordered calls, direct target
+identity, indirect-target width, ABI clobber/preserve sets, and structured call
+effects. Only the selected argument-staging effects may differ.
+
 In debug and test builds, validate declarations against the original and
 replacement operations. A matcher must not silently remove an undeclared
 definition or change an undeclared machine location.
@@ -1013,8 +1023,8 @@ Suggested commit: `mir6502: drive pre-home rewrites from shared facts`.
 Status: in progress. Sub-slice 1 is complete: compare producers, narrowing, and
 compare consumers use the routine-aware driver. In sub-slice 2, simple
 call-argument producers and return-slot result-to-argument forwarding are
-complete. Expression selection, parameter-home, and call-result families
-remain pending. Sub-slices 3–5 remain pending.
+complete. Expression selection is also complete; parameter-home and call-result
+families remain pending. Sub-slices 3–5 remain pending.
 
 Migrate in behaviorally coherent sub-slices:
 

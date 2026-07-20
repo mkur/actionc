@@ -51,10 +51,12 @@ use super::rewrite::pilots::{
 };
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
+#[cfg(test)]
+use calls::try_materialize_call_arg_expr_producers;
 use calls::{
-    CallArgProducerRewriteCandidate, call_arg_producer_rewrite_candidate,
-    forward_param_register_homes, materialize_call, try_fuse_call_result_store_consumer,
-    try_fuse_loaded_arg_call_result_store_consumer, try_materialize_call_arg_expr_producers,
+    CallArgExprRewriteCandidate, CallArgProducerRewriteCandidate, call_arg_expr_rewrite_candidate,
+    call_arg_producer_rewrite_candidate, forward_param_register_homes, materialize_call,
+    try_fuse_call_result_store_consumer, try_fuse_loaded_arg_call_result_store_consumer,
 };
 use calls::{ReturnSlotCallArgForwardCandidate, return_slot_call_arg_forward_candidate};
 #[cfg(test)]
@@ -95,7 +97,7 @@ use indexes::{
     try_fuse_dynamic_inline_byte_index, try_fuse_indexed_byte_copy, try_fuse_indexed_word_copy,
     try_prepare_dynamic_byte_index, try_prepare_dynamic_word_index,
 };
-use layout::MaterializeLayout;
+pub(super) use layout::MaterializeLayout;
 use lea::{lower_address_to_def, lower_lea_addrs_with_final_layout};
 use memory::{
     mem_is_read_after, op_definitely_writes_mem, op_may_have_unknown_memory_effects,
@@ -231,6 +233,15 @@ pub(in crate::mir6502) fn analyzed_return_slot_call_arg_candidate(
     return_slot_call_arg_forward_candidate(ops, index)
 }
 
+pub(in crate::mir6502) fn analyzed_call_arg_expr_candidate(
+    ops: &[MirOp],
+    index: usize,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+) -> Option<CallArgExprRewriteCandidate> {
+    call_arg_expr_rewrite_candidate(ops, index, config, layout)
+}
+
 pub(super) fn materialize_program(
     mut program: MirProgram,
     config: &Mir6502Config,
@@ -263,6 +274,11 @@ pub(super) fn materialize_program(
         }
         run_analyzed_call_arg_producers(routine, &mut peephole_stats)?;
         run_analyzed_return_slot_call_arg_forwards(routine, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
+            block.ops = forward_param_register_homes(std::mem::take(&mut block.ops));
+            block.ops = normalize_byte_add_sub_carry(std::mem::take(&mut block.ops));
+        }
+        run_analyzed_call_arg_exprs(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
         let word_load_address_forwards =
             forward_unique_word_load_address_consumers(routine, &layout);
         peephole_stats.record_many(
@@ -498,6 +514,37 @@ fn run_analyzed_return_slot_call_arg_forwards(
         "return-slot-call-arg-forward-candidates",
         candidates,
     );
+    Ok(())
+}
+
+fn run_analyzed_call_arg_exprs(
+    routine: &mut super::ir::MirRoutine,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            |routine, context| {
+                super::rewrite::pilots::discover_call_arg_exprs(routine, context, config, layout)
+            },
+            |routine| super::rewrite::pilots::call_arg_expr_rank(routine, config, layout),
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("call argument expression selection failed: {error:?}"),
+            )]
+        })?;
+    for op in routine.blocks.iter().flat_map(|block| &block.ops) {
+        if let MirOp::RuntimeHelper { helper, .. } = op {
+            helpers.push(helper.clone());
+        }
+    }
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
     Ok(())
 }
 
@@ -1142,7 +1189,9 @@ fn materialize_ops(
         "return-slot-call-arg-forward-blocked-home-overlap",
         call_result_forwards.blocked_home_overlap,
     );
+    #[cfg(test)]
     let ops = forward_param_register_homes(ops);
+    #[cfg(test)]
     let ops = normalize_byte_add_sub_carry(ops);
     let mut out = Vec::new();
     let mut temp_widths = collect_temp_widths(&ops);
@@ -1156,22 +1205,26 @@ fn materialize_ops(
             continue;
         }
 
-        let call_arg_expr =
-            try_materialize_call_arg_expr_producers(&ops, index, config, layout, helpers, &mut out);
-        if call_arg_expr.consumed > 0 {
-            peephole_stats.record(routine_id, "call-arg-expr-consumer");
-            peephole_stats.record_many(
-                routine_id,
-                "indexed-word-load-ax-call-arg",
-                call_arg_expr.indexed_word_loads,
+        #[cfg(test)]
+        {
+            let call_arg_expr = try_materialize_call_arg_expr_producers(
+                &ops, index, config, layout, helpers, &mut out,
             );
-            peephole_stats.record_many(
-                routine_id,
-                "indexed-word-arithmetic-ax-call-arg",
-                call_arg_expr.indexed_word_arithmetic,
-            );
-            index += call_arg_expr.consumed;
-            continue;
+            if call_arg_expr.consumed > 0 {
+                peephole_stats.record(routine_id, "call-arg-expr-consumer");
+                peephole_stats.record_many(
+                    routine_id,
+                    "indexed-word-load-ax-call-arg",
+                    call_arg_expr.indexed_word_loads,
+                );
+                peephole_stats.record_many(
+                    routine_id,
+                    "indexed-word-arithmetic-ax-call-arg",
+                    call_arg_expr.indexed_word_arithmetic,
+                );
+                index += call_arg_expr.consumed;
+                continue;
+            }
         }
 
         let maybe_fused =

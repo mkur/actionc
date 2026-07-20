@@ -58,6 +58,9 @@ pub(in crate::mir6502) enum MirEffectDelta {
         base: MirFixedZpSlot,
         width: MirWidth,
     },
+    /// Abstract call-argument expressions were selected into explicit ABI
+    /// staging operations while preserving the calls and their effects.
+    MaterializedCallArguments,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,6 +78,7 @@ pub(in crate::mir6502) struct MirRewritePlan {
     pub exit_effect_delta: MirEffectDelta,
     pub change_set: MirChangeSet,
     pub stat: &'static str,
+    pub observations: Vec<(&'static str, usize)>,
     pub family_priority: u16,
     pub estimated_byte_saving: u16,
     pub estimated_cycle_saving: u16,

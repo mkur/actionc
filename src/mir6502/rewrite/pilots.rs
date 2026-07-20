@@ -158,6 +158,46 @@ pub(in crate::mir6502) fn return_slot_call_arg_forward_rank(routine: &MirRoutine
         .sum()
 }
 
+pub(in crate::mir6502) fn discover_call_arg_exprs(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    config: &crate::mir6502::passes::Mir6502Config,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some(plan) =
+                call_arg_expr_plan(block.id, &block.ops, index, context, config, layout)
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn call_arg_expr_rank(
+    routine: &MirRoutine,
+    config: &crate::mir6502::passes::Mir6502Config,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> usize {
+    routine
+        .blocks
+        .iter()
+        .map(|block| {
+            (0..block.ops.len())
+                .filter(|index| {
+                    crate::mir6502::materialize::analyzed_call_arg_expr_candidate(
+                        &block.ops, *index, config, layout,
+                    )
+                    .is_some()
+                })
+                .count()
+        })
+        .sum()
+}
+
 pub(in crate::mir6502) fn discover_unused_lea_addrs(
     routine: &MirRoutine,
     context: &PreHomeRewriteContext<'_, '_>,
@@ -212,6 +252,7 @@ fn unused_lea_plan(
         exit_effect_delta: MirEffectDelta::Unchanged,
         change_set: MirChangeSet::prehome_operation_change(),
         stat: "analyzed-unused-lea-addr",
+        observations: Vec::new(),
         family_priority: 10,
         estimated_byte_saving: 1,
         estimated_cycle_saving: 1,
@@ -288,6 +329,7 @@ fn compare_operand_producer_plan(
         exit_effect_delta: MirEffectDelta::Unchanged,
         change_set: MirChangeSet::prehome_operation_change(),
         stat: "compare-operand-consumer-prebranch",
+        observations: Vec::new(),
         family_priority: 20,
         estimated_byte_saving: 1,
         estimated_cycle_saving: 1,
@@ -340,6 +382,7 @@ fn compare_narrowing_plan(
         exit_effect_delta: MirEffectDelta::Unchanged,
         change_set: MirChangeSet::prehome_operation_change(),
         stat: "byte-derived-word-bitwise-zero-compare-narrowed",
+        observations: Vec::new(),
         family_priority: 30,
         estimated_byte_saving: 1,
         estimated_cycle_saving: 1,
@@ -398,6 +441,7 @@ fn byte_binary_compare_consumer_plan(
         exit_effect_delta: MirEffectDelta::SelectedResultRegister(crate::mir6502::ir::MirReg::A),
         change_set: MirChangeSet::prehome_operation_change(),
         stat: "byte-binary-compare-consumer",
+        observations: Vec::new(),
         family_priority: 40,
         estimated_byte_saving: 1,
         estimated_cycle_saving: 1,
@@ -475,6 +519,7 @@ fn call_arg_producer_plan(
         exit_effect_delta: MirEffectDelta::Unchanged,
         change_set: MirChangeSet::prehome_operation_change(),
         stat: "call-arg-producer",
+        observations: Vec::new(),
         family_priority: 50,
         estimated_byte_saving: 1,
         estimated_cycle_saving: 1,
@@ -539,7 +584,101 @@ fn return_slot_call_arg_forward_plan(
         },
         change_set: MirChangeSet::prehome_operation_change(),
         stat: "return-slot-call-arg-forwards",
+        observations: Vec::new(),
         family_priority: 60,
+        estimated_byte_saving: 1,
+        estimated_cycle_saving: 1,
+    })
+}
+
+fn call_arg_expr_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    context: &PreHomeRewriteContext<'_, '_>,
+    config: &crate::mir6502::passes::Mir6502Config,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> Option<MirRewritePlan> {
+    let candidate =
+        crate::mir6502::materialize::analyzed_call_arg_expr_candidate(ops, index, config, layout)?;
+    let call_index = index + candidate.consumed - 1;
+    let call_site = MirSite::Op {
+        block,
+        op_index: call_index,
+    };
+    let mut definitions = Vec::new();
+    for producer_index in index..call_index {
+        let site = MirSite::Op {
+            block,
+            op_index: producer_index,
+        };
+        for access in classify_op(&ops[producer_index]).logical.temp_defs {
+            let temp = match access {
+                MirTempAccess::Full(temp) | MirTempAccess::Exact { temp, .. } => temp,
+            };
+            if candidate.temps.contains(&temp) {
+                definitions.extend(context.definitions_at(temp, site));
+            }
+        }
+    }
+    definitions.sort_unstable();
+    definitions.dedup();
+    if definitions.is_empty() {
+        return None;
+    }
+    for definition in &definitions {
+        let temp = definition.lane.temp;
+        for usage_index in index + 1..=call_index {
+            for usage in context.uses_at(
+                temp,
+                MirSite::Op {
+                    block,
+                    op_index: usage_index,
+                },
+            ) {
+                if usage.requirement.requires(definition.lane)
+                    && !matches!(
+                        context.unique_reaching_definition(usage, definition.lane),
+                        MirProof::Proven(reaching) if reaching == *definition
+                    )
+                {
+                    return None;
+                }
+            }
+        }
+        if !context
+            .temp_definition_dead_after(*definition, context.point(call_site))
+            .is_proven()
+        {
+            return None;
+        }
+    }
+    Some(MirRewritePlan {
+        generation: context.generation(),
+        block,
+        range: index..index + candidate.consumed,
+        replacement: candidate.replacement,
+        removed_defs: definitions
+            .into_iter()
+            .map(|definition| MirRemovedDefinition { definition })
+            .collect(),
+        exit_effect_delta: MirEffectDelta::MaterializedCallArguments,
+        change_set: MirChangeSet::prehome_operation_change(),
+        stat: "call-arg-expr-consumer",
+        observations: [
+            (
+                "indexed-word-load-ax-call-arg",
+                candidate.indexed_word_loads,
+            ),
+            (
+                "indexed-word-arithmetic-ax-call-arg",
+                candidate.indexed_word_arithmetic,
+            ),
+        ]
+        .into_iter()
+        .filter(|(_, count)| *count != 0)
+        .collect(),
+        family_priority: 70,
         estimated_byte_saving: 1,
         estimated_cycle_saving: 1,
     })
@@ -551,7 +690,7 @@ mod tests {
     use crate::mir6502::analysis::sites::MirRoutineGeneration;
     use crate::mir6502::ir::{
         MirAddr, MirArgHome, MirBlock, MirCallAbi, MirCallArg, MirCallResult, MirCallTarget,
-        MirCompareOp, MirCondDest, MirEdge, MirEdgeArg, MirEffects, MirFrame, MirMem,
+        MirCompareOp, MirCondDest, MirEdge, MirEdgeArg, MirEffects, MirFrame, MirMem, MirProgram,
         MirRegisterSet, MirResultHome, MirRoutineAbi, MirTempId, MirTerminator, MirValue, MirWidth,
         RoutineId,
     };
@@ -1203,6 +1342,85 @@ mod tests {
             ),
         ]);
         assert_eq!(run(&mut successor_use), 0);
+    }
+
+    #[test]
+    fn call_arg_expression_selection_uses_routine_deadness() {
+        fn call_ops() -> Vec<MirOp> {
+            vec![
+                MirOp::Binary {
+                    op: crate::mir6502::ir::MirBinaryOp::Add,
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    left: MirValue::ConstU8(1),
+                    right: MirValue::ConstU8(2),
+                    width: MirWidth::Byte,
+                    carry_in: Some(crate::mir6502::ir::MirCarryIn::Clear),
+                    carry_out: crate::mir6502::ir::MirCarryOut::Ignore,
+                },
+                MirOp::Call {
+                    target: MirCallTarget::Routine(RoutineId(1)),
+                    abi: MirCallAbi {
+                        params: vec![MirArgHome::Reg(crate::mir6502::ir::MirReg::A)],
+                        result: None,
+                        clobbers: MirRegisterSet::default(),
+                        preserves: MirRegisterSet::default(),
+                    },
+                    args: vec![MirCallArg {
+                        value: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                        width: MirWidth::Byte,
+                        home: MirArgHome::Reg(crate::mir6502::ir::MirReg::A),
+                    }],
+                    result: None,
+                    effects: MirEffects::default(),
+                },
+            ]
+        }
+
+        let program = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: Vec::new(),
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+        let layout = crate::mir6502::materialize::MaterializeLayout::new(&program, 0x3000);
+        let config = crate::mir6502::passes::Mir6502Config::default();
+        let run = |candidate: &mut MirRoutine| {
+            MirPreHomeRewriteDriver::default()
+                .run_fixed_point_by_key(
+                    candidate,
+                    |routine, context| discover_call_arg_exprs(routine, context, &config, &layout),
+                    |routine| call_arg_expr_rank(routine, &config, &layout),
+                )
+                .unwrap()
+                .applied
+        };
+
+        let mut local = routine(vec![block(0, call_ops(), MirTerminator::Return)]);
+        assert_eq!(run(&mut local), 1);
+        assert!(matches!(
+            &local.blocks[0].ops[..],
+            [
+                MirOp::Move {
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::A),
+                    ..
+                },
+                MirOp::Binary {
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::A),
+                    ..
+                },
+                MirOp::Call { .. }
+            ]
+        ));
+
+        let mut later_ops = call_ops();
+        later_ops.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x5000)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+            width: MirWidth::Byte,
+        });
+        let mut later_use = routine(vec![block(0, later_ops, MirTerminator::Return)]);
+        assert_eq!(run(&mut later_use), 0);
     }
 
     #[test]
