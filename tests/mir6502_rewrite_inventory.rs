@@ -42,26 +42,22 @@ const AUDITED_PRODUCER_REMOVERS: &[(&str, &str)] = &[
         "src/mir6502/rewrite/pilots.rs",
         "loaded_arg_call_result_store_plan",
     ),
+    ("src/mir6502/rewrite/pilots.rs", "store_expr_consumer_plan"),
+    ("src/mir6502/rewrite/pilots.rs", "cast_store_consumer_plan"),
     (
-        "src/mir6502/materialize/store_consumers.rs",
-        "try_materialize_store_expr_producers",
+        "src/mir6502/rewrite/pilots.rs",
+        "direct_copy_store_consumer_plan",
+    ),
+    ("src/mir6502/rewrite/pilots.rs", "word_store_consumer_plan"),
+    (
+        "src/mir6502/rewrite/pilots.rs",
+        "byte_mul_add_sub_word_store_consumer_plan",
     ),
     (
-        "src/mir6502/materialize/store_consumers.rs",
-        "try_fuse_cast_store_consumer",
+        "src/mir6502/rewrite/pilots.rs",
+        "byte_mul_word_store_consumer_plan",
     ),
-    (
-        "src/mir6502/materialize/store_consumers.rs",
-        "try_fuse_direct_copy_store_consumer",
-    ),
-    (
-        "src/mir6502/materialize/store_consumers.rs",
-        "try_fuse_word_store_consumer",
-    ),
-    (
-        "src/mir6502/materialize/store_consumers.rs",
-        "try_fuse_byte_store_consumer",
-    ),
+    ("src/mir6502/rewrite/pilots.rs", "byte_store_consumer_plan"),
     (
         "src/mir6502/materialize/pointers.rs",
         "rematerialize_direct_pointer_temp_derefs",
@@ -95,8 +91,8 @@ const AUDITED_PRODUCER_REMOVERS: &[(&str, &str)] = &[
         "try_prepare_dynamic_word_index",
     ),
     (
-        "src/mir6502/materialize.rs",
-        "try_fuse_address_store_consumer",
+        "src/mir6502/rewrite/pilots.rs",
+        "address_store_consumer_plan",
     ),
     ("src/mir6502/rewrite/pilots.rs", "discover_unused_lea_addrs"),
     (

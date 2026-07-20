@@ -6,6 +6,7 @@ const DELAYED_BYTE_INDEX_ENABLED: bool = true;
 pub(super) struct DelayedByteIndexPlan {
     producer_ops: BTreeSet<usize>,
     exprs: BTreeMap<MirTempId, DelayedByteIndexExpr>,
+    producer_ops_by_temp: BTreeMap<MirTempId, BTreeSet<usize>>,
 }
 
 impl DelayedByteIndexPlan {
@@ -18,6 +19,13 @@ impl DelayedByteIndexPlan {
             return None;
         };
         self.exprs.get(temp)
+    }
+
+    pub(super) fn producer_ops_for_value(&self, value: &MirValue) -> Option<&BTreeSet<usize>> {
+        let MirValue::Def(MirDef::VTemp(temp)) = value else {
+            return None;
+        };
+        self.producer_ops_by_temp.get(temp)
     }
 }
 
@@ -53,6 +61,7 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
         return DelayedByteIndexPlan {
             producer_ops: BTreeSet::new(),
             exprs: BTreeMap::new(),
+            producer_ops_by_temp: BTreeMap::new(),
         };
     }
 
@@ -65,6 +74,7 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
 
     let mut producer_ops = BTreeSet::new();
     let mut exprs = BTreeMap::new();
+    let mut producer_ops_by_temp = BTreeMap::new();
     for (use_index, op) in ops.iter().enumerate() {
         let Some(root) = indexed_addr_temp_index(op) else {
             continue;
@@ -80,12 +90,21 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
                 producer_ops.insert(dep.producer_index);
             }
         }
+        producer_ops_by_temp.insert(
+            root,
+            candidate
+                .temps
+                .iter()
+                .filter_map(|temp| candidates.get(temp).map(|dep| dep.producer_index))
+                .collect(),
+        );
         exprs.insert(root, candidate.expr.clone());
     }
 
     DelayedByteIndexPlan {
         producer_ops,
         exprs,
+        producer_ops_by_temp,
     }
 }
 

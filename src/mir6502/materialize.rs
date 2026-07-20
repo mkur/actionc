@@ -156,10 +156,16 @@ use ssa_lite::{
 };
 use stats::{MirPeepholeStats, maybe_report_peepholes};
 use store_consumers::{
-    materialize_value_to_mem, try_fuse_byte_mul_add_sub_word_store_consumer,
-    try_fuse_byte_mul_word_store_consumer, try_fuse_byte_store_consumer,
-    try_fuse_cast_store_consumer, try_fuse_direct_copy_store_consumer,
-    try_fuse_word_store_consumer, try_materialize_store_expr_producers,
+    materialize_value_to_mem, select_byte_mul_add_sub_word_store_consumer,
+    select_byte_store_consumer, select_direct_copy_store_consumer, select_store_expr_producers,
+    select_word_store_consumer, try_fuse_byte_mul_word_store_consumer,
+    try_fuse_cast_store_consumer,
+};
+#[cfg(test)]
+use store_consumers::{
+    try_fuse_byte_mul_add_sub_word_store_consumer, try_fuse_byte_store_consumer,
+    try_fuse_direct_copy_store_consumer, try_fuse_word_store_consumer,
+    try_materialize_store_expr_producers,
 };
 use temp_liveness::{MirTempLiveSet, analyze_temp_liveness, record_temp_liveness_observability};
 use temp_rewrite::{replace_temp_addr, replace_temp_value};
@@ -263,6 +269,213 @@ pub(in crate::mir6502) fn analyzed_loaded_arg_call_result_store_candidate(
     loaded_arg_call_result_store_rewrite_candidate(ops, index)
 }
 
+#[derive(Debug, Clone)]
+pub(in crate::mir6502) struct StoreConsumerRewriteCandidate {
+    pub start: usize,
+    pub consumed: usize,
+    pub replacement: Vec<MirOp>,
+    pub stat: &'static str,
+    pub family_priority: u16,
+}
+
+pub(in crate::mir6502) fn analyzed_store_consumer_candidates(
+    routine_id: RoutineId,
+    block: &super::ir::MirBlock,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+) -> Vec<(usize, StoreConsumerRewriteCandidate)> {
+    let ops = &block.ops;
+    let temp_widths = collect_temp_widths(ops);
+    let delayed_byte_indexes = collect_delayed_byte_index_plan(ops);
+    (0..ops.len())
+        .filter_map(|index| {
+            analyzed_store_consumer_candidate_at(
+                routine_id,
+                block.id,
+                ops,
+                index,
+                &block.terminator,
+                config,
+                layout,
+                &temp_widths,
+                &delayed_byte_indexes,
+            )
+            .map(|candidate| (candidate.start, candidate))
+        })
+        .collect()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn analyzed_store_consumer_candidate_at(
+    routine_id: RoutineId,
+    block_id: MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    terminator: &MirTerminator,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
+) -> Option<StoreConsumerRewriteCandidate> {
+    let mut replacement = Vec::new();
+    let consumed =
+        try_fuse_address_store_consumer(ops, index, routine_id, layout, &mut replacement);
+    if consumed > 0 {
+        return Some(StoreConsumerRewriteCandidate {
+            start: index,
+            consumed,
+            replacement,
+            stat: "address-store-consumer",
+            family_priority: 100,
+        });
+    }
+
+    let consumed = try_fuse_cast_store_consumer(ops, index, layout, &mut replacement);
+    if consumed > 0 {
+        return Some(StoreConsumerRewriteCandidate {
+            start: index,
+            consumed,
+            replacement,
+            stat: "cast-store-consumer",
+            family_priority: 110,
+        });
+    }
+
+    let mut selected_helpers = Vec::new();
+    let consumed = select_byte_mul_add_sub_word_store_consumer(
+        ops,
+        index,
+        config,
+        layout,
+        temp_widths,
+        &mut selected_helpers,
+        &mut replacement,
+    );
+    if consumed > 0 {
+        return Some(StoreConsumerRewriteCandidate {
+            start: index,
+            consumed,
+            replacement,
+            stat: "byte-mul-add-sub-word-store-consumer",
+            family_priority: 120,
+        });
+    }
+
+    let consumed = try_fuse_byte_mul_word_store_consumer(
+        ops,
+        index,
+        config,
+        layout,
+        temp_widths,
+        &mut selected_helpers,
+        &mut replacement,
+    );
+    if consumed > 0 {
+        return Some(StoreConsumerRewriteCandidate {
+            start: index,
+            consumed,
+            replacement,
+            stat: "byte-mul-word-store-consumer",
+            family_priority: 130,
+        });
+    }
+
+    let consumed = select_word_store_consumer(ops, index, config, layout, &mut replacement);
+    if consumed > 0 {
+        return Some(StoreConsumerRewriteCandidate {
+            start: index,
+            consumed,
+            replacement,
+            stat: "word-store-consumer",
+            family_priority: 140,
+        });
+    }
+
+    let consumed = select_direct_copy_store_consumer(ops, index, layout, &mut replacement);
+    if consumed > 0 {
+        return Some(StoreConsumerRewriteCandidate {
+            start: index,
+            consumed,
+            replacement,
+            stat: "direct-copy-store-consumer",
+            family_priority: 150,
+        });
+    }
+
+    let mut selected_stats = MirPeepholeStats::default();
+    let consumed = select_byte_store_consumer(
+        ops,
+        index,
+        terminator,
+        routine_id,
+        block_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        &mut selected_stats,
+        &mut replacement,
+    );
+    if consumed > 0 {
+        let (start, consumed, replacement) = expand_delayed_store_consumer_window(
+            ops,
+            index,
+            consumed,
+            replacement,
+            delayed_byte_indexes,
+        );
+        return Some(StoreConsumerRewriteCandidate {
+            start,
+            consumed,
+            replacement,
+            stat: "byte-store-consumer",
+            family_priority: if start < index { 90 } else { 160 },
+        });
+    }
+
+    let consumed =
+        select_store_expr_producers(ops, index, terminator, config, layout, &mut replacement);
+    (consumed > 0).then_some(StoreConsumerRewriteCandidate {
+        start: index,
+        consumed,
+        replacement,
+        stat: "store-expr-consumer",
+        family_priority: 170,
+    })
+}
+
+fn expand_delayed_store_consumer_window(
+    ops: &[MirOp],
+    index: usize,
+    consumed: usize,
+    replacement: Vec<MirOp>,
+    delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
+) -> (usize, usize, Vec<MirOp>) {
+    let producer_ops = ops[index..index + consumed]
+        .iter()
+        .filter_map(|op| match op {
+            MirOp::Load { src, .. } | MirOp::Store { dst: src, .. } => indexed_addr_parts(src),
+            _ => None,
+        })
+        .filter_map(|parts| delayed_byte_indexes.producer_ops_for_value(&parts.index))
+        .flatten()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    let Some(start) = producer_ops.iter().copied().min() else {
+        return (index, consumed, replacement);
+    };
+    if start >= index {
+        return (index, consumed, replacement);
+    }
+    let mut expanded = ops[start..index]
+        .iter()
+        .enumerate()
+        .filter(|(offset, _)| !producer_ops.contains(&(start + offset)))
+        .map(|(_, op)| op.clone())
+        .collect::<Vec<_>>();
+    expanded.extend(replacement);
+    (start, index + consumed - start, expanded)
+}
+
 pub(super) fn materialize_program(
     mut program: MirProgram,
     config: &Mir6502Config,
@@ -301,6 +514,7 @@ pub(super) fn materialize_program(
         }
         run_analyzed_call_arg_exprs(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
         run_analyzed_call_result_store_consumers(routine, &mut peephole_stats)?;
+        run_analyzed_store_consumers(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
         run_analyzed_unused_lea_addrs(routine, &mut peephole_stats)?;
         let word_load_address_forwards =
             forward_unique_word_load_address_consumers(routine, &layout);
@@ -605,6 +819,37 @@ fn run_analyzed_call_result_store_consumers(
                 format!("call-result store rewrite failed: {error:?}"),
             )]
         })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_store_consumers(
+    routine: &mut super::ir::MirRoutine,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            |routine, context| {
+                super::rewrite::pilots::discover_store_consumers(routine, context, config, layout)
+            },
+            super::rewrite::pilots::store_consumer_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("store-consumer selection failed: {error:?}"),
+            )]
+        })?;
+    for op in routine.blocks.iter().flat_map(|block| &block.ops) {
+        if let MirOp::RuntimeHelper { helper, .. } = op {
+            helpers.push(helper.clone());
+        }
+    }
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
     Ok(())
 }
@@ -1218,7 +1463,7 @@ fn record_unspecified_add_sub_carry_observability(
 
 fn materialize_ops(
     routine_id: RoutineId,
-    block_id: MirBlockId,
+    _block_id: MirBlockId,
     ops: Vec<MirOp>,
     terminator: &MirTerminator,
     config: &Mir6502Config,
@@ -1288,12 +1533,25 @@ fn materialize_ops(
             }
         }
 
-        let maybe_fused =
-            try_fuse_address_store_consumer(&ops, index, routine_id, layout, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "address-store-consumer");
-            index += maybe_fused;
-            continue;
+        #[cfg(test)]
+        {
+            let maybe_fused = try_fuse_cast_store_consumer(&ops, index, layout, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "cast-store-consumer");
+                index += maybe_fused;
+                continue;
+            }
+        }
+
+        #[cfg(test)]
+        {
+            let maybe_fused =
+                try_fuse_address_store_consumer(&ops, index, routine_id, layout, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "address-store-consumer");
+                index += maybe_fused;
+                continue;
+            }
         }
 
         let maybe_fused =
@@ -1370,48 +1628,44 @@ fn materialize_ops(
             }
         }
 
-        let maybe_fused = try_fuse_cast_store_consumer(&ops, index, layout, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "cast-store-consumer");
-            index += maybe_fused;
-            continue;
-        }
+        #[cfg(test)]
+        {
+            let maybe_fused = try_fuse_byte_mul_add_sub_word_store_consumer(
+                &ops,
+                index,
+                config,
+                layout,
+                &temp_widths,
+                helpers,
+                &mut out,
+            );
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "byte-mul-add-sub-word-store-consumer");
+                index += maybe_fused;
+                continue;
+            }
 
-        let maybe_fused = try_fuse_byte_mul_add_sub_word_store_consumer(
-            &ops,
-            index,
-            config,
-            layout,
-            &temp_widths,
-            helpers,
-            &mut out,
-        );
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "byte-mul-add-sub-word-store-consumer");
-            index += maybe_fused;
-            continue;
-        }
+            let maybe_fused = try_fuse_byte_mul_word_store_consumer(
+                &ops,
+                index,
+                config,
+                layout,
+                &temp_widths,
+                helpers,
+                &mut out,
+            );
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "byte-mul-word-store-consumer");
+                index += maybe_fused;
+                continue;
+            }
 
-        let maybe_fused = try_fuse_byte_mul_word_store_consumer(
-            &ops,
-            index,
-            config,
-            layout,
-            &temp_widths,
-            helpers,
-            &mut out,
-        );
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "byte-mul-word-store-consumer");
-            index += maybe_fused;
-            continue;
-        }
-
-        let maybe_fused = try_fuse_word_store_consumer(&ops, index, config, layout, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "word-store-consumer");
-            index += maybe_fused;
-            continue;
+            let maybe_fused = try_fuse_word_store_consumer(&ops, index, config, layout, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "word-store-consumer");
+                index += maybe_fused;
+                continue;
+            }
         }
 
         #[cfg(test)]
@@ -1481,37 +1735,47 @@ fn materialize_ops(
             continue;
         }
 
-        let maybe_fused = try_fuse_direct_copy_store_consumer(&ops, index, layout, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "direct-copy-store-consumer");
-            index += maybe_fused;
-            continue;
+        #[cfg(test)]
+        {
+            let maybe_fused = try_fuse_direct_copy_store_consumer(&ops, index, layout, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "direct-copy-store-consumer");
+                index += maybe_fused;
+                continue;
+            }
         }
 
-        let maybe_fused = try_fuse_byte_store_consumer(
-            &ops,
-            index,
-            terminator,
-            routine_id,
-            block_id,
-            layout,
-            &temp_widths,
-            &delayed_byte_indexes,
-            peephole_stats,
-            &mut out,
-        );
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "byte-store-consumer");
-            index += maybe_fused;
-            continue;
+        #[cfg(test)]
+        {
+            let maybe_fused = try_fuse_byte_store_consumer(
+                &ops,
+                index,
+                terminator,
+                routine_id,
+                _block_id,
+                layout,
+                &temp_widths,
+                &delayed_byte_indexes,
+                peephole_stats,
+                &mut out,
+            );
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "byte-store-consumer");
+                index += maybe_fused;
+                continue;
+            }
         }
 
-        let maybe_fused =
-            try_materialize_store_expr_producers(&ops, index, terminator, config, layout, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "store-expr-consumer");
-            index += maybe_fused;
-            continue;
+        #[cfg(test)]
+        {
+            let maybe_fused = try_materialize_store_expr_producers(
+                &ops, index, terminator, config, layout, &mut out,
+            );
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "store-expr-consumer");
+                index += maybe_fused;
+                continue;
+            }
         }
 
         let maybe_fused =

@@ -9,7 +9,8 @@ use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 use crate::mir6502::analysis::use_def::{MirDefSite, MirTempLane};
 use crate::mir6502::ir::{
-    MirBlockId, MirFixedZpSlot, MirMem, MirOp, MirReg, MirRegisterSet, MirRoutine, MirWidth,
+    MirAddr, MirAddressConsumer, MirBlockId, MirFixedZpSlot, MirMem, MirOp, MirPointerPair, MirReg,
+    MirRegisterSet, MirRoutine, MirValue, MirWidth,
 };
 use crate::mir6502::rewrite::context::PreHomeRewriteContext;
 use crate::mir6502::rewrite::plan::{MirEffectDelta, MirFactClass, MirRewritePlan};
@@ -286,6 +287,8 @@ fn validate_plan(
 }
 
 fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEffectDelta) -> bool {
+    let original_ops = original;
+    let replacement_ops = replacement;
     if matches!(
         delta,
         MirEffectDelta::MaterializedCallArguments | MirEffectDelta::ForwardedCallResultStore { .. }
@@ -355,7 +358,173 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             }
             original == replacement
         }
+        MirEffectDelta::MaterializedStoreConsumer => {
+            clear_machine_effects(&mut original);
+            clear_machine_effects(&mut replacement);
+            // Storage-address byte operands name a home without reading its
+            // contents. Direct memory reads and writes remain checked below;
+            // the duplicated home projection is therefore intentionally
+            // removed for this target-selection delta.
+            original.home_reads.clear();
+            original.home_writes.clear();
+            replacement.home_reads.clear();
+            replacement.home_writes.clear();
+            strip_store_materialization_projection(&mut original, original_ops);
+            strip_store_materialization_projection(&mut replacement, replacement_ops);
+            // A selector may avoid reading lanes which do not contribute to
+            // the stored value (for example, the high lane of a word that is
+            // immediately truncated). It may not introduce a new data read,
+            // except for reloading a location written in the original
+            // transaction. Absolute reads remain observable and therefore
+            // cannot be dropped.
+            if original.memory_reads.iter().any(|read| {
+                read.starts_with("absolute:") && !replacement.memory_reads.contains(read)
+            }) {
+                return false;
+            }
+            for read in &replacement.memory_reads {
+                if !original.memory_reads.contains(read) && original.memory_writes.contains(read) {
+                    original.memory_reads.push(read.clone());
+                }
+            }
+            original.memory_reads.sort();
+            if replacement
+                .memory_reads
+                .iter()
+                .any(|read| !original.memory_reads.contains(read))
+            {
+                return false;
+            }
+            original.memory_reads = replacement.memory_reads.clone();
+            original == replacement
+        }
     }
+}
+
+fn strip_store_materialization_projection(effects: &mut ObservableEffects, ops: &[MirOp]) {
+    const PRIVATE_POINTER_SCRATCH_FIRST: u8 = 0xAC;
+    const PRIVATE_POINTER_SCRATCH_LAST: u8 = 0xAF;
+    let is_private = |key: &String| {
+        key.strip_prefix("fixed-zp:")
+            .and_then(|value| value.parse::<u8>().ok())
+            .is_some_and(|slot| {
+                (PRIVATE_POINTER_SCRATCH_FIRST..=PRIVATE_POINTER_SCRATCH_LAST).contains(&slot)
+            })
+    };
+    effects.memory_reads.retain(|key| !is_private(key));
+    effects.memory_writes.retain(|key| !is_private(key));
+
+    let (address_reads, address_writes) = store_materialization_address_keys(ops);
+    effects
+        .memory_reads
+        .retain(|key| !address_reads.contains(key));
+    effects
+        .memory_writes
+        .retain(|key| !address_writes.contains(key));
+}
+
+fn store_materialization_address_keys(ops: &[MirOp]) -> (BTreeSet<String>, BTreeSet<String>) {
+    let mut reads = BTreeSet::new();
+    let mut writes = BTreeSet::new();
+    for op in ops {
+        match op {
+            MirOp::Load { src, .. } | MirOp::Store { dst: src, .. } => {
+                collect_addr_carrier_reads(src, &mut reads);
+            }
+            MirOp::MaterializeAddress { consumer, value } => {
+                collect_value_pointer_reads(value, &mut reads);
+                collect_consumer_keys(*consumer, &mut writes);
+            }
+            MirOp::MaterializeIndexedAddress { consumer, base, .. } => {
+                collect_consumer_keys(*consumer, &mut reads);
+                collect_consumer_keys(*consumer, &mut writes);
+                collect_value_pointer_reads(base, &mut reads);
+            }
+            MirOp::AdvanceAddress { consumer, .. } => {
+                collect_consumer_keys(*consumer, &mut reads);
+                collect_consumer_keys(*consumer, &mut writes);
+            }
+            MirOp::LoadIndirect { consumer, .. } | MirOp::StoreIndirect { consumer, .. } => {
+                collect_consumer_keys(*consumer, &mut reads);
+            }
+            MirOp::IndirectByteCompound { target, source, .. } => {
+                collect_consumer_keys(*target, &mut reads);
+                collect_consumer_keys(*source, &mut reads);
+                collect_consumer_keys(*target, &mut writes);
+            }
+            _ => {}
+        }
+    }
+    (reads, writes)
+}
+
+fn collect_addr_carrier_reads(addr: &MirAddr, reads: &mut BTreeSet<String>) {
+    match addr {
+        MirAddr::AbsoluteIndexedX { base } | MirAddr::AbsoluteIndexedY { base } => {
+            reads.insert(memory_byte_key(base, 0));
+        }
+        MirAddr::PointerCell { ptr, .. } | MirAddr::PointerIndex { ptr, .. } => {
+            collect_mem_range_keys(ptr, 2, reads);
+        }
+        MirAddr::ComputedIndex { base, .. } | MirAddr::Deref { ptr: base, .. } => {
+            collect_value_pointer_reads(base, reads);
+        }
+        MirAddr::IndirectIndexedY { zp } => {
+            collect_consumer_keys(
+                MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(*zp)),
+                reads,
+            );
+        }
+        MirAddr::FixedIndirectIndexedY { zp } => {
+            collect_consumer_keys(
+                MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *zp }),
+                reads,
+            );
+        }
+        MirAddr::Direct(_) | MirAddr::Label(_) | MirAddr::ZeroPageIndexedX { .. } => {}
+    }
+}
+
+fn collect_value_pointer_reads(value: &MirValue, reads: &mut BTreeSet<String>) {
+    match value {
+        MirValue::PointerCell(mem) => {
+            reads.insert(memory_byte_key(mem, 0));
+        }
+        MirValue::Word { lo, hi } => {
+            collect_value_pointer_reads(lo, reads);
+            collect_value_pointer_reads(hi, reads);
+        }
+        _ => {}
+    }
+}
+
+fn collect_consumer_keys(consumer: MirAddressConsumer, keys: &mut BTreeSet<String>) {
+    let MirAddressConsumer::IndirectIndexedY(pair) = consumer;
+    match pair {
+        MirPointerPair::Virtual(lo) => {
+            keys.insert(memory_byte_key(&MirMem::ZeroPage(lo), 0));
+            keys.insert(memory_byte_key(&MirMem::ZeroPage(lo), 1));
+        }
+        MirPointerPair::Fixed { lo } => {
+            keys.insert(memory_byte_key(&MirMem::FixedZeroPage(lo), 0));
+            keys.insert(memory_byte_key(&MirMem::FixedZeroPage(lo), 1));
+        }
+    }
+}
+
+fn collect_mem_range_keys(mem: &MirMem, bytes: u16, keys: &mut BTreeSet<String>) {
+    for offset in 0..bytes {
+        keys.insert(memory_byte_key(mem, offset));
+    }
+}
+
+fn clear_machine_effects(effects: &mut ObservableEffects) {
+    effects.register_reads = MirRegisterSet::default();
+    effects.register_writes = MirRegisterSet::default();
+    effects.register_clobbers = MirRegisterSet::default();
+    effects.flag_reads = MirFlagSet::default();
+    effects.flag_writes = MirFlagSet::default();
+    effects.flag_clobbers = MirFlagSet::default();
 }
 
 fn add_fixed_home_reads(effects: &mut ObservableEffects, base: MirFixedZpSlot, width: MirWidth) {
@@ -735,6 +904,100 @@ mod tests {
         assert!(matches!(
             MirPreHomeRewriteDriver::default().apply_batch(&mut routine, vec![plan]),
             Err(MirRewriteError::InvalidDeclaration { .. })
+        ));
+    }
+
+    #[test]
+    fn store_selection_delta_allows_dead_nonvolatile_load_lanes() {
+        let source = MirMem::FixedZeroPage(MirFixedZpSlot(0x90));
+        let destination = MirMem::FixedZeroPage(MirFixedZpSlot(0x92));
+        let original = vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(1)),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Word,
+            },
+            MirOp::Truncate {
+                dst: MirDef::VTemp(MirTempId(2)),
+                src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                from_width: MirWidth::Word,
+                to_width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(destination.clone()),
+                src: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                width: MirWidth::Byte,
+            },
+        ];
+        let replacement = vec![
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::PointerCell(source),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(destination),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+        ];
+
+        assert!(effect_delta_is_valid(
+            &original,
+            &replacement,
+            MirEffectDelta::MaterializedStoreConsumer,
+        ));
+    }
+
+    #[test]
+    fn store_selection_delta_keeps_absolute_loads_observable() {
+        let original = vec![MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(1)),
+            src: MirAddr::Direct(MirMem::Absolute(0xD000)),
+            width: MirWidth::Word,
+        }];
+        let replacement = vec![MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(MirMem::Absolute(0xD000)),
+            width: MirWidth::Byte,
+        }];
+
+        assert!(!effect_delta_is_valid(
+            &original,
+            &replacement,
+            MirEffectDelta::MaterializedStoreConsumer,
+        ));
+    }
+
+    #[test]
+    fn store_selection_delta_abstracts_address_carrier_homes() {
+        let original = vec![MirOp::Store {
+            dst: MirAddr::Deref {
+                ptr: MirValue::Word {
+                    lo: Box::new(MirValue::PointerCell(MirMem::FixedZeroPage(
+                        MirFixedZpSlot(0x90),
+                    ))),
+                    hi: Box::new(MirValue::PointerCell(MirMem::FixedZeroPage(
+                        MirFixedZpSlot(0x91),
+                    ))),
+                },
+                offset: 0,
+            },
+            src: MirValue::ConstU8(1),
+            width: MirWidth::Byte,
+        }];
+        let replacement = vec![MirOp::StoreIndirect {
+            consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                lo: MirFixedZpSlot(0xE4),
+            }),
+            src: MirValue::ConstU8(1),
+            offset: 0,
+        }];
+
+        assert!(effect_delta_is_valid(
+            &original,
+            &replacement,
+            MirEffectDelta::MaterializedStoreConsumer,
         ));
     }
 

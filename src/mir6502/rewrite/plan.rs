@@ -69,6 +69,10 @@ pub(in crate::mir6502) enum MirEffectDelta {
         width: MirWidth,
         selected_arg_register: Option<MirReg>,
     },
+    /// Abstract producer/store operations were selected into explicit 6502
+    /// accumulator operations. Logical memory and home effects stay equal;
+    /// only the newly explicit register and flag strategy may differ.
+    MaterializedStoreConsumer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

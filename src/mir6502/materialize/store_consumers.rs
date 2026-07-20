@@ -5,6 +5,7 @@ use super::indexes::{
 };
 use super::*;
 
+#[cfg(test)]
 pub(super) fn try_materialize_store_expr_producers(
     ops: &[MirOp],
     index: usize,
@@ -13,7 +14,36 @@ pub(super) fn try_materialize_store_expr_producers(
     layout: &MaterializeLayout,
     out: &mut Vec<MirOp>,
 ) -> usize {
-    let Some(plan) = collect_store_expr_plan(ops, index, terminator, layout) else {
+    try_materialize_store_expr_producers_with_deadness(
+        ops, index, terminator, config, layout, true, out,
+    )
+}
+
+pub(super) fn select_store_expr_producers(
+    ops: &[MirOp],
+    index: usize,
+    terminator: &MirTerminator,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    try_materialize_store_expr_producers_with_deadness(
+        ops, index, terminator, config, layout, false, out,
+    )
+}
+
+fn try_materialize_store_expr_producers_with_deadness(
+    ops: &[MirOp],
+    index: usize,
+    terminator: &MirTerminator,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    require_local_deadness: bool,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(plan) =
+        collect_store_expr_plan(ops, index, terminator, layout, require_local_deadness)
+    else {
         return 0;
     };
     let consumed = plan.consumed;
@@ -48,6 +78,7 @@ fn collect_store_expr_plan(
     index: usize,
     terminator: &MirTerminator,
     layout: &MaterializeLayout,
+    require_local_deadness: bool,
 ) -> Option<StoreExprPlan> {
     let mut exprs = BTreeMap::<MirTempId, StoreExpr>::new();
     let mut cursor = index;
@@ -82,7 +113,7 @@ fn collect_store_expr_plan(
         return None;
     }
     for temp in exprs.keys().copied() {
-        if temp_is_used_after(ops, cursor.saturating_add(1), temp)
+        if (require_local_deadness && temp_is_used_after(ops, cursor.saturating_add(1), temp))
             || !store_expr_temp_has_single_consumer(ops, index, cursor, temp)
         {
             return None;
@@ -656,25 +687,50 @@ pub(super) fn materialize_value_to_mem(value: MirValue, dst: MirMem, out: &mut V
     });
 }
 
+#[cfg(test)]
 pub(super) fn try_fuse_direct_copy_store_consumer(
     ops: &[MirOp],
     index: usize,
     layout: &MaterializeLayout,
     out: &mut Vec<MirOp>,
 ) -> usize {
-    if let Some(consumed) = try_fuse_direct_load_copy_store_consumer(ops, index, layout, out) {
+    try_fuse_direct_copy_store_consumer_with_deadness(ops, index, layout, true, out)
+}
+
+pub(super) fn select_direct_copy_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    try_fuse_direct_copy_store_consumer_with_deadness(ops, index, layout, false, out)
+}
+
+fn try_fuse_direct_copy_store_consumer_with_deadness(
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+    require_local_deadness: bool,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    if let Some(consumed) =
+        try_fuse_direct_load_copy_store_consumer(ops, index, layout, require_local_deadness, out)
+    {
         return consumed;
     }
-    if let Some(consumed) = try_fuse_direct_move_store_consumer(ops, index, layout, out) {
+    if let Some(consumed) =
+        try_fuse_direct_move_store_consumer(ops, index, layout, require_local_deadness, out)
+    {
         return consumed;
     }
-    try_fuse_direct_load_store_consumer(ops, index, layout, out)
+    try_fuse_direct_load_store_consumer(ops, index, layout, require_local_deadness, out)
 }
 
 fn try_fuse_direct_move_store_consumer(
     ops: &[MirOp],
     index: usize,
     layout: &MaterializeLayout,
+    require_local_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
     let MirOp::Move { dst, src, width } = ops.get(index)? else {
@@ -691,7 +747,7 @@ fn try_fuse_direct_move_store_consumer(
     if store_src != dst || store_width != width || value_uses_temp(src) {
         return None;
     }
-    if def_is_used_after(ops, index + 2, dst) {
+    if require_local_deadness && def_is_used_after(ops, index + 2, dst) {
         return None;
     }
     materialize_value_to_mem_for_width(src.clone(), *width, store_dst.clone(), layout, out);
@@ -702,6 +758,7 @@ fn try_fuse_direct_load_copy_store_consumer(
     ops: &[MirOp],
     index: usize,
     layout: &MaterializeLayout,
+    require_local_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
     let MirOp::Load {
@@ -733,8 +790,8 @@ fn try_fuse_direct_load_copy_store_consumer(
         || copy_width != load_width
         || store_width != load_width
         || !direct_copy_is_safe(load_src, store_dst, *load_width)
-        || def_is_used_after(ops, index + 3, load_dst)
-        || def_is_used_after(ops, index + 3, copy_dst)
+        || (require_local_deadness && def_is_used_after(ops, index + 3, load_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 3, copy_dst))
     {
         return None;
     }
@@ -752,6 +809,7 @@ fn try_fuse_direct_load_store_consumer(
     ops: &[MirOp],
     index: usize,
     layout: &MaterializeLayout,
+    require_local_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> usize {
     let Some(MirOp::Load {
@@ -776,10 +834,9 @@ fn try_fuse_direct_load_store_consumer(
     if !direct_copy_is_safe(load_src, store_dst, *width) {
         return 0;
     }
-    if def_is_used_after(ops, index + 2, load_dst) {
+    if require_local_deadness && def_is_used_after(ops, index + 2, load_dst) {
         return 0;
     }
-
     materialize_direct_copy(load_src.clone(), store_dst.clone(), *width, layout, out);
     2
 }
@@ -822,6 +879,7 @@ fn materialize_value_to_mem_for_width(
     }
 }
 
+#[cfg(test)]
 pub(super) fn try_fuse_word_store_consumer(
     ops: &[MirOp],
     index: usize,
@@ -829,7 +887,33 @@ pub(super) fn try_fuse_word_store_consumer(
     layout: &MaterializeLayout,
     out: &mut Vec<MirOp>,
 ) -> usize {
-    if let Some(consumed) = try_fuse_loaded_extend_unary_neg_word_store_consumer(ops, index, out) {
+    select_word_store_consumer_with_deadness(ops, index, config, layout, true, out)
+}
+
+pub(super) fn select_word_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    select_word_store_consumer_with_deadness(ops, index, config, layout, false, out)
+}
+
+fn select_word_store_consumer_with_deadness(
+    ops: &[MirOp],
+    index: usize,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    require_local_deadness: bool,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    if let Some(consumed) = try_fuse_loaded_extend_unary_neg_word_store_consumer(
+        ops,
+        index,
+        require_local_deadness,
+        out,
+    ) {
         return consumed;
     }
 
@@ -842,9 +926,14 @@ pub(super) fn try_fuse_word_store_consumer(
         return consumed;
     }
 
-    if let Some(consumed) =
-        try_fuse_loaded_byte_word_store_consumer(ops, index, config, layout, out)
-    {
+    if let Some(consumed) = try_fuse_loaded_byte_word_store_consumer(
+        ops,
+        index,
+        config,
+        layout,
+        require_local_deadness,
+        out,
+    ) {
         return consumed;
     }
 
@@ -899,12 +988,58 @@ pub(super) fn try_fuse_word_store_consumer(
     2
 }
 
+#[cfg(test)]
 pub(super) fn try_fuse_byte_mul_add_sub_word_store_consumer(
     ops: &[MirOp],
     index: usize,
     config: &Mir6502Config,
     layout: &MaterializeLayout,
     temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    select_byte_mul_add_sub_word_store_consumer_with_deadness(
+        ops,
+        index,
+        config,
+        layout,
+        temp_widths,
+        true,
+        helpers,
+        out,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn select_byte_mul_add_sub_word_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    select_byte_mul_add_sub_word_store_consumer_with_deadness(
+        ops,
+        index,
+        config,
+        layout,
+        temp_widths,
+        false,
+        helpers,
+        out,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn select_byte_mul_add_sub_word_store_consumer_with_deadness(
+    ops: &[MirOp],
+    index: usize,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    require_local_deadness: bool,
     helpers: &mut Vec<MirRuntimeHelper>,
     out: &mut Vec<MirOp>,
 ) -> usize {
@@ -954,8 +1089,8 @@ pub(super) fn try_fuse_byte_mul_add_sub_word_store_consumer(
         return 0;
     };
     if store_src != arith_dst
-        || def_is_used_after(ops, index + 2, mul_dst)
-        || def_is_used_after(ops, index + 3, arith_dst)
+        || (require_local_deadness && def_is_used_after(ops, index + 2, mul_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 3, arith_dst))
     {
         return 0;
     }
@@ -1155,6 +1290,7 @@ fn try_fuse_loaded_byte_word_store_consumer(
     index: usize,
     config: &Mir6502Config,
     layout: &MaterializeLayout,
+    require_local_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
     let byte_load = ops.get(index)?;
@@ -1204,9 +1340,9 @@ fn try_fuse_loaded_byte_word_store_consumer(
     if store_src != binary_dst {
         return None;
     }
-    if def_is_used_after(ops, index + 4, byte_dst)
-        || def_is_used_after(ops, index + 4, word_dst)
-        || def_is_used_after(ops, index + 4, binary_dst)
+    if (require_local_deadness && def_is_used_after(ops, index + 4, byte_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 4, word_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 4, binary_dst))
     {
         return None;
     }
@@ -1467,6 +1603,7 @@ fn try_fuse_two_loaded_word_store_consumer(
 fn try_fuse_loaded_extend_unary_neg_word_store_consumer(
     ops: &[MirOp],
     index: usize,
+    require_local_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
     let load = ops.get(index)?;
@@ -1516,9 +1653,9 @@ fn try_fuse_loaded_extend_unary_neg_word_store_consumer(
         return None;
     };
     if store_src != unary_dst
-        || def_is_used_after(ops, index + 4, load_dst)
-        || def_is_used_after(ops, index + 4, extend_dst)
-        || def_is_used_after(ops, index + 4, unary_dst)
+        || (require_local_deadness && def_is_used_after(ops, index + 4, load_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 4, extend_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 4, unary_dst))
     {
         return None;
     }
@@ -1752,6 +1889,7 @@ fn materialize_word_byte_binary_store_consumer(
     );
 }
 
+#[cfg(test)]
 pub(super) fn try_fuse_byte_store_consumer(
     ops: &[MirOp],
     index: usize,
@@ -1764,11 +1902,69 @@ pub(super) fn try_fuse_byte_store_consumer(
     peephole_stats: &mut MirPeepholeStats,
     out: &mut Vec<MirOp>,
 ) -> usize {
+    select_byte_store_consumer_with_deadness(
+        ops,
+        index,
+        terminator,
+        routine_id,
+        block_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        true,
+        peephole_stats,
+        out,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn select_byte_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    terminator: &MirTerminator,
+    routine_id: RoutineId,
+    block_id: MirBlockId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    peephole_stats: &mut MirPeepholeStats,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    select_byte_store_consumer_with_deadness(
+        ops,
+        index,
+        terminator,
+        routine_id,
+        block_id,
+        layout,
+        temp_widths,
+        delayed_byte_indexes,
+        false,
+        peephole_stats,
+        out,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn select_byte_store_consumer_with_deadness(
+    ops: &[MirOp],
+    index: usize,
+    terminator: &MirTerminator,
+    routine_id: RoutineId,
+    block_id: MirBlockId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    require_local_deadness: bool,
+    peephole_stats: &mut MirPeepholeStats,
+    out: &mut Vec<MirOp>,
+) -> usize {
     if let Some(consumed) = try_fuse_indexed_rhs_loaded_byte_store_consumer(
         ops,
         index,
         layout,
         delayed_byte_indexes,
+        require_local_deadness,
         out,
     ) {
         return consumed;
@@ -1778,16 +1974,25 @@ pub(super) fn try_fuse_byte_store_consumer(
         return consumed;
     }
 
-    if let Some(consumed) = try_fuse_loaded_byte_op_chain_store_consumer(ops, index, out) {
-        return consumed;
-    }
-
-    if let Some(consumed) = try_fuse_loaded_byte_update_store_consumer(ops, index, terminator, out)
+    if let Some(consumed) =
+        try_fuse_loaded_byte_op_chain_store_consumer(ops, index, require_local_deadness, out)
     {
         return consumed;
     }
 
-    if let Some(consumed) = try_fuse_byte_update_store_consumer(ops, index, terminator, out) {
+    if let Some(consumed) = try_fuse_loaded_byte_update_store_consumer(
+        ops,
+        index,
+        terminator,
+        require_local_deadness,
+        out,
+    ) {
+        return consumed;
+    }
+
+    if let Some(consumed) =
+        try_fuse_byte_update_store_consumer(ops, index, terminator, require_local_deadness, out)
+    {
         return consumed;
     }
 
@@ -1804,6 +2009,7 @@ pub(super) fn try_fuse_byte_store_consumer(
         layout,
         temp_widths,
         delayed_byte_indexes,
+        require_local_deadness,
         peephole_stats,
         out,
     ) {
@@ -1818,6 +2024,7 @@ fn try_fuse_indexed_rhs_loaded_byte_store_consumer(
     index: usize,
     layout: &MaterializeLayout,
     delayed_byte_indexes: &DelayedByteIndexPlan,
+    require_local_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
     let indexed_load = ops.get(index)?;
@@ -1867,9 +2074,9 @@ fn try_fuse_indexed_rhs_loaded_byte_store_consumer(
         return None;
     };
     if store_src != binary_dst
-        || def_is_used_after(ops, index + 4, indexed_dst)
-        || def_is_used_after(ops, index + 4, direct_dst)
-        || def_is_used_after(ops, index + 4, binary_dst)
+        || (require_local_deadness && def_is_used_after(ops, index + 4, indexed_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 4, direct_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 4, binary_dst))
     {
         return None;
     }
@@ -1917,6 +2124,7 @@ fn try_fuse_byte_binary_store_consumer(
     layout: &MaterializeLayout,
     temp_widths: &BTreeMap<MirTempId, MirWidth>,
     delayed_byte_indexes: &DelayedByteIndexPlan,
+    require_local_deadness: bool,
     peephole_stats: &mut MirPeepholeStats,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
@@ -1956,6 +2164,7 @@ fn try_fuse_byte_binary_store_consumer(
         *width,
         store_width,
         store_dst,
+        require_local_deadness,
     ) else {
         record_binary_store_forward_site(
             peephole_stats,
@@ -2046,6 +2255,7 @@ fn byte_binary_store_forward_blocker(
     width: MirWidth,
     store_width: &MirWidth,
     store_dst: &MirAddr,
+    require_local_deadness: bool,
 ) -> Option<&'static str> {
     if width != MirWidth::Byte {
         if !can_forward_word_rsh8_to_byte_store(op, width, store_width, right)
@@ -2095,7 +2305,7 @@ fn byte_binary_store_forward_blocker(
     {
         return Some("operand-needs-address-scratch");
     }
-    if def_is_used_after(ops, index + 2, dst) {
+    if require_local_deadness && def_is_used_after(ops, index + 2, dst) {
         return Some("result-live-after");
     }
     None
@@ -2553,6 +2763,7 @@ fn try_fuse_byte_update_store_consumer(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
+    require_local_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
     let MirOp::Binary {
@@ -2575,7 +2786,9 @@ fn try_fuse_byte_update_store_consumer(
     else {
         return None;
     };
-    if store_src != dst || !inc_dec_mem_is_safe(store_dst) || def_is_used_after(ops, index + 2, dst)
+    if store_src != dst
+        || !inc_dec_mem_is_safe(store_dst)
+        || (require_local_deadness && def_is_used_after(ops, index + 2, dst))
     {
         return None;
     }
@@ -2595,6 +2808,7 @@ fn try_fuse_loaded_byte_update_store_consumer(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
+    require_local_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
     let MirOp::Load {
@@ -2628,8 +2842,8 @@ fn try_fuse_loaded_byte_update_store_consumer(
     if store_src != dst
         || store_dst != load_src
         || !inc_dec_mem_is_safe(store_dst)
-        || def_is_used_after(ops, index + 3, load_dst)
-        || def_is_used_after(ops, index + 3, dst)
+        || (require_local_deadness && def_is_used_after(ops, index + 3, load_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 3, dst))
     {
         return None;
     }
@@ -2838,6 +3052,7 @@ fn loaded_a_direct_mem(op: &MirOp) -> Option<MirMem> {
 fn try_fuse_loaded_byte_op_chain_store_consumer(
     ops: &[MirOp],
     index: usize,
+    require_local_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
     let MirOp::Load {
@@ -2892,9 +3107,9 @@ fn try_fuse_loaded_byte_op_chain_store_consumer(
         return None;
     };
     if store_src != second_dst
-        || def_is_used_after(ops, index + 3, first_dst)
-        || def_is_used_after(ops, index + 4, second_dst)
-        || def_is_used_after(ops, index + 2, load_dst)
+        || (require_local_deadness && def_is_used_after(ops, index + 3, first_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 4, second_dst))
+        || (require_local_deadness && def_is_used_after(ops, index + 2, load_dst))
     {
         return None;
     }

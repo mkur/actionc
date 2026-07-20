@@ -2,13 +2,11 @@
 
 Snapshot date: 2026-07-20.
 
-Status: in progress. Slice 6.1 (compare producers, narrowing, and consumers) is
-complete, and the first part of 6.2 moves simple call-argument producers to the
-routine-aware driver. Return-slot result-to-argument forwarding is also
-complete, as are call-argument expression selection, call-result store
-consumers, and unused-`LeaAddr` elimination. The hybrid parameter-home family
-is split out for the later location/machine-state workflow; sub-slices 3–5 are
-pending. Migrated shape
+Status: in progress. Slice 6.1 (compare producers, narrowing, and consumers),
+6.2 (call families), and 6.3 (store consumers) are complete. Unused-`LeaAddr`
+elimination is also complete. The hybrid parameter-home family is split out
+for the later location/machine-state workflow; sub-slices 4–5 are pending.
+Migrated shape
 recognizers no longer make suffix-liveness decisions: exact definition
 identity, reaching definitions, and routine-wide lane deadness come from the
 shared snapshot. Later local, terminator, exact-lane successor, and full-temp
@@ -20,8 +18,10 @@ call-argument producer plans, one return-slot argument forward, and all 21
 call-expression selections. Call-result analysis applies 25 direct result-store
 plans plus nine loaded-argument plans; the lowering stage retains all 34 legacy
 result-store materializations. TN has no removable unused-`LeaAddr` candidate
-at this point. Materialized MIR and XEX remain byte-identical to Slice 5
-(`bb90d361...` and `f9f26cb3...`).
+at this point. Materialized MIR and XEX remained byte-identical to Slice 5
+through Slice 6.2 (`bb90d361...` and `f9f26cb3...`). Slice 6.3 intentionally
+changes both artifacts because shared deadness rejects five previously unsafe
+TN folds; the detailed result is recorded under Slice 6.
 
 This note defines the implementation plan for integrating MIR6502 peepholes
 into a routine-aware compiler workflow. Local pattern matching remains useful,
@@ -636,6 +636,14 @@ boundary. Its validator requires the same ordered calls, direct target
 identity, indirect-target width, ABI clobber/preserve sets, and structured call
 effects. Only the selected argument-staging effects may differ.
 
+Store-consumer selection uses `MaterializedStoreConsumer`. The delta preserves
+semantic direct and indirect memory effects while allowing an abstract
+producer/store sequence to expose its A/X/Y/flag strategy and the private
+`$AC..$AF` address-staging pair. Storage-address byte operands do not count as
+reads of the addressed storage. The address-store machine-block compatibility
+reload may read a byte just written by the same selected window. Removed
+logical definitions are still declared and proved separately.
+
 In debug and test builds, validate declarations against the original and
 replacement operations. A matcher must not silently remove an undeclared
 definition or change an undeclared machine location.
@@ -1027,7 +1035,7 @@ complete. Expression selection, call-result store consumers, and unused
 `LeaAddr` elimination are also complete. Parameter-home forwarding is no longer
 part of this sub-slice because its current helper combines pre-home temp
 rewrites with physical-register availability and post-home flag behavior.
-Sub-slice 2 is therefore complete; sub-slices 3–5 remain pending.
+Sub-slices 2 and 3 are therefore complete; sub-slices 4–5 remain pending.
 
 Migrate in behaviorally coherent sub-slices:
 
@@ -1036,6 +1044,31 @@ Migrate in behaviorally coherent sub-slices:
 3. direct copy, cast, store-expression, byte-store, and word-store consumers;
 4. pointer rematerialization and pointer consumers;
 5. delayed index, indexed copy, and dynamic index preparation.
+
+Sub-slice 3 routes address, cast, byte-multiply, word, direct-copy, byte, and
+store-expression consumers through one routine-aware selection driver. Shape
+recognizers can still run with local suffix checks in direct unit tests, but
+the production selection path disables those checks and uses exact reaching
+definitions plus routine-wide lane deadness. Delayed byte-index producers
+consumed by a byte-store selection are included in the same transactional
+window; unrelated intervening operations are preserved.
+
+TN applies 11 address, 75 byte, 42 direct-copy, and 28 word store plans. The
+one former store-expression site in `Draw` is selected by the earlier-priority
+byte-store family instead. Compared with the legacy scan, shared deadness
+blocks five unsafe selections: direct-copy sites in `Free` and `UpdDis`, plus
+byte-store sites in `InputLine`, `IsProtected`, and `IsDirectory`. In the
+clearest `InputLine` case, the old fold changed a load/sub/store result still
+used by the following call into `dec.b param p2+0` and then loaded an unwritten
+spill. The analyzed path preserves the computed value in A for that call.
+
+That correctness fix grows the TN XEX from 12,118 to 12,138 bytes. The Slice
+6.3 materialized-MIR SHA-256 is
+`5d930dabb43d77acb3c3d4d5b628a4f4e1b28a0c88d1649410b96b31ebd00432`;
+the XEX SHA-256 is
+`8127b508d0d3ca74937edff304e2bb8783ba7cee88a1398223c8cf174d4a0b28`.
+The extra per-routine driver raises TN analysis builds from 935 to 1,082; Slice
+9 still owns pass-group consolidation.
 
 For every migrated family:
 
