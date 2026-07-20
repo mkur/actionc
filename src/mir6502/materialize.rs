@@ -51,14 +51,14 @@ use super::rewrite::pilots::{
 };
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
-#[cfg(test)]
-use calls::fold_call_arg_producers;
 use calls::{
     CallArgProducerRewriteCandidate, call_arg_producer_rewrite_candidate,
-    forward_param_register_homes, forward_return_slot_call_result_args, materialize_call,
-    try_fuse_call_result_store_consumer, try_fuse_loaded_arg_call_result_store_consumer,
-    try_materialize_call_arg_expr_producers,
+    forward_param_register_homes, materialize_call, try_fuse_call_result_store_consumer,
+    try_fuse_loaded_arg_call_result_store_consumer, try_materialize_call_arg_expr_producers,
 };
+use calls::{ReturnSlotCallArgForwardCandidate, return_slot_call_arg_forward_candidate};
+#[cfg(test)]
+use calls::{fold_call_arg_producers, forward_return_slot_call_result_args};
 use cfg::collapse_empty_jump_blocks;
 #[cfg(test)]
 use compare_branch::fold_compare_operand_producers_before_branches;
@@ -224,6 +224,13 @@ pub(in crate::mir6502) fn analyzed_call_arg_producer_candidate(
     call_arg_producer_rewrite_candidate(ops, index)
 }
 
+pub(in crate::mir6502) fn analyzed_return_slot_call_arg_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<ReturnSlotCallArgForwardCandidate> {
+    return_slot_call_arg_forward_candidate(ops, index)
+}
+
 pub(super) fn materialize_program(
     mut program: MirProgram,
     config: &Mir6502Config,
@@ -255,6 +262,7 @@ pub(super) fn materialize_program(
             block.ops = rematerialize_direct_pointer_temp_derefs(std::mem::take(&mut block.ops));
         }
         run_analyzed_call_arg_producers(routine, &mut peephole_stats)?;
+        run_analyzed_return_slot_call_arg_forwards(routine, &mut peephole_stats)?;
         let word_load_address_forwards =
             forward_unique_word_load_address_consumers(routine, &layout);
         peephole_stats.record_many(
@@ -463,6 +471,33 @@ fn run_analyzed_call_arg_producers(
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_return_slot_call_arg_forwards(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            super::rewrite::pilots::discover_return_slot_call_arg_forwards,
+            super::rewrite::pilots::return_slot_call_arg_forward_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("return-slot call argument forwarding failed: {error:?}"),
+            )]
+        })?;
+    let candidates = result.candidates;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    peephole_stats.record_many(
+        routine.id,
+        "return-slot-call-arg-forward-candidates",
+        candidates,
+    );
     Ok(())
 }
 
@@ -1087,17 +1122,21 @@ fn materialize_ops(
     let ops = rematerialize_direct_pointer_temp_derefs(ops);
     #[cfg(test)]
     let ops = fold_call_arg_producers(ops);
+    #[cfg(test)]
     let (ops, call_result_forwards) = forward_return_slot_call_result_args(ops, terminator);
+    #[cfg(test)]
     peephole_stats.record_many(
         routine_id,
         "return-slot-call-arg-forward-candidates",
         call_result_forwards.candidates,
     );
+    #[cfg(test)]
     peephole_stats.record_many(
         routine_id,
         "return-slot-call-arg-forwards",
         call_result_forwards.forwarded,
     );
+    #[cfg(test)]
     peephole_stats.record_many(
         routine_id,
         "return-slot-call-arg-forward-blocked-home-overlap",

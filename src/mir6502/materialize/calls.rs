@@ -125,6 +125,7 @@ enum PlannedCallArg {
     Existing(MirCallArg),
 }
 
+#[cfg(test)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ReturnSlotCallArgForwardStats {
     pub(super) candidates: usize,
@@ -132,6 +133,7 @@ pub(super) struct ReturnSlotCallArgForwardStats {
     pub(super) blocked_home_overlap: usize,
 }
 
+#[cfg(test)]
 pub(super) fn forward_return_slot_call_result_args(
     ops: Vec<MirOp>,
     terminator: &MirTerminator,
@@ -162,11 +164,38 @@ pub(super) fn forward_return_slot_call_result_args(
     (out, stats)
 }
 
+#[cfg(test)]
 fn return_slot_call_result_arg_forward_at(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
 ) -> Option<(MirOp, MirOp, bool)> {
+    let candidate = return_slot_call_arg_forward_candidate(ops, index)?;
+    if temp_is_used_after(ops, index + 2, candidate.temp)
+        || terminator_uses_temp(terminator, candidate.temp)
+    {
+        return None;
+    }
+    Some((
+        candidate.replacement[0].clone(),
+        candidate.replacement[1].clone(),
+        candidate.blocked_home_overlap,
+    ))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct ReturnSlotCallArgForwardCandidate {
+    pub temp: MirTempId,
+    pub result_width: MirWidth,
+    pub return_slot: MirFixedZpSlot,
+    pub blocked_home_overlap: bool,
+    pub replacement: [MirOp; 2],
+}
+
+pub(in crate::mir6502) fn return_slot_call_arg_forward_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<ReturnSlotCallArgForwardCandidate> {
     let MirOp::Call {
         target: first_target,
         abi: first_abi,
@@ -191,10 +220,7 @@ fn return_slot_call_result_arg_forward_at(
     else {
         return None;
     };
-    if !op_uses_temp(&ops[index + 1], temp)
-        || temp_is_used_after(ops, index + 2, temp)
-        || terminator_uses_temp(terminator, temp)
-    {
+    if !op_uses_temp(&ops[index + 1], temp) {
         return None;
     }
 
@@ -203,7 +229,16 @@ fn return_slot_call_result_arg_forward_at(
             && !(arg.value == MirValue::Def(result.dst.clone()) && arg.width == result.width)
     });
     if blocked_home_overlap {
-        return Some((ops[index].clone(), ops[index + 1].clone(), true));
+        return Some(ReturnSlotCallArgForwardCandidate {
+            temp,
+            result_width: result.width,
+            return_slot: match return_slot_mem(offset) {
+                MirMem::FixedZeroPage(slot) => slot,
+                _ => unreachable!("return slots use fixed zero page"),
+            },
+            blocked_home_overlap: true,
+            replacement: [ops[index].clone(), ops[index + 1].clone()],
+        });
     }
 
     let replacement = match result.width {
@@ -220,23 +255,31 @@ fn return_slot_call_result_arg_forward_at(
         })
         .collect();
 
-    Some((
-        MirOp::Call {
-            target: first_target.clone(),
-            abi: first_abi.clone(),
-            args: first_args.clone(),
-            result: None,
-            effects: first_effects.clone(),
+    Some(ReturnSlotCallArgForwardCandidate {
+        temp,
+        result_width: result.width,
+        return_slot: match return_slot_mem(offset) {
+            MirMem::FixedZeroPage(slot) => slot,
+            _ => unreachable!("return slots use fixed zero page"),
         },
-        MirOp::Call {
-            target: rewritten_target,
-            abi: abi.clone(),
-            args: rewritten_args,
-            result: second_result.clone(),
-            effects: effects.clone(),
-        },
-        false,
-    ))
+        blocked_home_overlap: false,
+        replacement: [
+            MirOp::Call {
+                target: first_target.clone(),
+                abi: first_abi.clone(),
+                args: first_args.clone(),
+                result: None,
+                effects: first_effects.clone(),
+            },
+            MirOp::Call {
+                target: rewritten_target,
+                abi: abi.clone(),
+                args: rewritten_args,
+                result: second_result.clone(),
+                effects: effects.clone(),
+            },
+        ],
+    })
 }
 
 fn call_arg_home_overlaps_return_slot(

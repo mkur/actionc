@@ -291,6 +291,21 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             clear_register(&mut replacement.register_clobbers, register);
             original == replacement
         }
+        MirEffectDelta::ForwardedReturnSlot { base, width } => {
+            let bytes = match width {
+                crate::mir6502::ir::MirWidth::Byte => 1,
+                crate::mir6502::ir::MirWidth::Word => 2,
+            };
+            for offset in 0..bytes {
+                let slot = crate::mir6502::ir::MirFixedZpSlot(base.0.saturating_add(offset as u8));
+                original
+                    .home_reads
+                    .insert(crate::mir6502::analysis::effects::MirHomeByte::FixedZeroPage(slot));
+                original.memory_reads.push(format!("fixed-zp:{}", slot.0));
+            }
+            original.memory_reads.sort();
+            original == replacement
+        }
     }
 }
 
