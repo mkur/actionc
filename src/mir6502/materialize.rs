@@ -108,10 +108,9 @@ use indexes::{
 };
 pub(super) use layout::MaterializeLayout;
 use lea::{lower_address_to_def, lower_lea_addrs_with_final_layout};
-use memory::{
-    mem_is_read_after, op_definitely_writes_mem, op_may_have_unknown_memory_effects,
-    op_may_write_mem, op_reads_mem,
-};
+#[cfg(test)]
+use memory::{mem_is_read_after, op_definitely_writes_mem};
+use memory::{op_may_have_unknown_memory_effects, op_may_write_mem, op_reads_mem};
 #[cfg(test)]
 use peepholes::{
     dead_private_scratch_store_at, fixed_pointer_consumer, fold_dead_private_scratch_stores,
@@ -119,7 +118,10 @@ use peepholes::{
     fold_indirect_byte_const_stores, fold_indirect_byte_direct_compounds,
     fold_indirect_y_const_stores, fold_word_array_store_value_staging, staged_compare_rhs_at,
 };
-use peepholes::{fold_structural_cleanup_tail, fold_structural_prefix};
+use peepholes::{
+    fold_structural_before_cleanup_migrations, fold_structural_machine_tail,
+    fold_structural_prefix, fold_structural_ssa_lite,
+};
 use pointers::{
     is_zero_word_value, materialize_pointer_deref_address, materialize_pointer_deref_read,
     materialize_pointer_deref_read_byte, materialize_pointer_deref_write,
@@ -136,13 +138,15 @@ use runtime::{
 };
 pub(super) use runtime::{helper_abi, helper_effects};
 #[cfg(test)]
-use spills::can_remove_spill_store_reload_pair_at;
-#[cfg(test)]
 pub(super) use spills::spill_accounting_for_routine;
+#[cfg(test)]
 use spills::{
     can_remove_spill_reload_at, can_remove_spill_reload_before_later_a_use,
-    color_basic_block_spills, color_routine_spills, fold_indirect_load_spill_consumers,
-    forward_block_local_spill_accumulator, lower_block_local_byte_spills_to_zero_page,
+    can_remove_spill_store_reload_pair_at, fold_indirect_load_spill_consumers,
+    forward_block_local_spill_accumulator,
+};
+use spills::{
+    color_basic_block_spills, color_routine_spills, lower_block_local_byte_spills_to_zero_page,
     op_may_clobber_reg, prune_unused_spills,
 };
 #[cfg(test)]
@@ -781,10 +785,7 @@ pub(super) fn materialize_program(
         let home_plan = record_home_demand_census(routine, &home_liveness, &mut peephole_stats);
         home_fates.insert(routine.id, HomeFateTracker::from_plan(&home_plan));
         apply_register_home_plan(routine, &home_plan, &mut peephole_stats);
-        for (block_index, block) in routine.blocks.iter_mut().enumerate() {
-            let live_out = home_liveness
-                .live_out(block_index)
-                .expect("block liveness exists");
+        for block in &mut routine.blocks {
             block.ops =
                 materialize_temp_ops(std::mem::take(&mut block.ops), &mut routine.frame.spills);
             block.ops = normalize_synthetic_byte_storage_high_ops(
@@ -792,8 +793,9 @@ pub(super) fn materialize_program(
                 routine.id,
                 &layout,
             );
-            let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_indirect_load_spill_consumers(ops, live_out);
+        }
+        run_analyzed_spill_forwards(routine, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
             let ops = std::mem::take(&mut block.ops);
             block.ops = fold_structural_prefix(ops, &block.terminator);
         }
@@ -808,7 +810,28 @@ pub(super) fn materialize_program(
         run_analyzed_indirect_stores_and_compounds(routine, &layout, &mut peephole_stats)?;
         for block in &mut routine.blocks {
             let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_cleanup_tail(
+            block.ops = fold_structural_before_cleanup_migrations(
+                ops,
+                routine.id,
+                &layout,
+                &mut peephole_stats,
+            );
+        }
+        run_analyzed_rhs_and_adjacent_reloads(routine, &layout, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
+            let ops = std::mem::take(&mut block.ops);
+            block.ops = fold_structural_ssa_lite(
+                ops,
+                routine.id,
+                &layout,
+                &block.terminator,
+                &mut peephole_stats,
+            );
+        }
+        run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
+            let ops = std::mem::take(&mut block.ops);
+            block.ops = fold_structural_machine_tail(
                 ops,
                 routine.id,
                 &layout,
@@ -852,6 +875,9 @@ pub(super) fn materialize_program(
                 routine.id,
                 &layout,
             );
+        }
+        run_analyzed_spill_forwards(routine, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
             let ops = std::mem::take(&mut block.ops);
             block.ops = fold_structural_prefix(ops, &block.terminator);
         }
@@ -866,7 +892,28 @@ pub(super) fn materialize_program(
         run_analyzed_indirect_stores_and_compounds(routine, &layout, &mut peephole_stats)?;
         for block in &mut routine.blocks {
             let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_cleanup_tail(
+            block.ops = fold_structural_before_cleanup_migrations(
+                ops,
+                routine.id,
+                &layout,
+                &mut peephole_stats,
+            );
+        }
+        run_analyzed_rhs_and_adjacent_reloads(routine, &layout, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
+            let ops = std::mem::take(&mut block.ops);
+            block.ops = fold_structural_ssa_lite(
+                ops,
+                routine.id,
+                &layout,
+                &block.terminator,
+                &mut peephole_stats,
+            );
+        }
+        run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
+            let ops = std::mem::take(&mut block.ops);
+            block.ops = fold_structural_machine_tail(
                 ops,
                 routine.id,
                 &layout,
@@ -932,6 +979,60 @@ fn run_analyzed_staged_word_forwards(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home staged word forwarding failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_spill_forwards(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, spills::discover_spill_forwards)
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home spill forwarding failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_rhs_and_adjacent_reloads(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            peepholes::discover_rhs_and_adjacent_reloads(routine, context, layout)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home staged RHS/reload rewrite failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_dead_private_scratch_stores(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, peepholes::discover_dead_private_scratch_stores)
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home dead scratch-store rewrite failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

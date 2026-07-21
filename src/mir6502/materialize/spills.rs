@@ -1,12 +1,16 @@
 use super::dead_spills::block_successor_indices;
+#[cfg(test)]
 use super::peepholes::private_scratch_store_removal_is_safe_after;
 use super::temps::temp_def_spill;
 use super::*;
-use crate::mir6502::analysis::effects::{MirHomeByte, classify_op};
+use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte, classify_op};
 use crate::mir6502::ir::{
-    MirAddr, MirBlock, MirBlockId, MirCallTarget, MirDef, MirMem, MirOp, MirRoutine, MirSpillId,
-    MirTerminator, MirValue, MirZpSlot, RoutineId,
+    MirAddr, MirBlock, MirBlockId, MirCallTarget, MirDef, MirMem, MirOp, MirRegisterSet,
+    MirRoutine, MirSpillId, MirTerminator, MirValue, MirZpSlot, RoutineId,
 };
+use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
+use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
+use crate::mir6502::rewrite::posthome::structural_plan;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[allow(dead_code)]
@@ -237,6 +241,7 @@ fn op_write_spills(op: &MirOp) -> BTreeSet<MirSpillId> {
     }
 }
 
+#[cfg(test)]
 pub(super) fn fold_indirect_load_spill_consumers(
     ops: Vec<MirOp>,
     live_out: &MirTempLiveSet,
@@ -262,6 +267,7 @@ struct AccumulatorSpillValue {
     offset: u16,
 }
 
+#[cfg(test)]
 pub(super) fn forward_block_local_spill_accumulator(
     ops: Vec<MirOp>,
     terminator: &MirTerminator,
@@ -312,6 +318,357 @@ pub(super) fn forward_block_local_spill_accumulator(
     out
 }
 
+pub(in crate::mir6502) fn discover_spill_forwards(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        let mut a_value = None;
+        for index in 0..block.ops.len() {
+            for (replacement, kept_stores) in indirect_load_spill_forward_shapes(&block.ops, index)
+            {
+                let consumed =
+                    if matches!(block.ops.get(index + 2), Some(MirOp::LoadIndirect { .. })) {
+                        8
+                    } else {
+                        4
+                    };
+                if let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "indirect-load-spill-consumer",
+                    kept_stores,
+                ) {
+                    plans.push(plan);
+                }
+            }
+
+            if let Some((consumed, replacement)) =
+                immediate_register_spill_forward_shape(&block.ops, index)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    accumulator_exit_change(),
+                    "immediate-register-spill-forward",
+                    10,
+                )
+            {
+                plans.push(plan);
+            }
+
+            if spill_store_reload_shape_at(&block.ops, index).is_some()
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 2,
+                    Vec::new(),
+                    zn_exit_change(),
+                    "spill-store-reload-pair",
+                    11,
+                )
+            {
+                plans.push(plan);
+            }
+
+            if let Some(spill) = load_a_spill_byte(block.ops.get(index))
+                && a_value == Some(spill)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 1,
+                    Vec::new(),
+                    zn_exit_change(),
+                    "spill-accumulator-reload",
+                    12,
+                )
+            {
+                plans.push(plan);
+            }
+
+            update_accumulator_spill_value(&mut a_value, &block.ops[index]);
+        }
+    }
+    plans
+}
+
+fn indirect_load_spill_forward_shapes(ops: &[MirOp], index: usize) -> Vec<(Vec<MirOp>, u16)> {
+    if matches!(ops.get(index + 2), Some(MirOp::LoadIndirect { .. })) {
+        let Some(MirOp::LoadIndirect {
+            consumer: lo,
+            offset: lo_offset,
+            dst: MirDef::Reg(MirReg::A),
+        }) = ops.get(index)
+        else {
+            return Vec::new();
+        };
+        let Some(MirOp::Store {
+            dst:
+                MirAddr::Direct(MirMem::Spill {
+                    id: lo_spill,
+                    offset: 0,
+                }),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }) = ops.get(index + 1)
+        else {
+            return Vec::new();
+        };
+        let Some(MirOp::LoadIndirect {
+            consumer: hi,
+            offset: hi_offset,
+            dst: MirDef::Reg(MirReg::A),
+        }) = ops.get(index + 2)
+        else {
+            return Vec::new();
+        };
+        let Some(MirOp::Store {
+            dst:
+                MirAddr::Direct(MirMem::Spill {
+                    id: hi_spill,
+                    offset: 0,
+                }),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }) = ops.get(index + 3)
+        else {
+            return Vec::new();
+        };
+        let Some(MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src:
+                MirAddr::Direct(MirMem::Spill {
+                    id: lo_reload,
+                    offset: 0,
+                }),
+            width: MirWidth::Byte,
+        }) = ops.get(index + 4)
+        else {
+            return Vec::new();
+        };
+        let Some(
+            lo_store @ MirOp::Store {
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+                ..
+            },
+        ) = ops.get(index + 5)
+        else {
+            return Vec::new();
+        };
+        let Some(MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src:
+                MirAddr::Direct(MirMem::Spill {
+                    id: hi_reload,
+                    offset: 0,
+                }),
+            width: MirWidth::Byte,
+        }) = ops.get(index + 6)
+        else {
+            return Vec::new();
+        };
+        let Some(
+            hi_store @ MirOp::Store {
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+                ..
+            },
+        ) = ops.get(index + 7)
+        else {
+            return Vec::new();
+        };
+        if lo != hi
+            || *hi_offset != lo_offset.saturating_add(1)
+            || lo_reload != lo_spill
+            || hi_reload != hi_spill
+        {
+            return Vec::new();
+        }
+        return (0u16..4)
+            .map(|mask| {
+                let mut replacement = vec![ops[index].clone()];
+                if mask & 1 != 0 {
+                    replacement.push(ops[index + 1].clone());
+                }
+                replacement.push(lo_store.clone());
+                replacement.push(ops[index + 2].clone());
+                if mask & 2 != 0 {
+                    replacement.push(ops[index + 3].clone());
+                }
+                replacement.push(hi_store.clone());
+                (replacement, mask.count_ones() as u16)
+            })
+            .collect();
+    }
+
+    let Some(
+        load @ MirOp::LoadIndirect {
+            dst: MirDef::Reg(MirReg::A),
+            ..
+        },
+    ) = ops.get(index)
+    else {
+        return Vec::new();
+    };
+    let Some(
+        store @ MirOp::Store {
+            dst:
+                MirAddr::Direct(MirMem::Spill {
+                    id: spill,
+                    offset: 0,
+                }),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ) = ops.get(index + 1)
+    else {
+        return Vec::new();
+    };
+    let Some(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src:
+            MirAddr::Direct(MirMem::Spill {
+                id: reload,
+                offset: 0,
+            }),
+        width: MirWidth::Byte,
+    }) = ops.get(index + 2)
+    else {
+        return Vec::new();
+    };
+    let Some(
+        final_store @ MirOp::Store {
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+            ..
+        },
+    ) = ops.get(index + 3)
+    else {
+        return Vec::new();
+    };
+    if spill != reload {
+        return Vec::new();
+    }
+    vec![
+        (vec![load.clone(), final_store.clone()], 0),
+        (vec![load.clone(), store.clone(), final_store.clone()], 1),
+    ]
+}
+
+fn immediate_register_spill_forward_shape(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<(usize, Vec<MirOp>)> {
+    let MirOp::Store {
+        dst: MirAddr::Direct(store),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    let MirOp::Load {
+        dst: MirDef::Reg(reg @ (MirReg::X | MirReg::Y)),
+        src: MirAddr::Direct(load),
+        width: MirWidth::Byte,
+    } = ops.get(index + 2)?
+    else {
+        return None;
+    };
+    if !matches!(store, MirMem::Spill { .. }) || store != load {
+        return None;
+    }
+    let replacement = match ops.get(index)? {
+        MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value,
+            width: MirWidth::Byte,
+        } => MirOp::LoadImm {
+            dst: MirDef::Reg(*reg),
+            value: *value,
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(src),
+            width: MirWidth::Byte,
+        } => MirOp::Load {
+            dst: MirDef::Reg(*reg),
+            src: MirAddr::Direct(src.clone()),
+            width: MirWidth::Byte,
+        },
+        _ => return None,
+    };
+    Some((3, vec![replacement]))
+}
+
+fn spill_store_reload_shape_at(ops: &[MirOp], index: usize) -> Option<()> {
+    let MirOp::Store {
+        dst: MirAddr::Direct(store @ MirMem::Spill { .. }),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(load),
+        width: MirWidth::Byte,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    (store == load).then_some(())
+}
+
+fn load_a_spill_byte(op: Option<&MirOp>) -> Option<AccumulatorSpillValue> {
+    let MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(MirMem::Spill { id, offset }),
+        width: MirWidth::Byte,
+    } = op?
+    else {
+        return None;
+    };
+    Some(AccumulatorSpillValue {
+        id: *id,
+        offset: *offset,
+    })
+}
+
+fn accumulator_exit_change() -> MirExitStateChange {
+    MirExitStateChange {
+        registers: MirRegisterSet {
+            a: true,
+            ..MirRegisterSet::default()
+        },
+        ..MirExitStateChange::default()
+    }
+}
+
+fn zn_exit_change() -> MirExitStateChange {
+    MirExitStateChange {
+        flags: MirFlagSet {
+            z: true,
+            n: true,
+            ..MirFlagSet::default()
+        },
+        ..MirExitStateChange::default()
+    }
+}
+
+#[cfg(test)]
 fn try_forward_immediate_register_spill_consumer(
     ops: &[MirOp],
     index: usize,
@@ -382,6 +739,7 @@ fn try_forward_immediate_register_spill_consumer(
     }
 }
 
+#[cfg(test)]
 pub(super) fn can_remove_spill_store_reload_pair_at(
     ops: &[MirOp],
     index: usize,
@@ -428,6 +786,7 @@ pub(super) fn can_remove_spill_store_reload_pair_at(
     )
 }
 
+#[cfg(test)]
 pub(super) fn can_remove_spill_reload_at(
     ops: &[MirOp],
     index: usize,
@@ -461,6 +820,7 @@ pub(super) fn can_remove_spill_reload_at(
     }
 }
 
+#[cfg(test)]
 pub(super) fn can_remove_spill_reload_before_later_a_use(
     ops: &[MirOp],
     index: usize,
@@ -594,6 +954,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
     }
 }
 
+#[cfg(test)]
 fn try_fold_indirect_load_spill_consumer(
     ops: &[MirOp],
     index: usize,
@@ -662,6 +1023,7 @@ fn try_fold_indirect_load_spill_consumer(
     Some(4)
 }
 
+#[cfg(test)]
 fn try_fold_indirect_load_spill_pair_consumer(
     ops: &[MirOp],
     index: usize,
@@ -784,6 +1146,7 @@ fn try_fold_indirect_load_spill_pair_consumer(
     Some(8)
 }
 
+#[cfg(test)]
 fn spill_value_needed_after(
     ops: &[MirOp],
     start: usize,

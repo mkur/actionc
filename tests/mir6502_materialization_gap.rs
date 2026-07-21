@@ -332,8 +332,7 @@ fn byte_multiply_into_word_store_keeps_runtime_high_result() {
     assert!(formatted.contains("store.b fixed_zp $85, a"));
     assert!(formatted.contains("helper mul args=[]"));
     assert!(formatted.contains("store.b global g2+0, a"));
-    assert!(formatted.contains("store.b spill sp2+0, x"));
-    assert!(formatted.contains("a =.b load spill sp2+0"));
+    assert_spilled_x_is_reloaded_into_a(&formatted);
     assert!(formatted.contains("store.b global g2+1, a"));
     assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0x84]));
 }
@@ -344,8 +343,7 @@ fn byte_multiply_subtract_into_word_store_keeps_runtime_high_result() {
         compile_materialized_mir6502_fixture("dynamic_byte_multiply_card_sub_result.act");
 
     assert!(formatted.contains("helper mul args=[]"));
-    assert!(formatted.contains("store.b spill sp2+0, x"));
-    assert!(formatted.contains("a =.b load spill sp2+0"));
+    assert_spilled_x_is_reloaded_into_a(&formatted);
     assert!(formatted.contains("a =.b a sub #$00 carry_in=previous"));
     assert!(formatted.contains("store.b global g2+0, a"));
     assert!(formatted.contains("store.b global g2+1, a"));
@@ -944,6 +942,23 @@ fn compile_materialized_mir6502_fixture(name: &str) -> (String, Vec<u8>) {
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     (formatted, output.bytes)
+}
+
+fn assert_spilled_x_is_reloaded_into_a(formatted: &str) {
+    let home = formatted
+        .lines()
+        .find_map(|line| {
+            line.trim()
+                .strip_prefix("store.b spill ")
+                .and_then(|rest| rest.strip_suffix(", x"))
+        })
+        .expect("runtime high byte is preserved from X in a spill");
+    assert!(
+        formatted
+            .lines()
+            .any(|line| line.trim() == format!("a =.b load spill {home}")),
+        "runtime high-byte spill {home} must be reloaded into A"
+    );
 }
 
 fn verify_materialized_mir6502_stress_fixture(

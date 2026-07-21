@@ -21,7 +21,6 @@ fn fold_direct_inc_dec_updates(ops: Vec<MirOp>, terminator: &MirTerminator) -> V
 }
 
 pub(super) fn fold_structural_prefix(ops: Vec<MirOp>, terminator: &MirTerminator) -> Vec<MirOp> {
-    let ops = forward_block_local_spill_accumulator(ops, terminator);
     fold_direct_inc_dec_updates(ops, terminator)
 }
 
@@ -34,6 +33,7 @@ pub(super) fn fold_structural_peepholes(
     enable_direct_byte_word_update: bool,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Vec<MirOp> {
+    ops = forward_block_local_spill_accumulator(ops, terminator);
     ops = fold_structural_prefix(ops, terminator);
     ops = fold_staged_byte_word_updates(
         ops,
@@ -66,23 +66,131 @@ pub(super) fn fold_structural_peepholes(
 /// Legacy tail retained while Slice 8 migrates families in order. The staged
 /// byte/word and word-forward families are intentionally absent: production
 /// invokes their routine-level transactional discovery before this tail.
-pub(super) fn fold_structural_cleanup_tail(
+pub(super) fn fold_structural_before_cleanup_migrations(
+    mut ops: Vec<MirOp>,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Vec<MirOp> {
+    ops = fold_redundant_self_stores(ops, routine_id, layout, peephole_stats);
+    ops
+}
+
+pub(super) fn fold_structural_ssa_lite(
     mut ops: Vec<MirOp>,
     routine_id: RoutineId,
     layout: &MaterializeLayout,
     terminator: &MirTerminator,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Vec<MirOp> {
-    ops = fold_redundant_self_stores(ops, routine_id, layout, peephole_stats);
-    ops = fold_adjacent_store_reloads(ops, routine_id, layout, terminator, peephole_stats);
-    ops = fold_staged_binary_rhs(ops, routine_id, terminator, peephole_stats);
-    ops = fold_staged_compare_rhs(ops, routine_id, terminator, peephole_stats);
     ops = fold_ssa_lite_byte_loads(ops, routine_id, layout, terminator, peephole_stats);
-    ops = fold_dead_private_scratch_stores(ops, routine_id, terminator, peephole_stats);
+    ops
+}
+
+pub(super) fn fold_structural_machine_tail(
+    mut ops: Vec<MirOp>,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    terminator: &MirTerminator,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Vec<MirOp> {
     ops = fold_dead_reg_writes_before_overwrite(ops, routine_id, terminator, peephole_stats);
     ops = fold_dead_a_loads_before_flag_overwrite(ops, routine_id, terminator, peephole_stats);
     record_ssa_lite_block_facts(&ops, routine_id, layout, peephole_stats);
     ops
+}
+
+pub(in crate::mir6502) fn discover_rhs_and_adjacent_reloads(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if adjacent_store_reload_shape_at(&block.ops, index, layout).is_some()
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 2,
+                    vec![block.ops[index].clone()],
+                    zn_exit_change(),
+                    "adjacent-store-reload",
+                    0,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some((consumed, replacement)) = staged_binary_rhs_shape_at(&block.ops, index)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "staged-binary-rhs",
+                    1,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some((consumed, replacement)) = staged_compare_rhs_shape_at(&block.ops, index)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "staged-compare-rhs",
+                    2,
+                )
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn discover_dead_private_scratch_stores(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if store_direct_private_scratch_byte(&block.ops[index]).is_some()
+                && let Some(mut plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 1,
+                    Vec::new(),
+                    MirExitStateChange::default(),
+                    "dead-private-scratch-store",
+                    0,
+                )
+            {
+                plan.observations.push(("ssa-lite-dead-scratch-stores", 1));
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+fn zn_exit_change() -> MirExitStateChange {
+    MirExitStateChange {
+        flags: MirFlagSet {
+            z: true,
+            n: true,
+            ..MirFlagSet::default()
+        },
+        ..MirExitStateChange::default()
+    }
 }
 
 pub(in crate::mir6502) fn discover_indirect_constant_stores(
@@ -536,6 +644,7 @@ fn fold_redundant_self_stores(
     out
 }
 
+#[cfg(test)]
 fn fold_adjacent_store_reloads(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -558,6 +667,7 @@ fn fold_adjacent_store_reloads(
     out
 }
 
+#[cfg(test)]
 fn fold_staged_compare_rhs(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -579,6 +689,7 @@ fn fold_staged_compare_rhs(
     out
 }
 
+#[cfg(test)]
 fn fold_staged_binary_rhs(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -600,6 +711,7 @@ fn fold_staged_binary_rhs(
     out
 }
 
+#[cfg(test)]
 pub(super) fn fold_dead_private_scratch_stores(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -2126,17 +2238,14 @@ fn mem_allows_idempotent_store_removal(layout: &MaterializeLayout, mem: &MirMem)
     }
 }
 
+#[cfg(test)]
 fn adjacent_store_reload_at(
     ops: &[MirOp],
     index: usize,
     layout: &MaterializeLayout,
     terminator: &MirTerminator,
 ) -> Option<usize> {
-    let stored = store_a_direct_byte(ops.get(index)?)?;
-    let loaded = load_a_direct_byte(ops.get(index + 1)?)?;
-    if stored != loaded || !mem_allows_idempotent_store_removal(layout, &stored) {
-        return None;
-    }
+    adjacent_store_reload_shape_at(ops, index, layout)?;
     if can_remove_spill_reload_at(ops, index + 1, terminator)
         || can_remove_spill_reload_before_later_a_use(ops, index + 1, terminator)
     {
@@ -2146,11 +2255,32 @@ fn adjacent_store_reload_at(
     }
 }
 
+fn adjacent_store_reload_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+) -> Option<usize> {
+    let stored = store_a_direct_byte(ops.get(index)?)?;
+    let loaded = load_a_direct_byte(ops.get(index + 1)?)?;
+    if stored != loaded || !mem_allows_idempotent_store_removal(layout, &stored) {
+        return None;
+    }
+    Some(2)
+}
+
+#[cfg(test)]
 pub(super) fn staged_compare_rhs_at(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
 ) -> Option<(usize, Vec<MirOp>)> {
+    let replacement = staged_compare_rhs_shape_at(ops, index)?;
+    let rhs_slot = store_a_direct_byte(ops.get(index + 1)?)?;
+    private_scratch_store_removal_is_safe_after(ops, index + 4, terminator, &rhs_slot)
+        .then_some(replacement)
+}
+
+fn staged_compare_rhs_shape_at(ops: &[MirOp], index: usize) -> Option<(usize, Vec<MirOp>)> {
     let rhs_source = load_a_direct_byte(ops.get(index)?)?;
     let rhs_slot = store_a_direct_byte(ops.get(index + 1)?)?;
     if rhs_source == rhs_slot
@@ -2175,9 +2305,7 @@ pub(super) fn staged_compare_rhs_at(
     else {
         return None;
     };
-    if *compare_rhs != rhs_slot
-        || !private_scratch_store_removal_is_safe_after(ops, index + 4, terminator, &rhs_slot)
-    {
+    if *compare_rhs != rhs_slot {
         return None;
     }
 
@@ -2201,11 +2329,19 @@ pub(super) fn staged_compare_rhs_at(
     ))
 }
 
+#[cfg(test)]
 fn staged_binary_rhs_at(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
 ) -> Option<(usize, Vec<MirOp>)> {
+    let replacement = staged_binary_rhs_shape_at(ops, index)?;
+    let rhs_slot = store_a_direct_byte(ops.get(index + 1)?)?;
+    private_scratch_store_removal_is_safe_after(ops, index + 4, terminator, &rhs_slot)
+        .then_some(replacement)
+}
+
+fn staged_binary_rhs_shape_at(ops: &[MirOp], index: usize) -> Option<(usize, Vec<MirOp>)> {
     let rhs_source = load_a_direct_byte(ops.get(index)?)?;
     let rhs_slot = store_a_direct_byte(ops.get(index + 1)?)?;
     if rhs_source == rhs_slot
@@ -2231,9 +2367,7 @@ fn staged_binary_rhs_at(
     else {
         return None;
     };
-    if *binary_rhs != rhs_slot
-        || !private_scratch_store_removal_is_safe_after(ops, index + 4, terminator, &rhs_slot)
-    {
+    if *binary_rhs != rhs_slot {
         return None;
     }
 
@@ -2258,6 +2392,7 @@ fn staged_binary_rhs_at(
     ))
 }
 
+#[cfg(test)]
 pub(super) fn dead_private_scratch_store_at(
     ops: &[MirOp],
     index: usize,
@@ -2284,6 +2419,7 @@ fn store_direct_private_scratch_byte(op: &MirOp) -> Option<MirMem> {
     mem_is_private_scratch(mem).then(|| mem.clone())
 }
 
+#[cfg(test)]
 fn private_scratch_store_retention_stat(
     ops: &[MirOp],
     index: usize,
@@ -2302,6 +2438,7 @@ fn private_scratch_store_retention_stat(
     Some("ssa-lite-store-retained-unknown")
 }
 
+#[cfg(test)]
 pub(super) fn private_scratch_store_removal_is_safe_after(
     ops: &[MirOp],
     start: usize,
@@ -2317,6 +2454,7 @@ pub(super) fn private_scratch_store_removal_is_safe_after(
     !terminator_has_successors(terminator) && !mem_is_read_after(ops, start, terminator, mem)
 }
 
+#[cfg(test)]
 fn mem_is_overwritten_before_read_or_transfer(ops: &[MirOp], start: usize, mem: &MirMem) -> bool {
     for op in ops.iter().skip(start) {
         if op_reads_mem(op, mem) {
@@ -2332,6 +2470,7 @@ fn mem_is_overwritten_before_read_or_transfer(ops: &[MirOp], start: usize, mem: 
     false
 }
 
+#[cfg(test)]
 fn terminator_has_successors(terminator: &MirTerminator) -> bool {
     matches!(
         terminator,

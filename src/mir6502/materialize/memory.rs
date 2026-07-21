@@ -1,6 +1,11 @@
-use crate::mir6502::analysis::effects::{MirOpKind, classify_op, classify_value};
-use crate::mir6502::ir::{MirCond, MirMem, MirOp, MirTerminator};
+use crate::mir6502::analysis::effects::classify_op;
+#[cfg(test)]
+use crate::mir6502::analysis::effects::{MirOpKind, classify_value};
+#[cfg(test)]
+use crate::mir6502::ir::{MirCond, MirTerminator};
+use crate::mir6502::ir::{MirMem, MirOp};
 
+#[cfg(test)]
 pub(super) fn mem_is_read_after(
     ops: &[MirOp],
     start: usize,
@@ -10,6 +15,7 @@ pub(super) fn mem_is_read_after(
     ops[start..].iter().any(|op| op_reads_mem(op, mem)) || terminator_reads_mem(terminator, mem)
 }
 
+#[cfg(test)]
 fn terminator_reads_mem(terminator: &MirTerminator, mem: &MirMem) -> bool {
     // This compatibility query historically considered only the branch
     // condition. Routine-wide analyses consume the complete terminator summary,
@@ -28,6 +34,7 @@ pub(super) fn op_reads_mem(op: &MirOp, mem: &MirMem) -> bool {
     !matches!(op, MirOp::RuntimeHelper { .. }) && classify_op(op).memory.reads(mem)
 }
 
+#[cfg(test)]
 pub(super) fn op_definitely_writes_mem(op: &MirOp, mem: &MirMem) -> bool {
     let effects = classify_op(op);
     matches!(effects.kind, MirOpKind::Store | MirOpKind::UpdateMem)

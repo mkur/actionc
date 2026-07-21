@@ -1201,7 +1201,7 @@ Migrate in conservative sub-slices:
 - [x] staged byte/word and next-style word forwarding;
 - [x] word-array value staging and indexed base-pointer staging;
 - [x] indirect compound and direct/constant store families;
-- [ ] staged RHS, adjacent reload, spill forwarding, and dead scratch stores;
+- [x] staged RHS, adjacent reload, spill forwarding, and dead scratch stores;
 - [ ] inc/dec, dead register writes, and reload forwarding; split parameter-home
    forwarding into pre-home availability consumers and post-home reload
    consumers.
