@@ -66,16 +66,24 @@ pub(super) fn fold_structural_peepholes(
 /// Legacy tail retained while Slice 8 migrates families in order. The staged
 /// byte/word and word-forward families are intentionally absent: production
 /// invokes their routine-level transactional discovery before this tail.
-pub(super) fn fold_structural_after_staged_forwards(
+pub(super) fn fold_structural_before_word_array(
+    mut ops: Vec<MirOp>,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Vec<MirOp> {
+    ops = fold_indirect_byte_const_stores(ops, routine_id, peephole_stats);
+    ops = fold_indirect_y_const_stores(ops, routine_id, layout, peephole_stats);
+    ops
+}
+
+pub(super) fn fold_structural_after_word_array(
     mut ops: Vec<MirOp>,
     routine_id: RoutineId,
     layout: &MaterializeLayout,
     terminator: &MirTerminator,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Vec<MirOp> {
-    ops = fold_indirect_byte_const_stores(ops, routine_id, peephole_stats);
-    ops = fold_indirect_y_const_stores(ops, routine_id, layout, peephole_stats);
-    ops = fold_word_array_store_value_staging(ops, routine_id, layout, peephole_stats);
     ops = fold_indirect_byte_direct_stores(ops, routine_id, layout, peephole_stats);
     ops = fold_indirect_byte_const_compounds(ops, routine_id, peephole_stats);
     ops = fold_indirect_byte_direct_compounds(ops, routine_id, layout, peephole_stats);
@@ -90,6 +98,34 @@ pub(super) fn fold_structural_after_staged_forwards(
     ops = fold_dead_a_loads_before_flag_overwrite(ops, routine_id, terminator, peephole_stats);
     record_ssa_lite_block_facts(&ops, routine_id, layout, peephole_stats);
     ops
+}
+
+pub(in crate::mir6502) fn discover_word_array_value_staging(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some((consumed, replacement)) =
+                word_array_store_value_staging_at(&block.ops, index, routine.id, layout)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "word-array-store-value-staging",
+                    0,
+                )
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
 }
 
 pub(in crate::mir6502) fn discover_staged_word_forwards(
@@ -362,6 +398,7 @@ pub(super) fn fold_indirect_y_const_stores(
     out
 }
 
+#[cfg(test)]
 pub(super) fn fold_word_array_store_value_staging(
     ops: Vec<MirOp>,
     routine_id: RoutineId,

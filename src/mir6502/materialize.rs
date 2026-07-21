@@ -100,7 +100,7 @@ use indexes::{
     materialize_dynamic_byte_index_read, materialize_dynamic_byte_index_write,
 };
 use indexes::{
-    collect_delayed_byte_index_plan, fold_indexed_base_pointer_staging, indexed_addr_parts,
+    collect_delayed_byte_index_plan, indexed_addr_parts,
     indexed_word_copy_rematerialized_producer_ops, materialize_base_address,
     materialize_index_to_y, materialize_indexed_read_to_def, materialize_indexed_write_from_value,
     storage_address_value, try_fuse_dynamic_inline_byte_index, try_fuse_indexed_byte_copy,
@@ -119,7 +119,9 @@ use peepholes::{
     fold_indirect_byte_const_stores, fold_indirect_byte_direct_compounds,
     fold_indirect_y_const_stores, fold_word_array_store_value_staging, staged_compare_rhs_at,
 };
-use peepholes::{fold_structural_after_staged_forwards, fold_structural_prefix};
+use peepholes::{
+    fold_structural_after_word_array, fold_structural_before_word_array, fold_structural_prefix,
+};
 use pointers::{
     is_zero_word_value, materialize_pointer_deref_address, materialize_pointer_deref_read,
     materialize_pointer_deref_read_byte, materialize_pointer_deref_write,
@@ -805,16 +807,22 @@ pub(super) fn materialize_program(
         )?;
         for block in &mut routine.blocks {
             let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_after_staged_forwards(
+            block.ops =
+                fold_structural_before_word_array(ops, routine.id, &layout, &mut peephole_stats);
+        }
+        run_analyzed_word_array_value_staging(routine, &layout, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
+            let ops = std::mem::take(&mut block.ops);
+            block.ops = fold_structural_after_word_array(
                 ops,
                 routine.id,
                 &layout,
                 &block.terminator,
                 &mut peephole_stats,
             );
-            let (ops, count) = fold_indexed_base_pointer_staging(std::mem::take(&mut block.ops));
-            peephole_stats.record_many(routine.id, "indexed-base-pointer-staging", count);
-            block.ops = ops;
+        }
+        run_analyzed_indexed_base_pointer_staging(routine, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
             block.terminator =
                 materialize_terminator(block.id, &block.terminator, &block.ops, config);
             materialize_fused_compare_dest(block.id, &block.terminator, &mut block.ops);
@@ -860,17 +868,21 @@ pub(super) fn materialize_program(
         )?;
         for block in &mut routine.blocks {
             let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_after_staged_forwards(
+            block.ops =
+                fold_structural_before_word_array(ops, routine.id, &layout, &mut peephole_stats);
+        }
+        run_analyzed_word_array_value_staging(routine, &layout, &mut peephole_stats)?;
+        for block in &mut routine.blocks {
+            let ops = std::mem::take(&mut block.ops);
+            block.ops = fold_structural_after_word_array(
                 ops,
                 routine.id,
                 &layout,
                 &block.terminator,
                 &mut peephole_stats,
             );
-            let (ops, count) = fold_indexed_base_pointer_staging(std::mem::take(&mut block.ops));
-            peephole_stats.record_many(routine.id, "indexed-base-pointer-staging", count);
-            block.ops = ops;
         }
+        run_analyzed_indexed_base_pointer_staging(routine, &mut peephole_stats)?;
         fold_ssa_lite_single_predecessor_loads(routine, &layout, &mut peephole_stats);
         remove_dead_spill_stores(routine);
         let remap = color_basic_block_spills(routine);
@@ -928,6 +940,43 @@ fn run_analyzed_staged_word_forwards(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home staged word forwarding failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_word_array_value_staging(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            peepholes::discover_word_array_value_staging(routine, context, layout)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home word-array staging failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_indexed_base_pointer_staging(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, indexes::discover_indexed_base_pointer_staging)
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home indexed base-pointer staging failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

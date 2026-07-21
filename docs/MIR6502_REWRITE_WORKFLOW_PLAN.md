@@ -1199,7 +1199,7 @@ first migration family are complete.
 Migrate in conservative sub-slices:
 
 - [x] staged byte/word and next-style word forwarding;
-- [ ] word-array value staging and indexed base-pointer staging;
+- [x] word-array value staging and indexed base-pointer staging;
 - [ ] indirect compound and direct/constant store families;
 - [ ] staged RHS, adjacent reload, spill forwarding, and dead scratch stores;
 - [ ] inc/dec, dead register writes, and reload forwarding; split parameter-home

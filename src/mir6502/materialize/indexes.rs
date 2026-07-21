@@ -1,4 +1,8 @@
 use super::*;
+use crate::mir6502::ir::MirRoutine;
+use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
+use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
+use crate::mir6502::rewrite::posthome::structural_plan;
 
 const DELAYED_BYTE_INDEX_ENABLED: bool = true;
 
@@ -919,6 +923,7 @@ fn indexed_producer_mem_is_stable_source(mem: &MirMem) -> bool {
     !matches!(mem, MirMem::Spill { .. } | MirMem::ZeroPage(_))
 }
 
+#[allow(dead_code)] // Legacy audit entry point retained until Slice 10 enforcement.
 pub(super) fn fold_indexed_base_pointer_staging(ops: Vec<MirOp>) -> (Vec<MirOp>, usize) {
     let mut replacements = BTreeMap::<usize, MirValue>::new();
     let mut remove = BTreeSet::<usize>::new();
@@ -961,6 +966,71 @@ pub(super) fn fold_indexed_base_pointer_staging(ops: Vec<MirOp>) -> (Vec<MirOp>,
         out.push(op);
     }
     (out, count)
+}
+
+pub(in crate::mir6502) fn discover_indexed_base_pointer_staging(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for materialize_index in 0..block.ops.len() {
+            let Some((consumer, base_lo, base_hi)) =
+                materialize_indexed_base_pointer_cells(&block.ops[materialize_index])
+            else {
+                continue;
+            };
+            if !materialized_pointer_has_word_store_consumers(
+                &block.ops,
+                materialize_index,
+                consumer,
+            ) {
+                continue;
+            }
+            let Some(staging) = indexed_base_pointer_staging_shape_at(
+                &block.ops,
+                materialize_index,
+                &base_lo,
+                &base_hi,
+                false,
+            ) else {
+                continue;
+            };
+            let start = staging.lo_load_index;
+            let remove = BTreeSet::from([
+                staging.lo_load_index,
+                staging.lo_store_index,
+                staging.hi_load_index,
+                staging.hi_store_index,
+            ]);
+            let mut replacement = Vec::new();
+            for index in start..=materialize_index {
+                if remove.contains(&index) {
+                    continue;
+                }
+                let mut op = block.ops[index].clone();
+                if index == materialize_index
+                    && let MirOp::MaterializeIndexedAddress { base, .. } = &mut op
+                {
+                    *base = pointer_value_from_mem(&staging.source_lo);
+                }
+                replacement.push(op);
+            }
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                start..materialize_index + 1,
+                replacement,
+                MirExitStateChange::default(),
+                "indexed-base-pointer-staging",
+                0,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
 }
 
 #[derive(Debug, Clone)]
@@ -1037,6 +1107,16 @@ fn indexed_base_pointer_staging_at(
     base_lo: &MirMem,
     base_hi: &MirMem,
 ) -> Option<IndexedBasePointerStaging> {
+    indexed_base_pointer_staging_shape_at(ops, materialize_index, base_lo, base_hi, true)
+}
+
+fn indexed_base_pointer_staging_shape_at(
+    ops: &[MirOp],
+    materialize_index: usize,
+    base_lo: &MirMem,
+    base_hi: &MirMem,
+    require_block_local_deadness: bool,
+) -> Option<IndexedBasePointerStaging> {
     let hi_store_index = find_previous_store_a_to_mem(ops, materialize_index, base_hi)?;
     let (hi_load_index, source_hi) = load_a_direct_before_store(ops, hi_store_index)?;
     let lo_store_index = find_previous_store_a_to_mem(ops, hi_load_index, base_lo)?;
@@ -1056,6 +1136,7 @@ fn indexed_base_pointer_staging_at(
         &source_lo,
         &source_hi,
         &staging_indices,
+        require_block_local_deadness,
     ) {
         return None;
     }
@@ -1102,6 +1183,7 @@ fn staged_pointer_fold_is_safe(
     source_lo: &MirMem,
     source_hi: &MirMem,
     staging_indices: &[usize; 4],
+    require_block_local_deadness: bool,
 ) -> bool {
     let lo_load_index = staging_indices[0];
     let lo_store_index = staging_indices[1];
@@ -1133,9 +1215,11 @@ fn staged_pointer_fold_is_safe(
             return false;
         }
     }
-    for op in ops.iter().skip(materialize_index + 1) {
-        if op_reads_mem(op, base_lo) || op_reads_mem(op, base_hi) {
-            return false;
+    if require_block_local_deadness {
+        for op in ops.iter().skip(materialize_index + 1) {
+            if op_reads_mem(op, base_lo) || op_reads_mem(op, base_hi) {
+                return false;
+            }
         }
     }
     true
