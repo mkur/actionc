@@ -255,6 +255,7 @@ impl MirOpEffectSummary {
 
     pub(in crate::mir6502) fn may_clobber_reg_compat(&self, reg: MirReg) -> bool {
         self.writes_reg(reg)
+            || register_set_contains(self.machine.register_clobbers, reg)
             || register_set_contains(self.machine.conservative_register_clobbers, reg)
     }
 }
@@ -405,6 +406,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         }
         MirOp::Call {
             target,
+            abi,
             args,
             result,
             effects,
@@ -418,8 +420,16 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                 record_def(&result.dst, result.width, &mut summary);
             }
             apply_structured_effects(effects, false, &mut summary);
-            summary.machine.conservative_register_clobbers = all_registers();
-            summary.machine.flag_clobbers = MirFlagSet::all();
+            let mut clobbers = effects.clobbers;
+            merge_register_sets(&mut clobbers, abi.clobbers);
+            merge_register_sets(&mut summary.machine.register_clobbers, clobbers);
+            let mut preserves = effects.preserves;
+            merge_register_sets(&mut preserves, abi.preserves);
+            summary.machine.conservative_register_clobbers =
+                incomplete_call_clobbers(clobbers, preserves);
+            if clobbers.flags {
+                summary.machine.flag_clobbers = MirFlagSet::all();
+            }
             summary.machine.writes_any_flags_compat = true;
             summary.machine.unknown_flag_or_a_effects = true;
         }
@@ -436,8 +446,8 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                 record_result_home_write(result, &mut summary);
             }
             apply_structured_effects(effects, false, &mut summary);
-            summary.machine.conservative_register_clobbers = all_registers();
-            summary.machine.flag_clobbers = MirFlagSet::all();
+            summary.machine.conservative_register_clobbers =
+                incomplete_call_clobbers(effects.clobbers, effects.preserves);
             summary.machine.writes_any_flags_compat = true;
             summary.machine.unknown_flag_or_a_effects = true;
         }
@@ -1131,6 +1141,18 @@ fn all_registers() -> MirRegisterSet {
         y: true,
         flags: true,
         sp: true,
+    }
+}
+
+fn incomplete_call_clobbers(clobbers: MirRegisterSet, preserves: MirRegisterSet) -> MirRegisterSet {
+    MirRegisterSet {
+        a: !clobbers.a && !preserves.a,
+        x: !clobbers.x && !preserves.x,
+        y: !clobbers.y && !preserves.y,
+        flags: !clobbers.flags && !preserves.flags,
+        // A call's transient stack use is balanced at its MIR boundary unless
+        // the structured effects explicitly say that SP is clobbered.
+        sp: false,
     }
 }
 

@@ -2,6 +2,7 @@ pub(super) mod cfg;
 pub(super) mod dominance;
 pub(super) mod effects;
 pub(super) mod home_liveness;
+pub(super) mod machine_liveness;
 pub(super) mod prehome;
 pub(super) mod reaching_defs;
 pub(super) mod sites;

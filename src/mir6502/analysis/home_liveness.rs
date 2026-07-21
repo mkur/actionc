@@ -8,7 +8,10 @@ use crate::mir6502::analysis::effects::{
     MirHomeByte, MirHomeEffects, MirOpEffectSummary, classify_op, classify_terminator,
 };
 use crate::mir6502::analysis::sites::MirSite;
-use crate::mir6502::ir::{MirBlockId, MirRoutine};
+use crate::mir6502::ir::{MirBlockId, MirFixedZpSlot, MirRoutine, MirTerminator};
+
+const ACTION_RETURN_HOME_BASE: u8 = 0xA0;
+const ACTION_RETURN_HOME_BYTES: u8 = 2;
 
 /// Backward may-liveness for compiler-managed byte homes after temp
 /// materialization. A byte is live when some path can read its current value
@@ -131,7 +134,24 @@ impl MirHomeLiveness {
             .iter()
             .map(|(block, transfers)| (*block, block_uses_and_defs(transfers)))
             .collect::<BTreeMap<_, _>>();
-        let result = solve_dataflow(cfg, &HomeLivenessProblem { facts: &facts });
+        let boundaries = routine
+            .blocks
+            .iter()
+            .filter(|block| {
+                matches!(
+                    block.terminator,
+                    MirTerminator::Return | MirTerminator::Exit
+                )
+            })
+            .map(|block| (block.id, action_return_home_uses()))
+            .collect::<BTreeMap<_, _>>();
+        let result = solve_dataflow(
+            cfg,
+            &HomeLivenessProblem {
+                facts: &facts,
+                boundaries: &boundaries,
+            },
+        );
         let block_indices = routine
             .blocks
             .iter()
@@ -303,6 +323,7 @@ struct MirHomeBlockFacts {
 
 struct HomeLivenessProblem<'a> {
     facts: &'a BTreeMap<MirBlockId, MirHomeBlockFacts>,
+    boundaries: &'a BTreeMap<MirBlockId, MirHomeLiveSet>,
 }
 
 impl DataflowProblem<MirCfg> for HomeLivenessProblem<'_> {
@@ -316,8 +337,8 @@ impl DataflowProblem<MirCfg> for HomeLivenessProblem<'_> {
         Self::State::default()
     }
 
-    fn boundary(&self, _node: MirBlockId) -> Option<Self::State> {
-        None
+    fn boundary(&self, node: MirBlockId) -> Option<Self::State> {
+        self.boundaries.get(&node).cloned()
     }
 
     fn join(&self, into: &mut Self::State, other: &Self::State) {
@@ -346,7 +367,25 @@ fn collect_home_universe(routine: &MirRoutine) -> MirHomeLiveSet {
         universe.extend(effects.homes.reads);
         universe.extend(effects.homes.writes);
     }
+    if routine.blocks.iter().any(|block| {
+        matches!(
+            block.terminator,
+            MirTerminator::Return | MirTerminator::Exit
+        )
+    }) {
+        universe.union_with(&action_return_home_uses());
+    }
     universe
+}
+
+fn action_return_home_uses() -> MirHomeLiveSet {
+    let mut uses = MirHomeLiveSet::default();
+    for offset in 0..ACTION_RETURN_HOME_BYTES {
+        uses.insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(
+            ACTION_RETURN_HOME_BASE.saturating_add(offset),
+        )));
+    }
+    uses
 }
 
 fn op_transfer(effects: &MirOpEffectSummary, universe: &MirHomeLiveSet) -> MirHomeTransfer {
@@ -619,7 +658,17 @@ mod tests {
         let live_in = liveness.live_in(MirBlockId(0)).unwrap();
         assert!(live_in.contains(lo));
         assert!(live_in.contains(hi));
-        assert_eq!(live_in.len(), 2);
+    }
+
+    #[test]
+    fn action_return_slot_bytes_are_abi_boundary_uses() {
+        let lo = MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xA0));
+        let hi = MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xA1));
+        let routine = routine(vec![block(0, Vec::new(), MirTerminator::Return)]);
+        let liveness = analyze(&routine);
+        let live_out = liveness.live_out(MirBlockId(0)).unwrap();
+        assert!(live_out.contains(lo));
+        assert!(live_out.contains(hi));
     }
 
     #[test]

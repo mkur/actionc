@@ -1160,8 +1160,8 @@ materialization.
 
 ### Slice 7: build post-home location and machine liveness
 
-Status: in progress. Private home-byte liveness is implemented; machine-state
-liveness, parameter-home availability, and the typed post-home facade remain.
+Status: in progress. Private home-byte and per-location machine liveness are
+implemented; parameter-home availability and the typed post-home facade remain.
 
 - Implement private home-byte identities and backward home liveness.
 - Treat address consumers as reads of their pair bytes.
