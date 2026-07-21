@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::mir6502::analysis::effects::{
     MirFlagSet, MirHomeByte, MirMemoryRange, MirTempAccess, classify_op,
 };
+use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 use crate::mir6502::analysis::use_def::{MirDefSite, MirTempLane};
@@ -12,8 +13,10 @@ use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirBlockId, MirFixedZpSlot, MirMem, MirOp, MirPointerPair, MirReg,
     MirRegisterSet, MirRoutine, MirValue, MirWidth,
 };
-use crate::mir6502::rewrite::context::PreHomeRewriteContext;
-use crate::mir6502::rewrite::plan::{MirEffectDelta, MirFactClass, MirRewritePlan};
+use crate::mir6502::rewrite::context::{MirProof, PostHomeRewriteContext, PreHomeRewriteContext};
+use crate::mir6502::rewrite::plan::{
+    MirEffectDelta, MirFactClass, MirPostHomeRewritePlan, MirRewritePlan,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirRewriteError {
@@ -192,6 +195,225 @@ pub(in crate::mir6502) struct MirAppliedBatch {
     pub applied: Vec<&'static str>,
     pub overlap_rejections: usize,
     pub observations: BTreeMap<&'static str, usize>,
+}
+
+/// Routine-level transactional driver for physical-home rewrites. A snapshot
+/// is rebuilt after every applied batch, so no liveness or availability fact
+/// can be reused with shifted operation indices.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::mir6502) struct MirPostHomeRewriteDriver {
+    generation: MirRoutineGeneration,
+    max_rounds: usize,
+}
+
+impl Default for MirPostHomeRewriteDriver {
+    fn default() -> Self {
+        Self {
+            generation: MirRoutineGeneration::initial(),
+            max_rounds: 32,
+        }
+    }
+}
+
+impl MirPostHomeRewriteDriver {
+    pub(in crate::mir6502) fn generation(&self) -> MirRoutineGeneration {
+        self.generation
+    }
+
+    pub(in crate::mir6502) fn run_fixed_point<Discover>(
+        &mut self,
+        routine: &mut MirRoutine,
+        mut discover: Discover,
+    ) -> Result<MirRewriteRunResult, MirRewriteError>
+    where
+        Discover:
+            FnMut(&MirRoutine, &PostHomeRewriteContext<'_, '_>) -> Vec<MirPostHomeRewritePlan>,
+    {
+        let mut result = MirRewriteRunResult::default();
+        for _ in 0..self.max_rounds {
+            result.rounds += 1;
+            let snapshot = PostHomeAnalysisSnapshot::new(routine, self.generation)
+                .map_err(|_| MirRewriteError::InvalidCfg)?;
+            result.analysis_builds += 1;
+            let context = PostHomeRewriteContext::new(&snapshot);
+            let plans = discover(routine, &context);
+            result.candidates += plans.len();
+            for plan in &plans {
+                validate_posthome_plan(routine, self.generation, &context, plan)?;
+            }
+            drop(snapshot);
+            if plans.is_empty() {
+                result.converged = true;
+                return Ok(result);
+            }
+
+            let candidates = plans.len();
+            let selected = select_non_overlapping_posthome(routine, plans);
+            result.overlap_rejections += candidates.saturating_sub(selected.len());
+            let mut by_block = BTreeMap::<MirBlockId, Vec<MirPostHomeRewritePlan>>::new();
+            for plan in selected {
+                by_block.entry(plan.block).or_default().push(plan);
+            }
+            let mut applied_this_round = 0usize;
+            for (block, mut plans) in by_block {
+                let block_index = routine
+                    .blocks
+                    .iter()
+                    .position(|candidate| candidate.id == block)
+                    .expect("validated post-home rewrite block");
+                plans.sort_by_key(|plan| std::cmp::Reverse(plan.range.start));
+                for plan in plans {
+                    for (stat, count) in &plan.observations {
+                        *result.applied_by_stat.entry(*stat).or_default() += *count;
+                    }
+                    routine.blocks[block_index]
+                        .ops
+                        .splice(plan.range, plan.replacement);
+                    *result.applied_by_stat.entry(plan.stat).or_default() += 1;
+                    result.applied += 1;
+                    applied_this_round += 1;
+                }
+            }
+            if applied_this_round == 0 {
+                return Err(MirRewriteError::InvalidDeclaration {
+                    stat: "post-home-fixed-point",
+                    message: "non-empty candidate set selected no rewrite".to_string(),
+                });
+            }
+            self.generation = self.generation.next();
+        }
+        Err(MirRewriteError::DidNotConverge {
+            max_rounds: self.max_rounds,
+        })
+    }
+}
+
+fn select_non_overlapping_posthome(
+    routine: &MirRoutine,
+    mut plans: Vec<MirPostHomeRewritePlan>,
+) -> Vec<MirPostHomeRewritePlan> {
+    let block_order = routine
+        .blocks
+        .iter()
+        .enumerate()
+        .map(|(index, block)| (block.id, index))
+        .collect::<BTreeMap<_, _>>();
+    plans.sort_by_key(|plan| {
+        (
+            plan.family_priority,
+            std::cmp::Reverse(plan.estimated_byte_saving),
+            std::cmp::Reverse(plan.estimated_cycle_saving),
+            std::cmp::Reverse(plan.range.len()),
+            block_order[&plan.block],
+            plan.range.start,
+        )
+    });
+    let mut occupied = BTreeMap::<MirBlockId, Vec<std::ops::Range<usize>>>::new();
+    let mut selected = Vec::new();
+    for plan in plans {
+        let overlaps = occupied.get(&plan.block).is_some_and(|ranges| {
+            ranges
+                .iter()
+                .any(|range| ranges_overlap(range, &plan.range))
+        });
+        if !overlaps {
+            occupied
+                .entry(plan.block)
+                .or_default()
+                .push(plan.range.clone());
+            selected.push(plan);
+        }
+    }
+    selected
+}
+
+fn validate_posthome_plan(
+    routine: &MirRoutine,
+    generation: MirRoutineGeneration,
+    context: &PostHomeRewriteContext<'_, '_>,
+    plan: &MirPostHomeRewritePlan,
+) -> Result<(), MirRewriteError> {
+    if plan.generation != generation {
+        return Err(MirRewriteError::StalePlan {
+            expected: generation,
+            actual: plan.generation,
+        });
+    }
+    let Some(block) = routine.blocks.iter().find(|block| block.id == plan.block) else {
+        return Err(MirRewriteError::UnknownBlock(plan.block));
+    };
+    if plan.range.start >= plan.range.end || plan.range.end > block.ops.len() {
+        return Err(MirRewriteError::InvalidRange {
+            block: plan.block,
+            start: plan.range.start,
+            end: plan.range.end,
+            op_count: block.ops.len(),
+        });
+    }
+    if plan.range.len() != plan.replacement.len()
+        && !(plan.change_set.invalidates(MirFactClass::HomeLiveness)
+            && plan.change_set.invalidates(MirFactClass::MachineLiveness)
+            && plan.change_set.invalidates(MirFactClass::ParamAvailability)
+            && plan.change_set.invalidates(MirFactClass::MemoryEffects))
+    {
+        return Err(MirRewriteError::InvalidDeclaration {
+            stat: plan.stat,
+            message: "operation-count change omitted post-home invalidations".to_string(),
+        });
+    }
+
+    let end = context.point(MirSite::Op {
+        block: plan.block,
+        op_index: plan.range.end - 1,
+    });
+    let mut declared = BTreeSet::new();
+    for removed in &plan.removed_homes {
+        if removed.store.block() != plan.block
+            || !matches!(removed.store, MirSite::Op { op_index, .. } if plan.range.contains(&op_index))
+        {
+            return Err(MirRewriteError::InvalidDeclaration {
+                stat: plan.stat,
+                message: format!("removed home store is outside rewrite range: {removed:?}"),
+            });
+        }
+        if !declared.insert(*removed) {
+            return Err(MirRewriteError::InvalidDeclaration {
+                stat: plan.stat,
+                message: format!("duplicate removed home definition: {removed:?}"),
+            });
+        }
+        let MirSite::Op { op_index, .. } = removed.store else {
+            unreachable!("checked operation site")
+        };
+        let effects = classify_op(&block.ops[op_index]);
+        if !effects.homes.writes.contains(&removed.home)
+            && !effects.addresses.pair_writes.contains(&removed.home)
+        {
+            return Err(MirRewriteError::InvalidDeclaration {
+                stat: plan.stat,
+                message: format!("declared store does not write its home: {removed:?}"),
+            });
+        }
+        if !matches!(
+            context.home_definition_dead_after(removed.home, context.point(removed.store), end,),
+            MirProof::Proven(())
+        ) {
+            return Err(MirRewriteError::InvalidDeclaration {
+                stat: plan.stat,
+                message: format!("removed home definition is live: {removed:?}"),
+            });
+        }
+    }
+    if !matches!(
+        context.exit_state_change_is_unobservable(&plan.exit_state_change, end),
+        MirProof::Proven(())
+    ) {
+        return Err(MirRewriteError::InvalidDeclaration {
+            stat: plan.stat,
+            message: "declared exit-state change is observable".to_string(),
+        });
+    }
+    Ok(())
 }
 
 fn select_non_overlapping(

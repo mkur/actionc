@@ -3,9 +3,11 @@
 use std::collections::BTreeSet;
 use std::ops::Range;
 
-use crate::mir6502::analysis::sites::MirRoutineGeneration;
+use crate::mir6502::analysis::effects::MirHomeByte;
+use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 use crate::mir6502::analysis::use_def::MirDefSite;
 use crate::mir6502::ir::{MirBlockId, MirFixedZpSlot, MirOp, MirReg, MirWidth};
+use crate::mir6502::rewrite::context::MirExitStateChange;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(in crate::mir6502) enum MirFactClass {
@@ -37,6 +39,17 @@ impl MirChangeSet {
                 MirFactClass::MemoryEffects,
                 MirFactClass::MachineLiveness,
                 MirFactClass::ParamAvailability,
+            ]),
+        }
+    }
+
+    pub(in crate::mir6502) fn posthome_operation_change() -> Self {
+        Self {
+            invalidates: BTreeSet::from([
+                MirFactClass::HomeLiveness,
+                MirFactClass::MachineLiveness,
+                MirFactClass::ParamAvailability,
+                MirFactClass::MemoryEffects,
             ]),
         }
     }
@@ -108,6 +121,39 @@ pub(in crate::mir6502) struct MirRewritePlan {
 }
 
 impl MirRewritePlan {
+    pub(in crate::mir6502) fn removed_operation_count(&self) -> usize {
+        self.range.len().saturating_sub(self.replacement.len())
+    }
+}
+
+/// A concrete compiler-managed home definition removed by a post-home
+/// transaction. Definitions use operation sites rather than only home names:
+/// two writes to the same spill byte are distinct values for liveness.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(in crate::mir6502) struct MirRemovedHomeDefinition {
+    pub home: MirHomeByte,
+    pub store: MirSite,
+}
+
+/// Transactional plan for rewrites after logical temps have acquired physical
+/// homes. Post-home plans deliberately cannot name logical temp definitions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct MirPostHomeRewritePlan {
+    pub generation: MirRoutineGeneration,
+    pub block: MirBlockId,
+    pub range: Range<usize>,
+    pub replacement: Vec<MirOp>,
+    pub removed_homes: Vec<MirRemovedHomeDefinition>,
+    pub exit_state_change: MirExitStateChange,
+    pub change_set: MirChangeSet,
+    pub stat: &'static str,
+    pub observations: Vec<(&'static str, usize)>,
+    pub family_priority: u16,
+    pub estimated_byte_saving: u16,
+    pub estimated_cycle_saving: u16,
+}
+
+impl MirPostHomeRewritePlan {
     pub(in crate::mir6502) fn removed_operation_count(&self) -> usize {
         self.range.len().saturating_sub(self.replacement.len())
     }

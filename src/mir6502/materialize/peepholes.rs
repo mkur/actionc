@@ -1,5 +1,10 @@
 use super::store_consumers::try_fold_direct_inc_dec_update;
 use super::*;
+use crate::mir6502::analysis::effects::MirFlagSet;
+use crate::mir6502::ir::{MirRegisterSet, MirRoutine};
+use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
+use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
+use crate::mir6502::rewrite::posthome::structural_plan;
 
 fn fold_direct_inc_dec_updates(ops: Vec<MirOp>, terminator: &MirTerminator) -> Vec<MirOp> {
     let mut out = Vec::new();
@@ -15,6 +20,12 @@ fn fold_direct_inc_dec_updates(ops: Vec<MirOp>, terminator: &MirTerminator) -> V
     out
 }
 
+pub(super) fn fold_structural_prefix(ops: Vec<MirOp>, terminator: &MirTerminator) -> Vec<MirOp> {
+    let ops = forward_block_local_spill_accumulator(ops, terminator);
+    fold_direct_inc_dec_updates(ops, terminator)
+}
+
+#[cfg(test)]
 pub(super) fn fold_structural_peepholes(
     mut ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -23,8 +34,7 @@ pub(super) fn fold_structural_peepholes(
     enable_direct_byte_word_update: bool,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Vec<MirOp> {
-    ops = forward_block_local_spill_accumulator(ops, terminator);
-    ops = fold_direct_inc_dec_updates(ops, terminator);
+    ops = fold_structural_prefix(ops, terminator);
     ops = fold_staged_byte_word_updates(
         ops,
         routine_id,
@@ -53,6 +63,124 @@ pub(super) fn fold_structural_peepholes(
     ops
 }
 
+/// Legacy tail retained while Slice 8 migrates families in order. The staged
+/// byte/word and word-forward families are intentionally absent: production
+/// invokes their routine-level transactional discovery before this tail.
+pub(super) fn fold_structural_after_staged_forwards(
+    mut ops: Vec<MirOp>,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    terminator: &MirTerminator,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Vec<MirOp> {
+    ops = fold_indirect_byte_const_stores(ops, routine_id, peephole_stats);
+    ops = fold_indirect_y_const_stores(ops, routine_id, layout, peephole_stats);
+    ops = fold_word_array_store_value_staging(ops, routine_id, layout, peephole_stats);
+    ops = fold_indirect_byte_direct_stores(ops, routine_id, layout, peephole_stats);
+    ops = fold_indirect_byte_const_compounds(ops, routine_id, peephole_stats);
+    ops = fold_indirect_byte_direct_compounds(ops, routine_id, layout, peephole_stats);
+    ops = fold_indirect_byte_compounds(ops, routine_id, peephole_stats);
+    ops = fold_redundant_self_stores(ops, routine_id, layout, peephole_stats);
+    ops = fold_adjacent_store_reloads(ops, routine_id, layout, terminator, peephole_stats);
+    ops = fold_staged_binary_rhs(ops, routine_id, terminator, peephole_stats);
+    ops = fold_staged_compare_rhs(ops, routine_id, terminator, peephole_stats);
+    ops = fold_ssa_lite_byte_loads(ops, routine_id, layout, terminator, peephole_stats);
+    ops = fold_dead_private_scratch_stores(ops, routine_id, terminator, peephole_stats);
+    ops = fold_dead_reg_writes_before_overwrite(ops, routine_id, terminator, peephole_stats);
+    ops = fold_dead_a_loads_before_flag_overwrite(ops, routine_id, terminator, peephole_stats);
+    record_ssa_lite_block_facts(&ops, routine_id, layout, peephole_stats);
+    ops
+}
+
+pub(in crate::mir6502) fn discover_staged_word_forwards(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+    enable_direct_byte_word_update: bool,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some((consumed, replacement)) = staged_byte_word_update_at(
+                &block.ops,
+                index,
+                routine.id,
+                layout,
+                enable_direct_byte_word_update,
+            ) && let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                index..index + consumed,
+                replacement,
+                clobbered_accumulator_exit(),
+                "staged-byte-word-update",
+                0,
+            ) {
+                plans.push(plan);
+            }
+            if let Some((consumed, replacement, stat)) =
+                next_style_word_store_forward_at(&block.ops, index)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    clobbered_accumulator_exit(),
+                    stat,
+                    1,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some((consumed, replacement, stat)) =
+                key_style_updated_pointer_deref_forward_at(&block.ops, index)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    stat,
+                    2,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some((consumed, replacement)) =
+                staged_word_store_forward_shape_at(&block.ops, index, routine.id, layout)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "staged-word-store-forward",
+                    3,
+                )
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+fn clobbered_accumulator_exit() -> MirExitStateChange {
+    MirExitStateChange {
+        registers: MirRegisterSet {
+            a: true,
+            ..MirRegisterSet::default()
+        },
+        flags: MirFlagSet::all(),
+        ..MirExitStateChange::default()
+    }
+}
+
+#[cfg(test)]
 fn fold_staged_byte_word_updates(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -81,6 +209,7 @@ fn fold_staged_byte_word_updates(
     out
 }
 
+#[cfg(test)]
 fn fold_staged_word_store_forwards(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -105,6 +234,7 @@ fn fold_staged_word_store_forwards(
     out
 }
 
+#[cfg(test)]
 fn fold_word_temp_producer_forwards(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -427,6 +557,7 @@ pub(super) fn fold_dead_reg_writes_before_overwrite(
     out
 }
 
+#[cfg(test)]
 fn word_temp_producer_forward_at(
     ops: &[MirOp],
     index: usize,
@@ -719,12 +850,32 @@ fn next_style_word_store_forward_at(
     ))
 }
 
+#[cfg(test)]
 fn staged_word_store_forward_at(
     ops: &[MirOp],
     index: usize,
     routine_id: RoutineId,
     layout: &MaterializeLayout,
     terminator: &MirTerminator,
+) -> Option<(usize, Vec<MirOp>)> {
+    let replacement = staged_word_store_forward_shape_at(ops, index, routine_id, layout)?;
+    let (consumed, _) = &replacement;
+    let staged_lo = store_a_direct_byte(ops.get(index + 2)?)?;
+    let staged_hi = store_a_direct_byte(ops.get(index + 5)?)?;
+    let after_forward = index + *consumed;
+    if !private_scratch_store_removal_is_safe_after(ops, after_forward, terminator, &staged_lo)
+        || !private_scratch_store_removal_is_safe_after(ops, after_forward, terminator, &staged_hi)
+    {
+        return None;
+    }
+    Some(replacement)
+}
+
+fn staged_word_store_forward_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
 ) -> Option<(usize, Vec<MirOp>)> {
     let source_lo = load_a_direct_byte(ops.get(index)?)?;
     let (op, _value) = binary_a_const_update(ops.get(index + 1)?)?;
@@ -755,13 +906,6 @@ fn staged_word_store_forward_at(
     {
         return None;
     }
-    let after_forward = index + 10;
-    if !private_scratch_store_removal_is_safe_after(ops, after_forward, terminator, &staged_lo)
-        || !private_scratch_store_removal_is_safe_after(ops, after_forward, terminator, &staged_hi)
-    {
-        return None;
-    }
-
     Some((
         10,
         vec![

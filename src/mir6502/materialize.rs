@@ -44,7 +44,9 @@ mod values;
 mod word_values;
 mod zp;
 
-use super::rewrite::driver::{MirPreHomeRewriteDriver, MirRewriteRunResult};
+use super::rewrite::driver::{
+    MirPostHomeRewriteDriver, MirPreHomeRewriteDriver, MirRewriteRunResult,
+};
 use super::rewrite::pilots::{
     byte_binary_compare_consumer_rank, compare_narrowing_rank,
     discover_byte_binary_compare_consumers, discover_compare_narrowing, discover_compare_producers,
@@ -110,7 +112,6 @@ use memory::{
     mem_is_read_after, op_definitely_writes_mem, op_may_have_unknown_memory_effects,
     op_may_write_mem, op_reads_mem,
 };
-use peepholes::fold_structural_peepholes;
 #[cfg(test)]
 use peepholes::{
     dead_private_scratch_store_at, fixed_pointer_consumer, fold_dead_private_scratch_stores,
@@ -118,6 +119,7 @@ use peepholes::{
     fold_indirect_byte_const_stores, fold_indirect_byte_direct_compounds,
     fold_indirect_y_const_stores, fold_word_array_store_value_staging, staged_compare_rhs_at,
 };
+use peepholes::{fold_structural_after_staged_forwards, fold_structural_prefix};
 use pointers::{
     is_zero_word_value, materialize_pointer_deref_address, materialize_pointer_deref_read,
     materialize_pointer_deref_read_byte, materialize_pointer_deref_write,
@@ -793,12 +795,21 @@ pub(super) fn materialize_program(
             let ops = std::mem::take(&mut block.ops);
             block.ops = fold_indirect_load_spill_consumers(ops, live_out);
             let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_peepholes(
+            block.ops = fold_structural_prefix(ops, &block.terminator);
+        }
+        run_analyzed_staged_word_forwards(
+            routine,
+            &layout,
+            config.enable_direct_byte_word_update,
+            &mut peephole_stats,
+        )?;
+        for block in &mut routine.blocks {
+            let ops = std::mem::take(&mut block.ops);
+            block.ops = fold_structural_after_staged_forwards(
                 ops,
                 routine.id,
                 &layout,
                 &block.terminator,
-                config.enable_direct_byte_word_update,
                 &mut peephole_stats,
             );
             let (ops, count) = fold_indexed_base_pointer_staging(std::mem::take(&mut block.ops));
@@ -839,12 +850,21 @@ pub(super) fn materialize_program(
                 &layout,
             );
             let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_peepholes(
+            block.ops = fold_structural_prefix(ops, &block.terminator);
+        }
+        run_analyzed_staged_word_forwards(
+            routine,
+            &layout,
+            config.enable_direct_byte_word_update,
+            &mut peephole_stats,
+        )?;
+        for block in &mut routine.blocks {
+            let ops = std::mem::take(&mut block.ops);
+            block.ops = fold_structural_after_staged_forwards(
                 ops,
                 routine.id,
                 &layout,
                 &block.terminator,
-                config.enable_direct_byte_word_update,
                 &mut peephole_stats,
             );
             let (ops, count) = fold_indexed_base_pointer_staging(std::mem::take(&mut block.ops));
@@ -886,6 +906,32 @@ pub(super) fn materialize_program(
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
     maybe_report_peepholes(&program, &peephole_stats, config);
     Ok(program)
+}
+
+fn run_analyzed_staged_word_forwards(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    enable_direct_byte_word_update: bool,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            peepholes::discover_staged_word_forwards(
+                routine,
+                context,
+                layout,
+                enable_direct_byte_word_update,
+            )
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home staged word forwarding failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
 }
 
 fn run_analyzed_compare_producer_rewrites(

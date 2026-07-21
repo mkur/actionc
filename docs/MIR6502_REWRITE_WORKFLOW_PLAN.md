@@ -1193,15 +1193,16 @@ Suggested commits:
 
 ### Slice 8: migrate post-home structural rewrites
 
-Status: planned.
+Status: in progress. The routine-level transactional post-home driver and the
+first migration family are complete.
 
 Migrate in conservative sub-slices:
 
-1. staged byte/word and next-style word forwarding;
-2. word-array value staging and indexed base-pointer staging;
-3. indirect compound and direct/constant store families;
-4. staged RHS, adjacent reload, spill forwarding, and dead scratch stores;
-5. inc/dec, dead register writes, and reload forwarding; split parameter-home
+- [x] staged byte/word and next-style word forwarding;
+- [ ] word-array value staging and indexed base-pointer staging;
+- [ ] indirect compound and direct/constant store families;
+- [ ] staged RHS, adjacent reload, spill forwarding, and dead scratch stores;
+- [ ] inc/dec, dead register writes, and reload forwarding; split parameter-home
    forwarding into pre-home availability consumers and post-home reload
    consumers.
 
