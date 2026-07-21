@@ -2,11 +2,10 @@
 
 Snapshot date: 2026-07-20.
 
-Status: in progress. Slice 6.1 (compare producers, narrowing, and consumers),
-6.2 (call families), 6.3 (store consumers), and 6.4 (pointer consumers) are
+Status: in progress. Slice 6 (all five pre-home migration sub-slices) is
 complete. Unused-`LeaAddr` elimination is also complete. The hybrid
 parameter-home family is split out for the later location/machine-state
-workflow; sub-slice 5 is pending. Migrated shape recognizers no longer make
+workflow. Migrated shape recognizers no longer make
 suffix-liveness decisions: exact definition
 identity, reaching definitions, and routine-wide lane deadness come from the
 shared snapshot. Later local, terminator, exact-lane successor, and full-temp
@@ -21,8 +20,8 @@ result-store materializations. TN has no removable unused-`LeaAddr` candidate
 at this point. Materialized MIR and XEX remained byte-identical to Slice 5
 through Slice 6.2 (`bb90d361...` and `f9f26cb3...`). Slice 6.3 intentionally
 changes both artifacts because shared deadness rejects five previously unsafe
-TN folds. Slice 6.4 is byte-identical to Slice 6.3; the detailed results are
-recorded under Slice 6.
+TN folds. Slices 6.4 and 6.5 are byte-identical to Slice 6.3; the detailed
+results are recorded under Slice 6.
 
 This note defines the implementation plan for integrating MIR6502 peepholes
 into a routine-aware compiler workflow. Local pattern matching remains useful,
@@ -1038,14 +1037,14 @@ Suggested commit: `mir6502: drive pre-home rewrites from shared facts`.
 
 ### Slice 6: migrate pre-home rewrites
 
-Status: in progress. Sub-slice 1 is complete: compare producers, narrowing, and
-compare consumers use the routine-aware driver. In sub-slice 2, simple
+Status: complete. Sub-slice 1 migrated compare producers, narrowing, and
+compare consumers to the routine-aware driver. In sub-slice 2, simple
 call-argument producers and return-slot result-to-argument forwarding are
 complete. Expression selection, call-result store consumers, and unused
 `LeaAddr` elimination are also complete. Parameter-home forwarding is no longer
 part of this sub-slice because its current helper combines pre-home temp
 rewrites with physical-register availability and post-home flag behavior.
-Sub-slices 2–4 are therefore complete; sub-slice 5 remains pending.
+All five sub-slices are complete.
 
 Migrate in behaviorally coherent sub-slices:
 
@@ -1094,6 +1093,31 @@ subsumed by the earlier direct-rematerialization priority, matching the legacy
 pass order. Materialized MIR, XEX size, and hashes remain byte-identical to
 Slice 6.3. The additional routine batch raises TN analysis builds from 1,082
 to 1,201; Slice 9 owns consolidation of these currently separate batches.
+
+Sub-slice 5 routes delayed byte indexes, indexed byte/word copies, and dynamic
+byte/word index preparation through one analyzed batch. Delayed expression
+matching retains structural single-owner, prior-carry, and source-memory
+stability barriers, but terminator and successor liveness now comes from the
+shared routine snapshot. Producer definitions are part of the same transaction
+as their indexed consumer. Indexed-word-copy rematerializations also declare
+the external base/index producers they absorb. A common invariant rejects any
+candidate whose replacement still reads a definition it declares removed;
+this caught a multi-use index hazard while migrating the family.
+
+TN applies 39 delayed-index consumer plans, observes 51 absorbed delayed
+producer operations, and applies one indexed-byte and one indexed-word copy.
+The dynamic preparation families have no TN site at this revision. The shared
+fixed-point driver selects seven delayed-index transactions beyond the legacy
+single scan after overlapping windows are rewritten; later cleanup already
+canonicalized those sites to the same operations, so materialized MIR and XEX
+remain byte-identical to Slice 6.3. Their hashes remain
+`5d930dabb43d77acb3c3d4d5b628a4f4e1b28a0c88d1649410b96b31ebd00432`
+and `8127b508d0d3ca74937edff304e2bb8783ba7cee88a1398223c8cf174d4a0b28`,
+respectively, with a 12,138-byte XEX. TN analysis builds rise from 1,201 to
+1,324, with 589 candidates, 473 applied plans, and 116 overlap rejections;
+Slice 9 owns consolidation. Local later uses, terminator uses, exact-lane and
+full-temp successor uses, delayed-index successor uses, and source-memory
+clobbers have negative coverage.
 
 For every migrated family:
 

@@ -356,6 +356,143 @@ pub(in crate::mir6502) fn pointer_rewrite_rank(routine: &MirRoutine) -> usize {
     logical_definition_lane_count(routine)
 }
 
+pub(in crate::mir6502) fn discover_index_rewrites(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (index, candidate) in crate::mir6502::materialize::analyzed_index_rewrite_candidates(
+            routine.id, block, layout,
+        ) {
+            let plan = match candidate.stat {
+                "delayed-byte-index-consumer" => {
+                    delayed_byte_index_plan(block.id, &block.ops, index, candidate, context)
+                }
+                "indexed-byte-copy" => {
+                    indexed_byte_copy_plan(block.id, &block.ops, index, candidate, context)
+                }
+                "indexed-word-copy" => {
+                    indexed_word_copy_plan(block.id, &block.ops, index, candidate, context)
+                }
+                "dynamic-inline-byte-index" => {
+                    dynamic_inline_byte_index_plan(block.id, &block.ops, index, candidate, context)
+                }
+                "prepare-dynamic-byte-index" => {
+                    dynamic_byte_index_plan(block.id, &block.ops, index, candidate, context)
+                }
+                "prepare-dynamic-word-index" => {
+                    dynamic_word_index_plan(block.id, &block.ops, index, candidate, context)
+                }
+                _ => None,
+            };
+            if let Some(plan) = plan {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn index_rewrite_rank(routine: &MirRoutine) -> usize {
+    logical_definition_lane_count(routine)
+}
+
+type IndexRewriteCandidate = crate::mir6502::materialize::IndexRewriteCandidate;
+
+fn delayed_byte_index_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    candidate: IndexRewriteCandidate,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    index_rewrite_plan(block, ops, index, candidate, context)
+}
+
+fn indexed_byte_copy_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    candidate: IndexRewriteCandidate,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    index_rewrite_plan(block, ops, index, candidate, context)
+}
+
+fn indexed_word_copy_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    candidate: IndexRewriteCandidate,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    index_rewrite_plan(block, ops, index, candidate, context)
+}
+
+fn dynamic_inline_byte_index_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    candidate: IndexRewriteCandidate,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    index_rewrite_plan(block, ops, index, candidate, context)
+}
+
+fn dynamic_byte_index_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    candidate: IndexRewriteCandidate,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    index_rewrite_plan(block, ops, index, candidate, context)
+}
+
+fn dynamic_word_index_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    candidate: IndexRewriteCandidate,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    index_rewrite_plan(block, ops, index, candidate, context)
+}
+
+fn index_rewrite_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    candidate: IndexRewriteCandidate,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    let end = index.checked_add(candidate.consumed)?;
+    if end > ops.len() {
+        return None;
+    }
+    let definitions =
+        prove_removed_window_definitions(block, ops, index, end, &candidate.replacement, context)?;
+    Some(MirRewritePlan {
+        generation: context.generation(),
+        block,
+        range: index..end,
+        replacement: candidate.replacement,
+        removed_defs: definitions
+            .into_iter()
+            .map(|definition| MirRemovedDefinition { definition })
+            .collect(),
+        exit_effect_delta: MirEffectDelta::MaterializedIndexConsumer,
+        change_set: MirChangeSet::prehome_operation_change(),
+        stat: candidate.stat,
+        observations: candidate.observations,
+        family_priority: candidate.family_priority,
+        estimated_byte_saving: 1,
+        estimated_cycle_saving: 1,
+    })
+}
+
 fn logical_definition_lane_count(routine: &MirRoutine) -> usize {
     routine
         .blocks
@@ -602,6 +739,25 @@ fn prove_removed_window_definitions(
     definitions.sort_unstable();
     definitions.dedup();
     if definitions.is_empty() {
+        return None;
+    }
+    let removed_lanes = definitions
+        .iter()
+        .map(|definition| definition.lane)
+        .collect::<std::collections::BTreeSet<_>>();
+    if replacement.iter().any(|op| {
+        classify_op(op)
+            .logical
+            .temp_uses
+            .into_iter()
+            .flat_map(|access| match access {
+                MirTempAccess::Exact { temp, byte } => vec![MirTempLane { temp, byte }],
+                MirTempAccess::Full(temp) => {
+                    vec![MirTempLane { temp, byte: 0 }, MirTempLane { temp, byte: 1 }]
+                }
+            })
+            .any(|lane| removed_lanes.contains(&lane))
+    }) {
         return None;
     }
 
@@ -2575,6 +2731,332 @@ mod tests {
         );
         let mut clobbered = routine(vec![block(0, clobbered_ops, MirTerminator::Return)]);
         assert_eq!(run(&mut clobbered), 0);
+    }
+
+    #[test]
+    fn index_rewrites_use_transactional_definition_and_cfg_proofs() {
+        fn indexed_byte_copy_ops() -> Vec<MirOp> {
+            vec![
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    src: MirAddr::ComputedIndex {
+                        base: MirValue::GlobalAddr(crate::nir::SymbolId(1)),
+                        index: MirValue::ConstU8(2),
+                        elem_size: 1,
+                        offset: 0,
+                    },
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::ComputedIndex {
+                        base: MirValue::GlobalAddr(crate::nir::SymbolId(2)),
+                        index: MirValue::ConstU8(3),
+                        elem_size: 1,
+                        offset: 0,
+                    },
+                    src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    width: MirWidth::Byte,
+                },
+            ]
+        }
+
+        fn delayed_index_ops() -> Vec<MirOp> {
+            vec![
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(2)),
+                    src: MirAddr::Direct(MirMem::Global {
+                        id: crate::nir::SymbolId(3),
+                        offset: 0,
+                    }),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::ComputedIndex {
+                        base: MirValue::GlobalAddr(crate::nir::SymbolId(4)),
+                        index: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                        elem_size: 1,
+                        offset: 0,
+                    },
+                    src: MirValue::ConstU8(7),
+                    width: MirWidth::Byte,
+                },
+            ]
+        }
+
+        let program = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: Vec::new(),
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+        let layout = crate::mir6502::materialize::MaterializeLayout::new(&program, 0x3000);
+        let run = |candidate: &mut MirRoutine| {
+            MirPreHomeRewriteDriver::default()
+                .run_fixed_point_by_key(
+                    candidate,
+                    |routine, context| discover_index_rewrites(routine, context, &layout),
+                    index_rewrite_rank,
+                )
+                .unwrap()
+                .applied
+        };
+
+        let mut local = routine(vec![block(
+            0,
+            indexed_byte_copy_ops(),
+            MirTerminator::Return,
+        )]);
+        assert_eq!(run(&mut local), 1);
+        assert!(matches!(
+            &local.blocks[0].ops[..],
+            [
+                MirOp::MaterializeIndexedAddress { .. },
+                MirOp::MaterializeIndexedAddress { .. },
+                MirOp::LoadIndirect { .. },
+                MirOp::StoreIndirect { .. }
+            ]
+        ));
+
+        let mut later_ops = indexed_byte_copy_ops();
+        later_ops.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x5000)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+            width: MirWidth::Byte,
+        });
+        let mut later_use = routine(vec![block(0, later_ops, MirTerminator::Return)]);
+        assert_eq!(run(&mut later_use), 0);
+
+        let mut terminator_use = routine(vec![
+            block(
+                0,
+                indexed_byte_copy_ops(),
+                MirTerminator::Jump(MirEdge {
+                    target: crate::mir6502::ir::MirBlockId(1),
+                    args: vec![MirEdgeArg {
+                        value: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                        width: MirWidth::Byte,
+                    }],
+                }),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+        ]);
+        assert_eq!(run(&mut terminator_use), 0);
+
+        for src in [
+            MirValue::Def(MirDef::VTempByte {
+                id: MirTempId(1),
+                byte: 0,
+            }),
+            MirValue::Def(MirDef::VTemp(MirTempId(1))),
+        ] {
+            let mut successor_use = routine(vec![
+                block(
+                    0,
+                    indexed_byte_copy_ops(),
+                    MirTerminator::Jump(MirEdge::plain(crate::mir6502::ir::MirBlockId(1))),
+                ),
+                block(
+                    1,
+                    vec![MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Absolute(0x5001)),
+                        src,
+                        width: MirWidth::Byte,
+                    }],
+                    MirTerminator::Return,
+                ),
+            ]);
+            assert_eq!(run(&mut successor_use), 0);
+        }
+
+        let mut delayed = routine(vec![block(0, delayed_index_ops(), MirTerminator::Return)]);
+        assert_eq!(run(&mut delayed), 1);
+        assert!(!delayed.blocks[0].ops.iter().any(|op| {
+            classify_op(op).uses_temp(MirTempId(2))
+                || classify_op(op)
+                    .logical
+                    .temp_defs
+                    .iter()
+                    .any(|access| access.temp() == MirTempId(2))
+        }));
+
+        let mut delayed_successor = routine(vec![
+            block(
+                0,
+                delayed_index_ops(),
+                MirTerminator::Jump(MirEdge::plain(crate::mir6502::ir::MirBlockId(1))),
+            ),
+            block(
+                1,
+                vec![MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Absolute(0x5002)),
+                    src: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                    width: MirWidth::Byte,
+                }],
+                MirTerminator::Return,
+            ),
+        ]);
+        assert_eq!(run(&mut delayed_successor), 0);
+
+        let mut clobbered_ops = delayed_index_ops();
+        clobbered_ops.insert(
+            1,
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Global {
+                    id: crate::nir::SymbolId(3),
+                    offset: 0,
+                }),
+                src: MirValue::ConstU8(9),
+                width: MirWidth::Byte,
+            },
+        );
+        let mut clobbered = routine(vec![block(0, clobbered_ops, MirTerminator::Return)]);
+        assert_eq!(run(&mut clobbered), 0);
+    }
+
+    #[test]
+    fn index_rewrite_effect_contract_covers_all_selection_families() {
+        let computed = |symbol, index, elem_size| MirAddr::ComputedIndex {
+            base: MirValue::GlobalAddr(crate::nir::SymbolId(symbol)),
+            index,
+            elem_size,
+            offset: 0,
+        };
+        let pointer = |symbol, index, elem_size| MirAddr::PointerIndex {
+            ptr: MirMem::Global {
+                id: crate::nir::SymbolId(symbol),
+                offset: 0,
+            },
+            index,
+            elem_size,
+            offset: 0,
+        };
+        let index_load = |temp, symbol| MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(temp)),
+            src: MirAddr::Direct(MirMem::Global {
+                id: crate::nir::SymbolId(symbol),
+                offset: 0,
+            }),
+            width: MirWidth::Byte,
+        };
+
+        let cases = vec![
+            (
+                "indexed-word-copy",
+                vec![
+                    MirOp::Load {
+                        dst: MirDef::VTemp(MirTempId(1)),
+                        src: computed(1, MirValue::ConstU8(2), 2),
+                        width: MirWidth::Word,
+                    },
+                    MirOp::Store {
+                        dst: computed(2, MirValue::ConstU8(3), 2),
+                        src: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                        width: MirWidth::Word,
+                    },
+                ],
+            ),
+            (
+                "indexed-word-copy",
+                vec![
+                    MirOp::Load {
+                        dst: MirDef::VTemp(MirTempId(10)),
+                        src: MirAddr::Direct(MirMem::Global {
+                            id: crate::nir::SymbolId(9),
+                            offset: 0,
+                        }),
+                        width: MirWidth::Word,
+                    },
+                    index_load(11, 10),
+                    MirOp::Load {
+                        dst: MirDef::VTemp(MirTempId(12)),
+                        src: MirAddr::ComputedIndex {
+                            base: MirValue::Def(MirDef::VTemp(MirTempId(10))),
+                            index: MirValue::Def(MirDef::VTemp(MirTempId(11))),
+                            elem_size: 2,
+                            offset: 0,
+                        },
+                        width: MirWidth::Word,
+                    },
+                    MirOp::Store {
+                        dst: MirAddr::ComputedIndex {
+                            base: MirValue::Def(MirDef::VTemp(MirTempId(10))),
+                            index: MirValue::Def(MirDef::VTemp(MirTempId(11))),
+                            elem_size: 2,
+                            offset: 1,
+                        },
+                        src: MirValue::Def(MirDef::VTemp(MirTempId(12))),
+                        width: MirWidth::Word,
+                    },
+                ],
+            ),
+            (
+                "dynamic-inline-byte-index",
+                vec![
+                    MirOp::LeaAddr {
+                        dst: MirDef::VTemp(MirTempId(2)),
+                        target: MirMem::Global {
+                            id: crate::nir::SymbolId(3),
+                            offset: 0,
+                        },
+                        width: MirWidth::Word,
+                    },
+                    index_load(3, 4),
+                    MirOp::Store {
+                        dst: MirAddr::ComputedIndex {
+                            base: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                            index: MirValue::Def(MirDef::VTemp(MirTempId(3))),
+                            elem_size: 1,
+                            offset: 0,
+                        },
+                        src: MirValue::ConstU8(5),
+                        width: MirWidth::Byte,
+                    },
+                ],
+            ),
+            (
+                "prepare-dynamic-byte-index",
+                vec![
+                    index_load(4, 5),
+                    MirOp::Store {
+                        dst: pointer(6, MirValue::Def(MirDef::VTemp(MirTempId(4))), 1),
+                        src: MirValue::ConstU8(6),
+                        width: MirWidth::Byte,
+                    },
+                ],
+            ),
+            (
+                "prepare-dynamic-word-index",
+                vec![
+                    index_load(5, 7),
+                    MirOp::Store {
+                        dst: pointer(8, MirValue::Def(MirDef::VTemp(MirTempId(5))), 2),
+                        src: MirValue::ConstU16(0x1234),
+                        width: MirWidth::Word,
+                    },
+                ],
+            ),
+        ];
+
+        let program = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: Vec::new(),
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+        let layout = crate::mir6502::materialize::MaterializeLayout::new(&program, 0x3000);
+        for (stat, ops) in cases {
+            let mut candidate = routine(vec![block(0, ops, MirTerminator::Return)]);
+            let result = MirPreHomeRewriteDriver::default()
+                .run_fixed_point_by_key(
+                    &mut candidate,
+                    |routine, context| discover_index_rewrites(routine, context, &layout),
+                    index_rewrite_rank,
+                )
+                .unwrap_or_else(|error| panic!("{stat}: {error:?}"));
+            assert_eq!(result.applied_by_stat.get(stat), Some(&1), "{stat}");
+        }
     }
 
     #[test]

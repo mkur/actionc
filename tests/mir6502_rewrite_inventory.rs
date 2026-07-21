@@ -63,30 +63,15 @@ const AUDITED_PRODUCER_REMOVERS: &[(&str, &str)] = &[
         "direct_pointer_temp_rematerialization_plan",
     ),
     ("src/mir6502/rewrite/pilots.rs", "pointer_temp_deref_plan"),
+    ("src/mir6502/rewrite/pilots.rs", "delayed_byte_index_plan"),
+    ("src/mir6502/rewrite/pilots.rs", "indexed_byte_copy_plan"),
+    ("src/mir6502/rewrite/pilots.rs", "indexed_word_copy_plan"),
     (
-        "src/mir6502/materialize/indexes.rs",
-        "collect_delayed_byte_index_plan",
+        "src/mir6502/rewrite/pilots.rs",
+        "dynamic_inline_byte_index_plan",
     ),
-    (
-        "src/mir6502/materialize/indexes.rs",
-        "try_fuse_indexed_byte_copy",
-    ),
-    (
-        "src/mir6502/materialize/indexes.rs",
-        "try_fuse_indexed_word_copy",
-    ),
-    (
-        "src/mir6502/materialize/indexes.rs",
-        "try_fuse_dynamic_inline_byte_index",
-    ),
-    (
-        "src/mir6502/materialize/indexes.rs",
-        "try_prepare_dynamic_byte_index",
-    ),
-    (
-        "src/mir6502/materialize/indexes.rs",
-        "try_prepare_dynamic_word_index",
-    ),
+    ("src/mir6502/rewrite/pilots.rs", "dynamic_byte_index_plan"),
+    ("src/mir6502/rewrite/pilots.rs", "dynamic_word_index_plan"),
     (
         "src/mir6502/rewrite/pilots.rs",
         "address_store_consumer_plan",

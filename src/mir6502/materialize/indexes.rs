@@ -4,12 +4,23 @@ const DELAYED_BYTE_INDEX_ENABLED: bool = true;
 
 #[derive(Debug, Clone)]
 pub(super) struct DelayedByteIndexPlan {
+    #[cfg(test)]
     producer_ops: BTreeSet<usize>,
     exprs: BTreeMap<MirTempId, DelayedByteIndexExpr>,
     producer_ops_by_temp: BTreeMap<MirTempId, BTreeSet<usize>>,
 }
 
 impl DelayedByteIndexPlan {
+    pub(super) fn empty() -> Self {
+        Self {
+            #[cfg(test)]
+            producer_ops: BTreeSet::new(),
+            exprs: BTreeMap::new(),
+            producer_ops_by_temp: BTreeMap::new(),
+        }
+    }
+
+    #[cfg(test)]
     pub(super) fn producer_ops(&self) -> &BTreeSet<usize> {
         &self.producer_ops
     }
@@ -58,11 +69,7 @@ pub(super) struct IndexedAddrParts {
 
 pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndexPlan {
     if !DELAYED_BYTE_INDEX_ENABLED {
-        return DelayedByteIndexPlan {
-            producer_ops: BTreeSet::new(),
-            exprs: BTreeMap::new(),
-            producer_ops_by_temp: BTreeMap::new(),
-        };
+        return DelayedByteIndexPlan::empty();
     }
 
     let mut candidates = BTreeMap::<MirTempId, DelayedByteIndexCandidate>::new();
@@ -72,6 +79,7 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
         }
     }
 
+    #[cfg(test)]
     let mut producer_ops = BTreeSet::new();
     let mut exprs = BTreeMap::new();
     let mut producer_ops_by_temp = BTreeMap::new();
@@ -85,9 +93,12 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
         if !delayed_byte_index_candidate_is_safe(ops, use_index, candidate, &candidates) {
             continue;
         }
-        for temp in &candidate.temps {
-            if let Some(dep) = candidates.get(temp) {
-                producer_ops.insert(dep.producer_index);
+        #[cfg(test)]
+        {
+            for temp in &candidate.temps {
+                if let Some(dep) = candidates.get(temp) {
+                    producer_ops.insert(dep.producer_index);
+                }
             }
         }
         producer_ops_by_temp.insert(
@@ -102,6 +113,7 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
     }
 
     DelayedByteIndexPlan {
+        #[cfg(test)]
         producer_ops,
         exprs,
         producer_ops_by_temp,
@@ -480,6 +492,10 @@ fn delayed_byte_index_candidate_is_safe(
         let Some(producer) = candidates.get(temp) else {
             return false;
         };
+        // A delayed expression is structurally single-owner: every local use
+        // of its producer chain must belong to that expression and indexed
+        // consumer. Terminator and successor uses are deliberately left to
+        // the shared routine-wide definition/deadness proof.
         for (op_index, op) in ops.iter().enumerate().skip(producer.producer_index + 1) {
             if !op_uses_temp(op, *temp) {
                 continue;
@@ -797,6 +813,37 @@ fn indexed_addr_parts_resolved_for_copy(
         parts.elem_size,
         parts.offset,
     ))
+}
+
+pub(super) fn indexed_word_copy_rematerialized_producer_ops(
+    ops: &[MirOp],
+    index: usize,
+) -> BTreeSet<usize> {
+    [index, index.saturating_add(1)]
+        .into_iter()
+        .filter_map(|use_index| match ops.get(use_index) {
+            Some(MirOp::Load { src, .. }) | Some(MirOp::Store { dst: src, .. }) => {
+                indexed_addr_parts(src).map(|parts| (use_index, parts))
+            }
+            _ => None,
+        })
+        .flat_map(|(use_index, parts)| {
+            let base = resolve_indexed_base_producer(ops, use_index, parts.base.clone());
+            let index = resolve_indexed_byte_index_producer(ops, use_index, parts.index.clone());
+            [(parts.base, base), (parts.index, index)]
+                .into_iter()
+                .filter_map(move |(original, resolved)| {
+                    if original == resolved {
+                        return None;
+                    }
+                    let MirValue::Def(MirDef::VTemp(temp)) = original else {
+                        return None;
+                    };
+                    find_temp_producer(ops, use_index, temp)
+                        .map(|(producer_index, _)| producer_index)
+                })
+        })
+        .collect()
 }
 
 fn resolve_indexed_base_producer(ops: &[MirOp], use_index: usize, value: MirValue) -> MirValue {

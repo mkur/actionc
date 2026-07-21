@@ -358,7 +358,9 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             }
             original == replacement
         }
-        MirEffectDelta::MaterializedStoreConsumer | MirEffectDelta::MaterializedPointerConsumer => {
+        MirEffectDelta::MaterializedStoreConsumer
+        | MirEffectDelta::MaterializedPointerConsumer
+        | MirEffectDelta::MaterializedIndexConsumer => {
             let materialized_pointer = matches!(delta, MirEffectDelta::MaterializedPointerConsumer);
             if materialized_pointer && !pointer_source_is_preserved(original_ops, replacement_ops) {
                 return false;

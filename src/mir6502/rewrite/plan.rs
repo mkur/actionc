@@ -77,6 +77,11 @@ pub(in crate::mir6502) enum MirEffectDelta {
     /// consumer operations. Address-carrier homes and machine strategy may
     /// change while the indirect data access remains equivalent.
     MaterializedPointerConsumer,
+    /// Indexed producers and accesses were selected into explicit 6502
+    /// address-consumer operations. Address-carrier homes and machine
+    /// strategy may change while logical direct/indirect data effects remain
+    /// equivalent.
+    MaterializedIndexConsumer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -48,7 +48,7 @@ use super::rewrite::driver::{MirPreHomeRewriteDriver, MirRewriteRunResult};
 use super::rewrite::pilots::{
     byte_binary_compare_consumer_rank, compare_narrowing_rank,
     discover_byte_binary_compare_consumers, discover_compare_narrowing, discover_compare_producers,
-    discover_pointer_rewrites, discover_unused_lea_addrs,
+    discover_index_rewrites, discover_pointer_rewrites, discover_unused_lea_addrs,
 };
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
@@ -99,10 +99,10 @@ use indexes::{
 };
 use indexes::{
     collect_delayed_byte_index_plan, fold_indexed_base_pointer_staging, indexed_addr_parts,
-    materialize_base_address, materialize_index_to_y, materialize_indexed_read_to_def,
-    materialize_indexed_write_from_value, storage_address_value,
-    try_fuse_dynamic_inline_byte_index, try_fuse_indexed_byte_copy, try_fuse_indexed_word_copy,
-    try_prepare_dynamic_byte_index, try_prepare_dynamic_word_index,
+    indexed_word_copy_rematerialized_producer_ops, materialize_base_address,
+    materialize_index_to_y, materialize_indexed_read_to_def, materialize_indexed_write_from_value,
+    storage_address_value, try_fuse_dynamic_inline_byte_index, try_fuse_indexed_byte_copy,
+    try_fuse_indexed_word_copy, try_prepare_dynamic_byte_index, try_prepare_dynamic_word_index,
 };
 pub(super) use layout::MaterializeLayout;
 use lea::{lower_address_to_def, lower_lea_addrs_with_final_layout};
@@ -286,6 +286,16 @@ pub(in crate::mir6502) struct PointerRewriteCandidate {
     pub replacement: Vec<MirOp>,
 }
 
+#[derive(Debug, Clone)]
+pub(in crate::mir6502) struct IndexRewriteCandidate {
+    pub start: usize,
+    pub consumed: usize,
+    pub replacement: Vec<MirOp>,
+    pub stat: &'static str,
+    pub observations: Vec<(&'static str, usize)>,
+    pub family_priority: u16,
+}
+
 pub(in crate::mir6502) fn analyzed_direct_pointer_temp_rematerialization_candidate(
     ops: &[MirOp],
     index: usize,
@@ -332,6 +342,192 @@ pub(in crate::mir6502) fn analyzed_store_consumer_candidates(
             .map(|candidate| (candidate.start, candidate))
         })
         .collect()
+}
+
+pub(in crate::mir6502) fn analyzed_index_rewrite_candidates(
+    routine_id: RoutineId,
+    block: &super::ir::MirBlock,
+    layout: &MaterializeLayout,
+) -> Vec<(usize, IndexRewriteCandidate)> {
+    let ops = &block.ops;
+    let delayed_byte_indexes = collect_delayed_byte_index_plan(ops);
+    (0..ops.len())
+        .filter_map(|index| {
+            analyzed_index_rewrite_candidate_at(
+                routine_id,
+                ops,
+                index,
+                layout,
+                &delayed_byte_indexes,
+            )
+            .map(|candidate| (candidate.start, candidate))
+        })
+        .collect()
+}
+
+fn analyzed_index_rewrite_candidate_at(
+    routine_id: RoutineId,
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+    delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
+) -> Option<IndexRewriteCandidate> {
+    let selected =
+        |consumed: usize, replacement: Vec<MirOp>, stat: &'static str, family_priority: u16| {
+            (consumed > 0).then_some(IndexRewriteCandidate {
+                start: index,
+                consumed,
+                replacement,
+                stat,
+                observations: Vec::new(),
+                family_priority,
+            })
+        };
+
+    let mut replacement = Vec::new();
+    let consumed =
+        try_fuse_indexed_byte_copy(ops, index, layout, delayed_byte_indexes, &mut replacement);
+    if consumed > 0 {
+        return Some(expand_delayed_index_rewrite_window(
+            ops,
+            index,
+            IndexRewriteCandidate {
+                start: index,
+                consumed,
+                replacement,
+                stat: "indexed-byte-copy",
+                observations: Vec::new(),
+                family_priority: 100,
+            },
+            delayed_byte_indexes,
+        ));
+    }
+
+    let mut replacement = Vec::new();
+    let consumed = try_fuse_indexed_word_copy(ops, index, layout, &mut replacement);
+    if let Some(candidate) = selected(consumed, replacement, "indexed-word-copy", 110) {
+        return Some(expand_index_rewrite_window_with_producers(
+            ops,
+            index,
+            candidate,
+            indexed_word_copy_rematerialized_producer_ops(ops, index),
+        ));
+    }
+
+    let mut replacement = Vec::new();
+    let consumed = try_fuse_dynamic_inline_byte_index(ops, index, &mut replacement);
+    if let Some(candidate) = selected(consumed, replacement, "dynamic-inline-byte-index", 120) {
+        return Some(candidate);
+    }
+
+    let mut replacement = Vec::new();
+    let consumed = try_prepare_dynamic_byte_index(ops, index, layout, &mut replacement);
+    if let Some(candidate) = selected(consumed, replacement, "prepare-dynamic-byte-index", 130) {
+        return Some(candidate);
+    }
+
+    let mut replacement = Vec::new();
+    let consumed = try_prepare_dynamic_word_index(ops, index, routine_id, layout, &mut replacement);
+    if let Some(candidate) = selected(consumed, replacement, "prepare-dynamic-word-index", 140) {
+        return Some(candidate);
+    }
+
+    delayed_byte_index_rewrite_candidate_at(ops, index, layout, delayed_byte_indexes)
+}
+
+fn delayed_byte_index_rewrite_candidate_at(
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+    delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
+) -> Option<IndexRewriteCandidate> {
+    let mut replacement = Vec::new();
+    let used_delayed_index = match ops.get(index)? {
+        MirOp::Load {
+            dst,
+            src: src @ (MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. }),
+            width,
+        } => materialize_indexed_read_to_def(
+            dst.clone(),
+            indexed_addr_parts(src)?,
+            *width,
+            layout,
+            Some(delayed_byte_indexes),
+            &mut replacement,
+        ),
+        MirOp::Store {
+            dst: dst @ (MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. }),
+            src,
+            width,
+        } => materialize_indexed_write_from_value(
+            indexed_addr_parts(dst)?,
+            src.clone(),
+            *width,
+            layout,
+            Some(delayed_byte_indexes),
+            &mut replacement,
+        ),
+        _ => false,
+    };
+    used_delayed_index.then(|| {
+        expand_delayed_index_rewrite_window(
+            ops,
+            index,
+            IndexRewriteCandidate {
+                start: index,
+                consumed: 1,
+                replacement,
+                stat: "delayed-byte-index-consumer",
+                observations: Vec::new(),
+                family_priority: 150,
+            },
+            delayed_byte_indexes,
+        )
+    })
+}
+
+fn expand_delayed_index_rewrite_window(
+    ops: &[MirOp],
+    index: usize,
+    candidate: IndexRewriteCandidate,
+    delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
+) -> IndexRewriteCandidate {
+    let producer_ops =
+        delayed_producer_ops_for_window(ops, index, candidate.consumed, delayed_byte_indexes);
+    let producer_count = producer_ops.len();
+    let mut candidate =
+        expand_index_rewrite_window_with_producers(ops, index, candidate, producer_ops);
+    if producer_count != 0 {
+        candidate
+            .observations
+            .push(("delayed-byte-index-producer", producer_count));
+    }
+    candidate
+}
+
+fn expand_index_rewrite_window_with_producers(
+    ops: &[MirOp],
+    index: usize,
+    mut candidate: IndexRewriteCandidate,
+    producer_ops: BTreeSet<usize>,
+) -> IndexRewriteCandidate {
+    let Some(start) = producer_ops.iter().copied().min() else {
+        return candidate;
+    };
+    if start >= index {
+        return candidate;
+    }
+    let mut replacement = ops[start..index]
+        .iter()
+        .enumerate()
+        .filter(|(offset, _)| !producer_ops.contains(&(start + offset)))
+        .map(|(_, op)| op.clone())
+        .collect::<Vec<_>>();
+    replacement.extend(candidate.replacement);
+    candidate.start = start;
+    candidate.consumed = index + candidate.consumed - start;
+    candidate.replacement = replacement;
+    candidate
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -479,16 +675,7 @@ fn expand_delayed_store_consumer_window(
     replacement: Vec<MirOp>,
     delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
 ) -> (usize, usize, Vec<MirOp>) {
-    let producer_ops = ops[index..index + consumed]
-        .iter()
-        .filter_map(|op| match op {
-            MirOp::Load { src, .. } | MirOp::Store { dst: src, .. } => indexed_addr_parts(src),
-            _ => None,
-        })
-        .filter_map(|parts| delayed_byte_indexes.producer_ops_for_value(&parts.index))
-        .flatten()
-        .copied()
-        .collect::<BTreeSet<_>>();
+    let producer_ops = delayed_producer_ops_for_window(ops, index, consumed, delayed_byte_indexes);
     let Some(start) = producer_ops.iter().copied().min() else {
         return (index, consumed, replacement);
     };
@@ -503,6 +690,24 @@ fn expand_delayed_store_consumer_window(
         .collect::<Vec<_>>();
     expanded.extend(replacement);
     (start, index + consumed - start, expanded)
+}
+
+fn delayed_producer_ops_for_window(
+    ops: &[MirOp],
+    index: usize,
+    consumed: usize,
+    delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
+) -> BTreeSet<usize> {
+    ops[index..index + consumed]
+        .iter()
+        .filter_map(|op| match op {
+            MirOp::Load { src, .. } | MirOp::Store { dst: src, .. } => indexed_addr_parts(src),
+            _ => None,
+        })
+        .filter_map(|parts| delayed_byte_indexes.producer_ops_for_value(&parts.index))
+        .flatten()
+        .copied()
+        .collect()
 }
 
 pub(super) fn materialize_program(
@@ -550,6 +755,7 @@ pub(super) fn materialize_program(
             "word-load-address-consumer-forwards",
             word_load_address_forwards,
         );
+        run_analyzed_index_rewrites(routine, &layout, &mut peephole_stats)?;
         for block in &mut routine.blocks {
             block.ops = materialize_ops(
                 routine.id,
@@ -753,6 +959,28 @@ fn run_analyzed_pointer_rewrites(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("pointer rewrite failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_index_rewrites(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            |routine, context| discover_index_rewrites(routine, context, layout),
+            super::rewrite::pilots::index_rewrite_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("index selection failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
@@ -1551,9 +1779,13 @@ fn materialize_ops(
     let mut out = Vec::new();
     let mut temp_widths = collect_temp_widths(&ops);
     refine_temp_widths_from_storage_loads(&ops, routine_id, layout, &mut temp_widths);
+    #[cfg(test)]
     let delayed_byte_indexes = collect_delayed_byte_index_plan(&ops);
+    #[cfg(not(test))]
+    let delayed_byte_indexes = indexes::DelayedByteIndexPlan::empty();
     let mut index = 0;
     while index < ops.len() {
+        #[cfg(test)]
         if delayed_byte_indexes.producer_ops().contains(&index) {
             peephole_stats.record(routine_id, "delayed-byte-index-producer");
             index += 1;
@@ -1603,40 +1835,56 @@ fn materialize_ops(
             }
         }
 
-        let maybe_fused =
-            try_fuse_indexed_byte_copy(&ops, index, layout, &delayed_byte_indexes, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "indexed-byte-copy");
-            index += maybe_fused;
-            continue;
+        #[cfg(test)]
+        {
+            let maybe_fused =
+                try_fuse_indexed_byte_copy(&ops, index, layout, &delayed_byte_indexes, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "indexed-byte-copy");
+                index += maybe_fused;
+                continue;
+            }
         }
 
-        let maybe_fused = try_fuse_indexed_word_copy(&ops, index, layout, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "indexed-word-copy");
-            index += maybe_fused;
-            continue;
+        #[cfg(test)]
+        {
+            let maybe_fused = try_fuse_indexed_word_copy(&ops, index, layout, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "indexed-word-copy");
+                index += maybe_fused;
+                continue;
+            }
         }
 
-        let maybe_fused = try_fuse_dynamic_inline_byte_index(&ops, index, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "dynamic-inline-byte-index");
-            index += maybe_fused;
-            continue;
+        #[cfg(test)]
+        {
+            let maybe_fused = try_fuse_dynamic_inline_byte_index(&ops, index, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "dynamic-inline-byte-index");
+                index += maybe_fused;
+                continue;
+            }
         }
 
-        let maybe_fused = try_prepare_dynamic_byte_index(&ops, index, layout, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "prepare-dynamic-byte-index");
-            index += maybe_fused;
-            continue;
+        #[cfg(test)]
+        {
+            let maybe_fused = try_prepare_dynamic_byte_index(&ops, index, layout, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "prepare-dynamic-byte-index");
+                index += maybe_fused;
+                continue;
+            }
         }
 
-        let maybe_fused = try_prepare_dynamic_word_index(&ops, index, routine_id, layout, &mut out);
-        if maybe_fused > 0 {
-            peephole_stats.record(routine_id, "prepare-dynamic-word-index");
-            index += maybe_fused;
-            continue;
+        #[cfg(test)]
+        {
+            let maybe_fused =
+                try_prepare_dynamic_word_index(&ops, index, routine_id, layout, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "prepare-dynamic-word-index");
+                index += maybe_fused;
+                continue;
+            }
         }
 
         #[cfg(test)]
