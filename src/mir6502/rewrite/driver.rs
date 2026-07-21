@@ -220,6 +220,13 @@ impl MirPostHomeRewriteDriver {
         self.generation
     }
 
+    pub(in crate::mir6502) fn with_max_rounds(max_rounds: usize) -> Self {
+        Self {
+            max_rounds,
+            ..Self::default()
+        }
+    }
+
     pub(in crate::mir6502) fn run_fixed_point<Discover>(
         &mut self,
         routine: &mut MirRoutine,
@@ -1135,7 +1142,10 @@ mod tests {
         MirAddr, MirBlock, MirDef, MirEffects, MirFrame, MirMem, MirRoutineAbi, MirTempId,
         MirTerminator, MirValue, MirWidth, RoutineId,
     };
-    use crate::mir6502::rewrite::plan::{MirChangeSet, MirEffectDelta, MirRemovedDefinition};
+    use crate::mir6502::rewrite::context::MirExitStateChange;
+    use crate::mir6502::rewrite::plan::{
+        MirChangeSet, MirEffectDelta, MirPostHomeRewritePlan, MirRemovedDefinition,
+    };
 
     fn routine(op: MirOp) -> MirRoutine {
         MirRoutine {
@@ -1180,6 +1190,51 @@ mod tests {
         }
     }
 
+    fn discover_posthome_canonical_load(
+        routine: &MirRoutine,
+        context: &PostHomeRewriteContext<'_, '_>,
+    ) -> Vec<MirPostHomeRewritePlan> {
+        if !matches!(
+            routine.blocks[0].ops.first(),
+            Some(MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 1,
+                width: MirWidth::Byte,
+            })
+        ) {
+            return Vec::new();
+        }
+        vec![MirPostHomeRewritePlan {
+            generation: context.generation(),
+            block: MirBlockId(0),
+            range: 0..1,
+            replacement: vec![MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 0,
+                width: MirWidth::Byte,
+            }],
+            removed_homes: Vec::new(),
+            exit_state_change: MirExitStateChange {
+                registers: MirRegisterSet {
+                    a: true,
+                    ..MirRegisterSet::default()
+                },
+                flags: MirFlagSet {
+                    z: true,
+                    n: true,
+                    ..MirFlagSet::default()
+                },
+                ..MirExitStateChange::default()
+            },
+            change_set: MirChangeSet::posthome_operation_change(),
+            stat: "canonical-load",
+            observations: Vec::new(),
+            family_priority: 0,
+            estimated_byte_saving: 1,
+            estimated_cycle_saving: 1,
+        }]
+    }
+
     #[test]
     fn overlap_resolution_prefers_more_profitable_candidate_deterministically() {
         let mut routine = routine(load(1));
@@ -1196,6 +1251,46 @@ mod tests {
             routine.blocks[0].ops[0],
             MirOp::LoadImm { value: 3, .. }
         ));
+    }
+
+    #[test]
+    fn posthome_fixed_point_is_idempotent_and_deterministic() {
+        let input = routine(MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value: 1,
+            width: MirWidth::Byte,
+        });
+        let mut left = input.clone();
+        let mut right = input;
+        let left_result = MirPostHomeRewriteDriver::default()
+            .run_fixed_point(&mut left, discover_posthome_canonical_load)
+            .unwrap();
+        let right_result = MirPostHomeRewriteDriver::default()
+            .run_fixed_point(&mut right, discover_posthome_canonical_load)
+            .unwrap();
+        assert_eq!(left_result, right_result);
+        assert_eq!(left, right);
+        assert_eq!((left_result.applied, left_result.rounds), (1, 2));
+
+        let stable = left.clone();
+        let second = MirPostHomeRewriteDriver::default()
+            .run_fixed_point(&mut left, discover_posthome_canonical_load)
+            .unwrap();
+        assert_eq!(left, stable);
+        assert_eq!((second.applied, second.rounds), (0, 1));
+    }
+
+    #[test]
+    fn posthome_iteration_limit_is_reported_not_silently_accepted() {
+        let mut candidate = routine(MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value: 1,
+            width: MirWidth::Byte,
+        });
+        let error = MirPostHomeRewriteDriver::with_max_rounds(1)
+            .run_fixed_point(&mut candidate, discover_posthome_canonical_load)
+            .unwrap_err();
+        assert_eq!(error, MirRewriteError::DidNotConverge { max_rounds: 1 });
     }
 
     #[test]

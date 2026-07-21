@@ -7132,6 +7132,132 @@ fn ssa_lite_forwards_accumulator_loads_through_scratch() {
 }
 
 #[test]
+fn analyzed_ssa_lite_reload_removal_is_idempotent() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let scratch = MirMem::Spill {
+        id: MirSpillId(30),
+        offset: 0,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(source),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(scratch.clone()),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(scratch),
+                width: MirWidth::Byte,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    let first = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, &layout, false)
+        })
+        .unwrap();
+    let stable = routine.clone();
+    let second = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, &layout, false)
+        })
+        .unwrap();
+
+    assert_eq!(first.applied, 1);
+    assert_eq!(routine.blocks[0].ops.len(), 2);
+    assert_eq!(routine, stable);
+    assert_eq!((second.applied, second.rounds), (0, 1));
+}
+
+#[test]
+fn analyzed_ssa_lite_reload_keeps_live_branch_flags() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let scratch = MirMem::Spill {
+        id: MirSpillId(30),
+        offset: 0,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(source),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(scratch.clone()),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(scratch),
+                    width: MirWidth::Byte,
+                },
+            ],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]);
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, &layout, false)
+        })
+        .unwrap();
+
+    assert_eq!(result.applied, 1);
+    assert_eq!(routine.blocks[0].ops.len(), 3);
+    assert!(matches!(
+        routine.blocks[0].ops.last(),
+        Some(MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            width: MirWidth::Byte,
+            ..
+        })
+    ));
+}
+
+#[test]
 fn ssa_lite_keeps_x_reload_for_call_argument_staging() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

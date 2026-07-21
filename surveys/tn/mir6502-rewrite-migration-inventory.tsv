@@ -56,4 +56,4 @@ POST-023	post-home-cleanup	migrated	home	src/mir6502/materialize/dead_spills.rs	
 MACH-001	post-home-structural	9	register-flags	src/mir6502/materialize/calls.rs	forward_param_reload	missing-nz-liveness
 MACH-002	post-home-structural	9	register-flags	src/mir6502/materialize/peepholes.rs	fold_dead_reg_writes_before_overwrite	guarded-local-tail
 MACH-003	post-home-structural	9	flags	src/mir6502/materialize/store_consumers.rs	try_fold_direct_inc_dec_update	guarded-distributed-tail-proof
-MACH-004	post-home-cleanup	9	register-flags	src/mir6502/materialize/ssa_lite.rs	fold_ssa_lite_byte_loads	guarded-distributed-availability-proof
+MACH-004	post-home-cleanup	migrated	register-flags	src/mir6502/materialize/ssa_lite.rs	discover_ssa_lite_byte_rewrites	analyzed-value-availability-and-machine-liveness

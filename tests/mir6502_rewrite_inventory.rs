@@ -130,6 +130,10 @@ const AUDITED_PRODUCER_REMOVERS: &[(&str, &str)] = &[
         "fold_indexed_base_pointer_staging",
     ),
     ("src/mir6502/materialize/calls.rs", "forward_param_reload"),
+    (
+        "src/mir6502/materialize/ssa_lite.rs",
+        "discover_ssa_lite_byte_rewrites",
+    ),
 ];
 
 #[test]

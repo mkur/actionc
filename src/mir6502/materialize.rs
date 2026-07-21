@@ -120,10 +120,7 @@ use peepholes::{
     fold_indirect_byte_const_stores, fold_indirect_byte_direct_compounds,
     fold_indirect_y_const_stores, fold_word_array_store_value_staging, staged_compare_rhs_at,
 };
-use peepholes::{
-    fold_structural_before_cleanup_migrations, fold_structural_machine_tail,
-    fold_structural_ssa_lite,
-};
+use peepholes::{fold_structural_before_cleanup_migrations, fold_structural_machine_tail};
 use pointers::{
     is_zero_word_value, materialize_pointer_deref_address, materialize_pointer_deref_read,
     materialize_pointer_deref_read_byte, materialize_pointer_deref_write,
@@ -161,11 +158,11 @@ use ssa_lite::scan_ssa_lite_v2_observability;
 use ssa_lite::{
     MirCopyPropByteValue, SsaLiteValueKey, classify_mir_copy_prop_byte_value,
     fold_mir_copy_prop_const_uses, fold_mir_copy_prop_const_uses_with_terminator,
-    scan_ssa_lite_block_env, temp_byte_binary_candidate_reason_for_test,
+    fold_ssa_lite_byte_loads, fold_ssa_lite_single_predecessor_loads, scan_ssa_lite_block_env,
+    temp_byte_binary_candidate_reason_for_test,
 };
 use ssa_lite::{
-    fold_mir_copy_prop_const_uses_with_terminator_and_live_out, fold_ssa_lite_byte_loads,
-    fold_ssa_lite_single_predecessor_loads, record_ssa_lite_block_facts,
+    fold_mir_copy_prop_const_uses_with_terminator_and_live_out, record_ssa_lite_block_facts,
     record_ssa_lite_v2_observability,
 };
 use stats::{MirPeepholeStats, maybe_report_peepholes};
@@ -740,34 +737,9 @@ pub(super) fn materialize_program(
     }
     let layout = MaterializeLayout::new(&program, object_origin);
     for routine in &mut program.routines {
-        cleanup_pre_materialization_temp_artifacts(routine, &layout);
-        lower_block_arguments(routine).map_err(|diagnostic| vec![diagnostic])?;
-        run_analyzed_compare_producer_rewrites(routine, &mut peephole_stats)?;
-        run_analyzed_compare_narrowing(routine, &mut peephole_stats)?;
-        expand_compare_branch_consumers(&mut routine.blocks, &layout, config);
-        verify_cfg_after_transform(routine, "compare/branch expansion")?;
-        collapse_empty_jump_blocks(routine);
-        verify_cfg_after_transform(routine, "empty-jump collapse")?;
-        run_analyzed_byte_binary_compare_consumers(routine, &mut peephole_stats)?;
-        run_analyzed_pointer_rewrites(routine, &layout, &mut peephole_stats)?;
-        run_analyzed_call_arg_producers(routine, &mut peephole_stats)?;
-        run_analyzed_return_slot_call_arg_forwards(routine, &mut peephole_stats)?;
-        run_analyzed_param_home_consumers(routine, &mut peephole_stats)?;
-        for block in &mut routine.blocks {
-            block.ops = normalize_byte_add_sub_carry(std::mem::take(&mut block.ops));
-        }
-        run_analyzed_call_arg_exprs(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
-        run_analyzed_call_result_store_consumers(routine, &mut peephole_stats)?;
-        run_analyzed_store_consumers(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
-        run_analyzed_unused_lea_addrs(routine, &mut peephole_stats)?;
-        let word_load_address_forwards =
-            forward_unique_word_load_address_consumers(routine, &layout);
-        peephole_stats.record_many(
-            routine.id,
-            "word-load-address-consumer-forwards",
-            word_load_address_forwards,
-        );
-        run_analyzed_index_rewrites(routine, &layout, &mut peephole_stats)?;
+        run_cfg_group(routine, &layout)?;
+        run_prehome_canonicalization_group(routine, config, &layout, &mut peephole_stats)?;
+        run_prehome_selection_group(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
         for block in &mut routine.blocks {
             block.ops = materialize_ops(
                 routine.id,
@@ -800,67 +772,14 @@ pub(super) fn materialize_program(
                 &layout,
             );
         }
-        run_analyzed_param_home_reloads(routine, &mut peephole_stats)?;
-        run_analyzed_spill_forwards(routine, &mut peephole_stats)?;
-        run_analyzed_direct_inc_dec_updates(routine, &mut peephole_stats)?;
-        run_analyzed_staged_word_forwards(
+        run_posthome_structural_group(routine, &layout, config, &mut peephole_stats)?;
+        run_posthome_cleanup_group(
             routine,
             &layout,
-            config.enable_direct_byte_word_update,
+            Some(config),
+            home_fates.get_mut(&routine.id),
             &mut peephole_stats,
         )?;
-        run_analyzed_indirect_constant_stores(routine, &layout, &mut peephole_stats)?;
-        run_analyzed_word_array_value_staging(routine, &layout, &mut peephole_stats)?;
-        run_analyzed_indirect_stores_and_compounds(routine, &layout, &mut peephole_stats)?;
-        for block in &mut routine.blocks {
-            let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_before_cleanup_migrations(
-                ops,
-                routine.id,
-                &layout,
-                &mut peephole_stats,
-            );
-        }
-        run_analyzed_rhs_and_adjacent_reloads(routine, &layout, &mut peephole_stats)?;
-        for block in &mut routine.blocks {
-            let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_ssa_lite(
-                ops,
-                routine.id,
-                &layout,
-                &block.terminator,
-                &mut peephole_stats,
-            );
-        }
-        run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
-        run_analyzed_dead_register_writes(routine, &mut peephole_stats)?;
-        for block in &mut routine.blocks {
-            let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_machine_tail(ops, routine.id, &layout, &mut peephole_stats);
-        }
-        run_analyzed_indexed_base_pointer_staging(routine, &mut peephole_stats)?;
-        for block in &mut routine.blocks {
-            block.terminator =
-                materialize_terminator(block.id, &block.terminator, &block.ops, config);
-            materialize_fused_compare_dest(block.id, &block.terminator, &mut block.ops);
-        }
-        fold_ssa_lite_single_predecessor_loads(routine, &layout, &mut peephole_stats);
-        remove_dead_spill_stores(routine);
-        let remap = color_basic_block_spills(routine);
-        if let Some(tracker) = home_fates.get_mut(&routine.id) {
-            tracker.apply_spill_remap(&remap);
-        }
-        let routine_remap = color_routine_spills(routine);
-        peephole_stats.record_many(
-            routine.id,
-            "routine-spill-color-remaps",
-            routine_remap.len(),
-        );
-        if let Some(tracker) = home_fates.get_mut(&routine.id) {
-            tracker.apply_spill_remap(&routine_remap);
-        }
-        prune_unused_spills(routine);
-        reserve_used_fixed_zero_page_slots(routine);
     }
     for helper in helpers {
         ensure_helper_decl(&mut program, helper);
@@ -875,62 +794,14 @@ pub(super) fn materialize_program(
                 &layout,
             );
         }
-        run_analyzed_param_home_reloads(routine, &mut peephole_stats)?;
-        run_analyzed_spill_forwards(routine, &mut peephole_stats)?;
-        run_analyzed_direct_inc_dec_updates(routine, &mut peephole_stats)?;
-        run_analyzed_staged_word_forwards(
+        run_posthome_structural_group(routine, &layout, config, &mut peephole_stats)?;
+        run_posthome_cleanup_group(
             routine,
             &layout,
-            config.enable_direct_byte_word_update,
+            None,
+            home_fates.get_mut(&routine.id),
             &mut peephole_stats,
         )?;
-        run_analyzed_indirect_constant_stores(routine, &layout, &mut peephole_stats)?;
-        run_analyzed_word_array_value_staging(routine, &layout, &mut peephole_stats)?;
-        run_analyzed_indirect_stores_and_compounds(routine, &layout, &mut peephole_stats)?;
-        for block in &mut routine.blocks {
-            let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_before_cleanup_migrations(
-                ops,
-                routine.id,
-                &layout,
-                &mut peephole_stats,
-            );
-        }
-        run_analyzed_rhs_and_adjacent_reloads(routine, &layout, &mut peephole_stats)?;
-        for block in &mut routine.blocks {
-            let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_ssa_lite(
-                ops,
-                routine.id,
-                &layout,
-                &block.terminator,
-                &mut peephole_stats,
-            );
-        }
-        run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
-        run_analyzed_dead_register_writes(routine, &mut peephole_stats)?;
-        for block in &mut routine.blocks {
-            let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_machine_tail(ops, routine.id, &layout, &mut peephole_stats);
-        }
-        run_analyzed_indexed_base_pointer_staging(routine, &mut peephole_stats)?;
-        fold_ssa_lite_single_predecessor_loads(routine, &layout, &mut peephole_stats);
-        remove_dead_spill_stores(routine);
-        let remap = color_basic_block_spills(routine);
-        if let Some(tracker) = home_fates.get_mut(&routine.id) {
-            tracker.apply_spill_remap(&remap);
-        }
-        let routine_remap = color_routine_spills(routine);
-        peephole_stats.record_many(
-            routine.id,
-            "routine-spill-color-remaps",
-            routine_remap.len(),
-        );
-        if let Some(tracker) = home_fates.get_mut(&routine.id) {
-            tracker.apply_spill_remap(&routine_remap);
-        }
-        prune_unused_spills(routine);
-        reserve_used_fixed_zero_page_slots(routine);
     }
     let zero_page_remaps = lower_block_local_byte_spills_to_zero_page(&mut program);
     for (routine, remap) in zero_page_remaps {
@@ -949,6 +820,125 @@ pub(super) fn materialize_program(
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
     maybe_report_peepholes(&program, &peephole_stats, config);
     Ok(program)
+}
+
+fn run_cfg_group(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+) -> Result<(), Vec<MirDiagnostic>> {
+    cleanup_pre_materialization_temp_artifacts(routine, layout);
+    lower_block_arguments(routine).map_err(|diagnostic| vec![diagnostic])?;
+    verify_cfg_after_transform(routine, "CFG normalization")
+}
+
+fn run_prehome_canonicalization_group(
+    routine: &mut super::ir::MirRoutine,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    run_analyzed_compare_producer_rewrites(routine, peephole_stats)?;
+    run_analyzed_compare_narrowing(routine, peephole_stats)?;
+    expand_compare_branch_consumers(&mut routine.blocks, layout, config);
+    verify_cfg_after_transform(routine, "compare/branch expansion")?;
+    collapse_empty_jump_blocks(routine);
+    verify_cfg_after_transform(routine, "empty-jump collapse")
+}
+
+fn run_prehome_selection_group(
+    routine: &mut super::ir::MirRoutine,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    run_analyzed_byte_binary_compare_consumers(routine, peephole_stats)?;
+    run_analyzed_pointer_rewrites(routine, layout, peephole_stats)?;
+    run_analyzed_call_arg_producers(routine, peephole_stats)?;
+    run_analyzed_return_slot_call_arg_forwards(routine, peephole_stats)?;
+    run_analyzed_param_home_consumers(routine, peephole_stats)?;
+    for block in &mut routine.blocks {
+        block.ops = normalize_byte_add_sub_carry(std::mem::take(&mut block.ops));
+    }
+    run_analyzed_call_arg_exprs(routine, config, layout, helpers, peephole_stats)?;
+    run_analyzed_call_result_store_consumers(routine, peephole_stats)?;
+    run_analyzed_store_consumers(routine, config, layout, helpers, peephole_stats)?;
+    run_analyzed_unused_lea_addrs(routine, peephole_stats)?;
+    let word_load_address_forwards = forward_unique_word_load_address_consumers(routine, layout);
+    peephole_stats.record_many(
+        routine.id,
+        "word-load-address-consumer-forwards",
+        word_load_address_forwards,
+    );
+    run_analyzed_index_rewrites(routine, layout, peephole_stats)
+}
+
+fn run_posthome_structural_group(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    config: &Mir6502Config,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    run_analyzed_param_home_reloads(routine, peephole_stats)?;
+    run_analyzed_spill_forwards(routine, peephole_stats)?;
+    run_analyzed_direct_inc_dec_updates(routine, peephole_stats)?;
+    run_analyzed_staged_word_forwards(
+        routine,
+        layout,
+        config.enable_direct_byte_word_update,
+        peephole_stats,
+    )?;
+    run_analyzed_indirect_constant_stores(routine, layout, peephole_stats)?;
+    run_analyzed_word_array_value_staging(routine, layout, peephole_stats)?;
+    run_analyzed_indirect_stores_and_compounds(routine, layout, peephole_stats)?;
+    for block in &mut routine.blocks {
+        let ops = std::mem::take(&mut block.ops);
+        block.ops =
+            fold_structural_before_cleanup_migrations(ops, routine.id, layout, peephole_stats);
+    }
+    run_analyzed_rhs_and_adjacent_reloads(routine, layout, peephole_stats)?;
+    run_analyzed_ssa_lite_byte_rewrites(routine, layout, false, peephole_stats)?;
+    run_analyzed_dead_private_scratch_stores(routine, peephole_stats)?;
+    run_analyzed_dead_register_writes(routine, peephole_stats)?;
+    for block in &mut routine.blocks {
+        let ops = std::mem::take(&mut block.ops);
+        block.ops = fold_structural_machine_tail(ops, routine.id, layout, peephole_stats);
+    }
+    run_analyzed_indexed_base_pointer_staging(routine, peephole_stats)
+}
+
+fn run_posthome_cleanup_group(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    terminator_config: Option<&Mir6502Config>,
+    mut home_fates: Option<&mut HomeFateTracker>,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    if let Some(config) = terminator_config {
+        for block in &mut routine.blocks {
+            block.terminator =
+                materialize_terminator(block.id, &block.terminator, &block.ops, config);
+            materialize_fused_compare_dest(block.id, &block.terminator, &mut block.ops);
+        }
+    }
+    run_analyzed_ssa_lite_byte_rewrites(routine, layout, true, peephole_stats)?;
+    remove_dead_spill_stores(routine);
+    let remap = color_basic_block_spills(routine);
+    if let Some(tracker) = home_fates.as_deref_mut() {
+        tracker.apply_spill_remap(&remap);
+    }
+    let routine_remap = color_routine_spills(routine);
+    peephole_stats.record_many(
+        routine.id,
+        "routine-spill-color-remaps",
+        routine_remap.len(),
+    );
+    if let Some(tracker) = home_fates {
+        tracker.apply_spill_remap(&routine_remap);
+    }
+    prune_unused_spills(routine);
+    reserve_used_fixed_zero_page_slots(routine);
+    Ok(())
 }
 
 fn run_analyzed_staged_word_forwards(
@@ -1039,6 +1029,27 @@ fn run_analyzed_dead_register_writes(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home dead register-write rewrite failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_ssa_lite_byte_rewrites(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    allow_cross_block: bool,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, layout, allow_cross_block)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home SSA-lite rewrite failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

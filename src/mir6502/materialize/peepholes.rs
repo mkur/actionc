@@ -79,17 +79,6 @@ pub(super) fn fold_structural_before_cleanup_migrations(
     ops
 }
 
-pub(super) fn fold_structural_ssa_lite(
-    mut ops: Vec<MirOp>,
-    routine_id: RoutineId,
-    layout: &MaterializeLayout,
-    terminator: &MirTerminator,
-    peephole_stats: &mut MirPeepholeStats,
-) -> Vec<MirOp> {
-    ops = fold_ssa_lite_byte_loads(ops, routine_id, layout, terminator, peephole_stats);
-    ops
-}
-
 pub(super) fn fold_structural_machine_tail(
     ops: Vec<MirOp>,
     routine_id: RoutineId,

@@ -1222,7 +1222,12 @@ Suggested commits: one commit for each numbered family.
 
 ### Slice 9: install explicit pass groups and fixed points
 
-Status: planned.
+Status: complete. Materialization now invokes named CFG, pre-home
+canonicalization, pre-home selection, post-home structural, and post-home
+cleanup groups. The final-layout structural group starts fresh drivers and
+therefore fresh analysis generations. SSA-lite reload forwarding is also a
+transactional post-home fixed point; iteration-limit, deterministic-counter,
+and idempotence tests cover the shared driver.
 
 - Replace the current hand-written sequence with named CFG, pre-home
   canonicalization, pre-home selection, post-home structural, and cleanup

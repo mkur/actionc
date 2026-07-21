@@ -1,5 +1,6 @@
 use super::dead_spills::block_successor_indices;
 use super::defs::{op_def, split_def_as_temp};
+#[cfg(test)]
 use super::flags::{op_writes_flags, terminator_consumes_flags};
 use super::layout::MaterializeLayout;
 use super::peepholes::mem_is_private_scratch;
@@ -8,11 +9,15 @@ use super::temp_liveness::MirTempLiveSet;
 use super::temp_uses::{op_uses_temp, terminator_uses_temp};
 use super::values::offset_mem;
 use crate::mir6502::MirRoutine;
+use crate::mir6502::analysis::effects::MirFlagSet;
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCallTarget, MirCarryIn, MirCarryOut,
     MirDef, MirMem, MirOp, MirPointerPair, MirReg, MirTempId, MirTerminator, MirValue, MirWidth,
     RoutineId,
 };
+use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
+use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
+use crate::mir6502::rewrite::posthome::structural_plan;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum SsaLiteValueKey {
@@ -2895,6 +2900,7 @@ fn ssa_lite_loaded_reg_key(
     }
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SsaLiteReloadDecision {
     RemoveCallFree,
@@ -2902,6 +2908,7 @@ enum SsaLiteReloadDecision {
     RetainFlags,
 }
 
+#[cfg(test)]
 fn ssa_lite_redundant_reload_decision_after(
     ops: &[MirOp],
     index: usize,
@@ -2927,6 +2934,95 @@ fn ssa_lite_redundant_reload_decision_after(
         SsaLiteReloadDecision::RemoveCallFree
     }
 }
+
+/// Discovers byte-value forwarding and redundant reload removal against one
+/// immutable post-home snapshot. The local value environment supplies the
+/// equality proof; routine machine liveness decides whether deleting a reload's
+/// N/Z production is observable.
+pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+    allow_cross_block: bool,
+) -> Vec<MirPostHomeRewritePlan> {
+    let predecessor_counts = block_predecessor_index_counts(routine);
+    let mut incoming = vec![None; routine.blocks.len()];
+    let mut plans = Vec::new();
+
+    for block_index in 0..routine.blocks.len() {
+        let block = &routine.blocks[block_index];
+        let mut env = incoming[block_index].take().unwrap_or_default();
+        let cross_block = allow_cross_block && ssa_lite_env_has_transferable_facts(&env);
+
+        for (index, op) in block.ops.iter().enumerate() {
+            let rewritten = ssa_lite_rewrite_byte_op(&env, op, layout);
+            let redundant = ssa_lite_loaded_reg_key(&rewritten, layout)
+                .is_some_and(|(reg, key)| env.reg_fact(reg) == Some(&key));
+            if redundant {
+                let mut plan = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 1,
+                    Vec::new(),
+                    MirExitStateChange {
+                        flags: MirFlagSet {
+                            z: true,
+                            n: true,
+                            ..MirFlagSet::default()
+                        },
+                        ..MirExitStateChange::default()
+                    },
+                    "ssa-lite-redundant-reloads",
+                    0,
+                );
+                if let Some(plan) = plan.as_mut() {
+                    plan.observations
+                        .push(("ssa-lite-redundant-reloads-call-free", 1));
+                    plans.push(plan.clone());
+                    continue;
+                }
+            }
+
+            if rewritten != *op
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 1,
+                    vec![rewritten.clone()],
+                    MirExitStateChange::default(),
+                    if cross_block {
+                        "ssa-lite-cross-block-forwards"
+                    } else {
+                        "ssa-lite-consumer-forwards"
+                    },
+                    1,
+                )
+            {
+                plans.push(plan);
+            }
+            env.observe_op(&rewritten, layout);
+        }
+
+        if !allow_cross_block {
+            continue;
+        }
+        let successor_env = ssa_lite_successor_env(env);
+        for successor_index in block_successor_indices(routine, &block.terminator) {
+            if !ssa_lite_env_has_transferable_facts(&successor_env)
+                || successor_index <= block_index
+                || predecessor_counts[successor_index] != 1
+            {
+                continue;
+            }
+            incoming[successor_index] = Some(successor_env.clone());
+        }
+    }
+    plans
+}
+
+#[cfg(test)]
 pub(super) fn fold_ssa_lite_byte_loads(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -2945,6 +3041,7 @@ pub(super) fn fold_ssa_lite_byte_loads(
     )
 }
 
+#[cfg(test)]
 fn fold_ssa_lite_byte_loads_with_env(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -2984,6 +3081,7 @@ fn fold_ssa_lite_byte_loads_with_env(
     out
 }
 
+#[cfg(test)]
 pub(super) fn fold_ssa_lite_single_predecessor_loads(
     routine: &mut MirRoutine,
     layout: &MaterializeLayout,
