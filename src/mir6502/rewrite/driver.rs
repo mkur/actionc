@@ -13,7 +13,9 @@ use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirBlockId, MirFixedZpSlot, MirMem, MirOp, MirPointerPair, MirReg,
     MirRegisterSet, MirRoutine, MirValue, MirWidth,
 };
-use crate::mir6502::rewrite::context::{MirProof, PostHomeRewriteContext, PreHomeRewriteContext};
+use crate::mir6502::rewrite::context::{
+    MirBlockedRewriteSite, MirProof, PostHomeRewriteContext, PreHomeRewriteContext,
+};
 use crate::mir6502::rewrite::plan::{
     MirEffectDelta, MirFactClass, MirPostHomeRewritePlan, MirRewritePlan,
 };
@@ -49,7 +51,25 @@ pub(in crate::mir6502) struct MirRewriteRunResult {
     pub applied: usize,
     pub overlap_rejections: usize,
     pub applied_by_stat: BTreeMap<&'static str, usize>,
+    pub blocked: usize,
+    pub blocked_by_reason: BTreeMap<&'static str, usize>,
+    pub blocked_by_stat: BTreeMap<&'static str, usize>,
+    pub blocked_sites: Vec<MirBlockedRewriteSite>,
+    pub estimated_bytes_saved: usize,
+    pub estimated_cycles_saved: usize,
     pub converged: bool,
+}
+
+impl MirRewriteRunResult {
+    fn record_blocked_site(&mut self, site: MirBlockedRewriteSite) {
+        if self.blocked_sites.contains(&site) {
+            return;
+        }
+        self.blocked += 1;
+        *self.blocked_by_reason.entry(site.reason).or_default() += 1;
+        *self.blocked_by_stat.entry(site.stat).or_default() += 1;
+        self.blocked_sites.push(site);
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -125,6 +145,8 @@ impl MirPreHomeRewriteDriver {
             let before = metric(routine);
             let batch = self.apply_batch(routine, plans)?;
             result.overlap_rejections += batch.overlap_rejections;
+            result.estimated_bytes_saved += batch.estimated_bytes_saved;
+            result.estimated_cycles_saved += batch.estimated_cycles_saved;
             result.applied += batch.applied.len();
             for stat in batch.applied {
                 *result.applied_by_stat.entry(stat).or_default() += 1;
@@ -156,6 +178,14 @@ impl MirPreHomeRewriteDriver {
         let candidates = plans.len();
         let selected = select_non_overlapping(routine, plans);
         let overlap_rejections = candidates.saturating_sub(selected.len());
+        let estimated_bytes_saved = selected
+            .iter()
+            .map(|plan| usize::from(plan.estimated_byte_saving))
+            .sum();
+        let estimated_cycles_saved = selected
+            .iter()
+            .map(|plan| usize::from(plan.estimated_cycle_saving))
+            .sum();
         let mut by_block = BTreeMap::<MirBlockId, Vec<MirRewritePlan>>::new();
         for plan in selected {
             by_block.entry(plan.block).or_default().push(plan);
@@ -186,6 +216,8 @@ impl MirPreHomeRewriteDriver {
             applied,
             overlap_rejections,
             observations,
+            estimated_bytes_saved,
+            estimated_cycles_saved,
         })
     }
 }
@@ -195,6 +227,8 @@ pub(in crate::mir6502) struct MirAppliedBatch {
     pub applied: Vec<&'static str>,
     pub overlap_rejections: usize,
     pub observations: BTreeMap<&'static str, usize>,
+    pub estimated_bytes_saved: usize,
+    pub estimated_cycles_saved: usize,
 }
 
 /// Routine-level transactional driver for physical-home rewrites. A snapshot
@@ -245,6 +279,9 @@ impl MirPostHomeRewriteDriver {
             let context = PostHomeRewriteContext::new(&snapshot);
             let plans = discover(routine, &context);
             result.candidates += plans.len();
+            for site in context.take_blocked_sites() {
+                result.record_blocked_site(site);
+            }
             for plan in &plans {
                 validate_posthome_plan(routine, self.generation, &context, plan)?;
             }
@@ -257,6 +294,14 @@ impl MirPostHomeRewriteDriver {
             let candidates = plans.len();
             let selected = select_non_overlapping_posthome(routine, plans);
             result.overlap_rejections += candidates.saturating_sub(selected.len());
+            result.estimated_bytes_saved += selected
+                .iter()
+                .map(|plan| usize::from(plan.estimated_byte_saving))
+                .sum::<usize>();
+            result.estimated_cycles_saved += selected
+                .iter()
+                .map(|plan| usize::from(plan.estimated_cycle_saving))
+                .sum::<usize>();
             let mut by_block = BTreeMap::<MirBlockId, Vec<MirPostHomeRewritePlan>>::new();
             for plan in selected {
                 by_block.entry(plan.block).or_default().push(plan);
@@ -1139,8 +1184,8 @@ mod tests {
     use crate::mir6502::analysis::sites::MirSite;
     use crate::mir6502::analysis::use_def::MirTempLane;
     use crate::mir6502::ir::{
-        MirAddr, MirBlock, MirDef, MirEffects, MirFrame, MirMem, MirRoutineAbi, MirTempId,
-        MirTerminator, MirValue, MirWidth, RoutineId,
+        MirAddr, MirBlock, MirDef, MirEffects, MirFrame, MirMem, MirRoutineAbi, MirSpillId,
+        MirTempId, MirTerminator, MirValue, MirWidth, RoutineId,
     };
     use crate::mir6502::rewrite::context::MirExitStateChange;
     use crate::mir6502::rewrite::plan::{
@@ -1169,6 +1214,28 @@ mod tests {
         MirOp::LoadImm {
             dst: MirDef::VTemp(MirTempId(1)),
             value,
+            width: MirWidth::Byte,
+        }
+    }
+
+    fn spill_store(id: u32) -> MirOp {
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Spill {
+                id: MirSpillId(id),
+                offset: 0,
+            }),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }
+    }
+
+    fn spill_load(id: u32) -> MirOp {
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(MirMem::Spill {
+                id: MirSpillId(id),
+                offset: 0,
+            }),
             width: MirWidth::Byte,
         }
     }
@@ -1247,6 +1314,8 @@ mod tests {
             .unwrap();
         assert_eq!(batch.applied, vec!["large"]);
         assert_eq!(batch.overlap_rejections, 1);
+        assert_eq!(batch.estimated_bytes_saved, 2);
+        assert_eq!(batch.estimated_cycles_saved, 0);
         assert!(matches!(
             routine.blocks[0].ops[0],
             MirOp::LoadImm { value: 3, .. }
@@ -1271,6 +1340,8 @@ mod tests {
         assert_eq!(left_result, right_result);
         assert_eq!(left, right);
         assert_eq!((left_result.applied, left_result.rounds), (1, 2));
+        assert_eq!(left_result.estimated_bytes_saved, 1);
+        assert_eq!(left_result.estimated_cycles_saved, 1);
 
         let stable = left.clone();
         let second = MirPostHomeRewriteDriver::default()
@@ -1278,6 +1349,38 @@ mod tests {
             .unwrap();
         assert_eq!(left, stable);
         assert_eq!((second.applied, second.rounds), (0, 1));
+        assert_eq!(second.estimated_bytes_saved, 0);
+        assert_eq!(second.estimated_cycles_saved, 0);
+    }
+
+    #[test]
+    fn posthome_fixed_point_reports_stable_proof_blockers() {
+        let mut input = routine(spill_store(0));
+        input.blocks[0].ops.push(spill_load(0));
+
+        let result = MirPostHomeRewriteDriver::default()
+            .run_fixed_point(&mut input, |routine, context| {
+                crate::mir6502::rewrite::posthome::structural_plan(
+                    routine,
+                    context,
+                    MirBlockId(0),
+                    0..1,
+                    Vec::new(),
+                    MirExitStateChange::default(),
+                    "remove-live-store",
+                    0,
+                )
+                .into_iter()
+                .collect()
+            })
+            .unwrap();
+
+        assert!(result.converged);
+        assert_eq!(result.blocked, 1);
+        assert_eq!(result.blocked_by_reason["home-definition-live"], 1);
+        assert_eq!(result.blocked_by_stat["remove-live-store"], 1);
+        assert_eq!(result.blocked_sites[0].block, MirBlockId(0));
+        assert_eq!(result.blocked_sites[0].op_index, 0);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 #![allow(dead_code)] // Matchers migrate to this facade in later slices.
 
+use std::cell::RefCell;
 use std::collections::BTreeSet;
 
 use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte};
@@ -81,6 +82,40 @@ pub(in crate::mir6502) enum MirProofBlocker {
         point: MirSite,
     },
     UnsupportedPointerPair(MirAddressConsumer),
+}
+
+impl MirProofBlocker {
+    pub(in crate::mir6502) fn category(&self) -> &'static str {
+        match self {
+            Self::InvalidPoint(_) => "invalid-point",
+            Self::ReachingDefinitions(_) => "reaching-definitions",
+            Self::RequirementDoesNotUseLane(_) => "requirement-does-not-use-lane",
+            Self::NoReachingDefinition(_) => "no-reaching-definition",
+            Self::MultipleReachingDefinitions { .. } => "multiple-reaching-definitions",
+            Self::DefinitionDoesNotDominateUse { .. } => "definition-does-not-dominate-use",
+            Self::DefinitionUnavailable { .. } => "definition-unavailable",
+            Self::InvalidWindow { .. } => "invalid-window",
+            Self::UseOutsideWindow(_) => "use-outside-window",
+            Self::HomeLiveness(_) => "home-liveness-error",
+            Self::MachineLiveness(_) => "machine-liveness-error",
+            Self::ParamAvailability(_) => "parameter-availability-error",
+            Self::HomeDefinitionLive { .. } => "home-definition-live",
+            Self::HomeLive { .. } => "home-live",
+            Self::RegisterLive { .. } => "register-live",
+            Self::StackPointerLive { .. } => "stack-pointer-live",
+            Self::FlagsLive { .. } => "flags-live",
+            Self::ParameterRegisterUnavailable { .. } => "parameter-register-unavailable",
+            Self::UnsupportedPointerPair(_) => "unsupported-pointer-pair",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(in crate::mir6502) struct MirBlockedRewriteSite {
+    pub stat: &'static str,
+    pub block: MirBlockId,
+    pub op_index: usize,
+    pub reason: &'static str,
 }
 
 /// Machine and private-home locations whose final values differ between an
@@ -305,14 +340,18 @@ fn register_set_contains(registers: MirRegisterSet, reg: MirReg) -> bool {
 
 /// Read-only post-home query facade. Temp identity queries are intentionally
 /// absent so matchers cannot accidentally cross the materialization boundary.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub(in crate::mir6502) struct PostHomeRewriteContext<'snapshot, 'routine> {
     snapshot: &'snapshot PostHomeAnalysisSnapshot<'routine>,
+    blocked_sites: RefCell<Vec<MirBlockedRewriteSite>>,
 }
 
 impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
     pub(in crate::mir6502) fn new(snapshot: &'snapshot PostHomeAnalysisSnapshot<'routine>) -> Self {
-        Self { snapshot }
+        Self {
+            snapshot,
+            blocked_sites: RefCell::new(Vec::new()),
+        }
     }
 
     pub(in crate::mir6502) fn generation(&self) -> MirRoutineGeneration {
@@ -321,6 +360,25 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
 
     pub(in crate::mir6502) fn point(&self, site: MirSite) -> MirProgramPoint {
         self.snapshot.routine().point(site)
+    }
+
+    pub(in crate::mir6502) fn record_blocker(
+        &self,
+        stat: &'static str,
+        block: MirBlockId,
+        op_index: usize,
+        blocker: &MirProofBlocker,
+    ) {
+        self.blocked_sites.borrow_mut().push(MirBlockedRewriteSite {
+            stat,
+            block,
+            op_index,
+            reason: blocker.category(),
+        });
+    }
+
+    pub(in crate::mir6502) fn take_blocked_sites(&self) -> Vec<MirBlockedRewriteSite> {
+        std::mem::take(&mut *self.blocked_sites.borrow_mut())
     }
 
     pub(in crate::mir6502) fn home_definition_dead_after(

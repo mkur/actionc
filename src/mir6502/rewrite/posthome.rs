@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use crate::mir6502::analysis::effects::{MirHomeByte, classify_op};
 use crate::mir6502::analysis::sites::MirSite;
-use crate::mir6502::ir::{MirBlockId, MirOp, MirRoutine};
+use crate::mir6502::ir::{MirAddr, MirBlockId, MirMem, MirOp, MirRoutine, MirWidth};
 use crate::mir6502::rewrite::context::{MirExitStateChange, MirProof, PostHomeRewriteContext};
 use crate::mir6502::rewrite::plan::{
     MirChangeSet, MirPostHomeRewritePlan, MirRemovedHomeDefinition,
@@ -42,17 +42,23 @@ pub(in crate::mir6502) fn structural_plan(
         block,
         op_index: range.end - 1,
     });
-    if removed_homes.iter().any(|removed| {
-        !matches!(
-            context.home_definition_dead_after(removed.home, context.point(removed.store), end,),
-            MirProof::Proven(())
-        )
-    }) || !matches!(
-        context.exit_state_change_is_unobservable(&exit_state_change, end),
-        MirProof::Proven(())
-    ) {
+    for removed in &removed_homes {
+        if let MirProof::Blocked(blocker) =
+            context.home_definition_dead_after(removed.home, context.point(removed.store), end)
+        {
+            context.record_blocker(stat, block, range.start, &blocker);
+            return None;
+        }
+    }
+    if let MirProof::Blocked(blocker) =
+        context.exit_state_change_is_unobservable(&exit_state_change, end)
+    {
+        context.record_blocker(stat, block, range.start, &blocker);
         return None;
     }
+
+    let original_cost = estimated_6502_cost(&block_ops[range.clone()]);
+    let replacement_cost = estimated_6502_cost(&replacement);
 
     Some(MirPostHomeRewritePlan {
         generation: context.generation(),
@@ -65,9 +71,88 @@ pub(in crate::mir6502) fn structural_plan(
         stat,
         observations: Vec::new(),
         family_priority,
-        estimated_byte_saving: 0,
-        estimated_cycle_saving: 0,
+        estimated_byte_saving: original_cost.0.saturating_sub(replacement_cost.0),
+        estimated_cycle_saving: original_cost.1.saturating_sub(replacement_cost.1),
     })
+}
+
+/// A deliberately small 6502 cost model used only to rank already-legal
+/// competing plans and report estimated gains. Exact bytes remain a listing
+/// measurement; barriers and machine blocks are neutral because their payload
+/// cost is not represented by one MIR operation.
+fn estimated_6502_cost(ops: &[MirOp]) -> (u16, u16) {
+    ops.iter().fold((0u16, 0u16), |(bytes, cycles), op| {
+        let (op_bytes, op_cycles) = estimated_op_cost(op);
+        (
+            bytes.saturating_add(op_bytes),
+            cycles.saturating_add(op_cycles),
+        )
+    })
+}
+
+fn estimated_op_cost(op: &MirOp) -> (u16, u16) {
+    match op {
+        MirOp::LoadImm { width, .. } => width_cost(*width, (2, 2), (4, 4)),
+        MirOp::Load { src, width, .. } => address_cost(src, *width, false),
+        MirOp::Store { dst, width, .. } => address_cost(dst, *width, true),
+        MirOp::Move { width, .. } => width_cost(*width, (1, 2), (4, 6)),
+        MirOp::LeaAddr { .. } => (4, 4),
+        MirOp::Extend { .. } | MirOp::Truncate { .. } => (3, 4),
+        MirOp::Unary { width, .. } => width_cost(*width, (1, 2), (4, 6)),
+        MirOp::Binary { width, .. } => width_cost(*width, (2, 2), (8, 12)),
+        MirOp::UpdateMem { mem, width, .. } => {
+            let zp = mem_is_zero_page(mem);
+            match (width, zp) {
+                (MirWidth::Byte, true) => (2, 5),
+                (MirWidth::Byte, false) => (3, 6),
+                (MirWidth::Word, true) => (6, 10),
+                (MirWidth::Word, false) => (8, 12),
+            }
+        }
+        MirOp::AddByteToWordMem { .. } | MirOp::SubByteFromWordMem { .. } => (8, 12),
+        MirOp::Compare { width, .. } => width_cost(*width, (2, 2), (6, 8)),
+        MirOp::Call { .. } | MirOp::RuntimeHelper { .. } => (3, 6),
+        MirOp::MaterializeAddress { .. } => (6, 8),
+        MirOp::MaterializeIndexedAddress { .. } => (12, 18),
+        MirOp::AdvanceAddress { .. } => (8, 12),
+        MirOp::LoadIndirect { .. } => (2, 5),
+        MirOp::StoreIndirect { .. } => (2, 6),
+        MirOp::IndirectByteCompound { .. } => (8, 12),
+        MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => (0, 0),
+    }
+}
+
+fn address_cost(addr: &MirAddr, width: MirWidth, store: bool) -> (u16, u16) {
+    let (bytes, cycles) = match addr {
+        MirAddr::Direct(mem) if mem_is_zero_page(mem) => (2, 3),
+        MirAddr::Direct(_) => (3, 4),
+        MirAddr::AbsoluteIndexedX { .. } | MirAddr::AbsoluteIndexedY { .. } => {
+            (3, if store { 5 } else { 4 })
+        }
+        MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. } => (2, if store { 6 } else { 5 }),
+        MirAddr::Label(_) => (3, 4),
+        MirAddr::ComputedIndex { .. }
+        | MirAddr::PointerCell { .. }
+        | MirAddr::PointerIndex { .. }
+        | MirAddr::Deref { .. } => (8, 12),
+    };
+    match width {
+        MirWidth::Byte => (bytes, cycles),
+        MirWidth::Word => (bytes.saturating_mul(2), cycles.saturating_mul(2)),
+    }
+}
+
+fn mem_is_zero_page(mem: &MirMem) -> bool {
+    matches!(mem, MirMem::ZeroPage(_) | MirMem::FixedZeroPage(_))
+}
+
+fn width_cost(width: MirWidth, byte: (u16, u16), word: (u16, u16)) -> (u16, u16) {
+    match width {
+        MirWidth::Byte => byte,
+        MirWidth::Word => word,
+    }
 }
 
 fn removed_home_definitions(
@@ -208,6 +293,11 @@ mod tests {
             )
             .is_none()
         );
+        let blocked = context.take_blocked_sites();
+        assert_eq!(blocked.len(), 1);
+        assert_eq!(blocked[0].stat, "remove-store");
+        assert_eq!(blocked[0].reason, "home-definition-live");
+        assert!(context.take_blocked_sites().is_empty());
     }
 
     #[test]
@@ -228,6 +318,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(plan.removed_homes.len(), 1);
+        assert!(plan.estimated_byte_saving > 0);
+        assert!(plan.estimated_cycle_saving > 0);
     }
 
     #[test]

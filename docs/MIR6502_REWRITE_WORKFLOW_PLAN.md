@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-07-20.
 
-Status: in progress through Slice 10. Slice 6 (all five pre-home migration sub-slices) is
+Status: complete through Slice 11. Slice 6 (all five pre-home migration sub-slices) is
 complete. Unused-`LeaAddr` elimination is also complete. The hybrid
 parameter-home family is split out for the later location/machine-state
 workflow. Slice 7's home, machine-state, parameter/register availability, and
@@ -1284,7 +1284,20 @@ Suggested commit: `mir6502: enforce analyzed rewrite contracts`.
 
 ### Slice 11: recover precision and measure profitability
 
-Status: planned.
+Status: complete. Typed post-home proof failures now produce stable blocker
+categories and routine/block/operation sites through the same context query
+that rejects the rewrite. Applied plans report accumulated byte/cycle
+estimates, and automatically constructed structural plans use a deliberately
+small 6502 addressing/width cost model. These estimates rank already-legal
+overlapping candidates; they never substitute for liveness or effects proofs.
+
+The TN measurement found 320 blocked sites: 289 live home definitions and 31
+live registers. It found no alias/effect-analysis blocker, so this slice does
+not weaken either model. TN's XEX remains byte-identical to Slice 10. A warm
+debug-compiler run takes a median 3.23 seconds over five runs; selective
+snapshot caching remains follow-up work rather than being mixed into the
+measurement slice. Full measurements and the MIRZ80 reuse boundary are in
+[`../surveys/tn/mir6502-rewrite-workflow-slice11.md`](../surveys/tn/mir6502-rewrite-workflow-slice11.md).
 
 - Compare applied and blocked TN sites with the baseline.
 - Improve alias or effect precision only for measured blockers.

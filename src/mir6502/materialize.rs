@@ -1455,6 +1455,30 @@ fn record_prehome_rewrite_result(
     result: MirRewriteRunResult,
     peephole_stats: &mut MirPeepholeStats,
 ) {
+    for site in &result.blocked_sites {
+        peephole_stats.record_site(
+            routine_id,
+            "analyzed-rewrite-blocked",
+            format!(
+                "stat={} block=b{} op=#{} reason={}",
+                site.stat, site.block.0, site.op_index, site.reason
+            ),
+        );
+    }
+    for (reason, count) in &result.blocked_by_reason {
+        peephole_stats.record_many_dynamic(
+            routine_id,
+            format!("analyzed-rewrite-blocked-{reason}"),
+            *count,
+        );
+    }
+    for (stat, count) in &result.blocked_by_stat {
+        peephole_stats.record_many_dynamic(
+            routine_id,
+            format!("analyzed-rewrite-blocked-stat-{stat}"),
+            *count,
+        );
+    }
     for (stat, count) in result.applied_by_stat {
         peephole_stats.record_many(routine_id, stat, count);
     }
@@ -1466,6 +1490,17 @@ fn record_prehome_rewrite_result(
     peephole_stats.record_many(routine_id, "prehome-rewrite-rounds", result.rounds);
     peephole_stats.record_many(routine_id, "prehome-rewrite-candidates", result.candidates);
     peephole_stats.record_many(routine_id, "prehome-rewrite-applied", result.applied);
+    peephole_stats.record_many(routine_id, "analyzed-rewrite-blocked", result.blocked);
+    peephole_stats.record_many(
+        routine_id,
+        "analyzed-rewrite-estimated-bytes-saved",
+        result.estimated_bytes_saved,
+    );
+    peephole_stats.record_many(
+        routine_id,
+        "analyzed-rewrite-estimated-cycles-saved",
+        result.estimated_cycles_saved,
+    );
     peephole_stats.record_many(
         routine_id,
         "prehome-rewrite-overlap-rejections",
