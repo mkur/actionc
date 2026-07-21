@@ -17,6 +17,7 @@ pub(in crate::mir6502) enum MirFactClass {
     TempLiveness,
     HomeLiveness,
     MachineLiveness,
+    ParamAvailability,
     MemoryEffects,
     LayoutFacts,
 }
@@ -35,6 +36,7 @@ impl MirChangeSet {
                 MirFactClass::TempLiveness,
                 MirFactClass::MemoryEffects,
                 MirFactClass::MachineLiveness,
+                MirFactClass::ParamAvailability,
             ]),
         }
     }

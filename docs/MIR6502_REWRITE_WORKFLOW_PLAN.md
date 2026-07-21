@@ -5,7 +5,10 @@ Snapshot date: 2026-07-20.
 Status: in progress. Slice 6 (all five pre-home migration sub-slices) is
 complete. Unused-`LeaAddr` elimination is also complete. The hybrid
 parameter-home family is split out for the later location/machine-state
-workflow. Migrated shape recognizers no longer make
+workflow. Slice 7's home, machine-state, parameter/register availability, and
+typed post-home proof infrastructure is complete; the compatibility helper is
+still scheduled and therefore emitted code is intentionally unchanged by this
+infrastructure slice. Migrated shape recognizers no longer make
 suffix-liveness decisions: exact definition
 identity, reaching definitions, and routine-wide lane deadness come from the
 shared snapshot. Later local, terminator, exact-lane successor, and full-temp
@@ -1160,8 +1163,10 @@ materialization.
 
 ### Slice 7: build post-home location and machine liveness
 
-Status: in progress. Private home-byte and per-location machine liveness are
-implemented; parameter-home availability and the typed post-home facade remain.
+Status: complete. Private home-byte and per-location machine liveness,
+routine-wide parameter/register availability, ABI boundary seeding, and the
+typed post-home proof facade are implemented. The legacy hybrid parameter-home
+helper remains scheduled until Slice 8 migrates its consumers independently.
 
 - Implement private home-byte identities and backward home liveness.
 - Treat address consumers as reads of their pair bytes.

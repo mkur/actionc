@@ -1,12 +1,22 @@
 #![allow(dead_code)] // Matchers migrate to this facade in later slices.
 
+use std::collections::BTreeSet;
+
+use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte};
+use crate::mir6502::analysis::home_liveness::MirHomeLivenessError;
+use crate::mir6502::analysis::machine_liveness::MirMachineLivenessError;
+use crate::mir6502::analysis::param_availability::{MirParamAvailabilityError, MirParamHomeByte};
+use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::reaching_defs::MirReachingDefinitionError;
 use crate::mir6502::analysis::sites::{
     MirProgramPoint, MirProgramPointError, MirRoutineGeneration, MirSite,
 };
 use crate::mir6502::analysis::use_def::{MirDefSite, MirTempLane, MirUseSite};
-use crate::mir6502::ir::{MirBlockId, MirTempId};
+use crate::mir6502::ir::{
+    MirAddressConsumer, MirBlockId, MirFixedZpSlot, MirPointerPair, MirReg, MirRegisterSet,
+    MirTempId,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirProof<T> {
@@ -43,6 +53,43 @@ pub(in crate::mir6502) enum MirProofBlocker {
         end: MirSite,
     },
     UseOutsideWindow(MirUseSite),
+    HomeLiveness(MirHomeLivenessError),
+    MachineLiveness(MirMachineLivenessError),
+    ParamAvailability(MirParamAvailabilityError),
+    HomeDefinitionLive {
+        home: MirHomeByte,
+        store: MirSite,
+        end: MirSite,
+    },
+    HomeLive {
+        home: MirHomeByte,
+        point: MirSite,
+    },
+    RegisterLive {
+        reg: MirReg,
+        point: MirSite,
+    },
+    StackPointerLive {
+        point: MirSite,
+    },
+    FlagsLive {
+        flags: MirFlagSet,
+        point: MirSite,
+    },
+    ParameterRegisterUnavailable {
+        home: MirParamHomeByte,
+        point: MirSite,
+    },
+    UnsupportedPointerPair(MirAddressConsumer),
+}
+
+/// Machine and private-home locations whose final values differ between an
+/// original rewrite window and its replacement.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(in crate::mir6502) struct MirExitStateChange {
+    pub registers: MirRegisterSet,
+    pub flags: MirFlagSet,
+    pub homes: BTreeSet<MirHomeByte>,
 }
 
 /// Read-only query facade. Matchers receive this type instead of raw analysis
@@ -224,6 +271,261 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
             .filter(|usage| usage.site == site)
             .collect()
     }
+
+    pub(in crate::mir6502) fn parameter_register_at(
+        &self,
+        home: MirParamHomeByte,
+        point: MirProgramPoint,
+    ) -> MirProof<MirReg> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        match self
+            .snapshot
+            .param_availability()
+            .register_at(home, point.site)
+        {
+            Ok(Some(reg)) => MirProof::Proven(reg),
+            Ok(None) => MirProof::Blocked(MirProofBlocker::ParameterRegisterUnavailable {
+                home,
+                point: point.site,
+            }),
+            Err(error) => MirProof::Blocked(MirProofBlocker::ParamAvailability(error)),
+        }
+    }
+}
+
+fn register_set_contains(registers: MirRegisterSet, reg: MirReg) -> bool {
+    match reg {
+        MirReg::A => registers.a,
+        MirReg::X => registers.x,
+        MirReg::Y => registers.y,
+    }
+}
+
+/// Read-only post-home query facade. Temp identity queries are intentionally
+/// absent so matchers cannot accidentally cross the materialization boundary.
+#[derive(Debug, Clone, Copy)]
+pub(in crate::mir6502) struct PostHomeRewriteContext<'snapshot, 'routine> {
+    snapshot: &'snapshot PostHomeAnalysisSnapshot<'routine>,
+}
+
+impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
+    pub(in crate::mir6502) fn new(snapshot: &'snapshot PostHomeAnalysisSnapshot<'routine>) -> Self {
+        Self { snapshot }
+    }
+
+    pub(in crate::mir6502) fn generation(&self) -> MirRoutineGeneration {
+        self.snapshot.routine().generation()
+    }
+
+    pub(in crate::mir6502) fn point(&self, site: MirSite) -> MirProgramPoint {
+        self.snapshot.routine().point(site)
+    }
+
+    pub(in crate::mir6502) fn home_definition_dead_after(
+        &self,
+        home: MirHomeByte,
+        store: MirProgramPoint,
+        window_end: MirProgramPoint,
+    ) -> MirProof<()> {
+        for point in [store, window_end] {
+            if let Err(error) = self.snapshot.routine().validate_point(point) {
+                return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+            }
+        }
+        match self.snapshot.home_liveness().home_definition_dead_after(
+            home,
+            store.site,
+            window_end.site,
+        ) {
+            Ok(true) => MirProof::Proven(()),
+            Ok(false) => MirProof::Blocked(MirProofBlocker::HomeDefinitionLive {
+                home,
+                store: store.site,
+                end: window_end.site,
+            }),
+            Err(error) => MirProof::Blocked(MirProofBlocker::HomeLiveness(error)),
+        }
+    }
+
+    pub(in crate::mir6502) fn register_dead_after(
+        &self,
+        reg: MirReg,
+        point: MirProgramPoint,
+    ) -> MirProof<()> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        match self
+            .snapshot
+            .machine_liveness()
+            .register_dead_after(reg, point.site)
+        {
+            Ok(true) => MirProof::Proven(()),
+            Ok(false) => MirProof::Blocked(MirProofBlocker::RegisterLive {
+                reg,
+                point: point.site,
+            }),
+            Err(error) => MirProof::Blocked(MirProofBlocker::MachineLiveness(error)),
+        }
+    }
+
+    pub(in crate::mir6502) fn flags_dead_after(
+        &self,
+        flags: MirFlagSet,
+        point: MirProgramPoint,
+    ) -> MirProof<()> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        match self
+            .snapshot
+            .machine_liveness()
+            .flags_dead_after(flags, point.site)
+        {
+            Ok(true) => MirProof::Proven(()),
+            Ok(false) => MirProof::Blocked(MirProofBlocker::FlagsLive {
+                flags,
+                point: point.site,
+            }),
+            Err(error) => MirProof::Blocked(MirProofBlocker::MachineLiveness(error)),
+        }
+    }
+
+    pub(in crate::mir6502) fn pointer_pair_dead_after(
+        &self,
+        consumer: MirAddressConsumer,
+        point: MirProgramPoint,
+    ) -> MirProof<()> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        let MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }) = consumer else {
+            return MirProof::Blocked(MirProofBlocker::UnsupportedPointerPair(consumer));
+        };
+        for slot in [lo, MirFixedZpSlot(lo.0.saturating_add(1))] {
+            let home = MirHomeByte::FixedZeroPage(slot);
+            match self.snapshot.home_liveness().live_after(home, point.site) {
+                Ok(false) => {}
+                Ok(true) => {
+                    return MirProof::Blocked(MirProofBlocker::HomeLive {
+                        home,
+                        point: point.site,
+                    });
+                }
+                Err(error) => {
+                    return MirProof::Blocked(MirProofBlocker::HomeLiveness(error));
+                }
+            }
+        }
+        MirProof::Proven(())
+    }
+
+    pub(in crate::mir6502) fn parameter_register_at(
+        &self,
+        home: MirParamHomeByte,
+        point: MirProgramPoint,
+    ) -> MirProof<MirReg> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        match self
+            .snapshot
+            .param_availability()
+            .register_at(home, point.site)
+        {
+            Ok(Some(reg)) => MirProof::Proven(reg),
+            Ok(None) => MirProof::Blocked(MirProofBlocker::ParameterRegisterUnavailable {
+                home,
+                point: point.site,
+            }),
+            Err(error) => MirProof::Blocked(MirProofBlocker::ParamAvailability(error)),
+        }
+    }
+
+    pub(in crate::mir6502) fn exit_state_change_is_unobservable(
+        &self,
+        change: &MirExitStateChange,
+        point: MirProgramPoint,
+    ) -> MirProof<()> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        for reg in [MirReg::A, MirReg::X, MirReg::Y] {
+            if register_set_contains(change.registers, reg) {
+                match self
+                    .snapshot
+                    .machine_liveness()
+                    .register_dead_after(reg, point.site)
+                {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        return MirProof::Blocked(MirProofBlocker::RegisterLive {
+                            reg,
+                            point: point.site,
+                        });
+                    }
+                    Err(error) => {
+                        return MirProof::Blocked(MirProofBlocker::MachineLiveness(error));
+                    }
+                }
+            }
+        }
+        if change.registers.sp {
+            match self
+                .snapshot
+                .machine_liveness()
+                .stack_pointer_dead_after(point.site)
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    return MirProof::Blocked(MirProofBlocker::StackPointerLive {
+                        point: point.site,
+                    });
+                }
+                Err(error) => {
+                    return MirProof::Blocked(MirProofBlocker::MachineLiveness(error));
+                }
+            }
+        }
+        let changed_flags = if change.registers.flags {
+            MirFlagSet::all()
+        } else {
+            change.flags
+        };
+        match self
+            .snapshot
+            .machine_liveness()
+            .flags_dead_after(changed_flags, point.site)
+        {
+            Ok(true) => {}
+            Ok(false) => {
+                return MirProof::Blocked(MirProofBlocker::FlagsLive {
+                    flags: changed_flags,
+                    point: point.site,
+                });
+            }
+            Err(error) => {
+                return MirProof::Blocked(MirProofBlocker::MachineLiveness(error));
+            }
+        }
+        for home in &change.homes {
+            match self.snapshot.home_liveness().live_after(*home, point.site) {
+                Ok(false) => {}
+                Ok(true) => {
+                    return MirProof::Blocked(MirProofBlocker::HomeLive {
+                        home: *home,
+                        point: point.site,
+                    });
+                }
+                Err(error) => {
+                    return MirProof::Blocked(MirProofBlocker::HomeLiveness(error));
+                }
+            }
+        }
+        MirProof::Proven(())
+    }
 }
 
 fn valid_window(definition: MirSite, end: MirSite) -> bool {
@@ -280,11 +582,14 @@ fn use_is_inside_window(usage: MirUseSite, definition: MirSite, end: MirSite) ->
 mod tests {
     use super::*;
     use crate::mir6502::analysis::effects::MirTempUseKind;
+    use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
     use crate::mir6502::analysis::use_def::MirTempRequirement;
     use crate::mir6502::ir::{
-        MirBlock, MirDef, MirEffects, MirFrame, MirOp, MirRoutine, MirRoutineAbi, MirTempId,
+        MirAddr, MirAddressConsumer, MirBlock, MirDef, MirEffects, MirFixedZpSlot, MirFrame,
+        MirMem, MirOp, MirPointerPair, MirReg, MirRoutine, MirRoutineAbi, MirSpillId, MirTempId,
         MirTerminator, MirValue, MirWidth, RoutineId,
     };
+    use crate::nir::ParamId;
 
     fn routine() -> MirRoutine {
         MirRoutine {
@@ -392,6 +697,170 @@ mod tests {
             MirProof::Blocked(MirProofBlocker::InvalidPoint(
                 MirProgramPointError::StaleGeneration { .. }
             ))
+        ));
+    }
+
+    #[test]
+    fn posthome_facade_exposes_home_machine_pointer_and_param_proofs() {
+        let param = MirParamHomeByte {
+            param: ParamId(0),
+            offset: 0,
+        };
+        let spill = MirHomeByte::Spill {
+            id: MirSpillId(0),
+            offset: 0,
+        };
+        let pointer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAC),
+        });
+        let routine = MirRoutine {
+            id: RoutineId(0),
+            name: "posthome-context".to_string(),
+            abi: MirRoutineAbi::Action,
+            frame: MirFrame {
+                spills: vec![MirSpillId(0)],
+                fixed_zero_page: vec![MirFixedZpSlot(0xAC), MirFixedZpSlot(0xAD)],
+                ..MirFrame::default()
+            },
+            temps: Vec::new(),
+            blocks: vec![MirBlock {
+                id: MirBlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: vec![
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Param {
+                            id: ParamId(0),
+                            offset: 0,
+                        }),
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Spill {
+                            id: MirSpillId(0),
+                            offset: 0,
+                        }),
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Load {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirAddr::Direct(MirMem::Spill {
+                            id: MirSpillId(0),
+                            offset: 0,
+                        }),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::MaterializeAddress {
+                        consumer: pointer,
+                        value: MirValue::ConstU16(0x4000),
+                    },
+                    MirOp::LoadIndirect {
+                        consumer: pointer,
+                        dst: MirDef::Reg(MirReg::A),
+                        offset: 0,
+                    },
+                ],
+                terminator: MirTerminator::Return,
+            }],
+            effects: MirEffects::default(),
+        };
+        let snapshot =
+            PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial()).unwrap();
+        let context = PostHomeRewriteContext::new(&snapshot);
+
+        assert_eq!(
+            context.parameter_register_at(
+                param,
+                context.point(MirSite::Op {
+                    block: MirBlockId(0),
+                    op_index: 1,
+                })
+            ),
+            MirProof::Proven(MirReg::A)
+        );
+        assert!(matches!(
+            context.home_definition_dead_after(
+                spill,
+                context.point(MirSite::Op {
+                    block: MirBlockId(0),
+                    op_index: 1,
+                }),
+                context.point(MirSite::Op {
+                    block: MirBlockId(0),
+                    op_index: 1,
+                }),
+            ),
+            MirProof::Blocked(MirProofBlocker::HomeDefinitionLive { .. })
+        ));
+        assert!(matches!(
+            context.pointer_pair_dead_after(
+                pointer,
+                context.point(MirSite::Op {
+                    block: MirBlockId(0),
+                    op_index: 3,
+                }),
+            ),
+            MirProof::Blocked(MirProofBlocker::HomeLive { .. })
+        ));
+        assert!(
+            context
+                .register_dead_after(
+                    MirReg::A,
+                    context.point(MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 4,
+                    })
+                )
+                .is_proven()
+        );
+        assert!(
+            context
+                .flags_dead_after(
+                    MirFlagSet {
+                        z: true,
+                        ..MirFlagSet::default()
+                    },
+                    context.point(MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 4,
+                    })
+                )
+                .is_proven()
+        );
+        assert!(
+            context
+                .exit_state_change_is_unobservable(
+                    &MirExitStateChange {
+                        registers: MirRegisterSet {
+                            a: true,
+                            ..MirRegisterSet::default()
+                        },
+                        ..MirExitStateChange::default()
+                    },
+                    context.point(MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 4,
+                    })
+                )
+                .is_proven()
+        );
+        assert!(matches!(
+            context.exit_state_change_is_unobservable(
+                &MirExitStateChange {
+                    registers: MirRegisterSet {
+                        sp: true,
+                        ..MirRegisterSet::default()
+                    },
+                    ..MirExitStateChange::default()
+                },
+                context.point(MirSite::Op {
+                    block: MirBlockId(0),
+                    op_index: 4,
+                })
+            ),
+            MirProof::Blocked(MirProofBlocker::StackPointerLive { .. })
         ));
     }
 }

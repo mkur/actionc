@@ -240,6 +240,13 @@ impl MirMachineLiveness {
         self.live_after(site).map(|live| !live.flags_live(flags))
     }
 
+    pub(in crate::mir6502) fn stack_pointer_dead_after(
+        &self,
+        site: MirSite,
+    ) -> Result<bool, MirMachineLivenessError> {
+        self.live_after(site).map(|live| !live.stack_pointer_live())
+    }
+
     fn block_transfers(
         &self,
         block: MirBlockId,

@@ -2,6 +2,7 @@
 
 use crate::mir6502::analysis::cfg::{MirCfg, MirCfgError};
 use crate::mir6502::analysis::dominance::MirDominance;
+use crate::mir6502::analysis::param_availability::MirParamRegisterAvailability;
 use crate::mir6502::analysis::reaching_defs::MirReachingDefinitions;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirRoutineSnapshot};
 use crate::mir6502::analysis::temp_liveness::MirTempLiveness;
@@ -15,6 +16,7 @@ pub(in crate::mir6502) struct PreHomeAnalysisSnapshot<'a> {
     use_def: MirTempUseDefIndex,
     reaching_definitions: MirReachingDefinitions,
     temp_liveness: MirTempLiveness,
+    param_availability: MirParamRegisterAvailability,
     dominance: MirDominance,
 }
 
@@ -29,6 +31,7 @@ impl<'a> PreHomeAnalysisSnapshot<'a> {
             use_def: MirTempUseDefIndex::from_routine(routine),
             reaching_definitions: MirReachingDefinitions::analyze(routine, cfg),
             temp_liveness: MirTempLiveness::analyze(routine, cfg),
+            param_availability: MirParamRegisterAvailability::analyze(routine, cfg),
             dominance: MirDominance::from_cfg(cfg),
             routine: routine_snapshot,
         })
@@ -56,5 +59,9 @@ impl<'a> PreHomeAnalysisSnapshot<'a> {
 
     pub(in crate::mir6502) fn dominance(&self) -> &MirDominance {
         &self.dominance
+    }
+
+    pub(in crate::mir6502) fn param_availability(&self) -> &MirParamRegisterAvailability {
+        &self.param_availability
     }
 }
