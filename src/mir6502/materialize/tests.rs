@@ -5925,8 +5925,23 @@ fn param_forwarding_rewrites_indirect_call_targets() {
         },
     ];
 
-    let rewritten = forward_param_register_homes(ops);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops,
+        terminator: MirTerminator::Return,
+    }]);
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point_by_key(
+            &mut routine,
+            calls::discover_param_home_consumers,
+            calls::param_home_consumer_rank,
+        )
+        .unwrap();
+    let rewritten = &routine.blocks[0].ops;
 
+    assert_eq!(result.applied, 1);
     assert!(matches!(
         rewritten.get(2),
         Some(MirOp::Call {
@@ -5943,6 +5958,163 @@ fn param_forwarding_rewrites_indirect_call_targets() {
         }) if **lo == MirValue::Def(MirDef::Reg(MirReg::A))
             && **hi == MirValue::Def(MirDef::Reg(MirReg::X))
     ));
+}
+
+#[test]
+fn analyzed_param_word_store_consumer_uses_available_entry_registers() {
+    let param_lo = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let param_hi = offset_mem(&param_lo, 1);
+    let target = MirMem::Global {
+        id: SymbolId(0),
+        offset: 0,
+    };
+    let temp = MirTempId(0);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Store {
+                dst: MirAddr::Direct(param_hi),
+                src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(param_lo.clone()),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(temp),
+                src: MirAddr::Direct(param_lo),
+                width: MirWidth::Word,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(target.clone()),
+                src: MirValue::Def(MirDef::VTemp(temp)),
+                width: MirWidth::Word,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps.push(MirTemp { id: temp });
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point_by_key(
+            &mut routine,
+            calls::discover_param_home_consumers,
+            calls::param_home_consumer_rank,
+        )
+        .unwrap();
+
+    assert_eq!(result.applied, 1);
+    assert_eq!(routine.blocks[0].ops.len(), 5);
+    assert!(matches!(
+        routine.blocks[0].ops.get(2),
+        Some(MirOp::Store {
+            dst: MirAddr::Direct(dst),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }) if dst == &target
+    ));
+    assert!(matches!(
+        routine.blocks[0].ops.get(3),
+        Some(MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::Def(MirDef::Reg(MirReg::X)),
+            width: MirWidth::Byte,
+        })
+    ));
+}
+
+#[test]
+fn analyzed_param_reload_keeps_same_register_load_when_flags_are_live() {
+    let param = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Store {
+                    dst: MirAddr::Direct(param.clone()),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(param),
+                    width: MirWidth::Byte,
+                },
+            ],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]);
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, calls::discover_param_home_reloads)
+        .unwrap();
+
+    assert_eq!(result.applied, 0);
+    assert!(matches!(
+        routine.blocks[0].ops.get(1),
+        Some(MirOp::Load { .. })
+    ));
+}
+
+#[test]
+fn analyzed_param_reload_removes_same_register_load_when_flags_are_dead() {
+    let param = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Store {
+                dst: MirAddr::Direct(param.clone()),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(param),
+                width: MirWidth::Byte,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, calls::discover_param_home_reloads)
+        .unwrap();
+
+    assert_eq!(result.applied, 1);
+    assert_eq!(routine.blocks[0].ops.len(), 1);
+    assert!(matches!(routine.blocks[0].ops[0], MirOp::Store { .. }));
 }
 
 #[test]

@@ -4,6 +4,11 @@ use super::indexes::{
     materialize_indexed_write_from_value,
 };
 use super::*;
+use crate::mir6502::analysis::effects::MirFlagSet;
+use crate::mir6502::ir::{MirRegisterSet, MirRoutine};
+use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
+use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
+use crate::mir6502::rewrite::posthome::structural_plan;
 
 #[cfg(test)]
 pub(super) fn try_materialize_store_expr_producers(
@@ -2987,6 +2992,7 @@ fn inc_dec_mem_is_safe(mem: &MirMem) -> bool {
     )
 }
 
+#[cfg(test)]
 pub(super) fn try_fold_direct_inc_dec_update(
     ops: &[MirOp],
     index: usize,
@@ -2996,6 +3002,38 @@ pub(super) fn try_fold_direct_inc_dec_update(
     if !tail_allows_inc_dec_update_after(ops, index + 3, terminator) {
         return None;
     }
+    let (consumed, replacement) = direct_inc_dec_update_shape_at(ops, index)?;
+    out.extend(replacement);
+    Some(consumed)
+}
+
+pub(in crate::mir6502) fn discover_direct_inc_dec_updates(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some((consumed, replacement)) = direct_inc_dec_update_shape_at(&block.ops, index)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    inc_dec_exit_change(),
+                    "direct-inc-dec-update",
+                    0,
+                )
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+fn direct_inc_dec_update_shape_at(ops: &[MirOp], index: usize) -> Option<(usize, Vec<MirOp>)> {
     let mem = loaded_a_direct_mem(ops.get(index)?)?;
     let MirOp::Binary {
         op,
@@ -3025,12 +3063,29 @@ pub(super) fn try_fold_direct_inc_dec_update(
         (MirBinaryOp::Sub, None | Some(MirCarryIn::Set)) => MirUpdateOp::Dec,
         _ => return None,
     };
-    out.push(MirOp::UpdateMem {
-        op: update,
-        mem,
-        width: MirWidth::Byte,
-    });
-    Some(3)
+    Some((
+        3,
+        vec![MirOp::UpdateMem {
+            op: update,
+            mem,
+            width: MirWidth::Byte,
+        }],
+    ))
+}
+
+fn inc_dec_exit_change() -> MirExitStateChange {
+    MirExitStateChange {
+        registers: MirRegisterSet {
+            a: true,
+            ..MirRegisterSet::default()
+        },
+        flags: MirFlagSet {
+            c: true,
+            v: true,
+            ..MirFlagSet::default()
+        },
+        ..MirExitStateChange::default()
+    }
 }
 
 fn loaded_a_direct_mem(op: &MirOp) -> Option<MirMem> {

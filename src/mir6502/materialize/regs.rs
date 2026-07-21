@@ -1,5 +1,9 @@
-use crate::mir6502::analysis::effects::{classify_op, classify_value};
-use crate::mir6502::ir::{MirOp, MirReg, MirValue};
+use crate::mir6502::analysis::effects::classify_op;
+#[cfg(test)]
+use crate::mir6502::analysis::effects::classify_value;
+#[cfg(test)]
+use crate::mir6502::ir::MirValue;
+use crate::mir6502::ir::{MirOp, MirReg};
 
 pub(super) fn op_reads_reg(op: &MirOp, reg: MirReg) -> bool {
     // Runtime-helper ABI homes were not part of this legacy query. The central
@@ -13,6 +17,7 @@ pub(super) fn op_writes_reg(op: &MirOp, reg: MirReg) -> bool {
     !matches!(op, MirOp::RuntimeHelper { .. }) && classify_op(op).writes_reg(reg)
 }
 
+#[cfg(test)]
 pub(super) fn value_reads_reg(value: &MirValue, reg: MirReg) -> bool {
     classify_value(value).reads_reg(reg)
 }

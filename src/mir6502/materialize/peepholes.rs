@@ -1,3 +1,4 @@
+#[cfg(test)]
 use super::store_consumers::try_fold_direct_inc_dec_update;
 use super::*;
 use crate::mir6502::analysis::effects::MirFlagSet;
@@ -6,6 +7,7 @@ use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContex
 use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
 use crate::mir6502::rewrite::posthome::structural_plan;
 
+#[cfg(test)]
 fn fold_direct_inc_dec_updates(ops: Vec<MirOp>, terminator: &MirTerminator) -> Vec<MirOp> {
     let mut out = Vec::new();
     let mut index = 0;
@@ -20,6 +22,7 @@ fn fold_direct_inc_dec_updates(ops: Vec<MirOp>, terminator: &MirTerminator) -> V
     out
 }
 
+#[cfg(test)]
 pub(super) fn fold_structural_prefix(ops: Vec<MirOp>, terminator: &MirTerminator) -> Vec<MirOp> {
     fold_direct_inc_dec_updates(ops, terminator)
 }
@@ -88,14 +91,11 @@ pub(super) fn fold_structural_ssa_lite(
 }
 
 pub(super) fn fold_structural_machine_tail(
-    mut ops: Vec<MirOp>,
+    ops: Vec<MirOp>,
     routine_id: RoutineId,
     layout: &MaterializeLayout,
-    terminator: &MirTerminator,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Vec<MirOp> {
-    ops = fold_dead_reg_writes_before_overwrite(ops, routine_id, terminator, peephole_stats);
-    ops = fold_dead_a_loads_before_flag_overwrite(ops, routine_id, terminator, peephole_stats);
     record_ssa_lite_block_facts(&ops, routine_id, layout, peephole_stats);
     ops
 }
@@ -736,6 +736,7 @@ pub(super) fn fold_dead_private_scratch_stores(
     out
 }
 
+#[cfg(test)]
 fn fold_dead_a_loads_before_flag_overwrite(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -756,6 +757,7 @@ fn fold_dead_a_loads_before_flag_overwrite(
     out
 }
 
+#[cfg(test)]
 pub(super) fn fold_dead_reg_writes_before_overwrite(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -2478,11 +2480,17 @@ fn terminator_has_successors(terminator: &MirTerminator) -> bool {
     )
 }
 
+#[cfg(test)]
 fn dead_a_load_before_flag_overwrite_at(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
 ) -> Option<usize> {
+    dead_a_load_before_flag_overwrite_shape_at(ops, index)?;
+    tail_does_not_read_reg(ops, index + 1, terminator, MirReg::A).then_some(1)
+}
+
+fn dead_a_load_before_flag_overwrite_shape_at(ops: &[MirOp], index: usize) -> Option<MirReg> {
     let next = ops.get(index + 1)?;
     let same_value_index_load = match ops.get(index)? {
         MirOp::Load {
@@ -2512,23 +2520,24 @@ fn dead_a_load_before_flag_overwrite_at(
         _ => false,
     };
 
-    if same_value_index_load
+    (same_value_index_load
         && !op_reads_reg(next, MirReg::A)
         && !op_uses_previous_carry(next)
-        && op_writes_flags(next)
-        && tail_does_not_read_reg(ops, index + 1, terminator, MirReg::A)
-    {
-        Some(1)
-    } else {
-        None
-    }
+        && op_writes_flags(next))
+    .then_some(MirReg::A)
 }
 
+#[cfg(test)]
 fn dead_reg_write_before_overwrite_at(
     ops: &[MirOp],
     index: usize,
     terminator: &MirTerminator,
 ) -> Option<usize> {
+    let reg = dead_reg_write_before_overwrite_shape_at(ops, index)?;
+    tail_does_not_read_reg(ops, index + 1, terminator, reg).then_some(1)
+}
+
+fn dead_reg_write_before_overwrite_shape_at(ops: &[MirOp], index: usize) -> Option<MirReg> {
     let current = ops.get(index)?;
     let next = ops.get(index + 1)?;
     let reg = pure_byte_reg_write(current)?;
@@ -2539,10 +2548,64 @@ fn dead_reg_write_before_overwrite_at(
     {
         return None;
     }
-    if tail_does_not_read_reg(ops, index + 1, terminator, reg) {
-        Some(1)
-    } else {
-        None
+    Some(reg)
+}
+
+pub(in crate::mir6502) fn discover_dead_register_writes(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some(reg) = dead_reg_write_before_overwrite_shape_at(&block.ops, index)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 1,
+                    Vec::new(),
+                    register_zn_exit_change(reg),
+                    "ssa-lite-dead-reg-writes",
+                    0,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some(reg) = dead_a_load_before_flag_overwrite_shape_at(&block.ops, index)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 1,
+                    Vec::new(),
+                    register_zn_exit_change(reg),
+                    "ssa-lite-dead-a-loads-removed",
+                    1,
+                )
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+fn register_zn_exit_change(reg: MirReg) -> MirExitStateChange {
+    let mut registers = MirRegisterSet::default();
+    match reg {
+        MirReg::A => registers.a = true,
+        MirReg::X => registers.x = true,
+        MirReg::Y => registers.y = true,
+    }
+    MirExitStateChange {
+        registers,
+        flags: MirFlagSet {
+            z: true,
+            n: true,
+            ..MirFlagSet::default()
+        },
+        ..MirExitStateChange::default()
     }
 }
 
@@ -2586,6 +2649,7 @@ fn pure_move_value(value: &MirValue) -> bool {
     }
 }
 
+#[cfg(test)]
 fn tail_does_not_read_reg(
     ops: &[MirOp],
     start: usize,
@@ -2603,6 +2667,7 @@ fn tail_does_not_read_reg(
     !terminator_reads_reg(terminator, reg)
 }
 
+#[cfg(test)]
 fn terminator_reads_reg(terminator: &MirTerminator, reg: MirReg) -> bool {
     match terminator {
         MirTerminator::Branch {

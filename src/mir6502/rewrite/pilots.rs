@@ -700,7 +700,7 @@ fn store_consumer_plan(
     })
 }
 
-fn prove_removed_window_definitions(
+pub(in crate::mir6502) fn prove_removed_window_definitions(
     block: crate::mir6502::ir::MirBlockId,
     ops: &[MirOp],
     start: usize,

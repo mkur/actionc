@@ -8,6 +8,17 @@ use super::indexes::{
     materialize_indexed_address_for_consumer, materialize_indexed_read_to_def,
 };
 use super::*;
+use crate::mir6502::analysis::effects::MirFlagSet;
+use crate::mir6502::analysis::param_availability::MirParamHomeByte;
+use crate::mir6502::analysis::sites::MirSite;
+use crate::mir6502::ir::MirRoutine;
+use crate::mir6502::rewrite::context::{
+    MirExitStateChange, MirProof, PostHomeRewriteContext, PreHomeRewriteContext,
+};
+use crate::mir6502::rewrite::plan::{
+    MirChangeSet, MirEffectDelta, MirPostHomeRewritePlan, MirRemovedDefinition, MirRewritePlan,
+};
+use crate::mir6502::rewrite::posthome::structural_plan;
 use std::collections::BTreeMap;
 
 #[cfg(test)]
@@ -1405,8 +1416,274 @@ fn call_arg_producer_value(op: &MirOp) -> Option<(MirTempId, MirValue)> {
     }
 }
 
-// Legacy hybrid pass. Slice 8 splits temp-based consumers from physical reload
-// rewrites once shared parameter/register availability and flag liveness exist.
+pub(in crate::mir6502) fn discover_param_home_consumers(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some(plan) = param_word_store_consumer_plan(block.id, &block.ops, index, context)
+            {
+                plans.push(plan);
+            }
+            if let Some(plan) = param_call_target_plan(block.id, &block.ops, index, context) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn param_home_consumer_rank(routine: &MirRoutine) -> usize {
+    routine
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .map(|op| match op {
+            MirOp::Load {
+                src: MirAddr::Direct(MirMem::Param { .. }),
+                width: MirWidth::Word,
+                ..
+            } => 1,
+            MirOp::Call {
+                target: MirCallTarget::Indirect { target, .. },
+                ..
+            } => value_param_home_count(&target),
+            _ => 0,
+        })
+        .sum()
+}
+
+fn value_param_home_count(value: &MirValue) -> usize {
+    match value {
+        MirValue::PointerCell(MirMem::Param { .. }) => 1,
+        MirValue::Word { lo, hi } => value_param_home_count(lo) + value_param_home_count(hi),
+        _ => 0,
+    }
+}
+
+fn param_word_store_consumer_plan(
+    block: MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    let MirOp::Load {
+        dst,
+        src: MirAddr::Direct(src @ MirMem::Param { .. }),
+        width: MirWidth::Word,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let MirOp::Store {
+        dst: MirAddr::Direct(store_dst),
+        src: MirValue::Def(store_src),
+        width: MirWidth::Word,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    if store_src != dst {
+        return None;
+    }
+    let point = context.point(MirSite::Op {
+        block,
+        op_index: index,
+    });
+    let MirProof::Proven(lo) =
+        context.parameter_register_at(MirParamHomeByte::from_mem(src)?, point)
+    else {
+        return None;
+    };
+    let MirProof::Proven(hi) =
+        context.parameter_register_at(MirParamHomeByte::from_mem(&offset_mem(src, 1))?, point)
+    else {
+        return None;
+    };
+    let replacement = vec![
+        MirOp::Store {
+            dst: MirAddr::Direct(store_dst.clone()),
+            src: MirValue::Def(MirDef::Reg(lo)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::Def(MirDef::Reg(hi)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(offset_mem(store_dst, 1)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ];
+    let definitions = crate::mir6502::rewrite::pilots::prove_removed_window_definitions(
+        block,
+        ops,
+        index,
+        index + 2,
+        &replacement,
+        context,
+    )?;
+    Some(MirRewritePlan {
+        generation: context.generation(),
+        block,
+        range: index..index + 2,
+        replacement,
+        removed_defs: definitions
+            .into_iter()
+            .map(|definition| MirRemovedDefinition { definition })
+            .collect(),
+        exit_effect_delta: MirEffectDelta::MaterializedStoreConsumer,
+        change_set: MirChangeSet::prehome_operation_change(),
+        stat: "param-word-store-consumer",
+        observations: Vec::new(),
+        family_priority: 0,
+        estimated_byte_saving: 1,
+        estimated_cycle_saving: 1,
+    })
+}
+
+fn param_call_target_plan(
+    block: MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    let MirOp::Call {
+        target: MirCallTarget::Indirect { target, width },
+        abi,
+        args,
+        result,
+        effects,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let point = context.point(MirSite::Op {
+        block,
+        op_index: index,
+    });
+    let rewritten = rewrite_param_value_from_context(target, point, context);
+    if rewritten == *target {
+        return None;
+    }
+    Some(MirRewritePlan {
+        generation: context.generation(),
+        block,
+        range: index..index + 1,
+        replacement: vec![MirOp::Call {
+            target: MirCallTarget::Indirect {
+                target: rewritten,
+                width: *width,
+            },
+            abi: abi.clone(),
+            args: args.clone(),
+            result: result.clone(),
+            effects: effects.clone(),
+        }],
+        removed_defs: Vec::new(),
+        exit_effect_delta: MirEffectDelta::MaterializedCallArguments,
+        change_set: MirChangeSet::prehome_operation_change(),
+        stat: "param-call-target-forward",
+        observations: Vec::new(),
+        family_priority: 1,
+        estimated_byte_saving: 1,
+        estimated_cycle_saving: 1,
+    })
+}
+
+fn rewrite_param_value_from_context(
+    value: &MirValue,
+    point: crate::mir6502::analysis::sites::MirProgramPoint,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> MirValue {
+    match value {
+        MirValue::PointerCell(mem @ MirMem::Param { .. }) => {
+            match context.parameter_register_at(
+                MirParamHomeByte::from_mem(mem).expect("parameter home"),
+                point,
+            ) {
+                MirProof::Proven(reg) => MirValue::Def(MirDef::Reg(reg)),
+                MirProof::Blocked(_) => value.clone(),
+            }
+        }
+        MirValue::Word { lo, hi } => MirValue::Word {
+            lo: Box::new(rewrite_param_value_from_context(lo, point, context)),
+            hi: Box::new(rewrite_param_value_from_context(hi, point, context)),
+        },
+        _ => value.clone(),
+    }
+}
+
+pub(in crate::mir6502) fn discover_param_home_reloads(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (index, op) in block.ops.iter().enumerate() {
+            let MirOp::Load {
+                dst: MirDef::Reg(dst),
+                src: MirAddr::Direct(src @ MirMem::Param { .. }),
+                width: MirWidth::Byte,
+            } = op
+            else {
+                continue;
+            };
+            let MirProof::Proven(source) = context.parameter_register_at(
+                MirParamHomeByte::from_mem(&src).expect("parameter home"),
+                context.point(MirSite::Op {
+                    block: block.id,
+                    op_index: index,
+                }),
+            ) else {
+                continue;
+            };
+            let (replacement, exit_change) = if source == *dst {
+                (
+                    Vec::new(),
+                    MirExitStateChange {
+                        flags: MirFlagSet {
+                            z: true,
+                            n: true,
+                            ..MirFlagSet::default()
+                        },
+                        ..MirExitStateChange::default()
+                    },
+                )
+            } else {
+                (
+                    vec![MirOp::Move {
+                        dst: MirDef::Reg(*dst),
+                        src: MirValue::Def(MirDef::Reg(source)),
+                        width: MirWidth::Byte,
+                    }],
+                    MirExitStateChange::default(),
+                )
+            };
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                index..index + 1,
+                replacement,
+                exit_change,
+                "param-home-reload-forward",
+                0,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+// Legacy hybrid retained under tests while inventory enforcement still names
+// its original entry points.
+#[cfg(test)]
 pub(super) fn forward_param_register_homes(ops: Vec<MirOp>) -> Vec<MirOp> {
     let mut available = Vec::<(MirMem, MirReg)>::new();
     let mut out = Vec::new();
@@ -1442,6 +1719,7 @@ pub(super) fn forward_param_register_homes(ops: Vec<MirOp>) -> Vec<MirOp> {
     out
 }
 
+#[cfg(test)]
 fn try_forward_param_word_store_consumer(
     ops: &[MirOp],
     index: usize,
@@ -1493,6 +1771,7 @@ fn try_forward_param_word_store_consumer(
     Some(2)
 }
 
+#[cfg(test)]
 fn forward_param_reload(op: &MirOp, available: &[(MirMem, MirReg)]) -> Option<Option<MirOp>> {
     let MirOp::Load {
         dst: MirDef::Reg(dst_reg),
@@ -1519,6 +1798,7 @@ fn forward_param_reload(op: &MirOp, available: &[(MirMem, MirReg)]) -> Option<Op
     }))
 }
 
+#[cfg(test)]
 fn forward_param_call_target(op: &MirOp, available: &[(MirMem, MirReg)]) -> Option<MirOp> {
     let MirOp::Call {
         target:
@@ -1550,6 +1830,7 @@ fn forward_param_call_target(op: &MirOp, available: &[(MirMem, MirReg)]) -> Opti
     })
 }
 
+#[cfg(test)]
 fn forward_param_call_target_value(value: &MirValue, available: &[(MirMem, MirReg)]) -> MirValue {
     match value {
         MirValue::PointerCell(mem) if matches!(mem, MirMem::Param { .. }) => {
@@ -1565,6 +1846,7 @@ fn forward_param_call_target_value(value: &MirValue, available: &[(MirMem, MirRe
     }
 }
 
+#[cfg(test)]
 fn forwarded_param_reg(available: &[(MirMem, MirReg)], mem: &MirMem) -> Option<MirReg> {
     available
         .iter()
@@ -1572,6 +1854,7 @@ fn forwarded_param_reg(available: &[(MirMem, MirReg)], mem: &MirMem) -> Option<M
         .find_map(|(available_mem, reg)| (available_mem == mem).then_some(*reg))
 }
 
+#[cfg(test)]
 fn note_forwarded_param_home(available: &mut Vec<(MirMem, MirReg)>, op: &MirOp) {
     let MirOp::Store {
         dst: MirAddr::Direct(dst),
@@ -1588,6 +1871,7 @@ fn note_forwarded_param_home(available: &mut Vec<(MirMem, MirReg)>, op: &MirOp) 
     available.push((dst.clone(), *src_reg));
 }
 
+#[cfg(test)]
 fn invalidate_forwarded_param_homes(available: &mut Vec<(MirMem, MirReg)>, op: &MirOp) {
     available.retain(|(mem, reg)| {
         !op_writes_reg(op, *reg)
@@ -1596,6 +1880,7 @@ fn invalidate_forwarded_param_homes(available: &mut Vec<(MirMem, MirReg)>, op: &
     });
 }
 
+#[cfg(test)]
 fn op_may_write_forwarded_param_mem(op: &MirOp, mem: &MirMem) -> bool {
     match op {
         MirOp::Store {
@@ -1607,6 +1892,7 @@ fn op_may_write_forwarded_param_mem(op: &MirOp, mem: &MirMem) -> bool {
     }
 }
 
+#[cfg(test)]
 fn op_has_unknown_param_memory_effects(op: &MirOp) -> bool {
     match op {
         MirOp::Call { effects, .. } | MirOp::RuntimeHelper { effects, .. } => {

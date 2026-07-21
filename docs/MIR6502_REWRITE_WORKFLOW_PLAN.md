@@ -1193,8 +1193,9 @@ Suggested commits:
 
 ### Slice 8: migrate post-home structural rewrites
 
-Status: in progress. The routine-level transactional post-home driver and the
-first migration family are complete.
+Status: complete. All listed structural families use the routine-level
+transactional post-home driver. Parameter-home consumers are split across the
+pre-home and post-home proof domains; the former hybrid helper is test-only.
 
 Migrate in conservative sub-slices:
 
@@ -1202,7 +1203,7 @@ Migrate in conservative sub-slices:
 - [x] word-array value staging and indexed base-pointer staging;
 - [x] indirect compound and direct/constant store families;
 - [x] staged RHS, adjacent reload, spill forwarding, and dead scratch stores;
-- [ ] inc/dec, dead register writes, and reload forwarding; split parameter-home
+- [x] inc/dec, dead register writes, and reload forwarding; split parameter-home
    forwarding into pre-home availability consumers and post-home reload
    consumers.
 

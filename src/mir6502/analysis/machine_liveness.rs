@@ -299,12 +299,10 @@ fn op_transfer(effects: &MirOpEffectSummary) -> MirMachineTransfer {
     let mut reads = machine_reads(&effects.machine);
     let writes = machine_writes(&effects.machine);
 
-    // Conservative clobbers are may-effects retained for compatibility. They
-    // cannot kill an old value in a may-liveness problem; treating them as
-    // reads keeps an incomplete operation contract from enabling removal.
-    reads.union_with(register_set_as_live(
-        effects.machine.conservative_register_clobbers,
-    ));
+    // Conservative clobbers are may-defs: they cannot kill a value that is
+    // live after the operation, but they also do not make an otherwise-dead
+    // incoming value observable. Keeping them out of both `reads` and the
+    // definite `writes` set gives exactly that transfer behavior.
     if effects.machine.uses_previous_carry {
         reads.flags.c = true;
     }
@@ -337,17 +335,6 @@ fn machine_writes(effects: &MirMachineEffects) -> MirMachineLiveSet {
     let mut flags = effects.flag_writes;
     merge_flags(&mut flags, effects.flag_clobbers);
     MirMachineLiveSet { registers, flags }
-}
-
-fn register_set_as_live(registers: MirRegisterSet) -> MirMachineLiveSet {
-    MirMachineLiveSet {
-        registers: normalized_registers(registers),
-        flags: if registers.flags {
-            MirFlagSet::all()
-        } else {
-            MirFlagSet::default()
-        },
-    }
 }
 
 fn block_uses_and_defs(transfers: &MirMachineBlockTransfers) -> MirMachineBlockFacts {
@@ -424,8 +411,8 @@ fn flags_intersect(left: MirFlagSet, right: MirFlagSet) -> bool {
 mod tests {
     use super::*;
     use crate::mir6502::ir::{
-        MirBlock, MirCond, MirDef, MirEdge, MirEffects, MirFlagTest, MirFrame, MirMachineBlockId,
-        MirOp, MirRoutineAbi, MirValue, MirWidth, RoutineId,
+        MirBlock, MirCallAbi, MirCallTarget, MirCond, MirDef, MirEdge, MirEffects, MirFlagTest,
+        MirFrame, MirMachineBlockId, MirOp, MirRoutineAbi, MirValue, MirWidth, RoutineId,
     };
 
     fn block(id: u32, ops: Vec<MirOp>, terminator: MirTerminator) -> MirBlock {
@@ -565,6 +552,49 @@ mod tests {
         assert_eq!(
             liveness.register_dead_after(MirReg::A, op_site(0, 0)),
             Ok(true)
+        );
+    }
+
+    #[test]
+    fn incomplete_call_clobbers_are_may_defs_not_unconditional_uses() {
+        let call = || MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(1)),
+            abi: MirCallAbi {
+                params: Vec::new(),
+                result: None,
+                clobbers: MirRegisterSet::default(),
+                preserves: MirRegisterSet::default(),
+            },
+            args: Vec::new(),
+            result: None,
+            effects: MirEffects::default(),
+        };
+        let dead_after_call = routine(vec![block(
+            0,
+            vec![load_imm(MirReg::A, 1), call()],
+            MirTerminator::Return,
+        )]);
+        assert_eq!(
+            analyze(&dead_after_call).register_dead_after(MirReg::A, op_site(0, 0)),
+            Ok(true)
+        );
+
+        let live_through_call = routine(vec![block(
+            0,
+            vec![
+                load_imm(MirReg::A, 1),
+                call(),
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::X),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            ],
+            MirTerminator::Return,
+        )]);
+        assert_eq!(
+            analyze(&live_through_call).register_dead_after(MirReg::A, op_site(0, 0)),
+            Ok(false)
         );
     }
 
