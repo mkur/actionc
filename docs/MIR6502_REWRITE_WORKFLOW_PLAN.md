@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-07-20.
 
-Status: in progress. Slice 6 (all five pre-home migration sub-slices) is
+Status: in progress through Slice 10. Slice 6 (all five pre-home migration sub-slices) is
 complete. Unused-`LeaAddr` elimination is also complete. The hybrid
 parameter-home family is split out for the later location/machine-state
 workflow. Slice 7's home, machine-state, parameter/register availability, and
@@ -1248,7 +1248,24 @@ Suggested commit: `mir6502: schedule routine-aware rewrite fixed points`.
 
 ### Slice 10: strengthen phase verification and enforcement
 
-Status: planned.
+Status: complete. A distinct `PostHome` verifier boundary now runs after final
+layout, zero-page remapping, and the last pointer-cell materialization. It
+rejects surviving ordinary virtual values with a stage-qualified diagnostic
+while deliberately allowing condition identities until terminator lowering.
+Compiler workflows no longer run the legacy test-only block-local
+materialization peepholes; their adapter
+is isolated to shape-oracle unit tests.
+
+The migration inventory now names the scheduled typed-context discovery APIs,
+requires every migration batch to be `migrated`, and rejects definition-eliding
+entries without `PreHomeRewriteContext` or `PostHomeRewriteContext`. Three
+pre-home fixed-point reference passes and the CFG dead-spill cleanup remain
+explicit exemptions because they consume complete routine facts rather than a
+raw matcher suffix. The dead-spill pass now obtains its exact projected-byte
+read/write decisions from the centralized operation/terminator effect
+classifier, removing its duplicate exhaustive `MirOp` effect implementation.
+The condition-temp-to-spill projection is also represented in shared post-home
+liveness.
 
 - Add explicit MIR verification stages.
 - Validate rewrite declarations in debug/test builds.

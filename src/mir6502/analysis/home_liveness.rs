@@ -8,7 +8,9 @@ use crate::mir6502::analysis::effects::{
     MirHomeByte, MirHomeEffects, MirOpEffectSummary, classify_op, classify_terminator,
 };
 use crate::mir6502::analysis::sites::MirSite;
-use crate::mir6502::ir::{MirBlockId, MirFixedZpSlot, MirRoutine, MirTerminator};
+use crate::mir6502::ir::{
+    MirBlockId, MirCond, MirDef, MirFixedZpSlot, MirRoutine, MirSpillId, MirTerminator, MirValue,
+};
 
 const ACTION_RETURN_HOME_BASE: u8 = 0xA0;
 const ACTION_RETURN_HOME_BYTES: u8 = 2;
@@ -123,7 +125,7 @@ impl MirHomeLiveness {
                     .collect();
                 let terminator = home_transfer(
                     &classify_terminator(&block.terminator).homes,
-                    BTreeSet::new(),
+                    projected_condition_home_reads(&block.terminator),
                     BTreeSet::new(),
                     &universe,
                 );
@@ -366,6 +368,7 @@ fn collect_home_universe(routine: &MirRoutine) -> MirHomeLiveSet {
         let effects = classify_terminator(&block.terminator);
         universe.extend(effects.homes.reads);
         universe.extend(effects.homes.writes);
+        universe.extend(projected_condition_home_reads(&block.terminator));
     }
     if routine.blocks.iter().any(|block| {
         matches!(
@@ -386,6 +389,53 @@ fn action_return_home_uses() -> MirHomeLiveSet {
         )));
     }
     uses
+}
+
+/// Boolean condition identities intentionally survive temp materialization
+/// until terminator lowering. Their values already live in the deterministic
+/// spill homes used by `materialize_temp_ops`, so post-home liveness must
+/// project those logical reads into the corresponding physical byte homes.
+fn projected_condition_home_reads(terminator: &MirTerminator) -> BTreeSet<MirHomeByte> {
+    let MirTerminator::Branch {
+        cond: MirCond::BoolValue(value),
+        ..
+    } = terminator
+    else {
+        return BTreeSet::new();
+    };
+    let mut reads = BTreeSet::new();
+    collect_projected_condition_home_reads(value, &mut reads);
+    reads
+}
+
+fn collect_projected_condition_home_reads(value: &MirValue, reads: &mut BTreeSet<MirHomeByte>) {
+    match value {
+        MirValue::Def(MirDef::VTemp(id)) => {
+            reads.insert(MirHomeByte::Spill {
+                id: MirSpillId(id.0.saturating_mul(2)),
+                offset: 0,
+            });
+        }
+        MirValue::Def(MirDef::VTempByte { id, byte }) if *byte <= 1 => {
+            reads.insert(MirHomeByte::Spill {
+                id: MirSpillId(id.0.saturating_mul(2).saturating_add(*byte as u32)),
+                offset: 0,
+            });
+        }
+        MirValue::Word { lo, hi } => {
+            collect_projected_condition_home_reads(lo, reads);
+            collect_projected_condition_home_reads(hi, reads);
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(MirDef::VTempByte { .. } | MirDef::Reg(_))
+        | MirValue::PointerCell(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::StorageAddrByte { .. }
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. } => {}
+    }
 }
 
 fn op_transfer(effects: &MirOpEffectSummary, universe: &MirHomeLiveSet) -> MirHomeTransfer {
@@ -555,6 +605,36 @@ mod tests {
         assert_eq!(
             liveness.home_definition_dead_after(spill(0), op_site(0, 0), op_site(0, 0)),
             Ok(true)
+        );
+    }
+
+    #[test]
+    fn abstract_condition_temp_reads_its_materialized_spill_home() {
+        let routine = routine(vec![
+            block(
+                0,
+                vec![store(0, 1)],
+                MirTerminator::Branch {
+                    cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(
+                        crate::mir6502::ir::MirTempId(0),
+                    ))),
+                    then_edge: MirEdge {
+                        target: MirBlockId(1),
+                        args: Vec::new(),
+                    },
+                    else_edge: MirEdge {
+                        target: MirBlockId(1),
+                        args: Vec::new(),
+                    },
+                },
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+        ]);
+        let liveness = analyze(&routine);
+
+        assert_eq!(
+            liveness.home_definition_dead_after(spill(0), op_site(0, 0), op_site(0, 0)),
+            Ok(false)
         );
     }
 

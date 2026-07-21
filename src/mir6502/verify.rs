@@ -31,6 +31,22 @@ struct MirVerifier {
 }
 
 impl MirVerifier {
+    fn physical_homes_required(&self) -> bool {
+        matches!(self.phase, MirPhase::PostHome | MirPhase::PreEmission)
+    }
+
+    fn abstract_conditions_forbidden(&self) -> bool {
+        matches!(self.phase, MirPhase::PreEmission)
+    }
+
+    fn physical_home_phase_name(&self) -> &'static str {
+        match self.phase {
+            MirPhase::PostHome => "post-home",
+            MirPhase::PreEmission => "pre-emission",
+            MirPhase::PreMaterialization | MirPhase::PostMaterialization => "materialized",
+        }
+    }
+
     fn verify_program(&mut self, program: &MirProgram) {
         let static_ids = program
             .statics
@@ -600,21 +616,34 @@ impl MirVerifier {
     ) {
         match cond {
             super::ir::MirCond::Deferred => {
-                if matches!(self.phase, MirPhase::PreEmission) {
+                if self.abstract_conditions_forbidden() {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,
                         block,
-                        "pre-emission MIR cannot contain deferred branch conditions",
+                        format!(
+                            "{} MIR cannot contain deferred branch conditions",
+                            self.physical_home_phase_name()
+                        ),
                     ));
                 }
             }
             super::ir::MirCond::BoolValue(value) => {
-                self.verify_value(routine, block, value, static_ids, global_ids, routine_ids);
-                if matches!(self.phase, MirPhase::PreEmission) {
+                if matches!(self.phase, MirPhase::PostHome)
+                    && let MirValue::Def(def @ (MirDef::VTemp(_) | MirDef::VTempByte { .. })) =
+                        value
+                {
+                    self.verify_condition_temp_use(routine, block, def);
+                } else {
+                    self.verify_value(routine, block, value, static_ids, global_ids, routine_ids);
+                }
+                if self.abstract_conditions_forbidden() {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,
                         block,
-                        "pre-emission MIR cannot contain abstract bool branch conditions",
+                        format!(
+                            "{} MIR cannot contain abstract bool branch conditions",
+                            self.physical_home_phase_name()
+                        ),
                     ));
                 }
             }
@@ -765,7 +794,7 @@ impl MirVerifier {
                 self.verify_rhs_value(routine, block, right, static_ids, global_ids, routine_ids);
                 if matches!(
                     self.phase,
-                    MirPhase::PostMaterialization | MirPhase::PreEmission
+                    MirPhase::PostHome | MirPhase::PostMaterialization | MirPhase::PreEmission
                 ) && matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub)
                     && matches!(width, super::ir::MirWidth::Byte)
                     && carry_in.is_none()
@@ -941,6 +970,37 @@ impl MirVerifier {
         }
     }
 
+    fn verify_condition_temp_use(&mut self, routine: &MirRoutine, block: &str, def: &MirDef) {
+        match def {
+            MirDef::VTemp(id) => {
+                if !routine.temps.iter().any(|temp| temp.id == *id) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        format!("condition temp `v{}` does not exist", id.0),
+                    ));
+                }
+            }
+            MirDef::VTempByte { id, byte } => {
+                if !routine.temps.iter().any(|temp| temp.id == *id) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        format!("condition temp `v{}` does not exist", id.0),
+                    ));
+                }
+                if *byte > 1 {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        format!("condition temp byte `v{}.b{}` is out of range", id.0, byte),
+                    ));
+                }
+            }
+            MirDef::Reg(_) => unreachable!("condition temp helper called with a register"),
+        }
+    }
+
     fn verify_address_consumer(
         &mut self,
         routine: &MirRoutine,
@@ -974,11 +1034,15 @@ impl MirVerifier {
                         format!("temp definition `v{}` does not exist", id.0),
                     ));
                 }
-                if matches!(self.phase, MirPhase::PreEmission) {
+                if self.physical_homes_required() {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,
                         block,
-                        format!("pre-emission MIR cannot contain virtual temp `v{}`", id.0),
+                        format!(
+                            "{} MIR cannot contain virtual temp `v{}`",
+                            self.physical_home_phase_name(),
+                            id.0
+                        ),
                     ));
                 }
             }
@@ -997,13 +1061,15 @@ impl MirVerifier {
                         format!("temp byte definition `v{}.b{}` is out of range", id.0, byte),
                     ));
                 }
-                if matches!(self.phase, MirPhase::PreEmission) {
+                if self.physical_homes_required() {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,
                         block,
                         format!(
-                            "pre-emission MIR cannot contain virtual temp byte `v{}.b{}`",
-                            id.0, byte
+                            "{} MIR cannot contain virtual temp byte `v{}.b{}`",
+                            self.physical_home_phase_name(),
+                            id.0,
+                            byte
                         ),
                     ));
                 }
@@ -1747,6 +1813,35 @@ mod tests {
         let program = program_with_routines(vec![main]);
 
         assert!(verify_program(&program, MirPhase::PreMaterialization).is_ok());
+    }
+
+    #[test]
+    fn post_home_phase_rejects_surviving_virtual_temp() {
+        let mut main = routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![MirOp::LoadImm {
+                    dst: MirDef::VTemp(MirTempId(0)),
+                    value: 1,
+                    width: MirWidth::Byte,
+                }],
+                MirTerminator::Return,
+            )],
+        );
+        main.temps.push(MirTemp { id: MirTempId(0) });
+        let program = program_with_routines(vec![main]);
+
+        assert!(verify_program(&program, MirPhase::PostMaterialization).is_ok());
+        let diagnostics = verify_program(&program, MirPhase::PostHome)
+            .expect_err("post-home phase rejects virtual temps");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("post-home MIR cannot contain virtual temp `v0`")
+        }));
     }
 
     #[test]

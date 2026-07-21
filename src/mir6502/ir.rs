@@ -3,6 +3,7 @@ use crate::nir::{LocalId, ParamId, SymbolId};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirPhase {
     PreMaterialization,
+    PostHome,
     PostMaterialization,
     PreEmission,
 }

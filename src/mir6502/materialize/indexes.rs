@@ -923,51 +923,6 @@ fn indexed_producer_mem_is_stable_source(mem: &MirMem) -> bool {
     !matches!(mem, MirMem::Spill { .. } | MirMem::ZeroPage(_))
 }
 
-#[allow(dead_code)] // Legacy audit entry point retained until Slice 10 enforcement.
-pub(super) fn fold_indexed_base_pointer_staging(ops: Vec<MirOp>) -> (Vec<MirOp>, usize) {
-    let mut replacements = BTreeMap::<usize, MirValue>::new();
-    let mut remove = BTreeSet::<usize>::new();
-    let mut count = 0usize;
-
-    for index in 0..ops.len() {
-        let Some((consumer, base_lo, base_hi)) =
-            materialize_indexed_base_pointer_cells(&ops[index])
-        else {
-            continue;
-        };
-        if !materialized_pointer_has_word_store_consumers(&ops, index, consumer) {
-            continue;
-        };
-        let Some(staging) = indexed_base_pointer_staging_at(&ops, index, &base_lo, &base_hi) else {
-            continue;
-        };
-        replacements.insert(index, pointer_value_from_mem(&staging.source_lo));
-        remove.insert(staging.lo_load_index);
-        remove.insert(staging.lo_store_index);
-        remove.insert(staging.hi_load_index);
-        remove.insert(staging.hi_store_index);
-        count = count.saturating_add(1);
-    }
-
-    if replacements.is_empty() {
-        return (ops, 0);
-    }
-
-    let mut out = Vec::with_capacity(ops.len().saturating_sub(remove.len()));
-    for (index, mut op) in ops.into_iter().enumerate() {
-        if remove.contains(&index) {
-            continue;
-        }
-        if let Some(replacement) = replacements.remove(&index)
-            && let MirOp::MaterializeIndexedAddress { base, .. } = &mut op
-        {
-            *base = replacement;
-        }
-        out.push(op);
-    }
-    (out, count)
-}
-
 pub(in crate::mir6502) fn discover_indexed_base_pointer_staging(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,
@@ -992,7 +947,6 @@ pub(in crate::mir6502) fn discover_indexed_base_pointer_staging(
                 materialize_index,
                 &base_lo,
                 &base_hi,
-                false,
             ) else {
                 continue;
             };
@@ -1101,21 +1055,11 @@ fn materialized_pointer_has_word_store_consumers(
     false
 }
 
-fn indexed_base_pointer_staging_at(
-    ops: &[MirOp],
-    materialize_index: usize,
-    base_lo: &MirMem,
-    base_hi: &MirMem,
-) -> Option<IndexedBasePointerStaging> {
-    indexed_base_pointer_staging_shape_at(ops, materialize_index, base_lo, base_hi, true)
-}
-
 fn indexed_base_pointer_staging_shape_at(
     ops: &[MirOp],
     materialize_index: usize,
     base_lo: &MirMem,
     base_hi: &MirMem,
-    require_block_local_deadness: bool,
 ) -> Option<IndexedBasePointerStaging> {
     let hi_store_index = find_previous_store_a_to_mem(ops, materialize_index, base_hi)?;
     let (hi_load_index, source_hi) = load_a_direct_before_store(ops, hi_store_index)?;
@@ -1136,7 +1080,6 @@ fn indexed_base_pointer_staging_shape_at(
         &source_lo,
         &source_hi,
         &staging_indices,
-        require_block_local_deadness,
     ) {
         return None;
     }
@@ -1183,7 +1126,6 @@ fn staged_pointer_fold_is_safe(
     source_lo: &MirMem,
     source_hi: &MirMem,
     staging_indices: &[usize; 4],
-    require_block_local_deadness: bool,
 ) -> bool {
     let lo_load_index = staging_indices[0];
     let lo_store_index = staging_indices[1];
@@ -1213,13 +1155,6 @@ fn staged_pointer_fold_is_safe(
         }
         if index > hi_store_index && (op_reads_mem(op, base_hi) || op_may_write_mem(op, base_hi)) {
             return false;
-        }
-    }
-    if require_block_local_deadness {
-        for op in ops.iter().skip(materialize_index + 1) {
-            if op_reads_mem(op, base_lo) || op_reads_mem(op, base_hi) {
-                return false;
-            }
         }
     }
     true

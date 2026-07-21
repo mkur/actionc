@@ -3,9 +3,9 @@ use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirBlockId, MirCallAbi, MirCallArg,
     MirCallTarget, MirCarryIn, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDef, MirEffects,
-    MirFixedZpSlot, MirFlagTest, MirMem, MirOp, MirOpRef, MirPointerPair, MirProgram, MirReg,
-    MirResultHome, MirRuntimeHelper, MirSpillId, MirTemp, MirTempId, MirTerminator, MirUnaryOp,
-    MirUpdateOp, MirValue, MirWidth, RoutineId,
+    MirFixedZpSlot, MirFlagTest, MirMem, MirOp, MirOpRef, MirPhase, MirPointerPair, MirProgram,
+    MirReg, MirResultHome, MirRuntimeHelper, MirSpillId, MirTemp, MirTempId, MirTerminator,
+    MirUnaryOp, MirUpdateOp, MirValue, MirWidth, RoutineId,
 };
 use super::passes::Mir6502Config;
 use std::collections::{BTreeMap, BTreeSet};
@@ -64,9 +64,7 @@ use calls::{
 };
 use calls::{ReturnSlotCallArgForwardCandidate, return_slot_call_arg_forward_candidate};
 #[cfg(test)]
-use calls::{
-    fold_call_arg_producers, forward_param_register_homes, forward_return_slot_call_result_args,
-};
+use calls::{fold_call_arg_producers, forward_return_slot_call_result_args};
 #[cfg(test)]
 use calls::{
     try_fuse_call_result_store_consumer, try_fuse_loaded_arg_call_result_store_consumer,
@@ -741,7 +739,7 @@ pub(super) fn materialize_program(
         run_prehome_canonicalization_group(routine, config, &layout, &mut peephole_stats)?;
         run_prehome_selection_group(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
         for block in &mut routine.blocks {
-            block.ops = materialize_ops(
+            block.ops = materialize_ops_impl(
                 routine.id,
                 block.id,
                 block.ops.clone(),
@@ -750,6 +748,7 @@ pub(super) fn materialize_program(
                 &layout,
                 &mut helpers,
                 &mut peephole_stats,
+                false,
             );
             block.ops = normalize_synthetic_byte_storage_high_ops(
                 std::mem::take(&mut block.ops),
@@ -776,7 +775,7 @@ pub(super) fn materialize_program(
         run_posthome_cleanup_group(
             routine,
             &layout,
-            Some(config),
+            None,
             home_fates.get_mut(&routine.id),
             &mut peephole_stats,
         )?;
@@ -798,7 +797,7 @@ pub(super) fn materialize_program(
         run_posthome_cleanup_group(
             routine,
             &layout,
-            None,
+            Some(config),
             home_fates.get_mut(&routine.id),
             &mut peephole_stats,
         )?;
@@ -811,6 +810,7 @@ pub(super) fn materialize_program(
     }
     allocate_zero_page_slots(&mut program);
     materialize_remaining_pointer_cell_values(&mut program);
+    verify_materialization_stage(&program, MirPhase::PostHome, "post-home boundary")?;
     record_final_home_allocations(&program, &mut peephole_stats);
     for routine in &program.routines {
         if let Some(tracker) = home_fates.get(&routine.id) {
@@ -829,6 +829,22 @@ fn run_cfg_group(
     cleanup_pre_materialization_temp_artifacts(routine, layout);
     lower_block_arguments(routine).map_err(|diagnostic| vec![diagnostic])?;
     verify_cfg_after_transform(routine, "CFG normalization")
+}
+
+fn verify_materialization_stage(
+    program: &MirProgram,
+    phase: MirPhase,
+    stage: &str,
+) -> Result<(), Vec<MirDiagnostic>> {
+    super::verify::verify_program(program, phase).map_err(|diagnostics| {
+        diagnostics
+            .into_iter()
+            .map(|mut diagnostic| {
+                diagnostic.message = format!("{stage}: {}", diagnostic.message);
+                diagnostic
+            })
+            .collect()
+    })
 }
 
 fn run_prehome_canonicalization_group(
@@ -2041,7 +2057,7 @@ fn record_unspecified_add_sub_carry_observability(
     }
 }
 
-fn materialize_ops(
+fn materialize_ops_impl(
     routine_id: RoutineId,
     _block_id: MirBlockId,
     ops: Vec<MirOp>,
@@ -2050,13 +2066,28 @@ fn materialize_ops(
     layout: &MaterializeLayout,
     helpers: &mut Vec<MirRuntimeHelper>,
     peephole_stats: &mut MirPeepholeStats,
+    legacy_test_peepholes: bool,
 ) -> Vec<MirOp> {
+    #[cfg(not(test))]
+    let _ = legacy_test_peepholes;
     #[cfg(test)]
-    let ops = rematerialize_direct_pointer_temp_derefs(ops);
+    let ops = if legacy_test_peepholes {
+        rematerialize_direct_pointer_temp_derefs(ops)
+    } else {
+        ops
+    };
     #[cfg(test)]
-    let ops = fold_call_arg_producers(ops);
+    let ops = if legacy_test_peepholes {
+        fold_call_arg_producers(ops)
+    } else {
+        ops
+    };
     #[cfg(test)]
-    let (ops, call_result_forwards) = forward_return_slot_call_result_args(ops, terminator);
+    let (ops, call_result_forwards) = if legacy_test_peepholes {
+        forward_return_slot_call_result_args(ops, terminator)
+    } else {
+        (ops, calls::ReturnSlotCallArgForwardStats::default())
+    };
     #[cfg(test)]
     peephole_stats.record_many(
         routine_id,
@@ -2076,27 +2107,33 @@ fn materialize_ops(
         call_result_forwards.blocked_home_overlap,
     );
     #[cfg(test)]
-    let ops = forward_param_register_homes(ops);
-    #[cfg(test)]
-    let ops = normalize_byte_add_sub_carry(ops);
+    let ops = if legacy_test_peepholes {
+        normalize_byte_add_sub_carry(ops)
+    } else {
+        ops
+    };
     let mut out = Vec::new();
     let mut temp_widths = collect_temp_widths(&ops);
     refine_temp_widths_from_storage_loads(&ops, routine_id, layout, &mut temp_widths);
     #[cfg(test)]
-    let delayed_byte_indexes = collect_delayed_byte_index_plan(&ops);
+    let delayed_byte_indexes = if legacy_test_peepholes {
+        collect_delayed_byte_index_plan(&ops)
+    } else {
+        indexes::DelayedByteIndexPlan::empty()
+    };
     #[cfg(not(test))]
     let delayed_byte_indexes = indexes::DelayedByteIndexPlan::empty();
     let mut index = 0;
     while index < ops.len() {
         #[cfg(test)]
-        if delayed_byte_indexes.producer_ops().contains(&index) {
+        if legacy_test_peepholes && delayed_byte_indexes.producer_ops().contains(&index) {
             peephole_stats.record(routine_id, "delayed-byte-index-producer");
             index += 1;
             continue;
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let call_arg_expr = try_materialize_call_arg_expr_producers(
                 &ops, index, config, layout, helpers, &mut out,
             );
@@ -2118,7 +2155,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused = try_fuse_cast_store_consumer(&ops, index, layout, &mut out);
             if maybe_fused > 0 {
                 peephole_stats.record(routine_id, "cast-store-consumer");
@@ -2128,7 +2165,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused =
                 try_fuse_address_store_consumer(&ops, index, routine_id, layout, &mut out);
             if maybe_fused > 0 {
@@ -2139,7 +2176,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused =
                 try_fuse_indexed_byte_copy(&ops, index, layout, &delayed_byte_indexes, &mut out);
             if maybe_fused > 0 {
@@ -2150,7 +2187,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused = try_fuse_indexed_word_copy(&ops, index, layout, &mut out);
             if maybe_fused > 0 {
                 peephole_stats.record(routine_id, "indexed-word-copy");
@@ -2160,7 +2197,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused = try_fuse_dynamic_inline_byte_index(&ops, index, &mut out);
             if maybe_fused > 0 {
                 peephole_stats.record(routine_id, "dynamic-inline-byte-index");
@@ -2170,7 +2207,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused = try_prepare_dynamic_byte_index(&ops, index, layout, &mut out);
             if maybe_fused > 0 {
                 peephole_stats.record(routine_id, "prepare-dynamic-byte-index");
@@ -2180,7 +2217,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused =
                 try_prepare_dynamic_word_index(&ops, index, routine_id, layout, &mut out);
             if maybe_fused > 0 {
@@ -2191,7 +2228,9 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        if let Some(stat) = byte_binary_compare_consumer_observation(&ops, index, terminator) {
+        if legacy_test_peepholes
+            && let Some(stat) = byte_binary_compare_consumer_observation(&ops, index, terminator)
+        {
             peephole_stats.record(routine_id, "byte-binary-compare-candidates");
             peephole_stats.record(routine_id, stat);
         }
@@ -2204,7 +2243,7 @@ fn materialize_ops(
         );
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused =
                 try_fuse_byte_binary_compare_consumer(&ops, index, terminator, &mut out);
             if maybe_fused > 0 {
@@ -2229,7 +2268,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused = try_fuse_byte_mul_add_sub_word_store_consumer(
                 &ops,
                 index,
@@ -2269,7 +2308,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused = try_fuse_loaded_arg_call_result_store_consumer(
                 &ops,
                 index,
@@ -2336,7 +2375,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused = try_fuse_direct_copy_store_consumer(&ops, index, layout, &mut out);
             if maybe_fused > 0 {
                 peephole_stats.record(routine_id, "direct-copy-store-consumer");
@@ -2346,7 +2385,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused = try_fuse_byte_store_consumer(
                 &ops,
                 index,
@@ -2367,7 +2406,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused = try_materialize_store_expr_producers(
                 &ops, index, terminator, config, layout, &mut out,
             );
@@ -2379,7 +2418,7 @@ fn materialize_ops(
         }
 
         #[cfg(test)]
-        {
+        if legacy_test_peepholes {
             let maybe_fused = try_fuse_pointer_temp_deref(
                 &ops,
                 index,
@@ -2909,6 +2948,32 @@ fn materialize_ops(
         index += 1;
     }
     out
+}
+
+/// Test-only adapter for the legacy shape-oracle unit tests. Compiler
+/// workflows call `materialize_ops_impl` with this path disabled.
+#[cfg(test)]
+fn materialize_ops(
+    routine_id: RoutineId,
+    block_id: MirBlockId,
+    ops: Vec<MirOp>,
+    terminator: &MirTerminator,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Vec<MirOp> {
+    materialize_ops_impl(
+        routine_id,
+        block_id,
+        ops,
+        terminator,
+        config,
+        layout,
+        helpers,
+        peephole_stats,
+        true,
+    )
 }
 
 fn normalize_byte_add_sub_carry(ops: Vec<MirOp>) -> Vec<MirOp> {

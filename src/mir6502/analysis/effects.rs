@@ -202,6 +202,12 @@ pub(in crate::mir6502) struct MirAddressConsumerEffects {
     pub pair_writes: BTreeSet<MirHomeByte>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(in crate::mir6502) struct MirSpillByte {
+    pub id: MirSpillId,
+    pub offset: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirOpEffectSummary {
     pub kind: MirOpKind,
@@ -212,6 +218,8 @@ pub(in crate::mir6502) struct MirOpEffectSummary {
     pub addresses: MirAddressConsumerEffects,
     pub projected_spill_reads: BTreeSet<MirSpillId>,
     pub projected_spill_writes: BTreeSet<MirSpillId>,
+    pub projected_spill_byte_reads: BTreeSet<MirSpillByte>,
+    pub projected_spill_byte_writes: BTreeSet<MirSpillByte>,
     pub removable_when_results_dead: bool,
 }
 
@@ -226,6 +234,8 @@ impl MirOpEffectSummary {
             addresses: MirAddressConsumerEffects::default(),
             projected_spill_reads: BTreeSet::new(),
             projected_spill_writes: BTreeSet::new(),
+            projected_spill_byte_reads: BTreeSet::new(),
+            projected_spill_byte_writes: BTreeSet::new(),
             removable_when_results_dead: false,
         }
     }
@@ -258,6 +268,25 @@ impl MirOpEffectSummary {
             || register_set_contains(self.machine.register_clobbers, reg)
             || register_set_contains(self.machine.conservative_register_clobbers, reg)
     }
+
+    pub(in crate::mir6502) fn reads_spill_byte_compat(&self, id: MirSpillId, offset: u16) -> bool {
+        self.projected_spill_byte_reads
+            .contains(&MirSpillByte { id, offset })
+    }
+
+    pub(in crate::mir6502) fn writes_spill_byte_compat(&self, id: MirSpillId, offset: u16) -> bool {
+        !matches!(self.kind, MirOpKind::Compare)
+            && self
+                .projected_spill_byte_writes
+                .contains(&MirSpillByte { id, offset })
+    }
+
+    pub(in crate::mir6502) fn may_read_unknown_spill_byte_compat(&self) -> bool {
+        matches!(
+            self.kind,
+            MirOpKind::RuntimeHelper | MirOpKind::Barrier | MirOpKind::MachineBlock
+        )
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -267,6 +296,7 @@ pub(in crate::mir6502) struct MirTerminatorEffectSummary {
     pub memory: MirMemoryEffects,
     pub machine: MirMachineEffects,
     pub projected_spill_reads: BTreeSet<MirSpillId>,
+    pub projected_spill_byte_reads: BTreeSet<MirSpillByte>,
     pub consumes_flags_compat: bool,
 }
 
@@ -394,6 +424,10 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                     summary
                         .projected_spill_writes
                         .insert(projected_temp_spill(*temp, 0));
+                    summary.projected_spill_byte_writes.insert(MirSpillByte {
+                        id: projected_temp_spill(*temp, 0),
+                        offset: 0,
+                    });
                 }
                 MirCondDest::Flags => {
                     summary.machine.definitely_overwrites_carry = true;
@@ -615,6 +649,9 @@ fn record_terminator_value(
     summary
         .projected_spill_reads
         .extend(value_summary.projected_spill_reads);
+    summary
+        .projected_spill_byte_reads
+        .extend(value_summary.projected_spill_byte_reads);
 }
 
 fn classify_typed_value(value: &MirValue, width: Option<MirWidth>) -> MirOpEffectSummary {
@@ -633,6 +670,10 @@ fn classify_typed_value(value: &MirValue, width: Option<MirWidth>) -> MirOpEffec
         summary
             .projected_spill_reads
             .insert(projected_temp_spill(*temp, 0));
+        summary.projected_spill_byte_reads.insert(MirSpillByte {
+            id: projected_temp_spill(*temp, 0),
+            offset: 0,
+        });
         summary
     } else {
         classify_value(value)
@@ -650,6 +691,10 @@ fn record_value_as(value: &MirValue, kind: MirTempUseKind, summary: &mut MirOpEf
             summary
                 .projected_spill_reads
                 .insert(projected_temp_spill(*temp, 0));
+            summary.projected_spill_byte_reads.insert(MirSpillByte {
+                id: projected_temp_spill(*temp, 0),
+                offset: 0,
+            });
         }
         MirValue::Def(MirDef::VTempByte { id, byte }) => {
             record_temp_use(
@@ -664,6 +709,10 @@ fn record_value_as(value: &MirValue, kind: MirTempUseKind, summary: &mut MirOpEf
                 summary
                     .projected_spill_reads
                     .insert(projected_temp_spill(*id, *byte));
+                summary.projected_spill_byte_reads.insert(MirSpillByte {
+                    id: projected_temp_spill(*id, *byte),
+                    offset: 0,
+                });
             }
         }
         MirValue::Def(MirDef::Reg(reg)) => set_register(&mut summary.machine.register_reads, *reg),
@@ -707,6 +756,10 @@ fn record_def(def: &MirDef, width: MirWidth, summary: &mut MirOpEffectSummary) {
             summary
                 .projected_spill_writes
                 .insert(projected_temp_spill(*temp, 0));
+            summary.projected_spill_byte_writes.insert(MirSpillByte {
+                id: projected_temp_spill(*temp, 0),
+                offset: 0,
+            });
         }
         MirDef::VTempByte { id, byte } => {
             summary.logical.temp_defs.push(MirTempAccess::Exact {
@@ -717,6 +770,10 @@ fn record_def(def: &MirDef, width: MirWidth, summary: &mut MirOpEffectSummary) {
                 summary
                     .projected_spill_writes
                     .insert(projected_temp_spill(*id, *byte));
+                summary.projected_spill_byte_writes.insert(MirSpillByte {
+                    id: projected_temp_spill(*id, *byte),
+                    offset: 0,
+                });
             }
         }
         MirDef::Reg(reg) => set_register(&mut summary.machine.register_writes, *reg),
@@ -846,8 +903,12 @@ fn record_home_reference(mem: &MirMem, summary: &mut MirOpEffectSummary) {
     if let Some(home) = home_byte(mem) {
         summary.homes.reads.insert(home);
     }
-    if let MirMem::Spill { id, .. } = mem {
+    if let MirMem::Spill { id, offset } = mem {
         summary.projected_spill_reads.insert(*id);
+        summary.projected_spill_byte_reads.insert(MirSpillByte {
+            id: *id,
+            offset: *offset,
+        });
     }
 }
 
@@ -857,8 +918,12 @@ fn record_definite_memory_write(mem: &MirMem, summary: &mut MirOpEffectSummary) 
     if let Some(home) = home_byte(mem) {
         summary.homes.writes.insert(home);
     }
-    if let MirMem::Spill { id, .. } = mem {
+    if let MirMem::Spill { id, offset } = mem {
         summary.projected_spill_writes.insert(*id);
+        summary.projected_spill_byte_writes.insert(MirSpillByte {
+            id: *id,
+            offset: *offset,
+        });
     }
 }
 
@@ -875,8 +940,11 @@ fn record_definite_memory_range_write(
         if let Some(home) = home_byte(&lane) {
             summary.homes.writes.insert(home);
         }
-        if let MirMem::Spill { id, .. } = lane {
+        if let MirMem::Spill { id, offset } = lane {
             summary.projected_spill_writes.insert(id);
+            summary
+                .projected_spill_byte_writes
+                .insert(MirSpillByte { id, offset });
         }
     }
 }
@@ -1485,6 +1553,44 @@ mod tests {
         assert!(machine.memory.may_write_any_compat);
         assert!(machine.may_clobber_reg_compat(MirReg::X));
         assert!(machine.machine.opaque_flag_or_a_effects);
+    }
+
+    #[test]
+    fn projects_exact_temp_spill_bytes_for_cfg_cleanup() {
+        let temp = MirTempId(3);
+        let spill = projected_temp_spill(temp, 1);
+        let value = MirValue::Def(MirDef::VTempByte { id: temp, byte: 1 });
+        let read = classify_op(&MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Spill {
+                id: MirSpillId(99),
+                offset: 0,
+            }),
+            src: value.clone(),
+            width: MirWidth::Byte,
+        });
+        assert!(read.reads_spill_byte_compat(spill, 0));
+        assert!(!read.reads_spill_byte_compat(spill, 1));
+
+        let write = classify_op(&MirOp::LoadImm {
+            dst: MirDef::VTempByte { id: temp, byte: 1 },
+            value: 1,
+            width: MirWidth::Byte,
+        });
+        assert!(write.writes_spill_byte_compat(spill, 0));
+
+        let terminator = classify_terminator(&MirTerminator::Branch {
+            cond: MirCond::BoolValue(value),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        });
+        assert!(
+            terminator
+                .projected_spill_byte_reads
+                .contains(&MirSpillByte {
+                    id: spill,
+                    offset: 0,
+                })
+        );
     }
 
     #[test]
