@@ -119,9 +119,7 @@ use peepholes::{
     fold_indirect_byte_const_stores, fold_indirect_byte_direct_compounds,
     fold_indirect_y_const_stores, fold_word_array_store_value_staging, staged_compare_rhs_at,
 };
-use peepholes::{
-    fold_structural_after_word_array, fold_structural_before_word_array, fold_structural_prefix,
-};
+use peepholes::{fold_structural_cleanup_tail, fold_structural_prefix};
 use pointers::{
     is_zero_word_value, materialize_pointer_deref_address, materialize_pointer_deref_read,
     materialize_pointer_deref_read_byte, materialize_pointer_deref_write,
@@ -805,15 +803,12 @@ pub(super) fn materialize_program(
             config.enable_direct_byte_word_update,
             &mut peephole_stats,
         )?;
-        for block in &mut routine.blocks {
-            let ops = std::mem::take(&mut block.ops);
-            block.ops =
-                fold_structural_before_word_array(ops, routine.id, &layout, &mut peephole_stats);
-        }
+        run_analyzed_indirect_constant_stores(routine, &layout, &mut peephole_stats)?;
         run_analyzed_word_array_value_staging(routine, &layout, &mut peephole_stats)?;
+        run_analyzed_indirect_stores_and_compounds(routine, &layout, &mut peephole_stats)?;
         for block in &mut routine.blocks {
             let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_after_word_array(
+            block.ops = fold_structural_cleanup_tail(
                 ops,
                 routine.id,
                 &layout,
@@ -866,15 +861,12 @@ pub(super) fn materialize_program(
             config.enable_direct_byte_word_update,
             &mut peephole_stats,
         )?;
-        for block in &mut routine.blocks {
-            let ops = std::mem::take(&mut block.ops);
-            block.ops =
-                fold_structural_before_word_array(ops, routine.id, &layout, &mut peephole_stats);
-        }
+        run_analyzed_indirect_constant_stores(routine, &layout, &mut peephole_stats)?;
         run_analyzed_word_array_value_staging(routine, &layout, &mut peephole_stats)?;
+        run_analyzed_indirect_stores_and_compounds(routine, &layout, &mut peephole_stats)?;
         for block in &mut routine.blocks {
             let ops = std::mem::take(&mut block.ops);
-            block.ops = fold_structural_after_word_array(
+            block.ops = fold_structural_cleanup_tail(
                 ops,
                 routine.id,
                 &layout,
@@ -960,6 +952,46 @@ fn run_analyzed_word_array_value_staging(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home word-array staging failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_indirect_constant_stores(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            peepholes::discover_indirect_constant_stores(routine, context, layout)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home indirect constant-store rewrite failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_indirect_stores_and_compounds(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            peepholes::discover_indirect_stores_and_compounds(routine, context, layout)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home indirect structural rewrite failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

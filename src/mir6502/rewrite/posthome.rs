@@ -19,7 +19,7 @@ pub(in crate::mir6502) fn structural_plan(
     block: MirBlockId,
     range: Range<usize>,
     replacement: Vec<MirOp>,
-    exit_state_change: MirExitStateChange,
+    mut exit_state_change: MirExitStateChange,
     stat: &'static str,
     family_priority: u16,
 ) -> Option<MirPostHomeRewritePlan> {
@@ -32,6 +32,12 @@ pub(in crate::mir6502) fn structural_plan(
         return None;
     }
     let removed_homes = removed_home_definitions(block, &range, block_ops, &replacement);
+    let original_write_counts = home_write_counts(&block_ops[range.clone()]);
+    for (home, replacement_count) in home_write_counts(&replacement) {
+        if replacement_count > original_write_counts.get(&home).copied().unwrap_or(0) {
+            exit_state_change.homes.insert(home);
+        }
+    }
     let end = context.point(MirSite::Op {
         block,
         op_index: range.end - 1,
@@ -107,14 +113,24 @@ fn written_homes(op: &MirOp) -> BTreeSet<MirHomeByte> {
         .collect()
 }
 
+fn home_write_counts(ops: &[MirOp]) -> BTreeMap<MirHomeByte, usize> {
+    let mut counts = BTreeMap::new();
+    for op in ops {
+        for home in written_homes(op) {
+            *counts.entry(home).or_default() += 1;
+        }
+    }
+    counts
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
     use crate::mir6502::analysis::sites::MirRoutineGeneration;
     use crate::mir6502::ir::{
-        MirAddr, MirBlock, MirDef, MirEffects, MirFrame, MirMem, MirReg, MirRoutineAbi, MirSpillId,
-        MirTerminator, MirValue, MirWidth, RoutineId,
+        MirAddr, MirBlock, MirDef, MirEffects, MirFixedZpSlot, MirFrame, MirMem, MirReg,
+        MirRoutineAbi, MirSpillId, MirTerminator, MirValue, MirWidth, RoutineId,
     };
 
     fn store(id: u32) -> MirOp {
@@ -135,6 +151,22 @@ mod tests {
                 id: MirSpillId(id),
                 offset: 0,
             }),
+            width: MirWidth::Byte,
+        }
+    }
+
+    fn store_fixed(slot: u8) -> MirOp {
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(slot))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }
+    }
+
+    fn load_fixed(slot: u8) -> MirOp {
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(slot))),
             width: MirWidth::Byte,
         }
     }
@@ -196,5 +228,32 @@ mod tests {
         )
         .unwrap();
         assert_eq!(plan.removed_homes.len(), 1);
+    }
+
+    #[test]
+    fn structural_plan_blocks_retargeting_when_old_or_new_pointer_home_is_live() {
+        for later_read in [0xA8, 0xAC] {
+            let routine = routine(
+                vec![store_fixed(0xA8), load_fixed(later_read)],
+                MirTerminator::Return,
+            );
+            let snapshot =
+                PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial()).unwrap();
+            let context = PostHomeRewriteContext::new(&snapshot);
+            assert!(
+                structural_plan(
+                    &routine,
+                    &context,
+                    MirBlockId(0),
+                    0..1,
+                    vec![store_fixed(0xAC)],
+                    MirExitStateChange::default(),
+                    "retarget-pointer-home",
+                    0,
+                )
+                .is_none(),
+                "later read of ${later_read:02X} must block pointer-home retargeting"
+            );
+        }
     }
 }

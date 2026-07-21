@@ -66,28 +66,13 @@ pub(super) fn fold_structural_peepholes(
 /// Legacy tail retained while Slice 8 migrates families in order. The staged
 /// byte/word and word-forward families are intentionally absent: production
 /// invokes their routine-level transactional discovery before this tail.
-pub(super) fn fold_structural_before_word_array(
-    mut ops: Vec<MirOp>,
-    routine_id: RoutineId,
-    layout: &MaterializeLayout,
-    peephole_stats: &mut MirPeepholeStats,
-) -> Vec<MirOp> {
-    ops = fold_indirect_byte_const_stores(ops, routine_id, peephole_stats);
-    ops = fold_indirect_y_const_stores(ops, routine_id, layout, peephole_stats);
-    ops
-}
-
-pub(super) fn fold_structural_after_word_array(
+pub(super) fn fold_structural_cleanup_tail(
     mut ops: Vec<MirOp>,
     routine_id: RoutineId,
     layout: &MaterializeLayout,
     terminator: &MirTerminator,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Vec<MirOp> {
-    ops = fold_indirect_byte_direct_stores(ops, routine_id, layout, peephole_stats);
-    ops = fold_indirect_byte_const_compounds(ops, routine_id, peephole_stats);
-    ops = fold_indirect_byte_direct_compounds(ops, routine_id, layout, peephole_stats);
-    ops = fold_indirect_byte_compounds(ops, routine_id, peephole_stats);
     ops = fold_redundant_self_stores(ops, routine_id, layout, peephole_stats);
     ops = fold_adjacent_store_reloads(ops, routine_id, layout, terminator, peephole_stats);
     ops = fold_staged_binary_rhs(ops, routine_id, terminator, peephole_stats);
@@ -98,6 +83,85 @@ pub(super) fn fold_structural_after_word_array(
     ops = fold_dead_a_loads_before_flag_overwrite(ops, routine_id, terminator, peephole_stats);
     record_ssa_lite_block_facts(&ops, routine_id, layout, peephole_stats);
     ops
+}
+
+pub(in crate::mir6502) fn discover_indirect_constant_stores(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some((consumed, replacement)) = indirect_byte_const_store_at(&block.ops, index)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "indirect-byte-const-store",
+                    0,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some((consumed, replacement)) =
+                indirect_y_const_store_at(&block.ops, index, routine.id, layout)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "indirect-y-const-store",
+                    1,
+                )
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn discover_indirect_stores_and_compounds(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let candidates = [
+                indirect_byte_direct_store_at(&block.ops, index, routine.id, layout)
+                    .map(|candidate| (candidate, "indirect-byte-direct-store", 0)),
+                indirect_byte_const_compound_at(&block.ops, index)
+                    .map(|candidate| (candidate, "indirect-byte-const-compound", 1)),
+                indirect_byte_direct_compound_at(&block.ops, index, routine.id, layout)
+                    .map(|candidate| (candidate, "indirect-byte-direct-compound", 2)),
+                indirect_byte_compound_at(&block.ops, index)
+                    .map(|candidate| (candidate, "indirect-byte-compound", 3)),
+            ];
+            for ((consumed, replacement), stat, priority) in candidates.into_iter().flatten() {
+                if let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    stat,
+                    priority,
+                ) {
+                    plans.push(plan);
+                }
+            }
+        }
+    }
+    plans
 }
 
 pub(in crate::mir6502) fn discover_word_array_value_staging(
@@ -292,6 +356,7 @@ fn fold_word_temp_producer_forwards(
     out
 }
 
+#[cfg(test)]
 fn fold_indirect_byte_compounds(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -312,6 +377,7 @@ fn fold_indirect_byte_compounds(
     out
 }
 
+#[cfg(test)]
 pub(super) fn fold_indirect_byte_direct_compounds(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -335,6 +401,7 @@ pub(super) fn fold_indirect_byte_direct_compounds(
     out
 }
 
+#[cfg(test)]
 pub(super) fn fold_indirect_byte_const_compounds(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -355,6 +422,7 @@ pub(super) fn fold_indirect_byte_const_compounds(
     out
 }
 
+#[cfg(test)]
 pub(super) fn fold_indirect_byte_const_stores(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -375,6 +443,7 @@ pub(super) fn fold_indirect_byte_const_stores(
     out
 }
 
+#[cfg(test)]
 pub(super) fn fold_indirect_y_const_stores(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
@@ -422,6 +491,7 @@ pub(super) fn fold_word_array_store_value_staging(
     out
 }
 
+#[cfg(test)]
 fn fold_indirect_byte_direct_stores(
     ops: Vec<MirOp>,
     routine_id: RoutineId,
