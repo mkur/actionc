@@ -9397,7 +9397,7 @@ fn mir_copy_prop_blocks_temp_byte_def_with_exact_lane_use() {
 }
 
 #[test]
-fn mir_copy_prop_blocks_temp_byte_def_with_sibling_lane_use() {
+fn mir_copy_prop_removes_high_lane_when_whole_temp_has_byte_consumer() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
     let id = MirTempId(9);
@@ -9408,13 +9408,21 @@ fn mir_copy_prop_blocks_temp_byte_def_with_sibling_lane_use() {
     let ops = fold_mir_copy_prop_const_uses_with_terminator(
         vec![
             MirOp::LoadImm {
-                dst: lo,
+                dst: lo.clone(),
                 value: 3,
                 width: MirWidth::Byte,
             },
+            MirOp::LoadImm {
+                dst: hi,
+                value: 4,
+                width: MirWidth::Byte,
+            },
+            MirOp::Barrier {
+                effects: MirEffects::default(),
+            },
             MirOp::Store {
                 dst: MirAddr::Direct(MirMem::ZeroPage(MirZpSlot(0))),
-                src: MirValue::Def(hi),
+                src: MirValue::Def(MirDef::VTemp(id)),
                 width: MirWidth::Byte,
             },
         ],
@@ -9424,18 +9432,14 @@ fn mir_copy_prop_blocks_temp_byte_def_with_sibling_lane_use() {
         &mut stats,
     );
 
-    assert_eq!(ops.len(), 2);
+    assert_eq!(ops.len(), 3);
+    assert!(matches!(ops[0], MirOp::LoadImm { ref dst, .. } if dst == &lo));
+    assert!(matches!(ops[1], MirOp::Barrier { .. }));
+    assert!(matches!(ops[2], MirOp::Store { .. }));
     assert_eq!(
         stats
             .aggregate_counts()
-            .get("mir-copy-prop-dead-temp-byte-def-blocked-sibling-lane-live")
-            .copied(),
-        Some(1)
-    );
-    assert_eq!(
-        stats
-            .aggregate_counts()
-            .get("mir-copy-prop-dead-temp-byte-def-blocked-byte0")
+            .get("mir-copy-prop-dead-temp-byte-load-imm-defs")
             .copied(),
         Some(1)
     );
@@ -9729,7 +9733,7 @@ fn mir_copy_prop_binary_candidate_reason_prefers_successor_live() {
     };
 
     assert_eq!(
-        temp_byte_binary_candidate_reason_for_test(&op, id, 0, true, true, false, false),
+        temp_byte_binary_candidate_reason_for_test(&op, id, 0, true, true, false),
         "blocked-successor-live"
     );
 }
@@ -9757,15 +9761,7 @@ fn mir_copy_prop_binary_candidate_reason_reports_carry_blockers() {
     };
 
     assert_eq!(
-        temp_byte_binary_candidate_reason_for_test(
-            &carry_out_op,
-            id,
-            0,
-            false,
-            false,
-            false,
-            false
-        ),
+        temp_byte_binary_candidate_reason_for_test(&carry_out_op, id, 0, false, false, false),
         "blocked-carry-out"
     );
     assert_eq!(
@@ -9776,7 +9772,6 @@ fn mir_copy_prop_binary_candidate_reason_reports_carry_blockers() {
             false,
             false,
             false,
-            false
         ),
         "blocked-carry-from-previous"
     );

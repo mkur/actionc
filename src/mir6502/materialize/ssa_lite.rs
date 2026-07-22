@@ -1246,7 +1246,6 @@ fn remove_dead_copy_prop_temp_byte_defs(
             op_is_removable_dead_copy_prop_temp_byte_def(&op, layout)
                 && !live.exact_lane_live(id, byte)
                 && !live.full_temp_live(id)
-                && !live.sibling_lane_live(id, byte)
         });
         if can_remove {
             removed.record_op(&op, layout);
@@ -1264,9 +1263,7 @@ fn remove_dead_copy_prop_temp_byte_defs(
 }
 
 fn temp_byte_live_set_blocks_lane(live_out: &MirTempLiveSet, id: MirTempId, byte: u8) -> bool {
-    live_out.exact_lane_live(id, byte)
-        || live_out.full_temp_live(id)
-        || live_out.exact_lane_live(id, byte ^ 1)
+    live_out.exact_lane_live(id, byte) || live_out.full_temp_live(id)
 }
 
 fn temp_live_set_blocks_full_temp(live_out: &MirTempLiveSet, id: MirTempId) -> bool {
@@ -1367,7 +1364,6 @@ struct DeadTempByteLaneSafetyStats {
     safe_byte1: usize,
     blocked_exact_lane_live: usize,
     blocked_full_temp_live: usize,
-    blocked_sibling_lane_live: usize,
     blocked_byte0: usize,
     blocked_byte1: usize,
     binary_reasons: DeadTempByteBinaryCandidateReasonStats,
@@ -1399,11 +1395,6 @@ impl DeadTempByteLaneSafetyStats {
             routine_id,
             "mir-copy-prop-dead-temp-byte-def-blocked-full-temp-live",
             self.blocked_full_temp_live,
-        );
-        peephole_stats.record_many(
-            routine_id,
-            "mir-copy-prop-dead-temp-byte-def-blocked-sibling-lane-live",
-            self.blocked_sibling_lane_live,
         );
         peephole_stats.record_many(
             routine_id,
@@ -1457,11 +1448,6 @@ impl DeadTempByteLaneSafetyStats {
         self.record_blocked_byte(byte);
     }
 
-    fn record_blocked_sibling_lane_live(&mut self, byte: u8) {
-        self.blocked_sibling_lane_live += 1;
-        self.record_blocked_byte(byte);
-    }
-
     fn record_blocked_byte(&mut self, byte: u8) {
         match byte {
             0 => self.blocked_byte0 += 1,
@@ -1476,7 +1462,6 @@ struct DeadTempByteBinaryCandidateReasonStats {
     blocked_successor_live: usize,
     blocked_exact_lane_live: usize,
     blocked_full_temp_live: usize,
-    blocked_sibling_lane_live: usize,
     blocked_carry_out: usize,
     blocked_carry_from_previous: usize,
     lane_safe: usize,
@@ -1501,11 +1486,6 @@ impl DeadTempByteBinaryCandidateReasonStats {
         );
         peephole_stats.record_many(
             routine_id,
-            "mir-copy-prop-dead-temp-byte-def-binary-blocked-sibling-lane-live",
-            self.blocked_sibling_lane_live,
-        );
-        peephole_stats.record_many(
-            routine_id,
             "mir-copy-prop-dead-temp-byte-def-binary-blocked-carry-out",
             self.blocked_carry_out,
         );
@@ -1526,7 +1506,6 @@ impl DeadTempByteBinaryCandidateReasonStats {
             "blocked-successor-live" => self.blocked_successor_live += 1,
             "blocked-exact-lane-live" => self.blocked_exact_lane_live += 1,
             "blocked-full-temp-live" => self.blocked_full_temp_live += 1,
-            "blocked-sibling-lane-live" => self.blocked_sibling_lane_live += 1,
             "blocked-carry-out" => self.blocked_carry_out += 1,
             "blocked-carry-from-previous" => self.blocked_carry_from_previous += 1,
             "lane-safe" => self.lane_safe += 1,
@@ -1564,22 +1543,37 @@ impl LiveTempByteLanes {
     fn observe_op_uses(&mut self, op: &MirOp) {
         match op {
             MirOp::Load { src, .. } => self.observe_addr(src),
-            MirOp::Store { dst, src, .. } => {
+            MirOp::Store {
+                dst, src, width, ..
+            } => {
                 self.observe_addr(dst);
-                self.observe_value(src);
+                self.observe_typed_value(src, *width);
             }
-            MirOp::Move { src, .. }
-            | MirOp::Extend { src, .. }
-            | MirOp::Truncate { src, .. }
-            | MirOp::Unary { src, .. }
-            | MirOp::AddByteToWordMem { value: src, .. }
-            | MirOp::SubByteFromWordMem { value: src, .. }
-            | MirOp::MaterializeAddress { value: src, .. }
-            | MirOp::AdvanceAddress { index: src, .. }
-            | MirOp::StoreIndirect { src, .. } => self.observe_value(src),
-            MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
-                self.observe_value(left);
-                self.observe_value(right);
+            MirOp::Move { src, width, .. } | MirOp::Unary { src, width, .. } => {
+                self.observe_typed_value(src, *width);
+            }
+            MirOp::Extend {
+                src, from_width, ..
+            }
+            | MirOp::Truncate {
+                src, from_width, ..
+            } => self.observe_typed_value(src, *from_width),
+            MirOp::AddByteToWordMem { value, .. } | MirOp::SubByteFromWordMem { value, .. } => {
+                self.observe_typed_value(value, MirWidth::Byte);
+            }
+            MirOp::MaterializeAddress { value, .. } => self.observe_value(value),
+            MirOp::AdvanceAddress { index, .. } => self.observe_value(index),
+            MirOp::StoreIndirect { src, .. } => {
+                self.observe_typed_value(src, MirWidth::Byte);
+            }
+            MirOp::Binary {
+                left, right, width, ..
+            }
+            | MirOp::Compare {
+                left, right, width, ..
+            } => {
+                self.observe_typed_value(left, *width);
+                self.observe_typed_value(right, *width);
             }
             MirOp::MaterializeIndexedAddress { base, index, .. } => {
                 self.observe_value(base);
@@ -1590,7 +1584,7 @@ impl LiveTempByteLanes {
                     self.observe_value(target);
                 }
                 for arg in args {
-                    self.observe_value(&arg.value);
+                    self.observe_typed_value(&arg.value, arg.width);
                 }
             }
             MirOp::LoadImm { .. }
@@ -1622,6 +1616,16 @@ impl LiveTempByteLanes {
             | MirAddr::IndirectIndexedY { .. }
             | MirAddr::FixedIndirectIndexedY { .. }
             | MirAddr::PointerCell { .. } => {}
+        }
+    }
+
+    fn observe_typed_value(&mut self, value: &MirValue, width: MirWidth) {
+        if width == MirWidth::Byte
+            && let MirValue::Def(MirDef::VTemp(id)) = value
+        {
+            self.insert_exact(*id, 0);
+        } else {
+            self.observe_value(value);
         }
     }
 
@@ -1663,11 +1667,6 @@ impl LiveTempByteLanes {
 
     fn full_temp_live(&self, id: MirTempId) -> bool {
         self.full.contains(&id)
-    }
-
-    fn sibling_lane_live(&self, id: MirTempId, byte: u8) -> bool {
-        let sibling = byte ^ 1;
-        self.exact.contains(&(id, sibling))
     }
 
     fn kill_exact_lane(&mut self, id: MirTempId, byte: u8) {
@@ -1895,21 +1894,6 @@ fn classify_dead_copy_prop_temp_byte_lane_safety(
                         "blocked-full-temp-live",
                     );
                 }
-            } else if live.sibling_lane_live(id, byte) {
-                stats.record_blocked_sibling_lane_live(byte);
-                if move_site {
-                    record_temp_byte_candidate_site(
-                        peephole_stats,
-                        routine_id,
-                        "mir-copy-prop-dead-temp-byte-def-move-candidate",
-                        block_id,
-                        op_index,
-                        id,
-                        byte,
-                        op,
-                        "blocked-sibling-lane-live",
-                    );
-                }
             } else {
                 stats.record_safe_op(op, byte, layout);
                 peephole_stats.record_site(
@@ -1957,9 +1941,6 @@ fn temp_byte_binary_candidate_reason(
     if live.full_temp_live(id) {
         return "blocked-full-temp-live";
     }
-    if live.sibling_lane_live(id, byte) {
-        return "blocked-sibling-lane-live";
-    }
     match op {
         MirOp::Binary {
             carry_in: Some(MirCarryIn::FromPrevious),
@@ -1980,7 +1961,6 @@ pub(super) fn temp_byte_binary_candidate_reason_for_test(
     successor_live: bool,
     exact_lane_live: bool,
     full_temp_live: bool,
-    sibling_lane_live: bool,
 ) -> &'static str {
     let live_out = successor_live.then(|| MirTempLiveSet::with_exact_lane(id, byte));
     let mut live = LiveTempByteLanes::default();
@@ -1989,9 +1969,6 @@ pub(super) fn temp_byte_binary_candidate_reason_for_test(
     }
     if full_temp_live {
         live.insert_full(id);
-    }
-    if sibling_lane_live {
-        live.insert_exact(id, byte ^ 1);
     }
     temp_byte_binary_candidate_reason(op, live_out.as_ref(), &live, id, byte)
 }
