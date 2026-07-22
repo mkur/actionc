@@ -311,6 +311,10 @@ impl SsaLiteValueEnv {
             | MirOp::MaterializeIndexedAddress { .. }
             | MirOp::AdvanceAddress { .. }
             | MirOp::Compare { .. } => {}
+            MirOp::CompareIndirectBytes { .. } => {
+                self.kill_reg(MirReg::A);
+                self.kill_reg(MirReg::Y);
+            }
         }
     }
 
@@ -566,6 +570,10 @@ impl SsaLiteV2ObserveEnv {
                 });
             }
             MirOp::Compare { .. } => {}
+            MirOp::CompareIndirectBytes { .. } => {
+                self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
+                self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
+            }
         }
     }
 
@@ -943,6 +951,7 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
+        | MirOp::CompareIndirectBytes { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => Vec::new(),
@@ -1587,6 +1596,7 @@ impl LiveTempByteLanes {
             MirOp::LoadImm { .. }
             | MirOp::RuntimeHelper { .. }
             | MirOp::LoadIndirect { .. }
+            | MirOp::CompareIndirectBytes { .. }
             | MirOp::IndirectByteCompound { .. }
             | MirOp::Barrier { .. }
             | MirOp::LeaAddr { .. }

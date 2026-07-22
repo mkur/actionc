@@ -242,6 +242,7 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::Compare { .. }
+        | MirOp::CompareIndirectBytes { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }
@@ -408,6 +409,7 @@ fn replace_op_temp_values(op: &mut MirOp, temp: MirTempId, replacement: &MirValu
             *left = replace_temp_value(left.clone(), temp, replacement);
             *right = replace_temp_value(right.clone(), temp, replacement);
         }
+        MirOp::CompareIndirectBytes { .. } => {}
         MirOp::AddByteToWordMem { value, .. } | MirOp::SubByteFromWordMem { value, .. } => {
             *value = replace_temp_value(value.clone(), temp, replacement);
         }
@@ -800,6 +802,7 @@ fn invalidate_staged_address_for_op(
         | MirOp::Extend { dst, .. }
         | MirOp::Truncate { dst, .. } => matches!(dst, MirDef::Reg(_)),
         MirOp::Compare { .. }
+        | MirOp::CompareIndirectBytes { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::StoreIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
@@ -1031,16 +1034,7 @@ pub(super) fn materialize_terminator(
         }
         MirCond::BoolValue(MirValue::Def(MirDef::VTemp(id))) => {
             if let Some((op_index, op)) = ops.iter().enumerate().next_back()
-                && let MirOp::Compare {
-                    dst: MirCondDest::Temp(compare_id),
-                    op,
-                    right,
-                    width: MirWidth::Byte,
-                    signed: false,
-                    ..
-                } = op
-                && compare_id == id
-                && let Some((flag_test, _rewrite)) = compare_branch_plan(*op, right)
+                && let Some(flag_test) = compare_temp_flag_test(op, *id)
             {
                 return MirTerminator::Branch {
                     cond: MirCond::FusedCompare {
@@ -1094,5 +1088,44 @@ pub(super) fn materialize_fused_compare_dest(
             *right = rewritten_right;
         }
         *dst = MirCondDest::Flags;
+    } else if let Some(MirOp::CompareIndirectBytes {
+        dst,
+        op,
+        signed: false,
+        ..
+    }) = ops.get_mut(producer.op_index)
+        && indirect_compare_flag_test(*op).is_some()
+    {
+        *dst = MirCondDest::Flags;
+    }
+}
+
+fn compare_temp_flag_test(op: &MirOp, expected: MirTempId) -> Option<MirFlagTest> {
+    match op {
+        MirOp::Compare {
+            dst: MirCondDest::Temp(actual),
+            op,
+            right,
+            width: MirWidth::Byte,
+            signed: false,
+            ..
+        } if *actual == expected => compare_branch_plan(*op, right).map(|(test, _)| test),
+        MirOp::CompareIndirectBytes {
+            dst: MirCondDest::Temp(actual),
+            op,
+            signed: false,
+            ..
+        } if *actual == expected => indirect_compare_flag_test(*op),
+        _ => None,
+    }
+}
+
+fn indirect_compare_flag_test(op: MirCompareOp) -> Option<MirFlagTest> {
+    match op {
+        MirCompareOp::Eq => Some(MirFlagTest::ZSet),
+        MirCompareOp::Ne => Some(MirFlagTest::ZClear),
+        MirCompareOp::Lt => Some(MirFlagTest::CClear),
+        MirCompareOp::Ge => Some(MirFlagTest::CSet),
+        MirCompareOp::Le | MirCompareOp::Gt => None,
     }
 }

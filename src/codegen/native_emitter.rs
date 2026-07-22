@@ -547,7 +547,7 @@ impl NativeTrackedEmitter {
         self.state.invalidate_flags();
     }
 
-    pub(super) fn emit_cmp_indirect_indexed_y(&mut self, indexed: IndirectIndexedY) {
+    pub(crate) fn emit_cmp_indirect_indexed_y(&mut self, indexed: IndirectIndexedY) {
         self.emitter.emit_cmp_indirect_indexed_y(indexed);
         self.state.invalidate_flags();
     }

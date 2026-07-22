@@ -359,6 +359,16 @@ pub enum MirOp {
         width: MirWidth,
         signed: bool,
     },
+    /// Native byte comparison through two independently materialized pointer
+    /// pairs. Both operands use the same constant Y offset.
+    CompareIndirectBytes {
+        dst: MirCondDest,
+        op: MirCompareOp,
+        left: MirAddressConsumer,
+        right: MirAddressConsumer,
+        offset: u16,
+        signed: bool,
+    },
     Call {
         target: MirCallTarget,
         abi: MirCallAbi,

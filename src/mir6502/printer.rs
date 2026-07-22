@@ -474,6 +474,23 @@ fn op_summary(op: &MirOp) -> String {
             compare_summary(*op),
             value_summary(right)
         ),
+        MirOp::CompareIndirectBytes {
+            dst,
+            op,
+            left,
+            right,
+            offset,
+            signed,
+        } => format!(
+            "{} = cmp_indirect.b{} {}+{} {} {}+{}",
+            cond_dest_summary(dst),
+            if *signed { ".signed" } else { "" },
+            address_consumer_summary(left),
+            offset,
+            compare_summary(*op),
+            address_consumer_summary(right),
+            offset
+        ),
         MirOp::Call {
             target,
             abi,

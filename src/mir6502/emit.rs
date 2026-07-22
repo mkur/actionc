@@ -2117,6 +2117,43 @@ fn emit_op(
         } => {
             emit_compare(ctx, routine, block, dst, *op, left, right, *signed, emitter);
         }
+        MirOp::CompareIndirectBytes {
+            dst: MirCondDest::Flags,
+            left,
+            right,
+            offset,
+            signed: false,
+            ..
+        } => {
+            if left.uses_scaled_y() || right.uses_scaled_y() {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect byte compare cannot use scaled Y",
+                );
+                return;
+            }
+            let Some(left_slot) = resolve_pointer_consumer_slot(ctx, routine, left) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "left indirect compare operand is not placed",
+                );
+                return;
+            };
+            let Some(right_slot) = resolve_pointer_consumer_slot(ctx, routine, right) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "right indirect compare operand is not placed",
+                );
+                return;
+            };
+            emit_indirect_byte_compare(left_slot, right_slot, *offset, emitter);
+        }
         MirOp::Call { target, .. } => emit_call(ctx, routine, block, target, emitter),
         MirOp::RuntimeHelper { helper, .. } => {
             let Some(decl) = ctx
@@ -3658,6 +3695,17 @@ fn emit_indirect_byte_compound(
     emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(target_slot)));
 }
 
+fn emit_indirect_byte_compare(
+    left_slot: u8,
+    right_slot: u8,
+    offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    emitter.emit_ldy_imm(offset as u8);
+    emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(left_slot)));
+    emitter.emit_cmp_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(right_slot)));
+}
+
 fn split_value_as_word(ctx: &MirEmitContext<'_>, value: &MirValue) -> Option<(MirValue, MirValue)> {
     match value {
         MirValue::Word { lo, hi } => Some((lo.as_ref().clone(), hi.as_ref().clone())),
@@ -4156,4 +4204,21 @@ fn unsupported_message(
         block,
         message: message.to_string(),
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dual_indirect_byte_compare_emits_one_shared_y_offset() {
+        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+
+        emit_indirect_byte_compare(0xAE, 0xAC, 3, &mut emitter);
+
+        assert_eq!(
+            emitter.finish().expect("comparison sequence emits"),
+            [opcode::LDY_IMM, 3, 0xB1, 0xAE, 0xD1, 0xAC]
+        );
+    }
 }

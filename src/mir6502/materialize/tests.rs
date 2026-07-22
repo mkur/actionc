@@ -311,6 +311,77 @@ fn byte_le_branch_expands_to_any_flag_test() {
 }
 
 #[test]
+fn dual_indirect_eq_compare_fuses_into_flags() {
+    let left = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(0xAE),
+    });
+    let right = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(0xAC),
+    });
+    let mut ops = vec![MirOp::CompareIndirectBytes {
+        dst: MirCondDest::Temp(MirTempId(0)),
+        op: MirCompareOp::Eq,
+        left,
+        right,
+        offset: 0,
+        signed: false,
+    }];
+    let branch = MirTerminator::Branch {
+        cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
+        then_edge: MirEdge::plain(MirBlockId(1)),
+        else_edge: MirEdge::plain(MirBlockId(2)),
+    };
+
+    let fused = materialize_terminator(MirBlockId(0), &branch, &ops, &Mir6502Config::default());
+    assert!(matches!(
+        fused,
+        MirTerminator::Branch {
+            cond: MirCond::FusedCompare {
+                flag_test: MirFlagTest::ZSet,
+                ..
+            },
+            ..
+        }
+    ));
+
+    materialize_fused_compare_dest(MirBlockId(0), &fused, &mut ops);
+    assert!(matches!(
+        ops.as_slice(),
+        [MirOp::CompareIndirectBytes {
+            dst: MirCondDest::Flags,
+            ..
+        }]
+    ));
+}
+
+#[test]
+fn dual_indirect_gt_compare_is_not_single_flag_fused() {
+    let consumer = |lo| {
+        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(lo),
+        })
+    };
+    let ops = vec![MirOp::CompareIndirectBytes {
+        dst: MirCondDest::Temp(MirTempId(0)),
+        op: MirCompareOp::Gt,
+        left: consumer(0xAE),
+        right: consumer(0xAC),
+        offset: 0,
+        signed: false,
+    }];
+    let branch = MirTerminator::Branch {
+        cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
+        then_edge: MirEdge::plain(MirBlockId(1)),
+        else_edge: MirEdge::plain(MirBlockId(2)),
+    };
+
+    assert_eq!(
+        materialize_terminator(MirBlockId(0), &branch, &ops, &Mir6502Config::default(),),
+        branch
+    );
+}
+
+#[test]
 fn static_address_split_stays_symbolic_until_final_emit_layout() {
     let static_id = SymbolId(0);
     let mut program = empty_test_program();

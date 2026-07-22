@@ -158,7 +158,8 @@ fn op_blocks_deferred_direct_read(op: &MirOp) -> bool {
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::StoreIndirect { .. }
-        | MirOp::IndirectByteCompound { .. } => true,
+        | MirOp::IndirectByteCompound { .. }
+        | MirOp::CompareIndirectBytes { .. } => true,
         MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::Barrier { .. }

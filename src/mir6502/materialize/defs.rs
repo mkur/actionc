@@ -25,6 +25,7 @@ pub(super) fn op_def(op: &MirOp) -> Option<&MirDef> {
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::Compare { .. }
+        | MirOp::CompareIndirectBytes { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }

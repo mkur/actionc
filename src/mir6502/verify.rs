@@ -832,6 +832,70 @@ impl MirVerifier {
                 self.verify_value(routine, block, left, static_ids, global_ids, routine_ids);
                 self.verify_rhs_value(routine, block, right, static_ids, global_ids, routine_ids);
             }
+            MirOp::CompareIndirectBytes {
+                dst,
+                op,
+                left,
+                right,
+                offset,
+                signed,
+            } => {
+                self.verify_cond_dest(routine, block, dst);
+                self.verify_address_consumer(routine, block, left);
+                self.verify_address_consumer(routine, block, right);
+                self.reject_scaled_y_consumer(
+                    routine,
+                    block,
+                    left,
+                    "left indirect compare operand",
+                );
+                self.reject_scaled_y_consumer(
+                    routine,
+                    block,
+                    right,
+                    "right indirect compare operand",
+                );
+                if left.pointer_pair() == right.pointer_pair() {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect byte compare requires distinct pointer pairs",
+                    ));
+                }
+                if *offset > u16::from(u8::MAX) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect byte compare offset must fit in Y",
+                    ));
+                }
+                if *signed {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect byte compare only supports unsigned comparisons",
+                    ));
+                }
+                if matches!(
+                    op,
+                    super::ir::MirCompareOp::Le | super::ir::MirCompareOp::Gt
+                ) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect byte compare requires a single-test comparison operator",
+                    ));
+                }
+                if matches!(self.phase, MirPhase::PreEmission)
+                    && matches!(dst, MirCondDest::Temp(_))
+                {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "pre-emission indirect byte compare must target flags",
+                    ));
+                }
+            }
             MirOp::Call {
                 target,
                 abi,
@@ -1719,8 +1783,8 @@ fn has_local_slot(frame: &MirFrame, id: crate::nir::LocalId) -> bool {
 mod tests {
     use super::*;
     use crate::mir6502::{
-        MirArgHome, MirBlock, MirCallAbi, MirCallArg, MirCallTarget, MirEffects, MirFixedZpSlot,
-        MirFrame, MirGlobal, MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi,
+        MirArgHome, MirBlock, MirCallAbi, MirCallArg, MirCallTarget, MirCompareOp, MirEffects,
+        MirFixedZpSlot, MirFrame, MirGlobal, MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi,
         MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic, MirTemp,
         MirTempId, MirWidth, RoutineId,
     };
@@ -1735,6 +1799,38 @@ mod tests {
         )]);
 
         assert!(verify_program(&program, MirPhase::PreMaterialization).is_ok());
+    }
+
+    #[test]
+    fn dual_indirect_compare_requires_distinct_unscaled_pointer_pairs() {
+        let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAC),
+        });
+        let program = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![MirOp::CompareIndirectBytes {
+                    dst: MirCondDest::Flags,
+                    op: MirCompareOp::Eq,
+                    left: consumer,
+                    right: consumer,
+                    offset: 0,
+                    signed: false,
+                }],
+                MirTerminator::Return,
+            )],
+        )]);
+
+        let diagnostics = verify_program(&program, MirPhase::PreEmission)
+            .expect_err("aliased comparison pointers rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("requires distinct pointer pairs")
+        }));
     }
 
     #[test]

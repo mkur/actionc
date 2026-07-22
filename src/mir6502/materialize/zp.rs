@@ -71,6 +71,7 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             | MirOp::Unary { .. }
             | MirOp::Binary { .. }
             | MirOp::Compare { .. }
+            | MirOp::CompareIndirectBytes { .. }
             | MirOp::Call { .. }
             | MirOp::RuntimeHelper { .. }
             | MirOp::Barrier { .. }
@@ -146,6 +147,10 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
         MirOp::IndirectByteCompound { target, source, .. } => {
             collect_consumer_fixed_zero_page(*target, slots);
             collect_consumer_fixed_zero_page(*source, slots);
+        }
+        MirOp::CompareIndirectBytes { left, right, .. } => {
+            collect_consumer_fixed_zero_page(*left, slots);
+            collect_consumer_fixed_zero_page(*right, slots);
         }
         MirOp::Move { src, .. } => collect_value_fixed_zero_page(src, slots),
         MirOp::Call { target, args, .. } => {

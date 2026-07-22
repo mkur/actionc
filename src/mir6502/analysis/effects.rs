@@ -103,6 +103,7 @@ pub(in crate::mir6502) enum MirOpKind {
     AddByteToWordMem,
     SubByteFromWordMem,
     Compare,
+    CompareIndirectBytes,
     Call,
     RuntimeHelper,
     MaterializeAddress,
@@ -276,10 +277,12 @@ impl MirOpEffectSummary {
     }
 
     pub(in crate::mir6502) fn writes_spill_byte_compat(&self, id: MirSpillId, offset: u16) -> bool {
-        !matches!(self.kind, MirOpKind::Compare)
-            && self
-                .projected_spill_byte_writes
-                .contains(&MirSpillByte { id, offset })
+        !matches!(
+            self.kind,
+            MirOpKind::Compare | MirOpKind::CompareIndirectBytes
+        ) && self
+            .projected_spill_byte_writes
+            .contains(&MirSpillByte { id, offset })
     }
 
     pub(in crate::mir6502) fn may_read_unknown_spill_byte_compat(&self) -> bool {
@@ -317,6 +320,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::AddByteToWordMem { .. } => MirOpKind::AddByteToWordMem,
         MirOp::SubByteFromWordMem { .. } => MirOpKind::SubByteFromWordMem,
         MirOp::Compare { .. } => MirOpKind::Compare,
+        MirOp::CompareIndirectBytes { .. } => MirOpKind::CompareIndirectBytes,
         MirOp::Call { .. } => MirOpKind::Call,
         MirOp::RuntimeHelper { .. } => MirOpKind::RuntimeHelper,
         MirOp::MaterializeAddress { .. } => MirOpKind::MaterializeAddress,
@@ -425,6 +429,42 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         } => {
             record_value(left, &mut summary);
             record_value(right, &mut summary);
+            match dst {
+                MirCondDest::Temp(temp) => {
+                    summary.logical.temp_defs.push(MirTempAccess::Exact {
+                        temp: *temp,
+                        byte: 0,
+                    });
+                    summary
+                        .projected_spill_writes
+                        .insert(projected_temp_spill(*temp, 0));
+                    summary.projected_spill_byte_writes.insert(MirSpillByte {
+                        id: projected_temp_spill(*temp, 0),
+                        offset: 0,
+                    });
+                }
+                MirCondDest::Flags => {
+                    summary.machine.definitely_overwrites_carry = true;
+                }
+            }
+            summary.machine.flag_writes.c = true;
+            write_zn(&mut summary.machine.flag_writes);
+            summary.machine.writes_any_flags_compat = true;
+            summary.removable_when_results_dead = matches!(dst, MirCondDest::Temp(_));
+        }
+        MirOp::CompareIndirectBytes {
+            dst,
+            left,
+            right,
+            offset,
+            ..
+        } => {
+            record_consumer_read(*left, &mut summary);
+            record_consumer_read(*right, &mut summary);
+            record_indirect_y_access(*left, *offset, &mut summary);
+            summary.memory.indirect_reads = true;
+            summary.memory.has_unknown_effects = true;
+            set_register(&mut summary.machine.register_writes, MirReg::A);
             match dst {
                 MirCondDest::Temp(temp) => {
                     summary.logical.temp_defs.push(MirTempAccess::Exact {
@@ -1457,6 +1497,19 @@ mod tests {
                 },
             ),
             (
+                MirOpKind::CompareIndirectBytes,
+                MirOp::CompareIndirectBytes {
+                    dst: MirCondDest::Flags,
+                    op: MirCompareOp::Eq,
+                    left: consumer(),
+                    right: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                        lo: MirFixedZpSlot(0x92),
+                    }),
+                    offset: 0,
+                    signed: false,
+                },
+            ),
+            (
                 MirOpKind::Call,
                 MirOp::Call {
                     target: MirCallTarget::Indirect {
@@ -1550,10 +1603,48 @@ mod tests {
             ),
         ];
 
-        assert_eq!(operations.len(), 24);
+        assert_eq!(operations.len(), 25);
         for (expected, operation) in operations {
             assert_eq!(classify_op(&operation).kind, expected, "{operation:?}");
         }
+    }
+
+    #[test]
+    fn dual_indirect_compare_records_both_pointer_reads_and_machine_clobbers() {
+        let right = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0x92),
+        });
+        let effects = classify_op(&MirOp::CompareIndirectBytes {
+            dst: MirCondDest::Temp(MirTempId(7)),
+            op: MirCompareOp::Ne,
+            left: consumer(),
+            right,
+            offset: 3,
+            signed: false,
+        });
+
+        for slot in 0x90..=0x93 {
+            assert!(
+                effects
+                    .addresses
+                    .pair_reads
+                    .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(slot)))
+            );
+        }
+        assert!(effects.memory.indirect_reads);
+        assert!(effects.memory.has_unknown_effects);
+        assert!(effects.writes_reg(MirReg::A));
+        assert!(effects.writes_reg(MirReg::Y));
+        assert!(effects.machine.flag_writes.c);
+        assert!(effects.machine.flag_writes.z);
+        assert!(effects.machine.flag_writes.n);
+        assert!(
+            effects
+                .logical
+                .temp_defs
+                .iter()
+                .any(|access| access.temp() == MirTempId(7))
+        );
     }
 
     #[test]
