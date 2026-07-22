@@ -37,4 +37,21 @@ bb7:
   store total = %t12
   goto bb6
 bb6:
+  %t13:Byte = load flag
+  %t14:condition = cmp %t13 Eq 1
+  branch %t14 ? bb11 : bb10
+bb11:
+  %t15:Byte = load total
+  %t16:condition = cmp %t15 Eq 2
+  branch %t16 ? bb9 : bb10
+bb10:
+  %t17:Byte = load skstat
+  %t18:condition = cmp %t17 Eq 3
+  branch %t18 ? bb9 : bb8
+bb9:
+  %t19:Byte = load total
+  %t20:Byte = %t19 Add 3
+  store total = %t20
+  goto bb8
+bb8:
   return

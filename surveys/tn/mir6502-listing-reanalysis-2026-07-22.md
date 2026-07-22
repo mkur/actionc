@@ -15,42 +15,43 @@ recommendation is corrected in place.
 Scope: `samples/tn/modern/TN.ACT`, modern profile, with the MIR6502 backend
 compared directionally with the modern/classic backend.
 
-## Current reanalysis after comparison and residual-lane slices
+## Current reanalysis after logical-condition CFG lowering
 
-Current revision: `8db86c8` (`docs: record TN residual lane results`).
+Measured revision: `ceecf13` (`nir: lower logical loop conditions to CFG`).
 
-The MIR6502 load file is now 11,554 bytes. Modern/classic remains 10,445
-bytes, leaving a 1,109-byte gap, or 10.6 percent. The most recent comparison
-and residual-lane slices reduced the previous 11,604-byte result by 50 bytes.
+The MIR6502 load file is now 10,854 bytes. Modern/classic remains 10,445
+bytes, leaving a 409-byte gap, or 3.9 percent. Deferred local-array storage and
+logical-condition CFG lowering reduced the previous 11,554-byte result by 700
+bytes in total.
 
 | Metric | MIR6502 | Modern/classic | Difference |
 | --- | ---: | ---: | ---: |
-| Load file | 11,554 | 10,445 | +1,109 |
-| Recognized instructions | 4,637 | 4,338 | +299 |
-| Recognized instruction bytes | 10,555 | 9,714 | +841 |
-| `LDA` + `STA` instructions | 2,287 | 1,910 | +377 |
-| `LDA` + `STA` instruction share | 49.3% | 44.0% | +5.3 points |
-| `JMP` | 193 | 158 | +35 |
+| Load file | 10,854 | 10,445 | +409 |
+| Recognized instructions | 4,476 | 4,338 | +138 |
+| Recognized instruction bytes | 10,130 | 9,714 | +416 |
+| `LDA` + `STA` instructions | 2,246 | 1,910 | +336 |
+| `LDA` + `STA` instruction share | 50.2% | 44.0% | +6.2 points |
+| `JMP` | 161 | 158 | +3 |
 | `JSR` | 369 | 368 | +1 |
-| Branch-over-`JMP` veneers | 32 | 28 | +4 |
+| Branch-over-`JMP` veneers | 30 | 28 | +2 |
 
 The listing-quality parser undercounts long `.BYTE` declarations and may
 interpret bytes in machine/data procedures as instructions. XEX sizes are
-authoritative. An independent label-based data census finds 1,232 declared
-data bytes in MIR6502 and 970 in classic, a 262-byte difference. The remaining
-primary-segment difference is predominantly code and layout.
+authoritative. After deferred storage and logical-CFG home removal, an
+independent label-based data census finds 762 declared data bytes in MIR6502
+and 970 in classic. MIR6502's remaining load-file excess is therefore entirely
+in code and layout, partly offset by its smaller loadable data region.
 
 Current generated artifacts:
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `TN-pre.mir` | 130,693 | `80e250efaf287ac48057f14eaf89b395373ab4eac3beb64301070b841492b372` |
-| `TN-materialized.mir` | 156,835 | `32a1ff70e8ee6a2f9138b9abd14bee9c486badff55967e96ee53667945a0b5c1` |
-| `TN-mir6502.lst` | 151,197 | `a9b3b3bd1b3760ea257d6c852cf09553accc73c70fc166e656e39d8a2f1f88dc` |
-| `TN-mir6502.map` | 10,967 | `b928b93a4015464fafbfcfdffa3480f658b47127ed93bd898672968c1c67d923` |
-| `TN-mir6502.peepholes` | 295,960 | `db841a8f7e31ab6643d7848f8533c80782e5ca7a73201de78efa48fbd5142647` |
-| `TN-mir6502.quality` | 3,438 | `40015cad637e3c294b67e4f67e2d567ec254b4702d70051967fc2afd0d3dfad6` |
-| `TN-mir6502.xex` | 11,554 | `96f0456220d5fe53bfc82ea8969c32a2bcb8f4794d8f38f5c8e6582e81a0ae5f` |
+| `TN-pre.mir` | 130,090 | `58f8a8488af6086e88e6652bdd7ee569fa7b7154d216f89850263b2e727e9207` |
+| `TN-materialized.mir` | 156,561 | `206b4d4a484faa1775f0f9599f2c52855690b456af04c0db8653e1feb45a0838` |
+| `TN-mir6502.lst` | 143,552 | `7f649cee52108afb2bad5b4ee3b6038d46998ebe2596fad4ad43f5168de81f3e` |
+| `TN-mir6502.map` | 10,967 | `d91ddcb8321fb42efa6bdc7943c08c7d4a8775b7482b509777e6c21b728dcf34` |
+| `TN-mir6502.peepholes` | 294,595 | `9f38447a6f1d26110a7fa8404720ce10cf1a45bf315b4f131bbe120410121359` |
+| `TN-mir6502.xex` | 10,854 | `55c6f65fb6a147f5f29081d5f6c1212103698bc07806dbbd91f2d4213e5625b5` |
 | `TN-classic.xex` | 10,445 | `3caefd677ab3d1489e39fcc0200126b442a15278b26a9cb5351434a1c8674f39` |
 
 ### Current ranked opportunities
@@ -91,7 +92,7 @@ The gap to the 10,445-byte classic output is now 651 bytes, or 6.2 percent.
 The resulting XEX SHA-256 is
 `8f5366e52b233038ec20eb2d0df28f65b310a8a1be4d747a2edc4a255a932e0e`.
 
-#### 2. Preserve logical conditions as NIR control flow
+#### 2. Preserve logical conditions as NIR control flow — completed
 
 Eleven surviving compare-to-binary lanes are concentrated in `Handle` (six)
 and `Copy` (five). They are not ordinary arithmetic residue: nested `AND` and
@@ -108,6 +109,23 @@ lowering should turn that structure into explicit short-circuit blocks before
 MIR expansion, including call-containing conditions. MIR6502 should not move
 calls or reconstruct source-language short-circuit meaning from flattened
 boolean arithmetic.
+
+Implemented in three semantic slices: `c2445d5` lowers two-term logical `IF`
+conditions, `75f63d3` recursively lowers mixed and nested trees while keeping
+calls in reached right-hand blocks, and `ceecf13` applies the same lowering to
+`WHILE` and `DO`/`UNTIL`.
+
+The result exceeded the 130-160-byte estimate. TN fell from 11,096 to 10,854
+bytes, an exact 242-byte reduction. The matched routine ranges account for 230
+bytes: `Handle` -102, `Copy` -92, `Convert` -12, `InputLine` -9, `SetWin` -9,
+and `NewDrive` and `SwapScr` -3 each. Removing transient homes accounts for the
+other 12 loadable bytes. Recognized instructions fell by 91 and `JMP` by 32.
+
+Telemetry confirms that all eleven compare-to-binary lanes are gone. Final
+temp homes fall from 90 (59 ZP, 31 RAM) to 77 (58 ZP, 19 RAM), and emitted
+spill labels fall from 26 to 17. The broader gain comes from lowering all
+eligible conditions, not only the initially counted `Handle` and `Copy`
+sequences, and from exposing direct branch layout plus dead homes.
 
 #### 3. Fuse word and pointer carry chains into final locations
 
@@ -153,12 +171,12 @@ materialized or byte-split.
 
 ### Current lower-priority findings
 
-- Six remaining binary-to-compare origins are home-free and should be treated
-  as closed. The eleven compare-to-binary lanes above require logical CFG
-  lowering instead.
+- Three remaining binary-to-compare origins are home-free numeric bitwise
+  conditions and should be treated as closed. The eleven compare-to-binary
+  logical lanes are eliminated.
 - Scaled `(zp),Y` selection applies at 30 sites. Only two distinct blocked
   sites remain (`MakeJmp`, flags live; `Handle`, home live).
-- There are 32 branch-over-`JMP` veneers, but none currently has a
+- There are 30 branch-over-`JMP` veneers, but none currently has a
   branch-reachable final target. Revisit placement after code-generating
   optimizations move boundaries.
 - Cross-routine RAM-home pooling has a maximum static backing benefit of 31
@@ -168,10 +186,10 @@ materialized or byte-split.
   classic. The excess is useful cleanup evidence, not a leading target.
 - Four `JSR; RTS` pairs remain in both backends and do not explain the gap.
 
-After the completed 458-byte deferred-storage result, the next two opportunities
-have a combined realistic potential of roughly 205-240 bytes. If the gains
-compose, they would reduce the remaining 651-byte gap to approximately 410-445
-bytes; this is a planning estimate, not a size guarantee.
+After the completed 458-byte deferred-storage and 242-byte logical-CFG results,
+the remaining gap is 409 bytes. The word/pointer carry-chain opportunity is now
+the leading bounded target at roughly 75-80 bytes; all estimates should be
+remeasured against the new control-flow layout.
 
 ## Previous reanalysis baseline after scaled-Y and ABI correction
 

@@ -417,7 +417,13 @@ branch %2, bb_then, bb_else
 Rules:
 
 - Bitwise expressions in conditions are materialized and tested against zero.
-- Short-circuit `AND` and `OR` lower to explicit CFG blocks.
+- Comparison-only `AND` and `OR` trees lower recursively to explicit CFG
+  blocks. Each right operand is emitted only in the predecessor selected by
+  its left operand, preserving left-to-right evaluation and conditional calls.
+- Numeric bitwise trees, including conditions such as `flags & mask`, remain
+  value-producing operations and are tested against zero. They are not
+  reinterpreted as logical control flow from operator spelling alone.
+- `IF`, `WHILE`, and `DO`/`UNTIL` share this condition lowering contract.
 - Negation lowers either to condition CFG inversion or to a bool-producing op.
 - Constant conditions may be folded by a NIR optimization pass after verification.
 

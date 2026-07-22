@@ -15,4 +15,8 @@ PROC Main()
   IF ptr THEN
     total==+2
   FI
+
+  IF flag=1 AND total=2 OR skstat=3 THEN
+    total==+3
+  FI
 RETURN
