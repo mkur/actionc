@@ -295,6 +295,11 @@ pub use emitter::{
 };
 use emitter::{Patch, PatchKind, decode_instruction};
 
+pub(crate) fn decode_6502_opcode(opcode: u8) -> Option<(&'static str, AddressingMode, usize)> {
+    let instruction = decode_instruction(opcode)?;
+    Some((instruction.mnemonic, instruction.mode, instruction.len))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CodegenProfile {
     #[default]

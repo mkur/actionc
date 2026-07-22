@@ -58,6 +58,10 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
         .filter(|routine| routine_has_current_location_address(routine))
         .map(|routine| routine.name.as_str())
         .collect::<BTreeSet<_>>();
+    let public_action_abi_routine_ids = public_action_abi_routines
+        .iter()
+        .filter_map(|name| routine_ids.get(name).copied())
+        .collect::<BTreeSet<_>>();
     let global_array_pointer_backing = nir_program
         .globals
         .iter()
@@ -261,7 +265,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
     }
 
     let runtime_helpers = runtime_helper_decls_from_sets(nir_program);
-    Ok(MirProgram {
+    let mut program = MirProgram {
         statics: nir_program
             .statics
             .iter()
@@ -321,7 +325,9 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
         routines,
         machine_blocks,
         runtime_helpers,
-    })
+    };
+    super::public_abi::elide_unobserved_shadow_args(&mut program, &public_action_abi_routine_ids);
+    Ok(program)
 }
 
 fn routine_system_address(routine: &nir::NirRoutine) -> Option<u16> {

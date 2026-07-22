@@ -5,8 +5,11 @@ program. The small original-compiler probes catch narrow codegen shapes; TN
 catches broad layout regressions, include handling, and routine-local storage
 changes that only become visible in a substantial source file.
 
-The current MIR6502 listing baseline and ranked optimization backlog are in
+The original MIR6502 listing baseline and optimization backlog are in
 [`mir6502-optimization-opportunities.md`](mir6502-optimization-opportunities.md).
+The current post-home-reduction listing analysis and next ranked opportunities
+are in
+[`mir6502-final-listing-analysis.md`](mir6502-final-listing-analysis.md).
 The implementation roadmap for avoiding transient temp and internal scalar
 storage is in
 [`mir6502-home-elision-plan.md`](mir6502-home-elision-plan.md).

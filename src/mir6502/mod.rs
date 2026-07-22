@@ -10,6 +10,7 @@ mod lower;
 mod materialize;
 mod passes;
 mod printer;
+mod public_abi;
 mod rewrite;
 mod verify;
 
@@ -320,6 +321,52 @@ mod tests {
         assert!(bytes_contain(&output.bytes, &[0xA9, 0x34, 0x85, 0xA1]));
         assert!(bytes_contain(&output.bytes, &[0xA9, 0x12]));
         assert!(bytes_contain(&output.bytes, &[0xA2, 0x34]));
+    }
+
+    #[test]
+    fn current_location_machine_routine_keeps_observed_public_shadow_home() {
+        let output = generate_mir6502_source(
+            r#"
+            BYTE observed=$0600
+
+            PROC Capture=*(BYTE value)
+            [$A5 $A0 $8D $00 $06 $60]
+
+            PROC Main()
+              Capture($12)
+            RETURN
+            "#,
+        );
+
+        assert!(bytes_contain(&output.bytes, &[0xA9, 0x12, 0x85, 0xA0]));
+    }
+
+    #[test]
+    fn current_location_machine_routine_elides_unobserved_public_shadow_home() {
+        let output = generate_mir6502_source(
+            r#"
+            BYTE sink=$80
+
+            PROC Capture=*(BYTE value)
+            [$85 sink $60]
+
+            PROC Main()
+              Capture($12)
+            RETURN
+            "#,
+        );
+        let main = output
+            .map
+            .routine_ranges
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine range");
+        let start = usize::from(main.start.wrapping_sub(output.origin));
+        let end = usize::from(main.end.wrapping_sub(output.origin));
+        let main_bytes = &output.bytes[start..end];
+
+        assert!(bytes_contain(main_bytes, &[0xA9, 0x12]));
+        assert!(!bytes_contain(main_bytes, &[0x85, 0xA0]));
     }
 
     #[test]

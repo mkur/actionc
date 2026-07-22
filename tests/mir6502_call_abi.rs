@@ -165,6 +165,11 @@ fn sargs_byte_params_are_packed_in_callee_storage() {
 fn raw_machine_entry_preserves_action_abi_registers() {
     let (formatted, bytes) = compile_mir6502_fixture("raw_machine_param_entry.act");
     assert!(!formatted.contains("call SArgs"));
+    assert!(formatted.contains(
+        "call r0 args=[#$1234.w -> a:x, #$5678.w -> y:fixed_zp $A3, #$09.b -> fixed_zp $A4]"
+    ));
+    assert!(!formatted.contains("#$1234.w -> fixed_zp $A0:fixed_zp $A1"));
+    assert!(!formatted.contains("#$5678.w -> fixed_zp $A2:fixed_zp $A3"));
 
     let raw_entry = [
         0x85, 0xA0, // STA $A0
