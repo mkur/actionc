@@ -208,11 +208,20 @@ pub struct MirStorageId(pub u32);
 pub struct MirStorageSlot {
     pub id: MirStorageId,
     pub name: Option<String>,
+    pub storage: MirStorageClass,
     pub width: MirWidth,
     pub base: MirStorageBase,
     pub offset: u16,
     pub mutable: bool,
     pub init: Option<MirStorageInit>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MirStorageClass {
+    Scalar,
+    Array,
+    Record,
+    Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

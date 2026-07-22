@@ -17,8 +17,8 @@ use super::ir::{
     MirCond, MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlagTest, MirGlobalBacking,
     MirGlobalInit, MirMachineAtom, MirMachineByteSelector, MirMachineItem, MirMem, MirOp, MirPhase,
     MirPointerPair, MirProgram, MirReg, MirRoutine, MirRuntimeHelperTarget, MirSpillId,
-    MirStorageBase, MirStorageId, MirStorageInit, MirStorageSlot, MirTerminator, MirUnaryOp,
-    MirUpdateOp, MirValue, MirWidth, MirZpSlot, RoutineId,
+    MirStorageBase, MirStorageClass, MirStorageId, MirStorageInit, MirStorageSlot, MirTerminator,
+    MirUnaryOp, MirUpdateOp, MirValue, MirWidth, MirZpSlot, RoutineId,
 };
 use super::verify;
 
@@ -655,6 +655,7 @@ impl MirObjectLayout {
                     &MirStorageSlot {
                         id: MirStorageId(spill.0),
                         name: None,
+                        storage: MirStorageClass::Scalar,
                         width: MirWidth::Byte,
                         base: MirStorageBase::Spill(*spill),
                         offset: 0,
@@ -837,6 +838,7 @@ impl MirObjectLayout {
                 let slot = MirStorageSlot {
                     id: MirStorageId(spill.0),
                     name: None,
+                    storage: MirStorageClass::Scalar,
                     width: MirWidth::Byte,
                     base: MirStorageBase::Spill(*spill),
                     offset: 0,

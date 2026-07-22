@@ -8,7 +8,8 @@ use crate::mir6502::ir::{
 use crate::mir6502::passes::MirPeepholeReportMode;
 use crate::mir6502::rewrite::context::PostHomeRewriteContext;
 use crate::mir6502::{
-    MirFrame, MirRoutine, MirRoutineAbi, MirStorageBase, MirStorageId, MirStorageSlot,
+    MirFrame, MirRoutine, MirRoutineAbi, MirStorageBase, MirStorageClass, MirStorageId,
+    MirStorageSlot,
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 
@@ -12288,6 +12289,7 @@ fn descriptor_lea_materializes_pointer_bytes_for_index_base() {
     program.routines[0].frame.locals.push(MirStorageSlot {
         id: MirStorageId(0),
         name: Some("items".to_string()),
+        storage: MirStorageClass::Array,
         width: MirWidth::Word,
         base: MirStorageBase::Local(LocalId(0)),
         offset: 0,
@@ -12355,6 +12357,7 @@ fn byte_scalar_storage_test_program() -> MirProgram {
     program.routines[0].frame.params.push(MirStorageSlot {
         id: MirStorageId(0),
         name: Some("p".to_string()),
+        storage: MirStorageClass::Scalar,
         width: MirWidth::Byte,
         base: MirStorageBase::Param(ParamId(0)),
         offset: 0,
@@ -12364,6 +12367,7 @@ fn byte_scalar_storage_test_program() -> MirProgram {
     program.routines[0].frame.locals.push(MirStorageSlot {
         id: MirStorageId(1),
         name: Some("l".to_string()),
+        storage: MirStorageClass::Scalar,
         width: MirWidth::Byte,
         base: MirStorageBase::Local(LocalId(0)),
         offset: 0,

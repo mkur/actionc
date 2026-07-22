@@ -22,8 +22,9 @@ pub use ir::{
     MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase,
     MirPointerPair, MirProgram, MirReg, MirRegisterSet, MirResultHome, MirRoutine, MirRoutineAbi,
     MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirSpillId, MirStatic,
-    MirStorageBase, MirStorageId, MirStorageSlot, MirTemp, MirTempId, MirTerminator, MirUnaryOp,
-    MirUpdateOp, MirValue, MirWidth, MirZpAllocation, MirZpSlot, RoutineId,
+    MirStorageBase, MirStorageClass, MirStorageId, MirStorageSlot, MirTemp, MirTempId,
+    MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth, MirZpAllocation, MirZpSlot,
+    RoutineId,
 };
 pub use passes::{Mir6502Config, MirPeepholeReportMode};
 
@@ -563,6 +564,33 @@ mod tests {
             !formatted.contains("local l0+1"),
             "byte local should not be read as a word high byte:\n{formatted}"
         );
+    }
+
+    #[test]
+    fn lowering_preserves_structured_local_storage_classes() {
+        let source = "BYTE sink PROC Main() BYTE scalar BYTE ARRAY items(4) scalar=items(0) sink=scalar RETURN";
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze(&program).expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir = crate::nir::lower_program(&semir);
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let main = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        let storage = |name: &str| {
+            main.frame
+                .locals
+                .iter()
+                .find(|slot| slot.name.as_deref() == Some(name))
+                .unwrap_or_else(|| panic!("{name} local"))
+                .storage
+        };
+
+        assert_eq!(storage("scalar"), MirStorageClass::Scalar);
+        assert_eq!(storage("items"), MirStorageClass::Array);
     }
 
     #[test]
@@ -1538,6 +1566,7 @@ mod tests {
                         params: vec![MirStorageSlot {
                             id: MirStorageId(0),
                             name: Some("p".to_string()),
+                            storage: MirStorageClass::Scalar,
                             width: MirWidth::Word,
                             base: MirStorageBase::Param(ParamId(0)),
                             offset: 0,
@@ -5322,6 +5351,7 @@ mod tests {
                     locals: vec![MirStorageSlot {
                         id: MirStorageId(0),
                         name: Some("local".to_string()),
+                        storage: MirStorageClass::Scalar,
                         width: MirWidth::Byte,
                         base: MirStorageBase::Local(LocalId(0)),
                         offset: 0,
@@ -8462,6 +8492,7 @@ mod tests {
                     locals: vec![MirStorageSlot {
                         id: MirStorageId(0),
                         name: Some("local".to_string()),
+                        storage: MirStorageClass::Scalar,
                         base: MirStorageBase::Local(LocalId(0)),
                         offset: 0,
                         width: MirWidth::Byte,

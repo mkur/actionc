@@ -22,8 +22,8 @@ use super::ir::{
     MirGlobal, MirGlobalBacking, MirGlobalInit, MirMachineAtom, MirMachineBlock, MirMachineBlockId,
     MirMachineByteSelector, MirMachineItem, MirMem, MirOp, MirProgram, MirRoutine, MirRoutineAbi,
     MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic, MirStorageBacking,
-    MirStorageBase, MirStorageId, MirStorageInit, MirStorageSlot, MirTemp, MirTempId,
-    MirTerminator, MirUnaryOp, MirValue, MirWidth, RoutineId,
+    MirStorageBase, MirStorageClass, MirStorageId, MirStorageInit, MirStorageSlot, MirTemp,
+    MirTempId, MirTerminator, MirUnaryOp, MirValue, MirWidth, RoutineId,
 };
 
 pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>> {
@@ -181,6 +181,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                         .map(|(index, param)| MirStorageSlot {
                             id: MirStorageId(index as u32),
                             name: Some(param.name.clone()),
+                            storage: lower_storage_class(param.storage),
                             width: mir_width(&param.ty).unwrap_or(MirWidth::Byte),
                             base: MirStorageBase::Param(param.id),
                             offset: 0,
@@ -201,6 +202,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                         .map(|(index, local)| MirStorageSlot {
                             id: MirStorageId(index as u32),
                             name: Some(local.name.clone()),
+                            storage: lower_storage_class(local.storage),
                             width: local_storage_width(local),
                             base: match local.backing {
                                 NirLocalBacking::Alias { target, .. } => {
@@ -1721,6 +1723,15 @@ fn mir_width(ty: &nir::NirType) -> Option<MirWidth> {
         Some(1) => Some(MirWidth::Byte),
         Some(2) => Some(MirWidth::Word),
         _ => None,
+    }
+}
+
+fn lower_storage_class(storage: nir::NirStorageClass) -> MirStorageClass {
+    match storage {
+        nir::NirStorageClass::Scalar => MirStorageClass::Scalar,
+        nir::NirStorageClass::Array => MirStorageClass::Array,
+        nir::NirStorageClass::Record => MirStorageClass::Record,
+        nir::NirStorageClass::Type => MirStorageClass::Type,
     }
 }
 
