@@ -55,9 +55,9 @@ Current generated artifacts:
 
 ### Current ranked opportunities
 
-#### 1. Defer uninitialized local-array backing
+#### 1. Defer uninitialized local-array backing — completed
 
-MIR6502 saves four zero-filled `SetWin` backing objects in the load image:
+The initial audit identified these four `SetWin` objects:
 
 | Backing object | Bytes |
 | --- | ---: |
@@ -65,15 +65,31 @@ MIR6502 saves four zero-filled `SetWin` backing objects in the load image:
 | `rp_PathBuf` | 47 |
 | `lp_v` | 130 |
 | `rp_v` | 130 |
-| Total | 354 |
+| Subtotal | 354 |
 
 Classic excludes this uninitialized backing from the saved image. MIR6502
-already has a `DeferredData` segment and uses it for larger arrays, but the
-current size policy leaves these four objects in `LoadData`. Moving compatible
-uninitialized local-array backing to deferred storage is therefore the
-strongest bounded next slice, with an exact 354-byte TN load-file opportunity.
-Descriptors and address initialization remain loadable; only backing whose
-contents are not initialized by Action semantics should be deferred.
+already had a `DeferredData` segment and used it for larger arrays, but its size
+policy left these objects in `LoadData`. That made 354 bytes the initial bounded
+estimate. Descriptors and address initialization remain loadable; only backing
+whose contents are not initialized by Action semantics is deferred.
+
+Implemented by `c1cbc8f` (structured MIR storage classes) and `f45dcff`
+(deferred placement). The structured classification exposed another 104 bytes
+that the listing audit had omitted:
+
+| Routine and backing | Bytes |
+| --- | ---: |
+| `_StrNam.fnam` | 40 |
+| `SetWin.leftPanel`, `SetWin.rightPanel` | 16 |
+| `Copy.lentab`, `Copy.copytab` | 48 |
+| Additional subtotal | 104 |
+
+All nine previously inline uninitialized local arrays now join the two existing
+1,171-byte deferred `SetWin` directory buffers. The MIR6502 XEX fell from
+11,554 to 11,096 bytes, an exact 458-byte reduction with no code-size drift.
+The gap to the 10,445-byte classic output is now 651 bytes, or 6.2 percent.
+The resulting XEX SHA-256 is
+`8f5366e52b233038ec20eb2d0df28f65b310a8a1be4d747a2edc4a255a932e0e`.
 
 #### 2. Preserve logical conditions as NIR control flow
 
@@ -152,9 +168,10 @@ materialized or byte-split.
   classic. The excess is useful cleanup evidence, not a leading target.
 - Four `JSR; RTS` pairs remain in both backends and do not explain the gap.
 
-The first three opportunities have a combined realistic potential of roughly
-560-590 bytes. They would reduce the current gap to approximately 520-550
-bytes if the gains compose; this is a planning estimate, not a size guarantee.
+After the completed 458-byte deferred-storage result, the next two opportunities
+have a combined realistic potential of roughly 205-240 bytes. If the gains
+compose, they would reduce the remaining 651-byte gap to approximately 410-445
+bytes; this is a planning estimate, not a size guarantee.
 
 ## Previous reanalysis baseline after scaled-Y and ABI correction
 

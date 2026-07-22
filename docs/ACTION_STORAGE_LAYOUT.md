@@ -272,10 +272,11 @@ pad before the first such local backing block; subsequent initialized unsized
 arrays can overlap the previous pointer cell's unused high word in the same way
 as globals.
 
-Local dynamic byte-array indexing can use absolute indexed addressing. Large
-uninitialized local byte arrays, observed at TN scale, are represented with a
-4-byte descriptor plus skipped backing storage outside the saved load bytes;
-this keeps the object file from carrying kilobytes of zero-filled local buffers.
+Local dynamic byte-array indexing can use absolute indexed addressing.
+Uninitialized local array backing of every size is allocated after code as
+skipped/deferred storage outside the saved load bytes. Initialized local arrays,
+scalars, and record storage remain in the load image. This keeps the object file
+from carrying zero-filled local buffers while preserving initialized data.
 Local dynamic non-byte-array indexing follows the descriptor-backed path through
 zero-page pointers and `($xx),Y`.
 

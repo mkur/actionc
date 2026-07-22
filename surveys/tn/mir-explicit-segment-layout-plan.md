@@ -78,7 +78,10 @@ selection per module.
    - `SET buffer=*` after code, large global table, and large local table.
    - Same with `MODULE` between declarations and routines.
    - Load file omits deferred ranges.
-   - 256-byte arrays remain emitted; 257-byte arrays are deferred.
+   - Uninitialized local arrays of every size are deferred; initialized local
+     arrays remain emitted.
+   - The existing global threshold remains distinct: 256-byte global arrays
+     remain emitted and 257-byte global arrays are deferred.
    - Initialized byte arrays remain emitted.
    - `map.skipped_ranges == output.skipped_ranges == layout.skipped_ranges`.
 

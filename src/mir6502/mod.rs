@@ -7454,7 +7454,7 @@ mod tests {
     }
 
     #[test]
-    fn materialization_uses_output_origin_for_local_address_values() {
+    fn materialization_uses_deferred_local_address_values() {
         let output = generate_mir6502_source_with_origin(
             "CARD r=$86 PROC Main() CHAR ARRAY fnam(4) r=fnam RETURN",
             0x2C00,
@@ -7465,11 +7465,19 @@ mod tests {
             .iter()
             .find(|symbol| symbol.name == "fnam")
             .expect("fnam storage symbol");
+        let emitted_end = output.origin.wrapping_add(output.bytes.len() as u16);
+        let [low, high] = fnam.address.to_le_bytes();
 
-        assert_eq!(fnam.address, 0x2C00);
-        assert!(bytes_contain(&output.bytes, &[0xA9, 0x2C, 0x85, 0x87]));
-        assert!(!bytes_contain(&output.bytes, &[0xA9, 0x2C, 0x85, 0xE1]));
-        assert!(!bytes_contain(&output.bytes, &[0xA9, 0x30, 0x85, 0xE1]));
+        assert_eq!(fnam.address, emitted_end);
+        assert_eq!(
+            output.skipped_ranges,
+            vec![crate::codegen::SkippedRange {
+                start: fnam.address,
+                len: 4
+            }]
+        );
+        assert!(bytes_contain(&output.bytes, &[0xA9, low, 0x85, 0x86]));
+        assert!(bytes_contain(&output.bytes, &[0xA9, high, 0x85, 0x87]));
     }
 
     #[test]
@@ -9181,10 +9189,17 @@ mod tests {
     fn tn_deferred_storage_starts_after_final_mir_bytes() {
         let output = generate_mir6502_sample("samples/tn/modern/TN.ACT", 0x2C00);
         let emitted_end = output.origin.wrapping_add(output.bytes.len() as u16);
+        let mut skipped_lengths = output
+            .skipped_ranges
+            .iter()
+            .map(|range| range.len)
+            .collect::<Vec<_>>();
+        skipped_lengths.sort_unstable();
 
-        assert!(
-            !output.skipped_ranges.is_empty(),
-            "TN should defer large local storage ranges"
+        assert_eq!(
+            skipped_lengths,
+            vec![8, 8, 16, 32, 40, 47, 47, 130, 130, 1171, 1171],
+            "TN should defer every uninitialized local array backing range"
         );
         assert!(
             output
