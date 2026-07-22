@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::ast::machine_address_symbolic_offset;
 use crate::codegen::runtime_zp;
@@ -52,16 +52,6 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
             routine_system_address(routine).map(|address| (routine.name.as_str(), address))
         })
         .collect::<BTreeMap<_, _>>();
-    let public_action_abi_routines = nir_program
-        .routines
-        .iter()
-        .filter(|routine| routine_has_current_location_address(routine))
-        .map(|routine| routine.name.as_str())
-        .collect::<BTreeSet<_>>();
-    let public_action_abi_routine_ids = public_action_abi_routines
-        .iter()
-        .filter_map(|name| routine_ids.get(name).copied())
-        .collect::<BTreeSet<_>>();
     let global_array_pointer_backing = nir_program
         .globals
         .iter()
@@ -264,7 +254,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
     }
 
     let runtime_helpers = runtime_helper_decls_from_sets(nir_program);
-    let mut program = MirProgram {
+    let program = MirProgram {
         statics: nir_program
             .statics
             .iter()
@@ -325,7 +315,6 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
         machine_blocks,
         runtime_helpers,
     };
-    super::public_abi::elide_unobserved_shadow_args(&mut program, &public_action_abi_routine_ids);
     Ok(program)
 }
 
@@ -334,13 +323,6 @@ fn routine_system_address(routine: &nir::NirRoutine) -> Option<u16> {
         let value = note.text.strip_prefix("system-address ")?;
         parse_system_address_note(value)
     })
-}
-
-fn routine_has_current_location_address(routine: &nir::NirRoutine) -> bool {
-    routine
-        .notes
-        .iter()
-        .any(|note| note.kind == nir::NirRoutineNoteKind::CurrentLocationEntry)
 }
 
 fn parse_system_address_note(value: &str) -> Option<u16> {

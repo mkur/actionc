@@ -10,7 +10,6 @@ mod lower;
 mod materialize;
 mod passes;
 mod printer;
-mod public_abi;
 mod rewrite;
 mod verify;
 
