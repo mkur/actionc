@@ -37,8 +37,10 @@ pub(super) fn op_reads_mem(op: &MirOp, mem: &MirMem) -> bool {
 #[cfg(test)]
 pub(super) fn op_definitely_writes_mem(op: &MirOp, mem: &MirMem) -> bool {
     let effects = classify_op(op);
-    matches!(effects.kind, MirOpKind::Store | MirOpKind::UpdateMem)
-        && effects.memory.definitely_writes(mem)
+    matches!(
+        effects.kind,
+        MirOpKind::Store | MirOpKind::UpdateMem | MirOpKind::UpdateIndexedMem
+    ) && effects.memory.definitely_writes(mem)
 }
 
 pub(super) fn op_may_have_unknown_memory_effects(op: &MirOp) -> bool {

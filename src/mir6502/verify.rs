@@ -721,6 +721,16 @@ impl MirVerifier {
                     ));
                 }
             }
+            MirOp::UpdateIndexedMem { base, .. } => {
+                self.verify_mem(routine, block, &routine.frame, base, static_ids, global_ids);
+                if matches!(base, MirMem::ZeroPage(_) | MirMem::FixedZeroPage(_)) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indexed memory update requires an absolute-addressable base",
+                    ));
+                }
+            }
             MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
                 self.verify_mem(routine, block, &routine.frame, mem, static_ids, global_ids);
                 if let super::ir::MirValue::PointerCell(value_mem) = value {

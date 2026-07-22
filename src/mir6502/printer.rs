@@ -441,6 +441,9 @@ fn op_summary(op: &MirOp) -> String {
                 mem_summary(mem)
             )
         }
+        MirOp::UpdateIndexedMem { op, base } => {
+            format!("{}.b {},x", update_summary(*op), mem_summary(base))
+        }
         MirOp::AddByteToWordMem { mem, value } => {
             format!(
                 "add_byte_to_word {} {}",

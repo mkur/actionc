@@ -8828,6 +8828,35 @@ mod tests {
     }
 
     #[test]
+    fn global_byte_array_inc_dec_uses_native_absolute_x_updates() {
+        let output = generate_mir6502_source_with_origin(
+            "BYTE ARRAY colors(4) BYTE i PROC Main() colors(i)=colors(i)+1 colors(i)=colors(i)-1 RETURN",
+            0x3000,
+        );
+        let colors = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|symbol| symbol.name == "colors")
+            .expect("colors storage symbol");
+        let [lo, hi] = colors.address.to_le_bytes();
+
+        assert!(bytes_contain(&output.bytes, &[0xFE, lo, hi]));
+        assert!(bytes_contain(&output.bytes, &[0xDE, lo, hi]));
+    }
+
+    #[test]
+    fn absolute_byte_array_update_avoids_native_read_modify_write() {
+        let output = generate_mir6502_source_with_origin(
+            "BYTE ARRAY colors(4)=$D000 BYTE i PROC Main() colors(i)=colors(i)+1 RETURN",
+            0x3000,
+        );
+
+        assert!(!bytes_contain(&output.bytes, &[0xFE, 0x00, 0xD0]));
+        assert!(!bytes_contain(&output.bytes, &[0xDE, 0x00, 0xD0]));
+    }
+
+    #[test]
     fn local_inline_byte_array_computed_index_uses_absolute_y() {
         let output = generate_mir6502_source_with_origin(
             "BYTE i,j,out PROC Main() BYTE ARRAY colors(0)=[$68 $0C $96 $38] out=colors((i+j)&3) RETURN",

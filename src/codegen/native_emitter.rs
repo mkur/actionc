@@ -454,6 +454,11 @@ impl NativeTrackedEmitter {
         self.state.call_unknown();
     }
 
+    pub(crate) fn emit_dec_absolute_x(&mut self, absolute_x: AbsoluteX) {
+        self.emitter.emit_dec_absolute_x(absolute_x);
+        self.state.call_unknown();
+    }
+
     pub(crate) fn emit_dec_zero_page(&mut self, zero_page: ZeroPage) {
         self.emitter.emit_dec_zero_page(zero_page);
         self.state.call_unknown();
@@ -584,6 +589,11 @@ impl NativeTrackedEmitter {
         }
         self.emitter.emit_inc_absolute(absolute);
         self.state.mutate_memory(absolute.address());
+    }
+
+    pub(crate) fn emit_inc_absolute_x(&mut self, absolute_x: AbsoluteX) {
+        self.emitter.emit_inc_absolute_x(absolute_x);
+        self.state.call_unknown();
     }
 
     pub(crate) fn emit_pha(&mut self) {

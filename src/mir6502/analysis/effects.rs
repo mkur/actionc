@@ -99,6 +99,7 @@ pub(in crate::mir6502) enum MirOpKind {
     Unary,
     Binary,
     UpdateMem,
+    UpdateIndexedMem,
     AddByteToWordMem,
     SubByteFromWordMem,
     Compare,
@@ -312,6 +313,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::Unary { .. } => MirOpKind::Unary,
         MirOp::Binary { .. } => MirOpKind::Binary,
         MirOp::UpdateMem { .. } => MirOpKind::UpdateMem,
+        MirOp::UpdateIndexedMem { .. } => MirOpKind::UpdateIndexedMem,
         MirOp::AddByteToWordMem { .. } => MirOpKind::AddByteToWordMem,
         MirOp::SubByteFromWordMem { .. } => MirOpKind::SubByteFromWordMem,
         MirOp::Compare { .. } => MirOpKind::Compare,
@@ -396,6 +398,14 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::UpdateMem { mem, width, .. } => {
             record_memory_range_read(mem, *width, &mut summary);
             record_definite_memory_range_write(mem, *width, &mut summary);
+            write_zn(&mut summary.machine.flag_writes);
+            summary.machine.writes_any_flags_compat = true;
+        }
+        MirOp::UpdateIndexedMem { base, .. } => {
+            let addr = MirAddr::AbsoluteIndexedX { base: base.clone() };
+            record_load_addr(&addr, MirWidth::Byte, &mut summary);
+            record_store_addr(&addr, MirWidth::Byte, &mut summary);
+            set_register(&mut summary.machine.register_reads, MirReg::X);
             write_zn(&mut summary.machine.flag_writes);
             summary.machine.writes_any_flags_compat = true;
         }
@@ -796,7 +806,13 @@ fn record_def(def: &MirDef, width: MirWidth, summary: &mut MirOpEffectSummary) {
 fn record_load_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectSummary) {
     match addr {
         MirAddr::Direct(mem) => record_memory_range_read(mem, width, summary),
-        MirAddr::AbsoluteIndexedX { base: mem } | MirAddr::AbsoluteIndexedY { base: mem } => {
+        MirAddr::AbsoluteIndexedX { base: mem } => {
+            set_register(&mut summary.machine.register_reads, MirReg::X);
+            record_memory_read(mem, summary);
+            summary.memory.indirect_reads = true;
+        }
+        MirAddr::AbsoluteIndexedY { base: mem } => {
+            set_register(&mut summary.machine.register_reads, MirReg::Y);
             record_memory_read(mem, summary);
             summary.memory.indirect_reads = true;
         }
@@ -819,6 +835,7 @@ fn record_load_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectSu
             summary.memory.indirect_reads = true;
         }
         MirAddr::IndirectIndexedY { zp } => {
+            set_register(&mut summary.machine.register_reads, MirReg::Y);
             record_consumer_read(
                 MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(*zp)),
                 summary,
@@ -826,13 +843,18 @@ fn record_load_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectSu
             summary.memory.indirect_reads = true;
         }
         MirAddr::FixedIndirectIndexedY { zp } => {
+            set_register(&mut summary.machine.register_reads, MirReg::Y);
             record_consumer_read(
                 MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *zp }),
                 summary,
             );
             summary.memory.indirect_reads = true;
         }
-        MirAddr::Label(_) | MirAddr::ZeroPageIndexedX { .. } => {
+        MirAddr::ZeroPageIndexedX { .. } => {
+            set_register(&mut summary.machine.register_reads, MirReg::X);
+            summary.memory.indirect_reads = true;
+        }
+        MirAddr::Label(_) => {
             summary.memory.indirect_reads = true;
         }
     }
@@ -864,6 +886,7 @@ fn record_store_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectS
             mark_may_write_any(summary);
         }
         MirAddr::IndirectIndexedY { zp } => {
+            set_register(&mut summary.machine.register_reads, MirReg::Y);
             record_consumer_read(
                 MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(*zp)),
                 summary,
@@ -872,6 +895,7 @@ fn record_store_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectS
             mark_may_write_any(summary);
         }
         MirAddr::FixedIndirectIndexedY { zp } => {
+            set_register(&mut summary.machine.register_reads, MirReg::Y);
             record_consumer_read(
                 MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *zp }),
                 summary,
@@ -879,10 +903,17 @@ fn record_store_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectS
             summary.memory.indirect_writes = true;
             mark_may_write_any(summary);
         }
-        MirAddr::Label(_)
-        | MirAddr::ZeroPageIndexedX { .. }
-        | MirAddr::AbsoluteIndexedX { .. }
-        | MirAddr::AbsoluteIndexedY { .. } => {
+        MirAddr::ZeroPageIndexedX { .. } | MirAddr::AbsoluteIndexedX { .. } => {
+            set_register(&mut summary.machine.register_reads, MirReg::X);
+            summary.memory.indirect_writes = true;
+            mark_may_write_any(summary);
+        }
+        MirAddr::AbsoluteIndexedY { .. } => {
+            set_register(&mut summary.machine.register_reads, MirReg::Y);
+            summary.memory.indirect_writes = true;
+            mark_may_write_any(summary);
+        }
+        MirAddr::Label(_) => {
             summary.memory.indirect_writes = true;
             mark_may_write_any(summary);
         }
@@ -1394,6 +1425,13 @@ mod tests {
                 },
             ),
             (
+                MirOpKind::UpdateIndexedMem,
+                MirOp::UpdateIndexedMem {
+                    op: MirUpdateOp::Inc,
+                    base: MirMem::Absolute(0x4000),
+                },
+            ),
+            (
                 MirOpKind::AddByteToWordMem,
                 MirOp::AddByteToWordMem {
                     mem: spill(1, 0),
@@ -1512,7 +1550,7 @@ mod tests {
             ),
         ];
 
-        assert_eq!(operations.len(), 23);
+        assert_eq!(operations.len(), 24);
         for (expected, operation) in operations {
             assert_eq!(classify_op(&operation).kind, expected, "{operation:?}");
         }
@@ -1722,5 +1760,25 @@ mod tests {
         assert!(high.writes_reg(MirReg::Y));
         assert!(high.machine.flag_writes.z);
         assert!(high.machine.flag_writes.n);
+    }
+
+    #[test]
+    fn absolute_indexed_accesses_expose_their_index_register_inputs() {
+        let load = classify_op(&MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::AbsoluteIndexedX {
+                base: MirMem::Absolute(0x4000),
+            },
+            width: MirWidth::Byte,
+        });
+        assert!(load.reads_reg(MirReg::X));
+
+        let update = classify_op(&MirOp::UpdateIndexedMem {
+            op: MirUpdateOp::Inc,
+            base: MirMem::Absolute(0x4000),
+        });
+        assert!(update.reads_reg(MirReg::X));
+        assert!(update.machine.flag_writes.z);
+        assert!(update.machine.flag_writes.n);
     }
 }

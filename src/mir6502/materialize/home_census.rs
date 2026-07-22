@@ -661,6 +661,7 @@ fn op_kind(op: &MirOp) -> &'static str {
         MirOp::StoreIndirect { .. } => "store-indirect",
         MirOp::IndirectByteCompound { .. } => "indirect-byte-compound",
         MirOp::UpdateMem { .. } => "update-mem",
+        MirOp::UpdateIndexedMem { .. } => "update-indexed-mem",
         MirOp::AddByteToWordMem { .. } => "add-byte-to-word",
         MirOp::SubByteFromWordMem { .. } => "sub-byte-from-word",
         MirOp::Barrier { .. } => "barrier",
@@ -1416,6 +1417,7 @@ fn record_op_uses(
         MirOp::LoadImm { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateMem { .. }
+        | MirOp::UpdateIndexedMem { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::IndirectByteCompound { .. }

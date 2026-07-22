@@ -104,7 +104,8 @@ use indexes::{
     indexed_word_copy_rematerialized_producer_ops, materialize_base_address,
     materialize_index_to_y, materialize_indexed_read_to_def, materialize_indexed_write_from_value,
     storage_address_value, try_fuse_dynamic_inline_byte_index, try_fuse_indexed_byte_copy,
-    try_fuse_indexed_word_copy, try_prepare_dynamic_byte_index, try_prepare_dynamic_word_index,
+    try_fuse_indexed_byte_inc_dec_update, try_fuse_indexed_word_copy,
+    try_prepare_dynamic_byte_index, try_prepare_dynamic_word_index,
 };
 pub(super) use layout::MaterializeLayout;
 use lea::{lower_address_to_def, lower_lea_addrs_with_final_layout};
@@ -558,6 +559,17 @@ fn analyzed_store_consumer_candidate_at(
     delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
 ) -> Option<StoreConsumerRewriteCandidate> {
     let mut replacement = Vec::new();
+    let consumed = try_fuse_indexed_byte_inc_dec_update(ops, index, layout, &mut replacement);
+    if consumed > 0 {
+        return Some(StoreConsumerRewriteCandidate {
+            start: index,
+            consumed,
+            replacement,
+            stat: "indexed-byte-inc-dec-update",
+            family_priority: 90,
+        });
+    }
+
     let consumed =
         try_fuse_address_store_consumer(ops, index, routine_id, layout, &mut replacement);
     if consumed > 0 {
@@ -905,7 +917,7 @@ fn run_posthome_structural_group(
 ) -> Result<(), Vec<MirDiagnostic>> {
     run_analyzed_param_home_reloads(routine, peephole_stats)?;
     run_analyzed_spill_forwards(routine, peephole_stats)?;
-    run_analyzed_direct_inc_dec_updates(routine, peephole_stats)?;
+    run_analyzed_direct_inc_dec_updates(routine, layout, peephole_stats)?;
     run_analyzed_staged_word_forwards(
         routine,
         layout,
@@ -1029,11 +1041,14 @@ fn run_analyzed_param_home_reloads(
 
 fn run_analyzed_direct_inc_dec_updates(
     routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let mut driver = MirPostHomeRewriteDriver::default();
     let result = driver
-        .run_fixed_point(routine, store_consumers::discover_direct_inc_dec_updates)
+        .run_fixed_point(routine, |routine, context| {
+            store_consumers::discover_direct_inc_dec_updates(routine, context, layout)
+        })
         .map_err(|error| {
             vec![MirDiagnostic::routine(
                 &routine.name,

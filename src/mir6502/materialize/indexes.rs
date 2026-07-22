@@ -826,6 +826,93 @@ pub(super) fn indexed_addr_parts(addr: &MirAddr) -> Option<IndexedAddrParts> {
     }
 }
 
+pub(super) fn try_fuse_indexed_byte_inc_dec_update(
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Load {
+        dst: load_dst,
+        src: load_addr @ MirAddr::ComputedIndex { .. },
+        width: MirWidth::Byte,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some(parts) = indexed_addr_parts(load_addr) else {
+        return 0;
+    };
+    if parts.elem_size != 1 || parts.offset != 0 {
+        return 0;
+    }
+    let Some(base) = address_value_mem(&parts.base) else {
+        return 0;
+    };
+    if !layout.mem_allows_direct_indexed_update(&base) {
+        return 0;
+    }
+    let Some(MirOp::Binary {
+        op,
+        dst: result_dst,
+        left: MirValue::Def(binary_left),
+        right: MirValue::ConstU8(1),
+        width: MirWidth::Byte,
+        carry_in,
+        carry_out: MirCarryOut::Ignore,
+    }) = ops.get(index + 1)
+    else {
+        return 0;
+    };
+    if binary_left != load_dst
+        || !matches!(
+            (op, carry_in),
+            (MirBinaryOp::Add, None | Some(MirCarryIn::Clear))
+                | (MirBinaryOp::Sub, None | Some(MirCarryIn::Set))
+        )
+    {
+        return 0;
+    }
+    let Some(MirOp::Store {
+        dst: store_addr,
+        src: MirValue::Def(store_src),
+        width: MirWidth::Byte,
+    }) = ops.get(index + 2)
+    else {
+        return 0;
+    };
+    if store_addr != load_addr || store_src != result_dst {
+        return 0;
+    }
+
+    out.push(MirOp::Move {
+        dst: MirDef::Reg(MirReg::X),
+        src: parts.index,
+        width: MirWidth::Byte,
+    });
+    let indexed = MirAddr::AbsoluteIndexedX { base };
+    out.push(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: indexed.clone(),
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::Binary {
+        op: *op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(1),
+        width: MirWidth::Byte,
+        carry_in: *carry_in,
+        carry_out: MirCarryOut::Ignore,
+    });
+    out.push(MirOp::Store {
+        dst: indexed,
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    3
+}
+
 fn indexed_addr_parts_resolved_for_copy(
     ops: &[MirOp],
     use_index: usize,

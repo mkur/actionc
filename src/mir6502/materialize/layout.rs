@@ -142,6 +142,19 @@ impl MaterializeLayout {
         }
     }
 
+    /// NMOS 6502 read/modify/write instructions perform observable bus writes,
+    /// so only select indexed INC/DEC for ordinary compiler-owned storage.
+    pub(super) fn mem_allows_direct_indexed_update(&self, mem: &MirMem) -> bool {
+        match mem {
+            MirMem::Local { .. } | MirMem::Param { .. } | MirMem::Static { .. } => true,
+            MirMem::Global { id, .. } => self.global_has_ordinary_backing(*id),
+            MirMem::Absolute(_)
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_)
+            | MirMem::FixedZeroPage(_) => false,
+        }
+    }
+
     fn global_has_ordinary_backing(&self, id: SymbolId) -> bool {
         self.globals
             .iter()

@@ -337,6 +337,12 @@ pub enum MirOp {
         mem: MirMem,
         width: MirWidth,
     },
+    /// Native byte read/modify/write through an absolute base indexed by X.
+    /// This is a post-home 6502 operation; X is an implicit input.
+    UpdateIndexedMem {
+        op: MirUpdateOp,
+        base: MirMem,
+    },
     AddByteToWordMem {
         mem: MirMem,
         value: MirValue,

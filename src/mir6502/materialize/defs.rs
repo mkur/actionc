@@ -21,6 +21,7 @@ pub(super) fn op_def(op: &MirOp) -> Option<&MirDef> {
         MirOp::Call { result, .. } => result.as_ref().map(|result| &result.dst),
         MirOp::Store { .. }
         | MirOp::UpdateMem { .. }
+        | MirOp::UpdateIndexedMem { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::Compare { .. }

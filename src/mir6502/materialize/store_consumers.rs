@@ -2717,6 +2717,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         ),
         MirOp::Store { .. }
         | MirOp::UpdateMem { .. }
+        | MirOp::UpdateIndexedMem { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::Compare { .. }
@@ -3010,27 +3011,44 @@ pub(super) fn try_fold_direct_inc_dec_update(
 pub(in crate::mir6502) fn discover_direct_inc_dec_updates(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
 ) -> Vec<MirPostHomeRewritePlan> {
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
-            if let Some((consumed, replacement)) = direct_inc_dec_update_shape_at(&block.ops, index)
-                && let Some(plan) = structural_plan(
+            if let Some((consumed, replacement)) =
+                inc_dec_update_shape_at(&block.ops, index, layout)
+            {
+                let stat = if matches!(replacement.as_slice(), [MirOp::UpdateIndexedMem { .. }]) {
+                    "indexed-inc-dec-update"
+                } else {
+                    "direct-inc-dec-update"
+                };
+                if let Some(plan) = structural_plan(
                     routine,
                     context,
                     block.id,
                     index..index + consumed,
                     replacement,
                     inc_dec_exit_change(),
-                    "direct-inc-dec-update",
+                    stat,
                     0,
-                )
-            {
-                plans.push(plan);
+                ) {
+                    plans.push(plan);
+                }
             }
         }
     }
     plans
+}
+
+fn inc_dec_update_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    direct_inc_dec_update_shape_at(ops, index)
+        .or_else(|| indexed_inc_dec_update_shape_at(ops, index, layout))
 }
 
 fn direct_inc_dec_update_shape_at(ops: &[MirOp], index: usize) -> Option<(usize, Vec<MirOp>)> {
@@ -3069,6 +3087,56 @@ fn direct_inc_dec_update_shape_at(ops: &[MirOp], index: usize) -> Option<(usize,
             op: update,
             mem,
             width: MirWidth::Byte,
+        }],
+    ))
+}
+
+fn indexed_inc_dec_update_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    let MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::AbsoluteIndexedX { base },
+        width: MirWidth::Byte,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let MirOp::Binary {
+        op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(1),
+        width: MirWidth::Byte,
+        carry_in,
+        carry_out: MirCarryOut::Ignore,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    let MirOp::Store {
+        dst: MirAddr::AbsoluteIndexedX { base: store_base },
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    } = ops.get(index + 2)?
+    else {
+        return None;
+    };
+    if store_base != base || !layout.mem_allows_direct_indexed_update(base) {
+        return None;
+    }
+    let update = match (op, carry_in) {
+        (MirBinaryOp::Add, None | Some(MirCarryIn::Clear)) => MirUpdateOp::Inc,
+        (MirBinaryOp::Sub, None | Some(MirCarryIn::Set)) => MirUpdateOp::Dec,
+        _ => return None,
+    };
+    Some((
+        3,
+        vec![MirOp::UpdateIndexedMem {
+            op: update,
+            base: base.clone(),
         }],
     ))
 }

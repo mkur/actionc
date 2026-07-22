@@ -255,6 +255,9 @@ pub(in crate::mir6502) fn discover_store_consumers(
             routine.id, block, config, layout,
         ) {
             let plan = match candidate.stat {
+                "indexed-byte-inc-dec-update" => {
+                    store_consumer_plan(block.id, &block.ops, index, candidate, context)
+                }
                 "address-store-consumer" => {
                     address_store_consumer_plan(block.id, &block.ops, index, candidate, context)
                 }

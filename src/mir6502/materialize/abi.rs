@@ -63,7 +63,9 @@ fn op_references_param_storage(op: &MirOp) -> bool {
         MirOp::Store { dst, src, .. } => {
             addr_references_param_storage(dst) || value_references_param_storage(src)
         }
-        MirOp::UpdateMem { mem, .. } => mem_references_param_storage(mem),
+        MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => {
+            mem_references_param_storage(mem)
+        }
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             mem_references_param_storage(mem) || value_references_param_storage(value)
         }

@@ -806,6 +806,7 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::Extend { .. })
         | Some(MirOp::Truncate { .. })
         | Some(MirOp::UpdateMem { .. })
+        | Some(MirOp::UpdateIndexedMem { .. })
         | Some(MirOp::AddByteToWordMem { .. })
         | Some(MirOp::SubByteFromWordMem { .. })
         | Some(MirOp::IndirectByteCompound { .. })
@@ -897,6 +898,9 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
             if a_value.is_some_and(|value| value.id == *store_id && value.offset == *store_offset) {
                 *a_value = None;
             }
+        }
+        MirOp::UpdateIndexedMem { .. } => {
+            *a_value = None;
         }
         MirOp::Load {
             dst: MirDef::Reg(MirReg::A),
@@ -1679,7 +1683,9 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
             remap_addr_spills(dst, remap);
             remap_value_spills(src, remap);
         }
-        MirOp::UpdateMem { mem, .. } => remap_mem_spills(mem, remap),
+        MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => {
+            remap_mem_spills(mem, remap)
+        }
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             remap_mem_spills(mem, remap);
             remap_value_spills(value, remap);
@@ -1790,7 +1796,9 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
             remap_addr_spills_to_zero_page(dst, remap);
             remap_value_spills_to_zero_page(src, remap);
         }
-        MirOp::UpdateMem { mem, .. } => remap_mem_spills_to_zero_page(mem, remap),
+        MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => {
+            remap_mem_spills_to_zero_page(mem, remap)
+        }
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             remap_mem_spills_to_zero_page(mem, remap);
             remap_value_spills_to_zero_page(value, remap);
@@ -1907,7 +1915,7 @@ where
             visit_addr_mems(dst, visitor);
             visit_value_mems(src, visitor);
         }
-        MirOp::UpdateMem { mem, .. } => visitor(mem),
+        MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => visitor(mem),
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             visitor(mem);
             visit_value_mems(value, visitor);
@@ -2002,7 +2010,9 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
             collect_addr_spills(dst, spills);
             collect_value_spills(src, spills);
         }
-        MirOp::UpdateMem { mem, .. } => collect_mem_spills(mem, spills),
+        MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => {
+            collect_mem_spills(mem, spills)
+        }
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             collect_mem_spills(mem, spills);
             collect_value_spills(value, spills);

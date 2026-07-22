@@ -276,6 +276,9 @@ impl SsaLiteValueEnv {
                     self.kill_value(&SsaLiteValueKey::DirectMem(hi));
                 }
             }
+            MirOp::UpdateIndexedMem { .. } => {
+                self.kill_memory_dependencies();
+            }
             MirOp::AddByteToWordMem { mem, .. } | MirOp::SubByteFromWordMem { mem, .. } => {
                 self.kill_reg(MirReg::A);
                 self.kill_mem(mem);
@@ -478,6 +481,9 @@ impl SsaLiteV2ObserveEnv {
             }
             MirOp::UpdateMem { mem, .. } => {
                 self.kill_mem_and_dependents(mem, SsaLiteV2KillReason::Store);
+            }
+            MirOp::UpdateIndexedMem { .. } => {
+                self.kill_memory_dependencies(SsaLiteV2KillReason::Store);
             }
             MirOp::Store { .. } => {
                 self.kill_memory_dependencies(SsaLiteV2KillReason::Unknown);
@@ -934,6 +940,7 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::Load { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateMem { .. }
+        | MirOp::UpdateIndexedMem { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
@@ -1584,6 +1591,7 @@ impl LiveTempByteLanes {
             | MirOp::Barrier { .. }
             | MirOp::LeaAddr { .. }
             | MirOp::UpdateMem { .. }
+            | MirOp::UpdateIndexedMem { .. }
             | MirOp::MachineBlock { .. } => {}
         }
     }

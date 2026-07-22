@@ -76,6 +76,7 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             | MirOp::Barrier { .. }
             | MirOp::LeaAddr { .. }
             | MirOp::UpdateMem { .. }
+            | MirOp::UpdateIndexedMem { .. }
             | MirOp::AddByteToWordMem { .. }
             | MirOp::SubByteFromWordMem { .. }
             | MirOp::MachineBlock { .. } => false,
@@ -116,7 +117,9 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
             dst: MirAddr::Direct(mem),
             ..
         } => collect_mem_fixed_zero_page(mem, slots),
-        MirOp::UpdateMem { mem, .. } => collect_mem_fixed_zero_page(mem, slots),
+        MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => {
+            collect_mem_fixed_zero_page(mem, slots)
+        }
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             collect_mem_fixed_zero_page(mem, slots);
             collect_value_fixed_zero_page(value, slots);

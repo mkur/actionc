@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::codegen::native_emitter::NativeTrackedEmitter;
 use crate::codegen::{
-    Absolute, CodegenAddressSpace, CodegenMachineBlockAnalysis, CodegenRoutineEffect,
+    Absolute, AbsoluteX, CodegenAddressSpace, CodegenMachineBlockAnalysis, CodegenRoutineEffect,
     CodegenRoutineParam, CodegenRoutineSignature, CodegenSourceRange, CodegenSourceRangeKind,
     CodegenStorageSymbol, CodegenSymbolKind, CodegenSymbolScope, IndirectIndexedY, RoutineAddress,
     RoutineRange, SkippedRange, ZeroPage, ZeroPageX, opcode,
@@ -1622,6 +1622,18 @@ fn emit_op(
                 routine,
                 block,
                 "memory update target is not emit-ready",
+            ),
+        },
+        MirOp::UpdateIndexedMem { op, base } => match ctx.layout.direct_mem(routine, base) {
+            Some(ResolvedMem::Absolute(address)) => match op {
+                MirUpdateOp::Inc => emitter.emit_inc_absolute_x(AbsoluteX::new(address)),
+                MirUpdateOp::Dec => emitter.emit_dec_absolute_x(AbsoluteX::new(address)),
+            },
+            _ => unsupported(
+                ctx,
+                routine,
+                block,
+                "indexed memory update target is not emit-ready",
             ),
         },
         MirOp::UpdateMem {
