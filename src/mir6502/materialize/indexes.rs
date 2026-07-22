@@ -740,11 +740,30 @@ pub(super) fn try_fuse_indexed_word_copy(
         return 0;
     };
 
+    let use_scaled_y = src_elem_size == 2
+        && dst_elem_size == 2
+        && src_offset == 0
+        && dst_offset == 0
+        && src_index == dst_index
+        && index_value_is_byte_sized(&src_index)
+        && scaled_y_posthome_base_is_eligible(&src_base, layout)
+        && scaled_y_posthome_base_is_eligible(&dst_base, layout);
+    let destination_consumer = if use_scaled_y {
+        INDEX_SCALED_Y_POINTER_PAIR
+    } else {
+        INDEX_POINTER_PAIR
+    };
+    let source_consumer = if use_scaled_y {
+        DEFAULT_SCALED_Y_POINTER_PAIR
+    } else {
+        DEFAULT_POINTER_PAIR
+    };
+
     materialize_indexed_address_to_consumer(
         dst_base,
         dst_index,
         dst_elem_size,
-        INDEX_POINTER_PAIR,
+        destination_consumer,
         layout,
         out,
     );
@@ -752,27 +771,27 @@ pub(super) fn try_fuse_indexed_word_copy(
         src_base,
         src_index,
         src_elem_size,
-        DEFAULT_POINTER_PAIR,
+        source_consumer,
         layout,
         out,
     );
     out.push(MirOp::LoadIndirect {
-        consumer: DEFAULT_POINTER_PAIR,
+        consumer: source_consumer,
         dst: MirDef::Reg(MirReg::A),
         offset: src_offset,
     });
     out.push(MirOp::StoreIndirect {
-        consumer: INDEX_POINTER_PAIR,
+        consumer: destination_consumer,
         src: MirValue::Def(MirDef::Reg(MirReg::A)),
         offset: dst_offset,
     });
     out.push(MirOp::LoadIndirect {
-        consumer: DEFAULT_POINTER_PAIR,
+        consumer: source_consumer,
         dst: MirDef::Reg(MirReg::A),
         offset: src_offset.saturating_add(1),
     });
     out.push(MirOp::StoreIndirect {
-        consumer: INDEX_POINTER_PAIR,
+        consumer: destination_consumer,
         src: MirValue::Def(MirDef::Reg(MirReg::A)),
         offset: dst_offset.saturating_add(1),
     });

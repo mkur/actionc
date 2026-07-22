@@ -3720,6 +3720,75 @@ fn scaled_y_word_store_rewrite_selects_staged_sources() {
 }
 
 #[test]
+fn same_index_word_copy_shares_scaled_y_across_pointer_pairs() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let index = MirValue::PointerCell(MirMem::Global {
+        id: SymbolId(2),
+        offset: 0,
+    });
+    let value = MirDef::VTemp(MirTempId(0));
+    let ops = vec![
+        MirOp::Load {
+            dst: value.clone(),
+            src: MirAddr::ComputedIndex {
+                base: MirValue::GlobalAddr(SymbolId(0)),
+                index: index.clone(),
+                elem_size: 2,
+                offset: 0,
+            },
+            width: MirWidth::Word,
+        },
+        MirOp::Store {
+            dst: MirAddr::ComputedIndex {
+                base: MirValue::GlobalAddr(SymbolId(1)),
+                index,
+                elem_size: 2,
+                offset: 0,
+            },
+            src: MirValue::Def(value),
+            width: MirWidth::Word,
+        },
+    ];
+    let mut out = Vec::new();
+
+    assert_eq!(try_fuse_indexed_word_copy(&ops, 0, &layout, &mut out), 2);
+    assert!(matches!(
+        out.as_slice(),
+        [
+            MirOp::MaterializeIndexedAddress {
+                consumer: INDEX_SCALED_Y_POINTER_PAIR,
+                ..
+            },
+            MirOp::MaterializeIndexedAddress {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                ..
+            },
+            MirOp::LoadIndirect {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                offset: 0,
+                ..
+            },
+            MirOp::StoreIndirect {
+                consumer: INDEX_SCALED_Y_POINTER_PAIR,
+                offset: 0,
+                ..
+            },
+            MirOp::LoadIndirect {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                offset: 1,
+                ..
+            },
+            MirOp::StoreIndirect {
+                consumer: INDEX_SCALED_Y_POINTER_PAIR,
+                offset: 1,
+                ..
+            },
+        ]
+    ));
+}
+
+#[test]
 fn byte_read_with_word_index_materializes_full_address() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

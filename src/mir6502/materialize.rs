@@ -219,6 +219,10 @@ const INDEX_POINTER_PAIR: MirAddressConsumer =
     MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
         lo: MirFixedZpSlot(POINTER_INDEX_SCRATCH_LO),
     });
+const INDEX_SCALED_Y_POINTER_PAIR: MirAddressConsumer =
+    MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(POINTER_INDEX_SCRATCH_LO),
+    });
 const DEST_POINTER_PAIR: MirAddressConsumer =
     MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
         lo: MirFixedZpSlot(DEST_POINTER_SCRATCH_LO),

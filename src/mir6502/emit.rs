@@ -337,6 +337,7 @@ struct MirEmitContext<'a> {
     indirect_call_counter: u32,
     branch_plan: MirBranchRelaxationPlan,
     measurements: MirEmissionMeasurements,
+    scaled_y_offset: Option<u16>,
 }
 
 impl<'a> MirEmitContext<'a> {
@@ -360,6 +361,7 @@ impl<'a> MirEmitContext<'a> {
             indirect_call_counter: 0,
             branch_plan,
             measurements: MirEmissionMeasurements::default(),
+            scaled_y_offset: None,
         }
     }
 }
@@ -1897,7 +1899,9 @@ fn emit_op(
                 unsupported(ctx, routine, block, "indirect load consumer is not placed");
                 return;
             };
-            emit_lda_indirect(*consumer, pointer_slot, *offset, emitter);
+            if !emit_lda_indirect(ctx, *consumer, pointer_slot, *offset, emitter) {
+                unsupported(ctx, routine, block, "scaled-Y load lost its index state");
+            }
         }
         MirOp::LoadIndirect {
             dst: _,
@@ -1929,7 +1933,9 @@ fn emit_op(
                 );
                 return;
             }
-            emit_sta_indirect(*consumer, pointer_slot, *offset, emitter);
+            if !emit_sta_indirect(ctx, *consumer, pointer_slot, *offset, emitter) {
+                unsupported(ctx, routine, block, "scaled-Y store lost its index state");
+            }
         }
         MirOp::IndirectByteCompound {
             op,
@@ -3199,6 +3205,7 @@ fn emit_scaled_y_index_plus_base_to_pointer(
         ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
         emitter,
     );
+    ctx.scaled_y_offset = Some(0);
     true
 }
 
@@ -3565,37 +3572,55 @@ fn resolve_pointer_consumer_slot(
 }
 
 fn emit_lda_indirect(
+    ctx: &mut MirEmitContext<'_>,
     consumer: MirAddressConsumer,
     pointer_slot: u8,
     offset: u16,
     emitter: &mut NativeTrackedEmitter,
-) {
-    prepare_indirect_y(consumer, offset, emitter);
+) -> bool {
+    if !prepare_indirect_y(ctx, consumer, offset, emitter) {
+        return false;
+    }
     emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(pointer_slot)));
+    true
 }
 
 fn emit_sta_indirect(
+    ctx: &mut MirEmitContext<'_>,
     consumer: MirAddressConsumer,
     pointer_slot: u8,
     offset: u16,
     emitter: &mut NativeTrackedEmitter,
-) {
-    prepare_indirect_y(consumer, offset, emitter);
+) -> bool {
+    if !prepare_indirect_y(ctx, consumer, offset, emitter) {
+        return false;
+    }
     emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(pointer_slot)));
+    true
 }
 
 fn prepare_indirect_y(
+    ctx: &mut MirEmitContext<'_>,
     consumer: MirAddressConsumer,
     offset: u16,
     emitter: &mut NativeTrackedEmitter,
-) {
+) -> bool {
     if consumer.uses_scaled_y() {
-        if offset == 1 {
+        let Some(current) = ctx.scaled_y_offset else {
+            return false;
+        };
+        if offset < current {
+            return false;
+        }
+        for _ in current..offset {
             emitter.emit_iny();
         }
+        ctx.scaled_y_offset = Some(offset);
     } else {
         emitter.emit_ldy_imm(offset as u8);
+        ctx.scaled_y_offset = None;
     }
+    true
 }
 
 fn emit_indirect_byte_compound(

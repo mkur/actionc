@@ -6134,6 +6134,81 @@ mod tests {
     }
 
     #[test]
+    fn mir6502_emission_shares_scaled_y_offset_between_pointer_pairs() {
+        let source = MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAC),
+        });
+        let destination = MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAE),
+        });
+        let mir = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![MirRoutine {
+                id: RoutineId(0),
+                name: "Main".to_string(),
+                abi: MirRoutineAbi::Action,
+                frame: MirFrame::default(),
+                temps: Vec::new(),
+                blocks: vec![MirBlock {
+                    id: MirBlockId(0),
+                    label: "bb0".to_string(),
+                    params: Vec::new(),
+                    ops: vec![
+                        MirOp::MaterializeIndexedAddress {
+                            consumer: destination,
+                            base: MirValue::ConstU16(0x5000),
+                            index: MirValue::ConstU8(3),
+                            scale: 2,
+                        },
+                        MirOp::MaterializeIndexedAddress {
+                            consumer: source,
+                            base: MirValue::ConstU16(0x4000),
+                            index: MirValue::ConstU8(3),
+                            scale: 2,
+                        },
+                        MirOp::LoadIndirect {
+                            consumer: source,
+                            dst: MirDef::Reg(MirReg::A),
+                            offset: 0,
+                        },
+                        MirOp::StoreIndirect {
+                            consumer: destination,
+                            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                            offset: 0,
+                        },
+                        MirOp::LoadIndirect {
+                            consumer: source,
+                            dst: MirDef::Reg(MirReg::A),
+                            offset: 1,
+                        },
+                        MirOp::StoreIndirect {
+                            consumer: destination,
+                            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                            offset: 1,
+                        },
+                    ],
+                    terminator: MirTerminator::Return,
+                }],
+                effects: MirEffects::default(),
+            }],
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+
+        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        emit_program(&mir, &mut emitter).expect("emit shared scaled-Y word copy");
+        let bytes = emitter.finish().expect("finish emitter");
+
+        assert_eq!(bytes.iter().filter(|byte| **byte == 0xC8).count(), 1);
+        assert!(
+            bytes
+                .windows(9)
+                .any(|window| { window == [0xB1, 0xAC, 0x91, 0xAE, 0xC8, 0xB1, 0xAC, 0x91, 0xAE] })
+        );
+    }
+
+    #[test]
     fn mir6502_emission_emits_direct_routine_calls() {
         let mir = MirProgram {
             statics: Vec::new(),
