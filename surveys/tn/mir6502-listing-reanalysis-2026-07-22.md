@@ -2,7 +2,9 @@
 
 Date: 2026-07-22.
 
-Revision: `06e4f23` (`mir6502: elide unobserved public ABI shadow stores`).
+Historical revision: `06e4f23` (`mir6502: elide unobserved public ABI shadow
+stores`). Current implementation revision: `43992fc` (`test: cover canonical
+Action ABI boundaries`).
 
 Correction: the original compiler does not mirror argument bytes 0-2 from
 A/X/Y into `$A0-$A2`, including for current-location `=*` routines. The
@@ -13,7 +15,72 @@ recommendation is corrected in place.
 Scope: `samples/tn/modern/TN.ACT`, modern profile, with the MIR6502 backend
 compared directionally with the modern/classic backend.
 
-## Result
+## Current result after scaled-Y and ABI correction
+
+The MIR6502 load file is now 11,706 bytes. Modern/classic remains 10,445
+bytes, leaving a 1,261-byte gap. Removing the invented caller homes saved 249
+bytes from the 11,955-byte scaled-Y baseline; together, scaled-Y selection and
+the ABI correction saved 392 bytes from the 12,098-byte historical result
+below.
+
+| Metric | MIR6502 | Modern/classic | Difference |
+| --- | ---: | ---: | ---: |
+| Load file | 11,706 | 10,445 | +1,261 |
+| Recognized instructions | 4,710 | 4,338 | +372 |
+| Recognized instruction bytes | 10,703 | 9,714 | +989 |
+| Recognized data bytes | 423 | 285 | +138 |
+| `LDA` + `STA` instructions | 2,340 | 1,910 | +430 |
+| `LDA` + `STA` instruction share | 49.7% | 44.0% | +5.7 points |
+| `JMP` | 194 | 158 | +36 |
+| `JSR` | 369 | 368 | +1 |
+| Branch-over-`JMP` veneers | 33 | 28 | +5 |
+
+Pre-materialized MIR has 342 call operations and zero `$A0-$A2` call-home
+mentions. The authored machine records are byte-identical to the pre-fix MIR,
+including 62 intentional `$A0-$A2` scratch-address mentions. The corrected
+load-file SHA-256 is
+`77f2c1a7374fbb5e936e8019784e2e86bb6789bb71dd31d94deb0d3b81ae5526`.
+
+Current generated artifacts:
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `TN-pre.mir` | 130,693 | `80e250efaf287ac48057f14eaf89b395373ab4eac3beb64301070b841492b372` |
+| `TN-materialized.mir` | 158,517 | `751500aa6873b540fbf6950e39414463854b12919c90d4a8c18dcbe988943e2e` |
+| `TN.lst` | 153,158 | `0496fcd334ad1d4db1388ad28f6d1ad423d05fc2c3e735fe9b1e3820b9268854` |
+| `TN.map` | 10,967 | `d3f63f256b7b937d3613da2d94a294864469feb9386ee06a3b6e195bf8cf5088` |
+| `TN.peepholes` | 306,825 | `bf39e465bd827bd2916aed591acadad18466267f5493fd34748f0ff6fb79170b` |
+| `TN.quality` | 3,367 | `7bd35781f892af224d906b9faf34f6551a796c3bdfa73b51ed7b35700b0b9e83` |
+| `TN.xex` | 11,706 | `77f2c1a7374fbb5e936e8019784e2e86bb6789bb71dd31d94deb0d3b81ae5526` |
+
+## Updated ranked backlog
+
+The invalid ABI traffic is gone, but the remaining opportunity counts are
+otherwise stable. The recommended order is now:
+
+1. Fuse the two direct indexed byte read/modify/write sites in `Tag` into
+   indexed `INC`/`DEC`; this remains the clearest roughly 50-byte target.
+2. Select dual-indirect byte comparisons in `Fnamecmp`; three sites account
+   for roughly 30 bytes and several transient homes.
+3. Resolve the 12 `binary-to-compare` residual lanes and suppress the four
+   values whose high lanes have no consumer.
+4. Add transitive known-call register/scratch effects for the five prepared
+   call-result address candidates in `Putchar` and `SetWin`. This is independent
+   of argument placement; unknown and indirect calls remain conservative.
+5. Finish the register-live byte increment in `InputLine` and the two word
+   pointer increments in `Strcat`.
+6. Treat the four residual full scale-two address calculations separately:
+   two use different source/destination indexes in `Sort`, one feeds an opaque
+   machine block in `MakeJmp`, and one has a wider live window in `Handle`.
+7. Revisit block placement only after the instruction-generating changes move
+   routine and branch boundaries.
+
+The current listing still has 28 adjacent `STA`/`LDA` pairs, 33 far veneers,
+four `JSR; RTS` pairs, and the same 12 compare lanes/five call-address
+candidates reported below. None justifies reintroducing caller shadow analysis
+or another broad NIR phase.
+
+## Historical result before scaled-Y and ABI correction
 
 The clean MIR6502 load file is 12,098 bytes. Modern/classic emits 10,445
 bytes, leaving a 1,653-byte gap. MIR6502 is four bytes smaller than the 12,102
@@ -91,7 +158,7 @@ cargo run --quiet --bin actionc-listing-quality -- \
   > target/tn-listing-reanalysis-20260722/TN-classic.quality
 ```
 
-## Artifact manifest
+## Historical artifact manifest
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
@@ -130,7 +197,7 @@ Routine size alone is not the priority signal. `Handle` and `Copy` contain
 several different families, while most of `Tag`'s gap is one bounded indexed
 read/modify/write failure.
 
-## Ranked opportunities
+## Historical opportunity analysis
 
 ### 1. Select scaled `(zp),Y` word-element addressing
 
@@ -296,7 +363,11 @@ Four adjacent `JSR; RTS` pairs remain, but each RTS is also reached by another
 path. Tail-jumping would improve cycles and stack traffic without saving a
 static byte.
 
-## Recommended implementation order
+## Historical recommended implementation order
+
+This list is superseded by the updated ranked backlog above. Its completed
+scaled-Y and ABI entries are retained to explain the measurements and design
+decisions that led to the current result.
 
 1. Port scaled `(zp),Y` word-element selection to MIR6502.
 2. Remove caller-side `$A0-$A2` shadow generation and its compensating demand

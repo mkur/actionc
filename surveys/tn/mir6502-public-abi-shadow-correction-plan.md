@@ -1,12 +1,56 @@
 # MIR6502 caller-shadow ABI correction plan
 
-Status: planned.
+Status: implemented.
 
 Date: 2026-07-22.
 
 Scope: remove MIR6502's invented caller-side `$A0-$A2` argument mirrors and
 restore the original Action calling convention. This is an ABI correctness
 fix, not a speculative optimization.
+
+## Implementation result
+
+The implementation history is:
+
+1. `7e3fa9c` documents the original ABI and this correction plan.
+2. `62bf316` centralizes canonical Action argument homes, removes mirror
+   generation, and makes the MIR verifier reject noncanonical call bindings.
+3. `28ef464` deletes the 469-line compensating machine-entry demand pass and
+   all lowering state used only by that pass.
+4. `43992fc` adds fixed-address and indirect boundary checks, an explicit raw
+   callee save-across-call fixture, and a corrected classic/MIR6502 VM probe.
+5. The final slice measures TN and updates the ranked backlog in this note and
+   `mir6502-listing-reanalysis-2026-07-22.md`.
+
+On TN, relative to the 11,955-byte scaled-Y baseline:
+
+| Metric | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| Load file | 11,955 bytes | 11,706 bytes | -249 bytes |
+| `$A0-$A2` homes on call lines | 66 mentions in 35 calls | 0 | -66 |
+| Recognized instructions | 4,831 | 4,710 | -121 |
+| Recognized instruction bytes | 10,956 | 10,703 | -253 |
+| `LDA` + `STA` instructions | 2,457 | 2,340 | -117 |
+| Branch-over-`JMP` veneers | 35 | 33 | -2 |
+
+The final TN load-file SHA-256 is
+`77f2c1a7374fbb5e936e8019784e2e86bb6789bb71dd31d94deb0d3b81ae5526`.
+The modern/classic load file remains 10,445 bytes with SHA-256
+`3caefd677ab3d1489e39fcc0200126b442a15278b26a9cb5351434a1c8674f39`.
+
+All TN `machine` records are byte-identical to the pre-correction MIR; their
+common SHA-256 is
+`41eb669bed0789a8ee0ca6e6e0107c89c5372c4fdd83f63301cadf4f399dca81`.
+The 62 `$A0-$A2` mentions that remain inside those records are authored
+machine-code scratch accesses and are intentionally preserved.
+
+The byte-exact classic `ABICALLS.COM` and `STRNAM.COM` probes retain SHA-256
+`8b62d0fde3cf6638ebd1721f36cf0ae2c8657a4f93c3541517a9403cd5ddc272`
+and
+`4ca2deb4867d01eff34c176cb8b9c5a76c25bac8a0b92f27d18660e552883efc`,
+respectively. The corrected KALSCOPE boundary fixture passes in the VM with
+both classic and MIR6502: its machine callee saves A/X to `$A0/$A1`, makes a
+nested call that clobbers the registers, and reloads the saved values.
 
 ## Corrected contract
 
@@ -95,6 +139,8 @@ Each slice should be independently committed with a green relevant test set.
 
 ### Slice 1: Canonicalize call homes and lock the invariant
 
+Implemented by `62bf316`.
+
 Goal: make one canonical Action ABI home function authoritative for lowering
 and verification.
 
@@ -126,6 +172,8 @@ no-op.
 
 ### Slice 2: Remove the compensating demand subsystem
 
+Implemented by `28ef464`.
+
 Goal: delete code that exists only to support the false shadow model.
 
 Changes:
@@ -143,6 +191,8 @@ Commit boundary: no `shadow`, `mirror_public`, or `public_abi` call-planning
 implementation remains, and MIR6502 unit tests are green.
 
 ### Slice 3: Refresh fixtures and compatibility coverage
+
+Implemented by `43992fc`.
 
 Goal: ensure the correction survives integration and does not alter the parts
 of the ABI that were already correct.
@@ -166,6 +216,9 @@ Commit boundary: fixture, call-ABI integration, and runtime compatibility tests
 are green.
 
 ### Slice 4: Measure TN and correct the optimization backlog
+
+Implemented by the measurement and documentation recorded above and in
+`mir6502-listing-reanalysis-2026-07-22.md`.
 
 Goal: record the realized correction and separate it from routine-effect work.
 

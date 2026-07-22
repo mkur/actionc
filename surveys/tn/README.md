@@ -12,7 +12,7 @@ The latest clean-head listing reanalysis and ranked MIR6502 backlog are in
 The earlier caller-shadow analysis is retained as a historical measurement,
 with its incorrect ABI premise marked in
 [`mir6502-final-listing-analysis.md`](mir6502-final-listing-analysis.md). The
-corrected contract and removal plan are in
+corrected contract, implementation slices, and measured removal result are in
 [`mir6502-public-abi-shadow-correction-plan.md`](mir6502-public-abi-shadow-correction-plan.md).
 The implementation roadmap for avoiding transient temp and internal scalar
 storage is in
