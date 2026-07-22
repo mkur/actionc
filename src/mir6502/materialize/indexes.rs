@@ -1092,6 +1092,108 @@ pub(in crate::mir6502) fn discover_scaled_y_word_reads(
     plans
 }
 
+pub(in crate::mir6502) fn discover_scaled_y_word_stores(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    const STAT: &str = "scaled-y-word-store";
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for materialize_index in 0..block.ops.len() {
+            let MirOp::MaterializeIndexedAddress {
+                consumer: MirAddressConsumer::IndirectIndexedY(pair),
+                base,
+                index,
+                scale: 2,
+            } = &block.ops[materialize_index]
+            else {
+                continue;
+            };
+            if !scaled_y_posthome_index_is_eligible(index)
+                || !scaled_y_posthome_base_is_eligible(base, layout)
+            {
+                continue;
+            }
+            let MirPointerPair::Fixed { lo } = pair else {
+                continue;
+            };
+            let consumer = MirAddressConsumer::IndirectIndexedY(*pair);
+            let pair_homes = [
+                MirHomeByte::FixedZeroPage(*lo),
+                MirHomeByte::FixedZeroPage(MirFixedZpSlot(lo.0.saturating_add(1))),
+            ];
+            let Some(last_access) =
+                scaled_y_store_window_end(&block.ops, materialize_index, consumer, pair_homes)
+            else {
+                continue;
+            };
+
+            let materialize_point = context.point(MirSite::Op {
+                block: block.id,
+                op_index: materialize_index,
+            });
+            if let MirProof::Blocked(blocker) =
+                context.register_dead_after(MirReg::A, materialize_point)
+            {
+                context.record_blocker(STAT, block.id, materialize_index, &blocker);
+                continue;
+            }
+            if let MirProof::Blocked(blocker) =
+                context.flags_dead_after(MirFlagSet::all(), materialize_point)
+            {
+                context.record_blocker(STAT, block.id, materialize_index, &blocker);
+                continue;
+            }
+
+            let scaled_consumer = MirAddressConsumer::ScaledIndirectIndexedY(*pair);
+            let replacement = block.ops[materialize_index..=last_access]
+                .iter()
+                .cloned()
+                .map(|mut op| {
+                    match &mut op {
+                        MirOp::MaterializeIndexedAddress {
+                            consumer: op_consumer,
+                            ..
+                        }
+                        | MirOp::StoreIndirect {
+                            consumer: op_consumer,
+                            ..
+                        } if *op_consumer == consumer => *op_consumer = scaled_consumer,
+                        _ => {}
+                    }
+                    op
+                })
+                .collect();
+            let exit_state_change = MirExitStateChange {
+                registers: MirRegisterSet {
+                    y: true,
+                    ..MirRegisterSet::default()
+                },
+                flags: MirFlagSet {
+                    z: true,
+                    n: true,
+                    ..MirFlagSet::default()
+                },
+                homes: BTreeSet::from(pair_homes),
+            };
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                materialize_index..last_access + 1,
+                replacement,
+                exit_state_change,
+                STAT,
+                1,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
 fn scaled_y_read_window_end(
     ops: &[MirOp],
     materialize_index: usize,
@@ -1124,6 +1226,71 @@ fn scaled_y_read_window_end(
                 ..
             } if op_consumer.pointer_pair() == consumer.pointer_pair() => break,
             MirOp::StoreIndirect {
+                consumer: op_consumer,
+                ..
+            } if op_consumer.pointer_pair() == consumer.pointer_pair() => return None,
+            MirOp::IndirectByteCompound { target, source, .. }
+                if target.pointer_pair() == consumer.pointer_pair()
+                    || source.pointer_pair() == consumer.pointer_pair() =>
+            {
+                return None;
+            }
+            _ => {
+                let effects = classify_op(op);
+                if effects.reads_reg(MirReg::Y)
+                    || effects.may_clobber_reg_compat(MirReg::Y)
+                    || pair_homes.iter().any(|home| {
+                        effects.homes.reads.contains(home)
+                            || effects.homes.writes.contains(home)
+                            || effects.addresses.pair_reads.contains(home)
+                            || effects.addresses.pair_writes.contains(home)
+                    })
+                {
+                    return None;
+                }
+            }
+        }
+    }
+    low_access
+}
+
+fn scaled_y_store_window_end(
+    ops: &[MirOp],
+    materialize_index: usize,
+    consumer: MirAddressConsumer,
+    pair_homes: [MirHomeByte; 2],
+) -> Option<usize> {
+    let mut low_access = None;
+    for (index, op) in ops.iter().enumerate().skip(materialize_index + 1) {
+        match op {
+            MirOp::StoreIndirect {
+                consumer: op_consumer,
+                src,
+                offset,
+            } if *op_consumer == consumer => {
+                if matches!(src, MirValue::Def(MirDef::Reg(MirReg::Y))) {
+                    return None;
+                }
+                match (*offset, low_access) {
+                    (0, None) => low_access = Some(index),
+                    (1, None) => return Some(index),
+                    (1, Some(_)) => return Some(index),
+                    _ => return None,
+                }
+            }
+            MirOp::MaterializeAddress {
+                consumer: op_consumer,
+                ..
+            }
+            | MirOp::MaterializeIndexedAddress {
+                consumer: op_consumer,
+                ..
+            }
+            | MirOp::AdvanceAddress {
+                consumer: op_consumer,
+                ..
+            } if op_consumer.pointer_pair() == consumer.pointer_pair() => break,
+            MirOp::LoadIndirect {
                 consumer: op_consumer,
                 ..
             } if op_consumer.pointer_pair() == consumer.pointer_pair() => return None,

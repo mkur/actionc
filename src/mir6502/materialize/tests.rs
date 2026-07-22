@@ -3639,6 +3639,87 @@ fn scaled_y_word_read_rewrite_rejects_interleaved_indirect_y_store() {
 }
 
 #[test]
+fn scaled_y_word_store_rewrite_selects_staged_sources() {
+    let routine = MirRoutine {
+        id: RoutineId(0),
+        name: "scaled-y-staged-store".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame {
+            fixed_zero_page: vec![
+                MirFixedZpSlot(POINTER_SCRATCH_LO),
+                MirFixedZpSlot(POINTER_SCRATCH_HI),
+            ],
+            ..MirFrame::default()
+        },
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(0),
+            label: "bb0".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::MaterializeIndexedAddress {
+                    consumer: DEFAULT_POINTER_PAIR,
+                    base: MirValue::ConstU16(0x4000),
+                    index: MirValue::Def(MirDef::Reg(MirReg::X)),
+                    scale: 2,
+                },
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(MirMem::Absolute(0x5000)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::StoreIndirect {
+                    consumer: DEFAULT_POINTER_PAIR,
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    offset: 0,
+                },
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(MirMem::Absolute(0x5001)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::StoreIndirect {
+                    consumer: DEFAULT_POINTER_PAIR,
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    offset: 1,
+                },
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+
+    let plans = indexes::discover_scaled_y_word_stores(&routine, &context, &layout);
+    assert_eq!(plans.len(), 1);
+    assert!(matches!(
+        plans[0].replacement.as_slice(),
+        [
+            MirOp::MaterializeIndexedAddress {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                ..
+            },
+            MirOp::Load { .. },
+            MirOp::StoreIndirect {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                offset: 0,
+                ..
+            },
+            MirOp::Load { .. },
+            MirOp::StoreIndirect {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                offset: 1,
+                ..
+            }
+        ]
+    ));
+}
+
+#[test]
 fn byte_read_with_word_index_materializes_full_address() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
