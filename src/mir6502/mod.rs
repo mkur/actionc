@@ -8787,9 +8787,9 @@ mod tests {
     }
 
     #[test]
-    fn large_local_byte_arrays_are_deferred_after_mir_code() {
+    fn uninitialized_local_arrays_are_deferred_after_mir_code() {
         let output = generate_mir6502_source_with_origin(
-            "BYTE sink PROC LocalOnly() BYTE ARRAY small(256), big(257) sink=small(0)+big(0) RETURN PROC Main() LocalOnly() RETURN",
+            "BYTE sink PROC LocalOnly() BYTE ARRAY small(4), big(257), initialized(4)=[1 2 3 4] sink=small(0)+big(0)+initialized(0) RETURN PROC Main() LocalOnly() RETURN",
             0x3000,
         );
 
@@ -8805,16 +8805,30 @@ mod tests {
             .iter()
             .find(|symbol| symbol.name == "big")
             .expect("big storage symbol");
+        let initialized = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|symbol| symbol.name == "initialized")
+            .expect("initialized storage symbol");
+        let emitted_end = output.origin.wrapping_add(output.bytes.len() as u16);
 
         assert_eq!(
             output.skipped_ranges,
-            vec![crate::codegen::SkippedRange {
-                start: big.address,
-                len: 257
-            }]
+            vec![
+                crate::codegen::SkippedRange {
+                    start: small.address,
+                    len: 4
+                },
+                crate::codegen::SkippedRange {
+                    start: big.address,
+                    len: 257
+                }
+            ]
         );
-        assert!(small.address < output.origin.wrapping_add(output.bytes.len() as u16));
-        assert!(big.address >= output.origin.wrapping_add(output.bytes.len() as u16));
+        assert!(initialized.address < emitted_end);
+        assert!(small.address >= emitted_end);
+        assert!(big.address >= emitted_end);
     }
 
     #[test]
@@ -8901,6 +8915,7 @@ mod tests {
             .expect("colors storage symbol");
         let [lo, hi] = colors.address.to_le_bytes();
 
+        assert!(output.skipped_ranges.is_empty());
         assert!(bytes_contain(&output.bytes, &[0xB9, lo, hi]));
     }
 
@@ -8933,6 +8948,7 @@ mod tests {
         assert_eq!(x.size, 6);
         assert_eq!(y.size, 6);
         assert_eq!(y.address, x.address.wrapping_add(6));
+        assert!(output.skipped_ranges.is_empty());
     }
 
     #[test]

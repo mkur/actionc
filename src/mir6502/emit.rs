@@ -902,7 +902,7 @@ fn place_routine_slot(
         }
         MirStorageBase::Param(_) | MirStorageBase::Local(_) => {
             let size = slot_size(slot);
-            let storage_address = if defer_large_slots && is_deferred_byte_array_slot(slot, size) {
+            let storage_address = if defer_large_slots && is_deferred_local_array_slot(slot, size) {
                 let address = *deferred_cursor;
                 *deferred_cursor = deferred_cursor.saturating_add(size);
                 plan.push(MirSegmentKind::DeferredData, address, size);
@@ -1077,15 +1077,15 @@ fn fixed_machine_alias(slot: &MirStorageSlot) -> Option<u16> {
     }
 }
 
-fn is_deferred_byte_array_slot(slot: &MirStorageSlot, size: u16) -> bool {
-    if slot.width != MirWidth::Byte || size <= 0x0100 {
+fn is_deferred_local_array_slot(slot: &MirStorageSlot, size: u16) -> bool {
+    if slot.storage != MirStorageClass::Array {
         return false;
     }
     match &slot.init {
         Some(MirStorageInit::ZeroFill { .. }) => true,
         Some(MirStorageInit::Bytes {
             bytes, zero_fill, ..
-        }) => bytes.is_empty() && *zero_fill > 0,
+        }) => size > 0x0100 && bytes.is_empty() && *zero_fill > 0,
         _ => false,
     }
 }
