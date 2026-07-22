@@ -1,9 +1,12 @@
 use super::*;
+use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
+use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{
     MirBlock, MirCallResult, MirEdge, MirRegisterSet, MirStatic, MirStorageBacking, MirStorageInit,
     MirTemp,
 };
 use crate::mir6502::passes::MirPeepholeReportMode;
+use crate::mir6502::rewrite::context::PostHomeRewriteContext;
 use crate::mir6502::{
     MirFrame, MirRoutine, MirRoutineAbi, MirStorageBase, MirStorageId, MirStorageSlot,
 };
@@ -3522,6 +3525,116 @@ fn constant_word_index_write_folds_into_indirect_offsets() {
     assert!(
         !out.iter()
             .any(|op| matches!(op, MirOp::AdvanceAddress { .. }))
+    );
+}
+
+#[test]
+fn byte_sized_word_index_read_selects_scaled_y_consumer() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut out = Vec::new();
+
+    materialize_computed_index_read(
+        MirDef::VTemp(MirTempId(0)),
+        MirValue::PointerCell(MirMem::Global {
+            id: SymbolId(0),
+            offset: 0,
+        }),
+        MirValue::Def(MirDef::Reg(MirReg::A)),
+        2,
+        0,
+        MirWidth::Word,
+        &layout,
+        &mut out,
+    );
+
+    assert!(matches!(
+        out.as_slice(),
+        [
+            MirOp::MaterializeIndexedAddress {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                index: MirValue::Def(MirDef::Reg(MirReg::A)),
+                scale: 2,
+                ..
+            },
+            MirOp::LoadIndirect {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                dst: MirDef::VTempByte {
+                    id: MirTempId(0),
+                    byte: 0,
+                },
+                offset: 0,
+            },
+            MirOp::LoadIndirect {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                dst: MirDef::VTempByte {
+                    id: MirTempId(0),
+                    byte: 1,
+                },
+                offset: 1,
+            }
+        ]
+    ));
+}
+
+#[test]
+fn scaled_y_word_read_rewrite_rejects_interleaved_indirect_y_store() {
+    let source = DEFAULT_POINTER_PAIR;
+    let destination = DEST_POINTER_PAIR;
+    let routine = MirRoutine {
+        id: RoutineId(0),
+        name: "scaled-y-interleaved-store".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame {
+            fixed_zero_page: vec![
+                MirFixedZpSlot(POINTER_SCRATCH_LO),
+                MirFixedZpSlot(POINTER_SCRATCH_HI),
+                MirFixedZpSlot(DEST_POINTER_SCRATCH_LO),
+                MirFixedZpSlot(DEST_POINTER_SCRATCH_LO + 1),
+            ],
+            ..MirFrame::default()
+        },
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(0),
+            label: "bb0".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::MaterializeIndexedAddress {
+                    consumer: source,
+                    base: MirValue::ConstU16(0x4000),
+                    index: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    scale: 2,
+                },
+                MirOp::LoadIndirect {
+                    consumer: source,
+                    dst: MirDef::Reg(MirReg::A),
+                    offset: 0,
+                },
+                MirOp::StoreIndirect {
+                    consumer: destination,
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    offset: 0,
+                },
+                MirOp::LoadIndirect {
+                    consumer: source,
+                    dst: MirDef::Reg(MirReg::A),
+                    offset: 1,
+                },
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+
+    assert!(
+        indexes::discover_scaled_y_word_reads(&routine, &context, &layout).is_empty(),
+        "a normal indirect store resets Y between the scaled low/high loads"
     );
 }
 

@@ -495,7 +495,6 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             index,
             ..
         } => {
-            record_consumer_read(*consumer, &mut summary);
             record_consumer_write(*consumer, &mut summary);
             record_value_as(base, MirTempUseKind::Address, &mut summary);
             record_value_as(index, MirTempUseKind::Address, &mut summary);
@@ -520,7 +519,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             offset,
         } => {
             record_consumer_read(*consumer, &mut summary);
-            record_scaled_y_access(*consumer, *offset, &mut summary);
+            record_indirect_y_access(*consumer, *offset, &mut summary);
             record_def(dst, MirWidth::Byte, &mut summary);
             mark_register_result_flags(dst, &mut summary);
             summary.memory.indirect_reads = true;
@@ -532,7 +531,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             offset,
         } => {
             record_consumer_read(*consumer, &mut summary);
-            record_scaled_y_access(*consumer, *offset, &mut summary);
+            record_indirect_y_access(*consumer, *offset, &mut summary);
             record_value(src, &mut summary);
             summary.memory.indirect_writes = true;
             summary.memory.may_write_any = true;
@@ -982,12 +981,15 @@ fn record_consumer_write(consumer: MirAddressConsumer, summary: &mut MirOpEffect
     }
 }
 
-fn record_scaled_y_access(
+fn record_indirect_y_access(
     consumer: MirAddressConsumer,
     offset: u16,
     summary: &mut MirOpEffectSummary,
 ) {
     if !consumer.uses_scaled_y() {
+        set_register(&mut summary.machine.register_writes, MirReg::Y);
+        write_zn(&mut summary.machine.flag_writes);
+        summary.machine.writes_any_flags_compat = true;
         return;
     }
     set_register(&mut summary.machine.register_reads, MirReg::Y);
@@ -1555,6 +1557,7 @@ mod tests {
         assert!(indirect.memory.has_unknown_effects);
         assert!(!indirect.memory.has_unknown_effects_compat);
         assert!(indirect.writes_reg(MirReg::A));
+        assert!(indirect.writes_reg(MirReg::Y));
         assert!(indirect.machine.flag_writes.z);
         assert!(indirect.machine.flag_writes.n);
     }
@@ -1699,6 +1702,8 @@ mod tests {
         });
         assert!(materialize.writes_reg(MirReg::Y));
         assert!(materialize.may_clobber_reg_compat(MirReg::Y));
+        assert!(materialize.addresses.pair_reads.is_empty());
+        assert_eq!(materialize.addresses.pair_writes.len(), 2);
 
         let low = classify_op(&MirOp::LoadIndirect {
             consumer,

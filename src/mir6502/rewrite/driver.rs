@@ -838,7 +838,6 @@ fn store_materialization_address_keys(ops: &[MirOp]) -> (BTreeSet<String>, BTree
                 collect_consumer_keys(*consumer, &mut writes);
             }
             MirOp::MaterializeIndexedAddress { consumer, base, .. } => {
-                collect_consumer_keys(*consumer, &mut reads);
                 collect_consumer_keys(*consumer, &mut writes);
                 collect_value_pointer_reads(base, &mut reads);
             }

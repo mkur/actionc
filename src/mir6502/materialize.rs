@@ -211,6 +211,10 @@ const DEFAULT_POINTER_PAIR: MirAddressConsumer =
     MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
         lo: MirFixedZpSlot(POINTER_SCRATCH_LO),
     });
+const DEFAULT_SCALED_Y_POINTER_PAIR: MirAddressConsumer =
+    MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(POINTER_SCRATCH_LO),
+    });
 const INDEX_POINTER_PAIR: MirAddressConsumer =
     MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
         lo: MirFixedZpSlot(POINTER_INDEX_SCRATCH_LO),
@@ -920,7 +924,8 @@ fn run_posthome_structural_group(
         let ops = std::mem::take(&mut block.ops);
         block.ops = fold_structural_machine_tail(ops, routine.id, layout, peephole_stats);
     }
-    run_analyzed_indexed_base_pointer_staging(routine, peephole_stats)
+    run_analyzed_indexed_base_pointer_staging(routine, peephole_stats)?;
+    run_analyzed_scaled_y_word_reads(routine, layout, peephole_stats)
 }
 
 fn run_posthome_cleanup_group(
@@ -1180,6 +1185,26 @@ fn run_analyzed_indexed_base_pointer_staging(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home indexed base-pointer staging failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_scaled_y_word_reads(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            indexes::discover_scaled_y_word_reads(routine, context, layout)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home scaled-Y word-read selection failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
