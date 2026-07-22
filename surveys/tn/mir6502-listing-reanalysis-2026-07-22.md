@@ -15,7 +15,148 @@ recommendation is corrected in place.
 Scope: `samples/tn/modern/TN.ACT`, modern profile, with the MIR6502 backend
 compared directionally with the modern/classic backend.
 
-## Reanalysis baseline after scaled-Y and ABI correction
+## Current reanalysis after comparison and residual-lane slices
+
+Current revision: `8db86c8` (`docs: record TN residual lane results`).
+
+The MIR6502 load file is now 11,554 bytes. Modern/classic remains 10,445
+bytes, leaving a 1,109-byte gap, or 10.6 percent. The most recent comparison
+and residual-lane slices reduced the previous 11,604-byte result by 50 bytes.
+
+| Metric | MIR6502 | Modern/classic | Difference |
+| --- | ---: | ---: | ---: |
+| Load file | 11,554 | 10,445 | +1,109 |
+| Recognized instructions | 4,637 | 4,338 | +299 |
+| Recognized instruction bytes | 10,555 | 9,714 | +841 |
+| `LDA` + `STA` instructions | 2,287 | 1,910 | +377 |
+| `LDA` + `STA` instruction share | 49.3% | 44.0% | +5.3 points |
+| `JMP` | 193 | 158 | +35 |
+| `JSR` | 369 | 368 | +1 |
+| Branch-over-`JMP` veneers | 32 | 28 | +4 |
+
+The listing-quality parser undercounts long `.BYTE` declarations and may
+interpret bytes in machine/data procedures as instructions. XEX sizes are
+authoritative. An independent label-based data census finds 1,232 declared
+data bytes in MIR6502 and 970 in classic, a 262-byte difference. The remaining
+primary-segment difference is predominantly code and layout.
+
+Current generated artifacts:
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `TN-pre.mir` | 130,693 | `80e250efaf287ac48057f14eaf89b395373ab4eac3beb64301070b841492b372` |
+| `TN-materialized.mir` | 156,835 | `32a1ff70e8ee6a2f9138b9abd14bee9c486badff55967e96ee53667945a0b5c1` |
+| `TN-mir6502.lst` | 151,197 | `a9b3b3bd1b3760ea257d6c852cf09553accc73c70fc166e656e39d8a2f1f88dc` |
+| `TN-mir6502.map` | 10,967 | `b928b93a4015464fafbfcfdffa3480f658b47127ed93bd898672968c1c67d923` |
+| `TN-mir6502.peepholes` | 295,960 | `db841a8f7e31ab6643d7848f8533c80782e5ca7a73201de78efa48fbd5142647` |
+| `TN-mir6502.quality` | 3,438 | `40015cad637e3c294b67e4f67e2d567ec254b4702d70051967fc2afd0d3dfad6` |
+| `TN-mir6502.xex` | 11,554 | `96f0456220d5fe53bfc82ea8969c32a2bcb8f4794d8f38f5c8e6582e81a0ae5f` |
+| `TN-classic.xex` | 10,445 | `3caefd677ab3d1489e39fcc0200126b442a15278b26a9cb5351434a1c8674f39` |
+
+### Current ranked opportunities
+
+#### 1. Defer uninitialized local-array backing
+
+MIR6502 saves four zero-filled `SetWin` backing objects in the load image:
+
+| Backing object | Bytes |
+| --- | ---: |
+| `lp_PathBuf` | 47 |
+| `rp_PathBuf` | 47 |
+| `lp_v` | 130 |
+| `rp_v` | 130 |
+| Total | 354 |
+
+Classic excludes this uninitialized backing from the saved image. MIR6502
+already has a `DeferredData` segment and uses it for larger arrays, but the
+current size policy leaves these four objects in `LoadData`. Moving compatible
+uninitialized local-array backing to deferred storage is therefore the
+strongest bounded next slice, with an exact 354-byte TN load-file opportunity.
+Descriptors and address initialization remain loadable; only backing whose
+contents are not initialized by Action semantics should be deferred.
+
+#### 2. Preserve logical conditions as NIR control flow
+
+Eleven surviving compare-to-binary lanes are concentrated in `Handle` (six)
+and `Copy` (five). They are not ordinary arithmetic residue: nested `AND` and
+`OR` conditions are lowered to byte boolean values, stored in homes, combined,
+and finally compared with zero.
+
+The comparable classic code branches directly. The inspected sequences account
+for approximately 86 bytes in `Handle` and 70 bytes in `Copy` beyond the direct
+branch shapes. A realistic target is 130-160 bytes after allowing for labels
+and paths shared with surrounding code.
+
+SemIR retains logical structure and source evaluation order. NIR condition
+lowering should turn that structure into explicit short-circuit blocks before
+MIR expansion, including call-containing conditions. MIR6502 should not move
+calls or reconstruct source-language short-circuit meaning from flattened
+boolean arithmetic.
+
+#### 3. Fuse word and pointer carry chains into final locations
+
+`Key`, `Next`, and `Strcat` still build word intermediates in homes and then
+copy them into pointer pairs, return locations, or call argument locations.
+Their current matched-range differences are +27, +22, and +24 bytes
+respectively. Selecting the complete low/high carry chain into its final
+physical destination should recover approximately 75-80 bytes across this
+family.
+
+This is the next MIR6502 instruction-selection extension after indexed
+word-plus-constant call arguments. It must preserve the low-to-high carry edge
+as one coupled operation rather than independently optimizing byte lanes.
+
+#### 4. Retain prepared pointers and known result locations
+
+`Range` is 42 bytes larger than classic and repeatedly reloads pointer pairs
+around indirect comparisons and read/modify/write paths. Path-sensitive
+location facts should retain a prepared pointer when all relevant paths and
+effects preserve it.
+
+There are also five known call-result sites in `Putchar` and `SetWin` where the
+callee contract says `A=$A0`, but generated code reloads `$A0` before storing
+the result. Consuming the declared result location should save about 10 bytes.
+This is known-call result-state propagation, not caller-side `$A0-$A2`
+argument shadowing.
+
+The combined realistic opportunity is about 40-50 bytes.
+
+#### 5. Extend multi-use value-location planning
+
+The final materialization census has 90 temp homes: 59 in zero page and 31 in
+RAM. It emits 77 ZP stores and 87 reloads, plus 27 RAM stores and 57 reloads.
+The encoded access traffic plus RAM backing occupies about 611 bytes, but this
+is a gross burden rather than an achievable saving: many values genuinely
+cross calls, joins, or register clobbers.
+
+After the structural work above, rerun the census and plan multi-use values
+against A, X, Y, pointer pairs, final ABI locations, and homes. Producer and
+next-consumer constraints should choose the location; a general register
+allocator should not be the first response to values that need not have been
+materialized or byte-split.
+
+### Current lower-priority findings
+
+- Six remaining binary-to-compare origins are home-free and should be treated
+  as closed. The eleven compare-to-binary lanes above require logical CFG
+  lowering instead.
+- Scaled `(zp),Y` selection applies at 30 sites. Only two distinct blocked
+  sites remain (`MakeJmp`, flags live; `Handle`, home live).
+- There are 32 branch-over-`JMP` veneers, but none currently has a
+  branch-reachable final target. Revisit placement after code-generating
+  optimizations move boundaries.
+- Cross-routine RAM-home pooling has a maximum static backing benefit of 31
+  bytes and does not remove access instructions. Home creation remains the
+  higher priority.
+- Twenty-eight adjacent same-home `STA`/`LDA` pairs remain versus sixteen in
+  classic. The excess is useful cleanup evidence, not a leading target.
+- Four `JSR; RTS` pairs remain in both backends and do not explain the gap.
+
+The first three opportunities have a combined realistic potential of roughly
+560-590 bytes. They would reduce the current gap to approximately 520-550
+bytes if the gains compose; this is a planning estimate, not a size guarantee.
+
+## Previous reanalysis baseline after scaled-Y and ABI correction
 
 At that revision, the MIR6502 load file is 11,706 bytes. Modern/classic remains
 10,445 bytes, leaving a 1,261-byte gap. Removing the invented caller homes
@@ -41,7 +182,7 @@ including 62 intentional `$A0-$A2` scratch-address mentions. The corrected
 load-file SHA-256 is
 `77f2c1a7374fbb5e936e8019784e2e86bb6789bb71dd31d94deb0d3b81ae5526`.
 
-Current generated artifacts:
+Artifacts at that revision:
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
@@ -53,7 +194,7 @@ Current generated artifacts:
 | `TN.quality` | 3,367 | `7bd35781f892af224d906b9faf34f6551a796c3bdfa73b51ed7b35700b0b9e83` |
 | `TN.xex` | 11,706 | `77f2c1a7374fbb5e936e8019784e2e86bb6789bb71dd31d94deb0d3b81ae5526` |
 
-## Updated ranked backlog
+## Previous ranked backlog at `43992fc`
 
 The invalid ABI traffic is gone, but the remaining opportunity counts are
 otherwise stable. The recommended order is now:
