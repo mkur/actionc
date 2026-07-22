@@ -311,6 +311,118 @@ fn byte_le_branch_expands_to_any_flag_test() {
 }
 
 #[test]
+fn byte_add_word_compare_branch_uses_carry_then_low_byte() {
+    let add_mem = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let compare_mem = MirMem::Global {
+        id: SymbolId(0),
+        offset: 0,
+    };
+    let mut blocks = vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(0)),
+                    src: MirAddr::Direct(add_mem),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Binary {
+                    op: MirBinaryOp::Add,
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    left: MirValue::ConstU16(0x10),
+                    right: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                    width: MirWidth::Word,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                },
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(2)),
+                    src: MirAddr::Direct(compare_mem.clone()),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Compare {
+                    dst: MirCondDest::Temp(MirTempId(3)),
+                    op: MirCompareOp::Gt,
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    right: MirValue::Word {
+                        lo: Box::new(MirValue::Def(MirDef::VTemp(MirTempId(2)))),
+                        hi: Box::new(MirValue::ConstU8(0)),
+                    },
+                    width: MirWidth::Word,
+                    signed: false,
+                },
+            ],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(3)))),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ];
+    let proven = [(MirBlockId(0), 0)].into_iter().collect();
+
+    assert_eq!(
+        expand_proven_byte_add_word_compare_branches(&mut blocks, &proven),
+        1
+    );
+
+    assert!(matches!(
+        blocks[0].ops.as_slice(),
+        [MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            right: MirValue::ConstU8(0x10),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Produce,
+            ..
+        }]
+    ));
+    let MirTerminator::Branch {
+        cond: MirCond::FlagTest(MirFlagTest::CSet),
+        then_edge,
+        else_edge,
+    } = &blocks[0].terminator
+    else {
+        panic!("expected carry branch: {:#?}", blocks[0]);
+    };
+    assert_eq!(then_edge.target, MirBlockId(1));
+    let low = blocks
+        .iter()
+        .find(|block| block.id == else_edge.target)
+        .expect("low-byte compare block");
+    assert!(matches!(
+        low.ops.as_slice(),
+        [MirOp::Compare {
+            op: MirCompareOp::Gt,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::PointerCell(mem),
+            width: MirWidth::Byte,
+            ..
+        }] if mem == &compare_mem
+    ));
+}
+
+#[test]
 fn dual_indirect_eq_compare_fuses_into_flags() {
     let left = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
         lo: MirFixedZpSlot(0xAE),

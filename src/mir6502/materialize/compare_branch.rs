@@ -21,6 +21,147 @@ use crate::mir6502::ir::{
 use crate::mir6502::passes::Mir6502Config;
 use std::collections::{BTreeMap, BTreeSet};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct ByteAddWordCompareCandidate {
+    pub consumed: usize,
+    pub binary: MirOp,
+    pub compare_dst: MirCondDest,
+    pub compare_op: MirCompareOp,
+    pub compare_right: MirValue,
+}
+
+impl ByteAddWordCompareCandidate {
+    pub(in crate::mir6502) fn proof_replacement(&self) -> Vec<MirOp> {
+        vec![
+            self.binary.clone(),
+            MirOp::Compare {
+                dst: self.compare_dst.clone(),
+                op: self.compare_op,
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: self.compare_right.clone(),
+                width: MirWidth::Byte,
+                signed: false,
+            },
+        ]
+    }
+}
+
+pub(in crate::mir6502) fn byte_add_word_compare_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<ByteAddWordCompareCandidate> {
+    let MirOp::Load {
+        dst: add_value_dst,
+        src: MirAddr::Direct(add_mem),
+        width: MirWidth::Byte,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let add_value_temp = split_def_as_byte_compare_temp(add_value_dst)?;
+    if !byte_binary_compare_reorderable_mem(add_mem) {
+        return None;
+    }
+
+    let MirOp::Binary {
+        op: MirBinaryOp::Add,
+        dst: sum_dst,
+        left,
+        right,
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    let sum_temp = split_def_as_temp(sum_dst)?;
+    let add_value = MirValue::Def(add_value_dst.clone());
+    let addend = if left == &add_value {
+        byte_constant(right)?
+    } else if right == &add_value {
+        byte_constant(left)?
+    } else {
+        return None;
+    };
+
+    let MirOp::Load {
+        dst: compare_value_dst,
+        src: MirAddr::Direct(compare_mem),
+        width: MirWidth::Byte,
+    } = ops.get(index + 2)?
+    else {
+        return None;
+    };
+    let compare_value_temp = split_def_as_byte_compare_temp(compare_value_dst)?;
+    if !byte_binary_compare_reorderable_mem(compare_mem)
+        || add_value_temp == compare_value_temp
+        || add_value_temp == sum_temp
+        || compare_value_temp == sum_temp
+    {
+        return None;
+    }
+
+    let MirOp::Compare {
+        dst: compare_dst,
+        op,
+        left: compare_left,
+        right: compare_right,
+        width: MirWidth::Word,
+        signed: false,
+    } = ops.get(index + 3)?
+    else {
+        return None;
+    };
+    let (compare_op, other) = if compare_left == &MirValue::Def(sum_dst.clone()) {
+        (*op, compare_right)
+    } else if compare_right == &MirValue::Def(sum_dst.clone()) {
+        (reverse_compare_operands(*op), compare_left)
+    } else {
+        return None;
+    };
+    if zero_extended_byte_temp(other)? != compare_value_temp {
+        return None;
+    }
+
+    Some(ByteAddWordCompareCandidate {
+        consumed: 4,
+        binary: MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::PointerCell(add_mem.clone()),
+            right: MirValue::ConstU8(addend),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Produce,
+        },
+        compare_dst: compare_dst.clone(),
+        compare_op,
+        compare_right: MirValue::PointerCell(compare_mem.clone()),
+    })
+}
+
+fn byte_constant(value: &MirValue) -> Option<u8> {
+    match value {
+        MirValue::ConstU8(value) => Some(*value),
+        MirValue::ConstU16(value) => u8::try_from(*value).ok(),
+        _ => None,
+    }
+}
+
+fn zero_extended_byte_temp(value: &MirValue) -> Option<MirTempId> {
+    let MirValue::Word { lo, hi } = value else {
+        return None;
+    };
+    if !matches!(&**hi, MirValue::ConstU8(0) | MirValue::ConstU16(0)) {
+        return None;
+    }
+    match &**lo {
+        MirValue::Def(MirDef::VTemp(temp) | MirDef::VTempByte { id: temp, byte: 0 }) => Some(*temp),
+        _ => None,
+    }
+}
+
 pub(super) fn expand_compare_branch_consumers(
     blocks: &mut Vec<MirBlock>,
     layout: &MaterializeLayout,
@@ -42,6 +183,76 @@ pub(super) fn expand_compare_branch_consumers(
         }
         try_expand_word_compare_branch(index, blocks, layout, &mut next_id);
     }
+}
+
+pub(super) fn expand_proven_byte_add_word_compare_branches(
+    blocks: &mut Vec<MirBlock>,
+    proven_sites: &BTreeSet<(MirBlockId, usize)>,
+) -> usize {
+    let mut next_id = blocks
+        .iter()
+        .map(|block| block.id.0)
+        .max()
+        .unwrap_or(0)
+        .saturating_add(1);
+    let original_len = blocks.len();
+    let mut expanded = 0usize;
+    for block_index in 0..original_len {
+        let block_id = blocks[block_index].id;
+        let Some(start) = proven_sites
+            .iter()
+            .find_map(|(block, start)| (*block == block_id).then_some(*start))
+        else {
+            continue;
+        };
+        let Some(candidate) = byte_add_word_compare_candidate(&blocks[block_index].ops, start)
+        else {
+            continue;
+        };
+        let Some((cond_temp, then_block, else_block)) = branch_bool_temp(&blocks[block_index])
+        else {
+            continue;
+        };
+        if candidate.compare_dst != MirCondDest::Temp(cond_temp)
+            || start + candidate.consumed != blocks[block_index].ops.len()
+        {
+            continue;
+        }
+
+        let low_compare = fresh_block_id(&mut next_id);
+        let mut low_ops = Vec::new();
+        let low_terminator = materialize_byte_compare_branch(
+            &mut low_ops,
+            blocks,
+            &mut next_id,
+            candidate.compare_op,
+            MirValue::Def(MirDef::Reg(MirReg::A)),
+            candidate.compare_right,
+            then_block,
+            else_block,
+        );
+        blocks.push(MirBlock {
+            id: low_compare,
+            label: format!("cmp_byte_add_lo_{}", low_compare.0),
+            params: Vec::new(),
+            ops: low_ops,
+            terminator: low_terminator,
+        });
+
+        blocks[block_index].ops.truncate(start);
+        blocks[block_index].ops.push(candidate.binary);
+        let carry_set_target = match candidate.compare_op {
+            MirCompareOp::Ne | MirCompareOp::Gt | MirCompareOp::Ge => then_block,
+            MirCompareOp::Eq | MirCompareOp::Lt | MirCompareOp::Le => else_block,
+        };
+        blocks[block_index].terminator = branch_terminator(
+            MirCond::FlagTest(MirFlagTest::CSet),
+            carry_set_target,
+            low_compare,
+        );
+        expanded += 1;
+    }
+    expanded
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

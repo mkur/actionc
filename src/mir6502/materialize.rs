@@ -76,11 +76,12 @@ pub(in crate::mir6502) use compare_branch::dual_indirect_compare_candidate;
 #[cfg(test)]
 use compare_branch::fold_compare_operand_producers_before_branches;
 use compare_branch::{
-    ByteBinaryCompareChainRewriteCandidate, ByteBinaryCompareRewriteCandidate,
-    CompareNarrowingCandidate, CompareOperandRewriteCandidate,
-    byte_binary_compare_chain_rewrite_candidate, byte_binary_compare_rewrite_candidate,
-    byte_bitwise_zero_compare_narrowing_candidate, compare_branch_plan,
-    compare_operand_rewrite_candidate, expand_compare_branch_consumers,
+    ByteAddWordCompareCandidate, ByteBinaryCompareChainRewriteCandidate,
+    ByteBinaryCompareRewriteCandidate, CompareNarrowingCandidate, CompareOperandRewriteCandidate,
+    byte_add_word_compare_candidate, byte_binary_compare_chain_rewrite_candidate,
+    byte_binary_compare_rewrite_candidate, byte_bitwise_zero_compare_narrowing_candidate,
+    compare_branch_plan, compare_operand_rewrite_candidate, expand_compare_branch_consumers,
+    expand_proven_byte_add_word_compare_branches,
 };
 #[cfg(test)]
 use compare_branch::{
@@ -259,6 +260,13 @@ pub(in crate::mir6502) fn analyzed_byte_binary_compare_chain_candidate(
     index: usize,
 ) -> Option<ByteBinaryCompareChainRewriteCandidate> {
     byte_binary_compare_chain_rewrite_candidate(ops, index)
+}
+
+pub(in crate::mir6502) fn analyzed_byte_add_word_compare_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<ByteAddWordCompareCandidate> {
+    byte_add_word_compare_candidate(ops, index)
 }
 
 pub(in crate::mir6502) fn analyzed_call_arg_producer_candidate(
@@ -888,6 +896,22 @@ fn run_prehome_canonicalization_group(
     run_analyzed_compare_narrowing(routine, peephole_stats)?;
     run_analyzed_byte_binary_compare_consumers(routine, peephole_stats)?;
     run_analyzed_dual_indirect_compares(routine, peephole_stats)?;
+    let byte_add_word_compare_sites =
+        super::rewrite::pilots::proven_byte_add_word_compare_branches(routine).map_err(|_| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                "byte-add word compare analysis failed",
+            )]
+        })?;
+    let byte_add_word_compares = expand_proven_byte_add_word_compare_branches(
+        &mut routine.blocks,
+        &byte_add_word_compare_sites,
+    );
+    peephole_stats.record_many(
+        routine.id,
+        "byte-add-word-compare-branch",
+        byte_add_word_compares,
+    );
     expand_compare_branch_consumers(&mut routine.blocks, layout, config);
     verify_cfg_after_transform(routine, "compare/branch expansion")?;
     collapse_empty_jump_blocks(routine);
