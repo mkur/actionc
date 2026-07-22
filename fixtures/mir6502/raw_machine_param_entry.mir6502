@@ -1,12 +1,18 @@
 mir6502 program
-machine m0 items=[$85 $A0 $86 $A1 $84 $A2 $60]
+machine m0 items=[$A9 $FF $A2 $FF $A0 $FF $60]
+machine m1 items=[$85 $A0 $86 $A1 $84 $A2 $20 Clobber $A5 $A0 $A6 $A1 $A4 $A2 $60]
 
-routine r0 Raw
+routine r0 Clobber
 b0 bb0:
   machine m0 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
   unreachable
 
-routine r1 Main
+routine r1 Raw
 b0 bb1:
-  call r0 args=[#$1234.w -> a:x, #$5678.w -> y:fixed_zp $A3, #$09.b -> fixed_zp $A4] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  machine m1 effects=opaque,stack=?,reads=none,writes=none,clobbers=a|x|y|flags|sp
+  unreachable
+
+routine r2 Main
+b0 bb2:
+  call r1 args=[#$1234.w -> a:x, #$5678.w -> y:fixed_zp $A3, #$09.b -> fixed_zp $A4] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

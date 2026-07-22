@@ -1,0 +1,5 @@
+PROC External=$E456(BYTE first, second, third, fourth)
+
+PROC Main()
+  External(1,2,3,4)
+RETURN

@@ -32,9 +32,11 @@ when it starts execution.
 
 The KALSCOPE contract fixture checks two observable behaviors used by that
 program: `BYTE low=line, high=line+1` must alias an absolute-backed array
-pointer, and calls to a current-location (`=*`) routine must expose their first
-arguments in the public Action ABI homes `$A0/$A1`. Both classic and MIR6502
-must produce `12 34 82 84` at `$0600-$0603`.
+pointer, and a current-location (`=*`) machine routine receives its first two
+argument bytes in A/X. The raw callee explicitly saves those registers to
+`$A0/$A1` before a nested call and reloads them afterward; `$A0/$A1` are
+callee-owned scratch here, not caller-provided argument homes. Both classic
+and MIR6502 must produce `12 34 82 84` at `$0600-$0603`.
 
 The scaled CARD-index fixture writes and reads unaligned fixed-base,
 descriptor-backed, and typed-pointer word storage at indexes 0, 1, 127, 128,

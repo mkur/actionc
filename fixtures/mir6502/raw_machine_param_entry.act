@@ -1,5 +1,11 @@
+PROC Clobber()
+[$A9 $FF $A2 $FF $A0 $FF $60]
+
 PROC Raw=*(CARD dst, src BYTE len)
-[$85 $A0 $86 $A1 $84 $A2 $60]
+[$85 $A0 $86 $A1 $84 $A2
+ $20 Clobber
+ $A5 $A0 $A6 $A1 $A4 $A2
+ $60]
 
 PROC Main()
   Raw($1234, $5678, 9)

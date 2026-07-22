@@ -1,6 +1,6 @@
-; Runtime regression for the two backend contracts used by KALSCOPE:
-; symbolic byte aliases into an absolute array pointer and observable Action
-; argument homes for a current-location (=*) routine.
+; Runtime regression for two backend contracts used by KALSCOPE: symbolic byte
+; aliases into an absolute array pointer, and register arguments explicitly
+; saved by a current-location (=*) machine routine before a nested call.
 
 SET $E=$CB
 SET $F=0
@@ -13,18 +13,23 @@ BYTE low=line,
      high=line+1,
      lineLow=$CB,
      lineHigh=$CC,
-     argX=$A0,
-     argY=$A1,
+     savedA=$A0,
+     savedX=$A1,
      resultLow=$0600,
      resultHigh=$0601,
      resultX=$0602,
      resultY=$0603,
      x0,y0,x1,y1
 
+PROC Clobber()
+  [$A9 $FF $A2 $FF $60]
+
 PROC Capture=*(BYTE x,y)
-  resultX=argX
-  resultY=argY
-RETURN
+  [$85 $A0 $86 $A1
+   $20 Clobber
+   $A5 $A0 $8D $02 $06
+   $A5 $A1 $8D $03 $06
+   $60]
 
 PROC Main()
   low=$12

@@ -80,6 +80,31 @@ fn mixed_multi_argument_call_loads_register_home_last() {
 }
 
 #[test]
+fn fixed_address_action_call_uses_canonical_register_and_a3_homes() {
+    let (formatted, bytes) = compile_mir6502_fixture("call_fixed_address_args.act");
+    assert!(formatted.contains(
+        "call External@$E456 args=[#$01.b -> a, #$02.b -> x, #$03.b -> y, #$04.b -> fixed_zp $A3]"
+    ));
+    assert!(!formatted.contains("fixed_zp $A0"));
+    assert!(!formatted.contains("fixed_zp $A1"));
+    assert!(!formatted.contains("fixed_zp $A2"));
+
+    assert!(
+        bytes
+            .windows(4)
+            .any(|bytes| bytes == [0xA9, 0x04, 0x85, 0xA3])
+    );
+    assert!(bytes.windows(7).any(|bytes| {
+        bytes[..6] == [0xA9, 0x01, 0xA2, 0x02, 0xA0, 0x03] && matches!(bytes[6], 0x20 | 0x4C)
+    }));
+    assert!(
+        bytes
+            .windows(3)
+            .any(|bytes| matches!(bytes, [0x20 | 0x4C, 0x56, 0xE4]))
+    );
+}
+
+#[test]
 fn user_calls_may_omit_trailing_declared_params() {
     let (formatted, _bytes) = compile_mir6502_fixture("call_omitted_trailing_params.act");
 
@@ -162,19 +187,24 @@ fn sargs_byte_params_are_packed_in_callee_storage() {
 }
 
 #[test]
-fn raw_machine_entry_preserves_action_abi_registers() {
+fn raw_machine_entry_explicitly_preserves_register_args_across_nested_call() {
     let (formatted, bytes) = compile_mir6502_fixture("raw_machine_param_entry.act");
     assert!(!formatted.contains("call SArgs"));
     assert!(formatted.contains(
-        "call r0 args=[#$1234.w -> a:x, #$5678.w -> y:fixed_zp $A3, #$09.b -> fixed_zp $A4]"
+        "call r1 args=[#$1234.w -> a:x, #$5678.w -> y:fixed_zp $A3, #$09.b -> fixed_zp $A4]"
     ));
     assert!(!formatted.contains("#$1234.w -> fixed_zp $A0:fixed_zp $A1"));
     assert!(!formatted.contains("#$5678.w -> fixed_zp $A2:fixed_zp $A3"));
 
-    let raw_entry = [
+    let raw_entry_save = [
         0x85, 0xA0, // STA $A0
         0x86, 0xA1, // STX $A1
         0x84, 0xA2, // STY $A2
+    ];
+    let raw_entry_restore = [
+        0xA5, 0xA0, // LDA $A0
+        0xA6, 0xA1, // LDX $A1
+        0xA4, 0xA2, // LDY $A2
         0x60, // RTS
     ];
     let prologue = [
@@ -183,8 +213,27 @@ fn raw_machine_entry_preserves_action_abi_registers() {
     ];
     assert!(
         bytes
-            .windows(raw_entry.len())
-            .any(|bytes| bytes == raw_entry)
+            .windows(raw_entry_save.len())
+            .any(|bytes| bytes == raw_entry_save)
+    );
+    assert!(
+        bytes
+            .windows(raw_entry_restore.len())
+            .any(|bytes| bytes == raw_entry_restore)
+    );
+    let save_at = bytes
+        .windows(raw_entry_save.len())
+        .position(|bytes| bytes == raw_entry_save)
+        .expect("register saves in raw callee");
+    let restore_at = bytes
+        .windows(raw_entry_restore.len())
+        .position(|bytes| bytes == raw_entry_restore)
+        .expect("register restores in raw callee");
+    assert!(
+        bytes[save_at + raw_entry_save.len()..restore_at]
+            .windows(3)
+            .any(|bytes| bytes[0] == 0x20),
+        "raw callee should make a nested JSR between save and restore"
     );
     assert!(!bytes.windows(prologue.len()).any(|bytes| bytes == prologue));
 }

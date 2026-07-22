@@ -195,3 +195,114 @@ fn opaque_external_call_effects(effects: MirEffects) -> MirEffects {
         opaque: true,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mir6502::ir::{MirArgHome, MirFixedZpSlot, MirReg};
+    use crate::nir::{NirMemoryAccess, NirMemoryEffects, NirType, NirTypeKind, NirValue};
+
+    fn byte_type() -> NirType {
+        NirType {
+            kind: NirTypeKind::U8,
+            summary: "Byte".to_string(),
+            width: Some(1),
+            pointer: false,
+        }
+    }
+
+    fn callable_type() -> NirType {
+        NirType {
+            kind: NirTypeKind::Callable {
+                kind: "Proc".to_string(),
+            },
+            summary: "Proc".to_string(),
+            width: Some(2),
+            pointer: false,
+        }
+    }
+
+    fn four_byte_signature() -> NirCallableSignature {
+        NirCallableSignature {
+            params: vec![byte_type(); 4],
+            variadic: None,
+            result: None,
+            kind: "Proc".to_string(),
+            abi: "action".to_string(),
+        }
+    }
+
+    fn opaque_effects() -> NirCallEffects {
+        NirCallEffects {
+            memory: NirMemoryEffects {
+                reads: NirMemoryAccess::Unknown,
+                writes: NirMemoryAccess::Unknown,
+            },
+            may_call_os: true,
+            opaque: true,
+        }
+    }
+
+    fn expected_homes() -> Vec<MirArgHome> {
+        vec![
+            MirArgHome::Reg(MirReg::A),
+            MirArgHome::Reg(MirReg::X),
+            MirArgHome::Reg(MirReg::Y),
+            MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3)),
+        ]
+    }
+
+    #[test]
+    fn external_and_indirect_calls_share_canonical_action_argument_homes() {
+        let cases = [
+            (
+                NirCallee::Runtime {
+                    name: "External".to_string(),
+                    address: Some(0xE456),
+                },
+                None,
+            ),
+            (
+                NirCallee::Indirect {
+                    target: NirValue::ConstU16(0x4000),
+                    ty: callable_type(),
+                },
+                Some((MirValue::ConstU16(0x4000), MirWidth::Word)),
+            ),
+        ];
+
+        for (callee, indirect_target) in cases {
+            let args = vec![
+                (MirValue::ConstU8(1), MirWidth::Byte),
+                (MirValue::ConstU8(2), MirWidth::Byte),
+                (MirValue::ConstU8(3), MirWidth::Byte),
+                (MirValue::ConstU8(4), MirWidth::Byte),
+            ];
+            let mut diagnostics = Vec::new();
+            let plan = plan_call(
+                "Main",
+                "entry",
+                &callee,
+                &four_byte_signature(),
+                &args,
+                None,
+                indirect_target,
+                &opaque_effects(),
+                &BTreeMap::new(),
+                &BTreeMap::new(),
+                &mut diagnostics,
+            )
+            .expect("external Action call plan");
+
+            assert!(diagnostics.is_empty());
+            assert_eq!(
+                plan.args
+                    .iter()
+                    .map(|arg| arg.home.clone())
+                    .collect::<Vec<_>>(),
+                expected_homes()
+            );
+            assert_eq!(plan.abi.params, expected_homes());
+        }
+    }
+}

@@ -1,0 +1,10 @@
+mir6502 program
+
+routine r0 External
+b0 bb0:
+  unreachable
+
+routine r1 Main
+b0 bb1:
+  call External@$E456 args=[#$01.b -> a, #$02.b -> x, #$03.b -> y, #$04.b -> fixed_zp $A3] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
+  return
