@@ -7,8 +7,9 @@ changes that only become visible in a substantial source file.
 
 The original MIR6502 listing baseline and optimization backlog are in
 [`mir6502-optimization-opportunities.md`](mir6502-optimization-opportunities.md).
-The current post-home-reduction listing analysis and next ranked opportunities
-are in
+The latest clean-head listing reanalysis and ranked MIR6502 backlog are in
+[`mir6502-listing-reanalysis-2026-07-22.md`](mir6502-listing-reanalysis-2026-07-22.md).
+The earlier public-ABI shadow-store analysis is retained in
 [`mir6502-final-listing-analysis.md`](mir6502-final-listing-analysis.md).
 The implementation roadmap for avoiding transient temp and internal scalar
 storage is in
