@@ -3,7 +3,7 @@
 Date: 2026-07-22.
 
 Historical revision: `06e4f23` (`mir6502: elide unobserved public ABI shadow
-stores`). Current implementation revision: `43992fc` (`test: cover canonical
+stores`). Reanalysis baseline revision: `43992fc` (`test: cover canonical
 Action ABI boundaries`).
 
 Correction: the original compiler does not mirror argument bytes 0-2 from
@@ -15,13 +15,13 @@ recommendation is corrected in place.
 Scope: `samples/tn/modern/TN.ACT`, modern profile, with the MIR6502 backend
 compared directionally with the modern/classic backend.
 
-## Current result after scaled-Y and ABI correction
+## Reanalysis baseline after scaled-Y and ABI correction
 
-The MIR6502 load file is now 11,706 bytes. Modern/classic remains 10,445
-bytes, leaving a 1,261-byte gap. Removing the invented caller homes saved 249
-bytes from the 11,955-byte scaled-Y baseline; together, scaled-Y selection and
-the ABI correction saved 392 bytes from the 12,098-byte historical result
-below.
+At that revision, the MIR6502 load file is 11,706 bytes. Modern/classic remains
+10,445 bytes, leaving a 1,261-byte gap. Removing the invented caller homes
+saved 249 bytes from the 11,955-byte scaled-Y baseline; together, scaled-Y
+selection and the ABI correction saved 392 bytes from the 12,098-byte
+historical result below.
 
 | Metric | MIR6502 | Modern/classic | Difference |
 | --- | ---: | ---: | ---: |
@@ -63,7 +63,8 @@ otherwise stable. The recommended order is now:
 2. Select dual-indirect byte comparisons in `Fnamecmp`; three sites account
    for roughly 30 bytes and several transient homes.
 3. Resolve the 12 `binary-to-compare` residual lanes and suppress the four
-   values whose high lanes have no consumer.
+   values whose high lanes have no consumer. Completed in `a1c9516`, `71aebf3`,
+   and `06699c8`; see the measured result in section 5.
 4. Add transitive known-call register/scratch effects for the five prepared
    call-result address candidates in `Putchar` and `SetWin`. This is independent
    of argument placement; unknown and indirect calls remain conservative.
@@ -75,10 +76,11 @@ otherwise stable. The recommended order is now:
 7. Revisit block placement only after the instruction-generating changes move
    routine and branch boundaries.
 
-The current listing still has 28 adjacent `STA`/`LDA` pairs, 33 far veneers,
-four `JSR; RTS` pairs, and the same 12 compare lanes/five call-address
-candidates reported below. None justifies reintroducing caller shadow analysis
-or another broad NIR phase.
+At the revision measured above, the listing still had 28 adjacent `STA`/`LDA`
+pairs, 33 far veneers, four `JSR; RTS` pairs, the 12 compare lanes, and five
+call-address candidates reported below. The compare and unused-lane work is now
+complete as described in section 5. None of these findings justifies
+reintroducing caller shadow analysis or another broad NIR phase.
 
 ## Historical result before scaled-Y and ABI correction
 
@@ -317,6 +319,34 @@ dominance-safe producer chains before compare selection and consult lane demand
 before word expansion.
 
 Expected impact: tens of bytes across narrow, independently testable slices.
+
+#### Implementation result
+
+This opportunity was completed in three independent slices:
+
+| Slice | Commit | Change | TN bytes | Raw `binary-to-compare` origins |
+| --- | --- | --- | ---: | ---: |
+| Baseline | `abb8bbc` | Dual-indirect compare work complete | 11,604 | 12 |
+| 1 | `a1c9516` | Fuse direct-load byte binary/compare chains | 11,593 | 8 |
+| 2 | `71aebf3` | Narrow carry-aware byte-add/word-compare in `Draw` | 11,561 | 6 |
+| 3 | `06699c8` | Prune independently dead high lanes using typed lane demand | 11,554 | 6 |
+
+The total load-file reduction is 50 bytes. Slice 1 resolves the four profitable
+load/binary/compare chains in `Sort`, `FindNext`, `Copy`, and `Handle`. Slice 2
+removes both coupled `Draw` lanes by branching on addition carry before the
+low-byte comparison. Slice 3 suppresses all four reported unused high lanes;
+the aggregate `consumer-unused`, `home-demand-retained-unused-lanes`, and
+`home-plan-materialize-unused-lanes` counters no longer appear. The visible
+savings are three bytes in `Init` and four bytes in `Tag`; the dead result moves
+in `DrawWinFrame` and `SwapWin` emitted no machine instructions.
+
+The remaining raw count of six is attribution, not six outstanding homes. It
+consists of one origin in `GetAnyKey`, two in `DrawWinFrame`, two in `Copy`, and
+one in `Handle`. Every one has final decision `elide-a`, fate `elided-plan`, and
+zero stores and reloads. They are already accumulator-selected and should not
+be targeted merely to make the pre-plan origin counter reach zero. The final
+load-file SHA-256 is
+`96f0456220d5fe53bfc82ea8969c32a2bcb8f4794d8f38f5c8e6582e81a0ae5f`.
 
 ### 6. Reuse known-call summaries for prepared addresses
 
