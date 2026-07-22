@@ -252,9 +252,9 @@ fn checked_indirect_offset(offset: u16, width: MirWidth) -> Option<u16> {
 }
 
 fn fixed_consumer_lo(consumer: MirAddressConsumer) -> Option<MirFixedZpSlot> {
-    match consumer {
-        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }) => Some(lo),
-        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(_)) => None,
+    match consumer.pointer_pair() {
+        MirPointerPair::Fixed { lo } => Some(lo),
+        MirPointerPair::Virtual(_) => None,
     }
 }
 

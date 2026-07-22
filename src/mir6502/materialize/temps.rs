@@ -824,7 +824,7 @@ fn invalidate_staged_address_for_op(
 }
 
 fn direct_mem_writes_consumer(consumer: MirAddressConsumer, mem: &MirMem) -> bool {
-    let MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }) = consumer else {
+    let MirPointerPair::Fixed { lo } = consumer.pointer_pair() else {
         return false;
     };
     matches!(

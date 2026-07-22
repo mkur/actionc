@@ -562,7 +562,7 @@ impl NativeTrackedEmitter {
         self.state.arithmetic_a();
     }
 
-    pub(super) fn emit_iny(&mut self) {
+    pub(crate) fn emit_iny(&mut self) {
         self.emitter.emit_iny();
         self.state.increment_y();
     }

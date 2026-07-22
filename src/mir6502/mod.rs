@@ -6077,6 +6077,63 @@ mod tests {
     }
 
     #[test]
+    fn mir6502_emission_keeps_scaled_word_index_in_y() {
+        let consumer = MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAC),
+        });
+        let mir = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![MirRoutine {
+                id: RoutineId(0),
+                name: "Main".to_string(),
+                abi: MirRoutineAbi::Action,
+                frame: MirFrame::default(),
+                temps: Vec::new(),
+                blocks: vec![MirBlock {
+                    id: MirBlockId(0),
+                    label: "bb0".to_string(),
+                    params: Vec::new(),
+                    ops: vec![
+                        MirOp::MaterializeIndexedAddress {
+                            consumer,
+                            base: MirValue::ConstU16(0x40F0),
+                            index: MirValue::ConstU8(0x82),
+                            scale: 2,
+                        },
+                        MirOp::LoadIndirect {
+                            consumer,
+                            dst: MirDef::Reg(MirReg::A),
+                            offset: 0,
+                        },
+                        MirOp::LoadIndirect {
+                            consumer,
+                            dst: MirDef::Reg(MirReg::A),
+                            offset: 1,
+                        },
+                    ],
+                    terminator: MirTerminator::Return,
+                }],
+                effects: MirEffects::default(),
+            }],
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+
+        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        emit_program(&mir, &mut emitter).expect("emit scaled-Y indexed address");
+        let bytes = emitter.finish().expect("finish emitter");
+
+        assert_eq!(
+            bytes,
+            vec![
+                0xA9, 0x82, 0x0A, 0xA8, 0xA9, 0xF0, 0x85, 0xAC, 0xA9, 0x40, 0x69, 0x00, 0x85, 0xAD,
+                0xB1, 0xAC, 0xC8, 0xB1, 0xAC, 0x60,
+            ]
+        );
+    }
+
+    #[test]
     fn mir6502_emission_emits_direct_routine_calls() {
         let mir = MirProgram {
             statics: Vec::new(),

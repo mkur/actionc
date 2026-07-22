@@ -762,6 +762,7 @@ impl MirVerifier {
                 scale,
             } => {
                 self.verify_address_consumer(routine, block, consumer);
+                self.reject_scaled_y_consumer(routine, block, consumer, "address advance");
                 self.verify_value(routine, block, index, static_ids, global_ids, routine_ids);
                 if *scale == 0 {
                     self.diagnostics.push(MirDiagnostic::block(
@@ -894,15 +895,23 @@ impl MirVerifier {
             }
             MirOp::MaterializeAddress { consumer, value } => {
                 self.verify_address_consumer(routine, block, consumer);
+                self.reject_scaled_y_consumer(routine, block, consumer, "materialize address");
                 self.verify_value(routine, block, value, static_ids, global_ids, routine_ids);
             }
             MirOp::MaterializeIndexedAddress {
                 consumer,
                 base,
                 index,
-                ..
+                scale,
             } => {
                 self.verify_address_consumer(routine, block, consumer);
+                if consumer.uses_scaled_y() && *scale != 2 {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "scaled-Y address materialization requires scale two",
+                    ));
+                }
                 self.verify_value_allow_pointer_cell(
                     routine,
                     block,
@@ -920,12 +929,22 @@ impl MirVerifier {
                     routine_ids,
                 );
             }
-            MirOp::LoadIndirect { consumer, dst, .. } => {
+            MirOp::LoadIndirect {
+                consumer,
+                dst,
+                offset,
+            } => {
                 self.verify_address_consumer(routine, block, consumer);
+                self.verify_scaled_y_offset(routine, block, consumer, *offset);
                 self.verify_def(routine, block, dst);
             }
-            MirOp::StoreIndirect { consumer, src, .. } => {
+            MirOp::StoreIndirect {
+                consumer,
+                src,
+                offset,
+            } => {
                 self.verify_address_consumer(routine, block, consumer);
+                self.verify_scaled_y_offset(routine, block, consumer, *offset);
                 self.verify_value(routine, block, src, static_ids, global_ids, routine_ids);
             }
             MirOp::IndirectByteCompound {
@@ -933,6 +952,8 @@ impl MirVerifier {
             } => {
                 self.verify_address_consumer(routine, block, target);
                 self.verify_address_consumer(routine, block, source);
+                self.reject_scaled_y_consumer(routine, block, target, "indirect compound target");
+                self.reject_scaled_y_consumer(routine, block, source, "indirect compound source");
                 if !matches!(
                     op,
                     super::ir::MirBinaryOp::Add | super::ir::MirBinaryOp::Sub
@@ -1007,20 +1028,50 @@ impl MirVerifier {
         block: &str,
         consumer: &MirAddressConsumer,
     ) {
-        match consumer {
-            MirAddressConsumer::IndirectIndexedY(pair) => match pair {
-                MirPointerPair::Fixed { .. } => {}
-                MirPointerPair::Virtual(slot) => {
-                    let message = format!(
-                        "virtual address pair `zp{}` is not supported before emission",
-                        slot.0
-                    );
-                    if matches!(self.phase, MirPhase::PreEmission) {
-                        self.diagnostics
-                            .push(MirDiagnostic::block(&routine.name, block, message));
-                    }
+        match consumer.pointer_pair() {
+            MirPointerPair::Fixed { .. } => {}
+            MirPointerPair::Virtual(slot) => {
+                let message = format!(
+                    "virtual address pair `zp{}` is not supported before emission",
+                    slot.0
+                );
+                if matches!(self.phase, MirPhase::PreEmission) {
+                    self.diagnostics
+                        .push(MirDiagnostic::block(&routine.name, block, message));
                 }
-            },
+            }
+        }
+    }
+
+    fn reject_scaled_y_consumer(
+        &mut self,
+        routine: &MirRoutine,
+        block: &str,
+        consumer: &MirAddressConsumer,
+        operation: &str,
+    ) {
+        if consumer.uses_scaled_y() {
+            self.diagnostics.push(MirDiagnostic::block(
+                &routine.name,
+                block,
+                format!("{operation} cannot use a scaled-Y address consumer"),
+            ));
+        }
+    }
+
+    fn verify_scaled_y_offset(
+        &mut self,
+        routine: &MirRoutine,
+        block: &str,
+        consumer: &MirAddressConsumer,
+        offset: u16,
+    ) {
+        if consumer.uses_scaled_y() && offset > 1 {
+            self.diagnostics.push(MirDiagnostic::block(
+                &routine.name,
+                block,
+                "scaled-Y indirect access only supports offsets zero and one",
+            ));
         }
     }
 

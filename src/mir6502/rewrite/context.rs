@@ -459,7 +459,7 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
         if let Err(error) = self.snapshot.routine().validate_point(point) {
             return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
         }
-        let MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }) = consumer else {
+        let MirPointerPair::Fixed { lo } = consumer.pointer_pair() else {
             return MirProof::Blocked(MirProofBlocker::UnsupportedPointerPair(consumer));
         };
         for slot in [lo, MirFixedZpSlot(lo.0.saturating_add(1))] {

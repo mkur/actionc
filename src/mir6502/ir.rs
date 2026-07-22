@@ -492,6 +492,23 @@ pub enum MirAddr {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirAddressConsumer {
     IndirectIndexedY(MirPointerPair),
+    /// The pointer pair contains the unindexed base (with the scale carry
+    /// folded into its high byte) and Y contains the scaled byte offset.
+    /// This form is intentionally 6502-specific and is only valid for a
+    /// scale-two indexed materialization followed by byte offsets 0 or 1.
+    ScaledIndirectIndexedY(MirPointerPair),
+}
+
+impl MirAddressConsumer {
+    pub(crate) fn pointer_pair(self) -> MirPointerPair {
+        match self {
+            Self::IndirectIndexedY(pair) | Self::ScaledIndirectIndexedY(pair) => pair,
+        }
+    }
+
+    pub(crate) fn uses_scaled_y(self) -> bool {
+        matches!(self, Self::ScaledIndirectIndexedY(_))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

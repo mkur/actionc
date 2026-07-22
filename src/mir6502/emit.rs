@@ -1671,6 +1671,15 @@ fn emit_op(
             ),
         },
         MirOp::MaterializeAddress { consumer, value } => {
+            if consumer.uses_scaled_y() {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "plain address materialization cannot use scaled Y",
+                );
+                return;
+            }
             let Some(pointer_slot) = resolve_pointer_consumer_slot(ctx, routine, consumer) else {
                 unsupported(
                     ctx,
@@ -1746,6 +1755,28 @@ fn emit_op(
                 );
                 return;
             }
+            if consumer.uses_scaled_y() {
+                if *scale != 2
+                    || !emit_scaled_y_index_plus_base_to_pointer(
+                        ctx,
+                        routine,
+                        block,
+                        index,
+                        &base_lo,
+                        &base_hi,
+                        pointer_slot,
+                        emitter,
+                    )
+                {
+                    unsupported(
+                        ctx,
+                        routine,
+                        block,
+                        "scaled-Y word address is not emit-ready",
+                    );
+                }
+                return;
+            }
             if emit_scaled_index_plus_base_to_pointer(
                 ctx,
                 routine,
@@ -1800,6 +1831,10 @@ fn emit_op(
             index,
             scale,
         } => {
+            if consumer.uses_scaled_y() {
+                unsupported(ctx, routine, block, "address advance cannot use scaled Y");
+                return;
+            }
             let Some(pointer_slot) = resolve_pointer_consumer_slot(ctx, routine, consumer) else {
                 unsupported(
                     ctx,
@@ -1862,7 +1897,7 @@ fn emit_op(
                 unsupported(ctx, routine, block, "indirect load consumer is not placed");
                 return;
             };
-            emit_lda_indirect(pointer_slot, *offset, emitter);
+            emit_lda_indirect(*consumer, pointer_slot, *offset, emitter);
         }
         MirOp::LoadIndirect {
             dst: _,
@@ -1894,7 +1929,7 @@ fn emit_op(
                 );
                 return;
             }
-            emit_sta_indirect(pointer_slot, *offset, emitter);
+            emit_sta_indirect(*consumer, pointer_slot, *offset, emitter);
         }
         MirOp::IndirectByteCompound {
             op,
@@ -1902,6 +1937,10 @@ fn emit_op(
             source,
             offset,
         } => {
+            if target.uses_scaled_y() || source.uses_scaled_y() {
+                unsupported(ctx, routine, block, "indirect compound cannot use scaled Y");
+                return;
+            }
             let Some(target_slot) = resolve_pointer_consumer_slot(ctx, routine, target) else {
                 unsupported(
                     ctx,
@@ -3128,6 +3167,50 @@ fn emit_scaled_index_plus_base_to_pointer(
     true
 }
 
+fn emit_scaled_y_index_plus_base_to_pointer(
+    ctx: &mut MirEmitContext<'_>,
+    routine: RoutineId,
+    block: MirBlockId,
+    index: &MirValue,
+    base_lo: &MirValue,
+    base_hi: &MirValue,
+    pointer_slot: u8,
+    emitter: &mut NativeTrackedEmitter,
+) -> bool {
+    let Some((index_lo, index_hi)) = split_index_value_as_word(ctx, index) else {
+        return false;
+    };
+    if !matches!(index_hi, MirValue::ConstU8(0) | MirValue::ConstU16(0))
+        || !can_emit_value_to_a(ctx, routine, &index_lo)
+        || !can_emit_scaled_y_base_byte(ctx, routine, base_lo)
+        || !can_emit_scaled_y_base_byte(ctx, routine, base_hi)
+    {
+        return false;
+    }
+
+    emit_value_to_a(ctx, routine, block, &index_lo, emitter);
+    emitter.emit_asl_a();
+    emitter.emit_tay();
+    emit_value_to_a(ctx, routine, block, base_lo, emitter);
+    emit_sta_mem(ResolvedMem::ZeroPage(pointer_slot), emitter);
+    emit_value_to_a(ctx, routine, block, base_hi, emitter);
+    emitter.emit_adc_imm(0);
+    emit_sta_mem(
+        ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
+        emitter,
+    );
+    true
+}
+
+fn can_emit_scaled_y_base_byte(
+    ctx: &MirEmitContext<'_>,
+    routine: RoutineId,
+    value: &MirValue,
+) -> bool {
+    !matches!(value, MirValue::Def(MirDef::Reg(MirReg::A | MirReg::Y)))
+        && can_emit_value_to_a(ctx, routine, value)
+}
+
 fn emit_scaled_index_advance_pointer(
     ctx: &mut MirEmitContext<'_>,
     routine: RoutineId,
@@ -3475,22 +3558,44 @@ fn resolve_pointer_consumer_slot(
     routine: RoutineId,
     consumer: &MirAddressConsumer,
 ) -> Option<u8> {
-    match consumer {
-        MirAddressConsumer::IndirectIndexedY(pair) => match pair {
-            MirPointerPair::Fixed { lo } => Some(lo.0),
-            MirPointerPair::Virtual(slot) => ctx.layout.zero_page_slot(routine, *slot),
-        },
+    match consumer.pointer_pair() {
+        MirPointerPair::Fixed { lo } => Some(lo.0),
+        MirPointerPair::Virtual(slot) => ctx.layout.zero_page_slot(routine, slot),
     }
 }
 
-fn emit_lda_indirect(pointer_slot: u8, offset: u16, emitter: &mut NativeTrackedEmitter) {
-    emitter.emit_ldy_imm(offset as u8);
+fn emit_lda_indirect(
+    consumer: MirAddressConsumer,
+    pointer_slot: u8,
+    offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    prepare_indirect_y(consumer, offset, emitter);
     emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(pointer_slot)));
 }
 
-fn emit_sta_indirect(pointer_slot: u8, offset: u16, emitter: &mut NativeTrackedEmitter) {
-    emitter.emit_ldy_imm(offset as u8);
+fn emit_sta_indirect(
+    consumer: MirAddressConsumer,
+    pointer_slot: u8,
+    offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    prepare_indirect_y(consumer, offset, emitter);
     emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(pointer_slot)));
+}
+
+fn prepare_indirect_y(
+    consumer: MirAddressConsumer,
+    offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    if consumer.uses_scaled_y() {
+        if offset == 1 {
+            emitter.emit_iny();
+        }
+    } else {
+        emitter.emit_ldy_imm(offset as u8);
+    }
 }
 
 fn emit_indirect_byte_compound(

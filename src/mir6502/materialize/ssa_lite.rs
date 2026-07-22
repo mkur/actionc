@@ -785,8 +785,7 @@ impl SsaLiteV2ObserveEnv {
         layout: &MaterializeLayout,
         reason: SsaLiteV2KillReason,
     ) {
-        let MirAddressConsumer::IndirectIndexedY(pair) = consumer;
-        match pair {
+        match consumer.pointer_pair() {
             MirPointerPair::Fixed { lo } => {
                 let lo = MirMem::FixedZeroPage(lo);
                 self.kill_mem_and_dependents(&lo, reason);

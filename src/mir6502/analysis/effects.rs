@@ -500,6 +500,10 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_value_as(base, MirTempUseKind::Address, &mut summary);
             record_value_as(index, MirTempUseKind::Address, &mut summary);
             summary.machine.conservative_register_clobbers.a = true;
+            if consumer.uses_scaled_y() {
+                set_register(&mut summary.machine.register_writes, MirReg::Y);
+                summary.machine.conservative_register_clobbers.y = true;
+            }
             summary.machine.flag_clobbers = MirFlagSet::all();
             summary.machine.writes_any_flags_compat = true;
         }
@@ -510,15 +514,25 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_consumer_write(*consumer, &mut summary);
             record_value_as(index, MirTempUseKind::Address, &mut summary);
         }
-        MirOp::LoadIndirect { consumer, dst, .. } => {
+        MirOp::LoadIndirect {
+            consumer,
+            dst,
+            offset,
+        } => {
             record_consumer_read(*consumer, &mut summary);
+            record_scaled_y_access(*consumer, *offset, &mut summary);
             record_def(dst, MirWidth::Byte, &mut summary);
             mark_register_result_flags(dst, &mut summary);
             summary.memory.indirect_reads = true;
             summary.memory.has_unknown_effects = true;
         }
-        MirOp::StoreIndirect { consumer, src, .. } => {
+        MirOp::StoreIndirect {
+            consumer,
+            src,
+            offset,
+        } => {
             record_consumer_read(*consumer, &mut summary);
+            record_scaled_y_access(*consumer, *offset, &mut summary);
             record_value(src, &mut summary);
             summary.memory.indirect_writes = true;
             summary.memory.may_write_any = true;
@@ -968,6 +982,22 @@ fn record_consumer_write(consumer: MirAddressConsumer, summary: &mut MirOpEffect
     }
 }
 
+fn record_scaled_y_access(
+    consumer: MirAddressConsumer,
+    offset: u16,
+    summary: &mut MirOpEffectSummary,
+) {
+    if !consumer.uses_scaled_y() {
+        return;
+    }
+    set_register(&mut summary.machine.register_reads, MirReg::Y);
+    if offset == 1 {
+        set_register(&mut summary.machine.register_writes, MirReg::Y);
+        write_zn(&mut summary.machine.flag_writes);
+        summary.machine.writes_any_flags_compat = true;
+    }
+}
+
 fn record_arg_home_read(home: &MirArgHome, summary: &mut MirOpEffectSummary) {
     match home {
         MirArgHome::Reg(reg) => set_register(&mut summary.machine.register_reads, *reg),
@@ -1110,11 +1140,9 @@ fn home_byte(mem: &MirMem) -> Option<MirHomeByte> {
 }
 
 fn consumer_mems(consumer: MirAddressConsumer) -> [MirMem; 2] {
-    match consumer {
-        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(slot)) => {
-            [MirMem::ZeroPage(slot), MirMem::ZeroPage(slot)]
-        }
-        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }) => [
+    match consumer.pointer_pair() {
+        MirPointerPair::Virtual(slot) => [MirMem::ZeroPage(slot), MirMem::ZeroPage(slot)],
+        MirPointerPair::Fixed { lo } => [
             MirMem::FixedZeroPage(lo),
             MirMem::FixedZeroPage(MirFixedZpSlot(lo.0.saturating_add(1))),
         ],
@@ -1656,5 +1684,38 @@ mod tests {
         assert!(any_flags.machine.flag_reads.v);
         assert!(!any_flags.consumes_flags_compat);
         assert!(classify_terminator(&terminators[5]).consumes_flags_compat);
+    }
+
+    #[test]
+    fn scaled_y_addressing_exposes_y_and_increment_effects() {
+        let consumer = MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAC),
+        });
+        let materialize = classify_op(&MirOp::MaterializeIndexedAddress {
+            consumer,
+            base: MirValue::ConstU16(0x4000),
+            index: MirValue::ConstU8(3),
+            scale: 2,
+        });
+        assert!(materialize.writes_reg(MirReg::Y));
+        assert!(materialize.may_clobber_reg_compat(MirReg::Y));
+
+        let low = classify_op(&MirOp::LoadIndirect {
+            consumer,
+            dst: MirDef::Reg(MirReg::A),
+            offset: 0,
+        });
+        assert!(low.reads_reg(MirReg::Y));
+        assert!(!low.writes_reg(MirReg::Y));
+
+        let high = classify_op(&MirOp::StoreIndirect {
+            consumer,
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            offset: 1,
+        });
+        assert!(high.reads_reg(MirReg::Y));
+        assert!(high.writes_reg(MirReg::Y));
+        assert!(high.machine.flag_writes.z);
+        assert!(high.machine.flag_writes.n);
     }
 }

@@ -160,12 +160,12 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
 }
 
 fn collect_consumer_fixed_zero_page(consumer: MirAddressConsumer, slots: &mut Vec<MirFixedZpSlot>) {
-    match consumer {
-        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }) => {
+    match consumer.pointer_pair() {
+        MirPointerPair::Fixed { lo } => {
             collect_fixed_zero_page_slot(lo, slots);
             collect_fixed_zero_page_slot(MirFixedZpSlot(lo.0.saturating_add(1)), slots);
         }
-        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(_)) => {}
+        MirPointerPair::Virtual(_) => {}
     }
 }
 

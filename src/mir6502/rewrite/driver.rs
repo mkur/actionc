@@ -901,8 +901,7 @@ fn collect_value_pointer_reads(value: &MirValue, reads: &mut BTreeSet<String>) {
 }
 
 fn collect_consumer_keys(consumer: MirAddressConsumer, keys: &mut BTreeSet<String>) {
-    let MirAddressConsumer::IndirectIndexedY(pair) = consumer;
-    match pair {
+    match consumer.pointer_pair() {
         MirPointerPair::Virtual(lo) => {
             keys.insert(memory_byte_key(&MirMem::ZeroPage(lo), 0));
             keys.insert(memory_byte_key(&MirMem::ZeroPage(lo), 1));

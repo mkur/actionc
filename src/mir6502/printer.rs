@@ -547,13 +547,14 @@ fn value_summary(value: &MirValue) -> String {
 }
 
 fn address_consumer_summary(consumer: &MirAddressConsumer) -> String {
-    match consumer {
-        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo }) => {
-            format!("(zp${:02X}),y", lo.0)
-        }
-        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(slot)) => {
-            format!("(vzp{}),y", slot.0)
-        }
+    let pointer = match consumer.pointer_pair() {
+        MirPointerPair::Fixed { lo } => format!("zp${:02X}", lo.0),
+        MirPointerPair::Virtual(slot) => format!("vzp{}", slot.0),
+    };
+    if consumer.uses_scaled_y() {
+        format!("({pointer}),scaled_y")
+    } else {
+        format!("({pointer}),y")
     }
 }
 
