@@ -409,6 +409,45 @@ fn analyzed_dual_indirect_selection_keeps_pointer_live_in_successor() {
     assert_eq!(routine.blocks[0].ops.len(), 5);
 }
 
+#[test]
+fn analyzed_dual_indirect_ordering_selection_swaps_strict_greater_operands() {
+    let mut routine = dual_indirect_compare_routine(MirCompareOp::Gt, false);
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+        .expect("ordered dual compare analysis succeeds");
+
+    assert_eq!(result.applied, 1);
+    assert!(matches!(
+        routine.blocks[0].ops.last(),
+        Some(MirOp::CompareIndirectBytes {
+            op: MirCompareOp::Lt,
+            left: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                lo: MirFixedZpSlot(0xAC),
+            }),
+            right: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                lo: MirFixedZpSlot(0xAE),
+            }),
+            ..
+        })
+    ));
+}
+
+#[test]
+fn analyzed_dual_indirect_selection_rejects_absolute_pointer_sources() {
+    let mut routine = dual_indirect_compare_routine(MirCompareOp::Eq, false);
+    let MirOp::Load { src, .. } = &mut routine.blocks[0].ops[0] else {
+        unreachable!("test shape starts with a pointer load")
+    };
+    *src = MirAddr::Direct(MirMem::Absolute(0xD000));
+
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+        .expect("rejected source analysis succeeds");
+
+    assert_eq!(result.applied, 0);
+    assert_eq!(routine.blocks[0].ops.len(), 5);
+}
+
 fn dual_indirect_compare_routine(op: MirCompareOp, pointer_live_after: bool) -> MirRoutine {
     let pointer = |id| MirDef::VTemp(MirTempId(id));
     let pointer_value = |id| MirValue::Def(pointer(id));

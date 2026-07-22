@@ -100,7 +100,7 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
     let second_byte_temp = split_def_as_temp(second_byte_dst)?;
     let MirOp::Compare {
         dst: MirCondDest::Temp(compare_temp),
-        op: op @ (MirCompareOp::Eq | MirCompareOp::Ne),
+        op,
         left: MirValue::Def(MirDef::VTemp(compare_left)),
         right: MirValue::Def(MirDef::VTemp(compare_right)),
         width: MirWidth::Byte,
@@ -137,6 +137,13 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
     let right = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
         lo: MirFixedZpSlot(super::POINTER_SCRATCH_LO),
     });
+    let (op, compare_left, compare_right) = match op {
+        MirCompareOp::Eq | MirCompareOp::Ne | MirCompareOp::Lt | MirCompareOp::Ge => {
+            (*op, left, right)
+        }
+        MirCompareOp::Gt => (MirCompareOp::Lt, right, left),
+        MirCompareOp::Le => (MirCompareOp::Ge, right, left),
+    };
     Some(DualIndirectCompareCandidate {
         consumed: 5,
         replacement: vec![
@@ -150,9 +157,9 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
             },
             MirOp::CompareIndirectBytes {
                 dst: MirCondDest::Temp(*compare_temp),
-                op: *op,
-                left,
-                right,
+                op,
+                left: compare_left,
+                right: compare_right,
                 offset: *first_offset,
                 signed: false,
             },
