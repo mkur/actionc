@@ -2199,9 +2199,7 @@ impl<'a> IrBuilder<'a> {
                 op: BinaryOp::And | BinaryOp::Or,
                 left,
                 right,
-            } if left.class == SemExprClass::Condition
-                && right.class == SemExprClass::Condition =>
-            {
+            } if is_logical_condition_tree(left) && is_logical_condition_tree(right) => {
                 SemConditionKind::Logical
             }
             _ if lowered.class == SemExprClass::Condition => SemConditionKind::Compare,
@@ -2884,6 +2882,18 @@ fn expr_class_from_kind(kind: &SemExprKind) -> SemExprClass {
         SemExprKind::Cast { .. } => SemExprClass::Value,
         SemExprKind::Binary { op, .. } if is_compare_op(*op) => SemExprClass::Condition,
         _ => SemExprClass::Value,
+    }
+}
+
+fn is_logical_condition_tree(expr: &SemExpr) -> bool {
+    match &expr.kind {
+        SemExprKind::Binary { op, .. } if is_compare_op(*op) => true,
+        SemExprKind::Binary {
+            op: BinaryOp::And | BinaryOp::Or,
+            left,
+            right,
+        } => is_logical_condition_tree(left) && is_logical_condition_tree(right),
+        _ => false,
     }
 }
 

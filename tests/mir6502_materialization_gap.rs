@@ -754,26 +754,19 @@ fn short_circuit_and_or_materialize_to_control_flow() {
 }
 
 #[test]
-fn compare_or_with_call_materializes_compare_temps_to_bytes() {
-    let (formatted, bytes) = compile_materialized_mir6502_fixture("compare_or_with_call.act");
+fn compare_or_with_call_uses_conditional_rhs_block() {
+    let (formatted, _) = compile_materialized_mir6502_fixture("compare_or_with_call.act");
 
-    assert!(formatted.contains("v1 = cmp.b"));
-    assert!(formatted.contains("a =.b a or"));
-    assert!(
-        bytes
-            .windows(7)
-            .any(|bytes| bytes == [0xC9, 0x10, 0xF0, 0x05, 0xA9, 0x00, 0x4C])
-    );
-    assert!(
-        bytes
-            .windows(5)
-            .any(|bytes| matches!(bytes, [0x0D, _, _, 0xD0 | 0xF0, _]))
-    );
-    assert!(
-        bytes
-            .windows(7)
-            .any(|bytes| bytes == [0xC9, 0xFF, 0xF0, 0x05, 0xA9, 0x00, 0x4C])
-    );
+    let call = formatted.find("call r0").expect("conditional call");
+    let second_branch = formatted
+        .match_indices("branch fused")
+        .nth(1)
+        .map(|(offset, _)| offset)
+        .expect("two prefix branches");
+    assert!(call > second_branch, "{formatted}");
+    assert_eq!(formatted.matches("branch fused").count(), 3);
+    assert!(!formatted.contains(" or "));
+    assert!(!formatted.contains("a =.b a or"));
 }
 
 #[test]

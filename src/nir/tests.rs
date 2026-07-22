@@ -387,6 +387,57 @@ fn two_term_logical_if_lowers_to_short_circuit_cfg() {
 }
 
 #[test]
+fn nested_mixed_logical_if_keeps_call_in_reached_rhs_block() {
+    let source = "BYTE a,b,out BYTE FUNC Next(BYTE value) RETURN(value) PROC Main() IF (a=1 OR b=2) AND Next(a)=3 THEN out=1 ELSE out=2 FI RETURN";
+    let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+    let ast = crate::parser::parse(&tokens).expect("parse source");
+    let model = crate::semantic::analyze(&ast).expect("analyze source");
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let program = lower_program(&semir);
+
+    verify_program(&program).expect("nested logical IF NIR should verify");
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let branch_blocks = main
+        .blocks
+        .iter()
+        .filter(|block| matches!(block.terminator, NirTerminator::Branch { .. }))
+        .collect::<Vec<_>>();
+
+    assert_eq!(branch_blocks.len(), 3, "{main:#?}");
+    assert!(
+        branch_blocks[0]
+            .ops
+            .iter()
+            .all(|op| !matches!(op, NirOp::Call { .. }))
+    );
+    assert!(
+        branch_blocks[1]
+            .ops
+            .iter()
+            .all(|op| !matches!(op, NirOp::Call { .. }))
+    );
+    assert!(
+        branch_blocks[2]
+            .ops
+            .iter()
+            .any(|op| matches!(op, NirOp::Call { .. }))
+    );
+    assert!(main.blocks.iter().flat_map(|block| &block.ops).all(|op| {
+        !matches!(
+            op,
+            NirOp::Binary {
+                op: NirBinaryOp::And | NirBinaryOp::Or,
+                ..
+            }
+        )
+    }));
+}
+
+#[test]
 fn routine_local_scalar_aliases_global_storage() {
     let source = "BYTE state PROC Main() BYTE high=state+1 high=$42 RETURN";
     let tokens = crate::lexer::tokenize(source).unwrap();
