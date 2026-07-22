@@ -790,12 +790,7 @@ impl NirBuilder {
                     } else {
                         lowering.next_block_label()
                     };
-                    self.terminate_if_condition(
-                        &branch.condition,
-                        &body_label,
-                        &next_label,
-                        lowering,
-                    );
+                    self.terminate_condition(&branch.condition, &body_label, &next_label, lowering);
                     self.start_block(body_label);
                     self.stmt_list(&branch.body, lowering);
                     self.finish_open_goto(&after_label);
@@ -817,8 +812,7 @@ impl NirBuilder {
                 let after_label = lowering.next_block_label();
                 self.finish_open_goto(&test_label);
                 self.start_block(test_label.clone());
-                let condition = self.condition(condition);
-                self.terminate_branch(condition, &body_label, &after_label);
+                self.terminate_condition(condition, &body_label, &after_label, lowering);
                 self.loop_exits.push(after_label.clone());
                 self.start_block(body_label);
                 self.stmt_list(body, lowering);
@@ -836,8 +830,9 @@ impl NirBuilder {
                 self.start_block(body_label.clone());
                 self.stmt_list(body, lowering);
                 if let Some(condition) = condition {
-                    let condition = self.condition(condition);
-                    self.finish_open_branch(condition, &after_label, &body_label);
+                    if self.current_is_open() {
+                        self.terminate_condition(condition, &after_label, &body_label, lowering);
+                    }
                 } else {
                     self.finish_open_goto(&body_label);
                 }
@@ -1480,7 +1475,7 @@ impl NirBuilder {
         }
     }
 
-    fn terminate_if_condition(
+    fn terminate_condition(
         &mut self,
         condition: &SemCondition,
         then_label: &str,
@@ -1788,16 +1783,6 @@ impl NirBuilder {
     fn finish_open_goto(&mut self, label: &str) {
         let edge = self.edge(label);
         self.finish_open_with(NirTerminator::Goto(edge));
-    }
-
-    fn finish_open_branch(&mut self, condition: NirValue, then_label: &str, else_label: &str) {
-        let then_edge = self.edge(then_label);
-        let else_edge = self.edge(else_label);
-        self.finish_open_with(NirTerminator::Branch {
-            condition,
-            then_edge,
-            else_edge,
-        });
     }
 
     fn current_is_open(&self) -> bool {

@@ -30,15 +30,16 @@ b1 bb4:
   store.b global g0+0, v3
   call r0 args=[v3.b -> a] result=v5.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   v6 = cmp.b v5 ne #$00
+  branch bool v6 ? b4 : b2
+b2 bb7:
   v7 =.w lea global g3+0
   v8 =.b load global g0+0
   v9 =.b load computed global_addr g3[v8;1]+0
   v10 = cmp.b v9 eq #$01
-  v11 =.b v6 or v10 carry_in=- carry_out=ignore
-  v12 =.b load global g1+0
-  v13 = cmp.b v12 ne #$00
-  v14 =.b v11 or v13 carry_in=- carry_out=ignore
-  v15 = cmp.b v14 ne #$00
-  branch bool v15 ? b2 : b1
-b2 bb5:
+  branch bool v10 ? b4 : b3
+b3 bb6:
+  v11 =.b load global g1+0
+  v12 = cmp.b v11 ne #$00
+  branch bool v12 ? b4 : b1
+b4 bb5:
   return

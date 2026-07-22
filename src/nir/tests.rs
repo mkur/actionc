@@ -438,6 +438,41 @@ fn nested_mixed_logical_if_keeps_call_in_reached_rhs_block() {
 }
 
 #[test]
+fn logical_while_and_until_lower_to_short_circuit_cfg() {
+    let source = "BYTE a,b,out PROC Main() WHILE a=1 AND b=2 DO out=1 EXIT OD DO out=2 UNTIL a=3 OR b=4 OD RETURN";
+    let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+    let ast = crate::parser::parse(&tokens).expect("parse source");
+    let model = crate::semantic::analyze(&ast).expect("analyze source");
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let program = lower_program(&semir);
+
+    verify_program(&program).expect("logical loop NIR should verify");
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+
+    assert_eq!(
+        main.blocks
+            .iter()
+            .filter(|block| matches!(block.terminator, NirTerminator::Branch { .. }))
+            .count(),
+        4,
+        "{main:#?}"
+    );
+    assert!(main.blocks.iter().flat_map(|block| &block.ops).all(|op| {
+        !matches!(
+            op,
+            NirOp::Binary {
+                op: NirBinaryOp::And | NirBinaryOp::Or,
+                ..
+            }
+        )
+    }));
+}
+
+#[test]
 fn routine_local_scalar_aliases_global_storage() {
     let source = "BYTE state PROC Main() BYTE high=state+1 high=$42 RETURN";
     let tokens = crate::lexer::tokenize(source).unwrap();

@@ -40,7 +40,7 @@ fn byte_for_loop_bound_and_body_consumers_avoid_spills() {
 }
 
 #[test]
-fn complex_while_and_until_conditions_materialize_bool_values() {
+fn complex_while_and_until_conditions_use_short_circuit_cfg() {
     for fixture in [
         "while_complex_bool_array_func.act",
         "until_complex_bool_array_func.act",
@@ -58,14 +58,12 @@ fn complex_while_and_until_conditions_materialize_bool_values() {
                 || formatted.contains("[y]"),
             "{fixture} should exercise an array read in the loop condition:\n{formatted}"
         );
-        let materialized_bool =
-            formatted.contains("a =.b a or") || formatted.contains("a =.b a and");
-        let short_circuit_flags =
-            formatted.contains("cmp_sc_") && formatted.contains("branch flag");
         assert!(
-            materialized_bool || short_circuit_flags,
-            "{fixture} should lower a compound boolean loop condition:\n{formatted}"
+            formatted.matches("branch fused").count() >= 4,
+            "{fixture} should branch directly for three condition leaves and the helper:\n{formatted}"
         );
+        assert!(!formatted.contains("a =.b a or"), "{formatted}");
+        assert!(!formatted.contains("a =.b a and"), "{formatted}");
         assert!(
             formatted.contains("= cmp.b") || formatted.contains("flags = cmp.b"),
             "{fixture} should exercise byte compares:\n{formatted}"
@@ -74,12 +72,11 @@ fn complex_while_and_until_conditions_materialize_bool_values() {
             !formatted.contains("branch bool"),
             "{fixture} leaked a pre-emission branch bool:\n{formatted}"
         );
-        let emitted_bool_materialization = bytes
-            .windows(5)
-            .any(|bytes| matches!(bytes, [0xF0 | 0xD0, 0x05, 0xA9, 0x00, 0x4C]));
         assert!(
-            emitted_bool_materialization || short_circuit_flags,
-            "{fixture} did not emit a materialized or short-circuit boolean condition"
+            bytes
+                .windows(2)
+                .any(|bytes| matches!(bytes[0], 0x90 | 0xB0 | 0xD0 | 0xF0)),
+            "{fixture} did not emit conditional branches"
         );
         assert!(!bytes.is_empty(), "{fixture} should emit object bytes");
     }
