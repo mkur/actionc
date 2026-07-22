@@ -807,7 +807,8 @@ Stage checks include:
 - no virtual temp survives post-home materialization;
 - no pre-home-only pseudo returns after materialization;
 - address consumers refer to valid two-byte pairs;
-- call ABI homes and public shadow stores satisfy ABI contracts;
+- call ABI homes follow the canonical A/X/Y then `$A3+` byte placement, with
+  no caller-side `$A0-$A2` mirrors;
 - calls, barriers, machine blocks, absolute memory, and hardware effects remain
   ordered conservatively;
 - pre-emission MIR contains only emitter-supported forms.

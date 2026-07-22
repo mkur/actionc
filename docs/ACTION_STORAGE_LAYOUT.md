@@ -57,11 +57,17 @@ The low byte of the first argument arrives in `A`, the next byte in `X`, and
 later bytes use the Action! argument area. The prologue stores those bytes into
 the routine storage block.
 
-Calls to current-location routines declared with `=*` are public Action ABI
-boundaries. In addition to the register argument homes, their leading argument
-bytes are observable at `$A0`, `$A1`, and `$A2`. This matters for hand-written
-machine routines and high-level routines that intentionally name those ABI
-locations as absolute aliases.
+Calls to current-location routines declared with `=*` use the same argument
+placement as every other Action routine: byte offsets 0, 1, and 2 arrive only
+in A, X, and Y; byte offset 3 begins the fixed argument area at `$A3`. The
+caller does not mirror A/X/Y into `$A0-$A2`. Current-location placement affects
+the routine entry address and patchability, not its call ABI.
+
+A machine routine that needs a register argument after clobbering that register
+must save it explicitly. TN routines such as `Block` (`STX $A0`) and `Open`
+(`STX $A1`) contain those saves in their handwritten machine blocks. Ordinary
+high-level callees instead capture A/X directly into their private parameter
+cells, or use `SArgs` for parameter frames of three or more bytes.
 
 Local pointer variables use the same two-byte low/high layout as globals.
 

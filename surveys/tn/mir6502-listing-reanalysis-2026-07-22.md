@@ -4,6 +4,12 @@ Date: 2026-07-22.
 
 Revision: `06e4f23` (`mir6502: elide unobserved public ABI shadow stores`).
 
+Correction: the original compiler does not mirror argument bytes 0-2 from
+A/X/Y into `$A0-$A2`, including for current-location `=*` routines. The
+remaining homes described below are lowering defects, not conservative ABI
+requirements. Historical sizes and counts are retained; the corresponding
+recommendation is corrected in place.
+
 Scope: `samples/tn/modern/TN.ACT`, modern profile, with the MIR6502 backend
 compared directionally with the modern/classic backend.
 
@@ -151,7 +157,7 @@ implementation target is 120-155 bytes after Y/flag lifetime, two-address
 consumers, and variant sequence shapes are accounted for. This remains the
 largest bounded next slice.
 
-### 2. Extend public-ABI demand through known machine calls
+### 2. Remove invented caller-side `$A0-$A2` mirrors
 
 After entry-prefix shadow-store elision, pre-materialized MIR still contains 66
 `$A0-$A2` shadow-home mentions across 35 calls:
@@ -166,22 +172,25 @@ After entry-prefix shadow-store elision, pre-materialized MIR still contains 66
 | `Input`, `Bget`, `Bput` | 1 each | 3 each |
 | `GetD` | 1 | 1 |
 
-Some are required, but the largest removable group is already visible.
-`Block` receives dx/dy in X/Y, stores X into its private working byte, calls
-`CalcAdr`, and later consumes Y directly. `CalcAdr` is declared to preserve A,
-X, and Y and does not read `$A1/$A2`. The current local proof stops at its
-`JSR`, so all 20 `$A1/$A2` lanes are retained; classic emits none of those
-mirrors. These lanes commonly cost a duplicate load plus a zero-page store,
-making `Block` alone an approximately 80-byte opportunity.
+All 66 mentions are invalid as Action call homes. Byte offsets 0-2 are passed
+only in A, X, and Y; the fixed argument area begins at `$A3`. Current-location
+placement changes the entry address, not the argument ABI.
 
-Known-call machine-effect summaries should be transitive and conservative at
-recursion, indirect calls, unresolved targets, and incomplete machine blocks.
-Per-byte splitting of word shadow homes is a smaller companion improvement:
-several CIO wrappers overwrite one byte of a pair before reading only the
-other byte.
+`Block` demonstrates why interpreting its machine-code `$A0` access as caller
+demand is wrong. It receives mode/dx/dy in A/X/Y, executes `PHA` and `STX $A0`,
+and later reads the value it explicitly saved. The caller must not prepopulate
+`$A0`. `Open` and `Xio` similarly execute their own `STX $A1` before reading
+that scratch byte. The byte-exact original `STRNAM.COM` callers initialize only
+A/X/Y and `$A3+`.
 
-Expected impact: roughly 80 bytes from the proven `Block` group, with more
-available after the CIO cases are proved lane by lane.
+The fix is therefore to remove public/current-location mirroring from
+`call_plan`, delete the compensating shadow-demand pass, and make tests require
+the canonical A/X/Y then `$A3+` sequence. Machine-code `$A0-$A2` loads and
+stores remain unchanged as authored instructions.
+
+Expected impact: removal of all 66 residual call-home mentions. The exact TN
+byte reduction must be measured after materialization because register staging
+and layout changes make a per-lane estimate imprecise.
 
 ### 3. Fuse direct indexed byte read/modify/write
 
@@ -249,9 +258,10 @@ from ten in the previous analysis: one in `Putchar` and four in `SetWin`. All
 five are rejected because a known direct call is still conservatively assumed
 to clobber the prepared pointer pair.
 
-The transitive routine-effect summaries needed by opportunity 2 should also
-answer this proof. Unknown, recursive, external, and indirect calls retain the
-current conservative fallback.
+This remains a separate routine-effect problem. Known direct-call summaries
+can answer it, while unknown, recursive, external, and indirect calls retain
+the current conservative fallback. It must not be coupled to `$A0-$A2` argument
+mirrors, which are absent from the ABI.
 
 ### 7. Finish the remaining increment forms
 
@@ -289,8 +299,8 @@ static byte.
 ## Recommended implementation order
 
 1. Port scaled `(zp),Y` word-element selection to MIR6502.
-2. Add transitive known-machine-call effects, first recovering `Block` shadow
-   lanes and then reusing the summary for prepared-address preservation.
+2. Remove caller-side `$A0-$A2` shadow generation and its compensating demand
+   analysis; retain canonical A/X/Y and `$A3+` argument placement.
 3. Add the direct indexed byte `INC/DEC` combine.
 4. Add dual-indirect byte compare selection.
 5. Resolve binary-to-compare producer chains and suppress unused word lanes.
@@ -300,4 +310,5 @@ static byte.
 
 The listing does not indicate a need for another NIR-wide optimization phase
 or another rewrite-framework refactor. The leading work is target-specific
-addressing, ABI/effect summarization, and consumer selection in MIR6502.
+addressing, the MIR6502 ABI correction, independent call-effect summaries, and
+consumer selection.

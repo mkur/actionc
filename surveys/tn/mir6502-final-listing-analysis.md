@@ -1,6 +1,6 @@
 # TN MIR6502 Final Listing Analysis
 
-Status: public-ABI shadow-store slice implemented; remaining MIR6502 work ranked
+Status: historical measurements retained; caller-shadow ABI premise corrected
 
 Date: 2026-07-20
 
@@ -15,10 +15,13 @@ listing is the source of truth for static bytes and instruction selection;
 materialized and pre-materialized MIR are used only to explain why a costly
 sequence survived.
 
-The first recommendation from the original listing analysis, proof-guided
-removal of redundant caller-side public-ABI argument mirrors, is now
-implemented. It removes 601 TN load-file bytes. Scaled word indexing is now the
-largest well-bounded addressing slice.
+The first recommendation from the original listing analysis removed 601 bytes
+of MIR6502-generated caller mirrors. Subsequent comparison with byte-exact
+original-compiler probes established that the premise was wrong: those mirrors
+are not part of the Action ABI at all. The measurements remain useful, but the
+implemented demand proof was only a partial mitigation of an MIR6502 lowering
+bug. See `mir6502-public-abi-shadow-correction-plan.md` for the replacement
+plan.
 
 ## Reproducing the artifacts
 
@@ -122,7 +125,7 @@ should therefore use concrete sequence families rather than routine size alone.
 
 | Status | Opportunity | Current evidence | Expected static impact |
 | --- | --- | --- | ---: |
-| Done | Elide unobserved public-ABI shadow arguments | 601 measured TN bytes removed | Implemented |
+| Correction | Remove invented caller-side `$A0-$A2` mirrors | 601 bytes already removed; 66 invalid call-home mentions remain in the later baseline | Required ABI fix |
 | 1 | Select scaled `(zp),Y` for word elements | 34 genuine `ASL/PHP/.../PLP` sites remain | About 96-136 bytes |
 | 2 | Fuse direct indexed byte read/modify/write | Two full-address `tagged(winnum) +/- 1` sites in `Tag` | Roughly 50 bytes |
 | 3 | Finish compare and lane-demand combines | 10 blocked byte-binary compares and four unused lanes | Tens of bytes across narrow slices |
@@ -130,11 +133,11 @@ should therefore use concrete sequence families rather than routine size alone.
 | 5 | Select direct byte/word increment forms | Four exact load/add-one/store sites | About 26 bytes |
 | 6 | Improve routine block placement | 35 converged far veneers; none currently relative-reachable | Up to 105 gross, substantially less realistic |
 
-### Completed: elide unobserved public-ABI shadow arguments
+### Correction: caller-side `$A0-$A2` mirrors are not Action ABI
 
-Before this slice, calls to public current-location routines mirrored the first
-three argument bytes into `$A0`, `$A1`, and `$A2` and also placed those bytes in
-A, X, and Y. TN contained 205 such shadow lanes:
+Before the partial mitigation, MIR6502 calls to current-location routines
+mirrored the first three argument bytes into `$A0`, `$A1`, and `$A2` in addition
+to placing them in A, X, and Y. TN contained 205 such generated lanes:
 
 | Callee | Shadow lanes | Calls |
 | --- | ---: | ---: |
@@ -153,39 +156,29 @@ A, X, and Y. TN contained 205 such shadow lanes:
 The busiest callers are `Copy`, `InputLine`, `Inv`, and `SetWin` with 15 lanes
 each; `SwapScr` has 14, `DrawWinFrame` 13, and `Xloop` 11.
 
-Every mirror store is a two-byte zero-page `STA`, establishing a 410-byte store
-floor. Most mirrors also require an immediate or memory load that is repeated
-when the register argument is placed. `Inv` is a useful closed example: its 15
-mirror lanes explain approximately 63 of its 64-byte routine difference.
+Every generated mirror store is a two-byte zero-page `STA`, establishing a
+410-byte store floor in that obsolete baseline. Most mirrors also require a
+load repeated later for the real register argument. `Inv` remains a useful
+closed measurement: its 15 invented lanes explain approximately 63 of its
+64-byte routine difference.
 
-This cannot be a blanket public-ABI relaxation. A current-location routine may
-legally read `$A0-$A2` through absolute aliases, as covered by the existing
-`Capture` regression. The implemented optimization is a conservative
-per-callee, per-lane demand proof in MIR6502:
+The original ABI is unambiguous: argument byte offsets 0, 1, and 2 live only in
+A, X, and Y; offset 3 starts fixed storage at `$A3`. The byte-exact
+`ABICALLS.COM` probe calls a three-byte routine using only `LDA`, `LDX`, and
+`LDY`. The byte-exact `STRNAM.COM` probe calls public `Open=*` and `Xio=*`
+without initializing `$A0-$A2`; their `STX $A1` instructions are explicit
+callee scratch saves. `=*` affects entry placement, not argument homes.
 
-1. accept only known direct calls to public current-location routines;
-2. decode a single structured machine block from its entry and track direct
-   `$A0-$A2` reads and definite writes;
-3. omit a mirror only when the entry overwrites it before observation, or
-   reaches `RTS` without observing it;
-4. stop and retain every still-live mirror at calls, jumps, branches, indirect
-   reads, undecodable bytes, non-machine bodies, and unknown symbols.
+Consequently, the `Capture` regressions that require a caller to populate
+`$A0-$A2` encode an actionc extension, not original compatibility. A raw
+machine routine that reads `$A0` without first saving A there does not receive
+argument byte zero under the original ABI.
 
-The transformation removes only leading shadow homes from the direct call plan
-and rebuilds its ABI home list; the primary A/X/Y arguments are unchanged. The
-existing high-level `Capture` regression and a raw-machine `$A0` reader both
-remain mirrored.
-
-On TN, `LDA` falls from 1,529 to 1,410 and `STA` from 1,187 to 1,019. Their
-combined static footprint falls by 606 bytes; minor layout changes leave the
-net load-file reduction at 601 bytes. The remaining mirrors are concentrated
-in `Block` and the CIO wrappers, where calls, branches, pointer access, or an
-actual shadow read prevent this entry-prefix proof. Splitting partially needed
-word shadow homes could remove a few more stores, but it requires explicit word
-lane representation and is no longer the top opportunity.
-
-The proof and transformation remain entirely in MIR6502 call/ABI planning; no
-target-specific ABI facts were added to NIR.
+The partial mitigation reduced `LDA` from 1,529 to 1,410 and `STA` from 1,187
+to 1,019, for a 601-byte net TN reduction. Its remaining mirrors are not cases
+that need stronger demand analysis; all must be removed from call planning.
+Explicit `$A0-$A2` accesses inside machine blocks remain untouched because
+they are ordinary authored zero-page accesses, not call argument homes.
 
 ### 1. Select scaled `(zp),Y` for word elements
 

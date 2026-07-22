@@ -42,6 +42,18 @@ The first argument bytes are placed in fixed ABI locations:
 | 4 | `$A4` |
 | n | `$A0+n` |
 
+There are no caller-side `$A0`, `$A1`, or `$A2` copies of the first three
+argument bytes. `A`, `X`, and `Y` replace those memory positions; the fixed
+argument area begins with byte offset 3 at `$A3`. Declaring a routine at the
+current code location with `=*` changes its entry/layout contract, not this
+argument placement.
+
+An instruction such as `STA $A0`, `STX $A1`, or `STY $A2` at the beginning of
+a machine-code routine is authored callee code that saves a register for its
+own use. It is not paired with an implicit caller mirror. `STRNAM.COM` makes
+this explicit: callers pass `Open` and `Xio` bytes 0-2 in A/X/Y, while those
+routines themselves execute `STX $A1` before a nested call.
+
 So a routine with three `BYTE` arguments receives:
 
 | Parameter | Incoming byte | Location |

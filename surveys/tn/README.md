@@ -9,8 +9,11 @@ The original MIR6502 listing baseline and optimization backlog are in
 [`mir6502-optimization-opportunities.md`](mir6502-optimization-opportunities.md).
 The latest clean-head listing reanalysis and ranked MIR6502 backlog are in
 [`mir6502-listing-reanalysis-2026-07-22.md`](mir6502-listing-reanalysis-2026-07-22.md).
-The earlier public-ABI shadow-store analysis is retained in
-[`mir6502-final-listing-analysis.md`](mir6502-final-listing-analysis.md).
+The earlier caller-shadow analysis is retained as a historical measurement,
+with its incorrect ABI premise marked in
+[`mir6502-final-listing-analysis.md`](mir6502-final-listing-analysis.md). The
+corrected contract and removal plan are in
+[`mir6502-public-abi-shadow-correction-plan.md`](mir6502-public-abi-shadow-correction-plan.md).
 The implementation roadmap for avoiding transient temp and internal scalar
 storage is in
 [`mir6502-home-elision-plan.md`](mir6502-home-elision-plan.md).
