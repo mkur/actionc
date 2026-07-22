@@ -664,6 +664,165 @@ pub(in crate::mir6502) struct ByteBinaryCompareRewriteCandidate {
     pub replacement: [MirOp; 2],
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct ByteBinaryCompareChainRewriteCandidate {
+    pub consumed: usize,
+    pub replacement: Vec<MirOp>,
+}
+
+/// Fold the common unsigned shape
+///
+/// ```text
+/// compare_value = load cell_a
+/// binary_value  = load cell_b
+/// result        = binary_value +/- constant
+/// condition     = compare_value REL result
+/// ```
+///
+/// before compare/branch expansion.  Selecting the binary result in A and
+/// reversing the comparison lets the final CMP consume `cell_a` directly,
+/// without giving `result` a transient home.  Restrict the moved reads to
+/// ordinary compiler-managed storage: absolute and fixed-ZP cells may be
+/// externally observable and therefore keep their original order.
+pub(in crate::mir6502) fn byte_binary_compare_chain_rewrite_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<ByteBinaryCompareChainRewriteCandidate> {
+    let MirOp::Load {
+        dst: compare_value_dst,
+        src: MirAddr::Direct(compare_mem),
+        width: MirWidth::Byte,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let compare_value_temp = split_def_as_byte_compare_temp(compare_value_dst)?;
+    let MirOp::Load {
+        dst: binary_value_dst,
+        src: MirAddr::Direct(binary_mem),
+        width: MirWidth::Byte,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    let binary_value_temp = split_def_as_byte_compare_temp(binary_value_dst)?;
+    if !byte_binary_compare_reorderable_mem(compare_mem)
+        || !byte_binary_compare_reorderable_mem(binary_mem)
+    {
+        return None;
+    }
+
+    let MirOp::Binary {
+        op,
+        dst: result_dst,
+        left,
+        right,
+        width: MirWidth::Byte,
+        carry_in,
+        carry_out,
+    } = ops.get(index + 2)?
+    else {
+        return None;
+    };
+    let result_temp = split_def_as_byte_compare_temp(result_dst)?;
+    let binary_value = MirValue::Def(binary_value_dst.clone());
+    let (left, right) = if left == &binary_value && !value_uses_temp(right) {
+        (MirValue::PointerCell(binary_mem.clone()), right.clone())
+    } else if right == &binary_value
+        && !value_uses_temp(left)
+        && matches!(
+            op,
+            MirBinaryOp::Add | MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor
+        )
+    {
+        (left.clone(), MirValue::PointerCell(binary_mem.clone()))
+    } else {
+        return None;
+    };
+    let carry_in = normalized_standalone_byte_carry(*op, *carry_in, *carry_out)?;
+
+    let MirOp::Compare {
+        dst: compare_dst,
+        op: compare_op,
+        left: compare_left,
+        right: compare_right,
+        width: MirWidth::Byte,
+        signed: false,
+    } = ops.get(index + 3)?
+    else {
+        return None;
+    };
+    if compare_left != &MirValue::Def(compare_value_dst.clone())
+        || compare_right != &MirValue::Def(result_dst.clone())
+        || compare_value_temp == binary_value_temp
+        || compare_value_temp == result_temp
+        || binary_value_temp == result_temp
+    {
+        return None;
+    }
+
+    Some(ByteBinaryCompareChainRewriteCandidate {
+        consumed: 4,
+        replacement: vec![
+            MirOp::Binary {
+                op: *op,
+                dst: MirDef::Reg(MirReg::A),
+                left,
+                right,
+                width: MirWidth::Byte,
+                carry_in,
+                carry_out: *carry_out,
+            },
+            MirOp::Compare {
+                dst: compare_dst.clone(),
+                op: reverse_compare_operands(*compare_op),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::PointerCell(compare_mem.clone()),
+                width: MirWidth::Byte,
+                signed: false,
+            },
+        ],
+    })
+}
+
+fn byte_binary_compare_reorderable_mem(mem: &MirMem) -> bool {
+    matches!(
+        mem,
+        MirMem::Global { .. }
+            | MirMem::Local { .. }
+            | MirMem::Param { .. }
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_)
+    )
+}
+
+fn normalized_standalone_byte_carry(
+    op: MirBinaryOp,
+    carry_in: Option<MirCarryIn>,
+    carry_out: MirCarryOut,
+) -> Option<Option<MirCarryIn>> {
+    if !matches!(carry_out, MirCarryOut::Ignore) {
+        return None;
+    }
+    match (op, carry_in) {
+        (MirBinaryOp::Add, None | Some(MirCarryIn::Clear)) => Some(Some(MirCarryIn::Clear)),
+        (MirBinaryOp::Sub, None | Some(MirCarryIn::Set)) => Some(Some(MirCarryIn::Set)),
+        (MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor, None) => Some(None),
+        _ => None,
+    }
+}
+
+fn reverse_compare_operands(op: MirCompareOp) -> MirCompareOp {
+    match op {
+        MirCompareOp::Eq => MirCompareOp::Eq,
+        MirCompareOp::Ne => MirCompareOp::Ne,
+        MirCompareOp::Lt => MirCompareOp::Gt,
+        MirCompareOp::Le => MirCompareOp::Ge,
+        MirCompareOp::Gt => MirCompareOp::Lt,
+        MirCompareOp::Ge => MirCompareOp::Le,
+    }
+}
+
 pub(in crate::mir6502) fn byte_binary_compare_rewrite_candidate(
     ops: &[MirOp],
     index: usize,

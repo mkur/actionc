@@ -76,9 +76,11 @@ pub(in crate::mir6502) use compare_branch::dual_indirect_compare_candidate;
 #[cfg(test)]
 use compare_branch::fold_compare_operand_producers_before_branches;
 use compare_branch::{
-    ByteBinaryCompareRewriteCandidate, CompareNarrowingCandidate, CompareOperandRewriteCandidate,
-    byte_binary_compare_rewrite_candidate, byte_bitwise_zero_compare_narrowing_candidate,
-    compare_branch_plan, compare_operand_rewrite_candidate, expand_compare_branch_consumers,
+    ByteBinaryCompareChainRewriteCandidate, ByteBinaryCompareRewriteCandidate,
+    CompareNarrowingCandidate, CompareOperandRewriteCandidate,
+    byte_binary_compare_chain_rewrite_candidate, byte_binary_compare_rewrite_candidate,
+    byte_bitwise_zero_compare_narrowing_candidate, compare_branch_plan,
+    compare_operand_rewrite_candidate, expand_compare_branch_consumers,
 };
 #[cfg(test)]
 use compare_branch::{
@@ -250,6 +252,13 @@ pub(in crate::mir6502) fn analyzed_byte_binary_compare_candidate(
     index: usize,
 ) -> Option<ByteBinaryCompareRewriteCandidate> {
     byte_binary_compare_rewrite_candidate(ops, index)
+}
+
+pub(in crate::mir6502) fn analyzed_byte_binary_compare_chain_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<ByteBinaryCompareChainRewriteCandidate> {
+    byte_binary_compare_chain_rewrite_candidate(ops, index)
 }
 
 pub(in crate::mir6502) fn analyzed_call_arg_producer_candidate(
@@ -877,6 +886,7 @@ fn run_prehome_canonicalization_group(
 ) -> Result<(), Vec<MirDiagnostic>> {
     run_analyzed_compare_producer_rewrites(routine, peephole_stats)?;
     run_analyzed_compare_narrowing(routine, peephole_stats)?;
+    run_analyzed_byte_binary_compare_consumers(routine, peephole_stats)?;
     run_analyzed_dual_indirect_compares(routine, peephole_stats)?;
     expand_compare_branch_consumers(&mut routine.blocks, layout, config);
     verify_cfg_after_transform(routine, "compare/branch expansion")?;
@@ -891,7 +901,6 @@ fn run_prehome_selection_group(
     helpers: &mut Vec<MirRuntimeHelper>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    run_analyzed_byte_binary_compare_consumers(routine, peephole_stats)?;
     run_analyzed_pointer_rewrites(routine, layout, peephole_stats)?;
     run_analyzed_call_arg_producers(routine, peephole_stats)?;
     run_analyzed_return_slot_call_arg_forwards(routine, peephole_stats)?;

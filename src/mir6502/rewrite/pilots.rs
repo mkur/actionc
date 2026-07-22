@@ -128,6 +128,11 @@ pub(in crate::mir6502) fn discover_byte_binary_compare_consumers(
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
+            if let Some(plan) = byte_binary_compare_chain_plan(block.id, &block.ops, index, context)
+            {
+                plans.push(plan);
+                continue;
+            }
             if let Some(plan) =
                 byte_binary_compare_consumer_plan(block.id, &block.ops, index, context)
             {
@@ -145,10 +150,14 @@ pub(in crate::mir6502) fn byte_binary_compare_consumer_rank(routine: &MirRoutine
         .map(|block| {
             (0..block.ops.len())
                 .filter(|index| {
-                    crate::mir6502::materialize::analyzed_byte_binary_compare_candidate(
+                    crate::mir6502::materialize::analyzed_byte_binary_compare_chain_candidate(
                         &block.ops, *index,
                     )
                     .is_some()
+                        || crate::mir6502::materialize::analyzed_byte_binary_compare_candidate(
+                            &block.ops, *index,
+                        )
+                        .is_some()
                 })
                 .count()
         })
@@ -1236,6 +1245,36 @@ fn byte_binary_compare_consumer_plan(
     })
 }
 
+fn byte_binary_compare_chain_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    let candidate =
+        crate::mir6502::materialize::analyzed_byte_binary_compare_chain_candidate(ops, index)?;
+    let end = index + candidate.consumed;
+    let definitions =
+        prove_removed_window_definitions(block, ops, index, end, &candidate.replacement, context)?;
+    Some(MirRewritePlan {
+        generation: context.generation(),
+        block,
+        range: index..end,
+        replacement: candidate.replacement,
+        removed_defs: definitions
+            .into_iter()
+            .map(|definition| MirRemovedDefinition { definition })
+            .collect(),
+        exit_effect_delta: MirEffectDelta::SelectedResultRegister(crate::mir6502::ir::MirReg::A),
+        change_set: MirChangeSet::prehome_operation_change(),
+        stat: "byte-binary-compare-producer-chain",
+        observations: Vec::new(),
+        family_priority: 35,
+        estimated_byte_saving: 4,
+        estimated_cycle_saving: 6,
+    })
+}
+
 fn call_arg_producer_plan(
     block: crate::mir6502::ir::MirBlockId,
     ops: &[MirOp],
@@ -1478,9 +1517,9 @@ mod tests {
     use crate::mir6502::analysis::sites::MirRoutineGeneration;
     use crate::mir6502::ir::{
         MirAddr, MirArgHome, MirBlock, MirCallAbi, MirCallArg, MirCallResult, MirCallTarget,
-        MirCompareOp, MirCondDest, MirEdge, MirEdgeArg, MirEffects, MirFrame, MirMem, MirProgram,
-        MirRegisterSet, MirResultHome, MirRoutineAbi, MirTempId, MirTerminator, MirValue, MirWidth,
-        RoutineId,
+        MirCompareOp, MirCond, MirCondDest, MirEdge, MirEdgeArg, MirEffects, MirFrame, MirMem,
+        MirProgram, MirRegisterSet, MirResultHome, MirRoutineAbi, MirTempId, MirTerminator,
+        MirValue, MirWidth, RoutineId,
     };
     use crate::mir6502::rewrite::driver::MirPreHomeRewriteDriver;
 
@@ -1946,6 +1985,89 @@ mod tests {
             ]);
             assert_eq!(run(&mut successor_use), 0);
         }
+    }
+
+    #[test]
+    fn byte_binary_compare_selection_folds_loaded_rhs_chain_before_branch_expansion() {
+        let compare_mem = MirMem::Global {
+            id: crate::nir::SymbolId(1),
+            offset: 0,
+        };
+        let binary_mem = MirMem::Global {
+            id: crate::nir::SymbolId(2),
+            offset: 0,
+        };
+        let mut candidate = routine(vec![
+            block(
+                0,
+                vec![
+                    MirOp::Load {
+                        dst: MirDef::VTemp(MirTempId(1)),
+                        src: MirAddr::Direct(compare_mem.clone()),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Load {
+                        dst: MirDef::VTemp(MirTempId(2)),
+                        src: MirAddr::Direct(binary_mem.clone()),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Binary {
+                        op: crate::mir6502::ir::MirBinaryOp::Sub,
+                        dst: MirDef::VTemp(MirTempId(3)),
+                        left: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                        right: MirValue::ConstU8(1),
+                        width: MirWidth::Byte,
+                        carry_in: None,
+                        carry_out: crate::mir6502::ir::MirCarryOut::Ignore,
+                    },
+                    MirOp::Compare {
+                        dst: MirCondDest::Temp(MirTempId(4)),
+                        op: MirCompareOp::Le,
+                        left: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                        right: MirValue::Def(MirDef::VTemp(MirTempId(3))),
+                        width: MirWidth::Byte,
+                        signed: false,
+                    },
+                ],
+                MirTerminator::Branch {
+                    cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(4)))),
+                    then_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(1)),
+                    else_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(2)),
+                },
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+            block(2, Vec::new(), MirTerminator::Return),
+        ]);
+
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point_by_key(
+                &mut candidate,
+                discover_byte_binary_compare_consumers,
+                byte_binary_compare_consumer_rank,
+            )
+            .unwrap();
+
+        assert_eq!(result.applied, 1);
+        assert!(matches!(
+            &candidate.blocks[0].ops[..],
+            [
+                MirOp::Binary {
+                    op: crate::mir6502::ir::MirBinaryOp::Sub,
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::A),
+                    left: MirValue::PointerCell(mem),
+                    right: MirValue::ConstU8(1),
+                    carry_in: Some(crate::mir6502::ir::MirCarryIn::Set),
+                    ..
+                },
+                MirOp::Compare {
+                    dst: MirCondDest::Temp(MirTempId(4)),
+                    op: MirCompareOp::Ge,
+                    left: MirValue::Def(MirDef::Reg(crate::mir6502::ir::MirReg::A)),
+                    right: MirValue::PointerCell(compare),
+                    ..
+                }
+            ] if mem == &binary_mem && compare == &compare_mem
+        ));
     }
 
     #[test]
