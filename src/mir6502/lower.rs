@@ -126,7 +126,6 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                         &block.ops,
                         &routine_ids,
                         &routine_system_addresses,
-                        &public_action_abi_routines,
                         &global_array_pointer_backing,
                         &local_array_pointer_backing,
                         &local_absolute_addresses,
@@ -675,7 +674,6 @@ fn lower_ops(
     ops: &[NirOpKind],
     routine_ids: &BTreeMap<&str, RoutineId>,
     routine_system_addresses: &BTreeMap<&str, u16>,
-    public_action_abi_routines: &BTreeSet<&str>,
     global_array_pointer_backing: &BTreeMap<crate::nir::SymbolId, bool>,
     local_array_pointer_backing: &[LocalId],
     local_absolute_addresses: &BTreeMap<String, u16>,
@@ -1028,7 +1026,6 @@ fn lower_ops(
                     effects,
                     routine_ids,
                     routine_system_addresses,
-                    public_action_abi_routines,
                     diagnostics,
                 ) else {
                     continue;

@@ -300,15 +300,14 @@ mod tests {
     }
 
     #[test]
-    fn current_location_routine_calls_mirror_register_args_to_public_action_homes() {
+    fn current_location_routine_calls_use_only_canonical_register_homes() {
         let output = generate_mir6502_source(
             r#"
-            BYTE observedX=$0600, observedY=$0601,
-                 argX=$A0, argY=$A1
+            BYTE observedX=$0600, observedY=$0601
 
             PROC Capture=*(BYTE x,y)
-              observedX=argX
-              observedY=argY
+              observedX=x
+              observedY=y
             RETURN
 
             PROC Main()
@@ -316,39 +315,30 @@ mod tests {
             RETURN
             "#,
         );
+        let main = output
+            .map
+            .routine_ranges
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine range");
+        let start = usize::from(main.start.wrapping_sub(output.origin));
+        let end = usize::from(main.end.wrapping_sub(output.origin));
+        let main_bytes = &output.bytes[start..end];
 
-        assert!(bytes_contain(&output.bytes, &[0xA9, 0x12, 0x85, 0xA0]));
-        assert!(bytes_contain(&output.bytes, &[0xA9, 0x34, 0x85, 0xA1]));
-        assert!(bytes_contain(&output.bytes, &[0xA9, 0x12]));
-        assert!(bytes_contain(&output.bytes, &[0xA2, 0x34]));
+        assert!(bytes_contain(main_bytes, &[0xA9, 0x12]));
+        assert!(bytes_contain(main_bytes, &[0xA2, 0x34]));
+        assert!(!bytes_contain(main_bytes, &[0x85, 0xA0]));
+        assert!(!bytes_contain(main_bytes, &[0x85, 0xA1]));
     }
 
     #[test]
-    fn current_location_machine_routine_keeps_observed_public_shadow_home() {
+    fn current_location_machine_a0_read_does_not_invent_a_caller_home() {
         let output = generate_mir6502_source(
             r#"
             BYTE observed=$0600
 
             PROC Capture=*(BYTE value)
             [$A5 $A0 $8D $00 $06 $60]
-
-            PROC Main()
-              Capture($12)
-            RETURN
-            "#,
-        );
-
-        assert!(bytes_contain(&output.bytes, &[0xA9, 0x12, 0x85, 0xA0]));
-    }
-
-    #[test]
-    fn current_location_machine_routine_elides_unobserved_public_shadow_home() {
-        let output = generate_mir6502_source(
-            r#"
-            BYTE sink=$80
-
-            PROC Capture=*(BYTE value)
-            [$85 sink $60]
 
             PROC Main()
               Capture($12)
@@ -367,6 +357,38 @@ mod tests {
 
         assert!(bytes_contain(main_bytes, &[0xA9, 0x12]));
         assert!(!bytes_contain(main_bytes, &[0x85, 0xA0]));
+    }
+
+    #[test]
+    fn current_location_machine_routine_can_explicitly_save_register_arg() {
+        let output = generate_mir6502_source(
+            r#"
+            BYTE observed=$0600
+
+            PROC Capture=*(BYTE value)
+            [$85 $A0 $A5 $A0 $8D $00 $06 $60]
+
+            PROC Main()
+              Capture($12)
+            RETURN
+            "#,
+        );
+        let main = output
+            .map
+            .routine_ranges
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine range");
+        let start = usize::from(main.start.wrapping_sub(output.origin));
+        let end = usize::from(main.end.wrapping_sub(output.origin));
+        let main_bytes = &output.bytes[start..end];
+
+        assert!(bytes_contain(main_bytes, &[0xA9, 0x12]));
+        assert!(!bytes_contain(main_bytes, &[0x85, 0xA0]));
+        assert!(bytes_contain(
+            &output.bytes,
+            &[0x85, 0xA0, 0xA5, 0xA0, 0x8D, 0x00, 0x06]
+        ));
     }
 
     #[test]
@@ -4563,7 +4585,7 @@ mod tests {
     }
 
     #[test]
-    fn materializes_word_stack_call_args_to_bytes() {
+    fn materializes_word_call_arg_to_canonical_register_pair() {
         let mir = materialize_program(
             MirProgram {
                 statics: vec![MirStatic {
@@ -4606,7 +4628,10 @@ mod tests {
                             ops: vec![MirOp::Call {
                                 target: MirCallTarget::Routine(RoutineId(0)),
                                 abi: MirCallAbi {
-                                    params: vec![MirArgHome::StackFrame { base: 0, offset: 0 }],
+                                    params: vec![MirArgHome::RegisterPair {
+                                        lo: MirReg::A,
+                                        hi: MirReg::X,
+                                    }],
                                     result: None,
                                     clobbers: MirRegisterSet::default(),
                                     preserves: MirRegisterSet::default(),
@@ -4614,7 +4639,10 @@ mod tests {
                                 args: vec![MirCallArg {
                                     value: MirValue::StaticAddr(SymbolId(0)),
                                     width: MirWidth::Word,
-                                    home: MirArgHome::StackFrame { base: 0, offset: 0 },
+                                    home: MirArgHome::RegisterPair {
+                                        lo: MirReg::A,
+                                        hi: MirReg::X,
+                                    },
                                 }],
                                 result: None,
                                 effects: MirEffects::default(),
@@ -4629,22 +4657,19 @@ mod tests {
             },
             &Mir6502Config::default(),
         )
-        .expect("materialize word stack call arg");
+        .expect("materialize canonical word call arg");
 
         let formatted = format_program(&mir);
         assert!(
             formatted.contains("a =.b storage_addr_lo static s0+0"),
             "{formatted}"
         );
-        assert!(formatted.contains("store.b $0000, a"), "{formatted}");
         assert!(
-            formatted.contains("a =.b storage_addr_hi static s0+0"),
+            formatted.contains("x =.b storage_addr_hi static s0+0"),
             "{formatted}"
         );
-        assert!(formatted.contains("store.b $0001, a"), "{formatted}");
-        assert!(
-            formatted.contains("call r0 args=[#$00.b -> stack $0000+0, #$00.b -> stack $0000+1]")
-        );
+        assert!(formatted.contains("call r0 args=[a.b -> a, x.b -> x]"));
+        assert!(!formatted.contains("stack $0000"), "{formatted}");
         verify_program(&mir, MirPhase::PreEmission).expect("call arg is emission-ready");
     }
 

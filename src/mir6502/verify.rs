@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use super::abi::{action_arg_home, action_arg_width_bytes};
 use super::analysis::effects::{MirHomeByte, classify_op};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
@@ -862,6 +863,7 @@ impl MirVerifier {
                         "call ABI parameter count does not match argument bindings",
                     ));
                 }
+                let mut arg_offset = 0u16;
                 for (index, arg) in args.iter().enumerate() {
                     if abi.params.get(index) != Some(&arg.home) {
                         self.diagnostics.push(MirDiagnostic::block(
@@ -870,6 +872,17 @@ impl MirVerifier {
                             format!("call argument {index} home does not match ABI"),
                         ));
                     }
+                    let expected_home = action_arg_home(arg_offset, arg.width);
+                    if arg.home != expected_home {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            format!(
+                                "call argument {index} does not use the canonical Action ABI home at byte offset {arg_offset}"
+                            ),
+                        ));
+                    }
+                    arg_offset = arg_offset.saturating_add(action_arg_width_bytes(arg.width));
                     self.verify_value(
                         routine,
                         block,
@@ -1696,9 +1709,10 @@ fn has_local_slot(frame: &MirFrame, id: crate::nir::LocalId) -> bool {
 mod tests {
     use super::*;
     use crate::mir6502::{
-        MirBlock, MirCallAbi, MirEffects, MirFrame, MirGlobal, MirProgram, MirRegisterSet,
-        MirRoutine, MirRoutineAbi, MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget,
-        MirStatic, MirTemp, MirTempId, MirWidth, RoutineId,
+        MirArgHome, MirBlock, MirCallAbi, MirCallArg, MirCallTarget, MirEffects, MirFixedZpSlot,
+        MirFrame, MirGlobal, MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi,
+        MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic, MirTemp,
+        MirTempId, MirWidth, RoutineId,
     };
     use crate::nir::SymbolId;
 
@@ -2043,6 +2057,60 @@ mod tests {
             diagnostic
                 .message
                 .contains("pre-emission add/sub cannot have unspecified carry_in")
+        }));
+    }
+
+    #[test]
+    fn rejects_noncanonical_action_call_shadow_home() {
+        let shadow = MirArgHome::FixedZeroPage(MirFixedZpSlot(0xa0));
+        let primary = MirArgHome::Reg(MirReg::A);
+        let call = MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(1)),
+            abi: MirCallAbi {
+                params: vec![shadow.clone(), primary.clone()],
+                result: None,
+                clobbers: MirRegisterSet::default(),
+                preserves: MirRegisterSet::default(),
+            },
+            args: vec![
+                MirCallArg {
+                    value: MirValue::ConstU8(0x12),
+                    width: MirWidth::Byte,
+                    home: shadow,
+                },
+                MirCallArg {
+                    value: MirValue::ConstU8(0x12),
+                    width: MirWidth::Byte,
+                    home: primary,
+                },
+            ],
+            result: None,
+            effects: MirEffects::default(),
+        };
+        let program = program_with_routines(vec![
+            routine(
+                RoutineId(0),
+                "Main",
+                vec![block_with_ops(
+                    MirBlockId(0),
+                    "bb0",
+                    vec![call],
+                    MirTerminator::Return,
+                )],
+            ),
+            routine(
+                RoutineId(1),
+                "Capture",
+                vec![block(MirBlockId(0), "bb0", MirTerminator::Return)],
+            ),
+        ]);
+
+        let diagnostics = verify_program(&program, MirPhase::PreMaterialization)
+            .expect_err("caller-side A0 shadow rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.message.contains(
+                "call argument 0 does not use the canonical Action ABI home at byte offset 0",
+            )
         }));
     }
 

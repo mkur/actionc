@@ -1,14 +1,15 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::nir::{NirCallEffects, NirCallableSignature, NirCallee};
 
-use super::abi::{action_call_clobbers, mir_memory_effect};
+use super::abi::{
+    action_arg_home, action_arg_width_bytes, action_call_clobbers, mir_memory_effect,
+};
 use super::builtin::{MirBuiltinResolution, resolve_builtin_target};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirArgHome, MirCallAbi, MirCallArg, MirCallResult, MirCallTarget, MirDef, MirEffects,
-    MirFixedZpSlot, MirMemoryEffect, MirReg, MirRegisterSet, MirResultHome, MirValue, MirWidth,
-    RoutineId,
+    MirCallAbi, MirCallArg, MirCallResult, MirCallTarget, MirDef, MirEffects, MirMemoryEffect,
+    MirRegisterSet, MirResultHome, MirValue, MirWidth, RoutineId,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,7 +32,6 @@ pub(super) fn plan_call(
     effects: &NirCallEffects,
     routine_ids: &BTreeMap<&str, RoutineId>,
     routine_system_addresses: &BTreeMap<&str, u16>,
-    public_action_abi_routines: &BTreeSet<&str>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<MirCallPlan> {
     let target = lower_call_target(
@@ -63,32 +63,17 @@ pub(super) fn plan_call(
         .iter()
         .map(|(_, width)| *width)
         .scan(0u16, |offset, width| {
-            let home = action_abi_arg_home(*offset, width);
-            *offset = offset.saturating_add(width_bytes(width));
+            let home = action_arg_home(*offset, width);
+            *offset = offset.saturating_add(action_arg_width_bytes(width));
             Some(home)
         })
         .collect::<Vec<_>>();
-    let mirror_public_homes = matches!(callee, NirCallee::User(name) if public_action_abi_routines.contains(name.as_str()));
-    let mut call_args = Vec::new();
-    if mirror_public_homes {
-        let mut offset = 0u16;
-        for (value, width) in args {
-            if let Some(home) = public_action_abi_shadow_home(offset, *width) {
-                call_args.push(MirCallArg {
-                    value: value.clone(),
-                    width: *width,
-                    home,
-                });
-            }
-            offset = offset.saturating_add(width_bytes(*width));
-        }
-    }
-    call_args.extend(
-        args.iter()
-            .cloned()
-            .zip(primary_homes.iter().cloned())
-            .map(|((value, width), home)| MirCallArg { value, width, home }),
-    );
+    let call_args = args
+        .iter()
+        .cloned()
+        .zip(primary_homes.iter().cloned())
+        .map(|((value, width), home)| MirCallArg { value, width, home })
+        .collect::<Vec<_>>();
     let homes = call_args
         .iter()
         .map(|arg| arg.home.clone())
@@ -118,54 +103,6 @@ pub(super) fn plan_call(
         args: call_args,
         result,
         effects,
-    })
-}
-
-fn action_abi_arg_home(offset: u16, width: MirWidth) -> MirArgHome {
-    match width {
-        MirWidth::Byte => action_abi_byte_home(offset),
-        MirWidth::Word => {
-            let lo = action_abi_byte_home(offset);
-            let hi = action_abi_byte_home(offset.saturating_add(1));
-            match (&lo, &hi) {
-                (MirArgHome::Reg(lo), MirArgHome::Reg(hi)) => {
-                    MirArgHome::RegisterPair { lo: *lo, hi: *hi }
-                }
-                _ => MirArgHome::BytePair {
-                    lo: Box::new(lo),
-                    hi: Box::new(hi),
-                },
-            }
-        }
-    }
-}
-
-fn action_abi_byte_home(offset: u16) -> MirArgHome {
-    match offset {
-        0 => MirArgHome::Reg(MirReg::A),
-        1 => MirArgHome::Reg(MirReg::X),
-        2 => MirArgHome::Reg(MirReg::Y),
-        _ => MirArgHome::FixedZeroPage(MirFixedZpSlot(
-            u8::try_from(0x00A0u16.saturating_add(offset)).unwrap_or(u8::MAX),
-        )),
-    }
-}
-
-fn public_action_abi_shadow_home(offset: u16, width: MirWidth) -> Option<MirArgHome> {
-    if offset >= 3 {
-        return None;
-    }
-    let byte_home = |byte_offset: u16| {
-        MirArgHome::FixedZeroPage(MirFixedZpSlot(
-            u8::try_from(0x00A0u16.saturating_add(byte_offset)).unwrap_or(u8::MAX),
-        ))
-    };
-    Some(match width {
-        MirWidth::Byte => byte_home(offset),
-        MirWidth::Word => MirArgHome::BytePair {
-            lo: Box::new(byte_home(offset)),
-            hi: Box::new(byte_home(offset.saturating_add(1))),
-        },
     })
 }
 
@@ -222,13 +159,6 @@ fn lower_call_target(
                 ));
                 None
             }),
-    }
-}
-
-fn width_bytes(width: MirWidth) -> u16 {
-    match width {
-        MirWidth::Byte => 1,
-        MirWidth::Word => 2,
     }
 }
 
