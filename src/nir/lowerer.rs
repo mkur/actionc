@@ -9,8 +9,9 @@ use crate::semantic::{
     ArrayType, SymbolClass, ValueType,
     ir::{
         SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind, SemDeclaration,
-        SemDeclarationStorage, SemEffects, SemExpr, SemExprKind, SemLValue, SemLValueKind,
-        SemLiteral, SemProgram, SemReadEffect, SemSet, SemStmt, SemStorageRef, SemWriteEffect,
+        SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind, SemLValue,
+        SemLValueKind, SemLiteral, SemProgram, SemReadEffect, SemSet, SemStmt, SemStorageRef,
+        SemWriteEffect,
     },
 };
 use crate::source::source_char_byte;
@@ -789,8 +790,12 @@ impl NirBuilder {
                     } else {
                         lowering.next_block_label()
                     };
-                    let condition = self.condition(&branch.condition);
-                    self.terminate_branch(condition, &body_label, &next_label);
+                    self.terminate_if_condition(
+                        &branch.condition,
+                        &body_label,
+                        &next_label,
+                        lowering,
+                    );
                     self.start_block(body_label);
                     self.stmt_list(&branch.body, lowering);
                     self.finish_open_goto(&after_label);
@@ -1472,6 +1477,49 @@ impl NirBuilder {
                 self.nonzero_condition(&condition.expr)
             }
             SemConditionKind::Error | SemConditionKind::Unknown => self.nir_value(&condition.expr),
+        }
+    }
+
+    fn terminate_if_condition(
+        &mut self,
+        condition: &SemCondition,
+        then_label: &str,
+        else_label: &str,
+        lowering: &mut NirLowerer,
+    ) {
+        if condition.kind == SemConditionKind::Logical
+            && let SemExprKind::Binary {
+                op: BinaryOp::And | BinaryOp::Or,
+                left,
+                right,
+            } = &condition.expr.kind
+        {
+            let right_label = lowering.next_block_label();
+            let left_condition = self.logical_operand_condition(left);
+            match &condition.expr.kind {
+                SemExprKind::Binary {
+                    op: BinaryOp::And, ..
+                } => self.terminate_branch(left_condition, &right_label, else_label),
+                SemExprKind::Binary {
+                    op: BinaryOp::Or, ..
+                } => self.terminate_branch(left_condition, then_label, &right_label),
+                _ => unreachable!("logical root was checked above"),
+            }
+            self.start_block(right_label);
+            let right_condition = self.logical_operand_condition(right);
+            self.terminate_branch(right_condition, then_label, else_label);
+            return;
+        }
+
+        let condition = self.condition(condition);
+        self.terminate_branch(condition, then_label, else_label);
+    }
+
+    fn logical_operand_condition(&mut self, expr: &SemExpr) -> NirValue {
+        if expr.class == SemExprClass::Condition {
+            self.nir_value(expr)
+        } else {
+            self.nonzero_condition(expr)
         }
     }
 

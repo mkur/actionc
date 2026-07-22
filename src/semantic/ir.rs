@@ -2197,8 +2197,13 @@ impl<'a> IrBuilder<'a> {
             SemExprKind::Binary { op, .. } if is_compare_op(*op) => SemConditionKind::Compare,
             SemExprKind::Binary {
                 op: BinaryOp::And | BinaryOp::Or,
-                ..
-            } if lowered.class == SemExprClass::Condition => SemConditionKind::Logical,
+                left,
+                right,
+            } if left.class == SemExprClass::Condition
+                && right.class == SemExprClass::Condition =>
+            {
+                SemConditionKind::Logical
+            }
             _ if lowered.class == SemExprClass::Condition => SemConditionKind::Compare,
             _ => SemConditionKind::NonZeroValue,
         };

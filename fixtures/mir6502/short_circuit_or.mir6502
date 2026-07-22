@@ -7,16 +7,16 @@ routine r0 Main
 b0 bb0:
   v0 =.b load global g0+0
   v1 = cmp.b v0 ne #$00
+  branch bool v1 ? b2 : b1
+b1 bb4:
   v2 =.b load global g1+0
   v3 = cmp.b v2 ne #$00
-  v4 =.b v1 or v3 carry_in=- carry_out=ignore
-  v5 = cmp.b v4 ne #$00
-  branch bool v5 ? b1 : b2
-b1 bb2:
+  branch bool v3 ? b2 : b3
+b2 bb2:
   store.b global g2+0, #$01
-  jump b3
-b2 bb3:
+  jump b4
+b3 bb3:
   store.b global g2+0, #$02
-  jump b3
-b3 bb1:
+  jump b4
+b4 bb1:
   return

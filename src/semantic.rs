@@ -4637,6 +4637,29 @@ mod tests {
     }
 
     #[test]
+    fn lowers_two_term_comparison_logic_as_logical_condition() {
+        let (program, model) = analyze_program_source(
+            "BYTE a,b PROC Main() IF a=1 AND b=2 THEN RETURN FI IF a=1 OR b=2 THEN RETURN FI RETURN",
+        );
+        let ir = ir::lower_program(&program, &model);
+        let main = ir.modules[0]
+            .items
+            .iter()
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine) => Some(routine),
+                _ => None,
+            })
+            .expect("Main");
+
+        for statement in &main.body[..2] {
+            let ir::SemStmt::If { branches, .. } = statement else {
+                panic!("expected IF");
+            };
+            assert_eq!(branches[0].condition.kind, ir::SemConditionKind::Logical);
+        }
+    }
+
+    #[test]
     fn lowers_semantic_ir_constant_condition_shapes() {
         let (program, model) =
             analyze_program_source("PROC Main() IF 0 THEN RETURN FI IF 1 THEN RETURN FI RETURN");

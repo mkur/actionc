@@ -329,6 +329,64 @@ fn routine_local_defines_do_not_lower_to_executable_metadata_ops() {
 }
 
 #[test]
+fn two_term_logical_if_lowers_to_short_circuit_cfg() {
+    for (operator, expected_first_then_rhs) in [("AND", true), ("OR", false)] {
+        let source = format!(
+            "BYTE a,b,out PROC Main() IF a#0 {operator} b#0 THEN out=1 ELSE out=2 FI RETURN"
+        );
+        let tokens = crate::lexer::tokenize(&source).expect("tokenize source");
+        let ast = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze(&ast).expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&ast, &model);
+        let program = lower_program(&semir);
+
+        verify_program(&program).expect("logical IF NIR should verify");
+        let main = program
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        let branches = main
+            .blocks
+            .iter()
+            .filter_map(|block| match &block.terminator {
+                NirTerminator::Branch {
+                    then_edge,
+                    else_edge,
+                    ..
+                } => Some((block, then_edge, else_edge)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(branches.len(), 2, "{operator}: {main:#?}");
+        let rhs = branches[1].0;
+        let rhs_id = rhs.id;
+        assert_eq!(branches[0].1.target == rhs_id, expected_first_then_rhs);
+        assert_eq!(branches[0].2.target == rhs_id, !expected_first_then_rhs);
+        assert!(rhs.ops.iter().any(|op| matches!(
+            op,
+            NirOp::Load {
+                place: NirPlace {
+                    kind: NirPlaceKind::Global { name, .. },
+                    ..
+                },
+                ..
+            } if name == "b"
+        )));
+        assert!(main.blocks.iter().flat_map(|block| &block.ops).all(|op| {
+            !matches!(
+                op,
+                NirOp::Binary {
+                    op: NirBinaryOp::And | NirBinaryOp::Or,
+                    ..
+                }
+            )
+        }));
+    }
+}
+
+#[test]
 fn routine_local_scalar_aliases_global_storage() {
     let source = "BYTE state PROC Main() BYTE high=state+1 high=$42 RETURN";
     let tokens = crate::lexer::tokenize(source).unwrap();

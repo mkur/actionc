@@ -734,15 +734,23 @@ fn short_circuit_and_or_materialize_to_control_flow() {
     let (or_formatted, or_bytes) = compile_materialized_mir6502_fixture("short_circuit_or.act");
 
     for formatted in [&and_formatted, &or_formatted] {
-        assert!(formatted.contains("cmp_sc_"));
-        assert!(formatted.contains("branch flag z_clear"));
+        assert_eq!(formatted.matches("branch fused").count(), 2);
+        assert_eq!(formatted.matches("z_clear").count(), 2);
         assert!(!formatted.contains(" and "));
         assert!(!formatted.contains(" or "));
         assert!(!formatted.contains("branch bool"));
         assert!(!formatted.contains(" v"));
     }
-    assert!(and_bytes.windows(2).any(|bytes| bytes[0] == 0xD0));
-    assert!(or_bytes.windows(2).any(|bytes| bytes[0] == 0xD0));
+    assert!(
+        and_bytes
+            .windows(2)
+            .any(|bytes| matches!(bytes[0], 0xD0 | 0xF0))
+    );
+    assert!(
+        or_bytes
+            .windows(2)
+            .any(|bytes| matches!(bytes[0], 0xD0 | 0xF0))
+    );
 }
 
 #[test]
