@@ -382,6 +382,124 @@ fn dual_indirect_gt_compare_is_not_single_flag_fused() {
 }
 
 #[test]
+fn analyzed_dual_indirect_equality_selection_uses_shared_dataflow_proofs() {
+    for op in [MirCompareOp::Eq, MirCompareOp::Ne] {
+        let mut routine = dual_indirect_compare_routine(op, false);
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+            .expect("dual compare analysis succeeds");
+
+        assert_eq!(result.applied, 1);
+        assert_eq!(routine.blocks[0].ops.len(), 3);
+        assert!(matches!(
+            routine.blocks[0].ops.last(),
+            Some(MirOp::CompareIndirectBytes { op: selected, .. }) if *selected == op
+        ));
+    }
+}
+
+#[test]
+fn analyzed_dual_indirect_selection_keeps_pointer_live_in_successor() {
+    let mut routine = dual_indirect_compare_routine(MirCompareOp::Eq, true);
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+        .expect("blocked dual compare analysis succeeds");
+
+    assert_eq!(result.applied, 0);
+    assert_eq!(routine.blocks[0].ops.len(), 5);
+}
+
+fn dual_indirect_compare_routine(op: MirCompareOp, pointer_live_after: bool) -> MirRoutine {
+    let pointer = |id| MirDef::VTemp(MirTempId(id));
+    let pointer_value = |id| MirValue::Def(pointer(id));
+    let param = |id| MirMem::Param {
+        id: ParamId(id),
+        offset: 0,
+    };
+    let mut then_ops = Vec::new();
+    if pointer_live_after {
+        then_ops.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Local {
+                id: LocalId(0),
+                offset: 0,
+            }),
+            src: pointer_value(0),
+            width: MirWidth::Word,
+        });
+    }
+    MirRoutine {
+        id: RoutineId(0),
+        name: "dual_compare".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: (0..5).map(|id| MirTemp { id: MirTempId(id) }).collect(),
+        blocks: vec![
+            MirBlock {
+                id: MirBlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: vec![
+                    MirOp::Load {
+                        dst: pointer(0),
+                        src: MirAddr::Direct(param(0)),
+                        width: MirWidth::Word,
+                    },
+                    MirOp::Load {
+                        dst: pointer(1),
+                        src: MirAddr::Deref {
+                            ptr: pointer_value(0),
+                            offset: 0,
+                        },
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Load {
+                        dst: pointer(2),
+                        src: MirAddr::Direct(param(1)),
+                        width: MirWidth::Word,
+                    },
+                    MirOp::Load {
+                        dst: pointer(3),
+                        src: MirAddr::Deref {
+                            ptr: pointer_value(2),
+                            offset: 0,
+                        },
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Compare {
+                        dst: MirCondDest::Temp(MirTempId(4)),
+                        op,
+                        left: pointer_value(1),
+                        right: pointer_value(3),
+                        width: MirWidth::Byte,
+                        signed: false,
+                    },
+                ],
+                terminator: MirTerminator::Branch {
+                    cond: MirCond::BoolValue(pointer_value(4)),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(2)),
+                },
+            },
+            MirBlock {
+                id: MirBlockId(1),
+                label: "then".to_string(),
+                params: Vec::new(),
+                ops: then_ops,
+                terminator: MirTerminator::Return,
+            },
+            MirBlock {
+                id: MirBlockId(2),
+                label: "else".to_string(),
+                params: Vec::new(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Return,
+            },
+        ],
+        effects: MirEffects::default(),
+    }
+}
+
+#[test]
 fn static_address_split_stays_symbolic_until_final_emit_layout() {
     let static_id = SymbolId(0);
     let mut program = empty_test_program();

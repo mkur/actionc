@@ -50,7 +50,8 @@ use super::rewrite::driver::{
 use super::rewrite::pilots::{
     byte_binary_compare_consumer_rank, compare_narrowing_rank,
     discover_byte_binary_compare_consumers, discover_compare_narrowing, discover_compare_producers,
-    discover_index_rewrites, discover_pointer_rewrites, discover_unused_lea_addrs,
+    discover_dual_indirect_compares, discover_index_rewrites, discover_pointer_rewrites,
+    discover_unused_lea_addrs,
 };
 use abi::{prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
@@ -71,6 +72,7 @@ use calls::{
     try_materialize_call_arg_expr_producers,
 };
 use cfg::collapse_empty_jump_blocks;
+pub(in crate::mir6502) use compare_branch::dual_indirect_compare_candidate;
 #[cfg(test)]
 use compare_branch::fold_compare_operand_producers_before_branches;
 use compare_branch::{
@@ -875,6 +877,7 @@ fn run_prehome_canonicalization_group(
 ) -> Result<(), Vec<MirDiagnostic>> {
     run_analyzed_compare_producer_rewrites(routine, peephole_stats)?;
     run_analyzed_compare_narrowing(routine, peephole_stats)?;
+    run_analyzed_dual_indirect_compares(routine, peephole_stats)?;
     expand_compare_branch_consumers(&mut routine.blocks, layout, config);
     verify_cfg_after_transform(routine, "compare/branch expansion")?;
     collapse_empty_jump_blocks(routine);
@@ -1279,6 +1282,23 @@ fn run_analyzed_compare_narrowing(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("pre-branch compare narrowing failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_dual_indirect_compares(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, discover_dual_indirect_compares)
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("dual indirect compare selection failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

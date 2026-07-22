@@ -88,9 +88,9 @@ pub(in crate::mir6502) enum MirEffectDelta {
     /// accumulator operations. Logical memory and home effects stay equal;
     /// only the newly explicit register and flag strategy may differ.
     MaterializedStoreConsumer,
-    /// A pointer load/dereference pair was selected into explicit address
-    /// consumer operations. Address-carrier homes and machine strategy may
-    /// change while the indirect data access remains equivalent.
+    /// One or more pointer load/dereference pairs were selected into explicit
+    /// address-consumer operations. Address-carrier homes and machine strategy
+    /// may change while the indirect data accesses remain equivalent.
     MaterializedPointerConsumer,
     /// Indexed producers and accesses were selected into explicit 6502
     /// address-consumer operations. Address-carrier homes and machine

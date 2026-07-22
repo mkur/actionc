@@ -59,6 +59,51 @@ pub(in crate::mir6502) fn discover_compare_narrowing(
     plans
 }
 
+pub(in crate::mir6502) fn discover_dual_indirect_compares(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let Some(candidate) =
+                crate::mir6502::materialize::dual_indirect_compare_candidate(block, index)
+            else {
+                continue;
+            };
+            let end = index + candidate.consumed;
+            let Some(definitions) = prove_removed_window_definitions(
+                block.id,
+                &block.ops,
+                index,
+                end,
+                &candidate.replacement,
+                context,
+            ) else {
+                continue;
+            };
+            plans.push(MirRewritePlan {
+                generation: context.generation(),
+                block: block.id,
+                range: index..end,
+                replacement: candidate.replacement,
+                removed_defs: definitions
+                    .into_iter()
+                    .map(|definition| MirRemovedDefinition { definition })
+                    .collect(),
+                exit_effect_delta: MirEffectDelta::MaterializedPointerConsumer,
+                change_set: MirChangeSet::prehome_operation_change(),
+                stat: "dual-indirect-byte-compare",
+                observations: Vec::new(),
+                family_priority: 15,
+                estimated_byte_saving: 10,
+                estimated_cycle_saving: 9,
+            });
+        }
+    }
+    plans
+}
+
 pub(in crate::mir6502) fn compare_narrowing_rank(routine: &MirRoutine) -> usize {
     routine
         .blocks

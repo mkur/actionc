@@ -697,12 +697,17 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
             _ => None,
         })
         .collect::<Vec<_>>();
-    let [source] = sources.as_slice() else {
+    if sources.is_empty() {
         return false;
-    };
-    let expected = (0..2)
-        .map(|offset| memory_byte_key(source, offset))
-        .collect::<BTreeSet<_>>();
+    }
+    let expected_sources = sources
+        .iter()
+        .map(|source| {
+            (0..2)
+                .map(|offset| memory_byte_key(source, offset))
+                .collect::<BTreeSet<_>>()
+        })
+        .collect::<Vec<_>>();
 
     let materializations = replacement
         .iter()
@@ -717,32 +722,64 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
         .collect::<Vec<_>>();
     let access_consumers = replacement
         .iter()
-        .filter_map(|op| match op {
+        .flat_map(|op| match op {
+            MirOp::CompareIndirectBytes { left, right, .. } => vec![*left, *right],
             MirOp::LoadIndirect { consumer, .. } | MirOp::StoreIndirect { consumer, .. } => {
-                Some(*consumer)
+                vec![*consumer]
             }
-            _ => None,
+            _ => Vec::new(),
         })
-        .collect::<Vec<_>>();
-    let Some(selected_consumer) = access_consumers.first().copied() else {
+        .fold(Vec::new(), |mut consumers, consumer| {
+            if !consumers.contains(&consumer) {
+                consumers.push(consumer);
+            }
+            consumers
+        });
+    if access_consumers.is_empty() {
         return false;
-    };
-    if access_consumers
-        .iter()
-        .any(|consumer| *consumer != selected_consumer)
-    {
-        return false;
-    }
-    match materializations.as_slice() {
-        [(consumer, inputs)] if *consumer == selected_consumer && *inputs == expected => {
-            return true;
-        }
-        [] => {}
-        _ => return false,
     }
 
+    if materializations.len() == expected_sources.len()
+        && materializations.len() == access_consumers.len()
+    {
+        let materialized_consumers = materializations
+            .iter()
+            .map(|(consumer, _)| *consumer)
+            .collect::<Vec<_>>();
+        let materialized_inputs = materializations
+            .iter()
+            .map(|(_, inputs)| inputs.clone())
+            .collect::<Vec<_>>();
+        if materialized_consumers
+            .iter()
+            .all(|consumer| access_consumers.contains(consumer))
+            && access_consumers
+                .iter()
+                .all(|consumer| materialized_consumers.contains(consumer))
+            && expected_sources
+                .iter()
+                .all(|expected| materialized_inputs.contains(expected))
+            && materialized_inputs
+                .iter()
+                .all(|inputs| expected_sources.contains(inputs))
+        {
+            return true;
+        }
+    }
+
+    let [source] = sources.as_slice() else {
+        return false;
+    };
+    let [selected_consumer] = access_consumers.as_slice() else {
+        return false;
+    };
+    if !materializations.is_empty() {
+        return false;
+    }
+    let expected = &expected_sources[0];
+
     let mut selected = BTreeSet::new();
-    collect_consumer_keys(selected_consumer, &mut selected);
+    collect_consumer_keys(*selected_consumer, &mut selected);
     let exact_direct_home = expected
         .iter()
         .map(|key| canonical_zero_page_key(key))
@@ -1573,6 +1610,96 @@ mod tests {
         }];
 
         assert!(!effect_delta_is_valid(
+            &original,
+            &replacement,
+            MirEffectDelta::MaterializedPointerConsumer,
+        ));
+    }
+
+    #[test]
+    fn pointer_selection_delta_accepts_two_preserved_sources_and_consumers() {
+        let first_mem = MirMem::Param {
+            id: crate::nir::ParamId(0),
+            offset: 0,
+        };
+        let second_mem = MirMem::Param {
+            id: crate::nir::ParamId(1),
+            offset: 0,
+        };
+        let first_pointer = MirDef::VTemp(MirTempId(1));
+        let second_pointer = MirDef::VTemp(MirTempId(3));
+        let original = vec![
+            MirOp::Load {
+                dst: first_pointer.clone(),
+                src: MirAddr::Direct(first_mem.clone()),
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(2)),
+                src: MirAddr::Deref {
+                    ptr: MirValue::Def(first_pointer),
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: second_pointer.clone(),
+                src: MirAddr::Direct(second_mem.clone()),
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(4)),
+                src: MirAddr::Deref {
+                    ptr: MirValue::Def(second_pointer),
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+            MirOp::Compare {
+                dst: crate::mir6502::ir::MirCondDest::Temp(MirTempId(5)),
+                op: crate::mir6502::ir::MirCompareOp::Eq,
+                left: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                right: MirValue::Def(MirDef::VTemp(MirTempId(4))),
+                width: MirWidth::Byte,
+                signed: false,
+            },
+        ];
+        let first = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAE),
+        });
+        let second = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAC),
+        });
+        let pointer_value_from_mem = |mem: &MirMem| MirValue::Word {
+            lo: Box::new(MirValue::PointerCell(mem.clone())),
+            hi: Box::new(MirValue::PointerCell(match mem {
+                MirMem::Param { id, offset } => MirMem::Param {
+                    id: *id,
+                    offset: offset + 1,
+                },
+                _ => unreachable!("test uses parameter homes"),
+            })),
+        };
+        let replacement = vec![
+            MirOp::MaterializeAddress {
+                consumer: first,
+                value: pointer_value_from_mem(&first_mem),
+            },
+            MirOp::MaterializeAddress {
+                consumer: second,
+                value: pointer_value_from_mem(&second_mem),
+            },
+            MirOp::CompareIndirectBytes {
+                dst: crate::mir6502::ir::MirCondDest::Temp(MirTempId(5)),
+                op: crate::mir6502::ir::MirCompareOp::Eq,
+                left: first,
+                right: second,
+                offset: 0,
+                signed: false,
+            },
+        ];
+
+        assert!(effect_delta_is_valid(
             &original,
             &replacement,
             MirEffectDelta::MaterializedPointerConsumer,
