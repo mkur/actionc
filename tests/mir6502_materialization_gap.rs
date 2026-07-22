@@ -563,9 +563,9 @@ fn unsized_dynamic_word_read_materializes_to_indirect_byte_lanes() {
     let (formatted, bytes) =
         compile_materialized_mir6502_fixture("unsized_card_array_dynamic_read.act");
 
-    assert!(formatted.contains("materialize_indexed (zp$AC),y <- #$0600 + a*2"));
-    assert!(formatted.contains("load_indirect (zp$AC),y+0"));
-    assert!(formatted.contains("load_indirect (zp$AC),y+1"));
+    assert!(formatted.contains("materialize_indexed (zp$AC),scaled_y <- #$0600 + a*2"));
+    assert!(formatted.contains("load_indirect (zp$AC),scaled_y+0"));
+    assert!(formatted.contains("load_indirect (zp$AC),scaled_y+1"));
     assert!(formatted.contains("store.b global g2+0, a"));
     assert!(formatted.contains("store.b global g2+1, a"));
     assert!(!formatted.contains("load *"));
@@ -579,10 +579,10 @@ fn unsized_dynamic_word_read_materializes_to_indirect_byte_lanes() {
 fn descriptor_dynamic_word_read_materializes_to_indirect_byte_lanes() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("card_array_dynamic_read.act");
 
-    assert!(formatted.contains("materialize_indexed (zp$AC),y"));
+    assert!(formatted.contains("materialize_indexed (zp$AC),scaled_y"));
     assert!(formatted.contains("+ a*2"));
-    assert!(formatted.contains("load_indirect (zp$AC),y+0"));
-    assert!(formatted.contains("load_indirect (zp$AC),y+1"));
+    assert!(formatted.contains("load_indirect (zp$AC),scaled_y+0"));
+    assert!(formatted.contains("load_indirect (zp$AC),scaled_y+1"));
     assert!(formatted.contains("store.b global g2+0, a"));
     assert!(formatted.contains("store.b global g2+1, a"));
     assert!(!formatted.contains("load *"));
@@ -597,9 +597,9 @@ fn unsized_dynamic_word_write_materializes_to_indirect_byte_lanes() {
     let (formatted, bytes) =
         compile_materialized_mir6502_fixture("unsized_card_array_dynamic_write.act");
 
-    assert!(formatted.contains("materialize_indexed (zp$AC),y <- #$0600 + a*2"));
-    assert!(formatted.contains("store_indirect (zp$AC),y+0 a"));
-    assert!(formatted.contains("store_indirect (zp$AC),y+1 a"));
+    assert!(formatted.contains("materialize_indexed (zp$AC),scaled_y <- #$0600 + a*2"));
+    assert!(formatted.contains("store_indirect (zp$AC),scaled_y+0 a"));
+    assert!(formatted.contains("store_indirect (zp$AC),scaled_y+1 a"));
     assert!(!formatted.contains("store.w *"));
     assert!(!formatted.contains("computed"));
     assert!(!formatted.contains(" v"));
@@ -611,10 +611,10 @@ fn unsized_dynamic_word_write_materializes_to_indirect_byte_lanes() {
 fn descriptor_dynamic_word_write_materializes_to_indirect_byte_lanes() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("card_array_dynamic_write.act");
 
-    assert!(formatted.contains("materialize_indexed (zp$AC),y"));
+    assert!(formatted.contains("materialize_indexed (zp$AC),scaled_y"));
     assert!(formatted.contains("+ a*2"));
-    assert!(formatted.contains("store_indirect (zp$AC),y+0 a"));
-    assert!(formatted.contains("store_indirect (zp$AC),y+1 a"));
+    assert!(formatted.contains("store_indirect (zp$AC),scaled_y+0 a"));
+    assert!(formatted.contains("store_indirect (zp$AC),scaled_y+1 a"));
     assert!(!formatted.contains("store.w computed"));
     assert!(!formatted.contains("computed"));
     assert!(!formatted.contains(" v"));

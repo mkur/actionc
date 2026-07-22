@@ -1,11 +1,12 @@
 use std::collections::BTreeSet;
 
+use super::analysis::effects::{MirHomeByte, classify_op};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCondDest, MirDef, MirEdge, MirFrame,
     MirGlobal, MirGlobalInit, MirMachineBlockId, MirMem, MirOp, MirPhase, MirPointerPair,
-    MirProgram, MirRoutine, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator,
-    MirValue, RoutineId,
+    MirProgram, MirReg, MirRoutine, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit,
+    MirTerminator, MirValue, RoutineId,
 };
 use crate::nir::SymbolId;
 
@@ -356,6 +357,7 @@ impl MirVerifier {
                     machine_ids,
                 );
             }
+            self.verify_scaled_y_protocol(routine, block.label.as_str(), &block.ops);
 
             match &block.terminator {
                 MirTerminator::Jump(edge) => self.verify_edge(
@@ -1043,6 +1045,89 @@ impl MirVerifier {
         }
     }
 
+    fn verify_scaled_y_protocol(&mut self, routine: &MirRoutine, block: &str, ops: &[MirOp]) {
+        let mut prepared = Vec::<(MirPointerPair, MirValue)>::new();
+        let mut active_index = None::<MirValue>;
+        let mut active_offset = 0u16;
+
+        for (op_index, op) in ops.iter().enumerate() {
+            match op {
+                MirOp::MaterializeIndexedAddress {
+                    consumer: MirAddressConsumer::ScaledIndirectIndexedY(pair),
+                    index,
+                    ..
+                } => {
+                    prepared.retain(|(candidate, _)| candidate != pair);
+                    prepared.push((*pair, index.clone()));
+                    active_index = Some(index.clone());
+                    active_offset = 0;
+                    continue;
+                }
+                MirOp::LoadIndirect {
+                    consumer: MirAddressConsumer::ScaledIndirectIndexedY(pair),
+                    offset,
+                    ..
+                }
+                | MirOp::StoreIndirect {
+                    consumer: MirAddressConsumer::ScaledIndirectIndexedY(pair),
+                    offset,
+                    ..
+                } => {
+                    let prepared_index = prepared
+                        .iter()
+                        .find_map(|(candidate, index)| (candidate == pair).then_some(index));
+                    if prepared_index.is_none() || prepared_index != active_index.as_ref() {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            format!(
+                                "scaled-Y access at op #{op_index} has no active matching index"
+                            ),
+                        ));
+                    }
+                    if *offset < active_offset {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            format!(
+                                "scaled-Y access at op #{op_index} moves backward from offset {active_offset} to {offset}"
+                            ),
+                        ));
+                    } else {
+                        active_offset = *offset;
+                    }
+                    if matches!(
+                        op,
+                        MirOp::StoreIndirect {
+                            src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                            ..
+                        }
+                    ) {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            format!("scaled-Y store at op #{op_index} cannot source Y"),
+                        ));
+                    }
+                    continue;
+                }
+                _ => {}
+            }
+
+            let effects = classify_op(op);
+            prepared.retain(|(pair, _)| {
+                pointer_pair_homes(*pair).iter().all(|home| {
+                    !effects.homes.writes.contains(home)
+                        && !effects.addresses.pair_writes.contains(home)
+                })
+            });
+            if effects.may_clobber_reg_compat(MirReg::Y) {
+                active_index = None;
+                active_offset = 0;
+            }
+        }
+    }
+
     fn reject_scaled_y_consumer(
         &mut self,
         routine: &MirRoutine,
@@ -1574,6 +1659,16 @@ impl MirVerifier {
     }
 }
 
+fn pointer_pair_homes(pair: MirPointerPair) -> Vec<MirHomeByte> {
+    match pair {
+        MirPointerPair::Fixed { lo } => vec![
+            MirHomeByte::FixedZeroPage(lo),
+            MirHomeByte::FixedZeroPage(super::ir::MirFixedZpSlot(lo.0.saturating_add(1))),
+        ],
+        MirPointerPair::Virtual(slot) => vec![MirHomeByte::VirtualZeroPage(slot)],
+    }
+}
+
 fn symbol_prefix(kind: &str) -> &'static str {
     match kind {
         "static" => "s",
@@ -1948,6 +2043,78 @@ mod tests {
             diagnostic
                 .message
                 .contains("pre-emission add/sub cannot have unspecified carry_in")
+        }));
+    }
+
+    #[test]
+    fn rejects_scaled_y_access_without_matching_materialization() {
+        let pair = MirPointerPair::Fixed {
+            lo: crate::mir6502::MirFixedZpSlot(0xac),
+        };
+        let program = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![MirOp::LoadIndirect {
+                    dst: MirDef::Reg(MirReg::A),
+                    consumer: MirAddressConsumer::ScaledIndirectIndexedY(pair),
+                    offset: 0,
+                }],
+                MirTerminator::Return,
+            )],
+        )]);
+
+        let diagnostics = verify_program(&program, MirPhase::PreEmission)
+            .expect_err("unprepared scaled-Y access rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("scaled-Y access at op #0 has no active matching index")
+        }));
+    }
+
+    #[test]
+    fn rejects_scaled_y_access_that_moves_offset_backward() {
+        let pair = MirPointerPair::Fixed {
+            lo: crate::mir6502::MirFixedZpSlot(0xac),
+        };
+        let consumer = MirAddressConsumer::ScaledIndirectIndexedY(pair);
+        let program = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![
+                    MirOp::MaterializeIndexedAddress {
+                        consumer,
+                        base: MirValue::ConstU16(0x4000),
+                        index: MirValue::ConstU8(3),
+                        scale: 2,
+                    },
+                    MirOp::LoadIndirect {
+                        dst: MirDef::Reg(MirReg::A),
+                        consumer,
+                        offset: 1,
+                    },
+                    MirOp::LoadIndirect {
+                        dst: MirDef::Reg(MirReg::A),
+                        consumer,
+                        offset: 0,
+                    },
+                ],
+                MirTerminator::Return,
+            )],
+        )]);
+
+        let diagnostics = verify_program(&program, MirPhase::PreEmission)
+            .expect_err("backward scaled-Y offset rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("scaled-Y access at op #2 moves backward from offset 1 to 0")
         }));
     }
 

@@ -1667,11 +1667,11 @@ mod tests {
 
         let formatted = format_program(&mir);
         assert!(formatted.contains(
-            "materialize_indexed (zp$AC),y <- word(storage_addr_lo global g0+0, storage_addr_hi global g0+0) + a*2"
+            "materialize_indexed (zp$AC),scaled_y <- word(storage_addr_lo global g0+0, storage_addr_hi global g0+0) + a*2"
         ));
         assert!(formatted.contains("a =.b load global g1+0"));
-        assert!(formatted.contains("a =.b load_indirect (zp$AC),y+0"));
-        assert!(formatted.contains("a =.b load_indirect (zp$AC),y+1"));
+        assert!(formatted.contains("a =.b load_indirect (zp$AC),scaled_y+0"));
+        assert!(formatted.contains("a =.b load_indirect (zp$AC),scaled_y+1"));
         assert!(formatted.contains("store.b global g2+0, a"));
         assert!(formatted.contains("store.b global g2+1, a"));
         assert!(!formatted.contains("store.b zp0"));
@@ -1755,11 +1755,11 @@ mod tests {
 
         let formatted = format_program(&mir);
         assert!(formatted.contains(
-            "materialize_indexed (zp$AC),y <- word(storage_addr_lo global g0+0, storage_addr_hi global g0+0) + a*2"
+            "materialize_indexed (zp$AC),scaled_y <- word(storage_addr_lo global g0+0, storage_addr_hi global g0+0) + a*2"
         ));
         assert!(formatted.contains("a =.b load global g1+0"));
-        assert!(formatted.contains("store_indirect (zp$AC),y+0 a"));
-        assert!(formatted.contains("store_indirect (zp$AC),y+1 a"));
+        assert!(formatted.contains("store_indirect (zp$AC),scaled_y+0 a"));
+        assert!(formatted.contains("store_indirect (zp$AC),scaled_y+1 a"));
         assert!(!formatted.contains("store.b zp0"));
         assert!(!formatted.contains("advance (zp$AC),y"));
         assert!(!formatted.contains("lea"));
