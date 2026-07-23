@@ -3,6 +3,7 @@
 use crate::mir6502::analysis::cfg::{MirCfg, MirCfgError};
 use crate::mir6502::analysis::home_liveness::MirHomeLiveness;
 use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
+use crate::mir6502::analysis::machine_values::MirMachineValueAvailability;
 use crate::mir6502::analysis::param_availability::MirParamRegisterAvailability;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirRoutineSnapshot};
 use crate::mir6502::ir::MirRoutine;
@@ -13,6 +14,7 @@ pub(in crate::mir6502) struct PostHomeAnalysisSnapshot<'a> {
     routine: MirRoutineSnapshot<'a>,
     home_liveness: MirHomeLiveness,
     machine_liveness: MirMachineLiveness,
+    machine_values: MirMachineValueAvailability,
     param_availability: MirParamRegisterAvailability,
 }
 
@@ -26,6 +28,7 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
         Ok(Self {
             home_liveness: MirHomeLiveness::analyze(routine, cfg),
             machine_liveness: MirMachineLiveness::analyze(routine, cfg),
+            machine_values: MirMachineValueAvailability::analyze(routine, cfg),
             param_availability: MirParamRegisterAvailability::analyze(routine, cfg),
             routine: routine_snapshot,
         })
@@ -45,6 +48,10 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
 
     pub(in crate::mir6502) fn machine_liveness(&self) -> &MirMachineLiveness {
         &self.machine_liveness
+    }
+
+    pub(in crate::mir6502) fn machine_values(&self) -> &MirMachineValueAvailability {
+        &self.machine_values
     }
 
     pub(in crate::mir6502) fn param_availability(&self) -> &MirParamRegisterAvailability {

@@ -3,6 +3,7 @@ pub(super) mod dominance;
 pub(super) mod effects;
 pub(super) mod home_liveness;
 pub(super) mod machine_liveness;
+pub(super) mod machine_values;
 pub(super) mod param_availability;
 pub(super) mod posthome;
 pub(super) mod prehome;
