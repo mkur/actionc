@@ -15,27 +15,27 @@ recommendation is corrected in place.
 Scope: `samples/tn/modern/TN.ACT`, modern profile, with the MIR6502 backend
 compared directionally with the modern/classic backend.
 
-## Current reanalysis after word/pointer carry-chain selection
+## Current reanalysis after edge-aware accumulator propagation
 
-Code-producing revision: `9aefe39` (`mir6502: select pointer carry chains into
-call homes`). Rechecked at `94560e5`; the generated artifacts remain
-byte-identical.
+Code-producing revision: `6fc70fb` (`mir6502: propagate accumulator values
+across CFG edges`).
 
-The MIR6502 load file is now 10,810 bytes. Modern/classic remains 10,445
-bytes, leaving a 365-byte gap, or 3.5 percent. Deferred local-array storage,
-logical-condition CFG lowering, and word/pointer carry-chain selection reduced
-the previous 11,554-byte result by 744 bytes in total.
+The MIR6502 load file is now 10,672 bytes. Modern/classic remains 10,445
+bytes, leaving a 227-byte gap, or 2.2 percent. Deferred local-array storage,
+logical-condition CFG lowering, word/pointer carry-chain selection, and
+edge-aware accumulator propagation reduced the previous 11,554-byte result by
+882 bytes in total.
 
 | Metric | MIR6502 | Modern/classic | Difference |
 | --- | ---: | ---: | ---: |
-| Load file | 10,810 | 10,445 | +365 |
-| Recognized instructions | 4,458 | 4,338 | +120 |
-| Recognized instruction bytes | 10,093 | 9,714 | +379 |
-| `LDA` + `STA` instructions | 2,216 | 1,910 | +306 |
-| `LDA` + `STA` instruction share | 49.7% | 44.0% | +5.7 points |
-| `JMP` | 161 | 158 | +3 |
+| Load file | 10,672 | 10,445 | +227 |
+| Recognized instructions | 4,418 | 4,338 | +80 |
+| Recognized instruction bytes | 9,963 | 9,714 | +249 |
+| `LDA` + `STA` instructions | 2,166 | 1,910 | +256 |
+| `LDA` + `STA` instruction share | 49.0% | 44.0% | +5.0 points |
+| `JMP` | 158 | 158 | 0 |
 | `JSR` | 369 | 368 | +1 |
-| Branch-over-`JMP` veneers | 30 | 28 | +2 |
+| Branch-over-`JMP` veneers | 29 | 28 | +1 |
 
 The listing-quality parser undercounts long `.BYTE` declarations and may
 interpret bytes in machine/data procedures as instructions. XEX sizes are
@@ -49,31 +49,31 @@ Current generated artifacts:
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
 | `TN-pre.mir` | 130,090 | `58f8a8488af6086e88e6652bdd7ee569fa7b7154d216f89850263b2e727e9207` |
-| `TN-materialized.mir` | 155,391 | `0e7ecc86222e0a6e94c66bd53370c7550ec4e0b9cd91aa8bc36c604fa9b8c243` |
-| `TN-mir6502.lst` | 142,983 | `052c7e0abc845b380288c3718824445efb4351015ba833062b49a33799a417a3` |
-| `TN-mir6502.map` | 10,967 | `daae1b2ba045cd8c79aaf34f94a3f1b9df95d01abe7a9155377fed07f7a20cec` |
-| `TN-mir6502.peepholes` | 275,722 | `797d95c885b12e471db4d4733b728972cf20cc69e8335d29f9a5cc9806332189` |
-| `TN-mir6502.quality` | 3,429 | `bea4453f7924b2aa726413270462e501c3c7f4b890605a8cdb0982d71d31e7e0` |
-| `TN-mir6502.xex` | 10,810 | `b5743cc1b2237d427ff7cf0a6c47241222cebf6d359029425848dc6e195e0797` |
+| `TN-materialized.mir` | 154,165 | `c3db55e9105c21661ae1beaa7094b611cdc6e80a031e12f07d0ead15fd0294e8` |
+| `TN-mir6502.lst` | 141,687 | `90b7b5bc208dec6a88a0ef3ef2fa59f555dba7a2154b3b7e842101549e3789b8` |
+| `TN-mir6502.map` | 10,967 | `d743b774c53aa0d6b2abb4b0310554be3f306a614ad55df191a80ecb4daf05b9` |
+| `TN-mir6502.peepholes` | 277,394 | `2f3d3afe532d31fc9aac0d44a888bcfb2472ac43ec053bc80c1e7575293a6c02` |
+| `TN-mir6502.quality` | 3,371 | `7a7d06643afe8947d1cf459e71af29bc51bddc328c7e9bda7cc5f5ecfb091ad3` |
+| `TN-mir6502.xex` | 10,672 | `8f3353a64b32eb9bc3cbc004602e81f8890bb4dd8d955c9ab460084afccdb021` |
 | `TN-classic.xex` | 10,445 | `3caefd677ab3d1489e39fcc0200126b442a15278b26a9cb5351434a1c8674f39` |
 
-For the post-carry-chain audit, routine instruction bytes were also counted
+For the current follow-up audit, routine instruction bytes were also counted
 independently while excluding embedded `.BYTE` data. This avoids making
 classic's inline routine storage look like executable code. The largest
 positive routine gaps are:
 
 | Routine | MIR6502 code bytes | Classic code bytes | Difference |
 | --- | ---: | ---: | ---: |
-| `Handle` | 918 | 819 | +99 |
+| `Handle` | 870 | 819 | +51 |
 | `Range` | 215 | 168 | +47 |
-| `SetWin` | 1,125 | 1,090 | +35 |
-| `PopUp` | 288 | 253 | +35 |
+| `PopUp` | 285 | 253 | +32 |
+| `SetWin` | 1,115 | 1,090 | +25 |
 | `Window` | 324 | 301 | +23 |
-| `Draw` | 158 | 136 | +22 |
-| `Copy` | 680 | 660 | +20 |
+| `Draw` | 156 | 136 | +20 |
 | `Next` | 48 | 30 | +18 |
 | `Fnamecmp` | 194 | 176 | +18 |
-| `Xloop` | 231 | 213 | +18 |
+| `Copy` | 674 | 660 | +14 |
+| `Xloop` | 227 | 213 | +14 |
 
 ### Current ranked opportunities
 
@@ -181,9 +181,9 @@ requires disjoint, non-interleaved producer groups. Home-demand telemetry drops
 from 77 to 66 cells: all eleven removed cells are virtual zero-page homes
 (58 to 47), while RAM homes remain at 19.
 
-#### 4. Propagate accumulator facts onto conditional fall-through edges
+#### 4. Propagate accumulator facts onto CFG edges — completed
 
-The current listing has exactly thirteen sequences shaped as:
+The preimplementation listing had exactly thirteen sequences shaped as:
 
 ```asm
 LDA value
@@ -202,6 +202,45 @@ This belongs in MIR6502's routine data-flow workflow: the useful fact is that
 the physical accumulator value survives a conditional branch on one specific
 edge. The rewrite must still use shared liveness and effect information rather
 than become a textual listing peephole.
+
+Implemented in two code slices. `503f0a6` adds a forward, must-agree physical
+accumulator analysis to the shared post-home snapshot. It propagates constants
+and direct-memory identities through safe operations and plain CFG edges,
+retains a join fact only when every reachable predecessor agrees, and
+conservatively clears the fact for calls, opaque effects, edge arguments,
+memory hazards, and operations whose final accumulator value is not modeled.
+`6fc70fb` exposes the fact through the rewrite proof facade and seeds the
+existing SSA-lite post-home transaction. Removing a reload still requires the
+shared machine-liveness proof that its N/Z result is unobservable.
+
+The general CFG analysis finds 49 removable reloads in fifteen routines, far
+more than the thirteen immediately adjacent textual shapes in the initial
+listing audit:
+
+| Routine | Reloads removed | Code bytes saved |
+| --- | ---: | ---: |
+| `InputLine` | 4 | 12 |
+| `PopUp` | 1 | 3 |
+| `Init` | 1 | 2 |
+| `Sort` | 4 | 8 |
+| `Path` | 1 | 2 |
+| `Draw` | 1 | 2 |
+| `TagAll` | 1 | 2 |
+| `SetWin` | 4 | 10 |
+| `GoTo` | 1 | 3 |
+| `Xloop` | 2 | 4 |
+| `Format` | 3 | 9 |
+| `NewDrive` | 5 | 18 |
+| `Attrib` | 3 | 9 |
+| `Copy` | 2 | 6 |
+| `Handle` | 16 | 48 |
+| Total | 49 | 138 |
+
+Most of the result is direct reload removal. `NewDrive` additionally loses one
+three-byte jump after the rewrite makes its intermediate block collapsible.
+The XEX falls exactly 138 bytes, from 10,810 to 10,672. Focused tests cover
+conditional edges, agreeing and disagreeing joins, physical-A materialization,
+memory writes, calls, and the live-flags blocker.
 
 #### 5. Finish `Range` pointer and indirect-compare selection
 
