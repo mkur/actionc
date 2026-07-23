@@ -1,6 +1,6 @@
 # TN MIR6502 listing reanalysis
 
-Date: 2026-07-22.
+Date: 2026-07-22. Last updated: 2026-07-23.
 
 Historical revision: `06e4f23` (`mir6502: elide unobserved public ABI shadow
 stores`). Reanalysis baseline revision: `43992fc` (`test: cover canonical
@@ -15,27 +15,27 @@ recommendation is corrected in place.
 Scope: `samples/tn/modern/TN.ACT`, modern profile, with the MIR6502 backend
 compared directionally with the modern/classic backend.
 
-## Current reanalysis after edge-aware accumulator propagation
+## Current reanalysis after addressed compares and pointer retention
 
-Code-producing revision: `6fc70fb` (`mir6502: propagate accumulator values
-across CFG edges`).
+Code-producing revision: `08631d9` (`mir6502: retain pointer values across CFG
+edges`), including `3116a5f` (`mir6502: select addressed byte comparisons`).
 
-The MIR6502 load file is now 10,672 bytes. Modern/classic remains 10,445
-bytes, leaving a 227-byte gap, or 2.2 percent. Deferred local-array storage,
+The MIR6502 load file is now 10,568 bytes. Modern/classic remains 10,445
+bytes, leaving a 123-byte gap, or 1.2 percent. Deferred local-array storage,
 logical-condition CFG lowering, word/pointer carry-chain selection, and
-edge-aware accumulator propagation reduced the previous 11,554-byte result by
-882 bytes in total.
+edge-aware accumulator propagation, addressed-byte comparison, and pointer
+retention reduced the previous 11,554-byte result by 986 bytes in total.
 
 | Metric | MIR6502 | Modern/classic | Difference |
 | --- | ---: | ---: | ---: |
-| Load file | 10,672 | 10,445 | +227 |
-| Recognized instructions | 4,418 | 4,338 | +80 |
-| Recognized instruction bytes | 9,963 | 9,714 | +249 |
-| `LDA` + `STA` instructions | 2,166 | 1,910 | +256 |
-| `LDA` + `STA` instruction share | 49.0% | 44.0% | +5.0 points |
-| `JMP` | 158 | 158 | 0 |
+| Load file | 10,568 | 10,445 | +123 |
+| Recognized instructions | 4,381 | 4,338 | +43 |
+| Recognized instruction bytes | 9,870 | 9,714 | +156 |
+| `LDA` + `STA` instructions | 2,124 | 1,910 | +214 |
+| `LDA` + `STA` instruction share | 48.5% | 44.0% | +4.5 points |
+| `JMP` | 160 | 158 | +2 |
 | `JSR` | 369 | 368 | +1 |
-| Branch-over-`JMP` veneers | 29 | 28 | +1 |
+| Branch-over-`JMP` veneers | 28 | 28 | 0 |
 
 The listing-quality parser undercounts long `.BYTE` declarations and may
 interpret bytes in machine/data procedures as instructions. XEX sizes are
@@ -49,12 +49,12 @@ Current generated artifacts:
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
 | `TN-pre.mir` | 130,090 | `58f8a8488af6086e88e6652bdd7ee569fa7b7154d216f89850263b2e727e9207` |
-| `TN-materialized.mir` | 154,165 | `c3db55e9105c21661ae1beaa7094b611cdc6e80a031e12f07d0ead15fd0294e8` |
-| `TN-mir6502.lst` | 141,687 | `90b7b5bc208dec6a88a0ef3ef2fa59f555dba7a2154b3b7e842101549e3789b8` |
-| `TN-mir6502.map` | 10,967 | `d743b774c53aa0d6b2abb4b0310554be3f306a614ad55df191a80ecb4daf05b9` |
-| `TN-mir6502.peepholes` | 277,394 | `2f3d3afe532d31fc9aac0d44a888bcfb2472ac43ec053bc80c1e7575293a6c02` |
-| `TN-mir6502.quality` | 3,371 | `7a7d06643afe8947d1cf459e71af29bc51bddc328c7e9bda7cc5f5ecfb091ad3` |
-| `TN-mir6502.xex` | 10,672 | `8f3353a64b32eb9bc3cbc004602e81f8890bb4dd8d955c9ab460084afccdb021` |
+| `TN-materialized.mir` | 153,067 | `35cf2f2cb565edaac28eae7267474ca541fa9b54a32ffc8e89d343e4aeeff76c` |
+| `TN-mir6502.lst` | 140,475 | `fe46d3862dd6f8f9ce2ab94013930e453b072c6817a1cd1857e7b7410da719fe` |
+| `TN-mir6502.map` | 10,967 | `d78875016712763fc3286caf48d92f22875bcfdac1979cbdc478fec73a6beb7f` |
+| `TN-mir6502.peepholes` | 274,969 | `eaa9266857b1da704810c11b7061cefdc2abe606163e22c35b2ae08907bfa360` |
+| `TN-mir6502.quality` | 3,284 | `5d986bfc4dbf6c0134e15011fff616762b6e079b9cbc3ac02c6a623c86faf5ad` |
+| `TN-mir6502.xex` | 10,568 | `090d4ab63ab513a846cb49c6e5f456e4fdf242e8fe3f1347b48efd03c96c8e4d` |
 | `TN-classic.xex` | 10,445 | `3caefd677ab3d1489e39fcc0200126b442a15278b26a9cb5351434a1c8674f39` |
 
 For the current follow-up audit, routine instruction bytes were also counted
@@ -65,15 +65,15 @@ positive routine gaps are:
 | Routine | MIR6502 code bytes | Classic code bytes | Difference |
 | --- | ---: | ---: | ---: |
 | `Handle` | 870 | 819 | +51 |
-| `Range` | 215 | 168 | +47 |
 | `PopUp` | 285 | 253 | +32 |
 | `SetWin` | 1,115 | 1,090 | +25 |
 | `Window` | 324 | 301 | +23 |
 | `Draw` | 156 | 136 | +20 |
 | `Next` | 48 | 30 | +18 |
-| `Fnamecmp` | 194 | 176 | +18 |
 | `Copy` | 674 | 660 | +14 |
 | `Xloop` | 227 | 213 | +14 |
+| `Strcpy` | 51 | 39 | +12 |
+| `MakeJmp` | 45 | 34 | +11 |
 
 ### Current ranked opportunities
 
@@ -242,22 +242,40 @@ The XEX falls exactly 138 bytes, from 10,810 to 10,672. Focused tests cover
 conditional edges, agreeing and disagreeing joins, physical-A materialization,
 memory writes, calls, and the live-flags blocker.
 
-#### 5. Finish `Range` pointer and indirect-compare selection
+#### 5. Finish `Range` pointer and indirect-compare selection — completed
 
-After excluding embedded parameter and storage bytes, `Range` is 47
-instruction bytes larger than classic. Telemetry reports two address-reuse
-candidates and four final ZP temp homes. Inspection identifies three related
-losses:
+Implemented in two slices:
 
-- the same pointer pair is rematerialized before two indirect
-  read/modify/write paths;
-- two indirect comparisons stage both operands through four ZP lanes instead
-  of comparing the loaded byte directly;
-- the known `Getchar` result is reloaded from `$A0` even though this particular
-  callee's exit state can prove that A already contains the result.
+1. `3116a5f` selects addressed byte values directly into A when their sole
+   consumer is a byte comparison. Shared use, liveness, and successor proofs
+   guard removal of the intermediate homes. This removed all four final
+   `Range` comparison lanes and reduced the XEX by 16 bytes, from 10,672 to
+   10,656.
+2. `08631d9` extends routine-wide machine-value availability with fixed
+   zero-page byte facts. The post-home rewrite can now remove an idempotent
+   pointer store only when both A and the destination byte are proven to hold
+   the same value. Joins require agreement, while calls, indirect writes,
+   machine blocks, runtime helpers, barriers, and potentially aliasing writes
+   invalidate the facts.
 
-Together these patterns account for approximately 30-40 bytes. Pointer
-retention must remain path-sensitive and calls or effects must invalidate it.
+The second slice removes 20 pointer-byte restages across six routines. Its
+before/after routine-range accounting is:
+
+| Routine | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| `Print` | 61 | 54 | 7 |
+| `Range` | 202 | 169 | 33 |
+| `Instr` | 68 | 61 | 7 |
+| `PrintFname` | 61 | 54 | 7 |
+| `Fnamecmp` | 197 | 177 | 20 |
+| `Convert` | 162 | 148 | 14 |
+| Total | 751 | 663 | 88 |
+
+The XEX consequently falls another 88 bytes, from 10,656 to 10,568. The
+independent final routine census places `Range` at 166 instruction bytes,
+two bytes smaller than classic's 168. The original 30-40-byte estimate covered
+only the inspected `Range` loss; generalizing pointer retention exposed the
+same safe pattern in five other routines.
 
 #### 6. Propagate proven known-callee exit state
 
@@ -293,17 +311,17 @@ include a directory-pointer copy, a selected `dirsectors` pointer, and the
 escape-path copy back into `currentDir`. Keeping source and destination in the
 two available private pointer pairs should remove several RAM/ZP
 store-and-reload groups. This is a roughly 20-30-byte opportunity within
-`Handle`'s 99-byte instruction gap.
+`Handle`'s current 51-byte instruction gap.
 
 #### 9. Extend multi-use value-location planning
 
-The final materialization census has 66 temp homes: 47 in zero page and 19 in
-RAM. It emits 50 ZP stores and 52 reloads, plus 25 RAM stores and 44 reloads.
+The final materialization census has 62 temp homes: 43 in zero page and 19 in
+RAM. It emits 46 ZP stores and 48 reloads, plus 25 RAM stores and 39 reloads.
 The encoded access traffic plus RAM backing occupies about 430 bytes, but this
 is a gross burden rather than an achievable saving: many values genuinely
 cross calls, joins, or register clobbers. The homes are concentrated in
-`SetWin` (16), `Handle` and `Sort` (five each), and `Window`, `Range`, `Draw`,
-and `Copy` (four each).
+`SetWin` (16), `Handle` and `Sort` (five each), and `Window`, `Draw`, and
+`Copy` (four each). `Range` no longer has a final temp home.
 
 After the structural work above, rerun the census and plan multi-use values
 against A, X, Y, pointer pairs, final ABI locations, and homes. Producer and
@@ -318,23 +336,24 @@ materialized or byte-split.
   logical lanes are eliminated.
 - Scaled `(zp),Y` selection applies at 30 sites. Only two distinct blocked
   sites remain (`MakeJmp`, flags live; `Handle`, home live).
-- There are 30 branch-over-`JMP` veneers, but none currently has a
+- There are 28 branch-over-`JMP` veneers, but none currently has a
   branch-reachable final target. Revisit placement after code-generating
   optimizations move boundaries.
 - Cross-routine RAM-home pooling has a maximum static backing benefit of 19
   bytes and does not remove access instructions. Home creation remains the
   higher priority.
-- Twenty-eight adjacent same-home `STA`/`LDA` pairs remain versus sixteen in
+- Twenty-one adjacent same-home `STA`/`LDA` pairs remain versus sixteen in
   classic. The excess is useful cleanup evidence, not a leading target.
 - Four `JSR; RTS` pairs remain in both backends and do not explain the gap.
 
-After the completed 458-byte deferred-storage, 242-byte logical-CFG, and
-44-byte word/pointer carry-chain results, the remaining gap is 365 bytes.
-Edge-aware accumulator propagation is now the best bounded first slice, with
-an exact 39-byte direct ceiling. `Range` pointer/compare selection,
-known-callee result-state propagation, residual carry chains, and dual-pointer
-word transfers form the next similarly sized slices. These estimates overlap
-in a few routines and must not be added as independent savings.
+The completed slices have removed 986 bytes from the 11,554-byte reanalysis
+baseline: 458 bytes from deferred storage, 242 from logical CFG lowering, 44
+from word/pointer carry-chain selection, 138 from edge-aware accumulator
+propagation, 16 from addressed-byte comparison, and 88 from pointer retention.
+The remaining gap is 123 bytes. Known-callee result-state propagation is now
+the best bounded next slice, followed by residual carry-chain selection and
+dual-pointer word transfers. These estimates overlap in a few routines and
+must not be added as independent savings.
 
 ## Previous reanalysis baseline after scaled-Y and ABI correction
 
