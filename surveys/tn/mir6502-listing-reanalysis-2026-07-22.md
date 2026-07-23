@@ -15,22 +15,23 @@ recommendation is corrected in place.
 Scope: `samples/tn/modern/TN.ACT`, modern profile, with the MIR6502 backend
 compared directionally with the modern/classic backend.
 
-## Current reanalysis after logical-condition CFG lowering
+## Current reanalysis after word/pointer carry-chain selection
 
-Measured revision: `ceecf13` (`nir: lower logical loop conditions to CFG`).
+Measured revision: `9aefe39` (`mir6502: select pointer carry chains into call
+homes`).
 
-The MIR6502 load file is now 10,854 bytes. Modern/classic remains 10,445
-bytes, leaving a 409-byte gap, or 3.9 percent. Deferred local-array storage and
-logical-condition CFG lowering reduced the previous 11,554-byte result by 700
-bytes in total.
+The MIR6502 load file is now 10,810 bytes. Modern/classic remains 10,445
+bytes, leaving a 365-byte gap, or 3.5 percent. Deferred local-array storage,
+logical-condition CFG lowering, and word/pointer carry-chain selection reduced
+the previous 11,554-byte result by 744 bytes in total.
 
 | Metric | MIR6502 | Modern/classic | Difference |
 | --- | ---: | ---: | ---: |
-| Load file | 10,854 | 10,445 | +409 |
-| Recognized instructions | 4,476 | 4,338 | +138 |
-| Recognized instruction bytes | 10,130 | 9,714 | +416 |
-| `LDA` + `STA` instructions | 2,246 | 1,910 | +336 |
-| `LDA` + `STA` instruction share | 50.2% | 44.0% | +6.2 points |
+| Load file | 10,810 | 10,445 | +365 |
+| Recognized instructions | 4,458 | 4,338 | +120 |
+| Recognized instruction bytes | 10,093 | 9,714 | +379 |
+| `LDA` + `STA` instructions | 2,216 | 1,910 | +306 |
+| `LDA` + `STA` instruction share | 49.7% | 44.0% | +5.7 points |
 | `JMP` | 161 | 158 | +3 |
 | `JSR` | 369 | 368 | +1 |
 | Branch-over-`JMP` veneers | 30 | 28 | +2 |
@@ -47,11 +48,12 @@ Current generated artifacts:
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
 | `TN-pre.mir` | 130,090 | `58f8a8488af6086e88e6652bdd7ee569fa7b7154d216f89850263b2e727e9207` |
-| `TN-materialized.mir` | 156,561 | `206b4d4a484faa1775f0f9599f2c52855690b456af04c0db8653e1feb45a0838` |
-| `TN-mir6502.lst` | 143,552 | `7f649cee52108afb2bad5b4ee3b6038d46998ebe2596fad4ad43f5168de81f3e` |
-| `TN-mir6502.map` | 10,967 | `d91ddcb8321fb42efa6bdc7943c08c7d4a8775b7482b509777e6c21b728dcf34` |
-| `TN-mir6502.peepholes` | 294,595 | `9f38447a6f1d26110a7fa8404720ce10cf1a45bf315b4f131bbe120410121359` |
-| `TN-mir6502.xex` | 10,854 | `55c6f65fb6a147f5f29081d5f6c1212103698bc07806dbbd91f2d4213e5625b5` |
+| `TN-materialized.mir` | 155,391 | `0e7ecc86222e0a6e94c66bd53370c7550ec4e0b9cd91aa8bc36c604fa9b8c243` |
+| `TN-mir6502.lst` | 142,983 | `052c7e0abc845b380288c3718824445efb4351015ba833062b49a33799a417a3` |
+| `TN-mir6502.map` | 10,967 | `daae1b2ba045cd8c79aaf34f94a3f1b9df95d01abe7a9155377fed07f7a20cec` |
+| `TN-mir6502.peepholes` | 275,722 | `797d95c885b12e471db4d4733b728972cf20cc69e8335d29f9a5cc9806332189` |
+| `TN-mir6502.quality` | 3,429 | `bea4453f7924b2aa726413270462e501c3c7f4b890605a8cdb0982d71d31e7e0` |
+| `TN-mir6502.xex` | 10,810 | `b5743cc1b2237d427ff7cf0a6c47241222cebf6d359029425848dc6e195e0797` |
 | `TN-classic.xex` | 10,445 | `3caefd677ab3d1489e39fcc0200126b442a15278b26a9cb5351434a1c8674f39` |
 
 ### Current ranked opportunities
@@ -127,18 +129,38 @@ spill labels fall from 26 to 17. The broader gain comes from lowering all
 eligible conditions, not only the initially counted `Handle` and `Copy`
 sequences, and from exposing direct branch layout plus dead homes.
 
-#### 3. Fuse word and pointer carry chains into final locations
+#### 3. Fuse word and pointer carry chains into final locations — completed
 
-`Key`, `Next`, and `Strcat` still build word intermediates in homes and then
-copy them into pointer pairs, return locations, or call argument locations.
-Their current matched-range differences are +27, +22, and +24 bytes
-respectively. Selecting the complete low/high carry chain into its final
-physical destination should recover approximately 75-80 bytes across this
-family.
+The initial listing showed `Key`, `Next`, and `Strcat` building word
+intermediates in homes before copying them into pointer pairs, return
+locations, or call argument locations. The implementation landed in three
+slices:
 
-This is the next MIR6502 instruction-selection extension after indexed
-word-plus-constant call arguments. It must preserve the low-to-high carry edge
-as one coupled operation rather than independently optimizing byte lanes.
+1. `a508645` selects a complete dereferenced-byte plus word carry chain before
+   generic pointer lowering and accumulates it in the private `$AC/$AD` pair.
+2. `4650686` extends the transaction through an immediately following
+   dereference, so `Key` reuses the updated `$AC/$AD` pointer.
+3. `9aefe39` preserves the same expression into canonical Action call
+   destinations. `$A0-$A2` are used only as compiler staging before A/X/Y are
+   loaded; they are not modeled as ABI shadow homes.
+
+| Routine | Before | After | Saving |
+| --- | ---: | ---: | ---: |
+| `Key` | 76 | 56 | 20 |
+| `Next` | 52 | 48 | 4 |
+| `Strcat` | 142 | 122 | 20 |
+| Total | 270 | 226 | 44 |
+
+The XEX therefore falls from 10,854 to 10,810 bytes, exactly matching the
+44-byte routine-range reduction. The initial 75-80-byte estimate incorrectly
+treated each routine's entire classic-backend gap as this one family; only 44
+bytes were attributable to removable carry-chain homes and staging.
+
+The selectors preserve the low-to-high carry as coupled operations and keep
+indirect reads in source order. Mixed call-argument selection additionally
+requires disjoint, non-interleaved producer groups. Home-demand telemetry drops
+from 77 to 66 cells: all eleven removed cells are virtual zero-page homes
+(58 to 47), while RAM homes remain at 19.
 
 #### 4. Retain prepared pointers and known result locations
 
@@ -186,10 +208,11 @@ materialized or byte-split.
   classic. The excess is useful cleanup evidence, not a leading target.
 - Four `JSR; RTS` pairs remain in both backends and do not explain the gap.
 
-After the completed 458-byte deferred-storage and 242-byte logical-CFG results,
-the remaining gap is 409 bytes. The word/pointer carry-chain opportunity is now
-the leading bounded target at roughly 75-80 bytes; all estimates should be
-remeasured against the new control-flow layout.
+After the completed 458-byte deferred-storage, 242-byte logical-CFG, and
+44-byte word/pointer carry-chain results, the remaining gap is 365 bytes.
+Prepared-pointer and known-result-location propagation is now the leading
+bounded target at roughly 40-50 bytes; all estimates should be remeasured
+against the new control-flow and home layout.
 
 ## Previous reanalysis baseline after scaled-Y and ABI correction
 
