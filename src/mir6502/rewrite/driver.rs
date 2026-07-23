@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::mir6502::analysis::effects::{
     MirFlagSet, MirHomeByte, MirMemoryRange, MirTempAccess, classify_op,
 };
+use crate::mir6502::analysis::known_callees::MirKnownCalleeSummaries;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
@@ -264,6 +265,23 @@ impl MirPostHomeRewriteDriver {
     pub(in crate::mir6502) fn run_fixed_point<Discover>(
         &mut self,
         routine: &mut MirRoutine,
+        discover: Discover,
+    ) -> Result<MirRewriteRunResult, MirRewriteError>
+    where
+        Discover:
+            FnMut(&MirRoutine, &PostHomeRewriteContext<'_, '_>) -> Vec<MirPostHomeRewritePlan>,
+    {
+        self.run_fixed_point_with_known_callees(
+            routine,
+            &MirKnownCalleeSummaries::default(),
+            discover,
+        )
+    }
+
+    pub(in crate::mir6502) fn run_fixed_point_with_known_callees<Discover>(
+        &mut self,
+        routine: &mut MirRoutine,
+        known_callees: &MirKnownCalleeSummaries,
         mut discover: Discover,
     ) -> Result<MirRewriteRunResult, MirRewriteError>
     where
@@ -273,8 +291,12 @@ impl MirPostHomeRewriteDriver {
         let mut result = MirRewriteRunResult::default();
         for _ in 0..self.max_rounds {
             result.rounds += 1;
-            let snapshot = PostHomeAnalysisSnapshot::new(routine, self.generation)
-                .map_err(|_| MirRewriteError::InvalidCfg)?;
+            let snapshot = PostHomeAnalysisSnapshot::new_with_known_callees(
+                routine,
+                self.generation,
+                known_callees,
+            )
+            .map_err(|_| MirRewriteError::InvalidCfg)?;
             result.analysis_builds += 1;
             let context = PostHomeRewriteContext::new(&snapshot);
             let plans = discover(routine, &context);

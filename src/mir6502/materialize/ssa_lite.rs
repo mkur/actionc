@@ -2980,6 +2980,11 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
             {
                 plans.push(plan);
             }
+            let known_callee_result_reload =
+                known_callee_result_reload_key(block, index, op, context, layout);
+            if let Some(value) = known_callee_result_reload.clone() {
+                env.set_reg_fact(MirReg::A, Some(value));
+            }
             let rewritten = ssa_lite_rewrite_byte_op(&env, op, layout);
             let loaded_reg_key = ssa_lite_loaded_reg_key(&rewritten, layout);
             let redundant = loaded_reg_key
@@ -2990,7 +2995,9 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
                     && loaded_reg_key
                         .as_ref()
                         .is_some_and(|(reg, key)| *reg == MirReg::A && Some(key) == env.a.as_ref());
-                let stat = if edge_accumulator_reload {
+                let stat = if known_callee_result_reload.is_some() {
+                    "known-callee-result-reload"
+                } else if edge_accumulator_reload {
                     "ssa-lite-edge-accumulator-reloads"
                 } else {
                     "ssa-lite-redundant-reloads"
@@ -3018,6 +3025,10 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
                     if edge_accumulator_reload {
                         plan.observations
                             .push(("ssa-lite-edge-accumulator-seeds", 1));
+                    }
+                    if known_callee_result_reload.is_some() {
+                        plan.observations
+                            .push(("known-callee-result-accumulator", 1));
                     }
                     plans.push(plan.clone());
                     continue;
@@ -3065,6 +3076,44 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
         }
     }
     plans
+}
+
+fn known_callee_result_reload_key(
+    block: &crate::mir6502::ir::MirBlock,
+    index: usize,
+    op: &MirOp,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Option<SsaLiteValueKey> {
+    let MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    } = op
+    else {
+        return None;
+    };
+    if !matches!(
+        index
+            .checked_sub(1)
+            .and_then(|previous| block.ops.get(previous)),
+        Some(MirOp::Call {
+            target: MirCallTarget::Routine(_),
+            ..
+        })
+    ) || !ssa_lite_mem_is_trackable(layout, mem)
+    {
+        return None;
+    }
+    let point = context.point(MirSite::Op {
+        block: block.id,
+        op_index: index,
+    });
+    let MirProof::Proven(value) = context.accumulator_value_at(point) else {
+        return None;
+    };
+    let value = ssa_lite_machine_value_key(value);
+    (value == SsaLiteValueKey::DirectMem(mem.clone())).then_some(value)
 }
 
 fn retained_pointer_store_plan(

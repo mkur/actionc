@@ -85,6 +85,7 @@ pub(in crate::mir6502) struct MirMachineValueAvailability {
 }
 
 impl MirMachineValueAvailability {
+    #[allow(dead_code)] // Default-summary analysis remains useful to focused tests and callers.
     pub(in crate::mir6502) fn analyze(routine: &MirRoutine, cfg: &MirCfg) -> Self {
         Self::analyze_with_known_callees(routine, cfg, &MirKnownCalleeSummaries::default())
     }

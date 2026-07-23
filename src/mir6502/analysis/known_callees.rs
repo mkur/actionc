@@ -345,7 +345,8 @@ fn summarize_straight_line_machine_block(
                     writes,
                 });
             }
-            0x60 | 0x40 | 0x4C | 0x6C | 0x10 | 0x30 | 0x50 | 0x70 | 0x90 | 0xB0 | 0xD0 | 0xF0 => {
+            0x00 | 0x60 | 0x40 | 0x4C | 0x6C | 0x10 | 0x30 | 0x50 | 0x70 | 0x90 | 0xB0 | 0xD0
+            | 0xF0 => {
                 return None;
             }
             0x20 => {
@@ -375,34 +376,37 @@ fn summarize_straight_line_machine_block(
                 writes.record(mem.clone());
                 accumulator = Some(MirMachineValue::DirectMem(mem));
             }
-            0x81 | 0x91 | 0x95 | 0x99 | 0x9D => writes.make_unknown(),
-            0x84 | 0x86 => {
-                writes.record(MirMem::FixedZeroPage(MirFixedZpSlot(operands.first()?.0?)));
+            0x81 | 0x91 | 0x95 | 0x99 | 0x9D => {
+                invalidate_accumulator_after_unknown_write(&mut accumulator);
+                writes.make_unknown();
             }
-            0x8C | 0x8E => writes.record(absolute_mem(known_u16(operands)?)),
-            0x94 | 0x96 => writes.make_unknown(),
+            0x84 | 0x86 => {
+                record_machine_write(
+                    &mut writes,
+                    &mut accumulator,
+                    MirMem::FixedZeroPage(MirFixedZpSlot(operands.first()?.0?)),
+                );
+            }
+            0x8C | 0x8E => record_machine_write(
+                &mut writes,
+                &mut accumulator,
+                absolute_mem(known_u16(operands)?),
+            ),
+            0x94 | 0x96 => {
+                invalidate_accumulator_after_unknown_write(&mut accumulator);
+                writes.make_unknown();
+            }
             0x06 | 0x26 | 0x46 | 0x66 | 0xC6 | 0xE6 => {
                 let mem = MirMem::FixedZeroPage(MirFixedZpSlot(operands.first()?.0?));
-                if accumulator
-                    .as_ref()
-                    .is_some_and(|value| value == &MirMachineValue::DirectMem(mem.clone()))
-                {
-                    accumulator = None;
-                }
-                writes.record(mem);
+                record_machine_write(&mut writes, &mut accumulator, mem);
             }
             0x0E | 0x2E | 0x4E | 0x6E | 0xCE | 0xEE => {
                 let mem = absolute_mem(known_u16(operands)?);
-                if accumulator
-                    .as_ref()
-                    .is_some_and(|value| value == &MirMachineValue::DirectMem(mem.clone()))
-                {
-                    accumulator = None;
-                }
-                writes.record(mem);
+                record_machine_write(&mut writes, &mut accumulator, mem);
             }
             0x16 | 0x1E | 0x36 | 0x3E | 0x56 | 0x5E | 0x76 | 0x7E | 0xD6 | 0xDE | 0xF6 | 0xFE => {
-                writes.make_unknown()
+                invalidate_accumulator_after_unknown_write(&mut accumulator);
+                writes.make_unknown();
             }
             opcode if opcode_changes_accumulator(opcode) => accumulator = None,
             _ => {}
@@ -422,10 +426,7 @@ fn flatten_machine_items(items: &[MirMachineItem]) -> Option<Vec<MachineByte>> {
                 bytes.push(MachineByte(Some((*value >> 8) as u8)));
             }
             MirMachineItem::CharLiteral(_) => bytes.push(MachineByte(None)),
-            MirMachineItem::Name(_) => {
-                bytes.push(MachineByte(None));
-                bytes.push(MachineByte(None));
-            }
+            MirMachineItem::Name(_) => return None,
             MirMachineItem::AddressExpr {
                 selector,
                 atom,
@@ -434,28 +435,47 @@ fn flatten_machine_items(items: &[MirMachineItem]) -> Option<Vec<MachineByte>> {
             } => {
                 let value = match atom {
                     MirMachineAtom::Number(value) => {
-                        Some(i64::from(*value).saturating_add(i64::from(*offset)) as u16)
+                        i64::from(*value).saturating_add(i64::from(*offset)) as u16
                     }
-                    MirMachineAtom::Name(_) | MirMachineAtom::Current => None,
+                    MirMachineAtom::Name(_) | MirMachineAtom::Current => return None,
                 };
                 match selector {
-                    Some(MirMachineByteSelector::Low) => {
-                        bytes.push(MachineByte(value.map(|value| value as u8)))
-                    }
+                    Some(MirMachineByteSelector::Low) => bytes.push(MachineByte(Some(value as u8))),
                     Some(MirMachineByteSelector::High) => {
-                        bytes.push(MachineByte(value.map(|value| (value >> 8) as u8)))
+                        bytes.push(MachineByte(Some((value >> 8) as u8)))
                     }
+                    None if value <= 0x00FF => bytes.push(MachineByte(Some(value as u8))),
                     None => {
-                        bytes.push(MachineByte(value.map(|value| value as u8)));
-                        bytes.push(MachineByte(value.map(|value| (value >> 8) as u8)));
+                        bytes.push(MachineByte(Some(value as u8)));
+                        bytes.push(MachineByte(Some((value >> 8) as u8)));
                     }
                 }
             }
-            MirMachineItem::AddressByte { .. } => bytes.push(MachineByte(None)),
+            MirMachineItem::AddressByte { .. } => return None,
             MirMachineItem::StringLiteral(_) => return None,
         }
     }
     Some(bytes)
+}
+
+fn record_machine_write(
+    writes: &mut MirKnownMemoryWrites,
+    accumulator: &mut Option<MirMachineValue>,
+    mem: MirMem,
+) {
+    if accumulator
+        .as_ref()
+        .is_some_and(|value| value == &MirMachineValue::DirectMem(mem.clone()))
+    {
+        *accumulator = None;
+    }
+    writes.record(mem);
+}
+
+fn invalidate_accumulator_after_unknown_write(accumulator: &mut Option<MirMachineValue>) {
+    if matches!(accumulator, Some(MirMachineValue::DirectMem(_))) {
+        *accumulator = None;
+    }
 }
 
 fn opcode_changes_accumulator(opcode: u8) -> bool {
@@ -737,6 +757,41 @@ mod tests {
             )))
         );
         assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xAC)));
+    }
+
+    #[test]
+    fn later_machine_write_invalidates_accumulator_memory_equality() {
+        let machine = MirMachineBlock {
+            id: MirMachineBlockId(0),
+            items: vec![
+                MirMachineItem::Byte(0xA9),
+                MirMachineItem::Byte(7),
+                MirMachineItem::Byte(0x85),
+                MirMachineItem::Byte(0xA0),
+                MirMachineItem::Byte(0xA2),
+                MirMachineItem::Byte(9),
+                MirMachineItem::Byte(0x86),
+                MirMachineItem::Byte(0xA0),
+                MirMachineItem::Byte(0x60),
+            ],
+        };
+        let summaries = MirKnownCalleeSummaries::analyze(&program(
+            vec![routine(
+                0,
+                vec![MirOp::MachineBlock {
+                    id: machine.id,
+                    effects: MirEffects::default(),
+                }],
+                MirTerminator::Unreachable,
+            )],
+            vec![machine],
+        ));
+        assert_eq!(
+            summaries
+                .get(RoutineId(0))
+                .and_then(|summary| summary.accumulator()),
+            None
+        );
     }
 
     #[test]

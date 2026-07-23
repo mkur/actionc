@@ -13078,6 +13078,106 @@ fn empty_test_program() -> MirProgram {
 }
 
 #[test]
+fn known_callee_exit_accumulator_elides_return_slot_reload() {
+    let return_slot = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+    let call = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: None,
+            clobbers: MirRegisterSet {
+                a: true,
+                x: true,
+                y: true,
+                flags: true,
+                sp: false,
+            },
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: None,
+        effects: MirEffects::default(),
+    };
+    let caller = MirRoutine {
+        id: RoutineId(0),
+        name: "Caller".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(0),
+            label: "caller".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                call,
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(return_slot.clone()),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let callee = MirRoutine {
+        id: RoutineId(1),
+        name: "Callee".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(1),
+            label: "callee".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: 7,
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(return_slot.clone()),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let mut program = empty_test_program();
+    program.routines = vec![caller, callee];
+
+    let materialized = materialize_program(program, &Mir6502Config::default(), 0x3000)
+        .expect("known callee materializes");
+    let caller_ops = &materialized.routines[0].blocks[0].ops;
+
+    assert!(matches!(caller_ops.first(), Some(MirOp::Call { .. })));
+    assert!(!caller_ops.iter().any(|op| matches!(
+        op,
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } if mem == &return_slot
+    )));
+    assert!(caller_ops.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }
+    )));
+}
+
+#[test]
 fn descriptor_lea_materializes_pointer_bytes_for_index_base() {
     let descriptor = MirMem::Local {
         id: LocalId(0),

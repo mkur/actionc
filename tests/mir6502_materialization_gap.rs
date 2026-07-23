@@ -35,15 +35,15 @@ fn local_scalar_symbol_initializer_aliases_global_storage() {
 }
 
 #[test]
-fn byte_return_values_materialize_through_public_return_slot() {
+fn byte_return_values_keep_public_slot_and_reuse_proven_accumulator() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("func_returns_byte.act");
 
     assert!(formatted.contains("store.b fixed_zp $A0, a"));
-    assert!(formatted.contains("a =.b load fixed_zp $A0"));
+    assert!(!formatted.contains("a =.b load fixed_zp $A0"));
     assert!(!formatted.contains("result=v"));
     assert!(!formatted.contains("spill sp"));
     assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0xA0]));
-    assert!(bytes.windows(2).any(|bytes| bytes == [0xA5, 0xA0]));
+    assert!(!bytes.windows(2).any(|bytes| bytes == [0xA5, 0xA0]));
 }
 
 #[test]

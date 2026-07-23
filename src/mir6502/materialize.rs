@@ -1,4 +1,5 @@
 use super::analysis::cfg::{MirCfg, MirCfgError};
+use super::analysis::known_callees::MirKnownCalleeSummaries;
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirBlockId, MirCallAbi, MirCallArg,
@@ -854,10 +855,11 @@ pub(super) fn materialize_program(
                 &layout,
             );
         }
-        run_posthome_structural_group(routine, &layout, config, &mut peephole_stats)?;
+        run_posthome_structural_group(routine, &layout, config, None, &mut peephole_stats)?;
         run_posthome_cleanup_group(
             routine,
             &layout,
+            None,
             None,
             home_fates.get_mut(&routine.id),
             &mut peephole_stats,
@@ -866,6 +868,7 @@ pub(super) fn materialize_program(
     for helper in helpers {
         ensure_helper_decl(&mut program, helper);
     }
+    let known_callees = MirKnownCalleeSummaries::analyze(&program);
     let layout = MaterializeLayout::new(&program, object_origin);
     for routine in &mut program.routines {
         for block in &mut routine.blocks {
@@ -876,11 +879,18 @@ pub(super) fn materialize_program(
                 &layout,
             );
         }
-        run_posthome_structural_group(routine, &layout, config, &mut peephole_stats)?;
+        run_posthome_structural_group(
+            routine,
+            &layout,
+            config,
+            Some(&known_callees),
+            &mut peephole_stats,
+        )?;
         run_posthome_cleanup_group(
             routine,
             &layout,
             Some(config),
+            Some(&known_callees),
             home_fates.get_mut(&routine.id),
             &mut peephole_stats,
         )?;
@@ -994,6 +1004,7 @@ fn run_posthome_structural_group(
     routine: &mut super::ir::MirRoutine,
     layout: &MaterializeLayout,
     config: &Mir6502Config,
+    known_callees: Option<&MirKnownCalleeSummaries>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     run_analyzed_param_home_reloads(routine, peephole_stats)?;
@@ -1014,7 +1025,7 @@ fn run_posthome_structural_group(
             fold_structural_before_cleanup_migrations(ops, routine.id, layout, peephole_stats);
     }
     run_analyzed_rhs_and_adjacent_reloads(routine, layout, peephole_stats)?;
-    run_analyzed_ssa_lite_byte_rewrites(routine, layout, false, peephole_stats)?;
+    run_analyzed_ssa_lite_byte_rewrites(routine, layout, false, known_callees, peephole_stats)?;
     run_analyzed_dead_private_scratch_stores(routine, peephole_stats)?;
     run_analyzed_dead_register_writes(routine, peephole_stats)?;
     for block in &mut routine.blocks {
@@ -1030,6 +1041,7 @@ fn run_posthome_cleanup_group(
     routine: &mut super::ir::MirRoutine,
     layout: &MaterializeLayout,
     terminator_config: Option<&Mir6502Config>,
+    known_callees: Option<&MirKnownCalleeSummaries>,
     mut home_fates: Option<&mut HomeFateTracker>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
@@ -1040,7 +1052,7 @@ fn run_posthome_cleanup_group(
             materialize_fused_compare_dest(block.id, &block.terminator, &mut block.ops);
         }
     }
-    run_analyzed_ssa_lite_byte_rewrites(routine, layout, true, peephole_stats)?;
+    run_analyzed_ssa_lite_byte_rewrites(routine, layout, true, known_callees, peephole_stats)?;
     remove_dead_spill_stores(routine);
     let remap = color_basic_block_spills(routine);
     if let Some(tracker) = home_fates.as_deref_mut() {
@@ -1161,19 +1173,27 @@ fn run_analyzed_ssa_lite_byte_rewrites(
     routine: &mut super::ir::MirRoutine,
     layout: &MaterializeLayout,
     allow_cross_block: bool,
+    known_callees: Option<&MirKnownCalleeSummaries>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let mut driver = MirPostHomeRewriteDriver::default();
-    let result = driver
-        .run_fixed_point(routine, |routine, context| {
+    let discover =
+        |routine: &super::ir::MirRoutine,
+         context: &crate::mir6502::rewrite::context::PostHomeRewriteContext<'_, '_>| {
             ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, layout, allow_cross_block)
-        })
-        .map_err(|error| {
-            vec![MirDiagnostic::routine(
-                &routine.name,
-                format!("post-home SSA-lite rewrite failed: {error:?}"),
-            )]
-        })?;
+        };
+    let result = match known_callees {
+        Some(known_callees) => {
+            driver.run_fixed_point_with_known_callees(routine, known_callees, discover)
+        }
+        None => driver.run_fixed_point(routine, discover),
+    }
+    .map_err(|error| {
+        vec![MirDiagnostic::routine(
+            &routine.name,
+            format!("post-home SSA-lite rewrite failed: {error:?}"),
+        )]
+    })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
     Ok(())
 }
