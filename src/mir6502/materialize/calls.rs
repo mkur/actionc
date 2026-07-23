@@ -19,7 +19,7 @@ use crate::mir6502::rewrite::plan::{
     MirChangeSet, MirEffectDelta, MirPostHomeRewritePlan, MirRemovedDefinition, MirRewritePlan,
 };
 use crate::mir6502::rewrite::posthome::structural_plan;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[cfg(test)]
 pub(super) fn fold_call_arg_producers(ops: Vec<MirOp>) -> Vec<MirOp> {
@@ -144,6 +144,16 @@ enum CallArgExpr {
     Value {
         value: MirValue,
         width: MirWidth,
+    },
+    IndirectByteLoad {
+        ptr: MirValue,
+        offset: u16,
+    },
+    PointerByteOffset {
+        base: MirValue,
+        load_offset: u16,
+        first_op: MirBinaryOp,
+        tail: Vec<(MirBinaryOp, u8)>,
     },
     IndexedWordLoad {
         addr: MirAddr,
@@ -394,9 +404,24 @@ fn collect_call_arg_expr_plan(
     layout: &MaterializeLayout,
 ) -> Option<CallArgExprPlan> {
     let mut exprs = BTreeMap::<MirTempId, CallArgExpr>::new();
+    let mut expr_dependencies = BTreeMap::<MirTempId, BTreeSet<MirTempId>>::new();
+    let mut producer_positions = BTreeMap::<MirTempId, usize>::new();
     let mut cursor = index;
     while let Some((temp, expr)) = call_arg_expr_producer(ops.get(cursor)?, &exprs, config, layout)
     {
+        let mut dependencies = BTreeSet::from([temp]);
+        for dependency in exprs.keys().copied() {
+            if op_uses_temp(&ops[cursor], dependency) {
+                dependencies.extend(
+                    expr_dependencies
+                        .get(&dependency)
+                        .into_iter()
+                        .flat_map(|dependencies| dependencies.iter().copied()),
+                );
+            }
+        }
+        expr_dependencies.insert(temp, dependencies);
+        producer_positions.insert(temp, cursor);
         exprs.insert(temp, expr);
         cursor += 1;
     }
@@ -469,6 +494,44 @@ fn collect_call_arg_expr_plan(
     if !saw_expr {
         return None;
     }
+    let raw_args = planned_args
+        .iter()
+        .map(|arg| match arg {
+            PlannedCallArg::Expr { width, home, .. } => MirCallArg {
+                value: MirValue::ConstU8(0),
+                width: *width,
+                home: home.clone(),
+            },
+            PlannedCallArg::Existing(arg) => arg.clone(),
+        })
+        .collect::<Vec<_>>();
+    if call_arg_expr_register_homes_supported(&raw_args)
+        && planned_args.len() != 1
+        && planned_args.iter().any(|arg| {
+            matches!(
+                arg,
+                PlannedCallArg::Expr {
+                    expr: CallArgExpr::IndirectByteLoad { .. }
+                        | CallArgExpr::PointerByteOffset { .. },
+                    ..
+                }
+            )
+        })
+    {
+        return None;
+    }
+    if !call_arg_expr_register_homes_supported(&raw_args) {
+        if !planned_call_args_use_action_staging(&planned_args)
+            || !staged_action_producer_order_supported(
+                args,
+                &exprs,
+                &expr_dependencies,
+                &producer_positions,
+            )
+        {
+            return None;
+        }
+    }
 
     Some(CallArgExprPlan {
         consumed: cursor + 1 - index,
@@ -479,6 +542,49 @@ fn collect_call_arg_expr_plan(
         result: result.clone(),
         effects: effects.clone(),
     })
+}
+
+fn staged_action_producer_order_supported(
+    args: &[MirCallArg],
+    exprs: &BTreeMap<MirTempId, CallArgExpr>,
+    dependencies: &BTreeMap<MirTempId, BTreeSet<MirTempId>>,
+    positions: &BTreeMap<MirTempId, usize>,
+) -> bool {
+    let mut used = BTreeSet::new();
+    let mut previous_end = None;
+    for arg in args {
+        let Some(root) = call_arg_expr_temp(&arg.value, arg.width) else {
+            return false;
+        };
+        let Some(argument_dependencies) = dependencies.get(&root) else {
+            return false;
+        };
+        if !used.is_disjoint(argument_dependencies) {
+            return false;
+        }
+        let Some(start) = argument_dependencies
+            .iter()
+            .filter_map(|temp| positions.get(temp))
+            .min()
+            .copied()
+        else {
+            return false;
+        };
+        let Some(end) = argument_dependencies
+            .iter()
+            .filter_map(|temp| positions.get(temp))
+            .max()
+            .copied()
+        else {
+            return false;
+        };
+        if previous_end.is_some_and(|previous| start <= previous) {
+            return false;
+        }
+        previous_end = Some(end);
+        used.extend(argument_dependencies.iter().copied());
+    }
+    used.len() == exprs.len()
 }
 
 fn call_arg_expr_producer(
@@ -526,6 +632,17 @@ fn call_arg_expr_producer(
         )),
         MirOp::Load {
             dst,
+            src: MirAddr::Deref { ptr, offset },
+            width: MirWidth::Byte,
+        } => Some((
+            split_def_as_temp(dst)?,
+            CallArgExpr::IndirectByteLoad {
+                ptr: call_arg_expr_value(ptr, exprs, layout)?,
+                offset: *offset,
+            },
+        )),
+        MirOp::Load {
+            dst,
             src,
             width: MirWidth::Word,
         } if indexed_addr_parts(src).is_some() => Some((
@@ -550,20 +667,102 @@ fn call_arg_expr_producer(
             carry_in,
             carry_out: MirCarryOut::Ignore,
         } if call_arg_expr_binary_is_supported(*op, *width, *carry_in, config) => {
-            Some((split_def_as_temp(dst)?, {
-                let left = call_arg_expr_operand(left, exprs, layout)?;
-                let right = call_arg_expr_operand(right, exprs, layout)?;
-                if !call_arg_expr_operands_supported(*op, *width, &left, &right) {
-                    return None;
-                }
-                CallArgExpr::Binary {
-                    op: *op,
-                    left: Box::new(left),
-                    right: Box::new(right),
-                    width: *width,
-                }
-            }))
+            let temp = split_def_as_temp(dst)?;
+            let left = call_arg_expr_operand(left, exprs, layout)?;
+            let right = call_arg_expr_operand(right, exprs, layout)?;
+            let expr =
+                if let Some(expr) = pointer_byte_offset_binary_expr(*op, *width, &left, &right) {
+                    expr
+                } else {
+                    if !call_arg_expr_operands_supported(*op, *width, &left, &right) {
+                        return None;
+                    }
+                    CallArgExpr::Binary {
+                        op: *op,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                        width: *width,
+                    }
+                };
+            Some((temp, expr))
         }
+        _ => None,
+    }
+}
+
+fn pointer_byte_offset_binary_expr(
+    op: MirBinaryOp,
+    width: MirWidth,
+    left: &CallArgExpr,
+    right: &CallArgExpr,
+) -> Option<CallArgExpr> {
+    if width != MirWidth::Word || !matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub) {
+        return None;
+    }
+    let first = |base: &CallArgExpr, addend: &CallArgExpr, first_op| {
+        let CallArgExpr::Value {
+            value: base,
+            width: MirWidth::Word,
+        } = base
+        else {
+            return None;
+        };
+        let CallArgExpr::IndirectByteLoad { ptr, offset } = addend else {
+            return None;
+        };
+        (ptr == base).then(|| CallArgExpr::PointerByteOffset {
+            base: base.clone(),
+            load_offset: *offset,
+            first_op,
+            tail: Vec::new(),
+        })
+    };
+    if let Some(expr) = first(left, right, op) {
+        return Some(expr);
+    }
+    if op == MirBinaryOp::Add
+        && let Some(expr) = first(right, left, op)
+    {
+        return Some(expr);
+    }
+
+    let (chain, constant) = match (op, left, right) {
+        (
+            MirBinaryOp::Add | MirBinaryOp::Sub,
+            chain @ CallArgExpr::PointerByteOffset { .. },
+            constant,
+        ) => (chain, call_arg_expr_byte_constant(constant)?),
+        (MirBinaryOp::Add, constant, chain @ CallArgExpr::PointerByteOffset { .. }) => {
+            (chain, call_arg_expr_byte_constant(constant)?)
+        }
+        _ => return None,
+    };
+    let CallArgExpr::PointerByteOffset {
+        base,
+        load_offset,
+        first_op,
+        tail,
+    } = chain
+    else {
+        unreachable!("matched pointer-byte offset expression")
+    };
+    let mut tail = tail.clone();
+    tail.push((op, constant));
+    Some(CallArgExpr::PointerByteOffset {
+        base: base.clone(),
+        load_offset: *load_offset,
+        first_op: *first_op,
+        tail,
+    })
+}
+
+fn call_arg_expr_byte_constant(expr: &CallArgExpr) -> Option<u8> {
+    let CallArgExpr::Value { value, .. } = expr else {
+        return None;
+    };
+    match value {
+        MirValue::ConstU8(value) => Some(*value),
+        MirValue::ConstU16(value) => u8::try_from(*value).ok(),
         _ => None,
     }
 }
@@ -661,6 +860,8 @@ fn call_arg_expr_constant(expr: &CallArgExpr) -> Option<u16> {
 fn call_arg_expr_can_materialize_byte(expr: &CallArgExpr) -> bool {
     match expr {
         CallArgExpr::Value { .. } => true,
+        CallArgExpr::IndirectByteLoad { .. } => true,
+        CallArgExpr::PointerByteOffset { .. } => false,
         CallArgExpr::IndexedWordLoad { .. } => false,
         CallArgExpr::Binary {
             op: MirBinaryOp::Add | MirBinaryOp::Sub,
@@ -732,7 +933,9 @@ fn call_arg_expr_value(
 fn expr_as_plain_value(expr: &CallArgExpr, layout: &MaterializeLayout) -> Option<MirValue> {
     match expr {
         CallArgExpr::Value { value, .. } => Some(value.clone()),
-        CallArgExpr::IndexedWordLoad { .. } => None,
+        CallArgExpr::IndirectByteLoad { .. }
+        | CallArgExpr::PointerByteOffset { .. }
+        | CallArgExpr::IndexedWordLoad { .. } => None,
         CallArgExpr::Binary { .. } => {
             let (lo, hi) = expr_word_byte_values(expr, layout)?;
             Some(MirValue::Word {
@@ -744,6 +947,10 @@ fn expr_as_plain_value(expr: &CallArgExpr, layout: &MaterializeLayout) -> Option
 }
 
 fn call_arg_expr_homes_supported(args: &[MirCallArg]) -> bool {
+    call_arg_expr_register_homes_supported(args) || canonical_action_arg_homes(args)
+}
+
+fn call_arg_expr_register_homes_supported(args: &[MirCallArg]) -> bool {
     let has_register_pair = args.iter().any(|arg| {
         matches!(
             arg.home,
@@ -764,12 +971,25 @@ fn call_arg_expr_homes_supported(args: &[MirCallArg]) -> bool {
     })
 }
 
+fn canonical_action_arg_homes(args: &[MirCallArg]) -> bool {
+    let mut offset = 0u16;
+    args.iter().all(|arg| {
+        let matches = arg.home == super::super::abi::action_arg_home(offset, arg.width);
+        offset = offset.saturating_add(super::super::abi::action_arg_width_bytes(arg.width));
+        matches
+    })
+}
+
 fn materialize_call_arg_expr_plan(
     plan: &CallArgExprPlan,
     layout: &MaterializeLayout,
     helpers: &mut Vec<MirRuntimeHelper>,
     out: &mut Vec<MirOp>,
 ) {
+    if planned_call_args_use_action_staging(&plan.args) {
+        materialize_staged_action_call_arg_expr_plan(plan, layout, helpers, out);
+        return;
+    }
     let target = materialize_call_target(plan.target.clone(), layout, out);
     for arg in &plan.args {
         if let Some(reg) = planned_call_arg_reg_home(arg)
@@ -823,6 +1043,340 @@ fn materialize_call_arg_expr_plan(
     }
 }
 
+fn planned_call_args_use_action_staging(args: &[PlannedCallArg]) -> bool {
+    let raw = args
+        .iter()
+        .map(|arg| match arg {
+            PlannedCallArg::Expr { width, home, .. } => MirCallArg {
+                value: MirValue::ConstU8(0),
+                width: *width,
+                home: home.clone(),
+            },
+            PlannedCallArg::Existing(arg) => arg.clone(),
+        })
+        .collect::<Vec<_>>();
+    let mut offset = 0u16;
+    !call_arg_expr_register_homes_supported(&raw)
+        && canonical_action_arg_homes(&raw)
+        && args.iter().any(|arg| {
+            matches!(
+                arg,
+                PlannedCallArg::Expr {
+                    expr: CallArgExpr::PointerByteOffset { .. },
+                    ..
+                }
+            )
+        })
+        && args.iter().all(|arg| match arg {
+            PlannedCallArg::Expr {
+                expr,
+                width,
+                home: _,
+            } => {
+                let supported = staged_action_expr_supported(expr, *width, offset);
+                offset = offset.saturating_add(super::super::abi::action_arg_width_bytes(*width));
+                supported
+            }
+            PlannedCallArg::Existing(_) => false,
+        })
+}
+
+fn staged_action_expr_supported(expr: &CallArgExpr, width: MirWidth, offset: u16) -> bool {
+    match (expr, width) {
+        (CallArgExpr::Value { .. }, _) => true,
+        (CallArgExpr::IndirectByteLoad { .. }, MirWidth::Byte) => true,
+        (CallArgExpr::PointerByteOffset { .. }, MirWidth::Word) => true,
+        (
+            CallArgExpr::Binary {
+                op: MirBinaryOp::Add | MirBinaryOp::Sub,
+                left,
+                right,
+                width: MirWidth::Word,
+            },
+            MirWidth::Word,
+        ) => {
+            let (
+                CallArgExpr::Value {
+                    value: left_value, ..
+                },
+                CallArgExpr::Value {
+                    value: right_value, ..
+                },
+            ) = (&**left, &**right)
+            else {
+                return false;
+            };
+            [
+                return_slot_mem(offset),
+                return_slot_mem(offset.saturating_add(1)),
+            ]
+            .iter()
+            .all(|target| {
+                !value_reads_mem(left_value, target) && !value_reads_mem(right_value, target)
+            })
+        }
+        _ => false,
+    }
+}
+
+fn materialize_staged_action_call_arg_expr_plan(
+    plan: &CallArgExprPlan,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) {
+    let target = materialize_call_target(plan.target.clone(), layout, out);
+    // $A0-$A2 are compiler staging here, not ABI shadow homes. The generated
+    // call still names the canonical Action homes (A, X, Y, then $A3+), and
+    // ordinary call lowering loads the register lanes immediately before it.
+    let mut offset = 0u16;
+    let mut byte_homes = Vec::new();
+    for arg in &plan.args {
+        let PlannedCallArg::Expr { expr, width, home } = arg else {
+            unreachable!("staged Action call plans contain only expressions")
+        };
+        materialize_expr_to_action_staging(expr, *width, offset, layout, helpers, out);
+        flatten_action_arg_home(home, *width, &mut byte_homes);
+        offset = offset.saturating_add(super::super::abi::action_arg_width_bytes(*width));
+    }
+
+    let args = byte_homes
+        .iter()
+        .enumerate()
+        .map(|(offset, home)| MirCallArg {
+            value: MirValue::PointerCell(return_slot_mem(offset as u16)),
+            width: MirWidth::Byte,
+            home: home.clone(),
+        })
+        .collect();
+    out.push(MirOp::Call {
+        target,
+        abi: MirCallAbi {
+            params: byte_homes,
+            result: None,
+            clobbers: plan.abi.clobbers,
+            preserves: plan.abi.preserves,
+        },
+        args,
+        result: None,
+        effects: plan.effects.clone(),
+    });
+    if let Some(result) = &plan.result {
+        materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
+    }
+}
+
+fn flatten_action_arg_home(home: &MirArgHome, width: MirWidth, out: &mut Vec<MirArgHome>) {
+    match (home, width) {
+        (MirArgHome::RegisterPair { lo, hi }, MirWidth::Word) => {
+            out.push(MirArgHome::Reg(*lo));
+            out.push(MirArgHome::Reg(*hi));
+        }
+        (MirArgHome::BytePair { lo, hi }, MirWidth::Word) => {
+            out.push((**lo).clone());
+            out.push((**hi).clone());
+        }
+        (MirArgHome::FixedZeroPage(slot), MirWidth::Word) => {
+            out.push(MirArgHome::FixedZeroPage(*slot));
+            out.push(MirArgHome::FixedZeroPage(MirFixedZpSlot(
+                slot.0.saturating_add(1),
+            )));
+        }
+        (_, MirWidth::Byte) => out.push(home.clone()),
+        _ => unreachable!("canonical Action argument has a byte-addressable home"),
+    }
+}
+
+fn materialize_expr_to_action_staging(
+    expr: &CallArgExpr,
+    width: MirWidth,
+    offset: u16,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) {
+    match (expr, width) {
+        (
+            CallArgExpr::IndirectByteLoad {
+                ptr,
+                offset: load_offset,
+            },
+            MirWidth::Byte,
+        ) => {
+            out.push(MirOp::MaterializeAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                value: ptr.clone(),
+            });
+            out.push(MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                dst: MirDef::Reg(MirReg::A),
+                offset: *load_offset,
+            });
+            materialize_call_arg_to_mem(
+                MirValue::Def(MirDef::Reg(MirReg::A)),
+                return_slot_mem(offset),
+                out,
+            );
+        }
+        (
+            CallArgExpr::PointerByteOffset {
+                base,
+                load_offset,
+                first_op,
+                tail,
+            },
+            MirWidth::Word,
+        ) => {
+            materialize_pointer_byte_offset_to_action_staging(
+                base,
+                *load_offset,
+                *first_op,
+                tail,
+                offset,
+                out,
+            );
+        }
+        (
+            CallArgExpr::Binary {
+                op,
+                left,
+                right,
+                width: MirWidth::Word,
+            },
+            MirWidth::Word,
+        ) => {
+            materialize_plain_word_binary_to_action_staging(*op, left, right, offset, layout, out);
+        }
+        (_, MirWidth::Byte) => {
+            materialize_expr_byte_to_reg(expr, MirReg::A, layout, out);
+            materialize_call_arg_to_mem(
+                MirValue::Def(MirDef::Reg(MirReg::A)),
+                return_slot_mem(offset),
+                out,
+            );
+        }
+        (_, MirWidth::Word) => {
+            materialize_expr_word_to_ax(expr, layout, helpers, out);
+            materialize_call_arg_to_mem(
+                MirValue::Def(MirDef::Reg(MirReg::A)),
+                return_slot_mem(offset),
+                out,
+            );
+            materialize_call_arg_to_mem(
+                MirValue::Def(MirDef::Reg(MirReg::X)),
+                return_slot_mem(offset.saturating_add(1)),
+                out,
+            );
+        }
+    }
+}
+
+fn materialize_pointer_byte_offset_to_action_staging(
+    base: &MirValue,
+    load_offset: u16,
+    first_op: MirBinaryOp,
+    tail: &[(MirBinaryOp, u8)],
+    offset: u16,
+    out: &mut Vec<MirOp>,
+) {
+    out.push(MirOp::MaterializeAddress {
+        consumer: DEFAULT_POINTER_PAIR,
+        value: base.clone(),
+    });
+    out.push(MirOp::LoadIndirect {
+        consumer: DEFAULT_POINTER_PAIR,
+        dst: MirDef::Reg(MirReg::A),
+        offset: load_offset,
+    });
+    let addend = MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_INDEX_SCRATCH_LO));
+    materialize_call_arg_to_mem(MirValue::Def(MirDef::Reg(MirReg::A)), addend.clone(), out);
+    let accumulator = MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO));
+    out.push(match first_op {
+        MirBinaryOp::Add => MirOp::AddByteToWordMem {
+            mem: accumulator.clone(),
+            value: MirValue::PointerCell(addend),
+        },
+        MirBinaryOp::Sub => MirOp::SubByteFromWordMem {
+            mem: accumulator.clone(),
+            value: MirValue::PointerCell(addend),
+        },
+        _ => unreachable!("pointer-byte offsets only support add/sub"),
+    });
+    for (op, value) in tail {
+        out.push(match op {
+            MirBinaryOp::Add => MirOp::AddByteToWordMem {
+                mem: accumulator.clone(),
+                value: MirValue::ConstU8(*value),
+            },
+            MirBinaryOp::Sub => MirOp::SubByteFromWordMem {
+                mem: accumulator.clone(),
+                value: MirValue::ConstU8(*value),
+            },
+            _ => unreachable!("pointer-byte offset tails only support add/sub"),
+        });
+    }
+    materialize_call_arg_to_mem(
+        MirValue::PointerCell(accumulator.clone()),
+        return_slot_mem(offset),
+        out,
+    );
+    materialize_call_arg_to_mem(
+        MirValue::PointerCell(offset_mem(&accumulator, 1)),
+        return_slot_mem(offset.saturating_add(1)),
+        out,
+    );
+}
+
+fn materialize_plain_word_binary_to_action_staging(
+    op: MirBinaryOp,
+    left: &CallArgExpr,
+    right: &CallArgExpr,
+    offset: u16,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) {
+    let Some((left_lo, right_lo)) = expr_binary_low_operands(left, right, layout) else {
+        return;
+    };
+    let Some((left_hi, right_hi)) = expr_binary_high_operands(left, right, layout) else {
+        return;
+    };
+    materialize_call_arg_to_reg(left_lo, MirReg::A, out);
+    out.push(MirOp::Binary {
+        op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: right_lo,
+        width: MirWidth::Byte,
+        carry_in: Some(match op {
+            MirBinaryOp::Add => MirCarryIn::Clear,
+            MirBinaryOp::Sub => MirCarryIn::Set,
+            _ => unreachable!("staged word expressions only support add/sub"),
+        }),
+        carry_out: MirCarryOut::Produce,
+    });
+    materialize_call_arg_to_mem(
+        MirValue::Def(MirDef::Reg(MirReg::A)),
+        return_slot_mem(offset),
+        out,
+    );
+    materialize_call_arg_to_reg(left_hi, MirReg::A, out);
+    out.push(MirOp::Binary {
+        op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: right_hi,
+        width: MirWidth::Byte,
+        carry_in: Some(MirCarryIn::FromPrevious),
+        carry_out: MirCarryOut::Ignore,
+    });
+    materialize_call_arg_to_mem(
+        MirValue::Def(MirDef::Reg(MirReg::A)),
+        return_slot_mem(offset.saturating_add(1)),
+        out,
+    );
+}
+
 fn planned_call_arg_reg_home(arg: &PlannedCallArg) -> Option<MirReg> {
     match arg {
         PlannedCallArg::Expr {
@@ -870,6 +1424,20 @@ fn materialize_expr_byte_to_reg(
     out: &mut Vec<MirOp>,
 ) {
     match expr {
+        CallArgExpr::IndirectByteLoad { ptr, offset } => {
+            out.push(MirOp::MaterializeAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                value: ptr.clone(),
+            });
+            out.push(MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                dst: MirDef::Reg(MirReg::A),
+                offset: *offset,
+            });
+            if reg != MirReg::A {
+                materialize_call_arg_to_reg(MirValue::Def(MirDef::Reg(MirReg::A)), reg, out);
+            }
+        }
         CallArgExpr::Binary {
             op,
             left,
@@ -918,6 +1486,23 @@ fn materialize_expr_word_to_ax(
     out: &mut Vec<MirOp>,
 ) {
     match expr {
+        CallArgExpr::PointerByteOffset {
+            base,
+            load_offset,
+            first_op,
+            tail,
+        } => {
+            materialize_pointer_byte_offset_to_action_staging(
+                base,
+                *load_offset,
+                *first_op,
+                tail,
+                0,
+                out,
+            );
+            materialize_call_arg_to_reg(MirValue::PointerCell(return_slot_mem(1)), MirReg::X, out);
+            materialize_call_arg_to_reg(MirValue::PointerCell(return_slot_mem(0)), MirReg::A, out);
+        }
         CallArgExpr::IndexedWordLoad { addr } => {
             let Some(parts) = indexed_addr_parts(addr) else {
                 return;
@@ -1203,7 +1788,9 @@ fn expr_word_byte_values(
             MirWidth::Byte => Some((value.clone(), MirValue::ConstU8(0))),
             MirWidth::Word => Some(split_value(value.clone(), layout)),
         },
-        CallArgExpr::IndexedWordLoad { .. } => None,
+        CallArgExpr::IndirectByteLoad { .. }
+        | CallArgExpr::PointerByteOffset { .. }
+        | CallArgExpr::IndexedWordLoad { .. } => None,
         CallArgExpr::Binary { .. } => None,
     }
 }
@@ -1860,6 +2447,9 @@ fn materialize_call_arg_to_reg(value: MirValue, reg: MirReg, out: &mut Vec<MirOp
 }
 
 fn materialize_call_arg_to_mem(value: MirValue, dst: MirMem, out: &mut Vec<MirOp>) {
+    if matches!(&value, MirValue::PointerCell(src) if src == &dst) {
+        return;
+    }
     let src = match value {
         MirValue::PointerCell(mem) => {
             out.push(MirOp::Load {

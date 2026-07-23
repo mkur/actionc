@@ -12769,6 +12769,215 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
     assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(22))));
 }
 
+fn pointer_byte_offset_mixed_call_ops(interleave_second_arg: bool) -> Vec<MirOp> {
+    let p0 = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let p1 = MirMem::Param {
+        id: ParamId(1),
+        offset: 0,
+    };
+    let mut ops = vec![
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(0)),
+            src: MirAddr::Direct(p0),
+            width: MirWidth::Word,
+        },
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(1)),
+            src: MirAddr::Deref {
+                ptr: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                offset: 0,
+            },
+            width: MirWidth::Byte,
+        },
+    ];
+    if interleave_second_arg {
+        ops.push(MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(4)),
+            src: MirAddr::Direct(p1.clone()),
+            width: MirWidth::Word,
+        });
+    }
+    ops.extend([
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::VTemp(MirTempId(2)),
+            left: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+            right: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::VTemp(MirTempId(3)),
+            left: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+            right: MirValue::ConstU16(1),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+    ]);
+    if !interleave_second_arg {
+        ops.push(MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(4)),
+            src: MirAddr::Direct(p1.clone()),
+            width: MirWidth::Word,
+        });
+    }
+    ops.extend([
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::VTemp(MirTempId(5)),
+            left: MirValue::Def(MirDef::VTemp(MirTempId(4))),
+            right: MirValue::ConstU16(1),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(6)),
+            src: MirAddr::Direct(p1),
+            width: MirWidth::Word,
+        },
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(7)),
+            src: MirAddr::Deref {
+                ptr: MirValue::Def(MirDef::VTemp(MirTempId(6))),
+                offset: 0,
+            },
+            width: MirWidth::Byte,
+        },
+        MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(7)),
+            abi: MirCallAbi {
+                params: vec![
+                    MirArgHome::RegisterPair {
+                        lo: MirReg::A,
+                        hi: MirReg::X,
+                    },
+                    MirArgHome::BytePair {
+                        lo: Box::new(MirArgHome::Reg(MirReg::Y)),
+                        hi: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3))),
+                    },
+                    MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA4)),
+                ],
+                result: None,
+                clobbers: MirRegisterSet::default(),
+                preserves: MirRegisterSet::default(),
+            },
+            args: vec![
+                MirCallArg {
+                    value: MirValue::Def(MirDef::VTemp(MirTempId(3))),
+                    width: MirWidth::Word,
+                    home: MirArgHome::RegisterPair {
+                        lo: MirReg::A,
+                        hi: MirReg::X,
+                    },
+                },
+                MirCallArg {
+                    value: MirValue::Def(MirDef::VTemp(MirTempId(5))),
+                    width: MirWidth::Word,
+                    home: MirArgHome::BytePair {
+                        lo: Box::new(MirArgHome::Reg(MirReg::Y)),
+                        hi: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3))),
+                    },
+                },
+                MirCallArg {
+                    value: MirValue::Def(MirDef::VTemp(MirTempId(7))),
+                    width: MirWidth::Byte,
+                    home: MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA4)),
+                },
+            ],
+            result: None,
+            effects: MirEffects::default(),
+        },
+    ]);
+    ops
+}
+
+#[test]
+fn call_arg_expr_stages_pointer_byte_offset_chain_in_canonical_action_homes() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = pointer_byte_offset_mixed_call_ops(false);
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::optimized(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(result.consumed, ops.len());
+    assert!(helpers.is_empty());
+    assert!((0..=7).all(|temp| out.iter().all(|op| !op_uses_temp(op, MirTempId(temp)))));
+    for offset in 0..=4 {
+        assert!(out.iter().any(|op| matches!(
+            op,
+            MirOp::Store {
+                dst: MirAddr::Direct(mem),
+                ..
+            } if *mem == return_slot_mem(offset)
+        )));
+    }
+    assert_eq!(
+        out.iter()
+            .filter(|op| matches!(op, MirOp::LoadIndirect { .. }))
+            .count(),
+        2
+    );
+    assert_eq!(
+        out.iter()
+            .filter(|op| matches!(op, MirOp::AddByteToWordMem { .. }))
+            .count(),
+        2
+    );
+    assert!(matches!(
+        out.last(),
+        Some(MirOp::Call { args, abi, .. })
+            if args.iter().enumerate().all(|(offset, arg)| {
+                arg.value == MirValue::PointerCell(return_slot_mem(offset as u16))
+            }) && abi.params == vec![
+                MirArgHome::Reg(MirReg::A),
+                MirArgHome::Reg(MirReg::X),
+                MirArgHome::Reg(MirReg::Y),
+                MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3)),
+                MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA4)),
+            ]
+    ));
+}
+
+#[test]
+fn call_arg_expr_keeps_interleaved_pointer_byte_offset_argument_producers() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = pointer_byte_offset_mixed_call_ops(true);
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::optimized(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(
+        result,
+        super::calls::CallArgExprMaterializeResult::default()
+    );
+    assert!(out.is_empty());
+}
+
 #[test]
 fn call_arg_expr_preserves_byte_mul_high_byte_for_word_arg() {
     let program = empty_test_program();
