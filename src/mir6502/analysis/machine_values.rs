@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};
 use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::classify_op;
+use crate::mir6502::analysis::known_callees::MirKnownCalleeSummaries;
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
     MirAddr, MirBlockId, MirCond, MirDef, MirFixedZpSlot, MirMem, MirMemoryEffect, MirOp, MirReg,
@@ -79,13 +80,29 @@ pub(in crate::mir6502) struct MirMachineValueAvailability {
     blocks: Vec<MirMachineValueBlock>,
     block_indices: BTreeMap<MirBlockId, usize>,
     ops: BTreeMap<MirBlockId, Vec<MirOp>>,
+    known_callees: MirKnownCalleeSummaries,
     evaluations: usize,
 }
 
 impl MirMachineValueAvailability {
     pub(in crate::mir6502) fn analyze(routine: &MirRoutine, cfg: &MirCfg) -> Self {
+        Self::analyze_with_known_callees(routine, cfg, &MirKnownCalleeSummaries::default())
+    }
+
+    pub(in crate::mir6502) fn analyze_with_known_callees(
+        routine: &MirRoutine,
+        cfg: &MirCfg,
+        known_callees: &MirKnownCalleeSummaries,
+    ) -> Self {
         let entry = cfg.entry();
-        let result = solve_dataflow(cfg, &MachineValueProblem { routine, entry });
+        let result = solve_dataflow(
+            cfg,
+            &MachineValueProblem {
+                routine,
+                entry,
+                known_callees,
+            },
+        );
         let block_indices = routine
             .blocks
             .iter()
@@ -115,6 +132,7 @@ impl MirMachineValueAvailability {
             blocks,
             block_indices,
             ops,
+            known_callees: known_callees.clone(),
             evaluations: result.evaluations(),
         }
     }
@@ -172,7 +190,7 @@ impl MirMachineValueAvailability {
             fixed_zero_page: facts.fixed_zero_page_in.clone(),
         };
         for op in &ops[..limit] {
-            apply_op(&mut state, op);
+            apply_op(&mut state, op, &self.known_callees);
         }
         Ok(state)
     }
@@ -186,6 +204,7 @@ impl MirMachineValueAvailability {
 struct MachineValueProblem<'a> {
     routine: &'a MirRoutine,
     entry: Option<MirBlockId>,
+    known_callees: &'a MirKnownCalleeSummaries,
 }
 
 impl DataflowProblem<MirCfg> for MachineValueProblem<'_> {
@@ -216,7 +235,7 @@ impl DataflowProblem<MirCfg> for MachineValueProblem<'_> {
         };
         let mut output = input.clone();
         for op in &block.ops {
-            apply_op(&mut output, op);
+            apply_op(&mut output, op, self.known_callees);
         }
         if !terminator_preserves_accumulator(&block.terminator) {
             output.a = None;
@@ -225,7 +244,7 @@ impl DataflowProblem<MirCfg> for MachineValueProblem<'_> {
     }
 }
 
-fn apply_op(state: &mut MirMachineValueState, op: &MirOp) {
+fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKnownCalleeSummaries) {
     if !state.reachable {
         return;
     }
@@ -244,7 +263,7 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp) {
         state.a = None;
     }
 
-    if let Some(value) = explicit_accumulator_result(op) {
+    if let Some(value) = explicit_accumulator_result(op, known_callees) {
         state.a = Some(value);
     } else if !operation_preserves_accumulator(op) {
         state.a = None;
@@ -464,7 +483,10 @@ fn operation_preserves_accumulator(op: &MirOp) -> bool {
     }
 }
 
-fn explicit_accumulator_result(op: &MirOp) -> Option<MirMachineValue> {
+fn explicit_accumulator_result(
+    op: &MirOp,
+    known_callees: &MirKnownCalleeSummaries,
+) -> Option<MirMachineValue> {
     match op {
         MirOp::LoadImm {
             dst: MirDef::Reg(MirReg::A),
@@ -491,6 +513,9 @@ fn explicit_accumulator_result(op: &MirOp) -> Option<MirMachineValue> {
             src: MirValue::PointerCell(mem),
             width: MirWidth::Byte,
         } => Some(MirMachineValue::DirectMem(mem.clone())),
+        MirOp::Call { target, .. } => known_callees
+            .for_target(target)
+            .and_then(|summary| summary.accumulator().cloned()),
         _ => None,
     }
 }
