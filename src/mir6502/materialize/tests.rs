@@ -8485,6 +8485,181 @@ fn analyzed_ssa_lite_keeps_edge_reload_when_its_flags_are_live() {
 }
 
 #[test]
+fn analyzed_ssa_lite_retains_pointer_pair_across_safe_branch_edge() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let low_source = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let high_source = MirMem::Param {
+        id: ParamId(0),
+        offset: 1,
+    };
+    let low_slot = MirFixedZpSlot(POINTER_SCRATCH_LO);
+    let high_slot = MirFixedZpSlot(POINTER_SCRATCH_HI);
+    let load_a = |mem| MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    };
+    let store_a = |slot| MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let stage_pointer = || {
+        vec![
+            load_a(low_source.clone()),
+            store_a(low_slot),
+            load_a(high_source.clone()),
+            store_a(high_slot),
+        ]
+    };
+    let compare = MirOp::Compare {
+        dst: MirCondDest::Flags,
+        op: MirCompareOp::Ne,
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(0),
+        width: MirWidth::Byte,
+        signed: false,
+    };
+    let mut entry_ops = stage_pointer();
+    entry_ops.push(MirOp::LoadIndirect {
+        consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+        dst: MirDef::Reg(MirReg::A),
+        offset: 0,
+    });
+    entry_ops.push(compare);
+    let mut successor_ops = stage_pointer();
+    successor_ops.push(MirOp::LoadIndirect {
+        consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+        dst: MirDef::Reg(MirReg::A),
+        offset: 0,
+    });
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: entry_ops,
+            terminator: MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZClear),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "update".to_string(),
+            params: Vec::new(),
+            ops: successor_ops,
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "done".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert_eq!(
+        result
+            .applied_by_stat
+            .get("ssa-lite-retained-pointer-store"),
+        Some(&2)
+    );
+    assert_eq!(result.estimated_bytes_saved, 4);
+    assert_eq!(
+        routine.blocks[1]
+            .ops
+            .iter()
+            .filter(|op| matches!(
+                op,
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+                    ..
+                } if *slot == low_slot || *slot == high_slot
+            ))
+            .count(),
+        0
+    );
+}
+
+#[test]
+fn analyzed_ssa_lite_does_not_retain_pointer_after_indirect_write() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let low_source = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let low_slot = MirFixedZpSlot(POINTER_SCRATCH_LO);
+    let load_source = || MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(low_source.clone()),
+        width: MirWidth::Byte,
+    };
+    let store_pointer = || MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(low_slot)),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                load_source(),
+                store_pointer(),
+                MirOp::StoreIndirect {
+                    consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    offset: 0,
+                },
+            ],
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "update".to_string(),
+            params: Vec::new(),
+            ops: vec![load_source(), store_pointer()],
+            terminator: MirTerminator::Return,
+        },
+    ]);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert_eq!(
+        result
+            .applied_by_stat
+            .get("ssa-lite-retained-pointer-store"),
+        None
+    );
+    assert!(matches!(
+        routine.blocks[1].ops.last(),
+        Some(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+            ..
+        }) if *slot == low_slot
+    ));
+}
+
+#[test]
 fn ssa_lite_keeps_x_reload_for_call_argument_staging() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

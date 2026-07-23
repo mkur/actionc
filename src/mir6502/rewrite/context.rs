@@ -82,6 +82,10 @@ pub(in crate::mir6502) enum MirProofBlocker {
     AccumulatorValueUnavailable {
         point: MirSite,
     },
+    FixedZeroPageValueUnavailable {
+        slot: MirFixedZpSlot,
+        point: MirSite,
+    },
     ParameterRegisterUnavailable {
         home: MirParamHomeByte,
         point: MirSite,
@@ -111,6 +115,7 @@ impl MirProofBlocker {
             Self::StackPointerLive { .. } => "stack-pointer-live",
             Self::FlagsLive { .. } => "flags-live",
             Self::AccumulatorValueUnavailable { .. } => "accumulator-value-unavailable",
+            Self::FixedZeroPageValueUnavailable { .. } => "fixed-zero-page-value-unavailable",
             Self::ParameterRegisterUnavailable { .. } => "parameter-register-unavailable",
             Self::UnsupportedPointerPair(_) => "unsupported-pointer-pair",
         }
@@ -468,6 +473,28 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
         match self.snapshot.machine_values().accumulator_at(point.site) {
             Ok(Some(value)) => MirProof::Proven(value),
             Ok(None) => MirProof::Blocked(MirProofBlocker::AccumulatorValueUnavailable {
+                point: point.site,
+            }),
+            Err(error) => MirProof::Blocked(MirProofBlocker::MachineValues(error)),
+        }
+    }
+
+    pub(in crate::mir6502) fn fixed_zero_page_value_at(
+        &self,
+        slot: MirFixedZpSlot,
+        point: MirProgramPoint,
+    ) -> MirProof<MirMachineValue> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        match self
+            .snapshot
+            .machine_values()
+            .fixed_zero_page_value_at(point.site, slot)
+        {
+            Ok(Some(value)) => MirProof::Proven(value),
+            Ok(None) => MirProof::Blocked(MirProofBlocker::FixedZeroPageValueUnavailable {
+                slot,
                 point: point.site,
             }),
             Err(error) => MirProof::Blocked(MirProofBlocker::MachineValues(error)),

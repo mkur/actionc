@@ -18,7 +18,7 @@ use crate::mir6502::ir::{
     RoutineId,
 };
 use crate::mir6502::rewrite::context::{MirExitStateChange, MirProof, PostHomeRewriteContext};
-use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
+use crate::mir6502::rewrite::plan::{MirChangeSet, MirPostHomeRewritePlan};
 use crate::mir6502::rewrite::posthome::structural_plan;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2975,6 +2975,11 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
         let mut accumulator_still_from_edge = edge_accumulator.is_some();
 
         for (index, op) in block.ops.iter().enumerate() {
+            if allow_cross_block
+                && let Some(plan) = retained_pointer_store_plan(block.id, index, op, context)
+            {
+                plans.push(plan);
+            }
             let rewritten = ssa_lite_rewrite_byte_op(&env, op, layout);
             let loaded_reg_key = ssa_lite_loaded_reg_key(&rewritten, layout);
             let redundant = loaded_reg_key
@@ -3060,6 +3065,55 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
         }
     }
     plans
+}
+
+fn retained_pointer_store_plan(
+    block: MirBlockId,
+    index: usize,
+    op: &MirOp,
+    context: &PostHomeRewriteContext<'_, '_>,
+) -> Option<MirPostHomeRewritePlan> {
+    let MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    } = op
+    else {
+        return None;
+    };
+    if !(super::DEST_POINTER_SCRATCH_LO..=super::POINTER_INDEX_SCRATCH_HI).contains(&slot.0) {
+        return None;
+    }
+    let point = context.point(MirSite::Op {
+        block,
+        op_index: index,
+    });
+    let MirProof::Proven(accumulator) = context.accumulator_value_at(point) else {
+        return None;
+    };
+    let MirProof::Proven(existing) = context.fixed_zero_page_value_at(*slot, point) else {
+        return None;
+    };
+    if accumulator != existing {
+        return None;
+    }
+
+    Some(MirPostHomeRewritePlan {
+        generation: context.generation(),
+        block,
+        range: index..index + 1,
+        replacement: Vec::new(),
+        // The preceding reaching definition remains in place and already holds
+        // the value proven above; no physical home definition disappears.
+        removed_homes: Vec::new(),
+        exit_state_change: MirExitStateChange::default(),
+        change_set: MirChangeSet::posthome_operation_change(),
+        stat: "ssa-lite-retained-pointer-store",
+        observations: vec![("ssa-lite-retained-pointer-byte", 1)],
+        family_priority: 0,
+        estimated_byte_saving: 2,
+        estimated_cycle_saving: 3,
+    })
 }
 
 #[cfg(test)]

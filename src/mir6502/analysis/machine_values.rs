@@ -5,8 +5,8 @@ use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::classify_op;
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
-    MirAddr, MirBlockId, MirCond, MirDef, MirMem, MirMemoryEffect, MirOp, MirReg, MirRoutine,
-    MirTerminator, MirValue, MirWidth,
+    MirAddr, MirBlockId, MirCond, MirDef, MirFixedZpSlot, MirMem, MirMemoryEffect, MirOp, MirReg,
+    MirRoutine, MirTerminator, MirValue, MirWidth,
 };
 
 /// A value known to occupy a physical 6502 register. The domain starts with
@@ -22,6 +22,7 @@ pub(in crate::mir6502) enum MirMachineValue {
 struct MirMachineValueState {
     reachable: bool,
     a: Option<MirMachineValue>,
+    fixed_zero_page: BTreeMap<MirFixedZpSlot, MirMachineValue>,
 }
 
 impl MirMachineValueState {
@@ -29,6 +30,7 @@ impl MirMachineValueState {
         Self {
             reachable: true,
             a: None,
+            fixed_zero_page: BTreeMap::new(),
         }
     }
 
@@ -43,6 +45,8 @@ impl MirMachineValueState {
         if self.a != other.a {
             self.a = None;
         }
+        self.fixed_zero_page
+            .retain(|slot, value| other.fixed_zero_page.get(slot) == Some(value));
     }
 }
 
@@ -51,6 +55,7 @@ pub(in crate::mir6502) struct MirMachineValueBlock {
     pub accumulator_in: Option<MirMachineValue>,
     pub accumulator_out: Option<MirMachineValue>,
     pub reachable: bool,
+    fixed_zero_page_in: BTreeMap<MirFixedZpSlot, MirMachineValue>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,6 +102,7 @@ impl MirMachineValueAvailability {
                     accumulator_in: input.a,
                     accumulator_out: output.a,
                     reachable: input.reachable,
+                    fixed_zero_page_in: input.fixed_zero_page,
                 }
             })
             .collect();
@@ -126,6 +132,18 @@ impl MirMachineValueAvailability {
         &self,
         site: MirSite,
     ) -> Result<Option<MirMachineValue>, MirMachineValueError> {
+        Ok(self.state_at(site)?.a)
+    }
+
+    pub(in crate::mir6502) fn fixed_zero_page_value_at(
+        &self,
+        site: MirSite,
+        slot: MirFixedZpSlot,
+    ) -> Result<Option<MirMachineValue>, MirMachineValueError> {
+        Ok(self.state_at(site)?.fixed_zero_page.get(&slot).cloned())
+    }
+
+    fn state_at(&self, site: MirSite) -> Result<MirMachineValueState, MirMachineValueError> {
         let block = site.block();
         let facts = self
             .block_by_id(block)
@@ -151,11 +169,12 @@ impl MirMachineValueAvailability {
         let mut state = MirMachineValueState {
             reachable: facts.reachable,
             a: facts.accumulator_in.clone(),
+            fixed_zero_page: facts.fixed_zero_page_in.clone(),
         };
         for op in &ops[..limit] {
             apply_op(&mut state, op);
         }
-        Ok(state.a)
+        Ok(state)
     }
 
     #[cfg(test)]
@@ -211,6 +230,9 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp) {
         return;
     }
 
+    let accumulator_before = state.a.clone();
+    update_fixed_zero_page_values(state, op, accumulator_before.as_ref());
+
     let effects = classify_op(op);
     let writes_memory = !effects.memory.direct_writes.is_empty()
         || effects.memory.indirect_writes
@@ -235,6 +257,180 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp) {
     } = op
     {
         state.a = Some(MirMachineValue::DirectMem(mem.clone()));
+    }
+}
+
+fn update_fixed_zero_page_values(
+    state: &mut MirMachineValueState,
+    op: &MirOp,
+    accumulator_before: Option<&MirMachineValue>,
+) {
+    match op {
+        MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            src,
+            width: MirWidth::Byte,
+        } => {
+            invalidate_fixed_zero_page_value_dependencies(state, mem);
+            let Some(slot) = fixed_zero_page_slot(mem) else {
+                return;
+            };
+            state.fixed_zero_page.remove(&slot);
+            if let Some(value) = stored_machine_value(src, accumulator_before) {
+                state.fixed_zero_page.insert(slot, value);
+            }
+        }
+        MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            width: MirWidth::Word,
+            ..
+        }
+        | MirOp::UpdateMem {
+            mem,
+            width: MirWidth::Word,
+            ..
+        }
+        | MirOp::AddByteToWordMem { mem, .. }
+        | MirOp::SubByteFromWordMem { mem, .. } => {
+            invalidate_fixed_zero_page_value_dependencies(state, mem);
+            invalidate_fixed_zero_page_value_dependencies(state, &offset_mem(mem, 1));
+            remove_fixed_zero_page_slot(state, mem);
+            remove_fixed_zero_page_slot(state, &offset_mem(mem, 1));
+        }
+        MirOp::UpdateMem { mem, .. } => {
+            invalidate_fixed_zero_page_value_dependencies(state, mem);
+            remove_fixed_zero_page_slot(state, mem);
+        }
+        MirOp::Store { .. }
+        | MirOp::UpdateIndexedMem { .. }
+        | MirOp::StoreIndirect { .. }
+        | MirOp::IndirectByteCompound { .. }
+        | MirOp::Call { .. }
+        | MirOp::RuntimeHelper { .. }
+        | MirOp::Barrier { .. }
+        | MirOp::MachineBlock { .. } => state.fixed_zero_page.clear(),
+        MirOp::MaterializeAddress { consumer, .. }
+        | MirOp::MaterializeIndexedAddress { consumer, .. }
+        | MirOp::AdvanceAddress { consumer, .. } => {
+            let crate::mir6502::ir::MirPointerPair::Fixed { lo } = consumer.pointer_pair() else {
+                return;
+            };
+            state.fixed_zero_page.remove(&lo);
+            state
+                .fixed_zero_page
+                .remove(&MirFixedZpSlot(lo.0.saturating_add(1)));
+        }
+        MirOp::LoadImm { .. }
+        | MirOp::Load { .. }
+        | MirOp::Move { .. }
+        | MirOp::LeaAddr { .. }
+        | MirOp::Extend { .. }
+        | MirOp::Truncate { .. }
+        | MirOp::Unary { .. }
+        | MirOp::Binary { .. }
+        | MirOp::Compare { .. }
+        | MirOp::CompareIndirectBytes { .. }
+        | MirOp::LoadIndirect { .. } => {}
+    }
+}
+
+fn stored_machine_value(
+    value: &MirValue,
+    accumulator_before: Option<&MirMachineValue>,
+) -> Option<MirMachineValue> {
+    match value {
+        MirValue::Def(MirDef::Reg(MirReg::A)) => accumulator_before.cloned(),
+        MirValue::ConstU8(value) => Some(MirMachineValue::ConstU8(*value)),
+        MirValue::ConstU16(value) => u8::try_from(*value).ok().map(MirMachineValue::ConstU8),
+        MirValue::PointerCell(mem) => Some(MirMachineValue::DirectMem(mem.clone())),
+        _ => None,
+    }
+}
+
+fn invalidate_fixed_zero_page_value_dependencies(
+    state: &mut MirMachineValueState,
+    written: &MirMem,
+) {
+    if !matches!(
+        written,
+        MirMem::FixedZeroPage(_) | MirMem::Spill { .. } | MirMem::ZeroPage(_)
+    ) {
+        // Without final layout, distinct named/absolute storage identities can
+        // still be aliases. Preserve only facts independent of memory.
+        state
+            .fixed_zero_page
+            .retain(|_, value| matches!(value, MirMachineValue::ConstU8(_)));
+        return;
+    }
+    state.fixed_zero_page.retain(|_, value| {
+        !matches!(value, MirMachineValue::DirectMem(source) if mems_may_be_same(source, written))
+    });
+}
+
+fn remove_fixed_zero_page_slot(state: &mut MirMachineValueState, mem: &MirMem) {
+    if let Some(slot) = fixed_zero_page_slot(mem) {
+        state.fixed_zero_page.remove(&slot);
+    }
+}
+
+fn fixed_zero_page_slot(mem: &MirMem) -> Option<MirFixedZpSlot> {
+    match mem {
+        MirMem::FixedZeroPage(slot) => Some(*slot),
+        MirMem::Absolute(address) => u8::try_from(*address).ok().map(MirFixedZpSlot),
+        _ => None,
+    }
+}
+
+fn mems_may_be_same(left: &MirMem, right: &MirMem) -> bool {
+    left == right
+        || fixed_zero_page_slot(left)
+            .zip(fixed_zero_page_slot(right))
+            .is_some_and(|(left, right)| left == right)
+}
+
+fn offset_mem(mem: &MirMem, offset: u16) -> MirMem {
+    match mem {
+        MirMem::Absolute(address) => MirMem::Absolute(address.saturating_add(offset)),
+        MirMem::Static {
+            id,
+            offset: current,
+        } => MirMem::Static {
+            id: *id,
+            offset: current.saturating_add(offset),
+        },
+        MirMem::Global {
+            id,
+            offset: current,
+        } => MirMem::Global {
+            id: *id,
+            offset: current.saturating_add(offset),
+        },
+        MirMem::Local {
+            id,
+            offset: current,
+        } => MirMem::Local {
+            id: *id,
+            offset: current.saturating_add(offset),
+        },
+        MirMem::Param {
+            id,
+            offset: current,
+        } => MirMem::Param {
+            id: *id,
+            offset: current.saturating_add(offset),
+        },
+        MirMem::Spill {
+            id,
+            offset: current,
+        } => MirMem::Spill {
+            id: *id,
+            offset: current.saturating_add(offset),
+        },
+        MirMem::ZeroPage(slot) => MirMem::ZeroPage(*slot),
+        MirMem::FixedZeroPage(slot) => MirMem::FixedZeroPage(MirFixedZpSlot(
+            slot.0
+                .saturating_add(u8::try_from(offset).unwrap_or(u8::MAX)),
+        )),
     }
 }
 
@@ -341,6 +537,14 @@ mod tests {
         }
     }
 
+    fn store_a(mem: MirMem) -> MirOp {
+        MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }
+    }
+
     fn block(id: u32, ops: Vec<MirOp>, terminator: MirTerminator) -> MirBlock {
         MirBlock {
             id: MirBlockId(id),
@@ -428,6 +632,130 @@ mod tests {
                 block: MirBlockId(3)
             }),
             Ok(None)
+        );
+    }
+
+    #[test]
+    fn fixed_pointer_values_flow_across_conditional_edges() {
+        let low_source = spill(1);
+        let high_source = spill(2);
+        let low_slot = MirFixedZpSlot(0xAC);
+        let high_slot = MirFixedZpSlot(0xAD);
+        let routine = routine(vec![
+            block(
+                0,
+                vec![
+                    load_a(low_source.clone()),
+                    store_a(MirMem::FixedZeroPage(low_slot)),
+                    load_a(high_source.clone()),
+                    store_a(MirMem::FixedZeroPage(high_slot)),
+                    MirOp::Compare {
+                        dst: crate::mir6502::ir::MirCondDest::Flags,
+                        op: crate::mir6502::ir::MirCompareOp::Eq,
+                        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        right: MirValue::ConstU8(0),
+                        width: MirWidth::Byte,
+                        signed: false,
+                    },
+                ],
+                branch(1, 2),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+            block(2, Vec::new(), MirTerminator::Return),
+        ]);
+        let values = analyze(&routine);
+
+        for block in [MirBlockId(1), MirBlockId(2)] {
+            assert_eq!(
+                values.fixed_zero_page_value_at(MirSite::BlockEntry { block }, low_slot,),
+                Ok(Some(MirMachineValue::DirectMem(low_source.clone())))
+            );
+            assert_eq!(
+                values.fixed_zero_page_value_at(MirSite::BlockEntry { block }, high_slot,),
+                Ok(Some(MirMachineValue::DirectMem(high_source.clone())))
+            );
+        }
+    }
+
+    #[test]
+    fn possible_indirect_write_kills_fixed_pointer_values() {
+        let low_slot = MirFixedZpSlot(0xAC);
+        let pointer = crate::mir6502::ir::MirAddressConsumer::IndirectIndexedY(
+            crate::mir6502::ir::MirPointerPair::Fixed { lo: low_slot },
+        );
+        let routine = routine(vec![
+            block(
+                0,
+                vec![
+                    load_a(spill(1)),
+                    store_a(MirMem::FixedZeroPage(low_slot)),
+                    MirOp::StoreIndirect {
+                        consumer: pointer,
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        offset: 0,
+                    },
+                ],
+                MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+        ]);
+        let values = analyze(&routine);
+
+        assert_eq!(
+            values.fixed_zero_page_value_at(
+                MirSite::BlockEntry {
+                    block: MirBlockId(1),
+                },
+                low_slot,
+            ),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn direct_source_write_invalidates_only_dependent_pointer_byte() {
+        let low_source = spill(1);
+        let high_source = spill(2);
+        let low_slot = MirFixedZpSlot(0xAC);
+        let high_slot = MirFixedZpSlot(0xAD);
+        let routine = routine(vec![
+            block(
+                0,
+                vec![
+                    load_a(low_source.clone()),
+                    store_a(MirMem::FixedZeroPage(low_slot)),
+                    load_a(high_source.clone()),
+                    store_a(MirMem::FixedZeroPage(high_slot)),
+                    MirOp::LoadImm {
+                        dst: MirDef::Reg(MirReg::A),
+                        value: 7,
+                        width: MirWidth::Byte,
+                    },
+                    store_a(low_source),
+                ],
+                MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+        ]);
+        let values = analyze(&routine);
+
+        assert_eq!(
+            values.fixed_zero_page_value_at(
+                MirSite::BlockEntry {
+                    block: MirBlockId(1),
+                },
+                low_slot,
+            ),
+            Ok(None)
+        );
+        assert_eq!(
+            values.fixed_zero_page_value_at(
+                MirSite::BlockEntry {
+                    block: MirBlockId(1),
+                },
+                high_slot,
+            ),
+            Ok(Some(MirMachineValue::DirectMem(high_source)))
         );
     }
 
