@@ -991,6 +991,7 @@ pub(super) fn select_word_carry_chain_store_consumer(
     {
         return 0;
     }
+    let followup = word_carry_chain_deref_store(ops, cursor + 1, result_temp);
 
     let source_value = pointer_value_from_mem(base_mem);
     out.push(MirOp::MaterializeAddress {
@@ -1036,7 +1037,51 @@ pub(super) fn select_word_carry_chain_store_consumer(
         layout,
         out,
     );
-    cursor + 1 - index
+    if let Some((offset, followup_target)) = &followup {
+        out.push(MirOp::LoadIndirect {
+            consumer: DEFAULT_POINTER_PAIR,
+            dst: MirDef::Reg(MirReg::A),
+            offset: *offset,
+        });
+        out.push(MirOp::Store {
+            dst: MirAddr::Direct(followup_target.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        });
+    }
+    cursor + 1 + usize::from(followup.is_some()) * 2 - index
+}
+
+fn word_carry_chain_deref_store(
+    ops: &[MirOp],
+    index: usize,
+    pointer_temp: MirTempId,
+) -> Option<(u16, MirMem)> {
+    let MirOp::Load {
+        dst,
+        src:
+            MirAddr::Deref {
+                ptr: MirValue::Def(MirDef::VTemp(ptr)),
+                offset,
+            },
+        width: MirWidth::Byte,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    if *ptr != pointer_temp {
+        return None;
+    }
+    let value_temp = split_def_as_temp(dst)?;
+    let MirOp::Store {
+        dst: MirAddr::Direct(target),
+        src: MirValue::Def(src),
+        width: MirWidth::Byte,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    (split_def_as_temp(src) == Some(value_temp)).then(|| (*offset, target.clone()))
 }
 
 fn word_carry_chain_tail_value(value: &MirValue) -> bool {
