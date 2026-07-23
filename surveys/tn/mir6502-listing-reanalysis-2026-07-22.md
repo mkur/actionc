@@ -17,8 +17,9 @@ compared directionally with the modern/classic backend.
 
 ## Current reanalysis after word/pointer carry-chain selection
 
-Measured revision: `9aefe39` (`mir6502: select pointer carry chains into call
-homes`).
+Code-producing revision: `9aefe39` (`mir6502: select pointer carry chains into
+call homes`). Rechecked at `94560e5`; the generated artifacts remain
+byte-identical.
 
 The MIR6502 load file is now 10,810 bytes. Modern/classic remains 10,445
 bytes, leaving a 365-byte gap, or 3.5 percent. Deferred local-array storage,
@@ -55,6 +56,24 @@ Current generated artifacts:
 | `TN-mir6502.quality` | 3,429 | `bea4453f7924b2aa726413270462e501c3c7f4b890605a8cdb0982d71d31e7e0` |
 | `TN-mir6502.xex` | 10,810 | `b5743cc1b2237d427ff7cf0a6c47241222cebf6d359029425848dc6e195e0797` |
 | `TN-classic.xex` | 10,445 | `3caefd677ab3d1489e39fcc0200126b442a15278b26a9cb5351434a1c8674f39` |
+
+For the post-carry-chain audit, routine instruction bytes were also counted
+independently while excluding embedded `.BYTE` data. This avoids making
+classic's inline routine storage look like executable code. The largest
+positive routine gaps are:
+
+| Routine | MIR6502 code bytes | Classic code bytes | Difference |
+| --- | ---: | ---: | ---: |
+| `Handle` | 918 | 819 | +99 |
+| `Range` | 215 | 168 | +47 |
+| `SetWin` | 1,125 | 1,090 | +35 |
+| `PopUp` | 288 | 253 | +35 |
+| `Window` | 324 | 301 | +23 |
+| `Draw` | 158 | 136 | +22 |
+| `Copy` | 680 | 660 | +20 |
+| `Next` | 48 | 30 | +18 |
+| `Fnamecmp` | 194 | 176 | +18 |
+| `Xloop` | 231 | 213 | +18 |
 
 ### Current ranked opportunities
 
@@ -162,28 +181,90 @@ requires disjoint, non-interleaved producer groups. Home-demand telemetry drops
 from 77 to 66 cells: all eleven removed cells are virtual zero-page homes
 (58 to 47), while RAM homes remain at 19.
 
-#### 4. Retain prepared pointers and known result locations
+#### 4. Propagate accumulator facts onto conditional fall-through edges
 
-`Range` is 42 bytes larger than classic and repeatedly reloads pointer pairs
-around indirect comparisons and read/modify/write paths. Path-sensitive
-location facts should retain a prepared pointer when all relevant paths and
-effects preserve it.
+The current listing has exactly thirteen sequences shaped as:
 
-There are also five known call-result sites in `Putchar` and `SetWin` where the
-callee contract says `A=$A0`, but generated code reloads `$A0` before storing
-the result. Consuming the declared result location should save about 10 bytes.
-This is known-call result-state propagation, not caller-side `$A0-$A2`
-argument shadowing.
+```asm
+LDA value
+CMP ...
+Bxx target
+LDA value       ; redundant on the fall-through edge
+```
 
-The combined realistic opportunity is about 40-50 bytes.
+They occur in `InputLine` (one), `PopUp` (one), `SetWin` (one), `NewDrive`
+(three), `Attrib` (one), `Copy` (two), and `Handle` (four). Every second load
+is an absolute three-byte `LDA`, and there is no intervening instruction,
+label, call, or store on the fall-through path. The direct ceiling is therefore
+39 bytes, with possible secondary branch relaxation.
 
-#### 5. Extend multi-use value-location planning
+This belongs in MIR6502's routine data-flow workflow: the useful fact is that
+the physical accumulator value survives a conditional branch on one specific
+edge. The rewrite must still use shared liveness and effect information rather
+than become a textual listing peephole.
 
-The final materialization census has 90 temp homes: 59 in zero page and 31 in
-RAM. It emits 77 ZP stores and 87 reloads, plus 27 RAM stores and 57 reloads.
-The encoded access traffic plus RAM backing occupies about 611 bytes, but this
+#### 5. Finish `Range` pointer and indirect-compare selection
+
+After excluding embedded parameter and storage bytes, `Range` is 47
+instruction bytes larger than classic. Telemetry reports two address-reuse
+candidates and four final ZP temp homes. Inspection identifies three related
+losses:
+
+- the same pointer pair is rematerialized before two indirect
+  read/modify/write paths;
+- two indirect comparisons stage both operands through four ZP lanes instead
+  of comparing the loaded byte directly;
+- the known `Getchar` result is reloaded from `$A0` even though this particular
+  callee's exit state can prove that A already contains the result.
+
+Together these patterns account for approximately 30-40 bytes. Pointer
+retention must remain path-sensitive and calls or effects must invalidate it.
+
+#### 6. Propagate proven known-callee exit state
+
+The materializer selects 25 direct and nine loaded-argument call-result
+consumers, but canonical return-home materialization can still reload `$A0`
+before the next use. `PopUp` has seven selected result consumers, `Handle` has
+three, and `SetWin` has eight (six loaded-argument and two direct consumers).
+
+This is not a change to the Action ABI: `$A0` remains the canonical byte result
+home. A reload may be removed only when a summary of the specific known callee
+proves that its exit accumulator equals `$A0`. The five prepared effective
+address candidates in `Putchar` and `SetWin` additionally need proof that the
+call preserves the prepared address. A first implementation should target a
+roughly 20-35-byte saving.
+
+#### 7. Complete residual word carry-chain selection
+
+The completed selector removed 44 bytes, but `Key`, `Next`, and `Strcat` still
+have instruction-only gaps of 9, 18, and 8 bytes. They contain six MIR6502-only
+`BCC`/`INC` carry-propagation pairs. `Next` is the clearest remaining case:
+classic carries directly from `ADC ($ptr),Y` through the high byte and final
+result location, while MIR6502 materializes the indirect byte and updates the
+pointer high byte with branches.
+
+The combined 35-byte gap is a ceiling; a realistic additional target is
+20-30 bytes.
+
+#### 8. Extend dual-pointer selection to indirect word transfers
+
+`Handle` still moves indirect words by spilling their lanes while switching
+the private pointer pair from source to destination. The inspected cases
+include a directory-pointer copy, a selected `dirsectors` pointer, and the
+escape-path copy back into `currentDir`. Keeping source and destination in the
+two available private pointer pairs should remove several RAM/ZP
+store-and-reload groups. This is a roughly 20-30-byte opportunity within
+`Handle`'s 99-byte instruction gap.
+
+#### 9. Extend multi-use value-location planning
+
+The final materialization census has 66 temp homes: 47 in zero page and 19 in
+RAM. It emits 50 ZP stores and 52 reloads, plus 25 RAM stores and 44 reloads.
+The encoded access traffic plus RAM backing occupies about 430 bytes, but this
 is a gross burden rather than an achievable saving: many values genuinely
-cross calls, joins, or register clobbers.
+cross calls, joins, or register clobbers. The homes are concentrated in
+`SetWin` (16), `Handle` and `Sort` (five each), and `Window`, `Range`, `Draw`,
+and `Copy` (four each).
 
 After the structural work above, rerun the census and plan multi-use values
 against A, X, Y, pointer pairs, final ABI locations, and homes. Producer and
@@ -201,7 +282,7 @@ materialized or byte-split.
 - There are 30 branch-over-`JMP` veneers, but none currently has a
   branch-reachable final target. Revisit placement after code-generating
   optimizations move boundaries.
-- Cross-routine RAM-home pooling has a maximum static backing benefit of 31
+- Cross-routine RAM-home pooling has a maximum static backing benefit of 19
   bytes and does not remove access instructions. Home creation remains the
   higher priority.
 - Twenty-eight adjacent same-home `STA`/`LDA` pairs remain versus sixteen in
@@ -210,9 +291,11 @@ materialized or byte-split.
 
 After the completed 458-byte deferred-storage, 242-byte logical-CFG, and
 44-byte word/pointer carry-chain results, the remaining gap is 365 bytes.
-Prepared-pointer and known-result-location propagation is now the leading
-bounded target at roughly 40-50 bytes; all estimates should be remeasured
-against the new control-flow and home layout.
+Edge-aware accumulator propagation is now the best bounded first slice, with
+an exact 39-byte direct ceiling. `Range` pointer/compare selection,
+known-callee result-state propagation, residual carry chains, and dual-pointer
+word transfers form the next similarly sized slices. These estimates overlap
+in a few routines and must not be added as independent savings.
 
 ## Previous reanalysis baseline after scaled-Y and ABI correction
 
