@@ -72,7 +72,6 @@ use calls::{
     try_materialize_call_arg_expr_producers,
 };
 use cfg::collapse_empty_jump_blocks;
-pub(in crate::mir6502) use compare_branch::dual_indirect_compare_candidate;
 #[cfg(test)]
 use compare_branch::fold_compare_operand_producers_before_branches;
 use compare_branch::{
@@ -82,6 +81,9 @@ use compare_branch::{
     byte_binary_compare_rewrite_candidate, byte_bitwise_zero_compare_narrowing_candidate,
     compare_branch_plan, compare_operand_rewrite_candidate, expand_compare_branch_consumers,
     expand_proven_byte_add_word_compare_branches,
+};
+pub(in crate::mir6502) use compare_branch::{
+    addressed_byte_compare_candidate, dual_indirect_compare_candidate,
 };
 #[cfg(test)]
 use compare_branch::{

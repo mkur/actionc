@@ -561,6 +561,124 @@ fn analyzed_dual_indirect_selection_rejects_absolute_pointer_sources() {
     assert_eq!(routine.blocks[0].ops.len(), 5);
 }
 
+#[test]
+fn analyzed_addressed_byte_compare_forwards_loaded_byte_to_accumulator() {
+    let mut routine = addressed_byte_compare_routine(false);
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_compare_producers)
+        .expect("addressed compare analysis succeeds");
+
+    assert_eq!(result.applied, 1);
+    assert!(matches!(
+        routine.blocks[0].ops.as_slice(),
+        [
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::ComputedIndex { .. },
+                width: MirWidth::Byte,
+            },
+            MirOp::Compare {
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::PointerCell(MirMem::Param {
+                    id: ParamId(0),
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+                ..
+            }
+        ]
+    ));
+}
+
+#[test]
+fn analyzed_addressed_byte_compare_keeps_value_live_in_successor() {
+    let mut routine = addressed_byte_compare_routine(true);
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_compare_producers)
+        .expect("blocked addressed compare analysis succeeds");
+
+    assert_eq!(result.applied, 0);
+    assert_eq!(routine.blocks[0].ops.len(), 3);
+}
+
+fn addressed_byte_compare_routine(value_live_after: bool) -> MirRoutine {
+    let temp = |id| MirDef::VTemp(MirTempId(id));
+    let value = |id| MirValue::Def(temp(id));
+    let mut then_ops = Vec::new();
+    if value_live_after {
+        then_ops.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Local {
+                id: LocalId(0),
+                offset: 0,
+            }),
+            src: value(0),
+            width: MirWidth::Byte,
+        });
+    }
+    MirRoutine {
+        id: RoutineId(0),
+        name: "addressed_compare".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: (0..3).map(|id| MirTemp { id: MirTempId(id) }).collect(),
+        blocks: vec![
+            MirBlock {
+                id: MirBlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: vec![
+                    MirOp::Load {
+                        dst: temp(0),
+                        src: MirAddr::ComputedIndex {
+                            base: MirValue::ConstU16(0x4000),
+                            index: MirValue::ConstU8(2),
+                            elem_size: 1,
+                            offset: 0,
+                        },
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Load {
+                        dst: temp(1),
+                        src: MirAddr::Direct(MirMem::Param {
+                            id: ParamId(0),
+                            offset: 0,
+                        }),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Compare {
+                        dst: MirCondDest::Temp(MirTempId(2)),
+                        op: MirCompareOp::Eq,
+                        left: value(0),
+                        right: value(1),
+                        width: MirWidth::Byte,
+                        signed: false,
+                    },
+                ],
+                terminator: MirTerminator::Branch {
+                    cond: MirCond::BoolValue(value(2)),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(2)),
+                },
+            },
+            MirBlock {
+                id: MirBlockId(1),
+                label: "then".to_string(),
+                params: Vec::new(),
+                ops: then_ops,
+                terminator: MirTerminator::Return,
+            },
+            MirBlock {
+                id: MirBlockId(2),
+                label: "else".to_string(),
+                params: Vec::new(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Return,
+            },
+        ],
+        effects: MirEffects::default(),
+    }
+}
+
 fn dual_indirect_compare_routine(op: MirCompareOp, pointer_live_after: bool) -> MirRoutine {
     let pointer = |id| MirDef::VTemp(MirTempId(id));
     let pointer_value = |id| MirValue::Def(pointer(id));

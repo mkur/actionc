@@ -389,6 +389,84 @@ fn dual_compare_pointer_source_is_safe(mem: &MirMem) -> bool {
     )
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct AddressedByteCompareCandidate {
+    pub consumed: usize,
+    pub replacement: Vec<MirOp>,
+}
+
+pub(in crate::mir6502) fn addressed_byte_compare_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<AddressedByteCompareCandidate> {
+    let MirOp::Load {
+        dst: addressed_dst,
+        src:
+            addressed_src @ (MirAddr::ComputedIndex { .. }
+            | MirAddr::PointerIndex { .. }
+            | MirAddr::Deref { .. }),
+        width: MirWidth::Byte,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let addressed_temp = split_def_as_temp(addressed_dst)?;
+    let MirOp::Load {
+        dst: direct_dst,
+        src: MirAddr::Direct(direct_mem),
+        width: MirWidth::Byte,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    let direct_temp = split_def_as_temp(direct_dst)?;
+    if addressed_temp == direct_temp {
+        return None;
+    }
+    let MirOp::Compare {
+        dst,
+        op,
+        left,
+        right,
+        width: MirWidth::Byte,
+        signed: false,
+    } = ops.get(index + 2)?
+    else {
+        return None;
+    };
+    let addressed_value = MirValue::Def(addressed_dst.clone());
+    let direct_value = MirValue::Def(direct_dst.clone());
+    let (op, right) = if left == &addressed_value && right == &direct_value {
+        (*op, MirValue::PointerCell(direct_mem.clone()))
+    } else if left == &direct_value && right == &addressed_value {
+        (
+            reverse_compare_operands(*op),
+            MirValue::PointerCell(direct_mem.clone()),
+        )
+    } else {
+        return None;
+    };
+
+    Some(AddressedByteCompareCandidate {
+        consumed: 3,
+        replacement: vec![
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: addressed_src.clone(),
+                width: MirWidth::Byte,
+            },
+            MirOp::Compare {
+                dst: dst.clone(),
+                op,
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right,
+                width: MirWidth::Byte,
+                signed: false,
+            },
+        ],
+    })
+}
+
 #[cfg(test)]
 pub(super) fn fold_compare_operand_producers_before_branches(
     blocks: &mut [MirBlock],

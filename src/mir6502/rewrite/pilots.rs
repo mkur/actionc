@@ -40,6 +40,9 @@ pub(in crate::mir6502) fn discover_compare_producers(
             {
                 plans.push(plan);
             }
+            if let Some(plan) = addressed_byte_compare_plan(block.id, &block.ops, index, context) {
+                plans.push(plan);
+            }
         }
     }
     plans
@@ -1190,6 +1193,35 @@ fn compare_operand_producer_plan(
         family_priority: 20,
         estimated_byte_saving: 1,
         estimated_cycle_saving: 1,
+    })
+}
+
+fn addressed_byte_compare_plan(
+    block: crate::mir6502::ir::MirBlockId,
+    ops: &[MirOp],
+    index: usize,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Option<MirRewritePlan> {
+    let candidate = crate::mir6502::materialize::addressed_byte_compare_candidate(ops, index)?;
+    let end = index + candidate.consumed;
+    let definitions =
+        prove_removed_window_definitions(block, ops, index, end, &candidate.replacement, context)?;
+    Some(MirRewritePlan {
+        generation: context.generation(),
+        block,
+        range: index..end,
+        replacement: candidate.replacement,
+        removed_defs: definitions
+            .into_iter()
+            .map(|definition| MirRemovedDefinition { definition })
+            .collect(),
+        exit_effect_delta: MirEffectDelta::SelectedResultRegister(crate::mir6502::ir::MirReg::A),
+        change_set: MirChangeSet::prehome_operation_change(),
+        stat: "addressed-byte-compare-consumer",
+        observations: Vec::new(),
+        family_priority: 25,
+        estimated_byte_saving: 6,
+        estimated_cycle_saving: 6,
     })
 }
 
