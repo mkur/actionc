@@ -158,6 +158,7 @@ impl MirMachineValueAvailability {
         Ok(state.a)
     }
 
+    #[cfg(test)]
     pub(in crate::mir6502) fn evaluations(&self) -> usize {
         self.evaluations
     }
@@ -223,7 +224,7 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp) {
 
     if let Some(value) = explicit_accumulator_result(op) {
         state.a = Some(value);
-    } else if effects.may_clobber_reg_compat(MirReg::A) {
+    } else if !operation_preserves_accumulator(op) {
         state.a = None;
     }
 
@@ -234,6 +235,36 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp) {
     } = op
     {
         state.a = Some(MirMachineValue::DirectMem(mem.clone()));
+    }
+}
+
+fn operation_preserves_accumulator(op: &MirOp) -> bool {
+    match op {
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::X | MirReg::Y),
+            width: MirWidth::Byte,
+            ..
+        }
+        | MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::X | MirReg::Y),
+            width: MirWidth::Byte,
+            ..
+        }
+        | MirOp::Store {
+            dst: MirAddr::Direct(_),
+            src: MirValue::Def(MirDef::Reg(MirReg::A | MirReg::X | MirReg::Y)),
+            width: MirWidth::Byte,
+        }
+        | MirOp::UpdateMem {
+            width: MirWidth::Byte,
+            ..
+        }
+        | MirOp::UpdateIndexedMem { .. }
+        | MirOp::Compare {
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            ..
+        } => true,
+        _ => false,
     }
 }
 
@@ -410,6 +441,68 @@ mod tests {
                     MirOp::Store {
                         dst: MirAddr::Direct(spill(2)),
                         src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                        width: MirWidth::Byte,
+                    },
+                ],
+                MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+        ]);
+        let values = analyze(&routine);
+
+        assert_eq!(
+            values.accumulator_at(MirSite::BlockEntry {
+                block: MirBlockId(1)
+            }),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn implicit_accumulator_materialization_does_not_preserve_old_facts() {
+        let routine = routine(vec![
+            block(
+                0,
+                vec![
+                    load_a(spill(1)),
+                    MirOp::Compare {
+                        dst: crate::mir6502::ir::MirCondDest::Flags,
+                        op: crate::mir6502::ir::MirCompareOp::Eq,
+                        left: MirValue::PointerCell(spill(2)),
+                        right: MirValue::ConstU8(7),
+                        width: MirWidth::Byte,
+                        signed: false,
+                    },
+                ],
+                branch(1, 2),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+            block(2, Vec::new(), MirTerminator::Return),
+        ]);
+        let values = analyze(&routine);
+
+        assert_eq!(
+            values.accumulator_at(MirSite::BlockEntry {
+                block: MirBlockId(1)
+            }),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn constant_store_materialization_does_not_preserve_old_constants() {
+        let routine = routine(vec![
+            block(
+                0,
+                vec![
+                    MirOp::LoadImm {
+                        dst: MirDef::Reg(MirReg::A),
+                        value: 1,
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Store {
+                        dst: MirAddr::Direct(spill(2)),
+                        src: MirValue::ConstU8(2),
                         width: MirWidth::Byte,
                     },
                 ],

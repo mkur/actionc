@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte};
 use crate::mir6502::analysis::home_liveness::MirHomeLivenessError;
 use crate::mir6502::analysis::machine_liveness::MirMachineLivenessError;
+use crate::mir6502::analysis::machine_values::{MirMachineValue, MirMachineValueError};
 use crate::mir6502::analysis::param_availability::{MirParamAvailabilityError, MirParamHomeByte};
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
@@ -56,6 +57,7 @@ pub(in crate::mir6502) enum MirProofBlocker {
     UseOutsideWindow(MirUseSite),
     HomeLiveness(MirHomeLivenessError),
     MachineLiveness(MirMachineLivenessError),
+    MachineValues(MirMachineValueError),
     ParamAvailability(MirParamAvailabilityError),
     HomeDefinitionLive {
         home: MirHomeByte,
@@ -75,6 +77,9 @@ pub(in crate::mir6502) enum MirProofBlocker {
     },
     FlagsLive {
         flags: MirFlagSet,
+        point: MirSite,
+    },
+    AccumulatorValueUnavailable {
         point: MirSite,
     },
     ParameterRegisterUnavailable {
@@ -98,12 +103,14 @@ impl MirProofBlocker {
             Self::UseOutsideWindow(_) => "use-outside-window",
             Self::HomeLiveness(_) => "home-liveness-error",
             Self::MachineLiveness(_) => "machine-liveness-error",
+            Self::MachineValues(_) => "machine-values-error",
             Self::ParamAvailability(_) => "parameter-availability-error",
             Self::HomeDefinitionLive { .. } => "home-definition-live",
             Self::HomeLive { .. } => "home-live",
             Self::RegisterLive { .. } => "register-live",
             Self::StackPointerLive { .. } => "stack-pointer-live",
             Self::FlagsLive { .. } => "flags-live",
+            Self::AccumulatorValueUnavailable { .. } => "accumulator-value-unavailable",
             Self::ParameterRegisterUnavailable { .. } => "parameter-register-unavailable",
             Self::UnsupportedPointerPair(_) => "unsupported-pointer-pair",
         }
@@ -448,6 +455,22 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
                 point: point.site,
             }),
             Err(error) => MirProof::Blocked(MirProofBlocker::MachineLiveness(error)),
+        }
+    }
+
+    pub(in crate::mir6502) fn accumulator_value_at(
+        &self,
+        point: MirProgramPoint,
+    ) -> MirProof<MirMachineValue> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        match self.snapshot.machine_values().accumulator_at(point.site) {
+            Ok(Some(value)) => MirProof::Proven(value),
+            Ok(None) => MirProof::Blocked(MirProofBlocker::AccumulatorValueUnavailable {
+                point: point.site,
+            }),
+            Err(error) => MirProof::Blocked(MirProofBlocker::MachineValues(error)),
         }
     }
 

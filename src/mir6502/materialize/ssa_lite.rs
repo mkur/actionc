@@ -10,12 +10,14 @@ use super::temp_uses::{op_uses_temp, terminator_uses_temp};
 use super::values::offset_mem;
 use crate::mir6502::MirRoutine;
 use crate::mir6502::analysis::effects::MirFlagSet;
+use crate::mir6502::analysis::machine_values::MirMachineValue;
+use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCallTarget, MirCarryIn, MirCarryOut,
     MirDef, MirMem, MirOp, MirPointerPair, MirReg, MirTempId, MirTerminator, MirValue, MirWidth,
     RoutineId,
 };
-use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
+use crate::mir6502::rewrite::context::{MirExitStateChange, MirProof, PostHomeRewriteContext};
 use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
 use crate::mir6502::rewrite::posthome::structural_plan;
 
@@ -2894,6 +2896,13 @@ fn ssa_lite_loaded_reg_key(
     }
 }
 
+fn ssa_lite_machine_value_key(value: MirMachineValue) -> SsaLiteValueKey {
+    match value {
+        MirMachineValue::ConstU8(value) => SsaLiteValueKey::ConstU8(value),
+        MirMachineValue::DirectMem(mem) => SsaLiteValueKey::DirectMem(mem),
+    }
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SsaLiteReloadDecision {
@@ -2940,19 +2949,47 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
     allow_cross_block: bool,
 ) -> Vec<MirPostHomeRewritePlan> {
     let predecessor_counts = block_predecessor_index_counts(routine);
-    let mut incoming = vec![None; routine.blocks.len()];
+    let mut incoming: Vec<Option<SsaLiteValueEnv>> = vec![None; routine.blocks.len()];
     let mut plans = Vec::new();
 
     for block_index in 0..routine.blocks.len() {
         let block = &routine.blocks[block_index];
         let mut env = incoming[block_index].take().unwrap_or_default();
-        let cross_block = allow_cross_block && ssa_lite_env_has_transferable_facts(&env);
+        let edge_accumulator = allow_cross_block
+            .then(|| {
+                context.accumulator_value_at(context.point(MirSite::BlockEntry { block: block.id }))
+            })
+            .and_then(|proof| match proof {
+                MirProof::Proven(value) => Some(ssa_lite_machine_value_key(value)),
+                MirProof::Blocked(_) => None,
+            })
+            .filter(|value| match value {
+                SsaLiteValueKey::ConstU8(_) => true,
+                SsaLiteValueKey::DirectMem(mem) => ssa_lite_mem_is_trackable(layout, mem),
+            });
+        if let Some(value) = edge_accumulator.clone() {
+            env.set_reg_fact(MirReg::A, Some(value));
+        }
+        let cross_block = allow_cross_block
+            && (edge_accumulator.is_some() || ssa_lite_env_has_transferable_facts(&env));
+        let mut accumulator_still_from_edge = edge_accumulator.is_some();
 
         for (index, op) in block.ops.iter().enumerate() {
             let rewritten = ssa_lite_rewrite_byte_op(&env, op, layout);
-            let redundant = ssa_lite_loaded_reg_key(&rewritten, layout)
-                .is_some_and(|(reg, key)| env.reg_fact(reg) == Some(&key));
+            let loaded_reg_key = ssa_lite_loaded_reg_key(&rewritten, layout);
+            let redundant = loaded_reg_key
+                .as_ref()
+                .is_some_and(|(reg, key)| env.reg_fact(*reg) == Some(key));
             if redundant {
+                let edge_accumulator_reload = accumulator_still_from_edge
+                    && loaded_reg_key
+                        .as_ref()
+                        .is_some_and(|(reg, key)| *reg == MirReg::A && Some(key) == env.a.as_ref());
+                let stat = if edge_accumulator_reload {
+                    "ssa-lite-edge-accumulator-reloads"
+                } else {
+                    "ssa-lite-redundant-reloads"
+                };
                 let mut plan = structural_plan(
                     routine,
                     context,
@@ -2967,12 +3004,16 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
                         },
                         ..MirExitStateChange::default()
                     },
-                    "ssa-lite-redundant-reloads",
+                    stat,
                     0,
                 );
                 if let Some(plan) = plan.as_mut() {
                     plan.observations
                         .push(("ssa-lite-redundant-reloads-call-free", 1));
+                    if edge_accumulator_reload {
+                        plan.observations
+                            .push(("ssa-lite-edge-accumulator-seeds", 1));
+                    }
                     plans.push(plan.clone());
                     continue;
                 }
@@ -2997,6 +3038,11 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
                 plans.push(plan);
             }
             env.observe_op(&rewritten, layout);
+            if ssa_lite_loaded_reg_key(&rewritten, layout).is_some_and(|(reg, _)| reg == MirReg::A)
+                || env.a.as_ref() != edge_accumulator.as_ref()
+            {
+                accumulator_still_from_edge = false;
+            }
         }
 
         if !allow_cross_block {

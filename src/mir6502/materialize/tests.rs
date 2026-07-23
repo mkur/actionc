@@ -8077,6 +8077,296 @@ fn analyzed_ssa_lite_reload_keeps_live_branch_flags() {
 }
 
 #[test]
+fn analyzed_ssa_lite_removes_accumulator_reload_from_branch_edge() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let compare_a = |value| MirOp::Compare {
+        dst: MirCondDest::Flags,
+        op: MirCompareOp::Eq,
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(value),
+        width: MirWidth::Byte,
+        signed: false,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(source.clone()),
+                    width: MirWidth::Byte,
+                },
+                compare_a(1),
+            ],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                then_edge: MirEdge::plain(MirBlockId(2)),
+                else_edge: MirEdge::plain(MirBlockId(1)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "fallthrough".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(source),
+                    width: MirWidth::Byte,
+                },
+                compare_a(2),
+            ],
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "taken".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert_eq!(result.applied, 1);
+    assert_eq!(
+        result
+            .applied_by_stat
+            .get("ssa-lite-edge-accumulator-reloads"),
+        Some(&1)
+    );
+    assert_eq!(result.estimated_bytes_saved, 3);
+    assert_eq!(routine.blocks[1].ops, vec![compare_a(2)]);
+}
+
+#[test]
+fn analyzed_ssa_lite_merges_identical_accumulator_values_at_join() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let load_source = || MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(source.clone()),
+        width: MirWidth::Byte,
+    };
+    let compare = MirOp::Compare {
+        dst: MirCondDest::Flags,
+        op: MirCompareOp::Eq,
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(7),
+        width: MirWidth::Byte,
+        signed: false,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "left".to_string(),
+            params: Vec::new(),
+            ops: vec![load_source()],
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "right".to_string(),
+            params: Vec::new(),
+            ops: vec![load_source()],
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+        },
+        MirBlock {
+            id: MirBlockId(3),
+            label: "join".to_string(),
+            params: Vec::new(),
+            ops: vec![load_source(), compare.clone()],
+            terminator: MirTerminator::Return,
+        },
+    ]);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert_eq!(result.applied, 1);
+    assert_eq!(
+        result
+            .applied_by_stat
+            .get("ssa-lite-edge-accumulator-reloads"),
+        Some(&1)
+    );
+    assert_eq!(routine.blocks[3].ops, vec![compare]);
+}
+
+#[test]
+fn analyzed_ssa_lite_rejects_differing_accumulator_values_at_join() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let other = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let load = |mem| MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "left".to_string(),
+            params: Vec::new(),
+            ops: vec![load(source.clone())],
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "right".to_string(),
+            params: Vec::new(),
+            ops: vec![load(other)],
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+        },
+        MirBlock {
+            id: MirBlockId(3),
+            label: "join".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                load(source.clone()),
+                MirOp::Compare {
+                    dst: MirCondDest::Flags,
+                    op: MirCompareOp::Eq,
+                    left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    right: MirValue::ConstU8(7),
+                    width: MirWidth::Byte,
+                    signed: false,
+                },
+            ],
+            terminator: MirTerminator::Return,
+        },
+    ]);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert_eq!(result.applied, 0);
+    assert!(matches!(
+        routine.blocks[3].ops.first(),
+        Some(MirOp::Load {
+            src: MirAddr::Direct(mem),
+            ..
+        }) if *mem == source
+    ));
+}
+
+#[test]
+fn analyzed_ssa_lite_keeps_edge_reload_when_its_flags_are_live() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let load_source = || MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(source.clone()),
+        width: MirWidth::Byte,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![load_source()],
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "test".to_string(),
+            params: Vec::new(),
+            ops: vec![load_source()],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                then_edge: MirEdge::plain(MirBlockId(2)),
+                else_edge: MirEdge::plain(MirBlockId(3)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(3),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            ssa_lite::discover_ssa_lite_byte_rewrites(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert_eq!(result.applied, 0);
+    assert_eq!(
+        result
+            .blocked_by_stat
+            .get("ssa-lite-edge-accumulator-reloads"),
+        Some(&1)
+    );
+    assert_eq!(result.blocked_by_reason.get("flags-live"), Some(&1));
+    assert_eq!(routine.blocks[1].ops, vec![load_source()]);
+}
+
+#[test]
 fn ssa_lite_keeps_x_reload_for_call_argument_staging() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
