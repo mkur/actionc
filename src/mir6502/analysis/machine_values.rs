@@ -251,7 +251,7 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
     }
 
     let accumulator_before = state.a.clone();
-    update_fixed_zero_page_values(state, op, accumulator_before.as_ref());
+    update_fixed_zero_page_values(state, op, accumulator_before.as_ref(), known_callees);
 
     let effects = classify_op(op);
     let writes_memory = !effects.memory.direct_writes.is_empty()
@@ -284,6 +284,7 @@ fn update_fixed_zero_page_values(
     state: &mut MirMachineValueState,
     op: &MirOp,
     accumulator_before: Option<&MirMachineValue>,
+    known_callees: &MirKnownCalleeSummaries,
 ) {
     match op {
         MirOp::Store {
@@ -325,10 +326,25 @@ fn update_fixed_zero_page_values(
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::StoreIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
-        | MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => state.fixed_zero_page.clear(),
+        MirOp::Call { target, .. } => {
+            let Some(summary) = known_callees.for_target(target) else {
+                state.fixed_zero_page.clear();
+                return;
+            };
+            state.fixed_zero_page.retain(|slot, value| {
+                let destination = MirMem::FixedZeroPage(*slot);
+                !summary.writes().may_write_mem(&destination)
+                    && match value {
+                        MirMachineValue::ConstU8(_) => true,
+                        MirMachineValue::DirectMem(source) => {
+                            !summary.writes().may_write_mem(source)
+                        }
+                    }
+            });
+        }
         MirOp::MaterializeAddress { consumer, .. }
         | MirOp::MaterializeIndexedAddress { consumer, .. }
         | MirOp::AdvanceAddress { consumer, .. } => {
@@ -545,7 +561,7 @@ mod tests {
     use super::*;
     use crate::mir6502::ir::{
         MirBlock, MirCallAbi, MirCallTarget, MirEdge, MirEffects, MirFlagTest, MirFrame,
-        MirRegisterSet, MirRoutineAbi, MirSpillId, RoutineId,
+        MirProgram, MirRegisterSet, MirRoutineAbi, MirSpillId, RoutineId,
     };
 
     fn spill(id: u32) -> MirMem {
@@ -604,6 +620,38 @@ mod tests {
     fn analyze(routine: &MirRoutine) -> MirMachineValueAvailability {
         let cfg = MirCfg::from_routine(routine).unwrap();
         MirMachineValueAvailability::analyze(routine, &cfg)
+    }
+
+    fn call(routine: u32) -> MirOp {
+        MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(routine)),
+            abi: MirCallAbi {
+                params: Vec::new(),
+                result: None,
+                clobbers: MirRegisterSet::default(),
+                preserves: MirRegisterSet::default(),
+            },
+            args: Vec::new(),
+            result: None,
+            effects: MirEffects::default(),
+        }
+    }
+
+    fn analyze_caller_with_known_callee(
+        caller: MirRoutine,
+        callee: MirRoutine,
+    ) -> MirMachineValueAvailability {
+        let program = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![caller, callee],
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+        let summaries = MirKnownCalleeSummaries::analyze(&program);
+        let caller = &program.routines[0];
+        let cfg = MirCfg::from_routine(caller).unwrap();
+        MirMachineValueAvailability::analyze_with_known_callees(caller, &cfg, &summaries)
     }
 
     #[test]
@@ -876,11 +924,13 @@ mod tests {
 
     #[test]
     fn calls_with_unknown_accumulator_effects_kill_values() {
+        let pointer_slot = MirFixedZpSlot(0xAC);
         let routine = routine(vec![
             block(
                 0,
                 vec![
                     load_a(spill(1)),
+                    store_a(MirMem::FixedZeroPage(pointer_slot)),
                     MirOp::Call {
                         target: MirCallTarget::Routine(RoutineId(1)),
                         abi: MirCallAbi {
@@ -905,6 +955,120 @@ mod tests {
                 block: MirBlockId(1)
             }),
             Ok(None)
+        );
+        assert_eq!(
+            values.fixed_zero_page_value_at(
+                MirSite::BlockEntry {
+                    block: MirBlockId(1)
+                },
+                pointer_slot,
+            ),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn known_callee_preserves_unwritten_fixed_pointer_values_and_sources() {
+        let low_source = spill(1);
+        let high_source = spill(2);
+        let low_slot = MirFixedZpSlot(0xAC);
+        let high_slot = MirFixedZpSlot(0xAD);
+        let caller = routine(vec![block(
+            0,
+            vec![
+                load_a(low_source.clone()),
+                store_a(MirMem::FixedZeroPage(low_slot)),
+                load_a(high_source.clone()),
+                store_a(MirMem::FixedZeroPage(high_slot)),
+                call(1),
+                load_a(low_source.clone()),
+                store_a(MirMem::FixedZeroPage(low_slot)),
+                load_a(high_source.clone()),
+                store_a(MirMem::FixedZeroPage(high_slot)),
+            ],
+            MirTerminator::Return,
+        )]);
+        let mut callee = routine(vec![block(
+            1,
+            vec![
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: 7,
+                    width: MirWidth::Byte,
+                },
+                store_a(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+            ],
+            MirTerminator::Return,
+        )]);
+        callee.id = RoutineId(1);
+        callee.name = "KnownCallee".to_string();
+        let values = analyze_caller_with_known_callee(caller, callee);
+
+        assert_eq!(
+            values.fixed_zero_page_value_at(
+                MirSite::Op {
+                    block: MirBlockId(0),
+                    op_index: 6,
+                },
+                low_slot,
+            ),
+            Ok(Some(MirMachineValue::DirectMem(low_source)))
+        );
+        assert_eq!(
+            values.fixed_zero_page_value_at(
+                MirSite::Op {
+                    block: MirBlockId(0),
+                    op_index: 8,
+                },
+                high_slot,
+            ),
+            Ok(Some(MirMachineValue::DirectMem(high_source)))
+        );
+    }
+
+    #[test]
+    fn known_callee_invalidates_only_pointer_facts_it_may_write() {
+        let low_source = spill(1);
+        let high_source = spill(2);
+        let low_slot = MirFixedZpSlot(0xAC);
+        let high_slot = MirFixedZpSlot(0xAD);
+        let caller = routine(vec![block(
+            0,
+            vec![
+                load_a(low_source),
+                store_a(MirMem::FixedZeroPage(low_slot)),
+                load_a(high_source.clone()),
+                store_a(MirMem::FixedZeroPage(high_slot)),
+                call(1),
+            ],
+            MirTerminator::Return,
+        )]);
+        let mut callee = routine(vec![block(
+            1,
+            vec![
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: 7,
+                    width: MirWidth::Byte,
+                },
+                store_a(MirMem::FixedZeroPage(low_slot)),
+            ],
+            MirTerminator::Return,
+        )]);
+        callee.id = RoutineId(1);
+        callee.name = "PointerWriter".to_string();
+        let values = analyze_caller_with_known_callee(caller, callee);
+        let after_call = MirSite::Terminator {
+            block: MirBlockId(0),
+        };
+
+        assert_eq!(
+            values.fixed_zero_page_value_at(after_call, low_slot),
+            Ok(None)
+        );
+        assert_eq!(
+            values.fixed_zero_page_value_at(after_call, high_slot),
+            Ok(Some(MirMachineValue::DirectMem(high_source)))
         );
     }
 

@@ -1,5 +1,3 @@
-#![allow(dead_code)] // Program-level consumers are introduced in the next slices.
-
 use std::collections::BTreeMap;
 
 use crate::mir6502::analysis::cfg::MirCfg;
@@ -25,6 +23,7 @@ pub(in crate::mir6502) enum MirKnownMemoryWrites {
 }
 
 impl MirKnownMemoryWrites {
+    #[allow(dead_code)] // Retained as the pair-level query for future address consumers.
     pub(in crate::mir6502) fn preserves_fixed_pair(&self, lo: MirFixedZpSlot) -> bool {
         let hi = MirFixedZpSlot(lo.0.saturating_add(1));
         match self {
@@ -86,6 +85,7 @@ impl MirKnownCalleeExitSummary {
         &self.writes
     }
 
+    #[allow(dead_code)] // Retained as the pair-level query for future address consumers.
     pub(in crate::mir6502) fn preserves_fixed_pair(&self, lo: MirFixedZpSlot) -> bool {
         self.writes.preserves_fixed_pair(lo)
     }

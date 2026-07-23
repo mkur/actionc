@@ -13178,6 +13178,119 @@ fn known_callee_exit_accumulator_elides_return_slot_reload() {
 }
 
 #[test]
+fn known_callee_preserves_staged_pointer_bytes_it_cannot_write() {
+    let low_source = MirMem::FixedZeroPage(MirFixedZpSlot(0xB0));
+    let high_source = MirMem::FixedZeroPage(MirFixedZpSlot(0xB1));
+    let low_slot = MirFixedZpSlot(POINTER_SCRATCH_LO);
+    let high_slot = MirFixedZpSlot(POINTER_SCRATCH_HI);
+    let load_a = |mem| MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    };
+    let store_a = |mem| MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let call = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: None,
+            clobbers: MirRegisterSet {
+                a: true,
+                x: true,
+                y: true,
+                flags: true,
+                sp: false,
+            },
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: None,
+        effects: MirEffects::default(),
+    };
+    let caller = MirRoutine {
+        id: RoutineId(0),
+        name: "Caller".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(0),
+            label: "caller".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                load_a(low_source.clone()),
+                store_a(MirMem::FixedZeroPage(low_slot)),
+                load_a(high_source.clone()),
+                store_a(MirMem::FixedZeroPage(high_slot)),
+                call,
+                load_a(low_source),
+                store_a(MirMem::FixedZeroPage(low_slot)),
+                load_a(high_source),
+                store_a(MirMem::FixedZeroPage(high_slot)),
+                MirOp::LoadIndirect {
+                    consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+                    dst: MirDef::Reg(MirReg::A),
+                    offset: 0,
+                },
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let callee = MirRoutine {
+        id: RoutineId(1),
+        name: "Callee".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(1),
+            label: "callee".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: 7,
+                    width: MirWidth::Byte,
+                },
+                store_a(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let mut program = empty_test_program();
+    program.routines = vec![caller, callee];
+
+    let materialized = materialize_program(program, &Mir6502Config::default(), 0x3000)
+        .expect("known callee materializes");
+    let caller_ops = &materialized.routines[0].blocks[0].ops;
+
+    let pointer_store_count = caller_ops
+        .iter()
+        .filter(|op| {
+            matches!(
+                op,
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+                    ..
+                } if *slot == low_slot || *slot == high_slot
+            )
+        })
+        .count();
+    assert_eq!(pointer_store_count, 2, "{caller_ops:#?}");
+    assert!(
+        caller_ops
+            .iter()
+            .any(|op| matches!(op, MirOp::LoadIndirect { .. }))
+    );
+}
+
+#[test]
 fn descriptor_lea_materializes_pointer_bytes_for_index_base() {
     let descriptor = MirMem::Local {
         id: LocalId(0),
