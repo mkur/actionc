@@ -884,6 +884,201 @@ fn materialize_value_to_mem_for_width(
     }
 }
 
+pub(super) fn select_word_carry_chain_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Load {
+        dst: base_dst,
+        src: MirAddr::Direct(base_mem),
+        width: MirWidth::Word,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some(base_temp) = split_def_as_temp(base_dst) else {
+        return 0;
+    };
+    let Some(MirOp::Load {
+        dst: addend_dst,
+        src: MirAddr::Deref {
+            ptr: addend_ptr,
+            offset,
+        },
+        width: MirWidth::Byte,
+    }) = ops.get(index + 1)
+    else {
+        return 0;
+    };
+    if addend_ptr != &MirValue::Def(MirDef::VTemp(base_temp)) {
+        return 0;
+    }
+    let Some(addend_temp) = split_def_as_temp(addend_dst) else {
+        return 0;
+    };
+
+    let Some(MirOp::Binary {
+        op: first_op @ (MirBinaryOp::Add | MirBinaryOp::Sub),
+        dst: first_dst,
+        left: first_left,
+        right: first_right,
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    }) = ops.get(index + 2)
+    else {
+        return 0;
+    };
+    let Some(mut result_temp) = split_def_as_temp(first_dst) else {
+        return 0;
+    };
+    let base_value = MirValue::Def(MirDef::VTemp(base_temp));
+    let addend_value = MirValue::Def(MirDef::VTemp(addend_temp));
+    let first_operands_match = match first_op {
+        MirBinaryOp::Add => {
+            (first_left == &base_value && first_right == &addend_value)
+                || (first_left == &addend_value && first_right == &base_value)
+        }
+        MirBinaryOp::Sub => first_left == &base_value && first_right == &addend_value,
+        _ => false,
+    };
+    if !first_operands_match {
+        return 0;
+    }
+
+    let mut cursor = index + 3;
+    let mut tail = Vec::<(MirBinaryOp, MirValue)>::new();
+    while let Some(MirOp::Binary {
+        op: op @ (MirBinaryOp::Add | MirBinaryOp::Sub),
+        dst,
+        left,
+        right,
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    }) = ops.get(cursor)
+    {
+        let previous = MirValue::Def(MirDef::VTemp(result_temp));
+        let operand = if left == &previous && word_carry_chain_tail_value(right) {
+            right.clone()
+        } else if *op == MirBinaryOp::Add && right == &previous && word_carry_chain_tail_value(left)
+        {
+            left.clone()
+        } else {
+            break;
+        };
+        let Some(next_temp) = split_def_as_temp(dst) else {
+            break;
+        };
+        tail.push((*op, operand));
+        result_temp = next_temp;
+        cursor += 1;
+    }
+
+    let Some(MirOp::Store {
+        dst: MirAddr::Direct(target),
+        src: MirValue::Def(store_src),
+        width: MirWidth::Word,
+    }) = ops.get(cursor)
+    else {
+        return 0;
+    };
+    if split_def_as_temp(store_src) != Some(result_temp)
+        || !word_carry_chain_target_supported(target)
+    {
+        return 0;
+    }
+
+    let source_value = pointer_value_from_mem(base_mem);
+    out.push(MirOp::MaterializeAddress {
+        consumer: DEFAULT_POINTER_PAIR,
+        value: source_value,
+    });
+    out.push(MirOp::LoadIndirect {
+        consumer: DEFAULT_POINTER_PAIR,
+        dst: MirDef::Reg(MirReg::A),
+        offset: *offset,
+    });
+    let addend = MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_INDEX_SCRATCH_LO));
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(addend.clone()),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+
+    let accumulator = MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO));
+    materialize_word_carry_chain_byte_update(
+        *first_op,
+        accumulator.clone(),
+        MirValue::PointerCell(addend),
+        config,
+        layout,
+        out,
+    );
+    for (op, operand) in tail {
+        materialize_word_binary_store_consumer(
+            op,
+            accumulator.clone(),
+            pointer_value_from_mem(&accumulator),
+            operand,
+            config,
+            layout,
+            out,
+        );
+    }
+    materialize_value_to_mem_for_width(
+        pointer_value_from_mem(&accumulator),
+        MirWidth::Word,
+        target.clone(),
+        layout,
+        out,
+    );
+    cursor + 1 - index
+}
+
+fn word_carry_chain_tail_value(value: &MirValue) -> bool {
+    matches!(value, MirValue::ConstU8(_) | MirValue::ConstU16(_))
+}
+
+fn word_carry_chain_target_supported(target: &MirMem) -> bool {
+    !matches!(
+        target,
+        MirMem::Absolute(_)
+            | MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO))
+            | MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_HI))
+    )
+}
+
+fn materialize_word_carry_chain_byte_update(
+    op: MirBinaryOp,
+    target: MirMem,
+    value: MirValue,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) {
+    if config.enable_word_inc_update {
+        out.push(match op {
+            MirBinaryOp::Add => MirOp::AddByteToWordMem { mem: target, value },
+            MirBinaryOp::Sub => MirOp::SubByteFromWordMem { mem: target, value },
+            _ => unreachable!("word carry-chain byte updates only support add/sub"),
+        });
+        return;
+    }
+    materialize_word_byte_binary_store_consumer(
+        op,
+        target.clone(),
+        pointer_value_from_mem(&target),
+        value,
+        config,
+        layout,
+        out,
+    );
+}
+
 #[cfg(test)]
 pub(super) fn try_fuse_word_store_consumer(
     ops: &[MirOp],

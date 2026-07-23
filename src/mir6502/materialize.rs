@@ -173,8 +173,8 @@ use stats::{MirPeepholeStats, maybe_report_peepholes};
 use store_consumers::{
     materialize_value_to_mem, select_byte_mul_add_sub_word_store_consumer,
     select_byte_store_consumer, select_direct_copy_store_consumer, select_store_expr_producers,
-    select_word_store_consumer, try_fuse_byte_mul_word_store_consumer,
-    try_fuse_cast_store_consumer,
+    select_word_carry_chain_store_consumer, select_word_store_consumer,
+    try_fuse_byte_mul_word_store_consumer, try_fuse_cast_store_consumer,
 };
 #[cfg(test)]
 use store_consumers::{
@@ -375,6 +375,36 @@ pub(in crate::mir6502) fn analyzed_store_consumer_candidates(
                 &delayed_byte_indexes,
             )
             .map(|candidate| (candidate.start, candidate))
+        })
+        .collect()
+}
+
+pub(in crate::mir6502) fn analyzed_word_carry_chain_store_candidates(
+    block: &super::ir::MirBlock,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+) -> Vec<(usize, StoreConsumerRewriteCandidate)> {
+    let ops = &block.ops;
+    (0..ops.len())
+        .filter_map(|index| {
+            let mut replacement = Vec::new();
+            let consumed = select_word_carry_chain_store_consumer(
+                ops,
+                index,
+                config,
+                layout,
+                &mut replacement,
+            );
+            (consumed > 0).then_some((
+                index,
+                StoreConsumerRewriteCandidate {
+                    start: index,
+                    consumed,
+                    replacement,
+                    stat: "word-carry-chain-store-consumer",
+                    family_priority: 120,
+                },
+            ))
         })
         .collect()
 }
@@ -613,6 +643,18 @@ fn analyzed_store_consumer_candidate_at(
     }
 
     let mut selected_helpers = Vec::new();
+    let consumed =
+        select_word_carry_chain_store_consumer(ops, index, config, layout, &mut replacement);
+    if consumed > 0 {
+        return Some(StoreConsumerRewriteCandidate {
+            start: index,
+            consumed,
+            replacement,
+            stat: "word-carry-chain-store-consumer",
+            family_priority: 120,
+        });
+    }
+
     let consumed = select_byte_mul_add_sub_word_store_consumer(
         ops,
         index,
@@ -628,7 +670,7 @@ fn analyzed_store_consumer_candidate_at(
             consumed,
             replacement,
             stat: "byte-mul-add-sub-word-store-consumer",
-            family_priority: 120,
+            family_priority: 130,
         });
     }
 
@@ -647,7 +689,7 @@ fn analyzed_store_consumer_candidate_at(
             consumed,
             replacement,
             stat: "byte-mul-word-store-consumer",
-            family_priority: 130,
+            family_priority: 140,
         });
     }
 
@@ -658,7 +700,7 @@ fn analyzed_store_consumer_candidate_at(
             consumed,
             replacement,
             stat: "word-store-consumer",
-            family_priority: 140,
+            family_priority: 150,
         });
     }
 
@@ -669,7 +711,7 @@ fn analyzed_store_consumer_candidate_at(
             consumed,
             replacement,
             stat: "direct-copy-store-consumer",
-            family_priority: 150,
+            family_priority: 160,
         });
     }
 
@@ -699,7 +741,7 @@ fn analyzed_store_consumer_candidate_at(
             consumed,
             replacement,
             stat: "byte-store-consumer",
-            family_priority: if start < index { 90 } else { 160 },
+            family_priority: if start < index { 90 } else { 170 },
         });
     }
 
@@ -710,7 +752,7 @@ fn analyzed_store_consumer_candidate_at(
         consumed,
         replacement,
         stat: "store-expr-consumer",
-        family_priority: 170,
+        family_priority: 180,
     })
 }
 
@@ -925,6 +967,7 @@ fn run_prehome_selection_group(
     helpers: &mut Vec<MirRuntimeHelper>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
+    run_analyzed_word_carry_chain_store_consumers(routine, config, layout, peephole_stats)?;
     run_analyzed_pointer_rewrites(routine, layout, peephole_stats)?;
     run_analyzed_call_arg_producers(routine, peephole_stats)?;
     run_analyzed_return_slot_call_arg_forwards(routine, peephole_stats)?;
@@ -1531,6 +1574,33 @@ fn run_analyzed_call_result_store_consumers(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("call-result store rewrite failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_word_carry_chain_store_consumers(
+    routine: &mut super::ir::MirRoutine,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            |routine, context| {
+                super::rewrite::pilots::discover_word_carry_chain_store_consumers(
+                    routine, context, config, layout,
+                )
+            },
+            super::rewrite::pilots::store_consumer_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("word carry-chain store selection failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

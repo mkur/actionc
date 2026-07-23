@@ -2281,6 +2281,120 @@ fn word_memory_update_commuted_add_const_uses_byte_to_word_update() {
 }
 
 #[test]
+fn word_carry_chain_store_uses_private_accumulator_without_temp_homes() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let base = MirDef::VTemp(MirTempId(185));
+    let addend = MirDef::VTemp(MirTempId(186));
+    let sum = MirDef::VTemp(MirTempId(187));
+    let result = MirDef::VTemp(MirTempId(188));
+    let source = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let target = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+    let ops = vec![
+        MirOp::Load {
+            dst: base.clone(),
+            src: MirAddr::Direct(source),
+            width: MirWidth::Word,
+        },
+        MirOp::Load {
+            dst: addend.clone(),
+            src: MirAddr::Deref {
+                ptr: MirValue::Def(base.clone()),
+                offset: 0,
+            },
+            width: MirWidth::Byte,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: sum.clone(),
+            left: MirValue::Def(base),
+            right: MirValue::Def(addend),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: result.clone(),
+            left: MirValue::Def(sum),
+            right: MirValue::ConstU16(5),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(target.clone()),
+            src: MirValue::Def(result),
+            width: MirWidth::Word,
+        },
+    ];
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_word_carry_chain_store_consumer(
+            &ops,
+            0,
+            &Mir6502Config::optimized(),
+            &layout,
+            &mut replacement,
+        ),
+        ops.len()
+    );
+    assert!(
+        matches!(
+            replacement.as_slice(),
+            [
+                MirOp::MaterializeAddress {
+                    consumer: DEFAULT_POINTER_PAIR,
+                    ..
+                },
+                MirOp::LoadIndirect {
+                    consumer: DEFAULT_POINTER_PAIR,
+                    dst: MirDef::Reg(MirReg::A),
+                    ..
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                        POINTER_INDEX_SCRATCH_LO
+                    ))),
+                    ..
+                },
+                MirOp::AddByteToWordMem {
+                    mem: MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO)),
+                    value: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
+                        POINTER_INDEX_SCRATCH_LO
+                    ))),
+                },
+                MirOp::AddByteToWordMem {
+                    mem: MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO)),
+                    value: MirValue::ConstU8(5),
+                },
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::A),
+                    ..
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(lo),
+                    ..
+                },
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::A),
+                    ..
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(hi),
+                    ..
+                },
+            ] if lo == &target && hi == &offset_mem(&target, 1)
+        ),
+        "{replacement:#?}"
+    );
+}
+
+#[test]
 fn byte_store_expr_consumer_materializes_loaded_add_chain_without_temps() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

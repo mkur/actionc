@@ -353,6 +353,9 @@ pub(in crate::mir6502) fn discover_store_consumers(
                 "cast-store-consumer" => {
                     cast_store_consumer_plan(block.id, &block.ops, index, candidate, context)
                 }
+                "word-carry-chain-store-consumer" => {
+                    store_consumer_plan(block.id, &block.ops, index, candidate, context)
+                }
                 "byte-mul-add-sub-word-store-consumer" => {
                     byte_mul_add_sub_word_store_consumer_plan(
                         block.id, &block.ops, index, candidate, context,
@@ -376,6 +379,28 @@ pub(in crate::mir6502) fn discover_store_consumers(
                 _ => None,
             };
             if let Some(plan) = plan {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn discover_word_carry_chain_store_consumers(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    config: &crate::mir6502::passes::Mir6502Config,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (index, candidate) in
+            crate::mir6502::materialize::analyzed_word_carry_chain_store_candidates(
+                block, config, layout,
+            )
+        {
+            if let Some(plan) = store_consumer_plan(block.id, &block.ops, index, candidate, context)
+            {
                 plans.push(plan);
             }
         }
