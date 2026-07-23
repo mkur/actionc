@@ -1,6 +1,6 @@
 # TN MIR6502 listing reanalysis
 
-Date: 2026-07-22. Last updated: 2026-07-23.
+Date: 2026-07-22. Last updated: 2026-07-24.
 
 Historical revision: `06e4f23` (`mir6502: elide unobserved public ABI shadow
 stores`). Reanalysis baseline revision: `43992fc` (`test: cover canonical
@@ -15,26 +15,28 @@ recommendation is corrected in place.
 Scope: `samples/tn/modern/TN.ACT`, modern profile, with the MIR6502 backend
 compared directionally with the modern/classic backend.
 
-## Current reanalysis after addressed compares and pointer retention
+## Current reanalysis after known-callee exit-state propagation
 
-Code-producing revision: `08631d9` (`mir6502: retain pointer values across CFG
-edges`), including `3116a5f` (`mir6502: select addressed byte comparisons`).
+Code-producing revision: `a6b6851` (`mir6502: retain pointer state across known
+calls`), including `b4318cb` (known-callee summaries) and `b335ab9` (proven
+result-accumulator reuse).
 
-The MIR6502 load file is now 10,568 bytes. Modern/classic remains 10,445
-bytes, leaving a 123-byte gap, or 1.2 percent. Deferred local-array storage,
-logical-condition CFG lowering, word/pointer carry-chain selection, and
-edge-aware accumulator propagation, addressed-byte comparison, and pointer
-retention reduced the previous 11,554-byte result by 986 bytes in total.
+The MIR6502 load file is now 10,484 bytes. Modern/classic remains 10,445
+bytes, leaving a 39-byte gap, or 0.4 percent. Deferred local-array storage,
+logical-condition CFG lowering, word/pointer carry-chain selection,
+edge-aware accumulator propagation, addressed-byte comparison, pointer
+retention, and known-callee exit-state propagation reduced the previous
+11,554-byte result by 1,070 bytes in total.
 
 | Metric | MIR6502 | Modern/classic | Difference |
 | --- | ---: | ---: | ---: |
-| Load file | 10,568 | 10,445 | +123 |
-| Recognized instructions | 4,381 | 4,338 | +43 |
-| Recognized instruction bytes | 9,870 | 9,714 | +156 |
-| `LDA` + `STA` instructions | 2,124 | 1,910 | +214 |
-| `LDA` + `STA` instruction share | 48.5% | 44.0% | +4.5 points |
-| `JMP` | 160 | 158 | +2 |
-| `JSR` | 369 | 368 | +1 |
+| Load file | 10,484 | 10,445 | +39 |
+| Recognized instructions | 4,341 | 4,338 | +3 |
+| Recognized instruction bytes | 9,791 | 9,714 | +77 |
+| `LDA` + `STA` instructions | 2,074 | 1,910 | +164 |
+| `LDA` + `STA` instruction share | 47.8% | 44.0% | +3.8 points |
+| `JMP` | 159 | 158 | +1 |
+| `JSR` | 368 | 368 | 0 |
 | Branch-over-`JMP` veneers | 28 | 28 | 0 |
 
 The listing-quality parser undercounts long `.BYTE` declarations and may
@@ -44,17 +46,17 @@ independent label-based data census finds 762 declared data bytes in MIR6502
 and 970 in classic. MIR6502's remaining load-file excess is therefore entirely
 in code and layout, partly offset by its smaller loadable data region.
 
-Current generated artifacts:
+Current generated artifacts are in `target/tn-known-callee-final`:
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
 | `TN-pre.mir` | 130,090 | `58f8a8488af6086e88e6652bdd7ee569fa7b7154d216f89850263b2e727e9207` |
-| `TN-materialized.mir` | 153,067 | `35cf2f2cb565edaac28eae7267474ca541fa9b54a32ffc8e89d343e4aeeff76c` |
-| `TN-mir6502.lst` | 140,475 | `fe46d3862dd6f8f9ce2ab94013930e453b072c6817a1cd1857e7b7410da719fe` |
-| `TN-mir6502.map` | 10,967 | `d78875016712763fc3286caf48d92f22875bcfdac1979cbdc478fec73a6beb7f` |
-| `TN-mir6502.peepholes` | 274,969 | `eaa9266857b1da704810c11b7061cefdc2abe606163e22c35b2ae08907bfa360` |
-| `TN-mir6502.quality` | 3,284 | `5d986bfc4dbf6c0134e15011fff616762b6e079b9cbc3ac02c6a623c86faf5ad` |
-| `TN-mir6502.xex` | 10,568 | `090d4ab63ab513a846cb49c6e5f456e4fdf242e8fe3f1347b48efd03c96c8e4d` |
+| `TN-materialized.mir` | 151,740 | `b2439e1c00020712a11053971b319fd1ea0dce8109f0601c54287f6cb05a68ed` |
+| `TN-mir6502.lst` | 139,399 | `bcdb589ed4d9a3ecea295b84cb2511d61d6dcf5a6ba0022716cf698cbae064e6` |
+| `TN-mir6502.map` | 10,967 | `4dc769369a71dc58b92f030e0da6fbcab019078be058539b23428ccded7dbb0e` |
+| `TN-mir6502.peepholes` | 276,813 | `c0423382c01d9aedbc32e0c47825b78cbd7d5c5eebcaad2d447fef6009420be4` |
+| `TN-mir6502.quality` | 3,114 | `8ec3d1ca13e6452dd7b2e9ea0162fd2f18bf293e3d03e180e903e88d1e24f8ee` |
+| `TN-mir6502.xex` | 10,484 | `6416d902760b359c97387f4ba11d55878eaac0d3cc19e7e262b906cfd15dd795` |
 | `TN-classic.xex` | 10,445 | `3caefd677ab3d1489e39fcc0200126b442a15278b26a9cb5351434a1c8674f39` |
 
 For the current follow-up audit, routine instruction bytes were also counted
@@ -64,16 +66,16 @@ positive routine gaps are:
 
 | Routine | MIR6502 code bytes | Classic code bytes | Difference |
 | --- | ---: | ---: | ---: |
-| `Handle` | 870 | 819 | +51 |
-| `PopUp` | 285 | 253 | +32 |
-| `SetWin` | 1,115 | 1,090 | +25 |
+| `Handle` | 864 | 819 | +45 |
+| `PopUp` | 276 | 253 | +23 |
 | `Window` | 324 | 301 | +23 |
 | `Draw` | 156 | 136 | +20 |
 | `Next` | 48 | 30 | +18 |
-| `Copy` | 674 | 660 | +14 |
-| `Xloop` | 227 | 213 | +14 |
 | `Strcpy` | 51 | 39 | +12 |
 | `MakeJmp` | 45 | 34 | +11 |
+| `drives` | 67 | 57 | +10 |
+| `Key` | 56 | 47 | +9 |
+| `Copy` | 668 | 660 | +8 |
 
 ### Current ranked opportunities
 
@@ -277,7 +279,7 @@ two bytes smaller than classic's 168. The original 30-40-byte estimate covered
 only the inspected `Range` loss; generalizing pointer retention exposed the
 same safe pattern in five other routines.
 
-#### 6. Propagate proven known-callee exit state
+#### 6. Propagate proven known-callee exit state — completed
 
 The materializer selects 25 direct and nine loaded-argument call-result
 consumers, but canonical return-home materialization can still reload `$A0`
@@ -290,6 +292,34 @@ proves that its exit accumulator equals `$A0`. The five prepared effective
 address candidates in `Putchar` and `SetWin` additionally need proof that the
 call preserves the prepared address. A first implementation should target a
 roughly 20-35-byte saving.
+
+The implementation was split into three committed slices:
+
+1. `b4318cb` adds conservative program-wide direct-callee summaries. A summary
+   records the accumulator value that agrees at every reachable return and an
+   exact set of direct memory writes. A small straight-line machine-routine
+   decoder covers TN's authored result helpers without routine-name special
+   cases. Recursion, indirect/external calls, unsupported machine control flow,
+   indirect writes, and unresolved effects remain unknown.
+2. `b335ab9` feeds those summaries into shared post-home machine-value
+   analysis. The existing analyzed rewrite removes a caller reload only when
+   the specific callee proves that A already equals the same canonical result
+   home. Stores to `$A0` remain in the callees; this is result-value reuse, not
+   an ABI change. TN telemetry records 39 applied
+   `known-callee-result-reload` rewrites across 21 routines. The XEX falls 60
+   bytes, from 10,568 to 10,508.
+3. `a6b6851` retains fixed zero-page pointer-byte facts across a known direct
+   call only when the summary proves that neither the pointer byte nor the
+   memory value it mirrors can be written. Unknown calls still clear all such
+   facts. This exposes 12 additional redundant pointer-byte stores in
+   `SetWin`, reducing the XEX another 24 bytes to 10,484.
+
+The measured total is therefore 84 bytes, substantially above the original
+20-35-byte estimate. `Putchar` reaches classic size, `SetWin` falls from a
+25-byte instruction gap to one byte, and the overall load-file gap falls from
+123 to 39 bytes. The pre-home call-result effective-address counters still say
+"blocked-clobber" because they describe an earlier selection point; the
+shared post-home data-flow rewrite now removes the final restages safely.
 
 #### 7. Complete residual word carry-chain selection
 
@@ -311,7 +341,7 @@ include a directory-pointer copy, a selected `dirsectors` pointer, and the
 escape-path copy back into `currentDir`. Keeping source and destination in the
 two available private pointer pairs should remove several RAM/ZP
 store-and-reload groups. This is a roughly 20-30-byte opportunity within
-`Handle`'s current 51-byte instruction gap.
+`Handle`'s current 45-byte instruction gap.
 
 #### 9. Extend multi-use value-location planning
 
@@ -346,14 +376,14 @@ materialized or byte-split.
   classic. The excess is useful cleanup evidence, not a leading target.
 - Four `JSR; RTS` pairs remain in both backends and do not explain the gap.
 
-The completed slices have removed 986 bytes from the 11,554-byte reanalysis
+The completed slices have removed 1,070 bytes from the 11,554-byte reanalysis
 baseline: 458 bytes from deferred storage, 242 from logical CFG lowering, 44
 from word/pointer carry-chain selection, 138 from edge-aware accumulator
-propagation, 16 from addressed-byte comparison, and 88 from pointer retention.
-The remaining gap is 123 bytes. Known-callee result-state propagation is now
-the best bounded next slice, followed by residual carry-chain selection and
-dual-pointer word transfers. These estimates overlap in a few routines and
-must not be added as independent savings.
+propagation, 16 from addressed-byte comparison, 88 from CFG-edge pointer
+retention, and 84 from known-callee exit-state propagation. The remaining gap
+is 39 bytes. Residual carry-chain selection and dual-pointer word transfers are
+now the leading bounded slices. Their estimates overlap in `Handle` and other
+routines and must not be added as independent savings.
 
 ## Previous reanalysis baseline after scaled-Y and ABI correction
 
@@ -688,17 +718,22 @@ be targeted merely to make the pre-plan origin counter reach zero. The final
 load-file SHA-256 is
 `96f0456220d5fe53bfc82ea8969c32a2bcb8f4794d8f38f5c8e6582e81a0ae5f`.
 
-### 6. Reuse known-call summaries for prepared addresses
+### 6. Reuse known-call summaries for prepared addresses — completed later
 
 Only five call-result effective-address preservation candidates remain, down
 from ten in the previous analysis: one in `Putchar` and four in `SetWin`. All
 five are rejected because a known direct call is still conservatively assumed
 to clobber the prepared pointer pair.
 
-This remains a separate routine-effect problem. Known direct-call summaries
+This was a separate routine-effect problem. Known direct-call summaries
 can answer it, while unknown, recursive, external, and indirect calls retain
 the current conservative fallback. It must not be coupled to `$A0-$A2` argument
 mirrors, which are absent from the ABI.
+
+Implemented later by `b4318cb`, `b335ab9`, and `a6b6851`, as documented in the
+current ranked section above. The final shared data-flow rewrite removes the
+surviving restages even though these historical pre-home candidate counters
+continue to report their original conservative decision.
 
 ### 7. Finish the remaining increment forms
 
