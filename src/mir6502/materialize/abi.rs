@@ -1,10 +1,14 @@
 use super::helper_effects;
+use super::stats::MirPeepholeStats;
+use crate::mir6502::analysis::effects::{MirMemoryRange, classify_op, classify_terminator};
 use crate::mir6502::ir::{
     MirAddr, MirArgHome, MirBlock, MirCallTarget, MirCond, MirDef, MirEffects, MirFixedZpSlot,
-    MirMachineBlock, MirMachineBlockId, MirMachineItem, MirMem, MirOp, MirRuntimeHelper,
-    MirStorageBase, MirTerminator, MirValue, MirWidth,
+    MirMachineBlock, MirMachineBlockId, MirMachineItem, MirMem, MirMemoryEffect,
+    MirMemoryRegionKind, MirOp, MirRoutineAbi, MirRuntimeHelper, MirStorageBase, MirTerminator,
+    MirValue, MirWidth,
 };
 use crate::nir::ParamId;
+use std::collections::BTreeSet;
 
 pub(super) fn prepend_action_abi_param_prologue(
     routine: &mut crate::mir6502::ir::MirRoutine,
@@ -37,6 +41,182 @@ pub(super) fn prepend_action_abi_param_prologue(
     let mut ops = prologue;
     ops.extend(entry.ops.clone());
     entry.ops = ops;
+}
+
+pub(super) fn elide_capture_only_param_homes(
+    routine: &mut crate::mir6502::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) {
+    if routine.abi != MirRoutineAbi::Action
+        || !routine.frame.locals.is_empty()
+        || routine_contains_machine_block(routine)
+    {
+        return;
+    }
+    let arg_bytes = routine
+        .frame
+        .params
+        .iter()
+        .map(|param| width_bytes(param.width))
+        .sum::<u16>();
+    if arg_bytes == 0 || arg_bytes > 2 {
+        return;
+    }
+
+    let expected_prologue = action_abi_direct_param_prologue(routine);
+    let Some(entry) = routine.blocks.first() else {
+        return;
+    };
+    if expected_prologue.is_empty() || !entry.ops.starts_with(&expected_prologue) {
+        return;
+    }
+    let prefix_len = expected_prologue.len();
+    let candidates = routine
+        .frame
+        .params
+        .iter()
+        .filter_map(|slot| {
+            let MirStorageBase::Param(id) = slot.base else {
+                return None;
+            };
+            let capture_count = expected_prologue
+                .iter()
+                .filter(|op| store_targets_param(op, id))
+                .count();
+            (capture_count == usize::from(width_bytes(slot.width))
+                && !routine_references_param_after_prefix(routine, id, prefix_len))
+            .then_some((id, width_bytes(slot.width), slot.name.clone()))
+        })
+        .collect::<Vec<_>>();
+    if candidates.is_empty() {
+        return;
+    }
+    let candidate_ids = candidates
+        .iter()
+        .map(|(id, _, _)| *id)
+        .collect::<BTreeSet<_>>();
+
+    if let Some(entry) = routine.blocks.first_mut() {
+        entry.ops = entry
+            .ops
+            .drain(..)
+            .enumerate()
+            .filter_map(|(index, op)| {
+                (index >= prefix_len || !store_targets_any_param(&op, &candidate_ids)).then_some(op)
+            })
+            .collect();
+    }
+    for slot in &mut routine.frame.params {
+        let MirStorageBase::Param(id) = slot.base else {
+            continue;
+        };
+        if candidate_ids.contains(&id) {
+            slot.base = MirStorageBase::ParamAbiOnly(id);
+        }
+    }
+    for (id, bytes, name) in candidates {
+        peephole_stats.record_many(
+            routine.id,
+            "write-only-param-home-elided",
+            usize::from(bytes),
+        );
+        peephole_stats.record_site(
+            routine.id,
+            "write-only-param-home-elided",
+            format!(
+                "param=p{} name={} bytes={} kind=capture-only",
+                id.0,
+                name.as_deref().unwrap_or("<unnamed>"),
+                bytes
+            ),
+        );
+    }
+}
+
+fn routine_references_param_after_prefix(
+    routine: &crate::mir6502::ir::MirRoutine,
+    id: ParamId,
+    prefix_len: usize,
+) -> bool {
+    routine
+        .blocks
+        .iter()
+        .enumerate()
+        .any(|(block_index, block)| {
+            let start = if block_index == 0 { prefix_len } else { 0 };
+            block.ops[start..]
+                .iter()
+                .any(|op| op_effects_reference_param(op, id))
+                || terminator_effects_reference_param(&block.terminator, id)
+        })
+}
+
+fn op_effects_reference_param(op: &MirOp, id: ParamId) -> bool {
+    let effects = classify_op(op);
+    effects.memory.opaque
+        || effects
+            .memory
+            .direct_reads
+            .iter()
+            .any(|range| range_references_param(range, id))
+        || effects
+            .memory
+            .direct_writes
+            .iter()
+            .any(|range| range_references_param(range, id))
+        || structured_effect_references_param(&effects.memory.structured_reads, id)
+        || structured_effect_references_param(&effects.memory.structured_writes, id)
+}
+
+fn terminator_effects_reference_param(terminator: &MirTerminator, id: ParamId) -> bool {
+    let effects = classify_terminator(terminator);
+    effects.memory.opaque
+        || effects
+            .memory
+            .direct_reads
+            .iter()
+            .any(|range| range_references_param(range, id))
+        || effects
+            .memory
+            .direct_writes
+            .iter()
+            .any(|range| range_references_param(range, id))
+        || structured_effect_references_param(&effects.memory.structured_reads, id)
+        || structured_effect_references_param(&effects.memory.structured_writes, id)
+}
+
+fn range_references_param(range: &MirMemoryRange, id: ParamId) -> bool {
+    matches!(range.base, MirMem::Param { id: candidate, .. } if candidate == id)
+}
+
+fn structured_effect_references_param(effect: &MirMemoryEffect, id: ParamId) -> bool {
+    match effect {
+        MirMemoryEffect::None => false,
+        MirMemoryEffect::Regions(regions) => regions.iter().any(
+            |region| matches!(region.kind, MirMemoryRegionKind::Param(candidate) if candidate == id),
+        ),
+        MirMemoryEffect::Unknown | MirMemoryEffect::All => true,
+    }
+}
+
+fn store_targets_param(op: &MirOp, id: ParamId) -> bool {
+    matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Param { id: candidate, .. }),
+            ..
+        } if *candidate == id
+    )
+}
+
+fn store_targets_any_param(op: &MirOp, ids: &BTreeSet<ParamId>) -> bool {
+    matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Param { id, .. }),
+            ..
+        } if ids.contains(id)
+    )
 }
 
 fn routine_references_param_storage(routine: &crate::mir6502::ir::MirRoutine) -> bool {
@@ -219,31 +399,36 @@ fn action_abi_direct_param_prologue(routine: &crate::mir6502::ir::MirRoutine) ->
     let mut bytes = Vec::new();
     let mut offset = 0u16;
     for param in &routine.frame.params {
-        let id = match param.base {
-            MirStorageBase::Param(id) => id,
+        let (id, needs_capture) = match param.base {
+            MirStorageBase::Param(id) => (id, true),
+            MirStorageBase::ParamAbiOnly(id) => (id, false),
             _ => continue,
         };
         let start = offset;
         match param.width {
             MirWidth::Byte => {
-                bytes.push(store_param_byte_from_abi_home(
-                    id,
-                    0,
-                    action_abi_byte_home(start),
-                ));
+                if needs_capture {
+                    bytes.push(store_param_byte_from_abi_home(
+                        id,
+                        0,
+                        action_abi_byte_home(start),
+                    ));
+                }
                 offset = offset.saturating_add(1);
             }
             MirWidth::Word => {
-                bytes.push(store_param_byte_from_abi_home(
-                    id,
-                    0,
-                    action_abi_byte_home(start),
-                ));
-                bytes.push(store_param_byte_from_abi_home(
-                    id,
-                    1,
-                    action_abi_byte_home(start.saturating_add(1)),
-                ));
+                if needs_capture {
+                    bytes.push(store_param_byte_from_abi_home(
+                        id,
+                        0,
+                        action_abi_byte_home(start),
+                    ));
+                    bytes.push(store_param_byte_from_abi_home(
+                        id,
+                        1,
+                        action_abi_byte_home(start.saturating_add(1)),
+                    ));
+                }
                 offset = offset.saturating_add(2);
             }
         }

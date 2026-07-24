@@ -621,6 +621,9 @@ impl MirObjectLayout {
                     .insert(allocation.slot, allocation.start.0);
             }
             for param in &routine.frame.params {
+                if matches!(param.base, MirStorageBase::ParamAbiOnly(_)) {
+                    continue;
+                }
                 place_routine_slot(
                     &mut routine_layout,
                     &mut layout.storage_items,
@@ -863,7 +866,9 @@ fn push_routine_storage_symbol(
         name,
         CodegenSymbolScope::Routine(routine.name.clone()),
         match slot.base {
-            MirStorageBase::Param(_) => CodegenSymbolKind::Parameter,
+            MirStorageBase::Param(_) | MirStorageBase::ParamAbiOnly(_) => {
+                CodegenSymbolKind::Parameter
+            }
             _ => CodegenSymbolKind::Local,
         },
         routine_slot_placement(layout, routine.id, slot),
@@ -888,6 +893,7 @@ fn place_routine_slot(
             address: address.saturating_add(slot.offset),
             size: slot_size(slot),
         },
+        MirStorageBase::ParamAbiOnly(_) => MirStoragePlacement::Unresolved,
         MirStorageBase::LocalAlias { target, .. } => {
             if let Some(target) = routine_layout.locals.get(&target).copied()
                 && let Some(address) = placement_address(target)
@@ -951,6 +957,7 @@ fn place_routine_slot(
         MirStorageBase::Param(id) => {
             routine_layout.params.insert(id, placement);
         }
+        MirStorageBase::ParamAbiOnly(_) => {}
         MirStorageBase::Local(id) => {
             routine_layout.locals.insert(id, placement);
         }
@@ -4280,6 +4287,7 @@ fn routine_slot_placement(
     let storage = layout.routine_storage.get(&routine)?;
     match slot.base {
         MirStorageBase::Param(id) => storage.params.get(&id).copied(),
+        MirStorageBase::ParamAbiOnly(_) => None,
         MirStorageBase::Local(id) => storage.locals.get(&id).copied(),
         MirStorageBase::LocalAlias { id, .. } => storage.locals.get(&id).copied(),
         MirStorageBase::Spill(id) => storage.spills.get(&id).copied(),
@@ -4297,7 +4305,9 @@ fn routine_slot_name(slot: &MirStorageSlot) -> String {
         return name.clone();
     }
     match slot.base {
-        MirStorageBase::Param(id) => format!("p{}", id.0),
+        MirStorageBase::Param(id) | MirStorageBase::ParamAbiOnly(id) => {
+            format!("p{}", id.0)
+        }
         MirStorageBase::Local(id) => format!("l{}", id.0),
         MirStorageBase::LocalAlias { id, .. } => format!("l{}", id.0),
         MirStorageBase::Spill(id) => format!("spill{}", id.0),

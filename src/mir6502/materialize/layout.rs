@@ -50,6 +50,9 @@ impl MaterializeLayout {
         for routine in &program.routines {
             let mut storage = MaterializeRoutineStorage::default();
             for param in &routine.frame.params {
+                if matches!(param.base, MirStorageBase::ParamAbiOnly(_)) {
+                    continue;
+                }
                 place_materialize_slot(&mut storage, param, &mut cursor);
             }
             for local in &routine.frame.locals {
@@ -297,6 +300,9 @@ fn place_materialize_slot(
     slot: &MirStorageSlot,
     cursor: &mut u16,
 ) {
+    if matches!(slot.base, MirStorageBase::ParamAbiOnly(_)) {
+        return;
+    }
     if let MirStorageBase::LocalAlias { id, target } = slot.base {
         if let Some(address) = storage.local_base_address(target) {
             storage.locals.push((
@@ -325,7 +331,8 @@ fn place_materialize_slot(
             storage.locals.push((id, address, size, slot.width));
         }
         MirStorageBase::Spill(id) => storage.spills.push((id, address, size)),
-        MirStorageBase::LocalAlias { .. }
+        MirStorageBase::ParamAbiOnly(_)
+        | MirStorageBase::LocalAlias { .. }
         | MirStorageBase::Absolute(_)
         | MirStorageBase::Global(_)
         | MirStorageBase::Static(_) => {}

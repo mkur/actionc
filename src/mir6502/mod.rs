@@ -1545,7 +1545,7 @@ mod tests {
     }
 
     #[test]
-    fn forwards_direct_param_register_homes_to_initial_reloads() {
+    fn elides_capture_only_param_homes_after_forwarding_initial_reloads() {
         let mir = materialize_program(
             MirProgram {
                 statics: Vec::new(),
@@ -1610,14 +1610,96 @@ mod tests {
         .expect("materialize forwarded param homes");
 
         let formatted = format_program(&mir);
-        assert!(formatted.contains("store.b param p0+1, x"), "{formatted}");
-        assert!(formatted.contains("store.b param p0+0, a"), "{formatted}");
+        assert!(matches!(
+            mir.routines[0].frame.params[0].base,
+            MirStorageBase::ParamAbiOnly(ParamId(0))
+        ));
+        assert!(!formatted.contains("store.b param p0+1, x"), "{formatted}");
+        assert!(!formatted.contains("store.b param p0+0, a"), "{formatted}");
         assert!(!formatted.contains("a =.b load param p0+0"), "{formatted}");
         assert!(!formatted.contains("a =.b load param p0+1"), "{formatted}");
         assert!(formatted.contains("store.b global g0+0, a"), "{formatted}");
         assert!(formatted.contains("a =.b x"), "{formatted}");
         assert!(formatted.contains("store.b global g0+1, a"), "{formatted}");
         verify_program(&mir, MirPhase::PreEmission).expect("forwarded params are ready");
+
+        let mut invalid = mir.clone();
+        invalid.routines[0].blocks[0].ops.insert(
+            0,
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(MirMem::Param {
+                    id: ParamId(0),
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+        );
+        let diagnostics = verify_program(&invalid, MirPhase::PreEmission)
+            .expect_err("ABI-only home has no memory");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("param storage `p0` does not exist")
+        }));
+    }
+
+    #[test]
+    fn observable_action_entry_keeps_direct_param_homes() {
+        let mir = materialize_mir6502_source(
+            "
+            CARD sink
+
+            PROC Keep=*(CARD value)
+              sink=value
+            RETURN
+            ",
+        );
+        let keep = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Keep")
+            .expect("Keep routine");
+        let formatted = format_program(&mir);
+
+        assert_eq!(keep.abi, MirRoutineAbi::ActionObservable);
+        assert!(matches!(
+            keep.frame.params[0].base,
+            MirStorageBase::Param(ParamId(0))
+        ));
+        assert!(formatted.contains("store.b param p0+1, x"), "{formatted}");
+        assert!(formatted.contains("store.b param p0+0, a"), "{formatted}");
+    }
+
+    #[test]
+    fn elided_param_home_preserves_signature_without_storage_symbol() {
+        let output = generate_mir6502_source(
+            "
+            CARD sink
+
+            PROC Forward(CARD value)
+              sink=value
+            RETURN
+            ",
+        );
+        let signature = output
+            .map
+            .routine_signatures
+            .iter()
+            .find(|signature| signature.name == "Forward")
+            .expect("Forward signature");
+
+        assert_eq!(signature.params.len(), 1);
+        assert_eq!(signature.params[0].name, "value");
+        assert_eq!(signature.params[0].width, 2);
+        assert!(
+            !output.map.storage_symbols.iter().any(|symbol| {
+                symbol.name == "value"
+                    && symbol.scope
+                        == crate::codegen::CodegenSymbolScope::Routine("Forward".to_string())
+            }),
+            "elided formal must not retain a storage symbol"
+        );
     }
 
     #[test]
@@ -9253,6 +9335,17 @@ mod tests {
         let nir =
             crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
         generate_output_with_config(&nir, origin, config).expect("generate mir6502 output")
+    }
+
+    fn materialize_mir6502_source(source: &str) -> MirProgram {
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze(&program).expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        materialize_program(mir, &Mir6502Config::default()).expect("materialize MIR6502")
     }
 
     fn generate_unoptimized_nir_mir6502_source_with_origin(

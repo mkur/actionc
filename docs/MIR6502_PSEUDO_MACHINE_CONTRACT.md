@@ -232,6 +232,7 @@ pub struct MirStorageSlot {
 
 pub enum MirStorageBase {
     Param(ParamId),
+    ParamAbiOnly(ParamId),
     Local(LocalId),
     Spill(MirSpillId),
     Global(GlobalId),
@@ -250,6 +251,17 @@ Rules:
   concrete address.
 - Fixed ABI zero-page locations must use a separate fixed form so they cannot be
   confused with allocatable zero-page temps.
+- `Param(ParamId)` denotes a physical parameter home. It participates in
+  routine-local layout and may be referenced by MIR memory operations.
+- `ParamAbiOnly(ParamId)` retains the formal's signature and direct-register ABI
+  position after its private, write-only home has been proven unnecessary. It
+  consumes no storage, has no storage symbol or address, and verifier-clean
+  post-home MIR must not reference it as memory.
+- Parameter-home elision is permitted only for ordinary internal Action ABI
+  entries after all uses of that home have disappeared. System-address and
+  current-location entries remain ABI-observable and retain physical parameter
+  homes. Machine blocks, address escape, opaque effects, or any residual read or
+  write also require the physical home.
 
 ## Width Model
 

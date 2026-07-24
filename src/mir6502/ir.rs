@@ -176,7 +176,12 @@ pub struct MirRoutine {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MirRoutineAbi {
+    /// Ordinary Action ABI entry whose private parameter storage is not part of
+    /// an externally observable routine boundary.
     Action,
+    /// Action ABI entry whose physical parameter storage remains observable,
+    /// for example a system-address or current-location routine.
+    ActionObservable,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -263,8 +268,14 @@ pub struct MirStorageBacking {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MirStorageBase {
     Param(ParamId),
+    /// Parameter metadata retained for ABI placement and signature reporting
+    /// after its unobservable physical storage has been elided.
+    ParamAbiOnly(ParamId),
     Local(LocalId),
-    LocalAlias { id: LocalId, target: LocalId },
+    LocalAlias {
+        id: LocalId,
+        target: LocalId,
+    },
     Spill(MirSpillId),
     Global(SymbolId),
     Static(SymbolId),
