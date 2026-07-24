@@ -1,0 +1,50 @@
+; Runtime regression for overlap-safe MIR6502 dual-pointer word transfers.
+;
+; Both transfer directions are exercised with disjoint storage and with the
+; destination overlapping one source byte. The overlapping cases require both
+; source bytes to be read before the first destination write.
+
+CARD indexedToIndirectResult=$0600
+CARD indirectToIndexedResult=$0602
+CARD indexedToIndirectOverlapResult=$0604
+CARD indirectToIndexedOverlapResult=$0606
+
+CARD ARRAY indexedSource(256)=$6001
+CARD ARRAY indexedDestination(256)=$6201
+CARD POINTER transferPointer
+BYTE index
+
+PROC Main()
+  ; Scaled indexed source to an unrelated indirect destination.
+  index=3
+  indexedSource(index)=$1234
+  transferPointer=$6801
+  transferPointer^=indexedSource(index)
+  indexedToIndirectResult=transferPointer^
+
+  ; Indirect source to an unrelated scaled indexed destination.
+  transferPointer=$6811
+  transferPointer^=$5678
+  index=4
+  indexedDestination(index)=transferPointer^
+  indirectToIndexedResult=indexedDestination(index)
+
+  ; indexedSource(127) occupies $60FF-$6100. The destination starts at
+  ; $6100, so its low-byte write overwrites the source high byte.
+  index=127
+  indexedSource(index)=$BEEF
+  transferPointer=$6100
+  transferPointer^=indexedSource(index)
+  indexedToIndirectOverlapResult=transferPointer^
+
+  ; The source occupies $62FE-$62FF and indexedDestination(127) starts at
+  ; $62FF, so the destination low byte overwrites the source high byte.
+  transferPointer=$62FE
+  transferPointer^=$CAFE
+  index=127
+  indexedDestination(index)=transferPointer^
+  indirectToIndexedOverlapResult=indexedDestination(index)
+
+  DO
+  OD
+RETURN

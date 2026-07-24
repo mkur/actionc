@@ -22,6 +22,12 @@ Run the modern/classic scaled CARD-index boundary gate directly:
 fixtures/runtime/run-scaled-card-indexes-vm.sh
 ```
 
+Run the modern/classic dual-pointer word-transfer gate directly:
+
+```sh
+fixtures/runtime/run-dual-pointer-word-transfers-vm.sh
+```
+
 The gate compiles `initialized_arrays.act` with the modern classic and MIR6502
 backends. It covers global and local initialized BYTE and CARD arrays,
 including the descriptor-backed CARD representations, then checks the six
@@ -46,6 +52,13 @@ and a call on the right-hand side of a store. The 34 result bytes at
 `$0600-$0621` also exercise a destination that overwrites its own descriptor,
 a page crossing, the high-byte access at `Y=$FF`, the ASL carry for indexes 128
 through 255, and wrapping the corrected base high byte from `$FF` to `$00`.
+
+The dual-pointer word-transfer fixture exercises scaled indexed-to-indirect
+and indirect-to-indexed word copies in both backends. Each direction has a
+disjoint case and a case where the destination overlaps one source byte. The
+MIR6502 preflight also requires four selected `copy_indirect_word` operations,
+including two scaled-source copies. The eight result bytes at `$0600-$0607`
+prove that both source bytes were read before the first destination write.
 
 It is also part of the opt-in compatibility integration tests:
 
