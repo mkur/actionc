@@ -4544,6 +4544,94 @@ fn indexed_to_indirect_word_copy_uses_overlap_safe_dual_pointer_op() {
 }
 
 #[test]
+fn indirect_to_indexed_word_copy_rematerializes_both_pointer_sides() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let destination_base = MirDef::VTemp(MirTempId(0));
+    let destination_index = MirDef::VTemp(MirTempId(1));
+    let source_pointer = MirDef::VTemp(MirTempId(2));
+    let value = MirDef::VTemp(MirTempId(3));
+    let ops = vec![
+        MirOp::Load {
+            dst: destination_base.clone(),
+            src: MirAddr::Direct(MirMem::Global {
+                id: SymbolId(0),
+                offset: 0,
+            }),
+            width: MirWidth::Word,
+        },
+        MirOp::Load {
+            dst: destination_index.clone(),
+            src: MirAddr::Direct(MirMem::Global {
+                id: SymbolId(1),
+                offset: 0,
+            }),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: source_pointer.clone(),
+            src: MirAddr::Direct(MirMem::Global {
+                id: SymbolId(2),
+                offset: 0,
+            }),
+            width: MirWidth::Word,
+        },
+        MirOp::Load {
+            dst: value.clone(),
+            src: MirAddr::Deref {
+                ptr: MirValue::Def(source_pointer),
+                offset: 0,
+            },
+            width: MirWidth::Word,
+        },
+        MirOp::Store {
+            dst: MirAddr::ComputedIndex {
+                base: MirValue::Def(destination_base),
+                index: MirValue::Def(destination_index),
+                elem_size: 2,
+                offset: 0,
+            },
+            src: MirValue::Def(value),
+            width: MirWidth::Word,
+        },
+    ];
+    let candidates = analyzed_indirect_to_indexed_word_copy_candidates(
+        &MirBlock {
+            id: MirBlockId(0),
+            label: "copy".to_string(),
+            params: Vec::new(),
+            ops,
+            terminator: MirTerminator::Return,
+        },
+        &layout,
+    );
+
+    assert_eq!(candidates.len(), 1);
+    let (_, candidate) = &candidates[0];
+    assert_eq!(candidate.start, 0);
+    assert_eq!(candidate.consumed, 5);
+    assert!(matches!(
+        candidate.replacement.as_slice(),
+        [
+            MirOp::MaterializeIndexedAddress {
+                consumer: DEST_POINTER_PAIR,
+                ..
+            },
+            MirOp::MaterializeAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                ..
+            },
+            MirOp::CopyIndirectWord {
+                source: DEFAULT_POINTER_PAIR,
+                destination: DEST_POINTER_PAIR,
+                source_offset: 0,
+                destination_offset: 0,
+            }
+        ]
+    ));
+}
+
+#[test]
 fn byte_read_with_word_index_materializes_full_address() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

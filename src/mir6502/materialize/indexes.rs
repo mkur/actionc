@@ -863,6 +863,72 @@ pub(super) fn try_fuse_indexed_to_indirect_word_copy(
     2
 }
 
+pub(super) fn try_fuse_indirect_to_indexed_word_copy(
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Load {
+        dst: load_dst,
+        src:
+            MirAddr::Deref {
+                ptr: source_ptr,
+                offset: source_offset,
+            },
+        width: MirWidth::Word,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some(MirOp::Store {
+        dst,
+        src: MirValue::Def(store_src),
+        width: MirWidth::Word,
+    }) = ops.get(index + 1)
+    else {
+        return 0;
+    };
+    if store_src != load_dst {
+        return 0;
+    }
+    let Some((destination_base, destination_index, destination_elem_size, destination_offset)) =
+        indexed_addr_parts_resolved_for_copy(ops, index + 1, dst)
+    else {
+        return 0;
+    };
+    let source_ptr = resolve_indexed_base_producer(ops, index, source_ptr.clone());
+    let eligible = destination_elem_size == 2
+        && *source_offset <= u16::from(u8::MAX - 1)
+        && destination_offset <= u16::from(u8::MAX - 1)
+        && index_value_is_byte_sized(&destination_index)
+        && scaled_y_posthome_base_is_eligible(&destination_base, layout)
+        && !value_uses_temp(&source_ptr);
+    if !eligible {
+        return 0;
+    }
+
+    materialize_indexed_address_to_consumer(
+        destination_base,
+        destination_index,
+        destination_elem_size,
+        DEST_POINTER_PAIR,
+        layout,
+        out,
+    );
+    out.push(MirOp::MaterializeAddress {
+        consumer: DEFAULT_POINTER_PAIR,
+        value: source_ptr,
+    });
+    out.push(MirOp::CopyIndirectWord {
+        source: DEFAULT_POINTER_PAIR,
+        destination: DEST_POINTER_PAIR,
+        source_offset: *source_offset,
+        destination_offset,
+    });
+    2
+}
+
 pub(super) fn indexed_addr_parts(addr: &MirAddr) -> Option<IndexedAddrParts> {
     match addr {
         MirAddr::ComputedIndex {
@@ -1021,15 +1087,22 @@ pub(super) fn indexed_word_copy_rematerialized_producer_ops(
                 })
         })
         .collect::<BTreeSet<_>>();
-    if let Some(MirOp::Store {
-        dst: MirAddr::Deref { ptr, .. },
-        ..
-    }) = ops.get(index.saturating_add(1))
-    {
-        let resolved = resolve_indexed_base_producer(ops, index + 1, ptr.clone());
-        if resolved != *ptr
-            && let MirValue::Def(MirDef::VTemp(temp)) = ptr
-            && let Some((producer_index, _)) = find_temp_producer(ops, index + 1, *temp)
+    for use_index in [index, index.saturating_add(1)] {
+        let pointer = match ops.get(use_index) {
+            Some(MirOp::Load {
+                src: MirAddr::Deref { ptr, .. },
+                ..
+            })
+            | Some(MirOp::Store {
+                dst: MirAddr::Deref { ptr, .. },
+                ..
+            }) => ptr,
+            _ => continue,
+        };
+        let resolved = resolve_indexed_base_producer(ops, use_index, pointer.clone());
+        if resolved != *pointer
+            && let MirValue::Def(MirDef::VTemp(temp)) = pointer
+            && let Some((producer_index, _)) = find_temp_producer(ops, use_index, *temp)
         {
             producers.insert(producer_index);
         }

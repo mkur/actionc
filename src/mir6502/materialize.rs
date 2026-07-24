@@ -113,7 +113,8 @@ use indexes::{
     materialize_index_to_y, materialize_indexed_read_to_def, materialize_indexed_write_from_value,
     storage_address_value, try_fuse_dynamic_inline_byte_index, try_fuse_indexed_byte_copy,
     try_fuse_indexed_byte_inc_dec_update, try_fuse_indexed_to_indirect_word_copy,
-    try_fuse_indexed_word_copy, try_prepare_dynamic_byte_index, try_prepare_dynamic_word_index,
+    try_fuse_indexed_word_copy, try_fuse_indirect_to_indexed_word_copy,
+    try_prepare_dynamic_byte_index, try_prepare_dynamic_word_index,
 };
 pub(super) use layout::MaterializeLayout;
 use lea::{lower_address_to_def, lower_lea_addrs_with_final_layout};
@@ -453,6 +454,38 @@ pub(in crate::mir6502) fn analyzed_indexed_to_indirect_word_copy_candidates(
                 stat: "indexed-to-indirect-word-copy",
                 observations: Vec::new(),
                 family_priority: 111,
+            };
+            let candidate = expand_index_rewrite_window_with_producers(
+                ops,
+                index,
+                candidate,
+                indexed_word_copy_rematerialized_producer_ops(ops, index),
+            );
+            Some((candidate.start, candidate))
+        })
+        .collect()
+}
+
+pub(in crate::mir6502) fn analyzed_indirect_to_indexed_word_copy_candidates(
+    block: &super::ir::MirBlock,
+    layout: &MaterializeLayout,
+) -> Vec<(usize, IndexRewriteCandidate)> {
+    let ops = &block.ops;
+    (0..ops.len())
+        .filter_map(|index| {
+            let mut replacement = Vec::new();
+            let consumed =
+                try_fuse_indirect_to_indexed_word_copy(ops, index, layout, &mut replacement);
+            if consumed == 0 {
+                return None;
+            }
+            let candidate = IndexRewriteCandidate {
+                start: index,
+                consumed,
+                replacement,
+                stat: "indirect-to-indexed-word-copy",
+                observations: Vec::new(),
+                family_priority: 112,
             };
             let candidate = expand_index_rewrite_window_with_producers(
                 ops,
@@ -1024,6 +1057,7 @@ fn run_prehome_selection_group(
 ) -> Result<(), Vec<MirDiagnostic>> {
     run_analyzed_word_carry_chain_store_consumers(routine, config, layout, peephole_stats)?;
     run_analyzed_indexed_to_indirect_word_copies(routine, layout, peephole_stats)?;
+    run_analyzed_indirect_to_indexed_word_copies(routine, layout, peephole_stats)?;
     run_analyzed_pointer_rewrites(routine, layout, peephole_stats)?;
     run_analyzed_call_arg_producers(routine, peephole_stats)?;
     run_analyzed_return_slot_call_arg_forwards(routine, peephole_stats)?;
@@ -1064,6 +1098,32 @@ fn run_analyzed_indexed_to_indirect_word_copies(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("indexed-to-indirect word-copy selection failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_indirect_to_indexed_word_copies(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            |routine, context| {
+                super::rewrite::pilots::discover_indirect_to_indexed_word_copies(
+                    routine, context, layout,
+                )
+            },
+            super::rewrite::pilots::index_rewrite_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("indirect-to-indexed word-copy selection failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
@@ -2516,6 +2576,16 @@ fn materialize_ops_impl(
             let maybe_fused = try_fuse_indexed_to_indirect_word_copy(&ops, index, layout, &mut out);
             if maybe_fused > 0 {
                 peephole_stats.record(routine_id, "indexed-to-indirect-word-copy");
+                index += maybe_fused;
+                continue;
+            }
+        }
+
+        #[cfg(test)]
+        if legacy_test_peepholes {
+            let maybe_fused = try_fuse_indirect_to_indexed_word_copy(&ops, index, layout, &mut out);
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "indirect-to-indexed-word-copy");
                 index += maybe_fused;
                 continue;
             }
