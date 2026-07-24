@@ -371,6 +371,17 @@ pub enum MirOp {
         source: MirAddressConsumer,
         offset: u16,
     },
+    /// Copy a word between two prepared pointer pairs.
+    ///
+    /// Emission reads both source bytes before either destination write, then
+    /// preserves low-to-high read and write order. This keeps overlapping
+    /// transfers well-defined without transient logical homes.
+    CopyIndirectWord {
+        source: MirAddressConsumer,
+        destination: MirAddressConsumer,
+        source_offset: u16,
+        destination_offset: u16,
+    },
     Compare {
         dst: MirCondDest,
         op: MirCompareOp,

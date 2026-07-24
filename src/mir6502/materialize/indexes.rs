@@ -854,41 +854,11 @@ pub(super) fn try_fuse_indexed_to_indirect_word_copy(
         layout,
         out,
     );
-    let scratch = MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_INDEX_SCRATCH_LO));
-    out.push(MirOp::LoadIndirect {
-        consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
-        dst: MirDef::Reg(MirReg::A),
-        offset: src_offset,
-    });
-    out.push(MirOp::Store {
-        dst: MirAddr::Direct(scratch.clone()),
-        src: MirValue::Def(MirDef::Reg(MirReg::A)),
-        width: MirWidth::Byte,
-    });
-    out.push(MirOp::LoadIndirect {
-        consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
-        dst: MirDef::Reg(MirReg::A),
-        offset: src_offset.saturating_add(1),
-    });
-    out.push(MirOp::Move {
-        dst: MirDef::Reg(MirReg::X),
-        src: MirValue::Def(MirDef::Reg(MirReg::A)),
-        width: MirWidth::Byte,
-    });
-    out.push(MirOp::Load {
-        dst: MirDef::Reg(MirReg::A),
-        src: MirAddr::Direct(scratch),
-        width: MirWidth::Byte,
-    });
-    out.push(MirOp::StoreIndirect {
-        consumer: DEST_POINTER_PAIR,
-        src: MirValue::Def(MirDef::Reg(MirReg::A)),
-        offset: *dst_offset,
-    });
-    out.push(MirOp::StoreIndirect {
-        consumer: DEST_POINTER_PAIR,
-        src: MirValue::Def(MirDef::Reg(MirReg::X)),
-        offset: dst_offset.saturating_add(1),
+    out.push(MirOp::CopyIndirectWord {
+        source: DEFAULT_SCALED_Y_POINTER_PAIR,
+        destination: DEST_POINTER_PAIR,
+        source_offset: src_offset,
+        destination_offset: *dst_offset,
     });
     2
 }

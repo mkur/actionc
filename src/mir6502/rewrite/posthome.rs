@@ -121,6 +121,7 @@ fn estimated_op_cost(op: &MirOp) -> (u16, u16) {
         MirOp::AdvanceAddress { .. } => (8, 12),
         MirOp::LoadIndirect { .. } => (2, 5),
         MirOp::StoreIndirect { .. } => (2, 6),
+        MirOp::CopyIndirectWord { .. } => (18, 45),
         MirOp::IndirectByteCompound { .. } => (8, 12),
         MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => (0, 0),
     }

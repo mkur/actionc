@@ -318,6 +318,12 @@ impl SsaLiteValueEnv {
             MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => {
                 self.kill_memory_dependencies();
             }
+            MirOp::CopyIndirectWord { .. } => {
+                self.kill_reg(MirReg::A);
+                self.kill_reg(MirReg::X);
+                self.kill_reg(MirReg::Y);
+                self.kill_memory_dependencies();
+            }
             MirOp::MaterializeAddress { .. }
             | MirOp::MaterializeIndexedAddress { .. }
             | MirOp::AdvanceAddress { .. }
@@ -532,6 +538,12 @@ impl SsaLiteV2ObserveEnv {
                 self.kill_all(SsaLiteV2KillReason::Barrier);
             }
             MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => {
+                self.kill_memory_dependencies(SsaLiteV2KillReason::Unknown);
+            }
+            MirOp::CopyIndirectWord { .. } => {
+                self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
+                self.kill_def(&MirDef::Reg(MirReg::X), SsaLiteV2KillReason::Unknown);
+                self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
                 self.kill_memory_dependencies(SsaLiteV2KillReason::Unknown);
             }
             MirOp::MaterializeAddress { consumer, value } => {
@@ -970,6 +982,7 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => Vec::new(),
@@ -1610,6 +1623,7 @@ impl LiveTempByteLanes {
             | MirOp::LoadIndirect { .. }
             | MirOp::CompareIndirectBytes { .. }
             | MirOp::OffsetPointerByIndirectByte { .. }
+            | MirOp::CopyIndirectWord { .. }
             | MirOp::IndirectByteCompound { .. }
             | MirOp::Barrier { .. }
             | MirOp::LeaAddr { .. }

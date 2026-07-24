@@ -234,6 +234,7 @@ fn summarize_op_writes(
         MirOp::MachineBlock { .. }
         | MirOp::Barrier { .. }
         | MirOp::StoreIndirect { .. }
+        | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::UpdateIndexedMem { .. } => {
             writes.make_unknown();

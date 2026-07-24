@@ -60,6 +60,7 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             MirOp::Load { src, .. } | MirOp::Store { dst: src, .. } => addr_contains_deref(src),
             MirOp::LoadIndirect { .. }
             | MirOp::StoreIndirect { .. }
+            | MirOp::CopyIndirectWord { .. }
             | MirOp::OffsetPointerByIndirectByte { .. }
             | MirOp::IndirectByteCompound { .. } => true,
             MirOp::MaterializeAddress { .. }
@@ -148,6 +149,14 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
         MirOp::StoreIndirect { consumer, src, .. } => {
             collect_consumer_fixed_zero_page(*consumer, slots);
             collect_value_fixed_zero_page(src, slots);
+        }
+        MirOp::CopyIndirectWord {
+            source,
+            destination,
+            ..
+        } => {
+            collect_consumer_fixed_zero_page(*source, slots);
+            collect_consumer_fixed_zero_page(*destination, slots);
         }
         MirOp::IndirectByteCompound { target, source, .. } => {
             collect_consumer_fixed_zero_page(*target, slots);

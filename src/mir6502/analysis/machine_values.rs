@@ -326,6 +326,7 @@ fn update_fixed_zero_page_values(
         MirOp::Store { .. }
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::StoreIndirect { .. }
+        | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::Barrier { .. }

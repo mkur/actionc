@@ -750,6 +750,11 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
                 vec![*consumer]
             }
             MirOp::OffsetPointerByIndirectByte { source, .. } => vec![*source],
+            MirOp::CopyIndirectWord {
+                source,
+                destination,
+                ..
+            } => vec![*source, *destination],
             _ => Vec::new(),
         })
         .fold(Vec::new(), |mut consumers, consumer| {
@@ -911,6 +916,14 @@ fn store_materialization_address_keys(ops: &[MirOp]) -> (BTreeSet<String>, BTree
             MirOp::OffsetPointerByIndirectByte { dst, source, .. } => {
                 collect_consumer_keys(*source, &mut reads);
                 collect_mem_range_keys(dst, 2, &mut writes);
+            }
+            MirOp::CopyIndirectWord {
+                source,
+                destination,
+                ..
+            } => {
+                collect_consumer_keys(*source, &mut reads);
+                collect_consumer_keys(*destination, &mut reads);
             }
             MirOp::IndirectByteCompound { target, source, .. } => {
                 collect_consumer_keys(*target, &mut reads);

@@ -103,6 +103,7 @@ pub(in crate::mir6502) enum MirOpKind {
     AddByteToWordMem,
     SubByteFromWordMem,
     OffsetPointerByIndirectByte,
+    CopyIndirectWord,
     Compare,
     CompareIndirectBytes,
     Call,
@@ -321,6 +322,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::AddByteToWordMem { .. } => MirOpKind::AddByteToWordMem,
         MirOp::SubByteFromWordMem { .. } => MirOpKind::SubByteFromWordMem,
         MirOp::OffsetPointerByIndirectByte { .. } => MirOpKind::OffsetPointerByIndirectByte,
+        MirOp::CopyIndirectWord { .. } => MirOpKind::CopyIndirectWord,
         MirOp::Compare { .. } => MirOpKind::Compare,
         MirOp::CompareIndirectBytes { .. } => MirOpKind::CompareIndirectBytes,
         MirOp::Call { .. } => MirOpKind::Call,
@@ -440,6 +442,27 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.memory.indirect_reads = true;
             summary.memory.has_unknown_effects = true;
             summary.machine.conservative_register_clobbers.a = true;
+            summary.machine.flag_clobbers = MirFlagSet::all();
+            summary.machine.writes_any_flags_compat = true;
+        }
+        MirOp::CopyIndirectWord {
+            source,
+            destination,
+            source_offset,
+            ..
+        } => {
+            record_consumer_read(*source, &mut summary);
+            record_consumer_read(*destination, &mut summary);
+            record_indirect_y_access(*source, *source_offset, &mut summary);
+            summary.memory.indirect_reads = true;
+            summary.memory.indirect_writes = true;
+            summary.memory.may_write_any = true;
+            summary.memory.has_unknown_effects = true;
+            summary.memory.may_write_any_compat = true;
+            summary.memory.has_unknown_effects_compat = true;
+            summary.machine.conservative_register_clobbers.a = true;
+            summary.machine.conservative_register_clobbers.x = true;
+            summary.machine.conservative_register_clobbers.y = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
             summary.machine.writes_any_flags_compat = true;
         }

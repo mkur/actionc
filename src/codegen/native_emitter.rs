@@ -604,7 +604,7 @@ impl NativeTrackedEmitter {
         self.emitter.emit_php();
     }
 
-    pub(super) fn emit_pla(&mut self) {
+    pub(crate) fn emit_pla(&mut self) {
         self.emitter.emit_pla();
         self.state.load_a_unknown();
     }

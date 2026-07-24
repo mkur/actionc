@@ -2941,6 +2941,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         | MirOp::MaterializeIndexedAddress { .. }
         | MirOp::AdvanceAddress { .. }
         | MirOp::StoreIndirect { .. }
+        | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => ("other", "binary-store-forward-word-temp-producer-other"),

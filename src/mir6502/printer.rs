@@ -470,6 +470,18 @@ fn op_summary(op: &MirOp) -> String {
             address_consumer_summary(source),
             offset
         ),
+        MirOp::CopyIndirectWord {
+            source,
+            destination,
+            source_offset,
+            destination_offset,
+        } => format!(
+            "copy_indirect_word {}+{} <- {}+{}",
+            address_consumer_summary(destination),
+            destination_offset,
+            address_consumer_summary(source),
+            source_offset
+        ),
         MirOp::Compare {
             dst,
             op,

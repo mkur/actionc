@@ -1721,6 +1721,50 @@ fn emit_op(
             }
             emit_offset_pointer_by_indirect_byte(*op, dst, source_slot, *offset, emitter);
         }
+        MirOp::CopyIndirectWord {
+            source,
+            destination,
+            source_offset,
+            destination_offset,
+        } => {
+            let Some(source_slot) = resolve_pointer_consumer_slot(ctx, routine, source) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect word-copy source is not placed",
+                );
+                return;
+            };
+            let Some(destination_slot) = resolve_pointer_consumer_slot(ctx, routine, destination)
+            else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect word-copy destination is not placed",
+                );
+                return;
+            };
+            if destination.uses_scaled_y()
+                || !emit_copy_indirect_word(
+                    ctx,
+                    *source,
+                    source_slot,
+                    destination_slot,
+                    *source_offset,
+                    *destination_offset,
+                    emitter,
+                )
+            {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect word-copy addressing state is not emit-ready",
+                );
+            }
+        }
         MirOp::MaterializeAddress { consumer, value } => {
             if consumer.uses_scaled_y() {
                 unsupported(
@@ -3632,6 +3676,42 @@ fn emit_offset_pointer_by_indirect_byte(
     emit_sta_mem(offset_resolved_mem(dst, 1), emitter);
 }
 
+fn emit_copy_indirect_word(
+    ctx: &mut MirEmitContext<'_>,
+    source: MirAddressConsumer,
+    source_slot: u8,
+    destination_slot: u8,
+    source_offset: u16,
+    destination_offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) -> bool {
+    if !prepare_indirect_y(ctx, source, source_offset, emitter) {
+        return false;
+    }
+    emit_copy_indirect_word_body(source_slot, destination_slot, destination_offset, emitter);
+    ctx.scaled_y_offset = None;
+    true
+}
+
+fn emit_copy_indirect_word_body(
+    source_slot: u8,
+    destination_slot: u8,
+    destination_offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(source_slot)));
+    emitter.emit_pha();
+    emitter.emit_iny();
+    emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(source_slot)));
+    emitter.emit_tax();
+    emitter.emit_pla();
+    emitter.emit_ldy_imm(destination_offset as u8);
+    emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(destination_slot)));
+    emitter.emit_txa();
+    emitter.emit_iny();
+    emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(destination_slot)));
+}
+
 fn offset_resolved_mem(mem: ResolvedMem, offset: u16) -> ResolvedMem {
     match mem {
         ResolvedMem::Absolute(address) => ResolvedMem::Absolute(address.wrapping_add(offset)),
@@ -4322,6 +4402,35 @@ mod tests {
                 0,
                 opcode::STA_ZP,
                 0xAD,
+            ]
+        );
+    }
+
+    #[test]
+    fn indirect_word_copy_reads_both_bytes_before_writing_destination() {
+        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+
+        emit_copy_indirect_word_body(0xAC, 0xAA, 3, &mut emitter);
+
+        assert_eq!(
+            emitter.finish().expect("word-copy sequence emits"),
+            [
+                opcode::LDA_IZY,
+                0xAC,
+                opcode::PHA,
+                opcode::INY,
+                opcode::LDA_IZY,
+                0xAC,
+                opcode::TAX,
+                opcode::PLA,
+                opcode::LDY_IMM,
+                3,
+                opcode::STA_IZY,
+                0xAA,
+                opcode::TXA,
+                opcode::INY,
+                opcode::STA_IZY,
+                0xAA,
             ]
         );
     }

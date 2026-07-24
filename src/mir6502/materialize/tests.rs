@@ -4479,7 +4479,7 @@ fn same_index_word_copy_shares_scaled_y_across_pointer_pairs() {
 }
 
 #[test]
-fn indexed_to_indirect_word_copy_uses_register_and_one_private_byte() {
+fn indexed_to_indirect_word_copy_uses_overlap_safe_dual_pointer_op() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
     let value = MirDef::VTemp(MirTempId(0));
@@ -4533,42 +4533,12 @@ fn indexed_to_indirect_word_copy_uses_register_and_one_private_byte() {
                 consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
                 ..
             },
-            MirOp::LoadIndirect {
-                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
-                offset: 0,
-                ..
-            },
-            MirOp::Store {
-                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
-                    POINTER_INDEX_SCRATCH_LO
-                ))),
-                ..
-            },
-            MirOp::LoadIndirect {
-                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
-                offset: 1,
-                ..
-            },
-            MirOp::Move {
-                dst: MirDef::Reg(MirReg::X),
-                ..
-            },
-            MirOp::Load {
-                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
-                    POINTER_INDEX_SCRATCH_LO
-                ))),
-                ..
-            },
-            MirOp::StoreIndirect {
-                consumer: DEST_POINTER_PAIR,
-                offset: 0,
-                ..
-            },
-            MirOp::StoreIndirect {
-                consumer: DEST_POINTER_PAIR,
-                src: MirValue::Def(MirDef::Reg(MirReg::X)),
-                offset: 1,
-            },
+            MirOp::CopyIndirectWord {
+                source: DEFAULT_SCALED_Y_POINTER_PAIR,
+                destination: DEST_POINTER_PAIR,
+                source_offset: 0,
+                destination_offset: 0,
+            }
         ]
     ));
 }

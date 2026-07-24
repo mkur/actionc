@@ -797,6 +797,31 @@ impl MirVerifier {
                     }
                 }
             }
+            MirOp::CopyIndirectWord {
+                source,
+                destination,
+                source_offset,
+                destination_offset,
+            } => {
+                self.verify_address_consumer(routine, block, source);
+                self.verify_address_consumer(routine, block, destination);
+                self.verify_scaled_y_offset(routine, block, source, *source_offset);
+                self.reject_scaled_y_consumer(
+                    routine,
+                    block,
+                    destination,
+                    "indirect word-copy destination",
+                );
+                if *source_offset > u16::from(u8::MAX - 1)
+                    || *destination_offset > u16::from(u8::MAX - 1)
+                {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect word-copy offsets must leave room for the high byte",
+                    ));
+                }
+            }
             MirOp::Move { dst, src, width } => {
                 self.verify_pre_emission_width(routine, block, *width);
                 self.verify_def(routine, block, dst);
@@ -1247,6 +1272,36 @@ impl MirVerifier {
                             format!("scaled-Y store at op #{op_index} cannot source Y"),
                         ));
                     }
+                    continue;
+                }
+                MirOp::CopyIndirectWord {
+                    source: MirAddressConsumer::ScaledIndirectIndexedY(pair),
+                    source_offset,
+                    ..
+                } => {
+                    let prepared_index = prepared
+                        .iter()
+                        .find_map(|(candidate, index)| (candidate == pair).then_some(index));
+                    if prepared_index.is_none() || prepared_index != active_index.as_ref() {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            format!(
+                                "scaled-Y word copy at op #{op_index} has no active matching index"
+                            ),
+                        ));
+                    }
+                    if *source_offset < active_offset {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            format!(
+                                "scaled-Y word copy at op #{op_index} moves backward from offset {active_offset} to {source_offset}"
+                            ),
+                        ));
+                    }
+                    active_index = None;
+                    active_offset = 0;
                     continue;
                 }
                 _ => {}

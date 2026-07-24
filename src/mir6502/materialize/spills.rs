@@ -799,6 +799,7 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::Unary { .. })
         | Some(MirOp::Binary { .. })
         | Some(MirOp::Call { .. })
+        | Some(MirOp::CopyIndirectWord { .. })
         | Some(MirOp::RuntimeHelper { .. }) => true,
         Some(MirOp::Load { .. })
         | Some(MirOp::LoadImm { .. })
@@ -940,6 +941,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::MaterializeIndexedAddress { .. }
         | MirOp::AdvanceAddress { .. }
         | MirOp::StoreIndirect { .. }
+        | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
@@ -1725,6 +1727,7 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
@@ -1840,6 +1843,7 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
@@ -1961,6 +1965,7 @@ where
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
@@ -2068,7 +2073,9 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
         }
         MirOp::LoadIndirect { dst, .. } => collect_def_spills(dst, spills),
         MirOp::RuntimeHelper { .. } | MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => {}
-        MirOp::IndirectByteCompound { .. } | MirOp::CompareIndirectBytes { .. } => {}
+        MirOp::IndirectByteCompound { .. }
+        | MirOp::CopyIndirectWord { .. }
+        | MirOp::CompareIndirectBytes { .. } => {}
     }
 }
 
