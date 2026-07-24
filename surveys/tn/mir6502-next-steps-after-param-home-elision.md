@@ -194,11 +194,65 @@ The candidates are not removal proofs by themselves: LDX and LDY also update
 Z/N. A later rewrite must combine the value proof with shared flag liveness
 before deleting either instruction.
 
+### Slice 4: remove flag-safe redundant X/Y reloads
+
+Consume the routine-wide X/Y value facts through the shared post-home rewrite
+context. Remove an X/Y load only when:
+
+- its incoming register value equals the value it would load;
+- the read is not an absolute-memory access;
+- and all flags written by the load are dead after the operation.
+
+Keep candidate, accepted, and flag-live-blocked telemetry separate.
+
+Slice result:
+
+All three TN candidates pass the flag-liveness proof and are removed:
+
+| Routine | Result |
+| --- | --- |
+| `Window` | one X reload removed |
+| `Convert` | two Y reloads removed |
+
+TN falls from 10,381 to 10,374 bytes. The fresh XEX SHA-256 is
+`50d38a020bc6260878d779d583f64bc1f03c0ff2b0699043151d894e17a8aeea`.
+The listing contains 4,247 instruction rows, 9,494 code bytes, and 868 data
+bytes. Focused tests cover both a removable store/reload and a reload whose
+Z/N result feeds a branch and must remain.
+
+### Slice 5: place indexed word values directly into A/X
+
+Target the two `Draw` sequences where an indexed word read is staged through
+private homes immediately before a call consumes the value in A/X. Generalize
+the existing indexed-word consumer selection so the low and high lanes can be
+placed directly in their final register pair when:
+
+- the word value has one coupled consumer;
+- the call argument home is exactly A/X;
+- the indexed address and Y value remain valid for both byte reads;
+- and shared liveness proves that the alternate load order is unobservable.
+
+Do not add a `Draw` special case. Cover the reusable indexed-word-to-register
+pair shape and retain the staged fallback.
+
+### Slice 6: improve call and pointer destination placement
+
+Use consumer-selected destinations for the remaining audited families:
+
+- call results forwarded to a following call's A/X/Y argument homes;
+- known A/A0 result aliases consumed without a shadow reload;
+- pointer bytes placed directly in the selected fixed pointer pair;
+- and dead register loads on paths entering comparison blocks.
+
+Implement only families with explicit value, effect, dominance, and liveness
+proofs. Rebuild the final TN listing after each accepted family and record the
+new routine deltas and load/store share.
+
 ## Follow-on work
 
-If slice 3 finds useful sites, enable redundant X/Y reload removal as a narrow
-follow-up. Then add consumer-driven multi-use placement across A, X, Y, the two
-private pointer pairs, and ABI result/argument locations.
+After these slices, use the fresh audit to decide whether broader
+consumer-driven multi-use placement across A, X, Y, the private pointer pairs,
+and ABI locations is justified.
 
 Do not begin with general register allocation or cross-routine home pooling.
 Pooling has a small backing-only ceiling and does not remove the expensive
