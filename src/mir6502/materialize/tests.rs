@@ -2461,55 +2461,50 @@ fn word_carry_chain_store_uses_private_accumulator_without_temp_homes() {
         ),
         ops.len()
     );
-    assert!(
-        matches!(
-            replacement.as_slice(),
-            [
-                MirOp::MaterializeAddress {
-                    consumer: DEFAULT_POINTER_PAIR,
-                    ..
-                },
-                MirOp::LoadIndirect {
-                    consumer: DEFAULT_POINTER_PAIR,
-                    dst: MirDef::Reg(MirReg::A),
-                    ..
-                },
-                MirOp::Store {
-                    dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
-                        POINTER_INDEX_SCRATCH_LO
-                    ))),
-                    ..
-                },
-                MirOp::AddByteToWordMem {
-                    mem: MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO)),
-                    value: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
-                        POINTER_INDEX_SCRATCH_LO
-                    ))),
-                },
-                MirOp::AddByteToWordMem {
-                    mem: MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO)),
-                    value: MirValue::ConstU8(5),
-                },
-                MirOp::Move {
-                    dst: MirDef::Reg(MirReg::A),
-                    ..
-                },
-                MirOp::Store {
-                    dst: MirAddr::Direct(lo),
-                    ..
-                },
-                MirOp::Move {
-                    dst: MirDef::Reg(MirReg::A),
-                    ..
-                },
-                MirOp::Store {
-                    dst: MirAddr::Direct(hi),
-                    ..
-                },
-            ] if lo == &target && hi == &offset_mem(&target, 1)
-        ),
-        "{replacement:#?}"
+    assert_eq!(
+        replacement
+            .iter()
+            .filter(|op| matches!(op, MirOp::AddByteToWordMem { .. }))
+            .count(),
+        1
     );
+    assert!(matches!(
+        &replacement[replacement.len() - 6..],
+        [
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                ..
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::Reg(MirReg::A),
+                right: MirValue::ConstU8(5),
+                carry_in: Some(MirCarryIn::Clear),
+                carry_out: MirCarryOut::Produce,
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(lo),
+                ..
+            },
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                ..
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::Reg(MirReg::A),
+                right: MirValue::ConstU8(0),
+                carry_in: Some(MirCarryIn::FromPrevious),
+                carry_out: MirCarryOut::Ignore,
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(hi),
+                ..
+            },
+        ] if lo == &target && hi == &offset_mem(&target, 1)
+    ));
 }
 
 #[test]

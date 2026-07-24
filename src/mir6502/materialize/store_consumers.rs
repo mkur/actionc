@@ -992,6 +992,7 @@ pub(super) fn select_word_carry_chain_store_consumer(
         return 0;
     }
     let followup = word_carry_chain_deref_store(ops, cursor + 1, result_temp);
+    let final_tail = if followup.is_none() { tail.pop() } else { None };
 
     let source_value = pointer_value_from_mem(base_mem);
     out.push(MirOp::MaterializeAddress {
@@ -1030,13 +1031,25 @@ pub(super) fn select_word_carry_chain_store_consumer(
             out,
         );
     }
-    materialize_value_to_mem_for_width(
-        pointer_value_from_mem(&accumulator),
-        MirWidth::Word,
-        target.clone(),
-        layout,
-        out,
-    );
+    if let Some((op, operand)) = final_tail {
+        materialize_word_binary_store_consumer(
+            op,
+            target.clone(),
+            pointer_value_from_mem(&accumulator),
+            operand,
+            config,
+            layout,
+            out,
+        );
+    } else {
+        materialize_value_to_mem_for_width(
+            pointer_value_from_mem(&accumulator),
+            MirWidth::Word,
+            target.clone(),
+            layout,
+            out,
+        );
+    }
     if let Some((offset, followup_target)) = &followup {
         out.push(MirOp::LoadIndirect {
             consumer: DEFAULT_POINTER_PAIR,
