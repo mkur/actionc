@@ -337,15 +337,14 @@ enum ParsedRow {
 }
 
 fn parse_listing_row(line: &str) -> Option<ParsedRow> {
-    if line.len() < 17 {
-        return None;
-    }
     let address = u16::from_str_radix(line.get(0..4)?, 16).ok()?;
-    if line.get(4..6)? != "  " {
+    let columns = line.get(4..)?.strip_prefix("  ")?;
+    let separator = columns.find("  ")?;
+    let raw = columns.get(..separator)?.trim();
+    let text = columns.get(separator..)?.trim();
+    if text.is_empty() {
         return None;
     }
-    let raw = line.get(6..14)?.trim();
-    let text = line.get(16..)?.trim();
     let bytes = parse_raw_bytes(raw)?;
     if text.starts_with(".BYTE") {
         return Some(ParsedRow::Data(ListingDataRow { address, bytes }));
@@ -836,6 +835,29 @@ mod tests {
         assert_eq!(listing.instructions.len(), 2);
         assert_eq!(listing.procs.len(), 1);
         assert_eq!(listing.spill_labels.len(), 1);
+    }
+
+    #[test]
+    fn parses_variable_width_data_without_inventing_instructions() {
+        let listing = Listing::parse(
+            "
+; ===== PROC Mixed $3000..$300D =====
+3000  08 11 12 05 7C 7C 1A 12  .BYTE $08, $11, $12, $05, $7C, $7C, $1A, $12
+3008  A9 01     LDA #$01
+300A  8D 00 20  STA $2000
+; ===== END PROC Mixed =====
+",
+        );
+        let metrics = ListingMetrics::from_listing(&listing);
+
+        assert_eq!(listing.data_rows.len(), 1);
+        assert_eq!(listing.data_rows[0].bytes.len(), 8);
+        assert_eq!(listing.instructions.len(), 2);
+        assert_eq!(listing.procs[0].instruction_indices.len(), 2);
+        assert_eq!(metrics.data_bytes, 8);
+        assert_eq!(metrics.code_bytes, 5);
+        assert_eq!(metrics.data_bytes + metrics.code_bytes, 13);
+        assert_eq!(metrics.mnemonic_counts.len(), 2);
     }
 
     #[test]
