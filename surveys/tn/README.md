@@ -7,6 +7,8 @@ changes that only become visible in a substantial source file.
 
 The original MIR6502 listing baseline and optimization backlog are in
 [`mir6502-optimization-opportunities.md`](mir6502-optimization-opportunities.md).
+The fresh final-output audit after carry and dual-pointer selection is in
+[`mir6502-final-listing-audit-2026-07-24.md`](mir6502-final-listing-audit-2026-07-24.md).
 The latest clean-head listing reanalysis and ranked MIR6502 backlog are in
 [`mir6502-listing-reanalysis-2026-07-22.md`](mir6502-listing-reanalysis-2026-07-22.md).
 The earlier caller-shadow analysis is retained as a historical measurement,
