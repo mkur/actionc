@@ -446,13 +446,6 @@ fn collect_call_arg_expr_plan(
         .values()
         .any(|expr| matches!(expr, CallArgExpr::IndexedWordLoad { .. }));
     if has_indexed_word_load
-        && args
-            .iter()
-            .any(|arg| matches!(arg.home, MirArgHome::Reg(MirReg::Y)))
-    {
-        return None;
-    }
-    if has_indexed_word_load
         && matches!(target, MirCallTarget::Indirect { .. })
         && exprs
             .values()
@@ -505,6 +498,8 @@ fn collect_call_arg_expr_plan(
             PlannedCallArg::Existing(arg) => arg.clone(),
         })
         .collect::<Vec<_>>();
+    let direct_indexed_word_action =
+        direct_indexed_word_action_args_supported(&planned_args, &raw_args);
     if call_arg_expr_register_homes_supported(&raw_args)
         && planned_args.len() != 1
         && planned_args.iter().any(|arg| {
@@ -521,13 +516,14 @@ fn collect_call_arg_expr_plan(
         return None;
     }
     if !call_arg_expr_register_homes_supported(&raw_args) {
-        if !planned_call_args_use_action_staging(&planned_args)
-            || !staged_action_producer_order_supported(
-                args,
-                &exprs,
-                &expr_dependencies,
-                &producer_positions,
-            )
+        if !direct_indexed_word_action
+            && (!planned_call_args_use_action_staging(&planned_args)
+                || !staged_action_producer_order_supported(
+                    args,
+                    &exprs,
+                    &expr_dependencies,
+                    &producer_positions,
+                ))
         {
             return None;
         }
@@ -986,6 +982,17 @@ fn materialize_call_arg_expr_plan(
     helpers: &mut Vec<MirRuntimeHelper>,
     out: &mut Vec<MirOp>,
 ) {
+    if direct_indexed_word_action_args_supported(
+        &plan.args,
+        &plan
+            .args
+            .iter()
+            .map(raw_planned_call_arg)
+            .collect::<Vec<_>>(),
+    ) {
+        materialize_direct_indexed_word_action_call(plan, layout, helpers, out);
+        return;
+    }
     if planned_call_args_use_action_staging(&plan.args) {
         materialize_staged_action_call_arg_expr_plan(plan, layout, helpers, out);
         return;
@@ -1040,6 +1047,188 @@ fn materialize_call_arg_expr_plan(
     });
     if let Some(result) = &plan.result {
         materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
+    }
+}
+
+fn raw_planned_call_arg(arg: &PlannedCallArg) -> MirCallArg {
+    match arg {
+        PlannedCallArg::Expr { width, home, .. } => MirCallArg {
+            value: MirValue::ConstU8(0),
+            width: *width,
+            home: home.clone(),
+        },
+        PlannedCallArg::Existing(arg) => arg.clone(),
+    }
+}
+
+fn direct_indexed_word_action_args_supported(
+    args: &[PlannedCallArg],
+    raw_args: &[MirCallArg],
+) -> bool {
+    if !canonical_action_arg_homes(raw_args) {
+        return false;
+    }
+    let mut indexed_word_pairs = 0;
+    for arg in args {
+        match arg {
+            PlannedCallArg::Expr {
+                expr: CallArgExpr::IndexedWordLoad { .. },
+                width: MirWidth::Word,
+                home:
+                    MirArgHome::RegisterPair {
+                        lo: MirReg::A,
+                        hi: MirReg::X,
+                    },
+            } => indexed_word_pairs += 1,
+            PlannedCallArg::Existing(MirCallArg {
+                value,
+                width: MirWidth::Byte,
+                home: MirArgHome::Reg(MirReg::Y),
+            }) if value_can_load_y_without_clobbering_ax(value) => {}
+            PlannedCallArg::Existing(MirCallArg {
+                width: MirWidth::Byte,
+                home:
+                    MirArgHome::FixedZeroPage(_)
+                    | MirArgHome::Absolute(_)
+                    | MirArgHome::StackFrame { .. },
+                ..
+            }) => {}
+            _ => return false,
+        }
+    }
+    indexed_word_pairs == 1
+}
+
+fn value_can_load_y_without_clobbering_ax(value: &MirValue) -> bool {
+    matches!(
+        value,
+        MirValue::ConstU8(_)
+            | MirValue::ConstU16(_)
+            | MirValue::PointerCell(_)
+            | MirValue::StorageAddrByte { .. }
+            | MirValue::RoutineAddrByte { .. }
+    )
+}
+
+fn materialize_direct_indexed_word_action_call(
+    plan: &CallArgExprPlan,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) {
+    let target = materialize_call_target(plan.target.clone(), layout, out);
+    for arg in &plan.args {
+        if matches!(
+            arg,
+            PlannedCallArg::Existing(MirCallArg {
+                home: MirArgHome::FixedZeroPage(_)
+                    | MirArgHome::Absolute(_)
+                    | MirArgHome::StackFrame { .. },
+                ..
+            })
+        ) {
+            materialize_planned_call_arg(arg, layout, helpers, out);
+        }
+    }
+    for arg in &plan.args {
+        if matches!(
+            arg,
+            PlannedCallArg::Expr {
+                expr: CallArgExpr::IndexedWordLoad { .. },
+                ..
+            }
+        ) {
+            materialize_planned_call_arg(arg, layout, helpers, out);
+        }
+    }
+    for arg in &plan.args {
+        if matches!(
+            arg,
+            PlannedCallArg::Existing(MirCallArg {
+                home: MirArgHome::Reg(MirReg::Y),
+                ..
+            })
+        ) {
+            materialize_planned_call_arg(arg, layout, helpers, out);
+        }
+    }
+    out.push(MirOp::Call {
+        target,
+        abi: MirCallAbi {
+            params: plan
+                .args
+                .iter()
+                .flat_map(materialized_direct_indexed_word_action_args)
+                .map(|arg| arg.home)
+                .collect(),
+            result: None,
+            clobbers: plan.abi.clobbers,
+            preserves: plan.abi.preserves,
+        },
+        args: plan
+            .args
+            .iter()
+            .flat_map(materialized_direct_indexed_word_action_args)
+            .collect(),
+        result: None,
+        effects: plan.effects.clone(),
+    });
+    if let Some(result) = &plan.result {
+        materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
+    }
+}
+
+fn materialized_direct_indexed_word_action_args(arg: &PlannedCallArg) -> Vec<MirCallArg> {
+    match arg {
+        PlannedCallArg::Expr {
+            expr: CallArgExpr::IndexedWordLoad { .. },
+            width: MirWidth::Word,
+            home:
+                MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+        } => materialized_planned_call_args(arg),
+        PlannedCallArg::Existing(MirCallArg {
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::Y),
+            ..
+        }) => vec![MirCallArg {
+            value: MirValue::Def(MirDef::Reg(MirReg::Y)),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::Y),
+        }],
+        PlannedCallArg::Existing(MirCallArg {
+            width: MirWidth::Byte,
+            home: MirArgHome::FixedZeroPage(slot),
+            ..
+        }) => vec![MirCallArg {
+            value: MirValue::PointerCell(MirMem::FixedZeroPage(*slot)),
+            width: MirWidth::Byte,
+            home: MirArgHome::FixedZeroPage(*slot),
+        }],
+        PlannedCallArg::Existing(MirCallArg {
+            width: MirWidth::Byte,
+            home: MirArgHome::Absolute(address),
+            ..
+        }) => vec![MirCallArg {
+            value: MirValue::PointerCell(MirMem::Absolute(*address)),
+            width: MirWidth::Byte,
+            home: MirArgHome::Absolute(*address),
+        }],
+        PlannedCallArg::Existing(MirCallArg {
+            width: MirWidth::Byte,
+            home: MirArgHome::StackFrame { base, offset },
+            ..
+        }) => vec![MirCallArg {
+            value: MirValue::PointerCell(MirMem::Absolute(base.saturating_add(*offset))),
+            width: MirWidth::Byte,
+            home: MirArgHome::StackFrame {
+                base: *base,
+                offset: *offset,
+            },
+        }],
+        _ => Vec::new(),
     }
 }
 

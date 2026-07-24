@@ -235,6 +235,30 @@ placed directly in their final register pair when:
 Do not add a `Draw` special case. Cover the reusable indexed-word-to-register
 pair shape and retain the staged fallback.
 
+Slice result:
+
+The call-expression materializer now recognizes the canonical Action ABI shape
+where an indexed word argument occupies A/X, a byte argument occupies Y, and
+later byte arguments occupy their fixed memory homes. It prepares memory
+arguments first, reads the indexed word directly into A/X, and loads Y last.
+The emitted call summarizes already-prepared memory arguments as memory cells,
+preventing a later materialization round from storing them again and
+clobbering A.
+
+One of the two audited `Draw` sites now uses the direct path. Its private
+two-byte home is gone and the final sequence uses the existing fixed A0 cell
+only to preserve the low byte while the high byte is transferred to X. The
+second site retains the staged fallback because its index is a wrapping byte
+subtraction (`i - 1`). Treating that subtraction as a negative address
+displacement would differ when `i` wraps through zero, so this slice does not
+make an unstated range assumption.
+
+TN falls from 10,374 to 10,368 bytes. The fresh XEX SHA-256 is
+`3c6820d322bc715b450a0a96b43c57e4863228603d41a109cbc5b07471d0b6a4`.
+The listing contains 4,244 instruction rows, 9,494 code bytes, and 862 data
+bytes. Focused tests cover the direct A/X path, final Y scheduling, fixed-memory
+argument preparation, and the already-materialized call summary.
+
 ### Slice 6: improve call and pointer destination placement
 
 Use consumer-selected destinations for the remaining audited families:

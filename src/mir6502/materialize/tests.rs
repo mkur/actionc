@@ -14271,7 +14271,7 @@ fn call_arg_expr_keeps_constant_minus_indexed_word_load() {
 }
 
 #[test]
-fn call_arg_expr_keeps_indexed_word_load_when_y_is_another_call_arg() {
+fn call_arg_expr_materializes_indexed_word_before_ax_preserving_y_arg() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
     let ops = indexed_word_ax_call_ops(true);
@@ -14287,12 +14287,63 @@ fn call_arg_expr_keeps_indexed_word_load_when_y_is_another_call_arg() {
         &mut out,
     );
 
-    assert_eq!(
-        result,
-        super::calls::CallArgExprMaterializeResult::default()
-    );
+    assert_eq!(result.consumed, ops.len());
+    assert_eq!(result.indexed_word_loads, 1);
     assert!(helpers.is_empty());
-    assert!(out.is_empty());
+    assert!((0..=2).all(|temp| out.iter().all(|op| !op_uses_temp(op, MirTempId(temp)))));
+    let load_y = out
+        .iter()
+        .position(|op| {
+            matches!(
+                op,
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::Y),
+                    ..
+                } | MirOp::Move {
+                    dst: MirDef::Reg(MirReg::Y),
+                    ..
+                }
+            )
+        })
+        .expect("expected final Y argument load");
+    let load_high = out
+        .iter()
+        .position(|op| {
+            matches!(
+                op,
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::X),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    ..
+                }
+            )
+        })
+        .expect("expected indexed high byte in X");
+    assert!(load_high < load_y, "{out:#?}");
+    assert_eq!(
+        out.iter()
+            .filter(|op| {
+                matches!(
+                    op,
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA3))),
+                        ..
+                    }
+                )
+            })
+            .count(),
+        1,
+        "{out:#?}"
+    );
+    assert!(matches!(
+        out.last(),
+        Some(MirOp::Call { args, .. })
+            if args.last() == Some(&MirCallArg {
+                value: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(0xA3))),
+                width: MirWidth::Byte,
+                home: MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3)),
+            })
+    ));
 }
 
 #[test]
@@ -14388,36 +14439,30 @@ fn indexed_word_ax_call_ops(include_y_arg: bool) -> Vec<MirOp> {
             width: MirWidth::Word,
         },
     ];
-    if include_y_arg {
-        ops.push(MirOp::Load {
-            dst: MirDef::VTemp(MirTempId(2)),
-            src: MirAddr::Direct(MirMem::Local {
-                id: LocalId(1),
-                offset: 0,
-            }),
-            width: MirWidth::Byte,
-        });
-    }
-    let mut params = Vec::new();
-    let mut args = Vec::new();
-    if include_y_arg {
-        params.push(MirArgHome::Reg(MirReg::Y));
-        args.push(MirCallArg {
-            value: MirValue::Def(MirDef::VTemp(MirTempId(2))),
-            width: MirWidth::Byte,
-            home: MirArgHome::Reg(MirReg::Y),
-        });
-    }
     let ax = MirArgHome::RegisterPair {
         lo: MirReg::A,
         hi: MirReg::X,
     };
-    params.push(ax.clone());
-    args.push(MirCallArg {
+    let mut params = vec![ax.clone()];
+    let mut args = vec![MirCallArg {
         value: MirValue::Def(MirDef::VTemp(MirTempId(1))),
         width: MirWidth::Word,
         home: ax,
-    });
+    }];
+    if include_y_arg {
+        params.push(MirArgHome::Reg(MirReg::Y));
+        args.push(MirCallArg {
+            value: MirValue::ConstU8(7),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::Y),
+        });
+        params.push(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3)));
+        args.push(MirCallArg {
+            value: MirValue::ConstU8(9),
+            width: MirWidth::Byte,
+            home: MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3)),
+        });
+    }
     ops.push(MirOp::Call {
         target: MirCallTarget::Routine(RoutineId(7)),
         abi: MirCallAbi {
