@@ -10,9 +10,7 @@ use crate::mir6502::ir::{
     MirRoutine, MirTerminator, MirValue, MirWidth,
 };
 
-/// A value known to occupy a physical 6502 register. The domain starts with
-/// accumulator facts and is intentionally target-specific; X/Y can join it
-/// when a rewrite has a measured use for those facts.
+/// A value known to occupy a physical 6502 register.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirMachineValue {
     ConstU8(u8),
@@ -23,6 +21,8 @@ pub(in crate::mir6502) enum MirMachineValue {
 struct MirMachineValueState {
     reachable: bool,
     a: Option<MirMachineValue>,
+    x: Option<MirMachineValue>,
+    y: Option<MirMachineValue>,
     fixed_zero_page: BTreeMap<MirFixedZpSlot, MirMachineValue>,
 }
 
@@ -31,6 +31,8 @@ impl MirMachineValueState {
         Self {
             reachable: true,
             a: None,
+            x: None,
+            y: None,
             fixed_zero_page: BTreeMap::new(),
         }
     }
@@ -46,8 +48,30 @@ impl MirMachineValueState {
         if self.a != other.a {
             self.a = None;
         }
+        if self.x != other.x {
+            self.x = None;
+        }
+        if self.y != other.y {
+            self.y = None;
+        }
         self.fixed_zero_page
             .retain(|slot, value| other.fixed_zero_page.get(slot) == Some(value));
+    }
+
+    fn register(&self, reg: MirReg) -> Option<&MirMachineValue> {
+        match reg {
+            MirReg::A => self.a.as_ref(),
+            MirReg::X => self.x.as_ref(),
+            MirReg::Y => self.y.as_ref(),
+        }
+    }
+
+    fn set_register(&mut self, reg: MirReg, value: Option<MirMachineValue>) {
+        match reg {
+            MirReg::A => self.a = value,
+            MirReg::X => self.x = value,
+            MirReg::Y => self.y = value,
+        }
     }
 }
 
@@ -55,6 +79,10 @@ impl MirMachineValueState {
 pub(in crate::mir6502) struct MirMachineValueBlock {
     pub accumulator_in: Option<MirMachineValue>,
     pub accumulator_out: Option<MirMachineValue>,
+    pub x_in: Option<MirMachineValue>,
+    pub x_out: Option<MirMachineValue>,
+    pub y_in: Option<MirMachineValue>,
+    pub y_out: Option<MirMachineValue>,
     pub reachable: bool,
     fixed_zero_page_in: BTreeMap<MirFixedZpSlot, MirMachineValue>,
 }
@@ -119,6 +147,10 @@ impl MirMachineValueAvailability {
                 MirMachineValueBlock {
                     accumulator_in: input.a,
                     accumulator_out: output.a,
+                    x_in: input.x,
+                    x_out: output.x,
+                    y_in: input.y,
+                    y_out: output.y,
                     reachable: input.reachable,
                     fixed_zero_page_in: input.fixed_zero_page,
                 }
@@ -151,7 +183,15 @@ impl MirMachineValueAvailability {
         &self,
         site: MirSite,
     ) -> Result<Option<MirMachineValue>, MirMachineValueError> {
-        Ok(self.state_at(site)?.a)
+        self.register_at(site, MirReg::A)
+    }
+
+    pub(in crate::mir6502) fn register_at(
+        &self,
+        site: MirSite,
+        reg: MirReg,
+    ) -> Result<Option<MirMachineValue>, MirMachineValueError> {
+        Ok(self.state_at(site)?.register(reg).cloned())
     }
 
     pub(in crate::mir6502) fn fixed_zero_page_value_at(
@@ -188,6 +228,8 @@ impl MirMachineValueAvailability {
         let mut state = MirMachineValueState {
             reachable: facts.reachable,
             a: facts.accumulator_in.clone(),
+            x: facts.x_in.clone(),
+            y: facts.y_in.clone(),
             fixed_zero_page: facts.fixed_zero_page_in.clone(),
         };
         for op in &ops[..limit] {
@@ -250,8 +292,8 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
         return;
     }
 
-    let accumulator_before = state.a.clone();
-    update_fixed_zero_page_values(state, op, accumulator_before.as_ref(), known_callees);
+    let before = state.clone();
+    update_fixed_zero_page_values(state, op, &before, known_callees);
 
     let effects = classify_op(op);
     let writes_memory = !effects.memory.direct_writes.is_empty()
@@ -260,8 +302,24 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
         || effects.memory.may_write_any
         || effects.memory.has_unknown_effects
         || !matches!(&effects.memory.structured_writes, MirMemoryEffect::None);
-    if writes_memory && matches!(state.a, Some(MirMachineValue::DirectMem(_))) {
-        state.a = None;
+    if writes_memory {
+        for reg in [MirReg::A, MirReg::X, MirReg::Y] {
+            if matches!(state.register(reg), Some(MirMachineValue::DirectMem(_))) {
+                state.set_register(reg, None);
+            }
+        }
+    } else if let MirOp::Call { target, .. } = op {
+        for reg in [MirReg::X, MirReg::Y] {
+            let Some(MirMachineValue::DirectMem(mem)) = state.register(reg) else {
+                continue;
+            };
+            let invalidated = known_callees
+                .for_target(target)
+                .is_none_or(|summary| summary.writes().may_write_mem(mem));
+            if invalidated {
+                state.set_register(reg, None);
+            }
+        }
     }
 
     if let Some(value) = explicit_accumulator_result(op, known_callees) {
@@ -270,20 +328,28 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
         state.a = None;
     }
 
+    for reg in [MirReg::X, MirReg::Y] {
+        if let Some(value) = explicit_index_register_result(op, reg, &before) {
+            state.set_register(reg, Some(value));
+        } else if effects.may_clobber_reg_compat(reg) {
+            state.set_register(reg, None);
+        }
+    }
+
     if let MirOp::Store {
         dst: MirAddr::Direct(mem),
-        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        src: MirValue::Def(MirDef::Reg(reg)),
         width: MirWidth::Byte,
     } = op
     {
-        state.a = Some(MirMachineValue::DirectMem(mem.clone()));
+        state.set_register(*reg, Some(MirMachineValue::DirectMem(mem.clone())));
     }
 }
 
 fn update_fixed_zero_page_values(
     state: &mut MirMachineValueState,
     op: &MirOp,
-    accumulator_before: Option<&MirMachineValue>,
+    before: &MirMachineValueState,
     known_callees: &MirKnownCalleeSummaries,
 ) {
     match op {
@@ -297,7 +363,7 @@ fn update_fixed_zero_page_values(
                 return;
             };
             state.fixed_zero_page.remove(&slot);
-            if let Some(value) = stored_machine_value(src, accumulator_before) {
+            if let Some(value) = stored_machine_value(src, before) {
                 state.fixed_zero_page.insert(slot, value);
             }
         }
@@ -374,10 +440,10 @@ fn update_fixed_zero_page_values(
 
 fn stored_machine_value(
     value: &MirValue,
-    accumulator_before: Option<&MirMachineValue>,
+    before: &MirMachineValueState,
 ) -> Option<MirMachineValue> {
     match value {
-        MirValue::Def(MirDef::Reg(MirReg::A)) => accumulator_before.cloned(),
+        MirValue::Def(MirDef::Reg(reg)) => before.register(*reg).cloned(),
         MirValue::ConstU8(value) => Some(MirMachineValue::ConstU8(*value)),
         MirValue::ConstU16(value) => u8::try_from(*value).ok().map(MirMachineValue::ConstU8),
         MirValue::PointerCell(mem) => Some(MirMachineValue::DirectMem(mem.clone())),
@@ -539,6 +605,45 @@ fn explicit_accumulator_result(
     }
 }
 
+fn explicit_index_register_result(
+    op: &MirOp,
+    reg: MirReg,
+    before: &MirMachineValueState,
+) -> Option<MirMachineValue> {
+    debug_assert!(matches!(reg, MirReg::X | MirReg::Y));
+    match op {
+        MirOp::LoadImm {
+            dst: MirDef::Reg(dst),
+            value,
+            width: MirWidth::Byte,
+        } if *dst == reg => u8::try_from(*value).ok().map(MirMachineValue::ConstU8),
+        MirOp::Load {
+            dst: MirDef::Reg(dst),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } if *dst == reg => Some(MirMachineValue::DirectMem(mem.clone())),
+        MirOp::Move {
+            dst: MirDef::Reg(dst),
+            src,
+            width: MirWidth::Byte,
+        } if *dst == reg => machine_value_for_value(src, before),
+        _ => None,
+    }
+}
+
+fn machine_value_for_value(
+    value: &MirValue,
+    before: &MirMachineValueState,
+) -> Option<MirMachineValue> {
+    match value {
+        MirValue::Def(MirDef::Reg(reg)) => before.register(*reg).cloned(),
+        MirValue::ConstU8(value) => Some(MirMachineValue::ConstU8(*value)),
+        MirValue::ConstU16(value) => u8::try_from(*value).ok().map(MirMachineValue::ConstU8),
+        MirValue::PointerCell(mem) => Some(MirMachineValue::DirectMem(mem.clone())),
+        _ => None,
+    }
+}
+
 fn terminator_preserves_accumulator(terminator: &MirTerminator) -> bool {
     match terminator {
         MirTerminator::Jump(edge) => edge.args.is_empty(),
@@ -574,8 +679,12 @@ mod tests {
     }
 
     fn load_a(mem: MirMem) -> MirOp {
+        load_reg(MirReg::A, mem)
+    }
+
+    fn load_reg(reg: MirReg, mem: MirMem) -> MirOp {
         MirOp::Load {
-            dst: MirDef::Reg(MirReg::A),
+            dst: MirDef::Reg(reg),
             src: MirAddr::Direct(mem),
             width: MirWidth::Byte,
         }
@@ -709,6 +818,170 @@ mod tests {
             }),
             Ok(None)
         );
+    }
+
+    #[test]
+    fn index_register_values_flow_across_diamonds_and_must_agree_at_joins() {
+        let x_value = spill(1);
+        let y_value = spill(2);
+        let build = |right_x| {
+            routine(vec![
+                block(0, Vec::new(), branch(1, 2)),
+                block(
+                    1,
+                    vec![
+                        load_reg(MirReg::X, x_value.clone()),
+                        load_reg(MirReg::Y, y_value.clone()),
+                    ],
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+                ),
+                block(
+                    2,
+                    vec![
+                        load_reg(MirReg::X, right_x),
+                        load_reg(MirReg::Y, y_value.clone()),
+                    ],
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+                ),
+                block(3, Vec::new(), MirTerminator::Return),
+            ])
+        };
+
+        let same = analyze(&build(x_value.clone()));
+        let join = MirSite::BlockEntry {
+            block: MirBlockId(3),
+        };
+        assert_eq!(
+            same.register_at(join, MirReg::X),
+            Ok(Some(MirMachineValue::DirectMem(x_value.clone())))
+        );
+        assert_eq!(
+            same.register_at(join, MirReg::Y),
+            Ok(Some(MirMachineValue::DirectMem(y_value.clone())))
+        );
+
+        let different = analyze(&build(spill(3)));
+        assert_eq!(different.register_at(join, MirReg::X), Ok(None));
+        assert_eq!(
+            different.register_at(join, MirReg::Y),
+            Ok(Some(MirMachineValue::DirectMem(y_value)))
+        );
+    }
+
+    #[test]
+    fn index_register_values_converge_around_loops() {
+        let value = spill(1);
+        let routine = routine(vec![
+            block(
+                0,
+                vec![load_reg(MirReg::X, value.clone())],
+                MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            ),
+            block(1, Vec::new(), branch(1, 2)),
+            block(2, Vec::new(), MirTerminator::Return),
+        ]);
+        let values = analyze(&routine);
+
+        for block in [MirBlockId(1), MirBlockId(2)] {
+            assert_eq!(
+                values.register_at(MirSite::BlockEntry { block }, MirReg::X),
+                Ok(Some(MirMachineValue::DirectMem(value.clone())))
+            );
+        }
+        assert!(values.evaluations() > routine.blocks.len());
+    }
+
+    #[test]
+    fn unknown_calls_kill_index_register_values() {
+        let routine = routine(vec![block(
+            0,
+            vec![
+                load_reg(MirReg::X, spill(1)),
+                load_reg(MirReg::Y, spill(2)),
+                call(1),
+            ],
+            MirTerminator::Return,
+        )]);
+        let values = analyze(&routine);
+        let after_call = MirSite::Terminator {
+            block: MirBlockId(0),
+        };
+
+        assert_eq!(values.register_at(after_call, MirReg::X), Ok(None));
+        assert_eq!(values.register_at(after_call, MirReg::Y), Ok(None));
+    }
+
+    #[test]
+    fn unknown_preserving_call_still_invalidates_index_register_memory_aliases() {
+        let routine = routine(vec![block(
+            0,
+            vec![
+                load_reg(MirReg::X, spill(1)),
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::Y),
+                    value: 7,
+                    width: MirWidth::Byte,
+                },
+                MirOp::Call {
+                    target: MirCallTarget::Routine(RoutineId(1)),
+                    abi: MirCallAbi {
+                        params: Vec::new(),
+                        result: None,
+                        clobbers: MirRegisterSet::default(),
+                        preserves: MirRegisterSet {
+                            x: true,
+                            y: true,
+                            ..MirRegisterSet::default()
+                        },
+                    },
+                    args: Vec::new(),
+                    result: None,
+                    effects: MirEffects::default(),
+                },
+            ],
+            MirTerminator::Return,
+        )]);
+        let values = analyze(&routine);
+        let after_call = MirSite::Terminator {
+            block: MirBlockId(0),
+        };
+
+        assert_eq!(values.register_at(after_call, MirReg::X), Ok(None));
+        assert_eq!(
+            values.register_at(after_call, MirReg::Y),
+            Ok(Some(MirMachineValue::ConstU8(7)))
+        );
+    }
+
+    #[test]
+    fn direct_store_establishes_source_register_alias_and_invalidates_old_aliases() {
+        let source = spill(1);
+        let destination = spill(2);
+        let routine = routine(vec![block(
+            0,
+            vec![
+                load_reg(MirReg::X, source.clone()),
+                load_reg(MirReg::Y, destination.clone()),
+                MirOp::Store {
+                    dst: MirAddr::Direct(destination.clone()),
+                    src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                    width: MirWidth::Byte,
+                },
+                load_reg(MirReg::X, destination.clone()),
+            ],
+            MirTerminator::Return,
+        )]);
+        let values = analyze(&routine);
+        let before_reload = MirSite::Op {
+            block: MirBlockId(0),
+            op_index: 3,
+        };
+
+        assert_eq!(
+            values.register_at(before_reload, MirReg::X),
+            Ok(Some(MirMachineValue::DirectMem(destination)))
+        );
+        assert_eq!(values.register_at(before_reload, MirReg::Y), Ok(None));
     }
 
     #[test]

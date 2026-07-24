@@ -156,6 +156,44 @@ Exit criterion: focused diamond, loop, clobber, and memory-invalidation tests
 pass; TN telemetry names the routines and sites that could benefit from a later
 rewrite.
 
+Slice result:
+
+The post-home machine-value state now carries A, X, and Y facts through the
+same routine CFG. X/Y facts support constants, exact direct-memory values,
+register moves, must-agree joins, loop convergence, exact writes, conservative
+clobbers, and memory invalidation from the shared MIR effect classifier. A
+direct store from a register also establishes the useful equality between that
+register and the destination memory. Fixed zero-page value facts can now
+capture stores from X and Y as well as A.
+
+The post-home rewrite context exposes a typed `register_value_at` proof query.
+No rewrite consumes the new X/Y facts in this slice. Final-program telemetry
+only reports a candidate when an X/Y load would reproduce the exact incoming
+machine value.
+
+Fresh TN telemetry reports three candidates:
+
+| Routine | Register | Site | Incoming and loaded value |
+| --- | --- | --- | --- |
+| `Window` | X | `b0`, op 35 | `spill12+0` |
+| `Convert` | Y | `b3`, op 1 | global 5, offset 0 |
+| `Convert` | Y | `b7`, op 1 | global 5, offset 0 |
+
+The `Window` result confirms the exact `STX spill12` / `LDX spill12` case found
+by the manual audit. The two `Convert` results demonstrate that the same
+analysis also finds facts entering blocks through CFG edges.
+
+This slice is code-generation neutral. The fresh TN XEX is still 10,381 bytes
+with SHA-256
+`ff72b52f1b0c4c8373449513d76f840d34a9b8f218f7341012ed1e0be62fa5e0`,
+identical to the slice-2 artifact. Focused analysis and context tests pass, as
+does the complete test suite (1,755 library tests plus integration and fixture
+tests).
+
+The candidates are not removal proofs by themselves: LDX and LDY also update
+Z/N. A later rewrite must combine the value proof with shared flag liveness
+before deleting either instruction.
+
 ## Follow-on work
 
 If slice 3 finds useful sites, enable redundant X/Y reload removal as a narrow

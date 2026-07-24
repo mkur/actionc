@@ -82,6 +82,10 @@ pub(in crate::mir6502) enum MirProofBlocker {
     AccumulatorValueUnavailable {
         point: MirSite,
     },
+    RegisterValueUnavailable {
+        reg: MirReg,
+        point: MirSite,
+    },
     FixedZeroPageValueUnavailable {
         slot: MirFixedZpSlot,
         point: MirSite,
@@ -115,6 +119,7 @@ impl MirProofBlocker {
             Self::StackPointerLive { .. } => "stack-pointer-live",
             Self::FlagsLive { .. } => "flags-live",
             Self::AccumulatorValueUnavailable { .. } => "accumulator-value-unavailable",
+            Self::RegisterValueUnavailable { .. } => "register-value-unavailable",
             Self::FixedZeroPageValueUnavailable { .. } => "fixed-zero-page-value-unavailable",
             Self::ParameterRegisterUnavailable { .. } => "parameter-register-unavailable",
             Self::UnsupportedPointerPair(_) => "unsupported-pointer-pair",
@@ -473,6 +478,24 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
         match self.snapshot.machine_values().accumulator_at(point.site) {
             Ok(Some(value)) => MirProof::Proven(value),
             Ok(None) => MirProof::Blocked(MirProofBlocker::AccumulatorValueUnavailable {
+                point: point.site,
+            }),
+            Err(error) => MirProof::Blocked(MirProofBlocker::MachineValues(error)),
+        }
+    }
+
+    pub(in crate::mir6502) fn register_value_at(
+        &self,
+        reg: MirReg,
+        point: MirProgramPoint,
+    ) -> MirProof<MirMachineValue> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        match self.snapshot.machine_values().register_at(point.site, reg) {
+            Ok(Some(value)) => MirProof::Proven(value),
+            Ok(None) => MirProof::Blocked(MirProofBlocker::RegisterValueUnavailable {
+                reg,
                 point: point.site,
             }),
             Err(error) => MirProof::Blocked(MirProofBlocker::MachineValues(error)),
@@ -869,6 +892,11 @@ mod tests {
                         dst: MirDef::Reg(MirReg::A),
                         offset: 0,
                     },
+                    MirOp::LoadImm {
+                        dst: MirDef::Reg(MirReg::X),
+                        value: 7,
+                        width: MirWidth::Byte,
+                    },
                 ],
                 terminator: MirTerminator::Return,
             }],
@@ -969,6 +997,17 @@ mod tests {
                 })
             ),
             MirProof::Blocked(MirProofBlocker::StackPointerLive { .. })
+        ));
+        let terminator = context.point(MirSite::Terminator {
+            block: MirBlockId(0),
+        });
+        assert_eq!(
+            context.register_value_at(MirReg::X, terminator),
+            MirProof::Proven(MirMachineValue::ConstU8(7))
+        );
+        assert!(matches!(
+            context.register_value_at(MirReg::Y, terminator),
+            MirProof::Blocked(MirProofBlocker::RegisterValueUnavailable { reg: MirReg::Y, .. })
         ));
     }
 }

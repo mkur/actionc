@@ -27,6 +27,7 @@ mod home_census;
 mod indexes;
 mod layout;
 mod lea;
+mod machine_value_census;
 mod memory;
 mod peepholes;
 mod pointers;
@@ -118,6 +119,7 @@ use indexes::{
 };
 pub(super) use layout::MaterializeLayout;
 use lea::{lower_address_to_def, lower_lea_addrs_with_final_layout};
+use machine_value_census::record_xy_reload_candidates;
 #[cfg(test)]
 use memory::{mem_is_read_after, op_definitely_writes_mem};
 use memory::{op_may_have_unknown_memory_effects, op_may_write_mem, op_reads_mem};
@@ -990,6 +992,7 @@ pub(super) fn materialize_program(
         }
     }
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
+    record_xy_reload_candidates(&program, &mut peephole_stats);
     maybe_report_peepholes(&program, &peephole_stats, config);
     Ok(program)
 }
