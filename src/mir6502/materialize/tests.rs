@@ -2,8 +2,8 @@ use super::*;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{
-    MirBlock, MirCallResult, MirEdge, MirRegisterSet, MirStatic, MirStorageBacking, MirStorageInit,
-    MirTemp,
+    MirBlock, MirCallResult, MirEdge, MirGlobal, MirGlobalBacking, MirRegisterSet, MirStatic,
+    MirStorageBacking, MirStorageInit, MirTemp,
 };
 use crate::mir6502::passes::MirPeepholeReportMode;
 use crate::mir6502::rewrite::context::PostHomeRewriteContext;
@@ -9277,6 +9277,510 @@ fn dead_reg_write_before_overwrite_keeps_used_accumulator() {
             .aggregate_counts()
             .contains_key("ssa-lite-dead-reg-writes")
     );
+}
+
+#[test]
+fn analyzed_dead_register_write_removes_load_dead_across_cfg_edge() {
+    let source = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+    let replacement = MirMem::FixedZeroPage(MirFixedZpSlot(0xA1));
+    let compare = MirOp::Compare {
+        dst: MirCondDest::Flags,
+        op: MirCompareOp::Eq,
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(0),
+        width: MirWidth::Byte,
+        signed: false,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(source),
+                width: MirWidth::Byte,
+            }],
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "compare".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(replacement),
+                    width: MirWidth::Byte,
+                },
+                compare,
+            ],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                then_edge: MirEdge::plain(MirBlockId(2)),
+                else_edge: MirEdge::plain(MirBlockId(3)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(3),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]);
+
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_dead_register_writes(routine, context, &layout)
+        })
+        .unwrap();
+
+    assert_eq!(
+        result.applied_by_stat.get("dead-pure-register-write"),
+        Some(&1)
+    );
+    assert!(routine.blocks[0].ops.is_empty());
+}
+
+#[test]
+fn analyzed_dead_register_write_keeps_load_whose_flags_feed_branch() {
+    let load = MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+        width: MirWidth::Byte,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![load.clone()],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]);
+
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_dead_register_writes(routine, context, &layout)
+        })
+        .unwrap();
+
+    assert!(
+        !result
+            .applied_by_stat
+            .contains_key("dead-pure-register-write")
+    );
+    assert_eq!(routine.blocks[0].ops, vec![load]);
+}
+
+#[test]
+fn analyzed_dead_register_write_keeps_absolute_backed_global_load() {
+    let load = MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(MirMem::Global {
+            id: SymbolId(0),
+            offset: 0,
+        }),
+        width: MirWidth::Byte,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![load.clone()],
+        terminator: MirTerminator::Return,
+    }]);
+    let mut program = empty_test_program();
+    program.globals.push(MirGlobal {
+        id: SymbolId(0),
+        name: "hardware".to_string(),
+        kind: "BYTE".to_string(),
+        width: Some(MirWidth::Byte),
+        storage_size: 1,
+        backing: MirGlobalBacking::Absolute(0xD20A),
+        init: None,
+    });
+    let layout = MaterializeLayout::new(&program, 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_dead_register_writes(routine, context, &layout)
+        })
+        .unwrap();
+
+    assert!(
+        !result
+            .applied_by_stat
+            .contains_key("dead-pure-register-write")
+    );
+    assert_eq!(routine.blocks[0].ops, vec![load]);
+}
+
+#[test]
+fn analyzed_pointer_placement_bypasses_dead_private_word_home() {
+    let source_lo = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let source_hi = MirMem::Param {
+        id: ParamId(0),
+        offset: 1,
+    };
+    let scratch_lo = MirMem::Spill {
+        id: MirSpillId(30),
+        offset: 0,
+    };
+    let scratch_hi = MirMem::Spill {
+        id: MirSpillId(31),
+        offset: 0,
+    };
+    let target_lo = MirMem::FixedZeroPage(MirFixedZpSlot(0xAC));
+    let target_hi = MirMem::FixedZeroPage(MirFixedZpSlot(0xAD));
+    let store_a = |mem| MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(source_lo.clone()),
+                width: MirWidth::Byte,
+            },
+            store_a(scratch_lo.clone()),
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(source_hi.clone()),
+                width: MirWidth::Byte,
+            },
+            store_a(scratch_hi.clone()),
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(scratch_lo),
+                width: MirWidth::Byte,
+            },
+            store_a(target_lo.clone()),
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(scratch_hi),
+                width: MirWidth::Byte,
+            },
+            store_a(target_hi.clone()),
+            MirOp::LoadIndirect {
+                consumer: fixed_pointer_consumer(0xAC),
+                dst: MirDef::Reg(MirReg::A),
+                offset: 0,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_rhs_and_adjacent_reloads(
+                routine,
+                context,
+                &MaterializeLayout::new(&empty_test_program(), 0x3000),
+            )
+        })
+        .unwrap();
+
+    assert_eq!(
+        result.applied_by_stat.get("direct-fixed-pointer-placement"),
+        Some(&1)
+    );
+    assert_eq!(
+        routine.blocks[0].ops[..4],
+        [
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(source_lo),
+                width: MirWidth::Byte,
+            },
+            store_a(target_lo),
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(source_hi),
+                width: MirWidth::Byte,
+            },
+            store_a(target_hi),
+        ]
+    );
+}
+
+#[test]
+fn analyzed_byte_destination_forward_places_value_in_fixed_abi_home() {
+    let scratch = MirMem::Spill {
+        id: MirSpillId(30),
+        offset: 0,
+    };
+    let a3 = MirMem::FixedZeroPage(MirFixedZpSlot(0xA3));
+    let a4 = MirMem::FixedZeroPage(MirFixedZpSlot(0xA4));
+    let store_a = |mem| MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let load_param = |offset| MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(MirMem::Param {
+            id: ParamId(0),
+            offset,
+        }),
+        width: MirWidth::Byte,
+    };
+    let final_load = load_param(2);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            store_a(scratch.clone()),
+            load_param(1),
+            store_a(a3.clone()),
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(scratch),
+                width: MirWidth::Byte,
+            },
+            store_a(a4.clone()),
+            final_load.clone(),
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_staged_word_forwards(
+                routine,
+                context,
+                &MaterializeLayout::new(&empty_test_program(), 0x3000),
+                true,
+            )
+        })
+        .unwrap();
+
+    assert_eq!(
+        result
+            .applied_by_stat
+            .get("staged-byte-destination-forward"),
+        Some(&1)
+    );
+    assert_eq!(
+        routine.blocks[0].ops,
+        vec![store_a(a4), load_param(1), store_a(a3), final_load]
+    );
+}
+
+#[test]
+fn analyzed_byte_destination_forward_rejects_physical_target_alias_read() {
+    let scratch = MirMem::Spill {
+        id: MirSpillId(30),
+        offset: 0,
+    };
+    let a3 = MirMem::FixedZeroPage(MirFixedZpSlot(0xA3));
+    let a4 = MirMem::FixedZeroPage(MirFixedZpSlot(0xA4));
+    let aliased_global = MirMem::Global {
+        id: SymbolId(0),
+        offset: 0,
+    };
+    let store_a = |mem| MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let ops = vec![
+        store_a(scratch.clone()),
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(aliased_global),
+            width: MirWidth::Byte,
+        },
+        store_a(a3),
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(scratch),
+            width: MirWidth::Byte,
+        },
+        store_a(a4),
+    ];
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: ops.clone(),
+        terminator: MirTerminator::Return,
+    }]);
+    let mut program = empty_test_program();
+    program.globals.push(MirGlobal {
+        id: SymbolId(0),
+        name: "aliased".to_string(),
+        kind: "BYTE".to_string(),
+        width: Some(MirWidth::Byte),
+        storage_size: 1,
+        backing: MirGlobalBacking::Absolute(0xA4),
+        init: None,
+    });
+    let layout = MaterializeLayout::new(&program, 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_staged_word_forwards(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert!(
+        !result
+            .applied_by_stat
+            .contains_key("staged-byte-destination-forward")
+    );
+    assert_eq!(routine.blocks[0].ops, ops);
+}
+
+#[test]
+fn analyzed_call_result_placement_moves_accumulator_to_y_before_ax_arguments() {
+    let result_home = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let pointer_lo = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let pointer_hi = MirMem::Local {
+        id: LocalId(1),
+        offset: 1,
+    };
+    let first_call = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: None,
+            clobbers: MirRegisterSet::default(),
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: None,
+        effects: MirEffects::default(),
+    };
+    let second_call = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(2)),
+        abi: MirCallAbi {
+            params: vec![
+                MirArgHome::Reg(MirReg::A),
+                MirArgHome::Reg(MirReg::X),
+                MirArgHome::Reg(MirReg::Y),
+            ],
+            result: None,
+            clobbers: MirRegisterSet::default(),
+            preserves: MirRegisterSet::default(),
+        },
+        args: vec![
+            MirCallArg {
+                value: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+                home: MirArgHome::Reg(MirReg::A),
+            },
+            MirCallArg {
+                value: MirValue::Def(MirDef::Reg(MirReg::X)),
+                width: MirWidth::Byte,
+                home: MirArgHome::Reg(MirReg::X),
+            },
+            MirCallArg {
+                value: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                width: MirWidth::Byte,
+                home: MirArgHome::Reg(MirReg::Y),
+            },
+        ],
+        result: None,
+        effects: MirEffects::default(),
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            first_call,
+            MirOp::Store {
+                dst: MirAddr::Direct(result_home.clone()),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(pointer_lo),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirAddr::Direct(pointer_hi),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirAddr::Direct(result_home),
+                width: MirWidth::Byte,
+            },
+            second_call,
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, peepholes::discover_call_result_y_placements)
+        .unwrap();
+
+    assert_eq!(
+        result.applied_by_stat.get("call-result-to-y-placement"),
+        Some(&1)
+    );
+    assert!(matches!(
+        &routine.blocks[0].ops[1],
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::Y),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }
+    ));
+    assert!(!routine.blocks[0].ops.iter().any(|op| matches!(
+        op,
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::Y),
+            ..
+        }
+    )));
 }
 
 #[test]

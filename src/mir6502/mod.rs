@@ -3749,35 +3749,83 @@ mod tests {
                     backing: MirGlobalBacking::Ordinary { offset: 0 },
                     init: None,
                 }],
-                routines: vec![MirRoutine {
-                    id: RoutineId(0),
-                    name: "Main".to_string(),
-                    abi: MirRoutineAbi::Action,
-                    frame: MirFrame::default(),
-                    temps: vec![MirTemp { id: MirTempId(0) }],
-                    blocks: vec![MirBlock {
-                        id: MirBlockId(0),
-                        label: "bb0".to_string(),
-                        params: Vec::new(),
-                        ops: vec![
-                            MirOp::Load {
-                                dst: MirDef::VTemp(MirTempId(0)),
-                                src: MirAddr::Direct(MirMem::Global {
-                                    id: SymbolId(0),
-                                    offset: 0,
-                                }),
-                                width: MirWidth::Byte,
-                            },
-                            MirOp::Move {
-                                dst: MirDef::Reg(MirReg::X),
-                                src: MirValue::Def(MirDef::VTemp(MirTempId(0))),
-                                width: MirWidth::Byte,
-                            },
-                        ],
-                        terminator: MirTerminator::Return,
-                    }],
-                    effects: MirEffects::default(),
-                }],
+                routines: vec![
+                    MirRoutine {
+                        id: RoutineId(0),
+                        name: "Main".to_string(),
+                        abi: MirRoutineAbi::Action,
+                        frame: MirFrame::default(),
+                        temps: vec![MirTemp { id: MirTempId(0) }],
+                        blocks: vec![MirBlock {
+                            id: MirBlockId(0),
+                            label: "bb0".to_string(),
+                            params: Vec::new(),
+                            ops: vec![
+                                MirOp::Load {
+                                    dst: MirDef::VTemp(MirTempId(0)),
+                                    src: MirAddr::Direct(MirMem::Global {
+                                        id: SymbolId(0),
+                                        offset: 0,
+                                    }),
+                                    width: MirWidth::Byte,
+                                },
+                                MirOp::Move {
+                                    dst: MirDef::Reg(MirReg::X),
+                                    src: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                                    width: MirWidth::Byte,
+                                },
+                                MirOp::LoadImm {
+                                    dst: MirDef::Reg(MirReg::A),
+                                    value: 0,
+                                    width: MirWidth::Byte,
+                                },
+                                MirOp::Call {
+                                    target: MirCallTarget::Routine(RoutineId(1)),
+                                    abi: MirCallAbi {
+                                        params: vec![
+                                            MirArgHome::Reg(MirReg::A),
+                                            MirArgHome::Reg(MirReg::X),
+                                        ],
+                                        result: None,
+                                        clobbers: MirRegisterSet::default(),
+                                        preserves: MirRegisterSet::default(),
+                                    },
+                                    args: vec![
+                                        MirCallArg {
+                                            value: MirValue::Def(MirDef::Reg(MirReg::A)),
+                                            width: MirWidth::Byte,
+                                            home: MirArgHome::Reg(MirReg::A),
+                                        },
+                                        MirCallArg {
+                                            value: MirValue::Def(MirDef::Reg(MirReg::X)),
+                                            width: MirWidth::Byte,
+                                            home: MirArgHome::Reg(MirReg::X),
+                                        },
+                                    ],
+                                    result: None,
+                                    effects: MirEffects::default(),
+                                },
+                            ],
+                            terminator: MirTerminator::Return,
+                        }],
+                        effects: MirEffects::default(),
+                    },
+                    MirRoutine {
+                        id: RoutineId(1),
+                        name: "Sink".to_string(),
+                        abi: MirRoutineAbi::Action,
+                        frame: MirFrame::default(),
+                        temps: Vec::new(),
+                        blocks: vec![MirBlock {
+                            id: MirBlockId(0),
+                            label: "bb0".to_string(),
+                            params: Vec::new(),
+                            ops: Vec::new(),
+                            terminator: MirTerminator::Return,
+                        }],
+                        effects: MirEffects::default(),
+                    },
+                ],
                 machine_blocks: Vec::new(),
                 runtime_helpers: Vec::new(),
             },
@@ -7987,7 +8035,8 @@ mod tests {
         let output =
             generate_mir6502_source_with_origin("BYTE x=$5C PROC Main() x=x RETURN", 0x3000);
 
-        assert!(bytes_contain(&output.bytes, &[0xA5, 0x5C, 0x60]));
+        assert!(bytes_contain(&output.bytes, &[0x60]));
+        assert!(!bytes_contain(&output.bytes, &[0xA5, 0x5C]));
         assert!(!bytes_contain(&output.bytes, &[0xA5, 0x5C, 0x85, 0x5C]));
     }
 
@@ -8566,7 +8615,7 @@ mod tests {
                 name: "Main".to_string(),
                 abi: MirRoutineAbi::Action,
                 frame: MirFrame {
-                    fixed_zero_page: vec![MirFixedZpSlot(0x5C)],
+                    fixed_zero_page: vec![MirFixedZpSlot(0x5C), MirFixedZpSlot(0x5D)],
                     virtual_zero_page: vec![MirZpSlot(0)],
                     ..MirFrame::default()
                 },
@@ -8589,6 +8638,11 @@ mod tests {
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::X),
                             src: MirAddr::Direct(scratch.clone()),
+                            width: MirWidth::Byte,
+                        },
+                        MirOp::Store {
+                            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x5D))),
+                            src: MirValue::Def(MirDef::Reg(MirReg::X)),
                             width: MirWidth::Byte,
                         },
                     ],
@@ -8658,7 +8712,7 @@ mod tests {
                 name: "Main".to_string(),
                 abi: MirRoutineAbi::Action,
                 frame: MirFrame {
-                    fixed_zero_page: vec![MirFixedZpSlot(0x5C)],
+                    fixed_zero_page: vec![MirFixedZpSlot(0x5C), MirFixedZpSlot(0x5D)],
                     locals: vec![MirStorageSlot {
                         id: MirStorageId(0),
                         name: Some("local".to_string()),
@@ -8690,6 +8744,11 @@ mod tests {
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::X),
                             src: MirAddr::Direct(local.clone()),
+                            width: MirWidth::Byte,
+                        },
+                        MirOp::Store {
+                            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x5D))),
+                            src: MirValue::Def(MirDef::Reg(MirReg::X)),
                             width: MirWidth::Byte,
                         },
                     ],
@@ -8725,6 +8784,7 @@ mod tests {
                 name: "Main".to_string(),
                 abi: MirRoutineAbi::Action,
                 frame: MirFrame {
+                    fixed_zero_page: vec![MirFixedZpSlot(0x5C)],
                     virtual_zero_page: vec![MirZpSlot(0)],
                     ..MirFrame::default()
                 },
@@ -8747,6 +8807,11 @@ mod tests {
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::Y),
                             src: MirAddr::Direct(scratch.clone()),
+                            width: MirWidth::Byte,
+                        },
+                        MirOp::Store {
+                            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x5C))),
+                            src: MirValue::Def(MirDef::Reg(MirReg::Y)),
                             width: MirWidth::Byte,
                         },
                     ],
@@ -8862,6 +8927,7 @@ mod tests {
                     name: "Main".to_string(),
                     abi: MirRoutineAbi::Action,
                     frame: MirFrame {
+                        fixed_zero_page: vec![MirFixedZpSlot(0x5C)],
                         virtual_zero_page: vec![MirZpSlot(0)],
                         ..MirFrame::default()
                     },
@@ -8902,6 +8968,11 @@ mod tests {
                             MirOp::Load {
                                 dst: MirDef::Reg(MirReg::Y),
                                 src: MirAddr::Direct(scratch.clone()),
+                                width: MirWidth::Byte,
+                            },
+                            MirOp::Store {
+                                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x5C))),
+                                src: MirValue::Def(MirDef::Reg(MirReg::Y)),
                                 width: MirWidth::Byte,
                             },
                         ],

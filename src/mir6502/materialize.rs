@@ -1163,7 +1163,7 @@ fn run_posthome_structural_group(
     run_analyzed_rhs_and_adjacent_reloads(routine, layout, peephole_stats)?;
     run_analyzed_ssa_lite_byte_rewrites(routine, layout, false, known_callees, peephole_stats)?;
     run_analyzed_dead_private_scratch_stores(routine, peephole_stats)?;
-    run_analyzed_dead_register_writes(routine, peephole_stats)?;
+    run_analyzed_dead_register_writes(routine, layout, peephole_stats)?;
     for block in &mut routine.blocks {
         let ops = std::mem::take(&mut block.ops);
         block.ops = fold_structural_machine_tail(ops, routine.id, layout, peephole_stats);
@@ -1189,6 +1189,8 @@ fn run_posthome_cleanup_group(
         }
     }
     run_analyzed_ssa_lite_byte_rewrites(routine, layout, true, known_callees, peephole_stats)?;
+    run_analyzed_call_result_y_placements(routine, peephole_stats)?;
+    run_analyzed_dead_register_writes(routine, layout, peephole_stats)?;
     remove_dead_spill_stores(routine);
     let remap = color_basic_block_spills(routine);
     if let Some(tracker) = home_fates.as_deref_mut() {
@@ -1290,15 +1292,35 @@ fn run_analyzed_direct_inc_dec_updates(
 
 fn run_analyzed_dead_register_writes(
     routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let mut driver = MirPostHomeRewriteDriver::default();
     let result = driver
-        .run_fixed_point(routine, peepholes::discover_dead_register_writes)
+        .run_fixed_point(routine, |routine, context| {
+            peepholes::discover_dead_register_writes(routine, context, layout)
+        })
         .map_err(|error| {
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home dead register-write rewrite failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_call_result_y_placements(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, peepholes::discover_call_result_y_placements)
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home call-result Y placement failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

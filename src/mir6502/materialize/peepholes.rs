@@ -1,7 +1,8 @@
 #[cfg(test)]
 use super::store_consumers::try_fold_direct_inc_dec_update;
 use super::*;
-use crate::mir6502::analysis::effects::MirFlagSet;
+use crate::mir6502::analysis::effects::{MirFlagSet, classify_op};
+use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{MirRegisterSet, MirRoutine};
 use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
 use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
@@ -135,6 +136,48 @@ pub(in crate::mir6502) fn discover_rhs_and_adjacent_reloads(
                     MirExitStateChange::default(),
                     "staged-compare-rhs",
                     2,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some(replacement) =
+                staged_word_to_fixed_pointer_pair_shape_at(&block.ops, index, routine.id, layout)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 8,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "direct-fixed-pointer-placement",
+                    3,
+                )
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn discover_call_result_y_placements(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            if let Some((consumed, replacement)) =
+                call_result_to_y_arg_placement_shape_at(&block.ops, index)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    zn_exit_change(),
+                    "call-result-to-y-placement",
+                    0,
                 )
             {
                 plans.push(plan);
@@ -361,6 +404,21 @@ pub(in crate::mir6502) fn discover_staged_word_forwards(
             {
                 plans.push(plan);
             }
+            if let Some((consumed, replacement)) =
+                staged_byte_destination_forward_shape_at(&block.ops, index, routine.id, layout)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    clobbered_accumulator_exit(),
+                    "staged-byte-destination-forward",
+                    4,
+                )
+            {
+                plans.push(plan);
+            }
         }
     }
     plans
@@ -375,6 +433,62 @@ fn clobbered_accumulator_exit() -> MirExitStateChange {
         flags: MirFlagSet::all(),
         ..MirExitStateChange::default()
     }
+}
+
+fn staged_byte_destination_forward_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    const MAX_DISTANCE: usize = 6;
+
+    let scratch = store_a_direct_byte(ops.get(index)?)?;
+    if !mem_is_private_scratch(&scratch) {
+        return None;
+    }
+    let limit = ops.len().min(index.saturating_add(MAX_DISTANCE + 1));
+    for load_index in index + 1..limit {
+        if load_a_direct_byte(ops.get(load_index)?) == Some(scratch.clone()) {
+            let target = store_a_direct_byte(ops.get(load_index + 1)?)?;
+            if !matches!(target, MirMem::FixedZeroPage(_)) || target == scratch {
+                return None;
+            }
+            if matches!(
+                target,
+                MirMem::FixedZeroPage(slot)
+                    if (DEST_POINTER_SCRATCH_LO..=POINTER_INDEX_SCRATCH_HI).contains(&slot.0)
+            ) {
+                return None;
+            }
+            for op in &ops[index + 1..load_index] {
+                if op_reads_mem(op, &scratch)
+                    || op_may_write_mem(op, &scratch)
+                    || op_reads_mem_or_resolved_alias(op, &target, routine_id, layout)
+                    || op_may_write_mem_or_resolved_alias(op, &target, routine_id, layout)
+                    || op_may_have_unknown_memory_effects(op)
+                {
+                    return None;
+                }
+            }
+            let mut replacement = Vec::with_capacity(load_index.saturating_sub(index));
+            replacement.push(MirOp::Store {
+                dst: MirAddr::Direct(target),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            });
+            replacement.extend_from_slice(&ops[index + 1..load_index]);
+            return Some((load_index + 2 - index, replacement));
+        }
+        let op = &ops[load_index];
+        if op_reads_mem(op, &scratch)
+            || op_may_write_mem(op, &scratch)
+            || op_may_have_unknown_memory_effects(op)
+        {
+            return None;
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -2543,11 +2657,13 @@ fn dead_reg_write_before_overwrite_shape_at(ops: &[MirOp], index: usize) -> Opti
 pub(in crate::mir6502) fn discover_dead_register_writes(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
 ) -> Vec<MirPostHomeRewritePlan> {
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
             if let Some(reg) = dead_reg_write_before_overwrite_shape_at(&block.ops, index)
+                && pure_byte_reg_write_for_dce(&block.ops[index], layout) == Some(reg)
                 && let Some(plan) = structural_plan(
                     routine,
                     context,
@@ -2562,6 +2678,7 @@ pub(in crate::mir6502) fn discover_dead_register_writes(
                 plans.push(plan);
             }
             if let Some(reg) = dead_a_load_before_flag_overwrite_shape_at(&block.ops, index)
+                && pure_byte_reg_write_for_dce(&block.ops[index], layout) == Some(reg)
                 && let Some(plan) = structural_plan(
                     routine,
                     context,
@@ -2571,6 +2688,35 @@ pub(in crate::mir6502) fn discover_dead_register_writes(
                     register_zn_exit_change(reg),
                     "ssa-lite-dead-a-loads-removed",
                     1,
+                )
+            {
+                plans.push(plan);
+            }
+            let point = context.point(MirSite::Op {
+                block: block.id,
+                op_index: index,
+            });
+            if let Some(reg) = pure_byte_reg_write_for_dce(&block.ops[index], layout)
+                && context.register_dead_after(reg, point).is_proven()
+                && context
+                    .flags_dead_after(
+                        MirFlagSet {
+                            z: true,
+                            n: true,
+                            ..MirFlagSet::default()
+                        },
+                        point,
+                    )
+                    .is_proven()
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 1,
+                    Vec::new(),
+                    register_zn_exit_change(reg),
+                    "dead-pure-register-write",
+                    2,
                 )
             {
                 plans.push(plan);
@@ -2619,6 +2765,57 @@ fn pure_byte_reg_write(op: &MirOp) -> Option<MirReg> {
     }
 }
 
+fn pure_byte_reg_write_for_dce(op: &MirOp, layout: &MaterializeLayout) -> Option<MirReg> {
+    match op {
+        MirOp::Load {
+            dst: MirDef::Reg(reg),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } if direct_load_mem_is_pure_for_dce(mem, layout) => Some(*reg),
+        MirOp::LoadImm {
+            dst: MirDef::Reg(reg),
+            width: MirWidth::Byte,
+            ..
+        } => Some(*reg),
+        MirOp::Move {
+            dst: MirDef::Reg(reg),
+            src,
+            width: MirWidth::Byte,
+        } if pure_move_value_for_dce(src, layout) => Some(*reg),
+        _ => None,
+    }
+}
+
+fn pure_move_value_for_dce(value: &MirValue, layout: &MaterializeLayout) -> bool {
+    match value {
+        MirValue::PointerCell(mem) => direct_load_mem_is_pure_for_dce(mem, layout),
+        MirValue::Word { lo, hi } => {
+            pure_move_value_for_dce(lo, layout) && pure_move_value_for_dce(hi, layout)
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => true,
+    }
+}
+
+fn direct_load_mem_is_pure_for_dce(mem: &MirMem, layout: &MaterializeLayout) -> bool {
+    match mem {
+        MirMem::Absolute(_) => false,
+        MirMem::Global { id, .. } => layout.global_allows_idempotent_store_removal(*id),
+        MirMem::Static { .. }
+        | MirMem::Local { .. }
+        | MirMem::Param { .. }
+        | MirMem::Spill { .. }
+        | MirMem::ZeroPage(_)
+        | MirMem::FixedZeroPage(_) => true,
+    }
+}
+
 fn pure_direct_load_mem(mem: &MirMem) -> bool {
     !matches!(mem, MirMem::Absolute(_))
 }
@@ -2636,6 +2833,188 @@ fn pure_move_value(value: &MirValue) -> bool {
         | MirValue::RoutineAddrByte { .. }
         | MirValue::StorageAddrByte { .. } => true,
     }
+}
+
+fn staged_word_to_fixed_pointer_pair_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<Vec<MirOp>> {
+    let source_lo = load_a_direct_byte(ops.get(index)?)?;
+    let scratch_lo = store_a_direct_byte(ops.get(index + 1)?)?;
+    let source_hi = load_a_direct_byte(ops.get(index + 2)?)?;
+    let scratch_hi = store_a_direct_byte(ops.get(index + 3)?)?;
+    if source_hi != offset_mem(&source_lo, 1)
+        || !pure_direct_load_mem(&source_lo)
+        || !pure_direct_load_mem(&source_hi)
+    {
+        return None;
+    }
+    if load_a_direct_byte(ops.get(index + 4)?)? != scratch_lo {
+        return None;
+    }
+    let target_lo = store_a_direct_byte(ops.get(index + 5)?)?;
+    if load_a_direct_byte(ops.get(index + 6)?)? != scratch_hi {
+        return None;
+    }
+    let target_hi = store_a_direct_byte(ops.get(index + 7)?)?;
+    let MirMem::FixedZeroPage(target_lo_slot) = target_lo else {
+        return None;
+    };
+    if target_hi != MirMem::FixedZeroPage(MirFixedZpSlot(target_lo_slot.0.saturating_add(1))) {
+        return None;
+    }
+    let source_pair = [source_lo.clone(), source_hi.clone()];
+    let scratch_pair = [scratch_lo.clone(), scratch_hi.clone()];
+    let target_pair = [target_lo.clone(), target_hi.clone()];
+    if source_pair.iter().any(|mem| {
+        scratch_pair
+            .iter()
+            .chain(target_pair.iter())
+            .any(|other| mems_may_resolve_same_byte(mem, other, routine_id, layout))
+    }) || scratch_pair.iter().any(|mem| {
+        target_pair
+            .iter()
+            .any(|other| mems_may_resolve_same_byte(mem, other, routine_id, layout))
+    }) {
+        return None;
+    }
+    Some(vec![
+        ops[index].clone(),
+        MirOp::Store {
+            dst: MirAddr::Direct(target_lo),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        ops[index + 2].clone(),
+        MirOp::Store {
+            dst: MirAddr::Direct(target_hi),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ])
+}
+
+fn op_reads_mem_or_resolved_alias(
+    op: &MirOp,
+    mem: &MirMem,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> bool {
+    op_reads_mem(op, mem)
+        || classify_op(op).memory.direct_reads.iter().any(|range| {
+            resolved_range_contains_mem(&range.base, range.bytes, mem, routine_id, layout)
+        })
+}
+
+fn op_may_write_mem_or_resolved_alias(
+    op: &MirOp,
+    mem: &MirMem,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> bool {
+    op_may_write_mem(op, mem)
+        || classify_op(op).memory.direct_writes.iter().any(|range| {
+            resolved_range_contains_mem(&range.base, range.bytes, mem, routine_id, layout)
+        })
+}
+
+fn resolved_range_contains_mem(
+    base: &MirMem,
+    bytes: u16,
+    mem: &MirMem,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> bool {
+    let Some(base_address) = resolved_mem_address(base, routine_id, layout) else {
+        return false;
+    };
+    let Some(mem_address) = resolved_mem_address(mem, routine_id, layout) else {
+        return false;
+    };
+    u32::from(mem_address) >= u32::from(base_address)
+        && u32::from(mem_address) < u32::from(base_address) + u32::from(bytes)
+}
+
+fn mems_may_resolve_same_byte(
+    left: &MirMem,
+    right: &MirMem,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> bool {
+    left == right
+        || resolved_mem_address(left, routine_id, layout)
+            .zip(resolved_mem_address(right, routine_id, layout))
+            .is_some_and(|(left, right)| left == right)
+}
+
+fn resolved_mem_address(
+    mem: &MirMem,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<u16> {
+    match mem {
+        MirMem::FixedZeroPage(slot) => Some(u16::from(slot.0)),
+        MirMem::ZeroPage(_) => None,
+        _ => layout.mem_address(routine_id, mem),
+    }
+}
+
+fn call_result_to_y_arg_placement_shape_at(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<(usize, Vec<MirOp>)> {
+    const MAX_DISTANCE: usize = 7;
+
+    if !matches!(ops.get(index)?, MirOp::Call { .. }) {
+        return None;
+    }
+    let result_home = store_a_direct_byte(ops.get(index + 1)?)?;
+    if !mem_is_stable_delayed_compare_source(&result_home) {
+        return None;
+    }
+    let limit = ops.len().min(index.saturating_add(MAX_DISTANCE + 1));
+    for load_index in index + 2..limit {
+        if matches!(
+            ops.get(load_index),
+            Some(MirOp::Load {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirAddr::Direct(mem),
+                width: MirWidth::Byte,
+            }) if mem == &result_home
+        ) {
+            let MirOp::Call { args, .. } = ops.get(load_index + 1)? else {
+                return None;
+            };
+            if !args.iter().any(|arg| {
+                arg.width == MirWidth::Byte
+                    && arg.home == MirArgHome::Reg(MirReg::Y)
+                    && arg.value == MirValue::Def(MirDef::Reg(MirReg::Y))
+            }) {
+                return None;
+            }
+            let mut replacement = Vec::with_capacity(load_index + 2 - index);
+            replacement.push(ops[index].clone());
+            replacement.push(MirOp::Move {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            });
+            replacement.extend_from_slice(&ops[index + 1..load_index]);
+            replacement.push(ops[load_index + 1].clone());
+            return Some((load_index + 2 - index, replacement));
+        }
+        let op = &ops[load_index];
+        if op_reads_reg(op, MirReg::Y)
+            || super::spills::op_may_clobber_reg(op, MirReg::Y)
+            || op_may_write_mem(op, &result_home)
+            || op_may_have_unknown_memory_effects(op)
+        {
+            return None;
+        }
+    }
+    None
 }
 
 #[cfg(test)]

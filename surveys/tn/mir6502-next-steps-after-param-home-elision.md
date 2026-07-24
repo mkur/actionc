@@ -272,6 +272,71 @@ Implement only families with explicit value, effect, dominance, and liveness
 proofs. Rebuild the final TN listing after each accepted family and record the
 new routine deltas and load/store share.
 
+Slice result:
+
+Four reusable post-home families were integrated with the shared transactional
+rewrite driver:
+
+1. Pure A/X/Y writes are removed when routine-wide register and Z/N liveness
+   prove both results dead. Discovery is prefiltered through the typed liveness
+   queries, avoiding a large rejected-candidate audit. Global reads are checked
+   against final layout, so absolute-backed I/O remains observable.
+2. A private word home copied immediately into a fixed pointer pair is bypassed
+   when both private definitions are dead. `Strcpy` now places its source
+   pointer directly in `$AC/$AD`.
+3. A byte staged in a private home is written directly to its final fixed ABI
+   home when memory effects permit moving the destination store. This applies
+   once in `Strcpy`. The rule compares resolved physical addresses as well as
+   MIR storage identities, and deliberately excludes the fixed pointer-scratch
+   range: advancing one byte of `$AC/$AD` independently can overwrite an
+   absolute or aliased source before it is protected.
+4. A byte call result in A is moved to Y before intervening A/X argument loads
+   when the next call consumes that same value in Y. This applies in `PopUp`
+   and `Handle`.
+
+The dead-register pass is rerun after known-callee propagation because that
+pass can expose dead physical-register loads. The following existing dead-home
+cleanup then removes stores and backing made unreachable by those loads. This
+fixed-point ordering is particularly important in `SetWin`: two newly exposed
+dead loads allow four spill labels and their remaining traffic to disappear.
+
+The full-suite audit caught an unsafe early version of family 3. A source value
+at absolute `$AC` could be read after a newly advanced `$AC` pointer-byte store,
+turning the source operand into the pointer low byte. The physical-alias guard,
+pointer-scratch exclusion, focused regression, existing end-to-end dereference
+regression, and dual-pointer runtime test now cover that boundary. The safe
+result is seven bytes larger than the provisional unaudited measurement.
+
+Fresh TN results are:
+
+| Metric | After slice 5 | After slice 6 | Change |
+| --- | ---: | ---: | ---: |
+| XEX bytes | 10,368 | 10,290 | -78 |
+| Instruction rows | 4,244 | 4,221 | -23 |
+| Code bytes | 9,494 | 9,416 | -78 |
+| Data bytes | 862 | 862 | 0 |
+| LDA instructions | 1,194 | 1,174 | -20 |
+| STA instructions | 850 | 849 | -1 |
+
+The final XEX SHA-256 is
+`6879485b54010b6aa79adadfe2b10be6db3de785be3dd65a65ea9b5bf5aa45c2`.
+Across slices 4 through 6, TN falls by 91 bytes, from 10,381 to 10,290.
+
+The focused routine changes relative to the slice-5 listing are:
+
+| Routine | Slice-5 code bytes | Slice-6 code bytes | Change |
+| --- | ---: | ---: | ---: |
+| `SetWin` | 1,088 | 1,047 | -41 |
+| `Strcpy` | 51 | 39 | -12 |
+| `PopUp` | 276 | 272 | -4 |
+| `Handle` | 849 | 847 | -2 |
+| `Window` | 321 | 321 | 0 |
+
+Modern/classic remains 10,445 bytes with 9,408 code bytes and 1,025 data
+bytes. MIR6502 is therefore 155 bytes smaller overall, while its measured code
+is now eight bytes larger. The remaining whole-file advantage comes from 163
+fewer data bytes.
+
 ## Follow-on work
 
 After these slices, use the fresh audit to decide whether broader
