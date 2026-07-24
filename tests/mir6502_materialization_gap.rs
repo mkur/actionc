@@ -393,7 +393,7 @@ fn sargs_address_of_byte_param_uses_final_frame_address() {
     let (formatted, bytes) =
         compile_materialized_mir6502_fixture("sargs_address_of_byte_param.act");
 
-    assert_sargs_address_of_c(&formatted, &bytes, 0x08, 0x0A);
+    assert_sargs_address_of_c(&formatted, &bytes, 0x06, 0x08);
 }
 
 #[test]
@@ -401,7 +401,7 @@ fn sargs_address_of_byte_param_accounts_for_initialized_global_size() {
     let (formatted, bytes) =
         compile_materialized_mir6502_fixture("sargs_address_of_byte_param_after_string_global.act");
 
-    assert_sargs_address_of_c(&formatted, &bytes, 0x14, 0x16);
+    assert_sargs_address_of_c(&formatted, &bytes, 0x12, 0x14);
 }
 
 #[test]
@@ -409,7 +409,7 @@ fn sargs_address_of_byte_param_accounts_for_initialized_local_size() {
     let (formatted, bytes) =
         compile_materialized_mir6502_fixture("sargs_address_of_byte_param_after_local_init.act");
 
-    assert_sargs_address_of_c(&formatted, &bytes, 0x14, 0x16);
+    assert_sargs_address_of_c(&formatted, &bytes, 0x12, 0x14);
 }
 
 fn assert_sargs_address_of_c(formatted: &str, bytes: &[u8], frame_low: u8, c_low: u8) {

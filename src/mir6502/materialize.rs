@@ -54,7 +54,7 @@ use super::rewrite::pilots::{
     discover_dual_indirect_compares, discover_index_rewrites, discover_pointer_rewrites,
     discover_unused_lea_addrs,
 };
-use abi::{elide_capture_only_param_homes, prepend_action_abi_param_prologue, width_bytes};
+use abi::{elide_write_only_param_homes, prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
 use calls::{
     CallArgExprRewriteCandidate, CallArgProducerRewriteCandidate, CallResultStoreRewriteCandidate,
@@ -942,7 +942,7 @@ pub(super) fn materialize_program(
         )?;
     }
     for routine in &mut program.routines {
-        elide_capture_only_param_homes(routine, &mut peephole_stats);
+        elide_write_only_param_homes(routine, &mut peephole_stats);
     }
     for helper in helpers {
         ensure_helper_decl(&mut program, helper);

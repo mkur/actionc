@@ -43,14 +43,11 @@ pub(super) fn prepend_action_abi_param_prologue(
     entry.ops = ops;
 }
 
-pub(super) fn elide_capture_only_param_homes(
+pub(super) fn elide_write_only_param_homes(
     routine: &mut crate::mir6502::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) {
-    if routine.abi != MirRoutineAbi::Action
-        || !routine.frame.locals.is_empty()
-        || routine_contains_machine_block(routine)
-    {
+    if routine.abi != MirRoutineAbi::Action || routine_contains_machine_block(routine) {
         return;
     }
     let arg_bytes = routine
@@ -70,7 +67,6 @@ pub(super) fn elide_capture_only_param_homes(
     if expected_prologue.is_empty() || !entry.ops.starts_with(&expected_prologue) {
         return;
     }
-    let prefix_len = expected_prologue.len();
     let candidates = routine
         .frame
         .params
@@ -83,9 +79,14 @@ pub(super) fn elide_capture_only_param_homes(
                 .iter()
                 .filter(|op| store_targets_param(op, id))
                 .count();
-            (capture_count == usize::from(width_bytes(slot.width))
-                && !routine_references_param_after_prefix(routine, id, prefix_len))
-            .then_some((id, width_bytes(slot.width), slot.name.clone()))
+            let store_count = routine_param_removable_store_count(routine, id)?;
+            (capture_count == usize::from(width_bytes(slot.width))).then_some((
+                id,
+                width_bytes(slot.width),
+                slot.name.clone(),
+                store_count,
+                capture_count,
+            ))
         })
         .collect::<Vec<_>>();
     if candidates.is_empty() {
@@ -93,17 +94,14 @@ pub(super) fn elide_capture_only_param_homes(
     }
     let candidate_ids = candidates
         .iter()
-        .map(|(id, _, _)| *id)
+        .map(|(id, _, _, _, _)| *id)
         .collect::<BTreeSet<_>>();
 
-    if let Some(entry) = routine.blocks.first_mut() {
-        entry.ops = entry
+    for block in &mut routine.blocks {
+        block.ops = block
             .ops
             .drain(..)
-            .enumerate()
-            .filter_map(|(index, op)| {
-                (index >= prefix_len || !store_targets_any_param(&op, &candidate_ids)).then_some(op)
-            })
+            .filter(|op| !store_targets_any_param(op, &candidate_ids))
             .collect();
     }
     for slot in &mut routine.frame.params {
@@ -114,7 +112,7 @@ pub(super) fn elide_capture_only_param_homes(
             slot.base = MirStorageBase::ParamAbiOnly(id);
         }
     }
-    for (id, bytes, name) in candidates {
+    for (id, bytes, name, store_count, capture_count) in candidates {
         peephole_stats.record_many(
             routine.id,
             "write-only-param-home-elided",
@@ -124,36 +122,64 @@ pub(super) fn elide_capture_only_param_homes(
             routine.id,
             "write-only-param-home-elided",
             format!(
-                "param=p{} name={} bytes={} kind=capture-only",
+                "param=p{} name={} bytes={} stores={} kind={}",
                 id.0,
                 name.as_deref().unwrap_or("<unnamed>"),
-                bytes
+                bytes,
+                store_count,
+                if store_count == capture_count {
+                    "capture-only"
+                } else {
+                    "write-only"
+                }
             ),
         );
     }
 }
 
-fn routine_references_param_after_prefix(
+fn routine_param_removable_store_count(
     routine: &crate::mir6502::ir::MirRoutine,
     id: ParamId,
-    prefix_len: usize,
-) -> bool {
-    routine
-        .blocks
-        .iter()
-        .enumerate()
-        .any(|(block_index, block)| {
-            let start = if block_index == 0 { prefix_len } else { 0 };
-            block.ops[start..]
-                .iter()
-                .any(|op| op_effects_reference_param(op, id))
-                || terminator_effects_reference_param(&block.terminator, id)
-        })
+) -> Option<usize> {
+    let mut store_count = 0usize;
+    for block in &routine.blocks {
+        for op in &block.ops {
+            if removable_param_store(op, id) {
+                store_count = store_count.saturating_add(1);
+            } else if op_effects_reference_param(op, id) {
+                return None;
+            }
+        }
+        if terminator_effects_reference_param(&block.terminator, id) {
+            return None;
+        }
+    }
+    Some(store_count)
+}
+
+fn removable_param_store(op: &MirOp, id: ParamId) -> bool {
+    if !store_targets_param(op, id) {
+        return false;
+    }
+    let effects = classify_op(op);
+    !effects.memory.opaque
+        && !effects
+            .memory
+            .direct_references
+            .iter()
+            .any(|mem| mem_references_param(mem, id))
+        && !structured_effect_references_param(&effects.memory.structured_reads, id)
+        && !structured_effect_references_param(&effects.memory.structured_writes, id)
 }
 
 fn op_effects_reference_param(op: &MirOp, id: ParamId) -> bool {
     let effects = classify_op(op);
     effects.memory.opaque
+        || effects
+            .memory
+            .direct_references
+            .iter()
+            .any(|mem| mem_references_param(mem, id))
         || effects
             .memory
             .direct_reads
@@ -173,6 +199,11 @@ fn terminator_effects_reference_param(terminator: &MirTerminator, id: ParamId) -
     effects.memory.opaque
         || effects
             .memory
+            .direct_references
+            .iter()
+            .any(|mem| mem_references_param(mem, id))
+        || effects
+            .memory
             .direct_reads
             .iter()
             .any(|range| range_references_param(range, id))
@@ -186,7 +217,11 @@ fn terminator_effects_reference_param(terminator: &MirTerminator, id: ParamId) -
 }
 
 fn range_references_param(range: &MirMemoryRange, id: ParamId) -> bool {
-    matches!(range.base, MirMem::Param { id: candidate, .. } if candidate == id)
+    mem_references_param(&range.base, id)
+}
+
+fn mem_references_param(mem: &MirMem, id: ParamId) -> bool {
+    matches!(mem, MirMem::Param { id: candidate, .. } if *candidate == id)
 }
 
 fn structured_effect_references_param(effect: &MirMemoryEffect, id: ParamId) -> bool {
@@ -329,7 +364,9 @@ fn addr_references_param_storage(addr: &MirAddr) -> bool {
 
 fn value_references_param_storage(value: &MirValue) -> bool {
     match value {
-        MirValue::PointerCell(mem) => mem_references_param_storage(mem),
+        MirValue::PointerCell(mem) | MirValue::StorageAddrByte { mem, .. } => {
+            mem_references_param_storage(mem)
+        }
         MirValue::Word { lo, hi } => {
             value_references_param_storage(lo) || value_references_param_storage(hi)
         }
@@ -339,8 +376,7 @@ fn value_references_param_storage(value: &MirValue) -> bool {
         | MirValue::StaticAddr(_)
         | MirValue::GlobalAddr(_)
         | MirValue::RoutineAddr(_)
-        | MirValue::RoutineAddrByte { .. }
-        | MirValue::StorageAddrByte { .. } => false,
+        | MirValue::RoutineAddrByte { .. } => false,
     }
 }
 

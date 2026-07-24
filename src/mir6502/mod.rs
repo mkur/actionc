@@ -1703,6 +1703,86 @@ mod tests {
     }
 
     #[test]
+    fn elides_reassigned_write_only_param_home_and_all_its_stores() {
+        let mir = materialize_mir6502_source(
+            "
+            BYTE FUNC Rewrite(BYTE POINTER p)
+              p ==+ p^ + 3
+            RETURN(p^)
+            ",
+        );
+        let rewrite = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Rewrite")
+            .expect("Rewrite routine");
+        let formatted = format_program(&mir);
+
+        assert!(matches!(
+            rewrite.frame.params[0].base,
+            MirStorageBase::ParamAbiOnly(ParamId(0))
+        ));
+        assert!(!formatted.contains("param p0"), "{formatted}");
+        verify_program(&mir, MirPhase::PreEmission).expect("write-only param is ready");
+    }
+
+    #[test]
+    fn elides_write_only_param_homes_in_routine_with_local_storage() {
+        let mir = materialize_mir6502_source(
+            "
+            BYTE sink
+
+            PROC WithLocal(BYTE n, other)
+              BYTE ARRAY scratch(4)
+              sink=n
+              scratch(0)=other
+            RETURN
+            ",
+        );
+        let routine = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "WithLocal")
+            .expect("WithLocal routine");
+        let formatted = format_program(&mir);
+
+        assert!(!routine.frame.locals.is_empty());
+        assert!(
+            routine
+                .frame
+                .params
+                .iter()
+                .all(|param| matches!(param.base, MirStorageBase::ParamAbiOnly(_)))
+        );
+        assert!(!formatted.contains("param p0"), "{formatted}");
+        assert!(!formatted.contains("param p1"), "{formatted}");
+        verify_program(&mir, MirPhase::PreEmission).expect("local-backed routine is ready");
+    }
+
+    #[test]
+    fn parameter_address_escape_keeps_physical_home() {
+        let mir = materialize_mir6502_source(
+            "
+            CARD sink
+
+            PROC KeepAddress(BYTE value)
+              sink=@value
+            RETURN
+            ",
+        );
+        let routine = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "KeepAddress")
+            .expect("KeepAddress routine");
+
+        assert!(matches!(
+            routine.frame.params[0].base,
+            MirStorageBase::Param(ParamId(0))
+        ));
+    }
+
+    #[test]
     fn materializes_lea_word_array_index_read_without_temp_staging() {
         let mir = materialize_program(
             MirProgram {

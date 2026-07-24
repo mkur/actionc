@@ -258,10 +258,12 @@ Rules:
   consumes no storage, has no storage symbol or address, and verifier-clean
   post-home MIR must not reference it as memory.
 - Parameter-home elision is permitted only for ordinary internal Action ABI
-  entries after all uses of that home have disappeared. System-address and
-  current-location entries remain ABI-observable and retain physical parameter
-  homes. Machine blocks, address escape, opaque effects, or any residual read or
-  write also require the physical home.
+  entries after a whole-routine effect query proves that the home has no read,
+  address use, or non-store access. Entry capture and later ordinary stores may
+  then be deleted together with the home. System-address and current-location
+  entries remain ABI-observable and retain physical parameter homes. Machine
+  blocks, address escape, opaque effects, or any residual non-store access also
+  require the physical home.
 
 ## Width Model
 
