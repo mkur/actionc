@@ -458,6 +458,18 @@ fn op_summary(op: &MirOp) -> String {
                 value_summary(value)
             )
         }
+        MirOp::OffsetPointerByIndirectByte {
+            op,
+            dst,
+            source,
+            offset,
+        } => format!(
+            "offset_pointer_by_indirect_byte.w {} {} {} +{}",
+            mem_summary(dst),
+            binary_summary(*op),
+            address_consumer_summary(source),
+            offset
+        ),
         MirOp::Compare {
             dst,
             op,

@@ -1280,27 +1280,15 @@ fn materialize_pointer_byte_offset_to_action_staging(
     out: &mut Vec<MirOp>,
 ) {
     out.push(MirOp::MaterializeAddress {
-        consumer: DEFAULT_POINTER_PAIR,
+        consumer: INDEX_POINTER_PAIR,
         value: base.clone(),
     });
-    out.push(MirOp::LoadIndirect {
-        consumer: DEFAULT_POINTER_PAIR,
-        dst: MirDef::Reg(MirReg::A),
-        offset: load_offset,
-    });
-    let addend = MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_INDEX_SCRATCH_LO));
-    materialize_call_arg_to_mem(MirValue::Def(MirDef::Reg(MirReg::A)), addend.clone(), out);
     let accumulator = MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO));
-    out.push(match first_op {
-        MirBinaryOp::Add => MirOp::AddByteToWordMem {
-            mem: accumulator.clone(),
-            value: MirValue::PointerCell(addend),
-        },
-        MirBinaryOp::Sub => MirOp::SubByteFromWordMem {
-            mem: accumulator.clone(),
-            value: MirValue::PointerCell(addend),
-        },
-        _ => unreachable!("pointer-byte offsets only support add/sub"),
+    out.push(MirOp::OffsetPointerByIndirectByte {
+        op: first_op,
+        dst: accumulator.clone(),
+        source: INDEX_POINTER_PAIR,
+        offset: load_offset,
     });
     for (op, value) in tail {
         out.push(match op {

@@ -996,30 +996,17 @@ pub(super) fn select_word_carry_chain_store_consumer(
 
     let source_value = pointer_value_from_mem(base_mem);
     out.push(MirOp::MaterializeAddress {
-        consumer: DEFAULT_POINTER_PAIR,
+        consumer: INDEX_POINTER_PAIR,
         value: source_value,
-    });
-    out.push(MirOp::LoadIndirect {
-        consumer: DEFAULT_POINTER_PAIR,
-        dst: MirDef::Reg(MirReg::A),
-        offset: *offset,
-    });
-    let addend = MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_INDEX_SCRATCH_LO));
-    out.push(MirOp::Store {
-        dst: MirAddr::Direct(addend.clone()),
-        src: MirValue::Def(MirDef::Reg(MirReg::A)),
-        width: MirWidth::Byte,
     });
 
     let accumulator = MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO));
-    materialize_word_carry_chain_byte_update(
-        *first_op,
-        accumulator.clone(),
-        MirValue::PointerCell(addend),
-        config,
-        layout,
-        out,
-    );
+    out.push(MirOp::OffsetPointerByIndirectByte {
+        op: *first_op,
+        dst: accumulator.clone(),
+        source: INDEX_POINTER_PAIR,
+        offset: *offset,
+    });
     for (op, operand) in tail {
         materialize_word_binary_store_consumer(
             op,
@@ -1108,33 +1095,6 @@ fn word_carry_chain_target_supported(target: &MirMem) -> bool {
             | MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO))
             | MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_HI))
     )
-}
-
-fn materialize_word_carry_chain_byte_update(
-    op: MirBinaryOp,
-    target: MirMem,
-    value: MirValue,
-    config: &Mir6502Config,
-    layout: &MaterializeLayout,
-    out: &mut Vec<MirOp>,
-) {
-    if config.enable_word_inc_update {
-        out.push(match op {
-            MirBinaryOp::Add => MirOp::AddByteToWordMem { mem: target, value },
-            MirBinaryOp::Sub => MirOp::SubByteFromWordMem { mem: target, value },
-            _ => unreachable!("word carry-chain byte updates only support add/sub"),
-        });
-        return;
-    }
-    materialize_word_byte_binary_store_consumer(
-        op,
-        target.clone(),
-        pointer_value_from_mem(&target),
-        value,
-        config,
-        layout,
-        out,
-    );
 }
 
 #[cfg(test)]
@@ -2973,6 +2933,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
+        | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::RuntimeHelper { .. }

@@ -312,7 +312,8 @@ fn update_fixed_zero_page_values(
             ..
         }
         | MirOp::AddByteToWordMem { mem, .. }
-        | MirOp::SubByteFromWordMem { mem, .. } => {
+        | MirOp::SubByteFromWordMem { mem, .. }
+        | MirOp::OffsetPointerByIndirectByte { dst: mem, .. } => {
             invalidate_fixed_zero_page_value_dependencies(state, mem);
             invalidate_fixed_zero_page_value_dependencies(state, &offset_mem(mem, 1));
             remove_fixed_zero_page_slot(state, mem);

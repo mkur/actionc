@@ -40,6 +40,7 @@ pub(super) fn collect_temp_widths(ops: &[MirOp]) -> BTreeMap<MirTempId, MirWidth
             | MirOp::UpdateIndexedMem { .. }
             | MirOp::AddByteToWordMem { .. }
             | MirOp::SubByteFromWordMem { .. }
+            | MirOp::OffsetPointerByIndirectByte { .. }
             | MirOp::Store { .. }
             | MirOp::Barrier { .. }
             | MirOp::MachineBlock { .. }

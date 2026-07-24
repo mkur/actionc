@@ -289,6 +289,15 @@ impl SsaLiteValueEnv {
                 self.kill_mem(&hi);
                 self.kill_value(&SsaLiteValueKey::DirectMem(hi));
             }
+            MirOp::OffsetPointerByIndirectByte { dst, .. } => {
+                self.kill_reg(MirReg::A);
+                self.kill_reg(MirReg::Y);
+                self.kill_mem(dst);
+                self.kill_value(&SsaLiteValueKey::DirectMem(dst.clone()));
+                let hi = offset_mem(dst, 1);
+                self.kill_mem(&hi);
+                self.kill_value(&SsaLiteValueKey::DirectMem(hi));
+            }
             MirOp::Load { dst, .. }
             | MirOp::LoadImm { dst, .. }
             | MirOp::Move { dst, .. }
@@ -498,6 +507,12 @@ impl SsaLiteV2ObserveEnv {
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 self.kill_mem_and_dependents(mem, SsaLiteV2KillReason::Store);
                 self.kill_mem_and_dependents(&offset_mem(mem, 1), SsaLiteV2KillReason::Store);
+            }
+            MirOp::OffsetPointerByIndirectByte { dst, .. } => {
+                self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
+                self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
+                self.kill_mem_and_dependents(dst, SsaLiteV2KillReason::Store);
+                self.kill_mem_and_dependents(&offset_mem(dst, 1), SsaLiteV2KillReason::Store);
             }
             MirOp::Load { dst, .. }
             | MirOp::LoadImm { dst, .. }
@@ -954,6 +969,7 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => Vec::new(),
@@ -1593,6 +1609,7 @@ impl LiveTempByteLanes {
             | MirOp::RuntimeHelper { .. }
             | MirOp::LoadIndirect { .. }
             | MirOp::CompareIndirectBytes { .. }
+            | MirOp::OffsetPointerByIndirectByte { .. }
             | MirOp::IndirectByteCompound { .. }
             | MirOp::Barrier { .. }
             | MirOp::LeaAddr { .. }

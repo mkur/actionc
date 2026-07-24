@@ -665,6 +665,7 @@ fn op_kind(op: &MirOp) -> &'static str {
         MirOp::UpdateIndexedMem { .. } => "update-indexed-mem",
         MirOp::AddByteToWordMem { .. } => "add-byte-to-word",
         MirOp::SubByteFromWordMem { .. } => "sub-byte-from-word",
+        MirOp::OffsetPointerByIndirectByte { .. } => "offset-pointer-by-indirect-byte",
         MirOp::Barrier { .. } => "barrier",
         MirOp::MachineBlock { .. } => "machine-block",
     }
@@ -1417,6 +1418,7 @@ fn record_op_uses(
         }
         MirOp::LoadImm { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateMem { .. }
         | MirOp::UpdateIndexedMem { .. }

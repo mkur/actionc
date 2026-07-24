@@ -746,6 +746,57 @@ impl MirVerifier {
                     self.verify_value(routine, block, value, static_ids, global_ids, routine_ids);
                 }
             }
+            MirOp::OffsetPointerByIndirectByte {
+                op,
+                dst,
+                source,
+                offset,
+            } => {
+                self.verify_mem(routine, block, &routine.frame, dst, static_ids, global_ids);
+                self.verify_address_consumer(routine, block, source);
+                self.verify_scaled_y_offset(routine, block, source, *offset);
+                self.reject_scaled_y_consumer(
+                    routine,
+                    block,
+                    source,
+                    "pointer indirect-byte offset source",
+                );
+                if !matches!(
+                    op,
+                    super::ir::MirBinaryOp::Add | super::ir::MirBinaryOp::Sub
+                ) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "pointer indirect-byte offset only supports add and subtract",
+                    ));
+                }
+                match (dst, source.pointer_pair()) {
+                    (
+                        super::ir::MirMem::FixedZeroPage(dst),
+                        super::ir::MirPointerPair::Fixed { lo },
+                    ) if u16::from(dst.0) < u16::from(lo.0) + 2
+                        && u16::from(lo.0) < u16::from(dst.0) + 2 =>
+                    {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            "pointer indirect-byte offset destination overlaps its source pointer",
+                        ));
+                    }
+                    (
+                        super::ir::MirMem::FixedZeroPage(_),
+                        super::ir::MirPointerPair::Fixed { .. },
+                    ) => {}
+                    _ => {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            "pointer indirect-byte offset requires fixed zero-page homes",
+                        ));
+                    }
+                }
+            }
             MirOp::Move { dst, src, width } => {
                 self.verify_pre_emission_width(routine, block, *width);
                 self.verify_def(routine, block, dst);

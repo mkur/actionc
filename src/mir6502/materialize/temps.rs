@@ -241,6 +241,7 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
+        | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::RuntimeHelper { .. }
@@ -410,6 +411,7 @@ fn replace_op_temp_values(op: &mut MirOp, temp: MirTempId, replacement: &MirValu
             *right = replace_temp_value(right.clone(), temp, replacement);
         }
         MirOp::CompareIndirectBytes { .. } => {}
+        MirOp::OffsetPointerByIndirectByte { .. } => {}
         MirOp::AddByteToWordMem { value, .. } | MirOp::SubByteFromWordMem { value, .. } => {
             *value = replace_temp_value(value.clone(), temp, replacement);
         }
@@ -793,6 +795,12 @@ fn invalidate_staged_address_for_op(
                 || direct_mem_writes_consumer(*consumer, &offset_mem(mem, 1))
                 || value_depends_on_mem(value, mem)
                 || value_depends_on_mem(value, &offset_mem(mem, 1))
+        }
+        MirOp::OffsetPointerByIndirectByte { dst, .. } => {
+            direct_mem_writes_consumer(*consumer, dst)
+                || direct_mem_writes_consumer(*consumer, &offset_mem(dst, 1))
+                || value_depends_on_mem(value, dst)
+                || value_depends_on_mem(value, &offset_mem(dst, 1))
         }
         MirOp::Move { dst, .. } | MirOp::LoadImm { dst, .. } | MirOp::Load { dst, .. } => {
             matches!(dst, MirDef::Reg(_))

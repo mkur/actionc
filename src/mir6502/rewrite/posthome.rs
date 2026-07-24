@@ -111,6 +111,7 @@ fn estimated_op_cost(op: &MirOp) -> (u16, u16) {
         }
         MirOp::UpdateIndexedMem { .. } => (3, 7),
         MirOp::AddByteToWordMem { .. } | MirOp::SubByteFromWordMem { .. } => (8, 12),
+        MirOp::OffsetPointerByIndirectByte { .. } => (15, 24),
         MirOp::Compare { width, .. } => width_cost(*width, (2, 2), (6, 8)),
         MirOp::CompareIndirectBytes { .. } => (6, 12),
         MirOp::Call { .. } | MirOp::RuntimeHelper { .. } => (3, 6),

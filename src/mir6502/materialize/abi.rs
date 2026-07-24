@@ -69,6 +69,7 @@ fn op_references_param_storage(op: &MirOp) -> bool {
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             mem_references_param_storage(mem) || value_references_param_storage(value)
         }
+        MirOp::OffsetPointerByIndirectByte { dst, .. } => mem_references_param_storage(dst),
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }

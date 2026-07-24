@@ -1686,6 +1686,41 @@ fn emit_op(
                 "sub-byte word target is not emit-ready",
             ),
         },
+        MirOp::OffsetPointerByIndirectByte {
+            op,
+            dst,
+            source,
+            offset,
+        } => {
+            let Some(dst) = ctx.layout.direct_mem(routine, dst) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "pointer indirect-byte offset destination is not emit-ready",
+                );
+                return;
+            };
+            let Some(source_slot) = resolve_pointer_consumer_slot(ctx, routine, source) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "pointer indirect-byte offset source is not placed",
+                );
+                return;
+            };
+            if source.uses_scaled_y() {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "pointer indirect-byte offset cannot use scaled Y",
+                );
+                return;
+            }
+            emit_offset_pointer_by_indirect_byte(*op, dst, source_slot, *offset, emitter);
+        }
         MirOp::MaterializeAddress { consumer, value } => {
             if consumer.uses_scaled_y() {
                 unsupported(
@@ -3564,6 +3599,39 @@ fn emit_byte_to_word_mem(
     bind_label(ctx, emitter, routine, Some(block), done);
 }
 
+fn emit_offset_pointer_by_indirect_byte(
+    op: MirBinaryOp,
+    dst: ResolvedMem,
+    source_slot: u8,
+    offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    emitter.emit_ldy_imm(offset as u8);
+    emit_lda_mem(ResolvedMem::ZeroPage(source_slot), emitter);
+    match op {
+        MirBinaryOp::Add => {
+            emitter.emit_clc();
+            emitter.emit_adc_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(source_slot)));
+        }
+        MirBinaryOp::Sub => {
+            emitter.emit_sec();
+            emitter.emit_sbc_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(source_slot)));
+        }
+        _ => unreachable!("pointer indirect-byte offset only supports add and subtract"),
+    }
+    emit_sta_mem(dst, emitter);
+    emit_lda_mem(
+        ResolvedMem::ZeroPage(source_slot.saturating_add(1)),
+        emitter,
+    );
+    match op {
+        MirBinaryOp::Add => emitter.emit_adc_imm(0),
+        MirBinaryOp::Sub => emitter.emit_sbc_imm(0),
+        _ => unreachable!(),
+    }
+    emit_sta_mem(offset_resolved_mem(dst, 1), emitter);
+}
+
 fn offset_resolved_mem(mem: ResolvedMem, offset: u16) -> ResolvedMem {
     match mem {
         ResolvedMem::Absolute(address) => ResolvedMem::Absolute(address.wrapping_add(offset)),
@@ -4221,6 +4289,40 @@ mod tests {
         assert_eq!(
             emitter.finish().expect("comparison sequence emits"),
             [opcode::LDY_IMM, 3, 0xB1, 0xAE, 0xD1, 0xAC]
+        );
+    }
+
+    #[test]
+    fn pointer_indirect_byte_offset_emits_one_carry_chain() {
+        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+
+        emit_offset_pointer_by_indirect_byte(
+            MirBinaryOp::Add,
+            ResolvedMem::ZeroPage(0xAC),
+            0xAE,
+            3,
+            &mut emitter,
+        );
+
+        assert_eq!(
+            emitter.finish().expect("pointer offset sequence emits"),
+            [
+                opcode::LDY_IMM,
+                3,
+                opcode::LDA_ZP,
+                0xAE,
+                opcode::CLC,
+                opcode::ADC_IZY,
+                0xAE,
+                opcode::STA_ZP,
+                0xAC,
+                opcode::LDA_ZP,
+                0xAF,
+                opcode::ADC_IMM,
+                0,
+                opcode::STA_ZP,
+                0xAD,
+            ]
         );
     }
 }

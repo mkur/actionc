@@ -360,6 +360,17 @@ pub enum MirOp {
         mem: MirMem,
         value: MirValue,
     },
+    /// Add or subtract a byte loaded through `source` from the pointer value
+    /// held by `source`, writing the word result directly to `dst`.
+    ///
+    /// This is a post-home 6502 carry-chain operation. Selection must keep the
+    /// destination word disjoint from the source pointer pair.
+    OffsetPointerByIndirectByte {
+        op: MirBinaryOp,
+        dst: MirMem,
+        source: MirAddressConsumer,
+        offset: u16,
+    },
     Compare {
         dst: MirCondDest,
         op: MirCompareOp,

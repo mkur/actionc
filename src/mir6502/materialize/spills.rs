@@ -810,6 +810,7 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::UpdateIndexedMem { .. })
         | Some(MirOp::AddByteToWordMem { .. })
         | Some(MirOp::SubByteFromWordMem { .. })
+        | Some(MirOp::OffsetPointerByIndirectByte { .. })
         | Some(MirOp::IndirectByteCompound { .. })
         | Some(MirOp::MaterializeAddress { .. })
         | Some(MirOp::MaterializeIndexedAddress { .. })
@@ -942,6 +943,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::IndirectByteCompound { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
+        | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {
             *a_value = None;
@@ -1695,6 +1697,7 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
             remap_mem_spills(mem, remap);
             remap_value_spills(value, remap);
         }
+        MirOp::OffsetPointerByIndirectByte { dst, .. } => remap_mem_spills(dst, remap),
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -1809,6 +1812,7 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
             remap_mem_spills_to_zero_page(mem, remap);
             remap_value_spills_to_zero_page(value, remap);
         }
+        MirOp::OffsetPointerByIndirectByte { dst, .. } => remap_mem_spills_to_zero_page(dst, remap),
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -1927,6 +1931,7 @@ where
             visitor(mem);
             visit_value_mems(value, visitor);
         }
+        MirOp::OffsetPointerByIndirectByte { dst, .. } => visitor(dst),
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -2025,6 +2030,7 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
             collect_mem_spills(mem, spills);
             collect_value_spills(value, spills);
         }
+        MirOp::OffsetPointerByIndirectByte { dst, .. } => collect_mem_spills(dst, spills),
         MirOp::Move { dst, src, .. }
         | MirOp::Extend { dst, src, .. }
         | MirOp::Truncate { dst, src, .. }

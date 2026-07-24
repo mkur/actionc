@@ -102,6 +102,7 @@ pub(in crate::mir6502) enum MirOpKind {
     UpdateIndexedMem,
     AddByteToWordMem,
     SubByteFromWordMem,
+    OffsetPointerByIndirectByte,
     Compare,
     CompareIndirectBytes,
     Call,
@@ -319,6 +320,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::UpdateIndexedMem { .. } => MirOpKind::UpdateIndexedMem,
         MirOp::AddByteToWordMem { .. } => MirOpKind::AddByteToWordMem,
         MirOp::SubByteFromWordMem { .. } => MirOpKind::SubByteFromWordMem,
+        MirOp::OffsetPointerByIndirectByte { .. } => MirOpKind::OffsetPointerByIndirectByte,
         MirOp::Compare { .. } => MirOpKind::Compare,
         MirOp::CompareIndirectBytes { .. } => MirOpKind::CompareIndirectBytes,
         MirOp::Call { .. } => MirOpKind::Call,
@@ -420,6 +422,23 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_value(value, &mut summary);
             record_definite_memory_write(mem, &mut summary);
             record_definite_memory_write(&high, &mut summary);
+            summary.machine.conservative_register_clobbers.a = true;
+            summary.machine.flag_clobbers = MirFlagSet::all();
+            summary.machine.writes_any_flags_compat = true;
+        }
+        MirOp::OffsetPointerByIndirectByte {
+            dst,
+            source,
+            offset,
+            ..
+        } => {
+            let high = offset_mem(dst, 1);
+            record_consumer_read(*source, &mut summary);
+            record_indirect_y_access(*source, *offset, &mut summary);
+            record_definite_memory_write(dst, &mut summary);
+            record_definite_memory_write(&high, &mut summary);
+            summary.memory.indirect_reads = true;
+            summary.memory.has_unknown_effects = true;
             summary.machine.conservative_register_clobbers.a = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
             summary.machine.writes_any_flags_compat = true;

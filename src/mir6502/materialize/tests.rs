@@ -2466,8 +2466,24 @@ fn word_carry_chain_store_uses_private_accumulator_without_temp_homes() {
             .iter()
             .filter(|op| matches!(op, MirOp::AddByteToWordMem { .. }))
             .count(),
-        1
+        0
     );
+    assert!(matches!(
+        replacement.as_slice(),
+        [
+            MirOp::MaterializeAddress {
+                consumer: INDEX_POINTER_PAIR,
+                ..
+            },
+            MirOp::OffsetPointerByIndirectByte {
+                op: MirBinaryOp::Add,
+                dst: MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO)),
+                source: INDEX_POINTER_PAIR,
+                offset: 0,
+            },
+            ..
+        ]
+    ));
     assert!(matches!(
         &replacement[replacement.len() - 6..],
         [
@@ -2604,7 +2620,12 @@ fn word_carry_chain_store_reuses_updated_pointer_for_followup_deref() {
             .iter()
             .filter(|op| matches!(op, MirOp::AddByteToWordMem { .. }))
             .count(),
-        2
+        1
+    );
+    assert!(
+        replacement
+            .iter()
+            .any(|op| matches!(op, MirOp::OffsetPointerByIndirectByte { .. }))
     );
 }
 
@@ -13722,13 +13743,19 @@ fn call_arg_expr_stages_pointer_byte_offset_chain_in_canonical_action_homes() {
         out.iter()
             .filter(|op| matches!(op, MirOp::LoadIndirect { .. }))
             .count(),
-        2
+        1
     );
     assert_eq!(
         out.iter()
             .filter(|op| matches!(op, MirOp::AddByteToWordMem { .. }))
             .count(),
-        2
+        1
+    );
+    assert_eq!(
+        out.iter()
+            .filter(|op| matches!(op, MirOp::OffsetPointerByIndirectByte { .. }))
+            .count(),
+        1
     );
     assert!(matches!(
         out.last(),
