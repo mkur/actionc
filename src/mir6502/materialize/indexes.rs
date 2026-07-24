@@ -798,6 +798,101 @@ pub(super) fn try_fuse_indexed_word_copy(
     2
 }
 
+pub(super) fn try_fuse_indexed_to_indirect_word_copy(
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Load {
+        dst: load_dst,
+        src,
+        width: MirWidth::Word,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some((src_base, src_index, src_elem_size, src_offset)) =
+        indexed_addr_parts_resolved_for_copy(ops, index, src)
+    else {
+        return 0;
+    };
+    let Some(MirOp::Store {
+        dst: MirAddr::Deref {
+            ptr: dst_ptr,
+            offset: dst_offset,
+        },
+        src: MirValue::Def(store_src),
+        width: MirWidth::Word,
+    }) = ops.get(index + 1)
+    else {
+        return 0;
+    };
+    if store_src != load_dst {
+        return 0;
+    }
+    let dst_ptr = resolve_indexed_base_producer(ops, index + 1, dst_ptr.clone());
+    let use_scaled_y = src_elem_size == 2
+        && src_offset <= u16::from(u8::MAX - 1)
+        && *dst_offset <= u16::from(u8::MAX - 1)
+        && index_value_is_byte_sized(&src_index)
+        && scaled_y_posthome_base_is_eligible(&src_base, layout)
+        && !value_uses_temp(&dst_ptr);
+    if !use_scaled_y {
+        return 0;
+    }
+
+    out.push(MirOp::MaterializeAddress {
+        consumer: DEST_POINTER_PAIR,
+        value: dst_ptr,
+    });
+    materialize_indexed_address_to_consumer(
+        src_base,
+        src_index,
+        src_elem_size,
+        DEFAULT_SCALED_Y_POINTER_PAIR,
+        layout,
+        out,
+    );
+    let scratch = MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_INDEX_SCRATCH_LO));
+    out.push(MirOp::LoadIndirect {
+        consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+        dst: MirDef::Reg(MirReg::A),
+        offset: src_offset,
+    });
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(scratch.clone()),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::LoadIndirect {
+        consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+        dst: MirDef::Reg(MirReg::A),
+        offset: src_offset.saturating_add(1),
+    });
+    out.push(MirOp::Move {
+        dst: MirDef::Reg(MirReg::X),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(scratch),
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::StoreIndirect {
+        consumer: DEST_POINTER_PAIR,
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        offset: *dst_offset,
+    });
+    out.push(MirOp::StoreIndirect {
+        consumer: DEST_POINTER_PAIR,
+        src: MirValue::Def(MirDef::Reg(MirReg::X)),
+        offset: dst_offset.saturating_add(1),
+    });
+    2
+}
+
 pub(super) fn indexed_addr_parts(addr: &MirAddr) -> Option<IndexedAddrParts> {
     match addr {
         MirAddr::ComputedIndex {
@@ -931,7 +1026,7 @@ pub(super) fn indexed_word_copy_rematerialized_producer_ops(
     ops: &[MirOp],
     index: usize,
 ) -> BTreeSet<usize> {
-    [index, index.saturating_add(1)]
+    let mut producers = [index, index.saturating_add(1)]
         .into_iter()
         .filter_map(|use_index| match ops.get(use_index) {
             Some(MirOp::Load { src, .. }) | Some(MirOp::Store { dst: src, .. }) => {
@@ -955,7 +1050,21 @@ pub(super) fn indexed_word_copy_rematerialized_producer_ops(
                         .map(|(producer_index, _)| producer_index)
                 })
         })
-        .collect()
+        .collect::<BTreeSet<_>>();
+    if let Some(MirOp::Store {
+        dst: MirAddr::Deref { ptr, .. },
+        ..
+    }) = ops.get(index.saturating_add(1))
+    {
+        let resolved = resolve_indexed_base_producer(ops, index + 1, ptr.clone());
+        if resolved != *ptr
+            && let MirValue::Def(MirDef::VTemp(temp)) = ptr
+            && let Some((producer_index, _)) = find_temp_producer(ops, index + 1, *temp)
+        {
+            producers.insert(producer_index);
+        }
+    }
+    producers
 }
 
 fn resolve_indexed_base_producer(ops: &[MirOp], use_index: usize, value: MirValue) -> MirValue {

@@ -4479,6 +4479,101 @@ fn same_index_word_copy_shares_scaled_y_across_pointer_pairs() {
 }
 
 #[test]
+fn indexed_to_indirect_word_copy_uses_register_and_one_private_byte() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let value = MirDef::VTemp(MirTempId(0));
+    let destination = MirValue::Word {
+        lo: Box::new(MirValue::PointerCell(MirMem::Global {
+            id: SymbolId(3),
+            offset: 0,
+        })),
+        hi: Box::new(MirValue::PointerCell(MirMem::Global {
+            id: SymbolId(3),
+            offset: 1,
+        })),
+    };
+    let ops = vec![
+        MirOp::Load {
+            dst: value.clone(),
+            src: MirAddr::ComputedIndex {
+                base: MirValue::GlobalAddr(SymbolId(0)),
+                index: MirValue::PointerCell(MirMem::Global {
+                    id: SymbolId(2),
+                    offset: 0,
+                }),
+                elem_size: 2,
+                offset: 0,
+            },
+            width: MirWidth::Word,
+        },
+        MirOp::Store {
+            dst: MirAddr::Deref {
+                ptr: destination,
+                offset: 0,
+            },
+            src: MirValue::Def(value),
+            width: MirWidth::Word,
+        },
+    ];
+    let mut out = Vec::new();
+
+    assert_eq!(
+        try_fuse_indexed_to_indirect_word_copy(&ops, 0, &layout, &mut out),
+        2
+    );
+    assert!(matches!(
+        out.as_slice(),
+        [
+            MirOp::MaterializeAddress {
+                consumer: DEST_POINTER_PAIR,
+                ..
+            },
+            MirOp::MaterializeIndexedAddress {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                ..
+            },
+            MirOp::LoadIndirect {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                offset: 0,
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                    POINTER_INDEX_SCRATCH_LO
+                ))),
+                ..
+            },
+            MirOp::LoadIndirect {
+                consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+                offset: 1,
+                ..
+            },
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                ..
+            },
+            MirOp::Load {
+                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                    POINTER_INDEX_SCRATCH_LO
+                ))),
+                ..
+            },
+            MirOp::StoreIndirect {
+                consumer: DEST_POINTER_PAIR,
+                offset: 0,
+                ..
+            },
+            MirOp::StoreIndirect {
+                consumer: DEST_POINTER_PAIR,
+                src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                offset: 1,
+            },
+        ]
+    ));
+}
+
+#[test]
 fn byte_read_with_word_index_materializes_full_address() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

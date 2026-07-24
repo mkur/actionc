@@ -496,6 +496,9 @@ pub(in crate::mir6502) fn discover_index_rewrites(
                 "indexed-word-copy" => {
                     indexed_word_copy_plan(block.id, &block.ops, index, candidate, context)
                 }
+                "indexed-to-indirect-word-copy" => {
+                    indexed_word_copy_plan(block.id, &block.ops, index, candidate, context)
+                }
                 "dynamic-inline-byte-index" => {
                     dynamic_inline_byte_index_plan(block.id, &block.ops, index, candidate, context)
                 }
@@ -508,6 +511,28 @@ pub(in crate::mir6502) fn discover_index_rewrites(
                 _ => None,
             };
             if let Some(plan) = plan {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn discover_indexed_to_indirect_word_copies(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (index, candidate) in
+            crate::mir6502::materialize::analyzed_indexed_to_indirect_word_copy_candidates(
+                block, layout,
+            )
+        {
+            if let Some(plan) =
+                indexed_word_copy_plan(block.id, &block.ops, index, candidate, context)
+            {
                 plans.push(plan);
             }
         }
