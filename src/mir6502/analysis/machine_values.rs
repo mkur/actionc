@@ -372,7 +372,9 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
     for reg in [MirReg::X, MirReg::Y] {
         if let Some(value) = explicit_index_register_result(op, reg, &before) {
             state.set_register(reg, Some(value));
-        } else if effects.may_clobber_reg_compat(reg) {
+        } else if effects.may_clobber_reg_compat(reg)
+            && !known_call_preserves_register(op, reg, known_callees)
+        {
             state.set_register(reg, None);
         }
     }
@@ -410,6 +412,19 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
             state.zn_register = Some(*reg);
         }
     }
+}
+
+fn known_call_preserves_register(
+    op: &MirOp,
+    register: MirReg,
+    known_callees: &MirKnownCalleeSummaries,
+) -> bool {
+    let MirOp::Call { target, .. } = op else {
+        return false;
+    };
+    known_callees
+        .for_target(target)
+        .is_some_and(|summary| summary.preserves_register(register))
 }
 
 fn update_fixed_zero_page_values(
@@ -1496,6 +1511,44 @@ mod tests {
                 high_slot,
             ),
             Ok(Some(MirMachineValue::DirectMem(high_source)))
+        );
+    }
+
+    #[test]
+    fn known_callee_preserves_proven_index_register_values() {
+        let caller = routine(vec![block(
+            0,
+            vec![
+                load_reg(MirReg::X, spill(1)),
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::Y),
+                    value: 7,
+                    width: MirWidth::Byte,
+                },
+                call(1),
+            ],
+            MirTerminator::Return,
+        )]);
+        let mut callee = routine(vec![block(
+            1,
+            vec![MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::X),
+                value: 9,
+                width: MirWidth::Byte,
+            }],
+            MirTerminator::Return,
+        )]);
+        callee.id = RoutineId(1);
+        callee.name = "PreservesY".to_string();
+
+        let values = analyze_caller_with_known_callee(caller, callee);
+        let after_call = MirSite::Terminator {
+            block: MirBlockId(0),
+        };
+        assert_eq!(values.register_at(after_call, MirReg::X), Ok(None));
+        assert_eq!(
+            values.register_at(after_call, MirReg::Y),
+            Ok(Some(MirMachineValue::ConstU8(7)))
         );
     }
 
