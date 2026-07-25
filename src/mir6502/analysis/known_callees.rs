@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};
 use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::{MirHomeByte, classify_op};
 use crate::mir6502::analysis::machine_values::{MirMachineValue, MirMachineValueAvailability};
@@ -7,7 +8,7 @@ use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
     MirCallTarget, MirFixedZpSlot, MirMachineAtom, MirMachineBlock, MirMachineByteSelector,
     MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram, MirReg,
-    MirRoutine, MirTerminator, RoutineId,
+    MirRegisterSet, MirRoutine, MirTerminator, RoutineId,
 };
 
 /// Conservative memory-write summary for a known direct callee.
@@ -76,6 +77,11 @@ pub(in crate::mir6502) struct MirKnownCalleeExitSummary {
     /// Exact byte provenance that establishes both Z and N on every reachable
     /// return. `None` means either unknown or inconsistent across exits.
     zn: Option<MirMachineValue>,
+    /// Registers whose incoming values survive every reachable return.
+    ///
+    /// The first consumers use X/Y. Keeping this as a machine register set
+    /// leaves room for later A/flags/SP contracts without changing NIR.
+    preserves: MirRegisterSet,
     writes: MirKnownMemoryWrites,
 }
 
@@ -90,6 +96,14 @@ impl MirKnownCalleeExitSummary {
 
     pub(in crate::mir6502) fn writes(&self) -> &MirKnownMemoryWrites {
         &self.writes
+    }
+
+    pub(in crate::mir6502) fn preserves_register(&self, register: MirReg) -> bool {
+        match register {
+            MirReg::A => self.preserves.a,
+            MirReg::X => self.preserves.x,
+            MirReg::Y => self.preserves.y,
+        }
     }
 
     #[allow(dead_code)] // Retained as the pair-level query for future address consumers.
@@ -198,8 +212,14 @@ fn summarize_mir_routine(
         return MirKnownCalleeExitSummary::default();
     };
     let values = MirMachineValueAvailability::analyze_with_known_callees(routine, &cfg, callees);
+    let preservation = analyze_register_preservation(routine, &cfg, callees);
     let mut accumulator = None;
     let mut zn = None;
+    let mut preserves = MirRegisterSet {
+        x: true,
+        y: true,
+        ..MirRegisterSet::default()
+    };
     let mut saw_return = false;
     for block in &routine.blocks {
         if !matches!(block.terminator, MirTerminator::Return)
@@ -215,6 +235,11 @@ fn summarize_mir_routine(
         else {
             return MirKnownCalleeExitSummary::default();
         };
+        let Some(preserved_at_return) = preservation.get(&block.id) else {
+            return MirKnownCalleeExitSummary::default();
+        };
+        preserves.x &= preserved_at_return.x;
+        preserves.y &= preserved_at_return.y;
         if !saw_return {
             accumulator = accumulator_value;
             zn = zn_value;
@@ -235,8 +260,121 @@ fn summarize_mir_routine(
             .then_some(zn)
             .flatten()
             .and_then(caller_visible_exit_value),
+        preserves: if saw_return {
+            preserves
+        } else {
+            MirRegisterSet::default()
+        },
         writes: summarize_routine_writes(routine, callees),
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct MirRegisterPreservationState {
+    reachable: bool,
+    x: bool,
+    y: bool,
+}
+
+impl MirRegisterPreservationState {
+    fn entry() -> Self {
+        Self {
+            reachable: true,
+            x: true,
+            y: true,
+        }
+    }
+
+    fn meet_with(&mut self, other: &Self) {
+        if !other.reachable {
+            return;
+        }
+        if !self.reachable {
+            *self = *other;
+            return;
+        }
+        self.x &= other.x;
+        self.y &= other.y;
+    }
+}
+
+struct MirRegisterPreservationProblem<'a> {
+    routine: &'a MirRoutine,
+    entry: Option<crate::mir6502::ir::MirBlockId>,
+    callees: &'a MirKnownCalleeSummaries,
+}
+
+impl DataflowProblem<MirCfg> for MirRegisterPreservationProblem<'_> {
+    type State = MirRegisterPreservationState;
+
+    fn direction(&self) -> DataflowDirection {
+        DataflowDirection::Forward
+    }
+
+    fn bottom(&self) -> Self::State {
+        Self::State::default()
+    }
+
+    fn boundary(&self, node: crate::mir6502::ir::MirBlockId) -> Option<Self::State> {
+        (Some(node) == self.entry).then(MirRegisterPreservationState::entry)
+    }
+
+    fn join(&self, into: &mut Self::State, other: &Self::State) {
+        into.meet_with(other);
+    }
+
+    fn transfer(&self, node: crate::mir6502::ir::MirBlockId, input: &Self::State) -> Self::State {
+        if !input.reachable {
+            return *input;
+        }
+        let Some(block) = self.routine.blocks.iter().find(|block| block.id == node) else {
+            return *input;
+        };
+        let mut output = *input;
+        for op in &block.ops {
+            let effects = classify_op(op);
+            let known = match op {
+                MirOp::Call { target, .. } => self.callees.for_target(target),
+                _ => None,
+            };
+            if effects.may_clobber_reg_compat(MirReg::X)
+                && !known.is_some_and(|summary| summary.preserves_register(MirReg::X))
+            {
+                output.x = false;
+            }
+            if effects.may_clobber_reg_compat(MirReg::Y)
+                && !known.is_some_and(|summary| summary.preserves_register(MirReg::Y))
+            {
+                output.y = false;
+            }
+        }
+        output
+    }
+}
+
+fn analyze_register_preservation(
+    routine: &MirRoutine,
+    cfg: &MirCfg,
+    callees: &MirKnownCalleeSummaries,
+) -> BTreeMap<crate::mir6502::ir::MirBlockId, MirRegisterPreservationState> {
+    let result = solve_dataflow(
+        cfg,
+        &MirRegisterPreservationProblem {
+            routine,
+            entry: cfg.entry(),
+            callees,
+        },
+    );
+    routine
+        .blocks
+        .iter()
+        .filter_map(|block| {
+            result
+                .out_state(block.id)
+                .copied()
+                .map(|state| (block.id, state))
+        })
+        .collect()
 }
 
 fn caller_visible_exit_value(value: MirMachineValue) -> Option<MirMachineValue> {
@@ -395,6 +533,11 @@ fn summarize_straight_line_machine_block(
     let mut accumulator = None;
     let mut zn = None;
     let mut zn_register = None;
+    let mut preserves = MirRegisterSet {
+        x: true,
+        y: true,
+        ..MirRegisterSet::default()
+    };
     let mut writes = MirKnownMemoryWrites::exact();
     while index < bytes.len() {
         let opcode = bytes[index].0?;
@@ -408,6 +551,7 @@ fn summarize_straight_line_machine_block(
                 return Some(MirKnownCalleeExitSummary {
                     accumulator,
                     zn,
+                    preserves,
                     writes,
                 });
             }
@@ -419,6 +563,8 @@ fn summarize_straight_line_machine_block(
                 accumulator = None;
                 zn = None;
                 zn_register = None;
+                preserves.x = false;
+                preserves.y = false;
                 let target = known_u16(operands);
                 match target {
                     // Existing trusted OS-effect table: neither call writes
@@ -531,22 +677,42 @@ fn summarize_straight_line_machine_block(
                 zn_register = Some(MirReg::A);
             }
             0xA2 | 0xA0 => {
+                if opcode == 0xA2 {
+                    preserves.x = false;
+                } else {
+                    preserves.y = false;
+                }
                 zn = Some(MirMachineValue::ConstU8(operands.first()?.0?));
                 zn_register = Some(if opcode == 0xA2 { MirReg::X } else { MirReg::Y });
             }
             0xA6 | 0xA4 => {
+                if opcode == 0xA6 {
+                    preserves.x = false;
+                } else {
+                    preserves.y = false;
+                }
                 zn = Some(MirMachineValue::DirectMem(MirMem::FixedZeroPage(
                     MirFixedZpSlot(operands.first()?.0?),
                 )));
                 zn_register = Some(if opcode == 0xA6 { MirReg::X } else { MirReg::Y });
             }
             0xAE | 0xAC => {
+                if opcode == 0xAE {
+                    preserves.x = false;
+                } else {
+                    preserves.y = false;
+                }
                 zn = Some(MirMachineValue::DirectMem(absolute_mem(known_u16(
                     operands,
                 )?)));
                 zn_register = Some(if opcode == 0xAE { MirReg::X } else { MirReg::Y });
             }
             0xB6 | 0xBE | 0xB4 | 0xBC => {
+                if matches!(opcode, 0xB6 | 0xBE) {
+                    preserves.x = false;
+                } else {
+                    preserves.y = false;
+                }
                 zn = None;
                 zn_register = Some(if matches!(opcode, 0xB6 | 0xBE) {
                     MirReg::X
@@ -555,14 +721,21 @@ fn summarize_straight_line_machine_block(
                 });
             }
             0xAA | 0xA8 => {
+                if opcode == 0xAA {
+                    preserves.x = false;
+                } else {
+                    preserves.y = false;
+                }
                 zn = accumulator.clone();
                 zn_register = Some(if opcode == 0xAA { MirReg::X } else { MirReg::Y });
             }
             0x88 | 0xC8 => {
+                preserves.y = false;
                 zn = None;
                 zn_register = Some(MirReg::Y);
             }
             0xCA | 0xE8 | 0xBA => {
+                preserves.x = false;
                 zn = None;
                 zn_register = Some(MirReg::X);
             }
@@ -887,10 +1060,122 @@ mod tests {
         let summary = MirKnownCalleeExitSummary {
             accumulator: None,
             zn: Some(value.clone()),
+            preserves: MirRegisterSet::default(),
             writes: MirKnownMemoryWrites::Unknown,
         };
         assert_eq!(summary.zn(), Some(&value));
         assert_eq!(MirKnownCalleeExitSummary::default().zn(), None);
+    }
+
+    #[test]
+    fn summarizes_registers_preserved_on_every_return_path() {
+        let mut split = routine(0, Vec::new(), MirTerminator::Return);
+        split.blocks = vec![
+            MirBlock {
+                id: MirBlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Branch {
+                    cond: crate::mir6502::ir::MirCond::FlagTest(
+                        crate::mir6502::ir::MirFlagTest::ZSet,
+                    ),
+                    then_edge: crate::mir6502::ir::MirEdge::plain(MirBlockId(1)),
+                    else_edge: crate::mir6502::ir::MirEdge::plain(MirBlockId(2)),
+                },
+            },
+            MirBlock {
+                id: MirBlockId(1),
+                label: "clobber_x".to_string(),
+                params: Vec::new(),
+                ops: vec![MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::X),
+                    value: 1,
+                    width: MirWidth::Byte,
+                }],
+                terminator: MirTerminator::Return,
+            },
+            MirBlock {
+                id: MirBlockId(2),
+                label: "preserve".to_string(),
+                params: Vec::new(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Return,
+            },
+        ];
+
+        let summaries = MirKnownCalleeSummaries::analyze(&program(vec![split], Vec::new()));
+        let summary = summaries.get(RoutineId(0)).expect("routine summary");
+        assert!(!summary.preserves_register(MirReg::X));
+        assert!(summary.preserves_register(MirReg::Y));
+    }
+
+    #[test]
+    fn propagates_register_preservation_through_known_direct_calls() {
+        let callee = routine(
+            1,
+            vec![MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::X),
+                value: 1,
+                width: MirWidth::Byte,
+            }],
+            MirTerminator::Return,
+        );
+        let caller = routine(
+            0,
+            vec![MirOp::Call {
+                target: MirCallTarget::Routine(callee.id),
+                abi: MirCallAbi {
+                    params: Vec::new(),
+                    result: None,
+                    clobbers: MirRegisterSet {
+                        a: true,
+                        x: true,
+                        y: true,
+                        flags: true,
+                        ..MirRegisterSet::default()
+                    },
+                    preserves: MirRegisterSet::default(),
+                },
+                args: Vec::new(),
+                result: None,
+                effects: MirEffects::default(),
+            }],
+            MirTerminator::Return,
+        );
+
+        let summaries =
+            MirKnownCalleeSummaries::analyze(&program(vec![caller, callee], Vec::new()));
+        let summary = summaries.get(RoutineId(0)).expect("caller summary");
+        assert!(!summary.preserves_register(MirReg::X));
+        assert!(summary.preserves_register(MirReg::Y));
+    }
+
+    #[test]
+    fn machine_summary_tracks_index_register_writes() {
+        let machine = MirMachineBlock {
+            id: MirMachineBlockId(0),
+            items: vec![
+                MirMachineItem::Byte(0xA2),
+                MirMachineItem::Byte(7),
+                MirMachineItem::Byte(0x60),
+            ],
+        };
+        let summaries = MirKnownCalleeSummaries::analyze(&program(
+            vec![routine(
+                0,
+                vec![MirOp::MachineBlock {
+                    id: machine.id,
+                    effects: MirEffects::default(),
+                }],
+                MirTerminator::Unreachable,
+            )],
+            vec![machine],
+        ));
+
+        let summary = summaries.get(RoutineId(0)).expect("machine summary");
+        assert!(!summary.preserves_register(MirReg::X));
+        assert!(summary.preserves_register(MirReg::Y));
     }
 
     #[test]
