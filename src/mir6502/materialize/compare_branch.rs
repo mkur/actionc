@@ -1877,31 +1877,38 @@ fn materialize_direct_unsigned_word_rel_branch(
     else_block: MirBlockId,
 ) -> Option<MirTerminator> {
     if signed
-        || !matches!(op, MirCompareOp::Lt | MirCompareOp::Ge)
+        || !matches!(
+            op,
+            MirCompareOp::Lt | MirCompareOp::Le | MirCompareOp::Gt | MirCompareOp::Ge
+        )
         || [left_lo, left_hi, right_lo, right_hi]
             .into_iter()
             .any(|value| value_uses_temp(value))
     {
         return None;
     }
-    let flag_test = match op {
-        MirCompareOp::Lt => MirFlagTest::CClear,
-        MirCompareOp::Ge => MirFlagTest::CSet,
-        _ => unreachable!("strict direct word relation checked above"),
+    let (compare_lo, subtract_hi, compare_right_lo, subtract_right_hi, flag_test) = match op {
+        MirCompareOp::Lt => (left_lo, left_hi, right_lo, right_hi, MirFlagTest::CClear),
+        MirCompareOp::Ge => (left_lo, left_hi, right_lo, right_hi, MirFlagTest::CSet),
+        MirCompareOp::Gt => (right_lo, right_hi, left_lo, left_hi, MirFlagTest::CClear),
+        MirCompareOp::Le => (right_lo, right_hi, left_lo, left_hi, MirFlagTest::CSet),
+        MirCompareOp::Eq | MirCompareOp::Ne => {
+            unreachable!("direct word relation checked above")
+        }
     };
     ops.push(MirOp::Compare {
         dst: MirCondDest::Flags,
         op: MirCompareOp::Lt,
-        left: left_lo.clone(),
-        right: right_lo.clone(),
+        left: compare_lo.clone(),
+        right: compare_right_lo.clone(),
         width: MirWidth::Byte,
         signed: false,
     });
     ops.push(MirOp::Binary {
         op: MirBinaryOp::Sub,
         dst: MirDef::Reg(MirReg::A),
-        left: left_hi.clone(),
-        right: right_hi.clone(),
+        left: subtract_hi.clone(),
+        right: subtract_right_hi.clone(),
         width: MirWidth::Byte,
         carry_in: Some(MirCarryIn::FromPrevious),
         carry_out: MirCarryOut::Ignore,
