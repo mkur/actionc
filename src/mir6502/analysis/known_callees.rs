@@ -200,6 +200,7 @@ fn summarize_mir_routine(
     };
     let values = MirMachineValueAvailability::analyze_with_known_callees(routine, &cfg, callees);
     let mut accumulator = None;
+    let mut zn = None;
     let mut saw_return = false;
     for block in &routine.blocks {
         if !matches!(block.terminator, MirTerminator::Return)
@@ -209,21 +210,51 @@ fn summarize_mir_routine(
         {
             continue;
         }
-        let Ok(value) = values.accumulator_at(MirSite::Terminator { block: block.id }) else {
+        let site = MirSite::Terminator { block: block.id };
+        let (Ok(accumulator_value), Ok(zn_value)) =
+            (values.accumulator_at(site), values.zn_value_at(site))
+        else {
             return MirKnownCalleeExitSummary::default();
         };
         if !saw_return {
-            accumulator = value;
+            accumulator = accumulator_value;
+            zn = zn_value;
             saw_return = true;
-        } else if accumulator != value {
-            accumulator = None;
+        } else {
+            if accumulator != accumulator_value {
+                accumulator = None;
+            }
+            if zn != zn_value {
+                zn = None;
+            }
         }
     }
 
     MirKnownCalleeExitSummary {
         accumulator: saw_return.then_some(accumulator).flatten(),
-        zn: None,
+        zn: saw_return
+            .then_some(zn)
+            .flatten()
+            .and_then(caller_visible_exit_value),
         writes: summarize_routine_writes(routine, callees),
+    }
+}
+
+fn caller_visible_exit_value(value: MirMachineValue) -> Option<MirMachineValue> {
+    match value {
+        value @ MirMachineValue::ConstU8(_) => Some(value),
+        value @ MirMachineValue::DirectMem(
+            MirMem::Absolute(_)
+            | MirMem::Static { .. }
+            | MirMem::Global { .. }
+            | MirMem::FixedZeroPage(_),
+        ) => Some(value),
+        MirMachineValue::DirectMem(
+            MirMem::Local { .. }
+            | MirMem::Param { .. }
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_),
+        ) => None,
     }
 }
 
@@ -734,6 +765,12 @@ mod tests {
                 .and_then(|summary| summary.accumulator()),
             Some(&MirMachineValue::DirectMem(return_slot))
         );
+        assert_eq!(
+            summaries.get(RoutineId(0)).and_then(|summary| summary.zn()),
+            Some(&MirMachineValue::DirectMem(MirMem::FixedZeroPage(
+                MirFixedZpSlot(0xA0)
+            )))
+        );
     }
 
     #[test]
@@ -933,6 +970,81 @@ mod tests {
             summaries
                 .get(RoutineId(0))
                 .and_then(|summary| summary.accumulator()),
+            None
+        );
+        assert_eq!(
+            summaries.get(RoutineId(0)).and_then(|summary| summary.zn()),
+            None
+        );
+    }
+
+    #[test]
+    fn matching_return_paths_claim_an_exact_zn_value() {
+        let mut split = routine(0, Vec::new(), MirTerminator::Return);
+        split.blocks = vec![
+            MirBlock {
+                id: MirBlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Branch {
+                    cond: crate::mir6502::ir::MirCond::FlagTest(
+                        crate::mir6502::ir::MirFlagTest::ZSet,
+                    ),
+                    then_edge: crate::mir6502::ir::MirEdge::plain(MirBlockId(1)),
+                    else_edge: crate::mir6502::ir::MirEdge::plain(MirBlockId(2)),
+                },
+            },
+            MirBlock {
+                id: MirBlockId(1),
+                label: "one".to_string(),
+                params: Vec::new(),
+                ops: vec![MirOp::LoadImm {
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::A),
+                    value: 7,
+                    width: MirWidth::Byte,
+                }],
+                terminator: MirTerminator::Return,
+            },
+            MirBlock {
+                id: MirBlockId(2),
+                label: "two".to_string(),
+                params: Vec::new(),
+                ops: vec![MirOp::LoadImm {
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::A),
+                    value: 7,
+                    width: MirWidth::Byte,
+                }],
+                terminator: MirTerminator::Return,
+            },
+        ];
+        let summaries = MirKnownCalleeSummaries::analyze(&program(vec![split], Vec::new()));
+        assert_eq!(
+            summaries.get(RoutineId(0)).and_then(|summary| summary.zn()),
+            Some(&MirMachineValue::ConstU8(7))
+        );
+    }
+
+    #[test]
+    fn routine_private_zn_provenance_is_not_exposed_to_callers() {
+        let local = MirMem::Local {
+            id: crate::nir::LocalId(0),
+            offset: 0,
+        };
+        let summaries = MirKnownCalleeSummaries::analyze(&program(
+            vec![routine(
+                0,
+                vec![MirOp::Load {
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::A),
+                    src: MirAddr::Direct(local),
+                    width: MirWidth::Byte,
+                }],
+                MirTerminator::Return,
+            )],
+            Vec::new(),
+        ));
+        assert_eq!(
+            summaries.get(RoutineId(0)).and_then(|summary| summary.zn()),
             None
         );
     }
