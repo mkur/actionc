@@ -1047,4 +1047,36 @@ mod tests {
             None
         );
     }
+
+    #[test]
+    fn summarizes_unknown_indirect_byte_after_it_is_stored_to_a_public_home() {
+        let return_slot = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+        let summaries = MirKnownCalleeSummaries::analyze(&program(
+            vec![routine(
+                0,
+                vec![
+                    MirOp::LoadIndirect {
+                        consumer: crate::mir6502::ir::MirAddressConsumer::IndirectIndexedY(
+                            crate::mir6502::ir::MirPointerPair::Fixed {
+                                lo: MirFixedZpSlot(0xAC),
+                            },
+                        ),
+                        dst: MirDef::Reg(crate::mir6502::ir::MirReg::A),
+                        offset: 0,
+                    },
+                    MirOp::Store {
+                        dst: MirAddr::Direct(return_slot.clone()),
+                        src: MirValue::Def(MirDef::Reg(crate::mir6502::ir::MirReg::A)),
+                        width: MirWidth::Byte,
+                    },
+                ],
+                MirTerminator::Return,
+            )],
+            Vec::new(),
+        ));
+        assert_eq!(
+            summaries.get(RoutineId(0)).and_then(|summary| summary.zn()),
+            Some(&MirMachineValue::DirectMem(return_slot))
+        );
+    }
 }

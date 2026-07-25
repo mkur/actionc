@@ -29,6 +29,9 @@ struct MirMachineValueState {
     /// flag values.  Any operation that writes or clobbers either flag without
     /// a known byte result drops the fact.
     zn: Option<MirMachineValue>,
+    /// Register whose current byte established Z/N, even when the byte itself
+    /// has no stable memory or constant identity yet.
+    zn_register: Option<MirReg>,
     fixed_zero_page: BTreeMap<MirFixedZpSlot, MirMachineValue>,
 }
 
@@ -40,6 +43,7 @@ impl MirMachineValueState {
             x: None,
             y: None,
             zn: None,
+            zn_register: None,
             fixed_zero_page: BTreeMap::new(),
         }
     }
@@ -63,6 +67,9 @@ impl MirMachineValueState {
         }
         if self.zn != other.zn {
             self.zn = None;
+        }
+        if self.zn_register != other.zn_register {
+            self.zn_register = None;
         }
         self.fixed_zero_page
             .retain(|slot, value| other.fixed_zero_page.get(slot) == Some(value));
@@ -95,6 +102,8 @@ pub(in crate::mir6502) struct MirMachineValueBlock {
     pub y_out: Option<MirMachineValue>,
     zn_in: Option<MirMachineValue>,
     zn_out: Option<MirMachineValue>,
+    zn_register_in: Option<MirReg>,
+    zn_register_out: Option<MirReg>,
     pub reachable: bool,
     fixed_zero_page_in: BTreeMap<MirFixedZpSlot, MirMachineValue>,
 }
@@ -165,6 +174,8 @@ impl MirMachineValueAvailability {
                     y_out: output.y,
                     zn_in: input.zn,
                     zn_out: output.zn,
+                    zn_register_in: input.zn_register,
+                    zn_register_out: output.zn_register,
                     reachable: input.reachable,
                     fixed_zero_page_in: input.fixed_zero_page,
                 }
@@ -252,6 +263,7 @@ impl MirMachineValueAvailability {
             x: facts.x_in.clone(),
             y: facts.y_in.clone(),
             zn: facts.zn_in.clone(),
+            zn_register: facts.zn_register_in,
             fixed_zero_page: facts.fixed_zero_page_in.clone(),
         };
         for op in &ops[..limit] {
@@ -307,6 +319,7 @@ impl DataflowProblem<MirCfg> for MachineValueProblem<'_> {
         }
         if !terminator_preserves_flags(&block.terminator) {
             output.zn = None;
+            output.zn_register = None;
         }
         output
     }
@@ -364,8 +377,16 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
         }
     }
 
+    if state
+        .zn_register
+        .is_some_and(|reg| effects.may_clobber_reg_compat(reg))
+    {
+        state.zn_register = None;
+    }
+    let zn_register = explicit_zn_register_result(op, known_callees);
     if let Some(value) = explicit_zn_result(op, &before, known_callees) {
         state.zn = Some(value);
+        state.zn_register = zn_register;
     } else if effects.machine.flag_writes.z
         || effects.machine.flag_writes.n
         || effects.machine.flag_clobbers.z
@@ -374,6 +395,7 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
         || effects.machine.opaque_flag_or_a_effects
     {
         state.zn = None;
+        state.zn_register = zn_register;
     }
 
     if let MirOp::Store {
@@ -383,8 +405,9 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
     } = op
     {
         state.set_register(*reg, Some(MirMachineValue::DirectMem(mem.clone())));
-        if before.zn == before.register(*reg).cloned() {
+        if before.zn == before.register(*reg).cloned() || before.zn_register == Some(*reg) {
             state.zn = Some(MirMachineValue::DirectMem(mem.clone()));
+            state.zn_register = Some(*reg);
         }
     }
 }
@@ -698,6 +721,40 @@ fn explicit_zn_result(
         MirOp::Call { target, .. } => known_callees
             .for_target(target)
             .and_then(|summary| summary.zn().cloned()),
+        _ => None,
+    }
+}
+
+fn explicit_zn_register_result(
+    op: &MirOp,
+    known_callees: &MirKnownCalleeSummaries,
+) -> Option<MirReg> {
+    match op {
+        MirOp::LoadImm {
+            dst: MirDef::Reg(reg),
+            width: MirWidth::Byte,
+            ..
+        }
+        | MirOp::Load {
+            dst: MirDef::Reg(reg),
+            width: MirWidth::Byte,
+            ..
+        }
+        | MirOp::Move {
+            dst: MirDef::Reg(reg),
+            width: MirWidth::Byte,
+            ..
+        }
+        | MirOp::LoadIndirect {
+            dst: MirDef::Reg(reg),
+            ..
+        } => Some(*reg),
+        MirOp::Call { target, .. } => known_callees.for_target(target).and_then(|summary| {
+            summary
+                .zn()
+                .filter(|zn| Some(*zn) == summary.accumulator())
+                .map(|_| MirReg::A)
+        }),
         _ => None,
     }
 }
@@ -1021,6 +1078,34 @@ mod tests {
                 block: MirBlockId(0)
             }),
             Ok(None)
+        );
+    }
+
+    #[test]
+    fn indirect_load_stored_to_memory_acquires_exact_zn_provenance() {
+        let return_slot = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+        let routine = routine(vec![block(
+            0,
+            vec![
+                MirOp::LoadIndirect {
+                    consumer: crate::mir6502::ir::MirAddressConsumer::IndirectIndexedY(
+                        crate::mir6502::ir::MirPointerPair::Fixed {
+                            lo: MirFixedZpSlot(0xAC),
+                        },
+                    ),
+                    dst: MirDef::Reg(MirReg::A),
+                    offset: 0,
+                },
+                store_a(return_slot.clone()),
+            ],
+            MirTerminator::Return,
+        )]);
+        let values = analyze(&routine);
+        assert_eq!(
+            values.zn_value_at(MirSite::Terminator {
+                block: MirBlockId(0)
+            }),
+            Ok(Some(MirMachineValue::DirectMem(return_slot)))
         );
     }
 
