@@ -572,7 +572,7 @@ impl NativeTrackedEmitter {
         self.state.increment_y();
     }
 
-    pub(super) fn emit_dey(&mut self) {
+    pub(crate) fn emit_dey(&mut self) {
         self.emitter.emit_dey();
         self.state.decrement_y();
     }

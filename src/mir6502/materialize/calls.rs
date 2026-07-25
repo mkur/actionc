@@ -1694,16 +1694,6 @@ fn materialize_expr_word_to_ax(
             out.push(MirOp::LoadIndirect {
                 consumer: DEFAULT_POINTER_PAIR,
                 dst: MirDef::Reg(MirReg::A),
-                offset: parts.offset,
-            });
-            out.push(MirOp::Store {
-                dst: MirAddr::Direct(return_slot_mem(0)),
-                src: MirValue::Def(MirDef::Reg(MirReg::A)),
-                width: MirWidth::Byte,
-            });
-            out.push(MirOp::LoadIndirect {
-                consumer: DEFAULT_POINTER_PAIR,
-                dst: MirDef::Reg(MirReg::A),
                 offset: parts.offset.saturating_add(1),
             });
             out.push(MirOp::Move {
@@ -1711,7 +1701,11 @@ fn materialize_expr_word_to_ax(
                 src: MirValue::Def(MirDef::Reg(MirReg::A)),
                 width: MirWidth::Byte,
             });
-            materialize_call_arg_to_reg(MirValue::PointerCell(return_slot_mem(0)), MirReg::A, out);
+            out.push(MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                dst: MirDef::Reg(MirReg::A),
+                offset: parts.offset,
+            });
         }
         expr @ CallArgExpr::Binary {
             width: MirWidth::Word,

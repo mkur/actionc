@@ -321,7 +321,7 @@ fn op_transfer(effects: &MirOpEffectSummary) -> MirMachineTransfer {
     if matches!(effects.kind, MirOpKind::Call | MirOpKind::RuntimeHelper) {
         reads.registers.sp = true;
     }
-    if effects.memory.opaque || matches!(effects.kind, MirOpKind::MachineBlock) {
+    if effects.memory.opaque {
         reads.union_with(MirMachineLiveSet::all());
     }
     MirMachineTransfer { reads, writes }
@@ -633,6 +633,38 @@ mod tests {
         assert!(live.register_live(MirReg::Y));
         assert!(live.stack_pointer_live());
         assert!(live.flags_live(MirFlagSet::all()));
+    }
+
+    #[test]
+    fn structured_machine_blocks_do_not_observe_unlisted_machine_state() {
+        let routine = routine(vec![block(
+            0,
+            vec![
+                load_imm(MirReg::A, 1),
+                MirOp::MachineBlock {
+                    id: MirMachineBlockId(0),
+                    effects: MirEffects {
+                        clobbers: MirRegisterSet {
+                            a: true,
+                            x: true,
+                            y: true,
+                            flags: true,
+                            sp: false,
+                        },
+                        opaque: false,
+                        ..MirEffects::default()
+                    },
+                },
+            ],
+            MirTerminator::Unreachable,
+        )]);
+        let liveness = analyze(&routine);
+        let live = liveness.live_after(op_site(0, 0)).unwrap();
+        assert!(!live.register_live(MirReg::A));
+        assert!(!live.register_live(MirReg::X));
+        assert!(!live.register_live(MirReg::Y));
+        assert!(!live.stack_pointer_live());
+        assert!(!live.flags_live(MirFlagSet::all()));
     }
 
     #[test]

@@ -3815,11 +3815,17 @@ fn prepare_indirect_y(
         let Some(current) = ctx.scaled_y_offset else {
             return false;
         };
-        if offset < current {
+        if offset > u16::from(u8::MAX) {
             return false;
         }
-        for _ in current..offset {
-            emitter.emit_iny();
+        if current < offset {
+            for _ in current..offset {
+                emitter.emit_iny();
+            }
+        } else {
+            for _ in offset..current {
+                emitter.emit_dey();
+            }
         }
         ctx.scaled_y_offset = Some(offset);
     } else {

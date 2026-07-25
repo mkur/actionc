@@ -1248,12 +1248,20 @@ impl MirVerifier {
                             ),
                         ));
                     }
-                    if *offset < active_offset {
+                    if *offset > 1 {
                         self.diagnostics.push(MirDiagnostic::block(
                             &routine.name,
                             block,
                             format!(
-                                "scaled-Y access at op #{op_index} moves backward from offset {active_offset} to {offset}"
+                                "scaled-Y access at op #{op_index} uses unsupported byte offset {offset}"
+                            ),
+                        ));
+                    } else if matches!(op, MirOp::StoreIndirect { .. }) && *offset < active_offset {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            format!(
+                                "scaled-Y store at op #{op_index} moves backward from offset {active_offset} to {offset}"
                             ),
                         ));
                     } else {
@@ -2356,7 +2364,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_scaled_y_access_that_moves_offset_backward() {
+    fn accepts_scaled_y_high_then_low_access() {
         let pair = MirPointerPair::Fixed {
             lo: crate::mir6502::MirFixedZpSlot(0xac),
         };
@@ -2389,12 +2397,88 @@ mod tests {
             )],
         )]);
 
+        verify_program(&program, MirPhase::PreEmission)
+            .expect("scaled-Y word lanes may be read high-first");
+    }
+
+    #[test]
+    fn rejects_scaled_y_access_beyond_word_lanes() {
+        let pair = MirPointerPair::Fixed {
+            lo: crate::mir6502::MirFixedZpSlot(0xac),
+        };
+        let consumer = MirAddressConsumer::ScaledIndirectIndexedY(pair);
+        let program = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![
+                    MirOp::MaterializeIndexedAddress {
+                        consumer,
+                        base: MirValue::ConstU16(0x4000),
+                        index: MirValue::ConstU8(3),
+                        scale: 2,
+                    },
+                    MirOp::LoadIndirect {
+                        dst: MirDef::Reg(MirReg::A),
+                        consumer,
+                        offset: 2,
+                    },
+                ],
+                MirTerminator::Return,
+            )],
+        )]);
+
         let diagnostics = verify_program(&program, MirPhase::PreEmission)
-            .expect_err("backward scaled-Y offset rejected");
+            .expect_err("scaled-Y offsets beyond the word lanes are rejected");
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic
                 .message
-                .contains("scaled-Y access at op #2 moves backward from offset 1 to 0")
+                .contains("scaled-Y access at op #1 uses unsupported byte offset 2")
+        }));
+    }
+
+    #[test]
+    fn rejects_scaled_y_store_that_moves_offset_backward() {
+        let pair = MirPointerPair::Fixed {
+            lo: crate::mir6502::MirFixedZpSlot(0xac),
+        };
+        let consumer = MirAddressConsumer::ScaledIndirectIndexedY(pair);
+        let program = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![
+                    MirOp::MaterializeIndexedAddress {
+                        consumer,
+                        base: MirValue::ConstU16(0x4000),
+                        index: MirValue::ConstU8(3),
+                        scale: 2,
+                    },
+                    MirOp::StoreIndirect {
+                        consumer,
+                        src: MirValue::ConstU8(1),
+                        offset: 1,
+                    },
+                    MirOp::StoreIndirect {
+                        consumer,
+                        src: MirValue::ConstU8(2),
+                        offset: 0,
+                    },
+                ],
+                MirTerminator::Return,
+            )],
+        )]);
+
+        let diagnostics = verify_program(&program, MirPhase::PreEmission)
+            .expect_err("backward scaled-Y stores are rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("scaled-Y store at op #2 moves backward from offset 1 to 0")
         }));
     }
 

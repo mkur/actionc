@@ -2,8 +2,8 @@ use super::*;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{
-    MirBlock, MirCallResult, MirEdge, MirGlobal, MirGlobalBacking, MirRegisterSet, MirStatic,
-    MirStorageBacking, MirStorageInit, MirTemp,
+    MirBlock, MirCallResult, MirEdge, MirGlobal, MirGlobalBacking, MirMachineBlock,
+    MirMachineBlockId, MirRegisterSet, MirStatic, MirStorageBacking, MirStorageInit, MirTemp,
 };
 use crate::mir6502::passes::MirPeepholeReportMode;
 use crate::mir6502::rewrite::context::PostHomeRewriteContext;
@@ -13979,6 +13979,182 @@ fn empty_test_program() -> MirProgram {
 }
 
 #[test]
+fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
+    let mut program = empty_test_program();
+    program.routines[0].frame.locals = vec![
+        MirStorageSlot {
+            id: MirStorageId(0),
+            name: Some("table".to_string()),
+            storage: MirStorageClass::Array,
+            width: MirWidth::Word,
+            base: MirStorageBase::Local(LocalId(7)),
+            offset: 0,
+            mutable: true,
+            init: Some(MirStorageInit::RoutineAddress {
+                routine: RoutineId(2),
+                descriptor_size: 2,
+                size_word: None,
+                mutable: true,
+                section: "local".to_string(),
+            }),
+        },
+        MirStorageSlot {
+            id: MirStorageId(1),
+            name: Some("go".to_string()),
+            storage: MirStorageClass::Scalar,
+            width: MirWidth::Word,
+            base: MirStorageBase::Local(LocalId(8)),
+            offset: 0,
+            mutable: true,
+            init: None,
+        },
+    ];
+    program.routines[0].temps = vec![MirTemp { id: MirTempId(0) }];
+    program.routines[0].blocks = vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(0)),
+                src: MirAddr::PointerIndex {
+                    ptr: MirMem::Local {
+                        id: LocalId(7),
+                        offset: 0,
+                    },
+                    index: MirValue::ConstU8(0),
+                    elem_size: 2,
+                    offset: 0,
+                },
+                width: MirWidth::Word,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Local {
+                    id: LocalId(8),
+                    offset: 0,
+                }),
+                src: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                width: MirWidth::Word,
+            },
+            MirOp::MachineBlock {
+                id: MirMachineBlockId(3),
+                effects: MirEffects {
+                    opaque: true,
+                    ..MirEffects::default()
+                },
+            },
+        ],
+        terminator: MirTerminator::Unreachable,
+    }];
+    program.routines.extend([
+        MirRoutine {
+            id: RoutineId(1),
+            name: "Target".to_string(),
+            abi: MirRoutineAbi::Action,
+            frame: MirFrame::default(),
+            temps: Vec::new(),
+            blocks: vec![MirBlock {
+                id: MirBlockId(1),
+                label: "target".to_string(),
+                params: Vec::new(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Return,
+            }],
+            effects: MirEffects::default(),
+        },
+        MirRoutine {
+            id: RoutineId(2),
+            name: "Table".to_string(),
+            abi: MirRoutineAbi::Action,
+            frame: MirFrame::default(),
+            temps: Vec::new(),
+            blocks: vec![MirBlock {
+                id: MirBlockId(2),
+                label: "table".to_string(),
+                params: Vec::new(),
+                ops: vec![MirOp::MachineBlock {
+                    id: MirMachineBlockId(4),
+                    effects: MirEffects {
+                        opaque: true,
+                        ..MirEffects::default()
+                    },
+                }],
+                terminator: MirTerminator::Unreachable,
+            }],
+            effects: MirEffects::default(),
+        },
+    ]);
+    program.machine_blocks = vec![
+        MirMachineBlock {
+            id: MirMachineBlockId(3),
+            items: vec![
+                MirMachineItem::Byte(0x6C),
+                MirMachineItem::Name("go".to_string()),
+            ],
+        },
+        MirMachineBlock {
+            id: MirMachineBlockId(4),
+            items: vec![
+                MirMachineItem::AddressByte {
+                    high: false,
+                    name: "Target".to_string(),
+                },
+                MirMachineItem::AddressByte {
+                    high: true,
+                    name: "Target".to_string(),
+                },
+            ],
+        },
+    ];
+
+    refine_terminal_indirect_jump_effects(&mut program);
+
+    let MirOp::MachineBlock { effects, .. } = &program.routines[0].blocks[0].ops[2] else {
+        panic!("expected machine block");
+    };
+    assert_eq!(
+        effects.memory_reads,
+        MirMemoryEffect::Regions(vec![MirMemoryRegion {
+            kind: MirMemoryRegionKind::Local(LocalId(8)),
+            offset: 0,
+            size: 2,
+        }])
+    );
+    assert_eq!(effects.memory_writes, MirMemoryEffect::All);
+    assert!(!effects.opaque);
+    assert!(effects.clobbers.a);
+    assert!(effects.clobbers.x);
+    assert!(effects.clobbers.y);
+    assert!(effects.clobbers.flags);
+
+    let MirOp::MachineBlock { effects, .. } = &mut program.routines[0].blocks[0].ops[2] else {
+        unreachable!()
+    };
+    *effects = MirEffects {
+        opaque: true,
+        ..MirEffects::default()
+    };
+    program.machine_blocks[1].items = vec![
+        MirMachineItem::AddressByte {
+            high: false,
+            name: "Unknown".to_string(),
+        },
+        MirMachineItem::AddressByte {
+            high: true,
+            name: "Unknown".to_string(),
+        },
+    ];
+    refine_terminal_indirect_jump_effects(&mut program);
+    let MirOp::MachineBlock { effects, .. } = &program.routines[0].blocks[0].ops[2] else {
+        unreachable!()
+    };
+    assert!(
+        effects.opaque,
+        "an unproved raw-address table must remain an opaque barrier"
+    );
+}
+
+#[test]
 fn known_callee_exit_accumulator_elides_return_slot_reload() {
     let return_slot = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
     let call = MirOp::Call {
@@ -15117,22 +15293,46 @@ fn call_arg_expr_materializes_indexed_word_load_directly_to_ax() {
             offset: 1,
         }
     )));
-    assert!(out.iter().any(|op| matches!(
-        op,
-        MirOp::Store {
-            dst: MirAddr::Direct(mem),
-            src: MirValue::Def(MirDef::Reg(MirReg::A)),
-            width: MirWidth::Byte,
-        } if *mem == return_slot_mem(0)
-    )));
-    assert!(out.iter().any(|op| matches!(
-        op,
-        MirOp::Load {
-            dst: MirDef::Reg(MirReg::A),
-            src: MirAddr::Direct(mem),
-            width: MirWidth::Byte,
-        } if *mem == return_slot_mem(0)
-    )));
+    assert!(
+        !out.iter().any(|op| matches!(
+            op,
+            MirOp::Store {
+                dst: MirAddr::Direct(mem),
+                ..
+            } | MirOp::Load {
+                src: MirAddr::Direct(mem),
+                ..
+            } if *mem == return_slot_mem(0)
+        )),
+        "the indexed low lane must remain in A without $A0 staging:\n{out:#?}"
+    );
+    let high = out
+        .iter()
+        .position(|op| {
+            matches!(
+                op,
+                MirOp::LoadIndirect {
+                    consumer: DEFAULT_POINTER_PAIR,
+                    offset: 1,
+                    ..
+                }
+            )
+        })
+        .expect("expected indexed high-byte load");
+    let low = out
+        .iter()
+        .position(|op| {
+            matches!(
+                op,
+                MirOp::LoadIndirect {
+                    consumer: DEFAULT_POINTER_PAIR,
+                    offset: 0,
+                    ..
+                }
+            )
+        })
+        .expect("expected indexed low-byte load");
+    assert!(high < low, "{out:#?}");
     assert!(matches!(
         out.last(),
         Some(MirOp::Call { args, .. }) if args == &vec![

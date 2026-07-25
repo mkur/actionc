@@ -792,6 +792,16 @@ Rules:
 - Calls, runtime helpers, OS calls, machine blocks, raw data, stack operations,
   and unknown absolute memory interactions must preserve conservative ordering.
 - Machine blocks are opaque by default.
+- MIR6502 may replace that default only after recognizing an exact instruction
+  and data-flow contract. The current narrow case is a terminal
+  `JMP (word-local)` whose vector was loaded from a compiler-known table
+  containing only parameterless Action routines. It reads the two-byte local
+  vector, observes no incoming register/flag/pointer-scratch state, clobbers the
+  Action call-volatiles, and remains an all-memory-write barrier for the
+  tail-dispatched routine. Other machine payloads stay opaque.
+- Structured named local, parameter, global, static, and stack regions do not
+  alias compiler spill or zero-page homes. Unknown/all-memory, absolute-range,
+  and zero-page regions remain conservative home-liveness barriers.
 - Hardware registers must not be optimized away or reordered unless explicitly
   modeled.
 - `sp` models stack-pointer effects. `stack_depth_delta` may be `None` for

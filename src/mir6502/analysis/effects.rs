@@ -5,8 +5,8 @@ use std::collections::BTreeSet;
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirCallTarget, MirCarryIn, MirCond,
     MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlag, MirFlagTest, MirMem, MirMemoryEffect,
-    MirOp, MirPointerPair, MirReg, MirRegisterSet, MirResultHome, MirSpillId, MirTempId,
-    MirTerminator, MirValue, MirWidth, MirZpSlot,
+    MirMemoryRegionKind, MirOp, MirPointerPair, MirReg, MirRegisterSet, MirResultHome, MirSpillId,
+    MirTempId, MirTerminator, MirValue, MirWidth, MirZpSlot,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -650,10 +650,17 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.machine.flag_clobbers = MirFlagSet::all();
             summary.machine.writes_any_flags_compat = true;
         }
-        MirOp::Barrier { effects } | MirOp::MachineBlock { effects, .. } => {
+        MirOp::Barrier { effects } => {
             apply_structured_effects(effects, true, &mut summary);
             summary.machine.conservative_register_clobbers = all_registers();
             summary.machine.opaque_flag_or_a_effects = true;
+        }
+        MirOp::MachineBlock { effects, .. } => {
+            apply_structured_effects(effects, true, &mut summary);
+            if effects.opaque {
+                summary.machine.conservative_register_clobbers = all_registers();
+                summary.machine.opaque_flag_or_a_effects = true;
+            }
         }
     }
 
@@ -1199,12 +1206,25 @@ fn apply_structured_effects(
     summary.memory.may_write_any_compat = (opaque_is_memory_effect && effects.opaque)
         || !matches!(effects.memory_writes, MirMemoryEffect::None);
     summary.homes.unknown_reads =
-        effects.opaque || !matches!(effects.memory_reads, MirMemoryEffect::None);
+        effects.opaque || structured_effect_may_alias_compiler_homes(&effects.memory_reads);
     summary.homes.unknown_writes =
-        effects.opaque || !matches!(effects.memory_writes, MirMemoryEffect::None);
+        effects.opaque || structured_effect_may_alias_compiler_homes(&effects.memory_writes);
     summary.machine.register_clobbers = effects.clobbers;
     if effects.clobbers.flags || effects.opaque {
         summary.machine.flag_clobbers = MirFlagSet::all();
+    }
+}
+
+fn structured_effect_may_alias_compiler_homes(effect: &MirMemoryEffect) -> bool {
+    match effect {
+        MirMemoryEffect::None => false,
+        MirMemoryEffect::Unknown | MirMemoryEffect::All => true,
+        MirMemoryEffect::Regions(regions) => regions.iter().any(|region| {
+            matches!(
+                region.kind,
+                MirMemoryRegionKind::AbsoluteRange | MirMemoryRegionKind::ZeroPage
+            )
+        }),
     }
 }
 
@@ -1761,6 +1781,37 @@ mod tests {
         assert!(machine.memory.may_write_any_compat);
         assert!(machine.may_clobber_reg_compat(MirReg::X));
         assert!(machine.machine.opaque_flag_or_a_effects);
+    }
+
+    #[test]
+    fn structured_named_regions_do_not_alias_compiler_homes() {
+        let named = classify_op(&MirOp::MachineBlock {
+            id: MirMachineBlockId(1),
+            effects: MirEffects {
+                memory_reads: MirMemoryEffect::Regions(vec![crate::mir6502::MirMemoryRegion {
+                    kind: MirMemoryRegionKind::Local(crate::nir::LocalId(0)),
+                    offset: 0,
+                    size: 2,
+                }]),
+                opaque: false,
+                ..MirEffects::default()
+            },
+        });
+        assert!(!named.homes.unknown_reads);
+
+        let zero_page = classify_op(&MirOp::MachineBlock {
+            id: MirMachineBlockId(2),
+            effects: MirEffects {
+                memory_reads: MirMemoryEffect::Regions(vec![crate::mir6502::MirMemoryRegion {
+                    kind: MirMemoryRegionKind::ZeroPage,
+                    offset: 0xAC,
+                    size: 2,
+                }]),
+                opaque: false,
+                ..MirEffects::default()
+            },
+        });
+        assert!(zero_page.homes.unknown_reads);
     }
 
     #[test]

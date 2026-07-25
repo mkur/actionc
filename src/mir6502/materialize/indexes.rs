@@ -1286,23 +1286,13 @@ pub(in crate::mir6502) fn discover_scaled_y_word_reads(
                 continue;
             };
 
-            let materialize_point = context.point(MirSite::Op {
-                block: block.id,
-                op_index: materialize_index,
-            });
-            if let MirProof::Blocked(blocker) =
-                context.register_dead_after(MirReg::A, materialize_point)
-            {
-                context.record_blocker(STAT, block.id, materialize_index, &blocker);
-                continue;
-            }
-            if let MirProof::Blocked(blocker) =
-                context.flags_dead_after(MirFlagSet::all(), materialize_point)
-            {
-                context.record_blocker(STAT, block.id, materialize_index, &blocker);
-                continue;
-            }
-
+            // Both the full-address and scaled-Y materializations define A
+            // and clobber the processor flags. Their concrete intermediate
+            // values are therefore not MIR outputs that need a deadness
+            // proof. The replacement's additional observable state is Y plus
+            // the pointer pair, which is recorded in the exit-state change
+            // below and checked transactionally at the end of the full read
+            // window.
             let scaled_consumer = MirAddressConsumer::ScaledIndirectIndexedY(*pair);
             let replacement = block.ops[materialize_index..=last_access]
                 .iter()
@@ -1459,18 +1449,23 @@ fn scaled_y_read_window_end(
     pair_homes: [MirHomeByte; 2],
 ) -> Option<usize> {
     let mut low_access = None;
+    let mut high_access = None;
     for (index, op) in ops.iter().enumerate().skip(materialize_index + 1) {
         match op {
             MirOp::LoadIndirect {
                 consumer: op_consumer,
                 offset,
                 ..
-            } if *op_consumer == consumer => match (*offset, low_access) {
-                (0, None) => low_access = Some(index),
-                (1, None) => return Some(index),
-                (1, Some(_)) => return Some(index),
-                _ => return None,
-            },
+            } if *op_consumer == consumer => {
+                match *offset {
+                    0 if low_access.is_none() => low_access = Some(index),
+                    1 if high_access.is_none() => high_access = Some(index),
+                    _ => return None,
+                }
+                if low_access.is_some() && high_access.is_some() {
+                    return Some(index);
+                }
+            }
             MirOp::MaterializeAddress {
                 consumer: op_consumer,
                 ..
@@ -1509,7 +1504,7 @@ fn scaled_y_read_window_end(
             }
         }
     }
-    low_access
+    low_access.or(high_access)
 }
 
 fn scaled_y_store_window_end(

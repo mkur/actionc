@@ -4,15 +4,16 @@ use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirBlockId, MirCallAbi, MirCallArg,
     MirCallTarget, MirCarryIn, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDef, MirEffects,
-    MirFixedZpSlot, MirFlagTest, MirMem, MirOp, MirOpRef, MirPhase, MirPointerPair, MirProgram,
-    MirReg, MirResultHome, MirRuntimeHelper, MirSpillId, MirTemp, MirTempId, MirTerminator,
-    MirUnaryOp, MirUpdateOp, MirValue, MirWidth, RoutineId,
+    MirFixedZpSlot, MirFlagTest, MirMachineAtom, MirMachineItem, MirMem, MirMemoryEffect,
+    MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase, MirPointerPair, MirProgram,
+    MirReg, MirResultHome, MirRuntimeHelper, MirSpillId, MirStorageBase, MirStorageInit, MirTemp,
+    MirTempId, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth, RoutineId,
 };
 use super::passes::Mir6502Config;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[cfg(test)]
-use super::ir::{MirMemoryEffect, MirZpSlot};
+use super::ir::MirZpSlot;
 
 mod abi;
 mod block_args;
@@ -895,6 +896,7 @@ pub(super) fn materialize_program(
     let mut helpers = Vec::new();
     let mut peephole_stats = MirPeepholeStats::default();
     let mut home_fates = BTreeMap::<RoutineId, HomeFateTracker>::new();
+    refine_terminal_indirect_jump_effects(&mut program);
     reserve_pointer_scratch_slots(&mut program);
     allocate_zero_page_slots(&mut program);
     {
@@ -1003,6 +1005,231 @@ pub(super) fn materialize_program(
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
     maybe_report_peepholes(&program, &peephole_stats, config);
     Ok(program)
+}
+
+/// A terminal `JMP (word-local)` fed by a compiler-known table containing only
+/// parameterless Action routines is an indirect Action tail dispatch, not an
+/// arbitrary inline instruction stream. The opcode consumes the two-byte
+/// vector but no incoming register, flag, or compiler pointer scratch state.
+/// Keep it as a full memory-write barrier for the dispatched routine while
+/// exposing that narrower machine-input contract to MIR6502 liveness.
+fn refine_terminal_indirect_jump_effects(program: &mut MirProgram) {
+    let machine_blocks = program
+        .machine_blocks
+        .iter()
+        .map(|block| (block.id, block.items.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let parameterless_action_routines = program
+        .routines
+        .iter()
+        .filter(|routine| {
+            matches!(
+                routine.abi,
+                super::ir::MirRoutineAbi::Action | super::ir::MirRoutineAbi::ActionObservable
+            ) && routine.frame.params.is_empty()
+        })
+        .map(|routine| routine.name.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>();
+    let action_routine_tables = program
+        .routines
+        .iter()
+        .filter_map(|routine| {
+            let [block] = routine.blocks.as_slice() else {
+                return None;
+            };
+            let [MirOp::MachineBlock { id, .. }] = block.ops.as_slice() else {
+                return None;
+            };
+            if !matches!(block.terminator, MirTerminator::Unreachable) {
+                return None;
+            }
+            machine_blocks
+                .get(id)
+                .is_some_and(|items| {
+                    machine_table_contains_only_action_routines(
+                        items,
+                        &parameterless_action_routines,
+                    )
+                })
+                .then_some(routine.id)
+        })
+        .collect::<BTreeSet<_>>();
+
+    for routine in &mut program.routines {
+        for block_index in 0..routine.blocks.len() {
+            let Some(local) = ({
+                let block = &routine.blocks[block_index];
+                if !matches!(block.terminator, MirTerminator::Unreachable) {
+                    None
+                } else {
+                    let id = match block.ops.last() {
+                        Some(MirOp::MachineBlock { id, .. }) => Some(*id),
+                        _ => None,
+                    };
+                    id.and_then(|id| machine_blocks.get(&id))
+                        .and_then(|items| terminal_indirect_jump_vector_name(items))
+                        .and_then(|name| {
+                            proven_action_dispatch_vector(
+                                routine,
+                                block,
+                                name,
+                                &action_routine_tables,
+                            )
+                        })
+                }
+            }) else {
+                continue;
+            };
+            let Some(MirOp::MachineBlock { effects, .. }) =
+                routine.blocks[block_index].ops.last_mut()
+            else {
+                unreachable!("dispatch proof requires terminal machine block")
+            };
+
+            *effects = MirEffects {
+                memory_reads: MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                    kind: MirMemoryRegionKind::Local(local),
+                    offset: 0,
+                    size: 2,
+                }]),
+                // The tail-dispatched routine may mutate arbitrary program
+                // memory, but it cannot observe MIR6502's transient pointer
+                // pair merely by being entered through JMP.
+                memory_writes: MirMemoryEffect::All,
+                clobbers: super::abi::action_call_clobbers(),
+                preserves: Default::default(),
+                stack_depth_delta: None,
+                may_call_os: true,
+                opaque: false,
+            };
+        }
+    }
+}
+
+fn machine_table_contains_only_action_routines(
+    items: &[MirMachineItem],
+    parameterless_action_routines: &BTreeSet<String>,
+) -> bool {
+    !items.is_empty()
+        && items.len() % 2 == 0
+        && items.chunks_exact(2).all(|pair| {
+            let name = match pair {
+                [
+                    MirMachineItem::AddressExpr {
+                        selector: Some(super::ir::MirMachineByteSelector::Low),
+                        atom: MirMachineAtom::Name(low),
+                        offset: 0,
+                        ..
+                    },
+                    MirMachineItem::AddressExpr {
+                        selector: Some(super::ir::MirMachineByteSelector::High),
+                        atom: MirMachineAtom::Name(high),
+                        offset: 0,
+                        ..
+                    },
+                ] if low.eq_ignore_ascii_case(high) => Some(low),
+                [
+                    MirMachineItem::AddressByte {
+                        high: false,
+                        name: low,
+                    },
+                    MirMachineItem::AddressByte {
+                        high: true,
+                        name: high,
+                    },
+                ] if low.eq_ignore_ascii_case(high) => Some(low),
+                _ => None,
+            };
+            name.is_some_and(|name| {
+                parameterless_action_routines.contains(&name.to_ascii_lowercase())
+            })
+        })
+}
+
+fn proven_action_dispatch_vector(
+    routine: &super::ir::MirRoutine,
+    block: &super::ir::MirBlock,
+    vector_name: &str,
+    action_routine_tables: &BTreeSet<RoutineId>,
+) -> Option<crate::nir::LocalId> {
+    let machine_index = block.ops.len().checked_sub(1)?;
+    let store_index = machine_index.checked_sub(1)?;
+    let MirOp::Store {
+        dst:
+            MirAddr::Direct(MirMem::Local {
+                id: vector,
+                offset: 0,
+            }),
+        src: MirValue::Def(MirDef::VTemp(value)),
+        width: MirWidth::Word,
+    } = &block.ops[store_index]
+    else {
+        return None;
+    };
+    let vector_slot = routine.frame.locals.iter().find(|slot| {
+        slot.base == MirStorageBase::Local(*vector)
+            && slot.width == MirWidth::Word
+            && slot.offset == 0
+            && slot
+                .name
+                .as_deref()
+                .is_some_and(|candidate| candidate.eq_ignore_ascii_case(vector_name))
+    })?;
+    if vector_slot.storage != super::ir::MirStorageClass::Scalar {
+        return None;
+    }
+
+    let mut definitions = block.ops[..store_index].iter().filter_map(|op| {
+        let MirOp::Load {
+            dst: MirDef::VTemp(candidate),
+            src:
+                MirAddr::PointerIndex {
+                    ptr:
+                        MirMem::Local {
+                            id: table,
+                            offset: 0,
+                        },
+                    elem_size: 2,
+                    offset: 0,
+                    ..
+                },
+            width: MirWidth::Word,
+        } = op
+        else {
+            return None;
+        };
+        (candidate == value).then_some(*table)
+    });
+    let table = definitions.next()?;
+    if definitions.next().is_some() {
+        return None;
+    }
+    let table_slot = routine.frame.locals.iter().find(|slot| {
+        slot.base == MirStorageBase::Local(table)
+            && slot.offset == 0
+            && matches!(
+                slot.init,
+                Some(MirStorageInit::RoutineAddress { routine, .. })
+                    if action_routine_tables.contains(&routine)
+            )
+    })?;
+    matches!(table_slot.storage, super::ir::MirStorageClass::Array).then_some(*vector)
+}
+
+fn terminal_indirect_jump_vector_name(items: &[MirMachineItem]) -> Option<&str> {
+    match items {
+        [MirMachineItem::Byte(0x6C), MirMachineItem::Name(name)] => Some(name),
+        [
+            MirMachineItem::Byte(0x6C),
+            MirMachineItem::AddressExpr {
+                selector: None,
+                atom: MirMachineAtom::Name(name),
+                offset: 0,
+                ..
+            },
+        ] => Some(name),
+        _ => None,
+    }
 }
 
 fn run_cfg_group(

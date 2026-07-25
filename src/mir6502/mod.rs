@@ -6341,7 +6341,7 @@ mod tests {
     }
 
     #[test]
-    fn mir6502_emission_keeps_scaled_word_index_in_y() {
+    fn mir6502_emission_adjusts_scaled_word_index_in_both_directions() {
         let consumer = MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed {
             lo: MirFixedZpSlot(0xAC),
         });
@@ -6368,12 +6368,12 @@ mod tests {
                         MirOp::LoadIndirect {
                             consumer,
                             dst: MirDef::Reg(MirReg::A),
-                            offset: 0,
+                            offset: 1,
                         },
                         MirOp::LoadIndirect {
                             consumer,
                             dst: MirDef::Reg(MirReg::A),
-                            offset: 1,
+                            offset: 0,
                         },
                     ],
                     terminator: MirTerminator::Return,
@@ -6392,7 +6392,7 @@ mod tests {
             bytes,
             vec![
                 0xA9, 0x82, 0x0A, 0xA8, 0xA9, 0xF0, 0x85, 0xAC, 0xA9, 0x40, 0x69, 0x00, 0x85, 0xAD,
-                0xB1, 0xAC, 0xC8, 0xB1, 0xAC, 0x60,
+                0xC8, 0xB1, 0xAC, 0x88, 0xB1, 0xAC, 0x60,
             ]
         );
     }

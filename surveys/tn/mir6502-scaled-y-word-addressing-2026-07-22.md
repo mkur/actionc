@@ -39,6 +39,10 @@ inside machine/data procedures as instructions.
    one Y offset, and teaches emission to advance that shared offset only once.
 5. The final hardening slice verifies the block-local scaled-Y protocol and
    updates the pre-existing LEA word-array expectations to the selected form.
+6. A follow-up destination-placement slice permits high-byte-first word reads
+   and recognizes terminal `JMP (word-local)` dispatches fed by known tables of
+   parameterless Action routines. This lets `MakeJmp` keep the doubled index in
+   Y while carrying `ASL` into the pointer high-byte `ADC #0`.
 
 No NIR form or source-language rule changed. The representation and selection
 remain in MIR6502 because Y, flags, pointer pairs, and `(zp),Y` are target
@@ -51,26 +55,29 @@ pointer pair and Y offset zero. Selection requires:
 
 - a byte-sized index and a base that the emitter can split without transient
   target state;
-- dead A and processor flags after replacing the classic full-address setup;
+- equivalent A/processor-flag clobbers in the classic full-address and scaled-Y
+  materializations;
 - dead Y and pointer-pair homes at the rewritten window exit;
 - no intervening Y clobber, pointer-pair touch, or incompatible indirect
   access;
-- monotone byte offsets, so emission can use offset zero followed by at most
-  one `INY` for offset one.
+- word-lane byte offsets zero and one; loads may visit them in either order
+  with emission using `INY`/`DEY`, while stores remain monotone.
 
 Pre-emission verification rejects scaled accesses without a matching active
-materialization and rejects offset reuse that would require moving Y backward.
-Calls, machine blocks, and unproved cross-block state remain barriers.
+materialization and rejects offsets outside the two word lanes. Calls, opaque
+machine blocks, and unproved cross-block state remain barriers. A terminal
+`JMP (word-local)` fed by a proven parameterless-Action routine table is instead
+represented by structured effects: it reads the local vector but no incoming
+machine state.
 
 ## Residual TN sites
 
-Four full scale-two calculations remain deliberately unselected:
+Four full scale-two materializations remain deliberately unselected:
 
 | Routine | Sites | Reason |
 | --- | ---: | --- |
 | `Sort` | 2 | The word copy has different source and destination indexes, so one Y value cannot address both pointer pairs. |
-| `MakeJmp` | 1 | The result feeds an opaque machine block; Y/flag observability is not narrow enough to prove the replacement. |
-| `Handle` | 1 | The prepared pointer state remains live/reused outside the local read window. |
+| `Handle` | 2 | The prepared pointer states remain live/reused outside the local read window. |
 
 These cases need broader or different transformations, not a relaxation of the
 current scaled-Y proof.

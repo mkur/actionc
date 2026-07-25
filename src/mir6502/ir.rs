@@ -554,6 +554,10 @@ pub enum MirAddressConsumer {
     /// folded into its high byte) and Y contains the scaled byte offset.
     /// This form is intentionally 6502-specific and is only valid for a
     /// scale-two indexed materialization followed by byte offsets 0 or 1.
+    /// Load consumers may visit those two offsets in either order; emission
+    /// adjusts Y with INY or DEY while retaining the scaled index. Store
+    /// consumers remain monotone because a trailing DEY would expose flags not
+    /// represented by the store operation.
     ScaledIndirectIndexedY(MirPointerPair),
 }
 
