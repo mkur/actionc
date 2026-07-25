@@ -703,18 +703,28 @@ fn pointer_equality_branch_materializes_to_byte_lane_flag_branches() {
 }
 
 #[test]
-fn unsigned_word_relational_branch_materializes_high_then_low() {
+fn unsigned_word_relational_branch_materializes_to_cmp_sbc_carry_chain() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("card_compare.act");
 
-    assert!(formatted.contains("cmp_word_hi_lt"));
-    assert!(formatted.contains("cmp_word_hi_eq"));
-    assert!(formatted.contains("cmp_word_lo_lt"));
+    assert!(
+        formatted.contains("flags = cmp.b a lt *global g1+0"),
+        "{formatted}"
+    );
+    assert!(formatted.contains(
+        "a =.b a sub *global g1+1 carry_in=previous carry_out=ignore"
+    ));
     assert!(formatted.contains("branch flag c_clear"));
-    assert!(formatted.contains("branch flag z_set"));
+    assert!(!formatted.contains("cmp_word_hi_lt"));
+    assert!(!formatted.contains("cmp_word_hi_eq"));
+    assert!(!formatted.contains("cmp_word_lo_lt"));
     assert!(!formatted.contains("cmp.w"));
     assert!(!formatted.contains("branch bool"));
     assert!(!formatted.contains(" v"));
-    assert!(bytes.windows(2).any(|bytes| bytes[0] == 0x90));
+    assert!(
+        bytes
+            .windows(2)
+            .any(|bytes| matches!(bytes[0], 0x90 | 0xB0))
+    );
 }
 
 #[test]
