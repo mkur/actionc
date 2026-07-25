@@ -170,6 +170,11 @@ RETURN
 
 PROC Plot8=*(BYTE x,y)
 
+  ; The Action ABI passes x in A and y in X.  The original compiler also
+  ; left complex argument values in $A0/$A1 as an evaluation side effect.
+  ; Capture the ABI registers explicitly before using those fast ZP aliases.
+  [$85 $A0 $86 $A1] ; STA plotArgX / STX plotArgY
+
   low=yLocL(plotArgY)
   high=yLocH(plotArgY)
   t=rsh3(plotArgX)
@@ -181,6 +186,9 @@ RETURN
 ;************************************
 
 PROC Erase8=*(BYTE x,y)
+
+  ; Keep the ZP argument aliases independent of caller evaluation details.
+  [$85 $A0 $86 $A1] ; STA plotArgX / STX plotArgY
 
   low=yLocL(plotArgY)
   high=yLocH(plotArgY)
