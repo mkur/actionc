@@ -43,6 +43,17 @@ impl MirKnownMemoryWrites {
         }
     }
 
+    pub(in crate::mir6502) fn may_write_caller_private_byte(&self, address: u16) -> bool {
+        match self {
+            // Named callee storage cannot name a caller-private byte. Only a
+            // raw absolute access can overlap the caller's resolved frame.
+            Self::Exact(writes) => writes
+                .iter()
+                .any(|write| matches!(write, MirMem::Absolute(candidate) if *candidate == address)),
+            Self::Unknown => true,
+        }
+    }
+
     fn exact() -> Self {
         Self::Exact(Vec::new())
     }
@@ -87,6 +98,17 @@ impl MirKnownMemoryReads {
             // cannot name another routine's private RAM. A raw absolute read
             // can alias it after layout, so it remains conservative.
             Self::Exact(reads) => reads.iter().any(|read| matches!(read, MirMem::Absolute(_))),
+            Self::Unknown => true,
+        }
+    }
+
+    pub(in crate::mir6502) fn may_read_caller_private_byte(&self, address: u16) -> bool {
+        match self {
+            // Named callee storage cannot name a caller-private byte. Only a
+            // raw absolute access can overlap the caller's resolved frame.
+            Self::Exact(reads) => reads
+                .iter()
+                .any(|read| matches!(read, MirMem::Absolute(candidate) if *candidate == address)),
             Self::Unknown => true,
         }
     }

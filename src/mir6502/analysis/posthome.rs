@@ -39,7 +39,11 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
         Ok(Self {
             home_definitions: MirHomeDefinitions::analyze(routine, cfg),
             home_liveness: MirHomeLiveness::analyze(routine, cfg),
-            machine_liveness: MirMachineLiveness::analyze(routine, cfg),
+            machine_liveness: MirMachineLiveness::analyze_with_known_callees(
+                routine,
+                cfg,
+                known_callees,
+            ),
             machine_values: MirMachineValueAvailability::analyze_with_known_callees(
                 routine,
                 cfg,

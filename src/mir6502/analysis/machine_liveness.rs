@@ -5,11 +5,14 @@ use std::collections::BTreeMap;
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};
 use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::{
-    MirFlagSet, MirMachineEffects, MirOpEffectSummary, MirOpKind, MirTerminatorEffectSummary,
-    classify_op, classify_terminator,
+    MirFlagSet, MirMachineEffects, MirOpKind, MirTerminatorEffectSummary, classify_op,
+    classify_terminator,
 };
+use crate::mir6502::analysis::known_callees::MirKnownCalleeSummaries;
 use crate::mir6502::analysis::sites::MirSite;
-use crate::mir6502::ir::{MirBlockId, MirFlag, MirReg, MirRegisterSet, MirRoutine, MirTerminator};
+use crate::mir6502::ir::{
+    MirBlockId, MirCallTarget, MirFlag, MirOp, MirReg, MirRegisterSet, MirRoutine, MirTerminator,
+};
 
 /// Backward liveness for physical 6502 state represented by MIR. Flags remain
 /// independent because a rewrite can preserve one condition code while
@@ -111,13 +114,40 @@ pub(in crate::mir6502) struct MirMachineLiveness {
 
 impl MirMachineLiveness {
     pub(in crate::mir6502) fn analyze(routine: &MirRoutine, cfg: &MirCfg) -> Self {
-        Self::analyze_with_return_registers(routine, cfg, MirRegisterSet::default())
+        Self::analyze_with_known_callees(routine, cfg, &MirKnownCalleeSummaries::default())
+    }
+
+    pub(in crate::mir6502) fn analyze_with_known_callees(
+        routine: &MirRoutine,
+        cfg: &MirCfg,
+        known_callees: &MirKnownCalleeSummaries,
+    ) -> Self {
+        Self::analyze_with_return_registers_and_known_callees(
+            routine,
+            cfg,
+            MirRegisterSet::default(),
+            known_callees,
+        )
     }
 
     pub(in crate::mir6502) fn analyze_with_return_registers(
         routine: &MirRoutine,
         cfg: &MirCfg,
         return_registers: MirRegisterSet,
+    ) -> Self {
+        Self::analyze_with_return_registers_and_known_callees(
+            routine,
+            cfg,
+            return_registers,
+            &MirKnownCalleeSummaries::default(),
+        )
+    }
+
+    pub(in crate::mir6502) fn analyze_with_return_registers_and_known_callees(
+        routine: &MirRoutine,
+        cfg: &MirCfg,
+        return_registers: MirRegisterSet,
+        known_callees: &MirKnownCalleeSummaries,
     ) -> Self {
         let transfers = routine
             .blocks
@@ -126,7 +156,7 @@ impl MirMachineLiveness {
                 let ops = block
                     .ops
                     .iter()
-                    .map(|op| op_transfer(&classify_op(op)))
+                    .map(|op| op_transfer(op, known_callees))
                     .collect();
                 let terminator = terminator_transfer(&classify_terminator(&block.terminator));
                 (block.id, MirMachineBlockTransfers { ops, terminator })
@@ -307,9 +337,22 @@ impl DataflowProblem<MirCfg> for MachineLivenessProblem<'_> {
     }
 }
 
-fn op_transfer(effects: &MirOpEffectSummary) -> MirMachineTransfer {
+fn op_transfer(op: &MirOp, known_callees: &MirKnownCalleeSummaries) -> MirMachineTransfer {
+    let effects = classify_op(op);
     let mut reads = machine_reads(&effects.machine);
-    let writes = machine_writes(&effects.machine);
+    let mut writes = machine_writes(&effects.machine);
+    if let MirOp::Call {
+        target: target @ MirCallTarget::Routine(_),
+        ..
+    } = op
+        && let Some(summary) = known_callees.for_target(target)
+    {
+        for register in [MirReg::X, MirReg::Y] {
+            if summary.preserves_register(register) {
+                clear_register(&mut writes.registers, register);
+            }
+        }
+    }
 
     // Conservative clobbers are may-defs: they cannot kill a value that is
     // live after the operation, but they also do not make an otherwise-dead
@@ -383,6 +426,14 @@ fn register_is_set(registers: MirRegisterSet, reg: MirReg) -> bool {
     }
 }
 
+fn clear_register(registers: &mut MirRegisterSet, reg: MirReg) {
+    match reg {
+        MirReg::A => registers.a = false,
+        MirReg::X => registers.x = false,
+        MirReg::Y => registers.y = false,
+    }
+}
+
 fn merge_registers(into: &mut MirRegisterSet, other: MirRegisterSet) {
     into.a |= other.a;
     into.x |= other.x;
@@ -424,7 +475,8 @@ mod tests {
     use super::*;
     use crate::mir6502::ir::{
         MirBlock, MirCallAbi, MirCallTarget, MirCond, MirDef, MirEdge, MirEffects, MirFlagTest,
-        MirFrame, MirMachineBlockId, MirOp, MirRoutineAbi, MirValue, MirWidth, RoutineId,
+        MirFrame, MirMachineBlockId, MirOp, MirProgram, MirRoutineAbi, MirValue, MirWidth,
+        RoutineId,
     };
 
     fn block(id: u32, ops: Vec<MirOp>, terminator: MirTerminator) -> MirBlock {
@@ -467,6 +519,70 @@ mod tests {
             value,
             width: MirWidth::Byte,
         }
+    }
+
+    #[test]
+    fn known_callee_preservation_keeps_index_values_live_across_calls() {
+        let call = MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(1)),
+            abi: MirCallAbi {
+                params: Vec::new(),
+                result: None,
+                clobbers: MirRegisterSet {
+                    a: true,
+                    x: true,
+                    y: true,
+                    flags: true,
+                    ..MirRegisterSet::default()
+                },
+                preserves: MirRegisterSet::default(),
+            },
+            args: Vec::new(),
+            result: None,
+            effects: MirEffects::default(),
+        };
+        let caller = routine(vec![block(
+            0,
+            vec![
+                load_imm(MirReg::Y, 7),
+                call,
+                MirOp::Store {
+                    dst: crate::mir6502::ir::MirAddr::Direct(crate::mir6502::ir::MirMem::Absolute(
+                        0x4000,
+                    )),
+                    src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                    width: MirWidth::Byte,
+                },
+            ],
+            MirTerminator::Return,
+        )]);
+        let callee = MirRoutine {
+            id: RoutineId(1),
+            name: "PreservesY".to_string(),
+            abi: MirRoutineAbi::Action,
+            frame: MirFrame::default(),
+            temps: Vec::new(),
+            blocks: vec![block(1, Vec::new(), MirTerminator::Return)],
+            effects: MirEffects::default(),
+        };
+        let program = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![caller.clone(), callee],
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+        let summaries = MirKnownCalleeSummaries::analyze(&program);
+        let cfg = MirCfg::from_routine(&caller).unwrap();
+        let conservative = MirMachineLiveness::analyze(&caller, &cfg);
+        let known = MirMachineLiveness::analyze_with_known_callees(&caller, &cfg, &summaries);
+
+        assert!(
+            conservative
+                .register_dead_after(MirReg::Y, op_site(0, 0))
+                .unwrap()
+        );
+        assert!(!known.register_dead_after(MirReg::Y, op_site(0, 0)).unwrap());
     }
 
     fn branch(test: MirFlagTest, then_block: u32, else_block: u32) -> MirTerminator {

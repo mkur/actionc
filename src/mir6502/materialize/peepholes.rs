@@ -320,6 +320,70 @@ pub(in crate::mir6502) fn discover_known_callee_word_result_placements(
     plans
 }
 
+pub(in crate::mir6502) fn discover_known_callee_preserved_index_param_carriers(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    known_callees: &MirKnownCalleeSummaries,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    const STAT: &str = "known-callee-preserved-index-param-carrier";
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            for (priority, carrier) in [MirReg::Y, MirReg::X].into_iter().enumerate() {
+                let Some(replacement) = known_callee_preserved_index_param_carrier_shape_at(
+                    &block.ops,
+                    index,
+                    routine.id,
+                    carrier,
+                    known_callees,
+                    layout,
+                ) else {
+                    continue;
+                };
+                let end = context.point(MirSite::Op {
+                    block: block.id,
+                    op_index: index + 2,
+                });
+                if !context.register_dead_after(carrier, end).is_proven() {
+                    continue;
+                }
+                let mut registers = MirRegisterSet::default();
+                match carrier {
+                    MirReg::X => registers.x = true,
+                    MirReg::Y => registers.y = true,
+                    MirReg::A => unreachable!("index carrier"),
+                }
+                let exit_state_change = MirExitStateChange {
+                    registers,
+                    ..MirExitStateChange::default()
+                };
+                if let Some(mut plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + 3,
+                    replacement,
+                    exit_state_change,
+                    STAT,
+                    u16::try_from(priority).unwrap_or(u16::MAX),
+                ) {
+                    plan.observations.push((
+                        match carrier {
+                            MirReg::X => "known-callee-preserved-x-param-carrier",
+                            MirReg::Y => "known-callee-preserved-y-param-carrier",
+                            MirReg::A => unreachable!("index carrier"),
+                        },
+                        1,
+                    ));
+                    plans.push(plan);
+                }
+            }
+        }
+    }
+    plans
+}
+
 pub(in crate::mir6502) fn discover_dead_private_scratch_stores(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,
@@ -3205,6 +3269,58 @@ fn known_callee_word_result_placement_shape_at(
     replacement.push(ops[index + 1].clone());
     replacement.push(ops[index + 2].clone());
     Some((consumed, replacement))
+}
+
+fn known_callee_preserved_index_param_carrier_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    carrier: MirReg,
+    known_callees: &MirKnownCalleeSummaries,
+    layout: &MaterializeLayout,
+) -> Option<Vec<MirOp>> {
+    if !matches!(carrier, MirReg::X | MirReg::Y) {
+        return None;
+    }
+    let param = match store_a_direct_byte(ops.get(index)?)? {
+        mem @ MirMem::Param { .. } => mem,
+        _ => return None,
+    };
+    let call @ MirOp::Call { target, .. } = ops.get(index + 1)? else {
+        return None;
+    };
+    let summary = known_callees.for_target(target)?;
+    let param_address = layout.mem_address(routine_id, &param)?;
+    if !summary.preserves_register(carrier)
+        || summary.reads().may_read_caller_private_byte(param_address)
+        || summary
+            .writes()
+            .may_write_caller_private_byte(param_address)
+    {
+        return None;
+    }
+    let call_effects = classify_op(call);
+    if call_effects.reads_reg(carrier) || call_effects.machine.flag_reads.any() {
+        return None;
+    }
+    if load_a_direct_byte(ops.get(index + 2)?)? != param {
+        return None;
+    }
+
+    Some(vec![
+        ops[index].clone(),
+        MirOp::Move {
+            dst: MirDef::Reg(carrier),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        call.clone(),
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::Def(MirDef::Reg(carrier)),
+            width: MirWidth::Byte,
+        },
+    ])
 }
 
 #[cfg(test)]

@@ -986,6 +986,12 @@ pub(super) fn materialize_program(
             &mut peephole_stats,
         )?;
     }
+    // Known-callee carrier selection can replace the last parameter reload
+    // with a preserved machine register. Re-run the narrow ABI-home elider so
+    // the now write-only entry capture is removed in the same pipeline.
+    for routine in &mut program.routines {
+        elide_write_only_param_homes(routine, &mut peephole_stats);
+    }
     let zero_page_remaps = lower_block_local_byte_spills_to_zero_page(&mut program);
     for (routine, remap) in zero_page_remaps {
         if let Some(tracker) = home_fates.get_mut(&routine) {
@@ -1432,10 +1438,16 @@ fn run_posthome_structural_group(
         known_callees,
         peephole_stats,
     )?;
+    run_analyzed_known_callee_preserved_index_param_carriers(
+        routine,
+        layout,
+        known_callees,
+        peephole_stats,
+    )?;
     run_analyzed_ssa_lite_byte_rewrites(routine, layout, false, known_callees, peephole_stats)?;
     run_analyzed_dead_private_scratch_stores(routine, peephole_stats)?;
     run_analyzed_txa_direct_store_folds(routine, peephole_stats)?;
-    run_analyzed_dead_register_writes(routine, layout, peephole_stats)?;
+    run_analyzed_dead_register_writes(routine, layout, known_callees, peephole_stats)?;
     for block in &mut routine.blocks {
         let ops = std::mem::take(&mut block.ops);
         block.ops = fold_structural_machine_tail(ops, routine.id, layout, peephole_stats);
@@ -1462,7 +1474,7 @@ fn run_posthome_cleanup_group(
     }
     run_analyzed_ssa_lite_byte_rewrites(routine, layout, true, known_callees, peephole_stats)?;
     run_analyzed_call_result_y_placements(routine, peephole_stats)?;
-    run_analyzed_dead_register_writes(routine, layout, peephole_stats)?;
+    run_analyzed_dead_register_writes(routine, layout, known_callees, peephole_stats)?;
     remove_dead_spill_stores(routine);
     let remap = color_basic_block_spills(routine);
     if let Some(tracker) = home_fates.as_deref_mut() {
@@ -1565,19 +1577,27 @@ fn run_analyzed_direct_inc_dec_updates(
 fn run_analyzed_dead_register_writes(
     routine: &mut super::ir::MirRoutine,
     layout: &MaterializeLayout,
+    known_callees: Option<&MirKnownCalleeSummaries>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let mut driver = MirPostHomeRewriteDriver::default();
-    let result = driver
-        .run_fixed_point(routine, |routine, context| {
+    let discover =
+        |routine: &super::ir::MirRoutine,
+         context: &crate::mir6502::rewrite::context::PostHomeRewriteContext<'_, '_>| {
             peepholes::discover_dead_register_writes(routine, context, layout)
-        })
-        .map_err(|error| {
-            vec![MirDiagnostic::routine(
-                &routine.name,
-                format!("post-home dead register-write rewrite failed: {error:?}"),
-            )]
-        })?;
+        };
+    let result = match known_callees {
+        Some(known_callees) => {
+            driver.run_fixed_point_with_known_callees(routine, known_callees, discover)
+        }
+        None => driver.run_fixed_point(routine, discover),
+    }
+    .map_err(|error| {
+        vec![MirDiagnostic::routine(
+            &routine.name,
+            format!("post-home dead register-write rewrite failed: {error:?}"),
+        )]
+    })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
     Ok(())
 }
@@ -1640,6 +1660,35 @@ fn run_analyzed_known_callee_word_result_placements(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home known-callee word-result placement failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_known_callee_preserved_index_param_carriers(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    known_callees: Option<&MirKnownCalleeSummaries>,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let Some(known_callees) = known_callees else {
+        return Ok(());
+    };
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_with_known_callees(routine, known_callees, |routine, context| {
+            peepholes::discover_known_callee_preserved_index_param_carriers(
+                routine,
+                context,
+                known_callees,
+                layout,
+            )
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home known-callee index-carrier rewrite failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

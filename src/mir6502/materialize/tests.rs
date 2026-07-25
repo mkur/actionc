@@ -14929,6 +14929,210 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
     assert_eq!(reaches_return.blocks[0].ops, reaches_return_ops);
 }
 
+fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgram {
+    let param = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let call = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: None,
+            clobbers: MirRegisterSet {
+                a: true,
+                x: true,
+                y: true,
+                flags: true,
+                ..MirRegisterSet::default()
+            },
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: None,
+        effects: MirEffects::default(),
+    };
+    let caller = MirRoutine {
+        id: RoutineId(0),
+        name: "CarrierCaller".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame {
+            params: vec![MirStorageSlot {
+                id: MirStorageId(0),
+                name: Some("value".to_string()),
+                storage: MirStorageClass::Scalar,
+                width: MirWidth::Byte,
+                base: MirStorageBase::Param(ParamId(0)),
+                offset: 0,
+                mutable: true,
+                init: None,
+            }],
+            ..MirFrame::default()
+        },
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(0),
+            label: "caller".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Store {
+                    dst: MirAddr::Direct(param.clone()),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+                call,
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(param),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let callee = MirRoutine {
+        id: RoutineId(1),
+        name: "CarrierCallee".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(1),
+            label: "callee".to_string(),
+            params: Vec::new(),
+            ops: callee_ops,
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let mut program = empty_test_program();
+    program.routines = vec![caller, callee];
+    program
+}
+
+fn run_known_callee_index_param_carriers(program: &MirProgram) -> (MirRoutine, MirPeepholeStats) {
+    let known_callees = MirKnownCalleeSummaries::analyze(program);
+    let layout = MaterializeLayout::new(program, 0x3000);
+    let mut caller = program.routines[0].clone();
+    let mut stats = MirPeepholeStats::default();
+    run_analyzed_known_callee_preserved_index_param_carriers(
+        &mut caller,
+        &layout,
+        Some(&known_callees),
+        &mut stats,
+    )
+    .unwrap();
+    elide_write_only_param_homes(&mut caller, &mut stats);
+    (caller, stats)
+}
+
+#[test]
+fn known_callee_fixed_scratch_effects_enable_preserved_y_param_carrier() {
+    let program = known_callee_index_param_carrier_program(vec![
+        MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::X),
+            value: 0,
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(MirMem::Absolute(0x0058)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xE6))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xE7))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ]);
+
+    let (caller, stats) = run_known_callee_index_param_carriers(&program);
+
+    assert!(matches!(
+        caller.frame.params[0].base,
+        MirStorageBase::ParamAbiOnly(ParamId(0))
+    ));
+    assert!(matches!(
+        caller.blocks[0].ops.as_slice(),
+        [
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Call { .. },
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store { .. },
+        ]
+    ));
+    assert_eq!(
+        stats.count_for(RoutineId(0), "known-callee-preserved-index-param-carrier"),
+        1
+    );
+}
+
+#[test]
+fn known_callee_param_carrier_falls_back_to_preserved_x() {
+    let program = known_callee_index_param_carrier_program(vec![MirOp::LoadImm {
+        dst: MirDef::Reg(MirReg::Y),
+        value: 0,
+        width: MirWidth::Byte,
+    }]);
+
+    let (caller, _) = run_known_callee_index_param_carriers(&program);
+
+    assert!(matches!(
+        caller.blocks[0].ops.as_slice(),
+        [
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Call { .. },
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store { .. },
+        ]
+    ));
+}
+
+#[test]
+fn known_callee_raw_read_of_resolved_param_byte_blocks_index_carrier() {
+    let program = known_callee_index_param_carrier_program(vec![MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(MirMem::Absolute(0x3000)),
+        width: MirWidth::Byte,
+    }]);
+    let original = program.routines[0].clone();
+
+    let (caller, stats) = run_known_callee_index_param_carriers(&program);
+
+    assert_eq!(caller, original);
+    assert_eq!(
+        stats.count_for(RoutineId(0), "known-callee-preserved-index-param-carrier"),
+        0
+    );
+}
+
 #[test]
 fn known_callee_word_result_placement_keeps_absolute_store_order() {
     let result_lo = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
