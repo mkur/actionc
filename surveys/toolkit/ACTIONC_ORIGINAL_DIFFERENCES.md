@@ -207,8 +207,9 @@ It differs from the extracted original in these ways:
   named globally.
 - Hardware and ABI aliases such as `memCtl`, `plotArgX`, `trig`, and `CH` were
   moved to global absolute aliases instead of local absolute declarations.
-- The input buffer alias changed from local `STRING numBuf(0)=$550` to global
-  `CHAR POINTER numBuf=$550`.
+- The input buffer alias changed from local `STRING numBuf(0)=$550` to a global
+  two-byte absolute view, `CHAR ARRAY numBuf(2)=$550`, covering the length and
+  first-character bytes inspected by `GetParam`.
 
 These rewrites preserve the original intent while avoiding old untyped cursor
 stores, omitted arguments, local absolute storage ambiguity, and zero-length

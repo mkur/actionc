@@ -17,8 +17,8 @@
 ;   string instead of using a routine-local literal.
 ; - Move hardware/ABI aliases to global scope to avoid local absolute storage
 ;   layout ambiguity in MIR6502.
-; - Spell the absolute input buffer as a CHAR POINTER instead of a zero-length
-;   local STRING alias.
+; - Model the two input-buffer bytes inspected by GetParam as a global absolute
+;   CHAR ARRAY view instead of changing its address binding into pointer storage.
 
 MODULE ; KAL3.ACT
 
@@ -33,7 +33,7 @@ SET $E=$5000
 SET $491=$5000
 
 STRING keyboardDevice(0)="K:"
-CHAR POINTER numBuf=$550
+CHAR ARRAY numBuf(2)=$550
 
 BYTE low=line,
      high=line+1,
