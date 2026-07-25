@@ -13,12 +13,13 @@ use crate::source::{Span, source_char_byte};
 use super::builtin::{MirBuiltinResolution, resolve_builtin_target};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCallTarget, MirCarryIn, MirCompareOp,
-    MirCond, MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlagTest, MirGlobalBacking,
-    MirGlobalInit, MirMachineAtom, MirMachineByteSelector, MirMachineItem, MirMem, MirOp, MirPhase,
-    MirPointerPair, MirProgram, MirReg, MirRoutine, MirRuntimeHelperTarget, MirSpillId,
-    MirStorageBase, MirStorageClass, MirStorageId, MirStorageInit, MirStorageSlot, MirTerminator,
-    MirUnaryOp, MirUpdateOp, MirValue, MirWidth, MirZpSlot, RoutineId,
+    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCallTarget, MirCarryIn,
+    MirCompareOp, MirCond, MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlagTest,
+    MirGlobalBacking, MirGlobalInit, MirMachineAtom, MirMachineByteSelector, MirMachineItem,
+    MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
+    MirRuntimeHelperTarget, MirSpillId, MirStorageBase, MirStorageClass, MirStorageId,
+    MirStorageInit, MirStorageSlot, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth,
+    MirZpSlot, RoutineId,
 };
 use super::verify;
 
@@ -1404,11 +1405,8 @@ fn emit_routine(
             Some(block.id),
             ctx.layout.block_label(routine.id, block.id),
         );
-        let tail_call = block.ops.last().is_some_and(is_tail_call_op)
-            && matches!(
-                block.terminator,
-                MirTerminator::Return | MirTerminator::Exit
-            );
+        let tail_call =
+            block.ops.last().is_some_and(is_tail_call_op) && block_exits_via_return(routine, block);
         for (op_index, op) in block.ops.iter().enumerate() {
             if tail_call
                 && op_index + 1 == block.ops.len()
@@ -1447,6 +1445,25 @@ fn emit_routine(
             routine: routine.name.clone(),
             summary,
         });
+    }
+}
+
+fn block_exits_via_return(routine: &MirRoutine, block: &MirBlock) -> bool {
+    match &block.terminator {
+        MirTerminator::Return | MirTerminator::Exit => true,
+        MirTerminator::Jump(edge) if edge.args.is_empty() => routine
+            .blocks
+            .iter()
+            .find(|target| target.id == edge.target)
+            .is_some_and(|target| {
+                target.params.is_empty()
+                    && target.ops.is_empty()
+                    && matches!(
+                        target.terminator,
+                        MirTerminator::Return | MirTerminator::Exit
+                    )
+            }),
+        _ => false,
     }
 }
 

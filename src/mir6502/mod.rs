@@ -6641,6 +6641,73 @@ mod tests {
     }
 
     #[test]
+    fn mir6502_emission_tail_calls_through_pure_return_blocks() {
+        let mir = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![
+                MirRoutine {
+                    id: RoutineId(0),
+                    name: "Callee".to_string(),
+                    abi: MirRoutineAbi::Action,
+                    frame: MirFrame::default(),
+                    temps: Vec::new(),
+                    blocks: vec![MirBlock {
+                        id: MirBlockId(0),
+                        label: "bb0".to_string(),
+                        params: Vec::new(),
+                        ops: Vec::new(),
+                        terminator: MirTerminator::Return,
+                    }],
+                    effects: MirEffects::default(),
+                },
+                MirRoutine {
+                    id: RoutineId(1),
+                    name: "Main".to_string(),
+                    abi: MirRoutineAbi::Action,
+                    frame: MirFrame::default(),
+                    temps: Vec::new(),
+                    blocks: vec![
+                        MirBlock {
+                            id: MirBlockId(0),
+                            label: "call".to_string(),
+                            params: Vec::new(),
+                            ops: vec![MirOp::Call {
+                                target: MirCallTarget::Routine(RoutineId(0)),
+                                abi: MirCallAbi {
+                                    params: Vec::new(),
+                                    result: None,
+                                    clobbers: MirRegisterSet::default(),
+                                    preserves: MirRegisterSet::default(),
+                                },
+                                args: Vec::new(),
+                                result: None,
+                                effects: MirEffects::default(),
+                            }],
+                            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+                        },
+                        MirBlock {
+                            id: MirBlockId(1),
+                            label: "return".to_string(),
+                            params: Vec::new(),
+                            ops: Vec::new(),
+                            terminator: MirTerminator::Return,
+                        },
+                    ],
+                    effects: MirEffects::default(),
+                },
+            ],
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+
+        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        emit_program(&mir, &mut emitter).expect("emit return-edge tail call");
+        let bytes = emitter.finish().expect("finish emitter");
+        assert_eq!(bytes, vec![0x60, 0x4C, 0x00, 0x30, 0x60]);
+    }
+
+    #[test]
     fn mir6502_emission_accepts_byte_sized_word_constants_for_index_register_moves() {
         let mir = MirProgram {
             statics: Vec::new(),
