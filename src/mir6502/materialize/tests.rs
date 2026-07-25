@@ -1326,6 +1326,121 @@ fn reversed_word_zero_inequality_branch_uses_nonzero_or_test() {
     ));
 }
 
+fn direct_unsigned_word_compare_blocks(op: MirCompareOp) -> Vec<MirBlock> {
+    vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::Compare {
+                dst: MirCondDest::Temp(MirTempId(0)),
+                op,
+                left: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(0),
+                    offset: 0,
+                }),
+                right: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(1),
+                    offset: 0,
+                }),
+                width: MirWidth::Word,
+                signed: false,
+            }],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]
+}
+
+#[test]
+fn direct_unsigned_word_lt_branch_uses_cmp_sbc_carry_chain() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut blocks = direct_unsigned_word_compare_blocks(MirCompareOp::Lt);
+
+    expand_compare_branch_consumers(&mut blocks, &layout, &Mir6502Config::default());
+
+    assert_eq!(blocks.len(), 3);
+    assert!(matches!(
+        blocks[0].ops.as_slice(),
+        [
+            MirOp::Compare {
+                dst: MirCondDest::Flags,
+                op: MirCompareOp::Lt,
+                left: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(0),
+                    offset: 0,
+                }),
+                right: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(1),
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+                signed: false,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Sub,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(0),
+                    offset: 1,
+                }),
+                right: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(1),
+                    offset: 1,
+                }),
+                width: MirWidth::Byte,
+                carry_in: Some(MirCarryIn::FromPrevious),
+                carry_out: MirCarryOut::Ignore,
+            }
+        ]
+    ));
+    assert_eq!(
+        blocks[0].terminator,
+        MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::CClear),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        }
+    );
+}
+
+#[test]
+fn direct_unsigned_word_ge_branch_uses_set_carry_result() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut blocks = direct_unsigned_word_compare_blocks(MirCompareOp::Ge);
+
+    expand_compare_branch_consumers(&mut blocks, &layout, &Mir6502Config::default());
+
+    assert_eq!(blocks.len(), 3);
+    assert_eq!(
+        blocks[0].terminator,
+        MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::CSet),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        }
+    );
+}
+
 #[test]
 fn signed_word_lt_branch_uses_compact_overflow_path_for_direct_values() {
     let program = empty_test_program();

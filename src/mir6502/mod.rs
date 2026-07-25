@@ -532,6 +532,70 @@ mod tests {
     }
 
     #[test]
+    fn source_generation_selects_direct_unsigned_word_compare_branch() {
+        let materialized = materialize_mir6502_source(
+            "
+            CARD left,right
+            BYTE result
+            PROC Main()
+              IF left<right THEN
+                result=1
+              FI
+            RETURN
+            ",
+        );
+        let main = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+
+        assert!(
+            main.blocks.iter().any(|block| {
+                block.ops.windows(4).any(|ops| {
+                    matches!(
+                        ops,
+                        [
+                            MirOp::Load {
+                                dst: MirDef::Reg(MirReg::A),
+                                width: MirWidth::Byte,
+                                ..
+                            },
+                            MirOp::Compare {
+                                dst: MirCondDest::Flags,
+                                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                                width: MirWidth::Byte,
+                                ..
+                            },
+                            MirOp::Load {
+                                dst: MirDef::Reg(MirReg::A),
+                                width: MirWidth::Byte,
+                                ..
+                            },
+                            MirOp::Binary {
+                                op: MirBinaryOp::Sub,
+                                dst: MirDef::Reg(MirReg::A),
+                                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                                width: MirWidth::Byte,
+                                carry_in: Some(MirCarryIn::FromPrevious),
+                                ..
+                            }
+                        ]
+                    )
+                }) && matches!(
+                    block.terminator,
+                    MirTerminator::Branch {
+                        cond: MirCond::FlagTest(MirFlagTest::CClear),
+                        ..
+                    }
+                )
+            }),
+            "direct CARD comparison should select CMP/SBC and branch on carry:\n{}",
+            format_program(&materialized)
+        );
+    }
+
+    #[test]
     fn source_generation_preserves_expected_word_unary_negation() {
         let literal = generate_mir6502_source("INT s PROC Main() s=-1 RETURN");
         assert!(bytes_contain(

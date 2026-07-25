@@ -1398,6 +1398,20 @@ fn try_expand_word_compare_branch(
     };
     let (left_lo, left_hi) = split_value_as_word(left, layout);
     let (right_lo, right_hi) = split_value_as_word(right, layout);
+    if let Some(terminator) = materialize_direct_unsigned_word_rel_branch(
+        &mut blocks[block_index].ops,
+        op,
+        signed,
+        &left_lo,
+        &left_hi,
+        &right_lo,
+        &right_hi,
+        then_block,
+        else_block,
+    ) {
+        blocks[block_index].terminator = terminator;
+        return true;
+    }
     if let Some(terminator) = materialize_word_zero_test_branch(
         &mut blocks[block_index].ops,
         op,
@@ -1713,6 +1727,11 @@ fn materialize_short_circuit_compare_branch(
         } => {
             let (left_lo, left_hi) = split_value_as_word(left, layout);
             let (right_lo, right_hi) = split_value_as_word(right, layout);
+            if let Some(terminator) = materialize_direct_unsigned_word_rel_branch(
+                ops, op, signed, &left_lo, &left_hi, &right_lo, &right_hi, then_block, else_block,
+            ) {
+                return terminator;
+            }
             if let Some(terminator) = materialize_word_zero_test_branch(
                 ops, op, &left_lo, &left_hi, &right_lo, &right_hi, then_block, else_block,
             ) {
@@ -1844,6 +1863,54 @@ fn append_word_compare_branch_blocks(
 fn byte_pair_is_zero(lo: &MirValue, hi: &MirValue) -> bool {
     matches!(lo, MirValue::ConstU8(0) | MirValue::ConstU16(0))
         && matches!(hi, MirValue::ConstU8(0) | MirValue::ConstU16(0))
+}
+
+fn materialize_direct_unsigned_word_rel_branch(
+    ops: &mut Vec<MirOp>,
+    op: MirCompareOp,
+    signed: bool,
+    left_lo: &MirValue,
+    left_hi: &MirValue,
+    right_lo: &MirValue,
+    right_hi: &MirValue,
+    then_block: MirBlockId,
+    else_block: MirBlockId,
+) -> Option<MirTerminator> {
+    if signed
+        || !matches!(op, MirCompareOp::Lt | MirCompareOp::Ge)
+        || [left_lo, left_hi, right_lo, right_hi]
+            .into_iter()
+            .any(|value| value_uses_temp(value))
+    {
+        return None;
+    }
+    let flag_test = match op {
+        MirCompareOp::Lt => MirFlagTest::CClear,
+        MirCompareOp::Ge => MirFlagTest::CSet,
+        _ => unreachable!("strict direct word relation checked above"),
+    };
+    ops.push(MirOp::Compare {
+        dst: MirCondDest::Flags,
+        op: MirCompareOp::Lt,
+        left: left_lo.clone(),
+        right: right_lo.clone(),
+        width: MirWidth::Byte,
+        signed: false,
+    });
+    ops.push(MirOp::Binary {
+        op: MirBinaryOp::Sub,
+        dst: MirDef::Reg(MirReg::A),
+        left: left_hi.clone(),
+        right: right_hi.clone(),
+        width: MirWidth::Byte,
+        carry_in: Some(MirCarryIn::FromPrevious),
+        carry_out: MirCarryOut::Ignore,
+    });
+    Some(branch_terminator(
+        MirCond::FlagTest(flag_test),
+        then_block,
+        else_block,
+    ))
 }
 
 fn materialize_word_zero_test_branch(
