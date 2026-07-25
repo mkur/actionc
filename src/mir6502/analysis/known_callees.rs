@@ -6,9 +6,9 @@ use crate::mir6502::analysis::effects::{MirHomeByte, classify_op};
 use crate::mir6502::analysis::machine_values::{MirMachineValue, MirMachineValueAvailability};
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
-    MirCallTarget, MirFixedZpSlot, MirMachineAtom, MirMachineBlock, MirMachineByteSelector,
-    MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram, MirReg,
-    MirRegisterSet, MirRoutine, MirTerminator, RoutineId,
+    MirCallTarget, MirFixedZpSlot, MirGlobalBacking, MirMachineAtom, MirMachineBlock,
+    MirMachineByteSelector, MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp,
+    MirProgram, MirReg, MirRegisterSet, MirRoutine, MirStorageBase, MirTerminator, RoutineId,
 };
 
 /// Conservative memory-write summary for a known direct callee.
@@ -138,8 +138,7 @@ impl MirKnownCalleeSummaries {
             .routines
             .iter()
             .filter_map(|routine| {
-                summarize_machine_routine(routine, &program.machine_blocks)
-                    .map(|summary| (routine.id, summary))
+                summarize_machine_routine(routine, program).map(|summary| (routine.id, summary))
             })
             .collect::<BTreeMap<_, _>>();
         let mut summaries = Self {
@@ -507,7 +506,7 @@ fn summarize_structured_writes(
 
 fn summarize_machine_routine(
     routine: &MirRoutine,
-    machine_blocks: &[MirMachineBlock],
+    program: &MirProgram,
 ) -> Option<MirKnownCalleeExitSummary> {
     let [block] = routine.blocks.as_slice() else {
         return None;
@@ -518,17 +517,25 @@ fn summarize_machine_routine(
     if !matches!(block.terminator, MirTerminator::Unreachable) {
         return None;
     }
-    let machine = machine_blocks.iter().find(|machine| machine.id == *id)?;
-    summarize_straight_line_machine_block(machine)
+    let machine = program
+        .machine_blocks
+        .iter()
+        .find(|machine| machine.id == *id)?;
+    summarize_straight_line_machine_block(machine, routine, program)
 }
 
-#[derive(Debug, Clone, Copy)]
-struct MachineByte(Option<u8>);
+#[derive(Debug, Clone)]
+struct MachineByte {
+    value: Option<u8>,
+    memory: Option<MirMem>,
+}
 
 fn summarize_straight_line_machine_block(
     machine: &MirMachineBlock,
+    routine: &MirRoutine,
+    program: &MirProgram,
 ) -> Option<MirKnownCalleeExitSummary> {
-    let bytes = flatten_machine_items(&machine.items)?;
+    let bytes = flatten_machine_items(&machine.items, routine, program)?;
     let mut index = 0usize;
     let mut accumulator = None;
     let mut zn = None;
@@ -540,7 +547,7 @@ fn summarize_straight_line_machine_block(
     };
     let mut writes = MirKnownMemoryWrites::exact();
     while index < bytes.len() {
-        let opcode = bytes[index].0?;
+        let opcode = bytes[index].value?;
         let len = crate::codegen::decode_6502_opcode(opcode).map(|(_, _, len)| len)?;
         if index + len > bytes.len() {
             return None;
@@ -579,8 +586,7 @@ fn summarize_straight_line_machine_block(
                 }
             }
             0x85 => {
-                let slot = MirFixedZpSlot(operands.first()?.0?);
-                let mem = MirMem::FixedZeroPage(slot);
+                let mem = machine_operand_mem(operands)?;
                 record_machine_register_store(
                     &mut writes,
                     &mut accumulator,
@@ -591,8 +597,7 @@ fn summarize_straight_line_machine_block(
                 );
             }
             0x8D => {
-                let address = known_u16(operands)?;
-                let mem = absolute_mem(address);
+                let mem = machine_operand_mem(operands)?;
                 record_machine_register_store(
                     &mut writes,
                     &mut accumulator,
@@ -614,7 +619,7 @@ fn summarize_straight_line_machine_block(
                     &mut zn,
                     &mut zn_register,
                     if opcode == 0x84 { MirReg::Y } else { MirReg::X },
-                    MirMem::FixedZeroPage(MirFixedZpSlot(operands.first()?.0?)),
+                    machine_operand_mem(operands)?,
                 );
             }
             0x8C | 0x8E => {
@@ -624,7 +629,7 @@ fn summarize_straight_line_machine_block(
                     &mut zn,
                     &mut zn_register,
                     if opcode == 0x8C { MirReg::Y } else { MirReg::X },
-                    absolute_mem(known_u16(operands)?),
+                    machine_operand_mem(operands)?,
                 );
             }
             0x94 | 0x96 => {
@@ -633,13 +638,13 @@ fn summarize_straight_line_machine_block(
                 writes.make_unknown();
             }
             0x06 | 0x26 | 0x46 | 0x66 | 0xC6 | 0xE6 => {
-                let mem = MirMem::FixedZeroPage(MirFixedZpSlot(operands.first()?.0?));
+                let mem = machine_operand_mem(operands)?;
                 record_machine_write(&mut writes, &mut accumulator, &mut zn, mem.clone());
                 zn = Some(MirMachineValue::DirectMem(mem));
                 zn_register = None;
             }
             0x0E | 0x2E | 0x4E | 0x6E | 0xCE | 0xEE => {
-                let mem = absolute_mem(known_u16(operands)?);
+                let mem = machine_operand_mem(operands)?;
                 record_machine_write(&mut writes, &mut accumulator, &mut zn, mem.clone());
                 zn = Some(MirMachineValue::DirectMem(mem));
                 zn_register = None;
@@ -652,21 +657,19 @@ fn summarize_straight_line_machine_block(
                 writes.make_unknown();
             }
             0xA9 => {
-                let value = MirMachineValue::ConstU8(operands.first()?.0?);
+                let value = MirMachineValue::ConstU8(operands.first()?.value?);
                 accumulator = Some(value.clone());
                 zn = Some(value);
                 zn_register = Some(MirReg::A);
             }
             0xA5 => {
-                let value = MirMachineValue::DirectMem(MirMem::FixedZeroPage(MirFixedZpSlot(
-                    operands.first()?.0?,
-                )));
+                let value = MirMachineValue::DirectMem(machine_operand_mem(operands)?);
                 accumulator = Some(value.clone());
                 zn = Some(value);
                 zn_register = Some(MirReg::A);
             }
             0xAD => {
-                let value = MirMachineValue::DirectMem(absolute_mem(known_u16(operands)?));
+                let value = MirMachineValue::DirectMem(machine_operand_mem(operands)?);
                 accumulator = Some(value.clone());
                 zn = Some(value);
                 zn_register = Some(MirReg::A);
@@ -682,7 +685,7 @@ fn summarize_straight_line_machine_block(
                 } else {
                     preserves.y = false;
                 }
-                zn = Some(MirMachineValue::ConstU8(operands.first()?.0?));
+                zn = Some(MirMachineValue::ConstU8(operands.first()?.value?));
                 zn_register = Some(if opcode == 0xA2 { MirReg::X } else { MirReg::Y });
             }
             0xA6 | 0xA4 => {
@@ -691,9 +694,7 @@ fn summarize_straight_line_machine_block(
                 } else {
                     preserves.y = false;
                 }
-                zn = Some(MirMachineValue::DirectMem(MirMem::FixedZeroPage(
-                    MirFixedZpSlot(operands.first()?.0?),
-                )));
+                zn = Some(MirMachineValue::DirectMem(machine_operand_mem(operands)?));
                 zn_register = Some(if opcode == 0xA6 { MirReg::X } else { MirReg::Y });
             }
             0xAE | 0xAC => {
@@ -702,9 +703,7 @@ fn summarize_straight_line_machine_block(
                 } else {
                     preserves.y = false;
                 }
-                zn = Some(MirMachineValue::DirectMem(absolute_mem(known_u16(
-                    operands,
-                )?)));
+                zn = Some(MirMachineValue::DirectMem(machine_operand_mem(operands)?));
                 zn_register = Some(if opcode == 0xAE { MirReg::X } else { MirReg::Y });
             }
             0xB6 | 0xBE | 0xB4 | 0xBC => {
@@ -755,46 +754,209 @@ fn summarize_straight_line_machine_block(
     None
 }
 
-fn flatten_machine_items(items: &[MirMachineItem]) -> Option<Vec<MachineByte>> {
+fn flatten_machine_items(
+    items: &[MirMachineItem],
+    routine: &MirRoutine,
+    program: &MirProgram,
+) -> Option<Vec<MachineByte>> {
     let mut bytes = Vec::new();
-    for item in items {
-        match item {
-            MirMachineItem::Byte(value) => bytes.push(MachineByte(Some(*value))),
-            MirMachineItem::Word(value) => {
-                bytes.push(MachineByte(Some(*value as u8)));
-                bytes.push(MachineByte(Some((*value >> 8) as u8)));
+    let mut item_index = 0usize;
+    while item_index < items.len() {
+        let MirMachineItem::Byte(opcode) = &items[item_index] else {
+            return None;
+        };
+        let (_, _, instruction_len) = crate::codegen::decode_6502_opcode(*opcode)?;
+        bytes.push(MachineByte {
+            value: Some(*opcode),
+            memory: None,
+        });
+        item_index += 1;
+
+        let mut remaining = instruction_len.saturating_sub(1);
+        while remaining > 0 {
+            let item = items.get(item_index)?;
+            let expanded = expand_machine_operand(item, remaining, routine, program)?;
+            if expanded.is_empty() || expanded.len() > remaining {
+                return None;
             }
-            MirMachineItem::CharLiteral(_) => bytes.push(MachineByte(None)),
-            MirMachineItem::Name(_) => return None,
-            MirMachineItem::AddressExpr {
-                selector,
-                atom,
-                offset,
-                ..
-            } => {
-                let value = match atom {
-                    MirMachineAtom::Number(value) => {
-                        i64::from(*value).saturating_add(i64::from(*offset)) as u16
-                    }
-                    MirMachineAtom::Name(_) | MirMachineAtom::Current => return None,
-                };
-                match selector {
-                    Some(MirMachineByteSelector::Low) => bytes.push(MachineByte(Some(value as u8))),
-                    Some(MirMachineByteSelector::High) => {
-                        bytes.push(MachineByte(Some((value >> 8) as u8)))
-                    }
-                    None if value <= 0x00FF => bytes.push(MachineByte(Some(value as u8))),
-                    None => {
-                        bytes.push(MachineByte(Some(value as u8)));
-                        bytes.push(MachineByte(Some((value >> 8) as u8)));
-                    }
-                }
-            }
-            MirMachineItem::AddressByte { .. } => return None,
-            MirMachineItem::StringLiteral(_) => return None,
+            remaining -= expanded.len();
+            bytes.extend(expanded);
+            item_index += 1;
         }
     }
     Some(bytes)
+}
+
+fn expand_machine_operand(
+    item: &MirMachineItem,
+    remaining: usize,
+    routine: &MirRoutine,
+    program: &MirProgram,
+) -> Option<Vec<MachineByte>> {
+    let unknown = |count: usize, memory: Option<MirMem>| {
+        (0..count)
+            .map(|index| MachineByte {
+                value: None,
+                memory: (index == 0).then(|| memory.clone()).flatten(),
+            })
+            .collect::<Vec<_>>()
+    };
+    match item {
+        MirMachineItem::Byte(value) => Some(vec![MachineByte {
+            value: Some(*value),
+            memory: None,
+        }]),
+        MirMachineItem::Word(value) if remaining >= 2 => Some(vec![
+            MachineByte {
+                value: Some(*value as u8),
+                memory: None,
+            },
+            MachineByte {
+                value: Some((*value >> 8) as u8),
+                memory: None,
+            },
+        ]),
+        MirMachineItem::Word(_) => None,
+        MirMachineItem::CharLiteral(_) => Some(unknown(1, None)),
+        MirMachineItem::Name(name) => {
+            let memory = resolve_machine_storage(name, 0, routine, program);
+            Some(machine_address_bytes(memory, remaining))
+        }
+        MirMachineItem::AddressExpr {
+            selector,
+            atom,
+            offset,
+            ..
+        } => {
+            let memory = match atom {
+                MirMachineAtom::Name(name) => {
+                    resolve_machine_storage(name, *offset, routine, program)
+                }
+                MirMachineAtom::Number(value) => offset_address(*value, *offset).map(absolute_mem),
+                MirMachineAtom::Current => None,
+            };
+            let numeric = match atom {
+                MirMachineAtom::Number(value) => offset_address(*value, *offset),
+                MirMachineAtom::Name(_) | MirMachineAtom::Current => {
+                    memory.as_ref().and_then(resolved_absolute_address)
+                }
+            };
+            match selector {
+                Some(MirMachineByteSelector::Low) => Some(vec![MachineByte {
+                    value: numeric.map(|value| value as u8),
+                    memory: None,
+                }]),
+                Some(MirMachineByteSelector::High) => Some(vec![MachineByte {
+                    value: numeric.map(|value| (value >> 8) as u8),
+                    memory: None,
+                }]),
+                None => Some(machine_address_bytes(memory, remaining)),
+            }
+        }
+        MirMachineItem::AddressByte { .. } => Some(unknown(1, None)),
+        MirMachineItem::StringLiteral(_) => None,
+    }
+}
+
+fn machine_address_bytes(memory: Option<MirMem>, width: usize) -> Vec<MachineByte> {
+    let value = memory.as_ref().and_then(resolved_absolute_address);
+    (0..width)
+        .map(|index| MachineByte {
+            value: value.map(|value| (value >> (index * 8)) as u8),
+            memory: (index == 0).then(|| memory.clone()).flatten(),
+        })
+        .collect()
+}
+
+fn resolve_machine_storage(
+    name: &str,
+    offset: i32,
+    routine: &MirRoutine,
+    program: &MirProgram,
+) -> Option<MirMem> {
+    if let Some(slot) = routine
+        .frame
+        .params
+        .iter()
+        .chain(&routine.frame.locals)
+        .find(|slot| slot.name.as_deref() == Some(name))
+    {
+        let memory = match slot.base {
+            MirStorageBase::Param(id) | MirStorageBase::ParamAbiOnly(id) => {
+                MirMem::Param { id, offset: 0 }
+            }
+            MirStorageBase::Local(id) | MirStorageBase::LocalAlias { id, .. } => {
+                MirMem::Local { id, offset: 0 }
+            }
+            MirStorageBase::Spill(id) => MirMem::Spill { id, offset: 0 },
+            MirStorageBase::Global(id) => MirMem::Global { id, offset: 0 },
+            MirStorageBase::Static(id) => MirMem::Static { id, offset: 0 },
+            MirStorageBase::Absolute(address) => absolute_mem(address),
+        };
+        return offset_memory(memory, i32::from(slot.offset).saturating_add(offset));
+    }
+
+    if let Some(global) = program.globals.iter().find(|global| global.name == name) {
+        let memory = match global.backing {
+            MirGlobalBacking::Ordinary { offset } => MirMem::Global {
+                id: global.id,
+                offset,
+            },
+            MirGlobalBacking::Absolute(address) => absolute_mem(address),
+            MirGlobalBacking::Alias {
+                target,
+                offset: alias_offset,
+            } => MirMem::Global {
+                id: target,
+                offset: alias_offset,
+            },
+        };
+        return offset_memory(memory, offset);
+    }
+
+    program
+        .statics
+        .iter()
+        .find(|static_data| static_data.name == name)
+        .and_then(|static_data| {
+            offset_memory(
+                MirMem::Static {
+                    id: static_data.id,
+                    offset: 0,
+                },
+                offset,
+            )
+        })
+}
+
+fn offset_address(address: u16, offset: i32) -> Option<u16> {
+    let value = i64::from(address).checked_add(i64::from(offset))?;
+    u16::try_from(value).ok()
+}
+
+fn offset_memory(memory: MirMem, offset: i32) -> Option<MirMem> {
+    let unsigned = u16::try_from(offset).ok()?;
+    Some(offset_mem(&memory, unsigned))
+}
+
+fn resolved_absolute_address(memory: &MirMem) -> Option<u16> {
+    match memory {
+        MirMem::Absolute(address) => Some(*address),
+        MirMem::FixedZeroPage(slot) => Some(u16::from(slot.0)),
+        MirMem::Static { .. }
+        | MirMem::Global { .. }
+        | MirMem::Local { .. }
+        | MirMem::Param { .. }
+        | MirMem::Spill { .. }
+        | MirMem::ZeroPage(_) => None,
+    }
+}
+
+fn machine_operand_mem(operands: &[MachineByte]) -> Option<MirMem> {
+    operands
+        .first()
+        .and_then(|operand| operand.memory.clone())
+        .or_else(|| known_u16_or_u8(operands).map(absolute_mem))
 }
 
 fn record_machine_write(
@@ -933,7 +1095,15 @@ fn opcode_changes_zn(opcode: u8) -> bool {
 }
 
 fn known_u16(bytes: &[MachineByte]) -> Option<u16> {
-    Some(u16::from(bytes.first()?.0?) | (u16::from(bytes.get(1)?.0?) << 8))
+    Some(u16::from(bytes.first()?.value?) | (u16::from(bytes.get(1)?.value?) << 8))
+}
+
+fn known_u16_or_u8(bytes: &[MachineByte]) -> Option<u16> {
+    match bytes {
+        [byte] => byte.value.map(u16::from),
+        [_, _, ..] => known_u16(bytes),
+        [] => None,
+    }
 }
 
 fn absolute_mem(address: u16) -> MirMem {
@@ -1022,8 +1192,8 @@ fn mems_may_alias(left: &MirMem, right: &MirMem) -> bool {
 mod tests {
     use super::*;
     use crate::mir6502::ir::{
-        MirAddr, MirBlock, MirBlockId, MirCallAbi, MirDef, MirEffects, MirFrame, MirMachineBlockId,
-        MirRegisterSet, MirRoutineAbi, MirValue, MirWidth,
+        MirAddr, MirBlock, MirBlockId, MirCallAbi, MirDef, MirEffects, MirFrame, MirGlobal,
+        MirMachineBlockId, MirRegisterSet, MirRoutineAbi, MirValue, MirWidth,
     };
 
     fn routine(id: u32, ops: Vec<MirOp>, terminator: MirTerminator) -> MirRoutine {
@@ -1176,6 +1346,58 @@ mod tests {
         let summary = summaries.get(RoutineId(0)).expect("machine summary");
         assert!(!summary.preserves_register(MirReg::X));
         assert!(summary.preserves_register(MirReg::Y));
+    }
+
+    #[test]
+    fn machine_summary_resolves_symbolic_fixed_zero_page_operands() {
+        let machine = MirMachineBlock {
+            id: MirMachineBlockId(0),
+            items: vec![
+                MirMachineItem::Byte(0xA6),
+                MirMachineItem::Name("source".to_string()),
+                MirMachineItem::Byte(0x85),
+                MirMachineItem::Name("scratch".to_string()),
+                MirMachineItem::Byte(0x60),
+            ],
+        };
+        let mut input = program(
+            vec![routine(
+                0,
+                vec![MirOp::MachineBlock {
+                    id: machine.id,
+                    effects: MirEffects::default(),
+                }],
+                MirTerminator::Unreachable,
+            )],
+            vec![machine],
+        );
+        input.globals = vec![
+            MirGlobal {
+                id: crate::nir::SymbolId(0),
+                name: "source".to_string(),
+                kind: "byte".to_string(),
+                width: Some(MirWidth::Byte),
+                storage_size: 1,
+                backing: MirGlobalBacking::Absolute(0x00FE),
+                init: None,
+            },
+            MirGlobal {
+                id: crate::nir::SymbolId(1),
+                name: "scratch".to_string(),
+                kind: "byte".to_string(),
+                width: Some(MirWidth::Byte),
+                storage_size: 1,
+                backing: MirGlobalBacking::Absolute(0x00E6),
+                init: None,
+            },
+        ];
+
+        let summaries = MirKnownCalleeSummaries::analyze(&input);
+        let summary = summaries.get(RoutineId(0)).expect("machine summary");
+        assert!(!summary.preserves_register(MirReg::X));
+        assert!(summary.preserves_register(MirReg::Y));
+        assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xAC)));
+        assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xE6)));
     }
 
     #[test]
