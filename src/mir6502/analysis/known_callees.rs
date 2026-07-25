@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::analysis::dataflow::{DataflowDirection, DataflowProblem, solve_dataflow};
+use crate::codegen::AddressingMode;
 use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::{MirHomeByte, classify_op};
 use crate::mir6502::analysis::machine_values::{MirMachineValue, MirMachineValueAvailability};
@@ -70,6 +71,54 @@ impl MirKnownMemoryWrites {
     }
 }
 
+/// Conservative memory-read summary for a known direct callee.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(in crate::mir6502) enum MirKnownMemoryReads {
+    Exact(Vec<MirMem>),
+    #[default]
+    Unknown,
+}
+
+impl MirKnownMemoryReads {
+    #[allow(dead_code)] // Consumed by the following carrier-selection slice.
+    pub(in crate::mir6502) fn may_read_caller_private_ram(&self) -> bool {
+        match self {
+            // Callee-local identities, globals, statics, and fixed zero page
+            // cannot name another routine's private RAM. A raw absolute read
+            // can alias it after layout, so it remains conservative.
+            Self::Exact(reads) => reads.iter().any(|read| matches!(read, MirMem::Absolute(_))),
+            Self::Unknown => true,
+        }
+    }
+
+    fn exact() -> Self {
+        Self::Exact(Vec::new())
+    }
+
+    fn record(&mut self, mem: MirMem) {
+        let Self::Exact(reads) = self else {
+            return;
+        };
+        if !reads.contains(&mem) {
+            reads.push(mem);
+        }
+    }
+
+    fn merge(&mut self, other: &Self) {
+        let Self::Exact(other) = other else {
+            *self = Self::Unknown;
+            return;
+        };
+        for mem in other {
+            self.record(mem.clone());
+        }
+    }
+
+    fn make_unknown(&mut self) {
+        *self = Self::Unknown;
+    }
+}
+
 /// Machine state proven on every reachable return from a known routine.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirKnownCalleeExitSummary {
@@ -82,6 +131,7 @@ pub(in crate::mir6502) struct MirKnownCalleeExitSummary {
     /// The first consumers use X/Y. Keeping this as a machine register set
     /// leaves room for later A/flags/SP contracts without changing NIR.
     preserves: MirRegisterSet,
+    reads: MirKnownMemoryReads,
     writes: MirKnownMemoryWrites,
 }
 
@@ -96,6 +146,10 @@ impl MirKnownCalleeExitSummary {
 
     pub(in crate::mir6502) fn writes(&self) -> &MirKnownMemoryWrites {
         &self.writes
+    }
+
+    pub(in crate::mir6502) fn reads(&self) -> &MirKnownMemoryReads {
+        &self.reads
     }
 
     pub(in crate::mir6502) fn preserves_register(&self, register: MirReg) -> bool {
@@ -264,6 +318,7 @@ fn summarize_mir_routine(
         } else {
             MirRegisterSet::default()
         },
+        reads: summarize_routine_reads(routine, callees),
         writes: summarize_routine_writes(routine, callees),
     }
 }
@@ -391,6 +446,114 @@ fn caller_visible_exit_value(value: MirMachineValue) -> Option<MirMachineValue> 
             | MirMem::Spill { .. }
             | MirMem::ZeroPage(_),
         ) => None,
+    }
+}
+
+fn summarize_routine_reads(
+    routine: &MirRoutine,
+    callees: &MirKnownCalleeSummaries,
+) -> MirKnownMemoryReads {
+    let mut reads = MirKnownMemoryReads::exact();
+    for block in &routine.blocks {
+        for op in &block.ops {
+            summarize_op_reads(op, callees, &mut reads);
+            if matches!(reads, MirKnownMemoryReads::Unknown) {
+                return reads;
+            }
+        }
+    }
+    reads
+}
+
+fn summarize_op_reads(
+    op: &MirOp,
+    callees: &MirKnownCalleeSummaries,
+    reads: &mut MirKnownMemoryReads,
+) {
+    match op {
+        MirOp::Call {
+            target, effects, ..
+        } => {
+            if let Some(summary) = callees.for_target(target) {
+                reads.merge(summary.reads());
+            } else {
+                summarize_structured_reads(&effects.memory_reads, effects.opaque, reads);
+            }
+            return;
+        }
+        MirOp::RuntimeHelper { effects, .. } => {
+            summarize_structured_reads(&effects.memory_reads, effects.opaque, reads);
+            return;
+        }
+        MirOp::MachineBlock { .. } | MirOp::Barrier { .. } => {
+            reads.make_unknown();
+            return;
+        }
+        _ => {}
+    }
+
+    let effects = classify_op(op);
+    if effects.memory.indirect_reads
+        || effects.memory.opaque
+        || effects.memory.has_unknown_effects
+        || effects.homes.unknown_reads
+    {
+        reads.make_unknown();
+        return;
+    }
+    summarize_structured_reads(&effects.memory.structured_reads, false, reads);
+    if matches!(reads, MirKnownMemoryReads::Unknown) {
+        return;
+    }
+    for range in effects.memory.direct_reads {
+        for offset in 0..range.bytes {
+            reads.record(offset_mem(&range.base, offset));
+        }
+    }
+    for home in effects.addresses.pair_reads {
+        if let MirHomeByte::FixedZeroPage(slot) = home {
+            reads.record(MirMem::FixedZeroPage(slot));
+        }
+    }
+}
+
+fn summarize_structured_reads(
+    effect: &MirMemoryEffect,
+    opaque: bool,
+    reads: &mut MirKnownMemoryReads,
+) {
+    if opaque {
+        reads.make_unknown();
+        return;
+    }
+    match effect {
+        MirMemoryEffect::None => {}
+        MirMemoryEffect::Unknown | MirMemoryEffect::All => reads.make_unknown(),
+        MirMemoryEffect::Regions(regions) => {
+            for region in regions {
+                let base = match region.kind {
+                    MirMemoryRegionKind::Global(id) => MirMem::Global { id, offset: 0 },
+                    MirMemoryRegionKind::Static(id) => MirMem::Static { id, offset: 0 },
+                    MirMemoryRegionKind::Local(id) => MirMem::Local { id, offset: 0 },
+                    MirMemoryRegionKind::Param(id) => MirMem::Param { id, offset: 0 },
+                    MirMemoryRegionKind::AbsoluteRange => MirMem::Absolute(region.offset),
+                    MirMemoryRegionKind::ZeroPage => {
+                        let Ok(slot) = u8::try_from(region.offset) else {
+                            reads.make_unknown();
+                            return;
+                        };
+                        MirMem::FixedZeroPage(MirFixedZpSlot(slot))
+                    }
+                    MirMemoryRegionKind::Stack => {
+                        reads.make_unknown();
+                        return;
+                    }
+                };
+                for offset in 0..region.size {
+                    reads.record(offset_mem(&base, offset));
+                }
+            }
+        }
     }
 }
 
@@ -545,20 +708,23 @@ fn summarize_straight_line_machine_block(
         y: true,
         ..MirRegisterSet::default()
     };
+    let mut reads = MirKnownMemoryReads::exact();
     let mut writes = MirKnownMemoryWrites::exact();
     while index < bytes.len() {
         let opcode = bytes[index].value?;
-        let len = crate::codegen::decode_6502_opcode(opcode).map(|(_, _, len)| len)?;
+        let (mnemonic, mode, len) = crate::codegen::decode_6502_opcode(opcode)?;
         if index + len > bytes.len() {
             return None;
         }
         let operands = &bytes[index + 1..index + len];
+        summarize_machine_instruction_reads(mnemonic, mode, operands, &mut reads);
         match opcode {
             0x60 if index + len == bytes.len() => {
                 return Some(MirKnownCalleeExitSummary {
                     accumulator,
                     zn,
                     preserves,
+                    reads,
                     writes,
                 });
             }
@@ -572,6 +738,7 @@ fn summarize_straight_line_machine_block(
                 zn_register = None;
                 preserves.x = false;
                 preserves.y = false;
+                reads.make_unknown();
                 let target = known_u16(operands);
                 match target {
                     // Existing trusted OS-effect table: neither call writes
@@ -785,6 +952,62 @@ fn flatten_machine_items(
         }
     }
     Some(bytes)
+}
+
+fn summarize_machine_instruction_reads(
+    mnemonic: &str,
+    mode: AddressingMode,
+    operands: &[MachineByte],
+    reads: &mut MirKnownMemoryReads,
+) {
+    let stores_only = matches!(mnemonic, "STA" | "STX" | "STY");
+    let control_address = matches!(mnemonic, "JMP" | "JSR");
+    match mode {
+        AddressingMode::ZeroPage | AddressingMode::Absolute if !stores_only && !control_address => {
+            if let Some(mem) = machine_operand_mem(operands) {
+                reads.record(mem);
+            } else {
+                reads.make_unknown();
+            }
+        }
+        AddressingMode::AbsoluteX | AddressingMode::AbsoluteY
+            if !stores_only && !control_address =>
+        {
+            match machine_operand_mem(operands) {
+                Some(mem @ (MirMem::Global { .. } | MirMem::Static { .. })) => reads.record(mem),
+                _ => reads.make_unknown(),
+            }
+        }
+        AddressingMode::ZeroPageX | AddressingMode::ZeroPageY
+            if !stores_only && !control_address =>
+        {
+            reads.make_unknown();
+        }
+        AddressingMode::IndirectIndexedY => {
+            if let Some(lo) = machine_operand_mem(operands) {
+                reads.record(lo.clone());
+                reads.record(offset_mem(&lo, 1));
+            } else {
+                reads.make_unknown();
+            }
+            if !stores_only {
+                reads.make_unknown();
+            }
+        }
+        AddressingMode::IndexedIndirectX | AddressingMode::Indirect => {
+            reads.make_unknown();
+        }
+        AddressingMode::Implied
+        | AddressingMode::Accumulator
+        | AddressingMode::Immediate
+        | AddressingMode::Relative
+        | AddressingMode::ZeroPage
+        | AddressingMode::ZeroPageX
+        | AddressingMode::ZeroPageY
+        | AddressingMode::Absolute
+        | AddressingMode::AbsoluteX
+        | AddressingMode::AbsoluteY => {}
+    }
 }
 
 fn expand_machine_operand(
@@ -1231,6 +1454,7 @@ mod tests {
             accumulator: None,
             zn: Some(value.clone()),
             preserves: MirRegisterSet::default(),
+            reads: MirKnownMemoryReads::Unknown,
             writes: MirKnownMemoryWrites::Unknown,
         };
         assert_eq!(summary.zn(), Some(&value));
@@ -1398,6 +1622,7 @@ mod tests {
         assert!(summary.preserves_register(MirReg::Y));
         assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xAC)));
         assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xE6)));
+        assert!(!summary.reads().may_read_caller_private_ram());
     }
 
     #[test]
