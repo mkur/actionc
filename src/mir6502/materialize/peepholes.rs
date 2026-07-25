@@ -191,6 +191,50 @@ pub(in crate::mir6502) fn discover_call_result_y_placements(
     plans
 }
 
+pub(in crate::mir6502) fn discover_txa_direct_store_folds(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len().saturating_sub(1) {
+            let (
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(dst),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            ) = (&block.ops[index], &block.ops[index + 1])
+            else {
+                continue;
+            };
+            let replacement = vec![MirOp::Store {
+                dst: MirAddr::Direct(dst.clone()),
+                src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                width: MirWidth::Byte,
+            }];
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                index..index + 2,
+                replacement,
+                register_zn_exit_change(MirReg::A),
+                "txa-direct-store-to-stx",
+                0,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
 pub(in crate::mir6502) fn discover_known_callee_word_result_placements(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,

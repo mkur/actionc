@@ -1434,6 +1434,7 @@ fn run_posthome_structural_group(
     )?;
     run_analyzed_ssa_lite_byte_rewrites(routine, layout, false, known_callees, peephole_stats)?;
     run_analyzed_dead_private_scratch_stores(routine, peephole_stats)?;
+    run_analyzed_txa_direct_store_folds(routine, peephole_stats)?;
     run_analyzed_dead_register_writes(routine, layout, peephole_stats)?;
     for block in &mut routine.blocks {
         let ops = std::mem::take(&mut block.ops);
@@ -1575,6 +1576,23 @@ fn run_analyzed_dead_register_writes(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home dead register-write rewrite failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_txa_direct_store_folds(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, peepholes::discover_txa_direct_store_folds)
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home TXA/direct-store rewrite failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

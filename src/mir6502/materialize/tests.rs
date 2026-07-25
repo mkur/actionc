@@ -13,6 +13,106 @@ use crate::mir6502::{
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 
+fn txa_direct_store_routine(
+    trailing_ops: Vec<MirOp>,
+    terminator: MirTerminator,
+    successor_blocks: Vec<MirBlock>,
+) -> MirRoutine {
+    let mut ops = vec![
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::Def(MirDef::Reg(MirReg::X)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ];
+    ops.extend(trailing_ops);
+    let mut blocks = vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops,
+        terminator,
+    }];
+    blocks.extend(successor_blocks);
+    MirRoutine {
+        id: RoutineId(0),
+        name: "txa_direct_store".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks,
+        effects: MirEffects::default(),
+    }
+}
+
+#[test]
+fn txa_direct_store_fold_selects_stx_when_a_and_flags_are_dead() {
+    let routine = txa_direct_store_routine(Vec::new(), MirTerminator::Return, Vec::new());
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    let plans = peepholes::discover_txa_direct_store_folds(&routine, &context);
+
+    assert_eq!(plans.len(), 1);
+    assert!(matches!(
+        plans[0].replacement.as_slice(),
+        [MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+            src: MirValue::Def(MirDef::Reg(MirReg::X)),
+            width: MirWidth::Byte,
+        }]
+    ));
+}
+
+#[test]
+fn txa_direct_store_fold_keeps_txa_when_accumulator_is_live() {
+    let routine = txa_direct_store_routine(
+        vec![MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x4001)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }],
+        MirTerminator::Return,
+        Vec::new(),
+    );
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    assert!(peepholes::discover_txa_direct_store_folds(&routine, &context).is_empty());
+}
+
+#[test]
+fn txa_direct_store_fold_keeps_txa_when_zn_flags_are_live() {
+    let return_block = |id| MirBlock {
+        id,
+        label: format!("return_{}", id.0),
+        params: Vec::new(),
+        ops: Vec::new(),
+        terminator: MirTerminator::Return,
+    };
+    let routine = txa_direct_store_routine(
+        Vec::new(),
+        MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::ZSet),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        },
+        vec![return_block(MirBlockId(1)), return_block(MirBlockId(2))],
+    );
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    assert!(peepholes::discover_txa_direct_store_folds(&routine, &context).is_empty());
+}
+
 #[test]
 fn indirect_word_load_fold_keeps_spills_used_by_second_call_arg_home() {
     let low = MirSpillId(18);

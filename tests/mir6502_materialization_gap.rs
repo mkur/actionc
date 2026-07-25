@@ -185,7 +185,7 @@ fn zero_index_pointer_read_does_not_materialize_zero_offset_word() {
     assert!(
         bytes
             .windows(4)
-            .any(|bytes| bytes == [0x85, 0xAD, 0xA0, 0x00])
+            .any(|bytes| bytes == [0x86, 0xAD, 0xA0, 0x00])
     );
     assert!(bytes.windows(2).any(|bytes| bytes == [0xB1, 0xAC]));
 }
@@ -371,7 +371,7 @@ fn byte_multiply_word_call_arg_keeps_runtime_high_result() {
         "CARD multiply high byte must not be replaced with a zero before the word argument call:\n{formatted}"
     );
     assert!(formatted.contains("store.b fixed_zp $A0, a"));
-    assert!(formatted.contains("store.b fixed_zp $A1, a"));
+    assert!(formatted.contains("store.b fixed_zp $A1, x"));
     assert!(formatted.contains("store.b global g3+0, a"));
     assert!(formatted.contains("store.b global g3+1, a"));
     assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0x84]));

@@ -1619,8 +1619,8 @@ mod tests {
         assert!(!formatted.contains("a =.b load param p0+0"), "{formatted}");
         assert!(!formatted.contains("a =.b load param p0+1"), "{formatted}");
         assert!(formatted.contains("store.b global g0+0, a"), "{formatted}");
-        assert!(formatted.contains("a =.b x"), "{formatted}");
-        assert!(formatted.contains("store.b global g0+1, a"), "{formatted}");
+        assert!(!formatted.contains("a =.b x"), "{formatted}");
+        assert!(formatted.contains("store.b global g0+1, x"), "{formatted}");
         verify_program(&mir, MirPhase::PreEmission).expect("forwarded params are ready");
 
         let mut invalid = mir.clone();
