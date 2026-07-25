@@ -3,6 +3,7 @@
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 
+use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte};
 use crate::mir6502::analysis::home_liveness::MirHomeLivenessError;
 use crate::mir6502::analysis::machine_liveness::MirMachineLivenessError;
@@ -377,6 +378,10 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
 
     pub(in crate::mir6502) fn point(&self, site: MirSite) -> MirProgramPoint {
         self.snapshot.routine().point(site)
+    }
+
+    pub(in crate::mir6502) fn cfg(&self) -> &MirCfg {
+        self.snapshot.cfg()
     }
 
     pub(in crate::mir6502) fn record_blocker(

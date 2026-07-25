@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::{MirHomeByte, classify_op};
@@ -95,10 +95,24 @@ impl MirKnownCalleeExitSummary {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirKnownCalleeSummaries {
     routines: BTreeMap<RoutineId, MirKnownCalleeExitSummary>,
+    direct_call_targets: BTreeSet<RoutineId>,
 }
 
 impl MirKnownCalleeSummaries {
     pub(in crate::mir6502) fn analyze(program: &MirProgram) -> Self {
+        let direct_call_targets = program
+            .routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .flat_map(|block| &block.ops)
+            .filter_map(|op| match op {
+                MirOp::Call {
+                    target: MirCallTarget::Routine(routine),
+                    ..
+                } => Some(*routine),
+                _ => None,
+            })
+            .collect();
         let machine_summaries = program
             .routines
             .iter()
@@ -121,6 +135,7 @@ impl MirKnownCalleeSummaries {
                     )
                 })
                 .collect(),
+            direct_call_targets,
         };
 
         // Unknown is the conservative fixed point for recursion. Acyclic
@@ -157,6 +172,14 @@ impl MirKnownCalleeSummaries {
             return None;
         };
         self.get(*routine)
+    }
+
+    pub(in crate::mir6502) fn accumulator_summary_is_observable(&self, routine: RoutineId) -> bool {
+        self.direct_call_targets.contains(&routine)
+            && self
+                .get(routine)
+                .and_then(MirKnownCalleeExitSummary::accumulator)
+                .is_some()
     }
 }
 

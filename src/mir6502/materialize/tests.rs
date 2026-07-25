@@ -13851,6 +13851,267 @@ fn known_callee_exit_accumulator_elides_return_slot_reload() {
 }
 
 #[test]
+fn known_callee_word_result_placement_stores_proven_high_lane_first() {
+    let result_lo = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+    let result_hi = MirMem::FixedZeroPage(MirFixedZpSlot(0xA1));
+    let destination_lo = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let destination_hi = MirMem::Local {
+        id: LocalId(0),
+        offset: 1,
+    };
+    let forwarded_high = MirMem::FixedZeroPage(MirFixedZpSlot(0xA3));
+    let load_a = |mem| MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    };
+    let store_a = |mem| MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let call = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: None,
+            clobbers: MirRegisterSet {
+                a: true,
+                x: true,
+                y: true,
+                flags: true,
+                sp: false,
+            },
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: None,
+        effects: MirEffects::default(),
+    };
+    let caller = MirRoutine {
+        id: RoutineId(0),
+        name: "Caller".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(0),
+            label: "caller".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                call.clone(),
+                load_a(result_lo.clone()),
+                store_a(destination_lo.clone()),
+                load_a(result_hi.clone()),
+                store_a(destination_hi.clone()),
+                store_a(forwarded_high.clone()),
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: 0,
+                    width: MirWidth::Byte,
+                },
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let callee = MirRoutine {
+        id: RoutineId(1),
+        name: "Callee".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(1),
+            label: "callee".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: 1,
+                    width: MirWidth::Byte,
+                },
+                store_a(result_lo.clone()),
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: 2,
+                    width: MirWidth::Byte,
+                },
+                store_a(result_hi),
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let mut observe_call = call.clone();
+    if let MirOp::Call { target, .. } = &mut observe_call {
+        *target = MirCallTarget::Routine(RoutineId(0));
+    }
+    let observer = MirRoutine {
+        id: RoutineId(2),
+        name: "Observer".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(2),
+            label: "observer".to_string(),
+            params: Vec::new(),
+            ops: vec![observe_call],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let mut program = empty_test_program();
+    program.routines = vec![caller.clone(), callee, observer];
+    let known_callees = MirKnownCalleeSummaries::analyze(&program);
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut reaches_return = caller.clone();
+    reaches_return.blocks[0].ops.pop();
+    let reaches_return_ops = reaches_return.blocks[0].ops.clone();
+    let mut rewritten = caller;
+    let mut stats = MirPeepholeStats::default();
+
+    run_analyzed_known_callee_word_result_placements(
+        &mut rewritten,
+        &layout,
+        Some(&known_callees),
+        &mut stats,
+    )
+    .unwrap();
+
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("known-callee-word-result-placement"),
+        Some(&1)
+    );
+    assert_eq!(
+        rewritten.blocks[0].ops,
+        vec![
+            call,
+            store_a(destination_hi),
+            store_a(forwarded_high),
+            load_a(result_lo),
+            store_a(destination_lo),
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 0,
+                width: MirWidth::Byte,
+            },
+        ]
+    );
+
+    let mut exit_stats = MirPeepholeStats::default();
+    run_analyzed_known_callee_word_result_placements(
+        &mut reaches_return,
+        &layout,
+        Some(&known_callees),
+        &mut exit_stats,
+    )
+    .unwrap();
+    assert!(
+        !exit_stats
+            .aggregate_counts()
+            .contains_key("known-callee-word-result-placement")
+    );
+    assert_eq!(reaches_return.blocks[0].ops, reaches_return_ops);
+}
+
+#[test]
+fn known_callee_word_result_placement_keeps_absolute_store_order() {
+    let result_lo = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+    let result_hi = MirMem::FixedZeroPage(MirFixedZpSlot(0xA1));
+    let load_a = |mem| MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    };
+    let store_a = |mem| MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let call = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: None,
+            clobbers: MirRegisterSet {
+                a: true,
+                x: true,
+                y: true,
+                flags: true,
+                sp: false,
+            },
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: None,
+        effects: MirEffects::default(),
+    };
+    let ops = vec![
+        call,
+        load_a(result_lo),
+        store_a(MirMem::Absolute(0xD200)),
+        load_a(result_hi),
+        store_a(MirMem::Absolute(0xD201)),
+        MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value: 0,
+            width: MirWidth::Byte,
+        },
+    ];
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: ops.clone(),
+        terminator: MirTerminator::Return,
+    }]);
+    let callee = MirRoutine {
+        id: RoutineId(1),
+        name: "Callee".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(1),
+            label: "callee".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                load_a(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1))),
+                store_a(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1))),
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let mut program = empty_test_program();
+    program.routines = vec![routine.clone(), callee];
+    let known_callees = MirKnownCalleeSummaries::analyze(&program);
+    let layout = MaterializeLayout::new(&program, 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point_with_known_callees(&mut routine, &known_callees, |routine, context| {
+            peepholes::discover_known_callee_word_result_placements(
+                routine, context, &layout, false,
+            )
+        })
+        .unwrap();
+
+    assert!(
+        !result
+            .applied_by_stat
+            .contains_key("known-callee-word-result-placement")
+    );
+    assert_eq!(routine.blocks[0].ops, ops);
+}
+
+#[test]
 fn known_callee_preserves_staged_pointer_bytes_it_cannot_write() {
     let low_source = MirMem::FixedZeroPage(MirFixedZpSlot(0xB0));
     let high_source = MirMem::FixedZeroPage(MirFixedZpSlot(0xB1));

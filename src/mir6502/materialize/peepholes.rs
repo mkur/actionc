@@ -2,9 +2,13 @@
 use super::store_consumers::try_fold_direct_inc_dec_update;
 use super::*;
 use crate::mir6502::analysis::effects::{MirFlagSet, classify_op};
+use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
+use crate::mir6502::analysis::machine_values::MirMachineValue;
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{MirRegisterSet, MirRoutine};
-use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
+use crate::mir6502::rewrite::context::{
+    MirExitStateChange, MirProof, MirProofBlocker, PostHomeRewriteContext,
+};
 use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
 use crate::mir6502::rewrite::posthome::structural_plan;
 
@@ -180,6 +184,91 @@ pub(in crate::mir6502) fn discover_call_result_y_placements(
                     0,
                 )
             {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn discover_known_callee_word_result_placements(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+    preserve_exit_accumulator: bool,
+) -> Vec<MirPostHomeRewritePlan> {
+    const STAT: &str = "known-callee-word-result-placement";
+    let result_hi = return_slot_mem(1);
+    let return_liveness = preserve_exit_accumulator.then(|| {
+        MirMachineLiveness::analyze_with_return_registers(
+            routine,
+            context.cfg(),
+            MirRegisterSet {
+                a: true,
+                ..MirRegisterSet::default()
+            },
+        )
+    });
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let Some((consumed, replacement)) =
+                known_callee_word_result_placement_shape_at(&block.ops, index, routine.id, layout)
+            else {
+                continue;
+            };
+            let point = context.point(MirSite::Op {
+                block: block.id,
+                op_index: index + 1,
+            });
+            match context.accumulator_value_at(point) {
+                MirProof::Proven(MirMachineValue::DirectMem(mem)) if mem == result_hi => {}
+                MirProof::Blocked(blocker) => {
+                    context.record_blocker(STAT, block.id, index, &blocker);
+                    continue;
+                }
+                MirProof::Proven(_) => continue,
+            }
+            if let Some(return_liveness) = &return_liveness {
+                let site = MirSite::Op {
+                    block: block.id,
+                    op_index: index + consumed - 1,
+                };
+                let blocker = match return_liveness.register_dead_after(MirReg::A, site) {
+                    Ok(true) => None,
+                    Ok(false) => Some(MirProofBlocker::RegisterLive {
+                        reg: MirReg::A,
+                        point: site,
+                    }),
+                    Err(error) => Some(MirProofBlocker::MachineLiveness(error)),
+                };
+                if let Some(blocker) = blocker {
+                    context.record_blocker(STAT, block.id, index, &blocker);
+                    continue;
+                }
+            }
+            let exit_state_change = MirExitStateChange {
+                registers: MirRegisterSet {
+                    a: true,
+                    ..MirRegisterSet::default()
+                },
+                flags: MirFlagSet {
+                    z: true,
+                    n: true,
+                    ..MirFlagSet::default()
+                },
+                ..MirExitStateChange::default()
+            };
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                index..index + consumed,
+                replacement,
+                exit_state_change,
+                STAT,
+                0,
+            ) {
                 plans.push(plan);
             }
         }
@@ -3015,6 +3104,63 @@ fn call_result_to_y_arg_placement_shape_at(
         }
     }
     None
+}
+
+fn known_callee_word_result_placement_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    if !matches!(
+        ops.get(index)?,
+        MirOp::Call {
+            target: MirCallTarget::Routine(_),
+            ..
+        }
+    ) {
+        return None;
+    }
+    let result_lo = return_slot_mem(0);
+    let result_hi = return_slot_mem(1);
+    if load_a_direct_byte(ops.get(index + 1)?)? != result_lo {
+        return None;
+    }
+    let destination_lo = store_a_direct_byte(ops.get(index + 2)?)?;
+    if load_a_direct_byte(ops.get(index + 3)?)? != result_hi {
+        return None;
+    }
+    let destination_hi = store_a_direct_byte(ops.get(index + 4)?)?;
+    if destination_hi != offset_mem(&destination_lo, 1)
+        || destination_hi == destination_lo
+        || !layout.mem_allows_word_lane_store_reordering(&destination_lo)
+        || !layout.mem_allows_word_lane_store_reordering(&destination_hi)
+        || mems_may_resolve_same_byte(&destination_lo, &destination_hi, routine_id, layout)
+        || mems_may_resolve_same_byte(&destination_lo, &result_lo, routine_id, layout)
+        || mems_may_resolve_same_byte(&destination_lo, &result_hi, routine_id, layout)
+        || mems_may_resolve_same_byte(&destination_hi, &result_lo, routine_id, layout)
+        || mems_may_resolve_same_byte(&destination_hi, &result_hi, routine_id, layout)
+    {
+        return None;
+    }
+
+    let forwarded_high_store = ops.get(index + 5).and_then(|op| {
+        let mem = store_a_direct_byte(op)?;
+        if !matches!(&mem, MirMem::FixedZeroPage(_)) {
+            return None;
+        }
+        (mem != result_lo && mem != result_hi).then_some(op.clone())
+    });
+    let consumed = 5 + usize::from(forwarded_high_store.is_some());
+    let mut replacement = Vec::with_capacity(consumed - 1);
+    replacement.push(ops[index].clone());
+    replacement.push(ops[index + 4].clone());
+    if let Some(store) = forwarded_high_store {
+        replacement.push(store);
+    }
+    replacement.push(ops[index + 1].clone());
+    replacement.push(ops[index + 2].clone());
+    Some((consumed, replacement))
 }
 
 #[cfg(test)]

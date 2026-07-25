@@ -111,6 +111,14 @@ pub(in crate::mir6502) struct MirMachineLiveness {
 
 impl MirMachineLiveness {
     pub(in crate::mir6502) fn analyze(routine: &MirRoutine, cfg: &MirCfg) -> Self {
+        Self::analyze_with_return_registers(routine, cfg, MirRegisterSet::default())
+    }
+
+    pub(in crate::mir6502) fn analyze_with_return_registers(
+        routine: &MirRoutine,
+        cfg: &MirCfg,
+        return_registers: MirRegisterSet,
+    ) -> Self {
         let transfers = routine
             .blocks
             .iter()
@@ -137,7 +145,11 @@ impl MirMachineLiveness {
                     MirTerminator::Return | MirTerminator::Exit
                 )
             })
-            .map(|block| (block.id, action_return_machine_uses()))
+            .map(|block| {
+                let mut uses = action_return_machine_uses();
+                merge_registers(&mut uses.registers, return_registers);
+                (block.id, uses)
+            })
             .collect::<BTreeMap<_, _>>();
         let result = solve_dataflow(
             cfg,

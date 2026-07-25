@@ -1161,6 +1161,12 @@ fn run_posthome_structural_group(
             fold_structural_before_cleanup_migrations(ops, routine.id, layout, peephole_stats);
     }
     run_analyzed_rhs_and_adjacent_reloads(routine, layout, peephole_stats)?;
+    run_analyzed_known_callee_word_result_placements(
+        routine,
+        layout,
+        known_callees,
+        peephole_stats,
+    )?;
     run_analyzed_ssa_lite_byte_rewrites(routine, layout, false, known_callees, peephole_stats)?;
     run_analyzed_dead_private_scratch_stores(routine, peephole_stats)?;
     run_analyzed_dead_register_writes(routine, layout, peephole_stats)?;
@@ -1321,6 +1327,36 @@ fn run_analyzed_call_result_y_placements(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home call-result Y placement failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_known_callee_word_result_placements(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    known_callees: Option<&MirKnownCalleeSummaries>,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let Some(known_callees) = known_callees else {
+        return Ok(());
+    };
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let preserve_exit_accumulator = known_callees.accumulator_summary_is_observable(routine.id);
+    let result = driver
+        .run_fixed_point_with_known_callees(routine, known_callees, |routine, context| {
+            peepholes::discover_known_callee_word_result_placements(
+                routine,
+                context,
+                layout,
+                preserve_exit_accumulator,
+            )
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home known-callee word-result placement failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

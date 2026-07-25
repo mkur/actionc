@@ -47,19 +47,23 @@ fn byte_return_values_keep_public_slot_and_reuse_proven_accumulator() {
 }
 
 #[test]
-fn word_return_values_materialize_low_and_high_return_slots() {
+fn word_return_values_store_proven_high_lane_before_loading_low() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("func_returns_word.act");
 
     assert!(formatted.contains("store.b fixed_zp $A0, a"));
     assert!(formatted.contains("store.b fixed_zp $A1, a"));
-    assert!(formatted.contains("a =.b load fixed_zp $A0"));
-    assert!(formatted.contains("a =.b load fixed_zp $A1"));
+    assert!(formatted.contains(
+        "call r0 args=[] result=- clobbers=a|x|y|flags preserves=- \
+effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags\n  \
+store.b global g1+1, a\n  a =.b load fixed_zp $A0\n  store.b global g1+0, a"
+    ));
+    assert!(!formatted.contains("a =.b load fixed_zp $A1"));
     assert!(!formatted.contains("result=v"));
     assert!(!formatted.contains("spill sp"));
     assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0xA0]));
     assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0xA1]));
     assert!(bytes.windows(2).any(|bytes| bytes == [0xA5, 0xA0]));
-    assert!(bytes.windows(2).any(|bytes| bytes == [0xA5, 0xA1]));
+    assert!(!bytes.windows(2).any(|bytes| bytes == [0xA5, 0xA1]));
 }
 
 #[test]

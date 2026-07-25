@@ -158,6 +158,22 @@ impl MaterializeLayout {
         }
     }
 
+    /// Reordering the two byte stores of a word is only valid for
+    /// compiler-owned, non-volatile storage. In particular, absolute-backed
+    /// globals retain source order because their writes may be observable by
+    /// hardware or the operating system.
+    pub(super) fn mem_allows_word_lane_store_reordering(&self, mem: &MirMem) -> bool {
+        match mem {
+            MirMem::Local { .. } | MirMem::Param { .. } => true,
+            MirMem::Global { id, .. } => self.global_has_ordinary_backing(*id),
+            MirMem::Absolute(_)
+            | MirMem::Static { .. }
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_)
+            | MirMem::FixedZeroPage(_) => false,
+        }
+    }
+
     fn global_has_ordinary_backing(&self, id: SymbolId) -> bool {
         self.globals
             .iter()
