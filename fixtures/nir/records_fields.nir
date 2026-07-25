@@ -4,12 +4,6 @@ global rec: Pair
 global gb: Byte
 global gw: Card
 
-routine <program> params=[-] locals=[-]
-bb2:
-  store @$0491 = $3000
-  store @$000E = $3000
-  fallthrough
-
 routine Touch params=[rp] locals=[-]
 bb0:
   store rp.+0 = $11

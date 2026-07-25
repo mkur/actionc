@@ -2,13 +2,7 @@ mir6502 program
 global g0 i: byte storage global+0
 global g1 total: byte storage global+1
 
-routine r0 <program>
-b0 bb7:
-  store.w $0491, #$3000
-  store.w $000E, #$3000
-  unreachable
-
-routine r1 Main
+routine r0 Main
 b0 bb0:
   store.b global g0+0, #$00
   jump b1

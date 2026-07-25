@@ -1,12 +1,6 @@
 nir program
 global total: Byte
 
-routine <program> params=[-] locals=[-]
-bb3:
-  store @$0491 = $3000
-  store @$000E = $3000
-  fallthrough
-
 routine Inc params=[n] locals=[-]
 bb0:
   %t0:Byte = load n

@@ -4,13 +4,7 @@ global g1 b: byte storage global+1
 global g2 c: byte storage global+2
 global g3 result: byte storage global+3
 
-routine r0 <program>
-b0 bb4:
-  store.w $0491, #$3000
-  store.w $000E, #$3000
-  unreachable
-
-routine r1 Main
+routine r0 Main
 b0 bb0:
   store.b global g0+0, #$01
   store.b global g1+0, #$02

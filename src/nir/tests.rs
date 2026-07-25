@@ -329,6 +329,51 @@ fn routine_local_defines_do_not_lower_to_executable_metadata_ops() {
 }
 
 #[test]
+fn compile_time_sets_do_not_lower_to_executable_stores() {
+    let source =
+        "SET $22F=0 SET $E=$E6 SET $F=0 BYTE POINTER screen SET $E=$3000 PROC Main() RETURN";
+    let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+    let ast = crate::parser::parse(&tokens).expect("parse source");
+    let model = crate::semantic::analyze(&ast).expect("analyze source");
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let program = lower_program(&semir);
+
+    verify_program(&program).expect("compile-time SET should leave verifier-clean NIR");
+    assert_eq!(
+        program
+            .globals
+            .iter()
+            .find(|global| global.name == "screen")
+            .expect("screen global")
+            .backing,
+        NirGlobalBacking::Absolute(0x00E6)
+    );
+    assert!(
+        program
+            .routines
+            .iter()
+            .all(|routine| routine.name != "<program>"),
+        "{program:#?}"
+    );
+    assert!(
+        program
+            .routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .all(|block| block.ops.iter().all(|op| !matches!(
+                op,
+                NirOp::Store {
+                    place: NirPlace {
+                        kind: NirPlaceKind::Absolute(_),
+                        ..
+                    },
+                    ..
+                }
+            )))
+    );
+}
+
+#[test]
 fn two_term_logical_if_lowers_to_short_circuit_cfg() {
     for (operator, expected_first_then_rhs) in [("AND", true), ("OR", false)] {
         let source = format!(
@@ -940,7 +985,7 @@ fn verifier_rejects_legacy_assign_ops() {
 }
 
 #[test]
-fn verifier_rejects_legacy_set_ops() {
+fn verifier_rejects_executable_compile_time_set_ops() {
     let program = NirProgram {
         globals: Vec::new(),
         statics: Vec::new(),
@@ -965,10 +1010,10 @@ fn verifier_rejects_legacy_set_ops() {
 
     let diagnostics = verify_program(&program).expect_err("expected verifier error");
     assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("legacy SET op")),
-        "expected legacy-SET diagnostic, got {diagnostics:?}"
+        diagnostics.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("compile-time SET must not appear in executable NIR")),
+        "expected compile-time SET diagnostic, got {diagnostics:?}"
     );
 }
 

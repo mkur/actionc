@@ -9392,6 +9392,41 @@ mod tests {
     }
 
     #[test]
+    fn mir_compile_time_sets_emit_no_runtime_initializer() {
+        let output = generate_mir6502_source_with_origin(
+            "SET $22F=0 SET $E=$E6 SET $F=0 SET $491=$E6 SET $492=0 SET $E=$3000 SET $491=$3000 PROC Main() RETURN",
+            0x3000,
+        );
+
+        assert_eq!(output.bytes, [crate::codegen::opcode::RTS]);
+        assert_eq!(output.run_address, 0x3000);
+        assert!(
+            output
+                .map
+                .routine_addresses
+                .iter()
+                .all(|routine| routine.name != "<program>")
+        );
+    }
+
+    #[test]
+    fn mir_numeric_helper_set_changes_compile_time_call_target() {
+        let output = generate_mir6502_source_with_origin(
+            "SET $4E8=$4000 CARD left,right,result PROC Main() result=left*right RETURN",
+            0x3000,
+        );
+
+        assert!(bytes_contain(
+            &output.bytes,
+            &[crate::codegen::opcode::JSR_ABS, 0x00, 0x40]
+        ));
+        assert!(!bytes_contain(
+            &output.bytes,
+            &[crate::codegen::opcode::JSR_ABS, 0x00, 0xA0]
+        ));
+    }
+
+    #[test]
     fn mir_segment_high_water_spans_modules() {
         let output = generate_mir6502_source_with_origin(
             "BYTE ARRAY buffer, first_big(300) MODULE BYTE sink PROC UsesBacking() BYTE ARRAY second_big(301) second_big(0)=first_big(0) sink=second_big(0) RETURN MODULE PROC Main() UsesBacking() RETURN SET buffer=*",

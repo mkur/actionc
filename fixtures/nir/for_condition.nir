@@ -2,12 +2,6 @@ nir program
 global i: Byte
 global total: Byte
 
-routine <program> params=[-] locals=[-]
-bb4:
-  store @$0491 = $3000
-  store @$000E = $3000
-  fallthrough
-
 routine Main params=[-] locals=[-]
 bb0:
   store i = 0

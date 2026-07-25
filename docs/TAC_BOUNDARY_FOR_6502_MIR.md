@@ -75,8 +75,11 @@ value as a 16-bit address. `display` is printable text only; `bytes` is the
 payload for MIR allocation. Current string bytes are derived from the decoded
 string content.
 
-Top-level statements and `SET` directives are represented as a synthetic
-routine named `<program>` when needed.
+Top-level executable statements are represented as a synthetic routine named
+`<program>` when needed. Action `SET` is a compile-time directive and must not
+be lowered into executable blocks. The transitional runtime-helper override
+form is the one remaining exception; it is carried as a non-emitting
+compatibility operation until it moves to program metadata.
 
 ## Routine And CFG Shape
 
@@ -191,8 +194,8 @@ Current place kinds:
 
 - `Symbol(String)`: named scalar, array, parameter, local, routine variable, or
   global symbol, depending on semantic context outside TAC.
-- `Absolute(u16)`: fixed memory address. Current numeric `SET` directives lower
-  to stores through this place.
+- `Absolute(u16)`: fixed memory address used by ordinary executable loads and
+  stores. Compile-time `SET` directives must not lower through this place.
 - `UnresolvedName(String)`: unresolved source name. MIR must reject.
 - `Deref { pointer: Box<TacOperand> }`: storage through a pointer-shaped legacy
   operand.
@@ -396,10 +399,11 @@ typed executable core for MIR lowering.
 Set { address: TacOperand, value: TacOperand }
 ```
 
-Represents Action `SET`, often used for compiler/runtime setup. Operands are
-legacy `TacOperand`s. Numeric absolute `SET` pairs now lower to
-`Store { place: Absolute(...), ... }`; verifier-clean TAC should not contain
-`TacOp::Set`.
+Represents the transitional runtime-helper override form of Action `SET`.
+Ordinary `SET` directives are consumed as compile-time layout controls or data
+patches before executable NIR is built. Verifier-clean NIR rejects all other
+`Set` operations; in particular they must not be rewritten as absolute
+executable stores.
 
 ### `Define`, `Declare`, `Note`
 
@@ -456,9 +460,10 @@ Explicit unsupported boundary. MIR must reject.
 - `Expr(String)`
 - `Call(String)`
 
-MIR code should avoid lowering from `TacOperand` except in a tightly scoped
-compatibility path for `SET`, `Deref`, or `Index`. Executable arithmetic,
-stores, calls, branches, and returns should use `TacValue`.
+MIR code should avoid lowering from `TacOperand` except in the tightly scoped
+runtime-helper override compatibility path and transitional `Deref` or `Index`
+handling. Executable arithmetic, stores, calls, branches, and returns should
+use `TacValue`.
 
 ## Minimum MIR Acceptance Profile
 

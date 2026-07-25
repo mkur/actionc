@@ -1,12 +1,6 @@
 nir program
 global Nop: define [$EA]
 
-routine <program> params=[-] locals=[-]
-bb2:
-  store @$0491 = $3000
-  store @$000E = $3000
-  fallthrough
-
 routine Raw params=[-] locals=[-]
   note system-address *
 bb0:

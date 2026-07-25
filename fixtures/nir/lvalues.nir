@@ -3,12 +3,6 @@ global b: Byte
 global bp: Byte*
 global a: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(4) } length=4 storage=Array origin=global init zero_fill=4 section=global mutable=true
 
-routine <program> params=[-] locals=[-]
-bb1:
-  store @$0491 = $3000
-  store @$000E = $3000
-  fallthrough
-
 routine Main params=[-] locals=[-]
 bb0:
   %t0:Byte* = addr b

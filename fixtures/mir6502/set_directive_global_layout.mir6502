@@ -9,12 +9,6 @@ global g6 sch: byte absolute $00E7
 global g7 allocp: word absolute $00E8
 global g8 drvdef_1: byte absolute $07CB size=8
 
-routine r0 <program>
-b0 bb1:
-  store.w $000E, #$00E6
-  store.w $000F, #$0000
-  unreachable
-
-routine r1 Main
+routine r0 Main
 b0 bb0:
   return

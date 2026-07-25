@@ -3,12 +3,6 @@ global b: Byte
 global w: Card
 global i: Int
 
-routine <program> params=[-] locals=[-]
-bb1:
-  store @$0491 = $3000
-  store @$000E = $3000
-  fallthrough
-
 routine Main params=[-] locals=[-]
 bb0:
   %t0:Byte = Neg 1

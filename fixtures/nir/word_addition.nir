@@ -2,12 +2,6 @@ nir program
 global a: Card
 global b: Card
 
-routine <program> params=[-] locals=[-]
-bb1:
-  store @$0491 = $3000
-  store @$000E = $3000
-  fallthrough
-
 routine Main params=[-] locals=[-]
 bb0:
   store a = $1234

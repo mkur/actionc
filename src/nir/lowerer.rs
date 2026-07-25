@@ -89,8 +89,6 @@ impl NirLowerer {
                         self.apply_compatible_set(set);
                         if let Some(op) = runtime_helper_set_op(set) {
                             top_level_ops.push(op);
-                        } else {
-                            top_level_ops.push(set_op(set));
                         }
                     }
                     crate::semantic::ir::SemItem::Declaration(declaration) => {
@@ -3146,34 +3144,6 @@ fn sanitize_static_owner(owner: &str) -> String {
     }
 }
 
-fn set_op(set: &SemSet) -> NirOp {
-    let address = lower_operand(&set.address);
-    let value = lower_operand(&set.value);
-    let Some(address) = literal_u16(&address) else {
-        return NirOp::Unsupported {
-            note: "SET address is not a numeric absolute address".to_string(),
-        };
-    };
-    let Some(src) = NirValue::from_legacy_operand(&value) else {
-        return NirOp::Unsupported {
-            note: "SET value is not materialized".to_string(),
-        };
-    };
-    let Some(ty) = value.ty.clone() else {
-        return NirOp::Unsupported {
-            note: "SET value has no NIR type".to_string(),
-        };
-    };
-    NirOp::Store {
-        place: NirPlace {
-            kind: NirPlaceKind::Absolute(address),
-            ty: Some(ty.clone()),
-        },
-        src,
-        ty,
-    }
-}
-
 fn runtime_helper_set_op(set: &SemSet) -> Option<NirOp> {
     let address = lower_operand(&set.address);
     let value = lower_operand(&set.value);
@@ -3181,12 +3151,13 @@ fn runtime_helper_set_op(set: &SemSet) -> Option<NirOp> {
     if !is_runtime_helper_slot(address_value) {
         return None;
     }
-    match value.kind {
-        NirOperandKind::Symbol(_) | NirOperandKind::AddressOfSymbol(_) => {
-            Some(NirOp::Set { address, value })
-        }
-        _ => None,
-    }
+    matches!(
+        value.kind,
+        NirOperandKind::Literal { value: Some(_), .. }
+            | NirOperandKind::Symbol(_)
+            | NirOperandKind::AddressOfSymbol(_)
+    )
+    .then_some(NirOp::Set { address, value })
 }
 
 fn is_runtime_helper_slot(address: u16) -> bool {

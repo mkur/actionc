@@ -535,7 +535,7 @@ impl NirVerifier {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
                     &block.label,
-                    "legacy SET op must be lowered to an absolute Store",
+                    "compile-time SET must not appear in executable NIR",
                 ));
             }
             NirOp::Set { .. } => {}
@@ -1431,7 +1431,9 @@ fn is_runtime_helper_set(address: &NirOperand, value: &NirOperand) -> bool {
     }
     matches!(
         value.kind,
-        NirOperandKind::Symbol(_) | NirOperandKind::AddressOfSymbol(_)
+        NirOperandKind::Literal { value: Some(_), .. }
+            | NirOperandKind::Symbol(_)
+            | NirOperandKind::AddressOfSymbol(_)
     )
 }
 
