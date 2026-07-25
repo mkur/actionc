@@ -1,6 +1,7 @@
 #![allow(dead_code)] // Matchers migrate to this snapshot in Slice 8.
 
 use crate::mir6502::analysis::cfg::{MirCfg, MirCfgError};
+use crate::mir6502::analysis::home_definitions::MirHomeDefinitions;
 use crate::mir6502::analysis::home_liveness::MirHomeLiveness;
 use crate::mir6502::analysis::known_callees::MirKnownCalleeSummaries;
 use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
@@ -13,6 +14,7 @@ use crate::mir6502::ir::MirRoutine;
 #[derive(Debug)]
 pub(in crate::mir6502) struct PostHomeAnalysisSnapshot<'a> {
     routine: MirRoutineSnapshot<'a>,
+    home_definitions: MirHomeDefinitions,
     home_liveness: MirHomeLiveness,
     machine_liveness: MirMachineLiveness,
     machine_values: MirMachineValueAvailability,
@@ -35,6 +37,7 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
         let routine_snapshot = MirRoutineSnapshot::new(routine, generation)?;
         let cfg = routine_snapshot.cfg();
         Ok(Self {
+            home_definitions: MirHomeDefinitions::analyze(routine, cfg),
             home_liveness: MirHomeLiveness::analyze(routine, cfg),
             machine_liveness: MirMachineLiveness::analyze(routine, cfg),
             machine_values: MirMachineValueAvailability::analyze_with_known_callees(
@@ -57,6 +60,10 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
 
     pub(in crate::mir6502) fn home_liveness(&self) -> &MirHomeLiveness {
         &self.home_liveness
+    }
+
+    pub(in crate::mir6502) fn home_definitions(&self) -> &MirHomeDefinitions {
+        &self.home_definitions
     }
 
     pub(in crate::mir6502) fn machine_liveness(&self) -> &MirMachineLiveness {

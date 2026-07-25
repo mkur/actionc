@@ -508,7 +508,13 @@ materialization. Reads make a byte live; definite writes kill it; unknown
 effects conservatively read or preserve relevant bytes according to their
 structured effects.
 
-Required query:
+Keep that whole-home fact conservative. Build a separate forward
+reaching-definition analysis over concrete home stores and attribute each
+observable read to every store definition that can reach it. Unknown reads use
+the same home universe as liveness, and unknown writes remain may-writes rather
+than kills.
+
+Required definition-sensitive query:
 
 ```rust
 ctx.home_definition_dead_after(home, store_site, window_end)
@@ -517,7 +523,8 @@ ctx.home_definition_dead_after(home, store_site, window_end)
 It must answer whether the value written by that store can be read before being
 overwritten on any path, including loops and successors. It replaces the
 current rule that rejects every successor block when no local overwrite is
-visible.
+visible. Reads within the proposed rewrite window are validated transactionally
+and do not by themselves keep the removed definition alive.
 
 Address-consumer operations read both bytes of their pointer pair through the
 central effects model.

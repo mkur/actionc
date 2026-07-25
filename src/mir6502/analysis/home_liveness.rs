@@ -71,21 +71,12 @@ pub(in crate::mir6502) enum MirHomeLivenessError {
         op_index: usize,
         op_count: usize,
     },
-    StoreSiteIsNotOperation(MirSite),
-    InvalidWindow {
-        store: MirSite,
-        end: MirSite,
-    },
-    HomeNotWrittenAtStore {
-        home: MirHomeByte,
-        store: MirSite,
-    },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-struct MirHomeTransfer {
-    reads: BTreeSet<MirHomeByte>,
-    writes: BTreeSet<MirHomeByte>,
+pub(in crate::mir6502) struct MirHomeTransfer {
+    pub reads: BTreeSet<MirHomeByte>,
+    pub writes: BTreeSet<MirHomeByte>,
 }
 
 impl MirHomeTransfer {
@@ -97,9 +88,9 @@ impl MirHomeTransfer {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-struct MirHomeBlockTransfers {
-    ops: Vec<MirHomeTransfer>,
-    terminator: MirHomeTransfer,
+pub(in crate::mir6502) struct MirHomeBlockTransfers {
+    pub ops: Vec<MirHomeTransfer>,
+    pub terminator: MirHomeTransfer,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -114,24 +105,7 @@ pub(in crate::mir6502) struct MirHomeLiveness {
 impl MirHomeLiveness {
     pub(in crate::mir6502) fn analyze(routine: &MirRoutine, cfg: &MirCfg) -> Self {
         let universe = collect_home_universe(routine);
-        let transfers = routine
-            .blocks
-            .iter()
-            .map(|block| {
-                let ops = block
-                    .ops
-                    .iter()
-                    .map(|op| op_transfer(&classify_op(op), &universe))
-                    .collect();
-                let terminator = home_transfer(
-                    &classify_terminator(&block.terminator).homes,
-                    projected_condition_home_reads(&block.terminator),
-                    BTreeSet::new(),
-                    &universe,
-                );
-                (block.id, MirHomeBlockTransfers { ops, terminator })
-            })
-            .collect::<BTreeMap<_, _>>();
+        let transfers = collect_home_transfers(routine, &universe);
         let facts = transfers
             .iter()
             .map(|(block, transfers)| (*block, block_uses_and_defs(transfers)))
@@ -242,54 +216,6 @@ impl MirHomeLiveness {
         Ok(live_after.contains(home))
     }
 
-    /// Proves that the value defined by `store_site` cannot escape the rewrite
-    /// window and be read before a definite overwrite. Reads inside the window
-    /// are intentionally ignored because transactional validation compares the
-    /// original and replacement window effects separately.
-    pub(in crate::mir6502) fn home_definition_dead_after(
-        &self,
-        home: MirHomeByte,
-        store_site: MirSite,
-        window_end: MirSite,
-    ) -> Result<bool, MirHomeLivenessError> {
-        let MirSite::Op {
-            block,
-            op_index: store_index,
-        } = store_site
-        else {
-            return Err(MirHomeLivenessError::StoreSiteIsNotOperation(store_site));
-        };
-        let transfers = self.block_transfers(block)?;
-        self.validate_op_index(block, store_index, transfers.ops.len())?;
-        if !transfers.ops[store_index].writes.contains(&home) {
-            return Err(MirHomeLivenessError::HomeNotWrittenAtStore {
-                home,
-                store: store_site,
-            });
-        }
-        let end_index = window_end_index(window_end, block, transfers.ops.len()).ok_or(
-            MirHomeLivenessError::InvalidWindow {
-                store: store_site,
-                end: window_end,
-            },
-        )?;
-        if end_index < store_index {
-            return Err(MirHomeLivenessError::InvalidWindow {
-                store: store_site,
-                end: window_end,
-            });
-        }
-
-        if store_index < end_index
-            && transfers.ops[store_index + 1..=end_index]
-                .iter()
-                .any(|transfer| transfer.writes.contains(&home))
-        {
-            return Ok(true);
-        }
-        self.live_after(home, window_end).map(|live| !live)
-    }
-
     fn block_transfers(
         &self,
         block: MirBlockId,
@@ -355,7 +281,7 @@ impl DataflowProblem<MirCfg> for HomeLivenessProblem<'_> {
     }
 }
 
-fn collect_home_universe(routine: &MirRoutine) -> MirHomeLiveSet {
+pub(in crate::mir6502) fn collect_home_universe(routine: &MirRoutine) -> MirHomeLiveSet {
     let mut universe = MirHomeLiveSet::default();
     for block in &routine.blocks {
         for op in &block.ops {
@@ -381,7 +307,7 @@ fn collect_home_universe(routine: &MirRoutine) -> MirHomeLiveSet {
     universe
 }
 
-fn action_return_home_uses() -> MirHomeLiveSet {
+pub(in crate::mir6502) fn action_return_home_uses() -> MirHomeLiveSet {
     let mut uses = MirHomeLiveSet::default();
     for offset in 0..ACTION_RETURN_HOME_BYTES {
         uses.insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(
@@ -438,6 +364,30 @@ fn collect_projected_condition_home_reads(value: &MirValue, reads: &mut BTreeSet
     }
 }
 
+pub(in crate::mir6502) fn collect_home_transfers(
+    routine: &MirRoutine,
+    universe: &MirHomeLiveSet,
+) -> BTreeMap<MirBlockId, MirHomeBlockTransfers> {
+    routine
+        .blocks
+        .iter()
+        .map(|block| {
+            let ops = block
+                .ops
+                .iter()
+                .map(|op| op_transfer(&classify_op(op), universe))
+                .collect();
+            let terminator = home_transfer(
+                &classify_terminator(&block.terminator).homes,
+                projected_condition_home_reads(&block.terminator),
+                BTreeSet::new(),
+                universe,
+            );
+            (block.id, MirHomeBlockTransfers { ops, terminator })
+        })
+        .collect()
+}
+
 fn op_transfer(effects: &MirOpEffectSummary, universe: &MirHomeLiveSet) -> MirHomeTransfer {
     home_transfer(
         &effects.homes,
@@ -480,17 +430,6 @@ fn block_uses_and_defs(transfers: &MirHomeBlockTransfers) -> MirHomeBlockFacts {
         facts.defs.extend(transfer.writes.iter().copied());
     }
     facts
-}
-
-fn window_end_index(end: MirSite, block: MirBlockId, op_count: usize) -> Option<usize> {
-    match end {
-        MirSite::Op {
-            block: end_block,
-            op_index,
-        } if end_block == block && op_index < op_count => Some(op_index),
-        MirSite::Terminator { block: end_block } if end_block == block => op_count.checked_sub(1),
-        MirSite::BlockEntry { .. } | MirSite::Op { .. } | MirSite::Terminator { .. } => None,
-    }
 }
 
 #[cfg(test)]
@@ -562,13 +501,6 @@ mod tests {
         MirHomeLiveness::analyze(routine, &cfg)
     }
 
-    fn op_site(block: u32, op_index: usize) -> MirSite {
-        MirSite::Op {
-            block: MirBlockId(block),
-            op_index,
-        }
-    }
-
     #[test]
     fn successor_read_keeps_store_live_and_successor_overwrite_kills_it() {
         let read_successor = routine(vec![
@@ -584,10 +516,6 @@ mod tests {
         ]);
         let liveness = analyze(&read_successor);
         assert!(liveness.live_out(MirBlockId(0)).unwrap().contains(spill(0)));
-        assert_eq!(
-            liveness.home_definition_dead_after(spill(0), op_site(0, 0), op_site(0, 0)),
-            Ok(false)
-        );
 
         let overwrite_successor = routine(vec![
             block(
@@ -602,10 +530,6 @@ mod tests {
         ]);
         let liveness = analyze(&overwrite_successor);
         assert!(!liveness.live_out(MirBlockId(0)).unwrap().contains(spill(0)));
-        assert_eq!(
-            liveness.home_definition_dead_after(spill(0), op_site(0, 0), op_site(0, 0)),
-            Ok(true)
-        );
     }
 
     #[test]
@@ -631,10 +555,16 @@ mod tests {
             block(1, Vec::new(), MirTerminator::Return),
         ]);
         let liveness = analyze(&routine);
-
-        assert_eq!(
-            liveness.home_definition_dead_after(spill(0), op_site(0, 0), op_site(0, 0)),
-            Ok(false)
+        assert!(
+            liveness
+                .live_after(
+                    spill(0),
+                    MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 0,
+                    },
+                )
+                .unwrap()
         );
     }
 
@@ -684,10 +614,6 @@ mod tests {
         let liveness = analyze(&routine);
         assert!(liveness.live_out(MirBlockId(0)).unwrap().contains(spill(0)));
         assert!(liveness.evaluations() > routine.blocks.len());
-        assert_eq!(
-            liveness.home_definition_dead_after(spill(0), op_site(0, 0), op_site(0, 0)),
-            Ok(false)
-        );
     }
 
     #[test]
@@ -698,23 +624,27 @@ mod tests {
             MirTerminator::Return,
         )]);
         let liveness = analyze(&routine);
-        assert_eq!(
-            liveness.home_definition_dead_after(spill(0), op_site(0, 0), op_site(0, 0)),
-            Ok(true)
+        assert!(
+            !liveness
+                .live_after(
+                    spill(0),
+                    MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 0,
+                    }
+                )
+                .unwrap()
         );
-        assert_eq!(
-            liveness.home_definition_dead_after(spill(0), op_site(0, 1), op_site(0, 1)),
-            Ok(false)
-        );
-        assert_eq!(
-            liveness.home_definition_dead_after(
-                spill(0),
-                op_site(0, 1),
-                MirSite::Terminator {
-                    block: MirBlockId(0)
-                }
-            ),
-            Ok(true)
+        assert!(
+            liveness
+                .live_after(
+                    spill(0),
+                    MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 1,
+                    }
+                )
+                .unwrap()
         );
     }
 
@@ -777,43 +707,29 @@ mod tests {
             MirTerminator::Return,
         )]);
         let liveness = analyze(&routine);
-        assert_eq!(
-            liveness.home_definition_dead_after(spill(0), op_site(0, 0), op_site(0, 0)),
-            Ok(false)
+        assert!(
+            liveness
+                .live_after(
+                    spill(0),
+                    MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 0,
+                    }
+                )
+                .unwrap()
         );
-        assert_eq!(
-            liveness.home_definition_dead_after(spill(1), op_site(0, 3), op_site(0, 3)),
-            Ok(false)
+        assert!(
+            liveness
+                .live_after(
+                    spill(1),
+                    MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 3,
+                    }
+                )
+                .unwrap()
         );
         assert!(liveness.universe().contains(spill(0)));
         assert!(liveness.universe().contains(spill(1)));
-    }
-
-    #[test]
-    fn query_rejects_non_store_and_invalid_windows() {
-        let routine = routine(vec![block(0, vec![store(0, 1)], MirTerminator::Return)]);
-        let liveness = analyze(&routine);
-        assert_eq!(
-            liveness.home_definition_dead_after(
-                spill(0),
-                MirSite::BlockEntry {
-                    block: MirBlockId(0)
-                },
-                op_site(0, 0)
-            ),
-            Err(MirHomeLivenessError::StoreSiteIsNotOperation(
-                MirSite::BlockEntry {
-                    block: MirBlockId(0)
-                }
-            ))
-        );
-        assert!(matches!(
-            liveness.home_definition_dead_after(spill(1), op_site(0, 0), op_site(0, 0)),
-            Err(MirHomeLivenessError::HomeNotWrittenAtStore { .. })
-        ));
-        assert!(matches!(
-            liveness.home_definition_dead_after(spill(0), op_site(0, 0), op_site(1, 0)),
-            Err(MirHomeLivenessError::InvalidWindow { .. })
-        ));
     }
 }

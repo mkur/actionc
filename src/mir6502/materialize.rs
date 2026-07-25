@@ -995,6 +995,14 @@ pub(super) fn materialize_program(
     allocate_zero_page_slots(&mut program);
     materialize_remaining_pointer_cell_values(&mut program);
     fold_redundant_xy_reloads(&mut program, &mut peephole_stats);
+    // Late register-value folding can make the last definition of a private
+    // home dead. Rebuild reaching-definition facts here so those newly exposed
+    // stores are removed by exact definition identity, without changing the
+    // whole-home liveness policy used by other rewrites.
+    for routine in &mut program.routines {
+        run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
+        prune_unused_spills(routine);
+    }
     verify_materialization_stage(&program, MirPhase::PostHome, "post-home boundary")?;
     record_final_home_allocations(&program, &mut peephole_stats);
     for routine in &program.routines {

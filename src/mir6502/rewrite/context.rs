@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 
 use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte};
+use crate::mir6502::analysis::home_definitions::MirHomeDefinitionError;
 use crate::mir6502::analysis::home_liveness::MirHomeLivenessError;
 use crate::mir6502::analysis::machine_liveness::MirMachineLivenessError;
 use crate::mir6502::analysis::machine_values::{MirMachineValue, MirMachineValueError};
@@ -57,6 +58,7 @@ pub(in crate::mir6502) enum MirProofBlocker {
     },
     UseOutsideWindow(MirUseSite),
     HomeLiveness(MirHomeLivenessError),
+    HomeDefinitions(MirHomeDefinitionError),
     MachineLiveness(MirMachineLivenessError),
     MachineValues(MirMachineValueError),
     ParamAvailability(MirParamAvailabilityError),
@@ -111,6 +113,7 @@ impl MirProofBlocker {
             Self::InvalidWindow { .. } => "invalid-window",
             Self::UseOutsideWindow(_) => "use-outside-window",
             Self::HomeLiveness(_) => "home-liveness-error",
+            Self::HomeDefinitions(_) => "home-definition-error",
             Self::MachineLiveness(_) => "machine-liveness-error",
             Self::MachineValues(_) => "machine-values-error",
             Self::ParamAvailability(_) => "parameter-availability-error",
@@ -414,7 +417,7 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
                 return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
             }
         }
-        match self.snapshot.home_liveness().home_definition_dead_after(
+        match self.snapshot.home_definitions().definition_dead_after(
             home,
             store.site,
             window_end.site,
@@ -425,7 +428,7 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
                 store: store.site,
                 end: window_end.site,
             }),
-            Err(error) => MirProof::Blocked(MirProofBlocker::HomeLiveness(error)),
+            Err(error) => MirProof::Blocked(MirProofBlocker::HomeDefinitions(error)),
         }
     }
 

@@ -308,4 +308,23 @@ mod tests {
             1
         );
     }
+
+    #[test]
+    fn definition_cleanup_removes_store_exposed_by_late_reload_folding() {
+        let mut program = store_reload_program(MirTerminator::Return, Vec::new());
+        let mut stats = MirPeepholeStats::default();
+
+        fold_redundant_xy_reloads(&mut program, &mut stats);
+        super::super::run_analyzed_dead_private_scratch_stores(
+            &mut program.routines[0],
+            &mut stats,
+        )
+        .unwrap();
+
+        assert_eq!(program.routines[0].blocks[0].ops.len(), 1);
+        assert_eq!(
+            stats.count_for(RoutineId(0), "dead-private-scratch-store"),
+            1
+        );
+    }
 }
