@@ -929,6 +929,84 @@ pub(super) fn try_fuse_indirect_to_indexed_word_copy(
     2
 }
 
+pub(super) fn try_fuse_local_indirect_word_copy(
+    ops: &[MirOp],
+    index: usize,
+    _layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Load {
+        dst: load_dst,
+        src,
+        width: MirWidth::Word,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some((source_ptr, source_offset)) = indirect_pointer_parts(src) else {
+        return 0;
+    };
+    let Some(MirOp::Store {
+        dst,
+        src: MirValue::Def(store_src),
+        width: MirWidth::Word,
+    }) = ops.get(index + 1)
+    else {
+        return 0;
+    };
+    let Some((destination_ptr, destination_offset)) = indirect_pointer_parts(dst) else {
+        return 0;
+    };
+    if store_src != load_dst
+        || source_offset > u16::from(u8::MAX - 1)
+        || destination_offset > u16::from(u8::MAX - 1)
+    {
+        return 0;
+    }
+
+    let source_ptr = resolve_indexed_base_producer(ops, index, source_ptr);
+    let destination_ptr = resolve_indexed_base_producer(ops, index + 1, destination_ptr);
+    if !local_pointer_value_is_rematerializable(&source_ptr)
+        || !local_pointer_value_is_rematerializable(&destination_ptr)
+    {
+        return 0;
+    }
+
+    out.push(MirOp::MaterializeAddress {
+        consumer: DEST_POINTER_PAIR,
+        value: destination_ptr,
+    });
+    out.push(MirOp::MaterializeAddress {
+        consumer: DEFAULT_POINTER_PAIR,
+        value: source_ptr,
+    });
+    out.push(MirOp::CopyIndirectWord {
+        source: DEFAULT_POINTER_PAIR,
+        destination: DEST_POINTER_PAIR,
+        source_offset,
+        destination_offset,
+    });
+    2
+}
+
+fn indirect_pointer_parts(addr: &MirAddr) -> Option<(MirValue, u16)> {
+    match addr {
+        MirAddr::PointerCell { ptr, offset } => Some((pointer_value_from_mem(ptr), *offset)),
+        MirAddr::Deref { ptr, offset } => Some((ptr.clone(), *offset)),
+        _ => None,
+    }
+}
+
+fn local_pointer_value_is_rematerializable(value: &MirValue) -> bool {
+    let MirValue::Word { lo, hi } = value else {
+        return false;
+    };
+    let (MirValue::PointerCell(lo), MirValue::PointerCell(hi)) = (lo.as_ref(), hi.as_ref()) else {
+        return false;
+    };
+    matches!(lo, MirMem::Local { .. }) && *hi == offset_mem(lo, 1)
+}
+
 pub(super) fn indexed_addr_parts(addr: &MirAddr) -> Option<IndexedAddrParts> {
     match addr {
         MirAddr::ComputedIndex {
