@@ -117,7 +117,7 @@ use indexes::{
     storage_address_value, try_fuse_dynamic_inline_byte_index, try_fuse_indexed_byte_copy,
     try_fuse_indexed_byte_inc_dec_update, try_fuse_indexed_to_indirect_word_copy,
     try_fuse_indexed_word_copy, try_fuse_indirect_to_indexed_word_copy,
-    try_fuse_local_indirect_word_copy, try_prepare_dynamic_byte_index,
+    try_fuse_private_indirect_word_copy, try_prepare_dynamic_byte_index,
     try_prepare_dynamic_word_index,
 };
 pub(super) use layout::MaterializeLayout;
@@ -510,7 +510,7 @@ pub(in crate::mir6502) fn analyzed_indirect_to_indexed_word_copy_candidates(
         .collect()
 }
 
-pub(in crate::mir6502) fn analyzed_local_indirect_word_copy_candidates(
+pub(in crate::mir6502) fn analyzed_private_indirect_word_copy_candidates(
     block: &super::ir::MirBlock,
     layout: &MaterializeLayout,
 ) -> Vec<(usize, IndexRewriteCandidate)> {
@@ -518,7 +518,8 @@ pub(in crate::mir6502) fn analyzed_local_indirect_word_copy_candidates(
     (0..ops.len())
         .filter_map(|index| {
             let mut replacement = Vec::new();
-            let consumed = try_fuse_local_indirect_word_copy(ops, index, layout, &mut replacement);
+            let consumed =
+                try_fuse_private_indirect_word_copy(ops, index, layout, &mut replacement);
             if consumed == 0 {
                 return None;
             }
@@ -526,7 +527,7 @@ pub(in crate::mir6502) fn analyzed_local_indirect_word_copy_candidates(
                 start: index,
                 consumed,
                 replacement,
-                stat: "local-indirect-word-copy",
+                stat: "private-indirect-word-copy",
                 observations: Vec::new(),
                 family_priority: 113,
             };
@@ -1371,7 +1372,7 @@ fn run_prehome_selection_group(
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     run_analyzed_word_carry_chain_store_consumers(routine, config, layout, peephole_stats)?;
-    run_analyzed_local_indirect_word_copies(routine, layout, peephole_stats)?;
+    run_analyzed_private_indirect_word_copies(routine, layout, peephole_stats)?;
     run_analyzed_indexed_to_indirect_word_copies(routine, layout, peephole_stats)?;
     run_analyzed_indirect_to_indexed_word_copies(routine, layout, peephole_stats)?;
     run_analyzed_pointer_rewrites(routine, layout, peephole_stats)?;
@@ -1420,7 +1421,7 @@ fn run_analyzed_indexed_to_indirect_word_copies(
     Ok(())
 }
 
-fn run_analyzed_local_indirect_word_copies(
+fn run_analyzed_private_indirect_word_copies(
     routine: &mut super::ir::MirRoutine,
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
@@ -1430,7 +1431,7 @@ fn run_analyzed_local_indirect_word_copies(
         .run_fixed_point_by_key(
             routine,
             |routine, context| {
-                super::rewrite::pilots::discover_local_indirect_word_copies(
+                super::rewrite::pilots::discover_private_indirect_word_copies(
                     routine, context, layout,
                 )
             },
@@ -1439,7 +1440,7 @@ fn run_analyzed_local_indirect_word_copies(
         .map_err(|error| {
             vec![MirDiagnostic::routine(
                 &routine.name,
-                format!("local indirect word-copy selection failed: {error:?}"),
+                format!("private indirect word-copy selection failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

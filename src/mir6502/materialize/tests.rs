@@ -5296,7 +5296,71 @@ fn local_indirect_word_copy_uses_overlap_safe_dual_pointer_op() {
     let mut out = Vec::new();
 
     assert_eq!(
-        try_fuse_local_indirect_word_copy(&ops, 0, &layout, &mut out),
+        try_fuse_private_indirect_word_copy(&ops, 0, &layout, &mut out),
+        2
+    );
+    assert_eq!(
+        out,
+        vec![
+            MirOp::MaterializeAddress {
+                consumer: DEST_POINTER_PAIR,
+                value: destination,
+            },
+            MirOp::MaterializeAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                value: source,
+            },
+            MirOp::CopyIndirectWord {
+                source: DEFAULT_POINTER_PAIR,
+                destination: DEST_POINTER_PAIR,
+                source_offset: 2,
+                destination_offset: 4,
+            },
+        ]
+    );
+}
+
+#[test]
+fn parameter_indirect_word_copy_uses_overlap_safe_dual_pointer_op() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let value = MirDef::VTemp(MirTempId(0));
+    let source = pointer_value_from_mem(&MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    });
+    let destination = pointer_value_from_mem(&MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    });
+    let ops = vec![
+        MirOp::Load {
+            dst: value.clone(),
+            src: MirAddr::PointerCell {
+                ptr: MirMem::Local {
+                    id: LocalId(0),
+                    offset: 0,
+                },
+                offset: 2,
+            },
+            width: MirWidth::Word,
+        },
+        MirOp::Store {
+            dst: MirAddr::PointerCell {
+                ptr: MirMem::Param {
+                    id: ParamId(0),
+                    offset: 0,
+                },
+                offset: 4,
+            },
+            src: MirValue::Def(value),
+            width: MirWidth::Word,
+        },
+    ];
+    let mut out = Vec::new();
+
+    assert_eq!(
+        try_fuse_private_indirect_word_copy(&ops, 0, &layout, &mut out),
         2
     );
     assert_eq!(

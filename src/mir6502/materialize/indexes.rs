@@ -929,7 +929,7 @@ pub(super) fn try_fuse_indirect_to_indexed_word_copy(
     2
 }
 
-pub(super) fn try_fuse_local_indirect_word_copy(
+pub(super) fn try_fuse_private_indirect_word_copy(
     ops: &[MirOp],
     index: usize,
     _layout: &MaterializeLayout,
@@ -966,8 +966,8 @@ pub(super) fn try_fuse_local_indirect_word_copy(
 
     let source_ptr = resolve_indexed_base_producer(ops, index, source_ptr);
     let destination_ptr = resolve_indexed_base_producer(ops, index + 1, destination_ptr);
-    if !local_pointer_value_is_rematerializable(&source_ptr)
-        || !local_pointer_value_is_rematerializable(&destination_ptr)
+    if !private_pointer_value_is_rematerializable(&source_ptr)
+        || !private_pointer_value_is_rematerializable(&destination_ptr)
     {
         return 0;
     }
@@ -997,14 +997,14 @@ fn indirect_pointer_parts(addr: &MirAddr) -> Option<(MirValue, u16)> {
     }
 }
 
-fn local_pointer_value_is_rematerializable(value: &MirValue) -> bool {
+fn private_pointer_value_is_rematerializable(value: &MirValue) -> bool {
     let MirValue::Word { lo, hi } = value else {
         return false;
     };
     let (MirValue::PointerCell(lo), MirValue::PointerCell(hi)) = (lo.as_ref(), hi.as_ref()) else {
         return false;
     };
-    matches!(lo, MirMem::Local { .. }) && *hi == offset_mem(lo, 1)
+    matches!(lo, MirMem::Local { .. } | MirMem::Param { .. }) && *hi == offset_mem(lo, 1)
 }
 
 pub(super) fn indexed_addr_parts(addr: &MirAddr) -> Option<IndexedAddrParts> {

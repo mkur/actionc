@@ -630,6 +630,39 @@ mod tests {
     }
 
     #[test]
+    fn source_generation_selects_parameter_backed_dual_pointer_word_copy() {
+        let materialized = materialize_mir6502_source(
+            "
+            PROC Copy(CARD POINTER destination,source)
+              destination^=source^
+            RETURN
+            ",
+        );
+        let copy = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Copy")
+            .expect("Copy routine");
+
+        assert!(
+            copy.blocks.iter().any(|block| {
+                block.ops.iter().any(|op| {
+                    matches!(
+                        op,
+                        MirOp::CopyIndirectWord {
+                            source_offset: 0,
+                            destination_offset: 0,
+                            ..
+                        }
+                    )
+                })
+            }),
+            "parameter-backed pointer copy should select the dual-pointer transfer:\n{}",
+            format_program(&materialized)
+        );
+    }
+
+    #[test]
     fn source_generation_preserves_expected_word_unary_negation() {
         let literal = generate_mir6502_source("INT s PROC Main() s=-1 RETURN");
         assert!(bytes_contain(

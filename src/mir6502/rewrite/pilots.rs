@@ -602,7 +602,7 @@ pub(in crate::mir6502) fn discover_indexed_to_indirect_word_copies(
     plans
 }
 
-pub(in crate::mir6502) fn discover_local_indirect_word_copies(
+pub(in crate::mir6502) fn discover_private_indirect_word_copies(
     routine: &MirRoutine,
     context: &PreHomeRewriteContext<'_, '_>,
     layout: &crate::mir6502::materialize::MaterializeLayout,
@@ -610,7 +610,9 @@ pub(in crate::mir6502) fn discover_local_indirect_word_copies(
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for (index, candidate) in
-            crate::mir6502::materialize::analyzed_local_indirect_word_copy_candidates(block, layout)
+            crate::mir6502::materialize::analyzed_private_indirect_word_copy_candidates(
+                block, layout,
+            )
         {
             if let Some(plan) =
                 indexed_word_copy_plan(block.id, &block.ops, index, candidate, context)
