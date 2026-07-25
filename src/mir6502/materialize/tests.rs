@@ -312,6 +312,130 @@ fn byte_le_branch_expands_to_any_flag_test() {
 }
 
 #[test]
+fn byte_le_constant_branch_normalizes_to_single_carry_test() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut blocks = byte_constant_compare_blocks(MirCompareOp::Le, 0xFE);
+
+    expand_compare_branch_consumers(&mut blocks, &layout, &Mir6502Config::default());
+
+    assert_eq!(blocks.len(), 3);
+    assert_eq!(
+        blocks[0].ops,
+        vec![MirOp::Compare {
+            dst: MirCondDest::Flags,
+            op: MirCompareOp::Lt,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0xFF),
+            width: MirWidth::Byte,
+            signed: false,
+        }]
+    );
+    assert_eq!(
+        blocks[0].terminator,
+        MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::CClear),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        }
+    );
+}
+
+#[test]
+fn byte_gt_constant_branch_normalizes_to_single_carry_test() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut blocks = byte_constant_compare_blocks(MirCompareOp::Gt, 0x7F);
+
+    expand_compare_branch_consumers(&mut blocks, &layout, &Mir6502Config::default());
+
+    assert_eq!(blocks.len(), 3);
+    assert_eq!(
+        blocks[0].ops,
+        vec![MirOp::Compare {
+            dst: MirCondDest::Flags,
+            op: MirCompareOp::Ge,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0x80),
+            width: MirWidth::Byte,
+            signed: false,
+        }]
+    );
+    assert_eq!(
+        blocks[0].terminator,
+        MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::CSet),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        }
+    );
+}
+
+#[test]
+fn byte_inclusive_constant_branch_keeps_two_tests_at_byte_max() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut blocks = byte_constant_compare_blocks(MirCompareOp::Le, 0xFF);
+
+    expand_compare_branch_consumers(&mut blocks, &layout, &Mir6502Config::default());
+
+    assert_eq!(blocks.len(), 3);
+    assert!(matches!(
+        blocks[0].ops.as_slice(),
+        [MirOp::Compare {
+            dst: MirCondDest::Flags,
+            op: MirCompareOp::Le,
+            right: MirValue::ConstU8(0xFF),
+            ..
+        }]
+    ));
+    assert!(matches!(
+        blocks[0].terminator,
+        MirTerminator::Branch {
+            cond: MirCond::AnyFlagTest([MirFlagTest::CClear, MirFlagTest::ZSet]),
+            ..
+        }
+    ));
+}
+
+fn byte_constant_compare_blocks(op: MirCompareOp, right: u8) -> Vec<MirBlock> {
+    vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::Compare {
+                dst: MirCondDest::Temp(MirTempId(0)),
+                op,
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::ConstU8(right),
+                width: MirWidth::Byte,
+                signed: false,
+            }],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]
+}
+
+#[test]
 fn byte_add_word_compare_branch_uses_carry_then_low_byte() {
     let add_mem = MirMem::Param {
         id: ParamId(0),

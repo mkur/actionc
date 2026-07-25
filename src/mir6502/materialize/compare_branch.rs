@@ -1679,12 +1679,28 @@ fn materialize_byte_compare_branch(
     ops: &mut Vec<MirOp>,
     blocks: &mut Vec<MirBlock>,
     next_id: &mut u32,
-    op: MirCompareOp,
+    mut op: MirCompareOp,
     left: MirValue,
-    right: MirValue,
+    mut right: MirValue,
     then_block: MirBlockId,
     else_block: MirBlockId,
 ) -> MirTerminator {
+    if let Some((flag_test, Some((rewritten_op, rewritten_right)))) =
+        compare_branch_plan(op, &right)
+    {
+        op = rewritten_op;
+        right = rewritten_right;
+        ops.push(MirOp::Compare {
+            dst: MirCondDest::Flags,
+            op,
+            left,
+            right,
+            width: MirWidth::Byte,
+            signed: false,
+        });
+        return branch_terminator(MirCond::FlagTest(flag_test), then_block, else_block);
+    }
+
     ops.push(MirOp::Compare {
         dst: MirCondDest::Flags,
         op,

@@ -27,14 +27,14 @@ fn byte_for_loop_bound_and_body_consumers_avoid_spills() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("for_loop_byte.act");
 
     assert!(!formatted.contains("spill sp"));
-    assert!(formatted.contains("flags = cmp.b a le #$03"));
+    assert!(formatted.contains("flags = cmp.b a lt #$04"));
     assert!(formatted.contains("a =.b a add *global g0+0 carry_in=clear carry_out=ignore"));
     assert!(formatted.contains("store.b global g1+0, a"));
     assert!(formatted.contains("inc.b global g0+0"));
     assert!(
         bytes
             .windows(3)
-            .any(|bytes| matches!(bytes, [0xC9, 0x03, 0x90 | 0xB0]))
+            .any(|bytes| matches!(bytes, [0xC9, 0x04, 0x90 | 0xB0]))
     );
     assert!(bytes.windows(3).any(|bytes| bytes == [0x6D, 0x00, 0x30]));
 }
