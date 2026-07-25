@@ -8,11 +8,27 @@ CARD indexedToIndirectResult=$0600
 CARD indirectToIndexedResult=$0602
 CARD indexedToIndirectOverlapResult=$0604
 CARD indirectToIndexedOverlapResult=$0606
+CARD localPointerResult=$0608
+CARD parameterPointerResult=$060A
 
 CARD ARRAY indexedSource(256)=$6001
 CARD ARRAY indexedDestination(256)=$6201
-CARD POINTER transferPointer
+CARD POINTER transferPointer, transferDestinationPointer
 BYTE index
+
+PROC LocalPointerCopy()
+  CARD POINTER sourcePointer, destinationPointer
+
+  sourcePointer=$6821
+  destinationPointer=$6831
+  sourcePointer^=$1357
+  destinationPointer^=sourcePointer^
+  localPointerResult=destinationPointer^
+RETURN
+
+PROC ParameterPointerCopy(CARD POINTER destinationPointer, sourcePointer)
+  destinationPointer^=sourcePointer^
+RETURN
 
 PROC Main()
   ; Scaled indexed source to an unrelated indirect destination.
@@ -44,6 +60,16 @@ PROC Main()
   index=127
   indexedDestination(index)=transferPointer^
   indirectToIndexedOverlapResult=indexedDestination(index)
+
+  ; Direct indirect-to-indirect copies rematerialize private pointer cells
+  ; into the two compiler-owned pointer pairs.
+  LocalPointerCopy()
+
+  transferPointer=$6841
+  transferDestinationPointer=$6851
+  transferPointer^=$2468
+  ParameterPointerCopy(transferDestinationPointer,transferPointer)
+  parameterPointerResult=transferDestinationPointer^
 
   DO
   OD

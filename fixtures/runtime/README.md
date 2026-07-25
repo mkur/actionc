@@ -53,12 +53,14 @@ and a call on the right-hand side of a store. The 34 result bytes at
 a page crossing, the high-byte access at `Y=$FF`, the ASL carry for indexes 128
 through 255, and wrapping the corrected base high byte from `$FF` to `$00`.
 
-The dual-pointer word-transfer fixture exercises scaled indexed-to-indirect
-and indirect-to-indexed word copies in both backends. Each direction has a
-disjoint case and a case where the destination overlaps one source byte. The
-MIR6502 preflight also requires four selected `copy_indirect_word` operations,
-including two scaled-source copies. The eight result bytes at `$0600-$0607`
-prove that both source bytes were read before the first destination write.
+The dual-pointer word-transfer fixture exercises scaled indexed-to-indirect,
+indirect-to-indexed, and direct private-pointer word copies in both backends.
+Each indexed direction has a disjoint case and a case where the destination
+overlaps one source byte. The direct cases cover local-backed and
+parameter-backed pointer operands. The MIR6502 preflight requires six selected
+`copy_indirect_word` operations, including two scaled-source copies. The twelve
+result bytes at `$0600-$060B` prove both overlap-safe ordering and private
+pointer rematerialization.
 
 It is also part of the opt-in compatibility integration tests:
 

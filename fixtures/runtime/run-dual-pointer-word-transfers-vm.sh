@@ -7,7 +7,7 @@ vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 source_path="$runtime_dir/dual_pointer_word_transfers.act"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
 os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
-expected="34 12 78 56 ef be fe ca"
+expected="34 12 78 56 ef be fe ca 57 13 68 24"
 
 require_file() {
   local path="$1"
@@ -42,9 +42,9 @@ materialized_path="$out_dir/mir6502.materialized"
 
 copy_count="$(grep -c 'copy_indirect_word' "$materialized_path" || true)"
 scaled_copy_count="$(grep 'copy_indirect_word' "$materialized_path" | grep -c 'scaled_y' || true)"
-if [[ "$copy_count" != "4" || "$scaled_copy_count" != "2" ]]; then
+if [[ "$copy_count" != "6" || "$scaled_copy_count" != "2" ]]; then
   echo "FAILED: MIR6502 did not select the expected dual-pointer transfers" >&2
-  echo "  expected: 4 copies, including 2 scaled-source copies" >&2
+  echo "  expected: 6 copies, including 2 scaled-source copies" >&2
   echo "  actual:   $copy_count copies, including $scaled_copy_count scaled-source copies" >&2
   grep 'copy_indirect_word' "$materialized_path" >&2 || true
   exit 1
@@ -70,10 +70,10 @@ for backend in classic mir6502; do
     --os "$os_rom" \
     --load-object "$object_path" \
     --dump-memory-on-stop "$memory_path" \
-    --max-steps 500 \
+    --max-steps 800 \
     --history 8
 
-  actual="$(od -An -tx1 -j "$((0x0600))" -N 8 "$memory_path" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+  actual="$(od -An -tx1 -j "$((0x0600))" -N 12 "$memory_path" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
   if [[ "$actual" != "$expected" ]]; then
     echo "FAILED: modern/$backend dual-pointer word-transfer results" >&2
     echo "  expected: $expected" >&2
@@ -81,7 +81,7 @@ for backend in classic mir6502; do
     exit 1
   fi
 
-  echo "    results at \$0600-\$0607: $actual"
+  echo "    results at \$0600-\$060B: $actual"
 done
 
 echo "dual-pointer word-transfer runtime gate passed"
