@@ -6708,6 +6708,91 @@ mod tests {
     }
 
     #[test]
+    fn mir6502_emission_replaces_non_fallthrough_jumps_to_pure_returns() {
+        let mir = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![MirRoutine {
+                id: RoutineId(0),
+                name: "Main".to_string(),
+                abi: MirRoutineAbi::Action,
+                frame: MirFrame::default(),
+                temps: Vec::new(),
+                blocks: vec![
+                    MirBlock {
+                        id: MirBlockId(0),
+                        label: "jump".to_string(),
+                        params: Vec::new(),
+                        ops: Vec::new(),
+                        terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(2))),
+                    },
+                    MirBlock {
+                        id: MirBlockId(1),
+                        label: "other_return".to_string(),
+                        params: Vec::new(),
+                        ops: Vec::new(),
+                        terminator: MirTerminator::Return,
+                    },
+                    MirBlock {
+                        id: MirBlockId(2),
+                        label: "target_return".to_string(),
+                        params: Vec::new(),
+                        ops: Vec::new(),
+                        terminator: MirTerminator::Return,
+                    },
+                ],
+                effects: MirEffects::default(),
+            }],
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+
+        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        emit_program(&mir, &mut emitter).expect("emit direct return edge");
+        let bytes = emitter.finish().expect("finish emitter");
+        assert_eq!(bytes, vec![0x60, 0x60, 0x60]);
+    }
+
+    #[test]
+    fn mir6502_emission_keeps_pure_return_fallthrough_implicit() {
+        let mir = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![MirRoutine {
+                id: RoutineId(0),
+                name: "Main".to_string(),
+                abi: MirRoutineAbi::Action,
+                frame: MirFrame::default(),
+                temps: Vec::new(),
+                blocks: vec![
+                    MirBlock {
+                        id: MirBlockId(0),
+                        label: "fallthrough".to_string(),
+                        params: Vec::new(),
+                        ops: Vec::new(),
+                        terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+                    },
+                    MirBlock {
+                        id: MirBlockId(1),
+                        label: "return".to_string(),
+                        params: Vec::new(),
+                        ops: Vec::new(),
+                        terminator: MirTerminator::Return,
+                    },
+                ],
+                effects: MirEffects::default(),
+            }],
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+
+        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        emit_program(&mir, &mut emitter).expect("emit implicit return fallthrough");
+        let bytes = emitter.finish().expect("finish emitter");
+        assert_eq!(bytes, vec![0x60]);
+    }
+
+    #[test]
     fn mir6502_emission_accepts_byte_sized_word_constants_for_index_register_moves() {
         let mir = MirProgram {
             statics: Vec::new(),
@@ -7219,7 +7304,7 @@ mod tests {
     }
 
     #[test]
-    fn mir6502_emission_keeps_far_forward_branch_over_jmp_shape() {
+    fn mir6502_emission_uses_rts_for_far_forward_pure_return_arm() {
         let mir = MirProgram {
             statics: Vec::new(),
             globals: Vec::new(),
@@ -7271,7 +7356,7 @@ mod tests {
         let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit far forward branch MIR");
         let bytes = emitter.finish().expect("finish emitter");
-        assert_eq!(&bytes[..5], &[0xD0, 0x03, 0x4C, 0x85, 0x30]);
+        assert_eq!(&bytes[..3], &[0xD0, 0x01, 0x60]);
     }
 
     #[test]
@@ -7331,7 +7416,7 @@ mod tests {
     }
 
     #[test]
-    fn mir6502_emission_keeps_far_branch_over_jmp_shape() {
+    fn mir6502_emission_uses_rts_for_two_far_pure_return_arms() {
         let mir = MirProgram {
             statics: Vec::new(),
             globals: Vec::new(),
@@ -7390,7 +7475,7 @@ mod tests {
         let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit far branch MIR");
         let bytes = emitter.finish().expect("finish emitter");
-        assert!(bytes.ends_with(&[0xD0, 0x03, 0x4C, 0x00, 0x30, 0x4C, 0x01, 0x30]));
+        assert!(bytes.ends_with(&[0xD0, 0x01, 0x60, 0x60]));
     }
 
     #[test]

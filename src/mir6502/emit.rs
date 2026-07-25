@@ -14,7 +14,7 @@ use super::builtin::{MirBuiltinResolution, resolve_builtin_target};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCallTarget, MirCarryIn,
-    MirCompareOp, MirCond, MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlagTest,
+    MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirEffects, MirFixedZpSlot, MirFlagTest,
     MirGlobalBacking, MirGlobalInit, MirMachineAtom, MirMachineByteSelector, MirMachineItem,
     MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
     MirRuntimeHelperTarget, MirSpillId, MirStorageBase, MirStorageClass, MirStorageId,
@@ -1420,7 +1420,7 @@ fn emit_routine(
         if !tail_call {
             emit_terminator(
                 ctx,
-                routine.id,
+                routine,
                 block.id,
                 next_block,
                 &block.terminator,
@@ -1451,19 +1451,43 @@ fn emit_routine(
 fn block_exits_via_return(routine: &MirRoutine, block: &MirBlock) -> bool {
     match &block.terminator {
         MirTerminator::Return | MirTerminator::Exit => true,
-        MirTerminator::Jump(edge) if edge.args.is_empty() => routine
-            .blocks
-            .iter()
-            .find(|target| target.id == edge.target)
-            .is_some_and(|target| {
-                target.params.is_empty()
-                    && target.ops.is_empty()
-                    && matches!(
-                        target.terminator,
-                        MirTerminator::Return | MirTerminator::Exit
-                    )
-            }),
+        MirTerminator::Jump(edge) => edge_is_pure_return(routine, edge),
         _ => false,
+    }
+}
+
+fn edge_is_pure_return(routine: &MirRoutine, edge: &MirEdge) -> bool {
+    edge.args.is_empty() && block_is_pure_return(routine, edge.target)
+}
+
+fn block_is_pure_return(routine: &MirRoutine, target: MirBlockId) -> bool {
+    routine
+        .blocks
+        .iter()
+        .find(|block| block.id == target)
+        .is_some_and(|block| {
+            block.params.is_empty()
+                && block.ops.is_empty()
+                && matches!(
+                    block.terminator,
+                    MirTerminator::Return | MirTerminator::Exit
+                )
+        })
+}
+
+fn emit_jump_or_return(
+    ctx: &mut MirEmitContext<'_>,
+    routine: &MirRoutine,
+    edge: &MirEdge,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    if edge_is_pure_return(routine, edge) {
+        emitter.emit_rts();
+    } else {
+        emitter.emit_jmp_label(
+            ctx.layout.block_label(routine.id, edge.target),
+            SYNTHETIC_SPAN,
+        );
     }
 }
 
@@ -2876,20 +2900,18 @@ fn indirect_call_target_byte_address(
 
 fn emit_terminator(
     ctx: &mut MirEmitContext<'_>,
-    routine: RoutineId,
+    routine: &MirRoutine,
     block: MirBlockId,
     next_block: Option<MirBlockId>,
     terminator: &MirTerminator,
     emitter: &mut NativeTrackedEmitter,
 ) {
+    let routine_id = routine.id;
     match terminator {
         MirTerminator::Return | MirTerminator::Exit => emitter.emit_rts(),
         MirTerminator::Jump(target) => {
             if Some(target.target) != next_block {
-                emitter.emit_jmp_label(
-                    ctx.layout.block_label(routine, target.target),
-                    SYNTHETIC_SPAN,
-                );
+                emit_jump_or_return(ctx, routine, target, emitter);
             }
         }
         MirTerminator::Branch {
@@ -2897,25 +2919,23 @@ fn emit_terminator(
             then_edge,
             else_edge,
         } => {
-            let then_block = then_edge.target;
-            let else_block = else_edge.target;
             ctx.measurements
                 .branch_positions
-                .insert((routine, block), emitter.position());
+                .insert((routine_id, block), emitter.position());
             if emit_direct_branch_if_in_range(
-                ctx, routine, block, cond, then_block, else_block, next_block, emitter,
+                ctx, routine, block, cond, then_edge, else_edge, next_block, emitter,
             ) {
                 return;
             }
             let Some(opcode) = inverted_branch_opcode(cond) else {
-                unsupported(ctx, routine, block, "branch condition is not emit-ready");
+                unsupported(ctx, routine_id, block, "branch condition is not emit-ready");
                 return;
             };
-            let else_jump_label = format!("__mir6502_branch_else_{}_{}", routine.0, block.0);
+            let else_jump_label = format!("__mir6502_branch_else_{}_{}", routine_id.0, block.0);
             emitter.emit_branch_label(opcode, else_jump_label.clone(), SYNTHETIC_SPAN);
-            emitter.emit_jmp_label(ctx.layout.block_label(routine, then_block), SYNTHETIC_SPAN);
-            bind_label(ctx, emitter, routine, Some(block), else_jump_label);
-            emitter.emit_jmp_label(ctx.layout.block_label(routine, else_block), SYNTHETIC_SPAN);
+            emit_jump_or_return(ctx, routine, then_edge, emitter);
+            bind_label(ctx, emitter, routine_id, Some(block), else_jump_label);
+            emit_jump_or_return(ctx, routine, else_edge, emitter);
         }
         MirTerminator::Unreachable => {}
     }
@@ -2923,14 +2943,17 @@ fn emit_terminator(
 
 fn emit_direct_branch_if_in_range(
     ctx: &mut MirEmitContext<'_>,
-    routine: RoutineId,
+    routine: &MirRoutine,
     block: MirBlockId,
     cond: &MirCond,
-    then_block: MirBlockId,
-    else_block: MirBlockId,
+    then_edge: &MirEdge,
+    else_edge: &MirEdge,
     next_block: Option<MirBlockId>,
     emitter: &mut NativeTrackedEmitter,
 ) -> bool {
+    let routine_id = routine.id;
+    let then_block = then_edge.target;
+    let else_block = else_edge.target;
     if let MirCond::AnyFlagTest(tests) = cond {
         let Some(first_opcode) = branch_flag_opcode(tests[0].clone()) else {
             return false;
@@ -2941,7 +2964,7 @@ fn emit_direct_branch_if_in_range(
         let then_is_in_range = branch_target_is_in_range(
             ctx,
             emitter,
-            routine,
+            routine_id,
             block,
             then_block,
             next_block,
@@ -2949,7 +2972,7 @@ fn emit_direct_branch_if_in_range(
         ) && branch_target_is_in_range(
             ctx,
             emitter,
-            routine,
+            routine_id,
             block,
             then_block,
             next_block,
@@ -2958,14 +2981,14 @@ fn emit_direct_branch_if_in_range(
         let else_is_in_range = branch_target_is_in_range(
             ctx,
             emitter,
-            routine,
+            routine_id,
             block,
             else_block,
             next_block,
             emitter.position().saturating_add(2),
         );
         if Some(else_block) == next_block && then_is_in_range {
-            let then_label = ctx.layout.block_label(routine, then_block);
+            let then_label = ctx.layout.block_label(routine_id, then_block);
             emitter.emit_branch_label(first_opcode, then_label.clone(), SYNTHETIC_SPAN);
             emitter.emit_branch_label(second_opcode, then_label, SYNTHETIC_SPAN);
         } else if Some(then_block) == next_block && else_is_in_range {
@@ -2974,20 +2997,20 @@ fn emit_direct_branch_if_in_range(
             };
             emitter.emit_branch_label(
                 first_opcode,
-                ctx.layout.block_label(routine, then_block),
+                ctx.layout.block_label(routine_id, then_block),
                 SYNTHETIC_SPAN,
             );
             emitter.emit_branch_label(
                 inverted_second_opcode,
-                ctx.layout.block_label(routine, else_block),
+                ctx.layout.block_label(routine_id, else_block),
                 SYNTHETIC_SPAN,
             );
         } else if then_is_in_range {
-            let then_label = ctx.layout.block_label(routine, then_block);
+            let then_label = ctx.layout.block_label(routine_id, then_block);
             emitter.emit_branch_label(first_opcode, then_label.clone(), SYNTHETIC_SPAN);
             emitter.emit_branch_label(second_opcode, then_label, SYNTHETIC_SPAN);
             if Some(else_block) != next_block {
-                emitter.emit_jmp_label(ctx.layout.block_label(routine, else_block), SYNTHETIC_SPAN);
+                emit_jump_or_return(ctx, routine, else_edge, emitter);
             }
         } else if else_is_in_range {
             let Some(inverted_second_opcode) = invert_branch_opcode(second_opcode) else {
@@ -2995,39 +3018,39 @@ fn emit_direct_branch_if_in_range(
             };
             let then_jump_label = format!(
                 "__mir6502_branch_then_{}_{}_{}",
-                routine.0,
+                routine_id.0,
                 then_block.0,
                 emitter.position()
             );
             emitter.emit_branch_label(first_opcode, then_jump_label.clone(), SYNTHETIC_SPAN);
             emitter.emit_branch_label(
                 inverted_second_opcode,
-                ctx.layout.block_label(routine, else_block),
+                ctx.layout.block_label(routine_id, else_block),
                 SYNTHETIC_SPAN,
             );
-            bind_label(ctx, emitter, routine, None, then_jump_label);
+            bind_label(ctx, emitter, routine_id, None, then_jump_label);
             if Some(then_block) != next_block {
-                emitter.emit_jmp_label(ctx.layout.block_label(routine, then_block), SYNTHETIC_SPAN);
+                emit_jump_or_return(ctx, routine, then_edge, emitter);
             }
         } else {
             let then_jump_label = format!(
                 "__mir6502_branch_then_{}_{}_{}",
-                routine.0,
+                routine_id.0,
                 then_block.0,
                 emitter.position()
             );
             emitter.emit_branch_label(first_opcode, then_jump_label.clone(), SYNTHETIC_SPAN);
             emitter.emit_branch_label(second_opcode, then_jump_label.clone(), SYNTHETIC_SPAN);
-            emitter.emit_jmp_label(ctx.layout.block_label(routine, else_block), SYNTHETIC_SPAN);
-            bind_label(ctx, emitter, routine, None, then_jump_label);
-            emitter.emit_jmp_label(ctx.layout.block_label(routine, then_block), SYNTHETIC_SPAN);
+            emit_jump_or_return(ctx, routine, else_edge, emitter);
+            bind_label(ctx, emitter, routine_id, None, then_jump_label);
+            emit_jump_or_return(ctx, routine, then_edge, emitter);
         }
         return true;
     }
     let then_is_in_range = branch_target_is_in_range(
         ctx,
         emitter,
-        routine,
+        routine_id,
         block,
         then_block,
         next_block,
@@ -3036,7 +3059,7 @@ fn emit_direct_branch_if_in_range(
     let else_is_in_range = branch_target_is_in_range(
         ctx,
         emitter,
-        routine,
+        routine_id,
         block,
         else_block,
         next_block,
@@ -3048,7 +3071,7 @@ fn emit_direct_branch_if_in_range(
     {
         emitter.emit_branch_label(
             opcode,
-            ctx.layout.block_label(routine, then_block),
+            ctx.layout.block_label(routine_id, then_block),
             SYNTHETIC_SPAN,
         );
         return true;
@@ -3059,7 +3082,7 @@ fn emit_direct_branch_if_in_range(
     {
         emitter.emit_branch_label(
             opcode,
-            ctx.layout.block_label(routine, else_block),
+            ctx.layout.block_label(routine_id, else_block),
             SYNTHETIC_SPAN,
         );
         return true;
@@ -3067,22 +3090,22 @@ fn emit_direct_branch_if_in_range(
     if then_is_in_range && let Some(opcode) = branch_cond_opcode(cond) {
         emitter.emit_branch_label(
             opcode,
-            ctx.layout.block_label(routine, then_block),
+            ctx.layout.block_label(routine_id, then_block),
             SYNTHETIC_SPAN,
         );
         if Some(else_block) != next_block {
-            emitter.emit_jmp_label(ctx.layout.block_label(routine, else_block), SYNTHETIC_SPAN);
+            emit_jump_or_return(ctx, routine, else_edge, emitter);
         }
         return true;
     }
     if else_is_in_range && let Some(opcode) = inverted_branch_opcode(cond) {
         emitter.emit_branch_label(
             opcode,
-            ctx.layout.block_label(routine, else_block),
+            ctx.layout.block_label(routine_id, else_block),
             SYNTHETIC_SPAN,
         );
         if Some(then_block) != next_block {
-            emitter.emit_jmp_label(ctx.layout.block_label(routine, then_block), SYNTHETIC_SPAN);
+            emit_jump_or_return(ctx, routine, then_edge, emitter);
         }
         return true;
     }
