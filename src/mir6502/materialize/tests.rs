@@ -398,6 +398,110 @@ fn byte_inclusive_constant_branch_keeps_two_tests_at_byte_max() {
     ));
 }
 
+#[test]
+fn inclusive_compare_reversal_uses_single_carry_branch_for_zero_page_ram() {
+    let mut program = empty_test_program();
+    for (id, name, address) in [(0, "left", 0x00E0), (1, "right", 0x00E1)] {
+        program.globals.push(MirGlobal {
+            id: SymbolId(id),
+            name: name.to_string(),
+            kind: "BYTE".to_string(),
+            width: Some(MirWidth::Byte),
+            storage_size: 1,
+            backing: MirGlobalBacking::Absolute(address),
+            init: None,
+        });
+    }
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let compare = MirOp::Compare {
+        dst: MirCondDest::Temp(MirTempId(0)),
+        op: MirCompareOp::Le,
+        left: MirValue::PointerCell(MirMem::Global {
+            id: SymbolId(0),
+            offset: 0,
+        }),
+        right: MirValue::PointerCell(MirMem::Global {
+            id: SymbolId(1),
+            offset: 0,
+        }),
+        width: MirWidth::Byte,
+        signed: false,
+    };
+
+    let candidate =
+        inclusive_compare_reversal_candidate(&compare, &layout).expect("zero-page RAM is safe");
+    let mut ops = vec![candidate.replacement];
+    assert!(matches!(
+        ops.as_slice(),
+        [MirOp::Compare {
+            op: MirCompareOp::Ge,
+            left: MirValue::PointerCell(MirMem::Global {
+                id: SymbolId(1),
+                ..
+            }),
+            right: MirValue::PointerCell(MirMem::Global {
+                id: SymbolId(0),
+                ..
+            }),
+            ..
+        }]
+    ));
+
+    let branch = MirTerminator::Branch {
+        cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
+        then_edge: MirEdge::plain(MirBlockId(1)),
+        else_edge: MirEdge::plain(MirBlockId(2)),
+    };
+    let fused = materialize_terminator(MirBlockId(0), &branch, &ops, &Mir6502Config::default());
+    assert!(matches!(
+        fused,
+        MirTerminator::Branch {
+            cond: MirCond::FusedCompare {
+                flag_test: MirFlagTest::CSet,
+                ..
+            },
+            ..
+        }
+    ));
+    materialize_fused_compare_dest(MirBlockId(0), &fused, &mut ops);
+    assert!(matches!(
+        ops.as_slice(),
+        [MirOp::Compare {
+            dst: MirCondDest::Flags,
+            op: MirCompareOp::Ge,
+            ..
+        }]
+    ));
+}
+
+#[test]
+fn inclusive_compare_reversal_rejects_hardware_backed_global() {
+    let mut program = empty_test_program();
+    program.globals.push(MirGlobal {
+        id: SymbolId(0),
+        name: "hardware".to_string(),
+        kind: "BYTE".to_string(),
+        width: Some(MirWidth::Byte),
+        storage_size: 1,
+        backing: MirGlobalBacking::Absolute(0xD20A),
+        init: None,
+    });
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let compare = MirOp::Compare {
+        dst: MirCondDest::Temp(MirTempId(0)),
+        op: MirCompareOp::Gt,
+        left: MirValue::PointerCell(MirMem::Global {
+            id: SymbolId(0),
+            offset: 0,
+        }),
+        right: MirValue::PointerCell(MirMem::Absolute(0x00E0)),
+        width: MirWidth::Byte,
+        signed: false,
+    };
+
+    assert!(inclusive_compare_reversal_candidate(&compare, &layout).is_none());
+}
+
 fn byte_constant_compare_blocks(op: MirCompareOp, right: u8) -> Vec<MirBlock> {
     vec![
         MirBlock {

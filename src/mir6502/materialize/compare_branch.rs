@@ -723,6 +723,47 @@ pub(in crate::mir6502) fn compare_operand_rewrite_candidate(
     })
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct InclusiveCompareReversalCandidate {
+    pub condition: MirTempId,
+    pub replacement: MirOp,
+}
+
+pub(in crate::mir6502) fn inclusive_compare_reversal_candidate(
+    op: &MirOp,
+    layout: &MaterializeLayout,
+) -> Option<InclusiveCompareReversalCandidate> {
+    let MirOp::Compare {
+        dst: MirCondDest::Temp(condition),
+        op,
+        left: MirValue::PointerCell(left),
+        right: MirValue::PointerCell(right),
+        width: MirWidth::Byte,
+        signed: false,
+    } = op
+    else {
+        return None;
+    };
+    if !matches!(op, MirCompareOp::Le | MirCompareOp::Gt)
+        || !layout.mem_allows_compare_operand_reordering(left)
+        || !layout.mem_allows_compare_operand_reordering(right)
+    {
+        return None;
+    }
+
+    Some(InclusiveCompareReversalCandidate {
+        condition: *condition,
+        replacement: MirOp::Compare {
+            dst: MirCondDest::Temp(*condition),
+            op: reverse_compare_operands(*op),
+            left: MirValue::PointerCell(right.clone()),
+            right: MirValue::PointerCell(left.clone()),
+            width: MirWidth::Byte,
+            signed: false,
+        },
+    })
+}
+
 struct CompareOperandPlan {
     consumed: usize,
     dst: MirCondDest,

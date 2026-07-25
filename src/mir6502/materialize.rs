@@ -52,8 +52,8 @@ use super::rewrite::driver::{
 use super::rewrite::pilots::{
     byte_binary_compare_consumer_rank, compare_narrowing_rank,
     discover_byte_binary_compare_consumers, discover_compare_narrowing, discover_compare_producers,
-    discover_dual_indirect_compares, discover_index_rewrites, discover_pointer_rewrites,
-    discover_unused_lea_addrs,
+    discover_dual_indirect_compares, discover_inclusive_compare_reversals, discover_index_rewrites,
+    discover_pointer_rewrites, discover_unused_lea_addrs, inclusive_compare_reversal_rank,
 };
 use abi::{elide_write_only_param_homes, prepend_action_abi_param_prologue, width_bytes};
 use block_args::lower_block_arguments;
@@ -79,10 +79,11 @@ use compare_branch::fold_compare_operand_producers_before_branches;
 use compare_branch::{
     ByteAddWordCompareCandidate, ByteBinaryCompareChainRewriteCandidate,
     ByteBinaryCompareRewriteCandidate, CompareNarrowingCandidate, CompareOperandRewriteCandidate,
-    byte_add_word_compare_candidate, byte_binary_compare_chain_rewrite_candidate,
-    byte_binary_compare_rewrite_candidate, byte_bitwise_zero_compare_narrowing_candidate,
-    compare_branch_plan, compare_operand_rewrite_candidate, expand_compare_branch_consumers,
-    expand_proven_byte_add_word_compare_branches,
+    InclusiveCompareReversalCandidate, byte_add_word_compare_candidate,
+    byte_binary_compare_chain_rewrite_candidate, byte_binary_compare_rewrite_candidate,
+    byte_bitwise_zero_compare_narrowing_candidate, compare_branch_plan,
+    compare_operand_rewrite_candidate, expand_compare_branch_consumers,
+    expand_proven_byte_add_word_compare_branches, inclusive_compare_reversal_candidate,
 };
 pub(in crate::mir6502) use compare_branch::{
     addressed_byte_compare_candidate, dual_indirect_compare_candidate,
@@ -245,6 +246,13 @@ pub(in crate::mir6502) fn analyzed_compare_operand_rewrite_candidate(
     index: usize,
 ) -> Option<CompareOperandRewriteCandidate> {
     compare_operand_rewrite_candidate(ops, index)
+}
+
+pub(in crate::mir6502) fn analyzed_inclusive_compare_reversal_candidate(
+    op: &MirOp,
+    layout: &MaterializeLayout,
+) -> Option<InclusiveCompareReversalCandidate> {
+    inclusive_compare_reversal_candidate(op, layout)
 }
 
 pub(in crate::mir6502) fn analyzed_compare_narrowing_candidate(
@@ -1029,6 +1037,7 @@ fn run_prehome_canonicalization_group(
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     run_analyzed_compare_producer_rewrites(routine, peephole_stats)?;
+    run_analyzed_inclusive_compare_reversals(routine, layout, peephole_stats)?;
     run_analyzed_compare_narrowing(routine, peephole_stats)?;
     run_analyzed_byte_binary_compare_consumers(routine, peephole_stats)?;
     run_analyzed_dual_indirect_compares(routine, peephole_stats)?;
@@ -1557,6 +1566,28 @@ fn run_analyzed_compare_producer_rewrites(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("pre-branch compare rewrite failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_inclusive_compare_reversals(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            |routine, context| discover_inclusive_compare_reversals(routine, context, layout),
+            |routine| inclusive_compare_reversal_rank(routine, layout),
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("inclusive compare reversal failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

@@ -174,6 +174,23 @@ impl MaterializeLayout {
         }
     }
 
+    /// Reversing a comparison changes which operand is read first. Permit
+    /// that for compiler-owned storage and zero-page RAM, whose reads have no
+    /// hardware side effects. Higher absolute addresses remain excluded,
+    /// including when reached through an absolute-backed global.
+    pub(super) fn mem_allows_compare_operand_reordering(&self, mem: &MirMem) -> bool {
+        match mem {
+            MirMem::Local { .. }
+            | MirMem::Param { .. }
+            | MirMem::Static { .. }
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_)
+            | MirMem::FixedZeroPage(_) => true,
+            MirMem::Global { id, .. } => self.global_allows_idempotent_store_removal(*id),
+            MirMem::Absolute(address) => *address < 0x0100,
+        }
+    }
+
     fn global_has_ordinary_backing(&self, id: SymbolId) -> bool {
         self.globals
             .iter()

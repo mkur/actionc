@@ -63,6 +63,68 @@ pub(in crate::mir6502) fn discover_compare_narrowing(
     plans
 }
 
+pub(in crate::mir6502) fn discover_inclusive_compare_reversals(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (index, op) in block.ops.iter().enumerate() {
+            let Some(candidate) =
+                crate::mir6502::materialize::analyzed_inclusive_compare_reversal_candidate(
+                    op, layout,
+                )
+            else {
+                continue;
+            };
+            if !matches!(
+                &block.terminator,
+                crate::mir6502::ir::MirTerminator::Branch {
+                    cond: crate::mir6502::ir::MirCond::BoolValue(
+                        crate::mir6502::ir::MirValue::Def(crate::mir6502::ir::MirDef::VTemp(
+                            condition
+                        ))
+                    ),
+                    ..
+                } if *condition == candidate.condition
+            ) {
+                continue;
+            }
+            plans.push(MirRewritePlan {
+                generation: context.generation(),
+                block: block.id,
+                range: index..index + 1,
+                replacement: vec![candidate.replacement],
+                removed_defs: Vec::new(),
+                exit_effect_delta: MirEffectDelta::Unchanged,
+                change_set: MirChangeSet::prehome_operation_change(),
+                stat: "inclusive-compare-operand-reversal",
+                observations: Vec::new(),
+                family_priority: 22,
+                estimated_byte_saving: 2,
+                estimated_cycle_saving: 2,
+            });
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn inclusive_compare_reversal_rank(
+    routine: &MirRoutine,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> usize {
+    routine
+        .blocks
+        .iter()
+        .flat_map(|block| block.ops.iter())
+        .filter(|op| {
+            crate::mir6502::materialize::analyzed_inclusive_compare_reversal_candidate(op, layout)
+                .is_some()
+        })
+        .count()
+}
+
 pub(in crate::mir6502) fn discover_dual_indirect_compares(
     routine: &MirRoutine,
     context: &PreHomeRewriteContext<'_, '_>,
@@ -1657,8 +1719,8 @@ mod tests {
     use crate::mir6502::ir::{
         MirAddr, MirArgHome, MirBlock, MirCallAbi, MirCallArg, MirCallResult, MirCallTarget,
         MirCompareOp, MirCond, MirCondDest, MirEdge, MirEdgeArg, MirEffects, MirFrame, MirMem,
-        MirProgram, MirRegisterSet, MirResultHome, MirRoutineAbi, MirTempId, MirTerminator,
-        MirValue, MirWidth, RoutineId,
+        MirProgram, MirRegisterSet, MirResultHome, MirRoutineAbi, MirTemp, MirTempId,
+        MirTerminator, MirValue, MirWidth, RoutineId,
     };
     use crate::mir6502::rewrite::driver::MirPreHomeRewriteDriver;
 
@@ -1780,6 +1842,65 @@ mod tests {
             &routine.blocks[0].ops[..],
             [MirOp::Compare {
                 left: MirValue::ConstU8(7),
+                ..
+            }]
+        ));
+    }
+
+    #[test]
+    fn inclusive_compare_reversal_runs_through_prehome_driver() {
+        let condition = MirTempId(0);
+        let compare = MirOp::Compare {
+            dst: MirCondDest::Temp(condition),
+            op: MirCompareOp::Le,
+            left: MirValue::PointerCell(MirMem::Absolute(0x00E0)),
+            right: MirValue::PointerCell(MirMem::Absolute(0x00E1)),
+            width: MirWidth::Byte,
+            signed: false,
+        };
+        let mut routine = routine(vec![
+            block(
+                0,
+                vec![compare],
+                MirTerminator::Branch {
+                    cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(condition))),
+                    then_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(1)),
+                    else_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(2)),
+                },
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+            block(2, Vec::new(), MirTerminator::Return),
+        ]);
+        routine.temps = vec![MirTemp { id: condition }];
+        let program = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![routine.clone()],
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+        let layout = crate::mir6502::materialize::MaterializeLayout::new(&program, 0x3000);
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point_by_key(
+                &mut routine,
+                |routine, context| discover_inclusive_compare_reversals(routine, context, &layout),
+                |routine| inclusive_compare_reversal_rank(routine, &layout),
+            )
+            .unwrap();
+
+        assert_eq!(result.applied, 1);
+        assert_eq!(
+            result
+                .applied_by_stat
+                .get("inclusive-compare-operand-reversal"),
+            Some(&1)
+        );
+        assert!(matches!(
+            routine.blocks[0].ops.as_slice(),
+            [MirOp::Compare {
+                op: MirCompareOp::Ge,
+                left: MirValue::PointerCell(MirMem::Absolute(0x00E1)),
+                right: MirValue::PointerCell(MirMem::Absolute(0x00E0)),
                 ..
             }]
         ));
