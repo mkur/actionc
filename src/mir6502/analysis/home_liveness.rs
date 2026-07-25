@@ -406,7 +406,16 @@ fn home_transfer(
     let mut reads = effects.reads.clone();
     reads.extend(pair_reads);
     if effects.unknown_reads {
-        reads.extend(universe.iter());
+        // Spill and virtual-zero-page identities are compiler-private: their
+        // addresses cannot escape into source expressions or machine blocks.
+        // An opaque memory reader can still observe fixed zero-page ABI and
+        // machine locations, but it must not keep unrelated transient
+        // definitions in compiler-generated scratch homes alive.
+        reads.extend(
+            universe
+                .iter()
+                .filter(|home| matches!(home, MirHomeByte::FixedZeroPage(_))),
+        );
     }
     let mut writes = effects.writes.clone();
     writes.extend(pair_writes);
@@ -682,7 +691,7 @@ mod tests {
     }
 
     #[test]
-    fn unknown_reads_expose_all_homes_and_unknown_writes_do_not_kill() {
+    fn unknown_reads_expose_fixed_abi_homes_but_not_private_scratch() {
         let opaque_read = MirOp::Barrier {
             effects: MirEffects {
                 memory_reads: MirMemoryEffect::Unknown,
@@ -702,6 +711,11 @@ mod tests {
                 unknown_write,
                 load(0),
                 store(1, 2),
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xAC))),
+                    src: MirValue::ConstU8(3),
+                    width: MirWidth::Byte,
+                },
                 opaque_read,
             ],
             MirTerminator::Return,
@@ -719,12 +733,23 @@ mod tests {
                 .unwrap()
         );
         assert!(
-            liveness
+            !liveness
                 .live_after(
                     spill(1),
                     MirSite::Op {
                         block: MirBlockId(0),
                         op_index: 3,
+                    }
+                )
+                .unwrap()
+        );
+        assert!(
+            liveness
+                .live_after(
+                    MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xAC)),
+                    MirSite::Op {
+                        block: MirBlockId(0),
+                        op_index: 4,
                     }
                 )
                 .unwrap()

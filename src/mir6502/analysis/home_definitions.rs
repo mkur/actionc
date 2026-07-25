@@ -119,9 +119,10 @@ pub(in crate::mir6502) enum MirHomeDefinitionError {
 
 /// Concrete uses reached by each post-home store definition.
 ///
-/// Unknown reads are expanded through the same conservative home universe as
-/// whole-home liveness. Unknown writes remain may-writes and therefore do not
-/// kill a reaching definition.
+/// Unknown reads are expanded through the same conservative externally
+/// observable home subset as whole-home liveness. Compiler-private spills and
+/// virtual zero-page homes cannot escape. Unknown writes remain may-writes and
+/// therefore do not kill a reaching definition.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirHomeDefinitions {
     result: DataflowResult<MirBlockId, MirHomeDefinitionState>,
@@ -496,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    fn opaque_reads_observe_reaching_definitions_and_unknown_writes_do_not_kill() {
+    fn opaque_reads_observe_fixed_homes_but_not_private_definitions() {
         let routine = routine(vec![block(
             0,
             vec![
@@ -509,6 +510,7 @@ mod tests {
                 },
                 load(0),
                 store(1, 2),
+                store_fixed(0xAC),
                 MirOp::Barrier {
                     effects: MirEffects {
                         memory_reads: MirMemoryEffect::Unknown,
@@ -526,6 +528,14 @@ mod tests {
         );
         assert_eq!(
             definitions.definition_dead_after(spill(1), op(0, 3), op(0, 3)),
+            Ok(true)
+        );
+        assert_eq!(
+            definitions.definition_dead_after(
+                MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xAC)),
+                op(0, 4),
+                op(0, 4),
+            ),
             Ok(false)
         );
     }
