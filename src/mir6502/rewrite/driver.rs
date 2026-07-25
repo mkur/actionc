@@ -11,8 +11,8 @@ use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 use crate::mir6502::analysis::use_def::{MirDefSite, MirTempLane};
 use crate::mir6502::ir::{
-    MirAddr, MirAddressConsumer, MirBlockId, MirFixedZpSlot, MirMem, MirOp, MirPointerPair, MirReg,
-    MirRegisterSet, MirRoutine, MirValue, MirWidth,
+    MirAddr, MirAddressConsumer, MirBlockId, MirCond, MirFixedZpSlot, MirMem, MirOp,
+    MirPointerPair, MirReg, MirRegisterSet, MirRoutine, MirTerminator, MirValue, MirWidth,
 };
 use crate::mir6502::rewrite::context::{
     MirBlockedRewriteSite, MirProof, PostHomeRewriteContext, PreHomeRewriteContext,
@@ -204,9 +204,16 @@ impl MirPreHomeRewriteDriver {
                 for (stat, count) in &plan.observations {
                     *observations.entry(*stat).or_default() += *count;
                 }
-                routine.blocks[block_index]
-                    .ops
-                    .splice(plan.range.clone(), plan.replacement);
+                let block = &mut routine.blocks[block_index];
+                let range = plan.range.clone();
+                let replacement_len = plan.replacement.len();
+                block.ops.splice(range.clone(), plan.replacement);
+                shift_fused_compare_producer_after_splice(
+                    block.id,
+                    &mut block.terminator,
+                    &range,
+                    replacement_len,
+                );
                 applied.push(plan.stat);
             }
         }
@@ -340,9 +347,16 @@ impl MirPostHomeRewriteDriver {
                     for (stat, count) in &plan.observations {
                         *result.applied_by_stat.entry(*stat).or_default() += *count;
                     }
-                    routine.blocks[block_index]
-                        .ops
-                        .splice(plan.range, plan.replacement);
+                    let block = &mut routine.blocks[block_index];
+                    let range = plan.range;
+                    let replacement_len = plan.replacement.len();
+                    block.ops.splice(range.clone(), plan.replacement);
+                    shift_fused_compare_producer_after_splice(
+                        block.id,
+                        &mut block.terminator,
+                        &range,
+                        replacement_len,
+                    );
                     *result.applied_by_stat.entry(plan.stat).or_default() += 1;
                     result.applied += 1;
                     applied_this_round += 1;
@@ -359,6 +373,27 @@ impl MirPostHomeRewriteDriver {
         Err(MirRewriteError::DidNotConverge {
             max_rounds: self.max_rounds,
         })
+    }
+}
+
+fn shift_fused_compare_producer_after_splice(
+    block: MirBlockId,
+    terminator: &mut MirTerminator,
+    range: &std::ops::Range<usize>,
+    replacement_len: usize,
+) {
+    let MirTerminator::Branch {
+        cond: MirCond::FusedCompare { producer, .. },
+        ..
+    } = terminator
+    else {
+        return;
+    };
+    if producer.block == block && producer.op_index >= range.end {
+        producer.op_index = producer
+            .op_index
+            .saturating_sub(range.len())
+            .saturating_add(replacement_len);
     }
 }
 
@@ -1291,6 +1326,32 @@ mod tests {
             value,
             width: MirWidth::Byte,
         }
+    }
+
+    #[test]
+    fn operation_splices_keep_later_fused_compare_references_aligned() {
+        let block = MirBlockId(7);
+        let mut terminator = MirTerminator::Branch {
+            cond: MirCond::FusedCompare {
+                producer: crate::mir6502::ir::MirOpRef { block, op_index: 4 },
+                flag_test: crate::mir6502::ir::MirFlagTest::ZSet,
+            },
+            then_edge: crate::mir6502::ir::MirEdge::plain(MirBlockId(8)),
+            else_edge: crate::mir6502::ir::MirEdge::plain(MirBlockId(9)),
+        };
+
+        shift_fused_compare_producer_after_splice(block, &mut terminator, &(1..3), 1);
+
+        assert!(matches!(
+            terminator,
+            MirTerminator::Branch {
+                cond: MirCond::FusedCompare {
+                    producer: crate::mir6502::ir::MirOpRef { op_index: 3, .. },
+                    ..
+                },
+                ..
+            }
+        ));
     }
 
     fn spill_store(id: u32) -> MirOp {

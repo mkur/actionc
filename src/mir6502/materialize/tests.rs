@@ -9131,6 +9131,120 @@ fn exact_zn_provenance_folds_cross_edge_fused_zero_compare() {
 }
 
 #[test]
+fn exact_known_callee_zn_provenance_folds_a_zero_compare() {
+    let return_slot = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+    let caller = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "call".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Call {
+                    target: MirCallTarget::Routine(RoutineId(1)),
+                    abi: MirCallAbi {
+                        params: Vec::new(),
+                        result: None,
+                        clobbers: MirRegisterSet {
+                            a: true,
+                            flags: true,
+                            ..MirRegisterSet::default()
+                        },
+                        preserves: MirRegisterSet::default(),
+                    },
+                    args: Vec::new(),
+                    result: None,
+                    effects: MirEffects::default(),
+                },
+                MirOp::Compare {
+                    dst: MirCondDest::Flags,
+                    op: MirCompareOp::Eq,
+                    left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    right: MirValue::ConstU8(0),
+                    width: MirWidth::Byte,
+                    signed: false,
+                },
+            ],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::FusedCompare {
+                    producer: MirOpRef {
+                        block: MirBlockId(0),
+                        op_index: 1,
+                    },
+                    flag_test: MirFlagTest::ZSet,
+                },
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]);
+    let callee = MirRoutine {
+        id: RoutineId(1),
+        name: "callee".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(10),
+            label: "return".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: 1,
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(return_slot),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let program = MirProgram {
+        statics: Vec::new(),
+        globals: Vec::new(),
+        routines: vec![caller.clone(), callee],
+        machine_blocks: Vec::new(),
+        runtime_helpers: Vec::new(),
+    };
+    let summaries = MirKnownCalleeSummaries::analyze(&program);
+    let mut caller = caller;
+
+    assert_eq!(
+        ssa_lite::fold_exact_zn_zero_compares(&mut caller, &summaries),
+        1
+    );
+    assert!(matches!(
+        caller.blocks[0].ops.as_slice(),
+        [MirOp::Call { .. }]
+    ));
+    assert!(matches!(
+        caller.blocks[0].terminator,
+        MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::ZSet),
+            ..
+        }
+    ));
+}
+
+#[test]
 fn reverse_postorder_layout_places_detached_branch_chain_for_fallthrough() {
     let plain_block = |id, terminator| MirBlock {
         id: MirBlockId(id),
