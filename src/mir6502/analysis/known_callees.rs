@@ -73,12 +73,20 @@ impl MirKnownMemoryWrites {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirKnownCalleeExitSummary {
     accumulator: Option<MirMachineValue>,
+    /// Exact byte provenance that establishes both Z and N on every reachable
+    /// return. `None` means either unknown or inconsistent across exits.
+    zn: Option<MirMachineValue>,
     writes: MirKnownMemoryWrites,
 }
 
 impl MirKnownCalleeExitSummary {
     pub(in crate::mir6502) fn accumulator(&self) -> Option<&MirMachineValue> {
         self.accumulator.as_ref()
+    }
+
+    #[allow(dead_code)] // Consumed once call transfer imports exact exit flags.
+    pub(in crate::mir6502) fn zn(&self) -> Option<&MirMachineValue> {
+        self.zn.as_ref()
     }
 
     pub(in crate::mir6502) fn writes(&self) -> &MirKnownMemoryWrites {
@@ -214,6 +222,7 @@ fn summarize_mir_routine(
 
     MirKnownCalleeExitSummary {
         accumulator: saw_return.then_some(accumulator).flatten(),
+        zn: None,
         writes: summarize_routine_writes(routine, callees),
     }
 }
@@ -366,6 +375,7 @@ fn summarize_straight_line_machine_block(
             0x60 if index + len == bytes.len() => {
                 return Some(MirKnownCalleeExitSummary {
                     accumulator,
+                    zn: None,
                     writes,
                 });
             }
@@ -682,6 +692,18 @@ mod tests {
             machine_blocks,
             runtime_helpers: Vec::new(),
         }
+    }
+
+    #[test]
+    fn exact_zn_exit_fact_is_part_of_the_known_callee_contract() {
+        let value = MirMachineValue::ConstU8(0);
+        let summary = MirKnownCalleeExitSummary {
+            accumulator: None,
+            zn: Some(value.clone()),
+            writes: MirKnownMemoryWrites::Unknown,
+        };
+        assert_eq!(summary.zn(), Some(&value));
+        assert_eq!(MirKnownCalleeExitSummary::default().zn(), None);
     }
 
     #[test]
