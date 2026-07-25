@@ -461,6 +461,43 @@ mod tests {
     }
 
     #[test]
+    fn source_generation_removes_load_overwritten_in_compare_successor() {
+        let materialized = materialize_mir6502_source(
+            "
+            PROC Check(CARD target,nbytes,current)
+              IF target+nbytes=current THEN
+                target=0
+              FI
+            RETURN
+            ",
+        );
+        let check = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Check")
+            .expect("Check routine");
+
+        assert!(
+            check.blocks.iter().all(|block| {
+                !matches!(
+                    block.ops.last(),
+                    Some(MirOp::Load {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirAddr::Direct(MirMem::Param {
+                            id: ParamId(2),
+                            offset: 0,
+                        }),
+                        width: MirWidth::Byte,
+                    })
+                )
+            }),
+            "the compare expansion must not retain a pure accumulator load \
+             overwritten at the start of its successor:\n{}",
+            format_program(&materialized)
+        );
+    }
+
+    #[test]
     fn source_generation_preserves_expected_word_unary_negation() {
         let literal = generate_mir6502_source("INT s PROC Main() s=-1 RETURN");
         assert!(bytes_contain(

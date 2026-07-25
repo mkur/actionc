@@ -1022,11 +1022,17 @@ pub(super) fn materialize_program(
     }
     materialize_remaining_pointer_cell_values(&mut program);
     fold_redundant_xy_reloads(&mut program, &mut peephole_stats);
-    // Late register-value folding can make the last definition of a private
-    // home dead. Rebuild reaching-definition facts here so those newly exposed
-    // stores are removed by exact definition identity, without changing the
-    // whole-home liveness policy used by other rewrites.
+    // Late exact-Z/N and register-value folding can leave an earlier pure
+    // register write dead across a CFG edge. Rebuild machine liveness before
+    // the final home-definition cleanup so both exposed register writes and
+    // newly dead private stores are removed from the final program.
     for routine in &mut program.routines {
+        run_analyzed_dead_register_writes(
+            routine,
+            &final_layout,
+            Some(&final_known_callees),
+            &mut peephole_stats,
+        )?;
         run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
         prune_unused_spills(routine);
     }
