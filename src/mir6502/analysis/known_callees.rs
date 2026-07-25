@@ -84,7 +84,6 @@ impl MirKnownCalleeExitSummary {
         self.accumulator.as_ref()
     }
 
-    #[allow(dead_code)] // Consumed once call transfer imports exact exit flags.
     pub(in crate::mir6502) fn zn(&self) -> Option<&MirMachineValue> {
         self.zn.as_ref()
     }

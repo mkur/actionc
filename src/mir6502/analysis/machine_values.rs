@@ -364,12 +364,16 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
         }
     }
 
-    if effects.machine.flag_writes.z
+    if let Some(value) = explicit_zn_result(op, &before, known_callees) {
+        state.zn = Some(value);
+    } else if effects.machine.flag_writes.z
         || effects.machine.flag_writes.n
         || effects.machine.flag_clobbers.z
         || effects.machine.flag_clobbers.n
+        || effects.machine.unknown_flag_or_a_effects
+        || effects.machine.opaque_flag_or_a_effects
     {
-        state.zn = explicit_zn_result(op, &before);
+        state.zn = None;
     }
 
     if let MirOp::Store {
@@ -670,7 +674,11 @@ fn explicit_index_register_result(
     }
 }
 
-fn explicit_zn_result(op: &MirOp, before: &MirMachineValueState) -> Option<MirMachineValue> {
+fn explicit_zn_result(
+    op: &MirOp,
+    before: &MirMachineValueState,
+    known_callees: &MirKnownCalleeSummaries,
+) -> Option<MirMachineValue> {
     match op {
         MirOp::LoadImm {
             dst: MirDef::Reg(_),
@@ -687,6 +695,9 @@ fn explicit_zn_result(op: &MirOp, before: &MirMachineValueState) -> Option<MirMa
             src,
             width: MirWidth::Byte,
         } => machine_value_for_value(src, before),
+        MirOp::Call { target, .. } => known_callees
+            .for_target(target)
+            .and_then(|summary| summary.zn().cloned()),
         _ => None,
     }
 }
@@ -988,6 +999,29 @@ mod tests {
 
         assert_eq!(values.register_at(after_call, MirReg::X), Ok(None));
         assert_eq!(values.register_at(after_call, MirReg::Y), Ok(None));
+    }
+
+    #[test]
+    fn unknown_calls_kill_exact_zn_provenance() {
+        let routine = routine(vec![block(
+            0,
+            vec![
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: 7,
+                    width: MirWidth::Byte,
+                },
+                call(1),
+            ],
+            MirTerminator::Return,
+        )]);
+        let values = analyze(&routine);
+        assert_eq!(
+            values.zn_value_at(MirSite::Terminator {
+                block: MirBlockId(0)
+            }),
+            Ok(None)
+        );
     }
 
     #[test]
@@ -1377,6 +1411,44 @@ mod tests {
                 high_slot,
             ),
             Ok(Some(MirMachineValue::DirectMem(high_source)))
+        );
+    }
+
+    #[test]
+    fn known_callee_establishes_its_exact_accumulator_and_zn_exit_values() {
+        let return_slot = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
+        let caller = routine(vec![block(0, vec![call(1)], MirTerminator::Return)]);
+        let mut callee = routine(vec![block(
+            1,
+            vec![
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: 1,
+                    width: MirWidth::Byte,
+                },
+                store_a(return_slot.clone()),
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::X),
+                    value: 9,
+                    width: MirWidth::Byte,
+                },
+            ],
+            MirTerminator::Return,
+        )]);
+        callee.id = RoutineId(1);
+        callee.name = "ExactExit".to_string();
+
+        let values = analyze_caller_with_known_callee(caller, callee);
+        let after_call = MirSite::Terminator {
+            block: MirBlockId(0),
+        };
+        assert_eq!(
+            values.accumulator_at(after_call),
+            Ok(Some(MirMachineValue::DirectMem(return_slot)))
+        );
+        assert_eq!(
+            values.zn_value_at(after_call),
+            Ok(Some(MirMachineValue::ConstU8(9)))
         );
     }
 
