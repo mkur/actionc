@@ -11,6 +11,8 @@ The fresh final-output audit after carry and dual-pointer selection is in
 [`mir6502-final-listing-audit-2026-07-24.md`](mir6502-final-listing-audit-2026-07-24.md).
 The latest clean-head listing reanalysis and ranked MIR6502 backlog are in
 [`mir6502-listing-reanalysis-2026-07-22.md`](mir6502-listing-reanalysis-2026-07-22.md).
+An independent, artifact-pinned review of a separately supplied listing is in
+[`mir6502-independent-listing-review-2026-07-25.md`](mir6502-independent-listing-review-2026-07-25.md).
 The earlier caller-shadow analysis is retained as a historical measurement,
 with its incorrect ABI premise marked in
 [`mir6502-final-listing-analysis.md`](mir6502-final-listing-analysis.md). The
