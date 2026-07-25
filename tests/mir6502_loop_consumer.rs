@@ -58,9 +58,16 @@ fn complex_while_and_until_conditions_use_short_circuit_cfg() {
                 || formatted.contains("[y]"),
             "{fixture} should exercise an array read in the loop condition:\n{formatted}"
         );
+        let direct_condition_branches = formatted
+            .lines()
+            .filter(|line| {
+                let line = line.trim_start();
+                line.starts_with("branch fused") || line.starts_with("branch flag")
+            })
+            .count();
         assert!(
-            formatted.matches("branch fused").count() >= 4,
-            "{fixture} should branch directly for three condition leaves and the helper:\n{formatted}"
+            direct_condition_branches >= 4,
+            "{fixture} should branch directly from compares or proven incoming flags for three condition leaves and the helper:\n{formatted}"
         );
         assert!(!formatted.contains("a =.b a or"), "{formatted}");
         assert!(!formatted.contains("a =.b a and"), "{formatted}");

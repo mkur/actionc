@@ -85,6 +85,9 @@ pub(in crate::mir6502) enum MirProofBlocker {
     AccumulatorValueUnavailable {
         point: MirSite,
     },
+    ZnValueUnavailable {
+        point: MirSite,
+    },
     RegisterValueUnavailable {
         reg: MirReg,
         point: MirSite,
@@ -123,6 +126,7 @@ impl MirProofBlocker {
             Self::StackPointerLive { .. } => "stack-pointer-live",
             Self::FlagsLive { .. } => "flags-live",
             Self::AccumulatorValueUnavailable { .. } => "accumulator-value-unavailable",
+            Self::ZnValueUnavailable { .. } => "zn-value-unavailable",
             Self::RegisterValueUnavailable { .. } => "register-value-unavailable",
             Self::FixedZeroPageValueUnavailable { .. } => "fixed-zero-page-value-unavailable",
             Self::ParameterRegisterUnavailable { .. } => "parameter-register-unavailable",
@@ -488,6 +492,24 @@ impl<'snapshot, 'routine> PostHomeRewriteContext<'snapshot, 'routine> {
             Ok(None) => MirProof::Blocked(MirProofBlocker::AccumulatorValueUnavailable {
                 point: point.site,
             }),
+            Err(error) => MirProof::Blocked(MirProofBlocker::MachineValues(error)),
+        }
+    }
+
+    /// Proves the exact byte value whose production established the current
+    /// Z and N flags at `point`.
+    pub(in crate::mir6502) fn zn_value_at(
+        &self,
+        point: MirProgramPoint,
+    ) -> MirProof<MirMachineValue> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        match self.snapshot.machine_values().zn_value_at(point.site) {
+            Ok(Some(value)) => MirProof::Proven(value),
+            Ok(None) => {
+                MirProof::Blocked(MirProofBlocker::ZnValueUnavailable { point: point.site })
+            }
             Err(error) => MirProof::Blocked(MirProofBlocker::MachineValues(error)),
         }
     }

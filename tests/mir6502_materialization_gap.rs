@@ -693,8 +693,13 @@ fn pointer_equality_branch_materializes_to_byte_lane_flag_branches() {
     assert!(!formatted.contains("cmp.w"));
     assert!(!formatted.contains("branch bool"));
     assert!(!formatted.contains(" v"));
-    assert!(bytes.windows(2).any(|bytes| bytes[0] == 0xD0));
-    assert!(bytes.windows(2).any(|bytes| bytes[0] == 0xF0));
+    assert!(
+        bytes
+            .windows(2)
+            .filter(|bytes| matches!(bytes[0], 0xD0 | 0xF0))
+            .count()
+            >= 2
+    );
 }
 
 #[test]
@@ -738,7 +743,9 @@ fn short_circuit_and_or_materialize_to_control_flow() {
     let (or_formatted, or_bytes) = compile_materialized_mir6502_fixture("short_circuit_or.act");
 
     for formatted in [&and_formatted, &or_formatted] {
-        assert_eq!(formatted.matches("branch fused").count(), 2);
+        let direct_condition_branches =
+            formatted.matches("branch fused").count() + formatted.matches("branch flag").count();
+        assert_eq!(direct_condition_branches, 2);
         assert_eq!(formatted.matches("z_clear").count(), 2);
         assert!(!formatted.contains(" and "));
         assert!(!formatted.contains(" or "));
@@ -762,13 +769,14 @@ fn compare_or_with_call_uses_conditional_rhs_block() {
     let (formatted, _) = compile_materialized_mir6502_fixture("compare_or_with_call.act");
 
     let call = formatted.find("call r0").expect("conditional call");
-    let second_branch = formatted
+    let mut direct_branches = formatted
         .match_indices("branch fused")
-        .nth(1)
+        .chain(formatted.match_indices("branch flag"))
         .map(|(offset, _)| offset)
-        .expect("two prefix branches");
-    assert!(call > second_branch, "{formatted}");
-    assert_eq!(formatted.matches("branch fused").count(), 3);
+        .collect::<Vec<_>>();
+    direct_branches.sort_unstable();
+    assert!(call > direct_branches[1], "{formatted}");
+    assert_eq!(direct_branches.len(), 3);
     assert!(!formatted.contains(" or "));
     assert!(!formatted.contains("a =.b a or"));
 }

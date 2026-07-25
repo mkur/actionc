@@ -178,7 +178,7 @@ pub(super) fn expand_compare_branch_consumers(
         if try_expand_short_circuit_branch(index, blocks, layout, &mut next_id) {
             continue;
         }
-        if try_expand_byte_compare_branch(index, blocks, &mut next_id) {
+        if try_expand_byte_compare_branch(index, blocks) {
             continue;
         }
         try_expand_word_compare_branch(index, blocks, layout, &mut next_id);
@@ -223,8 +223,6 @@ pub(super) fn expand_proven_byte_add_word_compare_branches(
         let mut low_ops = Vec::new();
         let low_terminator = materialize_byte_compare_branch(
             &mut low_ops,
-            blocks,
-            &mut next_id,
             candidate.compare_op,
             MirValue::Def(MirDef::Reg(MirReg::A)),
             candidate.compare_right,
@@ -1325,11 +1323,7 @@ fn try_fuse_two_loaded_byte_compare_consumer(
     Some(3)
 }
 
-fn try_expand_byte_compare_branch(
-    block_index: usize,
-    blocks: &mut Vec<MirBlock>,
-    next_id: &mut u32,
-) -> bool {
+fn try_expand_byte_compare_branch(block_index: usize, blocks: &mut Vec<MirBlock>) -> bool {
     let Some((cond_temp, then_block, else_block)) = branch_bool_temp(&blocks[block_index]) else {
         return false;
     };
@@ -1361,9 +1355,8 @@ fn try_expand_byte_compare_branch(
     }
     blocks[block_index].ops.remove(compare_index);
     let mut ops = std::mem::take(&mut blocks[block_index].ops);
-    let terminator = materialize_byte_compare_branch(
-        &mut ops, blocks, next_id, op, left, right, then_block, else_block,
-    );
+    let terminator =
+        materialize_byte_compare_branch(&mut ops, op, left, right, then_block, else_block);
     blocks[block_index].ops = ops;
     blocks[block_index].terminator = terminator;
     true
@@ -1696,9 +1689,9 @@ fn materialize_short_circuit_compare_branch(
     else_block: MirBlockId,
 ) -> MirTerminator {
     match compare {
-        ShortCircuitCompare::Byte { op, left, right } => materialize_byte_compare_branch(
-            ops, blocks, next_id, op, left, right, then_block, else_block,
-        ),
+        ShortCircuitCompare::Byte { op, left, right } => {
+            materialize_byte_compare_branch(ops, op, left, right, then_block, else_block)
+        }
         ShortCircuitCompare::Word {
             op,
             signed,
@@ -1718,8 +1711,6 @@ fn materialize_short_circuit_compare_branch(
 
 fn materialize_byte_compare_branch(
     ops: &mut Vec<MirOp>,
-    blocks: &mut Vec<MirBlock>,
-    next_id: &mut u32,
     mut op: MirCompareOp,
     left: MirValue,
     mut right: MirValue,
@@ -1772,17 +1763,11 @@ fn materialize_byte_compare_branch(
             then_block,
             else_block,
         ),
-        MirCompareOp::Gt => {
-            let eq = fresh_block_id(next_id);
-            blocks.push(flag_branch_block(
-                eq,
-                "cmp_byte_eq",
-                MirFlagTest::ZSet,
-                else_block,
-                then_block,
-            ));
-            branch_terminator(MirCond::FlagTest(MirFlagTest::CClear), else_block, eq)
-        }
+        MirCompareOp::Gt => branch_terminator(
+            MirCond::AnyFlagTest([MirFlagTest::CClear, MirFlagTest::ZSet]),
+            else_block,
+            then_block,
+        ),
     }
 }
 

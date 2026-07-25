@@ -74,7 +74,7 @@ use calls::{
     try_fuse_call_result_store_consumer, try_fuse_loaded_arg_call_result_store_consumer,
     try_materialize_call_arg_expr_producers,
 };
-use cfg::collapse_empty_jump_blocks;
+use cfg::{collapse_empty_jump_blocks, layout_blocks_in_reverse_postorder};
 #[cfg(test)]
 use compare_branch::fold_compare_operand_producers_before_branches;
 use compare_branch::{
@@ -993,6 +993,27 @@ pub(super) fn materialize_program(
         }
     }
     allocate_zero_page_slots(&mut program);
+    // Zero-page coloring can make two previously distinct logical homes the
+    // same physical byte at a CFG edge. Rebuild machine-value and exact Z/N
+    // provenance facts after that remap so final physical reloads can be
+    // removed safely.
+    let final_known_callees = MirKnownCalleeSummaries::analyze(&program);
+    let final_layout = MaterializeLayout::new(&program, object_origin);
+    for routine in &mut program.routines {
+        run_analyzed_ssa_lite_byte_rewrites(
+            routine,
+            &final_layout,
+            true,
+            Some(&final_known_callees),
+            &mut peephole_stats,
+        )?;
+        let exact_zn_compares =
+            ssa_lite::fold_exact_zn_zero_compares(routine, &final_known_callees);
+        peephole_stats.record_many(routine.id, "exact-zn-zero-compare-fold", exact_zn_compares);
+        if layout_blocks_in_reverse_postorder(routine) {
+            peephole_stats.record(routine.id, "cfg-reverse-postorder-layout");
+        }
+    }
     materialize_remaining_pointer_cell_values(&mut program);
     fold_redundant_xy_reloads(&mut program, &mut peephole_stats);
     // Late register-value folding can make the last definition of a private

@@ -9,13 +9,15 @@ use super::temp_liveness::MirTempLiveSet;
 use super::temp_uses::{op_uses_temp, terminator_uses_temp};
 use super::values::offset_mem;
 use crate::mir6502::MirRoutine;
+use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::effects::MirFlagSet;
-use crate::mir6502::analysis::machine_values::MirMachineValue;
+use crate::mir6502::analysis::known_callees::MirKnownCalleeSummaries;
+use crate::mir6502::analysis::machine_values::{MirMachineValue, MirMachineValueAvailability};
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCallTarget, MirCarryIn, MirCarryOut,
-    MirDef, MirMem, MirOp, MirPointerPair, MirReg, MirTempId, MirTerminator, MirValue, MirWidth,
-    RoutineId,
+    MirCompareOp, MirCond, MirCondDest, MirDef, MirFlagTest, MirMem, MirOp, MirPointerPair, MirReg,
+    MirTempId, MirTerminator, MirValue, MirWidth, RoutineId,
 };
 use crate::mir6502::rewrite::context::{MirExitStateChange, MirProof, PostHomeRewriteContext};
 use crate::mir6502::rewrite::plan::{MirChangeSet, MirPostHomeRewritePlan};
@@ -3022,6 +3024,16 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
                 .as_ref()
                 .is_some_and(|(reg, key)| env.reg_fact(*reg) == Some(key));
             if redundant {
+                let point = context.point(MirSite::Op {
+                    block: block.id,
+                    op_index: index,
+                });
+                let reload_preserves_zn = loaded_reg_key.as_ref().is_some_and(|(_, key)| {
+                    matches!(
+                        context.zn_value_at(point),
+                        MirProof::Proven(value) if ssa_lite_machine_value_key(value.clone()) == *key
+                    )
+                });
                 let edge_accumulator_reload = accumulator_still_from_edge
                     && loaded_reg_key
                         .as_ref()
@@ -3039,13 +3051,17 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
                     block.id,
                     index..index + 1,
                     Vec::new(),
-                    MirExitStateChange {
-                        flags: MirFlagSet {
-                            z: true,
-                            n: true,
-                            ..MirFlagSet::default()
-                        },
-                        ..MirExitStateChange::default()
+                    if reload_preserves_zn {
+                        MirExitStateChange::default()
+                    } else {
+                        MirExitStateChange {
+                            flags: MirFlagSet {
+                                z: true,
+                                n: true,
+                                ..MirFlagSet::default()
+                            },
+                            ..MirExitStateChange::default()
+                        }
                     },
                     stat,
                     0,
@@ -3056,6 +3072,9 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
                     if edge_accumulator_reload {
                         plan.observations
                             .push(("ssa-lite-edge-accumulator-seeds", 1));
+                    }
+                    if reload_preserves_zn {
+                        plan.observations.push(("ssa-lite-exact-zn-provenance", 1));
                     }
                     if known_callee_result_reload.is_some() {
                         plan.observations
@@ -3107,6 +3126,87 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
         }
     }
     plans
+}
+
+/// Reuses exact incoming Z/N provenance for a byte equality test against zero,
+/// including both fused and already flag-selected branches. This is
+/// intentionally a post-coloring canonicalization: two logical
+/// homes can become one physical byte only after final zero-page assignment.
+pub(in crate::mir6502) fn fold_exact_zn_zero_compares(
+    routine: &mut MirRoutine,
+    known_callees: &MirKnownCalleeSummaries,
+) -> usize {
+    let Ok(cfg) = MirCfg::from_routine(routine) else {
+        return 0;
+    };
+    let values =
+        MirMachineValueAvailability::analyze_with_known_callees(routine, &cfg, known_callees);
+    let candidates = routine
+        .blocks
+        .iter()
+        .filter_map(|block| {
+            let MirTerminator::Branch { cond, .. } = &block.terminator else {
+                return None;
+            };
+            let (op_index, flag_test, replace_cond) = match cond {
+                MirCond::FusedCompare {
+                    producer,
+                    flag_test,
+                } if producer.block == block.id && producer.op_index + 1 == block.ops.len() => {
+                    (producer.op_index, flag_test, true)
+                }
+                MirCond::FlagTest(flag_test) if !block.ops.is_empty() => {
+                    (block.ops.len() - 1, flag_test, false)
+                }
+                _ => return None,
+            };
+            let MirOp::Compare {
+                dst: MirCondDest::Flags,
+                op,
+                left: MirValue::Def(MirDef::Reg(reg)),
+                right: MirValue::ConstU8(0),
+                width: MirWidth::Byte,
+                signed: false,
+            } = block.ops.get(op_index)?
+            else {
+                return None;
+            };
+            if !matches!(op, MirCompareOp::Eq | MirCompareOp::Ne)
+                || !matches!(flag_test, MirFlagTest::ZSet | MirFlagTest::ZClear)
+            {
+                return None;
+            }
+            let expected_test = flag_test.clone();
+            let site = MirSite::Op {
+                block: block.id,
+                op_index,
+            };
+            let register_value = values.register_at(site, *reg).ok().flatten()?;
+            let zn_value = values.zn_value_at(site).ok().flatten()?;
+            (register_value == zn_value).then_some((
+                block.id,
+                op_index,
+                expected_test,
+                replace_cond,
+            ))
+        })
+        .collect::<Vec<_>>();
+
+    for (block_id, op_index, flag_test, replace_cond) in &candidates {
+        let block = routine
+            .blocks
+            .iter_mut()
+            .find(|block| block.id == *block_id)
+            .expect("exact Z/N candidate block remains present");
+        block.ops.remove(*op_index);
+        if *replace_cond {
+            let MirTerminator::Branch { cond, .. } = &mut block.terminator else {
+                unreachable!("exact Z/N candidate terminator remains a branch");
+            };
+            *cond = MirCond::FlagTest(flag_test.clone());
+        }
+    }
+    candidates.len()
 }
 
 fn known_callee_result_reload_key(
