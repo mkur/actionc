@@ -1398,6 +1398,19 @@ fn try_expand_word_compare_branch(
     };
     let (left_lo, left_hi) = split_value_as_word(left, layout);
     let (right_lo, right_hi) = split_value_as_word(right, layout);
+    if let Some(terminator) = materialize_word_zero_test_branch(
+        &mut blocks[block_index].ops,
+        op,
+        &left_lo,
+        &left_hi,
+        &right_lo,
+        &right_hi,
+        then_block,
+        else_block,
+    ) {
+        blocks[block_index].terminator = terminator;
+        return true;
+    }
     let entry = append_word_compare_branch_blocks(
         blocks, next_id, op, signed, left_lo, left_hi, right_lo, right_hi, then_block, else_block,
     );
@@ -1700,6 +1713,11 @@ fn materialize_short_circuit_compare_branch(
         } => {
             let (left_lo, left_hi) = split_value_as_word(left, layout);
             let (right_lo, right_hi) = split_value_as_word(right, layout);
+            if let Some(terminator) = materialize_word_zero_test_branch(
+                ops, op, &left_lo, &left_hi, &right_lo, &right_hi, then_block, else_block,
+            ) {
+                return terminator;
+            }
             let entry = append_word_compare_branch_blocks(
                 blocks, next_id, op, signed, left_lo, left_hi, right_lo, right_hi, then_block,
                 else_block,
@@ -1821,6 +1839,54 @@ fn append_word_compare_branch_blocks(
             blocks, next_id, op, left_lo, left_hi, right_lo, right_hi, then_block, else_block,
         )
     }
+}
+
+fn byte_pair_is_zero(lo: &MirValue, hi: &MirValue) -> bool {
+    matches!(lo, MirValue::ConstU8(0) | MirValue::ConstU16(0))
+        && matches!(hi, MirValue::ConstU8(0) | MirValue::ConstU16(0))
+}
+
+fn materialize_word_zero_test_branch(
+    ops: &mut Vec<MirOp>,
+    op: MirCompareOp,
+    left_lo: &MirValue,
+    left_hi: &MirValue,
+    right_lo: &MirValue,
+    right_hi: &MirValue,
+    then_block: MirBlockId,
+    else_block: MirBlockId,
+) -> Option<MirTerminator> {
+    let flag_test = match op {
+        MirCompareOp::Eq => MirFlagTest::ZSet,
+        MirCompareOp::Ne => MirFlagTest::ZClear,
+        _ => return None,
+    };
+    let (value_lo, value_hi) = if byte_pair_is_zero(right_lo, right_hi) {
+        (left_lo.clone(), left_hi.clone())
+    } else if byte_pair_is_zero(left_lo, left_hi) {
+        (right_lo.clone(), right_hi.clone())
+    } else {
+        return None;
+    };
+    ops.push(MirOp::Move {
+        dst: MirDef::Reg(MirReg::A),
+        src: value_lo,
+        width: MirWidth::Byte,
+    });
+    ops.push(MirOp::Binary {
+        op: MirBinaryOp::Or,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: value_hi,
+        width: MirWidth::Byte,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    });
+    Some(branch_terminator(
+        MirCond::FlagTest(flag_test),
+        then_block,
+        else_block,
+    ))
 }
 
 fn append_word_eq_ne_branch_blocks(

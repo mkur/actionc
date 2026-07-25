@@ -1192,6 +1192,141 @@ fn static_address_split_stays_symbolic_until_final_emit_layout() {
 }
 
 #[test]
+fn word_zero_equality_branch_expands_to_single_or_test() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let value = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let mut blocks = vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::Compare {
+                dst: MirCondDest::Temp(MirTempId(0)),
+                op: MirCompareOp::Eq,
+                left: MirValue::PointerCell(value.clone()),
+                right: MirValue::ConstU16(0),
+                width: MirWidth::Word,
+                signed: false,
+            }],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ];
+
+    expand_compare_branch_consumers(&mut blocks, &layout, &Mir6502Config::default());
+
+    assert_eq!(blocks.len(), 3);
+    assert!(matches!(
+        blocks[0].ops.as_slice(),
+        [
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(0),
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Or,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(0),
+                    offset: 1,
+                }),
+                width: MirWidth::Byte,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            }
+        ]
+    ));
+    assert_eq!(
+        blocks[0].terminator,
+        MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::ZSet),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        }
+    );
+}
+
+#[test]
+fn reversed_word_zero_inequality_branch_uses_nonzero_or_test() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut blocks = vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::Compare {
+                dst: MirCondDest::Temp(MirTempId(0)),
+                op: MirCompareOp::Ne,
+                left: MirValue::ConstU16(0),
+                right: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(0),
+                    offset: 0,
+                }),
+                width: MirWidth::Word,
+                signed: false,
+            }],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ];
+
+    expand_compare_branch_consumers(&mut blocks, &layout, &Mir6502Config::default());
+
+    assert_eq!(blocks.len(), 3);
+    assert!(matches!(
+        blocks[0].terminator,
+        MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::ZClear),
+            ..
+        }
+    ));
+}
+
+#[test]
 fn signed_word_lt_branch_uses_compact_overflow_path_for_direct_values() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

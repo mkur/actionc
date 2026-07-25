@@ -498,6 +498,40 @@ mod tests {
     }
 
     #[test]
+    fn source_generation_tests_word_zero_with_one_or_branch() {
+        let output = generate_mir6502_source(
+            "
+            CARD value
+            BYTE result
+            PROC Main()
+              IF value=0 THEN
+                result=1
+              FI
+            RETURN
+            ",
+        );
+
+        assert!(
+            output.bytes.contains(&crate::codegen::opcode::ORA_ABS),
+            "word-zero testing should combine both bytes with ORA"
+        );
+        assert_eq!(
+            output
+                .bytes
+                .iter()
+                .filter(|opcode| {
+                    matches!(
+                        **opcode,
+                        crate::codegen::opcode::BEQ_REL | crate::codegen::opcode::BNE_REL
+                    )
+                })
+                .count(),
+            1,
+            "word-zero testing should require only one conditional branch"
+        );
+    }
+
+    #[test]
     fn source_generation_preserves_expected_word_unary_negation() {
         let literal = generate_mir6502_source("INT s PROC Main() s=-1 RETURN");
         assert!(bytes_contain(
