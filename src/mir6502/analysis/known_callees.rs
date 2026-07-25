@@ -80,7 +80,7 @@ pub(in crate::mir6502) enum MirKnownMemoryReads {
 }
 
 impl MirKnownMemoryReads {
-    #[allow(dead_code)] // Consumed by the following carrier-selection slice.
+    #[allow(dead_code)] // Retained for fixed-memory carrier selection.
     pub(in crate::mir6502) fn may_read_caller_private_ram(&self) -> bool {
         match self {
             // Callee-local identities, globals, statics, and fixed zero page
@@ -684,7 +684,7 @@ fn summarize_machine_routine(
         .machine_blocks
         .iter()
         .find(|machine| machine.id == *id)?;
-    summarize_straight_line_machine_block(machine, routine, program)
+    summarize_bounded_machine_block(machine, routine, program)
 }
 
 #[derive(Debug, Clone)]
@@ -693,16 +693,18 @@ struct MachineByte {
     memory: Option<MirMem>,
 }
 
-fn summarize_straight_line_machine_block(
+fn summarize_bounded_machine_block(
     machine: &MirMachineBlock,
     routine: &MirRoutine,
     program: &MirProgram,
 ) -> Option<MirKnownCalleeExitSummary> {
     let bytes = flatten_machine_items(&machine.items, routine, program)?;
+    let instruction_starts = machine_instruction_starts(&bytes)?;
     let mut index = 0usize;
     let mut accumulator = None;
     let mut zn = None;
     let mut zn_register = None;
+    let mut has_forward_branch = false;
     let mut preserves = MirRegisterSet {
         x: true,
         y: true,
@@ -721,15 +723,42 @@ fn summarize_straight_line_machine_block(
         match opcode {
             0x60 if index + len == bytes.len() => {
                 return Some(MirKnownCalleeExitSummary {
-                    accumulator,
-                    zn,
+                    // The effect walk deliberately visits both sides of a
+                    // forward branch by linearizing their union. That is exact
+                    // for reads, writes, and register preservation, but not
+                    // for a path-sensitive final A or Z/N value.
+                    accumulator: if has_forward_branch {
+                        None
+                    } else {
+                        accumulator
+                    },
+                    zn: if has_forward_branch { None } else { zn },
                     preserves,
                     reads,
                     writes,
                 });
             }
-            0x00 | 0x60 | 0x40 | 0x4C | 0x6C | 0x10 | 0x30 | 0x50 | 0x70 | 0x90 | 0xB0 | 0xD0
-            | 0xF0 => {
+            0x10 | 0x30 | 0x50 | 0x70 | 0x90 | 0xB0 | 0xD0 | 0xF0 => {
+                let displacement = i8::from_ne_bytes([operands.first()?.value?]);
+                let next = index.saturating_add(len);
+                let target = isize::try_from(next)
+                    .ok()?
+                    .checked_add(isize::from(displacement))
+                    .and_then(|target| usize::try_from(target).ok())?;
+                // This bounded summary supports only structured forward
+                // branches which rejoin before the single terminal RTS.
+                // Linearizing both arms then safely over-approximates their
+                // memory effects and index-register writes.
+                if target <= next || target >= bytes.len() || !instruction_starts.contains(&target)
+                {
+                    return None;
+                }
+                has_forward_branch = true;
+                accumulator = None;
+                zn = None;
+                zn_register = None;
+            }
+            0x00 | 0x60 | 0x40 | 0x4C | 0x6C => {
                 return None;
             }
             0x20 => {
@@ -919,6 +948,21 @@ fn summarize_straight_line_machine_block(
         index += len;
     }
     None
+}
+
+fn machine_instruction_starts(bytes: &[MachineByte]) -> Option<BTreeSet<usize>> {
+    let mut starts = BTreeSet::new();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        starts.insert(index);
+        let opcode = bytes[index].value?;
+        let (_, _, len) = crate::codegen::decode_6502_opcode(opcode)?;
+        if len == 0 || index.saturating_add(len) > bytes.len() {
+            return None;
+        }
+        index = index.saturating_add(len);
+    }
+    (index == bytes.len()).then_some(starts)
 }
 
 fn flatten_machine_items(
@@ -1623,6 +1667,82 @@ mod tests {
         assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xAC)));
         assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xE6)));
         assert!(!summary.reads().may_read_caller_private_ram());
+    }
+
+    #[test]
+    fn machine_summary_unions_forward_branch_effects_and_preservation() {
+        let machine = MirMachineBlock {
+            id: MirMachineBlockId(0),
+            items: vec![
+                MirMachineItem::Byte(0xA6),
+                MirMachineItem::Byte(0x58),
+                MirMachineItem::Byte(0xA9),
+                MirMachineItem::Byte(1),
+                MirMachineItem::Byte(0x85),
+                MirMachineItem::Byte(0xE6),
+                MirMachineItem::Byte(0x90),
+                MirMachineItem::Byte(2),
+                MirMachineItem::Byte(0xE6),
+                MirMachineItem::Byte(0xE7),
+                MirMachineItem::Byte(0x60),
+            ],
+        };
+        let summaries = MirKnownCalleeSummaries::analyze(&program(
+            vec![routine(
+                0,
+                vec![MirOp::MachineBlock {
+                    id: machine.id,
+                    effects: MirEffects::default(),
+                }],
+                MirTerminator::Unreachable,
+            )],
+            vec![machine],
+        ));
+
+        let summary = summaries.get(RoutineId(0)).expect("machine summary");
+        assert!(!summary.preserves_register(MirReg::X));
+        assert!(summary.preserves_register(MirReg::Y));
+        assert!(
+            summary
+                .writes()
+                .may_write_mem(&MirMem::FixedZeroPage(MirFixedZpSlot(0xE6)))
+        );
+        assert!(
+            summary
+                .writes()
+                .may_write_mem(&MirMem::FixedZeroPage(MirFixedZpSlot(0xE7)))
+        );
+        assert_eq!(summary.accumulator(), None);
+        assert_eq!(summary.zn(), None);
+    }
+
+    #[test]
+    fn machine_summary_rejects_backward_branch_effect_walks() {
+        let machine = MirMachineBlock {
+            id: MirMachineBlockId(0),
+            items: vec![
+                MirMachineItem::Byte(0xD0),
+                MirMachineItem::Byte(0xFE),
+                MirMachineItem::Byte(0x60),
+            ],
+        };
+        let summaries = MirKnownCalleeSummaries::analyze(&program(
+            vec![routine(
+                0,
+                vec![MirOp::MachineBlock {
+                    id: machine.id,
+                    effects: MirEffects::default(),
+                }],
+                MirTerminator::Unreachable,
+            )],
+            vec![machine],
+        ));
+
+        let summary = summaries.get(RoutineId(0)).expect("default summary");
+        assert!(!summary.preserves_register(MirReg::X));
+        assert!(!summary.preserves_register(MirReg::Y));
+        assert!(matches!(summary.reads(), MirKnownMemoryReads::Unknown));
+        assert!(matches!(summary.writes(), MirKnownMemoryWrites::Unknown));
     }
 
     #[test]
