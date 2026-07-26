@@ -1,6 +1,6 @@
 # MIR6502 KALSCOPE Optimization Implementation Plan
 
-Status: in progress; Slices 0-3 complete
+Status: in progress; Slices 0-4 complete
 
 Date: 2026-07-26
 
@@ -289,6 +289,8 @@ Result:
 
 ### Slice 4: Materialize direct indirect-store values late
 
+Status: complete.
+
 - Extend destination-aware store selection to low/high projections of stable
   direct words and ordinary direct bytes.
 - Prepare `$AC/$AD` before loading A when the shared effects and alias queries
@@ -296,6 +298,19 @@ Result:
 - Remove only the now-dead transient value home.
 - Reject unknown memory effects, volatile/absolute sources, aliasing pointer
   homes, and multi-use results.
+
+Result:
+
+- Added a post-home selector for a stable direct byte followed by a byte
+  constant transform and a staged indirect store.
+- The selector prepares `$AC/$AD` first, then loads and transforms the value
+  immediately before the store. It uses the shared pure-read reordering and
+  physical fixed-scratch overlap queries.
+- Hardware/high-absolute and fixed-pointer aliases remain rejected.
+- KALSCOPE selects three late value placements and removes one staging
+  store/reload pair at each low-byte projection.
+- MIR6502 output fell from 3,419 to 3,401 bytes, reducing the classic deficit
+  from 101 to 83 bytes.
 
 ### Slice 5: Encode trusted runtime-helper scratch effects
 

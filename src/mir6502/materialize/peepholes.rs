@@ -522,14 +522,16 @@ pub(in crate::mir6502) fn discover_indirect_stores_and_compounds(
                     .map(|candidate| (candidate, "indirect-call-field-staging", 0)),
                 direct_word_to_indirect_copy_at(&block.ops, index, routine.id, layout)
                     .map(|candidate| (candidate, "direct-word-to-indirect-copy", 1)),
+                indirect_byte_direct_transform_store_at(&block.ops, index, routine.id, layout)
+                    .map(|candidate| (candidate, "indirect-byte-direct-transform-store", 2)),
                 indirect_byte_direct_store_at(&block.ops, index, routine.id, layout)
-                    .map(|candidate| (candidate, "indirect-byte-direct-store", 2)),
+                    .map(|candidate| (candidate, "indirect-byte-direct-store", 3)),
                 indirect_byte_const_compound_at(&block.ops, index)
-                    .map(|candidate| (candidate, "indirect-byte-const-compound", 3)),
+                    .map(|candidate| (candidate, "indirect-byte-const-compound", 4)),
                 indirect_byte_direct_compound_at(&block.ops, index, routine.id, layout)
-                    .map(|candidate| (candidate, "indirect-byte-direct-compound", 4)),
+                    .map(|candidate| (candidate, "indirect-byte-direct-compound", 5)),
                 indirect_byte_compound_at(&block.ops, index)
-                    .map(|candidate| (candidate, "indirect-byte-compound", 5)),
+                    .map(|candidate| (candidate, "indirect-byte-compound", 6)),
             ];
             for ((consumed, replacement), stat, priority) in candidates.into_iter().flatten() {
                 if let Some(plan) = structural_plan(
@@ -2802,6 +2804,46 @@ fn indirect_byte_direct_store_at(
     indirect_byte_direct_store_after_store_at(ops, index, routine_id, layout)
 }
 
+fn indirect_byte_direct_transform_store_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    let value_source = load_a_direct_byte(ops.get(index)?)?;
+    let transform = byte_a_const_self_transform(ops.get(index + 1)?)?;
+    let (target_lo, target_hi, target, offset) =
+        indirect_byte_direct_store_tail(ops, index + 2, routine_id, layout, &value_source)?;
+
+    let mut replacement = stage_fixed_pointer_ops(target_lo, target_hi);
+    replacement.push(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(value_source),
+        width: MirWidth::Byte,
+    });
+    replacement.push(transform);
+    replacement.push(MirOp::StoreIndirect {
+        consumer: target,
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        offset,
+    });
+    Some((9, replacement))
+}
+
+fn byte_a_const_self_transform(op: &MirOp) -> Option<MirOp> {
+    matches!(
+        op,
+        MirOp::Binary {
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(_),
+            width: MirWidth::Byte,
+            ..
+        }
+    )
+    .then(|| op.clone())
+}
+
 fn indirect_byte_direct_store_after_load_at(
     ops: &[MirOp],
     index: usize,
@@ -3029,19 +3071,8 @@ fn mem_is_stable_delayed_indirect_store_source(
     layout: &MaterializeLayout,
     mem: &MirMem,
 ) -> bool {
-    if mem_may_overlap_fixed_pointer_scratch(routine_id, layout, mem) {
-        return false;
-    }
-    match mem {
-        MirMem::Absolute(address) => *address < 0x0100,
-        MirMem::FixedZeroPage(_) => true,
-        MirMem::Global { .. }
-        | MirMem::Static { .. }
-        | MirMem::Local { .. }
-        | MirMem::Param { .. }
-        | MirMem::Spill { .. } => true,
-        MirMem::ZeroPage(_) => false,
-    }
+    !mem_may_overlap_fixed_pointer_scratch(routine_id, layout, mem)
+        && layout.mem_allows_pure_read_reordering(mem)
 }
 
 fn redundant_self_store_at(

@@ -443,6 +443,145 @@ fn direct_word_to_indirect_copy_rejects_live_x() {
     );
 }
 
+fn indirect_direct_transform_store_test_program(value_source: MirMem) -> MirProgram {
+    let target = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let staged = MirMem::Spill {
+        id: MirSpillId(0),
+        offset: 0,
+    };
+    let consumer = fixed_pointer_consumer(POINTER_SCRATCH_LO);
+    let ops = vec![
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(value_source),
+            width: MirWidth::Byte,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::And,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0x7f),
+            width: MirWidth::Byte,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(staged.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(target.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(offset_mem(&target, 1)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_HI))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(staged),
+            width: MirWidth::Byte,
+        },
+        MirOp::StoreIndirect {
+            consumer,
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            offset: 0,
+        },
+    ];
+    MirProgram {
+        statics: Vec::new(),
+        globals: Vec::new(),
+        routines: vec![MirRoutine {
+            id: RoutineId(0),
+            name: "late_indirect_value".to_string(),
+            abi: MirRoutineAbi::Action,
+            frame: MirFrame {
+                spills: vec![MirSpillId(0)],
+                ..MirFrame::default()
+            },
+            temps: Vec::new(),
+            blocks: vec![MirBlock {
+                id: MirBlockId(0),
+                label: "bb0".to_string(),
+                params: Vec::new(),
+                ops,
+                terminator: MirTerminator::Return,
+            }],
+            effects: MirEffects::default(),
+        }],
+        machine_blocks: Vec::new(),
+        runtime_helpers: Vec::new(),
+    }
+}
+
+#[test]
+fn indirect_direct_transform_store_loads_value_after_pointer_preparation() {
+    let value_source = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let program = indirect_direct_transform_store_test_program(value_source.clone());
+    let routine = &program.routines[0];
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let snapshot = PostHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    let plans = peepholes::discover_indirect_stores_and_compounds(routine, &context, &layout);
+
+    assert_eq!(plans.len(), 1, "{plans:#?}");
+    assert_eq!(plans[0].stat, "indirect-byte-direct-transform-store");
+    assert_eq!(plans[0].replacement.len(), 7);
+    assert!(matches!(
+        plans[0].replacement.as_slice(),
+        [
+            MirOp::Load { .. },
+            MirOp::Store { .. },
+            MirOp::Load { .. },
+            MirOp::Store { .. },
+            MirOp::Load {
+                src: MirAddr::Direct(source),
+                ..
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::And,
+                ..
+            },
+            MirOp::StoreIndirect { .. },
+        ] if *source == value_source
+    ));
+}
+
+#[test]
+fn indirect_direct_transform_store_rejects_hardware_value_source() {
+    let program = indirect_direct_transform_store_test_program(MirMem::Absolute(0xd000));
+    let routine = &program.routines[0];
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let snapshot = PostHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    assert!(
+        peepholes::discover_indirect_stores_and_compounds(routine, &context, &layout).is_empty()
+    );
+}
+
 #[test]
 fn indirect_word_load_fold_keeps_spills_used_by_second_call_arg_home() {
     let low = MirSpillId(18);
