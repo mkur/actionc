@@ -47,7 +47,7 @@ impl ByteAddWordCompareCandidate {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum WordArithmeticSource {
+pub(super) enum WordArithmeticSource {
     Values { lo: MirValue, hi: MirValue },
     Indirect { pointer: MirValue, offset: u16 },
 }
@@ -220,7 +220,7 @@ pub(in crate::mir6502) fn word_arithmetic_compare_candidate(
     })
 }
 
-fn word_arithmetic_load_source(op: &MirOp) -> Option<(MirTempId, WordArithmeticSource)> {
+pub(super) fn word_arithmetic_load_source(op: &MirOp) -> Option<(MirTempId, WordArithmeticSource)> {
     let MirOp::Load {
         dst,
         src,
@@ -251,7 +251,7 @@ fn word_arithmetic_load_source(op: &MirOp) -> Option<(MirTempId, WordArithmeticS
     Some((temp, source))
 }
 
-fn resolve_word_arithmetic_source(
+pub(super) fn resolve_word_arithmetic_source(
     value: &MirValue,
     sources: &BTreeMap<MirTempId, WordArithmeticSource>,
 ) -> Option<WordArithmeticSource> {
@@ -290,7 +290,7 @@ fn word_arithmetic_direct_mem_is_safe(mem: &MirMem) -> bool {
     )
 }
 
-fn word_arithmetic_pointer_mem_is_safe(mem: &MirMem) -> bool {
+pub(super) fn word_arithmetic_pointer_mem_is_safe(mem: &MirMem) -> bool {
     matches!(
         mem,
         MirMem::Param { .. }
@@ -301,12 +301,12 @@ fn word_arithmetic_pointer_mem_is_safe(mem: &MirMem) -> bool {
     )
 }
 
-fn word_arithmetic_byte_value_is_safe(value: &MirValue) -> bool {
+pub(super) fn word_arithmetic_byte_value_is_safe(value: &MirValue) -> bool {
     matches!(value, MirValue::ConstU8(_) | MirValue::ConstU16(_))
         || matches!(value, MirValue::PointerCell(mem) if word_arithmetic_direct_mem_is_safe(mem))
 }
 
-fn push_word_arithmetic_source_load(
+pub(super) fn push_word_arithmetic_source_load(
     ops: &mut Vec<MirOp>,
     source: &WordArithmeticSource,
     byte: u8,

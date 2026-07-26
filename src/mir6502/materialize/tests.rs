@@ -3277,6 +3277,128 @@ fn loaded_word_memory_update_sub_one_uses_dec_by_default() {
     );
 }
 
+fn word_arithmetic_indirect_store_ops(destination_pointer: LocalId) -> Vec<MirOp> {
+    vec![
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(300)),
+            src: MirAddr::PointerCell {
+                ptr: MirMem::Local {
+                    id: LocalId(30),
+                    offset: 0,
+                },
+                offset: 0,
+            },
+            width: MirWidth::Word,
+        },
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(301)),
+            src: MirAddr::Direct(MirMem::Param {
+                id: ParamId(0),
+                offset: 0,
+            }),
+            width: MirWidth::Word,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::VTemp(MirTempId(302)),
+            left: MirValue::Def(MirDef::VTemp(MirTempId(300))),
+            right: MirValue::Def(MirDef::VTemp(MirTempId(301))),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::PointerCell {
+                ptr: MirMem::Local {
+                    id: destination_pointer,
+                    offset: 0,
+                },
+                offset: 0,
+            },
+            src: MirValue::Def(MirDef::VTemp(MirTempId(302))),
+            width: MirWidth::Word,
+        },
+    ]
+}
+
+#[test]
+fn word_arithmetic_indirect_store_reads_both_lanes_before_writing() {
+    let ops = word_arithmetic_indirect_store_ops(LocalId(30));
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_word_arithmetic_indirect_store_consumer(&ops, 0, &mut replacement),
+        ops.len()
+    );
+    assert!(matches!(
+        replacement.as_slice(),
+        [
+            MirOp::MaterializeAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                ..
+            },
+            MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                offset: 0,
+                ..
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                carry_in: Some(MirCarryIn::Clear),
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                    POINTER_INDEX_SCRATCH_LO
+                ))),
+                ..
+            },
+            MirOp::LoadIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                offset: 1,
+                ..
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                carry_in: Some(MirCarryIn::FromPrevious),
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                    POINTER_INDEX_SCRATCH_HI
+                ))),
+                ..
+            },
+            MirOp::StoreIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                src: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
+                    POINTER_INDEX_SCRATCH_LO
+                ))),
+                offset: 0,
+            },
+            MirOp::StoreIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                src: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
+                    POINTER_INDEX_SCRATCH_HI
+                ))),
+                offset: 1,
+            },
+        ]
+    ));
+}
+
+#[test]
+fn word_arithmetic_indirect_store_requires_one_shared_pointer() {
+    let ops = word_arithmetic_indirect_store_ops(LocalId(31));
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_word_arithmetic_indirect_store_consumer(&ops, 0, &mut replacement),
+        0
+    );
+    assert!(replacement.is_empty());
+}
+
 #[test]
 fn word_memory_update_commuted_add_const_uses_byte_to_word_update() {
     let program = empty_test_program();

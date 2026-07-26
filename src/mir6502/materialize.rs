@@ -183,8 +183,9 @@ use stats::{MirPeepholeStats, maybe_report_peepholes};
 use store_consumers::{
     materialize_value_to_mem, select_byte_mul_add_sub_word_store_consumer,
     select_byte_store_consumer, select_direct_copy_store_consumer, select_store_expr_producers,
-    select_word_carry_chain_store_consumer, select_word_store_consumer,
-    try_fuse_byte_mul_word_store_consumer, try_fuse_cast_store_consumer,
+    select_word_arithmetic_indirect_store_consumer, select_word_carry_chain_store_consumer,
+    select_word_store_consumer, try_fuse_byte_mul_word_store_consumer,
+    try_fuse_cast_store_consumer,
 };
 #[cfg(test)]
 use store_consumers::{
@@ -739,6 +740,17 @@ fn analyzed_store_consumer_candidate_at(
     delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
 ) -> Option<StoreConsumerRewriteCandidate> {
     let mut replacement = Vec::new();
+    let consumed = select_word_arithmetic_indirect_store_consumer(ops, index, &mut replacement);
+    if consumed > 0 {
+        return Some(StoreConsumerRewriteCandidate {
+            start: index,
+            consumed,
+            replacement,
+            stat: "word-arithmetic-indirect-store-consumer",
+            family_priority: 115,
+        });
+    }
+
     let consumed = try_fuse_indexed_byte_inc_dec_update(ops, index, layout, &mut replacement);
     if consumed > 0 {
         return Some(StoreConsumerRewriteCandidate {
