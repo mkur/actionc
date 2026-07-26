@@ -1,0 +1,66 @@
+; Runtime regression for direct signed return-word comparisons against zero.
+;
+; Each predicate keeps Echo's INT result in the public $A0/$A1 return slot.
+; Both operand orders exercise relation normalization.
+
+BYTE ARRAY results
+BYTE signature=$0628
+
+INT FUNC Echo(INT value)
+RETURN(value)
+
+BYTE FUNC LtZero(INT value)
+  IF Echo(value)<0 THEN RETURN(1) FI
+RETURN(0)
+
+BYTE FUNC LeZero(INT value)
+  IF Echo(value)<=0 THEN RETURN(1) FI
+RETURN(0)
+
+BYTE FUNC GtZero(INT value)
+  IF Echo(value)>0 THEN RETURN(1) FI
+RETURN(0)
+
+BYTE FUNC GeZero(INT value)
+  IF Echo(value)>=0 THEN RETURN(1) FI
+RETURN(0)
+
+BYTE FUNC ZeroLt(INT value)
+  IF INT(0)<Echo(value) THEN RETURN(1) FI
+RETURN(0)
+
+BYTE FUNC ZeroLe(INT value)
+  IF INT(0)<=Echo(value) THEN RETURN(1) FI
+RETURN(0)
+
+BYTE FUNC ZeroGt(INT value)
+  IF INT(0)>Echo(value) THEN RETURN(1) FI
+RETURN(0)
+
+BYTE FUNC ZeroGe(INT value)
+  IF INT(0)>=Echo(value) THEN RETURN(1) FI
+RETURN(0)
+
+PROC Check(INT value BYTE offset)
+  results(offset)=LtZero(value)
+  results(offset+1)=LeZero(value)
+  results(offset+2)=GtZero(value)
+  results(offset+3)=GeZero(value)
+  results(offset+4)=ZeroLt(value)
+  results(offset+5)=ZeroLe(value)
+  results(offset+6)=ZeroGt(value)
+  results(offset+7)=ZeroGe(value)
+RETURN
+
+PROC Main()
+  results=$0600
+  Check($8000,0)
+  Check($FFFF,8)
+  Check(0,16)
+  Check(1,24)
+  Check($7FFF,32)
+  signature=$A5
+
+  DO
+  OD
+RETURN

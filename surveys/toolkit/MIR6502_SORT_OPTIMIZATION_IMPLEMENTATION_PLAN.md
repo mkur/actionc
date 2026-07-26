@@ -1,6 +1,6 @@
 # MIR6502 SORT Optimization Implementation Plan
 
-Status: implementation in progress (Slices 0A-3 complete)
+Status: implementation in progress (Slices 0A-4 complete)
 
 Date: 2026-07-26
 
@@ -496,6 +496,25 @@ The two routines are 81 instruction bytes larger in aggregate.
 - `SDescend` performs only the necessary sign/nonzero tests.
 - String sort in both directions passes the VM oracle.
 - Existing general signed word comparison fixtures remain green.
+
+Implemented result: `signed-return-word-zero-compare-branch` recognizes an
+adjacent signed WORD relation consuming a public return-slot result. The
+proof removes the logical call-result definition only when it is uniquely
+consumed by the comparison and the condition is used only by the block
+terminator. Zero is normalized from either operand position. `< 0` and `>= 0`
+branch directly on the high-byte sign; `> 0` and `<= 0` preserve the
+high-byte Z/N state across an empty edge and inspect the low byte only when
+the high byte is zero.
+
+The selector fires once in `SAscend` and once in `SDescend`. Both result
+spills and the general signed comparison CFG are gone. SORTDM1 shrank from
+4,754 to 4,672 load-file bytes. Recognized code fell from 4,392 to 4,314
+bytes, data from 350 to 346 bytes, and the instruction count from 1,888 to
+1,854. `LDA` fell from 585 to 575 and `STA` from 500 to 496. SORTDM2 likewise
+shrank from 2,830 to 2,748 bytes. A dedicated MIR6502 VM gate covers all four
+relations, zero on both sides, and signed values `$8000`, `$FFFF`, `$0000`,
+`$0001`, and `$7FFF`. The SORT oracle passes, and TN plus ALLOCATE remain
+byte-identical.
 
 Commit independently.
 

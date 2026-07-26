@@ -291,6 +291,46 @@ pub(in crate::mir6502) fn proven_word_arithmetic_compare_branches(
     Ok(sites)
 }
 
+pub(in crate::mir6502) fn proven_signed_return_word_zero_compare_branches(
+    routine: &MirRoutine,
+) -> Result<std::collections::BTreeSet<(crate::mir6502::ir::MirBlockId, usize)>, ()> {
+    let snapshot =
+        PreHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial()).map_err(|_| ())?;
+    let context = PreHomeRewriteContext::new(&snapshot);
+    let mut sites = std::collections::BTreeSet::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let Some(candidate) =
+                crate::mir6502::materialize::analyzed_signed_return_word_zero_compare_candidate(
+                    &block.ops, index,
+                )
+            else {
+                continue;
+            };
+            let Some(condition_temp) = candidate.condition_temp() else {
+                continue;
+            };
+            if !temp_is_used_only_by_block_terminator(routine, block.id, condition_temp) {
+                continue;
+            }
+            let end = index + candidate.consumed;
+            if prove_removed_window_definitions(
+                block.id,
+                &block.ops,
+                index,
+                end,
+                &candidate.proof_replacement(),
+                &context,
+            )
+            .is_some()
+            {
+                sites.insert((block.id, index));
+            }
+        }
+    }
+    Ok(sites)
+}
+
 pub(in crate::mir6502) fn proven_direct_word_equality_compare_branches(
     routine: &MirRoutine,
 ) -> Result<std::collections::BTreeSet<(crate::mir6502::ir::MirBlockId, usize)>, ()> {

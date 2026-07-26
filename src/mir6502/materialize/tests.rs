@@ -2721,6 +2721,72 @@ fn direct_unsigned_word_le_branch_reverses_operands_and_tests_set_carry() {
     ));
 }
 
+fn signed_return_word_zero_ops(op: MirCompareOp, zero_on_left: bool) -> Vec<MirOp> {
+    let result = MirDef::VTemp(MirTempId(0));
+    let result_value = MirValue::Def(result.clone());
+    let zero = MirValue::ConstU16(0);
+    let (left, right) = if zero_on_left {
+        (zero, result_value)
+    } else {
+        (result_value, zero)
+    };
+    vec![
+        MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(1)),
+            abi: MirCallAbi {
+                params: Vec::new(),
+                result: Some(MirResultHome::ReturnSlot { offset: 0 }),
+                clobbers: MirRegisterSet::default(),
+                preserves: MirRegisterSet::default(),
+            },
+            args: Vec::new(),
+            result: Some(MirCallResult {
+                dst: result,
+                width: MirWidth::Word,
+                home: MirResultHome::ReturnSlot { offset: 0 },
+            }),
+            effects: MirEffects::default(),
+        },
+        MirOp::Compare {
+            dst: MirCondDest::Temp(MirTempId(1)),
+            op,
+            left,
+            right,
+            width: MirWidth::Word,
+            signed: true,
+        },
+    ]
+}
+
+#[test]
+fn signed_return_word_zero_candidate_normalizes_relations_and_operand_order() {
+    for (op, reversed) in [
+        (MirCompareOp::Lt, MirCompareOp::Gt),
+        (MirCompareOp::Le, MirCompareOp::Ge),
+        (MirCompareOp::Gt, MirCompareOp::Lt),
+        (MirCompareOp::Ge, MirCompareOp::Le),
+    ] {
+        let direct = analyzed_signed_return_word_zero_compare_candidate(
+            &signed_return_word_zero_ops(op, false),
+            0,
+        )
+        .expect("return-word relation against zero should select");
+        assert_eq!(direct.compare_op, op);
+        assert_eq!(direct.return_slot, MirFixedZpSlot(0xA0));
+        assert!(matches!(
+            direct.call_without_result,
+            MirOp::Call { result: None, .. }
+        ));
+
+        let reversed_candidate = analyzed_signed_return_word_zero_compare_candidate(
+            &signed_return_word_zero_ops(op, true),
+            0,
+        )
+        .expect("zero against return-word relation should select");
+        assert_eq!(reversed_candidate.compare_op, reversed);
+    }
+}
+
 #[test]
 fn signed_word_lt_branch_uses_compact_overflow_path_for_direct_values() {
     let program = empty_test_program();

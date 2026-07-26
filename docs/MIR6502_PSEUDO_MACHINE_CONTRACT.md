@@ -773,6 +773,10 @@ Rules:
   it references the producer rather than copying operands.
 - Multi-step word and signed comparisons may lower to a small MIR control-flow
   sequence rather than a single `FlagTest`.
+- A signed word relation against zero may read only the high lane for `< 0` or
+  `>= 0`. The `> 0` and `<= 0` forms must additionally test both lanes for
+  zero, preserving the high-byte Z/N provenance across any empty intermediate
+  block.
 
 ## ABI Model
 
@@ -815,6 +819,10 @@ Rules:
 - Indirect calls must have typed 16-bit callable targets before MIR lowering.
 - MIR carries both `clobbers` and `preserves` so NIR effect facts are not silently
   lost before ABI lowering and call scheduling decisions consume them.
+- A call result may be consumed directly from a `ReturnSlot` only when the call
+  and consumer are adjacent, the result definition has no other live use, and
+  no intervening operation can overwrite the return bytes. Removing the
+  logical result temp does not weaken the call's memory or machine effects.
 
 ## Runtime Helpers
 

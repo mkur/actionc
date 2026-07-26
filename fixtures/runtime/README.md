@@ -64,6 +64,12 @@ Run the modern/classic direct unsigned word-compare boundary gate directly:
 fixtures/runtime/run-direct-word-compares-vm.sh
 ```
 
+Run the MIR6502 signed return-word compare-to-zero gate directly:
+
+```sh
+fixtures/runtime/run-signed-return-word-zero-compares-vm.sh
+```
+
 The gate compiles `initialized_arrays.act` with the modern classic and MIR6502
 backends. It covers global and local initialized BYTE and CARD arrays,
 including the descriptor-backed CARD representations, then checks the six
@@ -148,7 +154,15 @@ The direct word-compare fixture executes `Lt`, `Ge`, `Gt`, and `Le` branches
 around `$0000`, `$00FF/$0100`, `$7FFF/$8000`, and `$FFFF`. Its indirect-left
 cases exercise the low-byte `CMP` to high-byte `SBC` carry chain; its
 indirect-right `Gt`/`Le` cases exercise safe operand reversal. The twelve
-hard-coded result bytes at `$0600-$060B` validate both branch polarities.
+hard-coded result bytes are checked under both modern backends.
+
+The signed return-word fixture executes all four signed relational predicates
+with zero on either side of an `INT` call result. It covers `$8000`, `$FFFF`,
+`$0000`, `$0001`, and `$7FFF`, requires all eight direct return-slot
+selections, and checks 40 hard-coded predicate results plus a signature byte.
+It is MIR6502-only because it verifies the MIR type contract for a signed
+operand on either side; classic Action comparison selection is left-operand
+driven.
 
 It is also part of the opt-in compatibility integration tests:
 

@@ -19,9 +19,10 @@ use super::word_sources::{
 #[cfg(test)]
 use crate::mir6502::ir::RoutineId;
 use crate::mir6502::ir::{
-    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCarryIn, MirCarryOut,
-    MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirFixedZpSlot, MirFlagTest, MirMem,
-    MirOp, MirPointerPair, MirReg, MirTempId, MirTerminator, MirValue, MirWidth,
+    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCallResult, MirCarryIn,
+    MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirFixedZpSlot, MirFlagTest,
+    MirMem, MirOp, MirPointerPair, MirReg, MirResultHome, MirTempId, MirTerminator, MirValue,
+    MirWidth,
 };
 use crate::mir6502::passes::Mir6502Config;
 use std::collections::{BTreeMap, BTreeSet};
@@ -315,6 +316,106 @@ pub(in crate::mir6502) fn direct_word_relational_compare_candidate(
         left,
         right_lo,
         right_hi,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct SignedReturnWordZeroCompareCandidate {
+    pub consumed: usize,
+    pub compare_dst: MirCondDest,
+    pub compare_op: MirCompareOp,
+    pub result_temp: MirTempId,
+    pub return_slot: MirFixedZpSlot,
+    pub call_without_result: MirOp,
+}
+
+impl SignedReturnWordZeroCompareCandidate {
+    pub(in crate::mir6502) fn condition_temp(&self) -> Option<MirTempId> {
+        match self.compare_dst {
+            MirCondDest::Temp(temp) => Some(temp),
+            MirCondDest::Flags => None,
+        }
+    }
+
+    pub(in crate::mir6502) fn proof_replacement(&self) -> Vec<MirOp> {
+        vec![
+            self.call_without_result.clone(),
+            MirOp::Compare {
+                dst: self.compare_dst.clone(),
+                op: self.compare_op,
+                left: pointer_value_from_mem(&MirMem::FixedZeroPage(self.return_slot)),
+                right: MirValue::ConstU16(0),
+                width: MirWidth::Word,
+                signed: true,
+            },
+        ]
+    }
+}
+
+pub(in crate::mir6502) fn signed_return_word_zero_compare_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<SignedReturnWordZeroCompareCandidate> {
+    let MirOp::Call {
+        target,
+        abi,
+        args,
+        result:
+            Some(MirCallResult {
+                dst,
+                width: MirWidth::Word,
+                home: MirResultHome::ReturnSlot { offset },
+            }),
+        effects,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let result_temp = split_def_as_temp(dst)?;
+    let MirOp::Compare {
+        dst: compare_dst,
+        op,
+        left,
+        right,
+        width: MirWidth::Word,
+        signed: true,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    let result_value = MirValue::Def(dst.clone());
+    let compare_op = if left == &result_value && super::is_zero_word_value(right) {
+        *op
+    } else if right == &result_value && super::is_zero_word_value(left) {
+        reverse_compare_operands(*op)
+    } else {
+        return None;
+    };
+    if !matches!(
+        compare_op,
+        MirCompareOp::Lt | MirCompareOp::Le | MirCompareOp::Gt | MirCompareOp::Ge
+    ) || op_uses_temp_more_than_once(&ops[index + 1], result_temp)
+    {
+        return None;
+    }
+    let return_slot = match super::return_slot_mem(*offset) {
+        MirMem::FixedZeroPage(slot) if slot.0 < u8::MAX => slot,
+        _ => return None,
+    };
+
+    Some(SignedReturnWordZeroCompareCandidate {
+        consumed: 2,
+        compare_dst: compare_dst.clone(),
+        compare_op,
+        result_temp,
+        return_slot,
+        call_without_result: MirOp::Call {
+            target: target.clone(),
+            abi: abi.clone(),
+            args: args.clone(),
+            result: None,
+            effects: effects.clone(),
+        },
     })
 }
 
@@ -842,6 +943,117 @@ pub(super) fn expand_proven_direct_word_relational_compare_branches(
             _ => unreachable!(),
         };
         block.terminator = branch_terminator(MirCond::FlagTest(flag), then_block, else_block);
+        expanded += 1;
+    }
+    expanded
+}
+
+pub(super) fn expand_proven_signed_return_word_zero_compare_branches(
+    blocks: &mut Vec<MirBlock>,
+    proven_sites: &BTreeSet<(MirBlockId, usize)>,
+) -> usize {
+    let mut next_id = blocks
+        .iter()
+        .map(|block| block.id.0)
+        .max()
+        .unwrap_or(0)
+        .saturating_add(1);
+    let original_len = blocks.len();
+    let mut expanded = 0usize;
+    for block_index in 0..original_len {
+        let block_id = blocks[block_index].id;
+        let Some(start) = proven_sites
+            .iter()
+            .find_map(|(block, start)| (*block == block_id).then_some(*start))
+        else {
+            continue;
+        };
+        let Some(candidate) =
+            signed_return_word_zero_compare_candidate(&blocks[block_index].ops, start)
+        else {
+            continue;
+        };
+        let Some((cond_temp, then_block, else_block)) = branch_bool_temp(&blocks[block_index])
+        else {
+            continue;
+        };
+        let MirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } = &blocks[block_index].terminator
+        else {
+            continue;
+        };
+        if candidate.compare_dst != MirCondDest::Temp(cond_temp)
+            || start + candidate.consumed != blocks[block_index].ops.len()
+            || !then_edge.args.is_empty()
+            || !else_edge.args.is_empty()
+        {
+            continue;
+        }
+
+        let low_mem = MirMem::FixedZeroPage(candidate.return_slot);
+        let high_mem =
+            MirMem::FixedZeroPage(MirFixedZpSlot(candidate.return_slot.0.saturating_add(1)));
+        blocks[block_index].ops.truncate(start);
+        blocks[block_index].ops.push(candidate.call_without_result);
+        blocks[block_index].ops.push(MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(high_mem),
+            width: MirWidth::Byte,
+        });
+
+        match candidate.compare_op {
+            MirCompareOp::Lt => {
+                blocks[block_index].terminator =
+                    branch_terminator(MirCond::FlagTest(MirFlagTest::NSet), then_block, else_block);
+            }
+            MirCompareOp::Ge => {
+                blocks[block_index].terminator = branch_terminator(
+                    MirCond::FlagTest(MirFlagTest::NClear),
+                    then_block,
+                    else_block,
+                );
+            }
+            MirCompareOp::Gt | MirCompareOp::Le => {
+                let high_nonzero = fresh_block_id(&mut next_id);
+                let low_test = fresh_block_id(&mut next_id);
+                let positive = candidate.compare_op == MirCompareOp::Gt;
+                blocks.push(flag_branch_block(
+                    high_nonzero,
+                    "cmp_return_i16_high_nonzero",
+                    MirFlagTest::ZClear,
+                    if positive { then_block } else { else_block },
+                    low_test,
+                ));
+                blocks.push(MirBlock {
+                    id: low_test,
+                    label: format!("cmp_return_i16_low_zero_{}", low_test.0),
+                    params: Vec::new(),
+                    ops: vec![MirOp::Load {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirAddr::Direct(low_mem),
+                        width: MirWidth::Byte,
+                    }],
+                    terminator: branch_terminator(
+                        MirCond::FlagTest(if positive {
+                            MirFlagTest::ZClear
+                        } else {
+                            MirFlagTest::ZSet
+                        }),
+                        then_block,
+                        else_block,
+                    ),
+                });
+                blocks[block_index].terminator = branch_terminator(
+                    MirCond::FlagTest(MirFlagTest::NSet),
+                    if positive { else_block } else { then_block },
+                    high_nonzero,
+                );
+            }
+            MirCompareOp::Eq | MirCompareOp::Ne => unreachable!(),
+        }
         expanded += 1;
     }
     expanded
