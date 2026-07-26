@@ -1144,7 +1144,7 @@ pub(super) fn materialize_program(
             ssa_lite::fold_exact_zn_zero_compares(routine, &final_known_callees);
         peephole_stats.record_many(routine.id, "exact-zn-zero-compare-fold", exact_zn_compares);
         if layout_blocks_in_reverse_postorder(routine) {
-            peephole_stats.record(routine.id, "cfg-reverse-postorder-layout");
+            peephole_stats.record(routine.id, "cfg-cost-aware-layout");
         }
     }
     materialize_remaining_pointer_cell_values(&mut program);

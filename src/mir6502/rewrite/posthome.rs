@@ -80,7 +80,7 @@ pub(in crate::mir6502) fn structural_plan(
 /// competing plans and report estimated gains. Exact bytes remain a listing
 /// measurement; barriers and machine blocks are neutral because their payload
 /// cost is not represented by one MIR operation.
-pub(super) fn estimated_6502_cost(ops: &[MirOp]) -> (u16, u16) {
+pub(in crate::mir6502) fn estimated_6502_cost(ops: &[MirOp]) -> (u16, u16) {
     ops.iter().fold((0u16, 0u16), |(bytes, cycles), op| {
         let (op_bytes, op_cycles) = estimated_op_cost(op);
         (

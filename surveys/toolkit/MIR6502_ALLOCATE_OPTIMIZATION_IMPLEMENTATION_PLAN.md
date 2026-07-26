@@ -939,6 +939,30 @@ semantics merely to improve layout.
 
 Commit independently.
 
+Implementation result:
+
+- the existing reverse-postorder pass now compares its candidate with the
+  original order using a reach-aware control-flow cost model, then considers
+  profitable local successor rotations in the same pass;
+- the model includes estimated materialized-operation bytes, relative branch
+  reach, fall-through choice, jump versus pure-return transfer cost, and
+  deterministic block-ID tie breaking;
+- rotations reject blocks with unmodeled machine/barrier size, do not detach
+  compare-helper branch chains, and do not remove a predecessor's existing
+  fall-through;
+- focused tests cover near and far targets, a loop backedge, pure-return
+  fall-through, compare-helper retention, unmodeled-size rejection, and
+  deterministic equal-cost candidate selection;
+- both remaining ALLOCATE branch-over-`JMP` forms disappeared: `Alloc` and
+  `Free` each lost one `JMP` and three bytes;
+- ALLOCATE decreased from 882 to 876 XEX bytes, from 829 to 823 recognized
+  code bytes, and from 393 to 391 instructions; its branch-over-`JMP` count is
+  now zero;
+- TN decreased from 9,984 to 9,955 XEX bytes;
+- all 20 modern/MIR6502 Toolkit batch entries compiled, and the ALLOCATE,
+  ordered-absolute-subtraction, dual-pointer-transfer, and KALSCOPE VM gates
+  passed.
+
 ## Final Validation and Documentation
 
 After the final profitable slice:
@@ -960,6 +984,17 @@ Also:
 - regenerate the ALLOCATE final listing audit;
 - update this plan with applied selector counts, exact size deltas, and rejected
   slices.
+
+Validation result:
+
+- NIR snapshots and the 13-fixture NIR sweep passed;
+- the full Rust test suite passed with 1,886 library tests plus all integration
+  and fixture suites;
+- every targeted VM gate and the 20-entry Toolkit batch passed;
+- all changed Rust files are rustfmt-clean; the repository-wide
+  `cargo fmt --check` still reports the pre-existing wrapping difference in
+  `tests/mir6502_materialization_gap.rs:710`, which this optimization series
+  intentionally did not mix into its commits.
 
 ## Commit Boundaries
 

@@ -1,6 +1,6 @@
 # ALLOCATE MIR6502 Final-Listing Reanalysis
 
-Status: current optimization backlog
+Status: implemented baseline and post-plan result
 
 Date: 2026-07-26
 
@@ -24,6 +24,42 @@ Materialized and pre-materialized MIR are used to explain why a sequence
 survived. Classic output is a directional target-strategy comparison, not a
 correctness oracle: some classic sequences rely on weaker pointer-alias
 assumptions than MIR6502 currently permits.
+
+## Post-Plan Result
+
+All ten implementation slices in the companion plan have now been applied.
+The original audit below remains as the evidence that selected the work; it is
+no longer the current output snapshot.
+
+| Metric | Final MIR6502 | Modern/classic | Difference |
+| --- | ---: | ---: | ---: |
+| Load file | 876 | 935 | -59 |
+| Recognized instructions | 391 | 381 | +10 |
+| Recognized instruction bytes | 823 | 880 | -57 |
+| Data and inline machine bytes | 41 | 43 | -2 |
+| `LDA` | 123 | 136 | -13 |
+| `STA` | 114 | 128 | -14 |
+| `LDA` + `STA` instructions | 237 | 264 | -27 |
+| `LDA` + `STA` instruction share | 60.6% | 69.3% | -8.7 points |
+| RAM spill labels | 0 | 0 | 0 |
+| `JMP` | 4 | 6 | -2 |
+| Branch-over-`JMP` patterns | 0 | 0 | 0 |
+
+The routine byte comparison is now:
+
+| Routine | Final MIR6502 | Modern/classic | Difference |
+| --- | ---: | ---: | ---: |
+| `Alloc` | 273 | 314 | -41 |
+| `Free` | 352 | 371 | -19 |
+| `AllocInit` | 86 | 90 | -4 |
+| `PrintFreeList` | 112 | 105 | +7 |
+| **Total** | **823** | **880** | **-57** |
+
+The implementation series reduced ALLOCATE from 1,015 to 876 XEX bytes, a
+139-byte reduction. It also reduced TN from 9,984 bytes before the final
+layout slice to 9,955 bytes. `PrintFreeList` is the only ALLOCATE routine still
+larger than classic, by seven recognized bytes; any new ALLOCATE work should
+start from a fresh audit rather than the completed ranking below.
 
 ## Reproducing the Artifacts
 
@@ -71,7 +107,7 @@ The listing-quality report counts the three inline bytes following Free's
 SARGS helper call as data rather than instructions. That is intentional.
 The XEX size and segment range remain authoritative.
 
-## Current Result
+## Audit Baseline
 
 The MIR6502 load file is 1,015 bytes. Its main segment spans
 `$3000-$33EA`, or 1,003 bytes; the remaining 12 bytes are XEX headers and the
