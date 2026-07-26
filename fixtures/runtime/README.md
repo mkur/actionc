@@ -67,15 +67,20 @@ through 255, and wrapping the corrected base high byte from `$FF` to `$00`.
 
 The dual-pointer word-transfer fixture exercises scaled indexed-to-indirect,
 indirect-to-indexed, direct private-pointer word copies, and destination-aware
-word addition in both backends. Each indexed direction has a disjoint case and
-a case where the destination overlaps one source byte. The direct cases cover
-local-backed and parameter-backed pointer operands. Compound addition covers
-disjoint and identical pointers, source pointers one byte above and below the
-target, page crossing, carry propagation, and `$FFFF` wrap. The MIR6502
+word addition, and direct-word-to-indirect copies in both backends. Each
+indexed direction has a disjoint case and a case where the destination
+overlaps one source byte. The pointer-backed direct cases cover local and
+parameter operands. Compound addition covers disjoint and identical pointers,
+source pointers one byte above and below the target, page crossing, carry
+propagation, and `$FFFF` wrap. Direct-source copies cover exact aliasing and
+destination addresses one byte above and below the source. The MIR6502
 preflight requires six selected `copy_indirect_word` operations, including two
-scaled-source copies, plus one `indirect_word_compound` operation. The 24
-result bytes at `$0600-$0617` prove overlap-safe ordering, private-pointer
-rematerialization, and low-to-high carry behavior.
+scaled-source copies, plus one `indirect_word_compound` and one
+`copy_direct_word_to_indirect` operation. The 30 result bytes at
+`$0600-$061D` prove overlap-safe ordering, private-pointer rematerialization,
+and low-to-high carry behavior for MIR6502. Classic is still compiled and
+executes the first 24-byte shared oracle, but its pre-existing direct-source
+overlap order is not used as a correctness reference for the final six bytes.
 
 The ALLOCATE fixture includes the maintained modern Toolkit implementation and
 uses separate fixed heap regions for empty-list, exact removal, split,

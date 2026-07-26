@@ -473,14 +473,16 @@ pub(in crate::mir6502) fn discover_indirect_stores_and_compounds(
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
             let candidates = [
+                direct_word_to_indirect_copy_at(&block.ops, index, routine.id, layout)
+                    .map(|candidate| (candidate, "direct-word-to-indirect-copy", 0)),
                 indirect_byte_direct_store_at(&block.ops, index, routine.id, layout)
-                    .map(|candidate| (candidate, "indirect-byte-direct-store", 0)),
+                    .map(|candidate| (candidate, "indirect-byte-direct-store", 1)),
                 indirect_byte_const_compound_at(&block.ops, index)
-                    .map(|candidate| (candidate, "indirect-byte-const-compound", 1)),
+                    .map(|candidate| (candidate, "indirect-byte-const-compound", 2)),
                 indirect_byte_direct_compound_at(&block.ops, index, routine.id, layout)
-                    .map(|candidate| (candidate, "indirect-byte-direct-compound", 2)),
+                    .map(|candidate| (candidate, "indirect-byte-direct-compound", 3)),
                 indirect_byte_compound_at(&block.ops, index)
-                    .map(|candidate| (candidate, "indirect-byte-compound", 3)),
+                    .map(|candidate| (candidate, "indirect-byte-compound", 4)),
             ];
             for ((consumed, replacement), stat, priority) in candidates.into_iter().flatten() {
                 if let Some(plan) = structural_plan(
@@ -489,16 +491,128 @@ pub(in crate::mir6502) fn discover_indirect_stores_and_compounds(
                     block.id,
                     index..index + consumed,
                     replacement,
-                    MirExitStateChange::default(),
+                    if stat == "direct-word-to-indirect-copy" {
+                        direct_word_to_indirect_exit_change()
+                    } else {
+                        MirExitStateChange::default()
+                    },
                     stat,
                     priority,
-                ) {
+                ) && (stat != "direct-word-to-indirect-copy" || plan.estimated_byte_saving > 0)
+                {
                     plans.push(plan);
                 }
             }
         }
     }
     plans
+}
+
+fn direct_word_to_indirect_exit_change() -> MirExitStateChange {
+    MirExitStateChange {
+        registers: MirRegisterSet {
+            a: true,
+            x: true,
+            y: true,
+            ..MirRegisterSet::default()
+        },
+        flags: MirFlagSet::all(),
+        ..MirExitStateChange::default()
+    }
+}
+
+fn direct_word_to_indirect_copy_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    let source = load_a_direct_byte(ops.get(index)?)?;
+    let staged_lo = store_a_direct_byte(ops.get(index + 1)?)?;
+    let source_hi = load_a_direct_byte(ops.get(index + 2)?)?;
+    let staged_hi = store_a_direct_byte(ops.get(index + 3)?)?;
+    if source_hi != offset_mem(&source, 1)
+        || !ordinary_direct_word_copy_mem(&source)
+        || !mem_is_private_scratch(&staged_lo)
+        || !mem_is_private_scratch(&staged_hi)
+        || staged_lo == staged_hi
+    {
+        return None;
+    }
+
+    let copy_start = (index + 6..=index + 9).find(|candidate| {
+        ops.get(*candidate).and_then(load_a_direct_byte) == Some(staged_lo.clone())
+    })?;
+    if load_a_direct_byte(ops.get(copy_start + 2)?)? != staged_hi {
+        return None;
+    }
+    let (destination, destination_offset) = store_indirect_a_byte(ops.get(copy_start + 1)?)?;
+    let (high_destination, high_offset) = store_indirect_a_byte(ops.get(copy_start + 3)?)?;
+    let pointer_pair_lo = match destination.pointer_pair() {
+        MirPointerPair::Fixed { lo } => lo,
+        MirPointerPair::Virtual(_) => return None,
+    };
+    if destination != high_destination
+        || destination.uses_scaled_y()
+        || destination_offset > u16::from(u8::MAX - 1)
+        || high_offset != destination_offset + 1
+    {
+        return None;
+    }
+
+    let pointer_pair_hi = MirFixedZpSlot(pointer_pair_lo.0.checked_add(1)?);
+    let mut pair_writes = [0u8; 2];
+    for op in &ops[index + 4..copy_start] {
+        match op {
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(mem),
+                width: MirWidth::Byte,
+            } if ordinary_direct_word_copy_mem(mem) => {}
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+                src: MirValue::Def(MirDef::Reg(MirReg::A | MirReg::X)),
+                width: MirWidth::Byte,
+            } if *slot == pointer_pair_lo => pair_writes[0] += 1,
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+                src: MirValue::Def(MirDef::Reg(MirReg::A | MirReg::X)),
+                width: MirWidth::Byte,
+            } if *slot == pointer_pair_hi => pair_writes[1] += 1,
+            _ => return None,
+        }
+    }
+    if pair_writes != [1, 1] {
+        return None;
+    }
+
+    let source_pair = [source.clone(), source_hi];
+    let private_pair = [
+        MirMem::FixedZeroPage(pointer_pair_lo),
+        MirMem::FixedZeroPage(pointer_pair_hi),
+    ];
+    if source_pair.iter().any(|mem| {
+        private_pair
+            .iter()
+            .any(|private| mems_may_resolve_same_byte(mem, private, routine_id, layout))
+    }) {
+        return None;
+    }
+
+    let mut replacement = ops[index + 4..copy_start].to_vec();
+    replacement.push(MirOp::CopyDirectWordToIndirect {
+        source,
+        destination,
+        destination_offset,
+    });
+    Some((copy_start + 4 - index, replacement))
+}
+
+fn ordinary_direct_word_copy_mem(mem: &MirMem) -> bool {
+    matches!(
+        mem,
+        MirMem::Global { .. } | MirMem::Local { .. } | MirMem::Param { .. } | MirMem::Spill { .. }
+    )
 }
 
 pub(in crate::mir6502) fn discover_word_array_value_staging(

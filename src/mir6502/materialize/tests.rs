@@ -113,6 +113,159 @@ fn txa_direct_store_fold_keeps_txa_when_zn_flags_are_live() {
     assert!(peepholes::discover_txa_direct_store_folds(&routine, &context).is_empty());
 }
 
+fn direct_word_to_indirect_copy_test_program(x_live: bool) -> MirProgram {
+    let source = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let pointer = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let staged_lo = MirMem::Spill {
+        id: MirSpillId(0),
+        offset: 0,
+    };
+    let staged_hi = MirMem::Spill {
+        id: MirSpillId(1),
+        offset: 0,
+    };
+    let load_a = |mem| MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    };
+    let store_a = |mem| MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let destination = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(0xAC),
+    });
+    let mut ops = vec![
+        load_a(source.clone()),
+        store_a(staged_lo.clone()),
+        load_a(offset_mem(&source, 1)),
+        store_a(staged_hi.clone()),
+        load_a(pointer.clone()),
+        store_a(MirMem::FixedZeroPage(MirFixedZpSlot(0xAC))),
+        load_a(offset_mem(&pointer, 1)),
+        store_a(MirMem::FixedZeroPage(MirFixedZpSlot(0xAD))),
+        load_a(staged_lo),
+        MirOp::StoreIndirect {
+            consumer: destination,
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            offset: 2,
+        },
+        load_a(staged_hi),
+        MirOp::StoreIndirect {
+            consumer: destination,
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            offset: 3,
+        },
+    ];
+    if x_live {
+        ops.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+            src: MirValue::Def(MirDef::Reg(MirReg::X)),
+            width: MirWidth::Byte,
+        });
+    }
+    let frame = MirFrame {
+        params: vec![MirStorageSlot {
+            id: MirStorageId(0),
+            name: Some("destination".to_string()),
+            storage: MirStorageClass::Scalar,
+            width: MirWidth::Word,
+            base: MirStorageBase::Param(ParamId(0)),
+            offset: 0,
+            mutable: true,
+            init: None,
+        }],
+        locals: vec![MirStorageSlot {
+            id: MirStorageId(1),
+            name: Some("source".to_string()),
+            storage: MirStorageClass::Scalar,
+            width: MirWidth::Word,
+            base: MirStorageBase::Local(LocalId(0)),
+            offset: 0,
+            mutable: true,
+            init: None,
+        }],
+        spills: vec![MirSpillId(0), MirSpillId(1)],
+        ..MirFrame::default()
+    };
+    MirProgram {
+        statics: Vec::new(),
+        globals: Vec::new(),
+        routines: vec![MirRoutine {
+            id: RoutineId(0),
+            name: "Copy".to_string(),
+            abi: MirRoutineAbi::Action,
+            frame,
+            temps: Vec::new(),
+            blocks: vec![MirBlock {
+                id: MirBlockId(0),
+                label: "bb0".to_string(),
+                params: Vec::new(),
+                ops,
+                terminator: MirTerminator::Return,
+            }],
+            effects: MirEffects::default(),
+        }],
+        machine_blocks: Vec::new(),
+        runtime_helpers: Vec::new(),
+    }
+}
+
+#[test]
+fn direct_word_to_indirect_copy_uses_shared_posthome_proofs() {
+    let program = direct_word_to_indirect_copy_test_program(false);
+    let routine = &program.routines[0];
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let snapshot = PostHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    let plans = peepholes::discover_indirect_stores_and_compounds(routine, &context, &layout);
+
+    assert_eq!(plans.len(), 1);
+    assert_eq!(plans[0].stat, "direct-word-to-indirect-copy");
+    assert!(plans[0].estimated_byte_saving > 0);
+    assert!(matches!(
+        plans[0].replacement.last(),
+        Some(MirOp::CopyDirectWordToIndirect {
+            source: MirMem::Local {
+                id: LocalId(0),
+                offset: 0
+            },
+            destination_offset: 2,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn direct_word_to_indirect_copy_rejects_live_x() {
+    let program = direct_word_to_indirect_copy_test_program(true);
+    let routine = &program.routines[0];
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let snapshot = PostHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    assert!(
+        peepholes::discover_indirect_stores_and_compounds(routine, &context, &layout).is_empty()
+    );
+    assert!(
+        context
+            .take_blocked_sites()
+            .iter()
+            .any(|site| site.reason == "register-live")
+    );
+}
+
 #[test]
 fn indirect_word_load_fold_keeps_spills_used_by_second_call_arg_home() {
     let low = MirSpillId(18);

@@ -630,6 +630,35 @@ cost estimate is not smaller than the unfused sequence. `Sub` remains an
 ordinary byte-lane sequence until its borrow schedule has equivalent runtime
 coverage.
 
+### Alias-safe direct-word to indirect copy
+
+`CopyDirectWordToIndirect` copies a word from ordinary compiler-owned storage
+through one prepared destination pointer:
+
+```rust
+CopyDirectWordToIndirect {
+    source: MirMem,
+    destination: MirAddressConsumer,
+    destination_offset: u16,
+}
+```
+
+Its contract is:
+
+- `source` is ordinary global, local, parameter, or spill storage, not absolute
+  or hardware-backed memory;
+- `destination` is an unscaled fixed zero-page pointer pair;
+- `destination_offset` and its high lane fit in a byte;
+- the source low and high lanes are both read before either indirect write;
+- the destination low lane is written before its high lane;
+- temporary stack staging is balanced and the stack pointer is restored;
+- A, X, Y, flags, both source reads, the destination-pair reads, and the
+  unknown indirect write are explicit in effect analysis.
+
+Selection may therefore accept exact and one-byte overlap between source and
+destination. Its post-home rewrite must prove A/X/Y/flags dead at the window
+exit and must reject a nonpositive emitted-cost estimate.
+
 ## Terminators
 
 MIR terminators are block-level control transfers.

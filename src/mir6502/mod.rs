@@ -663,6 +663,40 @@ mod tests {
     }
 
     #[test]
+    fn source_generation_selects_direct_word_to_indirect_copy() {
+        let materialized = materialize_mir6502_source(
+            "
+            TYPE CELL=[CARD value]
+            PROC Copy(CELL POINTER destination CARD source)
+              destination.value=source
+            RETURN
+            ",
+        );
+        let copy = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Copy")
+            .expect("Copy routine");
+
+        assert!(
+            copy.blocks.iter().any(|block| {
+                block.ops.iter().any(|op| {
+                    matches!(
+                        op,
+                        MirOp::CopyDirectWordToIndirect {
+                            source: MirMem::Param { .. },
+                            destination_offset: 0,
+                            ..
+                        }
+                    )
+                })
+            }),
+            "direct parameter word should select the overlap-safe indirect transfer:\n{}",
+            format_program(&materialized)
+        );
+    }
+
+    #[test]
     fn source_generation_preserves_expected_word_unary_negation() {
         let literal = generate_mir6502_source("INT s PROC Main() s=-1 RETURN");
         assert!(bytes_contain(

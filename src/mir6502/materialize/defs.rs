@@ -33,6 +33,7 @@ pub(super) fn op_def(op: &MirOp) -> Option<&MirDef> {
         | MirOp::AdvanceAddress { .. }
         | MirOp::StoreIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
+        | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }

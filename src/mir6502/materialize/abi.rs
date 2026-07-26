@@ -305,6 +305,7 @@ fn op_references_param_storage(op: &MirOp) -> bool {
                     .iter()
                     .any(|arg| value_references_param_storage(&arg.value))
         }
+        MirOp::CopyDirectWordToIndirect { source, .. } => mem_references_param_storage(source),
         MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }

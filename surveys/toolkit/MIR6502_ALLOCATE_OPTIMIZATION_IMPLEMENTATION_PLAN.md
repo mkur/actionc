@@ -1,6 +1,6 @@
 # MIR6502 ALLOCATE Optimization Implementation Plan
 
-Status: in progress; Slices 0-6 completed
+Status: in progress; Slices 0-7 completed
 
 Date: 2026-07-26
 
@@ -747,6 +747,27 @@ then reloads a possibly aliased direct source one lane at a time.
   or larger.
 
 Commit independently.
+
+Implementation result:
+
+- added `CopyDirectWordToIndirect` with explicit ordinary-source, fixed
+  destination, offset, direct-read, indirect-write, A/X/Y/flags, and balanced
+  stack contracts;
+- the post-home rewrite uses shared home and machine liveness, rejects live X
+  and all other observable exit-state changes, and rejects nonpositive cost
+  estimates;
+- ALLOCATE selected three sites: the two planned link stores plus the initial
+  `target.size = nBytes` store;
+- ALLOCATE decreased from 914 to 902 XEX bytes and from 861 to 849 recognized
+  instruction bytes; the instruction count remained 397;
+- MIR6502 is now 33 XEX bytes smaller than the 935-byte modern/classic output;
+- TN selected one general `SetWin` site and decreased from 9,994 to 9,984 XEX
+  bytes;
+- the VM oracle proves exact and one-byte overlap in both directions for the
+  MIR6502 operation, and ALLOCATE's full allocator oracle remains green;
+- classic's existing direct-source schedule fails one overlap direction, so
+  the new six-byte overlap oracle is explicitly MIR6502-only while the shared
+  24-byte dual-pointer oracle continues to run under both backends.
 
 ## Slice 8: Indirect Field Loads Directly Into Call Homes
 

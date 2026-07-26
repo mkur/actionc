@@ -320,7 +320,7 @@ impl SsaLiteValueEnv {
             MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => {
                 self.kill_memory_dependencies();
             }
-            MirOp::CopyIndirectWord { .. } => {
+            MirOp::CopyIndirectWord { .. } | MirOp::CopyDirectWordToIndirect { .. } => {
                 self.kill_reg(MirReg::A);
                 self.kill_reg(MirReg::X);
                 self.kill_reg(MirReg::Y);
@@ -547,7 +547,7 @@ impl SsaLiteV2ObserveEnv {
             MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => {
                 self.kill_memory_dependencies(SsaLiteV2KillReason::Unknown);
             }
-            MirOp::CopyIndirectWord { .. } => {
+            MirOp::CopyIndirectWord { .. } | MirOp::CopyDirectWordToIndirect { .. } => {
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 self.kill_def(&MirDef::Reg(MirReg::X), SsaLiteV2KillReason::Unknown);
                 self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
@@ -995,6 +995,7 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::CopyIndirectWord { .. }
+        | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
@@ -1637,6 +1638,7 @@ impl LiveTempByteLanes {
             | MirOp::CompareIndirectBytes { .. }
             | MirOp::OffsetPointerByIndirectByte { .. }
             | MirOp::CopyIndirectWord { .. }
+            | MirOp::CopyDirectWordToIndirect { .. }
             | MirOp::IndirectByteCompound { .. }
             | MirOp::IndirectWordCompound { .. }
             | MirOp::Barrier { .. }

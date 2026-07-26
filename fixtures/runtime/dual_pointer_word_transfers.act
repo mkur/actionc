@@ -18,11 +18,17 @@ CARD compoundSourceAboveResult=$0610
 CARD compoundSourceBelowResult=$0612
 CARD compoundPageCrossingResult=$0614
 CARD compoundWrapResult=$0616
+CARD directCopyExactResult=$0618
+CARD directCopyAboveResult=$061A
+CARD directCopyBelowResult=$061C
 
 CARD ARRAY indexedSource(256)=$6001
 CARD ARRAY indexedDestination(256)=$6201
 CARD POINTER transferPointer, transferDestinationPointer
 WORDCELL POINTER compoundTargetPointer, compoundSourcePointer
+BYTE directCopyBefore
+WORDCELL directCopySource
+BYTE directCopyAfter
 BYTE index
 BYTE compoundAbove0=$6920
 BYTE compoundAbove1=$6921
@@ -47,6 +53,10 @@ RETURN
 
 PROC Compound(WORDCELL POINTER targetPointer,sourcePointer)
   targetPointer.value=targetPointer.value+sourcePointer.value
+RETURN
+
+PROC DirectCopy(WORDCELL POINTER destination)
+  destination.value=directCopySource.value
 RETURN
 
 PROC Main()
@@ -135,6 +145,27 @@ PROC Main()
   compoundSourcePointer.value=$0001
   Compound(compoundTargetPointer,compoundSourcePointer)
   compoundWrapResult=compoundTargetPointer.value
+
+  ; The direct source must be fully read before a possibly overlapping
+  ; destination is written.
+  directCopySource.value=$1234
+  compoundTargetPointer=directCopySource
+  DirectCopy(compoundTargetPointer)
+  directCopyExactResult=compoundTargetPointer.value
+
+  directCopySource.value=$0201
+  directCopyAfter=3
+  compoundTargetPointer=directCopySource
+  compoundTargetPointer==+1
+  DirectCopy(compoundTargetPointer)
+  directCopyAboveResult=compoundTargetPointer.value
+
+  directCopyBefore=3
+  directCopySource.value=$0201
+  compoundTargetPointer=directCopySource
+  compoundTargetPointer==-1
+  DirectCopy(compoundTargetPointer)
+  directCopyBelowResult=compoundTargetPointer.value
 
   DO
   OD

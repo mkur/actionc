@@ -3438,6 +3438,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         | MirOp::AdvanceAddress { .. }
         | MirOp::StoreIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
+        | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }

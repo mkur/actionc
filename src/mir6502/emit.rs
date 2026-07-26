@@ -1813,6 +1813,46 @@ fn emit_op(
                 );
             }
         }
+        MirOp::CopyDirectWordToIndirect {
+            source,
+            destination,
+            destination_offset,
+        } => {
+            let Some(source) = ctx.layout.direct_mem(routine, source) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "direct-to-indirect word-copy source is not emit-ready",
+                );
+                return;
+            };
+            let Some(destination_slot) = resolve_pointer_consumer_slot(ctx, routine, destination)
+            else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "direct-to-indirect word-copy destination is not placed",
+                );
+                return;
+            };
+            if destination.uses_scaled_y() {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "direct-to-indirect word-copy cannot use scaled Y",
+                );
+                return;
+            }
+            emit_copy_direct_word_to_indirect(
+                source,
+                destination_slot,
+                *destination_offset,
+                emitter,
+            );
+        }
         MirOp::MaterializeAddress { consumer, value } => {
             if consumer.uses_scaled_y() {
                 unsupported(
@@ -3794,6 +3834,24 @@ fn emit_copy_indirect_word_body(
     emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(destination_slot)));
 }
 
+fn emit_copy_direct_word_to_indirect(
+    source: ResolvedMem,
+    destination_slot: u8,
+    destination_offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    emit_lda_mem(source, emitter);
+    emitter.emit_tax();
+    emit_lda_mem(offset_resolved_mem(source, 1), emitter);
+    emitter.emit_pha();
+    emitter.emit_txa();
+    emitter.emit_ldy_imm(destination_offset as u8);
+    emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(destination_slot)));
+    emitter.emit_pla();
+    emitter.emit_iny();
+    emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(destination_slot)));
+}
+
 fn offset_resolved_mem(mem: ResolvedMem, offset: u16) -> ResolvedMem {
     match mem {
         ResolvedMem::Absolute(address) => ResolvedMem::Absolute(address.wrapping_add(offset)),
@@ -4555,6 +4613,36 @@ mod tests {
                 opcode::INY,
                 opcode::STA_IZY,
                 0xAA,
+            ]
+        );
+    }
+
+    #[test]
+    fn direct_to_indirect_word_copy_reads_both_bytes_before_writing_destination() {
+        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+
+        emit_copy_direct_word_to_indirect(ResolvedMem::Absolute(0x4000), 0xAC, 2, &mut emitter);
+
+        assert_eq!(
+            emitter.finish().expect("direct word-copy sequence emits"),
+            [
+                opcode::LDA_ABS,
+                0x00,
+                0x40,
+                opcode::TAX,
+                opcode::LDA_ABS,
+                0x01,
+                0x40,
+                opcode::PHA,
+                opcode::TXA,
+                opcode::LDY_IMM,
+                2,
+                opcode::STA_IZY,
+                0xAC,
+                opcode::PLA,
+                opcode::INY,
+                opcode::STA_IZY,
+                0xAC,
             ]
         );
     }

@@ -619,6 +619,7 @@ fn summarize_op_writes(
         | MirOp::Barrier { .. }
         | MirOp::StoreIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
+        | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::UpdateIndexedMem { .. } => {

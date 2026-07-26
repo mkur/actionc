@@ -393,6 +393,16 @@ pub enum MirOp {
         source_offset: u16,
         destination_offset: u16,
     },
+    /// Copy a directly addressable word through a prepared destination pointer.
+    ///
+    /// Emission reads both source lanes before either destination write, uses
+    /// balanced stack staging plus X, and writes the destination low lane
+    /// before the high lane.
+    CopyDirectWordToIndirect {
+        source: MirMem,
+        destination: MirAddressConsumer,
+        destination_offset: u16,
+    },
     Compare {
         dst: MirCondDest,
         op: MirCompareOp,
