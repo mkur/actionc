@@ -592,7 +592,7 @@ fn runtime_helper_effects_use_documented_zero_page_ranges() {
         MirMemoryEffect::Regions(vec![MirMemoryRegion {
             kind: MirMemoryRegionKind::ZeroPage,
             offset: 0x84,
-            size: 2,
+            size: 1,
         }])
     );
     assert_eq!(
@@ -603,6 +603,18 @@ fn runtime_helper_effects_use_documented_zero_page_ranges() {
             size: 1,
         }])
     );
+    let classified = crate::mir6502::analysis::effects::classify_op(&MirOp::RuntimeHelper {
+        helper: MirRuntimeHelper::Rsh,
+        args: helper_args(&MirRuntimeHelper::Rsh),
+        result: None,
+        effects: rsh,
+    });
+    assert!(classified.homes.reads.contains(
+        &crate::mir6502::analysis::effects::MirHomeByte::FixedZeroPage(MirFixedZpSlot(0x84))
+    ));
+    assert!(classified.homes.writes.contains(
+        &crate::mir6502::analysis::effects::MirHomeByte::FixedZeroPage(MirFixedZpSlot(0x85))
+    ));
 
     let mul = helper_effects(&MirRuntimeHelper::Mul);
     assert_eq!(
@@ -624,6 +636,189 @@ fn runtime_helper_effects_use_documented_zero_page_ranges() {
     let sargs = helper_effects(&MirRuntimeHelper::SArgs);
     assert_eq!(sargs.memory_reads, MirMemoryEffect::Unknown);
     assert_eq!(sargs.memory_writes, MirMemoryEffect::Unknown);
+}
+
+fn word_rsh8_high_projection_test_routine(terminator: MirTerminator) -> MirRoutine {
+    let source = MirMem::Local {
+        id: LocalId(4),
+        offset: 0,
+    };
+    let result = MirMem::Spill {
+        id: MirSpillId(0),
+        offset: 0,
+    };
+    let has_successors = matches!(terminator, MirTerminator::Branch { .. });
+    let mut blocks = vec![MirBlock {
+        id: MirBlockId(0),
+        label: "bb0".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::ConstU8(8),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x84))),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirAddr::Direct(offset_mem(&source, 1)),
+                width: MirWidth::Byte,
+            },
+            MirOp::RuntimeHelper {
+                helper: MirRuntimeHelper::Rsh,
+                args: helper_args(&MirRuntimeHelper::Rsh),
+                result: None,
+                effects: helper_effects(&MirRuntimeHelper::Rsh),
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(result),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+        ],
+        terminator,
+    }];
+    if has_successors {
+        for id in [MirBlockId(1), MirBlockId(2)] {
+            blocks.push(MirBlock {
+                id,
+                label: format!("bb{}", id.0),
+                params: Vec::new(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Return,
+            });
+        }
+    }
+    MirRoutine {
+        id: RoutineId(0),
+        name: "word_high".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame {
+            spills: vec![MirSpillId(0)],
+            ..MirFrame::default()
+        },
+        temps: Vec::new(),
+        blocks,
+        effects: MirEffects::default(),
+    }
+}
+
+#[test]
+fn word_rsh8_high_projection_uses_the_direct_high_lane() {
+    let routine = word_rsh8_high_projection_test_routine(MirTerminator::Return);
+    let program = MirProgram {
+        statics: Vec::new(),
+        globals: Vec::new(),
+        routines: vec![routine.clone()],
+        machine_blocks: Vec::new(),
+        runtime_helpers: Vec::new(),
+    };
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    let plans = peepholes::discover_word_rsh8_high_projections(&routine, &context, &layout);
+
+    assert_eq!(plans.len(), 1, "{plans:#?}");
+    assert_eq!(plans[0].stat, "word-rsh8-high-projection");
+    assert!(matches!(
+        plans[0].replacement.as_slice(),
+        [
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 8,
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x84))),
+                ..
+            },
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 0,
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x85))),
+                ..
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(MirMem::Local {
+                    id: LocalId(4),
+                    offset: 1
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Spill {
+                    id: MirSpillId(0),
+                    offset: 0
+                }),
+                ..
+            }
+        ]
+    ));
+}
+
+#[test]
+fn word_rsh8_high_projection_preserves_live_runtime_scratch() {
+    let mut routine = word_rsh8_high_projection_test_routine(MirTerminator::Return);
+    routine.blocks[0].ops.push(MirOp::Load {
+        dst: MirDef::Reg(MirReg::X),
+        src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x85))),
+        width: MirWidth::Byte,
+    });
+    let program = MirProgram {
+        statics: Vec::new(),
+        globals: Vec::new(),
+        routines: vec![routine.clone()],
+        machine_blocks: Vec::new(),
+        runtime_helpers: Vec::new(),
+    };
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    let plans = peepholes::discover_word_rsh8_high_projections(&routine, &context, &layout);
+
+    assert_eq!(plans.len(), 1, "{plans:#?}");
+    assert!(plans[0].removed_homes.is_empty());
+}
+
+#[test]
+fn word_rsh8_high_projection_keeps_helper_when_flags_are_live() {
+    let routine = word_rsh8_high_projection_test_routine(MirTerminator::Branch {
+        cond: MirCond::FlagTest(MirFlagTest::ZSet),
+        then_edge: MirEdge::plain(MirBlockId(1)),
+        else_edge: MirEdge::plain(MirBlockId(2)),
+    });
+    let program = MirProgram {
+        statics: Vec::new(),
+        globals: Vec::new(),
+        routines: vec![routine.clone()],
+        machine_blocks: Vec::new(),
+        runtime_helpers: Vec::new(),
+    };
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    assert!(
+        peepholes::discover_word_rsh8_high_projections(&routine, &context, &layout).is_empty()
+    );
 }
 
 fn helper_indexed_store_test_program(helper: MirRuntimeHelper, consumer_lo: u8) -> MirProgram {

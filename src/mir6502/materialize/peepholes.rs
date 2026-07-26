@@ -863,6 +863,143 @@ pub(in crate::mir6502) fn discover_word_array_value_staging(
     plans
 }
 
+pub(in crate::mir6502) fn discover_word_rsh8_high_projections(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let Some(replacement) =
+                word_rsh8_high_projection_at(&block.ops, index, routine.id, layout)
+            else {
+                continue;
+            };
+            let exit_state_change = MirExitStateChange {
+                registers: MirRegisterSet {
+                    a: true,
+                    x: true,
+                    y: true,
+                    flags: true,
+                    ..MirRegisterSet::default()
+                },
+                flags: MirFlagSet::all(),
+                homes: BTreeSet::new(),
+            };
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                index..index + 6,
+                replacement,
+                exit_state_change,
+                "word-rsh8-high-projection",
+                0,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+fn word_rsh8_high_projection_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<Vec<MirOp>> {
+    if load_a_const_u8(ops.get(index)?)? != 8
+        || fixed_store_a_byte(ops.get(index + 1)?)? != 0x84
+    {
+        return None;
+    }
+    let source_lo = load_a_direct_byte(ops.get(index + 2)?)?;
+    let source_hi = load_reg_direct_byte(ops.get(index + 3)?, MirReg::X)?;
+    if source_hi != offset_mem(&source_lo, 1)
+        || !layout.mem_allows_pure_read_reordering(&source_hi)
+        || mem_may_overlap_fixed_range(routine_id, layout, &source_hi, 0x84, 2)
+        || !matches!(
+            ops.get(index + 4)?,
+            MirOp::RuntimeHelper {
+                helper: MirRuntimeHelper::Rsh,
+                ..
+            }
+        )
+    {
+        return None;
+    }
+    let result_store = ops.get(index + 5)?;
+    store_a_direct_byte(result_store)?;
+
+    Some(vec![
+        MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value: 8,
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x84))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value: 0,
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x85))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source_hi),
+            width: MirWidth::Byte,
+        },
+        result_store.clone(),
+    ])
+}
+
+fn load_a_const_u8(op: &MirOp) -> Option<u8> {
+    match op {
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::ConstU8(value),
+            width: MirWidth::Byte,
+        } => Some(*value),
+        MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value,
+            width: MirWidth::Byte,
+        } => u8::try_from(*value).ok(),
+        _ => None,
+    }
+}
+
+fn mem_may_overlap_fixed_range(
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    mem: &MirMem,
+    start: u8,
+    size: u16,
+) -> bool {
+    match mem {
+        MirMem::ZeroPage(_) => true,
+        MirMem::FixedZeroPage(slot) => super::memory::ranges_overlap(
+            u16::from(slot.0),
+            1,
+            u16::from(start),
+            size,
+        ),
+        _ => layout.mem_address(routine_id, mem).is_some_and(|address| {
+            super::memory::ranges_overlap(address, 1, u16::from(start), size)
+        }),
+    }
+}
+
 pub(in crate::mir6502) fn discover_staged_word_forwards(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,

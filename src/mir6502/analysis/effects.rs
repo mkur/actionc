@@ -1317,9 +1317,31 @@ fn apply_structured_effects(
         effects.opaque || structured_effect_may_alias_compiler_homes(&effects.memory_reads);
     summary.homes.unknown_writes =
         effects.opaque || structured_effect_may_alias_compiler_homes(&effects.memory_writes);
+    record_structured_fixed_zp_homes(&effects.memory_reads, &mut summary.homes.reads);
+    record_structured_fixed_zp_homes(&effects.memory_writes, &mut summary.homes.writes);
     summary.machine.register_clobbers = effects.clobbers;
     if effects.clobbers.flags || effects.opaque {
         summary.machine.flag_clobbers = MirFlagSet::all();
+    }
+}
+
+fn record_structured_fixed_zp_homes(
+    effect: &MirMemoryEffect,
+    homes: &mut BTreeSet<MirHomeByte>,
+) {
+    let MirMemoryEffect::Regions(regions) = effect else {
+        return;
+    };
+    for region in regions
+        .iter()
+        .filter(|region| region.kind == MirMemoryRegionKind::ZeroPage)
+    {
+        let end = region.offset.saturating_add(region.size).min(0x100);
+        for address in region.offset.min(0x100)..end {
+            homes.insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(
+                address as u8,
+            )));
+        }
     }
 }
 

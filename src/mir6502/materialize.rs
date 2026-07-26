@@ -1705,6 +1705,7 @@ fn run_posthome_structural_group(
     )?;
     run_analyzed_indirect_constant_stores(routine, layout, peephole_stats)?;
     run_analyzed_word_array_value_staging(routine, layout, peephole_stats)?;
+    run_analyzed_word_rsh8_high_projections(routine, layout, peephole_stats)?;
     run_analyzed_indirect_stores_and_compounds(routine, layout, peephole_stats)?;
     run_analyzed_helper_indexed_store_placements(routine, layout, peephole_stats)?;
     for block in &mut routine.blocks {
@@ -2116,6 +2117,26 @@ fn run_analyzed_word_array_value_staging(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home word-array staging failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_word_rsh8_high_projections(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            peepholes::discover_word_rsh8_high_projections(routine, context, layout)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home word-high projection rewrite failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

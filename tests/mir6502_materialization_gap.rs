@@ -334,7 +334,7 @@ fn byte_multiply_into_word_store_keeps_runtime_high_result() {
 
     assert!(formatted.contains("store.b fixed_zp $84, a"));
     assert!(formatted.contains("store.b fixed_zp $85, a"));
-    assert!(formatted.contains("helper mul args=[]"));
+    assert!(formatted.contains("helper mul args=[a, x, fixed_zp $84, fixed_zp $85]"));
     assert!(formatted.contains("store.b global g2+0, a"));
     assert_spilled_x_is_reloaded_into_a(&formatted);
     assert!(formatted.contains("store.b global g2+1, a"));
@@ -346,7 +346,7 @@ fn byte_multiply_subtract_into_word_store_keeps_runtime_high_result() {
     let (formatted, bytes) =
         compile_materialized_mir6502_fixture("dynamic_byte_multiply_card_sub_result.act");
 
-    assert!(formatted.contains("helper mul args=[]"));
+    assert!(formatted.contains("helper mul args=[a, x, fixed_zp $84, fixed_zp $85]"));
     assert_spilled_x_is_reloaded_into_a(&formatted);
     assert!(formatted.contains("a =.b a sub #$00 carry_in=previous"));
     assert!(formatted.contains("store.b global g2+0, a"));
@@ -364,10 +364,15 @@ fn byte_multiply_word_call_arg_keeps_runtime_high_result() {
     let (formatted, bytes) =
         compile_materialized_mir6502_fixture("dynamic_byte_multiply_card_arg.act");
 
-    assert!(formatted.contains("helper mul args=[]"));
+    assert!(formatted.contains("helper mul args=[a, x, fixed_zp $84, fixed_zp $85]"));
     assert!(formatted.contains("call r0 args=[a.b -> a, x.b -> x]"));
     assert!(
-        !formatted.contains("helper mul args=[] result=- effects=opaque,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags\n  x =.b #0\n  call r0"),
+        !formatted.contains(
+            "helper mul args=[a, x, fixed_zp $84, fixed_zp $85] result=- \
+             effects=stack=0,reads=zeropage+130:6|zeropage+192:3,\
+             writes=zeropage+130:6|zeropage+192:3,clobbers=a|x|y|flags\n  \
+             x =.b #0\n  call r0"
+        ),
         "CARD multiply high byte must not be replaced with a zero before the word argument call:\n{formatted}"
     );
     assert!(formatted.contains("store.b fixed_zp $A0, a"));

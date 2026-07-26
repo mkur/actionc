@@ -78,7 +78,7 @@ pub(in crate::mir6502) fn helper_args(helper: &MirRuntimeHelper) -> Vec<MirArgHo
 pub(in crate::mir6502) fn helper_effects(helper: &MirRuntimeHelper) -> MirEffects {
     let (memory_reads, memory_writes) = match helper {
         MirRuntimeHelper::Lsh | MirRuntimeHelper::Rsh => (
-            zero_page_effect(&[(0x84, 2)]),
+            zero_page_effect(&[(0x84, 1)]),
             zero_page_effect(&[(0x85, 1)]),
         ),
         MirRuntimeHelper::Mul => (
