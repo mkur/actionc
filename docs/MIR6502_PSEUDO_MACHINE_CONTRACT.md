@@ -205,6 +205,12 @@ pub struct MirBlock {
 Routine names and block labels are display metadata. Stable IDs are executable
 identity.
 
+Global initializers retain the structured NIR array fact needed by target
+layout: element size, optional declared length, pointer-backed status, and any
+explicit address initializer. MIR6502 layout may use those facts to place
+uninitialized sized array backing in deferred storage; it must not infer array
+identity from a display `kind` string.
+
 Block order is a layout hint, not semantic identity. MIR passes may preserve or
 adjust order for readability and branch locality. Emission remains responsible
 for final label binding, branch patching, and long-branch repair or diagnostics.

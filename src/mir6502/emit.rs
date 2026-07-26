@@ -518,7 +518,7 @@ impl MirObjectLayout {
                 MirGlobalBacking::Ordinary { .. } => {
                     let size = global_object_size(global.storage_size, global.init.as_ref());
                     let storage_address =
-                        if deferred_base.is_some() && is_deferred_global_byte_array(global, size) {
+                        if deferred_base.is_some() && is_deferred_global_array(global, size) {
                             let address = deferred_cursor;
                             deferred_cursor = deferred_cursor.saturating_add(size);
                             layout
@@ -1098,16 +1098,37 @@ fn is_deferred_local_array_slot(slot: &MirStorageSlot, size: u16) -> bool {
     }
 }
 
-fn is_deferred_global_byte_array(global: &super::ir::MirGlobal, size: u16) -> bool {
-    if global.width != Some(MirWidth::Byte) || size <= 0x0100 {
+fn is_deferred_global_array(global: &super::ir::MirGlobal, size: u16) -> bool {
+    if !matches!(global.backing, MirGlobalBacking::Ordinary { .. }) {
         return false;
     }
-    match &global.init {
-        Some(MirGlobalInit::ZeroFill { .. }) => true,
+    let (array, mutable, uninitialized) = match &global.init {
+        Some(MirGlobalInit::ZeroFill { array, mutable, .. }) => (array.as_ref(), *mutable, true),
         Some(MirGlobalInit::Bytes {
-            bytes, zero_fill, ..
-        }) => bytes.is_empty() && *zero_fill > 0,
-        _ => false,
+            bytes,
+            zero_fill,
+            mutable,
+            array,
+            ..
+        }) => (array.as_ref(), *mutable, bytes.is_empty() && *zero_fill > 0),
+        _ => return false,
+    };
+    let Some(array) = array else {
+        return false;
+    };
+    if !mutable
+        || !uninitialized
+        || array.pointer_backed
+        || array.length.is_none()
+        || array.address_initializer.is_some()
+    {
+        return false;
+    }
+
+    match array.elem_size {
+        0 => false,
+        1 => size > 0x0100,
+        _ => true,
     }
 }
 

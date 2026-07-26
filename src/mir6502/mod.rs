@@ -6326,6 +6326,7 @@ mod tests {
                         zero_fill: 0,
                         mutable: true,
                         section: "data".to_string(),
+                        array: None,
                     }),
                 },
                 MirGlobal {
@@ -6472,6 +6473,7 @@ mod tests {
                     zero_fill: 0,
                     mutable: true,
                     section: "data".to_string(),
+                    array: None,
                 }),
             }],
             routines: vec![MirRoutine {
@@ -9722,7 +9724,7 @@ mod tests {
     }
 
     #[test]
-    fn define_sized_global_arrays_reserve_inline_mir_storage() {
+    fn define_sized_global_arrays_preserve_logical_sizes_with_deferred_nonbyte_storage() {
         let output = generate_mir6502_source_with_origin(
             "DEFINE max=\"255\" BYTE rb INT ARRAY xd(max) BYTE ARRAY alive(max), expl(max) PROC Main() alive(0)=1 expl(1)=2 RETURN",
             0x3000,
@@ -9748,9 +9750,16 @@ mod tests {
         assert_eq!(xd.size, 255 * 2);
         assert_eq!(alive.size, 255);
         assert_eq!(expl.size, 255);
-        assert_eq!(xd.address, rb.address.wrapping_add(1));
-        assert_eq!(alive.address, xd.address.wrapping_add(255 * 2));
+        assert_eq!(alive.address, rb.address.wrapping_add(1));
         assert_eq!(expl.address, alive.address.wrapping_add(255));
+        assert_eq!(
+            output.skipped_ranges,
+            vec![crate::codegen::SkippedRange {
+                start: xd.address,
+                len: 255 * 2,
+            }]
+        );
+        assert!(xd.address >= output.origin.wrapping_add(output.bytes.len() as u16));
     }
 
     #[test]
@@ -9829,6 +9838,91 @@ mod tests {
         );
         assert!(small.address < output.origin.wrapping_add(output.bytes.len() as u16));
         assert!(big.address >= output.origin.wrapping_add(output.bytes.len() as u16));
+    }
+
+    #[test]
+    fn uninitialized_sized_nonbyte_global_arrays_are_deferred_after_mir_code() {
+        let output = generate_mir6502_source_with_origin(
+            "CARD ARRAY cards(2) INT ARRAY ints(3) PROC Main() cards(0)=1 ints(0)=-1 RETURN",
+            0x3000,
+        );
+        let emitted_end = output.origin.wrapping_add(output.bytes.len() as u16);
+        let symbol = |name| {
+            output
+                .map
+                .storage_symbols
+                .iter()
+                .find(|symbol| symbol.name == name)
+                .expect("array storage symbol")
+        };
+        let cards = symbol("cards");
+        let ints = symbol("ints");
+
+        assert_eq!(
+            output.skipped_ranges,
+            vec![
+                crate::codegen::SkippedRange {
+                    start: cards.address,
+                    len: 4,
+                },
+                crate::codegen::SkippedRange {
+                    start: ints.address,
+                    len: 6,
+                },
+            ]
+        );
+        assert!(cards.address >= emitted_end);
+        assert_eq!(ints.address, cards.address.wrapping_add(cards.size));
+        assert_eq!(output.map.skipped_ranges, output.skipped_ranges);
+    }
+
+    #[test]
+    fn initialized_nonbyte_global_arrays_remain_in_the_load_image() {
+        let output = generate_mir6502_source_with_origin(
+            "CARD ARRAY cards(2)=[1 2] PROC Main() cards(0)=cards(1) RETURN",
+            0x3000,
+        );
+        let cards = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|symbol| symbol.name == "cards")
+            .expect("initialized array storage symbol");
+
+        assert!(output.skipped_ranges.is_empty());
+        assert!(cards.address < output.origin.wrapping_add(output.bytes.len() as u16));
+    }
+
+    #[test]
+    fn program_end_word_follows_nonbyte_arrays_declared_across_modules() {
+        let output = generate_mir6502_source_with_origin(
+            "CARD endprog CARD ARRAY cards(2) MODULE INT ARRAY ints(3) PROC Main() cards(0)=1 ints(0)=-1 RETURN SET endprog=*",
+            0x3000,
+        );
+        let endprog = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|symbol| symbol.name == "endprog")
+            .expect("program end word");
+        let offset = usize::from(endprog.address.wrapping_sub(output.origin));
+        let patched = u16::from_le_bytes([output.bytes[offset], output.bytes[offset + 1]]);
+        let skipped_end = output
+            .skipped_ranges
+            .iter()
+            .map(|range| range.start.wrapping_add(range.len))
+            .max()
+            .expect("deferred non-byte arrays");
+
+        assert_eq!(
+            output
+                .skipped_ranges
+                .iter()
+                .map(|range| range.len)
+                .collect::<Vec<_>>(),
+            vec![4, 6]
+        );
+        assert_eq!(patched, skipped_end);
     }
 
     #[test]
@@ -9995,8 +10089,8 @@ mod tests {
 
         assert_eq!(
             skipped_lengths,
-            vec![8, 8, 16, 32, 40, 47, 47, 130, 130, 1171, 1171],
-            "TN should defer every uninitialized local array backing range"
+            vec![8, 8, 10, 16, 32, 40, 47, 47, 130, 130, 1171, 1171],
+            "TN should defer every eligible uninitialized global and local array backing range"
         );
         assert!(
             output

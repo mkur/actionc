@@ -1,6 +1,6 @@
 # MIR6502 SORT Optimization Implementation Plan
 
-Status: implementation in progress (Slices 0A-0B complete)
+Status: implementation in progress (Slices 0A-1 complete)
 
 Date: 2026-07-26
 
@@ -344,6 +344,10 @@ its direct absolute backing references while placing the backing in
   is documented.
 - `List` indexing and repeated QuickSort operations pass the VM oracle.
 - Initialized arrays and small inline BYTE arrays retain their current policy.
+
+Implemented result: SORTDM1 shrank from 4,965 to 4,837 load-file bytes, exactly
+128 bytes, with unchanged instruction counts. SORTDM2 is 2,913 bytes. The SORT
+VM oracle and the complete modern/MIR6502 Toolkit batch pass.
 
 Commit independently.
 

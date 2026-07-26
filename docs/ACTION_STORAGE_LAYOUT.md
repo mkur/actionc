@@ -280,6 +280,13 @@ from carrying zero-filled local buffers while preserving initialized data.
 Local dynamic non-byte-array indexing follows the descriptor-backed path through
 zero-page pointers and `($xx),Y`.
 
+For MIR6502 globals, uninitialized sized `CARD ARRAY` and `INT ARRAY` backing is
+also allocated after code as skipped/deferred storage. The existing BYTE policy
+remains unchanged: 256-byte global BYTE arrays stay in the load image and
+larger ones are deferred. Eligibility is based on the structured array fact
+carried from NIR, and excludes pointer-backed, absolute, aliased, explicitly
+addressed, and initialized arrays.
+
 ## Compatibility Guardrails
 
 When changing storage or codegen, check these before trusting size deltas:

@@ -309,10 +309,9 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                                 }
                             }
                         },
-                        init: global
-                            .init
-                            .as_ref()
-                            .map(|init| lower_global_init(init, &routine_ids)),
+                        init: global.init.as_ref().map(|init| {
+                            lower_global_init(init, global.array.as_ref(), &routine_ids)
+                        }),
                     }
                 })
                 .collect()
@@ -413,8 +412,15 @@ fn runtime_helper_set_target(value: &crate::nir::NirOperand) -> Option<MirRuntim
 
 fn lower_global_init(
     init: &crate::nir::NirGlobalInit,
+    array: Option<&crate::nir::NirArrayGlobalFact>,
     routine_ids: &BTreeMap<&str, RoutineId>,
 ) -> MirGlobalInit {
+    let array = array.map(|array| super::ir::MirArrayGlobalFact {
+        elem_size: array.elem_size,
+        length: array.length,
+        pointer_backed: array.pointer_backed,
+        address_initializer: array.address_initializer,
+    });
     match init {
         crate::nir::NirGlobalInit::Bytes {
             bytes,
@@ -426,6 +432,7 @@ fn lower_global_init(
             zero_fill: *zero_fill,
             mutable: *mutable,
             section: section.clone(),
+            array,
         },
         crate::nir::NirGlobalInit::Descriptor {
             backing,
@@ -453,6 +460,7 @@ fn lower_global_init(
             bytes: *bytes,
             mutable: *mutable,
             section: section.clone(),
+            array,
         },
         crate::nir::NirGlobalInit::ProgramEndWord { mutable, section } => {
             MirGlobalInit::ProgramEndWord {

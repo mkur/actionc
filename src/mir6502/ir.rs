@@ -62,6 +62,14 @@ pub struct MirGlobal {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MirArrayGlobalFact {
+    pub elem_size: u16,
+    pub length: Option<u16>,
+    pub pointer_backed: bool,
+    pub address_initializer: Option<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MirGlobalBacking {
     Ordinary { offset: u16 },
     Absolute(u16),
@@ -75,6 +83,7 @@ pub enum MirGlobalInit {
         zero_fill: u16,
         mutable: bool,
         section: String,
+        array: Option<MirArrayGlobalFact>,
     },
     Descriptor {
         backing: MirDataBacking,
@@ -87,6 +96,7 @@ pub enum MirGlobalInit {
         bytes: u16,
         mutable: bool,
         section: String,
+        array: Option<MirArrayGlobalFact>,
     },
     ProgramEndWord {
         mutable: bool,

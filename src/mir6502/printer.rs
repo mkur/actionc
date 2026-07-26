@@ -104,6 +104,7 @@ fn global_init_summary(init: &MirGlobalInit) -> String {
             zero_fill,
             mutable,
             section,
+            ..
         } => format!(
             " init bytes=[{}] zero_fill={} section={} mutable={}",
             bytes_summary(bytes),
@@ -134,6 +135,7 @@ fn global_init_summary(init: &MirGlobalInit) -> String {
             bytes,
             mutable,
             section,
+            ..
         } => format!(
             " init zero_fill={} section={} mutable={}",
             bytes, section, mutable
