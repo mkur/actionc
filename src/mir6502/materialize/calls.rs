@@ -2960,6 +2960,98 @@ pub(in crate::mir6502) struct CallResultStoreRewriteCandidate {
     pub replacement: [MirOp; 2],
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct StoredCallResultAliasCandidate {
+    pub result_temp: MirTempId,
+    pub consumed: usize,
+    pub replacement: Vec<MirOp>,
+}
+
+pub(in crate::mir6502) fn stored_call_result_alias_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<StoredCallResultAliasCandidate> {
+    let MirOp::Call {
+        result: Some(result),
+        ..
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let result_temp = split_def_as_temp(&result.dst)?;
+    let MirOp::Store {
+        dst: MirAddr::Direct(destination),
+        src: MirValue::Def(store_src),
+        width,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    if store_src != &result.dst
+        || width != &result.width
+        || !matches!(
+            destination,
+            MirMem::Param { .. }
+                | MirMem::Local { .. }
+                | MirMem::Global { .. }
+                | MirMem::Spill { .. }
+        )
+    {
+        return None;
+    }
+
+    let last_use = ops
+        .iter()
+        .enumerate()
+        .skip(index + 2)
+        .filter_map(|(op_index, op)| op_uses_temp(op, result_temp).then_some(op_index))
+        .last()?;
+    let destination_hi = (result.width == MirWidth::Word).then(|| offset_mem(destination, 1));
+    for op in &ops[index + 2..=last_use] {
+        let effects = crate::mir6502::analysis::effects::classify_op(op);
+        if effects
+            .logical
+            .temp_defs
+            .iter()
+            .any(|access| access.temp() == result_temp)
+            || matches!(
+                op,
+                MirOp::Call { .. }
+                    | MirOp::RuntimeHelper { .. }
+                    | MirOp::Barrier { .. }
+                    | MirOp::MachineBlock { .. }
+            )
+            || op_may_have_unknown_memory_effects(op)
+            || op_may_write_mem(op, destination)
+            || destination_hi
+                .as_ref()
+                .is_some_and(|high| op_may_write_mem(op, high))
+        {
+            return None;
+        }
+    }
+
+    let mut replacement = ops[index..=last_use].to_vec();
+    let canonical_value = MirValue::PointerCell(destination.clone());
+    let mut replaced_uses = 0usize;
+    for op in replacement.iter_mut().skip(2) {
+        let before = op_uses_temp(op, result_temp);
+        if before
+            && super::temps::replace_op_temp_values(op, result_temp, &canonical_value)
+            && !op_uses_temp(op, result_temp)
+        {
+            replaced_uses += 1;
+        } else if before {
+            return None;
+        }
+    }
+    (replaced_uses > 0).then_some(StoredCallResultAliasCandidate {
+        result_temp,
+        consumed: last_use + 1 - index,
+        replacement,
+    })
+}
+
 pub(in crate::mir6502) fn call_result_store_rewrite_candidate(
     ops: &[MirOp],
     index: usize,

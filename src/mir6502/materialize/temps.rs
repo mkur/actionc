@@ -389,7 +389,11 @@ fn op_blocks_temp_producer_sink(producer: &MirOp, op: &MirOp) -> bool {
     false
 }
 
-fn replace_op_temp_values(op: &mut MirOp, temp: MirTempId, replacement: &MirValue) -> bool {
+pub(in crate::mir6502) fn replace_op_temp_values(
+    op: &mut MirOp,
+    temp: MirTempId,
+    replacement: &MirValue,
+) -> bool {
     let before = op.clone();
     match op {
         MirOp::Load { src, .. } => {

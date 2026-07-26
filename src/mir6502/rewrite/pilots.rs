@@ -579,6 +579,67 @@ pub(in crate::mir6502) fn discover_call_result_store_consumers(
     plans
 }
 
+pub(in crate::mir6502) fn discover_stored_call_result_aliases(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let Some(candidate) =
+                crate::mir6502::materialize::analyzed_stored_call_result_alias_candidate(
+                    &block.ops, index,
+                )
+            else {
+                continue;
+            };
+            let end = index + candidate.consumed;
+            if prove_consumed_temp_definition(
+                block.id,
+                candidate.result_temp,
+                index,
+                index + 1,
+                end - 1,
+                context,
+            )
+            .is_none()
+            {
+                continue;
+            }
+            plans.push(MirRewritePlan {
+                generation: context.generation(),
+                block: block.id,
+                range: index..end,
+                replacement: candidate.replacement,
+                removed_defs: Vec::new(),
+                exit_effect_delta: MirEffectDelta::MaterializedStoreConsumer,
+                change_set: MirChangeSet::prehome_operation_change(),
+                stat: "stored-call-result-alias-forward",
+                observations: Vec::new(),
+                family_priority: 95,
+                estimated_byte_saving: 1,
+                estimated_cycle_saving: 1,
+            });
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn stored_call_result_alias_rank(routine: &MirRoutine) -> usize {
+    routine
+        .blocks
+        .iter()
+        .flat_map(|block| {
+            (0..block.ops.len()).filter(|index| {
+                crate::mir6502::materialize::analyzed_stored_call_result_alias_candidate(
+                    &block.ops, *index,
+                )
+                .is_some()
+            })
+        })
+        .count()
+}
+
 pub(in crate::mir6502) fn call_result_store_rank(routine: &MirRoutine) -> usize {
     routine
         .blocks

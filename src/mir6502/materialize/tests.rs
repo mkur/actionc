@@ -6,7 +6,7 @@ use crate::mir6502::ir::{
     MirMachineBlockId, MirRegisterSet, MirStatic, MirStorageBacking, MirStorageInit, MirTemp,
 };
 use crate::mir6502::passes::MirPeepholeReportMode;
-use crate::mir6502::rewrite::context::PostHomeRewriteContext;
+use crate::mir6502::rewrite::context::{PostHomeRewriteContext, PreHomeRewriteContext};
 use crate::mir6502::{
     MirFrame, MirRoutine, MirRoutineAbi, MirStorageBase, MirStorageClass, MirStorageId,
     MirStorageSlot,
@@ -8521,6 +8521,144 @@ fn call_producer_fold_rewrites_indirect_targets() {
         }) if **lo == MirValue::PointerCell(target_cell.clone())
             && **hi == MirValue::PointerCell(offset_mem(&target_cell, 1))
     ));
+}
+
+fn stored_word_call_result_alias_ops(intervening: Vec<MirOp>) -> Vec<MirOp> {
+    let result = MirDef::VTemp(MirTempId(0));
+    let destination = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let mut ops = vec![
+        MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(1)),
+            abi: MirCallAbi {
+                params: Vec::new(),
+                result: Some(MirResultHome::ReturnSlot { offset: 0 }),
+                clobbers: MirRegisterSet::default(),
+                preserves: MirRegisterSet::default(),
+            },
+            args: Vec::new(),
+            result: Some(MirCallResult {
+                dst: result.clone(),
+                width: MirWidth::Word,
+                home: MirResultHome::ReturnSlot { offset: 0 },
+            }),
+            effects: MirEffects::default(),
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(destination),
+            src: MirValue::Def(result.clone()),
+            width: MirWidth::Word,
+        },
+    ];
+    ops.extend(intervening);
+    ops.push(MirOp::Binary {
+        op: MirBinaryOp::Sub,
+        dst: MirDef::VTemp(MirTempId(2)),
+        left: MirValue::Def(result),
+        right: MirValue::ConstU16(1),
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    });
+    ops
+}
+
+#[test]
+fn stored_call_result_alias_forwards_later_uses_to_the_canonical_store() {
+    let ops = stored_word_call_result_alias_ops(vec![MirOp::Load {
+        dst: MirDef::VTemp(MirTempId(1)),
+        src: MirAddr::Direct(MirMem::Local {
+            id: LocalId(1),
+            offset: 0,
+        }),
+        width: MirWidth::Word,
+    }]);
+
+    let candidate =
+        analyzed_stored_call_result_alias_candidate(&ops, 0).expect("alias forwarding candidate");
+
+    assert_eq!(candidate.consumed, 4);
+    assert!(matches!(
+        candidate.replacement.last(),
+        Some(MirOp::Binary {
+            left: MirValue::PointerCell(MirMem::Local {
+                id: LocalId(0),
+                offset: 0,
+            }),
+            ..
+        })
+    ));
+    assert!(
+        !candidate
+            .replacement
+            .iter()
+            .skip(2)
+            .any(|op| op_uses_temp(op, MirTempId(0)))
+    );
+}
+
+#[test]
+fn stored_call_result_alias_rejects_barriers_and_destination_writes() {
+    let barrier = stored_word_call_result_alias_ops(vec![MirOp::Barrier {
+        effects: MirEffects::default(),
+    }]);
+    assert!(analyzed_stored_call_result_alias_candidate(&barrier, 0).is_none());
+
+    let overwrite = stored_word_call_result_alias_ops(vec![MirOp::Store {
+        dst: MirAddr::Direct(MirMem::Local {
+            id: LocalId(0),
+            offset: 1,
+        }),
+        src: MirValue::ConstU8(0),
+        width: MirWidth::Byte,
+    }]);
+    assert!(analyzed_stored_call_result_alias_candidate(&overwrite, 0).is_none());
+}
+
+#[test]
+fn stored_call_result_alias_proof_rejects_a_successor_use() {
+    let blocks = vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: stored_word_call_result_alias_ops(Vec::new()),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "successor".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Absolute(0x0600)),
+                src: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                width: MirWidth::Word,
+            }],
+            terminator: MirTerminator::Return,
+        },
+    ];
+    let routine = MirRoutine {
+        id: RoutineId(0),
+        name: "stored_result_live_successor".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: (0..3).map(|id| MirTemp { id: MirTempId(id) }).collect(),
+        blocks,
+        effects: MirEffects::default(),
+    };
+    let snapshot = crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot::new(
+        &routine,
+        MirRoutineGeneration::initial(),
+    )
+    .expect("valid analysis");
+    let context = PreHomeRewriteContext::new(&snapshot);
+
+    assert!(
+        crate::mir6502::rewrite::pilots::discover_stored_call_result_aliases(&routine, &context)
+            .is_empty()
+    );
 }
 
 #[test]

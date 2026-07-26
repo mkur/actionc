@@ -842,6 +842,13 @@ Rules:
   and consumer are adjacent, the result definition has no other live use, and
   no intervening operation can overwrite the return bytes. Removing the
   logical result temp does not weaken the call's memory or machine effects.
+- When a call result is first stored to ordinary compiler-owned storage, later
+  same-block uses may be redirected to that canonical stored value before
+  result-home selection. The reaching call definition must be unique, all uses
+  must be inside the rewritten window, and no call, machine block, barrier,
+  unknown write, or write to either destination lane may intervene. This
+  forwarding enables the existing adjacent call-result/store selector; it does
+  not make the destination store dead.
 - For the canonical four-byte Action argument prefix, selected word arithmetic
   may write the first word directly to A:X or the second directly to Y:`$A3`.
   The scheduler must place the companion word afterward only when that cannot

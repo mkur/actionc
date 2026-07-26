@@ -61,9 +61,10 @@ use abi::{elide_write_only_param_homes, prepend_action_abi_param_prologue, width
 use block_args::lower_block_arguments;
 use calls::{
     CallArgExprRewriteCandidate, CallArgProducerRewriteCandidate, CallResultStoreRewriteCandidate,
-    LoadedArgCallResultStoreRewriteCandidate, call_arg_expr_rewrite_candidate,
-    call_arg_producer_rewrite_candidate, call_result_store_rewrite_candidate,
-    loaded_arg_call_result_store_rewrite_candidate, materialize_call,
+    LoadedArgCallResultStoreRewriteCandidate, StoredCallResultAliasCandidate,
+    call_arg_expr_rewrite_candidate, call_arg_producer_rewrite_candidate,
+    call_result_store_rewrite_candidate, loaded_arg_call_result_store_rewrite_candidate,
+    materialize_call, stored_call_result_alias_candidate,
     try_materialize_forwarded_call_result_store,
     try_materialize_loaded_arg_forwarded_call_result_store,
 };
@@ -354,6 +355,13 @@ pub(in crate::mir6502) fn analyzed_call_result_store_candidate(
     index: usize,
 ) -> Option<CallResultStoreRewriteCandidate> {
     call_result_store_rewrite_candidate(ops, index)
+}
+
+pub(in crate::mir6502) fn analyzed_stored_call_result_alias_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<StoredCallResultAliasCandidate> {
+    stored_call_result_alias_candidate(ops, index)
 }
 
 pub(in crate::mir6502) fn analyzed_loaded_arg_call_result_store_candidate(
@@ -1562,6 +1570,7 @@ fn run_prehome_selection_group(
         block.ops = normalize_byte_add_sub_carry(std::mem::take(&mut block.ops));
     }
     run_analyzed_call_arg_exprs(routine, config, layout, helpers, peephole_stats)?;
+    run_analyzed_stored_call_result_aliases(routine, peephole_stats)?;
     run_analyzed_call_result_store_consumers(routine, peephole_stats)?;
     run_analyzed_store_consumers(routine, config, layout, helpers, peephole_stats)?;
     run_analyzed_unused_lea_addrs(routine, peephole_stats)?;
@@ -2389,6 +2398,27 @@ fn run_analyzed_call_result_store_consumers(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("call-result store rewrite failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_stored_call_result_aliases(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            super::rewrite::pilots::discover_stored_call_result_aliases,
+            super::rewrite::pilots::stored_call_result_alias_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("stored call-result alias forwarding failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

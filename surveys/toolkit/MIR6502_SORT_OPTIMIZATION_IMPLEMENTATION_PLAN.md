@@ -1,6 +1,6 @@
 # MIR6502 SORT Optimization Implementation Plan
 
-Status: implementation in progress (Slices 0A-6 complete)
+Status: implementation in progress (Slices 0A-7 complete)
 
 Date: 2026-07-26
 
@@ -652,6 +652,24 @@ comparison. Some duplication may remain after Slice 5.
 - QuickSort and the full SORT VM oracle remain correct.
 - Skip this slice without code changes if the preceding slices already remove
   the duplication.
+
+### Implemented result
+
+The opportunity remained after Slice 6, but the `middle` store itself was not
+dead. A general pre-home rewrite now treats an immediately stored call result
+as the canonical alias for its later same-block uses. It requires the unique
+reaching call definition, proves all uses are inside the rewrite window, and
+stops at calls, machine blocks, barriers, unknown writes, or writes to either
+stored lane. The existing adjacent call-result/store selector then removes the
+now write-only logical result home.
+
+In `QuickSort`, `Partition` now stores `$A1/$A0` directly to `middle`; the
+redundant virtual-zero-page copy and its four reloads disappear. The routine
+shrunk from 256 to 245 instruction bytes, one byte smaller than classic.
+SORTDM1 shrank from 4,563 to 4,552 load-file bytes and SORTDM2 from 2,639 to
+2,628. Recognized code fell from 4,212 to 4,201 bytes, instructions from 1,824
+to 1,818, `LDA` from 561 to 557, and `STA` from 478 to 476. Data remains 339
+bytes; TN remains 9,945 bytes and ALLOCATE remains 876 bytes.
 
 Commit only if it produces a coherent general improvement.
 
