@@ -1608,6 +1608,42 @@ fn optimizer_folds_constants_and_simplifies_branches() {
 }
 
 #[test]
+fn optimizer_threads_repeated_param_predicates_from_both_edges() {
+    let source = "BYTE result PROC Main(BYTE value) IF value=0 THEN IF value=0 THEN result=1 ELSE result=2 FI ELSE IF value=0 THEN result=3 ELSE result=4 FI FI RETURN";
+    let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+    let ast = crate::parser::parse(&tokens).expect("parse source");
+    let model = crate::semantic::analyze(&ast).expect("analyze source");
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let optimized = optimize_program(&lower_program(&semir)).expect("optimize verifier-clean NIR");
+    let main = optimized
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let compares = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter(|op| matches!(op, NirOp::Compare { .. }))
+        .count();
+    let stores = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::Store {
+                src: NirValue::ConstU8(value),
+                ..
+            } => Some(*value),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(compares, 1, "{main:#?}");
+    assert_eq!(stores, vec![1, 4], "{main:#?}");
+}
+
+#[test]
 fn optimizer_eliminates_dead_pure_temps_but_keeps_loads() {
     let program = NirProgram {
         globals: Vec::new(),

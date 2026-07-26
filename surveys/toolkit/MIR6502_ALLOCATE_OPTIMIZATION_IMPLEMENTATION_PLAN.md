@@ -1,6 +1,6 @@
 # MIR6502 ALLOCATE Optimization Implementation Plan
 
-Status: in progress; Slices 0-3 completed
+Status: in progress; Slices 0-4 completed
 
 Date: 2026-07-26
 
@@ -442,6 +442,25 @@ a printer change.
   both backends.
 
 Commit independently.
+
+Implementation result:
+
+- executable-edge transfer is now a reusable hook in the shared forward
+  data-flow solver rather than a predicate-specific worklist;
+- NIR tracks equality/inequality facts for unchanged temps and promotable
+  direct storage, intersects facts at joins, and invalidates storage facts at
+  direct stores, unknown writes, calls, and machine blocks;
+- restricted branch threading bypasses only compare/load blocks without block
+  parameters, edge arguments, or nonpromotable/observable loads;
+- `Alloc`'s repeated `current == 0` block disappeared and its null edge now
+  returns directly;
+- ALLOCATE decreased from 963 to 942 XEX bytes, with 411 recognized
+  instructions and 889 instruction bytes;
+- modern/classic remained byte-identical at 935 bytes, so the remaining gap is
+  7 bytes;
+- TN remained byte-identical at 9,994 XEX bytes;
+- the required NIR fixture test, NIR sweep, full test suite, direct-word
+  comparison runtime probe, and ALLOCATE VM oracle all passed.
 
 ## Slice 5: Cross-Edge Redundant Fixed-Pointer Setup Removal
 

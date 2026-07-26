@@ -36,6 +36,20 @@ where
     ) -> bool {
         true
     }
+
+    /// Refine a forward state for one executable CFG edge.
+    ///
+    /// Most analyses use the block output unchanged. Predicate analyses can
+    /// add facts learned from the selected true/false edge without building a
+    /// second worklist implementation.
+    fn transfer_forward_edge(
+        &self,
+        _from: Graph::Node,
+        _to: Graph::Node,
+        from_out: &Self::State,
+    ) -> Self::State {
+        from_out.clone()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,7 +116,9 @@ where
                 for predecessor in graph.predecessors(node) {
                     if let Some(state) = out_states.get(predecessor) {
                         if problem.forward_edge_is_executable(*predecessor, node, state) {
-                            problem.join(&mut input, state);
+                            let edge_state =
+                                problem.transfer_forward_edge(*predecessor, node, state);
+                            problem.join(&mut input, &edge_state);
                         }
                     }
                 }
@@ -284,6 +300,8 @@ mod tests {
         taken: u8,
     }
 
+    struct EdgeHistory;
+
     impl DataflowProblem<TestGraph> for SparseHistory {
         type State = Option<BTreeSet<u8>>;
 
@@ -321,6 +339,38 @@ mod tests {
         }
     }
 
+    impl DataflowProblem<TestGraph> for EdgeHistory {
+        type State = BTreeSet<u8>;
+
+        fn direction(&self) -> DataflowDirection {
+            DataflowDirection::Forward
+        }
+
+        fn bottom(&self) -> Self::State {
+            BTreeSet::new()
+        }
+
+        fn boundary(&self, node: u8) -> Option<Self::State> {
+            (node == 0).then(BTreeSet::new)
+        }
+
+        fn join(&self, into: &mut Self::State, other: &Self::State) {
+            into.extend(other);
+        }
+
+        fn transfer(&self, node: u8, state: &Self::State) -> Self::State {
+            let mut state = state.clone();
+            state.insert(node);
+            state
+        }
+
+        fn transfer_forward_edge(&self, _from: u8, to: u8, from_out: &Self::State) -> Self::State {
+            let mut state = from_out.clone();
+            state.insert(10 + to);
+            state
+        }
+    }
+
     #[test]
     fn forward_solver_joins_diamond_predecessors_deterministically() {
         let graph = TestGraph::new(&[0, 1, 2, 3, 9], &[(0, 1), (0, 2), (1, 3), (2, 3)], 0);
@@ -351,6 +401,15 @@ mod tests {
 
         assert_eq!(result.in_state(3), Some(&None));
         assert_eq!(result.out_state(1), Some(&Some(BTreeSet::from([0, 1, 2]))));
+    }
+
+    #[test]
+    fn forward_solver_applies_edge_transfer_before_join() {
+        let graph = TestGraph::new(&[0, 1, 2], &[(0, 1), (0, 2)], 0);
+        let result = solve_dataflow(&graph, &EdgeHistory);
+
+        assert_eq!(result.in_state(1), Some(&BTreeSet::from([0, 11])));
+        assert_eq!(result.in_state(2), Some(&BTreeSet::from([0, 12])));
     }
 
     #[test]

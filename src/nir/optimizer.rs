@@ -5,6 +5,8 @@ use super::analysis::{
     dataflow::{NirDataflowDirection, NirDataflowProblem, solve_dataflow},
     dominance::NirDominance,
     liveness::NirTempLiveness,
+    predicates::{NirPredicateAnalysis, predicate_threading_candidates},
+    storage::{NirRoutineStorageAnalysis, analyze_program_storage},
     use_def::NirUseDef,
 };
 use super::facts::{BlockId, NirType, NirTypeKind, NirValue, TempId, value_width};
@@ -14,20 +16,22 @@ use super::verifier::{NirDiagnostic, verify_program};
 pub(super) fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
     verify_program(program)?;
     let mut optimized = program.clone();
-    for routine in &mut optimized.routines {
-        optimize_routine(routine);
+    let storage = analyze_program_storage(&optimized);
+    for (routine, storage) in optimized.routines.iter_mut().zip(&storage.routines) {
+        optimize_routine(routine, storage);
     }
     verify_program(&optimized)?;
     Ok(optimized)
 }
 
-fn optimize_routine(routine: &mut NirRoutine) {
+fn optimize_routine(routine: &mut NirRoutine, storage: &NirRoutineStorageAnalysis) {
     remove_unreachable_blocks(routine);
     loop {
         let before = routine.blocks.clone();
         fold_uniform_block_parameters(routine);
         optimize_values_in_routine(routine);
         simplify_constant_branches(routine);
+        thread_predicate_branches(routine, storage);
         eliminate_dominated_pure_redundancy(routine);
         eliminate_dead_pure_temps(routine);
         routine.temps = collect_temps(&routine.blocks);
@@ -35,6 +39,75 @@ fn optimize_routine(routine: &mut NirRoutine) {
             break;
         }
     }
+}
+
+fn thread_predicate_branches(
+    routine: &mut NirRoutine,
+    storage: &NirRoutineStorageAnalysis,
+) -> bool {
+    let cfg = NirCfg::from_routine(routine);
+    let analysis = NirPredicateAnalysis::analyze(routine, storage);
+    let candidates = predicate_threading_candidates(routine, &analysis, storage);
+    let blocks = routine
+        .blocks
+        .iter()
+        .map(|block| (block.id, block))
+        .collect::<BTreeMap<_, _>>();
+    let mut rewrites = Vec::<(BlockId, BlockId, NirEdge)>::new();
+
+    for candidate in candidates {
+        let Some(predicate) = analysis.branch_predicate(candidate) else {
+            continue;
+        };
+        let Some(NirBlock {
+            terminator:
+                NirTerminator::Branch {
+                    then_edge,
+                    else_edge,
+                    ..
+                },
+            ..
+        }) = blocks.get(&candidate).copied()
+        else {
+            continue;
+        };
+        for predecessor in cfg.predecessors(candidate) {
+            let Some(decision) = analysis.edge_proves(*predecessor, candidate, predicate) else {
+                continue;
+            };
+            rewrites.push((
+                *predecessor,
+                candidate,
+                if decision {
+                    then_edge.clone()
+                } else {
+                    else_edge.clone()
+                },
+            ));
+        }
+    }
+    if rewrites.is_empty() {
+        return false;
+    }
+
+    let mut changed = false;
+    for block in &mut routine.blocks {
+        for (predecessor, candidate, replacement) in &rewrites {
+            if block.id != *predecessor {
+                continue;
+            }
+            for edge in terminator_edges_mut(&mut block.terminator) {
+                if edge.target == *candidate && edge.args.is_empty() {
+                    *edge = replacement.clone();
+                    changed = true;
+                }
+            }
+        }
+    }
+    if changed {
+        remove_unreachable_blocks(routine);
+    }
+    changed
 }
 
 fn fold_uniform_block_parameters(routine: &mut NirRoutine) {

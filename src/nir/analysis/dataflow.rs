@@ -35,6 +35,15 @@ pub(in crate::nir) trait NirDataflowProblem {
     ) -> bool {
         true
     }
+
+    fn transfer_forward_edge(
+        &self,
+        _from: BlockId,
+        _to: BlockId,
+        from_out: &Self::State,
+    ) -> Self::State {
+        from_out.clone()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,6 +100,15 @@ where
         from_out: &Self::State,
     ) -> bool {
         self.0.forward_edge_is_executable(from, to, from_out)
+    }
+
+    fn transfer_forward_edge(
+        &self,
+        from: BlockId,
+        to: BlockId,
+        from_out: &Self::State,
+    ) -> Self::State {
+        self.0.transfer_forward_edge(from, to, from_out)
     }
 }
 
