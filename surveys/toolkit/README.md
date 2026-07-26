@@ -60,6 +60,10 @@ modernized ALLOCATE implementation are in
 The corresponding sliced implementation plan is in
 `MIR6502_ALLOCATE_OPTIMIZATION_IMPLEMENTATION_PLAN.md`.
 
+The current SORTDM1/SORTDM2 MIR6502 optimization plan, including the
+VM-backed sorting oracle and the ranked library/display slices, is in
+`MIR6502_SORT_OPTIMIZATION_IMPLEMENTATION_PLAN.md`.
+
 Toolkit object ATRs are generated with:
 
 ```sh
