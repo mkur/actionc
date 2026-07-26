@@ -1,6 +1,6 @@
 # MIR6502 ALLOCATE Optimization Implementation Plan
 
-Status: in progress; Slices 0-4 completed
+Status: in progress; Slices 0-5 completed
 
 Date: 2026-07-26
 
@@ -519,6 +519,22 @@ machine-value query surface if the rewrite context lacks a typed pair query.
 
 Commit independently, then perform the second listing reanalysis.
 
+Implementation result:
+
+- no new rewrite was required: Slice 4 changed the equality block to a direct
+  successor of the relational compare, exposing the exact `$AC/$AD = current`
+  fact to the existing routine-wide post-home rewrite;
+- `ssa-lite-retained-pointer-store` gained two applications in `Alloc`;
+- the equality block now begins with its indirect low-byte read and contains no
+  reload of `current` or store to `$AC/$AD`;
+- the removed two absolute loads and two fixed-ZP stores account for 10 of
+  Slice 4's 21 saved bytes;
+- the existing focused cross-edge pointer-pair test covers the positive case,
+  while the indirect-write invalidation test covers the unknown-effect
+  rejection;
+- adding a second fixed-pointer data-flow implementation would duplicate the
+  existing rewrite and therefore violates the plan's stop conditions.
+
 ## Checkpoint A: Re-rank Before Adding New MIR Operations
 
 After Slice 5:
@@ -531,6 +547,37 @@ After Slice 5:
 
 Do not automatically implement Slices 6-9 if the listing no longer contains
 their target shapes or if the remaining gap has moved elsewhere.
+
+Checkpoint result:
+
+| Metric | MIR6502 | Modern/classic | Gap |
+| --- | ---: | ---: | ---: |
+| XEX bytes | 942 | 935 | +7 |
+| Recognized instruction bytes | 889 | 880 | +9 |
+| Data and inline machine bytes | 41 | 43 | -2 |
+| Instructions | 411 | 381 | +30 |
+| RAM spill labels | 0 | 0 | 0 |
+| `JMP` | 6 | 6 | 0 |
+
+Relative to the 1,015-byte planning baseline, Slices 2-5 have removed 73 XEX
+bytes. `Alloc` is already substantially smaller than the classic routine.
+The remaining excess is concentrated in `Free` and the four-byte `AllocInit`
+gap:
+
+- Slice 6's two-pointer compound update remains present in `Free`;
+- Slice 7's two alias-safe direct-word-to-indirect copies remain present;
+- Slice 8's indirect call-field staging remains, although `PrintFreeList` is
+  already one total routine byte smaller than classic;
+- Slice 9's ordered-absolute shape remains and needs its planned conservative
+  profitability check;
+- Slice 10 has no current aggregate jump-count target: both backends emit six
+  `JMP` instructions, so layout work must wait for the structural slices and
+  demonstrate an actual byte reduction.
+
+TN remains byte-identical at 9,994 bytes. The ALLOCATE VM oracle and direct
+word comparison runtime probe remain green. Slices 6 and 7 stay ranked first
+because their exact target shapes remain and can reduce `Free` without
+weakening alias safety.
 
 ## Slice 6: Destination-Aware Two-Pointer Word Update
 
