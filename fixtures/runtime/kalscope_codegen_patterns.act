@@ -1,0 +1,64 @@
+; Runtime coverage for the general lowering patterns concentrated in
+; KALSCOPE: committed local-pointer updates, word arithmetic feeding XOR,
+; pure A/X byte arguments, indirect low/high projections, and a word-indexed
+; shift result stored into a byte array.
+
+BYTE ARRAY output
+BYTE signature=$0610
+
+CARD feedbackValue,
+     feedbackStep
+
+BYTE x0,y0,x1,y1
+
+PROC Capture(BYTE x,y)
+  output(8)=x
+  output(9)=y
+RETURN
+
+PROC Exercise()
+  BYTE POINTER p
+  BYTE ARRAY table(256)
+  CARD j
+
+  p=output
+  p^=$11
+  p==+1
+  p^=$22
+  p==+1
+  p^=$33
+  p==+1
+  p^=$44
+
+  feedbackValue=$4567
+  feedbackStep=$1234
+  feedbackValue=(feedbackValue+feedbackStep)!feedbackStep
+  output(4)=feedbackValue&$FF
+  output(5)=feedbackValue RSH 8
+
+  p=output
+  p==+6
+  p^=feedbackValue&$FF
+  p==+1
+  p^=feedbackValue RSH 8
+
+  x0=1
+  y0=2
+  x1=8
+  y1=3
+  Capture(127+x0+y0,127+x1-y1)
+
+  FOR j=0 TO 255
+    DO
+    table(j)=j RSH 3
+    OD
+  output(10)=table(255)
+RETURN
+
+PROC Main()
+  output=$0600
+  Exercise()
+  signature=$A5
+  DO
+  OD
+RETURN

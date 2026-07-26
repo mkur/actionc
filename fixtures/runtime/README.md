@@ -16,6 +16,12 @@ Run the focused KALSCOPE backend-contract gate directly:
 fixtures/runtime/run-kalscope-contracts-vm.sh
 ```
 
+Run the KALSCOPE code-generation pattern gate directly:
+
+```sh
+fixtures/runtime/run-kalscope-codegen-patterns-vm.sh
+```
+
 Run the modern/classic scaled CARD-index boundary gate directly:
 
 ```sh
@@ -110,6 +116,13 @@ argument bytes in A/X. The raw callee explicitly saves those registers to
 `$A0/$A1` before a nested call and reloads them afterward; `$A0/$A1` are
 callee-owned scratch here, not caller-provided argument homes. Both classic
 and MIR6502 must produce `12 34 82 84` at `$0600-$0603`.
+
+The KALSCOPE code-generation fixture covers the program's concentrated general
+shapes independently of graphics and OS state: a local byte pointer committed
+and incremented between indirect stores, word add feeding XOR, two pure byte
+arguments in A/X, indirect low/high word projections, and a word-indexed shift
+stored into a byte array. Classic and MIR6502 must produce
+`11 22 33 44 AF 45 AF 45 82 84 1F` at `$0600-$060A` and `$A5` at `$0610`.
 
 The scaled CARD-index fixture writes and reads unaligned fixed-base,
 descriptor-backed, and typed-pointer word storage at indexes 0, 1, 127, 128,

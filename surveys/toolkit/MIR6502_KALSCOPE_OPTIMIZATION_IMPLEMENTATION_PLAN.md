@@ -1,6 +1,6 @@
 # MIR6502 KALSCOPE Optimization Implementation Plan
 
-Status: planned
+Status: in progress; Slice 0 complete
 
 Date: 2026-07-26
 
@@ -191,6 +191,8 @@ be implemented as a runtime-helper contract, not inferred from KALSCOPE.
 
 ### Slice 0: Coverage and baseline contracts
 
+Status: complete.
+
 - Add a real-source KALSCOPE quality test. Missing source is a failure.
 - Assert baseline selectors and cap the current 3,683-byte output.
 - Extend VM coverage with a compact general fixture for:
@@ -233,6 +235,15 @@ This slice must be code-size neutral.
 - Keep original staging for calls, machine blocks, indirect/absolute reads,
   aliasing storage, X-using expressions, and incomplete proofs.
 - Add VM boundary cases and exact KALSCOPE call-site counts.
+
+Implemented coverage:
+
+- `kalscope_codegen_patterns.act` isolates the pointer-update, word-bitwise,
+  pure-call-argument, indirect-projection-store, and indexed-shift patterns.
+- Its classic and MIR6502 binaries must produce the same byte contract at
+  `$0600..$060A` and the `$A5` completion signature at `$0610`.
+- `mir6502_kalscope_quality` locks the current KALSCOPE baseline and the twelve
+  pure two-byte call sites without constraining future instruction selection.
 
 ### Slice 4: Materialize direct indirect-store values late
 
