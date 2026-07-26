@@ -17,11 +17,11 @@ use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCallTarget, MirCarryIn, MirCarryOut,
     MirCompareOp, MirCond, MirCondDest, MirDef, MirFlagTest, MirMem, MirOp, MirPointerPair, MirReg,
-    MirTempId, MirTerminator, MirValue, MirWidth, RoutineId,
+    MirRegisterSet, MirTempId, MirTerminator, MirValue, MirWidth, RoutineId,
 };
 use crate::mir6502::rewrite::context::{MirExitStateChange, MirProof, PostHomeRewriteContext};
 use crate::mir6502::rewrite::plan::{MirChangeSet, MirPostHomeRewritePlan};
-use crate::mir6502::rewrite::posthome::structural_plan;
+use crate::mir6502::rewrite::posthome::{estimated_6502_cost, structural_plan};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum SsaLiteValueKey {
@@ -178,10 +178,6 @@ enum SsaLiteV2AddressKey {
     Address(MirValue),
     Indexed {
         base: MirValue,
-        index: MirValue,
-        scale: u8,
-    },
-    Advance {
         index: MirValue,
         scale: u8,
     },
@@ -500,7 +496,7 @@ impl SsaLiteV2ObserveEnv {
                 width: MirWidth::Byte,
             } => {
                 let key = self.value_key(src, layout);
-                self.kill_mem_and_dependents(mem, SsaLiteV2KillReason::Store);
+                self.kill_mem_and_dependents(mem, routine_id, layout, SsaLiteV2KillReason::Store);
                 if ssa_lite_mem_is_trackable(layout, mem)
                     && let Some(key) = key
                 {
@@ -517,11 +513,16 @@ impl SsaLiteV2ObserveEnv {
                 width: MirWidth::Word,
                 ..
             } => {
-                self.kill_mem_and_dependents(mem, SsaLiteV2KillReason::Store);
-                self.kill_mem_and_dependents(&offset_mem(mem, 1), SsaLiteV2KillReason::Store);
+                self.kill_mem_and_dependents(mem, routine_id, layout, SsaLiteV2KillReason::Store);
+                self.kill_mem_and_dependents(
+                    &offset_mem(mem, 1),
+                    routine_id,
+                    layout,
+                    SsaLiteV2KillReason::Store,
+                );
             }
             MirOp::UpdateMem { mem, .. } => {
-                self.kill_mem_and_dependents(mem, SsaLiteV2KillReason::Store);
+                self.kill_mem_and_dependents(mem, routine_id, layout, SsaLiteV2KillReason::Store);
             }
             MirOp::UpdateIndexedMem { .. } => {
                 self.kill_memory_dependencies(SsaLiteV2KillReason::Store);
@@ -531,14 +532,24 @@ impl SsaLiteV2ObserveEnv {
             }
             MirOp::AddByteToWordMem { mem, .. } | MirOp::SubByteFromWordMem { mem, .. } => {
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
-                self.kill_mem_and_dependents(mem, SsaLiteV2KillReason::Store);
-                self.kill_mem_and_dependents(&offset_mem(mem, 1), SsaLiteV2KillReason::Store);
+                self.kill_mem_and_dependents(mem, routine_id, layout, SsaLiteV2KillReason::Store);
+                self.kill_mem_and_dependents(
+                    &offset_mem(mem, 1),
+                    routine_id,
+                    layout,
+                    SsaLiteV2KillReason::Store,
+                );
             }
             MirOp::OffsetPointerByIndirectByte { dst, .. } => {
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
-                self.kill_mem_and_dependents(dst, SsaLiteV2KillReason::Store);
-                self.kill_mem_and_dependents(&offset_mem(dst, 1), SsaLiteV2KillReason::Store);
+                self.kill_mem_and_dependents(dst, routine_id, layout, SsaLiteV2KillReason::Store);
+                self.kill_mem_and_dependents(
+                    &offset_mem(dst, 1),
+                    routine_id,
+                    layout,
+                    SsaLiteV2KillReason::Store,
+                );
             }
             MirOp::Load { dst, .. }
             | MirOp::LoadImm { dst, .. }
@@ -579,6 +590,11 @@ impl SsaLiteV2ObserveEnv {
                 self.kill_memory_dependencies(SsaLiteV2KillReason::Unknown);
             }
             MirOp::MaterializeAddress { consumer, value } => {
+                let fact = SsaLiteV2AddressFact {
+                    consumer: *consumer,
+                    key: SsaLiteV2AddressKey::Address(value.clone()),
+                };
+                let reusable = self.address_is_reusable(&fact, layout);
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 self.kill_address_consumer_dependencies(
                     *consumer,
@@ -586,10 +602,7 @@ impl SsaLiteV2ObserveEnv {
                     layout,
                     SsaLiteV2KillReason::Store,
                 );
-                self.learn_address(SsaLiteV2AddressFact {
-                    consumer: *consumer,
-                    key: SsaLiteV2AddressKey::Address(value.clone()),
-                });
+                self.learn_address(fact, reusable, layout);
             }
             MirOp::MaterializeIndexedAddress {
                 consumer,
@@ -597,6 +610,15 @@ impl SsaLiteV2ObserveEnv {
                 index,
                 scale,
             } => {
+                let fact = SsaLiteV2AddressFact {
+                    consumer: *consumer,
+                    key: SsaLiteV2AddressKey::Indexed {
+                        base: base.clone(),
+                        index: index.clone(),
+                        scale: *scale,
+                    },
+                };
+                let reusable = self.address_is_reusable(&fact, layout);
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 if consumer.uses_scaled_y() {
                     self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
@@ -607,20 +629,9 @@ impl SsaLiteV2ObserveEnv {
                     layout,
                     SsaLiteV2KillReason::Store,
                 );
-                self.learn_address(SsaLiteV2AddressFact {
-                    consumer: *consumer,
-                    key: SsaLiteV2AddressKey::Indexed {
-                        base: base.clone(),
-                        index: index.clone(),
-                        scale: *scale,
-                    },
-                });
+                self.learn_address(fact, reusable, layout);
             }
-            MirOp::AdvanceAddress {
-                consumer,
-                index,
-                scale,
-            } => {
+            MirOp::AdvanceAddress { consumer, .. } => {
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 self.kill_address_consumer_dependencies(
                     *consumer,
@@ -628,13 +639,6 @@ impl SsaLiteV2ObserveEnv {
                     layout,
                     SsaLiteV2KillReason::Store,
                 );
-                self.learn_address(SsaLiteV2AddressFact {
-                    consumer: *consumer,
-                    key: SsaLiteV2AddressKey::Advance {
-                        index: index.clone(),
-                        scale: *scale,
-                    },
-                });
             }
             MirOp::Compare { .. } => {}
             MirOp::CompareIndirectBytes { .. } | MirOp::CompareIndirectWords { .. } => {
@@ -780,13 +784,29 @@ impl SsaLiteV2ObserveEnv {
         self.stats.mem_facts_learned += 1;
     }
 
-    fn learn_address(&mut self, fact: SsaLiteV2AddressFact) {
-        if self.addresses.contains(&fact) {
-            self.stats.address_reuse_candidates += 1;
+    fn address_is_reusable(&self, fact: &SsaLiteV2AddressFact, layout: &MaterializeLayout) -> bool {
+        !fact.consumer.uses_scaled_y()
+            && address_key_is_reuse_stable(&fact.key, layout)
+            && self.addresses.contains(fact)
+    }
+
+    fn learn_address(
+        &mut self,
+        fact: SsaLiteV2AddressFact,
+        reusable: bool,
+        layout: &MaterializeLayout,
+    ) {
+        self.addresses
+            .retain(|candidate| candidate.consumer.pointer_pair() != fact.consumer.pointer_pair());
+        if fact.consumer.uses_scaled_y() || !address_key_is_reuse_stable(&fact.key, layout) {
             return;
         }
+        if reusable {
+            self.stats.address_reuse_candidates += 1;
+        } else {
+            self.stats.address_facts_learned += 1;
+        }
         self.addresses.push(fact);
-        self.stats.address_facts_learned += 1;
     }
 
     fn kill_def(&mut self, def: &MirDef, reason: SsaLiteV2KillReason) {
@@ -813,10 +833,31 @@ impl SsaLiteV2ObserveEnv {
         if slot.take().is_some() { 1 } else { 0 }
     }
 
-    fn kill_mem_and_dependents(&mut self, mem: &MirMem, reason: SsaLiteV2KillReason) {
+    fn kill_mem_and_dependents(
+        &mut self,
+        mem: &MirMem,
+        routine_id: RoutineId,
+        layout: &MaterializeLayout,
+        reason: SsaLiteV2KillReason,
+    ) {
         let key = SsaLiteV2ValueKey::DirectMem(mem.clone());
         let mut killed = self.kill_mem(mem);
         killed += self.kill_value_dependencies(&key);
+        let before_addresses = self.addresses.len();
+        self.addresses.retain(|fact| {
+            !address_fact_depends_on_mem(fact, mem)
+                && !address_consumer_pair_contains_mem(fact.consumer, mem)
+                && ssa_lite_mem_resolved_address(layout, routine_id, mem).map_or(true, |address| {
+                    !address_fact_depends_on_resolved_address(fact, address, routine_id, layout)
+                        && !address_consumer_pair_contains_resolved_address(
+                            fact.consumer,
+                            address,
+                            routine_id,
+                            layout,
+                        )
+                })
+        });
+        killed += before_addresses.saturating_sub(self.addresses.len());
         self.record_kills(reason, killed);
     }
 
@@ -869,8 +910,8 @@ impl SsaLiteV2ObserveEnv {
         match consumer.pointer_pair() {
             MirPointerPair::Fixed { lo } => {
                 let lo = MirMem::FixedZeroPage(lo);
-                self.kill_mem_and_dependents(&lo, reason);
-                self.kill_mem_and_dependents(&offset_mem(&lo, 1), reason);
+                self.kill_mem_and_dependents(&lo, routine_id, layout, reason);
+                self.kill_mem_and_dependents(&offset_mem(&lo, 1), routine_id, layout, reason);
                 self.kill_fixed_address_dependencies(lo_address(&lo), routine_id, layout, reason);
                 self.kill_fixed_address_dependencies(
                     lo_address(&offset_mem(&lo, 1)),
@@ -881,8 +922,8 @@ impl SsaLiteV2ObserveEnv {
             }
             MirPointerPair::Virtual(slot) => {
                 let lo = MirMem::ZeroPage(slot);
-                self.kill_mem_and_dependents(&lo, reason);
-                self.kill_mem_and_dependents(&offset_mem(&lo, 1), reason);
+                self.kill_mem_and_dependents(&lo, routine_id, layout, reason);
+                self.kill_mem_and_dependents(&offset_mem(&lo, 1), routine_id, layout, reason);
             }
         }
     }
@@ -923,7 +964,17 @@ impl SsaLiteV2ObserveEnv {
             }
         }
 
-        let mut killed = 0;
+        let before_addresses = self.addresses.len();
+        self.addresses.retain(|fact| {
+            !address_fact_depends_on_resolved_address(fact, address, routine_id, layout)
+                && !address_consumer_pair_contains_resolved_address(
+                    fact.consumer,
+                    address,
+                    routine_id,
+                    layout,
+                )
+        });
+        let mut killed = before_addresses.saturating_sub(self.addresses.len());
         for mem in aliases {
             killed += self.kill_mem(&mem);
             killed += self.kill_value_dependencies(&SsaLiteV2ValueKey::DirectMem(mem));
@@ -960,6 +1011,197 @@ enum SsaLiteV2KillReason {
     Store,
     Barrier,
     Unknown,
+}
+
+fn address_key_is_reuse_stable(key: &SsaLiteV2AddressKey, layout: &MaterializeLayout) -> bool {
+    match key {
+        SsaLiteV2AddressKey::Address(value) => address_value_is_reuse_stable(value, layout),
+        SsaLiteV2AddressKey::Indexed { base, index, .. } => {
+            address_value_is_reuse_stable(base, layout)
+                && address_value_is_reuse_stable(index, layout)
+        }
+    }
+}
+
+fn indexed_address_uses_direct_emission_shape(
+    fact: &SsaLiteV2AddressFact,
+    layout: &MaterializeLayout,
+) -> bool {
+    let SsaLiteV2AddressKey::Indexed { base, index, .. } = &fact.key else {
+        return false;
+    };
+    direct_indexed_base_shape(base, layout) && direct_indexed_index_shape(index, layout)
+}
+
+fn direct_indexed_base_shape(value: &MirValue, layout: &MaterializeLayout) -> bool {
+    match value {
+        MirValue::Word { lo, hi } => {
+            direct_adc_byte_shape(lo, layout) && direct_adc_byte_shape(hi, layout)
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_) => true,
+        MirValue::Def(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. }
+        | MirValue::PointerCell(_) => false,
+    }
+}
+
+fn direct_indexed_index_shape(value: &MirValue, layout: &MaterializeLayout) -> bool {
+    match value {
+        MirValue::Word { lo, hi } => {
+            direct_load_byte_shape(lo, layout) && direct_load_byte_shape(hi, layout)
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::PointerCell(_) => address_value_is_reuse_stable(value, layout),
+        MirValue::Def(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => false,
+    }
+}
+
+fn direct_adc_byte_shape(value: &MirValue, layout: &MaterializeLayout) -> bool {
+    match value {
+        MirValue::ConstU8(_) | MirValue::ConstU16(0..=0x00ff) => true,
+        MirValue::StorageAddrByte { .. } => true,
+        MirValue::PointerCell(mem) => ssa_lite_mem_is_trackable(layout, mem),
+        MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::Word { .. }
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. } => false,
+    }
+}
+
+fn direct_load_byte_shape(value: &MirValue, layout: &MaterializeLayout) -> bool {
+    match value {
+        MirValue::ConstU8(_) | MirValue::ConstU16(0..=0x00ff) => true,
+        MirValue::RoutineAddrByte { .. } | MirValue::StorageAddrByte { .. } => true,
+        MirValue::PointerCell(mem) => ssa_lite_mem_is_trackable(layout, mem),
+        MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::Word { .. }
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_) => false,
+    }
+}
+
+fn address_value_is_reuse_stable(value: &MirValue, layout: &MaterializeLayout) -> bool {
+    match value {
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => true,
+        MirValue::PointerCell(mem) => ssa_lite_mem_is_trackable(layout, mem),
+        MirValue::Word { lo, hi } => {
+            address_value_is_reuse_stable(lo, layout) && address_value_is_reuse_stable(hi, layout)
+        }
+        MirValue::Def(_) => false,
+    }
+}
+
+fn address_fact_depends_on_mem(fact: &SsaLiteV2AddressFact, mem: &MirMem) -> bool {
+    match &fact.key {
+        SsaLiteV2AddressKey::Address(value) => address_value_depends_on_mem(value, mem),
+        SsaLiteV2AddressKey::Indexed { base, index, .. } => {
+            address_value_depends_on_mem(base, mem) || address_value_depends_on_mem(index, mem)
+        }
+    }
+}
+
+fn address_value_depends_on_mem(value: &MirValue, mem: &MirMem) -> bool {
+    match value {
+        MirValue::PointerCell(candidate) => candidate == mem,
+        MirValue::Word { lo, hi } => {
+            address_value_depends_on_mem(lo, mem) || address_value_depends_on_mem(hi, mem)
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => false,
+    }
+}
+
+fn address_consumer_pair_contains_mem(consumer: MirAddressConsumer, mem: &MirMem) -> bool {
+    let lo = match consumer.pointer_pair() {
+        MirPointerPair::Fixed { lo } => MirMem::FixedZeroPage(lo),
+        MirPointerPair::Virtual(lo) => MirMem::ZeroPage(lo),
+    };
+    mem == &lo || mem == &offset_mem(&lo, 1)
+}
+
+fn address_fact_depends_on_resolved_address(
+    fact: &SsaLiteV2AddressFact,
+    address: u16,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> bool {
+    match &fact.key {
+        SsaLiteV2AddressKey::Address(value) => {
+            address_value_depends_on_resolved_address(value, address, routine_id, layout)
+        }
+        SsaLiteV2AddressKey::Indexed { base, index, .. } => {
+            address_value_depends_on_resolved_address(base, address, routine_id, layout)
+                || address_value_depends_on_resolved_address(index, address, routine_id, layout)
+        }
+    }
+}
+
+fn address_value_depends_on_resolved_address(
+    value: &MirValue,
+    address: u16,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> bool {
+    match value {
+        MirValue::PointerCell(mem) => {
+            ssa_lite_mem_resolves_to_address(layout, routine_id, mem, address)
+        }
+        MirValue::Word { lo, hi } => {
+            address_value_depends_on_resolved_address(lo, address, routine_id, layout)
+                || address_value_depends_on_resolved_address(hi, address, routine_id, layout)
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => false,
+    }
+}
+
+fn address_consumer_pair_contains_resolved_address(
+    consumer: MirAddressConsumer,
+    address: u16,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> bool {
+    let lo = match consumer.pointer_pair() {
+        MirPointerPair::Fixed { lo } => MirMem::FixedZeroPage(lo),
+        MirPointerPair::Virtual(lo) => MirMem::ZeroPage(lo),
+    };
+    [lo.clone(), offset_mem(&lo, 1)]
+        .iter()
+        .any(|mem| ssa_lite_mem_resolves_to_address(layout, routine_id, mem, address))
 }
 
 fn op_values(op: &MirOp) -> Vec<&MirValue> {
@@ -2187,6 +2429,98 @@ pub(super) fn scan_ssa_lite_v2_observability(
     env.stats
 }
 
+/// Removes a repeated unscaled indexed-address preparation when the SSA-lite
+/// environment proves that the same stable base/index value is still resident
+/// in the same pointer pair. Pointer-pair writes, writes to either source
+/// value, calls, indirect writes, and opaque barriers invalidate that proof.
+/// Scaled-Y consumers remain excluded because their address state also
+/// includes Y's current scaled offset.
+pub(in crate::mir6502) fn discover_redundant_indexed_address_materializations(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    const STAT: &str = "ssa-lite-redundant-indexed-address";
+    let mut plans = Vec::new();
+
+    for block in &routine.blocks {
+        let mut env = SsaLiteV2ObserveEnv::default();
+        for (index, op) in block.ops.iter().enumerate() {
+            let fact = match op {
+                MirOp::MaterializeIndexedAddress {
+                    consumer,
+                    base,
+                    index,
+                    scale,
+                } if !consumer.uses_scaled_y() => Some(SsaLiteV2AddressFact {
+                    consumer: *consumer,
+                    key: SsaLiteV2AddressKey::Indexed {
+                        base: base.clone(),
+                        index: index.clone(),
+                        scale: *scale,
+                    },
+                }),
+                _ => None,
+            };
+
+            let Some(fact) = fact else {
+                env.observe_op(op, routine.id, layout);
+                continue;
+            };
+            if !env.address_is_reusable(&fact, layout)
+                || !indexed_address_uses_direct_emission_shape(&fact, layout)
+            {
+                env.observe_op(op, routine.id, layout);
+                continue;
+            }
+
+            let exit_state_change = MirExitStateChange {
+                registers: MirRegisterSet {
+                    a: true,
+                    ..MirRegisterSet::default()
+                },
+                flags: MirFlagSet::all(),
+                ..MirExitStateChange::default()
+            };
+
+            let point = context.point(MirSite::Op {
+                block: block.id,
+                op_index: index,
+            });
+            if let MirProof::Blocked(blocker) =
+                context.exit_state_change_is_unobservable(&exit_state_change, point)
+            {
+                context.record_blocker(STAT, block.id, index, &blocker);
+                env.observe_op(op, routine.id, layout);
+                continue;
+            }
+
+            let (estimated_byte_saving, estimated_cycle_saving) =
+                estimated_6502_cost(std::slice::from_ref(op));
+            plans.push(MirPostHomeRewritePlan {
+                generation: context.generation(),
+                block: block.id,
+                range: index..index + 1,
+                replacement: Vec::new(),
+                // The earlier exact preparation remains in place and already
+                // holds the proven pointer value. No physical pointer-home
+                // definition disappears semantically.
+                removed_homes: Vec::new(),
+                exit_state_change,
+                change_set: MirChangeSet::posthome_operation_change(),
+                stat: STAT,
+                observations: vec![("ssa-lite-exact-address-provenance", 1)],
+                family_priority: 0,
+                estimated_byte_saving,
+                estimated_cycle_saving,
+            });
+            // Model the accepted transaction, not the redundant original op:
+            // the resident pointer fact and all other facts stay intact.
+        }
+    }
+    plans
+}
+
 fn scan_ssa_lite_block(ops: &[MirOp], layout: &MaterializeLayout) -> SsaLiteScanStats {
     scan_ssa_lite_block_env(ops, layout).stats
 }
@@ -2784,12 +3118,18 @@ fn ssa_lite_mem_resolves_to_address(
     mem: &MirMem,
     address: u16,
 ) -> bool {
+    ssa_lite_mem_resolved_address(layout, routine_id, mem) == Some(address)
+}
+
+fn ssa_lite_mem_resolved_address(
+    layout: &MaterializeLayout,
+    routine_id: RoutineId,
+    mem: &MirMem,
+) -> Option<u16> {
     match mem {
-        MirMem::FixedZeroPage(slot) => u16::from(slot.0) == address,
-        MirMem::ZeroPage(_) => false,
-        _ => layout
-            .mem_address(routine_id, mem)
-            .is_some_and(|mem_address| mem_address == address),
+        MirMem::FixedZeroPage(slot) => Some(u16::from(slot.0)),
+        MirMem::ZeroPage(_) => None,
+        _ => layout.mem_address(routine_id, mem),
     }
 }
 

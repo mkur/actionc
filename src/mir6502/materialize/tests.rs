@@ -13579,6 +13579,300 @@ fn ssa_lite_v2_observes_repeated_address_setup() {
 }
 
 #[test]
+fn ssa_lite_v2_replaces_address_fact_when_same_pointer_pair_changes() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let consumer = fixed_pointer_consumer(POINTER_SCRATCH_LO);
+    let address = |local| MirOp::MaterializeAddress {
+        consumer,
+        value: MirValue::PointerCell(MirMem::Local {
+            id: LocalId(local),
+            offset: 0,
+        }),
+    };
+    let stats = scan_ssa_lite_v2_observability(
+        &[address(1), address(2), address(1)],
+        RoutineId(0),
+        &layout,
+    );
+
+    assert_eq!(stats.address_facts_learned, 3);
+    assert_eq!(stats.address_reuse_candidates, 0);
+}
+
+#[test]
+fn ssa_lite_v2_invalidates_address_fact_when_source_memory_changes() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let consumer = fixed_pointer_consumer(POINTER_SCRATCH_LO);
+    let source = MirMem::Local {
+        id: LocalId(1),
+        offset: 0,
+    };
+    let address = MirOp::MaterializeAddress {
+        consumer,
+        value: MirValue::PointerCell(source.clone()),
+    };
+    let stats = scan_ssa_lite_v2_observability(
+        &[
+            address.clone(),
+            MirOp::Store {
+                dst: MirAddr::Direct(source),
+                src: MirValue::ConstU8(9),
+                width: MirWidth::Byte,
+            },
+            address,
+        ],
+        RoutineId(0),
+        &layout,
+    );
+
+    assert_eq!(stats.address_facts_learned, 2);
+    assert_eq!(stats.address_reuse_candidates, 0);
+}
+
+#[test]
+fn ssa_lite_v2_invalidates_address_fact_when_pointer_pair_is_overwritten() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let consumer = fixed_pointer_consumer(POINTER_SCRATCH_LO);
+    let address = MirOp::MaterializeAddress {
+        consumer,
+        value: MirValue::PointerCell(MirMem::Local {
+            id: LocalId(1),
+            offset: 0,
+        }),
+    };
+    let stats = scan_ssa_lite_v2_observability(
+        &[
+            address.clone(),
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO))),
+                src: MirValue::ConstU8(9),
+                width: MirWidth::Byte,
+            },
+            address,
+        ],
+        RoutineId(0),
+        &layout,
+    );
+
+    assert_eq!(stats.address_facts_learned, 2);
+    assert_eq!(stats.address_reuse_candidates, 0);
+}
+
+#[test]
+fn ssa_lite_v2_invalidates_address_fact_through_absolute_pointer_alias() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let consumer = fixed_pointer_consumer(POINTER_SCRATCH_LO);
+    let address = MirOp::MaterializeAddress {
+        consumer,
+        value: MirValue::PointerCell(MirMem::Local {
+            id: LocalId(1),
+            offset: 0,
+        }),
+    };
+    let stats = scan_ssa_lite_v2_observability(
+        &[
+            address.clone(),
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Absolute(u16::from(POINTER_SCRATCH_LO))),
+                src: MirValue::ConstU8(9),
+                width: MirWidth::Byte,
+            },
+            address,
+        ],
+        RoutineId(0),
+        &layout,
+    );
+
+    assert_eq!(stats.address_facts_learned, 2);
+    assert_eq!(stats.address_reuse_candidates, 0);
+}
+
+fn repeated_indexed_address_op() -> MirOp {
+    let base = MirMem::Local {
+        id: LocalId(2),
+        offset: 0,
+    };
+    MirOp::MaterializeIndexedAddress {
+        consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+        base: MirValue::Word {
+            lo: Box::new(MirValue::StorageAddrByte {
+                mem: base.clone(),
+                byte: 0,
+            }),
+            hi: Box::new(MirValue::StorageAddrByte { mem: base, byte: 1 }),
+        },
+        index: MirValue::Word {
+            lo: Box::new(MirValue::PointerCell(MirMem::Local {
+                id: LocalId(1),
+                offset: 0,
+            })),
+            hi: Box::new(MirValue::PointerCell(MirMem::Local {
+                id: LocalId(1),
+                offset: 1,
+            })),
+        },
+        scale: 1,
+    }
+}
+
+fn indexed_address_reuse_test_routine(mut middle: Vec<MirOp>, trailing: Vec<MirOp>) -> MirRoutine {
+    let materialize = repeated_indexed_address_op();
+    let mut ops = vec![
+        materialize.clone(),
+        MirOp::LoadIndirect {
+            consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+            dst: MirDef::Reg(MirReg::A),
+            offset: 0,
+        },
+    ];
+    ops.append(&mut middle);
+    ops.push(materialize);
+    ops.extend(trailing);
+    ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops,
+        terminator: MirTerminator::Return,
+    }])
+}
+
+#[test]
+fn analyzed_ssa_lite_removes_exact_repeated_indexed_address() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut routine = indexed_address_reuse_test_routine(
+        vec![MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA3))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }],
+        vec![MirOp::LoadIndirect {
+            consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+            dst: MirDef::Reg(MirReg::A),
+            offset: 1,
+        }],
+    );
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            ssa_lite::discover_redundant_indexed_address_materializations(routine, context, &layout)
+        })
+        .expect("valid address-reuse rewrite");
+
+    assert_eq!(result.applied, 1);
+    assert_eq!(
+        result
+            .applied_by_stat
+            .get("ssa-lite-redundant-indexed-address"),
+        Some(&1)
+    );
+    assert_eq!(
+        routine.blocks[0]
+            .ops
+            .iter()
+            .filter(|op| matches!(op, MirOp::MaterializeIndexedAddress { .. }))
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn analyzed_ssa_lite_invalidates_indexed_address_when_index_changes() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let routine = indexed_address_reuse_test_routine(
+        vec![MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Local {
+                id: LocalId(1),
+                offset: 0,
+            }),
+            src: MirValue::ConstU8(7),
+            width: MirWidth::Byte,
+        }],
+        vec![MirOp::LoadIndirect {
+            consumer: fixed_pointer_consumer(POINTER_SCRATCH_LO),
+            dst: MirDef::Reg(MirReg::A),
+            offset: 1,
+        }],
+    );
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    assert!(
+        ssa_lite::discover_redundant_indexed_address_materializations(&routine, &context, &layout)
+            .is_empty()
+    );
+}
+
+#[test]
+fn analyzed_ssa_lite_keeps_repeated_indexed_address_when_a_is_live() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let routine = indexed_address_reuse_test_routine(
+        Vec::new(),
+        vec![MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }],
+    );
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    assert!(
+        ssa_lite::discover_redundant_indexed_address_materializations(&routine, &context, &layout)
+            .is_empty()
+    );
+    assert_eq!(
+        context
+            .take_blocked_sites()
+            .iter()
+            .map(|site| site.reason)
+            .collect::<Vec<_>>(),
+        vec!["register-live"]
+    );
+}
+
+#[test]
+fn analyzed_ssa_lite_does_not_reuse_scaled_y_address_state() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut materialize = repeated_indexed_address_op();
+    let MirOp::MaterializeIndexedAddress {
+        consumer, scale, ..
+    } = &mut materialize
+    else {
+        unreachable!("test materialization")
+    };
+    *consumer = MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(POINTER_SCRATCH_LO),
+    });
+    *scale = 2;
+    let routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![materialize.clone(), materialize],
+        terminator: MirTerminator::Return,
+    }]);
+    let snapshot = PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    assert!(
+        ssa_lite::discover_redundant_indexed_address_materializations(&routine, &context, &layout)
+            .is_empty()
+    );
+}
+
+#[test]
 fn mir_copy_prop_forwards_const_temp_into_byte_compare() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

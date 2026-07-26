@@ -1726,6 +1726,12 @@ fn run_posthome_cleanup_group(
             materialize_fused_compare_dest(block.id, &block.terminator, &mut block.ops);
         }
     }
+    run_analyzed_redundant_indexed_address_materializations(
+        routine,
+        layout,
+        known_callees,
+        peephole_stats,
+    )?;
     run_analyzed_ssa_lite_byte_rewrites(routine, layout, true, known_callees, peephole_stats)?;
     run_analyzed_call_result_y_placements(routine, peephole_stats)?;
     run_analyzed_dead_register_writes(routine, layout, known_callees, peephole_stats)?;
@@ -1745,6 +1751,34 @@ fn run_posthome_cleanup_group(
     }
     prune_unused_spills(routine);
     reserve_used_fixed_zero_page_slots(routine);
+    Ok(())
+}
+
+fn run_analyzed_redundant_indexed_address_materializations(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    known_callees: Option<&MirKnownCalleeSummaries>,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let discover =
+        |routine: &super::ir::MirRoutine,
+         context: &crate::mir6502::rewrite::context::PostHomeRewriteContext<'_, '_>| {
+            ssa_lite::discover_redundant_indexed_address_materializations(routine, context, layout)
+        };
+    let result = match known_callees {
+        Some(known_callees) => {
+            driver.run_fixed_point_with_known_callees(routine, known_callees, discover)
+        }
+        None => driver.run_fixed_point(routine, discover),
+    }
+    .map_err(|error| {
+        vec![MirDiagnostic::routine(
+            &routine.name,
+            format!("post-home indexed-address reuse failed: {error:?}"),
+        )]
+    })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
     Ok(())
 }
 

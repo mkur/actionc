@@ -1,6 +1,6 @@
 # MIR6502 SORT Optimization Implementation Plan
 
-Status: implementation in progress (Slices 0A-8 complete)
+Status: complete (Slices 0A-9)
 
 Date: 2026-07-26
 
@@ -787,6 +787,56 @@ Commit independently.
   allocation high water.
 - Every remaining `Test` spill has a documented live-range, alias, ABI, or
   scheduling reason.
+
+### Implemented result
+
+The final audit found no remaining adjacent reload, `JSR; RTS`,
+jump-to-return, directly branchable branch-over-jump, or increment/decrement
+cleanup opportunity. It did expose 24 repeated indexed-address preparations
+created by Slice 8. The SSA-lite address observability model already counted
+them, but its facts were telemetry rather than rewrite proofs.
+
+The address environment now keeps one exact fact per physical pointer pair.
+It replaces the fact when that pair receives a different address, invalidates
+it when either pointer byte or any tracked base/index byte is written
+(including fixed-zero-page/absolute aliases), and clears it across calls,
+indirect writes, machine blocks, and barriers. `AdvanceAddress` is never
+treated as idempotent. Register-derived operands, absolute/volatile cells,
+fallback index-scratch shapes, and scaled-Y consumers are excluded; scaled-Y
+address identity also depends on Y's current offset.
+
+A post-home transaction now removes an exact repeated unscaled indexed
+preparation only when the resident pointer fact is unchanged and shared
+machine liveness proves that deleting the preparation's A and full-flag
+clobbers is unobservable. It removes 18 preparations in `Test`. Six final
+preparations remain immediately before opaque `PrintF` calls because their
+C/V results can reach the call; the liveness proof correctly blocks those
+sites instead of assuming an undocumented runtime flag contract.
+
+The final SORTDM1 measurements are:
+
+| Metric | Planning baseline | After Slice 8 | Final | Total change |
+| --- | ---: | ---: | ---: | ---: |
+| XEX bytes | 4,965 | 3,559 | 3,289 | -1,676 |
+| Recognized instruction bytes | 4,468 | 3,226 | 2,956 | -1,512 |
+| Data and inline machine bytes | 485 | 321 | 321 | -164 |
+| Recognized instructions | 1,921 | 1,467 | 1,341 | -580 |
+| `LDA` instructions | 596 | 419 | 383 | -213 |
+| `STA` instructions | 511 | 344 | 308 | -203 |
+
+`Test` falls from the 1,985-byte planning baseline to 740 instruction bytes
+and from 830 to 353 instructions. Its only remaining spills are `sp6/sp7`,
+four accesses preserving the word index across the separate opaque `Rand`
+call. SORTDM1 is 840 bytes smaller than the current 4,129-byte
+modern/classic output. SORTDM2 remains 2,628 bytes (21 bytes above the current
+2,607-byte classic output), TN remains 9,945 bytes, and ALLOCATE remains 876
+bytes.
+
+Focused address-fact tests cover exact reuse, changed addresses, source writes,
+pointer-pair writes through both fixed and absolute aliases, live accumulator
+rejection, and scaled-Y rejection. The SORT, indexed-call-argument, and
+ALLOCATE cross-backend VM oracles pass; `cargo test` and the complete
+20-program modern/MIR6502 Toolkit batch pass.
 
 Reaching or beating the modern/classic 4,113-byte SORTDM1 result is a useful
 checkpoint, not a correctness requirement. A slice is accepted because it
