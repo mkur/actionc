@@ -2043,6 +2043,10 @@ fn call_arg_expr_plan(
                 "direct-binary-rhs-call-arg-blocked-nonordinary",
                 candidate.direct_binary_rhs_blocked_nonordinary,
             ),
+            (
+                "pure-ax-byte-call-schedule",
+                candidate.pure_ax_byte_schedule,
+            ),
         ]
         .into_iter()
         .filter(|(_, count)| *count != 0)

@@ -80,6 +80,7 @@ pub(super) fn try_materialize_call_arg_expr_producers(
         direct_binary_rhs_selected: candidate.direct_binary_rhs_selected,
         direct_binary_rhs_blocked_overlap: candidate.direct_binary_rhs_blocked_overlap,
         direct_binary_rhs_blocked_nonordinary: candidate.direct_binary_rhs_blocked_nonordinary,
+        pure_ax_byte_schedule: candidate.pure_ax_byte_schedule,
     }
 }
 
@@ -97,6 +98,7 @@ pub(in crate::mir6502) struct CallArgExprRewriteCandidate {
     pub direct_binary_rhs_selected: usize,
     pub direct_binary_rhs_blocked_overlap: usize,
     pub direct_binary_rhs_blocked_nonordinary: usize,
+    pub pure_ax_byte_schedule: usize,
 }
 
 pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
@@ -139,6 +141,7 @@ pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
         .collect::<Vec<_>>();
     let direct_indexed_byte_fixed_args =
         direct_indexed_byte_fixed_action_arg_count(&plan.args, &raw_args);
+    let pure_ax_byte_schedule = usize::from(pure_ax_byte_schedule_supported(&plan.args, layout));
     let mut replacement = Vec::new();
     let mut required_helpers = Vec::new();
     let mut binary_rhs_stats = BinaryRhsLaneStats::default();
@@ -162,6 +165,7 @@ pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
         direct_binary_rhs_selected: binary_rhs_stats.selected,
         direct_binary_rhs_blocked_overlap: binary_rhs_stats.blocked_overlap,
         direct_binary_rhs_blocked_nonordinary: binary_rhs_stats.blocked_nonordinary,
+        pure_ax_byte_schedule,
     })
 }
 
@@ -177,6 +181,7 @@ pub(super) struct CallArgExprMaterializeResult {
     pub(super) direct_binary_rhs_selected: usize,
     pub(super) direct_binary_rhs_blocked_overlap: usize,
     pub(super) direct_binary_rhs_blocked_nonordinary: usize,
+    pub(super) pure_ax_byte_schedule: usize,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -823,7 +828,7 @@ fn call_arg_expr_producer(
                 if let Some(expr) = pointer_byte_offset_binary_expr(*op, *width, &left, &right) {
                     expr
                 } else {
-                    if !call_arg_expr_operands_supported(*op, *width, &left, &right) {
+                    if !call_arg_expr_operands_supported(*op, *width, &left, &right, layout) {
                         return None;
                     }
                     CallArgExpr::Binary {
@@ -1005,10 +1010,19 @@ fn call_arg_expr_operands_supported(
     width: MirWidth,
     left: &CallArgExpr,
     right: &CallArgExpr,
+    layout: &MaterializeLayout,
 ) -> bool {
     if matches!((op, width), (MirBinaryOp::Mul, MirWidth::Byte)) {
         return call_arg_expr_can_materialize_byte(left)
             && call_arg_expr_can_materialize_byte(right);
+    }
+    if matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub)
+        && width == MirWidth::Byte
+        && (matches!(left, CallArgExpr::Binary { .. })
+            || matches!(right, CallArgExpr::Binary { .. }))
+    {
+        return linear_byte_expr_parts(left, layout).is_some()
+            && stable_byte_expr_leaf(right, layout).is_some();
     }
     if indexed_word_const_binary_operands(op, width, left, right).is_some() {
         return true;
@@ -1071,11 +1085,8 @@ fn call_arg_expr_can_materialize_byte(expr: &CallArgExpr) -> bool {
             op: MirBinaryOp::Add | MirBinaryOp::Sub,
             left,
             right,
-            ..
-        } => matches!(
-            (&**left, &**right),
-            (CallArgExpr::Value { .. }, CallArgExpr::Value { .. })
-        ),
+            width: MirWidth::Byte,
+        } => call_arg_expr_can_materialize_byte(left) && call_arg_expr_can_materialize_byte(right),
         CallArgExpr::Binary { .. } => false,
     }
 }
@@ -2431,12 +2442,38 @@ fn materialize_expr_byte_to_reg(
                 materialize_call_arg_to_reg(MirValue::Def(MirDef::Reg(MirReg::A)), reg, out);
             }
         }
-        CallArgExpr::Binary {
+        expr @ CallArgExpr::Binary {
             op,
             left,
             right,
             width,
         } if matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub) => {
+            if *width == MirWidth::Byte
+                && (matches!(&**left, CallArgExpr::Binary { .. })
+                    || matches!(&**right, CallArgExpr::Binary { .. }))
+                && let Some((initial, tail)) = linear_byte_expr_parts(expr, layout)
+            {
+                materialize_call_arg_to_reg(initial, MirReg::A, out);
+                for (op, right) in tail {
+                    out.push(MirOp::Binary {
+                        op,
+                        dst: MirDef::Reg(MirReg::A),
+                        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        right,
+                        width: MirWidth::Byte,
+                        carry_in: Some(match op {
+                            MirBinaryOp::Add => MirCarryIn::Clear,
+                            MirBinaryOp::Sub => MirCarryIn::Set,
+                            _ => unreachable!("linear byte expressions only support add/sub"),
+                        }),
+                        carry_out: MirCarryOut::Ignore,
+                    });
+                }
+                if reg != MirReg::A {
+                    materialize_call_arg_to_reg(MirValue::Def(MirDef::Reg(MirReg::A)), reg, out);
+                }
+                return;
+            }
             let Some((left, right)) = expr_binary_low_operands(left, right, layout) else {
                 return;
             };
@@ -2477,6 +2514,65 @@ fn materialize_expr_byte_to_reg(
             };
             materialize_call_arg_to_reg(value, reg, out);
         }
+    }
+}
+
+fn pure_ax_byte_schedule_supported(args: &[PlannedCallArg], layout: &MaterializeLayout) -> bool {
+    let [first, second] = args else {
+        return false;
+    };
+    let (
+        PlannedCallArg::Expr {
+            expr: first_expr,
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::A),
+        },
+        PlannedCallArg::Expr {
+            expr: second_expr,
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::X),
+        },
+    ) = (first, second)
+    else {
+        return false;
+    };
+    linear_byte_expr_parts(first_expr, layout).is_some()
+        && linear_byte_expr_parts(second_expr, layout).is_some()
+}
+
+fn linear_byte_expr_parts(
+    expr: &CallArgExpr,
+    layout: &MaterializeLayout,
+) -> Option<(MirValue, Vec<(MirBinaryOp, MirValue)>)> {
+    match expr {
+        CallArgExpr::Binary {
+            op: op @ (MirBinaryOp::Add | MirBinaryOp::Sub),
+            left,
+            right,
+            width: MirWidth::Byte,
+        } => {
+            let (initial, mut tail) = linear_byte_expr_parts(left, layout)?;
+            tail.push((*op, stable_byte_expr_leaf(right, layout)?));
+            Some((initial, tail))
+        }
+        _ => Some((stable_byte_expr_leaf(expr, layout)?, Vec::new())),
+    }
+}
+
+fn stable_byte_expr_leaf(expr: &CallArgExpr, layout: &MaterializeLayout) -> Option<MirValue> {
+    let CallArgExpr::Value {
+        value,
+        width: MirWidth::Byte,
+    } = expr
+    else {
+        return None;
+    };
+    match value {
+        MirValue::ConstU8(_) => Some(value.clone()),
+        MirValue::PointerCell(mem) if layout.mem_allows_pure_read_reordering(mem) => {
+            Some(value.clone())
+        }
+        _ => None,
     }
 }
 

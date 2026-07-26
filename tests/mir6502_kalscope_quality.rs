@@ -60,12 +60,14 @@ fn kalscope_exposes_the_expected_codegen_baseline() {
         16,
         "{formatted}"
     );
+    assert!(!formatted.contains("spill sp78"), "{formatted}");
+    assert!(!formatted.contains("spill sp86"), "{formatted}");
 
     let output =
         mir6502::generate_output(&nir_program, CODE_ORIGIN).expect("emit KALSCOPE MIR6502");
     assert!(
-        output.bytes.len() <= 3_517,
-        "expected KALSCOPE MIR6502 output no larger than 3517 bytes, got {}",
+        output.bytes.len() <= 3_419,
+        "expected KALSCOPE MIR6502 output no larger than 3419 bytes, got {}",
         output.bytes.len()
     );
 }

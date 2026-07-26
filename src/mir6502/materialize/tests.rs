@@ -20134,6 +20134,113 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
     assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(22))));
 }
 
+#[test]
+fn call_arg_expr_schedules_pure_linear_x_before_a_without_homes() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let load = |temp, local| MirOp::Load {
+        dst: MirDef::VTemp(MirTempId(temp)),
+        src: MirAddr::Direct(MirMem::Local {
+            id: LocalId(local),
+            offset: 0,
+        }),
+        width: MirWidth::Byte,
+    };
+    let binary = |temp, op, left, right| MirOp::Binary {
+        op,
+        dst: MirDef::VTemp(MirTempId(temp)),
+        left,
+        right,
+        width: MirWidth::Byte,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    };
+    let ops = vec![
+        load(0, 0),
+        binary(
+            1,
+            MirBinaryOp::Add,
+            MirValue::ConstU8(127),
+            MirValue::Def(MirDef::VTemp(MirTempId(0))),
+        ),
+        load(2, 1),
+        binary(
+            3,
+            MirBinaryOp::Sub,
+            MirValue::Def(MirDef::VTemp(MirTempId(1))),
+            MirValue::Def(MirDef::VTemp(MirTempId(2))),
+        ),
+        load(4, 2),
+        binary(
+            5,
+            MirBinaryOp::Add,
+            MirValue::ConstU8(127),
+            MirValue::Def(MirDef::VTemp(MirTempId(4))),
+        ),
+        load(6, 3),
+        binary(
+            7,
+            MirBinaryOp::Sub,
+            MirValue::Def(MirDef::VTemp(MirTempId(5))),
+            MirValue::Def(MirDef::VTemp(MirTempId(6))),
+        ),
+        MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(1)),
+            abi: MirCallAbi {
+                params: vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)],
+                result: None,
+                clobbers: MirRegisterSet::default(),
+                preserves: MirRegisterSet::default(),
+            },
+            args: vec![
+                MirCallArg {
+                    value: MirValue::Def(MirDef::VTemp(MirTempId(3))),
+                    width: MirWidth::Byte,
+                    home: MirArgHome::Reg(MirReg::A),
+                },
+                MirCallArg {
+                    value: MirValue::Def(MirDef::VTemp(MirTempId(7))),
+                    width: MirWidth::Byte,
+                    home: MirArgHome::Reg(MirReg::X),
+                },
+            ],
+            result: None,
+            effects: MirEffects::default(),
+        },
+    ];
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::optimized(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(result.consumed, ops.len());
+    assert_eq!(result.pure_ax_byte_schedule, 1);
+    assert!(helpers.is_empty());
+    assert!(out.iter().all(|op| !matches!(op, MirOp::Store { .. })));
+    let x_move = out
+        .iter()
+        .position(|op| {
+            matches!(
+                op,
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::X),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                }
+            )
+        })
+        .expect("X expression must finish in X");
+    assert_eq!(x_move, 3, "{out:#?}");
+    assert!(matches!(out.last(), Some(MirOp::Call { .. })));
+}
+
 fn byte_binary_call_arg_ops(right: MirMem) -> Vec<MirOp> {
     vec![
         MirOp::Load {

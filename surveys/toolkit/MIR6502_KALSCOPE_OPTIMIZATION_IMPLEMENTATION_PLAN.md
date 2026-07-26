@@ -1,6 +1,6 @@
 # MIR6502 KALSCOPE Optimization Implementation Plan
 
-Status: in progress; Slices 0-2 complete
+Status: in progress; Slices 0-3 complete
 
 Date: 2026-07-26
 
@@ -254,6 +254,8 @@ Result:
 
 ### Slice 3: Schedule pure two-byte Action call expressions
 
+Status: complete.
+
 - Recognize calls with byte arguments assigned to A and X.
 - Prove both expressions pure, independent, and stable.
 - Emit the X expression first, move its result to X, then emit the A
@@ -270,6 +272,20 @@ Implemented coverage:
   `$0600..$060A` and the `$A5` completion signature at `$0610`.
 - `mir6502_kalscope_quality` locks the current KALSCOPE baseline and the twelve
   pure two-byte call sites without constraining future instruction selection.
+
+Result:
+
+- Extended the existing pre-home call-expression selector to retain pure
+  left-linear byte `ADD`/`SUB` trees until their A/X destinations are known.
+- The selector schedules the X tree first, transfers it to X, then evaluates
+  the A tree without a transient home.
+- Stable compiler storage and zero-page RAM are accepted through the shared
+  pure-read reordering query. Calls, indirect reads, high absolute addresses,
+  hardware, and other unstable leaves remain rejected.
+- KALSCOPE selects twelve pure A/X schedules and removes the two remaining
+  call-cluster RAM spill pairs.
+- MIR6502 output fell from 3,517 to 3,419 bytes, reducing the classic deficit
+  from 199 to 101 bytes.
 
 ### Slice 4: Materialize direct indirect-store values late
 
