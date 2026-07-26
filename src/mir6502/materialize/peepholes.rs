@@ -159,6 +159,36 @@ pub(in crate::mir6502) fn discover_rhs_and_adjacent_reloads(
             {
                 plans.push(plan);
             }
+            if let Some((consumed, replacement)) =
+                word_chain_entry_placement_shape_at(&block.ops, index, routine.id, layout)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "word-chain-entry-placement",
+                    4,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some((consumed, replacement)) =
+                word_chain_exit_placement_shape_at(&block.ops, index, routine.id, layout)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "word-chain-exit-placement",
+                    5,
+                )
+            {
+                plans.push(plan);
+            }
         }
     }
     plans
@@ -3316,6 +3346,243 @@ fn pure_move_value(value: &MirValue) -> bool {
         | MirValue::RoutineAddr(_)
         | MirValue::RoutineAddrByte { .. }
         | MirValue::StorageAddrByte { .. } => true,
+    }
+}
+
+fn word_chain_entry_placement_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    let source_lo = load_a_direct_byte(ops.get(index)?)?;
+    let accumulator_lo = store_a_direct_byte(ops.get(index + 1)?)?;
+    let source_hi = load_a_direct_byte(ops.get(index + 2)?)?;
+    let accumulator_hi = store_a_direct_byte(ops.get(index + 3)?)?;
+    if source_hi != offset_mem(&source_lo, 1)
+        || !word_chain_private_lane_pair(&accumulator_lo, &accumulator_hi)
+        || !layout.mem_allows_deferred_direct_read(&source_lo)
+        || !layout.mem_allows_deferred_direct_read(&source_hi)
+        || mems_may_resolve_same_byte(&source_lo, &accumulator_lo, routine_id, layout)
+        || mems_may_resolve_same_byte(&source_lo, &accumulator_hi, routine_id, layout)
+        || mems_may_resolve_same_byte(&source_hi, &accumulator_lo, routine_id, layout)
+        || mems_may_resolve_same_byte(&source_hi, &accumulator_hi, routine_id, layout)
+    {
+        return None;
+    }
+    if load_a_direct_byte(ops.get(index + 4)?)? != accumulator_lo
+        || store_a_direct_byte(ops.get(index + 6)?)? != accumulator_lo
+        || load_a_direct_byte(ops.get(index + 7)?)? != accumulator_hi
+        || store_a_direct_byte(ops.get(index + 9)?)? != accumulator_hi
+    {
+        return None;
+    }
+    let (op, low_right) =
+        word_chain_binary_lane(ops.get(index + 5)?, MirCarryIn::Clear, MirCarryOut::Produce)
+            .or_else(|| {
+                word_chain_binary_lane(ops.get(index + 5)?, MirCarryIn::Set, MirCarryOut::Produce)
+            })?;
+    let expected_carry = match op {
+        MirBinaryOp::Add => MirCarryIn::Clear,
+        MirBinaryOp::Sub => MirCarryIn::Set,
+        _ => return None,
+    };
+    if !matches!(
+        ops.get(index + 5)?,
+        MirOp::Binary {
+            carry_in: Some(carry),
+            ..
+        } if *carry == expected_carry
+    ) {
+        return None;
+    }
+    let (high_op, high_right) = word_chain_binary_lane(
+        ops.get(index + 8)?,
+        MirCarryIn::FromPrevious,
+        MirCarryOut::Ignore,
+    )?;
+    if high_op != op
+        || !word_chain_rhs_allows_deferred_read(low_right, layout)
+        || !word_chain_rhs_allows_deferred_read(high_right, layout)
+        || op_reads_mem_or_resolved_alias(ops.get(index + 5)?, &accumulator_lo, routine_id, layout)
+        || op_reads_mem_or_resolved_alias(ops.get(index + 5)?, &accumulator_hi, routine_id, layout)
+        || op_reads_mem_or_resolved_alias(ops.get(index + 8)?, &accumulator_lo, routine_id, layout)
+        || op_reads_mem_or_resolved_alias(ops.get(index + 8)?, &accumulator_hi, routine_id, layout)
+    {
+        return None;
+    }
+
+    Some((
+        10,
+        vec![
+            ops[index].clone(),
+            ops[index + 5].clone(),
+            ops[index + 6].clone(),
+            ops[index + 2].clone(),
+            ops[index + 8].clone(),
+            ops[index + 9].clone(),
+        ],
+    ))
+}
+
+fn word_chain_exit_placement_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    let accumulator_lo = load_a_direct_byte(ops.get(index)?)?;
+    let accumulator_hi = load_a_direct_byte(ops.get(index + 3)?)?;
+    if !word_chain_private_lane_pair(&accumulator_lo, &accumulator_hi)
+        || store_a_direct_byte(ops.get(index + 2)?)? != accumulator_lo
+        || store_a_direct_byte(ops.get(index + 5)?)? != accumulator_hi
+        || load_a_direct_byte(ops.get(index + 6)?)? != accumulator_lo
+        || load_a_direct_byte(ops.get(index + 8)?)? != accumulator_hi
+        || load_a_direct_byte(ops.get(index + 10)?)? != accumulator_lo
+        || store_a_direct_byte(ops.get(index + 12)?)? != accumulator_lo
+        || load_a_direct_byte(ops.get(index + 13)?)? != accumulator_hi
+        || store_a_direct_byte(ops.get(index + 15)?)? != accumulator_hi
+    {
+        return None;
+    }
+    let target_lo = store_a_direct_byte(ops.get(index + 7)?)?;
+    let target_hi = store_a_direct_byte(ops.get(index + 9)?)?;
+    if target_hi != offset_mem(&target_lo, 1)
+        || !layout.mem_allows_word_lane_store_reordering(&target_lo)
+        || !layout.mem_allows_word_lane_store_reordering(&target_hi)
+        || mems_may_resolve_same_byte(&target_lo, &accumulator_lo, routine_id, layout)
+        || mems_may_resolve_same_byte(&target_lo, &accumulator_hi, routine_id, layout)
+        || mems_may_resolve_same_byte(&target_hi, &accumulator_lo, routine_id, layout)
+        || mems_may_resolve_same_byte(&target_hi, &accumulator_hi, routine_id, layout)
+    {
+        return None;
+    }
+    let (final_op, final_low_right) = word_chain_first_binary_lane(ops.get(index + 1)?)?;
+    let (final_high_op, final_high_right) = word_chain_binary_lane(
+        ops.get(index + 4)?,
+        MirCarryIn::FromPrevious,
+        MirCarryOut::Ignore,
+    )?;
+    let (next_op, next_low_right) = word_chain_first_binary_lane(ops.get(index + 11)?)?;
+    let (next_high_op, next_high_right) = word_chain_binary_lane(
+        ops.get(index + 14)?,
+        MirCarryIn::FromPrevious,
+        MirCarryOut::Ignore,
+    )?;
+    if final_high_op != final_op
+        || next_high_op != next_op
+        || !word_chain_rhs_allows_deferred_read(final_low_right, layout)
+        || !word_chain_rhs_allows_deferred_read(final_high_right, layout)
+        || !word_chain_rhs_allows_deferred_read(next_low_right, layout)
+        || !word_chain_rhs_allows_deferred_read(next_high_right, layout)
+        || [ops.get(index + 1)?, ops.get(index + 4)?].iter().any(|op| {
+            op_reads_mem_or_resolved_alias(op, &target_lo, routine_id, layout)
+                || op_reads_mem_or_resolved_alias(op, &target_hi, routine_id, layout)
+        })
+        || [ops.get(index + 11)?, ops.get(index + 14)?]
+            .iter()
+            .any(|op| {
+                op_reads_mem_or_resolved_alias(op, &accumulator_lo, routine_id, layout)
+                    || op_reads_mem_or_resolved_alias(op, &accumulator_hi, routine_id, layout)
+            })
+    {
+        return None;
+    }
+
+    let next_low_load = MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(target_lo),
+        width: MirWidth::Byte,
+    };
+    let next_high_load = MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(target_hi),
+        width: MirWidth::Byte,
+    };
+    Some((
+        16,
+        vec![
+            ops[index].clone(),
+            ops[index + 1].clone(),
+            ops[index + 7].clone(),
+            ops[index + 3].clone(),
+            ops[index + 4].clone(),
+            ops[index + 9].clone(),
+            next_low_load,
+            ops[index + 11].clone(),
+            ops[index + 12].clone(),
+            next_high_load,
+            ops[index + 14].clone(),
+            ops[index + 15].clone(),
+        ],
+    ))
+}
+
+fn word_chain_first_binary_lane(op: &MirOp) -> Option<(MirBinaryOp, &MirValue)> {
+    if let Some((MirBinaryOp::Add, right)) =
+        word_chain_binary_lane(op, MirCarryIn::Clear, MirCarryOut::Produce)
+    {
+        return Some((MirBinaryOp::Add, right));
+    }
+    if let Some((MirBinaryOp::Sub, right)) =
+        word_chain_binary_lane(op, MirCarryIn::Set, MirCarryOut::Produce)
+    {
+        return Some((MirBinaryOp::Sub, right));
+    }
+    None
+}
+
+fn word_chain_private_lane_pair(lo: &MirMem, hi: &MirMem) -> bool {
+    matches!(
+        (lo, hi),
+        (MirMem::ZeroPage(left), MirMem::ZeroPage(right)) if left != right
+    ) || matches!(
+        (lo, hi),
+        (
+            MirMem::Spill {
+                id: left,
+                offset: left_offset
+            },
+            MirMem::Spill {
+                id: right,
+                offset: right_offset
+            }
+        ) if left != right || left_offset != right_offset
+    )
+}
+
+fn word_chain_binary_lane(
+    op: &MirOp,
+    carry_in: MirCarryIn,
+    carry_out: MirCarryOut,
+) -> Option<(MirBinaryOp, &MirValue)> {
+    let MirOp::Binary {
+        op: arithmetic_op @ (MirBinaryOp::Add | MirBinaryOp::Sub),
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right,
+        width: MirWidth::Byte,
+        carry_in: Some(actual_carry_in),
+        carry_out: actual_carry_out,
+    } = op
+    else {
+        return None;
+    };
+    (*actual_carry_in == carry_in && *actual_carry_out == carry_out)
+        .then_some((*arithmetic_op, right))
+}
+
+fn word_chain_rhs_allows_deferred_read(value: &MirValue, layout: &MaterializeLayout) -> bool {
+    match value {
+        MirValue::ConstU8(_) | MirValue::ConstU16(_) => true,
+        MirValue::PointerCell(mem) => layout.mem_allows_deferred_direct_read(mem),
+        MirValue::Def(_)
+        | MirValue::Word { .. }
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => false,
     }
 }
 

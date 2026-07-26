@@ -12857,6 +12857,268 @@ fn analyzed_pointer_placement_bypasses_dead_private_word_home() {
     );
 }
 
+fn word_chain_load(mem: MirMem) -> MirOp {
+    MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    }
+}
+
+fn word_chain_store(mem: MirMem) -> MirOp {
+    MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    }
+}
+
+fn word_chain_binary(
+    op: MirBinaryOp,
+    right: MirValue,
+    carry_in: MirCarryIn,
+    carry_out: MirCarryOut,
+) -> MirOp {
+    MirOp::Binary {
+        op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right,
+        width: MirWidth::Byte,
+        carry_in: Some(carry_in),
+        carry_out,
+    }
+}
+
+#[test]
+fn analyzed_word_chain_entry_uses_direct_first_operands() {
+    let source_lo = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let source_hi = offset_mem(&source_lo, 1);
+    let rhs_lo = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let rhs_hi = offset_mem(&rhs_lo, 1);
+    let accumulator_lo = MirMem::Spill {
+        id: MirSpillId(0),
+        offset: 0,
+    };
+    let accumulator_hi = MirMem::Spill {
+        id: MirSpillId(1),
+        offset: 0,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            word_chain_load(source_lo.clone()),
+            word_chain_store(accumulator_lo.clone()),
+            word_chain_load(source_hi.clone()),
+            word_chain_store(accumulator_hi.clone()),
+            word_chain_load(accumulator_lo.clone()),
+            word_chain_binary(
+                MirBinaryOp::Add,
+                MirValue::PointerCell(rhs_lo.clone()),
+                MirCarryIn::Clear,
+                MirCarryOut::Produce,
+            ),
+            word_chain_store(accumulator_lo.clone()),
+            word_chain_load(accumulator_hi.clone()),
+            word_chain_binary(
+                MirBinaryOp::Add,
+                MirValue::PointerCell(rhs_hi.clone()),
+                MirCarryIn::FromPrevious,
+                MirCarryOut::Ignore,
+            ),
+            word_chain_store(accumulator_hi.clone()),
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_rhs_and_adjacent_reloads(routine, context, &layout)
+        })
+        .unwrap();
+
+    assert_eq!(
+        result.applied_by_stat.get("word-chain-entry-placement"),
+        Some(&1)
+    );
+    assert_eq!(
+        routine.blocks[0].ops,
+        vec![
+            word_chain_load(source_lo),
+            word_chain_binary(
+                MirBinaryOp::Add,
+                MirValue::PointerCell(rhs_lo),
+                MirCarryIn::Clear,
+                MirCarryOut::Produce,
+            ),
+            word_chain_store(accumulator_lo),
+            word_chain_load(source_hi),
+            word_chain_binary(
+                MirBinaryOp::Add,
+                MirValue::PointerCell(rhs_hi),
+                MirCarryIn::FromPrevious,
+                MirCarryOut::Ignore,
+            ),
+            word_chain_store(accumulator_hi),
+        ]
+    );
+}
+
+#[test]
+fn analyzed_word_chain_exit_places_result_and_reloads_durable_home() {
+    let accumulator_lo = MirMem::Spill {
+        id: MirSpillId(0),
+        offset: 0,
+    };
+    let accumulator_hi = MirMem::Spill {
+        id: MirSpillId(1),
+        offset: 0,
+    };
+    let target_lo = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let target_hi = offset_mem(&target_lo, 1);
+    let rhs_lo = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let rhs_hi = offset_mem(&rhs_lo, 1);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            word_chain_load(accumulator_lo.clone()),
+            word_chain_binary(
+                MirBinaryOp::Add,
+                MirValue::ConstU8(1),
+                MirCarryIn::Clear,
+                MirCarryOut::Produce,
+            ),
+            word_chain_store(accumulator_lo.clone()),
+            word_chain_load(accumulator_hi.clone()),
+            word_chain_binary(
+                MirBinaryOp::Add,
+                MirValue::ConstU8(0),
+                MirCarryIn::FromPrevious,
+                MirCarryOut::Ignore,
+            ),
+            word_chain_store(accumulator_hi.clone()),
+            word_chain_load(accumulator_lo.clone()),
+            word_chain_store(target_lo.clone()),
+            word_chain_load(accumulator_hi.clone()),
+            word_chain_store(target_hi.clone()),
+            word_chain_load(accumulator_lo.clone()),
+            word_chain_binary(
+                MirBinaryOp::Sub,
+                MirValue::PointerCell(rhs_lo.clone()),
+                MirCarryIn::Set,
+                MirCarryOut::Produce,
+            ),
+            word_chain_store(accumulator_lo.clone()),
+            word_chain_load(accumulator_hi.clone()),
+            word_chain_binary(
+                MirBinaryOp::Sub,
+                MirValue::PointerCell(rhs_hi.clone()),
+                MirCarryIn::FromPrevious,
+                MirCarryOut::Ignore,
+            ),
+            word_chain_store(accumulator_hi.clone()),
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_rhs_and_adjacent_reloads(routine, context, &layout)
+        })
+        .unwrap();
+
+    assert_eq!(
+        result.applied_by_stat.get("word-chain-exit-placement"),
+        Some(&1)
+    );
+    assert_eq!(routine.blocks[0].ops.len(), 12);
+    assert_eq!(
+        routine.blocks[0].ops[2],
+        word_chain_store(target_lo.clone())
+    );
+    assert_eq!(
+        routine.blocks[0].ops[5],
+        word_chain_store(target_hi.clone())
+    );
+    assert_eq!(routine.blocks[0].ops[6], word_chain_load(target_lo));
+    assert_eq!(routine.blocks[0].ops[9], word_chain_load(target_hi));
+}
+
+#[test]
+fn analyzed_word_chain_placement_rejects_accumulator_aliases() {
+    let accumulator_lo = MirMem::Spill {
+        id: MirSpillId(0),
+        offset: 0,
+    };
+    let accumulator_hi = MirMem::Spill {
+        id: MirSpillId(1),
+        offset: 0,
+    };
+    let source_lo = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            word_chain_load(source_lo.clone()),
+            word_chain_store(accumulator_lo.clone()),
+            word_chain_load(offset_mem(&source_lo, 1)),
+            word_chain_store(accumulator_hi.clone()),
+            word_chain_load(accumulator_lo.clone()),
+            word_chain_binary(
+                MirBinaryOp::Add,
+                MirValue::PointerCell(accumulator_lo.clone()),
+                MirCarryIn::Clear,
+                MirCarryOut::Produce,
+            ),
+            word_chain_store(accumulator_lo),
+            word_chain_load(accumulator_hi.clone()),
+            word_chain_binary(
+                MirBinaryOp::Add,
+                MirValue::PointerCell(accumulator_hi.clone()),
+                MirCarryIn::FromPrevious,
+                MirCarryOut::Ignore,
+            ),
+            word_chain_store(accumulator_hi),
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_rhs_and_adjacent_reloads(routine, context, &layout)
+        })
+        .unwrap();
+
+    assert!(
+        !result
+            .applied_by_stat
+            .contains_key("word-chain-entry-placement")
+    );
+}
+
 #[test]
 fn analyzed_byte_destination_forward_places_value_in_fixed_abi_home() {
     let scratch = MirMem::Spill {

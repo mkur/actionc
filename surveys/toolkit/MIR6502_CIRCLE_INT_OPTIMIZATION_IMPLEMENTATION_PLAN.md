@@ -1,6 +1,6 @@
 # MIR6502 CIRCLE INT Optimization Implementation Plan
 
-Status: in progress; Slices 0 and 1 complete
+Status: in progress; Slices 0 through 2 complete
 
 Date: 2026-07-26
 
@@ -460,6 +460,23 @@ mir6502: use direct memory operands for arithmetic call args
   borrow, `$7FFF`, and `$8000` cases.
 - Chains with multiple uses, observed carry/flags, volatile operands, or
   barriers are rejected.
+
+### Implemented result
+
+Two post-home transactional placements use the shared home-definition
+liveness proof:
+
+- the first word operation reads its stable direct operands into A and writes
+  the transient pair only after arithmetic;
+- the last operation writes the durable destination directly, then the next
+  chain reloads that durable value instead of an obsolete transient copy.
+
+Both rewrites reject scratch aliases, nonordinary deferred reads, and
+observable destination-store reordering. CIRCLE1 falls from 682 to 668 bytes
+and CIRCLE2 from 962 to 948 bytes, closing the expected 14-byte chain gap.
+The same general rewrite reduces SORTDM1 from 3289 to 3277 bytes; its VM gate
+passes. ALLOCATE remains 876 bytes, TN remains 9941 bytes, and the CIRCLE INT
+VM oracle passes.
 
 Suggested commit:
 
