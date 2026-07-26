@@ -4,9 +4,11 @@ use super::peepholes::private_scratch_store_removal_is_safe_after;
 use super::temps::temp_def_spill;
 use super::*;
 use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte, classify_op};
+use crate::mir6502::analysis::home_liveness::MirHomeLiveness;
+use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
-    MirAddr, MirBlock, MirBlockId, MirCallTarget, MirDef, MirMem, MirOp, MirRegisterSet,
-    MirRoutine, MirSpillId, MirTerminator, MirValue, MirZpSlot, RoutineId,
+    MirAddr, MirBlock, MirBlockId, MirCallTarget, MirDef, MirFixedZpSlot, MirMem, MirOp,
+    MirRegisterSet, MirRoutine, MirSpillId, MirTerminator, MirValue, MirZpSlot, RoutineId,
 };
 use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContext};
 use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
@@ -1196,6 +1198,343 @@ pub(super) fn prune_unused_spills(routine: &mut MirRoutine) {
         collect_terminator_spills(&block.terminator, &mut used);
     }
     routine.frame.spills.retain(|spill| used.contains(spill));
+}
+
+/// Reuse an existing, dead private zero-page pair for an earlier known-call
+/// word result which must survive a later call.
+///
+/// This is deliberately narrower than general spill promotion. The source
+/// pair must be the public word-result slots copied immediately after a known
+/// routine call, and every call crossed by either lane must have an exact
+/// fixed-pair preservation proof. Unknown calls, machine blocks, and opaque
+/// writes retain the ordinary RAM spill homes.
+pub(super) fn lower_known_call_result_spills_to_reused_zero_page(
+    program: &mut MirProgram,
+    known_callees: &MirKnownCalleeSummaries,
+) -> BTreeMap<RoutineId, BTreeMap<MirSpillId, MirZpSlot>> {
+    let mut remaps = BTreeMap::new();
+    for routine in &mut program.routines {
+        let Ok(cfg) = MirCfg::from_routine(routine) else {
+            continue;
+        };
+        let liveness = MirHomeLiveness::analyze(routine, &cfg);
+        let result_pairs = known_call_result_spill_pairs(routine, known_callees);
+        if result_pairs.is_empty() {
+            continue;
+        }
+        let zero_page_pairs = allocated_private_zero_page_pairs(routine);
+        let mut routine_remap = BTreeMap::new();
+        let mut claimed_slots = BTreeSet::new();
+
+        for [spill_lo, spill_hi] in result_pairs {
+            let spill_lo_home = MirHomeByte::Spill {
+                id: spill_lo,
+                offset: 0,
+            };
+            let spill_hi_home = MirHomeByte::Spill {
+                id: spill_hi,
+                offset: 0,
+            };
+            let Some((zp_lo, zp_hi, _fixed_lo)) =
+                zero_page_pairs
+                    .iter()
+                    .copied()
+                    .find(|(zp_lo, zp_hi, fixed_lo)| {
+                        !claimed_slots.contains(zp_lo)
+                            && !claimed_slots.contains(zp_hi)
+                            && !homes_interfere(
+                                routine,
+                                &liveness,
+                                spill_lo_home,
+                                MirHomeByte::VirtualZeroPage(*zp_lo),
+                            )
+                            && !homes_interfere(
+                                routine,
+                                &liveness,
+                                spill_hi_home,
+                                MirHomeByte::VirtualZeroPage(*zp_hi),
+                            )
+                            && live_range_preserves_fixed_pair(
+                                routine,
+                                &liveness,
+                                [spill_lo_home, spill_hi_home],
+                                *fixed_lo,
+                                known_callees,
+                            )
+                    })
+            else {
+                continue;
+            };
+
+            claimed_slots.insert(zp_lo);
+            claimed_slots.insert(zp_hi);
+            routine_remap.insert(spill_lo, zp_lo);
+            routine_remap.insert(spill_hi, zp_hi);
+        }
+
+        if routine_remap.is_empty() {
+            continue;
+        }
+        for block in &mut routine.blocks {
+            for op in &mut block.ops {
+                remap_op_spills_to_zero_page(op, &routine_remap);
+            }
+            remap_terminator_spills_to_zero_page(&mut block.terminator, &routine_remap);
+        }
+        prune_unused_spills(routine);
+        remaps.insert(routine.id, routine_remap);
+    }
+    remaps
+}
+
+fn known_call_result_spill_pairs(
+    routine: &MirRoutine,
+    known_callees: &MirKnownCalleeSummaries,
+) -> Vec<[MirSpillId; 2]> {
+    let mut pairs = Vec::new();
+    for block in &routine.blocks {
+        for (index, op) in block.ops.iter().enumerate() {
+            let MirOp::Call { target, .. } = op else {
+                continue;
+            };
+            if known_callees.for_target(target).is_none() {
+                continue;
+            }
+            let mut lanes = [None, None];
+            let mut cursor = index + 1;
+            let end = block.ops.len().min(index.saturating_add(8));
+            while cursor < end {
+                if let Some((lane, spill)) = copied_return_slot_to_spill(&block.ops, cursor) {
+                    lanes[usize::from(lane)] = Some(spill);
+                    cursor += 2;
+                    continue;
+                }
+                if block
+                    .ops
+                    .get(cursor)
+                    .and_then(store_a_direct_mem)
+                    .is_some_and(|mem| matches!(mem, MirMem::FixedZeroPage(_)))
+                {
+                    cursor += 1;
+                    continue;
+                }
+                break;
+            }
+            let [Some(lo), Some(hi)] = lanes else {
+                continue;
+            };
+            if lo == hi
+                || !spill_uses_zero_offset_only(routine, lo)
+                || !spill_uses_zero_offset_only(routine, hi)
+                || spill_write_count(routine, lo) != 1
+                || spill_write_count(routine, hi) != 1
+                || spill_read_count(routine, lo) == 0
+                || spill_read_count(routine, hi) == 0
+            {
+                continue;
+            }
+            let pair = [lo, hi];
+            if !pairs.contains(&pair) {
+                pairs.push(pair);
+            }
+        }
+    }
+    pairs
+}
+
+fn copied_return_slot_to_spill(ops: &[MirOp], index: usize) -> Option<(u8, MirSpillId)> {
+    let source = load_a_direct_mem(ops.get(index)?)?;
+    let lane = match source {
+        MirMem::FixedZeroPage(MirFixedZpSlot(0xA0)) => 0,
+        MirMem::FixedZeroPage(MirFixedZpSlot(0xA1)) => 1,
+        _ => return None,
+    };
+    let destination = store_a_direct_mem(ops.get(index + 1)?)?;
+    let MirMem::Spill { id, offset: 0 } = destination else {
+        return None;
+    };
+    Some((lane, id))
+}
+
+fn load_a_direct_mem(op: &MirOp) -> Option<MirMem> {
+    let MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    } = op
+    else {
+        return None;
+    };
+    Some(mem.clone())
+}
+
+fn store_a_direct_mem(op: &MirOp) -> Option<MirMem> {
+    let MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    } = op
+    else {
+        return None;
+    };
+    Some(mem.clone())
+}
+
+fn spill_write_count(routine: &MirRoutine, spill: MirSpillId) -> usize {
+    routine
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter(|op| op_write_spills(op).contains(&spill))
+        .count()
+}
+
+fn spill_read_count(routine: &MirRoutine, spill: MirSpillId) -> usize {
+    routine
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter(|op| op_read_spills(op).contains(&spill))
+        .count()
+}
+
+fn allocated_private_zero_page_pairs(
+    routine: &MirRoutine,
+) -> Vec<(MirZpSlot, MirZpSlot, MirFixedZpSlot)> {
+    let mut allocations = routine
+        .frame
+        .zero_page_allocations
+        .iter()
+        .filter(|allocation| allocation.size == 1)
+        .collect::<Vec<_>>();
+    allocations.sort_by_key(|allocation| allocation.start);
+    let mut pairs = Vec::new();
+    for left in &allocations {
+        for right in &allocations {
+            if right.start.0 == left.start.0.saturating_add(1) {
+                pairs.push((left.slot, right.slot, left.start));
+            }
+        }
+    }
+    pairs
+}
+
+fn homes_interfere(
+    routine: &MirRoutine,
+    liveness: &MirHomeLiveness,
+    left: MirHomeByte,
+    right: MirHomeByte,
+) -> bool {
+    for block in &routine.blocks {
+        for (op_index, op) in block.ops.iter().enumerate() {
+            let effects = classify_op(op);
+            let site = MirSite::Op {
+                block: block.id,
+                op_index,
+            };
+            if effect_writes_home(&effects, left) && liveness.live_after(right, site) != Ok(false) {
+                return true;
+            }
+            if effect_writes_home(&effects, right) && liveness.live_after(left, site) != Ok(false) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn effect_writes_home(
+    effects: &crate::mir6502::analysis::effects::MirOpEffectSummary,
+    home: MirHomeByte,
+) -> bool {
+    effects.homes.writes.contains(&home) || effects.addresses.pair_writes.contains(&home)
+}
+
+fn live_range_preserves_fixed_pair(
+    routine: &MirRoutine,
+    liveness: &MirHomeLiveness,
+    spills: [MirHomeByte; 2],
+    fixed_lo: MirFixedZpSlot,
+    known_callees: &MirKnownCalleeSummaries,
+) -> bool {
+    for block in &routine.blocks {
+        for (op_index, op) in block.ops.iter().enumerate() {
+            let site = MirSite::Op {
+                block: block.id,
+                op_index,
+            };
+            let live_after = spills
+                .iter()
+                .any(|spill| liveness.live_after(*spill, site) != Ok(false));
+            if !live_after {
+                continue;
+            }
+            match op {
+                MirOp::Call { target, .. } => {
+                    if !known_callees
+                        .for_target(target)
+                        .is_some_and(|summary| summary.preserves_fixed_pair(fixed_lo))
+                    {
+                        return false;
+                    }
+                }
+                MirOp::RuntimeHelper { .. }
+                | MirOp::MachineBlock { .. }
+                | MirOp::Barrier { .. } => return false,
+                _ if op_may_write_fixed_pair(op, fixed_lo) => return false,
+                _ => {}
+            }
+        }
+    }
+    true
+}
+
+fn op_may_write_fixed_pair(op: &MirOp, fixed_lo: MirFixedZpSlot) -> bool {
+    let fixed_hi = MirFixedZpSlot(fixed_lo.0.saturating_add(1));
+    let effects = classify_op(op);
+    if effects.memory.indirect_writes
+        || effects.memory.opaque
+        || effects.memory.may_write_any
+        || effects.memory.has_unknown_effects
+        || effects.homes.unknown_writes
+    {
+        return true;
+    }
+    if effects
+        .homes
+        .writes
+        .iter()
+        .chain(effects.addresses.pair_writes.iter())
+        .any(|home| {
+            matches!(
+                home,
+                MirHomeByte::FixedZeroPage(slot)
+                    if *slot == fixed_lo || *slot == fixed_hi
+            )
+        })
+    {
+        return true;
+    }
+    effects.memory.direct_writes.iter().any(|range| {
+        (0..range.bytes).any(|offset| {
+            let address = match &range.base {
+                MirMem::Absolute(address) => Some(address.saturating_add(offset)),
+                MirMem::FixedZeroPage(slot) => Some(u16::from(slot.0).saturating_add(offset)),
+                // Named source globals can resolve to fixed zero page. The
+                // allocator normally reserves those bytes, but retain the
+                // conservative answer here because this proof is physical.
+                MirMem::Global { .. } => return true,
+                MirMem::Static { .. }
+                | MirMem::Local { .. }
+                | MirMem::Param { .. }
+                | MirMem::Spill { .. }
+                | MirMem::ZeroPage(_) => None,
+            };
+            address.is_some_and(|address| {
+                address == u16::from(fixed_lo.0) || address == u16::from(fixed_hi.0)
+            })
+        })
+    })
 }
 
 pub(super) fn lower_block_local_byte_spills_to_zero_page(

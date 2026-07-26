@@ -1,6 +1,6 @@
 # MIR6502 CIRCLE INT Optimization Implementation Plan
 
-Status: in progress; Slices 0 through 4 complete
+Status: in progress; Slices 0 through 5 complete
 
 Date: 2026-07-26
 
@@ -638,6 +638,27 @@ for approximately 12-20 total bytes.
 - The second result is consumed from `$A0/$A1`, not copied merely to create a
   temp identity.
 - Unknown calls and callees that may touch the private home block the rewrite.
+
+### Implemented result
+
+The post-home storage workflow now assigns block-local zero-page lanes before
+attempting cross-call result preservation. It recognizes only word results
+copied from `$A0/$A1` immediately after a known routine call, proves that the
+candidate pair does not interfere with an existing private zero-page pair,
+and requires every crossed call to preserve the pair's resolved physical
+addresses. Unknown calls, runtime helpers, machine blocks, opaque writes, and
+callees that use either byte reject the placement.
+
+Known-callee write summaries now resolve allocated virtual zero-page writes to
+their physical addresses. Unallocated virtual writes conservatively block
+fixed-pair preservation, so the new proof cannot mistake a callee-private
+logical slot for a caller-private physical byte.
+
+In CIRCLE, the earlier `Abs` result reuses `Circle`'s dead `$E0/$E1` arithmetic
+pair. The later result remains in `$A0/$A1` through the direct comparison.
+CIRCLE1 falls from 618 to 612 bytes and CIRCLE2 from 898 to 892 bytes. Both now
+have zero RAM spill cells and zero spill accesses; CIRCLE1 is 13 bytes smaller
+than modern/classic, while CIRCLE2 is 3 bytes larger.
 
 Suggested commit:
 

@@ -4,6 +4,7 @@ use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{
     MirBlock, MirCallResult, MirEdge, MirGlobal, MirGlobalBacking, MirMachineBlock,
     MirMachineBlockId, MirRegisterSet, MirStatic, MirStorageBacking, MirStorageInit, MirTemp,
+    MirZpAllocation,
 };
 use crate::mir6502::passes::MirPeepholeReportMode;
 use crate::mir6502::rewrite::context::{PostHomeRewriteContext, PreHomeRewriteContext};
@@ -86,6 +87,182 @@ fn txa_direct_store_fold_keeps_txa_when_accumulator_is_live() {
     let context = PostHomeRewriteContext::new(&snapshot);
 
     assert!(peepholes::discover_txa_direct_store_folds(&routine, &context).is_empty());
+}
+
+#[test]
+fn known_call_result_pair_reuses_dead_private_zero_page() {
+    let mut program = known_call_result_reuse_program(false, false);
+    let summaries = MirKnownCalleeSummaries::analyze(&program);
+
+    let remaps = lower_known_call_result_spills_to_reused_zero_page(&mut program, &summaries);
+
+    assert_eq!(
+        remaps.get(&RoutineId(0)),
+        Some(&BTreeMap::from([
+            (MirSpillId(0), MirZpSlot(0)),
+            (MirSpillId(1), MirZpSlot(1)),
+        ]))
+    );
+    assert!(program.routines[0].frame.spills.is_empty());
+    let formatted = crate::mir6502::format_program(&program);
+    assert!(!formatted.contains("spill sp"), "{formatted}");
+    assert!(formatted.contains("store.b zp0, a"), "{formatted}");
+    assert!(formatted.contains("store.b zp1, a"), "{formatted}");
+}
+
+#[test]
+fn known_call_result_pair_keeps_ram_when_callee_clobbers_private_zero_page() {
+    let mut program = known_call_result_reuse_program(true, false);
+    let summaries = MirKnownCalleeSummaries::analyze(&program);
+
+    let remaps = lower_known_call_result_spills_to_reused_zero_page(&mut program, &summaries);
+
+    assert!(remaps.is_empty());
+    assert_eq!(
+        program.routines[0].frame.spills,
+        vec![MirSpillId(0), MirSpillId(1)]
+    );
+}
+
+#[test]
+fn known_call_result_pair_keeps_ram_across_unknown_call() {
+    let mut program = known_call_result_reuse_program(false, true);
+    let summaries = MirKnownCalleeSummaries::analyze(&program);
+
+    let remaps = lower_known_call_result_spills_to_reused_zero_page(&mut program, &summaries);
+
+    assert!(remaps.is_empty());
+}
+
+fn known_call_result_reuse_program(
+    callee_clobbers_private_zp: bool,
+    unknown_crossed_call: bool,
+) -> MirProgram {
+    let call = |target| MirOp::Call {
+        target,
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: Some(MirResultHome::ReturnSlot { offset: 0 }),
+            clobbers: MirRegisterSet {
+                a: true,
+                x: true,
+                y: true,
+                ..MirRegisterSet::default()
+            },
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: None,
+        effects: MirEffects::default(),
+    };
+    let load = |mem| MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    };
+    let store = |mem| MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let caller = MirRoutine {
+        id: RoutineId(0),
+        name: "caller".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame {
+            spills: vec![MirSpillId(0), MirSpillId(1)],
+            virtual_zero_page: vec![MirZpSlot(0), MirZpSlot(1)],
+            zero_page_allocations: vec![
+                MirZpAllocation {
+                    slot: MirZpSlot(0),
+                    start: MirFixedZpSlot(0xE0),
+                    size: 1,
+                },
+                MirZpAllocation {
+                    slot: MirZpSlot(1),
+                    start: MirFixedZpSlot(0xE1),
+                    size: 1,
+                },
+            ],
+            ..MirFrame::default()
+        },
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                call(MirCallTarget::Routine(RoutineId(1))),
+                load(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                store(MirMem::Spill {
+                    id: MirSpillId(0),
+                    offset: 0,
+                }),
+                load(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1))),
+                store(MirMem::Spill {
+                    id: MirSpillId(1),
+                    offset: 0,
+                }),
+                call(if unknown_crossed_call {
+                    MirCallTarget::Builtin {
+                        name: "unknown".to_string(),
+                        address: None,
+                    }
+                } else {
+                    MirCallTarget::Routine(RoutineId(1))
+                }),
+                load(MirMem::Spill {
+                    id: MirSpillId(0),
+                    offset: 0,
+                }),
+                store(MirMem::Absolute(0x4000)),
+                load(MirMem::Spill {
+                    id: MirSpillId(1),
+                    offset: 0,
+                }),
+                store(MirMem::Absolute(0x4001)),
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+
+    let mut callee_ops = vec![
+        store(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+        store(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1))),
+    ];
+    let mut callee_frame = MirFrame::default();
+    if callee_clobbers_private_zp {
+        callee_ops.push(store(MirMem::ZeroPage(MirZpSlot(0))));
+        callee_frame.virtual_zero_page.push(MirZpSlot(0));
+        callee_frame.zero_page_allocations.push(MirZpAllocation {
+            slot: MirZpSlot(0),
+            start: MirFixedZpSlot(0xE0),
+            size: 1,
+        });
+    }
+    let callee = MirRoutine {
+        id: RoutineId(1),
+        name: "callee".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: callee_frame,
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(1),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: callee_ops,
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    MirProgram {
+        statics: Vec::new(),
+        globals: Vec::new(),
+        routines: vec![caller, callee],
+        machine_blocks: Vec::new(),
+        runtime_helpers: Vec::new(),
+    }
 }
 
 #[test]

@@ -94,6 +94,23 @@ fn circle_uses_direct_binary_call_arg_materialization() {
         2,
         "{formatted}"
     );
+    assert!(!formatted.contains("spill sp"), "{formatted}");
+    let abs_calls = formatted
+        .match_indices("call r0 args=[a.b -> a, x.b -> x]")
+        .map(|(offset, _)| offset)
+        .collect::<Vec<_>>();
+    assert_eq!(abs_calls.len(), 2, "{formatted}");
+    let preserved_result = &formatted[abs_calls[0]..abs_calls[1]];
+    assert!(
+        preserved_result.contains("a =.b load fixed_zp $A0\n  store.b zp0, a")
+            && preserved_result.contains("a =.b load fixed_zp $A1\n  store.b zp1, a"),
+        "{formatted}"
+    );
+    let latest_result = &formatted[abs_calls[1]..];
+    assert!(
+        latest_result.contains("cmp_i16_direct_5:\n  a =.b load zp0\n  a =.b a sub *fixed_zp $A0"),
+        "{formatted}"
+    );
     for obsolete in [
         "cmp_i16_left_sign_",
         "cmp_i16_right_sign_pos_",
@@ -107,8 +124,8 @@ fn circle_uses_direct_binary_call_arg_materialization() {
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     assert!(
-        output.bytes.len() <= 544,
-        "expected CIRCLE.ACT MIR6502 output no larger than 544 bytes, got {}",
+        output.bytes.len() <= 538,
+        "expected CIRCLE.ACT MIR6502 output no larger than 538 bytes, got {}",
         output.bytes.len()
     );
 }

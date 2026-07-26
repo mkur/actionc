@@ -174,7 +174,7 @@ use spills::{
 };
 use spills::{
     color_basic_block_spills, color_routine_spills, lower_block_local_byte_spills_to_zero_page,
-    prune_unused_spills,
+    lower_known_call_result_spills_to_reused_zero_page, prune_unused_spills,
 };
 #[cfg(test)]
 use ssa_lite::scan_ssa_lite_v2_observability;
@@ -1110,6 +1110,11 @@ pub(super) fn materialize_program(
     for helper in helpers {
         ensure_helper_decl(&mut program, helper);
     }
+    // Home selection may introduce virtual zero-page lanes after the initial
+    // reservation pass. Assign those lanes before building known-callee
+    // memory summaries so a callee's private scratch writes have exact
+    // physical identities for cross-call preservation proofs.
+    allocate_zero_page_slots(&mut program);
     let known_callees = MirKnownCalleeSummaries::analyze(&program);
     let layout = MaterializeLayout::new(&program, object_origin);
     for routine in &mut program.routines {
@@ -1150,6 +1155,19 @@ pub(super) fn materialize_program(
         }
     }
     allocate_zero_page_slots(&mut program);
+    let zero_page_known_callees = MirKnownCalleeSummaries::analyze(&program);
+    let reused_zero_page_remaps =
+        lower_known_call_result_spills_to_reused_zero_page(&mut program, &zero_page_known_callees);
+    for (routine, remap) in reused_zero_page_remaps {
+        peephole_stats.record_many(
+            routine,
+            "known-call-result-preserved-in-reused-zp",
+            remap.len() / 2,
+        );
+        if let Some(tracker) = home_fates.get_mut(&routine) {
+            tracker.apply_zero_page_remap(&remap);
+        }
+    }
     // Zero-page coloring can make two previously distinct logical homes the
     // same physical byte at a CFG edge. Rebuild machine-value and exact Z/N
     // provenance facts after that remap so final physical reloads can be

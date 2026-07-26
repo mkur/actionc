@@ -586,7 +586,7 @@ fn summarize_routine_writes(
     let mut writes = MirKnownMemoryWrites::exact();
     for block in &routine.blocks {
         for op in &block.ops {
-            summarize_op_writes(op, callees, &mut writes);
+            summarize_op_writes(op, routine, callees, &mut writes);
             if matches!(writes, MirKnownMemoryWrites::Unknown) {
                 return writes;
             }
@@ -597,6 +597,7 @@ fn summarize_routine_writes(
 
 fn summarize_op_writes(
     op: &MirOp,
+    routine: &MirRoutine,
     callees: &MirKnownCalleeSummaries,
     writes: &mut MirKnownMemoryWrites,
 ) {
@@ -641,14 +642,40 @@ fn summarize_op_writes(
     }
     for range in effects.memory.direct_writes {
         for offset in 0..range.bytes {
-            writes.record(offset_mem(&range.base, offset));
+            writes.record(resolve_routine_private_zero_page(
+                routine,
+                offset_mem(&range.base, offset),
+            ));
         }
     }
     for home in effects.addresses.pair_writes {
-        if let MirHomeByte::FixedZeroPage(slot) = home {
-            writes.record(MirMem::FixedZeroPage(slot));
+        match home {
+            MirHomeByte::FixedZeroPage(slot) => {
+                writes.record(MirMem::FixedZeroPage(slot));
+            }
+            MirHomeByte::VirtualZeroPage(slot) => {
+                writes.record(resolve_routine_private_zero_page(
+                    routine,
+                    MirMem::ZeroPage(slot),
+                ));
+            }
+            MirHomeByte::Spill { .. } => {}
         }
     }
+}
+
+fn resolve_routine_private_zero_page(routine: &MirRoutine, mem: MirMem) -> MirMem {
+    let MirMem::ZeroPage(slot) = mem else {
+        return mem;
+    };
+    routine
+        .frame
+        .zero_page_allocations
+        .iter()
+        .find(|allocation| allocation.slot == slot && allocation.size == 1)
+        .map_or(MirMem::ZeroPage(slot), |allocation| {
+            MirMem::FixedZeroPage(allocation.start)
+        })
 }
 
 fn summarize_structured_writes(
@@ -1460,8 +1487,12 @@ fn mem_may_alias_fixed_slot(mem: &MirMem, slot: MirFixedZpSlot) -> bool {
         MirMem::Static { .. }
         | MirMem::Local { .. }
         | MirMem::Param { .. }
-        | MirMem::Spill { .. }
-        | MirMem::ZeroPage(_) => false,
+        | MirMem::Spill { .. } => false,
+        // An unallocated virtual slot has no caller-visible address yet. Once
+        // fixed-pair preservation becomes a placement proof, treating it as
+        // non-aliasing would be unsound: a later allocation may choose any
+        // byte in the private scratch range.
+        MirMem::ZeroPage(_) => true,
     }
 }
 
@@ -1484,7 +1515,8 @@ mod tests {
     use super::*;
     use crate::mir6502::ir::{
         MirAddr, MirBlock, MirBlockId, MirCallAbi, MirDef, MirEffects, MirFrame, MirGlobal,
-        MirMachineBlockId, MirRegisterSet, MirRoutineAbi, MirValue, MirWidth,
+        MirMachineBlockId, MirRegisterSet, MirRoutineAbi, MirValue, MirWidth, MirZpAllocation,
+        MirZpSlot,
     };
 
     fn routine(id: u32, ops: Vec<MirOp>, terminator: MirTerminator) -> MirRoutine {
@@ -1691,6 +1723,32 @@ mod tests {
         assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xAC)));
         assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xE6)));
         assert!(!summary.reads().may_read_caller_private_ram());
+    }
+
+    #[test]
+    fn routine_summary_resolves_allocated_private_zero_page_writes() {
+        let slot = MirZpSlot(0);
+        let mut callee = routine(
+            0,
+            vec![MirOp::Store {
+                dst: MirAddr::Direct(MirMem::ZeroPage(slot)),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            }],
+            MirTerminator::Return,
+        );
+        callee.frame.virtual_zero_page.push(slot);
+        callee.frame.zero_page_allocations.push(MirZpAllocation {
+            slot,
+            start: MirFixedZpSlot(0xE0),
+            size: 1,
+        });
+
+        let summaries = MirKnownCalleeSummaries::analyze(&program(vec![callee], Vec::new()));
+        let summary = summaries.get(RoutineId(0)).expect("routine summary");
+
+        assert!(!summary.preserves_fixed_pair(MirFixedZpSlot(0xE0)));
+        assert!(summary.preserves_fixed_pair(MirFixedZpSlot(0xE2)));
     }
 
     #[test]
