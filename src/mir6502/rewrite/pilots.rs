@@ -458,6 +458,9 @@ pub(in crate::mir6502) fn discover_store_consumers(
                 "word-arithmetic-indirect-store-consumer" => {
                     store_consumer_plan(block.id, &block.ops, index, candidate, context)
                 }
+                "word-arithmetic-pointer-store-consumer" => {
+                    store_consumer_plan(block.id, &block.ops, index, candidate, context)
+                }
                 "byte-mul-add-sub-word-store-consumer" => {
                     byte_mul_add_sub_word_store_consumer_plan(
                         block.id, &block.ops, index, candidate, context,

@@ -3399,6 +3399,142 @@ fn word_arithmetic_indirect_store_requires_one_shared_pointer() {
     assert!(replacement.is_empty());
 }
 
+fn word_arithmetic_pointer_store_ops(pointer_use_home: LocalId) -> Vec<MirOp> {
+    vec![
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(310)),
+            src: MirAddr::Direct(MirMem::Local {
+                id: LocalId(32),
+                offset: 0,
+            }),
+            width: MirWidth::Word,
+        },
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(311)),
+            src: MirAddr::PointerCell {
+                ptr: MirMem::Local {
+                    id: LocalId(32),
+                    offset: 0,
+                },
+                offset: 0,
+            },
+            width: MirWidth::Word,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::VTemp(MirTempId(312)),
+            left: MirValue::Def(MirDef::VTemp(MirTempId(310))),
+            right: MirValue::Def(MirDef::VTemp(MirTempId(311))),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Local {
+                id: LocalId(33),
+                offset: 0,
+            }),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(312))),
+            width: MirWidth::Word,
+        },
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(313)),
+            src: MirAddr::Direct(MirMem::Param {
+                id: ParamId(0),
+                offset: 0,
+            }),
+            width: MirWidth::Word,
+        },
+        MirOp::Store {
+            dst: MirAddr::PointerCell {
+                ptr: MirMem::Local {
+                    id: pointer_use_home,
+                    offset: 0,
+                },
+                offset: 0,
+            },
+            src: MirValue::Def(MirDef::VTemp(MirTempId(313))),
+            width: MirWidth::Word,
+        },
+    ]
+}
+
+#[test]
+fn word_arithmetic_pointer_store_keeps_home_and_prepares_consumer() {
+    let ops = word_arithmetic_pointer_store_ops(LocalId(33));
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_word_arithmetic_pointer_store_consumer(&ops, 0, &mut replacement),
+        ops.len()
+    );
+    assert!(replacement.windows(2).any(|window| matches!(
+        window,
+        [
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Local {
+                    id: LocalId(33),
+                    offset: 0
+                }),
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(POINTER_SCRATCH_LO))),
+                ..
+            }
+        ]
+    )));
+    let first_indirect_store = replacement
+        .iter()
+        .position(|op| matches!(op, MirOp::StoreIndirect { .. }))
+        .expect("pointer payload store");
+    assert_eq!(
+        replacement[..first_indirect_store]
+            .iter()
+            .filter(|op| {
+                matches!(
+                    op,
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                            POINTER_INDEX_SCRATCH_LO | POINTER_INDEX_SCRATCH_HI
+                        ))),
+                        ..
+                    }
+                )
+            })
+            .count(),
+        4,
+        "both arithmetic-result and payload words are staged before pointer writes"
+    );
+    assert!(matches!(
+        &replacement[first_indirect_store..],
+        [
+            MirOp::StoreIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                offset: 0,
+                ..
+            },
+            MirOp::StoreIndirect {
+                consumer: DEFAULT_POINTER_PAIR,
+                offset: 1,
+                ..
+            }
+        ]
+    ));
+}
+
+#[test]
+fn word_arithmetic_pointer_store_requires_the_written_home_as_pointer() {
+    let ops = word_arithmetic_pointer_store_ops(LocalId(34));
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_word_arithmetic_pointer_store_consumer(&ops, 0, &mut replacement),
+        0
+    );
+    assert!(replacement.is_empty());
+}
+
 #[test]
 fn word_memory_update_commuted_add_const_uses_byte_to_word_update() {
     let program = empty_test_program();

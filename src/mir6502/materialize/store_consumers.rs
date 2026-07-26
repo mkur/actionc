@@ -15,6 +15,202 @@ use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContex
 use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
 use crate::mir6502::rewrite::posthome::structural_plan;
 
+pub(super) fn select_word_arithmetic_pointer_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let mut sources = BTreeMap::<MirTempId, WordArithmeticSource>::new();
+    let mut cursor = index;
+    loop {
+        let Some(op) = ops.get(cursor) else {
+            break;
+        };
+        let Some((temp, source)) = word_arithmetic_load_source(op) else {
+            break;
+        };
+        if sources.insert(temp, source).is_some() {
+            return 0;
+        }
+        cursor += 1;
+    }
+
+    let Some(MirOp::Binary {
+        op: arithmetic_op @ (MirBinaryOp::Add | MirBinaryOp::Sub),
+        dst: arithmetic_dst,
+        left,
+        right,
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    }) = ops.get(cursor)
+    else {
+        return 0;
+    };
+    let Some(arithmetic_temp) = split_def_as_temp(arithmetic_dst) else {
+        return 0;
+    };
+    let Some(mut left) = resolve_word_arithmetic_source(left, &sources) else {
+        return 0;
+    };
+    let Some(mut right) = resolve_word_arithmetic_source(right, &sources) else {
+        return 0;
+    };
+    cursor += 1;
+
+    let Some(MirOp::Store {
+        dst: MirAddr::Direct(pointer_home @ MirMem::Local { .. }),
+        src: MirValue::Def(MirDef::VTemp(store_temp)),
+        width: MirWidth::Word,
+    }) = ops.get(cursor)
+    else {
+        return 0;
+    };
+    if *store_temp != arithmetic_temp {
+        return 0;
+    }
+    cursor += 1;
+
+    let Some(MirOp::Load {
+        dst: payload_dst,
+        src: MirAddr::Direct(payload_mem),
+        width: MirWidth::Word,
+    }) = ops.get(cursor)
+    else {
+        return 0;
+    };
+    let Some(payload_temp) = split_def_as_temp(payload_dst) else {
+        return 0;
+    };
+    if !matches!(
+        payload_mem,
+        MirMem::Param { .. } | MirMem::Local { .. } | MirMem::Global { .. } | MirMem::Spill { .. }
+    ) {
+        return 0;
+    }
+    cursor += 1;
+
+    let Some(MirOp::Store {
+        dst: MirAddr::PointerCell { ptr, offset },
+        src: MirValue::Def(MirDef::VTemp(indirect_store_temp)),
+        width: MirWidth::Word,
+    }) = ops.get(cursor)
+    else {
+        return 0;
+    };
+    if ptr != pointer_home || *indirect_store_temp != payload_temp || *offset >= u16::from(u8::MAX)
+    {
+        return 0;
+    }
+
+    if matches!(right, WordArithmeticSource::Indirect { .. }) {
+        if *arithmetic_op != MirBinaryOp::Add
+            || matches!(left, WordArithmeticSource::Indirect { .. })
+        {
+            return 0;
+        }
+        std::mem::swap(&mut left, &mut right);
+    }
+    let WordArithmeticSource::Indirect { pointer, .. } = &left else {
+        return 0;
+    };
+    let WordArithmeticSource::Values {
+        lo: right_lo,
+        hi: right_hi,
+    } = right
+    else {
+        return 0;
+    };
+    if !word_arithmetic_byte_value_is_safe(&right_lo)
+        || !word_arithmetic_byte_value_is_safe(&right_hi)
+    {
+        return 0;
+    }
+
+    out.push(MirOp::MaterializeAddress {
+        consumer: DEFAULT_POINTER_PAIR,
+        value: pointer.clone(),
+    });
+    push_word_arithmetic_source_load(out, &left, 0, DEFAULT_POINTER_PAIR);
+    out.push(MirOp::Binary {
+        op: *arithmetic_op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: right_lo,
+        width: MirWidth::Byte,
+        carry_in: Some(match arithmetic_op {
+            MirBinaryOp::Add => MirCarryIn::Clear,
+            MirBinaryOp::Sub => MirCarryIn::Set,
+            _ => unreachable!(),
+        }),
+        carry_out: MirCarryOut::Produce,
+    });
+    out.push(store_a_to_fixed_scratch(POINTER_INDEX_SCRATCH_LO));
+    push_word_arithmetic_source_load(out, &left, 1, DEFAULT_POINTER_PAIR);
+    out.push(MirOp::Binary {
+        op: *arithmetic_op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: right_hi,
+        width: MirWidth::Byte,
+        carry_in: Some(MirCarryIn::FromPrevious),
+        carry_out: MirCarryOut::Ignore,
+    });
+    out.push(store_a_to_fixed_scratch(POINTER_INDEX_SCRATCH_HI));
+
+    for (byte, result_slot) in [(0, POINTER_INDEX_SCRATCH_LO), (1, POINTER_INDEX_SCRATCH_HI)] {
+        out.push(MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(result_slot))),
+            width: MirWidth::Byte,
+        });
+        out.push(MirOp::Store {
+            dst: MirAddr::Direct(offset_mem(pointer_home, byte)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        });
+        out.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                POINTER_SCRATCH_LO.saturating_add(byte as u8),
+            ))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        });
+    }
+
+    for (byte, result_slot) in [(0, POINTER_INDEX_SCRATCH_LO), (1, POINTER_INDEX_SCRATCH_HI)] {
+        out.push(MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::PointerCell(offset_mem(payload_mem, byte)),
+            width: MirWidth::Byte,
+        });
+        out.push(store_a_to_fixed_scratch(result_slot));
+    }
+    out.push(MirOp::StoreIndirect {
+        consumer: DEFAULT_POINTER_PAIR,
+        src: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
+            POINTER_INDEX_SCRATCH_LO,
+        ))),
+        offset: *offset,
+    });
+    out.push(MirOp::StoreIndirect {
+        consumer: DEFAULT_POINTER_PAIR,
+        src: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
+            POINTER_INDEX_SCRATCH_HI,
+        ))),
+        offset: offset.saturating_add(1),
+    });
+    cursor + 1 - index
+}
+
+fn store_a_to_fixed_scratch(slot: u8) -> MirOp {
+    MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(slot))),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    }
+}
+
 pub(super) fn select_word_arithmetic_indirect_store_consumer(
     ops: &[MirOp],
     index: usize,
@@ -117,13 +313,7 @@ pub(super) fn select_word_arithmetic_indirect_store_consumer(
         }),
         carry_out: MirCarryOut::Produce,
     });
-    out.push(MirOp::Store {
-        dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
-            POINTER_INDEX_SCRATCH_LO,
-        ))),
-        src: MirValue::Def(MirDef::Reg(MirReg::A)),
-        width: MirWidth::Byte,
-    });
+    out.push(store_a_to_fixed_scratch(POINTER_INDEX_SCRATCH_LO));
     push_word_arithmetic_source_load(out, &left, 1, DEFAULT_POINTER_PAIR);
     out.push(MirOp::Binary {
         op: *arithmetic_op,
@@ -134,13 +324,7 @@ pub(super) fn select_word_arithmetic_indirect_store_consumer(
         carry_in: Some(MirCarryIn::FromPrevious),
         carry_out: MirCarryOut::Ignore,
     });
-    out.push(MirOp::Store {
-        dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
-            POINTER_INDEX_SCRATCH_HI,
-        ))),
-        src: MirValue::Def(MirDef::Reg(MirReg::A)),
-        width: MirWidth::Byte,
-    });
+    out.push(store_a_to_fixed_scratch(POINTER_INDEX_SCRATCH_HI));
     out.push(MirOp::StoreIndirect {
         consumer: DEFAULT_POINTER_PAIR,
         src: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
