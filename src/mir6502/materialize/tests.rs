@@ -1033,6 +1033,264 @@ fn word_sub_compare_rejects_an_indirect_rhs() {
     assert!(word_arithmetic_compare_candidate(&blocks[0].ops, 0).is_none());
 }
 
+fn direct_word_compare_blocks(
+    left: MirAddr,
+    right: MirAddr,
+    op: MirCompareOp,
+    signed: bool,
+) -> Vec<MirBlock> {
+    vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(0)),
+                    src: left,
+                    width: MirWidth::Word,
+                },
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    src: right,
+                    width: MirWidth::Word,
+                },
+                MirOp::Compare {
+                    dst: MirCondDest::Temp(MirTempId(2)),
+                    op,
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                    right: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    width: MirWidth::Word,
+                    signed,
+                },
+            ],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(2)))),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]
+}
+
+fn direct_word_local(id: u32) -> MirAddr {
+    MirAddr::Direct(MirMem::Local {
+        id: LocalId(id),
+        offset: 0,
+    })
+}
+
+fn direct_word_indirect(id: u32, offset: u16) -> MirAddr {
+    MirAddr::PointerCell {
+        ptr: MirMem::Local {
+            id: LocalId(id),
+            offset: 0,
+        },
+        offset,
+    }
+}
+
+#[test]
+fn direct_word_eq_branch_compares_indirect_lanes_without_homes() {
+    let mut blocks = direct_word_compare_blocks(
+        direct_word_indirect(0, 0),
+        direct_word_local(1),
+        MirCompareOp::Eq,
+        false,
+    );
+    let proven = [(MirBlockId(0), 0)].into_iter().collect();
+
+    assert_eq!(
+        expand_proven_direct_word_equality_compare_branches(&mut blocks, &proven),
+        1
+    );
+    assert!(matches!(
+        blocks[0].ops.as_slice(),
+        [
+            MirOp::MaterializeAddress { .. },
+            MirOp::LoadIndirect { offset: 0, .. },
+            MirOp::Compare {
+                dst: MirCondDest::Flags,
+                op: MirCompareOp::Eq,
+                right: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(1),
+                    offset: 0
+                }),
+                ..
+            }
+        ]
+    ));
+    let MirTerminator::Branch {
+        cond: MirCond::FlagTest(MirFlagTest::ZSet),
+        then_edge,
+        else_edge,
+    } = &blocks[0].terminator
+    else {
+        panic!("expected low-lane equality branch");
+    };
+    assert_eq!(else_edge.target, MirBlockId(2));
+    let high = blocks
+        .iter()
+        .find(|block| block.id == then_edge.target)
+        .expect("high-lane compare block");
+    assert!(matches!(
+        high.ops.as_slice(),
+        [
+            MirOp::LoadIndirect { offset: 1, .. },
+            MirOp::Compare {
+                op: MirCompareOp::Eq,
+                right: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(1),
+                    offset: 1
+                }),
+                ..
+            }
+        ]
+    ));
+}
+
+#[test]
+fn direct_word_ne_branch_reverses_safe_indirect_rhs_with_offset() {
+    let mut blocks = direct_word_compare_blocks(
+        direct_word_local(0),
+        direct_word_indirect(1, 7),
+        MirCompareOp::Ne,
+        false,
+    );
+    let proven = [(MirBlockId(0), 0)].into_iter().collect();
+
+    assert_eq!(
+        expand_proven_direct_word_equality_compare_branches(&mut blocks, &proven),
+        1
+    );
+    assert!(matches!(
+        blocks[0].ops.as_slice(),
+        [
+            MirOp::MaterializeAddress { .. },
+            MirOp::LoadIndirect { offset: 7, .. },
+            MirOp::Compare {
+                right: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(0),
+                    offset: 0
+                }),
+                ..
+            }
+        ]
+    ));
+    let MirTerminator::Branch { else_edge, .. } = &blocks[0].terminator else {
+        panic!("expected low-lane inequality branch");
+    };
+    assert_eq!(else_edge.target, MirBlockId(1));
+}
+
+#[test]
+fn direct_word_equality_candidate_rejects_unsafe_sources_and_shapes() {
+    let two_indirect = direct_word_compare_blocks(
+        direct_word_indirect(0, 0),
+        direct_word_indirect(1, 0),
+        MirCompareOp::Eq,
+        false,
+    );
+    assert!(direct_word_equality_compare_candidate(&two_indirect[0].ops, 0).is_none());
+
+    let absolute = direct_word_compare_blocks(
+        MirAddr::Direct(MirMem::Absolute(0xd200)),
+        direct_word_local(1),
+        MirCompareOp::Eq,
+        false,
+    );
+    assert!(direct_word_equality_compare_candidate(&absolute[0].ops, 0).is_none());
+
+    let signed = direct_word_compare_blocks(
+        direct_word_local(0),
+        direct_word_local(1),
+        MirCompareOp::Eq,
+        true,
+    );
+    assert!(direct_word_equality_compare_candidate(&signed[0].ops, 0).is_none());
+
+    let relational = direct_word_compare_blocks(
+        direct_word_local(0),
+        direct_word_local(1),
+        MirCompareOp::Lt,
+        false,
+    );
+    assert!(direct_word_equality_compare_candidate(&relational[0].ops, 0).is_none());
+}
+
+#[test]
+fn direct_word_equality_candidate_rejects_reused_operand_and_barrier() {
+    let mut reused = direct_word_compare_blocks(
+        direct_word_local(0),
+        direct_word_local(1),
+        MirCompareOp::Eq,
+        false,
+    );
+    let MirOp::Compare { right, .. } = &mut reused[0].ops[2] else {
+        unreachable!()
+    };
+    *right = MirValue::Def(MirDef::VTemp(MirTempId(0)));
+    assert!(direct_word_equality_compare_candidate(&reused[0].ops, 0).is_none());
+
+    let mut barrier = direct_word_compare_blocks(
+        direct_word_local(0),
+        direct_word_local(1),
+        MirCompareOp::Eq,
+        false,
+    );
+    barrier[0].ops.insert(
+        2,
+        MirOp::Barrier {
+            effects: MirEffects::default(),
+        },
+    );
+    assert!(direct_word_equality_compare_candidate(&barrier[0].ops, 0).is_none());
+}
+
+#[test]
+fn direct_word_equality_proof_keeps_operand_live_in_successor() {
+    let mut blocks = direct_word_compare_blocks(
+        direct_word_local(0),
+        direct_word_local(1),
+        MirCompareOp::Eq,
+        false,
+    );
+    blocks[1].ops.push(MirOp::Store {
+        dst: direct_word_local(2),
+        src: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+        width: MirWidth::Word,
+    });
+    let routine = MirRoutine {
+        id: RoutineId(0),
+        name: "direct_word_equality_live_successor".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: (0..3).map(|id| MirTemp { id: MirTempId(id) }).collect(),
+        blocks,
+        effects: MirEffects::default(),
+    };
+
+    let proven =
+        crate::mir6502::rewrite::pilots::proven_direct_word_equality_compare_branches(&routine)
+            .expect("analysis succeeds");
+
+    assert!(proven.is_empty());
+}
+
 #[test]
 fn dual_indirect_eq_compare_fuses_into_flags() {
     let left = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {

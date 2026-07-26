@@ -74,6 +74,103 @@ impl WordArithmeticCompareCandidate {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct DirectWordEqualityCompareCandidate {
+    pub consumed: usize,
+    compare_dst: MirCondDest,
+    compare_op: MirCompareOp,
+    left: WordConsumerSource,
+    right_lo: MirValue,
+    right_hi: MirValue,
+}
+
+impl DirectWordEqualityCompareCandidate {
+    pub(in crate::mir6502) fn proof_replacement(&self) -> Vec<MirOp> {
+        let pointer_consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(super::POINTER_SCRATCH_LO),
+        });
+        let mut replacement = Vec::new();
+        if let WordConsumerSource::Indirect { pointer, .. } = &self.left {
+            replacement.push(MirOp::MaterializeAddress {
+                consumer: pointer_consumer,
+                value: pointer.clone(),
+            });
+        }
+        push_word_consumer_source_load(&mut replacement, &self.left, 0, pointer_consumer);
+        replacement.push(MirOp::Compare {
+            dst: self.compare_dst.clone(),
+            op: MirCompareOp::Eq,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: self.right_lo.clone(),
+            width: MirWidth::Byte,
+            signed: false,
+        });
+        replacement
+    }
+}
+
+pub(in crate::mir6502) fn direct_word_equality_compare_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<DirectWordEqualityCompareCandidate> {
+    let mut sources = BTreeMap::<MirTempId, WordConsumerSource>::new();
+    let mut cursor = index;
+    while let Some((temp, source)) = ops.get(cursor).and_then(word_consumer_load_source) {
+        if sources.insert(temp, source).is_some() {
+            return None;
+        }
+        cursor += 1;
+    }
+
+    let compare = ops.get(cursor)?;
+    let MirOp::Compare {
+        dst: compare_dst,
+        op: compare_op @ (MirCompareOp::Eq | MirCompareOp::Ne),
+        left,
+        right,
+        width: MirWidth::Word,
+        signed: false,
+    } = compare
+    else {
+        return None;
+    };
+    if sources
+        .keys()
+        .any(|temp| !op_uses_temp(compare, *temp) || op_uses_temp_more_than_once(compare, *temp))
+    {
+        return None;
+    }
+
+    let mut left = resolve_word_consumer_source(left, &sources)?;
+    let mut right = resolve_word_consumer_source(right, &sources)?;
+    if matches!(right, WordConsumerSource::Indirect { .. }) {
+        if matches!(left, WordConsumerSource::Indirect { .. }) {
+            return None;
+        }
+        std::mem::swap(&mut left, &mut right);
+    }
+    let WordConsumerSource::Values {
+        lo: right_lo,
+        hi: right_hi,
+    } = right
+    else {
+        return None;
+    };
+    if !word_consumer_byte_value_is_safe(&right_lo) || !word_consumer_byte_value_is_safe(&right_hi)
+    {
+        return None;
+    }
+
+    Some(DirectWordEqualityCompareCandidate {
+        consumed: cursor + 1 - index,
+        compare_dst: compare_dst.clone(),
+        compare_op: *compare_op,
+        left,
+        right_lo,
+        right_hi,
+    })
+}
+
 pub(in crate::mir6502) fn word_arithmetic_compare_candidate(
     ops: &[MirOp],
     index: usize,
@@ -418,6 +515,109 @@ pub(super) fn expand_proven_byte_add_word_compare_branches(
             MirCond::FlagTest(MirFlagTest::CSet),
             carry_set_target,
             low_compare,
+        );
+        expanded += 1;
+    }
+    expanded
+}
+
+pub(super) fn expand_proven_direct_word_equality_compare_branches(
+    blocks: &mut Vec<MirBlock>,
+    proven_sites: &BTreeSet<(MirBlockId, usize)>,
+) -> usize {
+    let mut next_id = blocks
+        .iter()
+        .map(|block| block.id.0)
+        .max()
+        .unwrap_or(0)
+        .saturating_add(1);
+    let original_len = blocks.len();
+    let mut expanded = 0usize;
+    for block_index in 0..original_len {
+        let block_id = blocks[block_index].id;
+        let Some(start) = proven_sites
+            .iter()
+            .find_map(|(block, start)| (*block == block_id).then_some(*start))
+        else {
+            continue;
+        };
+        let Some(candidate) =
+            direct_word_equality_compare_candidate(&blocks[block_index].ops, start)
+        else {
+            continue;
+        };
+        let Some((cond_temp, then_block, else_block)) = branch_bool_temp(&blocks[block_index])
+        else {
+            continue;
+        };
+        let MirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } = &blocks[block_index].terminator
+        else {
+            continue;
+        };
+        if candidate.compare_dst != MirCondDest::Temp(cond_temp)
+            || start + candidate.consumed != blocks[block_index].ops.len()
+            || !then_edge.args.is_empty()
+            || !else_edge.args.is_empty()
+        {
+            continue;
+        }
+
+        let pointer_consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(super::POINTER_SCRATCH_LO),
+        });
+        let high_compare = fresh_block_id(&mut next_id);
+        let mut high_ops = Vec::new();
+        push_word_consumer_source_load(&mut high_ops, &candidate.left, 1, pointer_consumer);
+        let high_terminator = materialize_byte_compare_branch(
+            &mut high_ops,
+            candidate.compare_op,
+            MirValue::Def(MirDef::Reg(MirReg::A)),
+            candidate.right_hi,
+            then_block,
+            else_block,
+        );
+        blocks.push(MirBlock {
+            id: high_compare,
+            label: format!("cmp_word_direct_hi_{}", high_compare.0),
+            params: Vec::new(),
+            ops: high_ops,
+            terminator: high_terminator,
+        });
+
+        blocks[block_index].ops.truncate(start);
+        if let WordConsumerSource::Indirect { pointer, .. } = &candidate.left {
+            blocks[block_index].ops.push(MirOp::MaterializeAddress {
+                consumer: pointer_consumer,
+                value: pointer.clone(),
+            });
+        }
+        push_word_consumer_source_load(
+            &mut blocks[block_index].ops,
+            &candidate.left,
+            0,
+            pointer_consumer,
+        );
+        blocks[block_index].ops.push(MirOp::Compare {
+            dst: MirCondDest::Flags,
+            op: MirCompareOp::Eq,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: candidate.right_lo,
+            width: MirWidth::Byte,
+            signed: false,
+        });
+        let mismatch_target = match candidate.compare_op {
+            MirCompareOp::Eq => else_block,
+            MirCompareOp::Ne => then_block,
+            _ => unreachable!(),
+        };
+        blocks[block_index].terminator = branch_terminator(
+            MirCond::FlagTest(MirFlagTest::ZSet),
+            high_compare,
+            mismatch_target,
         );
         expanded += 1;
     }

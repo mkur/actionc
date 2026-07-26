@@ -1,6 +1,6 @@
 # MIR6502 ALLOCATE Optimization Implementation Plan
 
-Status: in progress; Slices 0-1 completed
+Status: in progress; Slices 0-2 completed
 
 Date: 2026-07-26
 
@@ -278,6 +278,15 @@ Add negative tests for:
 - Full tests pass.
 
 Commit independently.
+
+Implementation result:
+
+- one `word-load-equality-compare-branch` site selected in `Alloc`;
+- ALLOCATE decreased from 1,015 to 995 XEX bytes;
+- recognized instruction bytes decreased from 958 to 938;
+- equality-side compare spill accesses decreased by eight;
+- TN remained byte-identical at 9,994 XEX bytes;
+- the ALLOCATE VM oracle passed under modern/classic and modern/MIR6502.
 
 ## Slice 3: Direct Unsigned Relational Word Compare-to-Branch
 
