@@ -44,6 +44,26 @@ fn circle_uses_direct_binary_call_arg_materialization() {
         "{formatted}"
     );
     assert!(formatted.contains("store.b fixed_zp $A0, a"), "{formatted}");
+    assert!(
+        formatted.contains(
+            "a =.b load param p1+0\n  a =.b a add *local l4+0 carry_in=clear carry_out=produce\n  y =.b a"
+        ),
+        "{formatted}"
+    );
+    assert!(
+        formatted.contains(
+            "a =.b load param p0+0\n  a =.b a add *local l3+0 carry_in=clear carry_out=produce\n  store.b fixed_zp $A0, a\n  a =.b load param p0+1\n  a =.b a add *local l3+1 carry_in=previous carry_out=ignore\n  x =.b a"
+        ),
+        "{formatted}"
+    );
+    for staged_rhs in [
+        "load local l3+0\n  store.b fixed_zp $A0",
+        "load local l3+0\n  store.b fixed_zp $A1",
+        "load local l4+0\n  store.b fixed_zp $A0",
+        "load local l4+0\n  store.b fixed_zp $A1",
+    ] {
+        assert!(!formatted.contains(staged_rhs), "{formatted}");
+    }
     assert_eq!(
         formatted.matches("call Plot@$A6C3").count(),
         8,
@@ -53,8 +73,8 @@ fn circle_uses_direct_binary_call_arg_materialization() {
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     assert!(
-        output.bytes.len() < 1000,
-        "expected CIRCLE.ACT MIR6502 output under 1000 bytes, got {}",
+        output.bytes.len() <= 608,
+        "expected CIRCLE.ACT MIR6502 output no larger than 608 bytes, got {}",
         output.bytes.len()
     );
 }

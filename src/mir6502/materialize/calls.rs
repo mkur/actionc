@@ -76,6 +76,10 @@ pub(super) fn try_materialize_call_arg_expr_producers(
         indexed_word_arithmetic: candidate.indexed_word_arithmetic,
         direct_word_arithmetic: candidate.direct_word_arithmetic,
         direct_indexed_byte_fixed_args: candidate.direct_indexed_byte_fixed_args,
+        direct_binary_rhs_candidates: candidate.direct_binary_rhs_candidates,
+        direct_binary_rhs_selected: candidate.direct_binary_rhs_selected,
+        direct_binary_rhs_blocked_overlap: candidate.direct_binary_rhs_blocked_overlap,
+        direct_binary_rhs_blocked_nonordinary: candidate.direct_binary_rhs_blocked_nonordinary,
     }
 }
 
@@ -89,6 +93,10 @@ pub(in crate::mir6502) struct CallArgExprRewriteCandidate {
     pub indexed_word_arithmetic: usize,
     pub direct_word_arithmetic: usize,
     pub direct_indexed_byte_fixed_args: usize,
+    pub direct_binary_rhs_candidates: usize,
+    pub direct_binary_rhs_selected: usize,
+    pub direct_binary_rhs_blocked_overlap: usize,
+    pub direct_binary_rhs_blocked_nonordinary: usize,
 }
 
 pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
@@ -133,7 +141,14 @@ pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
         direct_indexed_byte_fixed_action_arg_count(&plan.args, &raw_args);
     let mut replacement = Vec::new();
     let mut required_helpers = Vec::new();
-    materialize_call_arg_expr_plan(&plan, layout, &mut required_helpers, &mut replacement);
+    let mut binary_rhs_stats = BinaryRhsLaneStats::default();
+    materialize_call_arg_expr_plan(
+        &plan,
+        layout,
+        &mut required_helpers,
+        &mut binary_rhs_stats,
+        &mut replacement,
+    );
     Some(CallArgExprRewriteCandidate {
         consumed: plan.consumed,
         temps: plan.temps,
@@ -143,6 +158,10 @@ pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
         indexed_word_arithmetic,
         direct_word_arithmetic,
         direct_indexed_byte_fixed_args,
+        direct_binary_rhs_candidates: binary_rhs_stats.candidates,
+        direct_binary_rhs_selected: binary_rhs_stats.selected,
+        direct_binary_rhs_blocked_overlap: binary_rhs_stats.blocked_overlap,
+        direct_binary_rhs_blocked_nonordinary: binary_rhs_stats.blocked_nonordinary,
     })
 }
 
@@ -154,6 +173,18 @@ pub(super) struct CallArgExprMaterializeResult {
     pub(super) indexed_word_arithmetic: usize,
     pub(super) direct_word_arithmetic: usize,
     pub(super) direct_indexed_byte_fixed_args: usize,
+    pub(super) direct_binary_rhs_candidates: usize,
+    pub(super) direct_binary_rhs_selected: usize,
+    pub(super) direct_binary_rhs_blocked_overlap: usize,
+    pub(super) direct_binary_rhs_blocked_nonordinary: usize,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct BinaryRhsLaneStats {
+    candidates: usize,
+    selected: usize,
+    blocked_overlap: usize,
+    blocked_nonordinary: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -1160,6 +1191,7 @@ fn materialize_call_arg_expr_plan(
     plan: &CallArgExprPlan,
     layout: &MaterializeLayout,
     helpers: &mut Vec<MirRuntimeHelper>,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     let raw_args = plan
@@ -1172,7 +1204,13 @@ fn materialize_call_arg_expr_plan(
         return;
     }
     if direct_two_word_arithmetic_action_args_supported(&plan.args) {
-        materialize_direct_two_word_arithmetic_action_call(plan, layout, helpers, out);
+        materialize_direct_two_word_arithmetic_action_call(
+            plan,
+            layout,
+            helpers,
+            binary_rhs_stats,
+            out,
+        );
         return;
     }
     if direct_indexed_word_action_args_supported(
@@ -1183,11 +1221,11 @@ fn materialize_call_arg_expr_plan(
             .map(raw_planned_call_arg)
             .collect::<Vec<_>>(),
     ) {
-        materialize_direct_indexed_word_action_call(plan, layout, helpers, out);
+        materialize_direct_indexed_word_action_call(plan, layout, helpers, binary_rhs_stats, out);
         return;
     }
     if planned_call_args_use_action_staging(&plan.args) {
-        materialize_staged_action_call_arg_expr_plan(plan, layout, helpers, out);
+        materialize_staged_action_call_arg_expr_plan(plan, layout, helpers, binary_rhs_stats, out);
         return;
     }
     let target = materialize_call_target(plan.target.clone(), layout, out);
@@ -1195,12 +1233,12 @@ fn materialize_call_arg_expr_plan(
         if let Some(reg) = planned_call_arg_reg_home(arg)
             && reg != MirReg::A
         {
-            materialize_planned_call_arg(arg, layout, helpers, out);
+            materialize_planned_call_arg(arg, layout, helpers, binary_rhs_stats, out);
         }
     }
     for arg in &plan.args {
         if planned_call_arg_reg_home(arg) == Some(MirReg::A) {
-            materialize_planned_call_arg(arg, layout, helpers, out);
+            materialize_planned_call_arg(arg, layout, helpers, binary_rhs_stats, out);
         }
     }
     for arg in &plan.args {
@@ -1214,7 +1252,7 @@ fn materialize_call_arg_expr_plan(
                 ..
             })
         ) {
-            materialize_planned_call_arg(arg, layout, helpers, out);
+            materialize_planned_call_arg(arg, layout, helpers, binary_rhs_stats, out);
         }
     }
     let args = plan
@@ -1683,6 +1721,7 @@ fn materialize_direct_indexed_word_action_call(
     plan: &CallArgExprPlan,
     layout: &MaterializeLayout,
     helpers: &mut Vec<MirRuntimeHelper>,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     let target = materialize_call_target(plan.target.clone(), layout, out);
@@ -1696,7 +1735,7 @@ fn materialize_direct_indexed_word_action_call(
                 ..
             })
         ) {
-            materialize_planned_call_arg(arg, layout, helpers, out);
+            materialize_planned_call_arg(arg, layout, helpers, binary_rhs_stats, out);
         }
     }
     for arg in &plan.args {
@@ -1707,7 +1746,7 @@ fn materialize_direct_indexed_word_action_call(
                 ..
             }
         ) {
-            materialize_planned_call_arg(arg, layout, helpers, out);
+            materialize_planned_call_arg(arg, layout, helpers, binary_rhs_stats, out);
         }
     }
     for arg in &plan.args {
@@ -1718,7 +1757,7 @@ fn materialize_direct_indexed_word_action_call(
                 ..
             })
         ) {
-            materialize_planned_call_arg(arg, layout, helpers, out);
+            materialize_planned_call_arg(arg, layout, helpers, binary_rhs_stats, out);
         }
     }
     out.push(MirOp::Call {
@@ -1805,6 +1844,7 @@ fn materialize_direct_two_word_arithmetic_action_call(
     plan: &CallArgExprPlan,
     layout: &MaterializeLayout,
     helpers: &mut Vec<MirRuntimeHelper>,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     let target = materialize_call_target(plan.target.clone(), layout, out);
@@ -1818,14 +1858,14 @@ fn materialize_direct_two_word_arithmetic_action_call(
         let Some((op, left, right)) = direct_ya3_word_binary_parts(expr) else {
             unreachable!("direct second-word arithmetic was validated before materialization")
         };
-        materialize_word_binary_to_ya3(op, left, right, layout, out);
+        materialize_word_binary_to_ya3(op, left, right, layout, binary_rhs_stats, out);
         materialize_first_action_word_to_ax(first, layout, out);
     } else {
         let PlannedCallArg::Expr { expr, .. } = first else {
             unreachable!("direct first-word arithmetic requires an expression")
         };
         materialize_second_action_word_to_ya3(second, layout, out);
-        materialize_expr_word_to_ax(expr, layout, helpers, out);
+        materialize_expr_word_to_ax(expr, layout, helpers, binary_rhs_stats, out);
     }
 
     let args = vec![
@@ -1887,12 +1927,22 @@ fn materialize_word_binary_to_ya3(
     left: &CallArgExpr,
     right: &CallArgExpr,
     layout: &MaterializeLayout,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     let (left_lo, right_lo) =
         expr_binary_low_operands(left, right, layout).expect("validated word binary low operands");
     let (left_hi, right_hi) = expr_binary_high_operands(left, right, layout)
         .expect("validated word binary high operands");
+    let right_lo = materialize_binary_rhs_to_fixed_scratch_avoiding(
+        right_lo,
+        0,
+        &left_lo,
+        &[3],
+        layout,
+        binary_rhs_stats,
+        out,
+    );
     materialize_call_arg_to_reg(left_lo, MirReg::A, out);
     out.push(MirOp::Binary {
         op,
@@ -1912,6 +1962,15 @@ fn materialize_word_binary_to_ya3(
         src: MirValue::Def(MirDef::Reg(MirReg::A)),
         width: MirWidth::Byte,
     });
+    let right_hi = materialize_binary_rhs_to_fixed_scratch_avoiding(
+        right_hi,
+        0,
+        &left_hi,
+        &[3],
+        layout,
+        binary_rhs_stats,
+        out,
+    );
     materialize_call_arg_to_reg(left_hi, MirReg::A, out);
     out.push(MirOp::Binary {
         op,
@@ -2029,6 +2088,7 @@ fn materialize_staged_action_call_arg_expr_plan(
     plan: &CallArgExprPlan,
     layout: &MaterializeLayout,
     helpers: &mut Vec<MirRuntimeHelper>,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     let target = materialize_call_target(plan.target.clone(), layout, out);
@@ -2041,7 +2101,15 @@ fn materialize_staged_action_call_arg_expr_plan(
         let PlannedCallArg::Expr { expr, width, home } = arg else {
             unreachable!("staged Action call plans contain only expressions")
         };
-        materialize_expr_to_action_staging(expr, *width, offset, layout, helpers, out);
+        materialize_expr_to_action_staging(
+            expr,
+            *width,
+            offset,
+            layout,
+            helpers,
+            binary_rhs_stats,
+            out,
+        );
         flatten_action_arg_home(home, *width, &mut byte_homes);
         offset = offset.saturating_add(super::super::abi::action_arg_width_bytes(*width));
     }
@@ -2099,6 +2167,7 @@ fn materialize_expr_to_action_staging(
     offset: u16,
     layout: &MaterializeLayout,
     helpers: &mut Vec<MirRuntimeHelper>,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     match (expr, width) {
@@ -2151,10 +2220,18 @@ fn materialize_expr_to_action_staging(
             },
             MirWidth::Word,
         ) => {
-            materialize_plain_word_binary_to_action_staging(*op, left, right, offset, layout, out);
+            materialize_plain_word_binary_to_action_staging(
+                *op,
+                left,
+                right,
+                offset,
+                layout,
+                binary_rhs_stats,
+                out,
+            );
         }
         (_, MirWidth::Byte) => {
-            materialize_expr_byte_to_reg(expr, MirReg::A, layout, out);
+            materialize_expr_byte_to_reg(expr, MirReg::A, layout, binary_rhs_stats, out);
             materialize_call_arg_to_mem(
                 MirValue::Def(MirDef::Reg(MirReg::A)),
                 return_slot_mem(offset),
@@ -2162,7 +2239,7 @@ fn materialize_expr_to_action_staging(
             );
         }
         (_, MirWidth::Word) => {
-            materialize_expr_word_to_ax(expr, layout, helpers, out);
+            materialize_expr_word_to_ax(expr, layout, helpers, binary_rhs_stats, out);
             materialize_call_arg_to_mem(
                 MirValue::Def(MirDef::Reg(MirReg::A)),
                 return_slot_mem(offset),
@@ -2227,6 +2304,7 @@ fn materialize_plain_word_binary_to_action_staging(
     right: &CallArgExpr,
     offset: u16,
     layout: &MaterializeLayout,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     let Some((left_lo, right_lo)) = expr_binary_low_operands(left, right, layout) else {
@@ -2235,6 +2313,16 @@ fn materialize_plain_word_binary_to_action_staging(
     let Some((left_hi, right_hi)) = expr_binary_high_operands(left, right, layout) else {
         return;
     };
+    let reserved_offsets = [offset, offset.saturating_add(1)];
+    let right_lo = materialize_binary_rhs_to_fixed_scratch_avoiding(
+        right_lo,
+        0,
+        &left_lo,
+        &reserved_offsets,
+        layout,
+        binary_rhs_stats,
+        out,
+    );
     materialize_call_arg_to_reg(left_lo, MirReg::A, out);
     out.push(MirOp::Binary {
         op,
@@ -2252,6 +2340,15 @@ fn materialize_plain_word_binary_to_action_staging(
     materialize_call_arg_to_mem(
         MirValue::Def(MirDef::Reg(MirReg::A)),
         return_slot_mem(offset),
+        out,
+    );
+    let right_hi = materialize_binary_rhs_to_fixed_scratch_avoiding(
+        right_hi,
+        0,
+        &left_hi,
+        &reserved_offsets,
+        layout,
+        binary_rhs_stats,
         out,
     );
     materialize_call_arg_to_reg(left_hi, MirReg::A, out);
@@ -2289,6 +2386,7 @@ fn materialize_planned_call_arg(
     arg: &PlannedCallArg,
     layout: &MaterializeLayout,
     helpers: &mut Vec<MirRuntimeHelper>,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     match arg {
@@ -2296,7 +2394,7 @@ fn materialize_planned_call_arg(
             expr,
             width: MirWidth::Byte,
             home: MirArgHome::Reg(reg),
-        } => materialize_expr_byte_to_reg(expr, *reg, layout, out),
+        } => materialize_expr_byte_to_reg(expr, *reg, layout, binary_rhs_stats, out),
         PlannedCallArg::Expr {
             expr,
             width: MirWidth::Word,
@@ -2305,7 +2403,7 @@ fn materialize_planned_call_arg(
                     lo: MirReg::A,
                     hi: MirReg::X,
                 },
-        } => materialize_expr_word_to_ax(expr, layout, helpers, out),
+        } => materialize_expr_word_to_ax(expr, layout, helpers, binary_rhs_stats, out),
         PlannedCallArg::Existing(arg) => materialize_call_arg(arg, out),
         PlannedCallArg::Expr { .. } => {}
     }
@@ -2315,6 +2413,7 @@ fn materialize_expr_byte_to_reg(
     expr: &CallArgExpr,
     reg: MirReg,
     layout: &MaterializeLayout,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     match expr {
@@ -2341,7 +2440,15 @@ fn materialize_expr_byte_to_reg(
             let Some((left, right)) = expr_binary_low_operands(left, right, layout) else {
                 return;
             };
-            let right = materialize_binary_rhs_to_fixed_scratch_avoiding(right, 0, &left, &[], out);
+            let right = materialize_binary_rhs_to_fixed_scratch_avoiding(
+                right,
+                0,
+                &left,
+                &[],
+                layout,
+                binary_rhs_stats,
+                out,
+            );
             materialize_call_arg_to_reg(left, MirReg::A, out);
             out.push(MirOp::Binary {
                 op: *op,
@@ -2377,6 +2484,7 @@ fn materialize_expr_word_to_ax(
     expr: &CallArgExpr,
     layout: &MaterializeLayout,
     helpers: &mut Vec<MirRuntimeHelper>,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     match expr {
@@ -2440,7 +2548,7 @@ fn materialize_expr_word_to_ax(
             width: MirWidth::Byte,
         } => {
             helpers.push(MirRuntimeHelper::Mul);
-            materialize_byte_mul_expr_to_ax(left, right, layout, out);
+            materialize_byte_mul_expr_to_ax(left, right, layout, binary_rhs_stats, out);
         }
         CallArgExpr::Binary {
             op,
@@ -2454,8 +2562,15 @@ fn materialize_expr_word_to_ax(
             let Some((left_hi, right_hi)) = expr_binary_high_operands(left, right, layout) else {
                 return;
             };
-            let right_lo =
-                materialize_binary_rhs_to_fixed_scratch_avoiding(right_lo, 1, &left_lo, &[0], out);
+            let right_lo = materialize_binary_rhs_to_fixed_scratch_avoiding(
+                right_lo,
+                1,
+                &left_lo,
+                &[0],
+                layout,
+                binary_rhs_stats,
+                out,
+            );
             materialize_call_arg_to_reg(left_lo, MirReg::A, out);
             out.push(MirOp::Binary {
                 op: *op,
@@ -2475,8 +2590,15 @@ fn materialize_expr_word_to_ax(
                 src: MirValue::Def(MirDef::Reg(MirReg::A)),
                 width: MirWidth::Byte,
             });
-            let right_hi =
-                materialize_binary_rhs_to_fixed_scratch_avoiding(right_hi, 1, &left_hi, &[0], out);
+            let right_hi = materialize_binary_rhs_to_fixed_scratch_avoiding(
+                right_hi,
+                1,
+                &left_hi,
+                &[0],
+                layout,
+                binary_rhs_stats,
+                out,
+            );
             materialize_call_arg_to_reg(left_hi, MirReg::A, out);
             out.push(MirOp::Binary {
                 op: *op,
@@ -2570,16 +2692,17 @@ fn materialize_byte_mul_expr_to_ax(
     left: &CallArgExpr,
     right: &CallArgExpr,
     layout: &MaterializeLayout,
+    binary_rhs_stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) {
     let left_scratch = return_slot_mem(4);
-    materialize_expr_byte_to_reg(left, MirReg::A, layout, out);
+    materialize_expr_byte_to_reg(left, MirReg::A, layout, binary_rhs_stats, out);
     out.push(MirOp::Store {
         dst: MirAddr::Direct(left_scratch.clone()),
         src: MirValue::Def(MirDef::Reg(MirReg::A)),
         width: MirWidth::Byte,
     });
-    materialize_expr_byte_to_reg(right, MirReg::A, layout, out);
+    materialize_expr_byte_to_reg(right, MirReg::A, layout, binary_rhs_stats, out);
     out.push(MirOp::Store {
         dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x84))),
         src: MirValue::Def(MirDef::Reg(MirReg::A)),
@@ -2609,11 +2732,25 @@ fn materialize_binary_rhs_to_fixed_scratch_avoiding(
     preferred_scratch_offset: u16,
     left: &MirValue,
     reserved_offsets: &[u16],
+    layout: &MaterializeLayout,
+    stats: &mut BinaryRhsLaneStats,
     out: &mut Vec<MirOp>,
 ) -> MirValue {
     let MirValue::PointerCell(mem) = value else {
         return value;
     };
+    stats.candidates += 1;
+    if reserved_offsets
+        .iter()
+        .any(|offset| mem == return_slot_mem(*offset))
+    {
+        stats.blocked_overlap += 1;
+    } else if layout.mem_allows_deferred_direct_read(&mem) {
+        stats.selected += 1;
+        return MirValue::PointerCell(mem);
+    } else {
+        stats.blocked_nonordinary += 1;
+    }
     let scratch_offset =
         binary_rhs_scratch_offset(preferred_scratch_offset, left, reserved_offsets);
     let scratch = return_slot_mem(scratch_offset);

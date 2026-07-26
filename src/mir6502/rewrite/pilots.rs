@@ -2026,6 +2026,22 @@ fn call_arg_expr_plan(
                 "indexed-byte-direct-fixed-action-call-arg",
                 candidate.direct_indexed_byte_fixed_args,
             ),
+            (
+                "direct-binary-rhs-call-arg-candidates",
+                candidate.direct_binary_rhs_candidates,
+            ),
+            (
+                "direct-binary-rhs-call-arg",
+                candidate.direct_binary_rhs_selected,
+            ),
+            (
+                "direct-binary-rhs-call-arg-blocked-overlap",
+                candidate.direct_binary_rhs_blocked_overlap,
+            ),
+            (
+                "direct-binary-rhs-call-arg-blocked-nonordinary",
+                candidate.direct_binary_rhs_blocked_nonordinary,
+            ),
         ]
         .into_iter()
         .filter(|(_, count)| *count != 0)

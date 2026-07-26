@@ -3261,6 +3261,26 @@ fn materialize_ops_impl(
                     "indexed-byte-direct-fixed-action-call-arg",
                     call_arg_expr.direct_indexed_byte_fixed_args,
                 );
+                peephole_stats.record_many(
+                    routine_id,
+                    "direct-binary-rhs-call-arg-candidates",
+                    call_arg_expr.direct_binary_rhs_candidates,
+                );
+                peephole_stats.record_many(
+                    routine_id,
+                    "direct-binary-rhs-call-arg",
+                    call_arg_expr.direct_binary_rhs_selected,
+                );
+                peephole_stats.record_many(
+                    routine_id,
+                    "direct-binary-rhs-call-arg-blocked-overlap",
+                    call_arg_expr.direct_binary_rhs_blocked_overlap,
+                );
+                peephole_stats.record_many(
+                    routine_id,
+                    "direct-binary-rhs-call-arg-blocked-nonordinary",
+                    call_arg_expr.direct_binary_rhs_blocked_nonordinary,
+                );
                 index += call_arg_expr.consumed;
                 continue;
             }

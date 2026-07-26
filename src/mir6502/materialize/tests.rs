@@ -18909,6 +18909,168 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
     assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(22))));
 }
 
+fn byte_binary_call_arg_ops(right: MirMem) -> Vec<MirOp> {
+    vec![
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(0)),
+            src: MirAddr::Direct(MirMem::Local {
+                id: LocalId(0),
+                offset: 0,
+            }),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(1)),
+            src: MirAddr::Direct(right),
+            width: MirWidth::Byte,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::VTemp(MirTempId(2)),
+            left: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+            right: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+            width: MirWidth::Byte,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Call {
+            target: MirCallTarget::Routine(RoutineId(1)),
+            abi: MirCallAbi {
+                params: vec![MirArgHome::Reg(MirReg::A)],
+                result: None,
+                clobbers: MirRegisterSet::default(),
+                preserves: MirRegisterSet::default(),
+            },
+            args: vec![MirCallArg {
+                value: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                width: MirWidth::Byte,
+                home: MirArgHome::Reg(MirReg::A),
+            }],
+            result: None,
+            effects: MirEffects::default(),
+        },
+    ]
+}
+
+fn materialize_byte_binary_call_arg(
+    program: &MirProgram,
+    right: MirMem,
+) -> (super::calls::CallArgExprMaterializeResult, Vec<MirOp>) {
+    let layout = MaterializeLayout::new(program, 0x3000);
+    let ops = byte_binary_call_arg_ops(right);
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::optimized(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+    assert!(helpers.is_empty());
+    (result, out)
+}
+
+#[test]
+fn call_arg_expr_uses_stable_direct_memory_for_binary_rhs_lanes() {
+    let mut program = empty_test_program();
+    program.globals.push(MirGlobal {
+        id: SymbolId(0),
+        name: "ordinary".to_string(),
+        kind: "BYTE".to_string(),
+        width: Some(MirWidth::Byte),
+        storage_size: 1,
+        backing: MirGlobalBacking::Ordinary { offset: 0 },
+        init: None,
+    });
+    program.statics.push(MirStatic {
+        id: SymbolId(1),
+        name: "constant".to_string(),
+        ty: "BYTE".to_string(),
+        bytes: vec![1],
+        display: "1".to_string(),
+        alignment: 1,
+        mutable: false,
+        section: "static".to_string(),
+    });
+
+    for right in [
+        MirMem::Local {
+            id: LocalId(1),
+            offset: 0,
+        },
+        MirMem::Param {
+            id: ParamId(0),
+            offset: 0,
+        },
+        MirMem::Global {
+            id: SymbolId(0),
+            offset: 0,
+        },
+        MirMem::Static {
+            id: SymbolId(1),
+            offset: 0,
+        },
+    ] {
+        let (result, out) = materialize_byte_binary_call_arg(&program, right.clone());
+        assert_eq!(result.direct_binary_rhs_candidates, 1, "{out:#?}");
+        assert_eq!(result.direct_binary_rhs_selected, 1, "{out:#?}");
+        assert_eq!(result.direct_binary_rhs_blocked_overlap, 0, "{out:#?}");
+        assert_eq!(result.direct_binary_rhs_blocked_nonordinary, 0, "{out:#?}");
+        assert!(out.iter().any(|op| matches!(
+            op,
+            MirOp::Binary {
+                right: MirValue::PointerCell(mem),
+                ..
+            } if *mem == right
+        )));
+        assert!(!out.iter().any(|op| matches!(
+            op,
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(_)),
+                ..
+            }
+        )));
+    }
+}
+
+#[test]
+fn call_arg_expr_stages_nonordinary_binary_rhs_lanes() {
+    let mut program = empty_test_program();
+    program.globals.push(MirGlobal {
+        id: SymbolId(0),
+        name: "hardware".to_string(),
+        kind: "BYTE".to_string(),
+        width: Some(MirWidth::Byte),
+        storage_size: 1,
+        backing: MirGlobalBacking::Absolute(0xD20A),
+        init: None,
+    });
+
+    for right in [
+        MirMem::Absolute(0xD200),
+        MirMem::Global {
+            id: SymbolId(0),
+            offset: 0,
+        },
+        MirMem::ZeroPage(MirZpSlot(0)),
+        MirMem::FixedZeroPage(MirFixedZpSlot(0xA1)),
+    ] {
+        let (result, out) = materialize_byte_binary_call_arg(&program, right);
+        assert_eq!(result.direct_binary_rhs_candidates, 1, "{out:#?}");
+        assert_eq!(result.direct_binary_rhs_selected, 0, "{out:#?}");
+        assert_eq!(result.direct_binary_rhs_blocked_nonordinary, 1, "{out:#?}");
+        assert!(out.iter().any(|op| matches!(
+            op,
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(_)),
+                ..
+            }
+        )));
+    }
+}
+
 fn pointer_byte_offset_mixed_call_ops(interleave_second_arg: bool) -> Vec<MirOp> {
     let p0 = MirMem::Param {
         id: ParamId(0),

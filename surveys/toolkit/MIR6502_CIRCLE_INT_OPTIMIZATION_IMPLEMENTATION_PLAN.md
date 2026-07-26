@@ -1,6 +1,6 @@
 # MIR6502 CIRCLE INT Optimization Implementation Plan
 
-Status: planned
+Status: in progress; Slices 0 and 1 complete
 
 Date: 2026-07-26
 
@@ -407,6 +407,21 @@ from 328 to 232 bytes.
 - Alias, return-slot overlap, absolute-memory, indirect, and hardware negative
   tests retain staging.
 - CIRCLE2, direct Action word-argument, TN, SORTDM1, and ALLOCATE gates pass.
+
+### Implemented result
+
+The shared layout's deferred-direct-read predicate now governs binary call
+operand selection. Direct `Local`, `Param`, `Static`, and ordinary-backed
+`Global` lanes remain memory operands; absolute, hardware-backed global,
+virtual-ZP, fixed-ZP, and overlapping staging lanes retain the scratch
+fallback. The selector records candidate, selected, overlap-blocked, and
+nonordinary-blocked counts per lane.
+
+CIRCLE1 selects exactly 24 of 24 candidates and falls from 778 to 682 bytes,
+matching the projection exactly. CIRCLE2 falls from 1058 to 962 bytes. The
+direct Action word-argument VM gate, the CIRCLE INT VM gate, TN stability, and
+the focused ALLOCATE/SORTDM1 compile gates pass. ALLOCATE and SORTDM1 remain
+byte-identical at 876 and 3289 bytes; TN emits 9941 bytes.
 
 Suggested commit:
 
