@@ -55,12 +55,17 @@ fn kalscope_exposes_the_expected_codegen_baseline() {
         9,
         "{formatted}"
     );
+    assert_eq!(
+        formatted.matches("a =.b a xor *global").count(),
+        16,
+        "{formatted}"
+    );
 
     let output =
         mir6502::generate_output(&nir_program, CODE_ORIGIN).expect("emit KALSCOPE MIR6502");
     assert!(
-        output.bytes.len() <= 3_581,
-        "expected KALSCOPE MIR6502 output no larger than 3581 bytes, got {}",
+        output.bytes.len() <= 3_517,
+        "expected KALSCOPE MIR6502 output no larger than 3517 bytes, got {}",
         output.bytes.len()
     );
 }

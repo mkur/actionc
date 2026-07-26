@@ -1,6 +1,6 @@
 # MIR6502 KALSCOPE Optimization Implementation Plan
 
-Status: in progress; Slices 0-1 complete
+Status: in progress; Slices 0-2 complete
 
 Date: 2026-07-26
 
@@ -232,12 +232,25 @@ Result:
 
 ### Slice 2: Feed direct memory into word bitwise consumers
 
+Status: complete.
+
 - Extend the existing word-chain placement machinery to `AND`, `OR`, and
   `XOR`.
 - Permit each RHS lane to remain a stable ordinary direct-memory operand.
 - Preserve lane order and reject overlap with the result, volatile/absolute
   memory, fixed scratch, indirect/indexed values, and live carry/flag demands.
 - Add positive and rejection tests plus exact KALSCOPE selector counts.
+
+Result:
+
+- Added an alias-aware post-home `AND`/`OR`/`XOR` RHS placement rewrite that
+  keeps stable ordinary word lanes in direct memory.
+- The rewrite rejects absolute memory and any physical overlap among the
+  source, staging, and result pairs.
+- KALSCOPE selects eight word-bitwise RHS placements and emits sixteen direct
+  global `EOR` operands.
+- MIR6502 output fell from 3,581 to 3,517 bytes, reducing the classic deficit
+  from 263 to 199 bytes.
 
 ### Slice 3: Schedule pure two-byte Action call expressions
 

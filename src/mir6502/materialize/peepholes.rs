@@ -160,6 +160,21 @@ pub(in crate::mir6502) fn discover_rhs_and_adjacent_reloads(
                 plans.push(plan);
             }
             if let Some((consumed, replacement)) =
+                word_bitwise_rhs_placement_shape_at(&block.ops, index, routine.id, layout)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "word-bitwise-rhs-placement",
+                    4,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some((consumed, replacement)) =
                 word_chain_entry_placement_shape_at(&block.ops, index, routine.id, layout)
                 && let Some(plan) = structural_plan(
                     routine,
@@ -169,7 +184,7 @@ pub(in crate::mir6502) fn discover_rhs_and_adjacent_reloads(
                     replacement,
                     MirExitStateChange::default(),
                     "word-chain-entry-placement",
-                    4,
+                    5,
                 )
             {
                 plans.push(plan);
@@ -184,7 +199,7 @@ pub(in crate::mir6502) fn discover_rhs_and_adjacent_reloads(
                     replacement,
                     MirExitStateChange::default(),
                     "word-chain-exit-placement",
-                    5,
+                    6,
                 )
             {
                 plans.push(plan);
@@ -3546,6 +3561,105 @@ fn pure_move_value(value: &MirValue) -> bool {
         | MirValue::RoutineAddrByte { .. }
         | MirValue::StorageAddrByte { .. } => true,
     }
+}
+
+fn word_bitwise_rhs_placement_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    let source_lo = load_a_direct_byte(ops.get(index)?)?;
+    let staged_lo = store_a_direct_byte(ops.get(index + 1)?)?;
+    let source_hi = load_a_direct_byte(ops.get(index + 2)?)?;
+    let staged_hi = store_a_direct_byte(ops.get(index + 3)?)?;
+    if source_hi != offset_mem(&source_lo, 1)
+        || !matches!(
+            source_lo,
+            MirMem::Static { .. }
+                | MirMem::Global { .. }
+                | MirMem::Local { .. }
+                | MirMem::Param { .. }
+        )
+        || !word_chain_private_lane_pair(&staged_lo, &staged_hi)
+        || !layout.mem_allows_deferred_direct_read(&source_lo)
+        || !layout.mem_allows_deferred_direct_read(&source_hi)
+    {
+        return None;
+    }
+    let result_lo = load_a_direct_byte(ops.get(index + 4)?)?;
+    let low_binary =
+        word_bitwise_binary_with_rhs(ops.get(index + 5)?, &staged_lo, source_lo.clone())?;
+    if store_a_direct_byte(ops.get(index + 6)?)? != result_lo {
+        return None;
+    }
+    let result_hi = load_a_direct_byte(ops.get(index + 7)?)?;
+    let high_binary =
+        word_bitwise_binary_with_rhs(ops.get(index + 8)?, &staged_hi, source_hi.clone())?;
+    if store_a_direct_byte(ops.get(index + 9)?)? != result_hi
+        || !word_chain_private_lane_pair(&result_lo, &result_hi)
+    {
+        return None;
+    }
+
+    let source_pair = [source_lo, source_hi];
+    let staged_pair = [staged_lo, staged_hi];
+    let result_pair = [result_lo, result_hi];
+    if source_pair.iter().any(|source| {
+        staged_pair
+            .iter()
+            .chain(result_pair.iter())
+            .any(|other| mems_may_resolve_same_byte(source, other, routine_id, layout))
+    }) || staged_pair.iter().any(|staged| {
+        result_pair
+            .iter()
+            .any(|result| mems_may_resolve_same_byte(staged, result, routine_id, layout))
+    }) {
+        return None;
+    }
+
+    Some((
+        10,
+        vec![
+            ops[index + 4].clone(),
+            low_binary,
+            ops[index + 6].clone(),
+            ops[index + 7].clone(),
+            high_binary,
+            ops[index + 9].clone(),
+        ],
+    ))
+}
+
+fn word_bitwise_binary_with_rhs(
+    op: &MirOp,
+    staged_rhs: &MirMem,
+    direct_rhs: MirMem,
+) -> Option<MirOp> {
+    let MirOp::Binary {
+        op: binary_op @ (MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor),
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::PointerCell(rhs),
+        width: MirWidth::Byte,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    } = op
+    else {
+        return None;
+    };
+    if rhs != staged_rhs {
+        return None;
+    }
+    Some(MirOp::Binary {
+        op: *binary_op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::PointerCell(direct_rhs),
+        width: MirWidth::Byte,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    })
 }
 
 fn word_chain_entry_placement_shape_at(

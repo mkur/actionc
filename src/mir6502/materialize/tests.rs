@@ -13566,6 +13566,127 @@ fn word_chain_binary(
     }
 }
 
+fn staged_word_xor_ops(
+    source_lo: &MirMem,
+    staged_lo: &MirMem,
+    staged_hi: &MirMem,
+    result_lo: &MirMem,
+    result_hi: &MirMem,
+) -> Vec<MirOp> {
+    let xor = |rhs| MirOp::Binary {
+        op: MirBinaryOp::Xor,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::PointerCell(rhs),
+        width: MirWidth::Byte,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    };
+    vec![
+        word_chain_load(source_lo.clone()),
+        word_chain_store(staged_lo.clone()),
+        word_chain_load(offset_mem(source_lo, 1)),
+        word_chain_store(staged_hi.clone()),
+        word_chain_load(result_lo.clone()),
+        xor(staged_lo.clone()),
+        word_chain_store(result_lo.clone()),
+        word_chain_load(result_hi.clone()),
+        xor(staged_hi.clone()),
+        word_chain_store(result_hi.clone()),
+    ]
+}
+
+#[test]
+fn analyzed_word_bitwise_rhs_placement_reads_the_ordinary_word_directly() {
+    let source_lo = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let staged_lo = MirMem::Spill {
+        id: MirSpillId(20),
+        offset: 0,
+    };
+    let staged_hi = MirMem::Spill {
+        id: MirSpillId(21),
+        offset: 0,
+    };
+    let result_lo = MirMem::ZeroPage(MirZpSlot(0));
+    let result_hi = MirMem::ZeroPage(MirZpSlot(1));
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: staged_word_xor_ops(&source_lo, &staged_lo, &staged_hi, &result_lo, &result_hi),
+        terminator: MirTerminator::Return,
+    }]);
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_rhs_and_adjacent_reloads(routine, context, &layout)
+        })
+        .unwrap();
+
+    assert_eq!(
+        result.applied_by_stat.get("word-bitwise-rhs-placement"),
+        Some(&1)
+    );
+    assert_eq!(routine.blocks[0].ops.len(), 6);
+    assert!(matches!(
+        &routine.blocks[0].ops[1],
+        MirOp::Binary {
+            op: MirBinaryOp::Xor,
+            right: MirValue::PointerCell(mem),
+            ..
+        } if mem == &source_lo
+    ));
+    assert!(matches!(
+        &routine.blocks[0].ops[4],
+        MirOp::Binary {
+            op: MirBinaryOp::Xor,
+            right: MirValue::PointerCell(mem),
+            ..
+        } if mem == &offset_mem(&source_lo, 1)
+    ));
+}
+
+#[test]
+fn analyzed_word_bitwise_rhs_placement_rejects_absolute_memory() {
+    let source_lo = MirMem::Absolute(0xD200);
+    let staged_lo = MirMem::Spill {
+        id: MirSpillId(20),
+        offset: 0,
+    };
+    let staged_hi = MirMem::Spill {
+        id: MirSpillId(21),
+        offset: 0,
+    };
+    let result_lo = MirMem::ZeroPage(MirZpSlot(0));
+    let result_hi = MirMem::ZeroPage(MirZpSlot(1));
+    let ops = staged_word_xor_ops(&source_lo, &staged_lo, &staged_hi, &result_lo, &result_hi);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: ops.clone(),
+        terminator: MirTerminator::Return,
+    }]);
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_rhs_and_adjacent_reloads(routine, context, &layout)
+        })
+        .unwrap();
+
+    assert!(
+        !result
+            .applied_by_stat
+            .contains_key("word-bitwise-rhs-placement")
+    );
+    assert_eq!(routine.blocks[0].ops, ops);
+}
+
 #[test]
 fn analyzed_word_chain_entry_uses_direct_first_operands() {
     let source_lo = MirMem::Param {
