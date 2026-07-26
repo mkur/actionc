@@ -2108,6 +2108,41 @@ fn emit_op(
             };
             emit_indirect_byte_compound(*op, target_slot, source_slot, *offset, emitter);
         }
+        MirOp::IndirectWordCompound {
+            op,
+            target,
+            source,
+            offset,
+        } => {
+            if target.uses_scaled_y() || source.uses_scaled_y() {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect word compound cannot use scaled Y",
+                );
+                return;
+            }
+            let Some(target_slot) = resolve_pointer_consumer_slot(ctx, routine, target) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect word compound target is not placed",
+                );
+                return;
+            };
+            let Some(source_slot) = resolve_pointer_consumer_slot(ctx, routine, source) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect word compound source is not placed",
+                );
+                return;
+            };
+            emit_indirect_word_compound(*op, target_slot, source_slot, *offset, emitter);
+        }
         MirOp::Move {
             dst: MirDef::Reg(MirReg::A),
             src,
@@ -3898,6 +3933,39 @@ fn emit_indirect_byte_compound(
     emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(target_slot)));
 }
 
+fn emit_indirect_word_compound(
+    op: MirBinaryOp,
+    target_slot: u8,
+    source_slot: u8,
+    offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    assert_eq!(
+        op,
+        MirBinaryOp::Add,
+        "indirect word compound currently supports addition"
+    );
+    let target = IndirectIndexedY::new(ZeroPage::new(target_slot));
+    let source = IndirectIndexedY::new(ZeroPage::new(source_slot));
+
+    emitter.emit_ldy_imm(offset as u8);
+    emitter.emit_lda_indirect_indexed_y(target);
+    emitter.emit_clc();
+    emitter.emit_adc_indirect_indexed_y(source);
+    emit_sta_mem(ResolvedMem::ZeroPage(ADDRESS_INDEX_SCRATCH_LO), emitter);
+    emitter.emit_iny();
+    emitter.emit_lda_indirect_indexed_y(target);
+    emitter.emit_adc_indirect_indexed_y(source);
+    emit_sta_mem(ResolvedMem::ZeroPage(ADDRESS_INDEX_SCRATCH_HI), emitter);
+
+    emit_lda_mem(ResolvedMem::ZeroPage(ADDRESS_INDEX_SCRATCH_LO), emitter);
+    emitter.emit_dey();
+    emitter.emit_sta_indirect_indexed_y(target);
+    emit_lda_mem(ResolvedMem::ZeroPage(ADDRESS_INDEX_SCRATCH_HI), emitter);
+    emitter.emit_iny();
+    emitter.emit_sta_indirect_indexed_y(target);
+}
+
 fn emit_indirect_byte_compare(
     left_slot: u8,
     right_slot: u8,
@@ -4484,6 +4552,45 @@ mod tests {
                 opcode::STA_IZY,
                 0xAA,
                 opcode::TXA,
+                opcode::INY,
+                opcode::STA_IZY,
+                0xAA,
+            ]
+        );
+    }
+
+    #[test]
+    fn indirect_word_compound_reads_both_lanes_before_target_writes() {
+        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+
+        emit_indirect_word_compound(MirBinaryOp::Add, 0xAA, 0xAC, 3, &mut emitter);
+
+        assert_eq!(
+            emitter.finish().expect("word-compound sequence emits"),
+            [
+                opcode::LDY_IMM,
+                3,
+                opcode::LDA_IZY,
+                0xAA,
+                opcode::CLC,
+                opcode::ADC_IZY,
+                0xAC,
+                opcode::STA_ZP,
+                0xAE,
+                opcode::INY,
+                opcode::LDA_IZY,
+                0xAA,
+                opcode::ADC_IZY,
+                0xAC,
+                opcode::STA_ZP,
+                0xAF,
+                opcode::LDA_ZP,
+                0xAE,
+                opcode::DEY,
+                opcode::STA_IZY,
+                0xAA,
+                opcode::LDA_ZP,
+                0xAF,
                 opcode::INY,
                 opcode::STA_IZY,
                 0xAA,

@@ -800,6 +800,7 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::Binary { .. })
         | Some(MirOp::Call { .. })
         | Some(MirOp::CopyIndirectWord { .. })
+        | Some(MirOp::IndirectWordCompound { .. })
         | Some(MirOp::RuntimeHelper { .. }) => true,
         Some(MirOp::Load { .. })
         | Some(MirOp::LoadImm { .. })
@@ -943,6 +944,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::StoreIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
@@ -1729,6 +1731,7 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }
@@ -1845,6 +1848,7 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }
@@ -1967,6 +1971,7 @@ where
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }
@@ -2074,6 +2079,7 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
         MirOp::LoadIndirect { dst, .. } => collect_def_spills(dst, spills),
         MirOp::RuntimeHelper { .. } | MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => {}
         MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CompareIndirectBytes { .. } => {}
     }

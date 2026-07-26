@@ -114,6 +114,7 @@ pub(in crate::mir6502) enum MirOpKind {
     LoadIndirect,
     StoreIndirect,
     IndirectByteCompound,
+    IndirectWordCompound,
     Barrier,
     MachineBlock,
 }
@@ -337,6 +338,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::LoadIndirect { .. } => MirOpKind::LoadIndirect,
         MirOp::StoreIndirect { .. } => MirOpKind::StoreIndirect,
         MirOp::IndirectByteCompound { .. } => MirOpKind::IndirectByteCompound,
+        MirOp::IndirectWordCompound { .. } => MirOpKind::IndirectWordCompound,
         MirOp::Barrier { .. } => MirOpKind::Barrier,
         MirOp::MachineBlock { .. } => MirOpKind::MachineBlock,
     });
@@ -647,6 +649,35 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.memory.may_write_any_compat = true;
             summary.memory.has_unknown_effects_compat = true;
             summary.machine.conservative_register_clobbers.a = true;
+            summary.machine.flag_clobbers = MirFlagSet::all();
+            summary.machine.writes_any_flags_compat = true;
+        }
+        MirOp::IndirectWordCompound {
+            target,
+            source,
+            offset,
+            ..
+        } => {
+            record_consumer_read(*target, &mut summary);
+            record_consumer_read(*source, &mut summary);
+            record_consumer_write(*target, &mut summary);
+            record_indirect_y_access(*target, *offset, &mut summary);
+            record_definite_memory_write(
+                &MirMem::FixedZeroPage(MirFixedZpSlot(0xAE)),
+                &mut summary,
+            );
+            record_definite_memory_write(
+                &MirMem::FixedZeroPage(MirFixedZpSlot(0xAF)),
+                &mut summary,
+            );
+            summary.memory.indirect_reads = true;
+            summary.memory.indirect_writes = true;
+            summary.memory.may_write_any = true;
+            summary.memory.has_unknown_effects = true;
+            summary.memory.may_write_any_compat = true;
+            summary.memory.has_unknown_effects_compat = true;
+            summary.machine.conservative_register_clobbers.a = true;
+            summary.machine.conservative_register_clobbers.y = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
             summary.machine.writes_any_flags_compat = true;
         }
@@ -1657,6 +1688,17 @@ mod tests {
                 },
             ),
             (
+                MirOpKind::IndirectWordCompound,
+                MirOp::IndirectWordCompound {
+                    op: MirBinaryOp::Add,
+                    target: consumer(),
+                    source: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                        lo: MirFixedZpSlot(0x92),
+                    }),
+                    offset: 0,
+                },
+            ),
+            (
                 MirOpKind::Barrier,
                 MirOp::Barrier {
                     effects: opaque_effects(),
@@ -1671,10 +1713,55 @@ mod tests {
             ),
         ];
 
-        assert_eq!(operations.len(), 25);
+        assert_eq!(operations.len(), 26);
         for (expected, operation) in operations {
             assert_eq!(classify_op(&operation).kind, expected, "{operation:?}");
         }
+    }
+
+    #[test]
+    fn indirect_word_compound_records_pointer_scratch_and_machine_effects() {
+        let target = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAA),
+        });
+        let source = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAC),
+        });
+        let effects = classify_op(&MirOp::IndirectWordCompound {
+            op: MirBinaryOp::Add,
+            target,
+            source,
+            offset: 7,
+        });
+
+        for slot in 0xAA..=0xAD {
+            assert!(
+                effects
+                    .addresses
+                    .pair_reads
+                    .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(slot)))
+            );
+        }
+        for slot in 0xAE..=0xAF {
+            assert!(
+                effects
+                    .homes
+                    .writes
+                    .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(slot)))
+            );
+            assert!(
+                effects
+                    .memory
+                    .definitely_writes(&MirMem::FixedZeroPage(MirFixedZpSlot(slot)))
+            );
+        }
+        assert!(effects.memory.indirect_reads);
+        assert!(effects.memory.indirect_writes);
+        assert!(effects.may_clobber_reg_compat(MirReg::A));
+        assert!(effects.may_clobber_reg_compat(MirReg::Y));
+        assert!(effects.machine.flag_clobbers.c);
+        assert!(effects.machine.flag_clobbers.z);
+        assert!(effects.machine.flag_clobbers.n);
     }
 
     #[test]

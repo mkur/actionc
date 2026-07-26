@@ -596,6 +596,40 @@ Rules:
 - Add a new pseudo-op only when it represents a stable target-level decision that
   NIR should not know about and emission should not rediscover.
 
+### Destination-aware indirect word arithmetic
+
+`IndirectWordCompound` is a post-selection MIR6502 operation for an alias-safe
+word update through two prepared pointer pairs:
+
+```rust
+IndirectWordCompound {
+    op: MirBinaryOp,
+    target: MirAddressConsumer,
+    source: MirAddressConsumer,
+    offset: u16,
+}
+```
+
+Its initial contract is deliberately narrow:
+
+- only `Add` is accepted;
+- target and source use distinct fixed zero-page pointer pairs;
+- `$AE/$AF` is a third, disjoint compiler-reserved result pair;
+- neither consumer may use scaled-Y addressing;
+- `offset` and `offset + 1` must fit in a byte;
+- both lanes of both inputs are read before either target lane is written;
+- carry flows from the low-byte addition into the high-byte addition;
+- result writes occur low lane first, then high lane;
+- A, Y, flags, the fixed result scratch, and indirect memory effects are
+  explicit in effect analysis.
+
+The read-before-write rule makes identical pointers, one-byte source/target
+overlap, and arbitrary runtime aliasing safe. Selection must prove the logical
+destination is also one input and must reject the operation when its emitted
+cost estimate is not smaller than the unfused sequence. `Sub` remains an
+ordinary byte-lane sequence until its borrow schedule has equivalent runtime
+coverage.
+
 ## Terminators
 
 MIR terminators are block-level control transfers.

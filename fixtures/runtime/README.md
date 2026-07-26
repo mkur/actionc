@@ -66,13 +66,16 @@ a page crossing, the high-byte access at `Y=$FF`, the ASL carry for indexes 128
 through 255, and wrapping the corrected base high byte from `$FF` to `$00`.
 
 The dual-pointer word-transfer fixture exercises scaled indexed-to-indirect,
-indirect-to-indexed, and direct private-pointer word copies in both backends.
-Each indexed direction has a disjoint case and a case where the destination
-overlaps one source byte. The direct cases cover local-backed and
-parameter-backed pointer operands. The MIR6502 preflight requires six selected
-`copy_indirect_word` operations, including two scaled-source copies. The twelve
-result bytes at `$0600-$060B` prove both overlap-safe ordering and private
-pointer rematerialization.
+indirect-to-indexed, direct private-pointer word copies, and destination-aware
+word addition in both backends. Each indexed direction has a disjoint case and
+a case where the destination overlaps one source byte. The direct cases cover
+local-backed and parameter-backed pointer operands. Compound addition covers
+disjoint and identical pointers, source pointers one byte above and below the
+target, page crossing, carry propagation, and `$FFFF` wrap. The MIR6502
+preflight requires six selected `copy_indirect_word` operations, including two
+scaled-source copies, plus one `indirect_word_compound` operation. The 24
+result bytes at `$0600-$0617` prove overlap-safe ordering, private-pointer
+rematerialization, and low-to-high carry behavior.
 
 The ALLOCATE fixture includes the maintained modern Toolkit implementation and
 uses separate fixed heap regions for empty-list, exact removal, split,

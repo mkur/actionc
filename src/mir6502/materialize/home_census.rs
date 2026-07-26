@@ -662,6 +662,7 @@ fn op_kind(op: &MirOp) -> &'static str {
         MirOp::StoreIndirect { .. } => "store-indirect",
         MirOp::CopyIndirectWord { .. } => "copy-indirect-word",
         MirOp::IndirectByteCompound { .. } => "indirect-byte-compound",
+        MirOp::IndirectWordCompound { .. } => "indirect-word-compound",
         MirOp::UpdateMem { .. } => "update-mem",
         MirOp::UpdateIndexedMem { .. } => "update-indexed-mem",
         MirOp::AddByteToWordMem { .. } => "add-byte-to-word",
@@ -1427,6 +1428,7 @@ fn record_op_uses(
         | MirOp::LoadIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }

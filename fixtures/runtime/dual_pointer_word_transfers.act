@@ -4,17 +4,32 @@
 ; destination overlapping one source byte. The overlapping cases require both
 ; source bytes to be read before the first destination write.
 
+TYPE WORDCELL=[CARD value]
+
 CARD indexedToIndirectResult=$0600
 CARD indirectToIndexedResult=$0602
 CARD indexedToIndirectOverlapResult=$0604
 CARD indirectToIndexedOverlapResult=$0606
 CARD localPointerResult=$0608
 CARD parameterPointerResult=$060A
+CARD compoundDisjointResult=$060C
+CARD compoundIdenticalResult=$060E
+CARD compoundSourceAboveResult=$0610
+CARD compoundSourceBelowResult=$0612
+CARD compoundPageCrossingResult=$0614
+CARD compoundWrapResult=$0616
 
 CARD ARRAY indexedSource(256)=$6001
 CARD ARRAY indexedDestination(256)=$6201
 CARD POINTER transferPointer, transferDestinationPointer
+WORDCELL POINTER compoundTargetPointer, compoundSourcePointer
 BYTE index
+BYTE compoundAbove0=$6920
+BYTE compoundAbove1=$6921
+BYTE compoundAbove2=$6922
+BYTE compoundBelow0=$6930
+BYTE compoundBelow1=$6931
+BYTE compoundBelow2=$6932
 
 PROC LocalPointerCopy()
   CARD POINTER sourcePointer, destinationPointer
@@ -28,6 +43,10 @@ RETURN
 
 PROC ParameterPointerCopy(CARD POINTER destinationPointer, sourcePointer)
   destinationPointer^=sourcePointer^
+RETURN
+
+PROC Compound(WORDCELL POINTER targetPointer,sourcePointer)
+  targetPointer.value=targetPointer.value+sourcePointer.value
 RETURN
 
 PROC Main()
@@ -70,6 +89,52 @@ PROC Main()
   transferPointer^=$2468
   ParameterPointerCopy(transferDestinationPointer,transferPointer)
   parameterPointerResult=transferDestinationPointer^
+
+  ; Destination-aware word arithmetic uses separate compiler-owned pointer
+  ; pairs and must read all four input bytes before its first target write.
+  compoundTargetPointer=$6900
+  compoundSourcePointer=$6910
+  compoundTargetPointer.value=$00FF
+  compoundSourcePointer.value=$0001
+  Compound(compoundTargetPointer,compoundSourcePointer)
+  compoundDisjointResult=compoundTargetPointer.value
+
+  compoundTargetPointer=$6918
+  compoundTargetPointer.value=$1234
+  Compound(compoundTargetPointer,compoundTargetPointer)
+  compoundIdenticalResult=compoundTargetPointer.value
+
+  ; The source begins one byte above the target: [01 02] + [02 03].
+  compoundAbove0=1
+  compoundAbove1=2
+  compoundAbove2=3
+  compoundTargetPointer=$6920
+  compoundSourcePointer=$6921
+  Compound(compoundTargetPointer,compoundSourcePointer)
+  compoundSourceAboveResult=compoundTargetPointer.value
+
+  ; The source begins one byte below the target: [02 03] + [01 02].
+  compoundBelow0=1
+  compoundBelow1=2
+  compoundBelow2=3
+  compoundTargetPointer=$6931
+  compoundSourcePointer=$6930
+  Compound(compoundTargetPointer,compoundSourcePointer)
+  compoundSourceBelowResult=compoundTargetPointer.value
+
+  compoundTargetPointer=$69FF
+  compoundSourcePointer=$6AFF
+  compoundTargetPointer.value=$7FFF
+  compoundSourcePointer.value=$0001
+  Compound(compoundTargetPointer,compoundSourcePointer)
+  compoundPageCrossingResult=compoundTargetPointer.value
+
+  compoundTargetPointer=$6B00
+  compoundSourcePointer=$6B10
+  compoundTargetPointer.value=$FFFF
+  compoundSourcePointer.value=$0001
+  Compound(compoundTargetPointer,compoundSourcePointer)
+  compoundWrapResult=compoundTargetPointer.value
 
   DO
   OD

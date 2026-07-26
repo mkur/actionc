@@ -965,6 +965,11 @@ fn store_materialization_address_keys(ops: &[MirOp]) -> (BTreeSet<String>, BTree
                 collect_consumer_keys(*source, &mut reads);
                 collect_consumer_keys(*target, &mut writes);
             }
+            MirOp::IndirectWordCompound { target, source, .. } => {
+                collect_consumer_keys(*target, &mut reads);
+                collect_consumer_keys(*source, &mut reads);
+                collect_consumer_keys(*target, &mut writes);
+            }
             _ => {}
         }
     }

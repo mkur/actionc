@@ -565,6 +565,9 @@ pub(in crate::mir6502) fn discover_store_consumers(
                 "word-arithmetic-indirect-store-consumer" => {
                     store_consumer_plan(block.id, &block.ops, index, candidate, context)
                 }
+                "word-arithmetic-dual-indirect-store-consumer" => {
+                    store_consumer_plan(block.id, &block.ops, index, candidate, context)
+                }
                 "word-arithmetic-pointer-store-consumer" => {
                     store_consumer_plan(block.id, &block.ops, index, candidate, context)
                 }
@@ -1080,6 +1083,18 @@ fn store_consumer_plan(
     if end > ops.len() {
         return None;
     }
+    let (estimated_byte_saving, estimated_cycle_saving) =
+        if candidate.stat == "word-arithmetic-dual-indirect-store-consumer" {
+            let original = super::posthome::estimated_6502_cost(&ops[index..end]);
+            let replacement = super::posthome::estimated_6502_cost(&candidate.replacement);
+            let byte_saving = original.0.saturating_sub(replacement.0);
+            if byte_saving == 0 {
+                return None;
+            }
+            (byte_saving, original.1.saturating_sub(replacement.1))
+        } else {
+            (1, 1)
+        };
     let definitions =
         prove_removed_window_definitions(block, ops, index, end, &candidate.replacement, context)?;
     Some(MirRewritePlan {
@@ -1096,8 +1111,8 @@ fn store_consumer_plan(
         stat: candidate.stat,
         observations: Vec::new(),
         family_priority: candidate.family_priority,
-        estimated_byte_saving: 1,
-        estimated_cycle_saving: 1,
+        estimated_byte_saving,
+        estimated_cycle_saving,
     })
 }
 

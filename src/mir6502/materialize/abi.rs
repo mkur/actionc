@@ -309,7 +309,8 @@ fn op_references_param_storage(op: &MirOp) -> bool {
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CopyIndirectWord { .. }
-        | MirOp::IndirectByteCompound { .. } => false,
+        | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. } => false,
     }
 }
 

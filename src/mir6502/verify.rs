@@ -1130,6 +1130,73 @@ impl MirVerifier {
                     ));
                 }
             }
+            MirOp::IndirectWordCompound {
+                op,
+                target,
+                source,
+                offset,
+            } => {
+                self.verify_address_consumer(routine, block, target);
+                self.verify_address_consumer(routine, block, source);
+                self.reject_scaled_y_consumer(
+                    routine,
+                    block,
+                    target,
+                    "indirect word compound target",
+                );
+                self.reject_scaled_y_consumer(
+                    routine,
+                    block,
+                    source,
+                    "indirect word compound source",
+                );
+                if *op != super::ir::MirBinaryOp::Add {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect word compound currently supports addition only",
+                    ));
+                }
+                if *offset >= u16::from(u8::MAX) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect word compound offset must leave room for the high byte",
+                    ));
+                }
+                let target_lo = match target.pointer_pair() {
+                    super::ir::MirPointerPair::Fixed { lo } => Some(lo.0),
+                    super::ir::MirPointerPair::Virtual(_) => None,
+                };
+                let source_lo = match source.pointer_pair() {
+                    super::ir::MirPointerPair::Fixed { lo } => Some(lo.0),
+                    super::ir::MirPointerPair::Virtual(_) => None,
+                };
+                let disjoint = |left: u8, right: u8| {
+                    u16::from(left) + 2 <= u16::from(right)
+                        || u16::from(right) + 2 <= u16::from(left)
+                };
+                match (target_lo, source_lo) {
+                    (Some(target_lo), Some(source_lo))
+                        if disjoint(target_lo, source_lo)
+                            && disjoint(target_lo, 0xAE)
+                            && disjoint(source_lo, 0xAE) => {}
+                    (Some(_), Some(_)) => {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            "indirect word compound requires three disjoint fixed-ZP pairs",
+                        ));
+                    }
+                    _ => {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            "indirect word compound requires fixed zero-page pointer pairs",
+                        ));
+                    }
+                }
+            }
             MirOp::RuntimeHelper { .. } | MirOp::Barrier { .. } => {}
             MirOp::MachineBlock { id, .. } => {
                 if !machine_ids.contains(id) {
@@ -1945,6 +2012,71 @@ mod tests {
                 .message
                 .contains("requires distinct pointer pairs")
         }));
+    }
+
+    #[test]
+    fn accepts_indirect_word_compound_contract() {
+        let program = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![MirOp::IndirectWordCompound {
+                    op: crate::mir6502::MirBinaryOp::Add,
+                    target: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                        lo: MirFixedZpSlot(0xAA),
+                    }),
+                    source: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                        lo: MirFixedZpSlot(0xAC),
+                    }),
+                    offset: 254,
+                }],
+                MirTerminator::Return,
+            )],
+        )]);
+
+        verify_program(&program, MirPhase::PreEmission)
+            .expect("three disjoint fixed pairs and the last valid offset are accepted");
+    }
+
+    #[test]
+    fn rejects_invalid_indirect_word_compound_contract() {
+        let program = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![MirOp::IndirectWordCompound {
+                    op: crate::mir6502::MirBinaryOp::Sub,
+                    target: MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed {
+                        lo: MirFixedZpSlot(0xAA),
+                    }),
+                    source: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                        lo: MirFixedZpSlot(0xAB),
+                    }),
+                    offset: 255,
+                }],
+                MirTerminator::Return,
+            )],
+        )]);
+
+        let diagnostics = verify_program(&program, MirPhase::PreEmission)
+            .expect_err("unsupported operation, scaled Y, offset, and pair overlap are rejected");
+        for expected in [
+            "indirect word compound target cannot use a scaled-Y address consumer",
+            "indirect word compound currently supports addition only",
+            "indirect word compound offset must leave room for the high byte",
+            "indirect word compound requires three disjoint fixed-ZP pairs",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "missing diagnostic containing {expected:?}: {diagnostics:#?}"
+            );
+        }
     }
 
     #[test]

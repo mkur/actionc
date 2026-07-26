@@ -3838,6 +3838,120 @@ fn word_arithmetic_indirect_store_requires_one_shared_pointer() {
     assert!(replacement.is_empty());
 }
 
+fn dual_indirect_word_arithmetic_store_ops(
+    op: MirBinaryOp,
+    destination_pointer: LocalId,
+    source_offset: u16,
+) -> Vec<MirOp> {
+    let target_pointer = MirMem::Local {
+        id: LocalId(40),
+        offset: 0,
+    };
+    let source_pointer = MirMem::Local {
+        id: LocalId(41),
+        offset: 0,
+    };
+    vec![
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(320)),
+            src: MirAddr::PointerCell {
+                ptr: target_pointer.clone(),
+                offset: 2,
+            },
+            width: MirWidth::Word,
+        },
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(321)),
+            src: MirAddr::PointerCell {
+                ptr: source_pointer,
+                offset: source_offset,
+            },
+            width: MirWidth::Word,
+        },
+        MirOp::Binary {
+            op,
+            dst: MirDef::VTemp(MirTempId(322)),
+            left: MirValue::Def(MirDef::VTemp(MirTempId(320))),
+            right: MirValue::Def(MirDef::VTemp(MirTempId(321))),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::PointerCell {
+                ptr: MirMem::Local {
+                    id: destination_pointer,
+                    offset: 0,
+                },
+                offset: 2,
+            },
+            src: MirValue::Def(MirDef::VTemp(MirTempId(322))),
+            width: MirWidth::Word,
+        },
+    ]
+}
+
+#[test]
+fn dual_indirect_word_arithmetic_store_selects_overlap_safe_compound() {
+    let ops = dual_indirect_word_arithmetic_store_ops(MirBinaryOp::Add, LocalId(40), 2);
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_word_arithmetic_dual_indirect_store_consumer(&ops, 0, &mut replacement),
+        ops.len()
+    );
+    assert!(matches!(
+        replacement.as_slice(),
+        [
+            MirOp::MaterializeAddress {
+                consumer: DEST_POINTER_PAIR,
+                ..
+            },
+            MirOp::MaterializeAddress {
+                consumer: DEFAULT_POINTER_PAIR,
+                ..
+            },
+            MirOp::IndirectWordCompound {
+                op: MirBinaryOp::Add,
+                target: DEST_POINTER_PAIR,
+                source: DEFAULT_POINTER_PAIR,
+                offset: 2,
+            },
+        ]
+    ));
+}
+
+#[test]
+fn dual_indirect_word_arithmetic_store_accepts_commuted_add() {
+    let mut ops = dual_indirect_word_arithmetic_store_ops(MirBinaryOp::Add, LocalId(40), 2);
+    let MirOp::Binary { left, right, .. } = &mut ops[2] else {
+        unreachable!()
+    };
+    std::mem::swap(left, right);
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_word_arithmetic_dual_indirect_store_consumer(&ops, 0, &mut replacement),
+        ops.len()
+    );
+}
+
+#[test]
+fn dual_indirect_word_arithmetic_store_rejects_sub_offset_and_destination_mismatch() {
+    for ops in [
+        dual_indirect_word_arithmetic_store_ops(MirBinaryOp::Sub, LocalId(40), 2),
+        dual_indirect_word_arithmetic_store_ops(MirBinaryOp::Add, LocalId(40), 3),
+        dual_indirect_word_arithmetic_store_ops(MirBinaryOp::Add, LocalId(42), 2),
+    ] {
+        let mut replacement = Vec::new();
+        assert_eq!(
+            select_word_arithmetic_dual_indirect_store_consumer(&ops, 0, &mut replacement),
+            0
+        );
+        assert!(replacement.is_empty());
+    }
+}
+
 fn word_arithmetic_pointer_store_ops(pointer_use_home: LocalId) -> Vec<MirOp> {
     vec![
         MirOp::Load {

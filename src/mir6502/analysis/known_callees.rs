@@ -620,6 +620,7 @@ fn summarize_op_writes(
         | MirOp::StoreIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::UpdateIndexedMem { .. } => {
             writes.make_unknown();
             return;

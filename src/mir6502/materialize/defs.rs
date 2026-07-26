@@ -34,6 +34,7 @@ pub(super) fn op_def(op: &MirOp) -> Option<&MirDef> {
         | MirOp::StoreIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => None,
     }

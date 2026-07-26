@@ -395,6 +395,117 @@ pub(super) fn select_word_arithmetic_indirect_store_consumer(
     cursor + 1 - index
 }
 
+pub(super) fn select_word_arithmetic_dual_indirect_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let mut sources = BTreeMap::<MirTempId, WordConsumerSource>::new();
+    let mut cursor = index;
+    loop {
+        let Some(op) = ops.get(cursor) else {
+            break;
+        };
+        let Some((temp, source)) = word_consumer_load_source(op) else {
+            break;
+        };
+        if sources.insert(temp, source).is_some() {
+            return 0;
+        }
+        cursor += 1;
+    }
+
+    let Some(MirOp::Binary {
+        op: MirBinaryOp::Add,
+        dst: arithmetic_dst,
+        left,
+        right,
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    }) = ops.get(cursor)
+    else {
+        return 0;
+    };
+    let Some(arithmetic_temp) = split_def_as_temp(arithmetic_dst) else {
+        return 0;
+    };
+    let Some(mut left) = resolve_word_consumer_source(left, &sources) else {
+        return 0;
+    };
+    let Some(mut right) = resolve_word_consumer_source(right, &sources) else {
+        return 0;
+    };
+    cursor += 1;
+
+    let Some(MirOp::Store {
+        dst: MirAddr::PointerCell { ptr, offset },
+        src: MirValue::Def(MirDef::VTemp(store_temp)),
+        width: MirWidth::Word,
+    }) = ops.get(cursor)
+    else {
+        return 0;
+    };
+    if *store_temp != arithmetic_temp
+        || !word_consumer_pointer_mem_is_safe(ptr)
+        || *offset >= u16::from(u8::MAX)
+    {
+        return 0;
+    }
+
+    if !matches!(
+        &left,
+        WordConsumerSource::Indirect {
+            pointer,
+            offset: source_offset,
+        } if pointer == &pointer_value_from_mem(ptr) && source_offset == offset
+    ) {
+        if matches!(
+            &right,
+            WordConsumerSource::Indirect {
+                pointer,
+                offset: source_offset,
+            } if pointer == &pointer_value_from_mem(ptr) && source_offset == offset
+        ) {
+            std::mem::swap(&mut left, &mut right);
+        } else {
+            return 0;
+        }
+    }
+    let (
+        WordConsumerSource::Indirect {
+            pointer: target_pointer,
+            offset: target_offset,
+        },
+        WordConsumerSource::Indirect {
+            pointer: source_pointer,
+            offset: source_offset,
+        },
+    ) = (left, right)
+    else {
+        return 0;
+    };
+    if target_offset != *offset || source_offset != *offset {
+        return 0;
+    }
+
+    out.push(MirOp::MaterializeAddress {
+        consumer: DEST_POINTER_PAIR,
+        value: target_pointer,
+    });
+    out.push(MirOp::MaterializeAddress {
+        consumer: DEFAULT_POINTER_PAIR,
+        value: source_pointer,
+    });
+    out.push(MirOp::IndirectWordCompound {
+        op: MirBinaryOp::Add,
+        target: DEST_POINTER_PAIR,
+        source: DEFAULT_POINTER_PAIR,
+        offset: *offset,
+    });
+    cursor + 1 - index
+}
+
 #[cfg(test)]
 pub(super) fn try_materialize_store_expr_producers(
     ops: &[MirOp],
@@ -3328,6 +3439,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         | MirOp::StoreIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => ("other", "binary-store-forward-word-temp-producer-other"),
     }

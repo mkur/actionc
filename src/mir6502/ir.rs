@@ -455,6 +455,17 @@ pub enum MirOp {
         source: MirAddressConsumer,
         offset: u16,
     },
+    /// Add a source word to a target word through two prepared pointer pairs.
+    ///
+    /// Emission reads both target/source lanes before either target write,
+    /// carries from low to high, stages both result lanes in reserved fixed
+    /// scratch, and writes the target low lane before the high lane.
+    IndirectWordCompound {
+        op: MirBinaryOp,
+        target: MirAddressConsumer,
+        source: MirAddressConsumer,
+        offset: u16,
+    },
     Barrier {
         effects: MirEffects,
     },

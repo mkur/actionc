@@ -252,6 +252,7 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::StoreIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => false,
     }
@@ -430,6 +431,7 @@ fn replace_op_temp_values(op: &mut MirOp, temp: MirTempId, replacement: &MirValu
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }
@@ -817,7 +819,7 @@ fn invalidate_staged_address_for_op(
         | MirOp::StoreIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::LeaAddr { .. } => false,
-        MirOp::CopyIndirectWord { .. } => true,
+        MirOp::CopyIndirectWord { .. } | MirOp::IndirectWordCompound { .. } => true,
         MirOp::AdvanceAddress {
             consumer: op_consumer,
             ..

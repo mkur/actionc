@@ -361,6 +361,18 @@ fn op_summary(op: &MirOp) -> String {
             address_consumer_summary(source),
             offset
         ),
+        MirOp::IndirectWordCompound {
+            op,
+            target,
+            source,
+            offset,
+        } => format!(
+            "indirect_word_compound.w {} {} {}+{}",
+            address_consumer_summary(target),
+            binary_summary(*op),
+            address_consumer_summary(source),
+            offset
+        ),
         MirOp::Move { dst, src, width } => {
             format!(
                 "{} ={} {}",

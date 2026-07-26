@@ -1,6 +1,6 @@
 # MIR6502 ALLOCATE Optimization Implementation Plan
 
-Status: in progress; Slices 0-5 completed
+Status: in progress; Slices 0-6 completed
 
 Date: 2026-07-26
 
@@ -679,6 +679,25 @@ In addition to MIR shape tests, execute runtime cases for:
 - Runtime overlap tests pass.
 
 Commit independently.
+
+Implementation result:
+
+- added the narrow `IndirectWordCompound` MIR6502 operation with verified
+  fixed-pair, scratch, offset, operation, and scaled-Y restrictions;
+- the selector applies once in `Free` as
+  `word-arithmetic-dual-indirect-store-consumer`;
+- the rewrite's emitted-cost estimate reports an 18-byte win and rejects
+  zero-saving candidates;
+- ALLOCATE decreased from 942 to 914 XEX bytes and from 889 to 861 recognized
+  instruction bytes; its instruction count decreased from 411 to 397;
+- `Free` no longer stages this update through `$E4-$E7`;
+- MIR6502 is now 21 XEX bytes smaller than the 935-byte modern/classic output;
+- TN remained byte-identical at 9,994 XEX bytes;
+- the dual-pointer VM fixture now executes disjoint, identical, one-byte
+  overlap in both directions, page-crossing, carry, and `$FFFF` wrap cases
+  under both backends;
+- subtraction remains deliberately unselected, so borrow coverage is deferred
+  with the operation rather than weakening the addition-only contract.
 
 ## Slice 7: Alias-Safe Direct-Word to Indirect Copy
 
