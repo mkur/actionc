@@ -875,6 +875,29 @@ sample-specific or volatility-unsafe optimization.
 
 Commit only a real implementation or a useful documented rejection.
 
+Implementation result:
+
+- added `AbsoluteWordSubToIndirect`, which retains the source's structured
+  storage identity for shared effect validation and resolves its absolute
+  backing only during emission;
+- the selector is restricted to absolute-backed word sources, an ordinary
+  local/parameter/spill RHS that is also the destination pointer, a fixed
+  unscaled pointer pair, and an offset whose high lane fits in Y;
+- emission reads both fixed-source lanes and both RHS lanes before the first
+  indirect write, carries the low-byte borrow through the high subtraction,
+  balances the stack, and explicitly clobbers A/X/Y and all arithmetic flags;
+- ALLOCATE selects the operation once in `AllocInit` and decreased from 894 to
+  882 XEX bytes; recognized code decreased from 841 to 829 bytes;
+- `AllocInit` decreased from 98 to 86 bytes, closing the remaining eight-byte
+  classic routine gap and making its MIR6502 body four bytes smaller;
+- TN remained byte-identical to Slice 8 at 9,984 XEX bytes;
+- the modern/classic ALLOCATE oracle remains green, while a separate
+  MIR6502-only overlap oracle places the destination low byte over `MemHi`'s
+  high byte and observes the expected `$0F4E` result;
+- the source-level test rejects the specialized selection for an ordinary
+  non-absolute-backed global, and verifier/effect/emitter tests cover the
+  operation contract and read-before-write schedule.
+
 ## Slice 10: Size-Aware CFG Layout
 
 ### Goal

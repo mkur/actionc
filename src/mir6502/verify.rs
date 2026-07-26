@@ -921,6 +921,63 @@ impl MirVerifier {
                     ));
                 }
             }
+            MirOp::AbsoluteWordSubToIndirect {
+                source,
+                rhs,
+                destination,
+                destination_offset,
+            } => {
+                self.verify_mem(
+                    routine,
+                    block,
+                    &routine.frame,
+                    source,
+                    static_ids,
+                    global_ids,
+                );
+                self.verify_mem(routine, block, &routine.frame, rhs, static_ids, global_ids);
+                self.verify_address_consumer(routine, block, destination);
+                self.reject_scaled_y_consumer(
+                    routine,
+                    block,
+                    destination,
+                    "absolute word subtraction destination",
+                );
+                if matches!(source, MirMem::Absolute(u16::MAX)) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "absolute word subtraction source must leave room for the high byte",
+                    ));
+                }
+                if !matches!(
+                    rhs,
+                    MirMem::Local { .. } | MirMem::Param { .. } | MirMem::Spill { .. }
+                ) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "absolute word subtraction requires ordinary local RHS storage",
+                    ));
+                }
+                if !matches!(
+                    destination.pointer_pair(),
+                    super::ir::MirPointerPair::Fixed { .. }
+                ) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "absolute word subtraction requires a fixed zero-page destination pair",
+                    ));
+                }
+                if *destination_offset > u16::from(u8::MAX - 1) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "absolute word subtraction offset must leave room for the high byte",
+                    ));
+                }
+            }
             MirOp::Move { dst, src, width } => {
                 self.verify_pre_emission_width(routine, block, *width);
                 self.verify_def(routine, block, dst);
@@ -2194,6 +2251,69 @@ mod tests {
             "direct-to-indirect word-copy requires ordinary direct source storage",
             "direct-to-indirect word-copy requires a fixed zero-page destination pair",
             "direct-to-indirect word-copy offset must leave room for the high byte",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "missing diagnostic containing {expected:?}: {diagnostics:#?}"
+            );
+        }
+    }
+
+    #[test]
+    fn verifies_ordered_absolute_word_subtraction_contract() {
+        let spill = crate::mir6502::MirSpillId(0);
+        let mut main = routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![MirOp::AbsoluteWordSubToIndirect {
+                    source: MirMem::Absolute(0x4000),
+                    rhs: MirMem::Spill {
+                        id: spill,
+                        offset: 0,
+                    },
+                    destination: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                        lo: MirFixedZpSlot(0xAC),
+                    }),
+                    destination_offset: 254,
+                }],
+                MirTerminator::Return,
+            )],
+        );
+        main.frame.spills.push(spill);
+        verify_program(&program_with_routines(vec![main]), MirPhase::PreEmission).expect(
+            "fixed source, ordinary RHS, fixed destination, and last valid offset are accepted",
+        );
+
+        let invalid = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![MirOp::AbsoluteWordSubToIndirect {
+                    source: MirMem::Absolute(u16::MAX),
+                    rhs: MirMem::Absolute(0x4100),
+                    destination: MirAddressConsumer::ScaledIndirectIndexedY(
+                        MirPointerPair::Virtual(crate::mir6502::MirZpSlot(0)),
+                    ),
+                    destination_offset: 255,
+                }],
+                MirTerminator::Return,
+            )],
+        )]);
+        let diagnostics = verify_program(&invalid, MirPhase::PreEmission)
+            .expect_err("overflowing source/offset and unsupported homes reject");
+        for expected in [
+            "absolute word subtraction source must leave room for the high byte",
+            "absolute word subtraction requires ordinary local RHS storage",
+            "absolute word subtraction destination cannot use a scaled-Y address consumer",
+            "absolute word subtraction requires a fixed zero-page destination pair",
+            "absolute word subtraction offset must leave room for the high byte",
         ] {
             assert!(
                 diagnostics

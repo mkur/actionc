@@ -34,6 +34,12 @@ Run the modern/classic ALLOCATE behavior gate directly:
 fixtures/runtime/run-allocate-vm.sh
 ```
 
+Run the MIR6502 ordered absolute-subtraction overlap gate directly:
+
+```sh
+fixtures/runtime/run-ordered-absolute-sub-vm.sh
+```
+
 Run the MIR6502 alias-safe indirect call-field gate directly:
 
 ```sh
@@ -97,6 +103,13 @@ equality alone is not used as the correctness oracle. The Toolkit source's
 original two-sided-coalescing behavior is not asserted here because it updates
 the just-freed header instead of the preceding free block after a left merge;
 that source-level issue is separate from backend equivalence.
+
+The ordered absolute-subtraction fixture places the indirect destination one
+byte above `MemHi`, so the destination low byte aliases the fixed source's high
+byte. Its hard-coded `$0F4E` result proves that MIR6502 captures both source
+lanes and both pointer/RHS lanes before the first indirect write. This focused
+gate is MIR6502-only because the classic backend's legacy schedule has weaker
+pointer-alias behavior.
 
 The indirect call-field fixture selects two bounded four-byte transfers into
 the fixed `$A4-$A7` call homes. One source crosses a page boundary. The other

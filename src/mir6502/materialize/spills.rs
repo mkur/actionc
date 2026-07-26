@@ -802,6 +802,7 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::CopyIndirectWord { .. })
         | Some(MirOp::CopyDirectWordToIndirect { .. })
         | Some(MirOp::CopyIndirectBytesToFixedZp { .. })
+        | Some(MirOp::AbsoluteWordSubToIndirect { .. })
         | Some(MirOp::IndirectWordCompound { .. })
         | Some(MirOp::RuntimeHelper { .. }) => true,
         Some(MirOp::Load { .. })
@@ -947,6 +948,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
+        | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::AddByteToWordMem { .. }
@@ -1707,6 +1709,7 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
         }
         MirOp::OffsetPointerByIndirectByte { dst, .. } => remap_mem_spills(dst, remap),
         MirOp::CopyDirectWordToIndirect { source, .. } => remap_mem_spills(source, remap),
+        MirOp::AbsoluteWordSubToIndirect { rhs, .. } => remap_mem_spills(rhs, remap),
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -1828,6 +1831,7 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
         MirOp::CopyDirectWordToIndirect { source, .. } => {
             remap_mem_spills_to_zero_page(source, remap)
         }
+        MirOp::AbsoluteWordSubToIndirect { rhs, .. } => remap_mem_spills_to_zero_page(rhs, remap),
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -1951,6 +1955,7 @@ where
         }
         MirOp::OffsetPointerByIndirectByte { dst, .. } => visitor(dst),
         MirOp::CopyDirectWordToIndirect { source, .. } => visitor(source),
+        MirOp::AbsoluteWordSubToIndirect { rhs, .. } => visitor(rhs),
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -2054,6 +2059,7 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
         }
         MirOp::OffsetPointerByIndirectByte { dst, .. } => collect_mem_spills(dst, spills),
         MirOp::CopyDirectWordToIndirect { source, .. } => collect_mem_spills(source, spills),
+        MirOp::AbsoluteWordSubToIndirect { rhs, .. } => collect_mem_spills(rhs, spills),
         MirOp::Move { dst, src, .. }
         | MirOp::Extend { dst, src, .. }
         | MirOp::Truncate { dst, src, .. }

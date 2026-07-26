@@ -697,6 +697,61 @@ mod tests {
     }
 
     #[test]
+    fn source_generation_selects_ordered_absolute_word_subtraction() {
+        let materialized = materialize_mir6502_source(
+            "
+            CARD top=$4000
+            CARD ordinaryValue
+            TYPE CELL=[CARD size]
+            PROC Fixed(CELL POINTER p)
+              p.size=top-p
+            RETURN
+            PROC Dynamic(CELL POINTER p)
+              p.size=ordinaryValue-p
+            RETURN
+            ",
+        );
+        let fixed = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Fixed")
+            .expect("Fixed routine");
+        let ordinary = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Dynamic")
+            .expect("Dynamic routine");
+
+        assert!(
+            fixed.blocks.iter().any(|block| {
+                block.ops.iter().any(|op| {
+                    matches!(
+                        op,
+                        MirOp::AbsoluteWordSubToIndirect {
+                            source: MirMem::Global { .. },
+                            rhs: MirMem::Param { .. },
+                            destination_offset: 0,
+                            ..
+                        }
+                    )
+                })
+            }),
+            "absolute-backed word should select the ordered indirect subtraction:\n{}",
+            format_program(&materialized)
+        );
+        assert!(
+            ordinary.blocks.iter().all(|block| {
+                block
+                    .ops
+                    .iter()
+                    .all(|op| !matches!(op, MirOp::AbsoluteWordSubToIndirect { .. }))
+            }),
+            "ordinary globals must retain the general word-arithmetic path:\n{}",
+            format_program(&materialized)
+        );
+    }
+
+    #[test]
     fn source_generation_stages_adjacent_indirect_call_fields_before_abi_writes() {
         let materialized = materialize_mir6502_source(
             "

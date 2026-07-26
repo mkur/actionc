@@ -14,6 +14,110 @@ use crate::mir6502::rewrite::context::{MirExitStateChange, PostHomeRewriteContex
 use crate::mir6502::rewrite::plan::MirPostHomeRewritePlan;
 use crate::mir6502::rewrite::posthome::structural_plan;
 
+pub(super) fn select_absolute_word_sub_indirect_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Load {
+        dst: source_dst,
+        src: MirAddr::Direct(source_mem),
+        width: MirWidth::Word,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some(source_temp) = split_def_as_temp(source_dst) else {
+        return 0;
+    };
+    if !layout.mem_has_absolute_backing(source_mem) {
+        return 0;
+    }
+    let Some(source_address) = layout.mem_address(routine_id, source_mem) else {
+        return 0;
+    };
+    if source_address == u16::MAX {
+        return 0;
+    }
+    let mut cursor = index + 1;
+    let rhs_load = match ops.get(cursor) {
+        Some(MirOp::Load {
+            dst,
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Word,
+        }) => {
+            cursor += 1;
+            split_def_as_temp(dst).map(|temp| (temp, mem))
+        }
+        _ => None,
+    };
+
+    let Some(MirOp::Binary {
+        op: MirBinaryOp::Sub,
+        dst,
+        left: MirValue::Def(MirDef::VTemp(left)),
+        right,
+        width: MirWidth::Word,
+        carry_in: None | Some(MirCarryIn::Set),
+        carry_out: MirCarryOut::Ignore,
+    }) = ops.get(cursor)
+    else {
+        return 0;
+    };
+    let Some(result_temp) = split_def_as_temp(dst) else {
+        return 0;
+    };
+    if *left != source_temp {
+        return 0;
+    }
+
+    let Some(MirOp::Store {
+        dst:
+            MirAddr::PointerCell {
+                ptr,
+                offset: destination_offset,
+            },
+        src: MirValue::Def(MirDef::VTemp(stored)),
+        width: MirWidth::Word,
+    }) = ops.get(cursor + 1)
+    else {
+        return 0;
+    };
+    if *stored != result_temp
+        || *destination_offset > u16::from(u8::MAX - 1)
+        || !matches!(
+            ptr,
+            MirMem::Local { .. } | MirMem::Param { .. } | MirMem::Spill { .. }
+        )
+    {
+        return 0;
+    }
+    let right_matches = match (rhs_load, right) {
+        (Some((rhs_temp, rhs_mem)), MirValue::Def(MirDef::VTemp(right))) => {
+            *right == rhs_temp && rhs_mem == ptr
+        }
+        (None, right) => *right == pointer_value_from_mem(ptr),
+        _ => false,
+    };
+    if !right_matches {
+        return 0;
+    }
+
+    out.push(MirOp::MaterializeAddress {
+        consumer: DEFAULT_POINTER_PAIR,
+        value: pointer_value_from_mem(ptr),
+    });
+    out.push(MirOp::AbsoluteWordSubToIndirect {
+        source: source_mem.clone(),
+        rhs: ptr.clone(),
+        destination: DEFAULT_POINTER_PAIR,
+        destination_offset: *destination_offset,
+    });
+    cursor + 2 - index
+}
+
 pub(super) fn select_word_arithmetic_pointer_store_consumer(
     ops: &[MirOp],
     index: usize,
@@ -3440,6 +3544,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
+        | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }

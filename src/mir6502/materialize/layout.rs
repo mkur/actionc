@@ -102,6 +102,19 @@ impl MaterializeLayout {
         }
     }
 
+    pub(super) fn mem_has_absolute_backing(&self, mem: &MirMem) -> bool {
+        match mem {
+            MirMem::Absolute(_) => true,
+            MirMem::Global { id, .. } => self.global_has_absolute_backing(*id),
+            MirMem::Static { .. }
+            | MirMem::Local { .. }
+            | MirMem::Param { .. }
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_)
+            | MirMem::FixedZeroPage(_) => false,
+        }
+    }
+
     pub(super) fn global_address(&self, id: SymbolId) -> Option<u16> {
         for (global_id, backing, _) in &self.globals {
             if *global_id == id {
@@ -132,6 +145,17 @@ impl MaterializeLayout {
             }
         }
         false
+    }
+
+    fn global_has_absolute_backing(&self, id: SymbolId) -> bool {
+        self.globals
+            .iter()
+            .find(|(global_id, _, _)| *global_id == id)
+            .is_some_and(|(_, backing, _)| match backing {
+                MirGlobalBacking::Absolute(_) => true,
+                MirGlobalBacking::Alias { target, .. } => self.global_has_absolute_backing(*target),
+                MirGlobalBacking::Ordinary { .. } => false,
+            })
     }
 
     pub(super) fn mem_allows_deferred_direct_read(&self, mem: &MirMem) -> bool {

@@ -413,6 +413,19 @@ pub enum MirOp {
         source_offset: u16,
         destinations: Vec<MirFixedZpSlot>,
     },
+    /// Subtract an ordinary direct word from an absolute-backed word and store
+    /// the result through a prepared pointer.
+    ///
+    /// The source retains its structured storage identity through rewrite
+    /// validation and is resolved to its fixed address only during emission.
+    /// Both source lanes and both RHS lanes are read before the first indirect
+    /// destination write. Carry/borrow flows from low to high.
+    AbsoluteWordSubToIndirect {
+        source: MirMem,
+        rhs: MirMem,
+        destination: MirAddressConsumer,
+        destination_offset: u16,
+    },
     Compare {
         dst: MirCondDest,
         op: MirCompareOp,

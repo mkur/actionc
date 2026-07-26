@@ -1883,6 +1883,57 @@ fn emit_op(
                 emitter,
             );
         }
+        MirOp::AbsoluteWordSubToIndirect {
+            source,
+            rhs,
+            destination,
+            destination_offset,
+        } => {
+            let Some(source) = ctx.layout.direct_mem(routine, source) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "absolute word subtraction source is not emit-ready",
+                );
+                return;
+            };
+            let Some(rhs) = ctx.layout.direct_mem(routine, rhs) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "absolute word subtraction RHS is not emit-ready",
+                );
+                return;
+            };
+            let Some(destination_slot) = resolve_pointer_consumer_slot(ctx, routine, destination)
+            else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "absolute word subtraction destination is not placed",
+                );
+                return;
+            };
+            if destination.uses_scaled_y() {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "absolute word subtraction cannot use scaled Y",
+                );
+                return;
+            }
+            emit_absolute_word_sub_to_indirect(
+                source,
+                rhs,
+                destination_slot,
+                *destination_offset,
+                emitter,
+            );
+        }
         MirOp::MaterializeAddress { consumer, value } => {
             if consumer.uses_scaled_y() {
                 unsupported(
@@ -3902,6 +3953,35 @@ fn emit_copy_indirect_bytes_to_fixed_zp(
     }
 }
 
+fn emit_absolute_word_sub_to_indirect(
+    source: ResolvedMem,
+    rhs: ResolvedMem,
+    destination_slot: u8,
+    destination_offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    emit_lda_mem(source, emitter);
+    emitter.emit_sec();
+    emit_sbc_resolved_mem(rhs, emitter);
+    emitter.emit_pha();
+    emit_lda_mem(offset_resolved_mem(source, 1), emitter);
+    emit_sbc_resolved_mem(offset_resolved_mem(rhs, 1), emitter);
+    emitter.emit_tax();
+    emitter.emit_pla();
+    emitter.emit_ldy_imm(destination_offset as u8);
+    emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(destination_slot)));
+    emitter.emit_txa();
+    emitter.emit_iny();
+    emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(destination_slot)));
+}
+
+fn emit_sbc_resolved_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
+    match mem {
+        ResolvedMem::Absolute(address) => emitter.emit_sbc_abs(address),
+        ResolvedMem::ZeroPage(address) => emitter.emit_sbc_zero_page(ZeroPage::new(address)),
+    }
+}
+
 fn offset_resolved_mem(mem: ResolvedMem, offset: u16) -> ResolvedMem {
     match mem {
         ResolvedMem::Absolute(address) => ResolvedMem::Absolute(address.wrapping_add(offset)),
@@ -4690,6 +4770,49 @@ mod tests {
                 opcode::STA_IZY,
                 0xAC,
                 opcode::PLA,
+                opcode::INY,
+                opcode::STA_IZY,
+                0xAC,
+            ]
+        );
+    }
+
+    #[test]
+    fn absolute_word_subtraction_reads_all_operands_before_indirect_writes() {
+        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+
+        emit_absolute_word_sub_to_indirect(
+            ResolvedMem::Absolute(0x4000),
+            ResolvedMem::ZeroPage(0xE0),
+            0xAC,
+            2,
+            &mut emitter,
+        );
+
+        assert_eq!(
+            emitter
+                .finish()
+                .expect("ordered word-subtraction sequence emits"),
+            [
+                opcode::LDA_ABS,
+                0x00,
+                0x40,
+                opcode::SEC,
+                opcode::SBC_ZP,
+                0xE0,
+                opcode::PHA,
+                opcode::LDA_ABS,
+                0x01,
+                0x40,
+                opcode::SBC_ZP,
+                0xE1,
+                opcode::TAX,
+                opcode::PLA,
+                opcode::LDY_IMM,
+                2,
+                opcode::STA_IZY,
+                0xAC,
+                opcode::TXA,
                 opcode::INY,
                 opcode::STA_IZY,
                 0xAC,

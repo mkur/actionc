@@ -1,0 +1,24 @@
+; Runtime contract for ordered absolute-backed word subtraction.
+;
+; The destination low byte aliases the fixed source's high byte. The selected
+; MIR6502 operation must read both source lanes and both RHS lanes before its
+; first indirect write.
+
+INCLUDE "../../samples/toolkit/modern/ALLOCATE.ACT"
+
+BYTE signature=$0600
+CARD observedSize=$0601
+
+PROC Main()
+  BLOCK POINTER p
+
+  signature=$A9
+  EndProg=$02E6
+  MemHi=$1234
+  AllocInit(0)
+  p=FreeList.next
+  observedSize=p.size
+
+  DO
+  OD
+RETURN

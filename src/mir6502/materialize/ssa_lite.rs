@@ -320,7 +320,9 @@ impl SsaLiteValueEnv {
             MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => {
                 self.kill_memory_dependencies();
             }
-            MirOp::CopyIndirectWord { .. } | MirOp::CopyDirectWordToIndirect { .. } => {
+            MirOp::CopyIndirectWord { .. }
+            | MirOp::CopyDirectWordToIndirect { .. }
+            | MirOp::AbsoluteWordSubToIndirect { .. } => {
                 self.kill_reg(MirReg::A);
                 self.kill_reg(MirReg::X);
                 self.kill_reg(MirReg::Y);
@@ -552,7 +554,9 @@ impl SsaLiteV2ObserveEnv {
             MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => {
                 self.kill_memory_dependencies(SsaLiteV2KillReason::Unknown);
             }
-            MirOp::CopyIndirectWord { .. } | MirOp::CopyDirectWordToIndirect { .. } => {
+            MirOp::CopyIndirectWord { .. }
+            | MirOp::CopyDirectWordToIndirect { .. }
+            | MirOp::AbsoluteWordSubToIndirect { .. } => {
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 self.kill_def(&MirDef::Reg(MirReg::X), SsaLiteV2KillReason::Unknown);
                 self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
@@ -1007,6 +1011,7 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
+        | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
@@ -1651,6 +1656,7 @@ impl LiveTempByteLanes {
             | MirOp::CopyIndirectWord { .. }
             | MirOp::CopyDirectWordToIndirect { .. }
             | MirOp::CopyIndirectBytesToFixedZp { .. }
+            | MirOp::AbsoluteWordSubToIndirect { .. }
             | MirOp::IndirectByteCompound { .. }
             | MirOp::IndirectWordCompound { .. }
             | MirOp::Barrier { .. }

@@ -518,6 +518,18 @@ fn op_summary(op: &MirOp) -> String {
             address_consumer_summary(source),
             source_offset
         ),
+        MirOp::AbsoluteWordSubToIndirect {
+            source,
+            rhs,
+            destination,
+            destination_offset,
+        } => format!(
+            "absolute_word_sub_to_indirect {}+{} <- {} - {}",
+            address_consumer_summary(destination),
+            destination_offset,
+            mem_summary(source),
+            mem_summary(rhs)
+        ),
         MirOp::Compare {
             dst,
             op,
