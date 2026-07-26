@@ -105,6 +105,7 @@ pub(in crate::mir6502) enum MirOpKind {
     OffsetPointerByIndirectByte,
     CopyIndirectWord,
     CopyDirectWordToIndirect,
+    CopyIndirectBytesToFixedZp,
     Compare,
     CompareIndirectBytes,
     Call,
@@ -330,6 +331,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::OffsetPointerByIndirectByte { .. } => MirOpKind::OffsetPointerByIndirectByte,
         MirOp::CopyIndirectWord { .. } => MirOpKind::CopyIndirectWord,
         MirOp::CopyDirectWordToIndirect { .. } => MirOpKind::CopyDirectWordToIndirect,
+        MirOp::CopyIndirectBytesToFixedZp { .. } => MirOpKind::CopyIndirectBytesToFixedZp,
         MirOp::Compare { .. } => MirOpKind::Compare,
         MirOp::CompareIndirectBytes { .. } => MirOpKind::CompareIndirectBytes,
         MirOp::Call { .. } => MirOpKind::Call,
@@ -492,6 +494,27 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.machine.conservative_register_clobbers.x = true;
             summary.machine.conservative_register_clobbers.y = true;
             summary.machine.flag_clobbers = MirFlagSet::all();
+            summary.machine.writes_any_flags_compat = true;
+        }
+        MirOp::CopyIndirectBytesToFixedZp {
+            source,
+            source_offset,
+            destinations,
+        } => {
+            record_consumer_read(*source, &mut summary);
+            record_indirect_y_access(*source, *source_offset, &mut summary);
+            summary.memory.indirect_reads = true;
+            summary.memory.has_unknown_effects = true;
+            for destination in destinations {
+                record_definite_memory_write(&MirMem::FixedZeroPage(*destination), &mut summary);
+            }
+            summary.machine.conservative_register_clobbers.a = true;
+            summary.machine.conservative_register_clobbers.y = true;
+            summary.machine.flag_clobbers = MirFlagSet {
+                z: true,
+                n: true,
+                ..MirFlagSet::default()
+            };
             summary.machine.writes_any_flags_compat = true;
         }
         MirOp::Compare {
@@ -1708,6 +1731,14 @@ mod tests {
                 },
             ),
             (
+                MirOpKind::CopyIndirectBytesToFixedZp,
+                MirOp::CopyIndirectBytesToFixedZp {
+                    source: consumer(),
+                    source_offset: 0,
+                    destinations: vec![MirFixedZpSlot(0xA4), MirFixedZpSlot(0xA5)],
+                },
+            ),
+            (
                 MirOpKind::IndirectByteCompound,
                 MirOp::IndirectByteCompound {
                     op: MirBinaryOp::Add,
@@ -1742,7 +1773,7 @@ mod tests {
             ),
         ];
 
-        assert_eq!(operations.len(), 27);
+        assert_eq!(operations.len(), 28);
         for (expected, operation) in operations {
             assert_eq!(classify_op(&operation).kind, expected, "{operation:?}");
         }
@@ -1772,6 +1803,39 @@ mod tests {
         assert!(effects.may_clobber_reg_compat(MirReg::X));
         assert!(effects.may_clobber_reg_compat(MirReg::Y));
         assert!(effects.machine.flag_clobbers == MirFlagSet::all());
+    }
+
+    #[test]
+    fn indirect_byte_range_records_source_fixed_writes_and_exact_machine_effects() {
+        let effects = classify_op(&MirOp::CopyIndirectBytesToFixedZp {
+            source: consumer(),
+            source_offset: 0,
+            destinations: vec![MirFixedZpSlot(0xA4), MirFixedZpSlot(0xA5)],
+        });
+
+        assert!(effects.memory.indirect_reads);
+        for slot in 0x90..=0x91 {
+            assert!(
+                effects
+                    .addresses
+                    .pair_reads
+                    .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(slot)))
+            );
+        }
+        for slot in 0xA4..=0xA5 {
+            assert!(
+                effects
+                    .memory
+                    .definitely_writes(&MirMem::FixedZeroPage(MirFixedZpSlot(slot)))
+            );
+        }
+        assert!(effects.may_clobber_reg_compat(MirReg::A));
+        assert!(effects.may_clobber_reg_compat(MirReg::Y));
+        assert!(!effects.may_clobber_reg_compat(MirReg::X));
+        assert!(effects.machine.flag_clobbers.z);
+        assert!(effects.machine.flag_clobbers.n);
+        assert!(!effects.machine.flag_clobbers.c);
+        assert!(!effects.machine.flag_clobbers.v);
     }
 
     #[test]

@@ -403,6 +403,16 @@ pub enum MirOp {
         destination: MirAddressConsumer,
         destination_offset: u16,
     },
+    /// Copy a bounded indirect byte range into consecutive fixed-ZP homes.
+    ///
+    /// Emission reads and stack-stages the complete source range before the
+    /// first destination write, then restores the bytes into the fixed homes
+    /// in source order. The stack is balanced on exit.
+    CopyIndirectBytesToFixedZp {
+        source: MirAddressConsumer,
+        source_offset: u16,
+        destinations: Vec<MirFixedZpSlot>,
+    },
     Compare {
         dst: MirCondDest,
         op: MirCompareOp,

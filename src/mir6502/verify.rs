@@ -873,6 +873,54 @@ impl MirVerifier {
                     ));
                 }
             }
+            MirOp::CopyIndirectBytesToFixedZp {
+                source,
+                source_offset,
+                destinations,
+            } => {
+                self.verify_address_consumer(routine, block, source);
+                self.reject_scaled_y_consumer(
+                    routine,
+                    block,
+                    source,
+                    "indirect-to-fixed-ZP byte-copy source",
+                );
+                if !matches!(
+                    source.pointer_pair(),
+                    super::ir::MirPointerPair::Fixed { .. }
+                ) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect-to-fixed-ZP byte-copy requires a fixed zero-page source pair",
+                    ));
+                }
+                if !(2..=8).contains(&destinations.len()) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect-to-fixed-ZP byte-copy requires two through eight destinations",
+                    ));
+                }
+                if destinations
+                    .windows(2)
+                    .any(|pair| pair[1].0 != pair[0].0.wrapping_add(1))
+                {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect-to-fixed-ZP byte-copy destinations must be consecutive",
+                    ));
+                }
+                let span = destinations.len().saturating_sub(1) as u16;
+                if source_offset.saturating_add(span) > u16::from(u8::MAX) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect-to-fixed-ZP byte-copy source range must fit in Y",
+                    ));
+                }
+            }
             MirOp::Move { dst, src, width } => {
                 self.verify_pre_emission_width(routine, block, *width);
                 self.verify_def(routine, block, dst);
@@ -2146,6 +2194,64 @@ mod tests {
             "direct-to-indirect word-copy requires ordinary direct source storage",
             "direct-to-indirect word-copy requires a fixed zero-page destination pair",
             "direct-to-indirect word-copy offset must leave room for the high byte",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "missing diagnostic containing {expected:?}: {diagnostics:#?}"
+            );
+        }
+    }
+
+    #[test]
+    fn verifies_bounded_indirect_byte_range_to_fixed_zp_contract() {
+        let valid = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![MirOp::CopyIndirectBytesToFixedZp {
+                    source: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                        lo: MirFixedZpSlot(0xAC),
+                    }),
+                    source_offset: 252,
+                    destinations: vec![
+                        MirFixedZpSlot(0xA4),
+                        MirFixedZpSlot(0xA5),
+                        MirFixedZpSlot(0xA6),
+                        MirFixedZpSlot(0xA7),
+                    ],
+                }],
+                MirTerminator::Return,
+            )],
+        )]);
+        verify_program(&valid, MirPhase::PreEmission)
+            .expect("fixed source, consecutive homes, and in-range Y span are valid");
+
+        let invalid = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![MirOp::CopyIndirectBytesToFixedZp {
+                    source: MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Virtual(
+                        crate::mir6502::MirZpSlot(0),
+                    )),
+                    source_offset: 253,
+                    destinations: vec![MirFixedZpSlot(0xA4), MirFixedZpSlot(0xA6)],
+                }],
+                MirTerminator::Return,
+            )],
+        )]);
+        let diagnostics = verify_program(&invalid, MirPhase::PreEmission)
+            .expect_err("scaled virtual source, gapped homes, and overflowing span reject");
+        for expected in [
+            "indirect-to-fixed-ZP byte-copy source cannot use a scaled-Y address consumer",
+            "indirect-to-fixed-ZP byte-copy requires a fixed zero-page source pair",
+            "indirect-to-fixed-ZP byte-copy destinations must be consecutive",
         ] {
             assert!(
                 diagnostics

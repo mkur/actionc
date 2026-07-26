@@ -34,6 +34,12 @@ Run the modern/classic ALLOCATE behavior gate directly:
 fixtures/runtime/run-allocate-vm.sh
 ```
 
+Run the MIR6502 alias-safe indirect call-field gate directly:
+
+```sh
+fixtures/runtime/run-indirect-call-fields-vm.sh
+```
+
 Run the modern/classic direct unsigned word-compare boundary gate directly:
 
 ```sh
@@ -91,6 +97,14 @@ equality alone is not used as the correctness oracle. The Toolkit source's
 original two-sided-coalescing behavior is not asserted here because it updates
 the just-freed header instead of the preceding free block after a left merge;
 that source-level issue is separate from backend equivalence.
+
+The indirect call-field fixture selects two bounded four-byte transfers into
+the fixed `$A4-$A7` call homes. One source crosses a page boundary. The other
+starts at `$A3`, one byte before the destination range, so a load/store
+sequence that writes an ABI home before capturing every source byte corrupts
+the next argument byte. The 18 hard-coded result bytes at `$0600-$0611`
+validate the callee's tag, pointer, and two word arguments. The preflight also
+requires both `copy_indirect_bytes_to_fixed_zp` selections.
 
 The direct word-compare fixture executes `Lt`, `Ge`, `Gt`, and `Le` branches
 around `$0000`, `$00FF/$0100`, `$7FFF/$8000`, and `$FFFF`. Its indirect-left

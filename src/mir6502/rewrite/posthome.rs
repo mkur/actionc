@@ -123,6 +123,10 @@ fn estimated_op_cost(op: &MirOp) -> (u16, u16) {
         MirOp::StoreIndirect { .. } => (2, 6),
         MirOp::CopyIndirectWord { .. } => (18, 45),
         MirOp::CopyDirectWordToIndirect { .. } => (17, 35),
+        MirOp::CopyIndirectBytesToFixedZp { destinations, .. } => {
+            let count = destinations.len() as u16;
+            (1 + count.saturating_mul(7), count.saturating_mul(17))
+        }
         MirOp::IndirectByteCompound { .. } => (8, 12),
         MirOp::IndirectWordCompound { .. } => (26, 50),
         MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => (0, 0),

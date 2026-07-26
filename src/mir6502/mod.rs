@@ -697,6 +697,50 @@ mod tests {
     }
 
     #[test]
+    fn source_generation_stages_adjacent_indirect_call_fields_before_abi_writes() {
+        let materialized = materialize_mir6502_source(
+            "
+            TYPE CELL=[CARD first,second]
+            CELL POINTER p
+            PROC Capture(CARD tag,p,first,second)
+            RETURN
+            PROC Main()
+              Capture($1234,p,p.first,p.second)
+              p=$0000
+            RETURN
+            ",
+        );
+        let main = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+
+        assert!(
+            main.blocks.iter().any(|block| {
+                block.ops.iter().any(|op| {
+                    matches!(
+                        op,
+                        MirOp::CopyIndirectBytesToFixedZp {
+                            source_offset: 0,
+                            destinations,
+                            ..
+                        } if destinations
+                            == &[
+                                MirFixedZpSlot(0xA4),
+                                MirFixedZpSlot(0xA5),
+                                MirFixedZpSlot(0xA6),
+                                MirFixedZpSlot(0xA7),
+                            ]
+                    )
+                })
+            }),
+            "adjacent indirect word arguments should stage before ABI writes:\n{}",
+            format_program(&materialized)
+        );
+    }
+
+    #[test]
     fn source_generation_preserves_expected_word_unary_negation() {
         let literal = generate_mir6502_source("INT s PROC Main() s=-1 RETURN");
         assert!(bytes_contain(

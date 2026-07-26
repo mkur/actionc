@@ -659,6 +659,37 @@ Selection may therefore accept exact and one-byte overlap between source and
 destination. Its post-home rewrite must prove A/X/Y/flags dead at the window
 exit and must reject a nonpositive emitted-cost estimate.
 
+### Alias-safe indirect byte range to fixed call homes
+
+`CopyIndirectBytesToFixedZp` copies a bounded byte range through one prepared
+pointer into consecutive fixed zero-page homes:
+
+```rust
+CopyIndirectBytesToFixedZp {
+    source: MirAddressConsumer,
+    source_offset: u16,
+    destinations: Vec<MirFixedZpSlot>,
+}
+```
+
+Its contract is:
+
+- `source` is an unscaled fixed zero-page pointer pair;
+- the operation contains two through eight consecutive destination homes;
+- the complete source range fits in Y;
+- every source byte is read and pushed before the first destination write;
+- bytes are popped into the destinations in reverse stack order, preserving
+  source-to-destination byte order;
+- stack staging is balanced and restores the incoming stack pointer;
+- A, Y, Z/N, the source-pair reads, the unknown indirect reads, and each exact
+  fixed-ZP write are explicit in effect analysis.
+
+The call-field selector uses this operation only for adjacent, nonoverlapping
+word fields whose final homes are consumed by the immediately following call.
+Any intervening argument load must be ordinary compiler-owned storage proven
+disjoint from the fixed destination homes. This permits the source range to
+alias the ABI homes themselves without changing argument evaluation.
+
 ## Terminators
 
 MIR terminators are block-level control transfers.

@@ -311,7 +311,8 @@ fn op_references_param_storage(op: &MirOp) -> bool {
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
-        | MirOp::IndirectWordCompound { .. } => false,
+        | MirOp::IndirectWordCompound { .. }
+        | MirOp::CopyIndirectBytesToFixedZp { .. } => false,
     }
 }
 

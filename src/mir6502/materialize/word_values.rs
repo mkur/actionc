@@ -161,6 +161,7 @@ fn op_blocks_deferred_direct_read(op: &MirOp) -> bool {
         | MirOp::StoreIndirect { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
+        | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::CompareIndirectBytes { .. } => true,

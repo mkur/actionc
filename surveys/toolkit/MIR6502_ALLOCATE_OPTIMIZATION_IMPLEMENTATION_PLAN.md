@@ -1,6 +1,6 @@
 # MIR6502 ALLOCATE Optimization Implementation Plan
 
-Status: in progress; Slices 0-7 completed
+Status: in progress; Slices 0-8 completed
 
 Date: 2026-07-26
 
@@ -813,6 +813,29 @@ copying a bounded indirect byte range into fixed call homes. Do not name
 - The expected opportunity is roughly 8-15 bytes.
 
 Commit independently.
+
+Implementation result:
+
+- added `CopyIndirectBytesToFixedZp`, a bounded two-through-eight-byte
+  operation that stack-stages every indirect source byte before its first
+  exact fixed-ZP write;
+- the verifier requires an unscaled fixed pointer, consecutive destinations,
+  and a source span that fits in Y; effects expose A, Y, Z/N, the source-pair
+  read, unknown indirect reads, and each fixed destination write;
+- the post-home selector accepts the adjacent two-word field shape only when
+  the immediately following call consumes all four homes and any intervening
+  argument load is constant or ordinary storage proven disjoint from them;
+- `PrintFreeList` no longer allocates or accesses `$E0-$E3`; its four indirect
+  reads and pushes all precede the first `$A4-$A7` store;
+- ALLOCATE decreased from 902 to 894 XEX bytes and from 849 to 841 recognized
+  instruction bytes; its instruction count remained 397;
+- `PrintFreeList` decreased from 120 to 112 recognized bytes and its LDA+STA
+  count decreased from 40 to 32;
+- MIR6502 is now 41 XEX bytes smaller than the 935-byte modern/classic output;
+- TN remained byte-identical to Slice 7 at 9,984 XEX bytes;
+- the VM oracle passes a four-byte page crossing and a source beginning at
+  `$A3`, where an early `$A4` write would corrupt the next unread source byte;
+- the ALLOCATE allocator VM oracle remains green under both backends.
 
 ## Slice 9: AllocInit Ordered-Absolute Cleanup
 

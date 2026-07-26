@@ -1,0 +1,57 @@
+; Runtime oracle for alias-safe adjacent indirect call-argument staging.
+
+TYPE CELL=[CARD first,second]
+
+BYTE signature=$0600
+BYTE completed=$0601
+CARD resultTag1=$0602
+CARD resultPointer1=$0604
+CARD resultFirst1=$0606
+CARD resultSecond1=$0608
+CARD resultTag2=$060A
+CARD resultPointer2=$060C
+CARD resultFirst2=$060E
+CARD resultSecond2=$0610
+
+BYTE captureIndex
+
+PROC Capture(CARD tag,p,first,second)
+  IF captureIndex=0 THEN
+    resultTag1=tag
+    resultPointer1=p
+    resultFirst1=first
+    resultSecond1=second
+  ELSE
+    resultTag2=tag
+    resultPointer2=p
+    resultFirst2=first
+    resultSecond2=second
+  FI
+  captureIndex==+1
+RETURN
+
+PROC Main()
+  CELL POINTER source
+
+  signature=$C8
+  completed=0
+  captureIndex=0
+
+  ; The four-byte field range crosses a page boundary.
+  source=$70FE
+  source.first=$1234
+  source.second=$ABCD
+  Capture($1111,source,source.first,source.second)
+  completed==+1
+
+  ; The source starts one byte before the ABI range: writing $A4 before all
+  ; reads would corrupt the next source byte.
+  source=$00A3
+  source.first=$5678
+  source.second=$9ABC
+  Capture($2222,source,source.first,source.second)
+  completed==+1
+
+  DO
+  OD
+RETURN

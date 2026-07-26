@@ -473,16 +473,18 @@ pub(in crate::mir6502) fn discover_indirect_stores_and_compounds(
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
             let candidates = [
+                indirect_call_field_staging_at(&block.ops, index, routine.id, layout)
+                    .map(|candidate| (candidate, "indirect-call-field-staging", 0)),
                 direct_word_to_indirect_copy_at(&block.ops, index, routine.id, layout)
-                    .map(|candidate| (candidate, "direct-word-to-indirect-copy", 0)),
+                    .map(|candidate| (candidate, "direct-word-to-indirect-copy", 1)),
                 indirect_byte_direct_store_at(&block.ops, index, routine.id, layout)
-                    .map(|candidate| (candidate, "indirect-byte-direct-store", 1)),
+                    .map(|candidate| (candidate, "indirect-byte-direct-store", 2)),
                 indirect_byte_const_compound_at(&block.ops, index)
-                    .map(|candidate| (candidate, "indirect-byte-const-compound", 2)),
+                    .map(|candidate| (candidate, "indirect-byte-const-compound", 3)),
                 indirect_byte_direct_compound_at(&block.ops, index, routine.id, layout)
-                    .map(|candidate| (candidate, "indirect-byte-direct-compound", 3)),
+                    .map(|candidate| (candidate, "indirect-byte-direct-compound", 4)),
                 indirect_byte_compound_at(&block.ops, index)
-                    .map(|candidate| (candidate, "indirect-byte-compound", 4)),
+                    .map(|candidate| (candidate, "indirect-byte-compound", 5)),
             ];
             for ((consumed, replacement), stat, priority) in candidates.into_iter().flatten() {
                 if let Some(plan) = structural_plan(
@@ -493,12 +495,17 @@ pub(in crate::mir6502) fn discover_indirect_stores_and_compounds(
                     replacement,
                     if stat == "direct-word-to-indirect-copy" {
                         direct_word_to_indirect_exit_change()
+                    } else if stat == "indirect-call-field-staging" {
+                        indirect_call_field_exit_change()
                     } else {
                         MirExitStateChange::default()
                     },
                     stat,
                     priority,
-                ) && (stat != "direct-word-to-indirect-copy" || plan.estimated_byte_saving > 0)
+                ) && (!matches!(
+                    stat,
+                    "direct-word-to-indirect-copy" | "indirect-call-field-staging"
+                ) || plan.estimated_byte_saving > 0)
                 {
                     plans.push(plan);
                 }
@@ -506,6 +513,172 @@ pub(in crate::mir6502) fn discover_indirect_stores_and_compounds(
         }
     }
     plans
+}
+
+fn indirect_call_field_exit_change() -> MirExitStateChange {
+    MirExitStateChange {
+        registers: MirRegisterSet {
+            a: true,
+            ..MirRegisterSet::default()
+        },
+        flags: MirFlagSet {
+            z: true,
+            n: true,
+            ..MirFlagSet::default()
+        },
+        ..MirExitStateChange::default()
+    }
+}
+
+fn indirect_call_field_staging_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    const BYTE_COUNT: usize = 4;
+
+    let mut source = None;
+    let mut source_offset = None;
+    let mut staged = Vec::with_capacity(BYTE_COUNT);
+    for lane in 0..BYTE_COUNT {
+        let MirOp::LoadIndirect {
+            consumer,
+            dst: MirDef::Reg(MirReg::A),
+            offset,
+        } = ops.get(index + lane * 2)?
+        else {
+            return None;
+        };
+        if consumer.uses_scaled_y()
+            || !matches!(consumer.pointer_pair(), MirPointerPair::Fixed { .. })
+        {
+            return None;
+        }
+        let first_offset = *source_offset.get_or_insert(*offset);
+        if *offset != first_offset.checked_add(lane as u16)? {
+            return None;
+        }
+        if let Some(existing) = source {
+            if existing != *consumer {
+                return None;
+            }
+        } else {
+            source = Some(*consumer);
+        }
+        let home = store_a_direct_byte(ops.get(index + lane * 2 + 1)?)?;
+        if !mem_is_private_scratch(&home) || staged.contains(&home) {
+            return None;
+        }
+        staged.push(home);
+    }
+
+    let copy_start = (index + BYTE_COUNT * 2..=index + BYTE_COUNT * 2 + 4).find(|candidate| {
+        ops.get(*candidate).and_then(load_a_direct_byte) == staged.first().cloned()
+    })?;
+    let mut destinations = Vec::<MirFixedZpSlot>::with_capacity(BYTE_COUNT);
+    for lane in 0..BYTE_COUNT {
+        if load_a_direct_byte(ops.get(copy_start + lane * 2)?)? != staged[lane] {
+            return None;
+        }
+        let MirMem::FixedZeroPage(destination) =
+            store_a_direct_byte(ops.get(copy_start + lane * 2 + 1)?)?
+        else {
+            return None;
+        };
+        if let Some(first) = destinations.first() {
+            if destination.0 != first.0.checked_add(lane as u8)? {
+                return None;
+            }
+        }
+        destinations.push(destination);
+    }
+
+    let interstitial = &ops[index + BYTE_COUNT * 2..copy_start];
+    if interstitial.len() % 2 != 0 {
+        return None;
+    }
+    for pair in interstitial.chunks_exact(2) {
+        let stored = store_a_direct_byte(&pair[1])?;
+        if !matches!(stored, MirMem::FixedZeroPage(_)) {
+            return None;
+        }
+        if let Some(loaded) = load_a_direct_byte(&pair[0]) {
+            if !ordinary_direct_word_copy_mem(&loaded)
+                || destinations.iter().any(|destination| {
+                    mems_may_resolve_same_byte(
+                        &loaded,
+                        &MirMem::FixedZeroPage(*destination),
+                        routine_id,
+                        layout,
+                    )
+                })
+            {
+                return None;
+            }
+        } else if !matches!(
+            &pair[0],
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                width: MirWidth::Byte,
+                ..
+            } | MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::ConstU8(_) | MirValue::ConstU16(_),
+                width: MirWidth::Byte,
+            }
+        ) {
+            return None;
+        }
+    }
+
+    let consumed = copy_start + BYTE_COUNT * 2 - index;
+    let call = ops
+        .get(index + consumed..index + consumed + 5)
+        .and_then(|tail| {
+            tail.iter()
+                .enumerate()
+                .find(|(_, op)| matches!(op, MirOp::Call { .. }))
+                .map(|(offset, op)| (offset, op))
+        })?;
+    if !ops[index + consumed..index + consumed + call.0]
+        .iter()
+        .all(|op| {
+            matches!(
+                op,
+                MirOp::Load {
+                    dst: MirDef::Reg(_),
+                    ..
+                } | MirOp::LoadImm {
+                    dst: MirDef::Reg(_),
+                    ..
+                } | MirOp::Move {
+                    dst: MirDef::Reg(_),
+                    ..
+                }
+            )
+        })
+    {
+        return None;
+    }
+    let MirOp::Call { args, .. } = call.1 else {
+        unreachable!("call selected above")
+    };
+    if !destinations.iter().all(|destination| {
+        args.iter().any(|arg| {
+            arg.width == MirWidth::Byte && arg.home == MirArgHome::FixedZeroPage(*destination)
+        })
+    }) {
+        return None;
+    }
+
+    let mut replacement = vec![MirOp::CopyIndirectBytesToFixedZp {
+        source: source?,
+        source_offset: source_offset?,
+        destinations,
+    }];
+    replacement.extend(interstitial.iter().cloned());
+    Some((consumed, replacement))
 }
 
 fn direct_word_to_indirect_exit_change() -> MirExitStateChange {

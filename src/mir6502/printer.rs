@@ -504,6 +504,20 @@ fn op_summary(op: &MirOp) -> String {
             destination_offset,
             mem_summary(source)
         ),
+        MirOp::CopyIndirectBytesToFixedZp {
+            source,
+            source_offset,
+            destinations,
+        } => format!(
+            "copy_indirect_bytes_to_fixed_zp [{}] <- {}+{}",
+            destinations
+                .iter()
+                .map(|slot| format!("${:02X}", slot.0))
+                .collect::<Vec<_>>()
+                .join(","),
+            address_consumer_summary(source),
+            source_offset
+        ),
         MirOp::Compare {
             dst,
             op,

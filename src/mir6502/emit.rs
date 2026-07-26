@@ -1853,6 +1853,36 @@ fn emit_op(
                 emitter,
             );
         }
+        MirOp::CopyIndirectBytesToFixedZp {
+            source,
+            source_offset,
+            destinations,
+        } => {
+            let Some(source_slot) = resolve_pointer_consumer_slot(ctx, routine, source) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect-to-fixed-ZP byte-copy source is not placed",
+                );
+                return;
+            };
+            if source.uses_scaled_y() {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect-to-fixed-ZP byte-copy cannot use scaled Y",
+                );
+                return;
+            }
+            emit_copy_indirect_bytes_to_fixed_zp(
+                source_slot,
+                *source_offset,
+                destinations,
+                emitter,
+            );
+        }
         MirOp::MaterializeAddress { consumer, value } => {
             if consumer.uses_scaled_y() {
                 unsupported(
@@ -3852,6 +3882,26 @@ fn emit_copy_direct_word_to_indirect(
     emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(destination_slot)));
 }
 
+fn emit_copy_indirect_bytes_to_fixed_zp(
+    source_slot: u8,
+    source_offset: u16,
+    destinations: &[MirFixedZpSlot],
+    emitter: &mut NativeTrackedEmitter,
+) {
+    emitter.emit_ldy_imm(source_offset as u8);
+    for (index, _) in destinations.iter().enumerate() {
+        if index != 0 {
+            emitter.emit_iny();
+        }
+        emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(source_slot)));
+        emitter.emit_pha();
+    }
+    for destination in destinations.iter().rev() {
+        emitter.emit_pla();
+        emitter.emit_sta_zero_page(ZeroPage::new(destination.0));
+    }
+}
+
 fn offset_resolved_mem(mem: ResolvedMem, offset: u16) -> ResolvedMem {
     match mem {
         ResolvedMem::Absolute(address) => ResolvedMem::Absolute(address.wrapping_add(offset)),
@@ -4643,6 +4693,58 @@ mod tests {
                 opcode::INY,
                 opcode::STA_IZY,
                 0xAC,
+            ]
+        );
+    }
+
+    #[test]
+    fn indirect_byte_range_reads_every_byte_before_fixed_zp_writes() {
+        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+
+        emit_copy_indirect_bytes_to_fixed_zp(
+            0xAC,
+            0xFC,
+            &[
+                MirFixedZpSlot(0xA4),
+                MirFixedZpSlot(0xA5),
+                MirFixedZpSlot(0xA6),
+                MirFixedZpSlot(0xA7),
+            ],
+            &mut emitter,
+        );
+
+        assert_eq!(
+            emitter.finish().expect("bounded byte-copy sequence emits"),
+            [
+                opcode::LDY_IMM,
+                0xFC,
+                opcode::LDA_IZY,
+                0xAC,
+                opcode::PHA,
+                opcode::INY,
+                opcode::LDA_IZY,
+                0xAC,
+                opcode::PHA,
+                opcode::INY,
+                opcode::LDA_IZY,
+                0xAC,
+                opcode::PHA,
+                opcode::INY,
+                opcode::LDA_IZY,
+                0xAC,
+                opcode::PHA,
+                opcode::PLA,
+                opcode::STA_ZP,
+                0xA7,
+                opcode::PLA,
+                opcode::STA_ZP,
+                0xA6,
+                opcode::PLA,
+                opcode::STA_ZP,
+                0xA5,
+                opcode::PLA,
+                opcode::STA_ZP,
+                0xA4,
             ]
         );
     }
