@@ -1764,6 +1764,125 @@ fn analyzed_dual_indirect_selection_rejects_absolute_pointer_sources() {
 }
 
 #[test]
+fn analyzed_dual_indexed_byte_selection_covers_all_unsigned_predicates_and_operand_orders() {
+    for op in [
+        MirCompareOp::Eq,
+        MirCompareOp::Ne,
+        MirCompareOp::Lt,
+        MirCompareOp::Le,
+        MirCompareOp::Gt,
+        MirCompareOp::Ge,
+    ] {
+        for reversed_operands in [false, true] {
+            let mut routine =
+                dual_indexed_byte_compare_routine(op, reversed_operands, false, false);
+            let result = MirPreHomeRewriteDriver::default()
+                .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+                .expect("dual indexed compare analysis succeeds");
+
+            assert_eq!(result.applied, 1, "{op:?}, reversed={reversed_operands}");
+            assert_eq!(
+                result.applied_by_stat["dual-indexed-byte-compare"], 1,
+                "{op:?}, reversed={reversed_operands}"
+            );
+            assert!(matches!(
+                routine.blocks[0].ops.as_slice(),
+                [
+                    MirOp::MaterializeIndexedAddress {
+                        consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                            lo: MirFixedZpSlot(0xAE)
+                        }),
+                        scale: 1,
+                        ..
+                    },
+                    MirOp::MaterializeIndexedAddress {
+                        consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                            lo: MirFixedZpSlot(0xAC)
+                        }),
+                        scale: 1,
+                        ..
+                    },
+                    MirOp::CompareIndirectBytes { signed: false, .. }
+                ]
+            ));
+        }
+    }
+}
+
+#[test]
+fn analyzed_dual_indexed_byte_selection_allows_equal_indexes_and_different_arrays() {
+    let mut routine = dual_indexed_byte_compare_routine(MirCompareOp::Lt, false, true, false);
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+        .expect("equal-index compare analysis succeeds");
+
+    assert_eq!(result.applied_by_stat["dual-indexed-byte-compare"], 1);
+    assert!(matches!(
+        &routine.blocks[0].ops[0],
+        MirOp::MaterializeIndexedAddress { base, index, .. }
+            if *base == pointer_word_param(0) && *index == pointer_word_param(1)
+    ));
+    assert!(matches!(
+        &routine.blocks[0].ops[1],
+        MirOp::MaterializeIndexedAddress { base, index, .. }
+            if *base == pointer_word_param(2) && *index == pointer_word_param(1)
+    ));
+}
+
+#[test]
+fn analyzed_dual_indexed_byte_selection_supports_pointer_backed_arrays() {
+    let mut routine = dual_indexed_byte_compare_routine(MirCompareOp::Ge, false, false, true);
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+        .expect("pointer-backed compare analysis succeeds");
+
+    assert_eq!(result.applied_by_stat["dual-indexed-byte-compare"], 1);
+    assert_eq!(routine.blocks[0].ops.len(), 3);
+    assert!(matches!(
+        routine.blocks[0].ops.last(),
+        Some(MirOp::CompareIndirectBytes {
+            op: MirCompareOp::Ge,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn analyzed_dual_indexed_byte_selection_rejects_absolute_address_sources() {
+    let mut routine = dual_indexed_byte_compare_routine(MirCompareOp::Lt, false, false, false);
+    let MirOp::Load { src, .. } = &mut routine.blocks[0].ops[0] else {
+        unreachable!("test shape starts with the first base load")
+    };
+    *src = MirAddr::Direct(MirMem::Absolute(0xD000));
+
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+        .expect("rejected indexed source analysis succeeds");
+
+    assert_eq!(result.applied, 0);
+    assert_eq!(routine.blocks[0].ops.len(), 7);
+}
+
+#[test]
+fn analyzed_dual_indexed_byte_selection_keeps_live_scratch_pointer_pairs() {
+    let mut routine = dual_indexed_byte_compare_routine(MirCompareOp::Lt, false, false, false);
+    routine.blocks[1].ops.push(MirOp::LoadIndirect {
+        consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAE),
+        }),
+        dst: MirDef::Reg(MirReg::A),
+        offset: 0,
+    });
+
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+        .expect("live scratch-pair analysis succeeds");
+
+    assert_eq!(result.applied, 0);
+    assert_eq!(routine.blocks[0].ops.len(), 7);
+}
+
+#[test]
 fn analyzed_addressed_byte_compare_forwards_loaded_byte_to_accumulator() {
     let mut routine = addressed_byte_compare_routine(false);
     let result = MirPreHomeRewriteDriver::default()
@@ -1957,6 +2076,175 @@ fn dual_indirect_compare_routine(op: MirCompareOp, pointer_live_after: bool) -> 
                 label: "then".to_string(),
                 params: Vec::new(),
                 ops: then_ops,
+                terminator: MirTerminator::Return,
+            },
+            MirBlock {
+                id: MirBlockId(2),
+                label: "else".to_string(),
+                params: Vec::new(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Return,
+            },
+        ],
+        effects: MirEffects::default(),
+    }
+}
+
+fn pointer_word_param(id: u32) -> MirValue {
+    let lo = MirMem::Param {
+        id: ParamId(id),
+        offset: 0,
+    };
+    let hi = MirMem::Param {
+        id: ParamId(id),
+        offset: 1,
+    };
+    MirValue::Word {
+        lo: Box::new(MirValue::PointerCell(lo)),
+        hi: Box::new(MirValue::PointerCell(hi)),
+    }
+}
+
+fn dual_indexed_byte_compare_routine(
+    op: MirCompareOp,
+    reversed_operands: bool,
+    equal_indexes: bool,
+    pointer_backed: bool,
+) -> MirRoutine {
+    let temp_def = |id| MirDef::VTemp(MirTempId(id));
+    let temp_value = |id| MirValue::Def(temp_def(id));
+    let param = |id| MirMem::Param {
+        id: ParamId(id),
+        offset: 0,
+    };
+    let second_index_param = if equal_indexes { 1 } else { 3 };
+    let (ops, first_result, second_result, compare_temp) = if pointer_backed {
+        (
+            vec![
+                MirOp::Load {
+                    dst: temp_def(0),
+                    src: MirAddr::Direct(param(1)),
+                    width: MirWidth::Word,
+                },
+                MirOp::Load {
+                    dst: temp_def(1),
+                    src: MirAddr::PointerIndex {
+                        ptr: param(0),
+                        index: temp_value(0),
+                        elem_size: 1,
+                        offset: 0,
+                    },
+                    width: MirWidth::Byte,
+                },
+                MirOp::Load {
+                    dst: temp_def(2),
+                    src: MirAddr::Direct(param(second_index_param)),
+                    width: MirWidth::Word,
+                },
+                MirOp::Load {
+                    dst: temp_def(3),
+                    src: MirAddr::PointerIndex {
+                        ptr: param(2),
+                        index: temp_value(2),
+                        elem_size: 1,
+                        offset: 0,
+                    },
+                    width: MirWidth::Byte,
+                },
+            ],
+            1,
+            3,
+            4,
+        )
+    } else {
+        (
+            vec![
+                MirOp::Load {
+                    dst: temp_def(0),
+                    src: MirAddr::Direct(param(0)),
+                    width: MirWidth::Word,
+                },
+                MirOp::Load {
+                    dst: temp_def(1),
+                    src: MirAddr::Direct(param(1)),
+                    width: MirWidth::Word,
+                },
+                MirOp::Load {
+                    dst: temp_def(2),
+                    src: MirAddr::ComputedIndex {
+                        base: temp_value(0),
+                        index: temp_value(1),
+                        elem_size: 1,
+                        offset: 0,
+                    },
+                    width: MirWidth::Byte,
+                },
+                MirOp::Load {
+                    dst: temp_def(3),
+                    src: MirAddr::Direct(param(2)),
+                    width: MirWidth::Word,
+                },
+                MirOp::Load {
+                    dst: temp_def(4),
+                    src: MirAddr::Direct(param(second_index_param)),
+                    width: MirWidth::Word,
+                },
+                MirOp::Load {
+                    dst: temp_def(5),
+                    src: MirAddr::ComputedIndex {
+                        base: temp_value(3),
+                        index: temp_value(4),
+                        elem_size: 1,
+                        offset: 0,
+                    },
+                    width: MirWidth::Byte,
+                },
+            ],
+            2,
+            5,
+            6,
+        )
+    };
+    let (left, right) = if reversed_operands {
+        (second_result, first_result)
+    } else {
+        (first_result, second_result)
+    };
+    let mut ops = ops;
+    ops.push(MirOp::Compare {
+        dst: MirCondDest::Temp(MirTempId(compare_temp)),
+        op,
+        left: temp_value(left),
+        right: temp_value(right),
+        width: MirWidth::Byte,
+        signed: false,
+    });
+
+    MirRoutine {
+        id: RoutineId(0),
+        name: "dual_indexed_byte_compare".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: (0..=compare_temp)
+            .map(|id| MirTemp { id: MirTempId(id) })
+            .collect(),
+        blocks: vec![
+            MirBlock {
+                id: MirBlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops,
+                terminator: MirTerminator::Branch {
+                    cond: MirCond::BoolValue(temp_value(compare_temp)),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(2)),
+                },
+            },
+            MirBlock {
+                id: MirBlockId(1),
+                label: "then".to_string(),
+                params: Vec::new(),
+                ops: Vec::new(),
                 terminator: MirTerminator::Return,
             },
             MirBlock {

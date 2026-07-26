@@ -309,6 +309,35 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
             })
     }
 
+    pub(in crate::mir6502) fn pointer_pair_dead_after(
+        &self,
+        consumer: MirAddressConsumer,
+        point: MirProgramPoint,
+    ) -> MirProof<()> {
+        if let Err(error) = self.snapshot.routine().validate_point(point) {
+            return MirProof::Blocked(MirProofBlocker::InvalidPoint(error));
+        }
+        let MirPointerPair::Fixed { lo } = consumer.pointer_pair() else {
+            return MirProof::Blocked(MirProofBlocker::UnsupportedPointerPair(consumer));
+        };
+        for slot in [lo, MirFixedZpSlot(lo.0.saturating_add(1))] {
+            let home = MirHomeByte::FixedZeroPage(slot);
+            match self.snapshot.home_liveness().live_after(home, point.site) {
+                Ok(false) => {}
+                Ok(true) => {
+                    return MirProof::Blocked(MirProofBlocker::HomeLive {
+                        home,
+                        point: point.site,
+                    });
+                }
+                Err(error) => {
+                    return MirProof::Blocked(MirProofBlocker::HomeLiveness(error));
+                }
+            }
+        }
+        MirProof::Proven(())
+    }
+
     pub(in crate::mir6502) fn definitions_at(
         &self,
         temp: MirTempId,

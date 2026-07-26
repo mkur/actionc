@@ -751,6 +751,10 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
                 src: MirAddr::Direct(mem),
                 width: MirWidth::Word,
             } => Some(mem),
+            MirOp::Load {
+                src: MirAddr::PointerIndex { ptr, .. },
+                ..
+            } => Some(ptr),
             _ => None,
         })
         .collect::<Vec<_>>();
@@ -766,12 +770,26 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
         })
         .collect::<Vec<_>>();
 
+    let has_indexed_materialization = replacement
+        .iter()
+        .any(|op| matches!(op, MirOp::MaterializeIndexedAddress { .. }));
     let materializations = replacement
         .iter()
         .filter_map(|op| match op {
             MirOp::MaterializeAddress { consumer, value } => {
                 let mut inputs = BTreeSet::new();
                 collect_value_pointer_reads(value, &mut inputs);
+                Some((*consumer, inputs))
+            }
+            MirOp::MaterializeIndexedAddress {
+                consumer,
+                base,
+                index,
+                ..
+            } => {
+                let mut inputs = BTreeSet::new();
+                collect_value_pointer_reads(base, &mut inputs);
+                collect_value_pointer_reads(index, &mut inputs);
                 Some((*consumer, inputs))
             }
             _ => None,
@@ -825,6 +843,30 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
             && materialized_inputs
                 .iter()
                 .all(|inputs| expected_sources.contains(inputs))
+        {
+            return true;
+        }
+    }
+    if has_indexed_materialization && materializations.len() == access_consumers.len() {
+        let materialized_consumers = materializations
+            .iter()
+            .map(|(consumer, _)| *consumer)
+            .collect::<Vec<_>>();
+        let expected_inputs = expected_sources
+            .iter()
+            .flat_map(|inputs| inputs.iter().cloned())
+            .collect::<BTreeSet<_>>();
+        let materialized_inputs = materializations
+            .iter()
+            .flat_map(|(_, inputs)| inputs.iter().cloned())
+            .collect::<BTreeSet<_>>();
+        if materialized_consumers
+            .iter()
+            .all(|consumer| access_consumers.contains(consumer))
+            && access_consumers
+                .iter()
+                .all(|consumer| materialized_consumers.contains(consumer))
+            && materialized_inputs == expected_inputs
         {
             return true;
         }
@@ -937,9 +979,15 @@ fn store_materialization_address_keys(ops: &[MirOp]) -> (BTreeSet<String>, BTree
                 collect_value_pointer_reads(value, &mut reads);
                 collect_consumer_keys(*consumer, &mut writes);
             }
-            MirOp::MaterializeIndexedAddress { consumer, base, .. } => {
+            MirOp::MaterializeIndexedAddress {
+                consumer,
+                base,
+                index,
+                ..
+            } => {
                 collect_consumer_keys(*consumer, &mut writes);
                 collect_value_pointer_reads(base, &mut reads);
+                collect_value_pointer_reads(index, &mut reads);
             }
             MirOp::AdvanceAddress { consumer, .. } => {
                 collect_consumer_keys(*consumer, &mut reads);

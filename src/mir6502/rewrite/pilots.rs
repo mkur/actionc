@@ -138,6 +138,20 @@ pub(in crate::mir6502) fn discover_dual_indirect_compares(
                 continue;
             };
             let end = index + candidate.consumed;
+            let window_end = context.point(MirSite::Op {
+                block: block.id,
+                op_index: end - 1,
+            });
+            if candidate.replacement.iter().any(|op| {
+                let MirOp::MaterializeIndexedAddress { consumer, .. } = op else {
+                    return false;
+                };
+                !context
+                    .pointer_pair_dead_after(*consumer, window_end)
+                    .is_proven()
+            }) {
+                continue;
+            }
             let Some(definitions) = prove_removed_window_definitions(
                 block.id,
                 &block.ops,
@@ -159,11 +173,11 @@ pub(in crate::mir6502) fn discover_dual_indirect_compares(
                     .collect(),
                 exit_effect_delta: MirEffectDelta::MaterializedPointerConsumer,
                 change_set: MirChangeSet::prehome_operation_change(),
-                stat: "dual-indirect-byte-compare",
+                stat: candidate.stat,
                 observations: Vec::new(),
                 family_priority: 15,
-                estimated_byte_saving: 10,
-                estimated_cycle_saving: 9,
+                estimated_byte_saving: candidate.estimated_byte_saving,
+                estimated_cycle_saving: candidate.estimated_cycle_saving,
             });
         }
     }

@@ -1,6 +1,6 @@
 # MIR6502 SORT Optimization Implementation Plan
 
-Status: implementation in progress (Slices 0A-1 complete)
+Status: implementation in progress (Slices 0A-2 complete)
 
 Date: 2026-07-26
 
@@ -392,6 +392,19 @@ The two routines are 22 instruction bytes larger in aggregate.
 - The selector fires twice in SORTDM1.
 - Both BYTE sort directions pass the VM oracle.
 - No general store/copy dual-pointer behavior changes.
+
+Implemented result: the proof-backed `dual-indexed-byte-compare` selector fires
+once in `BAscend` and once in `BDescend`. Both routines now materialize
+independent `$AE/$AF` and `$AC/$AD` pointers and feed the final branch directly
+from `CMP (zp),Y`, without byte-value homes. The selector accepts both computed
+and pointer-backed indexed operands, preserves reversed operand meaning, and
+requires both selected scratch pairs to be dead after the comparison.
+
+SORTDM1 shrank from 4,837 to 4,815 load-file bytes: 22 instruction bytes and 11
+instructions were removed. `LDA` fell from 596 to 592 and `STA` from 511 to
+507. SORTDM2 likewise shrank from 2,913 to 2,891 bytes. The hard-coded SORT VM
+oracle passes both modern/classic and modern/MIR6502, all 20 modern/MIR6502
+Toolkit programs compile, and TN plus ALLOCATE do not match the new selector.
 
 Commit independently.
 
