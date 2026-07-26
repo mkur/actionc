@@ -8533,6 +8533,92 @@ fn indexed_byte_copy_rematerializes_delayed_byte_index_producers() {
 }
 
 #[test]
+fn indexed_byte_copy_preserves_shared_accumulator_index_for_both_pointers() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let delayed = indexes::DelayedByteIndexPlan::empty();
+    let value = MirDef::VTemp(MirTempId(33));
+    let index = MirValue::Def(MirDef::Reg(MirReg::A));
+    let ops = vec![
+        MirOp::Load {
+            dst: value.clone(),
+            src: MirAddr::ComputedIndex {
+                base: MirValue::ConstU16(0x7000),
+                index: index.clone(),
+                elem_size: 1,
+                offset: 0,
+            },
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::ComputedIndex {
+                base: MirValue::ConstU16(0x7100),
+                index,
+                elem_size: 1,
+                offset: 0,
+            },
+            src: MirValue::Def(value),
+            width: MirWidth::Byte,
+        },
+    ];
+    let mut out = Vec::new();
+
+    assert_eq!(
+        try_fuse_indexed_byte_copy(&ops, 0, &layout, &delayed, &mut out),
+        2
+    );
+    assert!(matches!(
+        out.as_slice(),
+        [
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::MaterializeIndexedAddress {
+                index: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                ..
+            },
+            MirOp::MaterializeIndexedAddress {
+                index: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                ..
+            },
+            MirOp::LoadIndirect { .. },
+            MirOp::StoreIndirect { .. },
+        ]
+    ));
+}
+
+#[test]
+fn ssa_lite_forgets_accumulator_value_after_indexed_address_materialization() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(5),
+        offset: 0,
+    };
+    let ops = vec![
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::MaterializeIndexedAddress {
+            consumer: DEFAULT_POINTER_PAIR,
+            base: MirValue::ConstU16(0x7000),
+            index: MirValue::Def(MirDef::Reg(MirReg::A)),
+            scale: 1,
+        },
+    ];
+
+    let env = ssa_lite::scan_ssa_lite_block_env(&ops, &layout);
+    assert_eq!(env.reg_fact(MirReg::A), None);
+
+    let stats = ssa_lite::scan_ssa_lite_v2_observability(&ops, RoutineId(0), &layout);
+    assert_eq!(stats.facts_killed_by_unknown, 1);
+}
+
+#[test]
 fn byte_rsh8_store_consumer_rematerializes_delayed_dest_index() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

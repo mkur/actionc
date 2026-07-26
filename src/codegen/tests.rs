@@ -5694,6 +5694,29 @@ fn compatible_scompare_builtin_branches_on_signed_return() {
 }
 
 #[test]
+fn compatible_scompare_indexed_pointer_args_reload_first_pointer_low_byte() {
+    let output = generate_compatible_source_with_origin(
+        "CARD ARRAY strings BYTE i,j INT result \
+         PROC Main() result=SCompare(strings(i),strings(j)) RETURN",
+        0x3000,
+    )
+    .unwrap();
+
+    assert!(output.bytes.windows(9).any(|bytes| bytes
+        == [
+            opcode::LDY_ZP,
+            runtime_zp::ARGS.offset(2).address(),
+            opcode::LDX_ZP,
+            runtime_zp::ARGS.offset(1).address(),
+            opcode::LDA_ZP,
+            runtime_zp::ARGS.address(),
+            opcode::JSR_ABS,
+            0x64,
+            0xA8,
+        ]));
+}
+
+#[test]
 fn compatible_io_builtins_use_cartridge_entries() {
     let output = generate_compatible_source_with_origin(
             "BYTE ARRAY text=\"X\" PROC Main() PrintD(6,text) InputS(text) InputSD(6,text) InputMD(6,text,7) PrintF(\"%H%E\",1) RETURN",

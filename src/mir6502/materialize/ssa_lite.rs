@@ -338,10 +338,16 @@ impl SsaLiteValueEnv {
                 self.kill_reg(MirReg::Y);
                 self.kill_memory_dependencies();
             }
-            MirOp::MaterializeAddress { .. }
-            | MirOp::MaterializeIndexedAddress { .. }
-            | MirOp::AdvanceAddress { .. }
-            | MirOp::Compare { .. } => {}
+            MirOp::MaterializeAddress { .. } | MirOp::AdvanceAddress { .. } => {
+                self.kill_reg(MirReg::A);
+            }
+            MirOp::MaterializeIndexedAddress { consumer, .. } => {
+                self.kill_reg(MirReg::A);
+                if consumer.uses_scaled_y() {
+                    self.kill_reg(MirReg::Y);
+                }
+            }
+            MirOp::Compare { .. } => {}
             MirOp::CompareIndirectBytes { .. } => {
                 self.kill_reg(MirReg::A);
                 self.kill_reg(MirReg::Y);
@@ -573,6 +579,7 @@ impl SsaLiteV2ObserveEnv {
                 self.kill_memory_dependencies(SsaLiteV2KillReason::Unknown);
             }
             MirOp::MaterializeAddress { consumer, value } => {
+                self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 self.kill_address_consumer_dependencies(
                     *consumer,
                     routine_id,
@@ -590,6 +597,10 @@ impl SsaLiteV2ObserveEnv {
                 index,
                 scale,
             } => {
+                self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
+                if consumer.uses_scaled_y() {
+                    self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
+                }
                 self.kill_address_consumer_dependencies(
                     *consumer,
                     routine_id,
@@ -610,6 +621,7 @@ impl SsaLiteV2ObserveEnv {
                 index,
                 scale,
             } => {
+                self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 self.kill_address_consumer_dependencies(
                     *consumer,
                     routine_id,

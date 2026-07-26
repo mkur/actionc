@@ -34,6 +34,12 @@ Run the modern/classic ALLOCATE behavior gate directly:
 fixtures/runtime/run-allocate-vm.sh
 ```
 
+Run the modern/classic Toolkit SORT behavior gate directly:
+
+```sh
+fixtures/runtime/run-sort-vm.sh
+```
+
 Run the MIR6502 ordered absolute-subtraction overlap gate directly:
 
 ```sh
@@ -103,6 +109,13 @@ equality alone is not used as the correctness oracle. The Toolkit source's
 original two-sided-coalescing behavior is not asserted here because it updates
 the just-freed header instead of the preceding free block after a left merge;
 that source-level issue is separate from backend equivalence.
+
+The SORT fixture includes the maintained modern Toolkit implementation and
+checks hard-coded BYTE, CARD, INT, and string results under both backends. It
+covers both directions, duplicates, already sorted data, unsigned and signed
+boundaries, string prefixes, repeated partition-list use, and sentinels around
+every fixed input array. The result bytes at `$0600-$066F` are a correctness
+oracle rather than a backend-equality check.
 
 The ordered absolute-subtraction fixture places the indirect destination one
 byte above `MemHi`, so the destination low byte aliases the fixed source's high

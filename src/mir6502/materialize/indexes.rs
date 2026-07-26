@@ -619,7 +619,7 @@ pub(super) fn try_fuse_indexed_byte_copy(
     else {
         return 0;
     };
-    let Some(src_parts) = indexed_addr_parts(src) else {
+    let Some(mut src_parts) = indexed_addr_parts(src) else {
         return 0;
     };
     let Some(MirOp::Store {
@@ -633,9 +633,26 @@ pub(super) fn try_fuse_indexed_byte_copy(
     if store_src != load_dst {
         return 0;
     }
-    let Some(dst_parts) = indexed_addr_parts(dst) else {
+    let Some(mut dst_parts) = indexed_addr_parts(dst) else {
         return 0;
     };
+
+    // Address materialization uses A as its arithmetic accumulator. When
+    // copy propagation has placed a shared source/destination index in A,
+    // materializing the first pointer destroys the index needed by the
+    // second pointer. Preserve that shared index in Y before either address
+    // is built. Y is already scratch for the eventual indirect accesses.
+    if src_parts.index == MirValue::Def(MirDef::Reg(MirReg::A))
+        && dst_parts.index == src_parts.index
+    {
+        out.push(MirOp::Move {
+            dst: MirDef::Reg(MirReg::Y),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        });
+        src_parts.index = MirValue::Def(MirDef::Reg(MirReg::Y));
+        dst_parts.index = MirValue::Def(MirDef::Reg(MirReg::Y));
+    }
 
     materialize_indexed_address_for_consumer(
         dst_parts.clone(),

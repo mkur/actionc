@@ -1069,6 +1069,12 @@ pub(super) fn materialize_program(
                 routine.id,
                 &layout,
             );
+            // LEA temps retain an implicit identity with the two spill lanes
+            // selected from their temp ID. Make those writes explicit before
+            // spill coloring so definitions and uses are remapped together.
+            // Symbolic storage-address bytes remain layout-independent until
+            // emission, while descriptors retain their pointer-cell meaning.
+            block.ops = lower_lea_addrs_with_final_layout(routine.id, block.ops.clone(), &layout);
         }
         run_posthome_structural_group(routine, &layout, config, None, &mut peephole_stats)?;
         run_posthome_cleanup_group(

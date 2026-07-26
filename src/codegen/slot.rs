@@ -452,6 +452,18 @@ impl Generator {
     }
 
     pub(super) fn slot_byte_value_fact(&self, slot: StorageSlot, byte_index: u16) -> ValueFact {
+        // An indexed slot does not identify one stable memory byte. The pointer
+        // or index register may change before the fact is reused, so equating
+        // two loads solely because their addressing templates match is
+        // unsound. In particular, consecutive CARD-array element loads used
+        // as call arguments can share the same (zp),Y template while naming
+        // different elements.
+        if matches!(
+            slot.space,
+            AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY
+        ) {
+            return ValueFact::Unknown;
+        }
         if let Some(value) = self.processor.memory_value(slot, byte_index) {
             return value;
         }

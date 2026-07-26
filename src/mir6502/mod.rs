@@ -2118,6 +2118,48 @@ mod tests {
     }
 
     #[test]
+    fn materialization_keeps_distinct_lea_values_when_spill_homes_are_reused() {
+        let mir = materialize_mir6502_source(
+            r#"
+            CARD ARRAY out
+            CHAR ARRAY first(0)="A"
+            CHAR ARRAY second(0)="B"
+            CHAR ARRAY third(0)="C"
+
+            PROC Main()
+              out=$7000
+              out(0)=@first
+              out(1)=@second
+              out(2)=@third
+            RETURN
+            "#,
+        );
+        let formatted = format_program(&mir);
+
+        for global in ["first", "second", "third"] {
+            let id = mir
+                .globals
+                .iter()
+                .find(|candidate| candidate.name == global)
+                .map(|candidate| candidate.id)
+                .expect("string global");
+            assert!(
+                formatted.contains(&format!("storage_addr_lo global g{}+0", id.0)),
+                "missing low address byte for {global}:\n{formatted}"
+            );
+            assert!(
+                formatted.contains(&format!("storage_addr_hi global g{}+0", id.0)),
+                "missing high address byte for {global}:\n{formatted}"
+            );
+        }
+        assert_eq!(
+            mir.routines[0].frame.zero_page_allocations.len(),
+            2,
+            "the three non-overlapping word values should still share two byte homes"
+        );
+    }
+
+    #[test]
     fn materializes_lea_word_array_index_read_without_temp_staging() {
         let mir = materialize_program(
             MirProgram {

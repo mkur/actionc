@@ -1,0 +1,216 @@
+; Runtime oracle for the maintained modern Toolkit SORT implementation.
+;
+; The sort inputs live at fixed addresses with sentinels on both sides. Results
+; are copied to $0600 onward so the host check is independent of compiler-owned
+; storage and can compare against hard-coded expected bytes.
+
+INCLUDE "../../samples/toolkit/modern/SORT.ACT"
+
+BYTE ARRAY results
+BYTE signature=$0600
+BYTE completed=$0601
+
+BYTE byteBefore=$6FFF
+BYTE ARRAY byteData
+BYTE byteAfter=$7007
+
+CARD cardBefore=$70FE
+CARD ARRAY cardData
+CARD cardAfter=$710E
+
+CARD intBefore=$71FE
+INT ARRAY intData
+CARD intAfter=$720C
+
+CARD stringBefore=$72FE
+CARD ARRAY stringData
+CARD stringAfter=$730A
+
+BYTE ARRAY byteSingleOut
+BYTE ARRAY bytePairOut
+BYTE ARRAY byteAscOut
+BYTE ARRAY byteDescOut
+BYTE ARRAY byteRepeatOut
+CARD ARRAY cardAscOut
+CARD ARRAY cardDescOut
+INT ARRAY intAscOut
+INT ARRAY intDescOut
+BYTE ARRAY stringAscOut
+BYTE ARRAY stringDescOut
+
+CHAR ARRAY stringA(0)="A"
+CHAR ARRAY stringAA1(0)="AA"
+CHAR ARRAY stringAA2(0)="AA"
+CHAR ARRAY stringABC(0)="ABC"
+CHAR ARRAY stringB(0)="B"
+
+PROC Main()
+  BYTE i
+  BYTE ARRAY current
+
+  results=$0600
+  byteData=$7000
+  cardData=$7100
+  intData=$7200
+  stringData=$7300
+  byteSingleOut=$0610
+  bytePairOut=$0611
+  byteAscOut=$0613
+  byteDescOut=$061A
+  byteRepeatOut=$0621
+  cardAscOut=$0628
+  cardDescOut=$0636
+  intAscOut=$0644
+  intDescOut=$0650
+  stringAscOut=$065C
+  stringDescOut=$0666
+
+  FOR i=0 TO 127
+    DO
+    results(i)=0
+    OD
+
+  signature=0
+  completed=0
+
+  byteBefore=$D1
+  byteAfter=$D2
+  cardBefore=$C1C2
+  cardAfter=$C3C4
+  intBefore=$D1D2
+  intAfter=$D3D4
+  stringBefore=$E1E2
+  stringAfter=$E3E4
+
+  ; One-element and two-element cases.
+  byteData(0)=$80
+  SortB(byteData,1,0)
+  byteSingleOut(0)=byteData(0)
+  completed==+1
+
+  byteData(0)=$FF
+  byteData(1)=0
+  SortB(byteData,2,0)
+  bytePairOut(0)=byteData(0)
+  bytePairOut(1)=byteData(1)
+  completed==+1
+
+  ; BYTE duplicates, boundary values, both directions, and an already sorted
+  ; repeated pass.
+  byteData(0)=$80
+  byteData(1)=0
+  byteData(2)=$FF
+  byteData(3)=$7F
+  byteData(4)=$80
+  byteData(5)=1
+  byteData(6)=0
+  SortB(byteData,7,0)
+  FOR i=0 TO 6
+    DO
+    byteAscOut(i)=byteData(i)
+    OD
+  completed==+1
+
+  SortB(byteData,7,1)
+  FOR i=0 TO 6
+    DO
+    byteDescOut(i)=byteData(i)
+    OD
+  completed==+1
+
+  SortB(byteData,7,0)
+  SortB(byteData,7,0)
+  FOR i=0 TO 6
+    DO
+    byteRepeatOut(i)=byteData(i)
+    OD
+  completed==+1
+
+  ; Unsigned CARD boundary values and duplicates.
+  cardData(0)=$8000
+  cardData(1)=$00FF
+  cardData(2)=$FFFF
+  cardData(3)=$0000
+  cardData(4)=$0100
+  cardData(5)=$7FFF
+  cardData(6)=$00FF
+  SortC(cardData,7,0)
+  FOR i=0 TO 6
+    DO
+    cardAscOut(i)=cardData(i)
+    OD
+  completed==+1
+
+  SortC(cardData,7,1)
+  FOR i=0 TO 6
+    DO
+    cardDescOut(i)=cardData(i)
+    OD
+  completed==+1
+
+  ; Signed INT limits, negative values, zero, positive values, and duplicates.
+  intData(0)=$7FFF
+  intData(1)=$FFFF
+  intData(2)=$0000
+  intData(3)=$8000
+  intData(4)=$0001
+  intData(5)=$FFFF
+  SortI(intData,6,0)
+  FOR i=0 TO 5
+    DO
+    intAscOut(i)=intData(i)
+    OD
+  completed==+1
+
+  SortI(intData,6,1)
+  FOR i=0 TO 5
+    DO
+    intDescOut(i)=intData(i)
+    OD
+  completed==+1
+
+  ; String prefixes, equal contents, and both directions.
+  stringData(0)=@stringB
+  stringData(1)=@stringAA1
+  stringData(2)=@stringA
+  stringData(3)=@stringABC
+  stringData(4)=@stringAA2
+  SortS(stringData,5,0)
+  FOR i=0 TO 4
+    DO
+    current=stringData(i)
+    stringAscOut(i+i)=current(0)
+    stringAscOut(i+i+1)=current(1)
+    OD
+  completed==+1
+
+  SortS(stringData,5,1)
+  FOR i=0 TO 4
+    DO
+    current=stringData(i)
+    stringDescOut(i+i)=current(0)
+    stringDescOut(i+i+1)=current(1)
+    OD
+  completed==+1
+
+  ; Copy the edge sentinels only after all sorting has completed.
+  results(2)=byteBefore
+  results(3)=byteAfter
+  results(4)=cardBefore
+  results(5)=cardBefore RSH 8
+  results(6)=cardAfter
+  results(7)=cardAfter RSH 8
+  results(8)=intBefore
+  results(9)=intBefore RSH 8
+  results(10)=intAfter
+  results(11)=intAfter RSH 8
+  results(12)=stringBefore
+  results(13)=stringBefore RSH 8
+  results(14)=stringAfter
+  results(15)=stringAfter RSH 8
+
+  signature=$A5
+
+  DO
+  OD
+RETURN
