@@ -1128,6 +1128,70 @@ impl MirVerifier {
                     ));
                 }
             }
+            MirOp::CompareIndirectWords {
+                dst,
+                op,
+                left,
+                right,
+                offset,
+                signed,
+            } => {
+                self.verify_cond_dest(routine, block, dst);
+                self.verify_address_consumer(routine, block, left);
+                self.verify_address_consumer(routine, block, right);
+                self.reject_scaled_y_consumer(
+                    routine,
+                    block,
+                    left,
+                    "left indirect word compare operand",
+                );
+                self.reject_scaled_y_consumer(
+                    routine,
+                    block,
+                    right,
+                    "right indirect word compare operand",
+                );
+                if left.pointer_pair() == right.pointer_pair() {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect word compare requires distinct pointer pairs",
+                    ));
+                }
+                if *offset > u16::from(u8::MAX) - 1 {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect word compare offset plus high byte must fit in Y",
+                    ));
+                }
+                if *signed {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect word compare only supports unsigned comparisons",
+                    ));
+                }
+                if !matches!(
+                    op,
+                    super::ir::MirCompareOp::Lt | super::ir::MirCompareOp::Ge
+                ) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect word compare requires a single-test comparison operator",
+                    ));
+                }
+                if matches!(self.phase, MirPhase::PreEmission)
+                    && matches!(dst, MirCondDest::Temp(_))
+                {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "pre-emission indirect word compare must target flags",
+                    ));
+                }
+            }
             MirOp::Call {
                 target,
                 abi,

@@ -335,7 +335,9 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::CopyIndirectBytesToFixedZp { .. } => MirOpKind::CopyIndirectBytesToFixedZp,
         MirOp::AbsoluteWordSubToIndirect { .. } => MirOpKind::AbsoluteWordSubToIndirect,
         MirOp::Compare { .. } => MirOpKind::Compare,
-        MirOp::CompareIndirectBytes { .. } => MirOpKind::CompareIndirectBytes,
+        MirOp::CompareIndirectBytes { .. } | MirOp::CompareIndirectWords { .. } => {
+            MirOpKind::CompareIndirectBytes
+        }
         MirOp::Call { .. } => MirOpKind::Call,
         MirOp::RuntimeHelper { .. } => MirOpKind::RuntimeHelper,
         MirOp::MaterializeAddress { .. } => MirOpKind::MaterializeAddress,
@@ -570,6 +572,13 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.removable_when_results_dead = matches!(dst, MirCondDest::Temp(_));
         }
         MirOp::CompareIndirectBytes {
+            dst,
+            left,
+            right,
+            offset,
+            ..
+        }
+        | MirOp::CompareIndirectWords {
             dst,
             left,
             right,

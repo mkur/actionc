@@ -2460,6 +2460,43 @@ fn emit_op(
             };
             emit_indirect_byte_compare(left_slot, right_slot, *offset, emitter);
         }
+        MirOp::CompareIndirectWords {
+            dst: MirCondDest::Flags,
+            left,
+            right,
+            offset,
+            signed: false,
+            ..
+        } => {
+            if left.uses_scaled_y() || right.uses_scaled_y() {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect word compare cannot use scaled Y",
+                );
+                return;
+            }
+            let Some(left_slot) = resolve_pointer_consumer_slot(ctx, routine, left) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "left indirect word compare operand is not placed",
+                );
+                return;
+            };
+            let Some(right_slot) = resolve_pointer_consumer_slot(ctx, routine, right) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "right indirect word compare operand is not placed",
+                );
+                return;
+            };
+            emit_indirect_word_compare(left_slot, right_slot, *offset, emitter);
+        }
         MirOp::Call { target, .. } => emit_call(ctx, routine, block, target, emitter),
         MirOp::RuntimeHelper { helper, .. } => {
             let Some(decl) = ctx
@@ -4184,6 +4221,22 @@ fn emit_indirect_byte_compare(
     emitter.emit_ldy_imm(offset as u8);
     emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(left_slot)));
     emitter.emit_cmp_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(right_slot)));
+}
+
+fn emit_indirect_word_compare(
+    left_slot: u8,
+    right_slot: u8,
+    offset: u16,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    let left = IndirectIndexedY::new(ZeroPage::new(left_slot));
+    let right = IndirectIndexedY::new(ZeroPage::new(right_slot));
+    emitter.emit_ldy_imm(offset as u8);
+    emitter.emit_lda_indirect_indexed_y(left);
+    emitter.emit_cmp_indirect_indexed_y(right);
+    emitter.emit_iny();
+    emitter.emit_lda_indirect_indexed_y(left);
+    emitter.emit_sbc_indirect_indexed_y(right);
 }
 
 fn split_value_as_word(ctx: &MirEmitContext<'_>, value: &MirValue) -> Option<(MirValue, MirValue)> {

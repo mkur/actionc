@@ -798,7 +798,8 @@ fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> boo
     let access_consumers = replacement
         .iter()
         .flat_map(|op| match op {
-            MirOp::CompareIndirectBytes { left, right, .. } => vec![*left, *right],
+            MirOp::CompareIndirectBytes { left, right, .. }
+            | MirOp::CompareIndirectWords { left, right, .. } => vec![*left, *right],
             MirOp::LoadIndirect { consumer, .. } | MirOp::StoreIndirect { consumer, .. } => {
                 vec![*consumer]
             }

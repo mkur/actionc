@@ -796,6 +796,7 @@ pub(super) fn can_remove_spill_reload_at(
         Some(MirOp::Store { .. })
         | Some(MirOp::Compare { .. })
         | Some(MirOp::CompareIndirectBytes { .. })
+        | Some(MirOp::CompareIndirectWords { .. })
         | Some(MirOp::Unary { .. })
         | Some(MirOp::Binary { .. })
         | Some(MirOp::Call { .. })
@@ -939,6 +940,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         }
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
         | MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::MaterializeAddress { .. }
@@ -1679,7 +1681,10 @@ fn op_direct_read_spills(op: &MirOp) -> BTreeSet<MirSpillId> {
 fn op_direct_write_spills(op: &MirOp) -> BTreeSet<MirSpillId> {
     if matches!(
         op,
-        MirOp::Compare { .. } | MirOp::CompareIndirectBytes { .. } | MirOp::Call { .. }
+        MirOp::Compare { .. }
+            | MirOp::CompareIndirectBytes { .. }
+            | MirOp::CompareIndirectWords { .. }
+            | MirOp::Call { .. }
     ) {
         BTreeSet::new()
     } else {
@@ -1737,6 +1742,7 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::IndirectByteCompound { .. }
@@ -1859,6 +1865,7 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::IndirectByteCompound { .. }
@@ -1985,6 +1992,7 @@ where
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::IndirectByteCompound { .. }
@@ -2101,7 +2109,8 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
         | MirOp::IndirectWordCompound { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
-        | MirOp::CompareIndirectBytes { .. } => {}
+        | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. } => {}
     }
 }
 

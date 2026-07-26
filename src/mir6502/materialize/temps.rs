@@ -244,6 +244,7 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }
@@ -415,7 +416,7 @@ fn replace_op_temp_values(op: &mut MirOp, temp: MirTempId, replacement: &MirValu
             *left = replace_temp_value(left.clone(), temp, replacement);
             *right = replace_temp_value(right.clone(), temp, replacement);
         }
-        MirOp::CompareIndirectBytes { .. } => {}
+        MirOp::CompareIndirectBytes { .. } | MirOp::CompareIndirectWords { .. } => {}
         MirOp::OffsetPointerByIndirectByte { .. } => {}
         MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
@@ -821,6 +822,7 @@ fn invalidate_staged_address_for_op(
         | MirOp::Truncate { dst, .. } => matches!(dst, MirDef::Reg(_)),
         MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::StoreIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
@@ -1111,15 +1113,26 @@ pub(super) fn materialize_fused_compare_dest(
             *right = rewritten_right;
         }
         *dst = MirCondDest::Flags;
-    } else if let Some(MirOp::CompareIndirectBytes {
-        dst,
-        op,
-        signed: false,
-        ..
-    }) = ops.get_mut(producer.op_index)
-        && indirect_compare_flag_test(*op).is_some()
-    {
-        *dst = MirCondDest::Flags;
+    } else if let Some(op) = ops.get_mut(producer.op_index) {
+        match op {
+            MirOp::CompareIndirectBytes {
+                dst,
+                op,
+                signed: false,
+                ..
+            } if indirect_compare_flag_test(*op).is_some() => {
+                *dst = MirCondDest::Flags;
+            }
+            MirOp::CompareIndirectWords {
+                dst,
+                op,
+                signed: false,
+                ..
+            } if indirect_word_compare_flag_test(*op).is_some() => {
+                *dst = MirCondDest::Flags;
+            }
+            _ => {}
+        }
     }
 }
 
@@ -1139,6 +1152,12 @@ fn compare_temp_flag_test(op: &MirOp, expected: MirTempId) -> Option<MirFlagTest
             signed: false,
             ..
         } if *actual == expected => indirect_compare_flag_test(*op),
+        MirOp::CompareIndirectWords {
+            dst: MirCondDest::Temp(actual),
+            op,
+            signed: false,
+            ..
+        } if *actual == expected => indirect_word_compare_flag_test(*op),
         _ => None,
     }
 }
@@ -1150,5 +1169,13 @@ fn indirect_compare_flag_test(op: MirCompareOp) -> Option<MirFlagTest> {
         MirCompareOp::Lt => Some(MirFlagTest::CClear),
         MirCompareOp::Ge => Some(MirFlagTest::CSet),
         MirCompareOp::Le | MirCompareOp::Gt => None,
+    }
+}
+
+fn indirect_word_compare_flag_test(op: MirCompareOp) -> Option<MirFlagTest> {
+    match op {
+        MirCompareOp::Lt => Some(MirFlagTest::CClear),
+        MirCompareOp::Ge => Some(MirFlagTest::CSet),
+        MirCompareOp::Eq | MirCompareOp::Ne | MirCompareOp::Le | MirCompareOp::Gt => None,
     }
 }

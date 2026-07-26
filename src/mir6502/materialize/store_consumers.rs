@@ -3536,6 +3536,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }

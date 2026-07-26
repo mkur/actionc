@@ -1,0 +1,71 @@
+; Runtime regression for direct dual-pointer indexed CARD comparisons.
+;
+; The odd table bases and indexes 127/128/255 exercise scale-two carry,
+; page crossings, equal indexes, reversed relations, and different arrays.
+
+BYTE resultLt=$0600
+BYTE resultGt=$0601
+BYTE resultLeEqual=$0602
+BYTE resultGeEqual=$0603
+BYTE resultGtReverse=$0604
+BYTE resultLtReverse=$0605
+BYTE resultLeReverse=$0606
+BYTE resultGeReverse=$0607
+BYTE resultDifferent=$0608
+BYTE signature=$0609
+
+CARD ARRAY words
+CARD ARRAY otherWords
+
+BYTE FUNC IndexedLt(CARD left,right)
+  IF words(left)<words(right) THEN
+    RETURN(1)
+  FI
+RETURN(0)
+
+BYTE FUNC IndexedLe(CARD left,right)
+  IF words(left)<=words(right) THEN
+    RETURN(1)
+  FI
+RETURN(0)
+
+BYTE FUNC IndexedGt(CARD left,right)
+  IF words(left)>words(right) THEN
+    RETURN(1)
+  FI
+RETURN(0)
+
+BYTE FUNC IndexedGe(CARD left,right)
+  IF words(left)>=words(right) THEN
+    RETURN(1)
+  FI
+RETURN(0)
+
+BYTE FUNC DifferentArrays(CARD left,right)
+  IF words(left)<otherWords(right) THEN
+    RETURN(1)
+  FI
+RETURN(0)
+
+PROC Main()
+  words=$6001
+  otherWords=$6201
+  words(127)=$337F
+  words(128)=$4480
+  words(255)=$55FF
+  otherWords(128)=$6670
+
+  resultLt=IndexedLt(127,128)
+  resultGt=IndexedGt(128,127)
+  resultLeEqual=IndexedLe(128,128)
+  resultGeEqual=IndexedGe(128,128)
+  resultGtReverse=IndexedGt(127,128)
+  resultLtReverse=IndexedLt(128,127)
+  resultLeReverse=IndexedLe(255,128)
+  resultGeReverse=IndexedGe(127,128)
+  resultDifferent=DifferentArrays(255,128)
+  signature=$A5
+
+  DO
+  OD
+RETURN

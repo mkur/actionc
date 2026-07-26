@@ -52,7 +52,8 @@ pub(super) fn collect_temp_widths(ops: &[MirOp]) -> BTreeMap<MirTempId, MirWidth
             | MirOp::LeaAddr { .. }
             | MirOp::Call { result: None, .. }
             | MirOp::Compare { .. }
-            | MirOp::CompareIndirectBytes { .. } => {}
+            | MirOp::CompareIndirectBytes { .. }
+            | MirOp::CompareIndirectWords { .. } => {}
         }
     }
     widths

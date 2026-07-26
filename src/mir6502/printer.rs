@@ -565,6 +565,23 @@ fn op_summary(op: &MirOp) -> String {
             address_consumer_summary(right),
             offset
         ),
+        MirOp::CompareIndirectWords {
+            dst,
+            op,
+            left,
+            right,
+            offset,
+            signed,
+        } => format!(
+            "{} = cmp_indirect.w{} {}+{} {} {}+{}",
+            cond_dest_summary(dst),
+            if *signed { ".signed" } else { "" },
+            address_consumer_summary(left),
+            offset,
+            compare_summary(*op),
+            address_consumer_summary(right),
+            offset
+        ),
         MirOp::Call {
             target,
             abi,

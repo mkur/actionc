@@ -22,6 +22,12 @@ Run the modern/classic scaled CARD-index boundary gate directly:
 fixtures/runtime/run-scaled-card-indexes-vm.sh
 ```
 
+Run the modern/classic dual indexed CARD-compare gate directly:
+
+```sh
+fixtures/runtime/run-dual-indexed-word-compares-vm.sh
+```
+
 Run the modern/classic dual-pointer word-transfer gate directly:
 
 ```sh
@@ -82,6 +88,12 @@ and a call on the right-hand side of a store. The 34 result bytes at
 `$0600-$0621` also exercise a destination that overwrites its own descriptor,
 a page crossing, the high-byte access at `Y=$FF`, the ASL carry for indexes 128
 through 255, and wrapping the corrected base high byte from `$FF` to `$00`.
+
+The dual indexed CARD-compare fixture is the focused cross-backend oracle for
+MIR6502's two-pointer compare selector. It uses odd pointer-backed table bases,
+indexes 127, 128, and 255, equal and reversed operands, and a comparison across
+two different arrays. Its ten-byte result range checks `<`, `<=`, `>`, and
+`>=` under both modern/classic and modern/MIR6502.
 
 The dual-pointer word-transfer fixture exercises scaled indexed-to-indirect,
 indirect-to-indexed, direct private-pointer word copies, and destination-aware

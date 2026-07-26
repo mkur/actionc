@@ -1,6 +1,6 @@
 # MIR6502 SORT Optimization Implementation Plan
 
-Status: implementation in progress (Slices 0A-2 complete)
+Status: implementation in progress (Slices 0A-3 complete)
 
 Date: 2026-07-26
 
@@ -437,6 +437,25 @@ spill bytes between them.
 - The final compare uses both indirect pointer pairs.
 - The selector fires twice in SORTDM1.
 - CARD boundary cases pass the VM oracle.
+
+Implemented result: `dual-indexed-word-compare` generalizes the Slice 2
+proof-backed selector to unsigned CARD elements. It builds both scale-two
+element pointers in independent scratch pairs, emits a low-byte `CMP` followed
+by a carry-linked high-byte `SBC`, and branches directly on the resulting
+unsigned flags. The selector handles computed and pointer-backed arrays,
+normalizes reversed relations, rejects signed comparisons and offsets whose
+high byte would wrap, and requires both scratch pairs to be dead after the
+comparison.
+
+The selector fires once in `CAscend` and once in `CDescend`. SORTDM1 shrank
+from 4,815 to 4,754 load-file bytes. Recognized code fell from 4,446 to 4,392
+bytes, data from 357 to 350 bytes, and the instruction count from 1,910 to
+1,888. `LDA` fell from 592 to 585 and `STA` from 507 to 500. SORTDM2 likewise
+shrank from 2,891 to 2,830 bytes. The dedicated VM gate covers odd bases,
+indices `$007F/$0080/$00FF`, page crossings, equal indexes, different arrays,
+reversed operands, and all four unsigned relations under both backends. The
+SORT VM oracle passes, all 20 modern/MIR6502 Toolkit programs compile, and TN
+plus ALLOCATE remain byte-identical.
 
 Commit independently.
 

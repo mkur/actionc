@@ -165,7 +165,8 @@ fn op_blocks_deferred_direct_read(op: &MirOp) -> bool {
         | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
-        | MirOp::CompareIndirectBytes { .. } => true,
+        | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. } => true,
         MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::Barrier { .. }

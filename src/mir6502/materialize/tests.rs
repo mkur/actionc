@@ -1883,6 +1883,79 @@ fn analyzed_dual_indexed_byte_selection_keeps_live_scratch_pointer_pairs() {
 }
 
 #[test]
+fn analyzed_dual_indexed_word_selection_covers_relations_and_operand_orders() {
+    for op in [
+        MirCompareOp::Lt,
+        MirCompareOp::Le,
+        MirCompareOp::Gt,
+        MirCompareOp::Ge,
+    ] {
+        for reversed_operands in [false, true] {
+            let mut routine =
+                dual_indexed_word_compare_routine(op, reversed_operands, false, false);
+            let result = MirPreHomeRewriteDriver::default()
+                .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+                .expect("dual indexed word compare analysis succeeds");
+
+            assert_eq!(result.applied, 1, "{op:?}, reversed={reversed_operands}");
+            assert_eq!(
+                result.applied_by_stat["dual-indexed-word-compare"], 1,
+                "{op:?}, reversed={reversed_operands}"
+            );
+            assert!(matches!(
+                routine.blocks[0].ops.as_slice(),
+                [
+                    MirOp::MaterializeIndexedAddress { scale: 2, .. },
+                    MirOp::MaterializeIndexedAddress { scale: 2, .. },
+                    MirOp::CompareIndirectWords {
+                        op: MirCompareOp::Lt | MirCompareOp::Ge,
+                        signed: false,
+                        ..
+                    }
+                ]
+            ));
+        }
+    }
+}
+
+#[test]
+fn analyzed_dual_indexed_word_selection_supports_pointer_backing_and_equal_indexes() {
+    let mut routine = dual_indexed_word_compare_routine(MirCompareOp::Ge, false, true, true);
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+        .expect("pointer-backed word compare analysis succeeds");
+
+    assert_eq!(result.applied_by_stat["dual-indexed-word-compare"], 1);
+    assert!(matches!(
+        routine.blocks[0].ops.last(),
+        Some(MirOp::CompareIndirectWords {
+            op: MirCompareOp::Ge,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn analyzed_dual_indexed_word_selection_rejects_high_byte_offset_overflow() {
+    let mut routine = dual_indexed_word_compare_routine(MirCompareOp::Lt, false, false, false);
+    for op in &mut routine.blocks[0].ops {
+        if let MirOp::Load {
+            src: MirAddr::ComputedIndex { offset, .. },
+            ..
+        } = op
+        {
+            *offset = u16::from(u8::MAX);
+        }
+    }
+
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, discover_dual_indirect_compares)
+        .expect("overflowing offset analysis succeeds");
+
+    assert_eq!(result.applied, 0);
+}
+
+#[test]
 fn analyzed_addressed_byte_compare_forwards_loaded_byte_to_accumulator() {
     let mut routine = addressed_byte_compare_routine(false);
     let result = MirPreHomeRewriteDriver::default()
@@ -2111,6 +2184,40 @@ fn dual_indexed_byte_compare_routine(
     equal_indexes: bool,
     pointer_backed: bool,
 ) -> MirRoutine {
+    dual_indexed_compare_routine(
+        op,
+        reversed_operands,
+        equal_indexes,
+        pointer_backed,
+        MirWidth::Byte,
+        1,
+    )
+}
+
+fn dual_indexed_word_compare_routine(
+    op: MirCompareOp,
+    reversed_operands: bool,
+    equal_indexes: bool,
+    pointer_backed: bool,
+) -> MirRoutine {
+    dual_indexed_compare_routine(
+        op,
+        reversed_operands,
+        equal_indexes,
+        pointer_backed,
+        MirWidth::Word,
+        2,
+    )
+}
+
+fn dual_indexed_compare_routine(
+    op: MirCompareOp,
+    reversed_operands: bool,
+    equal_indexes: bool,
+    pointer_backed: bool,
+    width: MirWidth,
+    elem_size: u16,
+) -> MirRoutine {
     let temp_def = |id| MirDef::VTemp(MirTempId(id));
     let temp_value = |id| MirValue::Def(temp_def(id));
     let param = |id| MirMem::Param {
@@ -2131,10 +2238,10 @@ fn dual_indexed_byte_compare_routine(
                     src: MirAddr::PointerIndex {
                         ptr: param(0),
                         index: temp_value(0),
-                        elem_size: 1,
+                        elem_size,
                         offset: 0,
                     },
-                    width: MirWidth::Byte,
+                    width,
                 },
                 MirOp::Load {
                     dst: temp_def(2),
@@ -2146,10 +2253,10 @@ fn dual_indexed_byte_compare_routine(
                     src: MirAddr::PointerIndex {
                         ptr: param(2),
                         index: temp_value(2),
-                        elem_size: 1,
+                        elem_size,
                         offset: 0,
                     },
-                    width: MirWidth::Byte,
+                    width,
                 },
             ],
             1,
@@ -2174,10 +2281,10 @@ fn dual_indexed_byte_compare_routine(
                     src: MirAddr::ComputedIndex {
                         base: temp_value(0),
                         index: temp_value(1),
-                        elem_size: 1,
+                        elem_size,
                         offset: 0,
                     },
-                    width: MirWidth::Byte,
+                    width,
                 },
                 MirOp::Load {
                     dst: temp_def(3),
@@ -2194,10 +2301,10 @@ fn dual_indexed_byte_compare_routine(
                     src: MirAddr::ComputedIndex {
                         base: temp_value(3),
                         index: temp_value(4),
-                        elem_size: 1,
+                        elem_size,
                         offset: 0,
                     },
-                    width: MirWidth::Byte,
+                    width,
                 },
             ],
             2,
@@ -2216,13 +2323,13 @@ fn dual_indexed_byte_compare_routine(
         op,
         left: temp_value(left),
         right: temp_value(right),
-        width: MirWidth::Byte,
+        width,
         signed: false,
     });
 
     MirRoutine {
         id: RoutineId(0),
-        name: "dual_indexed_byte_compare".to_string(),
+        name: format!("dual_indexed_{width:?}_compare"),
         abi: MirRoutineAbi::Action,
         frame: MirFrame::default(),
         temps: (0..=compare_temp)

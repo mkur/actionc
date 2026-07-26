@@ -653,6 +653,7 @@ fn op_kind(op: &MirOp) -> &'static str {
         MirOp::Store { .. } => "store",
         MirOp::Compare { .. } => "compare",
         MirOp::CompareIndirectBytes { .. } => "compare-indirect-bytes",
+        MirOp::CompareIndirectWords { .. } => "compare-indirect-words",
         MirOp::Call { .. } => "call",
         MirOp::RuntimeHelper { .. } => "runtime-helper",
         MirOp::MaterializeAddress { .. } => "materialize-address",
@@ -1423,6 +1424,7 @@ fn record_op_uses(
         }
         MirOp::LoadImm { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateMem { .. }

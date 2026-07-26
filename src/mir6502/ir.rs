@@ -454,6 +454,14 @@ pub enum MirOp {
         offset: u16,
         signed: bool,
     },
+    CompareIndirectWords {
+        dst: MirCondDest,
+        op: MirCompareOp,
+        left: MirAddressConsumer,
+        right: MirAddressConsumer,
+        offset: u16,
+        signed: bool,
+    },
     Call {
         target: MirCallTarget,
         abi: MirCallAbi,

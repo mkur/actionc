@@ -519,6 +519,7 @@ fn update_fixed_zero_page_values(
         | MirOp::Binary { .. }
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
         | MirOp::LoadIndirect { .. } => {}
     }
 }

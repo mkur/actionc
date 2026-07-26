@@ -929,7 +929,9 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
     block: &MirBlock,
     index: usize,
 ) -> Option<DualIndirectCompareCandidate> {
-    if let Some(candidate) = dual_indexed_byte_compare_candidate(block, index) {
+    if let Some(candidate) = dual_indexed_compare_candidate(block, index, MirWidth::Word, 2)
+        .or_else(|| dual_indexed_compare_candidate(block, index, MirWidth::Byte, 1))
+    {
         return Some(candidate);
     }
 
@@ -1050,7 +1052,7 @@ pub(in crate::mir6502) fn dual_indirect_compare_candidate(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct IndexedByteCompareOperand {
+struct IndexedCompareOperand {
     consumed: usize,
     result: MirTempId,
     base: MirValue,
@@ -1058,20 +1060,22 @@ struct IndexedByteCompareOperand {
     offset: u16,
 }
 
-fn dual_indexed_byte_compare_candidate(
+fn dual_indexed_compare_candidate(
     block: &MirBlock,
     start: usize,
+    width: MirWidth,
+    elem_size: u16,
 ) -> Option<DualIndirectCompareCandidate> {
-    let first = indexed_byte_compare_operand(&block.ops, start)?;
+    let first = indexed_compare_operand(&block.ops, start, width, elem_size)?;
     let second_start = start + first.consumed;
-    let second = indexed_byte_compare_operand(&block.ops, second_start)?;
+    let second = indexed_compare_operand(&block.ops, second_start, width, elem_size)?;
     let compare_index = second_start + second.consumed;
     let MirOp::Compare {
         dst: MirCondDest::Temp(compare_temp),
         op,
         left,
         right,
-        width: MirWidth::Byte,
+        width: compare_width,
         signed: false,
     } = block.ops.get(compare_index)?
     else {
@@ -1087,8 +1091,14 @@ fn dual_indexed_byte_compare_candidate(
     let consumed = first.consumed + second.consumed + 1;
     if start + consumed != block.ops.len()
         || compare_temp != branch_temp
+        || *compare_width != width
+        || (width == MirWidth::Word
+            && !matches!(
+                op,
+                MirCompareOp::Lt | MirCompareOp::Le | MirCompareOp::Gt | MirCompareOp::Ge
+            ))
         || first.offset != second.offset
-        || first.offset > u16::from(u8::MAX)
+        || first.offset > u16::from(u8::MAX).saturating_sub(elem_size - 1)
     {
         return None;
     }
@@ -1120,6 +1130,28 @@ fn dual_indexed_byte_compare_candidate(
         MirCompareOp::Le => (MirCompareOp::Ge, compare_right, compare_left),
     };
 
+    let compare = match width {
+        MirWidth::Byte => MirOp::CompareIndirectBytes {
+            dst: MirCondDest::Temp(*compare_temp),
+            op,
+            left: compare_left,
+            right: compare_right,
+            offset: first.offset,
+            signed: false,
+        },
+        MirWidth::Word => MirOp::CompareIndirectWords {
+            dst: MirCondDest::Temp(*compare_temp),
+            op,
+            left: compare_left,
+            right: compare_right,
+            offset: first.offset,
+            signed: false,
+        },
+    };
+    let (stat, estimated_byte_saving, estimated_cycle_saving) = match width {
+        MirWidth::Byte => ("dual-indexed-byte-compare", 11, 10),
+        MirWidth::Word => ("dual-indexed-word-compare", 28, 18),
+    };
     Some(DualIndirectCompareCandidate {
         consumed,
         replacement: vec![
@@ -1127,30 +1159,28 @@ fn dual_indexed_byte_compare_candidate(
                 consumer: first_consumer,
                 base: first.base,
                 index: first.index,
-                scale: 1,
+                scale: elem_size as u8,
             },
             MirOp::MaterializeIndexedAddress {
                 consumer: second_consumer,
                 base: second.base,
                 index: second.index,
-                scale: 1,
+                scale: elem_size as u8,
             },
-            MirOp::CompareIndirectBytes {
-                dst: MirCondDest::Temp(*compare_temp),
-                op,
-                left: compare_left,
-                right: compare_right,
-                offset: first.offset,
-                signed: false,
-            },
+            compare,
         ],
-        stat: "dual-indexed-byte-compare",
-        estimated_byte_saving: 11,
-        estimated_cycle_saving: 10,
+        stat,
+        estimated_byte_saving,
+        estimated_cycle_saving,
     })
 }
 
-fn indexed_byte_compare_operand(ops: &[MirOp], start: usize) -> Option<IndexedByteCompareOperand> {
+fn indexed_compare_operand(
+    ops: &[MirOp],
+    start: usize,
+    width: MirWidth,
+    elem_size: u16,
+) -> Option<IndexedCompareOperand> {
     if let (
         Some(MirOp::Load {
             dst: base_dst,
@@ -1165,7 +1195,7 @@ fn indexed_byte_compare_operand(ops: &[MirOp], start: usize) -> Option<IndexedBy
         Some(MirOp::Load {
             dst: result_dst,
             src: addr @ MirAddr::ComputedIndex { .. },
-            width: MirWidth::Byte,
+            width: result_width,
         }),
     ) = (ops.get(start), ops.get(start + 1), ops.get(start + 2))
     {
@@ -1173,13 +1203,14 @@ fn indexed_byte_compare_operand(ops: &[MirOp], start: usize) -> Option<IndexedBy
         let index_temp = split_def_as_temp(index_dst)?;
         let result = split_def_as_temp(result_dst)?;
         let parts = indexed_addr_parts(addr)?;
-        if parts.elem_size == 1
+        if *result_width == width
+            && parts.elem_size == elem_size
             && parts.base == MirValue::Def(MirDef::VTemp(base_temp))
             && parts.index == MirValue::Def(MirDef::VTemp(index_temp))
             && dual_compare_pointer_source_is_safe(base_mem)
             && dual_compare_pointer_source_is_safe(index_mem)
         {
-            return Some(IndexedByteCompareOperand {
+            return Some(IndexedCompareOperand {
                 consumed: 3,
                 result,
                 base: pointer_value_from_mem(base_mem),
@@ -1198,7 +1229,7 @@ fn indexed_byte_compare_operand(ops: &[MirOp], start: usize) -> Option<IndexedBy
         Some(MirOp::Load {
             dst: result_dst,
             src: addr @ MirAddr::PointerIndex { ptr, .. },
-            width: MirWidth::Byte,
+            width: result_width,
         }),
     ) = (ops.get(start), ops.get(start + 1))
     else {
@@ -1207,14 +1238,15 @@ fn indexed_byte_compare_operand(ops: &[MirOp], start: usize) -> Option<IndexedBy
     let index_temp = split_def_as_temp(index_dst)?;
     let result = split_def_as_temp(result_dst)?;
     let parts = indexed_addr_parts(addr)?;
-    if parts.elem_size != 1
+    if *result_width != width
+        || parts.elem_size != elem_size
         || parts.index != MirValue::Def(MirDef::VTemp(index_temp))
         || !dual_compare_pointer_source_is_safe(ptr)
         || !dual_compare_pointer_source_is_safe(index_mem)
     {
         return None;
     }
-    Some(IndexedByteCompareOperand {
+    Some(IndexedCompareOperand {
         consumed: 2,
         result,
         base: parts.base,

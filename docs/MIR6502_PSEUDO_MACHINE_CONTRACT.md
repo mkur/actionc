@@ -158,6 +158,16 @@ The final emission layer decides which exact opcodes write these operations.
 MIR may contain carry-aware pseudo ops, but it should not become a complete
 one-variant-per-6502-opcode pseudo ISA in the first implementation.
 
+`CompareIndirectWords` is a selected unsigned relational operation over two
+already prepared, distinct indirect pointer pairs. It is legal only for `<` and
+`>=`; reversible `>` and `<=` relations must be normalized before selection.
+Its low-byte `CMP` produces the carry/borrow input consumed by the high-byte
+`SBC`, so no intervening operation may alter carry. Emission uses one shared Y
+offset, increments it for the high lane, and therefore requires both
+`offset` and `offset+1` to fit in Y. The operation cannot use scaled-Y
+consumers: scale-two address construction must already have been incorporated
+into each prepared pointer.
+
 ### Pre-emission MIR
 
 Pre-emission MIR is the final checked subset of post-materialization MIR.
