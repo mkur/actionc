@@ -1,6 +1,6 @@
 # MIR6502 CIRCLE INT Optimization Implementation Plan
 
-Status: in progress; Slices 0 through 6 complete
+Status: complete; Slices 0 through 7 implemented and audited
 
 Date: 2026-07-26
 
@@ -755,6 +755,89 @@ Stop after the audit unless a remaining gap is:
 - represented by at least two general sites or a demonstrably hot loop site;
 - removable with existing shared proofs and without weakening memory/effect
   conservatism.
+
+### Final result
+
+The final artifacts are under:
+
+```text
+target/circle1-final-audit-20260726/circle
+target/circle2-final-audit-20260726/circle
+target/circle-toolkit-final-20260726/modern-mir6502
+target/circle-toolkit-classic-final-20260726/modern-classic
+```
+
+The load-file totals are:
+
+| Program | Modern/classic | Modern/MIR6502 | Difference |
+| --- | ---: | ---: | ---: |
+| CIRCLE1 | 625 | 601 | -24 |
+| CIRCLE2 | 889 | 881 | -8 |
+
+CIRCLE1 improves from the 778-byte planning baseline to 601 bytes: 177 bytes
+and 22.8% smaller. Its final load SHA-256 is
+`40caf1f12a104bc749b46d52bb429cdd7ff6e78af6f38f637d1147a2fe02eb96`.
+The unchanged classic comparison hash is
+`4b768f2672959cbca58d269ded7fe6fdd812416b094edfbe269dc84d7cbce62d`.
+
+The final CIRCLE1 listing-quality totals are:
+
+| Metric | Modern/classic | Modern/MIR6502 | Difference |
+| --- | ---: | ---: | ---: |
+| XEX bytes | 625 | 601 | -24 |
+| Recognized instruction bytes | 591 | 567 | -24 |
+| Data and inline machine bytes | 22 | 22 | 0 |
+| Recognized instructions | 256 | 249 | -7 |
+| `LDA` | 73 | 74 | +1 |
+| `STA` | 48 | 43 | -5 |
+| `LDA` + `STA` instruction share | 47.3% | 47.0% | -0.3 points |
+| `LDA` + `STA` byte share | 50.4% | 51.5% | +1.1 points |
+| RAM spill cells/accesses | 0 / 0 | 0 / 0 | 0 / 0 |
+
+The routine comparison closes with:
+
+| Routine | Modern/classic | Modern/MIR6502 | Difference |
+| --- | ---: | ---: | ---: |
+| `Abs` | 21 | 24 | +3 |
+| `Circle` | 496 | 470 | -26 |
+| `CircleDemo` | 74 | 73 | -1 |
+| **Total** | **591** | **567** | **-24** |
+
+All 24 stable-memory RHS call-argument candidates are selected, with no
+blocked lanes. Of 23 reconciled residual lanes, 9 are eliminated and 14 reuse
+the two physical zero-page cells `$E0/$E1`; those cells account for ten stores
+and ten reloads. The two `Abs` lanes use `$A0/$A1` directly instead of a frame
+home. There are no RAM spill cells or accesses.
+
+The signed selectors record one direct word relation, one direct signed
+return-word zero test, and two signed-overflow correction paths. The final
+listing contains one branch-over-`JMP`, but its target is outside relative
+branch range. It contains no `JSR f; RTS` tail form and no jump to a pure return
+block.
+
+CIRCLE2 finishes at 692 instruction bytes and 177 data bytes, versus classic's
+701 and 176. Its one-byte data excess is the existing `CircleDemo2` spill;
+`Circle` and `Abs` retain the CIRCLE1 code sizes.
+
+The isolated modern/MIR6502 Toolkit sweep passes all 20 entries. It totals
+43,651 bytes, 799 bytes below the 44,450-byte pre-plan MIR6502 sweep, and no
+entry grows. A fresh matching modern/classic sweep totals 44,081 bytes, so the
+final MIR6502 batch is 430 bytes smaller overall.
+
+TN finishes at 9,933 bytes, ALLOCATE at 876 bytes, and SORTDM1 at 3,271 bytes.
+The direct Action word-arithmetic fixture is 447 bytes under MIR6502 versus
+463 under modern/classic, and its VM result buffer is byte-identical between
+the backends.
+
+### Stop decision
+
+The plan stops here. `Circle` and `CircleDemo` are already smaller than
+classic. The only local routine deficit is the three-byte `Abs` positive-path
+store/return shape, which is one site and below the eight-byte continuation
+threshold. The remaining branch-over-`JMP` cannot be relaxed to a relative
+branch, and the remaining zero-page lanes are loop-carried arithmetic values
+rather than transient spill traffic. No residual CIRCLE opportunity satisfies
+all three continuation criteria.
 
 Suggested commit:
 
