@@ -3536,6 +3536,78 @@ fn word_arithmetic_pointer_store_requires_the_written_home_as_pointer() {
 }
 
 #[test]
+fn word_arithmetic_result_consumer_reuses_the_prepared_pointer() {
+    let mut ops = word_arithmetic_pointer_store_ops(LocalId(33));
+    ops.extend([
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(314)),
+            src: MirAddr::Direct(MirMem::Local {
+                id: LocalId(33),
+                offset: 0,
+            }),
+            width: MirWidth::Word,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(return_slot_mem(0)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(314))),
+            width: MirWidth::Word,
+        },
+    ]);
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_word_arithmetic_result_consumer(&ops, 0, &mut replacement),
+        ops.len()
+    );
+    assert!(matches!(
+        &replacement[replacement.len() - 2..],
+        [
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                src: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
+                    POINTER_SCRATCH_LO
+                ))),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1))),
+                src: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
+                    POINTER_SCRATCH_HI
+                ))),
+                width: MirWidth::Byte,
+            }
+        ]
+    ));
+}
+
+#[test]
+fn word_arithmetic_result_consumer_requires_the_matching_home_reload() {
+    let mut ops = word_arithmetic_pointer_store_ops(LocalId(33));
+    ops.extend([
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(314)),
+            src: MirAddr::Direct(MirMem::Local {
+                id: LocalId(35),
+                offset: 0,
+            }),
+            width: MirWidth::Word,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(return_slot_mem(0)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(314))),
+            width: MirWidth::Word,
+        },
+    ]);
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_word_arithmetic_result_consumer(&ops, 0, &mut replacement),
+        0
+    );
+    assert!(replacement.is_empty());
+}
+
+#[test]
 fn word_memory_update_commuted_add_const_uses_byte_to_word_update() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

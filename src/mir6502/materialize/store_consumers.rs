@@ -20,6 +20,23 @@ pub(super) fn select_word_arithmetic_pointer_store_consumer(
     index: usize,
     out: &mut Vec<MirOp>,
 ) -> usize {
+    select_word_arithmetic_pointer_store_consumer_impl(ops, index, false, out)
+}
+
+pub(super) fn select_word_arithmetic_result_consumer(
+    ops: &[MirOp],
+    index: usize,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    select_word_arithmetic_pointer_store_consumer_impl(ops, index, true, out)
+}
+
+fn select_word_arithmetic_pointer_store_consumer_impl(
+    ops: &[MirOp],
+    index: usize,
+    require_result: bool,
+    out: &mut Vec<MirOp>,
+) -> usize {
     let mut sources = BTreeMap::<MirTempId, WordArithmeticSource>::new();
     let mut cursor = index;
     loop {
@@ -102,6 +119,36 @@ pub(super) fn select_word_arithmetic_pointer_store_consumer(
     {
         return 0;
     }
+    let consumed = if require_result {
+        let Some(MirOp::Load {
+            dst: result_dst,
+            src: MirAddr::Direct(result_mem),
+            width: MirWidth::Word,
+        }) = ops.get(cursor + 1)
+        else {
+            return 0;
+        };
+        let Some(result_temp) = split_def_as_temp(result_dst) else {
+            return 0;
+        };
+        let Some(MirOp::Store {
+            dst: MirAddr::Direct(return_mem),
+            src: MirValue::Def(MirDef::VTemp(return_temp)),
+            width: MirWidth::Word,
+        }) = ops.get(cursor + 2)
+        else {
+            return 0;
+        };
+        if result_mem != pointer_home
+            || *return_temp != result_temp
+            || return_mem != &return_slot_mem(0)
+        {
+            return 0;
+        }
+        cursor + 3 - index
+    } else {
+        cursor + 1 - index
+    };
 
     if matches!(right, WordArithmeticSource::Indirect { .. }) {
         if *arithmetic_op != MirBinaryOp::Add
@@ -200,7 +247,18 @@ pub(super) fn select_word_arithmetic_pointer_store_consumer(
         ))),
         offset: offset.saturating_add(1),
     });
-    cursor + 1 - index
+    if require_result {
+        for byte in 0..2 {
+            out.push(MirOp::Store {
+                dst: MirAddr::Direct(offset_mem(&return_slot_mem(0), byte)),
+                src: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
+                    POINTER_SCRATCH_LO.saturating_add(byte as u8),
+                ))),
+                width: MirWidth::Byte,
+            });
+        }
+    }
+    consumed
 }
 
 fn store_a_to_fixed_scratch(slot: u8) -> MirOp {
