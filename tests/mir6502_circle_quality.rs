@@ -84,12 +84,31 @@ fn circle_uses_direct_binary_call_arg_materialization() {
         8,
         "{formatted}"
     );
+    assert_eq!(
+        formatted.matches("cmp_i16_direct_").count(),
+        2,
+        "{formatted}"
+    );
+    assert_eq!(
+        formatted.matches("cmp_i16_v_correct_").count(),
+        2,
+        "{formatted}"
+    );
+    for obsolete in [
+        "cmp_i16_left_sign_",
+        "cmp_i16_right_sign_pos_",
+        "cmp_i16_right_sign_neg_",
+        "cmp_i16_v_set_",
+        "cmp_i16_v_clear_",
+    ] {
+        assert!(!formatted.contains(obsolete), "{formatted}");
+    }
 
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     assert!(
-        output.bytes.len() <= 594,
-        "expected CIRCLE.ACT MIR6502 output no larger than 594 bytes, got {}",
+        output.bytes.len() <= 544,
+        "expected CIRCLE.ACT MIR6502 output no larger than 544 bytes, got {}",
         output.bytes.len()
     );
 }

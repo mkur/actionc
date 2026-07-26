@@ -1,6 +1,6 @@
 # MIR6502 CIRCLE INT Optimization Implementation Plan
 
-Status: in progress; Slices 0 through 3 complete
+Status: in progress; Slices 0 through 4 complete
 
 Date: 2026-07-26
 
@@ -575,6 +575,31 @@ subtraction chain.
   of negative, zero, positive, minimum, and maximum values.
 - V is consumed before any instruction that changes it.
 - Final branches use shared liveness and machine-state proofs.
+
+### Implemented result
+
+A post-home CFG transaction now recognizes the exact generated signed
+sign-dispatch and subtraction/overflow shapes after logical lanes have physical
+homes. It accepts only constants and stable compiler-owned or ordinary direct
+memory, requires private helper-block predecessors, proves A and flags dead at
+the semantic exits with the shared post-home analysis, and accepts an adjacent
+entry copy only as an exact source/home alias proof.
+
+Both shapes lower to a low/high `SBC` chain, branch on V, conditionally apply
+`EOR #$80`, and converge on one N branch. The old sign tree and the duplicate
+V-set/V-clear N branches disappear. Cost-aware block layout places the
+correction path without introducing branch-over-JMP scaffolding.
+
+CIRCLE1 falls from 656 to 618 bytes, 7 bytes below modern/classic. CIRCLE2
+falls from 936 to 898 bytes, leaving a 9-byte gap. Each program saves 38 bytes
+in this slice. Removing the sign tree also makes the newest `Abs` result's four
+spill stores dead, so the post-home cleanup consumes part of the Slice 5
+opportunity automatically.
+
+The CIRCLE quality contract now rejects all old signed scaffolding labels and
+caps the shared CIRCLE library at 544 bytes. A dedicated VM matrix verifies
+`<`, `<=`, `>`, and `>=` over the 25 pairs formed by `$8000`, `$FFFF`, `$0000`,
+`$0001`, and `$7FFF`.
 
 Suggested commit:
 

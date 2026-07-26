@@ -93,8 +93,9 @@ use compare_branch::{
     expand_proven_direct_word_equality_compare_branches,
     expand_proven_direct_word_relational_compare_branches,
     expand_proven_signed_word_zero_compare_branches,
-    expand_proven_word_arithmetic_compare_branches, inclusive_compare_reversal_candidate,
-    signed_word_zero_compare_candidate, word_arithmetic_compare_candidate,
+    expand_proven_word_arithmetic_compare_branches, fold_posthome_signed_word_relations,
+    inclusive_compare_reversal_candidate, signed_word_zero_compare_candidate,
+    word_arithmetic_compare_candidate,
 };
 pub(in crate::mir6502) use compare_branch::{
     addressed_byte_compare_candidate, dual_indirect_compare_candidate,
@@ -1668,6 +1669,7 @@ fn run_posthome_structural_group(
     known_callees: Option<&MirKnownCalleeSummaries>,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
+    run_posthome_signed_word_relations(routine, layout, known_callees, peephole_stats)?;
     run_analyzed_param_home_reloads(routine, peephole_stats)?;
     run_analyzed_spill_forwards(routine, peephole_stats)?;
     run_analyzed_direct_inc_dec_updates(routine, layout, peephole_stats)?;
@@ -1709,6 +1711,32 @@ fn run_posthome_structural_group(
     run_analyzed_indexed_base_pointer_staging(routine, peephole_stats)?;
     run_analyzed_scaled_y_word_reads(routine, layout, peephole_stats)?;
     run_analyzed_scaled_y_word_stores(routine, layout, peephole_stats)
+}
+
+fn run_posthome_signed_word_relations(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    known_callees: Option<&MirKnownCalleeSummaries>,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let (direct_relations, overflow_corrections) =
+        fold_posthome_signed_word_relations(routine, layout, known_callees).map_err(|_| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                "post-home signed word relation rewrite failed",
+            )]
+        })?;
+    peephole_stats.record_many(
+        routine.id,
+        "posthome-signed-word-direct-compare",
+        direct_relations,
+    );
+    peephole_stats.record_many(
+        routine.id,
+        "posthome-signed-overflow-correction",
+        overflow_corrections,
+    );
+    Ok(())
 }
 
 fn run_posthome_cleanup_group(

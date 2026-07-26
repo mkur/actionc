@@ -68,6 +68,7 @@ Run the MIR6502 signed return-word compare-to-zero gate directly:
 
 ```sh
 fixtures/runtime/run-signed-return-word-zero-compares-vm.sh
+fixtures/runtime/run-signed-word-relation-matrix-vm.sh
 ```
 
 Run the direct four-byte Action call-argument arithmetic gate directly:

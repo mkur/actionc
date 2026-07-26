@@ -728,13 +728,20 @@ fn unsigned_word_relational_branch_materializes_to_cmp_sbc_carry_chain() {
 }
 
 #[test]
-fn signed_int_relational_branch_materializes_sign_split() {
+fn signed_int_relational_branch_materializes_direct_overflow_correction() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("signed_int_compare.act");
 
-    assert!(formatted.contains("cmp_i16_sub"));
+    assert!(formatted.contains("cmp_i16_direct"));
+    assert!(formatted.contains("cmp_i16_v_correct"));
+    assert!(formatted.contains("cmp_i16_n_test"));
     assert!(formatted.contains("branch flag v_set"));
-    assert!(formatted.contains("branch flag n_clear"));
     assert!(formatted.contains("branch flag n_set"));
+    assert!(formatted.contains("a =.b a xor #$80"));
+    assert!(!formatted.contains("cmp_i16_left_sign"));
+    assert!(!formatted.contains("cmp_i16_right_sign"));
+    assert!(!formatted.contains("cmp_i16_v_set"));
+    assert!(!formatted.contains("cmp_i16_v_clear"));
+    assert!(!formatted.contains("branch flag n_clear"));
     assert!(!formatted.contains("cmp.w"));
     assert!(!formatted.contains("branch bool"));
     assert!(!formatted.contains(" v0"));
@@ -743,7 +750,7 @@ fn signed_int_relational_branch_materializes_sign_split() {
             .windows(2)
             .any(|bytes| matches!(bytes[0], 0x50 | 0x70))
     );
-    assert!(bytes.windows(2).any(|bytes| bytes[0] == 0x10));
+    assert!(bytes.windows(2).any(|bytes| bytes == [0x49, 0x80]));
     assert!(bytes.windows(2).any(|bytes| bytes[0] == 0x30));
 }
 

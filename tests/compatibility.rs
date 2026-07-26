@@ -304,6 +304,31 @@ fn signed_return_word_zero_compare_runtime_check() {
 
 #[test]
 #[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+fn signed_word_relation_matrix_runtime_check() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let script = repo_root
+        .join("fixtures")
+        .join("runtime")
+        .join("run-signed-word-relation-matrix-vm.sh");
+
+    let output = Command::new(&script)
+        .current_dir(repo_root)
+        .output()
+        .unwrap_or_else(|err| panic!("run {}: {err}", script.display()));
+
+    if !output.status.success() {
+        panic!(
+            "{} failed with status {}\nstdout:\n{}\nstderr:\n{}",
+            script.display(),
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
+#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
 fn direct_action_word_arithmetic_args_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root

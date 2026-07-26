@@ -16,15 +16,20 @@ use super::word_sources::{
     WordConsumerSource, push_word_consumer_source_load, resolve_word_consumer_source,
     word_consumer_byte_value_is_safe, word_consumer_load_source,
 };
+use crate::mir6502::analysis::effects::MirFlagSet;
+use crate::mir6502::analysis::known_callees::MirKnownCalleeSummaries;
+use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
+use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 #[cfg(test)]
 use crate::mir6502::ir::RoutineId;
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCallResult, MirCarryIn,
     MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirFixedZpSlot, MirFlagTest,
-    MirMem, MirOp, MirPointerPair, MirReg, MirResultHome, MirTempId, MirTerminator, MirValue,
-    MirWidth,
+    MirMem, MirOp, MirPointerPair, MirReg, MirResultHome, MirRoutine, MirTempId, MirTerminator,
+    MirValue, MirWidth,
 };
 use crate::mir6502::passes::Mir6502Config;
+use crate::mir6502::rewrite::context::{MirProof, PostHomeRewriteContext};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3768,6 +3773,516 @@ fn append_signed_lt_sign_dispatch_blocks(
         same_sign,
     ));
     left_sign
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PostHomeSignedRelationRewrite {
+    subtract_block: MirBlockId,
+    overflow_set: MirBlockId,
+    overflow_clear: MirBlockId,
+    subtract_ops: Vec<MirOp>,
+    then_block: MirBlockId,
+    else_block: MirBlockId,
+    removed_blocks: BTreeSet<MirBlockId>,
+    replaced_sign_dispatch: bool,
+}
+
+pub(super) fn fold_posthome_signed_word_relations(
+    routine: &mut MirRoutine,
+    layout: &MaterializeLayout,
+    known_callees: Option<&MirKnownCalleeSummaries>,
+) -> Result<(usize, usize), ()> {
+    let empty_summaries = MirKnownCalleeSummaries::default();
+    let known_callees = known_callees.unwrap_or(&empty_summaries);
+    let mut direct_relations = 0usize;
+    let mut overflow_corrections = 0usize;
+
+    loop {
+        let snapshot = PostHomeAnalysisSnapshot::new_with_known_callees(
+            routine,
+            MirRoutineGeneration::initial(),
+            known_callees,
+        )
+        .map_err(|_| ())?;
+        let context = PostHomeRewriteContext::new(&snapshot);
+        let rewrite = discover_posthome_signed_dispatch(routine, &context, layout)
+            .or_else(|| discover_posthome_signed_overflow(routine, &context, layout));
+        drop(context);
+        drop(snapshot);
+        let Some(rewrite) = rewrite else {
+            break;
+        };
+
+        if rewrite.replaced_sign_dispatch {
+            direct_relations += 1;
+        }
+        overflow_corrections += 1;
+        apply_posthome_signed_relation(routine, rewrite)?;
+    }
+
+    Ok((direct_relations, overflow_corrections))
+}
+
+fn discover_posthome_signed_dispatch(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Option<PostHomeSignedRelationRewrite> {
+    for entry in &routine.blocks {
+        if !entry.label.starts_with("cmp_i16_left_sign_") {
+            continue;
+        }
+        let (left_hi, sign_limit, left_nonnegative, left_negative) =
+            physical_compare_branch(entry, MirCompareOp::Lt, MirFlagTest::CClear)?;
+        if !matches!(
+            sign_limit,
+            MirValue::ConstU8(0x80) | MirValue::ConstU16(0x80)
+        ) {
+            continue;
+        }
+        let positive = routine_block(routine, left_nonnegative)?;
+        let negative = routine_block(routine, left_negative)?;
+        if !positive.label.starts_with("cmp_i16_right_sign_pos_")
+            || !negative.label.starts_with("cmp_i16_right_sign_neg_")
+        {
+            continue;
+        }
+        let (positive_right_hi, positive_limit, same_sign, else_block) =
+            physical_compare_branch(positive, MirCompareOp::Lt, MirFlagTest::CClear)?;
+        let (negative_right_hi, negative_limit, then_block, negative_same_sign) =
+            physical_compare_branch(negative, MirCompareOp::Lt, MirFlagTest::CClear)?;
+        if positive_right_hi != negative_right_hi
+            || !matches!(
+                positive_limit,
+                MirValue::ConstU8(0x80) | MirValue::ConstU16(0x80)
+            )
+            || positive_limit != negative_limit
+            || same_sign != negative_same_sign
+        {
+            continue;
+        }
+
+        let high = routine_block(routine, same_sign)?;
+        if !high.label.starts_with("cmp_word_hi_lt_") {
+            continue;
+        }
+        let (same_left_hi, same_right_hi, high_then, high_not_less) =
+            physical_compare_branch(high, MirCompareOp::Lt, MirFlagTest::CClear)?;
+        let high_equal = routine_block(routine, high_not_less)?;
+        let (low_block, high_else) = empty_flag_branch(high_equal, MirFlagTest::ZSet)?;
+        let low = routine_block(routine, low_block)?;
+        let (left_lo, right_lo, low_then, low_else) =
+            physical_compare_branch(low, MirCompareOp::Lt, MirFlagTest::CClear)?;
+        if !high_equal.label.starts_with("cmp_word_hi_eq_")
+            || !low.label.starts_with("cmp_word_lo_lt_")
+            || left_hi != same_left_hi
+            || (positive_right_hi != same_right_hi
+                && !adjacent_entry_copy_alias(
+                    routine,
+                    context,
+                    entry.id,
+                    &positive_right_hi,
+                    &same_right_hi,
+                ))
+            || high_then != then_block
+            || high_else != else_block
+            || low_then != then_block
+            || low_else != else_block
+        {
+            continue;
+        }
+        let private_blocks = BTreeSet::from([
+            left_nonnegative,
+            left_negative,
+            same_sign,
+            high_not_less,
+            low_block,
+        ]);
+        let private_predecessors = dispatch_predecessors_are_private(
+            context,
+            entry.id,
+            left_nonnegative,
+            left_negative,
+            same_sign,
+            high_not_less,
+            low_block,
+        );
+        let stable_sources = signed_relation_sources_are_stable(
+            layout,
+            [&left_lo, &left_hi, &right_lo, &positive_right_hi],
+        );
+        // The low-compare block reaches both semantic exits and therefore
+        // proves their incoming A/flag state is unobservable. Flags live out
+        // of the high-compare block only feed its internal Z-dispatch block.
+        let dead_state = machine_state_is_dead_at_exits(context, [low.id]);
+        if !private_predecessors || !stable_sources || !dead_state {
+            continue;
+        }
+        return Some(PostHomeSignedRelationRewrite {
+            subtract_block: entry.id,
+            overflow_set: left_nonnegative,
+            overflow_clear: left_negative,
+            subtract_ops: signed_word_subtract_ops(left_lo, left_hi, right_lo, positive_right_hi)?,
+            then_block,
+            else_block,
+            removed_blocks: private_blocks
+                .into_iter()
+                .filter(|block| *block != left_nonnegative && *block != left_negative)
+                .collect(),
+            replaced_sign_dispatch: true,
+        });
+    }
+    None
+}
+
+fn discover_posthome_signed_overflow(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Option<PostHomeSignedRelationRewrite> {
+    for subtract in &routine.blocks {
+        if !subtract.label.starts_with("cmp_i16_sub_") {
+            continue;
+        }
+        let (left_lo, left_hi, right_lo, right_hi) = signed_word_subtract_sources(&subtract.ops)?;
+        let (overflow_set, overflow_clear) =
+            flag_branch_targets(&subtract.terminator, MirFlagTest::VSet)?;
+        let set = routine_block(routine, overflow_set)?;
+        let clear = routine_block(routine, overflow_clear)?;
+        let (then_block, else_block) = empty_flag_branch(set, MirFlagTest::NClear)?;
+        if !set.label.starts_with("cmp_i16_v_set_")
+            || !clear.label.starts_with("cmp_i16_v_clear_")
+            || empty_flag_branch(clear, MirFlagTest::NSet)? != (then_block, else_block)
+            || context.cfg().predecessors(overflow_set) != &BTreeSet::from([subtract.id])
+            || context.cfg().predecessors(overflow_clear) != &BTreeSet::from([subtract.id])
+            || !signed_relation_sources_are_stable(
+                layout,
+                [&left_lo, &left_hi, &right_lo, &right_hi],
+            )
+            || !machine_state_is_dead_at_exits(context, [set.id, clear.id])
+        {
+            continue;
+        }
+        return Some(PostHomeSignedRelationRewrite {
+            subtract_block: subtract.id,
+            overflow_set,
+            overflow_clear,
+            subtract_ops: subtract.ops.clone(),
+            then_block,
+            else_block,
+            removed_blocks: BTreeSet::new(),
+            replaced_sign_dispatch: false,
+        });
+    }
+    None
+}
+
+fn apply_posthome_signed_relation(
+    routine: &mut MirRoutine,
+    rewrite: PostHomeSignedRelationRewrite,
+) -> Result<(), ()> {
+    let subtract = routine
+        .blocks
+        .iter_mut()
+        .find(|block| block.id == rewrite.subtract_block)
+        .ok_or(())?;
+    subtract.label = format!("cmp_i16_direct_{}", subtract.id.0);
+    subtract.ops = rewrite.subtract_ops;
+    subtract.terminator = branch_terminator(
+        MirCond::FlagTest(MirFlagTest::VSet),
+        rewrite.overflow_set,
+        rewrite.overflow_clear,
+    );
+
+    let overflow_set = routine
+        .blocks
+        .iter_mut()
+        .find(|block| block.id == rewrite.overflow_set)
+        .ok_or(())?;
+    overflow_set.label = format!("cmp_i16_v_correct_{}", overflow_set.id.0);
+    overflow_set.ops = vec![MirOp::Binary {
+        op: MirBinaryOp::Xor,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(0x80),
+        width: MirWidth::Byte,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    }];
+    overflow_set.terminator = jump_terminator(rewrite.overflow_clear);
+
+    let overflow_clear = routine
+        .blocks
+        .iter_mut()
+        .find(|block| block.id == rewrite.overflow_clear)
+        .ok_or(())?;
+    overflow_clear.label = format!("cmp_i16_n_test_{}", overflow_clear.id.0);
+    overflow_clear.ops.clear();
+    overflow_clear.terminator = branch_terminator(
+        MirCond::FlagTest(MirFlagTest::NSet),
+        rewrite.then_block,
+        rewrite.else_block,
+    );
+
+    routine
+        .blocks
+        .retain(|block| !rewrite.removed_blocks.contains(&block.id));
+    crate::mir6502::analysis::cfg::MirCfg::from_routine(routine)
+        .map(|_| ())
+        .map_err(|_| ())
+}
+
+fn physical_compare_branch(
+    block: &MirBlock,
+    expected_op: MirCompareOp,
+    expected_flag: MirFlagTest,
+) -> Option<(MirValue, MirValue, MirBlockId, MirBlockId)> {
+    let (left, compare) = match block.ops.as_slice() {
+        [compare @ MirOp::Compare { left, .. }] => (left.clone(), compare),
+        [
+            load,
+            compare @ MirOp::Compare {
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                ..
+            },
+        ] => (load_a_source(load)?, compare),
+        _ => return None,
+    };
+    let MirOp::Compare {
+        dst: MirCondDest::Flags,
+        op,
+        right,
+        width: MirWidth::Byte,
+        signed: false,
+        ..
+    } = compare
+    else {
+        return None;
+    };
+    if *op != expected_op {
+        return None;
+    }
+    let (then_block, else_block) = flag_branch_targets(&block.terminator, expected_flag)?;
+    Some((left, right.clone(), then_block, else_block))
+}
+
+fn empty_flag_branch(block: &MirBlock, flag: MirFlagTest) -> Option<(MirBlockId, MirBlockId)> {
+    block
+        .ops
+        .is_empty()
+        .then(|| flag_branch_targets(&block.terminator, flag))?
+}
+
+fn flag_branch_targets(
+    terminator: &MirTerminator,
+    flag: MirFlagTest,
+) -> Option<(MirBlockId, MirBlockId)> {
+    let MirTerminator::Branch {
+        cond: MirCond::FlagTest(actual),
+        then_edge,
+        else_edge,
+    } = terminator
+    else {
+        return None;
+    };
+    (*actual == flag && then_edge.args.is_empty() && else_edge.args.is_empty())
+        .then_some((then_edge.target, else_edge.target))
+}
+
+fn routine_block(routine: &MirRoutine, id: MirBlockId) -> Option<&MirBlock> {
+    routine.blocks.iter().find(|block| block.id == id)
+}
+
+fn adjacent_entry_copy_alias(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    entry: MirBlockId,
+    first: &MirValue,
+    second: &MirValue,
+) -> bool {
+    let predecessors = context.cfg().predecessors(entry);
+    let Some(predecessor) = (predecessors.len() == 1)
+        .then(|| predecessors.iter().next().copied())
+        .flatten()
+    else {
+        return false;
+    };
+    let Some(block) = routine_block(routine, predecessor) else {
+        return false;
+    };
+    if !matches!(
+        &block.terminator,
+        MirTerminator::Jump(edge) if edge.target == entry && edge.args.is_empty()
+    ) {
+        return false;
+    }
+    let [.., load, store] = block.ops.as_slice() else {
+        return false;
+    };
+    let Some(source) = load_a_source(load) else {
+        return false;
+    };
+    let MirOp::Store {
+        dst: MirAddr::Direct(destination),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    } = store
+    else {
+        return false;
+    };
+    let destination = MirValue::PointerCell(destination.clone());
+    (first == &source && second == &destination) || (second == &source && first == &destination)
+}
+
+fn load_a_source(op: &MirOp) -> Option<MirValue> {
+    match op {
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } => Some(MirValue::PointerCell(mem.clone())),
+        MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value,
+            width: MirWidth::Byte,
+        } => Some(MirValue::ConstU8(*value as u8)),
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src,
+            width: MirWidth::Byte,
+        } => Some(src.clone()),
+        _ => None,
+    }
+}
+
+fn signed_word_subtract_sources(ops: &[MirOp]) -> Option<(MirValue, MirValue, MirValue, MirValue)> {
+    let [left_lo_op, low_sub, left_hi_op, high_sub] = ops else {
+        return None;
+    };
+    let left_lo = load_a_source(left_lo_op)?;
+    let left_hi = load_a_source(left_hi_op)?;
+    let MirOp::Binary {
+        op: MirBinaryOp::Sub,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: right_lo,
+        width: MirWidth::Byte,
+        carry_in: Some(MirCarryIn::Set),
+        carry_out: MirCarryOut::Produce,
+    } = low_sub
+    else {
+        return None;
+    };
+    let MirOp::Binary {
+        op: MirBinaryOp::Sub,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: right_hi,
+        width: MirWidth::Byte,
+        carry_in: Some(MirCarryIn::FromPrevious),
+        carry_out: MirCarryOut::Ignore,
+    } = high_sub
+    else {
+        return None;
+    };
+    Some((left_lo, left_hi, right_lo.clone(), right_hi.clone()))
+}
+
+fn signed_word_subtract_ops(
+    left_lo: MirValue,
+    left_hi: MirValue,
+    right_lo: MirValue,
+    right_hi: MirValue,
+) -> Option<Vec<MirOp>> {
+    Some(vec![
+        load_a_op(left_lo)?,
+        MirOp::Binary {
+            op: MirBinaryOp::Sub,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: right_lo,
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::Set),
+            carry_out: MirCarryOut::Produce,
+        },
+        load_a_op(left_hi)?,
+        MirOp::Binary {
+            op: MirBinaryOp::Sub,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: right_hi,
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::FromPrevious),
+            carry_out: MirCarryOut::Ignore,
+        },
+    ])
+}
+
+fn load_a_op(value: MirValue) -> Option<MirOp> {
+    match value {
+        MirValue::PointerCell(mem) => Some(MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        }),
+        MirValue::ConstU8(value) => Some(MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value: u16::from(value),
+            width: MirWidth::Byte,
+        }),
+        MirValue::ConstU16(value) if value <= u16::from(u8::MAX) => Some(MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value,
+            width: MirWidth::Byte,
+        }),
+        _ => None,
+    }
+}
+
+fn signed_relation_sources_are_stable<'a>(
+    layout: &MaterializeLayout,
+    values: impl IntoIterator<Item = &'a MirValue>,
+) -> bool {
+    values.into_iter().all(|value| match value {
+        MirValue::ConstU8(_) | MirValue::ConstU16(_) => true,
+        MirValue::PointerCell(
+            MirMem::Spill { .. } | MirMem::ZeroPage(_) | MirMem::FixedZeroPage(_),
+        ) => true,
+        MirValue::PointerCell(mem) => layout.mem_allows_deferred_direct_read(mem),
+        _ => false,
+    })
+}
+
+fn dispatch_predecessors_are_private(
+    context: &PostHomeRewriteContext<'_, '_>,
+    entry: MirBlockId,
+    positive: MirBlockId,
+    negative: MirBlockId,
+    high: MirBlockId,
+    high_equal: MirBlockId,
+    low: MirBlockId,
+) -> bool {
+    context.cfg().predecessors(positive) == &BTreeSet::from([entry])
+        && context.cfg().predecessors(negative) == &BTreeSet::from([entry])
+        && context.cfg().predecessors(high) == &BTreeSet::from([positive, negative])
+        && context.cfg().predecessors(high_equal) == &BTreeSet::from([high])
+        && context.cfg().predecessors(low) == &BTreeSet::from([high_equal])
+}
+
+fn machine_state_is_dead_at_exits(
+    context: &PostHomeRewriteContext<'_, '_>,
+    blocks: impl IntoIterator<Item = MirBlockId>,
+) -> bool {
+    blocks.into_iter().all(|block| {
+        let point = context.point(MirSite::Terminator { block });
+        matches!(
+            context.register_dead_after(MirReg::A, point),
+            MirProof::Proven(())
+        ) && matches!(
+            context.flags_dead_after(MirFlagSet::all(), point),
+            MirProof::Proven(())
+        )
+    })
 }
 
 fn compare_branch_block(

@@ -1,0 +1,41 @@
+; Runtime boundary matrix for direct signed word relation branches.
+;
+; The five values cover minimum, negative, zero, positive, and maximum INT.
+; Each pair records <, <=, >, and >= in that order.
+
+BYTE ARRAY results
+BYTE position
+BYTE signature=$0664
+
+PROC Check(INT left,right)
+  IF left<right THEN results(position)=1 ELSE results(position)=0 FI
+  position==+1
+  IF left<=right THEN results(position)=1 ELSE results(position)=0 FI
+  position==+1
+  IF left>right THEN results(position)=1 ELSE results(position)=0 FI
+  position==+1
+  IF left>=right THEN results(position)=1 ELSE results(position)=0 FI
+  position==+1
+RETURN
+
+PROC CheckLeft(INT left)
+  Check(left,$8000)
+  Check(left,$FFFF)
+  Check(left,0)
+  Check(left,1)
+  Check(left,$7FFF)
+RETURN
+
+PROC Main()
+  results=$0600
+  position=0
+  CheckLeft($8000)
+  CheckLeft($FFFF)
+  CheckLeft(0)
+  CheckLeft(1)
+  CheckLeft($7FFF)
+  signature=$A5
+
+  DO
+  OD
+RETURN
