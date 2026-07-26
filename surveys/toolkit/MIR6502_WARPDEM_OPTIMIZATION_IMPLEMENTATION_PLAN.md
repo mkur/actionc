@@ -192,6 +192,8 @@ alias/effect, and machine-state proofs.
 
 ### Slice 0: Baseline and execution coverage
 
+Status: complete.
+
 - Add a real-source WARPDEM quality test. Missing source is a failure.
 - Assert the important baseline materialized shapes and cap the current
   7,402-byte MIR6502 output.
@@ -203,6 +205,15 @@ alias/effect, and machine-state proofs.
 - Run the fixture under modern/classic and modern/MIR6502.
 
 This slice must be code-size neutral.
+
+Result:
+
+- Added a mandatory real-source WARPDEM materialization and 7,402-byte output
+  gate.
+- Added a modern/classic and modern/MIR6502 VM oracle for a BYTE loop index,
+  same-index array copying, unaligned direct bases, indices 0/1/127/128/255,
+  and before/after sentinels.
+- The baseline remains byte-identical.
 
 ### Slice 1: Preserve routine-wide temp widths in materialization
 
@@ -271,4 +282,3 @@ tools/compare-codegen.sh \
 Because the planned work stays inside MIR6502, the NIR fixture and sweep gates
 are not required unless implementation changes NIR, semantic lowering, the NIR
 verifier, or the NIR printer.
-
