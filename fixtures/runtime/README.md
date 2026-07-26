@@ -76,6 +76,12 @@ Run the direct four-byte Action call-argument arithmetic gate directly:
 fixtures/runtime/run-direct-action-word-arithmetic-args-vm.sh
 ```
 
+Run the paired wrapping word-arithmetic comparison gate directly:
+
+```sh
+fixtures/runtime/run-paired-word-arithmetic-compare-vm.sh
+```
+
 The gate compiles `initialized_arrays.act` with the modern classic and MIR6502
 backends. It covers global and local initialized BYTE and CARD arrays,
 including the descriptor-backed CARD representations, then checks the six

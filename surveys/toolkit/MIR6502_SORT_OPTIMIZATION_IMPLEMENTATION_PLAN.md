@@ -1,6 +1,6 @@
 # MIR6502 SORT Optimization Implementation Plan
 
-Status: implementation in progress (Slices 0A-5 complete)
+Status: implementation in progress (Slices 0A-6 complete)
 
 Date: 2026-07-26
 
@@ -606,6 +606,24 @@ instruction bytes larger than classic.
 - `AddList` loses its three comparison spill bytes and associated RAM traffic.
 - The source expression remains semantically `high+1 > low+1`.
 - Boundary and repeated-sort VM scenarios pass.
+
+### Implemented result
+
+The proof-backed selector now accepts two adjacent single-use word `Add`/`Sub`
+producers feeding any unsigned relation. It preserves both modulo-16-bit
+carry/borrow chains, keeps one result in reserved `$AE/$AF` and the other in
+X/A, normalizes only by exact operand reversal, and branches directly on the
+high-byte flags before comparing the low lanes. `AddList` now has no spill
+accesses and shrank from 149 to 122 instruction bytes.
+
+SORTDM1 shrank from 4,590 to 4,563 load-file bytes. Recognized code fell from
+4,236 to 4,212 bytes, data from 342 to 339 bytes, and the instruction count
+from 1,832 to 1,824. `LDA` fell from 566 to 561 and `STA` from 483 to 478.
+SORTDM2 likewise shrank from 2,666 to 2,639 bytes. TN remains 9,945 bytes and
+ALLOCATE remains 876 bytes. Focused unit tests retain both byte-lane
+arithmetic chains, while a dedicated cross-backend VM gate covers all six
+relations, `$FFFF+1` wrapping, and `0-1` underflow. The complete SORT VM oracle
+also passes.
 
 Commit independently.
 

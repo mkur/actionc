@@ -646,6 +646,25 @@ cost estimate is not smaller than the unfused sequence. `Sub` remains an
 ordinary byte-lane sequence until its borrow schedule has equivalent runtime
 coverage.
 
+### Paired word arithmetic consumed by a comparison
+
+A pre-home comparison selector may consume two adjacent pure word `Add`/`Sub`
+producers directly when both definitions are single-use and the shared rewrite
+proof shows that every removed definition is dead outside the window. The
+selector must:
+
+- evaluate both operations independently as modulo-16-bit carry/borrow chains;
+- never replace `(x+k) op (y+k)` with `x op y`, because wrapping changes that
+  relation;
+- keep one result in the compiler-reserved `$AE/$AF` pair and the other in
+  X/A, then branch from byte-comparison flags;
+- normalize operand order only by an exact comparison reversal;
+- reject effect barriers, unsafe source memory, fixed-scratch overlap, and
+  multiple uses of either arithmetic result.
+
+The fixed scratch is transient within the selected sequence. It must remain
+explicit in MIR so zero-page reservation and effect analysis see the clobber.
+
 ### Alias-safe direct-word to indirect copy
 
 `CopyDirectWordToIndirect` copies a word from ordinary compiler-owned storage

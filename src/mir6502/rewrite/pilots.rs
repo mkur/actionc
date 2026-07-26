@@ -274,6 +274,17 @@ pub(in crate::mir6502) fn proven_word_arithmetic_compare_branches(
                 continue;
             };
             let end = index + candidate.consumed;
+            let window_end = context.point(MirSite::Op {
+                block: block.id,
+                op_index: end - 1,
+            });
+            if candidate.clobbered_pointer_pairs.iter().any(|consumer| {
+                !context
+                    .pointer_pair_dead_after(*consumer, window_end)
+                    .is_proven()
+            }) {
+                continue;
+            }
             if prove_removed_window_definitions(
                 block.id,
                 &block.ops,

@@ -1037,6 +1037,199 @@ fn word_arithmetic_compare_blocks(
     ]
 }
 
+fn paired_word_arithmetic_compare_blocks(
+    first_op: MirBinaryOp,
+    second_op: MirBinaryOp,
+    compare_op: MirCompareOp,
+) -> Vec<MirBlock> {
+    vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(0)),
+                    src: MirAddr::Direct(MirMem::Param {
+                        id: ParamId(0),
+                        offset: 0,
+                    }),
+                    width: MirWidth::Word,
+                },
+                MirOp::Binary {
+                    op: first_op,
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                    right: MirValue::ConstU16(1),
+                    width: MirWidth::Word,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                },
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(2)),
+                    src: MirAddr::Direct(MirMem::Param {
+                        id: ParamId(1),
+                        offset: 0,
+                    }),
+                    width: MirWidth::Word,
+                },
+                MirOp::Binary {
+                    op: second_op,
+                    dst: MirDef::VTemp(MirTempId(3)),
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                    right: MirValue::ConstU16(1),
+                    width: MirWidth::Word,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                },
+                MirOp::Compare {
+                    dst: MirCondDest::Temp(MirTempId(4)),
+                    op: compare_op,
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    right: MirValue::Def(MirDef::VTemp(MirTempId(3))),
+                    width: MirWidth::Word,
+                    signed: false,
+                },
+            ],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(4)))),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]
+}
+
+#[test]
+fn paired_word_arithmetic_compare_keeps_both_wrapping_operations() {
+    let mut blocks =
+        paired_word_arithmetic_compare_blocks(MirBinaryOp::Add, MirBinaryOp::Add, MirCompareOp::Gt);
+    let proven = [(MirBlockId(0), 0)].into_iter().collect();
+
+    assert_eq!(
+        expand_proven_word_arithmetic_compare_branches(&mut blocks, &proven),
+        1
+    );
+    assert_eq!(
+        blocks[0]
+            .ops
+            .iter()
+            .filter(|op| matches!(
+                op,
+                MirOp::Binary {
+                    op: MirBinaryOp::Add,
+                    ..
+                }
+            ))
+            .count(),
+        4,
+        "both modulo-16-bit additions must survive as low/high carry chains"
+    );
+    assert!(blocks[0].ops.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                POINTER_INDEX_SCRATCH_LO
+            ))),
+            ..
+        }
+    )));
+    assert!(blocks[0].ops.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                POINTER_INDEX_SCRATCH_HI
+            ))),
+            ..
+        }
+    )));
+    assert!(!blocks[0].ops.iter().any(|op| {
+        matches!(
+            op,
+            MirOp::Load {
+                dst: MirDef::VTemp(_),
+                ..
+            } | MirOp::Binary {
+                dst: MirDef::VTemp(_),
+                ..
+            }
+        )
+    }));
+    assert!(matches!(
+        blocks[0].terminator,
+        MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::CClear),
+            ..
+        }
+    ));
+}
+
+#[test]
+fn paired_word_arithmetic_compare_normalizes_all_relations() {
+    for (op, expected) in [
+        (MirCompareOp::Eq, MirCompareOp::Eq),
+        (MirCompareOp::Ne, MirCompareOp::Ne),
+        (MirCompareOp::Lt, MirCompareOp::Lt),
+        (MirCompareOp::Le, MirCompareOp::Ge),
+        (MirCompareOp::Gt, MirCompareOp::Lt),
+        (MirCompareOp::Ge, MirCompareOp::Ge),
+    ] {
+        let blocks = paired_word_arithmetic_compare_blocks(MirBinaryOp::Add, MirBinaryOp::Sub, op);
+        let candidate =
+            word_arithmetic_compare_candidate(&blocks[0].ops, 0).expect("paired candidate");
+        assert_eq!(candidate.compare_op, expected, "{op:?}");
+        assert_eq!(candidate.consumed, 5, "{op:?}");
+    }
+}
+
+#[test]
+fn paired_word_arithmetic_compare_proof_rejects_live_fixed_scratch() {
+    let mut blocks =
+        paired_word_arithmetic_compare_blocks(MirBinaryOp::Add, MirBinaryOp::Add, MirCompareOp::Gt);
+    blocks[1].ops.extend([
+        MirOp::Load {
+            dst: MirDef::VTemp(MirTempId(5)),
+            src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                POINTER_INDEX_SCRATCH_LO,
+            ))),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x0600)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(5))),
+            width: MirWidth::Byte,
+        },
+    ]);
+    let routine = MirRoutine {
+        id: RoutineId(0),
+        name: "paired_word_arithmetic_live_scratch".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: (0..6).map(|id| MirTemp { id: MirTempId(id) }).collect(),
+        blocks,
+        effects: MirEffects::default(),
+    };
+
+    let proven = crate::mir6502::rewrite::pilots::proven_word_arithmetic_compare_branches(&routine)
+        .expect("analysis succeeds");
+
+    assert!(proven.is_empty());
+}
+
 #[test]
 fn word_add_compare_branch_keeps_low_result_in_x() {
     let mut blocks = word_arithmetic_compare_blocks(

@@ -1,0 +1,37 @@
+; Runtime regression for two wrapping word-arithmetic producers consumed
+; directly by one unsigned comparison.
+
+BYTE ARRAY observed
+CARD left,right
+BYTE signature=$060A
+
+PROC Main()
+  observed=$0600
+
+  ; $FFFF+1 wraps to zero independently on each side. These cases would fail
+  ; if the optimizer cancelled the common +1 instead of preserving CARD
+  ; modulo arithmetic.
+  left=$FFFF
+  right=0
+  IF left+1<right+1 THEN observed(0)=1 ELSE observed(0)=0 FI
+  IF left+1<=right+1 THEN observed(1)=1 ELSE observed(1)=0 FI
+  IF left+1>right+1 THEN observed(2)=1 ELSE observed(2)=0 FI
+  IF left+1>=right+1 THEN observed(3)=1 ELSE observed(3)=0 FI
+  IF left+1=right+1 THEN observed(4)=1 ELSE observed(4)=0 FI
+  IF left+1<>right+1 THEN observed(5)=1 ELSE observed(5)=0 FI
+
+  left=$FFFF
+  right=$FFFF
+  IF left+1=right+1 THEN observed(6)=1 ELSE observed(6)=0 FI
+  IF left+1<>right+1 THEN observed(7)=1 ELSE observed(7)=0 FI
+
+  ; Underflow must likewise happen before the comparison.
+  left=0
+  right=1
+  IF left-1>right-1 THEN observed(8)=1 ELSE observed(8)=0 FI
+  IF left-1<=right-1 THEN observed(9)=1 ELSE observed(9)=0 FI
+
+  signature=$A5
+  DO
+  OD
+RETURN
