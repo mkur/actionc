@@ -3,7 +3,7 @@ use super::defs::op_def;
 use super::spills::{MirHomeStorage, home_access_counts, op_may_clobber_reg};
 use super::stats::MirPeepholeStats;
 use super::temp_liveness::{MirTempLiveSet, MirTempLiveness};
-use super::temp_widths::collect_temp_widths;
+use super::temp_widths::collect_routine_temp_widths;
 use crate::mir6502::ir::{
     MirAddr, MirArgHome, MirCallTarget, MirCarryIn, MirCarryOut, MirCond, MirCondDest, MirDef,
     MirOp, MirProgram, MirReg, MirResultHome, MirRoutine, MirSpillId, MirTempId, MirTerminator,
@@ -1150,48 +1150,7 @@ fn retain_home(
 }
 
 fn routine_temp_widths(routine: &MirRoutine) -> BTreeMap<MirTempId, MirWidth> {
-    let mut widths = BTreeMap::new();
-    for block in &routine.blocks {
-        for param in &block.params {
-            note_width(&mut widths, param.dest, param.width);
-        }
-        for (id, width) in collect_temp_widths(&block.ops) {
-            note_width(&mut widths, id, width);
-        }
-        for op in &block.ops {
-            if let MirOp::LoadIndirect { dst, .. } = op {
-                note_def_width(&mut widths, dst, MirWidth::Byte);
-            }
-        }
-    }
-    widths
-}
-
-fn note_def_width(widths: &mut BTreeMap<MirTempId, MirWidth>, def: &MirDef, width: MirWidth) {
-    match def {
-        MirDef::VTemp(id) => note_width(widths, *id, width),
-        MirDef::VTempByte { id, byte } => note_width(
-            widths,
-            *id,
-            if *byte == 0 {
-                MirWidth::Byte
-            } else {
-                MirWidth::Word
-            },
-        ),
-        MirDef::Reg(_) => {}
-    }
-}
-
-fn note_width(widths: &mut BTreeMap<MirTempId, MirWidth>, id: MirTempId, width: MirWidth) {
-    widths
-        .entry(id)
-        .and_modify(|existing| {
-            if width == MirWidth::Word {
-                *existing = MirWidth::Word;
-            }
-        })
-        .or_insert(width);
+    collect_routine_temp_widths(routine)
 }
 
 fn record_op_defs(

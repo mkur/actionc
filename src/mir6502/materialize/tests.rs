@@ -8707,6 +8707,63 @@ fn byte_write_with_word_index_materializes_full_address() {
 }
 
 #[test]
+fn typed_byte_temp_index_is_narrowed_to_its_low_lane() {
+    let mut widths = BTreeMap::new();
+    widths.insert(MirTempId(7), MirWidth::Byte);
+    let parts = indexes::IndexedAddrParts {
+        base: MirValue::GlobalAddr(SymbolId(0)),
+        index: MirValue::Def(MirDef::VTemp(MirTempId(7))),
+        elem_size: 1,
+        offset: 0,
+    };
+
+    let (parts, narrowed) = indexes::narrow_known_byte_index(parts, &widths);
+
+    assert!(narrowed);
+    assert_eq!(
+        parts.index,
+        MirValue::Def(MirDef::VTempByte {
+            id: MirTempId(7),
+            byte: 0,
+        })
+    );
+}
+
+#[test]
+fn typed_word_temp_index_is_not_narrowed() {
+    let mut widths = BTreeMap::new();
+    widths.insert(MirTempId(7), MirWidth::Word);
+    let original = MirValue::Def(MirDef::VTemp(MirTempId(7)));
+    let parts = indexes::IndexedAddrParts {
+        base: MirValue::GlobalAddr(SymbolId(0)),
+        index: original.clone(),
+        elem_size: 1,
+        offset: 0,
+    };
+
+    let (parts, narrowed) = indexes::narrow_known_byte_index(parts, &widths);
+
+    assert!(!narrowed);
+    assert_eq!(parts.index, original);
+}
+
+#[test]
+fn unknown_temp_index_is_not_narrowed() {
+    let original = MirValue::Def(MirDef::VTemp(MirTempId(7)));
+    let parts = indexes::IndexedAddrParts {
+        base: MirValue::GlobalAddr(SymbolId(0)),
+        index: original.clone(),
+        elem_size: 1,
+        offset: 0,
+    };
+
+    let (parts, narrowed) = indexes::narrow_known_byte_index(parts, &BTreeMap::new());
+
+    assert!(!narrowed);
+    assert_eq!(parts.index, original);
+}
+
+#[test]
 fn dynamic_byte_index_read_uses_absolute_y_for_known_base() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

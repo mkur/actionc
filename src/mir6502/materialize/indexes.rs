@@ -73,6 +73,20 @@ pub(super) struct IndexedAddrParts {
     pub(super) offset: u16,
 }
 
+pub(super) fn narrow_known_byte_index(
+    mut parts: IndexedAddrParts,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+) -> (IndexedAddrParts, bool) {
+    let MirValue::Def(MirDef::VTemp(id)) = parts.index else {
+        return (parts, false);
+    };
+    if temp_widths.get(&id) != Some(&MirWidth::Byte) {
+        return (parts, false);
+    }
+    parts.index = MirValue::Def(MirDef::VTempByte { id, byte: 0 });
+    (parts, true)
+}
+
 pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndexPlan {
     if !DELAYED_BYTE_INDEX_ENABLED {
         return DelayedByteIndexPlan::empty();

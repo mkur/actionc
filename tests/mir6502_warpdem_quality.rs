@@ -39,7 +39,7 @@ fn warpdem_exposes_the_expected_codegen_baseline() {
     let formatted = mir6502::format_program(&materialized);
     assert_eq!(
         formatted.matches("materialize_indexed").count(),
-        94,
+        26,
         "{formatted}"
     );
     assert_eq!(
@@ -49,7 +49,15 @@ fn warpdem_exposes_the_expected_codegen_baseline() {
                 line.contains("materialize_indexed") && line.contains("<- global_addr")
             })
             .count(),
-        39,
+        11,
+        "{formatted}"
+    );
+    assert!(
+        formatted
+            .lines()
+            .filter(|line| line.contains("global g") && line.contains("[y]"))
+            .count()
+            >= 42,
         "{formatted}"
     );
     assert!(formatted.contains("routine r17 MissileFire"), "{formatted}");
@@ -57,8 +65,8 @@ fn warpdem_exposes_the_expected_codegen_baseline() {
 
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN).expect("emit WARPDEM MIR6502");
     assert!(
-        output.bytes.len() <= 7_402,
-        "expected WARPDEM MIR6502 output no larger than 7402 bytes, got {}",
+        output.bytes.len() <= 6_626,
+        "expected WARPDEM MIR6502 output no larger than 6626 bytes, got {}",
         output.bytes.len()
     );
 }

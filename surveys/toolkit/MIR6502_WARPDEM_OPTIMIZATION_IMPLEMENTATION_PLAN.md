@@ -217,6 +217,8 @@ Result:
 
 ### Slice 1: Preserve routine-wide temp widths in materialization
 
+Status: complete.
+
 - Build one routine-wide MIR temp-width catalog from operation definitions and
   typed block parameters.
 - Diagnose contradictory width facts rather than silently choosing one.
@@ -230,6 +232,24 @@ Result:
 
 Expected primary result: replace repeated `$AC/$AD` address construction in
 the five array-heavy routines with `absolute,Y`.
+
+Result:
+
+- Added one shared routine temp-width catalog, including typed block
+  parameters, and reused it in home-demand analysis and materialization.
+- Block-local definition facts retain priority; the routine catalog supplies
+  missing facts after CFG argument lowering. Conflicting routine observations
+  conservatively widen to word.
+- A proven BYTE temp index is narrowed only in the selector's copy of the
+  operand. Existing delayed-index producer matching therefore remains intact.
+- WARPDEM selects 77 typed byte indices. Total `materialize_indexed` operations
+  fell from 94 to 26, and the `GlobalAddr` subset fell from 39 to 11.
+- MIR6502 WARPDEM fell from 7,402 to 6,626 bytes: 776 bytes smaller than its
+  own baseline and 476 bytes smaller than modern/classic.
+- Recognized instruction bytes fell from 6,282 to 5,506, versus 5,980 for
+  modern/classic. Recognized instructions fell from 2,855 to 2,436.
+- The direct-array VM oracle, all 1,954 library tests, all integration tests,
+  and all 20 modern/MIR6502 Toolkit programs pass.
 
 ### Slice 2: Validate Y provenance and same-index reuse
 

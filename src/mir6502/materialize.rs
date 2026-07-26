@@ -215,7 +215,7 @@ use temp_uses::{
     count_call_target_temp_uses, count_value_temp_uses, op_uses_temp, op_uses_temp_more_than_once,
     terminator_uses_temp, value_uses_temp,
 };
-use temp_widths::collect_temp_widths;
+use temp_widths::{collect_routine_temp_widths, collect_temp_widths};
 use temps::{
     cleanup_pre_materialization_temp_artifacts,
     cleanup_pre_materialization_temp_artifacts_with_liveness, def_is_used_after,
@@ -1055,6 +1055,7 @@ pub(super) fn materialize_program(
     }
     let layout = MaterializeLayout::new(&program, object_origin);
     for routine in &mut program.routines {
+        let routine_temp_widths = collect_routine_temp_widths(routine);
         run_cfg_group(routine, &layout)?;
         run_prehome_canonicalization_group(routine, config, &layout, &mut peephole_stats)?;
         run_prehome_selection_group(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
@@ -1069,6 +1070,7 @@ pub(super) fn materialize_program(
                 &mut helpers,
                 &mut peephole_stats,
                 false,
+                Some(&routine_temp_widths),
             );
             block.ops = normalize_synthetic_byte_storage_high_ops(
                 std::mem::take(&mut block.ops),
@@ -3263,6 +3265,7 @@ fn materialize_ops_impl(
     helpers: &mut Vec<MirRuntimeHelper>,
     peephole_stats: &mut MirPeepholeStats,
     legacy_test_peepholes: bool,
+    routine_temp_widths: Option<&BTreeMap<MirTempId, MirWidth>>,
 ) -> Vec<MirOp> {
     #[cfg(not(test))]
     let _ = legacy_test_peepholes;
@@ -3310,6 +3313,11 @@ fn materialize_ops_impl(
     };
     let mut out = Vec::new();
     let mut temp_widths = collect_temp_widths(&ops);
+    if let Some(routine_temp_widths) = routine_temp_widths {
+        for (id, width) in routine_temp_widths {
+            temp_widths.entry(*id).or_insert(*width);
+        }
+    }
     refine_temp_widths_from_storage_loads(&ops, routine_id, layout, &mut temp_widths);
     #[cfg(test)]
     let delayed_byte_indexes = if legacy_test_peepholes {
@@ -3787,6 +3795,15 @@ fn materialize_ops_impl(
                 width,
             } => {
                 let parts = indexed_addr_parts(&src).expect("indexed load matched above");
+                let (parts, narrowed_byte_index) =
+                    if delayed_byte_indexes.expr_for_value(&parts.index).is_some() {
+                        (parts, false)
+                    } else {
+                        indexes::narrow_known_byte_index(parts, &temp_widths)
+                    };
+                if narrowed_byte_index {
+                    peephole_stats.record(routine_id, "typed-byte-index");
+                }
                 if materialize_indexed_read_to_def(
                     dst,
                     parts,
@@ -3863,6 +3880,15 @@ fn materialize_ops_impl(
                 width,
             } => {
                 let parts = indexed_addr_parts(&dst).expect("indexed store matched above");
+                let (parts, narrowed_byte_index) =
+                    if delayed_byte_indexes.expr_for_value(&parts.index).is_some() {
+                        (parts, false)
+                    } else {
+                        indexes::narrow_known_byte_index(parts, &temp_widths)
+                    };
+                if narrowed_byte_index {
+                    peephole_stats.record(routine_id, "typed-byte-index");
+                }
                 if materialize_indexed_write_from_value(
                     parts,
                     src,
@@ -4219,6 +4245,7 @@ fn materialize_ops(
         helpers,
         peephole_stats,
         true,
+        None,
     )
 }
 
