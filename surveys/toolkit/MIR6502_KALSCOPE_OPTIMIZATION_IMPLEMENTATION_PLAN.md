@@ -1,6 +1,6 @@
 # MIR6502 KALSCOPE Optimization Implementation Plan
 
-Status: in progress; Slice 0 complete
+Status: in progress; Slices 0-1 complete
 
 Date: 2026-07-26
 
@@ -207,6 +207,8 @@ This slice must be code-size neutral.
 
 ### Slice 1: Forward committed word values after stores
 
+Status: complete.
+
 - Extend the shared post-home staged-word rewrite to follow a store into an
   ordinary direct word home.
 - Retarget exact later reads of the transient pair to the committed home until
@@ -216,6 +218,17 @@ This slice must be code-size neutral.
 - Reject absolute, hardware, fixed-ABI, and indirect destinations.
 - Let the existing direct word mutation selector fold `+1`/`-1` survivors.
 - Record candidates, selections, and blocker reasons.
+
+Result:
+
+- Added exact committed-home forwarding plus a post-placement
+  staged-source `INC`/`DEC` selector, both guarded by routine-level home
+  liveness, physical alias checks, stable ordinary storage, and flag/A
+  observability.
+- KALSCOPE selects five committed forwards and five staged word updates.
+- `InitGr8` now contains nine `INC.W dl` forms.
+- MIR6502 output fell from 3,683 to 3,581 bytes, reducing the classic deficit
+  from 365 to 263 bytes.
 
 ### Slice 2: Feed direct memory into word bitwise consumers
 

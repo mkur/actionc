@@ -904,6 +904,36 @@ pub(in crate::mir6502) fn discover_staged_word_forwards(
                 plans.push(plan);
             }
             if let Some((consumed, replacement)) =
+                staged_word_inc_dec_update_shape_at(&block.ops, index, routine.id, layout)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    clobbered_accumulator_exit(),
+                    "staged-word-inc-dec-update",
+                    3,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some((consumed, replacement)) =
+                committed_word_store_forward_shape_at(&block.ops, index, routine.id, layout)
+                && let Some(plan) = structural_plan(
+                    routine,
+                    context,
+                    block.id,
+                    index..index + consumed,
+                    replacement,
+                    MirExitStateChange::default(),
+                    "committed-word-store-forward",
+                    4,
+                )
+            {
+                plans.push(plan);
+            }
+            if let Some((consumed, replacement)) =
                 staged_word_store_forward_shape_at(&block.ops, index, routine.id, layout)
                 && let Some(plan) = structural_plan(
                     routine,
@@ -913,7 +943,7 @@ pub(in crate::mir6502) fn discover_staged_word_forwards(
                     replacement,
                     MirExitStateChange::default(),
                     "staged-word-store-forward",
-                    3,
+                    5,
                 )
             {
                 plans.push(plan);
@@ -928,7 +958,7 @@ pub(in crate::mir6502) fn discover_staged_word_forwards(
                     replacement,
                     clobbered_accumulator_exit(),
                     "staged-byte-destination-forward",
-                    4,
+                    6,
                 )
             {
                 plans.push(plan);
@@ -1715,7 +1745,7 @@ fn staged_word_store_forward_shape_at(
     routine_id: RoutineId,
     layout: &MaterializeLayout,
 ) -> Option<(usize, Vec<MirOp>)> {
-    let source_lo = load_a_direct_byte(ops.get(index)?)?;
+    load_a_direct_byte(ops.get(index)?)?;
     let (op, _value) = binary_a_const_update(ops.get(index + 1)?)?;
     let staged_lo = store_a_direct_byte(ops.get(index + 2)?)?;
     let source_hi = load_a_direct_byte(ops.get(index + 3)?)?;
@@ -1739,9 +1769,11 @@ fn staged_word_store_forward_shape_at(
     if store_a_direct_byte(ops.get(index + 9)?)? != offset_mem(&target_lo, 1) {
         return None;
     }
-    if mem_may_overlap_word_target(routine_id, layout, &source_lo, &target_lo)
-        || mem_may_overlap_word_target(routine_id, layout, &source_hi, &target_lo)
-    {
+    // The replacement commits the low lane before loading the high lane.
+    // Reading and rewriting the corresponding lanes in place is safe, but a
+    // high source that aliases the low destination would observe the new low
+    // byte instead of the original high byte.
+    if mems_may_resolve_same_byte(&source_hi, &target_lo, routine_id, layout) {
         return None;
     }
     Some((
@@ -1762,6 +1794,173 @@ fn staged_word_store_forward_shape_at(
                 width: MirWidth::Byte,
             },
         ],
+    ))
+}
+
+fn committed_word_store_forward_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    const MAX_DISTANCE_AFTER_COMMIT: usize = 12;
+
+    let (_, base_replacement) = staged_word_store_forward_shape_at(ops, index, routine_id, layout)?;
+    let source_lo = load_a_direct_byte(ops.get(index)?)?;
+    let source_hi = load_a_direct_byte(ops.get(index + 3)?)?;
+    let (arithmetic_op, arithmetic_value) = binary_a_const_update(ops.get(index + 1)?)?;
+    let staged_lo = store_a_direct_byte(ops.get(index + 2)?)?;
+    let staged_hi = store_a_direct_byte(ops.get(index + 5)?)?;
+    let target_lo = store_a_direct_byte(ops.get(index + 7)?)?;
+    let target_hi = offset_mem(&target_lo, 1);
+    if !matches!(
+        target_lo,
+        MirMem::Static { .. } | MirMem::Global { .. } | MirMem::Local { .. } | MirMem::Param { .. }
+    ) {
+        return None;
+    }
+    let copy_limit = ops
+        .len()
+        .saturating_sub(3)
+        .min(index + 10 + MAX_DISTANCE_AFTER_COMMIT);
+    let mut copy_index = None;
+    for candidate in index + 10..copy_limit {
+        if load_a_direct_byte(ops.get(candidate)?) == Some(staged_lo.clone()) {
+            if load_a_direct_byte(ops.get(candidate + 2)?)? != staged_hi {
+                return None;
+            }
+            copy_index = Some(candidate);
+            break;
+        }
+        let op = ops.get(candidate)?;
+        let effects = classify_op(op);
+        if effects.memory.has_unknown_effects_compat
+            || effects.machine.flag_reads != MirFlagSet::default()
+            || [staged_lo.clone(), staged_hi.clone()].iter().any(|mem| {
+                op_reads_mem_or_resolved_alias(op, mem, routine_id, layout)
+                    || op_may_write_mem_or_resolved_alias(op, mem, routine_id, layout)
+            })
+            || [target_lo.clone(), target_hi.clone()]
+                .iter()
+                .any(|mem| op_may_write_mem_or_resolved_alias(op, mem, routine_id, layout))
+        {
+            return None;
+        }
+    }
+    let copy_index = copy_index?;
+    let destination_lo = store_a_direct_byte(ops.get(copy_index + 1)?)?;
+    let destination_hi = store_a_direct_byte(ops.get(copy_index + 3)?)?;
+    if destination_hi != offset_mem(&destination_lo, 1) {
+        return None;
+    }
+
+    let committed_pair = [target_lo.clone(), target_hi.clone()];
+    let staged_pair = [staged_lo, staged_hi];
+    let destination_pair = [destination_lo, destination_hi];
+    if staged_pair.iter().any(|staged| {
+        committed_pair
+            .iter()
+            .chain(destination_pair.iter())
+            .any(|other| mems_may_resolve_same_byte(staged, other, routine_id, layout))
+    }) || committed_pair.iter().any(|committed| {
+        destination_pair.iter().any(|destination| {
+            mems_may_resolve_same_byte(committed, destination, routine_id, layout)
+        })
+    }) {
+        return None;
+    }
+
+    let mut replacement =
+        if arithmetic_value == 1 && source_lo == target_lo && source_hi == target_hi {
+            vec![MirOp::UpdateMem {
+                op: match arithmetic_op {
+                    MirBinaryOp::Add => MirUpdateOp::Inc,
+                    MirBinaryOp::Sub => MirUpdateOp::Dec,
+                    _ => return None,
+                },
+                mem: target_lo.clone(),
+                width: MirWidth::Word,
+            }]
+        } else {
+            base_replacement
+        };
+    replacement.extend_from_slice(&ops[index + 10..copy_index]);
+    replacement.extend([
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(target_lo),
+            width: MirWidth::Byte,
+        },
+        ops[copy_index + 1].clone(),
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(target_hi),
+            width: MirWidth::Byte,
+        },
+        ops[copy_index + 3].clone(),
+    ]);
+    Some((copy_index + 4 - index, replacement))
+}
+
+fn staged_word_inc_dec_update_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    let target_lo = load_a_direct_byte(ops.get(index)?)?;
+    let staged_lo = store_a_direct_byte(ops.get(index + 1)?)?;
+    let target_hi = load_a_direct_byte(ops.get(index + 2)?)?;
+    let staged_hi = store_a_direct_byte(ops.get(index + 3)?)?;
+    if target_hi != offset_mem(&target_lo, 1)
+        || !mem_is_private_scratch(&staged_lo)
+        || !mem_is_private_scratch(&staged_hi)
+        || staged_lo == staged_hi
+        || !matches!(
+            target_lo,
+            MirMem::Static { .. }
+                | MirMem::Global { .. }
+                | MirMem::Local { .. }
+                | MirMem::Param { .. }
+        )
+        || !layout.mem_allows_word_lane_store_reordering(&target_lo)
+        || !layout.mem_allows_word_lane_store_reordering(&target_hi)
+    {
+        return None;
+    }
+    let target_pair = [target_lo.clone(), target_hi.clone()];
+    if [staged_lo.clone(), staged_hi.clone()].iter().any(|staged| {
+        target_pair
+            .iter()
+            .any(|target| mems_may_resolve_same_byte(staged, target, routine_id, layout))
+    }) {
+        return None;
+    }
+    if load_a_direct_byte(ops.get(index + 4)?)? != staged_lo {
+        return None;
+    }
+    let (arithmetic_op, value) = binary_a_const_update(ops.get(index + 5)?)?;
+    if value != 1 || store_a_direct_byte(ops.get(index + 6)?)? != target_lo {
+        return None;
+    }
+    if load_a_direct_byte(ops.get(index + 7)?)? != staged_hi
+        || !binary_a_carry_zero_update(ops.get(index + 8)?, arithmetic_op)
+        || store_a_direct_byte(ops.get(index + 9)?)? != target_hi
+    {
+        return None;
+    }
+    let update = match arithmetic_op {
+        MirBinaryOp::Add => MirUpdateOp::Inc,
+        MirBinaryOp::Sub => MirUpdateOp::Dec,
+        _ => return None,
+    };
+    Some((
+        10,
+        vec![MirOp::UpdateMem {
+            op: update,
+            mem: target_lo,
+            width: MirWidth::Word,
+        }],
     ))
 }
 

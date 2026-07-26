@@ -50,16 +50,17 @@ fn kalscope_exposes_the_expected_codegen_baseline() {
         6,
         "{formatted}"
     );
-    assert!(
-        formatted.contains("store.b spill sp2+0"),
-        "expected the baseline InitGr8 transient home:\n{formatted}"
+    assert_eq!(
+        formatted.matches("inc.w local l6+0").count(),
+        9,
+        "{formatted}"
     );
 
     let output =
         mir6502::generate_output(&nir_program, CODE_ORIGIN).expect("emit KALSCOPE MIR6502");
     assert!(
-        output.bytes.len() <= 3_683,
-        "expected KALSCOPE MIR6502 output no larger than 3683 bytes, got {}",
+        output.bytes.len() <= 3_581,
+        "expected KALSCOPE MIR6502 output no larger than 3581 bytes, got {}",
         output.bytes.len()
     );
 }

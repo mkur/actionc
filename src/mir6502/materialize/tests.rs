@@ -6473,6 +6473,365 @@ fn staged_word_store_forward_keeps_staging_homes_before_successor() {
     );
 }
 
+fn committed_word_store_ops(
+    target_lo: &MirMem,
+    staged_lo: &MirMem,
+    staged_hi: &MirMem,
+    destination_lo: &MirMem,
+) -> Vec<MirOp> {
+    vec![
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(target_lo.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(1),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Produce,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(staged_lo.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(offset_mem(target_lo, 1)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::FromPrevious),
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(staged_hi.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(staged_lo.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(target_lo.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(staged_hi.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(offset_mem(target_lo, 1)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(staged_lo.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(destination_lo.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(staged_hi.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(offset_mem(destination_lo, 1)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ]
+}
+
+#[test]
+fn analyzed_committed_word_forward_reuses_the_committed_home() {
+    let target_lo = MirMem::Local {
+        id: LocalId(4),
+        offset: 0,
+    };
+    let staged_lo = MirMem::Spill {
+        id: MirSpillId(30),
+        offset: 0,
+    };
+    let staged_hi = MirMem::Spill {
+        id: MirSpillId(31),
+        offset: 0,
+    };
+    let destination_lo = MirMem::FixedZeroPage(MirFixedZpSlot(0xAC));
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: committed_word_store_ops(&target_lo, &staged_lo, &staged_hi, &destination_lo),
+        terminator: MirTerminator::Return,
+    }]);
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_staged_word_forwards(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert_eq!(
+        result.applied_by_stat.get("committed-word-store-forward"),
+        Some(&1)
+    );
+    assert_eq!(routine.blocks[0].ops.len(), 5);
+    assert!(matches!(
+        &routine.blocks[0].ops[0],
+        MirOp::UpdateMem {
+            op: MirUpdateOp::Inc,
+            mem,
+            width: MirWidth::Word,
+        } if mem == &target_lo
+    ));
+    assert!(!routine.blocks[0].ops.iter().any(|op| {
+        op_reads_mem(op, &staged_lo)
+            || op_reads_mem(op, &staged_hi)
+            || op_may_write_mem(op, &staged_lo)
+            || op_may_write_mem(op, &staged_hi)
+    }));
+    assert!(matches!(
+        &routine.blocks[0].ops[1],
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } if mem == &target_lo
+    ));
+    assert!(matches!(
+        &routine.blocks[0].ops[3],
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } if mem == &offset_mem(&target_lo, 1)
+    ));
+}
+
+#[test]
+fn analyzed_committed_word_forward_keeps_a_staging_home_read_later() {
+    let target_lo = MirMem::Local {
+        id: LocalId(4),
+        offset: 0,
+    };
+    let staged_lo = MirMem::Spill {
+        id: MirSpillId(30),
+        offset: 0,
+    };
+    let staged_hi = MirMem::Spill {
+        id: MirSpillId(31),
+        offset: 0,
+    };
+    let destination_lo = MirMem::FixedZeroPage(MirFixedZpSlot(0xAC));
+    let mut ops = committed_word_store_ops(&target_lo, &staged_lo, &staged_hi, &destination_lo);
+    ops.push(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(staged_lo.clone()),
+        width: MirWidth::Byte,
+    });
+    let original = ops.clone();
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops,
+        terminator: MirTerminator::Return,
+    }]);
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_staged_word_forwards(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert!(
+        !result
+            .applied_by_stat
+            .contains_key("committed-word-store-forward")
+    );
+    assert_eq!(routine.blocks[0].ops, original);
+}
+
+fn staged_word_inc_ops(target_lo: &MirMem, staged_lo: &MirMem, staged_hi: &MirMem) -> Vec<MirOp> {
+    vec![
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(target_lo.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(staged_lo.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(offset_mem(target_lo, 1)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(staged_hi.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(staged_lo.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(1),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Produce,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(target_lo.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(staged_hi.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::FromPrevious),
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(offset_mem(target_lo, 1)),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ]
+}
+
+#[test]
+fn analyzed_staged_word_inc_updates_the_committed_home_directly() {
+    let target_lo = MirMem::Local {
+        id: LocalId(4),
+        offset: 0,
+    };
+    let staged_lo = MirMem::Spill {
+        id: MirSpillId(30),
+        offset: 0,
+    };
+    let staged_hi = MirMem::Spill {
+        id: MirSpillId(31),
+        offset: 0,
+    };
+    let mut ops = staged_word_inc_ops(&target_lo, &staged_lo, &staged_hi);
+    ops.push(MirOp::LoadImm {
+        dst: MirDef::Reg(MirReg::A),
+        value: 0,
+        width: MirWidth::Byte,
+    });
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops,
+        terminator: MirTerminator::Return,
+    }]);
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_staged_word_forwards(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert_eq!(
+        result.applied_by_stat.get("staged-word-inc-dec-update"),
+        Some(&1)
+    );
+    assert!(matches!(
+        routine.blocks[0].ops.as_slice(),
+        [
+            MirOp::UpdateMem {
+                op: MirUpdateOp::Inc,
+                mem,
+                width: MirWidth::Word,
+            },
+            MirOp::LoadImm { value: 0, .. },
+        ] if mem == &target_lo
+    ));
+}
+
+#[test]
+fn analyzed_staged_word_inc_keeps_a_live_staging_definition() {
+    let target_lo = MirMem::Local {
+        id: LocalId(4),
+        offset: 0,
+    };
+    let staged_lo = MirMem::Spill {
+        id: MirSpillId(30),
+        offset: 0,
+    };
+    let staged_hi = MirMem::Spill {
+        id: MirSpillId(31),
+        offset: 0,
+    };
+    let mut ops = staged_word_inc_ops(&target_lo, &staged_lo, &staged_hi);
+    ops.push(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(staged_lo.clone()),
+        width: MirWidth::Byte,
+    });
+    let original = ops.clone();
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops,
+        terminator: MirTerminator::Return,
+    }]);
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_staged_word_forwards(routine, context, &layout, true)
+        })
+        .unwrap();
+
+    assert!(
+        !result
+            .applied_by_stat
+            .contains_key("staged-word-inc-dec-update")
+    );
+    assert_eq!(routine.blocks[0].ops, original);
+}
+
 #[test]
 fn direct_byte_word_update_does_not_fold_source_aliasing_target_word() {
     let program = empty_test_program();
