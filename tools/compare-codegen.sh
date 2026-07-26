@@ -308,33 +308,38 @@ emit_mir6502_artifacts() {
   local origin_value="$3"
   local ok=0
 
-  run_actionc "$dir/semir" "$dir/semir.err" --emit-semir "$source"
+  run_actionc "$dir/semir" "$dir/semir.err" --profile "$profile" --emit-semir "$source"
   [[ $? -eq 0 ]] || ok=1
 
-  run_actionc "$dir/nir" "$dir/nir.err" --emit-nir "$source"
+  run_actionc "$dir/nir" "$dir/nir.err" --profile "$profile" --emit-nir "$source"
   [[ $? -eq 0 ]] || ok=1
 
-  run_actionc "$dir/mir6502" "$dir/mir6502.err" --emit-mir6502 "$source"
+  run_actionc "$dir/mir6502" "$dir/mir6502.err" \
+    --profile "$profile" --backend mir6502 --emit-mir6502 "$source"
   [[ $? -eq 0 ]] || ok=1
 
   run_actionc "$dir/mir6502.materialized" "$dir/mir6502.materialized.err" \
-    --emit-materialized-mir6502 "$source"
+    --profile "$profile" --backend mir6502 --emit-materialized-mir6502 "$source"
   [[ $? -eq 0 ]] || ok=1
 
   run_actionc "$dir/mir6502.source-listing" "$dir/mir6502.source-listing.err" \
-    --backend mir6502 --origin "$origin_value" --emit-source-listing "$source"
+    --backend mir6502 --profile "$profile" --origin "$origin_value" \
+    --emit-source-listing "$source"
   [[ $? -eq 0 ]] || ok=1
 
   run_actionc "$dir/mir6502.listing" "$dir/mir6502.listing.err" \
-    --backend mir6502 --origin "$origin_value" --emit-listing "$source"
+    --backend mir6502 --profile "$profile" --origin "$origin_value" \
+    --emit-listing "$source"
   [[ $? -eq 0 ]] || ok=1
 
   run_actionc "$dir/mir6502.map" "$dir/mir6502.map.err" \
-    --backend mir6502 --origin "$origin_value" --emit-map "$source"
+    --backend mir6502 --profile "$profile" --origin "$origin_value" \
+    --emit-map "$source"
   [[ $? -eq 0 ]] || ok=1
 
   run_actionc "$dir/mir6502.load" "$dir/mir6502.load.err" \
-    --backend mir6502 --origin "$origin_value" --emit-load "$source"
+    --backend mir6502 --profile "$profile" --origin "$origin_value" \
+    --emit-load "$source"
   [[ $? -eq 0 ]] || ok=1
   write_hex_dump "$dir/mir6502.load" "$dir/mir6502.load.hex"
 
@@ -441,7 +446,7 @@ echo "==> origin: $origin  profile: $profile"
 echo "==> building actionc"
 if ! (
   cd "$repo_root"
-  cargo build --quiet --bin actionc
+  cargo build --quiet --bin actionc-emit
 ) >"$out_dir/build.stdout" 2>"$out_dir/build.stderr"; then
   echo "failed to build actionc; see $out_dir/build.stderr" >&2
   exit 1
