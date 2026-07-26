@@ -1,6 +1,6 @@
 # MIR6502 WARPDEM Optimization Implementation Plan
 
-Status: active
+Status: complete
 
 Date: 2026-07-26
 
@@ -326,6 +326,8 @@ Result:
 
 ### Slice 4: Residual listing audit and targeted closeout
 
+Status: complete.
+
 - Regenerate WARPDEM listing, materialized MIR, map, quality, XEX, telemetry,
   and per-routine metrics.
 - Compare modern/classic and modern/MIR6502 by code bytes, data bytes,
@@ -335,6 +337,118 @@ Result:
   documented slice under Finding 4. Otherwise stop rather than accumulating
   marginal local peepholes.
 - Update this note with final measurements and committed slice hashes.
+
+Result:
+
+- Final audit artifacts are under
+  `target/warpdem-final-audit-20260726/warp/`.
+- Modern/MIR6502 emits 6,546 bytes versus modern/classic's 7,102 bytes:
+  MIR6502 is 556 bytes, or 7.8%, smaller.
+- Relative to the 7,402-byte MIR6502 planning baseline, the implemented slices
+  remove 856 bytes, or 11.6%.
+
+| Metric | Planning MIR6502 | Final MIR6502 | Modern/classic | Final vs classic |
+| --- | ---: | ---: | ---: | ---: |
+| XEX bytes | 7,402 | 6,546 | 7,102 | -556 |
+| Recognized instruction bytes | 6,282 | 5,428 | 5,980 | -552 |
+| Data and inline machine bytes | 1,108 | 1,106 | 1,110 | -4 |
+| Recognized instructions | 2,855 | 2,408 | 2,687 | -279 |
+| `LDA` | 874 | 781 | 753 | +28 |
+| `STA` | 738 | 635 | 658 | -23 |
+| `LDY` | 150 | 109 | 139 | -30 |
+
+- Final logical temp homes fell from 98 to 94 cells: 78 virtual-ZP cells and
+  16 RAM cells. Final home traffic is 108 virtual-ZP reloads, 101 virtual-ZP
+  stores, 101 RAM reloads, and 40 RAM stores. The listing contains no emitted
+  spill-data labels.
+- All 23 proven Y-reload candidates are elided. The delayed-index selector
+  reports 24 consumers and 36 producer operations.
+
+### Final routine comparison
+
+The remaining gross routine deficits total only 84 recognized instruction
+bytes. The five largest are:
+
+| Routine | Modern/classic | Final MIR6502 | Difference |
+| --- | ---: | ---: | ---: |
+| `ShipMove` | 243 | 264 | +21 |
+| `ScrollColors` | 117 | 130 | +13 |
+| `FastDraw` | 191 | 201 | +10 |
+| `ShipFly` | 183 | 191 | +8 |
+| `DLI` | 65 | 72 | +7 |
+
+These are outweighed by 636 bytes of routine wins, led by:
+
+| Routine | Modern/classic | Final MIR6502 | Difference |
+| --- | ---: | ---: | ---: |
+| `BALLMOVE` | 615 | 405 | -210 |
+| `MissileMove` | 423 | 311 | -112 |
+| `TestHit` | 354 | 269 | -85 |
+| `BlownAway` | 722 | 676 | -46 |
+| `Draw7` | 137 | 92 | -45 |
+
+`ShipMove` contains four word-negation results staged through private
+two-byte homes before being copied back to their source globals. General
+definition-sensitive word-unary destination placement could recover roughly
+16 bytes there. It is the only coherent residual family, but it is small,
+does not affect WARPDEM's now-favorable overall comparison, and deserves a
+separate cross-program audit rather than another sample-led slice.
+
+`ScrollColors` and `FastDraw` are mixtures of loop-bound orientation, fixed
+local placement, pointer construction, and runtime ABI strategy. No single
+safe general rewrite accounts for a material part of either difference.
+
+### Cross-program closeout
+
+Both modern Toolkit presets compile all 20 entries. Across their full outputs:
+
+| Result | Count |
+| --- | ---: |
+| MIR6502 smaller than modern/classic | 17 |
+| Equal | 1 |
+| MIR6502 larger | 2 |
+
+The combined modern/MIR6502 Toolkit output is 41,595 bytes versus 44,081 for
+modern/classic, a reduction of 2,486 bytes. Relative to the Slice 2 sweep, the
+new byte-range rule changes only `JOYSTIX.COM` and `WARPDEM.COM`; each shrinks
+by 38 bytes.
+
+The selected regression sizes remain:
+
+| Program | Modern/classic | Modern/MIR6502 | Difference |
+| --- | ---: | ---: | ---: |
+| `TN` | 10,445 | 9,920 | -525 |
+| `ALLOCATE` | 935 | 876 | -59 |
+| `SORTDM1` | 4,129 | 3,268 | -861 |
+| `SORTDM2` | 2,607 | 2,607 | 0 |
+| `CIRCLE1` | 625 | 601 | -24 |
+| `CIRCLE2` | 889 | 881 | -8 |
+| `KALSCOPE` | 3,318 | 3,276 | -42 |
+
+Final load SHA-256:
+
+| Backend | SHA-256 |
+| --- | --- |
+| modern/classic | `0ccdd7f1dd93e9a7de657571b049c75c49b1961deb583488013fc08db28902c9` |
+| modern/MIR6502 | `1c496a7684843ffb20d331e2e2556e4d6c2513526dc28379195d0e63bcd4adb9` |
+
+Implementation commits:
+
+| Slice | Commit |
+| --- | --- |
+| Plan | `b45d720` |
+| Runtime/quality baseline | `bd0f0c3` |
+| Routine-wide index widths | `db2bcfd` |
+| Y provenance across disjoint stores | `a674eae` |
+| Byte-range word index selection | `a420afa` |
+
+Validation:
+
+- the expanded direct BYTE and byte-derived CARD index VM gate passes under
+  modern/classic and modern/MIR6502;
+- all 759 MIR6502-filtered tests pass;
+- the complete `cargo test` suite passes, including 1,963 library tests;
+- both final Toolkit preset sweeps pass all 20 entries with no gate failures.
 
 ## Required Checks Per Behavior-Changing Slice
 
