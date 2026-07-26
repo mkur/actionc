@@ -44,6 +44,7 @@ mod temp_uses;
 mod temp_widths;
 mod temps;
 mod values;
+mod word_sources;
 mod word_values;
 mod zp;
 

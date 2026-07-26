@@ -1,6 +1,6 @@
 # MIR6502 ALLOCATE Optimization Implementation Plan
 
-Status: in progress; Slice 0 completed
+Status: in progress; Slices 0-1 completed
 
 Date: 2026-07-26
 

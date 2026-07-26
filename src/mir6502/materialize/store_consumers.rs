@@ -1,12 +1,11 @@
-use super::compare_branch::{
-    WordArithmeticSource, push_word_arithmetic_source_load, resolve_word_arithmetic_source,
-    word_arithmetic_byte_value_is_safe, word_arithmetic_load_source,
-    word_arithmetic_pointer_mem_is_safe,
-};
 use super::indexes::{
     DelayedByteIndexPlan, indexed_addr_has_delayed_index, indexed_addr_parts,
     materialize_indexed_address_for_consumer, materialize_indexed_byte_read_to_a,
     materialize_indexed_write_from_value,
+};
+use super::word_sources::{
+    WordConsumerSource, push_word_consumer_source_load, resolve_word_consumer_source,
+    word_consumer_byte_value_is_safe, word_consumer_load_source, word_consumer_pointer_mem_is_safe,
 };
 use super::*;
 use crate::mir6502::analysis::effects::MirFlagSet;
@@ -37,13 +36,13 @@ fn select_word_arithmetic_pointer_store_consumer_impl(
     require_result: bool,
     out: &mut Vec<MirOp>,
 ) -> usize {
-    let mut sources = BTreeMap::<MirTempId, WordArithmeticSource>::new();
+    let mut sources = BTreeMap::<MirTempId, WordConsumerSource>::new();
     let mut cursor = index;
     loop {
         let Some(op) = ops.get(cursor) else {
             break;
         };
-        let Some((temp, source)) = word_arithmetic_load_source(op) else {
+        let Some((temp, source)) = word_consumer_load_source(op) else {
             break;
         };
         if sources.insert(temp, source).is_some() {
@@ -67,10 +66,10 @@ fn select_word_arithmetic_pointer_store_consumer_impl(
     let Some(arithmetic_temp) = split_def_as_temp(arithmetic_dst) else {
         return 0;
     };
-    let Some(mut left) = resolve_word_arithmetic_source(left, &sources) else {
+    let Some(mut left) = resolve_word_consumer_source(left, &sources) else {
         return 0;
     };
-    let Some(mut right) = resolve_word_arithmetic_source(right, &sources) else {
+    let Some(mut right) = resolve_word_consumer_source(right, &sources) else {
         return 0;
     };
     cursor += 1;
@@ -150,26 +149,24 @@ fn select_word_arithmetic_pointer_store_consumer_impl(
         cursor + 1 - index
     };
 
-    if matches!(right, WordArithmeticSource::Indirect { .. }) {
-        if *arithmetic_op != MirBinaryOp::Add
-            || matches!(left, WordArithmeticSource::Indirect { .. })
+    if matches!(right, WordConsumerSource::Indirect { .. }) {
+        if *arithmetic_op != MirBinaryOp::Add || matches!(left, WordConsumerSource::Indirect { .. })
         {
             return 0;
         }
         std::mem::swap(&mut left, &mut right);
     }
-    let WordArithmeticSource::Indirect { pointer, .. } = &left else {
+    let WordConsumerSource::Indirect { pointer, .. } = &left else {
         return 0;
     };
-    let WordArithmeticSource::Values {
+    let WordConsumerSource::Values {
         lo: right_lo,
         hi: right_hi,
     } = right
     else {
         return 0;
     };
-    if !word_arithmetic_byte_value_is_safe(&right_lo)
-        || !word_arithmetic_byte_value_is_safe(&right_hi)
+    if !word_consumer_byte_value_is_safe(&right_lo) || !word_consumer_byte_value_is_safe(&right_hi)
     {
         return 0;
     }
@@ -178,7 +175,7 @@ fn select_word_arithmetic_pointer_store_consumer_impl(
         consumer: DEFAULT_POINTER_PAIR,
         value: pointer.clone(),
     });
-    push_word_arithmetic_source_load(out, &left, 0, DEFAULT_POINTER_PAIR);
+    push_word_consumer_source_load(out, &left, 0, DEFAULT_POINTER_PAIR);
     out.push(MirOp::Binary {
         op: *arithmetic_op,
         dst: MirDef::Reg(MirReg::A),
@@ -193,7 +190,7 @@ fn select_word_arithmetic_pointer_store_consumer_impl(
         carry_out: MirCarryOut::Produce,
     });
     out.push(store_a_to_fixed_scratch(POINTER_INDEX_SCRATCH_LO));
-    push_word_arithmetic_source_load(out, &left, 1, DEFAULT_POINTER_PAIR);
+    push_word_consumer_source_load(out, &left, 1, DEFAULT_POINTER_PAIR);
     out.push(MirOp::Binary {
         op: *arithmetic_op,
         dst: MirDef::Reg(MirReg::A),
@@ -274,13 +271,13 @@ pub(super) fn select_word_arithmetic_indirect_store_consumer(
     index: usize,
     out: &mut Vec<MirOp>,
 ) -> usize {
-    let mut sources = BTreeMap::<MirTempId, WordArithmeticSource>::new();
+    let mut sources = BTreeMap::<MirTempId, WordConsumerSource>::new();
     let mut cursor = index;
     loop {
         let Some(op) = ops.get(cursor) else {
             break;
         };
-        let Some((temp, source)) = word_arithmetic_load_source(op) else {
+        let Some((temp, source)) = word_consumer_load_source(op) else {
             break;
         };
         if sources.insert(temp, source).is_some() {
@@ -304,10 +301,10 @@ pub(super) fn select_word_arithmetic_indirect_store_consumer(
     let Some(arithmetic_temp) = split_def_as_temp(arithmetic_dst) else {
         return 0;
     };
-    let Some(mut left) = resolve_word_arithmetic_source(left, &sources) else {
+    let Some(mut left) = resolve_word_consumer_source(left, &sources) else {
         return 0;
     };
-    let Some(mut right) = resolve_word_arithmetic_source(right, &sources) else {
+    let Some(mut right) = resolve_word_consumer_source(right, &sources) else {
         return 0;
     };
     cursor += 1;
@@ -321,33 +318,31 @@ pub(super) fn select_word_arithmetic_indirect_store_consumer(
         return 0;
     };
     if *store_temp != arithmetic_temp
-        || !word_arithmetic_pointer_mem_is_safe(ptr)
+        || !word_consumer_pointer_mem_is_safe(ptr)
         || *offset >= u16::from(u8::MAX)
     {
         return 0;
     }
 
-    if matches!(right, WordArithmeticSource::Indirect { .. }) {
-        if *arithmetic_op != MirBinaryOp::Add
-            || matches!(left, WordArithmeticSource::Indirect { .. })
+    if matches!(right, WordConsumerSource::Indirect { .. }) {
+        if *arithmetic_op != MirBinaryOp::Add || matches!(left, WordConsumerSource::Indirect { .. })
         {
             return 0;
         }
         std::mem::swap(&mut left, &mut right);
     }
-    let WordArithmeticSource::Values {
+    let WordConsumerSource::Values {
         lo: right_lo,
         hi: right_hi,
     } = right
     else {
         return 0;
     };
-    if !word_arithmetic_byte_value_is_safe(&right_lo)
-        || !word_arithmetic_byte_value_is_safe(&right_hi)
+    if !word_consumer_byte_value_is_safe(&right_lo) || !word_consumer_byte_value_is_safe(&right_hi)
     {
         return 0;
     }
-    let WordArithmeticSource::Indirect { pointer, .. } = &left else {
+    let WordConsumerSource::Indirect { pointer, .. } = &left else {
         return 0;
     };
     if pointer != &pointer_value_from_mem(ptr) {
@@ -357,7 +352,7 @@ pub(super) fn select_word_arithmetic_indirect_store_consumer(
         consumer: DEFAULT_POINTER_PAIR,
         value: pointer.clone(),
     });
-    push_word_arithmetic_source_load(out, &left, 0, DEFAULT_POINTER_PAIR);
+    push_word_consumer_source_load(out, &left, 0, DEFAULT_POINTER_PAIR);
     out.push(MirOp::Binary {
         op: *arithmetic_op,
         dst: MirDef::Reg(MirReg::A),
@@ -372,7 +367,7 @@ pub(super) fn select_word_arithmetic_indirect_store_consumer(
         carry_out: MirCarryOut::Produce,
     });
     out.push(store_a_to_fixed_scratch(POINTER_INDEX_SCRATCH_LO));
-    push_word_arithmetic_source_load(out, &left, 1, DEFAULT_POINTER_PAIR);
+    push_word_consumer_source_load(out, &left, 1, DEFAULT_POINTER_PAIR);
     out.push(MirOp::Binary {
         op: *arithmetic_op,
         dst: MirDef::Reg(MirReg::A),
