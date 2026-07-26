@@ -5,7 +5,7 @@ use crate::mir6502::analysis::home_definitions::MirHomeDefinitions;
 use crate::mir6502::analysis::home_liveness::MirHomeLiveness;
 use crate::mir6502::analysis::known_callees::MirKnownCalleeSummaries;
 use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
-use crate::mir6502::analysis::machine_values::MirMachineValueAvailability;
+use crate::mir6502::analysis::machine_values::{MirMachineMemoryMap, MirMachineValueAvailability};
 use crate::mir6502::analysis::param_availability::MirParamRegisterAvailability;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirRoutineSnapshot};
 use crate::mir6502::ir::MirRoutine;
@@ -34,6 +34,20 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
         generation: MirRoutineGeneration,
         known_callees: &MirKnownCalleeSummaries,
     ) -> Result<Self, Vec<MirCfgError>> {
+        Self::new_with_known_callees_and_memory_map(
+            routine,
+            generation,
+            known_callees,
+            &MirMachineMemoryMap::default(),
+        )
+    }
+
+    pub(in crate::mir6502) fn new_with_known_callees_and_memory_map(
+        routine: &'a MirRoutine,
+        generation: MirRoutineGeneration,
+        known_callees: &MirKnownCalleeSummaries,
+        memory_map: &MirMachineMemoryMap,
+    ) -> Result<Self, Vec<MirCfgError>> {
         let routine_snapshot = MirRoutineSnapshot::new(routine, generation)?;
         let cfg = routine_snapshot.cfg();
         Ok(Self {
@@ -44,10 +58,11 @@ impl<'a> PostHomeAnalysisSnapshot<'a> {
                 cfg,
                 known_callees,
             ),
-            machine_values: MirMachineValueAvailability::analyze_with_known_callees(
+            machine_values: MirMachineValueAvailability::analyze_with_known_callees_and_memory_map(
                 routine,
                 cfg,
                 known_callees,
+                memory_map,
             ),
             param_availability: MirParamRegisterAvailability::analyze(routine, cfg),
             routine: routine_snapshot,

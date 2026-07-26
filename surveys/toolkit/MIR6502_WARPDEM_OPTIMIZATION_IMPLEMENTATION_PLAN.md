@@ -253,6 +253,8 @@ Result:
 
 ### Slice 2: Validate Y provenance and same-index reuse
 
+Status: complete.
+
 - Re-audit WARPDEM after Slice 1 and count redundant adjacent `LDY` operations.
 - First verify that the shared machine-state dataflow sees
   `AbsoluteIndexedY` as reading, not clobbering, Y.
@@ -261,6 +263,31 @@ Result:
 - Require an unchanged index definition/home and no physical alias write,
   register clobber, call, machine block, or unknown effect.
 - Add positive, branch-edge, source-write, and clobber rejection tests.
+
+Result:
+
+- Added an optional final-layout memory map to the shared routine-wide
+  machine-value analysis and post-home snapshot. Clients that do not have a
+  final layout retain the previous conservative behavior.
+- Exact direct writes and the bounded 256-byte address range of
+  `absolute,X/Y` stores now invalidate a memory-backed register fact only when
+  the physical ranges can overlap. Unresolved storage, indirect writes,
+  machine blocks, absolute/ABI-observable memory, and unknown effects still
+  invalidate the fact.
+- The existing late reload fold now uses those shared facts and the existing
+  flag-liveness proof; no listing-only or WARPDEM-specific matcher was added.
+- Added positive straight-line and CFG-edge tests, plus physical-alias,
+  indexed-range-overlap, live-flag, and unknown-indirect-write rejection tests.
+- WARPDEM's proven/rejected Y-reload census increased from 9 to 23, removing 14
+  additional `LDY absolute` instructions. `LDY` count fell from 124 to 110.
+- MIR6502 WARPDEM fell from 6,626 to 6,584 bytes, 42 bytes smaller than Slice 1
+  and 518 bytes smaller than modern/classic.
+- Recognized instruction bytes fell from 5,506 to 5,464 and recognized
+  instructions from 2,436 to 2,422. Data remains 1,108 bytes.
+- The direct-array VM oracle, all 1,961 library tests, all integration tests,
+  and all 20 modern/MIR6502 Toolkit programs pass.
+- Final MIR6502 load SHA-256:
+  `244c4793d1dad7dfbe88210bf893c57755b4b86b0215640ea2905522561ca352`.
 
 ### Slice 3: Keep typed byte constant shifts in registers
 

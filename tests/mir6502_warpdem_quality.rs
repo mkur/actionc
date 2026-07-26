@@ -65,8 +65,8 @@ fn warpdem_exposes_the_expected_codegen_baseline() {
 
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN).expect("emit WARPDEM MIR6502");
     assert!(
-        output.bytes.len() <= 6_626,
-        "expected WARPDEM MIR6502 output no larger than 6626 bytes, got {}",
+        output.bytes.len() <= 6_584,
+        "expected WARPDEM MIR6502 output no larger than 6584 bytes, got {}",
         output.bytes.len()
     );
 }

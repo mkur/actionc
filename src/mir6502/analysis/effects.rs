@@ -1105,13 +1105,20 @@ fn record_store_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectS
             summary.memory.indirect_writes = true;
             mark_may_write_any(summary);
         }
-        MirAddr::ZeroPageIndexedX { .. } | MirAddr::AbsoluteIndexedX { .. } => {
+        MirAddr::ZeroPageIndexedX { .. } => {
             set_register(&mut summary.machine.register_reads, MirReg::X);
             summary.memory.indirect_writes = true;
             mark_may_write_any(summary);
         }
-        MirAddr::AbsoluteIndexedY { .. } => {
+        MirAddr::AbsoluteIndexedX { base } => {
+            set_register(&mut summary.machine.register_reads, MirReg::X);
+            record_home_reference(base, summary);
+            summary.memory.indirect_writes = true;
+            mark_may_write_any(summary);
+        }
+        MirAddr::AbsoluteIndexedY { base } => {
             set_register(&mut summary.machine.register_reads, MirReg::Y);
+            record_home_reference(base, summary);
             summary.memory.indirect_writes = true;
             mark_may_write_any(summary);
         }

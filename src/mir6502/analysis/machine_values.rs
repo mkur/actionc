@@ -17,6 +17,54 @@ pub(in crate::mir6502) enum MirMachineValue {
     DirectMem(MirMem),
 }
 
+/// Optional final-layout addresses used to disambiguate memory writes.
+///
+/// The generic analysis remains conservative when this map is empty or an
+/// identity cannot be resolved. Post-home clients may supply final physical
+/// addresses once storage and zero-page allocation are fixed.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(in crate::mir6502) struct MirMachineMemoryMap {
+    addresses: Vec<(MirMem, u16)>,
+}
+
+impl MirMachineMemoryMap {
+    pub(in crate::mir6502) fn from_routine(
+        routine: &MirRoutine,
+        mut resolve: impl FnMut(&MirMem) -> Option<u16>,
+    ) -> Self {
+        let mut addresses = Vec::new();
+        for block in &routine.blocks {
+            for op in &block.ops {
+                let effects = classify_op(op);
+                for mem in effects.memory.direct_references.into_iter().chain(
+                    effects
+                        .memory
+                        .direct_writes
+                        .into_iter()
+                        .map(|range| range.base),
+                ) {
+                    if addresses
+                        .iter()
+                        .any(|(existing, _): &(MirMem, u16)| existing == &mem)
+                    {
+                        continue;
+                    }
+                    if let Some(address) = resolve(&mem) {
+                        addresses.push((mem, address));
+                    }
+                }
+            }
+        }
+        Self { addresses }
+    }
+
+    fn address(&self, mem: &MirMem) -> Option<u16> {
+        self.addresses
+            .iter()
+            .find_map(|(candidate, address)| (candidate == mem).then_some(*address))
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct MirMachineValueState {
     reachable: bool,
@@ -130,6 +178,7 @@ pub(in crate::mir6502) struct MirMachineValueAvailability {
     block_indices: BTreeMap<MirBlockId, usize>,
     ops: BTreeMap<MirBlockId, Vec<MirOp>>,
     known_callees: MirKnownCalleeSummaries,
+    memory_map: MirMachineMemoryMap,
     evaluations: usize,
 }
 
@@ -144,6 +193,20 @@ impl MirMachineValueAvailability {
         cfg: &MirCfg,
         known_callees: &MirKnownCalleeSummaries,
     ) -> Self {
+        Self::analyze_with_known_callees_and_memory_map(
+            routine,
+            cfg,
+            known_callees,
+            &MirMachineMemoryMap::default(),
+        )
+    }
+
+    pub(in crate::mir6502) fn analyze_with_known_callees_and_memory_map(
+        routine: &MirRoutine,
+        cfg: &MirCfg,
+        known_callees: &MirKnownCalleeSummaries,
+        memory_map: &MirMachineMemoryMap,
+    ) -> Self {
         let entry = cfg.entry();
         let result = solve_dataflow(
             cfg,
@@ -151,6 +214,7 @@ impl MirMachineValueAvailability {
                 routine,
                 entry,
                 known_callees,
+                memory_map,
             },
         );
         let block_indices = routine
@@ -191,6 +255,7 @@ impl MirMachineValueAvailability {
             block_indices,
             ops,
             known_callees: known_callees.clone(),
+            memory_map: memory_map.clone(),
             evaluations: result.evaluations(),
         }
     }
@@ -267,7 +332,7 @@ impl MirMachineValueAvailability {
             fixed_zero_page: facts.fixed_zero_page_in.clone(),
         };
         for op in &ops[..limit] {
-            apply_op(&mut state, op, &self.known_callees);
+            apply_op(&mut state, op, &self.known_callees, &self.memory_map);
         }
         Ok(state)
     }
@@ -282,6 +347,7 @@ struct MachineValueProblem<'a> {
     routine: &'a MirRoutine,
     entry: Option<MirBlockId>,
     known_callees: &'a MirKnownCalleeSummaries,
+    memory_map: &'a MirMachineMemoryMap,
 }
 
 impl DataflowProblem<MirCfg> for MachineValueProblem<'_> {
@@ -312,7 +378,7 @@ impl DataflowProblem<MirCfg> for MachineValueProblem<'_> {
         };
         let mut output = input.clone();
         for op in &block.ops {
-            apply_op(&mut output, op, self.known_callees);
+            apply_op(&mut output, op, self.known_callees, self.memory_map);
         }
         if !terminator_preserves_accumulator(&block.terminator) {
             output.a = None;
@@ -325,7 +391,12 @@ impl DataflowProblem<MirCfg> for MachineValueProblem<'_> {
     }
 }
 
-fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKnownCalleeSummaries) {
+fn apply_op(
+    state: &mut MirMachineValueState,
+    op: &MirOp,
+    known_callees: &MirKnownCalleeSummaries,
+    memory_map: &MirMachineMemoryMap,
+) {
     if !state.reachable {
         return;
     }
@@ -334,22 +405,21 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
     update_fixed_zero_page_values(state, op, &before, known_callees);
 
     let effects = classify_op(op);
-    let writes_memory = !effects.memory.direct_writes.is_empty()
-        || effects.memory.indirect_writes
-        || effects.memory.opaque
-        || effects.memory.may_write_any
-        || effects.memory.has_unknown_effects
-        || !matches!(&effects.memory.structured_writes, MirMemoryEffect::None);
-    if writes_memory {
-        for reg in [MirReg::A, MirReg::X, MirReg::Y] {
-            if matches!(state.register(reg), Some(MirMachineValue::DirectMem(_))) {
-                state.set_register(reg, None);
-            }
+    for reg in [MirReg::A, MirReg::X, MirReg::Y] {
+        let Some(MirMachineValue::DirectMem(mem)) = state.register(reg) else {
+            continue;
+        };
+        if operation_may_write_mem(op, mem, &effects, memory_map) {
+            state.set_register(reg, None);
         }
-        if matches!(state.zn, Some(MirMachineValue::DirectMem(_))) {
-            state.zn = None;
-        }
-    } else if let MirOp::Call { target, .. } = op {
+    }
+    if let Some(MirMachineValue::DirectMem(mem)) = &state.zn
+        && operation_may_write_mem(op, mem, &effects, memory_map)
+    {
+        state.zn = None;
+    }
+
+    if let MirOp::Call { target, .. } = op {
         for reg in [MirReg::X, MirReg::Y] {
             let Some(MirMachineValue::DirectMem(mem)) = state.register(reg) else {
                 continue;
@@ -360,6 +430,13 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
             if invalidated {
                 state.set_register(reg, None);
             }
+        }
+        if let Some(MirMachineValue::DirectMem(mem)) = &state.zn
+            && known_callees
+                .for_target(target)
+                .is_none_or(|summary| summary.writes().may_write_mem(mem))
+        {
+            state.zn = None;
         }
     }
 
@@ -412,6 +489,75 @@ fn apply_op(state: &mut MirMachineValueState, op: &MirOp, known_callees: &MirKno
             state.zn_register = Some(*reg);
         }
     }
+}
+
+fn operation_may_write_mem(
+    op: &MirOp,
+    mem: &MirMem,
+    effects: &crate::mir6502::analysis::effects::MirOpEffectSummary,
+    memory_map: &MirMachineMemoryMap,
+) -> bool {
+    let writes_memory = !effects.memory.direct_writes.is_empty()
+        || effects.memory.indirect_writes
+        || effects.memory.opaque
+        || effects.memory.may_write_any
+        || effects.memory.has_unknown_effects
+        || !matches!(&effects.memory.structured_writes, MirMemoryEffect::None);
+    if !writes_memory {
+        return false;
+    }
+
+    match op {
+        MirOp::Store {
+            dst: MirAddr::AbsoluteIndexedX { base } | MirAddr::AbsoluteIndexedY { base },
+            width,
+            ..
+        } => indexed_write_may_reach_mem(base, *width, mem, memory_map),
+        MirOp::UpdateIndexedMem { base, .. } => {
+            indexed_write_may_reach_mem(base, MirWidth::Byte, mem, memory_map)
+        }
+        _ if !effects.memory.indirect_writes
+            && !effects.memory.opaque
+            && !effects.memory.may_write_any
+            && !effects.memory.has_unknown_effects
+            && matches!(&effects.memory.structured_writes, MirMemoryEffect::None) =>
+        {
+            effects
+                .memory
+                .direct_writes
+                .iter()
+                .any(|range| write_range_may_reach_mem(&range.base, range.bytes, mem, memory_map))
+        }
+        _ => true,
+    }
+}
+
+fn indexed_write_may_reach_mem(
+    base: &MirMem,
+    width: MirWidth,
+    mem: &MirMem,
+    memory_map: &MirMachineMemoryMap,
+) -> bool {
+    let bytes = match width {
+        MirWidth::Byte => 256,
+        MirWidth::Word => 257,
+    };
+    write_range_may_reach_mem(base, bytes, mem, memory_map)
+}
+
+fn write_range_may_reach_mem(
+    base: &MirMem,
+    bytes: u16,
+    mem: &MirMem,
+    memory_map: &MirMachineMemoryMap,
+) -> bool {
+    let Some(base_address) = memory_map.address(base) else {
+        return true;
+    };
+    let Some(mem_address) = memory_map.address(mem) else {
+        return true;
+    };
+    mem_address.wrapping_sub(base_address) < bytes
 }
 
 fn known_call_preserves_register(
@@ -900,6 +1046,20 @@ mod tests {
         MirMachineValueAvailability::analyze(routine, &cfg)
     }
 
+    fn analyze_with_memory_map(
+        routine: &MirRoutine,
+        resolve: impl FnMut(&MirMem) -> Option<u16>,
+    ) -> MirMachineValueAvailability {
+        let cfg = MirCfg::from_routine(routine).unwrap();
+        let memory_map = MirMachineMemoryMap::from_routine(routine, resolve);
+        MirMachineValueAvailability::analyze_with_known_callees_and_memory_map(
+            routine,
+            &cfg,
+            &MirKnownCalleeSummaries::default(),
+            &memory_map,
+        )
+    }
+
     fn call(routine: u32) -> MirOp {
         MirOp::Call {
             target: MirCallTarget::Routine(RoutineId(routine)),
@@ -1351,6 +1511,118 @@ mod tests {
             }),
             Ok(None)
         );
+    }
+
+    #[test]
+    fn final_layout_preserves_y_across_disjoint_direct_store_and_cfg_edge() {
+        let source = spill(1);
+        let destination = spill(2);
+        let routine = routine(vec![
+            block(
+                0,
+                vec![
+                    load_reg(MirReg::Y, source.clone()),
+                    store_a(destination.clone()),
+                ],
+                MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+        ]);
+        let values = analyze_with_memory_map(&routine, |mem| {
+            if mem == &source {
+                Some(0x3000)
+            } else if mem == &destination {
+                Some(0x3100)
+            } else {
+                None
+            }
+        });
+
+        assert_eq!(
+            values.register_at(
+                MirSite::BlockEntry {
+                    block: MirBlockId(1),
+                },
+                MirReg::Y,
+            ),
+            Ok(Some(MirMachineValue::DirectMem(source)))
+        );
+    }
+
+    #[test]
+    fn final_layout_invalidates_y_when_distinct_identities_physically_alias() {
+        let source = spill(1);
+        let destination = spill(2);
+        let routine = routine(vec![block(
+            0,
+            vec![
+                load_reg(MirReg::Y, source.clone()),
+                store_a(destination.clone()),
+            ],
+            MirTerminator::Return,
+        )]);
+        let values = analyze_with_memory_map(&routine, |mem| {
+            (mem == &source || mem == &destination).then_some(0x3000)
+        });
+
+        assert_eq!(
+            values.register_at(
+                MirSite::Terminator {
+                    block: MirBlockId(0),
+                },
+                MirReg::Y,
+            ),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn final_layout_bounds_absolute_indexed_store_aliases() {
+        let source = spill(1);
+        let base = spill(2);
+        let build = || {
+            routine(vec![block(
+                0,
+                vec![
+                    load_reg(MirReg::Y, source.clone()),
+                    MirOp::Store {
+                        dst: MirAddr::AbsoluteIndexedY { base: base.clone() },
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                    },
+                ],
+                MirTerminator::Return,
+            )])
+        };
+        let disjoint = build();
+        let disjoint_values = analyze_with_memory_map(&disjoint, |mem| {
+            if mem == &source {
+                Some(0x3000)
+            } else if mem == &base {
+                Some(0x4000)
+            } else {
+                None
+            }
+        });
+        let overlapping = build();
+        let overlapping_values = analyze_with_memory_map(&overlapping, |mem| {
+            if mem == &source {
+                Some(0x40ff)
+            } else if mem == &base {
+                Some(0x4000)
+            } else {
+                None
+            }
+        });
+        let exit = MirSite::Terminator {
+            block: MirBlockId(0),
+        };
+
+        assert_eq!(
+            disjoint_values.register_at(exit, MirReg::Y),
+            Ok(Some(MirMachineValue::DirectMem(source)))
+        );
+        assert_eq!(overlapping_values.register_at(exit, MirReg::Y), Ok(None));
     }
 
     #[test]
