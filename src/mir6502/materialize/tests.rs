@@ -813,6 +813,226 @@ fn byte_add_word_compare_branch_uses_carry_then_low_byte() {
     ));
 }
 
+fn word_arithmetic_compare_blocks(
+    arithmetic_op: MirBinaryOp,
+    arithmetic_left: MirAddr,
+    arithmetic_right: MirAddr,
+    compare_op: MirCompareOp,
+) -> Vec<MirBlock> {
+    vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(0)),
+                    src: arithmetic_left,
+                    width: MirWidth::Word,
+                },
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    src: arithmetic_right,
+                    width: MirWidth::Word,
+                },
+                MirOp::Binary {
+                    op: arithmetic_op,
+                    dst: MirDef::VTemp(MirTempId(2)),
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                    right: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    width: MirWidth::Word,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                },
+                MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(3)),
+                    src: MirAddr::Direct(MirMem::Global {
+                        id: SymbolId(0),
+                        offset: 0,
+                    }),
+                    width: MirWidth::Word,
+                },
+                MirOp::Compare {
+                    dst: MirCondDest::Temp(MirTempId(4)),
+                    op: compare_op,
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                    right: MirValue::Def(MirDef::VTemp(MirTempId(3))),
+                    width: MirWidth::Word,
+                    signed: false,
+                },
+            ],
+            terminator: MirTerminator::Branch {
+                cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(4)))),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ]
+}
+
+#[test]
+fn word_add_compare_branch_keeps_low_result_in_x() {
+    let mut blocks = word_arithmetic_compare_blocks(
+        MirBinaryOp::Add,
+        MirAddr::Direct(MirMem::Local {
+            id: LocalId(0),
+            offset: 0,
+        }),
+        MirAddr::Direct(MirMem::Param {
+            id: ParamId(0),
+            offset: 0,
+        }),
+        MirCompareOp::Eq,
+    );
+    let proven = [(MirBlockId(0), 0)].into_iter().collect();
+
+    assert_eq!(
+        expand_proven_word_arithmetic_compare_branches(&mut blocks, &proven),
+        1
+    );
+    assert!(blocks[0].ops.iter().any(|op| matches!(
+        op,
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::X),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }
+    )));
+    assert!(blocks[0].ops.iter().any(|op| matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            carry_in: Some(MirCarryIn::FromPrevious),
+            ..
+        }
+    )));
+    assert!(!blocks[0].ops.iter().any(|op| {
+        matches!(
+            op,
+            MirOp::Load {
+                dst: MirDef::VTemp(_),
+                ..
+            } | MirOp::Binary {
+                dst: MirDef::VTemp(_),
+                ..
+            }
+        )
+    }));
+    let MirTerminator::Branch {
+        cond: MirCond::FlagTest(MirFlagTest::ZSet),
+        then_edge,
+        else_edge,
+    } = &blocks[0].terminator
+    else {
+        panic!("expected high-byte equality branch: {:#?}", blocks[0]);
+    };
+    assert_eq!(else_edge.target, MirBlockId(2));
+    let low = blocks
+        .iter()
+        .find(|block| block.id == then_edge.target)
+        .expect("low-byte compare block");
+    assert!(matches!(
+        low.ops.as_slice(),
+        [MirOp::Compare {
+            left: MirValue::Def(MirDef::Reg(MirReg::X)),
+            right: MirValue::PointerCell(MirMem::Global { offset: 0, .. }),
+            width: MirWidth::Byte,
+            ..
+        }]
+    ));
+}
+
+#[test]
+fn word_add_compare_branch_reads_one_indirect_operand_without_a_home() {
+    let mut blocks = word_arithmetic_compare_blocks(
+        MirBinaryOp::Add,
+        MirAddr::Direct(MirMem::Local {
+            id: LocalId(0),
+            offset: 0,
+        }),
+        MirAddr::PointerCell {
+            ptr: MirMem::Local {
+                id: LocalId(1),
+                offset: 0,
+            },
+            offset: 2,
+        },
+        MirCompareOp::Ne,
+    );
+    let proven = [(MirBlockId(0), 0)].into_iter().collect();
+
+    assert_eq!(
+        expand_proven_word_arithmetic_compare_branches(&mut blocks, &proven),
+        1
+    );
+    assert!(matches!(
+        blocks[0].ops.as_slice(),
+        [
+            MirOp::MaterializeAddress { .. },
+            MirOp::LoadIndirect { offset: 2, .. },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                carry_in: Some(MirCarryIn::Clear),
+                ..
+            },
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                ..
+            },
+            MirOp::LoadIndirect { offset: 3, .. },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                carry_in: Some(MirCarryIn::FromPrevious),
+                ..
+            },
+            MirOp::Compare {
+                dst: MirCondDest::Flags,
+                op: MirCompareOp::Eq,
+                ..
+            }
+        ]
+    ));
+    let MirTerminator::Branch { else_edge, .. } = &blocks[0].terminator else {
+        panic!("expected high-byte branch");
+    };
+    assert_eq!(else_edge.target, MirBlockId(1));
+}
+
+#[test]
+fn word_sub_compare_rejects_an_indirect_rhs() {
+    let blocks = word_arithmetic_compare_blocks(
+        MirBinaryOp::Sub,
+        MirAddr::Direct(MirMem::Local {
+            id: LocalId(0),
+            offset: 0,
+        }),
+        MirAddr::PointerCell {
+            ptr: MirMem::Local {
+                id: LocalId(1),
+                offset: 0,
+            },
+            offset: 0,
+        },
+        MirCompareOp::Eq,
+    );
+
+    assert!(word_arithmetic_compare_candidate(&blocks[0].ops, 0).is_none());
+}
+
 #[test]
 fn dual_indirect_eq_compare_fuses_into_flags() {
     let left = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {

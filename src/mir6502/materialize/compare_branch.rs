@@ -46,6 +46,286 @@ impl ByteAddWordCompareCandidate {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum WordArithmeticSource {
+    Values { lo: MirValue, hi: MirValue },
+    Indirect { pointer: MirValue, offset: u16 },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct WordArithmeticCompareCandidate {
+    pub consumed: usize,
+    pub compare_dst: MirCondDest,
+    pub compare_op: MirCompareOp,
+    pub entry_ops: Vec<MirOp>,
+    pub low_right: MirValue,
+}
+
+impl WordArithmeticCompareCandidate {
+    pub(in crate::mir6502) fn proof_replacement(&self) -> Vec<MirOp> {
+        let mut replacement = self.entry_ops.clone();
+        replacement.push(MirOp::Compare {
+            dst: self.compare_dst.clone(),
+            op: self.compare_op,
+            left: MirValue::Def(MirDef::Reg(MirReg::X)),
+            right: self.low_right.clone(),
+            width: MirWidth::Byte,
+            signed: false,
+        });
+        replacement
+    }
+}
+
+pub(in crate::mir6502) fn word_arithmetic_compare_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<WordArithmeticCompareCandidate> {
+    let mut sources = BTreeMap::<MirTempId, WordArithmeticSource>::new();
+    let mut cursor = index;
+    while let Some((temp, source)) = word_arithmetic_load_source(ops.get(cursor)?) {
+        if sources.insert(temp, source).is_some() {
+            return None;
+        }
+        cursor += 1;
+    }
+
+    let MirOp::Binary {
+        op: arithmetic_op @ (MirBinaryOp::Add | MirBinaryOp::Sub),
+        dst: arithmetic_dst,
+        left,
+        right,
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    } = ops.get(cursor)?
+    else {
+        return None;
+    };
+    let arithmetic_temp = split_def_as_temp(arithmetic_dst)?;
+    let mut left = resolve_word_arithmetic_source(left, &sources)?;
+    let mut right = resolve_word_arithmetic_source(right, &sources)?;
+    cursor += 1;
+
+    while let Some((temp, source)) = word_arithmetic_load_source(ops.get(cursor)?) {
+        if sources.insert(temp, source).is_some() || temp == arithmetic_temp {
+            return None;
+        }
+        cursor += 1;
+    }
+
+    let MirOp::Compare {
+        dst: compare_dst,
+        op: compare_op @ (MirCompareOp::Eq | MirCompareOp::Ne),
+        left: compare_left,
+        right: compare_right,
+        width: MirWidth::Word,
+        signed: false,
+    } = ops.get(cursor)?
+    else {
+        return None;
+    };
+    let arithmetic_value = MirValue::Def(arithmetic_dst.clone());
+    let compare_source = if compare_left == &arithmetic_value {
+        resolve_word_arithmetic_source(compare_right, &sources)?
+    } else if compare_right == &arithmetic_value {
+        resolve_word_arithmetic_source(compare_left, &sources)?
+    } else {
+        return None;
+    };
+
+    if matches!(right, WordArithmeticSource::Indirect { .. }) {
+        if *arithmetic_op != MirBinaryOp::Add
+            || matches!(left, WordArithmeticSource::Indirect { .. })
+        {
+            return None;
+        }
+        std::mem::swap(&mut left, &mut right);
+    }
+    let WordArithmeticSource::Values {
+        lo: right_lo,
+        hi: right_hi,
+    } = right
+    else {
+        return None;
+    };
+    let WordArithmeticSource::Values {
+        lo: compare_lo,
+        hi: compare_hi,
+    } = compare_source
+    else {
+        return None;
+    };
+    if !word_arithmetic_byte_value_is_safe(&right_lo)
+        || !word_arithmetic_byte_value_is_safe(&right_hi)
+        || !word_arithmetic_byte_value_is_safe(&compare_lo)
+        || !word_arithmetic_byte_value_is_safe(&compare_hi)
+    {
+        return None;
+    }
+
+    let pointer_consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(super::POINTER_SCRATCH_LO),
+    });
+    let mut entry_ops = Vec::new();
+    if let WordArithmeticSource::Indirect { pointer, .. } = &left {
+        entry_ops.push(MirOp::MaterializeAddress {
+            consumer: pointer_consumer,
+            value: pointer.clone(),
+        });
+    }
+    push_word_arithmetic_source_load(&mut entry_ops, &left, 0, pointer_consumer);
+    entry_ops.push(MirOp::Binary {
+        op: *arithmetic_op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: right_lo,
+        width: MirWidth::Byte,
+        carry_in: Some(match arithmetic_op {
+            MirBinaryOp::Add => MirCarryIn::Clear,
+            MirBinaryOp::Sub => MirCarryIn::Set,
+            _ => unreachable!(),
+        }),
+        carry_out: MirCarryOut::Produce,
+    });
+    entry_ops.push(MirOp::Move {
+        dst: MirDef::Reg(MirReg::X),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    push_word_arithmetic_source_load(&mut entry_ops, &left, 1, pointer_consumer);
+    entry_ops.push(MirOp::Binary {
+        op: *arithmetic_op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: right_hi,
+        width: MirWidth::Byte,
+        carry_in: Some(MirCarryIn::FromPrevious),
+        carry_out: MirCarryOut::Ignore,
+    });
+    entry_ops.push(MirOp::Compare {
+        dst: MirCondDest::Flags,
+        op: MirCompareOp::Eq,
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: compare_hi,
+        width: MirWidth::Byte,
+        signed: false,
+    });
+
+    Some(WordArithmeticCompareCandidate {
+        consumed: cursor + 1 - index,
+        compare_dst: compare_dst.clone(),
+        compare_op: *compare_op,
+        entry_ops,
+        low_right: compare_lo,
+    })
+}
+
+fn word_arithmetic_load_source(op: &MirOp) -> Option<(MirTempId, WordArithmeticSource)> {
+    let MirOp::Load {
+        dst,
+        src,
+        width: MirWidth::Word,
+    } = op
+    else {
+        return None;
+    };
+    let temp = split_def_as_temp(dst)?;
+    let source = match src {
+        MirAddr::Direct(mem) if word_arithmetic_direct_mem_is_safe(mem) => {
+            let (lo, hi) = (
+                MirValue::PointerCell(mem.clone()),
+                MirValue::PointerCell(super::values::offset_mem(mem, 1)),
+            );
+            WordArithmeticSource::Values { lo, hi }
+        }
+        MirAddr::PointerCell { ptr, offset }
+            if word_arithmetic_pointer_mem_is_safe(ptr) && *offset < u16::from(u8::MAX) =>
+        {
+            WordArithmeticSource::Indirect {
+                pointer: pointer_value_from_mem(ptr),
+                offset: *offset,
+            }
+        }
+        _ => return None,
+    };
+    Some((temp, source))
+}
+
+fn resolve_word_arithmetic_source(
+    value: &MirValue,
+    sources: &BTreeMap<MirTempId, WordArithmeticSource>,
+) -> Option<WordArithmeticSource> {
+    match value {
+        MirValue::Def(MirDef::VTemp(temp)) => sources.get(temp).cloned(),
+        MirValue::ConstU8(value) => Some(WordArithmeticSource::Values {
+            lo: MirValue::ConstU8(*value),
+            hi: MirValue::ConstU8(0),
+        }),
+        MirValue::ConstU16(value) => Some(WordArithmeticSource::Values {
+            lo: MirValue::ConstU8(*value as u8),
+            hi: MirValue::ConstU8((value >> 8) as u8),
+        }),
+        MirValue::Word { lo, hi }
+            if word_arithmetic_byte_value_is_safe(lo) && word_arithmetic_byte_value_is_safe(hi) =>
+        {
+            Some(WordArithmeticSource::Values {
+                lo: lo.as_ref().clone(),
+                hi: hi.as_ref().clone(),
+            })
+        }
+        MirValue::PointerCell(mem) if word_arithmetic_direct_mem_is_safe(mem) => {
+            Some(WordArithmeticSource::Values {
+                lo: MirValue::PointerCell(mem.clone()),
+                hi: MirValue::PointerCell(super::values::offset_mem(mem, 1)),
+            })
+        }
+        _ => None,
+    }
+}
+
+fn word_arithmetic_direct_mem_is_safe(mem: &MirMem) -> bool {
+    matches!(
+        mem,
+        MirMem::Param { .. } | MirMem::Local { .. } | MirMem::Global { .. } | MirMem::Spill { .. }
+    )
+}
+
+fn word_arithmetic_pointer_mem_is_safe(mem: &MirMem) -> bool {
+    matches!(
+        mem,
+        MirMem::Param { .. }
+            | MirMem::Local { .. }
+            | MirMem::Global { .. }
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_)
+    )
+}
+
+fn word_arithmetic_byte_value_is_safe(value: &MirValue) -> bool {
+    matches!(value, MirValue::ConstU8(_) | MirValue::ConstU16(_))
+        || matches!(value, MirValue::PointerCell(mem) if word_arithmetic_direct_mem_is_safe(mem))
+}
+
+fn push_word_arithmetic_source_load(
+    ops: &mut Vec<MirOp>,
+    source: &WordArithmeticSource,
+    byte: u8,
+    pointer_consumer: MirAddressConsumer,
+) {
+    match source {
+        WordArithmeticSource::Values { lo, hi } => ops.push(MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: if byte == 0 { lo.clone() } else { hi.clone() },
+            width: MirWidth::Byte,
+        }),
+        WordArithmeticSource::Indirect { offset, .. } => ops.push(MirOp::LoadIndirect {
+            consumer: pointer_consumer,
+            dst: MirDef::Reg(MirReg::A),
+            offset: offset.saturating_add(u16::from(byte)),
+        }),
+    }
+}
+
 pub(in crate::mir6502) fn byte_add_word_compare_candidate(
     ops: &[MirOp],
     index: usize,
@@ -247,6 +527,75 @@ pub(super) fn expand_proven_byte_add_word_compare_branches(
             MirCond::FlagTest(MirFlagTest::CSet),
             carry_set_target,
             low_compare,
+        );
+        expanded += 1;
+    }
+    expanded
+}
+
+pub(super) fn expand_proven_word_arithmetic_compare_branches(
+    blocks: &mut Vec<MirBlock>,
+    proven_sites: &BTreeSet<(MirBlockId, usize)>,
+) -> usize {
+    let mut next_id = blocks
+        .iter()
+        .map(|block| block.id.0)
+        .max()
+        .unwrap_or(0)
+        .saturating_add(1);
+    let original_len = blocks.len();
+    let mut expanded = 0usize;
+    for block_index in 0..original_len {
+        let block_id = blocks[block_index].id;
+        let Some(start) = proven_sites
+            .iter()
+            .find_map(|(block, start)| (*block == block_id).then_some(*start))
+        else {
+            continue;
+        };
+        let Some(candidate) = word_arithmetic_compare_candidate(&blocks[block_index].ops, start)
+        else {
+            continue;
+        };
+        let Some((cond_temp, then_block, else_block)) = branch_bool_temp(&blocks[block_index])
+        else {
+            continue;
+        };
+        if candidate.compare_dst != MirCondDest::Temp(cond_temp)
+            || start + candidate.consumed != blocks[block_index].ops.len()
+        {
+            continue;
+        }
+
+        let low_compare = fresh_block_id(&mut next_id);
+        let mut low_ops = Vec::new();
+        let low_terminator = materialize_byte_compare_branch(
+            &mut low_ops,
+            candidate.compare_op,
+            MirValue::Def(MirDef::Reg(MirReg::X)),
+            candidate.low_right,
+            then_block,
+            else_block,
+        );
+        blocks.push(MirBlock {
+            id: low_compare,
+            label: format!("cmp_word_arith_lo_{}", low_compare.0),
+            params: Vec::new(),
+            ops: low_ops,
+            terminator: low_terminator,
+        });
+
+        blocks[block_index].ops.truncate(start);
+        blocks[block_index].ops.extend(candidate.entry_ops);
+        let mismatch_target = match candidate.compare_op {
+            MirCompareOp::Eq => else_block,
+            MirCompareOp::Ne => then_block,
+            _ => unreachable!(),
+        };
+        blocks[block_index].terminator = branch_terminator(
+            MirCond::FlagTest(MirFlagTest::ZSet),
+            low_compare,
+            mismatch_target,
         );
         expanded += 1;
     }
