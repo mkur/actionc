@@ -17688,6 +17688,196 @@ fn byte_scalar_storage_test_program() -> MirProgram {
     program
 }
 
+fn two_word_action_binary_call_ops(
+    arithmetic_first: bool,
+    arithmetic_op: MirBinaryOp,
+    arithmetic_source: MirMem,
+    plain_source: MirMem,
+) -> Vec<MirOp> {
+    let plain_temp = MirTempId(0);
+    let arithmetic_source_temp = MirTempId(1);
+    let arithmetic_temp = MirTempId(2);
+    let mut ops = if arithmetic_first {
+        vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(arithmetic_source_temp),
+                src: MirAddr::Direct(arithmetic_source),
+                width: MirWidth::Word,
+            },
+            MirOp::Binary {
+                op: arithmetic_op,
+                dst: MirDef::VTemp(arithmetic_temp),
+                left: MirValue::Def(MirDef::VTemp(arithmetic_source_temp)),
+                right: MirValue::ConstU16(1),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(plain_temp),
+                src: MirAddr::Direct(plain_source),
+                width: MirWidth::Word,
+            },
+        ]
+    } else {
+        vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(plain_temp),
+                src: MirAddr::Direct(plain_source),
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(arithmetic_source_temp),
+                src: MirAddr::Direct(arithmetic_source),
+                width: MirWidth::Word,
+            },
+            MirOp::Binary {
+                op: arithmetic_op,
+                dst: MirDef::VTemp(arithmetic_temp),
+                left: MirValue::Def(MirDef::VTemp(arithmetic_source_temp)),
+                right: MirValue::ConstU16(1),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+        ]
+    };
+    let (first, second) = if arithmetic_first {
+        (arithmetic_temp, plain_temp)
+    } else {
+        (plain_temp, arithmetic_temp)
+    };
+    ops.push(MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: vec![
+                MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+                MirArgHome::BytePair {
+                    lo: Box::new(MirArgHome::Reg(MirReg::Y)),
+                    hi: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3))),
+                },
+            ],
+            result: None,
+            clobbers: MirRegisterSet::default(),
+            preserves: MirRegisterSet::default(),
+        },
+        args: vec![
+            MirCallArg {
+                value: MirValue::Def(MirDef::VTemp(first)),
+                width: MirWidth::Word,
+                home: MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+            },
+            MirCallArg {
+                value: MirValue::Def(MirDef::VTemp(second)),
+                width: MirWidth::Word,
+                home: MirArgHome::BytePair {
+                    lo: Box::new(MirArgHome::Reg(MirReg::Y)),
+                    hi: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3))),
+                },
+            },
+        ],
+        result: None,
+        effects: MirEffects::default(),
+    });
+    ops
+}
+
+#[test]
+fn call_arg_expr_materializes_word_arithmetic_in_either_four_byte_action_lane() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    for (arithmetic_first, arithmetic_op) in [
+        (false, MirBinaryOp::Add),
+        (false, MirBinaryOp::Sub),
+        (true, MirBinaryOp::Add),
+        (true, MirBinaryOp::Sub),
+    ] {
+        let ops = two_word_action_binary_call_ops(
+            arithmetic_first,
+            arithmetic_op,
+            MirMem::Local {
+                id: LocalId(0),
+                offset: 0,
+            },
+            MirMem::Local {
+                id: LocalId(1),
+                offset: 0,
+            },
+        );
+        let mut helpers = Vec::new();
+        let mut out = Vec::new();
+
+        let result = try_materialize_call_arg_expr_producers(
+            &ops,
+            0,
+            &Mir6502Config::optimized(),
+            &layout,
+            &mut helpers,
+            &mut out,
+        );
+
+        assert_eq!(result.consumed, ops.len());
+        assert_eq!(result.direct_word_arithmetic, 1);
+        assert!(helpers.is_empty());
+        assert!((0..=2).all(|temp| out.iter().all(|op| !op_uses_temp(op, MirTempId(temp)))));
+        assert!(out.iter().any(|op| matches!(
+            op,
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA3))),
+                ..
+            }
+        )));
+        assert!(matches!(
+            out.last(),
+            Some(MirOp::Call { args, .. })
+                if args.iter().map(|arg| arg.home.clone()).collect::<Vec<_>>() == vec![
+                    MirArgHome::Reg(MirReg::A),
+                    MirArgHome::Reg(MirReg::X),
+                    MirArgHome::Reg(MirReg::Y),
+                    MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3)),
+                ]
+        ));
+    }
+}
+
+#[test]
+fn call_arg_expr_rejects_second_word_arithmetic_that_would_overwrite_first_source() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = two_word_action_binary_call_ops(
+        false,
+        MirBinaryOp::Add,
+        MirMem::Local {
+            id: LocalId(0),
+            offset: 0,
+        },
+        MirMem::FixedZeroPage(MirFixedZpSlot(0xA2)),
+    );
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::optimized(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(
+        result,
+        super::calls::CallArgExprMaterializeResult::default()
+    );
+    assert!(out.is_empty());
+}
+
 #[test]
 fn call_arg_expr_materializes_low_byte_word_add_args() {
     let program = empty_test_program();

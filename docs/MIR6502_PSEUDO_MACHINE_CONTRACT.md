@@ -823,6 +823,11 @@ Rules:
   and consumer are adjacent, the result definition has no other live use, and
   no intervening operation can overwrite the return bytes. Removing the
   logical result temp does not weaken the call's memory or machine effects.
+- For the canonical four-byte Action argument prefix, selected word arithmetic
+  may write the first word directly to A:X or the second directly to Y:`$A3`.
+  The scheduler must place the companion word afterward only when that cannot
+  overwrite an unread source, and must preserve the low-lane carry or borrow
+  through the high-lane operation.
 
 ## Runtime Helpers
 

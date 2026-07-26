@@ -1946,6 +1946,10 @@ fn call_arg_expr_plan(
                 "indexed-word-arithmetic-ax-call-arg",
                 candidate.indexed_word_arithmetic,
             ),
+            (
+                "word-arithmetic-direct-action-call-arg",
+                candidate.direct_word_arithmetic,
+            ),
         ]
         .into_iter()
         .filter(|(_, count)| *count != 0)

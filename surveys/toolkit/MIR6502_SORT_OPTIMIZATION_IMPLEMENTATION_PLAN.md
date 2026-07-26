@@ -1,6 +1,6 @@
 # MIR6502 SORT Optimization Implementation Plan
 
-Status: implementation in progress (Slices 0A-4 complete)
+Status: implementation in progress (Slices 0A-5 complete)
 
 Date: 2026-07-26
 
@@ -554,6 +554,27 @@ destinations but does not cover this second word lane.
   candidate; it is not special-cased.
 - `QuickSort` shrinks measurably and all sort types pass the VM oracle.
 - No SARGS callee-entry logic changes.
+
+Implemented result: the shared call-argument expression selector now supports
+constant word addition and subtraction in either word of the canonical
+four-byte Action call prefix. For second-word arithmetic it keeps the low
+result in Y, carries or borrows into the high lane, stores that lane directly
+to `$A3`, and only then places the proven-safe first word in A:X. For
+first-word arithmetic it first captures the companion word in Y:`$A3`, then
+uses the existing A:X arithmetic schedule. Commuted addition is normalized;
+subtraction retains operand order. A first-word source overlapping `$A3` is
+rejected when second-word placement would overwrite it.
+
+The selector fires at all five arithmetic `AddList` calls in `QuickSort`,
+including the initial `len-1` call. The branch-local arithmetic results no
+longer have RAM homes. SORTDM1 shrank from 4,672 to 4,590 load-file bytes.
+Recognized code fell from 4,314 to 4,236 bytes, data from 346 to 342 bytes,
+and the instruction count from 1,854 to 1,832. `LDA` fell from 575 to 566 and
+`STA` from 496 to 483. SORTDM2 likewise shrank from 2,748 to 2,666 bytes. A
+dedicated cross-backend VM gate covers carry, borrow, wrap, arithmetic in
+either argument, commuted addition, a live companion argument, and a fixed
+`$A2/$A3` arithmetic source. The SORT oracle passes, while TN and ALLOCATE
+remain byte-identical. No SARGS entry code changed.
 
 Commit independently.
 

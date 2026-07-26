@@ -1,0 +1,65 @@
+; Runtime regression for direct word arithmetic in the canonical four-byte
+; Action call lane: A:X for the first word and Y:$A3 for the second.
+
+CARD ARRAY observed
+BYTE position
+BYTE signature=$061C
+CARD fixed=$00A2
+CARD value
+
+PROC Capture(CARD first,second)
+  observed(position)=first
+  position==+1
+  observed(position)=second
+  position==+1
+RETURN
+
+PROC AddSecond(CARD first,value)
+  Capture(first,value+1)
+RETURN
+
+PROC SubSecond(CARD first,value)
+  Capture(first,value-1)
+RETURN
+
+PROC AddFirst(CARD value,second)
+  Capture(value+1,second)
+RETURN
+
+PROC SubFirst(CARD value,second)
+  Capture(value-1,second)
+RETURN
+
+PROC AddFirstReversed(CARD value,second)
+  Capture(1+value,second)
+RETURN
+
+PROC Main()
+  observed=$0600
+  position=0
+
+  value=$00FF
+  AddSecond($1234,value)
+
+  value=$0100
+  SubSecond($2345,value)
+
+  value=$FFFF
+  AddSecond($3456,value)
+
+  value=$00FF
+  AddFirst(value,$4567)
+
+  value=$0100
+  SubFirst(value,$5678)
+
+  value=$00FF
+  AddFirstReversed(value,$6789)
+
+  fixed=$00FF
+  Capture($789A,fixed+1)
+
+  signature=$A5
+  DO
+  OD
+RETURN

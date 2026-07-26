@@ -74,6 +74,7 @@ pub(super) fn try_materialize_call_arg_expr_producers(
         consumed: candidate.consumed,
         indexed_word_loads: candidate.indexed_word_loads,
         indexed_word_arithmetic: candidate.indexed_word_arithmetic,
+        direct_word_arithmetic: candidate.direct_word_arithmetic,
     }
 }
 
@@ -85,6 +86,7 @@ pub(in crate::mir6502) struct CallArgExprRewriteCandidate {
     pub required_helpers: Vec<MirRuntimeHelper>,
     pub indexed_word_loads: usize,
     pub indexed_word_arithmetic: usize,
+    pub direct_word_arithmetic: usize,
 }
 
 pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
@@ -118,6 +120,8 @@ pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
             )
         })
         .count();
+    let direct_word_arithmetic =
+        usize::from(direct_two_word_arithmetic_action_args_supported(&plan.args));
     let mut replacement = Vec::new();
     let mut required_helpers = Vec::new();
     materialize_call_arg_expr_plan(&plan, layout, &mut required_helpers, &mut replacement);
@@ -128,6 +132,7 @@ pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
         required_helpers,
         indexed_word_loads,
         indexed_word_arithmetic,
+        direct_word_arithmetic,
     })
 }
 
@@ -137,6 +142,7 @@ pub(super) struct CallArgExprMaterializeResult {
     pub(super) consumed: usize,
     pub(super) indexed_word_loads: usize,
     pub(super) indexed_word_arithmetic: usize,
+    pub(super) direct_word_arithmetic: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -479,9 +485,6 @@ fn collect_call_arg_expr_plan(
         if value_uses_collected_temp(&arg.value, &exprs) {
             return None;
         }
-        if matches!(arg.home, MirArgHome::RegisterPair { .. }) {
-            return None;
-        }
         planned_args.push(PlannedCallArg::Existing(arg.clone()));
     }
     if !saw_expr {
@@ -500,6 +503,8 @@ fn collect_call_arg_expr_plan(
         .collect::<Vec<_>>();
     let direct_indexed_word_action =
         direct_indexed_word_action_args_supported(&planned_args, &raw_args);
+    let direct_two_word_arithmetic_action =
+        direct_two_word_arithmetic_action_args_supported(&planned_args);
     if call_arg_expr_register_homes_supported(&raw_args)
         && planned_args.len() != 1
         && planned_args.iter().any(|arg| {
@@ -517,6 +522,7 @@ fn collect_call_arg_expr_plan(
     }
     if !call_arg_expr_register_homes_supported(&raw_args) {
         if !direct_indexed_word_action
+            && !direct_two_word_arithmetic_action
             && (!planned_call_args_use_action_staging(&planned_args)
                 || !staged_action_producer_order_supported(
                     args,
@@ -982,6 +988,10 @@ fn materialize_call_arg_expr_plan(
     helpers: &mut Vec<MirRuntimeHelper>,
     out: &mut Vec<MirOp>,
 ) {
+    if direct_two_word_arithmetic_action_args_supported(&plan.args) {
+        materialize_direct_two_word_arithmetic_action_call(plan, layout, helpers, out);
+        return;
+    }
     if direct_indexed_word_action_args_supported(
         &plan.args,
         &plan
@@ -1097,6 +1107,133 @@ fn direct_indexed_word_action_args_supported(
         }
     }
     indexed_word_pairs == 1
+}
+
+fn direct_two_word_arithmetic_action_args_supported(args: &[PlannedCallArg]) -> bool {
+    direct_second_word_binary_action_args_supported(args)
+        || direct_first_word_binary_action_args_supported(args)
+}
+
+fn direct_second_word_binary_action_args_supported(args: &[PlannedCallArg]) -> bool {
+    let [first, second] = args else {
+        return false;
+    };
+    let first_value = match first {
+        PlannedCallArg::Expr {
+            expr:
+                CallArgExpr::Value {
+                    value,
+                    width: MirWidth::Word,
+                },
+            width: MirWidth::Word,
+            home:
+                MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+        }
+        | PlannedCallArg::Existing(MirCallArg {
+            value,
+            width: MirWidth::Word,
+            home:
+                MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+        }) => value,
+        _ => return false,
+    };
+    if word_value_overlaps_fixed_slot(first_value, MirFixedZpSlot(0xA3)) {
+        return false;
+    }
+    let PlannedCallArg::Expr {
+        expr,
+        width: MirWidth::Word,
+        home: MirArgHome::BytePair { lo, hi },
+    } = second
+    else {
+        return false;
+    };
+    matches!(&**lo, MirArgHome::Reg(MirReg::Y))
+        && matches!(&**hi, MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3)))
+        && direct_ya3_word_binary_parts(expr).is_some()
+}
+
+fn direct_first_word_binary_action_args_supported(args: &[PlannedCallArg]) -> bool {
+    let [first, second] = args else {
+        return false;
+    };
+    let PlannedCallArg::Expr {
+        expr,
+        width: MirWidth::Word,
+        home:
+            MirArgHome::RegisterPair {
+                lo: MirReg::A,
+                hi: MirReg::X,
+            },
+    } = first
+    else {
+        return false;
+    };
+    if direct_ya3_word_binary_parts(expr).is_none() {
+        return false;
+    }
+    let second_home = match second {
+        PlannedCallArg::Expr {
+            expr:
+                CallArgExpr::Value {
+                    value: _,
+                    width: MirWidth::Word,
+                },
+            width: MirWidth::Word,
+            home,
+        }
+        | PlannedCallArg::Existing(MirCallArg {
+            value: _,
+            width: MirWidth::Word,
+            home,
+        }) => home,
+        _ => return false,
+    };
+    matches!(
+        second_home,
+        MirArgHome::BytePair { lo, hi }
+            if matches!(&**lo, MirArgHome::Reg(MirReg::Y))
+                && matches!(&**hi, MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3)))
+    )
+}
+
+fn word_value_overlaps_fixed_slot(value: &MirValue, target: MirFixedZpSlot) -> bool {
+    match value {
+        MirValue::PointerCell(MirMem::FixedZeroPage(slot)) => {
+            slot.0 == target.0 || slot.0.saturating_add(1) == target.0
+        }
+        MirValue::Word { lo, hi } => {
+            value_reads_mem(lo, &MirMem::FixedZeroPage(target))
+                || value_reads_mem(hi, &MirMem::FixedZeroPage(target))
+        }
+        _ => false,
+    }
+}
+
+fn direct_ya3_word_binary_parts(
+    expr: &CallArgExpr,
+) -> Option<(MirBinaryOp, &CallArgExpr, &CallArgExpr)> {
+    let CallArgExpr::Binary {
+        op,
+        left,
+        right,
+        width: MirWidth::Word,
+    } = expr
+    else {
+        return None;
+    };
+    match op {
+        MirBinaryOp::Add if call_arg_expr_constant(right).is_some() => Some((*op, left, right)),
+        MirBinaryOp::Add if call_arg_expr_constant(left).is_some() => Some((*op, right, left)),
+        MirBinaryOp::Sub if call_arg_expr_constant(right).is_some() => Some((*op, left, right)),
+        _ => None,
+    }
 }
 
 fn value_can_load_y_without_clobbering_ax(value: &MirValue) -> bool {
@@ -1229,6 +1366,154 @@ fn materialized_direct_indexed_word_action_args(arg: &PlannedCallArg) -> Vec<Mir
             },
         }],
         _ => Vec::new(),
+    }
+}
+
+fn materialize_direct_two_word_arithmetic_action_call(
+    plan: &CallArgExprPlan,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) {
+    let target = materialize_call_target(plan.target.clone(), layout, out);
+    let [first, second] = plan.args.as_slice() else {
+        unreachable!("direct word arithmetic requires two Action arguments")
+    };
+    if direct_second_word_binary_action_args_supported(&plan.args) {
+        let PlannedCallArg::Expr { expr, .. } = second else {
+            unreachable!("direct second-word arithmetic requires an expression")
+        };
+        let Some((op, left, right)) = direct_ya3_word_binary_parts(expr) else {
+            unreachable!("direct second-word arithmetic was validated before materialization")
+        };
+        materialize_word_binary_to_ya3(op, left, right, layout, out);
+        materialize_first_action_word_to_ax(first, layout, out);
+    } else {
+        let PlannedCallArg::Expr { expr, .. } = first else {
+            unreachable!("direct first-word arithmetic requires an expression")
+        };
+        materialize_second_action_word_to_ya3(second, layout, out);
+        materialize_expr_word_to_ax(expr, layout, helpers, out);
+    }
+
+    let args = vec![
+        MirCallArg {
+            value: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::A),
+        },
+        MirCallArg {
+            value: MirValue::Def(MirDef::Reg(MirReg::X)),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::X),
+        },
+        MirCallArg {
+            value: MirValue::Def(MirDef::Reg(MirReg::Y)),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::Y),
+        },
+        MirCallArg {
+            value: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(0xA3))),
+            width: MirWidth::Byte,
+            home: MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3)),
+        },
+    ];
+    out.push(MirOp::Call {
+        target,
+        abi: MirCallAbi {
+            params: args.iter().map(|arg| arg.home.clone()).collect(),
+            result: None,
+            clobbers: plan.abi.clobbers,
+            preserves: plan.abi.preserves,
+        },
+        args,
+        result: None,
+        effects: plan.effects.clone(),
+    });
+    if let Some(result) = &plan.result {
+        materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
+    }
+}
+
+fn materialize_second_action_word_to_ya3(
+    arg: &PlannedCallArg,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) {
+    let (lo, hi) = match arg {
+        PlannedCallArg::Expr { expr, .. } => {
+            expr_word_byte_values(expr, layout).expect("validated second Action word argument")
+        }
+        PlannedCallArg::Existing(MirCallArg { value, .. }) => split_value(value.clone(), layout),
+    };
+    materialize_call_arg_to_reg(lo, MirReg::Y, out);
+    materialize_call_arg_to_mem(hi, MirMem::FixedZeroPage(MirFixedZpSlot(0xA3)), out);
+}
+
+fn materialize_word_binary_to_ya3(
+    op: MirBinaryOp,
+    left: &CallArgExpr,
+    right: &CallArgExpr,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) {
+    let (left_lo, right_lo) =
+        expr_binary_low_operands(left, right, layout).expect("validated word binary low operands");
+    let (left_hi, right_hi) = expr_binary_high_operands(left, right, layout)
+        .expect("validated word binary high operands");
+    materialize_call_arg_to_reg(left_lo, MirReg::A, out);
+    out.push(MirOp::Binary {
+        op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: right_lo,
+        width: MirWidth::Byte,
+        carry_in: Some(match op {
+            MirBinaryOp::Add => MirCarryIn::Clear,
+            MirBinaryOp::Sub => MirCarryIn::Set,
+            _ => unreachable!("direct Y:$A3 word arithmetic only supports add/sub"),
+        }),
+        carry_out: MirCarryOut::Produce,
+    });
+    out.push(MirOp::Move {
+        dst: MirDef::Reg(MirReg::Y),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    materialize_call_arg_to_reg(left_hi, MirReg::A, out);
+    out.push(MirOp::Binary {
+        op,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: right_hi,
+        width: MirWidth::Byte,
+        carry_in: Some(MirCarryIn::FromPrevious),
+        carry_out: MirCarryOut::Ignore,
+    });
+    materialize_call_arg_to_mem(
+        MirValue::Def(MirDef::Reg(MirReg::A)),
+        MirMem::FixedZeroPage(MirFixedZpSlot(0xA3)),
+        out,
+    );
+}
+
+fn materialize_first_action_word_to_ax(
+    arg: &PlannedCallArg,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) {
+    match arg {
+        PlannedCallArg::Expr { expr, .. } => {
+            let (lo, hi) =
+                expr_word_byte_values(expr, layout).expect("validated first Action word argument");
+            materialize_call_arg_to_reg(hi, MirReg::X, out);
+            materialize_call_arg_to_reg(lo, MirReg::A, out);
+        }
+        PlannedCallArg::Existing(MirCallArg { value, .. }) => {
+            let (lo, hi) = split_value(value.clone(), layout);
+            materialize_call_arg_to_reg(hi, MirReg::X, out);
+            materialize_call_arg_to_reg(lo, MirReg::A, out);
+        }
     }
 }
 

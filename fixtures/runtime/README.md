@@ -70,6 +70,12 @@ Run the MIR6502 signed return-word compare-to-zero gate directly:
 fixtures/runtime/run-signed-return-word-zero-compares-vm.sh
 ```
 
+Run the direct four-byte Action call-argument arithmetic gate directly:
+
+```sh
+fixtures/runtime/run-direct-action-word-arithmetic-args-vm.sh
+```
+
 The gate compiles `initialized_arrays.act` with the modern classic and MIR6502
 backends. It covers global and local initialized BYTE and CARD arrays,
 including the descriptor-backed CARD representations, then checks the six
@@ -163,6 +169,13 @@ selections, and checks 40 hard-coded predicate results plus a signature byte.
 It is MIR6502-only because it verifies the MIR type contract for a signed
 operand on either side; classic Action comparison selection is left-operand
 driven.
+
+The direct Action word-argument fixture covers word addition and subtraction
+in both the A:X first-argument lane and the Y:`$A3` second-argument lane. Its
+29-byte oracle covers carry, borrow, wrap, a live companion argument,
+commuted addition, and an arithmetic source spanning fixed `$A2/$A3`. The
+MIR6502 preflight requires all six static arithmetic call sites to use the
+direct schedule; both modern backends execute the same hard-coded oracle.
 
 It is also part of the opt-in compatibility integration tests:
 
