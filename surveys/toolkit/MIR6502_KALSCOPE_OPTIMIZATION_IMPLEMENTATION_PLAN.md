@@ -1,6 +1,6 @@
 # MIR6502 KALSCOPE Optimization Implementation Plan
 
-Status: in progress; Slices 0-5 complete
+Status: complete; Slices 0-6 implemented and audited
 
 Date: 2026-07-26
 
@@ -311,6 +311,11 @@ Result:
   store/reload pair at each low-byte projection.
 - MIR6502 output fell from 3,419 to 3,401 bytes, reducing the classic deficit
   from 101 to 83 bytes.
+- A final post-home follow-up recognizes `CARD RSH 8` byte consumers after
+  home assignment. It replaces the runtime shift with the direct high lane
+  while preserving the helper's observable `$84 = 8` and `$85 = 0` scratch
+  state. Two KALSCOPE sites select this form and feed the existing late
+  indirect-store placement.
 
 ### Slice 5: Encode trusted runtime-helper scratch effects
 
@@ -330,6 +335,10 @@ Result:
   zero-page read/write regions and an explicit balanced stack effect.
 - Runtime-helper operations now carry their implicit A/X and fixed-ZP argument
   homes, preventing liveness from mistaking helper inputs for dead definitions.
+- Structured zero-page effects now also expose their exact fixed-ZP home reads
+  and writes. The analysis remains conservative about possible compiler-home
+  aliases, but definition-sensitive rewrites can distinguish the helper's
+  concrete `$84/$85` definitions.
 - `Lsh`/`Rsh`, `Mul`, `Div`, and `Mod` use exact scratch ranges. SArgs retains
   unknown reads/writes because MIR's current effect union cannot express its
   exact `$82-$85`/`$A0-$A2` writes together with its unknown destination;
@@ -341,8 +350,13 @@ Result:
   is stored without a transient home.
 - MIR6502 output fell from 3,401 to 3,383 bytes, reducing the classic deficit
   from 83 to 65 bytes.
+- The exact scratch-home model also made two additional committed pointer
+  updates definition-safe. Together with the two direct high-lane projections,
+  the final output fell to 3,319 bytes.
 
 ### Slice 6: Final audit and stop decision
+
+Status: complete.
 
 Regenerate classic and MIR6502 listings, maps, loads, quality reports,
 pre/materialized MIR, spill reports, and site telemetry. Record:
@@ -358,6 +372,96 @@ pre/materialized MIR, spill reports, and site telemetry. Record:
 Stop unless a remaining KALSCOPE deficit is at least eight bytes, appears at
 two general sites or one demonstrably hot loop site, and can be removed using
 the shared proofs without weakening effect conservatism.
+
+## Final Audit
+
+Artifacts:
+
+```text
+target/kalscope-final-audit-20260726/kalscope/
+target/kalscope-toolkit-final/modern-mir6502/
+```
+
+Final load hashes:
+
+| Backend | SHA-256 |
+| --- | --- |
+| modern/classic | `a7b894d329e03db11e93ff8c07292d9dd5d8d35e100e4b1dbf13decd44fc70c6` |
+| modern/MIR6502 | `072c3877088cf9d2d274b5b055c430340d09626d86e41201e65ede8bb21b8a3a` |
+
+### Whole-program result
+
+| Metric | Baseline MIR6502 | Final MIR6502 | Modern/classic | Final difference |
+| --- | ---: | ---: | ---: | ---: |
+| XEX bytes | 3,683 | 3,319 | 3,318 | +1 |
+| Recognized instruction bytes | 2,920 | 2,566 | 2,573 | -7 |
+| Data and inline machine bytes | 751 | 741 | 733 | +8 |
+| Recognized instructions | 1,259 | 1,124 | 1,117 | +7 |
+| `LDA` | 433 | 371 | 337 | +34 |
+| `STA` | 368 | 302 | 294 | +8 |
+| `LDA` + `STA` instruction share | 63.6% | 59.9% | 56.5% | +3.4 points |
+| RAM spill homes | 15 IDs / 17 slots | 7 IDs / 7 slots | 0 | +7 |
+| RAM spill accesses | 118 | 34 | 0 | +34 |
+| Virtual-ZP homes | 33 | 23 | n/a | n/a |
+| Virtual-ZP accesses | 152 | 114 | n/a | n/a |
+| Branch-over-`JMP` forms | n/a | 0 | 4 | -4 |
+| Tail `JSR; RTS` forms | n/a | 0 | 2 | -2 |
+
+MIR6502 removed 364 bytes, or 9.9%, from its KALSCOPE baseline. Its final
+recognized instruction stream is seven bytes smaller than classic; the
+one-byte XEX deficit is the net result of eight additional data/home bytes.
+
+### Routine result
+
+The classic `InitGr8` figure uses the routine-entry convention from the
+baseline audit; the full-program instruction totals above are authoritative.
+
+| Routine | Baseline MIR6502 | Final MIR6502 | Modern/classic | Final difference |
+| --- | ---: | ---: | ---: | ---: |
+| `InitP` | 169 | 169 | 169 | 0 |
+| `InitGr8` | 1,002 | 806 | 709 | +97 |
+| `Plot8` | 82 | 82 | 94 | -12 |
+| `Erase8` | 82 | 82 | 94 | -12 |
+| `GenP` | 441 | 362 | 389 | -27 |
+| `GenE` | 437 | 358 | 385 | -27 |
+| `GetParam` | 266 | 266 | 265 | +1 |
+| `Params` | 172 | 172 | 160 | +12 |
+| `Kal3` | 269 | 269 | 311 | -42 |
+
+### Final selector counts
+
+| Selector | Selections |
+| --- | ---: |
+| committed word-store forwarding | 7 |
+| staged word `INC`/`DEC` | 7 |
+| direct word bitwise RHS | 8 |
+| pure A/X byte-call scheduling | 12 |
+| transformed direct indirect store | 3 |
+| direct indirect store | 2 |
+| word `RSH 8` high projection | 2 |
+| helper-crossing indexed store | 1 |
+
+The complete modern/MIR6502 Toolkit batch passed 20/20 programs and totals
+43,222 bytes.
+
+### Stop decision
+
+Stop. The remaining whole-program deficit is one byte, below the eight-byte
+threshold. `InitGr8` still contains seven RAM homes and one unfused high-word
+projection, but pursuing those forms solely for KALSCOPE would add analysis
+surface without a meaningful program-size result. Future work should be driven
+by a repeated pattern in another audited program, not this residual byte.
+
+### Validation result
+
+- `cargo test`: passed.
+- KALSCOPE backend-contract VM gate: passed.
+- KALSCOPE codegen-pattern VM gate: passed.
+- TN stability gate: passed.
+- ALLOCATE runtime gate: passed.
+- SORT runtime gate: passed.
+- CIRCLE INT runtime gate: passed.
+- modern/MIR6502 Toolkit batch: 20 successes, 0 failures.
 
 ## Validation
 
