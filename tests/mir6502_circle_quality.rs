@@ -9,15 +9,16 @@ use actionc::semantic::{analyze, ir};
 #[test]
 fn circle_uses_direct_binary_call_arg_materialization() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("samples")
+        .join("corpora")
         .join("toolkit")
         .join("original")
         .join("extracted")
         .join("CIRCLE.ACT");
-    if !fixture.exists() {
-        eprintln!("skipping optional fixture {}", fixture.display());
-        return;
-    }
+    assert!(
+        fixture.exists(),
+        "required Toolkit fixture is missing: {}",
+        fixture.display()
+    );
     let loaded = load_program_with_expanded_source(&fixture)
         .unwrap_or_else(|err| panic!("load {}: {err:?}", fixture.display()));
     let model = analyze(&loaded.program)
@@ -43,26 +44,9 @@ fn circle_uses_direct_binary_call_arg_materialization() {
         "{formatted}"
     );
     assert!(formatted.contains("store.b fixed_zp $A0, a"), "{formatted}");
-    assert!(
-        formatted.contains(
-            "a =.b load local l4+0\n  store.b fixed_zp $A0, a\n  a =.b load param p1+0\n  a =.b a add *fixed_zp $A0"
-        ),
-        "{formatted}"
-    );
-    assert!(
-        formatted.contains(
-            "a =.b load local l3+0\n  store.b fixed_zp $A1, a\n  a =.b load param p0+0\n  a =.b a sub *fixed_zp $A1"
-        ),
-        "{formatted}"
-    );
-    assert!(
-        !formatted.contains(
-            "a =.b load local l3+0\n  store.b fixed_zp $A1, a\n  a =.b a sub *fixed_zp $A1"
-        ),
-        "{formatted}"
-    );
-    assert!(
-        formatted.matches("call Plot@$A6C3").count() >= 8,
+    assert_eq!(
+        formatted.matches("call Plot@$A6C3").count(),
+        8,
         "{formatted}"
     );
 

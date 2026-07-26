@@ -88,6 +88,12 @@ Run the paired wrapping word-arithmetic comparison gate directly:
 fixtures/runtime/run-paired-word-arithmetic-compare-vm.sh
 ```
 
+Run the CIRCLE signed-INT arithmetic and comparison gate directly:
+
+```sh
+fixtures/runtime/run-circle-int-math-vm.sh
+```
+
 The gate compiles `initialized_arrays.act` with the modern classic and MIR6502
 backends. It covers global and local initialized BYTE and CARD arrays,
 including the descriptor-backed CARD representations, then checks the six
@@ -178,6 +184,15 @@ The signed return-word fixture executes all four signed relational predicates
 with zero on either side of an `INT` call result. It covers `$8000`, `$FFFF`,
 `$0000`, `$0001`, and `$7FFF`, requires all eight direct return-slot
 selections, and checks 40 hard-coded predicate results plus a signature byte.
+
+The CIRCLE INT fixture exercises ordinary-memory signed word add/sub into the
+first A/X call argument and a narrowed Y argument, wrapping `Phiy`/`Phixy`
+chains, direct signed zero and word relations, and two leaf-call results
+feeding a signed comparison. Both modern backends check 30 hard-coded result
+bytes at `$0600-$061D`. Three signed-overflow comparison slots have separate
+classic and MIR6502 expectations: the classic backend's legacy N-only branch
+misclassifies `$8000` versus `$7FFF`, while MIR6502 must satisfy the signed
+language result.
 It is MIR6502-only because it verifies the MIR type contract for a signed
 operand on either side; classic Action comparison selection is left-operand
 driven.

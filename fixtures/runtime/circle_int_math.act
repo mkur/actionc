@@ -1,0 +1,113 @@
+; Runtime regression for the signed INT arithmetic shapes used by CIRCLE.ACT.
+;
+; It covers ordinary-memory add/sub call arguments in A/X and Y, wrapping
+; word chains, direct signed comparisons, signed zero tests, and two leaf-call
+; results feeding a signed comparison.
+
+CARD ARRAY wordResults
+BYTE ARRAY byteResults
+BYTE ARRAY predicateResults
+
+BYTE wordPosition
+BYTE bytePosition
+BYTE predicatePosition
+
+INT leftValue
+INT rightValue
+INT yBase
+INT yOffset
+
+CARD chainPhiy=$0609
+CARD chainPhixy=$060B
+BYTE signature=$061D
+
+PROC CapturePoint(CARD first BYTE second)
+  wordResults(wordPosition)=first
+  wordPosition==+1
+  byteResults(bytePosition)=second
+  bytePosition==+1
+RETURN
+
+PROC BuildChain(INT phi,y,x)
+  INT phiy,phixy
+
+  phiy=phi+y+y+1
+  phixy=phiy-x-x+1
+  chainPhiy=phiy
+  chainPhixy=phixy
+RETURN
+
+BYTE FUNC IsNegative(INT value)
+  IF value<0 THEN RETURN(1) FI
+RETURN(0)
+
+BYTE FUNC IsNonNegative(INT value)
+  IF value>=0 THEN RETURN(1) FI
+RETURN(0)
+
+BYTE FUNC IsLess(INT first,second)
+  IF first<second THEN RETURN(1) FI
+RETURN(0)
+
+INT FUNC AbsValue(INT value)
+  IF value<0 THEN RETURN(-value) FI
+RETURN(value)
+
+BYTE FUNC IsAbsLess(INT first,second)
+  IF AbsValue(first)<AbsValue(second) THEN RETURN(1) FI
+RETURN(0)
+
+PROC RecordPredicate(BYTE value)
+  predicateResults(predicatePosition)=value
+  predicatePosition==+1
+RETURN
+
+PROC Main()
+  wordResults=$0600
+  byteResults=$0606
+  predicateResults=$060D
+  wordPosition=0
+  bytePosition=0
+  predicatePosition=0
+
+  leftValue=30000
+  rightValue=10000
+  yBase=127
+  yOffset=1
+  CapturePoint(leftValue+rightValue,BYTE(yBase+yOffset))
+
+  leftValue=$8000
+  rightValue=1
+  yBase=$FF80
+  yOffset=1
+  CapturePoint(leftValue-rightValue,BYTE(yBase-yOffset))
+
+  leftValue=$FFFF
+  rightValue=1
+  yBase=$7FFF
+  yOffset=1
+  CapturePoint(leftValue+rightValue,BYTE(yBase+yOffset))
+
+  BuildChain($7FFF,1,$FFFF)
+
+  RecordPredicate(IsNegative($8000))
+  RecordPredicate(IsNegative($FFFF))
+  RecordPredicate(IsNegative(0))
+  RecordPredicate(IsNegative($7FFF))
+  RecordPredicate(IsNonNegative($8000))
+  RecordPredicate(IsNonNegative($FFFF))
+  RecordPredicate(IsNonNegative(0))
+  RecordPredicate(IsNonNegative($7FFF))
+  RecordPredicate(IsLess($8000,$7FFF))
+  RecordPredicate(IsLess($7FFF,$8000))
+  RecordPredicate(IsLess($FFFF,0))
+  RecordPredicate(IsLess(0,$FFFF))
+  RecordPredicate(IsAbsLess(-3,4))
+  RecordPredicate(IsAbsLess(-5,4))
+  RecordPredicate(IsAbsLess($8000,$7FFF))
+  RecordPredicate(IsAbsLess(0,0))
+
+  signature=$A5
+  DO
+  OD
+RETURN

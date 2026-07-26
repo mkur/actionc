@@ -335,14 +335,19 @@ asserts the `$A0/$A1` staging sequence that Slice 1 must remove.
   - the `Phiy`/`Phixy` arithmetic chains;
   - signed zero tests and arbitrary signed word relations;
   - two known leaf-call results feeding a signed comparison.
-- Execute the fixture under modern/classic and modern/MIR6502 and compare a
-  fixed memory result buffer, including wrap and signed-boundary cases.
+- Execute the fixture under modern/classic and modern/MIR6502 and compare
+  fixed memory result buffers, including wrap and signed-boundary cases.
+- Keep separate expectations for the three general signed-overflow slots:
+  classic's legacy N-only branch misclassifies `$8000` versus `$7FFF`, while
+  MIR6502 must satisfy the signed language result. The shared arithmetic and
+  non-overflow slots must agree.
 - Add the ignored compatibility-test entry and runtime README command.
 
 ### Acceptance
 
 - The CIRCLE quality test demonstrably compiles the real Toolkit source.
-- The VM oracle passes both backends before optimization.
+- The VM oracle passes both backends before optimization, with the documented
+  classic signed-overflow divergence isolated to three slots.
 - Removing or corrupting any intended boundary result makes the oracle fail.
 - CIRCLE1 remains 778 bytes at this coverage-only slice.
 
