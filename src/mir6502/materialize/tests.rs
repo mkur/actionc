@@ -18474,6 +18474,172 @@ fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgra
     program
 }
 
+fn leaf_word_param_result_routine() -> MirRoutine {
+    let param = |offset| MirMem::Param {
+        id: ParamId(0),
+        offset,
+    };
+    let result = |offset| MirMem::FixedZeroPage(MirFixedZpSlot(0xA0 + offset as u8));
+    MirRoutine {
+        id: RoutineId(0),
+        name: "LeafWord".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame {
+            params: vec![MirStorageSlot {
+                id: MirStorageId(0),
+                name: Some("value".to_string()),
+                storage: MirStorageClass::Scalar,
+                width: MirWidth::Word,
+                base: MirStorageBase::Param(ParamId(0)),
+                offset: 0,
+                mutable: false,
+                init: None,
+            }],
+            ..MirFrame::default()
+        },
+        temps: Vec::new(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![
+                MirOp::Store {
+                    dst: MirAddr::Direct(param(1)),
+                    src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(param(0)),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(param(0)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(result(0)),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(param(1)),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(result(1)),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            ],
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    }
+}
+
+#[test]
+fn leaf_word_param_coalesces_with_public_result_home() {
+    let mut routine = leaf_word_param_result_routine();
+    let mut stats = MirPeepholeStats::default();
+
+    coalesce_leaf_word_param_with_result_home(&mut routine, &mut stats);
+
+    assert!(matches!(
+        routine.frame.params[0].base,
+        MirStorageBase::ParamAbiOnly(ParamId(0))
+    ));
+    assert!(matches!(
+        routine.blocks[0].ops.as_slice(),
+        [
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1))),
+                src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                ..
+            },
+            MirOp::Load {
+                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                ..
+            },
+            MirOp::Store { .. },
+            MirOp::Load {
+                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1))),
+                ..
+            },
+            MirOp::Store { .. },
+        ]
+    ));
+    assert_eq!(
+        stats.count_for(RoutineId(0), "leaf-param-result-home-coalesced"),
+        2
+    );
+}
+
+#[test]
+fn leaf_word_param_coalescing_rejects_calls_and_address_taken_params() {
+    let call = MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: None,
+            clobbers: MirRegisterSet::default(),
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: None,
+        effects: MirEffects::default(),
+    };
+    let address_taken = MirOp::LeaAddr {
+        dst: MirDef::Reg(MirReg::A),
+        target: MirMem::Param {
+            id: ParamId(0),
+            offset: 0,
+        },
+        width: MirWidth::Word,
+    };
+    for blocker in [call, address_taken] {
+        let mut routine = leaf_word_param_result_routine();
+        routine.blocks[0].ops.insert(2, blocker);
+        let original = routine.clone();
+
+        coalesce_leaf_word_param_with_result_home(&mut routine, &mut MirPeepholeStats::default());
+
+        assert_eq!(routine, original);
+    }
+}
+
+#[test]
+fn leaf_word_param_coalescing_rejects_result_overwrite_before_last_input_use() {
+    let mut routine = leaf_word_param_result_routine();
+    routine.blocks[0].ops.splice(
+        2..2,
+        [
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 0,
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+        ],
+    );
+    let original = routine.clone();
+
+    coalesce_leaf_word_param_with_result_home(&mut routine, &mut MirPeepholeStats::default());
+
+    assert_eq!(routine, original);
+}
+
 fn run_known_callee_index_param_carriers(program: &MirProgram) -> (MirRoutine, MirPeepholeStats) {
     let known_callees = MirKnownCalleeSummaries::analyze(program);
     let layout = MaterializeLayout::new(program, 0x3000);

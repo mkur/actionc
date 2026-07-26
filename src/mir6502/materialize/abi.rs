@@ -4,8 +4,8 @@ use crate::mir6502::analysis::effects::{MirMemoryRange, classify_op, classify_te
 use crate::mir6502::ir::{
     MirAddr, MirArgHome, MirBlock, MirCallTarget, MirCond, MirDef, MirEffects, MirFixedZpSlot,
     MirMachineBlock, MirMachineBlockId, MirMachineItem, MirMem, MirMemoryEffect,
-    MirMemoryRegionKind, MirOp, MirRoutineAbi, MirRuntimeHelper, MirStorageBase, MirTerminator,
-    MirValue, MirWidth,
+    MirMemoryRegionKind, MirOp, MirReg, MirRoutine, MirRoutineAbi, MirRuntimeHelper,
+    MirStorageBase, MirStorageClass, MirTerminator, MirValue, MirWidth,
 };
 use crate::nir::ParamId;
 use std::collections::BTreeSet;
@@ -134,6 +134,262 @@ pub(super) fn elide_write_only_param_homes(
                 }
             ),
         );
+    }
+}
+
+/// Coalesce a leaf routine's first read-only word parameter with the public
+/// word-result slots.
+///
+/// The parameter and result contracts remain distinct: A/X are still the
+/// incoming ABI homes and `$A0/$A1` are still the outgoing homes. This pass
+/// only chooses the outgoing pair as private storage while the leaf executes.
+pub(super) fn coalesce_leaf_word_param_with_result_home(
+    routine: &mut MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) {
+    if routine.abi != MirRoutineAbi::Action || routine.frame.params.len() != 1 {
+        return;
+    }
+    let slot = &routine.frame.params[0];
+    let MirStorageBase::Param(param) = slot.base else {
+        return;
+    };
+    if slot.storage != MirStorageClass::Scalar || slot.width != MirWidth::Word {
+        return;
+    }
+    let slot_name = slot.name.clone();
+    let expected_prologue = action_abi_direct_param_prologue(routine);
+    let Some(entry) = routine.blocks.first() else {
+        return;
+    };
+    if expected_prologue.len() != 2 || !entry.ops.starts_with(&expected_prologue) {
+        return;
+    }
+
+    let mut rewritten = routine.clone();
+    if !rewrite_leaf_word_param_body(&mut rewritten, param, expected_prologue.len()) {
+        return;
+    }
+    let Some(entry) = rewritten.blocks.first_mut() else {
+        return;
+    };
+    entry.ops[0] = store_register_to_fixed_zp(MirReg::X, 0xA1);
+    entry.ops[1] = store_register_to_fixed_zp(MirReg::A, 0xA0);
+    rewritten.frame.params[0].base = MirStorageBase::ParamAbiOnly(param);
+
+    *routine = rewritten;
+    peephole_stats.record_many(routine.id, "leaf-param-result-home-coalesced", 2);
+    peephole_stats.record_site(
+        routine.id,
+        "leaf-param-result-home-coalesced",
+        format!(
+            "param=p{} name={} bytes=2 input=a/x storage=$a0/$a1",
+            param.0,
+            slot_name.as_deref().unwrap_or("<unnamed>")
+        ),
+    );
+}
+
+fn rewrite_leaf_word_param_body(
+    routine: &mut MirRoutine,
+    param: ParamId,
+    prologue_len: usize,
+) -> bool {
+    let mut saw_return = false;
+    for (block_index, block) in routine.blocks.iter_mut().enumerate() {
+        let body_start = usize::from(block_index == 0) * prologue_len;
+        let is_return = matches!(block.terminator, MirTerminator::Return);
+        let mut result_written = [false; 2];
+
+        for op in block.ops.iter_mut().skip(body_start) {
+            if !leaf_param_result_op_is_supported(op) || op_reads_public_word_result(op) {
+                return false;
+            }
+            let mut param_reads = [false; 2];
+            if !rewrite_param_reads_in_op(op, param, &mut param_reads)
+                || (0..2).any(|lane| param_reads[lane] && result_written[lane])
+            {
+                return false;
+            }
+            if let Some(lane) = direct_public_word_result_store_lane(op) {
+                if !is_return {
+                    return false;
+                }
+                result_written[usize::from(lane)] = true;
+            } else if op_writes_public_word_result(op) {
+                return false;
+            }
+        }
+
+        if is_return {
+            saw_return = true;
+            if !result_written.into_iter().all(|written| written) {
+                return false;
+            }
+        }
+        if !rewrite_param_reads_in_terminator(&mut block.terminator, param) {
+            return false;
+        }
+    }
+    saw_return
+}
+
+fn leaf_param_result_op_is_supported(op: &MirOp) -> bool {
+    matches!(
+        op,
+        MirOp::LoadImm { .. }
+            | MirOp::Load {
+                src: MirAddr::Direct(_),
+                ..
+            }
+            | MirOp::Store {
+                dst: MirAddr::Direct(_),
+                ..
+            }
+            | MirOp::Move { .. }
+            | MirOp::Extend { .. }
+            | MirOp::Truncate { .. }
+            | MirOp::Unary { .. }
+            | MirOp::Binary { .. }
+            | MirOp::Compare { .. }
+    )
+}
+
+fn rewrite_param_reads_in_op(op: &mut MirOp, param: ParamId, reads: &mut [bool; 2]) -> bool {
+    match op {
+        MirOp::LoadImm { .. } => true,
+        MirOp::Load {
+            src: MirAddr::Direct(mem),
+            ..
+        } => rewrite_param_read_mem(mem, param, reads),
+        MirOp::Store {
+            dst: MirAddr::Direct(dst),
+            src,
+            ..
+        } => !mem_references_param(dst, param) && rewrite_param_read_value(src, param, reads),
+        MirOp::Move { src, .. }
+        | MirOp::Extend { src, .. }
+        | MirOp::Truncate { src, .. }
+        | MirOp::Unary { src, .. } => rewrite_param_read_value(src, param, reads),
+        MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
+            rewrite_param_read_value(left, param, reads)
+                && rewrite_param_read_value(right, param, reads)
+        }
+        _ => false,
+    }
+}
+
+fn rewrite_param_reads_in_terminator(terminator: &mut MirTerminator, param: ParamId) -> bool {
+    let MirTerminator::Branch { cond, .. } = terminator else {
+        return true;
+    };
+    let MirCond::BoolValue(value) = cond else {
+        return true;
+    };
+    rewrite_param_read_value(value, param, &mut [false; 2])
+}
+
+fn rewrite_param_read_value(value: &mut MirValue, param: ParamId, reads: &mut [bool; 2]) -> bool {
+    match value {
+        MirValue::PointerCell(mem) => rewrite_param_read_mem(mem, param, reads),
+        MirValue::Word { lo, hi } => {
+            rewrite_param_read_value(lo, param, reads) && rewrite_param_read_value(hi, param, reads)
+        }
+        MirValue::StorageAddrByte { mem, .. } => !mem_references_param(mem, param),
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. } => true,
+    }
+}
+
+fn rewrite_param_read_mem(mem: &mut MirMem, param: ParamId, reads: &mut [bool; 2]) -> bool {
+    let MirMem::Param { id, offset } = mem else {
+        return true;
+    };
+    if *id != param {
+        return true;
+    }
+    let Ok(lane @ 0..=1) = u8::try_from(*offset) else {
+        return false;
+    };
+    reads[usize::from(lane)] = true;
+    *mem = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0u8.saturating_add(lane)));
+    true
+}
+
+fn op_reads_public_word_result(op: &MirOp) -> bool {
+    let effects = classify_op(op);
+    effects.memory.direct_reads.iter().any(|range| {
+        (0..range.bytes)
+            .any(|offset| mem_is_public_word_result_lane(&offset_direct_mem(&range.base, offset)))
+    }) || effects.homes.reads.iter().any(|home| {
+        matches!(
+            home,
+            crate::mir6502::analysis::effects::MirHomeByte::FixedZeroPage(MirFixedZpSlot(
+                0xA0 | 0xA1
+            ))
+        )
+    })
+}
+
+fn direct_public_word_result_store_lane(op: &MirOp) -> Option<u8> {
+    let MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+        width: MirWidth::Byte,
+        ..
+    } = op
+    else {
+        return None;
+    };
+    match slot.0 {
+        0xA0 => Some(0),
+        0xA1 => Some(1),
+        _ => None,
+    }
+}
+
+fn op_writes_public_word_result(op: &MirOp) -> bool {
+    let effects = classify_op(op);
+    effects.memory.direct_writes.iter().any(|range| {
+        (0..range.bytes)
+            .any(|offset| mem_is_public_word_result_lane(&offset_direct_mem(&range.base, offset)))
+    }) || effects.homes.writes.iter().any(|home| {
+        matches!(
+            home,
+            crate::mir6502::analysis::effects::MirHomeByte::FixedZeroPage(MirFixedZpSlot(
+                0xA0 | 0xA1
+            ))
+        )
+    })
+}
+
+fn offset_direct_mem(mem: &MirMem, offset: u16) -> MirMem {
+    match mem {
+        MirMem::Absolute(address) => MirMem::Absolute(address.saturating_add(offset)),
+        MirMem::FixedZeroPage(slot) => MirMem::FixedZeroPage(MirFixedZpSlot(
+            slot.0
+                .saturating_add(u8::try_from(offset).unwrap_or(u8::MAX)),
+        )),
+        _ => mem.clone(),
+    }
+}
+
+fn mem_is_public_word_result_lane(mem: &MirMem) -> bool {
+    matches!(
+        mem,
+        MirMem::FixedZeroPage(MirFixedZpSlot(0xA0 | 0xA1)) | MirMem::Absolute(0x00A0 | 0x00A1)
+    )
+}
+
+fn store_register_to_fixed_zp(reg: MirReg, slot: u8) -> MirOp {
+    MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(slot))),
+        src: MirValue::Def(MirDef::Reg(reg)),
+        width: MirWidth::Byte,
     }
 }
 

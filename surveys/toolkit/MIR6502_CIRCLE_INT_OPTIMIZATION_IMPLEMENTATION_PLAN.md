@@ -1,6 +1,6 @@
 # MIR6502 CIRCLE INT Optimization Implementation Plan
 
-Status: in progress; Slices 0 through 5 complete
+Status: in progress; Slices 0 through 6 complete
 
 Date: 2026-07-26
 
@@ -696,6 +696,27 @@ with Slice 3, `Abs` should approach the classic 21-byte routine.
 - Positive, negative, zero, `$8000`, and `$7FFF` returns remain correct.
 - Non-leaf, address-taken, machine-visible, recursive, and multiple-live-param
   cases retain ordinary homes.
+
+### Implemented result
+
+A leaf-only ABI placement now handles one private scalar word parameter whose
+direct A/X capture dominates every use. It requires every return block to
+define both `$A0` and `$A1`, rejects existing reads of those public result
+slots, and permits each result lane to overwrite its input lane only after the
+last parameter read on that path. Calls, runtime helpers, machine blocks,
+barriers, indirect accesses, address-taking, observable Action entries, and
+unsupported operation shapes retain the ordinary parameter home.
+
+The selected routine still receives its argument in A/X and returns its value
+in `$A0/$A1`; only its private storage choice is coalesced. Diagnostics and
+telemetry describe those contracts separately.
+
+`Abs.n` disappears from data. `Abs` falls from 33 to 24 instruction bytes,
+leaving only a 3-byte difference from classic. CIRCLE1 falls from 612 to 601
+bytes, 24 bytes below modern/classic. CIRCLE2 falls from 892 to 881 bytes,
+8 bytes below modern/classic. Both retain zero RAM spill cells and accesses.
+The dedicated CIRCLE INT VM oracle covers zero, positive, negative, `$7FFF`,
+and `$8000` inputs.
 
 Suggested commit:
 

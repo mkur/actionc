@@ -57,7 +57,10 @@ use super::rewrite::pilots::{
     discover_dual_indirect_compares, discover_inclusive_compare_reversals, discover_index_rewrites,
     discover_pointer_rewrites, discover_unused_lea_addrs, inclusive_compare_reversal_rank,
 };
-use abi::{elide_write_only_param_homes, prepend_action_abi_param_prologue, width_bytes};
+use abi::{
+    coalesce_leaf_word_param_with_result_home, elide_write_only_param_homes,
+    prepend_action_abi_param_prologue, width_bytes,
+};
 use block_args::lower_block_arguments;
 use calls::{
     CallArgExprRewriteCandidate, CallArgProducerRewriteCandidate, CallResultStoreRewriteCandidate,
@@ -1103,6 +1106,9 @@ pub(super) fn materialize_program(
             home_fates.get_mut(&routine.id),
             &mut peephole_stats,
         )?;
+    }
+    for routine in &mut program.routines {
+        coalesce_leaf_word_param_with_result_home(routine, &mut peephole_stats);
     }
     for routine in &mut program.routines {
         elide_write_only_param_homes(routine, &mut peephole_stats);

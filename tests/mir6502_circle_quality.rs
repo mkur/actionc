@@ -39,6 +39,17 @@ fn circle_uses_direct_binary_call_arg_materialization() {
     });
 
     let formatted = mir6502::format_program(&materialized);
+    let abs_end = formatted
+        .find("\nroutine r1 Circle")
+        .expect("Circle routine");
+    let abs = &formatted[..abs_end];
+    assert!(!abs.contains("param p0"), "{abs}");
+    assert!(
+        abs.contains(
+            "store.b fixed_zp $A1, x\n  store.b fixed_zp $A0, a\n  a =.b x\n  branch flag n_set"
+        ),
+        "{abs}"
+    );
     assert!(
         !formatted.contains("store.b spill sp34+0") && !formatted.contains("store.b spill sp35+0"),
         "{formatted}"
@@ -124,8 +135,8 @@ fn circle_uses_direct_binary_call_arg_materialization() {
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     assert!(
-        output.bytes.len() <= 538,
-        "expected CIRCLE.ACT MIR6502 output no larger than 538 bytes, got {}",
+        output.bytes.len() <= 527,
+        "expected CIRCLE.ACT MIR6502 output no larger than 527 bytes, got {}",
         output.bytes.len()
     );
 }
