@@ -1,6 +1,6 @@
 #![allow(dead_code)] // Families become live incrementally during Slice 6.
 
-use crate::mir6502::analysis::effects::{MirTempAccess, classify_op};
+use crate::mir6502::analysis::effects::{MirTempAccess, classify_op, classify_terminator};
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 use crate::mir6502::analysis::use_def::MirTempLane;
@@ -293,6 +293,12 @@ pub(in crate::mir6502) fn proven_direct_word_equality_compare_branches(
             else {
                 continue;
             };
+            let Some(condition_temp) = candidate.condition_temp() else {
+                continue;
+            };
+            if !temp_is_used_only_by_block_terminator(routine, block.id, condition_temp) {
+                continue;
+            }
             let end = index + candidate.consumed;
             if prove_removed_window_definitions(
                 block.id,
@@ -309,6 +315,73 @@ pub(in crate::mir6502) fn proven_direct_word_equality_compare_branches(
         }
     }
     Ok(sites)
+}
+
+pub(in crate::mir6502) fn proven_direct_word_relational_compare_branches(
+    routine: &MirRoutine,
+) -> Result<std::collections::BTreeSet<(crate::mir6502::ir::MirBlockId, usize)>, ()> {
+    let snapshot =
+        PreHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial()).map_err(|_| ())?;
+    let context = PreHomeRewriteContext::new(&snapshot);
+    let mut sites = std::collections::BTreeSet::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let Some(candidate) =
+                crate::mir6502::materialize::analyzed_direct_word_relational_compare_candidate(
+                    &block.ops, index,
+                )
+            else {
+                continue;
+            };
+            let Some(condition_temp) = candidate.condition_temp() else {
+                continue;
+            };
+            if !temp_is_used_only_by_block_terminator(routine, block.id, condition_temp) {
+                continue;
+            }
+            let end = index + candidate.consumed;
+            if prove_removed_window_definitions(
+                block.id,
+                &block.ops,
+                index,
+                end,
+                &candidate.proof_replacement(),
+                &context,
+            )
+            .is_some()
+            {
+                sites.insert((block.id, index));
+            }
+        }
+    }
+    Ok(sites)
+}
+
+fn temp_is_used_only_by_block_terminator(
+    routine: &MirRoutine,
+    block: crate::mir6502::ir::MirBlockId,
+    temp: crate::mir6502::ir::MirTempId,
+) -> bool {
+    let mut uses = 0usize;
+    let mut expected_terminator_use = false;
+    for candidate in &routine.blocks {
+        uses += candidate
+            .ops
+            .iter()
+            .map(|op| classify_op(op).temp_use_count(temp))
+            .sum::<usize>();
+        let terminator_uses = classify_terminator(&candidate.terminator)
+            .logical
+            .temp_uses
+            .iter()
+            .filter(|access| access.temp() == temp)
+            .count();
+        uses += terminator_uses;
+        if candidate.id == block && terminator_uses == 1 {
+            expected_terminator_use = true;
+        }
+    }
+    expected_terminator_use && uses == 1
 }
 
 pub(in crate::mir6502) fn byte_binary_compare_consumer_rank(routine: &MirRoutine) -> usize {

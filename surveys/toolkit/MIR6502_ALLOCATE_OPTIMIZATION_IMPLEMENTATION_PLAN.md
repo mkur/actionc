@@ -1,6 +1,6 @@
 # MIR6502 ALLOCATE Optimization Implementation Plan
 
-Status: in progress; Slices 0-2 completed
+Status: in progress; Slices 0-3 completed
 
 Date: 2026-07-26
 
@@ -346,6 +346,18 @@ only on MIR shape.
 - Full tests and the comparison runtime probe pass.
 
 Commit independently and perform the first listing reanalysis.
+
+Implementation result:
+
+- one `word-load-relational-compare-branch` site selected in `Alloc`;
+- ALLOCATE decreased from 995 to 963 XEX bytes in this slice, and by 52 bytes
+  across Slices 2-3;
+- recognized instruction bytes decreased from 938 to 910 in this slice, and
+  from 958 to 910 across Slices 2-3;
+- all four RAM spill labels disappeared;
+- TN remained byte-identical at 9,994 XEX bytes;
+- twelve selected relational comparisons passed the VM boundary probe under
+  both backends, and the ALLOCATE VM oracle remained green.
 
 ## Slice 4: NIR Predicate-Based Branch Threading
 

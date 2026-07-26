@@ -85,6 +85,13 @@ pub(in crate::mir6502) struct DirectWordEqualityCompareCandidate {
 }
 
 impl DirectWordEqualityCompareCandidate {
+    pub(in crate::mir6502) fn condition_temp(&self) -> Option<MirTempId> {
+        match self.compare_dst {
+            MirCondDest::Temp(temp) => Some(temp),
+            MirCondDest::Flags => None,
+        }
+    }
+
     pub(in crate::mir6502) fn proof_replacement(&self) -> Vec<MirOp> {
         let pointer_consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
             lo: MirFixedZpSlot(super::POINTER_SCRATCH_LO),
@@ -165,6 +172,145 @@ pub(in crate::mir6502) fn direct_word_equality_compare_candidate(
         consumed: cursor + 1 - index,
         compare_dst: compare_dst.clone(),
         compare_op: *compare_op,
+        left,
+        right_lo,
+        right_hi,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct DirectWordRelationalCompareCandidate {
+    pub consumed: usize,
+    compare_dst: MirCondDest,
+    compare_op: MirCompareOp,
+    left: WordConsumerSource,
+    right_lo: MirValue,
+    right_hi: MirValue,
+}
+
+impl DirectWordRelationalCompareCandidate {
+    pub(in crate::mir6502) fn condition_temp(&self) -> Option<MirTempId> {
+        match self.compare_dst {
+            MirCondDest::Temp(temp) => Some(temp),
+            MirCondDest::Flags => None,
+        }
+    }
+
+    pub(in crate::mir6502) fn proof_replacement(&self) -> Vec<MirOp> {
+        let pointer_consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(super::POINTER_SCRATCH_LO),
+        });
+        let mut replacement = Vec::new();
+        if let WordConsumerSource::Indirect { pointer, .. } = &self.left {
+            replacement.push(MirOp::MaterializeAddress {
+                consumer: pointer_consumer,
+                value: pointer.clone(),
+            });
+        }
+        push_word_consumer_source_load(&mut replacement, &self.left, 0, pointer_consumer);
+        replacement.push(MirOp::Compare {
+            dst: MirCondDest::Flags,
+            op: MirCompareOp::Lt,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: self.right_lo.clone(),
+            width: MirWidth::Byte,
+            signed: false,
+        });
+        push_word_consumer_source_load(&mut replacement, &self.left, 1, pointer_consumer);
+        replacement.push(MirOp::Binary {
+            op: MirBinaryOp::Sub,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: self.right_hi.clone(),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::FromPrevious),
+            carry_out: MirCarryOut::Ignore,
+        });
+        // The actual CFG rewrite branches directly on carry. Retain the
+        // logical condition definition in this proof-only replacement; the
+        // pilot separately proves that its sole use is the rewritten branch.
+        replacement.push(MirOp::Compare {
+            dst: self.compare_dst.clone(),
+            op: self.compare_op,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0),
+            width: MirWidth::Byte,
+            signed: false,
+        });
+        replacement
+    }
+}
+
+pub(in crate::mir6502) fn direct_word_relational_compare_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<DirectWordRelationalCompareCandidate> {
+    let mut sources = BTreeMap::<MirTempId, WordConsumerSource>::new();
+    let mut cursor = index;
+    while let Some((temp, source)) = ops.get(cursor).and_then(word_consumer_load_source) {
+        if sources.insert(temp, source).is_some() {
+            return None;
+        }
+        cursor += 1;
+    }
+
+    let compare = ops.get(cursor)?;
+    let MirOp::Compare {
+        dst: compare_dst,
+        op:
+            original_op @ (MirCompareOp::Lt | MirCompareOp::Le | MirCompareOp::Gt | MirCompareOp::Ge),
+        left,
+        right,
+        width: MirWidth::Word,
+        signed: false,
+    } = compare
+    else {
+        return None;
+    };
+    if sources
+        .keys()
+        .any(|temp| !op_uses_temp(compare, *temp) || op_uses_temp_more_than_once(compare, *temp))
+    {
+        return None;
+    }
+
+    let mut left = resolve_word_consumer_source(left, &sources)?;
+    let mut right = resolve_word_consumer_source(right, &sources)?;
+    let mut compare_op = *original_op;
+    let left_indirect = matches!(left, WordConsumerSource::Indirect { .. });
+    let right_indirect = matches!(right, WordConsumerSource::Indirect { .. });
+    if left_indirect && right_indirect {
+        return None;
+    }
+    match (left_indirect, right_indirect, compare_op) {
+        (true, false, MirCompareOp::Lt | MirCompareOp::Ge)
+        | (false, false, MirCompareOp::Lt | MirCompareOp::Ge) => {}
+        (false, true, MirCompareOp::Gt) | (false, false, MirCompareOp::Gt) => {
+            std::mem::swap(&mut left, &mut right);
+            compare_op = MirCompareOp::Lt;
+        }
+        (false, true, MirCompareOp::Le) | (false, false, MirCompareOp::Le) => {
+            std::mem::swap(&mut left, &mut right);
+            compare_op = MirCompareOp::Ge;
+        }
+        _ => return None,
+    }
+    let WordConsumerSource::Values {
+        lo: right_lo,
+        hi: right_hi,
+    } = right
+    else {
+        return None;
+    };
+    if !word_consumer_byte_value_is_safe(&right_lo) || !word_consumer_byte_value_is_safe(&right_hi)
+    {
+        return None;
+    }
+
+    Some(DirectWordRelationalCompareCandidate {
+        consumed: cursor + 1 - index,
+        compare_dst: compare_dst.clone(),
+        compare_op,
         left,
         right_lo,
         right_hi,
@@ -619,6 +765,82 @@ pub(super) fn expand_proven_direct_word_equality_compare_branches(
             high_compare,
             mismatch_target,
         );
+        expanded += 1;
+    }
+    expanded
+}
+
+pub(super) fn expand_proven_direct_word_relational_compare_branches(
+    blocks: &mut [MirBlock],
+    proven_sites: &BTreeSet<(MirBlockId, usize)>,
+) -> usize {
+    let mut expanded = 0usize;
+    for block in blocks {
+        let Some(start) = proven_sites
+            .iter()
+            .find_map(|(candidate_block, start)| (*candidate_block == block.id).then_some(*start))
+        else {
+            continue;
+        };
+        let Some(candidate) = direct_word_relational_compare_candidate(&block.ops, start) else {
+            continue;
+        };
+        let Some((cond_temp, then_block, else_block)) = branch_bool_temp(block) else {
+            continue;
+        };
+        let MirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } = &block.terminator
+        else {
+            continue;
+        };
+        if candidate.compare_dst != MirCondDest::Temp(cond_temp)
+            || start + candidate.consumed != block.ops.len()
+            || !then_edge.args.is_empty()
+            || !else_edge.args.is_empty()
+        {
+            continue;
+        }
+
+        let pointer_consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(super::POINTER_SCRATCH_LO),
+        });
+        block.ops.truncate(start);
+        if let WordConsumerSource::Indirect { pointer, .. } = &candidate.left {
+            block.ops.push(MirOp::MaterializeAddress {
+                consumer: pointer_consumer,
+                value: pointer.clone(),
+            });
+        }
+        push_word_consumer_source_load(&mut block.ops, &candidate.left, 0, pointer_consumer);
+        block.ops.push(MirOp::Compare {
+            dst: MirCondDest::Flags,
+            op: MirCompareOp::Lt,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: candidate.right_lo,
+            width: MirWidth::Byte,
+            signed: false,
+        });
+        // LDA and LDA (zp),Y preserve carry, so the borrow produced by the
+        // low-byte CMP reaches this high-byte SBC unchanged.
+        push_word_consumer_source_load(&mut block.ops, &candidate.left, 1, pointer_consumer);
+        block.ops.push(MirOp::Binary {
+            op: MirBinaryOp::Sub,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: candidate.right_hi,
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::FromPrevious),
+            carry_out: MirCarryOut::Ignore,
+        });
+        let flag = match candidate.compare_op {
+            MirCompareOp::Lt => MirFlagTest::CClear,
+            MirCompareOp::Ge => MirFlagTest::CSet,
+            _ => unreachable!(),
+        };
+        block.terminator = branch_terminator(MirCond::FlagTest(flag), then_block, else_block);
         expanded += 1;
     }
     expanded

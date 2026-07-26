@@ -81,13 +81,15 @@ use compare_branch::fold_compare_operand_producers_before_branches;
 use compare_branch::{
     ByteAddWordCompareCandidate, ByteBinaryCompareChainRewriteCandidate,
     ByteBinaryCompareRewriteCandidate, CompareNarrowingCandidate, CompareOperandRewriteCandidate,
-    DirectWordEqualityCompareCandidate, InclusiveCompareReversalCandidate,
-    WordArithmeticCompareCandidate, byte_add_word_compare_candidate,
-    byte_binary_compare_chain_rewrite_candidate, byte_binary_compare_rewrite_candidate,
-    byte_bitwise_zero_compare_narrowing_candidate, compare_branch_plan,
-    compare_operand_rewrite_candidate, direct_word_equality_compare_candidate,
-    expand_compare_branch_consumers, expand_proven_byte_add_word_compare_branches,
+    DirectWordEqualityCompareCandidate, DirectWordRelationalCompareCandidate,
+    InclusiveCompareReversalCandidate, WordArithmeticCompareCandidate,
+    byte_add_word_compare_candidate, byte_binary_compare_chain_rewrite_candidate,
+    byte_binary_compare_rewrite_candidate, byte_bitwise_zero_compare_narrowing_candidate,
+    compare_branch_plan, compare_operand_rewrite_candidate, direct_word_equality_compare_candidate,
+    direct_word_relational_compare_candidate, expand_compare_branch_consumers,
+    expand_proven_byte_add_word_compare_branches,
     expand_proven_direct_word_equality_compare_branches,
+    expand_proven_direct_word_relational_compare_branches,
     expand_proven_word_arithmetic_compare_branches, inclusive_compare_reversal_candidate,
     word_arithmetic_compare_candidate,
 };
@@ -304,6 +306,13 @@ pub(in crate::mir6502) fn analyzed_direct_word_equality_compare_candidate(
     index: usize,
 ) -> Option<DirectWordEqualityCompareCandidate> {
     direct_word_equality_compare_candidate(ops, index)
+}
+
+pub(in crate::mir6502) fn analyzed_direct_word_relational_compare_candidate(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<DirectWordRelationalCompareCandidate> {
+    direct_word_relational_compare_candidate(ops, index)
 }
 
 pub(in crate::mir6502) fn analyzed_call_arg_producer_candidate(
@@ -1413,6 +1422,24 @@ fn run_prehome_canonicalization_group(
         routine.id,
         "word-load-equality-compare-branch",
         direct_word_equality_compares,
+    );
+    let direct_word_relational_sites =
+        super::rewrite::pilots::proven_direct_word_relational_compare_branches(routine).map_err(
+            |_| {
+                vec![MirDiagnostic::routine(
+                    &routine.name,
+                    "direct word relational compare analysis failed",
+                )]
+            },
+        )?;
+    let direct_word_relational_compares = expand_proven_direct_word_relational_compare_branches(
+        &mut routine.blocks,
+        &direct_word_relational_sites,
+    );
+    peephole_stats.record_many(
+        routine.id,
+        "word-load-relational-compare-branch",
+        direct_word_relational_compares,
     );
     let word_arithmetic_compare_sites =
         super::rewrite::pilots::proven_word_arithmetic_compare_branches(routine).map_err(|_| {

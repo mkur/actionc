@@ -34,6 +34,12 @@ Run the modern/classic ALLOCATE behavior gate directly:
 fixtures/runtime/run-allocate-vm.sh
 ```
 
+Run the modern/classic direct unsigned word-compare boundary gate directly:
+
+```sh
+fixtures/runtime/run-direct-word-compares-vm.sh
+```
+
 The gate compiles `initialized_arrays.act` with the modern classic and MIR6502
 backends. It covers global and local initialized BYTE and CARD arrays,
 including the descriptor-backed CARD representations, then checks the six
@@ -77,6 +83,12 @@ equality alone is not used as the correctness oracle. The Toolkit source's
 original two-sided-coalescing behavior is not asserted here because it updates
 the just-freed header instead of the preceding free block after a left merge;
 that source-level issue is separate from backend equivalence.
+
+The direct word-compare fixture executes `Lt`, `Ge`, `Gt`, and `Le` branches
+around `$0000`, `$00FF/$0100`, `$7FFF/$8000`, and `$FFFF`. Its indirect-left
+cases exercise the low-byte `CMP` to high-byte `SBC` carry chain; its
+indirect-right `Gt`/`Le` cases exercise safe operand reversal. The twelve
+hard-coded result bytes at `$0600-$060B` validate both branch polarities.
 
 It is also part of the opt-in compatibility integration tests:
 

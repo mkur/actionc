@@ -1,0 +1,64 @@
+; Runtime boundary probe for direct unsigned word compare-to-branch selection.
+;
+; Lt/Ge use an indirect left operand. Gt/Le use an indirect right operand and
+; therefore exercise the selector's safe operand reversal.
+
+BYTE r0=$0600
+BYTE r1=$0601
+BYTE r2=$0602
+BYTE r3=$0603
+BYTE r4=$0604
+BYTE r5=$0605
+BYTE r6=$0606
+BYTE r7=$0607
+BYTE r8=$0608
+BYTE r9=$0609
+BYTE r10=$060A
+BYTE r11=$060B
+
+CARD direct
+TYPE WORD=[CARD value]
+WORD POINTER indirect
+
+PROC Main()
+  indirect=$6800
+
+  indirect.value=$0000
+  direct=$0000
+  IF indirect.value<direct THEN r0=1 ELSE r0=0 FI
+  IF indirect.value>=direct THEN r1=1 ELSE r1=0 FI
+
+  indirect.value=$00FF
+  direct=$0100
+  IF indirect.value<direct THEN r2=1 ELSE r2=0 FI
+  IF indirect.value>=direct THEN r3=1 ELSE r3=0 FI
+
+  indirect.value=$0100
+  direct=$00FF
+  IF indirect.value<direct THEN r4=1 ELSE r4=0 FI
+  IF indirect.value>=direct THEN r5=1 ELSE r5=0 FI
+
+  indirect.value=$7FFF
+  direct=$8000
+  IF indirect.value<direct THEN r6=1 ELSE r6=0 FI
+
+  indirect.value=$FFFF
+  direct=$0000
+  IF indirect.value>=direct THEN r7=1 ELSE r7=0 FI
+
+  indirect.value=$00FF
+  direct=$0100
+  IF direct>indirect.value THEN r8=1 ELSE r8=0 FI
+
+  indirect.value=$0100
+  direct=$00FF
+  IF direct>indirect.value THEN r9=1 ELSE r9=0 FI
+  IF direct<=indirect.value THEN r10=1 ELSE r10=0 FI
+
+  indirect.value=$00FF
+  direct=$0100
+  IF direct<=indirect.value THEN r11=1 ELSE r11=0 FI
+
+  DO
+  OD
+RETURN
