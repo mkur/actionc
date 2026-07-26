@@ -1,0 +1,41 @@
+; Runtime regression for zero-extended indexed BYTE values placed directly in
+; canonical Action call homes.  Index 255 forces the address calculation or a
+; following constant offset to cross a page for every backing alignment.
+
+CARD ARRAY observed
+BYTE signature=$0610
+
+PROC CaptureOne(CARD marker,value)
+  observed(0)=marker
+  observed(1)=value
+RETURN
+
+PROC CaptureFive(CARD marker,a,b,c,d,e)
+  observed(2)=marker
+  observed(3)=a
+  observed(4)=b
+  observed(5)=c
+  observed(6)=d
+  observed(7)=e
+RETURN
+
+PROC Main()
+  BYTE ARRAY data(259)
+  CARD index
+
+  observed=$0600
+  index=255
+  data(index)=$11
+  data(index+1)=$22
+  data(index+2)=$33
+  data(index+3)=$44
+  data(index+4)=$55
+
+  CaptureOne($1234,data(index+4))
+  CaptureFive($ABCD,data(index),data(index+1),data(index+2),
+    data(index+3),data(index+4))
+
+  signature=$A5
+  DO
+  OD
+RETURN

@@ -18143,7 +18143,6 @@ fn call_arg_expr_materializes_word_arithmetic_in_either_four_byte_action_lane() 
         );
         let mut helpers = Vec::new();
         let mut out = Vec::new();
-
         let result = try_materialize_call_arg_expr_producers(
             &ops,
             0,
@@ -18207,6 +18206,236 @@ fn call_arg_expr_rejects_second_word_arithmetic_that_would_overwrite_first_sourc
         super::calls::CallArgExprMaterializeResult::default()
     );
     assert!(out.is_empty());
+}
+
+fn indexed_byte_fixed_action_call_ops(indexed_args: usize) -> Vec<MirOp> {
+    let array = MirMem::Local {
+        id: LocalId(30),
+        offset: 0,
+    };
+    let index = MirMem::Local {
+        id: LocalId(31),
+        offset: 0,
+    };
+    let mut ops = Vec::new();
+    let mut roots = Vec::new();
+    let mut next_temp = 0u32;
+    for offset in 0..indexed_args {
+        let lea = MirTempId(next_temp);
+        next_temp += 1;
+        ops.push(MirOp::LeaAddr {
+            dst: MirDef::VTemp(lea),
+            target: array.clone(),
+            width: MirWidth::Word,
+        });
+        let loaded_index = MirTempId(next_temp);
+        next_temp += 1;
+        ops.push(MirOp::Load {
+            dst: MirDef::VTemp(loaded_index),
+            src: MirAddr::Direct(index.clone()),
+            width: MirWidth::Word,
+        });
+        let effective_index = if offset == 0 {
+            loaded_index
+        } else {
+            let sum = MirTempId(next_temp);
+            next_temp += 1;
+            ops.push(MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::VTemp(sum),
+                left: MirValue::Def(MirDef::VTemp(loaded_index)),
+                right: MirValue::ConstU16(offset as u16),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            });
+            sum
+        };
+        let element = MirTempId(next_temp);
+        next_temp += 1;
+        ops.push(MirOp::Load {
+            dst: MirDef::VTemp(element),
+            src: MirAddr::ComputedIndex {
+                base: MirValue::Word {
+                    lo: Box::new(MirValue::StorageAddrByte {
+                        mem: array.clone(),
+                        byte: 0,
+                    }),
+                    hi: Box::new(MirValue::StorageAddrByte {
+                        mem: array.clone(),
+                        byte: 1,
+                    }),
+                },
+                index: MirValue::Def(MirDef::VTemp(effective_index)),
+                elem_size: 1,
+                offset: 0,
+            },
+            width: MirWidth::Byte,
+        });
+        roots.push(element);
+    }
+
+    let mut args = vec![MirCallArg {
+        value: MirValue::ConstU16(0x1234),
+        width: MirWidth::Word,
+        home: super::super::abi::action_arg_home(0, MirWidth::Word),
+    }];
+    args.extend(roots.into_iter().enumerate().map(|(index, temp)| {
+        let offset = 2 + index as u16 * 2;
+        MirCallArg {
+            value: MirValue::Word {
+                lo: Box::new(MirValue::Def(MirDef::VTemp(temp))),
+                hi: Box::new(MirValue::ConstU8(0)),
+            },
+            width: MirWidth::Word,
+            home: super::super::abi::action_arg_home(offset, MirWidth::Word),
+        }
+    }));
+    ops.push(MirOp::Call {
+        target: MirCallTarget::Routine(RoutineId(1)),
+        abi: MirCallAbi {
+            params: args.iter().map(|arg| arg.home.clone()).collect(),
+            result: None,
+            clobbers: MirRegisterSet::default(),
+            preserves: MirRegisterSet::default(),
+        },
+        args,
+        result: None,
+        effects: MirEffects::default(),
+    });
+    ops
+}
+
+#[test]
+fn call_arg_expr_places_indexed_bytes_directly_in_fixed_action_homes() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    for indexed_args in 1..=5 {
+        let ops = indexed_byte_fixed_action_call_ops(indexed_args);
+        let mut helpers = Vec::new();
+        let mut out = Vec::new();
+        let result = try_materialize_call_arg_expr_producers(
+            &ops,
+            0,
+            &Mir6502Config::optimized(),
+            &layout,
+            &mut helpers,
+            &mut out,
+        );
+
+        assert_eq!(result.consumed, ops.len());
+        assert_eq!(result.direct_indexed_byte_fixed_args, indexed_args);
+        assert!(helpers.is_empty());
+        assert!(
+            out.iter()
+                .all(|op| { (0..32).all(|temp| !op_uses_temp(op, MirTempId(temp))) })
+        );
+        let offsets = out
+            .iter()
+            .filter_map(|op| match op {
+                MirOp::LoadIndirect {
+                    consumer,
+                    dst: MirDef::Reg(MirReg::A),
+                    offset,
+                } if *consumer == DEFAULT_POINTER_PAIR => Some(*offset),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(offsets, (0..indexed_args as u16).collect::<Vec<_>>());
+        assert!(matches!(
+            out.last(),
+            Some(MirOp::Call { args, .. })
+                if args.len() == 2 + indexed_args * 2
+                    && args[2].home == MirArgHome::Reg(MirReg::Y)
+                    && args[3].home
+                        == MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3))
+        ));
+    }
+}
+
+#[test]
+fn call_arg_expr_rejects_unsafe_indexed_byte_fixed_home_schedules() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let rejected = |ops: &[MirOp]| {
+        let mut helpers = Vec::new();
+        let mut out = Vec::new();
+        let result = try_materialize_call_arg_expr_producers(
+            ops,
+            0,
+            &Mir6502Config::optimized(),
+            &layout,
+            &mut helpers,
+            &mut out,
+        );
+        assert_eq!(
+            result,
+            super::calls::CallArgExprMaterializeResult::default()
+        );
+        assert!(helpers.is_empty());
+        assert!(out.is_empty());
+    };
+
+    rejected(&indexed_byte_fixed_action_call_ops(6));
+
+    let mut reordered = indexed_byte_fixed_action_call_ops(2);
+    let MirOp::Call { args, .. } = reordered.last_mut().unwrap() else {
+        unreachable!()
+    };
+    args.swap(1, 2);
+    rejected(&reordered);
+
+    let mut repeated_home = indexed_byte_fixed_action_call_ops(2);
+    let MirOp::Call { args, abi, .. } = repeated_home.last_mut().unwrap() else {
+        unreachable!()
+    };
+    args[2].home = args[1].home.clone();
+    abi.params[2] = abi.params[1].clone();
+    rejected(&repeated_home);
+
+    let mut absolute = indexed_byte_fixed_action_call_ops(2);
+    for op in &mut absolute {
+        if let MirOp::Load {
+            src: MirAddr::ComputedIndex { base, .. },
+            width: MirWidth::Byte,
+            ..
+        } = op
+        {
+            *base = MirValue::ConstU16(0xD200);
+        }
+    }
+    rejected(&absolute);
+
+    let mut subtraction = indexed_byte_fixed_action_call_ops(2);
+    let Some(MirOp::Binary { op, .. }) = subtraction
+        .iter_mut()
+        .find(|op| matches!(op, MirOp::Binary { .. }))
+    else {
+        unreachable!()
+    };
+    *op = MirBinaryOp::Sub;
+    rejected(&subtraction);
+
+    let mut wide_offset = indexed_byte_fixed_action_call_ops(2);
+    let Some(MirOp::Binary { right, .. }) = wide_offset
+        .iter_mut()
+        .find(|op| matches!(op, MirOp::Binary { .. }))
+    else {
+        unreachable!()
+    };
+    *right = MirValue::ConstU16(0x0100);
+    rejected(&wide_offset);
+
+    let mut barrier = indexed_byte_fixed_action_call_ops(2);
+    let call = barrier.pop().unwrap();
+    barrier.push(MirOp::Barrier {
+        effects: MirEffects {
+            opaque: true,
+            ..MirEffects::default()
+        },
+    });
+    barrier.push(call);
+    rejected(&barrier);
 }
 
 #[test]

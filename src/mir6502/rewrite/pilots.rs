@@ -2022,6 +2022,10 @@ fn call_arg_expr_plan(
                 "word-arithmetic-direct-action-call-arg",
                 candidate.direct_word_arithmetic,
             ),
+            (
+                "indexed-byte-direct-fixed-action-call-arg",
+                candidate.direct_indexed_byte_fixed_args,
+            ),
         ]
         .into_iter()
         .filter(|(_, count)| *count != 0)

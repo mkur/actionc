@@ -3222,6 +3222,11 @@ fn materialize_ops_impl(
                     "word-arithmetic-direct-action-call-arg",
                     call_arg_expr.direct_word_arithmetic,
                 );
+                peephole_stats.record_many(
+                    routine_id,
+                    "indexed-byte-direct-fixed-action-call-arg",
+                    call_arg_expr.direct_indexed_byte_fixed_args,
+                );
                 index += call_arg_expr.consumed;
                 continue;
             }

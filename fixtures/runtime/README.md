@@ -76,6 +76,12 @@ Run the direct four-byte Action call-argument arithmetic gate directly:
 fixtures/runtime/run-direct-action-word-arithmetic-args-vm.sh
 ```
 
+Run the indexed BYTE-to-fixed-Action-home gate directly:
+
+```sh
+fixtures/runtime/run-indexed-byte-fixed-action-args-vm.sh
+```
+
 Run the paired wrapping word-arithmetic comparison gate directly:
 
 ```sh
@@ -182,6 +188,13 @@ in both the A:X first-argument lane and the Y:`$A3` second-argument lane. Its
 commuted addition, and an arithmetic source spanning fixed `$A2/$A3`. The
 MIR6502 preflight requires all six static arithmetic call sites to use the
 direct schedule; both modern backends execute the same hard-coded oracle.
+
+The indexed BYTE call-argument fixture zero-extends local-array elements into
+canonical Action CARD argument homes. It covers the four-byte prefix and a
+twelve-byte call, requires six direct placements, and starts at index 255 so
+the base-plus-index calculation or a following constant offset must cross a
+page for every backing alignment. Both backends must produce the same 17
+hard-coded marker, argument, high-lane-zero, and completion bytes.
 
 It is also part of the opt-in compatibility integration tests:
 

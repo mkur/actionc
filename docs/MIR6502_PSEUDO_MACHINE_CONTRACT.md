@@ -854,6 +854,19 @@ Rules:
   The scheduler must place the companion word afterward only when that cannot
   overwrite an unread source, and must preserve the low-lane carry or borrow
   through the high-lane operation.
+- A zero-extended indexed BYTE feeding a canonical Action word argument may be
+  loaded directly into its fixed-ZP low lane when the base is identified
+  compiler-owned storage, the index reads only ordinary compiler-owned
+  storage, and the complete producer group is single-use and source-ordered.
+  Constant additions to an element-size-one index may become an indirect-load
+  offset, preserving 16-bit wrap and page crossing without a transient word
+  home.
+- The Y low lane is evaluated in source order and staged temporarily in `$A3`;
+  after all indexed address calculations have finished, it moves to Y and
+  `$A3` is initialized as the zero-extension high lane. Fixed argument homes
+  must be unique, disjoint from pointer scratch `$AC-$AF`, and absent from all
+  retained address inputs. Absolute and arbitrary pointer-backed indexed loads,
+  indirect calls, barriers, and reordered producer groups are ineligible.
 
 ## Runtime Helpers
 

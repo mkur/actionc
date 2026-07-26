@@ -1,6 +1,6 @@
 # MIR6502 SORT Optimization Implementation Plan
 
-Status: implementation in progress (Slices 0A-7 complete)
+Status: implementation in progress (Slices 0A-8 complete)
 
 Date: 2026-07-26
 
@@ -718,6 +718,44 @@ is intentionally scheduled after the sorting core.
 - The SORT VM oracle remains green even though it does not execute `Test`.
 - Add a focused execution fixture for the new call-argument schedule if the
   ordinary emitted-shape tests cannot observe argument values.
+
+### Implemented result
+
+The shared pre-home call-expression selector now accepts source-ordered,
+single-use indexed BYTE loads that are zero-extended into canonical Action
+word arguments. It folds a constant addition into the element-size-one load
+offset, writes fixed low lanes directly to `$A4/$A6/$A8/$AA`, initializes
+their high lanes in place, and stages the first variable low lane temporarily
+in `$A3`. After all address calculations, `$A3` moves to Y and becomes the
+zero high lane. The format/address word is placed in A:X last.
+
+Selection requires an ordinary local, parameter, global, or static storage
+base and ordinary compiler-owned index inputs. It preserves producer order and
+rejects absolute or arbitrary pointer-backed loads, indirect calls, barriers,
+repeated/noncanonical homes, retained inputs reading those homes, and any
+fixed destination at pointer scratch `$AC-$AF`. The selector is based only on
+typed expressions, ABI destinations, and effects; it does not inspect
+`PrintF`, `Test`, source names, or format strings.
+
+All six SORTDM1 calls select five values, for 30 direct placements. `Test`
+shrunk from 1,985 to 1,010 instruction bytes and from 830 to 479
+instructions. Its transient pressure fell from 20 unique spill slots and 280
+spill accesses to two slots and four accesses; those remaining accesses
+preserve the index across the separate opaque `Rand` call.
+
+SORTDM1 shrank from 4,552 to 3,559 load-file bytes. Recognized code fell from
+4,201 to 3,226 bytes, data from 339 to 321 bytes, and instruction count from
+1,818 to 1,467. `LDA` fell from 557 to 419 and `STA` from 476 to 344. The
+result is 554 bytes smaller than the 4,113-byte modern/classic checkpoint.
+SORTDM2 remains 2,628 bytes because it does not contain this display routine.
+TN remains 9,945 bytes and ALLOCATE remains 876 bytes.
+
+Focused unit coverage spans calls with one through five indexed word
+arguments, constant-offset folding, source-order rejection, repeated homes,
+pointer-scratch overlap, barriers, and absolute bases. A dedicated
+cross-backend VM oracle checks a four-byte and twelve-byte call, all zero high
+lanes, and index 255 page crossing. The ordinary SORT oracle, all tests, and
+the 20-program modern/MIR6502 Toolkit batch pass.
 
 Commit independently.
 
