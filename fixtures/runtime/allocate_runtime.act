@@ -1,0 +1,138 @@
+; Runtime oracle for the maintained modern ALLOCATE implementation.
+;
+; Each scenario uses a separate fixed heap region. Observable results are
+; copied to $0600 onward so the host harness does not depend on compiler-owned
+; storage. The allocator's sentinel is reset before every scenario.
+
+INCLUDE "../../samples/toolkit/modern/ALLOCATE.ACT"
+
+BYTE signature=$0600
+BYTE completed=$0601
+CARD emptyResult=$0602
+CARD exactResult=$0604
+CARD exactSentinelNext=$0606
+CARD splitResult=$0608
+CARD splitRemainingSize=$060A
+CARD boundaryResult=$060C
+CARD boundaryFirstNext=$060E
+CARD boundarySecondSize=$0610
+CARD insertLeftNext=$0612
+CARD insertTargetSize=$0614
+CARD insertTargetNext=$0616
+CARD leftMergedSize=$0618
+CARD leftMergedNext=$061A
+CARD rightSentinelNext=$061C
+CARD rightMergedSize=$061E
+CARD rightMergedNext=$0620
+CARD repeatedFirstResult=$0622
+CARD repeatedFinalResult=$0624
+CARD repeatedSentinelNext=$0626
+CARD initSentinelNext=$0628
+CARD initSize=$062A
+CARD initNext=$062C
+
+PROC Main()
+  BLOCK POINTER p,q,target
+
+  signature=$A1
+  completed=0
+
+  ; Empty list.
+  FreeList.next=0
+  emptyResult=Alloc(4)
+  completed==+1
+
+  ; Exact-sized head removal.
+  p=$7000
+  p.size=4
+  p.next=0
+  FreeList.next=p
+  exactResult=Alloc(4)
+  exactSentinelNext=FreeList.next
+  completed==+1
+
+  ; Split a larger block from its right edge.
+  p=$7100
+  p.size=$20
+  p.next=0
+  FreeList.next=p
+  splitResult=Alloc($10)
+  splitRemainingSize=p.size
+  completed==+1
+
+  ; Skip $00FF and select/split $0108 for a $0100 request.
+  p=$7200
+  q=$7400
+  p.size=$00FF
+  p.next=q
+  q.size=$0108
+  q.next=0
+  FreeList.next=p
+  boundaryResult=Alloc($0100)
+  boundaryFirstNext=p.next
+  boundarySecondSize=q.size
+  completed==+1
+
+  ; Insert between two nonadjacent blocks.
+  p=$7500
+  q=$7600
+  target=$7580
+  p.size=$20
+  p.next=q
+  q.size=$10
+  q.next=0
+  FreeList.next=p
+  Free(target,8)
+  insertLeftNext=p.next
+  insertTargetSize=target.size
+  insertTargetNext=target.next
+  completed==+1
+
+  ; Merge with the block on the left.
+  p=$7700
+  target=$7720
+  p.size=$20
+  p.next=0
+  FreeList.next=p
+  Free(target,$10)
+  leftMergedSize=p.size
+  leftMergedNext=p.next
+  completed==+1
+
+  ; Merge with the block on the right.
+  q=$7820
+  target=$7810
+  q.size=$10
+  q.next=0
+  FreeList.next=q
+  Free(target,$10)
+  rightSentinelNext=FreeList.next
+  rightMergedSize=target.size
+  rightMergedNext=target.next
+  completed==+1
+
+  ; Allocate, free back into the left remainder, then allocate exactly.
+  p=$7900
+  p.size=$40
+  p.next=0
+  FreeList.next=p
+  repeatedFirstResult=Alloc($10)
+  Free(repeatedFirstResult,$10)
+  repeatedFinalResult=Alloc($40)
+  repeatedSentinelNext=FreeList.next
+  completed==+1
+
+  ; AllocInit reads MemHi through its fixed OS address. Use a controlled value
+  ; and a fixed EndProg value so its initialized list is deterministic.
+  EndProg=$7A00
+  MemHi=$7B00
+  AllocInit(0)
+  initSentinelNext=FreeList.next
+  p=FreeList.next
+  initSize=p.size
+  initNext=p.next
+  completed==+1
+
+  DO
+  OD
+RETURN

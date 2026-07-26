@@ -28,6 +28,12 @@ Run the modern/classic dual-pointer word-transfer gate directly:
 fixtures/runtime/run-dual-pointer-word-transfers-vm.sh
 ```
 
+Run the modern/classic ALLOCATE behavior gate directly:
+
+```sh
+fixtures/runtime/run-allocate-vm.sh
+```
+
 The gate compiles `initialized_arrays.act` with the modern classic and MIR6502
 backends. It covers global and local initialized BYTE and CARD arrays,
 including the descriptor-backed CARD representations, then checks the six
@@ -61,6 +67,16 @@ parameter-backed pointer operands. The MIR6502 preflight requires six selected
 `copy_indirect_word` operations, including two scaled-source copies. The twelve
 result bytes at `$0600-$060B` prove both overlap-safe ordering and private
 pointer rematerialization.
+
+The ALLOCATE fixture includes the maintained modern Toolkit implementation and
+uses separate fixed heap regions for empty-list, exact removal, split,
+`$00FF/$0100` selection, insertion, left and right coalescing, repeated
+allocate/free, and `AllocInit` scenarios. The 46 result bytes at
+`$0600-$062D` contain hard-coded return values and free-list snapshots; backend
+equality alone is not used as the correctness oracle. The Toolkit source's
+original two-sided-coalescing behavior is not asserted here because it updates
+the just-freed header instead of the preceding free block after a left merge;
+that source-level issue is separate from backend equivalence.
 
 It is also part of the opt-in compatibility integration tests:
 

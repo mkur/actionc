@@ -54,6 +54,12 @@ The current object-size comparison across the original compiler,
 `legacy-classic`, `modern-classic`, and `modern-mir6502` is tracked in
 `TOOLKIT_SIZE_ANALYSIS.md`.
 
+The current final-listing audit and ranked optimization backlog for the
+modernized ALLOCATE implementation are in
+`MIR6502_ALLOCATE_LISTING_REANALYSIS_2026-07-26.md`.
+The corresponding sliced implementation plan is in
+`MIR6502_ALLOCATE_OPTIMIZATION_IMPLEMENTATION_PLAN.md`.
+
 Toolkit object ATRs are generated with:
 
 ```sh
