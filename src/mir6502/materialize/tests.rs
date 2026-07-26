@@ -10826,6 +10826,195 @@ fn byte_rsh8_store_consumer_rematerializes_delayed_dest_index() {
 }
 
 #[test]
+fn byte_range_word_mask_shift_uses_scaled_y_word_read() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut helpers = Vec::new();
+    let mut stats = MirPeepholeStats::default();
+    let port_value = MirDef::VTemp(MirTempId(40));
+    let masked = MirDef::VTemp(MirTempId(41));
+    let shifted = MirDef::VTemp(MirTempId(42));
+    let result = MirDef::VTemp(MirTempId(43));
+    let table_pointer = MirMem::Global {
+        id: crate::nir::SymbolId(108),
+        offset: 0,
+    };
+
+    let ops = materialize_ops(
+        RoutineId(0),
+        MirBlockId(0),
+        vec![
+            MirOp::Load {
+                dst: port_value.clone(),
+                src: MirAddr::ComputedIndex {
+                    base: MirValue::ConstU16(0x0278),
+                    index: MirValue::ConstU8(1),
+                    elem_size: 1,
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::And,
+                dst: masked.clone(),
+                left: MirValue::Def(port_value.clone()),
+                right: MirValue::ConstU16(0x000C),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Rsh,
+                dst: shifted.clone(),
+                left: MirValue::Def(masked),
+                right: MirValue::ConstU16(2),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Load {
+                dst: result.clone(),
+                src: MirAddr::ComputedIndex {
+                    base: pointer_value_from_mem(&table_pointer),
+                    index: MirValue::Def(shifted),
+                    elem_size: 2,
+                    offset: 0,
+                },
+                width: MirWidth::Word,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                src: MirValue::Def(result),
+                width: MirWidth::Word,
+            },
+        ],
+        &MirTerminator::Return,
+        &Mir6502Config::default(),
+        &layout,
+        &mut helpers,
+        &mut stats,
+    );
+
+    assert!(ops.iter().any(|op| {
+        op_def(op).and_then(split_def_as_temp) == Some(MirTempId(40))
+    }));
+    for temp in [MirTempId(41), MirTempId(42)] {
+        assert!(
+            !ops.iter()
+                .any(|op| op_def(op).and_then(split_def_as_temp) == Some(temp))
+        );
+    }
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::And,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0x0C),
+            width: MirWidth::Byte,
+            ..
+        }
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::Rsh,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(2),
+            width: MirWidth::Byte,
+            ..
+        }
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::MaterializeIndexedAddress {
+            consumer: DEFAULT_SCALED_Y_POINTER_PAIR,
+            index: MirValue::Def(MirDef::Reg(MirReg::A)),
+            scale: 2,
+            ..
+        }
+    )));
+    assert!(!ops.iter().any(|op| matches!(
+        op,
+        MirOp::RuntimeHelper {
+            helper: MirRuntimeHelper::Rsh,
+            ..
+        }
+    )));
+    let counts = stats.aggregate_counts();
+    assert_eq!(counts.get("delayed-byte-index-producer").copied(), Some(2));
+    assert_eq!(counts.get("delayed-byte-index-consumer").copied(), Some(1));
+}
+
+#[test]
+fn word_shift_from_unproven_word_keeps_full_width_path() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut helpers = Vec::new();
+    let mut stats = MirPeepholeStats::default();
+    let source = MirDef::VTemp(MirTempId(40));
+    let shifted = MirDef::VTemp(MirTempId(41));
+    let result = MirDef::VTemp(MirTempId(42));
+    let table_pointer = MirMem::Global {
+        id: crate::nir::SymbolId(108),
+        offset: 0,
+    };
+
+    let ops = materialize_ops(
+        RoutineId(0),
+        MirBlockId(0),
+        vec![
+            MirOp::Load {
+                dst: source.clone(),
+                src: MirAddr::Direct(MirMem::Global {
+                    id: crate::nir::SymbolId(109),
+                    offset: 0,
+                }),
+                width: MirWidth::Word,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Rsh,
+                dst: shifted.clone(),
+                left: MirValue::Def(source),
+                right: MirValue::ConstU16(2),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Load {
+                dst: result,
+                src: MirAddr::ComputedIndex {
+                    base: pointer_value_from_mem(&table_pointer),
+                    index: MirValue::Def(shifted),
+                    elem_size: 2,
+                    offset: 0,
+                },
+                width: MirWidth::Word,
+            },
+        ],
+        &MirTerminator::Return,
+        &Mir6502Config::default(),
+        &layout,
+        &mut helpers,
+        &mut stats,
+    );
+
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::RuntimeHelper {
+            helper: MirRuntimeHelper::Rsh,
+            ..
+        }
+    )));
+    assert!(
+        !stats
+            .aggregate_counts()
+            .contains_key("delayed-byte-index-consumer")
+    );
+}
+
+#[test]
 fn delayed_byte_indexed_store_with_offset_advances_address() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

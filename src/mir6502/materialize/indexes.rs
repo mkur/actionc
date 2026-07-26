@@ -92,9 +92,12 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
         return DelayedByteIndexPlan::empty();
     }
 
+    let temp_widths = collect_temp_widths(ops);
     let mut candidates = BTreeMap::<MirTempId, DelayedByteIndexCandidate>::new();
     for (index, op) in ops.iter().enumerate() {
-        if let Some((temp, candidate)) = delayed_byte_index_candidate(op, index, &candidates) {
+        if let Some((temp, candidate)) =
+            delayed_byte_index_candidate(op, index, &candidates, &temp_widths)
+        {
             candidates.insert(temp, candidate);
         }
     }
@@ -252,6 +255,7 @@ fn delayed_byte_index_candidate(
     op: &MirOp,
     producer_index: usize,
     candidates: &BTreeMap<MirTempId, DelayedByteIndexCandidate>,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
 ) -> Option<(MirTempId, DelayedByteIndexCandidate)> {
     match op {
         MirOp::Load {
@@ -319,10 +323,46 @@ fn delayed_byte_index_candidate(
             carry_in,
             carry_out: MirCarryOut::Ignore,
         } if delayed_byte_binary_op_is_supported(*op)
+            && delayed_byte_binary_rhs_is_supported(*op, right)
             && !matches!(carry_in, Some(MirCarryIn::FromPrevious)) =>
         {
             let temp = split_def_as_temp(dst)?;
             let left = delayed_expr_from_value(left, candidates)?;
+            let right = delayed_simple_value(right, candidates)?;
+            let mut temps = BTreeSet::new();
+            temps.insert(temp);
+            temps.extend(left.temps.iter().copied());
+            temps.extend(right.temps.iter().copied());
+            let mut mems = left.mems;
+            mems.extend(right.mems);
+            Some((
+                temp,
+                DelayedByteIndexCandidate {
+                    producer_index,
+                    expr: DelayedByteIndexExpr::Binary {
+                        op: *op,
+                        left: Box::new(left.expr),
+                        right: right.value,
+                        carry_in: *carry_in,
+                    },
+                    temps,
+                    mems,
+                },
+            ))
+        }
+        MirOp::Binary {
+            op,
+            dst,
+            left,
+            right,
+            width: MirWidth::Word,
+            carry_in,
+            carry_out: MirCarryOut::Ignore,
+        } if delayed_word_binary_preserves_byte_range(*op, right)
+            && !matches!(carry_in, Some(MirCarryIn::FromPrevious)) =>
+        {
+            let temp = split_def_as_temp(dst)?;
+            let left = delayed_byte_range_expr_from_value(left, candidates, temp_widths)?;
             let right = delayed_simple_value(right, candidates)?;
             let mut temps = BTreeSet::new();
             temps.insert(temp);
@@ -374,6 +414,40 @@ fn delayed_expr_from_value(
             temps: candidate.temps.clone(),
             mems: candidate.mems.clone(),
         });
+    }
+    let value = delayed_stable_value(value)?;
+    let mems = delayed_value_mems(&value);
+    Some(DelayedResolvedExpr {
+        expr: DelayedByteIndexExpr::Value(value),
+        temps: BTreeSet::new(),
+        mems,
+    })
+}
+
+fn delayed_byte_range_expr_from_value(
+    value: &MirValue,
+    candidates: &BTreeMap<MirTempId, DelayedByteIndexCandidate>,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+) -> Option<DelayedResolvedExpr> {
+    if let MirValue::Def(MirDef::VTemp(temp)) = value {
+        if let Some(candidate) = candidates.get(temp) {
+            return Some(DelayedResolvedExpr {
+                expr: candidate.expr.clone(),
+                temps: candidate.temps.clone(),
+                mems: candidate.mems.clone(),
+            });
+        }
+        if temp_widths.get(temp) == Some(&MirWidth::Byte) {
+            return Some(DelayedResolvedExpr {
+                expr: DelayedByteIndexExpr::Value(MirValue::Def(MirDef::VTempByte {
+                    id: *temp,
+                    byte: 0,
+                })),
+                temps: BTreeSet::new(),
+                mems: Vec::new(),
+            });
+        }
+        return None;
     }
     let value = delayed_stable_value(value)?;
     let mems = delayed_value_mems(&value);
@@ -449,6 +523,23 @@ fn indexed_addr_temp_index(op: &MirOp) -> Option<MirTempId> {
                     ..
                 },
             width: MirWidth::Byte,
+            ..
+        }
+        | MirOp::Load {
+            src:
+                MirAddr::ComputedIndex {
+                    index,
+                    elem_size: 2,
+                    offset: 0,
+                    ..
+                }
+                | MirAddr::PointerIndex {
+                    index,
+                    elem_size: 2,
+                    offset: 0,
+                    ..
+                },
+            width: MirWidth::Word,
             ..
         }
         | MirOp::Store {
@@ -542,8 +633,27 @@ fn delayed_byte_index_candidate_is_safe(
 fn delayed_byte_binary_op_is_supported(op: MirBinaryOp) -> bool {
     matches!(
         op,
-        MirBinaryOp::Add | MirBinaryOp::Sub | MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor
+        MirBinaryOp::Add
+            | MirBinaryOp::Sub
+            | MirBinaryOp::And
+            | MirBinaryOp::Or
+            | MirBinaryOp::Xor
+            | MirBinaryOp::Rsh
     )
+}
+
+fn delayed_byte_binary_rhs_is_supported(op: MirBinaryOp, right: &MirValue) -> bool {
+    op != MirBinaryOp::Rsh || matches!(delayed_stable_value(right), Some(MirValue::ConstU8(0..=8)))
+}
+
+fn delayed_word_binary_preserves_byte_range(op: MirBinaryOp, right: &MirValue) -> bool {
+    match op {
+        MirBinaryOp::And | MirBinaryOp::Or | MirBinaryOp::Xor => {
+            delayed_stable_value(right).is_some()
+        }
+        MirBinaryOp::Rsh => matches!(delayed_stable_value(right), Some(MirValue::ConstU8(0..=8))),
+        _ => false,
+    }
 }
 
 fn delayed_index_mem_is_stable_source(mem: &MirMem) -> bool {
@@ -2649,6 +2759,25 @@ pub(super) fn materialize_indexed_read_to_def(
             delayed_byte_indexes.and_then(|plan| plan.expr_for_value(&parts.index))
     {
         materialize_delayed_byte_indexed_read(dst, parts.base, delayed, parts.offset, layout, out);
+        return true;
+    }
+    if width == MirWidth::Word
+        && parts.elem_size == 2
+        && parts.offset == 0
+        && let Some(delayed) =
+            delayed_byte_indexes.and_then(|plan| plan.expr_for_value(&parts.index))
+    {
+        materialize_delayed_byte_index_to_a(delayed, out);
+        materialize_computed_index_read(
+            dst,
+            parts.base,
+            MirValue::Def(MirDef::Reg(MirReg::A)),
+            parts.elem_size,
+            parts.offset,
+            width,
+            layout,
+            out,
+        );
         return true;
     }
     materialize_computed_index_read(

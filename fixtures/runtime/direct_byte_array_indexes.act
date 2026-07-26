@@ -12,6 +12,10 @@ BYTE sourceAfterResult=$0606
 BYTE destinationBeforeResult=$0607
 BYTE destinationAfterResult=$0608
 BYTE signature=$0609
+INT direction0=$060A
+INT direction1=$060C
+INT direction2=$060E
+INT direction3=$0610
 
 BYTE sourceBefore=$6000
 BYTE ARRAY source(256)=$6001
@@ -20,6 +24,9 @@ BYTE sourceAfter=$6101
 BYTE destinationBefore=$6202
 BYTE ARRAY destination(256)=$6203
 BYTE destinationAfter=$6303
+
+BYTE directionIndex
+INT ARRAY directions(4)=[0 1 $FFFF 0]
 
 PROC Main()
   BYTE i
@@ -48,6 +55,15 @@ PROC Main()
   destinationBeforeResult=destinationBefore
   destinationAfterResult=destinationAfter
   signature=$A5
+
+  directionIndex=0
+  direction0=directions((directionIndex&$C) RSH 2)
+  directionIndex=4
+  direction1=directions((directionIndex&$C) RSH 2)
+  directionIndex=8
+  direction2=directions((directionIndex&$C) RSH 2)
+  directionIndex=12
+  direction3=directions((directionIndex&$C) RSH 2)
 
   DO
   OD

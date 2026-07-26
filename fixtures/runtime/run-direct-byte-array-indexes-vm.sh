@@ -7,7 +7,7 @@ vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 source_path="$runtime_dir/direct_byte_array_indexes.act"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
 os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
-expected="a5 a4 da 25 5a d1 d2 e1 e2 a5"
+expected="a5 a4 da 25 5a d1 d2 e1 e2 a5 00 00 01 00 ff ff 00 00"
 
 for required in "$source_path" "$vm_root/Cargo.toml" "$cart_rom" "$os_rom"; do
   if [[ ! -f "$required" ]]; then
@@ -45,7 +45,7 @@ for backend in classic mir6502; do
     --max-steps 800000 \
     --history 8
 
-  actual="$(od -An -tx1 -j "$((0x0600))" -N 10 "$memory_path" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+  actual="$(od -An -tx1 -j "$((0x0600))" -N 18 "$memory_path" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
   if [[ "$actual" != "$expected" ]]; then
     echo "FAILED: modern/$backend direct BYTE array indexes" >&2
     echo "  expected: $expected" >&2
@@ -53,7 +53,7 @@ for backend in classic mir6502; do
     exit 1
   fi
 
-  echo "    results at \$0600-\$0609: $actual"
+  echo "    results at \$0600-\$0611: $actual"
 done
 
-echo "Direct BYTE array index runtime gate passed"
+echo "Direct BYTE and byte-derived CARD array index runtime gate passed"

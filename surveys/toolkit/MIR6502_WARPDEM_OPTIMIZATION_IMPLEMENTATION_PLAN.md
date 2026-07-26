@@ -289,17 +289,40 @@ Result:
 - Final MIR6502 load SHA-256:
   `244c4793d1dad7dfbe88210bf893c57755b4b86b0215640ea2905522561ca352`.
 
-### Slice 3: Keep typed byte constant shifts in registers
+### Slice 3: Keep byte-range word expressions in registers
+
+Status: complete.
 
 - Re-audit `HStick` after Slices 1-2.
-- Select one or more `LSR A` operations for a byte-width unsigned `RSH` by a
-  small constant.
-- Feed the result directly to a byte-indexed lookup or byte consumer when
-  liveness and register/flag demand allow.
-- Reject signed shifts, word operands/results, variable counts, observable
-  intermediate flags, and clobbering consumers.
-- Protect the behavior with a runtime fixture covering values around the shift
-  and table-index boundaries.
+- Prove the high byte remains zero when a typed BYTE value is widened into a
+  word `AND`/`OR`/`XOR` chain or a logical `RSH` by a constant from 0 through 8.
+- Delay only the proven expression definitions to an indexed word-array read,
+  lower the surviving operations at byte width in A, and select the existing
+  scaled `(zp),Y` word read.
+- Reject word-range inputs, additions, subtractions, left shifts, variable
+  shift counts, carry dependencies, extra uses, and unsupported consumers.
+- Protect the behavior with both emitted-shape tests and a classic/MIR6502 VM
+  fixture covering all four HStick-style table indices.
+
+Result:
+
+- The original plan's typed-result assumption was corrected: HStick's
+  `ports(port)&$C` and `RSH 2` results are formally `CARD`, not BYTE. The new
+  rule therefore proves a zero high byte through the expression instead of
+  truncating a word result.
+- The producer rewrite reuses the shared pre-home liveness, use-def, memory,
+  carry, and transactional rewrite validation. The initial computed BYTE load
+  remains at its original point; only the two word temporaries are elided.
+- `HStick` now emits `AND #$0C; LSR; LSR; ASL; TAY` followed by the existing
+  carry-preserving scaled `(zp),Y` word lookup. The word-shift runtime helper,
+  four transient word-home stores/reloads, and full index materialization are
+  gone.
+- `HStick` fell from 70 to 34 recognized instruction bytes and WARPDEM fell
+  from 6,584 to 6,546 load-file bytes. MIR6502 is now 556 bytes smaller than
+  modern/classic for WARPDEM.
+- A negative unit test retains the full word-helper path when the input range
+  is not proven. The expanded VM oracle checks indices derived from masked
+  values 0, 4, 8, and 12 under both modern/classic and modern/MIR6502.
 
 ### Slice 4: Residual listing audit and targeted closeout
 
