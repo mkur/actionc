@@ -2817,9 +2817,9 @@ fn materialize_byte_mul_expr_to_ax(
     });
     out.push(MirOp::RuntimeHelper {
         helper: MirRuntimeHelper::Mul,
-        args: Vec::new(),
+        args: super::helper_args(&MirRuntimeHelper::Mul),
         result: None,
-        effects: helper_effects(),
+        effects: helper_effects(&MirRuntimeHelper::Mul),
     });
 }
 

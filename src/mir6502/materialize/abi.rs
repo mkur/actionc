@@ -681,9 +681,9 @@ fn action_abi_sargs_param_prologue(
     vec![
         MirOp::RuntimeHelper {
             helper: MirRuntimeHelper::SArgs,
-            args: Vec::new(),
+            args: super::helper_args(&MirRuntimeHelper::SArgs),
             result: None,
-            effects: helper_effects(),
+            effects: helper_effects(&MirRuntimeHelper::SArgs),
         },
         MirOp::MachineBlock {
             id,

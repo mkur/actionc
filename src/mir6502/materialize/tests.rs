@@ -583,6 +583,233 @@ fn indirect_direct_transform_store_rejects_hardware_value_source() {
 }
 
 #[test]
+fn runtime_helper_effects_use_documented_zero_page_ranges() {
+    let rsh = helper_effects(&MirRuntimeHelper::Rsh);
+    assert!(!rsh.opaque);
+    assert_eq!(rsh.stack_depth_delta, Some(0));
+    assert_eq!(
+        rsh.memory_reads,
+        MirMemoryEffect::Regions(vec![MirMemoryRegion {
+            kind: MirMemoryRegionKind::ZeroPage,
+            offset: 0x84,
+            size: 2,
+        }])
+    );
+    assert_eq!(
+        rsh.memory_writes,
+        MirMemoryEffect::Regions(vec![MirMemoryRegion {
+            kind: MirMemoryRegionKind::ZeroPage,
+            offset: 0x85,
+            size: 1,
+        }])
+    );
+
+    let mul = helper_effects(&MirRuntimeHelper::Mul);
+    assert_eq!(
+        mul.memory_writes,
+        MirMemoryEffect::Regions(vec![
+            MirMemoryRegion {
+                kind: MirMemoryRegionKind::ZeroPage,
+                offset: 0x82,
+                size: 6,
+            },
+            MirMemoryRegion {
+                kind: MirMemoryRegionKind::ZeroPage,
+                offset: 0xc0,
+                size: 3,
+            },
+        ])
+    );
+
+    let sargs = helper_effects(&MirRuntimeHelper::SArgs);
+    assert_eq!(sargs.memory_reads, MirMemoryEffect::Unknown);
+    assert_eq!(sargs.memory_writes, MirMemoryEffect::Unknown);
+}
+
+fn helper_indexed_store_test_program(helper: MirRuntimeHelper, consumer_lo: u8) -> MirProgram {
+    let source = MirMem::Local {
+        id: LocalId(5),
+        offset: 0,
+    };
+    let staged_lo = MirMem::Spill {
+        id: MirSpillId(0),
+        offset: 0,
+    };
+    let staged_hi = MirMem::Spill {
+        id: MirSpillId(1),
+        offset: 0,
+    };
+    let result = MirMem::Spill {
+        id: MirSpillId(2),
+        offset: 0,
+    };
+    let consumer = fixed_pointer_consumer(consumer_lo);
+    let ops = vec![
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(staged_lo.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(offset_mem(&source, 1)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(staged_hi.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::ConstU8(3),
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x84))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::X),
+            src: MirAddr::Direct(offset_mem(&source, 1)),
+            width: MirWidth::Byte,
+        },
+        MirOp::RuntimeHelper {
+            args: helper_args(&helper),
+            effects: helper_effects(&helper),
+            helper,
+            result: None,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(result.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+        MirOp::MaterializeIndexedAddress {
+            consumer,
+            base: MirValue::ConstU16(0x4000),
+            index: MirValue::Word {
+                lo: Box::new(MirValue::PointerCell(staged_lo)),
+                hi: Box::new(MirValue::PointerCell(staged_hi)),
+            },
+            scale: 1,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(result),
+            width: MirWidth::Byte,
+        },
+        MirOp::StoreIndirect {
+            consumer,
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            offset: 0,
+        },
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::ConstU8(0),
+            width: MirWidth::Byte,
+        },
+    ];
+    MirProgram {
+        statics: Vec::new(),
+        globals: Vec::new(),
+        routines: vec![MirRoutine {
+            id: RoutineId(0),
+            name: "helper_indexed_store".to_string(),
+            abi: MirRoutineAbi::Action,
+            frame: MirFrame {
+                spills: vec![MirSpillId(0), MirSpillId(1), MirSpillId(2)],
+                ..MirFrame::default()
+            },
+            temps: Vec::new(),
+            blocks: vec![MirBlock {
+                id: MirBlockId(0),
+                label: "bb0".to_string(),
+                params: Vec::new(),
+                ops,
+                terminator: MirTerminator::Return,
+            }],
+            effects: MirEffects::default(),
+        }],
+        machine_blocks: Vec::new(),
+        runtime_helpers: Vec::new(),
+    }
+}
+
+#[test]
+fn helper_indexed_store_prepares_pointer_across_non_clobbering_shift() {
+    let program = helper_indexed_store_test_program(MirRuntimeHelper::Rsh, POINTER_SCRATCH_LO);
+    let routine = &program.routines[0];
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let snapshot = PostHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    let plans = indexes::discover_helper_indexed_store_placements(routine, &context, &layout);
+
+    assert_eq!(plans.len(), 1, "{plans:#?}");
+    assert_eq!(plans[0].stat, "helper-indexed-store-placement");
+    assert!(matches!(
+        plans[0].replacement.first(),
+        Some(MirOp::MaterializeIndexedAddress {
+            index: MirValue::Word { lo, hi },
+            ..
+        }) if matches!(
+            (lo.as_ref(), hi.as_ref()),
+            (
+                MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(5),
+                    offset: 0
+                }),
+                MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(5),
+                    offset: 1
+                })
+            )
+        )
+    ));
+    assert!(matches!(
+        plans[0].replacement.last(),
+        Some(MirOp::StoreIndirect {
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            ..
+        })
+    ));
+    assert!(!plans[0].replacement.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Spill { .. }),
+            ..
+        }
+    )));
+}
+
+#[test]
+fn helper_indexed_store_rejects_helper_that_clobbers_pointer_pair() {
+    let program = helper_indexed_store_test_program(MirRuntimeHelper::Mul, 0xc0);
+    let routine = &program.routines[0];
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let snapshot = PostHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
+        .expect("valid post-home snapshot");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    assert!(
+        indexes::discover_helper_indexed_store_placements(routine, &context, &layout).is_empty()
+    );
+}
+
+#[test]
 fn indirect_word_load_fold_keeps_spills_used_by_second_call_arg_home() {
     let low = MirSpillId(18);
     let high = MirSpillId(19);

@@ -1,6 +1,6 @@
 # MIR6502 KALSCOPE Optimization Implementation Plan
 
-Status: in progress; Slices 0-4 complete
+Status: in progress; Slices 0-5 complete
 
 Date: 2026-07-26
 
@@ -314,6 +314,8 @@ Result:
 
 ### Slice 5: Encode trusted runtime-helper scratch effects
 
+Status: complete.
+
 - Replace the single opaque helper effect with helper-specific effects already
   documented in `docs/RUNTIME_HELPER_EFFECTS.md`.
 - Represent exact zero-page reads/writes for shift, multiply, divide,
@@ -321,6 +323,24 @@ Result:
 - Allow indexed-store destination preparation to cross only helpers proven not
   to write its fixed pointer pair.
 - Add effect-classification, negative-clobber, and VM tests.
+
+Result:
+
+- Replaced the opaque arithmetic-helper barrier with documented structured
+  zero-page read/write regions and an explicit balanced stack effect.
+- Runtime-helper operations now carry their implicit A/X and fixed-ZP argument
+  homes, preventing liveness from mistaking helper inputs for dead definitions.
+- `Lsh`/`Rsh`, `Mul`, `Div`, and `Mod` use exact scratch ranges. SArgs retains
+  unknown reads/writes because MIR's current effect union cannot express its
+  exact `$82-$85`/`$A0-$A2` writes together with its unknown destination;
+  this deliberately preserves the conservative boundary.
+- Added a shared fixed-pointer overlap query and a post-home indexed-store
+  placement guarded by the helper's structured writes.
+- KALSCOPE selects one helper-indexed-store placement: `$AC/$AD` is prepared
+  before `Rsh`, the original loop index is read directly, and the helper result
+  is stored without a transient home.
+- MIR6502 output fell from 3,401 to 3,383 bytes, reducing the classic deficit
+  from 83 to 65 bytes.
 
 ### Slice 6: Final audit and stop decision
 

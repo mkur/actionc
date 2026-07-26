@@ -2,8 +2,9 @@ use super::layout::MaterializeLayout;
 use super::values::{split_def, split_value_with_temp_widths};
 use crate::mir6502::ir::{
     MirAddr, MirArgHome, MirBinaryOp, MirCallAbi, MirDef, MirEffects, MirFixedZpSlot, MirMem,
-    MirMemoryEffect, MirOp, MirProgram, MirReg, MirRegisterSet, MirResultHome, MirRuntimeHelper,
-    MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirTempId, MirValue, MirWidth,
+    MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind, MirOp, MirProgram, MirReg,
+    MirRegisterSet, MirResultHome, MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget,
+    MirTempId, MirValue, MirWidth,
 };
 use std::collections::BTreeMap;
 
@@ -17,9 +18,9 @@ pub(super) fn ensure_helper_decl(program: &mut MirProgram, helper: MirRuntimeHel
     }
     program.runtime_helpers.push(MirRuntimeHelperDecl {
         target: helper_target(&helper),
+        effects: helper_effects(&helper),
         helper,
         abi: helper_abi(),
-        effects: helper_effects(),
     });
 }
 
@@ -55,16 +56,67 @@ pub(in crate::mir6502) fn helper_abi() -> MirCallAbi {
     }
 }
 
-pub(in crate::mir6502) fn helper_effects() -> MirEffects {
+pub(in crate::mir6502) fn helper_args(helper: &MirRuntimeHelper) -> Vec<MirArgHome> {
+    let mut args = vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)];
+    match helper {
+        MirRuntimeHelper::Mul | MirRuntimeHelper::Div | MirRuntimeHelper::Mod => {
+            args.extend([
+                MirArgHome::FixedZeroPage(MirFixedZpSlot(0x84)),
+                MirArgHome::FixedZeroPage(MirFixedZpSlot(0x85)),
+            ]);
+        }
+        MirRuntimeHelper::Lsh | MirRuntimeHelper::Rsh => {
+            args.push(MirArgHome::FixedZeroPage(MirFixedZpSlot(0x84)));
+        }
+        MirRuntimeHelper::SArgs => {
+            args.push(MirArgHome::Reg(MirReg::Y));
+        }
+    }
+    args
+}
+
+pub(in crate::mir6502) fn helper_effects(helper: &MirRuntimeHelper) -> MirEffects {
+    let (memory_reads, memory_writes) = match helper {
+        MirRuntimeHelper::Lsh | MirRuntimeHelper::Rsh => (
+            zero_page_effect(&[(0x84, 2)]),
+            zero_page_effect(&[(0x85, 1)]),
+        ),
+        MirRuntimeHelper::Mul => (
+            zero_page_effect(&[(0x82, 6), (0xc0, 3)]),
+            zero_page_effect(&[(0x82, 6), (0xc0, 3)]),
+        ),
+        MirRuntimeHelper::Div | MirRuntimeHelper::Mod => (
+            zero_page_effect(&[(0x82, 6), (0xc2, 1)]),
+            zero_page_effect(&[(0x82, 6), (0xc2, 1)]),
+        ),
+        // SArgs also reads the caller's inline descriptor and stack argument
+        // area and writes through a descriptor-selected destination. MIR's
+        // current effect union cannot retain exact regions alongside an
+        // unknown region, so preserve the required conservative boundary.
+        MirRuntimeHelper::SArgs => (MirMemoryEffect::Unknown, MirMemoryEffect::Unknown),
+    };
     MirEffects {
-        memory_reads: MirMemoryEffect::Unknown,
-        memory_writes: MirMemoryEffect::Unknown,
+        memory_reads,
+        memory_writes,
         clobbers: helper_abi().clobbers,
         preserves: MirRegisterSet::default(),
-        stack_depth_delta: None,
+        stack_depth_delta: Some(0),
         may_call_os: false,
-        opaque: true,
+        opaque: false,
     }
+}
+
+fn zero_page_effect(ranges: &[(u16, u16)]) -> MirMemoryEffect {
+    MirMemoryEffect::Regions(
+        ranges
+            .iter()
+            .map(|(offset, size)| MirMemoryRegion {
+                kind: MirMemoryRegionKind::ZeroPage,
+                offset: *offset,
+                size: *size,
+            })
+            .collect(),
+    )
 }
 
 pub(super) fn helper_for_binary(op: MirBinaryOp, width: MirWidth) -> Option<MirRuntimeHelper> {
@@ -120,11 +172,13 @@ pub(super) fn materialize_runtime_helper_binary(
 
     materialize_helper_arg_to_reg(left_lo, MirReg::A, out);
     materialize_helper_arg_to_reg(left_hi, MirReg::X, out);
+    let effects = helper_effects(&helper);
+    let args = helper_args(&helper);
     out.push(MirOp::RuntimeHelper {
         helper,
-        args: Vec::new(),
+        args,
         result: None,
-        effects: helper_effects(),
+        effects,
     });
     if let Some(dst) = dst {
         materialize_runtime_helper_result(dst, result_width, out);

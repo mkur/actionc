@@ -66,8 +66,8 @@ fn kalscope_exposes_the_expected_codegen_baseline() {
     let output =
         mir6502::generate_output(&nir_program, CODE_ORIGIN).expect("emit KALSCOPE MIR6502");
     assert!(
-        output.bytes.len() <= 3_401,
-        "expected KALSCOPE MIR6502 output no larger than 3401 bytes, got {}",
+        output.bytes.len() <= 3_383,
+        "expected KALSCOPE MIR6502 output no larger than 3383 bytes, got {}",
         output.bytes.len()
     );
 }

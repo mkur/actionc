@@ -1342,6 +1342,180 @@ pub(in crate::mir6502) fn discover_indexed_base_pointer_staging(
     plans
 }
 
+pub(in crate::mir6502) fn discover_helper_indexed_store_placements(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let Some((consumed, replacement)) =
+                helper_indexed_store_placement_at(&block.ops, index, routine.id, layout)
+            else {
+                continue;
+            };
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                index..index + consumed,
+                replacement,
+                MirExitStateChange::default(),
+                "helper-indexed-store-placement",
+                0,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+fn helper_indexed_store_placement_at(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>)> {
+    let source_lo = load_reg_direct_byte(ops.get(index)?, MirReg::A)?;
+    let staged_lo = store_reg_direct_byte(ops.get(index + 1)?, MirReg::A)?;
+    let source_hi = load_reg_direct_byte(ops.get(index + 2)?, MirReg::A)?;
+    let staged_hi = store_reg_direct_byte(ops.get(index + 3)?, MirReg::A)?;
+    if source_hi != offset_mem(&source_lo, 1)
+        || !private_helper_staging_mem(&staged_lo)
+        || !private_helper_staging_mem(&staged_hi)
+        || staged_lo == staged_hi
+        || !layout.mem_allows_pure_read_reordering(&source_lo)
+        || !layout.mem_allows_pure_read_reordering(&source_hi)
+    {
+        return None;
+    }
+
+    let helper_index = (index + 4..=index + 10)
+        .find(|candidate| matches!(ops.get(*candidate), Some(MirOp::RuntimeHelper { .. })))?;
+    if ops[index + 4..helper_index]
+        .iter()
+        .any(|op| op_reads_mem(op, &staged_lo) || op_reads_mem(op, &staged_hi))
+    {
+        return None;
+    }
+    let MirOp::RuntimeHelper {
+        effects: helper_effects,
+        ..
+    } = ops.get(helper_index)?
+    else {
+        return None;
+    };
+    let result_slot = store_reg_direct_byte(ops.get(helper_index + 1)?, MirReg::A)?;
+    if !private_helper_staging_mem(&result_slot) {
+        return None;
+    }
+    let MirOp::MaterializeIndexedAddress {
+        consumer,
+        base,
+        index: materialized_index,
+        scale,
+    } = ops.get(helper_index + 2)?
+    else {
+        return None;
+    };
+    let MirValue::Word { lo, hi } = materialized_index else {
+        return None;
+    };
+    if !matches!(lo.as_ref(), MirValue::PointerCell(mem) if *mem == staged_lo)
+        || !matches!(hi.as_ref(), MirValue::PointerCell(mem) if *mem == staged_hi)
+        || load_reg_direct_byte(ops.get(helper_index + 3)?, MirReg::A)? != result_slot
+    {
+        return None;
+    }
+    let MirPointerPair::Fixed { lo: consumer_lo } = consumer.pointer_pair() else {
+        return None;
+    };
+    let MirOp::StoreIndirect {
+        consumer: store_consumer,
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        offset,
+    } = ops.get(helper_index + 4)?
+    else {
+        return None;
+    };
+    if store_consumer != consumer
+        || super::memory::effects_may_write_fixed_pair(helper_effects, consumer_lo)
+        || mem_overlaps_fixed_pair(routine_id, layout, &result_slot, consumer_lo)
+        || ops[index + 4..helper_index]
+            .iter()
+            .any(|op| op_may_write_fixed_pair(op, consumer_lo))
+    {
+        return None;
+    }
+
+    let mut replacement = vec![MirOp::MaterializeIndexedAddress {
+        consumer: *consumer,
+        base: base.clone(),
+        index: pointer_value_from_mem(&source_lo),
+        scale: *scale,
+    }];
+    replacement.extend_from_slice(&ops[index + 4..=helper_index]);
+    replacement.push(MirOp::StoreIndirect {
+        consumer: *consumer,
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        offset: *offset,
+    });
+    Some((helper_index + 5 - index, replacement))
+}
+
+fn load_reg_direct_byte(op: &MirOp, reg: MirReg) -> Option<MirMem> {
+    let MirOp::Load {
+        dst: MirDef::Reg(dst),
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Byte,
+    } = op
+    else {
+        return None;
+    };
+    (*dst == reg).then(|| mem.clone())
+}
+
+fn store_reg_direct_byte(op: &MirOp, reg: MirReg) -> Option<MirMem> {
+    let MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src: MirValue::Def(MirDef::Reg(src)),
+        width: MirWidth::Byte,
+    } = op
+    else {
+        return None;
+    };
+    (*src == reg).then(|| mem.clone())
+}
+
+fn private_helper_staging_mem(mem: &MirMem) -> bool {
+    matches!(mem, MirMem::Spill { .. } | MirMem::ZeroPage(_))
+}
+
+fn op_may_write_fixed_pair(op: &MirOp, lo: MirFixedZpSlot) -> bool {
+    let hi = MirFixedZpSlot(lo.0.saturating_add(1));
+    op_may_write_mem(op, &MirMem::FixedZeroPage(lo))
+        || op_may_write_mem(op, &MirMem::FixedZeroPage(hi))
+}
+
+fn mem_overlaps_fixed_pair(
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    mem: &MirMem,
+    lo: MirFixedZpSlot,
+) -> bool {
+    match mem {
+        MirMem::ZeroPage(_) => true,
+        MirMem::FixedZeroPage(slot) => {
+            super::memory::ranges_overlap(u16::from(slot.0), 1, u16::from(lo.0), 2)
+        }
+        _ => layout
+            .mem_address(routine_id, mem)
+            .is_some_and(|address| super::memory::ranges_overlap(address, 1, u16::from(lo.0), 2)),
+    }
+}
+
 pub(in crate::mir6502) fn discover_scaled_y_word_reads(
     routine: &MirRoutine,
     context: &PostHomeRewriteContext<'_, '_>,

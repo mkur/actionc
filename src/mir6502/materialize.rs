@@ -164,7 +164,7 @@ use runtime::{
     ensure_helper_decl, helper_for_binary, materialize_runtime_helper_binary,
     runtime_helper_result_width,
 };
-pub(super) use runtime::{helper_abi, helper_effects};
+pub(super) use runtime::{helper_abi, helper_args, helper_effects};
 #[cfg(test)]
 use spills::op_may_clobber_reg;
 #[cfg(test)]
@@ -1706,6 +1706,7 @@ fn run_posthome_structural_group(
     run_analyzed_indirect_constant_stores(routine, layout, peephole_stats)?;
     run_analyzed_word_array_value_staging(routine, layout, peephole_stats)?;
     run_analyzed_indirect_stores_and_compounds(routine, layout, peephole_stats)?;
+    run_analyzed_helper_indexed_store_placements(routine, layout, peephole_stats)?;
     for block in &mut routine.blocks {
         let ops = std::mem::take(&mut block.ops);
         block.ops =
@@ -2172,6 +2173,26 @@ fn run_analyzed_indexed_base_pointer_staging(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("post-home indexed base-pointer staging failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_helper_indexed_store_placements(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            indexes::discover_helper_indexed_store_placements(routine, context, layout)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home helper indexed-store placement failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);

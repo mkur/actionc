@@ -3,11 +3,11 @@ use super::indexes::{
     materialize_indexed_write_from_value,
 };
 use super::layout::MaterializeLayout;
+use super::memory::{effects_may_write_fixed_pair, ranges_overlap};
 use super::values::{offset_mem, return_slot_mem, split_value_as_word};
 use crate::mir6502::ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirCallAbi, MirCallArg, MirCallTarget, MirEffects,
-    MirFixedZpSlot, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirPointerPair, MirResultHome,
-    MirTempId, MirValue, MirWidth, RoutineId,
+    MirFixedZpSlot, MirOp, MirPointerPair, MirResultHome, MirTempId, MirValue, MirWidth, RoutineId,
 };
 use std::collections::BTreeMap;
 
@@ -258,23 +258,6 @@ fn fixed_consumer_lo(consumer: MirAddressConsumer) -> Option<MirFixedZpSlot> {
     }
 }
 
-fn effects_may_write_fixed_pair(effects: &MirEffects, lo: MirFixedZpSlot) -> bool {
-    effects.opaque || memory_effect_may_write_fixed_pair(&effects.memory_writes, lo)
-}
-
-fn memory_effect_may_write_fixed_pair(effect: &MirMemoryEffect, lo: MirFixedZpSlot) -> bool {
-    match effect {
-        MirMemoryEffect::None => false,
-        MirMemoryEffect::Unknown | MirMemoryEffect::All => true,
-        MirMemoryEffect::Regions(regions) => regions.iter().any(|region| {
-            matches!(
-                region.kind,
-                MirMemoryRegionKind::ZeroPage | MirMemoryRegionKind::AbsoluteRange
-            ) && ranges_overlap(region.offset, region.size, u16::from(lo.0), 2)
-        }),
-    }
-}
-
 fn abi_homes_may_write_fixed_pair(homes: &[MirArgHome], lo: MirFixedZpSlot) -> bool {
     homes
         .iter()
@@ -293,12 +276,6 @@ fn arg_home_may_write_fixed_pair(home: &MirArgHome, lo: MirFixedZpSlot) -> bool 
         | MirArgHome::ZeroPage(_)
         | MirArgHome::StackFrame { .. } => false,
     }
-}
-
-fn ranges_overlap(left_start: u16, left_len: u16, right_start: u16, right_len: u16) -> bool {
-    let left_end = left_start.saturating_add(left_len);
-    let right_end = right_start.saturating_add(right_len);
-    left_start < right_end && right_start < left_end
 }
 
 pub(super) fn call_result_value(width: MirWidth, home: MirResultHome) -> Option<MirValue> {

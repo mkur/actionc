@@ -366,10 +366,10 @@ fn runtime_helper_decls_from_sets(nir_program: &NirProgram) -> Vec<MirRuntimeHel
                     continue;
                 };
                 decls.push(MirRuntimeHelperDecl {
+                    effects: super::materialize::helper_effects(&helper),
                     helper,
                     target,
                     abi: super::materialize::helper_abi(),
-                    effects: super::materialize::helper_effects(),
                 });
             }
         }
