@@ -322,16 +322,16 @@ pub(in crate::mir6502) fn direct_word_relational_compare_candidate(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(in crate::mir6502) struct SignedReturnWordZeroCompareCandidate {
+pub(in crate::mir6502) struct SignedWordZeroCompareCandidate {
     pub consumed: usize,
     pub compare_dst: MirCondDest,
     pub compare_op: MirCompareOp,
-    pub result_temp: MirTempId,
-    pub return_slot: MirFixedZpSlot,
-    pub call_without_result: MirOp,
+    pub source_lo: MirValue,
+    pub source_hi: MirValue,
+    pub prefix_ops: Vec<MirOp>,
 }
 
-impl SignedReturnWordZeroCompareCandidate {
+impl SignedWordZeroCompareCandidate {
     pub(in crate::mir6502) fn condition_temp(&self) -> Option<MirTempId> {
         match self.compare_dst {
             MirCondDest::Temp(temp) => Some(temp),
@@ -340,25 +340,160 @@ impl SignedReturnWordZeroCompareCandidate {
     }
 
     pub(in crate::mir6502) fn proof_replacement(&self) -> Vec<MirOp> {
-        vec![
-            self.call_without_result.clone(),
-            MirOp::Compare {
-                dst: self.compare_dst.clone(),
-                op: self.compare_op,
-                left: pointer_value_from_mem(&MirMem::FixedZeroPage(self.return_slot)),
-                right: MirValue::ConstU16(0),
-                width: MirWidth::Word,
-                signed: true,
+        let mut replacement = self.prefix_ops.clone();
+        replacement.push(MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: self.source_hi.clone(),
+            width: MirWidth::Byte,
+        });
+        replacement.push(MirOp::Compare {
+            dst: self.compare_dst.clone(),
+            op: self.compare_op,
+            left: MirValue::Word {
+                lo: Box::new(self.source_lo.clone()),
+                hi: Box::new(self.source_hi.clone()),
             },
-        ]
+            right: MirValue::ConstU16(0),
+            width: MirWidth::Word,
+            signed: true,
+        });
+        replacement
     }
 }
 
-pub(in crate::mir6502) fn signed_return_word_zero_compare_candidate(
+fn signed_word_zero_source(
+    value: &MirValue,
+    sources: &BTreeMap<MirTempId, WordConsumerSource>,
+) -> Option<(MirValue, MirValue)> {
+    let source = match value {
+        MirValue::Def(MirDef::VTemp(temp)) => sources.get(temp)?.clone(),
+        MirValue::ConstU8(value) => WordConsumerSource::Values {
+            lo: MirValue::ConstU8(*value),
+            hi: MirValue::ConstU8(0),
+        },
+        MirValue::ConstU16(value) => WordConsumerSource::Values {
+            lo: MirValue::ConstU8(*value as u8),
+            hi: MirValue::ConstU8((value >> 8) as u8),
+        },
+        MirValue::Word { lo, hi }
+            if signed_word_zero_lane_is_stable(lo) && signed_word_zero_lane_is_stable(hi) =>
+        {
+            WordConsumerSource::Values {
+                lo: lo.as_ref().clone(),
+                hi: hi.as_ref().clone(),
+            }
+        }
+        MirValue::PointerCell(mem) => WordConsumerSource::Values {
+            lo: MirValue::PointerCell(mem.clone()),
+            hi: MirValue::PointerCell(super::offset_mem(mem, 1)),
+        },
+        _ => return None,
+    };
+    match source {
+        WordConsumerSource::Values { lo, hi }
+            if signed_word_zero_lane_is_stable(&lo) && signed_word_zero_lane_is_stable(&hi) =>
+        {
+            Some((lo, hi))
+        }
+        WordConsumerSource::Values { .. } | WordConsumerSource::Indirect { .. } => None,
+    }
+}
+
+fn signed_word_zero_load_source(op: &MirOp) -> Option<(MirTempId, WordConsumerSource)> {
+    let MirOp::Load {
+        dst,
+        src: MirAddr::Direct(mem),
+        width: MirWidth::Word,
+    } = op
+    else {
+        return None;
+    };
+    if !matches!(
+        mem,
+        MirMem::Param { .. }
+            | MirMem::Local { .. }
+            | MirMem::Static { .. }
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_)
+            | MirMem::FixedZeroPage(_)
+    ) {
+        return None;
+    }
+    Some((
+        split_def_as_temp(dst)?,
+        WordConsumerSource::Values {
+            lo: MirValue::PointerCell(mem.clone()),
+            hi: MirValue::PointerCell(super::offset_mem(mem, 1)),
+        },
+    ))
+}
+
+fn signed_word_zero_lane_is_stable(value: &MirValue) -> bool {
+    matches!(value, MirValue::ConstU8(_) | MirValue::ConstU16(_))
+        || matches!(
+            value,
+            MirValue::PointerCell(
+                MirMem::Param { .. }
+                    | MirMem::Local { .. }
+                    | MirMem::Static { .. }
+                    | MirMem::Spill { .. }
+                    | MirMem::ZeroPage(_)
+                    | MirMem::FixedZeroPage(_)
+            )
+        )
+        || matches!(
+            value,
+            MirValue::Def(
+                MirDef::VTempByte { .. } | MirDef::Reg(MirReg::A | MirReg::X | MirReg::Y)
+            )
+        )
+}
+
+fn signed_word_zero_compare(
+    compare: &MirOp,
+    sources: &BTreeMap<MirTempId, WordConsumerSource>,
+) -> Option<(MirCondDest, MirCompareOp, MirValue, MirValue)> {
+    let MirOp::Compare {
+        dst,
+        op,
+        left,
+        right,
+        width: MirWidth::Word,
+        signed: true,
+    } = compare
+    else {
+        return None;
+    };
+    let (compare_op, source) = if super::is_zero_word_value(right) {
+        (*op, left)
+    } else if super::is_zero_word_value(left) {
+        (reverse_compare_operands(*op), right)
+    } else {
+        return None;
+    };
+    if !matches!(
+        compare_op,
+        MirCompareOp::Lt | MirCompareOp::Le | MirCompareOp::Gt | MirCompareOp::Ge
+    ) {
+        return None;
+    }
+    let (source_lo, source_hi) = signed_word_zero_source(source, sources)?;
+    // Testing the high lane first overwrites A. Keep the incoming A/X pair
+    // specialization to sign-only relations, where the low lane is unused.
+    if matches!(compare_op, MirCompareOp::Gt | MirCompareOp::Le)
+        && source_lo == MirValue::Def(MirDef::Reg(MirReg::A))
+        && source_hi != source_lo
+    {
+        return None;
+    }
+    Some((dst.clone(), compare_op, source_lo, source_hi))
+}
+
+pub(in crate::mir6502) fn signed_word_zero_compare_candidate(
     ops: &[MirOp],
     index: usize,
-) -> Option<SignedReturnWordZeroCompareCandidate> {
-    let MirOp::Call {
+) -> Option<SignedWordZeroCompareCandidate> {
+    if let Some(MirOp::Call {
         target,
         abi,
         args,
@@ -369,55 +504,76 @@ pub(in crate::mir6502) fn signed_return_word_zero_compare_candidate(
                 home: MirResultHome::ReturnSlot { offset },
             }),
         effects,
-    } = ops.get(index)?
-    else {
-        return None;
-    };
-    let result_temp = split_def_as_temp(dst)?;
-    let MirOp::Compare {
-        dst: compare_dst,
-        op,
-        left,
-        right,
-        width: MirWidth::Word,
-        signed: true,
-    } = ops.get(index + 1)?
-    else {
-        return None;
-    };
-    let result_value = MirValue::Def(dst.clone());
-    let compare_op = if left == &result_value && super::is_zero_word_value(right) {
-        *op
-    } else if right == &result_value && super::is_zero_word_value(left) {
-        reverse_compare_operands(*op)
-    } else {
-        return None;
-    };
-    if !matches!(
-        compare_op,
-        MirCompareOp::Lt | MirCompareOp::Le | MirCompareOp::Gt | MirCompareOp::Ge
-    ) || op_uses_temp_more_than_once(&ops[index + 1], result_temp)
+    }) = ops.get(index)
+    {
+        let result_temp = split_def_as_temp(dst)?;
+        let result_value = MirValue::Def(dst.clone());
+        let compare = ops.get(index + 1)?;
+        let MirOp::Compare { left, right, .. } = compare else {
+            return None;
+        };
+        if (!op_uses_temp(compare, result_temp)
+            || op_uses_temp_more_than_once(compare, result_temp))
+            || (left != &result_value && right != &result_value)
+        {
+            return None;
+        }
+        let return_slot = match super::return_slot_mem(*offset) {
+            MirMem::FixedZeroPage(slot) if slot.0 < u8::MAX => slot,
+            _ => return None,
+        };
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            result_temp,
+            WordConsumerSource::Values {
+                lo: MirValue::PointerCell(MirMem::FixedZeroPage(return_slot)),
+                hi: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(
+                    return_slot.0.saturating_add(1),
+                ))),
+            },
+        );
+        let (compare_dst, compare_op, source_lo, source_hi) =
+            signed_word_zero_compare(compare, &sources)?;
+        return Some(SignedWordZeroCompareCandidate {
+            consumed: 2,
+            compare_dst,
+            compare_op,
+            source_lo,
+            source_hi,
+            prefix_ops: vec![MirOp::Call {
+                target: target.clone(),
+                abi: abi.clone(),
+                args: args.clone(),
+                result: None,
+                effects: effects.clone(),
+            }],
+        });
+    }
+
+    let mut sources = BTreeMap::<MirTempId, WordConsumerSource>::new();
+    let mut cursor = index;
+    while let Some((temp, source)) = ops.get(cursor).and_then(signed_word_zero_load_source) {
+        if sources.insert(temp, source).is_some() {
+            return None;
+        }
+        cursor += 1;
+    }
+    let compare = ops.get(cursor)?;
+    if sources
+        .keys()
+        .any(|temp| !op_uses_temp(compare, *temp) || op_uses_temp_more_than_once(compare, *temp))
     {
         return None;
     }
-    let return_slot = match super::return_slot_mem(*offset) {
-        MirMem::FixedZeroPage(slot) if slot.0 < u8::MAX => slot,
-        _ => return None,
-    };
-
-    Some(SignedReturnWordZeroCompareCandidate {
-        consumed: 2,
-        compare_dst: compare_dst.clone(),
+    let (compare_dst, compare_op, source_lo, source_hi) =
+        signed_word_zero_compare(compare, &sources)?;
+    Some(SignedWordZeroCompareCandidate {
+        consumed: cursor + 1 - index,
+        compare_dst,
         compare_op,
-        result_temp,
-        return_slot,
-        call_without_result: MirOp::Call {
-            target: target.clone(),
-            abi: abi.clone(),
-            args: args.clone(),
-            result: None,
-            effects: effects.clone(),
-        },
+        source_lo,
+        source_hi,
+        prefix_ops: Vec::new(),
     })
 }
 
@@ -1208,7 +1364,7 @@ pub(super) fn expand_proven_direct_word_relational_compare_branches(
     expanded
 }
 
-pub(super) fn expand_proven_signed_return_word_zero_compare_branches(
+pub(super) fn expand_proven_signed_word_zero_compare_branches(
     blocks: &mut Vec<MirBlock>,
     proven_sites: &BTreeSet<(MirBlockId, usize)>,
 ) -> usize {
@@ -1228,8 +1384,7 @@ pub(super) fn expand_proven_signed_return_word_zero_compare_branches(
         else {
             continue;
         };
-        let Some(candidate) =
-            signed_return_word_zero_compare_candidate(&blocks[block_index].ops, start)
+        let Some(candidate) = signed_word_zero_compare_candidate(&blocks[block_index].ops, start)
         else {
             continue;
         };
@@ -1253,14 +1408,13 @@ pub(super) fn expand_proven_signed_return_word_zero_compare_branches(
             continue;
         }
 
-        let low_mem = MirMem::FixedZeroPage(candidate.return_slot);
-        let high_mem =
-            MirMem::FixedZeroPage(MirFixedZpSlot(candidate.return_slot.0.saturating_add(1)));
         blocks[block_index].ops.truncate(start);
-        blocks[block_index].ops.push(candidate.call_without_result);
-        blocks[block_index].ops.push(MirOp::Load {
+        blocks[block_index]
+            .ops
+            .extend(candidate.prefix_ops.iter().cloned());
+        blocks[block_index].ops.push(MirOp::Move {
             dst: MirDef::Reg(MirReg::A),
-            src: MirAddr::Direct(high_mem),
+            src: candidate.source_hi.clone(),
             width: MirWidth::Byte,
         });
 
@@ -1282,18 +1436,18 @@ pub(super) fn expand_proven_signed_return_word_zero_compare_branches(
                 let positive = candidate.compare_op == MirCompareOp::Gt;
                 blocks.push(flag_branch_block(
                     high_nonzero,
-                    "cmp_return_i16_high_nonzero",
+                    "cmp_i16_zero_high_nonzero",
                     MirFlagTest::ZClear,
                     if positive { then_block } else { else_block },
                     low_test,
                 ));
                 blocks.push(MirBlock {
                     id: low_test,
-                    label: format!("cmp_return_i16_low_zero_{}", low_test.0),
+                    label: format!("cmp_i16_zero_low_zero_{}", low_test.0),
                     params: Vec::new(),
-                    ops: vec![MirOp::Load {
+                    ops: vec![MirOp::Move {
                         dst: MirDef::Reg(MirReg::A),
-                        src: MirAddr::Direct(low_mem),
+                        src: candidate.source_lo.clone(),
                         width: MirWidth::Byte,
                     }],
                     terminator: branch_terminator(

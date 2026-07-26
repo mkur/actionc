@@ -2952,32 +2952,172 @@ fn signed_return_word_zero_ops(op: MirCompareOp, zero_on_left: bool) -> Vec<MirO
 }
 
 #[test]
-fn signed_return_word_zero_candidate_normalizes_relations_and_operand_order() {
+fn signed_word_zero_candidate_normalizes_relations_and_operand_order() {
     for (op, reversed) in [
         (MirCompareOp::Lt, MirCompareOp::Gt),
         (MirCompareOp::Le, MirCompareOp::Ge),
         (MirCompareOp::Gt, MirCompareOp::Lt),
         (MirCompareOp::Ge, MirCompareOp::Le),
     ] {
-        let direct = analyzed_signed_return_word_zero_compare_candidate(
-            &signed_return_word_zero_ops(op, false),
-            0,
-        )
-        .expect("return-word relation against zero should select");
+        let direct =
+            analyzed_signed_word_zero_compare_candidate(&signed_return_word_zero_ops(op, false), 0)
+                .expect("return-word relation against zero should select");
         assert_eq!(direct.compare_op, op);
-        assert_eq!(direct.return_slot, MirFixedZpSlot(0xA0));
+        assert_eq!(
+            direct.source_lo,
+            MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0)))
+        );
+        assert_eq!(
+            direct.source_hi,
+            MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1)))
+        );
         assert!(matches!(
-            direct.call_without_result,
-            MirOp::Call { result: None, .. }
+            direct.prefix_ops.as_slice(),
+            [MirOp::Call { result: None, .. }]
         ));
 
-        let reversed_candidate = analyzed_signed_return_word_zero_compare_candidate(
-            &signed_return_word_zero_ops(op, true),
-            0,
-        )
-        .expect("zero against return-word relation should select");
+        let reversed_candidate =
+            analyzed_signed_word_zero_compare_candidate(&signed_return_word_zero_ops(op, true), 0)
+                .expect("zero against return-word relation should select");
         assert_eq!(reversed_candidate.compare_op, reversed);
     }
+}
+
+fn signed_word_zero_load_ops(op: MirCompareOp, zero_on_left: bool) -> Vec<MirOp> {
+    let loaded = MirDef::VTemp(MirTempId(0));
+    let loaded_value = MirValue::Def(loaded.clone());
+    let zero = MirValue::ConstU16(0);
+    let (left, right) = if zero_on_left {
+        (zero, loaded_value)
+    } else {
+        (loaded_value, zero)
+    };
+    vec![
+        MirOp::Load {
+            dst: loaded,
+            src: MirAddr::Direct(MirMem::Param {
+                id: ParamId(0),
+                offset: 0,
+            }),
+            width: MirWidth::Word,
+        },
+        MirOp::Compare {
+            dst: MirCondDest::Temp(MirTempId(1)),
+            op,
+            left,
+            right,
+            width: MirWidth::Word,
+            signed: true,
+        },
+    ]
+}
+
+#[test]
+fn signed_word_zero_candidate_selects_direct_memory_for_every_relation() {
+    for op in [
+        MirCompareOp::Lt,
+        MirCompareOp::Le,
+        MirCompareOp::Gt,
+        MirCompareOp::Ge,
+    ] {
+        for zero_on_left in [false, true] {
+            let candidate = analyzed_signed_word_zero_compare_candidate(
+                &signed_word_zero_load_ops(op, zero_on_left),
+                0,
+            )
+            .expect("direct-memory signed relation against zero should select");
+            assert_eq!(candidate.consumed, 2);
+            assert_eq!(
+                candidate.source_lo,
+                MirValue::PointerCell(MirMem::Param {
+                    id: ParamId(0),
+                    offset: 0,
+                })
+            );
+            assert_eq!(
+                candidate.source_hi,
+                MirValue::PointerCell(MirMem::Param {
+                    id: ParamId(0),
+                    offset: 1,
+                })
+            );
+        }
+    }
+}
+
+#[test]
+fn signed_word_zero_sign_branch_uses_only_the_high_lane() {
+    let mut blocks = vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: signed_word_zero_load_ops(MirCompareOp::Lt, false),
+            terminator: MirTerminator::Branch {
+                cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(1)))),
+                then_edge: MirEdge::plain(MirBlockId(1)),
+                else_edge: MirEdge::plain(MirBlockId(2)),
+            },
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "then".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+        MirBlock {
+            id: MirBlockId(2),
+            label: "else".to_string(),
+            params: Vec::new(),
+            ops: Vec::new(),
+            terminator: MirTerminator::Return,
+        },
+    ];
+    let proven = [(MirBlockId(0), 0)].into_iter().collect();
+
+    assert_eq!(
+        expand_proven_signed_word_zero_compare_branches(&mut blocks, &proven),
+        1
+    );
+    assert_eq!(
+        blocks[0].ops,
+        vec![MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::PointerCell(MirMem::Param {
+                id: ParamId(0),
+                offset: 1,
+            }),
+            width: MirWidth::Byte,
+        }]
+    );
+    assert!(matches!(
+        blocks[0].terminator,
+        MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::NSet),
+            ..
+        }
+    ));
+}
+
+#[test]
+fn signed_word_zero_sign_branch_accepts_incoming_a_x_pair() {
+    let ops = vec![MirOp::Compare {
+        dst: MirCondDest::Temp(MirTempId(0)),
+        op: MirCompareOp::Ge,
+        left: MirValue::Word {
+            lo: Box::new(MirValue::Def(MirDef::Reg(MirReg::A))),
+            hi: Box::new(MirValue::Def(MirDef::Reg(MirReg::X))),
+        },
+        right: MirValue::ConstU16(0),
+        width: MirWidth::Word,
+        signed: true,
+    }];
+
+    let candidate = analyzed_signed_word_zero_compare_candidate(&ops, 0)
+        .expect("incoming A/X signed sign test should select");
+    assert_eq!(candidate.source_hi, MirValue::Def(MirDef::Reg(MirReg::X)));
+    assert_eq!(candidate.consumed, 1);
 }
 
 #[test]

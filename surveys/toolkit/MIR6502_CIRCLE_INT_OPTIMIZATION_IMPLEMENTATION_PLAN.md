@@ -1,6 +1,6 @@
 # MIR6502 CIRCLE INT Optimization Implementation Plan
 
-Status: in progress; Slices 0 through 2 complete
+Status: in progress; Slices 0 through 3 complete
 
 Date: 2026-07-26
 
@@ -512,6 +512,25 @@ before parameter-home coalescing.
 - All four signed relations work with zero on either side.
 - Boundary tests cover `$8000`, `$FFFF`, `$0000`, `$0001`, and `$7FFF`.
 - A low lane is not loaded for `< 0` or `>= 0`.
+
+### Implemented result
+
+The shared pre-home compare/branch proof now accepts signed word relations
+against zero from ordinary direct homes, stable physical or virtual register
+lanes, and public return slots. The return-slot call is retained as a prefix
+operation rather than remaining a separate selector. Zero on the left is
+normalized by reversing the predicate.
+
+`< 0` and `>= 0` materialize only the high lane and branch on N. `> 0` and
+`<= 0` retain the existing exact sign-plus-word-zero CFG. Global and absolute
+memory are deliberately excluded because this pre-home selector has no layout
+proof that such reads are ordinary and nonvolatile.
+
+The CIRCLE `Abs` entry now emits `TXA` followed by a direct N branch. Its low
+parameter lane is not loaded. CIRCLE1 falls from 668 to 656 bytes and CIRCLE2
+from 948 to 936 bytes, saving 12 bytes in each program. The CIRCLE INT runtime
+oracle and the dedicated eight-relation return-word oracle pass all boundary
+cases.
 
 Suggested commit:
 

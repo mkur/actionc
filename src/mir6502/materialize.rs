@@ -83,7 +83,7 @@ use compare_branch::{
     ByteAddWordCompareCandidate, ByteBinaryCompareChainRewriteCandidate,
     ByteBinaryCompareRewriteCandidate, CompareNarrowingCandidate, CompareOperandRewriteCandidate,
     DirectWordEqualityCompareCandidate, DirectWordRelationalCompareCandidate,
-    InclusiveCompareReversalCandidate, SignedReturnWordZeroCompareCandidate,
+    InclusiveCompareReversalCandidate, SignedWordZeroCompareCandidate,
     WordArithmeticCompareCandidate, byte_add_word_compare_candidate,
     byte_binary_compare_chain_rewrite_candidate, byte_binary_compare_rewrite_candidate,
     byte_bitwise_zero_compare_narrowing_candidate, compare_branch_plan,
@@ -92,9 +92,9 @@ use compare_branch::{
     expand_proven_byte_add_word_compare_branches,
     expand_proven_direct_word_equality_compare_branches,
     expand_proven_direct_word_relational_compare_branches,
-    expand_proven_signed_return_word_zero_compare_branches,
+    expand_proven_signed_word_zero_compare_branches,
     expand_proven_word_arithmetic_compare_branches, inclusive_compare_reversal_candidate,
-    signed_return_word_zero_compare_candidate, word_arithmetic_compare_candidate,
+    signed_word_zero_compare_candidate, word_arithmetic_compare_candidate,
 };
 pub(in crate::mir6502) use compare_branch::{
     addressed_byte_compare_candidate, dual_indirect_compare_candidate,
@@ -320,11 +320,11 @@ pub(in crate::mir6502) fn analyzed_direct_word_relational_compare_candidate(
     direct_word_relational_compare_candidate(ops, index)
 }
 
-pub(in crate::mir6502) fn analyzed_signed_return_word_zero_compare_candidate(
+pub(in crate::mir6502) fn analyzed_signed_word_zero_compare_candidate(
     ops: &[MirOp],
     index: usize,
-) -> Option<SignedReturnWordZeroCompareCandidate> {
-    signed_return_word_zero_compare_candidate(ops, index)
+) -> Option<SignedWordZeroCompareCandidate> {
+    signed_word_zero_compare_candidate(ops, index)
 }
 
 pub(in crate::mir6502) fn analyzed_call_arg_producer_candidate(
@@ -1459,23 +1459,23 @@ fn run_prehome_canonicalization_group(
     run_analyzed_compare_narrowing(routine, peephole_stats)?;
     run_analyzed_byte_binary_compare_consumers(routine, peephole_stats)?;
     run_analyzed_dual_indirect_compares(routine, peephole_stats)?;
-    let signed_return_word_zero_sites =
-        super::rewrite::pilots::proven_signed_return_word_zero_compare_branches(routine).map_err(
-            |_| {
-                vec![MirDiagnostic::routine(
-                    &routine.name,
-                    "signed return word zero compare analysis failed",
-                )]
-            },
-        )?;
-    let signed_return_word_zero_compares = expand_proven_signed_return_word_zero_compare_branches(
+    let signed_word_zero_sites = super::rewrite::pilots::proven_signed_word_zero_compare_branches(
+        routine,
+    )
+    .map_err(|_| {
+        vec![MirDiagnostic::routine(
+            &routine.name,
+            "signed word zero compare analysis failed",
+        )]
+    })?;
+    let signed_word_zero_compares = expand_proven_signed_word_zero_compare_branches(
         &mut routine.blocks,
-        &signed_return_word_zero_sites,
+        &signed_word_zero_sites,
     );
     peephole_stats.record_many(
         routine.id,
         "signed-return-word-zero-compare-branch",
-        signed_return_word_zero_compares,
+        signed_word_zero_compares,
     );
     let direct_word_equality_sites =
         super::rewrite::pilots::proven_direct_word_equality_compare_branches(routine).map_err(

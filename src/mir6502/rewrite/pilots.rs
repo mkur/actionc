@@ -302,7 +302,7 @@ pub(in crate::mir6502) fn proven_word_arithmetic_compare_branches(
     Ok(sites)
 }
 
-pub(in crate::mir6502) fn proven_signed_return_word_zero_compare_branches(
+pub(in crate::mir6502) fn proven_signed_word_zero_compare_branches(
     routine: &MirRoutine,
 ) -> Result<std::collections::BTreeSet<(crate::mir6502::ir::MirBlockId, usize)>, ()> {
     let snapshot =
@@ -312,7 +312,7 @@ pub(in crate::mir6502) fn proven_signed_return_word_zero_compare_branches(
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
             let Some(candidate) =
-                crate::mir6502::materialize::analyzed_signed_return_word_zero_compare_candidate(
+                crate::mir6502::materialize::analyzed_signed_word_zero_compare_candidate(
                     &block.ops, index,
                 )
             else {
@@ -325,15 +325,16 @@ pub(in crate::mir6502) fn proven_signed_return_word_zero_compare_branches(
                 continue;
             }
             let end = index + candidate.consumed;
-            if prove_removed_window_definitions(
-                block.id,
-                &block.ops,
-                index,
-                end,
-                &candidate.proof_replacement(),
-                &context,
-            )
-            .is_some()
+            if candidate.consumed == 1
+                || prove_removed_window_definitions(
+                    block.id,
+                    &block.ops,
+                    index,
+                    end,
+                    &candidate.proof_replacement(),
+                    &context,
+                )
+                .is_some()
             {
                 sites.insert((block.id, index));
             }
