@@ -176,7 +176,12 @@ fn single_use_temp_sink_index(
     if consumer_index == index + 1 {
         return None;
     }
-    if ops[index + 1..consumer_index]
+    let intervening = &ops[index + 1..consumer_index];
+    if private_direct_load_source(producer).is_some() && !intervening.iter().any(is_safe_known_call)
+    {
+        return None;
+    }
+    if intervening
         .iter()
         .any(|op| op_blocks_temp_producer_sink(producer, op))
     {
@@ -221,6 +226,9 @@ fn op_is_side_effect_free_temp_def(op: &MirOp) -> bool {
 }
 
 fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
+    if private_direct_load_source(op).is_some() {
+        return true;
+    }
     if !op_is_side_effect_free_temp_def(op) {
         return false;
     }
@@ -351,6 +359,31 @@ fn value_contains_storage_address_byte(value: &MirValue) -> bool {
     }
 }
 
+fn private_direct_load_source(op: &MirOp) -> Option<&MirMem> {
+    match op {
+        MirOp::Load {
+            dst: MirDef::VTemp(_),
+            src:
+                MirAddr::Direct(
+                    source @ (MirMem::Param { .. } | MirMem::Local { .. } | MirMem::Spill { .. }),
+                ),
+            ..
+        } => Some(source),
+        _ => None,
+    }
+}
+
+fn is_safe_known_call(op: &MirOp) -> bool {
+    matches!(
+        op,
+        MirOp::Call {
+            target: MirCallTarget::Routine(_),
+            effects,
+            ..
+        } if !effects.opaque && matches!(effects.memory_writes, MirMemoryEffect::None)
+    )
+}
+
 fn value_is_safe_temp_replacement(value: &MirValue) -> bool {
     match value {
         MirValue::ConstU8(_)
@@ -383,6 +416,24 @@ fn value_is_safe_to_sink(value: &MirValue) -> bool {
 }
 
 fn op_blocks_temp_producer_sink(producer: &MirOp, op: &MirOp) -> bool {
+    if let MirOp::Load {
+        src: MirAddr::Direct(source),
+        ..
+    } = producer
+    {
+        if matches!(op, MirOp::MachineBlock { .. } | MirOp::Barrier { .. }) {
+            return true;
+        }
+        if matches!(
+            op,
+            MirOp::Call { effects, .. }
+                if effects.opaque
+                    || !matches!(effects.memory_writes, MirMemoryEffect::None)
+        ) {
+            return true;
+        }
+        return op_may_write_mem(op, source);
+    }
     if !matches!(producer, MirOp::LoadImm { .. }) {
         return op_has_opaque_flag_or_a_effects(op);
     }

@@ -18782,6 +18782,133 @@ fn pre_materialization_does_not_forward_storage_address_into_arithmetic() {
 }
 
 #[test]
+fn pre_materialization_rematerializes_private_load_after_safe_known_call() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source_temp = MirTempId(0);
+    let result_temp = MirTempId(1);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(source_temp),
+                src: MirAddr::Direct(MirMem::Param {
+                    id: ParamId(0),
+                    offset: 0,
+                }),
+                width: MirWidth::Word,
+            },
+            MirOp::Call {
+                target: MirCallTarget::Routine(RoutineId(1)),
+                abi: MirCallAbi {
+                    params: Vec::new(),
+                    result: None,
+                    clobbers: MirRegisterSet::default(),
+                    preserves: MirRegisterSet::default(),
+                },
+                args: Vec::new(),
+                result: None,
+                effects: MirEffects::default(),
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Mul,
+                dst: MirDef::VTemp(result_temp),
+                left: MirValue::Def(MirDef::VTemp(source_temp)),
+                right: MirValue::ConstU16(3),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Global {
+                    id: SymbolId(0),
+                    offset: 0,
+                }),
+                src: MirValue::Def(MirDef::VTemp(result_temp)),
+                width: MirWidth::Word,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: source_temp }, MirTemp { id: result_temp }];
+
+    cleanup_pre_materialization_temp_artifacts(&mut routine, &layout);
+
+    let ops = &routine.blocks[0].ops;
+    assert!(matches!(ops[0], MirOp::Call { .. }));
+    assert!(matches!(
+        ops[1],
+        MirOp::Load {
+            src: MirAddr::Direct(MirMem::Param { .. }),
+            ..
+        }
+    ));
+    let once = ops.clone();
+    cleanup_pre_materialization_temp_artifacts(&mut routine, &layout);
+    assert_eq!(routine.blocks[0].ops, once);
+}
+
+#[test]
+fn pre_materialization_keeps_private_load_before_unknown_call_write() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source_temp = MirTempId(0);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(source_temp),
+                src: MirAddr::Direct(MirMem::Local {
+                    id: LocalId(0),
+                    offset: 0,
+                }),
+                width: MirWidth::Word,
+            },
+            MirOp::Call {
+                target: MirCallTarget::Routine(RoutineId(1)),
+                abi: MirCallAbi {
+                    params: Vec::new(),
+                    result: None,
+                    clobbers: MirRegisterSet::default(),
+                    preserves: MirRegisterSet::default(),
+                },
+                args: Vec::new(),
+                result: None,
+                effects: MirEffects {
+                    memory_writes: MirMemoryEffect::Unknown,
+                    ..MirEffects::default()
+                },
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Global {
+                    id: SymbolId(0),
+                    offset: 0,
+                }),
+                src: MirValue::Def(MirDef::VTemp(source_temp)),
+                width: MirWidth::Word,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: source_temp }];
+
+    cleanup_pre_materialization_temp_artifacts(&mut routine, &layout);
+
+    assert!(matches!(
+        routine.blocks[0].ops[0],
+        MirOp::Load {
+            src: MirAddr::Direct(MirMem::Local { .. }),
+            ..
+        }
+    ));
+    assert!(matches!(routine.blocks[0].ops[1], MirOp::Call { .. }));
+}
+
+#[test]
 fn return_slot_word_result_forwards_to_repeated_next_call_args() {
     let temp = MirTempId(0);
     let value = MirValue::Def(MirDef::VTemp(temp));

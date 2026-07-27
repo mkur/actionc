@@ -52,19 +52,19 @@ fn turtle_exposes_the_expected_codegen_baseline() {
         2,
         "{formatted}"
     );
-    assert_eq!(
-        formatted.matches("store.b spill sp0+0").count(),
-        3,
+    let forward = formatted
+        .split_once("routine r5 Forward")
+        .and_then(|(_, tail)| tail.split_once("routine r6 SetTurtle"))
+        .map(|(body, _)| body)
+        .expect("Forward routine is present");
+    assert_eq!(forward.matches("store.b spill ").count(), 2, "{formatted}");
+    assert_eq!(forward.matches("load spill ").count(), 2, "{formatted}");
+    assert!(
+        forward.find("call r4 args=") < forward.find("load param p0+0"),
         "{formatted}"
     );
-    assert_eq!(
-        formatted.matches("store.b spill sp1+0").count(),
-        3,
-        "{formatted}"
-    );
-    assert_eq!(
-        formatted.matches("store.b spill sp3+0").count(),
-        0,
+    assert!(
+        forward.find("call r3 args=") < forward.rfind("load param p0+0"),
         "{formatted}"
     );
     assert!(
@@ -76,13 +76,16 @@ fn turtle_exposes_the_expected_codegen_baseline() {
         0,
         "{formatted}"
     );
-    assert!(formatted.contains("branch flag n_set ? b2 : b3"), "{formatted}");
+    assert!(
+        formatted.contains("branch flag n_set ? b2 : b3"),
+        "{formatted}"
+    );
 
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     assert!(
-        output.bytes.len() <= 1_104,
-        "expected TURTLE1 MIR6502 output no larger than 1104 bytes, got {}",
+        output.bytes.len() <= 1_086,
+        "expected TURTLE1 MIR6502 output no larger than 1086 bytes, got {}",
         output.bytes.len()
     );
 }

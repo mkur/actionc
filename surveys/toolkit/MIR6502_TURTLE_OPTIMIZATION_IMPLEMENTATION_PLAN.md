@@ -286,6 +286,8 @@ Result:
 
 ### Slice 3: Rematerialize caller-private loads after known calls
 
+Status: complete.
+
 - Identify a direct parameter/local word load with no pre-call use and a
   post-call single-use consumer.
 - Use known-callee structured effects and storage identity to prove the load
@@ -294,6 +296,24 @@ Result:
 - Keep multi-use values and every unknown/aliasing case unchanged.
 - Add CFG, positive, and conservative rejection tests.
 - Re-run the VM fixture, full tests, and TURTLE1 audit.
+
+Result:
+
+- Extended the pre-materialization single-use producer cleanup with a
+  one-way, idempotent rematerialization rule for direct parameter, local, and
+  spill loads. The rule must cross a direct known-routine call whose structured
+  effects prove no memory writes.
+- Unknown writes, indirect calls, machine blocks, barriers, and writes that may
+  alias the source remain blockers.
+- Both `Forward` parameter loads now occur after their trig calls. This removes
+  four stores and four reloads from the call-crossing preservation family.
+- TURTLE1 fell from 1,104 to 1,086 bytes, an 18-byte code reduction. `Forward`
+  fell from 171 to 153 recognized code bytes.
+- Modern/MIR6502 is now 6 bytes smaller than modern/classic for TURTLE1. The
+  remaining two spill slots belong only to the independent pair of shifted
+  results feeding `DrawTo`, which is the subject of Slice 4.
+- The MIR6502 load hash is
+  `de390ede2d58f48caef2346617b2d5da60376e1a1ba43410aec06600d56058e6`.
 
 ### Slice 4: Residual helper-result argument placement
 
