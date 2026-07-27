@@ -1,0 +1,81 @@
+; Runtime regression for the word-placement shapes used by TURTLE.ACT.
+;
+; It covers runtime-helper results stored to ordinary globals, signed zero
+; relations on a structured global, and a caller-private parameter consumed
+; only after a known call.
+
+CARD multiplyResult
+CARD moduloResult
+CARD shiftResult
+CARD callResult
+CARD sourceValue
+CARD divisorValue
+BYTE shiftCount
+INT signedValue
+
+CARD observedMultiply=$0600
+CARD observedModulo=$0602
+CARD observedShift=$0604
+CARD observedCall=$0606
+BYTE observedNegative=$0608
+BYTE observedNonNegative=$0609
+BYTE signature=$060A
+
+CARD inputSource=$0610
+CARD inputDivisor=$0612
+BYTE inputShift=$0614
+INT inputSigned=$0615
+
+INT FUNC AddThree(INT value)
+RETURN(value+3)
+
+PROC MultiplyAfterCall(INT value)
+  callResult=value*AddThree(4)
+RETURN
+
+PROC RecordNegative()
+  IF signedValue<0 THEN
+    observedNegative=1
+  ELSE
+    observedNegative=0
+  FI
+RETURN
+
+PROC RecordNonNegative()
+  IF signedValue>=0 THEN
+    observedNonNegative=1
+  ELSE
+    observedNonNegative=0
+  FI
+RETURN
+
+PROC Main()
+  inputSource=1000
+  inputDivisor=37
+  inputShift=3
+  inputSigned=$FFFF
+
+  sourceValue=inputSource
+  divisorValue=inputDivisor
+  shiftCount=inputShift
+
+  multiplyResult=sourceValue*7
+  moduloResult=sourceValue MOD divisorValue
+  shiftResult=sourceValue LSH shiftCount
+  MultiplyAfterCall(inputSource-700)
+
+  signedValue=inputSigned
+  RecordNegative()
+
+  inputSigned=0
+  signedValue=inputSigned
+  RecordNonNegative()
+
+  observedMultiply=multiplyResult
+  observedModulo=moduloResult
+  observedShift=shiftResult
+  observedCall=callResult
+  signature=$A5
+  DO
+  OD
+RETURN

@@ -215,6 +215,8 @@ available from shared call/helper summaries.
 
 ### Slice 0: Baseline and execution coverage
 
+Status: complete.
+
 - Add a mandatory real-source TURTLE1 quality test with a 1,161-byte baseline
   cap and assertions for the measured helper-result and spill families.
 - Add a compact VM fixture covering word multiply, modulo, shifts, signed
@@ -223,6 +225,15 @@ available from shared call/helper summaries.
 - Run the fixture under modern/classic and modern/MIR6502.
 
 This slice must be code-size neutral.
+
+Result:
+
+- Added a mandatory real-source TURTLE1 materialization and 1,161-byte output
+  gate.
+- Added a modern/classic and modern/MIR6502 VM oracle for multiply, modulo,
+  variable left shift, signed global zero relations, and a caller-private word
+  parameter consumed after a known call.
+- The TURTLE1 output remains byte-identical to the planning baseline.
 
 ### Slice 1: Direct word-helper result stores
 
