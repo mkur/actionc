@@ -25,59 +25,246 @@ SET $491=$2C00
 
 
 PROC r_1=*()
-[$85 $86 $86 $87 $38 $A9 $00 $E5 $86
- $A8 $A9 $00 $E5 $87 $AA $98 $60]
+ASM
+  sta $86
+  stx $87
+  sec
+  lda #$00
+  sbc $86
+  tay
+  lda #$00
+  sbc $87
+  tax
+  tya
+  rts
+ENDASM
 
 PROC r_2=*()
-[$F0 $1B $CA $86 $C1 $AA $F0 $15 $86
- $C0 $A9 $00 $A2 $08 $0A $06 $C0 $90
- $02 $65 $C1 $CA $D0 $F6 $18 $65 $87
- $85 $87 $A5 $86 $A6 $87 $60]
+ASM
+  beq done
+  dex
+  stx $C1
+  tax
+  beq done
+  stx $C0
+  lda #$00
+  ldx #$08
+loop:
+  asl a
+  asl $C0
+  bcc no_add
+  adc $C1
+no_add:
+  dex
+  bne loop
+  clc
+  adc $87
+  sta $87
+done:
+  lda $86
+  ldx $87
+  rts
+ENDASM
 
 PROC r_3=*()
-[$86 $C2 $E0 $00 $10 $03 $20 r_1 $85
- $82 $86 $83 $A5 $85 $10 $0E $AA $45
- $C2 $85 $C2 $A5 $84 $20 r_1 $85 $84
- $86 $85 $A9 $00 $85 $87 $60]
+ASM
+  stx $C2
+  cpx #$00
+  bpl x_positive
+  jsr r_1
+x_positive:
+  sta $82
+  stx $83
+  lda $85
+  bpl y_positive
+  tax
+  eor $C2
+  sta $C2
+  lda $84
+  jsr r_1
+  sta $84
+  stx $85
+y_positive:
+  lda #$00
+  sta $87
+  rts
+ENDASM
 
 PROC r_Mul=*()
-[$20 r_3 $A6 $82 $F0 $1B $86 $C0 $A6
- $84 $F0 $15 $CA $86 $C1 $A2 $08 $0A
- $26 $87 $06 $C0 $90 $06 $65 $C1 $90
- $02 $E6 $87 $CA $D0 $F0 $85 $86 $A5
- $82 $A6 $85 $20 r_2 $A5 $83 $A6 $84
- $20 r_2 $A4 $C2 $10 $03 $4C r_1 $60]
+ASM
+  jsr r_3
+  ldx $82
+  beq multiply_done
+  stx $C0
+  ldx $84
+  beq multiply_done
+  dex
+  stx $C1
+  ldx #$08
+multiply_loop:
+  asl a
+  rol $87
+  asl $C0
+  bcc no_add
+  adc $C1
+  bcc no_add
+  inc $87
+no_add:
+  dex
+  bne multiply_loop
+multiply_done:
+  sta $86
+  lda $82
+  ldx $85
+  jsr r_2
+  lda $83
+  ldx $84
+  jsr r_2
+  ldy $C2
+  bpl positive
+  jmp r_1
+positive:
+  rts
+ENDASM
 
 PROC r_Div=*()
-[$20 r_3 $A5 $85 $F0 $27 $A2 $08 $26
- $82 $26 $83 $26 $87 $38 $A5 $83 $E5
- $84 $A8 $A5 $87 $E5 $85 $90 $04 $85
- $87 $84 $83 $CA $D0 $E7 $A5 $82 $2A
- $A2 $00 $A4 $83 $84 $86 $18 $90 $1D
- $A2 $10 $26 $82 $26 $83 $2A $B0 $04
- $C5 $84 $90 $03 $E5 $84 $38 $CA $D0
- $EF $26 $82 $26 $83 $85 $86 $A5 $82
- $A6 $83 $A4 $C2 $10 $10 $85 $84 $86
- $85 $38 $A9 $00 $E5 $84 $A8 $A9 $00
- $E5 $85 $AA $98 $60]
+ASM
+  jsr r_3
+  lda $85
+  beq byte_divisor
+  ldx #$08
+word_loop:
+  rol $82
+  rol $83
+  rol $87
+  sec
+  lda $83
+  sbc $84
+  tay
+  lda $87
+  sbc $85
+  bcc word_no_subtract
+  sta $87
+  sty $83
+word_no_subtract:
+  dex
+  bne word_loop
+  lda $82
+  rol a
+  ldx #$00
+  ldy $83
+  sty $86
+  clc
+  bcc finish
+byte_divisor:
+  ldx #$10
+byte_loop:
+  rol $82
+  rol $83
+  rol a
+  bcs byte_subtract
+  cmp $84
+  bcc byte_no_subtract
+byte_subtract:
+  sbc $84
+  sec
+byte_no_subtract:
+  dex
+  bne byte_loop
+  rol $82
+  rol $83
+  sta $86
+  lda $82
+  ldx $83
+finish:
+  ldy $C2
+  bpl positive
+  sta $84
+  stx $85
+  sec
+  lda #$00
+  sbc $84
+  tay
+  lda #$00
+  sbc $85
+  tax
+  tya
+positive:
+  rts
+ENDASM
 
 PROC r_Mod=*()
-[$20 r_Div $A5 $86 $A6 $87 $60]
+ASM
+  jsr r_Div
+  lda $86
+  ldx $87
+  rts
+ENDASM
 
 PROC r_Lsh=*()
-[$A4 $84 $F0 $0A $86 $85 $0A $26 $85
- $88 $D0 $FA $A6 $85 $60] 
+ASM
+  ldy $84
+  beq done_return
+  stx $85
+loop:
+  asl a
+  rol $85
+  dey
+  bne loop
+done:
+  ldx $85
+done_return:
+  rts
+ENDASM
 
 PROC r_Rsh=*()
-[$A4 $84 $F0 $0A $86 $85 $46 $85 $6A
- $88 $D0 $FA $A6 $85 $60]
+ASM
+  ldy $84
+  beq done_return
+  stx $85
+loop:
+  lsr $85
+  ror a
+  dey
+  bne loop
+done:
+  ldx $85
+done_return:
+  rts
+ENDASM
 
 PROC r_Par=*()
-[$85 $A0 $86 $A1 $84 $A2 $18 $68 $85
- $84 $69 $03 $A8 $68 $85 $85 $69 $00
- $48 $98 $48 $A0 $01 $B1 $84 $85 $82
- $C8 $B1 $84 $85 $83 $C8 $B1 $84 $A8
- $B9 $A0 $00 $91 $82 $88 $10 $F8 $60]
+ASM
+  sta $A0
+  stx $A1
+  sty $A2
+  clc
+  pla
+  sta $84
+  adc #$03
+  tay
+  pla
+  sta $85
+  adc #$00
+  pha
+  tya
+  pha
+  ldy #$01
+  lda ($84),y
+  sta $82
+  iny
+  lda ($84),y
+  sta $83
+  iny
+  lda ($84),y
+  tay
+copy_args:
+  lda $A0,y
+  sta ($82),y
+  dey
+  bpl copy_args
+  rts
+ENDASM
 
 SET $4E4=r_Lsh
 SET $4E6=r_Rsh
@@ -100,7 +287,20 @@ BYTE ARRAY allocbuf($800)=$2000
 ;@actionc writes $0100-$FFFF
 
 PROC MovePage=*(CARD dst, src BYTE len)
-[$85 $A0 $86 $A1 $84 $A2 $A4 $A4 $88 $B1 $A2 $91 $A0 $88 $C0 $FF $D0 $F7 $60]
+ASM
+  sta $A0
+  stx $A1
+  sty $A2
+  ldy $A4
+  dey
+loop:
+  lda ($A2),y
+  sta ($A0),y
+  dey
+  cpy #$FF
+  bne loop
+  rts
+ENDASM
 
 
 CARD FUNC Alloc(CARD n)
@@ -143,46 +343,94 @@ BYTE ARRAY quickmul(48)
 ;@actionc preserves Y $AC/$AD $AE/$AF
 ;@actionc clobbers $E6/$E7
 PROC CalcAdr=*()
-[$A6 ky $A5 $58 $18 $7D quickmul    
- $85 scl $A5 $59 $7D quickmul+24
- $85 sch $A5 scl $65 kx $85 scl $90 $02 $E6 sch $60]
+ASM
+  ldx.z ky
+  lda $58
+  clc
+  adc quickmul,x
+  sta.z scl
+  lda $59
+  adc quickmul+24,x
+  sta.z sch
+  lda.z scl
+  adc.z kx
+  sta.z scl
+  bcc done
+  inc.z sch
+done:
+  rts
+ENDASM
 
 
 ;@actionc preserves A X Y $AC/$AD $AE/$AF
 ;@actionc clobbers kx/ky
 PROC Position=*(BYTE x, y)
-[$85 kx $86 ky $60]
+ASM
+  sta.z kx
+  stx.z ky
+  rts
+ENDASM
 
 
 ;@actionc preserves X Y $AC/$AD $AE/$AF
 ;@actionc clobbers kx/ky
 PROC Relpos=*(BYTE x, y)
-[$18 $65 zx $85 kx $8A $65 zy $85 ky $60]
+ASM
+  clc
+  adc.z zx
+  sta.z kx
+  txa
+  adc.z zy
+  sta.z ky
+  rts
+ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers $A0
 ;@actionc returns A=$A0
 BYTE FUNC Internal=*(CHAR ch)
-[
-$A8 $2A $2A $2A $2A $29 $03 $AA 
-$98 $29 $9F $1D $49 $FB $85 $A0 
-$60
-]
+ASM
+  tay
+  rol a
+  rol a
+  rol a
+  rol a
+  and #$03
+  tax
+  tya
+  and #$9F
+  ora $FB49,x
+  sta $A0
+  rts
+ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers $A0
 ;@actionc returns A=$A0
 BYTE FUNC Ascii=*(CHAR ch)
-[
-$A8 $2A $2A $2A $2A $29 $03 $AA 
-$98 $29 $9F $1D $4D $FB $85 $A0 
-$60
-]
+ASM
+  tay
+  rol a
+  rol a
+  rol a
+  rol a
+  and #$03
+  tax
+  tya
+  and #$9F
+  ora $FB4D,x
+  sta $A0
+  rts
+ENDASM
 
 ;@actionc clobbers $A0
 ;@actionc returns A=$A0
 CHAR FUNC Getchar=*()
-[$20 $F2F8 $85 $A0 $60]
+ASM
+  jsr $F2F8
+  sta $A0
+  rts
+ENDASM
 
 
 PROC Putchar(CHAR ch)
@@ -214,46 +462,134 @@ RETURN
 ;@actionc clobbers A X Y r0 $A0 scl/sch
 ;@actionc writes $0100-$FFFF
 PROC Block=*(BYTE mode, dx, dy)
-[
-$48 $86 $A0 $20 CalcAdr $98 $AA
-$68 $C9 $80 $F0 $20 $C9 $40 $F0
-$04 $A9 $00 $85  r0 $A4 $A0 $A5
- r0 $91 scl $88 $10 $FB $18 $A5
-scl $69 $28 $85 scl $90 $02 $E6
-sch $CA $10 $E9 $60 $A4 $A0
-$B1 scl $49 $80 $91 scl $88
-$10 $F7 $18 $A5 scl $69 $28 $85
-scl $90 $02 $E6 sch $CA $10 $E7
-$60
-]
+ASM
+  pha
+  stx $A0
+  jsr CalcAdr
+  tya
+  tax
+  pla
+  cmp #$80
+  beq invert
+  cmp #$40
+  beq fill_row
+  lda #$00
+mode_ready:
+  sta.z r0
+fill_row:
+  ldy $A0
+  lda.z r0
+fill_column:
+  sta (screen),y
+  dey
+  bpl fill_column
+  clc
+  lda.z scl
+  adc #$28
+  sta.z scl
+  bcc fill_next
+  inc.z sch
+fill_next:
+  dex
+  bpl fill_row
+  rts
+invert:
+  ldy $A0
+invert_column:
+  lda (screen),y
+  eor #$80
+  sta (screen),y
+  dey
+  bpl invert_column
+  clc
+  lda.z scl
+  adc #$28
+  sta.z scl
+  bcc invert_next
+  inc.z sch
+invert_next:
+  dex
+  bpl invert
+  rts
+ENDASM
 
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $A0-$A4 scl/sch
 ;@actionc writes $0100-$FFFF
 PROC GetImage=*(CARD adr BYTE dx, dy)
-[ 
-$85 $A0 $86 $A1 $84 $A2 $C8 $84
-$A4 $20 CalcAdr $A6 $A3 $A4 $A2 $B1 scl $91 $A0 $88
-$10 $F9 $18 $A5 scl $69 $28 $85
-scl $90 $03 $E6 sch $18 $A5 $A0
-$65 $A4 $85 $A0 $90 $02 $E6 $A1
-$CA $10 $DE $60
-]
+ASM
+  sta $A0
+  stx $A1
+  sty $A2
+  iny
+  sty $A4
+  jsr CalcAdr
+  ldx $A3
+get_row:
+  ldy $A2
+get_column:
+  lda (screen),y
+  sta ($A0),y
+  dey
+  bpl get_column
+  clc
+  lda.z scl
+  adc #$28
+  sta.z scl
+  bcc screen_ready
+  inc.z sch
+  clc
+screen_ready:
+  lda $A0
+  adc $A4
+  sta $A0
+  bcc destination_ready
+  inc $A1
+destination_ready:
+  dex
+  bpl get_row
+  rts
+ENDASM
 
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $A0-$A4 scl/sch
 ;@actionc writes $0100-$FFFF
 PROC PutImage=*(CARD adr BYTE dx, dy)
-[
-$85 $A0 $86 $A1 $84 $A2 $C8 $84
-$A4 $20 CalcAdr $A6 $A3 $A4 $A2 $B1 $A0 $91 scl $88
-$10 $F9 $18 $A5 scl $69 $28 $85
-scl $90 $03 $E6 sch $18 $A5 $A0
-$65 $A4 $85 $A0 $90 $02 $E6 $A1
-$CA $10 $DE $60
-]
+ASM
+  sta $A0
+  stx $A1
+  sty $A2
+  iny
+  sty $A4
+  jsr CalcAdr
+  ldx $A3
+put_row:
+  ldy $A2
+put_column:
+  lda ($A0),y
+  sta (screen),y
+  dey
+  bpl put_column
+  clc
+  lda.z scl
+  adc #$28
+  sta.z scl
+  bcc screen_ready
+  inc.z sch
+  clc
+screen_ready:
+  lda $A0
+  adc $A4
+  sta $A0
+  bcc source_ready
+  inc $A1
+source_ready:
+  dex
+  bpl put_row
+  rts
+ENDASM
 
 
 ;\{INV:                  }
@@ -269,70 +605,196 @@ PROC Error()
 
 ;@actionc writes Ioerr $0340-$03BF
 PROC _Cio=*()
-[$20 $56 $E4 $8C Ioerr $10 $03 $6C ErrorHandler $60]
+ASM
+  jsr $E456
+  sty Ioerr
+  bpl done
+  jmp (ErrorHandler)
+done:
+  rts
+ENDASM
 
 ;@actionc preserves Y $AC/$AD $AE/$AF
 ;@actionc clobbers A X
 PROC _LodChn=*()
-[$0A$0A$0A$0A$AA$60]
+ASM
+  asl a
+  asl a
+  asl a
+  asl a
+  tax
+  rts
+ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A Y $86-$88
 ;@actionc writes fnam $0340-$03BF
 PROC _StrNam()
  CHAR ARRAY fnam(40) CARD r=$86
-[$85$86$84$87$A0$00$B1$86$85$88$C8$B1$86$99 fnam+$FFFF $C4$88$D0$F6$C8$A9$9B$99 fnam+$FFFF]
+ASM
+  sta $86
+  sty $87
+  ldy #$00
+  lda ($86),y
+  sta $88
+copy_name:
+  iny
+  lda ($86),y
+  sta fnam-1,y
+  cpy $88
+  bne copy_name
+  iny
+  lda #$9B
+  sta fnam-1,y
+ENDASM
  r=fnam
-[$9D$344$A5 r+1 $9D$345 $60]
+ASM
+  sta $0344,x
+  lda.z r+1
+  sta $0345,x
+  rts
+ENDASM
  
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $A0
 ;@actionc writes Ioerr $0340-$03BF
 ;@actionc returns A=$A0
 CHAR FUNC GetD=*(BYTE chn)
-[$20 _LodChn $A9$00$9D$348$9D$349$A9$07$9D$342$20 _Cio $85$A0$60]
+ASM
+  jsr _LodChn
+  lda #$00
+  sta $0348,x
+  sta $0349,x
+  lda #$07
+  sta $0342,x
+  jsr _Cio
+  sta $A0
+  rts
+ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $A0
 ;@actionc writes Ioerr $0340-$03BF
 PROC PutD=*(BYTE chn, ch)
-[$86$A0$20 _LodChn $A9$00$9D$348$9D$349$A9$0B$9D$342$A5$A0$4C _Cio]
+ASM
+  stx $A0
+  jsr _LodChn
+  lda #$00
+  sta $0348,x
+  sta $0349,x
+  lda #$0B
+  sta $0342,x
+  lda $A0
+  jmp _Cio
+ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $86-$88 $A1 $A3/$A4
 ;@actionc writes $0100-$FFFF
 PROC Open=*(BYTE chn CARD s BYTE aux1,aux2)
-[$86$A1$20 _LodChn $A5$A1$20 _StrNam $A5$A3$9D$34A$A5$A4$9D$34B$A9$03$9D$342$4C _Cio]
+ASM
+  stx $A1
+  jsr _LodChn
+  lda $A1
+  jsr _StrNam
+  lda $A3
+  sta $034A,x
+  lda $A4
+  sta $034B,x
+  lda #$03
+  sta $0342,x
+  jmp _Cio
+ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y
 ;@actionc writes Ioerr $0340-$03BF
 PROC Close=*(BYTE chn)
-[$20 _LodChn $A9$0C$9D$42$03$4C _Cio]
+ASM
+  jsr _LodChn
+  lda #$0C
+  sta $0342,x
+  jmp _Cio
+ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $A1 $A3
 ;@actionc writes $0100-$FFFF
 PROC Input=*(BYTE chn CARD buf BYTE len)
-[$86$A1$20 _LodChn $A5$A1$9D$344$98$9D$345$A5$A3$9D$348$A9$00$9D$349$A9$05$9D$342$4C _Cio]
+ASM
+  stx $A1
+  jsr _LodChn
+  lda $A1
+  sta $0344,x
+  tya
+  sta $0345,x
+  lda $A3
+  sta $0348,x
+  lda #$00
+  sta $0349,x
+  lda #$05
+  sta $0342,x
+  jmp _Cio
+ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $A1 $A3/$A4
 ;@actionc writes $0100-$FFFF
 PROC Bget=*(BYTE chn CARD buf, len)
-[$86$A1$20 _LodChn $A5$A1$9D$344$98$9D$345$A5$A3$9D$348$A5$A4$9D$349$A9$07$9D$342$4C _Cio]
+ASM
+  stx $A1
+  jsr _LodChn
+  lda $A1
+  sta $0344,x
+  tya
+  sta $0345,x
+  lda $A3
+  sta $0348,x
+  lda $A4
+  sta $0349,x
+  lda #$07
+  sta $0342,x
+  jmp _Cio
+ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $A1 $A3/$A4
 ;@actionc writes Ioerr $0340-$03BF
 PROC Bput=*(BYTE chn CARD buf, len)
-[$86$A1$20 _LodChn $A5$A1$9D$344$98$9D$345$A5$A3$9D$348$A5$A4$9D$349$A9$0B$9D$342$4C _Cio]
+ASM
+  stx $A1
+  jsr _LodChn
+  lda $A1
+  sta $0344,x
+  tya
+  sta $0345,x
+  lda $A3
+  sta $0348,x
+  lda $A4
+  sta $0349,x
+  lda #$0B
+  sta $0342,x
+  jmp _Cio
+ENDASM
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers A X Y $86-$88 $A1 $A3-$A5
 ;@actionc writes $0100-$FFFF
 PROC Xio=*(BYTE chn, cmd, aux1, aux2 CARD s)
-[$86$A1$20 _LodChn $A5$A1$9D$342$98$9D$34A$A5$A3$9D$34B$A5$A4 $A4$A5$20 _StrNam $4C _Cio]
+ASM
+  stx $A1
+  jsr _LodChn
+  lda $A1
+  sta $0342,x
+  tya
+  sta $034A,x
+  lda $A3
+  sta $034B,x
+  lda $A4
+  ldy $A5
+  jsr _StrNam
+  jmp _Cio
+ENDASM
 
 ;PROC Note=*(BYTE chn CARD sectorptr, offsetptr)
 ;[$86$A1$84$A2$20 _LodChn $A9$26$9D$342$20 _Cio $A0$00$BD$34C$91$A1$BD$34E $91$A3$BD$34D$C8$91$A1$60]

@@ -116,14 +116,28 @@ RETURN
 ;@actionc clobbers $A0/$A1
 ;@actionc writes $0100-$FFFF
 PROC Store=*(CARD p BYTE value)
-[$85 $A0 $86 $A1 $98 $A0 $00 $91 $A0 $60]
+ASM
+  sta $A0
+  stx $A1
+  tya
+  ldy #$00
+  sta ($A0),y
+  rts
+ENDASM
           
 
 ;@actionc preserves X $AC/$AD $AE/$AF
 ;@actionc clobbers $A0/$A1
 ;@actionc returns A=$A0
 BYTE FUNC Value(CARD p)
-[$85 $A0 $86 $A1 $A0 $00 $B1 $A0 $85 $A0 $60]
+ASM
+  sta $A0
+  stx $A1
+  ldy #$00
+  lda ($A0),y
+  sta $A0
+  rts
+ENDASM
 
 
 PROC CloseAll=*()
@@ -1199,7 +1213,8 @@ RETURN
 PROC Quit=*()
 
  BYTE cartrun=$BFFA
- CARD setini=$1BBE,
+ CARD cartrunvec=$BFFA,
+      setini=$1BBE,
       dosini=$0C,
       dosvec=$0A
 
@@ -1219,16 +1234,22 @@ PROC Quit=*()
 
       dosvec = $1B48
     
-      [$A9 $1B      ; LDA #$1B
-       $48          ; PHA
-       $A9 $47      ; LDA #$47
-       $48]         ; PHA
+      ASM OPAQUE
+        lda #$1B
+        pha
+        lda #$47
+        pha
+      ENDASM
 
-      [$6C cartrun] ; run cartrige
+      ASM
+        jmp (cartrunvec) ; run cartridge
+      ENDASM
 
     ELSE
 
-      [$4C $E471] ; run self-test
+      ASM
+        jmp $E471 ; run self-test
+      ENDASM
 
     FI
   FI   
@@ -1255,7 +1276,9 @@ PROC MakeJmp( BYTE c )
  CARD go
  
  go = adr( c - 1 )
- [$6C go]  ; JMP (go)
+ ASM
+   jmp (go)
+ ENDASM
 
 PROC Handle()
 
@@ -1327,10 +1350,28 @@ PROC Handle()
           ELSE 
             SwapScr()
             dosvec = $1B48
-            [$A2$10]
+            ASM
+              ldx #$10
+            ENDASM
             r = fname
-            [$A4 r+1 $20 _StrNam]
-            [$A9$1B$48$A9$47$48$A9 39$8D$352$A9$00$8D$358$8D$359$A9$04$8D$35A$4C$E456]
+            ASM
+              ldy.z r+1
+              jsr _StrNam
+            ENDASM
+            ASM OPAQUE
+              lda #$1B
+              pha
+              lda #$47
+              pha
+              lda #39
+              sta $0352
+              lda #$00
+              sta $0358
+              sta $0359
+              lda #$04
+              sta $035A
+              jmp $E456
+            ENDASM
           FI
         ELSEIF d < c THEN
 
@@ -1465,7 +1506,10 @@ PROC NavError=*()
 
     SwapScr()
 
-    [$A2 $FF $9A] ;LDX #$FF TXS
+    ASM OPAQUE
+      ldx #$FF
+      txs
+    ENDASM
 
     CloseAll()
 

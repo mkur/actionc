@@ -1182,12 +1182,35 @@ fn expand_machine_operand(
             let memory = match target {
                 crate::mir6502::ir::MirInlineAsmTarget::Memory(memory) => Some(memory.clone()),
                 crate::mir6502::ir::MirInlineAsmTarget::Absolute(address) => {
-                    Some(MirMem::Absolute(*address))
+                    Some(absolute_mem(*address))
                 }
                 crate::mir6502::ir::MirInlineAsmTarget::Routine(_)
                 | crate::mir6502::ir::MirInlineAsmTarget::InlineOffset(_) => None,
             };
-            Some(unknown(width, memory))
+            let value = match target {
+                crate::mir6502::ir::MirInlineAsmTarget::Absolute(address) => Some(*address),
+                crate::mir6502::ir::MirInlineAsmTarget::Memory(memory) => {
+                    resolved_absolute_address(memory)
+                }
+                crate::mir6502::ir::MirInlineAsmTarget::Routine(_)
+                | crate::mir6502::ir::MirInlineAsmTarget::InlineOffset(_) => None,
+            };
+            Some(
+                (0..width)
+                    .map(|index| {
+                        let shift = match kind {
+                            crate::asm6502::InlineAsmRelocationKind::High8 => 8,
+                            crate::asm6502::InlineAsmRelocationKind::Absolute16 => index * 8,
+                            crate::asm6502::InlineAsmRelocationKind::Byte8
+                            | crate::asm6502::InlineAsmRelocationKind::Low8 => 0,
+                        };
+                        MachineByte {
+                            value: value.map(|value| (value >> shift) as u8),
+                            memory: (index == 0).then(|| memory.clone()).flatten(),
+                        }
+                    })
+                    .collect(),
+            )
         }
         MirMachineItem::StringLiteral(_) => None,
     }

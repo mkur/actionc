@@ -2591,7 +2591,7 @@ pub(super) fn routine_uses_machine_return(routine: &Routine) -> bool {
         || routine
             .body
             .iter()
-            .any(|stmt| matches!(stmt, Stmt::MachineBlock { .. }))
+            .any(|stmt| matches!(stmt, Stmt::MachineBlock { .. } | Stmt::InlineAsm { .. }))
 }
 
 fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize) -> StmtFlowFacts {

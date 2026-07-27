@@ -263,10 +263,7 @@ pub fn assemble(
     let bytes = machine_item_template(&items);
     if mode == InlineAsmMode::Analyzed {
         for instruction in &instructions {
-            if matches!(
-                instruction.mnemonic.as_str(),
-                "TXS" | "BRK" | "RTI" | "SED"
-            ) {
+            if matches!(instruction.mnemonic.as_str(), "TXS" | "BRK" | "RTI" | "SED") {
                 diagnostics.push(Diagnostic::new(
                     instruction.span,
                     format!(
@@ -1262,7 +1259,11 @@ fn symbol_use(instruction: &ParsedInstruction) -> InlineAsmSymbolUse {
         return InlineAsmSymbolUse::Call;
     }
     if instruction.mnemonic == "JMP" {
-        return InlineAsmSymbolUse::Control;
+        return if instruction.mode == AddressingMode::Indirect {
+            InlineAsmSymbolUse::PointerRead
+        } else {
+            InlineAsmSymbolUse::Control
+        };
     }
     if instruction.mode == AddressingMode::Immediate {
         return InlineAsmSymbolUse::Address;
@@ -1293,6 +1294,22 @@ fn symbol_use(instruction: &ParsedInstruction) -> InlineAsmSymbolUse {
         };
     }
     use_kind
+}
+
+pub(crate) fn ends_in_terminal_instruction(bytes: &[u8]) -> bool {
+    let mut offset = 0usize;
+    let mut last_mnemonic = None;
+    while offset < bytes.len() {
+        let Some((mnemonic, _, len)) = decode_6502_opcode(bytes[offset]) else {
+            return false;
+        };
+        if offset + len > bytes.len() {
+            return false;
+        }
+        last_mnemonic = Some(mnemonic);
+        offset += len;
+    }
+    matches!(last_mnemonic, Some("JMP" | "RTS" | "RTI" | "BRK"))
 }
 
 fn machine_item_template(items: &[MachineItem]) -> Vec<u8> {

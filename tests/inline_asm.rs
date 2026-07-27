@@ -195,6 +195,117 @@ fn inline_asm_unknown_and_ineligible_action_objects_are_semantic_errors() {
 }
 
 #[test]
+fn inline_asm_indirect_jump_accepts_proc_pointer_storage() {
+    let source = r#"
+PROC POINTER handler
+
+PROC Dispatch()
+ASM
+    jmp (handler)
+ENDASM
+"#;
+    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+        .expect("emit indirect jump through PROC POINTER storage");
+
+    let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
+    mir6502::generate_output(&nir, 0x3000)
+        .expect("emit MIR indirect jump through PROC POINTER storage");
+}
+
+#[test]
+fn inline_asm_resolves_exact_address_locals_before_mir_emission() {
+    let source = r#"
+PROC Dispatch()
+  CARD handler=$BFFA
+  ASM
+      jmp (handler)
+  ENDASM
+"#;
+    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+        .expect("emit exact-address local from classic inline assembler");
+
+    let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
+    let output = mir6502::generate_output(&nir, 0x3000)
+        .expect("emit exact-address local from MIR inline assembler");
+    assert!(
+        output
+            .bytes
+            .windows(3)
+            .any(|bytes| bytes == [0x6C, 0xFA, 0xBF])
+    );
+}
+
+#[test]
+fn inline_asm_absolute_relocations_feed_known_callee_exit_state() {
+    let source = r#"
+BYTE sink=$0600
+
+BYTE FUNC MachineValue=*()
+ASM
+    lda #$2A
+    sta $A0
+    rts
+ENDASM
+
+PROC Main()
+sink = MachineValue()
+RETURN
+"#;
+    let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
+    let output = mir6502::generate_output(&nir, 0x3000)
+        .expect("emit known inline-assembler callee exit state");
+
+    assert!(
+        !output
+            .bytes
+            .windows(5)
+            .any(|bytes| bytes == [0xA5, 0xA0, 0x8D, 0x00, 0x06])
+    );
+}
+
+#[test]
+fn terminal_inline_asm_satisfies_function_return_flow() {
+    let source = r#"
+BYTE FUNC MachineValue()
+ASM
+    lda #$2A
+    sta $A0
+    rts
+ENDASM
+"#;
+    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+        .expect("emit function implemented by terminal inline assembler");
+
+    let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
+    mir6502::generate_output(&nir, 0x3000)
+        .expect("emit MIR function implemented by terminal inline assembler");
+}
+
+#[test]
+fn inline_asm_starts_a_new_statement_after_assignment_or_call() {
+    let source = r#"
+CARD value
+
+PROC Touch()
+RETURN
+
+PROC Main()
+value = $1B48
+Touch()
+ASM
+    lda #$2A
+ENDASM
+RETURN
+"#;
+    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+        .expect("emit inline assembler after ordinary statements");
+
+    let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
+    mir6502::generate_output(&nir, 0x3000)
+        .expect("emit MIR inline assembler after ordinary statements");
+}
+
+#[test]
 fn inline_asm_accepts_byte_action_constants_without_address_selectors() {
     let source = r#"
 DEFINE VALUE="$2A"

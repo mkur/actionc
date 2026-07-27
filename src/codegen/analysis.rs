@@ -303,6 +303,10 @@ pub(super) fn routine_body_ends_explicitly(routine: &Routine) -> bool {
         Some(Stmt::Return(_)) | Some(Stmt::MachineBlock { .. })
     ) || matches!(
         routine.body.last(),
+        Some(Stmt::InlineAsm { program, .. })
+            if crate::asm6502::ends_in_terminal_instruction(&program.bytes)
+    ) || matches!(
+        routine.body.last(),
         Some(Stmt::DoUntil {
             condition: None,
             body,
@@ -344,6 +348,9 @@ pub(super) fn stmt_ends_with_value_return(stmt: &Stmt) -> bool {
 pub(super) fn stmt_ends_with_terminal_flow(stmt: &Stmt) -> bool {
     match stmt {
         Stmt::Return(_) | Stmt::MachineBlock { .. } => true,
+        Stmt::InlineAsm { program, .. } => {
+            crate::asm6502::ends_in_terminal_instruction(&program.bytes)
+        }
         Stmt::If {
             branches,
             else_body,

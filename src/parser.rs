@@ -1322,6 +1322,7 @@ impl<'a> Parser<'a> {
             self.peek().kind,
             TokenKind::Ident(_)
                 | TokenKind::LBracket
+                | TokenKind::InlineAsm { .. }
                 | TokenKind::Keyword(Keyword::If)
                 | TokenKind::Keyword(Keyword::While)
                 | TokenKind::Keyword(Keyword::Do)

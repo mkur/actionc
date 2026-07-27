@@ -1712,7 +1712,14 @@ impl NirBuilder {
                     .iter()
                     .find(|local| storage_key(&local.name) == key)
                 {
-                    return Some(NirInlineAsmTarget::Storage(NirStorageId::Local(local.id)));
+                    return Some(match local.backing {
+                        NirLocalBacking::Absolute(address) => NirInlineAsmTarget::Absolute(address),
+                        NirLocalBacking::Ordinary
+                        | NirLocalBacking::Alias { .. }
+                        | NirLocalBacking::GlobalAlias { .. } => {
+                            NirInlineAsmTarget::Storage(NirStorageId::Local(local.id))
+                        }
+                    });
                 }
                 self.global_ids
                     .iter()
