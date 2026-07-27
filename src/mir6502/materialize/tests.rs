@@ -22257,6 +22257,212 @@ fn word_runtime_helpers_store_ax_directly_to_structured_word_destinations() {
     }
 }
 
+fn paired_word_shift_call_ops(second_source: MirMem) -> Vec<MirOp> {
+    let first_source = MirTempId(910);
+    let first_result = MirTempId(911);
+    let second_source_temp = MirTempId(912);
+    let second_result = MirTempId(913);
+    vec![
+        MirOp::Load {
+            dst: MirDef::VTemp(first_source),
+            src: MirAddr::Direct(MirMem::Global {
+                id: SymbolId(20),
+                offset: 0,
+            }),
+            width: MirWidth::Word,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Rsh,
+            dst: MirDef::VTemp(first_result),
+            left: MirValue::Def(MirDef::VTemp(first_source)),
+            right: MirValue::ConstU8(7),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Load {
+            dst: MirDef::VTemp(second_source_temp),
+            src: MirAddr::Direct(second_source),
+            width: MirWidth::Word,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Rsh,
+            dst: MirDef::VTemp(second_result),
+            left: MirValue::Def(MirDef::VTemp(second_source_temp)),
+            right: MirValue::ConstU8(7),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Call {
+            target: MirCallTarget::Builtin {
+                name: "Point".to_string(),
+                address: Some(0xA000),
+            },
+            abi: MirCallAbi {
+                params: vec![
+                    MirArgHome::RegisterPair {
+                        lo: MirReg::A,
+                        hi: MirReg::X,
+                    },
+                    MirArgHome::Reg(MirReg::Y),
+                ],
+                result: None,
+                clobbers: MirRegisterSet::default(),
+                preserves: MirRegisterSet::default(),
+            },
+            args: vec![
+                MirCallArg {
+                    value: MirValue::Def(MirDef::VTemp(first_result)),
+                    width: MirWidth::Word,
+                    home: MirArgHome::RegisterPair {
+                        lo: MirReg::A,
+                        hi: MirReg::X,
+                    },
+                },
+                MirCallArg {
+                    value: MirValue::Def(MirDef::VTemp(second_result)),
+                    width: MirWidth::Byte,
+                    home: MirArgHome::Reg(MirReg::Y),
+                },
+            ],
+            result: None,
+            effects: MirEffects::default(),
+        },
+    ]
+}
+
+#[test]
+fn paired_word_shifts_stage_ax_and_place_the_second_low_byte_in_y() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = paired_word_shift_call_ops(MirMem::Global {
+        id: SymbolId(21),
+        offset: 0,
+    });
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::optimized(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(result.consumed, ops.len());
+    assert_eq!(result.paired_word_shift_args, 1);
+    assert_eq!(helpers, vec![MirRuntimeHelper::Rsh, MirRuntimeHelper::Rsh]);
+    assert_eq!(
+        out.iter()
+            .filter(|op| matches!(op, MirOp::RuntimeHelper { .. }))
+            .count(),
+        2
+    );
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            ..
+        }
+    )));
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA1))),
+            src: MirValue::Def(MirDef::Reg(MirReg::X)),
+            ..
+        }
+    )));
+    assert!(out.iter().any(|op| matches!(
+        op,
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::Y),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            ..
+        }
+    )));
+    assert!(out.iter().all(|op| !matches!(
+        op,
+        MirOp::Load {
+            src: MirAddr::Direct(MirMem::Spill { .. }),
+            ..
+        } | MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Spill { .. }),
+            ..
+        }
+    )));
+    assert!(matches!(
+        out.last(),
+        Some(MirOp::Call { args, .. })
+            if args.iter().map(|arg| arg.home.clone()).collect::<Vec<_>>() == vec![
+                MirArgHome::Reg(MirReg::A),
+                MirArgHome::Reg(MirReg::X),
+                MirArgHome::Reg(MirReg::Y),
+            ]
+    ));
+}
+
+#[test]
+fn paired_word_shifts_reject_second_source_overlapping_ax_staging() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = paired_word_shift_call_ops(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0)));
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::optimized(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(
+        result,
+        super::calls::CallArgExprMaterializeResult::default()
+    );
+    assert!(helpers.is_empty());
+    assert!(out.is_empty());
+}
+
+#[test]
+fn paired_word_shifts_keep_noncanonical_producer_order() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut original = paired_word_shift_call_ops(MirMem::Global {
+        id: SymbolId(21),
+        offset: 0,
+    });
+    let call = original.pop().expect("call exists");
+    let mut ops = original[2..].to_vec();
+    ops.extend_from_slice(&original[..2]);
+    ops.push(call);
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    let result = try_materialize_call_arg_expr_producers(
+        &ops,
+        0,
+        &Mir6502Config::optimized(),
+        &layout,
+        &mut helpers,
+        &mut out,
+    );
+
+    assert_eq!(
+        result,
+        super::calls::CallArgExprMaterializeResult::default()
+    );
+    assert!(helpers.is_empty());
+    assert!(out.is_empty());
+}
+
 #[test]
 fn word_runtime_helper_store_keeps_a_result_used_after_the_store() {
     let program = empty_test_program();

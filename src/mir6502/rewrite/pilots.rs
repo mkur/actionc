@@ -2054,6 +2054,10 @@ fn call_arg_expr_plan(
                 "pure-ax-byte-call-schedule",
                 candidate.pure_ax_byte_schedule,
             ),
+            (
+                "paired-word-shift-call-args",
+                candidate.paired_word_shift_args,
+            ),
         ]
         .into_iter()
         .filter(|(_, count)| *count != 0)

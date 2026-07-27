@@ -7,7 +7,7 @@ vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 source_path="$runtime_dir/turtle_word_placement.act"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
 os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
-expected="58 1b 01 00 40 1f 34 08 01 01 a5"
+expected="58 1b 01 00 40 1f 34 08 01 01 a5 7d 00 04"
 
 for required in "$source_path" "$vm_root/Cargo.toml" "$cart_rom" "$os_rom"; do
   if [[ ! -f "$required" ]]; then
@@ -45,7 +45,7 @@ for backend in classic mir6502; do
     --max-steps 10000 \
     --history 8
 
-  actual="$(od -An -tx1 -j "$((0x0600))" -N 11 "$memory_path" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+  actual="$(od -An -tx1 -j "$((0x0600))" -N 14 "$memory_path" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
   if [[ "$actual" != "$expected" ]]; then
     echo "FAILED: modern/$backend TURTLE word-placement results" >&2
     echo "  expected: $expected" >&2
@@ -53,7 +53,7 @@ for backend in classic mir6502; do
     exit 1
   fi
 
-  echo "    results at \$0600-\$060A: $actual"
+  echo "    results at \$0600-\$060D: $actual"
 done
 
 echo "TURTLE word-placement runtime gate passed"

@@ -81,6 +81,7 @@ pub(super) fn try_materialize_call_arg_expr_producers(
         direct_binary_rhs_blocked_overlap: candidate.direct_binary_rhs_blocked_overlap,
         direct_binary_rhs_blocked_nonordinary: candidate.direct_binary_rhs_blocked_nonordinary,
         pure_ax_byte_schedule: candidate.pure_ax_byte_schedule,
+        paired_word_shift_args: candidate.paired_word_shift_args,
     }
 }
 
@@ -99,6 +100,7 @@ pub(in crate::mir6502) struct CallArgExprRewriteCandidate {
     pub direct_binary_rhs_blocked_overlap: usize,
     pub direct_binary_rhs_blocked_nonordinary: usize,
     pub pure_ax_byte_schedule: usize,
+    pub paired_word_shift_args: usize,
 }
 
 pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
@@ -142,6 +144,8 @@ pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
     let direct_indexed_byte_fixed_args =
         direct_indexed_byte_fixed_action_arg_count(&plan.args, &raw_args);
     let pure_ax_byte_schedule = usize::from(pure_ax_byte_schedule_supported(&plan.args, layout));
+    let paired_word_shift_args =
+        usize::from(paired_word_shift_call_args_supported(&plan.args, layout));
     let mut replacement = Vec::new();
     let mut required_helpers = Vec::new();
     let mut binary_rhs_stats = BinaryRhsLaneStats::default();
@@ -166,6 +170,7 @@ pub(in crate::mir6502) fn call_arg_expr_rewrite_candidate(
         direct_binary_rhs_blocked_overlap: binary_rhs_stats.blocked_overlap,
         direct_binary_rhs_blocked_nonordinary: binary_rhs_stats.blocked_nonordinary,
         pure_ax_byte_schedule,
+        paired_word_shift_args,
     })
 }
 
@@ -182,6 +187,7 @@ pub(super) struct CallArgExprMaterializeResult {
     pub(super) direct_binary_rhs_blocked_overlap: usize,
     pub(super) direct_binary_rhs_blocked_nonordinary: usize,
     pub(super) pure_ax_byte_schedule: usize,
+    pub(super) paired_word_shift_args: usize,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -568,6 +574,28 @@ fn collect_call_arg_expr_plan(
     }
     let direct_two_word_arithmetic_action =
         direct_two_word_arithmetic_action_args_supported(&planned_args);
+    let paired_word_shift_args = paired_word_shift_call_args_supported(&planned_args, layout);
+    let has_word_shift_expr = planned_args.iter().any(|arg| {
+        matches!(
+            arg,
+            PlannedCallArg::Expr { expr, .. } if word_shift_expr_parts(expr, layout).is_some()
+        )
+    });
+    if has_word_shift_expr
+        && (!paired_word_shift_args || matches!(target, MirCallTarget::Indirect { .. }))
+    {
+        return None;
+    }
+    if paired_word_shift_args
+        && !staged_action_producer_order_supported(
+            args,
+            &exprs,
+            &expr_dependencies,
+            &producer_positions,
+        )
+    {
+        return None;
+    }
     if direct_indexed_byte_fixed_action
         && (matches!(target, MirCallTarget::Indirect { .. })
             || !direct_indexed_byte_producer_order_supported(
@@ -1101,6 +1129,9 @@ fn call_arg_expr_binary_is_supported(
         (MirBinaryOp::Add, _, None | Some(MirCarryIn::Clear))
         | (MirBinaryOp::Sub, _, None | Some(MirCarryIn::Set)) => true,
         (MirBinaryOp::Mul, MirWidth::Byte, None) => config.select_runtime_helpers,
+        (MirBinaryOp::Lsh | MirBinaryOp::Rsh, MirWidth::Word, None) => {
+            config.select_runtime_helpers
+        }
         _ => false,
     }
 }
@@ -1210,6 +1241,10 @@ fn materialize_call_arg_expr_plan(
         .iter()
         .map(raw_planned_call_arg)
         .collect::<Vec<_>>();
+    if paired_word_shift_call_args_supported(&plan.args, layout) {
+        materialize_paired_word_shift_call(plan, layout, helpers, out);
+        return;
+    }
     if direct_indexed_byte_fixed_action_args_supported(&plan.args, &raw_args) {
         materialize_direct_indexed_byte_fixed_action_call(plan, layout, out);
         return;
@@ -1279,6 +1314,155 @@ fn materialize_call_arg_expr_plan(
                 .iter()
                 .flat_map(materialized_planned_call_homes)
                 .collect(),
+            result: None,
+            clobbers: plan.abi.clobbers,
+            preserves: plan.abi.preserves,
+        },
+        args,
+        result: None,
+        effects: plan.effects.clone(),
+    });
+    if let Some(result) = &plan.result {
+        materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
+    }
+}
+
+fn paired_word_shift_call_args_supported(
+    args: &[PlannedCallArg],
+    layout: &MaterializeLayout,
+) -> bool {
+    let [
+        PlannedCallArg::Expr {
+            expr: first,
+            width: MirWidth::Word,
+            home:
+                MirArgHome::RegisterPair {
+                    lo: MirReg::A,
+                    hi: MirReg::X,
+                },
+        },
+        PlannedCallArg::Expr {
+            expr: second,
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(MirReg::Y),
+        },
+    ] = args
+    else {
+        return false;
+    };
+    let Some((_first_helper, _first_left, _first_right)) = word_shift_expr_parts(first, layout)
+    else {
+        return false;
+    };
+    let Some((second_helper, second_left, second_right)) = word_shift_expr_parts(second, layout)
+    else {
+        return false;
+    };
+    let staging_lo = return_slot_mem(0);
+    let staging_hi = return_slot_mem(1);
+    !super::memory::effects_may_write_fixed_pair(
+        &helper_effects(&second_helper),
+        MirFixedZpSlot(0xA0),
+    ) && !value_reads_mem(&second_left, &staging_lo)
+        && !value_reads_mem(&second_left, &staging_hi)
+        && !value_reads_mem(&second_right, &staging_lo)
+        && !value_reads_mem(&second_right, &staging_hi)
+}
+
+fn word_shift_expr_parts(
+    expr: &CallArgExpr,
+    layout: &MaterializeLayout,
+) -> Option<(MirRuntimeHelper, MirValue, MirValue)> {
+    let CallArgExpr::Binary {
+        op: op @ (MirBinaryOp::Lsh | MirBinaryOp::Rsh),
+        left,
+        right,
+        width: MirWidth::Word,
+    } = expr
+    else {
+        return None;
+    };
+    Some((
+        helper_for_binary(*op, MirWidth::Word)?,
+        expr_as_plain_value(left, layout)?,
+        expr_as_plain_value(right, layout)?,
+    ))
+}
+
+fn materialize_paired_word_shift_call(
+    plan: &CallArgExprPlan,
+    layout: &MaterializeLayout,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) {
+    let target = materialize_call_target(plan.target.clone(), layout, out);
+    let [
+        PlannedCallArg::Expr {
+            expr: first_expr, ..
+        },
+        PlannedCallArg::Expr {
+            expr: second_expr, ..
+        },
+    ] = plan.args.as_slice()
+    else {
+        unreachable!("validated paired word-shift call arguments")
+    };
+    let temp_widths = BTreeMap::new();
+    let (first_helper, first_left, first_right) =
+        word_shift_expr_parts(first_expr, layout).expect("validated first word shift");
+    helpers.push(first_helper.clone());
+    materialize_runtime_helper_binary(
+        first_helper,
+        None,
+        first_left,
+        first_right,
+        MirWidth::Word,
+        MirWidth::Word,
+        layout,
+        &temp_widths,
+        out,
+    );
+    materialize_call_arg_to_mem(
+        MirValue::Def(MirDef::Reg(MirReg::A)),
+        return_slot_mem(0),
+        out,
+    );
+    materialize_call_arg_to_mem(
+        MirValue::Def(MirDef::Reg(MirReg::X)),
+        return_slot_mem(1),
+        out,
+    );
+
+    let (second_helper, second_left, second_right) =
+        word_shift_expr_parts(second_expr, layout).expect("validated second word shift");
+    helpers.push(second_helper.clone());
+    materialize_runtime_helper_binary(
+        second_helper,
+        None,
+        second_left,
+        second_right,
+        MirWidth::Word,
+        MirWidth::Word,
+        layout,
+        &temp_widths,
+        out,
+    );
+    materialize_call_arg_to_reg(MirValue::Def(MirDef::Reg(MirReg::A)), MirReg::Y, out);
+    materialize_call_arg_to_reg(MirValue::PointerCell(return_slot_mem(1)), MirReg::X, out);
+    materialize_call_arg_to_reg(MirValue::PointerCell(return_slot_mem(0)), MirReg::A, out);
+
+    let args = [MirReg::A, MirReg::X, MirReg::Y]
+        .into_iter()
+        .map(|reg| MirCallArg {
+            value: MirValue::Def(MirDef::Reg(reg)),
+            width: MirWidth::Byte,
+            home: MirArgHome::Reg(reg),
+        })
+        .collect::<Vec<_>>();
+    out.push(MirOp::Call {
+        target,
+        abi: MirCallAbi {
+            params: args.iter().map(|arg| arg.home.clone()).collect(),
             result: None,
             clobbers: plan.abi.clobbers,
             preserves: plan.abi.preserves,

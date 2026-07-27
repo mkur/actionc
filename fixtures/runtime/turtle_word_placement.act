@@ -20,6 +20,8 @@ CARD observedCall=$0606
 BYTE observedNegative=$0608
 BYTE observedNonNegative=$0609
 BYTE signature=$060A
+CARD observedShiftPairWord=$060B
+BYTE observedShiftPairByte=$060D
 
 CARD inputSource=$0610
 CARD inputDivisor=$0612
@@ -31,6 +33,11 @@ RETURN(value+3)
 
 PROC MultiplyAfterCall(INT value)
   callResult=value*AddThree(4)
+RETURN
+
+PROC CaptureShiftPair(CARD first BYTE second)
+  observedShiftPairWord=first
+  observedShiftPairByte=second
 RETURN
 
 PROC RecordNegative()
@@ -63,6 +70,7 @@ PROC Main()
   moduloResult=sourceValue MOD divisorValue
   shiftResult=sourceValue LSH shiftCount
   MultiplyAfterCall(inputSource-700)
+  CaptureShiftPair(sourceValue RSH shiftCount,divisorValue RSH shiftCount)
 
   signedValue=inputSigned
   RecordNegative()

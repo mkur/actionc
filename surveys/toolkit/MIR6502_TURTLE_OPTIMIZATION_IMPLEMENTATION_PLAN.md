@@ -317,11 +317,33 @@ Result:
 
 ### Slice 4: Residual helper-result argument placement
 
+Status: complete.
+
 - Re-audit `Forward` after Slice 3.
 - If still justified, select the two shifted word results directly into the
   final known call's A/X/Y placements using exact helper and callee summaries.
 - Do not add a TURTLE-specific or source-call-order rule.
 - Re-run all coverage and record the measured result.
+
+Result:
+
+- Extended the shared pre-home call-expression planner with a general paired
+  word-shift schedule for A/X plus a low-byte Y argument.
+- The first helper result is staged in compiler scratch `$A0/$A1`; the second
+  helper result moves directly from A to Y; A/X are then restored immediately
+  before the call. The selector rejects indirect targets, noncanonical register
+  homes, unsupported expression shapes, reordered or interleaved producers,
+  helper writes to the staging pair, and second operands that overlap it.
+- Added focused positive and staging-overlap rejection tests, and extended the
+  VM oracle to execute the paired word-shift transfer through an ordinary
+  Action routine.
+- TURTLE1 fell from 1,086 to 1,077 bytes. Seven code bytes and both remaining
+  spill data bytes disappeared; TURTLE1 now allocates no spill slots.
+- `Forward` fell from 153 to 146 recognized code bytes and is now 5 bytes
+  smaller than classic. Overall modern/MIR6502 is 15 bytes smaller than
+  modern/classic.
+- The MIR6502 load hash is
+  `65cb1557b8cb9a6e299197809f63d50ca0b2c0f09aad86f181de7928f954f1bb`.
 
 ### Slice 5: Final audit
 
