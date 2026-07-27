@@ -73,15 +73,16 @@ fn turtle_exposes_the_expected_codegen_baseline() {
     );
     assert_eq!(
         formatted.matches("cmp_i16_direct_").count(),
-        1,
+        0,
         "{formatted}"
     );
+    assert!(formatted.contains("branch flag n_set ? b2 : b3"), "{formatted}");
 
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     assert!(
-        output.bytes.len() <= 1_119,
-        "expected TURTLE1 MIR6502 output no larger than 1119 bytes, got {}",
+        output.bytes.len() <= 1_104,
+        "expected TURTLE1 MIR6502 output no larger than 1104 bytes, got {}",
         output.bytes.len()
     );
 }

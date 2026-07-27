@@ -263,12 +263,26 @@ Result:
 
 ### Slice 2: Structured-global signed-zero branches
 
+Status: complete.
+
 - Admit a stable structured global in the signed-word-zero load/source checks.
 - Reuse the existing sign-byte compare-to-branch selection and shared proof
   framework.
 - Test `< 0`, `>= 0`, reversed operands, and rejection across effects or
   absolute memory.
 - Re-run the VM fixture, full tests, and TURTLE1 audit.
+
+Result:
+
+- Extended the existing signed-word-zero source proof to structured globals;
+  arbitrary absolute and hardware-visible memory remains rejected.
+- `Turn`'s loop header composed with existing cross-edge Z/N provenance: both
+  incoming edges already describe the just-stored `TG_Phi` high byte, so the
+  final output needs only the sign branch and no reload.
+- TURTLE1 fell from 1,119 to 1,104 bytes. `Turn` fell from 86 to 71 recognized
+  code bytes and is now 5 bytes smaller than classic.
+- The modern/MIR6502 deficit is now 12 bytes, down from 69 at baseline.
+- The signed-global VM oracle and the real-source gate pass.
 
 ### Slice 3: Rematerialize caller-private loads after known calls
 

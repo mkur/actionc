@@ -3784,6 +3784,45 @@ fn signed_word_zero_candidate_selects_direct_memory_for_every_relation() {
 }
 
 #[test]
+fn signed_word_zero_candidate_selects_structured_globals_but_not_absolute_memory() {
+    let mut global_ops = signed_word_zero_load_ops(MirCompareOp::Lt, false);
+    let MirOp::Load { src, .. } = &mut global_ops[0] else {
+        unreachable!("test producer is a load")
+    };
+    *src = MirAddr::Direct(MirMem::Global {
+        id: crate::nir::SymbolId(19),
+        offset: 4,
+    });
+
+    let candidate = analyzed_signed_word_zero_compare_candidate(&global_ops, 0)
+        .expect("structured global signed relation against zero should select");
+    assert_eq!(
+        candidate.source_lo,
+        MirValue::PointerCell(MirMem::Global {
+            id: crate::nir::SymbolId(19),
+            offset: 4,
+        })
+    );
+    assert_eq!(
+        candidate.source_hi,
+        MirValue::PointerCell(MirMem::Global {
+            id: crate::nir::SymbolId(19),
+            offset: 5,
+        })
+    );
+
+    let mut absolute_ops = global_ops;
+    let MirOp::Load { src, .. } = &mut absolute_ops[0] else {
+        unreachable!("test producer is a load")
+    };
+    *src = MirAddr::Direct(MirMem::Absolute(0xD000));
+    assert!(
+        analyzed_signed_word_zero_compare_candidate(&absolute_ops, 0).is_none(),
+        "absolute and hardware-visible memory must retain conservative reads"
+    );
+}
+
+#[test]
 fn signed_word_zero_sign_branch_uses_only_the_high_lane() {
     let mut blocks = vec![
         MirBlock {

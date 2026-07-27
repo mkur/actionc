@@ -417,6 +417,7 @@ fn signed_word_zero_load_source(op: &MirOp) -> Option<(MirTempId, WordConsumerSo
         mem,
         MirMem::Param { .. }
             | MirMem::Local { .. }
+            | MirMem::Global { .. }
             | MirMem::Static { .. }
             | MirMem::Spill { .. }
             | MirMem::ZeroPage(_)
@@ -440,6 +441,7 @@ fn signed_word_zero_lane_is_stable(value: &MirValue) -> bool {
             MirValue::PointerCell(
                 MirMem::Param { .. }
                     | MirMem::Local { .. }
+                    | MirMem::Global { .. }
                     | MirMem::Static { .. }
                     | MirMem::Spill { .. }
                     | MirMem::ZeroPage(_)
