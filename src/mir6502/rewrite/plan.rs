@@ -88,6 +88,11 @@ pub(in crate::mir6502) enum MirEffectDelta {
     /// accumulator operations. Logical memory and home effects stay equal;
     /// only the newly explicit register and flag strategy may differ.
     MaterializedStoreConsumer,
+    /// A pure abstract binary operation was selected into its declared
+    /// runtime helper and the A/X result was routed directly to a store.
+    /// Compiler-private helper scratch effects are introduced, while operand
+    /// reads and the destination write remain equivalent.
+    MaterializedRuntimeHelperStoreConsumer,
     /// One or more pointer load/dereference pairs were selected into explicit
     /// address-consumer operations. Address-carrier homes and machine strategy
     /// may change while the indirect data accesses remain equivalent.

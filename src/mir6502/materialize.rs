@@ -160,10 +160,8 @@ use pointers::{rematerialize_direct_pointer_temp_derefs, try_fuse_pointer_temp_d
 #[cfg(test)]
 use regs::value_reads_reg;
 use regs::{op_reads_reg, op_writes_reg};
-use runtime::{
-    ensure_helper_decl, helper_for_binary, materialize_runtime_helper_binary,
-    runtime_helper_result_width,
-};
+pub(in crate::mir6502) use runtime::helper_for_binary;
+use runtime::{ensure_helper_decl, materialize_runtime_helper_binary, runtime_helper_result_width};
 pub(super) use runtime::{helper_abi, helper_args, helper_effects};
 #[cfg(test)]
 use spills::op_may_clobber_reg;
@@ -200,8 +198,8 @@ use store_consumers::{
     select_word_arithmetic_dual_indirect_store_consumer,
     select_word_arithmetic_indirect_store_consumer, select_word_arithmetic_pointer_store_consumer,
     select_word_arithmetic_result_consumer, select_word_carry_chain_store_consumer,
-    select_word_store_consumer, try_fuse_byte_mul_word_store_consumer,
-    try_fuse_cast_store_consumer,
+    select_word_helper_store_consumer, select_word_store_consumer,
+    try_fuse_byte_mul_word_store_consumer, try_fuse_cast_store_consumer,
 };
 #[cfg(test)]
 use store_consumers::{
@@ -928,6 +926,26 @@ fn analyzed_store_consumer_candidate_at(
             replacement,
             stat: "byte-mul-word-store-consumer",
             family_priority: 140,
+        });
+    }
+
+    let consumed = select_word_helper_store_consumer(
+        ops,
+        index,
+        config,
+        layout,
+        temp_widths,
+        false,
+        &mut selected_helpers,
+        &mut replacement,
+    );
+    if consumed > 0 {
+        return Some(StoreConsumerRewriteCandidate {
+            start: index,
+            consumed,
+            replacement,
+            stat: "word-helper-store-consumer",
+            family_priority: 145,
         });
     }
 
@@ -3549,6 +3567,22 @@ fn materialize_ops_impl(
             );
             if maybe_fused > 0 {
                 peephole_stats.record(routine_id, "byte-mul-word-store-consumer");
+                index += maybe_fused;
+                continue;
+            }
+
+            let maybe_fused = select_word_helper_store_consumer(
+                &ops,
+                index,
+                config,
+                layout,
+                &temp_widths,
+                true,
+                helpers,
+                &mut out,
+            );
+            if maybe_fused > 0 {
+                peephole_stats.record(routine_id, "word-helper-store-consumer");
                 index += maybe_fused;
                 continue;
             }

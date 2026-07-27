@@ -1718,6 +1718,99 @@ pub(super) fn select_word_store_consumer(
     select_word_store_consumer_with_deadness(ops, index, config, layout, false, out)
 }
 
+#[allow(clippy::too_many_arguments)]
+pub(super) fn select_word_helper_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    config: &Mir6502Config,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    require_local_deadness: bool,
+    helpers: &mut Vec<MirRuntimeHelper>,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    if !config.select_runtime_helpers {
+        return 0;
+    }
+    let Some(MirOp::Binary {
+        op,
+        dst,
+        left,
+        right,
+        width: MirWidth::Word,
+        ..
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some(helper) = helper_for_binary(*op, MirWidth::Word) else {
+        return 0;
+    };
+    let Some(MirOp::Store {
+        dst: MirAddr::Direct(store_dst),
+        src: MirValue::Def(store_src),
+        width: MirWidth::Word,
+    }) = ops.get(index + 1)
+    else {
+        return 0;
+    };
+    if store_src != dst
+        || !word_helper_store_target_supported(&helper, store_dst)
+        || (require_local_deadness && def_is_used_after(ops, index + 2, dst))
+    {
+        return 0;
+    }
+
+    helpers.push(helper.clone());
+    materialize_runtime_helper_binary(
+        helper,
+        None,
+        left.clone(),
+        right.clone(),
+        MirWidth::Word,
+        MirWidth::Word,
+        layout,
+        temp_widths,
+        out,
+    );
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(store_dst.clone()),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(offset_mem(store_dst, 1)),
+        src: MirValue::Def(MirDef::Reg(MirReg::X)),
+        width: MirWidth::Byte,
+    });
+    2
+}
+
+fn word_helper_store_target_supported(helper: &MirRuntimeHelper, target: &MirMem) -> bool {
+    if !word_carry_chain_target_supported(target) {
+        return false;
+    }
+    let MirMem::FixedZeroPage(slot) = target else {
+        return true;
+    };
+    let target_bytes = [u16::from(slot.0), u16::from(slot.0) + 1];
+    let effects = helper_effects(helper);
+    [effects.memory_reads, effects.memory_writes]
+        .iter()
+        .filter_map(|effect| match effect {
+            MirMemoryEffect::Regions(regions) => Some(regions),
+            MirMemoryEffect::None | MirMemoryEffect::Unknown | MirMemoryEffect::All => None,
+        })
+        .flatten()
+        .filter(|region| region.kind == MirMemoryRegionKind::ZeroPage)
+        .all(|region| {
+            let end = region.offset.saturating_add(region.size);
+            target_bytes
+                .iter()
+                .all(|address| *address < region.offset || *address >= end)
+        })
+}
+
 fn select_word_store_consumer_with_deadness(
     ops: &[MirOp],
     index: usize,

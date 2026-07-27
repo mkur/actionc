@@ -119,7 +119,10 @@ fn zero_page_effect(ranges: &[(u16, u16)]) -> MirMemoryEffect {
     )
 }
 
-pub(super) fn helper_for_binary(op: MirBinaryOp, width: MirWidth) -> Option<MirRuntimeHelper> {
+pub(in crate::mir6502) fn helper_for_binary(
+    op: MirBinaryOp,
+    width: MirWidth,
+) -> Option<MirRuntimeHelper> {
     match (op, width) {
         (MirBinaryOp::Mul, _) => Some(MirRuntimeHelper::Mul),
         (MirBinaryOp::Div, _) => Some(MirRuntimeHelper::Div),

@@ -22007,3 +22007,176 @@ fn indexed_word_const_binary_ax_call_ops(
     ops.push(call);
     ops
 }
+
+#[test]
+fn word_runtime_helpers_store_ax_directly_to_structured_word_destinations() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let target = MirMem::Global {
+        id: crate::nir::SymbolId(7),
+        offset: 2,
+    };
+
+    for (op, expected_helper) in [
+        (MirBinaryOp::Mul, MirRuntimeHelper::Mul),
+        (MirBinaryOp::Div, MirRuntimeHelper::Div),
+        (MirBinaryOp::Mod, MirRuntimeHelper::Mod),
+        (MirBinaryOp::Lsh, MirRuntimeHelper::Lsh),
+        (MirBinaryOp::Rsh, MirRuntimeHelper::Rsh),
+    ] {
+        let result = MirDef::VTemp(MirTempId(900));
+        let ops = vec![
+            MirOp::Binary {
+                op,
+                dst: result.clone(),
+                left: MirValue::PointerCell(MirMem::Local {
+                    id: LocalId(90),
+                    offset: 0,
+                }),
+                right: MirValue::ConstU16(3),
+                width: MirWidth::Word,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(target.clone()),
+                src: MirValue::Def(result),
+                width: MirWidth::Word,
+            },
+        ];
+        let mut helpers = Vec::new();
+        let mut out = Vec::new();
+
+        assert_eq!(
+            select_word_helper_store_consumer(
+                &ops,
+                0,
+                &Mir6502Config::default(),
+                &layout,
+                &BTreeMap::new(),
+                true,
+                &mut helpers,
+                &mut out,
+            ),
+            2,
+            "{op:?}"
+        );
+        assert_eq!(helpers, vec![expected_helper.clone()], "{op:?}");
+        assert!(
+            out.iter().any(|selected| matches!(
+                selected,
+                MirOp::RuntimeHelper { helper, .. } if helper == &expected_helper
+            )),
+            "{op:?}: {out:#?}"
+        );
+        assert!(
+            matches!(
+                out.as_slice(),
+                [
+                    ..,
+                    MirOp::Store {
+                        dst: MirAddr::Direct(lo),
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Store {
+                        dst: MirAddr::Direct(hi),
+                        src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                        width: MirWidth::Byte,
+                    },
+                ] if lo == &target && hi == &offset_mem(&target, 1)
+            ),
+            "{op:?}: {out:#?}"
+        );
+    }
+}
+
+#[test]
+fn word_runtime_helper_store_keeps_a_result_used_after_the_store() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let result = MirDef::VTemp(MirTempId(901));
+    let ops = vec![
+        MirOp::Binary {
+            op: MirBinaryOp::Mul,
+            dst: result.clone(),
+            left: MirValue::ConstU16(11),
+            right: MirValue::ConstU16(13),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Local {
+                id: LocalId(91),
+                offset: 0,
+            }),
+            src: MirValue::Def(result.clone()),
+            width: MirWidth::Word,
+        },
+        MirOp::Move {
+            dst: MirDef::VTemp(MirTempId(902)),
+            src: MirValue::Def(result),
+            width: MirWidth::Word,
+        },
+    ];
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    assert_eq!(
+        select_word_helper_store_consumer(
+            &ops,
+            0,
+            &Mir6502Config::default(),
+            &layout,
+            &BTreeMap::new(),
+            true,
+            &mut helpers,
+            &mut out,
+        ),
+        0
+    );
+    assert!(helpers.is_empty());
+    assert!(out.is_empty());
+}
+
+#[test]
+fn word_runtime_helper_store_rejects_absolute_destinations() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let result = MirDef::VTemp(MirTempId(903));
+    let ops = vec![
+        MirOp::Binary {
+            op: MirBinaryOp::Mod,
+            dst: result.clone(),
+            left: MirValue::ConstU16(1000),
+            right: MirValue::ConstU16(37),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0xD000)),
+            src: MirValue::Def(result),
+            width: MirWidth::Word,
+        },
+    ];
+    let mut helpers = Vec::new();
+    let mut out = Vec::new();
+
+    assert_eq!(
+        select_word_helper_store_consumer(
+            &ops,
+            0,
+            &Mir6502Config::default(),
+            &layout,
+            &BTreeMap::new(),
+            true,
+            &mut helpers,
+            &mut out,
+        ),
+        0
+    );
+    assert!(helpers.is_empty());
+    assert!(out.is_empty());
+}

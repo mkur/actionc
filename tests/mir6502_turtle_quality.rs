@@ -54,7 +54,7 @@ fn turtle_exposes_the_expected_codegen_baseline() {
     );
     assert_eq!(
         formatted.matches("store.b spill sp0+0").count(),
-        5,
+        3,
         "{formatted}"
     );
     assert_eq!(
@@ -64,7 +64,11 @@ fn turtle_exposes_the_expected_codegen_baseline() {
     );
     assert_eq!(
         formatted.matches("store.b spill sp3+0").count(),
-        2,
+        0,
+        "{formatted}"
+    );
+    assert!(
+        formatted.contains("store.b fixed_zp $A0, a\n  store.b fixed_zp $A1, x"),
         "{formatted}"
     );
     assert_eq!(
@@ -76,8 +80,8 @@ fn turtle_exposes_the_expected_codegen_baseline() {
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     assert!(
-        output.bytes.len() <= 1_161,
-        "expected TURTLE1 MIR6502 output no larger than 1161 bytes, got {}",
+        output.bytes.len() <= 1_119,
+        "expected TURTLE1 MIR6502 output no larger than 1119 bytes, got {}",
         output.bytes.len()
     );
 }

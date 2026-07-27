@@ -237,6 +237,8 @@ Result:
 
 ### Slice 1: Direct word-helper result stores
 
+Status: complete.
+
 - Extend the shared word-store consumer selector to recognize a word binary
   operation that selects a runtime helper and is immediately stored to a
   supported direct word destination.
@@ -246,6 +248,18 @@ Result:
 - Add positive tests for multiply, divide/modulo, and shifts, plus rejection
   tests for reused definitions and unsafe destinations.
 - Re-run the VM fixture, full tests, and TURTLE1 audit.
+
+Result:
+
+- Added a transactionally proved runtime-helper/store consumer with an explicit
+  effect contract for compiler-private helper scratch.
+- Selected all seven TURTLE1 candidates: modulo in `Turn`, multiplication in
+  both trig routines and twice in `Forward`, and both shifts in `SetTurtle`.
+- TURTLE1 fell from 1,161 to 1,119 bytes, a 42-byte reduction. Recognized code
+  fell by 40 bytes and data by 2 bytes.
+- RAM spill labels fell from four to two. `TG_ICos` and `SetTurtle` no longer
+  use RAM spills; the remaining two spills are confined to `Forward`.
+- The real-source gate and both VM backends pass.
 
 ### Slice 2: Structured-global signed-zero branches
 

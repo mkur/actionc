@@ -690,11 +690,24 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             original == replacement
         }
         MirEffectDelta::MaterializedStoreConsumer
+        | MirEffectDelta::MaterializedRuntimeHelperStoreConsumer
         | MirEffectDelta::MaterializedPointerConsumer
         | MirEffectDelta::MaterializedIndexConsumer => {
             let materialized_pointer = matches!(delta, MirEffectDelta::MaterializedPointerConsumer);
+            let materialized_helper = matches!(
+                delta,
+                MirEffectDelta::MaterializedRuntimeHelperStoreConsumer
+            );
             if materialized_pointer && !pointer_source_is_preserved(original_ops, replacement_ops) {
                 return false;
+            }
+            if materialized_helper
+                && !runtime_helper_source_is_preserved(original_ops, replacement_ops)
+            {
+                return false;
+            }
+            if materialized_helper {
+                strip_runtime_helper_projection(&mut replacement, replacement_ops);
             }
             clear_machine_effects(&mut original);
             clear_machine_effects(&mut replacement);
@@ -740,6 +753,55 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             original == replacement
         }
     }
+}
+
+fn runtime_helper_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> bool {
+    let [MirOp::Binary { op, width, .. }, MirOp::Store { .. }] = original else {
+        return false;
+    };
+    let Some(expected) = crate::mir6502::materialize::helper_for_binary(*op, *width) else {
+        return false;
+    };
+    let helpers = replacement
+        .iter()
+        .filter_map(|op| match op {
+            MirOp::RuntimeHelper { helper, .. } => Some(helper),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    matches!(helpers.as_slice(), [helper] if **helper == expected)
+}
+
+fn strip_runtime_helper_projection(effects: &mut ObservableEffects, ops: &[MirOp]) {
+    let helpers = ops
+        .iter()
+        .filter_map(|op| match op {
+            MirOp::RuntimeHelper { effects, .. } => Some(effects),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let scratch = helpers
+        .iter()
+        .flat_map(|effects| [&effects.memory_reads, &effects.memory_writes])
+        .filter_map(|effect| match effect {
+            crate::mir6502::ir::MirMemoryEffect::Regions(regions) => Some(regions),
+            crate::mir6502::ir::MirMemoryEffect::None
+            | crate::mir6502::ir::MirMemoryEffect::Unknown
+            | crate::mir6502::ir::MirMemoryEffect::All => None,
+        })
+        .flatten()
+        .filter(|region| region.kind == crate::mir6502::ir::MirMemoryRegionKind::ZeroPage)
+        .flat_map(|region| {
+            (region.offset..region.offset.saturating_add(region.size))
+                .map(|address| format!("fixed-zp:{address}"))
+        })
+        .collect::<BTreeSet<_>>();
+    effects
+        .memory_reads
+        .retain(|key| !key.starts_with("structured:") && !scratch.contains(key));
+    effects
+        .memory_writes
+        .retain(|key| !key.starts_with("structured:") && !scratch.contains(key));
 }
 
 fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> bool {

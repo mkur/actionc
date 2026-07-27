@@ -712,6 +712,9 @@ pub(in crate::mir6502) fn discover_store_consumers(
                 "byte-mul-word-store-consumer" => byte_mul_word_store_consumer_plan(
                     block.id, &block.ops, index, candidate, context,
                 ),
+                "word-helper-store-consumer" => {
+                    word_store_consumer_plan(block.id, &block.ops, index, candidate, context)
+                }
                 "word-store-consumer" => {
                     word_store_consumer_plan(block.id, &block.ops, index, candidate, context)
                 }
@@ -1236,7 +1239,11 @@ fn store_consumer_plan(
             .into_iter()
             .map(|definition| MirRemovedDefinition { definition })
             .collect(),
-        exit_effect_delta: MirEffectDelta::MaterializedStoreConsumer,
+        exit_effect_delta: if candidate.stat == "word-helper-store-consumer" {
+            MirEffectDelta::MaterializedRuntimeHelperStoreConsumer
+        } else {
+            MirEffectDelta::MaterializedStoreConsumer
+        },
         change_set: MirChangeSet::prehome_operation_change(),
         stat: candidate.stat,
         observations: Vec::new(),
