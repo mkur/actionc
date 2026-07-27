@@ -20,25 +20,25 @@ Libraries skipped because demos are compiled instead:
 | Stem | Input | Actual Source | Status | Bytes | Detail |
 | --- | --- | --- | --- | ---: | --- |
 | `ABS` | `ABS.ACT` | `corpora/toolkit/original/extracted/ABS.ACT` | ok | 33 | wrote surveys/toolkit/outputs/batch/modern-classic/ABS.COM |
-| `ALLOCATE` | `ALLOCATE.ACT` | `samples/toolkit/modern/ALLOCATE.ACT` | ok | 947 | wrote surveys/toolkit/outputs/batch/modern-classic/ALLOCATE.COM |
-| `CHARTEST` | `CHARTEST.ACT` | `corpora/toolkit/original/extracted/CHARTEST.ACT` | ok | 216 | wrote surveys/toolkit/outputs/batch/modern-classic/CHARTEST.COM |
+| `ALLOCATE` | `ALLOCATE.ACT` | `samples/toolkit/modern/ALLOCATE.ACT` | ok | 935 | wrote surveys/toolkit/outputs/batch/modern-classic/ALLOCATE.COM |
+| `CHARTEST` | `CHARTEST.ACT` | `corpora/toolkit/original/extracted/CHARTEST.ACT` | ok | 186 | wrote surveys/toolkit/outputs/batch/modern-classic/CHARTEST.COM |
 | `CONSOLE` | `CONSOLE.ACT` | `corpora/toolkit/original/extracted/CONSOLE.ACT` | ok | 248 | wrote surveys/toolkit/outputs/batch/modern-classic/CONSOLE.COM |
-| `IO` | `IO.ACT` | `corpora/toolkit/original/extracted/IO.ACT` | ok | 427 | wrote surveys/toolkit/outputs/batch/modern-classic/IO.COM |
-| `JOYSTIX` | `JOYSTIX.ACT` | `corpora/toolkit/original/extracted/JOYSTIX.ACT` | ok | 152 | wrote surveys/toolkit/outputs/batch/modern-classic/JOYSTIX.COM |
-| `CIRCLE1` | `CIRCLE.DM1` | `corpora/toolkit/original/extracted/CIRCLE.DM1` | ok | 631 | wrote surveys/toolkit/outputs/batch/modern-classic/CIRCLE1.COM |
-| `CIRCLE2` | `CIRCLE.DM2` | `corpora/toolkit/original/extracted/CIRCLE.DM2` | ok | 895 | wrote surveys/toolkit/outputs/batch/modern-classic/CIRCLE2.COM |
-| `GEMDEM` | `GEM.DEM` | `corpora/toolkit/original/extracted/GEM.DEM` | ok | 10375 | wrote surveys/toolkit/outputs/batch/modern-classic/GEMDEM.COM |
-| `KALSCOPE` | `KALSCOPE.DEM` | `samples/toolkit/modern/KALSCOPE.DEM` | ok | 3382 | wrote surveys/toolkit/outputs/batch/modern-classic/KALSCOPE.COM |
-| `MUSICDEM` | `MUSIC.DEM` | `samples/toolkit/modern/MUSIC.DEM` | ok | 3306 | wrote surveys/toolkit/outputs/batch/modern-classic/MUSICDEM.COM |
-| `PMGDM1` | `PMG.DM1` | `samples/toolkit/modern/PMG.DM1` | ok | 1926 | wrote surveys/toolkit/outputs/batch/modern-classic/PMGDM1.COM |
-| `PMGDM2` | `PMG.DM2` | `samples/toolkit/modern/PMG.DM2` | ok | 1934 | wrote surveys/toolkit/outputs/batch/modern-classic/PMGDM2.COM |
-| `PRINTF1` | `PRINTF.DM1` | `samples/toolkit/modern/PRINTF.DM1` | ok | 2279 | wrote surveys/toolkit/outputs/batch/modern-classic/PRINTF1.COM |
-| `REALDM1` | `REAL.DM1` | `samples/toolkit/modern/REAL.DM1` | ok | 1974 | wrote surveys/toolkit/outputs/batch/modern-classic/REALDM1.COM |
-| `SNAILS` | `SNAILS.DEM` | `corpora/toolkit/original/extracted/SNAILS.DEM` | ok | 1311 | wrote surveys/toolkit/outputs/batch/modern-classic/SNAILS.COM |
-| `SORTDM1` | `SORT.DM1` | `samples/toolkit/modern/SORT.DM1` | ok | 4197 | wrote surveys/toolkit/outputs/batch/modern-classic/SORTDM1.COM |
-| `SORTDM2` | `SORT.DM2` | `samples/toolkit/modern/SORT.DM2` | ok | 2682 | wrote surveys/toolkit/outputs/batch/modern-classic/SORTDM2.COM |
-| `TURTLE1` | `TURTLE.DM1` | `corpora/toolkit/original/extracted/TURTLE.DM1` | ok | 1132 | wrote surveys/toolkit/outputs/batch/modern-classic/TURTLE1.COM |
-| `WARPDEM` | `WARP.DEM` | `corpora/toolkit/original/extracted/WARP.DEM` | ok | 7395 | wrote surveys/toolkit/outputs/batch/modern-classic/WARPDEM.COM |
+| `IO` | `IO.ACT` | `corpora/toolkit/original/extracted/IO.ACT` | ok | 403 | wrote surveys/toolkit/outputs/batch/modern-classic/IO.COM |
+| `JOYSTIX` | `JOYSTIX.ACT` | `corpora/toolkit/original/extracted/JOYSTIX.ACT` | ok | 126 | wrote surveys/toolkit/outputs/batch/modern-classic/JOYSTIX.COM |
+| `CIRCLE1` | `CIRCLE.DM1` | `corpora/toolkit/original/extracted/CIRCLE.DM1` | ok | 625 | wrote surveys/toolkit/outputs/batch/modern-classic/CIRCLE1.COM |
+| `CIRCLE2` | `CIRCLE.DM2` | `corpora/toolkit/original/extracted/CIRCLE.DM2` | ok | 889 | wrote surveys/toolkit/outputs/batch/modern-classic/CIRCLE2.COM |
+| `GEMDEM` | `GEM.DEM` | `corpora/toolkit/original/extracted/GEM.DEM` | ok | 9997 | wrote surveys/toolkit/outputs/batch/modern-classic/GEMDEM.COM |
+| `KALSCOPE` | `KALSCOPE.DEM` | `samples/toolkit/modern/KALSCOPE.DEM` | ok | 3318 | wrote surveys/toolkit/outputs/batch/modern-classic/KALSCOPE.COM |
+| `MUSICDEM` | `MUSIC.DEM` | `samples/toolkit/modern/MUSIC.DEM` | ok | 3202 | wrote surveys/toolkit/outputs/batch/modern-classic/MUSICDEM.COM |
+| `PMGDM1` | `PMG.DM1` | `samples/toolkit/modern/PMG.DM1` | ok | 1859 | wrote surveys/toolkit/outputs/batch/modern-classic/PMGDM1.COM |
+| `PMGDM2` | `PMG.DM2` | `samples/toolkit/modern/PMG.DM2` | ok | 1864 | wrote surveys/toolkit/outputs/batch/modern-classic/PMGDM2.COM |
+| `PRINTF1` | `PRINTF.DM1` | `samples/toolkit/modern/PRINTF.DM1` | ok | 2230 | wrote surveys/toolkit/outputs/batch/modern-classic/PRINTF1.COM |
+| `REALDM1` | `REAL.DM1` | `samples/toolkit/modern/REAL.DM1` | ok | 1934 | wrote surveys/toolkit/outputs/batch/modern-classic/REALDM1.COM |
+| `SNAILS` | `SNAILS.DEM` | `corpora/toolkit/original/extracted/SNAILS.DEM` | ok | 1302 | wrote surveys/toolkit/outputs/batch/modern-classic/SNAILS.COM |
+| `SORTDM1` | `SORT.DM1` | `samples/toolkit/modern/SORT.DM1` | ok | 4129 | wrote surveys/toolkit/outputs/batch/modern-classic/SORTDM1.COM |
+| `SORTDM2` | `SORT.DM2` | `samples/toolkit/modern/SORT.DM2` | ok | 2607 | wrote surveys/toolkit/outputs/batch/modern-classic/SORTDM2.COM |
+| `TURTLE1` | `TURTLE.DM1` | `corpora/toolkit/original/extracted/TURTLE.DM1` | ok | 1092 | wrote surveys/toolkit/outputs/batch/modern-classic/TURTLE1.COM |
+| `WARPDEM` | `WARP.DEM` | `corpora/toolkit/original/extracted/WARP.DEM` | ok | 7102 | wrote surveys/toolkit/outputs/batch/modern-classic/WARPDEM.COM |
 
 Summary:
 
