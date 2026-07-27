@@ -166,6 +166,7 @@ fn mir_call_effects(effects: &NirCallEffects) -> MirEffects {
     MirEffects {
         memory_reads: mir_memory_effect(&effects.memory.reads),
         memory_writes: mir_memory_effect(&effects.memory.writes),
+        reads: MirRegisterSet::default(),
         clobbers: action_call_clobbers(),
         preserves: MirRegisterSet::default(),
         stack_depth_delta: None,
@@ -182,6 +183,7 @@ fn opaque_external_call_effects(effects: MirEffects) -> MirEffects {
     MirEffects {
         memory_reads: MirMemoryEffect::Unknown,
         memory_writes: MirMemoryEffect::Unknown,
+        reads: effects.reads,
         clobbers: MirRegisterSet {
             a: true,
             x: true,

@@ -1326,6 +1326,10 @@ fn apply_structured_effects(
         effects.opaque || structured_effect_may_alias_compiler_homes(&effects.memory_writes);
     record_structured_fixed_zp_homes(&effects.memory_reads, &mut summary.homes.reads);
     record_structured_fixed_zp_homes(&effects.memory_writes, &mut summary.homes.writes);
+    merge_register_sets(&mut summary.machine.register_reads, effects.reads);
+    if effects.reads.flags {
+        summary.machine.flag_reads = MirFlagSet::all();
+    }
     summary.machine.register_clobbers = effects.clobbers;
     if effects.clobbers.flags || effects.opaque {
         summary.machine.flag_clobbers = MirFlagSet::all();

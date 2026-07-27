@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::asm6502::{InlineAsmMode, InlineAsmSymbolUse};
 use crate::ast::{
     AddressByteSelector, BinaryOp, FundType, MachineAddressAtom, MachineItem, UnaryOp,
 };
@@ -9,9 +10,9 @@ use crate::semantic::{
     ArrayType, SymbolClass, ValueType,
     ir::{
         SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind, SemDeclaration,
-        SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind, SemLValue,
-        SemLValueKind, SemLiteral, SemProgram, SemReadEffect, SemSet, SemStmt, SemStorageRef,
-        SemWriteEffect,
+        SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind, SemInlineAsm,
+        SemInlineAsmTarget, SemLValue, SemLValueKind, SemLiteral, SemProgram, SemReadEffect,
+        SemSet, SemStmt, SemStorageRef, SemWriteEffect,
     },
 };
 use crate::source::source_char_byte;
@@ -29,6 +30,7 @@ pub(super) struct NirLowerer {
     next_global: u32,
     next_static: u32,
     global_ids: BTreeMap<String, SymbolId>,
+    routine_ids: BTreeMap<String, u32>,
     storage_symbols: BTreeSet<String>,
     symbol_storage_types: BTreeMap<String, NirType>,
     absolute_globals: BTreeMap<String, u16>,
@@ -48,6 +50,7 @@ impl NirLowerer {
         let mut top_level = Vec::new();
 
         self.collect_global_ids(program);
+        self.collect_routine_ids(program);
         let machine_defines = collect_machine_defines(program);
         self.machine_define_names = machine_defines.names;
         self.machine_defines = machine_defines.ids;
@@ -159,6 +162,7 @@ impl NirLowerer {
                             self.next_block_label(),
                             self.next_static,
                             self.global_ids.clone(),
+                            self.routine_ids.clone(),
                             self.symbol_storage_types.clone(),
                             self.absolute_array_element_bases.clone(),
                             self.absolute_array_value_addresses.clone(),
@@ -286,6 +290,7 @@ impl NirLowerer {
                 self.next_block_label(),
                 self.next_static,
                 self.global_ids.clone(),
+                self.routine_ids.clone(),
                 self.symbol_storage_types.clone(),
                 self.absolute_array_element_bases.clone(),
                 self.absolute_array_value_addresses.clone(),
@@ -302,6 +307,19 @@ impl NirLowerer {
             self.next_static = next_static;
             statics.extend(routine_statics);
             routines.insert(0, routine);
+            for routine in &mut routines {
+                for block in &mut routine.blocks {
+                    for op in &mut block.ops {
+                        if let NirOp::InlineAsm { code, .. } = op {
+                            for relocation in &mut code.relocations {
+                                if let NirInlineAsmTarget::Routine(id) = &mut relocation.target {
+                                    *id = id.saturating_add(1);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         NirProgram {
@@ -349,6 +367,19 @@ impl NirLowerer {
                 {
                     let id = self.next_global_id();
                     self.global_ids.insert(name.clone(), id);
+                }
+            }
+        }
+    }
+
+    fn collect_routine_ids(&mut self, program: &SemProgram) {
+        self.routine_ids.clear();
+        for module in &program.modules {
+            for item in &module.items {
+                if let crate::semantic::ir::SemItem::Routine(routine) = item {
+                    let id = self.routine_ids.len() as u32;
+                    self.routine_ids
+                        .insert(storage_key(&routine.symbol.name), id);
                 }
             }
         }
@@ -567,6 +598,7 @@ pub(super) struct NirBuilder {
     params: Vec<NirParam>,
     locals: Vec<NirLocal>,
     global_ids: BTreeMap<String, SymbolId>,
+    routine_ids: BTreeMap<String, u32>,
     symbol_storage_types: BTreeMap<String, NirType>,
     absolute_array_element_bases: BTreeMap<String, u16>,
     absolute_array_value_addresses: BTreeMap<String, u16>,
@@ -590,6 +622,7 @@ impl NirBuilder {
         entry_label: String,
         next_static: u32,
         global_ids: BTreeMap<String, SymbolId>,
+        routine_ids: BTreeMap<String, u32>,
         symbol_storage_types: BTreeMap<String, NirType>,
         absolute_array_element_bases: BTreeMap<String, u16>,
         absolute_array_value_addresses: BTreeMap<String, u16>,
@@ -604,6 +637,7 @@ impl NirBuilder {
             params: Vec::new(),
             locals: Vec::new(),
             global_ids,
+            routine_ids,
             symbol_storage_types,
             absolute_array_element_bases,
             absolute_array_value_addresses,
@@ -774,6 +808,14 @@ impl NirBuilder {
                     items: self.nir_machine_items(items),
                     effects: self.nir_machine_effects(effects),
                 });
+            }
+            SemStmt::InlineAsm { program, .. } => {
+                if program.bytes.is_empty() {
+                    return;
+                }
+                let code = self.nir_inline_asm(program);
+                let effects = self.nir_inline_asm_effects(program, &code);
+                self.push(NirOp::InlineAsm { code, effects });
             }
             SemStmt::If {
                 branches,
@@ -1621,6 +1663,141 @@ impl NirBuilder {
         }
     }
 
+    fn nir_inline_asm(&self, program: &SemInlineAsm) -> NirInlineAsm {
+        let relocations = program
+            .relocations
+            .iter()
+            .filter_map(|relocation| {
+                let target = match &relocation.target {
+                    SemInlineAsmTarget::InlineOffset(offset) => {
+                        NirInlineAsmTarget::InlineOffset(*offset)
+                    }
+                    SemInlineAsmTarget::Absolute(address) => NirInlineAsmTarget::Absolute(*address),
+                    SemInlineAsmTarget::Symbol(symbol) => {
+                        self.nir_inline_asm_symbol_target(symbol)?
+                    }
+                };
+                Some(NirInlineAsmRelocation {
+                    offset: relocation.offset,
+                    kind: relocation.kind,
+                    target,
+                    addend: relocation.addend,
+                    requires_zero_page: relocation.requires_zero_page,
+                    symbol_use: relocation.symbol_use,
+                    span: relocation.span,
+                })
+            })
+            .collect();
+        NirInlineAsm {
+            bytes: program.bytes.clone(),
+            relocations,
+            source: program.source.clone(),
+        }
+    }
+
+    fn nir_inline_asm_symbol_target(
+        &self,
+        symbol: &crate::semantic::ir::SemSymbolRef,
+    ) -> Option<NirInlineAsmTarget> {
+        let key = storage_key(&symbol.name);
+        match symbol.class {
+            SymbolClass::Param => self
+                .params
+                .iter()
+                .find(|param| storage_key(&param.name) == key)
+                .map(|param| NirInlineAsmTarget::Storage(NirStorageId::Param(param.id))),
+            SymbolClass::Var | SymbolClass::Array | SymbolClass::Record | SymbolClass::Type => {
+                if let Some(local) = self
+                    .locals
+                    .iter()
+                    .find(|local| storage_key(&local.name) == key)
+                {
+                    return Some(NirInlineAsmTarget::Storage(NirStorageId::Local(local.id)));
+                }
+                self.global_ids
+                    .iter()
+                    .find(|(name, _)| storage_key(name) == key)
+                    .map(|(_, id)| NirInlineAsmTarget::Storage(NirStorageId::Global(*id)))
+            }
+            SymbolClass::Proc | SymbolClass::Func => self
+                .routine_ids
+                .get(&key)
+                .copied()
+                .map(NirInlineAsmTarget::Routine),
+            SymbolClass::Define => self
+                .machine_defines
+                .get(&symbol.id.0)
+                .and_then(|items| match items.as_slice() {
+                    [MachineItem::Number(number)] => number.value,
+                    _ => None,
+                })
+                .map(NirInlineAsmTarget::Absolute),
+            SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc => None,
+        }
+    }
+
+    fn nir_inline_asm_effects(
+        &self,
+        program: &SemInlineAsm,
+        code: &NirInlineAsm,
+    ) -> NirMachineEffects {
+        if program.mode == InlineAsmMode::Opaque {
+            return NirMachineEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::Unknown,
+                    writes: NirMemoryAccess::Unknown,
+                },
+                may_call_os: true,
+                opaque: true,
+            };
+        }
+
+        let reads_unknown = code.relocations.iter().any(|relocation| {
+            matches!(
+                relocation.symbol_use,
+                InlineAsmSymbolUse::Call
+                    | InlineAsmSymbolUse::Control
+                    | InlineAsmSymbolUse::PointerRead
+                    | InlineAsmSymbolUse::IndexedRead
+                    | InlineAsmSymbolUse::IndexedReadWrite
+            )
+        });
+        let writes_unknown = code.relocations.iter().any(|relocation| {
+            matches!(
+                relocation.symbol_use,
+                InlineAsmSymbolUse::Call
+                    | InlineAsmSymbolUse::PointerRead
+                    | InlineAsmSymbolUse::IndexedWrite
+                    | InlineAsmSymbolUse::IndexedReadWrite
+            )
+        });
+        let reads = inline_asm_regions(code, true);
+        let writes = inline_asm_regions(code, false);
+        NirMachineEffects {
+            memory: NirMemoryEffects {
+                reads: if reads_unknown {
+                    NirMemoryAccess::Unknown
+                } else if reads.is_empty() {
+                    NirMemoryAccess::None
+                } else {
+                    NirMemoryAccess::Regions(reads)
+                },
+                writes: if writes_unknown {
+                    NirMemoryAccess::Unknown
+                } else if writes.is_empty() {
+                    NirMemoryAccess::None
+                } else {
+                    NirMemoryAccess::Regions(writes)
+                },
+            },
+            may_call_os: code
+                .relocations
+                .iter()
+                .any(|relocation| relocation.symbol_use == InlineAsmSymbolUse::Call),
+            opaque: false,
+        }
+    }
+
     fn nir_read_effects(&self, effects: &[SemReadEffect], opaque: bool) -> NirMemoryAccess {
         if opaque {
             return NirMemoryAccess::Unknown;
@@ -1922,6 +2099,7 @@ fn collect_machine_define_ids_from_stmt(
         | SemStmt::CompoundAssign { .. }
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
+        | SemStmt::InlineAsm { .. }
         | SemStmt::Unsupported { .. } => {}
     }
 }
@@ -1972,6 +2150,7 @@ fn collect_machine_define_names_from_stmt(
         | SemStmt::CompoundAssign { .. }
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
+        | SemStmt::InlineAsm { .. }
         | SemStmt::Unsupported { .. } => {}
     }
 }
@@ -2002,6 +2181,7 @@ fn collect_machine_defines_from_stmt(stmt: &SemStmt, defines: &mut MachineDefine
         | SemStmt::CompoundAssign { .. }
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
+        | SemStmt::InlineAsm { .. }
         | SemStmt::Unsupported { .. } => {}
     }
 }
@@ -2085,6 +2265,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Store { .. }
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
+        | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. }
         | NirOp::Note { .. } => None,
     }
@@ -2770,6 +2951,7 @@ fn resolve_op_places(op: &mut NirOp, storage: &StorageNameResolution) {
         | NirOp::Compare { .. }
         | NirOp::Call { .. }
         | NirOp::MachineBlock { .. }
+        | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. }
         | NirOp::Note { .. } => {}
     }
@@ -3094,6 +3276,58 @@ fn inclusive_region(kind: NirMemoryRegionKind, start: u16, end: u16) -> NirMemor
     }
 }
 
+fn inline_asm_regions(code: &NirInlineAsm, reads: bool) -> Vec<NirMemoryRegion> {
+    let mut regions = Vec::new();
+    for relocation in &code.relocations {
+        let accesses = if reads {
+            matches!(
+                relocation.symbol_use,
+                InlineAsmSymbolUse::Read
+                    | InlineAsmSymbolUse::ReadWrite
+                    | InlineAsmSymbolUse::IndexedRead
+                    | InlineAsmSymbolUse::IndexedReadWrite
+                    | InlineAsmSymbolUse::PointerRead
+            )
+        } else {
+            matches!(
+                relocation.symbol_use,
+                InlineAsmSymbolUse::Write
+                    | InlineAsmSymbolUse::ReadWrite
+                    | InlineAsmSymbolUse::IndexedWrite
+                    | InlineAsmSymbolUse::IndexedReadWrite
+            )
+        };
+        if !accesses {
+            continue;
+        }
+        let offset = u16::try_from(relocation.addend.max(0)).unwrap_or(u16::MAX);
+        let kind = match relocation.target {
+            NirInlineAsmTarget::Storage(storage) => NirMemoryRegionKind::Storage(storage),
+            NirInlineAsmTarget::Absolute(address) => {
+                regions.push(NirMemoryRegion {
+                    kind: NirMemoryRegionKind::AbsoluteRange,
+                    offset: address.saturating_add(offset),
+                    size: 1,
+                });
+                continue;
+            }
+            NirInlineAsmTarget::Routine(_) | NirInlineAsmTarget::InlineOffset(_) => continue,
+        };
+        regions.push(NirMemoryRegion {
+            kind,
+            offset,
+            size: if relocation.symbol_use == InlineAsmSymbolUse::PointerRead {
+                2
+            } else {
+                1
+            },
+        });
+    }
+    regions.sort_by_key(|region| (format!("{:?}", region.kind), region.offset, region.size));
+    regions.dedup();
+    regions
+}
+
 fn literal_summary(literal: &SemLiteral) -> String {
     match literal {
         SemLiteral::Number(number) => number.text.clone(),
@@ -3196,6 +3430,7 @@ mod memory_effect_tests {
             "bb0".to_string(),
             0,
             global_ids,
+            BTreeMap::new(),
             storage_types,
             BTreeMap::new(),
             BTreeMap::new(),

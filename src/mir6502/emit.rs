@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::asm6502::InlineAsmRelocationKind;
 use crate::codegen::native_emitter::NativeTrackedEmitter;
 use crate::codegen::{
     Absolute, AbsoluteX, CodegenAddressSpace, CodegenMachineBlockAnalysis, CodegenRoutineEffect,
@@ -15,8 +16,8 @@ use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCallTarget, MirCarryIn,
     MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirEffects, MirFixedZpSlot, MirFlagTest,
-    MirGlobalBacking, MirGlobalInit, MirMachineAtom, MirMachineByteSelector, MirMachineItem,
-    MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
+    MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom, MirMachineByteSelector,
+    MirMachineItem, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
     MirRuntimeHelperTarget, MirSpillId, MirStorageBase, MirStorageClass, MirStorageId,
     MirStorageInit, MirStorageSlot, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth,
     MirZpSlot, RoutineId,
@@ -2537,7 +2538,7 @@ fn emit_op(
             };
             let address = current_address(ctx, emitter);
             for item in &machine_block.items {
-                emit_machine_item(ctx, routine, block, item, emitter);
+                emit_machine_item(ctx, routine, block, address, item, emitter);
             }
             let end = current_address(ctx, emitter);
             ctx.summary
@@ -2575,6 +2576,7 @@ fn emit_machine_item(
     ctx: &mut MirEmitContext<'_>,
     routine: RoutineId,
     block: MirBlockId,
+    machine_origin: u16,
     item: &MirMachineItem,
     emitter: &mut NativeTrackedEmitter,
 ) {
@@ -2624,6 +2626,126 @@ fn emit_machine_item(
                 ),
             }
         }
+        MirMachineItem::Relocation {
+            kind,
+            target,
+            addend,
+            requires_zero_page,
+            span,
+        } => emit_inline_asm_relocation(
+            ctx,
+            routine,
+            block,
+            machine_origin,
+            *kind,
+            target,
+            *addend,
+            *requires_zero_page,
+            *span,
+            emitter,
+        ),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn emit_inline_asm_relocation(
+    ctx: &mut MirEmitContext<'_>,
+    routine: RoutineId,
+    block: MirBlockId,
+    machine_origin: u16,
+    kind: InlineAsmRelocationKind,
+    target: &MirInlineAsmTarget,
+    addend: i32,
+    requires_zero_page: bool,
+    span: Span,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    let resolved = match target {
+        MirInlineAsmTarget::Memory(mem) => {
+            let Some(mem) = ctx.layout.direct_mem(routine, mem) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "inline assembler storage is not emit-ready",
+                );
+                return;
+            };
+            Some(resolved_mem_address(mem))
+        }
+        MirInlineAsmTarget::Absolute(address) => Some(*address),
+        MirInlineAsmTarget::InlineOffset(offset) => Some(machine_origin.wrapping_add(*offset)),
+        MirInlineAsmTarget::Routine(id) => {
+            let label = ctx.layout.routine_label(*id);
+            if requires_zero_page {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "inline assembler routine address cannot use zero-page encoding",
+                );
+                return;
+            }
+            match kind {
+                InlineAsmRelocationKind::Absolute16 => {
+                    emitter.emit_u16_label_offset(label, addend, span)
+                }
+                InlineAsmRelocationKind::Byte8 => {
+                    unsupported(
+                        ctx,
+                        routine,
+                        block,
+                        "inline assembler one-byte constant cannot be a relocatable routine",
+                    );
+                }
+                InlineAsmRelocationKind::Low8 => {
+                    emitter.emit_u8_label_low_offset(label, addend, span)
+                }
+                InlineAsmRelocationKind::High8 => {
+                    emitter.emit_u8_label_high_offset(label, addend, span)
+                }
+            }
+            return;
+        }
+    };
+    let Some(value) = resolved.and_then(|value| {
+        let value = i32::from(value).checked_add(addend)?;
+        u16::try_from(value).ok()
+    }) else {
+        unsupported(
+            ctx,
+            routine,
+            block,
+            "inline assembler relocation is outside the 16-bit address space",
+        );
+        return;
+    };
+    if requires_zero_page && value > 0xff {
+        unsupported(
+            ctx,
+            routine,
+            block,
+            &format!(
+                "inline assembler `.z`/indirect operand resolved to non-zero-page address ${value:04X}"
+            ),
+        );
+        return;
+    }
+    if kind == InlineAsmRelocationKind::Byte8 && value > 0xff {
+        unsupported(
+            ctx,
+            routine,
+            block,
+            &format!("inline assembler immediate constant `{value}` does not fit in one byte"),
+        );
+        return;
+    }
+    match kind {
+        InlineAsmRelocationKind::Absolute16 => emitter.emit_u16_le(value),
+        InlineAsmRelocationKind::Byte8 | InlineAsmRelocationKind::Low8 => {
+            emitter.emit_u8(value as u8)
+        }
+        InlineAsmRelocationKind::High8 => emitter.emit_u8((value >> 8) as u8),
     }
 }
 

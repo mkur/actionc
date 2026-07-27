@@ -1332,6 +1332,7 @@ fn refine_terminal_indirect_jump_effects(program: &mut MirProgram) {
                 // memory, but it cannot observe MIR6502's transient pointer
                 // pair merely by being entered through JMP.
                 memory_writes: MirMemoryEffect::All,
+                reads: Default::default(),
                 clobbers: super::abi::action_call_clobbers(),
                 preserves: Default::default(),
                 stack_depth_delta: None,

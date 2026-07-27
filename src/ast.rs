@@ -1,3 +1,4 @@
+use crate::asm6502::InlineAsmProgram;
 use crate::lexer::NumberLiteral;
 use crate::source::Span;
 
@@ -243,6 +244,10 @@ pub enum Stmt {
     MachineBlock {
         items: Vec<MachineItem>,
         text: String,
+        span: Span,
+    },
+    InlineAsm {
+        program: InlineAsmProgram,
         span: Span,
     },
     If {

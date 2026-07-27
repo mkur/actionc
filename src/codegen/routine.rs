@@ -577,7 +577,10 @@ impl Generator {
             }
             Stmt::Define(_) | Stmt::Unsupported { .. } => {}
             Stmt::Return(Some(expr)) => self.collect_modern_hidden_expr(expr),
-            Stmt::Return(None) | Stmt::Exit { .. } | Stmt::MachineBlock { .. } => {}
+            Stmt::Return(None)
+            | Stmt::Exit { .. }
+            | Stmt::MachineBlock { .. }
+            | Stmt::InlineAsm { .. } => {}
             Stmt::Call { expr, .. } => self.collect_modern_hidden_expr(expr),
             Stmt::If {
                 branches,
@@ -889,6 +892,7 @@ fn stmt_contains_string_literal(stmt: &Stmt) -> bool {
         | Stmt::Return(None)
         | Stmt::Exit { .. }
         | Stmt::MachineBlock { .. }
+        | Stmt::InlineAsm { .. }
         | Stmt::Unsupported { .. } => false,
     }
 }

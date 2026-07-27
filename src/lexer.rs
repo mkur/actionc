@@ -57,6 +57,11 @@ pub enum NumberKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind {
     Ident(String),
+    InlineAsm {
+        source: String,
+        source_offset: usize,
+        opaque: bool,
+    },
     Number(NumberLiteral),
     String(String),
     Char(char),
@@ -130,6 +135,7 @@ impl TokenKind {
     pub fn action_token_id(&self) -> Option<u8> {
         match self {
             TokenKind::Ident(_) => None,
+            TokenKind::InlineAsm { .. } => None,
             TokenKind::Number(number) => Some(number.kind.action_token_id()),
             TokenKind::String(_) => Some(128 + 5),
             TokenKind::Char(_) => Some(128 + 1),
@@ -286,6 +292,9 @@ impl<'a> Lexer<'a> {
 
         let text = &self.input[start..self.pos];
         let upper = text.to_ascii_uppercase();
+        if upper == "ASM" {
+            return self.lex_inline_asm(start);
+        }
         let kind = match upper.as_str() {
             "AND" => TokenKind::Keyword(Keyword::And),
             "ARRAY" => TokenKind::Keyword(Keyword::Array),
@@ -326,6 +335,89 @@ impl<'a> Lexer<'a> {
 
         Token {
             kind,
+            span: Span::new(start, self.pos),
+        }
+    }
+
+    fn lex_inline_asm(&mut self, start: usize) -> Token {
+        while matches!(self.peek(), Some(' ' | '\t')) {
+            self.bump();
+        }
+
+        let opaque = if self.input[self.pos..]
+            .get(..6)
+            .is_some_and(|text| text.eq_ignore_ascii_case("OPAQUE"))
+            && self.input[self.pos + 6..]
+                .chars()
+                .next()
+                .is_none_or(|ch| ch.is_whitespace() || ch == ';')
+        {
+            self.pos += 6;
+            while matches!(self.peek(), Some(' ' | '\t')) {
+                self.bump();
+            }
+            true
+        } else {
+            false
+        };
+
+        if !matches!(self.peek(), None | Some('\n' | '\r' | ';')) {
+            let header_end = self.input[self.pos..]
+                .find(['\n', '\r'])
+                .map_or(self.input.len(), |offset| self.pos + offset);
+            self.diagnostics.push(Diagnostic::new(
+                Span::new(self.pos, header_end),
+                "ASM body must begin on the following line",
+            ));
+        }
+        while !matches!(self.peek(), None | Some('\n' | '\r')) {
+            self.bump();
+        }
+        if self.match_char('\r') {
+            self.match_char('\n');
+        } else {
+            self.match_char('\n');
+        }
+        let body_start = self.pos;
+
+        while self.pos < self.input.len() {
+            let line_start = self.pos;
+            while !matches!(self.peek(), None | Some('\n' | '\r')) {
+                self.bump();
+            }
+            let line_end = self.pos;
+            let line = self.input[line_start..line_end].trim();
+            let terminator = line
+                .split_once(';')
+                .map_or(line, |(before, _)| before.trim());
+            if terminator.eq_ignore_ascii_case("ENDASM") {
+                let source = self.input[body_start..line_start].to_string();
+                return Token {
+                    kind: TokenKind::InlineAsm {
+                        source,
+                        source_offset: body_start,
+                        opaque,
+                    },
+                    span: Span::new(start, line_end),
+                };
+            }
+            if self.match_char('\r') {
+                self.match_char('\n');
+            } else {
+                self.match_char('\n');
+            }
+        }
+
+        self.diagnostics.push(Diagnostic::new(
+            Span::new(start, self.pos),
+            "unterminated ASM block; expected ENDASM on its own line",
+        ));
+        Token {
+            kind: TokenKind::InlineAsm {
+                source: self.input[body_start..self.pos].to_string(),
+                source_offset: body_start,
+                opaque,
+            },
             span: Span::new(start, self.pos),
         }
     }
@@ -617,7 +709,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
-fn decode_atascii_escape(body: &str) -> Result<Vec<char>, String> {
+pub(crate) fn decode_atascii_escape(body: &str) -> Result<Vec<char>, String> {
     if let Some(hex) = body.strip_prefix('$') {
         return decode_hex_byte(hex).map(|byte| vec![byte as char]);
     }
@@ -843,6 +935,37 @@ mod tests {
     #[test]
     fn rejects_pipe_as_non_action_character() {
         assert!(tokenize("|").is_err());
+    }
+
+    #[test]
+    fn captures_inline_assembler_as_one_source_aware_token() {
+        let source = "PROC P()\nASM OPAQUE\n  lda #1\nENDASM\nRETURN\n";
+        let tokens = tokenize(source).unwrap();
+        let token = tokens
+            .iter()
+            .find(|token| matches!(token.kind, TokenKind::InlineAsm { .. }))
+            .expect("inline assembler token");
+        let TokenKind::InlineAsm {
+            source: body,
+            source_offset,
+            opaque,
+        } = &token.kind
+        else {
+            unreachable!();
+        };
+        assert_eq!(body, "  lda #1\n");
+        assert_eq!(&source[*source_offset..*source_offset + body.len()], body);
+        assert!(*opaque);
+    }
+
+    #[test]
+    fn diagnoses_unterminated_inline_assembler_blocks() {
+        let diagnostics = tokenize("PROC P()\nASM\n  nop\n").unwrap_err();
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("unterminated ASM block"))
+        );
     }
 
     #[test]

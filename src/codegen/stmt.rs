@@ -80,6 +80,17 @@ impl Generator {
                 }
                 self.emit_machine_block(items, *span);
             }
+            Stmt::InlineAsm { program, span } => {
+                self.record_machine_block_analysis(&program.items, *span, start);
+                if !self.current_routine_has_effect_contract {
+                    self.record_current_unknown_effects();
+                }
+                if let Err(message) = self.validate_inline_asm_constraints(program) {
+                    self.diagnostics.push(Diagnostic::new(*span, message));
+                } else {
+                    self.emit_machine_block(&program.items, *span);
+                }
+            }
             _ => self.diagnostics.push(Diagnostic::new(
                 stmt_span(stmt),
                 "codegen for this statement is not implemented yet",
@@ -335,6 +346,7 @@ impl Generator {
                 Stmt::CompoundAssign { .. }
                 | Stmt::Call { .. }
                 | Stmt::MachineBlock { .. }
+                | Stmt::InlineAsm { .. }
                 | Stmt::While { .. }
                 | Stmt::DoUntil { .. }
                 | Stmt::For { .. }

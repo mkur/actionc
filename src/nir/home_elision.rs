@@ -185,7 +185,7 @@ fn transfer_op_backwards(
                 apply_effects_backwards(&effects.memory, live, candidates);
             }
         }
-        NirOp::MachineBlock { effects, .. } => {
+        NirOp::MachineBlock { effects, .. } | NirOp::InlineAsm { effects, .. } => {
             if effects.opaque {
                 live.extend(candidates.iter().copied());
             } else {

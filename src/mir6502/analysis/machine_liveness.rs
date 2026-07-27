@@ -784,6 +784,32 @@ mod tests {
     }
 
     #[test]
+    fn structured_machine_block_reads_keep_only_listed_incoming_registers_live() {
+        let routine = routine(vec![block(
+            0,
+            vec![
+                load_imm(MirReg::A, 1),
+                MirOp::MachineBlock {
+                    id: MirMachineBlockId(0),
+                    effects: MirEffects {
+                        reads: MirRegisterSet {
+                            a: true,
+                            ..MirRegisterSet::default()
+                        },
+                        opaque: false,
+                        ..MirEffects::default()
+                    },
+                },
+            ],
+            MirTerminator::Return,
+        )]);
+        let live = analyze(&routine).live_after(op_site(0, 0)).unwrap();
+        assert!(live.register_live(MirReg::A));
+        assert!(!live.register_live(MirReg::X));
+        assert!(!live.register_live(MirReg::Y));
+    }
+
+    #[test]
     fn return_boundary_keeps_stack_pointer_but_not_volatile_registers_live() {
         let routine = routine(vec![block(0, Vec::new(), MirTerminator::Return)]);
         let liveness = analyze(&routine);

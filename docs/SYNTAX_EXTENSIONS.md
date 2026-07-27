@@ -140,6 +140,92 @@ This keeps full label operands unchanged (`[$20 Target]` still means a two-byte
 absolute operand) while making byte selection explicit for tables and
 self-contained machine code fragments.
 
+## MADS-Style Inline Assembler
+
+Use `ASM` and `ENDASM` on their own lines to embed official NMOS 6502
+instructions:
+
+```action
+BYTE ARRAY pixels(256)
+CARD ptr=$A0
+
+PROC Draw()
+ASM
+    lda #<pixels
+    sta ptr
+    lda #>pixels
+    sta ptr+1
+
+    ldy #0
+loop:
+    lda (ptr),y
+    sta pixels,y
+    iny
+    bne loop
+ENDASM
+RETURN
+```
+
+The assembler is built into `actionc`; MADS is not needed at compile time.
+The supported MADS-compatible subset includes:
+
+- all official NMOS 6502 instructions and addressing modes;
+- hexadecimal `$`, binary `%`, decimal, and ATASCII character constants;
+- named labels (with an optional colon) and anonymous `@`, `@+`, `@-` labels;
+- block-local `name = expression` and `name EQU expression` constants;
+- `.z`/`.b` and `.a`/`.w` address-size suffixes;
+- checked arithmetic, shift, and bitwise expressions;
+- `;`, `//`, and `/* ... */` comments;
+- direct references to visible Action! globals, locals, parameters, arrays,
+  constants, and routines.
+
+Address selection is deterministic. Numeric addresses below `$100` use a
+zero-page encoding where one exists. Ordinary allocated Action! objects use an
+absolute encoding. `.z`, `(pointer),Y`, and `(pointer,X)` require the referenced
+pointer cell to be provably in zero page, for example:
+
+```action
+CARD ptr=$A0
+```
+
+Assembler-local names shadow Action! names. Prefix a name with `:` to request
+the Action! object explicitly:
+
+```action
+BYTE value
+
+PROC Example()
+ASM
+value:
+    inc :value
+    bne value
+ENDASM
+RETURN
+```
+
+Low and high address bytes are written `#<name` and `#>name`. A byte-valued
+Action! `DEFINE` can be used directly as `#CONSTANT`; the compiler diagnoses a
+value that does not fit instead of truncating it. A direct `JSR` to an Action!
+routine is relocated through the normal routine identity; storage references
+likewise retain a stable compiler storage identity rather than a source-name
+string.
+
+Analyzed blocks participate in MIR6502 memory-effect and machine-register
+liveness analysis. Fall-through and return paths must preserve stack depth.
+Operations whose effects are deliberately outside that contract can use
+`ASM OPAQUE`, which still receives syntax, opcode, relocation, and zero-page
+validation but acts as a full compiler barrier:
+
+```action
+ASM OPAQUE
+    ; deliberately non-standard machine-state manipulation
+ENDASM
+```
+
+Macros, conditional assembly, repetition, include/output directives, data
+directives, illegal opcodes, and 65C02/65816 instructions are not part of this
+initial subset. Keep static data in Action! arrays.
+
 ## Compatibility Policy
 
 These extensions are accepted by `actionc`, but they are not proof that the

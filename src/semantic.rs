@@ -689,6 +689,80 @@ impl Analyzer {
                     }
                 }
             }
+            Stmt::InlineAsm { program, .. } => {
+                for relocation in &program.relocations {
+                    let crate::asm6502::InlineAsmRelocationTarget::Symbol(name) =
+                        &relocation.target
+                    else {
+                        continue;
+                    };
+                    let Some(symbol_id) = self.lookup_symbol(scope, name) else {
+                        self.diagnostics.push(Diagnostic::new(
+                            relocation.span,
+                            format!("undefined inline assembler symbol `{name}`"),
+                        ));
+                        continue;
+                    };
+                    let symbol = &self.symbols.symbols[symbol_id.0];
+                    let valid = match relocation.symbol_use {
+                        crate::asm6502::InlineAsmSymbolUse::Call
+                        | crate::asm6502::InlineAsmSymbolUse::Control => {
+                            matches!(
+                                symbol.class,
+                                SymbolClass::Proc | SymbolClass::Func | SymbolClass::Define
+                            )
+                        }
+                        crate::asm6502::InlineAsmSymbolUse::Read
+                        | crate::asm6502::InlineAsmSymbolUse::Write
+                        | crate::asm6502::InlineAsmSymbolUse::ReadWrite
+                        | crate::asm6502::InlineAsmSymbolUse::IndexedRead
+                        | crate::asm6502::InlineAsmSymbolUse::IndexedWrite
+                        | crate::asm6502::InlineAsmSymbolUse::IndexedReadWrite
+                        | crate::asm6502::InlineAsmSymbolUse::PointerRead => matches!(
+                            symbol.class,
+                            SymbolClass::Define
+                                | SymbolClass::Var
+                                | SymbolClass::Array
+                                | SymbolClass::Param
+                        ),
+                        crate::asm6502::InlineAsmSymbolUse::Address => matches!(
+                            symbol.class,
+                            SymbolClass::Define
+                                | SymbolClass::Var
+                                | SymbolClass::Array
+                                | SymbolClass::Param
+                                | SymbolClass::Proc
+                                | SymbolClass::Func
+                        ),
+                        crate::asm6502::InlineAsmSymbolUse::Constant => {
+                            symbol.class == SymbolClass::Define
+                        }
+                    };
+                    if !valid {
+                        self.diagnostics.push(Diagnostic::new(
+                            relocation.span,
+                            format!(
+                                "inline assembler operand `{name}` is incompatible with {:?}",
+                                relocation.symbol_use
+                            ),
+                        ));
+                    }
+                    if relocation.symbol_use == crate::asm6502::InlineAsmSymbolUse::PointerRead
+                        && symbol
+                            .ty
+                            .as_ref()
+                            .and_then(ValueType::value_width_bytes)
+                            .is_some_and(|width| width < 2)
+                    {
+                        self.diagnostics.push(Diagnostic::new(
+                            relocation.span,
+                            format!(
+                                "inline assembler indirect operand `{name}` requires a two-byte pointer cell"
+                            ),
+                        ));
+                    }
+                }
+            }
             Stmt::If {
                 branches,
                 else_body,
@@ -2573,6 +2647,7 @@ fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize) -> StmtFlowFacts {
         | Stmt::CompoundAssign { .. }
         | Stmt::Call { .. }
         | Stmt::MachineBlock { .. }
+        | Stmt::InlineAsm { .. }
         | Stmt::Unsupported { .. } => StmtFlowFacts::empty_continuing(),
     }
 }
@@ -5245,7 +5320,8 @@ mod tests {
         match stmt {
             ir::SemStmt::Define(_)
             | ir::SemStmt::Exit { .. }
-            | ir::SemStmt::MachineBlock { .. } => {}
+            | ir::SemStmt::MachineBlock { .. }
+            | ir::SemStmt::InlineAsm { .. } => {}
             ir::SemStmt::Return { value, .. } => {
                 if let Some(value) = value {
                     assert_semir_value_expr_typed(value);

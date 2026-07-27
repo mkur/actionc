@@ -171,9 +171,10 @@ impl NirDataflowProblem for NirPredicateProblem<'_> {
                 NirOp::Store { place, .. } => {
                     facts.kill_storage(direct_storage_id(place));
                 }
-                NirOp::Call { .. } | NirOp::MachineBlock { .. } | NirOp::Unsupported { .. } => {
-                    facts.kill_storage(None)
-                }
+                NirOp::Call { .. }
+                | NirOp::MachineBlock { .. }
+                | NirOp::InlineAsm { .. }
+                | NirOp::Unsupported { .. } => facts.kill_storage(None),
                 NirOp::Define { .. }
                 | NirOp::Set { .. }
                 | NirOp::Declare { .. }
@@ -374,7 +375,10 @@ fn storage_subject_for_temp(
 fn invalidates_storage(op: &NirOp, storage: NirStorageId) -> bool {
     match op {
         NirOp::Store { place, .. } => direct_storage_id(place).is_none_or(|id| id == storage),
-        NirOp::Call { .. } | NirOp::MachineBlock { .. } | NirOp::Unsupported { .. } => true,
+        NirOp::Call { .. }
+        | NirOp::MachineBlock { .. }
+        | NirOp::InlineAsm { .. }
+        | NirOp::Unsupported { .. } => true,
         NirOp::Define { .. }
         | NirOp::Set { .. }
         | NirOp::Declare { .. }

@@ -75,7 +75,7 @@ pub(super) fn stmt_list_contains_machine_block(body: &[Stmt]) -> bool {
 
 fn stmt_contains_machine_block(stmt: &Stmt) -> bool {
     match stmt {
-        Stmt::MachineBlock { .. } => true,
+        Stmt::MachineBlock { .. } | Stmt::InlineAsm { .. } => true,
         Stmt::If {
             branches,
             else_body,
@@ -166,6 +166,7 @@ fn stmt_exprs_any(stmt: &Stmt, predicate: &impl Fn(&Expr) -> bool) -> bool {
         | Stmt::Return(None)
         | Stmt::Exit { .. }
         | Stmt::MachineBlock { .. }
+        | Stmt::InlineAsm { .. }
         | Stmt::Unsupported { .. } => false,
     }
 }

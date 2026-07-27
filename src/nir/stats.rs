@@ -138,6 +138,7 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                     | NirOp::Compare { .. }
                     | NirOp::Call { .. }
                     | NirOp::MachineBlock { .. }
+                    | NirOp::InlineAsm { .. }
                     | NirOp::Unsupported { .. }
                     | NirOp::Note { .. } => {}
                 }
@@ -315,6 +316,7 @@ fn op_kind(op: &NirOp) -> &'static str {
         NirOp::Compare { .. } => "compare",
         NirOp::Call { .. } => "call",
         NirOp::MachineBlock { .. } => "machine_block",
+        NirOp::InlineAsm { .. } => "inline_asm",
         NirOp::Unsupported { .. } => "unsupported",
         NirOp::Note { .. } => "note",
     }

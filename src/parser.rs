@@ -476,10 +476,46 @@ impl<'a> Parser<'a> {
             Stmt::Define(self.parse_define())
         } else if self.check(TokenKind::LBracket) {
             self.parse_machine_block_statement()
+        } else if matches!(self.peek().kind, TokenKind::InlineAsm { .. }) {
+            self.parse_inline_asm_statement()
         } else if self.current_token_is_define_directive_invocation() {
             self.parse_define_directive_invocation()
         } else {
             self.parse_assignment_or_call_statement(start)
+        }
+    }
+
+    fn parse_inline_asm_statement(&mut self) -> Stmt {
+        let token = self.bump().clone();
+        let TokenKind::InlineAsm {
+            source,
+            source_offset,
+            opaque,
+        } = token.kind
+        else {
+            unreachable!("inline assembler parser requires an inline assembler token");
+        };
+        let mode = if opaque {
+            crate::asm6502::InlineAsmMode::Opaque
+        } else {
+            crate::asm6502::InlineAsmMode::Analyzed
+        };
+        let program = match crate::asm6502::assemble(&source, source_offset, mode) {
+            Ok(program) => program,
+            Err(diagnostics) => {
+                self.diagnostics.extend(diagnostics);
+                crate::asm6502::InlineAsmProgram {
+                    items: Vec::new(),
+                    bytes: Vec::new(),
+                    relocations: Vec::new(),
+                    source,
+                    mode,
+                }
+            }
+        };
+        Stmt::InlineAsm {
+            program,
+            span: token.span,
         }
     }
 
@@ -2068,6 +2104,10 @@ fn compact_tokens_text(tokens: &[Token]) -> String {
 fn token_text(token: &Token) -> String {
     match &token.kind {
         TokenKind::Ident(text) => text.clone(),
+        TokenKind::InlineAsm { source, opaque, .. } => {
+            let qualifier = if *opaque { " OPAQUE" } else { "" };
+            format!("ASM{qualifier}\n{source}ENDASM")
+        }
         TokenKind::Number(number) => number.text.clone(),
         TokenKind::String(text) => format!("\"{text}\""),
         TokenKind::Char(ch) => format!("'{ch}"),

@@ -1,4 +1,6 @@
 use super::facts::{BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, SymbolId, TempId};
+use crate::asm6502::{InlineAsmRelocationKind, InlineAsmSymbolUse};
+use crate::source::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirProgram {
@@ -455,12 +457,42 @@ pub enum NirOp {
         items: Vec<NirMachineItem>,
         effects: NirMachineEffects,
     },
+    InlineAsm {
+        code: NirInlineAsm,
+        effects: NirMachineEffects,
+    },
     Unsupported {
         note: String,
     },
     Note {
         text: String,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NirInlineAsm {
+    pub bytes: Vec<u8>,
+    pub relocations: Vec<NirInlineAsmRelocation>,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NirInlineAsmRelocation {
+    pub offset: u16,
+    pub kind: InlineAsmRelocationKind,
+    pub target: NirInlineAsmTarget,
+    pub addend: i32,
+    pub requires_zero_page: bool,
+    pub symbol_use: InlineAsmSymbolUse,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NirInlineAsmTarget {
+    Storage(NirStorageId),
+    Routine(u32),
+    Absolute(u16),
+    InlineOffset(u16),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

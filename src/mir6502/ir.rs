@@ -1,4 +1,6 @@
+use crate::asm6502::InlineAsmRelocationKind;
 use crate::nir::{LocalId, ParamId, SymbolId};
+use crate::source::Span;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirPhase {
@@ -151,6 +153,21 @@ pub enum MirMachineItem {
         high: bool,
         name: String,
     },
+    Relocation {
+        kind: InlineAsmRelocationKind,
+        target: MirInlineAsmTarget,
+        addend: i32,
+        requires_zero_page: bool,
+        span: Span,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MirInlineAsmTarget {
+    Memory(MirMem),
+    Routine(RoutineId),
+    Absolute(u16),
+    InlineOffset(u16),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -864,6 +881,13 @@ pub struct MirOpRef {
 pub struct MirEffects {
     pub memory_reads: MirMemoryEffect,
     pub memory_writes: MirMemoryEffect,
+    /// Machine registers and status flags whose incoming values are observed.
+    ///
+    /// Calls normally describe their inputs through the ABI. This field is
+    /// primarily for structured inline machine code, where a block such as
+    /// `STA target` consumes the incoming accumulator without changing it
+    /// first.
+    pub reads: MirRegisterSet,
     pub clobbers: MirRegisterSet,
     pub preserves: MirRegisterSet,
     pub stack_depth_delta: Option<i8>,

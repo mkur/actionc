@@ -3,10 +3,10 @@ use std::collections::BTreeMap;
 use crate::ast::machine_address_symbolic_offset;
 use crate::codegen::runtime_zp;
 use crate::nir::{
-    self, BlockId, LocalId, NirBinaryOp, NirCompareOp, NirGlobalBacking, NirLocalBacking,
-    NirMachineAtom, NirMachineByteSelector, NirMachineEffects, NirMachineItem, NirOp as NirOpKind,
-    NirPlace, NirPlaceKind, NirProgram, NirTerminator, NirType, NirTypeKind, NirUnaryOp,
-    NirValue as NirValueKind, TempId,
+    self, BlockId, LocalId, NirBinaryOp, NirCompareOp, NirGlobalBacking, NirInlineAsm,
+    NirInlineAsmTarget, NirLocalBacking, NirMachineAtom, NirMachineByteSelector, NirMachineEffects,
+    NirMachineItem, NirOp as NirOpKind, NirPlace, NirPlaceKind, NirProgram, NirTerminator, NirType,
+    NirTypeKind, NirUnaryOp, NirValue as NirValueKind, TempId,
 };
 use crate::resident::resident_variable;
 
@@ -19,11 +19,12 @@ use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam, MirCarryOut, MirCompareOp, MirCond,
     MirCondDest, MirDataBacking, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFrame,
-    MirGlobal, MirGlobalBacking, MirGlobalInit, MirMachineAtom, MirMachineBlock, MirMachineBlockId,
-    MirMachineByteSelector, MirMachineItem, MirMem, MirOp, MirProgram, MirRoutine, MirRoutineAbi,
-    MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic, MirStorageBacking,
-    MirStorageBase, MirStorageClass, MirStorageId, MirStorageInit, MirStorageSlot, MirTemp,
-    MirTempId, MirTerminator, MirUnaryOp, MirValue, MirWidth, RoutineId,
+    MirGlobal, MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom,
+    MirMachineBlock, MirMachineBlockId, MirMachineByteSelector, MirMachineItem, MirMem, MirOp,
+    MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi, MirRuntimeHelper, MirRuntimeHelperDecl,
+    MirRuntimeHelperTarget, MirStatic, MirStorageBacking, MirStorageBase, MirStorageClass,
+    MirStorageId, MirStorageInit, MirStorageSlot, MirTemp, MirTempId, MirTerminator, MirUnaryOp,
+    MirValue, MirWidth, RoutineId,
 };
 
 pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>> {
@@ -1060,6 +1061,15 @@ fn lower_ops(
                     effects: lower_machine_effects(effects),
                 });
             }
+            NirOpKind::InlineAsm { code, effects } => {
+                let items = lower_inline_asm(code);
+                let id = MirMachineBlockId(machine_blocks.len() as u32);
+                machine_blocks.push(MirMachineBlock { id, items });
+                lowered.push(MirOp::MachineBlock {
+                    id,
+                    effects: lower_inline_asm_effects(code, effects),
+                });
+            }
             _ => {}
         }
     }
@@ -1160,6 +1170,57 @@ fn lower_machine_items(
         }
     }
     ok.then_some(lowered)
+}
+
+fn lower_inline_asm(code: &NirInlineAsm) -> Vec<MirMachineItem> {
+    let mut relocations = code.relocations.iter().collect::<Vec<_>>();
+    relocations.sort_by_key(|relocation| relocation.offset);
+    let mut items = Vec::new();
+    let mut cursor = 0usize;
+    for relocation in relocations {
+        let offset = usize::from(relocation.offset);
+        items.extend(
+            code.bytes[cursor..offset]
+                .iter()
+                .copied()
+                .map(MirMachineItem::Byte),
+        );
+        let target = match relocation.target {
+            NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Local(id)) => {
+                MirInlineAsmTarget::Memory(MirMem::Local { id, offset: 0 })
+            }
+            NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Param(id)) => {
+                MirInlineAsmTarget::Memory(MirMem::Param { id, offset: 0 })
+            }
+            NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Global(id)) => {
+                MirInlineAsmTarget::Memory(MirMem::Global { id, offset: 0 })
+            }
+            NirInlineAsmTarget::Routine(id) => MirInlineAsmTarget::Routine(RoutineId(id)),
+            NirInlineAsmTarget::Absolute(address) => MirInlineAsmTarget::Absolute(address),
+            NirInlineAsmTarget::InlineOffset(offset) => MirInlineAsmTarget::InlineOffset(offset),
+        };
+        items.push(MirMachineItem::Relocation {
+            kind: relocation.kind,
+            target,
+            addend: relocation.addend,
+            requires_zero_page: relocation.requires_zero_page,
+            span: relocation.span,
+        });
+        cursor = offset
+            + match relocation.kind {
+                crate::asm6502::InlineAsmRelocationKind::Absolute16 => 2,
+                crate::asm6502::InlineAsmRelocationKind::Byte8
+                | crate::asm6502::InlineAsmRelocationKind::Low8
+                | crate::asm6502::InlineAsmRelocationKind::High8 => 1,
+            };
+    }
+    items.extend(
+        code.bytes[cursor..]
+            .iter()
+            .copied()
+            .map(MirMachineItem::Byte),
+    );
+    items
 }
 
 fn lower_machine_address_offset(
@@ -1338,11 +1399,50 @@ fn lower_machine_effects(effects: &NirMachineEffects) -> MirEffects {
     MirEffects {
         memory_reads: super::abi::mir_memory_effect(&effects.memory.reads),
         memory_writes: super::abi::mir_memory_effect(&effects.memory.writes),
+        reads: Default::default(),
         clobbers: super::abi::opaque_machine_clobbers(),
         preserves: Default::default(),
         stack_depth_delta: None,
         may_call_os: effects.may_call_os,
         opaque: effects.opaque,
+    }
+}
+
+fn lower_inline_asm_effects(code: &NirInlineAsm, effects: &NirMachineEffects) -> MirEffects {
+    if effects.opaque {
+        return lower_machine_effects(effects);
+    }
+    let local_control_targets = code
+        .relocations
+        .iter()
+        .filter_map(|relocation| {
+            let NirInlineAsmTarget::InlineOffset(target) = &relocation.target else {
+                return None;
+            };
+            (relocation.symbol_use == crate::asm6502::InlineAsmSymbolUse::Control)
+                .then_some((relocation.offset, *target))
+        })
+        .collect::<Vec<_>>();
+    let machine = crate::asm6502::analyze_machine_state(&code.bytes, &local_control_targets);
+    MirEffects {
+        memory_reads: super::abi::mir_memory_effect(&effects.memory.reads),
+        memory_writes: super::abi::mir_memory_effect(&effects.memory.writes),
+        reads: inline_register_set(machine.reads),
+        clobbers: inline_register_set(machine.clobbers),
+        preserves: Default::default(),
+        stack_depth_delta: machine.stack_depth_delta,
+        may_call_os: effects.may_call_os,
+        opaque: false,
+    }
+}
+
+fn inline_register_set(registers: crate::asm6502::InlineAsmRegisterSet) -> MirRegisterSet {
+    MirRegisterSet {
+        a: registers.a,
+        x: registers.x,
+        y: registers.y,
+        flags: registers.flags,
+        sp: registers.sp,
     }
 }
 

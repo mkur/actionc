@@ -1,8 +1,73 @@
+use crate::asm6502::{InlineAsmProgram, InlineAsmRelocationKind, InlineAsmRelocationTarget};
 use crate::lexer::{NumberLiteral, TokenKind, tokenize};
 
 use super::*;
 
 impl Generator {
+    pub(super) fn validate_inline_asm_constraints(
+        &self,
+        program: &InlineAsmProgram,
+    ) -> Result<(), String> {
+        for relocation in program.relocations.iter().filter(|relocation| {
+            relocation.requires_zero_page || relocation.kind == InlineAsmRelocationKind::Byte8
+        }) {
+            let base = match &relocation.target {
+                InlineAsmRelocationTarget::Absolute(address) => *address,
+                InlineAsmRelocationTarget::InlineOffset(offset) => self
+                    .current_absolute_address()
+                    .checked_add(*offset)
+                    .ok_or_else(|| "inline assembler address overflow".to_string())?,
+                InlineAsmRelocationTarget::Symbol(name) => {
+                    if let Some(value) = self.numeric_defines.get(&normalize_name(name)) {
+                        *value
+                    } else if let Some(address) = self.machine_symbol_address(name) {
+                        match address {
+                            MachineSymbolAddress::Absolute(address) => address,
+                            MachineSymbolAddress::Label(label) => {
+                                let Some(position) = self.emitter.label_position(&label) else {
+                                    return Err(format!(
+                                        "inline assembler `.z` operand `{name}` is not provably in zero page"
+                                    ));
+                                };
+                                self.emitter
+                                    .origin
+                                    .checked_add(u16::try_from(position).map_err(|_| {
+                                        "inline assembler label address overflow".to_string()
+                                    })?)
+                                    .ok_or_else(|| {
+                                        "inline assembler label address overflow".to_string()
+                                    })?
+                            }
+                        }
+                    } else if let Some(routine) = self.routines.get(&normalize_name(name)) {
+                        routine.system_address.ok_or_else(|| {
+                            format!(
+                                "inline assembler `.z` operand `{name}` is not a fixed zero-page object"
+                            )
+                        })?
+                    } else {
+                        return Err(format!("unknown inline assembler symbol `{name}`"));
+                    }
+                }
+            };
+            let address = i32::from(base)
+                .checked_add(relocation.addend)
+                .ok_or_else(|| "inline assembler address overflow".to_string())?;
+            if !(0..=0xff).contains(&address) {
+                return Err(if relocation.kind == InlineAsmRelocationKind::Byte8 {
+                    format!(
+                        "inline assembler immediate constant `{address}` does not fit in one byte"
+                    )
+                } else {
+                    format!(
+                        "inline assembler operand at `${address:04X}` requires zero-page storage"
+                    )
+                });
+            }
+        }
+        Ok(())
+    }
+
     pub(super) fn emit_machine_block(&mut self, items: &[MachineItem], span: Span) {
         let mut pending_operand_bytes = 0u8;
         self.emit_machine_items(items, span, &mut pending_operand_bytes, 0);

@@ -242,6 +242,12 @@ fn machine_item_summary(item: &super::ir::MirMachineItem) -> String {
             let selector = if *high { ">" } else { "<" };
             format!("{selector}{name}")
         }
+        super::ir::MirMachineItem::Relocation {
+            kind,
+            target,
+            addend,
+            ..
+        } => format!("{kind:?}({target:?}{addend:+})"),
     }
 }
 

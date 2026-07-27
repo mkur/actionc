@@ -396,6 +396,14 @@ fn op_summary(op: &NirOp) -> String {
                 machine_effects_summary(effects)
             )
         }
+        NirOp::InlineAsm { code, effects } => {
+            format!(
+                "inline-asm bytes={} relocations={} effects={}",
+                code.bytes.len(),
+                code.relocations.len(),
+                machine_effects_summary(effects)
+            )
+        }
         NirOp::Unsupported { note } => format!("unsupported {note}"),
         NirOp::Note { text } => format!("note {text}"),
     }

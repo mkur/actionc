@@ -1172,6 +1172,23 @@ fn expand_machine_operand(
             }
         }
         MirMachineItem::AddressByte { .. } => Some(unknown(1, None)),
+        MirMachineItem::Relocation { kind, target, .. } => {
+            let width = match kind {
+                crate::asm6502::InlineAsmRelocationKind::Absolute16 => 2,
+                crate::asm6502::InlineAsmRelocationKind::Byte8
+                | crate::asm6502::InlineAsmRelocationKind::Low8
+                | crate::asm6502::InlineAsmRelocationKind::High8 => 1,
+            };
+            let memory = match target {
+                crate::mir6502::ir::MirInlineAsmTarget::Memory(memory) => Some(memory.clone()),
+                crate::mir6502::ir::MirInlineAsmTarget::Absolute(address) => {
+                    Some(MirMem::Absolute(*address))
+                }
+                crate::mir6502::ir::MirInlineAsmTarget::Routine(_)
+                | crate::mir6502::ir::MirInlineAsmTarget::InlineOffset(_) => None,
+            };
+            Some(unknown(width, memory))
+        }
         MirMachineItem::StringLiteral(_) => None,
     }
 }

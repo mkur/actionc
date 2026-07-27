@@ -249,6 +249,7 @@ fn transfer_op(
             apply_call_barrier(facts, callee, effects, trackable, routine_name);
         }
         NirOp::MachineBlock { .. }
+        | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. }
         | NirOp::Set { .. }
         | NirOp::Assign { .. }
@@ -415,6 +416,7 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::MachineBlock { .. }
+        | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. }
         | NirOp::Note { .. } => {}
     }
@@ -491,6 +493,7 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Store { .. }
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
+        | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. }
         | NirOp::Note { .. } => None,
     }

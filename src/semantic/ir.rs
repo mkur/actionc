@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 
+use crate::asm6502::{
+    InlineAsmMode, InlineAsmProgram, InlineAsmRelocationKind, InlineAsmRelocationTarget,
+    InlineAsmSymbolUse,
+};
 use crate::ast::{
     ActioncAnnotation, BinaryOp, Decl, DefineDecl, Expr, ExprKind, FundType, IncludeDirective,
     Item, MachineItem, Module, Program, RecordDecl, Routine, RoutineKind, SetDirective, Stmt,
@@ -212,6 +216,36 @@ pub struct SemParam {
     pub span: Span,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemInlineAsm {
+    pub bytes: Vec<u8>,
+    pub relocations: Vec<SemInlineAsmRelocation>,
+    pub source: String,
+    pub mode: InlineAsmMode,
+    /// Compatibility emission keeps the already assembled machine items out of
+    /// verifier-clean NIR while allowing the classic backend to share the same
+    /// source feature.
+    pub compatibility_items: Vec<MachineItem>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemInlineAsmRelocation {
+    pub offset: u16,
+    pub kind: InlineAsmRelocationKind,
+    pub target: SemInlineAsmTarget,
+    pub addend: i32,
+    pub requires_zero_page: bool,
+    pub symbol_use: InlineAsmSymbolUse,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SemInlineAsmTarget {
+    Symbol(SemSymbolRef),
+    InlineOffset(u16),
+    Absolute(u16),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SemParamStorage {
     Value,
@@ -255,6 +289,11 @@ pub enum SemStmt {
     MachineBlock {
         items: Vec<MachineItem>,
         text: String,
+        effects: SemEffects,
+        span: Span,
+    },
+    InlineAsm {
+        program: SemInlineAsm,
         effects: SemEffects,
         span: Span,
     },
@@ -406,6 +445,7 @@ fn stmt_flow_facts_at_depth(stmt: &SemStmt, loop_depth: usize) -> StmtFlowFacts 
         | SemStmt::CompoundAssign { .. }
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
+        | SemStmt::InlineAsm { .. }
         | SemStmt::Unsupported { .. } => empty_continuing_flow_facts(),
     }
 }
@@ -862,6 +902,14 @@ impl SemIrFormatter {
             SemStmt::MachineBlock { items, effects, .. } => self.line(format!(
                 "machine items={} effects={}",
                 items.len(),
+                effects_summary(effects)
+            )),
+            SemStmt::InlineAsm {
+                program, effects, ..
+            } => self.line(format!(
+                "inline-asm items={} mode={:?} effects={}",
+                program.bytes.len(),
+                program.mode,
                 effects_summary(effects)
             )),
             SemStmt::If {
@@ -1682,6 +1730,13 @@ impl<'a> IrBuilder<'a> {
                 effects: SemEffects::default(),
                 span: *span,
             }],
+            Stmt::InlineAsm { program, span } => {
+                vec![SemStmt::InlineAsm {
+                    program: self.lower_inline_asm(scope, program),
+                    effects: SemEffects::default(),
+                    span: *span,
+                }]
+            }
             Stmt::If {
                 branches,
                 else_body,
@@ -1760,6 +1815,42 @@ impl<'a> IrBuilder<'a> {
             return self.lower_expr(scope, value);
         };
         self.lower_value_for_expected_type(scope, &target_ty, value)
+    }
+
+    fn lower_inline_asm(&self, scope: ScopeId, program: &InlineAsmProgram) -> SemInlineAsm {
+        let relocations = program
+            .relocations
+            .iter()
+            .filter_map(|relocation| {
+                let target = match &relocation.target {
+                    InlineAsmRelocationTarget::Symbol(name) => {
+                        SemInlineAsmTarget::Symbol(self.symbol_ref(scope, name, relocation.span)?)
+                    }
+                    InlineAsmRelocationTarget::InlineOffset(offset) => {
+                        SemInlineAsmTarget::InlineOffset(*offset)
+                    }
+                    InlineAsmRelocationTarget::Absolute(address) => {
+                        SemInlineAsmTarget::Absolute(*address)
+                    }
+                };
+                Some(SemInlineAsmRelocation {
+                    offset: relocation.offset,
+                    kind: relocation.kind,
+                    target,
+                    addend: relocation.addend,
+                    requires_zero_page: relocation.requires_zero_page,
+                    symbol_use: relocation.symbol_use,
+                    span: relocation.span,
+                })
+            })
+            .collect();
+        SemInlineAsm {
+            bytes: program.bytes.clone(),
+            relocations,
+            source: program.source.clone(),
+            mode: program.mode,
+            compatibility_items: program.items.clone(),
+        }
     }
 
     fn lower_expr(&mut self, scope: ScopeId, expr: &Expr) -> SemExpr {
@@ -2582,6 +2673,7 @@ impl<'a> IrBuilder<'a> {
             | Stmt::CompoundAssign { .. }
             | Stmt::Call { .. }
             | Stmt::MachineBlock { .. }
+            | Stmt::InlineAsm { .. }
             | Stmt::Unsupported { .. } => {}
         }
     }

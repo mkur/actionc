@@ -98,6 +98,7 @@ pub(in crate::mir6502) fn helper_effects(helper: &MirRuntimeHelper) -> MirEffect
     MirEffects {
         memory_reads,
         memory_writes,
+        reads: MirRegisterSet::default(),
         clobbers: helper_abi().clobbers,
         preserves: MirRegisterSet::default(),
         stack_depth_delta: Some(0),

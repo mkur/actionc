@@ -1073,6 +1073,10 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             } => self.emit_return_value(value),
             SemStmt::Call { call, .. } => self.emit_call(call),
             SemStmt::MachineBlock { items, span, .. } => self.emit_machine_block(items, *span),
+            SemStmt::InlineAsm { program, span, .. } => {
+                self.validate_inline_asm_constraints(program)?;
+                self.emit_machine_block(&program.compatibility_items, *span)
+            }
             SemStmt::If {
                 branches,
                 else_body,
@@ -3414,6 +3418,54 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         Ok(())
     }
 
+    fn validate_inline_asm_constraints(&self, program: &SemInlineAsm) -> Result<(), String> {
+        for relocation in program.relocations.iter().filter(|relocation| {
+            relocation.requires_zero_page
+                || relocation.kind == crate::asm6502::InlineAsmRelocationKind::Byte8
+        }) {
+            let base = match &relocation.target {
+                SemInlineAsmTarget::Absolute(address) => *address,
+                SemInlineAsmTarget::InlineOffset(offset) => self
+                    .current_address()?
+                    .checked_add(*offset)
+                    .ok_or_else(|| "inline assembler address overflow".to_string())?,
+                SemInlineAsmTarget::Symbol(symbol) => {
+                    if let Some(value) = self.numeric_define(&symbol.name) {
+                        value
+                    } else if let Some(slot) = self.storage.get(&symbol.id) {
+                        slot.address
+                    } else if let Some(routine) = self.machine_routine(&symbol.name) {
+                        self.machine_routine_absolute_address(routine).ok_or_else(|| {
+                            format!(
+                                "inline assembler `.z` operand `{}` is not a fixed zero-page object",
+                                symbol.name
+                            )
+                        })?
+                    } else {
+                        return Err(format!("unknown inline assembler symbol `{}`", symbol.name));
+                    }
+                }
+            };
+            let address = i32::from(base)
+                .checked_add(relocation.addend)
+                .ok_or_else(|| "inline assembler address overflow".to_string())?;
+            if !(0..=0xff).contains(&address) {
+                return Err(
+                    if relocation.kind == crate::asm6502::InlineAsmRelocationKind::Byte8 {
+                        format!(
+                            "inline assembler immediate constant `{address}` does not fit in one byte"
+                        )
+                    } else {
+                        format!(
+                            "inline assembler operand at `${address:04X}` requires zero-page storage"
+                        )
+                    },
+                );
+            }
+        }
+        Ok(())
+    }
+
     fn numeric_define(&self, name: &str) -> Option<u16> {
         let normalized = normalize_name(name);
         for module in &self.model.program.modules {
@@ -5709,6 +5761,7 @@ fn stmt_kind_name(stmt: &SemStmt) -> &'static str {
         SemStmt::CompoundAssign { .. } => "compound assignment",
         SemStmt::Call { .. } => "call",
         SemStmt::MachineBlock { .. } => "machine block",
+        SemStmt::InlineAsm { .. } => "inline asm",
         SemStmt::If { .. } => "if",
         SemStmt::While { .. } => "while",
         SemStmt::DoUntil { .. } => "do-until",
@@ -5726,6 +5779,7 @@ fn stmt_span(stmt: &SemStmt) -> Span {
         | SemStmt::CompoundAssign { span, .. }
         | SemStmt::Call { span, .. }
         | SemStmt::MachineBlock { span, .. }
+        | SemStmt::InlineAsm { span, .. }
         | SemStmt::If { span, .. }
         | SemStmt::While { span, .. }
         | SemStmt::DoUntil { span, .. }
@@ -5750,7 +5804,7 @@ fn summarize_stmt_list(stmts: &[SemStmt], summary: &mut SemIrBodySummary) {
             }
             SemStmt::Call { .. } => summary.calls += 1,
             SemStmt::Return { .. } => summary.returns += 1,
-            SemStmt::MachineBlock { .. } => summary.machine_blocks += 1,
+            SemStmt::MachineBlock { .. } | SemStmt::InlineAsm { .. } => summary.machine_blocks += 1,
             SemStmt::If {
                 branches,
                 else_body,

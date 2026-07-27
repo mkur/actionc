@@ -229,6 +229,15 @@ fn analyze_routine_storage(
                     }
                 }
             }
+            if let NirOp::InlineAsm { code, .. } = op {
+                for relocation in &code.relocations {
+                    if let crate::nir::NirInlineAsmTarget::Storage(NirStorageId::Global(id)) =
+                        relocation.target
+                    {
+                        referenced_globals.insert(id);
+                    }
+                }
+            }
         }
     }
     for id in referenced_globals {
@@ -298,6 +307,31 @@ fn analyze_routine_storage(
                                 && let Some(facts) = homes.get_mut(id)
                             {
                                 facts.machine_visible = true;
+                            }
+                        }
+                    }
+                }
+                NirOp::InlineAsm { code, effects } => {
+                    if effects.opaque {
+                        for facts in homes.values_mut() {
+                            facts.machine_visible = true;
+                        }
+                    } else {
+                        for relocation in &code.relocations {
+                            if let crate::nir::NirInlineAsmTarget::Storage(id) = relocation.target
+                                && let Some(facts) = homes.get_mut(&id)
+                            {
+                                facts.machine_visible = true;
+                                facts.calls_may_read |= memory_accesses_storage(
+                                    &effects.memory.reads,
+                                    facts.id,
+                                    facts.width,
+                                );
+                                facts.calls_may_write |= memory_accesses_storage(
+                                    &effects.memory.writes,
+                                    facts.id,
+                                    facts.width,
+                                );
                             }
                         }
                     }
@@ -523,6 +557,7 @@ fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
         | NirOp::Compare { .. }
         | NirOp::Call { .. }
         | NirOp::MachineBlock { .. }
+        | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. }
         | NirOp::Note { .. } => {}
     }
@@ -649,6 +684,7 @@ fn mark_read_before_definition(
                 | NirOp::Compare { .. }
                 | NirOp::Call { .. }
                 | NirOp::MachineBlock { .. }
+                | NirOp::InlineAsm { .. }
                 | NirOp::Unsupported { .. }
                 | NirOp::Note { .. } => {}
             }

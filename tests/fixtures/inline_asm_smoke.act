@@ -1,0 +1,21 @@
+BYTE target=$4000
+BYTE ARRAY data(4)
+
+PROC Draw()
+RETURN
+
+PROC Main()
+ASM
+    lda #$2A
+    sta target
+    ldx #2
+loop:
+    dex
+    bne loop
+    lda #<data
+    sta $80
+    lda #>data
+    sta $81
+    jsr Draw
+ENDASM
+RETURN

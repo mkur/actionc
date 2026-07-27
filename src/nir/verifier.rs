@@ -48,6 +48,7 @@ struct NirVerifier {
     static_ids: BTreeSet<SymbolId>,
     static_sizes: BTreeMap<SymbolId, u16>,
     global_sizes: BTreeMap<SymbolId, u16>,
+    routine_count: usize,
 }
 
 struct NirTempFacts<'a> {
@@ -58,6 +59,7 @@ struct NirTempFacts<'a> {
 
 impl NirVerifier {
     fn program(&mut self, program: &NirProgram) {
+        self.routine_count = program.routines.len();
         let mut globals = BTreeSet::new();
         let mut global_ids = BTreeSet::new();
         for global in &program.globals {
@@ -743,7 +745,110 @@ impl NirVerifier {
                 }
                 self.machine_effects(routine, block, effects);
             }
+            NirOp::InlineAsm { code, effects } => {
+                self.inline_asm(routine, block, code);
+                self.memory_access(
+                    routine,
+                    block,
+                    &effects.memory.reads,
+                    "inline assembler read effects",
+                );
+                self.memory_access(
+                    routine,
+                    block,
+                    &effects.memory.writes,
+                    "inline assembler write effects",
+                );
+            }
             NirOp::Unsupported { .. } => {}
+        }
+    }
+
+    fn inline_asm(&mut self, routine: &NirRoutine, block: &NirBlock, code: &NirInlineAsm) {
+        if code.bytes.is_empty() {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                "inline assembler must carry at least one byte",
+            ));
+            return;
+        }
+        let mut occupied = BTreeSet::new();
+        for relocation in &code.relocations {
+            let width = match relocation.kind {
+                crate::asm6502::InlineAsmRelocationKind::Absolute16 => 2usize,
+                crate::asm6502::InlineAsmRelocationKind::Byte8
+                | crate::asm6502::InlineAsmRelocationKind::Low8
+                | crate::asm6502::InlineAsmRelocationKind::High8 => 1usize,
+            };
+            let start = usize::from(relocation.offset);
+            if start.saturating_add(width) > code.bytes.len() {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!(
+                        "inline assembler relocation at {} exceeds {}-byte payload",
+                        relocation.offset,
+                        code.bytes.len()
+                    ),
+                ));
+                continue;
+            }
+            for byte in start..start + width {
+                if !occupied.insert(byte) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("overlapping inline assembler relocation at byte {byte}"),
+                    ));
+                }
+            }
+            match relocation.target {
+                NirInlineAsmTarget::Storage(NirStorageId::Param(id))
+                    if !routine.params.iter().any(|param| param.id == id) =>
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("inline assembler references unknown param id {}", id.0),
+                    ));
+                }
+                NirInlineAsmTarget::Storage(NirStorageId::Local(id))
+                    if !routine.locals.iter().any(|local| local.id == id) =>
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("inline assembler references unknown local id {}", id.0),
+                    ));
+                }
+                NirInlineAsmTarget::Storage(NirStorageId::Global(id))
+                    if !self.global_sizes.contains_key(&id) =>
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("inline assembler references unknown global id {}", id.0),
+                    ));
+                }
+                NirInlineAsmTarget::Routine(id) if id as usize >= self.routine_count => {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("inline assembler references unknown routine id {id}"),
+                    ));
+                }
+                NirInlineAsmTarget::InlineOffset(offset)
+                    if usize::from(offset) > code.bytes.len() =>
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("inline assembler target offset {offset} is outside its payload"),
+                    ));
+                }
+                _ => {}
+            }
         }
     }
 

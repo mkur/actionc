@@ -325,6 +325,16 @@ impl SemIrAstLowerer {
                 text: text.clone(),
                 span: *span,
             }),
+            SemStmt::InlineAsm { program, span, .. } => Some(Stmt::InlineAsm {
+                program: crate::asm6502::InlineAsmProgram {
+                    items: program.compatibility_items.clone(),
+                    bytes: program.bytes.clone(),
+                    relocations: Vec::new(),
+                    source: program.source.clone(),
+                    mode: program.mode,
+                },
+                span: *span,
+            }),
             SemStmt::If {
                 branches,
                 else_body,

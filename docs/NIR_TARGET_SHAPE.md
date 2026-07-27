@@ -552,6 +552,34 @@ Rules:
 - Formatted effect strings are not optimizer-grade effects.
 - Default effects should be opaque and conservative.
 
+Source-level inline assembly uses a stricter verifier-clean form than legacy
+Action! machine blocks. The assembler has already encoded target code before
+NIR, so NIR carries generic bytes, stable relocations, and target-independent
+effects without carrying 6502 mnemonics, addressing modes, registers, or
+flags:
+
+```rust
+pub struct NirInlineAsm {
+    pub bytes: Vec<u8>,
+    pub relocations: Vec<NirInlineAsmRelocation>,
+    pub source: String, // debug/source metadata only
+}
+
+pub enum NirInlineAsmTarget {
+    Storage(NirStorageId),
+    Routine(RoutineId),
+    Absolute(u16),
+    InlineOffset(u16),
+}
+```
+
+The verifier checks relocation bounds and overlap, stable target IDs,
+inline-offset bounds, and address-size constraints. Optimizers consume the
+structured storage/memory effects; they must not decode the debug `source`
+string. MIR6502 may decode the byte payload for target-specific register,
+flag, stack, and internal-control analysis because those facts belong below the
+NIR boundary.
+
 ## CFG And Temp Facts
 
 NIR routines should expose or be able to derive:

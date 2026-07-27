@@ -1410,6 +1410,7 @@ fn stmt_span(stmt: &Stmt) -> Span {
         | Stmt::CompoundAssign { span, .. }
         | Stmt::Call { span, .. }
         | Stmt::MachineBlock { span, .. }
+        | Stmt::InlineAsm { span, .. }
         | Stmt::If { span, .. }
         | Stmt::While { span, .. }
         | Stmt::DoUntil { span, .. }
@@ -1420,7 +1421,7 @@ fn stmt_span(stmt: &Stmt) -> Span {
 
 fn stmt_source_range_kind(stmt: &Stmt) -> CodegenSourceRangeKind {
     match stmt {
-        Stmt::MachineBlock { .. } => CodegenSourceRangeKind::MachineBlock,
+        Stmt::MachineBlock { .. } | Stmt::InlineAsm { .. } => CodegenSourceRangeKind::MachineBlock,
         _ => CodegenSourceRangeKind::Statement,
     }
 }
@@ -1434,6 +1435,7 @@ fn stmt_source_range_name(stmt: &Stmt) -> &'static str {
         Stmt::CompoundAssign { .. } => "compound assignment",
         Stmt::Call { .. } => "call",
         Stmt::MachineBlock { .. } => "machine block",
+        Stmt::InlineAsm { .. } => "inline asm",
         Stmt::If { .. } => "if",
         Stmt::While { .. } => "while",
         Stmt::DoUntil { .. } => "do-until",
