@@ -336,8 +336,8 @@ fn byte_multiply_into_word_store_keeps_runtime_high_result() {
     assert!(formatted.contains("store.b fixed_zp $85, a"));
     assert!(formatted.contains("helper mul args=[a, x, fixed_zp $84, fixed_zp $85]"));
     assert!(formatted.contains("store.b global g2+0, a"));
-    assert_spilled_x_is_reloaded_into_a(&formatted);
-    assert!(formatted.contains("store.b global g2+1, a"));
+    assert!(formatted.contains("store.b global g2+1, x"));
+    assert!(!formatted.contains("store.b spill "));
     assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0x84]));
 }
 

@@ -1,6 +1,6 @@
 # MIR6502 TURTLE Optimization Implementation Plan
 
-Status: planned
+Status: complete
 
 Date: 2026-07-27
 
@@ -347,12 +347,92 @@ Result:
 
 ### Slice 5: Final audit
 
+Status: complete.
+
 - Generate a fresh classic/MIR6502 listing, compact MIR, materialized MIR,
   quality report, spill report, and per-routine comparison.
 - Record accepted/rejected counts for each new selector.
 - Update this note with final sizes, hashes, routine deltas, and remaining
   opportunities.
 - Run the complete Toolkit modern/MIR6502 sweep and report any changed files.
+
+Result:
+
+- The final audit is under
+  `target/turtle1-listing-audit-20260727-slice4/turtle/`.
+- Full tests, the real-source TURTLE1 quality gate, and the expanded
+  modern/classic plus modern/MIR6502 VM oracle pass.
+- `cargo fmt --check` remains blocked by pre-existing formatting drift in
+  `analysis/effects.rs`, `materialize/peepholes.rs`, and unrelated portions of
+  `materialize/tests.rs` and `mir6502_materialization_gap.rs`; the files and
+  lines changed by this plan are formatted.
+- The isolated Slice-3/Slice-4 Toolkit comparison confirms that only TURTLE1
+  matches the paired word-shift selector. It falls by 9 bytes; every other
+  Toolkit object is byte-identical.
+- The fresh modern Toolkit sweep compiles all 20 entries with no gate failures.
+  MIR6502 is smaller for 18 entries, equal for one, and 3 bytes larger only for
+  `ABS`. Total output is 41,452 bytes versus classic's 44,081 bytes, a
+  2,629-byte (6.0%) reduction.
+
+## Final Measurements
+
+| Metric | Baseline MIR6502 | Final MIR6502 | Modern/classic | Final vs classic |
+| --- | ---: | ---: | ---: | ---: |
+| XEX bytes | 1,161 | 1,077 | 1,092 | -15 |
+| Recognized instruction bytes | 849 | 769 | 784 | -15 |
+| Data and inline machine bytes | 300 | 296 | 296 | 0 |
+| Recognized instructions | 348 | 320 | 338 | -18 |
+| `LDA` | 107 | 96 | 92 | +4 |
+| `STA` | 89 | 78 | 82 | -4 |
+| `LDX` | 24 | 24 | 14 | +10 |
+| `STX` | 14 | 13 | 5 | +8 |
+| RAM spill bytes | 4 | 0 | 0 | 0 |
+
+The four optimization slices remove 84 bytes from the planning baseline:
+80 code bytes and four spill-data bytes.
+
+### Size progression
+
+| Stage | MIR6502 bytes | Difference from classic |
+| --- | ---: | ---: |
+| Planning baseline | 1,161 | +69 |
+| Direct word-helper result stores | 1,119 | +27 |
+| Structured-global signed-zero branch | 1,104 | +12 |
+| Caller-private load rematerialization | 1,086 | -6 |
+| Paired shift-result call placement | 1,077 | -15 |
+
+### Final routine comparison
+
+| Routine | Baseline MIR6502 | Final MIR6502 | Modern/classic | Final vs classic |
+| --- | ---: | ---: | ---: | ---: |
+| `Turn` | 90 | 71 | 76 | -5 |
+| `Right` | 28 | 28 | 27 | +1 |
+| `Left` | 3 | 3 | 3 | 0 |
+| `TG_ISin` | 132 | 128 | 128 | 0 |
+| `TG_ICos` | 149 | 141 | 141 | 0 |
+| `Forward` | 183 | 146 | 151 | -5 |
+| `SetTurtle` | 95 | 83 | 87 | -4 |
+| `TurtleDemo` | 169 | 169 | 171 | -2 |
+
+The selectors accept seven direct helper stores, one structured-global
+signed-zero branch, two call-crossing private-load rematerializations, and one
+paired word-shift call schedule in TURTLE1. No additional TURTLE1 candidates
+from these families remain rejected.
+
+## Residual Assessment
+
+The final listing has no spill labels, branch-over-jump scaffolding,
+compare-zero reload family, `JSR; RTS` tail family, or load/add-one/store
+family. Its two reported adjacent store/reload pairs are loop initialization
+followed by headers with backedge joins in `TurtleDemo`; they are not safe
+straight-line eliminations.
+
+The remaining register-count differences (`LDX` and `STX` in particular) come
+from broad word-lane scheduling choices rather than a concentrated TURTLE
+family. `Right` is the only routine still larger than classic, by one byte.
+Further TURTLE-only work is therefore low priority; the next useful work should
+come from a cross-program register-placement audit rather than another
+TURTLE-specific pass.
 
 ## Required Validation
 
