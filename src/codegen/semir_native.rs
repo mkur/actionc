@@ -3704,11 +3704,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         match &expr.atom {
             MachineAddressAtom::Number(number) => {
                 let value = native_machine_number_with_offset(number, offset, &expr.text)?;
-                self.emit_machine_resolved_address_value(
-                    value,
-                    expr.selector,
-                    pending_operand_bytes,
-                );
+                self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
             }
             MachineAddressAtom::Name(name) => {
                 self.emit_machine_named_address_expr(
@@ -3722,11 +3718,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             MachineAddressAtom::Current => {
                 let value =
                     native_machine_apply_offset(self.current_address()?, offset, &expr.text)?;
-                self.emit_machine_resolved_address_value(
-                    value,
-                    expr.selector,
-                    pending_operand_bytes,
-                );
+                self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
             }
         }
         Ok(())
@@ -3763,21 +3755,17 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                 ));
             };
             let value = native_machine_apply_offset(value, offset, &expr.text)?;
-            self.emit_machine_resolved_address_value(value, expr.selector, pending_operand_bytes);
+            self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
         } else if let Some(value) = self.numeric_define(name) {
             let value = native_machine_apply_offset(value, offset, &expr.text)?;
-            self.emit_machine_resolved_address_value(value, expr.selector, pending_operand_bytes);
+            self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
         } else if let Some(slot) = self.machine_storage_slot(name) {
             let value = native_machine_apply_offset(slot.address, offset, &expr.text)?;
-            self.emit_machine_resolved_address_value(value, expr.selector, pending_operand_bytes);
+            self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
         } else if let Some(routine) = self.machine_routine(name) {
             if let Some(address) = self.machine_routine_absolute_address(routine) {
                 let value = native_machine_apply_offset(address, offset, &expr.text)?;
-                self.emit_machine_resolved_address_value(
-                    value,
-                    expr.selector,
-                    pending_operand_bytes,
-                );
+                self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
             } else if offset == 0 {
                 let label = self
                     .routine_labels
@@ -3807,6 +3795,19 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             return Err(format!("unknown machine block symbol `{name}`"));
         }
         Ok(())
+    }
+
+    fn emit_machine_address_expr_value(
+        &mut self,
+        value: u16,
+        expr: &MachineAddressExpr,
+        pending_operand_bytes: &mut u8,
+    ) {
+        if expr.explicit_address && expr.selector.is_none() {
+            self.emit_machine_absolute(value, pending_operand_bytes);
+        } else {
+            self.emit_machine_resolved_address_value(value, expr.selector, pending_operand_bytes);
+        }
     }
 
     fn emit_machine_resolved_address_value(

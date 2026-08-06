@@ -615,11 +615,7 @@ impl Generator {
         match &expr.atom {
             MachineAddressAtom::Number(number) => {
                 let value = machine_number_with_offset(number, offset, &expr.text)?;
-                self.emit_machine_resolved_address_value(
-                    value,
-                    expr.selector,
-                    pending_operand_bytes,
-                );
+                self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
                 Ok(())
             }
             MachineAddressAtom::Name(name) => self.emit_machine_named_address_expr(
@@ -632,11 +628,7 @@ impl Generator {
             MachineAddressAtom::Current => {
                 let value =
                     machine_apply_offset(self.current_absolute_address(), offset, &expr.text)?;
-                self.emit_machine_resolved_address_value(
-                    value,
-                    expr.selector,
-                    pending_operand_bytes,
-                );
+                self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
                 Ok(())
             }
         }
@@ -674,10 +666,10 @@ impl Generator {
                 ));
             };
             let value = machine_apply_offset(value, offset, &expr.text)?;
-            self.emit_machine_resolved_address_value(value, expr.selector, pending_operand_bytes);
+            self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
         } else if let Some(value) = self.numeric_defines.get(&normalized) {
             let value = machine_apply_offset(*value, offset, &expr.text)?;
-            self.emit_machine_resolved_address_value(value, expr.selector, pending_operand_bytes);
+            self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
         } else if let Some(address) = self.machine_symbol_address(name) {
             self.emit_machine_symbol_address(
                 address,
@@ -686,16 +678,12 @@ impl Generator {
                 pending_operand_bytes,
                 span,
                 &expr.text,
-                false,
+                expr.explicit_address,
             )?;
         } else if let Some(routine) = self.routines.get(&normalized).cloned() {
             if let Some(address) = routine.system_address {
                 let value = machine_apply_offset(address, offset, &expr.text)?;
-                self.emit_machine_resolved_address_value(
-                    value,
-                    expr.selector,
-                    pending_operand_bytes,
-                );
+                self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
             } else if offset == 0 {
                 match expr.selector {
                     Some(AddressByteSelector::Low) => {
@@ -717,11 +705,7 @@ impl Generator {
                     .origin
                     .wrapping_add(u16::try_from(position).unwrap_or(u16::MAX));
                 let value = machine_apply_offset(value, offset, &expr.text)?;
-                self.emit_machine_resolved_address_value(
-                    value,
-                    expr.selector,
-                    pending_operand_bytes,
-                );
+                self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
             } else {
                 return Err(format!(
                     "machine block item `{}` with offset is not relocatable yet",
@@ -732,6 +716,19 @@ impl Generator {
             return Err(format!("unknown machine block symbol `{name}`"));
         }
         Ok(())
+    }
+
+    fn emit_machine_address_expr_value(
+        &mut self,
+        value: u16,
+        expr: &MachineAddressExpr,
+        pending_operand_bytes: &mut u8,
+    ) {
+        if expr.explicit_address && expr.selector.is_none() {
+            self.emit_machine_absolute(value, pending_operand_bytes);
+        } else {
+            self.emit_machine_resolved_address_value(value, expr.selector, pending_operand_bytes);
+        }
     }
 
     fn machine_caret_symbol_value(&self, name: &str) -> Option<u16> {
@@ -966,6 +963,9 @@ fn push_machine_effect_address_expr(
         Some(AddressByteSelector::High) => {
             bytes.push(Immediate::new(value).high());
             *pending_operand_bytes = pending_operand_bytes.saturating_sub(1);
+        }
+        None if expr.explicit_address => {
+            push_machine_effect_absolute(bytes, value, pending_operand_bytes)
         }
         None if value <= 0xFF => push_machine_effect_number(bytes, value, pending_operand_bytes),
         None => push_machine_effect_absolute(bytes, value, pending_operand_bytes),

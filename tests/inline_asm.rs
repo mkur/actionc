@@ -1,4 +1,6 @@
-use actionc::codegen::{CodegenProfile, generate_semir_native_profile_with_origin};
+use actionc::codegen::{
+    CodegenProfile, generate_semir_native_profile_with_origin, generate_semir_profile_with_origin,
+};
 use actionc::{lexer, mir6502, nir, parser, semantic};
 
 const SOURCE: &str = r#"
@@ -55,6 +57,52 @@ fn inline_asm_emits_in_modern_classic() {
             .bytes
             .windows(4)
             .any(|bytes| bytes == [0xA9, 0x30, 0x85, 0x81])
+    );
+}
+
+#[test]
+fn inline_asm_classic_paths_keep_absolute_width_for_zero_page_symbols() {
+    let source = r#"
+BYTE source=$58, sink=$0600
+
+PROC Main()
+ASM
+    lda source
+    sta sink
+ENDASM
+RETURN
+"#;
+    let semir = semir(source);
+    let ast_classic = generate_semir_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
+        .expect("emit AST/classic absolute operand whose resolved address is in zero page");
+    assert!(
+        ast_classic
+            .bytes
+            .windows(6)
+            .any(|bytes| bytes == [0xAD, 0x58, 0x00, 0x8D, 0x00, 0x06]),
+        "AST/classic output: {:02X?}",
+        ast_classic.bytes
+    );
+
+    let native_classic =
+        generate_semir_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
+            .expect("emit SemIR/classic absolute operand whose resolved address is in zero page");
+    assert!(
+        native_classic
+            .bytes
+            .windows(6)
+            .any(|bytes| bytes == [0xAD, 0x58, 0x00, 0x8D, 0x00, 0x06]),
+        "SemIR/classic output: {:02X?}",
+        native_classic.bytes
+    );
+
+    let nir = nir::optimize_program(&nir::lower_program(&semir)).unwrap();
+    let mir = mir6502::generate_output(&nir, 0x3000)
+        .expect("emit MIR absolute operand whose resolved address is in zero page");
+    assert!(
+        mir.bytes
+            .windows(6)
+            .any(|bytes| bytes == [0xAD, 0x58, 0x00, 0x8D, 0x00, 0x06])
     );
 }
 

@@ -1,0 +1,95 @@
+; One-line ANTIC mode 2 soft scroller.
+;
+; The display list enables horizontal fine scrolling for a single text
+; line. An immediate vertical-blank routine advances HSCROL once per frame
+; and advances the LMS address after one character width.
+
+CARD savmsc=$58,       ; OS screen-memory pointer
+     sdlstl=$230       ; OS display-list shadow pointer
+
+BYTE hscrol=$D404,     ; ANTIC horizontal fine-scroll register
+     fine=[3],
+     coarse=[0]
+
+; Three blank lines, Mode 2 + LMS + HSCROL, then JVB.
+BYTE ARRAY dlist(9)=[$70 $70 $70 $52 0 0 $41 0 0]
+
+
+PROC SoftVbi=*()
+ASM
+    ; A Mode 2 character is four color clocks wide. Decreasing
+    ; HSCROL moves the window left by one color clock per frame.
+    dec fine
+    bpl apply
+
+    lda #3
+    sta fine
+    inc coarse
+    lda coarse
+    ; This 150-byte message has enough trailing padding for the complete
+    ; 48-byte ANTIC fetch window at offsets 102..149. The leading window
+    ; is padding too, so the reset from offset 102 to zero is invisible.
+    cmp #103
+    bcc advance
+
+    ; Restart the repeating message.
+    lda #0
+    sta coarse
+    lda savmsc
+    sta dlist+4
+    lda savmsc+1
+    sta dlist+5
+    jmp apply
+
+advance:
+    inc dlist+4
+    bne apply
+    inc dlist+5
+
+apply:
+    lda fine
+    sta hscrol
+    jmp $E45F          ; SYSVBV: continue the normal OS VBI
+ENDASM
+
+
+PROC StartScroller()
+  Graphics(0)
+  Print("                                           Hello from ACTIONC INLINE ASM!!!!                                                                   ")
+
+  ASM
+    ; Point the LMS instruction at the text written by Print.
+    lda savmsc
+    sta dlist+4
+    lda savmsc+1
+    sta dlist+5
+
+    ; Complete the display-list JVB instruction and publish the
+    ; custom list through the OS display-list shadow.
+    lda #<dlist
+    sta dlist+7
+    sta sdlstl
+    lda #>dlist
+    sta dlist+8
+    sta sdlstl+1
+
+    lda #3
+    sta hscrol
+
+    ; Install SoftVbi as the immediate VBI so HSCROL changes at the same
+    ; stable point near the beginning of every vertical blank.
+    lda #6
+    ldx #>SoftVbi
+    ldy #<SoftVbi
+    jsr $E45C          ; SETVBV
+  ENDASM
+RETURN
+
+
+PROC Main()
+  StartScroller()
+
+  ; The VBI owns the display until the machine is reset.
+  DO
+  OD
+RETURN
