@@ -1,4 +1,4 @@
-; One-line ANTIC mode 2 soft scroller.
+; One-line ANTIC mode 2 fine scroller.
 ;
 ; The display list enables horizontal fine scrolling for a single text
 ; line. An immediate vertical-blank routine advances HSCROL once per frame
@@ -16,7 +16,7 @@ BYTE hscrol=$D404,     ; ANTIC horizontal fine-scroll register
 BYTE ARRAY dlist(9)=[$70 $70 $70 $52 0 0 $41 <dlist >dlist]
 
 
-PROC SoftVbi=*()
+PROC FineScrollVbi=*()
 ASM
     ; A Mode 2 character is four color clocks wide. Decreasing
     ; HSCROL moves the window left by one color clock per frame.
@@ -54,7 +54,7 @@ apply:
 ENDASM
 
 
-PROC StartScroller()
+PROC StartFineScroll()
   Graphics(0)
   Print("                                           Hello from ACTIONC INLINE ASM!!!!                                                                   ")
 
@@ -75,18 +75,18 @@ PROC StartScroller()
     lda #3
     sta hscrol
 
-    ; Install SoftVbi as the immediate VBI so HSCROL changes at the same
+    ; Install FineScrollVbi as the immediate VBI so HSCROL changes at the same
     ; stable point near the beginning of every vertical blank.
     lda #6
-    ldx #>SoftVbi
-    ldy #<SoftVbi
+    ldx #>FineScrollVbi
+    ldy #<FineScrollVbi
     jsr $E45C          ; SETVBV
   ENDASM
 RETURN
 
 
 PROC Main()
-  StartScroller()
+  StartFineScroll()
 
   ; The VBI owns the display until the machine is reset.
   DO

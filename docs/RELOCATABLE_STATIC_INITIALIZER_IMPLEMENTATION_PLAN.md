@@ -140,7 +140,7 @@ Status: complete.
 
 Status: complete.
 
-- Put `<dlist >dlist` directly in the soft-scroller display list.
+- Put `<dlist >dlist` directly in the fine-scroller display list.
 - Remove the runtime stores to `dlist+7` and `dlist+8`; retain the runtime LMS
   patch because `SAVMSC` is established by `Graphics(0)`.
 - Document symbolic byte and word initializers.
@@ -154,7 +154,7 @@ Status: complete.
 - Test unknown targets, invalid widths, overlap, overflow, and malformed lists.
 - Compare legacy/classic, modern/classic, SemIR-native classic, and MIR6502.
 - Confirm existing numeric initializer output remains byte-identical.
-- Rebuild the soft-scroller ATRs.
+- Rebuild the fine-scroller ATRs.
 
 Validation covers self, forward, routine, fixed-address, local, parameter, and
 addend targets, including multiple origins. Existing semantic and verifier
@@ -163,7 +163,7 @@ out-of-bounds relocations, and overlap. The final validation also found and
 fixed a MIR6502 interaction where write-only parameter-home elision did not
 count initializer relocation references as address-observable uses.
 
-The soft-scroller was compiled and packed into temporary ATRs through
+The fine-scroller was compiled and packed into temporary ATRs through
 legacy/classic, modern/classic, SemIR-native classic, and MIR6502. No generated
 ATR is checked into the repository.
 

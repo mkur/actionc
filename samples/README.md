@@ -9,7 +9,7 @@ toolkit/    maintained modernized ACTION! Toolkit programs
 tn/         maintained TOMS Navigator sources
 ```
 
-`inline-asm-soft-scroll.act` demonstrates MADS-style inline assembly with
+`inline-asm-fine-scroll.act` demonstrates MADS-style inline assembly with
 Action objects, a custom ANTIC display list, and an immediate vertical-blank
 routine.
 
