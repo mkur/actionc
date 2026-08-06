@@ -35,14 +35,19 @@ impl NirPrinter {
         }
         for static_data in &program.statics {
             let bytes = static_data
+                .image
                 .bytes
                 .iter()
                 .map(|byte| format!("${byte:02X}"))
                 .collect::<Vec<_>>()
                 .join(" ");
             self.line(format!(
-                "static {}:{} bytes=[{}] = {:?}",
-                static_data.name, static_data.ty.summary, bytes, static_data.display
+                "static {}:{} bytes=[{}]{} = {:?}",
+                static_data.name,
+                static_data.ty.summary,
+                bytes,
+                relocations_summary(&static_data.image),
+                static_data.display
             ));
         }
         for routine in &program.routines {
@@ -161,13 +166,14 @@ fn global_init_suffix(init: Option<&NirGlobalInit>) -> String {
     };
     match init {
         NirGlobalInit::Bytes {
-            bytes,
+            image,
             zero_fill,
             mutable,
             section,
         } => format!(
-            " init bytes=[{}] zero_fill={} section={} mutable={}",
-            bytes_summary(bytes),
+            " init bytes=[{}]{} zero_fill={} section={} mutable={}",
+            bytes_summary(&image.bytes),
+            relocations_summary(image),
             zero_fill,
             section,
             mutable
@@ -179,10 +185,11 @@ fn global_init_suffix(init: Option<&NirGlobalInit>) -> String {
             mutable,
             section,
         } => format!(
-            " init descriptor size={} backing=g{} bytes=[{}] zero_fill={} backing_section={} size_word={} section={} mutable={}",
+            " init descriptor size={} backing=g{} bytes=[{}]{} zero_fill={} backing_section={} size_word={} section={} mutable={}",
             descriptor_size,
             backing.owner.0,
-            bytes_summary(&backing.bytes),
+            bytes_summary(&backing.image.bytes),
+            relocations_summary(&backing.image),
             backing.zero_fill,
             backing.section,
             size_word
@@ -228,13 +235,14 @@ fn storage_init_suffix(init: Option<&NirStorageInit>) -> String {
     };
     match init {
         NirStorageInit::Bytes {
-            bytes,
+            image,
             zero_fill,
             mutable,
             section,
         } => format!(
-            " init bytes=[{}] zero_fill={} section={} mutable={}",
-            bytes_summary(bytes),
+            " init bytes=[{}]{} zero_fill={} section={} mutable={}",
+            bytes_summary(&image.bytes),
+            relocations_summary(image),
             zero_fill,
             section,
             mutable
@@ -246,9 +254,10 @@ fn storage_init_suffix(init: Option<&NirStorageInit>) -> String {
             mutable,
             section,
         } => format!(
-            " init descriptor size={} backing=local bytes=[{}] zero_fill={} backing_section={} size_word={} section={} mutable={}",
+            " init descriptor size={} backing=local bytes=[{}]{} zero_fill={} backing_section={} size_word={} section={} mutable={}",
             descriptor_size,
-            bytes_summary(&backing.bytes),
+            bytes_summary(&backing.image.bytes),
+            relocations_summary(&backing.image),
             backing.zero_fill,
             backing.section,
             size_word
@@ -274,6 +283,44 @@ fn bytes_summary(bytes: &[u8]) -> String {
         .map(|byte| format!("${byte:02X}"))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn relocations_summary(image: &NirDataImage) -> String {
+    if image.relocations.is_empty() {
+        return String::new();
+    }
+    let relocations = image
+        .relocations
+        .iter()
+        .map(|relocation| {
+            let kind = match relocation.kind {
+                NirDataRelocationKind::Low8 => "lo",
+                NirDataRelocationKind::High8 => "hi",
+                NirDataRelocationKind::Word16 => "word",
+            };
+            let target = match relocation.target {
+                NirDataRelocationTarget::Storage(NirStorageId::Global(id)) => {
+                    format!("g{}", id.0)
+                }
+                NirDataRelocationTarget::Storage(NirStorageId::Local(id)) => {
+                    format!("l{}", id.0)
+                }
+                NirDataRelocationTarget::Storage(NirStorageId::Param(id)) => {
+                    format!("p{}", id.0)
+                }
+                NirDataRelocationTarget::Routine(id) => format!("r{id}"),
+                NirDataRelocationTarget::Absolute(address) => format!("${address:04X}"),
+            };
+            let addend = match relocation.addend {
+                0 => String::new(),
+                value if value > 0 => format!("+{value}"),
+                value => value.to_string(),
+            };
+            format!("{}:{kind}({target}{addend})", relocation.offset)
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(" relocs=[{relocations}]")
 }
 
 fn op_summary(op: &NirOp) -> String {

@@ -13,7 +13,7 @@ use crate::semantic::{
         SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind,
         SemInitializerElement, SemInitializerElementKind, SemInitializerLiteral, SemInlineAsm,
         SemInlineAsmTarget, SemLValue, SemLValueKind, SemLiteral, SemProgram, SemReadEffect,
-        SemSet, SemStmt, SemStorageRef, SemWriteEffect,
+        SemSet, SemStmt, SemStorageRef, SemSymbolRef, SemWriteEffect,
     },
 };
 use crate::source::source_char_byte;
@@ -152,6 +152,8 @@ impl NirLowerer {
                                 &record_storage_sizes,
                                 &backing,
                                 address_initializer,
+                                &self.global_ids,
+                                &self.routine_ids,
                             ),
                             backing,
                         });
@@ -202,6 +204,22 @@ impl NirLowerer {
                             });
                         }
                         let mut local_alias_targets = BTreeMap::new();
+                        let param_ids_by_name = routine
+                            .params
+                            .iter()
+                            .enumerate()
+                            .map(|(index, param)| {
+                                (storage_key(&param.symbol.name), ParamId(index as u32))
+                            })
+                            .collect::<BTreeMap<_, _>>();
+                        let local_ids_by_name = routine
+                            .locals
+                            .iter()
+                            .enumerate()
+                            .map(|(index, local)| {
+                                (storage_key(&local.symbol.name), LocalId(index as u32))
+                            })
+                            .collect::<BTreeMap<_, _>>();
                         for (index, local) in routine.locals.iter().enumerate() {
                             let address_initializer = local
                                 .initializer
@@ -237,6 +255,10 @@ impl NirLowerer {
                                     local,
                                     &record_storage_sizes,
                                     &backing,
+                                    &self.global_ids,
+                                    &self.routine_ids,
+                                    &param_ids_by_name,
+                                    &local_ids_by_name,
                                 ),
                                 backing,
                             });
@@ -309,6 +331,11 @@ impl NirLowerer {
             statics.extend(routine_statics);
             routines.insert(0, routine);
             for routine in &mut routines {
+                for local in &mut routine.locals {
+                    if let Some(init) = &mut local.init {
+                        increment_data_image_routine_ids_in_storage_init(init);
+                    }
+                }
                 for block in &mut routine.blocks {
                     for op in &mut block.ops {
                         if let NirOp::InlineAsm { code, .. } = op {
@@ -320,6 +347,14 @@ impl NirLowerer {
                         }
                     }
                 }
+            }
+            for global in &mut globals {
+                if let Some(init) = &mut global.init {
+                    increment_data_image_routine_ids_in_global_init(init);
+                }
+            }
+            for static_data in &mut statics {
+                increment_data_image_routine_ids(&mut static_data.image);
             }
         }
 
@@ -1281,8 +1316,9 @@ impl NirBuilder {
             id,
             name: name.clone(),
             ty: ty.clone(),
-            bytes: string_literal_storage_bytes(value)
-                .unwrap_or_else(|_| value.as_bytes().to_vec()),
+            image: NirDataImage::literal(
+                string_literal_storage_bytes(value).unwrap_or_else(|_| value.as_bytes().to_vec()),
+            ),
             display: value.to_string(),
             alignment: 1,
             mutable: false,
@@ -2406,7 +2442,8 @@ fn declaration_array_storage_size(
     address_initializer: Option<u16>,
 ) -> u16 {
     let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
-    if array_type.length.is_none() && numeric_initializer_bytes(declaration, elem_size).is_some() {
+    let initializer_byte_len = array_initializer_byte_len(declaration, elem_size);
+    if array_type.length.is_none() && initializer_byte_len.is_some() {
         return 2;
     }
     if address_initializer.is_some()
@@ -2417,18 +2454,19 @@ fn declaration_array_storage_size(
     {
         return if array_type.length.is_some() { 4 } else { 2 };
     }
-    if elem_size > 1 && numeric_initializer_bytes(declaration, elem_size).is_some() {
+    if elem_size > 1 && initializer_byte_len.is_some() {
         return if array_type.length.is_some() { 4 } else { 2 };
     }
     if elem_size == 1
-        && let Some(bytes) = string_initializer_bytes(declaration)
-            .or_else(|| numeric_initializer_bytes(declaration, elem_size))
+        && let Some(byte_len) = string_initializer_bytes(declaration)
+            .map(|bytes| bytes.len())
+            .or(initializer_byte_len)
     {
         return array_type
             .length
             .map(|length| length.saturating_mul(elem_size))
-            .unwrap_or(bytes.len() as u16)
-            .max(bytes.len() as u16);
+            .unwrap_or(byte_len as u16)
+            .max(byte_len as u16);
     }
     array_type
         .length
@@ -2523,6 +2561,8 @@ fn declaration_global_init(
     record_storage_sizes: &BTreeMap<String, u16>,
     backing: &NirGlobalBacking,
     address_initializer: Option<u16>,
+    global_ids: &BTreeMap<String, SymbolId>,
+    routine_ids: &BTreeMap<String, u32>,
 ) -> Option<NirGlobalInit> {
     if matches!(backing, NirGlobalBacking::Absolute(_)) {
         return None;
@@ -2534,6 +2574,11 @@ fn declaration_global_init(
             .map(|bytes| bytes_init(bytes, storage_size)),
         SemDeclarationStorage::Array { array_type, .. } => {
             let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
+            let data_image = declaration.initializer.as_ref().and_then(|initializer| {
+                initializer_data_image(initializer, elem_size, |target| {
+                    global_data_relocation_target(target, global_ids, routine_ids)
+                })
+            });
             if let Some(address) = address_initializer
                 && declaration_array_address_initializer_uses_pointer_storage(
                     declaration,
@@ -2558,17 +2603,17 @@ fn declaration_global_init(
                 });
             }
             if elem_size > 1
-                && let Some(bytes) = numeric_initializer_bytes(declaration, elem_size)
+                && let Some(image) = data_image.clone()
             {
                 let len = array_type
                     .length
-                    .unwrap_or((bytes.len() as u16) / elem_size);
-                let byte_size = elem_size.saturating_mul(len).max(bytes.len() as u16);
+                    .unwrap_or((image.bytes.len() as u16) / elem_size);
+                let byte_size = elem_size.saturating_mul(len).max(image.bytes.len() as u16);
                 return Some(NirGlobalInit::Descriptor {
                     backing: NirDataBacking {
                         owner: id,
-                        zero_fill: byte_size.saturating_sub(bytes.len() as u16),
-                        bytes,
+                        zero_fill: byte_size.saturating_sub(image.bytes.len() as u16),
+                        image,
                         section: "global.backing".to_string(),
                     },
                     descriptor_size: if array_type.length.is_some() { 4 } else { 2 },
@@ -2579,13 +2624,13 @@ fn declaration_global_init(
             }
             if array_type.length.is_none()
                 && elem_size == 1
-                && let Some(bytes) = numeric_initializer_bytes(declaration, elem_size)
+                && let Some(image) = data_image.clone()
             {
                 return Some(NirGlobalInit::Descriptor {
                     backing: NirDataBacking {
                         owner: id,
                         zero_fill: 0,
-                        bytes,
+                        image,
                         section: "global.backing".to_string(),
                     },
                     descriptor_size: 2,
@@ -2596,17 +2641,17 @@ fn declaration_global_init(
             }
             let bytes = if elem_size == 1 {
                 string_initializer_bytes(declaration)
-                    .or_else(|| numeric_initializer_bytes(declaration, elem_size))
             } else {
-                numeric_initializer_bytes(declaration, elem_size)
+                None
             };
-            if let Some(bytes) = bytes {
+            let image = data_image.or_else(|| bytes.map(NirDataImage::literal));
+            if let Some(image) = image {
                 let total_size = array_type
                     .length
                     .map(|length| length.saturating_mul(elem_size))
-                    .unwrap_or(bytes.len() as u16)
-                    .max(bytes.len() as u16);
-                return Some(bytes_init(bytes, total_size));
+                    .unwrap_or(image.bytes.len() as u16)
+                    .max(image.bytes.len() as u16);
+                return Some(data_image_init(image, total_size));
             }
             array_type.length.map(|length| {
                 let bytes = length.saturating_mul(elem_size);
@@ -2623,9 +2668,13 @@ fn declaration_global_init(
 }
 
 fn bytes_init(bytes: Vec<u8>, total_size: u16) -> NirGlobalInit {
-    let zero_fill = total_size.saturating_sub(bytes.len() as u16);
+    data_image_init(NirDataImage::literal(bytes), total_size)
+}
+
+fn data_image_init(image: NirDataImage, total_size: u16) -> NirGlobalInit {
+    let zero_fill = total_size.saturating_sub(image.bytes.len() as u16);
     NirGlobalInit::Bytes {
-        bytes,
+        image,
         zero_fill,
         mutable: true,
         section: "global".to_string(),
@@ -2668,6 +2717,10 @@ fn declaration_local_init(
     declaration: &SemDeclaration,
     record_storage_sizes: &BTreeMap<String, u16>,
     backing: &NirLocalBacking,
+    global_ids: &BTreeMap<String, SymbolId>,
+    routine_ids: &BTreeMap<String, u32>,
+    param_ids: &BTreeMap<String, ParamId>,
+    local_ids: &BTreeMap<String, LocalId>,
 ) -> Option<NirStorageInit> {
     if matches!(
         backing,
@@ -2694,17 +2747,28 @@ fn declaration_local_init(
         }
         SemDeclarationStorage::Array { array_type, .. } => {
             let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
+            let data_image = declaration.initializer.as_ref().and_then(|initializer| {
+                initializer_data_image(initializer, elem_size, |target| {
+                    local_data_relocation_target(
+                        target,
+                        global_ids,
+                        routine_ids,
+                        param_ids,
+                        local_ids,
+                    )
+                })
+            });
             if elem_size > 1
-                && let Some(bytes) = numeric_initializer_bytes(declaration, elem_size)
+                && let Some(image) = data_image.clone()
             {
                 let len = array_type
                     .length
-                    .unwrap_or((bytes.len() as u16) / elem_size);
-                let byte_size = elem_size.saturating_mul(len).max(bytes.len() as u16);
+                    .unwrap_or((image.bytes.len() as u16) / elem_size);
+                let byte_size = elem_size.saturating_mul(len).max(image.bytes.len() as u16);
                 return Some(NirStorageInit::Descriptor {
                     backing: NirStorageBacking {
-                        zero_fill: byte_size.saturating_sub(bytes.len() as u16),
-                        bytes,
+                        zero_fill: byte_size.saturating_sub(image.bytes.len() as u16),
+                        image,
                         section: "local.backing".to_string(),
                     },
                     descriptor_size: if array_type.length.is_some() { 4 } else { 2 },
@@ -2715,17 +2779,17 @@ fn declaration_local_init(
             }
             let bytes = if elem_size == 1 {
                 string_initializer_bytes(declaration)
-                    .or_else(|| numeric_initializer_bytes(declaration, elem_size))
             } else {
-                numeric_initializer_bytes(declaration, elem_size)
+                None
             };
-            if let Some(bytes) = bytes {
+            let image = data_image.or_else(|| bytes.map(NirDataImage::literal));
+            if let Some(image) = image {
                 let total_size = array_type
                     .length
                     .map(|length| length.saturating_mul(elem_size))
-                    .unwrap_or(bytes.len() as u16)
-                    .max(bytes.len() as u16);
-                return Some(storage_bytes_init(bytes, total_size));
+                    .unwrap_or(image.bytes.len() as u16)
+                    .max(image.bytes.len() as u16);
+                return Some(storage_data_image_init(image, total_size));
             }
             array_type.length.map(|length| {
                 let bytes = length.saturating_mul(elem_size);
@@ -2741,9 +2805,13 @@ fn declaration_local_init(
 }
 
 fn storage_bytes_init(bytes: Vec<u8>, total_size: u16) -> NirStorageInit {
-    let zero_fill = total_size.saturating_sub(bytes.len() as u16);
+    storage_data_image_init(NirDataImage::literal(bytes), total_size)
+}
+
+fn storage_data_image_init(image: NirDataImage, total_size: u16) -> NirStorageInit {
+    let zero_fill = total_size.saturating_sub(image.bytes.len() as u16);
     NirStorageInit::Bytes {
-        bytes,
+        image,
         zero_fill,
         mutable: true,
         section: "local".to_string(),
@@ -2814,6 +2882,143 @@ fn numeric_initializer_bytes(declaration: &SemDeclaration, elem_size: u16) -> Op
         }
     }
     Some(bytes)
+}
+
+fn initializer_data_image(
+    expr: &SemExpr,
+    elem_size: u16,
+    mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataRelocationTarget>,
+) -> Option<NirDataImage> {
+    if !matches!(elem_size, 1 | 2) {
+        return None;
+    }
+    let SemExprKind::InitializerList(elements) = &expr.kind else {
+        return None;
+    };
+    let mut image = NirDataImage::default();
+    for element in elements {
+        match &element.kind {
+            SemInitializerElementKind::Literal { .. } => {
+                let value = sem_initializer_literal_value(element)
+                    .expect("verified SemIR initializer literal must have a constant value");
+                image.bytes.push(value as u8);
+                if elem_size == 2 {
+                    image.bytes.push((value >> 8) as u8);
+                }
+            }
+            SemInitializerElementKind::Address {
+                selector,
+                target,
+                addend,
+            } => {
+                let kind = match selector {
+                    Some(AddressByteSelector::Low) => NirDataRelocationKind::Low8,
+                    Some(AddressByteSelector::High) => NirDataRelocationKind::High8,
+                    None => NirDataRelocationKind::Word16,
+                };
+                let width = kind.width();
+                debug_assert_eq!(width, elem_size);
+                let offset = u16::try_from(image.bytes.len())
+                    .expect("verified static initializer must fit in 16-bit storage");
+                image
+                    .bytes
+                    .resize(image.bytes.len().saturating_add(usize::from(width)), 0);
+                image.relocations.push(NirDataRelocation {
+                    offset,
+                    kind,
+                    target: resolve_target(target)
+                        .expect("verified SemIR initializer target must have a NIR identity"),
+                    addend: *addend,
+                    span: element.span,
+                });
+            }
+            SemInitializerElementKind::Invalid => {
+                unreachable!("invalid initializer elements must be rejected before NIR lowering")
+            }
+        }
+    }
+    Some(image)
+}
+
+fn array_initializer_byte_len(declaration: &SemDeclaration, elem_size: u16) -> Option<usize> {
+    match &declaration.initializer.as_ref()?.kind {
+        SemExprKind::InitializerList(elements) if matches!(elem_size, 1 | 2) => {
+            Some(elements.len().saturating_mul(usize::from(elem_size)))
+        }
+        _ => numeric_initializer_bytes(declaration, elem_size).map(|bytes| bytes.len()),
+    }
+}
+
+fn global_data_relocation_target(
+    target: &SemSymbolRef,
+    global_ids: &BTreeMap<String, SymbolId>,
+    routine_ids: &BTreeMap<String, u32>,
+) -> Option<NirDataRelocationTarget> {
+    if matches!(target.class, SymbolClass::Proc | SymbolClass::Func) {
+        return routine_ids
+            .get(&storage_key(&target.name))
+            .copied()
+            .map(NirDataRelocationTarget::Routine);
+    }
+    global_ids
+        .iter()
+        .find(|(name, _)| storage_key(name) == storage_key(&target.name))
+        .map(|(_, id)| NirDataRelocationTarget::Storage(NirStorageId::Global(*id)))
+        .or_else(|| {
+            resident_variable(&target.name)
+                .map(|variable| NirDataRelocationTarget::Absolute(variable.address))
+        })
+}
+
+fn local_data_relocation_target(
+    target: &SemSymbolRef,
+    global_ids: &BTreeMap<String, SymbolId>,
+    routine_ids: &BTreeMap<String, u32>,
+    param_ids: &BTreeMap<String, ParamId>,
+    local_ids: &BTreeMap<String, LocalId>,
+) -> Option<NirDataRelocationTarget> {
+    let key = storage_key(&target.name);
+    local_ids
+        .get(&key)
+        .copied()
+        .map(|id| NirDataRelocationTarget::Storage(NirStorageId::Local(id)))
+        .or_else(|| {
+            param_ids
+                .get(&key)
+                .copied()
+                .map(|id| NirDataRelocationTarget::Storage(NirStorageId::Param(id)))
+        })
+        .or_else(|| global_data_relocation_target(target, global_ids, routine_ids))
+}
+
+fn increment_data_image_routine_ids_in_global_init(init: &mut NirGlobalInit) {
+    match init {
+        NirGlobalInit::Bytes { image, .. } => increment_data_image_routine_ids(image),
+        NirGlobalInit::Descriptor { backing, .. } => {
+            increment_data_image_routine_ids(&mut backing.image)
+        }
+        NirGlobalInit::ZeroFill { .. }
+        | NirGlobalInit::ProgramEndWord { .. }
+        | NirGlobalInit::RoutineAddress { .. } => {}
+    }
+}
+
+fn increment_data_image_routine_ids_in_storage_init(init: &mut NirStorageInit) {
+    match init {
+        NirStorageInit::Bytes { image, .. } => increment_data_image_routine_ids(image),
+        NirStorageInit::Descriptor { backing, .. } => {
+            increment_data_image_routine_ids(&mut backing.image)
+        }
+        NirStorageInit::ZeroFill { .. } => {}
+    }
+}
+
+fn increment_data_image_routine_ids(image: &mut NirDataImage) {
+    for relocation in &mut image.relocations {
+        if let NirDataRelocationTarget::Routine(id) = &mut relocation.target {
+            *id = id.saturating_add(1);
+        }
+    }
 }
 
 fn numeric_initializer_values(expr: &SemExpr) -> Option<Vec<u16>> {

@@ -3,7 +3,7 @@ program modules=1
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
     set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
     decl Byte src#74/scope1:Array:Byte array Byte ARRAY(4)->Byte POINTER/Array/Global
-      init raw([ 1 2 3 4 ]):<error>:Unknown:eval5:facts=error
+      init init[1 2 3 4]:<error>:Value:eval5:facts=error
       length 4:Byte:Value:eval4:facts=w1,Unsigned
     decl Byte dst#75/scope1:Array:Byte array Byte ARRAY(4)->Byte POINTER/Array/Global
       length 4:Byte:Value:eval6:facts=w1,Unsigned

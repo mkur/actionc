@@ -3,7 +3,7 @@ program modules=1
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
     set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
     decl Byte choice#74/scope1:Var:Byte scalar
-      init raw([ 1 ]):<error>:Unknown:eval4:facts=error
+      init init[1]:<error>:Value:eval4:facts=error
     decl Card seen#75/scope1:Var:Card scalar
     routine PROC View#76/scope1:Proc:?
       callable PROC()

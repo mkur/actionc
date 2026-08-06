@@ -329,6 +329,161 @@ fn routine_local_defines_do_not_lower_to_executable_metadata_ops() {
 }
 
 #[test]
+fn lowers_self_and_forward_addresses_to_nir_data_relocations() {
+    let source = "BYTE ARRAY dlist(4)=[$41 <dlist+2 >later $70] BYTE ARRAY later(1)=[$60]";
+    let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+    let ast = crate::parser::parse(&tokens).expect("parse source");
+    let model = crate::semantic::analyze(&ast).expect("analyze source");
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let program = lower_program(&semir);
+
+    verify_program(&program).expect("relocatable data image should verify");
+    let dlist = program
+        .globals
+        .iter()
+        .find(|global| global.name == "dlist")
+        .expect("dlist global");
+    let later = program
+        .globals
+        .iter()
+        .find(|global| global.name == "later")
+        .expect("later global");
+    let Some(NirGlobalInit::Bytes { image, .. }) = &dlist.init else {
+        panic!("expected initialized data image, got {:#?}", dlist.init);
+    };
+
+    assert_eq!(image.bytes, [0x41, 0, 0, 0x70]);
+    assert_eq!(image.relocations.len(), 2);
+    assert_eq!(image.relocations[0].offset, 1);
+    assert_eq!(image.relocations[0].kind, NirDataRelocationKind::Low8);
+    assert_eq!(image.relocations[0].addend, 2);
+    assert_eq!(
+        image.relocations[0].target,
+        NirDataRelocationTarget::Storage(NirStorageId::Global(dlist.id))
+    );
+    assert_eq!(image.relocations[1].offset, 2);
+    assert_eq!(image.relocations[1].kind, NirDataRelocationKind::High8);
+    assert_eq!(
+        image.relocations[1].target,
+        NirDataRelocationTarget::Storage(NirStorageId::Global(later.id))
+    );
+    let formatted = format_program(&program);
+    assert!(formatted.contains("relocs=[1:lo(g"), "{formatted}");
+    assert!(formatted.contains("+2)"), "{formatted}");
+}
+
+#[test]
+fn lowers_word_routine_addresses_to_descriptor_backing_relocations() {
+    let source = "CARD ARRAY handlers(1)=[@Draw] PROC Draw() RETURN";
+    let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+    let ast = crate::parser::parse(&tokens).expect("parse source");
+    let model = crate::semantic::analyze(&ast).expect("analyze source");
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let program = lower_program(&semir);
+
+    verify_program(&program).expect("routine relocation should verify");
+    let handlers = program
+        .globals
+        .iter()
+        .find(|global| global.name == "handlers")
+        .expect("handlers global");
+    let Some(NirGlobalInit::Descriptor { backing, .. }) = &handlers.init else {
+        panic!("expected descriptor-backed word array");
+    };
+    assert_eq!(backing.image.bytes, [0, 0]);
+    assert!(matches!(
+        backing.image.relocations.as_slice(),
+        [NirDataRelocation {
+            offset: 0,
+            kind: NirDataRelocationKind::Word16,
+            target: NirDataRelocationTarget::Routine(0),
+            addend: 0,
+            ..
+        }]
+    ));
+}
+
+#[test]
+fn data_relocation_targets_are_address_observable_storage_roots() {
+    let source = "PROC Main() BYTE value BYTE ARRAY refs(2)=[<value >value] value=1 RETURN";
+    let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+    let ast = crate::parser::parse(&tokens).expect("parse source");
+    let model = crate::semantic::analyze(&ast).expect("analyze source");
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let program = lower_program(&semir);
+
+    verify_program(&program).expect("local data relocation should verify");
+    let analysis = analyze_program_storage(&program);
+    let value = analysis
+        .routine("Main")
+        .and_then(|routine| routine.storage_by_name("value"))
+        .expect("value storage facts");
+    assert!(value.address_taken);
+    assert!(value.blockers.contains(&NirPromotionBlocker::AddressTaken));
+}
+
+#[test]
+fn verifier_rejects_out_of_bounds_and_overlapping_data_relocations() {
+    let mut program = NirProgram {
+        globals: vec![NirGlobal {
+            id: SymbolId(0),
+            name: "data".to_string(),
+            kind: "Byte Array".to_string(),
+            ty: Some(byte_type()),
+            storage_size: 2,
+            array: None,
+            init: Some(NirGlobalInit::Bytes {
+                image: NirDataImage {
+                    bytes: vec![0, 0],
+                    relocations: vec![NirDataRelocation {
+                        offset: 1,
+                        kind: NirDataRelocationKind::Word16,
+                        target: NirDataRelocationTarget::Storage(NirStorageId::Global(SymbolId(0))),
+                        addend: 0,
+                        span: crate::source::Span::new(0, 0),
+                    }],
+                },
+                zero_fill: 0,
+                mutable: true,
+                section: "global".to_string(),
+            }),
+            backing: NirGlobalBacking::Ordinary,
+        }],
+        statics: Vec::new(),
+        routines: Vec::new(),
+    };
+    let diagnostics = verify_program(&program).expect_err("out-of-bounds relocation");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("exceeds 2 initialized bytes"))
+    );
+
+    let Some(NirGlobalInit::Bytes { image, .. }) = &mut program.globals[0].init else {
+        unreachable!();
+    };
+    image.relocations[0].offset = 0;
+    image.relocations.push(NirDataRelocation {
+        offset: 1,
+        kind: NirDataRelocationKind::High8,
+        target: NirDataRelocationTarget::Routine(9),
+        addend: 0,
+        span: crate::source::Span::new(0, 0),
+    });
+    let diagnostics = verify_program(&program).expect_err("overlap and unknown target");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("overlapping relocation"))
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("unknown routine id 9"))
+    );
+}
+
+#[test]
 fn compile_time_sets_do_not_lower_to_executable_stores() {
     let source =
         "SET $22F=0 SET $E=$E6 SET $F=0 BYTE POINTER screen SET $E=$3000 PROC Main() RETURN";
@@ -2577,7 +2732,7 @@ fn typed_block_argument_program() -> NirProgram {
             id: SymbolId(0),
             name: "table".to_string(),
             ty: byte.clone(),
-            bytes: vec![0],
+            image: NirDataImage::literal(vec![0]),
             display: "table".to_string(),
             alignment: 1,
             mutable: true,

@@ -48,6 +48,7 @@ struct NirVerifier {
     static_ids: BTreeSet<SymbolId>,
     static_sizes: BTreeMap<SymbolId, u16>,
     global_sizes: BTreeMap<SymbolId, u16>,
+    global_ids: BTreeSet<SymbolId>,
     routine_count: usize,
 }
 
@@ -60,6 +61,7 @@ struct NirTempFacts<'a> {
 impl NirVerifier {
     fn program(&mut self, program: &NirProgram) {
         self.routine_count = program.routines.len();
+        self.global_ids = program.globals.iter().map(|global| global.id).collect();
         let mut globals = BTreeSet::new();
         let mut global_ids = BTreeSet::new();
         for global in &program.globals {
@@ -104,7 +106,7 @@ impl NirVerifier {
         for static_data in &program.statics {
             self.static_sizes.insert(
                 static_data.id,
-                u16::try_from(static_data.bytes.len()).unwrap_or(u16::MAX),
+                u16::try_from(static_data.image.bytes.len()).unwrap_or(u16::MAX),
             );
             if static_data.name.is_empty() {
                 self.diagnostics
@@ -135,13 +137,18 @@ impl NirVerifier {
             }
             if !static_data.mutable
                 && static_data.section != "rodata"
-                && static_data.display.as_bytes() != static_data.bytes
+                && static_data.display.as_bytes() != static_data.image.bytes
             {
                 self.diagnostics.push(NirDiagnostic::program(format!(
                     "static data `{}` display does not match authoritative bytes",
                     static_data.name
                 )));
             }
+            self.data_image(
+                &format!("static data `{}`", static_data.name),
+                &static_data.image,
+                None,
+            );
             self.type_shape_static(&static_data.ty, &static_data.name);
         }
 
@@ -210,10 +217,12 @@ impl NirVerifier {
                     format!("local `{}` kind must not be empty", local.name),
                 ));
             }
-            if let Some(init) = &local.init {
-                self.storage_init(&routine.name, &local.name, init);
-            }
             self.type_shape_static(&local.ty, &format!("local `{}`", local.name));
+        }
+        for local in &routine.locals {
+            if let Some(init) = &local.init {
+                self.storage_init(&routine.name, &local.name, init, &param_ids, &local_ids);
+            }
         }
         for note in &routine.notes {
             if note.text.is_empty() {
@@ -385,7 +394,7 @@ impl NirVerifier {
     fn global_init(&mut self, global: &NirGlobal, init: &NirGlobalInit) {
         match init {
             NirGlobalInit::Bytes {
-                bytes,
+                image,
                 zero_fill,
                 section,
                 ..
@@ -396,7 +405,8 @@ impl NirVerifier {
                         global.name
                     )));
                 }
-                if (bytes.len() as u16).saturating_add(*zero_fill) < global.storage_size {
+                self.data_image(&format!("global `{}`", global.name), image, None);
+                if (image.bytes.len() as u16).saturating_add(*zero_fill) < global.storage_size {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` init payload is smaller than storage size",
                         global.name
@@ -421,7 +431,12 @@ impl NirVerifier {
                         global.name
                     )));
                 }
-                if backing.bytes.is_empty() && backing.zero_fill == 0 {
+                self.data_image(
+                    &format!("global `{}` descriptor backing", global.name),
+                    &backing.image,
+                    None,
+                );
+                if backing.image.bytes.is_empty() && backing.zero_fill == 0 {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` descriptor backing is empty",
                         global.name
@@ -483,9 +498,29 @@ impl NirVerifier {
         }
     }
 
-    fn storage_init(&mut self, routine: &str, name: &str, init: &NirStorageInit) {
+    fn storage_init(
+        &mut self,
+        routine: &str,
+        name: &str,
+        init: &NirStorageInit,
+        param_ids: &BTreeSet<super::facts::ParamId>,
+        local_ids: &BTreeSet<super::facts::LocalId>,
+    ) {
         match init {
-            NirStorageInit::Bytes { section, .. } | NirStorageInit::ZeroFill { section, .. } => {
+            NirStorageInit::Bytes { image, section, .. } => {
+                if section.is_empty() {
+                    self.diagnostics.push(NirDiagnostic::routine(
+                        routine,
+                        format!("local `{name}` init section must not be empty"),
+                    ));
+                }
+                self.data_image(
+                    &format!("local `{name}` in `{routine}`"),
+                    image,
+                    Some((param_ids, local_ids)),
+                );
+            }
+            NirStorageInit::ZeroFill { section, .. } => {
                 if section.is_empty() {
                     self.diagnostics.push(NirDiagnostic::routine(
                         routine,
@@ -507,7 +542,12 @@ impl NirVerifier {
                         ),
                     ));
                 }
-                if backing.bytes.is_empty() && backing.zero_fill == 0 {
+                self.data_image(
+                    &format!("local `{name}` descriptor backing in `{routine}`"),
+                    &backing.image,
+                    Some((param_ids, local_ids)),
+                );
+                if backing.image.bytes.is_empty() && backing.zero_fill == 0 {
                     self.diagnostics.push(NirDiagnostic::routine(
                         routine,
                         format!("local `{name}` descriptor backing is empty"),
@@ -518,6 +558,83 @@ impl NirVerifier {
                         routine,
                         format!("local `{name}` descriptor sections must not be empty"),
                     ));
+                }
+            }
+        }
+    }
+
+    fn data_image(
+        &mut self,
+        owner: &str,
+        image: &NirDataImage,
+        routine_storage: Option<(
+            &BTreeSet<super::facts::ParamId>,
+            &BTreeSet<super::facts::LocalId>,
+        )>,
+    ) {
+        let mut occupied = vec![false; image.bytes.len()];
+        for relocation in &image.relocations {
+            let width = relocation.kind.width();
+            let start = usize::from(relocation.offset);
+            let end = start.saturating_add(usize::from(width));
+            if end > image.bytes.len() {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "{owner} relocation at {} with width {width} exceeds {} initialized bytes",
+                    relocation.offset,
+                    image.bytes.len()
+                )));
+                continue;
+            }
+            if occupied[start..end].iter().any(|occupied| *occupied) {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "{owner} has overlapping relocation at {}",
+                    relocation.offset
+                )));
+            }
+            occupied[start..end].fill(true);
+            if !(-65535..=65535).contains(&relocation.addend) {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "{owner} relocation addend {} is outside the supported 16-bit address range",
+                    relocation.addend
+                )));
+            }
+            match relocation.target {
+                NirDataRelocationTarget::Storage(NirStorageId::Global(id)) => {
+                    if !self.global_ids.contains(&id) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} relocation references unknown global id {}",
+                            id.0
+                        )));
+                    }
+                }
+                NirDataRelocationTarget::Storage(NirStorageId::Param(id)) => {
+                    if !routine_storage.is_some_and(|(params, _)| params.contains(&id)) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} relocation references a parameter outside its owning routine"
+                        )));
+                    }
+                }
+                NirDataRelocationTarget::Storage(NirStorageId::Local(id)) => {
+                    if !routine_storage.is_some_and(|(_, locals)| locals.contains(&id)) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} relocation references a local outside its owning routine"
+                        )));
+                    }
+                }
+                NirDataRelocationTarget::Routine(id) => {
+                    if usize::try_from(id).map_or(true, |id| id >= self.routine_count) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} relocation references unknown routine id {id}"
+                        )));
+                    }
+                }
+                NirDataRelocationTarget::Absolute(address) => {
+                    let value = i32::from(address).saturating_add(relocation.addend);
+                    if !(0..=i32::from(u16::MAX)).contains(&value) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} absolute relocation result is outside the 16-bit address range"
+                        )));
+                    }
                 }
             }
         }

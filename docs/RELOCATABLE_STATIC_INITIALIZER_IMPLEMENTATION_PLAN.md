@@ -60,13 +60,22 @@ entire data image.
 
 ## Implementation slices
 
+Status as of 2026-08-06: slices 1-5 are implemented. Relocatable images are
+verifier-clean NIR, but MIR6502 and classic emission deliberately diagnose them
+until their lowering/fixup slices are implemented; numeric-only initializers
+continue through both backends unchanged.
+
 ### Slice 1: stop silent initializer loss
+
+Status: complete.
 
 - Reject initializer-list tokens that the compiler cannot represent.
 - Never turn a present but unsupported initializer into implicit zero-fill.
 - Add a regression for symbolic list elements and malformed list syntax.
 
 ### Slice 2: structured parser representation
+
+Status: complete.
 
 - Replace raw bracket text with a structured initializer-list AST node.
 - Preserve numeric, character, `TRUE`, `FALSE`, `NIL`, optional signs, and
@@ -76,6 +85,8 @@ entire data image.
 
 ### Slice 3: SemIR resolution
 
+Status: complete.
+
 - Lower initializer lists to structured SemIR elements.
 - Resolve targets to `SemSymbolRef`, including self references and static
   forward references.
@@ -84,6 +95,8 @@ entire data image.
 
 ### Slice 4: target-independent NIR data images
 
+Status: complete.
+
 - Introduce `NirDataImage` and stable-ID `NirDataRelocation` types.
 - Use the common image in byte initializers, descriptor backings, local
   storage initializers, and static objects.
@@ -91,6 +104,8 @@ entire data image.
 - Treat relocation targets as address-observable storage roots.
 
 ### Slice 5: NIR verification and printing
+
+Status: complete.
 
 - Verify relocation bounds, width, overlap, stable target identity, scope,
   addend range, and initialized-data ownership.

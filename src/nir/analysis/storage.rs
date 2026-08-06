@@ -6,7 +6,7 @@ use crate::nir::facts::{NirStorageId, root_storage_id};
 use crate::nir::{
     BlockId, NirGlobal, NirGlobalBacking, NirLocalBacking, NirMachineAtom, NirMachineItem,
     NirMemoryAccess, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirPlace, NirProgram, NirRoutine,
-    NirStorageClass, NirType, NirTypeKind,
+    NirStorageClass, NirStorageInit, NirType, NirTypeKind,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -148,11 +148,23 @@ pub fn analyze_program_storage(program: &NirProgram) -> NirProgramStorageAnalysi
         .iter()
         .map(|global| (global.name.to_ascii_lowercase(), global.id))
         .collect::<BTreeMap<_, _>>();
+    let global_data_address_taken = program_data_relocation_storage_targets(program)
+        .into_iter()
+        .filter(|id| matches!(id, NirStorageId::Global(_)))
+        .collect::<BTreeSet<_>>();
     NirProgramStorageAnalysis {
         routines: program
             .routines
             .iter()
-            .map(|routine| analyze_routine_storage(routine, &globals, &global_names))
+            .map(|routine| {
+                let mut address_taken = global_data_address_taken.clone();
+                for local in &routine.locals {
+                    if let Some(init) = &local.init {
+                        storage_init_relocation_targets(init, &mut address_taken);
+                    }
+                }
+                analyze_routine_storage(routine, &globals, &global_names, &address_taken)
+            })
             .collect(),
     }
 }
@@ -161,6 +173,7 @@ fn analyze_routine_storage(
     routine: &NirRoutine,
     globals: &BTreeMap<crate::nir::SymbolId, &NirGlobal>,
     global_names: &BTreeMap<String, crate::nir::SymbolId>,
+    data_address_taken: &BTreeSet<NirStorageId>,
 ) -> NirRoutineStorageAnalysis {
     let cfg = NirCfg::from_routine(routine);
     let mut homes = BTreeMap::new();
@@ -212,6 +225,10 @@ fn analyze_routine_storage(
     // a machine item names them). This avoids multiplying every program global
     // by every routine while retaining exact identities for effect analysis.
     let mut referenced_globals = BTreeSet::new();
+    referenced_globals.extend(data_address_taken.iter().filter_map(|id| match id {
+        NirStorageId::Global(id) => Some(*id),
+        NirStorageId::Local(_) | NirStorageId::Param(_) => None,
+    }));
     for block in &routine.blocks {
         if !cfg.reachable().contains(&block.id) {
             continue;
@@ -258,6 +275,11 @@ fn analyze_routine_storage(
             && let Some(target) = homes.get_mut(&NirStorageId::Global(*target))
         {
             target.blockers.insert(NirPromotionBlocker::AliasedStorage);
+        }
+    }
+    for id in data_address_taken {
+        if let Some(facts) = homes.get_mut(id) {
+            facts.address_taken = true;
         }
     }
 
@@ -381,6 +403,59 @@ fn analyze_routine_storage(
         routine: routine.name.clone(),
         homes,
     }
+}
+
+fn program_data_relocation_storage_targets(program: &NirProgram) -> BTreeSet<NirStorageId> {
+    let mut targets = BTreeSet::new();
+    for global in &program.globals {
+        if let Some(init) = &global.init {
+            match init {
+                crate::nir::NirGlobalInit::Bytes { image, .. } => {
+                    data_image_storage_targets(image, &mut targets)
+                }
+                crate::nir::NirGlobalInit::Descriptor { backing, .. } => {
+                    data_image_storage_targets(&backing.image, &mut targets)
+                }
+                crate::nir::NirGlobalInit::ZeroFill { .. }
+                | crate::nir::NirGlobalInit::ProgramEndWord { .. }
+                | crate::nir::NirGlobalInit::RoutineAddress { .. } => {}
+            }
+        }
+    }
+    for static_data in &program.statics {
+        data_image_storage_targets(&static_data.image, &mut targets);
+    }
+    for routine in &program.routines {
+        for local in &routine.locals {
+            if let Some(init) = &local.init {
+                storage_init_relocation_targets(init, &mut targets);
+            }
+        }
+    }
+    targets
+}
+
+fn storage_init_relocation_targets(init: &NirStorageInit, targets: &mut BTreeSet<NirStorageId>) {
+    match init {
+        NirStorageInit::Bytes { image, .. } => data_image_storage_targets(image, targets),
+        NirStorageInit::Descriptor { backing, .. } => {
+            data_image_storage_targets(&backing.image, targets)
+        }
+        NirStorageInit::ZeroFill { .. } => {}
+    }
+}
+
+fn data_image_storage_targets(
+    image: &crate::nir::NirDataImage,
+    targets: &mut BTreeSet<NirStorageId>,
+) {
+    targets.extend(image.relocations.iter().filter_map(|relocation| {
+        if let crate::nir::NirDataRelocationTarget::Storage(id) = relocation.target {
+            Some(id)
+        } else {
+            None
+        }
+    }));
 }
 
 fn new_facts(
