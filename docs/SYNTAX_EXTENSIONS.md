@@ -140,6 +140,27 @@ This keeps full label operands unchanged (`[$20 Target]` still means a two-byte
 absolute operand) while making byte selection explicit for tables and
 self-contained machine code fragments.
 
+## Relocatable Static Initializers
+
+Initializer lists can contain addresses that are fixed after the compiler lays
+out storage and routines. Use `<` or `>` in a byte array and `@` in a word
+array:
+
+```action
+BYTE ARRAY dlist(3)=[$41 <dlist >dlist]
+
+PROC Draw()
+RETURN
+
+CARD ARRAY handlers(1)=[@Draw]
+```
+
+The compiler emits the low byte, high byte, or complete little-endian word at
+the initializer position. Constant addends are supported, for example
+`<dlist+4`, and forward references are allowed. An array reference denotes its
+element backing address, including for arrays represented internally by a
+descriptor.
+
 ## MADS-Style Inline Assembler
 
 Use `ASM` and `ENDASM` on their own lines to embed official NMOS 6502

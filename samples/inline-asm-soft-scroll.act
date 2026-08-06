@@ -11,8 +11,9 @@ BYTE hscrol=$D404,     ; ANTIC horizontal fine-scroll register
      fine=[3],
      coarse=[0]
 
-; Three blank lines, Mode 2 + LMS + HSCROL, then JVB.
-BYTE ARRAY dlist(9)=[$70 $70 $70 $52 0 0 $41 0 0]
+; Three blank lines, Mode 2 + LMS + HSCROL, then a complete JVB whose
+; destination is relocated to the display list itself at compile time.
+BYTE ARRAY dlist(9)=[$70 $70 $70 $52 0 0 $41 <dlist >dlist]
 
 
 PROC SoftVbi=*()
@@ -64,13 +65,11 @@ PROC StartScroller()
     lda savmsc+1
     sta dlist+5
 
-    ; Complete the display-list JVB instruction and publish the
-    ; custom list through the OS display-list shadow.
+    ; Publish the custom list through the OS display-list shadow. The JVB
+    ; target is already complete in dlist's static initializer.
     lda #<dlist
-    sta dlist+7
     sta sdlstl
     lda #>dlist
-    sta dlist+8
     sta sdlstl+1
 
     lda #3

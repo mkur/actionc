@@ -60,7 +60,7 @@ entire data image.
 
 ## Implementation slices
 
-Status as of 2026-08-06: slices 1-8 are implemented. Relocatable images are
+Status as of 2026-08-06: slices 1-9 are implemented. Relocatable images are
 verifier-clean NIR, and MIR6502 plus both classic paths resolve them after
 layout. Numeric-only initializers continue through all backends unchanged.
 
@@ -137,6 +137,8 @@ Status: complete.
 - Cover legacy and modern layouts without changing numeric initializer bytes.
 
 ### Slice 9: sample and documentation
+
+Status: complete.
 
 - Put `<dlist >dlist` directly in the soft-scroller display list.
 - Remove the runtime stores to `dlist+7` and `dlist+8`; retain the runtime LMS
