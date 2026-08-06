@@ -10172,6 +10172,60 @@ mod tests {
     }
 
     #[test]
+    fn mir_data_relocations_follow_final_storage_layout() {
+        for origin in [0x3000, 0x4200] {
+            let output = generate_mir6502_source_with_origin(
+                "BYTE ARRAY dlist(4)=[$41 <dlist+2 >dlist $70] PROC Main() RETURN",
+                origin,
+            );
+            let dlist = output
+                .map
+                .storage_symbols
+                .iter()
+                .find(|symbol| symbol.name == "dlist")
+                .expect("dlist storage symbol");
+            let offset = usize::from(dlist.address.wrapping_sub(output.origin));
+
+            assert_eq!(
+                &output.bytes[offset..offset + 4],
+                &[
+                    0x41,
+                    dlist.address.wrapping_add(2) as u8,
+                    (dlist.address >> 8) as u8,
+                    0x70,
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn mir_word_data_relocation_targets_routine_address() {
+        let output = generate_mir6502_source_with_origin(
+            "CARD ARRAY handlers(1)=[@Draw] PROC Draw() RETURN",
+            0x3000,
+        );
+        let handlers = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|symbol| symbol.name == "handlers")
+            .expect("handler descriptor");
+        let draw = output
+            .map
+            .routine_addresses
+            .iter()
+            .find(|routine| routine.name == "Draw")
+            .expect("Draw routine");
+        let backing_address = handlers.address.wrapping_sub(2);
+        let offset = usize::from(backing_address.wrapping_sub(output.origin));
+
+        assert_eq!(
+            u16::from_le_bytes([output.bytes[offset], output.bytes[offset + 1]]),
+            draw.address
+        );
+    }
+
+    #[test]
     fn classifier_rejects_deref_before_pointer_support() {
         let place = crate::nir::NirPlace {
             kind: crate::nir::NirPlaceKind::Deref {

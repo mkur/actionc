@@ -60,10 +60,10 @@ entire data image.
 
 ## Implementation slices
 
-Status as of 2026-08-06: slices 1-5 are implemented. Relocatable images are
-verifier-clean NIR, but MIR6502 and classic emission deliberately diagnose them
-until their lowering/fixup slices are implemented; numeric-only initializers
-continue through both backends unchanged.
+Status as of 2026-08-06: slices 1-7 are implemented. Relocatable images are
+verifier-clean NIR and MIR6502 resolves them after final object layout; classic
+emission still diagnoses them until slice 8 is implemented. Numeric-only
+initializers continue through all backends unchanged.
 
 ### Slice 1: stop silent initializer loss
 
@@ -114,11 +114,15 @@ Status: complete.
 
 ### Slice 6: MIR6502 lowering
 
+Status: complete.
+
 - Add the corresponding MIR data-image relocation representation.
 - Translate NIR stable IDs without consulting SemIR.
 - Preserve array-backing rather than descriptor-address semantics.
 
 ### Slice 7: MIR6502 layout and emission
+
+Status: complete.
 
 - Bind storage, backing, static, and routine labels before emitting data.
 - Emit literal spans and low/high/word fixups in source order.

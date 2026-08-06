@@ -15,12 +15,13 @@ use super::builtin::{MirBuiltinResolution, resolve_builtin_target};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCallTarget, MirCarryIn,
-    MirCompareOp, MirCond, MirCondDest, MirDataImage, MirDef, MirEdge, MirEffects, MirFixedZpSlot,
-    MirFlagTest, MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom,
-    MirMachineByteSelector, MirMachineItem, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram,
-    MirReg, MirRoutine, MirRuntimeHelperTarget, MirSpillId, MirStorageBase, MirStorageClass,
-    MirStorageId, MirStorageInit, MirStorageSlot, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue,
-    MirWidth, MirZpSlot, RoutineId,
+    MirCompareOp, MirCond, MirCondDest, MirDataImage, MirDataRelocation, MirDataRelocationKind,
+    MirDataRelocationTarget, MirDef, MirEdge, MirEffects, MirFixedZpSlot, MirFlagTest,
+    MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom, MirMachineByteSelector,
+    MirMachineItem, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
+    MirRuntimeHelperTarget, MirSpillId, MirStorageBase, MirStorageClass, MirStorageId,
+    MirStorageInit, MirStorageSlot, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth,
+    MirZpSlot, RoutineId,
 };
 use super::verify;
 
@@ -769,6 +770,61 @@ impl MirObjectLayout {
         })
     }
 
+    fn global_data_address(&self, mir: &MirProgram, id: SymbolId) -> Option<u16> {
+        if let Some(global) = mir.globals.iter().find(|global| global.id == id) {
+            let address = self.global_address(id)?;
+            return Some(
+                global
+                    .init
+                    .as_ref()
+                    .and_then(global_descriptor_backing_size)
+                    .map_or(address, |backing_size| address.saturating_sub(backing_size)),
+            );
+        }
+        self.static_address(id)
+    }
+
+    fn local_data_address(
+        &self,
+        mir: &MirProgram,
+        routine_id: RoutineId,
+        id: LocalId,
+    ) -> Option<u16> {
+        let routine = mir
+            .routines
+            .iter()
+            .find(|routine| routine.id == routine_id)?;
+        let slot = routine.frame.locals.iter().find(|slot| match slot.base {
+            MirStorageBase::Local(candidate) | MirStorageBase::LocalAlias { id: candidate, .. } => {
+                candidate == id
+            }
+            _ => false,
+        })?;
+        let address = placement_address(routine_slot_placement(self, routine_id, slot)?)?;
+        Some(
+            slot.init
+                .as_ref()
+                .and_then(slot_descriptor_backing_size)
+                .map_or(address, |backing_size| address.saturating_sub(backing_size)),
+        )
+    }
+
+    fn param_data_address(
+        &self,
+        mir: &MirProgram,
+        routine_id: RoutineId,
+        id: ParamId,
+    ) -> Option<u16> {
+        let routine = mir
+            .routines
+            .iter()
+            .find(|routine| routine.id == routine_id)?;
+        let slot = routine.frame.params.iter().find(
+            |slot| matches!(slot.base, MirStorageBase::Param(candidate) if candidate == id),
+        )?;
+        placement_address(routine_slot_placement(self, routine_id, slot)?)
+    }
+
     fn routine_label(&self, routine: RoutineId) -> String {
         self.routine_labels
             .get(&routine)
@@ -1184,7 +1240,7 @@ fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut NativeTrackedEmitter
                     );
                     continue;
                 };
-                emit_unresolved_data_image(ctx, &static_data.image, emitter);
+                emit_data_image(ctx, &static_data.image, emitter);
             }
             MirStorageItem::RoutineSlot {
                 routine,
@@ -1244,21 +1300,95 @@ fn emit_storage_init(
     }
 }
 
-fn emit_unresolved_data_image(
+fn emit_data_image(
     ctx: &mut MirEmitContext<'_>,
     image: &MirDataImage,
     emitter: &mut NativeTrackedEmitter,
 ) {
-    if !image.relocations.is_empty() {
+    let mut relocations = image.relocations.iter().collect::<Vec<_>>();
+    relocations.sort_by_key(|relocation| relocation.offset);
+    let mut cursor = 0usize;
+    for relocation in relocations {
+        let offset = usize::from(relocation.offset);
+        if offset < cursor || offset > image.bytes.len() {
+            unsupported_message(
+                None,
+                None,
+                "MIR data relocation is outside or overlaps the data image",
+                &mut ctx.diagnostics,
+            );
+            continue;
+        }
+        for byte in &image.bytes[cursor..offset] {
+            emitter.emit_u8(*byte);
+        }
+        emit_data_relocation(ctx, relocation, emitter);
+        cursor = offset.saturating_add(usize::from(relocation.kind.width()));
+    }
+    if cursor > image.bytes.len() {
         unsupported_message(
             None,
             None,
-            "relocatable MIR data images require final-layout fixup emission",
+            "MIR data relocation extends beyond the data image",
             &mut ctx.diagnostics,
         );
+        return;
     }
-    for byte in &image.bytes {
+    for byte in &image.bytes[cursor..] {
         emitter.emit_u8(*byte);
+    }
+}
+
+fn emit_data_relocation(
+    ctx: &mut MirEmitContext<'_>,
+    relocation: &MirDataRelocation,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    if let MirDataRelocationTarget::Routine(routine) = relocation.target {
+        let label = ctx.layout.routine_label(routine);
+        match relocation.kind {
+            MirDataRelocationKind::Low8 => {
+                emitter.emit_u8_label_low_offset(label, relocation.addend, relocation.span)
+            }
+            MirDataRelocationKind::High8 => {
+                emitter.emit_u8_label_high_offset(label, relocation.addend, relocation.span)
+            }
+            MirDataRelocationKind::Word16 => {
+                emitter.emit_u16_label_offset(label, relocation.addend, relocation.span)
+            }
+        }
+        return;
+    }
+
+    let target_address = match relocation.target {
+        MirDataRelocationTarget::Global(id) => ctx.layout.global_data_address(ctx.mir, id),
+        MirDataRelocationTarget::Local { routine, id } => {
+            ctx.layout.local_data_address(ctx.mir, routine, id)
+        }
+        MirDataRelocationTarget::Param { routine, id } => {
+            ctx.layout.param_data_address(ctx.mir, routine, id)
+        }
+        MirDataRelocationTarget::Absolute(address) => Some(address),
+        MirDataRelocationTarget::Routine(_) => unreachable!("routine handled above"),
+    };
+    let value = target_address
+        .map(i32::from)
+        .and_then(|address| address.checked_add(relocation.addend))
+        .and_then(|address| u16::try_from(address).ok());
+    let Some(value) = value else {
+        unsupported_message(
+            None,
+            None,
+            "MIR data relocation target is unresolved or outside the 16-bit address space",
+            &mut ctx.diagnostics,
+        );
+        emitter.emit_zeroes(relocation.kind.width());
+        return;
+    };
+    match relocation.kind {
+        MirDataRelocationKind::Low8 => emitter.emit_u8(value as u8),
+        MirDataRelocationKind::High8 => emitter.emit_u8((value >> 8) as u8),
+        MirDataRelocationKind::Word16 => emitter.emit_u16_le(value),
     }
 }
 
@@ -1273,7 +1403,7 @@ impl StorageInitView for MirGlobalInit {
             MirGlobalInit::Bytes {
                 image, zero_fill, ..
             } => {
-                emit_unresolved_data_image(ctx, image, emitter);
+                emit_data_image(ctx, image, emitter);
                 emitter.emit_zeroes(*zero_fill);
             }
             MirGlobalInit::ZeroFill { bytes, .. } => emitter.emit_zeroes(*bytes),
@@ -1286,7 +1416,7 @@ impl StorageInitView for MirGlobalInit {
                 size_word,
                 ..
             } => {
-                emit_unresolved_data_image(ctx, &backing.image, emitter);
+                emit_data_image(ctx, &backing.image, emitter);
                 emitter.emit_zeroes(backing.zero_fill);
                 let backing_size =
                     (backing.image.bytes.len() as u16).saturating_add(backing.zero_fill);
@@ -1353,7 +1483,7 @@ impl StorageInitView for MirStorageInit {
             MirStorageInit::Bytes {
                 image, zero_fill, ..
             } => {
-                emit_unresolved_data_image(ctx, image, emitter);
+                emit_data_image(ctx, image, emitter);
                 emitter.emit_zeroes(*zero_fill);
             }
             MirStorageInit::ZeroFill { bytes, .. } => emitter.emit_zeroes(*bytes),
@@ -1363,7 +1493,7 @@ impl StorageInitView for MirStorageInit {
                 size_word,
                 ..
             } => {
-                emit_unresolved_data_image(ctx, &backing.image, emitter);
+                emit_data_image(ctx, &backing.image, emitter);
                 emitter.emit_zeroes(backing.zero_fill);
                 let backing_size =
                     (backing.image.bytes.len() as u16).saturating_add(backing.zero_fill);
