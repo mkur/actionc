@@ -2,7 +2,7 @@ use super::*;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{
-    MirBlock, MirCallResult, MirEdge, MirGlobal, MirGlobalBacking, MirMachineBlock,
+    MirBlock, MirCallResult, MirDataImage, MirEdge, MirGlobal, MirGlobalBacking, MirMachineBlock,
     MirMachineBlockId, MirRegisterSet, MirStatic, MirStorageBacking, MirStorageInit, MirTemp,
     MirZpAllocation,
 };
@@ -816,9 +816,7 @@ fn word_rsh8_high_projection_keeps_helper_when_flags_are_live() {
         .expect("valid post-home snapshot");
     let context = PostHomeRewriteContext::new(&snapshot);
 
-    assert!(
-        peepholes::discover_word_rsh8_high_projections(&routine, &context, &layout).is_empty()
-    );
+    assert!(peepholes::discover_word_rsh8_high_projections(&routine, &context, &layout).is_empty());
 }
 
 fn helper_indexed_store_test_program(helper: MirRuntimeHelper, consumer_lo: u8) -> MirProgram {
@@ -3305,7 +3303,10 @@ fn static_address_split_stays_symbolic_until_final_emit_layout() {
         id: static_id,
         name: "__test_static".to_string(),
         ty: "Byte*".to_string(),
-        bytes: vec![0x41, 0x42],
+        image: MirDataImage {
+            bytes: vec![0x41, 0x42],
+            relocations: Vec::new(),
+        },
         display: "AB".to_string(),
         alignment: 1,
         mutable: false,
@@ -10934,9 +10935,10 @@ fn byte_range_word_mask_shift_uses_scaled_y_word_read() {
         &mut stats,
     );
 
-    assert!(ops.iter().any(|op| {
-        op_def(op).and_then(split_def_as_temp) == Some(MirTempId(40))
-    }));
+    assert!(
+        ops.iter()
+            .any(|op| { op_def(op).and_then(split_def_as_temp) == Some(MirTempId(40)) })
+    );
     for temp in [MirTempId(41), MirTempId(42)] {
         assert!(
             !ops.iter()
@@ -20430,7 +20432,10 @@ fn descriptor_lea_materializes_pointer_bytes_for_index_base() {
         mutable: true,
         init: Some(MirStorageInit::Descriptor {
             backing: MirStorageBacking {
-                bytes: vec![0x34, 0x12, 0x78, 0x56],
+                image: MirDataImage {
+                    bytes: vec![0x34, 0x12, 0x78, 0x56],
+                    relocations: Vec::new(),
+                },
                 zero_fill: 0,
                 section: "local.backing".to_string(),
             },
@@ -21293,7 +21298,10 @@ fn call_arg_expr_uses_stable_direct_memory_for_binary_rhs_lanes() {
         id: SymbolId(1),
         name: "constant".to_string(),
         ty: "BYTE".to_string(),
-        bytes: vec![1],
+        image: MirDataImage {
+            bytes: vec![1],
+            relocations: Vec::new(),
+        },
         display: "1".to_string(),
         alignment: 1,
         mutable: false,

@@ -18,7 +18,8 @@ use super::classify::{
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam, MirCarryOut, MirCompareOp, MirCond,
-    MirCondDest, MirDataBacking, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFrame,
+    MirCondDest, MirDataBacking, MirDataImage, MirDataRelocation, MirDataRelocationKind,
+    MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFrame,
     MirGlobal, MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom,
     MirMachineBlock, MirMachineBlockId, MirMachineByteSelector, MirMachineItem, MirMem, MirOp,
     MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi, MirRuntimeHelper, MirRuntimeHelperDecl,
@@ -38,14 +39,6 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
             })
             .collect());
     }
-    if nir_program_has_data_relocations(nir_program) {
-        return Err(vec![MirDiagnostic {
-            routine: None,
-            block: None,
-            message: "relocatable NIR data images require MIR6502 relocation lowering".to_string(),
-        }]);
-    }
-
     let mut diagnostics = Vec::new();
     let routine_ids = nir_program
         .routines
@@ -242,7 +235,11 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                                 ),
                             },
                             mutable: true,
-                            init: lower_local_storage_init(local, &routine_ids),
+                            init: lower_local_storage_init(
+                                local,
+                                &routine_ids,
+                                RoutineId(routine_index as u32),
+                            ),
                         })
                         .collect(),
                     spills: Vec::new(),
@@ -276,7 +273,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                 id: static_data.id,
                 name: static_data.name.clone(),
                 ty: static_data.ty.summary.clone(),
-                bytes: static_data.image.bytes.clone(),
+                image: lower_data_image(&static_data.image, None),
                 display: static_data.display.clone(),
                 alignment: static_data.alignment,
                 mutable: static_data.mutable,
@@ -436,7 +433,7 @@ fn lower_global_init(
             mutable,
             section,
         } => MirGlobalInit::Bytes {
-            bytes: image.bytes.clone(),
+            image: lower_data_image(image, None),
             zero_fill: *zero_fill,
             mutable: *mutable,
             section: section.clone(),
@@ -451,7 +448,7 @@ fn lower_global_init(
         } => MirGlobalInit::Descriptor {
             backing: MirDataBacking {
                 owner: backing.owner,
-                bytes: backing.image.bytes.clone(),
+                image: lower_data_image(&backing.image, None),
                 zero_fill: backing.zero_fill,
                 section: backing.section.clone(),
             },
@@ -498,6 +495,7 @@ fn lower_global_init(
 fn lower_local_storage_init(
     local: &crate::nir::NirLocal,
     routine_ids: &BTreeMap<&str, RoutineId>,
+    owner: RoutineId,
 ) -> Option<MirStorageInit> {
     if let Some(name) = local_pointer_init_symbol(local)
         && let Some(routine) = routine_ids.get(name.as_str()).copied()
@@ -510,10 +508,13 @@ fn lower_local_storage_init(
             section: "local".to_string(),
         });
     }
-    local.init.as_ref().map(lower_storage_init)
+    local
+        .init
+        .as_ref()
+        .map(|init| lower_storage_init(init, owner))
 }
 
-fn lower_storage_init(init: &crate::nir::NirStorageInit) -> MirStorageInit {
+fn lower_storage_init(init: &crate::nir::NirStorageInit, owner: RoutineId) -> MirStorageInit {
     match init {
         crate::nir::NirStorageInit::Bytes {
             image,
@@ -521,7 +522,7 @@ fn lower_storage_init(init: &crate::nir::NirStorageInit) -> MirStorageInit {
             mutable,
             section,
         } => MirStorageInit::Bytes {
-            bytes: image.bytes.clone(),
+            image: lower_data_image(image, Some(owner)),
             zero_fill: *zero_fill,
             mutable: *mutable,
             section: section.clone(),
@@ -534,7 +535,7 @@ fn lower_storage_init(init: &crate::nir::NirStorageInit) -> MirStorageInit {
             section,
         } => MirStorageInit::Descriptor {
             backing: MirStorageBacking {
-                bytes: backing.image.bytes.clone(),
+                image: lower_data_image(&backing.image, Some(owner)),
                 zero_fill: backing.zero_fill,
                 section: backing.section.clone(),
             },
@@ -555,28 +556,47 @@ fn lower_storage_init(init: &crate::nir::NirStorageInit) -> MirStorageInit {
     }
 }
 
-fn nir_program_has_data_relocations(program: &NirProgram) -> bool {
-    program.globals.iter().any(|global| match &global.init {
-        Some(crate::nir::NirGlobalInit::Bytes { image, .. }) => !image.relocations.is_empty(),
-        Some(crate::nir::NirGlobalInit::Descriptor { backing, .. }) => {
-            !backing.image.relocations.is_empty()
-        }
-        _ => false,
-    }) || program
-        .statics
-        .iter()
-        .any(|data| !data.image.relocations.is_empty())
-        || program.routines.iter().any(|routine| {
-            routine.locals.iter().any(|local| match &local.init {
-                Some(crate::nir::NirStorageInit::Bytes { image, .. }) => {
-                    !image.relocations.is_empty()
-                }
-                Some(crate::nir::NirStorageInit::Descriptor { backing, .. }) => {
-                    !backing.image.relocations.is_empty()
-                }
-                _ => false,
+fn lower_data_image(image: &crate::nir::NirDataImage, owner: Option<RoutineId>) -> MirDataImage {
+    MirDataImage {
+        bytes: image.bytes.clone(),
+        relocations: image
+            .relocations
+            .iter()
+            .map(|relocation| MirDataRelocation {
+                offset: relocation.offset,
+                kind: match relocation.kind {
+                    crate::nir::NirDataRelocationKind::Low8 => MirDataRelocationKind::Low8,
+                    crate::nir::NirDataRelocationKind::High8 => MirDataRelocationKind::High8,
+                    crate::nir::NirDataRelocationKind::Word16 => MirDataRelocationKind::Word16,
+                },
+                target: match relocation.target {
+                    crate::nir::NirDataRelocationTarget::Storage(
+                        crate::nir::NirStorageId::Global(id),
+                    ) => MirDataRelocationTarget::Global(id),
+                    crate::nir::NirDataRelocationTarget::Storage(
+                        crate::nir::NirStorageId::Local(id),
+                    ) => MirDataRelocationTarget::Local {
+                        routine: owner.expect("verified local data relocation has an owner"),
+                        id,
+                    },
+                    crate::nir::NirDataRelocationTarget::Storage(
+                        crate::nir::NirStorageId::Param(id),
+                    ) => MirDataRelocationTarget::Param {
+                        routine: owner.expect("verified parameter data relocation has an owner"),
+                        id,
+                    },
+                    crate::nir::NirDataRelocationTarget::Routine(id) => {
+                        MirDataRelocationTarget::Routine(RoutineId(id))
+                    }
+                    crate::nir::NirDataRelocationTarget::Absolute(address) => {
+                        MirDataRelocationTarget::Absolute(address)
+                    }
+                },
+                addend: relocation.addend,
+                span: relocation.span,
             })
-        })
+            .collect(),
+    }
 }
 
 #[derive(Debug, Clone)]

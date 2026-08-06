@@ -4,12 +4,12 @@ use super::abi::{action_arg_home, action_arg_width_bytes};
 use super::analysis::effects::{MirHomeByte, classify_op};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCondDest, MirDef, MirEdge, MirFrame,
-    MirGlobal, MirGlobalInit, MirMachineBlockId, MirMem, MirOp, MirPhase, MirPointerPair,
-    MirProgram, MirReg, MirRoutine, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit,
-    MirTerminator, MirValue, RoutineId,
+    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCondDest, MirDataImage,
+    MirDataRelocationTarget, MirDef, MirEdge, MirFrame, MirGlobal, MirGlobalInit,
+    MirMachineBlockId, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
+    MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator, MirValue, RoutineId,
 };
-use crate::nir::SymbolId;
+use crate::nir::{LocalId, ParamId, SymbolId};
 
 pub(super) fn verify_program(
     program: &MirProgram,
@@ -18,6 +18,10 @@ pub(super) fn verify_program(
     let mut verifier = MirVerifier {
         diagnostics: Vec::new(),
         phase,
+        global_ids: BTreeSet::new(),
+        routine_ids: BTreeSet::new(),
+        local_ids: BTreeSet::new(),
+        param_ids: BTreeSet::new(),
     };
     verifier.verify_program(program);
     if verifier.diagnostics.is_empty() {
@@ -30,6 +34,10 @@ pub(super) fn verify_program(
 struct MirVerifier {
     diagnostics: Vec<MirDiagnostic>,
     phase: MirPhase,
+    global_ids: BTreeSet<SymbolId>,
+    routine_ids: BTreeSet<RoutineId>,
+    local_ids: BTreeSet<(RoutineId, LocalId)>,
+    param_ids: BTreeSet<(RoutineId, ParamId)>,
 }
 
 impl MirVerifier {
@@ -60,6 +68,40 @@ impl MirVerifier {
             .iter()
             .map(|global| global.id)
             .collect::<BTreeSet<_>>();
+        self.global_ids = global_ids.clone();
+        self.routine_ids = program.routines.iter().map(|routine| routine.id).collect();
+        self.local_ids = program
+            .routines
+            .iter()
+            .flat_map(|routine| {
+                routine
+                    .frame
+                    .locals
+                    .iter()
+                    .filter_map(move |slot| match slot.base {
+                        MirStorageBase::Local(id) | MirStorageBase::LocalAlias { id, .. } => {
+                            Some((routine.id, id))
+                        }
+                        _ => None,
+                    })
+            })
+            .collect();
+        self.param_ids = program
+            .routines
+            .iter()
+            .flat_map(|routine| {
+                routine
+                    .frame
+                    .params
+                    .iter()
+                    .filter_map(move |slot| match slot.base {
+                        MirStorageBase::Param(id) | MirStorageBase::ParamAbiOnly(id) => {
+                            Some((routine.id, id))
+                        }
+                        _ => None,
+                    })
+            })
+            .collect();
         for global in &program.globals {
             if global.name.is_empty() {
                 self.diagnostics.push(MirDiagnostic::routine(
@@ -84,6 +126,10 @@ impl MirVerifier {
                     format!("static `s{}` has zero alignment", static_data.id.0),
                 ));
             }
+            self.verify_data_image(
+                &format!("static `s{}`", static_data.id.0),
+                &static_data.image,
+            );
         }
         let all_routine_ids = program
             .routines
@@ -136,7 +182,7 @@ impl MirVerifier {
     fn verify_global_init(&mut self, global: &MirGlobal, init: &MirGlobalInit) {
         match init {
             MirGlobalInit::Bytes {
-                bytes,
+                image,
                 zero_fill,
                 section,
                 ..
@@ -147,7 +193,8 @@ impl MirVerifier {
                         format!("global `g{}` init section must not be empty", global.id.0),
                     ));
                 }
-                if (bytes.len() as u16).saturating_add(*zero_fill) < global.storage_size {
+                self.verify_data_image(&format!("global `g{}`", global.id.0), image);
+                if (image.bytes.len() as u16).saturating_add(*zero_fill) < global.storage_size {
                     self.diagnostics.push(MirDiagnostic::routine(
                         "globals",
                         format!(
@@ -181,7 +228,11 @@ impl MirVerifier {
                         ),
                     ));
                 }
-                if backing.bytes.is_empty() && backing.zero_fill == 0 {
+                self.verify_data_image(
+                    &format!("global `g{}` descriptor backing", global.id.0),
+                    &backing.image,
+                );
+                if backing.image.bytes.is_empty() && backing.zero_fill == 0 {
                     self.diagnostics.push(MirDiagnostic::routine(
                         "globals",
                         format!("global `g{}` descriptor backing is empty", global.id.0),
@@ -549,7 +600,16 @@ impl MirVerifier {
 
     fn verify_storage_init(&mut self, routine: &str, slot: &str, init: &MirStorageInit) {
         match init {
-            MirStorageInit::Bytes { section, .. } | MirStorageInit::ZeroFill { section, .. } => {
+            MirStorageInit::Bytes { image, section, .. } => {
+                if section.is_empty() {
+                    self.diagnostics.push(MirDiagnostic::routine(
+                        routine,
+                        format!("storage `{slot}` init section must not be empty"),
+                    ));
+                }
+                self.verify_data_image(&format!("storage `{slot}` in `{routine}`"), image);
+            }
+            MirStorageInit::ZeroFill { section, .. } => {
                 if section.is_empty() {
                     self.diagnostics.push(MirDiagnostic::routine(
                         routine,
@@ -571,7 +631,11 @@ impl MirVerifier {
                         ),
                     ));
                 }
-                if backing.bytes.is_empty() && backing.zero_fill == 0 {
+                self.verify_data_image(
+                    &format!("storage `{slot}` descriptor backing in `{routine}`"),
+                    &backing.image,
+                );
+                if backing.image.bytes.is_empty() && backing.zero_fill == 0 {
                     self.diagnostics.push(MirDiagnostic::routine(
                         routine,
                         format!("storage `{slot}` descriptor backing is empty"),
@@ -604,6 +668,73 @@ impl MirVerifier {
                         format!("storage `{slot}` routine address init section must not be empty"),
                     ));
                 }
+            }
+        }
+    }
+
+    fn verify_data_image(&mut self, owner: &str, image: &MirDataImage) {
+        let mut occupied = vec![false; image.bytes.len()];
+        for relocation in &image.relocations {
+            let width = relocation.kind.width();
+            let start = usize::from(relocation.offset);
+            let end = start.saturating_add(usize::from(width));
+            if end > image.bytes.len() {
+                self.diagnostics.push(MirDiagnostic::routine(
+                    "data",
+                    format!(
+                        "{owner} relocation at {} with width {width} exceeds {} initialized bytes",
+                        relocation.offset,
+                        image.bytes.len()
+                    ),
+                ));
+                continue;
+            }
+            if occupied[start..end].iter().any(|occupied| *occupied) {
+                self.diagnostics.push(MirDiagnostic::routine(
+                    "data",
+                    format!(
+                        "{owner} has overlapping relocation at {}",
+                        relocation.offset
+                    ),
+                ));
+            }
+            occupied[start..end].fill(true);
+            if !(-65535..=65535).contains(&relocation.addend) {
+                self.diagnostics.push(MirDiagnostic::routine(
+                    "data",
+                    format!(
+                        "{owner} relocation addend {} is outside the supported 16-bit address range",
+                        relocation.addend
+                    ),
+                ));
+            }
+            let target_exists = match relocation.target {
+                MirDataRelocationTarget::Global(id) => self.global_ids.contains(&id),
+                MirDataRelocationTarget::Local { routine, id } => {
+                    self.local_ids.contains(&(routine, id))
+                }
+                MirDataRelocationTarget::Param { routine, id } => {
+                    self.param_ids.contains(&(routine, id))
+                }
+                MirDataRelocationTarget::Routine(id) => self.routine_ids.contains(&id),
+                MirDataRelocationTarget::Absolute(address) => {
+                    let value = i32::from(address).saturating_add(relocation.addend);
+                    if !(0..=i32::from(u16::MAX)).contains(&value) {
+                        self.diagnostics.push(MirDiagnostic::routine(
+                            "data",
+                            format!(
+                                "{owner} absolute relocation result is outside the 16-bit address range"
+                            ),
+                        ));
+                    }
+                    true
+                }
+            };
+            if !target_exists {
+                self.diagnostics.push(MirDiagnostic::routine(
+                    "data",
+                    format!("{owner} relocation references an unknown target"),
+                ));
             }
         }
     }

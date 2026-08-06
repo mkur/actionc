@@ -1336,10 +1336,7 @@ fn apply_structured_effects(
     }
 }
 
-fn record_structured_fixed_zp_homes(
-    effect: &MirMemoryEffect,
-    homes: &mut BTreeSet<MirHomeByte>,
-) {
+fn record_structured_fixed_zp_homes(effect: &MirMemoryEffect, homes: &mut BTreeSet<MirHomeByte>) {
     let MirMemoryEffect::Regions(regions) = effect else {
         return;
     };
@@ -1349,9 +1346,7 @@ fn record_structured_fixed_zp_homes(
     {
         let end = region.offset.saturating_add(region.size).min(0x100);
         for address in region.offset.min(0x100)..end {
-            homes.insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(
-                address as u8,
-            )));
+            homes.insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(address as u8)));
         }
     }
 }

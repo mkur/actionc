@@ -15,12 +15,12 @@ use super::builtin::{MirBuiltinResolution, resolve_builtin_target};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCallTarget, MirCarryIn,
-    MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirEffects, MirFixedZpSlot, MirFlagTest,
-    MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom, MirMachineByteSelector,
-    MirMachineItem, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
-    MirRuntimeHelperTarget, MirSpillId, MirStorageBase, MirStorageClass, MirStorageId,
-    MirStorageInit, MirStorageSlot, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth,
-    MirZpSlot, RoutineId,
+    MirCompareOp, MirCond, MirCondDest, MirDataImage, MirDef, MirEdge, MirEffects, MirFixedZpSlot,
+    MirFlagTest, MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom,
+    MirMachineByteSelector, MirMachineItem, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram,
+    MirReg, MirRoutine, MirRuntimeHelperTarget, MirSpillId, MirStorageBase, MirStorageClass,
+    MirStorageId, MirStorageInit, MirStorageSlot, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue,
+    MirWidth, MirZpSlot, RoutineId,
 };
 use super::verify;
 
@@ -586,7 +586,7 @@ impl MirObjectLayout {
             }
         }
         for static_data in &mir.statics {
-            let size = static_data.bytes.len() as u16;
+            let size = static_data.image.bytes.len() as u16;
             layout.storage_items.push(MirStorageItem::Static {
                 id: static_data.id,
                 address: cursor,
@@ -1024,7 +1024,7 @@ fn logical_slot_size(slot: &MirStorageSlot, object_size: u16) -> u16 {
 fn global_descriptor_backing_size(init: &MirGlobalInit) -> Option<u16> {
     match init {
         MirGlobalInit::Descriptor { backing, .. } => {
-            Some((backing.bytes.len() as u16).saturating_add(backing.zero_fill))
+            Some((backing.image.bytes.len() as u16).saturating_add(backing.zero_fill))
         }
         _ => None,
     }
@@ -1045,7 +1045,7 @@ fn global_descriptor_size(init: &MirGlobalInit) -> Option<u16> {
 fn slot_descriptor_backing_size(init: &MirStorageInit) -> Option<u16> {
     match init {
         MirStorageInit::Descriptor { backing, .. } => {
-            Some((backing.bytes.len() as u16).saturating_add(backing.zero_fill))
+            Some((backing.image.bytes.len() as u16).saturating_add(backing.zero_fill))
         }
         _ => None,
     }
@@ -1071,17 +1071,19 @@ fn fixed_machine_alias(slot: &MirStorageSlot) -> Option<u16> {
         return None;
     }
     let Some(MirStorageInit::Bytes {
-        bytes, zero_fill, ..
+        image, zero_fill, ..
     }) = &slot.init
     else {
         return None;
     };
-    if *zero_fill != 0 {
+    if *zero_fill != 0 || !image.relocations.is_empty() {
         return None;
     }
     match slot.width {
-        MirWidth::Byte => bytes.first().copied().map(u16::from),
-        MirWidth::Word if bytes.len() >= 2 => Some(u16::from_le_bytes([bytes[0], bytes[1]])),
+        MirWidth::Byte => image.bytes.first().copied().map(u16::from),
+        MirWidth::Word if image.bytes.len() >= 2 => {
+            Some(u16::from_le_bytes([image.bytes[0], image.bytes[1]]))
+        }
         MirWidth::Word => None,
     }
 }
@@ -1093,8 +1095,8 @@ fn is_deferred_local_array_slot(slot: &MirStorageSlot, size: u16) -> bool {
     match &slot.init {
         Some(MirStorageInit::ZeroFill { .. }) => true,
         Some(MirStorageInit::Bytes {
-            bytes, zero_fill, ..
-        }) => size > 0x0100 && bytes.is_empty() && *zero_fill > 0,
+            image, zero_fill, ..
+        }) => size > 0x0100 && image.bytes.is_empty() && *zero_fill > 0,
         _ => false,
     }
 }
@@ -1106,12 +1108,16 @@ fn is_deferred_global_array(global: &super::ir::MirGlobal, size: u16) -> bool {
     let (array, mutable, uninitialized) = match &global.init {
         Some(MirGlobalInit::ZeroFill { array, mutable, .. }) => (array.as_ref(), *mutable, true),
         Some(MirGlobalInit::Bytes {
-            bytes,
+            image,
             zero_fill,
             mutable,
             array,
             ..
-        }) => (array.as_ref(), *mutable, bytes.is_empty() && *zero_fill > 0),
+        }) => (
+            array.as_ref(),
+            *mutable,
+            image.bytes.is_empty() && *zero_fill > 0,
+        ),
         _ => return false,
     };
     let Some(array) = array else {
@@ -1134,10 +1140,13 @@ fn is_deferred_global_array(global: &super::ir::MirGlobal, size: u16) -> bool {
 }
 
 fn machine_caret_global_value(global: &super::ir::MirGlobal) -> Option<u16> {
-    let MirGlobalInit::Bytes { bytes, .. } = global.init.as_ref()? else {
+    let MirGlobalInit::Bytes { image, .. } = global.init.as_ref()? else {
         return None;
     };
-    let [low, high, ..] = bytes.as_slice() else {
+    if !image.relocations.is_empty() {
+        return None;
+    }
+    let [low, high, ..] = image.bytes.as_slice() else {
         return None;
     };
     Some(u16::from_le_bytes([*low, *high]))
@@ -1175,9 +1184,7 @@ fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut NativeTrackedEmitter
                     );
                     continue;
                 };
-                for byte in &static_data.bytes {
-                    emitter.emit_u8(*byte);
-                }
+                emit_unresolved_data_image(ctx, &static_data.image, emitter);
             }
             MirStorageItem::RoutineSlot {
                 routine,
@@ -1237,6 +1244,24 @@ fn emit_storage_init(
     }
 }
 
+fn emit_unresolved_data_image(
+    ctx: &mut MirEmitContext<'_>,
+    image: &MirDataImage,
+    emitter: &mut NativeTrackedEmitter,
+) {
+    if !image.relocations.is_empty() {
+        unsupported_message(
+            None,
+            None,
+            "relocatable MIR data images require final-layout fixup emission",
+            &mut ctx.diagnostics,
+        );
+    }
+    for byte in &image.bytes {
+        emitter.emit_u8(*byte);
+    }
+}
+
 trait StorageInitView {
     fn emit(&self, ctx: &mut MirEmitContext<'_>, emitter: &mut NativeTrackedEmitter);
     fn object_size(&self, storage_size: u16) -> u16;
@@ -1246,11 +1271,9 @@ impl StorageInitView for MirGlobalInit {
     fn emit(&self, ctx: &mut MirEmitContext<'_>, emitter: &mut NativeTrackedEmitter) {
         match self {
             MirGlobalInit::Bytes {
-                bytes, zero_fill, ..
+                image, zero_fill, ..
             } => {
-                for byte in bytes {
-                    emitter.emit_u8(*byte);
-                }
+                emit_unresolved_data_image(ctx, image, emitter);
                 emitter.emit_zeroes(*zero_fill);
             }
             MirGlobalInit::ZeroFill { bytes, .. } => emitter.emit_zeroes(*bytes),
@@ -1263,11 +1286,10 @@ impl StorageInitView for MirGlobalInit {
                 size_word,
                 ..
             } => {
-                for byte in &backing.bytes {
-                    emitter.emit_u8(*byte);
-                }
+                emit_unresolved_data_image(ctx, &backing.image, emitter);
                 emitter.emit_zeroes(backing.zero_fill);
-                let backing_size = (backing.bytes.len() as u16).saturating_add(backing.zero_fill);
+                let backing_size =
+                    (backing.image.bytes.len() as u16).saturating_add(backing.zero_fill);
                 let backing_address = ctx
                     .origin
                     .saturating_add(emitter.position() as u16)
@@ -1304,8 +1326,8 @@ impl StorageInitView for MirGlobalInit {
     fn object_size(&self, storage_size: u16) -> u16 {
         match self {
             MirGlobalInit::Bytes {
-                bytes, zero_fill, ..
-            } => (bytes.len() as u16)
+                image, zero_fill, ..
+            } => (image.bytes.len() as u16)
                 .saturating_add(*zero_fill)
                 .max(storage_size),
             MirGlobalInit::ZeroFill { bytes, .. } => (*bytes).max(storage_size),
@@ -1314,7 +1336,7 @@ impl StorageInitView for MirGlobalInit {
                 backing,
                 descriptor_size,
                 ..
-            } => (backing.bytes.len() as u16)
+            } => (backing.image.bytes.len() as u16)
                 .saturating_add(backing.zero_fill)
                 .saturating_add(*descriptor_size)
                 .max(storage_size),
@@ -1329,11 +1351,9 @@ impl StorageInitView for MirStorageInit {
     fn emit(&self, ctx: &mut MirEmitContext<'_>, emitter: &mut NativeTrackedEmitter) {
         match self {
             MirStorageInit::Bytes {
-                bytes, zero_fill, ..
+                image, zero_fill, ..
             } => {
-                for byte in bytes {
-                    emitter.emit_u8(*byte);
-                }
+                emit_unresolved_data_image(ctx, image, emitter);
                 emitter.emit_zeroes(*zero_fill);
             }
             MirStorageInit::ZeroFill { bytes, .. } => emitter.emit_zeroes(*bytes),
@@ -1343,11 +1363,10 @@ impl StorageInitView for MirStorageInit {
                 size_word,
                 ..
             } => {
-                for byte in &backing.bytes {
-                    emitter.emit_u8(*byte);
-                }
+                emit_unresolved_data_image(ctx, &backing.image, emitter);
                 emitter.emit_zeroes(backing.zero_fill);
-                let backing_size = (backing.bytes.len() as u16).saturating_add(backing.zero_fill);
+                let backing_size =
+                    (backing.image.bytes.len() as u16).saturating_add(backing.zero_fill);
                 let backing_address = ctx
                     .origin
                     .saturating_add(emitter.position() as u16)
@@ -1380,8 +1399,8 @@ impl StorageInitView for MirStorageInit {
     fn object_size(&self, storage_size: u16) -> u16 {
         match self {
             MirStorageInit::Bytes {
-                bytes, zero_fill, ..
-            } => (bytes.len() as u16)
+                image, zero_fill, ..
+            } => (image.bytes.len() as u16)
                 .saturating_add(*zero_fill)
                 .max(storage_size),
             MirStorageInit::ZeroFill { bytes, .. } => (*bytes).max(storage_size),
@@ -1389,7 +1408,7 @@ impl StorageInitView for MirStorageInit {
                 backing,
                 descriptor_size,
                 ..
-            } => (backing.bytes.len() as u16)
+            } => (backing.image.bytes.len() as u16)
                 .saturating_add(backing.zero_fill)
                 .saturating_add(*descriptor_size)
                 .max(storage_size),

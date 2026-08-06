@@ -45,11 +45,51 @@ pub struct MirStatic {
     pub id: SymbolId,
     pub name: String,
     pub ty: String,
-    pub bytes: Vec<u8>,
+    pub image: MirDataImage,
     pub display: String,
     pub alignment: u16,
     pub mutable: bool,
     pub section: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct MirDataImage {
+    pub bytes: Vec<u8>,
+    pub relocations: Vec<MirDataRelocation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MirDataRelocation {
+    pub offset: u16,
+    pub kind: MirDataRelocationKind,
+    pub target: MirDataRelocationTarget,
+    pub addend: i32,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MirDataRelocationKind {
+    Low8,
+    High8,
+    Word16,
+}
+
+impl MirDataRelocationKind {
+    pub fn width(self) -> u16 {
+        match self {
+            Self::Low8 | Self::High8 => 1,
+            Self::Word16 => 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MirDataRelocationTarget {
+    Global(SymbolId),
+    Local { routine: RoutineId, id: LocalId },
+    Param { routine: RoutineId, id: ParamId },
+    Routine(RoutineId),
+    Absolute(u16),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,7 +121,7 @@ pub enum MirGlobalBacking {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MirGlobalInit {
     Bytes {
-        bytes: Vec<u8>,
+        image: MirDataImage,
         zero_fill: u16,
         mutable: bool,
         section: String,
@@ -116,7 +156,7 @@ pub enum MirGlobalInit {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirDataBacking {
     pub owner: SymbolId,
-    pub bytes: Vec<u8>,
+    pub image: MirDataImage,
     pub zero_fill: u16,
     pub section: String,
 }
@@ -259,7 +299,7 @@ pub enum MirStorageClass {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MirStorageInit {
     Bytes {
-        bytes: Vec<u8>,
+        image: MirDataImage,
         zero_fill: u16,
         mutable: bool,
         section: String,
@@ -287,7 +327,7 @@ pub enum MirStorageInit {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirStorageBacking {
-    pub bytes: Vec<u8>,
+    pub image: MirDataImage,
     pub zero_fill: u16,
     pub section: String,
 }

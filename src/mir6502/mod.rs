@@ -17,7 +17,8 @@ pub use diagnostics::MirDiagnostic;
 pub use ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam,
     MirCallAbi, MirCallArg, MirCallResult, MirCallTarget, MirCarryIn, MirCarryOut, MirCompareOp,
-    MirCond, MirCondDest, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFlag,
+    MirCond, MirCondDest, MirDataImage, MirDataRelocation, MirDataRelocationKind,
+    MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFlag,
     MirFlagTest, MirFrame, MirGlobal, MirGlobalBacking, MirLabel, MirMachineBlockId, MirMem,
     MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase,
     MirPointerPair, MirProgram, MirReg, MirRegisterSet, MirResultHome, MirRoutine, MirRoutineAbi,
@@ -5207,7 +5208,10 @@ mod tests {
                     id: SymbolId(0),
                     name: "__str".to_string(),
                     ty: "Char*".to_string(),
-                    bytes: b"HI\0".to_vec(),
+                    image: MirDataImage {
+                        bytes: b"HI\0".to_vec(),
+                        relocations: Vec::new(),
+                    },
                     display: "\"HI\"".to_string(),
                     alignment: 1,
                     mutable: false,
@@ -5842,7 +5846,10 @@ mod tests {
                 id: SymbolId(0),
                 name: "s".to_string(),
                 ty: "Byte[]".to_string(),
-                bytes: vec![1, 2, 3],
+                image: MirDataImage {
+                    bytes: vec![1, 2, 3],
+                    relocations: Vec::new(),
+                },
                 display: "[$01,$02,$03]".to_string(),
                 alignment: 1,
                 mutable: false,
@@ -6322,7 +6329,10 @@ mod tests {
                     storage_size: 2,
                     backing: MirGlobalBacking::Ordinary { offset: 0 },
                     init: Some(MirGlobalInit::Bytes {
-                        bytes: vec![0x34, 0x12],
+                        image: MirDataImage {
+                            bytes: vec![0x34, 0x12],
+                            relocations: Vec::new(),
+                        },
                         zero_fill: 0,
                         mutable: true,
                         section: "data".to_string(),
@@ -6469,7 +6479,10 @@ mod tests {
                 storage_size: 4,
                 backing: MirGlobalBacking::Ordinary { offset: 0 },
                 init: Some(MirGlobalInit::Bytes {
-                    bytes: vec![1, 2, 3, 4],
+                    image: MirDataImage {
+                        bytes: vec![1, 2, 3, 4],
+                        relocations: Vec::new(),
+                    },
                     zero_fill: 0,
                     mutable: true,
                     section: "data".to_string(),
@@ -10100,6 +10113,62 @@ mod tests {
             "skipped ranges must not overlap final code: emitted_end=${emitted_end:04X}, skipped={:?}",
             output.skipped_ranges
         );
+    }
+
+    #[test]
+    fn nir_data_relocations_lower_to_stable_mir_targets() {
+        let source = "BYTE ARRAY dlist(3)=[$41 <dlist >dlist] CARD ARRAY handlers(1)=[@Draw] PROC Draw() RETURN";
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze(&program).expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir = crate::nir::lower_program(&semir);
+        let mir = lower_program(&nir).expect("lower relocatable MIR data");
+
+        verify_program(&mir, MirPhase::PreMaterialization).expect("verify MIR relocations");
+        let dlist = mir
+            .globals
+            .iter()
+            .find(|global| global.name == "dlist")
+            .expect("dlist global");
+        let Some(MirGlobalInit::Bytes { image, .. }) = &dlist.init else {
+            panic!("expected dlist data image");
+        };
+        assert_eq!(image.bytes, [0x41, 0, 0]);
+        assert!(matches!(
+            image.relocations.as_slice(),
+            [
+                MirDataRelocation {
+                    kind: MirDataRelocationKind::Low8,
+                    target: MirDataRelocationTarget::Global(id0),
+                    ..
+                },
+                MirDataRelocation {
+                    kind: MirDataRelocationKind::High8,
+                    target: MirDataRelocationTarget::Global(id1),
+                    ..
+                }
+            ] if id0 == id1 && *id0 == dlist.id
+        ));
+        let handlers = mir
+            .globals
+            .iter()
+            .find(|global| global.name == "handlers")
+            .expect("handlers global");
+        let Some(MirGlobalInit::Descriptor { backing, .. }) = &handlers.init else {
+            panic!("expected handler descriptor");
+        };
+        assert!(matches!(
+            backing.image.relocations.as_slice(),
+            [MirDataRelocation {
+                kind: MirDataRelocationKind::Word16,
+                target: MirDataRelocationTarget::Routine(RoutineId(0)),
+                ..
+            }]
+        ));
+        let printed = format_program(&mir);
+        assert!(printed.contains("relocs=[1:lo(g"), "{printed}");
+        assert!(printed.contains("word(r0)"), "{printed}");
     }
 
     #[test]

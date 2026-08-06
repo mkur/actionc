@@ -910,9 +910,7 @@ fn word_rsh8_high_projection_at(
     routine_id: RoutineId,
     layout: &MaterializeLayout,
 ) -> Option<Vec<MirOp>> {
-    if load_a_const_u8(ops.get(index)?)? != 8
-        || fixed_store_a_byte(ops.get(index + 1)?)? != 0x84
-    {
+    if load_a_const_u8(ops.get(index)?)? != 8 || fixed_store_a_byte(ops.get(index + 1)?)? != 0x84 {
         return None;
     }
     let source_lo = load_a_direct_byte(ops.get(index + 2)?)?;
@@ -988,12 +986,9 @@ fn mem_may_overlap_fixed_range(
 ) -> bool {
     match mem {
         MirMem::ZeroPage(_) => true,
-        MirMem::FixedZeroPage(slot) => super::memory::ranges_overlap(
-            u16::from(slot.0),
-            1,
-            u16::from(start),
-            size,
-        ),
+        MirMem::FixedZeroPage(slot) => {
+            super::memory::ranges_overlap(u16::from(slot.0), 1, u16::from(start), size)
+        }
         _ => layout.mem_address(routine_id, mem).is_some_and(|address| {
             super::memory::ranges_overlap(address, 1, u16::from(start), size)
         }),

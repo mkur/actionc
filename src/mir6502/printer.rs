@@ -2,9 +2,10 @@ use std::fmt::Write as _;
 
 use super::ir::{
     MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirCallTarget, MirCarryIn, MirCarryOut,
-    MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirFlagTest, MirGlobalBacking,
-    MirGlobalInit, MirMem, MirMemoryEffect, MirOp, MirPointerPair, MirProgram, MirReg,
-    MirResultHome, MirRuntimeHelper, MirStorageInit, MirTerminator, MirUnaryOp, MirValue, MirWidth,
+    MirCompareOp, MirCond, MirCondDest, MirDataImage, MirDataRelocationKind,
+    MirDataRelocationTarget, MirDef, MirEdge, MirFlagTest, MirGlobalBacking, MirGlobalInit, MirMem,
+    MirMemoryEffect, MirOp, MirPointerPair, MirProgram, MirReg, MirResultHome, MirRuntimeHelper,
+    MirStorageInit, MirTerminator, MirUnaryOp, MirValue, MirWidth,
 };
 
 pub(super) fn format_program(program: &MirProgram) -> String {
@@ -30,6 +31,7 @@ pub(super) fn format_program(program: &MirProgram) -> String {
     }
     for static_data in &program.statics {
         let bytes = static_data
+            .image
             .bytes
             .iter()
             .map(|byte| format!("${byte:02X}"))
@@ -37,11 +39,12 @@ pub(super) fn format_program(program: &MirProgram) -> String {
             .join(" ");
         let _ = writeln!(
             out,
-            "static s{} {}: {} bytes [{}] section={} align={} mutable={} display={:?}",
+            "static s{} {}: {} bytes [{}]{} section={} align={} mutable={} display={:?}",
             static_data.id.0,
             static_data.name,
             static_data.ty,
             bytes,
+            relocations_summary(&static_data.image),
             static_data.section,
             static_data.alignment,
             static_data.mutable,
@@ -100,14 +103,15 @@ pub(super) fn format_program(program: &MirProgram) -> String {
 fn global_init_summary(init: &MirGlobalInit) -> String {
     match init {
         MirGlobalInit::Bytes {
-            bytes,
+            image,
             zero_fill,
             mutable,
             section,
             ..
         } => format!(
-            " init bytes=[{}] zero_fill={} section={} mutable={}",
-            bytes_summary(bytes),
+            " init bytes=[{}]{} zero_fill={} section={} mutable={}",
+            bytes_summary(&image.bytes),
+            relocations_summary(image),
             zero_fill,
             section,
             mutable
@@ -119,10 +123,11 @@ fn global_init_summary(init: &MirGlobalInit) -> String {
             mutable,
             section,
         } => format!(
-            " init descriptor size={} backing=g{} bytes=[{}] zero_fill={} backing_section={} size_word={} section={} mutable={}",
+            " init descriptor size={} backing=g{} bytes=[{}]{} zero_fill={} backing_section={} size_word={} section={} mutable={}",
             descriptor_size,
             backing.owner.0,
-            bytes_summary(&backing.bytes),
+            bytes_summary(&backing.image.bytes),
+            relocations_summary(&backing.image),
             backing.zero_fill,
             backing.section,
             size_word
@@ -171,16 +176,53 @@ fn bytes_summary(bytes: &[u8]) -> String {
         .join(" ")
 }
 
+fn relocations_summary(image: &MirDataImage) -> String {
+    if image.relocations.is_empty() {
+        return String::new();
+    }
+    let relocations = image
+        .relocations
+        .iter()
+        .map(|relocation| {
+            let kind = match relocation.kind {
+                MirDataRelocationKind::Low8 => "lo",
+                MirDataRelocationKind::High8 => "hi",
+                MirDataRelocationKind::Word16 => "word",
+            };
+            let target = match relocation.target {
+                MirDataRelocationTarget::Global(id) => format!("g{}", id.0),
+                MirDataRelocationTarget::Local { routine, id } => {
+                    format!("r{}:l{}", routine.0, id.0)
+                }
+                MirDataRelocationTarget::Param { routine, id } => {
+                    format!("r{}:p{}", routine.0, id.0)
+                }
+                MirDataRelocationTarget::Routine(id) => format!("r{}", id.0),
+                MirDataRelocationTarget::Absolute(address) => format!("${address:04X}"),
+            };
+            let addend = match relocation.addend {
+                0 => String::new(),
+                value if value > 0 => format!("+{value}"),
+                value => value.to_string(),
+            };
+            format!("{}:{kind}({target}{addend})", relocation.offset)
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(" relocs=[{relocations}]")
+}
+
 fn storage_init_summary(init: &MirStorageInit) -> String {
     match init {
         MirStorageInit::Bytes {
-            bytes,
+            image,
             zero_fill,
             mutable,
             section,
         } => format!(
-            " init bytes=[{}] zero_fill={} section={} mutable={}",
-            bytes_summary(bytes),
+            " init bytes=[{}]{} zero_fill={} section={} mutable={}",
+            bytes_summary(&image.bytes),
+            relocations_summary(image),
             zero_fill,
             section,
             mutable
@@ -192,9 +234,10 @@ fn storage_init_summary(init: &MirStorageInit) -> String {
             mutable,
             section,
         } => format!(
-            " init descriptor size={} backing=local bytes=[{}] zero_fill={} backing_section={} size_word={} section={} mutable={}",
+            " init descriptor size={} backing=local bytes=[{}]{} zero_fill={} backing_section={} size_word={} section={} mutable={}",
             descriptor_size,
-            bytes_summary(&backing.bytes),
+            bytes_summary(&backing.image.bytes),
+            relocations_summary(&backing.image),
             backing.zero_fill,
             backing.section,
             size_word

@@ -41,8 +41,8 @@ impl MaterializeLayout {
             .iter()
             .map(|static_data| {
                 let start = static_base;
-                static_base = static_base.saturating_add(static_data.bytes.len() as u16);
-                (static_data.id, start, static_data.bytes.len() as u16)
+                static_base = static_base.saturating_add(static_data.image.bytes.len() as u16);
+                (static_data.id, start, static_data.image.bytes.len() as u16)
             })
             .collect();
         let mut cursor = static_base;
@@ -296,8 +296,8 @@ impl MaterializeLayout {
 fn global_init_object_size(init: &MirGlobalInit, storage_size: u16) -> u16 {
     match init {
         MirGlobalInit::Bytes {
-            bytes, zero_fill, ..
-        } => (bytes.len() as u16)
+            image, zero_fill, ..
+        } => (image.bytes.len() as u16)
             .saturating_add(*zero_fill)
             .max(storage_size),
         MirGlobalInit::ZeroFill { bytes, .. } => (*bytes).max(storage_size),
@@ -306,7 +306,7 @@ fn global_init_object_size(init: &MirGlobalInit, storage_size: u16) -> u16 {
             backing,
             descriptor_size,
             ..
-        } => (backing.bytes.len() as u16)
+        } => (backing.image.bytes.len() as u16)
             .saturating_add(backing.zero_fill)
             .saturating_add(*descriptor_size)
             .max(storage_size),
@@ -441,8 +441,8 @@ fn storage_slot_logical_size(slot: &MirStorageSlot) -> u16 {
 fn storage_init_object_size(init: &MirStorageInit, storage_size: u16) -> u16 {
     match init {
         MirStorageInit::Bytes {
-            bytes, zero_fill, ..
-        } => (bytes.len() as u16)
+            image, zero_fill, ..
+        } => (image.bytes.len() as u16)
             .saturating_add(*zero_fill)
             .max(storage_size),
         MirStorageInit::ZeroFill { bytes, .. } => (*bytes).max(storage_size),
@@ -450,7 +450,7 @@ fn storage_init_object_size(init: &MirStorageInit, storage_size: u16) -> u16 {
             backing,
             descriptor_size,
             ..
-        } => (backing.bytes.len() as u16)
+        } => (backing.image.bytes.len() as u16)
             .saturating_add(backing.zero_fill)
             .saturating_add(*descriptor_size)
             .max(storage_size),
