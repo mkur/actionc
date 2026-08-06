@@ -147,12 +147,39 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         self.emitter.emit_u16_label(label, span);
     }
 
+    pub(super) fn emit_raw_u16_label_offset(
+        &mut self,
+        label: impl Into<String>,
+        addend: i32,
+        span: Span,
+    ) {
+        self.emitter.emit_u16_label_offset(label, addend, span);
+    }
+
     pub(super) fn emit_raw_u8_label_low(&mut self, label: impl Into<String>, span: Span) {
         self.emitter.emit_u8_label_low(label, span);
     }
 
+    pub(super) fn emit_raw_u8_label_low_offset(
+        &mut self,
+        label: impl Into<String>,
+        addend: i32,
+        span: Span,
+    ) {
+        self.emitter.emit_u8_label_low_offset(label, addend, span);
+    }
+
     pub(super) fn emit_raw_u8_label_high(&mut self, label: impl Into<String>, span: Span) {
         self.emitter.emit_u8_label_high(label, span);
+    }
+
+    pub(super) fn emit_raw_u8_label_high_offset(
+        &mut self,
+        label: impl Into<String>,
+        addend: i32,
+        span: Span,
+    ) {
+        self.emitter.emit_u8_label_high_offset(label, addend, span);
     }
 
     pub(super) fn emit_raw_zeroes(&mut self, count: u16) {

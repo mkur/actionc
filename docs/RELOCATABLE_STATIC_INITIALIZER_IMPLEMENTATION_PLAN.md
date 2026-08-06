@@ -60,10 +60,9 @@ entire data image.
 
 ## Implementation slices
 
-Status as of 2026-08-06: slices 1-7 are implemented. Relocatable images are
-verifier-clean NIR and MIR6502 resolves them after final object layout; classic
-emission still diagnoses them until slice 8 is implemented. Numeric-only
-initializers continue through all backends unchanged.
+Status as of 2026-08-06: slices 1-8 are implemented. Relocatable images are
+verifier-clean NIR, and MIR6502 plus both classic paths resolve them after
+layout. Numeric-only initializers continue through all backends unchanged.
 
 ### Slice 1: stop silent initializer loss
 
@@ -129,6 +128,8 @@ Status: complete.
 - Support self references, forward references, fixed addresses, and addends.
 
 ### Slice 8: classic emission
+
+Status: complete.
 
 - Extend AST/classic and SemIR-native classic storage initializers with the
   same low/high/word fixups.

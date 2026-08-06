@@ -36,6 +36,7 @@ pub(super) fn generate_native_profile_with_origin(
 struct SemIrNativeEmitter<'a, 'm> {
     model: &'m SemIrReadModel<'a>,
     storage: HashMap<SymbolId, NativeStorageSlot>,
+    storage_data_targets: HashMap<SymbolId, MachineSymbolAddress>,
     machine_caret_values: HashMap<SymbolId, u16>,
     emitter: NativeTrackedEmitter,
     routine_addresses: Vec<RoutineAddress>,
@@ -138,6 +139,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         Self {
             model,
             storage: HashMap::new(),
+            storage_data_targets: HashMap::new(),
             machine_caret_values: HashMap::new(),
             emitter: NativeTrackedEmitter::with_origin(model.origin),
             routine_addresses: Vec::new(),
@@ -163,13 +165,14 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
 
     fn emit(mut self) -> Result<CodegenOutput, String> {
         self.validate_items()?;
-        self.emit_global_storage()?;
         self.ensure_routine_labels();
+        self.emit_global_storage()?;
         self.apply_runtime_helper_sets();
         self.emit_routines()?;
         self.apply_symbol_sets()?;
         self.emit_rts();
         let skipped_ranges = self.bind_array_backings()?;
+        self.bind_storage_data_labels()?;
 
         let bytes = self.emitter.finish().map_err(|diagnostics| {
             diagnostics
@@ -273,6 +276,63 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         Ok(skipped_ranges)
     }
 
+    fn bind_storage_data_labels(&mut self) -> Result<(), String> {
+        let mut targets = self.storage_data_targets.iter().collect::<Vec<_>>();
+        targets.sort_by_key(|(id, _)| id.0);
+        for (id, target) in targets {
+            let position = match target {
+                MachineSymbolAddress::Absolute(address) => {
+                    usize::from(address.wrapping_sub(self.model.origin))
+                }
+                MachineSymbolAddress::Label(label) => {
+                    self.emitter.label_position(label).ok_or_else(|| {
+                        format!("native storage backing label `{label}` is unresolved")
+                    })?
+                }
+            };
+            self.emitter
+                .bind_label_at_position(native_storage_label(*id), position, Span::new(0, 0))
+                .map_err(|diagnostic| diagnostic.message)?;
+        }
+        Ok(())
+    }
+
+    fn record_storage_data_target(
+        &mut self,
+        declaration: &SemDeclaration,
+        slot: &NativeStorageSlot,
+        backing_count_before: usize,
+    ) {
+        let target = match slot.array {
+            Some(NativeArrayStorage {
+                storage: CodegenArrayStorage::Descriptor,
+                ..
+            }) => self
+                .array_backings
+                .get(backing_count_before)
+                .map(|backing| MachineSymbolAddress::Label(backing.label.clone()))
+                .unwrap_or(MachineSymbolAddress::Absolute(slot.address)),
+            Some(NativeArrayStorage {
+                storage: CodegenArrayStorage::Pointer,
+                ..
+            }) => self
+                .machine_caret_values
+                .get(&declaration.symbol.id)
+                .copied()
+                .map(MachineSymbolAddress::Absolute)
+                .or_else(|| {
+                    declaration.initializer.as_ref().and_then(|initializer| {
+                        self.symbolic_array_address_initializer(initializer)
+                            .map(MachineSymbolAddress::Label)
+                    })
+                })
+                .unwrap_or(MachineSymbolAddress::Absolute(slot.address)),
+            _ => MachineSymbolAddress::Absolute(slot.address),
+        };
+        self.storage_data_targets
+            .insert(declaration.symbol.id, target);
+    }
+
     fn emit_global_storage(&mut self) -> Result<(), String> {
         for module in &self.model.program.modules {
             for item in &module.items {
@@ -360,6 +420,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
 
     fn emit_global_declaration(&mut self, declaration: &SemDeclaration) -> Result<(), String> {
         let source_start = self.current_address()?;
+        let backing_count_before = self.array_backings.len();
         let (address, slot) = match &declaration.storage {
             SemDeclarationStorage::Scalar => {
                 let width = self.native_sem_type_width(&declaration.ty).ok_or_else(|| {
@@ -386,6 +447,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             }
         };
         debug_assert_eq!(address, slot.address);
+        self.record_storage_data_target(declaration, &slot, backing_count_before);
         self.storage.insert(declaration.symbol.id, slot.clone());
         self.record_storage_symbol(
             declaration.symbol.name.clone(),
@@ -421,8 +483,23 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         record: Option<String>,
     ) -> Result<(u16, NativeStorageSlot), String> {
         if let Some(initializer) = &declaration.initializer {
+            let address = self.current_address()?;
+            if self
+                .emit_initializer_list_storage(initializer, width, Some(width))?
+                .is_some()
+            {
+                return Ok((
+                    address,
+                    NativeStorageSlot {
+                        address,
+                        width,
+                        array: None,
+                        pointee_width,
+                        record: record.clone(),
+                    },
+                ));
+            }
             if let Some(bytes) = raw_initializer_bytes(initializer, width)? {
-                let address = self.current_address()?;
                 self.emit_raw_bytes(bytes);
                 return Ok((
                     address,
@@ -489,7 +566,30 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         record: Option<String>,
     ) -> Result<(u16, NativeStorageSlot), String> {
         let bytes = if let Some(initializer) = &declaration.initializer {
-            if let Some(text) = string_initializer_bytes(initializer, explicit_len)? {
+            if let SemExprKind::InitializerList(elements) = &initializer.kind {
+                let address = self.current_address()?;
+                self.emit_initializer_list_storage(
+                    initializer,
+                    element_width,
+                    explicit_len.and_then(|len| len.checked_mul(element_width)),
+                )?
+                .expect("initializer-list branch must emit storage");
+                let len = explicit_len.unwrap_or(elements.len() as u16);
+                return Ok((
+                    address,
+                    NativeStorageSlot {
+                        address,
+                        width: element_width,
+                        array: Some(NativeArrayStorage {
+                            element_width,
+                            len,
+                            storage: CodegenArrayStorage::Inline,
+                        }),
+                        pointee_width: None,
+                        record,
+                    },
+                ));
+            } else if let Some(text) = string_initializer_bytes(initializer, explicit_len)? {
                 text
             } else if let Some(values) = raw_initializer_values(initializer)? {
                 numeric_storage_bytes(&values, element_width, explicit_len)
@@ -661,6 +761,118 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                 record,
             },
         ))
+    }
+
+    fn emit_initializer_list_storage(
+        &mut self,
+        expr: &SemExpr,
+        element_width: u16,
+        total_size: Option<u16>,
+    ) -> Result<Option<u16>, String> {
+        let SemExprKind::InitializerList(elements) = &expr.kind else {
+            return Ok(None);
+        };
+        if !matches!(element_width, 1 | 2) {
+            return Err("classic emission supports byte and word initializer elements".to_string());
+        }
+        let mut emitted = 0u16;
+        for element in elements {
+            match &element.kind {
+                SemInitializerElementKind::Literal { .. } => {
+                    let value = native_initializer_literal_value(element)?;
+                    self.emit_raw_u8(value as u8);
+                    if element_width == 2 {
+                        self.emit_raw_u8((value >> 8) as u8);
+                    }
+                }
+                SemInitializerElementKind::Address {
+                    selector,
+                    target,
+                    addend,
+                } => {
+                    let kind = match selector {
+                        Some(AddressByteSelector::Low) => StorageRelocationKind::Low8,
+                        Some(AddressByteSelector::High) => StorageRelocationKind::High8,
+                        None => StorageRelocationKind::Word16,
+                    };
+                    if kind.width() != element_width {
+                        return Err(format!(
+                            "initializer element `{}` has the wrong relocation width",
+                            element.text
+                        ));
+                    }
+                    self.emit_sem_data_relocation(kind, target, *addend, element.span)?;
+                }
+                SemInitializerElementKind::Invalid => {
+                    return Err(format!("invalid initializer element `{}`", element.text));
+                }
+            }
+            emitted = emitted.saturating_add(element_width);
+        }
+        let storage_size = total_size.unwrap_or(emitted).max(emitted);
+        self.emit_raw_zeroes(storage_size.saturating_sub(emitted));
+        Ok(Some(storage_size))
+    }
+
+    fn emit_sem_data_relocation(
+        &mut self,
+        kind: StorageRelocationKind,
+        target: &SemSymbolRef,
+        addend: i32,
+        span: Span,
+    ) -> Result<(), String> {
+        let resolved = if matches!(target.class, SymbolClass::Proc | SymbolClass::Func) {
+            self.model
+                .routines
+                .iter()
+                .find(|routine| routine.routine.symbol.id == target.id)
+                .and_then(|routine| routine.routine.system_address.as_ref())
+                .and_then(|address| self.constant_word(address))
+                .map(MachineSymbolAddress::Absolute)
+                .or_else(|| {
+                    self.routine_labels
+                        .get(&target.id)
+                        .cloned()
+                        .map(MachineSymbolAddress::Label)
+                })
+        } else {
+            self.storage_data_targets
+                .get(&target.id)
+                .cloned()
+                .or_else(|| {
+                    resident_variable(&target.name)
+                        .map(|variable| MachineSymbolAddress::Absolute(variable.address))
+                })
+                .or_else(|| Some(MachineSymbolAddress::Label(native_storage_label(target.id))))
+        };
+        match resolved {
+            Some(MachineSymbolAddress::Absolute(address)) => {
+                let value = i32::from(address)
+                    .checked_add(addend)
+                    .and_then(|value| u16::try_from(value).ok())
+                    .ok_or_else(|| {
+                        "static initializer address is outside the 16-bit address space".to_string()
+                    })?;
+                match kind {
+                    StorageRelocationKind::Low8 => self.emit_raw_u8(value as u8),
+                    StorageRelocationKind::High8 => self.emit_raw_u8((value >> 8) as u8),
+                    StorageRelocationKind::Word16 => self.emit_raw_u16_le(value),
+                }
+            }
+            Some(MachineSymbolAddress::Label(label)) => match kind {
+                StorageRelocationKind::Low8 => {
+                    self.emit_raw_u8_label_low_offset(label, addend, span)
+                }
+                StorageRelocationKind::High8 => {
+                    self.emit_raw_u8_label_high_offset(label, addend, span)
+                }
+                StorageRelocationKind::Word16 => {
+                    self.emit_raw_u16_label_offset(label, addend, span)
+                }
+            },
+            None => return Err(format!("unresolved initializer target `{}`", target.name)),
+        }
+        Ok(())
     }
 
     fn record_machine_caret_value(&mut self, declaration: &SemDeclaration, value: u16) {
@@ -889,6 +1101,10 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                 pointee_width: self.native_sem_pointee_width(&param.ty),
                 record,
             };
+            self.storage_data_targets.insert(
+                param.symbol.id,
+                MachineSymbolAddress::Absolute(slot.address),
+            );
             self.storage.insert(param.symbol.id, slot.clone());
             self.record_storage_symbol(
                 param.symbol.name.clone(),
@@ -910,6 +1126,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
     fn emit_local_storage(&mut self, routine: &SemRoutine) -> Result<(), String> {
         for local in &routine.locals {
             let source_start = self.current_address()?;
+            let backing_count_before = self.array_backings.len();
             let (address, slot) = match &local.storage {
                 SemDeclarationStorage::Scalar => {
                     let Some(width) = self.native_sem_type_width(&local.ty) else {
@@ -940,6 +1157,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                 }
             };
             debug_assert_eq!(address, slot.address);
+            self.record_storage_data_target(local, &slot, backing_count_before);
             self.storage.insert(local.symbol.id, slot.clone());
             self.record_storage_symbol(
                 local.symbol.name.clone(),
@@ -5735,6 +5953,10 @@ fn numeric_storage_bytes(values: &[u16], element_width: u16, explicit_len: Optio
         }
     }
     bytes
+}
+
+fn native_storage_label(id: SymbolId) -> String {
+    format!("semir_native:storage:{}", id.0)
 }
 
 fn string_initializer_bytes(

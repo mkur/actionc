@@ -468,13 +468,18 @@ impl Generator {
             .emitter
             .origin
             .wrapping_add(self.emitter.position() as u16);
-        let allocation = allocate_routine_symbols(
+        let mut allocation = allocate_routine_symbols(
             routine,
             storage_base,
             &self.record_layouts,
             !self.profile.enables_modern_optimizations(),
             &self.numeric_defines,
             &self.layout.symbols,
+        );
+        resolve_storage_initializer_targets(
+            &mut allocation.initializers,
+            &allocation.symbols,
+            &allocation.machine_symbol_addresses,
         );
         self.emit_storage_initializers_with_source(
             &allocation.initializers,

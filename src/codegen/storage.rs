@@ -73,7 +73,36 @@ pub(super) struct StorageLayout {
 pub(super) enum StorageInit {
     Byte(u8),
     LabelWord(String),
+    Relocation {
+        kind: StorageRelocationKind,
+        target: StorageRelocationTarget,
+        addend: i32,
+        span: Span,
+    },
     Skip(SkippedRange),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum StorageRelocationKind {
+    Low8,
+    High8,
+    Word16,
+}
+
+impl StorageRelocationKind {
+    pub(super) fn width(self) -> u16 {
+        match self {
+            Self::Low8 | Self::High8 => 1,
+            Self::Word16 => 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum StorageRelocationTarget {
+    Name(String),
+    Absolute(u16),
+    Label(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -353,19 +382,20 @@ impl StorageLayout {
             return;
         }
 
-        if let Some(bytes) = numeric_array_initializer_storage(entry, element_size) {
+        if let Some(initializers) = structured_array_initializer_storage(entry, element_size) {
+            let initialized_size = storage_initializers_size(&initializers);
             let len = array_len_with_defines(entry, numeric_defines)
-                .unwrap_or((bytes.len() as u16) / element_size);
-            let byte_size = element_size.saturating_mul(len).max(bytes.len() as u16);
+                .unwrap_or(initialized_size / element_size);
+            let byte_size = element_size.saturating_mul(len).max(initialized_size);
             if element_size == 1 && entry.size.is_some() {
-                let address = self.allocate_initialized_bytes(byte_size, &bytes);
+                let address = self.allocate_storage_initializers(byte_size, initializers);
                 self.symbols.insert(
                     name,
                     StorageSlot::array(address, element_size, ArrayStorage::Inline).signed(signed),
                 );
                 return;
             }
-            let backing_address = self.allocate_initialized_bytes(byte_size, &bytes);
+            let backing_address = self.allocate_storage_initializers(byte_size, initializers);
             let descriptor_address = self.next_address;
             let descriptor_size = if entry.size.is_some() { 4 } else { 2 };
             self.advance(descriptor_size);
@@ -484,6 +514,18 @@ impl StorageLayout {
         let padding = usize::from(size).saturating_sub(bytes.len());
         self.initializers
             .extend(std::iter::repeat_n(StorageInit::Byte(0), padding));
+        address
+    }
+
+    fn allocate_storage_initializers(&mut self, size: u16, initializers: Vec<StorageInit>) -> u16 {
+        let address = self.next_address;
+        self.advance(size);
+        let initialized_size = storage_initializers_size(&initializers);
+        self.initializers.extend(initializers);
+        self.initializers.extend(std::iter::repeat_n(
+            StorageInit::Byte(0),
+            usize::from(size.saturating_sub(initialized_size)),
+        ));
         address
     }
 
@@ -611,7 +653,7 @@ fn add_var_decl_to_routine_storage(
             .iter()
             .filter(|entry| {
                 entry.size.is_none()
-                    && numeric_array_initializer_storage(entry, element_size).is_some()
+                    && structured_array_initializer_storage(entry, element_size).is_some()
             })
             .count()
     } else {
@@ -646,11 +688,13 @@ fn add_var_decl_to_routine_storage(
             });
         if decl_is_array_like(decl)
             && element_size > 1
-            && let Some(bytes) = numeric_array_initializer_storage(entry, element_size)
+            && let Some(entry_initializers) =
+                structured_array_initializer_storage(entry, element_size)
         {
+            let initialized_size = storage_initializers_size(&entry_initializers);
             let len = array_len_with_defines(entry, numeric_defines)
-                .unwrap_or((bytes.len() as u16) / element_size);
-            let byte_size = element_size.saturating_mul(len).max(bytes.len() as u16);
+                .unwrap_or(initialized_size / element_size);
+            let byte_size = element_size.saturating_mul(len).max(initialized_size);
             if compatible_layout
                 && entry.size.is_none()
                 && local_unsized_initialized_word_array_count > 1
@@ -662,8 +706,8 @@ fn add_var_decl_to_routine_storage(
             local_unsized_initialized_word_array_seen |= entry.size.is_none();
             let backing_address = *next_address;
             *next_address = (*next_address).wrapping_add(byte_size);
-            initializers.extend(bytes.iter().copied().map(StorageInit::Byte));
-            let padding = usize::from(byte_size).saturating_sub(bytes.len());
+            initializers.extend(entry_initializers);
+            let padding = usize::from(byte_size.saturating_sub(initialized_size));
             initializers.extend(std::iter::repeat_n(StorageInit::Byte(0), padding));
 
             let descriptor_address = *next_address;
@@ -686,7 +730,7 @@ fn add_var_decl_to_routine_storage(
         }
         if decl_is_array_like(decl)
             && absolute_array_address_initializer(entry).is_none()
-            && numeric_array_initializer_storage(entry, element_size).is_none()
+            && structured_array_initializer_storage(entry, element_size).is_none()
             && string_initializer_storage(entry).is_none()
             && let Some(initializer) = &entry.initializer
             && let Some(target_address) = absolute_alias_initializer(symbols, initializer)
@@ -709,7 +753,7 @@ fn add_var_decl_to_routine_storage(
         }
         if decl_is_array_like(decl)
             && absolute_array_address_initializer(entry).is_none()
-            && numeric_array_initializer_storage(entry, element_size).is_none()
+            && structured_array_initializer_storage(entry, element_size).is_none()
             && string_initializer_storage(entry).is_none()
             && let Some(label) = symbolic_array_address_initializer(entry)
         {
@@ -728,7 +772,7 @@ fn add_var_decl_to_routine_storage(
         }
         let descriptor_backed_array = decl_is_array_like(decl)
             && !pointer_backed_array
-            && numeric_array_initializer_storage(entry, element_size).is_none()
+            && structured_array_initializer_storage(entry, element_size).is_none()
             && (element_size > 1 || large_uninitialized_byte_array);
         if descriptor_backed_array && let Some(len) = array_len_with_defines(entry, numeric_defines)
         {
@@ -774,7 +818,7 @@ fn add_var_decl_to_routine_storage(
         if decl_is_array_like(decl)
             && element_size == 1
             && string_initializer_storage(entry).is_none()
-            && numeric_array_initializer_storage(entry, element_size).is_none()
+            && structured_array_initializer_storage(entry, element_size).is_none()
             && let Some(len) = array_len_with_defines(entry, numeric_defines)
         {
             let skip_threshold = if compatible_layout { 0x0100 } else { 0x00FF };

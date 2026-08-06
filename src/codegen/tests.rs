@@ -475,6 +475,76 @@ fn compatible_sized_array_numeric_initializer_binds_absolute_address() {
 }
 
 #[test]
+fn classic_profiles_emit_relocatable_array_initializers() {
+    let source = "BYTE ARRAY dlist(4)=[$41 <dlist+2 >dlist $70] PROC Main() RETURN";
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        for origin in [0x3000, 0x4200] {
+            let output = generate_profile_source_with_origin(source, origin, profile).unwrap();
+            assert_eq!(
+                &output.bytes[..4],
+                &[
+                    0x41,
+                    origin.wrapping_add(2) as u8,
+                    (origin >> 8) as u8,
+                    0x70
+                ]
+            );
+        }
+    }
+}
+
+#[test]
+fn classic_profiles_resolve_forward_storage_and_routine_relocations() {
+    let source = "BYTE ARRAY refs(2)=[<later >later] BYTE ARRAY later(1)=[$AA] CARD ARRAY handlers(1)=[@Draw] PROC Draw() RETURN";
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
+        let later = storage_symbol(&output, CodegenSymbolScope::Global, "LATER");
+        let draw = output
+            .routine_addresses
+            .iter()
+            .find(|routine| routine.name == "Draw")
+            .unwrap();
+
+        assert_eq!(&output.bytes[..2], &later.address.to_le_bytes());
+        assert!(
+            output
+                .bytes
+                .windows(2)
+                .any(|bytes| bytes == draw.address.to_le_bytes())
+        );
+    }
+}
+
+#[test]
+fn semir_native_emits_relocatable_array_initializers() {
+    let source = "BYTE ARRAY dlist(4)=[$41 <dlist+2 >dlist $70] CARD ARRAY handlers(1)=[@Draw] PROC Draw() RETURN";
+    for origin in [0x3000, 0x4200] {
+        let output =
+            generate_semir_native_source_with_origin(source, origin, CodegenProfile::Modern)
+                .unwrap();
+        let draw = output
+            .routine_addresses
+            .iter()
+            .find(|routine| routine.name == "Draw")
+            .unwrap();
+
+        assert_eq!(
+            &output.bytes[..4],
+            &[
+                0x41,
+                origin.wrapping_add(2) as u8,
+                (origin >> 8) as u8,
+                0x70
+            ]
+        );
+        assert_eq!(
+            u16::from_le_bytes([output.bytes[4], output.bytes[5]]),
+            draw.address
+        );
+    }
+}
+
+#[test]
 fn compatible_large_sized_array_absolute_initializer_binds_base_address() {
     let output = generate_compatible_source_with_origin(
         "BYTE ARRAY allocbuf($800)=$2000 CARD POINTER allocp PROC Main() allocp=CARD POINTER(@allocbuf) RETURN",

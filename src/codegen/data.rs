@@ -16,6 +16,12 @@ impl Generator {
                 StorageInit::LabelWord(label) => {
                     self.emitter.emit_u16_label(label, Span::new(0, 0));
                 }
+                StorageInit::Relocation {
+                    kind,
+                    target,
+                    addend,
+                    span,
+                } => self.emit_storage_relocation(*kind, target, *addend, *span),
                 StorageInit::Skip(range) => {
                     self.skipped_ranges.push(*range);
                     self.record_declaration_storage_ranges(
@@ -45,6 +51,115 @@ impl Generator {
                 len: backing.size,
             });
             position = position.saturating_add(usize::from(backing.size));
+        }
+        self.bind_global_storage_labels();
+    }
+
+    fn emit_storage_relocation(
+        &mut self,
+        kind: StorageRelocationKind,
+        target: &StorageRelocationTarget,
+        addend: i32,
+        span: Span,
+    ) {
+        let resolved = match target {
+            StorageRelocationTarget::Absolute(address) => {
+                Some(MachineSymbolAddress::Absolute(*address))
+            }
+            StorageRelocationTarget::Label(label) => {
+                Some(MachineSymbolAddress::Label(label.clone()))
+            }
+            StorageRelocationTarget::Name(name) => self.resolve_storage_relocation_name(name),
+        };
+        match resolved {
+            Some(MachineSymbolAddress::Absolute(address)) => {
+                let value = i32::from(address)
+                    .checked_add(addend)
+                    .and_then(|value| u16::try_from(value).ok());
+                let Some(value) = value else {
+                    self.diagnostics.push(Diagnostic::new(
+                        span,
+                        "static initializer address is outside the 16-bit address space",
+                    ));
+                    self.emitter.emit_zeroes(kind.width());
+                    return;
+                };
+                match kind {
+                    StorageRelocationKind::Low8 => self.emitter.emit_u8(value as u8),
+                    StorageRelocationKind::High8 => self.emitter.emit_u8((value >> 8) as u8),
+                    StorageRelocationKind::Word16 => self.emitter.emit_u16_le(value),
+                }
+            }
+            Some(MachineSymbolAddress::Label(label)) => match kind {
+                StorageRelocationKind::Low8 => {
+                    self.emitter.emit_u8_label_low_offset(label, addend, span)
+                }
+                StorageRelocationKind::High8 => {
+                    self.emitter.emit_u8_label_high_offset(label, addend, span)
+                }
+                StorageRelocationKind::Word16 => {
+                    self.emitter.emit_u16_label_offset(label, addend, span)
+                }
+            },
+            None => {
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    "static initializer target cannot be resolved by classic emission",
+                ));
+                self.emitter.emit_zeroes(kind.width());
+            }
+        }
+    }
+
+    fn resolve_storage_relocation_name(&self, name: &str) -> Option<MachineSymbolAddress> {
+        let normalized = normalize_name(name);
+        if let Some(target) = self.layout.machine_symbol_addresses.get(&normalized) {
+            return Some(target.clone());
+        }
+        if let Some(slot) = self.layout.symbols.get(&normalized) {
+            return Some(MachineSymbolAddress::Absolute(slot.address));
+        }
+        if let Some(routine) = self.routines.get(&normalized) {
+            return Some(
+                routine
+                    .system_address
+                    .map(MachineSymbolAddress::Absolute)
+                    .unwrap_or_else(|| MachineSymbolAddress::Label(routine.label.clone())),
+            );
+        }
+        if let Some(variable) = resident_variable(name) {
+            return Some(MachineSymbolAddress::Absolute(variable.address));
+        }
+        Some(MachineSymbolAddress::Label(global_storage_label(name)))
+    }
+
+    fn bind_global_storage_labels(&mut self) {
+        let mut symbols = self.layout.symbols.iter().collect::<Vec<_>>();
+        symbols.sort_by(|(left, _), (right, _)| left.cmp(right));
+        for (name, slot) in symbols {
+            let position = match self.layout.machine_symbol_addresses.get(name) {
+                Some(MachineSymbolAddress::Absolute(address)) => {
+                    usize::from(address.wrapping_sub(self.emitter.origin))
+                }
+                Some(MachineSymbolAddress::Label(label)) => {
+                    let Some(position) = self.emitter.label_position(label) else {
+                        self.diagnostics.push(Diagnostic::new(
+                            Span::new(0, 0),
+                            format!("array backing label `{label}` is unresolved"),
+                        ));
+                        continue;
+                    };
+                    position
+                }
+                None => usize::from(slot.address.wrapping_sub(self.emitter.origin)),
+            };
+            if let Err(diagnostic) = self.emitter.bind_label_at_position(
+                global_storage_label(name),
+                position,
+                Span::new(0, 0),
+            ) {
+                self.diagnostics.push(diagnostic);
+            }
         }
     }
 
@@ -137,6 +252,36 @@ impl Generator {
         let literal_address = self.emit_string_literal_storage(text, span);
         self.emit_store_constant(slot, literal_address.address());
         true
+    }
+}
+
+fn global_storage_label(name: &str) -> String {
+    format!("storage:{}", normalize_name(name))
+}
+
+pub(super) fn resolve_storage_initializer_targets(
+    initializers: &mut [StorageInit],
+    symbols: &HashMap<String, StorageSlot>,
+    machine_symbols: &HashMap<String, MachineSymbolAddress>,
+) {
+    for initializer in initializers {
+        let StorageInit::Relocation { target, .. } = initializer else {
+            continue;
+        };
+        let StorageRelocationTarget::Name(name) = target else {
+            continue;
+        };
+        let normalized = normalize_name(name);
+        if let Some(machine) = machine_symbols.get(&normalized) {
+            *target = match machine {
+                MachineSymbolAddress::Absolute(address) => {
+                    StorageRelocationTarget::Absolute(*address)
+                }
+                MachineSymbolAddress::Label(label) => StorageRelocationTarget::Label(label.clone()),
+            };
+        } else if let Some(slot) = symbols.get(&normalized) {
+            *target = StorageRelocationTarget::Absolute(slot.address);
+        }
     }
 }
 
@@ -240,13 +385,14 @@ pub(super) fn array_byte_size_with_defines(
             numeric_defines,
         );
     }
-    if let Some(bytes) = numeric_array_initializer_storage(entry, element_size) {
+    if let Some(initializers) = structured_array_initializer_storage(entry, element_size) {
+        let initialized_size = storage_initializers_size(&initializers);
         return element_size
             .saturating_mul(
                 array_len_with_defines(entry, numeric_defines)
-                    .unwrap_or((bytes.len() as u16) / element_size),
+                    .unwrap_or(initialized_size / element_size),
             )
-            .max(bytes.len() as u16);
+            .max(initialized_size);
     }
     element_size.saturating_mul(array_len_with_defines(entry, numeric_defines).unwrap_or(1))
 }
@@ -260,7 +406,7 @@ pub(super) fn array_entry_is_unsized_pointer_with_defines(
         && absolute_array_address_initializer(entry).is_none()
         && symbolic_array_address_initializer(entry).is_none()
         && !(element_size == 1 && string_initializer_storage(entry).is_some())
-        && numeric_array_initializer_storage(entry, element_size).is_none()
+        && structured_array_initializer_storage(entry, element_size).is_none()
 }
 
 pub(super) fn symbolic_array_address_initializer(entry: &DeclEntry) -> Option<String> {
@@ -278,7 +424,7 @@ pub(super) fn uninitialized_sized_byte_array_len_with_defines(
     (element_size == 1
         && absolute_array_address_initializer(entry).is_none()
         && string_initializer_storage(entry).is_none()
-        && numeric_array_initializer_storage(entry, element_size).is_none())
+        && structured_array_initializer_storage(entry, element_size).is_none())
     .then(|| array_len_with_defines(entry, numeric_defines))
     .flatten()
 }
@@ -379,6 +525,64 @@ pub(super) fn numeric_array_initializer_storage(
     Some(bytes)
 }
 
+pub(super) fn structured_array_initializer_storage(
+    entry: &DeclEntry,
+    element_size: u16,
+) -> Option<Vec<StorageInit>> {
+    if !matches!(element_size, 1 | 2) {
+        return None;
+    }
+    let ExprKind::InitializerList(elements) = &entry.initializer.as_ref()?.kind else {
+        return numeric_array_initializer_storage(entry, element_size)
+            .map(|bytes| bytes.into_iter().map(StorageInit::Byte).collect());
+    };
+    let mut initializers = Vec::new();
+    for element in elements {
+        match &element.kind {
+            InitializerElementKind::Literal { .. } => {
+                let value = initializer_literal_value(element)?;
+                initializers.push(StorageInit::Byte(value as u8));
+                if element_size == 2 {
+                    initializers.push(StorageInit::Byte((value >> 8) as u8));
+                }
+            }
+            InitializerElementKind::Address {
+                selector,
+                target,
+                addend,
+            } => {
+                let kind = match selector {
+                    Some(AddressByteSelector::Low) => StorageRelocationKind::Low8,
+                    Some(AddressByteSelector::High) => StorageRelocationKind::High8,
+                    None => StorageRelocationKind::Word16,
+                };
+                if kind.width() != element_size {
+                    return None;
+                }
+                initializers.push(StorageInit::Relocation {
+                    kind,
+                    target: StorageRelocationTarget::Name(target.clone()),
+                    addend: *addend,
+                    span: element.span,
+                });
+            }
+            InitializerElementKind::Invalid => return None,
+        }
+    }
+    Some(initializers)
+}
+
+pub(super) fn storage_initializers_size(initializers: &[StorageInit]) -> u16 {
+    initializers.iter().fold(0u16, |size, initializer| {
+        size.saturating_add(match initializer {
+            StorageInit::Byte(_) => 1,
+            StorageInit::LabelWord(_) => 2,
+            StorageInit::Relocation { kind, .. } => kind.width(),
+            StorageInit::Skip(range) => range.len,
+        })
+    })
+}
+
 pub(super) fn numeric_array_initializer_values(entry: &DeclEntry) -> Option<Vec<u16>> {
     let initializer = entry.initializer.as_ref()?;
     match &initializer.kind {
@@ -459,17 +663,19 @@ pub(super) fn extend_entry_initializers(
     total_size: u16,
     element_size: u16,
 ) {
-    let bytes = if let Some(bytes) = scalar_initializer_storage(entry, total_size) {
-        bytes
+    let entry_initializers = if let Some(bytes) = scalar_initializer_storage(entry, total_size) {
+        bytes.into_iter().map(StorageInit::Byte).collect::<Vec<_>>()
     } else if element_size == 1 {
         string_initializer_storage(entry)
-            .or_else(|| numeric_array_initializer_storage(entry, element_size))
+            .map(|bytes| bytes.into_iter().map(StorageInit::Byte).collect())
+            .or_else(|| structured_array_initializer_storage(entry, element_size))
             .unwrap_or_default()
     } else {
-        numeric_array_initializer_storage(entry, element_size).unwrap_or_default()
+        structured_array_initializer_storage(entry, element_size).unwrap_or_default()
     };
-    initializers.extend(bytes.iter().copied().map(StorageInit::Byte));
-    let padding = usize::from(total_size).saturating_sub(bytes.len());
+    let initialized_size = storage_initializers_size(&entry_initializers);
+    initializers.extend(entry_initializers);
+    let padding = usize::from(total_size.saturating_sub(initialized_size));
     initializers.extend(std::iter::repeat_n(StorageInit::Byte(0), padding));
 }
 

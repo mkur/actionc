@@ -41,14 +41,10 @@ fn validate_modern_item(
 ) {
     match item {
         Item::Routine(routine) => {
-            for local in &routine.locals {
-                validate_classic_initializer_decl(local, diagnostics);
-            }
             for stmt in &routine.body {
                 validate_modern_stmt(stmt, routines, diagnostics);
             }
         }
-        Item::Declaration(decl) => validate_classic_initializer_decl(decl, diagnostics),
         Item::Statement(stmt) => validate_modern_stmt(stmt, routines, diagnostics),
         _ => {}
     }
@@ -186,39 +182,12 @@ pub(super) fn validate_compatible_item(
 ) {
     match item {
         Item::Routine(routine) => {
-            for local in &routine.locals {
-                validate_classic_initializer_decl(local, diagnostics);
-            }
             for stmt in &routine.body {
                 validate_compatible_stmt(stmt, routines, diagnostics);
             }
         }
-        Item::Declaration(decl) => validate_classic_initializer_decl(decl, diagnostics),
         Item::Statement(stmt) => validate_compatible_stmt(stmt, routines, diagnostics),
         _ => {}
-    }
-}
-
-fn validate_classic_initializer_decl(decl: &Decl, diagnostics: &mut Vec<Diagnostic>) {
-    let Decl::Var(decl) = decl else {
-        return;
-    };
-    for entry in &decl.entries {
-        let Some(Expr {
-            kind: ExprKind::InitializerList(elements),
-            ..
-        }) = &entry.initializer
-        else {
-            continue;
-        };
-        for element in elements {
-            if matches!(element.kind, InitializerElementKind::Address { .. }) {
-                diagnostics.push(Diagnostic::new(
-                    element.span,
-                    "relocatable static initializers are not supported by classic emission yet",
-                ));
-            }
-        }
     }
 }
 
