@@ -665,7 +665,8 @@ impl Generator {
             | ExprKind::Name(_)
             | ExprKind::CurrentLocation
             | ExprKind::Missing
-            | ExprKind::Raw => {}
+            | ExprKind::Raw
+            | ExprKind::InitializerList(_) => {}
         }
     }
 
@@ -917,6 +918,7 @@ fn expr_contains_string_literal(expr: &Expr) -> bool {
         | ExprKind::Name(_)
         | ExprKind::CurrentLocation
         | ExprKind::Missing
-        | ExprKind::Raw => false,
+        | ExprKind::Raw
+        | ExprKind::InitializerList(_) => false,
     }
 }

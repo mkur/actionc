@@ -587,6 +587,9 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             SemExprKind::Raw(raw) => Ok(NativeValueShape::Unsupported {
                 reason: format!("raw expression `{raw}`"),
             }),
+            SemExprKind::InitializerList(_) => Ok(NativeValueShape::Unsupported {
+                reason: "initializer list is not an executable value".to_string(),
+            }),
             SemExprKind::UnresolvedName(name) => Ok(NativeValueShape::Unsupported {
                 reason: format!("unresolved expression `{name}`"),
             }),

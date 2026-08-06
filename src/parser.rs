@@ -1003,7 +1003,7 @@ impl<'a> Parser<'a> {
             tokens.push(token.clone());
         }
 
-        raw_expr(tokens, Span::new(start, end))
+        initializer_list_expr(tokens, Span::new(start, end))
     }
 
     fn collect_scalar_initializer_expr(&mut self, stop: Stop) -> Expr {
@@ -1756,10 +1756,139 @@ fn simple_compound_assignment_value(expr: &Expr, target: &Expr, op: BinaryOp) ->
     )
 }
 
-fn raw_expr(tokens: Vec<Token>, span: Span) -> Expr {
+fn initializer_list_expr(tokens: Vec<Token>, span: Span) -> Expr {
+    let text = tokens_text(&tokens);
+    let body = if matches!(
+        tokens.first().map(|token| &token.kind),
+        Some(TokenKind::LBracket)
+    ) && matches!(
+        tokens.last().map(|token| &token.kind),
+        Some(TokenKind::RBracket)
+    ) {
+        &tokens[1..tokens.len().saturating_sub(1)]
+    } else {
+        return Expr {
+            kind: ExprKind::Raw,
+            text,
+            span,
+        };
+    };
+    let mut elements = Vec::new();
+    let mut index = 0usize;
+    while index < body.len() {
+        if matches!(body[index].kind, TokenKind::Comma) {
+            index += 1;
+            continue;
+        }
+        let start = index;
+        let mut negative = false;
+        if matches!(body[index].kind, TokenKind::Plus | TokenKind::Minus) {
+            negative = matches!(body[index].kind, TokenKind::Minus);
+            index += 1;
+            if index >= body.len() {
+                elements.push(initializer_element(
+                    &body[start..index],
+                    InitializerElementKind::Invalid,
+                ));
+                break;
+            }
+        }
+        let kind = match &body[index].kind {
+            TokenKind::Number(number) => {
+                index += 1;
+                InitializerElementKind::Literal {
+                    value: InitializerLiteral::Number(number.clone()),
+                    negative,
+                }
+            }
+            TokenKind::Char(ch) => {
+                index += 1;
+                InitializerElementKind::Literal {
+                    value: InitializerLiteral::Char(*ch),
+                    negative,
+                }
+            }
+            TokenKind::Ident(name)
+                if matches!(normalize_name(name).as_str(), "TRUE" | "FALSE" | "NIL") =>
+            {
+                let value = match normalize_name(name).as_str() {
+                    "TRUE" => InitializerLiteral::True,
+                    "FALSE" => InitializerLiteral::False,
+                    _ => InitializerLiteral::Nil,
+                };
+                index += 1;
+                InitializerElementKind::Literal { value, negative }
+            }
+            TokenKind::Lt | TokenKind::Gt | TokenKind::At if !negative => {
+                let selector = match body[index].kind {
+                    TokenKind::Lt => Some(AddressByteSelector::Low),
+                    TokenKind::Gt => Some(AddressByteSelector::High),
+                    TokenKind::At => None,
+                    _ => unreachable!(),
+                };
+                index += 1;
+                if selector.is_some()
+                    && index < body.len()
+                    && matches!(body[index].kind, TokenKind::At)
+                {
+                    index += 1;
+                }
+                let Some(Token {
+                    kind: TokenKind::Ident(target),
+                    ..
+                }) = body.get(index)
+                else {
+                    if index < body.len() {
+                        index += 1;
+                    }
+                    elements.push(initializer_element(
+                        &body[start..index],
+                        InitializerElementKind::Invalid,
+                    ));
+                    continue;
+                };
+                let target = target.clone();
+                index += 1;
+                let mut addend = 0i32;
+                if index + 1 < body.len()
+                    && matches!(body[index].kind, TokenKind::Plus | TokenKind::Minus)
+                    && let TokenKind::Number(number) = &body[index + 1].kind
+                    && let Some(value) = number.value
+                {
+                    addend = i32::from(value);
+                    if matches!(body[index].kind, TokenKind::Minus) {
+                        addend = -addend;
+                    }
+                    index += 2;
+                }
+                InitializerElementKind::Address {
+                    selector,
+                    target,
+                    addend,
+                }
+            }
+            _ => {
+                index += 1;
+                InitializerElementKind::Invalid
+            }
+        };
+        elements.push(initializer_element(&body[start..index], kind));
+    }
     Expr {
-        kind: ExprKind::Raw,
-        text: tokens_text(&tokens),
+        kind: ExprKind::InitializerList(elements),
+        text,
+        span,
+    }
+}
+
+fn initializer_element(tokens: &[Token], kind: InitializerElementKind) -> InitializerElement {
+    let span = match (tokens.first(), tokens.last()) {
+        (Some(first), Some(last)) => Span::new(first.span.start, last.span.end),
+        _ => Span::new(0, 0),
+    };
+    InitializerElement {
+        kind,
+        text: compact_tokens_text(tokens),
         span,
     }
 }
@@ -2019,6 +2148,7 @@ fn normalize_expr_spans(expr: &mut Expr, fallback: Span) {
         ExprKind::Field { base, .. } => normalize_expr_spans(base, span),
         ExprKind::Missing
         | ExprKind::Raw
+        | ExprKind::InitializerList(_)
         | ExprKind::CurrentLocation
         | ExprKind::Number(_)
         | ExprKind::String(_)
@@ -3082,17 +3212,57 @@ mod tests {
     }
 
     #[test]
-    fn keeps_machine_array_initializers_raw() {
+    fn parses_numeric_array_initializers_structurally() {
         let tokens = tokenize("BYTE ARRAY code=[$A9 $00 $60]").unwrap();
         let program = parse(&tokens).unwrap();
         let Item::Declaration(Decl::Var(var)) = &program.modules[0].items[0] else {
             panic!("expected declaration");
         };
+        let ExprKind::InitializerList(elements) =
+            &var.entries[0].initializer.as_ref().unwrap().kind
+        else {
+            panic!("expected structured initializer list");
+        };
 
-        assert_eq!(
-            var.entries[0].initializer.as_ref().unwrap().kind,
-            ExprKind::Raw
-        );
+        assert_eq!(elements.len(), 3);
+        assert!(elements.iter().all(|element| matches!(
+            element.kind,
+            InitializerElementKind::Literal {
+                value: InitializerLiteral::Number(_),
+                negative: false
+            }
+        )));
+    }
+
+    #[test]
+    fn parses_relocatable_initializer_elements_with_addends() {
+        let tokens = tokenize("BYTE ARRAY dlist(3)=[$41 <dlist+2 >dlist]").unwrap();
+        let program = parse(&tokens).unwrap();
+        let Item::Declaration(Decl::Var(var)) = &program.modules[0].items[0] else {
+            panic!("expected declaration");
+        };
+        let ExprKind::InitializerList(elements) =
+            &var.entries[0].initializer.as_ref().unwrap().kind
+        else {
+            panic!("expected structured initializer list");
+        };
+
+        assert!(matches!(
+            &elements[1].kind,
+            InitializerElementKind::Address {
+                selector: Some(AddressByteSelector::Low),
+                target,
+                addend: 2
+            } if target == "dlist"
+        ));
+        assert!(matches!(
+            &elements[2].kind,
+            InitializerElementKind::Address {
+                selector: Some(AddressByteSelector::High),
+                target,
+                addend: 0
+            } if target == "dlist"
+        ));
     }
 
     #[test]

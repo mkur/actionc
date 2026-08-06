@@ -1802,6 +1802,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             }
             SemExprKind::Missing
             | SemExprKind::Raw(_)
+            | SemExprKind::InitializerList(_)
             | SemExprKind::UnresolvedName(_)
             | SemExprKind::CurrentLocation
             | SemExprKind::Literal(_)
@@ -5381,6 +5382,7 @@ fn native_expr_debug_name(expr: &SemExpr) -> String {
         SemExprKind::Cast { expr, .. } => native_expr_debug_name(expr),
         SemExprKind::CurrentLocation => "*".to_string(),
         SemExprKind::UnresolvedName(name) | SemExprKind::Raw(name) => name.clone(),
+        SemExprKind::InitializerList(_) => "initializer list".to_string(),
         SemExprKind::Missing => "missing expression".to_string(),
     }
 }
@@ -5618,6 +5620,13 @@ fn raw_initializer_bytes(expr: &SemExpr, element_width: u16) -> Result<Option<Ve
 }
 
 fn raw_initializer_values(expr: &SemExpr) -> Result<Option<Vec<u16>>, String> {
+    if let SemExprKind::InitializerList(elements) = &expr.kind {
+        return elements
+            .iter()
+            .map(native_initializer_literal_value)
+            .collect::<Result<Vec<_>, _>>()
+            .map(Some);
+    }
     let SemExprKind::Raw(raw) = &expr.kind else {
         return Ok(None);
     };
@@ -5658,6 +5667,30 @@ fn raw_initializer_values(expr: &SemExpr) -> Result<Option<Vec<u16>>, String> {
         sign = 1;
     }
     Ok(Some(values))
+}
+
+fn native_initializer_literal_value(element: &SemInitializerElement) -> Result<u16, String> {
+    let SemInitializerElementKind::Literal { value, negative } = &element.kind else {
+        return Err(format!(
+            "relocatable initializer element `{}` is not supported by classic emission yet",
+            element.text
+        ));
+    };
+    let value = match value {
+        SemInitializerLiteral::Number(number) => number
+            .value
+            .ok_or_else(|| format!("invalid numeric initializer `{}`", element.text))?,
+        SemInitializerLiteral::Char(ch) => source_char_byte(*ch)
+            .map(u16::from)
+            .ok_or_else(|| format!("initializer character `{ch}` is outside source encoding"))?,
+        SemInitializerLiteral::True => 1,
+        SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
+    };
+    Ok(if *negative {
+        0u16.wrapping_sub(value)
+    } else {
+        value
+    })
 }
 
 fn parse_initializer_number_token(token: &TokenKind) -> Option<u16> {

@@ -417,6 +417,12 @@ impl SemIrAstLowerer {
                     span: expr.span,
                 });
             }
+            SemExprKind::InitializerList(elements) => ExprKind::InitializerList(
+                elements
+                    .iter()
+                    .map(sem_initializer_element_to_ast)
+                    .collect(),
+            ),
             SemExprKind::UnresolvedName(name) => ExprKind::Name(name.clone()),
             SemExprKind::CurrentLocation => ExprKind::CurrentLocation,
             SemExprKind::Literal(literal) => return Some(self.literal(literal, expr.span)),
@@ -605,6 +611,14 @@ fn expr_text(kind: &ExprKind) -> String {
     match kind {
         ExprKind::Missing => String::new(),
         ExprKind::Raw => String::new(),
+        ExprKind::InitializerList(elements) => format!(
+            "[{}]",
+            elements
+                .iter()
+                .map(|element| element.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        ),
         ExprKind::CurrentLocation => "*".to_string(),
         ExprKind::Number(NumberLiteral { text, .. }) => text.clone(),
         ExprKind::String(text) => format!("{text:?}"),
@@ -625,6 +639,39 @@ fn expr_text(kind: &ExprKind) -> String {
         }
         ExprKind::Index { base, index } => format!("{}({})", base.text, index.text),
         ExprKind::Field { base, field } => format!("{}.{}", base.text, field),
+    }
+}
+
+fn sem_initializer_element_to_ast(element: &SemInitializerElement) -> InitializerElement {
+    let kind = match &element.kind {
+        SemInitializerElementKind::Literal { value, negative } => {
+            let value = match value {
+                SemInitializerLiteral::Number(number) => InitializerLiteral::Number(number.clone()),
+                SemInitializerLiteral::Char(ch) => InitializerLiteral::Char(*ch),
+                SemInitializerLiteral::True => InitializerLiteral::True,
+                SemInitializerLiteral::False => InitializerLiteral::False,
+                SemInitializerLiteral::Nil => InitializerLiteral::Nil,
+            };
+            InitializerElementKind::Literal {
+                value,
+                negative: *negative,
+            }
+        }
+        SemInitializerElementKind::Address {
+            selector,
+            target,
+            addend,
+        } => InitializerElementKind::Address {
+            selector: *selector,
+            target: target.name.clone(),
+            addend: *addend,
+        },
+        SemInitializerElementKind::Invalid => InitializerElementKind::Invalid,
+    };
+    InitializerElement {
+        kind,
+        text: element.text.clone(),
+        span: element.span,
     }
 }
 

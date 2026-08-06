@@ -10,7 +10,8 @@ use crate::semantic::{
     ArrayType, SymbolClass, ValueType,
     ir::{
         SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind, SemDeclaration,
-        SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind, SemInlineAsm,
+        SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind,
+        SemInitializerElement, SemInitializerElementKind, SemInitializerLiteral, SemInlineAsm,
         SemInlineAsmTarget, SemLValue, SemLValueKind, SemLiteral, SemProgram, SemReadEffect,
         SemSet, SemStmt, SemStorageRef, SemWriteEffect,
     },
@@ -2816,11 +2817,34 @@ fn numeric_initializer_bytes(declaration: &SemDeclaration, elem_size: u16) -> Op
 }
 
 fn numeric_initializer_values(expr: &SemExpr) -> Option<Vec<u16>> {
-    let SemExprKind::Raw(text) = &expr.kind else {
+    match &expr.kind {
+        SemExprKind::InitializerList(elements) => elements
+            .iter()
+            .map(sem_initializer_literal_value)
+            .collect::<Option<Vec<_>>>(),
+        SemExprKind::Raw(text) => {
+            let inner = text.trim().strip_prefix('[')?.strip_suffix(']')?;
+            raw_initializer_values(inner)
+        }
+        _ => None,
+    }
+}
+
+fn sem_initializer_literal_value(element: &SemInitializerElement) -> Option<u16> {
+    let SemInitializerElementKind::Literal { value, negative } = &element.kind else {
         return None;
     };
-    let inner = text.trim().strip_prefix('[')?.strip_suffix(']')?;
-    raw_initializer_values(inner)
+    let value = match value {
+        SemInitializerLiteral::Number(number) => number.value?,
+        SemInitializerLiteral::Char(ch) => u16::from(source_char_byte(*ch)?),
+        SemInitializerLiteral::True => 1,
+        SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
+    };
+    Some(if *negative {
+        0u16.wrapping_sub(value)
+    } else {
+        value
+    })
 }
 
 fn raw_initializer_values(inner: &str) -> Option<Vec<u16>> {
@@ -2894,6 +2918,9 @@ fn lower_operand(expr: &SemExpr) -> NirOperand {
     let kind = match &expr.kind {
         SemExprKind::Missing => NirOperandKind::Missing,
         SemExprKind::Raw(raw) => NirOperandKind::Raw(raw.clone()),
+        SemExprKind::InitializerList(_) => {
+            NirOperandKind::Raw("structured initializer list".to_string())
+        }
         SemExprKind::UnresolvedName(name) => NirOperandKind::UnresolvedName(name.clone()),
         SemExprKind::CurrentLocation => NirOperandKind::CurrentLocation,
         SemExprKind::Literal(literal) => literal_operand_kind(literal),
@@ -3099,6 +3126,14 @@ fn expr_summary(expr: &SemExpr) -> String {
     match &expr.kind {
         SemExprKind::Missing => "<missing>".to_string(),
         SemExprKind::Raw(raw) => raw.clone(),
+        SemExprKind::InitializerList(elements) => format!(
+            "[{}]",
+            elements
+                .iter()
+                .map(|element| element.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        ),
         SemExprKind::UnresolvedName(name) => format!("unresolved({name})"),
         SemExprKind::CurrentLocation => "*".to_string(),
         SemExprKind::Literal(literal) => literal_summary(literal),

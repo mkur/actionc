@@ -381,12 +381,35 @@ pub(super) fn numeric_array_initializer_storage(
 
 pub(super) fn numeric_array_initializer_values(entry: &DeclEntry) -> Option<Vec<u16>> {
     let initializer = entry.initializer.as_ref()?;
-    let ExprKind::Raw = initializer.kind else {
+    match &initializer.kind {
+        ExprKind::InitializerList(elements) => elements
+            .iter()
+            .map(initializer_literal_value)
+            .collect::<Option<Vec<_>>>(),
+        ExprKind::Raw => {
+            let text = initializer.text.trim();
+            let inner = text.strip_prefix('[')?.strip_suffix(']')?;
+            raw_initializer_values(inner)
+        }
+        _ => None,
+    }
+}
+
+fn initializer_literal_value(element: &InitializerElement) -> Option<u16> {
+    let InitializerElementKind::Literal { value, negative } = &element.kind else {
         return None;
     };
-    let text = initializer.text.trim();
-    let inner = text.strip_prefix('[')?.strip_suffix(']')?;
-    raw_initializer_values(inner)
+    let value = match value {
+        InitializerLiteral::Number(number) => number.value?,
+        InitializerLiteral::Char(ch) => u16::from(source_char_byte(*ch)?),
+        InitializerLiteral::True => 1,
+        InitializerLiteral::False | InitializerLiteral::Nil => 0,
+    };
+    Some(if *negative {
+        0u16.wrapping_sub(value)
+    } else {
+        value
+    })
 }
 
 fn raw_initializer_values(inner: &str) -> Option<Vec<u16>> {

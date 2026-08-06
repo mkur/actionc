@@ -234,7 +234,9 @@ impl ValueRangeFact {
 impl Generator {
     pub(super) fn expr_side_effect_facts(&self, expr: &Expr) -> ExpressionSideEffectFacts {
         match &expr.kind {
-            ExprKind::Missing | ExprKind::Raw => ExpressionSideEffectFacts::unknown_raw(),
+            ExprKind::Missing | ExprKind::Raw | ExprKind::InitializerList(_) => {
+                ExpressionSideEffectFacts::unknown_raw()
+            }
             ExprKind::CurrentLocation
             | ExprKind::Number(_)
             | ExprKind::String(_)

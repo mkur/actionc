@@ -195,7 +195,8 @@ fn expr_tree_any(expr: &Expr, predicate: &impl Fn(&Expr) -> bool) -> bool {
         | ExprKind::Name(_)
         | ExprKind::CurrentLocation
         | ExprKind::Missing
-        | ExprKind::Raw => false,
+        | ExprKind::Raw
+        | ExprKind::InitializerList(_) => false,
     }
 }
 
@@ -221,7 +222,8 @@ fn expr_references_names(expr: &Expr, names: &HashSet<String>) -> bool {
         | ExprKind::String(_)
         | ExprKind::CurrentLocation
         | ExprKind::Missing
-        | ExprKind::Raw => false,
+        | ExprKind::Raw
+        | ExprKind::InitializerList(_) => false,
     }
 }
 

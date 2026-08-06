@@ -5,9 +5,10 @@ use crate::asm6502::{
     InlineAsmSymbolUse,
 };
 use crate::ast::{
-    ActioncAnnotation, BinaryOp, Decl, DefineDecl, Expr, ExprKind, FundType, IncludeDirective,
-    Item, MachineItem, Module, Program, RecordDecl, Routine, RoutineKind, SetDirective, Stmt,
-    TypeBase, TypeDecl, TypeRef, UnaryOp, VarDecl, VarStorage,
+    ActioncAnnotation, AddressByteSelector, BinaryOp, Decl, DefineDecl, Expr, ExprKind, FundType,
+    IncludeDirective, InitializerElement, InitializerElementKind, InitializerLiteral, Item,
+    MachineItem, Module, Program, RecordDecl, Routine, RoutineKind, SetDirective, Stmt, TypeBase,
+    TypeDecl, TypeRef, UnaryOp, VarDecl, VarStorage,
 };
 use crate::lexer::{NumberLiteral, TokenKind, tokenize};
 use crate::source::Span;
@@ -543,6 +544,7 @@ pub struct SemExpr {
 pub enum SemExprKind {
     Missing,
     Raw(String),
+    InitializerList(Vec<SemInitializerElement>),
     UnresolvedName(String),
     CurrentLocation,
     Literal(SemLiteral),
@@ -566,6 +568,36 @@ pub enum SemExprKind {
         right: Box<SemExpr>,
     },
     Call(SemCall),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemInitializerElement {
+    pub kind: SemInitializerElementKind,
+    pub text: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SemInitializerElementKind {
+    Literal {
+        value: SemInitializerLiteral,
+        negative: bool,
+    },
+    Address {
+        selector: Option<AddressByteSelector>,
+        target: SemSymbolRef,
+        addend: i32,
+    },
+    Invalid,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SemInitializerLiteral {
+    Number(NumberLiteral),
+    Char(char),
+    True,
+    False,
+    Nil,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1015,6 +1047,14 @@ fn expr_summary(expr: &SemExpr) -> String {
     let kind = match &expr.kind {
         SemExprKind::Missing => "<missing>".to_string(),
         SemExprKind::Raw(text) => format!("raw({text})"),
+        SemExprKind::InitializerList(elements) => format!(
+            "init[{}]",
+            elements
+                .iter()
+                .map(|element| element.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        ),
         SemExprKind::UnresolvedName(name) => name.clone(),
         SemExprKind::CurrentLocation => "*".to_string(),
         SemExprKind::Literal(literal) => literal_summary(literal),
@@ -1857,6 +1897,12 @@ impl<'a> IrBuilder<'a> {
         let kind = match &expr.kind {
             ExprKind::Missing => SemExprKind::Missing,
             ExprKind::Raw => SemExprKind::Raw(expr.text.clone()),
+            ExprKind::InitializerList(elements) => SemExprKind::InitializerList(
+                elements
+                    .iter()
+                    .map(|element| self.lower_initializer_element(scope, element))
+                    .collect(),
+            ),
             ExprKind::CurrentLocation => SemExprKind::CurrentLocation,
             ExprKind::Number(number) => SemExprKind::Literal(SemLiteral::Number(number.clone())),
             ExprKind::String(value) => SemExprKind::Literal(SemLiteral::String(value.clone())),
@@ -1943,9 +1989,10 @@ impl<'a> IrBuilder<'a> {
 
     fn expr_type_from_kind(&self, kind: &SemExprKind) -> ValueType {
         match kind {
-            SemExprKind::Missing | SemExprKind::Raw(_) | SemExprKind::UnresolvedName(_) => {
-                ValueType::error()
-            }
+            SemExprKind::Missing
+            | SemExprKind::Raw(_)
+            | SemExprKind::InitializerList(_)
+            | SemExprKind::UnresolvedName(_) => ValueType::error(),
             SemExprKind::CurrentLocation => card_type(),
             SemExprKind::Literal(SemLiteral::Number(number)) => value_type_for_number(number),
             SemExprKind::Literal(SemLiteral::String(_)) => ValueType::pointer_to(char_type()),
@@ -1966,6 +2013,48 @@ impl<'a> IrBuilder<'a> {
                 }
             }
             SemExprKind::Call(call) => call.return_type.clone().unwrap_or_else(ValueType::error),
+        }
+    }
+
+    fn lower_initializer_element(
+        &self,
+        scope: ScopeId,
+        element: &InitializerElement,
+    ) -> SemInitializerElement {
+        let kind = match &element.kind {
+            InitializerElementKind::Literal { value, negative } => {
+                let value = match value {
+                    InitializerLiteral::Number(number) => {
+                        SemInitializerLiteral::Number(number.clone())
+                    }
+                    InitializerLiteral::Char(ch) => SemInitializerLiteral::Char(*ch),
+                    InitializerLiteral::True => SemInitializerLiteral::True,
+                    InitializerLiteral::False => SemInitializerLiteral::False,
+                    InitializerLiteral::Nil => SemInitializerLiteral::Nil,
+                };
+                SemInitializerElementKind::Literal {
+                    value,
+                    negative: *negative,
+                }
+            }
+            InitializerElementKind::Address {
+                selector,
+                target,
+                addend,
+            } => self
+                .symbol_ref(scope, target, element.span)
+                .map(|target| SemInitializerElementKind::Address {
+                    selector: *selector,
+                    target,
+                    addend: *addend,
+                })
+                .unwrap_or(SemInitializerElementKind::Invalid),
+            InitializerElementKind::Invalid => SemInitializerElementKind::Invalid,
+        };
+        SemInitializerElement {
+            kind,
+            text: element.text.clone(),
+            span: element.span,
         }
     }
 

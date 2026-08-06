@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
-use crate::lexer::{TokenKind, tokenize as tokenize_initializer};
 use crate::resident::{RESIDENT_VARIABLES, ResidentVariableKind};
 use crate::source::Span;
 
@@ -225,6 +224,7 @@ struct Analyzer {
     builtin_scope: ScopeId,
     global_scope: ScopeId,
     routines: HashMap<String, SemanticCallableSignature>,
+    static_initializer_targets: HashMap<String, SymbolClass>,
     retargeted_routine_names: HashSet<String>,
     routine_scopes: Vec<RoutineScope>,
     array_symbols: HashSet<SymbolId>,
@@ -277,6 +277,7 @@ impl Analyzer {
             builtin_scope,
             global_scope,
             routines: HashMap::new(),
+            static_initializer_targets: HashMap::new(),
             retargeted_routine_names: HashSet::new(),
             routine_scopes: Vec::new(),
             array_symbols: HashSet::new(),
@@ -572,6 +573,7 @@ impl Analyzer {
 
     fn analyze_program(&mut self, program: &Program) {
         self.retargeted_routine_names = collect_retargeted_routine_names(program);
+        self.static_initializer_targets = collect_static_initializer_targets(program);
         for module in &program.modules {
             self.analyze_module(module);
         }
@@ -1064,6 +1066,11 @@ impl Analyzer {
         match &expr.kind {
             ExprKind::Missing => self.subject_error(expr.span),
             ExprKind::Raw => subject::SemSubject::Expr(subject::SemExpr {
+                ty: ValueType::error(),
+                kind: subject::SemExprKind::Raw(expr.text.clone()),
+                span: expr.span,
+            }),
+            ExprKind::InitializerList(_) => subject::SemSubject::Expr(subject::SemExpr {
                 ty: ValueType::error(),
                 kind: subject::SemExprKind::Raw(expr.text.clone()),
                 span: expr.span,
@@ -2130,58 +2137,79 @@ impl Analyzer {
             {
                 self.array_symbols.insert(symbol_id);
             }
-            self.validate_initializer_elements(entry);
+            self.validate_initializer_elements(scope, decl, entry);
         }
     }
 
-    fn validate_initializer_elements(&mut self, entry: &DeclEntry) {
+    fn validate_initializer_elements(&mut self, scope: ScopeId, decl: &VarDecl, entry: &DeclEntry) {
         let Some(initializer) = &entry.initializer else {
             return;
         };
-        let ExprKind::Raw = initializer.kind else {
-            return;
-        };
-        let text = initializer.text.trim();
-        let Some(inner) = text
-            .strip_prefix('[')
-            .and_then(|text| text.strip_suffix(']'))
-        else {
-            self.diagnostics.push(Diagnostic::new(
+        match &initializer.kind {
+            ExprKind::InitializerList(elements) => {
+                let element_width = self
+                    .value_storage_width(&ValueType::from_type_ref(&decl.ty))
+                    .unwrap_or(0);
+                for element in elements {
+                    match &element.kind {
+                        InitializerElementKind::Literal { .. } => {}
+                        InitializerElementKind::Address {
+                            selector, target, ..
+                        } => {
+                            let expected_width = if selector.is_some() { 1 } else { 2 };
+                            if element_width != expected_width {
+                                self.diagnostics.push(Diagnostic::new(
+                                    element.span,
+                                    format!(
+                                        "initializer address element `{}` requires a {expected_width}-byte array element",
+                                        element.text
+                                    ),
+                                ));
+                                continue;
+                            }
+                            let class = self
+                                .lookup_symbol(scope, target)
+                                .and_then(|id| self.symbols.symbols.get(id.0))
+                                .map(|symbol| symbol.class.clone())
+                                .or_else(|| {
+                                    self.static_initializer_targets
+                                        .get(&normalize_name(target))
+                                        .cloned()
+                                });
+                            if !matches!(
+                                class,
+                                Some(
+                                    SymbolClass::Var
+                                        | SymbolClass::Array
+                                        | SymbolClass::Proc
+                                        | SymbolClass::Func
+                                )
+                            ) {
+                                self.diagnostics.push(Diagnostic::new(
+                                    element.span,
+                                    format!(
+                                        "initializer address target `{target}` is not static addressable storage or a user routine"
+                                    ),
+                                ));
+                            }
+                        }
+                        InitializerElementKind::Invalid => {
+                            self.diagnostics.push(Diagnostic::new(
+                                element.span,
+                                format!(
+                                    "unsupported initializer element in `{}`; expected a constant or static address",
+                                    entry.name
+                                ),
+                            ));
+                        }
+                    }
+                }
+            }
+            ExprKind::Raw => self.diagnostics.push(Diagnostic::new(
                 initializer.span,
                 format!("unsupported initializer for `{}`", entry.name),
-            ));
-            return;
-        };
-        let Ok(tokens) = tokenize_initializer(inner) else {
-            self.diagnostics.push(Diagnostic::new(
-                initializer.span,
-                format!("malformed initializer list for `{}`", entry.name),
-            ));
-            return;
-        };
-        for token in tokens {
-            let supported = match &token.kind {
-                TokenKind::Eof
-                | TokenKind::Comma
-                | TokenKind::Plus
-                | TokenKind::Minus
-                | TokenKind::Number(_)
-                | TokenKind::Char(_) => true,
-                TokenKind::Ident(name) => {
-                    matches!(normalize_name(name).as_str(), "TRUE" | "FALSE" | "NIL")
-                }
-                _ => false,
-            };
-            if !supported {
-                self.diagnostics.push(Diagnostic::new(
-                    initializer.span,
-                    format!(
-                        "unsupported initializer element in `{}`; expected a numeric or character constant",
-                        entry.name
-                    ),
-                ));
-                return;
-            }
+            )),
+            _ => {}
         }
     }
 
@@ -2781,6 +2809,36 @@ fn collect_retargeted_routine_names(program: &Program) -> HashSet<String> {
     targets
 }
 
+fn collect_static_initializer_targets(program: &Program) -> HashMap<String, SymbolClass> {
+    let mut targets = HashMap::new();
+    for module in &program.modules {
+        for item in &module.items {
+            match item {
+                Item::Declaration(Decl::Var(decl)) => {
+                    let class = if decl.storage == VarStorage::Array || is_string_type_ref(&decl.ty)
+                    {
+                        SymbolClass::Array
+                    } else {
+                        SymbolClass::Var
+                    };
+                    for entry in &decl.entries {
+                        targets.insert(normalize_name(&entry.name), class.clone());
+                    }
+                }
+                Item::Routine(routine) => {
+                    let class = match routine.kind {
+                        RoutineKind::Proc => SymbolClass::Proc,
+                        RoutineKind::Func { .. } => SymbolClass::Func,
+                    };
+                    targets.insert(normalize_name(&routine.name), class);
+                }
+                _ => {}
+            }
+        }
+    }
+    targets
+}
+
 fn collect_routine_names(program: &Program) -> HashSet<String> {
     let mut names = HashSet::new();
     for module in &program.modules {
@@ -3097,12 +3155,17 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unsupported_symbolic_initializer_instead_of_zero_filling() {
-        let err = analyze_source_err("BYTE ARRAY dlist(3)=[$41 <dlist >dlist] PROC Main() RETURN");
+    fn accepts_symbolic_static_initializer_elements() {
+        analyze_source("BYTE ARRAY dlist(3)=[$41 <dlist >dlist] PROC Main() RETURN");
+    }
+
+    #[test]
+    fn rejects_symbolic_initializer_with_wrong_element_width() {
+        let err = analyze_source_err("CARD ARRAY words(1)=[<words]");
         assert!(err.iter().any(|diagnostic| {
             diagnostic
                 .message
-                .contains("unsupported initializer element in `dlist`")
+                .contains("requires a 1-byte array element")
         }));
     }
 
@@ -3114,6 +3177,43 @@ mod tests {
                 .message
                 .contains("unsupported initializer element in `data`")
         }));
+    }
+
+    #[test]
+    fn semir_resolves_self_and_forward_static_initializer_targets() {
+        let (program, model) = analyze_program_source(
+            "BYTE ARRAY dlist(3)=[$41 <dlist >later] BYTE ARRAY later(1)=[0]",
+        );
+        let ir = ir::lower_program(&program, &model);
+        let declarations = ir.modules[0].items.iter().filter_map(|item| match item {
+            ir::SemItem::Declaration(declaration) => Some(declaration),
+            _ => None,
+        });
+        let mut declarations = declarations.collect::<Vec<_>>();
+        let later = declarations.pop().expect("later declaration");
+        let dlist = declarations.pop().expect("dlist declaration");
+        let ir::SemExprKind::InitializerList(elements) =
+            &dlist.initializer.as_ref().expect("initializer").kind
+        else {
+            panic!("expected initializer list");
+        };
+
+        assert!(matches!(
+            &elements[1].kind,
+            ir::SemInitializerElementKind::Address {
+                selector: Some(AddressByteSelector::Low),
+                target,
+                addend: 0
+            } if target.id == dlist.symbol.id
+        ));
+        assert!(matches!(
+            &elements[2].kind,
+            ir::SemInitializerElementKind::Address {
+                selector: Some(AddressByteSelector::High),
+                target,
+                addend: 0
+            } if target.id == later.symbol.id
+        ));
     }
 
     #[test]
@@ -5487,6 +5587,7 @@ mod tests {
         match &expr.kind {
             ir::SemExprKind::Missing
             | ir::SemExprKind::Raw(_)
+            | ir::SemExprKind::InitializerList(_)
             | ir::SemExprKind::UnresolvedName(_) => return,
             ir::SemExprKind::Call(call) if call.return_type.is_none() => {
                 assert_semir_call_types(call);
@@ -5504,6 +5605,7 @@ mod tests {
         match &expr.kind {
             ir::SemExprKind::Missing
             | ir::SemExprKind::Raw(_)
+            | ir::SemExprKind::InitializerList(_)
             | ir::SemExprKind::UnresolvedName(_)
             | ir::SemExprKind::CurrentLocation
             | ir::SemExprKind::Literal(_) => {}

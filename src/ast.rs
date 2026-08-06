@@ -352,6 +352,7 @@ pub struct Expr {
 pub enum ExprKind {
     Missing,
     Raw,
+    InitializerList(Vec<InitializerElement>),
     CurrentLocation,
     Number(NumberLiteral),
     String(String),
@@ -382,6 +383,36 @@ pub enum ExprKind {
         base: Box<Expr>,
         field: String,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InitializerElement {
+    pub kind: InitializerElementKind,
+    pub text: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InitializerElementKind {
+    Literal {
+        value: InitializerLiteral,
+        negative: bool,
+    },
+    Address {
+        selector: Option<AddressByteSelector>,
+        target: String,
+        addend: i32,
+    },
+    Invalid,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InitializerLiteral {
+    Number(NumberLiteral),
+    Char(char),
+    True,
+    False,
+    Nil,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

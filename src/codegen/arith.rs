@@ -1883,6 +1883,7 @@ impl Generator {
             ExprKind::Field { base, .. } => Self::expr_uses_runtime_arithmetic_helper(base),
             ExprKind::Missing
             | ExprKind::Raw
+            | ExprKind::InitializerList(_)
             | ExprKind::CurrentLocation
             | ExprKind::Number(_)
             | ExprKind::String(_)
