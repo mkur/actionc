@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
+use crate::lexer::{TokenKind, tokenize as tokenize_initializer};
 use crate::resident::{RESIDENT_VARIABLES, ResidentVariableKind};
 use crate::source::Span;
 
@@ -2129,6 +2130,58 @@ impl Analyzer {
             {
                 self.array_symbols.insert(symbol_id);
             }
+            self.validate_initializer_elements(entry);
+        }
+    }
+
+    fn validate_initializer_elements(&mut self, entry: &DeclEntry) {
+        let Some(initializer) = &entry.initializer else {
+            return;
+        };
+        let ExprKind::Raw = initializer.kind else {
+            return;
+        };
+        let text = initializer.text.trim();
+        let Some(inner) = text
+            .strip_prefix('[')
+            .and_then(|text| text.strip_suffix(']'))
+        else {
+            self.diagnostics.push(Diagnostic::new(
+                initializer.span,
+                format!("unsupported initializer for `{}`", entry.name),
+            ));
+            return;
+        };
+        let Ok(tokens) = tokenize_initializer(inner) else {
+            self.diagnostics.push(Diagnostic::new(
+                initializer.span,
+                format!("malformed initializer list for `{}`", entry.name),
+            ));
+            return;
+        };
+        for token in tokens {
+            let supported = match &token.kind {
+                TokenKind::Eof
+                | TokenKind::Comma
+                | TokenKind::Plus
+                | TokenKind::Minus
+                | TokenKind::Number(_)
+                | TokenKind::Char(_) => true,
+                TokenKind::Ident(name) => {
+                    matches!(normalize_name(name).as_str(), "TRUE" | "FALSE" | "NIL")
+                }
+                _ => false,
+            };
+            if !supported {
+                self.diagnostics.push(Diagnostic::new(
+                    initializer.span,
+                    format!(
+                        "unsupported initializer element in `{}`; expected a numeric or character constant",
+                        entry.name
+                    ),
+                ));
+                return;
+            }
         }
     }
 
@@ -3036,6 +3089,31 @@ mod tests {
             err.iter()
                 .any(|diagnostic| diagnostic.message.contains("duplicate symbol `x`"))
         );
+    }
+
+    #[test]
+    fn accepts_numeric_initializer_list_surface() {
+        analyze_source("BYTE ARRAY data(6)=[1 -2 'A TRUE FALSE NIL]");
+    }
+
+    #[test]
+    fn rejects_unsupported_symbolic_initializer_instead_of_zero_filling() {
+        let err = analyze_source_err("BYTE ARRAY dlist(3)=[$41 <dlist >dlist] PROC Main() RETURN");
+        assert!(err.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("unsupported initializer element in `dlist`")
+        }));
+    }
+
+    #[test]
+    fn rejects_unknown_raw_initializer_name_instead_of_zero_filling() {
+        let err = analyze_source_err("BYTE ARRAY data(1)=[missing]");
+        assert!(err.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("unsupported initializer element in `data`")
+        }));
     }
 
     #[test]
