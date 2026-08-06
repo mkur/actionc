@@ -545,6 +545,53 @@ fn semir_native_emits_relocatable_array_initializers() {
 }
 
 #[test]
+fn classic_backends_relocate_fixed_storage_addresses() {
+    let source = "BYTE hscrol=$D404 BYTE ARRAY refs(2)=[<hscrol >hscrol] PROC Main() RETURN";
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
+        assert_eq!(&output.bytes[..2], &[0x04, 0xD4]);
+    }
+    let output =
+        generate_semir_native_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+    assert_eq!(&output.bytes[..2], &[0x04, 0xD4]);
+}
+
+#[test]
+fn classic_backends_relocate_local_and_parameter_storage() {
+    let source = "PROC Main(BYTE param) BYTE local BYTE ARRAY refs(4)=[<local >local <param >param] local=param RETURN";
+    let outputs = [
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Compat).unwrap(),
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap(),
+        generate_semir_native_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap(),
+    ];
+    for output in outputs {
+        let scope = CodegenSymbolScope::Routine("Main".into());
+        let find = |name: &str| {
+            output
+                .map
+                .storage_symbols
+                .iter()
+                .find(|symbol| symbol.scope == scope && symbol.name.eq_ignore_ascii_case(name))
+                .unwrap_or_else(|| panic!("missing routine storage symbol `{name}`"))
+        };
+        let local = find("local");
+        let param = find("param");
+        let refs = find("refs");
+        let offset = usize::from(refs.address.wrapping_sub(output.origin));
+
+        assert_eq!(
+            &output.bytes[offset..offset + 4],
+            &[
+                local.address as u8,
+                (local.address >> 8) as u8,
+                param.address as u8,
+                (param.address >> 8) as u8,
+            ]
+        );
+    }
+}
+
+#[test]
 fn compatible_large_sized_array_absolute_initializer_binds_base_address() {
     let output = generate_compatible_source_with_origin(
         "BYTE ARRAY allocbuf($800)=$2000 CARD POINTER allocp PROC Main() allocp=CARD POINTER(@allocbuf) RETURN",

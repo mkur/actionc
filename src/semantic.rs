@@ -2181,6 +2181,7 @@ impl Analyzer {
                                 Some(
                                     SymbolClass::Var
                                         | SymbolClass::Array
+                                        | SymbolClass::Param
                                         | SymbolClass::Proc
                                         | SymbolClass::Func
                                 )
@@ -2188,7 +2189,7 @@ impl Analyzer {
                                 self.diagnostics.push(Diagnostic::new(
                                     element.span,
                                     format!(
-                                        "initializer address target `{target}` is not static addressable storage or a user routine"
+                                        "initializer address target `{target}` is not addressable storage or a user routine"
                                     ),
                                 ));
                             }

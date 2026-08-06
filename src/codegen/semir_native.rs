@@ -5890,7 +5890,7 @@ fn raw_initializer_values(expr: &SemExpr) -> Result<Option<Vec<u16>>, String> {
 fn native_initializer_literal_value(element: &SemInitializerElement) -> Result<u16, String> {
     let SemInitializerElementKind::Literal { value, negative } = &element.kind else {
         return Err(format!(
-            "relocatable initializer element `{}` is not supported by classic emission yet",
+            "initializer element `{}` requires relocation-aware storage emission",
             element.text
         ));
     };

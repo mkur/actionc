@@ -10226,6 +10226,56 @@ mod tests {
     }
 
     #[test]
+    fn mir_data_relocations_resolve_fixed_local_and_parameter_storage() {
+        let fixed = generate_mir6502_source_with_origin(
+            "BYTE hscrol=$D404 BYTE ARRAY refs(2)=[<hscrol >hscrol] PROC Main() RETURN",
+            0x3000,
+        );
+        assert_eq!(&fixed.bytes[..2], &[0x04, 0xD4]);
+
+        let local_source = "PROC Main(BYTE param) BYTE local BYTE ARRAY refs(4)=[<local >local <param >param] local=param RETURN";
+        let output = generate_mir6502_source_with_origin(local_source, 0x3000);
+        let local = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|symbol| {
+                symbol.name == "local"
+                    && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Main".into())
+            })
+            .expect("local storage");
+        let param = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|symbol| {
+                symbol.name == "param"
+                    && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Main".into())
+            })
+            .expect("parameter storage");
+        let refs = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|symbol| {
+                symbol.name == "refs"
+                    && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Main".into())
+            })
+            .expect("local relocation array");
+        let offset = usize::from(refs.address.wrapping_sub(output.origin));
+
+        assert_eq!(
+            &output.bytes[offset..offset + 4],
+            &[
+                local.address as u8,
+                (local.address >> 8) as u8,
+                param.address as u8,
+                (param.address >> 8) as u8,
+            ]
+        );
+    }
+
+    #[test]
     fn classifier_rejects_deref_before_pointer_support() {
         let place = crate::nir::NirPlace {
             kind: crate::nir::NirPlaceKind::Deref {

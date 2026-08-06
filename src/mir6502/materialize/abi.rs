@@ -2,10 +2,11 @@ use super::helper_effects;
 use super::stats::MirPeepholeStats;
 use crate::mir6502::analysis::effects::{MirMemoryRange, classify_op, classify_terminator};
 use crate::mir6502::ir::{
-    MirAddr, MirArgHome, MirBlock, MirCallTarget, MirCond, MirDef, MirEffects, MirFixedZpSlot,
-    MirMachineBlock, MirMachineBlockId, MirMachineItem, MirMem, MirMemoryEffect,
-    MirMemoryRegionKind, MirOp, MirReg, MirRoutine, MirRoutineAbi, MirRuntimeHelper,
-    MirStorageBase, MirStorageClass, MirTerminator, MirValue, MirWidth,
+    MirAddr, MirArgHome, MirBlock, MirCallTarget, MirCond, MirDataRelocationTarget, MirDef,
+    MirEffects, MirFixedZpSlot, MirMachineBlock, MirMachineBlockId, MirMachineItem, MirMem,
+    MirMemoryEffect, MirMemoryRegionKind, MirOp, MirReg, MirRoutine, MirRoutineAbi,
+    MirRuntimeHelper, MirStorageBase, MirStorageClass, MirStorageInit, MirTerminator, MirValue,
+    MirWidth,
 };
 use crate::nir::ParamId;
 use std::collections::BTreeSet;
@@ -75,6 +76,9 @@ pub(super) fn elide_write_only_param_homes(
             let MirStorageBase::Param(id) = slot.base else {
                 return None;
             };
+            if routine_data_relocations_reference_param(routine, id) {
+                return None;
+            }
             let capture_count = expected_prologue
                 .iter()
                 .filter(|op| store_targets_param(op, id))
@@ -154,6 +158,9 @@ pub(super) fn coalesce_leaf_word_param_with_result_home(
     let MirStorageBase::Param(param) = slot.base else {
         return;
     };
+    if routine_data_relocations_reference_param(routine, param) {
+        return;
+    }
     if slot.storage != MirStorageClass::Scalar || slot.width != MirWidth::Word {
         return;
     }
@@ -188,6 +195,27 @@ pub(super) fn coalesce_leaf_word_param_with_result_home(
             slot_name.as_deref().unwrap_or("<unnamed>")
         ),
     );
+}
+
+fn routine_data_relocations_reference_param(routine: &MirRoutine, param: ParamId) -> bool {
+    routine
+        .frame
+        .params
+        .iter()
+        .chain(&routine.frame.locals)
+        .filter_map(|slot| slot.init.as_ref())
+        .flat_map(|init| match init {
+            MirStorageInit::Bytes { image, .. } => image.relocations.as_slice(),
+            MirStorageInit::Descriptor { backing, .. } => backing.image.relocations.as_slice(),
+            MirStorageInit::ZeroFill { .. } | MirStorageInit::RoutineAddress { .. } => &[],
+        })
+        .any(|relocation| {
+            matches!(
+                relocation.target,
+                MirDataRelocationTarget::Param { routine: owner, id }
+                    if owner == routine.id && id == param
+            )
+        })
 }
 
 fn rewrite_leaf_word_param_body(

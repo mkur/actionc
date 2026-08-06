@@ -504,20 +504,39 @@ Recommended static data shape:
 
 ```rust
 pub struct NirStaticData {
-    pub id: StaticId,
+    pub id: SymbolId,
     pub name: String,
     pub ty: NirType,
-    pub bytes: Vec<u8>,
-    pub alignment: u8,
+    pub image: NirDataImage,
+    pub alignment: u16,
     pub section: NirStaticSection,
     pub mutable: bool,
     pub display: String,
+}
+
+pub struct NirDataImage {
+    pub bytes: Vec<u8>,
+    pub relocations: Vec<NirDataRelocation>,
+}
+
+pub struct NirDataRelocation {
+    pub offset: u16,
+    pub kind: Low8 | High8 | Word16,
+    pub target: Storage(NirStorageId) | Routine(RoutineId) | Absolute(u16),
+    pub addend: i32,
+    pub span: SourceSpan,
 }
 ```
 
 Rules:
 
-- `bytes` is authoritative for emitted data.
+- `image.bytes` is authoritative for emitted data and contains placeholders at
+  relocation positions.
+- Relocations use stable storage or routine identity and remain
+  target-independent; NIR does not assign final addresses.
+- A storage relocation names the source-level object's data address. For an
+  array this is its element backing, not an implementation descriptor cell.
+- Relocation ranges must fit within the image and must not overlap.
 - `display` is for diagnostics and fixtures only.
 - `StaticAddr(id)` must reference an existing static data entry.
 - String representation policy should be documented at this boundary.

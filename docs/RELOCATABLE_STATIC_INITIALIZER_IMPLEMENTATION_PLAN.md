@@ -60,7 +60,7 @@ entire data image.
 
 ## Implementation slices
 
-Status as of 2026-08-06: slices 1-9 are implemented. Relocatable images are
+Status as of 2026-08-06: slices 1-10 are implemented. Relocatable images are
 verifier-clean NIR, and MIR6502 plus both classic paths resolve them after
 layout. Numeric-only initializers continue through all backends unchanged.
 
@@ -147,12 +147,25 @@ Status: complete.
 
 ### Slice 10: validation
 
+Status: complete.
+
 - Test self, forward, routine, fixed-address, and addend relocations at
   multiple origins.
 - Test unknown targets, invalid widths, overlap, overflow, and malformed lists.
 - Compare legacy/classic, modern/classic, SemIR-native classic, and MIR6502.
 - Confirm existing numeric initializer output remains byte-identical.
 - Rebuild the soft-scroller ATRs.
+
+Validation covers self, forward, routine, fixed-address, local, parameter, and
+addend targets, including multiple origins. Existing semantic and verifier
+tests cover unknown targets, invalid element widths, malformed elements,
+out-of-bounds relocations, and overlap. The final validation also found and
+fixed a MIR6502 interaction where write-only parameter-home elision did not
+count initializer relocation references as address-observable uses.
+
+The soft-scroller was compiled and packed into temporary ATRs through
+legacy/classic, modern/classic, SemIR-native classic, and MIR6502. No generated
+ATR is checked into the repository.
 
 Required final checks:
 

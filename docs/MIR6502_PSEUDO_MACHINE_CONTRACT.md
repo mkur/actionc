@@ -221,6 +221,14 @@ explicit address initializer. MIR6502 layout may use those facts to place
 uninitialized sized array backing in deferred storage; it must not infer array
 identity from a display `kind` string.
 
+Initialized data also retains literal bytes plus low-byte, high-byte, and
+word-address relocation records. MIR6502 translates NIR targets to MIR storage
+and routine IDs without consulting SemIR. Emission resolves storage targets
+only after final object layout, resolves array identities to element backing
+rather than descriptor cells, and leaves forward routine targets as normal
+label fixups. A relocation reference makes a local or parameter home
+address-observable, so ABI/home-elision passes must preserve that home.
+
 Block order is a layout hint, not semantic identity. MIR passes may preserve or
 adjust order for readability and branch locality. Emission remains responsible
 for final label binding, branch patching, and long-branch repair or diagnostics.
