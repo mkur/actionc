@@ -1889,6 +1889,7 @@ mod tests {
             vec![0xCA, 0xD0, 0xFD, 0xA9, 0x19, 0x85, 0x80]
         );
         assert_eq!(bytes("lda #'\\{RETURN}'\n"), vec![0xA9, 0x9B]);
+        assert_eq!(bytes("lda #'\\{SCREEN:A}'\n"), vec![0xA9, 0x21]);
     }
 
     #[test]

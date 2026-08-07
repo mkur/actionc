@@ -9798,6 +9798,28 @@ mod tests {
     }
 
     #[test]
+    fn sized_byte_array_screen_escape_emits_screen_codes_in_mir_output() {
+        let output = generate_mir6502_source_with_origin(
+            r#"BYTE ARRAY shape(6)=['\{SCREEN: }'\{SCREEN:A}'\{SCREEN:_}'\{SCREEN:`}'\{SCREEN:a}'\{SCREEN:~}] PROC Main() RETURN"#,
+            0x3000,
+        );
+        let shape = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|symbol| {
+                symbol.name == "shape" && symbol.scope == crate::codegen::CodegenSymbolScope::Global
+            })
+            .expect("shape storage symbol");
+        let start = usize::from(shape.address.wrapping_sub(output.origin));
+
+        assert_eq!(
+            &output.bytes[start..start + 6],
+            &[0x00, 0x21, 0x3f, 0x60, 0x61, 0x7e]
+        );
+    }
+
+    #[test]
     fn unsized_byte_array_initializer_emits_pointer_descriptor_in_mir_output() {
         let output = generate_mir6502_source_with_origin(
             "BYTE ARRAY data=[1 2 3 4] BYTE i,out PROC Main() i=1 out=data(i) RETURN",

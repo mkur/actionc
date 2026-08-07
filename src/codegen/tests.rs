@@ -5983,6 +5983,17 @@ fn compatible_sized_byte_array_char_initializer_preserves_atascii_bytes() {
 }
 
 #[test]
+fn compatible_sized_byte_array_screen_escape_emits_screen_codes() {
+    let output = generate_compatible_source_with_origin(
+        r#"BYTE ARRAY shape(6)=['\{SCREEN: }'\{SCREEN:A}'\{SCREEN:_}'\{SCREEN:`}'\{SCREEN:a}'\{SCREEN:~}] PROC Main() RETURN"#,
+        0x3000,
+    )
+    .unwrap();
+
+    assert_eq!(&output.bytes[..6], &[0x00, 0x21, 0x3f, 0x60, 0x61, 0x7e]);
+}
+
+#[test]
 fn compatible_open_close_builtins_use_cartridge_entries() {
     let output = generate_compatible_source_with_origin(
         "PROC Main() Close(6) Open(6,\"S:\",$1C,0) RETURN",

@@ -8,6 +8,23 @@ behavior. Legacy code may still use many old implicit idioms; modernized code
 should prefer these explicit forms, and the modern profile requires them for
 some ambiguous routine-address cases.
 
+## ATASCII And Screen-Code Escapes
+
+String literals and character constants accept textual byte escapes. In
+addition to exact and named ATASCII bytes and inverse text, `\{SCREEN:text}`
+converts ATASCII text to the internal screen codes consumed directly by ANTIC:
+
+```action
+BYTE eol = '\{RETURN}
+BYTE inverseA = '\{INV:A}
+BYTE screenA = '\{SCREEN:A}
+CHAR ARRAY title(0)="\{SCREEN:ACTION!}"
+```
+
+Use screen-code escapes only for data read as a character display buffer, not
+for `Print`, CIO, or files. See [ATASCII and screen-code escapes](ATASCII_ESCAPES.md)
+for the exact forms and conversion table.
+
 ## Typed Cast Expressions
 
 Use Action!-style type syntax followed by a parenthesized expression:

@@ -736,10 +736,42 @@ pub(crate) fn decode_atascii_escape(body: &str) -> Result<Vec<char>, String> {
         }
         return Ok(chars);
     }
+    if let Some(text) = body
+        .strip_prefix("SCREEN:")
+        .or_else(|| body.strip_prefix("screen:"))
+    {
+        if text.is_empty() {
+            return Err("screen-code escape requires at least one character".to_string());
+        }
+        let mut chars = Vec::new();
+        for ch in text.chars() {
+            let value = ch as u32;
+            if value > u8::MAX as u32 {
+                return Err(format!(
+                    "cannot convert non-ATASCII character `{ch}` to a screen code"
+                ));
+            }
+            chars.push(atascii_to_screen_code(value as u8) as char);
+        }
+        return Ok(chars);
+    }
 
     named_atascii_escape(body)
         .map(|byte| vec![byte as char])
         .ok_or_else(|| format!("unknown ATASCII escape `{body}`"))
+}
+
+fn atascii_to_screen_code(byte: u8) -> u8 {
+    let inverse = byte & 0x80;
+    let base = byte & 0x7f;
+    let screen = if base <= 0x1f {
+        base + 0x40
+    } else if base <= 0x5f {
+        base - 0x20
+    } else {
+        base
+    };
+    inverse | screen
 }
 
 fn decode_hex_byte(hex: &str) -> Result<u8, String> {
@@ -849,11 +881,48 @@ mod tests {
     }
 
     #[test]
+    fn tokenizes_screen_code_escapes_in_strings() {
+        let tokens = tokenize("\"\\{SCREEN: A_`a~}\"").unwrap();
+        assert_eq!(
+            tokens[0].kind,
+            TokenKind::String(
+                [0x00u8, 0x21, 0x3f, 0x60, 0x61, 0x7e]
+                    .into_iter()
+                    .map(|byte| byte as char)
+                    .collect()
+            )
+        );
+    }
+
+    #[test]
+    fn screen_code_escape_maps_all_atascii_ranges() {
+        let input = [
+            0x00u8, 0x1f, 0x20, 0x5f, 0x60, 0x7f, 0x80, 0x9f, 0xa0, 0xdf, 0xe0, 0xff,
+        ]
+        .into_iter()
+        .map(|byte| byte as char)
+        .collect::<String>();
+        let decoded = decode_atascii_escape(&format!("SCREEN:{input}"))
+            .unwrap()
+            .into_iter()
+            .map(|ch| ch as u8)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            decoded,
+            [
+                0x40, 0x5f, 0x00, 0x3f, 0x60, 0x7f, 0xc0, 0xdf, 0x80, 0xbf, 0xe0, 0xff,
+            ]
+        );
+    }
+
+    #[test]
     fn tokenizes_atascii_escapes_in_character_constants() {
-        let tokens = tokenize("'\\{RETURN} '\\{$41} '\\{INV:A}").unwrap();
+        let tokens = tokenize("'\\{RETURN} '\\{$41} '\\{INV:A} '\\{SCREEN:A}").unwrap();
         assert_eq!(tokens[0].kind, TokenKind::Char(0x9bu8 as char));
         assert_eq!(tokens[1].kind, TokenKind::Char(0x41u8 as char));
         assert_eq!(tokens[2].kind, TokenKind::Char(0xC1u8 as char));
+        assert_eq!(tokens[3].kind, TokenKind::Char(0x21u8 as char));
     }
 
     #[test]
@@ -873,6 +942,8 @@ mod tests {
         assert!(tokenize("\"\\{NOPE}\"").is_err());
         assert!(tokenize("\"\\{$123}\"").is_err());
         assert!(tokenize("'\\{INV:AB}").is_err());
+        assert!(tokenize("\"\\{SCREEN:}\"").is_err());
+        assert!(tokenize("\"\\{SCREEN:€}\"").is_err());
     }
 
     #[test]

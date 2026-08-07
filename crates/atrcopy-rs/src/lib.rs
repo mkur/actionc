@@ -129,10 +129,42 @@ fn decode_ascii_escape(body: &str) -> Result<Vec<u8>, String> {
         }
         return Ok(bytes);
     }
+    if let Some(text) = body
+        .strip_prefix("SCREEN:")
+        .or_else(|| body.strip_prefix("screen:"))
+    {
+        if text.is_empty() {
+            return Err("screen-code escape requires at least one character".to_string());
+        }
+        let mut bytes = Vec::new();
+        for ch in text.chars() {
+            let value = ch as u32;
+            if value > u8::MAX as u32 {
+                return Err(format!(
+                    "cannot convert non-ATASCII character `{ch}` to a screen code"
+                ));
+            }
+            bytes.push(atascii_to_screen_code(value as u8));
+        }
+        return Ok(bytes);
+    }
 
     named_ascii_escape(body)
         .map(|byte| vec![byte])
         .ok_or_else(|| format!("unknown ATASCII escape `{body}`"))
+}
+
+fn atascii_to_screen_code(byte: u8) -> u8 {
+    let inverse = byte & 0x80;
+    let base = byte & 0x7f;
+    let screen = if base <= 0x1f {
+        base + 0x40
+    } else if base <= 0x5f {
+        base - 0x20
+    } else {
+        base
+    };
+    inverse | screen
 }
 
 fn decode_hex_byte(hex: &str) -> Result<u8, String> {
@@ -186,5 +218,15 @@ mod tests {
             ascii_to_atascii("A\n\\{RETURN}\\{INV:Ab}\\{$00}\\{CLEAR}").unwrap(),
             vec![b'A', 0x9b, 0x9b, 0xc1, 0xe2, 0x00, 0x7d]
         );
+    }
+
+    #[test]
+    fn decodes_screen_code_escape() {
+        assert_eq!(
+            ascii_to_atascii("\\{SCREEN: A_`a~}").unwrap(),
+            vec![0x00, 0x21, 0x3f, 0x60, 0x61, 0x7e]
+        );
+        assert!(ascii_to_atascii("\\{SCREEN:}").is_err());
+        assert!(ascii_to_atascii("\\{SCREEN:€}").is_err());
     }
 }

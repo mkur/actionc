@@ -50,7 +50,8 @@ crowding the active reference set.
 - [ACTIONC_ANNOTATIONS.md](ACTIONC_ANNOTATIONS.md) - supported `;@actionc`
   annotations.
 - [ACTION_SYMBOL_TABLE.md](ACTION_SYMBOL_TABLE.md) - Action! symbol table notes.
-- [ATASCII_ESCAPES.md](ATASCII_ESCAPES.md) - textual ATASCII escape format.
+- [ATASCII_ESCAPES.md](ATASCII_ESCAPES.md) - textual ATASCII and ANTIC
+  screen-code escape formats.
 - [NAME_RESOLUTION.md](NAME_RESOLUTION.md) - name lookup rules.
 - [RUNTIME_HELPER_EFFECTS.md](RUNTIME_HELPER_EFFECTS.md) - known runtime helper
   effects.

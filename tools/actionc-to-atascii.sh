@@ -18,6 +18,7 @@ Supported escapes are the same as actionc source parsing:
   \\{ESC}        \$1B
   \\{CLEAR}      \$7D
   \\{INV:text}   inverse-video ASCII bytes
+  \\{SCREEN:text} ANTIC screen-code bytes converted from ATASCII text
 EOF
 }
 
