@@ -7,7 +7,7 @@
 CARD sdlstl=$230       ; OS display-list shadow pointer
 
 BYTE hscrol=$D404,     ; ANTIC horizontal fine-scroll register
-     fine=[3],
+     fine=[2],         ; first VBI follows the initial HSCROL=3 frame
      coarse=[0]
 
 ; Action strings keep their length in element zero. The remaining 150 bytes
@@ -22,15 +22,16 @@ BYTE ARRAY dlist(9)=[$70 $70 $70 $52 <scrollText+1 >scrollText+1 $41 <dlist >dli
 
 PROC FineScrollVbi=*()
 ASM
-    ; A Mode 2 character is four color clocks wide. Decreasing
-    ; HSCROL moves the window left by one color clock per frame.
-    dec fine
-    bpl apply
+    ; Apply this frame's fine-scroll value immediately. When fine has wrapped
+    ; back to three, commit the coarse step queued by the preceding frame.
+    ; This keeps HSCROL and the live LMS address in the same display state.
+    lda fine
+    sta hscrol
+    cmp #3
+    bne stepFine
 
-    lda #3
-    sta fine
-    inc coarse
     lda coarse
+    beq stepFine
     ; This 150-byte buffer has enough trailing padding for the complete
     ; 48-byte ANTIC fetch window at offsets 102..149. The leading window
     ; is padding too, so the reset from offset 102 to zero is invisible.
@@ -44,16 +45,24 @@ ASM
     sta dlist+4
     lda #>scrollText+1
     sta dlist+5
-    jmp apply
+    jmp stepFine
 
 advance:
     inc dlist+4
-    bne apply
+    bne stepFine
     inc dlist+5
 
-apply:
-    lda fine
-    sta hscrol
+stepFine:
+    ; A Mode 2 character is four color clocks wide. Decreasing HSCROL moves
+    ; the window left by one color clock per frame. Wrapping queues the next
+    ; coarse position; it is committed when fine=3 on the following VBI.
+    dec fine
+    bpl finish
+    lda #3
+    sta fine
+    inc coarse
+
+finish:
     jmp $E45F          ; SYSVBV: continue the normal OS VBI
 ENDASM
 
