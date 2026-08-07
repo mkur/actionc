@@ -141,8 +141,10 @@ Status: complete.
 Status: complete.
 
 - Put `<dlist >dlist` directly in the fine-scroller display list.
-- Remove the runtime stores to `dlist+7` and `dlist+8`; retain the runtime LMS
-  patch because `SAVMSC` is established by `Graphics(0)`.
+- The first version removed the runtime stores to `dlist+7` and `dlist+8` but
+  retained the runtime LMS patch because it used `SAVMSC`. The sample now uses
+  a static `SCREEN`-encoded buffer and relocates the LMS address to that buffer
+  as well.
 - Document symbolic byte and word initializers.
 
 ### Slice 10: validation

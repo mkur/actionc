@@ -131,7 +131,8 @@ The detailed rules and source-level differences are documented in
 
 - [Hello World](samples/hello-world.act) — minimal text output;
 - [Inline-assembler fine scroller](samples/inline-asm-fine-scroll.act) — a
-  custom ANTIC display list driven by an immediate vertical-blank routine;
+  static screen-code buffer and custom ANTIC display list driven by an
+  immediate vertical-blank routine;
 - [Atari Fuji logo](samples/atari-fuji-logo.act) — graphics and drawing calls;
 - [Logo](samples/logo.act) and [Rainbow](samples/rainbow.act) — historical
   graphics examples;

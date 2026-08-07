@@ -50,6 +50,9 @@ The same mapping applies with bit 7 set. For example, `\{SCREEN:A}` emits
 directly by ANTIC. Continue using ordinary ATASCII text for `Print`, CIO, files,
 and other character I/O.
 
+See the [inline-assembler fine scroller](../samples/inline-asm-fine-scroll.act)
+for a static `SCREEN`-encoded buffer used directly by an ANTIC LMS instruction.
+
 To convert an edited text file back to raw ATASCII bytes for the original
 Action! compiler or ATR sidecars:
 

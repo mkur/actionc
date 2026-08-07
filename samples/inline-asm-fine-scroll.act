@@ -4,16 +4,20 @@
 ; line. An immediate vertical-blank routine advances HSCROL once per frame
 ; and advances the LMS address after one character width.
 
-CARD savmsc=$58,       ; OS screen-memory pointer
-     sdlstl=$230       ; OS display-list shadow pointer
+CARD sdlstl=$230       ; OS display-list shadow pointer
 
 BYTE hscrol=$D404,     ; ANTIC horizontal fine-scroll register
      fine=[3],
      coarse=[0]
 
-; Three blank lines, Mode 2 + LMS + HSCROL, then a complete JVB whose
-; destination is relocated to the display list itself at compile time.
-BYTE ARRAY dlist(9)=[$70 $70 $70 $52 0 0 $41 <dlist >dlist]
+; Action strings keep their length in element zero. The remaining 150 bytes
+; are ANTIC screen codes: 50 leading spaces, the 33-character message, and
+; 67 trailing spaces. Both fetch windows at the loop boundary are blank.
+CHAR ARRAY scrollText(151)="\{SCREEN:                                                  Hello from ACTIONC INLINE ASM!!!!                                                                   }"
+
+; Three blank lines, Mode 2 + LMS + HSCROL, then a complete JVB. Both
+; addresses are relocated into the static display list at compile time.
+BYTE ARRAY dlist(9)=[$70 $70 $70 $52 <scrollText+1 >scrollText+1 $41 <dlist >dlist]
 
 
 PROC FineScrollVbi=*()
@@ -27,7 +31,7 @@ ASM
     sta fine
     inc coarse
     lda coarse
-    ; This 150-byte message has enough trailing padding for the complete
+    ; This 150-byte buffer has enough trailing padding for the complete
     ; 48-byte ANTIC fetch window at offsets 102..149. The leading window
     ; is padding too, so the reset from offset 102 to zero is invisible.
     cmp #103
@@ -36,9 +40,9 @@ ASM
     ; Restart the repeating message.
     lda #0
     sta coarse
-    lda savmsc
+    lda #<scrollText+1
     sta dlist+4
-    lda savmsc+1
+    lda #>scrollText+1
     sta dlist+5
     jmp apply
 
@@ -56,17 +60,10 @@ ENDASM
 
 PROC StartFineScroll()
   Graphics(0)
-  Print("                                           Hello from ACTIONC INLINE ASM!!!!                                                                   ")
 
   ASM
-    ; Point the LMS instruction at the text written by Print.
-    lda savmsc
-    sta dlist+4
-    lda savmsc+1
-    sta dlist+5
-
-    ; Publish the custom list through the OS display-list shadow. The JVB
-    ; target is already complete in dlist's static initializer.
+    ; Publish the fully relocated custom list through the OS display-list
+    ; shadow. Its LMS points directly at the static screen-code buffer.
     lda #<dlist
     sta sdlstl
     lda #>dlist
