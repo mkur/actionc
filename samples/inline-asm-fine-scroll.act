@@ -7,7 +7,7 @@
 CARD sdlstl=$230       ; OS display-list shadow pointer
 
 BYTE hscrol=$D404,     ; ANTIC horizontal fine-scroll register
-     fine=[2],         ; first VBI follows the initial HSCROL=2 frame
+     fine=[2],         ; first VBI follows the initial HSCROL=3 frame
      coarse=[0]
 
 ; Action strings keep their length in element zero. The remaining 150 bytes
