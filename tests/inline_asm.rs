@@ -107,6 +107,25 @@ RETURN
 }
 
 #[test]
+fn inline_asm_accepts_single_character_action_symbols() {
+    let source = r#"
+BYTE u=$7
+
+PROC Main()
+ASM
+    lda u
+ENDASM
+RETURN
+"#;
+    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+        .expect("emit single-character Action symbol in classic inline assembler");
+
+    let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
+    mir6502::generate_output(&nir, 0x3000)
+        .expect("emit single-character Action symbol in MIR inline assembler");
+}
+
+#[test]
 fn inline_asm_emits_in_mir6502() {
     let nir = nir::optimize_program(&nir::lower_program(&semir(SOURCE)))
         .expect("optimize inline assembler NIR");

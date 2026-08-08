@@ -592,8 +592,12 @@ fn compact_operand(operand: &str) -> String {
 }
 
 fn strip_ascii_suffix<'a>(text: &'a str, suffix: &str) -> Option<&'a str> {
-    (text.len() >= suffix.len() && text[text.len() - suffix.len()..].eq_ignore_ascii_case(suffix))
-        .then_some(&text[..text.len() - suffix.len()])
+    if text.len() >= suffix.len() && text[text.len() - suffix.len()..].eq_ignore_ascii_case(suffix)
+    {
+        Some(&text[..text.len() - suffix.len()])
+    } else {
+        None
+    }
 }
 
 fn parse_expression(
