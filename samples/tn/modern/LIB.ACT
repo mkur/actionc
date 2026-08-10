@@ -385,6 +385,9 @@ ASM
   rts
 ENDASM
 
+BYTE ARRAY internalMap(4)=[$40 $00 $20 $60],
+           asciiMap(4)=[$20 $40 $00 $60]
+
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers $A0
 ;@actionc returns A=$A0
@@ -399,7 +402,7 @@ ASM
   tax
   tya
   and #$9F
-  ora $FB49,x
+  ora internalMap,x
   sta $A0
   rts
 ENDASM
@@ -418,7 +421,7 @@ ASM
   tax
   tya
   and #$9F
-  ora $FB4D,x
+  ora asciiMap,x
   sta $A0
   rts
 ENDASM
@@ -426,8 +429,24 @@ ENDASM
 ;@actionc clobbers $A0
 ;@actionc returns A=$A0
 CHAR FUNC Getchar=*()
-ASM
-  jsr $F2F8
+ASM OPAQUE
+  ; Preserve the old $F2F8 behavior: discard a pending key before reading.
+  lda #$FF
+  sta $02FC
+
+  ; The K: GET vector contains the handler address minus one. Arrange two
+  ; stacked returns: first into the handler, then back here with the character.
+  lda #>gotchar-1
+  pha
+  lda #<gotchar-1
+  pha
+  lda $E425
+  pha
+  lda $E424
+  pha
+  rts
+
+gotchar:
   sta $A0
   rts
 ENDASM

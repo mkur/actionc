@@ -1,5 +1,5 @@
  
-;   Toms Navigator version 1.24      
+;   Toms Navigator version 1.25
 ;              by 
 ;        Michal Kurcewicz    
 ;
@@ -1289,7 +1289,7 @@ BYTE krpdel=$2D9, keyrep=$2DA, shflok=$2BE
 
  SwapScr()
 
- Print("\{INV:Toms Navigator 1.24 (c) 2026 M.Kurcewicz}")
+ Print("\{INV:Toms Navigator 1.25 (c) 2026 M.Kurcewicz}")
  Position( 0, 23 )
  Print("\{INV:New Copy Del Ren Atr View Mkdir Fmt Quit}")
 
