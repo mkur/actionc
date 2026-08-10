@@ -13,6 +13,9 @@ tn/         maintained TOMS Navigator sources
 Action objects, a statically relocated ANTIC display list, a `SCREEN`-encoded
 display buffer, and an immediate vertical-blank routine.
 
+`rainbow_asm.act` is a compact inline-assembly version of the original
+`rainbow.act` raster effect.
+
 Archived disk images, byte-exact extractions, raw ATASCII sidecars, and original
 compiler outputs live under `corpora/`. Survey scripts and generated comparison
 reports live under `surveys/`.

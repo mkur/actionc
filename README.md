@@ -135,7 +135,8 @@ The detailed rules and source-level differences are documented in
   immediate vertical-blank routine;
 - [Atari Fuji logo](samples/atari-fuji-logo.act) — graphics and drawing calls;
 - [Logo](samples/logo.act) and [Rainbow](samples/rainbow.act) — historical
-  graphics examples;
+  graphics examples; [Rainbow ASM](samples/rainbow_asm.act) shows the raster
+  effect rewritten with inline assembly;
 - [Action! Toolkit](samples/toolkit/README.md) — maintained modernized Toolkit
   programs;
 - [TOMS Navigator](samples/tn/README.md) — a large real-world Action! program.

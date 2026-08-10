@@ -1,0 +1,25 @@
+; Inline-assembly variant of rainbow.act.
+
+PROC Rainbow()
+
+BYTE vcount=$D40B, wsync=$D40A,
+        rtclok=$14, color=$D018, u=$7,
+        ch=764
+
+ch=$FF
+
+ASM
+loop:
+    lda u
+    sta wsync
+
+    lda vcount
+    clc
+    adc rtclok
+    sta color
+
+    lda ch
+    cmp #$FF
+    beq loop
+ENDASM
+RETURN
