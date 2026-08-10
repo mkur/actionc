@@ -9,7 +9,7 @@ vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 vm_out_dir="${ACTION_VM_STRESS_OUTPUT_DIR:-$survey_dir/outputs/vm}"
 actionc_out_dir="${ACTION_STRESS_ACTIONC_OUTPUT_DIR:-$survey_dir/outputs/actionc}"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
-os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
+os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
 max_steps="${ACTION_VM_MAX_STEPS:-60000000}"
 
 stress_names="

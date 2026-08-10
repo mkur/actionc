@@ -6,7 +6,7 @@ repo_root="$(cd "$runtime_dir/../.." && pwd)"
 vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 source_path="$runtime_dir/kalscope_codegen_patterns.act"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
-os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
+os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
 expected="11 22 33 44 af 45 af 45 82 84 1f"
 
 for required in "$source_path" "$vm_root/Cargo.toml" "$cart_rom" "$os_rom"; do

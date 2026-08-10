@@ -11,7 +11,7 @@ repo artifacts instead of rerunning the VM probe.
 TN source:  corpora/tn/original/extracted/SRC/TN.ACT.atascii
 LIB source: corpora/tn/original/extracted/SRC/LIB.ACT.atascii
 cart ROM:   roms/action.rom
-OS ROM:     roms/rev02.rom
+OS ROM:     roms/altirraos-xl.rom
 ```
 
 The source files are raw ATASCII with `$9B` line endings. The VM host-file
@@ -40,7 +40,7 @@ mkdir -p surveys/tn/original-symbols
 
 cargo run --quiet --manifest-path ../action-compiler-vm/Cargo.toml -- run \
   --cart roms/action.rom \
-  --os roms/rev02.rom \
+  --os roms/altirraos-xl.rom \
   --hotpatch action-q-input \
   --hotpatch action-headless-getkey \
   --host-file 'TN.ACT:corpora/tn/original/extracted/SRC/TN.ACT.atascii' \

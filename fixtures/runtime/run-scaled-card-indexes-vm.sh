@@ -6,7 +6,7 @@ repo_root="$(cd "$runtime_dir/../.." && pwd)"
 vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 source_path="$runtime_dir/scaled_card_indexes.act"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
-os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
+os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
 expected="00 11 01 22 7f 33 80 44 ff 55 80 44 7f 33 ff 55 7f a1 80 66 ff 77 7f 88 80 99 80 aa 01 6a 7f ff ef be"
 
 require_file() {

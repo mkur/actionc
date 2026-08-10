@@ -18,7 +18,7 @@ run=1
 run_mode="disk"
 atari800_bin="${ATARI800:-atari800}"
 cart_rom="${ACTIONC_ATARI800_CART:-${ACTION_VM_CART:-$repo_root/roms/action.rom}}"
-os_rom="${ACTIONC_ATARI800_OS:-${ACTION_VM_OS:-$repo_root/roms/rev02.rom}}"
+os_rom="${ACTIONC_ATARI800_OS:-${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}}"
 default_source_atr="$repo_root/atr/mydos.atr"
 
 usage() {
@@ -45,7 +45,7 @@ Options:
   --atari800 <path>          atari800 executable, default: \$ATARI800 or atari800
   --cart <rom>               attach an Atari cartridge ROM when launching
   --no-cart                  launch without a configured or explicit cartridge
-  --os <rom>                 Atari XL/XE OS ROM for atari800, default: roms/rev02.rom
+  --os <rom>                 Atari XL/XE OS ROM for atari800, default: roms/altirraos-xl.rom
   --no-os                    use atari800 config/default OS ROM
   --no-run                   build the ATR but do not start atari800
   --keep                     keep temporary artifacts and print their path
@@ -64,7 +64,7 @@ Environment:
                               default: $repo_root/roms/action.rom
   ACTIONC_ATARI800_OS         XL/XE OS ROM passed to atari800 as -xlxe_rom
   ACTION_VM_OS                fallback OS ROM, shared with VM tools
-                              default: $repo_root/roms/rev02.rom
+                              default: $repo_root/roms/altirraos-xl.rom
   ATARI800                   atari800 executable override
   ATARI800_ARGS              extra words appended to atari800 invocation
 

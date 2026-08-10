@@ -6,7 +6,7 @@ repo_root="$(cd "$runtime_dir/../.." && pwd)"
 vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 source_path="$runtime_dir/dual_pointer_word_transfers.act"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
-os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
+os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
 shared_expected="34 12 78 56 ef be fe ca 57 13 68 24 00 01 68 24 03 05 03 05 00 80 00 00"
 mir6502_expected="$shared_expected 34 12 01 02 01 02"
 

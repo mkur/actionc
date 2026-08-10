@@ -31,7 +31,7 @@ cargo run --quiet --bin actionc-emit -- --backend classic --emit-map samples/tn/
 ```sh
 cargo run --quiet --manifest-path ../action-compiler-vm/Cargo.toml -- run \
   --cart roms/action.rom \
-  --os roms/rev02.rom \
+  --os roms/altirraos-xl.rom \
   --load-object target/tn-mir.xex \
   --dump-screen-on-stop \
   --max-steps 1000000
@@ -136,7 +136,7 @@ Synthetic Q: input uses ATASCII EOL for `\n`:
 ```sh
 cargo run --quiet --manifest-path ../action-compiler-vm/Cargo.toml -- run \
   --cart roms/action.rom \
-  --os roms/rev02.rom \
+  --os roms/altirraos-xl.rom \
   --load-object target/tn-mir.xex \
   --host-file '*.*:target/tn-dir.txt' \
   --poke '$0700=$4D' --poke '$076F=$A9' --poke '$070B=$01' --poke '$070A=$08' \

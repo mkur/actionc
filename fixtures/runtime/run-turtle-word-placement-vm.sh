@@ -6,7 +6,7 @@ repo_root="$(cd "$runtime_dir/../.." && pwd)"
 vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 source_path="$runtime_dir/turtle_word_placement.act"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
-os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
+os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
 expected="58 1b 01 00 40 1f 34 08 01 01 a5 7d 00 04"
 
 for required in "$source_path" "$vm_root/Cargo.toml" "$cart_rom" "$os_rom"; do

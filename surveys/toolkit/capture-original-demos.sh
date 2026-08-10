@@ -28,7 +28,7 @@ Artifacts are written to surveys/toolkit/outputs/vm:
 Environment:
   ACTION_COMPILER_VM_DIR      default: ../action-compiler-vm
   ACTION_VM_CART              default: roms/action.rom
-  ACTION_VM_OS                default: roms/rev02.rom
+  ACTION_VM_OS                default: roms/altirraos-xl.rom
   ACTION_TOOLKIT_VM_MAX_STEPS default: 20000000
 USAGE
 }
@@ -39,7 +39,7 @@ toolkit_dir="$repo_root/corpora/toolkit/original/extracted"
 out_dir="$script_dir/outputs/vm"
 vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
-os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
+os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
 max_steps="${ACTION_TOOLKIT_VM_MAX_STEPS:-20000000}"
 
 entries=(

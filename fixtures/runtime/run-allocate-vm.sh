@@ -6,7 +6,7 @@ repo_root="$(cd "$runtime_dir/../.." && pwd)"
 vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 source_path="$runtime_dir/allocate_runtime.act"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
-os_rom="${ACTION_VM_OS:-$repo_root/roms/rev02.rom}"
+os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
 expected="a1 09 00 00 00 70 00 00 10 71 10 00 08 74 00 74 08 00 80 75 08 00 00 76 30 00 00 00 10 78 20 00 00 00 30 79 00 79 00 00 00 7a 00 01 00 00"
 
 require_file() {

@@ -67,11 +67,11 @@ fn launch_args(
 #[test]
 fn launcher_forces_xl_and_attaches_explicit_cartridge() {
     assert_eq!(
-        launch_args("/roms/rev02.rom", "/roms/action.rom", "", ""),
+        launch_args("/roms/altirraos-xl.rom", "/roms/action.rom", "", ""),
         [
             "-xl",
             "-xlxe_rom",
-            "/roms/rev02.rom",
+            "/roms/altirraos-xl.rom",
             "-cart",
             "/roms/action.rom",
         ]
@@ -80,7 +80,7 @@ fn launcher_forces_xl_and_attaches_explicit_cartridge() {
 
 #[test]
 fn launcher_without_cart_ignores_saved_atari800_configuration() {
-    let args = launch_args("/roms/rev02.rom", "", "-pal", "/tmp/actionc-no-cart.cfg");
+    let args = launch_args("/roms/altirraos-xl.rom", "", "-pal", "/tmp/actionc-no-cart.cfg");
 
     assert_eq!(
         args,
@@ -90,7 +90,7 @@ fn launcher_without_cart_ignores_saved_atari800_configuration() {
             "-no-autosave-config",
             "-xl",
             "-xlxe_rom",
-            "/roms/rev02.rom",
+            "/roms/altirraos-xl.rom",
             "-pal",
         ]
     );
@@ -104,7 +104,7 @@ fn sanitized_configuration_preserves_roms_and_clears_all_cartridges() {
     let target = temp.0.join("no-cart.cfg");
     fs::write(
         &source,
-        "ROM_XL/XE_CUSTOM=/roms/rev02.rom\nMACHINE_TYPE=Atari XL/XE\nCARTRIDGE_FILENAME=/roms/action.rom\nCARTRIDGE_TYPE=15\nCARTRIDGE_PIGGYBACK_FILENAME=/roms/second.car\nCARTRIDGE_PIGGYBACK_TYPE=1\n",
+        "ROM_XL/XE_CUSTOM=/roms/altirraos-xl.rom\nMACHINE_TYPE=Atari XL/XE\nCARTRIDGE_FILENAME=/roms/action.rom\nCARTRIDGE_TYPE=15\nCARTRIDGE_PIGGYBACK_FILENAME=/roms/second.car\nCARTRIDGE_PIGGYBACK_TYPE=1\n",
     )
     .expect("write source Atari800 configuration");
 
@@ -125,6 +125,6 @@ fn sanitized_configuration_preserves_roms_and_clears_all_cartridges() {
 
     assert_eq!(
         fs::read_to_string(target).expect("read sanitized Atari800 configuration"),
-        "ROM_XL/XE_CUSTOM=/roms/rev02.rom\nMACHINE_TYPE=Atari XL/XE\nCARTRIDGE_FILENAME=\nCARTRIDGE_TYPE=0\nCARTRIDGE_PIGGYBACK_FILENAME=\nCARTRIDGE_PIGGYBACK_TYPE=0\n"
+        "ROM_XL/XE_CUSTOM=/roms/altirraos-xl.rom\nMACHINE_TYPE=Atari XL/XE\nCARTRIDGE_FILENAME=\nCARTRIDGE_TYPE=0\nCARTRIDGE_PIGGYBACK_FILENAME=\nCARTRIDGE_PIGGYBACK_TYPE=0\n"
     );
 }

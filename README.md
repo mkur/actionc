@@ -71,7 +71,7 @@ tools/compile-run-atr.sh \
 ```
 
 Running through the helper requires `atari800` on `PATH`. By default it uses
-the repository's MyDOS disk, Atari OS ROM, and Action! cartridge ROM. Programs
+the repository's MyDOS disk, AltirraOS ROM, and Action! cartridge ROM. Programs
 that call resident Action! library routines—including the Hello World
 sample—need a compatible Action! cartridge at runtime; the helper attaches it
 automatically.

@@ -106,8 +106,8 @@ backends. It covers global and local initialized BYTE and CARD arrays,
 including the descriptor-backed CARD representations, then checks the six
 result bytes at `$0600-$0605`. The fixture remains inside a generated-code
 loop, so the VM does not enter cartridge or Atari OS code. The VM CLI still
-requires the repository's tracked `roms/action.rom` and `roms/rev02.rom` images
-when it starts execution.
+requires the repository's tracked `roms/action.rom` and
+`roms/altirraos-xl.rom` images when it starts execution.
 
 The KALSCOPE contract fixture checks two observable behaviors used by that
 program: `BYTE low=line, high=line+1` must alias an absolute-backed array
