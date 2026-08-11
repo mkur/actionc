@@ -4,6 +4,7 @@ pub mod asm6502;
 pub mod ast;
 pub mod cli;
 pub mod codegen;
+pub mod compiler;
 pub mod diagnostic;
 pub mod includes;
 pub mod lexer;
