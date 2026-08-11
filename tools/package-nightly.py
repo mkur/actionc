@@ -23,6 +23,9 @@ TARGET_ARCHIVES = {
     "x86_64-apple-darwin": "tar.gz",
 }
 EXECUTABLES = ("actionc", "actionc-run", "actionc-emit")
+ARCHIVE_EXECUTABLE_NAMES = frozenset(
+    (*EXECUTABLES, *(f"{executable}.exe" for executable in EXECUTABLES))
+)
 REQUIRED_LICENSE_NOTICES = {
     "roms/ACTION-ROM-NOTICE.md": "the embedded Action! cartridge",
     "atr/MYDOS-NOTICE.md": "the embedded MyDOS disk image",
@@ -85,11 +88,10 @@ def require_regular_file(path: Path, description: str) -> None:
         raise PackageError(f"missing regular {description}: {path}")
 
 
-def copy_file(source: Path, destination: Path, mode: int) -> None:
+def copy_file(source: Path, destination: Path) -> None:
     require_regular_file(source, "package input")
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, destination)
-    destination.chmod(mode)
 
 
 def rustc_version(args: argparse.Namespace) -> str:
@@ -178,32 +180,29 @@ def stage_package(
     suffix = ".exe" if windows else ""
     for executable in EXECUTABLES:
         file_name = f"{executable}{suffix}"
-        copy_file(args.bin_dir / file_name, stage_root / file_name, 0o755)
+        copy_file(args.bin_dir / file_name, stage_root / file_name)
 
     for relative in ("README.md", "USAGE.md", "LICENSE"):
-        copy_file(repo_root / relative, stage_root / relative, 0o644)
+        copy_file(repo_root / relative, stage_root / relative)
     copy_file(
         repo_root / "docs/ACTIONC_RUN.md",
         stage_root / "docs/ACTIONC_RUN.md",
-        0o644,
     )
 
     notices, missing = license_inputs(
         repo_root, args.allow_incomplete_license_notices
     )
     for source, relative in notices:
-        copy_file(source, stage_root / "licenses" / relative, 0o644)
+        copy_file(source, stage_root / "licenses" / relative)
     if missing:
         notice = stage_root / "licenses/INCOMPLETE-LICENSING.md"
         notice.parent.mkdir(parents=True, exist_ok=True)
         notice.write_text(incomplete_notice_text(missing), encoding="utf-8", newline="\n")
-        notice.chmod(0o644)
 
     info = build_info_text(
         args, package_version(repo_root), build_date, rustc_version(args)
     )
     (stage_root / "BUILD-INFO.txt").write_text(info, encoding="utf-8", newline="\n")
-    (stage_root / "BUILD-INFO.txt").chmod(0o644)
 
 
 def staged_files(stage_root: Path) -> list[Path]:
@@ -214,6 +213,13 @@ def staged_files(stage_root: Path) -> list[Path]:
         if path.is_file():
             files.append(path)
     return sorted(files, key=lambda path: path.relative_to(stage_root).as_posix())
+
+
+def archive_mode(stage_root: Path, source: Path) -> int:
+    relative = source.relative_to(stage_root)
+    if len(relative.parts) == 1 and relative.name in ARCHIVE_EXECUTABLE_NAMES:
+        return 0o755
+    return 0o644
 
 
 def write_tar_gz(stage_root: Path, archive: Path, timestamp: int) -> None:
@@ -229,6 +235,7 @@ def write_tar_gz(stage_root: Path, archive: Path, timestamp: int) -> None:
                     info.uname = "root"
                     info.gname = "root"
                     info.mtime = timestamp
+                    info.mode = archive_mode(stage_root, source)
                     with source.open("rb") as contents:
                         tar.addfile(info, contents)
 
@@ -250,7 +257,7 @@ def write_zip(stage_root: Path, archive: Path, timestamp: int) -> None:
             info = zipfile.ZipInfo(f"{root_name}/{relative}", date_time=zip_time)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.create_system = 3
-            mode = stat.S_IMODE(source.stat().st_mode)
+            mode = archive_mode(stage_root, source)
             info.external_attr = (stat.S_IFREG | mode) << 16
             output.writestr(info, source.read_bytes())
 

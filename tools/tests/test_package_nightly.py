@@ -101,6 +101,7 @@ class NightlyPackageTests(unittest.TestCase):
             )
             self.assertEqual(set(files), expected)
             self.assertEqual(stat.S_IMODE(files[f"{root}/actionc"].mode), 0o755)
+            self.assertEqual(stat.S_IMODE(files[f"{root}/README.md"].mode), 0o644)
             build_info = package.extractfile(files[f"{root}/BUILD-INFO.txt"]).read().decode()
 
         self.assertIn("channel: nightly", build_info)
@@ -133,6 +134,8 @@ class NightlyPackageTests(unittest.TestCase):
             self.assertEqual(files, expected)
             mode = package.getinfo(f"{root}/actionc.exe").external_attr >> 16
             self.assertEqual(stat.S_IMODE(mode), 0o755)
+            readme_mode = package.getinfo(f"{root}/README.md").external_attr >> 16
+            self.assertEqual(stat.S_IMODE(readme_mode), 0o644)
 
     def test_build_metadata_can_come_from_the_workflow_environment(self) -> None:
         self.write_executables("")
