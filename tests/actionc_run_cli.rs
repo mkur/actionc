@@ -51,7 +51,7 @@ fn hello_world() -> PathBuf {
 }
 
 #[test]
-fn no_run_writes_an_atr_with_the_compiler_object() {
+fn no_run_writes_an_atr_with_the_bootstrap_and_compiler_object() {
     let temp = TestDir::new();
     let output_atr = temp.path().join("nested/hello world.atr");
     let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
@@ -76,19 +76,79 @@ fn no_run_writes_an_atr_with_the_compiler_object() {
     );
     let image = AtrImage::from_bytes(fs::read(&output_atr).expect("read output ATR"))
         .expect("parse output ATR");
-    let autorun = image
-        .read_file_named("AUTORUN.AR0")
+    let bootstrap = image
+        .read_file_named("BOOT.AR0")
         .expect("read output directory")
-        .expect("find AUTORUN.AR0");
+        .expect("find BOOT.AR0");
+    let program = image
+        .read_file_named("PROGRAM.AR1")
+        .expect("read output directory")
+        .expect("find PROGRAM.AR1");
     let compiled = compile_file(
         hello_world(),
         &CompileOptions::for_mode(CompileMode::Optimized),
     )
     .expect("compile expected object");
 
-    assert_eq!(autorun, compiled.object_bytes());
+    assert_eq!(
+        bootstrap,
+        [
+            0xFF, 0xFF, 0x00, 0x30, 0x08, 0x30, 0xA0, 0x00, 0x8C, 0xC9, 0x04, 0x8C, 0x00, 0xD5,
+            0x60, 0xE2, 0x02, 0xE3, 0x02, 0x00, 0x30,
+        ]
+    );
+    assert_eq!(program, compiled.object_bytes());
+    assert!(
+        image
+            .read_file_named("AUTORUN.AR0")
+            .expect("read output directory")
+            .is_none()
+    );
     assert!(
         String::from_utf8_lossy(&output.stdout).contains(output_atr.to_string_lossy().as_ref())
+    );
+}
+
+#[test]
+fn no_cart_writes_the_compiler_object_directly_as_ar0() {
+    let temp = TestDir::new();
+    let output_atr = temp.path().join("no-cart.atr");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
+        .arg("--no-cart")
+        .arg("--no-run")
+        .arg("--out-atr")
+        .arg(&output_atr)
+        .arg(hello_world())
+        .output()
+        .expect("run actionc-run --no-cart --no-run");
+
+    assert!(
+        output.status.success(),
+        "actionc-run failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let image = AtrImage::from_bytes(fs::read(&output_atr).expect("read output ATR"))
+        .expect("parse output ATR");
+    let program = image
+        .read_file_named("PROGRAM.AR0")
+        .expect("read output directory")
+        .expect("find PROGRAM.AR0");
+    let compiled =
+        compile_file(hello_world(), &CompileOptions::default()).expect("compile expected object");
+
+    assert_eq!(program, compiled.object_bytes());
+    assert!(
+        image
+            .read_file_named("BOOT.AR0")
+            .expect("read output directory")
+            .is_none()
+    );
+    assert!(
+        image
+            .read_file_named("PROGRAM.AR1")
+            .expect("read output directory")
+            .is_none()
     );
 }
 

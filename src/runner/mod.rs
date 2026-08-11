@@ -22,7 +22,16 @@ use emulator::{EmulatorAdapter, EmulatorError, EmulatorKind, LaunchRequest};
 
 pub(crate) mod emulator;
 
-const AUTORUN_NAME: &str = "AUTORUN.AR0";
+const BOOTSTRAP_NAME: &str = "BOOT.AR0";
+const PROGRAM_AFTER_BOOTSTRAP_NAME: &str = "PROGRAM.AR1";
+const DIRECT_PROGRAM_NAME: &str = "PROGRAM.AR0";
+const ACTION_LIBRARY_BOOTSTRAP_ORIGIN: u16 = 0x3000;
+const ACTION_LIBRARY_BOOTSTRAP_CODE: &[u8] = &[
+    0xA0, 0x00, // LDY #$00
+    0x8C, 0xC9, 0x04, // STY $04C9 (Action! curbank)
+    0x8C, 0x00, 0xD5, // STY $D500 (select the Action! library bank)
+    0x60, // RTS
+];
 const BUNDLED_ACTION_CARTRIDGE: &[u8] = include_bytes!("../../roms/action.rom");
 const BUNDLED_ALTIRRA_OS: &[u8] = include_bytes!("../../roms/altirraos-xl.rom");
 const NO_CART_CONFIG: &[u8] = b"Atari 800 Emulator, Version 7.0.0\n\
@@ -85,6 +94,12 @@ enum CartridgeChoice {
     None,
 }
 
+impl CartridgeChoice {
+    fn is_attached(&self) -> bool {
+        !matches!(self, Self::None)
+    }
+}
+
 fn run_cli(args: impl IntoIterator<Item = OsString>) -> Result<RunCliOutcome, RunnerError> {
     let args = args.into_iter().collect::<Vec<_>>();
     if args.len() == 1 && (args[0] == OsStr::new("-V") || args[0] == OsStr::new("--version")) {
@@ -93,7 +108,11 @@ fn run_cli(args: impl IntoIterator<Item = OsString>) -> Result<RunCliOutcome, Ru
     let Some(options) = parse_args(args)? else {
         return Ok(RunCliOutcome::Help);
     };
-    let atr_bytes = prepare_atr(&options.source, &options.compile)?;
+    let atr_bytes = prepare_atr(
+        &options.source,
+        &options.compile,
+        options.cartridge.is_attached(),
+    )?;
 
     if options.no_run {
         let output_atr = options
@@ -268,14 +287,43 @@ fn default_atr_path(source: &Path) -> PathBuf {
     PathBuf::from(file_name)
 }
 
-fn prepare_atr(source: &Path, options: &CompileOptions) -> Result<Vec<u8>, RunnerError> {
+fn prepare_atr(
+    source: &Path,
+    options: &CompileOptions,
+    cartridge_attached: bool,
+) -> Result<Vec<u8>, RunnerError> {
     let compiled = compile_file(source, options).map_err(RunnerError::Compile)?;
     let mut image = AtrImage::from_bytes(MYDOS_ATR.to_vec())
         .map_err(|message| RunnerError::Atr(format!("embedded MyDOS image: {message}")))?;
+
+    let program_name = if cartridge_attached {
+        let bootstrap = action_library_bootstrap_object();
+        image
+            .upsert_file(BOOTSTRAP_NAME, &bootstrap)
+            .map_err(|message| RunnerError::Atr(format!("add {BOOTSTRAP_NAME}: {message}")))?;
+        PROGRAM_AFTER_BOOTSTRAP_NAME
+    } else {
+        DIRECT_PROGRAM_NAME
+    };
     image
-        .upsert_file(AUTORUN_NAME, compiled.object_bytes())
-        .map_err(|message| RunnerError::Atr(format!("add {AUTORUN_NAME}: {message}")))?;
+        .upsert_file(program_name, compiled.object_bytes())
+        .map_err(|message| RunnerError::Atr(format!("add {program_name}: {message}")))?;
     Ok(image.into_bytes())
+}
+
+fn action_library_bootstrap_object() -> Vec<u8> {
+    let end = ACTION_LIBRARY_BOOTSTRAP_ORIGIN + ACTION_LIBRARY_BOOTSTRAP_CODE.len() as u16 - 1;
+    let runad = 0x02E2_u16;
+    let mut object = Vec::with_capacity(12 + ACTION_LIBRARY_BOOTSTRAP_CODE.len());
+
+    object.extend_from_slice(&[0xFF, 0xFF]);
+    object.extend_from_slice(&ACTION_LIBRARY_BOOTSTRAP_ORIGIN.to_le_bytes());
+    object.extend_from_slice(&end.to_le_bytes());
+    object.extend_from_slice(ACTION_LIBRARY_BOOTSTRAP_CODE);
+    object.extend_from_slice(&runad.to_le_bytes());
+    object.extend_from_slice(&runad.wrapping_add(1).to_le_bytes());
+    object.extend_from_slice(&ACTION_LIBRARY_BOOTSTRAP_ORIGIN.to_le_bytes());
+    object
 }
 
 fn launch_emulator(
@@ -767,20 +815,80 @@ mod tests {
     }
 
     #[test]
-    fn prepared_atr_contains_the_compiler_object_as_autorun() {
+    fn action_library_bootstrap_is_a_load_file_that_returns_to_mydos() {
+        assert_eq!(
+            action_library_bootstrap_object(),
+            vec![
+                0xFF, 0xFF, // load-file marker
+                0x00, 0x30, 0x08, 0x30, // $3000-$3008
+                0xA0, 0x00, // LDY #$00
+                0x8C, 0xC9, 0x04, // STY $04C9
+                0x8C, 0x00, 0xD5, // STY $D500
+                0x60, // RTS
+                0xE2, 0x02, 0xE3, 0x02, // RUNAD
+                0x00, 0x30, // $3000
+            ]
+        );
+    }
+
+    #[test]
+    fn prepared_atr_runs_the_bootstrap_before_the_compiler_object() {
         let source = hello_world();
         let options = CompileOptions::for_mode(CompileMode::Compatibility);
         let compiled = compile_file(&source, &options).expect("compile expected object");
 
-        let atr = prepare_atr(&source, &options).expect("prepare runnable ATR");
+        let atr = prepare_atr(&source, &options, true).expect("prepare runnable ATR");
         let image = AtrImage::from_bytes(atr).expect("parse prepared ATR");
 
         assert_eq!(
             image
-                .read_file_named(AUTORUN_NAME)
+                .read_file_named(BOOTSTRAP_NAME)
                 .expect("read prepared ATR")
-                .expect("find AUTORUN.AR0"),
+                .expect("find BOOT.AR0"),
+            action_library_bootstrap_object()
+        );
+        assert_eq!(
+            image
+                .read_file_named(PROGRAM_AFTER_BOOTSTRAP_NAME)
+                .expect("read prepared ATR")
+                .expect("find PROGRAM.AR1"),
             compiled.object_bytes()
+        );
+        assert!(
+            image
+                .read_file_named("AUTORUN.AR0")
+                .expect("read prepared ATR")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn prepared_atr_without_a_cartridge_runs_the_program_directly_as_ar0() {
+        let source = hello_world();
+        let options = CompileOptions::for_mode(CompileMode::Compatibility);
+        let compiled = compile_file(&source, &options).expect("compile expected object");
+
+        let atr = prepare_atr(&source, &options, false).expect("prepare runnable ATR");
+        let image = AtrImage::from_bytes(atr).expect("parse prepared ATR");
+
+        assert_eq!(
+            image
+                .read_file_named(DIRECT_PROGRAM_NAME)
+                .expect("read prepared ATR")
+                .expect("find PROGRAM.AR0"),
+            compiled.object_bytes()
+        );
+        assert!(
+            image
+                .read_file_named(BOOTSTRAP_NAME)
+                .expect("read prepared ATR")
+                .is_none()
+        );
+        assert!(
+            image
+                .read_file_named(PROGRAM_AFTER_BOOTSTRAP_NAME)
+                .expect("read prepared ATR")
+                .is_none()
         );
     }
 

@@ -51,7 +51,12 @@ template and add an executable without invoking the `atrcopy-rs` command:
 use atrcopy_rs::{AtrImage, MYDOS_ATR};
 
 let mut image = AtrImage::from_bytes(MYDOS_ATR)?;
-image.upsert_file("AUTORUN.AR0", object_file)?;
+if cartridge_attached {
+    image.upsert_file("BOOT.AR0", action_library_bootstrap)?;
+    image.upsert_file("PROGRAM.AR1", object_file)?;
+} else {
+    image.upsert_file("PROGRAM.AR0", object_file)?;
+}
 let runnable_atr = image.into_bytes();
 ```
 
@@ -59,7 +64,9 @@ let runnable_atr = image.into_bytes();
 be found or installed at runtime.
 
 MyDOS 4.53 runs matching files in order from extension `.AR0` through `.AR9`,
-so a single program disk uses `AUTORUN.AR0`.
+which lets `actionc-run` establish the Action! cartridge state in `.AR0` before
+starting the compiled program from `.AR1`. Without a cartridge, the program
+itself uses `.AR0` so MyDOS still starts it.
 
 `upsert_file` is atomic from the caller's perspective: if validation or disk
 allocation fails, the original in-memory image is left unchanged.

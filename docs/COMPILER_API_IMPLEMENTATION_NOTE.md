@@ -19,7 +19,12 @@ let compiled = compile_file(
 )?;
 
 let mut disk = AtrImage::from_bytes(MYDOS_ATR)?;
-disk.upsert_file("AUTORUN.AR0", compiled.object_bytes())?;
+if cartridge_attached {
+    disk.upsert_file("BOOT.AR0", action_library_bootstrap)?;
+    disk.upsert_file("PROGRAM.AR1", compiled.object_bytes())?;
+} else {
+    disk.upsert_file("PROGRAM.AR0", compiled.object_bytes())?;
+}
 ```
 
 The existing `actionc` executable must eventually use the same entry point. A
@@ -383,8 +388,9 @@ Acceptance criteria:
 
 - Add the root dependency on the in-tree ATR library.
 - Compile with `CompileOptions::for_mode`.
-- Copy `CompiledProgram::object_bytes()` into embedded `MYDOS_ATR` as
-  `AUTORUN.AR0`.
+- With a cartridge, add the Action! library-bank bootstrap as `BOOT.AR0` and
+  copy `CompiledProgram::object_bytes()` into the image as `PROGRAM.AR1`.
+- Without a cartridge, copy the object directly as `PROGRAM.AR0`.
 - Do not create an intermediate `.com` file.
 
 This slice belongs to the `actionc-run` implementation, but it is the first

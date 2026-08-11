@@ -1,8 +1,12 @@
 # Running Programs with `actionc-run`
 
-`actionc-run` compiles an Action! source file, puts the generated object in an
-embedded MyDOS image as `AUTORUN.AR0`, and boots the resulting ATR in Atari800
-or Altirra. It does not require Bash or create an intermediate `.com` file.
+`actionc-run` compiles an Action! source file and boots it from an embedded
+MyDOS image in Atari800 or Altirra. The image contains a small `BOOT.AR0`
+bootstrap followed by the generated object as `PROGRAM.AR1`. The bootstrap
+selects the Action! cartridge's resident-library bank before MyDOS starts the
+program. With `--no-cart`, the bootstrap is omitted and the generated object is
+stored directly as `PROGRAM.AR0`. No Bash or intermediate `.com` file is
+required.
 
 Install it with:
 
@@ -74,7 +78,9 @@ actionc-run [--mode compatibility|optimized|mir6502]
   names such as `Altirra64.exe`, `Altirra.exe`, and `atari800` also select the
   adapter. For another filename, specify `--emulator` too.
 - `--cart` replaces the bundled Action! cartridge. `--no-cart` runs without a
-  cartridge and prevents Atari800 from restoring one from saved settings.
+  cartridge, omits the Action! bank-selection bootstrap, stores the program as
+  `PROGRAM.AR0`, and prevents Atari800 from restoring a cartridge from saved
+  settings.
 - `--no-run` writes an ATR and does not inspect emulator configuration or the
   host PATH. Without `--out-atr`, it writes `<source-stem>.atr` in the current
   directory.
@@ -106,4 +112,3 @@ The older [compile-run-atr.sh](../tools/compile-run-atr.sh) helper remains for
 compiler-development workflows that need a custom source ATR, object packing,
 host-object loading, raw Atari800 arguments, or lower-level profile/backend
 selection. Normal source compile-and-run workflows should use `actionc-run`.
-

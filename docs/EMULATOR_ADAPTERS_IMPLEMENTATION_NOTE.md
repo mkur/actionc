@@ -16,8 +16,10 @@ The first supported emulators are:
 - Altirra on Windows.
 
 The first version boots one common disk artifact in both emulators. It does not
-use emulator-specific direct executable loading. The generated object is stored
-as `AUTORUN.AR0`, which the embedded MyDOS image runs during startup.
+use emulator-specific direct executable loading. A small `BOOT.AR0` selects the
+Action! resident-library bank, then MyDOS loads the generated object from
+`PROGRAM.AR1`. With `--no-cart`, the bootstrap is omitted and the object is
+stored directly as `PROGRAM.AR0`.
 
 ## Existing Prerequisites
 
@@ -25,8 +27,8 @@ The repository already has the two reusable boundaries needed by the runner:
 
 - `actionc::compiler::compile_file` compiles all three user-facing modes and
   returns complete load-format object bytes without writing a file or exiting;
-- `atrcopy_rs::AtrImage` can start from embedded `MYDOS_ATR` and update
-  `AUTORUN.AR0` entirely in memory.
+- `atrcopy_rs::AtrImage` can start from embedded `MYDOS_ATR` and construct
+  either autorun layout entirely in memory.
 
 The current `tools/compile-run-atr.sh` and
 `tools/lib/atari800-launch.sh` scripts are the behavioral reference for the
@@ -43,7 +45,7 @@ Action source
 compiler API -> load-format object
     |
     v
-ATR preparation -> MyDOS image with AUTORUN.AR0
+ATR preparation -> MyDOS image with BOOT.AR0 + PROGRAM.AR1, or PROGRAM.AR0
     |
     v
 emulator adapter -> executable plus argument vector
@@ -97,10 +99,13 @@ The default and initially only launch form is disk boot:
 
 1. Compile the source with the reusable compiler API.
 2. Parse embedded `MYDOS_ATR` into `AtrImage`.
-3. Replace or add `AUTORUN.AR0` with `CompiledProgram::object_bytes()`.
-4. Write the resulting ATR to a per-run temporary directory.
-5. Materialize any embedded ROM assets required by the selected adapter.
-6. Launch the emulator with the ATR and cartridge attached.
+3. With a cartridge, add the Action! library-bank bootstrap as `BOOT.AR0` and
+   `CompiledProgram::object_bytes()` as `PROGRAM.AR1`.
+4. Without a cartridge, add only `CompiledProgram::object_bytes()` as
+   `PROGRAM.AR0`.
+5. Write the resulting ATR to a per-run temporary directory.
+6. Materialize any embedded ROM assets required by the selected adapter.
+7. Launch the emulator with the ATR and cartridge attached.
 
 The runner must not create an intermediate `.com` file. `--no-run` may write an
 ATR chosen by the caller, but normal runs keep all generated artifacts in the
@@ -258,13 +263,19 @@ Acceptance criteria:
 - Add the root path dependency on `atrcopy-rs`.
 - Add the `actionc-run` binary and minimal parser.
 - Compile through `compile_file`.
-- Put object bytes in embedded MyDOS as `AUTORUN.AR0`.
+- With a cartridge, put the library-bank bootstrap in embedded MyDOS as
+  `BOOT.AR0` and object bytes as `PROGRAM.AR1`.
+- Without a cartridge, put object bytes directly in embedded MyDOS as
+  `PROGRAM.AR0`.
 - Write an explicitly retained ATR without creating a `.com` file.
 
 Acceptance criteria:
 
 - `actionc-run --no-run --out-atr output.atr sample.act` succeeds;
-- extracting `AUTORUN.AR0` returns the compiler API object bytes exactly;
+- extracting `BOOT.AR0` returns the embedded bootstrap exactly;
+- extracting `PROGRAM.AR1` returns the compiler API object bytes exactly;
+- with `--no-cart`, `BOOT.AR0` is absent and `PROGRAM.AR0` equals the compiler
+  API object bytes;
 - a failed compilation does not create the requested ATR.
 
 ### Slice 3: Atari800 adapter
@@ -330,14 +341,15 @@ At minimum, cover:
 | --- | --- |
 | compatibility/optimized/MIR6502 | object packaged without mode drift |
 | compiler error | structured error, no ATR |
-| embedded MyDOS | `AUTORUN.AR0` equals object bytes |
+| embedded MyDOS with cart | `BOOT.AR0` is the bootstrap and `PROGRAM.AR1` equals object bytes |
+| embedded MyDOS without cart | `BOOT.AR0` is absent and `PROGRAM.AR0` equals object bytes |
 | explicit Atari800 | exact XL/OS/cart/disk argument vector |
 | explicit Altirra | exact disk/cart argument vector |
 | Windows auto | Altirra preferred |
 | Unix auto | Atari800 preferred |
 | missing emulator | checked candidates reported |
 | path containing spaces | one argument per path |
-| `--no-cart` | no saved or explicit cartridge leaks into run |
+| `--no-cart` | no bootstrap or cartridge leaks into run; program uses `.AR0` |
 | `--no-run` | no emulator discovery or process spawn |
 | normal child exit | temporary directory removed |
 | `--keep` | temporary directory retained and reported |
