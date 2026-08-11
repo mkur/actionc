@@ -17,6 +17,9 @@ crowding the active reference set.
 - [NIR_TARGET_SHAPE.md](NIR_TARGET_SHAPE.md) - target NIR contract.
 - [NIR_QUALITY_IMPLEMENTATION_PLAN.md](NIR_QUALITY_IMPLEMENTATION_PLAN.md) -
   active plan for storage-to-value promotion and routine-wide NIR quality.
+- [COMPILER_API_IMPLEMENTATION_NOTE.md](COMPILER_API_IMPLEMENTATION_NOTE.md) -
+  plan for a reusable, side-effect-free file compilation API shared by
+  `actionc` and `actionc-run`.
 - [INLINE_ASSEMBLER_IMPLEMENTATION_PLAN.md](INLINE_ASSEMBLER_IMPLEMENTATION_PLAN.md)
   - sliced plan for an integrated, MADS-style 6502 inline assembler with stable
     Action! object references and shared compiler effects.
