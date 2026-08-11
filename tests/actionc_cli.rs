@@ -275,6 +275,96 @@ fn source_origin_and_explicit_origin_precedence_are_stable() {
             0x3A00,
             "--mode {mode} ignored the explicit origin"
         );
+
+        let explicit_default = temp.path().join(format!("{mode}-explicit-default.com"));
+        let explicit_default_output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .arg("--mode")
+            .arg(mode)
+            .arg("--origin")
+            .arg("$3000")
+            .arg("--output")
+            .arg(&explicit_default)
+            .arg(&source)
+            .output()
+            .expect("compile with explicit default origin");
+        assert!(
+            explicit_default_output.status.success(),
+            "actionc --mode {mode} --origin $3000 failed\nstderr:\n{}",
+            String::from_utf8_lossy(&explicit_default_output.stderr)
+        );
+        assert_eq!(
+            load_file_origin(
+                &fs::read(&explicit_default).expect("read explicit-default-origin object")
+            ),
+            0x3000,
+            "--mode {mode} treated explicit $3000 as an implicit origin"
+        );
+    }
+}
+
+#[test]
+fn invalid_profile_backend_combination_remains_a_configuration_error() {
+    let temp = TestDir::new();
+    let object = temp.path().join("invalid.com");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .arg("--backend")
+        .arg("mir6502")
+        .arg("--output")
+        .arg(&object)
+        .arg(hello_world())
+        .output()
+        .expect("run actionc with an invalid compiler configuration");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("--backend mir6502 requires --profile modern")
+    );
+    assert!(!object.exists());
+}
+
+#[test]
+fn advanced_classic_codegen_sources_survive_the_api_migration() {
+    let temp = TestDir::new();
+    let source = temp.path().join("minimal.act");
+    fs::write(&source, "PROC Main()\nRETURN\n").expect("write advanced-codegen source");
+    for codegen_source in ["ast", "semir", "semir-native"] {
+        let object = temp.path().join(format!("{codegen_source}.com"));
+        let compiled = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .arg("--profile")
+            .arg("modern")
+            .arg("--backend")
+            .arg("classic")
+            .arg("--codegen-source")
+            .arg(codegen_source)
+            .arg("--output")
+            .arg(&object)
+            .arg(&source)
+            .output()
+            .expect("run actionc with an advanced codegen source");
+        assert!(
+            compiled.status.success(),
+            "actionc --codegen-source {codegen_source} failed\nstderr:\n{}",
+            String::from_utf8_lossy(&compiled.stderr)
+        );
+
+        let emitted = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .arg("--profile")
+            .arg("modern")
+            .arg("--backend")
+            .arg("classic")
+            .arg("--codegen-source")
+            .arg(codegen_source)
+            .arg("--emit-load")
+            .arg(&source)
+            .output()
+            .expect("run actionc-emit with the matching codegen source");
+        assert!(emitted.status.success());
+        assert_eq!(
+            fs::read(&object).expect("read advanced-codegen object"),
+            emitted.stdout,
+            "actionc changed --codegen-source {codegen_source}"
+        );
     }
 }
 

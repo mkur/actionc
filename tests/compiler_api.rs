@@ -212,6 +212,65 @@ fn nir_preflight_failure_is_returned_as_a_source_diagnostic() {
 }
 
 #[test]
+fn include_diagnostics_keep_the_included_path() {
+    let temp = TestDir::new();
+    let source_dir = temp.path().join("source tree");
+    fs::create_dir_all(&source_dir).expect("create spaced source directory");
+    let source = source_dir.join("main.act");
+    let included = source_dir.join("library.act");
+    fs::write(&source, "INCLUDE \"library.act\"\nPROC Main() RETURN\n")
+        .expect("write including source");
+    fs::write(&included, "PROC Broken()\n  missing_symbol=1\nRETURN\n")
+        .expect("write broken include");
+
+    let error = compile_file(&source, &CompileOptions::default()).unwrap_err();
+
+    assert_eq!(error.diagnostics()[0].phase, CompilerPhase::Semantic);
+    assert!(matches!(
+        &error.diagnostics()[0].site,
+        DiagnosticSite::Source { path, .. } if path == &included
+    ));
+}
+
+#[test]
+fn repeated_and_concurrent_compilations_are_independent() {
+    let source = hello_world();
+    let first = compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized))
+        .expect("first repeated compilation");
+    let second = compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized))
+        .expect("second repeated compilation");
+    assert_eq!(first.object_bytes(), second.object_bytes());
+
+    std::thread::scope(|scope| {
+        let jobs = [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ]
+        .map(|mode| {
+            let source = source.clone();
+            scope.spawn(move || {
+                compile_file(&source, &CompileOptions::for_mode(mode))
+                    .unwrap_or_else(|error| panic!("concurrent {mode:?} compilation: {error}"))
+                    .object_bytes()
+                    .to_vec()
+            })
+        });
+
+        for (job, mode) in jobs.into_iter().zip([
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ]) {
+            assert_eq!(
+                job.join().expect("join compilation"),
+                baseline_object(&source, mode)
+            );
+        }
+    });
+}
+
+#[test]
 fn invalid_source_returns_diagnostics_without_creating_outputs() {
     let temp = TestDir::new();
     let source = temp.path().join("broken.act");

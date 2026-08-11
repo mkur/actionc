@@ -243,12 +243,12 @@ pub use runtime::runtime_helper;
 use runtime::*;
 
 mod driver;
-pub(crate) use driver::generate_profile_at_origin;
 pub use driver::{
     generate, generate_compatible_with_origin, generate_profile_with_origin,
     generate_semir_native_profile_with_origin, generate_semir_profile_with_origin,
     generate_with_origin,
 };
+pub(crate) use driver::{generate_profile_at_origin, generate_semir_profile_at_origin};
 
 mod semir;
 

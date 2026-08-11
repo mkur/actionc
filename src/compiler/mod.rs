@@ -7,7 +7,8 @@ use std::path::Path;
 
 use crate::codegen::{
     CODE_ORIGIN, CodegenOutput, CodegenProfile, format_load_file, generate_profile_at_origin,
-    generate_profile_with_origin,
+    generate_profile_with_origin, generate_semir_native_profile_with_origin,
+    generate_semir_profile_at_origin, generate_semir_profile_with_origin,
 };
 use crate::includes::load_program_with_expanded_source;
 use crate::mir6502;
@@ -26,6 +27,50 @@ pub enum CompileMode {
     Compatibility,
     Optimized,
     Mir6502,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Backend {
+    Classic,
+    Mir6502,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CodegenSource {
+    Ast,
+    SemIr,
+    SemIrNative,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CompileRequest {
+    pub(crate) profile: CodegenProfile,
+    pub(crate) profile_explicit: bool,
+    pub(crate) backend: Backend,
+    pub(crate) backend_explicit: bool,
+    pub(crate) codegen_source: CodegenSource,
+    pub(crate) origin: Option<u16>,
+}
+
+impl Default for CompileRequest {
+    fn default() -> Self {
+        Self {
+            profile: CodegenProfile::Compat,
+            profile_explicit: false,
+            backend: Backend::Classic,
+            backend_explicit: false,
+            codegen_source: CodegenSource::Ast,
+            origin: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ResolvedCompileRequest {
+    profile: CodegenProfile,
+    backend: Backend,
+    codegen_source: CodegenSource,
+    origin: Option<u16>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -85,7 +130,14 @@ pub fn compile_file(
     path: impl AsRef<Path>,
     options: &CompileOptions,
 ) -> Result<CompiledProgram, CompileError> {
-    let path = path.as_ref();
+    let request = compile_request_from_options(options);
+    compile_file_with_request(path.as_ref(), &request)
+}
+
+pub(crate) fn compile_file_with_request(
+    path: &Path,
+    request: &CompileRequest,
+) -> Result<CompiledProgram, CompileError> {
     let loaded = load_program_with_expanded_source(path).map_err(|diagnostics| {
         let source = fs::read(path)
             .map(|bytes| decode_source(&bytes))
@@ -99,7 +151,7 @@ pub fn compile_file(
         )
     })?;
 
-    let mode = resolve_mode(&loaded.source, options)?;
+    let request = resolve_request(&loaded.source, request)?;
     let model = analyze(&loaded.program).map_err(|diagnostics| {
         CompileError::from_source_diagnostics(
             CompilerPhase::Semantic,
@@ -110,44 +162,23 @@ pub fn compile_file(
         )
     })?;
 
-    let output = match mode {
-        CompileMode::Compatibility => compile_classic(
+    let output = match request.backend {
+        Backend::Classic => compile_classic(
             &loaded.program,
-            CodegenProfile::Compat,
-            options.origin,
+            &model,
+            request,
             &loaded.source,
             path,
             &loaded.source_map,
         )?,
-        CompileMode::Optimized => compile_classic(
+        Backend::Mir6502 => compile_mir6502(
             &loaded.program,
-            CodegenProfile::Modern,
-            options.origin,
+            &model,
+            request,
             &loaded.source,
             path,
             &loaded.source_map,
         )?,
-        CompileMode::Mir6502 => {
-            let diagnostics = legacy_routine_retargeting_diagnostics(&loaded.program);
-            if !diagnostics.is_empty() {
-                return Err(CompileError::from_source_diagnostics(
-                    CompilerPhase::Nir,
-                    diagnostics,
-                    &loaded.source,
-                    path,
-                    Some(&loaded.source_map),
-                ));
-            }
-
-            let semir = ir::lower_program(&loaded.program, &model);
-            let origin = options
-                .origin
-                .unwrap_or_else(|| mir6502_default_origin_from_semir(&semir, CODE_ORIGIN));
-            let nir = nir::lower_program(&semir);
-            let nir = nir::optimize_program(&nir).map_err(CompileError::from_nir_diagnostics)?;
-            mir6502::generate_output_with_config(&nir, origin, &mir6502::Mir6502Config::optimized())
-                .map_err(CompileError::from_mir6502_diagnostics)?
-        }
     };
     let object = format_load_file(&output);
 
@@ -158,17 +189,55 @@ pub fn compile_file(
     })
 }
 
+fn compile_request_from_options(options: &CompileOptions) -> CompileRequest {
+    let mut request = CompileRequest {
+        origin: options.origin,
+        ..CompileRequest::default()
+    };
+    if let Some(mode) = options.mode {
+        (request.profile, request.backend) = mode_profile_backend(mode);
+        request.profile_explicit = true;
+        request.backend_explicit = true;
+    }
+    request
+}
+
+pub(crate) fn mode_profile_backend(mode: CompileMode) -> (CodegenProfile, Backend) {
+    match mode {
+        CompileMode::Compatibility => (CodegenProfile::Compat, Backend::Classic),
+        CompileMode::Optimized => (CodegenProfile::Modern, Backend::Classic),
+        CompileMode::Mir6502 => (CodegenProfile::Modern, Backend::Mir6502),
+    }
+}
+
 fn compile_classic(
     program: &crate::ast::Program,
-    profile: CodegenProfile,
-    origin: Option<u16>,
+    model: &crate::semantic::SemanticModel,
+    request: ResolvedCompileRequest,
     source: &str,
     path: &Path,
     source_map: &crate::includes::SourceMap,
 ) -> Result<CodegenOutput, CompileError> {
-    let result = match origin {
-        Some(origin) => generate_profile_at_origin(program, origin, profile),
-        None => generate_profile_with_origin(program, CODE_ORIGIN, profile),
+    let result = match request.codegen_source {
+        CodegenSource::Ast => match request.origin {
+            Some(origin) => generate_profile_at_origin(program, origin, request.profile),
+            None => generate_profile_with_origin(program, CODE_ORIGIN, request.profile),
+        },
+        CodegenSource::SemIr => {
+            let semir = ir::lower_program(program, model);
+            match request.origin {
+                Some(origin) => generate_semir_profile_at_origin(&semir, origin, request.profile),
+                None => generate_semir_profile_with_origin(&semir, CODE_ORIGIN, request.profile),
+            }
+        }
+        CodegenSource::SemIrNative => {
+            let semir = ir::lower_program(program, model);
+            generate_semir_native_profile_with_origin(
+                &semir,
+                request.origin.unwrap_or(CODE_ORIGIN),
+                request.profile,
+            )
+        }
     };
     result.map_err(|diagnostics| {
         CompileError::from_source_diagnostics(
@@ -179,6 +248,40 @@ fn compile_classic(
             Some(source_map),
         )
     })
+}
+
+fn compile_mir6502(
+    program: &crate::ast::Program,
+    model: &crate::semantic::SemanticModel,
+    request: ResolvedCompileRequest,
+    source: &str,
+    path: &Path,
+    source_map: &crate::includes::SourceMap,
+) -> Result<CodegenOutput, CompileError> {
+    let diagnostics = legacy_routine_retargeting_diagnostics(program);
+    if !diagnostics.is_empty() {
+        return Err(CompileError::from_source_diagnostics(
+            CompilerPhase::Nir,
+            diagnostics,
+            source,
+            path,
+            Some(source_map),
+        ));
+    }
+
+    let semir = ir::lower_program(program, model);
+    let origin = request
+        .origin
+        .unwrap_or_else(|| mir6502_default_origin_from_semir(&semir, CODE_ORIGIN));
+    let nir = nir::lower_program(&semir);
+    let nir = nir::optimize_program(&nir).map_err(CompileError::from_nir_diagnostics)?;
+    let config = if request.profile == CodegenProfile::Modern {
+        mir6502::Mir6502Config::optimized()
+    } else {
+        mir6502::Mir6502Config::default()
+    };
+    mir6502::generate_output_with_config(&nir, origin, &config)
+        .map_err(CompileError::from_mir6502_diagnostics)
 }
 
 pub(crate) fn mir6502_default_origin_from_semir(program: &ir::SemProgram, fallback: u16) -> u16 {
@@ -222,13 +325,12 @@ fn sem_const_u16(expr: &ir::SemExpr) -> Option<u16> {
     }
 }
 
-fn resolve_mode(source: &str, options: &CompileOptions) -> Result<CompileMode, CompileError> {
-    if let Some(mode) = options.mode {
-        return Ok(mode);
-    }
-
-    let mut modern = false;
-    let mut mir6502 = false;
+fn resolve_request(
+    source: &str,
+    request: &CompileRequest,
+) -> Result<ResolvedCompileRequest, CompileError> {
+    let mut profile = request.profile;
+    let mut backend = request.backend;
     for line in source.lines() {
         let Some(annotation) = line.trim_start().strip_prefix(";@actionc") else {
             continue;
@@ -239,19 +341,23 @@ fn resolve_mode(source: &str, options: &CompileOptions) -> Result<CompileMode, C
             .join(" ")
             .to_ascii_lowercase();
         match normalized.as_str() {
-            "profile modern" => modern = true,
-            "backend classic" => mir6502 = false,
-            "backend mir6502" => mir6502 = true,
+            "profile modern" if !request.profile_explicit => profile = CodegenProfile::Modern,
+            "backend classic" if !request.backend_explicit => backend = Backend::Classic,
+            "backend mir6502" if !request.backend_explicit => backend = Backend::Mir6502,
             _ => {}
         }
     }
 
-    match (modern, mir6502) {
-        (false, false) => Ok(CompileMode::Compatibility),
-        (true, false) => Ok(CompileMode::Optimized),
-        (true, true) => Ok(CompileMode::Mir6502),
-        (false, true) => Err(CompileError::configuration(
+    if profile == CodegenProfile::Compat && backend == Backend::Mir6502 {
+        return Err(CompileError::configuration(
             "--backend mir6502 requires --profile modern",
-        )),
+        ));
     }
+
+    Ok(ResolvedCompileRequest {
+        profile,
+        backend,
+        codegen_source: request.codegen_source,
+        origin: request.origin,
+    })
 }

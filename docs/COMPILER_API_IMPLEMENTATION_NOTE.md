@@ -1,6 +1,6 @@
 # Reusable Compiler API Implementation Note
 
-Status: planned.
+Status: implemented through Slice 5; ready for `actionc-run` integration.
 
 Snapshot date: 2026-08-11.
 

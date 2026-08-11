@@ -11,8 +11,10 @@ use crate::codegen::{
     generate_semir_profile_with_origin,
 };
 use crate::compiler::{
+    Backend, CodegenSource, CompileError, CompileErrorKind, CompileMode, CompileRequest,
+    CompiledProgram, CompilerPhase, DiagnosticSite,
     artifacts::{format_listing_with_boundaries, format_listing_with_source},
-    mir6502_default_origin_from_semir,
+    compile_file_with_request, mir6502_default_origin_from_semir, mode_profile_backend,
     validation::legacy_routine_retargeting_diagnostics,
 };
 use crate::includes::{SourceMap, load_program_with_expanded_source};
@@ -21,26 +23,6 @@ use crate::mir6502;
 use crate::nir;
 use crate::semantic::{analyze, ir};
 use crate::source::decode_source;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CodegenSource {
-    Ast,
-    SemIr,
-    SemIrNative,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Backend {
-    Classic,
-    Mir6502,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CompileMode {
-    Compatibility,
-    Optimized,
-    Mir6502,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CliFlavor {
@@ -297,6 +279,30 @@ fn run_main(flavor: CliFlavor) {
         process::exit(2);
     }
 
+    if let Some(outputs) = &compile_outputs {
+        let request = CompileRequest {
+            profile,
+            profile_explicit,
+            backend,
+            backend_explicit,
+            codegen_source,
+            origin: origin_explicit.then_some(origin),
+        };
+        let compiled = match compile_file_with_request(Path::new(&input_path), &request) {
+            Ok(compiled) => compiled,
+            Err(error) => {
+                let exit_code = match error.kind() {
+                    CompileErrorKind::Configuration => 2,
+                    CompileErrorKind::Compilation => 1,
+                };
+                print_compile_error(&error, diagnostic_byte_ranges);
+                process::exit(exit_code);
+            }
+        };
+        write_compiled_program_or_exit(&compiled, outputs);
+        return;
+    }
+
     if emit_tokens {
         let source_bytes = match fs::read(&input_path) {
             Ok(source) => source,
@@ -474,7 +480,6 @@ fn run_main(flavor: CliFlavor) {
                 Ok(output) => emit_output(
                     &output,
                     &loaded.source,
-                    compile_outputs.as_ref(),
                     emit_load,
                     emit_map,
                     emit_proofs,
@@ -506,7 +511,6 @@ fn run_main(flavor: CliFlavor) {
                 Ok(output) => emit_output(
                     &output,
                     &loaded.source,
-                    compile_outputs.as_ref(),
                     emit_load,
                     emit_map,
                     emit_proofs,
@@ -531,7 +535,6 @@ fn run_main(flavor: CliFlavor) {
             Ok(output) => emit_output(
                 &output,
                 &loaded.source,
-                compile_outputs.as_ref(),
                 emit_load,
                 emit_map,
                 emit_proofs,
@@ -625,14 +628,6 @@ fn parse_compile_mode_or_exit(value: &str) -> CompileMode {
             eprintln!("unknown mode: {value}; expected compatibility, optimized, or mir6502");
             process::exit(2);
         }
-    }
-}
-
-fn mode_profile_backend(mode: CompileMode) -> (CodegenProfile, Backend) {
-    match mode {
-        CompileMode::Compatibility => (CodegenProfile::Compat, Backend::Classic),
-        CompileMode::Optimized => (CodegenProfile::Modern, Backend::Classic),
-        CompileMode::Mir6502 => (CodegenProfile::Modern, Backend::Mir6502),
     }
 }
 
@@ -904,10 +899,72 @@ fn print_diagnostics_with_source_path(
     }
 }
 
+fn print_compile_error(error: &CompileError, include_byte_ranges: bool) {
+    for diagnostic in error.diagnostics() {
+        match &diagnostic.site {
+            DiagnosticSite::Source {
+                path,
+                line,
+                column,
+                byte_range,
+                excerpt,
+            } => {
+                let byte_range = if include_byte_ranges {
+                    byte_range
+                        .as_ref()
+                        .map(|range| format!(" {}..{}", range.start, range.end))
+                        .unwrap_or_default()
+                } else {
+                    String::new()
+                };
+                eprintln!(
+                    "{}:{}:{}{}: {}{}",
+                    path.display(),
+                    line,
+                    column,
+                    byte_range,
+                    diagnostic.message,
+                    excerpt
+                        .as_ref()
+                        .map(|excerpt| format!(" | {excerpt}"))
+                        .unwrap_or_default()
+                );
+            }
+            DiagnosticSite::File { path } => {
+                eprintln!("{}: {}", path.display(), diagnostic.message)
+            }
+            DiagnosticSite::Ir { routine, block } => {
+                let phase = compiler_phase_name(diagnostic.phase);
+                match (routine, block) {
+                    (Some(routine), Some(block)) => {
+                        eprintln!("{phase} {routine}:{block}: {}", diagnostic.message)
+                    }
+                    (Some(routine), None) => {
+                        eprintln!("{phase} {routine}: {}", diagnostic.message)
+                    }
+                    (None, _) => eprintln!("{phase}: {}", diagnostic.message),
+                }
+            }
+            DiagnosticSite::Unknown => eprintln!("{}", diagnostic.message),
+        }
+    }
+}
+
+fn compiler_phase_name(phase: CompilerPhase) -> &'static str {
+    match phase {
+        CompilerPhase::Configuration => "configuration",
+        CompilerPhase::Input => "input",
+        CompilerPhase::Frontend => "frontend",
+        CompilerPhase::Semantic => "semantic",
+        CompilerPhase::Nir => "nir",
+        CompilerPhase::Mir6502 => "mir6502",
+        CompilerPhase::Codegen => "codegen",
+    }
+}
+
 fn emit_output(
     output: &CodegenOutput,
     source_text: &str,
-    compile_outputs: Option<&CompileOutputs>,
     emit_load: bool,
     emit_map: bool,
     emit_proofs: bool,
@@ -915,9 +972,7 @@ fn emit_output(
     emit_listing: bool,
     emit_source_listing: bool,
 ) {
-    if let Some(outputs) = compile_outputs {
-        write_compile_outputs_or_exit(output, source_text, outputs);
-    } else if emit_load {
+    if emit_load {
         if let Err(err) = io::stdout().write_all(&format_load_file(output)) {
             eprintln!("failed to write load file: {err}");
             process::exit(1);
@@ -937,13 +992,8 @@ fn emit_output(
     }
 }
 
-fn write_compile_outputs_or_exit(
-    output: &CodegenOutput,
-    source_text: &str,
-    outputs: &CompileOutputs,
-) {
-    let object = format_load_file(output);
-    if let Err(err) = write_file_atomically(&outputs.object, &object) {
+fn write_compiled_program_or_exit(compiled: &CompiledProgram, outputs: &CompileOutputs) {
+    if let Err(err) = write_file_atomically(&outputs.object, compiled.object_bytes()) {
         eprintln!(
             "failed to write object file {}: {err}",
             outputs.object.display()
@@ -951,7 +1001,7 @@ fn write_compile_outputs_or_exit(
         process::exit(1);
     }
     if let Some(path) = &outputs.listing {
-        let listing = format_listing_with_source(output, source_text);
+        let listing = compiled.source_listing();
         if let Err(err) = write_file_atomically(path, listing.as_bytes()) {
             eprintln!("failed to write listing file {}: {err}", path.display());
             process::exit(1);
