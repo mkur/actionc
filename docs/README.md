@@ -20,6 +20,8 @@ crowding the active reference set.
 - [COMPILER_API_IMPLEMENTATION_NOTE.md](COMPILER_API_IMPLEMENTATION_NOTE.md) -
   plan for a reusable, side-effect-free file compilation API shared by
   `actionc` and `actionc-run`.
+- [EMULATOR_ADAPTERS_IMPLEMENTATION_NOTE.md](EMULATOR_ADAPTERS_IMPLEMENTATION_NOTE.md)
+  - sliced plan for the Atari800 and Altirra adapters used by `actionc-run`.
 - [INLINE_ASSEMBLER_IMPLEMENTATION_PLAN.md](INLINE_ASSEMBLER_IMPLEMENTATION_PLAN.md)
   - sliced plan for an integrated, MADS-style 6502 inline assembler with stable
     Action! object references and shared compiler effects.
