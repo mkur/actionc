@@ -50,34 +50,27 @@ produced them.
 
 ## Run it on an Atari emulator
 
-The repository includes a helper that compiles a program, adds it to a bootable
-ATR disk image, and starts `atari800`:
+Install the cross-platform runner:
 
 ```sh
-tools/compile-run-atr.sh \
-  --out-dir build/hello-world \
-  samples/hello-world.act
+cargo install --path . --bin actionc-run
 ```
 
-This creates `HELLOWOR.COM` and `HELLOWOR.atr`, then prints the DOS filename
-`D:HELLOWOR.COM`. Use `--no-run` to create the artifacts without launching the
-emulator:
+It compiles the source, creates a bootable MyDOS ATR in memory, and starts
+Atari800 or Altirra with the bundled Action! cartridge:
 
 ```sh
-tools/compile-run-atr.sh \
-  --no-run \
-  --out-dir build/hello-world \
-  samples/hello-world.act
+actionc-run samples/hello-world.act
 ```
 
-Running through the helper requires `atari800` on `PATH`. By default it uses
-the repository's MyDOS disk, AltirraOS ROM, and Action! cartridge ROM. Programs
-that call resident Action! library routines—including the Hello World
-sample—need a compatible Action! cartridge at runtime; the helper attaches it
-automatically.
+On Windows, automatic discovery prefers Altirra and falls back to Atari800. On
+Linux and macOS it uses Atari800. Use `--no-run --out-atr <file>` to create the
+ATR without launching an emulator.
 
-See [USAGE.md](USAGE.md) for emulator overrides, ATR options, and the complete
-command-line reference.
+See [Running programs with actionc-run](docs/ACTIONC_RUN.md) for emulator
+discovery, cartridge overrides, retained artifacts, and the complete runner
+interface. The older `tools/compile-run-atr.sh` remains available for advanced
+custom-ATR and compiler-development workflows.
 
 ## What it supports
 
@@ -175,6 +168,7 @@ cargo install --path . --bin actionc-emit
 ## Documentation
 
 - [Command-line usage](USAGE.md)
+- [Running programs with actionc-run](docs/ACTIONC_RUN.md)
 - [Documentation index](docs/README.md)
 - [Code-generation profiles](docs/CODEGEN_PROFILES.md)
 - [Syntax extensions](docs/SYNTAX_EXTENSIONS.md)

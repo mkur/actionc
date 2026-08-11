@@ -8,6 +8,8 @@ crowding the active reference set.
 
 - [../USAGE.md](../USAGE.md) - command-line reference for `actionc` and the run
   helper.
+- [ACTIONC_RUN.md](ACTIONC_RUN.md) - cross-platform `actionc-run` usage,
+  emulator discovery, and artifact lifetime.
 - [CODEGEN_PROFILES.md](CODEGEN_PROFILES.md) - user-facing profile/backend
   naming and policy.
 - [ACTION_STORAGE_LAYOUT.md](ACTION_STORAGE_LAYOUT.md) - Action! storage layout

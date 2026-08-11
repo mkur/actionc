@@ -32,6 +32,9 @@ With --pack-object, skip compilation and copy the existing load-format object
 into the ATR instead.
 If [source.atr] is omitted, use atr/mydos.atr.
 
+For the normal portable source compile-and-run workflow, use actionc-run.
+This helper remains for custom ATR, object-packing, and development options.
+
 Options:
   --profile <legacy|modern>  actionc profile, default: $profile
   --backend <classic|mir6502> actionc backend, default: $backend

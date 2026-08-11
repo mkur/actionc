@@ -300,7 +300,7 @@ fn launch_emulator(
             let mut adapter = Atari800Adapter::new(&discovered.executable);
             if cartridge.is_none() {
                 let config = run_directory.path().join("atari800-no-cart.cfg");
-                write_run_asset(&config, NO_CART_CONFIG)?;
+                write_no_cart_config(&discovered.executable, &config)?;
                 adapter = adapter.with_no_cart_config(config);
             }
             adapter.command(&LaunchRequest {
@@ -376,6 +376,67 @@ fn write_run_asset(path: &Path, contents: &[u8]) -> Result<(), RunnerError> {
         path: path.to_path_buf(),
         source,
     })
+}
+
+fn write_no_cart_config(executable: &Path, target: &Path) -> Result<(), RunnerError> {
+    let portable = executable
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .map(|parent| parent.join(".atari800.cfg"));
+    let user = env::var_os("HOME")
+        .or_else(|| env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+        .map(|home| home.join(".atari800.cfg"));
+    let source = portable
+        .into_iter()
+        .chain(user)
+        .find(|candidate| candidate.is_file());
+
+    if let Some(source) = source {
+        let contents = fs::read_to_string(&source).map_err(|error| RunnerError::Io {
+            operation: "read Atari800 configuration",
+            path: source,
+            source: error,
+        })?;
+        let sanitized = sanitize_atari800_config(&contents);
+        write_run_asset(target, sanitized.as_bytes())
+    } else {
+        write_run_asset(target, NO_CART_CONFIG)
+    }
+}
+
+fn sanitize_atari800_config(contents: &str) -> String {
+    const REPLACEMENTS: [(&str, &str); 4] = [
+        ("CARTRIDGE_FILENAME=", "CARTRIDGE_FILENAME="),
+        ("CARTRIDGE_TYPE=", "CARTRIDGE_TYPE=0"),
+        (
+            "CARTRIDGE_PIGGYBACK_FILENAME=",
+            "CARTRIDGE_PIGGYBACK_FILENAME=",
+        ),
+        ("CARTRIDGE_PIGGYBACK_TYPE=", "CARTRIDGE_PIGGYBACK_TYPE=0"),
+    ];
+    let mut found = [false; REPLACEMENTS.len()];
+    let mut output = String::new();
+
+    for line in contents.lines() {
+        let mut replacement = None;
+        for (index, (prefix, value)) in REPLACEMENTS.iter().enumerate() {
+            if line.starts_with(prefix) {
+                found[index] = true;
+                replacement = Some(*value);
+                break;
+            }
+        }
+        output.push_str(replacement.unwrap_or(line));
+        output.push('\n');
+    }
+    for (found, (_, value)) in found.into_iter().zip(REPLACEMENTS) {
+        if !found {
+            output.push_str(value);
+            output.push('\n');
+        }
+    }
+    output
 }
 
 #[derive(Debug)]
@@ -467,13 +528,61 @@ fn write_file_atomically(path: &Path, contents: &[u8]) -> Result<(), RunnerError
         path: temporary.clone(),
         source,
     })?;
-    if let Err(source) = fs::rename(&temporary, path) {
+    if let Err(source) = install_temporary_file(&temporary, path) {
         let _ = fs::remove_file(&temporary);
         return Err(RunnerError::Io {
             operation: "install output ATR",
             path: path.to_path_buf(),
             source,
         });
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn install_temporary_file(temporary: &Path, destination: &Path) -> io::Result<()> {
+    fs::rename(temporary, destination)
+}
+
+#[cfg(windows)]
+fn install_temporary_file(temporary: &Path, destination: &Path) -> io::Result<()> {
+    if !destination.exists() {
+        return fs::rename(temporary, destination);
+    }
+
+    let file_name = destination
+        .file_name()
+        .and_then(OsStr::to_str)
+        .unwrap_or("output.atr");
+    let sequence = NEXT_RUN_DIRECTORY.fetch_add(1, Ordering::Relaxed);
+    let backup = destination.with_file_name(format!(
+        ".{file_name}.actionc-run-{}-{sequence}.bak",
+        process::id()
+    ));
+    if backup.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("refusing to overwrite backup {}", backup.display()),
+        ));
+    }
+
+    fs::rename(destination, &backup)?;
+    if let Err(source) = fs::rename(temporary, destination) {
+        if let Err(restore_error) = fs::rename(&backup, destination) {
+            eprintln!(
+                "warning: could not restore {} after failed replacement; original retained at {}: {restore_error}",
+                destination.display(),
+                backup.display()
+            );
+        }
+        return Err(source);
+    }
+    if let Err(source) = fs::remove_file(&backup) {
+        eprintln!(
+            "warning: replaced {}, but could not remove backup {}: {source}",
+            destination.display(),
+            backup.display()
+        );
     }
     Ok(())
 }
@@ -733,5 +842,25 @@ mod tests {
 
         assert_eq!(error.exit_code(), 2);
         assert!(error.to_string().contains("--cart and --no-cart"));
+    }
+
+    #[test]
+    fn no_cart_config_preserves_other_settings_and_clears_both_cartridges() {
+        let source = "Atari 800 Emulator, Version 7.1.2\n\
+ROM_XL/XE_CUSTOM=/roms/altirraos-xl.rom\n\
+MACHINE_TYPE=Atari XL/XE\n\
+CARTRIDGE_FILENAME=/roms/action.rom\n\
+CARTRIDGE_TYPE=15\n";
+
+        assert_eq!(
+            sanitize_atari800_config(source),
+            "Atari 800 Emulator, Version 7.1.2\n\
+ROM_XL/XE_CUSTOM=/roms/altirraos-xl.rom\n\
+MACHINE_TYPE=Atari XL/XE\n\
+CARTRIDGE_FILENAME=\n\
+CARTRIDGE_TYPE=0\n\
+CARTRIDGE_PIGGYBACK_FILENAME=\n\
+CARTRIDGE_PIGGYBACK_TYPE=0\n"
+        );
     }
 }

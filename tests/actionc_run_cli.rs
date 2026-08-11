@@ -61,6 +61,10 @@ fn no_run_writes_an_atr_with_the_compiler_object() {
         .arg("--out-atr")
         .arg(&output_atr)
         .arg(hello_world())
+        .env(
+            "ACTIONC_EMULATOR",
+            temp.path().join("must-not-be-discovered"),
+        )
         .output()
         .expect("run actionc-run --no-run");
 
@@ -86,6 +90,29 @@ fn no_run_writes_an_atr_with_the_compiler_object() {
     assert!(
         String::from_utf8_lossy(&output.stdout).contains(output_atr.to_string_lossy().as_ref())
     );
+}
+
+#[test]
+fn no_run_replaces_an_existing_atr() {
+    let temp = TestDir::new();
+    let output_atr = temp.path().join("existing.atr");
+    fs::write(&output_atr, b"old contents").expect("write old ATR");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
+        .arg("--no-run")
+        .arg("--out-atr")
+        .arg(&output_atr)
+        .arg(hello_world())
+        .output()
+        .expect("replace existing ATR");
+
+    assert!(
+        output.status.success(),
+        "actionc-run failed\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    AtrImage::from_bytes(fs::read(output_atr).expect("read replacement ATR"))
+        .expect("replacement is an ATR");
 }
 
 #[test]
@@ -199,4 +226,79 @@ fn launches_altirra_with_separate_switch_and_media_arguments() {
         "run directory should be removed"
     );
     assert!(String::from_utf8_lossy(&output.stdout).contains("Launching Altirra"));
+}
+
+#[cfg(unix)]
+#[test]
+fn unsuccessful_emulator_exit_is_reported_and_the_run_directory_is_removed() {
+    let temp = TestDir::new();
+    let record = temp.path().join("failed-run-args.txt");
+    let emulator = temp.executable(
+        "atari800",
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$ACTIONC_TEST_RECORD\"\nexit 7\n",
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
+        .arg("--emulator=atari800")
+        .arg("--emulator-path")
+        .arg(&emulator)
+        .arg(hello_world())
+        .env("ACTIONC_TEST_RECORD", &record)
+        .output()
+        .expect("run failing fake emulator");
+
+    assert_eq!(output.status.code(), Some(1));
+    let args = fs::read_to_string(record).expect("read failed launch arguments");
+    let os_rom = Path::new(args.lines().nth(2).expect("find OS ROM argument"));
+    assert!(!os_rom.exists(), "failed run directory should be removed");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("exited unsuccessfully"));
+    assert!(stderr.contains("7"));
+}
+
+#[cfg(unix)]
+#[test]
+fn keep_retains_and_reports_the_complete_run_directory() {
+    let temp = TestDir::new();
+    let record = temp.path().join("kept-run-args.txt");
+    let emulator = temp.executable(
+        "atari800",
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$ACTIONC_TEST_RECORD\"\n",
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
+        .arg("--emulator=atari800")
+        .arg("--emulator-path")
+        .arg(&emulator)
+        .arg("--keep")
+        .arg(hello_world())
+        .env("ACTIONC_TEST_RECORD", &record)
+        .output()
+        .expect("run fake emulator with --keep");
+
+    assert!(output.status.success());
+    let args = fs::read_to_string(record).expect("read kept launch arguments");
+    let args = args.lines().collect::<Vec<_>>();
+    let run_directory = Path::new(args[2])
+        .parent()
+        .expect("OS ROM has a parent")
+        .to_path_buf();
+    assert_eq!(run_directory.parent(), Some(std::env::temp_dir().as_path()));
+    assert!(
+        run_directory
+            .file_name()
+            .expect("run directory name")
+            .to_string_lossy()
+            .starts_with("actionc-run-")
+    );
+    let metadata = fs::symlink_metadata(&run_directory).expect("read kept directory metadata");
+    assert!(metadata.is_dir());
+    assert!(!metadata.file_type().is_symlink());
+    assert!(run_directory.join("program.atr").is_file());
+    assert!(run_directory.join("action.car").is_file());
+    assert!(run_directory.join("altirraos-xl.rom").is_file());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(&format!("Run directory: {}", run_directory.display())));
+
+    fs::remove_dir_all(&run_directory).expect("remove validated kept test directory");
 }

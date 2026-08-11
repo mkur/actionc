@@ -5,8 +5,8 @@ emulator helper rely on them.
 
 | File | Size | SHA-256 | Use |
 | --- | ---: | --- | --- |
-| `action.rom` | 16400 | `b4a3a399f4f1e8c20f4b1cbc3f6e2fbcef342c36d2c252f903938e93a502c166` | Action! cartridge image used by original-compiler probes |
-| `altirraos-xl.rom` | 16384 | `9de5a313fe3946f04fe236a8d3ceacb471fbed4ec5fc5db009732e1169946ccf` | AltirraOS XL/XE 3.11 used by VM and emulator runs |
+| `action.rom` | 16400 | `b4a3a399f4f1e8c20f4b1cbc3f6e2fbcef342c36d2c252f903938e93a502c166` | Action! cartridge image used by original-compiler probes and embedded by `actionc-run` |
+| `altirraos-xl.rom` | 16384 | `9de5a313fe3946f04fe236a8d3ceacb471fbed4ec5fc5db009732e1169946ccf` | AltirraOS XL/XE 3.11 used by VM/emulator runs and embedded by `actionc-run` |
 
 `altirraos-xl.rom` is the standalone AltirraOS kernel replacement. It was
 extracted byte-for-byte from `ROM_altirraos_xl` in Atari800's checked-in

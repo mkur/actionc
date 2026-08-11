@@ -197,7 +197,32 @@ select the modern profile and the SemIR-native codegen source.
 `--codegen-source` does not select the MIR6502 pipeline. `--backend mir6502`
 always lowers through SemIR, NIR, optimized NIR, and MIR6502.
 
-## Compile And Run Helper
+## Compile And Run
+
+`actionc-run` is the user-facing compile-and-run command. It builds a bootable
+MyDOS ATR without an intermediate `.com` file and launches Atari800 or Altirra:
+
+```sh
+cargo install --path . --bin actionc-run
+actionc-run samples/hello-world.act
+```
+
+Use `--mode compatibility|optimized|mir6502` to select a compiler mode,
+`--emulator auto|atari800|altirra` to select an adapter, and
+`--emulator-path <path>` to override discovery. The bundled Action! cartridge
+is used by default; replace it with `--cart <path>` or disable it with
+`--no-cart`.
+
+To create an ATR without launching an emulator:
+
+```sh
+actionc-run --no-run --out-atr target/hello-world.atr samples/hello-world.act
+```
+
+See [docs/ACTIONC_RUN.md](docs/ACTIONC_RUN.md) for discovery rules, temporary
+artifact behavior, and the full runner interface.
+
+## Advanced Compile And Run Helper
 
 [tools/compile-run-atr.sh](tools/compile-run-atr.sh) compiles a source file,
 copies the generated object into a bootable ATR, and can launch `atari800`:
@@ -205,6 +230,10 @@ copies the generated object into a bootable ATR, and can launch `atari800`:
 ```sh
 tools/compile-run-atr.sh samples/hello-world.act
 ```
+
+This shell helper is retained for custom source ATRs, existing-object packing,
+host-object loading, raw Atari800 arguments, and lower-level compiler
+development controls. Use `actionc-run` for the normal portable workflow.
 
 The full command form is:
 
