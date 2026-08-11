@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import hashlib
 import os
 from pathlib import Path
 import stat
@@ -21,7 +22,9 @@ COMMON_FILES = {
     "docs/ACTIONC_RUN.md",
     "licenses/ACTION-ROM-NOTICE.md",
     "licenses/ALTIRRAOS-LICENSE",
-    "licenses/INCOMPLETE-LICENSING.md",
+    "licenses/MYDOS-NOTICE.md",
+    "licenses/MYDOS-SOURCE-README.md",
+    "licenses/MYDOS453.ARC",
     "licenses/ROM-IMAGES.md",
 }
 
@@ -85,9 +88,7 @@ class NightlyPackageTests(unittest.TestCase):
 
     def test_linux_archive_has_exact_inventory_and_executable_modes(self) -> None:
         self.write_executables("")
-        result = self.run_packager(
-            "x86_64-unknown-linux-musl", "--allow-incomplete-license-notices"
-        )
+        result = self.run_packager("x86_64-unknown-linux-musl")
         self.assertEqual(result.returncode, 0, result.stderr)
         archive = self.output_dir / "actionc-nightly-x86_64-unknown-linux-musl.tar.gz"
         self.assertEqual(Path(result.stdout.strip()), archive.resolve())
@@ -104,29 +105,32 @@ class NightlyPackageTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(files[f"{root}/actionc"].mode), 0o755)
             self.assertEqual(stat.S_IMODE(files[f"{root}/README.md"].mode), 0o644)
             build_info = package.extractfile(files[f"{root}/BUILD-INFO.txt"]).read().decode()
-            incomplete = package.extractfile(
-                files[f"{root}/licenses/INCOMPLETE-LICENSING.md"]
+            mydos_notice = package.extractfile(
+                files[f"{root}/licenses/MYDOS-NOTICE.md"]
             ).read().decode()
+            mydos_source = package.extractfile(
+                files[f"{root}/licenses/MYDOS453.ARC"]
+            ).read()
 
         self.assertIn("channel: nightly", build_info)
         self.assertIn("commit: 0123456789abcdef", build_info)
         self.assertIn("target: x86_64-unknown-linux-musl", build_info)
         self.assertIn("rustc 1.95.0 (package test)", build_info)
-        self.assertIn("MYDOS-NOTICE.md", incomplete)
-        self.assertNotIn("ACTION-ROM-NOTICE.md", incomplete)
+        self.assertIn("David R. Eichel", mydos_notice)
+        self.assertIn("source code in machine readable form", mydos_notice)
+        self.assertEqual(
+            hashlib.sha256(mydos_source).hexdigest(),
+            "52853bdf6fa03c73cf1292c9ec6ca355f8109056d71a7531b05b51a4fdb75e87",
+        )
 
         first_archive = archive.read_bytes()
-        repeated = self.run_packager(
-            "x86_64-unknown-linux-musl", "--allow-incomplete-license-notices"
-        )
+        repeated = self.run_packager("x86_64-unknown-linux-musl")
         self.assertEqual(repeated.returncode, 0, repeated.stderr)
         self.assertEqual(archive.read_bytes(), first_archive)
 
     def test_windows_archive_uses_executable_suffixes(self) -> None:
         self.write_executables(".exe")
-        result = self.run_packager(
-            "x86_64-pc-windows-msvc", "--allow-incomplete-license-notices"
-        )
+        result = self.run_packager("x86_64-pc-windows-msvc")
         self.assertEqual(result.returncode, 0, result.stderr)
         archive = self.output_dir / "actionc-nightly-x86_64-pc-windows-msvc.zip"
         root = "actionc-nightly-x86_64-pc-windows-msvc"
@@ -147,7 +151,6 @@ class NightlyPackageTests(unittest.TestCase):
         self.write_executables("")
         result = self.run_packager(
             "aarch64-apple-darwin",
-            "--allow-incomplete-license-notices",
             metadata_from_environment=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -160,15 +163,18 @@ class NightlyPackageTests(unittest.TestCase):
         self.assertIn("commit: environment-commit", build_info)
         self.assertIn("build-date: 2026-08-12T03:17:00Z", build_info)
 
-    def test_publishable_archive_is_blocked_by_missing_notices(self) -> None:
+    def test_publishable_archive_is_not_blocked_by_embedded_assets(self) -> None:
         self.write_executables("")
         result = self.run_packager("aarch64-apple-darwin")
 
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("MYDOS-NOTICE.md", result.stderr)
-        self.assertNotIn("ACTION-ROM-NOTICE.md", result.stderr)
-        self.assertIn("refusing to create a publishable archive", result.stderr)
-        self.assertFalse(self.output_dir.exists())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        archive = self.output_dir / "actionc-nightly-aarch64-apple-darwin.tar.gz"
+        self.assertTrue(archive.is_file())
+        with tarfile.open(archive, "r:gz") as package:
+            self.assertNotIn(
+                "actionc-nightly-aarch64-apple-darwin/licenses/INCOMPLETE-LICENSING.md",
+                package.getnames(),
+            )
 
 
 if __name__ == "__main__":

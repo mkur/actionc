@@ -212,8 +212,9 @@ source code and any runtime or other material included in them.
 
 Third-party and historical material retains its own licensing terms. In
 particular, the bundled Action! 3.6 cartridge is available under
-[GPL version 3 or later](roms/ACTION-ROM-NOTICE.md), while the bundled
-AltirraOS image is covered by its
+[GPL version 3 or later](roms/ACTION-ROM-NOTICE.md), the bundled MyDOS 4.53/3
+image is covered by its [historical distribution terms](atr/MYDOS-NOTICE.md),
+and the bundled AltirraOS image is covered by its
 [file-specific permissive license](roms/ALTIRRAOS-LICENSE); ROM provenance and
 licensing notes are recorded in [roms/README.md](roms/README.md). Material under
 `corpora/` is not relicensed by the `actionc` license.

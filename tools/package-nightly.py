@@ -26,9 +26,10 @@ EXECUTABLES = ("actionc", "actionc-run", "actionc-emit")
 ARCHIVE_EXECUTABLE_NAMES = frozenset(
     (*EXECUTABLES, *(f"{executable}.exe" for executable in EXECUTABLES))
 )
-REQUIRED_LICENSE_NOTICES = {
+REQUIRED_LICENSE_FILES = {
     "roms/ACTION-ROM-NOTICE.md": "the embedded Action! cartridge",
     "atr/MYDOS-NOTICE.md": "the embedded MyDOS disk image",
+    "atr/source/MYDOS453.ARC": "machine-readable MyDOS 4.53/3 source",
 }
 
 
@@ -54,7 +55,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--allow-incomplete-license-notices",
         action="store_true",
-        help="create a prepublication archive even when embedded-asset notices are missing",
+        help="create a prepublication archive even when embedded-asset license material is missing",
     )
     args = parser.parse_args(argv)
     if not args.commit:
@@ -127,9 +128,13 @@ def license_inputs(
     inputs = [
         (repo_root / "roms/ALTIRRAOS-LICENSE", Path("ALTIRRAOS-LICENSE")),
         (repo_root / "roms/README.md", Path("ROM-IMAGES.md")),
+        (
+            repo_root / "atr/source/README.md",
+            Path("MYDOS-SOURCE-README.md"),
+        ),
     ]
     missing = []
-    for relative, description in REQUIRED_LICENSE_NOTICES.items():
+    for relative, description in REQUIRED_LICENSE_FILES.items():
         source = repo_root / relative
         if source.is_file() and not source.is_symlink():
             inputs.append((source, Path(relative).name))
@@ -139,7 +144,7 @@ def license_inputs(
     if missing and not allow_incomplete:
         joined = "\n  ".join(missing)
         raise PackageError(
-            "embedded-asset license notices are incomplete:\n"
+            "embedded-asset license material is incomplete:\n"
             f"  {joined}\n"
             "refusing to create a publishable archive; use "
             "--allow-incomplete-license-notices only for prepublication CI"
@@ -166,10 +171,10 @@ def build_info_text(
 def incomplete_notice_text(missing: list[str]) -> str:
     entries = "\n".join(f"- {item}" for item in missing)
     return (
-        "# Incomplete Licensing Notices\n\n"
+        "# Incomplete Licensing Material\n\n"
         "This archive was produced for prepublication CI only. It must not be\n"
         "attached to a public release until the following embedded-asset\n"
-        f"notices and provenance records are present:\n\n{entries}\n"
+        f"notices, provenance records, and source archives are present:\n\n{entries}\n"
     )
 
 

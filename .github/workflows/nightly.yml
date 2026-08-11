@@ -77,10 +77,10 @@ jobs:
         if: matrix.all_modes == true
         run: python tools/smoke-nightly.py --bin-dir target/${{ matrix.target }}/release --target ${{ matrix.target }} --expect-channel nightly --expect-commit ${{ github.sha }} --all-modes
 
-      - name: Package prepublication build
-        run: python tools/package-nightly.py --target ${{ matrix.target }} --bin-dir target/${{ matrix.target }}/release --output-dir build/nightly --allow-incomplete-license-notices
+      - name: Package nightly build
+        run: python tools/package-nightly.py --target ${{ matrix.target }} --bin-dir target/${{ matrix.target }}/release --output-dir build/nightly
 
-      - name: Upload prepublication archive
+      - name: Upload nightly archive
         uses: actions/upload-artifact@v4
         with:
           name: actionc-nightly-${{ matrix.target }}

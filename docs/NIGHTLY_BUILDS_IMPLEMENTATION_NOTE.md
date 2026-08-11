@@ -143,10 +143,8 @@ arbitrary contents from `target/`.
 - AltirraOS;
 - the Action! cartridge image in `roms/action.rom`.
 
-The AltirraOS license and provenance are already recorded in `roms/README.md`
-and `roms/ALTIRRAOS-LICENSE`. This snapshot has no equivalent license and
-provenance file for the embedded MyDOS image. Add it as `atr/MYDOS-NOTICE.md`
-before publication.
+The AltirraOS license and provenance are recorded in `roms/README.md` and
+`roms/ALTIRRAOS-LICENSE`.
 
 The Action! cartridge gate is closed by `roms/ACTION-ROM-NOTICE.md`. It records
 the GPL-3.0-or-later license, pinned corresponding-source revision, upstream
@@ -155,15 +153,19 @@ the bundled CAR payload and the upstream Action! 3.6 reference ROM. The release
 publisher should attach a durable snapshot of that pinned source revision
 alongside the binary archives.
 
-Until the remaining MyDOS gate is satisfied, CI may build and test
-`actionc-run`, but the publisher must either remain disabled or exclude the
-runner and say so explicitly. It must not silently publish the embedded disk
-image.
+The MyDOS gate is closed by `atr/MYDOS-NOTICE.md` and the preserved
+`atr/source/MYDOS453.ARC` source release. The notice records the complete
+historical distribution terms, original and 4.53/3 authorship, source archive
+and binary hashes, and the configuration relationship between the upstream
+single-density release disk and the embedded double-density ATR. Every binary
+package containing `actionc-run` must include both the notice and source
+archive.
 
-The packager enforces this gate by default. Prepublication CI can use
-`--allow-incomplete-license-notices`; such an archive contains a conspicuous
-`licenses/INCOMPLETE-LICENSING.md` warning and must not be attached to a public
-release.
+The packager enforces the embedded-asset license-material gate by default. The
+nightly workflow does not bypass it. `--allow-incomplete-license-notices`
+remains available only for local prepublication checks; such an archive
+contains a conspicuous `licenses/INCOMPLETE-LICENSING.md` warning and must not
+be attached to a public release.
 
 ## Test and Smoke-Test Contract
 

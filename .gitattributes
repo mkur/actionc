@@ -1,4 +1,6 @@
 roms/*.rom binary
+atr/*.atr binary
+atr/source/*.ARC binary
 
 # Compiler IR snapshots have a platform-independent textual representation.
 *.nir text eol=lf
