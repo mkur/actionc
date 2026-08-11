@@ -19,6 +19,7 @@ COMMON_FILES = {
     "README.md",
     "USAGE.md",
     "docs/ACTIONC_RUN.md",
+    "licenses/ACTION-ROM-NOTICE.md",
     "licenses/ALTIRRAOS-LICENSE",
     "licenses/INCOMPLETE-LICENSING.md",
     "licenses/ROM-IMAGES.md",
@@ -103,11 +104,16 @@ class NightlyPackageTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(files[f"{root}/actionc"].mode), 0o755)
             self.assertEqual(stat.S_IMODE(files[f"{root}/README.md"].mode), 0o644)
             build_info = package.extractfile(files[f"{root}/BUILD-INFO.txt"]).read().decode()
+            incomplete = package.extractfile(
+                files[f"{root}/licenses/INCOMPLETE-LICENSING.md"]
+            ).read().decode()
 
         self.assertIn("channel: nightly", build_info)
         self.assertIn("commit: 0123456789abcdef", build_info)
         self.assertIn("target: x86_64-unknown-linux-musl", build_info)
         self.assertIn("rustc 1.95.0 (package test)", build_info)
+        self.assertIn("MYDOS-NOTICE.md", incomplete)
+        self.assertNotIn("ACTION-ROM-NOTICE.md", incomplete)
 
         first_archive = archive.read_bytes()
         repeated = self.run_packager(
@@ -159,8 +165,8 @@ class NightlyPackageTests(unittest.TestCase):
         result = self.run_packager("aarch64-apple-darwin")
 
         self.assertEqual(result.returncode, 1)
-        self.assertIn("ACTION-ROM-NOTICE.md", result.stderr)
         self.assertIn("MYDOS-NOTICE.md", result.stderr)
+        self.assertNotIn("ACTION-ROM-NOTICE.md", result.stderr)
         self.assertIn("refusing to create a publishable archive", result.stderr)
         self.assertFalse(self.output_dir.exists())
 

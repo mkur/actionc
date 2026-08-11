@@ -8,6 +8,11 @@ emulator helper rely on them.
 | `action.rom` | 16400 | `b4a3a399f4f1e8c20f4b1cbc3f6e2fbcef342c36d2c252f903938e93a502c166` | Action! cartridge image used by original-compiler probes and embedded by `actionc-run` |
 | `altirraos-xl.rom` | 16384 | `9de5a313fe3946f04fe236a8d3ceacb471fbed4ec5fc5db009732e1169946ccf` | AltirraOS XL/XE 3.11 used by VM/emulator runs and embedded by `actionc-run` |
 
+`action.rom` is Action! 3.6, licensed under GPL version 3 or any later
+version. Its exact source revision, build path, hashes, and byte-for-byte
+comparison with the upstream reference ROM are recorded in
+`ACTION-ROM-NOTICE.md`.
+
 `altirraos-xl.rom` is the standalone AltirraOS kernel replacement. It was
 extracted byte-for-byte from `ROM_altirraos_xl` in Atari800's checked-in
 `src/roms/altirraos_xl.c` at commit

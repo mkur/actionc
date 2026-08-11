@@ -148,16 +148,17 @@ and `roms/ALTIRRAOS-LICENSE`. This snapshot has no equivalent license and
 provenance file for the embedded MyDOS image. Add it as `atr/MYDOS-NOTICE.md`
 before publication.
 
-Before a public nightly containing `actionc-run` is published, the repository
-must record the exact Action! cartridge version, copyright holder, license,
-source from which the ROM was built, and the location of corresponding source
-or source offer required by that license in `roms/ACTION-ROM-NOTICE.md`. A
-general statement that Action! is GPL-licensed is not sufficient release
-provenance for a particular binary.
+The Action! cartridge gate is closed by `roms/ACTION-ROM-NOTICE.md`. It records
+the GPL-3.0-or-later license, pinned corresponding-source revision, upstream
+build path, complete CAR and payload hashes, and a byte-for-byte match between
+the bundled CAR payload and the upstream Action! 3.6 reference ROM. The release
+publisher should attach a durable snapshot of that pinned source revision
+alongside the binary archives.
 
-Until this gate is satisfied, CI may build and test `actionc-run`, but the
-publisher must either remain disabled or exclude the runner and say so
-explicitly. It must not silently publish the embedded ROM.
+Until the remaining MyDOS gate is satisfied, CI may build and test
+`actionc-run`, but the publisher must either remain disabled or exclude the
+runner and say so explicitly. It must not silently publish the embedded disk
+image.
 
 The packager enforces this gate by default. Prepublication CI can use
 `--allow-incomplete-license-notices`; such an archive contains a conspicuous
