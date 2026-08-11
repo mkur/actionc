@@ -31,6 +31,14 @@ pub fn generate_profile_with_origin(
     generate_with_options(program, origin, true, profile)
 }
 
+pub(crate) fn generate_profile_at_origin(
+    program: &Program,
+    origin: u16,
+    profile: CodegenProfile,
+) -> Result<CodegenOutput, Vec<Diagnostic>> {
+    generate_with_options(program, origin, true, profile)
+}
+
 pub fn generate_semir_profile_with_origin(
     program: &crate::semantic::ir::SemProgram,
     origin: u16,

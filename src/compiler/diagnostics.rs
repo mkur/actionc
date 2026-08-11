@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 
 use crate::diagnostic::Diagnostic;
 use crate::includes::SourceMap;
+use crate::mir6502::MirDiagnostic;
+use crate::nir::NirDiagnostic;
 use crate::source::Span;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,6 +95,41 @@ impl CompileError {
         Self {
             kind: CompileErrorKind::Compilation,
             diagnostics,
+        }
+    }
+
+    pub(super) fn from_nir_diagnostics(diagnostics: Vec<NirDiagnostic>) -> Self {
+        Self::from_ir_diagnostics(
+            CompilerPhase::Nir,
+            diagnostics
+                .into_iter()
+                .map(|diagnostic| (diagnostic.routine, diagnostic.block, diagnostic.message)),
+        )
+    }
+
+    pub(super) fn from_mir6502_diagnostics(diagnostics: Vec<MirDiagnostic>) -> Self {
+        Self::from_ir_diagnostics(
+            CompilerPhase::Mir6502,
+            diagnostics
+                .into_iter()
+                .map(|diagnostic| (diagnostic.routine, diagnostic.block, diagnostic.message)),
+        )
+    }
+
+    fn from_ir_diagnostics(
+        phase: CompilerPhase,
+        diagnostics: impl IntoIterator<Item = (Option<String>, Option<String>, String)>,
+    ) -> Self {
+        Self {
+            kind: CompileErrorKind::Compilation,
+            diagnostics: diagnostics
+                .into_iter()
+                .map(|(routine, block, message)| CompilerDiagnostic {
+                    phase,
+                    message,
+                    site: DiagnosticSite::Ir { routine, block },
+                })
+                .collect(),
         }
     }
 }

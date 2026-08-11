@@ -1,14 +1,20 @@
 mod diagnostics;
+pub(crate) mod validation;
 
 use std::fs;
 use std::path::Path;
 
 use crate::codegen::{
-    CODE_ORIGIN, CodegenOutput, CodegenProfile, format_load_file, generate_profile_with_origin,
+    CODE_ORIGIN, CodegenOutput, CodegenProfile, format_load_file, generate_profile_at_origin,
+    generate_profile_with_origin,
 };
 use crate::includes::load_program_with_expanded_source;
-use crate::semantic::analyze;
+use crate::mir6502;
+use crate::nir;
+use crate::semantic::{analyze, ir};
 use crate::source::decode_source;
+
+use self::validation::legacy_routine_retargeting_diagnostics;
 
 pub use diagnostics::{
     CompileError, CompileErrorKind, CompilerDiagnostic, CompilerPhase, DiagnosticSite,
@@ -89,13 +95,7 @@ pub fn compile_file(
     })?;
 
     let mode = resolve_mode(&loaded.source, options)?;
-    if mode != CompileMode::Compatibility {
-        return Err(CompileError::configuration(format!(
-            "compiler API mode {mode:?} is not implemented yet"
-        )));
-    }
-
-    analyze(&loaded.program).map_err(|diagnostics| {
+    let model = analyze(&loaded.program).map_err(|diagnostics| {
         CompileError::from_source_diagnostics(
             CompilerPhase::Semantic,
             diagnostics,
@@ -105,17 +105,45 @@ pub fn compile_file(
         )
     })?;
 
-    let origin = options.origin.unwrap_or(CODE_ORIGIN);
-    let output = generate_profile_with_origin(&loaded.program, origin, CodegenProfile::Compat)
-        .map_err(|diagnostics| {
-            CompileError::from_source_diagnostics(
-                CompilerPhase::Codegen,
-                diagnostics,
-                &loaded.source,
-                path,
-                Some(&loaded.source_map),
-            )
-        })?;
+    let output = match mode {
+        CompileMode::Compatibility => compile_classic(
+            &loaded.program,
+            CodegenProfile::Compat,
+            options.origin,
+            &loaded.source,
+            path,
+            &loaded.source_map,
+        )?,
+        CompileMode::Optimized => compile_classic(
+            &loaded.program,
+            CodegenProfile::Modern,
+            options.origin,
+            &loaded.source,
+            path,
+            &loaded.source_map,
+        )?,
+        CompileMode::Mir6502 => {
+            let diagnostics = legacy_routine_retargeting_diagnostics(&loaded.program);
+            if !diagnostics.is_empty() {
+                return Err(CompileError::from_source_diagnostics(
+                    CompilerPhase::Nir,
+                    diagnostics,
+                    &loaded.source,
+                    path,
+                    Some(&loaded.source_map),
+                ));
+            }
+
+            let semir = ir::lower_program(&loaded.program, &model);
+            let origin = options
+                .origin
+                .unwrap_or_else(|| mir6502_default_origin_from_semir(&semir, CODE_ORIGIN));
+            let nir = nir::lower_program(&semir);
+            let nir = nir::optimize_program(&nir).map_err(CompileError::from_nir_diagnostics)?;
+            mir6502::generate_output_with_config(&nir, origin, &mir6502::Mir6502Config::optimized())
+                .map_err(CompileError::from_mir6502_diagnostics)?
+        }
+    };
     let object = format_load_file(&output);
 
     Ok(CompiledProgram {
@@ -123,6 +151,70 @@ pub fn compile_file(
         output,
         expanded_source: loaded.source,
     })
+}
+
+fn compile_classic(
+    program: &crate::ast::Program,
+    profile: CodegenProfile,
+    origin: Option<u16>,
+    source: &str,
+    path: &Path,
+    source_map: &crate::includes::SourceMap,
+) -> Result<CodegenOutput, CompileError> {
+    let result = match origin {
+        Some(origin) => generate_profile_at_origin(program, origin, profile),
+        None => generate_profile_with_origin(program, CODE_ORIGIN, profile),
+    };
+    result.map_err(|diagnostics| {
+        CompileError::from_source_diagnostics(
+            CompilerPhase::Codegen,
+            diagnostics,
+            source,
+            path,
+            Some(source_map),
+        )
+    })
+}
+
+pub(crate) fn mir6502_default_origin_from_semir(program: &ir::SemProgram, fallback: u16) -> u16 {
+    let mut cursor = fallback;
+    let mut origin = fallback;
+    for module in &program.modules {
+        for item in &module.items {
+            let ir::SemItem::Set(set) = item else {
+                continue;
+            };
+            let Some(address) = sem_const_u16(&set.address) else {
+                continue;
+            };
+            let Some(value) = sem_const_u16(&set.value) else {
+                continue;
+            };
+            match address {
+                0x000E | 0x0491 => {
+                    cursor = value;
+                    if value >= 0x0100 {
+                        origin = value;
+                    }
+                }
+                0x000F | 0x0492 => {
+                    cursor = (cursor & 0x00FF) | ((value & 0x00FF) << 8);
+                    if cursor >= 0x0100 {
+                        origin = cursor;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    origin
+}
+
+fn sem_const_u16(expr: &ir::SemExpr) -> Option<u16> {
+    match &expr.kind {
+        ir::SemExprKind::Literal(ir::SemLiteral::Number(number)) => number.value,
+        _ => None,
+    }
 }
 
 fn resolve_mode(source: &str, options: &CompileOptions) -> Result<CompileMode, CompileError> {
