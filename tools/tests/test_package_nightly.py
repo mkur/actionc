@@ -32,12 +32,19 @@ COMMON_FILES = {
 class NightlyPackageTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory(prefix="actionc-package-test-")
+        # GitHub's Windows runners keep the checkout on D: and the system
+        # temporary directory on C:. Keep package output on the checkout drive
+        # so these tests exercise that cross-drive layout.
+        self.output_temporary = tempfile.TemporaryDirectory(
+            prefix=".actionc-package-output-", dir=REPO_ROOT
+        )
         self.root = Path(self.temporary.name)
         self.bin_dir = self.root / "bin"
-        self.output_dir = self.root / "output"
+        self.output_dir = Path(self.output_temporary.name)
         self.bin_dir.mkdir()
 
     def tearDown(self) -> None:
+        self.output_temporary.cleanup()
         self.temporary.cleanup()
 
     def write_executables(self, suffix: str) -> None:

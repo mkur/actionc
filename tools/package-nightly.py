@@ -280,7 +280,9 @@ def package(args: argparse.Namespace) -> Path:
     archive_name = f"{root_name}.{archive_kind}"
     destination = output_dir / archive_name
 
-    with tempfile.TemporaryDirectory(prefix="actionc-package-") as temporary:
+    with tempfile.TemporaryDirectory(
+        prefix="actionc-package-", dir=output_dir
+    ) as temporary:
         temporary_path = Path(temporary)
         stage_root = temporary_path / root_name
         stage_root.mkdir()
