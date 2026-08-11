@@ -1,5 +1,7 @@
 # actionc
 
+[![Cross-platform CI](https://github.com/mkur/actionc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mkur/actionc/actions/workflows/ci.yml)
+
 `actionc` is a Rust cross-compiler for the Atari 8-bit Action! language. It
 compiles Action! source code on a modern computer into Atari load-format
 executables, with a compatibility-oriented path for original programs and an
