@@ -1,3 +1,7 @@
+mod atr;
+
+pub use atr::{AtrEntry, AtrFileUpdate, AtrImage};
+
 pub fn atascii_to_ascii(bytes: &[u8]) -> String {
     let mut output = String::new();
     let mut index = 0usize;

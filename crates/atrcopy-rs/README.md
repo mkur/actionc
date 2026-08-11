@@ -43,6 +43,24 @@ chains, and updates both the bitmap and free-sector count. Standard DOS 2 and
 MYDOS VTOCs are supported; ambiguous extended DOS 2.5 VTOCs are rejected
 instead of being modified.
 
+The ATR writer is also available as an in-memory library API. This is the path
+intended for tools such as `actionc-run`, which can start from an embedded disk
+template and add an executable without invoking the `atrcopy-rs` command:
+
+```rust
+use atrcopy_rs::AtrImage;
+
+let mut image = AtrImage::from_bytes(disk_template)?;
+image.upsert_file("AUTORUN.000", object_file)?;
+let runnable_atr = image.into_bytes();
+```
+
+MyDOS runs numbered files in order (`AUTORUN.000`, `AUTORUN.001`, and so on),
+so a single program disk uses `AUTORUN.000`.
+
+`upsert_file` is atomic from the caller's perspective: if validation or disk
+allocation fails, the original in-memory image is left unchanged.
+
 The ASCII encoding uses the same escape spellings accepted by `actionc`:
 
 ```text
