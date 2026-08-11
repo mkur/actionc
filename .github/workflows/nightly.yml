@@ -1,0 +1,89 @@
+name: Nightly build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: actionc-nightly-build
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  ACTIONC_BUILD_CHANNEL: nightly
+  ACTIONC_BUILD_SHA: ${{ github.sha }}
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            runner: ubuntu-24.04
+            all_modes: true
+          - target: x86_64-pc-windows-msvc
+            runner: windows-2025
+            all_modes: false
+          - target: aarch64-apple-darwin
+            runner: macos-15
+            all_modes: false
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+            all_modes: false
+
+    env:
+      ACTIONC_BUILD_TARGET: ${{ matrix.target }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Record build date
+        run: python -c "import datetime as d, os; value=d.datetime.now(d.timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'); open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write(f'ACTIONC_BUILD_DATE={value}\n')"
+
+      - name: Install Linux musl tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Show Rust toolchain
+        run: rustc --version --verbose
+
+      - name: Test target
+        run: cargo test --locked --target ${{ matrix.target }}
+
+      - name: Build public executables
+        run: cargo build --release --locked --target ${{ matrix.target }} --bin actionc --bin actionc-run --bin actionc-emit
+
+      - name: Smoke-test public executables
+        if: matrix.all_modes == false
+        run: python tools/smoke-nightly.py --bin-dir target/${{ matrix.target }}/release --target ${{ matrix.target }} --expect-channel nightly --expect-commit ${{ github.sha }}
+
+      - name: Smoke-test public executables and modes
+        if: matrix.all_modes == true
+        run: python tools/smoke-nightly.py --bin-dir target/${{ matrix.target }}/release --target ${{ matrix.target }} --expect-channel nightly --expect-commit ${{ github.sha }} --all-modes
+
+      - name: Package prepublication build
+        run: python tools/package-nightly.py --target ${{ matrix.target }} --bin-dir target/${{ matrix.target }}/release --output-dir build/nightly --allow-incomplete-license-notices
+
+      - name: Upload prepublication archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: actionc-nightly-${{ matrix.target }}
+          path: build/nightly/actionc-nightly-${{ matrix.target }}.*
+          if-no-files-found: error
+          retention-days: 7

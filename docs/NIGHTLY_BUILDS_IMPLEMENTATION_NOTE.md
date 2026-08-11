@@ -1,6 +1,7 @@
 # Nightly Builds Implementation Note
 
-Status: slices 1 through 3 complete; the non-publishing build matrix is next.
+Status: slices 1 through 4 complete. The manually dispatched prepublication
+matrix is ready; scheduling and publication remain gated.
 
 Snapshot date: 2026-08-11.
 
@@ -39,11 +40,15 @@ published target and archive name explicitly.
 
 ## Publication Model
 
-One workflow, `.github/workflows/nightly.yml`, owns the nightly channel. It is
-triggered by:
+One workflow, `.github/workflows/nightly.yml`, owns the nightly channel. Its
+final triggers are:
 
 - a daily schedule away from the top of the hour;
 - `workflow_dispatch` for rollout, diagnosis, and forced rebuilds.
+
+During prepublication rollout, only `workflow_dispatch` is enabled. The daily
+schedule is added after the first manually dispatched matrix succeeds. The
+publisher is added only after the embedded-asset license gate is closed.
 
 The workflow uses a four-entry build matrix. Each entry tests, builds, smoke
 tests, and packages one target, then uploads its archive as an intermediate
@@ -230,6 +235,10 @@ This slice cannot be considered publishable until the license gate is closed.
 - install the musl target and tools on Linux;
 - run tests, builds, native smoke tests, and packaging;
 - upload intermediate artifacts with seven-day retention.
+
+This slice initially exposes only a manual trigger and uses the packager's
+prepublication license override. Its artifacts are suitable for inspecting the
+matrix, not for public release.
 
 ### Slice 5: publisher
 

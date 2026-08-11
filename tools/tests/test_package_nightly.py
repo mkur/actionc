@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 from pathlib import Path
 import stat
 import subprocess
@@ -40,28 +41,45 @@ class NightlyPackageTests(unittest.TestCase):
             path = self.bin_dir / f"{name}{suffix}"
             path.write_bytes(f"fake {name}\n".encode())
 
-    def run_packager(self, target: str, *extra: str) -> subprocess.CompletedProcess[str]:
+    def run_packager(
+        self, target: str, *extra: str, metadata_from_environment: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        command = [
+            sys.executable,
+            str(PACKAGER),
+            "--target",
+            target,
+            "--bin-dir",
+            str(self.bin_dir),
+            "--output-dir",
+            str(self.output_dir),
+            "--rustc-version",
+            "rustc 1.95.0 (package test)",
+        ]
+        environment = None
+        if metadata_from_environment:
+            environment = os.environ.copy()
+            environment.update(
+                ACTIONC_BUILD_SHA="environment-commit",
+                ACTIONC_BUILD_DATE="2026-08-12T03:17:00Z",
+                ACTIONC_BUILD_CHANNEL="nightly",
+            )
+        else:
+            command.extend(
+                [
+                    "--commit",
+                    "0123456789abcdef",
+                    "--build-date",
+                    "2026-08-11T03:17:00Z",
+                ]
+            )
+        command.extend(extra)
         return subprocess.run(
-            [
-                sys.executable,
-                str(PACKAGER),
-                "--target",
-                target,
-                "--bin-dir",
-                str(self.bin_dir),
-                "--output-dir",
-                str(self.output_dir),
-                "--commit",
-                "0123456789abcdef",
-                "--build-date",
-                "2026-08-11T03:17:00Z",
-                "--rustc-version",
-                "rustc 1.95.0 (package test)",
-                *extra,
-            ],
+            command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            env=environment,
         )
 
     def test_linux_archive_has_exact_inventory_and_executable_modes(self) -> None:
@@ -115,6 +133,23 @@ class NightlyPackageTests(unittest.TestCase):
             self.assertEqual(files, expected)
             mode = package.getinfo(f"{root}/actionc.exe").external_attr >> 16
             self.assertEqual(stat.S_IMODE(mode), 0o755)
+
+    def test_build_metadata_can_come_from_the_workflow_environment(self) -> None:
+        self.write_executables("")
+        result = self.run_packager(
+            "aarch64-apple-darwin",
+            "--allow-incomplete-license-notices",
+            metadata_from_environment=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        archive = self.output_dir / "actionc-nightly-aarch64-apple-darwin.tar.gz"
+        root = "actionc-nightly-aarch64-apple-darwin"
+
+        with tarfile.open(archive, "r:gz") as package:
+            build_info = package.extractfile(f"{root}/BUILD-INFO.txt").read().decode()
+
+        self.assertIn("commit: environment-commit", build_info)
+        self.assertIn("build-date: 2026-08-12T03:17:00Z", build_info)
 
     def test_publishable_archive_is_blocked_by_missing_notices(self) -> None:
         self.write_executables("")

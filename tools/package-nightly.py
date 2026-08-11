@@ -38,9 +38,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--target", choices=sorted(TARGET_ARCHIVES), required=True)
     parser.add_argument("--bin-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--commit", required=True)
-    parser.add_argument("--build-date", required=True)
-    parser.add_argument("--channel", default="nightly")
+    parser.add_argument("--commit", default=os.environ.get("ACTIONC_BUILD_SHA"))
+    parser.add_argument("--build-date", default=os.environ.get("ACTIONC_BUILD_DATE"))
+    parser.add_argument(
+        "--channel", default=os.environ.get("ACTIONC_BUILD_CHANNEL", "nightly")
+    )
     parser.add_argument("--rustc", default="rustc")
     parser.add_argument(
         "--rustc-version",
@@ -51,7 +53,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="create a prepublication archive even when embedded-asset notices are missing",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if not args.commit:
+        parser.error("--commit or ACTIONC_BUILD_SHA is required")
+    if not args.build_date:
+        parser.error("--build-date or ACTIONC_BUILD_DATE is required")
+    return args
 
 
 def parse_build_date(value: str) -> tuple[str, int]:
