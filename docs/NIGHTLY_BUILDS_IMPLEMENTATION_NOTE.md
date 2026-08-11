@@ -1,6 +1,6 @@
 # Nightly Builds Implementation Note
 
-Status: implementation in progress.
+Status: slices 1 and 2 complete; portable packaging is next.
 
 Snapshot date: 2026-08-11.
 

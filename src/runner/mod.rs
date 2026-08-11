@@ -46,6 +46,9 @@ pub fn actionc_run_main() {
             }
         }
         Ok(RunCliOutcome::Help) => print_help(),
+        Ok(RunCliOutcome::Version) => {
+            println!("{}", crate::build_info::version_line("actionc-run"))
+        }
         Err(error) => {
             print_error(&error);
             process::exit(error.exit_code());
@@ -60,6 +63,7 @@ enum RunCliOutcome {
         retained_directory: Option<PathBuf>,
     },
     Help,
+    Version,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,6 +86,10 @@ enum CartridgeChoice {
 }
 
 fn run_cli(args: impl IntoIterator<Item = OsString>) -> Result<RunCliOutcome, RunnerError> {
+    let args = args.into_iter().collect::<Vec<_>>();
+    if args.len() == 1 && (args[0] == OsStr::new("-V") || args[0] == OsStr::new("--version")) {
+        return Ok(RunCliOutcome::Version);
+    }
     let Some(options) = parse_args(args)? else {
         return Ok(RunCliOutcome::Help);
     };
@@ -594,7 +602,8 @@ fn print_help() {
          \x20                  [--emulator-path <path>]\n\
          \x20                  [--cart <path>|--no-cart]\n\
          \x20                  [--no-run] [--out-atr <file.atr>] [--keep]\n\
-         \x20                  <file.act>"
+         \x20                  <file.act>\n\
+         \x20     actionc-run --version"
     );
 }
 

@@ -2,6 +2,7 @@ mod analysis;
 
 pub mod asm6502;
 pub mod ast;
+pub mod build_info;
 pub mod cli;
 pub mod codegen;
 pub mod compiler;

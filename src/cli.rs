@@ -30,6 +30,15 @@ enum CliFlavor {
     Emit,
 }
 
+impl CliFlavor {
+    fn executable_name(self) -> &'static str {
+        match self {
+            Self::Compile => "actionc",
+            Self::Emit => "actionc-emit",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct CompileOutputs {
     object: PathBuf,
@@ -180,6 +189,13 @@ fn run_main(flavor: CliFlavor) {
             }
             "-h" | "--help" => {
                 print_help_for(flavor);
+                return;
+            }
+            "-V" | "--version" => {
+                println!(
+                    "{}",
+                    crate::build_info::version_line(flavor.executable_name())
+                );
                 return;
             }
             _ if arg.starts_with('-') => {
@@ -1182,13 +1198,13 @@ fn print_help_for(flavor: CliFlavor) {
 
 fn print_compile_help() {
     eprintln!(
-        "usage: actionc [--mode compatibility|optimized|mir6502] [--origin <addr>] [-o <file.com>] [--listing <file.lst>] <file.act>\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility. Advanced users may select --profile and\n--backend directly instead of --mode. With no -o option, write\n<source-stem>.com in the current directory. Use actionc-emit to write compiler\nrepresentations to stdout."
+        "usage: actionc [--mode compatibility|optimized|mir6502] [--origin <addr>] [-o <file.com>] [--listing <file.lst>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility. Advanced users may select --profile and\n--backend directly instead of --mode. With no -o option, write\n<source-stem>.com in the current directory. Use actionc-emit to write compiler\nrepresentations to stdout."
     );
 }
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>"
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version"
     );
 }
 
