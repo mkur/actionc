@@ -4,6 +4,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+pub(crate) mod altirra;
 pub(crate) mod atari800;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
