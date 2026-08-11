@@ -1,3 +1,4 @@
+pub(crate) mod artifacts;
 mod diagnostics;
 pub(crate) mod validation;
 
@@ -65,6 +66,10 @@ pub struct CompiledProgram {
 impl CompiledProgram {
     pub fn object_bytes(&self) -> &[u8] {
         &self.object
+    }
+
+    pub fn source_listing(&self) -> String {
+        artifacts::format_listing_with_source(&self.output, &self.expanded_source)
     }
 
     pub fn origin(&self) -> u16 {

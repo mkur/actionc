@@ -95,6 +95,20 @@ fn compatibility_api_matches_the_existing_classic_pipeline() {
 }
 
 #[test]
+fn compiled_program_formats_the_existing_source_listing() {
+    let compiled = compile_file(
+        hello_world(),
+        &CompileOptions::for_mode(CompileMode::Compatibility),
+    )
+    .expect("compile source listing input");
+
+    let listing = compiled.source_listing();
+    assert!(listing.contains("; ===== PROC Main"));
+    assert!(listing.contains("JSR $A46C"));
+    assert!(listing.contains("| PrintE(\"Hello, world!\")"));
+}
+
+#[test]
 fn all_public_modes_match_the_existing_pipelines() {
     let source = hello_world();
     for mode in [
