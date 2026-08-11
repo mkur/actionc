@@ -33,6 +33,12 @@ fn hello_world() -> PathBuf {
         .join("hello-world.act")
 }
 
+fn load_file_origin(bytes: &[u8]) -> u16 {
+    assert!(bytes.len() >= 4, "load file is too short");
+    assert_eq!(&bytes[..2], &[0xff, 0xff], "missing load-file header");
+    u16::from_le_bytes([bytes[2], bytes[3]])
+}
+
 #[test]
 fn compiles_object_and_listing_in_one_invocation() {
     let temp = TestDir::new();
@@ -179,6 +185,124 @@ fn explicit_mode_overrides_source_configuration_annotations() {
         .expect("run explicit compatibility configuration");
     assert!(emitted.status.success());
     assert_eq!(fs::read(object).expect("read object"), emitted.stdout);
+}
+
+#[test]
+fn source_configuration_annotations_drive_bare_actionc() {
+    let temp = TestDir::new();
+    let source = temp.path().join("annotated-default.act");
+    let object = temp.path().join("annotated-default.com");
+    fs::write(
+        &source,
+        ";@actionc profile modern\n;@actionc backend mir6502\nPROC Main()\nRETURN\n",
+    )
+    .expect("write annotated source");
+
+    let compiled = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .arg(&source)
+        .arg("--output")
+        .arg(&object)
+        .output()
+        .expect("run actionc with source-selected defaults");
+    assert!(
+        compiled.status.success(),
+        "actionc failed\nstderr:\n{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+
+    let emitted = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .arg("--profile")
+        .arg("modern")
+        .arg("--backend")
+        .arg("mir6502")
+        .arg("--emit-load")
+        .arg(&source)
+        .output()
+        .expect("run matching actionc-emit configuration");
+    assert!(emitted.status.success());
+    assert_eq!(fs::read(object).expect("read object"), emitted.stdout);
+}
+
+#[test]
+fn source_origin_and_explicit_origin_precedence_are_stable() {
+    let temp = TestDir::new();
+    let source = temp.path().join("origin.act");
+    fs::write(
+        &source,
+        "SET $E=$4000\nSET $491=$4000\nPROC Main()\nRETURN\n",
+    )
+    .expect("write origin source");
+
+    for mode in ["compatibility", "optimized", "mir6502"] {
+        let implicit = temp.path().join(format!("{mode}-implicit.com"));
+        let implicit_output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .arg("--mode")
+            .arg(mode)
+            .arg("--output")
+            .arg(&implicit)
+            .arg(&source)
+            .output()
+            .expect("compile with source origin");
+        assert!(
+            implicit_output.status.success(),
+            "actionc --mode {mode} failed\nstderr:\n{}",
+            String::from_utf8_lossy(&implicit_output.stderr)
+        );
+        assert_eq!(
+            load_file_origin(&fs::read(&implicit).expect("read source-origin object")),
+            0x4000,
+            "--mode {mode} ignored the source origin"
+        );
+
+        let explicit = temp.path().join(format!("{mode}-explicit.com"));
+        let explicit_output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .arg("--mode")
+            .arg(mode)
+            .arg("--origin")
+            .arg("$3A00")
+            .arg("--output")
+            .arg(&explicit)
+            .arg(&source)
+            .output()
+            .expect("compile with explicit origin");
+        assert!(
+            explicit_output.status.success(),
+            "actionc --mode {mode} --origin failed\nstderr:\n{}",
+            String::from_utf8_lossy(&explicit_output.stderr)
+        );
+        assert_eq!(
+            load_file_origin(&fs::read(&explicit).expect("read explicit-origin object")),
+            0x3A00,
+            "--mode {mode} ignored the explicit origin"
+        );
+    }
+}
+
+#[test]
+fn semantic_diagnostics_point_into_included_sources() {
+    let temp = TestDir::new();
+    let source = temp.path().join("main.act");
+    let included = temp.path().join("lib.act");
+    let object = temp.path().join("main.com");
+    fs::write(&source, "INCLUDE \"lib.act\"\nPROC Main() RETURN\n").expect("write root source");
+    fs::write(&included, "BYTE x\nPROC Broken()\n  missing=1\nRETURN\n")
+        .expect("write included source");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .arg("--output")
+        .arg(&object)
+        .arg(&source)
+        .output()
+        .expect("compile source with included semantic error");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(&format!("{}:3:3", included.display())),
+        "included diagnostic lost its source location:\n{stderr}"
+    );
+    assert!(stderr.contains("undefined symbol `missing`"));
+    assert!(!object.exists());
 }
 
 #[test]
