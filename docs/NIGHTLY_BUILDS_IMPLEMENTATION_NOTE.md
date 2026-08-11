@@ -1,6 +1,6 @@
 # Nightly Builds Implementation Note
 
-Status: slices 1 and 2 complete; portable packaging is next.
+Status: slices 1 through 3 complete; the non-publishing build matrix is next.
 
 Snapshot date: 2026-08-11.
 
@@ -139,18 +139,25 @@ arbitrary contents from `target/`.
 - the Action! cartridge image in `roms/action.rom`.
 
 The AltirraOS license and provenance are already recorded in `roms/README.md`
-and `roms/ALTIRRAOS-LICENSE`. The MyDOS notice must be included from the
-`atrcopy-rs` crate's license material.
+and `roms/ALTIRRAOS-LICENSE`. This snapshot has no equivalent license and
+provenance file for the embedded MyDOS image. Add it as `atr/MYDOS-NOTICE.md`
+before publication.
 
 Before a public nightly containing `actionc-run` is published, the repository
 must record the exact Action! cartridge version, copyright holder, license,
 source from which the ROM was built, and the location of corresponding source
-or source offer required by that license. A general statement that Action! is
-GPL-licensed is not sufficient release provenance for a particular binary.
+or source offer required by that license in `roms/ACTION-ROM-NOTICE.md`. A
+general statement that Action! is GPL-licensed is not sufficient release
+provenance for a particular binary.
 
 Until this gate is satisfied, CI may build and test `actionc-run`, but the
 publisher must either remain disabled or exclude the runner and say so
 explicitly. It must not silently publish the embedded ROM.
+
+The packager enforces this gate by default. Prepublication CI can use
+`--allow-incomplete-license-notices`; such an archive contains a conspicuous
+`licenses/INCOMPLETE-LICENSING.md` warning and must not be attached to a public
+release.
 
 ## Test and Smoke-Test Contract
 

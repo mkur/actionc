@@ -29,8 +29,16 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Show Rust toolchain
         run: rustc --version --verbose
 
       - name: Test workspace
         run: cargo test --locked
+
+      - name: Test nightly packager
+        run: python tools/tests/test_package_nightly.py
