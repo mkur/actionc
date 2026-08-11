@@ -6,6 +6,7 @@ use std::process::Command;
 
 pub(crate) mod altirra;
 pub(crate) mod atari800;
+pub(crate) mod discovery;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum EmulatorKind {
