@@ -13,8 +13,7 @@ pub mod mir6502;
 pub mod nir;
 pub mod parser;
 pub mod resident;
-#[allow(dead_code)]
-pub(crate) mod runner;
+pub mod runner;
 pub mod semantic;
 pub mod source;
 

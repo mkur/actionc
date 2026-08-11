@@ -7,3 +7,4 @@ license = "GPL-3.0-or-later"
 default-run = "actionc"
 
 [dependencies]
+atrcopy-rs = { path = "crates/atrcopy-rs" }
