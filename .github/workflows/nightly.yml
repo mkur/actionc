@@ -87,3 +87,100 @@ jobs:
           path: build/nightly/actionc-nightly-${{ matrix.target }}.*
           if-no-files-found: error
           retention-days: 7
+
+  publish:
+    name: Publish nightly
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Check whether publication is needed
+        id: publication
+        shell: bash
+        run: |
+          publish=true
+          reason="manual publication"
+
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+            tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/nightly" --jq '.object.sha' 2>/dev/null || true)"
+            if [[ "$tag_sha" == "$GITHUB_SHA" ]] && gh release view nightly >/dev/null 2>&1; then
+              publish=false
+              reason="nightly already points at $GITHUB_SHA"
+            else
+              reason="scheduled commit has not been published"
+            fi
+          fi
+
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "$reason"
+
+      - name: Download matrix archives
+        if: steps.publication.outputs.publish == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: actionc-nightly-*
+          path: build/nightly-input
+          merge-multiple: true
+
+      - name: Validate and prepare release assets
+        if: steps.publication.outputs.publish == 'true'
+        run: >-
+          python tools/prepare-nightly-release.py
+          --input-dir build/nightly-input
+          --output-dir build/nightly-release
+          --action-source roms/source/action-3.6-source-0b8bcedb.tar.gz
+          --commit ${{ github.sha }}
+
+      - name: Create or update nightly prerelease
+        if: steps.publication.outputs.publish == 'true'
+        shell: bash
+        run: |
+          mapfile -t release_assets < <(find build/nightly-release -maxdepth 1 -type f -print | sort)
+          if [[ ${#release_assets[@]} -ne 6 ]]; then
+            echo "expected exactly 6 prepared release assets" >&2
+            exit 1
+          fi
+
+          release_title="actionc nightly (${GITHUB_SHA:0:12})"
+          if gh release view nightly >/dev/null 2>&1; then
+            git tag -f nightly "$GITHUB_SHA"
+            git push --force origin refs/tags/nightly
+            gh release edit nightly \
+              --target "$GITHUB_SHA" \
+              --title "$release_title" \
+              --notes-file docs/NIGHTLY_RELEASE_NOTES.md \
+              --prerelease
+            gh release upload nightly "${release_assets[@]}" --clobber
+          else
+            gh release create nightly "${release_assets[@]}" \
+              --target "$GITHUB_SHA" \
+              --title "$release_title" \
+              --notes-file docs/NIGHTLY_RELEASE_NOTES.md \
+              --prerelease \
+              --latest=false
+          fi
+
+          mapfile -t desired_names < <(printf '%s\n' "${release_assets[@]##*/}" | sort)
+          mapfile -t existing_names < <(gh release view nightly --json assets --jq '.assets[].name' | sort)
+          for existing_name in "${existing_names[@]}"; do
+            if ! printf '%s\n' "${desired_names[@]}" | grep -Fxq -- "$existing_name"; then
+              gh release delete-asset nightly "$existing_name" --yes
+            fi
+          done
+
+          printf '%s\n' "${desired_names[@]}" > "$RUNNER_TEMP/expected-nightly-assets"
+          gh release view nightly --json assets --jq '.assets[].name' \
+            | sort > "$RUNNER_TEMP/actual-nightly-assets"
+          diff -u "$RUNNER_TEMP/expected-nightly-assets" "$RUNNER_TEMP/actual-nightly-assets"
+
+      - name: Report skipped publication
+        if: steps.publication.outputs.publish != 'true'
+        run: echo "${{ steps.publication.outputs.reason }}"

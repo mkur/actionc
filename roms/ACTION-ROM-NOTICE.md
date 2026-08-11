@@ -35,6 +35,15 @@ JAC/src/ACTION-ROM-OSS-16k.asm
 JAC/src/GPL.txt
 ```
 
+A corresponding-source snapshot from the pinned revision is preserved as
+`source/action-3.6-source-0b8bcedb.tar.gz`. It contains `JAC/src`, the upstream
+build scripts and settings, and the reference ROM used for comparison:
+
+```text
+size:    116822 bytes
+SHA-256: fa3466ee7286d8e65a4ca5b0b1db69e4428b15ec93b2119ae68811a30528d824
+```
+
 The upstream project summary currently labels the project GPLv2, but the
 corresponding source files and the GPL text distributed with them explicitly
 license Action! under GPL version 3 or any later version. This notice follows
@@ -67,5 +76,5 @@ Its first 16 bytes are the standard Atari CAR header for cartridge type 15.
 After removing that header, the remaining 16384 bytes match the pinned
 upstream reference ROM byte-for-byte.
 
-Public binary releases should preserve this notice and provide durable access
-to a source snapshot of the pinned revision alongside the binary assets.
+Public binary releases preserve this notice and attach the corresponding-source
+snapshot alongside the binary assets.

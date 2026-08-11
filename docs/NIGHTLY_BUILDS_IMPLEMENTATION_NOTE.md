@@ -1,8 +1,8 @@
 # Nightly Builds Implementation Note
 
-Status: slices 1 through 4 complete. The manually dispatched matrix now
-produces license-complete archives; scheduling and publication remain to be
-implemented and rolled out.
+Status: slices 1 through 5 complete. A manual dispatch builds all four targets
+and updates the moving `nightly` prerelease. Real-emulator rollout checks and
+the daily schedule remain.
 
 Snapshot date: 2026-08-11.
 
@@ -48,9 +48,8 @@ final triggers are:
 - `workflow_dispatch` for rollout, diagnosis, and forced rebuilds.
 
 During rollout, only `workflow_dispatch` is enabled. The daily schedule is
-added after the current license-complete matrix is manually validated. The
-embedded-asset license gate is closed; the publisher is the next implementation
-slice.
+added after the published packages pass the remaining manual checks. The
+embedded-asset license gate is closed and the publisher is enabled.
 
 The workflow uses a four-entry build matrix. Each entry tests, builds, smoke
 tests, and packages one target, then uploads its archive as an intermediate
@@ -129,8 +128,9 @@ Every archive has one root directory and contains:
 - `BUILD-INFO.txt`;
 - the notices and license texts for embedded third-party components.
 
-The release also contains `SHA256SUMS` covering all four archives. Generated
-`.com` files, ATR files, and emulator executables are not packaged.
+The release also contains the pinned Action! corresponding-source snapshot and
+`SHA256SUMS` covering all four platform archives plus that source snapshot.
+Generated `.com` files, ATR files, and emulator executables are not packaged.
 
 A single portable repository script assembles every package. It receives the
 target, input executable directory, output directory, and build metadata as
@@ -152,8 +152,8 @@ The Action! cartridge gate is closed by `roms/ACTION-ROM-NOTICE.md`. It records
 the GPL-3.0-or-later license, pinned corresponding-source revision, upstream
 build path, complete CAR and payload hashes, and a byte-for-byte match between
 the bundled CAR payload and the upstream Action! 3.6 reference ROM. The release
-publisher should attach a durable snapshot of that pinned source revision
-alongside the binary archives.
+publisher attaches `roms/source/action-3.6-source-0b8bcedb.tar.gz` alongside the
+binary archives.
 
 The MyDOS gate is closed by `atr/MYDOS-NOTICE.md` and the preserved
 `atr/source/MYDOS453.ARC` source release. The notice records the complete
@@ -243,9 +243,8 @@ closed by the notices and corresponding-source material described above.
 - upload intermediate artifacts with seven-day retention.
 
 This slice exposes only a manual trigger. The packager enforces the complete
-embedded-asset license material without an override. Its artifacts are ready
-for final cross-platform inspection before the publisher and schedule are
-enabled.
+embedded-asset license material without an override. Its artifacts passed the
+initial cross-platform build and packaging inspection.
 
 ### Slice 5: publisher
 
@@ -255,12 +254,20 @@ enabled.
 - restrict write permission to this job;
 - skip unchanged scheduled commits and support forced manual publication.
 
+Implemented. `tools/prepare-nightly-release.py` rejects missing, unexpected,
+corrupt, or mixed-commit matrix archives; checks their complete inventories and
+build identities; verifies the pinned Action! source snapshot; and generates
+and rechecks `SHA256SUMS`. The publisher alone receives `contents: write`, moves
+the `nightly` tag, replaces the prerelease assets, removes stale assets, and
+verifies the final asset inventory. Manual dispatches always publish; once the
+schedule is enabled, an unchanged commit is skipped.
+
 ### Slice 6: rollout
 
-- manually run the matrix without publication;
+- manually run the complete build and publication workflow;
 - inspect every archive on its target host;
 - verify that every archive contains the required license and source material;
-- publish the first nightly manually;
+- inspect the first moving `nightly` prerelease and its checksums;
 - perform real-emulator smoke tests;
 - enable the daily schedule.
 

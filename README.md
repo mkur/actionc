@@ -11,6 +11,11 @@ The project is under active development. The compatibility and optimized modes
 are the primary ways to build runnable programs; the newer MIR6502 mode is
 available for experimentation and compiler validation.
 
+Development builds for Linux, Windows, and macOS are published through the
+moving [nightly prerelease](https://github.com/mkur/actionc/releases/tag/nightly).
+Nightly Windows and macOS binaries are currently unsigned and may trigger an
+operating-system warning.
+
 ## Current status
 
 The user-facing compiler offers three build modes:

@@ -1,4 +1,5 @@
 roms/*.rom binary
+roms/source/*.tar.gz binary
 atr/*.atr binary
 atr/source/*.ARC binary
 
