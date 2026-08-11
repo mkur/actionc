@@ -201,3 +201,21 @@ surveys/    compatibility sweeps, VM captures, and investigation reports
 docs/       current reference documentation and archived implementation notes
 tools/      local build, comparison, ATR, and emulator helpers
 ```
+
+## License
+
+Copyright (C) 2026 Michal Kurcewicz
+
+The `actionc` compiler and original supporting code in this repository are
+free software licensed under the [GNU General Public License, version 3 or any
+later version](LICENSE).
+
+The license of the compiler does not, by itself, apply to programs compiled
+with `actionc`. Generated programs remain subject to the licenses of their
+source code and any runtime or other material included in them.
+
+Third-party and historical material retains its own licensing terms. In
+particular, the bundled AltirraOS image is covered by its
+[file-specific permissive license](roms/ALTIRRAOS-LICENSE); ROM provenance and
+licensing notes are recorded in [roms/README.md](roms/README.md). Material under
+`corpora/` is not relicensed by the `actionc` license.
