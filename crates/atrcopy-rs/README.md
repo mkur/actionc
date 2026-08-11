@@ -48,15 +48,18 @@ intended for tools such as `actionc-run`, which can start from an embedded disk
 template and add an executable without invoking the `atrcopy-rs` command:
 
 ```rust
-use atrcopy_rs::AtrImage;
+use atrcopy_rs::{AtrImage, MYDOS_ATR};
 
-let mut image = AtrImage::from_bytes(disk_template)?;
-image.upsert_file("AUTORUN.000", object_file)?;
+let mut image = AtrImage::from_bytes(MYDOS_ATR)?;
+image.upsert_file("AUTORUN.AR0", object_file)?;
 let runnable_atr = image.into_bytes();
 ```
 
-MyDOS runs numbered files in order (`AUTORUN.000`, `AUTORUN.001`, and so on),
-so a single program disk uses `AUTORUN.000`.
+`MYDOS_ATR` is included in the executable at compile time; no ATR file needs to
+be found or installed at runtime.
+
+MyDOS 4.53 runs matching files in order from extension `.AR0` through `.AR9`,
+so a single program disk uses `AUTORUN.AR0`.
 
 `upsert_file` is atomic from the caller's perspective: if validation or disk
 allocation fails, the original in-memory image is left unchanged.

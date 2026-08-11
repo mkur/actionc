@@ -749,6 +749,7 @@ fn normalize_filename(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{encode_dos_filename, AtrImage, SectorTail};
+    use crate::MYDOS_ATR;
 
     fn image_with_vtoc(sector_size: usize, sectors: usize, version: u8) -> AtrImage {
         let payload_size = if sector_size == 128 {
@@ -960,20 +961,19 @@ mod tests {
 
     #[test]
     fn inserts_autorun_into_the_real_disk_template_in_memory() {
-        let template = include_bytes!("../../../atr/mydos.atr");
         let object = b"\xff\xff\x00\x20\x02\x20\x60";
-        let mut image = AtrImage::from_bytes(template.as_slice()).unwrap();
+        let mut image = AtrImage::from_bytes(MYDOS_ATR).unwrap();
         let original_len = image.as_bytes().len();
 
-        let update = image.upsert_file("AUTORUN.000", object).unwrap();
+        let update = image.upsert_file("AUTORUN.AR0", object).unwrap();
 
-        assert_eq!(update.name, "AUTORUN.000");
+        assert_eq!(update.name, "AUTORUN.AR0");
         assert_eq!(update.byte_len, object.len());
         assert_eq!(image.as_bytes().len(), original_len);
 
         let reparsed = AtrImage::from_bytes(image.into_bytes()).unwrap();
         assert_eq!(
-            reparsed.read_file_named("autorun.000").unwrap().as_deref(),
+            reparsed.read_file_named("autorun.ar0").unwrap().as_deref(),
             Some(object.as_slice())
         );
         assert!(reparsed.read_file_named("DOS.SYS").unwrap().is_some());

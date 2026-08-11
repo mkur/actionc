@@ -2,6 +2,9 @@ mod atr;
 
 pub use atr::{AtrEntry, AtrFileUpdate, AtrImage};
 
+/// Bootable MyDOS 4.53/3 disk template embedded at compile time.
+pub static MYDOS_ATR: &[u8] = include_bytes!("../../../atr/mydos.atr");
+
 pub fn atascii_to_ascii(bytes: &[u8]) -> String {
     let mut output = String::new();
     let mut index = 0usize;
