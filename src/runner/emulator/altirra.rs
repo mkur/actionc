@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::{CommandSpec, EmulatorAdapter, EmulatorError, EmulatorKind, LaunchRequest, os_string};
 
@@ -18,10 +18,6 @@ impl AltirraAdapter {
 impl EmulatorAdapter for AltirraAdapter {
     fn kind(&self) -> EmulatorKind {
         EmulatorKind::Altirra
-    }
-
-    fn executable(&self) -> &Path {
-        &self.executable
     }
 
     fn command(&self, request: &LaunchRequest<'_>) -> Result<CommandSpec, EmulatorError> {
@@ -60,6 +56,7 @@ impl EmulatorAdapter for AltirraAdapter {
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
+    use std::path::Path;
 
     use super::*;
 

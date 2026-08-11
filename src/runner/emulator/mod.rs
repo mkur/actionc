@@ -68,6 +68,7 @@ impl CommandSpec {
         &self.executable
     }
 
+    #[cfg(test)]
     pub(crate) fn arguments(&self) -> &[OsString] {
         &self.args
     }
@@ -81,8 +82,6 @@ impl CommandSpec {
 
 pub(crate) trait EmulatorAdapter {
     fn kind(&self) -> EmulatorKind;
-
-    fn executable(&self) -> &Path;
 
     fn command(&self, request: &LaunchRequest<'_>) -> Result<CommandSpec, EmulatorError>;
 }
@@ -108,10 +107,12 @@ impl EmulatorError {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn kind(&self) -> Option<EmulatorKind> {
         self.kind
     }
 
+    #[cfg(test)]
     pub(crate) fn message(&self) -> &str {
         &self.message
     }
@@ -145,10 +146,6 @@ mod tests {
             EmulatorKind::Atari800
         }
 
-        fn executable(&self) -> &Path {
-            &self.executable
-        }
-
         fn command(&self, request: &LaunchRequest<'_>) -> Result<CommandSpec, EmulatorError> {
             let mut spec = CommandSpec::new(&self.executable)
                 .arg("--disk")
@@ -180,7 +177,7 @@ mod tests {
             })
             .expect("build test command");
 
-        assert_eq!(spec.executable(), adapter.executable());
+        assert_eq!(spec.executable(), adapter.executable);
         assert_eq!(
             spec.arguments(),
             &[
@@ -194,7 +191,7 @@ mod tests {
         );
 
         let command = spec.to_command();
-        assert_eq!(command.get_program(), adapter.executable().as_os_str());
+        assert_eq!(command.get_program(), adapter.executable.as_os_str());
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),
             spec.arguments()

@@ -6,6 +6,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use atrcopy_rs::{AtrImage, MYDOS_ATR};
 
@@ -13,16 +15,35 @@ use crate::compiler::{
     CompileError, CompileErrorKind, CompileMode, CompileOptions, CompilerPhase, DiagnosticSite,
     compile_file,
 };
+use emulator::altirra::AltirraAdapter;
+use emulator::atari800::Atari800Adapter;
+use emulator::discovery::{EmulatorSelection, discover_from_process};
+use emulator::{EmulatorAdapter, EmulatorError, EmulatorKind, LaunchRequest};
 
-#[allow(dead_code)]
 pub(crate) mod emulator;
 
 const AUTORUN_NAME: &str = "AUTORUN.AR0";
+const BUNDLED_ACTION_CARTRIDGE: &[u8] = include_bytes!("../../roms/action.rom");
+const BUNDLED_ALTIRRA_OS: &[u8] = include_bytes!("../../roms/altirraos-xl.rom");
+const NO_CART_CONFIG: &[u8] = b"Atari 800 Emulator, Version 7.0.0\n\
+CARTRIDGE_FILENAME=\n\
+CARTRIDGE_TYPE=0\n\
+CARTRIDGE_PIGGYBACK_FILENAME=\n\
+CARTRIDGE_PIGGYBACK_TYPE=0\n";
+static NEXT_RUN_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
 pub fn actionc_run_main() {
     match run_cli(env::args_os().skip(1)) {
-        Ok(RunCliOutcome::Completed { atr }) => {
-            println!("ATR: {}", atr.display());
+        Ok(RunCliOutcome::Completed {
+            retained_atr,
+            retained_directory,
+        }) => {
+            if let Some(atr) = retained_atr {
+                println!("ATR: {}", atr.display());
+            }
+            if let Some(directory) = retained_directory {
+                println!("Run directory: {}", directory.display());
+            }
         }
         Ok(RunCliOutcome::Help) => print_help(),
         Err(error) => {
@@ -34,26 +55,50 @@ pub fn actionc_run_main() {
 
 #[derive(Debug)]
 enum RunCliOutcome {
-    Completed { atr: PathBuf },
+    Completed {
+        retained_atr: Option<PathBuf>,
+        retained_directory: Option<PathBuf>,
+    },
     Help,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct RunCliOptions {
     source: PathBuf,
-    output_atr: PathBuf,
+    output_atr: Option<PathBuf>,
     compile: CompileOptions,
+    no_run: bool,
+    emulator: EmulatorSelection,
+    emulator_path: Option<PathBuf>,
+    cartridge: CartridgeChoice,
+    keep: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CartridgeChoice {
+    Bundled,
+    File(PathBuf),
+    None,
 }
 
 fn run_cli(args: impl IntoIterator<Item = OsString>) -> Result<RunCliOutcome, RunnerError> {
     let Some(options) = parse_args(args)? else {
         return Ok(RunCliOutcome::Help);
     };
-    let atr = prepare_atr(&options.source, &options.compile)?;
-    write_file_atomically(&options.output_atr, &atr)?;
-    Ok(RunCliOutcome::Completed {
-        atr: options.output_atr,
-    })
+    let atr_bytes = prepare_atr(&options.source, &options.compile)?;
+
+    if options.no_run {
+        let output_atr = options
+            .output_atr
+            .unwrap_or_else(|| default_atr_path(&options.source));
+        write_file_atomically(&output_atr, &atr_bytes)?;
+        return Ok(RunCliOutcome::Completed {
+            retained_atr: Some(output_atr),
+            retained_directory: None,
+        });
+    }
+
+    launch_emulator(&options, &atr_bytes)
 }
 
 fn parse_args(
@@ -63,6 +108,10 @@ fn parse_args(
     let mut mode = None;
     let mut no_run = false;
     let mut output_atr = None;
+    let mut emulator = EmulatorSelection::Auto;
+    let mut emulator_path = None;
+    let mut cartridge = None;
+    let mut keep = false;
     let mut source = None;
 
     while let Some(arg) = args.next() {
@@ -71,6 +120,10 @@ fn parse_args(
         }
         if arg == OsStr::new("--no-run") {
             no_run = true;
+            continue;
+        }
+        if arg == OsStr::new("--keep") {
+            keep = true;
             continue;
         }
         if arg == OsStr::new("--mode") {
@@ -82,6 +135,45 @@ fn parse_args(
         }
         if let Some(value) = os_option_value(&arg, "--mode=") {
             mode = Some(parse_mode(value)?);
+            continue;
+        }
+        if arg == OsStr::new("--emulator") {
+            let value = args.next().ok_or_else(|| {
+                RunnerError::configuration("--emulator requires auto, atari800, or altirra")
+            })?;
+            emulator = EmulatorSelection::parse(&value)
+                .map_err(|error| RunnerError::configuration(error.to_string()))?;
+            continue;
+        }
+        if let Some(value) = os_option_value(&arg, "--emulator=") {
+            emulator = EmulatorSelection::parse(value)
+                .map_err(|error| RunnerError::configuration(error.to_string()))?;
+            continue;
+        }
+        if arg == OsStr::new("--emulator-path") {
+            let value = args.next().ok_or_else(|| {
+                RunnerError::configuration("--emulator-path requires an executable path")
+            })?;
+            emulator_path = Some(PathBuf::from(value));
+            continue;
+        }
+        if let Some(value) = os_option_value(&arg, "--emulator-path=") {
+            emulator_path = Some(PathBuf::from(value));
+            continue;
+        }
+        if arg == OsStr::new("--cart") {
+            let value = args.next().ok_or_else(|| {
+                RunnerError::configuration("--cart requires a cartridge image path")
+            })?;
+            set_cartridge_choice(&mut cartridge, CartridgeChoice::File(PathBuf::from(value)))?;
+            continue;
+        }
+        if let Some(value) = os_option_value(&arg, "--cart=") {
+            set_cartridge_choice(&mut cartridge, CartridgeChoice::File(PathBuf::from(value)))?;
+            continue;
+        }
+        if arg == OsStr::new("--no-cart") {
+            set_cartridge_choice(&mut cartridge, CartridgeChoice::None)?;
             continue;
         }
         if arg == OsStr::new("--out-atr") {
@@ -110,19 +202,35 @@ fn parse_args(
     }
 
     let source = source.ok_or_else(|| RunnerError::configuration("missing Action source file"))?;
-    if !no_run {
+    if no_run && keep {
         return Err(RunnerError::configuration(
-            "emulator launch is not implemented yet; use --no-run",
+            "--keep only applies when an emulator is launched",
         ));
     }
-    let output_atr = output_atr.unwrap_or_else(|| default_atr_path(&source));
     let compile = mode.map_or_else(CompileOptions::default, CompileOptions::for_mode);
 
     Ok(Some(RunCliOptions {
         source,
         output_atr,
         compile,
+        no_run,
+        emulator,
+        emulator_path,
+        cartridge: cartridge.unwrap_or(CartridgeChoice::Bundled),
+        keep,
     }))
+}
+
+fn set_cartridge_choice(
+    current: &mut Option<CartridgeChoice>,
+    choice: CartridgeChoice,
+) -> Result<(), RunnerError> {
+    if current.replace(choice).is_some() {
+        return Err(RunnerError::configuration(
+            "--cart and --no-cart may only be specified once",
+        ));
+    }
+    Ok(())
 }
 
 fn parse_mode(value: &OsStr) -> Result<CompileMode, RunnerError> {
@@ -162,6 +270,182 @@ fn prepare_atr(source: &Path, options: &CompileOptions) -> Result<Vec<u8>, Runne
     Ok(image.into_bytes())
 }
 
+fn launch_emulator(
+    options: &RunCliOptions,
+    atr_bytes: &[u8],
+) -> Result<RunCliOutcome, RunnerError> {
+    let discovered = discover_from_process(options.emulator, options.emulator_path.as_deref())
+        .map_err(RunnerError::Emulator)?;
+    let run_directory = RunDirectory::create(options.keep)?;
+    let atr_path = options
+        .output_atr
+        .clone()
+        .unwrap_or_else(|| run_directory.path().join("program.atr"));
+    write_file_atomically(&atr_path, atr_bytes)?;
+
+    let cartridge = match &options.cartridge {
+        CartridgeChoice::Bundled => {
+            let path = run_directory.path().join("action.car");
+            write_run_asset(&path, BUNDLED_ACTION_CARTRIDGE)?;
+            Some(path)
+        }
+        CartridgeChoice::File(path) => Some(existing_cartridge(path)?),
+        CartridgeChoice::None => None,
+    };
+
+    let command = match discovered.kind {
+        EmulatorKind::Atari800 => {
+            let os_rom = run_directory.path().join("altirraos-xl.rom");
+            write_run_asset(&os_rom, BUNDLED_ALTIRRA_OS)?;
+            let mut adapter = Atari800Adapter::new(&discovered.executable);
+            if cartridge.is_none() {
+                let config = run_directory.path().join("atari800-no-cart.cfg");
+                write_run_asset(&config, NO_CART_CONFIG)?;
+                adapter = adapter.with_no_cart_config(config);
+            }
+            adapter.command(&LaunchRequest {
+                atr: &atr_path,
+                cartridge: cartridge.as_deref(),
+                os_rom: Some(&os_rom),
+            })?
+        }
+        EmulatorKind::Altirra => {
+            AltirraAdapter::new(&discovered.executable).command(&LaunchRequest {
+                atr: &atr_path,
+                cartridge: cartridge.as_deref(),
+                os_rom: None,
+            })?
+        }
+    };
+
+    println!(
+        "Launching {}: {}",
+        discovered.kind,
+        command.executable().display()
+    );
+    let status = command
+        .to_command()
+        .status()
+        .map_err(|source| RunnerError::ProcessSpawn {
+            kind: discovered.kind,
+            executable: command.executable().to_path_buf(),
+            source,
+        })?;
+    if !status.success() {
+        return Err(RunnerError::ProcessExit {
+            kind: discovered.kind,
+            executable: command.executable().to_path_buf(),
+            status: status.to_string(),
+        });
+    }
+
+    let retained_directory = options.keep.then(|| run_directory.path().to_path_buf());
+    let retained_atr = options
+        .output_atr
+        .clone()
+        .or_else(|| options.keep.then(|| atr_path.clone()));
+
+    Ok(RunCliOutcome::Completed {
+        retained_atr,
+        retained_directory,
+    })
+}
+
+fn existing_cartridge(path: &Path) -> Result<PathBuf, RunnerError> {
+    let metadata = fs::metadata(path).map_err(|source| RunnerError::Io {
+        operation: "read cartridge image",
+        path: path.to_path_buf(),
+        source,
+    })?;
+    if !metadata.is_file() {
+        return Err(RunnerError::configuration(format!(
+            "cartridge image is not a regular file: {}",
+            path.display()
+        )));
+    }
+    fs::canonicalize(path).map_err(|source| RunnerError::Io {
+        operation: "resolve cartridge image",
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+fn write_run_asset(path: &Path, contents: &[u8]) -> Result<(), RunnerError> {
+    fs::write(path, contents).map_err(|source| RunnerError::Io {
+        operation: "write run asset",
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+#[derive(Debug)]
+struct RunDirectory {
+    base: PathBuf,
+    path: PathBuf,
+    keep: bool,
+}
+
+impl RunDirectory {
+    fn create(keep: bool) -> Result<Self, RunnerError> {
+        let base = env::temp_dir();
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+
+        for _ in 0..100 {
+            let sequence = NEXT_RUN_DIRECTORY.fetch_add(1, Ordering::Relaxed);
+            let path = base.join(format!(
+                "actionc-run-{}-{timestamp}-{sequence}",
+                process::id()
+            ));
+            match fs::create_dir(&path) {
+                Ok(()) => return Ok(Self { base, path, keep }),
+                Err(source) if source.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(source) => {
+                    return Err(RunnerError::Io {
+                        operation: "create run directory",
+                        path,
+                        source,
+                    });
+                }
+            }
+        }
+
+        Err(RunnerError::configuration(
+            "could not allocate a unique run directory",
+        ))
+    }
+
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for RunDirectory {
+    fn drop(&mut self) {
+        if self.keep || self.path.parent() != Some(self.base.as_path()) {
+            return;
+        }
+        let Ok(metadata) = fs::symlink_metadata(&self.path) else {
+            return;
+        };
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            eprintln!(
+                "warning: refusing to remove unexpected run path {}",
+                self.path.display()
+            );
+            return;
+        }
+        if let Err(source) = fs::remove_dir_all(&self.path) {
+            eprintln!(
+                "warning: could not remove run directory {}: {source}",
+                self.path.display()
+            );
+        }
+    }
+}
+
 fn write_file_atomically(path: &Path, contents: &[u8]) -> Result<(), RunnerError> {
     if let Some(parent) = path
         .parent()
@@ -196,7 +480,12 @@ fn write_file_atomically(path: &Path, contents: &[u8]) -> Result<(), RunnerError
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-run [--mode compatibility|optimized|mir6502] --no-run [--out-atr <file.atr>] <file.act>"
+        "usage: actionc-run [--mode compatibility|optimized|mir6502]\n\
+         \x20                  [--emulator auto|atari800|altirra]\n\
+         \x20                  [--emulator-path <path>]\n\
+         \x20                  [--cart <path>|--no-cart]\n\
+         \x20                  [--no-run] [--out-atr <file.atr>] [--keep]\n\
+         \x20                  <file.act>"
     );
 }
 
@@ -261,10 +550,21 @@ enum RunnerError {
     Configuration(String),
     Compile(CompileError),
     Atr(String),
+    Emulator(EmulatorError),
     Io {
         operation: &'static str,
         path: PathBuf,
         source: io::Error,
+    },
+    ProcessSpawn {
+        kind: EmulatorKind,
+        executable: PathBuf,
+        source: io::Error,
+    },
+    ProcessExit {
+        kind: EmulatorKind,
+        executable: PathBuf,
+        status: String,
     },
 }
 
@@ -277,8 +577,19 @@ impl RunnerError {
         match self {
             Self::Configuration(_) => 2,
             Self::Compile(error) if error.kind() == CompileErrorKind::Configuration => 2,
-            Self::Compile(_) | Self::Atr(_) | Self::Io { .. } => 1,
+            Self::Compile(_)
+            | Self::Atr(_)
+            | Self::Emulator(_)
+            | Self::Io { .. }
+            | Self::ProcessSpawn { .. }
+            | Self::ProcessExit { .. } => 1,
         }
+    }
+}
+
+impl From<EmulatorError> for RunnerError {
+    fn from(error: EmulatorError) -> Self {
+        Self::Emulator(error)
     }
 }
 
@@ -287,11 +598,30 @@ impl fmt::Display for RunnerError {
         match self {
             Self::Configuration(message) | Self::Atr(message) => formatter.write_str(message),
             Self::Compile(error) => error.fmt(formatter),
+            Self::Emulator(error) => error.fmt(formatter),
             Self::Io {
                 operation,
                 path,
                 source,
             } => write!(formatter, "{operation} {}: {source}", path.display()),
+            Self::ProcessSpawn {
+                kind,
+                executable,
+                source,
+            } => write!(
+                formatter,
+                "could not start {kind} at {}: {source}",
+                executable.display()
+            ),
+            Self::ProcessExit {
+                kind,
+                executable,
+                status,
+            } => write!(
+                formatter,
+                "{kind} at {} exited unsuccessfully ({status})",
+                executable.display()
+            ),
         }
     }
 }
@@ -300,8 +630,10 @@ impl Error for RunnerError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Compile(error) => Some(error),
+            Self::Emulator(error) => Some(error),
             Self::Io { source, .. } => Some(source),
-            Self::Configuration(_) | Self::Atr(_) => None,
+            Self::ProcessSpawn { source, .. } => Some(source),
+            Self::Configuration(_) | Self::Atr(_) | Self::ProcessExit { .. } => None,
         }
     }
 }
@@ -335,10 +667,15 @@ mod tests {
     }
 
     #[test]
-    fn parser_requires_no_run_until_an_adapter_is_available() {
-        let error = parse_args([OsString::from("program.act")]).unwrap_err();
-        assert_eq!(error.exit_code(), 2);
-        assert!(error.to_string().contains("--no-run"));
+    fn parser_defaults_to_launching_with_auto_discovery_and_the_bundled_cart() {
+        let options = parse_args([OsString::from("program.act")])
+            .expect("parse default run")
+            .expect("not help");
+
+        assert!(!options.no_run);
+        assert_eq!(options.emulator, EmulatorSelection::Auto);
+        assert_eq!(options.cartridge, CartridgeChoice::Bundled);
+        assert_eq!(options.output_atr, None);
     }
 
     #[test]
@@ -352,7 +689,49 @@ mod tests {
         .expect("not help");
 
         assert_eq!(options.source, PathBuf::from("some path/demo.act"));
-        assert_eq!(options.output_atr, PathBuf::from("demo.atr"));
+        assert_eq!(options.output_atr, None);
+        assert_eq!(default_atr_path(&options.source), PathBuf::from("demo.atr"));
         assert_eq!(options.compile.mode(), Some(CompileMode::Mir6502));
+    }
+
+    #[test]
+    fn parser_maps_emulator_cart_and_retention_options() {
+        let options = parse_args([
+            OsString::from("--emulator=altirra"),
+            OsString::from("--emulator-path"),
+            OsString::from("C:/Program Files/Altirra/Altirra64.exe"),
+            OsString::from("--cart"),
+            OsString::from("C:/ROM images/action.car"),
+            OsString::from("--out-atr=run image.atr"),
+            OsString::from("--keep"),
+            OsString::from("program.act"),
+        ])
+        .expect("parse emulator options")
+        .expect("not help");
+
+        assert_eq!(options.emulator, EmulatorSelection::Altirra);
+        assert_eq!(
+            options.emulator_path,
+            Some(PathBuf::from("C:/Program Files/Altirra/Altirra64.exe"))
+        );
+        assert_eq!(
+            options.cartridge,
+            CartridgeChoice::File(PathBuf::from("C:/ROM images/action.car"))
+        );
+        assert_eq!(options.output_atr, Some(PathBuf::from("run image.atr")));
+        assert!(options.keep);
+    }
+
+    #[test]
+    fn parser_rejects_conflicting_cartridge_options() {
+        let error = parse_args([
+            OsString::from("--no-cart"),
+            OsString::from("--cart=action.car"),
+            OsString::from("program.act"),
+        ])
+        .expect_err("conflicting cartridge options should fail");
+
+        assert_eq!(error.exit_code(), 2);
+        assert!(error.to_string().contains("--cart and --no-cart"));
     }
 }

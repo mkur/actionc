@@ -1,5 +1,5 @@
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::{CommandSpec, EmulatorAdapter, EmulatorError, EmulatorKind, LaunchRequest, os_string};
 
@@ -24,6 +24,7 @@ impl Atari800Adapter {
         self
     }
 
+    #[cfg(test)]
     pub(crate) fn with_extra_args<I, S>(mut self, args: I) -> Self
     where
         I: IntoIterator<Item = S>,
@@ -37,10 +38,6 @@ impl Atari800Adapter {
 impl EmulatorAdapter for Atari800Adapter {
     fn kind(&self) -> EmulatorKind {
         EmulatorKind::Atari800
-    }
-
-    fn executable(&self) -> &Path {
-        &self.executable
     }
 
     fn command(&self, request: &LaunchRequest<'_>) -> Result<CommandSpec, EmulatorError> {
@@ -83,6 +80,8 @@ impl EmulatorAdapter for Atari800Adapter {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
 
     fn request<'a>(
