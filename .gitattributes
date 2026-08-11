@@ -1,1 +1,6 @@
 roms/*.rom binary
+
+# Compiler IR snapshots have a platform-independent textual representation.
+*.nir text eol=lf
+*.semir text eol=lf
+*.mir6502 text eol=lf

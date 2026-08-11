@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use actionc::includes::load_program_with_expanded_source;
 use actionc::semantic::{analyze, ir};
 
+mod snapshot_support;
+
 #[test]
 fn semir_fixtures_match_snapshots() {
     let fixture_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -17,8 +19,7 @@ fn semir_fixtures_match_snapshots() {
     for source_path in sources {
         let expected_path = source_path.with_extension("semir");
         let actual = emit_semir(&source_path);
-        let expected = fs::read_to_string(&expected_path)
-            .unwrap_or_else(|err| panic!("read {}: {err}", expected_path.display()));
+        let expected = snapshot_support::read_snapshot(&expected_path);
 
         assert_eq!(
             actual,
