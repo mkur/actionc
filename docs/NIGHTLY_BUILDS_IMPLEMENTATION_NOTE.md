@@ -1,7 +1,8 @@
 # Nightly Builds Implementation Note
 
-Status: slices 1 through 4 complete. The manually dispatched prepublication
-matrix is ready; scheduling and publication remain gated.
+Status: slices 1 through 4 complete. The manually dispatched matrix now
+produces license-complete archives; scheduling and publication remain to be
+implemented and rolled out.
 
 Snapshot date: 2026-08-11.
 
@@ -46,9 +47,10 @@ final triggers are:
 - a daily schedule away from the top of the hour;
 - `workflow_dispatch` for rollout, diagnosis, and forced rebuilds.
 
-During prepublication rollout, only `workflow_dispatch` is enabled. The daily
-schedule is added after the first manually dispatched matrix succeeds. The
-publisher is added only after the embedded-asset license gate is closed.
+During rollout, only `workflow_dispatch` is enabled. The daily schedule is
+added after the current license-complete matrix is manually validated. The
+embedded-asset license gate is closed; the publisher is the next implementation
+slice.
 
 The workflow uses a four-entry build matrix. Each entry tests, builds, smoke
 tests, and packages one target, then uploads its archive as an intermediate
@@ -230,7 +232,8 @@ stable.
 - add package-inventory and executable-mode tests;
 - produce `BUILD-INFO.txt` and license notices.
 
-This slice cannot be considered publishable until the license gate is closed.
+The embedded-asset license gate that originally blocked this slice is now
+closed by the notices and corresponding-source material described above.
 
 ### Slice 4: nightly build workflow
 
@@ -239,9 +242,10 @@ This slice cannot be considered publishable until the license gate is closed.
 - run tests, builds, native smoke tests, and packaging;
 - upload intermediate artifacts with seven-day retention.
 
-This slice initially exposes only a manual trigger and uses the packager's
-prepublication license override. Its artifacts are suitable for inspecting the
-matrix, not for public release.
+This slice exposes only a manual trigger. The packager enforces the complete
+embedded-asset license material without an override. Its artifacts are ready
+for final cross-platform inspection before the publisher and schedule are
+enabled.
 
 ### Slice 5: publisher
 
@@ -255,7 +259,7 @@ matrix, not for public release.
 
 - manually run the matrix without publication;
 - inspect every archive on its target host;
-- close the license gate;
+- verify that every archive contains the required license and source material;
 - publish the first nightly manually;
 - perform real-emulator smoke tests;
 - enable the daily schedule.
