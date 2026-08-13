@@ -19,8 +19,8 @@ For each source, the tool writes:
   load-file hex dumps;
 - `*.diff` files for source listings, plain listings, maps, load bytes,
   normalized listings, and instruction-only listings;
-- `*.listing.normalized` files, which strip listing addresses and normalize
-  relocated absolute addresses to reduce layout-only noise;
+- `*.listing.normalized` files, which strip generated address/byte comments and
+  normalize relocated absolute addresses to reduce layout-only noise;
 - `*.listing.ops` files, which additionally remove data directives and padding
   so control-flow and instruction shape are easier to compare;
 - `classic.symbols`, `mir6502.symbols`, and `symbols.diff`, which extract and
