@@ -27,6 +27,9 @@ crowding the active reference set.
 - [INLINE_ASSEMBLER_IMPLEMENTATION_PLAN.md](INLINE_ASSEMBLER_IMPLEMENTATION_PLAN.md)
   - sliced plan for an integrated, MADS-style 6502 inline assembler with stable
     Action! object references and shared compiler effects.
+- [MADS_COMPATIBLE_LISTING_IMPLEMENTATION_PLAN.md](MADS_COMPATIBLE_LISTING_IMPLEMENTATION_PLAN.md)
+  - plan to make generated listings fixed-origin, byte-preserving MADS
+    assembly.
 - [MIR6502_PSEUDO_MACHINE_CONTRACT.md](MIR6502_PSEUDO_MACHINE_CONTRACT.md) -
   MIR6502 contract and verifier shape.
 - [MIR6502_REWRITE_WORKFLOW_PLAN.md](MIR6502_REWRITE_WORKFLOW_PLAN.md) -
