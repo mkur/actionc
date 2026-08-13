@@ -63,7 +63,8 @@ fn compiles_object_and_listing_in_one_invocation() {
     assert!(fs::metadata(&object).expect("object metadata").len() > 0);
     let listing_text = fs::read_to_string(&listing).expect("read listing");
     assert!(listing_text.contains("PROC Main"));
-    assert!(listing_text.contains("JSR $A46C"));
+    assert!(listing_text.contains("JSR.A $A46C"));
+    assert!(listing_text.contains("ORG $02E2"));
 
     let emitted = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
         .arg("--emit-load")

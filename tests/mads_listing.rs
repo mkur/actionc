@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use actionc::compiler::{CompileMode, CompileOptions, compile_file};
 
@@ -7,6 +8,35 @@ fn contract_fixture() -> PathBuf {
         .join("fixtures")
         .join("listing")
         .join("mads_contract.act")
+}
+
+fn emit_listing(profile: &str, backend: &str, mode: &str) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .arg("--profile")
+        .arg(profile)
+        .arg("--backend")
+        .arg(backend)
+        .arg(mode)
+        .arg(contract_fixture())
+        .output()
+        .unwrap_or_else(|error| panic!("run actionc-emit {mode}: {error}"));
+    assert!(
+        output.status.success(),
+        "actionc-emit {mode} failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).expect("listing must be UTF-8")
+}
+
+fn assembly_statements(listing: &str) -> Vec<&str> {
+    listing
+        .lines()
+        .filter(|line| {
+            let line = line.trim();
+            !line.is_empty() && !line.starts_with(';')
+        })
+        .collect()
 }
 
 #[test]
@@ -31,7 +61,9 @@ fn contract_fixture_covers_mads_sensitive_encodings_in_every_mode() {
             &[0x20, 0x6C, 0xA4][..], // external absolute JSR
         ] {
             assert!(
-                bytes.windows(expected.len()).any(|window| window == expected),
+                bytes
+                    .windows(expected.len())
+                    .any(|window| window == expected),
                 "{mode:?} output lacks encoding {expected:02X?}"
             );
         }
@@ -43,5 +75,54 @@ fn contract_fixture_covers_mads_sensitive_encodings_in_every_mode() {
             compiled.origin(),
             "{mode:?} fixture must cover RUNAD distinct from the segment origin"
         );
+    }
+}
+
+#[test]
+fn listing_variants_share_one_mads_compatible_assembly_syntax() {
+    for (mode, profile, backend) in [
+        (CompileMode::Compatibility, "legacy", "classic"),
+        (CompileMode::Optimized, "modern", "classic"),
+        (CompileMode::Mir6502, "modern", "mir6502"),
+    ] {
+        let listing = emit_listing(profile, backend, "--emit-listing");
+        let source_listing = emit_listing(profile, backend, "--emit-source-listing");
+        let compiled = compile_file(contract_fixture(), &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile MADS contract fixture in {mode:?}: {error}"));
+
+        assert!(listing.is_ascii(), "{mode:?} listing is not ASCII");
+        assert!(
+            source_listing.is_ascii(),
+            "{mode:?} source listing is not ASCII"
+        );
+        assert!(listing.contains("Fixed-origin MADS assembly listing"));
+        assert!(listing.contains(&format!("ORG ${:04X}", compiled.origin())));
+        assert!(listing.contains("ORG $02E2"));
+        assert!(
+            listing.contains(&format!("DTA A(${:04X})", compiled.run_address())),
+            "{mode:?} listing has the wrong RUNAD"
+        );
+        assert!(listing.contains("LDA.A $0058"));
+        assert!(listing.contains("LDA.Z $58"));
+        assert!(listing.contains("LDX.Z $58,Y"));
+        assert!(listing.contains("JSR.A L"));
+        assert!(
+            listing
+                .lines()
+                .any(|line| line.trim_start().starts_with("ASL "))
+        );
+        assert!(!listing.contains("ASL A"));
+        assert!(source_listing.contains("\\u{C3}\\u{A9}"));
+        assert_eq!(
+            assembly_statements(&listing),
+            assembly_statements(&source_listing),
+            "{mode:?} listing variants differ in assembly statements"
+        );
+        assert!(listing.lines().all(|line| {
+            let bytes = line.as_bytes();
+            bytes.len() < 5
+                || !bytes[..4].iter().all(u8::is_ascii_hexdigit)
+                || !bytes[4].is_ascii_whitespace()
+        }));
     }
 }

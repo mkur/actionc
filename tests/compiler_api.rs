@@ -95,7 +95,7 @@ fn compatibility_api_matches_the_existing_classic_pipeline() {
 }
 
 #[test]
-fn compiled_program_formats_the_existing_source_listing() {
+fn compiled_program_formats_a_mads_compatible_source_listing() {
     let compiled = compile_file(
         hello_world(),
         &CompileOptions::for_mode(CompileMode::Compatibility),
@@ -104,8 +104,9 @@ fn compiled_program_formats_the_existing_source_listing() {
 
     let listing = compiled.source_listing();
     assert!(listing.contains("; ===== PROC Main"));
-    assert!(listing.contains("JSR $A46C"));
+    assert!(listing.contains("JSR.A $A46C"));
     assert!(listing.contains("| PrintE(\"Hello, world!\")"));
+    assert!(listing.contains("ORG $02E2\n        DTA A($3000)"));
 }
 
 #[test]
