@@ -1,0 +1,33 @@
+; MADS listing formatter contract: café, source comments, and fixed encodings.
+BYTE source=$58
+CARD ptr=$80
+BYTE ARRAY payload=[$02 $00 $FF]
+
+PROC Helper()
+RETURN
+
+PROC Main()
+  PrintE("MADS")
+  ASM
+      lda source
+      lda.z $58
+      lda.a $58,x
+      ldx.z $58,y
+      lda (ptr,x)
+      lda (ptr),y
+      asl a
+
+      beq forward
+      nop
+forward:
+      ldx #2
+backward:
+      dex
+      bne backward
+
+      jsr Helper
+      jsr $A46C
+      jmp done
+done:
+  ENDASM
+RETURN
