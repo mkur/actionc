@@ -78,7 +78,8 @@ cargo run --quiet --bin actionc-emit -- \
 ## `actionc` Output Options
 
 - `-o <file>` and `--output <file>` select the load-format object path.
-- `--listing <file>` additionally writes a source-annotated listing.
+- `--listing <file>` additionally writes fixed-origin, source-annotated MADS
+  assembly. Generated addresses and bytes appear in comments.
 - Parent directories are created automatically.
 - `-o -` is rejected; use `actionc-emit --emit-load` for binary stdout.
 
@@ -90,9 +91,10 @@ hex-text behavior.
 
 - `--emit-load` writes an Atari load-format binary to stdout. Redirect it to a
   `.com` file.
-- `--emit-source-listing` writes a disassembly listing with source context.
-  `--emit-listing-source` is accepted as an alias.
-- `--emit-listing` writes a disassembly listing without source context.
+- `--emit-source-listing` writes fixed-origin MADS assembly with Action! source
+  comments. `--emit-listing-source` is accepted as an alias.
+- `--emit-listing` writes the same MADS assembly without Action! source
+  comments.
 - `--emit-code` writes generated code bytes as hex text.
 - `--emit-map` writes the generated code map, including source ranges and
   optimization records.
@@ -110,6 +112,36 @@ hex-text behavior.
 - `--emit-mir6502` writes MIR6502 before materialization.
 - `--emit-materialized-mir6502` writes MIR6502 after materialization.
   `--emit-mir6502-materialized` is accepted as an alias.
+
+## MADS-Compatible Listings
+
+The two listing forms share one assembly syntax. They include the compiled
+origin, explicit zero-page/absolute encoding suffixes, generated internal
+labels, data directives, original address/byte comments, and a final `$02E2`
+`RUNAD` segment. The source-listing form adds only comments, so both forms are
+valid MADS input.
+
+For an unedited listing, MADS 2.1.7 reproduces the complete `actionc` load file
+byte for byte:
+
+```sh
+actionc samples/hello-world.act \
+  --output build/hello-world.com \
+  --listing build/hello-world.asm
+mads build/hello-world.asm -o:build/hello-world-mads.com -s
+cmp build/hello-world.com build/hello-world-mads.com
+```
+
+This is a fixed-origin reconstruction of the final load artifact, not
+relocatable compiler IR or original Action! semantics. Editing instructions or
+data may make the generated address/byte comments stale. MADS is an optional
+consumer and is never invoked by `actionc`.
+
+Developers with MADS installed can run the cross-mode round-trip oracle:
+
+```sh
+ACTIONC_MADS=mads tools/check-mads-listings.sh
+```
 
 ## Profiles
 

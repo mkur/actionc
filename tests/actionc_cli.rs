@@ -40,6 +40,29 @@ fn load_file_origin(bytes: &[u8]) -> u16 {
 }
 
 #[test]
+fn help_describes_the_existing_listing_options_as_mads_assembly() {
+    for binary in [
+        env!("CARGO_BIN_EXE_actionc"),
+        env!("CARGO_BIN_EXE_actionc-emit"),
+    ] {
+        let output = Command::new(binary)
+            .arg("--help")
+            .output()
+            .unwrap_or_else(|error| panic!("run {binary} --help: {error}"));
+        assert!(output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("fixed-origin"),
+            "unexpected help:\n{stderr}"
+        );
+        assert!(
+            stderr.contains("MADS assembly"),
+            "unexpected help:\n{stderr}"
+        );
+    }
+}
+
+#[test]
 fn compiles_object_and_listing_in_one_invocation() {
     let temp = TestDir::new();
     let object = temp.path().join("nested/hello.com");
