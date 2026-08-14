@@ -106,7 +106,7 @@ fn compiled_program_formats_a_mads_compatible_source_listing() {
     assert!(listing.contains("; ===== PROC Main"));
     assert!(listing.contains("JSR.A $A46C"));
     assert!(listing.contains("| PrintE(\"Hello, world!\")"));
-    assert!(listing.contains("ORG $02E2\n        DTA A($3000)"));
+    assert!(listing.contains("ORG $02E2\n        DTA A(proc_main)"));
 }
 
 #[test]

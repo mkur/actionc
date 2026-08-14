@@ -116,10 +116,19 @@ hex-text behavior.
 ## MADS-Compatible Listings
 
 The two listing forms share one assembly syntax. They include the compiled
-origin, explicit zero-page/absolute encoding suffixes, generated internal
-labels, data directives, original address/byte comments, and a final `$02E2`
-`RUNAD` segment. The source-listing form adds only comments, so both forms are
+origin, explicit zero-page/absolute encoding suffixes, semantic routine and
+storage labels, generated internal control-flow labels, data directives,
+original address/byte comments, and a final `$02E2` `RUNAD` segment. For
+example, calls and storage accesses use names such as `proc_main`,
+`global_buffer`, and `param_copy_source` when the generated code map identifies
+their targets. The source-listing form adds only comments, so both forms are
 valid MADS input.
+
+Names are deterministic, ASCII, case-insensitive, and qualified by role and
+scope. Internal branch targets without a source-level identity retain compact
+address-derived names such as `L3040`. When several source symbols alias one
+address, the listing defines every alias and chooses one deterministic name for
+operands.
 
 For an unedited listing, MADS 2.1.7 reproduces the complete `actionc` load file
 byte for byte:

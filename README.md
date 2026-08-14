@@ -55,8 +55,9 @@ writes `<source-stem>.com` in the current directory.
 
 The `.com` file is an Atari load-format executable. The optional `.asm` file is
 a fixed-origin, source-annotated MADS assembly listing. Generated addresses and
-bytes remain visible in comments. If MADS 2.1.7 is installed, the unedited
-listing reconstructs the same complete load file, including `RUNAD`:
+bytes remain visible in comments, while routines and known storage use readable
+labels such as `proc_main` and `global_buffer`. If MADS 2.1.7 is installed, the
+unedited listing reconstructs the same complete load file, including `RUNAD`:
 
 ```sh
 mads build/hello-world.asm -o:build/hello-world-mads.com -s

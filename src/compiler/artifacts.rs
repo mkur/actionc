@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::codegen::{
-    AddressingMode, CodegenOutput, CodegenSourceRangeKind, DisassembledInstruction,
-    disassemble_with_origin_and_inline_jsr_data,
+    AddressingMode, CodegenOutput, CodegenSourceRangeKind, CodegenSymbolKind, CodegenSymbolScope,
+    DisassembledInstruction, disassemble_with_origin_and_inline_jsr_data,
 };
 use crate::map_query::MapQuery;
 
@@ -17,7 +17,8 @@ pub(crate) fn format_listing_with_boundaries(output: &CodegenOutput) -> String {
 fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> String {
     let boundary_comments = routine_boundary_comments(output);
     let instructions = disassemble_code_ranges(output);
-    let generated_labels = generated_code_labels(&instructions);
+    let items = listing_items(output, &instructions);
+    let display_symbols = MadsDisplaySymbols::from_output(output, &instructions, &items);
     let routine_labels = routine_address_labels(output);
     let query = source_text.map(|source| MapQuery::with_source(&output.map, source));
     let mut last_source = None;
@@ -28,22 +29,21 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
         format!("        ORG ${:04X}", output.origin),
         String::new(),
     ];
+    display_symbols.push_equates(&mut lines);
 
-    for item in listing_items(output, &instructions) {
+    for item in items {
         match item {
             ListingItem::Instruction(instruction) => {
                 if let Some(comments) = boundary_comments.get(&instruction.address) {
                     push_assembly_comments(&mut lines, comments);
                 }
-                if let Some(label) = generated_labels.get(&instruction.address) {
-                    lines.push(format!("{label}:"));
-                }
+                display_symbols.push_definitions(instruction.address, &mut lines);
                 if let Some(query) = &query {
                     push_source_comment(query, instruction.address, &mut last_source, &mut lines);
                 }
                 lines.push(format_instruction_listing(
                     &instruction,
-                    &generated_labels,
+                    &display_symbols,
                     &routine_labels,
                 ));
             }
@@ -55,9 +55,7 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
                 if let Some(comments) = boundary_comments.get(&address) {
                     push_assembly_comments(&mut lines, comments);
                 }
-                if let Some(label) = generated_labels.get(&address) {
-                    lines.push(format!("{label}:"));
-                }
+                display_symbols.push_definitions(address, &mut lines);
                 if let Some(query) = &query {
                     push_source_comment(query, address, &mut last_source, &mut lines);
                 }
@@ -75,8 +73,233 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
     lines.push(String::new());
     lines.push("; Atari RUNAD segment.".to_string());
     lines.push("        ORG $02E2".to_string());
-    lines.push(format!("        DTA A(${:04X})", output.run_address));
+    let run_address = display_symbols
+        .code_reference(output.run_address)
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("${:04X}", output.run_address));
+    lines.push(format!("        DTA A({run_address})"));
     lines.join("\n")
+}
+
+#[derive(Debug, Default)]
+struct MadsDisplaySymbols {
+    code_references: BTreeMap<u16, String>,
+    global_storage_references: BTreeMap<u16, String>,
+    routine_storage_references: BTreeMap<(String, u16), String>,
+    routine_ranges: Vec<(u16, u16, String)>,
+    definitions: BTreeMap<u16, Vec<String>>,
+    equates: Vec<(String, u16)>,
+}
+
+impl MadsDisplaySymbols {
+    fn from_output(
+        output: &CodegenOutput,
+        instructions: &[DisassembledInstruction],
+        items: &[ListingItem],
+    ) -> Self {
+        let item_addresses = items
+            .iter()
+            .map(ListingItem::address)
+            .collect::<BTreeSet<_>>();
+        let mut used_names = BTreeSet::new();
+        let mut symbols = Self {
+            routine_ranges: output
+                .map
+                .routine_ranges
+                .iter()
+                .map(|range| (range.start, range.end, range.name.to_ascii_lowercase()))
+                .collect(),
+            ..Self::default()
+        };
+
+        let mut routines = output.map.routine_addresses.iter().collect::<Vec<_>>();
+        routines.sort_by(|left, right| {
+            left.address
+                .cmp(&right.address)
+                .then_with(|| left.name.cmp(&right.name))
+        });
+        for routine in routines {
+            if is_pseudo_routine_name(&routine.name) {
+                continue;
+            }
+            let base = format!("proc_{}", sanitize_mads_component(&routine.name));
+            let name = allocate_mads_symbol(&base, &mut used_names);
+            symbols
+                .code_references
+                .entry(routine.address)
+                .or_insert_with(|| name.clone());
+            symbols.add_semantic_symbol(name, routine.address, &item_addresses);
+        }
+
+        let mut storage = output.map.storage_symbols.iter().collect::<Vec<_>>();
+        storage.sort_by(|left, right| {
+            left.address
+                .cmp(&right.address)
+                .then_with(|| storage_symbol_base(left).cmp(&storage_symbol_base(right)))
+        });
+        for symbol in storage {
+            let base = storage_symbol_base(symbol);
+            let name = allocate_mads_symbol(&base, &mut used_names);
+            match &symbol.scope {
+                CodegenSymbolScope::Global => {
+                    symbols
+                        .global_storage_references
+                        .entry(symbol.address)
+                        .or_insert_with(|| name.clone());
+                }
+                CodegenSymbolScope::Routine(routine) => {
+                    symbols
+                        .routine_storage_references
+                        .entry((routine.to_ascii_lowercase(), symbol.address))
+                        .or_insert_with(|| name.clone());
+                }
+            }
+            symbols.add_semantic_symbol(name, symbol.address, &item_addresses);
+        }
+
+        let instruction_addresses = instructions
+            .iter()
+            .map(|instruction| instruction.address)
+            .collect::<BTreeSet<_>>();
+        for instruction in instructions {
+            let Some(target) = instruction_target(instruction) else {
+                continue;
+            };
+            if !instruction_addresses.contains(&target) {
+                continue;
+            }
+            if symbols.code_references.contains_key(&target) {
+                continue;
+            }
+            let name = format!("L{target:04X}");
+            used_names.insert(name.to_ascii_lowercase());
+            symbols.code_references.insert(target, name.clone());
+            symbols.definitions.entry(target).or_default().push(name);
+        }
+
+        for definitions in symbols.definitions.values_mut() {
+            definitions.sort();
+            definitions.dedup();
+        }
+        symbols
+            .equates
+            .sort_by(|left, right| left.1.cmp(&right.1).then_with(|| left.0.cmp(&right.0)));
+        symbols
+    }
+
+    fn add_semantic_symbol(&mut self, name: String, address: u16, item_addresses: &BTreeSet<u16>) {
+        if item_addresses.contains(&address) {
+            self.definitions.entry(address).or_default().push(name);
+        } else {
+            self.equates.push((name, address));
+        }
+    }
+
+    fn push_equates(&self, lines: &mut Vec<String>) {
+        if self.equates.is_empty() {
+            return;
+        }
+        lines.push("; Semantic symbols outside emitted item boundaries.".to_string());
+        lines.extend(
+            self.equates
+                .iter()
+                .map(|(name, address)| format!("{name} = ${address:04X}")),
+        );
+        lines.push(String::new());
+    }
+
+    fn push_definitions(&self, address: u16, lines: &mut Vec<String>) {
+        if let Some(definitions) = self.definitions.get(&address) {
+            lines.extend(definitions.iter().map(|name| format!("{name}:")));
+        }
+    }
+
+    fn code_reference(&self, address: u16) -> Option<&str> {
+        self.code_references.get(&address).map(String::as_str)
+    }
+
+    fn storage_reference(&self, address: u16, instruction_address: u16) -> Option<&str> {
+        self.routine_ranges
+            .iter()
+            .filter(|(start, end, _)| instruction_address >= *start && instruction_address < *end)
+            .find_map(|(_, _, routine)| {
+                self.routine_storage_references
+                    .get(&(routine.clone(), address))
+            })
+            .or_else(|| self.global_storage_references.get(&address))
+            .map(String::as_str)
+    }
+}
+
+impl ListingItem {
+    fn address(&self) -> u16 {
+        match self {
+            Self::Instruction(instruction) => instruction.address,
+            Self::Data { address, .. } => *address,
+        }
+    }
+}
+
+fn is_pseudo_routine_name(name: &str) -> bool {
+    name.starts_with('<') && name.ends_with('>')
+}
+
+fn storage_symbol_base(symbol: &crate::codegen::CodegenStorageSymbol) -> String {
+    let name = sanitize_mads_component(&symbol.name);
+    match &symbol.scope {
+        CodegenSymbolScope::Global => {
+            if let Some(static_name) = symbol.name.strip_prefix("__nir_str_") {
+                format!("static_string_{}", sanitize_mads_component(static_name))
+            } else {
+                format!("global_{name}")
+            }
+        }
+        CodegenSymbolScope::Routine(routine) => {
+            let routine = sanitize_mads_component(routine);
+            match symbol.kind {
+                CodegenSymbolKind::Parameter => format!("param_{routine}_{name}"),
+                CodegenSymbolKind::Local if name.starts_with("spill") => {
+                    format!("spill_{routine}_{}", name.trim_start_matches("spill"))
+                }
+                CodegenSymbolKind::Local => format!("local_{routine}_{name}"),
+                CodegenSymbolKind::Storage => format!("storage_{routine}_{name}"),
+            }
+        }
+    }
+}
+
+fn sanitize_mads_component(value: &str) -> String {
+    let mut sanitized = String::new();
+    let mut previous_was_separator = false;
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() || character == '_' {
+            sanitized.push(character.to_ascii_lowercase());
+            previous_was_separator = false;
+        } else if !previous_was_separator {
+            sanitized.push('_');
+            previous_was_separator = true;
+        }
+    }
+    let sanitized = sanitized.trim_matches('_');
+    if sanitized.is_empty() {
+        "unnamed".to_string()
+    } else {
+        sanitized.to_string()
+    }
+}
+
+fn allocate_mads_symbol(base: &str, used_names: &mut BTreeSet<String>) -> String {
+    let normalized = base.to_ascii_lowercase();
+    if used_names.insert(normalized) {
+        return base.to_string();
+    }
+    for suffix in 2usize.. {
+        let candidate = format!("{base}__{suffix}");
+        if used_names.insert(candidate.to_ascii_lowercase()) {
+            return candidate;
+        }
+    }
+    unreachable!("MADS display-symbol suffix space is unbounded")
 }
 
 #[derive(Debug, Clone)]
@@ -329,10 +552,10 @@ fn push_source_comment(
 
 fn format_instruction_listing(
     instruction: &DisassembledInstruction,
-    generated_labels: &BTreeMap<u16, String>,
+    display_symbols: &MadsDisplaySymbols,
     routine_labels: &BTreeMap<u16, String>,
 ) -> String {
-    let assembly = format_mads_instruction(instruction, generated_labels);
+    let assembly = format_mads_instruction(instruction, display_symbols);
     let annotation = if instruction.mnemonic == "JSR"
         && let Some(target) = le_u16_from_slice(&instruction.operands)
         && let Some(label) = routine_labels.get(&target)
@@ -355,7 +578,7 @@ fn format_data_listing(address: u16, bytes: &[u8]) -> String {
 
 fn format_mads_instruction(
     instruction: &DisassembledInstruction,
-    generated_labels: &BTreeMap<u16, String>,
+    display_symbols: &MadsDisplaySymbols,
 ) -> String {
     let Some(mode) = instruction.mode else {
         return format_byte_directive(&instruction.bytes);
@@ -373,38 +596,74 @@ fn format_mads_instruction(
     match mode {
         AddressingMode::Implied | AddressingMode::Accumulator => mnemonic.to_string(),
         AddressingMode::Immediate => format!("{mnemonic} #${:02X}", byte()),
-        AddressingMode::ZeroPage => format!("{mnemonic}.Z ${:02X}", byte()),
-        AddressingMode::ZeroPageX => format!("{mnemonic}.Z ${:02X},X", byte()),
-        AddressingMode::ZeroPageY => format!("{mnemonic}.Z ${:02X},Y", byte()),
+        AddressingMode::ZeroPage => format!(
+            "{mnemonic}.Z {}",
+            storage_operand(display_symbols, u16::from(byte()), instruction.address, 2,)
+        ),
+        AddressingMode::ZeroPageX => format!(
+            "{mnemonic}.Z {},X",
+            storage_operand(display_symbols, u16::from(byte()), instruction.address, 2,)
+        ),
+        AddressingMode::ZeroPageY => format!(
+            "{mnemonic}.Z {},Y",
+            storage_operand(display_symbols, u16::from(byte()), instruction.address, 2,)
+        ),
         AddressingMode::Absolute => {
             let target = word();
             let operand = if matches!(mnemonic, "JMP" | "JSR") {
-                generated_labels
-                    .get(&target)
-                    .cloned()
+                display_symbols
+                    .code_reference(target)
+                    .map(str::to_string)
                     .unwrap_or_else(|| format!("${target:04X}"))
             } else {
-                format!("${target:04X}")
+                storage_operand(display_symbols, target, instruction.address, 4)
             };
             format!("{mnemonic}.A {operand}")
         }
-        AddressingMode::AbsoluteX => format!("{mnemonic}.A ${:04X},X", word()),
-        AddressingMode::AbsoluteY => format!("{mnemonic}.A ${:04X},Y", word()),
-        AddressingMode::Indirect => format!("{mnemonic} (${:04X})", word()),
-        AddressingMode::IndexedIndirectX => format!("{mnemonic} (${:02X},X)", byte()),
-        AddressingMode::IndirectIndexedY => format!("{mnemonic} (${:02X}),Y", byte()),
+        AddressingMode::AbsoluteX => format!(
+            "{mnemonic}.A {},X",
+            storage_operand(display_symbols, word(), instruction.address, 4)
+        ),
+        AddressingMode::AbsoluteY => format!(
+            "{mnemonic}.A {},Y",
+            storage_operand(display_symbols, word(), instruction.address, 4)
+        ),
+        AddressingMode::Indirect => format!(
+            "{mnemonic} ({})",
+            storage_operand(display_symbols, word(), instruction.address, 4)
+        ),
+        AddressingMode::IndexedIndirectX => format!(
+            "{mnemonic} ({},X)",
+            storage_operand(display_symbols, u16::from(byte()), instruction.address, 2,)
+        ),
+        AddressingMode::IndirectIndexedY => format!(
+            "{mnemonic} ({}),Y",
+            storage_operand(display_symbols, u16::from(byte()), instruction.address, 2,)
+        ),
         AddressingMode::Relative => {
             let target = instruction
                 .address
                 .wrapping_add(2)
                 .wrapping_add_signed(i16::from(byte() as i8));
-            let operand = generated_labels
-                .get(&target)
-                .cloned()
+            let operand = display_symbols
+                .code_reference(target)
+                .map(str::to_string)
                 .unwrap_or_else(|| format!("${target:04X}"));
             format!("{mnemonic} {operand}")
         }
     }
+}
+
+fn storage_operand(
+    symbols: &MadsDisplaySymbols,
+    address: u16,
+    instruction_address: u16,
+    hex_width: usize,
+) -> String {
+    symbols
+        .storage_reference(address, instruction_address)
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("${address:0hex_width$X}"))
 }
 
 fn format_byte_directive(bytes: &[u8]) -> String {
@@ -432,24 +691,6 @@ fn format_assembly_line(
         .map(|text| format!(" ; {text}"))
         .unwrap_or_default();
     format!("        {assembly:<36} ; ${address:04X}: {raw}{annotation}")
-}
-
-fn generated_code_labels(items: &[DisassembledInstruction]) -> BTreeMap<u16, String> {
-    let item_addresses = items
-        .iter()
-        .map(|item| item.address)
-        .collect::<BTreeSet<_>>();
-    let mut labels = BTreeMap::new();
-    for item in items {
-        if let Some(target) = instruction_target(item)
-            && item_addresses.contains(&target)
-        {
-            labels
-                .entry(target)
-                .or_insert_with(|| format!("L{target:04X}"));
-        }
-    }
-    labels
 }
 
 fn routine_address_labels(output: &CodegenOutput) -> BTreeMap<u16, String> {

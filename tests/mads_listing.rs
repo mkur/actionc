@@ -98,14 +98,17 @@ fn listing_variants_share_one_mads_compatible_assembly_syntax() {
         assert!(listing.contains("Fixed-origin MADS assembly listing"));
         assert!(listing.contains(&format!("ORG ${:04X}", compiled.origin())));
         assert!(listing.contains("ORG $02E2"));
-        assert!(
-            listing.contains(&format!("DTA A(${:04X})", compiled.run_address())),
-            "{mode:?} listing has the wrong RUNAD"
-        );
-        assert!(listing.contains("LDA.A $0058"));
-        assert!(listing.contains("LDA.Z $58"));
-        assert!(listing.contains("LDX.Z $58,Y"));
-        assert!(listing.contains("JSR.A L"));
+        assert!(listing.contains("DTA A(proc_main)"));
+        assert!(listing.contains("global_source = $0058"));
+        assert!(listing.contains("global_ptr = $0080"));
+        assert!(listing.contains("proc_helper:"));
+        assert!(listing.contains("proc_main:"));
+        assert!(listing.contains("LDA.A global_source"));
+        assert!(listing.contains("LDA.Z global_source"));
+        assert!(listing.contains("LDX.Z global_source,Y"));
+        assert!(listing.contains("LDA (global_ptr,X)"));
+        assert!(listing.contains("LDA (global_ptr),Y"));
+        assert!(listing.contains("JSR.A proc_helper"));
         assert!(
             listing
                 .lines()
