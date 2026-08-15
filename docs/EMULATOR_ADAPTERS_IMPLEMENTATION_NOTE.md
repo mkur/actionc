@@ -17,9 +17,11 @@ The first supported emulators are:
 
 The first version boots one common disk artifact in both emulators. It does not
 use emulator-specific direct executable loading. A small `BOOT.AR0` selects the
-Action! resident-library bank, then MyDOS loads the generated object from
-`PROGRAM.AR1`. With `--no-cart`, the bootstrap is omitted and the object is
-stored directly as `PROGRAM.AR0`.
+Action! resident-library bank, opens `E:` on a dedicated IOCB, and makes that
+channel Action!'s default device; then MyDOS loads the generated object from
+`PROGRAM.AR1`. The dedicated channel is required because MyDOS still owns IOCB
+0 when it invokes RUNAD. With `--no-cart`, the bootstrap is omitted and the
+object is stored directly as `PROGRAM.AR0`.
 
 ## Existing Prerequisites
 
@@ -99,8 +101,8 @@ The default and initially only launch form is disk boot:
 
 1. Compile the source with the reusable compiler API.
 2. Parse embedded `MYDOS_ATR` into `AtrImage`.
-3. With a cartridge, add the Action! library-bank bootstrap as `BOOT.AR0` and
-   `CompiledProgram::object_bytes()` as `PROGRAM.AR1`.
+3. With a cartridge, add the Action! library-bank and default-output bootstrap
+   as `BOOT.AR0` and `CompiledProgram::object_bytes()` as `PROGRAM.AR1`.
 4. Without a cartridge, add only `CompiledProgram::object_bytes()` as
    `PROGRAM.AR0`.
 5. Write the resulting ATR to a per-run temporary directory.
@@ -263,8 +265,8 @@ Acceptance criteria:
 - Add the root path dependency on `atrcopy-rs`.
 - Add the `actionc-run` binary and minimal parser.
 - Compile through `compile_file`.
-- With a cartridge, put the library-bank bootstrap in embedded MyDOS as
-  `BOOT.AR0` and object bytes as `PROGRAM.AR1`.
+- With a cartridge, put the library-bank and default-output bootstrap in
+  embedded MyDOS as `BOOT.AR0` and object bytes as `PROGRAM.AR1`.
 - Without a cartridge, put object bytes directly in embedded MyDOS as
   `PROGRAM.AR0`.
 - Write an explicitly retained ATR without creating a `.com` file.

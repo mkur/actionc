@@ -30,7 +30,22 @@ const ACTION_LIBRARY_BOOTSTRAP_CODE: &[u8] = &[
     0xA0, 0x00, // LDY #$00
     0x8C, 0xC9, 0x04, // STY $04C9 (Action! curbank)
     0x8C, 0x00, 0xD5, // STY $D500 (select the Action! library bank)
+    0xA9, 0x06, // LDA #$06
+    0x85, 0xB7, // STA $B7 (Action! default device = IOCB 6)
+    0xA2, 0x60, // LDX #$60 (IOCB 6)
+    0xA9, 0x03, // LDA #$03 (OPEN)
+    0x9D, 0x42, 0x03, // STA $0342,X (ICCOM)
+    0xA9, 0x2B, // LDA #<device_name ($302B)
+    0x9D, 0x44, 0x03, // STA $0344,X (ICBAL)
+    0xA9, 0x30, // LDA #>device_name ($302B)
+    0x9D, 0x45, 0x03, // STA $0345,X (ICBAH)
+    0xA9, 0x0C, // LDA #$0C (read/write)
+    0x9D, 0x4A, 0x03, // STA $034A,X (ICAX1)
+    0xA9, 0x00, // LDA #$00
+    0x9D, 0x4B, 0x03, // STA $034B,X (ICAX2)
+    0x20, 0x56, 0xE4, // JSR $E456 (CIOV)
     0x60, // RTS
+    0x45, 0x3A, 0x9B, // device_name: .BYTE "E:",EOL
 ];
 const BUNDLED_ACTION_CARTRIDGE: &[u8] = include_bytes!("../../roms/action.rom");
 const BUNDLED_ALTIRRA_OS: &[u8] = include_bytes!("../../roms/altirraos-xl.rom");
@@ -820,11 +835,26 @@ mod tests {
             action_library_bootstrap_object(),
             vec![
                 0xFF, 0xFF, // load-file marker
-                0x00, 0x30, 0x08, 0x30, // $3000-$3008
+                0x00, 0x30, 0x2D, 0x30, // $3000-$302D
                 0xA0, 0x00, // LDY #$00
                 0x8C, 0xC9, 0x04, // STY $04C9
                 0x8C, 0x00, 0xD5, // STY $D500
+                0xA9, 0x06, // LDA #$06
+                0x85, 0xB7, // STA $B7
+                0xA2, 0x60, // LDX #$60
+                0xA9, 0x03, // LDA #$03
+                0x9D, 0x42, 0x03, // STA $0342,X
+                0xA9, 0x2B, // LDA #$2B
+                0x9D, 0x44, 0x03, // STA $0344,X
+                0xA9, 0x30, // LDA #$30
+                0x9D, 0x45, 0x03, // STA $0345,X
+                0xA9, 0x0C, // LDA #$0C
+                0x9D, 0x4A, 0x03, // STA $034A,X
+                0xA9, 0x00, // LDA #$00
+                0x9D, 0x4B, 0x03, // STA $034B,X
+                0x20, 0x56, 0xE4, // JSR $E456
                 0x60, // RTS
+                0x45, 0x3A, 0x9B, // "E:",EOL
                 0xE2, 0x02, 0xE3, 0x02, // RUNAD
                 0x00, 0x30, // $3000
             ]

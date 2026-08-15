@@ -388,8 +388,9 @@ Acceptance criteria:
 
 - Add the root dependency on the in-tree ATR library.
 - Compile with `CompileOptions::for_mode`.
-- With a cartridge, add the Action! library-bank bootstrap as `BOOT.AR0` and
-  copy `CompiledProgram::object_bytes()` into the image as `PROGRAM.AR1`.
+- With a cartridge, add the Action! library-bank and default-output bootstrap
+  as `BOOT.AR0` and copy `CompiledProgram::object_bytes()` into the image as
+  `PROGRAM.AR1`.
 - Without a cartridge, copy the object directly as `PROGRAM.AR0`.
 - Do not create an intermediate `.com` file.
 

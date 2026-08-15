@@ -3,10 +3,12 @@
 `actionc-run` compiles an Action! source file and boots it from an embedded
 MyDOS image in Atari800 or Altirra. The image contains a small `BOOT.AR0`
 bootstrap followed by the generated object as `PROGRAM.AR1`. The bootstrap
-selects the Action! cartridge's resident-library bank before MyDOS starts the
-program. With `--no-cart`, the bootstrap is omitted and the generated object is
-stored directly as `PROGRAM.AR0`. No Bash or intermediate `.com` file is
-required.
+selects the Action! cartridge's resident-library bank and opens `E:` on IOCB 6
+before MyDOS starts the program. Action!'s default output device is set to that
+dedicated channel because MyDOS still owns IOCB 0 while it invokes the load
+file's RUNAD. With `--no-cart`, the bootstrap is omitted and the generated
+object is stored directly as `PROGRAM.AR0`. No Bash or intermediate `.com`
+file is required.
 
 Install it with:
 
@@ -78,9 +80,9 @@ actionc-run [--mode compatibility|optimized|mir6502]
   names such as `Altirra64.exe`, `Altirra.exe`, and `atari800` also select the
   adapter. For another filename, specify `--emulator` too.
 - `--cart` replaces the bundled Action! cartridge. `--no-cart` runs without a
-  cartridge, omits the Action! bank-selection bootstrap, stores the program as
-  `PROGRAM.AR0`, and prevents Atari800 from restoring a cartridge from saved
-  settings.
+  cartridge, omits the Action! bank/default-output bootstrap, stores the
+  program as `PROGRAM.AR0`, and prevents Atari800 from restoring a cartridge
+  from saved settings.
 - `--no-run` writes an ATR and does not inspect emulator configuration or the
   host PATH. Without `--out-atr`, it writes `<source-stem>.atr` in the current
   directory.
