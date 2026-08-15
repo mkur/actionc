@@ -54,17 +54,23 @@ actionc samples/hello-world.act \
 writes `<source-stem>.com` in the current directory.
 
 The `.com` file is an Atari load-format executable. The optional `.asm` file is
-a fixed-origin, source-annotated MADS assembly listing. Generated addresses and
-bytes remain visible in comments, while routines and known storage use readable
-labels such as `proc_main` and `global_buffer`. If MADS 2.1.7 is installed, the
-unedited listing reconstructs the same complete load file, including `RUNAD`:
+a re-originable, source-annotated MADS assembly listing. Generated addresses
+and bytes remain visible in comments, while routines and known storage use
+readable labels such as `proc_main` and `global_buffer`. If MADS 2.1.7 is
+installed, the unedited listing reconstructs the same complete load file,
+including `RUNAD`:
 
 ```sh
 mads build/hello-world.asm -o:build/hello-world-mads.com -s
 cmp build/hello-world.com build/hello-world-mads.com
 ```
 
-MADS is optional and is not used by `actionc` itself.
+To move the generated main segment, change only the generated
+`ACTIONC_ORIGIN` definition. Fixed numeric addresses and the `ORG $02E2` RUNAD
+segment must remain unchanged. Address/byte comments then describe the original
+artifact, and you remain responsible for choosing a usable memory range. This
+is re-originable assembly, not a runtime-relocatable object. MADS is optional
+and is not used by `actionc` itself.
 
 ## Run it on an Atari emulator
 
@@ -92,8 +98,8 @@ custom-ATR and compiler-development workflows.
 
 ## What it supports
 
-- Atari load-format object generation and source-annotated, MADS-compatible
-  6502 listings;
+- Atari load-format object generation and source-annotated, re-originable
+  MADS-compatible 6502 listings;
 - the original Action! source style used by historical programs;
 - explicit casts, address values, typed function pointers, and other documented
   syntax extensions;
@@ -178,7 +184,7 @@ cargo run --quiet --bin actionc-emit -- \
   --emit-source-listing samples/hello-world.act
 ```
 
-Both `--emit-listing` and `--emit-source-listing` produce fixed-origin MADS
+Both `--emit-listing` and `--emit-source-listing` produce re-originable MADS
 assembly. The latter differs only by adding Action! source comments.
 
 Install it separately when you want to use it outside the repository:

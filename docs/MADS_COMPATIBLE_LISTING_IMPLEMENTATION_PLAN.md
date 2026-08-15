@@ -2,7 +2,8 @@
 
 Snapshot date: 2026-08-13.
 
-Status: implemented.
+Status: implemented; its fixed-origin limitation is superseded by
+`REORIGINABLE_MADS_LISTING_IMPLEMENTATION_PLAN.md`.
 
 The existing `--listing`, `--emit-listing`, and `--emit-source-listing`
 interfaces now share one MADS-compatible formatter. The optional

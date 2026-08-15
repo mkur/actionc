@@ -1198,13 +1198,13 @@ fn print_help_for(flavor: CliFlavor) {
 
 fn print_compile_help() {
     eprintln!(
-        "usage: actionc [--mode compatibility|optimized|mir6502] [--origin <addr>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility. Advanced users may select --profile and\n--backend directly instead of --mode. With no -o option, write\n<source-stem>.com in the current directory. --listing writes fixed-origin,\nsource-annotated MADS assembly. Use actionc-emit to write compiler\nrepresentations to stdout."
+        "usage: actionc [--mode compatibility|optimized|mir6502] [--origin <addr>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility. Advanced users may select --profile and\n--backend directly instead of --mode. With no -o option, write\n<source-stem>.com in the current directory. --listing writes re-originable,\nsource-annotated MADS assembly. Change only ACTIONC_ORIGIN in the generated\nlisting to move its main segment. Use actionc-emit for compiler representations."
     );
 }
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nListings are fixed-origin MADS assembly. --emit-source-listing adds Action!\nsource comments to the same assembly syntax."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nListings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move\nthe main segment. --emit-source-listing adds Action! source comments."
     );
 }
 

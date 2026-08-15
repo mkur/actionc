@@ -78,7 +78,7 @@ cargo run --quiet --bin actionc-emit -- \
 ## `actionc` Output Options
 
 - `-o <file>` and `--output <file>` select the load-format object path.
-- `--listing <file>` additionally writes fixed-origin, source-annotated MADS
+- `--listing <file>` additionally writes re-originable, source-annotated MADS
   assembly. Generated addresses and bytes appear in comments.
 - Parent directories are created automatically.
 - `-o -` is rejected; use `actionc-emit --emit-load` for binary stdout.
@@ -91,7 +91,7 @@ hex-text behavior.
 
 - `--emit-load` writes an Atari load-format binary to stdout. Redirect it to a
   `.com` file.
-- `--emit-source-listing` writes fixed-origin MADS assembly with Action! source
+- `--emit-source-listing` writes re-originable MADS assembly with Action! source
   comments. `--emit-listing-source` is accepted as an alias.
 - `--emit-listing` writes the same MADS assembly without Action! source
   comments.
@@ -125,10 +125,10 @@ their targets. The source-listing form adds only comments, so both forms are
 valid MADS input.
 
 Names are deterministic, ASCII, case-insensitive, and qualified by role and
-scope. Internal branch targets without a source-level identity retain compact
-address-derived names such as `L3040`. When several source symbols alias one
-address, the listing defines every alias and chooses one deterministic name for
-operands.
+scope. Internal targets without a source-level identity use stable scoped
+ordinals such as `loc_main_1`; their names never encode an address. When
+several source symbols alias one address, the listing defines every alias and
+chooses one deterministic name for operands.
 
 For an unedited listing, MADS 2.1.7 reproduces the complete `actionc` load file
 byte for byte:
@@ -141,12 +141,22 @@ mads build/hello-world.asm -o:build/hello-world-mads.com -s
 cmp build/hello-world.com build/hello-world-mads.com
 ```
 
-This is a fixed-origin reconstruction of the final load artifact, not
-relocatable compiler IR or original Action! semantics. Editing instructions or
-data may make the generated address/byte comments stale. MADS is an optional
-consumer and is never invoked by `actionc`.
+The listing starts with one editable definition:
 
-Developers with MADS installed can run the cross-mode round-trip oracle:
+```asm
+ACTIONC_ORIGIN = $3000
+        ORG ACTIONC_ORIGIN
+```
+
+Change only `ACTIONC_ORIGIN` to move the generated main segment. Leave fixed
+numeric addresses and the final `ORG $02E2` RUNAD segment unchanged. The
+address/byte comments describe the original artifact and become stale after
+re-origining. The selected range must fit in 16-bit address space and avoid OS,
+cartridge, display, and application memory. This is re-originable assembly,
+not runtime-relocatable compiler IR or reconstructed Action! source. MADS is an
+optional consumer and is never invoked by `actionc`.
+
+Developers with MADS installed can run the unchanged- and cross-origin oracle:
 
 ```sh
 ACTIONC_MADS=mads tools/check-mads-listings.sh

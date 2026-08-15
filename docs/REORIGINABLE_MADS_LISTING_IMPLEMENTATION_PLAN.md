@@ -2,11 +2,19 @@
 
 Snapshot date: 2026-08-15.
 
-Status: planned.
+Status: implemented.
 
-This is a follow-up to `MADS_COMPATIBLE_LISTING_IMPLEMENTATION_PLAN.md`. The
-current listing remains fixed-origin until every acceptance criterion in this
-note is satisfied.
+This is the implemented follow-up to
+`MADS_COMPATIBLE_LISTING_IMPLEMENTATION_PLAN.md`. Both generated listing
+variants now use this re-originable contract.
+
+The implementation retains resolved relocation provenance in `CodegenOutput`,
+uses semantic or stable ordinal display symbols, and renders word/low/high and
+relative references as MADS expressions. Compatibility/classic,
+optimized/classic, selectable SemIR-native classic, and MIR6502 are covered by
+the same formatter contract. `tools/check-mads-listings.sh` currently validates
+12 compiler/origin cases and 40 complete MADS load-file assemblies, including
+two cross-origin pairs.
 
 ## Goal
 

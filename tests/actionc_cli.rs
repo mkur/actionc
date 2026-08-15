@@ -52,7 +52,11 @@ fn help_describes_the_existing_listing_options_as_mads_assembly() {
         assert!(output.status.success());
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
-            stderr.contains("fixed-origin"),
+            stderr.contains("re-originable"),
+            "unexpected help:\n{stderr}"
+        );
+        assert!(
+            stderr.contains("ACTIONC_ORIGIN"),
             "unexpected help:\n{stderr}"
         );
         assert!(
