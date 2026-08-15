@@ -1,0 +1,28 @@
+; Re-originable MADS listing contract: relocatable intent versus fixed values.
+BYTE color=$D01A
+BYTE ARRAY first(6)=[$41 <first+2 >later-1 <Helper >Helper $7F]
+BYTE ARRAY later(2)=[$AA $55]
+CARD ARRAY handlers(1)=[@Helper]
+
+PROC Helper()
+RETURN
+
+PROC Main()
+  BYTE local
+  ASM
+      lda #<first+2
+      ldx #>first+2
+      ldy #<local
+      lda #>local
+      lda.a first+1
+      sta.a local
+
+      beq forward
+      nop
+forward:
+      jsr Helper
+
+      lda.a $3000
+      sta.a color
+  ENDASM
+RETURN

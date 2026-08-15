@@ -10,6 +10,29 @@ fn contract_fixture() -> PathBuf {
         .join("mads_contract.act")
 }
 
+fn reorigin_contract_fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("listing")
+        .join("mads_reorigin_contract.act")
+}
+
+fn first_load_segment(object: &[u8]) -> (u16, &[u8]) {
+    assert!(object.len() >= 6, "load file is missing its first segment");
+    assert_eq!(&object[..2], &[0xFF, 0xFF], "load file header");
+    let start = u16::from_le_bytes([object[2], object[3]]);
+    let end = u16::from_le_bytes([object[4], object[5]]);
+    let len = usize::from(end.wrapping_sub(start)) + 1;
+    assert!(object.len() >= 6 + len, "first load segment is truncated");
+    (start, &object[6..6 + len])
+}
+
+fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack
+        .windows(needle.len())
+        .any(|window| window == needle)
+}
+
 fn emit_listing(profile: &str, backend: &str, mode: &str) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
         .arg("--profile")
@@ -74,6 +97,101 @@ fn contract_fixture_covers_mads_sensitive_encodings_in_every_mode() {
             compiled.run_address(),
             compiled.origin(),
             "{mode:?} fixture must cover RUNAD distinct from the segment origin"
+        );
+    }
+}
+
+#[test]
+fn reorigin_contract_fixture_separates_internal_references_from_fixed_values() {
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        for origin in [0x3000u16, 0x41c7] {
+            let compiled = compile_file(
+                reorigin_contract_fixture(),
+                &CompileOptions::for_mode(mode).with_origin(origin),
+            )
+            .unwrap_or_else(|error| {
+                panic!("compile re-origin contract in {mode:?} at ${origin:04X}: {error}")
+            });
+            let (segment_origin, payload) = first_load_segment(compiled.object_bytes());
+            assert_eq!(segment_origin, origin, "{mode:?} main segment origin");
+
+            // The fixture begins with selected bytes of internal addresses.
+            assert_eq!(payload[0], 0x41, "{mode:?} literal initializer byte");
+            assert_eq!(
+                payload[1],
+                origin.wrapping_add(2).to_le_bytes()[0],
+                "{mode:?} low-byte initializer relocation"
+            );
+            assert_eq!(
+                payload[2],
+                origin.wrapping_add(5).to_le_bytes()[1],
+                "{mode:?} high-byte initializer relocation with a negative addend"
+            );
+
+            // The routine address appears once as selected bytes and once as
+            // a word in the CARD ARRAY backing.
+            assert_eq!(
+                &payload[3..5],
+                &payload[8..10],
+                "{mode:?} routine byte selectors and word relocation disagree"
+            );
+            let handler = u16::from_le_bytes([payload[8], payload[9]]);
+            assert!(
+                handler >= origin && usize::from(handler - origin) < payload.len(),
+                "{mode:?} relocated routine target ${handler:04X} is outside the payload"
+            );
+            assert_eq!(
+                u16::from_le_bytes([payload[10], payload[11]]),
+                origin.wrapping_add(8),
+                "{mode:?} CARD ARRAY descriptor must point at its relocated backing"
+            );
+
+            // These operands are deliberately fixed even when one happens to
+            // equal the original program origin.
+            assert!(
+                contains_bytes(payload, &[0xAD, 0x00, 0x30]),
+                "{mode:?} explicit numeric $3000 operand moved at ${origin:04X}"
+            );
+            assert!(
+                contains_bytes(payload, &[0x8D, 0x1A, 0xD0]),
+                "{mode:?} fixed hardware address moved at ${origin:04X}"
+            );
+        }
+    }
+}
+
+#[test]
+fn reorigin_contract_fixture_has_origin_stable_layout() {
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let at_3000 = compile_file(
+            reorigin_contract_fixture(),
+            &CompileOptions::for_mode(mode).with_origin(0x3000),
+        )
+        .unwrap_or_else(|error| panic!("compile re-origin baseline in {mode:?}: {error}"));
+        let at_41c7 = compile_file(
+            reorigin_contract_fixture(),
+            &CompileOptions::for_mode(mode).with_origin(0x41c7),
+        )
+        .unwrap_or_else(|error| panic!("compile re-origin candidate in {mode:?}: {error}"));
+        let (_, baseline) = first_load_segment(at_3000.object_bytes());
+        let (_, candidate) = first_load_segment(at_41c7.object_bytes());
+
+        assert_eq!(
+            baseline.len(),
+            candidate.len(),
+            "{mode:?} contract fixture changes layout across origins"
+        );
+        assert_ne!(
+            baseline, candidate,
+            "{mode:?} contract fixture must contain origin-dependent bytes"
         );
     }
 }
