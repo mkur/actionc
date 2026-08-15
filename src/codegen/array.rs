@@ -3,6 +3,123 @@ use super::proof::{PointerDereferenceKind, PointerDereferenceMode};
 use super::*;
 
 impl Generator {
+    pub(super) fn fixed_array_base_target(
+        &self,
+        array: StorageSlot,
+    ) -> Option<MachineSymbolAddress> {
+        if !self.profile.enables_modern_optimizations()
+            || !matches!(
+                array.array,
+                Some(ArrayStorage::Pointer | ArrayStorage::Descriptor)
+            )
+        {
+            return None;
+        }
+
+        self.layout
+            .fixed_array_base_targets
+            .iter()
+            .rev()
+            .find_map(|(slot, target)| (*slot == array).then(|| target.clone()))
+    }
+
+    pub(super) fn fixed_array_base_target_for_expr(
+        &self,
+        expr: &Expr,
+    ) -> Option<MachineSymbolAddress> {
+        let ExprKind::Name(name) = &expr.kind else {
+            return None;
+        };
+        self.fixed_array_base_target(self.lookup_slot(name)?)
+    }
+
+    pub(super) fn fixed_array_element_slot(
+        &self,
+        array: StorageSlot,
+        offset: u16,
+    ) -> Option<StorageSlot> {
+        let address = match self.fixed_array_base_target(array)? {
+            MachineSymbolAddress::Absolute(address) => Absolute::new(address.wrapping_add(offset)),
+            MachineSymbolAddress::OutputRelative(address) => {
+                Absolute::output_relative(address.wrapping_add(offset))
+            }
+            MachineSymbolAddress::Label(_) => return None,
+        };
+        Some(StorageSlot::from_absolute(address, array.size).signed(array.signed))
+    }
+
+    fn emit_fixed_array_base_byte(&mut self, target: MachineSymbolAddress, byte_index: u16) {
+        match target {
+            MachineSymbolAddress::Absolute(address) => {
+                self.emit_lda_immediate(Immediate::new(address), byte_index);
+            }
+            MachineSymbolAddress::OutputRelative(address) => {
+                self.emit_lda_immediate(Immediate::output_relative(address), byte_index);
+            }
+            MachineSymbolAddress::Label(label) => match byte_index {
+                0 => self.emit_lda_label_low(label, Span::new(0, 0)),
+                1 => self.emit_lda_label_high(label, Span::new(0, 0)),
+                _ => self.emit_lda_imm(0),
+            },
+        }
+    }
+
+    fn emit_adc_fixed_array_base_byte(&mut self, target: MachineSymbolAddress, byte_index: u16) {
+        match target {
+            MachineSymbolAddress::Absolute(address) => {
+                self.emit_adc_immediate(Immediate::new(address), byte_index);
+            }
+            MachineSymbolAddress::OutputRelative(address) => {
+                self.emit_adc_immediate(Immediate::output_relative(address), byte_index);
+            }
+            MachineSymbolAddress::Label(label) => match byte_index {
+                0 => self.emit_adc_label_low(label, Span::new(0, 0)),
+                1 => self.emit_adc_label_high(label, Span::new(0, 0)),
+                _ => self.emit_adc_imm(0),
+            },
+        }
+    }
+
+    pub(super) fn emit_fixed_array_base_x_byte(
+        &mut self,
+        target: MachineSymbolAddress,
+        byte_index: u16,
+    ) {
+        match target {
+            MachineSymbolAddress::Absolute(address) => {
+                self.emit_ldx_immediate(Immediate::new(address), byte_index);
+            }
+            MachineSymbolAddress::OutputRelative(address) => {
+                self.emit_ldx_immediate(Immediate::output_relative(address), byte_index);
+            }
+            MachineSymbolAddress::Label(label) => match byte_index {
+                0 => self.emit_ldx_label_low(label, Span::new(0, 0)),
+                1 => self.emit_ldx_label_high(label, Span::new(0, 0)),
+                _ => self.emit_ldx_imm(0),
+            },
+        }
+    }
+
+    pub(super) fn emit_fixed_array_base_y_byte(
+        &mut self,
+        target: MachineSymbolAddress,
+        byte_index: u16,
+    ) {
+        match target {
+            MachineSymbolAddress::Absolute(address) => {
+                self.emit_ldy_immediate(Immediate::new(address), byte_index);
+            }
+            MachineSymbolAddress::OutputRelative(address) => {
+                self.emit_ldy_immediate(Immediate::output_relative(address), byte_index);
+            }
+            MachineSymbolAddress::Label(label) => match byte_index {
+                0 => self.emit_ldy_label_low(label, Span::new(0, 0)),
+                1 => self.emit_ldy_label_high(label, Span::new(0, 0)),
+                _ => self.emit_ldy_imm(0),
+            },
+        }
+    }
+
     pub(super) fn emit_load_array_pointer_value_byte(
         &mut self,
         expr: &Expr,
@@ -26,6 +143,10 @@ impl Generator {
         slot: StorageSlot,
         byte_index: u16,
     ) {
+        if let Some(target) = self.fixed_array_base_target(slot) {
+            self.emit_fixed_array_base_byte(target, byte_index);
+            return;
+        }
         match slot.array {
             Some(ArrayStorage::Inline) if byte_index < 2 => {
                 self.emit_lda_immediate(slot.address_immediate(), byte_index);
@@ -48,6 +169,10 @@ impl Generator {
         slot: StorageSlot,
         byte_index: u16,
     ) {
+        if let Some(target) = self.fixed_array_base_target(slot) {
+            self.emit_fixed_array_base_byte(target, byte_index);
+            return;
+        }
         match slot.array {
             Some(ArrayStorage::Inline) if byte_index < 2 => {
                 self.emit_lda_immediate(slot.address_immediate(), byte_index);
@@ -72,6 +197,10 @@ impl Generator {
         let Some(slot) = self.lookup_slot(name) else {
             return false;
         };
+        if let Some(target) = self.fixed_array_base_target(slot) {
+            self.emit_fixed_array_base_byte(target, byte_index);
+            return true;
+        }
         match slot.array {
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) if byte_index < 2 => {
                 self.emit_lda_slot_byte_value_only(slot.offset_bytes(byte_index).with_size(1), 0);
@@ -1048,6 +1177,10 @@ impl Generator {
     }
 
     fn emit_array_base_low_for_add(&mut self, array: StorageSlot) -> Option<()> {
+        if let Some(target) = self.fixed_array_base_target(array) {
+            self.emit_fixed_array_base_byte(target, 0);
+            return Some(());
+        }
         match array.array? {
             ArrayStorage::Inline => {
                 self.emit_lda_immediate(array.address_immediate(), 0);
@@ -1060,6 +1193,10 @@ impl Generator {
     }
 
     fn emit_array_base_high_for_add(&mut self, array: StorageSlot) -> Option<()> {
+        if let Some(target) = self.fixed_array_base_target(array) {
+            self.emit_fixed_array_base_byte(target, 1);
+            return Some(());
+        }
         match array.array? {
             ArrayStorage::Inline => {
                 self.emit_lda_immediate(array.address_immediate(), 1);
@@ -1072,6 +1209,10 @@ impl Generator {
     }
 
     fn emit_adc_array_base_low(&mut self, array: StorageSlot) -> Option<()> {
+        if let Some(target) = self.fixed_array_base_target(array) {
+            self.emit_adc_fixed_array_base_byte(target, 0);
+            return Some(());
+        }
         match array.array? {
             ArrayStorage::Inline => {
                 self.emit_adc_immediate(array.address_immediate(), 0);
@@ -1084,6 +1225,10 @@ impl Generator {
     }
 
     fn emit_adc_array_base_high(&mut self, array: StorageSlot) -> Option<()> {
+        if let Some(target) = self.fixed_array_base_target(array) {
+            self.emit_adc_fixed_array_base_byte(target, 1);
+            return Some(());
+        }
         match array.array? {
             ArrayStorage::Inline => {
                 self.emit_adc_immediate(array.address_immediate(), 1);
@@ -1161,6 +1306,9 @@ impl Generator {
         }
         let index = self.constant_u16(index)?;
         let offset = index.saturating_mul(slot.size);
+        if let Some(element) = self.fixed_array_element_slot(slot, offset) {
+            return Some(element);
+        }
         match slot.array? {
             ArrayStorage::Inline => Some(StorageSlot {
                 array: None,
@@ -1203,6 +1351,9 @@ impl Generator {
         }
         let index = self.constant_u16(index)?;
         let offset = index.saturating_mul(array.size);
+        if let Some(element) = self.fixed_array_element_slot(array, offset) {
+            return Some(element);
+        }
         if offset > 0 {
             self.emit_array_base_plus_constant_to_pointer(array, offset, pointer)?;
         } else {

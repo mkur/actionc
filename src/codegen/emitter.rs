@@ -165,6 +165,26 @@ impl Emitter {
         });
     }
 
+    pub fn emit_ldx_label_low(&mut self, label: impl Into<String>, span: Span) {
+        self.emit_u8(opcode::LDX_IMM);
+        self.emit_u8_label_low(label, span);
+    }
+
+    pub fn emit_ldx_label_high(&mut self, label: impl Into<String>, span: Span) {
+        self.emit_u8(opcode::LDX_IMM);
+        self.emit_u8_label_high(label, span);
+    }
+
+    pub fn emit_ldy_label_low(&mut self, label: impl Into<String>, span: Span) {
+        self.emit_u8(opcode::LDY_IMM);
+        self.emit_u8_label_low(label, span);
+    }
+
+    pub fn emit_ldy_label_high(&mut self, label: impl Into<String>, span: Span) {
+        self.emit_u8(opcode::LDY_IMM);
+        self.emit_u8_label_high(label, span);
+    }
+
     pub fn emit_zeroes(&mut self, count: u16) {
         self.bytes
             .extend(std::iter::repeat_n(0, usize::from(count)));
@@ -334,6 +354,16 @@ impl Emitter {
 
     pub fn emit_adc_immediate(&mut self, immediate: Immediate, byte_index: u16) {
         self.emit_immediate_operand(opcode::ADC_IMM, immediate, byte_index);
+    }
+
+    pub fn emit_adc_label_low(&mut self, label: impl Into<String>, span: Span) {
+        self.emit_u8(opcode::ADC_IMM);
+        self.emit_u8_label_low(label, span);
+    }
+
+    pub fn emit_adc_label_high(&mut self, label: impl Into<String>, span: Span) {
+        self.emit_u8(opcode::ADC_IMM);
+        self.emit_u8_label_high(label, span);
     }
 
     pub fn emit_adc_abs(&mut self, address: u16) {
@@ -1105,6 +1135,28 @@ impl Generator {
         self.processor.invalidate_accumulator();
     }
 
+    pub(super) fn emit_ldx_label_low(&mut self, label: impl Into<String>, span: Span) {
+        self.emitter.emit_ldx_label_low(label, span);
+        self.processor.invalidate_index_x();
+    }
+
+    pub(super) fn emit_ldx_label_high(&mut self, label: impl Into<String>, span: Span) {
+        self.emitter.emit_ldx_label_high(label, span);
+        self.processor.invalidate_index_x();
+    }
+
+    pub(super) fn emit_ldy_label_low(&mut self, label: impl Into<String>, span: Span) {
+        self.emitter.emit_ldy_label_low(label, span);
+        self.processor.invalidate_index_y();
+        self.straight_line_store_y = None;
+    }
+
+    pub(super) fn emit_ldy_label_high(&mut self, label: impl Into<String>, span: Span) {
+        self.emitter.emit_ldy_label_high(label, span);
+        self.processor.invalidate_index_y();
+        self.straight_line_store_y = None;
+    }
+
     pub(super) fn emit_lda_zero_page(&mut self, zero_page: ZeroPage) {
         let tracked_value = self.processor.zp_value(zero_page);
         let slot = StorageSlot::zero_page(zero_page.address(), 1);
@@ -1243,6 +1295,18 @@ impl Generator {
 
     pub(super) fn emit_adc_immediate(&mut self, immediate: Immediate, byte_index: u16) {
         self.emitter.emit_adc_immediate(immediate, byte_index);
+        self.processor.invalidate_accumulator();
+        self.processor.invalidate_carry();
+    }
+
+    pub(super) fn emit_adc_label_low(&mut self, label: impl Into<String>, span: Span) {
+        self.emitter.emit_adc_label_low(label, span);
+        self.processor.invalidate_accumulator();
+        self.processor.invalidate_carry();
+    }
+
+    pub(super) fn emit_adc_label_high(&mut self, label: impl Into<String>, span: Span) {
+        self.emitter.emit_adc_label_high(label, span);
         self.processor.invalidate_accumulator();
         self.processor.invalidate_carry();
     }

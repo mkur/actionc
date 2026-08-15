@@ -61,6 +61,9 @@ pub(super) struct StorageLayout {
     pub(super) symbols: HashMap<String, StorageSlot>,
     pub(super) machine_caret_values: HashMap<String, u16>,
     pub(super) machine_symbol_addresses: HashMap<String, MachineSymbolAddress>,
+    // Sized arrays may retain a physical descriptor for compatibility while
+    // modern code addresses their immutable semantic backing directly.
+    pub(super) fixed_array_base_targets: Vec<(StorageSlot, MachineSymbolAddress)>,
     // Large fixed-address arrays have a physical compatibility descriptor in
     // output storage, but their source-level address value is the fixed base.
     pub(super) absolute_array_value_addresses: HashMap<String, u16>,
@@ -197,6 +200,7 @@ impl StorageLayout {
             symbols: HashMap::new(),
             machine_caret_values: HashMap::new(),
             machine_symbol_addresses: HashMap::new(),
+            fixed_array_base_targets: Vec::new(),
             absolute_array_value_addresses: HashMap::new(),
             next_address: storage_base,
             storage_size: 0,
@@ -353,14 +357,14 @@ impl StorageLayout {
             if array_len_with_defines(entry, numeric_defines).is_some_and(|len| len > 0x0100) {
                 let descriptor =
                     self.allocate_initialized_bytes(4, &fixed_array_pointer_storage(address));
-                self.symbols.insert(
-                    name.clone(),
-                    StorageSlot::array(descriptor, element_size, ArrayStorage::Descriptor)
-                        .emitted()
-                        .signed(signed),
-                );
+                let slot = StorageSlot::array(descriptor, element_size, ArrayStorage::Descriptor)
+                    .emitted()
+                    .signed(signed);
+                self.symbols.insert(name.clone(), slot);
                 self.absolute_array_value_addresses
                     .insert(name.clone(), address);
+                self.fixed_array_base_targets
+                    .push((slot, MachineSymbolAddress::Absolute(address)));
                 self.machine_symbol_addresses
                     .insert(name, MachineSymbolAddress::Absolute(address));
                 return;
@@ -418,12 +422,13 @@ impl StorageLayout {
                 self.initializers.push(StorageInit::Byte(0));
                 self.initializers.push(StorageInit::Byte(0));
             }
-            self.symbols.insert(
-                name.clone(),
+            let slot =
                 StorageSlot::array(descriptor_address, element_size, ArrayStorage::Descriptor)
                     .emitted()
-                    .signed(signed),
-            );
+                    .signed(signed);
+            self.symbols.insert(name.clone(), slot);
+            self.fixed_array_base_targets
+                .push((slot, MachineSymbolAddress::OutputRelative(backing_address)));
             self.machine_symbol_addresses
                 .insert(name, MachineSymbolAddress::OutputRelative(backing_address));
             return;
@@ -476,12 +481,12 @@ impl StorageLayout {
             label: label.clone(),
             size: byte_size,
         });
-        self.symbols.insert(
-            name.clone(),
-            StorageSlot::array(address, element_size, ArrayStorage::Descriptor)
-                .emitted()
-                .signed(signed),
-        );
+        let slot = StorageSlot::array(address, element_size, ArrayStorage::Descriptor)
+            .emitted()
+            .signed(signed);
+        self.symbols.insert(name.clone(), slot);
+        self.fixed_array_base_targets
+            .push((slot, MachineSymbolAddress::Label(label.clone())));
         self.machine_symbol_addresses
             .insert(name, MachineSymbolAddress::Label(label));
     }
@@ -570,6 +575,7 @@ pub(super) fn allocate_routine_symbols(
     let mut initializers = Vec::new();
     let mut array_backings = Vec::new();
     let mut machine_symbol_addresses = HashMap::new();
+    let mut fixed_array_base_targets = Vec::new();
 
     for param in &routine.params {
         let Some(element_size) = type_size_with_records(&param.ty, record_layouts) else {
@@ -616,6 +622,7 @@ pub(super) fn allocate_routine_symbols(
                 &mut initializers,
                 &mut array_backings,
                 &mut machine_symbol_addresses,
+                &mut fixed_array_base_targets,
                 compatible_layout,
                 numeric_defines,
             );
@@ -632,6 +639,7 @@ pub(super) fn allocate_routine_symbols(
         initializers,
         array_backings,
         machine_symbol_addresses,
+        fixed_array_base_targets,
     }
 }
 
@@ -656,6 +664,7 @@ fn add_var_decl_to_routine_storage(
     initializers: &mut Vec<StorageInit>,
     array_backings: &mut Vec<ArrayBacking>,
     machine_symbol_addresses: &mut HashMap<String, MachineSymbolAddress>,
+    fixed_array_base_targets: &mut Vec<(StorageSlot, MachineSymbolAddress)>,
     compatible_layout: bool,
     numeric_defines: &HashMap<String, u16>,
 ) {
@@ -749,6 +758,8 @@ fn add_var_decl_to_routine_storage(
                 .signed(slot_signed_for_type(&decl.ty));
             let name = normalize_name(&entry.name);
             symbols.insert(name.clone(), slot);
+            fixed_array_base_targets
+                .push((slot, MachineSymbolAddress::OutputRelative(backing_address)));
             machine_symbol_addresses
                 .insert(name, MachineSymbolAddress::OutputRelative(backing_address));
             continue;
@@ -825,6 +836,7 @@ fn add_var_decl_to_routine_storage(
                 .signed(slot_signed_for_type(&decl.ty));
             let name = normalize_name(&entry.name);
             symbols.insert(name.clone(), slot);
+            fixed_array_base_targets.push((slot, MachineSymbolAddress::Label(label.clone())));
             machine_symbol_addresses.insert(name, MachineSymbolAddress::Label(label));
             continue;
         }

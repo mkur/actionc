@@ -689,6 +689,91 @@ fn compatible_large_fixed_array_indexes_through_original_descriptor() {
 }
 
 #[test]
+fn modern_large_fixed_array_accesses_its_semantic_base_directly() {
+    let output = generate_profile_source_with_origin(
+        "BYTE ARRAY allocbuf($800)=$2000 BYTE out PROC Main() out=allocbuf(1) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert_eq!(&output.bytes[..5], &[0x00, 0x20, 0x00, 0x20, 0]);
+    assert!(
+        output
+            .bytes
+            .windows(3)
+            .any(|bytes| bytes == [opcode::LDA_ABS, 0x01, 0x20])
+    );
+    assert!(
+        !output
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::STA_ZP, runtime_zp::ARRAY_ADDR.address()])
+    );
+}
+
+#[test]
+fn modern_sized_array_uses_deferred_backing_for_index_and_decay() {
+    for origin in [0x3000u16, 0x41c7] {
+        let output = generate_profile_source_with_origin(
+            "BYTE ARRAY flags(8192) CARD index,p BYTE out PROC Main() p=flags out=flags(index) RETURN",
+            origin,
+            CodegenProfile::Modern,
+        )
+        .unwrap();
+        let backing = output.skipped_ranges[0].start;
+        let [backing_low, backing_high] = backing.to_le_bytes();
+        let [index_low, index_high] = origin.wrapping_add(4).to_le_bytes();
+        let [descriptor_low, descriptor_high] = origin.to_le_bytes();
+
+        assert_eq!(&output.bytes[..2], &[backing_low, backing_high]);
+        assert!(output.bytes.windows(16).any(|bytes| {
+            bytes[0] == opcode::CLC
+                && bytes[1..6]
+                    == [
+                        opcode::LDA_IMM,
+                        backing_low,
+                        opcode::ADC_ABS,
+                        index_low,
+                        index_high,
+                    ]
+                && bytes[6] == opcode::STA_ZP
+                && bytes[7] == runtime_zp::ARRAY_ADDR.address()
+                && bytes[8..13]
+                    == [
+                        opcode::LDA_IMM,
+                        backing_high,
+                        opcode::ADC_ABS,
+                        index_low.wrapping_add(1),
+                        index_high,
+                    ]
+                && bytes[13] == opcode::STA_ZP
+                && bytes[14] == runtime_zp::ARRAY_ADDR.offset(1).address()
+        }));
+        assert!(!output.bytes.windows(3).any(|bytes| {
+            matches!(bytes[0], opcode::LDA_ABS | opcode::LDX_ABS)
+                && matches!(
+                    &bytes[1..],
+                    [low, high]
+                        if (*low, *high) == (descriptor_low, descriptor_high)
+                            || (*low, *high)
+                                == (descriptor_low.wrapping_add(1), descriptor_high)
+                )
+        }));
+
+        let backing_offset = backing.wrapping_sub(origin);
+        assert!(output.relocations.iter().any(|relocation| {
+            relocation.target_offset == backing_offset
+                && relocation.kind == CodegenRelocationKind::Low8
+        }));
+        assert!(output.relocations.iter().any(|relocation| {
+            relocation.target_offset == backing_offset
+                && relocation.kind == CodegenRelocationKind::High8
+        }));
+    }
+}
+
+#[test]
 fn compatible_scalar_numeric_initializer_binds_absolute_address() {
     let output = generate_compatible_source_with_origin(
         "BYTE WSYNC=$D40A PROC Main() WSYNC=0 RETURN",

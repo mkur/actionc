@@ -207,6 +207,7 @@ struct RoutineAllocation {
     initializers: Vec<StorageInit>,
     array_backings: Vec<ArrayBacking>,
     machine_symbol_addresses: HashMap<String, MachineSymbolAddress>,
+    fixed_array_base_targets: Vec<(StorageSlot, MachineSymbolAddress)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

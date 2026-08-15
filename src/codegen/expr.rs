@@ -414,6 +414,9 @@ impl Generator {
         index: u16,
     ) -> Option<StorageSlot> {
         let offset = index.saturating_mul(array.size);
+        if let Some(element) = self.fixed_array_element_slot(array, offset) {
+            return Some(element);
+        }
         match array.array? {
             ArrayStorage::Inline => Some(StorageSlot {
                 array: None,

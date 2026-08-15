@@ -1363,6 +1363,9 @@ impl Generator {
                         0,
                     );
                     true
+                } else if let Some(target) = self.fixed_array_base_target_for_expr(arg) {
+                    self.emit_fixed_array_base_x_byte(target, byte_index);
+                    true
                 } else if let Some(absolute) = self.call_arg_absolute_byte(arg, byte_index) {
                     self.emit_ldx_slot_byte_value_only(StorageSlot::from_absolute(absolute, 1), 0);
                     true
@@ -1385,6 +1388,9 @@ impl Generator {
                         0,
                     );
                     self.straight_line_store_y = None;
+                    true
+                } else if let Some(target) = self.fixed_array_base_target_for_expr(arg) {
+                    self.emit_fixed_array_base_y_byte(target, byte_index);
                     true
                 } else if let Some(absolute) = self.call_arg_absolute_byte(arg, byte_index) {
                     self.emit_ldy_slot_byte_value_only(StorageSlot::from_absolute(absolute, 1), 0);

@@ -490,6 +490,9 @@ impl Generator {
         self.layout
             .machine_symbol_addresses
             .extend(allocation.machine_symbol_addresses.clone());
+        self.layout
+            .fixed_array_base_targets
+            .extend(allocation.fixed_array_base_targets);
 
         let entry_plan = self.routine_entry_plan(routine);
         self.layout
