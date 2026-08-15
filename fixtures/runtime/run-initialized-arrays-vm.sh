@@ -5,8 +5,6 @@ runtime_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$runtime_dir/../.." && pwd)"
 vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
 source_path="$runtime_dir/initialized_arrays.act"
-cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
-os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
 expected="02 22 22 05 44 44"
 
 require_file() {
@@ -20,8 +18,6 @@ require_file() {
 
 require_file "$source_path" "runtime fixture"
 require_file "$vm_root/Cargo.toml" "action-compiler-vm project"
-require_file "$cart_rom" "Action! cartridge ROM"
-require_file "$os_rom" "Atari OS ROM"
 
 out_dir="$(mktemp -d "${TMPDIR:-/tmp}/actionc-initialized-arrays.XXXXXX")"
 cleanup() {
@@ -45,8 +41,7 @@ for backend in classic mir6502; do
 
   echo "==> initialized arrays: execute modern/$backend"
   cargo run --quiet --manifest-path "$vm_root/Cargo.toml" -- run \
-    --cart "$cart_rom" \
-    --os "$os_rom" \
+    --profile standalone-object \
     --load-object "$object_path" \
     --dump-memory-on-stop "$memory_path" \
     --max-steps 200 \
