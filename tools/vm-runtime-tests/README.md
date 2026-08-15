@@ -12,8 +12,10 @@ The VM repository is private. Run the tests from this directory so Cargo reads
 cargo test --locked
 ```
 
-The compatibility entry point from the repository root remains:
+The compatibility entry points from the repository root remain:
 
 ```sh
 fixtures/runtime/run-initialized-arrays-vm.sh
+fixtures/runtime/run-kalscope-contracts-vm.sh
+fixtures/runtime/run-direct-word-compares-vm.sh
 ```

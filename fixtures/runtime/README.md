@@ -1,8 +1,10 @@
 # Runtime Fixtures
 
 These fixtures execute generated load files with `action-compiler-vm` and
-check observable memory results. The VM project defaults to the sibling path
-`../action-compiler-vm`; override it with `ACTION_COMPILER_VM_DIR`.
+check observable memory results. Migrated gates use the pinned library through
+the isolated `tools/vm-runtime-tests` crate. Gates that still invoke the VM CLI
+default to the sibling path `../action-compiler-vm`; override it with
+`ACTION_COMPILER_VM_DIR`.
 
 Run the initialized-array gate directly:
 
@@ -116,7 +118,8 @@ pointer, and a current-location (`=*`) machine routine receives its first two
 argument bytes in A/X. The raw callee explicitly saves those registers to
 `$A0/$A1` before a nested call and reloads them afterward; `$A0/$A1` are
 callee-owned scratch here, not caller-provided argument homes. Both classic
-and MIR6502 must produce `12 34 82 84` at `$0600-$0603`.
+and MIR6502 must produce `12 34 82 84` at `$0600-$0603`. Its compatibility
+script now selects the corresponding direct library test.
 
 The KALSCOPE code-generation fixture covers the program's concentrated general
 shapes independently of graphics and OS state: a local byte pointer committed
@@ -193,7 +196,8 @@ The direct word-compare fixture executes `Lt`, `Ge`, `Gt`, and `Le` branches
 around `$0000`, `$00FF/$0100`, `$7FFF/$8000`, and `$FFFF`. Its indirect-left
 cases exercise the low-byte `CMP` to high-byte `SBC` carry chain; its
 indirect-right `Gt`/`Le` cases exercise safe operand reversal. The twelve
-hard-coded result bytes are checked under both modern backends.
+hard-coded result bytes are checked under both modern backends through the
+direct library harness.
 
 The signed return-word fixture executes all four signed relational predicates
 with zero on either side of an `INT` call result. It covers `$8000`, `$FFFF`,
