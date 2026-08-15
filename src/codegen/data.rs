@@ -479,32 +479,41 @@ pub(super) fn absolute_alias_initializer(
     symbols: &HashMap<String, StorageSlot>,
     expr: &Expr,
 ) -> Option<u16> {
+    absolute_alias_address_initializer(symbols, expr).map(Absolute::address)
+}
+
+pub(super) fn absolute_alias_address_initializer(
+    symbols: &HashMap<String, StorageSlot>,
+    expr: &Expr,
+) -> Option<Absolute> {
     match &expr.kind {
-        ExprKind::Number(_) | ExprKind::Char(_) => constant_u16(expr),
+        ExprKind::Number(_) | ExprKind::Char(_) => constant_u16(expr).map(Absolute::new),
         ExprKind::Unary {
             op: UnaryOp::Plus | UnaryOp::Neg,
             ..
-        } => constant_u16(expr),
-        ExprKind::Name(name) => symbols.get(&normalize_name(name)).map(|slot| slot.address),
+        } => constant_u16(expr).map(Absolute::new),
+        ExprKind::Name(name) => symbols
+            .get(&normalize_name(name))
+            .map(|slot| slot.absolute_byte(0)),
         ExprKind::Binary {
             op: BinaryOp::Add,
             left,
             right,
-        } => absolute_alias_initializer(symbols, left)
+        } => absolute_alias_address_initializer(symbols, left)
             .zip(constant_u16(right))
-            .map(|(base, offset)| base.wrapping_add(offset))
+            .map(|(base, offset)| base.offset(offset))
             .or_else(|| {
                 constant_u16(left)
-                    .zip(absolute_alias_initializer(symbols, right))
-                    .map(|(offset, base)| base.wrapping_add(offset))
+                    .zip(absolute_alias_address_initializer(symbols, right))
+                    .map(|(offset, base)| base.offset(offset))
             }),
         ExprKind::Binary {
             op: BinaryOp::Sub,
             left,
             right,
-        } => absolute_alias_initializer(symbols, left)
+        } => absolute_alias_address_initializer(symbols, left)
             .zip(constant_u16(right))
-            .map(|(base, offset)| base.wrapping_sub(offset)),
+            .map(|(base, offset)| base.offset(0u16.wrapping_sub(offset))),
         _ => None,
     }
 }

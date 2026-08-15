@@ -276,7 +276,7 @@ impl StorageLayout {
                 && !array_like
                 && pointee_size.is_none()
                 && let Some(initializer) = &entry.initializer
-                && let Some(address) = self.absolute_alias_initializer(initializer)
+                && let Some(address) = self.absolute_alias_address_initializer(initializer)
             {
                 let slot = alias_storage_slot(address, slot_size, pointee_size)
                     .record(record)
@@ -495,8 +495,8 @@ impl StorageLayout {
         self.symbols.get(&normalize_name(name)).copied()
     }
 
-    fn absolute_alias_initializer(&self, expr: &Expr) -> Option<u16> {
-        absolute_alias_initializer(&self.symbols, expr)
+    fn absolute_alias_address_initializer(&self, expr: &Expr) -> Option<Absolute> {
+        absolute_alias_address_initializer(&self.symbols, expr)
     }
 
     pub(super) fn allocate(&mut self, size: u16) -> u16 {
@@ -685,7 +685,7 @@ fn add_var_decl_to_routine_storage(
         if !decl_is_array_like(decl)
             && pointee_size.is_none()
             && let Some(initializer) = &entry.initializer
-            && let Some(address) = absolute_alias_initializer(symbols, initializer)
+            && let Some(address) = absolute_alias_address_initializer(symbols, initializer)
         {
             let slot = alias_storage_slot(address, slot_size, pointee_size)
                 .record(record)
@@ -905,7 +905,7 @@ pub(super) fn add_var_decl_to_symbols(
             && !decl_is_array_like(decl)
             && pointee_size.is_none()
             && let Some(initializer) = &entry.initializer
-            && let Some(address) = absolute_alias_initializer(symbols, initializer)
+            && let Some(address) = absolute_alias_address_initializer(symbols, initializer)
         {
             let slot = alias_storage_slot(address, slot_size, pointee_size)
                 .record(record)
@@ -1436,10 +1436,12 @@ pub(super) fn record_id_for_type(ty: &TypeRef, record_layouts: &RecordLayouts) -
 
 // Extracted from src/codegen.rs: alias pointer slots
 pub(super) fn alias_storage_slot(
-    address: u16,
+    address: Absolute,
     size: u16,
     pointee_size: Option<u16>,
 ) -> StorageSlot {
+    let output_relative = address.is_output_relative();
+    let address = address.address();
     if let Some(pointee_size) = pointee_size {
         if address <= 0xFF {
             StorageSlot::zero_page_pointer(address as u8, pointee_size)
@@ -1451,6 +1453,7 @@ pub(super) fn alias_storage_slot(
     } else {
         StorageSlot::absolute(address, size)
     }
+    .output_relative_if(output_relative)
 }
 
 pub(super) fn pointer_pointee_slot(pointer: StorageSlot, addr: ZeroPage) -> Option<StorageSlot> {

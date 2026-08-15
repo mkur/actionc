@@ -290,6 +290,8 @@ fn reorigin_listing_uses_symbolic_mads_relocations_without_moving_fixed_values()
         assert!(listing.contains("LDX #>(global_first+2)"));
         assert!(listing.contains("LDA.A global_first+1"));
         assert!(listing.contains("STA.A local_main_local"));
+        assert!(listing.contains("STA.A local_main_aliaslow"));
+        assert!(listing.contains("STA.A local_main_aliashigh"));
         assert!(listing.contains("JSR.A proc_helper"));
         assert!(listing.contains("LDA.A $3000"));
         assert!(listing.contains("STA.A global_color"));

@@ -9,6 +9,9 @@ RETURN
 
 PROC Main()
   BYTE local
+  CARD aliased
+  BYTE aliasLow=aliased
+  BYTE aliasHigh=aliased+1
   ASM
       lda #<first+2
       ldx #>first+2
@@ -16,6 +19,8 @@ PROC Main()
       lda #>local
       lda.a first+1
       sta.a local
+      sta.a aliasLow
+      sta.a aliasHigh
 
       beq forward
       nop
