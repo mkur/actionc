@@ -1044,6 +1044,85 @@ fn compatible_negative_for_step_uses_original_add_shape() {
 }
 
 #[test]
+fn modern_initialized_byte_countdown_uses_dec_backedge() {
+    let source = "BYTE i,x PROC Main() i=3 WHILE i>0 DO x==+1 i==-1 OD RETURN";
+    let modern =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+    let compatible = generate_compatible_source_with_origin(source, 0x3000).unwrap();
+
+    assert!(modern.bytes.contains(&opcode::DEC_ABS));
+    assert!(modern.bytes.contains(&opcode::BNE_REL));
+    assert!(
+        !modern
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::CMP_IMM, 0x01])
+    );
+    assert!(modern.bytes.len() < compatible.bytes.len());
+}
+
+#[test]
+fn modern_dynamic_byte_countdown_keeps_the_entry_test() {
+    let source = "BYTE i,x PROC Main(BYTE start) i=start WHILE i>0 DO x==+1 i==-1 OD RETURN";
+    let modern =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+
+    assert!(modern.bytes.contains(&opcode::JMP_ABS));
+    assert!(!modern.bytes.contains(&opcode::BNE_REL));
+}
+
+#[test]
+fn modern_machine_block_countdown_keeps_the_entry_test() {
+    let source = "BYTE i PROC Main() i=3 WHILE i>0 DO [$38] i==-1 OD RETURN";
+    let modern =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+
+    assert!(modern.bytes.contains(&opcode::JMP_ABS));
+    assert!(!modern.bytes.contains(&opcode::BNE_REL));
+}
+
+#[test]
+fn modern_absolute_countdown_keeps_the_entry_test() {
+    let source = "BYTE i=$D20A PROC Main() i=3 WHILE i>0 DO i==-1 OD RETURN";
+    let modern =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+
+    assert!(modern.bytes.contains(&opcode::JMP_ABS));
+    assert!(!modern.bytes.contains(&opcode::BNE_REL));
+}
+
+#[test]
+fn modern_far_byte_countdown_uses_short_exit_over_long_backedge() {
+    let body = "x==+1 ".repeat(48);
+    let source = format!("BYTE i,x PROC Main() i=3 WHILE i>0 DO {body}i==-1 OD RETURN");
+    let modern =
+        generate_profile_source_with_origin(&source, 0x3000, CodegenProfile::Modern).unwrap();
+
+    assert!(
+        modern
+            .bytes
+            .windows(3)
+            .any(|bytes| bytes == [opcode::BEQ_REL, 0x03, opcode::JMP_ABS])
+    );
+}
+
+#[test]
+fn modern_constant_for_countdown_uses_dec_backedge() {
+    let source = "BYTE i,x PROC Main() FOR i=3 TO 1 STEP -1 DO x==+1 OD RETURN";
+    let modern =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+
+    assert!(modern.bytes.contains(&opcode::DEC_ABS));
+    assert!(modern.bytes.contains(&opcode::BNE_REL));
+    assert!(
+        !modern
+            .bytes
+            .windows(2)
+            .any(|bytes| bytes == [opcode::CMP_IMM, 0x01])
+    );
+}
+
+#[test]
 fn compatible_generation_calls_original_multiply_helper_for_constant_product() {
     let output =
         generate_compatible_source_with_origin("CARD w PROC Main() w=12*34 RETURN", 0x3000)

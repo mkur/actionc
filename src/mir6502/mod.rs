@@ -2861,6 +2861,32 @@ mod tests {
     }
 
     #[test]
+    fn materializes_carry_producing_decrement_before_z_branch_to_dec() {
+        let mem = global_byte_mem();
+        let mir = materialize_program(
+            byte_update_program(
+                MirBinaryOp::Sub,
+                Some(MirCarryIn::Set),
+                MirCarryOut::Produce,
+                mem.clone(),
+                MirAddr::Direct(mem),
+                Vec::new(),
+                MirTerminator::Branch {
+                    cond: MirCond::FlagTest(MirFlagTest::ZClear),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(2)),
+                },
+            ),
+            &Mir6502Config::default(),
+        )
+        .expect("materialize carry-producing decrement before z branch");
+
+        let formatted = format_program(&mir);
+        assert!(formatted.contains("dec.b global g0+0"));
+        assert!(!formatted.contains(" sub #$01"));
+    }
+
+    #[test]
     fn materializes_loaded_byte_increment_when_next_op_clobbers_flags() {
         let mem = global_byte_mem();
         let mir = materialize_program(

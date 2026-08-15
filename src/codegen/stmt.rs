@@ -445,6 +445,67 @@ impl Generator {
         let start_label = self.next_label("while:start");
         let end_label = self.next_label("while:end");
 
+        let initialized_countdown = if self.profile.enables_modern_optimizations() {
+            let ExprKind::Binary {
+                op: BinaryOp::Gt,
+                left,
+                right,
+            } = &condition.kind
+            else {
+                return self.generate_regular_while(condition, body, span, start_label, end_label);
+            };
+            let ExprKind::Name(counter) = &left.kind else {
+                return self.generate_regular_while(condition, body, span, start_label, end_label);
+            };
+            let Some(slot) = self.lookup_slot(counter) else {
+                return self.generate_regular_while(condition, body, span, start_label, end_label);
+            };
+            let Some(Stmt::CompoundAssign {
+                target,
+                op: BinaryOp::Sub,
+                value,
+                ..
+            }) = body.last()
+            else {
+                return self.generate_regular_while(condition, body, span, start_label, end_label);
+            };
+            slot.size == 1
+                && slot.output_relative
+                && self.constant_u16(right) == Some(0)
+                && self.constant_u16(value) == Some(1)
+                && !stmt_list_contains_machine_block(body)
+                && matches!(&target.kind, ExprKind::Name(name) if name.eq_ignore_ascii_case(counter))
+                && self
+                    .processor
+                    .memory_value(slot, 0)
+                    .and_then(value_fact_immediate)
+                    .is_some_and(|value| value != 0)
+        } else {
+            false
+        };
+
+        if initialized_countdown {
+            self.bind_codegen_label(start_label.clone(), span);
+            self.exit_labels.push(end_label.clone());
+            self.generate_stmt_list(&body[..body.len() - 1]);
+            self.generate_stmt(body.last().expect("countdown latch exists"));
+            self.exit_labels.pop();
+            self.emit_countdown_backedge(&start_label, &end_label, span);
+            self.bind_codegen_label(end_label, span);
+            return;
+        }
+
+        self.generate_regular_while(condition, body, span, start_label, end_label);
+    }
+
+    fn generate_regular_while(
+        &mut self,
+        condition: &Expr,
+        body: &[Stmt],
+        span: Span,
+        start_label: String,
+        end_label: String,
+    ) {
         self.bind_codegen_label(start_label.clone(), span);
         if !self.emit_branch_if_false(condition, &end_label, span) {
             self.diagnostics.push(Diagnostic::new(
@@ -461,6 +522,23 @@ impl Generator {
             self.label_store_y_hints.remove(&end_label);
         }
         self.bind_codegen_label(end_label, span);
+    }
+
+    fn emit_countdown_backedge(&mut self, start_label: &str, end_label: &str, span: Span) {
+        let target = self
+            .emitter
+            .label_position(start_label)
+            .expect("countdown-loop body label was just bound");
+        let branch_origin = self.emitter.position() + 2;
+        let delta = target as isize - branch_origin as isize;
+        if (-128..=127).contains(&delta) {
+            self.emitter
+                .emit_branch_label(opcode::BNE_REL, start_label, span);
+        } else {
+            self.emitter
+                .emit_branch_label(opcode::BEQ_REL, end_label, span);
+            self.emit_jmp_label(start_label, span);
+        }
     }
 
     pub(super) fn generate_do_until(
@@ -534,6 +612,25 @@ impl Generator {
 
         let start_label = self.next_label("for:start");
         let end_label = self.next_label("for:end");
+        let rotate_countdown = self.profile.enables_modern_optimizations()
+            && slot.size == 1
+            && slot.output_relative
+            && step == ForStep::Down(1)
+            && self
+                .constant_u16(start)
+                .is_some_and(|value| (1..=u8::MAX.into()).contains(&value))
+            && self.constant_u16(end) == Some(1)
+            && !stmt_list_contains_machine_block(body);
+        if rotate_countdown {
+            self.bind_codegen_label(start_label.clone(), span);
+            self.exit_labels.push(end_label.clone());
+            self.generate_stmt_list(body);
+            self.exit_labels.pop();
+            self.emit_for_step_slot(slot, step);
+            self.emit_countdown_backedge(&start_label, &end_label, span);
+            self.bind_codegen_label(end_label, span);
+            return;
+        }
         let cached_end = self.emit_compatible_for_end_cache(end, slot, step, span);
 
         self.bind_codegen_label(start_label.clone(), span);
@@ -823,6 +920,7 @@ impl Generator {
     fn emit_for_step_slot(&mut self, slot: StorageSlot, step: ForStep) {
         match step {
             ForStep::Up(amount) => self.emit_increment_slot(slot, amount),
+            ForStep::Down(1) if self.emit_dec_slot_peephole(slot) => {}
             ForStep::Down(amount)
                 if self.segment_storage
                     && amount == 1

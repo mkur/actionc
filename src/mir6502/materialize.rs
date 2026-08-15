@@ -1229,9 +1229,16 @@ pub(super) fn materialize_program(
         let exact_zn_compares =
             ssa_lite::fold_exact_zn_zero_compares(routine, &final_known_callees);
         peephole_stats.record_many(routine.id, "exact-zn-zero-compare-fold", exact_zn_compares);
+        // Exact Z/N folding can expose a load/add-or-sub/store update whose
+        // only remaining consumer is the branch on the update result. Re-run
+        // the analyzed selector here so countdown latches become DEC/BNE (or
+        // INC/BNE) without changing live A/carry/overflow state.
+        run_analyzed_direct_inc_dec_updates(routine, &final_layout, &mut peephole_stats)?;
         if layout_blocks_in_reverse_postorder(routine) {
             peephole_stats.record(routine.id, "cfg-cost-aware-layout");
         }
+        let rotated = cfg::rotate_initialized_byte_countdowns(routine, &final_layout);
+        peephole_stats.record_many(routine.id, "initialized-byte-countdown-rotation", rotated);
     }
     materialize_remaining_pointer_cell_values(&mut program);
     fold_redundant_xy_reloads(&mut program, &final_layout, &mut peephole_stats);

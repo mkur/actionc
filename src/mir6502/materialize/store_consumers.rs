@@ -3917,7 +3917,7 @@ pub(super) fn try_fold_direct_inc_dec_update(
     if !tail_allows_inc_dec_update_after(ops, index + 3, terminator) {
         return None;
     }
-    let (consumed, replacement) = direct_inc_dec_update_shape_at(ops, index)?;
+    let (consumed, replacement) = direct_inc_dec_update_shape_at(ops, index, false)?;
     out.extend(replacement);
     Some(consumed)
 }
@@ -3929,22 +3929,44 @@ pub(in crate::mir6502) fn discover_direct_inc_dec_updates(
 ) -> Vec<MirPostHomeRewritePlan> {
     let mut plans = Vec::new();
     for block in &routine.blocks {
+        let zero_branch = matches!(
+            block.terminator,
+            MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZSet | MirFlagTest::ZClear),
+                ..
+            }
+        );
         for index in 0..block.ops.len() {
-            if let Some((consumed, replacement)) =
-                inc_dec_update_shape_at(&block.ops, index, layout)
+            if let Some((consumed, mut replacement)) =
+                inc_dec_update_shape_at(&block.ops, index, layout, zero_branch)
             {
                 let stat = if matches!(replacement.as_slice(), [MirOp::UpdateIndexedMem { .. }]) {
                     "indexed-inc-dec-update"
                 } else {
                     "direct-inc-dec-update"
                 };
+                let exit_change =
+                    if zero_branch && let [MirOp::UpdateMem { mem, .. }] = replacement.as_slice() {
+                        // The branch needs the update's Z result, while a
+                        // successor can still inherit the updated byte in A.
+                        // Reloading the byte preserves both facts and leaves only
+                        // carry/overflow for liveness to prove dead.
+                        replacement.push(MirOp::Load {
+                            dst: MirDef::Reg(MirReg::A),
+                            src: MirAddr::Direct(mem.clone()),
+                            width: MirWidth::Byte,
+                        });
+                        inc_dec_branch_exit_change()
+                    } else {
+                        inc_dec_exit_change()
+                    };
                 if let Some(plan) = structural_plan(
                     routine,
                     context,
                     block.id,
                     index..index + consumed,
                     replacement,
-                    inc_dec_exit_change(),
+                    exit_change,
                     stat,
                     0,
                 ) {
@@ -3960,12 +3982,17 @@ fn inc_dec_update_shape_at(
     ops: &[MirOp],
     index: usize,
     layout: &MaterializeLayout,
+    allow_produced_carry: bool,
 ) -> Option<(usize, Vec<MirOp>)> {
-    direct_inc_dec_update_shape_at(ops, index)
-        .or_else(|| indexed_inc_dec_update_shape_at(ops, index, layout))
+    direct_inc_dec_update_shape_at(ops, index, allow_produced_carry)
+        .or_else(|| indexed_inc_dec_update_shape_at(ops, index, layout, allow_produced_carry))
 }
 
-fn direct_inc_dec_update_shape_at(ops: &[MirOp], index: usize) -> Option<(usize, Vec<MirOp>)> {
+fn direct_inc_dec_update_shape_at(
+    ops: &[MirOp],
+    index: usize,
+    allow_produced_carry: bool,
+) -> Option<(usize, Vec<MirOp>)> {
     let mem = loaded_a_direct_mem(ops.get(index)?)?;
     let MirOp::Binary {
         op,
@@ -3974,11 +4001,14 @@ fn direct_inc_dec_update_shape_at(ops: &[MirOp], index: usize) -> Option<(usize,
         right: MirValue::ConstU8(1),
         width: MirWidth::Byte,
         carry_in,
-        carry_out: MirCarryOut::Ignore,
+        carry_out,
     } = ops.get(index + 1)?
     else {
         return None;
     };
+    if *carry_out == MirCarryOut::Produce && !allow_produced_carry {
+        return None;
+    }
     let MirOp::Store {
         dst: MirAddr::Direct(store_dst),
         src: MirValue::Def(MirDef::Reg(MirReg::A)),
@@ -4009,6 +4039,7 @@ fn indexed_inc_dec_update_shape_at(
     ops: &[MirOp],
     index: usize,
     layout: &MaterializeLayout,
+    allow_produced_carry: bool,
 ) -> Option<(usize, Vec<MirOp>)> {
     let MirOp::Load {
         dst: MirDef::Reg(MirReg::A),
@@ -4025,11 +4056,14 @@ fn indexed_inc_dec_update_shape_at(
         right: MirValue::ConstU8(1),
         width: MirWidth::Byte,
         carry_in,
-        carry_out: MirCarryOut::Ignore,
+        carry_out,
     } = ops.get(index + 1)?
     else {
         return None;
     };
+    if *carry_out == MirCarryOut::Produce && !allow_produced_carry {
+        return None;
+    }
     let MirOp::Store {
         dst: MirAddr::AbsoluteIndexedX { base: store_base },
         src: MirValue::Def(MirDef::Reg(MirReg::A)),
@@ -4061,6 +4095,17 @@ fn inc_dec_exit_change() -> MirExitStateChange {
             a: true,
             ..MirRegisterSet::default()
         },
+        flags: MirFlagSet {
+            c: true,
+            v: true,
+            ..MirFlagSet::default()
+        },
+        ..MirExitStateChange::default()
+    }
+}
+
+fn inc_dec_branch_exit_change() -> MirExitStateChange {
+    MirExitStateChange {
         flags: MirFlagSet {
             c: true,
             v: true,

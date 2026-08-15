@@ -4371,6 +4371,39 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         let body_label = self.next_label("for_body");
         let end_label = self.next_label("for_end");
 
+        let rotate_countdown = self.model.profile.enables_modern_optimizations()
+            && target.width == 1
+            && self.storage_address_is_output_relative(target.address)
+            && step == NativeForStep::Down(1)
+            && self
+                .constant_word(start)
+                .is_some_and(|value| (1..=u8::MAX.into()).contains(&value))
+            && self.constant_word(end) == Some(1)
+            && summarize_body(body).machine_blocks == 0;
+        if rotate_countdown {
+            self.bind_label(&body_label, span)?;
+            self.exit_labels.push(end_label.clone());
+            self.emit_statement_list(body)?;
+            self.exit_labels.pop();
+            self.emit_for_increment(&target, step, span)?;
+            let target_position = self
+                .emitter
+                .label_position(&body_label)
+                .expect("countdown-loop body label was just bound");
+            let branch_origin = self.emitter.position() + 2;
+            let delta = target_position as isize - branch_origin as isize;
+            if (-128..=127).contains(&delta) {
+                self.emitter
+                    .emit_branch_label(opcode::BNE_REL, body_label, span);
+            } else {
+                self.emitter
+                    .emit_branch_label(opcode::BEQ_REL, end_label.clone(), span);
+                self.emit_jmp_label(body_label, span);
+            }
+            self.bind_label(&end_label, span)?;
+            return Ok(());
+        }
+
         self.bind_label(&start_label, span)?;
         self.emit_for_branch_if_not_after_end(&target, end, step, &body_label, &end_label, span)?;
         self.bind_label(&body_label, span)?;
@@ -7582,8 +7615,30 @@ mod tests {
         let output =
             generate_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern).unwrap();
 
-        assert!(output.bytes.contains(&opcode::BCS_REL));
+        assert!(output.bytes.contains(&opcode::BNE_REL));
         assert!(output.bytes.contains(&opcode::DEC_ABS));
+    }
+
+    #[test]
+    fn native_for_machine_block_keeps_the_entry_test() {
+        let source = "BYTE i PROC Main() FOR i=5 TO 1 STEP -1 DO [$38] OD RETURN";
+        let semir = lower_source(source);
+        let output =
+            generate_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern).unwrap();
+
+        assert!(output.bytes.contains(&opcode::BCS_REL));
+        assert!(output.bytes.contains(&opcode::JMP_ABS));
+    }
+
+    #[test]
+    fn native_for_absolute_counter_keeps_the_entry_test() {
+        let source = "BYTE i=$D20A PROC Main() FOR i=5 TO 1 STEP -1 DO OD RETURN";
+        let semir = lower_source(source);
+        let output =
+            generate_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern).unwrap();
+
+        assert!(output.bytes.contains(&opcode::BCS_REL));
+        assert!(output.bytes.contains(&opcode::JMP_ABS));
     }
 
     #[test]
