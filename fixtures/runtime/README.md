@@ -136,6 +136,7 @@ and a call on the right-hand side of a store. The 34 result bytes at
 `$0600-$0621` also exercise a destination that overwrites its own descriptor,
 a page crossing, the high-byte access at `Y=$FF`, the ASL carry for indexes 128
 through 255, and wrapping the corrected base high byte from `$FF` to `$00`.
+Its classic-backend oracle runs through the direct library harness.
 
 The dual indexed CARD-compare fixture is the focused cross-backend oracle for
 MIR6502's two-pointer compare selector. It uses odd pointer-backed table bases,
@@ -182,7 +183,8 @@ byte above `MemHi`, so the destination low byte aliases the fixed source's high
 byte. Its hard-coded `$0F4E` result proves that MIR6502 captures both source
 lanes and both pointer/RHS lanes before the first indirect write. This focused
 gate is MIR6502-only because the classic backend's legacy schedule has weaker
-pointer-alias behavior.
+pointer-alias behavior. Its runtime oracle runs through the direct library
+harness.
 
 The indirect call-field fixture selects two bounded four-byte transfers into
 the fixed `$A4-$A7` call homes. One source crosses a page boundary. The other
@@ -229,6 +231,10 @@ twelve-byte call, requires six direct placements, and starts at index 255 so
 the base-plus-index calculation or a following constant offset must cross a
 page for every backing alignment. Both backends must produce the same 17
 hard-coded marker, argument, high-lane-zero, and completion bytes.
+
+The direct BYTE-array and paired word-arithmetic gates also run their memory
+oracles through the direct library harness. The paired gate retains its
+compiler-selection preflight in the compatibility script.
 
 It is also part of the opt-in compatibility integration tests:
 

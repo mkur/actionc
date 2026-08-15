@@ -78,6 +78,12 @@ mod tests {
         }
     }
 
+    fn hex_bytes(hex: &str) -> Vec<u8> {
+        hex.split_ascii_whitespace()
+            .map(|byte| u8::from_str_radix(byte, 16).expect("valid expected byte"))
+            .collect()
+    }
+
     #[test]
     fn initialized_arrays_execute_through_the_vm_library() {
         assert_both_backends(
@@ -115,6 +121,67 @@ mod tests {
                 bytes: &[
                     0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x00, 0x01, 0x00,
                 ],
+            }],
+        );
+    }
+
+    #[test]
+    fn direct_byte_array_indexes_execute_through_the_vm_library() {
+        let expected = hex_bytes("a5 a4 da 25 5a d1 d2 e1 e2 a5 00 00 01 00 ff ff 00 00");
+        assert_both_backends(
+            "direct BYTE array indexes",
+            "direct_byte_array_indexes.act",
+            800_000,
+            &[MemoryExpectation {
+                start: RESULT_START,
+                bytes: &expected,
+            }],
+        );
+    }
+
+    #[test]
+    fn scaled_card_indexes_execute_through_the_vm_library() {
+        let expected = hex_bytes(
+            "00 11 01 22 7f 33 80 44 ff 55 80 44 7f 33 ff 55 7f a1 80 66 ff 77 7f 88 \
+             80 99 80 aa 01 6a 7f ff ef be",
+        );
+        assert_runtime_case(
+            "scaled CARD indexes",
+            "scaled_card_indexes.act",
+            CompileMode::Optimized,
+            1_600,
+            &[MemoryExpectation {
+                start: RESULT_START,
+                bytes: &expected,
+            }],
+        );
+    }
+
+    #[test]
+    fn ordered_absolute_sub_executes_through_the_vm_library() {
+        let expected = hex_bytes("a9 4e 0f");
+        assert_runtime_case(
+            "ordered absolute subtraction",
+            "ordered_absolute_sub_runtime.act",
+            CompileMode::Mir6502,
+            1_000,
+            &[MemoryExpectation {
+                start: RESULT_START,
+                bytes: &expected,
+            }],
+        );
+    }
+
+    #[test]
+    fn paired_word_arithmetic_compare_executes_through_the_vm_library() {
+        let expected = hex_bytes("01 01 00 00 00 01 01 00 01 00 a5");
+        assert_both_backends(
+            "paired word arithmetic compare",
+            "paired_word_arithmetic_compare.act",
+            5_000,
+            &[MemoryExpectation {
+                start: RESULT_START,
+                bytes: &expected,
             }],
         );
     }

@@ -18,4 +18,8 @@ The compatibility entry points from the repository root remain:
 fixtures/runtime/run-initialized-arrays-vm.sh
 fixtures/runtime/run-kalscope-contracts-vm.sh
 fixtures/runtime/run-direct-word-compares-vm.sh
+fixtures/runtime/run-direct-byte-array-indexes-vm.sh
+fixtures/runtime/run-scaled-card-indexes-vm.sh
+fixtures/runtime/run-ordered-absolute-sub-vm.sh
+fixtures/runtime/run-paired-word-arithmetic-compare-vm.sh
 ```
