@@ -406,31 +406,37 @@ mod relocation_tests {
             CompileMode::Optimized,
             CompileMode::Mir6502,
         ] {
-            let baseline = compile_file(
-                fixture(),
-                &CompileOptions::for_mode(mode).with_origin(0x3000),
-            )
-            .unwrap_or_else(|error| panic!("compile baseline {mode:?}: {error}"));
-            let candidate = compile_file(
-                fixture(),
-                &CompileOptions::for_mode(mode).with_origin(0x41c7),
-            )
-            .unwrap_or_else(|error| panic!("compile candidate {mode:?}: {error}"));
-            let relocated = apply_origin(&baseline.output, candidate.output.origin);
-            let mismatches = relocated
-                .iter()
-                .zip(&candidate.output.bytes)
-                .enumerate()
-                .filter_map(|(offset, (actual, expected))| {
-                    (actual != expected).then_some((offset, *actual, *expected))
-                })
-                .collect::<Vec<_>>();
+            for (baseline_origin, candidate_origin) in [(0x3000, 0x41c7), (0x2b40, 0x52d3)] {
+                let baseline = compile_file(
+                    fixture(),
+                    &CompileOptions::for_mode(mode).with_origin(baseline_origin),
+                )
+                .unwrap_or_else(|error| {
+                    panic!("compile baseline {mode:?} at ${baseline_origin:04X}: {error}")
+                });
+                let candidate = compile_file(
+                    fixture(),
+                    &CompileOptions::for_mode(mode).with_origin(candidate_origin),
+                )
+                .unwrap_or_else(|error| {
+                    panic!("compile candidate {mode:?} at ${candidate_origin:04X}: {error}")
+                });
+                let relocated = apply_origin(&baseline.output, candidate.output.origin);
+                let mismatches = relocated
+                    .iter()
+                    .zip(&candidate.output.bytes)
+                    .enumerate()
+                    .filter_map(|(offset, (actual, expected))| {
+                        (actual != expected).then_some((offset, *actual, *expected))
+                    })
+                    .collect::<Vec<_>>();
 
-            assert!(
-                mismatches.is_empty(),
-                "{mode:?} origin-dependent bytes lack relocation provenance: {mismatches:02X?}\nrelocations: {:#?}",
-                baseline.output.relocations
-            );
+                assert!(
+                    mismatches.is_empty(),
+                    "{mode:?} ${baseline_origin:04X}->${candidate_origin:04X} origin-dependent bytes lack relocation provenance: {mismatches:02X?}\nrelocations: {:#?}",
+                    baseline.output.relocations
+                );
+            }
         }
     }
 }
