@@ -17,7 +17,9 @@ ROMs. Fixtures whose generated code calls Action! or OS services use the
 cartridge-object profile; the harness reads the repository's ROM files and
 passes their bytes to the VM library itself.
 
-The compatibility entry points from the repository root remain:
+Every `fixtures/runtime/run-*-vm.sh` compatibility entry point now selects its
+corresponding library test. Scripts that also assert a compiler selection keep
+that preflight before invoking the harness. Examples:
 
 ```sh
 fixtures/runtime/run-initialized-arrays-vm.sh

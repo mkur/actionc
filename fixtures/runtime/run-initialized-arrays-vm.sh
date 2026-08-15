@@ -11,4 +11,4 @@ if [[ ! -f "$harness_root/Cargo.toml" ]]; then
 fi
 
 cd "$harness_root"
-cargo test --locked
+cargo test --locked initialized_arrays_execute_through_the_vm_library

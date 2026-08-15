@@ -3,34 +3,11 @@ set -euo pipefail
 
 runtime_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$runtime_dir/../.." && pwd)"
-vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
+harness_root="$repo_root/tools/vm-runtime-tests"
 source_path="$runtime_dir/dual_pointer_word_transfers.act"
-cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
-os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
-shared_expected="34 12 78 56 ef be fe ca 57 13 68 24 00 01 68 24 03 05 03 05 00 80 00 00"
-mir6502_expected="$shared_expected 34 12 01 02 01 02"
+materialized_path="$(mktemp "${TMPDIR:-/tmp}/actionc-dual-pointer-word-transfers.XXXXXX")"
+trap 'rm -f "$materialized_path"' EXIT
 
-require_file() {
-  local path="$1"
-  local label="$2"
-  if [[ ! -f "$path" ]]; then
-    echo "Missing $label: $path" >&2
-    exit 1
-  fi
-}
-
-require_file "$source_path" "runtime fixture"
-require_file "$vm_root/Cargo.toml" "action-compiler-vm project"
-require_file "$cart_rom" "Action! cartridge ROM"
-require_file "$os_rom" "Atari OS ROM"
-
-out_dir="$(mktemp -d "${TMPDIR:-/tmp}/actionc-dual-pointer-word-transfers.XXXXXX")"
-cleanup() {
-  rm -rf "$out_dir"
-}
-trap cleanup EXIT
-
-materialized_path="$out_dir/mir6502.materialized"
 (
   cd "$repo_root"
   cargo run --quiet --bin actionc-emit -- \
@@ -49,48 +26,8 @@ if [[ "$copy_count" != "6" || "$scaled_copy_count" != "2" || "$compound_count" !
   echo "FAILED: MIR6502 did not select the expected dual-pointer transfers" >&2
   echo "  expected: 6 copies, including 2 scaled-source copies, 1 compound update, and 1 direct-source copy" >&2
   echo "  actual:   $copy_count copies, including $scaled_copy_count scaled-source copies, $compound_count compound updates, and $direct_copy_count direct-source copies" >&2
-  grep -E 'copy_indirect_word|indirect_word_compound|copy_direct_word_to_indirect' "$materialized_path" >&2 || true
   exit 1
 fi
 
-for backend in classic mir6502; do
-  object_path="$out_dir/$backend.com"
-  memory_path="$out_dir/$backend.memory.bin"
-
-  echo "==> dual-pointer word transfers: compile modern/$backend"
-  (
-    cd "$repo_root"
-    cargo run --quiet --bin actionc -- \
-      --profile modern \
-      --backend "$backend" \
-      --output "$object_path" \
-      "$source_path"
-  )
-
-  echo "==> dual-pointer word transfers: execute modern/$backend"
-  cargo run --quiet --manifest-path "$vm_root/Cargo.toml" -- run \
-    --cart "$cart_rom" \
-    --os "$os_rom" \
-    --load-object "$object_path" \
-    --dump-memory-on-stop "$memory_path" \
-    --max-steps 2200 \
-    --history 8
-
-  byte_count=24
-  expected="$shared_expected"
-  if [[ "$backend" == "mir6502" ]]; then
-    byte_count=30
-    expected="$mir6502_expected"
-  fi
-  actual="$(od -An -tx1 -j "$((0x0600))" -N "$byte_count" "$memory_path" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
-  if [[ "$actual" != "$expected" ]]; then
-    echo "FAILED: modern/$backend dual-pointer word-transfer results" >&2
-    echo "  expected: $expected" >&2
-    echo "  actual:   $actual" >&2
-    exit 1
-  fi
-
-  printf '    %s validated bytes at $0600: %s\n' "$byte_count" "$actual"
-done
-
-echo "dual-pointer word-transfer runtime gate passed"
+cd "$harness_root"
+cargo test --locked dual_pointer_word_transfers_execute_through_the_vm_library

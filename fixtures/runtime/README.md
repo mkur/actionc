@@ -1,10 +1,10 @@
 # Runtime Fixtures
 
 These fixtures execute generated load files with `action-compiler-vm` and
-check observable memory results. Migrated gates use the pinned library through
-the isolated `tools/vm-runtime-tests` crate. Gates that still invoke the VM CLI
-default to the sibling path `../action-compiler-vm`; override it with
-`ACTION_COMPILER_VM_DIR`.
+check observable memory results. All gates use the pinned VM library through
+the isolated `tools/vm-runtime-tests` crate. Compatibility scripts that also
+check a compiler selection retain that preflight, then select the matching
+library test.
 
 Run the initialized-array gate directly:
 
