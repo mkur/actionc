@@ -69,17 +69,20 @@ impl Generator {
             proofs: proofs.clone(),
             proof_attempts: proof_attempts.clone(),
         };
-        self.emitter.finish().map(|bytes| CodegenOutput {
-            bytes,
-            origin,
-            run_address,
-            skipped_ranges,
-            routine_addresses,
-            optimizations,
-            proofs,
-            proof_attempts,
-            map,
-        })
+        self.emitter
+            .finish_with_relocations()
+            .map(|emission| CodegenOutput {
+                bytes: emission.bytes,
+                origin,
+                run_address,
+                relocations: emission.relocations,
+                skipped_ranges,
+                routine_addresses,
+                optimizations,
+                proofs,
+                proof_attempts,
+                map,
+            })
     }
 }
 

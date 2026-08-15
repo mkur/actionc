@@ -85,8 +85,13 @@ impl NativeTrackedEmitter {
         true
     }
 
+    #[cfg(test)]
     pub(crate) fn finish(self) -> Result<Vec<u8>, Vec<Diagnostic>> {
         self.emitter.finish()
+    }
+
+    pub(crate) fn finish_with_relocations(self) -> Result<FinalizedEmission, Vec<Diagnostic>> {
+        self.emitter.finish_with_relocations()
     }
 
     pub(super) fn bind_label_at_position(

@@ -14,12 +14,45 @@ pub struct CodegenOutput {
     pub bytes: Vec<u8>,
     pub origin: u16,
     pub run_address: u16,
+    pub relocations: Vec<CodegenRelocation>,
     pub skipped_ranges: Vec<SkippedRange>,
     pub routine_addresses: Vec<RoutineAddress>,
     pub optimizations: Vec<CodegenOptimization>,
     pub proofs: Vec<CodegenProof>,
     pub proof_attempts: Vec<CodegenProofAttempt>,
     pub map: CodegenMap,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodegenRelocation {
+    pub value_offset: u16,
+    pub target_offset: u16,
+    pub addend: i32,
+    pub kind: CodegenRelocationKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodegenRelocationKind {
+    Word16,
+    Address8,
+    Low8,
+    High8,
+    Relative8,
+}
+
+impl CodegenRelocationKind {
+    pub fn width(self) -> u16 {
+        match self {
+            Self::Word16 => 2,
+            Self::Address8 | Self::Low8 | Self::High8 | Self::Relative8 => 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FinalizedEmission {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) relocations: Vec<CodegenRelocation>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

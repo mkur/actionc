@@ -4407,6 +4407,103 @@ fn emitter_patches_relative_labels() {
 }
 
 #[test]
+fn emitter_retains_resolved_relocation_metadata() {
+    let mut emitter = Emitter::with_origin(0x31f0);
+    emitter.emit_u16_label_offset("target", 3, Span::new(0, 0));
+    emitter.emit_u8_label_low_offset("target", -1, Span::new(0, 0));
+    emitter.emit_u8_label_high("target", Span::new(0, 0));
+    emitter.emit_branch_label(opcode::BNE_REL, "target", Span::new(0, 0));
+    emitter.bind_label("target", Span::new(0, 0)).unwrap();
+    emitter.emit_rts();
+
+    let emission = emitter.finish_with_relocations().unwrap();
+
+    assert_eq!(
+        emission.bytes,
+        [0xF9, 0x31, 0xF5, 0x31, opcode::BNE_REL, 0x00, opcode::RTS]
+    );
+    assert_eq!(
+        emission.relocations,
+        [
+            CodegenRelocation {
+                value_offset: 0,
+                target_offset: 6,
+                addend: 3,
+                kind: CodegenRelocationKind::Word16,
+            },
+            CodegenRelocation {
+                value_offset: 2,
+                target_offset: 6,
+                addend: -1,
+                kind: CodegenRelocationKind::Low8,
+            },
+            CodegenRelocation {
+                value_offset: 3,
+                target_offset: 6,
+                addend: 0,
+                kind: CodegenRelocationKind::High8,
+            },
+            CodegenRelocation {
+                value_offset: 5,
+                target_offset: 6,
+                addend: 0,
+                kind: CodegenRelocationKind::Relative8,
+            },
+        ]
+    );
+}
+
+#[test]
+fn emitter_does_not_relocate_explicit_absolute_values() {
+    let mut emitter = Emitter::with_origin(0x3000);
+    emitter.emit_lda_abs(0x3000);
+    emitter.emit_sta_abs(0xD01A);
+
+    let emission = emitter.finish_with_relocations().unwrap();
+
+    assert_eq!(
+        emission.bytes,
+        [opcode::LDA_ABS, 0x00, 0x30, opcode::STA_ABS, 0x1A, 0xD0]
+    );
+    assert!(emission.relocations.is_empty());
+}
+
+#[test]
+fn emitter_rejects_overlapping_relocations() {
+    let mut emitter = Emitter::with_origin(0x3000);
+    emitter.emit_u16_label("target", Span::new(0, 0));
+    emitter.emit_u16_label("target", Span::new(0, 0));
+    emitter.patches[1].offset = 1;
+    emitter.bind_label("target", Span::new(0, 0)).unwrap();
+
+    let diagnostics = emitter.finish_with_relocations().unwrap_err();
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("overlapping code relocations")),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn emitter_rejects_relocations_outside_emitted_bytes() {
+    let mut emitter = Emitter::with_origin(0x3000);
+    emitter.emit_u16_label("target", Span::new(0, 0));
+    emitter.patches[0].offset = emitter.bytes.len();
+    emitter.bind_label("target", Span::new(0, 0)).unwrap();
+
+    let diagnostics = emitter.finish_with_relocations().unwrap_err();
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("outside the emitted bytes")),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn generates_empty_proc_as_rts() {
     let output = generate_source("PROC Main()").unwrap();
     assert_eq!(output.bytes, vec![opcode::RTS]);

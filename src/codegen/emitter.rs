@@ -745,8 +745,14 @@ impl Emitter {
         self.emit_u8(absolute.high());
     }
 
-    pub fn finish(mut self) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    pub fn finish(self) -> Result<Vec<u8>, Vec<Diagnostic>> {
+        self.finish_with_relocations()
+            .map(|emission| emission.bytes)
+    }
+
+    pub(crate) fn finish_with_relocations(mut self) -> Result<FinalizedEmission, Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
+        let mut relocations = Vec::with_capacity(self.patches.len());
 
         for patch in &self.patches {
             let Some(&target) = self.labels.get(&patch.label) else {
@@ -756,6 +762,46 @@ impl Emitter {
                 ));
                 continue;
             };
+
+            let Ok(value_offset) = u16::try_from(patch.offset) else {
+                diagnostics.push(Diagnostic::new(
+                    patch.span,
+                    format!(
+                        "code patch for `{}` is outside the 16-bit segment",
+                        patch.label
+                    ),
+                ));
+                continue;
+            };
+            let Ok(target_offset) = u16::try_from(target) else {
+                diagnostics.push(Diagnostic::new(
+                    patch.span,
+                    format!("code label `{}` is outside the 16-bit segment", patch.label),
+                ));
+                continue;
+            };
+
+            let kind = match patch.kind {
+                PatchKind::Absolute16 => CodegenRelocationKind::Word16,
+                PatchKind::AbsoluteLow8 => CodegenRelocationKind::Low8,
+                PatchKind::AbsoluteHigh8 => CodegenRelocationKind::High8,
+                PatchKind::Relative8 => CodegenRelocationKind::Relative8,
+            };
+            let width = usize::from(kind.width());
+            if patch
+                .offset
+                .checked_add(width)
+                .is_none_or(|end| end > self.bytes.len())
+            {
+                diagnostics.push(Diagnostic::new(
+                    patch.span,
+                    format!(
+                        "code patch for `{}` is outside the emitted bytes",
+                        patch.label
+                    ),
+                ));
+                continue;
+            }
 
             match patch.kind {
                 PatchKind::Absolute16 => {
@@ -796,10 +842,34 @@ impl Emitter {
                     }
                 }
             }
+
+            relocations.push(CodegenRelocation {
+                value_offset,
+                target_offset,
+                addend: patch.addend,
+                kind,
+            });
+        }
+
+        relocations.sort_by_key(|relocation| relocation.value_offset);
+        for pair in relocations.windows(2) {
+            let left_end = pair[0].value_offset.saturating_add(pair[0].kind.width());
+            if left_end > pair[1].value_offset {
+                diagnostics.push(Diagnostic::new(
+                    Span::new(0, 0),
+                    format!(
+                        "overlapping code relocations at byte offsets {} and {}",
+                        pair[0].value_offset, pair[1].value_offset
+                    ),
+                ));
+            }
         }
 
         if diagnostics.is_empty() {
-            Ok(self.bytes)
+            Ok(FinalizedEmission {
+                bytes: self.bytes,
+                relocations,
+            })
         } else {
             Err(diagnostics)
         }

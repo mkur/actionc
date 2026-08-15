@@ -1526,6 +1526,7 @@ mod tests {
             bytes,
             origin,
             run_address: origin,
+            relocations: Vec::new(),
             skipped_ranges: Vec::new(),
             routine_addresses: routine_addresses.clone(),
             optimizations: Vec::new(),

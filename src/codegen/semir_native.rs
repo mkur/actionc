@@ -174,13 +174,16 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         let skipped_ranges = self.bind_array_backings()?;
         self.bind_storage_data_labels()?;
 
-        let bytes = self.emitter.finish().map_err(|diagnostics| {
-            diagnostics
-                .into_iter()
-                .map(|diagnostic| diagnostic.message)
-                .collect::<Vec<_>>()
-                .join("; ")
-        })?;
+        let emission = self
+            .emitter
+            .finish_with_relocations()
+            .map_err(|diagnostics| {
+                diagnostics
+                    .into_iter()
+                    .map(|diagnostic| diagnostic.message)
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            })?;
         let run_address = self
             .main_run_address
             .or(self.last_routine_run_address)
@@ -220,9 +223,10 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         };
 
         Ok(CodegenOutput {
-            bytes,
+            bytes: emission.bytes,
             origin: self.model.origin,
             run_address,
+            relocations: emission.relocations,
             skipped_ranges,
             routine_addresses,
             optimizations,

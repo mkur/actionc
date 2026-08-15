@@ -88,7 +88,7 @@ pub fn generate_output_with_config(
     let mir = materialize_program_with_origin(mir, config, origin)?;
     let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(origin);
     let summary = emit::emit_program(&mir, origin, &mut emitter)?;
-    let bytes = emitter.finish().map_err(|diagnostics| {
+    let emission = emitter.finish_with_relocations().map_err(|diagnostics| {
         diagnostics
             .into_iter()
             .map(|diagnostic| MirDiagnostic {
@@ -98,11 +98,11 @@ pub fn generate_output_with_config(
             })
             .collect::<Vec<_>>()
     })?;
-    Ok(codegen_output(bytes, origin, summary))
+    Ok(codegen_output(emission, origin, summary))
 }
 
 fn codegen_output(
-    bytes: Vec<u8>,
+    emission: crate::codegen::FinalizedEmission,
     origin: u16,
     summary: emit::MirEmissionSummary,
 ) -> crate::codegen::CodegenOutput {
@@ -132,9 +132,10 @@ fn codegen_output(
         proof_attempts: proof_attempts.clone(),
     };
     crate::codegen::CodegenOutput {
-        bytes,
+        bytes: emission.bytes,
         origin,
         run_address,
+        relocations: emission.relocations,
         skipped_ranges,
         routine_addresses,
         optimizations,
