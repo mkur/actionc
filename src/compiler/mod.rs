@@ -439,4 +439,33 @@ mod relocation_tests {
             }
         }
     }
+
+    #[test]
+    fn semir_native_relocations_explain_origin_changes_in_the_listing_contract_fixture() {
+        for (baseline_origin, candidate_origin) in [(0x3000, 0x41c7), (0x2b40, 0x52d3)] {
+            let request = |origin| CompileRequest {
+                profile: CodegenProfile::Modern,
+                profile_explicit: true,
+                backend: Backend::Classic,
+                backend_explicit: true,
+                codegen_source: CodegenSource::SemIrNative,
+                origin: Some(origin),
+            };
+            let baseline = compile_file_with_request(&fixture(), &request(baseline_origin))
+                .unwrap_or_else(|error| {
+                    panic!("compile SemIR-native baseline at ${baseline_origin:04X}: {error}")
+                });
+            let candidate = compile_file_with_request(&fixture(), &request(candidate_origin))
+                .unwrap_or_else(|error| {
+                    panic!("compile SemIR-native candidate at ${candidate_origin:04X}: {error}")
+                });
+            let relocated = apply_origin(&baseline.output, candidate.output.origin);
+
+            assert_eq!(
+                relocated, candidate.output.bytes,
+                "SemIR-native ${baseline_origin:04X}->${candidate_origin:04X} origin-dependent bytes lack relocation provenance\nrelocations: {:#?}",
+                baseline.output.relocations
+            );
+        }
+    }
 }

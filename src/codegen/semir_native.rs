@@ -36,6 +36,7 @@ pub(super) fn generate_native_profile_with_origin(
 struct SemIrNativeEmitter<'a, 'm> {
     model: &'m SemIrReadModel<'a>,
     storage: HashMap<SymbolId, NativeStorageSlot>,
+    output_relative_storage: Vec<(u16, u16)>,
     storage_data_targets: HashMap<SymbolId, MachineSymbolAddress>,
     machine_caret_values: HashMap<SymbolId, u16>,
     emitter: NativeTrackedEmitter,
@@ -139,6 +140,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         Self {
             model,
             storage: HashMap::new(),
+            output_relative_storage: Vec::new(),
             storage_data_targets: HashMap::new(),
             machine_caret_values: HashMap::new(),
             emitter: NativeTrackedEmitter::with_origin(model.origin),
@@ -308,6 +310,11 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         slot: &NativeStorageSlot,
         backing_count_before: usize,
     ) {
+        let slot_target = if self.storage_address_is_output_relative(slot.address) {
+            MachineSymbolAddress::OutputRelative(slot.address)
+        } else {
+            MachineSymbolAddress::Absolute(slot.address)
+        };
         let target = match slot.array {
             Some(NativeArrayStorage {
                 storage: CodegenArrayStorage::Descriptor,
@@ -316,7 +323,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                 .array_backings
                 .get(backing_count_before)
                 .map(|backing| MachineSymbolAddress::Label(backing.label.clone()))
-                .unwrap_or(MachineSymbolAddress::Absolute(slot.address)),
+                .unwrap_or_else(|| slot_target.clone()),
             Some(NativeArrayStorage {
                 storage: CodegenArrayStorage::Pointer,
                 ..
@@ -331,11 +338,39 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                             .map(MachineSymbolAddress::Label)
                     })
                 })
-                .unwrap_or(MachineSymbolAddress::Absolute(slot.address)),
-            _ => MachineSymbolAddress::Absolute(slot.address),
+                .unwrap_or_else(|| slot_target.clone()),
+            _ => slot_target,
         };
         self.storage_data_targets
             .insert(declaration.symbol.id, target);
+    }
+
+    fn record_output_relative_storage(
+        &mut self,
+        slot: &NativeStorageSlot,
+        source_start: u16,
+        source_end: u16,
+    ) {
+        if source_end > source_start && slot.address >= source_start && slot.address < source_end {
+            self.output_relative_storage.push((
+                slot.address,
+                slot.address.saturating_add(native_slot_size(slot)),
+            ));
+        }
+    }
+
+    fn storage_address_is_output_relative(&self, address: u16) -> bool {
+        self.output_relative_storage
+            .iter()
+            .any(|(start, end)| address >= *start && address < *end)
+    }
+
+    fn storage_absolute(&self, address: u16) -> Absolute {
+        if self.storage_address_is_output_relative(address) {
+            Absolute::output_relative(address)
+        } else {
+            Absolute::new(address)
+        }
     }
 
     fn emit_global_storage(&mut self) -> Result<(), String> {
@@ -452,6 +487,8 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             }
         };
         debug_assert_eq!(address, slot.address);
+        let source_end = self.current_address()?;
+        self.record_output_relative_storage(&slot, source_start, source_end);
         self.record_storage_data_target(declaration, &slot, backing_count_before);
         self.storage.insert(declaration.symbol.id, slot.clone());
         self.record_storage_symbol(
@@ -460,7 +497,6 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             CodegenSymbolKind::Storage,
             slot,
         );
-        let source_end = self.current_address()?;
         self.record_source_range(
             CodegenSourceRangeKind::Declaration,
             Some(declaration.symbol.name.clone()),
@@ -1118,9 +1154,11 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                 pointee_width: self.native_sem_pointee_width(&param.ty),
                 record,
             };
+            self.output_relative_storage
+                .push((address, address.saturating_add(native_slot_size(&slot))));
             self.storage_data_targets.insert(
                 param.symbol.id,
-                MachineSymbolAddress::Absolute(slot.address),
+                MachineSymbolAddress::OutputRelative(slot.address),
             );
             self.storage.insert(param.symbol.id, slot.clone());
             self.record_storage_symbol(
@@ -1174,6 +1212,8 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                 }
             };
             debug_assert_eq!(address, slot.address);
+            let source_end = self.current_address()?;
+            self.record_output_relative_storage(&slot, source_start, source_end);
             self.record_storage_data_target(local, &slot, backing_count_before);
             self.storage.insert(local.symbol.id, slot.clone());
             self.record_storage_symbol(
@@ -1182,7 +1222,6 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                 CodegenSymbolKind::Local,
                 slot,
             );
-            let source_end = self.current_address()?;
             self.record_source_range(
                 CodegenSourceRangeKind::Declaration,
                 Some(local.symbol.name.clone()),
@@ -3906,7 +3945,19 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         if let Some(value) = self.numeric_define(name) {
             self.emit_machine_address_byte_value(selector, value);
         } else if let Some(slot) = self.machine_storage_slot(name) {
-            self.emit_machine_address_byte_value(selector, slot.address);
+            if self.storage_address_is_output_relative(slot.address) {
+                let kind = match selector {
+                    AddressByteSelector::Low => CodegenRelocationKind::Low8,
+                    AddressByteSelector::High => CodegenRelocationKind::High8,
+                };
+                self.emitter
+                    .emit_output_relative(slot.address, 0, kind)
+                    .map_err(|()| {
+                        format!("machine block symbol `{name}` address is outside the segment")
+                    })?;
+            } else {
+                self.emit_machine_address_byte_value(selector, slot.address);
+            }
         } else if let Some(routine) = self.machine_routine(name) {
             if let Some(address) = self.machine_routine_absolute_address(routine) {
                 self.emit_machine_address_byte_value(selector, address);
@@ -3952,9 +4003,14 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                 )?;
             }
             MachineAddressAtom::Current => {
-                let value =
-                    native_machine_apply_offset(self.current_address()?, offset, &expr.text)?;
-                self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
+                let target = self.current_address()?;
+                self.emit_machine_output_relative_address_value(
+                    target,
+                    offset,
+                    expr.selector,
+                    pending_operand_bytes,
+                    &expr.text,
+                )?;
             }
         }
         Ok(())
@@ -3996,8 +4052,18 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             let value = native_machine_apply_offset(value, offset, &expr.text)?;
             self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
         } else if let Some(slot) = self.machine_storage_slot(name) {
-            let value = native_machine_apply_offset(slot.address, offset, &expr.text)?;
-            self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
+            if self.storage_address_is_output_relative(slot.address) {
+                self.emit_machine_output_relative_address_value(
+                    slot.address,
+                    offset,
+                    expr.selector,
+                    pending_operand_bytes,
+                    &expr.text,
+                )?;
+            } else {
+                let value = native_machine_apply_offset(slot.address, offset, &expr.text)?;
+                self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
+            }
         } else if let Some(routine) = self.machine_routine(name) {
             if let Some(address) = self.machine_routine_absolute_address(routine) {
                 let value = native_machine_apply_offset(address, offset, &expr.text)?;
@@ -4064,6 +4130,29 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             None if value <= 0xFF => self.emit_machine_number(value, pending_operand_bytes),
             None => self.emit_machine_absolute(value, pending_operand_bytes),
         }
+    }
+
+    fn emit_machine_output_relative_address_value(
+        &mut self,
+        target: u16,
+        addend: i32,
+        selector: Option<AddressByteSelector>,
+        pending_operand_bytes: &mut u8,
+        text: &str,
+    ) -> Result<(), String> {
+        let resolved = native_machine_apply_offset(target, addend, text)?;
+        let addend = i32::from(resolved.wrapping_sub(target) as i16);
+        let kind = match selector {
+            Some(AddressByteSelector::Low) => CodegenRelocationKind::Low8,
+            Some(AddressByteSelector::High) => CodegenRelocationKind::High8,
+            None if *pending_operand_bytes == 1 => CodegenRelocationKind::Address8,
+            None => CodegenRelocationKind::Word16,
+        };
+        self.emitter
+            .emit_output_relative(target, addend, kind)
+            .map_err(|()| format!("machine block address `{text}` is outside the segment"))?;
+        *pending_operand_bytes = pending_operand_bytes.saturating_sub(kind.width() as u8);
+        Ok(())
     }
 
     fn machine_routine_absolute_address(&self, routine: &SemRoutine) -> Option<u16> {

@@ -158,6 +158,17 @@ run_reorigin_case() {
   local source="$repo_root/$5"
   local origin_a="$6"
   local origin_b="$7"
+  local codegen_source="${8:-ast}"
+  local -a actionc_selection=(--mode "$mode")
+  local -a emit_selection=(--profile "$profile" --backend "$backend")
+  if [[ "$codegen_source" != ast ]]; then
+    actionc_selection=(
+      --profile "$profile"
+      --backend "$backend"
+      --codegen-source "$codegen_source"
+    )
+    emit_selection+=(--codegen-source "$codegen_source")
+  fi
   local actionc_a="$oracle_dir/$name.a.actionc.xex"
   local actionc_b="$oracle_dir/$name.b.actionc.xex"
   local plain_a="$oracle_dir/$name.a.asm"
@@ -169,11 +180,11 @@ run_reorigin_case() {
   local plain_b_load="$oracle_dir/$name.b.mads.xex"
   local source_b_load="$oracle_dir/$name.b.source.mads.xex"
 
-  "$actionc_bin" --mode "$mode" --origin "$origin_a" --output "$actionc_a" \
+  "$actionc_bin" "${actionc_selection[@]}" --origin "$origin_a" --output "$actionc_a" \
     --listing "$source_a" "$source"
-  "$actionc_bin" --mode "$mode" --origin "$origin_b" --output "$actionc_b" \
+  "$actionc_bin" "${actionc_selection[@]}" --origin "$origin_b" --output "$actionc_b" \
     "$source"
-  "$emit_bin" --profile "$profile" --backend "$backend" --origin "$origin_a" \
+  "$emit_bin" "${emit_selection[@]}" --origin "$origin_a" \
     --emit-listing "$source" >"$plain_a"
 
   "$mads_bin" "$plain_a" "-o:$plain_a_load" -s
@@ -210,9 +221,13 @@ for origin_pair in '$3000:$41C7' '$2B40:$52D3'; do
   run_reorigin_case "reorigin-optimized-$pair_name" \
     "optimized" "modern" "classic" \
     "fixtures/listing/mads_reorigin_contract.act" "$origin_a" "$origin_b"
+  run_reorigin_case "reorigin-semir-native-$pair_name" \
+    "optimized" "modern" "classic" \
+    "fixtures/listing/mads_reorigin_contract.act" "$origin_a" "$origin_b" \
+    "semir-native"
   run_reorigin_case "reorigin-mir6502-$pair_name" \
     "mir6502" "modern" "mir6502" \
     "fixtures/listing/mads_reorigin_contract.act" "$origin_a" "$origin_b"
 done
 
-echo "MADS listing oracle passed: 10 compiler cases, 32 assembled listings"
+echo "MADS listing oracle passed: 12 compiler cases, 40 assembled listings"

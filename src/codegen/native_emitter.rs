@@ -190,8 +190,8 @@ impl NativeTrackedEmitter {
         self.state.call_unknown();
     }
 
-    pub(crate) fn emit_jmp_abs(&mut self, address: u16) {
-        self.emitter.emit_jmp_abs(address);
+    pub(crate) fn emit_jmp_abs(&mut self, address: impl Into<Absolute>) {
+        self.emitter.emit_jmp_absolute(address.into());
         self.state.call_unknown();
     }
 
@@ -205,8 +205,8 @@ impl NativeTrackedEmitter {
         self.state.call_unknown();
     }
 
-    pub(crate) fn emit_jsr_abs(&mut self, address: u16) {
-        self.emitter.emit_jsr_abs(address);
+    pub(crate) fn emit_jsr_abs(&mut self, address: impl Into<Absolute>) {
+        self.emitter.emit_jsr_absolute(address.into());
         self.state.call_unknown();
     }
 
@@ -365,7 +365,9 @@ impl NativeTrackedEmitter {
     }
 
     pub(crate) fn emit_sta_absolute(&mut self, absolute: Absolute) {
-        if let Some(zero_page) = direct_zero_page(absolute.address()) {
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(absolute.address())
+        {
             self.emit_sta_zero_page(zero_page);
             return;
         }
@@ -394,7 +396,9 @@ impl NativeTrackedEmitter {
     }
 
     pub(crate) fn emit_stx_absolute(&mut self, absolute: Absolute) {
-        if let Some(zero_page) = direct_zero_page(absolute.address()) {
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(absolute.address())
+        {
             self.emit_stx_zero_page(zero_page);
             return;
         }
@@ -408,7 +412,9 @@ impl NativeTrackedEmitter {
     }
 
     pub(crate) fn emit_sty_absolute(&mut self, absolute: Absolute) {
-        if let Some(zero_page) = direct_zero_page(absolute.address()) {
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(absolute.address())
+        {
             self.emit_sty_zero_page(zero_page);
             return;
         }
@@ -501,7 +507,9 @@ impl NativeTrackedEmitter {
     }
 
     pub(crate) fn emit_dec_absolute(&mut self, absolute: Absolute) {
-        if let Some(zero_page) = direct_zero_page(absolute.address()) {
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(absolute.address())
+        {
             self.emit_dec_zero_page(zero_page);
             return;
         }
@@ -650,7 +658,9 @@ impl NativeTrackedEmitter {
     }
 
     pub(crate) fn emit_inc_absolute(&mut self, absolute: Absolute) {
-        if let Some(zero_page) = direct_zero_page(absolute.address()) {
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(absolute.address())
+        {
             self.emit_inc_zero_page(zero_page);
             return;
         }

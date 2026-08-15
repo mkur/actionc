@@ -79,7 +79,8 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
     }
 
     pub(super) fn emit_jmp_addr(&mut self, address: u16) {
-        self.emitter.emit_jmp_abs(address);
+        self.emitter
+            .emit_jmp_abs(Absolute::output_relative(address));
     }
 
     pub(super) fn emit_jsr_addr(&mut self, address: u16) {
@@ -313,75 +314,101 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
     }
 
     pub(super) fn emit_lda_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_lda_zero_page(zero_page);
         } else {
-            self.emitter.emit_lda_abs(address);
+            self.emitter.emit_lda_abs(absolute);
         }
     }
 
     pub(super) fn emit_sta_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_sta_zero_page(zero_page);
         } else {
-            self.emitter.emit_sta_absolute(Absolute::new(address));
+            self.emitter.emit_sta_absolute(absolute);
         }
     }
 
     pub(super) fn emit_lda_addr_x(&mut self, address: u16) {
-        self.emitter.emit_lda_abs_x(address);
+        self.emitter
+            .emit_lda_abs_x(AbsoluteX::from_absolute(self.storage_absolute(address)));
     }
 
     pub(super) fn emit_sta_addr_x(&mut self, address: u16) {
-        self.emitter.emit_sta_abs_x(address);
+        self.emitter
+            .emit_sta_abs_x(AbsoluteX::from_absolute(self.storage_absolute(address)));
     }
 
     pub(super) fn emit_sty_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_sty_zero_page(zero_page);
         } else {
-            self.emitter.emit_sty_absolute(Absolute::new(address));
+            self.emitter.emit_sty_absolute(absolute);
         }
     }
 
     pub(super) fn emit_ldy_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_ldy_zero_page(zero_page);
         } else {
-            self.emitter.emit_ldy_abs(address);
+            self.emitter.emit_ldy_abs(absolute);
         }
         self.y_known_zero = false;
     }
 
     pub(super) fn emit_ldx_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_ldx_zero_page(zero_page);
         } else {
-            self.emitter.emit_ldx_abs(address);
+            self.emitter.emit_ldx_abs(absolute);
         }
     }
 
     pub(super) fn emit_stx_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_stx_zero_page(zero_page);
         } else {
-            self.emitter.emit_stx_absolute(Absolute::new(address));
+            self.emitter.emit_stx_absolute(absolute);
         }
     }
 
     pub(super) fn emit_adc_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_adc_zero_page(zero_page);
         } else {
-            self.emitter.emit_adc_abs(address);
+            self.emitter.emit_adc_abs(absolute);
         }
     }
 
     pub(super) fn emit_cmp_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_cmp_zero_page(zero_page);
         } else {
-            self.emitter.emit_cmp_abs(address);
+            self.emitter.emit_cmp_abs(absolute);
         }
     }
 
@@ -390,58 +417,78 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
     }
 
     pub(super) fn emit_eor_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_eor_zero_page(zero_page);
         } else {
-            self.emitter.emit_eor_abs(address);
+            self.emitter.emit_eor_abs(absolute);
         }
     }
 
     pub(super) fn emit_and_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_and_zero_page(zero_page);
         } else {
-            self.emitter.emit_and_abs(address);
+            self.emitter.emit_and_abs(absolute);
         }
     }
 
     pub(super) fn emit_ora_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_ora_zero_page(zero_page);
         } else {
-            self.emitter.emit_ora_abs(address);
+            self.emitter.emit_ora_abs(absolute);
         }
     }
 
     pub(super) fn emit_inc_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_inc_zero_page(zero_page);
         } else {
-            self.emitter.emit_inc_absolute(Absolute::new(address));
+            self.emitter.emit_inc_absolute(absolute);
         }
     }
 
     pub(super) fn emit_dec_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_dec_zero_page(zero_page);
         } else {
-            self.emitter.emit_dec_absolute(Absolute::new(address));
+            self.emitter.emit_dec_absolute(absolute);
         }
     }
 
     pub(super) fn emit_sbc_addr(&mut self, address: u16) {
-        if let Some(zero_page) = native_zero_page(address) {
+        let absolute = self.storage_absolute(address);
+        if !absolute.is_output_relative()
+            && let Some(zero_page) = native_zero_page(address)
+        {
             self.emitter.emit_sbc_zero_page(zero_page);
         } else {
-            self.emitter.emit_sbc_abs(address);
+            self.emitter.emit_sbc_abs(absolute);
         }
     }
 
     pub(super) fn emit_lsr_addr(&mut self, address: u16) {
-        self.emitter.emit_lsr_absolute(Absolute::new(address));
+        self.emitter
+            .emit_lsr_absolute(self.storage_absolute(address));
     }
 
     pub(super) fn emit_ror_addr(&mut self, address: u16) {
-        self.emitter.emit_ror_absolute(Absolute::new(address));
+        self.emitter
+            .emit_ror_absolute(self.storage_absolute(address));
     }
 }

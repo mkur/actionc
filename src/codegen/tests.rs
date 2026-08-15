@@ -4515,6 +4515,37 @@ fn emitter_retains_provenance_for_resolved_storage_operands_and_address_bytes() 
 }
 
 #[test]
+fn emitter_retains_provenance_for_resolved_jump_and_call_operands() {
+    let mut emitter = Emitter::with_origin(0x3000);
+    emitter.emit_jmp_absolute(Absolute::output_relative(0x3012));
+    emitter.emit_jsr_absolute(Absolute::output_relative(0x3024));
+
+    let emission = emitter.finish_with_relocations().unwrap();
+
+    assert_eq!(
+        emission.bytes,
+        [opcode::JMP_ABS, 0x12, 0x30, opcode::JSR_ABS, 0x24, 0x30]
+    );
+    assert_eq!(
+        emission.relocations,
+        [
+            CodegenRelocation {
+                value_offset: 1,
+                target_offset: 0x12,
+                addend: 0,
+                kind: CodegenRelocationKind::Word16,
+            },
+            CodegenRelocation {
+                value_offset: 4,
+                target_offset: 0x24,
+                addend: 0,
+                kind: CodegenRelocationKind::Word16,
+            },
+        ]
+    );
+}
+
+#[test]
 fn emitter_rejects_overlapping_relocations() {
     let mut emitter = Emitter::with_origin(0x3000);
     emitter.emit_u16_label("target", Span::new(0, 0));
