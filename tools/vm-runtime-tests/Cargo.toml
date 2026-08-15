@@ -1,0 +1,11 @@
+[package]
+name = "actionc-vm-runtime-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+action-compiler-vm = { git = "https://github.com/mkur/action-compiler-vm.git", rev = "cda432c11978bdef1a2c3de542915a67c799641a" }
+actionc = { path = "../.." }
+
+[workspace]

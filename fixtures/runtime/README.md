@@ -105,8 +105,10 @@ The gate compiles `initialized_arrays.act` with the modern classic and MIR6502
 backends. It covers global and local initialized BYTE and CARD arrays,
 including the descriptor-backed CARD representations, then checks the six
 result bytes at `$0600-$0605`. The fixture remains inside a generated-code
-loop, so it uses the VM's `standalone-object` profile and does not load the
-Action! cartridge or Atari OS ROM.
+loop. The isolated `tools/vm-runtime-tests` crate compiles both programs through
+the `actionc` library, runs their object bytes through the pinned VM library,
+and inspects final RAM directly. It does not load the Action! cartridge or
+Atari OS ROM, create memory dumps, or add the VM to normal compiler builds.
 
 The KALSCOPE contract fixture checks two observable behaviors used by that
 program: `BYTE low=line, high=line+1` must alias an absolute-backed array
