@@ -988,6 +988,106 @@ fn compatible_generation_calls_original_multiply_helper_for_constant_product() {
 }
 
 #[test]
+fn modern_strength_reduces_word_multiply_by_power_of_two() {
+    let output = generate_profile_source_with_origin(
+        "CARD input,output PROC Main() output=input*8 RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(!output.bytes.windows(3).any(|bytes| bytes
+        == [
+            opcode::JSR_ABS,
+            runtime_helper::CARTRIDGE_MUL.low(),
+            runtime_helper::CARTRIDGE_MUL.high(),
+        ]));
+    assert_eq!(
+        output
+            .bytes
+            .iter()
+            .filter(|opcode| **opcode == opcode::ASL_ABS)
+            .count(),
+        3
+    );
+    assert_eq!(
+        output
+            .bytes
+            .iter()
+            .filter(|opcode| **opcode == opcode::ROL_ABS)
+            .count(),
+        3
+    );
+}
+
+#[test]
+fn modern_strength_reduces_power_of_two_multiply_nested_in_add() {
+    let output = generate_profile_source_with_origin(
+        "CARD input,output PROC Main() output=input*2+3 RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(!output.bytes.windows(3).any(|bytes| bytes
+        == [
+            opcode::JSR_ABS,
+            runtime_helper::CARTRIDGE_MUL.low(),
+            runtime_helper::CARTRIDGE_MUL.high(),
+        ]));
+    assert!(output.bytes.contains(&opcode::ASL_A));
+    assert!(output.bytes.contains(&opcode::ROL_A));
+}
+
+#[test]
+fn modern_strength_reduces_word_multiply_by_256_to_byte_move() {
+    let output = generate_profile_source_with_origin(
+        "CARD input,output PROC Main() output=256*input RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(!output.bytes.windows(3).any(|bytes| bytes
+        == [
+            opcode::JSR_ABS,
+            runtime_helper::CARTRIDGE_MUL.low(),
+            runtime_helper::CARTRIDGE_MUL.high(),
+        ]));
+    assert_eq!(
+        output
+            .bytes
+            .iter()
+            .filter(|opcode| **opcode == opcode::ASL_A)
+            .count(),
+        0
+    );
+    assert!(
+        output
+            .bytes
+            .windows(6)
+            .any(|bytes| bytes == [opcode::LDA_ABS, 0x00, 0x30, opcode::STA_ABS, 0x03, 0x30,])
+    );
+}
+
+#[test]
+fn compatibility_keeps_dynamic_power_of_two_multiply_helper() {
+    let output = generate_profile_source_with_origin(
+        "CARD input,output PROC Main() output=input*8 RETURN",
+        0x3000,
+        CodegenProfile::Compat,
+    )
+    .unwrap();
+
+    assert!(output.bytes.windows(3).any(|bytes| bytes
+        == [
+            opcode::JSR_ABS,
+            runtime_helper::CARTRIDGE_MUL.low(),
+            runtime_helper::CARTRIDGE_MUL.high(),
+        ]));
+}
+
+#[test]
 fn modern_word_call_argument_preserves_runtime_multiply_high_byte() {
     let output = generate_profile_source_with_origin(
         "BYTE zdx=$5C,zdy=$5D CARD buf CARD FUNC Alloc(CARD n) RETURN(n) \

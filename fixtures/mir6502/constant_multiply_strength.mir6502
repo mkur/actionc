@@ -1,0 +1,23 @@
+mir6502 program
+global g0 input: word storage global+0
+global g1 timesTwo: word storage global+2
+global g2 timesEight: word storage global+4
+global g3 times256: word storage global+6
+global g4 byteInput: byte storage global+8
+global g5 byteTimesEight: word storage global+9
+
+routine r0 Main
+b0 bb0:
+  v0 =.w load global g0+0
+  v1 =.w v0 mul #$02 carry_in=- carry_out=ignore
+  store.w global g1+0, v1
+  v2 =.w load global g0+0
+  v3 =.w #$08 mul v2 carry_in=- carry_out=ignore
+  store.w global g2+0, v3
+  v4 =.w load global g0+0
+  v5 =.w v4 mul #$0100 carry_in=- carry_out=ignore
+  store.w global g3+0, v5
+  v6 =.b load global g4+0
+  v7 =.w v6 mul #$08 carry_in=- carry_out=ignore
+  store.w global g5+0, v7
+  return

@@ -1,0 +1,10 @@
+CARD input,timesTwo,timesEight,times256
+BYTE byteInput
+CARD byteTimesEight
+
+PROC Main()
+  timesTwo = input * 2
+  timesEight = 8 * input
+  times256 = input * 256
+  byteTimesEight = byteInput * 8
+RETURN

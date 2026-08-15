@@ -1092,6 +1092,96 @@ impl Generator {
         true
     }
 
+    fn constant_multiply_strength_reduction_parts<'a>(
+        &self,
+        left: &'a Expr,
+        right: &'a Expr,
+    ) -> Option<(&'a Expr, u16)> {
+        let (operand, factor) = if let Some(factor) = self.constant_u16(right) {
+            (left, factor)
+        } else {
+            (right, self.constant_u16(left)?)
+        };
+        (factor <= 1 || factor.is_power_of_two()).then_some((operand, factor))
+    }
+
+    fn expr_is_constant_multiply_strength_reduction(&self, expr: &Expr) -> bool {
+        let ExprKind::Binary {
+            op: BinaryOp::Mul,
+            left,
+            right,
+        } = &expr.kind
+        else {
+            return false;
+        };
+        self.constant_multiply_strength_reduction_parts(left, right)
+            .is_some()
+    }
+
+    fn emit_modern_constant_multiply_to_slot(
+        &mut self,
+        expr: &Expr,
+        left: &Expr,
+        right: &Expr,
+        slot: StorageSlot,
+    ) -> bool {
+        if !self.profile.enables_modern_optimizations() {
+            return false;
+        }
+
+        if let Some(value) = self.constant_u16(expr) {
+            self.emit_store_constant(slot, value);
+            return true;
+        }
+
+        let Some((operand, factor)) = self.constant_multiply_strength_reduction_parts(left, right)
+        else {
+            return false;
+        };
+
+        if factor == 1 {
+            return self.emit_expr_to_slot(operand, slot);
+        }
+
+        let shift = factor.trailing_zeros() as u16;
+        if factor == 0 || shift >= slot.size * 8 {
+            // Keep evaluation of the non-constant operand: it may contain a
+            // call or an indirect read with observable effects.
+            if !self.emit_expr_to_slot(operand, slot) {
+                return false;
+            }
+            self.emit_store_constant(slot, 0);
+            return true;
+        }
+
+        if slot.size == 2 && shift >= 8 {
+            if !self.emit_load_simple_byte(operand, 0) {
+                if !self.emit_copy_expr_to_slot(operand, slot) {
+                    return false;
+                }
+                self.emit_lda_slot_byte(slot, 0);
+            }
+            for _ in 8..shift {
+                self.emit_asl_a();
+            }
+            self.emit_sta_slot_byte(slot, 1);
+            self.emit_lda_imm(0);
+            self.emit_sta_slot_byte(slot, 0);
+            return true;
+        }
+
+        if self.segment_storage && slot.space == AddressSpace::Absolute {
+            if self.direct_scalar_slot(operand) != Some(slot)
+                && !self.emit_copy_expr_to_slot(operand, slot)
+            {
+                return false;
+            }
+            return self.emit_in_place_constant_shift(BinaryOp::Lsh, slot, shift);
+        }
+
+        self.emit_lsh_expr_to_slot(operand, slot, shift)
+    }
+
     pub(super) fn emit_rsh_expr_to_slot(
         &mut self,
         left: &Expr,
@@ -1142,6 +1232,11 @@ impl Generator {
             && *op == BinaryOp::Add
             && slot.size == 2
             && self.emit_address_add_expr_to_slot(expr, left, right, slot)
+        {
+            return true;
+        }
+        if *op == BinaryOp::Mul
+            && self.emit_modern_constant_multiply_to_slot(expr, left, right, slot)
         {
             return true;
         }
@@ -1329,6 +1424,8 @@ impl Generator {
                 }
                 if *op == BinaryOp::Add
                     && Self::expr_uses_runtime_multiply(right)
+                    && !(self.profile.enables_modern_optimizations()
+                        && self.expr_is_constant_multiply_strength_reduction(right))
                     && self.emit_add_left_then_runtime_multiply_to_slot(left, right, slot)
                 {
                     return true;
@@ -1747,6 +1844,13 @@ impl Generator {
         else {
             return false;
         };
+        if self.profile.enables_modern_optimizations()
+            && self
+                .constant_multiply_strength_reduction_parts(mul_left, mul_right)
+                .is_some()
+        {
+            return false;
+        }
 
         let mul_result = StorageSlot::zero_page(runtime_zp::ARRAY_ADDR.address(), 2);
         if !self.emit_runtime_binary_expr_to_slot(BinaryOp::Mul, mul_left, mul_right, mul_result) {
@@ -1792,6 +1896,13 @@ impl Generator {
         else {
             return false;
         };
+        if self.profile.enables_modern_optimizations()
+            && self
+                .constant_multiply_strength_reduction_parts(mul_left, mul_right)
+                .is_some()
+        {
+            return false;
+        }
 
         let mul_result = StorageSlot::zero_page(runtime_zp::ARRAY_ADDR.address(), 2);
         if !self.emit_runtime_binary_expr_to_slot(BinaryOp::Mul, mul_left, mul_right, mul_result) {

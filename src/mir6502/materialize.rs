@@ -1073,8 +1073,9 @@ pub(super) fn materialize_program(
     }
     let layout = MaterializeLayout::new(&program, object_origin);
     for routine in &mut program.routines {
-        let routine_temp_widths = collect_routine_temp_widths(routine);
         run_cfg_group(routine, &layout)?;
+        strength_reduce_constant_multiplications(routine, &layout, &mut peephole_stats);
+        let routine_temp_widths = collect_routine_temp_widths(routine);
         run_prehome_canonicalization_group(routine, config, &layout, &mut peephole_stats)?;
         run_prehome_selection_group(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
         for block in &mut routine.blocks {
@@ -1241,6 +1242,256 @@ pub(super) fn materialize_program(
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
     maybe_report_peepholes(&program, &peephole_stats, config);
     Ok(program)
+}
+
+fn strength_reduce_constant_multiplications(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) {
+    let temp_widths = collect_routine_temp_widths(routine);
+    let mut fresh = FreshTemps::new(&routine.temps);
+    let (temps, blocks) = (&mut routine.temps, &mut routine.blocks);
+    let mut reduced = 0;
+
+    for block in blocks {
+        let mut out = Vec::with_capacity(block.ops.len());
+        for op in std::mem::take(&mut block.ops) {
+            let MirOp::Binary {
+                op: MirBinaryOp::Mul,
+                dst,
+                left,
+                right,
+                width,
+                ..
+            } = op
+            else {
+                out.push(op);
+                continue;
+            };
+
+            let Some((operand, factor)) = constant_multiply_parts(left.clone(), right.clone())
+            else {
+                out.push(MirOp::Binary {
+                    op: MirBinaryOp::Mul,
+                    dst,
+                    left,
+                    right,
+                    width,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                });
+                continue;
+            };
+
+            // Pointer-cell values can still represent a memory read at this
+            // operation. Keep the helper unless the replacement itself reads
+            // the complete value.
+            if factor != 1 && value_contains_pointer_cell(&operand) {
+                out.push(MirOp::Binary {
+                    op: MirBinaryOp::Mul,
+                    dst,
+                    left,
+                    right,
+                    width,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                });
+                continue;
+            }
+
+            let result_width = if width == MirWidth::Byte && split_def(dst.clone()).is_some() {
+                // Action!'s byte multiply helper returns A:X. Preserve that
+                // word result when later consumers use the synthetic high
+                // lane of a byte-typed multiply temp.
+                MirWidth::Word
+            } else {
+                width
+            };
+
+            let replacement = match result_width {
+                MirWidth::Byte => strength_reduce_byte_multiply(dst.clone(), operand, factor),
+                MirWidth::Word => strength_reduce_word_multiply(
+                    dst.clone(),
+                    operand,
+                    factor,
+                    routine.id,
+                    layout,
+                    &temp_widths,
+                    &mut fresh,
+                    temps,
+                ),
+            };
+            let Some(replacement) = replacement else {
+                out.push(MirOp::Binary {
+                    op: MirBinaryOp::Mul,
+                    dst,
+                    left,
+                    right,
+                    width,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                });
+                continue;
+            };
+            out.extend(replacement);
+            reduced += 1;
+        }
+        block.ops = out;
+    }
+
+    peephole_stats.record_many(routine.id, "constant-multiply-strength-reduction", reduced);
+}
+
+fn constant_multiply_parts(left: MirValue, right: MirValue) -> Option<(MirValue, u16)> {
+    let (operand, factor) = if let Some(factor) = constant_value_u16(&right) {
+        (left, factor)
+    } else {
+        (right, constant_value_u16(&left)?)
+    };
+    (factor <= 1 || factor.is_power_of_two()).then_some((operand, factor))
+}
+
+fn constant_value_u16(value: &MirValue) -> Option<u16> {
+    match value {
+        MirValue::ConstU8(value) => Some(u16::from(*value)),
+        MirValue::ConstU16(value) => Some(*value),
+        _ => None,
+    }
+}
+
+fn strength_reduce_byte_multiply(
+    dst: MirDef,
+    operand: MirValue,
+    factor: u16,
+) -> Option<Vec<MirOp>> {
+    if factor == 0 || factor >= 0x100 {
+        return Some(vec![MirOp::Move {
+            dst,
+            src: MirValue::ConstU8(0),
+            width: MirWidth::Byte,
+        }]);
+    }
+    if factor == 1 {
+        return Some(vec![MirOp::Move {
+            dst,
+            src: operand,
+            width: MirWidth::Byte,
+        }]);
+    }
+    Some(vec![MirOp::Binary {
+        op: MirBinaryOp::Lsh,
+        dst,
+        left: operand,
+        right: MirValue::ConstU8(factor.trailing_zeros() as u8),
+        width: MirWidth::Byte,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    }])
+}
+
+#[allow(clippy::too_many_arguments)]
+fn strength_reduce_word_multiply(
+    dst: MirDef,
+    operand: MirValue,
+    factor: u16,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    fresh: &mut FreshTemps,
+    temps: &mut Vec<MirTemp>,
+) -> Option<Vec<MirOp>> {
+    if factor == 0 {
+        return Some(vec![MirOp::Move {
+            dst,
+            src: MirValue::ConstU16(0),
+            width: MirWidth::Word,
+        }]);
+    }
+    if factor == 1 {
+        return Some(vec![MirOp::Move {
+            dst,
+            src: operand,
+            width: MirWidth::Word,
+        }]);
+    }
+
+    let (dst_lo, dst_hi) = split_def(dst.clone())?;
+    let (mut source_lo, mut source_hi) =
+        split_value_with_storage_widths(operand, routine_id, layout, temp_widths);
+    let shift = factor.trailing_zeros() as u8;
+    if shift >= 16 {
+        return Some(vec![MirOp::Move {
+            dst,
+            src: MirValue::ConstU16(0),
+            width: MirWidth::Word,
+        }]);
+    }
+
+    if shift >= 8 {
+        let mut out = Vec::with_capacity(2);
+        let high_shift = shift - 8;
+        if high_shift == 0 {
+            out.push(MirOp::Move {
+                dst: dst_hi,
+                src: source_lo,
+                width: MirWidth::Byte,
+            });
+        } else {
+            out.push(MirOp::Binary {
+                op: MirBinaryOp::Lsh,
+                dst: dst_hi,
+                left: source_lo,
+                right: MirValue::ConstU8(high_shift),
+                width: MirWidth::Byte,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            });
+        }
+        out.push(MirOp::Move {
+            dst: dst_lo,
+            src: MirValue::ConstU8(0),
+            width: MirWidth::Byte,
+        });
+        return Some(out);
+    }
+
+    let mut out = Vec::with_capacity(usize::from(shift) * 2);
+    for step in 0..shift {
+        let stage_dst = if step + 1 == shift {
+            dst.clone()
+        } else {
+            MirDef::VTemp(fresh.fresh(temps))
+        };
+        let (stage_lo, stage_hi) = split_def(stage_dst.clone())?;
+        out.push(MirOp::Binary {
+            op: MirBinaryOp::Lsh,
+            dst: stage_lo,
+            left: source_lo,
+            right: MirValue::ConstU8(1),
+            width: MirWidth::Byte,
+            carry_in: None,
+            carry_out: MirCarryOut::Produce,
+        });
+        out.push(MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: stage_hi,
+            left: source_hi.clone(),
+            right: source_hi,
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::FromPrevious),
+            carry_out: MirCarryOut::Ignore,
+        });
+        source_lo = MirValue::Def(match &stage_dst {
+            MirDef::VTemp(id) => MirDef::VTempByte { id: *id, byte: 0 },
+            _ => return None,
+        });
+        source_hi = MirValue::Def(match stage_dst {
+            MirDef::VTemp(id) => MirDef::VTempByte { id, byte: 1 },
+            _ => return None,
+        });
+    }
+    Some(out)
 }
 
 /// A terminal `JMP (word-local)` fed by a compiler-known table containing only

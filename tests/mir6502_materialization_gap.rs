@@ -383,6 +383,20 @@ fn byte_multiply_word_call_arg_keeps_runtime_high_result() {
 }
 
 #[test]
+fn constant_power_of_two_multiplications_are_strength_reduced() {
+    let (formatted, _bytes) =
+        compile_materialized_mir6502_fixture("constant_multiply_strength.act");
+
+    assert!(!formatted.contains("helper mul"));
+    assert_eq!(formatted.matches(" lsh #$01").count(), 7);
+    assert!(formatted.contains(
+        "a =.b #0\n  store.b global g3+0, a\n  \
+         a =.b load global g0+0\n  store.b global g3+1, a"
+    ));
+    assert!(formatted.contains("a =.b a add #$00 carry_in=previous carry_out=ignore"));
+}
+
+#[test]
 fn byte_pointer_param_read_modify_write_preserves_pointer_for_store() {
     let (formatted, bytes) =
         compile_materialized_mir6502_fixture("byte_pointer_param_read_modify_write.act");

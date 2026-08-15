@@ -5510,7 +5510,7 @@ mod tests {
                                     op: MirBinaryOp::Mul,
                                     dst: MirDef::VTemp(MirTempId(0)),
                                     left: MirValue::ConstU8(3),
-                                    right: MirValue::ConstU8(4),
+                                    right: MirValue::ConstU8(5),
                                     width: MirWidth::Byte,
                                     carry_in: None,
                                     carry_out: MirCarryOut::Ignore,
