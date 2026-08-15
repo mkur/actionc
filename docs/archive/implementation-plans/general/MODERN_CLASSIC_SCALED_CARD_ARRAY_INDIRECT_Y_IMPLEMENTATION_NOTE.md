@@ -461,8 +461,8 @@ cargo run --quiet --bin actionc-emit -- \
   samples/tn/modern/TN.ACT > target/tn-modern-classic-after.map
 ```
 
-If `../action-compiler-vm` and the ROMs are available, run the focused runtime
-fixture and a TN startup smoke test using `docs/ACTION_COMPILER_VM_USAGE.md`.
+If `../actionc-vm` and the ROMs are available, run the focused runtime
+fixture and a TN startup smoke test using `docs/ACTIONC_VM_USAGE.md`.
 
 ## Acceptance Criteria
 

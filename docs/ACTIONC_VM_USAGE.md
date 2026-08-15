@@ -1,8 +1,8 @@
-# action-compiler-vm Usage Notes
+# actionc-vm Usage Notes
 
-`action-compiler-vm` lives next to this repo at `../action-compiler-vm`.
+`actionc-vm` lives next to this repo at `../actionc-vm`.
 Run it from `actionc/` with `cargo run --quiet --manifest-path
-../action-compiler-vm/Cargo.toml -- run ...`.
+../actionc-vm/Cargo.toml -- run ...`.
 
 ## Build an object to trace
 
@@ -29,7 +29,7 @@ cargo run --quiet --bin actionc-emit -- --backend classic --emit-map samples/tn/
 ## Basic object run
 
 ```sh
-cargo run --quiet --manifest-path ../action-compiler-vm/Cargo.toml -- run \
+cargo run --quiet --manifest-path ../actionc-vm/Cargo.toml -- run \
   --cart roms/action.rom \
   --os roms/altirraos-xl.rom \
   --load-object target/tn-mir.xex \
@@ -134,7 +134,7 @@ Synthetic Q: input uses ATASCII EOL for `\n`:
 ## Practical trace recipe for TN startup
 
 ```sh
-cargo run --quiet --manifest-path ../action-compiler-vm/Cargo.toml -- run \
+cargo run --quiet --manifest-path ../actionc-vm/Cargo.toml -- run \
   --cart roms/action.rom \
   --os roms/altirraos-xl.rom \
   --load-object target/tn-mir.xex \

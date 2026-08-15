@@ -152,7 +152,7 @@ that exclusion rather than weakening the allocator fixture.
 - Add an ignored compatibility test invoking the VM harness.
 - Document the direct command in `fixtures/runtime/README.md`.
 - Keep the runtime script opt-in because it depends on the sibling
-  `action-compiler-vm` checkout and Atari ROM images.
+  `actionc-vm` checkout and Atari ROM images.
 
 ### Acceptance
 

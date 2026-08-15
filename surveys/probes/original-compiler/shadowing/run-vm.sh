@@ -3,7 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$script_dir/../../../.." && pwd)"
-vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
+vm_root="${ACTIONC_VM_DIR:-${ACTION_COMPILER_VM_DIR:-$repo_root/../actionc-vm}}"
 
 vm_out_dir="${ACTION_VM_SHADOW_OUTPUT_DIR:-$script_dir/outputs/vm}"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
@@ -23,10 +23,11 @@ usage() {
 Usage: $0 [--list] [all|probe-name ...]
 
 Compile shadowing probes with the original Action! cartridge through
-action-compiler-vm.
+actionc-vm.
 
 Environment:
-  ACTION_COMPILER_VM_DIR      default: $vm_root
+  ACTIONC_VM_DIR              default: $vm_root
+  ACTION_COMPILER_VM_DIR      legacy fallback for ACTIONC_VM_DIR
   ACTION_VM_SHADOW_OUTPUT_DIR default: $vm_out_dir
   ACTION_VM_CART              default: $cart_rom
   ACTION_VM_OS                default: $os_rom
@@ -174,7 +175,7 @@ case "$1" in
     ;;
 esac
 
-require_file "$vm_root/Cargo.toml" "action-compiler-vm project"
+require_file "$vm_root/Cargo.toml" "actionc-vm project"
 require_file "$cart_rom" "Action! cartridge ROM"
 require_file "$os_rom" "Atari OS ROM"
 

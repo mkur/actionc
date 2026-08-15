@@ -1,6 +1,6 @@
 # Runtime Fixtures
 
-These fixtures execute generated load files with `action-compiler-vm` and
+These fixtures execute generated load files with `actionc-vm` and
 check observable memory results. All gates use the pinned VM library through
 the isolated `tools/vm-runtime-tests` crate. Compatibility scripts that also
 check a compiler selection retain that preflight, then select the matching

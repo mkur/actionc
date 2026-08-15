@@ -2,11 +2,11 @@
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use action_compiler_vm::{
+    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+    use actionc_vm::{
         CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE, RunRequest,
         StopReason, VmRunner,
     };
-    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
 
     const RESULT_START: u16 = 0x0600;
 

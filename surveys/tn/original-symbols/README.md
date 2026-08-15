@@ -38,7 +38,7 @@ Run from the `actionc` repo root:
 ```sh
 mkdir -p surveys/tn/original-symbols
 
-cargo run --quiet --manifest-path ../action-compiler-vm/Cargo.toml -- run \
+cargo run --quiet --manifest-path ../actionc-vm/Cargo.toml -- run \
   --cart roms/action.rom \
   --os roms/altirraos-xl.rom \
   --hotpatch action-q-input \

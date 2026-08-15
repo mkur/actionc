@@ -15,7 +15,7 @@ scripts/check-stress-fixtures.sh
 ```
 
 Compare selected fixtures with the original Action! compiler through
-`action-compiler-vm`:
+`actionc-vm`:
 
 ```sh
 surveys/stress/compare-original.sh pointers

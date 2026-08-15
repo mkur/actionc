@@ -4,7 +4,7 @@ set -euo pipefail
 survey_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$survey_dir/../.." && pwd)"
 stress_dir="$repo_root/fixtures/stress"
-vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
+vm_root="${ACTIONC_VM_DIR:-${ACTION_COMPILER_VM_DIR:-$repo_root/../actionc-vm}}"
 
 vm_out_dir="${ACTION_VM_STRESS_OUTPUT_DIR:-$survey_dir/outputs/vm}"
 actionc_out_dir="${ACTION_STRESS_ACTIONC_OUTPUT_DIR:-$survey_dir/outputs/actionc}"
@@ -32,11 +32,12 @@ usage() {
 Usage: $0 [--list] [all|stress-name ...]
 
 Compile stress programs with the original Action! cartridge through
-action-compiler-vm, compile the same source with actionc, and report whether
+actionc-vm, compile the same source with actionc, and report whether
 the load files match byte-for-byte.
 
 Environment:
-  ACTION_COMPILER_VM_DIR          default: $vm_root
+  ACTIONC_VM_DIR                  default: $vm_root
+  ACTION_COMPILER_VM_DIR          legacy fallback for ACTIONC_VM_DIR
   ACTION_VM_STRESS_OUTPUT_DIR     default: $vm_out_dir
   ACTION_STRESS_ACTIONC_OUTPUT_DIR default: $actionc_out_dir
   ACTION_VM_CART                  default: $cart_rom
@@ -177,7 +178,7 @@ esac
 
 require_file "$cart_rom" "Action! cartridge ROM"
 require_file "$os_rom" "Atari OS ROM"
-require_file "$vm_root/Cargo.toml" "action-compiler-vm project"
+require_file "$vm_root/Cargo.toml" "actionc-vm project"
 
 status=0
 for name in "${selected[@]}"; do

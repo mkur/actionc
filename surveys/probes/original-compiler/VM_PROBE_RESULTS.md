@@ -1,6 +1,6 @@
 # VM Probe Results
 
-Generated with `action-compiler-vm/scripts/run-probe` against the original
+Generated with `actionc-vm/scripts/run-probe` against the original
 Action! cartridge and OS ROM.
 
 ## Captures

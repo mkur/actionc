@@ -70,7 +70,7 @@ Run TN gates after each behavioral slice:
 cargo test -q --lib mir6502
 cargo run --quiet --bin actionc-emit -- --backend mir6502 --emit-load samples/tn/modern/TN.ACT \
   > target/tn-mir.xex
-cargo run --quiet --manifest-path ../action-compiler-vm/Cargo.toml -- run \
+cargo run --quiet --manifest-path ../actionc-vm/Cargo.toml -- run \
   --cart roms/action.rom --os roms/altirraos-xl.rom \
   --load-object target/tn-mir.xex --dump-screen-on-stop --max-steps 1000000
 ```

@@ -1,6 +1,6 @@
 # Next Probe Plan
 
-This plan uses `action-compiler-vm/scripts/run-probe` to generate original
+This plan uses `actionc-vm/scripts/run-probe` to generate original
 compiler `.COM` files repeatably. Keep each probe narrow: one codegen question,
 one small object file, and a short note about the expected comparison point.
 
@@ -341,7 +341,7 @@ bugs.
 
 ## Capture Status
 
-Implemented and captured with `action-compiler-vm/scripts/run-probe`:
+Implemented and captured with `actionc-vm/scripts/run-probe`:
 
 - `optional_args.act` -> `outputs/vm/OPTARGS.COM`
 - `array_assign.act` -> `outputs/vm/ARRASN.COM`

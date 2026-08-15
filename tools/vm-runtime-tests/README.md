@@ -1,7 +1,7 @@
 # VM runtime tests
 
 This isolated harness runs generated Action! objects through the reusable
-`action-compiler-vm` library. Its VM dependency is pinned to an exact Git
+`actionc-vm` library. Its VM dependency is pinned to an exact Git
 revision and is deliberately absent from the root `actionc` manifest, so normal
 compiler builds do not resolve or compile the VM.
 

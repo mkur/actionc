@@ -7,7 +7,7 @@
 ; - comparison immediately after the compound assignment
 ; - CARD assignment to a zero-page OS vector inside the THEN branch
 ;
-; Use manually with action-compiler-vm and --trace-action-fixups. It is not
+; Use manually with actionc-vm and --trace-action-fixups. It is not
 ; part of the default probe sweep because a reproducing VM run can stall.
 
 SET $491=$3000

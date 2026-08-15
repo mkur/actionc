@@ -53,7 +53,7 @@ fn tn_stability_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn initialized_array_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -78,7 +78,7 @@ fn initialized_array_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn scaled_card_index_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -103,7 +103,7 @@ fn scaled_card_index_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn direct_byte_array_index_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -128,7 +128,7 @@ fn direct_byte_array_index_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn dual_indexed_word_compare_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -153,7 +153,7 @@ fn dual_indexed_word_compare_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn dual_pointer_word_transfer_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -178,7 +178,7 @@ fn dual_pointer_word_transfer_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn allocate_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -203,7 +203,7 @@ fn allocate_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn sort_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -228,7 +228,7 @@ fn sort_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn ordered_absolute_sub_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -253,7 +253,7 @@ fn ordered_absolute_sub_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn indirect_call_fields_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -278,7 +278,7 @@ fn indirect_call_fields_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn direct_word_compare_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -303,7 +303,7 @@ fn direct_word_compare_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn signed_return_word_zero_compare_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -328,7 +328,7 @@ fn signed_return_word_zero_compare_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn signed_word_relation_matrix_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -353,7 +353,7 @@ fn signed_word_relation_matrix_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn direct_action_word_arithmetic_args_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -378,7 +378,7 @@ fn direct_action_word_arithmetic_args_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn indexed_byte_fixed_action_args_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -403,7 +403,7 @@ fn indexed_byte_fixed_action_args_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn paired_word_arithmetic_compare_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -428,7 +428,7 @@ fn paired_word_arithmetic_compare_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn circle_int_math_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -453,7 +453,7 @@ fn circle_int_math_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn kalscope_backend_contract_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root
@@ -478,7 +478,7 @@ fn kalscope_backend_contract_runtime_check() {
 }
 
 #[test]
-#[ignore = "executes generated code with action-compiler-vm; use cargo test --test compatibility -- --ignored"]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn kalscope_codegen_patterns_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let script = repo_root

@@ -4,7 +4,7 @@
 ; likely depends on compiler state/layout accumulated before Quit. This probe
 ; keeps LIB.ACT and the suspicious Quit code while stubbing unrelated TN code.
 ;
-; Run manually with action-compiler-vm:
+; Run manually with actionc-vm:
 ;   --host-file LIB.ACT:samples/tn/modern/LIB.ACT
 ;   --host-file LIBQUIT.ACT:surveys/probes/original-compiler/lib_quit_fixup.act
 ;   --trace-action-fixups

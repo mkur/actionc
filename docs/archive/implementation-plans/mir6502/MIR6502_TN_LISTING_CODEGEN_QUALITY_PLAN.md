@@ -8,7 +8,7 @@ source listing. It complements, rather than replaces:
 - `docs/MIR6502_CODEGEN_QUALITY_FIRST_SLICES_PLAN.md`
 - `docs/MIR6502_RISK_AVERSE_CODE_QUALITY_PLAN.md`
 - `docs/MODERN_OPTIMIZATION_ROADMAP.md`
-- `docs/ACTION_COMPILER_VM_USAGE.md`
+- `docs/ACTIONC_VM_USAGE.md`
 
 The note is intentionally split into small parts. Give Codex one part at a time.
 Do not ask it to implement the whole roadmap in a single patch.
@@ -624,5 +624,5 @@ cargo run --quiet --bin actionc-emit -- --backend mir6502 --emit-map samples/tn/
 Then run the listing-quality report on `target/tn-mir.lst` and compare
 before/after counts.
 
-If VM smoke testing is needed, use `docs/ACTION_COMPILER_VM_USAGE.md` for the
+If VM smoke testing is needed, use `docs/ACTIONC_VM_USAGE.md` for the
 current TN run recipe.

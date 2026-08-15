@@ -26,7 +26,8 @@ Artifacts are written to surveys/toolkit/outputs/vm:
   <stem>.source.atascii
 
 Environment:
-  ACTION_COMPILER_VM_DIR      default: ../action-compiler-vm
+  ACTIONC_VM_DIR              default: ../actionc-vm
+  ACTION_COMPILER_VM_DIR      legacy fallback for ACTIONC_VM_DIR
   ACTION_VM_CART              default: roms/action.rom
   ACTION_VM_OS                default: roms/altirraos-xl.rom
   ACTION_TOOLKIT_VM_MAX_STEPS default: 20000000
@@ -37,7 +38,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 toolkit_dir="$repo_root/corpora/toolkit/original/extracted"
 out_dir="$script_dir/outputs/vm"
-vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
+vm_root="${ACTIONC_VM_DIR:-${ACTION_COMPILER_VM_DIR:-$repo_root/../actionc-vm}}"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
 os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
 max_steps="${ACTION_TOOLKIT_VM_MAX_STEPS:-20000000}"
@@ -74,7 +75,7 @@ sanitize_capture_log() {
   local line
   while IFS= read -r line || [[ -n "$line" ]]; do
     line="${line//"$repo_root"\//}"
-    line="${line//"$vm_root"/[action-compiler-vm]}"
+    line="${line//"$vm_root"/[actionc-vm]}"
     line="${line//"$tmp_root"/[tmp]}"
     printf '%s\n' "$line"
   done < "$file" > "$sanitized"
@@ -124,7 +125,7 @@ fi
 
 require_file "$cart_rom" "Action! cartridge ROM"
 require_file "$os_rom" "Atari OS ROM"
-require_file "$vm_root/Cargo.toml" "action-compiler-vm project"
+require_file "$vm_root/Cargo.toml" "actionc-vm project"
 mkdir -p "$out_dir"
 
 host_file_args=()

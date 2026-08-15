@@ -43,7 +43,7 @@ crowding the active reference set.
 
 ## Tooling
 
-- [ACTION_COMPILER_VM_USAGE.md](ACTION_COMPILER_VM_USAGE.md) - in-repo compiler
+- [ACTIONC_VM_USAGE.md](ACTIONC_VM_USAGE.md) - in-repo compiler
   VM workflow.
 - [ALTIRRA_BRIDGE_USAGE.md](ALTIRRA_BRIDGE_USAGE.md) - AltirraBridge workflow
   notes.

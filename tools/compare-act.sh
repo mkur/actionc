@@ -3,7 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
-vm_root="${ACTION_COMPILER_VM_DIR:-$repo_root/../action-compiler-vm}"
+vm_root="${ACTIONC_VM_DIR:-${ACTION_COMPILER_VM_DIR:-$repo_root/../actionc-vm}}"
 cart_rom="${ACTION_VM_CART:-$repo_root/roms/action.rom}"
 os_rom="${ACTION_VM_OS:-$repo_root/roms/altirraos-xl.rom}"
 max_steps="${ACTION_VM_MAX_STEPS:-60000000}"
@@ -33,7 +33,8 @@ Options:
   -h, --help              Show this help.
 
 Environment:
-  ACTION_COMPILER_VM_DIR   default: $vm_root
+  ACTIONC_VM_DIR           default: $vm_root
+  ACTION_COMPILER_VM_DIR   legacy fallback for ACTIONC_VM_DIR
   ACTION_VM_CART           default: $cart_rom
   ACTION_VM_OS             default: $os_rom
   ACTION_VM_MAX_STEPS      default: $max_steps
@@ -136,7 +137,7 @@ fi
 require_file "$source_path" "ACT source"
 require_file "$cart_rom" "Action! cartridge ROM"
 require_file "$os_rom" "Atari OS ROM"
-require_file "$vm_root/Cargo.toml" "action-compiler-vm project"
+require_file "$vm_root/Cargo.toml" "actionc-vm project"
 
 source_path="$(cd "$(dirname "$source_path")" && pwd)/$(basename "$source_path")"
 stem="$(safe_atari_stem "${name_override:-$source_path}")"

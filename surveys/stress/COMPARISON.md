@@ -7,7 +7,7 @@ surveys/stress/compare-original.sh all
 ```
 
 The runner compiles each stress source with the original Action! cartridge via
-`action-compiler-vm`, writes the original load file under `outputs/vm/`, then
+`actionc-vm`, writes the original load file under `outputs/vm/`, then
 compiles the same source with `actionc` under `outputs/actionc/`.
 
 ## Current results
