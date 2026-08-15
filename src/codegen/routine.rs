@@ -721,7 +721,7 @@ impl Generator {
             start,
             end,
         );
-        StorageSlot::absolute(start, size)
+        StorageSlot::absolute(start, size).emitted()
     }
 
     fn emit_modern_hidden_string_literal(&mut self, text: &str, span: Span) -> Absolute {
@@ -737,7 +737,7 @@ impl Generator {
             start,
             end,
         );
-        Absolute::new(start)
+        Absolute::output_relative(start)
     }
 
     pub(super) fn record_inferred_return_facts(&mut self, slot: StorageSlot) {

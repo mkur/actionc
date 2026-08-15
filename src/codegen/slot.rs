@@ -9,7 +9,7 @@ impl Generator {
                 .emit_lda_absolute(slot.absolute_byte(byte_index)),
             AddressSpace::AbsoluteX => self
                 .emitter
-                .emit_lda_absolute_x(AbsoluteX::new(slot.byte_address(byte_index))),
+                .emit_lda_absolute_x(AbsoluteX::from_absolute(slot.absolute_byte(byte_index))),
             AddressSpace::ZeroPage => self
                 .emitter
                 .emit_lda_zero_page(slot.zero_page_byte(byte_index)),
@@ -195,13 +195,13 @@ impl Generator {
 
     pub(super) fn emit_inc_slot_peephole(&mut self, slot: StorageSlot) -> bool {
         if slot.space == AddressSpace::Absolute && slot.size == 1 && slot.array.is_none() {
-            self.emit_inc_absolute(Absolute::new(slot.address));
+            self.emit_inc_absolute(slot.absolute_byte(0));
             true
         } else if slot.space == AddressSpace::ZeroPage && slot.size == 1 && slot.array.is_none() {
             self.emit_inc_zero_page(ZeroPage::new(slot.address as u8));
             true
         } else if slot.space == AddressSpace::AbsoluteX && slot.size == 1 && slot.array.is_none() {
-            self.emit_inc_absolute_x(AbsoluteX::new(slot.address), slot);
+            self.emit_inc_absolute_x(slot.absolute_x_operand(), slot);
             true
         } else if self.profile.enables_modern_optimizations()
             && slot.space == AddressSpace::IndirectIndexedY
@@ -224,7 +224,7 @@ impl Generator {
         }
         match slot.space {
             AddressSpace::Absolute if self.profile.enables_modern_optimizations() => {
-                self.emit_dec_absolute(Absolute::new(slot.address));
+                self.emit_dec_absolute(slot.absolute_byte(0));
                 true
             }
             AddressSpace::ZeroPage if self.profile.enables_modern_optimizations() => {
@@ -232,7 +232,7 @@ impl Generator {
                 true
             }
             AddressSpace::AbsoluteX => {
-                self.emit_dec_absolute_x(AbsoluteX::new(slot.address), slot);
+                self.emit_dec_absolute_x(slot.absolute_x_operand(), slot);
                 true
             }
             AddressSpace::IndirectIndexedY if self.profile.enables_modern_optimizations() => {
@@ -289,7 +289,7 @@ impl Generator {
         match slot.space {
             AddressSpace::Absolute => self.emit_lda_absolute(slot.absolute_byte(byte_index)),
             AddressSpace::AbsoluteX => {
-                self.emit_lda_absolute_x(AbsoluteX::new(slot.byte_address(byte_index)))
+                self.emit_lda_absolute_x(AbsoluteX::from_absolute(slot.absolute_byte(byte_index)))
             }
             AddressSpace::ZeroPage => self.emit_lda_zero_page(slot.zero_page_byte(byte_index)),
             AddressSpace::IndirectIndexedY => {
@@ -383,7 +383,7 @@ impl Generator {
             AddressSpace::ZeroPage => self.emit_ldx_zero_page(slot.zero_page_byte(byte_index)),
             AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY => {
                 self.emitter
-                    .emit_ldx_absolute(Absolute::new(slot.byte_address(byte_index)));
+                    .emit_ldx_absolute(slot.absolute_byte(byte_index));
             }
         }
         self.processor.set_x_value_fact(value);
@@ -419,7 +419,7 @@ impl Generator {
             AddressSpace::Absolute => self.emit_ldy_absolute(slot.absolute_byte(byte_index)),
             AddressSpace::ZeroPage => self.emit_ldy_zero_page(slot.zero_page_byte(byte_index)),
             AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY => {
-                self.emit_ldy_absolute(Absolute::new(slot.byte_address(byte_index)));
+                self.emit_ldy_absolute(slot.absolute_byte(byte_index));
             }
         }
         self.processor.set_y_value_fact(value);
@@ -491,7 +491,7 @@ impl Generator {
             }
             AddressSpace::AbsoluteX => {
                 self.emitter
-                    .emit_and_absolute_x(AbsoluteX::new(slot.byte_address(byte_index)));
+                    .emit_and_absolute_x(AbsoluteX::from_absolute(slot.absolute_byte(byte_index)));
                 self.processor.set_a_logic_result(
                     LogicFactOp::And,
                     self.slot_byte_value_fact(slot, byte_index),
@@ -530,7 +530,7 @@ impl Generator {
             }
             AddressSpace::AbsoluteX => {
                 self.emitter
-                    .emit_ora_absolute_x(AbsoluteX::new(slot.byte_address(byte_index)));
+                    .emit_ora_absolute_x(AbsoluteX::from_absolute(slot.absolute_byte(byte_index)));
                 self.processor.set_a_logic_result(
                     LogicFactOp::Or,
                     self.slot_byte_value_fact(slot, byte_index),
@@ -569,7 +569,7 @@ impl Generator {
             }
             AddressSpace::AbsoluteX => {
                 self.emitter
-                    .emit_eor_absolute_x(AbsoluteX::new(slot.byte_address(byte_index)));
+                    .emit_eor_absolute_x(AbsoluteX::from_absolute(slot.absolute_byte(byte_index)));
                 self.processor.set_a_logic_result(
                     LogicFactOp::Xor,
                     self.slot_byte_value_fact(slot, byte_index),

@@ -32,6 +32,7 @@ pub(super) fn record_field_fits_indirect_y(field: RecordField) -> bool {
 pub(super) struct StorageSlot {
     pub(super) address: u16,
     pub(super) size: u16,
+    pub(super) output_relative: bool,
     pub(super) space: AddressSpace,
     pub(super) index_offset: u16,
     pub(super) pointee_size: Option<u16>,
@@ -102,6 +103,7 @@ impl StorageRelocationKind {
 pub(super) enum StorageRelocationTarget {
     Name(String),
     Absolute(u16),
+    OutputRelative(u16),
     Label(String),
 }
 
@@ -114,6 +116,7 @@ pub(super) struct ArrayBacking {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum MachineSymbolAddress {
     Absolute(u16),
+    OutputRelative(u16),
     Label(String),
 }
 
@@ -315,6 +318,7 @@ impl StorageLayout {
             } else {
                 StorageSlot::absolute(address, slot_size)
             }
+            .output_relative_if(compatible)
             .record(record)
             .signed(slot_signed_for_type(&decl.ty));
             self.symbols.insert(normalize_name(&entry.name), slot);
@@ -352,6 +356,7 @@ impl StorageLayout {
                 self.symbols.insert(
                     name.clone(),
                     StorageSlot::array(descriptor, element_size, ArrayStorage::Descriptor)
+                        .emitted()
                         .signed(signed),
                 );
                 self.absolute_array_value_addresses
@@ -377,7 +382,9 @@ impl StorageLayout {
             let address = self.allocate_initialized_bytes(total_size, &bytes);
             self.symbols.insert(
                 name,
-                StorageSlot::array(address, element_size, ArrayStorage::Inline).signed(signed),
+                StorageSlot::array(address, element_size, ArrayStorage::Inline)
+                    .emitted()
+                    .signed(signed),
             );
             return;
         }
@@ -391,7 +398,9 @@ impl StorageLayout {
                 let address = self.allocate_storage_initializers(byte_size, initializers);
                 self.symbols.insert(
                     name,
-                    StorageSlot::array(address, element_size, ArrayStorage::Inline).signed(signed),
+                    StorageSlot::array(address, element_size, ArrayStorage::Inline)
+                        .emitted()
+                        .signed(signed),
                 );
                 return;
             }
@@ -399,9 +408,12 @@ impl StorageLayout {
             let descriptor_address = self.next_address;
             let descriptor_size = if entry.size.is_some() { 4 } else { 2 };
             self.advance(descriptor_size);
-            let backing = Immediate::new(backing_address);
-            self.initializers.push(StorageInit::Byte(backing.low()));
-            self.initializers.push(StorageInit::Byte(backing.high()));
+            self.initializers.push(StorageInit::Relocation {
+                kind: StorageRelocationKind::Word16,
+                target: StorageRelocationTarget::OutputRelative(backing_address),
+                addend: 0,
+                span: entry.span,
+            });
             if descriptor_size == 4 {
                 self.initializers.push(StorageInit::Byte(0));
                 self.initializers.push(StorageInit::Byte(0));
@@ -409,10 +421,11 @@ impl StorageLayout {
             self.symbols.insert(
                 name.clone(),
                 StorageSlot::array(descriptor_address, element_size, ArrayStorage::Descriptor)
+                    .emitted()
                     .signed(signed),
             );
             self.machine_symbol_addresses
-                .insert(name, MachineSymbolAddress::Absolute(backing_address));
+                .insert(name, MachineSymbolAddress::OutputRelative(backing_address));
             return;
         }
 
@@ -432,7 +445,9 @@ impl StorageLayout {
             };
             self.symbols.insert(
                 name,
-                StorageSlot::array(address, element_size, ArrayStorage::Pointer).signed(signed),
+                StorageSlot::array(address, element_size, ArrayStorage::Pointer)
+                    .emitted()
+                    .signed(signed),
             );
             return;
         };
@@ -442,7 +457,9 @@ impl StorageLayout {
             let address = self.allocate_sized_byte_array_storage(byte_size, len);
             self.symbols.insert(
                 name,
-                StorageSlot::array(address, element_size, ArrayStorage::Inline).signed(signed),
+                StorageSlot::array(address, element_size, ArrayStorage::Inline)
+                    .emitted()
+                    .signed(signed),
             );
             return;
         }
@@ -461,7 +478,9 @@ impl StorageLayout {
         });
         self.symbols.insert(
             name.clone(),
-            StorageSlot::array(address, element_size, ArrayStorage::Descriptor).signed(signed),
+            StorageSlot::array(address, element_size, ArrayStorage::Descriptor)
+                .emitted()
+                .signed(signed),
         );
         self.machine_symbol_addresses
             .insert(name, MachineSymbolAddress::Label(label));
@@ -575,6 +594,7 @@ pub(super) fn allocate_routine_symbols(
             } else {
                 StorageSlot::absolute(address, slot_size)
             }
+            .emitted()
             .record(record)
             .signed(slot_signed_for_type(&param.ty));
             symbols.insert(normalize_name(&entry.name), slot);
@@ -713,19 +733,24 @@ fn add_var_decl_to_routine_storage(
             let descriptor_address = *next_address;
             let descriptor_size = if entry.size.is_some() { 4 } else { 2 };
             *next_address = (*next_address).wrapping_add(descriptor_size);
-            let backing = Immediate::new(backing_address);
-            initializers.push(StorageInit::Byte(backing.low()));
-            initializers.push(StorageInit::Byte(backing.high()));
+            initializers.push(StorageInit::Relocation {
+                kind: StorageRelocationKind::Word16,
+                target: StorageRelocationTarget::OutputRelative(backing_address),
+                addend: 0,
+                span: entry.span,
+            });
             if descriptor_size == 4 {
                 initializers.push(StorageInit::Byte(0));
                 initializers.push(StorageInit::Byte(0));
             }
             let slot = StorageSlot::array(descriptor_address, element_size, ArrayStorage::Pointer)
+                .emitted()
                 .record(record)
                 .signed(slot_signed_for_type(&decl.ty));
             let name = normalize_name(&entry.name);
             symbols.insert(name.clone(), slot);
-            machine_symbol_addresses.insert(name, MachineSymbolAddress::Absolute(backing_address));
+            machine_symbol_addresses
+                .insert(name, MachineSymbolAddress::OutputRelative(backing_address));
             continue;
         }
         if decl_is_array_like(decl)
@@ -746,6 +771,7 @@ fn add_var_decl_to_routine_storage(
                 initializers.push(StorageInit::Byte(target.high()));
             }
             let slot = StorageSlot::array(address, element_size, ArrayStorage::Pointer)
+                .emitted()
                 .record(record)
                 .signed(slot_signed_for_type(&decl.ty));
             symbols.insert(normalize_name(&entry.name), slot);
@@ -765,6 +791,7 @@ fn add_var_decl_to_routine_storage(
                 initializers.push(StorageInit::LabelWord(label));
             }
             let slot = StorageSlot::array(address, element_size, ArrayStorage::Pointer)
+                .emitted()
                 .record(record)
                 .signed(slot_signed_for_type(&decl.ty));
             symbols.insert(normalize_name(&entry.name), slot);
@@ -793,6 +820,7 @@ fn add_var_decl_to_routine_storage(
                 size: byte_size,
             });
             let slot = StorageSlot::array(address, element_size, ArrayStorage::Descriptor)
+                .emitted()
                 .record(record)
                 .signed(slot_signed_for_type(&decl.ty));
             let name = normalize_name(&entry.name);
@@ -841,13 +869,13 @@ fn add_var_decl_to_routine_storage(
         let slot = if let Some(address) = absolute_array_address {
             StorageSlot::array(address, element_size, ArrayStorage::Inline)
         } else if pointer_backed_array {
-            StorageSlot::array(address, element_size, ArrayStorage::Pointer)
+            StorageSlot::array(address, element_size, ArrayStorage::Pointer).emitted()
         } else if decl_is_array_like(decl) {
-            StorageSlot::array(address, element_size, ArrayStorage::Inline)
+            StorageSlot::array(address, element_size, ArrayStorage::Inline).emitted()
         } else if let Some(pointee_size) = pointee_size {
-            StorageSlot::pointer(address, pointee_size)
+            StorageSlot::pointer(address, pointee_size).emitted()
         } else {
-            StorageSlot::absolute(address, slot_size)
+            StorageSlot::absolute(address, slot_size).emitted()
         }
         .record(record)
         .signed(slot_signed_for_type(&decl.ty));
@@ -860,7 +888,7 @@ pub(super) fn add_var_decl_to_symbols(
     decl: &VarDecl,
     record_layouts: &RecordLayouts,
     numeric_defines: &HashMap<String, u16>,
-    allow_absolute_scalar_aliases: bool,
+    place_at_current_location: bool,
     mut allocate: impl FnMut(u16) -> u16,
 ) {
     let Some(element_size) = type_size_with_records(&decl.ty, record_layouts) else {
@@ -873,7 +901,7 @@ pub(super) fn add_var_decl_to_symbols(
     let record = record_id_for_type(&decl.ty, record_layouts);
 
     for entry in &decl.entries {
-        if allow_absolute_scalar_aliases
+        if place_at_current_location
             && !decl_is_array_like(decl)
             && pointee_size.is_none()
             && let Some(initializer) = &entry.initializer
@@ -901,10 +929,12 @@ pub(super) fn add_var_decl_to_symbols(
             StorageSlot::array(address, element_size, ArrayStorage::Inline)
         } else if decl_is_array_like(decl) {
             StorageSlot::array(address, element_size, ArrayStorage::Inline)
+                .output_relative_if(place_at_current_location)
         } else if let Some(pointee_size) = pointee_size {
             StorageSlot::pointer(address, pointee_size)
+                .output_relative_if(place_at_current_location)
         } else {
-            StorageSlot::absolute(address, slot_size)
+            StorageSlot::absolute(address, slot_size).output_relative_if(place_at_current_location)
         }
         .record(record)
         .signed(slot_signed_for_type(&decl.ty));
@@ -918,6 +948,7 @@ impl StorageSlot {
         Self {
             address,
             size,
+            output_relative: false,
             space: AddressSpace::Absolute,
             index_offset: 0,
             pointee_size: None,
@@ -927,10 +958,20 @@ impl StorageSlot {
         }
     }
 
+    pub(super) fn from_absolute(absolute: Absolute, size: u16) -> Self {
+        let slot = Self::absolute(absolute.address(), size);
+        if absolute.is_output_relative() {
+            slot.emitted()
+        } else {
+            slot
+        }
+    }
+
     pub(super) fn array(address: u16, element_size: u16, array: ArrayStorage) -> Self {
         Self {
             address,
             size: element_size,
+            output_relative: false,
             space: AddressSpace::Absolute,
             index_offset: 0,
             pointee_size: None,
@@ -944,6 +985,7 @@ impl StorageSlot {
         Self {
             address: u16::from(address),
             size,
+            output_relative: false,
             space: AddressSpace::ZeroPage,
             index_offset: 0,
             pointee_size: None,
@@ -957,6 +999,7 @@ impl StorageSlot {
         Self {
             address,
             size: 2,
+            output_relative: false,
             space: AddressSpace::Absolute,
             index_offset: 0,
             pointee_size: Some(pointee_size),
@@ -970,6 +1013,7 @@ impl StorageSlot {
         Self {
             address: u16::from(address),
             size: 2,
+            output_relative: false,
             space: AddressSpace::ZeroPage,
             index_offset: 0,
             pointee_size: Some(pointee_size),
@@ -983,6 +1027,7 @@ impl StorageSlot {
         Self {
             address: u16::from(pointer.address()),
             size,
+            output_relative: false,
             space: AddressSpace::IndirectIndexedY,
             index_offset: 0,
             pointee_size: None,
@@ -996,6 +1041,7 @@ impl StorageSlot {
         Self {
             address,
             size,
+            output_relative: false,
             space: AddressSpace::AbsoluteX,
             index_offset: 0,
             pointee_size: None,
@@ -1013,6 +1059,19 @@ impl StorageSlot {
     pub(super) fn signed(mut self, signed: bool) -> Self {
         self.signed = signed;
         self
+    }
+
+    pub(super) fn emitted(mut self) -> Self {
+        self.output_relative = true;
+        self
+    }
+
+    pub(super) fn output_relative_if(self, output_relative: bool) -> Self {
+        if output_relative {
+            self.emitted()
+        } else {
+            self
+        }
     }
 
     pub(super) fn offset_bytes(self, offset: u16) -> Self {
@@ -1042,7 +1101,20 @@ impl StorageSlot {
     }
 
     pub(super) fn absolute_byte(self, byte_index: u16) -> Absolute {
-        Absolute::new(self.byte_address(byte_index))
+        let address = self.byte_address(byte_index);
+        if self.output_relative {
+            Absolute::output_relative(address)
+        } else {
+            Absolute::new(address)
+        }
+    }
+
+    pub(super) fn absolute_x_operand(self) -> AbsoluteX {
+        AbsoluteX::from_absolute(self.absolute_byte(0))
+    }
+
+    pub(super) fn address_immediate(self) -> Immediate {
+        Immediate::from_absolute(self.absolute_byte(0))
     }
 
     pub(super) fn zero_page_byte(self, byte_index: u16) -> ZeroPage {
@@ -1052,18 +1124,47 @@ impl StorageSlot {
 
 // Extracted from src/codegen.rs: addressing wrappers
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Immediate(u16);
+pub struct Immediate {
+    value: u16,
+    output_relative: bool,
+}
 
 impl Immediate {
     pub fn new(value: u16) -> Self {
-        Self(value)
+        Self {
+            value,
+            output_relative: false,
+        }
+    }
+
+    pub(crate) fn output_relative(value: u16) -> Self {
+        Self {
+            value,
+            output_relative: true,
+        }
+    }
+
+    pub(crate) fn from_absolute(absolute: Absolute) -> Self {
+        if absolute.is_output_relative() {
+            Self::output_relative(absolute.address())
+        } else {
+            Self::new(absolute.address())
+        }
+    }
+
+    pub(crate) fn is_output_relative(self) -> bool {
+        self.output_relative
+    }
+
+    pub(crate) fn value(self) -> u16 {
+        self.value
     }
 
     pub fn byte(self, byte_index: u16) -> u8 {
         if byte_index >= 2 {
             return 0;
         }
-        ((self.0 >> (byte_index * 8)) & 0xFF) as u8
+        ((self.value >> (byte_index * 8)) & 0xFF) as u8
     }
 
     pub fn low(self) -> u8 {
@@ -1076,27 +1177,53 @@ impl Immediate {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Absolute(u16);
+pub struct Absolute {
+    address: u16,
+    output_relative: bool,
+}
 
 impl Absolute {
     pub const fn new(address: u16) -> Self {
-        Self(address)
+        Self {
+            address,
+            output_relative: false,
+        }
+    }
+
+    pub(crate) const fn output_relative(address: u16) -> Self {
+        Self {
+            address,
+            output_relative: true,
+        }
     }
 
     pub fn address(self) -> u16 {
-        self.0
+        self.address
+    }
+
+    pub(crate) fn is_output_relative(self) -> bool {
+        self.output_relative
     }
 
     pub fn low(self) -> u8 {
-        (self.0 & 0xFF) as u8
+        (self.address & 0xFF) as u8
     }
 
     pub fn high(self) -> u8 {
-        (self.0 >> 8) as u8
+        (self.address >> 8) as u8
     }
 
     pub fn offset(self, offset: u16) -> Self {
-        Self(self.0.wrapping_add(offset))
+        Self {
+            address: self.address.wrapping_add(offset),
+            ..self
+        }
+    }
+}
+
+impl From<u16> for Absolute {
+    fn from(address: u16) -> Self {
+        Self::new(address)
     }
 }
 
@@ -1110,6 +1237,16 @@ impl AbsoluteX {
 
     pub fn absolute(self) -> Absolute {
         self.0
+    }
+
+    pub(crate) fn from_absolute(absolute: Absolute) -> Self {
+        Self(absolute)
+    }
+}
+
+impl From<u16> for AbsoluteX {
+    fn from(address: u16) -> Self {
+        Self::new(address)
     }
 }
 

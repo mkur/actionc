@@ -3,10 +3,10 @@ use std::collections::{HashMap, HashSet};
 use crate::asm6502::InlineAsmRelocationKind;
 use crate::codegen::native_emitter::NativeTrackedEmitter;
 use crate::codegen::{
-    Absolute, AbsoluteX, CodegenAddressSpace, CodegenMachineBlockAnalysis, CodegenRoutineEffect,
-    CodegenRoutineParam, CodegenRoutineSignature, CodegenSourceRange, CodegenSourceRangeKind,
-    CodegenStorageSymbol, CodegenSymbolKind, CodegenSymbolScope, IndirectIndexedY, RoutineAddress,
-    RoutineRange, SkippedRange, ZeroPage, ZeroPageX, opcode,
+    Absolute, AbsoluteX, CodegenAddressSpace, CodegenMachineBlockAnalysis, CodegenRelocationKind,
+    CodegenRoutineEffect, CodegenRoutineParam, CodegenRoutineSignature, CodegenSourceRange,
+    CodegenSourceRangeKind, CodegenStorageSymbol, CodegenSymbolKind, CodegenSymbolScope, Immediate,
+    IndirectIndexedY, RoutineAddress, RoutineRange, SkippedRange, ZeroPage, ZeroPageX, opcode,
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 use crate::source::{Span, source_char_byte};
@@ -376,7 +376,7 @@ struct MirObjectLayout {
     routine_storage: HashMap<RoutineId, MirRoutineStorageLayout>,
     routine_labels: HashMap<RoutineId, String>,
     block_labels: HashMap<(RoutineId, MirBlockId), String>,
-    storage_names: HashMap<String, u16>,
+    storage_names: HashMap<String, MirMachineSymbol>,
     storage_value_names: HashMap<String, u16>,
     routine_names: HashMap<String, RoutineId>,
     storage_items: Vec<MirStorageItem>,
@@ -447,7 +447,11 @@ struct MirRoutineStorageLayout {
 
 #[derive(Debug, Clone, Copy)]
 enum MirStoragePlacement {
-    Absolute { address: u16, size: u16 },
+    Absolute {
+        address: u16,
+        size: u16,
+        output_relative: bool,
+    },
     Unresolved,
 }
 
@@ -471,6 +475,7 @@ enum MirStorageItem {
 #[derive(Debug, Clone, Copy)]
 enum ResolvedMem {
     Absolute(u16),
+    OutputRelative(u16),
     ZeroPage(u8),
 }
 
@@ -478,6 +483,8 @@ enum ResolvedMem {
 enum ResolvedIndexedMem {
     AbsoluteX(u16),
     AbsoluteY(u16),
+    OutputRelativeX(u16),
+    OutputRelativeY(u16),
     ZeroPageX(u8),
     IndirectY(u8),
 }
@@ -485,6 +492,7 @@ enum ResolvedIndexedMem {
 #[derive(Debug, Clone)]
 enum MirMachineSymbol {
     Absolute(u16),
+    OutputRelative(u16),
     Label(String),
 }
 
@@ -506,11 +514,13 @@ impl MirObjectLayout {
                         MirStoragePlacement::Absolute {
                             address,
                             size: global.storage_size,
+                            output_relative: false,
                         },
                     );
-                    layout
-                        .storage_names
-                        .insert(normalize_machine_name(&global.name), address);
+                    layout.storage_names.insert(
+                        normalize_machine_name(&global.name),
+                        MirMachineSymbol::Absolute(address),
+                    );
                     if let Some(value) = machine_caret_global_value(global) {
                         layout
                             .storage_value_names
@@ -544,11 +554,13 @@ impl MirObjectLayout {
                         MirStoragePlacement::Absolute {
                             address,
                             size: logical_size,
+                            output_relative: true,
                         },
                     );
-                    layout
-                        .storage_names
-                        .insert(normalize_machine_name(&global.name), address);
+                    layout.storage_names.insert(
+                        normalize_machine_name(&global.name),
+                        MirMachineSymbol::OutputRelative(address),
+                    );
                     if let Some(value) = machine_caret_global_value(global) {
                         layout
                             .storage_value_names
@@ -556,15 +568,28 @@ impl MirObjectLayout {
                     }
                 }
                 MirGlobalBacking::Alias { target, offset } => {
-                    if let Some(address) = layout.global_address(target) {
+                    if let Some(target_placement) = layout.globals.get(&target).copied()
+                        && let Some(address) = placement_address(target_placement)
+                    {
                         let address = address.saturating_add(offset);
                         let size = global.storage_size;
-                        layout
-                            .globals
-                            .insert(global.id, MirStoragePlacement::Absolute { address, size });
-                        layout
-                            .storage_names
-                            .insert(normalize_machine_name(&global.name), address);
+                        let output_relative = placement_is_output_relative(target_placement);
+                        layout.globals.insert(
+                            global.id,
+                            MirStoragePlacement::Absolute {
+                                address,
+                                size,
+                                output_relative,
+                            },
+                        );
+                        layout.storage_names.insert(
+                            normalize_machine_name(&global.name),
+                            if output_relative {
+                                MirMachineSymbol::OutputRelative(address)
+                            } else {
+                                MirMachineSymbol::Absolute(address)
+                            },
+                        );
                         if let Some(value) = machine_caret_global_value(global) {
                             layout
                                 .storage_value_names
@@ -598,11 +623,13 @@ impl MirObjectLayout {
                 MirStoragePlacement::Absolute {
                     address: cursor,
                     size,
+                    output_relative: true,
                 },
             );
-            layout
-                .storage_names
-                .insert(normalize_machine_name(&static_data.name), cursor);
+            layout.storage_names.insert(
+                normalize_machine_name(&static_data.name),
+                MirMachineSymbol::OutputRelative(cursor),
+            );
             cursor = cursor.saturating_add(size);
         }
         for routine in &mir.routines {
@@ -722,10 +749,16 @@ impl MirObjectLayout {
         match addr {
             MirAddr::AbsoluteIndexedX { base } => match self.direct_mem(routine, base)? {
                 ResolvedMem::Absolute(address) => Some(ResolvedIndexedMem::AbsoluteX(address)),
+                ResolvedMem::OutputRelative(address) => {
+                    Some(ResolvedIndexedMem::OutputRelativeX(address))
+                }
                 ResolvedMem::ZeroPage(_) => None,
             },
             MirAddr::AbsoluteIndexedY { base } => match self.direct_mem(routine, base)? {
                 ResolvedMem::Absolute(address) => Some(ResolvedIndexedMem::AbsoluteY(address)),
+                ResolvedMem::OutputRelative(address) => {
+                    Some(ResolvedIndexedMem::OutputRelativeY(address))
+                }
                 ResolvedMem::ZeroPage(_) => None,
             },
             MirAddr::ZeroPageIndexedX { base } => Some(ResolvedIndexedMem::ZeroPageX(
@@ -745,9 +778,18 @@ impl MirObjectLayout {
         offset: u16,
     ) -> Option<ResolvedMem> {
         match placement? {
-            MirStoragePlacement::Absolute { address, size } => {
+            MirStoragePlacement::Absolute {
+                address,
+                size,
+                output_relative,
+            } => {
                 if offset < size {
-                    Some(ResolvedMem::Absolute(address.saturating_add(offset)))
+                    let address = address.saturating_add(offset);
+                    Some(if output_relative {
+                        ResolvedMem::OutputRelative(address)
+                    } else {
+                        ResolvedMem::Absolute(address)
+                    })
                 } else {
                     None
                 }
@@ -758,30 +800,35 @@ impl MirObjectLayout {
 
     fn static_address(&self, id: crate::nir::SymbolId) -> Option<u16> {
         self.statics.get(&id).and_then(|placement| match placement {
-            MirStoragePlacement::Absolute { address, size: _ } => Some(*address),
+            MirStoragePlacement::Absolute { address, .. } => Some(*address),
             MirStoragePlacement::Unresolved => None,
         })
     }
 
     fn global_address(&self, id: crate::nir::SymbolId) -> Option<u16> {
         self.globals.get(&id).and_then(|placement| match placement {
-            MirStoragePlacement::Absolute { address, size: _ } => Some(*address),
+            MirStoragePlacement::Absolute { address, .. } => Some(*address),
             MirStoragePlacement::Unresolved => None,
         })
     }
 
-    fn global_data_address(&self, mir: &MirProgram, id: SymbolId) -> Option<u16> {
+    fn global_data_address(&self, mir: &MirProgram, id: SymbolId) -> Option<Absolute> {
         if let Some(global) = mir.globals.iter().find(|global| global.id == id) {
-            let address = self.global_address(id)?;
-            return Some(
-                global
-                    .init
-                    .as_ref()
-                    .and_then(global_descriptor_backing_size)
-                    .map_or(address, |backing_size| address.saturating_sub(backing_size)),
-            );
+            let placement = self.globals.get(&id).copied()?;
+            let address = placement_address(placement)?;
+            let address = global
+                .init
+                .as_ref()
+                .and_then(global_descriptor_backing_size)
+                .map_or(address, |backing_size| address.saturating_sub(backing_size));
+            return Some(if placement_is_output_relative(placement) {
+                Absolute::output_relative(address)
+            } else {
+                Absolute::new(address)
+            });
         }
-        self.static_address(id)
+        let placement = self.statics.get(&id).copied()?;
+        placement_absolute(placement)
     }
 
     fn local_data_address(
@@ -789,7 +836,7 @@ impl MirObjectLayout {
         mir: &MirProgram,
         routine_id: RoutineId,
         id: LocalId,
-    ) -> Option<u16> {
+    ) -> Option<Absolute> {
         let routine = mir
             .routines
             .iter()
@@ -800,13 +847,18 @@ impl MirObjectLayout {
             }
             _ => false,
         })?;
-        let address = placement_address(routine_slot_placement(self, routine_id, slot)?)?;
-        Some(
-            slot.init
-                .as_ref()
-                .and_then(slot_descriptor_backing_size)
-                .map_or(address, |backing_size| address.saturating_sub(backing_size)),
-        )
+        let placement = routine_slot_placement(self, routine_id, slot)?;
+        let address = placement_address(placement)?;
+        let address = slot
+            .init
+            .as_ref()
+            .and_then(slot_descriptor_backing_size)
+            .map_or(address, |backing_size| address.saturating_sub(backing_size));
+        Some(if placement_is_output_relative(placement) {
+            Absolute::output_relative(address)
+        } else {
+            Absolute::new(address)
+        })
     }
 
     fn param_data_address(
@@ -814,7 +866,7 @@ impl MirObjectLayout {
         mir: &MirProgram,
         routine_id: RoutineId,
         id: ParamId,
-    ) -> Option<u16> {
+    ) -> Option<Absolute> {
         let routine = mir
             .routines
             .iter()
@@ -822,7 +874,7 @@ impl MirObjectLayout {
         let slot = routine.frame.params.iter().find(
             |slot| matches!(slot.base, MirStorageBase::Param(candidate) if candidate == id),
         )?;
-        placement_address(routine_slot_placement(self, routine_id, slot)?)
+        placement_absolute(routine_slot_placement(self, routine_id, slot)?)
     }
 
     fn routine_label(&self, routine: RoutineId) -> String {
@@ -849,8 +901,8 @@ impl MirObjectLayout {
         {
             return Some(symbol);
         }
-        if let Some(address) = self.storage_names.get(&normalized).copied() {
-            return Some(MirMachineSymbol::Absolute(address));
+        if let Some(symbol) = self.storage_names.get(&normalized).cloned() {
+            return Some(symbol);
         }
         self.routine_names
             .get(&normalized)
@@ -950,6 +1002,7 @@ fn place_routine_slot(
         MirStorageBase::Absolute(address) => MirStoragePlacement::Absolute {
             address: address.saturating_add(slot.offset),
             size: slot_size(slot),
+            output_relative: false,
         },
         MirStorageBase::ParamAbiOnly(_) => MirStoragePlacement::Unresolved,
         MirStorageBase::LocalAlias { target, .. } => {
@@ -959,6 +1012,7 @@ fn place_routine_slot(
                 MirStoragePlacement::Absolute {
                     address: address.saturating_add(slot.offset),
                     size: logical_slot_size(slot, width_size(slot.width)),
+                    output_relative: placement_is_output_relative(target),
                 }
             } else {
                 MirStoragePlacement::Unresolved
@@ -985,6 +1039,7 @@ fn place_routine_slot(
             MirStoragePlacement::Absolute {
                 address: logical_slot_address(slot, storage_address),
                 size: logical_slot_size(slot, size),
+                output_relative: true,
             }
         }
         MirStorageBase::Spill(id) => {
@@ -997,10 +1052,19 @@ fn place_routine_slot(
                 address,
             });
             plan.push(MirSegmentKind::LoadData, address, size);
-            routine_layout
-                .spills
-                .insert(id, MirStoragePlacement::Absolute { address, size });
-            MirStoragePlacement::Absolute { address, size }
+            routine_layout.spills.insert(
+                id,
+                MirStoragePlacement::Absolute {
+                    address,
+                    size,
+                    output_relative: true,
+                },
+            );
+            MirStoragePlacement::Absolute {
+                address,
+                size,
+                output_relative: true,
+            }
         }
         MirStorageBase::Global(_) | MirStorageBase::Static(_) => {
             diagnostics.push(MirDiagnostic {
@@ -1028,7 +1092,7 @@ fn place_routine_slot(
     if let Some(name) = &slot.name
         && let Some(symbol) = fixed_machine_alias(slot)
             .map(MirMachineSymbol::Absolute)
-            .or_else(|| placement_address(placement).map(MirMachineSymbol::Absolute))
+            .or_else(|| placement_machine_symbol(placement))
     {
         routine_layout
             .machine_symbols
@@ -1041,6 +1105,34 @@ fn placement_address(placement: MirStoragePlacement) -> Option<u16> {
         MirStoragePlacement::Absolute { address, .. } => Some(address),
         MirStoragePlacement::Unresolved => None,
     }
+}
+
+fn placement_is_output_relative(placement: MirStoragePlacement) -> bool {
+    matches!(
+        placement,
+        MirStoragePlacement::Absolute {
+            output_relative: true,
+            ..
+        }
+    )
+}
+
+fn placement_machine_symbol(placement: MirStoragePlacement) -> Option<MirMachineSymbol> {
+    let address = placement_address(placement)?;
+    Some(if placement_is_output_relative(placement) {
+        MirMachineSymbol::OutputRelative(address)
+    } else {
+        MirMachineSymbol::Absolute(address)
+    })
+}
+
+fn placement_absolute(placement: MirStoragePlacement) -> Option<Absolute> {
+    let address = placement_address(placement)?;
+    Some(if placement_is_output_relative(placement) {
+        Absolute::output_relative(address)
+    } else {
+        Absolute::new(address)
+    })
 }
 
 fn logical_global_address(global: &super::ir::MirGlobal, storage_address: u16) -> u16 {
@@ -1360,7 +1452,7 @@ fn emit_data_relocation(
         return;
     }
 
-    let target_address = match relocation.target {
+    let target = match relocation.target {
         MirDataRelocationTarget::Global(id) => ctx.layout.global_data_address(ctx.mir, id),
         MirDataRelocationTarget::Local { routine, id } => {
             ctx.layout.local_data_address(ctx.mir, routine, id)
@@ -1368,10 +1460,11 @@ fn emit_data_relocation(
         MirDataRelocationTarget::Param { routine, id } => {
             ctx.layout.param_data_address(ctx.mir, routine, id)
         }
-        MirDataRelocationTarget::Absolute(address) => Some(address),
+        MirDataRelocationTarget::Absolute(address) => Some(Absolute::new(address)),
         MirDataRelocationTarget::Routine(_) => unreachable!("routine handled above"),
     };
-    let value = target_address
+    let value = target
+        .map(Absolute::address)
         .map(i32::from)
         .and_then(|address| address.checked_add(relocation.addend))
         .and_then(|address| u16::try_from(address).ok());
@@ -1385,10 +1478,31 @@ fn emit_data_relocation(
         emitter.emit_zeroes(relocation.kind.width());
         return;
     };
-    match relocation.kind {
-        MirDataRelocationKind::Low8 => emitter.emit_u8(value as u8),
-        MirDataRelocationKind::High8 => emitter.emit_u8((value >> 8) as u8),
-        MirDataRelocationKind::Word16 => emitter.emit_u16_le(value),
+    let target = target.expect("resolved MIR data relocation target");
+    if target.is_output_relative() {
+        let kind = match relocation.kind {
+            MirDataRelocationKind::Low8 => CodegenRelocationKind::Low8,
+            MirDataRelocationKind::High8 => CodegenRelocationKind::High8,
+            MirDataRelocationKind::Word16 => CodegenRelocationKind::Word16,
+        };
+        if emitter
+            .emit_output_relative(target.address(), relocation.addend, kind)
+            .is_err()
+        {
+            unsupported_message(
+                None,
+                None,
+                "MIR data relocation target is outside the 16-bit address space",
+                &mut ctx.diagnostics,
+            );
+            emitter.emit_zeroes(kind.width());
+        }
+    } else {
+        match relocation.kind {
+            MirDataRelocationKind::Low8 => emitter.emit_u8(value as u8),
+            MirDataRelocationKind::High8 => emitter.emit_u8((value >> 8) as u8),
+            MirDataRelocationKind::Word16 => emitter.emit_u16_le(value),
+        }
     }
 }
 
@@ -1408,7 +1522,11 @@ impl StorageInitView for MirGlobalInit {
             }
             MirGlobalInit::ZeroFill { bytes, .. } => emitter.emit_zeroes(*bytes),
             MirGlobalInit::ProgramEndWord { .. } => {
-                emitter.emit_u16_le(ctx.layout.plan.runtime_high_water(ctx.origin));
+                let _ = emitter.emit_output_relative(
+                    ctx.layout.plan.runtime_high_water(ctx.origin),
+                    0,
+                    CodegenRelocationKind::Word16,
+                );
             }
             MirGlobalInit::Descriptor {
                 backing,
@@ -1424,7 +1542,8 @@ impl StorageInitView for MirGlobalInit {
                     .origin
                     .saturating_add(emitter.position() as u16)
                     .saturating_sub(backing_size);
-                emitter.emit_u16_le(backing_address);
+                let _ =
+                    emitter.emit_output_relative(backing_address, 0, CodegenRelocationKind::Word16);
                 if *descriptor_size >= 4 {
                     emitter.emit_u16_le(size_word.unwrap_or(backing_size));
                 }
@@ -1501,7 +1620,8 @@ impl StorageInitView for MirStorageInit {
                     .origin
                     .saturating_add(emitter.position() as u16)
                     .saturating_sub(backing_size);
-                emitter.emit_u16_le(backing_address);
+                let _ =
+                    emitter.emit_output_relative(backing_address, 0, CodegenRelocationKind::Word16);
                 if *descriptor_size >= 4 {
                     emitter.emit_u16_le(size_word.unwrap_or(backing_size));
                 }
@@ -1745,7 +1865,7 @@ fn emit_op(
             let Some(address) = ctx
                 .layout
                 .direct_mem(routine, target)
-                .map(resolved_mem_address)
+                .map(resolved_mem_absolute)
             else {
                 unsupported(ctx, routine, block, "lea target is not emit-ready");
                 return;
@@ -1850,6 +1970,13 @@ fn emit_op(
                 MirUpdateOp::Inc => emitter.emit_inc_absolute_x(AbsoluteX::new(address)),
                 MirUpdateOp::Dec => emitter.emit_dec_absolute_x(AbsoluteX::new(address)),
             },
+            Some(ResolvedMem::OutputRelative(address)) => {
+                let address = AbsoluteX::from_absolute(Absolute::output_relative(address));
+                match op {
+                    MirUpdateOp::Inc => emitter.emit_inc_absolute_x(address),
+                    MirUpdateOp::Dec => emitter.emit_dec_absolute_x(address),
+                }
+            }
             _ => unsupported(
                 ctx,
                 routine,
@@ -2474,19 +2601,18 @@ fn emit_op(
             let Some(address) = ctx
                 .layout
                 .direct_mem(routine, mem)
-                .map(resolved_mem_address)
+                .map(resolved_mem_absolute)
             else {
                 unsupported(ctx, routine, block, "storage address value is not placed");
                 return;
             };
-            let value = if *byte == 0 {
-                (address & 0x00FF) as u8
-            } else {
-                (address >> 8) as u8
-            };
             match reg {
-                MirReg::X => emitter.emit_ldx_imm(value),
-                MirReg::Y => emitter.emit_ldy_imm(value),
+                MirReg::X => {
+                    emitter.emit_ldx_immediate(Immediate::from_absolute(address), u16::from(*byte))
+                }
+                MirReg::Y => {
+                    emitter.emit_ldy_immediate(Immediate::from_absolute(address), u16::from(*byte))
+                }
                 MirReg::A => unreachable!("A is handled above"),
             }
         }
@@ -2760,6 +2886,14 @@ fn emit_machine_item(
                     };
                     emitter.emit_u8(byte);
                 }
+                Some(MirMachineSymbol::OutputRelative(address)) => {
+                    let kind = if *high {
+                        CodegenRelocationKind::High8
+                    } else {
+                        CodegenRelocationKind::Low8
+                    };
+                    let _ = emitter.emit_output_relative(address, 0, kind);
+                }
                 Some(MirMachineSymbol::Label(label)) => {
                     if *high {
                         emitter.emit_u8_label_high(label, SYNTHETIC_SPAN);
@@ -2820,10 +2954,16 @@ fn emit_inline_asm_relocation(
                 );
                 return;
             };
-            Some(resolved_mem_address(mem))
+            Some(match mem {
+                ResolvedMem::Absolute(address) => Absolute::new(address),
+                ResolvedMem::OutputRelative(address) => Absolute::output_relative(address),
+                ResolvedMem::ZeroPage(address) => Absolute::new(u16::from(address)),
+            })
         }
-        MirInlineAsmTarget::Absolute(address) => Some(*address),
-        MirInlineAsmTarget::InlineOffset(offset) => Some(machine_origin.wrapping_add(*offset)),
+        MirInlineAsmTarget::Absolute(address) => Some(Absolute::new(*address)),
+        MirInlineAsmTarget::InlineOffset(offset) => Some(Absolute::output_relative(
+            machine_origin.wrapping_add(*offset),
+        )),
         MirInlineAsmTarget::Routine(id) => {
             let label = ctx.layout.routine_label(*id);
             if requires_zero_page {
@@ -2858,7 +2998,7 @@ fn emit_inline_asm_relocation(
         }
     };
     let Some(value) = resolved.and_then(|value| {
-        let value = i32::from(value).checked_add(addend)?;
+        let value = i32::from(value.address()).checked_add(addend)?;
         u16::try_from(value).ok()
     }) else {
         unsupported(
@@ -2889,12 +3029,23 @@ fn emit_inline_asm_relocation(
         );
         return;
     }
-    match kind {
-        InlineAsmRelocationKind::Absolute16 => emitter.emit_u16_le(value),
-        InlineAsmRelocationKind::Byte8 | InlineAsmRelocationKind::Low8 => {
-            emitter.emit_u8(value as u8)
+    let resolved = resolved.expect("resolved inline assembly relocation target");
+    if resolved.is_output_relative() {
+        let kind = match kind {
+            InlineAsmRelocationKind::Absolute16 => CodegenRelocationKind::Word16,
+            InlineAsmRelocationKind::Byte8 => CodegenRelocationKind::Address8,
+            InlineAsmRelocationKind::Low8 => CodegenRelocationKind::Low8,
+            InlineAsmRelocationKind::High8 => CodegenRelocationKind::High8,
+        };
+        let _ = emitter.emit_output_relative(resolved.address(), addend, kind);
+    } else {
+        match kind {
+            InlineAsmRelocationKind::Absolute16 => emitter.emit_u16_le(value),
+            InlineAsmRelocationKind::Byte8 | InlineAsmRelocationKind::Low8 => {
+                emitter.emit_u8(value as u8)
+            }
+            InlineAsmRelocationKind::High8 => emitter.emit_u8((value >> 8) as u8),
         }
-        InlineAsmRelocationKind::High8 => emitter.emit_u8((value >> 8) as u8),
     }
 }
 
@@ -2935,7 +3086,7 @@ fn emit_machine_string_literal(
     for byte in bytes {
         emitter.emit_u8(byte);
     }
-    emitter.emit_u16_le(literal_address);
+    let _ = emitter.emit_output_relative(literal_address, 0, CodegenRelocationKind::Word16);
 }
 
 fn emit_machine_char_literal(
@@ -2977,8 +3128,12 @@ fn emit_machine_address_expr(
             emit_machine_name(ctx, routine, block, name, selector, offset, text, emitter)
         }
         MirMachineAtom::Current => {
-            let value = apply_machine_offset(current_address(ctx, emitter), offset);
-            emit_machine_resolved_value(emitter, value, selector);
+            emit_machine_output_relative_value(
+                emitter,
+                current_address(ctx, emitter),
+                offset,
+                selector,
+            );
         }
     }
 }
@@ -3014,6 +3169,9 @@ fn emit_machine_name(
             let address = apply_machine_offset(address, offset);
             emit_machine_resolved_value(emitter, address, selector);
         }
+        Some(MirMachineSymbol::OutputRelative(address)) => {
+            emit_machine_output_relative_value(emitter, address, offset, selector);
+        }
         Some(MirMachineSymbol::Label(label)) => {
             emit_machine_label_value(emitter, label, selector, offset);
         }
@@ -3038,6 +3196,20 @@ fn machine_text_uses_caret(text: &str) -> bool {
 
 fn apply_machine_offset(base: u16, offset: i32) -> u16 {
     base.wrapping_add(offset as u16)
+}
+
+fn emit_machine_output_relative_value(
+    emitter: &mut NativeTrackedEmitter,
+    address: u16,
+    offset: i32,
+    selector: Option<MirMachineByteSelector>,
+) {
+    let kind = match selector {
+        Some(MirMachineByteSelector::Low) => CodegenRelocationKind::Low8,
+        Some(MirMachineByteSelector::High) => CodegenRelocationKind::High8,
+        None => CodegenRelocationKind::Word16,
+    };
+    let _ = emitter.emit_output_relative(address, offset, kind);
 }
 
 fn emit_machine_resolved_value(
@@ -3378,7 +3550,7 @@ fn indirect_call_target_byte_address(
         return None;
     };
     match ctx.layout.direct_mem(routine, mem)? {
-        ResolvedMem::Absolute(address) => Some(address),
+        ResolvedMem::Absolute(address) | ResolvedMem::OutputRelative(address) => Some(address),
         ResolvedMem::ZeroPage(address) => Some(address as u16),
     }
 }
@@ -3666,17 +3838,12 @@ fn emit_value_to_a(
             let Some(address) = ctx
                 .layout
                 .direct_mem(routine, mem)
-                .map(resolved_mem_address)
+                .map(resolved_mem_absolute)
             else {
                 unsupported(ctx, routine, block, "storage address value is not placed");
                 return false;
             };
-            let value = if *byte == 0 {
-                (address & 0x00FF) as u8
-            } else {
-                (address >> 8) as u8
-            };
-            emitter.emit_lda_imm(value);
+            emitter.emit_lda_immediate(Immediate::from_absolute(address), u16::from(*byte));
             true
         }
         MirValue::Def(MirDef::Reg(MirReg::A)) => true,
@@ -3713,6 +3880,9 @@ fn emit_carry(carry: Option<MirCarryIn>, op: MirBinaryOp, emitter: &mut NativeTr
 fn emit_lda_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_lda_abs(address),
+        ResolvedMem::OutputRelative(address) => {
+            emitter.emit_lda_abs(Absolute::output_relative(address))
+        }
         ResolvedMem::ZeroPage(address) => emitter.emit_lda_zero_page(ZeroPage::new(address)),
     }
 }
@@ -3737,17 +3907,12 @@ fn emit_adc_value_to_a(
             let Some(address) = ctx
                 .layout
                 .direct_mem(routine, mem)
-                .map(resolved_mem_address)
+                .map(resolved_mem_absolute)
             else {
                 unsupported(ctx, routine, block, "storage address value is not placed");
                 return false;
             };
-            let value = if *byte == 0 {
-                (address & 0x00FF) as u8
-            } else {
-                (address >> 8) as u8
-            };
-            emitter.emit_adc_imm(value);
+            emitter.emit_adc_immediate(Immediate::from_absolute(address), u16::from(*byte));
             true
         }
         MirValue::PointerCell(mem) => match ctx.layout.direct_mem(routine, mem) {
@@ -3958,10 +4123,11 @@ fn split_index_value_as_word(
     })
 }
 
-fn resolved_mem_address(mem: ResolvedMem) -> u16 {
+fn resolved_mem_absolute(mem: ResolvedMem) -> Absolute {
     match mem {
-        ResolvedMem::Absolute(address) => address,
-        ResolvedMem::ZeroPage(address) => u16::from(address),
+        ResolvedMem::Absolute(address) => Absolute::new(address),
+        ResolvedMem::OutputRelative(address) => Absolute::output_relative(address),
+        ResolvedMem::ZeroPage(address) => Absolute::new(u16::from(address)),
     }
 }
 
@@ -3970,11 +4136,10 @@ fn emit_address_to_def(
     routine: RoutineId,
     block: MirBlockId,
     dst: &MirDef,
-    address: u16,
+    address: Absolute,
     emitter: &mut NativeTrackedEmitter,
 ) {
-    let lo = (address & 0x00FF) as u8;
-    let hi = (address >> 8) as u8;
+    let immediate = Immediate::from_absolute(address);
     match dst {
         MirDef::VTemp(temp) => {
             emit_address_byte_to_spill(
@@ -3982,7 +4147,8 @@ fn emit_address_to_def(
                 routine,
                 block,
                 MirSpillId(temp.0.saturating_mul(2)),
-                lo,
+                immediate,
+                0,
                 emitter,
             );
             emit_address_byte_to_spill(
@@ -3990,24 +4156,25 @@ fn emit_address_to_def(
                 routine,
                 block,
                 MirSpillId(temp.0.saturating_mul(2).saturating_add(1)),
-                hi,
+                immediate,
+                1,
                 emitter,
             );
         }
         MirDef::VTempByte { id, byte } => {
-            let value = if *byte == 0 { lo } else { hi };
             emit_address_byte_to_spill(
                 ctx,
                 routine,
                 block,
                 MirSpillId(id.0.saturating_mul(2).saturating_add(u32::from(*byte))),
-                value,
+                immediate,
+                u16::from(*byte),
                 emitter,
             );
         }
-        MirDef::Reg(MirReg::A) => emitter.emit_lda_imm(lo),
-        MirDef::Reg(MirReg::X) => emitter.emit_ldx_imm(lo),
-        MirDef::Reg(MirReg::Y) => emitter.emit_ldy_imm(lo),
+        MirDef::Reg(MirReg::A) => emitter.emit_lda_immediate(immediate, 0),
+        MirDef::Reg(MirReg::X) => emitter.emit_ldx_immediate(immediate, 0),
+        MirDef::Reg(MirReg::Y) => emitter.emit_ldy_immediate(immediate, 0),
     }
 }
 
@@ -4016,7 +4183,8 @@ fn emit_address_byte_to_spill(
     routine: RoutineId,
     block: MirBlockId,
     spill: MirSpillId,
-    value: u8,
+    immediate: Immediate,
+    byte_index: u16,
     emitter: &mut NativeTrackedEmitter,
 ) {
     let Some(mem) = ctx.layout.direct_mem(
@@ -4029,13 +4197,16 @@ fn emit_address_byte_to_spill(
         unsupported(ctx, routine, block, "lea spill destination is not placed");
         return;
     };
-    emitter.emit_lda_imm(value);
+    emitter.emit_lda_immediate(immediate, byte_index);
     emit_sta_mem(mem, emitter);
 }
 
 fn emit_ldx_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_ldx_abs(address),
+        ResolvedMem::OutputRelative(address) => {
+            emitter.emit_ldx_abs(Absolute::output_relative(address))
+        }
         ResolvedMem::ZeroPage(address) => emitter.emit_ldx_zero_page(ZeroPage::new(address)),
     }
 }
@@ -4043,6 +4214,9 @@ fn emit_ldx_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
 fn emit_ldy_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_ldy_abs(address),
+        ResolvedMem::OutputRelative(address) => {
+            emitter.emit_ldy_abs(Absolute::output_relative(address))
+        }
         ResolvedMem::ZeroPage(address) => emitter.emit_ldy_zero_page(ZeroPage::new(address)),
     }
 }
@@ -4050,6 +4224,9 @@ fn emit_ldy_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
 fn emit_sta_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_sta_absolute(Absolute::new(address)),
+        ResolvedMem::OutputRelative(address) => {
+            emitter.emit_sta_absolute(Absolute::output_relative(address))
+        }
         ResolvedMem::ZeroPage(address) => emitter.emit_sta_zero_page(ZeroPage::new(address)),
     }
 }
@@ -4059,11 +4236,17 @@ fn emit_update_mem(op: MirUpdateOp, mem: ResolvedMem, emitter: &mut NativeTracke
         (MirUpdateOp::Inc, ResolvedMem::Absolute(address)) => {
             emitter.emit_inc_absolute(Absolute::new(address));
         }
+        (MirUpdateOp::Inc, ResolvedMem::OutputRelative(address)) => {
+            emitter.emit_inc_absolute(Absolute::output_relative(address));
+        }
         (MirUpdateOp::Inc, ResolvedMem::ZeroPage(address)) => {
             emitter.emit_inc_zero_page(ZeroPage::new(address));
         }
         (MirUpdateOp::Dec, ResolvedMem::Absolute(address)) => {
             emitter.emit_dec_absolute(Absolute::new(address));
+        }
+        (MirUpdateOp::Dec, ResolvedMem::OutputRelative(address)) => {
+            emitter.emit_dec_absolute(Absolute::output_relative(address));
         }
         (MirUpdateOp::Dec, ResolvedMem::ZeroPage(address)) => {
             emitter.emit_dec_zero_page(ZeroPage::new(address));
@@ -4307,6 +4490,9 @@ fn emit_absolute_word_sub_to_indirect(
 fn emit_sbc_resolved_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_sbc_abs(address),
+        ResolvedMem::OutputRelative(address) => {
+            emitter.emit_sbc_abs(Absolute::output_relative(address))
+        }
         ResolvedMem::ZeroPage(address) => emitter.emit_sbc_zero_page(ZeroPage::new(address)),
     }
 }
@@ -4314,6 +4500,9 @@ fn emit_sbc_resolved_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
 fn offset_resolved_mem(mem: ResolvedMem, offset: u16) -> ResolvedMem {
     match mem {
         ResolvedMem::Absolute(address) => ResolvedMem::Absolute(address.wrapping_add(offset)),
+        ResolvedMem::OutputRelative(address) => {
+            ResolvedMem::OutputRelative(address.wrapping_add(offset))
+        }
         ResolvedMem::ZeroPage(address) => ResolvedMem::ZeroPage(address.wrapping_add(offset as u8)),
     }
 }
@@ -4321,6 +4510,9 @@ fn offset_resolved_mem(mem: ResolvedMem, offset: u16) -> ResolvedMem {
 fn emit_stx_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_stx_absolute(Absolute::new(address)),
+        ResolvedMem::OutputRelative(address) => {
+            emitter.emit_stx_absolute(Absolute::output_relative(address))
+        }
         ResolvedMem::ZeroPage(address) => emitter.emit_stx_zero_page(ZeroPage::new(address)),
     }
 }
@@ -4328,6 +4520,9 @@ fn emit_stx_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
 fn emit_sty_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_sty_absolute(Absolute::new(address)),
+        ResolvedMem::OutputRelative(address) => {
+            emitter.emit_sty_absolute(Absolute::output_relative(address))
+        }
         ResolvedMem::ZeroPage(address) => emitter.emit_sty_zero_page(ZeroPage::new(address)),
     }
 }
@@ -4336,6 +4531,12 @@ fn emit_lda_indexed(mem: ResolvedIndexedMem, emitter: &mut NativeTrackedEmitter)
     match mem {
         ResolvedIndexedMem::AbsoluteX(address) => emitter.emit_lda_abs_x(address),
         ResolvedIndexedMem::AbsoluteY(address) => emitter.emit_lda_abs_y(address),
+        ResolvedIndexedMem::OutputRelativeX(address) => {
+            emitter.emit_lda_abs_x(AbsoluteX::from_absolute(Absolute::output_relative(address)))
+        }
+        ResolvedIndexedMem::OutputRelativeY(address) => {
+            emitter.emit_lda_abs_y(Absolute::output_relative(address))
+        }
         ResolvedIndexedMem::ZeroPageX(address) => {
             emitter.emit_lda_zero_page_x(ZeroPageX::new(address))
         }
@@ -4349,6 +4550,12 @@ fn emit_sta_indexed(mem: ResolvedIndexedMem, emitter: &mut NativeTrackedEmitter)
     match mem {
         ResolvedIndexedMem::AbsoluteX(address) => emitter.emit_sta_abs_x(address),
         ResolvedIndexedMem::AbsoluteY(address) => emitter.emit_sta_abs_y(address),
+        ResolvedIndexedMem::OutputRelativeX(address) => {
+            emitter.emit_sta_abs_x(AbsoluteX::from_absolute(Absolute::output_relative(address)))
+        }
+        ResolvedIndexedMem::OutputRelativeY(address) => {
+            emitter.emit_sta_abs_y(Absolute::output_relative(address))
+        }
         ResolvedIndexedMem::ZeroPageX(address) => {
             emitter.emit_sta_zero_page_x(ZeroPageX::new(address))
         }
@@ -4578,22 +4785,37 @@ fn emit_binary_mem(
 ) {
     match (op, mem) {
         (MirBinaryOp::Add, ResolvedMem::Absolute(address)) => emitter.emit_adc_abs(address),
+        (MirBinaryOp::Add, ResolvedMem::OutputRelative(address)) => {
+            emitter.emit_adc_abs(Absolute::output_relative(address))
+        }
         (MirBinaryOp::Add, ResolvedMem::ZeroPage(address)) => {
             emitter.emit_adc_zero_page(crate::codegen::ZeroPage::new(address))
         }
         (MirBinaryOp::Sub, ResolvedMem::Absolute(address)) => emitter.emit_sbc_abs(address),
+        (MirBinaryOp::Sub, ResolvedMem::OutputRelative(address)) => {
+            emitter.emit_sbc_abs(Absolute::output_relative(address))
+        }
         (MirBinaryOp::Sub, ResolvedMem::ZeroPage(address)) => {
             emitter.emit_sbc_zero_page(crate::codegen::ZeroPage::new(address))
         }
         (MirBinaryOp::And, ResolvedMem::Absolute(address)) => emitter.emit_and_abs(address),
+        (MirBinaryOp::And, ResolvedMem::OutputRelative(address)) => {
+            emitter.emit_and_abs(Absolute::output_relative(address))
+        }
         (MirBinaryOp::And, ResolvedMem::ZeroPage(address)) => {
             emitter.emit_and_zero_page(crate::codegen::ZeroPage::new(address))
         }
         (MirBinaryOp::Or, ResolvedMem::Absolute(address)) => emitter.emit_ora_abs(address),
+        (MirBinaryOp::Or, ResolvedMem::OutputRelative(address)) => {
+            emitter.emit_ora_abs(Absolute::output_relative(address))
+        }
         (MirBinaryOp::Or, ResolvedMem::ZeroPage(address)) => {
             emitter.emit_ora_zero_page(crate::codegen::ZeroPage::new(address))
         }
         (MirBinaryOp::Xor, ResolvedMem::Absolute(address)) => emitter.emit_eor_abs(address),
+        (MirBinaryOp::Xor, ResolvedMem::OutputRelative(address)) => {
+            emitter.emit_eor_abs(Absolute::output_relative(address))
+        }
         (MirBinaryOp::Xor, ResolvedMem::ZeroPage(address)) => {
             emitter.emit_eor_zero_page(crate::codegen::ZeroPage::new(address))
         }
@@ -4604,6 +4826,9 @@ fn emit_binary_mem(
 fn emit_cmp_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_cmp_abs(address),
+        ResolvedMem::OutputRelative(address) => {
+            emitter.emit_cmp_abs(Absolute::output_relative(address))
+        }
         ResolvedMem::ZeroPage(address) => {
             emitter.emit_cmp_zero_page(crate::codegen::ZeroPage::new(address))
         }
@@ -4911,7 +5136,7 @@ fn storage_symbol(
     placement: Option<MirStoragePlacement>,
 ) -> Option<CodegenStorageSymbol> {
     match placement? {
-        MirStoragePlacement::Absolute { address, size } => Some(CodegenStorageSymbol {
+        MirStoragePlacement::Absolute { address, size, .. } => Some(CodegenStorageSymbol {
             name,
             scope,
             kind,
@@ -4941,6 +5166,7 @@ fn routine_slot_placement(
         MirStorageBase::Absolute(address) => Some(MirStoragePlacement::Absolute {
             address: address.saturating_add(slot.offset),
             size: slot_size(slot),
+            output_relative: false,
         }),
         MirStorageBase::Global(id) => layout.globals.get(&id).copied(),
         MirStorageBase::Static(id) => layout.statics.get(&id).copied(),

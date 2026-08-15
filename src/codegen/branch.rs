@@ -2393,7 +2393,7 @@ impl Generator {
             let Some(address) = self.address_of_lvalue(expr) else {
                 return false;
             };
-            self.emit_lda_immediate(Immediate::new(address.address()), byte_index);
+            self.emit_lda_immediate(Immediate::from_absolute(address), byte_index);
             return true;
         }
 
@@ -2584,8 +2584,7 @@ impl Generator {
             return false;
         }
         self.emit_ldx_slot_byte(return_slot, 0);
-        self.emitter
-            .emit_lda_absolute_x(AbsoluteX::new(array.address));
+        self.emitter.emit_lda_absolute_x(array.absolute_x_operand());
         true
     }
 
@@ -2641,7 +2640,7 @@ impl Generator {
             return false;
         }
         self.emit_ldy_slot_byte_value_only(index, 0);
-        self.emit_lda_absolute_y(Absolute::new(proof.base.address));
+        self.emit_lda_absolute_y(proof.base.absolute_byte(0));
         self.record_codegen_proof(
             "index-address",
             expr.span,

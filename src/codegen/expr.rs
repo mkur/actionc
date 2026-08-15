@@ -47,7 +47,9 @@ impl Generator {
                 }
                 let field = self.record_layouts.field(base_slot.record?, field)?;
                 Some(
-                    StorageSlot::absolute(base_slot.address.wrapping_add(field.offset), field.size)
+                    base_slot
+                        .offset_bytes(field.offset)
+                        .with_size(field.size)
                         .signed(field.signed),
                 )
             }
@@ -106,7 +108,7 @@ impl Generator {
         };
         let slot = self.lookup_slot(name)?;
         match slot.array? {
-            ArrayStorage::Inline => Some(Absolute::new(slot.address)),
+            ArrayStorage::Inline => Some(slot.absolute_byte(0)),
             ArrayStorage::Pointer | ArrayStorage::Descriptor => None,
         }
     }
@@ -126,7 +128,7 @@ impl Generator {
             && source.pointee_size.is_none()
             && source.record == target.record
             && target.pointee_size.is_some())
-        .then_some(Absolute::new(source.address))
+        .then_some(source.absolute_byte(0))
     }
 
     // Extracted from src/codegen.rs: direct_scalar_slot
@@ -148,7 +150,9 @@ impl Generator {
                 }
                 let field = self.record_layouts.field(base_slot.record?, field)?;
                 Some(
-                    StorageSlot::absolute(base_slot.address.wrapping_add(field.offset), field.size)
+                    base_slot
+                        .offset_bytes(field.offset)
+                        .with_size(field.size)
                         .signed(field.signed),
                 )
             }
@@ -366,7 +370,8 @@ impl Generator {
             return None;
         }
         Some(
-            StorageSlot::absolute(slot.address.wrapping_add(field.offset), field.size)
+            slot.offset_bytes(field.offset)
+                .with_size(field.size)
                 .signed(field.signed),
         )
     }
@@ -389,7 +394,11 @@ impl Generator {
                 && index_slot.size == 1
             {
                 self.emit_ldx_slot_byte(index_slot, 0);
-                return Some(StorageSlot::absolute_x(slot.address, slot.size).signed(slot.signed));
+                return Some(StorageSlot {
+                    array: None,
+                    space: AddressSpace::AbsoluteX,
+                    ..slot
+                });
             }
         }
         let pointer = self.emit_dynamic_array_address(slot, index)?;
@@ -567,7 +576,7 @@ impl Generator {
             _ => self.lvalue_slot(expr)?,
         };
         match slot.space {
-            AddressSpace::Absolute | AddressSpace::ZeroPage => Some(Absolute::new(slot.address)),
+            AddressSpace::Absolute | AddressSpace::ZeroPage => Some(slot.absolute_byte(0)),
             AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY => None,
         }
     }

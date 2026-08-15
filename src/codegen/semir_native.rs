@@ -285,7 +285,8 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         targets.sort_by_key(|(id, _)| id.0);
         for (id, target) in targets {
             let position = match target {
-                MachineSymbolAddress::Absolute(address) => {
+                MachineSymbolAddress::Absolute(address)
+                | MachineSymbolAddress::OutputRelative(address) => {
                     usize::from(address.wrapping_sub(self.model.origin))
                 }
                 MachineSymbolAddress::Label(label) => {
@@ -862,6 +863,18 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                     StorageRelocationKind::High8 => self.emit_raw_u8((value >> 8) as u8),
                     StorageRelocationKind::Word16 => self.emit_raw_u16_le(value),
                 }
+            }
+            Some(MachineSymbolAddress::OutputRelative(address)) => {
+                let kind = match kind {
+                    StorageRelocationKind::Low8 => CodegenRelocationKind::Low8,
+                    StorageRelocationKind::High8 => CodegenRelocationKind::High8,
+                    StorageRelocationKind::Word16 => CodegenRelocationKind::Word16,
+                };
+                self.emitter
+                    .emit_output_relative(address, addend, kind)
+                    .map_err(|()| {
+                        "static initializer address is outside the 16-bit address space".to_string()
+                    })?;
             }
             Some(MachineSymbolAddress::Label(label)) => match kind {
                 StorageRelocationKind::Low8 => {

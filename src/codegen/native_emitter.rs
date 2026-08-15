@@ -123,6 +123,18 @@ impl NativeTrackedEmitter {
         self.state.call_unknown();
     }
 
+    pub(crate) fn emit_output_relative(
+        &mut self,
+        target_address: u16,
+        addend: i32,
+        kind: CodegenRelocationKind,
+    ) -> Result<(), ()> {
+        self.emitter
+            .emit_output_relative(target_address, addend, kind)?;
+        self.state.call_unknown();
+        Ok(())
+    }
+
     pub(crate) fn emit_u16_label(&mut self, label: impl Into<String>, span: Span) {
         self.emitter.emit_u16_label(label, span);
         self.state.call_unknown();
@@ -212,25 +224,34 @@ impl NativeTrackedEmitter {
         self.state.load_a_immediate(value);
     }
 
-    pub(crate) fn emit_lda_abs(&mut self, address: u16) {
-        if self.state.can_skip_load_a_memory(address) && self.state.flags_match_a_value() {
-            return;
-        }
-        if let Some(zero_page) = direct_zero_page(address) {
-            self.emit_lda_zero_page(zero_page);
-            return;
-        }
-        self.emitter.emit_lda_abs(address);
-        self.state.load_a_memory(address);
-    }
-
-    pub(crate) fn emit_lda_abs_x(&mut self, address: u16) {
-        self.emitter.emit_lda_abs_x(address);
+    pub(crate) fn emit_lda_immediate(&mut self, immediate: Immediate, byte_index: u16) {
+        self.emitter.emit_lda_immediate(immediate, byte_index);
         self.state.load_a_unknown();
     }
 
-    pub(crate) fn emit_lda_abs_y(&mut self, address: u16) {
-        self.emitter.emit_lda_abs_y(address);
+    pub(crate) fn emit_lda_abs(&mut self, address: impl Into<Absolute>) {
+        let address = address.into();
+        let raw_address = address.address();
+        if self.state.can_skip_load_a_memory(raw_address) && self.state.flags_match_a_value() {
+            return;
+        }
+        if !address.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(raw_address)
+        {
+            self.emit_lda_zero_page(zero_page);
+            return;
+        }
+        self.emitter.emit_lda_absolute(address);
+        self.state.load_a_memory(raw_address);
+    }
+
+    pub(crate) fn emit_lda_abs_x(&mut self, address: impl Into<AbsoluteX>) {
+        self.emitter.emit_lda_absolute_x(address.into());
+        self.state.load_a_unknown();
+    }
+
+    pub(crate) fn emit_lda_abs_y(&mut self, address: impl Into<Absolute>) {
+        self.emitter.emit_lda_absolute_y(address.into());
         self.state.load_a_unknown();
     }
 
@@ -254,13 +275,22 @@ impl NativeTrackedEmitter {
         self.state.load_x_immediate(value);
     }
 
-    pub(crate) fn emit_ldx_abs(&mut self, address: u16) {
-        if let Some(zero_page) = direct_zero_page(address) {
+    pub(crate) fn emit_ldx_immediate(&mut self, immediate: Immediate, byte_index: u16) {
+        self.emitter.emit_ldx_immediate(immediate, byte_index);
+        self.state.load_x_unknown();
+    }
+
+    pub(crate) fn emit_ldx_abs(&mut self, address: impl Into<Absolute>) {
+        let address = address.into();
+        let raw_address = address.address();
+        if !address.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(raw_address)
+        {
             self.emit_ldx_zero_page(zero_page);
             return;
         }
-        self.emitter.emit_ldx_abs(address);
-        self.state.load_x_memory(address);
+        self.emitter.emit_ldx_absolute(address);
+        self.state.load_x_memory(raw_address);
     }
 
     pub(crate) fn emit_ldx_zero_page(&mut self, zero_page: ZeroPage) {
@@ -286,13 +316,22 @@ impl NativeTrackedEmitter {
         self.state.load_y_immediate(value);
     }
 
-    pub(crate) fn emit_ldy_abs(&mut self, address: u16) {
-        if let Some(zero_page) = direct_zero_page(address) {
+    pub(crate) fn emit_ldy_immediate(&mut self, immediate: Immediate, byte_index: u16) {
+        self.emitter.emit_ldy_immediate(immediate, byte_index);
+        self.state.load_y_unknown();
+    }
+
+    pub(crate) fn emit_ldy_abs(&mut self, address: impl Into<Absolute>) {
+        let address = address.into();
+        let raw_address = address.address();
+        if !address.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(raw_address)
+        {
             self.emit_ldy_zero_page(zero_page);
             return;
         }
-        self.emitter.emit_ldy_abs(address);
-        self.state.load_y_memory(address);
+        self.emitter.emit_ldy_absolute(address);
+        self.state.load_y_memory(raw_address);
     }
 
     pub(crate) fn emit_ldy_zero_page(&mut self, zero_page: ZeroPage) {
@@ -334,13 +373,13 @@ impl NativeTrackedEmitter {
         self.state.store_a_memory(absolute.address());
     }
 
-    pub(crate) fn emit_sta_abs_x(&mut self, address: u16) {
-        self.emitter.emit_sta_abs_x(address);
+    pub(crate) fn emit_sta_abs_x(&mut self, address: impl Into<AbsoluteX>) {
+        self.emitter.emit_sta_absolute_x(address.into());
         self.state.mutate_unknown_memory();
     }
 
-    pub(crate) fn emit_sta_abs_y(&mut self, address: u16) {
-        self.emitter.emit_sta_abs_y(address);
+    pub(crate) fn emit_sta_abs_y(&mut self, address: impl Into<Absolute>) {
+        self.emitter.emit_sta_absolute_y(address.into());
         self.state.mutate_unknown_memory();
     }
 
@@ -397,12 +436,20 @@ impl NativeTrackedEmitter {
         self.state.arithmetic_a();
     }
 
-    pub(crate) fn emit_adc_abs(&mut self, address: u16) {
-        if let Some(zero_page) = direct_zero_page(address) {
+    pub(crate) fn emit_adc_immediate(&mut self, immediate: Immediate, byte_index: u16) {
+        self.emitter.emit_adc_immediate(immediate, byte_index);
+        self.state.arithmetic_a();
+    }
+
+    pub(crate) fn emit_adc_abs(&mut self, address: impl Into<Absolute>) {
+        let address = address.into();
+        if !address.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(address.address())
+        {
             self.emit_adc_zero_page(zero_page);
             return;
         }
-        self.emitter.emit_adc_abs(address);
+        self.emitter.emit_adc_absolute(address);
         self.state.arithmetic_a();
     }
 
@@ -421,12 +468,15 @@ impl NativeTrackedEmitter {
         self.state.arithmetic_a();
     }
 
-    pub(crate) fn emit_sbc_abs(&mut self, address: u16) {
-        if let Some(zero_page) = direct_zero_page(address) {
+    pub(crate) fn emit_sbc_abs(&mut self, address: impl Into<Absolute>) {
+        let address = address.into();
+        if !address.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(address.address())
+        {
             self.emit_sbc_zero_page(zero_page);
             return;
         }
-        self.emitter.emit_sbc_abs(address);
+        self.emitter.emit_sbc_absolute(address);
         self.state.arithmetic_a();
     }
 
@@ -474,12 +524,15 @@ impl NativeTrackedEmitter {
         self.state.load_a_unknown();
     }
 
-    pub(crate) fn emit_and_abs(&mut self, address: u16) {
-        if let Some(zero_page) = direct_zero_page(address) {
+    pub(crate) fn emit_and_abs(&mut self, address: impl Into<Absolute>) {
+        let address = address.into();
+        if !address.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(address.address())
+        {
             self.emit_and_zero_page(zero_page);
             return;
         }
-        self.emitter.emit_and_abs(address);
+        self.emitter.emit_and_absolute(address);
         self.state.load_a_unknown();
     }
 
@@ -493,12 +546,15 @@ impl NativeTrackedEmitter {
         self.state.load_a_unknown();
     }
 
-    pub(crate) fn emit_ora_abs(&mut self, address: u16) {
-        if let Some(zero_page) = direct_zero_page(address) {
+    pub(crate) fn emit_ora_abs(&mut self, address: impl Into<Absolute>) {
+        let address = address.into();
+        if !address.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(address.address())
+        {
             self.emit_ora_zero_page(zero_page);
             return;
         }
-        self.emitter.emit_ora_abs(address);
+        self.emitter.emit_ora_absolute(address);
         self.state.load_a_unknown();
     }
 
@@ -512,12 +568,15 @@ impl NativeTrackedEmitter {
         self.state.load_a_unknown();
     }
 
-    pub(crate) fn emit_eor_abs(&mut self, address: u16) {
-        if let Some(zero_page) = direct_zero_page(address) {
+    pub(crate) fn emit_eor_abs(&mut self, address: impl Into<Absolute>) {
+        let address = address.into();
+        if !address.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(address.address())
+        {
             self.emit_eor_zero_page(zero_page);
             return;
         }
-        self.emitter.emit_eor_abs(address);
+        self.emitter.emit_eor_absolute(address);
         self.state.load_a_unknown();
     }
 
@@ -538,12 +597,15 @@ impl NativeTrackedEmitter {
         self.emit_cmp_imm(value);
     }
 
-    pub(crate) fn emit_cmp_abs(&mut self, address: u16) {
-        if let Some(zero_page) = direct_zero_page(address) {
+    pub(crate) fn emit_cmp_abs(&mut self, address: impl Into<Absolute>) {
+        let address = address.into();
+        if !address.is_output_relative()
+            && let Some(zero_page) = direct_zero_page(address.address())
+        {
             self.emit_cmp_zero_page(zero_page);
             return;
         }
-        self.emitter.emit_cmp_abs(address);
+        self.emitter.emit_cmp_absolute(address);
         self.state.invalidate_flags();
     }
 

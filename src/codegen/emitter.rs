@@ -7,6 +7,7 @@ pub struct Emitter {
     pub(super) bytes: Vec<u8>,
     pub(super) labels: HashMap<String, usize>,
     pub(super) patches: Vec<Patch>,
+    pub(super) resolved_references: Vec<ResolvedReference>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,6 +25,14 @@ pub(super) enum PatchKind {
     AbsoluteLow8,
     AbsoluteHigh8,
     Relative8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct ResolvedReference {
+    pub(super) value_offset: usize,
+    pub(super) target_address: u16,
+    pub(super) addend: i32,
+    pub(super) kind: CodegenRelocationKind,
 }
 
 impl Emitter {
@@ -52,6 +61,34 @@ impl Emitter {
 
     pub fn emit_u16_le(&mut self, value: u16) {
         self.bytes.extend(value.to_le_bytes());
+    }
+
+    pub(super) fn emit_output_relative(
+        &mut self,
+        target_address: u16,
+        addend: i32,
+        kind: CodegenRelocationKind,
+    ) -> Result<(), ()> {
+        let value = i32::from(target_address)
+            .checked_add(addend)
+            .and_then(|value| u16::try_from(value).ok())
+            .ok_or(())?;
+        let value_offset = self.position();
+        match kind {
+            CodegenRelocationKind::Address8 | CodegenRelocationKind::Low8 => {
+                self.emit_u8(value as u8)
+            }
+            CodegenRelocationKind::High8 => self.emit_u8((value >> 8) as u8),
+            CodegenRelocationKind::Word16 => self.emit_u16_le(value),
+            CodegenRelocationKind::Relative8 => return Err(()),
+        }
+        self.resolved_references.push(ResolvedReference {
+            value_offset,
+            target_address,
+            addend,
+            kind,
+        });
+        Ok(())
     }
 
     pub fn emit_u16_label(&mut self, label: impl Into<String>, span: Span) {
@@ -143,7 +180,21 @@ impl Emitter {
     }
 
     pub fn emit_lda_immediate(&mut self, immediate: Immediate, byte_index: u16) {
-        self.emit_lda_imm(immediate.byte(byte_index));
+        self.emit_immediate_operand(opcode::LDA_IMM, immediate, byte_index);
+    }
+
+    fn emit_immediate_operand(&mut self, opcode: u8, immediate: Immediate, byte_index: u16) {
+        self.emit_u8(opcode);
+        if immediate.is_output_relative() && byte_index < 2 {
+            let kind = if byte_index == 0 {
+                CodegenRelocationKind::Low8
+            } else {
+                CodegenRelocationKind::High8
+            };
+            let _ = self.emit_output_relative(immediate.value(), 0, kind);
+        } else {
+            self.emit_u8(immediate.byte(byte_index));
+        }
     }
 
     pub fn emit_lda_abs(&mut self, address: u16) {
@@ -152,7 +203,8 @@ impl Emitter {
     }
 
     pub fn emit_lda_absolute(&mut self, absolute: Absolute) {
-        self.emit_lda_abs(absolute.address());
+        self.emit_u8(opcode::LDA_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_lda_abs_x(&mut self, address: u16) {
@@ -161,7 +213,8 @@ impl Emitter {
     }
 
     pub fn emit_lda_absolute_x(&mut self, absolute_x: AbsoluteX) {
-        self.emit_lda_abs_x(absolute_x.absolute().address());
+        self.emit_u8(opcode::LDA_ABS_X);
+        self.emit_absolute_operand(absolute_x.absolute());
     }
 
     pub fn emit_lda_abs_y(&mut self, address: u16) {
@@ -170,7 +223,8 @@ impl Emitter {
     }
 
     pub fn emit_lda_absolute_y(&mut self, absolute: Absolute) {
-        self.emit_lda_abs_y(absolute.address());
+        self.emit_u8(opcode::LDA_ABS_Y);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_lda_zp(&mut self, address: u8) {
@@ -206,9 +260,17 @@ impl Emitter {
         self.emit_u8(value);
     }
 
+    pub fn emit_ldy_immediate(&mut self, immediate: Immediate, byte_index: u16) {
+        self.emit_immediate_operand(opcode::LDY_IMM, immediate, byte_index);
+    }
+
     pub fn emit_ldx_imm(&mut self, value: u8) {
         self.emit_u8(opcode::LDX_IMM);
         self.emit_u8(value);
+    }
+
+    pub fn emit_ldx_immediate(&mut self, immediate: Immediate, byte_index: u16) {
+        self.emit_immediate_operand(opcode::LDX_IMM, immediate, byte_index);
     }
 
     pub fn emit_ldx_abs(&mut self, address: u16) {
@@ -217,7 +279,8 @@ impl Emitter {
     }
 
     pub fn emit_ldx_absolute(&mut self, absolute: Absolute) {
-        self.emit_ldx_abs(absolute.address());
+        self.emit_u8(opcode::LDX_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_ldy_abs(&mut self, address: u16) {
@@ -226,7 +289,8 @@ impl Emitter {
     }
 
     pub fn emit_ldy_absolute(&mut self, absolute: Absolute) {
-        self.emit_ldy_abs(absolute.address());
+        self.emit_u8(opcode::LDY_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_ldx_zero_page(&mut self, zero_page: ZeroPage) {
@@ -269,7 +333,7 @@ impl Emitter {
     }
 
     pub fn emit_adc_immediate(&mut self, immediate: Immediate, byte_index: u16) {
-        self.emit_adc_imm(immediate.byte(byte_index));
+        self.emit_immediate_operand(opcode::ADC_IMM, immediate, byte_index);
     }
 
     pub fn emit_adc_abs(&mut self, address: u16) {
@@ -278,7 +342,8 @@ impl Emitter {
     }
 
     pub fn emit_adc_absolute(&mut self, absolute: Absolute) {
-        self.emit_adc_abs(absolute.address());
+        self.emit_u8(opcode::ADC_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_adc_abs_x(&mut self, address: u16) {
@@ -287,7 +352,8 @@ impl Emitter {
     }
 
     pub fn emit_adc_absolute_x(&mut self, absolute_x: AbsoluteX) {
-        self.emit_adc_abs_x(absolute_x.absolute().address());
+        self.emit_u8(opcode::ADC_ABS_X);
+        self.emit_absolute_operand(absolute_x.absolute());
     }
 
     pub fn emit_adc_zp(&mut self, address: u8) {
@@ -324,12 +390,13 @@ impl Emitter {
     }
 
     pub fn emit_and_absolute(&mut self, absolute: Absolute) {
-        self.emit_and_abs(absolute.address());
+        self.emit_u8(opcode::AND_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_and_absolute_x(&mut self, absolute_x: AbsoluteX) {
         self.emit_u8(opcode::AND_ABS_X);
-        self.emit_u16_le(absolute_x.absolute().address());
+        self.emit_absolute_operand(absolute_x.absolute());
     }
 
     pub fn emit_and_zp(&mut self, address: u8) {
@@ -361,12 +428,13 @@ impl Emitter {
     }
 
     pub fn emit_ora_absolute(&mut self, absolute: Absolute) {
-        self.emit_ora_abs(absolute.address());
+        self.emit_u8(opcode::ORA_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_ora_absolute_x(&mut self, absolute_x: AbsoluteX) {
         self.emit_u8(opcode::ORA_ABS_X);
-        self.emit_u16_le(absolute_x.absolute().address());
+        self.emit_absolute_operand(absolute_x.absolute());
     }
 
     pub fn emit_ora_zp(&mut self, address: u8) {
@@ -398,12 +466,13 @@ impl Emitter {
     }
 
     pub fn emit_eor_absolute(&mut self, absolute: Absolute) {
-        self.emit_eor_abs(absolute.address());
+        self.emit_u8(opcode::EOR_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_eor_absolute_x(&mut self, absolute_x: AbsoluteX) {
         self.emit_u8(opcode::EOR_ABS_X);
-        self.emit_u16_le(absolute_x.absolute().address());
+        self.emit_absolute_operand(absolute_x.absolute());
     }
 
     pub fn emit_eor_zp(&mut self, address: u8) {
@@ -426,7 +495,7 @@ impl Emitter {
     }
 
     pub fn emit_sbc_immediate(&mut self, immediate: Immediate, byte_index: u16) {
-        self.emit_sbc_imm(immediate.byte(byte_index));
+        self.emit_immediate_operand(opcode::SBC_IMM, immediate, byte_index);
     }
 
     pub fn emit_sbc_abs(&mut self, address: u16) {
@@ -435,7 +504,8 @@ impl Emitter {
     }
 
     pub fn emit_sbc_absolute(&mut self, absolute: Absolute) {
-        self.emit_sbc_abs(absolute.address());
+        self.emit_u8(opcode::SBC_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_sbc_zp(&mut self, address: u8) {
@@ -472,7 +542,8 @@ impl Emitter {
     }
 
     pub fn emit_cmp_absolute(&mut self, absolute: Absolute) {
-        self.emit_cmp_abs(absolute.address());
+        self.emit_u8(opcode::CMP_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_cmp_zp(&mut self, address: u8) {
@@ -495,7 +566,8 @@ impl Emitter {
     }
 
     pub fn emit_sta_absolute(&mut self, absolute: Absolute) {
-        self.emit_sta_abs(absolute.address());
+        self.emit_u8(opcode::STA_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_sta_abs_x(&mut self, address: u16) {
@@ -508,8 +580,14 @@ impl Emitter {
         self.emit_u16_le(address);
     }
 
+    pub fn emit_sta_absolute_y(&mut self, absolute: Absolute) {
+        self.emit_u8(opcode::STA_ABS_Y);
+        self.emit_absolute_operand(absolute);
+    }
+
     pub fn emit_sta_absolute_x(&mut self, absolute_x: AbsoluteX) {
-        self.emit_sta_abs_x(absolute_x.absolute().address());
+        self.emit_u8(opcode::STA_ABS_X);
+        self.emit_absolute_operand(absolute_x.absolute());
     }
 
     pub fn emit_sta_zp(&mut self, address: u8) {
@@ -536,7 +614,8 @@ impl Emitter {
     }
 
     pub fn emit_stx_absolute(&mut self, absolute: Absolute) {
-        self.emit_stx_abs(absolute.address());
+        self.emit_u8(opcode::STX_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_stx_zero_page(&mut self, zero_page: ZeroPage) {
@@ -550,7 +629,8 @@ impl Emitter {
     }
 
     pub fn emit_sty_absolute(&mut self, absolute: Absolute) {
-        self.emit_sty_abs(absolute.address());
+        self.emit_u8(opcode::STY_ABS);
+        self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_sty_zero_page(&mut self, zero_page: ZeroPage) {
@@ -741,8 +821,17 @@ impl Emitter {
     }
 
     fn emit_absolute_operand(&mut self, absolute: Absolute) {
+        let value_offset = self.position();
         self.emit_u8(absolute.low());
         self.emit_u8(absolute.high());
+        if absolute.is_output_relative() {
+            self.resolved_references.push(ResolvedReference {
+                value_offset,
+                target_address: absolute.address(),
+                addend: 0,
+                kind: CodegenRelocationKind::Word16,
+            });
+        }
     }
 
     pub fn finish(self) -> Result<Vec<u8>, Vec<Diagnostic>> {
@@ -752,7 +841,49 @@ impl Emitter {
 
     pub(crate) fn finish_with_relocations(mut self) -> Result<FinalizedEmission, Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
-        let mut relocations = Vec::with_capacity(self.patches.len());
+        let mut relocations = Vec::with_capacity(
+            self.patches
+                .len()
+                .saturating_add(self.resolved_references.len()),
+        );
+
+        for reference in &self.resolved_references {
+            let Ok(value_offset) = u16::try_from(reference.value_offset) else {
+                diagnostics.push(Diagnostic::new(
+                    Span::new(0, 0),
+                    "resolved code reference is outside the 16-bit segment",
+                ));
+                continue;
+            };
+            let Some(target_offset) = reference.target_address.checked_sub(self.origin) else {
+                diagnostics.push(Diagnostic::new(
+                    Span::new(0, 0),
+                    format!(
+                        "output-relative address ${:04X} precedes segment origin ${:04X}",
+                        reference.target_address, self.origin
+                    ),
+                ));
+                continue;
+            };
+            let width = usize::from(reference.kind.width());
+            if reference
+                .value_offset
+                .checked_add(width)
+                .is_none_or(|end| end > self.bytes.len())
+            {
+                diagnostics.push(Diagnostic::new(
+                    Span::new(0, 0),
+                    "resolved code reference is outside the emitted bytes",
+                ));
+                continue;
+            }
+            relocations.push(CodegenRelocation {
+                value_offset,
+                target_offset,
+                addend: reference.addend,
+                kind: reference.kind,
+            });
+        }
 
         for patch in &self.patches {
             let Some(&target) = self.labels.get(&patch.label) else {
@@ -935,7 +1066,31 @@ impl Generator {
     }
 
     pub(super) fn emit_lda_immediate(&mut self, immediate: Immediate, byte_index: u16) {
-        self.emit_lda_imm(immediate.byte(byte_index));
+        if immediate.is_output_relative() && byte_index < 2 {
+            self.emitter.emit_lda_immediate(immediate, byte_index);
+            self.processor.invalidate_accumulator();
+        } else {
+            self.emit_lda_imm(immediate.byte(byte_index));
+        }
+    }
+
+    pub(super) fn emit_ldx_immediate(&mut self, immediate: Immediate, byte_index: u16) {
+        if immediate.is_output_relative() && byte_index < 2 {
+            self.emitter.emit_ldx_immediate(immediate, byte_index);
+            self.processor.invalidate_index_x();
+        } else {
+            self.emit_ldx_imm(immediate.byte(byte_index));
+        }
+    }
+
+    pub(super) fn emit_ldy_immediate(&mut self, immediate: Immediate, byte_index: u16) {
+        if immediate.is_output_relative() && byte_index < 2 {
+            self.emitter.emit_ldy_immediate(immediate, byte_index);
+            self.processor.invalidate_index_y();
+            self.straight_line_store_y = None;
+        } else {
+            self.emit_ldy_imm(immediate.byte(byte_index));
+        }
     }
 
     pub(super) fn emit_lda_label_low(&mut self, label: impl Into<String>, span: Span) {
@@ -1016,7 +1171,7 @@ impl Generator {
     }
 
     pub(super) fn emit_lda_absolute(&mut self, absolute: Absolute) {
-        let slot = StorageSlot::absolute(absolute.address(), 1);
+        let slot = StorageSlot::from_absolute(absolute, 1);
         let memory_value = self.processor.memory_value(slot, 0);
         let load_value = memory_value.unwrap_or(ValueFact::SlotByte {
             slot,
@@ -1129,7 +1284,7 @@ impl Generator {
     pub(super) fn emit_sbc_absolute(&mut self, absolute: Absolute) {
         self.emitter.emit_sbc_absolute(absolute);
         self.processor.set_a_subtract_result(ValueFact::SlotByte {
-            slot: StorageSlot::absolute(absolute.address(), 1),
+            slot: StorageSlot::from_absolute(absolute, 1),
             byte_index: 0,
         });
     }
@@ -1326,7 +1481,7 @@ impl Generator {
     }
 
     pub(super) fn emit_ldy_absolute(&mut self, absolute: Absolute) {
-        let slot = StorageSlot::absolute(absolute.address(), 1);
+        let slot = StorageSlot::from_absolute(absolute, 1);
         let memory_value = self.processor.memory_value(slot, 0);
         let load_value = memory_value.unwrap_or(ValueFact::SlotByte {
             slot,
@@ -1421,7 +1576,7 @@ impl Generator {
             self.processor.set_zp_from_a(zero_page);
         }
         self.processor
-            .set_memory_byte_from_a(StorageSlot::absolute(absolute.address(), 1), 0);
+            .set_memory_byte_from_a(StorageSlot::from_absolute(absolute, 1), 0);
     }
 
     pub(super) fn emit_stx_absolute(&mut self, absolute: Absolute) {
@@ -1433,7 +1588,7 @@ impl Generator {
             self.processor.set_zp_from_x(zero_page);
         }
         self.processor
-            .set_memory_byte_from_x(StorageSlot::absolute(absolute.address(), 1), 0);
+            .set_memory_byte_from_x(StorageSlot::from_absolute(absolute, 1), 0);
     }
 
     pub(super) fn emit_stx_zero_page(&mut self, zero_page: ZeroPage) {
@@ -1461,7 +1616,7 @@ impl Generator {
             self.processor.set_zp_from_y(zero_page);
         }
         self.processor
-            .set_memory_byte_from_y(StorageSlot::absolute(absolute.address(), 1), 0);
+            .set_memory_byte_from_y(StorageSlot::from_absolute(absolute, 1), 0);
     }
 
     pub(super) fn emit_inc_zero_page(&mut self, zero_page: ZeroPage) {
@@ -1481,7 +1636,7 @@ impl Generator {
             self.processor.invalidate_zp(zero_page);
         }
         self.processor
-            .invalidate_memory_byte(StorageSlot::absolute(absolute.address(), 1), 0);
+            .invalidate_memory_byte(StorageSlot::from_absolute(absolute, 1), 0);
     }
 
     pub(super) fn emit_inc_absolute_x(&mut self, absolute_x: AbsoluteX, slot: StorageSlot) {
@@ -1513,7 +1668,7 @@ impl Generator {
             self.processor.invalidate_zp(zero_page);
         }
         self.processor
-            .invalidate_memory_byte(StorageSlot::absolute(absolute.address(), 1), 0);
+            .invalidate_memory_byte(StorageSlot::from_absolute(absolute, 1), 0);
     }
 
     pub(super) fn emit_jmp_label(&mut self, label: impl Into<String>, span: Span) {

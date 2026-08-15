@@ -66,6 +66,9 @@ impl Generator {
             StorageRelocationTarget::Absolute(address) => {
                 Some(MachineSymbolAddress::Absolute(*address))
             }
+            StorageRelocationTarget::OutputRelative(address) => {
+                Some(MachineSymbolAddress::OutputRelative(*address))
+            }
             StorageRelocationTarget::Label(label) => {
                 Some(MachineSymbolAddress::Label(label.clone()))
             }
@@ -88,6 +91,24 @@ impl Generator {
                     StorageRelocationKind::Low8 => self.emitter.emit_u8(value as u8),
                     StorageRelocationKind::High8 => self.emitter.emit_u8((value >> 8) as u8),
                     StorageRelocationKind::Word16 => self.emitter.emit_u16_le(value),
+                }
+            }
+            Some(MachineSymbolAddress::OutputRelative(address)) => {
+                let kind = match kind {
+                    StorageRelocationKind::Low8 => CodegenRelocationKind::Low8,
+                    StorageRelocationKind::High8 => CodegenRelocationKind::High8,
+                    StorageRelocationKind::Word16 => CodegenRelocationKind::Word16,
+                };
+                if self
+                    .emitter
+                    .emit_output_relative(address, addend, kind)
+                    .is_err()
+                {
+                    self.diagnostics.push(Diagnostic::new(
+                        span,
+                        "static initializer address is outside the 16-bit address space",
+                    ));
+                    self.emitter.emit_zeroes(kind.width());
                 }
             }
             Some(MachineSymbolAddress::Label(label)) => match kind {
@@ -117,7 +138,11 @@ impl Generator {
             return Some(target.clone());
         }
         if let Some(slot) = self.layout.symbols.get(&normalized) {
-            return Some(MachineSymbolAddress::Absolute(slot.address));
+            return Some(if slot.output_relative {
+                MachineSymbolAddress::OutputRelative(slot.address)
+            } else {
+                MachineSymbolAddress::Absolute(slot.address)
+            });
         }
         if let Some(routine) = self.routines.get(&normalized) {
             return Some(
@@ -138,9 +163,10 @@ impl Generator {
         symbols.sort_by(|(left, _), (right, _)| left.cmp(right));
         for (name, slot) in symbols {
             let position = match self.layout.machine_symbol_addresses.get(name) {
-                Some(MachineSymbolAddress::Absolute(address)) => {
-                    usize::from(address.wrapping_sub(self.emitter.origin))
-                }
+                Some(
+                    MachineSymbolAddress::Absolute(address)
+                    | MachineSymbolAddress::OutputRelative(address),
+                ) => usize::from(address.wrapping_sub(self.emitter.origin)),
                 Some(MachineSymbolAddress::Label(label)) => {
                     let Some(position) = self.emitter.label_position(label) else {
                         self.diagnostics.push(Diagnostic::new(
@@ -237,7 +263,7 @@ impl Generator {
             end,
         );
         self.bind_codegen_label(after_label, span);
-        Absolute::new(literal_address)
+        Absolute::output_relative(literal_address)
     }
 
     pub(super) fn emit_string_literal_address_to_slot(
@@ -277,10 +303,17 @@ pub(super) fn resolve_storage_initializer_targets(
                 MachineSymbolAddress::Absolute(address) => {
                     StorageRelocationTarget::Absolute(*address)
                 }
+                MachineSymbolAddress::OutputRelative(address) => {
+                    StorageRelocationTarget::OutputRelative(*address)
+                }
                 MachineSymbolAddress::Label(label) => StorageRelocationTarget::Label(label.clone()),
             };
         } else if let Some(slot) = symbols.get(&normalized) {
-            *target = StorageRelocationTarget::Absolute(slot.address);
+            *target = if slot.output_relative {
+                StorageRelocationTarget::OutputRelative(slot.address)
+            } else {
+                StorageRelocationTarget::Absolute(slot.address)
+            };
         }
     }
 }

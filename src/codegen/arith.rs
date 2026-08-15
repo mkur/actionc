@@ -499,16 +499,16 @@ impl Generator {
         };
         match slot.array {
             Some(ArrayStorage::Inline) => {
-                self.emit_arithmetic_raw_immediate(op, Immediate::new(slot.address), byte_index);
+                self.emit_arithmetic_raw_immediate(op, slot.address_immediate(), byte_index);
                 true
             }
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) if byte_index < 2 => {
                 match op {
                     BinaryArithmeticOp::Add => self
                         .emitter
-                        .emit_adc_absolute(Absolute::new(slot.address.wrapping_add(byte_index))),
+                        .emit_adc_absolute(slot.absolute_byte(byte_index)),
                     BinaryArithmeticOp::Sub => {
-                        self.emit_sbc_absolute(Absolute::new(slot.address.wrapping_add(byte_index)))
+                        self.emit_sbc_absolute(slot.absolute_byte(byte_index))
                     }
                 }
                 true
@@ -3014,7 +3014,12 @@ impl Generator {
         {
             self.emit_lda_slot_byte(slot, 0);
             self.emit_ldx_slot_byte(index, 0);
-            let value_slot = StorageSlot::absolute_x(array.address, 1).signed(array.signed);
+            let value_slot = StorageSlot {
+                array: None,
+                size: 1,
+                space: AddressSpace::AbsoluteX,
+                ..array
+            };
             self.emit_bitwise_slot_byte(bitwise_op, value_slot, 0);
             self.emit_sta_slot_byte(slot, 0);
             return true;

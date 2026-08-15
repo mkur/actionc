@@ -361,3 +361,76 @@ fn resolve_request(
         origin: request.origin,
     })
 }
+
+#[cfg(test)]
+mod relocation_tests {
+    use std::path::PathBuf;
+
+    use super::*;
+    use crate::codegen::{CodegenOutput, CodegenRelocationKind};
+
+    fn fixture() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/listing/mads_reorigin_contract.act")
+    }
+
+    fn apply_origin(output: &CodegenOutput, origin: u16) -> Vec<u8> {
+        let mut bytes = output.bytes.clone();
+        for relocation in &output.relocations {
+            let value_offset = usize::from(relocation.value_offset);
+            let target = origin
+                .wrapping_add(relocation.target_offset)
+                .wrapping_add(relocation.addend as u16);
+            match relocation.kind {
+                CodegenRelocationKind::Word16 => {
+                    bytes[value_offset..value_offset + 2].copy_from_slice(&target.to_le_bytes());
+                }
+                CodegenRelocationKind::Address8 | CodegenRelocationKind::Low8 => {
+                    bytes[value_offset] = target as u8;
+                }
+                CodegenRelocationKind::High8 => {
+                    bytes[value_offset] = (target >> 8) as u8;
+                }
+                CodegenRelocationKind::Relative8 => {
+                    let next = relocation.value_offset.wrapping_add(1);
+                    bytes[value_offset] = relocation.target_offset.wrapping_sub(next) as u8;
+                }
+            }
+        }
+        bytes
+    }
+
+    #[test]
+    fn final_relocations_explain_origin_changes_in_the_listing_contract_fixture() {
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            let baseline = compile_file(
+                fixture(),
+                &CompileOptions::for_mode(mode).with_origin(0x3000),
+            )
+            .unwrap_or_else(|error| panic!("compile baseline {mode:?}: {error}"));
+            let candidate = compile_file(
+                fixture(),
+                &CompileOptions::for_mode(mode).with_origin(0x41c7),
+            )
+            .unwrap_or_else(|error| panic!("compile candidate {mode:?}: {error}"));
+            let relocated = apply_origin(&baseline.output, candidate.output.origin);
+            let mismatches = relocated
+                .iter()
+                .zip(&candidate.output.bytes)
+                .enumerate()
+                .filter_map(|(offset, (actual, expected))| {
+                    (actual != expected).then_some((offset, *actual, *expected))
+                })
+                .collect::<Vec<_>>();
+
+            assert!(
+                mismatches.is_empty(),
+                "{mode:?} origin-dependent bytes lack relocation provenance: {mismatches:02X?}\nrelocations: {:#?}",
+                baseline.output.relocations
+            );
+        }
+    }
+}

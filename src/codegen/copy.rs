@@ -237,7 +237,7 @@ impl Generator {
         target: StorageSlot,
         address: Absolute,
     ) {
-        let immediate = Immediate::new(address.address());
+        let immediate = Immediate::from_absolute(address);
         if self.segment_storage {
             self.emit_lda_immediate(immediate, 1);
             self.emit_sta_slot_byte(target, 1);
@@ -317,7 +317,7 @@ impl Generator {
             AddressSpace::Absolute => self.emit_sta_absolute(slot.absolute_byte(byte_index)),
             AddressSpace::AbsoluteX => self
                 .emitter
-                .emit_sta_absolute_x(AbsoluteX::new(slot.byte_address(byte_index))),
+                .emit_sta_absolute_x(AbsoluteX::from_absolute(slot.absolute_byte(byte_index))),
             AddressSpace::ZeroPage => self.emit_sta_zero_page(slot.zero_page_byte(byte_index)),
             AddressSpace::IndirectIndexedY => {
                 self.ensure_y_imm(slot.y_index(byte_index));
@@ -334,7 +334,7 @@ impl Generator {
         match slot.space {
             AddressSpace::Absolute => self.emit_stx_absolute(slot.absolute_byte(byte_index)),
             AddressSpace::AbsoluteX | AddressSpace::ZeroPage | AddressSpace::IndirectIndexedY => {
-                self.emit_stx_absolute(Absolute::new(slot.byte_address(byte_index)));
+                self.emit_stx_absolute(slot.absolute_byte(byte_index));
                 if slot.space == AddressSpace::ZeroPage {
                     self.processor
                         .set_zp_from_x(slot.zero_page_byte(byte_index));
@@ -350,7 +350,7 @@ impl Generator {
             AddressSpace::Absolute => self.emit_sty_absolute(slot.absolute_byte(byte_index)),
             AddressSpace::ZeroPage => self.emit_sty_zero_page(slot.zero_page_byte(byte_index)),
             AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY => {
-                self.emit_sty_absolute(Absolute::new(slot.byte_address(byte_index)));
+                self.emit_sty_absolute(slot.absolute_byte(byte_index));
             }
         }
         self.processor.set_memory_byte_from_y(slot, byte_index);

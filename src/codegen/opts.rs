@@ -495,6 +495,20 @@ impl Generator {
         for patch in &mut self.emitter.patches {
             adjust_position_after_delete(&mut patch.offset, start, len);
         }
+        self.emitter.resolved_references.retain(|reference| {
+            let reference_end = reference
+                .value_offset
+                .saturating_add(usize::from(reference.kind.width()));
+            reference_end <= start || reference.value_offset >= end
+        });
+        for reference in &mut self.emitter.resolved_references {
+            adjust_position_after_delete(&mut reference.value_offset, start, len);
+            adjust_address_after_delete(
+                &mut reference.target_address,
+                self.emitter.origin.wrapping_add(start as u16),
+                len as u16,
+            );
+        }
         for candidate in &mut self.branch_inversion_candidates {
             adjust_position_after_delete(&mut candidate.branch_start, start, len);
         }

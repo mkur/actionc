@@ -22,7 +22,8 @@ impl Generator {
                         *value
                     } else if let Some(address) = self.machine_symbol_address(name) {
                         match address {
-                            MachineSymbolAddress::Absolute(address) => address,
+                            MachineSymbolAddress::Absolute(address)
+                            | MachineSymbolAddress::OutputRelative(address) => address,
                             MachineSymbolAddress::Label(label) => {
                                 let Some(position) = self.emitter.label_position(&label) else {
                                     return Err(format!(
@@ -122,7 +123,11 @@ impl Generator {
                     for byte in string_literal_storage(value) {
                         self.emitter.emit_u8(byte);
                     }
-                    self.emitter.emit_u16_le(literal_address);
+                    let _ = self.emitter.emit_output_relative(
+                        literal_address,
+                        0,
+                        CodegenRelocationKind::Word16,
+                    );
                 }
                 MachineItem::CharLiteral(value) => {
                     *pending_operand_bytes = 0;
@@ -246,7 +251,11 @@ impl Generator {
                     for byte in string_literal_storage(&raw[1..raw.len().saturating_sub(1)]) {
                         self.emitter.emit_u8(byte);
                     }
-                    self.emitter.emit_u16_le(literal_address);
+                    let _ = self.emitter.emit_output_relative(
+                        literal_address,
+                        0,
+                        CodegenRelocationKind::Word16,
+                    );
                 }
                 MachineItem::Raw(raw) if raw.starts_with('\'') && raw.ends_with('\'') => {
                     *pending_operand_bytes = 0;
@@ -423,8 +432,10 @@ impl Generator {
                         && let Some(value) = self.numeric_defines.get(&normalize_name(name))
                     {
                         push_machine_effect_number(&mut bytes, *value, &mut pending_operand_bytes);
-                    } else if let Some(MachineSymbolAddress::Absolute(value)) =
-                        self.machine_symbol_address(name)
+                    } else if let Some(
+                        MachineSymbolAddress::Absolute(value)
+                        | MachineSymbolAddress::OutputRelative(value),
+                    ) = self.machine_symbol_address(name)
                     {
                         push_machine_effect_absolute(
                             &mut bytes,
@@ -450,8 +461,10 @@ impl Generator {
                             AddressByteSelector::Low => Immediate::new(*value).low(),
                             AddressByteSelector::High => Immediate::new(*value).high(),
                         });
-                    } else if let Some(MachineSymbolAddress::Absolute(value)) =
-                        self.machine_symbol_address(name)
+                    } else if let Some(
+                        MachineSymbolAddress::Absolute(value)
+                        | MachineSymbolAddress::OutputRelative(value),
+                    ) = self.machine_symbol_address(name)
                     {
                         bytes.push(match selector {
                             AddressByteSelector::Low => Immediate::new(value).low(),
@@ -531,8 +544,13 @@ impl Generator {
             .get(&normalized)
             .cloned()
             .or_else(|| {
-                self.lookup_slot(name)
-                    .map(|slot| MachineSymbolAddress::Absolute(slot.address))
+                self.lookup_slot(name).map(|slot| {
+                    if slot.output_relative {
+                        MachineSymbolAddress::OutputRelative(slot.address)
+                    } else {
+                        MachineSymbolAddress::Absolute(slot.address)
+                    }
+                })
             })
     }
 
@@ -558,6 +576,19 @@ impl Generator {
                         pending_operand_bytes,
                     );
                 }
+            }
+            MachineSymbolAddress::OutputRelative(value) => {
+                machine_apply_offset(value, offset, text)?;
+                let kind = match selector {
+                    Some(AddressByteSelector::Low) => CodegenRelocationKind::Low8,
+                    Some(AddressByteSelector::High) => CodegenRelocationKind::High8,
+                    None if *pending_operand_bytes == 1 => CodegenRelocationKind::Address8,
+                    None => CodegenRelocationKind::Word16,
+                };
+                self.emitter
+                    .emit_output_relative(value, offset, kind)
+                    .map_err(|()| format!("machine block item `{text}` address overflow"))?;
+                *pending_operand_bytes = pending_operand_bytes.saturating_sub(kind.width() as u8);
             }
             MachineSymbolAddress::Label(label) => {
                 if offset != 0 {
@@ -626,9 +657,18 @@ impl Generator {
                 span,
             ),
             MachineAddressAtom::Current => {
-                let value =
-                    machine_apply_offset(self.current_absolute_address(), offset, &expr.text)?;
-                self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
+                let address = self.current_absolute_address();
+                machine_apply_offset(address, offset, &expr.text)?;
+                let kind = match expr.selector {
+                    Some(AddressByteSelector::Low) => CodegenRelocationKind::Low8,
+                    Some(AddressByteSelector::High) => CodegenRelocationKind::High8,
+                    None if *pending_operand_bytes == 1 => CodegenRelocationKind::Address8,
+                    None => CodegenRelocationKind::Word16,
+                };
+                self.emitter
+                    .emit_output_relative(address, offset, kind)
+                    .map_err(|()| format!("machine block item `{}` address overflow", expr.text))?;
+                *pending_operand_bytes = pending_operand_bytes.saturating_sub(kind.width() as u8);
                 Ok(())
             }
         }
@@ -940,8 +980,9 @@ fn push_machine_effect_address_expr(
                 machine_apply_offset(value, offset, &expr.text).ok()?
             } else if let Some(value) = generator.numeric_defines.get(&normalize_name(name)) {
                 machine_apply_offset(*value, offset, &expr.text).ok()?
-            } else if let Some(MachineSymbolAddress::Absolute(value)) =
-                generator.machine_symbol_address(name)
+            } else if let Some(
+                MachineSymbolAddress::Absolute(value) | MachineSymbolAddress::OutputRelative(value),
+            ) = generator.machine_symbol_address(name)
             {
                 machine_apply_offset(value, offset, &expr.text).ok()?
             } else {

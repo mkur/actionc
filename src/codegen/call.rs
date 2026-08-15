@@ -1352,10 +1352,10 @@ impl Generator {
         match arg_offset {
             0 => self.emit_load_call_arg_byte(arg, slot, byte_index, literal_address),
             1 => {
-                if let Some(byte) =
+                if let Some(immediate) =
                     self.call_arg_immediate_byte(arg, slot, byte_index, literal_address)
                 {
-                    self.emit_ldx_imm(byte);
+                    self.emit_ldx_immediate(immediate, byte_index);
                     true
                 } else if let Some(zero_page) = self.call_arg_zero_page_byte(arg, byte_index) {
                     self.emit_ldx_slot_byte_value_only(
@@ -1364,10 +1364,7 @@ impl Generator {
                     );
                     true
                 } else if let Some(absolute) = self.call_arg_absolute_byte(arg, byte_index) {
-                    self.emit_ldx_slot_byte_value_only(
-                        StorageSlot::absolute(absolute.address(), 1),
-                        0,
-                    );
+                    self.emit_ldx_slot_byte_value_only(StorageSlot::from_absolute(absolute, 1), 0);
                     true
                 } else if self.emit_load_call_arg_byte(arg, slot, byte_index, literal_address) {
                     self.emit_tax();
@@ -1377,11 +1374,10 @@ impl Generator {
                 }
             }
             2 => {
-                if let Some(byte) =
+                if let Some(immediate) =
                     self.call_arg_immediate_byte(arg, slot, byte_index, literal_address)
                 {
-                    self.emit_ldy_imm(byte);
-                    self.straight_line_store_y = None;
+                    self.emit_ldy_immediate(immediate, byte_index);
                     true
                 } else if let Some(zero_page) = self.call_arg_zero_page_byte(arg, byte_index) {
                     self.emit_ldy_slot_byte_value_only(
@@ -1391,10 +1387,7 @@ impl Generator {
                     self.straight_line_store_y = None;
                     true
                 } else if let Some(absolute) = self.call_arg_absolute_byte(arg, byte_index) {
-                    self.emit_ldy_slot_byte_value_only(
-                        StorageSlot::absolute(absolute.address(), 1),
-                        0,
-                    );
+                    self.emit_ldy_slot_byte_value_only(StorageSlot::from_absolute(absolute, 1), 0);
                     self.straight_line_store_y = None;
                     true
                 } else if self.emit_load_call_arg_byte(arg, slot, byte_index, literal_address) {
@@ -1429,7 +1422,7 @@ impl Generator {
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor)
         ) && byte_index < 2
         {
-            return Some(Absolute::new(slot.address.wrapping_add(byte_index)));
+            return Some(slot.absolute_byte(byte_index));
         }
         if slot.space == AddressSpace::Absolute && byte_index < slot.size {
             Some(slot.absolute_byte(byte_index))
@@ -1450,7 +1443,7 @@ impl Generator {
                     return None;
                 }
                 let field = self.record_layouts.field(base_slot.record?, field)?;
-                StorageSlot::absolute(base_slot.address.wrapping_add(field.offset), field.size)
+                base_slot.offset_bytes(field.offset).with_size(field.size)
             }
             _ => return None,
         };
@@ -1461,20 +1454,20 @@ impl Generator {
         &mut self,
         arg: &Expr,
         slot: StorageSlot,
-        byte_index: u16,
+        _byte_index: u16,
         literal_address: Option<Absolute>,
-    ) -> Option<u8> {
+    ) -> Option<Immediate> {
         if let Some(value) = self.constant_u16(arg) {
-            return Some(Immediate::new(value).byte(byte_index));
+            return Some(Immediate::new(value));
         }
         if let Some(address) = literal_address {
-            return Some(Immediate::new(address.address()).byte(byte_index));
+            return Some(Immediate::from_absolute(address));
         }
         if let Some(address) = self.array_argument_base(arg) {
-            return Some(Immediate::new(address.address()).byte(byte_index));
+            return Some(Immediate::from_absolute(address));
         }
         if let Some(address) = self.record_value_argument_base(arg, slot) {
-            return Some(Immediate::new(address.address()).byte(byte_index));
+            return Some(Immediate::from_absolute(address));
         }
         if let ExprKind::Unary {
             op: UnaryOp::AddressOf,
@@ -1482,7 +1475,7 @@ impl Generator {
         } = &arg.kind
         {
             let address = self.address_of_lvalue(expr)?;
-            return Some(Immediate::new(address.address()).byte(byte_index));
+            return Some(Immediate::from_absolute(address));
         }
         None
     }
@@ -1495,8 +1488,10 @@ impl Generator {
         literal_address: Option<Absolute>,
     ) -> bool {
         debug_assert_call_arg_value_shape(arg, slot, byte_index, literal_address);
-        if let Some(byte) = self.call_arg_immediate_byte(arg, slot, byte_index, literal_address) {
-            self.emit_lda_imm(byte);
+        if let Some(immediate) =
+            self.call_arg_immediate_byte(arg, slot, byte_index, literal_address)
+        {
+            self.emit_lda_immediate(immediate, byte_index);
             return true;
         }
         if self.emit_load_routine_address_arg_byte(arg, slot, byte_index) {
@@ -1892,9 +1887,9 @@ impl Generator {
                 self.runtime_helpers.target(RuntimeHelperSlot::SArgs),
                 routine.span,
             );
-            let frame_base = Absolute::new(frame_base);
-            self.emitter.emit_u8(frame_base.low());
-            self.emitter.emit_u8(frame_base.high());
+            let _ = self
+                .emitter
+                .emit_output_relative(frame_base, 0, CodegenRelocationKind::Word16);
             self.emitter.emit_u8(arg_bytes.wrapping_sub(1));
             return Vec::new();
         }

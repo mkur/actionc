@@ -28,13 +28,13 @@ impl Generator {
     ) {
         match slot.array {
             Some(ArrayStorage::Inline) if byte_index < 2 => {
-                self.emit_lda_immediate(Immediate::new(slot.address), byte_index);
+                self.emit_lda_immediate(slot.address_immediate(), byte_index);
             }
             Some(ArrayStorage::Inline) => {
                 self.emit_lda_imm(0);
             }
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) if byte_index < 2 => {
-                self.emit_lda_absolute(Absolute::new(slot.address.wrapping_add(byte_index)));
+                self.emit_lda_absolute(slot.absolute_byte(byte_index));
             }
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) => {
                 self.emit_lda_imm(0);
@@ -50,14 +50,11 @@ impl Generator {
     ) {
         match slot.array {
             Some(ArrayStorage::Inline) if byte_index < 2 => {
-                self.emit_lda_immediate(Immediate::new(slot.address), byte_index);
+                self.emit_lda_immediate(slot.address_immediate(), byte_index);
             }
             Some(ArrayStorage::Inline) => self.emit_lda_imm(0),
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) if byte_index < 2 => {
-                self.emit_lda_slot_byte_value_only(
-                    StorageSlot::absolute(slot.address.wrapping_add(byte_index), 1),
-                    0,
-                );
+                self.emit_lda_slot_byte_value_only(slot.offset_bytes(byte_index).with_size(1), 0);
             }
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) => self.emit_lda_imm(0),
             None => unreachable!(),
@@ -77,10 +74,7 @@ impl Generator {
         };
         match slot.array {
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) if byte_index < 2 => {
-                self.emit_lda_slot_byte_value_only(
-                    StorageSlot::absolute(slot.address.wrapping_add(byte_index), 1),
-                    0,
-                );
+                self.emit_lda_slot_byte_value_only(slot.offset_bytes(byte_index).with_size(1), 0);
                 true
             }
             Some(ArrayStorage::Pointer | ArrayStorage::Descriptor) => {
@@ -522,15 +516,14 @@ impl Generator {
                 return false;
             }
             self.emit_ldy_slot_byte_value_only(index, 0);
-            self.emit_lda_absolute_y(Absolute::new(array.address));
+            self.emit_lda_absolute_y(array.absolute_byte(0));
         } else {
             let index = StorageSlot::zero_page(runtime_zp::ELEMENT_ADDR.address(), 1);
             if !self.emit_expr_to_slot(index_expr, index) {
                 return false;
             }
             self.emit_ldx_zero_page(runtime_zp::ELEMENT_ADDR);
-            self.emitter
-                .emit_lda_absolute_x(AbsoluteX::new(array.address));
+            self.emitter.emit_lda_absolute_x(array.absolute_x_operand());
         }
         self.emit_sta_slot_byte(slot, 0);
         for byte_index in 1..slot.size {
@@ -658,14 +651,14 @@ impl Generator {
             return None;
         }
         self.emit_clc();
-        self.emit_adc_immediate(Immediate::new(array.address), 0);
+        self.emit_adc_immediate(array.address_immediate(), 0);
         self.emit_sta_zero_page(runtime_zp::ADDR);
 
         self.emit_lda_zero_page(runtime_zp::ARRAY_ADDR.offset(1));
         if array.size == 2 {
             self.emit_rol_a();
         }
-        self.emit_adc_immediate(Immediate::new(array.address), 1);
+        self.emit_adc_immediate(array.address_immediate(), 1);
         self.emit_sta_zero_page(runtime_zp::ADDR.offset(1));
         Some(runtime_zp::ADDR)
     }
@@ -841,7 +834,7 @@ impl Generator {
         array: StorageSlot,
         pointer: ZeroPage,
     ) -> Option<()> {
-        let address = Immediate::new(array.address);
+        let address = array.address_immediate();
         match array.array? {
             ArrayStorage::Inline => {
                 self.emit_lda_immediate(address, 0);
@@ -1057,10 +1050,10 @@ impl Generator {
     fn emit_array_base_low_for_add(&mut self, array: StorageSlot) -> Option<()> {
         match array.array? {
             ArrayStorage::Inline => {
-                self.emit_lda_immediate(Immediate::new(array.address), 0);
+                self.emit_lda_immediate(array.address_immediate(), 0);
             }
             ArrayStorage::Pointer | ArrayStorage::Descriptor => {
-                self.emit_lda_absolute(Absolute::new(array.address));
+                self.emit_lda_absolute(array.absolute_byte(0));
             }
         }
         Some(())
@@ -1069,10 +1062,10 @@ impl Generator {
     fn emit_array_base_high_for_add(&mut self, array: StorageSlot) -> Option<()> {
         match array.array? {
             ArrayStorage::Inline => {
-                self.emit_lda_immediate(Immediate::new(array.address), 1);
+                self.emit_lda_immediate(array.address_immediate(), 1);
             }
             ArrayStorage::Pointer | ArrayStorage::Descriptor => {
-                self.emit_lda_absolute(Absolute::new(array.address.wrapping_add(1)));
+                self.emit_lda_absolute(array.absolute_byte(1));
             }
         }
         Some(())
@@ -1081,10 +1074,10 @@ impl Generator {
     fn emit_adc_array_base_low(&mut self, array: StorageSlot) -> Option<()> {
         match array.array? {
             ArrayStorage::Inline => {
-                self.emit_adc_immediate(Immediate::new(array.address), 0);
+                self.emit_adc_immediate(array.address_immediate(), 0);
             }
             ArrayStorage::Pointer | ArrayStorage::Descriptor => {
-                self.emit_adc_absolute(Absolute::new(array.address));
+                self.emit_adc_absolute(array.absolute_byte(0));
             }
         }
         Some(())
@@ -1093,10 +1086,10 @@ impl Generator {
     fn emit_adc_array_base_high(&mut self, array: StorageSlot) -> Option<()> {
         match array.array? {
             ArrayStorage::Inline => {
-                self.emit_adc_immediate(Immediate::new(array.address), 1);
+                self.emit_adc_immediate(array.address_immediate(), 1);
             }
             ArrayStorage::Pointer | ArrayStorage::Descriptor => {
-                self.emit_adc_absolute(Absolute::new(array.address.wrapping_add(1)));
+                self.emit_adc_absolute(array.absolute_byte(1));
             }
         }
         Some(())

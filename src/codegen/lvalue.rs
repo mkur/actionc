@@ -310,7 +310,8 @@ impl Generator {
             return None;
         }
         Some(
-            StorageSlot::absolute(slot.address.wrapping_add(field.offset), field.size)
+            slot.offset_bytes(field.offset)
+                .with_size(field.size)
                 .signed(field.signed),
         )
     }

@@ -231,6 +231,14 @@ impl NativeProcessorState {
         self.invalidate_a();
     }
 
+    pub(super) fn load_x_unknown(&mut self) {
+        self.set_x(NativeValue::Unknown);
+    }
+
+    pub(super) fn load_y_unknown(&mut self) {
+        self.set_y(NativeValue::Unknown);
+    }
+
     pub(super) fn transfer_a_to_x(&mut self) {
         self.set_x(self.register_value(NativeRegister::A));
     }

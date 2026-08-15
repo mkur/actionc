@@ -62,8 +62,7 @@ impl Generator {
             return false;
         }
         self.emit_ldx_slot_byte(return_slot, 0);
-        self.emitter
-            .emit_sta_absolute_x(AbsoluteX::new(array.address));
+        self.emitter.emit_sta_absolute_x(array.absolute_x_operand());
         true
     }
 
@@ -84,9 +83,9 @@ impl Generator {
 
         self.emit_ldx_slot_byte(target_index, 0);
         self.emitter
-            .emit_lda_absolute_x(AbsoluteX::new(source_array.address));
+            .emit_lda_absolute_x(source_array.absolute_x_operand());
         self.emitter
-            .emit_sta_absolute_x(AbsoluteX::new(target_array.address));
+            .emit_sta_absolute_x(target_array.absolute_x_operand());
         true
     }
 
@@ -119,10 +118,10 @@ impl Generator {
         self.emit_ldx_slot_byte(target_index, 0);
         self.emit_clc();
         self.emitter
-            .emit_lda_absolute_x(AbsoluteX::new(source_array.address));
+            .emit_lda_absolute_x(source_array.absolute_x_operand());
         self.emit_adc_slot_byte(right, 0);
         self.emitter
-            .emit_sta_absolute_x(AbsoluteX::new(target_array.address));
+            .emit_sta_absolute_x(target_array.absolute_x_operand());
         true
     }
 
@@ -192,8 +191,7 @@ impl Generator {
         self.emit_clc();
         self.emit_lda_slot_byte(left, 0);
         self.emit_ldx_slot_byte(index, 0);
-        self.emitter
-            .emit_adc_absolute_x(AbsoluteX::new(array.address));
+        self.emitter.emit_adc_absolute_x(array.absolute_x_operand());
         self.emit_sta_slot_byte(target, 0);
         true
     }
@@ -222,8 +220,7 @@ impl Generator {
             }
             self.emit_ldx_slot_byte(index, 0);
             self.emit_lda_slot_byte(temp, 0);
-            self.emitter
-                .emit_sta_absolute_x(AbsoluteX::new(array.address));
+            self.emitter.emit_sta_absolute_x(array.absolute_x_operand());
             self.record_modern_optimization(
                 CodegenOptimizationKind::RegisterReloadRemoved,
                 1,
@@ -243,8 +240,7 @@ impl Generator {
         self.emit_pla();
         self.emit_tax();
         self.emit_lda_slot_byte(temp, 0);
-        self.emitter
-            .emit_sta_absolute_x(AbsoluteX::new(array.address));
+        self.emitter.emit_sta_absolute_x(array.absolute_x_operand());
         true
     }
 
@@ -501,8 +497,7 @@ impl Generator {
 
         self.emit_lda_slot_byte(value_slot, 0);
         self.emit_ldx_slot_byte(index_slot, 0);
-        self.emitter
-            .emit_sta_absolute_x(AbsoluteX::new(array.address));
+        self.emitter.emit_sta_absolute_x(array.absolute_x_operand());
         true
     }
 

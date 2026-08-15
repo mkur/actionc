@@ -4469,6 +4469,52 @@ fn emitter_does_not_relocate_explicit_absolute_values() {
 }
 
 #[test]
+fn emitter_retains_provenance_for_resolved_storage_operands_and_address_bytes() {
+    let mut emitter = Emitter::with_origin(0x3000);
+    emitter.emit_lda_absolute(Absolute::output_relative(0x3012));
+    emitter.emit_lda_immediate(Immediate::output_relative(0x3024), 0);
+    emitter.emit_ldx_immediate(Immediate::output_relative(0x3024), 1);
+
+    let emission = emitter.finish_with_relocations().unwrap();
+
+    assert_eq!(
+        emission.bytes,
+        [
+            opcode::LDA_ABS,
+            0x12,
+            0x30,
+            opcode::LDA_IMM,
+            0x24,
+            opcode::LDX_IMM,
+            0x30,
+        ]
+    );
+    assert_eq!(
+        emission.relocations,
+        [
+            CodegenRelocation {
+                value_offset: 1,
+                target_offset: 0x12,
+                addend: 0,
+                kind: CodegenRelocationKind::Word16,
+            },
+            CodegenRelocation {
+                value_offset: 4,
+                target_offset: 0x24,
+                addend: 0,
+                kind: CodegenRelocationKind::Low8,
+            },
+            CodegenRelocation {
+                value_offset: 6,
+                target_offset: 0x24,
+                addend: 0,
+                kind: CodegenRelocationKind::High8,
+            },
+        ]
+    );
+}
+
+#[test]
 fn emitter_rejects_overlapping_relocations() {
     let mut emitter = Emitter::with_origin(0x3000);
     emitter.emit_u16_label("target", Span::new(0, 0));
