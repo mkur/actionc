@@ -62,6 +62,24 @@ fn assembly_statements(listing: &str) -> Vec<&str> {
         .collect()
 }
 
+fn synthetic_label_definitions(listing: &str) -> Vec<&str> {
+    listing
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with("loc_") && line.ends_with(':'))
+        .collect()
+}
+
+fn has_address_derived_synthetic_label(listing: &str) -> bool {
+    listing.lines().map(str::trim).any(|line| {
+        line.strip_prefix('L')
+            .and_then(|line| line.strip_suffix(':'))
+            .is_some_and(|address| {
+                !address.is_empty() && address.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
+    })
+}
+
 #[test]
 fn contract_fixture_covers_mads_sensitive_encodings_in_every_mode() {
     for mode in [
@@ -192,6 +210,47 @@ fn reorigin_contract_fixture_has_origin_stable_layout() {
         assert_ne!(
             baseline, candidate,
             "{mode:?} contract fixture must contain origin-dependent bytes"
+        );
+    }
+}
+
+#[test]
+fn synthetic_listing_labels_are_origin_independent_ordinals() {
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let at_3000 = compile_file(
+            reorigin_contract_fixture(),
+            &CompileOptions::for_mode(mode).with_origin(0x3000),
+        )
+        .unwrap_or_else(|error| panic!("compile re-origin baseline in {mode:?}: {error}"));
+        let at_41c7 = compile_file(
+            reorigin_contract_fixture(),
+            &CompileOptions::for_mode(mode).with_origin(0x41c7),
+        )
+        .unwrap_or_else(|error| panic!("compile re-origin candidate in {mode:?}: {error}"));
+        let baseline = at_3000.source_listing();
+        let candidate = at_41c7.source_listing();
+        let baseline_labels = synthetic_label_definitions(&baseline);
+        let candidate_labels = synthetic_label_definitions(&candidate);
+
+        assert!(
+            !baseline_labels.is_empty(),
+            "{mode:?} fixture must exercise synthetic labels"
+        );
+        assert_eq!(
+            baseline_labels, candidate_labels,
+            "{mode:?} synthetic label names depend on the origin"
+        );
+        assert!(
+            !has_address_derived_synthetic_label(&baseline),
+            "{mode:?} baseline listing still contains address-derived labels"
+        );
+        assert!(
+            !has_address_derived_synthetic_label(&candidate),
+            "{mode:?} re-origin listing still contains address-derived labels"
         );
     }
 }

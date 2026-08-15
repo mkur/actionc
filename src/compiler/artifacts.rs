@@ -161,6 +161,7 @@ impl MadsDisplaySymbols {
             .iter()
             .map(|instruction| instruction.address)
             .collect::<BTreeSet<_>>();
+        let mut synthetic_targets = BTreeSet::new();
         for instruction in instructions {
             let Some(target) = instruction_target(instruction) else {
                 continue;
@@ -171,8 +172,20 @@ impl MadsDisplaySymbols {
             if symbols.code_references.contains_key(&target) {
                 continue;
             }
-            let name = format!("L{target:04X}");
-            used_names.insert(name.to_ascii_lowercase());
+            synthetic_targets.insert(target);
+        }
+
+        let mut scope_ordinals = BTreeMap::<String, usize>::new();
+        for target in synthetic_targets {
+            let scope = symbols
+                .routine_ranges
+                .iter()
+                .find(|(start, end, _)| target >= *start && target < *end)
+                .map(|(_, _, routine)| sanitize_mads_component(routine))
+                .unwrap_or_else(|| "program".to_string());
+            let ordinal = scope_ordinals.entry(scope.clone()).or_default();
+            *ordinal += 1;
+            let name = allocate_mads_symbol(&format!("loc_{scope}_{ordinal}"), &mut used_names);
             symbols.code_references.insert(target, name.clone());
             symbols.definitions.entry(target).or_default().push(name);
         }
