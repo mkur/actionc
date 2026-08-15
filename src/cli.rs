@@ -1555,7 +1555,7 @@ mod tests {
         assert!(listing.contains("; $3A99: 20 81 32 ; r_Par"));
         assert!(listing.contains(".BYTE $DF,$2E,$02"));
         assert!(listing.contains("; $3A9C: DF 2E 02"));
-        assert!(listing.contains("L3A9F:\n        LDA.A $2EDF"));
+        assert!(listing.contains("loc_finditem_1:\n        LDA.A $2EDF"));
         assert!(!listing.contains("ROL $AD02"));
     }
 

@@ -256,6 +256,49 @@ fn synthetic_listing_labels_are_origin_independent_ordinals() {
 }
 
 #[test]
+fn reorigin_listing_uses_symbolic_mads_relocations_without_moving_fixed_values() {
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let compiled = compile_file(
+            reorigin_contract_fixture(),
+            &CompileOptions::for_mode(mode).with_origin(0x3000),
+        )
+        .unwrap_or_else(|error| panic!("compile re-origin listing in {mode:?}: {error}"));
+        let listing = compiled.source_listing();
+
+        assert!(listing.contains("Re-originable MADS assembly listing"));
+        assert!(listing.contains("ACTIONC_ORIGIN = $3000"));
+        assert!(listing.contains("ORG ACTIONC_ORIGIN"));
+        assert_eq!(
+            listing
+                .lines()
+                .filter(|line| line.starts_with("ACTIONC_ORIGIN = "))
+                .count(),
+            1,
+            "{mode:?} listing must have exactly one editable origin definition"
+        );
+        assert!(listing.contains("DTA L(global_first+2)"));
+        assert!(listing.contains("DTA H(global_later-1)"));
+        assert!(listing.contains("DTA L(proc_helper)"));
+        assert!(listing.contains("DTA H(proc_helper)"));
+        assert!(listing.contains("DTA A(proc_helper)"));
+        assert!(listing.contains("DTA A(data_generated_1)"));
+        assert!(listing.contains("LDA #<(global_first+2)"));
+        assert!(listing.contains("LDX #>(global_first+2)"));
+        assert!(listing.contains("LDA.A global_first+1"));
+        assert!(listing.contains("STA.A local_main_local"));
+        assert!(listing.contains("JSR.A proc_helper"));
+        assert!(listing.contains("LDA.A $3000"));
+        assert!(listing.contains("STA.A global_color"));
+        assert!(listing.contains("global_color = $D01A"));
+        assert!(listing.contains("ORG $02E2\n        DTA A(proc_main)"));
+    }
+}
+
+#[test]
 fn listing_variants_share_one_mads_compatible_assembly_syntax() {
     for (mode, profile, backend) in [
         (CompileMode::Compatibility, "legacy", "classic"),
@@ -272,8 +315,9 @@ fn listing_variants_share_one_mads_compatible_assembly_syntax() {
             source_listing.is_ascii(),
             "{mode:?} source listing is not ASCII"
         );
-        assert!(listing.contains("Fixed-origin MADS assembly listing"));
-        assert!(listing.contains(&format!("ORG ${:04X}", compiled.origin())));
+        assert!(listing.contains("Re-originable MADS assembly listing"));
+        assert!(listing.contains(&format!("ACTIONC_ORIGIN = ${:04X}", compiled.origin())));
+        assert!(listing.contains("ORG ACTIONC_ORIGIN"));
         assert!(listing.contains("ORG $02E2"));
         assert!(listing.contains("DTA A(proc_main)"));
         assert!(listing.contains("global_source = $0058"));
