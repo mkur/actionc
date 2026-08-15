@@ -10,11 +10,15 @@ use super::facts::{BlockId, NirStorageId, NirType, NirValue, TempId, value_width
 use super::ir::*;
 use super::{NirDiagnostic, analyze_program_storage, direct_storage_id, verify_program};
 
-// Promotion exposes long-lived values to the target allocator. Until MIR6502
-// has routine-wide home coloring, keep automatic promotion to hot byte homes
-// with a small definition set; colder and wider homes can otherwise replace
-// direct storage traffic one-for-one with spills.
+// Promotion exposes long-lived values to the target allocator. Keep the
+// general automatic tier to hot byte homes with a small definition set;
+// colder and wider homes can otherwise replace direct storage traffic
+// one-for-one with spills. A separate word tier recognizes loop induction
+// values used in indexed addresses. Those have enough dynamic traffic to
+// justify promotion and give target backends an explicit loop-carried value
+// to cache in scarce fast storage.
 const MIN_HOT_HOME_LOADS: usize = 7;
+const MIN_INDUCTION_ADDRESS_LOADS: usize = 3;
 const MAX_HOT_HOME_STORE_BLOCKS: usize = 2;
 
 pub(super) fn promote_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
@@ -36,6 +40,7 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
     if !cfg.predecessors(entry).is_empty() {
         return;
     }
+    let induction_address_homes = induction_address_homes(routine, &cfg);
 
     let mut next_temp = routine
         .temps
@@ -49,14 +54,14 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
         .values()
         .filter(|facts| facts.is_promotable())
         .filter(|facts| matches!(facts.id, NirStorageId::Local(_)))
-        .filter(|facts| {
-            facts
-                .direct_access_ty
-                .as_ref()
-                .is_some_and(|ty| ty.width == Some(1))
-        })
-        .filter(|facts| facts.direct_loads >= MIN_HOT_HOME_LOADS)
         .filter(|facts| facts.store_blocks.len() <= MAX_HOT_HOME_STORE_BLOCKS)
+        .filter(|facts| {
+            let width = facts.direct_access_ty.as_ref().and_then(|ty| ty.width);
+            width == Some(1) && facts.direct_loads >= MIN_HOT_HOME_LOADS
+                || width == Some(2)
+                    && facts.direct_loads >= MIN_INDUCTION_ADDRESS_LOADS
+                    && induction_address_homes.contains(&facts.id)
+        })
         .cloned()
         .collect::<Vec<_>>();
 
@@ -67,6 +72,145 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
         }
     }
     routine.temps = collect_temps(&routine.blocks);
+}
+
+/// Finds word locals which are updated by an add/sub recurrence and used as
+/// an array index in the same natural loop. This is deliberately structural:
+/// the target-independent pass identifies the loop-carried computation, but
+/// does not choose registers, zero-page addresses, or an addressing mode.
+fn induction_address_homes(routine: &NirRoutine, cfg: &NirCfg) -> BTreeSet<NirStorageId> {
+    let dominance = NirDominance::from_cfg(cfg);
+    let loops = natural_loops(cfg, &dominance);
+    if loops.is_empty() {
+        return BTreeSet::new();
+    }
+
+    let mut indexed_uses = BTreeMap::<NirStorageId, BTreeSet<BlockId>>::new();
+    let mut recurrence_updates = BTreeMap::<NirStorageId, BTreeSet<BlockId>>::new();
+    for block in &routine.blocks {
+        if !cfg.reachable().contains(&block.id) {
+            continue;
+        }
+        let direct_loads = block
+            .ops
+            .iter()
+            .filter_map(|op| match op {
+                NirOp::Load { dest, place, .. } => {
+                    direct_storage_id(place).map(|storage| (*dest, storage))
+                }
+                _ => None,
+            })
+            .collect::<BTreeMap<_, _>>();
+        let binary_updates = block
+            .ops
+            .iter()
+            .filter_map(|op| match op {
+                NirOp::Binary {
+                    dest,
+                    op: NirBinaryOp::Add | NirBinaryOp::Sub,
+                    left,
+                    right,
+                    ..
+                } => Some((*dest, (left, right))),
+                _ => None,
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        for op in &block.ops {
+            match op {
+                NirOp::Load { place, .. } | NirOp::Store { place, .. } => {
+                    for index in place_index_values(place) {
+                        let NirValue::Temp { id, .. } = index else {
+                            continue;
+                        };
+                        let Some(storage) = direct_loads.get(id) else {
+                            continue;
+                        };
+                        indexed_uses.entry(*storage).or_default().insert(block.id);
+                    }
+                }
+                _ => {}
+            }
+
+            let NirOp::Store { place, src, ty } = op else {
+                continue;
+            };
+            let Some(storage) = direct_storage_id(place) else {
+                continue;
+            };
+            if ty.width != Some(2) {
+                continue;
+            }
+            let NirValue::Temp { id: src, .. } = src else {
+                continue;
+            };
+            let Some((left, right)) = binary_updates.get(src) else {
+                continue;
+            };
+            if value_is_direct_load_of(left, storage, &direct_loads)
+                || value_is_direct_load_of(right, storage, &direct_loads)
+            {
+                recurrence_updates
+                    .entry(storage)
+                    .or_default()
+                    .insert(block.id);
+            }
+        }
+    }
+
+    indexed_uses
+        .into_iter()
+        .filter_map(|(storage, uses)| {
+            let updates = recurrence_updates.get(&storage)?;
+            loops
+                .iter()
+                .any(|loop_blocks| {
+                    uses.iter().any(|block| loop_blocks.contains(block))
+                        && updates.iter().any(|block| loop_blocks.contains(block))
+                })
+                .then_some(storage)
+        })
+        .collect()
+}
+
+fn value_is_direct_load_of(
+    value: &NirValue,
+    storage: NirStorageId,
+    direct_loads: &BTreeMap<TempId, NirStorageId>,
+) -> bool {
+    matches!(value, NirValue::Temp { id, .. } if direct_loads.get(id) == Some(&storage))
+}
+
+fn place_index_values(place: &NirPlace) -> Vec<&NirValue> {
+    match &place.kind {
+        NirPlaceKind::Index { index, .. } => vec![index],
+        NirPlaceKind::Field { base, .. } => place_index_values(base),
+        _ => Vec::new(),
+    }
+}
+
+fn natural_loops(cfg: &NirCfg, dominance: &NirDominance) -> Vec<BTreeSet<BlockId>> {
+    let mut loops = Vec::new();
+    for source in cfg.reachable() {
+        for header in cfg.successors(*source) {
+            if !dominance.is_backedge(*source, *header) {
+                continue;
+            }
+            let mut blocks = BTreeSet::from([*header, *source]);
+            let mut work = vec![*source];
+            while let Some(block) = work.pop() {
+                for predecessor in cfg.predecessors(block) {
+                    if *predecessor != *header && blocks.insert(*predecessor) {
+                        work.push(*predecessor);
+                    }
+                }
+            }
+            if !loops.contains(&blocks) {
+                loops.push(blocks);
+            }
+        }
+    }
+    loops
 }
 
 fn promote_home(routine: &mut NirRoutine, facts: &NirStorageFacts, next_temp: &mut u32) -> bool {
@@ -186,7 +330,7 @@ fn rename_block(
             NirOp::Store { place, src, ty, .. }
                 if direct_storage_id(place) == Some(context.storage) =>
             {
-                if ty.width != context.ty.width || value_width(src) != context.ty.width {
+                if ty.width != context.ty.width || !store_value_fits_home(src, &context.ty) {
                     return false;
                 }
                 current = coerce_to_home_type(src.clone(), &mut rewritten, context);
@@ -353,6 +497,12 @@ fn coerce_to_home_type(
     context: &mut RenameContext<'_>,
 ) -> Option<NirValue> {
     let actual = match &value {
+        NirValue::ConstU8(value) if context.ty.width == Some(2) => {
+            return Some(NirValue::ConstU16(u16::from(*value)));
+        }
+        NirValue::ConstU16(value) if context.ty.width == Some(1) => {
+            return u8::try_from(*value).ok().map(NirValue::ConstU8);
+        }
         NirValue::ConstU8(_) | NirValue::ConstU16(_) => return Some(value),
         NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty.clone(),
         NirValue::Param(_) | NirValue::GlobalAddr(_) => return None,
@@ -374,6 +524,16 @@ fn coerce_to_home_type(
         id: dest,
         ty: context.ty.clone(),
     })
+}
+
+fn store_value_fits_home(value: &NirValue, home_ty: &NirType) -> bool {
+    match value {
+        NirValue::ConstU8(_) => matches!(home_ty.width, Some(1 | 2)),
+        NirValue::ConstU16(value) => {
+            home_ty.width == Some(2) || home_ty.width == Some(1) && *value <= u16::from(u8::MAX)
+        }
+        _ => value_width(value) == home_ty.width,
+    }
 }
 
 fn sync_store(context: &RenameContext<'_>, src: NirValue) -> NirOp {
@@ -742,6 +902,15 @@ mod tests {
         }
     }
 
+    fn card_type() -> NirType {
+        NirType {
+            kind: NirTypeKind::U16,
+            summary: "Card".to_string(),
+            width: Some(2),
+            pointer: false,
+        }
+    }
+
     fn local_place() -> NirPlace {
         NirPlace {
             kind: NirPlaceKind::Local {
@@ -854,5 +1023,121 @@ mod tests {
 
         let promoted = promote_program(&program).expect("retain cold home");
         assert_eq!(promoted, program);
+    }
+
+    #[test]
+    fn promotes_a_word_induction_home_used_by_an_indexed_address() {
+        let word = card_type();
+        let word_place = NirPlace {
+            kind: NirPlaceKind::Local {
+                id: LocalId(0),
+                name: "index".to_string(),
+            },
+            ty: Some(word.clone()),
+        };
+        let load_word = |dest| NirOp::Load {
+            dest: TempId(dest),
+            ty: word.clone(),
+            place: word_place.clone(),
+        };
+        let mut routine = NirRoutine {
+            name: "Main".to_string(),
+            params: Vec::new(),
+            locals: vec![NirLocal {
+                id: LocalId(0),
+                name: "index".to_string(),
+                kind: "Card".to_string(),
+                storage: NirStorageClass::Scalar,
+                ty: word.clone(),
+                backing: NirLocalBacking::Ordinary,
+                init: None,
+            }],
+            temps: Vec::new(),
+            notes: Vec::new(),
+            blocks: vec![
+                block(
+                    0,
+                    vec![NirOp::Store {
+                        place: word_place.clone(),
+                        src: NirValue::ConstU8(0),
+                        ty: word.clone(),
+                    }],
+                    NirTerminator::Goto(edge(1)),
+                ),
+                block(
+                    1,
+                    vec![
+                        load_word(0),
+                        NirOp::Load {
+                            dest: TempId(1),
+                            ty: byte_type(),
+                            place: NirPlace {
+                                kind: NirPlaceKind::Index {
+                                    base_addr: NirValue::ConstU16(0x4000),
+                                    index: NirValue::Temp {
+                                        id: TempId(0),
+                                        ty: word.clone(),
+                                    },
+                                    elem_ty: byte_type(),
+                                    elem_size: 1,
+                                },
+                                ty: Some(byte_type()),
+                            },
+                        },
+                        load_word(2),
+                    ],
+                    NirTerminator::Branch {
+                        condition: NirValue::ConstU8(1),
+                        then_edge: edge(2),
+                        else_edge: edge(3),
+                    },
+                ),
+                block(
+                    2,
+                    vec![
+                        load_word(3),
+                        NirOp::Binary {
+                            dest: TempId(4),
+                            ty: word.clone(),
+                            op: NirBinaryOp::Add,
+                            left: NirValue::Temp {
+                                id: TempId(3),
+                                ty: word.clone(),
+                            },
+                            right: NirValue::ConstU8(1),
+                        },
+                        NirOp::Store {
+                            place: word_place.clone(),
+                            src: NirValue::Temp {
+                                id: TempId(4),
+                                ty: word.clone(),
+                            },
+                            ty: word.clone(),
+                        },
+                    ],
+                    NirTerminator::Goto(edge(1)),
+                ),
+                block(3, Vec::new(), NirTerminator::Return(None)),
+            ],
+        };
+        routine.temps = collect_temps(&routine.blocks);
+        let program = NirProgram {
+            globals: Vec::new(),
+            statics: Vec::new(),
+            routines: vec![routine],
+        };
+
+        let promoted = promote_program(&program).expect("promote indexed induction home");
+        let routine = &promoted.routines[0];
+        assert_eq!(routine.blocks[1].params[0].ty, word);
+        assert!(matches!(
+            &routine.blocks[0].terminator,
+            NirTerminator::Goto(NirEdge { args, .. })
+                if args == &[NirValue::ConstU16(0)]
+        ));
+        assert!(routine.blocks.iter().flat_map(|block| &block.ops).all(
+            |op| !matches!(op, NirOp::Load { place, .. } | NirOp::Store { place, .. }
+                if direct_storage_id(place) == Some(NirStorageId::Local(LocalId(0))))
+        ));
     }
 }

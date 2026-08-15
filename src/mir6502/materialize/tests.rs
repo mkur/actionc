@@ -17873,6 +17873,149 @@ fn mir_copy_prop_stages_index_before_overwriting_same_fixed_zp_pointer() {
 }
 
 #[test]
+fn temp_materialization_retains_routine_wide_word_index_width() {
+    let index = MirTempId(35);
+    let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(POINTER_SCRATCH_LO),
+    });
+    let mut spills = Vec::new();
+    let ops = materialize_temp_ops_with_routine_widths(
+        vec![MirOp::MaterializeIndexedAddress {
+            consumer,
+            base: MirValue::ConstU16(0x4000),
+            index: MirValue::Def(MirDef::VTemp(index)),
+            scale: 1,
+        }],
+        &mut spills,
+        &BTreeMap::from([(index, MirWidth::Word)]),
+    );
+
+    assert_eq!(spills, vec![MirSpillId(70), MirSpillId(71)]);
+    assert!(matches!(
+        ops.as_slice(),
+        [MirOp::MaterializeIndexedAddress {
+            index: MirValue::Word { lo, hi },
+            ..
+        }] if matches!(
+            (lo.as_ref(), hi.as_ref()),
+            (
+                MirValue::PointerCell(MirMem::Spill { id: MirSpillId(70), offset: 0 }),
+                MirValue::PointerCell(MirMem::Spill { id: MirSpillId(71), offset: 0 })
+            )
+        )
+    ));
+}
+
+fn hot_induction_address_routine(with_barrier: bool) -> MirRoutine {
+    let pair = MirValue::Word {
+        lo: Box::new(MirValue::PointerCell(MirMem::Spill {
+            id: MirSpillId(0),
+            offset: 0,
+        })),
+        hi: Box::new(MirValue::PointerCell(MirMem::Spill {
+            id: MirSpillId(1),
+            offset: 0,
+        })),
+    };
+    let mut loop_ops = vec![MirOp::MaterializeIndexedAddress {
+        consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(POINTER_SCRATCH_LO),
+        }),
+        base: MirValue::ConstU16(0x4000),
+        index: pair,
+        scale: 1,
+    }];
+    if with_barrier {
+        loop_ops.push(MirOp::Barrier {
+            effects: MirEffects {
+                opaque: true,
+                ..MirEffects::default()
+            },
+        });
+    }
+    MirRoutine {
+        id: RoutineId(0),
+        name: "hot_index".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame {
+            spills: vec![MirSpillId(0), MirSpillId(1)],
+            ..MirFrame::default()
+        },
+        temps: Vec::new(),
+        blocks: vec![
+            MirBlock {
+                id: MirBlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: vec![
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Spill {
+                            id: MirSpillId(0),
+                            offset: 0,
+                        }),
+                        src: MirValue::ConstU8(0),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Spill {
+                            id: MirSpillId(1),
+                            offset: 0,
+                        }),
+                        src: MirValue::ConstU8(0),
+                        width: MirWidth::Byte,
+                    },
+                ],
+                terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            },
+            MirBlock {
+                id: MirBlockId(1),
+                label: "loop".to_string(),
+                params: Vec::new(),
+                ops: loop_ops,
+                terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            },
+        ],
+        effects: MirEffects::default(),
+    }
+}
+
+#[test]
+fn loop_carried_word_index_uses_a_private_zero_page_pair() {
+    let mut routine = hot_induction_address_routine(false);
+
+    let remap = lower_hot_induction_address_spills_to_zero_page(&mut routine, &[]);
+
+    assert_eq!(
+        remap,
+        BTreeMap::from([(MirSpillId(0), MirZpSlot(0)), (MirSpillId(1), MirZpSlot(1)),])
+    );
+    assert!(routine.frame.spills.is_empty());
+    assert!(matches!(
+        &routine.blocks[1].ops[0],
+        MirOp::MaterializeIndexedAddress {
+            index: MirValue::Word { lo, hi },
+            ..
+        } if matches!(
+            (lo.as_ref(), hi.as_ref()),
+            (
+                MirValue::PointerCell(MirMem::ZeroPage(MirZpSlot(0))),
+                MirValue::PointerCell(MirMem::ZeroPage(MirZpSlot(1)))
+            )
+        )
+    ));
+}
+
+#[test]
+fn loop_carried_word_index_crossing_an_opaque_barrier_stays_in_ram() {
+    let mut routine = hot_induction_address_routine(true);
+
+    let remap = lower_hot_induction_address_spills_to_zero_page(&mut routine, &[]);
+
+    assert!(remap.is_empty());
+    assert_eq!(routine.frame.spills, vec![MirSpillId(0), MirSpillId(1)]);
+}
+
+#[test]
 fn mir_copy_prop_forwards_const_temp_bytes_into_indexed_address_base() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

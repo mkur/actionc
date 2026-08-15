@@ -175,6 +175,7 @@ use spills::{
 };
 use spills::{
     color_basic_block_spills, color_routine_spills, lower_block_local_byte_spills_to_zero_page,
+    lower_hot_induction_address_spills_to_zero_page,
     lower_known_call_result_spills_to_reused_zero_page, prune_unused_spills,
 };
 #[cfg(test)]
@@ -214,11 +215,13 @@ use temp_uses::{
     terminator_uses_temp, value_uses_temp,
 };
 use temp_widths::{collect_routine_temp_widths, collect_temp_widths};
+#[cfg(test)]
+use temps::materialize_temp_ops;
 use temps::{
     cleanup_pre_materialization_temp_artifacts,
     cleanup_pre_materialization_temp_artifacts_with_liveness, def_is_used_after,
-    materialize_fused_compare_dest, materialize_temp_ops, materialize_terminator, store_a_to_spill,
-    temp_is_used_after,
+    materialize_fused_compare_dest, materialize_temp_ops_with_routine_widths,
+    materialize_terminator, store_a_to_spill, temp_is_used_after,
 };
 use values::{
     offset_mem, return_slot_mem, split_address, split_def, split_value, split_value_as_word,
@@ -1065,6 +1068,7 @@ pub(super) fn materialize_program(
     refine_terminal_indirect_jump_effects(&mut program);
     reserve_pointer_scratch_slots(&mut program);
     allocate_zero_page_slots(&mut program);
+    let source_zero_page = source_zero_page_slots(&program);
     {
         let (routines, machine_blocks) = (&mut program.routines, &mut program.machine_blocks);
         for routine in routines {
@@ -1104,8 +1108,11 @@ pub(super) fn materialize_program(
         home_fates.insert(routine.id, HomeFateTracker::from_plan(&home_plan));
         apply_register_home_plan(routine, &home_plan, &mut peephole_stats);
         for block in &mut routine.blocks {
-            block.ops =
-                materialize_temp_ops(std::mem::take(&mut block.ops), &mut routine.frame.spills);
+            block.ops = materialize_temp_ops_with_routine_widths(
+                std::mem::take(&mut block.ops),
+                &mut routine.frame.spills,
+                &routine_temp_widths,
+            );
             block.ops = normalize_synthetic_byte_storage_high_ops(
                 std::mem::take(&mut block.ops),
                 routine.id,
@@ -1117,6 +1124,16 @@ pub(super) fn materialize_program(
             // Symbolic storage-address bytes remain layout-independent until
             // emission, while descriptors retain their pointer-cell meaning.
             block.ops = lower_lea_addrs_with_final_layout(routine.id, block.ops.clone(), &layout);
+        }
+        let induction_zp_remap =
+            lower_hot_induction_address_spills_to_zero_page(routine, &source_zero_page);
+        peephole_stats.record_many(
+            routine.id,
+            "hot-induction-address-zp-pairs",
+            induction_zp_remap.len() / 2,
+        );
+        if let Some(tracker) = home_fates.get_mut(&routine.id) {
+            tracker.apply_zero_page_remap(&induction_zp_remap);
         }
         run_posthome_structural_group(routine, &layout, config, None, &mut peephole_stats)?;
         run_posthome_cleanup_group(

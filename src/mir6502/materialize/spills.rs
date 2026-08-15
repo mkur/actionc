@@ -1604,6 +1604,204 @@ pub(super) fn lower_block_local_byte_spills_to_zero_page(
     remaps
 }
 
+/// Places a small number of loop-carried word indexes in private zero page.
+///
+/// NIR promotion turns an induction variable into a pair of MIR spill lanes.
+/// This target pass recognizes pairs which feed indexed-address
+/// materialization and remain live across a CFG cycle. Pairs crossing calls or
+/// opaque barriers stay in ordinary spill storage because the private
+/// `$E0-$EF` pool is shared by caller and callee materialization.
+pub(super) fn lower_hot_induction_address_spills_to_zero_page(
+    routine: &mut MirRoutine,
+    source_zero_page: &[MirFixedZpSlot],
+) -> BTreeMap<MirSpillId, MirZpSlot> {
+    const MAX_HOT_PAIRS: usize = 2;
+
+    let Ok(cfg) = MirCfg::from_routine(routine) else {
+        return BTreeMap::new();
+    };
+    let liveness = MirHomeLiveness::analyze(routine, &cfg);
+    let accesses = home_access_counts(routine);
+    let mut candidates = indexed_word_spill_pairs(routine)
+        .into_iter()
+        .filter(|pair| {
+            pair.iter().all(|spill| {
+                routine.frame.spills.contains(spill) && spill_uses_zero_offset_only(routine, *spill)
+            })
+        })
+        .filter(|pair| pair_live_across_cycle(&cfg, &liveness, *pair))
+        .filter(|pair| !pair_live_across_private_zp_barrier(routine, &liveness, *pair))
+        .map(|pair| {
+            let indexed_uses = indexed_word_spill_pair_use_count(routine, pair);
+            let traffic = pair
+                .iter()
+                .map(|spill| {
+                    accesses
+                        .get(&MirHomeStorage::Spill(*spill))
+                        .map_or(0, |count| count.reads.saturating_add(count.writes))
+                })
+                .sum::<usize>();
+            (pair, indexed_uses.saturating_mul(8).saturating_add(traffic))
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_by_key(|(pair, score)| (std::cmp::Reverse(*score), *pair));
+
+    let available_pairs = available_private_zero_page_lanes(routine, source_zero_page) / 2;
+    let pair_limit = MAX_HOT_PAIRS.min(available_pairs);
+    if pair_limit == 0 {
+        return BTreeMap::new();
+    }
+
+    let mut next_virtual_slot = routine
+        .frame
+        .virtual_zero_page
+        .iter()
+        .map(|slot| slot.0)
+        .max()
+        .map_or(0, |slot| slot.saturating_add(1));
+    let mut remap = BTreeMap::new();
+    for (pair, _) in candidates.into_iter().take(pair_limit) {
+        for spill in pair {
+            let slot = MirZpSlot(next_virtual_slot);
+            next_virtual_slot = next_virtual_slot.saturating_add(1);
+            routine.frame.virtual_zero_page.push(slot);
+            remap.insert(spill, slot);
+        }
+    }
+    if remap.is_empty() {
+        return remap;
+    }
+    for block in &mut routine.blocks {
+        for op in &mut block.ops {
+            remap_op_spills_to_zero_page(op, &remap);
+        }
+        remap_terminator_spills_to_zero_page(&mut block.terminator, &remap);
+    }
+    prune_unused_spills(routine);
+    remap
+}
+
+fn indexed_word_spill_pairs(routine: &MirRoutine) -> Vec<[MirSpillId; 2]> {
+    let mut pairs = Vec::new();
+    for block in &routine.blocks {
+        for op in &block.ops {
+            let MirOp::MaterializeIndexedAddress { index, .. } = op else {
+                continue;
+            };
+            let Some(pair) = word_spill_pair(index) else {
+                continue;
+            };
+            if !pairs.contains(&pair) {
+                pairs.push(pair);
+            }
+        }
+    }
+    pairs
+}
+
+fn indexed_word_spill_pair_use_count(routine: &MirRoutine, pair: [MirSpillId; 2]) -> usize {
+    routine
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter(|op| {
+            matches!(
+                op,
+                MirOp::MaterializeIndexedAddress { index, .. }
+                    if word_spill_pair(index) == Some(pair)
+            )
+        })
+        .count()
+}
+
+fn word_spill_pair(value: &MirValue) -> Option<[MirSpillId; 2]> {
+    let MirValue::Word { lo, hi } = value else {
+        return None;
+    };
+    let (
+        MirValue::PointerCell(MirMem::Spill { id: lo, offset: 0 }),
+        MirValue::PointerCell(MirMem::Spill { id: hi, offset: 0 }),
+    ) = (lo.as_ref(), hi.as_ref())
+    else {
+        return None;
+    };
+    (hi.0 == lo.0.saturating_add(1)).then_some([*lo, *hi])
+}
+
+fn pair_live_across_cycle(cfg: &MirCfg, liveness: &MirHomeLiveness, pair: [MirSpillId; 2]) -> bool {
+    let homes = pair.map(|id| MirHomeByte::Spill { id, offset: 0 });
+    cfg.reachable().iter().any(|source| {
+        cfg.successors(*source).iter().any(|target| {
+            path_exists_between(cfg, *target, *source)
+                && liveness
+                    .live_out(*source)
+                    .is_some_and(|live| homes.iter().all(|home| live.contains(*home)))
+                && liveness
+                    .live_in(*target)
+                    .is_some_and(|live| homes.iter().all(|home| live.contains(*home)))
+        })
+    })
+}
+
+fn path_exists_between(cfg: &MirCfg, start: MirBlockId, target: MirBlockId) -> bool {
+    let mut pending = vec![start];
+    let mut visited = BTreeSet::new();
+    while let Some(block) = pending.pop() {
+        if block == target {
+            return true;
+        }
+        if !visited.insert(block) {
+            continue;
+        }
+        pending.extend(cfg.successors(block));
+    }
+    false
+}
+
+fn pair_live_across_private_zp_barrier(
+    routine: &MirRoutine,
+    liveness: &MirHomeLiveness,
+    pair: [MirSpillId; 2],
+) -> bool {
+    let homes = pair.map(|id| MirHomeByte::Spill { id, offset: 0 });
+    routine.blocks.iter().any(|block| {
+        block.ops.iter().enumerate().any(|(op_index, op)| {
+            matches!(
+                op,
+                MirOp::Call { .. }
+                    | MirOp::RuntimeHelper { .. }
+                    | MirOp::MachineBlock { .. }
+                    | MirOp::Barrier { .. }
+            ) && homes.iter().any(|home| {
+                liveness.live_after(
+                    *home,
+                    MirSite::Op {
+                        block: block.id,
+                        op_index,
+                    },
+                ) != Ok(false)
+            })
+        })
+    })
+}
+
+fn available_private_zero_page_lanes(
+    routine: &MirRoutine,
+    source_zero_page: &[MirFixedZpSlot],
+) -> usize {
+    let mut used = [false; 256];
+    for slot in source_zero_page
+        .iter()
+        .chain(&routine.frame.fixed_zero_page)
+    {
+        used[usize::from(slot.0)] = true;
+    }
+    for allocation in &routine.frame.zero_page_allocations {
+        mark_zp_range(&mut used, allocation.start.0, allocation.size);
+    }
+    (0xE0..=0xEF).filter(|slot| !used[*slot]).count()
+}
+
 fn spill_crosses_call(routine: &MirRoutine, interval: &SpillUseInterval) -> bool {
     let Some(block) = routine.blocks.get(interval.block_index) else {
         return true;

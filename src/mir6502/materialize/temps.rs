@@ -518,8 +518,30 @@ pub(super) fn def_is_used_after(ops: &[MirOp], start: usize, def: &MirDef) -> bo
     split_def_as_temp(def).is_some_and(|temp| temp_is_used_after(ops, start, temp))
 }
 
+#[cfg(test)]
 pub(super) fn materialize_temp_ops(ops: Vec<MirOp>, spills: &mut Vec<MirSpillId>) -> Vec<MirOp> {
-    let temp_widths = collect_temp_widths(&ops);
+    materialize_temp_ops_with_widths(ops, spills, None)
+}
+
+pub(super) fn materialize_temp_ops_with_routine_widths(
+    ops: Vec<MirOp>,
+    spills: &mut Vec<MirSpillId>,
+    routine_temp_widths: &std::collections::BTreeMap<MirTempId, MirWidth>,
+) -> Vec<MirOp> {
+    materialize_temp_ops_with_widths(ops, spills, Some(routine_temp_widths))
+}
+
+fn materialize_temp_ops_with_widths(
+    ops: Vec<MirOp>,
+    spills: &mut Vec<MirSpillId>,
+    routine_temp_widths: Option<&std::collections::BTreeMap<MirTempId, MirWidth>>,
+) -> Vec<MirOp> {
+    let mut temp_widths = collect_temp_widths(&ops);
+    if let Some(routine_temp_widths) = routine_temp_widths {
+        for (id, width) in routine_temp_widths {
+            temp_widths.entry(*id).or_insert(*width);
+        }
+    }
     let mut out = Vec::new();
     let mut staged_address: Option<(MirAddressConsumer, MirValue)> = None;
     for op in ops {

@@ -469,12 +469,15 @@ mir6502: lower typed block arguments
 
 ## Phase 6: Pruned Private-Scalar Promotion
 
-Status: implemented with a pressure-guarded initial candidate set. Pruned SSA
-promotion is available for private scalar homes; automatic TN promotion is
-currently limited to hot ordinary byte locals with small definition sets.
-MIR6502 coalesces edge-only producers into merge destinations so block
-arguments do not add redundant copies. `Sort::gap` and `InputLine::ch` are the
-first enabled candidates.
+Status: implemented with pressure-guarded candidate tiers. Pruned SSA promotion
+is available for private scalar homes. The general automatic tier selects hot
+ordinary byte locals with small definition sets; a loop-aware tier also selects
+word locals updated by an add/sub recurrence and used as an indexed address in
+the same natural loop. MIR6502 coalesces edge-only producers into merge
+destinations, retains routine-wide word widths after edge lowering, and places
+up to two hot loop-carried index pairs in private zero page when their live
+ranges do not cross calls or opaque barriers. `Sort::gap`, `InputLine::ch`, and
+the sieve-style outer and inner array indexes are the initial enabled shapes.
 
 ### Algorithm
 
