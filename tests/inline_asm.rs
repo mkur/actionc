@@ -152,6 +152,102 @@ fn inline_asm_emits_in_mir6502() {
 }
 
 #[test]
+fn inline_asm_fixed_array_addend_targets_declared_backing_address_in_nir() {
+    let source = r#"
+BYTE ARRAY displayList($400)=$5000
+
+PROC Main()
+ASM
+    lda #0
+    sta displayList+8
+ENDASM
+RETURN
+"#;
+    let program = nir::lower_program(&semir(source));
+    let global = program
+        .globals
+        .iter()
+        .find(|global| global.name == "displayList")
+        .expect("fixed array global");
+    assert_eq!(global.storage_size, 4, "array retains its descriptor cell");
+    assert_eq!(
+        global
+            .array
+            .as_ref()
+            .and_then(|array| array.address_initializer),
+        Some(0x5000)
+    );
+
+    let (code, effects) = program
+        .routines
+        .iter()
+        .flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            nir::NirOp::InlineAsm { code, effects } => Some((code, effects)),
+            _ => None,
+        })
+        .expect("inline assembler NIR operation");
+    assert_eq!(code.relocations.len(), 1);
+    assert_eq!(
+        code.relocations[0].target,
+        nir::NirInlineAsmTarget::Absolute(0x5000)
+    );
+    assert_eq!(code.relocations[0].addend, 8);
+    assert_eq!(
+        effects.memory.writes,
+        nir::NirMemoryAccess::Regions(vec![nir::NirMemoryRegion {
+            kind: nir::NirMemoryRegionKind::AbsoluteRange,
+            offset: 0x5008,
+            size: 1,
+        }])
+    );
+    nir::verify_program(&program).expect("fixed-array inline assembler NIR must verify");
+}
+
+#[test]
+fn inline_asm_dynamic_array_keeps_descriptor_storage_target_in_nir() {
+    let source = r#"
+BYTE ARRAY dynamic
+
+PROC Main()
+ASM
+    lda dynamic
+ENDASM
+RETURN
+"#;
+    let program = nir::lower_program(&semir(source));
+    let global = program
+        .globals
+        .iter()
+        .find(|global| global.name == "dynamic")
+        .expect("dynamic array global");
+    assert_eq!(global.storage_size, 2, "array retains its pointer cell");
+    assert!(
+        global
+            .array
+            .as_ref()
+            .is_some_and(|array| array.pointer_backed && array.address_initializer.is_none())
+    );
+
+    let relocation = program
+        .routines
+        .iter()
+        .flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            nir::NirOp::InlineAsm { code, .. } => code.relocations.first(),
+            _ => None,
+        })
+        .expect("inline assembler relocation");
+    assert_eq!(
+        relocation.target,
+        nir::NirInlineAsmTarget::Storage(nir::NirStorageId::Global(global.id))
+    );
+    nir::verify_program(&program).expect("dynamic-array inline assembler NIR must verify");
+}
+
+#[test]
 fn inline_asm_diagnostics_keep_action_source_offsets() {
     let source = "PROC Main()\nASM\n    lda #missing\nENDASM\nRETURN\n";
     let tokens = lexer::tokenize(source).unwrap();

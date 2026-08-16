@@ -1758,6 +1758,9 @@ impl NirBuilder {
                         }
                     });
                 }
+                if let Some(address) = self.absolute_array_value_addresses.get(&key).copied() {
+                    return Some(NirInlineAsmTarget::Absolute(address));
+                }
                 self.global_ids
                     .iter()
                     .find(|(name, _)| storage_key(name) == key)
