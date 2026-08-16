@@ -1,0 +1,8 @@
+BYTE ARRAY displayList($400)=$5000
+
+PROC Main()
+ASM
+    lda #0
+    sta displayList+8
+ENDASM
+RETURN

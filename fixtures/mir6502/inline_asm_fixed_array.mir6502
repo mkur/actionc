@@ -1,0 +1,8 @@
+mir6502 program
+global g0 displayList: byte storage global+0 size=4 init bytes=[$00 $50 $00 $50] zero_fill=0 section=global mutable=true
+machine m0 items=[$A9 $00 $8D Absolute16(Absolute(20480)+8)]
+
+routine r0 Main
+b0 bb0:
+  machine m0 effects=stack=0,reads=none,writes=absolute+20488:1,clobbers=a|flags
+  return

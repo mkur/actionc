@@ -3658,6 +3658,11 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                         && let Some(value) = self.numeric_define(name)
                     {
                         self.emit_machine_number(value, &mut pending_operand_bytes);
+                    } else if let Some(address) = self.machine_fixed_array_address(name) {
+                        let address =
+                            native_machine_apply_offset(address, i32::from(offset), name)?;
+                        self.emit_machine_absolute(address, &mut pending_operand_bytes);
+                        index += consumed;
                     } else if let Some(slot) = self.machine_storage_slot(name) {
                         self.emit_machine_absolute(
                             slot.address.wrapping_add(offset),
@@ -3707,6 +3712,8 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
                 SemInlineAsmTarget::Symbol(symbol) => {
                     if let Some(value) = self.numeric_define(&symbol.name) {
                         value
+                    } else if let Some(address) = self.fixed_array_value_address(symbol.id) {
+                        address
                     } else if let Some(slot) = self.storage.get(&symbol.id) {
                         slot.address
                     } else if let Some(routine) = self.machine_routine(&symbol.name) {
@@ -3833,7 +3840,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         None
     }
 
-    fn machine_storage_slot(&self, name: &str) -> Option<NativeStorageSlot> {
+    fn machine_storage_symbol_id(&self, name: &str) -> Option<SymbolId> {
         let normalized = normalize_name(name);
         if let Some(routine_id) = self.current_routine
             && let Some(routine) = self
@@ -3844,12 +3851,12 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         {
             for param in &routine.routine.params {
                 if normalize_name(&param.symbol.name) == normalized {
-                    return self.storage.get(&param.symbol.id).cloned();
+                    return Some(param.symbol.id);
                 }
             }
             for local in &routine.routine.locals {
                 if normalize_name(&local.symbol.name) == normalized {
-                    return self.storage.get(&local.symbol.id).cloned();
+                    return Some(local.symbol.id);
                 }
             }
         }
@@ -3860,11 +3867,29 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             }
             for declaration in &group.declarations {
                 if normalize_name(&declaration.symbol.name) == normalized {
-                    return self.storage.get(&declaration.symbol.id).cloned();
+                    return Some(declaration.symbol.id);
                 }
             }
         }
         None
+    }
+
+    fn machine_storage_slot(&self, name: &str) -> Option<NativeStorageSlot> {
+        let id = self.machine_storage_symbol_id(name)?;
+        self.storage.get(&id).cloned()
+    }
+
+    fn fixed_array_value_address(&self, id: SymbolId) -> Option<u16> {
+        let slot = self.storage.get(&id)?;
+        let array = slot.array.as_ref()?;
+        if array.storage != CodegenArrayStorage::Pointer {
+            return None;
+        }
+        self.machine_caret_values.get(&id).copied()
+    }
+
+    fn machine_fixed_array_address(&self, name: &str) -> Option<u16> {
+        self.fixed_array_value_address(self.machine_storage_symbol_id(name)?)
     }
 
     fn machine_caret_symbol_value(&self, name: &str) -> Option<u16> {
@@ -3944,6 +3969,8 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
     ) -> Result<(), String> {
         if let Some(value) = self.numeric_define(name) {
             self.emit_machine_address_byte_value(selector, value);
+        } else if let Some(address) = self.machine_fixed_array_address(name) {
+            self.emit_machine_address_byte_value(selector, address);
         } else if let Some(slot) = self.machine_storage_slot(name) {
             if self.storage_address_is_output_relative(slot.address) {
                 let kind = match selector {
@@ -4050,6 +4077,9 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
         } else if let Some(value) = self.numeric_define(name) {
             let value = native_machine_apply_offset(value, offset, &expr.text)?;
+            self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
+        } else if let Some(address) = self.machine_fixed_array_address(name) {
+            let value = native_machine_apply_offset(address, offset, &expr.text)?;
             self.emit_machine_address_expr_value(value, expr, pending_operand_bytes);
         } else if let Some(slot) = self.machine_storage_slot(name) {
             if self.storage_address_is_output_relative(slot.address) {

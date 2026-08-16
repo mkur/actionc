@@ -27,6 +27,33 @@ ENDASM
 RETURN
 "#;
 
+const FIXED_ARRAY_SOURCE: &str = r#"
+BYTE ARRAY displayList($400)=$5000
+
+PROC Main()
+ASM
+    lda #0
+    sta displayList+8
+ENDASM
+RETURN
+"#;
+
+const FIXED_ARRAY_ADDRESS_FORMS_SOURCE: &str = r#"
+BYTE ARRAY displayList($400)=$5000
+
+PROC Main()
+ASM
+    lda #<displayList
+    sta $80
+    lda #>displayList
+    sta $81
+    lda #0
+    sta displayList
+    sta displayList+8
+ENDASM
+RETURN
+"#;
+
 fn semir(source: &str) -> semantic::ir::SemProgram {
     let tokens = lexer::tokenize(source).expect("tokenize inline assembler source");
     let program = parser::parse(&tokens).expect("parse inline assembler source");
@@ -153,17 +180,7 @@ fn inline_asm_emits_in_mir6502() {
 
 #[test]
 fn inline_asm_fixed_array_addend_targets_declared_backing_address_in_nir() {
-    let source = r#"
-BYTE ARRAY displayList($400)=$5000
-
-PROC Main()
-ASM
-    lda #0
-    sta displayList+8
-ENDASM
-RETURN
-"#;
-    let program = nir::lower_program(&semir(source));
+    let program = nir::lower_program(&semir(FIXED_ARRAY_SOURCE));
     let global = program
         .globals
         .iter()
@@ -203,6 +220,51 @@ RETURN
         }])
     );
     nir::verify_program(&program).expect("fixed-array inline assembler NIR must verify");
+}
+
+#[test]
+fn inline_asm_fixed_array_addend_emits_declared_backing_address_in_all_backends() {
+    let semir = semir(FIXED_ARRAY_ADDRESS_FORMS_SOURCE);
+    let ast_classic = generate_semir_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
+        .expect("emit fixed-array operand from AST/classic");
+    let native_classic =
+        generate_semir_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
+            .expect("emit fixed-array operand from SemIR/classic");
+    let nir = nir::optimize_program(&nir::lower_program(&semir))
+        .expect("optimize fixed-array inline assembler NIR");
+    let mir =
+        mir6502::generate_output(&nir, 0x3000).expect("emit fixed-array operand from MIR6502");
+
+    for (backend, output) in [
+        ("AST/classic", ast_classic),
+        ("SemIR/classic", native_classic),
+        ("MIR6502", mir),
+    ] {
+        assert!(
+            output
+                .bytes
+                .windows(4)
+                .any(|bytes| bytes == [0xA9, 0x00, 0x85, 0x80]),
+            "{backend} did not emit the low backing-address byte: {:02X?}",
+            output.bytes
+        );
+        assert!(
+            output
+                .bytes
+                .windows(4)
+                .any(|bytes| bytes == [0xA9, 0x50, 0x85, 0x81]),
+            "{backend} did not emit the high backing-address byte: {:02X?}",
+            output.bytes
+        );
+        assert!(
+            output
+                .bytes
+                .windows(8)
+                .any(|bytes| bytes == [0xA9, 0x00, 0x8D, 0x00, 0x50, 0x8D, 0x08, 0x50]),
+            "{backend} did not emit STA $5000 followed by STA $5008: {:02X?}",
+            output.bytes
+        );
+    }
 }
 
 #[test]
