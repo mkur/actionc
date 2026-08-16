@@ -4,5 +4,6 @@ PROC Main()
 ASM
     lda #0
     sta displayList+8
+    sta displayList-10
 ENDASM
 RETURN

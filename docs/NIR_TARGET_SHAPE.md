@@ -598,7 +598,8 @@ pointer or descriptor cell instead uses `Absolute(declared_backing_address)`:
 the machine operand denotes the array's declared backing, not its descriptor.
 Its addend is preserved on the relocation, and its memory effect is an absolute
 range at the resolved backing address plus that addend. The descriptor remains
-a separate, correctly sized storage object.
+a separate, correctly sized storage object. Signed addends are resolved without
+clamping, and absolute underflow or overflow fails verification.
 
 The verifier checks relocation bounds and overlap, stable target IDs,
 inline-offset bounds, and address-size constraints. Optimizers consume the

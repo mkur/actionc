@@ -1822,20 +1822,8 @@ impl NirBuilder {
         let writes = inline_asm_regions(code, false);
         NirMachineEffects {
             memory: NirMemoryEffects {
-                reads: if reads_unknown {
-                    NirMemoryAccess::Unknown
-                } else if reads.is_empty() {
-                    NirMemoryAccess::None
-                } else {
-                    NirMemoryAccess::Regions(reads)
-                },
-                writes: if writes_unknown {
-                    NirMemoryAccess::Unknown
-                } else if writes.is_empty() {
-                    NirMemoryAccess::None
-                } else {
-                    NirMemoryAccess::Regions(writes)
-                },
+                reads: inline_asm_memory_access(reads, reads_unknown),
+                writes: inline_asm_memory_access(writes, writes_unknown),
             },
             may_call_os: code
                 .relocations
@@ -3526,7 +3514,21 @@ fn inclusive_region(kind: NirMemoryRegionKind, start: u16, end: u16) -> NirMemor
     }
 }
 
-fn inline_asm_regions(code: &NirInlineAsm, reads: bool) -> Vec<NirMemoryRegion> {
+fn inline_asm_memory_access(
+    regions: Option<Vec<NirMemoryRegion>>,
+    otherwise_unknown: bool,
+) -> NirMemoryAccess {
+    if otherwise_unknown {
+        return NirMemoryAccess::Unknown;
+    }
+    match regions {
+        Some(regions) if regions.is_empty() => NirMemoryAccess::None,
+        Some(regions) => NirMemoryAccess::Regions(regions),
+        None => NirMemoryAccess::Unknown,
+    }
+}
+
+fn inline_asm_regions(code: &NirInlineAsm, reads: bool) -> Option<Vec<NirMemoryRegion>> {
     let mut regions = Vec::new();
     for relocation in &code.relocations {
         let accesses = if reads {
@@ -3550,32 +3552,37 @@ fn inline_asm_regions(code: &NirInlineAsm, reads: bool) -> Vec<NirMemoryRegion> 
         if !accesses {
             continue;
         }
-        let offset = u16::try_from(relocation.addend.max(0)).unwrap_or(u16::MAX);
-        let kind = match relocation.target {
-            NirInlineAsmTarget::Storage(storage) => NirMemoryRegionKind::Storage(storage),
+        match relocation.target {
+            NirInlineAsmTarget::Storage(storage) => {
+                let offset = u16::try_from(relocation.addend).ok()?;
+                regions.push(NirMemoryRegion {
+                    kind: NirMemoryRegionKind::Storage(storage),
+                    offset,
+                    size: if relocation.symbol_use == InlineAsmSymbolUse::PointerRead {
+                        2
+                    } else {
+                        1
+                    },
+                });
+                continue;
+            }
             NirInlineAsmTarget::Absolute(address) => {
+                let offset = i32::from(address)
+                    .checked_add(relocation.addend)
+                    .and_then(|address| u16::try_from(address).ok())?;
                 regions.push(NirMemoryRegion {
                     kind: NirMemoryRegionKind::AbsoluteRange,
-                    offset: address.saturating_add(offset),
+                    offset,
                     size: 1,
                 });
                 continue;
             }
             NirInlineAsmTarget::Routine(_) | NirInlineAsmTarget::InlineOffset(_) => continue,
-        };
-        regions.push(NirMemoryRegion {
-            kind,
-            offset,
-            size: if relocation.symbol_use == InlineAsmSymbolUse::PointerRead {
-                2
-            } else {
-                1
-            },
-        });
+        }
     }
     regions.sort_by_key(|region| (format!("{:?}", region.kind), region.offset, region.size));
     regions.dedup();
-    regions
+    Some(regions)
 }
 
 fn literal_summary(literal: &SemLiteral) -> String {

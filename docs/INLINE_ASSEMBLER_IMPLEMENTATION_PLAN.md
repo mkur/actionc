@@ -201,6 +201,8 @@ a pointer or descriptor cell. In machine operands, the array symbol and any
 addend resolve from the declared backing address; they do not address bytes of
 that compiler-managed cell. For example, with
 `BYTE ARRAY displayList($400)=$5000`, `displayList+8` denotes `$5008`.
+Signed addends are applied to the backing address, so `displayList-10` denotes
+`$4FF6`; a result outside the 16-bit address space is rejected.
 
 If an object has no single stable representation that satisfies the requested
 operand, compilation fails with a targeted diagnostic.

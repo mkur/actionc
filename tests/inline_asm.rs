@@ -38,6 +38,17 @@ ENDASM
 RETURN
 "#;
 
+const FIXED_ARRAY_NEGATIVE_SOURCE: &str = r#"
+BYTE ARRAY displayList($400)=$5000
+
+PROC Main()
+ASM
+    lda #0
+    sta displayList-10
+ENDASM
+RETURN
+"#;
+
 const FIXED_ARRAY_ADDRESS_FORMS_SOURCE: &str = r#"
 BYTE ARRAY displayList($400)=$5000
 
@@ -220,6 +231,115 @@ fn inline_asm_fixed_array_addend_targets_declared_backing_address_in_nir() {
         }])
     );
     nir::verify_program(&program).expect("fixed-array inline assembler NIR must verify");
+}
+
+#[test]
+fn inline_asm_negative_fixed_array_addend_targets_absolute_region_in_nir() {
+    let program = nir::lower_program(&semir(FIXED_ARRAY_NEGATIVE_SOURCE));
+    let (code, effects) = program
+        .routines
+        .iter()
+        .flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            nir::NirOp::InlineAsm { code, effects } => Some((code, effects)),
+            _ => None,
+        })
+        .expect("inline assembler NIR operation");
+
+    assert_eq!(code.relocations.len(), 1);
+    assert_eq!(
+        code.relocations[0].target,
+        nir::NirInlineAsmTarget::Absolute(0x5000)
+    );
+    assert_eq!(code.relocations[0].addend, -10);
+    assert_eq!(
+        effects.memory.writes,
+        nir::NirMemoryAccess::Regions(vec![nir::NirMemoryRegion {
+            kind: nir::NirMemoryRegionKind::AbsoluteRange,
+            offset: 0x4ff6,
+            size: 1,
+        }])
+    );
+    nir::verify_program(&program).expect("negative fixed-array addend must verify");
+}
+
+#[test]
+fn inline_asm_negative_fixed_array_addend_emits_in_all_backends() {
+    let semir = semir(FIXED_ARRAY_NEGATIVE_SOURCE);
+    let ast_classic = generate_semir_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
+        .expect("emit negative fixed-array addend from AST/classic");
+    let native_classic =
+        generate_semir_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
+            .expect("emit negative fixed-array addend from SemIR/classic");
+    let nir = nir::optimize_program(&nir::lower_program(&semir))
+        .expect("optimize negative fixed-array inline assembler NIR");
+    let mir = mir6502::generate_output(&nir, 0x3000)
+        .expect("emit negative fixed-array addend from MIR6502");
+
+    for (backend, output) in [
+        ("AST/classic", ast_classic),
+        ("SemIR/classic", native_classic),
+        ("MIR6502", mir),
+    ] {
+        assert!(
+            output
+                .bytes
+                .windows(5)
+                .any(|bytes| bytes == [0xA9, 0x00, 0x8D, 0xF6, 0x4F]),
+            "{backend} did not emit STA $4FF6: {:02X?}",
+            output.bytes
+        );
+    }
+}
+
+#[test]
+fn inline_asm_absolute_addend_underflow_is_rejected_by_nir_verifier() {
+    let source = r#"
+BYTE ARRAY low($400)=$0005
+
+PROC Main()
+ASM
+    lda #0
+    sta low-10
+ENDASM
+RETURN
+"#;
+    let program = nir::lower_program(&semir(source));
+    let diagnostics = nir::verify_program(&program).expect_err("absolute underflow must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("absolute relocation result is outside")
+    }));
+}
+
+#[test]
+fn inline_asm_negative_storage_addend_uses_conservative_effects() {
+    let source = r#"
+BYTE value
+
+PROC Main()
+ASM
+    lda #0
+    sta value-1
+ENDASM
+RETURN
+"#;
+    let program = nir::lower_program(&semir(source));
+    let effects = program
+        .routines
+        .iter()
+        .flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            nir::NirOp::InlineAsm { effects, .. } => Some(effects),
+            _ => None,
+        })
+        .expect("inline assembler effects");
+
+    assert_eq!(effects.memory.writes, nir::NirMemoryAccess::Unknown);
+    nir::verify_program(&program).expect("conservative negative storage effect must verify");
 }
 
 #[test]

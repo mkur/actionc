@@ -920,6 +920,26 @@ impl NirVerifier {
                     ));
                 }
             }
+            if !(-65535..=65535).contains(&relocation.addend) {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!(
+                        "inline assembler relocation addend {} is outside the supported 16-bit address range",
+                        relocation.addend
+                    ),
+                ));
+            }
+            if let NirInlineAsmTarget::Absolute(address) = relocation.target {
+                let value = i32::from(address).checked_add(relocation.addend);
+                if !value.is_some_and(|value| (0..=i32::from(u16::MAX)).contains(&value)) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "inline assembler absolute relocation result is outside the 16-bit address range",
+                    ));
+                }
+            }
             match relocation.target {
                 NirInlineAsmTarget::Storage(NirStorageId::Param(id))
                     if !routine.params.iter().any(|param| param.id == id) =>

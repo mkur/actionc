@@ -3,5 +3,5 @@ global displayList: array ArrayType { element: ValueType { base: Fund(Byte), poi
 
 routine Main params=[-] locals=[-]
 bb0:
-  inline-asm bytes=5 relocations=1 effects=reads:none writes:absolute+20488:1
+  inline-asm bytes=8 relocations=2 effects=reads:none writes:absolute+20470:1|absolute+20488:1
   return
