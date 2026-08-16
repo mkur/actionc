@@ -592,6 +592,14 @@ pub enum NirInlineAsmTarget {
 }
 ```
 
+`Storage` denotes the compiler-managed storage object whose bounds the verifier
+checks. A fixed numeric array whose Action-compatible representation includes a
+pointer or descriptor cell instead uses `Absolute(declared_backing_address)`:
+the machine operand denotes the array's declared backing, not its descriptor.
+Its addend is preserved on the relocation, and its memory effect is an absolute
+range at the resolved backing address plus that addend. The descriptor remains
+a separate, correctly sized storage object.
+
 The verifier checks relocation bounds and overlap, stable target IDs,
 inline-offset bounds, and address-size constraints. Optimizers consume the
 structured storage/memory effects; they must not decode the debug `source`

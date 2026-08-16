@@ -196,6 +196,12 @@ The address exported for an Action! array must match the language's existing
 - a fixed-address array denotes its declared address;
 - an alias denotes its backing plus the declared offset.
 
+This remains true when compatibility storage gives a large fixed-address array
+a pointer or descriptor cell. In machine operands, the array symbol and any
+addend resolve from the declared backing address; they do not address bytes of
+that compiler-managed cell. For example, with
+`BYTE ARRAY displayList($400)=$5000`, `displayList+8` denotes `$5008`.
+
 If an object has no single stable representation that satisfies the requested
 operand, compilation fails with a targeted diagnostic.
 
