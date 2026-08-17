@@ -749,7 +749,10 @@ impl Analyzer {
                         | crate::asm6502::InlineAsmSymbolUse::Control => {
                             matches!(
                                 symbol.class,
-                                SymbolClass::Proc | SymbolClass::Func | SymbolClass::Define
+                                SymbolClass::Proc
+                                    | SymbolClass::Func
+                                    | SymbolClass::Define
+                                    | SymbolClass::Const
                             )
                         }
                         crate::asm6502::InlineAsmSymbolUse::Read
@@ -761,6 +764,7 @@ impl Analyzer {
                         | crate::asm6502::InlineAsmSymbolUse::PointerRead => matches!(
                             symbol.class,
                             SymbolClass::Define
+                                | SymbolClass::Const
                                 | SymbolClass::Var
                                 | SymbolClass::Array
                                 | SymbolClass::Param
@@ -768,6 +772,7 @@ impl Analyzer {
                         crate::asm6502::InlineAsmSymbolUse::Address => matches!(
                             symbol.class,
                             SymbolClass::Define
+                                | SymbolClass::Const
                                 | SymbolClass::Var
                                 | SymbolClass::Array
                                 | SymbolClass::Param
@@ -775,7 +780,7 @@ impl Analyzer {
                                 | SymbolClass::Func
                         ),
                         crate::asm6502::InlineAsmSymbolUse::Constant => {
-                            symbol.class == SymbolClass::Define
+                            matches!(symbol.class, SymbolClass::Define | SymbolClass::Const)
                         }
                     };
                     if !valid {

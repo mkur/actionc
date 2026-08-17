@@ -1928,6 +1928,8 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn lower_inline_asm(&self, scope: ScopeId, program: &InlineAsmProgram) -> SemInlineAsm {
+        let program =
+            super::materialize::materialize_inline_asm_constants(program, scope, self.model);
         let relocations = program
             .relocations
             .iter()
@@ -1955,11 +1957,11 @@ impl<'a> IrBuilder<'a> {
             })
             .collect();
         SemInlineAsm {
-            bytes: program.bytes.clone(),
+            bytes: program.bytes,
             relocations,
-            source: program.source.clone(),
+            source: program.source,
             mode: program.mode,
-            compatibility_items: program.items.clone(),
+            compatibility_items: program.items,
         }
     }
 

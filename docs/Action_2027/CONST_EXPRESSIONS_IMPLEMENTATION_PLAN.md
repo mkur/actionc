@@ -1,5 +1,8 @@
 # CONST Expressions Implementation Plan
 
+Implementation status: complete on the `Action-2027` branch. The slices below
+also serve as the feature's design record and regression checklist.
+
 ## Goal
 
 Add first-class compile-time constants to `actionc` without changing Action!'s

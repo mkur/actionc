@@ -1,6 +1,7 @@
+use crate::asm6502::{InlineAsmProgram, InlineAsmRelocationTarget};
 use crate::ast::*;
 
-use super::{ConstValue, ScopeId, SemanticModel};
+use super::{ConstValue, ScalarType, ScopeId, SemanticModel};
 
 /// Prepare the semantic AST for consumers that still operate on source AST
 /// expressions.  CONST declarations have no runtime representation, and every
@@ -171,10 +172,12 @@ impl Materializer<'_> {
                     self.statement(scope, statement);
                 }
             }
+            Stmt::InlineAsm { program, .. } => {
+                *program = materialize_inline_asm_constants(program, scope, self.model);
+            }
             Stmt::Define(_)
             | Stmt::Exit { .. }
             | Stmt::MachineBlock { .. }
-            | Stmt::InlineAsm { .. }
             | Stmt::Unsupported { .. } => {}
         }
     }
@@ -221,4 +224,65 @@ impl Materializer<'_> {
         let symbol = self.model.symbols.lookup(scope, name)?;
         self.model.constants.get(&symbol).copied()
     }
+}
+
+pub(super) fn materialize_inline_asm_constants(
+    program: &InlineAsmProgram,
+    scope: ScopeId,
+    model: &SemanticModel,
+) -> InlineAsmProgram {
+    let mut program = program.clone();
+
+    for item in &mut program.items {
+        match item {
+            MachineItem::Name(name) => {
+                if let Some(value) = constant(model, scope, name) {
+                    *item = MachineItem::Number(value.number_literal());
+                }
+            }
+            MachineItem::AddressExpr(address) => {
+                let MachineAddressAtom::Name(name) = &address.atom else {
+                    continue;
+                };
+                if let Some(value) = constant(model, scope, name) {
+                    address.atom = MachineAddressAtom::Number(value.number_literal());
+                }
+            }
+            MachineItem::AddressByte { selector, name } => {
+                if let Some(value) = constant(model, scope, name) {
+                    let bits = match selector {
+                        AddressByteSelector::Low => value.bits & 0x00ff,
+                        AddressByteSelector::High => value.bits >> 8,
+                    };
+                    *item = MachineItem::Number(
+                        ConstValue {
+                            ty: ScalarType::Byte,
+                            bits,
+                        }
+                        .number_literal(),
+                    );
+                }
+            }
+            MachineItem::Number(_)
+            | MachineItem::StringLiteral(_)
+            | MachineItem::CharLiteral(_)
+            | MachineItem::Raw(_) => {}
+        }
+    }
+
+    for relocation in &mut program.relocations {
+        let InlineAsmRelocationTarget::Symbol(name) = &relocation.target else {
+            continue;
+        };
+        if let Some(value) = constant(model, scope, name) {
+            relocation.target = InlineAsmRelocationTarget::Absolute(value.bits);
+        }
+    }
+
+    program
+}
+
+fn constant(model: &SemanticModel, scope: ScopeId, name: &str) -> Option<ConstValue> {
+    let symbol = model.symbols.lookup(scope, name)?;
+    model.constants.get(&symbol).copied()
 }

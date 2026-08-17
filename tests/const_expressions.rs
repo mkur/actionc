@@ -100,3 +100,62 @@ RETURN
         );
     }
 }
+
+#[test]
+fn inline_assembler_constants_match_numeric_operands_in_every_public_mode() {
+    let temp = TestDir::new();
+    let with_constants = temp.write(
+        "asm-constants.act",
+        r#"
+CONST VALUE=$11, COLOR=$D01A, DISPLAY_LIST=$5000
+
+PROC Main()
+  CONST VALUE=$2A
+ASM
+  lda #VALUE
+  sta COLOR
+  lda #<DISPLAY_LIST
+  sta $80
+  lda #>DISPLAY_LIST
+  sta $81
+  lda #0
+  sta DISPLAY_LIST+8
+ENDASM
+RETURN
+"#,
+    );
+    let with_literals = temp.write(
+        "asm-literals.act",
+        r#"
+PROC Main()
+ASM
+  lda #$2A
+  sta $D01A
+  lda #<$5000
+  sta $80
+  lda #>$5000
+  sta $81
+  lda #0
+  sta $5000+8
+ENDASM
+RETURN
+"#,
+    );
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let constants = compile_file(&with_constants, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile inline ASM constants in {mode:?}: {error}"));
+        let literals = compile_file(&with_literals, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile inline ASM literals in {mode:?}: {error}"));
+
+        assert_eq!(
+            constants.object_bytes(),
+            literals.object_bytes(),
+            "inline ASM CONST output differs in {mode:?}"
+        );
+    }
+}
