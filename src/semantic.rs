@@ -8,6 +8,7 @@ use crate::source::{Span, source_char_byte};
 
 pub mod ir;
 pub mod layout;
+pub(crate) mod materialize;
 pub mod subject;
 pub mod types;
 
