@@ -1456,6 +1456,7 @@ impl<'a> IrBuilder<'a> {
     fn lower_decl(&mut self, scope: ScopeId, decl: &Decl) -> Vec<SemDeclaration> {
         match decl {
             Decl::Var(var) => self.lower_var_decl(scope, var),
+            Decl::Const(_) => Vec::new(),
             Decl::Type(type_decl) => self.lower_type_decl(scope, type_decl),
             Decl::Record(record_decl) => self.lower_record_decl(scope, record_decl),
         }

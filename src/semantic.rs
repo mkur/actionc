@@ -1968,6 +1968,7 @@ impl Analyzer {
     fn analyze_decl(&mut self, scope: ScopeId, decl: &Decl, is_param: bool) {
         match decl {
             Decl::Var(var) => self.analyze_var_decl(scope, var, is_param),
+            Decl::Const(_) => {}
             Decl::Type(type_decl) => {
                 if let Some(owner) = self.declare(
                     scope,
