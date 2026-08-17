@@ -2,7 +2,7 @@ use crate::ast::{BinaryOp, UnaryOp};
 use crate::lexer::NumberLiteral;
 use crate::source::Span;
 
-use super::{CallableType, FieldId, SymbolId, ValueType};
+use super::{CallableType, ConstValue, FieldId, SymbolId, ValueType};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemSubject {
@@ -54,6 +54,7 @@ pub enum SemLiteral {
     Number(NumberLiteral),
     String(String),
     Char(char),
+    Constant(ConstValue),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

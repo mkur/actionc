@@ -1779,7 +1779,7 @@ impl NirBuilder {
                     _ => None,
                 })
                 .map(NirInlineAsmTarget::Absolute),
-            SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc => None,
+            SymbolClass::Const | SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc => None,
         }
     }
 

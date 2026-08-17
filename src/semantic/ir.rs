@@ -2486,6 +2486,7 @@ impl<'a> IrBuilder<'a> {
                 SymbolClass::BuiltinProc
                 | SymbolClass::BuiltinFunc
                 | SymbolClass::Define
+                | SymbolClass::Const
                 | SymbolClass::Type
                 | SymbolClass::Record => PlaceAccess::ReadOnly,
             },
@@ -3058,7 +3059,9 @@ fn expr_class_from_kind(kind: &SemExprKind) -> SemExprClass {
             | SymbolClass::BuiltinProc
             | SymbolClass::BuiltinFunc => SemExprClass::Callable,
             SymbolClass::Var | SymbolClass::Array | SymbolClass::Param => SemExprClass::LValue,
-            SymbolClass::Define | SymbolClass::Type | SymbolClass::Record => SemExprClass::Unknown,
+            SymbolClass::Define | SymbolClass::Const | SymbolClass::Type | SymbolClass::Record => {
+                SemExprClass::Unknown
+            }
         },
         SemExprKind::LValue(_) => SemExprClass::LValue,
         SemExprKind::Cast { .. } => SemExprClass::Value,
