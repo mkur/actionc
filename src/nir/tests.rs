@@ -329,6 +329,49 @@ fn routine_local_defines_do_not_lower_to_executable_metadata_ops() {
 }
 
 #[test]
+fn const_declarations_lower_to_typed_literals_without_nir_storage_or_metadata() {
+    let source = "CONST Base=4, Limit=Base*2 PROC Main() CONST Local=Limit+1 BYTE x x=Local RETURN";
+    let tokens = crate::lexer::tokenize(source).unwrap();
+    let ast = crate::parser::parse(&tokens).unwrap();
+    let model = crate::semantic::analyze(&ast).unwrap();
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let formatted_semir = crate::semantic::ir::format_program(&semir);
+
+    assert!(formatted_semir.contains("const Base#"), "{formatted_semir}");
+    assert!(
+        formatted_semir.contains("const Local#"),
+        "{formatted_semir}"
+    );
+    assert!(formatted_semir.contains("$09:BYTE"), "{formatted_semir}");
+
+    let program = lower_program(&semir);
+    verify_program(&program).expect("CONST values should leave verifier-clean NIR");
+    assert!(program.globals.iter().all(|global| global.name != "Base"));
+
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    assert!(main.locals.iter().all(|local| local.name != "Local"));
+    assert!(main.blocks.iter().flat_map(|block| &block.ops).all(|op| {
+        !matches!(
+            op,
+            NirOp::Define { .. } | NirOp::Declare { .. } | NirOp::Note { .. }
+        )
+    }));
+    assert!(main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+        matches!(
+            op,
+            NirOp::Store {
+                src: NirValue::ConstU8(9),
+                ..
+            }
+        )
+    }));
+}
+
+#[test]
 fn lowers_self_and_forward_addresses_to_nir_data_relocations() {
     let source = "BYTE ARRAY dlist(4)=[$41 <dlist+2 >later $70] BYTE ARRAY later(1)=[$60]";
     let tokens = crate::lexer::tokenize(source).expect("tokenize source");

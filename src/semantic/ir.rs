@@ -5,18 +5,19 @@ use crate::asm6502::{
     InlineAsmSymbolUse,
 };
 use crate::ast::{
-    ActioncAnnotation, AddressByteSelector, BinaryOp, Decl, DefineDecl, Expr, ExprKind, FundType,
-    IncludeDirective, InitializerElement, InitializerElementKind, InitializerLiteral, Item,
-    MachineItem, Module, Program, RecordDecl, Routine, RoutineKind, SetDirective, Stmt, TypeBase,
-    TypeDecl, TypeRef, UnaryOp, VarDecl, VarStorage,
+    ActioncAnnotation, AddressByteSelector, BinaryOp, ConstDecl, Decl, DefineDecl, Expr, ExprKind,
+    FundType, IncludeDirective, InitializerElement, InitializerElementKind, InitializerLiteral,
+    Item, MachineItem, Module, Program, RecordDecl, Routine, RoutineKind, SetDirective, Stmt,
+    TypeBase, TypeDecl, TypeRef, UnaryOp, VarDecl, VarStorage,
 };
 use crate::lexer::{NumberLiteral, TokenKind, tokenize};
 use crate::source::Span;
 
 use super::{
-    ArrayType, CallableType, ExprClass, FieldId, RecordFieldType, RecordType, ScalarSignedness,
-    ScalarType, ScopeId, SemanticLayoutFacts, SemanticModel, StmtFlowFacts, SymbolClass, SymbolId,
-    ValueType, ValueTypeBase, routine_control_flow_facts, subject::PlaceAccess,
+    ArrayType, CallableType, ConstValue, ExprClass, FieldId, RecordFieldType, RecordType,
+    ScalarSignedness, ScalarType, ScopeId, SemanticLayoutFacts, SemanticModel, StmtFlowFacts,
+    SymbolClass, SymbolId, ValueType, ValueTypeBase, routine_control_flow_facts,
+    subject::PlaceAccess,
 };
 
 pub fn lower_program(program: &Program, model: &SemanticModel) -> SemProgram {
@@ -44,6 +45,7 @@ pub struct SemModule {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemItem {
     Define(SemDefine),
+    Const(SemConst),
     Include(SemInclude),
     Set(SemSet),
     Declaration(SemDeclaration),
@@ -66,6 +68,13 @@ pub struct SemSymbolRef {
 pub struct SemDefine {
     pub symbol: SemSymbolRef,
     pub value: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemConst {
+    pub symbol: SemSymbolRef,
+    pub value: ConstValue,
     pub span: Span,
 }
 
@@ -190,6 +199,7 @@ pub struct SemRoutine {
     pub callable_type: CallableType,
     pub params: Vec<SemParam>,
     pub locals: Vec<SemDeclaration>,
+    pub constants: Vec<SemConst>,
     pub body: Vec<SemStmt>,
     pub system_address: Option<SemExpr>,
     pub annotations: Vec<ActioncAnnotation>,
@@ -625,6 +635,7 @@ pub enum SemLiteral {
     Number(NumberLiteral),
     String(String),
     Char(char),
+    Constant(ConstValue),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -786,6 +797,11 @@ impl SemIrFormatter {
                     symbol_summary(&define.symbol),
                     define.value
                 )),
+                SemItem::Const(constant) => self.line(format!(
+                    "const {} = {}",
+                    symbol_summary(&constant.symbol),
+                    const_value_summary(constant.value)
+                )),
                 SemItem::Include(include) => self.line(format!("include {:?}", include.path)),
                 SemItem::Set(set) => self.line(format!(
                     "set {} = {}",
@@ -876,6 +892,18 @@ impl SemIrFormatter {
                 this.indented(|this| {
                     for local in &routine.locals {
                         this.declaration(local);
+                    }
+                });
+            }
+            if !routine.constants.is_empty() {
+                this.line("constants:");
+                this.indented(|this| {
+                    for constant in &routine.constants {
+                        this.line(format!(
+                            "const {} = {}",
+                            symbol_summary(&constant.symbol),
+                            const_value_summary(constant.value)
+                        ));
                     }
                 });
             }
@@ -1143,7 +1171,18 @@ fn literal_summary(literal: &SemLiteral) -> String {
         SemLiteral::Number(number) => number.text.clone(),
         SemLiteral::String(text) => format!("{text:?}"),
         SemLiteral::Char(ch) => format!("'{ch}'"),
+        SemLiteral::Constant(value) => const_value_summary(*value),
     }
+}
+
+fn const_value_summary(value: ConstValue) -> String {
+    let ty = match value.ty {
+        ScalarType::Byte => "BYTE",
+        ScalarType::Card => "CARD",
+        ScalarType::Char => "CHAR",
+        ScalarType::Int => "INT",
+    };
+    format!("{}:{ty}", value.number_literal().text)
 }
 
 fn callable_summary(callable: &SemCallable) -> String {
@@ -1405,6 +1444,11 @@ impl<'a> IrBuilder<'a> {
                 .collect(),
             Item::Include(include) => vec![SemItem::Include(self.lower_include(include))],
             Item::Set(set) => vec![SemItem::Set(self.lower_set(scope, set))],
+            Item::Declaration(Decl::Const(constants)) => self
+                .lower_const_decl(scope, constants)
+                .into_iter()
+                .map(SemItem::Const)
+                .collect(),
             Item::Declaration(decl) => self
                 .lower_decl(scope, decl)
                 .into_iter()
@@ -1449,6 +1493,22 @@ impl<'a> IrBuilder<'a> {
                         value: entry.value.clone(),
                         span: entry.span,
                     })
+            })
+            .collect()
+    }
+
+    fn lower_const_decl(&self, scope: ScopeId, declaration: &ConstDecl) -> Vec<SemConst> {
+        declaration
+            .entries
+            .iter()
+            .filter_map(|entry| {
+                let symbol = self.symbol_ref(scope, &entry.name, entry.span)?;
+                let value = self.model.constants.get(&symbol.id).copied()?;
+                Some(SemConst {
+                    symbol,
+                    value,
+                    span: entry.span,
+                })
             })
             .collect()
     }
@@ -1667,6 +1727,15 @@ impl<'a> IrBuilder<'a> {
                 .locals
                 .iter()
                 .flat_map(|decl| self.lower_decl(routine_scope, decl))
+                .collect(),
+            constants: routine
+                .locals
+                .iter()
+                .filter_map(|decl| match decl {
+                    Decl::Const(constants) => Some(constants),
+                    _ => None,
+                })
+                .flat_map(|constants| self.lower_const_decl(routine_scope, constants))
                 .collect(),
             body: routine
                 .body
@@ -1911,7 +1980,11 @@ impl<'a> IrBuilder<'a> {
             ExprKind::Name(name) => self
                 .symbol_ref(scope, name, expr.span)
                 .map(|symbol| {
-                    if symbol.class == SymbolClass::Define
+                    if symbol.class == SymbolClass::Const
+                        && let Some(value) = self.model.constants.get(&symbol.id).copied()
+                    {
+                        SemExprKind::Literal(SemLiteral::Constant(value))
+                    } else if symbol.class == SymbolClass::Define
                         && let Some(number) = self.numeric_defines.get(&symbol.id)
                     {
                         SemExprKind::Literal(SemLiteral::Number(number.clone()))
@@ -1998,6 +2071,7 @@ impl<'a> IrBuilder<'a> {
             SemExprKind::Literal(SemLiteral::Number(number)) => value_type_for_number(number),
             SemExprKind::Literal(SemLiteral::String(_)) => ValueType::pointer_to(char_type()),
             SemExprKind::Literal(SemLiteral::Char(_)) => char_type(),
+            SemExprKind::Literal(SemLiteral::Constant(value)) => value.value_type(),
             SemExprKind::Symbol(symbol) => symbol.ty.clone().unwrap_or_else(ValueType::error),
             SemExprKind::LValue(lvalue) => lvalue.ty.clone(),
             SemExprKind::AddressOf(lvalue) => ValueType::pointer_to(lvalue.ty.clone()),
@@ -2318,9 +2392,15 @@ impl<'a> IrBuilder<'a> {
             ExprKind::Number(number) => number.value,
             ExprKind::Name(name) => {
                 let symbol = self.symbol_ref(scope, name, expr.span)?;
-                self.numeric_defines
+                self.model
+                    .constants
                     .get(&symbol.id)
-                    .and_then(|number| number.value)
+                    .map(|value| value.bits)
+                    .or_else(|| {
+                        self.numeric_defines
+                            .get(&symbol.id)
+                            .and_then(|number| number.value)
+                    })
             }
             ExprKind::Unary {
                 op: UnaryOp::Plus,
@@ -2375,6 +2455,10 @@ impl<'a> IrBuilder<'a> {
             SemExprKind::Literal(SemLiteral::Number(number)) if number.value.is_some() => {
                 SemConditionKind::ConstantTrue
             }
+            SemExprKind::Literal(SemLiteral::Constant(value)) if value.bits == 0 => {
+                SemConditionKind::ConstantFalse
+            }
+            SemExprKind::Literal(SemLiteral::Constant(_)) => SemConditionKind::ConstantTrue,
             SemExprKind::Binary { op, .. } if is_compare_op(*op) => SemConditionKind::Compare,
             SemExprKind::Binary {
                 op: BinaryOp::And | BinaryOp::Or,

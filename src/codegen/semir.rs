@@ -94,6 +94,9 @@ impl SemIrAstLowerer {
                     span: define.span,
                 }],
             }),
+            // CONST declarations are source metadata by this boundary.  Every
+            // executable reference already carries its typed literal value.
+            SemItem::Const(_) => return None,
             SemItem::Include(include) => Item::Include(IncludeDirective {
                 path: include.path.clone(),
                 span: include.span,
@@ -558,6 +561,10 @@ impl SemIrAstLowerer {
             SemLiteral::Number(number) => (ExprKind::Number(number.clone()), number.text.clone()),
             SemLiteral::String(text) => (ExprKind::String(text.clone()), format!("{text:?}")),
             SemLiteral::Char(ch) => (ExprKind::Char(*ch), format!("'{ch}'")),
+            SemLiteral::Constant(value) => {
+                let number = value.number_literal();
+                (ExprKind::Number(number.clone()), number.text)
+            }
         };
         Expr { kind, text, span }
     }

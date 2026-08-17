@@ -5625,6 +5625,7 @@ mod tests {
                     }
                     ir::SemItem::Statement(stmt) => assert_semir_stmt_types(stmt),
                     ir::SemItem::Define(_)
+                    | ir::SemItem::Const(_)
                     | ir::SemItem::Include(_)
                     | ir::SemItem::Set(_)
                     | ir::SemItem::Unsupported { .. } => {}

@@ -243,6 +243,7 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
             for item in &module.items {
                 match item {
                     SemItem::Define(_)
+                    | SemItem::Const(_)
                     | SemItem::Set(_)
                     | SemItem::Declaration(_)
                     | SemItem::Routine(_) => {}
