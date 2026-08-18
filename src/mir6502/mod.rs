@@ -12,6 +12,7 @@ mod passes;
 mod printer;
 mod rewrite;
 mod runtime;
+mod standalone;
 mod verify;
 
 pub use diagnostics::MirDiagnostic;
@@ -189,11 +190,14 @@ fn runtime_bindings(
     mir.runtime_helpers
         .iter()
         .map(|declaration| {
-            let (implementation, address, reason) = match declaration.target {
+            let helper = runtime::helper_name(declaration.helper);
+            let reason = runtime_selection_reason(declaration.helper).to_string();
+            let (implementation, address, origin, suppressed_default) = match declaration.target {
                 MirRuntimeHelperTarget::KnownAbsolute(address) => (
                     "absolute runtime entry".to_string(),
                     Some(address),
-                    "required by MIR target legalization".to_string(),
+                    "Action! cartridge or explicit absolute override".to_string(),
+                    None,
                 ),
                 MirRuntimeHelperTarget::Routine(id) => {
                     let name = mir
@@ -206,22 +210,42 @@ fn runtime_bindings(
                         .iter()
                         .find(|routine| routine.name == name)
                         .map(|routine| routine.address);
-                    (name, address, "resolved local runtime override".to_string())
+                    if name.starts_with("ACTION.RUNTIME.SYSLIB::") {
+                        (name, address, "<runtime:SYSLIB.ACT>".to_string(), None)
+                    } else {
+                        (
+                            name,
+                            address,
+                            "application source".to_string(),
+                            Some(format!("ACTION.RUNTIME.SYSLIB::{helper}")),
+                        )
+                    }
                 }
-                MirRuntimeHelperTarget::Deferred => (
-                    "deferred".to_string(),
-                    None,
-                    "unresolved runtime requirement".to_string(),
-                ),
+                MirRuntimeHelperTarget::Deferred => {
+                    ("deferred".to_string(), None, "unresolved".to_string(), None)
+                }
             };
             crate::codegen::CodegenRuntimeBinding {
-                helper: runtime::helper_name(declaration.helper).to_string(),
+                helper: helper.to_string(),
                 implementation,
                 address,
                 reason,
+                origin,
+                suppressed_default,
             }
         })
         .collect()
+}
+
+fn runtime_selection_reason(helper: MirRuntimeHelper) -> &'static str {
+    match helper {
+        MirRuntimeHelper::SArgs => "call frame exceeds three direct argument bytes",
+        MirRuntimeHelper::Mul => "integer multiplication requires a runtime helper",
+        MirRuntimeHelper::Div => "integer division requires a runtime helper",
+        MirRuntimeHelper::Mod => "integer remainder requires a runtime helper",
+        MirRuntimeHelper::Lsh => "word left shift requires a runtime helper",
+        MirRuntimeHelper::Rsh => "word right shift requires a runtime helper",
+    }
 }
 
 #[cfg(test)]

@@ -41,8 +41,16 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
             .map(|address| format!("${address:04X}"))
             .unwrap_or_else(|| binding.implementation.clone());
         lines.push(sanitize_assembly_comment(&format!(
-            "; Runtime binding: {} -> {} ({})",
-            binding.helper, target, binding.reason
+            "; Runtime binding: {} -> {} [{}] ({}){}",
+            binding.helper,
+            target,
+            binding.origin,
+            binding.reason,
+            binding
+                .suppressed_default
+                .as_ref()
+                .map(|default| format!("; suppresses {default}"))
+                .unwrap_or_default()
         )));
     }
     if !output.map.runtime_bindings.is_empty() {

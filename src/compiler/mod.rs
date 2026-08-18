@@ -419,14 +419,10 @@ fn resolve_request(
         ));
     }
 
-    if request.runtime == Runtime::Standalone {
-        let backend_name = match backend {
-            Backend::Classic => "classic",
-            Backend::Mir6502 => "mir6502",
-        };
-        return Err(CompileError::configuration(format!(
-            "--runtime standalone is not supported by the {backend_name} backend yet"
-        )));
+    if request.runtime == Runtime::Standalone && backend == Backend::Classic {
+        return Err(CompileError::configuration(
+            "--runtime standalone is not supported by the classic backend yet",
+        ));
     }
 
     Ok(ResolvedCompileRequest {

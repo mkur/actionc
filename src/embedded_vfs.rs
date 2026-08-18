@@ -29,6 +29,16 @@ impl EmbeddedSourceProvider {
     pub fn sources(self) -> &'static [EmbeddedSource] {
         SOURCES
     }
+
+    pub(crate) fn runtime_source(self, file_name: &str) -> Option<&'static EmbeddedSource> {
+        SOURCES.iter().find(|source| {
+            source.kind == EmbeddedSourceKind::Runtime
+                && source
+                    .virtual_path
+                    .strip_prefix("runtime/")
+                    .is_some_and(|name| name.eq_ignore_ascii_case(file_name))
+        })
+    }
 }
 
 impl SourceProvider for EmbeddedSourceProvider {

@@ -81,6 +81,8 @@ pub struct CodegenRuntimeBinding {
     pub implementation: String,
     pub address: Option<u16>,
     pub reason: String,
+    pub origin: String,
+    pub suppressed_default: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

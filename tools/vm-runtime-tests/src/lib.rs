@@ -2,7 +2,7 @@
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+    use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
     use actionc_vm::{
         CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE, RunRequest,
         StopReason, VmRunner,
@@ -163,6 +163,30 @@ mod tests {
                 bytes: &[0x02, 0x22, 0x22, 0x05, 0x44, 0x44],
             }],
         );
+    }
+
+    #[test]
+    fn selectively_linked_sargs_executes_without_a_cartridge() {
+        let fixture = runtime_fixture("standalone_sargs.act");
+        let compiled = compile_file(
+            &fixture,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(Runtime::Standalone),
+        )
+        .unwrap_or_else(|error| panic!("compile standalone SArgs fixture: {error}"));
+        let mut vm = vm_for_profile(ExecutionProfile::StandaloneObject);
+        vm.load_atari_object_for_execution(
+            ExecutionProfile::StandaloneObject,
+            compiled.object_bytes(),
+        )
+        .expect("load standalone SArgs object");
+        let max_steps = 1_000;
+        let outcome = VmRunner::new(vm).run(RunRequest {
+            max_steps,
+            history_len: 8,
+            ..RunRequest::default()
+        });
+        assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+        assert_eq!(outcome.memory().read(RESULT_START), 4);
     }
 
     #[test]

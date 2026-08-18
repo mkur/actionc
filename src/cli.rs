@@ -732,9 +732,7 @@ fn runtime_backend_error(runtime: Runtime, backend: Backend) -> Option<&'static 
         (Runtime::Standalone, Backend::Classic) => {
             Some("--runtime standalone is not supported by the classic backend yet")
         }
-        (Runtime::Standalone, Backend::Mir6502) => {
-            Some("--runtime standalone is not supported by the mir6502 backend yet")
-        }
+        (Runtime::Standalone, Backend::Mir6502) => None,
     }
 }
 
@@ -1123,8 +1121,16 @@ fn print_map(output: &CodegenOutput) {
             .map(|address| format!("${address:04X}"))
             .unwrap_or_else(|| binding.implementation.clone());
         println!(
-            "runtime-binding {} {} reason={}",
-            binding.helper, target, binding.reason
+            "runtime-binding {} {} origin={} reason={}{}",
+            binding.helper,
+            target,
+            binding.origin,
+            binding.reason,
+            binding
+                .suppressed_default
+                .as_ref()
+                .map(|default| format!(" suppressed-default={default}"))
+                .unwrap_or_default()
         );
     }
     for routine in &output.routine_addresses {

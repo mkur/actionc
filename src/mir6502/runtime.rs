@@ -10,25 +10,16 @@ pub(super) fn resolve_helpers(
         .runtime_helpers
         .sort_by_key(|declaration| declaration.helper);
 
+    if runtime == Runtime::Standalone {
+        return super::standalone::link_helpers(program);
+    }
+
     for declaration in &mut program.runtime_helpers {
         if !matches!(declaration.target, MirRuntimeHelperTarget::Deferred) {
             continue;
         }
-        declaration.target = match runtime {
-            Runtime::ActionCart => {
-                MirRuntimeHelperTarget::KnownAbsolute(cartridge_address(declaration.helper))
-            }
-            Runtime::Standalone => {
-                return Err(vec![MirDiagnostic {
-                    routine: None,
-                    block: None,
-                    message: format!(
-                        "standalone implementation for runtime helper `{}` is not linked yet",
-                        helper_name(declaration.helper)
-                    ),
-                }]);
-            }
-        };
+        declaration.target =
+            MirRuntimeHelperTarget::KnownAbsolute(cartridge_address(declaration.helper));
     }
     Ok(())
 }

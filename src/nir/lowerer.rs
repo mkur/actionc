@@ -341,12 +341,35 @@ impl NirLowerer {
                 }
                 for block in &mut routine.blocks {
                     for op in &mut block.ops {
-                        if let NirOp::InlineAsm { code, .. } = op {
-                            for relocation in &mut code.relocations {
-                                if let NirInlineAsmTarget::Routine(id) = &mut relocation.target {
-                                    *id = id.saturating_add(1);
+                        match op {
+                            NirOp::RuntimeHelperOverride {
+                                target: NirRuntimeHelperTarget::Routine(id),
+                                ..
+                            } => *id = id.saturating_add(1),
+                            NirOp::Call {
+                                callee: NirCallee::User { id, .. },
+                                ..
+                            } => *id = id.saturating_add(1),
+                            NirOp::MachineBlock { items, .. } => {
+                                for item in items {
+                                    if let NirMachineItem::Relocation {
+                                        target: NirInlineAsmTarget::Routine(id),
+                                        ..
+                                    } = item
+                                    {
+                                        *id = id.saturating_add(1);
+                                    }
                                 }
                             }
+                            NirOp::InlineAsm { code, .. } => {
+                                for relocation in &mut code.relocations {
+                                    if let NirInlineAsmTarget::Routine(id) = &mut relocation.target
+                                    {
+                                        *id = id.saturating_add(1);
+                                    }
+                                }
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -3104,9 +3127,10 @@ fn increment_data_image_routine_ids_in_global_init(init: &mut NirGlobalInit) {
         NirGlobalInit::Descriptor { backing, .. } => {
             increment_data_image_routine_ids(&mut backing.image)
         }
-        NirGlobalInit::ZeroFill { .. }
-        | NirGlobalInit::ProgramEndWord { .. }
-        | NirGlobalInit::RoutineAddress { .. } => {}
+        NirGlobalInit::RoutineAddress { routine, .. } => {
+            *routine = routine.saturating_add(1);
+        }
+        NirGlobalInit::ZeroFill { .. } | NirGlobalInit::ProgramEndWord { .. } => {}
     }
 }
 
