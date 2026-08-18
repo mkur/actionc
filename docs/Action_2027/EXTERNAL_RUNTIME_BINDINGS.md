@@ -4,9 +4,9 @@ Status: accepted implementation contract for Module System Gate A.
 
 ## Purpose
 
-The public standard-library interface must describe Action source semantics
+The public system-library interface must describe Action source semantics
 without exposing the physical address or source routine selected by a runtime.
-The same `STD` symbol identity is therefore used with both the cartridge and
+The same `SYS` symbol identity is therefore used with both the cartridge and
 standalone runtimes.
 
 ## Interface declarations
@@ -14,7 +14,7 @@ standalone runtimes.
 A named module declares a callable interface with `EXTERNAL`:
 
 ```action
-MODULE STD
+MODULE SYS
   PUBLIC EXTERNAL PROC Zero(BYTE POINTER address, CARD size)
 ENDMODULE
 ```
@@ -34,13 +34,13 @@ read-only virtual filesystem. They use `SET` to bind the interface identity:
 
 ```action
 MODULE ACTION.RUNTIME.BINDINGS.CART
-  SET STD.Zero=$A78A
+  SET SYS.Zero=$A78A
 ENDMODULE
 ```
 
 ```action
 MODULE ACTION.RUNTIME.BINDINGS.STANDALONE
-  SET STD.Zero=SYSBLK_Zero
+  SET SYS.Zero=SYSBLK_Zero
 ENDMODULE
 ```
 
@@ -68,8 +68,8 @@ lowering but before target materialization:
 - standalone references become the selected local runtime routine identity;
 - the declaration-only routine is removed before emission.
 
-Consequently `@STD.Zero` observes the selected implementation. Standalone code
-cannot accidentally retain a cartridge address, and importing `STD` without
+Consequently `@SYS.Zero` observes the selected implementation. Standalone code
+cannot accidentally retain a cartridge address, and importing `SYS` without
 using a member cannot pull runtime code into the output.
 
 The initial implemented interface consists of `Zero`, `SetBlock`, and

@@ -293,7 +293,7 @@ fn rewrite_external_references(
                         if let Some(binding) = resolved.get(id) {
                             *target = match binding {
                                 ResolvedTarget::Absolute(address) => MirCallTarget::Runtime {
-                                    name: "STD external".to_string(),
+                                    name: "SYS external".to_string(),
                                     address: Some(*address),
                                 },
                                 ResolvedTarget::Routine(id) => MirCallTarget::Routine(*id),
@@ -463,14 +463,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn embedded_std_bindings_are_unique_and_runtime_specific() {
+    fn embedded_sys_bindings_are_unique_and_runtime_specific() {
         let cart = parse_bindings(Runtime::ActionCart).expect("cart bindings");
         let standalone = parse_bindings(Runtime::Standalone).expect("standalone bindings");
         assert_eq!(cart.len(), 3);
         assert_eq!(standalone.len(), 3);
-        assert_eq!(cart["STD.ZERO"], BindingTarget::Absolute(0xA78A));
+        assert_eq!(cart["SYS.ZERO"], BindingTarget::Absolute(0xA78A));
         assert_eq!(
-            standalone["STD.ZERO"],
+            standalone["SYS.ZERO"],
             BindingTarget::RuntimeRoutine {
                 unit: "SYSBLK".to_string(),
                 routine: "Zero".to_string(),

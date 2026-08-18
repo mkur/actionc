@@ -1,6 +1,6 @@
-; Target-neutral standard-library interface. Runtime-specific implementation
+; Runtime-neutral Action system-library interface. Runtime-specific implementation
 ; addresses live in compiler-owned binding units, never in this public module.
-MODULE STD
+MODULE SYS
 
 PUBLIC EXTERNAL PROC Zero(BYTE POINTER address, CARD size)
 PUBLIC EXTERNAL PROC SetBlock(BYTE POINTER address, CARD size, BYTE value)

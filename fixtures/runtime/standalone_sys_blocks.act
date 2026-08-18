@@ -1,7 +1,7 @@
-; Exercise the remaining initial STD memory bindings without a cartridge.
-MODULE RUNTIME.STD.BLOCKS
+; Exercise the remaining initial SYS memory bindings without a cartridge.
+MODULE RUNTIME.SYS.BLOCKS
 
-IMPORT STD.*
+IMPORT SYS.*
 
 BYTE ARRAY source(4)=$0600
 BYTE ARRAY destination(4)=$0610

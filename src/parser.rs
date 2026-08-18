@@ -3012,7 +3012,7 @@ mod tests {
             MODULE DEMO.VIDEO
               IMPORT ATARI.ANTIC
               IMPORT ATARI.GTIA AS VIDEO
-              IMPORT STD.*
+              IMPORT SYS.*
               PUBLIC VOLATILE BYTE DMACTL=$D400, WSYNC=$D40A
             ENDMODULE
         "#;
@@ -3036,7 +3036,7 @@ mod tests {
 
     #[test]
     fn parses_public_external_callable_signatures_without_bodies() {
-        let source = "MODULE STD\n\
+        let source = "MODULE SYS\n\
                       PUBLIC EXTERNAL PROC Zero(BYTE POINTER address, CARD size)\n\
                       PUBLIC EXTERNAL BYTE FUNC Peek(CARD address)\n\
                       ENDMODULE\n";
@@ -3106,7 +3106,7 @@ mod tests {
         for (source, expected) in [
             ("MODULE DEMO\nBYTE value", "missing ENDMODULE"),
             (
-                "MODULE DEMO\nBYTE value\nIMPORT STD\nENDMODULE",
+                "MODULE DEMO\nBYTE value\nIMPORT SYS\nENDMODULE",
                 "IMPORT declarations must precede",
             ),
             (
@@ -3118,7 +3118,7 @@ mod tests {
                 "executable top-level statements",
             ),
             (
-                "MODULE DEMO\nIMPORT STD.* AS S\nENDMODULE",
+                "MODULE DEMO\nIMPORT SYS.* AS S\nENDMODULE",
                 "open import cannot use AS",
             ),
             (

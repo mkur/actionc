@@ -1,0 +1,8 @@
+; Cartridge provider for the implemented SYS interface.
+MODULE ACTION.RUNTIME.BINDINGS.CART
+
+SET SYS.Zero=$A78A
+SET SYS.SetBlock=$A790
+SET SYS.MoveBlock=$A7B3
+
+ENDMODULE

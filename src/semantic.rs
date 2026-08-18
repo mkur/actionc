@@ -836,7 +836,7 @@ impl Analyzer {
                             RoutineKind::Func { return_type } => Some(ValueType::fund(return_type)),
                         };
                         let symbol_id = self
-                            .coalesce_std_compatibility_routine(module_id, scope, routine)
+                            .coalesce_sys_compatibility_routine(module_id, scope, routine)
                             .or_else(|| {
                                 self.declare_module_symbol(
                                     module_id,
@@ -864,14 +864,14 @@ impl Analyzer {
         }
     }
 
-    fn coalesce_std_compatibility_routine(
+    fn coalesce_sys_compatibility_routine(
         &mut self,
         module_id: ModuleId,
         scope: ScopeId,
         routine: &Routine,
     ) -> Option<SymbolId> {
         let module = &self.modules[module_id.0 as usize];
-        if module.path.canonical_name() != "std" || !routine.is_external {
+        if module.path.canonical_name() != "sys" || !routine.is_external {
             return None;
         }
         let symbol_id = self
@@ -886,7 +886,7 @@ impl Analyzer {
             self.diagnostics.push(Diagnostic::new(
                 routine.span,
                 format!(
-                    "STD external `{}` conflicts with its compatibility-prelude kind",
+                    "SYS external `{}` conflicts with its compatibility-prelude kind",
                     routine.name
                 ),
             ));
@@ -899,7 +899,7 @@ impl Analyzer {
         {
             self.diagnostics.push(Diagnostic::new(
                 routine.span,
-                format!("duplicate STD external `{}`", routine.name),
+                format!("duplicate SYS external `{}`", routine.name),
             ));
             return Some(symbol_id);
         }
@@ -4293,34 +4293,34 @@ mod tests {
     }
 
     #[test]
-    fn std_external_and_compatibility_names_share_one_symbol_identity() {
+    fn sys_external_and_compatibility_names_share_one_symbol_identity() {
         let root = SourceOrigin::host("project/main.act");
         let provider = InMemorySourceProvider::default()
             .with_source(
                 root.clone(),
-                b"MODULE APP\nIMPORT STD\nIMPORT STD.*\n\
+                b"MODULE APP\nIMPORT SYS\nIMPORT SYS.*\n\
                   PROC Main() RETURN\nENDMODULE\n"
                     .to_vec(),
             )
             .with_source(
-                SourceOrigin::embedded("std.act", "<embedded:STD>"),
-                b"MODULE STD\n\
+                SourceOrigin::embedded("sys.act", "<embedded:SYS>"),
+                b"MODULE SYS\n\
                   PUBLIC EXTERNAL PROC Zero(BYTE POINTER address,CARD size)\n\
                   ENDMODULE\n"
                     .to_vec(),
             );
         let compilation =
             load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default())
-                .expect("load STD fixture");
-        let model = analyze_compilation(&compilation).expect("analyze STD fixture");
+                .expect("load SYS fixture");
+        let model = analyze_compilation(&compilation).expect("analyze SYS fixture");
         let app = named_module(&model, "APP");
-        let std = named_module(&model, "STD");
-        let public = std.public_symbol("Zero").expect("STD.Zero");
+        let sys = named_module(&model, "SYS");
+        let public = sys.public_symbol("Zero").expect("SYS.Zero");
         assert_eq!(model.symbols.lookup_exact(app.scope, "Zero"), Some(public));
         assert_eq!(
             model.resolve_name(
                 app.scope,
-                &crate::ast::QualifiedName::new(vec!["STD".to_string(), "Zero".to_string()])
+                &crate::ast::QualifiedName::new(vec!["SYS".to_string(), "Zero".to_string()])
             ),
             SemanticNameResolution::Symbol(public)
         );
@@ -4335,7 +4335,7 @@ mod tests {
         assert_eq!(signature.source, SemanticCallableSource::Runtime);
         assert_eq!(
             model.symbols.symbols[public.0].canonical_qualified_key,
-            "std::zero"
+            "sys::zero"
         );
     }
 

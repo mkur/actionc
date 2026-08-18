@@ -405,7 +405,7 @@ fn append_runtime_binding_metadata(
             helper: interfaces[external].qualified_name.clone(),
             implementation: format!("{INTERNAL_SYSBLK_MODULE}::{root}"),
             address: routine_address(output, link_name),
-            reason: "referenced external standard-library interface".to_string(),
+            reason: "referenced external system-library interface".to_string(),
             origin: "embedded SYSBLK.ACT (GPL-3.0)".to_string(),
             suppressed_default: None,
         });

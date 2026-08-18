@@ -1,10 +1,10 @@
 ; Taking an external routine's address roots its selected implementation even
 ; when the routine is not called directly.
-MODULE RUNTIME.STD.ADDRESS
+MODULE RUNTIME.SYS.ADDRESS
 
-IMPORT STD
+IMPORT SYS
 
-CARD ARRAY handler(1)=[@STD.Zero]
+CARD ARRAY handler(1)=[@SYS.Zero]
 
 PROC Main()
 RETURN

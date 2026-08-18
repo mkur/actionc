@@ -212,10 +212,10 @@ mod tests {
     }
 
     #[test]
-    fn selectively_linked_std_zero_executes_without_a_cartridge() {
+    fn selectively_linked_sys_zero_executes_without_a_cartridge() {
         let max_steps = 1_000;
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-            let outcome = run_standalone_fixture("standalone_std_memory.act", mode, max_steps);
+            let outcome = run_standalone_fixture("standalone_sys_memory.act", mode, max_steps);
             assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
             assert_eq!(
                 (0..8)
@@ -228,10 +228,10 @@ mod tests {
     }
 
     #[test]
-    fn selectively_linked_std_block_operations_execute_without_a_cartridge() {
+    fn selectively_linked_sys_block_operations_execute_without_a_cartridge() {
         let max_steps = 2_000;
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-            let outcome = run_standalone_fixture("standalone_std_blocks.act", mode, max_steps);
+            let outcome = run_standalone_fixture("standalone_sys_blocks.act", mode, max_steps);
             assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
             for start in [0x0600, 0x0610] {
                 assert_eq!(

@@ -1,6 +1,6 @@
 # Action 2027 Runtime Interface and Standalone Linking
 
-Design status: implemented for the Milestone C helper and initial `STD` surface
+Design status: implemented for the Milestone C helper and initial `SYS` surface
 on the experimental `Action-2027` branch. This note defines how one resolved
 Action program can use either the Action! cartridge implementation or
 selectively included OSS runtime source. Module syntax and visibility are
@@ -10,7 +10,7 @@ specified in [`MODULE_LOADER_AND_VFS.md`](./MODULE_LOADER_AND_VFS.md).
 
 ## Goals
 
-- Keep `STD` source names and signatures identical under every runtime.
+- Keep `SYS` source names and signatures identical under every runtime.
 - Let users choose compact cartridge-backed output or cartridge-independent
   standalone output.
 - Embed the OSS runtime sources in the single compiler executable.
@@ -39,7 +39,7 @@ Runtime::ActionCart
 
 The two modes are:
 
-| Runtime | Compiler helpers | `STD` implementations | External requirement |
+| Runtime | Compiler helpers | `SYS` implementations | External requirement |
 | --- | --- | --- | --- |
 | `standalone` | select and emit embedded OSS routines | select and emit reachable source implementations | Atari OS as required by the chosen routines; no Action! cartridge |
 | `cart` | call resident helper entry points | call resident library entry points | Action! cartridge with the expected ABI |
@@ -76,16 +76,16 @@ This separation permits MIR6502-optimized application code to use compact
 cartridge routines and permits classic code generation to become standalone
 without changing source semantics.
 
-## Target-Neutral `STD` Interface
+## Target-Neutral `SYS` Interface
 
-`STD` is a real embedded Action source module parsed by the ordinary frontend.
+`SYS` is a real embedded Action source module parsed by the ordinary frontend.
 Its public declarations own names, types, signatures, and source-visible
 effects. They do not expose one runtime's physical address as the public API.
 
 Conceptually:
 
 ```action
-MODULE STD
+MODULE SYS
   PUBLIC EXTERNAL PROC PrintE(CHAR ARRAY text)
   PUBLIC EXTERNAL PROC Graphics(BYTE mode)
 ENDMODULE
@@ -96,7 +96,7 @@ accepted syntax defined in
 [`EXTERNAL_RUNTIME_BINDINGS.md`](./EXTERNAL_RUNTIME_BINDINGS.md). The central
 design invariants are:
 
-- the public `STD.PrintE` declaration exists once;
+- the public `SYS.PrintE` declaration exists once;
 - the cart binding maps it to `$A46C`;
 - the standalone binding maps it to the resolved OSS runtime routine;
 - both bindings carry the same callable ABI expected by the interface;
@@ -107,7 +107,7 @@ Bindings themselves may be represented by embedded Action interface/binding
 source interpreted by the compiler. Separate cart and standalone bindings must
 reference the one interface symbol rather than copy its declaration.
 
-A fixed address is an implementation property. `@STD.PrintE`, a routine
+A fixed address is an implementation property. `@SYS.PrintE`, a routine
 pointer, a static initializer, or a qualified `SET` value resolves to the
 selected implementation address after runtime binding. Code cannot depend on
 the cart address while claiming to be standalone.
@@ -115,16 +115,16 @@ the cart address while claiming to be standalone.
 ### Compatibility prelude
 
 Traditional unqualified resident names remain available with the cart runtime.
-Standalone compilation rejects such a call when no target-neutral binding has
+Standalone compilation rejects such a call when no runtime-neutral binding has
 been implemented, rather than retaining its cartridge address. The initial
-standalone standard-library surface is imported explicitly from `STD`:
+standalone system-library surface is imported explicitly from `SYS`:
 
 ```action
-IMPORT STD
-STD.Zero(buffer,256)
+IMPORT SYS
+SYS.Zero(buffer,256)
 ```
 
-Additional resident names can migrate to aliases of the same `STD` identities
+Additional resident names can migrate to aliases of the same `SYS` identities
 as their standalone implementations are added. The prelude must not become a
 second implementation catalog.
 
@@ -232,12 +232,12 @@ source.
 
 ## Selective Inclusion
 
-Importing `STD` exposes an interface but includes no code by itself. After
+Importing `SYS` exposes an interface but includes no code by itself. After
 semantic resolution and target lowering, the compiler computes a runtime
 dependency closure from:
 
-1. referenced `STD` routine identities;
-2. address-taken `STD` routines and conservative indirect-call roots;
+1. referenced `SYS` routine identities;
+2. address-taken `SYS` routines and conservative indirect-call roots;
 3. logical helpers required by MIR6502 or classic lowering;
 4. explicit source overrides selected in place of default helpers;
 5. dependencies introduced by already selected runtime routines.
@@ -271,7 +271,7 @@ Runtime independence must fail closed:
 - a missing standalone implementation is a compile-time error, never a silent
   fallback to a cartridge address;
 - a missing cart binding is a compile-time error;
-- an ABI mismatch between `STD` and a selected implementation is an error;
+- an ABI mismatch between `SYS` and a selected implementation is an error;
 - an absolute external helper override is rejected in standalone mode;
 - unresolved runtime dependencies are rejected before final emission;
 - a resident routine without a standalone binding is rejected instead of
@@ -315,7 +315,7 @@ or:
 ```text
 runtime: cart
 SArgs -> $A0F5
-STD.PrintE -> $A46C
+SYS.PrintE -> $A46C
 ```
 
 A local override records both the override location and the suppressed default
@@ -360,10 +360,10 @@ Suggested commit: `runtime: selectively emit sargs`.
 
 Suggested commit: `runtime: link required arithmetic helpers`.
 
-### Slice 4: Target-neutral `STD`
+### Slice 4: Runtime-neutral `SYS`
 
 - Finalize source syntax for external interfaces and runtime bindings.
-- Add the one authoritative embedded `STD` interface.
+- Add the one authoritative embedded `SYS` interface.
 - Bind cart entry points without exposing their numbers as public constants.
 - Bind standalone implementations from the split OSS runtime sources.
 - Make qualified calls and compatibility-prelude aliases use the same stable
@@ -385,14 +385,14 @@ Suggested commit: `runner: align cartridge and runtime selection`.
 
 - MIR6502 plus cart and standalone;
 - classic plus cart and standalone as support becomes available;
-- identical `STD` signatures and call semantics under both runtimes;
+- identical `SYS` signatures and call semantics under both runtimes;
 - cart helper calls retaining expected resident addresses;
 - large call frames selecting exactly one embedded `SArgs`;
 - small call frames containing no `SArgs` bytes;
 - local symbolic `$04EE` override winning under both runtimes;
 - standalone rejection of an absolute `$04EE` target;
 - arithmetic helpers and transitive dependencies emitted exactly once;
-- unused `STD` and runtime routines absent;
+- unused `SYS` and runtime routines absent;
 - conservative address-taken and indirect-call retention;
 - runtime call cycles emitted as deterministic groups;
 - missing and ABI-incompatible bindings rejected before emission;
@@ -413,5 +413,5 @@ Suggested commit: `runner: align cartridge and runtime selection`.
 - non-Atari standard-library providers;
 - switching the default from cart to standalone before coverage is complete.
 
-These can extend the provider model without changing `STD` symbol identity or
+These can extend the provider model without changing `SYS` symbol identity or
 allowing MIR6502 to recover bindings from source names.

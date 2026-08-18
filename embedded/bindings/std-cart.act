@@ -1,8 +1,0 @@
-; Cartridge provider for the implemented STD interface.
-MODULE ACTION.RUNTIME.BINDINGS.CART
-
-SET STD.Zero=$A78A
-SET STD.SetBlock=$A790
-SET STD.MoveBlock=$A7B3
-
-ENDMODULE

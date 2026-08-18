@@ -1,15 +1,15 @@
-; The STD interface is target-neutral. Standalone mode selects only the
+; The SYS interface is runtime-neutral. Standalone mode selects only the
 ; referenced SYSBLK routine from the compiler's embedded runtime image.
-MODULE RUNTIME.STD.MEMORY
+MODULE RUNTIME.SYS.MEMORY
 
-IMPORT STD
+IMPORT SYS
 
 BYTE ARRAY buffer(8)=$0600
 
 PROC Main()
   buffer(0)=1
   buffer(7)=2
-  STD.Zero(buffer,8)
+  SYS.Zero(buffer,8)
   DO
   OD
 RETURN

@@ -535,9 +535,9 @@ fn classic_standalone_links_the_same_sargs_source_closure() {
 }
 
 #[test]
-fn classic_standalone_std_binding_is_selective() {
+fn classic_standalone_sys_binding_is_selective() {
     let fixture =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_std_memory.act");
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sys_memory.act");
     let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
         .args([
             "--profile",
@@ -550,14 +550,14 @@ fn classic_standalone_std_binding_is_selective() {
         ])
         .arg(&fixture)
         .output()
-        .expect("emit classic standalone STD map");
+        .expect("emit classic standalone SYS map");
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
     let map = String::from_utf8_lossy(&output.stdout);
-    assert!(map.contains("runtime-binding STD.Zero"));
+    assert!(map.contains("runtime-binding SYS.Zero"));
     assert!(map.contains("M_ACTION_RUNTIME_SYSBLK_ZERO_"));
     assert!(map.contains("M_ACTION_RUNTIME_SYSBLK_SETBLOCK_"));
     assert!(!map.contains("M_ACTION_RUNTIME_SYSBLK_MOVEBLOCK_"));
@@ -622,9 +622,9 @@ fn mir6502_standalone_links_only_the_sargs_dependency_group() {
 }
 
 #[test]
-fn mir6502_std_memory_binding_is_runtime_selected_and_selective() {
+fn mir6502_sys_memory_binding_is_runtime_selected_and_selective() {
     let fixture =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_std_memory.act");
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sys_memory.act");
     let standalone = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
         .args([
             "--profile",
@@ -637,7 +637,7 @@ fn mir6502_std_memory_binding_is_runtime_selected_and_selective() {
         ])
         .arg(&fixture)
         .output()
-        .expect("emit standalone STD map");
+        .expect("emit standalone SYS map");
     assert!(
         standalone.status.success(),
         "{}",
@@ -660,21 +660,21 @@ fn mir6502_std_memory_binding_is_runtime_selected_and_selective() {
         ])
         .arg(&fixture)
         .output()
-        .expect("emit cart STD MIR");
+        .expect("emit cart SYS MIR");
     assert!(
         cart.status.success(),
         "{}",
         String::from_utf8_lossy(&cart.stderr)
     );
     let mir = String::from_utf8_lossy(&cart.stdout);
-    assert!(mir.contains("STD external@$A78A"), "{mir}");
+    assert!(mir.contains("SYS external@$A78A"), "{mir}");
     assert!(!mir.contains("ACTION.RUNTIME.SYSBLK"));
 }
 
 #[test]
-fn mir6502_std_routine_addresses_follow_the_selected_runtime() {
+fn mir6502_sys_routine_addresses_follow_the_selected_runtime() {
     let fixture =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_std_address.act");
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sys_address.act");
     let cart = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
         .args([
             "--profile",
@@ -687,7 +687,7 @@ fn mir6502_std_routine_addresses_follow_the_selected_runtime() {
         ])
         .arg(&fixture)
         .output()
-        .expect("emit cart STD routine address");
+        .expect("emit cart SYS routine address");
     assert!(
         cart.status.success(),
         "{}",
@@ -711,7 +711,7 @@ fn mir6502_std_routine_addresses_follow_the_selected_runtime() {
         ])
         .arg(&fixture)
         .output()
-        .expect("emit standalone STD routine address map");
+        .expect("emit standalone SYS routine address map");
     assert!(
         standalone.status.success(),
         "{}",
@@ -721,14 +721,14 @@ fn mir6502_std_routine_addresses_follow_the_selected_runtime() {
 }
 
 #[test]
-fn unused_std_import_adds_no_runtime_code() {
+fn unused_sys_import_adds_no_runtime_code() {
     let temp = TestDir::new();
-    let source = temp.path().join("unused-std.act");
+    let source = temp.path().join("unused-sys.act");
     fs::write(
         &source,
-        "MODULE APP\nIMPORT STD\nPROC Main() RETURN\nENDMODULE\n",
+        "MODULE APP\nIMPORT SYS\nPROC Main() RETURN\nENDMODULE\n",
     )
-    .expect("write unused STD source");
+    .expect("write unused SYS source");
     let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
         .args([
             "--profile",
@@ -741,7 +741,7 @@ fn unused_std_import_adds_no_runtime_code() {
         ])
         .arg(&source)
         .output()
-        .expect("emit unused STD map");
+        .expect("emit unused SYS map");
     assert!(
         output.status.success(),
         "{}",

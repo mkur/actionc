@@ -18,8 +18,8 @@ pub(crate) fn parse_bindings(
     runtime: Runtime,
 ) -> Result<BTreeMap<String, BindingTarget>, Vec<Diagnostic>> {
     let file_name = match runtime {
-        Runtime::ActionCart => "std-cart.act",
-        Runtime::Standalone => "std-standalone.act",
+        Runtime::ActionCart => "sys-cart.act",
+        Runtime::Standalone => "sys-standalone.act",
     };
     let source = EmbeddedSourceProvider
         .binding_source(file_name)
@@ -39,9 +39,9 @@ pub(crate) fn parse_bindings(
                     set.address.text
                 )));
             };
-            if !interface.to_ascii_uppercase().starts_with("STD.") {
+            if !interface.to_ascii_uppercase().starts_with("SYS.") {
                 return Err(diagnostic(format!(
-                    "binding target `{interface}` is outside STD"
+                    "binding target `{interface}` is outside SYS"
                 )));
             }
             let target = if let ExprKind::Number(number) = &set.value.kind {

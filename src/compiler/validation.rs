@@ -225,7 +225,7 @@ fn report_standalone_resident_symbol(
     diagnostics.push(Diagnostic::new(
         span,
         format!(
-            "E-RUNTIME-STANDALONE-BINDING: resident routine `{}` requires the Action! cartridge and has no standalone binding; select `--runtime cart` or use an implemented `STD` interface",
+            "E-RUNTIME-STANDALONE-BINDING: resident routine `{}` requires the Action! cartridge and has no standalone binding; select `--runtime cart` or use an implemented `SYS` interface",
             symbol.name
         ),
     ));

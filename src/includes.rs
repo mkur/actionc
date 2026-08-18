@@ -391,7 +391,7 @@ impl<'a> CompilationLoader<'a> {
 
         let reserved = canonical
             .first()
-            .is_some_and(|root| matches!(root.as_str(), "std" | "atari"));
+            .is_some_and(|root| matches!(root.as_str(), "sys" | "atari"));
         if reserved {
             return Err(vec![Diagnostic::new(
                 import.span,
@@ -1213,23 +1213,28 @@ mod tests {
 
     #[test]
     fn reserved_module_roots_cannot_be_shadowed_by_host_sources() {
-        let root = SourceOrigin::host(PathBuf::from("project/main.act"));
-        let provider = InMemorySourceProvider::default()
-            .with_source(
-                root.clone(),
-                b"MODULE APP\nIMPORT ATARI.GTIA\nENDMODULE\n".to_vec(),
-            )
-            .with_source(
-                SourceOrigin::host(PathBuf::from("project/atari/gtia.act")),
-                b"MODULE ATARI.GTIA\nENDMODULE\n".to_vec(),
-            );
+        for (module, path) in [
+            ("ATARI.GTIA", "project/atari/gtia.act"),
+            ("SYS", "project/sys.act"),
+        ] {
+            let root = SourceOrigin::host(PathBuf::from("project/main.act"));
+            let provider = InMemorySourceProvider::default()
+                .with_source(
+                    root.clone(),
+                    format!("MODULE APP\nIMPORT {module}\nENDMODULE\n").into_bytes(),
+                )
+                .with_source(
+                    SourceOrigin::host(PathBuf::from(path)),
+                    format!("MODULE {module}\nENDMODULE\n").into_bytes(),
+                );
 
-        let Err(diagnostics) =
-            load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default())
-        else {
-            panic!("expected reserved-module rejection");
-        };
-        assert!(diagnostics[0].message.contains("reserved embedded module"));
+            let Err(diagnostics) =
+                load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default())
+            else {
+                panic!("expected reserved-module rejection for {module}");
+            };
+            assert!(diagnostics[0].message.contains("reserved embedded module"));
+        }
     }
 
     #[test]
