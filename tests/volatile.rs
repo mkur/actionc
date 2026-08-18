@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -164,5 +165,22 @@ RETURN
             pokey_writes, 2,
             "{mode:?} must issue both POKEY writes: {bytes:02X?}"
         );
+    }
+}
+
+#[test]
+fn action_2027_plasma_uses_volatile_registers_in_every_public_mode() {
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("samples")
+        .join("demoscene")
+        .join("plasma-2027.act");
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        compile_file(&sample, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|err| panic!("compile Action 2027 plasma in {mode:?}: {err}"));
     }
 }

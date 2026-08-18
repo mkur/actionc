@@ -75,17 +75,17 @@ CONST BYTE ANTIC_BLANK_8=$70,
            GTIA_MODE_9=$40
 
 ; Atari OS shadow registers and their hardware counterparts.
-CARD SDLSTL=$0230,
-     DLISTL=$D402
-BYTE SDMCTL=$022F,
-     DMACTL=$D400,
-     GPRIOR=$026F,
-     PRIOR=$D01B,
-     COLBAK=$D01A,
-     COLOR4=$02C8,
-     WSYNC=$D40A,
-     VCOUNT=$D40B,
-     CH=$02FC
+VOLATILE CARD SDLSTL=$0230,
+              DLISTL=$D402
+VOLATILE BYTE SDMCTL=$022F,
+              DMACTL=$D400,
+              GPRIOR=$026F,
+              PRIOR=$D01B,
+              COLBAK=$D01A,
+              COLOR4=$02C8,
+              WSYNC=$D40A,
+              VCOUNT=$D40B,
+              CH=$02FC
 
 ; The patterns differ by half a byte, or one GTIA mode 9 pixel.  Repeating
 ; each pattern across a page produces two horizontally interleaved ramps;

@@ -61,6 +61,46 @@ original Action! cartridge compiler does not recognize it.
 `DEFINE` remains available for textual type aliases, directive macros, and
 machine-byte macros. `CONST` does not change those expansion rules.
 
+## Volatile Storage
+
+`VOLATILE` qualifies storage whose contents can change outside the current
+Action! routine, most commonly hardware and operating-system registers:
+
+```action
+VOLATILE BYTE WSYNC=$D40A,
+              VCOUNT=$D40B,
+              COLBAK=$D01A
+
+VOLATILE CARD RTCLOK=$0012
+VOLATILE BYTE ARRAY POKEY(16)=$D200
+```
+
+The qualifier precedes the type and applies to every entry in the declaration:
+
+```text
+VOLATILE (BYTE|CHAR|CARD|INT) [ARRAY] declaration-entry
+```
+
+Each source read performs one real memory read and each source write performs
+one real memory write. actionc does not cache, combine, remove, duplicate, or
+reorder those accesses. A compound assignment retains its read and write and
+avoids a 6502 read/modify/write instruction when that instruction would add an
+observable dummy write.
+
+`VOLATILE` is a compiler-ordering rule; it emits no fence instruction. A
+volatile `CARD` or `INT` access still consists of two byte accesses and is not
+atomic.
+
+Global and routine-local scalar and array declarations are supported. A scalar
+storage alias initialized from volatile storage inherits the qualifier. The
+first implementation rejects volatile constants, parameters, record fields,
+and pointer declarations; volatile pointer cells and pointers to volatile data
+need distinct future syntax.
+
+`VOLATILE` is supported by compatibility, optimized classic, and MIR6502 modes.
+It is an actionc extension and is not accepted by the original Action!
+cartridge compiler.
+
 ## ATASCII And Screen-Code Escapes
 
 String literals and character constants accept textual byte escapes. In
