@@ -174,6 +174,52 @@ impl SourceProvider for HostSourceProvider {
     }
 }
 
+/// Production provider: compiler-owned virtual sources win for reserved module
+/// roots, while ordinary project modules and root files remain host-backed.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CompilerSourceProvider {
+    host: HostSourceProvider,
+    embedded: crate::embedded_vfs::EmbeddedSourceProvider,
+}
+
+impl SourceProvider for CompilerSourceProvider {
+    fn read(&self, origin: &SourceOrigin) -> Result<Vec<u8>, SourceLoadError> {
+        match origin {
+            SourceOrigin::Host(_) => self.host.read(origin),
+            SourceOrigin::Embedded { .. } => self.embedded.read(origin),
+        }
+    }
+
+    fn resolve(&self, origin: &SourceOrigin) -> SourceOrigin {
+        match origin {
+            SourceOrigin::Host(_) => self.host.resolve(origin),
+            SourceOrigin::Embedded { .. } => origin.clone(),
+        }
+    }
+
+    fn canonical_key(&self, origin: &SourceOrigin) -> SourceOrigin {
+        match origin {
+            SourceOrigin::Host(_) => self.host.canonical_key(origin),
+            SourceOrigin::Embedded { .. } => origin.clone(),
+        }
+    }
+
+    fn resolve_embedded_module(
+        &self,
+        canonical_components: &[String],
+    ) -> Result<Option<SourceOrigin>, SourceLoadError> {
+        self.embedded.resolve_embedded_module(canonical_components)
+    }
+
+    fn resolve_module(
+        &self,
+        canonical_components: &[String],
+        search_roots: &[SourceOrigin],
+    ) -> Result<Option<SourceOrigin>, SourceLoadError> {
+        self.host.resolve_module(canonical_components, search_roots)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct InMemorySourceProvider {
     sources: HashMap<SourceOrigin, Vec<u8>>,

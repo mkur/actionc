@@ -7,6 +7,7 @@ pub mod cli;
 pub mod codegen;
 pub mod compiler;
 pub mod diagnostic;
+pub mod embedded_vfs;
 pub mod includes;
 pub mod lexer;
 pub mod map_query;

@@ -5,7 +5,11 @@ use crate::ast::{ImportDecl, Item, Module, ModulePath, Program, SourceUnitKind};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::tokenize;
 use crate::parser::parse;
-use crate::source::{HostSourceProvider, SourceId, SourceOrigin, SourceProvider, SourceText, Span};
+#[cfg(test)]
+use crate::source::HostSourceProvider;
+use crate::source::{
+    CompilerSourceProvider, SourceId, SourceOrigin, SourceProvider, SourceText, Span,
+};
 
 #[derive(Debug, Clone)]
 pub struct LoadedProgram {
@@ -178,7 +182,7 @@ pub fn load_program_with_includes(path: impl AsRef<Path>) -> Result<Program, Vec
 pub fn load_program_with_expanded_source(
     path: impl AsRef<Path>,
 ) -> Result<LoadedProgram, Vec<Diagnostic>> {
-    let provider = HostSourceProvider;
+    let provider = CompilerSourceProvider::default();
     load_program_with_expanded_source_from_provider(
         SourceOrigin::host(path.as_ref().to_path_buf()),
         &provider,
@@ -206,7 +210,7 @@ pub fn load_compilation(
     path: impl AsRef<Path>,
     options: &ModuleLoadOptions,
 ) -> Result<LoadedCompilation, Vec<Diagnostic>> {
-    let provider = HostSourceProvider;
+    let provider = CompilerSourceProvider::default();
     load_compilation_from_provider(
         SourceOrigin::host(path.as_ref().to_path_buf()),
         &provider,
@@ -226,7 +230,7 @@ pub fn expand_includes(
     program: Program,
     base_dir: impl AsRef<Path>,
 ) -> Result<Program, Vec<Diagnostic>> {
-    let provider = HostSourceProvider;
+    let provider = CompilerSourceProvider::default();
     let mut loader = SourceLoader::new(&provider);
     let mut active = Vec::new();
     let root_origin = SourceOrigin::host(base_dir.as_ref().join(".actionc-include-root"));

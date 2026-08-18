@@ -5,6 +5,7 @@ pub struct BuildInfo {
     commit: Option<&'static str>,
     date: Option<&'static str>,
     target: Option<&'static str>,
+    vfs_digest: &'static str,
 }
 
 impl BuildInfo {
@@ -15,21 +16,20 @@ impl BuildInfo {
             commit: option_env!("ACTIONC_BUILD_SHA"),
             date: option_env!("ACTIONC_BUILD_DATE"),
             target: option_env!("ACTIONC_BUILD_TARGET"),
+            vfs_digest: crate::embedded_vfs::VFS_DIGEST,
         }
     }
 
     pub fn version_line(self, executable: &str) -> String {
-        let details = [self.channel, self.commit, self.date, self.target]
+        let mut details = [self.channel, self.commit, self.date, self.target]
             .into_iter()
             .flatten()
             .filter(|value| !value.trim().is_empty())
+            .map(str::to_string)
             .collect::<Vec<_>>();
+        details.push(format!("vfs={}", self.vfs_digest));
 
-        if details.is_empty() {
-            format!("{executable} {}", self.version)
-        } else {
-            format!("{executable} {} ({})", self.version, details.join("; "))
-        }
+        format!("{executable} {} ({})", self.version, details.join("; "))
     }
 }
 
@@ -49,9 +49,10 @@ mod tests {
             commit: None,
             date: None,
             target: None,
+            vfs_digest: "abc123",
         };
 
-        assert_eq!(info.version_line("actionc"), "actionc 1.2.3");
+        assert_eq!(info.version_line("actionc"), "actionc 1.2.3 (vfs=abc123)");
     }
 
     #[test]
@@ -62,11 +63,12 @@ mod tests {
             commit: Some("0123456789abcdef"),
             date: Some("2026-08-11T03:17:00Z"),
             target: Some("x86_64-pc-windows-msvc"),
+            vfs_digest: "abc123",
         };
 
         assert_eq!(
             info.version_line("actionc-run"),
-            "actionc-run 1.2.3 (nightly; 0123456789abcdef; 2026-08-11T03:17:00Z; x86_64-pc-windows-msvc)"
+            "actionc-run 1.2.3 (nightly; 0123456789abcdef; 2026-08-11T03:17:00Z; x86_64-pc-windows-msvc; vfs=abc123)"
         );
     }
 
@@ -78,11 +80,12 @@ mod tests {
             commit: Some("abc123"),
             date: None,
             target: None,
+            vfs_digest: "abc123",
         };
 
         assert_eq!(
             info.version_line("actionc-emit"),
-            "actionc-emit 1.2.3 (abc123)"
+            "actionc-emit 1.2.3 (abc123; vfs=abc123)"
         );
     }
 }
