@@ -9,10 +9,10 @@ Add first-class compile-time constants to `actionc` without changing Action!'s
 textual `DEFINE` facility:
 
 ```action
-CONST TOP_BLANK_ROWS = 4
-CONST FIRST_VISIBLE_VCOUNT = 2 + TOP_BLANK_ROWS
-CONST DISPLAY_LIST_A_BASE = $5000
-CONST DISPLAY_LIST_B_BASE = DISPLAY_LIST_A_BASE + $400
+CONST BYTE TOP_BLANK_ROWS = 4
+CONST BYTE FIRST_VISIBLE_VCOUNT = 2 + TOP_BLANK_ROWS
+CONST CARD DISPLAY_LIST_A_BASE = $5000
+CONST CARD DISPLAY_LIST_B_BASE = DISPLAY_LIST_A_BASE + $400
 ```
 
 `CONST` is an `actionc` language extension. It is accepted in both the `legacy`
@@ -24,7 +24,8 @@ original Action! cartridge compiler does not accept it.
 The initial grammar is:
 
 ```text
-const-declaration := CONST const-entry { "," const-entry }
+const-declaration := CONST [ scalar-type ] const-entry { "," const-entry }
+scalar-type       := BYTE | CHAR | CARD | INT
 const-entry       := identifier "=" constant-expression
 ```
 
@@ -44,8 +45,11 @@ dependency graphs and cycle diagnostics can be added later.
 
 A constant:
 
-- has the scalar type inferred by normal Action! expression typing;
-- can use an explicit cast such as `CARD(256)` to control that type;
+- has the scalar type inferred by normal Action! expression typing when the
+  declaration omits `scalar-type`;
+- otherwise has the declared scalar type, which applies to every
+  comma-separated entry and behaves exactly like an explicit outer cast;
+- can still use explicit casts such as `CARD(256)` inside its expression;
 - has no storage address and emits no bytes;
 - is a value, never an lvalue;
 - cannot be assigned to or passed to address-of;
@@ -88,6 +92,7 @@ than introduce a backend-specific evaluator.
 
 - Add `ConstDecl` and `ConstEntry` AST nodes.
 - Recognize contextual `CONST` in global and routine declaration positions.
+- Parse the optional `BYTE`, `CHAR`, `CARD`, or `INT` declaration type.
 - Parse each initializer with the ordinary expression parser.
 - Add parser tests for valid expressions, multiple entries, case-insensitive
   spelling, malformed declarations, and unchanged `DEFINE` behavior.
@@ -97,6 +102,8 @@ than introduce a backend-specific evaluator.
 - Add `SymbolClass::Const` and constant symbol subjects.
 - Store canonical typed constant facts by `SymbolId`.
 - Bind and evaluate entries in source order.
+- Apply a declared type with normal scalar cast, wrapping, and truncation
+  semantics to every entry in the declaration.
 - Diagnose non-constant constructs, invalid use, duplicate names, unavailable
   forward references, and division/modulo by zero.
 - Preserve readable constant declarations in SemIR.

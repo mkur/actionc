@@ -45,6 +45,14 @@ pub struct ConstValue {
 }
 
 impl ConstValue {
+    fn cast(self, declared_type: FundType) -> Self {
+        let ty = ScalarType::from_fund(declared_type);
+        Self {
+            ty,
+            bits: self.bits & scalar_mask(ty),
+        }
+    }
+
     pub fn value_type(self) -> ValueType {
         ValueType::scalar(self.ty)
     }
@@ -2072,7 +2080,11 @@ impl Analyzer {
             };
 
             let expression = self.lower_expr(scope, &entry.value);
-            match evaluate_const_expr(&expression) {
+            match evaluate_const_expr(&expression).map(|value| {
+                declaration
+                    .declared_type
+                    .map_or(value, |declared_type| value.cast(declared_type))
+            }) {
                 Ok(value) => {
                     self.symbols.symbols[symbol_id.0].ty = Some(value.value_type());
                     self.constants.insert(symbol_id, value);
@@ -3141,6 +3153,50 @@ mod tests {
                 bits: 0x2800,
             }
         );
+    }
+
+    #[test]
+    fn declared_const_type_casts_every_entry() {
+        let model = analyze_source(
+            "CONST BYTE Mask=$1FF, Copy=Mask CONST CHAR Letter='A CONST CARD Screen=$4000 CONST INT Negative=-300 CONST Inferred=$1234 PROC Main() RETURN",
+        );
+        let global = model.symbols.global_scope();
+
+        let constant = |name: &str| {
+            let symbol = model.symbols.lookup(global, name).expect("declared CONST");
+            model.constants[&symbol]
+        };
+
+        assert_eq!(
+            constant("Mask"),
+            ConstValue {
+                ty: ScalarType::Byte,
+                bits: 0x00FF,
+            }
+        );
+        assert_eq!(constant("Copy"), constant("Mask"));
+        assert_eq!(
+            constant("Letter"),
+            ConstValue {
+                ty: ScalarType::Char,
+                bits: b'A'.into(),
+            }
+        );
+        assert_eq!(
+            constant("Screen"),
+            ConstValue {
+                ty: ScalarType::Card,
+                bits: 0x4000,
+            }
+        );
+        assert_eq!(
+            constant("Negative"),
+            ConstValue {
+                ty: ScalarType::Int,
+                bits: (-300i16) as u16,
+            }
+        );
+        assert_eq!(constant("Inferred").ty, ScalarType::Card);
     }
 
     #[test]

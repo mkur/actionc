@@ -58,6 +58,7 @@ pub enum Decl {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConstDecl {
+    pub declared_type: Option<FundType>,
     pub entries: Vec<ConstEntry>,
     pub span: Span,
 }

@@ -13,13 +13,13 @@ some ambiguous routine-address cases.
 `CONST` declares a typed scalar value evaluated by the compiler:
 
 ```action
-CONST TOP_BLANK_ROWS=4
-CONST FIRST_VISIBLE_VCOUNT=2+TOP_BLANK_ROWS
-CONST DISPLAY_LIST_A_BASE=$5000,
+CONST BYTE TOP_BLANK_ROWS=4
+CONST BYTE FIRST_VISIBLE_VCOUNT=2+TOP_BLANK_ROWS
+CONST CARD DISPLAY_LIST_A_BASE=$5000,
       DISPLAY_LIST_B_BASE=DISPLAY_LIST_A_BASE+$400
 
 PROC Draw()
-  CONST LAST_ROW=159
+  CONST BYTE LAST_ROW=159
   BYTE row
 
   FOR row=0 TO LAST_ROW DO
@@ -28,14 +28,26 @@ PROC Draw()
 RETURN
 ```
 
+The scalar type is optional:
+
+```text
+CONST [BYTE|CHAR|CARD|INT] name=expression [, name=expression ...]
+```
+
+Without it, each entry's type is inferred using normal Action! expression
+typing. With it, the declared type applies to every entry in that declaration
+and has exactly the same wrapping and truncation behavior as an explicit cast.
+For example, `CONST BYTE MASK=$1FF` is equivalent to
+`CONST MASK=BYTE($1FF)` and produces `$FF`. Use separate declarations when
+constants need different declared types.
+
 Constants may be global or local to a routine. Names are case-insensitive and
 use the ordinary local-before-global lookup order. Entries are evaluated from
 left to right and may refer only to constants already visible at that point;
 forward references are rejected.
 
-The value type is inferred using Action! scalar rules. An explicit `BYTE`,
-`CHAR`, `CARD`, or `INT` cast can control it. Constant expressions support
-numeric and character literals, parentheses, unary `+` and `-`, and the
+Constant expressions support numeric and character literals, parentheses,
+unary `+` and `-`, explicit `BYTE`, `CHAR`, `CARD`, and `INT` casts, and the
 arithmetic and bitwise operators `+`, `-`, `*`, `/`, `MOD`, `LSH`, `RSH`,
 `AND`, `OR`, and `XOR`. Calls, storage references, strings, addresses, and the
 current-location `*` value are not constant expressions.

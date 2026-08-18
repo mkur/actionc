@@ -116,6 +116,12 @@ an earlier entry in the same declaration or another already-visible constant,
 but not a later entry. This deliberately avoids a separate dependency graph or
 cycle-resolution rule.
 
+An optional `BYTE`, `CHAR`, `CARD`, or `INT` after `CONST` declares the scalar
+type of every entry in that declaration. It changes only the canonical type and
+cast/wrapping behavior of the resulting values; it does not create a separate
+namespace or storage class. Without a declared type, each entry's type is
+inferred independently.
+
 Binding records each constant as a stable `SymbolId` with a canonical scalar
 type and value. Constants have no storage identity and are not lvalues.
 Executable SemIR references carry the typed value, and executable NIR sees an

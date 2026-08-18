@@ -242,6 +242,7 @@ impl<'a> Parser<'a> {
     fn parse_const_decl(&mut self) -> ConstDecl {
         let start = self.peek().span.start;
         self.bump();
+        let declared_type = self.parse_fund_type();
         let mut entries = Vec::new();
 
         loop {
@@ -270,6 +271,7 @@ impl<'a> Parser<'a> {
         }
 
         ConstDecl {
+            declared_type,
             entries,
             span: Span::new(start, self.previous_end()),
         }
@@ -1057,7 +1059,8 @@ impl<'a> Parser<'a> {
         while !self.at_eof() {
             if paren_depth == 0
                 && bracket_depth == 0
-                && ((!tokens.is_empty() && self.check_stop(stop))
+                && ((!tokens.is_empty()
+                    && self.check_scalar_initializer_stop(stop, tokens.last().unwrap()))
                     || (tokens.is_empty() && self.check_initializer_leading_stop(stop)))
             {
                 break;
@@ -1083,6 +1086,25 @@ impl<'a> Parser<'a> {
         }
 
         build_expr(tokens, Span::new(start, end))
+    }
+
+    fn check_scalar_initializer_stop(&self, stop: Stop, previous: &Token) -> bool {
+        if stop.tokens.iter().any(|kind| self.check(kind.clone()))
+            || stop
+                .keywords
+                .iter()
+                .any(|keyword| self.check_keyword(*keyword))
+        {
+            return true;
+        }
+
+        // A name followed by a declaration can superficially resemble the
+        // start of a named-type declaration.  Do not stop after an operator:
+        // consume the operand first, then recognize the actual declaration
+        // boundary on the next token.
+        token_can_end_expr(previous)
+            && ((stop.stop_at_top_level && self.is_top_level_start())
+                || (stop.stop_before_decl_start && self.is_decl_start()))
     }
 
     fn check_initializer_leading_stop(&self, stop: Stop) -> bool {
@@ -1199,7 +1221,7 @@ impl<'a> Parser<'a> {
     }
 
     fn is_const_decl_start_at(&self, pos: usize) -> bool {
-        matches!(
+        let untyped = matches!(
             (
                 self.tokens.get(pos).map(|token| &token.kind),
                 self.tokens.get(pos + 1).map(|token| &token.kind),
@@ -1210,7 +1232,19 @@ impl<'a> Parser<'a> {
                 Some(TokenKind::Ident(_)),
                 Some(TokenKind::Assign)
             ) if keyword.eq_ignore_ascii_case("CONST")
-        )
+        );
+        let typed = matches!(
+            self.tokens.get(pos).map(|token| &token.kind),
+            Some(TokenKind::Ident(keyword)) if keyword.eq_ignore_ascii_case("CONST")
+        ) && self.is_fund_type_start_at(pos + 1)
+            && matches!(
+                (
+                    self.tokens.get(pos + 2).map(|token| &token.kind),
+                    self.tokens.get(pos + 3).map(|token| &token.kind)
+                ),
+                (Some(TokenKind::Ident(_)), Some(TokenKind::Assign))
+            );
+        untyped || typed
     }
 
     fn is_var_decl_start_at(&self, pos: usize) -> bool {
@@ -2799,6 +2833,45 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn parses_typed_and_adjacent_const_declarations() {
+        let tokens = tokenize(
+            "CONST BYTE Color=$70, Mode=Color CONST CARD Base=$5000, End=Base+$100 \
+             CONST CHAR Eol='E CONST INT MinusOne=-1 PROC Main() RETURN",
+        )
+        .unwrap();
+        let program = parse(&tokens).unwrap();
+
+        let declarations = program.modules[0]
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                Item::Declaration(Decl::Const(declaration)) => Some(declaration),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(declarations.len(), 4);
+        assert_eq!(declarations[0].declared_type, Some(FundType::Byte));
+        assert_eq!(declarations[0].entries[1].value.text, "Color");
+        assert_eq!(declarations[1].declared_type, Some(FundType::Card));
+        assert_eq!(declarations[1].entries[1].value.text, "Base + $100");
+        assert_eq!(declarations[2].declared_type, Some(FundType::Char));
+        assert_eq!(declarations[3].declared_type, Some(FundType::Int));
+    }
+
+    #[test]
+    fn adjacent_inferred_const_can_end_in_another_const_name() {
+        let tokens = tokenize("CONST First=1 CONST Second=First CONST Third=Second+1").unwrap();
+        let program = parse(&tokens).unwrap();
+
+        assert_eq!(program.modules[0].items.len(), 3);
+        let Item::Declaration(Decl::Const(second)) = &program.modules[0].items[1] else {
+            panic!("expected second CONST declaration");
+        };
+        assert_eq!(second.declared_type, None);
+        assert_eq!(second.entries[0].value.text, "First");
     }
 
     #[test]

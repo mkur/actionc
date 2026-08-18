@@ -107,10 +107,11 @@ fn inline_assembler_constants_match_numeric_operands_in_every_public_mode() {
     let with_constants = temp.write(
         "asm-constants.act",
         r#"
-CONST VALUE=$11, COLOR=$D01A, DISPLAY_LIST=$5000
+CONST BYTE VALUE=$11
+CONST CARD COLOR=$D01A, DISPLAY_LIST=$5000
 
 PROC Main()
-  CONST VALUE=$2A
+  CONST BYTE VALUE=$2A
 ASM
   lda #VALUE
   sta COLOR
@@ -156,6 +157,72 @@ RETURN
             constants.object_bytes(),
             literals.object_bytes(),
             "inline ASM CONST output differs in {mode:?}"
+        );
+    }
+}
+
+#[test]
+fn declared_const_types_match_explicit_casts_in_every_public_mode() {
+    let temp = TestDir::new();
+    let with_declared_types = temp.write(
+        "typed-constants.act",
+        r#"
+CONST BYTE ByteValue=$12F, ByteStep=$102
+CONST CHAR Character='A
+CONST CARD CardValue=$4567
+CONST INT IntValue=-300
+
+BYTE byteResult
+CHAR charResult
+CARD cardResult
+INT intResult
+
+PROC Main()
+  byteResult=ByteValue+ByteStep
+  charResult=Character
+  cardResult=CardValue
+  intResult=IntValue
+RETURN
+"#,
+    );
+    let with_explicit_casts = temp.write(
+        "cast-constants.act",
+        r#"
+CONST ByteValue=BYTE($12F), ByteStep=BYTE($102)
+CONST Character=CHAR('A)
+CONST CardValue=CARD($4567)
+CONST IntValue=INT(-300)
+
+BYTE byteResult
+CHAR charResult
+CARD cardResult
+INT intResult
+
+PROC Main()
+  byteResult=ByteValue+ByteStep
+  charResult=Character
+  cardResult=CardValue
+  intResult=IntValue
+RETURN
+"#,
+    );
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let declared = compile_file(&with_declared_types, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| {
+                panic!("compile declared-type CONST source in {mode:?}: {error}")
+            });
+        let cast = compile_file(&with_explicit_casts, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile cast CONST source in {mode:?}: {error}"));
+
+        assert_eq!(
+            declared.object_bytes(),
+            cast.object_bytes(),
+            "declared CONST type differs from explicit cast in {mode:?}"
         );
     }
 }
