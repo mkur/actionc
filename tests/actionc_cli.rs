@@ -644,9 +644,9 @@ fn mir6502_sys_memory_binding_is_runtime_selected_and_selective() {
         String::from_utf8_lossy(&standalone.stderr)
     );
     let map = String::from_utf8_lossy(&standalone.stdout);
-    assert_eq!(map.matches("ACTION.RUNTIME.SYSBLK::Zero").count(), 3);
-    assert_eq!(map.matches("ACTION.RUNTIME.SYSBLK::SetBlock").count(), 3);
-    assert!(!map.contains("ACTION.RUNTIME.SYSBLK::MoveBlock"));
+    assert_eq!(map.matches("ACTION.RUNTIME.RESIDENT::Zero").count(), 3);
+    assert_eq!(map.matches("ACTION.RUNTIME.RESIDENT::SetBlock").count(), 3);
+    assert!(!map.contains("ACTION.RUNTIME.RESIDENT::MoveBlock"));
 
     let cart = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
         .args([
@@ -727,7 +727,7 @@ fn sys_string_bindings_work_in_every_backend_and_runtime_pair() {
             let expected = if backend == "classic" {
                 format!("runtime-binding SYS.{routine}")
             } else {
-                format!("ACTION.RUNTIME.SYSSTR::{}", routine.to_ascii_uppercase())
+                format!("ACTION.RUNTIME.RESIDENT::{}", routine.to_ascii_uppercase())
             };
             assert!(
                 map.to_ascii_uppercase()
@@ -735,8 +735,13 @@ fn sys_string_bindings_work_in_every_backend_and_runtime_pair() {
                 "{backend}, missing {routine}: {map}"
             );
         }
+        let implementation_unit = if backend == "classic" {
+            "SYSSTR"
+        } else {
+            "ACTION.RUNTIME.RESIDENT"
+        };
         assert!(
-            map.to_ascii_uppercase().contains("SYSSTR"),
+            map.to_ascii_uppercase().contains(implementation_unit),
             "{backend}: {map}"
         );
         assert!(!map.contains("ACTION.RUNTIME.SYSBLK"), "{backend}: {map}");
@@ -789,7 +794,7 @@ fn mir6502_sys_routine_addresses_follow_the_selected_runtime() {
         "{}",
         String::from_utf8_lossy(&standalone.stderr)
     );
-    assert!(String::from_utf8_lossy(&standalone.stdout).contains("ACTION.RUNTIME.SYSBLK::Zero"));
+    assert!(String::from_utf8_lossy(&standalone.stdout).contains("ACTION.RUNTIME.RESIDENT::Zero"));
 }
 
 #[test]
