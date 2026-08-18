@@ -13,7 +13,7 @@ use atrcopy_rs::{AtrImage, MYDOS_ATR};
 
 use crate::compiler::{
     CompileError, CompileErrorKind, CompileMode, CompileOptions, CompilerPhase, DiagnosticSite,
-    compile_file,
+    Runtime, compile_file,
 };
 use emulator::altirra::AltirraAdapter;
 use emulator::atari800::Atari800Adapter;
@@ -113,6 +113,14 @@ impl CartridgeChoice {
     fn is_attached(&self) -> bool {
         !matches!(self, Self::None)
     }
+
+    fn runtime(&self) -> Runtime {
+        if self.is_attached() {
+            Runtime::ActionCart
+        } else {
+            Runtime::Standalone
+        }
+    }
 }
 
 fn run_cli(args: impl IntoIterator<Item = OsString>) -> Result<RunCliOutcome, RunnerError> {
@@ -123,11 +131,7 @@ fn run_cli(args: impl IntoIterator<Item = OsString>) -> Result<RunCliOutcome, Ru
     let Some(options) = parse_args(args)? else {
         return Ok(RunCliOutcome::Help);
     };
-    let atr_bytes = prepare_atr(
-        &options.source,
-        &options.compile,
-        options.cartridge.is_attached(),
-    )?;
+    let atr_bytes = prepare_atr(&options.source, &options.compile, &options.cartridge)?;
 
     if options.no_run {
         let output_atr = options
@@ -261,7 +265,10 @@ fn parse_args(
             "--keep only applies when an emulator is launched",
         ));
     }
-    let mut compile = mode.map_or_else(CompileOptions::default, CompileOptions::for_mode);
+    let cartridge = cartridge.unwrap_or(CartridgeChoice::Bundled);
+    let mut compile = mode
+        .map_or_else(CompileOptions::default, CompileOptions::for_mode)
+        .with_runtime(cartridge.runtime());
     for module_path in module_paths {
         compile = compile.with_module_path(module_path);
     }
@@ -273,7 +280,7 @@ fn parse_args(
         no_run,
         emulator,
         emulator_path,
-        cartridge: cartridge.unwrap_or(CartridgeChoice::Bundled),
+        cartridge,
         keep,
     }))
 }
@@ -320,13 +327,21 @@ fn default_atr_path(source: &Path) -> PathBuf {
 fn prepare_atr(
     source: &Path,
     options: &CompileOptions,
-    cartridge_attached: bool,
+    cartridge: &CartridgeChoice,
 ) -> Result<Vec<u8>, RunnerError> {
+    let expected_runtime = cartridge.runtime();
+    if options.runtime() != expected_runtime {
+        return Err(RunnerError::configuration(format!(
+            "runner cartridge selection requires runtime {expected_runtime}, but compiler options select {}",
+            options.runtime()
+        )));
+    }
+
     let compiled = compile_file(source, options).map_err(RunnerError::Compile)?;
     let mut image = AtrImage::from_bytes(MYDOS_ATR.to_vec())
         .map_err(|message| RunnerError::Atr(format!("embedded MyDOS image: {message}")))?;
 
-    let program_name = if cartridge_attached {
+    let program_name = if cartridge.is_attached() {
         let bootstrap = action_library_bootstrap_object();
         image
             .upsert_file(BOOTSTRAP_NAME, &bootstrap)
@@ -676,13 +691,14 @@ fn install_temporary_file(temporary: &Path, destination: &Path) -> io::Result<()
 fn print_help() {
     eprintln!(
         "usage: actionc-run [--mode compatibility|optimized|mir6502]\n\
-         \x20                  [--module-path <directory>]...\n\
          \x20                  [--emulator auto|atari800|altirra]\n\
          \x20                  [--emulator-path <path>]\n\
          \x20                  [--cart <path>|--no-cart]\n\
          \x20                  [--no-run] [--out-atr <file.atr>] [--keep]\n\
          \x20                  <file.act>\n\
-         \x20     actionc-run --version"
+         \x20     actionc-run --version\n\n\
+         The default and --cart compile for the Action! cartridge runtime.\n\
+         --no-cart compiles for the standalone runtime and mounts no cartridge."
     );
 }
 
@@ -845,6 +861,13 @@ mod tests {
             .join("hello-world.act")
     }
 
+    fn standalone_rainbow() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("samples")
+            .join("Action_2027")
+            .join("rainbow-modules.act")
+    }
+
     #[test]
     fn action_library_bootstrap_is_a_load_file_that_returns_to_mydos() {
         assert_eq!(
@@ -883,7 +906,8 @@ mod tests {
         let options = CompileOptions::for_mode(CompileMode::Compatibility);
         let compiled = compile_file(&source, &options).expect("compile expected object");
 
-        let atr = prepare_atr(&source, &options, true).expect("prepare runnable ATR");
+        let atr = prepare_atr(&source, &options, &CartridgeChoice::Bundled)
+            .expect("prepare runnable ATR");
         let image = AtrImage::from_bytes(atr).expect("parse prepared ATR");
 
         assert_eq!(
@@ -910,11 +934,13 @@ mod tests {
 
     #[test]
     fn prepared_atr_without_a_cartridge_runs_the_program_directly_as_ar0() {
-        let source = hello_world();
-        let options = CompileOptions::for_mode(CompileMode::Compatibility);
+        let source = standalone_rainbow();
+        let options =
+            CompileOptions::for_mode(CompileMode::Compatibility).with_runtime(Runtime::Standalone);
         let compiled = compile_file(&source, &options).expect("compile expected object");
 
-        let atr = prepare_atr(&source, &options, false).expect("prepare runnable ATR");
+        let atr =
+            prepare_atr(&source, &options, &CartridgeChoice::None).expect("prepare runnable ATR");
         let image = AtrImage::from_bytes(atr).expect("parse prepared ATR");
 
         assert_eq!(
@@ -939,6 +965,27 @@ mod tests {
     }
 
     #[test]
+    fn prepared_atr_rejects_a_runtime_that_disagrees_with_the_cartridge() {
+        let source = standalone_rainbow();
+        let cart_error = prepare_atr(
+            &source,
+            &CompileOptions::default().with_runtime(Runtime::Standalone),
+            &CartridgeChoice::Bundled,
+        )
+        .expect_err("a cartridge launch cannot use standalone compilation options");
+        let no_cart_error =
+            prepare_atr(&source, &CompileOptions::default(), &CartridgeChoice::None)
+                .expect_err("a no-cartridge launch cannot use cart compilation options");
+
+        assert!(cart_error.to_string().contains("requires runtime cart"));
+        assert!(
+            no_cart_error
+                .to_string()
+                .contains("requires runtime standalone")
+        );
+    }
+
+    #[test]
     fn parser_defaults_to_launching_with_auto_discovery_and_the_bundled_cart() {
         let options = parse_args([OsString::from("program.act")])
             .expect("parse default run")
@@ -947,6 +994,7 @@ mod tests {
         assert!(!options.no_run);
         assert_eq!(options.emulator, EmulatorSelection::Auto);
         assert_eq!(options.cartridge, CartridgeChoice::Bundled);
+        assert_eq!(options.compile.runtime(), Runtime::ActionCart);
         assert_eq!(options.output_atr, None);
     }
 
@@ -1000,8 +1048,24 @@ mod tests {
             options.cartridge,
             CartridgeChoice::File(PathBuf::from("C:/ROM images/action.car"))
         );
+        assert_eq!(options.compile.runtime(), Runtime::ActionCart);
         assert_eq!(options.output_atr, Some(PathBuf::from("run image.atr")));
         assert!(options.keep);
+    }
+
+    #[test]
+    fn parser_selects_the_standalone_runtime_for_no_cart() {
+        let options = parse_args([
+            OsString::from("--mode=optimized"),
+            OsString::from("--no-cart"),
+            OsString::from("program.act"),
+        ])
+        .expect("parse no-cartridge options")
+        .expect("not help");
+
+        assert_eq!(options.cartridge, CartridgeChoice::None);
+        assert_eq!(options.compile.mode(), Some(CompileMode::Optimized));
+        assert_eq!(options.compile.runtime(), Runtime::Standalone);
     }
 
     #[test]

@@ -1,8 +1,10 @@
 # Action 2027 Runtime Interface and Standalone Linking
 
-Design status: proposed. This note defines how one resolved Action program can
-use either the Action! cartridge implementation or selectively included OSS
-runtime source. Module syntax and visibility are specified in
+Design status: implemented for the Milestone C helper and initial `STD` surface
+on the experimental `Action-2027` branch. This note defines how one resolved
+Action program can use either the Action! cartridge implementation or
+selectively included OSS runtime source. Module syntax and visibility are
+specified in
 [`MODULE_SYSTEM_DESIGN.md`](./MODULE_SYSTEM_DESIGN.md); source embedding is
 specified in [`MODULE_LOADER_AND_VFS.md`](./MODULE_LOADER_AND_VFS.md).
 
@@ -65,10 +67,10 @@ mir6502 + cart
 mir6502 + standalone
 ```
 
-MIR6502 is the practical first implementation target for selective runtime
-linking, but `--runtime standalone` must not semantically imply or silently
-select `--backend mir6502`. Unsupported backend/runtime combinations receive a
-temporary explicit diagnostic until that backend gains support.
+MIR6502 was the first implementation target for selective runtime linking, but
+`--runtime standalone` does not semantically imply or silently select
+`--backend mir6502`. Classic and MIR6502 now both support cart and standalone
+runtime selection.
 
 This separation permits MIR6502-optimized application code to use compact
 cartridge routines and permits classic code generation to become standalone
@@ -112,16 +114,19 @@ the cart address while claiming to be standalone.
 
 ### Compatibility prelude
 
-Traditional unqualified library names and qualified `STD` imports bind the same
-stable symbols:
+Traditional unqualified resident names remain available with the cart runtime.
+Standalone compilation rejects such a call when no target-neutral binding has
+been implemented, rather than retaining its cartridge address. The initial
+standalone standard-library surface is imported explicitly from `STD`:
 
 ```action
-PrintE("legacy")
-STD.PrintE("qualified")
+IMPORT STD
+STD.Zero(buffer,256)
 ```
 
-The runtime resolver sees one `STD.PrintE` identity regardless of which source
-alias reached it. The prelude does not contain a second implementation catalog.
+Additional resident names can migrate to aliases of the same `STD` identities
+as their standalone implementations are added. The prelude must not become a
+second implementation catalog.
 
 ## Logical Runtime Requirements
 
@@ -269,7 +274,8 @@ Runtime independence must fail closed:
 - an ABI mismatch between `STD` and a selected implementation is an error;
 - an absolute external helper override is rejected in standalone mode;
 - unresolved runtime dependencies are rejected before final emission;
-- unsupported backend/runtime combinations are reported explicitly.
+- a resident routine without a standalone binding is rejected instead of
+  retaining its cartridge entry point.
 
 Diagnostics name the logical routine, selected runtime, requesting source call
 or lowering operation, and available alternatives when useful.
@@ -289,8 +295,9 @@ combinations are errors rather than precedence puzzles. A standalone program
 may physically run with a cartridge present, but it neither calls nor requires
 that cartridge.
 
-The current `--no-cart` behavior only changes emulator startup. It must not be
-considered complete until it also requests standalone compilation.
+The implemented runner derives both choices from the cartridge option and
+checks the invariant again before compiling the ATR. Its public interface does
+not expose a separate runtime option that could contradict the mounted media.
 
 ## Maps, Listings, and Reproducibility
 

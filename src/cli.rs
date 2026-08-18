@@ -15,7 +15,7 @@ use crate::compiler::{
     CompiledProgram, CompilerPhase, DiagnosticSite, Runtime,
     artifacts::{format_listing_with_boundaries, format_listing_with_source},
     compile_file_with_request, mir6502_default_origin_from_semir, mode_profile_backend,
-    validation::legacy_routine_retargeting_diagnostics,
+    validation::{legacy_routine_retargeting_diagnostics, standalone_resident_diagnostics},
 };
 use crate::includes::{ModuleLoadOptions, SourceMap, load_compilation};
 use crate::lexer::tokenize;
@@ -417,6 +417,19 @@ fn run_main(flavor: CliFlavor) {
     };
     let semir = ir::lower_compilation(&loaded, &model);
     let named = matches!(program.source_kind, crate::ast::SourceUnitKind::Named(_));
+
+    if runtime == Runtime::Standalone {
+        let diagnostics = standalone_resident_diagnostics(&semir);
+        if !diagnostics.is_empty() {
+            print_diagnostics_with_source(
+                diagnostics,
+                &loaded.source,
+                Some(&loaded.source_map),
+                diagnostic_byte_ranges,
+            );
+            process::exit(1);
+        }
+    }
 
     if emit_semir {
         print!("{}", ir::format_program(&semir));
@@ -1298,13 +1311,13 @@ fn print_help_for(flavor: CliFlavor) {
 
 fn print_compile_help() {
     eprintln!(
-        "usage: actionc [--mode compatibility|optimized|mir6502] [--runtime cart|standalone] [--origin <addr>] [--module-path <dir>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility and the default runtime is cart. Advanced\nusers may select --profile and --backend directly instead of --mode. Repeat\n--module-path to add ordered named-module search roots. With no -o option, write\n<source-stem>.com in the current directory. --listing writes re-originable,\nsource-annotated MADS assembly. Change only ACTIONC_ORIGIN in the generated\nlisting to move its main segment. Use actionc-emit for compiler representations."
+        "usage: actionc [--mode compatibility|optimized|mir6502] [--runtime cart|standalone] [--origin <addr>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility and the default runtime is cart. Advanced\nusers may select --profile and --backend directly instead of --mode. With no\n-o option, write <source-stem>.com in the current directory. --listing writes\nre-originable, source-annotated MADS assembly. Change only ACTIONC_ORIGIN in\nthe generated listing to move its main segment. Use actionc-emit for compiler\nrepresentations."
     );
 }
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--runtime cart|standalone] [--origin <addr>] [--module-path <dir>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nRepeat --module-path to add ordered named-module search roots. Listings are\nre-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main\nsegment. --emit-source-listing adds Action! source comments."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--runtime cart|standalone] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nListings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move\nthe main segment. --emit-source-listing adds Action! source comments."
     );
 }
 

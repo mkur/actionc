@@ -33,6 +33,13 @@ fn hello_world() -> PathBuf {
         .join("hello-world.act")
 }
 
+fn standalone_rainbow() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("samples")
+        .join("Action_2027")
+        .join("rainbow-modules.act")
+}
+
 fn load_file_origin(bytes: &[u8]) -> u16 {
     assert!(bytes.len() >= 4, "load file is too short");
     assert_eq!(&bytes[..2], &[0xff, 0xff], "missing load-file header");
@@ -476,7 +483,7 @@ fn classic_standalone_is_supported_without_switching_backend() {
         let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
             .args(["--mode", mode, "--runtime", "standalone", "--output"])
             .arg(&object)
-            .arg(hello_world())
+            .arg(standalone_rainbow())
             .output()
             .expect("compile classic standalone configuration");
         assert!(
@@ -568,7 +575,7 @@ fn mir6502_standalone_without_helpers_adds_no_runtime_routines() {
             "standalone",
             "--emit-map",
         ])
-        .arg(hello_world())
+        .arg(standalone_rainbow())
         .output()
         .expect("emit a standalone map for a helper-free program");
     assert!(
@@ -742,6 +749,57 @@ fn unused_std_import_adds_no_runtime_code() {
     );
     let map = String::from_utf8_lossy(&output.stdout);
     assert!(!map.contains("ACTION.RUNTIME.SYSBLK"));
+}
+
+#[test]
+fn standalone_rejects_unbound_resident_routines_in_both_backends() {
+    let temp = TestDir::new();
+    let source = temp.path().join("resident-print.act");
+    fs::write(&source, "PROC Main() PrintE(\"CART\") RETURN\n")
+        .expect("write resident-call source");
+
+    for backend in ["classic", "mir6502"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .args([
+                "--profile",
+                "modern",
+                "--backend",
+                backend,
+                "--runtime",
+                "standalone",
+            ])
+            .arg(&source)
+            .output()
+            .expect("compile unbound standalone resident call");
+
+        assert_eq!(output.status.code(), Some(1), "backend {backend}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("E-RUNTIME-STANDALONE-BINDING"),
+            "backend {backend}: {stderr}"
+        );
+        assert!(stderr.contains("PrintE"), "backend {backend}: {stderr}");
+
+        let emit = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args([
+                "--profile",
+                "modern",
+                "--backend",
+                backend,
+                "--runtime",
+                "standalone",
+                "--emit-map",
+            ])
+            .arg(&source)
+            .output()
+            .expect("emit unbound standalone resident call");
+        assert_eq!(emit.status.code(), Some(1), "emit backend {backend}");
+        assert!(
+            String::from_utf8_lossy(&emit.stderr).contains("E-RUNTIME-STANDALONE-BINDING"),
+            "emit backend {backend}: {}",
+            String::from_utf8_lossy(&emit.stderr)
+        );
+    }
 }
 
 #[test]

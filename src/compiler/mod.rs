@@ -17,7 +17,7 @@ use crate::nir;
 use crate::semantic::{analyze_compilation, ir, materialize::materialize_constants};
 use crate::source::decode_source;
 
-use self::validation::legacy_routine_retargeting_diagnostics;
+use self::validation::{legacy_routine_retargeting_diagnostics, standalone_resident_diagnostics};
 
 pub use crate::runtime::Runtime;
 pub use diagnostics::{
@@ -215,6 +215,18 @@ pub(crate) fn compile_file_with_request(
         )
     })?;
     let semir = ir::lower_compilation(&loaded, &model);
+    if request.runtime == Runtime::Standalone {
+        let diagnostics = standalone_resident_diagnostics(&semir);
+        if !diagnostics.is_empty() {
+            return Err(CompileError::from_source_diagnostics(
+                CompilerPhase::Codegen,
+                diagnostics,
+                &loaded.source,
+                path,
+                Some(&loaded.source_map),
+            ));
+        }
+    }
     let named = matches!(program.source_kind, crate::ast::SourceUnitKind::Named(_));
 
     let output = match request.backend {

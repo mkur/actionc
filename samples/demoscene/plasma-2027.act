@@ -15,7 +15,9 @@
 ; Press ESC to restore the previous display.
 ;
 ; This Action 2027 variant uses typed CONST expressions for compile-time
-; geometry, timing, memory layout, and inline-assembler operands.
+; geometry, timing, memory layout, and inline-assembler operands. With the
+; standalone runtime, actionc includes the parameter-copy helper
+; required by the larger procedure calls; no local r_Par copy is needed.
 
 ; Memory map:
 ; $5000  displayListA  1 KiB; ANTIC display lists cannot cross a 1 KiB boundary
@@ -130,46 +132,6 @@ BYTE ARRAY displayListB(DISPLAY_LIST_WINDOW_SIZE)=DISPLAY_LIST_B_BASE
 CARD savedDisplayList,activeDisplayList,inactiveDisplayList
 BYTE savedDmaControl,savedPriority,savedBackground,
      colorPhase,wavePhaseA,wavePhaseB
-
-
-; Procedures with more than three parameter bytes use Action!'s r_Par helper
-; to copy their complete argument frame.  Providing it locally and redirecting
-; the helper slot makes this program runnable without the Action! cartridge.
-PROC r_Par=*()
-ASM
-    sta $A0
-    stx $A1
-    sty $A2
-    clc
-    pla
-    sta $84
-    adc #$03
-    tay
-    pla
-    sta $85
-    adc #$00
-    pha
-    tya
-    pha
-    ldy #$01
-    lda ($84),y
-    sta $82
-    iny
-    lda ($84),y
-    sta $83
-    iny
-    lda ($84),y
-    tay
-copyArguments:
-    lda $A0,y
-    sta ($82),y
-    dey
-    bpl copyArguments
-    rts
-ENDASM
-
-SET $4EE=r_Par
-
 
 PROC BuildHueTable()
   BYTE index,hue,count

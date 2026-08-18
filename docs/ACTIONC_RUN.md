@@ -6,9 +6,9 @@ bootstrap followed by the generated object as `PROGRAM.AR1`. The bootstrap
 selects the Action! cartridge's resident-library bank and opens `E:` on IOCB 6
 before MyDOS starts the program. Action!'s default output device is set to that
 dedicated channel because MyDOS still owns IOCB 0 while it invokes the load
-file's RUNAD. With `--no-cart`, the bootstrap is omitted and the generated
-object is stored directly as `PROGRAM.AR0`. No Bash or intermediate `.com`
-file is required.
+file's RUNAD. With `--no-cart`, the compiler selects the standalone runtime,
+the bootstrap and cartridge are omitted, and the generated object is stored
+directly as `PROGRAM.AR0`. No Bash or intermediate `.com` file is required.
 
 Install it with:
 
@@ -58,6 +58,12 @@ actionc-run \
   samples/hello-world.act
 ```
 
+Compile and run a standalone arithmetic fixture with no Action! cartridge:
+
+```sh
+actionc-run --no-cart fixtures/runtime/standalone_arithmetic.act
+```
+
 ## Options
 
 ```text
@@ -79,7 +85,8 @@ actionc-run [--mode compatibility|optimized|mir6502]
 - `--emulator-path` overrides executable discovery. With `auto`, recognized
   names such as `Altirra64.exe`, `Altirra.exe`, and `atari800` also select the
   adapter. For another filename, specify `--emulator` too.
-- `--cart` replaces the bundled Action! cartridge. `--no-cart` runs without a
+- `--cart` replaces the bundled Action! cartridge and selects cart-runtime
+  compilation. `--no-cart` selects standalone compilation, runs without a
   cartridge, omits the Action! bank/default-output bootstrap, stores the
   program as `PROGRAM.AR0`, and prevents Atari800 from restoring a cartridge
   from saved settings.
@@ -94,6 +101,14 @@ actionc-run [--mode compatibility|optimized|mir6502]
 `actionc-run` inherits the terminal streams for the emulator and waits until
 the emulator exits. Temporary media remains available for that whole time and
 is removed afterward unless `--keep` was used.
+
+The experimental standalone runtime currently covers compiler arithmetic and
+argument-copy helpers. A source-level resident call without a standalone
+binding is rejected instead of retaining a hidden cartridge dependency.
+Standalone programs that include embedded Action runtime code are subject to
+GPL-3.0-or-later; release archives carry the exact embedded runtime sources
+under `licenses/runtime-source/` and their provenance in
+`licenses/ACTION-RUNTIME-NOTICE.md`.
 
 ## Emulator Discovery
 
