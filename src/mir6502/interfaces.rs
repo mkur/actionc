@@ -537,8 +537,8 @@ mod tests {
     fn embedded_sys_bindings_are_unique_and_runtime_specific() {
         let cart = parse_bindings(Runtime::ActionCart).expect("cart bindings");
         let standalone = parse_bindings(Runtime::Standalone).expect("standalone bindings");
-        assert_eq!(cart.len(), 7);
-        assert_eq!(standalone.len(), 7);
+        assert_eq!(cart.len(), 18);
+        assert_eq!(standalone.len(), 18);
         assert_eq!(cart["SYS.ZERO"], BindingTarget::Absolute(0xA78A));
         assert_eq!(
             standalone["SYS.ZERO"],
@@ -553,6 +553,14 @@ mod tests {
             BindingTarget::RuntimeRoutine {
                 unit: "SYSSTR".to_string(),
                 routine: "SCompare".to_string(),
+            }
+        );
+        assert_eq!(cart["SYS.RAND"], BindingTarget::Absolute(0xA6F1));
+        assert_eq!(
+            standalone["SYS.RAND"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSMISC".to_string(),
+                routine: "Rand".to_string(),
             }
         );
     }
