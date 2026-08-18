@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirCallTarget, MirInlineAsmTarget, MirMachineBlockId, MirMachineItem, MirOp, MirProgram,
-    MirRuntimeHelper, MirRuntimeHelperTarget, RoutineId,
+    MirRuntimeHelper, MirRuntimeHelperTarget, MirTerminator, RoutineId,
 };
 use crate::embedded_vfs::EmbeddedSourceProvider;
 use crate::includes::{ModuleLoadOptions, load_compilation_from_provider};
@@ -58,6 +58,30 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
         })
         .collect::<Result<BTreeMap<_, _>, _>>()?;
     let selected = dependency_closure(&runtime, roots.values().copied().collect::<BTreeSet<_>>())?;
+    let routine_rebase = append_runtime_closure(
+        program,
+        &runtime,
+        &selected,
+        "ACTION.RUNTIME.SYSLIB",
+        "ACTION_RUNTIME_SYSLIB",
+    )?;
+
+    for declaration in &mut program.runtime_helpers {
+        if matches!(declaration.target, MirRuntimeHelperTarget::Deferred) {
+            declaration.target =
+                MirRuntimeHelperTarget::Routine(routine_rebase[&roots[&declaration.helper]]);
+        }
+    }
+    Ok(())
+}
+
+pub(super) fn append_runtime_closure(
+    program: &mut MirProgram,
+    runtime: &MirProgram,
+    selected: &BTreeSet<RoutineId>,
+    display_module: &str,
+    link_module: &str,
+) -> Result<BTreeMap<RoutineId, RoutineId>, Vec<MirDiagnostic>> {
     let routine_rebase = selected
         .iter()
         .copied()
@@ -94,7 +118,7 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
         })
         .collect::<BTreeMap<_, _>>();
 
-    for old_id in &selected {
+    for old_id in selected {
         let mut routine = runtime
             .routines
             .iter()
@@ -103,8 +127,8 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
             .clone();
         routine.id = routine_rebase[old_id];
         routine.name = format!(
-            "ACTION.RUNTIME.SYSLIB::{}",
-            runtime_routine_name(&routine.name)
+            "{display_module}::{}",
+            runtime_routine_name(&routine.name, link_module)
         );
         for block in &mut routine.blocks {
             for op in &mut block.ops {
@@ -148,13 +172,7 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
         program.machine_blocks.push(machine);
     }
 
-    for declaration in &mut program.runtime_helpers {
-        if matches!(declaration.target, MirRuntimeHelperTarget::Deferred) {
-            declaration.target =
-                MirRuntimeHelperTarget::Routine(routine_rebase[&roots[&declaration.helper]]);
-        }
-    }
-    Ok(())
+    Ok(routine_rebase)
 }
 
 fn validate_helper_contract(
@@ -223,9 +241,10 @@ fn find_runtime_helper(
     }
 }
 
-fn runtime_routine_name(name: &str) -> &str {
+pub(super) fn runtime_routine_name<'a>(name: &'a str, link_module: &str) -> &'a str {
+    let prefix = format!("M_{link_module}_");
     let key = name
-        .strip_prefix("M_ACTION_RUNTIME_SYSLIB_")
+        .strip_prefix(&prefix)
         .and_then(|name| name.rsplit_once('_').map(|(name, _)| name))
         .unwrap_or(name);
     match key {
@@ -241,11 +260,14 @@ fn runtime_routine_name(name: &str) -> &str {
         "DIVI" => "DivI",
         "REMI" => "RemI",
         "SARGS" => "SArgs",
+        "ZERO" => "Zero",
+        "SETBLOCK" => "SetBlock",
+        "MOVEBLOCK" => "MoveBlock",
         _ => key,
     }
 }
 
-fn dependency_closure(
+pub(super) fn dependency_closure(
     program: &MirProgram,
     roots: BTreeSet<RoutineId>,
 ) -> Result<BTreeSet<RoutineId>, Vec<MirDiagnostic>> {
@@ -276,8 +298,9 @@ fn dependency_closure(
             .iter()
             .find(|routine| routine.id == id)
             .expect("validated runtime routine exists");
+        let mut falls_through = false;
         for block in &routine.blocks {
-            for op in &block.ops {
+            for (op_index, op) in block.ops.iter().enumerate() {
                 match op {
                     MirOp::Call {
                         target: MirCallTarget::Routine(target),
@@ -301,9 +324,30 @@ fn dependency_closure(
                                 pending.insert(*target);
                             }
                         }
+                        if routine.blocks.len() == 1
+                            && op_index + 1 == block.ops.len()
+                            && matches!(block.terminator, MirTerminator::Unreachable)
+                        {
+                            falls_through |=
+                                super::analysis::known_callees::machine_block_falls_through(
+                                    machine,
+                                );
+                        }
                     }
                     _ => {}
                 }
+            }
+        }
+        if falls_through {
+            let Some(index) = program
+                .routines
+                .iter()
+                .position(|candidate| candidate.id == routine.id)
+            else {
+                continue;
+            };
+            if let Some(next) = program.routines.get(index + 1) {
+                pending.insert(next.id);
             }
         }
     }
@@ -341,16 +385,27 @@ fn next_machine_id(program: &MirProgram) -> u32 {
 }
 
 fn compile_syslib() -> Result<MirProgram, Vec<MirDiagnostic>> {
+    compile_runtime_unit("syslib.act", "ACTION.RUNTIME.SYSLIB")
+}
+
+pub(super) fn compile_runtime_unit(
+    file_name: &str,
+    module_name: &str,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let source = EmbeddedSourceProvider
-        .runtime_source("syslib.act")
-        .ok_or_else(|| diagnostic("embedded runtime source `SYSLIB.ACT` is missing"))?;
+        .runtime_source(file_name)
+        .ok_or_else(|| diagnostic(format!("embedded runtime source `{file_name}` is missing")))?;
     let text = crate::source::decode_source(source.bytes);
-    let text = make_internal_named_module(&text)?;
-    let origin = SourceOrigin::embedded("runtime/internal/syslib.act", "<runtime:SYSLIB.ACT>");
+    let text = make_internal_named_module(&text, module_name, file_name)?;
+    let origin = SourceOrigin::embedded(
+        format!("runtime/internal/{file_name}"),
+        format!("<runtime:{}>", file_name.to_ascii_uppercase()),
+    );
     let provider = InMemorySourceProvider::default().with_source(origin.clone(), text);
     let loaded = load_compilation_from_provider(origin, &provider, &ModuleLoadOptions::default())
-        .map_err(frontend_diagnostics)?;
-    let model = analyze_compilation(&loaded).map_err(frontend_diagnostics)?;
+        .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
+    let model = analyze_compilation(&loaded)
+        .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
     let semir = ir::lower_compilation(&loaded, &model);
     let nir = crate::nir::lower_program(&semir);
     crate::nir::verify_program(&nir).map_err(|diagnostics| {
@@ -359,7 +414,7 @@ fn compile_syslib() -> Result<MirProgram, Vec<MirDiagnostic>> {
             .map(|diagnostic| MirDiagnostic {
                 routine: diagnostic.routine,
                 block: diagnostic.block,
-                message: format!("embedded SYSLIB NIR: {}", diagnostic.message),
+                message: format!("embedded {file_name} NIR: {}", diagnostic.message),
             })
             .collect::<Vec<_>>()
     })?;
@@ -367,45 +422,55 @@ fn compile_syslib() -> Result<MirProgram, Vec<MirDiagnostic>> {
         diagnostics
             .into_iter()
             .map(|mut diagnostic| {
-                diagnostic.message = format!("embedded SYSLIB MIR: {}", diagnostic.message);
+                diagnostic.message = format!("embedded {file_name} MIR: {}", diagnostic.message);
                 diagnostic
             })
             .collect()
     })
 }
 
-fn make_internal_named_module(source: &str) -> Result<String, Vec<MirDiagnostic>> {
+fn make_internal_named_module(
+    source: &str,
+    module_name: &str,
+    file_name: &str,
+) -> Result<String, Vec<MirDiagnostic>> {
     let mut converted_first_marker = false;
     let mut output = String::with_capacity(source.len() + 32);
     for line in source.lines() {
         let trimmed = line.trim_start();
         if trimmed.to_ascii_uppercase().starts_with("MODULE ;") {
             if !converted_first_marker {
-                output.push_str("MODULE ACTION.RUNTIME.SYSLIB");
+                output.push_str("MODULE ");
+                output.push_str(module_name);
                 converted_first_marker = true;
             } else {
                 output.push_str("ENDMODULE");
             }
+        } else if converted_first_marker && trimmed.eq_ignore_ascii_case("MODULE") {
+            output.push_str("ENDMODULE");
         } else {
             output.push_str(line);
         }
         output.push('\n');
     }
     if !converted_first_marker {
-        return Err(diagnostic(
-            "embedded runtime source `SYSLIB.ACT` has no legacy MODULE marker",
-        ));
+        return Err(diagnostic(format!(
+            "embedded runtime source `{file_name}` has no legacy MODULE marker"
+        )));
     }
     Ok(output)
 }
 
-fn frontend_diagnostics(diagnostics: Vec<crate::diagnostic::Diagnostic>) -> Vec<MirDiagnostic> {
+fn frontend_diagnostics(
+    file_name: &str,
+    diagnostics: Vec<crate::diagnostic::Diagnostic>,
+) -> Vec<MirDiagnostic> {
     diagnostics
         .into_iter()
         .map(|diagnostic| MirDiagnostic {
             routine: None,
             block: None,
-            message: format!("embedded SYSLIB frontend: {}", diagnostic.message),
+            message: format!("embedded {file_name} frontend: {}", diagnostic.message),
         })
         .collect()
 }
@@ -472,7 +537,9 @@ mod tests {
         let set_sign = program
             .routines
             .iter()
-            .find(|routine| runtime_routine_name(&routine.name) == "SetSign")
+            .find(|routine| {
+                runtime_routine_name(&routine.name, "ACTION_RUNTIME_SYSLIB") == "SetSign"
+            })
             .expect("SetSign dependency");
         let machine_id = set_sign
             .blocks

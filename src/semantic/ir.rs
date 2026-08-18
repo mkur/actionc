@@ -2785,6 +2785,17 @@ impl<'a> IrBuilder<'a> {
         let callee = match self.direct_symbol_ref_for_expr(scope, callee) {
             Some(symbol) => Some(symbol)
                 .map(|symbol| match symbol.class {
+                    SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc
+                        if self
+                            .model
+                            .routine_signatures_by_symbol
+                            .get(&symbol.id)
+                            .is_some_and(|signature| {
+                                signature.source == super::SemanticCallableSource::Runtime
+                            }) =>
+                    {
+                        SemCallable::User(symbol)
+                    }
                     SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc => {
                         SemCallable::Builtin(symbol)
                     }

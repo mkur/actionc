@@ -219,6 +219,66 @@ mod tests {
     }
 
     #[test]
+    fn selectively_linked_std_zero_executes_without_a_cartridge() {
+        let fixture = runtime_fixture("standalone_std_memory.act");
+        let compiled = compile_file(
+            &fixture,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(Runtime::Standalone),
+        )
+        .unwrap_or_else(|error| panic!("compile standalone STD.Zero fixture: {error}"));
+        let mut vm = vm_for_profile(ExecutionProfile::StandaloneObject);
+        vm.load_atari_object_for_execution(
+            ExecutionProfile::StandaloneObject,
+            compiled.object_bytes(),
+        )
+        .expect("load standalone STD.Zero object");
+        let max_steps = 1_000;
+        let outcome = VmRunner::new(vm).run(RunRequest {
+            max_steps,
+            history_len: 8,
+            ..RunRequest::default()
+        });
+        assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+        assert_eq!(
+            (0..8)
+                .map(|offset| outcome.memory().read(RESULT_START + offset))
+                .collect::<Vec<_>>(),
+            vec![0; 8]
+        );
+    }
+
+    #[test]
+    fn selectively_linked_std_block_operations_execute_without_a_cartridge() {
+        let fixture = runtime_fixture("standalone_std_blocks.act");
+        let compiled = compile_file(
+            &fixture,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(Runtime::Standalone),
+        )
+        .unwrap_or_else(|error| panic!("compile standalone STD block fixture: {error}"));
+        let mut vm = vm_for_profile(ExecutionProfile::StandaloneObject);
+        vm.load_atari_object_for_execution(
+            ExecutionProfile::StandaloneObject,
+            compiled.object_bytes(),
+        )
+        .expect("load standalone STD block object");
+        let max_steps = 2_000;
+        let outcome = VmRunner::new(vm).run(RunRequest {
+            max_steps,
+            history_len: 8,
+            ..RunRequest::default()
+        });
+        assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+        for start in [0x0600, 0x0610] {
+            assert_eq!(
+                (0..4)
+                    .map(|offset| outcome.memory().read(start + offset))
+                    .collect::<Vec<_>>(),
+                vec![0x5A; 4]
+            );
+        }
+    }
+
+    #[test]
     fn kalscope_backend_contracts_execute_through_the_vm_library() {
         assert_both_backends(
             "KALSCOPE backend contracts",

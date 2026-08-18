@@ -1049,6 +1049,51 @@ fn flatten_machine_items(
     Some(bytes)
 }
 
+/// Return whether execution can continue into the bytes immediately following
+/// a structured machine block. Unknown encodings are conservative: retaining
+/// the following runtime routine is safer than truncating a legacy fallthrough
+/// implementation.
+pub(in crate::mir6502) fn machine_block_falls_through(machine: &MirMachineBlock) -> bool {
+    let Some(last) = machine.items.last() else {
+        return true;
+    };
+    if matches!(machine_item_last_byte(last), Some(0x60 | 0x40)) {
+        return false;
+    }
+    let trailing_address = matches!(
+        last,
+        MirMachineItem::Name(_)
+            | MirMachineItem::AddressExpr { selector: None, .. }
+            | MirMachineItem::Relocation {
+                kind: crate::asm6502::InlineAsmRelocationKind::Absolute16,
+                ..
+            }
+    );
+    if trailing_address
+        && machine
+            .items
+            .get(machine.items.len().saturating_sub(2))
+            .and_then(machine_item_last_byte)
+            .is_some_and(|opcode| matches!(opcode, 0x4C | 0x6C))
+    {
+        return false;
+    }
+    true
+}
+
+fn machine_item_last_byte(item: &MirMachineItem) -> Option<u8> {
+    match item {
+        MirMachineItem::Byte(value) => Some(*value),
+        MirMachineItem::Word(value) => Some((value >> 8) as u8),
+        MirMachineItem::CharLiteral(value) => u8::try_from(*value as u32).ok(),
+        MirMachineItem::StringLiteral(_)
+        | MirMachineItem::Name(_)
+        | MirMachineItem::AddressExpr { .. }
+        | MirMachineItem::AddressByte { .. }
+        | MirMachineItem::Relocation { .. } => None,
+    }
+}
+
 fn summarize_machine_instruction_reads(
     mnemonic: &str,
     mode: AddressingMode,

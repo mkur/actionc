@@ -1,0 +1,17 @@
+; The STD interface is target-neutral. Standalone mode selects only the
+; referenced SYSBLK routine from the compiler's embedded runtime image.
+MODULE RUNTIME.STD.MEMORY
+
+IMPORT STD
+
+BYTE ARRAY buffer(8)=$0600
+
+PROC Main()
+  buffer(0)=1
+  buffer(7)=2
+  STD.Zero(buffer,8)
+  DO
+  OD
+RETURN
+
+ENDMODULE

@@ -40,9 +40,12 @@ ENDMODULE
 
 ```action
 MODULE ACTION.RUNTIME.BINDINGS.STANDALONE
-  SET STD.Zero=SYSBLK.Zero
+  SET STD.Zero=SYSBLK_Zero
 ENDMODULE
 ```
+
+The underscore in an implementation target separates the embedded runtime
+unit from its routine while keeping the legacy `SET` expression unambiguous.
 
 Binding units are metadata interpreted by the compiler; users do not import
 them and they do not create a second public declaration. An absolute target is
@@ -68,3 +71,9 @@ lowering but before target materialization:
 Consequently `@STD.Zero` observes the selected implementation. Standalone code
 cannot accidentally retain a cartridge address, and importing `STD` without
 using a member cannot pull runtime code into the output.
+
+The initial implemented interface consists of `Zero`, `SetBlock`, and
+`MoveBlock`. Runtime closure follows both explicit relocations and legacy
+machine-code fallthrough. In particular, standalone `Zero` retains the adjacent
+`SetBlock` body because the original six-byte entry prepares a zero value and
+falls through into that implementation.

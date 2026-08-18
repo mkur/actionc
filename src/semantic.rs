@@ -3176,6 +3176,8 @@ impl Analyzer {
                                         | SymbolClass::Param
                                         | SymbolClass::Proc
                                         | SymbolClass::Func
+                                        | SymbolClass::BuiltinProc
+                                        | SymbolClass::BuiltinFunc
                                 )
                             ) {
                                 self.diagnostics.push(Diagnostic::new(

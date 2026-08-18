@@ -5,6 +5,7 @@ mod call_plan;
 mod classify;
 mod diagnostics;
 mod emit;
+mod interfaces;
 mod ir;
 mod lower;
 mod materialize;
@@ -69,6 +70,11 @@ pub fn materialize_program_with_origin_and_runtime(
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     verify::verify_program(&program, MirPhase::PreMaterialization)
         .map_err(|diagnostics| phase_diagnostics("pre-materialization", diagnostics))?;
+    let mut program = program;
+    interfaces::resolve_interfaces(&mut program, runtime)
+        .map_err(|diagnostics| phase_diagnostics("runtime interface resolution", diagnostics))?;
+    verify::verify_program(&program, MirPhase::PreMaterialization)
+        .map_err(|diagnostics| phase_diagnostics("resolved pre-materialization", diagnostics))?;
     let mut materialized = materialize::materialize_program(program, config, origin)
         .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
     verify::verify_program(&materialized, MirPhase::PostMaterialization)
@@ -147,9 +153,22 @@ fn codegen_output(
     let optimizations = Vec::new();
     let proofs = Vec::new();
     let proof_attempts = Vec::new();
-    let run_address = routine_addresses
+    let named_entry = mir
+        .routines
         .iter()
-        .find(|routine| routine.name.eq_ignore_ascii_case("main"))
+        .find(|routine| routine.abi == MirRoutineAbi::ProgramEntry)
+        .map(|routine| routine.name.as_str());
+    let run_address = named_entry
+        .and_then(|name| {
+            routine_addresses
+                .iter()
+                .find(|routine| routine.name == name)
+        })
+        .or_else(|| {
+            routine_addresses
+                .iter()
+                .find(|routine| routine.name.eq_ignore_ascii_case("main"))
+        })
         .or_else(|| routine_addresses.last())
         .map_or(origin, |routine| routine.address);
     let map = crate::codegen::CodegenMap {

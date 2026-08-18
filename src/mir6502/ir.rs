@@ -246,6 +246,8 @@ pub enum MirRoutineAbi {
     /// Ordinary Action ABI entry whose private parameter storage is not part of
     /// an externally observable routine boundary.
     Action,
+    /// Ordinary Action ABI plus the stable executable-entry designation.
+    ProgramEntry,
     /// Action ABI entry whose physical parameter storage remains observable,
     /// for example a system-address or current-location routine.
     ActionObservable,

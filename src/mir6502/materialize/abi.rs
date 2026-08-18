@@ -48,7 +48,11 @@ pub(super) fn elide_write_only_param_homes(
     routine: &mut crate::mir6502::ir::MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) {
-    if routine.abi != MirRoutineAbi::Action || routine_contains_machine_block(routine) {
+    if !matches!(
+        routine.abi,
+        MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry
+    ) || routine_contains_machine_block(routine)
+    {
         return;
     }
     let arg_bytes = routine
@@ -151,7 +155,11 @@ pub(super) fn coalesce_leaf_word_param_with_result_home(
     routine: &mut MirRoutine,
     peephole_stats: &mut MirPeepholeStats,
 ) {
-    if routine.abi != MirRoutineAbi::Action || routine.frame.params.len() != 1 {
+    if !matches!(
+        routine.abi,
+        MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry
+    ) || routine.frame.params.len() != 1
+    {
         return;
     }
     let slot = &routine.frame.params[0];

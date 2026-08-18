@@ -1,0 +1,8 @@
+; Standalone provider backed by the embedded GPL Action runtime sources.
+MODULE ACTION.RUNTIME.BINDINGS.STANDALONE
+
+SET STD.Zero=SYSBLK_Zero
+SET STD.SetBlock=SYSBLK_SetBlock
+SET STD.MoveBlock=SYSBLK_MoveBlock
+
+ENDMODULE

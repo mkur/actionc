@@ -1,0 +1,16 @@
+; Exercise the remaining initial STD memory bindings without a cartridge.
+MODULE RUNTIME.STD.BLOCKS
+
+IMPORT STD.*
+
+BYTE ARRAY source(4)=$0600
+BYTE ARRAY destination(4)=$0610
+
+PROC Main()
+  SetBlock(source,4,$5A)
+  MoveBlock(destination,source,4)
+  DO
+  OD
+RETURN
+
+ENDMODULE

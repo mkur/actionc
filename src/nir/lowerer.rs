@@ -56,6 +56,7 @@ impl NirLowerer {
         self.machine_define_names = machine_defines.names;
         self.machine_defines = machine_defines.ids;
         let record_storage_sizes = record_storage_sizes(program);
+        let root_module = program.modules.last().and_then(|module| module.id);
 
         for module in &program.modules {
             for item in &module.items {
@@ -287,6 +288,20 @@ impl NirLowerer {
                             builder.notes.push(NirRoutineNote {
                                 text: routine.symbol.canonical_qualified_key.clone(),
                                 kind: NirRoutineNoteKind::ExternalInterface,
+                            });
+                        }
+                        if module.id == root_module
+                            && module.id.is_some()
+                            && routine
+                                .symbol
+                                .qualified_name
+                                .rsplit('.')
+                                .next()
+                                .is_some_and(|name| name.eq_ignore_ascii_case("Main"))
+                        {
+                            builder.notes.push(NirRoutineNote {
+                                text: "named root Main".to_string(),
+                                kind: NirRoutineNoteKind::ProgramEntry,
                             });
                         }
                         if let Some(address) = &routine.system_address {
@@ -534,7 +549,13 @@ impl NirLowerer {
         }
         let target = match &set.value.kind {
             SemExprKind::Symbol(symbol) | SemExprKind::AddressOfSymbol(symbol)
-                if matches!(symbol.class, SymbolClass::Proc | SymbolClass::Func) =>
+                if matches!(
+                    symbol.class,
+                    SymbolClass::Proc
+                        | SymbolClass::Func
+                        | SymbolClass::BuiltinProc
+                        | SymbolClass::BuiltinFunc
+                ) =>
             {
                 NirRuntimeHelperTarget::Routine(
                     *self
@@ -1909,7 +1930,10 @@ impl NirBuilder {
                     .find(|(name, _)| storage_key(name) == key)
                     .map(|(_, id)| NirInlineAsmTarget::Storage(NirStorageId::Global(*id)))
             }
-            SymbolClass::Proc | SymbolClass::Func => self
+            SymbolClass::Proc
+            | SymbolClass::Func
+            | SymbolClass::BuiltinProc
+            | SymbolClass::BuiltinFunc => self
                 .routine_ids
                 .get(&key)
                 .copied()
@@ -1922,7 +1946,7 @@ impl NirBuilder {
                     _ => None,
                 })
                 .map(NirInlineAsmTarget::Absolute),
-            SymbolClass::Const | SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc => None,
+            SymbolClass::Const => None,
         }
     }
 
@@ -2639,7 +2663,13 @@ fn symbolic_array_initializer_routine_expr(expr: &SemExpr) -> Option<String> {
     match &expr.kind {
         SemExprKind::Cast { expr, .. } => symbolic_array_initializer_routine_expr(expr),
         SemExprKind::Symbol(symbol)
-            if matches!(symbol.class, SymbolClass::Proc | SymbolClass::Func) =>
+            if matches!(
+                symbol.class,
+                SymbolClass::Proc
+                    | SymbolClass::Func
+                    | SymbolClass::BuiltinProc
+                    | SymbolClass::BuiltinFunc
+            ) =>
         {
             Some(symbol.name.clone())
         }
@@ -3095,7 +3125,10 @@ fn global_data_relocation_target(
     global_ids: &BTreeMap<String, SymbolId>,
     routine_ids: &BTreeMap<String, u32>,
 ) -> Option<NirDataRelocationTarget> {
-    if matches!(target.class, SymbolClass::Proc | SymbolClass::Func) {
+    if matches!(
+        target.class,
+        SymbolClass::Proc | SymbolClass::Func | SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc
+    ) {
         return routine_ids
             .get(&storage_key(&target.name))
             .copied()

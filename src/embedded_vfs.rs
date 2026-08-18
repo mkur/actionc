@@ -3,6 +3,7 @@ use crate::source::{SourceLoadError, SourceOrigin, SourceProvider};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EmbeddedSourceKind {
     Module,
+    Binding,
     Runtime,
 }
 
@@ -36,6 +37,16 @@ impl EmbeddedSourceProvider {
                 && source
                     .virtual_path
                     .strip_prefix("runtime/")
+                    .is_some_and(|name| name.eq_ignore_ascii_case(file_name))
+        })
+    }
+
+    pub(crate) fn binding_source(self, file_name: &str) -> Option<&'static EmbeddedSource> {
+        SOURCES.iter().find(|source| {
+            source.kind == EmbeddedSourceKind::Binding
+                && source
+                    .virtual_path
+                    .strip_prefix("bindings/")
                     .is_some_and(|name| name.eq_ignore_ascii_case(file_name))
         })
     }

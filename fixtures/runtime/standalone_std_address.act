@@ -1,0 +1,12 @@
+; Taking an external routine's address roots its selected implementation even
+; when the routine is not called directly.
+MODULE RUNTIME.STD.ADDRESS
+
+IMPORT STD
+
+CARD ARRAY handler(1)=[@STD.Zero]
+
+PROC Main()
+RETURN
+
+ENDMODULE

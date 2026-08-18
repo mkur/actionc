@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     println!("cargo:rerun-if-changed=embedded/modules");
+    println!("cargo:rerun-if-changed=embedded/bindings");
     println!("cargo:rerun-if-changed=corpora/action-runtime/extracted");
 
     let mut inputs = Vec::new();
@@ -15,12 +16,37 @@ fn main() {
         Path::new("embedded/modules"),
         &mut inputs,
     );
+    collect_bindings(Path::new("embedded/bindings"), &mut inputs);
     collect_runtime(Path::new("corpora/action-runtime/extracted"), &mut inputs);
     let image = prepare_image(inputs);
     let generated = render_image(&image);
     let output =
         PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR is set")).join("embedded_vfs.rs");
     fs::write(output, generated).expect("write embedded VFS table");
+}
+
+fn collect_bindings(directory: &Path, inputs: &mut Vec<SourceInput>) {
+    let mut paths = fs::read_dir(directory)
+        .unwrap_or_else(|error| panic!("read {}: {error}", directory.display()))
+        .map(|entry| entry.expect("read embedded binding entry").path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "act"))
+        .collect::<Vec<_>>();
+    paths.sort();
+    for path in paths {
+        println!("cargo:rerun-if-changed={}", path.display());
+        let file_name = path
+            .file_name()
+            .expect("binding source has a file name")
+            .to_string_lossy()
+            .to_ascii_lowercase();
+        inputs.push(SourceInput {
+            kind: "Binding".to_string(),
+            canonical_key: format!("binding:{file_name}"),
+            virtual_path: format!("bindings/{file_name}"),
+            display_name: format!("<binding:{}>", file_name.to_ascii_uppercase()),
+            bytes: fs::read(&path).expect("read embedded binding source"),
+        });
+    }
 }
 
 fn collect_modules(root: &Path, directory: &Path, inputs: &mut Vec<SourceInput>) {
