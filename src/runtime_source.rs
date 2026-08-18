@@ -1,6 +1,12 @@
+use std::collections::{BTreeMap, BTreeSet};
+
+use crate::ast::{Decl, Item, VarDecl};
 use crate::diagnostic::Diagnostic;
 use crate::embedded_vfs::EmbeddedSourceProvider;
-use crate::includes::{ModuleLoadOptions, load_compilation_from_provider};
+use crate::includes::{
+    ModuleLoadOptions, load_compilation_from_provider,
+    load_program_with_expanded_source_from_provider,
+};
 use crate::semantic::{analyze_compilation, ir};
 use crate::source::{InMemorySourceProvider, SourceOrigin, Span};
 
@@ -10,6 +16,13 @@ pub(crate) struct RuntimeUnit {
     pub(crate) file_name: String,
     pub(crate) module_name: String,
     pub(crate) link_module: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RuntimeImage {
+    pub(crate) semir: ir::SemProgram,
+    /// Physical implementation unit for each case-normalized routine name.
+    pub(crate) routine_units: BTreeMap<String, RuntimeUnit>,
 }
 
 /// Resolve the implementation-unit name used by an embedded runtime binding.
@@ -84,6 +97,204 @@ pub(crate) fn compile_embedded_module(file_name: &str) -> Result<ir::SemProgram,
     let model = analyze_compilation(&loaded)
         .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
     Ok(ir::lower_compilation(&loaded, &model))
+}
+
+/// Compile the resident library as one semantic program.
+///
+/// SYSALL is the historical composition root.  Loading its embedded INCLUDEs
+/// into one frontend invocation lets ordinary Action! name resolution retain
+/// calls between implementation units while the source map records which
+/// physical unit owns every routine.
+pub(crate) fn compile_runtime_image() -> Result<RuntimeImage, Vec<Diagnostic>> {
+    let file_name = "sysall.act";
+    let origin = SourceOrigin::embedded("runtime/sysall.act", "<runtime:SYSALL.ACT>");
+    let expanded = load_program_with_expanded_source_from_provider(origin, &EmbeddedSourceProvider)
+        .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
+    let mut routine_units = BTreeMap::new();
+    let mut symbols = BTreeSet::new();
+    for routine in expanded
+        .program
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            Item::Routine(routine) => Some(routine),
+            _ => None,
+        })
+    {
+        symbols.insert(routine.name.clone());
+        for param in &routine.params {
+            collect_var_names(param, &mut symbols);
+        }
+        for local in &routine.locals {
+            collect_decl_names(local, &mut symbols);
+        }
+        let location = expanded.source_map.location(routine.span).ok_or_else(|| {
+            diagnostic(format!(
+                "embedded runtime routine `{}` has no physical source provenance",
+                routine.name
+            ))
+        })?;
+        let unit = runtime_unit_from_origin(&location.origin, &routine.name)?;
+        let key = routine.name.to_ascii_uppercase();
+        if routine_units.insert(key.clone(), unit).is_some() {
+            return Err(diagnostic(format!(
+                "embedded runtime image has multiple routines named `{key}`"
+            )));
+        }
+    }
+    for item in expanded
+        .program
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+    {
+        match item {
+            Item::Define(define) => {
+                symbols.extend(define.entries.iter().map(|entry| entry.name.clone()));
+            }
+            Item::Declaration(decl) => collect_decl_names(decl, &mut symbols),
+            _ => {}
+        }
+    }
+
+    // A single private module keeps machine-code symbol references relocatable.
+    // The original bare MODULE markers describe editor/library regions, not
+    // namespaces, so flatten them before the ordinary named-module frontend.
+    let text = make_flat_internal_module(
+        &separate_machine_symbol_references(&expanded.source, &symbols),
+        "ACTION.RUNTIME.RESIDENT",
+    );
+    let origin = SourceOrigin::embedded(
+        "runtime/internal/sysall.act",
+        "<runtime:SYSALL.ACT linked image>",
+    );
+    let provider = InMemorySourceProvider::default().with_source(origin.clone(), text);
+    let loaded = load_compilation_from_provider(origin, &provider, &ModuleLoadOptions::default())
+        .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
+    let model = analyze_compilation(&loaded)
+        .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
+    let semir = ir::lower_compilation(&loaded, &model);
+    Ok(RuntimeImage {
+        semir,
+        routine_units,
+    })
+}
+
+fn runtime_unit_from_origin(
+    origin: &SourceOrigin,
+    routine_name: &str,
+) -> Result<RuntimeUnit, Vec<Diagnostic>> {
+    let virtual_path = origin.virtual_path().ok_or_else(|| {
+        diagnostic(format!(
+            "embedded runtime routine `{routine_name}` unexpectedly came from {origin}"
+        ))
+    })?;
+    let unit_name = virtual_path
+        .strip_prefix("runtime/")
+        .and_then(|path| path.strip_suffix(".act"))
+        .ok_or_else(|| {
+            diagnostic(format!(
+                "embedded runtime routine `{routine_name}` came from invalid path `{virtual_path}`"
+            ))
+        })?;
+    resolve_runtime_unit(unit_name)
+}
+
+fn make_flat_internal_module(source: &str, module_name: &str) -> String {
+    let mut output = format!("MODULE {module_name}\n");
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if trimmed.to_ascii_uppercase().starts_with("MODULE ;")
+            || trimmed.eq_ignore_ascii_case("MODULE")
+        {
+            output.push('\n');
+        } else {
+            output.push_str(line);
+            output.push('\n');
+        }
+    }
+    output.push_str("ENDMODULE\n");
+    output
+}
+
+fn collect_decl_names(decl: &Decl, output: &mut BTreeSet<String>) {
+    match decl {
+        Decl::Var(var) => collect_var_names(var, output),
+        Decl::Const(constant) => {
+            output.extend(constant.entries.iter().map(|entry| entry.name.clone()));
+        }
+        Decl::Type(decl) => {
+            output.insert(decl.name.clone());
+            for field in &decl.fields {
+                collect_var_names(field, output);
+            }
+        }
+        Decl::Record(decl) => {
+            output.insert(decl.name.clone());
+            for field in &decl.fields {
+                collect_var_names(field, output);
+            }
+        }
+    }
+}
+
+fn collect_var_names(var: &VarDecl, output: &mut BTreeSet<String>) {
+    output.extend(var.entries.iter().map(|entry| entry.name.clone()));
+}
+
+/// The original Action! machine-code notation permits an opcode byte and a
+/// symbol with no intervening space (`$A5device`).  The general lexer quite
+/// reasonably reads the leading hexadecimal letters of the symbol as part of
+/// the number, so normalize only compiler-owned runtime sources before their
+/// second frontend pass.
+fn separate_machine_symbol_references(source: &str, symbols: &BTreeSet<String>) -> String {
+    let mut output = String::with_capacity(source.len());
+    let mut cursor = 0usize;
+    while cursor < source.len() {
+        let remaining = &source[cursor..];
+        if remaining.starts_with('$')
+            && remaining
+                .as_bytes()
+                .get(1..3)
+                .is_some_and(|digits| digits.iter().all(u8::is_ascii_hexdigit))
+            && remaining
+                .as_bytes()
+                .get(3)
+                .is_some_and(|byte| byte.is_ascii_lowercase() || *byte == b'_')
+        {
+            output.push_str(&remaining[..3]);
+            output.push(' ');
+            cursor += 3;
+            continue;
+        }
+        if remaining.starts_with('$')
+            && remaining
+                .as_bytes()
+                .get(1..3)
+                .is_some_and(|digits| digits.iter().all(u8::is_ascii_hexdigit))
+            && let Some(symbol) = symbols.iter().find(|symbol| {
+                remaining[3..].starts_with(symbol.as_str())
+                    && remaining[3 + symbol.len()..]
+                        .chars()
+                        .next()
+                        .is_none_or(|ch| !ch.is_ascii_alphanumeric() && ch != '_')
+            })
+        {
+            output.push_str(&remaining[..3]);
+            output.push(' ');
+            output.push_str(symbol);
+            cursor += 3 + symbol.len();
+            continue;
+        }
+        let ch = remaining
+            .chars()
+            .next()
+            .expect("remaining source character");
+        output.push(ch);
+        cursor += ch.len_utf8();
+    }
+    output
 }
 
 fn make_internal_named_module(
@@ -185,5 +396,14 @@ mod tests {
             scompare.signature.return_type,
             Some(crate::ast::FundType::Int)
         );
+    }
+
+    #[test]
+    fn runtime_image_resolves_calls_across_physical_units() {
+        let image = compile_runtime_image().expect("compile resident runtime image");
+        assert_eq!(image.routine_units["RAND"].name, "SYSMISC");
+        assert_eq!(image.routine_units["MULTI"].name, "SYSLIB");
+        assert_eq!(image.routine_units["GRAPHICS"].name, "SYSGR");
+        assert_eq!(image.routine_units["OPEN"].name, "SYSIO");
     }
 }

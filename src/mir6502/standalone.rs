@@ -470,6 +470,33 @@ pub(super) fn compile_runtime_unit_with_semir(
     Ok((semir, mir))
 }
 
+pub(super) fn compile_runtime_image_with_semir()
+-> Result<(crate::runtime_source::RuntimeImage, MirProgram), Vec<MirDiagnostic>> {
+    let image = crate::runtime_source::compile_runtime_image()
+        .map_err(|diagnostics| frontend_diagnostics("sysall.act", diagnostics))?;
+    let nir = crate::nir::lower_program(&image.semir);
+    crate::nir::verify_program(&nir).map_err(|diagnostics| {
+        diagnostics
+            .into_iter()
+            .map(|diagnostic| MirDiagnostic {
+                routine: diagnostic.routine,
+                block: diagnostic.block,
+                message: format!("embedded sysall.act NIR: {}", diagnostic.message),
+            })
+            .collect::<Vec<_>>()
+    })?;
+    let mir = super::lower_program(&nir).map_err(|diagnostics| {
+        diagnostics
+            .into_iter()
+            .map(|mut diagnostic| {
+                diagnostic.message = format!("embedded sysall.act MIR: {}", diagnostic.message);
+                diagnostic
+            })
+            .collect::<Vec<_>>()
+    })?;
+    Ok((image, mir))
+}
+
 fn frontend_diagnostics(
     file_name: &str,
     diagnostics: Vec<crate::diagnostic::Diagnostic>,
@@ -578,6 +605,40 @@ mod tests {
         assert_eq!(first, second);
         assert!(first.contains(&multi));
         assert!(first.contains(&set_sign.id));
+    }
+
+    #[test]
+    fn unified_runtime_mir_retains_cross_unit_dependencies() {
+        let (image, program) = compile_runtime_image_with_semir().expect("compile SYSALL image");
+        let graphics = program
+            .routines
+            .iter()
+            .find(|routine| {
+                runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT")
+                    .eq_ignore_ascii_case("Graphics")
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "Graphics routine; found {:?}",
+                    program
+                        .routines
+                        .iter()
+                        .map(|routine| &routine.name)
+                        .collect::<Vec<_>>()
+                )
+            });
+        let selected = dependency_closure(&program, BTreeSet::from([graphics.id])).unwrap();
+        let open = program
+            .routines
+            .iter()
+            .find(|routine| {
+                runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT")
+                    .eq_ignore_ascii_case("Open")
+            })
+            .expect("Open routine");
+        assert!(selected.contains(&open.id));
+        assert_eq!(image.routine_units["GRAPHICS"].name, "SYSGR");
+        assert_eq!(image.routine_units["OPEN"].name, "SYSIO");
     }
 
     #[test]
