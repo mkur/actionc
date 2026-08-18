@@ -1617,10 +1617,6 @@ impl<'a> Parser<'a> {
         )
     }
 
-    fn is_fund_type_start(&self) -> bool {
-        self.is_fund_type_start_at(self.pos)
-    }
-
     fn is_fund_type_start_at(&self, pos: usize) -> bool {
         matches!(
             self.tokens.get(pos).map(|token| &token.kind),
@@ -1634,11 +1630,15 @@ impl<'a> Parser<'a> {
     }
 
     fn is_func_decl_start(&self) -> bool {
-        self.is_fund_type_start()
+        self.is_func_decl_start_at(self.pos)
+    }
+
+    fn is_func_decl_start_at(&self, pos: usize) -> bool {
+        self.is_fund_type_start_at(pos)
             && matches!(
                 (
-                    self.tokens.get(self.pos + 1).map(|token| &token.kind),
-                    self.tokens.get(self.pos + 2).map(|token| &token.kind)
+                    self.tokens.get(pos + 1).map(|token| &token.kind),
+                    self.tokens.get(pos + 2).map(|token| &token.kind)
                 ),
                 (
                     Some(TokenKind::Keyword(Keyword::Func)),
@@ -1667,10 +1667,32 @@ impl<'a> Parser<'a> {
 
     fn is_routine_boundary(&self) -> bool {
         self.check_keyword(Keyword::Module)
-            || (self.in_named_module && self.is_contextual_at(self.pos, "ENDMODULE"))
+            || (self.in_named_module
+                && (self.is_contextual_at(self.pos, "ENDMODULE")
+                    || self.is_public_top_level_start()))
             || (self.check_keyword(Keyword::Proc) && !self.is_proc_pointer_decl_start_at(self.pos))
             || self.is_func_decl_start()
             || self.at_eof()
+    }
+
+    fn is_public_top_level_start(&self) -> bool {
+        if !self.is_contextual_at(self.pos, "PUBLIC") {
+            return false;
+        }
+        let next = self.pos + 1;
+        matches!(
+            self.tokens.get(next).map(|token| &token.kind),
+            Some(TokenKind::Keyword(
+                Keyword::Define
+                    | Keyword::Include
+                    | Keyword::Set
+                    | Keyword::Type
+                    | Keyword::Record
+                    | Keyword::Proc
+            ))
+        ) || self.is_const_decl_start_at(next)
+            || self.is_var_decl_start_at(next)
+            || self.is_func_decl_start_at(next)
     }
 
     fn is_statement_body_boundary(&self) -> bool {
@@ -2989,6 +3011,35 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["IMPORT", "AS", "PUBLIC", "ENDMODULE"]
         );
+    }
+
+    #[test]
+    fn public_remains_an_identifier_inside_named_routine_bodies() {
+        let program = parse(
+            &tokenize(
+                "MODULE DEMO\nBYTE PUBLIC\nPROC Main() PUBLIC=1 RETURN\nPUBLIC BYTE Result\nENDMODULE",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let items = &program.modules[0].items;
+        let Item::Routine(routine) = &items[1] else {
+            panic!("expected routine");
+        };
+        assert!(matches!(
+            &routine.body[0],
+            Stmt::Assign {
+                target: Expr {
+                    kind: ExprKind::Name(name),
+                    ..
+                },
+                ..
+            } if name.eq_ignore_ascii_case("PUBLIC")
+        ));
+        let Item::Declaration(Decl::Var(result)) = &items[2] else {
+            panic!("expected public declaration after routine");
+        };
+        assert_eq!(result.visibility, Visibility::Public);
     }
 
     #[test]

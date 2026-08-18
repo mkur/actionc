@@ -21,7 +21,9 @@ use crate::includes::{ModuleLoadOptions, SourceMap, load_compilation};
 use crate::lexer::tokenize;
 use crate::mir6502;
 use crate::nir;
-use crate::semantic::{analyze, ir};
+#[cfg(test)]
+use crate::semantic::analyze;
+use crate::semantic::{analyze_compilation, ir};
 use crate::source::decode_source;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -388,7 +390,7 @@ fn run_main(flavor: CliFlavor) {
         process::exit(2);
     }
 
-    let model = match analyze(program) {
+    let model = match analyze_compilation(&loaded) {
         Ok(model) => model,
         Err(diagnostics) => {
             print_diagnostics_with_source(
@@ -400,6 +402,18 @@ fn run_main(flavor: CliFlavor) {
             process::exit(1);
         }
     };
+    if let crate::ast::SourceUnitKind::Named(module) = &program.source_kind {
+        print_diagnostics_with_source(
+            vec![crate::diagnostic::Diagnostic::new(
+                module.span,
+                "named-module backend lowering is not implemented yet",
+            )],
+            &loaded.source,
+            Some(&loaded.source_map),
+            diagnostic_byte_ranges,
+        );
+        process::exit(1);
+    }
 
     if emit_semir {
         let semir = ir::lower_program(program, &model);

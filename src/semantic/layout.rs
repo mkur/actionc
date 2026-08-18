@@ -111,8 +111,9 @@ impl SemanticLayoutFacts {
             });
             let id = RecordLayoutId(self.records.len());
             self.record_lookup.insert(owner, id);
+            let record_name = symbol.qualified_name.clone();
             let record_type = RecordType::new(
-                symbol.name.clone(),
+                record_name.clone(),
                 owner_fields.iter().map(|field| RecordFieldType {
                     id: Some(field.id),
                     name: field.name.clone(),
@@ -124,7 +125,7 @@ impl SemanticLayoutFacts {
             self.records.push(SemanticRecordLayout {
                 id,
                 owner,
-                name: symbol.name.clone(),
+                name: record_name,
                 record_type,
                 fields: owner_fields
                     .iter()
@@ -175,11 +176,13 @@ fn array_origin(
     if matches!(symbol_class, SymbolClass::Param) {
         return SemanticArrayOrigin::Parameter;
     }
-    if symbols
-        .symbols
-        .get(symbol_id.0)
-        .is_some_and(|symbol| symbol.scope == symbols.global_scope())
-    {
+    if symbols.symbols.get(symbol_id.0).is_some_and(|symbol| {
+        symbol.scope == symbols.global_scope()
+            || matches!(
+                symbols.scopes.get(symbol.scope.0).map(|scope| scope.kind),
+                Some(super::ScopeKind::Module(_))
+            )
+    }) {
         return SemanticArrayOrigin::Global;
     }
     if matches!(symbol_class, SymbolClass::Array) {

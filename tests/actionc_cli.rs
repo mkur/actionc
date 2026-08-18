@@ -96,11 +96,38 @@ fn repeatable_module_paths_are_used_by_compile_and_emit_commands() {
         assert_eq!(output.status.code(), Some(1));
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
-            stderr.contains("named-module semantic resolution is not implemented yet"),
+            stderr.contains("named-module backend lowering is not implemented yet"),
             "module was not found through the ordered paths:\n{stderr}"
         );
         assert!(!stderr.contains("cannot find module"));
     }
+}
+
+#[test]
+fn named_module_semantic_diagnostics_point_into_imported_sources() {
+    let temp = TestDir::new();
+    let root = temp.path().join("main.act");
+    let library = temp.path().join("lib/bad.act");
+    fs::create_dir_all(library.parent().unwrap()).expect("create module directory");
+    fs::write(&root, "MODULE APP\nIMPORT LIB.BAD\nENDMODULE\n").expect("write root module");
+    fs::write(
+        &library,
+        "MODULE LIB.BAD\nPUBLIC PROC Broken() Missing=1 RETURN\nENDMODULE\n",
+    )
+    .expect("write imported module");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .arg(&root)
+        .output()
+        .expect("run compiler");
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("undefined symbol `Missing`"), "{stderr}");
+    assert!(stderr.contains("bad.act"), "{stderr}");
+    assert!(
+        stderr.contains("PUBLIC PROC Broken() Missing=1 RETURN"),
+        "{stderr}"
+    );
 }
 
 #[test]

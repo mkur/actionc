@@ -13,7 +13,7 @@ use crate::codegen::{
 use crate::includes::{ModuleLoadOptions, load_compilation};
 use crate::mir6502;
 use crate::nir;
-use crate::semantic::{analyze, ir, materialize::materialize_constants};
+use crate::semantic::{analyze_compilation, ir, materialize::materialize_constants};
 use crate::source::decode_source;
 
 use self::validation::legacy_routine_retargeting_diagnostics;
@@ -183,7 +183,7 @@ pub(crate) fn compile_file_with_request(
     let program = &loaded.root_module().program;
 
     let request = resolve_request(&loaded.source, request)?;
-    let model = analyze(program).map_err(|diagnostics| {
+    let model = analyze_compilation(&loaded).map_err(|diagnostics| {
         CompileError::from_source_diagnostics(
             CompilerPhase::Semantic,
             diagnostics,
@@ -192,6 +192,18 @@ pub(crate) fn compile_file_with_request(
             Some(&loaded.source_map),
         )
     })?;
+    if let crate::ast::SourceUnitKind::Named(module) = &program.source_kind {
+        return Err(CompileError::from_source_diagnostics(
+            CompilerPhase::Codegen,
+            vec![crate::diagnostic::Diagnostic::new(
+                module.span,
+                "named-module backend lowering is not implemented yet",
+            )],
+            &loaded.source,
+            path,
+            Some(&loaded.source_map),
+        ));
+    }
 
     let output = match request.backend {
         Backend::Classic => compile_classic(
