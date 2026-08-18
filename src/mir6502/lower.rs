@@ -177,7 +177,9 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
             MirRoutine {
                 id: RoutineId(routine_index as u32),
                 name: routine.name.clone(),
-                abi: if routine_has_observable_action_entry(routine) {
+                abi: if routine_has_external_interface(routine) {
+                    MirRoutineAbi::ExternalInterface
+                } else if routine_has_observable_action_entry(routine) {
                     MirRoutineAbi::ActionObservable
                 } else {
                     MirRoutineAbi::Action
@@ -342,6 +344,13 @@ fn routine_has_observable_action_entry(routine: &nir::NirRoutine) -> bool {
         .notes
         .iter()
         .any(|note| note.text.starts_with("system-address "))
+}
+
+fn routine_has_external_interface(routine: &nir::NirRoutine) -> bool {
+    routine
+        .notes
+        .iter()
+        .any(|note| note.kind == nir::NirRoutineNoteKind::ExternalInterface)
 }
 
 fn parse_system_address_note(value: &str) -> Option<u16> {

@@ -201,6 +201,7 @@ impl SemIrAstLowerer {
     fn routine(&mut self, routine: &SemRoutine) -> Option<Routine> {
         Some(Routine {
             visibility: Visibility::Private,
+            is_external: routine.is_external,
             kind: routine.signature.kind.clone(),
             name: routine.symbol.name.clone(),
             system_address: routine

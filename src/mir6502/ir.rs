@@ -249,6 +249,8 @@ pub enum MirRoutineAbi {
     /// Action ABI entry whose physical parameter storage remains observable,
     /// for example a system-address or current-location routine.
     ActionObservable,
+    /// A signature-only interface that the selected runtime must resolve.
+    ExternalInterface,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

@@ -161,8 +161,13 @@ impl NirLowerer {
                         self.storage_symbols.insert(declaration.symbol.name.clone());
                     }
                     crate::semantic::ir::SemItem::Routine(routine) => {
+                        let routine_name = if routine.is_external {
+                            &routine.symbol.qualified_name
+                        } else {
+                            &routine.symbol.name
+                        };
                         let mut builder = NirBuilder::new(
-                            &routine.symbol.name,
+                            routine_name,
                             self.next_block_label(),
                             self.next_static,
                             self.global_ids.clone(),
@@ -277,6 +282,12 @@ impl NirLowerer {
                                     kind: NirRoutineNoteKind::Informational,
                                 });
                             }
+                        }
+                        if routine.is_external {
+                            builder.notes.push(NirRoutineNote {
+                                text: routine.symbol.canonical_qualified_key.clone(),
+                                kind: NirRoutineNoteKind::ExternalInterface,
+                            });
                         }
                         if let Some(address) = &routine.system_address {
                             builder.notes.push(NirRoutineNote {

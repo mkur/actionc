@@ -213,6 +213,7 @@ impl SemLValue {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemRoutine {
     pub symbol: SemSymbolRef,
+    pub is_external: bool,
     pub signature: SemRoutineSignature,
     pub callable_type: CallableType,
     pub params: Vec<SemParam>,
@@ -901,6 +902,9 @@ impl SemIrFormatter {
                 "callable {}",
                 callable_type_summary(&routine.callable_type)
             ));
+            if routine.is_external {
+                this.line("external");
+            }
             if let Some(address) = &routine.system_address {
                 this.line(format!("system {}", expr_summary(address)));
             }
@@ -1804,6 +1808,7 @@ impl<'a> IrBuilder<'a> {
         );
 
         SemRoutine {
+            is_external: routine.is_external,
             callable_type: signature.callable_type(),
             signature,
             params,

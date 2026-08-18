@@ -403,6 +403,9 @@ pub struct NirRoutineNote {
 pub enum NirRoutineNoteKind {
     Informational,
     CurrentLocationEntry,
+    /// Signature-only declaration that runtime binding must resolve before
+    /// emission.
+    ExternalInterface,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
