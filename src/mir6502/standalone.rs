@@ -35,12 +35,6 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
                     )));
                 }
             }
-            MirRuntimeHelperTarget::Deferred if declaration.helper != MirRuntimeHelper::SArgs => {
-                return Err(diagnostic(format!(
-                    "standalone implementation for runtime helper `{}` is not available yet",
-                    super::runtime::helper_name(declaration.helper)
-                )));
-            }
             MirRuntimeHelperTarget::Deferred => {}
         }
     }
@@ -58,7 +52,10 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
     let runtime = syslib_mir()?;
     let roots = required
         .iter()
-        .map(|helper| find_runtime_helper(&runtime, *helper).map(|routine| (*helper, routine)))
+        .map(|helper| {
+            validate_helper_contract(program, &runtime, *helper)?;
+            find_runtime_helper(&runtime, *helper).map(|routine| (*helper, routine))
+        })
         .collect::<Result<BTreeMap<_, _>, _>>()?;
     let selected = dependency_closure(&runtime, roots.values().copied().collect::<BTreeSet<_>>())?;
     let routine_rebase = selected
@@ -156,6 +153,46 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
             declaration.target =
                 MirRuntimeHelperTarget::Routine(routine_rebase[&roots[&declaration.helper]]);
         }
+    }
+    Ok(())
+}
+
+fn validate_helper_contract(
+    application: &MirProgram,
+    runtime: &MirProgram,
+    helper: MirRuntimeHelper,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let application = application
+        .runtime_helpers
+        .iter()
+        .find(|declaration| declaration.helper == helper)
+        .ok_or_else(|| {
+            diagnostic(format!(
+                "application has no logical declaration for runtime helper `{}`",
+                super::runtime::helper_name(helper)
+            ))
+        })?;
+    let implementation = runtime
+        .runtime_helpers
+        .iter()
+        .find(|declaration| declaration.helper == helper)
+        .ok_or_else(|| {
+            diagnostic(format!(
+                "embedded SYSLIB has no contract for runtime helper `{}`",
+                super::runtime::helper_name(helper)
+            ))
+        })?;
+    if application.abi != implementation.abi {
+        return Err(diagnostic(format!(
+            "ABI mismatch for standalone runtime helper `{}`",
+            super::runtime::helper_name(helper)
+        )));
+    }
+    if application.effects != implementation.effects {
+        return Err(diagnostic(format!(
+            "effect mismatch for standalone runtime helper `{}`",
+            super::runtime::helper_name(helper)
+        )));
     }
     Ok(())
 }
@@ -384,8 +421,10 @@ fn diagnostic(message: impl Into<String>) -> Vec<MirDiagnostic> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::asm6502::InlineAsmRelocationKind;
     use crate::mir6502::MirOp;
-    use crate::mir6502::ir::{MirInlineAsmTarget, MirMachineItem};
+    use crate::mir6502::ir::{MirInlineAsmTarget, MirMachineItem, MirRuntimeHelperDecl};
+    use crate::source::Span;
 
     #[test]
     fn embedded_syslib_is_lowered_with_resolved_local_machine_references() {
@@ -424,5 +463,67 @@ mod tests {
                 }
             )
         }));
+    }
+
+    #[test]
+    fn dependency_closure_terminates_and_is_stable_for_a_recursive_group() {
+        let mut program = syslib_mir().expect("compile embedded SYSLIB");
+        let multi = find_runtime_helper(&program, MirRuntimeHelper::Mul).expect("MultI root");
+        let set_sign = program
+            .routines
+            .iter()
+            .find(|routine| runtime_routine_name(&routine.name) == "SetSign")
+            .expect("SetSign dependency");
+        let machine_id = set_sign
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .find_map(|op| match op {
+                MirOp::MachineBlock { id, .. } => Some(*id),
+                _ => None,
+            })
+            .expect("SetSign machine block");
+        program
+            .machine_blocks
+            .iter_mut()
+            .find(|machine| machine.id == machine_id)
+            .expect("SetSign machine payload")
+            .items
+            .push(MirMachineItem::Relocation {
+                kind: InlineAsmRelocationKind::Absolute16,
+                target: MirInlineAsmTarget::Routine(multi),
+                addend: 0,
+                requires_zero_page: false,
+                span: Span::new(0, 0),
+            });
+
+        let first = dependency_closure(&program, BTreeSet::from([multi])).unwrap();
+        let second = dependency_closure(&program, BTreeSet::from([multi])).unwrap();
+        assert_eq!(first, second);
+        assert!(first.contains(&multi));
+        assert!(first.contains(&set_sign.id));
+    }
+
+    #[test]
+    fn standalone_linking_rejects_a_logical_helper_contract_mismatch() {
+        let runtime = syslib_mir().expect("compile embedded SYSLIB");
+        let mut declaration = runtime
+            .runtime_helpers
+            .iter()
+            .find(|declaration| declaration.helper == MirRuntimeHelper::Mul)
+            .expect("MultI declaration")
+            .clone();
+        declaration.target = MirRuntimeHelperTarget::Deferred;
+        declaration.effects.opaque = !declaration.effects.opaque;
+        let mut application = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: Vec::new(),
+            machine_blocks: Vec::new(),
+            runtime_helpers: vec![MirRuntimeHelperDecl { ..declaration }],
+        };
+
+        let diagnostics = link_helpers(&mut application).expect_err("reject effect mismatch");
+        assert!(diagnostics[0].message.contains("effect mismatch"));
     }
 }

@@ -606,6 +606,89 @@ fn standalone_rejects_absolute_sargs_override() {
 }
 
 #[test]
+fn standalone_arithmetic_selects_deterministic_minimal_dependency_closures() {
+    let cases: [(&str, &str, &[&str], &[&str]); 5] = [
+        (
+            "lsh",
+            "LSH",
+            &["LShift"],
+            &["RShift", "MultI", "DivI", "RemI"],
+        ),
+        (
+            "rsh",
+            "RSH",
+            &["RShift"],
+            &["LShift", "MultI", "DivI", "RemI"],
+        ),
+        (
+            "mul",
+            "*",
+            &["SetSign", "SS1", "SMOps", "MultB", "MultI"],
+            &["LShift", "RShift", "DivI", "RemI"],
+        ),
+        (
+            "div",
+            "/",
+            &["SetSign", "SS1", "SMOps", "DivI"],
+            &["LShift", "RShift", "MultB", "MultI", "RemI"],
+        ),
+        (
+            "rem",
+            "MOD",
+            &["SetSign", "SS1", "SMOps", "DivI", "RemI"],
+            &["LShift", "RShift", "MultB", "MultI"],
+        ),
+    ];
+    let temp = TestDir::new();
+    for (label, operator, expected, absent) in cases {
+        let source = temp.path().join(format!("{label}.act"));
+        fs::write(
+            &source,
+            format!(
+                "CARD result=$600\nCARD left=$610\nCARD right=$612\nPROC Main() left=17 right=3 result=left {operator} right result=left {operator} right RETURN\n"
+            ),
+        )
+        .expect("write standalone arithmetic selection source");
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args([
+                "--profile",
+                "modern",
+                "--backend",
+                "mir6502",
+                "--runtime",
+                "standalone",
+                "--emit-map",
+            ])
+            .arg(&source)
+            .output()
+            .expect("emit standalone arithmetic map");
+        assert!(
+            output.status.success(),
+            "standalone {label} compilation failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let map = String::from_utf8_lossy(&output.stdout);
+        for routine in expected {
+            let address_rows = map
+                .lines()
+                .filter(|line| {
+                    line.starts_with('$')
+                        && line.ends_with(&format!("ACTION.RUNTIME.SYSLIB::{routine}"))
+                })
+                .count();
+            assert_eq!(address_rows, 1, "{label} selected {routine} more than once");
+        }
+        for routine in absent {
+            assert!(
+                !map.contains(&format!("ACTION.RUNTIME.SYSLIB::{routine}")),
+                "{label} unexpectedly selected {routine}"
+            );
+        }
+        assert!(!map.contains("copy_right"));
+    }
+}
+
+#[test]
 fn runtime_option_uses_the_space_separated_cli_form() {
     let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
         .arg("--runtime=cart")

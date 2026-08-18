@@ -190,6 +190,35 @@ mod tests {
     }
 
     #[test]
+    fn selectively_linked_arithmetic_executes_without_a_cartridge() {
+        let fixture = runtime_fixture("standalone_arithmetic.act");
+        let compiled = compile_file(
+            &fixture,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(Runtime::Standalone),
+        )
+        .unwrap_or_else(|error| panic!("compile standalone arithmetic fixture: {error}"));
+        let mut vm = vm_for_profile(ExecutionProfile::StandaloneObject);
+        vm.load_atari_object_for_execution(
+            ExecutionProfile::StandaloneObject,
+            compiled.object_bytes(),
+        )
+        .expect("load standalone arithmetic object");
+        let max_steps = 10_000;
+        let outcome = VmRunner::new(vm).run(RunRequest {
+            max_steps,
+            history_len: 8,
+            ..RunRequest::default()
+        });
+        assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+        assert_eq!(
+            (0..10)
+                .map(|offset| outcome.memory().read(RESULT_START + offset))
+                .collect::<Vec<_>>(),
+            hex_bytes("6c 7f 99 02 05 00 a0 91 46 02")
+        );
+    }
+
+    #[test]
     fn kalscope_backend_contracts_execute_through_the_vm_library() {
         assert_both_backends(
             "KALSCOPE backend contracts",
