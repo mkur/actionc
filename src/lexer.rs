@@ -181,6 +181,8 @@ impl NumberKind {
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
+    /// One-based physical source line on which this token begins.
+    pub line: usize,
 }
 
 pub fn tokenize(input: &str) -> Result<Vec<Token>, Vec<Diagnostic>> {
@@ -193,6 +195,7 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, Vec<Diagnostic>> {
     tokens.push(Token {
         kind: TokenKind::Eof,
         span: Span::new(input.len(), input.len()),
+        line: lexer.line,
     });
 
     if lexer.diagnostics.is_empty() {
@@ -205,6 +208,8 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, Vec<Diagnostic>> {
 struct Lexer<'a> {
     input: &'a str,
     pos: usize,
+    line: usize,
+    previous_was_cr: bool,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -213,6 +218,8 @@ impl<'a> Lexer<'a> {
         Self {
             input,
             pos: 0,
+            line: 1,
+            previous_was_cr: false,
             diagnostics: Vec::new(),
         }
     }
@@ -220,15 +227,18 @@ impl<'a> Lexer<'a> {
     fn next_token(&mut self) -> Option<Token> {
         self.skip_trivia();
         let start = self.pos;
+        let start_line = self.line;
         let ch = self.bump()?;
 
         let kind = match ch {
-            'A'..='Z' | 'a'..='z' | '_' => return Some(self.lex_ident_or_keyword(start)),
-            '0'..='9' | '$' => return Some(self.lex_number(start)),
-            '"' | '“' | '”' => return Some(self.lex_string(start, ch)),
-            '\'' => return Some(self.lex_char(start)),
+            'A'..='Z' | 'a'..='z' | '_' => {
+                return Some(self.lex_ident_or_keyword(start, start_line));
+            }
+            '0'..='9' | '$' => return Some(self.lex_number(start, start_line)),
+            '"' | '“' | '”' => return Some(self.lex_string(start, start_line, ch)),
+            '\'' => return Some(self.lex_char(start, start_line)),
             ';' if self.input[start..].starts_with(";@actionc") => {
-                return Some(self.lex_actionc_annotation(start));
+                return Some(self.lex_actionc_annotation(start, start_line));
             }
             '=' => {
                 if self.match_char('=') {
@@ -282,10 +292,11 @@ impl<'a> Lexer<'a> {
         Some(Token {
             kind,
             span: Span::new(start, self.pos),
+            line: start_line,
         })
     }
 
-    fn lex_ident_or_keyword(&mut self, start: usize) -> Token {
+    fn lex_ident_or_keyword(&mut self, start: usize, start_line: usize) -> Token {
         while matches!(self.peek(), Some('A'..='Z' | 'a'..='z' | '0'..='9' | '_')) {
             self.bump();
         }
@@ -293,7 +304,7 @@ impl<'a> Lexer<'a> {
         let text = &self.input[start..self.pos];
         let upper = text.to_ascii_uppercase();
         if upper == "ASM" {
-            return self.lex_inline_asm(start);
+            return self.lex_inline_asm(start, start_line);
         }
         let kind = match upper.as_str() {
             "AND" => TokenKind::Keyword(Keyword::And),
@@ -336,10 +347,11 @@ impl<'a> Lexer<'a> {
         Token {
             kind,
             span: Span::new(start, self.pos),
+            line: start_line,
         }
     }
 
-    fn lex_inline_asm(&mut self, start: usize) -> Token {
+    fn lex_inline_asm(&mut self, start: usize, start_line: usize) -> Token {
         while matches!(self.peek(), Some(' ' | '\t')) {
             self.bump();
         }
@@ -399,6 +411,7 @@ impl<'a> Lexer<'a> {
                         opaque,
                     },
                     span: Span::new(start, line_end),
+                    line: start_line,
                 };
             }
             if self.match_char('\r') {
@@ -419,10 +432,11 @@ impl<'a> Lexer<'a> {
                 opaque,
             },
             span: Span::new(start, self.pos),
+            line: start_line,
         }
     }
 
-    fn lex_actionc_annotation(&mut self, start: usize) -> Token {
+    fn lex_actionc_annotation(&mut self, start: usize, start_line: usize) -> Token {
         while !matches!(self.peek(), None | Some('\n' | '\r')) {
             self.bump();
         }
@@ -434,10 +448,11 @@ impl<'a> Lexer<'a> {
         Token {
             kind: TokenKind::ActioncAnnotation(text),
             span: Span::new(start, self.pos),
+            line: start_line,
         }
     }
 
-    fn lex_number(&mut self, start: usize) -> Token {
+    fn lex_number(&mut self, start: usize, start_line: usize) -> Token {
         if self.input[start..].starts_with('$') {
             let digit_start = self.pos;
             while matches!(self.peek(), Some('0'..='9' | 'A'..='F' | 'a'..='f')) {
@@ -470,6 +485,7 @@ impl<'a> Lexer<'a> {
                     value,
                 }),
                 span: Span::new(start, self.pos),
+                line: start_line,
             };
         } else {
             while matches!(self.peek(), Some('0'..='9')) {
@@ -527,10 +543,11 @@ impl<'a> Lexer<'a> {
         Token {
             kind: TokenKind::Number(NumberLiteral { text, kind, value }),
             span: Span::new(start, self.pos),
+            line: start_line,
         }
     }
 
-    fn lex_string(&mut self, start: usize, quote: char) -> Token {
+    fn lex_string(&mut self, start: usize, start_line: usize, quote: char) -> Token {
         let closing = if quote == '“' { '”' } else { quote };
 
         let mut text = String::new();
@@ -546,6 +563,7 @@ impl<'a> Lexer<'a> {
                 return Token {
                     kind: TokenKind::String(text),
                     span: Span::new(start, self.pos),
+                    line: start_line,
                 };
             }
             if ch == '\\' && self.peek_next() == Some('{') {
@@ -563,10 +581,11 @@ impl<'a> Lexer<'a> {
         Token {
             kind: TokenKind::String(text),
             span: Span::new(start, self.pos),
+            line: start_line,
         }
     }
 
-    fn lex_char(&mut self, start: usize) -> Token {
+    fn lex_char(&mut self, start: usize, start_line: usize) -> Token {
         let value = if self.peek() == Some('\\') && self.peek_next() == Some('{') {
             let chars = self.lex_atascii_escape();
             if chars.len() != 1 {
@@ -583,6 +602,7 @@ impl<'a> Lexer<'a> {
         Token {
             kind: TokenKind::Char(value),
             span: Span::new(start, self.pos),
+            line: start_line,
         }
     }
 
@@ -696,6 +716,19 @@ impl<'a> Lexer<'a> {
     fn bump(&mut self) -> Option<char> {
         let ch = self.peek()?;
         self.pos += ch.len_utf8();
+        match ch {
+            '\r' => {
+                self.line += 1;
+                self.previous_was_cr = true;
+            }
+            '\n' => {
+                if !self.previous_was_cr {
+                    self.line += 1;
+                }
+                self.previous_was_cr = false;
+            }
+            _ => self.previous_was_cr = false,
+        }
         Some(ch)
     }
 
@@ -829,6 +862,25 @@ mod tests {
         assert_eq!(tokens[0].kind, TokenKind::Keyword(Keyword::Include));
         assert_eq!(tokens[1].kind, TokenKind::Keyword(Keyword::Set));
         assert_eq!(tokens[2].kind, TokenKind::Keyword(Keyword::Record));
+    }
+
+    #[test]
+    fn preserves_physical_line_metadata_without_newline_tokens() {
+        let tokens = tokenize("MODULE\r\n  DEMO\rBYTE value\nENDMODULE").unwrap();
+        assert_eq!(
+            tokens.iter().map(|token| token.line).collect::<Vec<_>>(),
+            [1, 2, 3, 3, 4, 4]
+        );
+    }
+
+    #[test]
+    fn module_extension_words_remain_contextual_identifiers() {
+        let tokens = tokenize("IMPORT AS PUBLIC ENDMODULE").unwrap();
+        assert!(matches!(tokens[0].kind, TokenKind::Ident(ref name) if name == "IMPORT"));
+        assert!(matches!(tokens[1].kind, TokenKind::Ident(ref name) if name == "AS"));
+        assert!(matches!(tokens[2].kind, TokenKind::Ident(ref name) if name == "PUBLIC"));
+        assert!(matches!(tokens[3].kind, TokenKind::Ident(ref name) if name == "ENDMODULE"));
+        assert_eq!(Keyword::Module.action_token_id(), 87);
     }
 
     #[test]

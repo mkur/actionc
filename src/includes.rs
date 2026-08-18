@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::ast::{Item, Module, Program};
+use crate::ast::{Item, Module, Program, SourceUnitKind};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::tokenize;
 use crate::parser::parse;
@@ -120,7 +120,7 @@ pub fn load_program_with_expanded_source_from_provider(
 ) -> Result<LoadedProgram, Vec<Diagnostic>> {
     let mut loader = SourceLoader::new(provider);
     let mut active = Vec::new();
-    let expanded = loader.load_expanded_source(origin, &mut active)?;
+    let expanded = loader.load_expanded_source(origin, &mut active, true)?;
     let tokens = tokenize(&expanded.source)?;
     let program = parse(&tokens)?;
     Ok(LoadedProgram {
@@ -189,6 +189,7 @@ impl<'a> SourceLoader<'a> {
         &mut self,
         origin: SourceOrigin,
         active: &mut Vec<SourceOrigin>,
+        allow_named: bool,
     ) -> Result<ExpandedSource, Vec<Diagnostic>> {
         let resolved = self.provider.resolve(&origin);
         let key = self.provider.canonical_key(&resolved);
@@ -200,7 +201,7 @@ impl<'a> SourceLoader<'a> {
         }
 
         active.push(key);
-        let result = self.read_expand_source(resolved, active);
+        let result = self.read_expand_source(resolved, active, allow_named);
         active.pop();
         result
     }
@@ -209,11 +210,18 @@ impl<'a> SourceLoader<'a> {
         &mut self,
         origin: SourceOrigin,
         active: &mut Vec<SourceOrigin>,
+        allow_named: bool,
     ) -> Result<ExpandedSource, Vec<Diagnostic>> {
         let source_text = self.read_source(origin)?;
         let source = source_text.decode();
         let tokens = tokenize(&source)?;
         let program = parse(&tokens)?;
+        if !allow_named && let SourceUnitKind::Named(module) = &program.source_kind {
+            return Err(vec![Diagnostic::new(
+                module.span,
+                "an included fragment cannot declare a named module; use IMPORT instead",
+            )]);
+        }
         let mut source_map = SourceMap::default();
         let file_id = source_map.add_file(&source_text, source.clone());
         self.expand_source_includes(&source_text, &source, &program, active, source_map, file_id)
@@ -277,7 +285,7 @@ impl<'a> SourceLoader<'a> {
                     continue;
                 }
             };
-            match self.load_expanded_source(include_origin.clone(), active) {
+            match self.load_expanded_source(include_origin.clone(), active, false) {
                 Ok(included) => {
                     append_expanded_source(&mut expanded, &mut source_map, included);
                     if !expanded.ends_with('\n')
@@ -335,6 +343,12 @@ impl<'a> SourceLoader<'a> {
         let source = source_text.decode();
         let tokens = tokenize(&source)?;
         let program = parse(&tokens)?;
+        if let SourceUnitKind::Named(module) = &program.source_kind {
+            return Err(vec![Diagnostic::new(
+                module.span,
+                "an included fragment cannot declare a named module; use IMPORT instead",
+            )]);
+        }
         self.expand_program(program, &source_text.origin, active)
     }
 
@@ -346,6 +360,7 @@ impl<'a> SourceLoader<'a> {
     ) -> Result<Program, Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
         let mut modules = Vec::new();
+        let source_kind = program.source_kind;
 
         for module in program.modules {
             let mut items = Vec::new();
@@ -354,7 +369,10 @@ impl<'a> SourceLoader<'a> {
         }
 
         if diagnostics.is_empty() {
-            Ok(Program { modules })
+            Ok(Program {
+                modules,
+                source_kind,
+            })
         } else {
             Err(diagnostics)
         }
@@ -647,6 +665,51 @@ mod tests {
         assert_eq!(location.origin, origin);
         assert_eq!(location.origin.to_string(), "<embedded:TEST>");
         assert_eq!(location.excerpt, "BYTE value");
+    }
+
+    #[test]
+    fn included_fragment_cannot_declare_a_named_module() {
+        let root = SourceOrigin::host(PathBuf::from("project/main.act"));
+        let fragment = SourceOrigin::host(PathBuf::from("project/fragment.act"));
+        let provider = InMemorySourceProvider::default()
+            .with_source(
+                root.clone(),
+                b"MODULE ROOT\nINCLUDE \"fragment.act\"\nENDMODULE\n".to_vec(),
+            )
+            .with_source(
+                fragment,
+                b"MODULE NESTED\nPUBLIC BYTE value\nENDMODULE\n".to_vec(),
+            );
+
+        let Err(diagnostics) = load_program_with_expanded_source_from_provider(root, &provider)
+        else {
+            panic!("expected named include rejection");
+        };
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("included fragment cannot declare a named module")
+        }));
+    }
+
+    #[test]
+    fn included_declarations_inherit_the_named_owner_context() {
+        let root = SourceOrigin::host(PathBuf::from("project/main.act"));
+        let fragment = SourceOrigin::host(PathBuf::from("project/fragment.act"));
+        let provider = InMemorySourceProvider::default()
+            .with_source(
+                root.clone(),
+                b"MODULE ROOT\nINCLUDE \"fragment.act\"\nENDMODULE\n".to_vec(),
+            )
+            .with_source(fragment, b"PUBLIC VOLATILE BYTE WSYNC=$D40A\n".to_vec());
+
+        let loaded = load_program_with_expanded_source_from_provider(root, &provider).unwrap();
+        let Item::Declaration(crate::ast::Decl::Var(var)) = &loaded.program.modules[0].items[0]
+        else {
+            panic!("expected included register declaration");
+        };
+        assert_eq!(var.visibility, crate::ast::Visibility::Public);
+        assert!(var.qualifiers.is_volatile);
     }
 
     #[test]

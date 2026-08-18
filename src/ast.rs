@@ -4,7 +4,54 @@ use crate::source::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Program {
+    /// Retained as declaration regions for compatibility with the existing
+    /// semantic and code-generation pipeline. Named files always have one.
     pub modules: Vec<Module>,
+    pub source_kind: SourceUnitKind,
+}
+
+impl Program {
+    pub fn legacy(modules: Vec<Module>) -> Self {
+        Self {
+            modules,
+            source_kind: SourceUnitKind::Legacy,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SourceUnitKind {
+    Legacy,
+    Named(NamedModuleDecl),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedModuleDecl {
+    pub path: ModulePath,
+    pub imports: Vec<ImportDecl>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportDecl {
+    pub path: ModulePath,
+    /// The explicit or default alias. Open imports have no alias.
+    pub alias: Option<String>,
+    pub open: bool,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModulePath {
+    pub components: Vec<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Visibility {
+    #[default]
+    Private,
+    Public,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,6 +105,7 @@ pub enum Decl {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConstDecl {
+    pub visibility: Visibility,
     pub declared_type: Option<FundType>,
     pub entries: Vec<ConstEntry>,
     pub span: Span,
@@ -72,6 +120,7 @@ pub struct ConstEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VarDecl {
+    pub visibility: Visibility,
     pub qualifiers: VarQualifiers,
     pub ty: TypeRef,
     pub storage: VarStorage,
@@ -94,6 +143,7 @@ pub struct DeclEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeDecl {
+    pub visibility: Visibility,
     pub name: String,
     pub fields: Vec<VarDecl>,
     pub span: Span,
@@ -101,6 +151,7 @@ pub struct TypeDecl {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordDecl {
+    pub visibility: Visibility,
     pub name: String,
     pub fields: Vec<VarDecl>,
     pub span: Span,
@@ -127,6 +178,7 @@ pub enum VarStorage {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Routine {
+    pub visibility: Visibility,
     pub kind: RoutineKind,
     pub name: String,
     pub system_address: Option<Expr>,

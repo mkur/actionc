@@ -29,6 +29,7 @@ impl SemIrAstLowerer {
                 .iter()
                 .map(|module| self.module(module))
                 .collect(),
+            source_kind: SourceUnitKind::Legacy,
         }
     }
 
@@ -124,6 +125,7 @@ impl SemIrAstLowerer {
         match &decl.storage {
             SemDeclarationStorage::Type { fields, .. } => {
                 return Some(Decl::Type(TypeDecl {
+                    visibility: Visibility::Private,
                     name: decl.symbol.name.clone(),
                     fields: self.record_fields(fields),
                     span: decl.span,
@@ -131,6 +133,7 @@ impl SemIrAstLowerer {
             }
             SemDeclarationStorage::Record { fields, .. } => {
                 return Some(Decl::Record(RecordDecl {
+                    visibility: Visibility::Private,
                     name: decl.symbol.name.clone(),
                     fields: self.record_fields(fields),
                     span: decl.span,
@@ -163,6 +166,7 @@ impl SemIrAstLowerer {
         };
 
         Some(Decl::Var(VarDecl {
+            visibility: Visibility::Private,
             qualifiers: VarQualifiers {
                 is_volatile: decls.iter().any(|decl| decl.symbol.is_volatile),
             },
@@ -193,6 +197,7 @@ impl SemIrAstLowerer {
 
     fn routine(&mut self, routine: &SemRoutine) -> Option<Routine> {
         Some(Routine {
+            visibility: Visibility::Private,
             kind: routine.signature.kind.clone(),
             name: routine.symbol.name.clone(),
             system_address: routine
@@ -244,6 +249,7 @@ impl SemIrAstLowerer {
 
     fn param(&mut self, param: &SemParam) -> VarDecl {
         VarDecl {
+            visibility: Visibility::Private,
             qualifiers: VarQualifiers::default(),
             ty: self.type_ref(&param.ty.value),
             storage: match param.storage {
@@ -274,6 +280,7 @@ impl SemIrAstLowerer {
                     ),
                 };
                 VarDecl {
+                    visibility: Visibility::Private,
                     qualifiers: VarQualifiers::default(),
                     ty: self.type_ref(&field.ty.value),
                     storage,

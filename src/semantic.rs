@@ -237,6 +237,13 @@ pub struct StmtFlowFacts {
 }
 
 pub fn analyze(program: &Program) -> Result<SemanticModel, Vec<Diagnostic>> {
+    if let SourceUnitKind::Named(module) = &program.source_kind {
+        return Err(vec![Diagnostic::new(
+            module.span,
+            "named-module semantic resolution is not implemented yet",
+        )]);
+    }
+
     let mut analyzer = Analyzer::new();
     analyzer.seed_builtins();
     analyzer.analyze_program(program);

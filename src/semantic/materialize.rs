@@ -36,6 +36,7 @@ impl Materializer<'_> {
                         .collect(),
                 })
                 .collect(),
+            source_kind: program.source_kind.clone(),
         }
     }
 
