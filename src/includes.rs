@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use crate::ast::{ImportDecl, Item, Module, ModulePath, Program, SourceUnitKind};
 use crate::diagnostic::Diagnostic;
@@ -807,20 +807,67 @@ fn append_expanded_source(
 }
 
 fn include_origin(owner: &SourceOrigin, include_path: &str) -> Result<SourceOrigin, String> {
-    let Some(owner_path) = owner.host_path() else {
+    let host_path = strip_atari_device(include_path);
+    if let Some(owner_path) = owner.host_path() {
+        let base_dir = owner_path.parent().unwrap_or_else(|| Path::new("."));
+        let path = Path::new(host_path);
+        let candidate = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            base_dir.join(path)
+        };
+        return Ok(SourceOrigin::host(candidate));
+    }
+
+    let Some(owner_path) = owner.virtual_path() else {
         return Err(format!(
-            "host INCLUDE `{include_path}` cannot be resolved from {owner}"
+            "INCLUDE `{include_path}` cannot be resolved from {owner}"
         ));
     };
-    let base_dir = owner_path.parent().unwrap_or_else(|| Path::new("."));
-    let host_path = strip_atari_device(include_path);
-    let path = Path::new(host_path);
-    let candidate = if path.is_absolute() {
-        path.to_path_buf()
-    } else {
-        base_dir.join(path)
-    };
-    Ok(SourceOrigin::host(candidate))
+    embedded_include_origin(owner_path, host_path)
+}
+
+fn embedded_include_origin(owner_path: &str, include_path: &str) -> Result<SourceOrigin, String> {
+    let include_path = include_path.replace('\\', "/");
+    let path = Path::new(&include_path);
+    if path.is_absolute() {
+        return Err(format!(
+            "embedded INCLUDE `{include_path}` must be relative"
+        ));
+    }
+
+    let mut components = Path::new(owner_path)
+        .parent()
+        .unwrap_or_else(|| Path::new(""))
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(component) => Some(component.to_string_lossy().to_string()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for component in path.components() {
+        match component {
+            Component::Normal(component) => {
+                components.push(component.to_string_lossy().to_ascii_lowercase())
+            }
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(format!(
+                    "embedded INCLUDE `{include_path}` cannot escape its virtual directory"
+                ));
+            }
+        }
+    }
+    if components.is_empty() {
+        return Err(format!(
+            "embedded INCLUDE `{include_path}` has no file name"
+        ));
+    }
+    let virtual_path = components.join("/");
+    Ok(SourceOrigin::embedded(
+        virtual_path.clone(),
+        format!("<embedded:{}>", virtual_path.to_ascii_uppercase()),
+    ))
 }
 
 fn strip_atari_device(path: &str) -> &str {
@@ -1011,6 +1058,36 @@ mod tests {
         assert_eq!(location.origin, origin);
         assert_eq!(location.origin.to_string(), "<embedded:TEST>");
         assert_eq!(location.excerpt, "BYTE value");
+    }
+
+    #[test]
+    fn embedded_include_is_relative_case_normalized_and_mapped() {
+        let root = SourceOrigin::embedded("runtime/all.act", "<embedded:RUNTIME/ALL.ACT>");
+        let fragment = SourceOrigin::embedded("runtime/part.act", "<embedded:RUNTIME/PART.ACT>");
+        let provider = InMemorySourceProvider::default()
+            .with_source(
+                root.clone(),
+                b"BYTE before\nINCLUDE \"PART.ACT\"\n".to_vec(),
+            )
+            .with_source(fragment.clone(), b"BYTE included\n".to_vec());
+
+        let loaded = load_program_with_expanded_source_from_provider(root, &provider)
+            .expect("embedded include");
+        let Item::Declaration(crate::ast::Decl::Var(var)) = &loaded.program.modules[0].items[1]
+        else {
+            panic!("expected included declaration");
+        };
+        assert_eq!(
+            loaded.source_map.location(var.span).unwrap().origin,
+            fragment
+        );
+    }
+
+    #[test]
+    fn embedded_include_cannot_escape_its_virtual_directory() {
+        let owner = SourceOrigin::embedded("runtime/all.act", "<embedded:RUNTIME/ALL.ACT>");
+        let error = include_origin(&owner, "../private.act").expect_err("escaped include");
+        assert!(error.contains("cannot escape its virtual directory"));
     }
 
     #[test]
