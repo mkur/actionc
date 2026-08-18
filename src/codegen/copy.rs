@@ -48,6 +48,7 @@ impl Generator {
 
     pub(super) fn can_forward_recent_a_store(&self, slot: StorageSlot, byte_index: u16) -> bool {
         self.profile.enables_modern_optimizations()
+            && !slot.is_volatile
             && self.last_label_position != Some(self.emitter.position())
             && self.last_instruction_stored_a_to_slot_byte(slot, byte_index)
     }
@@ -76,6 +77,7 @@ impl Generator {
     pub(super) fn emit_store_constant(&mut self, slot: StorageSlot, value: u16) {
         let immediate = Immediate::new(value);
         if self.profile.enables_modern_optimizations()
+            && !slot.is_volatile
             && slot.space == AddressSpace::ZeroPage
             && slot.size == 1
             && slot.array.is_none()

@@ -2388,12 +2388,20 @@ impl Generator {
         if pointer == runtime_zp::ARRAY_ADDR
             && let Some(pointer) = self.emit_compatible_word_array_expr_index_address(array, index)
         {
-            return Some(StorageSlot::indirect_indexed_y(pointer, array.size).signed(array.signed));
+            return Some(
+                StorageSlot::indirect_indexed_y(pointer, array.size)
+                    .signed(array.signed)
+                    .volatile(array.is_volatile),
+            );
         }
         if !self.emit_array_base_plus_scaled_byte_index_to_pointer(array, index, pointer) {
             return None;
         }
-        Some(StorageSlot::indirect_indexed_y(pointer, array.size).signed(array.signed))
+        Some(
+            StorageSlot::indirect_indexed_y(pointer, array.size)
+                .signed(array.signed)
+                .volatile(array.is_volatile),
+        )
     }
 
     fn arithmetic_operand_needs_codegen_temp(&self, expr: &Expr) -> bool {

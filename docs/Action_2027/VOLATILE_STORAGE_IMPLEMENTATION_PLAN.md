@@ -1,7 +1,8 @@
 # Volatile Storage Implementation Plan
 
 Implementation status: in progress on the `Action-2027` branch. Syntax,
-semantic facts, and the executable NIR contract are implemented.
+semantic facts, the executable NIR contract, and both public classic modes are
+implemented.
 
 ## Goal
 

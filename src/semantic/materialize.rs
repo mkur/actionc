@@ -99,6 +99,14 @@ impl Materializer<'_> {
     }
 
     fn var_declaration(&self, scope: ScopeId, declaration: &mut VarDecl) {
+        // The classic AST bridge must retain volatility inferred by semantic
+        // alias resolution, not only an explicit source qualifier.
+        declaration.qualifiers.is_volatile |= declaration.entries.iter().any(|entry| {
+            self.model
+                .symbols
+                .lookup(scope, &entry.name)
+                .is_some_and(|id| self.model.symbols.symbols[id.0].is_volatile)
+        });
         for entry in &mut declaration.entries {
             if let Some(size) = &mut entry.size {
                 self.expr(scope, size);

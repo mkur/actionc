@@ -45,7 +45,11 @@ impl Generator {
             }
             MachineSymbolAddress::Label(_) => return None,
         };
-        Some(StorageSlot::from_absolute(address, array.size).signed(array.signed))
+        Some(
+            StorageSlot::from_absolute(address, array.size)
+                .signed(array.signed)
+                .volatile(array.is_volatile),
+        )
     }
 
     fn emit_fixed_array_base_byte(&mut self, target: MachineSymbolAddress, byte_index: u16) {
@@ -1300,7 +1304,9 @@ impl Generator {
                 };
                 self.emit_complex_byte_index_array_address_to_pointer(slot, index, pointer, temp)?;
             }
-            let indexed = StorageSlot::indirect_indexed_y(pointer, slot.size).signed(slot.signed);
+            let indexed = StorageSlot::indirect_indexed_y(pointer, slot.size)
+                .signed(slot.signed)
+                .volatile(slot.is_volatile);
             debug_assert_prepared_indirect_slot(indexed, pointer, "dynamic array index");
             return Some(indexed);
         }
@@ -1320,8 +1326,9 @@ impl Generator {
                 } else {
                     self.emit_array_base_to_pointer(slot, pointer)?;
                 }
-                let indexed =
-                    StorageSlot::indirect_indexed_y(pointer, slot.size).signed(slot.signed);
+                let indexed = StorageSlot::indirect_indexed_y(pointer, slot.size)
+                    .signed(slot.signed)
+                    .volatile(slot.is_volatile);
                 debug_assert_prepared_indirect_slot(indexed, pointer, "constant array index");
                 Some(indexed)
             }
@@ -1359,7 +1366,9 @@ impl Generator {
         } else {
             self.emit_array_base_to_pointer(array, pointer)?;
         }
-        let indexed = StorageSlot::indirect_indexed_y(pointer, array.size).signed(array.signed);
+        let indexed = StorageSlot::indirect_indexed_y(pointer, array.size)
+            .signed(array.signed)
+            .volatile(array.is_volatile);
         debug_assert_prepared_indirect_slot(indexed, pointer, "constant descriptor index");
         Some(indexed)
     }

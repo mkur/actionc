@@ -798,6 +798,9 @@ impl ProcessorState {
     }
 
     pub(super) fn memory_value(&self, slot: StorageSlot, byte_index: u16) -> Option<ValueFact> {
+        if slot.is_volatile {
+            return None;
+        }
         self.memory.value(MemoryByte { slot, byte_index })
     }
 
@@ -819,6 +822,10 @@ impl ProcessorState {
     }
 
     pub(super) fn set_memory_byte(&mut self, slot: StorageSlot, byte_index: u16, value: ValueFact) {
+        if slot.is_volatile {
+            self.invalidate_memory();
+            return;
+        }
         let byte = MemoryByte { slot, byte_index };
         self.invalidate_register_memory_aliases(byte);
         self.memory.set(byte, value);
