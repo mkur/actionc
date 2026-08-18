@@ -55,6 +55,8 @@ impl Generator {
                 .then_with(|| left.name.cmp(&right.name))
         });
         let map = CodegenMap {
+            runtime: crate::runtime::Runtime::ActionCart,
+            runtime_bindings: Vec::new(),
             origin,
             run_address,
             skipped_ranges: skipped_ranges.clone(),

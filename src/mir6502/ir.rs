@@ -840,7 +840,7 @@ pub enum MirResultHome {
     ReturnSlot { offset: u16 },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MirRuntimeHelper {
     Mul,
     Div,

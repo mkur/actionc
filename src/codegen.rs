@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
 use crate::resident::{ResidentVariableKind, ResidentVariableStorage, resident_variable};
+use crate::runtime::Runtime;
 use crate::source::{Span, source_char_byte};
 
 const DATA_BASE: u16 = 0x0600;
@@ -57,6 +58,8 @@ pub(crate) struct FinalizedEmission {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CodegenMap {
+    pub runtime: Runtime,
+    pub runtime_bindings: Vec<CodegenRuntimeBinding>,
     pub origin: u16,
     pub run_address: u16,
     pub skipped_ranges: Vec<SkippedRange>,
@@ -70,6 +73,14 @@ pub struct CodegenMap {
     pub optimizations: Vec<CodegenOptimization>,
     pub proofs: Vec<CodegenProof>,
     pub proof_attempts: Vec<CodegenProofAttempt>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CodegenRuntimeBinding {
+    pub helper: String,
+    pub implementation: String,
+    pub address: Option<u16>,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

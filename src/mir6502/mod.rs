@@ -11,6 +11,7 @@ mod materialize;
 mod passes;
 mod printer;
 mod rewrite;
+mod runtime;
 mod verify;
 
 pub use diagnostics::MirDiagnostic;
@@ -51,12 +52,28 @@ pub fn materialize_program_with_origin(
     config: &Mir6502Config,
     origin: u16,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    materialize_program_with_origin_and_runtime(
+        program,
+        config,
+        origin,
+        crate::runtime::Runtime::ActionCart,
+    )
+}
+
+pub fn materialize_program_with_origin_and_runtime(
+    program: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     verify::verify_program(&program, MirPhase::PreMaterialization)
         .map_err(|diagnostics| phase_diagnostics("pre-materialization", diagnostics))?;
-    let materialized = materialize::materialize_program(program, config, origin)
+    let mut materialized = materialize::materialize_program(program, config, origin)
         .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
     verify::verify_program(&materialized, MirPhase::PostMaterialization)
         .map_err(|diagnostics| phase_diagnostics("post-materialization", diagnostics))?;
+    runtime::resolve_helpers(&mut materialized, runtime)
+        .map_err(|diagnostics| phase_diagnostics("runtime resolution", diagnostics))?;
     Ok(materialized)
 }
 
@@ -84,8 +101,24 @@ pub fn generate_output_with_config(
     origin: u16,
     config: &Mir6502Config,
 ) -> Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>> {
+    generate_output_with_config_and_runtime(
+        nir,
+        origin,
+        config,
+        crate::runtime::Runtime::ActionCart,
+    )
+}
+
+pub fn generate_output_with_config_and_runtime(
+    nir: &NirProgram,
+    origin: u16,
+    config: &Mir6502Config,
+    runtime: crate::runtime::Runtime,
+) -> Result<crate::codegen::CodegenOutput, Vec<MirDiagnostic>> {
     let mir = lower_program(nir)?;
-    let mir = materialize_program_with_origin(mir, config, origin)?;
+    let mir = materialize_program_with_origin_and_runtime(mir, config, origin, runtime)?;
+    verify::verify_program(&mir, MirPhase::PreEmission)
+        .map_err(|diagnostics| phase_diagnostics("pre-emission", diagnostics))?;
     let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(origin);
     let summary = emit::emit_program(&mir, origin, &mut emitter)?;
     let emission = emitter.finish_with_relocations().map_err(|diagnostics| {
@@ -98,13 +131,15 @@ pub fn generate_output_with_config(
             })
             .collect::<Vec<_>>()
     })?;
-    Ok(codegen_output(emission, origin, summary))
+    Ok(codegen_output(emission, origin, summary, runtime, &mir))
 }
 
 fn codegen_output(
     emission: crate::codegen::FinalizedEmission,
     origin: u16,
     summary: emit::MirEmissionSummary,
+    runtime: crate::runtime::Runtime,
+    mir: &MirProgram,
 ) -> crate::codegen::CodegenOutput {
     let skipped_ranges = summary.skipped_ranges;
     let routine_addresses = summary.routine_addresses;
@@ -117,6 +152,8 @@ fn codegen_output(
         .or_else(|| routine_addresses.last())
         .map_or(origin, |routine| routine.address);
     let map = crate::codegen::CodegenMap {
+        runtime,
+        runtime_bindings: runtime_bindings(mir, &routine_addresses),
         origin,
         run_address,
         skipped_ranges: skipped_ranges.clone(),
@@ -143,6 +180,48 @@ fn codegen_output(
         proof_attempts,
         map,
     }
+}
+
+fn runtime_bindings(
+    mir: &MirProgram,
+    routine_addresses: &[crate::codegen::RoutineAddress],
+) -> Vec<crate::codegen::CodegenRuntimeBinding> {
+    mir.runtime_helpers
+        .iter()
+        .map(|declaration| {
+            let (implementation, address, reason) = match declaration.target {
+                MirRuntimeHelperTarget::KnownAbsolute(address) => (
+                    "absolute runtime entry".to_string(),
+                    Some(address),
+                    "required by MIR target legalization".to_string(),
+                ),
+                MirRuntimeHelperTarget::Routine(id) => {
+                    let name = mir
+                        .routines
+                        .iter()
+                        .find(|routine| routine.id == id)
+                        .map(|routine| routine.name.clone())
+                        .unwrap_or_else(|| format!("r{}", id.0));
+                    let address = routine_addresses
+                        .iter()
+                        .find(|routine| routine.name == name)
+                        .map(|routine| routine.address);
+                    (name, address, "resolved local runtime override".to_string())
+                }
+                MirRuntimeHelperTarget::Deferred => (
+                    "deferred".to_string(),
+                    None,
+                    "unresolved runtime requirement".to_string(),
+                ),
+            };
+            crate::codegen::CodegenRuntimeBinding {
+                helper: runtime::helper_name(declaration.helper).to_string(),
+                implementation,
+                address,
+                reason,
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

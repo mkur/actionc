@@ -16,6 +16,7 @@ pub mod nir;
 pub mod parser;
 pub mod resident;
 pub mod runner;
+pub mod runtime;
 pub mod semantic;
 pub mod source;
 

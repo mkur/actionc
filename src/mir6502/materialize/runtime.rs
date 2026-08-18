@@ -17,25 +17,13 @@ pub(super) fn ensure_helper_decl(program: &mut MirProgram, helper: MirRuntimeHel
         return;
     }
     program.runtime_helpers.push(MirRuntimeHelperDecl {
-        target: helper_target(&helper),
+        // Helper discovery records a logical requirement.  The selected
+        // runtime owns the later physical binding.
+        target: MirRuntimeHelperTarget::Deferred,
         effects: helper_effects(&helper),
         helper,
         abi: helper_abi(),
     });
-}
-
-fn helper_target(helper: &MirRuntimeHelper) -> MirRuntimeHelperTarget {
-    use crate::codegen::runtime_helper;
-
-    let address = match helper {
-        MirRuntimeHelper::Mul => runtime_helper::CARTRIDGE_MUL,
-        MirRuntimeHelper::Div => runtime_helper::CARTRIDGE_DIV,
-        MirRuntimeHelper::Mod => runtime_helper::CARTRIDGE_MOD,
-        MirRuntimeHelper::Lsh => runtime_helper::CARTRIDGE_LSH,
-        MirRuntimeHelper::Rsh => runtime_helper::CARTRIDGE_RSH,
-        MirRuntimeHelper::SArgs => runtime_helper::CARTRIDGE_SARGS,
-    };
-    MirRuntimeHelperTarget::KnownAbsolute(address.address())
 }
 
 pub(in crate::mir6502) fn helper_abi() -> MirCallAbi {

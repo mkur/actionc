@@ -437,6 +437,70 @@ fn invalid_profile_backend_combination_remains_a_configuration_error() {
 }
 
 #[test]
+fn explicit_cart_runtime_matches_the_default_in_every_mode() {
+    let temp = TestDir::new();
+    for mode in ["compatibility", "optimized", "mir6502"] {
+        let implicit = temp.path().join(format!("{mode}-implicit.com"));
+        let explicit = temp.path().join(format!("{mode}-cart.com"));
+        for (output, runtime) in [(&implicit, None), (&explicit, Some("cart"))] {
+            let mut command = Command::new(env!("CARGO_BIN_EXE_actionc"));
+            command.arg("--mode").arg(mode);
+            if let Some(runtime) = runtime {
+                command.arg("--runtime").arg(runtime);
+            }
+            let result = command
+                .arg("--output")
+                .arg(output)
+                .arg(hello_world())
+                .output()
+                .expect("compile runtime-equivalence fixture");
+            assert!(
+                result.status.success(),
+                "actionc --mode {mode} failed\nstderr:\n{}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+        }
+        assert_eq!(
+            fs::read(&implicit).expect("read implicit-runtime object"),
+            fs::read(&explicit).expect("read explicit-cart object"),
+            "explicit cart changed {mode} output"
+        );
+    }
+}
+
+#[test]
+fn unsupported_standalone_configurations_fail_without_switching_backend() {
+    let temp = TestDir::new();
+    for (mode, backend) in [("compatibility", "classic"), ("mir6502", "mir6502")] {
+        let object = temp.path().join(format!("{mode}.com"));
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .args(["--mode", mode, "--runtime", "standalone", "--output"])
+            .arg(&object)
+            .arg(hello_world())
+            .output()
+            .expect("run unsupported standalone configuration");
+        assert_eq!(output.status.code(), Some(2));
+        assert!(String::from_utf8_lossy(&output.stderr).contains(&format!(
+            "--runtime standalone is not supported by the {backend} backend yet"
+        )));
+        assert!(!object.exists());
+    }
+}
+
+#[test]
+fn runtime_option_uses_the_space_separated_cli_form() {
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .arg("--runtime=cart")
+        .arg(hello_world())
+        .output()
+        .expect("run invalid equals-form runtime option");
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("unexpected argument: --runtime=cart")
+    );
+}
+
+#[test]
 fn advanced_classic_codegen_sources_survive_the_api_migration() {
     let temp = TestDir::new();
     let source = temp.path().join("minimal.act");

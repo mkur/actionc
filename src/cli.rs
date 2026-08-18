@@ -12,7 +12,7 @@ use crate::codegen::{
 };
 use crate::compiler::{
     Backend, CodegenSource, CompileError, CompileErrorKind, CompileMode, CompileRequest,
-    CompiledProgram, CompilerPhase, DiagnosticSite,
+    CompiledProgram, CompilerPhase, DiagnosticSite, Runtime,
     artifacts::{format_listing_with_boundaries, format_listing_with_source},
     compile_file_with_request, mir6502_default_origin_from_semir, mode_profile_backend,
     validation::legacy_routine_retargeting_diagnostics,
@@ -79,6 +79,8 @@ fn run_main(flavor: CliFlavor) {
     let mut codegen_source = CodegenSource::Ast;
     let mut backend = Backend::Classic;
     let mut backend_explicit = false;
+    let mut runtime = Runtime::ActionCart;
+    let mut runtime_explicit = false;
     let mut compile_mode = None;
     let mut output_path = None;
     let mut listing_path = None;
@@ -196,6 +198,15 @@ fn run_main(flavor: CliFlavor) {
                 };
                 backend = parse_backend_or_exit(&value);
                 backend_explicit = true;
+            }
+            "--runtime" => {
+                let Some(value) = args.next() else {
+                    eprintln!("--runtime requires cart or standalone");
+                    print_help_for(flavor);
+                    process::exit(2);
+                };
+                runtime = parse_runtime_or_exit(&value);
+                runtime_explicit = true;
             }
             _ if arg.starts_with("--backend=") => {
                 backend = parse_backend_or_exit(&arg["--backend=".len()..]);
@@ -315,6 +326,8 @@ fn run_main(flavor: CliFlavor) {
             profile_explicit,
             backend,
             backend_explicit,
+            runtime,
+            runtime_explicit,
             codegen_source,
             origin: origin_explicit.then_some(origin),
             project_root: None,
@@ -386,6 +399,10 @@ fn run_main(flavor: CliFlavor) {
         backend_explicit,
     );
     if let Some(message) = profile_backend_error(profile, backend) {
+        eprintln!("{message}");
+        process::exit(2);
+    }
+    if let Some(message) = runtime_backend_error(runtime, backend) {
         eprintln!("{message}");
         process::exit(2);
     }
@@ -465,7 +482,12 @@ fn run_main(flavor: CliFlavor) {
             process::exit(1);
         }
         if emit_materialized_mir6502 {
-            let mir = match mir6502::materialize_program(mir, &mir6502::Mir6502Config::default()) {
+            let mir = match mir6502::materialize_program_with_origin_and_runtime(
+                mir,
+                &mir6502::Mir6502Config::default(),
+                CODE_ORIGIN,
+                runtime,
+            ) {
                 Ok(mir) => mir,
                 Err(diagnostics) => {
                     print_mir6502_diagnostics(diagnostics);
@@ -512,7 +534,12 @@ fn run_main(flavor: CliFlavor) {
             } else {
                 mir6502::Mir6502Config::default()
             };
-            match mir6502::generate_output_with_config(&nir, mir_origin, &mir_config) {
+            match mir6502::generate_output_with_config_and_runtime(
+                &nir,
+                mir_origin,
+                &mir_config,
+                runtime,
+            ) {
                 Ok(output) => emit_output(
                     &output,
                     &loaded.source,
@@ -659,6 +686,17 @@ fn parse_backend_or_exit(value: &str) -> Backend {
     }
 }
 
+fn parse_runtime_or_exit(value: &str) -> Runtime {
+    match value {
+        "cart" => Runtime::ActionCart,
+        "standalone" => Runtime::Standalone,
+        _ => {
+            eprintln!("unknown runtime: {value}; expected cart or standalone");
+            process::exit(2);
+        }
+    }
+}
+
 fn parse_compile_mode_or_exit(value: &str) -> CompileMode {
     match value {
         "compatibility" => CompileMode::Compatibility,
@@ -685,6 +723,18 @@ fn profile_backend_error(profile: CodegenProfile, backend: Backend) -> Option<&'
         Some("--backend mir6502 requires --profile modern")
     } else {
         None
+    }
+}
+
+fn runtime_backend_error(runtime: Runtime, backend: Backend) -> Option<&'static str> {
+    match (runtime, backend) {
+        (Runtime::ActionCart, _) => None,
+        (Runtime::Standalone, Backend::Classic) => {
+            Some("--runtime standalone is not supported by the classic backend yet")
+        }
+        (Runtime::Standalone, Backend::Mir6502) => {
+            Some("--runtime standalone is not supported by the mir6502 backend yet")
+        }
     }
 }
 
@@ -1066,6 +1116,17 @@ fn write_file_atomically(path: &Path, contents: &[u8]) -> io::Result<()> {
 }
 
 fn print_map(output: &CodegenOutput) {
+    println!("runtime {}", output.map.runtime);
+    for binding in &output.map.runtime_bindings {
+        let target = binding
+            .address
+            .map(|address| format!("${address:04X}"))
+            .unwrap_or_else(|| binding.implementation.clone());
+        println!(
+            "runtime-binding {} {} reason={}",
+            binding.helper, target, binding.reason
+        );
+    }
     for routine in &output.routine_addresses {
         println!("${:04X} {}", routine.address, routine.name);
     }
@@ -1215,13 +1276,13 @@ fn print_help_for(flavor: CliFlavor) {
 
 fn print_compile_help() {
     eprintln!(
-        "usage: actionc [--mode compatibility|optimized|mir6502] [--origin <addr>] [--module-path <dir>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility. Advanced users may select --profile and\n--backend directly instead of --mode. Repeat --module-path to add ordered\nnamed-module search roots. With no -o option, write <source-stem>.com in the\ncurrent directory. --listing writes re-originable, source-annotated\nMADS assembly. Change only ACTIONC_ORIGIN in the generated listing to move its\nmain segment. Use actionc-emit for compiler representations."
+        "usage: actionc [--mode compatibility|optimized|mir6502] [--runtime cart|standalone] [--origin <addr>] [--module-path <dir>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility and the default runtime is cart. Advanced\nusers may select --profile and --backend directly instead of --mode. Repeat\n--module-path to add ordered named-module search roots. With no -o option, write\n<source-stem>.com in the current directory. --listing writes re-originable,\nsource-annotated MADS assembly. Change only ACTIONC_ORIGIN in the generated\nlisting to move its main segment. Use actionc-emit for compiler representations."
     );
 }
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--origin <addr>] [--module-path <dir>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nRepeat --module-path to add ordered named-module search roots. Listings are\nre-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main\nsegment. --emit-source-listing adds Action! source comments."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--runtime cart|standalone] [--origin <addr>] [--module-path <dir>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nRepeat --module-path to add ordered named-module search roots. Listings are\nre-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main\nsegment. --emit-source-listing adds Action! source comments."
     );
 }
 
@@ -1550,6 +1611,8 @@ mod tests {
             proofs: Vec::new(),
             proof_attempts: Vec::new(),
             map: CodegenMap {
+                runtime: crate::runtime::Runtime::ActionCart,
+                runtime_bindings: Vec::new(),
                 origin,
                 run_address: origin,
                 skipped_ranges: Vec::new(),

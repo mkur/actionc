@@ -209,6 +209,8 @@ impl<'a, 'm> SemIrNativeEmitter<'a, 'm> {
         let proofs = Vec::new();
         let proof_attempts = Vec::new();
         let map = CodegenMap {
+            runtime: crate::runtime::Runtime::ActionCart,
+            runtime_bindings: Vec::new(),
             origin: self.model.origin,
             run_address,
             skipped_ranges: skipped_ranges.clone(),

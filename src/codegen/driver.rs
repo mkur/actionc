@@ -8,7 +8,13 @@ pub fn generate_with_origin(
     program: &Program,
     origin: u16,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    generate_with_options(program, origin, false, CodegenProfile::Compat)
+    generate_with_options(
+        program,
+        origin,
+        false,
+        CodegenProfile::Compat,
+        RuntimeTarget::StandaloneSlots,
+    )
 }
 
 pub fn generate_compatible_with_origin(
@@ -28,7 +34,7 @@ pub fn generate_profile_with_origin(
     } else {
         origin
     };
-    generate_with_options(program, origin, true, profile)
+    generate_with_options(program, origin, true, profile, RuntimeTarget::Cartridge)
 }
 
 pub(crate) fn generate_profile_at_origin(
@@ -36,7 +42,7 @@ pub(crate) fn generate_profile_at_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    generate_with_options(program, origin, true, profile)
+    generate_with_options(program, origin, true, profile, RuntimeTarget::Cartridge)
 }
 
 pub fn generate_semir_profile_with_origin(
@@ -70,12 +76,8 @@ fn generate_with_options(
     origin: u16,
     segment_storage: bool,
     profile: CodegenProfile,
+    runtime_target: RuntimeTarget,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    let runtime_target = if segment_storage {
-        RuntimeTarget::Cartridge
-    } else {
-        RuntimeTarget::StandaloneSlots
-    };
     let storage_base = if segment_storage { origin } else { DATA_BASE };
     let record_layouts = collect_record_layouts(program);
     let routines = collect_routine_info(program, &record_layouts);
