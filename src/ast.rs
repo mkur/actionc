@@ -72,10 +72,16 @@ pub struct ConstEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VarDecl {
+    pub qualifiers: VarQualifiers,
     pub ty: TypeRef,
     pub storage: VarStorage,
     pub entries: Vec<DeclEntry>,
     pub span: Span,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct VarQualifiers {
+    pub is_volatile: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

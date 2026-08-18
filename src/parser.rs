@@ -371,6 +371,9 @@ impl<'a> Parser<'a> {
 
     fn parse_var_decl_until(&mut self, stop: Stop) -> VarDecl {
         let start = self.peek().span.start;
+        let qualifiers = VarQualifiers {
+            is_volatile: self.eat_contextual("VOLATILE"),
+        };
         let ty = self.parse_type_ref().unwrap_or_else(|| TypeRef {
             base: TypeBase::Named("<missing type>".to_string()),
             pointer: false,
@@ -383,6 +386,7 @@ impl<'a> Parser<'a> {
         let entries = self.parse_decl_entries(&ty, storage, stop);
 
         VarDecl {
+            qualifiers,
             ty,
             storage,
             entries,
@@ -1248,6 +1252,11 @@ impl<'a> Parser<'a> {
     }
 
     fn is_var_decl_start_at(&self, pos: usize) -> bool {
+        self.is_contextual_at(pos, "VOLATILE") && self.is_unqualified_var_decl_start_at(pos + 1)
+            || self.is_unqualified_var_decl_start_at(pos)
+    }
+
+    fn is_unqualified_var_decl_start_at(&self, pos: usize) -> bool {
         self.is_proc_pointer_decl_start_at(pos)
             || self.is_func_pointer_decl_start_at(pos)
             || (self.is_fund_type_start_at(pos)
@@ -1256,6 +1265,13 @@ impl<'a> Parser<'a> {
                     Some(TokenKind::Keyword(Keyword::Func))
                 ))
             || self.is_named_var_decl_start_at(pos)
+    }
+
+    fn is_contextual_at(&self, pos: usize, expected: &str) -> bool {
+        matches!(
+            self.tokens.get(pos).map(|token| &token.kind),
+            Some(TokenKind::Ident(name)) if name.eq_ignore_ascii_case(expected)
+        )
     }
 
     fn is_proc_pointer_decl_start_at(&self, pos: usize) -> bool {
@@ -1525,6 +1541,15 @@ impl<'a> Parser<'a> {
 
     fn eat_keyword(&mut self, keyword: Keyword) -> bool {
         if self.check_keyword(keyword) {
+            self.bump();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn eat_contextual(&mut self, expected: &str) -> bool {
+        if self.is_contextual_at(self.pos, expected) {
             self.bump();
             true
         } else {
@@ -2872,6 +2897,37 @@ mod tests {
         };
         assert_eq!(second.declared_type, None);
         assert_eq!(second.entries[0].value.text, "First");
+    }
+
+    #[test]
+    fn parses_contextual_volatile_global_array_and_local_declarations() {
+        let tokens = tokenize(
+            "VOLATILE BYTE WSYNC=$D40A, VCOUNT=$D40B \
+             volatile BYTE ARRAY Pokey(16)=$D200 \
+             PROC Main() VOLATILE CARD Clock=$0012 RETURN",
+        )
+        .unwrap();
+        let program = parse(&tokens).unwrap();
+
+        let Item::Declaration(Decl::Var(registers)) = &program.modules[0].items[0] else {
+            panic!("expected volatile register declaration");
+        };
+        assert!(registers.qualifiers.is_volatile);
+        assert_eq!(registers.entries.len(), 2);
+
+        let Item::Declaration(Decl::Var(array)) = &program.modules[0].items[1] else {
+            panic!("expected volatile array declaration");
+        };
+        assert!(array.qualifiers.is_volatile);
+        assert_eq!(array.storage, VarStorage::Array);
+
+        let Item::Routine(routine) = &program.modules[0].items[2] else {
+            panic!("expected routine");
+        };
+        let Decl::Var(clock) = &routine.locals[0] else {
+            panic!("expected volatile local declaration");
+        };
+        assert!(clock.qualifiers.is_volatile);
     }
 
     #[test]
