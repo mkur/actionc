@@ -558,9 +558,9 @@ fn classic_standalone_sys_binding_is_selective() {
     );
     let map = String::from_utf8_lossy(&output.stdout);
     assert!(map.contains("runtime-binding SYS.Zero"));
-    assert!(map.contains("M_ACTION_RUNTIME_SYSBLK_ZERO_"));
-    assert!(map.contains("M_ACTION_RUNTIME_SYSBLK_SETBLOCK_"));
-    assert!(!map.contains("M_ACTION_RUNTIME_SYSBLK_MOVEBLOCK_"));
+    assert!(map.contains("M_ACTION_RUNTIME_RESIDENT_ZERO_"));
+    assert!(map.contains("M_ACTION_RUNTIME_RESIDENT_SETBLOCK_"));
+    assert!(!map.contains("M_ACTION_RUNTIME_RESIDENT_MOVEBLOCK_"));
 }
 
 #[test]

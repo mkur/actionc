@@ -15,28 +15,6 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     reject_absolute_helper_overrides(&application)?;
     let local_helper_overrides = local_helper_overrides(&application);
 
-    // Give external interface declarations inert preflight addresses. They
-    // must remain callable while classic code generation discovers its own
-    // helper requirements, but their selected implementations are linked only
-    // after that discovery pass.
-    let mut preflight = application.clone();
-    for module in &mut preflight.modules {
-        for item in &mut module.items {
-            if let Item::Routine(routine) = item
-                && routine.is_external
-            {
-                routine.system_address = Some(number_expr(0xFFFF, routine.span));
-            }
-        }
-    }
-    let (_, classic_runtime_requirements) = super::driver::generate_with_options_and_requirements(
-        &preflight,
-        origin,
-        true,
-        profile,
-        RuntimeTarget::StandaloneSlots,
-    )?;
-
     let external_interfaces = external_interfaces(semir);
     let referenced_names = referenced_external_names(&application, &external_interfaces);
     let bindings = parse_bindings(crate::runtime::Runtime::Standalone)?;
@@ -73,36 +51,19 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         );
     }
 
-    let helper_roots = classic_runtime_requirements
-        .iter()
-        .map(|helper| helper.name().to_string())
-        .collect::<BTreeSet<_>>();
-    let selected_syslib =
-        select_runtime_names("syslib.act", INTERNAL_SYSLIB_MODULE, &helper_roots)?;
-
-    let mut runtime_units = BTreeMap::new();
-    for (unit, roots) in roots_by_unit {
-        let selected = select_runtime_names(&unit.file_name, &unit.module_name, &roots)?;
-        let projection = runtime_projection(&unit.file_name, &unit.module_name)?;
-        let names = projection.routine_names();
-        runtime_units.insert(
-            unit,
-            RuntimeSelection {
-                projection,
-                names,
-                selected,
-            },
-        );
-    }
-    let syslib = runtime_projection("syslib.act", INTERNAL_SYSLIB_MODULE)?;
-    validate_external_signatures(&external_roots, &external_interfaces, &runtime_units)?;
-
-    let syslib_names = syslib.routine_names();
+    let resident = select_resident_image(&roots_by_unit)?;
+    let projection = runtime_image_projection(resident.image.semir)?;
+    validate_external_signatures(
+        &external_roots,
+        &external_interfaces,
+        &projection,
+        &resident.image.routine_units,
+    )?;
+    let resident_names = projection.routine_names();
     let rename_external = external_roots
         .iter()
         .map(|(external, root)| {
-            let implementation = runtime_units[&root.unit]
-                .names
+            let implementation = resident_names
                 .get(&root.routine.to_ascii_uppercase())
                 .ok_or_else(|| {
                     diagnostic(format!(
@@ -116,14 +77,38 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     rewrite_program_names(&mut application, &rename_external);
     remove_external_routines(&mut application);
 
-    let mut runtime_items = Vec::new();
-    for runtime in runtime_units.values() {
-        runtime_items.extend(selected_routines(
-            &runtime.projection.ast,
-            &runtime.selected,
-            &runtime.names,
-        ));
+    let runtime_items = selected_runtime_items(
+        &projection.ast,
+        &resident.routine_names,
+        &resident.global_names,
+        &resident_names,
+    );
+    let mut preflight = application.clone();
+    if !runtime_items.is_empty() {
+        preflight.modules.insert(
+            0,
+            Module {
+                items: runtime_items.clone(),
+            },
+        );
     }
+    let (_, classic_runtime_requirements) = super::driver::generate_with_options_and_requirements(
+        &preflight,
+        origin,
+        true,
+        profile,
+        RuntimeTarget::StandaloneSlots,
+    )?;
+    let helper_roots = classic_runtime_requirements
+        .iter()
+        .map(|helper| helper.name().to_string())
+        .collect::<BTreeSet<_>>();
+    let selected_syslib =
+        select_runtime_names("syslib.act", INTERNAL_SYSLIB_MODULE, &helper_roots)?;
+    let syslib = runtime_projection("syslib.act", INTERNAL_SYSLIB_MODULE)?;
+    let syslib_names = syslib.routine_names();
+
+    let mut runtime_items = runtime_items;
     runtime_items.extend(selected_routines(
         &syslib.ast,
         &selected_syslib,
@@ -155,7 +140,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         &helper_roots,
         &syslib_names,
         &external_roots,
-        &runtime_units,
+        &resident_names,
         &external_interfaces,
         &local_helper_overrides,
     );
@@ -200,12 +185,6 @@ struct RuntimeProjection {
     ast: Program,
 }
 
-struct RuntimeSelection {
-    projection: RuntimeProjection,
-    names: BTreeMap<String, String>,
-    selected: BTreeSet<String>,
-}
-
 impl RuntimeProjection {
     fn routine_names(&self) -> BTreeMap<String, String> {
         self.semir
@@ -232,6 +211,29 @@ fn runtime_projection(
     Ok(RuntimeProjection { semir, ast })
 }
 
+fn runtime_image_projection(
+    semir: crate::semantic::ir::SemProgram,
+) -> Result<RuntimeProjection, Vec<Diagnostic>> {
+    let ast = super::semir::semir_to_ast(&semir)?;
+    Ok(RuntimeProjection { semir, ast })
+}
+
+fn select_resident_image(
+    roots: &BTreeMap<RuntimeUnit, BTreeSet<String>>,
+) -> Result<crate::mir6502::standalone::ResidentSelection, Vec<Diagnostic>> {
+    crate::mir6502::standalone::select_resident_image(roots).map_err(|diagnostics| {
+        diagnostics
+            .into_iter()
+            .map(|diagnostic| {
+                Diagnostic::new(
+                    Span::new(0, 0),
+                    format!("classic runtime selection: {}", diagnostic.message),
+                )
+            })
+            .collect()
+    })
+}
+
 fn select_runtime_names(
     file_name: &str,
     module_name: &str,
@@ -254,11 +256,17 @@ fn select_runtime_names(
 fn validate_external_signatures(
     roots: &BTreeMap<String, ExternalRuntimeRoot>,
     interfaces: &BTreeMap<String, ExternalInterface>,
-    runtime_units: &BTreeMap<RuntimeUnit, RuntimeSelection>,
+    runtime: &RuntimeProjection,
+    routine_units: &BTreeMap<String, RuntimeUnit>,
 ) -> Result<(), Vec<Diagnostic>> {
     for (external, root) in roots {
         let interface = &interfaces[external];
-        let runtime = &runtime_units[&root.unit].projection;
+        if routine_units.get(&root.routine.to_ascii_uppercase()) != Some(&root.unit) {
+            return Err(diagnostic(format!(
+                "embedded {} has no implementation routine `{}`",
+                root.unit.name, root.routine
+            )));
+        }
         let implementation = runtime
             .semir
             .modules
@@ -312,6 +320,37 @@ fn selected_routines(
         .filter_map(|item| match item {
             Item::Routine(routine) if selected_names.contains(&routine.name) => {
                 Some(Item::Routine(routine.clone()))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn selected_runtime_items(
+    runtime: &Program,
+    selected_routines: &BTreeSet<String>,
+    selected_globals: &BTreeSet<String>,
+    names: &BTreeMap<String, String>,
+) -> Vec<Item> {
+    let selected_names = selected_routines
+        .iter()
+        .filter_map(|name| names.get(&name.to_ascii_uppercase()))
+        .collect::<BTreeSet<_>>();
+    runtime
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            Item::Routine(routine) if selected_names.contains(&routine.name) => {
+                Some(Item::Routine(routine.clone()))
+            }
+            Item::Declaration(Decl::Var(var))
+                if var
+                    .entries
+                    .iter()
+                    .any(|entry| selected_globals.contains(&entry.name)) =>
+            {
+                Some(Item::Declaration(Decl::Var(var.clone())))
             }
             _ => None,
         })
@@ -418,7 +457,7 @@ fn append_runtime_binding_metadata(
     helpers: &BTreeSet<String>,
     syslib_names: &BTreeMap<String, String>,
     external_roots: &BTreeMap<String, ExternalRuntimeRoot>,
-    runtime_units: &BTreeMap<RuntimeUnit, RuntimeSelection>,
+    resident_names: &BTreeMap<String, String>,
     interfaces: &BTreeMap<String, ExternalInterface>,
     local_overrides: &BTreeMap<RuntimeHelperSlot, String>,
 ) {
@@ -436,13 +475,12 @@ fn append_runtime_binding_metadata(
         });
     }
     for (external, root) in external_roots {
-        let runtime = &runtime_units[&root.unit];
-        let Some(link_name) = runtime.names.get(&root.routine.to_ascii_uppercase()) else {
+        let Some(link_name) = resident_names.get(&root.routine.to_ascii_uppercase()) else {
             continue;
         };
         output.map.runtime_bindings.push(CodegenRuntimeBinding {
             helper: interfaces[external].qualified_name.clone(),
-            implementation: format!("{}::{}", root.unit.module_name, root.routine),
+            implementation: format!("ACTION.RUNTIME.RESIDENT::{}", root.routine),
             address: routine_address(output, link_name),
             reason: "referenced external system-library interface".to_string(),
             origin: format!(
@@ -470,18 +508,6 @@ fn routine_address(output: &CodegenOutput, name: &str) -> Option<u16> {
         .iter()
         .find(|routine| routine.name == name)
         .map(|routine| routine.address)
-}
-
-fn number_expr(value: u16, span: Span) -> Expr {
-    Expr {
-        kind: ExprKind::Number(crate::lexer::NumberLiteral {
-            text: format!("${value:04X}"),
-            kind: crate::lexer::NumberKind::Card,
-            value: Some(value),
-        }),
-        text: format!("${value:04X}"),
-        span,
-    }
 }
 
 fn expr_u16(expr: &Expr) -> Option<u16> {

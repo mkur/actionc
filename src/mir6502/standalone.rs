@@ -3,11 +3,82 @@ use std::sync::OnceLock;
 
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirCallTarget, MirInlineAsmTarget, MirMachineBlockId, MirMachineItem, MirOp, MirProgram,
-    MirRuntimeHelper, MirRuntimeHelperTarget, MirTerminator, RoutineId,
+    MirAddr, MirCallTarget, MirCond, MirDataImage, MirDataRelocationTarget, MirEffects,
+    MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineBlockId, MirMachineItem, MirMem,
+    MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram, MirRuntimeHelper,
+    MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator, MirValue, RoutineId,
 };
+use crate::nir::SymbolId;
+use crate::runtime_source::{RuntimeImage, RuntimeUnit};
 
 static SYSLIB_MIR: OnceLock<Result<MirProgram, Vec<MirDiagnostic>>> = OnceLock::new();
+
+pub(crate) struct ResidentSelection {
+    pub(crate) image: RuntimeImage,
+    pub(crate) routine_names: BTreeSet<String>,
+    pub(crate) global_names: BTreeSet<String>,
+}
+
+pub(crate) fn select_resident_image(
+    roots_by_unit: &BTreeMap<RuntimeUnit, BTreeSet<String>>,
+) -> Result<ResidentSelection, Vec<MirDiagnostic>> {
+    let (image, runtime) = compile_runtime_image_with_semir()?;
+    let mut roots = BTreeSet::new();
+    for (unit, expected_names) in roots_by_unit {
+        for expected in expected_names {
+            if image.routine_units.get(&expected.to_ascii_uppercase()) != Some(unit) {
+                return Err(diagnostic(format!(
+                    "embedded {} has no implementation routine `{expected}`",
+                    unit.name
+                )));
+            }
+            let id = runtime
+                .routines
+                .iter()
+                .filter(|routine| {
+                    runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT")
+                        .eq_ignore_ascii_case(expected)
+                })
+                .map(|routine| routine.id)
+                .collect::<Vec<_>>();
+            match id.as_slice() {
+                [id] => {
+                    roots.insert(*id);
+                }
+                [] => {
+                    return Err(diagnostic(format!(
+                        "embedded runtime has no implementation routine `{expected}`"
+                    )));
+                }
+                _ => {
+                    return Err(diagnostic(format!(
+                        "embedded runtime has multiple implementation routines named `{expected}`"
+                    )));
+                }
+            }
+        }
+    }
+    let selected = dependency_closure(&runtime, roots)?;
+    let machine_ids = selected_machine_ids(&runtime, &selected);
+    let (globals, _) = selected_runtime_storage(&runtime, &selected, &machine_ids)?;
+    Ok(ResidentSelection {
+        routine_names: runtime
+            .routines
+            .iter()
+            .filter(|routine| selected.contains(&routine.id))
+            .map(|routine| {
+                runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT").to_string()
+            })
+            .collect(),
+        global_names: runtime
+            .globals
+            .iter()
+            .filter(|global| globals.contains(&global.id))
+            .map(|global| global.name.clone())
+            .collect(),
+        image,
+    })
+}
 
 pub(super) fn syslib_mir() -> Result<MirProgram, Vec<MirDiagnostic>> {
     SYSLIB_MIR.get_or_init(compile_syslib).clone()
@@ -90,17 +161,7 @@ pub(super) fn append_runtime_closure(
         })
         .collect::<BTreeMap<_, _>>();
 
-    let selected_machine_ids = runtime
-        .routines
-        .iter()
-        .filter(|routine| selected.contains(&routine.id))
-        .flat_map(|routine| routine.blocks.iter())
-        .flat_map(|block| block.ops.iter())
-        .filter_map(|op| match op {
-            MirOp::MachineBlock { id, .. } => Some(*id),
-            _ => None,
-        })
-        .collect::<BTreeSet<_>>();
+    let selected_machine_ids = selected_machine_ids(runtime, selected);
     let machine_base = next_machine_id(program);
     let machine_rebase = selected_machine_ids
         .iter()
@@ -112,6 +173,22 @@ pub(super) fn append_runtime_closure(
                 MirMachineBlockId(machine_base.wrapping_add(index as u32)),
             )
         })
+        .collect::<BTreeMap<_, _>>();
+    let (selected_globals, selected_statics) =
+        selected_runtime_storage(runtime, selected, &selected_machine_ids)?;
+    let global_base = next_global_id(program);
+    let global_rebase = selected_globals
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(index, old)| (old, SymbolId(global_base.wrapping_add(index as u32))))
+        .collect::<BTreeMap<_, _>>();
+    let static_base = next_static_id(program);
+    let static_rebase = selected_statics
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(index, old)| (old, SymbolId(static_base.wrapping_add(index as u32))))
         .collect::<BTreeMap<_, _>>();
 
     for old_id in selected {
@@ -126,24 +203,36 @@ pub(super) fn append_runtime_closure(
             "{display_module}::{}",
             runtime_routine_name(&routine.name, link_module)
         );
+        for slot in routine
+            .frame
+            .params
+            .iter_mut()
+            .chain(&mut routine.frame.locals)
+        {
+            rebase_storage_base(&mut slot.base, &global_rebase, &static_rebase)?;
+            if let Some(init) = &mut slot.init {
+                rebase_storage_init(init, &routine_rebase, &global_rebase)?;
+            }
+        }
+        rebase_effects(&mut routine.effects, &global_rebase, &static_rebase)?;
         for block in &mut routine.blocks {
             for op in &mut block.ops {
-                match op {
-                    MirOp::Call {
-                        target: MirCallTarget::Routine(id),
-                        ..
-                    } => *id = rebased_routine(*id, &routine_rebase)?,
-                    MirOp::MachineBlock { id, .. } => {
-                        *id = *machine_rebase.get(id).ok_or_else(|| {
-                            diagnostic(format!(
-                                "runtime routine `{}` references unselected machine block m{}",
-                                routine.name, id.0
-                            ))
-                        })?
-                    }
-                    _ => {}
+                if let MirOp::MachineBlock { id, .. } = op {
+                    *id = *machine_rebase.get(id).ok_or_else(|| {
+                        diagnostic(format!(
+                            "runtime routine `{}` references unselected machine block m{}",
+                            routine.name, id.0
+                        ))
+                    })?;
                 }
+                rebase_op(op, &routine_rebase, &global_rebase, &static_rebase)?;
             }
+            rebase_terminator(
+                &mut block.terminator,
+                &routine_rebase,
+                &global_rebase,
+                &static_rebase,
+            )?;
         }
         program.routines.push(routine);
     }
@@ -157,18 +246,722 @@ pub(super) fn append_runtime_closure(
             .clone();
         machine.id = machine_rebase[old_id];
         for item in &mut machine.items {
-            if let MirMachineItem::Relocation {
-                target: MirInlineAsmTarget::Routine(id),
-                ..
-            } = item
-            {
-                *id = rebased_routine(*id, &routine_rebase)?;
+            if let MirMachineItem::Relocation { target, .. } = item {
+                rebase_inline_target(target, &routine_rebase, &global_rebase, &static_rebase)?;
             }
         }
         program.machine_blocks.push(machine);
     }
 
+    let global_offset_base = next_global_offset(program);
+    for old_id in &selected_globals {
+        let mut global = runtime
+            .globals
+            .iter()
+            .find(|global| global.id == *old_id)
+            .expect("selected runtime global exists")
+            .clone();
+        global.id = global_rebase[old_id];
+        match &mut global.backing {
+            MirGlobalBacking::Ordinary { offset } => {
+                *offset = offset.checked_add(global_offset_base).ok_or_else(|| {
+                    diagnostic("standalone runtime global storage exceeds 64 KiB")
+                })?;
+            }
+            MirGlobalBacking::Alias { target, .. } => {
+                *target = rebased_global(*target, &global_rebase)?;
+            }
+            MirGlobalBacking::Absolute(_) => {}
+        }
+        if let Some(init) = &mut global.init {
+            rebase_global_init(init, &routine_rebase, &global_rebase)?;
+        }
+        program.globals.push(global);
+    }
+    for old_id in &selected_statics {
+        let mut static_data = runtime
+            .statics
+            .iter()
+            .find(|static_data| static_data.id == *old_id)
+            .expect("selected runtime static exists")
+            .clone();
+        static_data.id = static_rebase[old_id];
+        rebase_data_image(&mut static_data.image, &routine_rebase, &global_rebase)?;
+        program.statics.push(static_data);
+    }
+
     Ok(routine_rebase)
+}
+
+fn selected_machine_ids(
+    runtime: &MirProgram,
+    selected: &BTreeSet<RoutineId>,
+) -> BTreeSet<MirMachineBlockId> {
+    runtime
+        .routines
+        .iter()
+        .filter(|routine| selected.contains(&routine.id))
+        .flat_map(|routine| routine.blocks.iter())
+        .flat_map(|block| block.ops.iter())
+        .filter_map(|op| match op {
+            MirOp::MachineBlock { id, .. } => Some(*id),
+            _ => None,
+        })
+        .collect()
+}
+
+fn selected_runtime_storage(
+    runtime: &MirProgram,
+    selected_routines: &BTreeSet<RoutineId>,
+    selected_machines: &BTreeSet<MirMachineBlockId>,
+) -> Result<(BTreeSet<SymbolId>, BTreeSet<SymbolId>), Vec<MirDiagnostic>> {
+    let all_globals = runtime
+        .globals
+        .iter()
+        .map(|global| (global.id, global))
+        .collect::<BTreeMap<_, _>>();
+    let all_statics = runtime
+        .statics
+        .iter()
+        .map(|static_data| (static_data.id, static_data))
+        .collect::<BTreeMap<_, _>>();
+    let mut globals = BTreeSet::new();
+    let mut statics = BTreeSet::new();
+    let mut pending_globals = BTreeSet::new();
+    let mut pending_statics = BTreeSet::new();
+    for routine in runtime
+        .routines
+        .iter()
+        .filter(|routine| selected_routines.contains(&routine.id))
+    {
+        for slot in routine.frame.params.iter().chain(&routine.frame.locals) {
+            match slot.base {
+                MirStorageBase::Global(id) => {
+                    pending_globals.insert(id);
+                }
+                MirStorageBase::Static(id) => {
+                    pending_statics.insert(id);
+                }
+                _ => {}
+            }
+            if let Some(init) = &slot.init {
+                visit_storage_init_storage(init, &mut pending_globals);
+            }
+        }
+        visit_effect_storage(&routine.effects, &mut pending_globals, &mut pending_statics);
+        for block in &routine.blocks {
+            for op in &block.ops {
+                visit_op_storage(op, &mut pending_globals, &mut pending_statics);
+            }
+            visit_terminator_storage(
+                &block.terminator,
+                &mut pending_globals,
+                &mut pending_statics,
+            );
+        }
+    }
+    for machine in runtime
+        .machine_blocks
+        .iter()
+        .filter(|machine| selected_machines.contains(&machine.id))
+    {
+        for item in &machine.items {
+            if let MirMachineItem::Relocation {
+                target: MirInlineAsmTarget::Memory(mem),
+                ..
+            } = item
+            {
+                record_mem_storage(mem, &mut pending_globals, &mut pending_statics);
+            }
+        }
+    }
+
+    loop {
+        if let Some(id) = pending_globals.pop_first() {
+            if !globals.insert(id) {
+                continue;
+            }
+            let global = all_globals.get(&id).ok_or_else(|| {
+                diagnostic(format!(
+                    "embedded runtime references missing global g{}",
+                    id.0
+                ))
+            })?;
+            if let MirGlobalBacking::Alias { target, .. } = global.backing {
+                pending_globals.insert(target);
+            }
+            if let Some(init) = &global.init {
+                visit_global_init_storage(init, &mut pending_globals);
+            }
+            continue;
+        }
+        if let Some(id) = pending_statics.pop_first() {
+            if !statics.insert(id) {
+                continue;
+            }
+            let static_data = all_statics.get(&id).ok_or_else(|| {
+                diagnostic(format!(
+                    "embedded runtime references missing static s{}",
+                    id.0
+                ))
+            })?;
+            visit_data_image_storage(&static_data.image, &mut pending_globals);
+            continue;
+        }
+        break;
+    }
+    Ok((globals, statics))
+}
+
+fn visit_op_storage(
+    op: &MirOp,
+    globals: &mut BTreeSet<SymbolId>,
+    statics: &mut BTreeSet<SymbolId>,
+) {
+    match op {
+        MirOp::Load { src, .. } => visit_addr_storage(src, globals, statics),
+        MirOp::Store { dst, src, .. } => {
+            visit_addr_storage(dst, globals, statics);
+            visit_value_storage(src, globals, statics);
+        }
+        MirOp::Move { src, .. }
+        | MirOp::Extend { src, .. }
+        | MirOp::Truncate { src, .. }
+        | MirOp::Unary { src, .. }
+        | MirOp::MaterializeAddress { value: src, .. }
+        | MirOp::AdvanceAddress { index: src, .. }
+        | MirOp::StoreIndirect { src, .. } => visit_value_storage(src, globals, statics),
+        MirOp::LeaAddr { target, .. }
+        | MirOp::UpdateMem { mem: target, .. }
+        | MirOp::UpdateIndexedMem { base: target, .. } => {
+            record_mem_storage(target, globals, statics)
+        }
+        MirOp::AddByteToWordMem { mem: target, value }
+        | MirOp::SubByteFromWordMem { mem: target, value } => {
+            record_mem_storage(target, globals, statics);
+            visit_value_storage(value, globals, statics);
+        }
+        MirOp::OffsetPointerByIndirectByte { dst, .. }
+        | MirOp::CopyDirectWordToIndirect { source: dst, .. } => {
+            record_mem_storage(dst, globals, statics)
+        }
+        MirOp::AbsoluteWordSubToIndirect { source, rhs, .. } => {
+            record_mem_storage(source, globals, statics);
+            record_mem_storage(rhs, globals, statics);
+        }
+        MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
+            visit_value_storage(left, globals, statics);
+            visit_value_storage(right, globals, statics);
+        }
+        MirOp::Call {
+            target,
+            args,
+            effects,
+            ..
+        } => {
+            if let MirCallTarget::Indirect { target, .. } = target {
+                visit_value_storage(target, globals, statics);
+            }
+            for arg in args {
+                visit_value_storage(&arg.value, globals, statics);
+            }
+            visit_effect_storage(effects, globals, statics);
+        }
+        MirOp::RuntimeHelper { effects, .. }
+        | MirOp::Barrier { effects }
+        | MirOp::MachineBlock { effects, .. } => visit_effect_storage(effects, globals, statics),
+        MirOp::MaterializeIndexedAddress { base, index, .. } => {
+            visit_value_storage(base, globals, statics);
+            visit_value_storage(index, globals, statics);
+        }
+        MirOp::LoadImm { .. }
+        | MirOp::CopyIndirectWord { .. }
+        | MirOp::CopyIndirectBytesToFixedZp { .. }
+        | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
+        | MirOp::LoadIndirect { .. }
+        | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. } => {}
+    }
+}
+
+fn visit_addr_storage(
+    addr: &MirAddr,
+    globals: &mut BTreeSet<SymbolId>,
+    statics: &mut BTreeSet<SymbolId>,
+) {
+    match addr {
+        MirAddr::Direct(target)
+        | MirAddr::AbsoluteIndexedX { base: target }
+        | MirAddr::AbsoluteIndexedY { base: target }
+        | MirAddr::PointerCell { ptr: target, .. } => record_mem_storage(target, globals, statics),
+        MirAddr::ComputedIndex { base, index, .. } => {
+            visit_value_storage(base, globals, statics);
+            visit_value_storage(index, globals, statics);
+        }
+        MirAddr::PointerIndex { ptr, index, .. } => {
+            record_mem_storage(ptr, globals, statics);
+            visit_value_storage(index, globals, statics);
+        }
+        MirAddr::Deref { ptr, .. } => visit_value_storage(ptr, globals, statics),
+        MirAddr::Label(_)
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. } => {}
+    }
+}
+
+fn visit_value_storage(
+    value: &MirValue,
+    globals: &mut BTreeSet<SymbolId>,
+    statics: &mut BTreeSet<SymbolId>,
+) {
+    match value {
+        MirValue::StaticAddr(id) => {
+            statics.insert(*id);
+        }
+        MirValue::GlobalAddr(id) => {
+            globals.insert(*id);
+        }
+        MirValue::Word { lo, hi } => {
+            visit_value_storage(lo, globals, statics);
+            visit_value_storage(hi, globals, statics);
+        }
+        MirValue::StorageAddrByte { mem: target, .. } | MirValue::PointerCell(target) => {
+            record_mem_storage(target, globals, statics)
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. } => {}
+    }
+}
+
+fn visit_terminator_storage(
+    terminator: &MirTerminator,
+    globals: &mut BTreeSet<SymbolId>,
+    statics: &mut BTreeSet<SymbolId>,
+) {
+    let edges = match terminator {
+        MirTerminator::Jump(edge) => std::slice::from_ref(edge),
+        MirTerminator::Branch {
+            cond,
+            then_edge,
+            else_edge,
+        } => {
+            if let MirCond::BoolValue(value) = cond {
+                visit_value_storage(value, globals, statics);
+            }
+            for arg in then_edge.args.iter().chain(&else_edge.args) {
+                visit_value_storage(&arg.value, globals, statics);
+            }
+            return;
+        }
+        MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => return,
+    };
+    for edge in edges {
+        for arg in &edge.args {
+            visit_value_storage(&arg.value, globals, statics);
+        }
+    }
+}
+
+fn record_mem_storage(
+    mem: &MirMem,
+    globals: &mut BTreeSet<SymbolId>,
+    statics: &mut BTreeSet<SymbolId>,
+) {
+    match mem {
+        MirMem::Global { id, .. } => {
+            globals.insert(*id);
+        }
+        MirMem::Static { id, .. } => {
+            statics.insert(*id);
+        }
+        _ => {}
+    }
+}
+
+fn visit_effect_storage(
+    effects: &MirEffects,
+    globals: &mut BTreeSet<SymbolId>,
+    statics: &mut BTreeSet<SymbolId>,
+) {
+    for effect in [&effects.memory_reads, &effects.memory_writes] {
+        let MirMemoryEffect::Regions(regions) = effect else {
+            continue;
+        };
+        for region in regions {
+            match region.kind {
+                MirMemoryRegionKind::Global(id) => {
+                    globals.insert(id);
+                }
+                MirMemoryRegionKind::Static(id) => {
+                    statics.insert(id);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn visit_storage_init_storage(init: &MirStorageInit, globals: &mut BTreeSet<SymbolId>) {
+    match init {
+        MirStorageInit::Bytes { image, .. }
+        | MirStorageInit::Descriptor {
+            backing: super::ir::MirStorageBacking { image, .. },
+            ..
+        } => visit_data_image_storage(image, globals),
+        MirStorageInit::RoutineAddress { .. } | MirStorageInit::ZeroFill { .. } => {}
+    }
+}
+
+fn visit_global_init_storage(init: &MirGlobalInit, globals: &mut BTreeSet<SymbolId>) {
+    match init {
+        MirGlobalInit::Bytes { image, .. } => visit_data_image_storage(image, globals),
+        MirGlobalInit::Descriptor { backing, .. } => {
+            globals.insert(backing.owner);
+            visit_data_image_storage(&backing.image, globals);
+        }
+        MirGlobalInit::ZeroFill { .. }
+        | MirGlobalInit::ProgramEndWord { .. }
+        | MirGlobalInit::RoutineAddress { .. } => {}
+    }
+}
+
+fn visit_data_image_storage(image: &MirDataImage, globals: &mut BTreeSet<SymbolId>) {
+    for relocation in &image.relocations {
+        if let MirDataRelocationTarget::Global(id) = relocation.target {
+            globals.insert(id);
+        }
+    }
+}
+
+fn rebase_op(
+    op: &mut MirOp,
+    routines: &BTreeMap<RoutineId, RoutineId>,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    match op {
+        MirOp::Load { src, .. } => rebase_addr(src, routines, globals, statics)?,
+        MirOp::Store { dst, src, .. } => {
+            rebase_addr(dst, routines, globals, statics)?;
+            rebase_value(src, routines, globals, statics)?;
+        }
+        MirOp::Move { src, .. }
+        | MirOp::Extend { src, .. }
+        | MirOp::Truncate { src, .. }
+        | MirOp::Unary { src, .. }
+        | MirOp::MaterializeAddress { value: src, .. }
+        | MirOp::AdvanceAddress { index: src, .. }
+        | MirOp::StoreIndirect { src, .. } => rebase_value(src, routines, globals, statics)?,
+        MirOp::LeaAddr { target, .. }
+        | MirOp::UpdateMem { mem: target, .. }
+        | MirOp::UpdateIndexedMem { base: target, .. } => rebase_mem(target, globals, statics)?,
+        MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
+            rebase_mem(mem, globals, statics)?;
+            rebase_value(value, routines, globals, statics)?;
+        }
+        MirOp::OffsetPointerByIndirectByte { dst, .. }
+        | MirOp::CopyDirectWordToIndirect { source: dst, .. } => rebase_mem(dst, globals, statics)?,
+        MirOp::AbsoluteWordSubToIndirect { source, rhs, .. } => {
+            rebase_mem(source, globals, statics)?;
+            rebase_mem(rhs, globals, statics)?;
+        }
+        MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
+            rebase_value(left, routines, globals, statics)?;
+            rebase_value(right, routines, globals, statics)?;
+        }
+        MirOp::Call {
+            target,
+            args,
+            effects,
+            ..
+        } => {
+            match target {
+                MirCallTarget::Routine(id) => *id = rebased_routine(*id, routines)?,
+                MirCallTarget::Indirect { target, .. } => {
+                    rebase_value(target, routines, globals, statics)?
+                }
+                MirCallTarget::Builtin { .. } | MirCallTarget::Runtime { .. } => {}
+            }
+            for arg in args {
+                rebase_value(&mut arg.value, routines, globals, statics)?;
+            }
+            rebase_effects(effects, globals, statics)?;
+        }
+        MirOp::RuntimeHelper { effects, .. }
+        | MirOp::Barrier { effects }
+        | MirOp::MachineBlock { effects, .. } => rebase_effects(effects, globals, statics)?,
+        MirOp::MaterializeIndexedAddress { base, index, .. } => {
+            rebase_value(base, routines, globals, statics)?;
+            rebase_value(index, routines, globals, statics)?;
+        }
+        MirOp::LoadImm { .. }
+        | MirOp::CopyIndirectWord { .. }
+        | MirOp::CopyIndirectBytesToFixedZp { .. }
+        | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
+        | MirOp::LoadIndirect { .. }
+        | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. } => {}
+    }
+    Ok(())
+}
+
+fn rebase_addr(
+    addr: &mut MirAddr,
+    routines: &BTreeMap<RoutineId, RoutineId>,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    match addr {
+        MirAddr::Direct(mem)
+        | MirAddr::AbsoluteIndexedX { base: mem }
+        | MirAddr::AbsoluteIndexedY { base: mem }
+        | MirAddr::PointerCell { ptr: mem, .. } => rebase_mem(mem, globals, statics)?,
+        MirAddr::ComputedIndex { base, index, .. } => {
+            rebase_value(base, routines, globals, statics)?;
+            rebase_value(index, routines, globals, statics)?;
+        }
+        MirAddr::PointerIndex { ptr, index, .. } => {
+            rebase_mem(ptr, globals, statics)?;
+            rebase_value(index, routines, globals, statics)?;
+        }
+        MirAddr::Deref { ptr, .. } => rebase_value(ptr, routines, globals, statics)?,
+        MirAddr::Label(_)
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. } => {}
+    }
+    Ok(())
+}
+
+fn rebase_value(
+    value: &mut MirValue,
+    routines: &BTreeMap<RoutineId, RoutineId>,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    match value {
+        MirValue::StaticAddr(id) => *id = rebased_static(*id, statics)?,
+        MirValue::GlobalAddr(id) => *id = rebased_global(*id, globals)?,
+        MirValue::RoutineAddr(id) | MirValue::RoutineAddrByte { id, .. } => {
+            *id = rebased_routine(*id, routines)?
+        }
+        MirValue::Word { lo, hi } => {
+            rebase_value(lo, routines, globals, statics)?;
+            rebase_value(hi, routines, globals, statics)?;
+        }
+        MirValue::StorageAddrByte { mem, .. } | MirValue::PointerCell(mem) => {
+            rebase_mem(mem, globals, statics)?
+        }
+        MirValue::ConstU8(_) | MirValue::ConstU16(_) | MirValue::Def(_) => {}
+    }
+    Ok(())
+}
+
+fn rebase_mem(
+    mem: &mut MirMem,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    match mem {
+        MirMem::Global { id, .. } => *id = rebased_global(*id, globals)?,
+        MirMem::Static { id, .. } => *id = rebased_static(*id, statics)?,
+        MirMem::Absolute(_)
+        | MirMem::Local { .. }
+        | MirMem::Param { .. }
+        | MirMem::Spill { .. }
+        | MirMem::ZeroPage(_)
+        | MirMem::FixedZeroPage(_) => {}
+    }
+    Ok(())
+}
+
+fn rebase_terminator(
+    terminator: &mut MirTerminator,
+    routines: &BTreeMap<RoutineId, RoutineId>,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let rebase_edge = |edge: &mut super::ir::MirEdge| -> Result<(), Vec<MirDiagnostic>> {
+        for arg in &mut edge.args {
+            rebase_value(&mut arg.value, routines, globals, statics)?;
+        }
+        Ok(())
+    };
+    match terminator {
+        MirTerminator::Jump(edge) => rebase_edge(edge)?,
+        MirTerminator::Branch {
+            cond,
+            then_edge,
+            else_edge,
+        } => {
+            if let MirCond::BoolValue(value) = cond {
+                rebase_value(value, routines, globals, statics)?;
+            }
+            rebase_edge(then_edge)?;
+            rebase_edge(else_edge)?;
+        }
+        MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => {}
+    }
+    Ok(())
+}
+
+pub(super) fn append_runtime_helper_requirements(
+    program: &mut MirProgram,
+    runtime: &MirProgram,
+    selected: &BTreeSet<RoutineId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let required = runtime
+        .routines
+        .iter()
+        .filter(|routine| selected.contains(&routine.id))
+        .flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            MirOp::RuntimeHelper { helper, .. } => Some(*helper),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    for helper in required {
+        let declarations = runtime
+            .runtime_helpers
+            .iter()
+            .filter(|declaration| declaration.helper == helper)
+            .collect::<Vec<_>>();
+        let [implementation] = declarations.as_slice() else {
+            return Err(diagnostic(format!(
+                "embedded runtime has {} declarations for helper `{}`",
+                declarations.len(),
+                super::runtime::helper_name(helper)
+            )));
+        };
+        if let Some(existing) = program
+            .runtime_helpers
+            .iter()
+            .find(|declaration| declaration.helper == helper)
+        {
+            if existing.abi != implementation.abi || existing.effects != implementation.effects {
+                return Err(diagnostic(format!(
+                    "runtime helper contract mismatch for `{}`",
+                    super::runtime::helper_name(helper)
+                )));
+            }
+        } else {
+            let mut declaration = (*implementation).clone();
+            declaration.target = MirRuntimeHelperTarget::Deferred;
+            program.runtime_helpers.push(declaration);
+        }
+    }
+    Ok(())
+}
+
+fn rebase_effects(
+    effects: &mut MirEffects,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    for effect in [&mut effects.memory_reads, &mut effects.memory_writes] {
+        let MirMemoryEffect::Regions(regions) = effect else {
+            continue;
+        };
+        for region in regions {
+            match &mut region.kind {
+                MirMemoryRegionKind::Global(id) => *id = rebased_global(*id, globals)?,
+                MirMemoryRegionKind::Static(id) => *id = rebased_static(*id, statics)?,
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+fn rebase_storage_base(
+    base: &mut MirStorageBase,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    match base {
+        MirStorageBase::Global(id) => *id = rebased_global(*id, globals)?,
+        MirStorageBase::Static(id) => *id = rebased_static(*id, statics)?,
+        _ => {}
+    }
+    Ok(())
+}
+
+fn rebase_storage_init(
+    init: &mut MirStorageInit,
+    routines: &BTreeMap<RoutineId, RoutineId>,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    match init {
+        MirStorageInit::Bytes { image, .. }
+        | MirStorageInit::Descriptor {
+            backing: super::ir::MirStorageBacking { image, .. },
+            ..
+        } => rebase_data_image(image, routines, globals)?,
+        MirStorageInit::RoutineAddress { routine, .. } => {
+            *routine = rebased_routine(*routine, routines)?
+        }
+        MirStorageInit::ZeroFill { .. } => {}
+    }
+    Ok(())
+}
+
+fn rebase_global_init(
+    init: &mut MirGlobalInit,
+    routines: &BTreeMap<RoutineId, RoutineId>,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    match init {
+        MirGlobalInit::Bytes { image, .. } => rebase_data_image(image, routines, globals)?,
+        MirGlobalInit::Descriptor { backing, .. } => {
+            backing.owner = rebased_global(backing.owner, globals)?;
+            rebase_data_image(&mut backing.image, routines, globals)?;
+        }
+        MirGlobalInit::RoutineAddress { routine, .. } => {
+            *routine = rebased_routine(*routine, routines)?
+        }
+        MirGlobalInit::ZeroFill { .. } | MirGlobalInit::ProgramEndWord { .. } => {}
+    }
+    Ok(())
+}
+
+fn rebase_data_image(
+    image: &mut MirDataImage,
+    routines: &BTreeMap<RoutineId, RoutineId>,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    for relocation in &mut image.relocations {
+        match &mut relocation.target {
+            MirDataRelocationTarget::Global(id) => *id = rebased_global(*id, globals)?,
+            MirDataRelocationTarget::Routine(id) => *id = rebased_routine(*id, routines)?,
+            MirDataRelocationTarget::Local { routine, .. }
+            | MirDataRelocationTarget::Param { routine, .. } => {
+                *routine = rebased_routine(*routine, routines)?
+            }
+            MirDataRelocationTarget::Absolute(_) => {}
+        }
+    }
+    Ok(())
+}
+
+fn rebase_inline_target(
+    target: &mut MirInlineAsmTarget,
+    routines: &BTreeMap<RoutineId, RoutineId>,
+    globals: &BTreeMap<SymbolId, SymbolId>,
+    statics: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<(), Vec<MirDiagnostic>> {
+    match target {
+        MirInlineAsmTarget::Memory(mem) => rebase_mem(mem, globals, statics)?,
+        MirInlineAsmTarget::Routine(id) => *id = rebased_routine(*id, routines)?,
+        MirInlineAsmTarget::Absolute(_) | MirInlineAsmTarget::InlineOffset(_) => {}
+    }
+    Ok(())
 }
 
 fn validate_helper_contract(
@@ -412,6 +1205,30 @@ fn rebased_routine(
     })
 }
 
+fn rebased_global(
+    old: SymbolId,
+    rebase: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<SymbolId, Vec<MirDiagnostic>> {
+    rebase.get(&old).copied().ok_or_else(|| {
+        diagnostic(format!(
+            "runtime global dependency g{} was not included in the selected closure",
+            old.0
+        ))
+    })
+}
+
+fn rebased_static(
+    old: SymbolId,
+    rebase: &BTreeMap<SymbolId, SymbolId>,
+) -> Result<SymbolId, Vec<MirDiagnostic>> {
+    rebase.get(&old).copied().ok_or_else(|| {
+        diagnostic(format!(
+            "runtime static dependency s{} was not included in the selected closure",
+            old.0
+        ))
+    })
+}
+
 fn next_routine_id(program: &MirProgram) -> u32 {
     program
         .routines
@@ -428,6 +1245,38 @@ fn next_machine_id(program: &MirProgram) -> u32 {
         .map(|machine| machine.id.0)
         .max()
         .map_or(0, |id| id.wrapping_add(1))
+}
+
+fn next_global_id(program: &MirProgram) -> u32 {
+    program
+        .globals
+        .iter()
+        .map(|global| global.id.0)
+        .max()
+        .map_or(0, |id| id.wrapping_add(1))
+}
+
+fn next_static_id(program: &MirProgram) -> u32 {
+    program
+        .statics
+        .iter()
+        .map(|static_data| static_data.id.0)
+        .max()
+        .map_or(0, |id| id.wrapping_add(1))
+}
+
+fn next_global_offset(program: &MirProgram) -> u16 {
+    program
+        .globals
+        .iter()
+        .filter_map(|global| match global.backing {
+            MirGlobalBacking::Ordinary { offset } => {
+                Some(offset.saturating_add(global.storage_size))
+            }
+            MirGlobalBacking::Absolute(_) | MirGlobalBacking::Alias { .. } => None,
+        })
+        .max()
+        .unwrap_or(0)
 }
 
 fn compile_syslib() -> Result<MirProgram, Vec<MirDiagnostic>> {
@@ -610,6 +1459,20 @@ mod tests {
     #[test]
     fn unified_runtime_mir_retains_cross_unit_dependencies() {
         let (image, program) = compile_runtime_image_with_semir().expect("compile SYSALL image");
+        eprintln!(
+            "statics={:?}\nglobals={:?}",
+            program
+                .statics
+                .iter()
+                .map(|item| (&item.name, item.image.bytes.len()))
+                .collect::<Vec<_>>(),
+            program
+                .globals
+                .iter()
+                .filter(|item| item.storage_size != 0 || item.init.is_some())
+                .map(|item| (&item.name, item.storage_size, &item.backing))
+                .collect::<Vec<_>>()
+        );
         let graphics = program
             .routines
             .iter()
@@ -639,6 +1502,45 @@ mod tests {
         assert!(selected.contains(&open.id));
         assert_eq!(image.routine_units["GRAPHICS"].name, "SYSGR");
         assert_eq!(image.routine_units["OPEN"].name, "SYSIO");
+    }
+
+    #[test]
+    fn resident_selection_keeps_cross_unit_code_and_only_referenced_data() {
+        let unit = crate::runtime_source::resolve_runtime_unit("SYSGR").expect("SYSGR unit");
+        let selection = select_resident_image(&BTreeMap::from([(
+            unit,
+            BTreeSet::from(["Graphics".to_string()]),
+        )]))
+        .expect("select Graphics closure");
+
+        for expected in ["Graphics", "Close", "Open", "ChkErr", "Error"] {
+            assert!(
+                selection
+                    .routine_names
+                    .iter()
+                    .any(|name| name.eq_ignore_ascii_case(expected)),
+                "missing {expected}: {:?}",
+                selection.routine_names
+            );
+        }
+        assert!(
+            selection
+                .global_names
+                .iter()
+                .any(|name| name.to_ascii_uppercase().contains("DEV_S"))
+        );
+        assert!(
+            selection
+                .global_names
+                .iter()
+                .any(|name| name.to_ascii_uppercase().contains("DEV_E"))
+        );
+        assert!(
+            selection
+                .global_names
+                .iter()
+                .all(|name| !name.to_ascii_uppercase().contains("COPY_RIGHT"))
+        );
     }
 
     #[test]

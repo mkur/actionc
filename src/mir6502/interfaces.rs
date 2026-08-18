@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::runtime::Runtime;
 use crate::runtime_bindings::{BindingTarget, binding_key, parse_bindings};
-use crate::runtime_source::{RuntimeUnit, resolve_runtime_unit};
+use crate::runtime_source::{RuntimeImage, RuntimeUnit, resolve_runtime_unit};
 
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
@@ -16,6 +16,9 @@ enum ResolvedTarget {
     Absolute(u16),
     Routine(RoutineId),
 }
+
+const RESIDENT_MODULE: &str = "ACTION.RUNTIME.RESIDENT";
+const RESIDENT_LINK_MODULE: &str = "ACTION_RUNTIME_RESIDENT";
 
 pub(super) fn resolve_interfaces(
     program: &mut MirProgram,
@@ -54,7 +57,7 @@ pub(super) fn resolve_interfaces(
         }
         Runtime::Standalone => {
             let interface_signatures = sys_interface_signatures()?;
-            let mut roots_by_unit = BTreeMap::<RuntimeUnit, BTreeMap<RoutineId, String>>::new();
+            let mut external_roots = BTreeMap::<RoutineId, (RuntimeUnit, String)>::new();
             for id in &referenced {
                 let name = &external[id];
                 let Some(binding) = bindings.get(&binding_key(name)) else {
@@ -66,60 +69,53 @@ pub(super) fn resolve_interfaces(
                     )));
                 };
                 let unit = resolve_runtime_unit(unit).map_err(frontend_diagnostics)?;
-                roots_by_unit
-                    .entry(unit)
-                    .or_default()
-                    .insert(*id, routine.clone());
+                external_roots.insert(*id, (unit, routine.clone()));
             }
 
-            for (unit, external_roots) in roots_by_unit {
-                let (runtime_semir, runtime) = super::standalone::compile_runtime_unit_with_semir(
-                    &unit.file_name,
-                    &unit.module_name,
+            let (runtime_image, runtime) = super::standalone::compile_runtime_image_with_semir()?;
+            let mut implementation_roots = BTreeMap::new();
+            for (external_id, (unit, routine)) in external_roots {
+                let interface_name = &external[&external_id];
+                validate_semantic_abi(
+                    interface_name,
+                    &interface_signatures,
+                    &runtime_image,
+                    &unit,
+                    &routine,
                 )?;
-                let mut implementation_roots = BTreeMap::new();
-                for (external_id, routine) in external_roots {
-                    let interface_name = &external[&external_id];
-                    validate_semantic_abi(
-                        interface_name,
-                        &interface_signatures,
-                        &runtime_semir,
-                        &unit,
-                        &routine,
-                    )?;
-                    let implementation =
-                        find_runtime_routine(&runtime, &unit.link_module, &routine)?;
-                    validate_abi(
-                        program
-                            .routines
-                            .iter()
-                            .find(|candidate| candidate.id == external_id)
-                            .expect("external routine exists"),
-                        runtime
-                            .routines
-                            .iter()
-                            .find(|candidate| candidate.id == implementation)
-                            .expect("runtime routine exists"),
-                    )?;
-                    implementation_roots.insert(external_id, implementation);
-                }
-                let selected = super::standalone::dependency_closure(
-                    &runtime,
-                    implementation_roots.values().copied().collect(),
+                let implementation =
+                    find_runtime_routine(&runtime, RESIDENT_LINK_MODULE, &routine)?;
+                validate_abi(
+                    program
+                        .routines
+                        .iter()
+                        .find(|candidate| candidate.id == external_id)
+                        .expect("external routine exists"),
+                    runtime
+                        .routines
+                        .iter()
+                        .find(|candidate| candidate.id == implementation)
+                        .expect("runtime routine exists"),
                 )?;
-                let rebase = super::standalone::append_runtime_closure(
-                    program,
-                    &runtime,
-                    &selected,
-                    &unit.module_name,
-                    &unit.link_module,
-                )?;
-                for (external_id, implementation) in implementation_roots {
-                    resolved.insert(
-                        external_id,
-                        ResolvedTarget::Routine(rebase[&implementation]),
-                    );
-                }
+                implementation_roots.insert(external_id, implementation);
+            }
+            let selected = super::standalone::dependency_closure(
+                &runtime,
+                implementation_roots.values().copied().collect(),
+            )?;
+            let rebase = super::standalone::append_runtime_closure(
+                program,
+                &runtime,
+                &selected,
+                RESIDENT_MODULE,
+                RESIDENT_LINK_MODULE,
+            )?;
+            super::standalone::append_runtime_helper_requirements(program, &runtime, &selected)?;
+            for (external_id, implementation) in implementation_roots {
+                resolved.insert(
+                    external_id,
+                    ResolvedTarget::Routine(rebase[&implementation]),
+                );
             }
         }
     }
@@ -152,7 +148,7 @@ fn sys_interface_signatures()
 fn validate_semantic_abi(
     interface_name: &str,
     interfaces: &BTreeMap<String, crate::semantic::ir::SemRoutineSignature>,
-    runtime: &crate::semantic::ir::SemProgram,
+    runtime: &RuntimeImage,
     unit: &RuntimeUnit,
     expected: &str,
 ) -> Result<(), Vec<MirDiagnostic>> {
@@ -161,7 +157,15 @@ fn validate_semantic_abi(
             "authoritative SYS interface has no external `{interface_name}`"
         )));
     };
+    let implementation_unit = runtime.routine_units.get(&expected.to_ascii_uppercase());
+    if implementation_unit != Some(unit) {
+        return Err(diagnostic(format!(
+            "embedded {} has no implementation routine `{expected}`",
+            unit.name
+        )));
+    }
     let implementation = runtime
+        .semir
         .modules
         .iter()
         .flat_map(|module| &module.items)
