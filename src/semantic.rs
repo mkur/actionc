@@ -61,6 +61,14 @@ pub enum ModuleMemberResolution {
     Absent,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemanticNameResolution {
+    Symbol(SymbolId),
+    PrivateMember { module: ModuleId, symbol: SymbolId },
+    MissingMember { module: ModuleId },
+    Unknown,
+}
+
 impl SemanticModel {
     pub fn module(&self, id: ModuleId) -> Option<&SemanticModuleScope> {
         self.modules
@@ -79,6 +87,10 @@ impl SemanticModel {
             .lookup_exact(module.scope, name)
             .map(ModuleMemberResolution::Private)
             .unwrap_or(ModuleMemberResolution::Absent)
+    }
+
+    pub fn resolve_name(&self, scope: ScopeId, name: &QualifiedName) -> SemanticNameResolution {
+        resolve_semantic_name(&self.symbols, &self.modules, scope, name)
     }
 }
 
@@ -1076,8 +1088,15 @@ impl Analyzer {
             .extend(collect_static_initializer_targets(program));
         for region in &program.modules {
             for item in &region.items {
-                if let Item::Routine(routine) = item {
-                    self.analyze_routine_body(scope, Some(module_id), routine);
+                match item {
+                    Item::Routine(routine) => {
+                        self.analyze_routine_body(scope, Some(module_id), routine)
+                    }
+                    Item::Set(set) => {
+                        self.lower_expr(scope, &set.address);
+                        self.lower_expr(scope, &set.value);
+                    }
+                    _ => {}
                 }
             }
         }
@@ -1249,10 +1268,27 @@ impl Analyzer {
                 span,
             } => self.validate_compound_assignment(scope, target, *op, value, *span),
             Stmt::Call { expr, span } => self.validate_call_statement(scope, expr, *span),
-            Stmt::MachineBlock { items, .. } => {
+            Stmt::MachineBlock { items, span, .. } => {
                 for item in items {
-                    if let MachineItem::Name(name) = item {
-                        self.lookup_symbol(scope, name);
+                    let name = match item {
+                        MachineItem::Name(name) | MachineItem::AddressByte { name, .. } => {
+                            Some(name)
+                        }
+                        MachineItem::AddressExpr(MachineAddressExpr {
+                            atom: MachineAddressAtom::Name(name),
+                            ..
+                        }) => Some(name),
+                        _ => None,
+                    };
+                    if let Some(name) = name {
+                        let resolution =
+                            resolve_semantic_name(&self.symbols, &self.modules, scope, name);
+                        let legacy_unknown = matches!(resolution, SemanticNameResolution::Unknown)
+                            && name.simple_name().is_some()
+                            && module_for_scope(&self.symbols, scope).is_none();
+                        if !legacy_unknown {
+                            self.resolve_qualified_symbol(scope, name, *span);
+                        }
                     }
                 }
             }
@@ -1263,12 +1299,27 @@ impl Analyzer {
                     else {
                         continue;
                     };
-                    let Some(symbol_id) = self.lookup_symbol(scope, name) else {
-                        self.diagnostics.push(Diagnostic::new(
-                            relocation.span,
-                            format!("undefined inline assembler symbol `{name}`"),
-                        ));
-                        continue;
+                    let qualified =
+                        QualifiedName::new(name.split('.').map(str::to_string).collect::<Vec<_>>());
+                    let symbol_id = match resolve_semantic_name(
+                        &self.symbols,
+                        &self.modules,
+                        scope,
+                        &qualified,
+                    ) {
+                        SemanticNameResolution::Symbol(symbol) => symbol,
+                        SemanticNameResolution::Unknown => {
+                            self.diagnostics.push(Diagnostic::new(
+                                relocation.span,
+                                format!("undefined inline assembler symbol `{name}`"),
+                            ));
+                            continue;
+                        }
+                        SemanticNameResolution::PrivateMember { .. }
+                        | SemanticNameResolution::MissingMember { .. } => {
+                            self.resolve_qualified_symbol(scope, &qualified, relocation.span);
+                            continue;
+                        }
                     };
                     let symbol = &self.symbols.symbols[symbol_id.0];
                     let valid = match relocation.symbol_use {
@@ -1842,30 +1893,80 @@ impl Analyzer {
                 })
             }
             ExprKind::Field { base, field } => {
-                let base = self.expect_place(scope, base, base.span);
-                let descriptor =
-                    self.record_field_facts_or_diagnostic(typed_ref(&base.ty), field, expr.span);
-                let ty = descriptor
-                    .as_ref()
-                    .map(|field| field.ty.clone())
-                    .unwrap_or_else(ValueType::error);
-                subject::SemSubject::Place(subject::SemPlace {
-                    ty: ty.clone(),
-                    access: base.access,
-                    kind: subject::SemPlaceKind::Field {
-                        base: Box::new(base),
-                        field: subject::SemFieldRef {
-                            id: descriptor.as_ref().map(|field| field.id),
-                            owner: descriptor.as_ref().map(|field| field.owner),
-                            name: field.clone(),
-                            ty,
-                            offset: descriptor.as_ref().map(|field| field.offset),
-                            span: expr.span,
+                if let Some(subject) =
+                    self.classify_module_member_subject(scope, base, field, expr.span)
+                {
+                    subject
+                } else {
+                    let base = self.expect_place(scope, base, base.span);
+                    let descriptor = self.record_field_facts_or_diagnostic(
+                        typed_ref(&base.ty),
+                        field,
+                        expr.span,
+                    );
+                    let ty = descriptor
+                        .as_ref()
+                        .map(|field| field.ty.clone())
+                        .unwrap_or_else(ValueType::error);
+                    subject::SemSubject::Place(subject::SemPlace {
+                        ty: ty.clone(),
+                        access: base.access,
+                        kind: subject::SemPlaceKind::Field {
+                            base: Box::new(base),
+                            field: subject::SemFieldRef {
+                                id: descriptor.as_ref().map(|field| field.id),
+                                owner: descriptor.as_ref().map(|field| field.owner),
+                                name: field.clone(),
+                                ty,
+                                offset: descriptor.as_ref().map(|field| field.offset),
+                                span: expr.span,
+                            },
                         },
-                    },
-                    span: expr.span,
-                })
+                        span: expr.span,
+                    })
+                }
             }
+        }
+    }
+
+    fn classify_module_member_subject(
+        &mut self,
+        scope: ScopeId,
+        base: &Expr,
+        member: &str,
+        span: Span,
+    ) -> Option<subject::SemSubject> {
+        let ExprKind::Name(alias) = &base.kind else {
+            return None;
+        };
+        let name = QualifiedName::new(vec![alias.clone(), member.to_string()]);
+        match resolve_semantic_name(&self.symbols, &self.modules, scope, &name) {
+            SemanticNameResolution::Symbol(symbol) => {
+                Some(self.classify_symbol_subject(symbol, span))
+            }
+            SemanticNameResolution::PrivateMember { module, .. } => {
+                let module = &self.modules[module.0 as usize].path;
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    format!(
+                        "module `{}` member `{member}` is private",
+                        module.display_name()
+                    ),
+                ));
+                Some(self.subject_error(span))
+            }
+            SemanticNameResolution::MissingMember { module } => {
+                let module = &self.modules[module.0 as usize].path;
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    format!(
+                        "module `{}` has no public member `{member}`",
+                        module.display_name()
+                    ),
+                ));
+                Some(self.subject_error(span))
+            }
+            SemanticNameResolution::Unknown => None,
         }
     }
 
@@ -1880,6 +1981,10 @@ impl Analyzer {
                 .push(Diagnostic::new(span, format!("undefined symbol `{name}`")));
             return self.subject_error(span);
         };
+        self.classify_symbol_subject(symbol_id, span)
+    }
+
+    fn classify_symbol_subject(&mut self, symbol_id: SymbolId, span: Span) -> subject::SemSubject {
         let symbol = &self.symbols.symbols[symbol_id.0];
 
         match symbol.class {
@@ -2558,6 +2663,40 @@ impl Analyzer {
         self.symbols.lookup(scope, name)
     }
 
+    fn resolve_qualified_symbol(
+        &mut self,
+        scope: ScopeId,
+        name: &QualifiedName,
+        span: Span,
+    ) -> Option<SymbolId> {
+        match resolve_semantic_name(&self.symbols, &self.modules, scope, name) {
+            SemanticNameResolution::Symbol(symbol) => Some(symbol),
+            SemanticNameResolution::PrivateMember { module, .. } => {
+                let module_name = self.modules[module.0 as usize].path.display_name();
+                let member = name.components.last().map(String::as_str).unwrap_or("");
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    format!("module `{module_name}` member `{member}` is private"),
+                ));
+                None
+            }
+            SemanticNameResolution::MissingMember { module } => {
+                let module_name = self.modules[module.0 as usize].path.display_name();
+                let member = name.components.last().map(String::as_str).unwrap_or("");
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    format!("module `{module_name}` has no public member `{member}`"),
+                ));
+                None
+            }
+            SemanticNameResolution::Unknown => {
+                self.diagnostics
+                    .push(Diagnostic::new(span, format!("undefined symbol `{name}`")));
+                None
+            }
+        }
+    }
+
     fn analyze_decl(&mut self, scope: ScopeId, decl: &Decl, is_param: bool) {
         match decl {
             Decl::Var(var) => self.analyze_var_decl(scope, var, is_param),
@@ -2697,6 +2836,9 @@ impl Analyzer {
                 self.symbols.symbols[symbol_id.0].is_volatile =
                     declaration.qualifiers.is_volatile || inherits_volatile;
             }
+            if let Some(size) = &entry.size {
+                self.lower_expr(scope, size);
+            }
             self.validate_initializer_elements(scope, declaration, entry);
         }
     }
@@ -2726,6 +2868,9 @@ impl Analyzer {
                 source: SemanticCallableSource::User,
             },
         );
+        if let Some(address) = &routine.system_address {
+            self.lower_expr(scope, address);
+        }
     }
 
     fn remember_record_fields(
@@ -2838,10 +2983,12 @@ impl Analyzer {
         let TypeBase::Named(name) = &ty.base else {
             return false;
         };
-        self.symbols
-            .lookup(scope, name)
-            .and_then(|symbol_id| self.symbols.symbols.get(symbol_id.0))
-            .is_some_and(|symbol| matches!(symbol.class, SymbolClass::Type | SymbolClass::Record))
+        match resolve_semantic_name(&self.symbols, &self.modules, scope, name) {
+            SemanticNameResolution::Symbol(symbol) => Some(symbol),
+            _ => None,
+        }
+        .and_then(|symbol_id| self.symbols.symbols.get(symbol_id.0))
+        .is_some_and(|symbol| matches!(symbol.class, SymbolClass::Type | SymbolClass::Record))
     }
 
     fn value_storage_width(&self, value: &ValueType) -> Option<u16> {
@@ -2935,15 +3082,24 @@ impl Analyzer {
                                 ));
                                 continue;
                             }
-                            let class = self
-                                .lookup_symbol(scope, target)
-                                .and_then(|id| self.symbols.symbols.get(id.0))
-                                .map(|symbol| symbol.class.clone())
-                                .or_else(|| {
-                                    self.static_initializer_targets
-                                        .get(&normalize_name(target))
-                                        .cloned()
-                                });
+                            let class = if module_for_scope(&self.symbols, scope).is_some() {
+                                self.resolve_qualified_symbol(scope, target, element.span)
+                                    .and_then(|id| self.symbols.symbols.get(id.0))
+                                    .map(|symbol| symbol.class.clone())
+                            } else {
+                                target
+                                    .simple_name()
+                                    .and_then(|target| self.lookup_symbol(scope, target))
+                                    .and_then(|id| self.symbols.symbols.get(id.0))
+                                    .map(|symbol| symbol.class.clone())
+                                    .or_else(|| {
+                                        target.simple_name().and_then(|target| {
+                                            self.static_initializer_targets
+                                                .get(&normalize_name(target))
+                                                .cloned()
+                                        })
+                                    })
+                            };
                             if !matches!(
                                 class,
                                 Some(
@@ -2978,6 +3134,9 @@ impl Analyzer {
                 initializer.span,
                 format!("unsupported initializer for `{}`", entry.name),
             )),
+            _ if module_for_scope(&self.symbols, scope).is_some() => {
+                self.lower_expr(scope, initializer);
+            }
             _ => {}
         }
     }
@@ -2987,8 +3146,8 @@ impl Analyzer {
             return;
         };
 
-        match self.symbols.lookup(scope, name) {
-            Some(symbol_id) => {
+        match resolve_semantic_name(&self.symbols, &self.modules, scope, name) {
+            SemanticNameResolution::Symbol(symbol_id) => {
                 let symbol = &self.symbols.symbols[symbol_id.0];
                 if !matches!(
                     symbol.class,
@@ -2998,7 +3157,23 @@ impl Analyzer {
                         .push(Diagnostic::new(span, format!("`{name}` is not a type")));
                 }
             }
-            None => self
+            SemanticNameResolution::PrivateMember { module, .. } => {
+                let module_name = self.modules[module.0 as usize].path.display_name();
+                let member = name.components.last().map(String::as_str).unwrap_or("");
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    format!("module `{module_name}` member `{member}` is private"),
+                ));
+            }
+            SemanticNameResolution::MissingMember { module } => {
+                let module_name = self.modules[module.0 as usize].path.display_name();
+                let member = name.components.last().map(String::as_str).unwrap_or("");
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    format!("module `{module_name}` has no public member `{member}`"),
+                ));
+            }
+            SemanticNameResolution::Unknown => self
                 .diagnostics
                 .push(Diagnostic::new(span, format!("unknown type `{name}`"))),
         }
@@ -3012,7 +3187,8 @@ impl Analyzer {
         if is_string_type_name(name) {
             return value;
         }
-        if let Some(symbol_id) = self.symbols.lookup(scope, name)
+        if let SemanticNameResolution::Symbol(symbol_id) =
+            resolve_semantic_name(&self.symbols, &self.modules, scope, name)
             && matches!(
                 self.symbols.symbols[symbol_id.0].class,
                 SymbolClass::Type | SymbolClass::Record
@@ -3222,6 +3398,64 @@ impl SymbolTable {
     }
 }
 
+fn resolve_semantic_name(
+    symbols: &SymbolTable,
+    modules: &[SemanticModuleScope],
+    scope: ScopeId,
+    name: &QualifiedName,
+) -> SemanticNameResolution {
+    if let Some(simple) = name.simple_name() {
+        return symbols
+            .lookup(scope, simple)
+            .map(SemanticNameResolution::Symbol)
+            .unwrap_or(SemanticNameResolution::Unknown);
+    }
+
+    let Some((alias, member)) = name.module_member() else {
+        return SemanticNameResolution::Unknown;
+    };
+
+    // A lexical declaration shadows a module alias. This is what preserves
+    // the ordinary record-field meaning of `A.B` when `A` is a local value.
+    if symbols.lookup(scope, alias).is_some() {
+        return SemanticNameResolution::Unknown;
+    }
+    let Some(owner) = module_for_scope(symbols, scope) else {
+        return SemanticNameResolution::Unknown;
+    };
+    let Some(module) = modules.get(owner.0 as usize) else {
+        return SemanticNameResolution::Unknown;
+    };
+    let Some(target_id) = module.module_alias(alias) else {
+        return SemanticNameResolution::Unknown;
+    };
+    let Some(target) = modules.get(target_id.0 as usize) else {
+        return SemanticNameResolution::Unknown;
+    };
+    if let Some(symbol) = target.public_symbol(member) {
+        return SemanticNameResolution::Symbol(symbol);
+    }
+    if let Some(symbol) = symbols.lookup_exact(target.scope, member) {
+        return SemanticNameResolution::PrivateMember {
+            module: target_id,
+            symbol,
+        };
+    }
+    SemanticNameResolution::MissingMember { module: target_id }
+}
+
+fn module_for_scope(symbols: &SymbolTable, scope: ScopeId) -> Option<ModuleId> {
+    let mut current = Some(scope);
+    while let Some(scope_id) = current {
+        let scope = symbols.scopes.get(scope_id.0)?;
+        if let ScopeKind::Module(module) = scope.kind {
+            return Some(module);
+        }
+        current = scope.parent;
+    }
+    None
+}
+
 impl ValueType {
     pub fn error() -> Self {
         Self {
@@ -3236,7 +3470,7 @@ impl ValueType {
             TypeBase::Named(name) if is_string_type_name(name) => {
                 ValueTypeBase::Fund(FundType::Char)
             }
-            TypeBase::Named(name) => ValueTypeBase::Named(name.clone()),
+            TypeBase::Named(name) => ValueTypeBase::Named(name.to_string()),
             TypeBase::Callable(kind) => ValueTypeBase::Callable(Box::new(
                 CallableType::from_routine_kind(kind.clone(), Vec::new()),
             )),
@@ -4113,6 +4347,154 @@ mod tests {
             model.symbols.symbols[b_state.0].canonical_qualified_key,
             "lib.b::state"
         );
+    }
+
+    #[test]
+    fn qualified_module_members_resolve_in_types_values_calls_and_static_addresses() {
+        let compilation = load_named_sources(&[
+            (
+                "project/main.act",
+                "MODULE APP\n\
+                 IMPORT LIB.DATA\n\
+                 DATA.Pair item\n\
+                 BYTE ARRAY buffer(DATA.Width)\n\
+                 CARD ARRAY refs=[@DATA.Table,@DATA.Touch]\n\
+                 SET $4EE=DATA.Touch\n\
+                 PROC Handler=DATA.Width() RETURN\n\
+                 PROC Main()\n\
+                   DATA.Register=DATA.Width\n\
+                   item.x=DATA.Width\n\
+                   DATA.Touch(DATA.Width)\n\
+                   [@DATA.Register]\n\
+                   ASM\n lda DATA.Register\n lda #DATA.Width\n jsr DATA.Touch\nENDASM\n\
+                 RETURN\n\
+                 ENDMODULE\n",
+            ),
+            (
+                "project/lib/data.act",
+                "MODULE LIB.DATA\n\
+                 PUBLIC CONST BYTE Width=4\n\
+                 PUBLIC VOLATILE BYTE Register=$D400\n\
+                 PUBLIC TYPE Pair=[BYTE x]\n\
+                 PUBLIC BYTE ARRAY Table(4)\n\
+                 PUBLIC PROC Touch(BYTE value) RETURN\n\
+                 ENDMODULE\n",
+            ),
+        ]);
+        let model = analyze_compilation(&compilation)
+            .unwrap_or_else(|diagnostics| panic!("qualified analysis failed: {diagnostics:#?}"));
+        let data = named_module(&model, "LIB.DATA");
+        let register = data.public_symbol("Register").unwrap();
+        assert!(model.symbols.symbols[register.0].is_volatile);
+
+        let semir = ir::lower_compilation(&compilation, &model);
+        assert_eq!(semir.modules.len(), 2);
+        assert!(semir.modules.iter().all(|module| module.id.is_some()));
+        assert!(semir.modules.iter().all(|module| module.path.is_some()));
+        let text = ir::format_program(&semir);
+        assert!(!text.contains("unresolved"), "{text}");
+        let app = semir
+            .modules
+            .iter()
+            .find(|module| {
+                module
+                    .path
+                    .as_ref()
+                    .is_some_and(|path| path.display_name() == "APP")
+            })
+            .unwrap();
+        assert!(app.items.iter().any(|item| matches!(
+            item,
+            ir::SemItem::Routine(routine)
+                if routine.body.iter().any(|stmt| matches!(
+                    stmt,
+                    ir::SemStmt::MachineBlock { resolved_symbols, .. }
+                        if resolved_symbols.iter().any(|target|
+                            target.symbol.id == register)
+                ))
+        )));
+    }
+
+    #[test]
+    fn qualified_lookup_distinguishes_private_missing_and_record_field_access() {
+        let private = analyze_named_sources_err(&[
+            (
+                "project/main.act",
+                "MODULE APP\nIMPORT LIB.DATA\nPROC Main() DATA.Secret=1 RETURN\nENDMODULE\n",
+            ),
+            (
+                "project/lib/data.act",
+                "MODULE LIB.DATA\nBYTE Secret\nENDMODULE\n",
+            ),
+        ]);
+        assert!(private.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("module `LIB.DATA` member `Secret` is private")
+        }));
+
+        let missing = analyze_named_sources_err(&[
+            (
+                "project/main.act",
+                "MODULE APP\nIMPORT LIB.DATA\nPROC Main() DATA.Missing=1 RETURN\nENDMODULE\n",
+            ),
+            ("project/lib/data.act", "MODULE LIB.DATA\nENDMODULE\n"),
+        ]);
+        assert!(missing.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("module `LIB.DATA` has no public member `Missing`")
+        }));
+
+        analyze_named_sources(&[
+            (
+                "project/main.act",
+                "MODULE APP\n\
+                 IMPORT LIB.DATA\n\
+                 TYPE Pair=[BYTE x]\n\
+                 PROC Main() Pair DATA DATA.x=1 RETURN\n\
+                 ENDMODULE\n",
+            ),
+            ("project/lib/data.act", "MODULE LIB.DATA\nENDMODULE\n"),
+        ]);
+    }
+
+    #[test]
+    fn qualified_types_and_initializer_targets_are_structured_in_the_ast() {
+        let compilation = load_named_sources(&[
+            (
+                "project/main.act",
+                "MODULE APP\n\
+                 IMPORT LIB.DATA\n\
+                 DATA.Pair item\n\
+                 CARD ARRAY refs=[@DATA.Table]\n\
+                 ENDMODULE\n",
+            ),
+            (
+                "project/lib/data.act",
+                "MODULE LIB.DATA\nPUBLIC TYPE Pair=[BYTE x]\nPUBLIC BYTE Table\nENDMODULE\n",
+            ),
+        ]);
+        let root = &compilation.root_module().program.modules[0];
+        let Item::Declaration(Decl::Var(item)) = &root.items[0] else {
+            panic!("expected item declaration");
+        };
+        let TypeBase::Named(name) = &item.ty.base else {
+            panic!("expected named type");
+        };
+        assert_eq!(name.components, ["DATA", "Pair"]);
+        let Item::Declaration(Decl::Var(refs)) = &root.items[1] else {
+            panic!("expected refs declaration");
+        };
+        let ExprKind::InitializerList(elements) =
+            &refs.entries[0].initializer.as_ref().unwrap().kind
+        else {
+            panic!("expected initializer list");
+        };
+        let InitializerElementKind::Address { target, .. } = &elements[0].kind else {
+            panic!("expected address initializer");
+        };
+        assert_eq!(target.components, ["DATA", "Table"]);
     }
 
     #[test]

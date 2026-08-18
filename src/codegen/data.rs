@@ -603,7 +603,7 @@ pub(super) fn structured_array_initializer_storage(
                 }
                 initializers.push(StorageInit::Relocation {
                     kind,
-                    target: StorageRelocationTarget::Name(target.clone()),
+                    target: StorageRelocationTarget::Name(target.to_string()),
                     addend: *addend,
                     span: element.span,
                 });

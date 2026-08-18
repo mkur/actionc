@@ -673,7 +673,7 @@ impl<'a> Parser<'a> {
             is_volatile: self.eat_contextual("VOLATILE"),
         };
         let ty = self.parse_type_ref().unwrap_or_else(|| TypeRef {
-            base: TypeBase::Named("<missing type>".to_string()),
+            base: TypeBase::Named(QualifiedName::simple("<missing type>")),
             pointer: false,
         });
         let storage = if self.eat_keyword(Keyword::Array) {
@@ -1032,6 +1032,7 @@ impl<'a> Parser<'a> {
             TokenKind::Char(value) => (MachineItem::CharLiteral(value), vec![first]),
             TokenKind::Ident(name) => {
                 let mut tokens = vec![first];
+                let name = self.parse_qualified_name_tail(name, &mut tokens);
                 if matches!(self.peek().kind, TokenKind::Caret) {
                     tokens.push(self.bump().clone());
                     let offset =
@@ -1156,7 +1157,9 @@ impl<'a> Parser<'a> {
             }
             TokenKind::Ident(name) => {
                 tokens.push(self.bump().clone());
-                Some(MachineAddressAtom::Name(name))
+                Some(MachineAddressAtom::Name(
+                    self.parse_qualified_name_tail(name, tokens),
+                ))
             }
             TokenKind::Star => {
                 tokens.push(self.bump().clone());
@@ -1260,7 +1263,7 @@ impl<'a> Parser<'a> {
                 TypeBase::Fund(fund)
             }
         } else if let Some(name) = self.expect_ident_if_present() {
-            TypeBase::Named(name)
+            TypeBase::Named(self.parse_qualified_name_tail(name, &mut Vec::new()))
         } else {
             self.diagnostics
                 .push(Diagnostic::new(self.peek().span, "expected type"));
@@ -1269,6 +1272,31 @@ impl<'a> Parser<'a> {
         let pointer = !matches!(base, TypeBase::Callable(_)) && self.eat_keyword(Keyword::Pointer);
 
         Some(TypeRef { base, pointer })
+    }
+
+    fn parse_qualified_name_tail(
+        &mut self,
+        first: String,
+        consumed: &mut Vec<Token>,
+    ) -> QualifiedName {
+        let mut components = vec![first];
+        while matches!(self.peek().kind, TokenKind::Dot)
+            && matches!(
+                self.tokens
+                    .get(self.pos.saturating_add(1))
+                    .map(|token| &token.kind),
+                Some(TokenKind::Ident(_))
+            )
+        {
+            consumed.push(self.bump().clone());
+            let token = self.bump().clone();
+            let TokenKind::Ident(component) = token.kind.clone() else {
+                unreachable!();
+            };
+            consumed.push(token);
+            components.push(component);
+        }
+        QualifiedName::new(components)
     }
 
     fn parse_fund_type(&mut self) -> Option<FundType> {
@@ -1611,8 +1639,18 @@ impl<'a> Parser<'a> {
         if self.known_non_type_defines.contains(&normalize_name(name)) {
             return false;
         }
+        let mut next = pos + 1;
+        while matches!(
+            (
+                self.tokens.get(next).map(|token| &token.kind),
+                self.tokens.get(next + 1).map(|token| &token.kind)
+            ),
+            (Some(TokenKind::Dot), Some(TokenKind::Ident(_)))
+        ) {
+            next += 2;
+        }
         matches!(
-            self.tokens.get(pos + 1).map(|token| &token.kind),
+            self.tokens.get(next).map(|token| &token.kind),
             Some(TokenKind::Ident(_)) | Some(TokenKind::Keyword(Keyword::Array | Keyword::Pointer))
         )
     }
@@ -2303,8 +2341,16 @@ fn initializer_list_expr(tokens: Vec<Token>, span: Span) -> Expr {
                     ));
                     continue;
                 };
-                let target = target.clone();
+                let mut target_components = vec![target.clone()];
                 index += 1;
+                while index + 1 < body.len()
+                    && matches!(body[index].kind, TokenKind::Dot)
+                    && let TokenKind::Ident(component) = &body[index + 1].kind
+                {
+                    target_components.push(component.clone());
+                    index += 2;
+                }
+                let target = QualifiedName::new(target_components);
                 let mut addend = 0i32;
                 if index + 1 < body.len()
                     && matches!(body[index].kind, TokenKind::Plus | TokenKind::Minus)
@@ -3793,14 +3839,14 @@ mod tests {
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: Some(AddressByteSelector::Low),
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("Target".to_string()),
+                    atom: MachineAddressAtom::Name("Target".into()),
                     offset: 0,
                     text: "<Target".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: Some(AddressByteSelector::High),
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("Target".to_string()),
+                    atom: MachineAddressAtom::Name("Target".into()),
                     offset: 0,
                     text: ">Target".to_string()
                 })
@@ -3822,9 +3868,9 @@ mod tests {
         assert_eq!(
             items,
             &[
-                MachineItem::Name("TSX".to_string()),
-                MachineItem::Name("STX".to_string()),
-                MachineItem::Name("sp".to_string()),
+                MachineItem::Name("TSX".into()),
+                MachineItem::Name("STX".into()),
+                MachineItem::Name("sp".into()),
             ]
         );
     }
@@ -3846,35 +3892,35 @@ mod tests {
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: None,
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("screen".to_string()),
+                    atom: MachineAddressAtom::Name("screen".into()),
                     offset: 0,
                     text: "screen^".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: Some(AddressByteSelector::Low),
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("screen".to_string()),
+                    atom: MachineAddressAtom::Name("screen".into()),
                     offset: 0,
                     text: "<screen^".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: Some(AddressByteSelector::High),
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("screen".to_string()),
+                    atom: MachineAddressAtom::Name("screen".into()),
                     offset: 0,
                     text: ">screen^".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: None,
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("screen".to_string()),
+                    atom: MachineAddressAtom::Name("screen".into()),
                     offset: 1,
                     text: "screen^+1".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: None,
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("screen".to_string()),
+                    atom: MachineAddressAtom::Name("screen".into()),
                     offset: 0,
                     text: "screen^+OFF".to_string()
                 })
@@ -3899,14 +3945,14 @@ mod tests {
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: None,
                     explicit_address: true,
-                    atom: MachineAddressAtom::Name("Target".to_string()),
+                    atom: MachineAddressAtom::Name("Target".into()),
                     offset: 1,
                     text: "@Target+1".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: Some(AddressByteSelector::Low),
                     explicit_address: true,
-                    atom: MachineAddressAtom::Name("Target".to_string()),
+                    atom: MachineAddressAtom::Name("Target".into()),
                     offset: 0,
                     text: "<@Target".to_string()
                 }),

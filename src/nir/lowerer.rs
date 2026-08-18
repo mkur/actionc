@@ -3437,7 +3437,7 @@ fn nir_machine_item(item: &MachineItem) -> NirMachineItem {
             .unwrap_or_else(|| NirMachineItem::Raw(number.text.clone())),
         MachineItem::StringLiteral(value) => NirMachineItem::StringLiteral(value.clone()),
         MachineItem::CharLiteral(value) => NirMachineItem::CharLiteral(*value),
-        MachineItem::Name(name) => NirMachineItem::Name(name.clone()),
+        MachineItem::Name(name) => NirMachineItem::Name(name.to_string()),
         MachineItem::AddressExpr(expr) => NirMachineItem::AddressExpr {
             selector: expr.selector.map(nir_machine_byte_selector),
             explicit_address: expr.explicit_address,
@@ -3447,7 +3447,7 @@ fn nir_machine_item(item: &MachineItem) -> NirMachineItem {
         },
         MachineItem::AddressByte { selector, name } => NirMachineItem::AddressByte {
             high: matches!(selector, AddressByteSelector::High),
-            name: name.clone(),
+            name: name.to_string(),
         },
         MachineItem::Raw(raw) => NirMachineItem::Raw(raw.clone()),
     }
@@ -3459,7 +3459,7 @@ fn nir_machine_atom(atom: &MachineAddressAtom) -> NirMachineAtom {
             .value
             .map(NirMachineAtom::Number)
             .unwrap_or_else(|| NirMachineAtom::Name(number.text.clone())),
-        MachineAddressAtom::Name(name) => NirMachineAtom::Name(name.clone()),
+        MachineAddressAtom::Name(name) => NirMachineAtom::Name(name.to_string()),
         MachineAddressAtom::Current => NirMachineAtom::Current,
     }
 }
@@ -3759,6 +3759,9 @@ mod memory_effect_tests {
         let symbol = crate::semantic::ir::SemSymbolRef {
             id: SemSymbolId(9),
             name: "x".to_string(),
+            defining_module: None,
+            canonical_qualified_key: "X".to_string(),
+            qualified_name: "x".to_string(),
             class: SymbolClass::Var,
             ty: None,
             is_volatile: false,

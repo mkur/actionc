@@ -7,22 +7,34 @@ use crate::asm6502::{
 use crate::ast::{
     ActioncAnnotation, AddressByteSelector, BinaryOp, ConstDecl, Decl, DefineDecl, Expr, ExprKind,
     FundType, IncludeDirective, InitializerElement, InitializerElementKind, InitializerLiteral,
-    Item, MachineItem, Module, Program, RecordDecl, Routine, RoutineKind, SetDirective, Stmt,
-    TypeBase, TypeDecl, TypeRef, UnaryOp, VarDecl, VarStorage,
+    Item, MachineAddressAtom, MachineAddressExpr, MachineItem, Module, Program, RecordDecl,
+    Routine, RoutineKind, SetDirective, Stmt, TypeBase, TypeDecl, TypeRef, UnaryOp, VarDecl,
+    VarStorage,
 };
+use crate::includes::{LoadedCompilation, ModuleId};
 use crate::lexer::{NumberLiteral, TokenKind, tokenize};
 use crate::source::Span;
 
 use super::{
     ArrayType, CallableType, ConstValue, ExprClass, FieldId, RecordFieldType, RecordType,
-    ScalarSignedness, ScalarType, ScopeId, SemanticLayoutFacts, SemanticModel, StmtFlowFacts,
-    SymbolClass, SymbolId, ValueType, ValueTypeBase, routine_control_flow_facts,
-    subject::PlaceAccess,
+    ScalarSignedness, ScalarType, ScopeId, SemanticLayoutFacts, SemanticModel,
+    SemanticNameResolution, StmtFlowFacts, SymbolClass, SymbolId, ValueType, ValueTypeBase,
+    routine_control_flow_facts, subject::PlaceAccess,
 };
 
 pub fn lower_program(program: &Program, model: &SemanticModel) -> SemProgram {
     let mut builder = IrBuilder::new(model);
     builder.lower_program(program)
+}
+
+pub fn lower_compilation(compilation: &LoadedCompilation, model: &SemanticModel) -> SemProgram {
+    if matches!(
+        compilation.root_module().program.source_kind,
+        crate::ast::SourceUnitKind::Legacy
+    ) {
+        return lower_program(&compilation.root_module().program, model);
+    }
+    IrBuilder::new(model).lower_named_compilation(compilation)
 }
 
 pub fn format_program(program: &SemProgram) -> String {
@@ -39,6 +51,8 @@ pub struct SemProgram {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemModule {
+    pub id: Option<ModuleId>,
+    pub path: Option<crate::ast::ModulePath>,
     pub items: Vec<SemItem>,
 }
 
@@ -58,6 +72,9 @@ pub enum SemItem {
 pub struct SemSymbolRef {
     pub id: SymbolId,
     pub name: String,
+    pub defining_module: Option<ModuleId>,
+    pub canonical_qualified_key: String,
+    pub qualified_name: String,
     pub class: SymbolClass,
     pub ty: Option<ValueType>,
     pub is_volatile: bool,
@@ -300,6 +317,10 @@ pub enum SemStmt {
     },
     MachineBlock {
         items: Vec<MachineItem>,
+        /// Stable semantic targets for symbolic machine items. The original
+        /// items remain only as a compatibility payload for the classic
+        /// projection; target-aware lowering consumes these identities.
+        resolved_symbols: Vec<SemMachineSymbolRef>,
         text: String,
         effects: SemEffects,
         span: Span,
@@ -336,6 +357,12 @@ pub enum SemStmt {
         span: Span,
         note: String,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemMachineSymbolRef {
+    pub item_index: usize,
+    pub symbol: SemSymbolRef,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -785,7 +812,11 @@ impl SemIrFormatter {
         self.line(format!("program modules={}", program.modules.len()));
         self.indented(|this| {
             for (index, module) in program.modules.iter().enumerate() {
-                this.line(format!("module #{index} items={}", module.items.len()));
+                let identity = module
+                    .path
+                    .as_ref()
+                    .map_or_else(|| format!("#{index}"), crate::ast::ModulePath::display_name);
+                this.line(format!("module {identity} items={}", module.items.len()));
                 this.indented(|this| this.module(module));
             }
         });
@@ -1093,7 +1124,7 @@ fn expr_summary(expr: &SemExpr) -> String {
         SemExprKind::UnresolvedName(name) => name.clone(),
         SemExprKind::CurrentLocation => "*".to_string(),
         SemExprKind::Literal(literal) => literal_summary(literal),
-        SemExprKind::Symbol(symbol) => symbol.name.clone(),
+        SemExprKind::Symbol(symbol) => symbol_display_name(symbol).to_string(),
         SemExprKind::LValue(lvalue) => lvalue_summary(lvalue),
         SemExprKind::AddressOf(lvalue) => format!("@{}", lvalue_summary(lvalue)),
         SemExprKind::AddressOfSymbol(symbol) => format!("@{}", symbol.name),
@@ -1154,7 +1185,7 @@ fn control_flow_summary(flow: &SemControlFlow) -> String {
 
 fn lvalue_summary(lvalue: &SemLValue) -> String {
     let kind = match &lvalue.kind {
-        SemLValueKind::Symbol(symbol) => symbol.name.clone(),
+        SemLValueKind::Symbol(symbol) => symbol_display_name(symbol).to_string(),
         SemLValueKind::UnresolvedName(name) => name.clone(),
         SemLValueKind::Deref { pointer } => format!("{}^", expr_summary(pointer)),
         SemLValueKind::Index { base, index, .. } => {
@@ -1235,12 +1266,20 @@ fn record_type_summary(record_type: &RecordType) -> String {
 fn symbol_summary(symbol: &SemSymbolRef) -> String {
     format!(
         "{}#{}/scope{}:{:?}:{}",
-        symbol.name,
+        symbol_display_name(symbol),
         symbol.id.0,
         symbol.scope.0,
         symbol.class,
         option_type_summary(symbol.ty.as_ref())
     )
+}
+
+fn symbol_display_name(symbol: &SemSymbolRef) -> &str {
+    if symbol.defining_module.is_some() {
+        &symbol.qualified_name
+    } else {
+        &symbol.name
+    }
 }
 
 fn declaration_storage_summary(storage: &SemDeclarationStorage) -> String {
@@ -1404,7 +1443,6 @@ fn is_compare_op(op: BinaryOp) -> bool {
 
 struct IrBuilder<'a> {
     model: &'a SemanticModel,
-    routine_index: usize,
     next_eval_order: u32,
     numeric_defines: HashMap<SymbolId, NumberLiteral>,
 }
@@ -1413,14 +1451,14 @@ impl<'a> IrBuilder<'a> {
     fn new(model: &'a SemanticModel) -> Self {
         Self {
             model,
-            routine_index: 0,
             next_eval_order: 0,
             numeric_defines: HashMap::new(),
         }
     }
 
     fn lower_program(&mut self, program: &Program) -> SemProgram {
-        self.numeric_defines = self.collect_numeric_defines(program);
+        self.numeric_defines =
+            self.collect_numeric_defines(program, self.model.symbols.global_scope());
         SemProgram {
             modules: program
                 .modules
@@ -1431,9 +1469,50 @@ impl<'a> IrBuilder<'a> {
         }
     }
 
+    fn lower_named_compilation(&mut self, compilation: &LoadedCompilation) -> SemProgram {
+        for module_id in &compilation.graph_order {
+            let module = &compilation.modules[module_id.0 as usize];
+            let scope = self
+                .model
+                .module(*module_id)
+                .map(|module| module.scope)
+                .expect("semantic module scope");
+            self.numeric_defines
+                .extend(self.collect_numeric_defines(&module.program, scope));
+        }
+        SemProgram {
+            modules: compilation
+                .graph_order
+                .iter()
+                .map(|module_id| {
+                    let loaded = &compilation.modules[module_id.0 as usize];
+                    self.lower_named_module(*module_id, &loaded.program)
+                })
+                .collect(),
+            layout: self.model.layout.clone(),
+        }
+    }
+
+    fn lower_named_module(&mut self, id: ModuleId, program: &Program) -> SemModule {
+        let module = self.model.module(id).expect("semantic module scope");
+        let mut items = Vec::new();
+        for region in &program.modules {
+            for item in &region.items {
+                items.extend(self.lower_item(module.scope, item));
+            }
+        }
+        SemModule {
+            id: Some(id),
+            path: Some(module.path.clone()),
+            items,
+        }
+    }
+
     fn lower_module(&mut self, module: &Module) -> SemModule {
         let global_scope = self.model.symbols.global_scope();
         SemModule {
+            id: None,
+            path: None,
             items: module
                 .items
                 .iter()
@@ -1461,7 +1540,7 @@ impl<'a> IrBuilder<'a> {
                 .into_iter()
                 .map(SemItem::Declaration)
                 .collect(),
-            Item::Routine(routine) => vec![SemItem::Routine(self.lower_routine(routine))],
+            Item::Routine(routine) => vec![SemItem::Routine(self.lower_routine(scope, routine))],
             Item::Statement(stmt) => self
                 .lower_stmt(scope, stmt)
                 .into_iter()
@@ -1619,7 +1698,7 @@ impl<'a> IrBuilder<'a> {
                 let descriptor = self
                     .field_descriptor_by_name(owner_name, &entry.name)
                     .map(|field| (field.id, field.ty.clone(), field.offset));
-                let ty = ValueType::from(field);
+                let ty = self.resolved_type_ref(scope, &field.ty);
                 let field_value = descriptor
                     .as_ref()
                     .map(|(_, ty, _)| ty.clone())
@@ -1664,7 +1743,7 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn record_type_from_fields(
-        &self,
+        &mut self,
         symbol: &SemSymbolRef,
         fields: &[SemRecordField],
     ) -> RecordType {
@@ -1705,21 +1784,19 @@ impl<'a> IrBuilder<'a> {
         })
     }
 
-    fn lower_routine(&mut self, routine: &Routine) -> SemRoutine {
-        let global_scope = self.model.symbols.global_scope();
-        let routine_scope = self
-            .model
-            .routine_scopes
-            .get(self.routine_index)
-            .map(|routine| routine.scope)
-            .unwrap_or(global_scope);
-        self.routine_index += 1;
-
+    fn lower_routine(&mut self, parent_scope: ScopeId, routine: &Routine) -> SemRoutine {
         let symbol = self
-            .symbol_ref(global_scope, &routine.name, routine.span)
+            .symbol_ref(parent_scope, &routine.name, routine.span)
             .unwrap_or_else(|| {
                 self.synthetic_symbol_ref(&routine.name, SymbolClass::Proc, routine.span)
             });
+        let routine_scope = self
+            .model
+            .routine_scopes
+            .iter()
+            .find(|routine| routine.symbol == Some(symbol.id))
+            .map(|routine| routine.scope)
+            .unwrap_or(parent_scope);
         let params = self.lower_params(routine_scope, &routine.params);
         let signature = SemRoutineSignature::from_header(
             routine.kind.clone(),
@@ -1752,7 +1829,7 @@ impl<'a> IrBuilder<'a> {
             system_address: routine
                 .system_address
                 .as_ref()
-                .map(|address| self.lower_expr(global_scope, address)),
+                .map(|address| self.lower_expr(parent_scope, address)),
             annotations: routine.annotations.clone(),
             effects: SemEffects::default(),
             control_flow: {
@@ -1843,6 +1920,7 @@ impl<'a> IrBuilder<'a> {
             }],
             Stmt::MachineBlock { items, text, span } => vec![SemStmt::MachineBlock {
                 items: items.clone(),
+                resolved_symbols: self.resolve_machine_symbols(scope, items),
                 text: text.clone(),
                 effects: SemEffects::default(),
                 span: *span,
@@ -1972,6 +2050,29 @@ impl<'a> IrBuilder<'a> {
         }
     }
 
+    fn resolve_machine_symbols(
+        &self,
+        scope: ScopeId,
+        items: &[MachineItem],
+    ) -> Vec<SemMachineSymbolRef> {
+        items
+            .iter()
+            .enumerate()
+            .filter_map(|(item_index, item)| {
+                let name = match item {
+                    MachineItem::Name(name) | MachineItem::AddressByte { name, .. } => name,
+                    MachineItem::AddressExpr(MachineAddressExpr {
+                        atom: MachineAddressAtom::Name(name),
+                        ..
+                    }) => name,
+                    _ => return None,
+                };
+                self.qualified_symbol_ref(scope, name, Span::new(0, 0))
+                    .map(|symbol| SemMachineSymbolRef { item_index, symbol })
+            })
+            .collect()
+    }
+
     fn lower_expr(&mut self, scope: ScopeId, expr: &Expr) -> SemExpr {
         let kind = match &expr.kind {
             ExprKind::Missing => SemExprKind::Missing,
@@ -1987,40 +2088,22 @@ impl<'a> IrBuilder<'a> {
             ExprKind::String(value) => SemExprKind::Literal(SemLiteral::String(value.clone())),
             ExprKind::Char(value) => SemExprKind::Literal(SemLiteral::Char(*value)),
             ExprKind::Name(name) => self
-                .symbol_ref(scope, name, expr.span)
-                .map(|symbol| {
-                    if symbol.class == SymbolClass::Const
-                        && let Some(value) = self.model.constants.get(&symbol.id).copied()
-                    {
-                        SemExprKind::Literal(SemLiteral::Constant(value))
-                    } else if symbol.class == SymbolClass::Define
-                        && let Some(number) = self.numeric_defines.get(&symbol.id)
-                    {
-                        SemExprKind::Literal(SemLiteral::Number(number.clone()))
-                    } else if self.is_array_symbol(symbol.id) {
-                        SemExprKind::ArrayDecay(self.array_decay_for_symbol(scope, expr, symbol))
-                    } else {
-                        SemExprKind::Symbol(symbol)
-                    }
-                })
+                .direct_symbol_ref_for_expr(scope, expr)
+                .map(|symbol| self.expr_kind_for_symbol(scope, expr, symbol))
                 .unwrap_or_else(|| SemExprKind::UnresolvedName(name.clone())),
             ExprKind::Unary {
                 op: UnaryOp::AddressOf,
                 expr: inner,
             } => {
-                if let ExprKind::Name(name) = &inner.kind {
-                    if let Some(symbol) = self.symbol_ref(scope, name, inner.span) {
-                        if matches!(
-                            symbol.class,
-                            SymbolClass::Proc
-                                | SymbolClass::Func
-                                | SymbolClass::BuiltinProc
-                                | SymbolClass::BuiltinFunc
-                        ) {
-                            SemExprKind::AddressOfSymbol(symbol)
-                        } else {
-                            SemExprKind::AddressOf(Box::new(self.lower_lvalue(scope, inner)))
-                        }
+                if let Some(symbol) = self.direct_symbol_ref_for_expr(scope, inner) {
+                    if matches!(
+                        symbol.class,
+                        SymbolClass::Proc
+                            | SymbolClass::Func
+                            | SymbolClass::BuiltinProc
+                            | SymbolClass::BuiltinFunc
+                    ) {
+                        SemExprKind::AddressOfSymbol(symbol)
                     } else {
                         SemExprKind::AddressOf(Box::new(self.lower_lvalue(scope, inner)))
                     }
@@ -2029,7 +2112,7 @@ impl<'a> IrBuilder<'a> {
                 }
             }
             ExprKind::Cast { ty, expr: inner } => {
-                let ty = ValueType::from(ty);
+                let ty = self.resolved_type_ref(scope, ty);
                 SemExprKind::Cast {
                     ty: ty.clone(),
                     expr: Box::new(self.lower_expr(scope, inner)),
@@ -2053,6 +2136,12 @@ impl<'a> IrBuilder<'a> {
                 SemExprKind::LValue(Box::new(self.lower_lvalue(scope, expr)))
             }
             ExprKind::Call { .. } => SemExprKind::Call(self.lower_call_expr(scope, expr)),
+            ExprKind::Field { .. } if self.direct_symbol_ref_for_expr(scope, expr).is_some() => {
+                let symbol = self
+                    .direct_symbol_ref_for_expr(scope, expr)
+                    .expect("guarded direct symbol");
+                self.expr_kind_for_symbol(scope, expr, symbol)
+            }
             ExprKind::Index { .. } | ExprKind::Field { .. } => {
                 SemExprKind::LValue(Box::new(self.lower_lvalue(scope, expr)))
             }
@@ -2067,6 +2156,27 @@ impl<'a> IrBuilder<'a> {
             class,
             eval_order: Some(self.next_eval_order()),
             span: expr.span,
+        }
+    }
+
+    fn expr_kind_for_symbol(
+        &mut self,
+        scope: ScopeId,
+        expr: &Expr,
+        symbol: SemSymbolRef,
+    ) -> SemExprKind {
+        if symbol.class == SymbolClass::Const
+            && let Some(value) = self.model.constants.get(&symbol.id).copied()
+        {
+            SemExprKind::Literal(SemLiteral::Constant(value))
+        } else if symbol.class == SymbolClass::Define
+            && let Some(number) = self.numeric_defines.get(&symbol.id)
+        {
+            SemExprKind::Literal(SemLiteral::Number(number.clone()))
+        } else if self.is_array_symbol(symbol.id) {
+            SemExprKind::ArrayDecay(self.array_decay_for_symbol(scope, expr, symbol))
+        } else {
+            SemExprKind::Symbol(symbol)
         }
     }
 
@@ -2126,7 +2236,7 @@ impl<'a> IrBuilder<'a> {
                 target,
                 addend,
             } => self
-                .symbol_ref(scope, target, element.span)
+                .qualified_symbol_ref(scope, target, element.span)
                 .map(|target| SemInitializerElementKind::Address {
                     selector: *selector,
                     target,
@@ -2521,24 +2631,28 @@ impl<'a> IrBuilder<'a> {
                 }
             }
             ExprKind::Field { base, field } => {
-                let base_lvalue = self.lower_lvalue(scope, base);
-                let descriptor = if base_lvalue.ty.is_error() {
-                    None
+                if let Some(symbol) = self.direct_symbol_ref_for_expr(scope, expr) {
+                    SemLValueKind::Symbol(symbol)
                 } else {
-                    self.field_descriptor(&base_lvalue.ty, field)
-                };
-                SemLValueKind::Field {
-                    base: Box::new(base_lvalue),
-                    field: SemFieldRef {
-                        id: descriptor.map(|field| field.id),
-                        owner: descriptor.map(|field| field.owner),
-                        name: field.clone(),
-                        ty: descriptor
-                            .map(|field| field.ty.clone())
-                            .unwrap_or_else(byte_type),
-                        offset: descriptor.map(|field| field.offset),
-                        span: expr.span,
-                    },
+                    let base_lvalue = self.lower_lvalue(scope, base);
+                    let descriptor = if base_lvalue.ty.is_error() {
+                        None
+                    } else {
+                        self.field_descriptor(&base_lvalue.ty, field)
+                    };
+                    SemLValueKind::Field {
+                        base: Box::new(base_lvalue),
+                        field: SemFieldRef {
+                            id: descriptor.map(|field| field.id),
+                            owner: descriptor.map(|field| field.owner),
+                            name: field.clone(),
+                            ty: descriptor
+                                .map(|field| field.ty.clone())
+                                .unwrap_or_else(byte_type),
+                            offset: descriptor.map(|field| field.offset),
+                            span: expr.span,
+                        },
+                    }
                 }
             }
             _ => SemLValueKind::Deref {
@@ -2565,6 +2679,10 @@ impl<'a> IrBuilder<'a> {
                 .symbols
                 .lookup(scope, name)
                 .is_some_and(|id| self.model.symbols.symbols[id.0].is_volatile),
+            ExprKind::Field { .. } if self.direct_symbol_ref_for_expr(scope, expr).is_some() => {
+                self.direct_symbol_ref_for_expr(scope, expr)
+                    .is_some_and(|symbol| symbol.is_volatile)
+            }
             ExprKind::Index { base, .. }
             | ExprKind::Field { base, .. }
             | ExprKind::Cast { expr: base, .. } => self.lvalue_expr_is_volatile(scope, base),
@@ -2627,6 +2745,15 @@ impl<'a> IrBuilder<'a> {
                         SymbolClass::Array | SymbolClass::Param | SymbolClass::Var
                     )
                 }),
+            ExprKind::Field { .. } if self.direct_symbol_ref_for_expr(scope, expr).is_some() => {
+                self.direct_symbol_ref_for_expr(scope, expr)
+                    .is_some_and(|symbol| {
+                        matches!(
+                            symbol.class,
+                            SymbolClass::Array | SymbolClass::Param | SymbolClass::Var
+                        )
+                    })
+            }
             ExprKind::Field { .. }
             | ExprKind::Unary {
                 op: UnaryOp::Deref, ..
@@ -2650,9 +2777,8 @@ impl<'a> IrBuilder<'a> {
             };
         };
 
-        let callee = match &callee.kind {
-            ExprKind::Name(name) => self
-                .symbol_ref(scope, name, callee.span)
+        let callee = match self.direct_symbol_ref_for_expr(scope, callee) {
+            Some(symbol) => Some(symbol)
                 .map(|symbol| match symbol.class {
                     SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc => {
                         SemCallable::Builtin(symbol)
@@ -2688,7 +2814,7 @@ impl<'a> IrBuilder<'a> {
                     target: Box::new(self.lower_expr(scope, callee)),
                     signature: SemRoutineSignature::unknown_proc(),
                 }),
-            _ => SemCallable::Indirect {
+            None => SemCallable::Indirect {
                 target: Box::new(self.lower_expr(scope, callee)),
                 signature: SemRoutineSignature::unknown_proc(),
             },
@@ -2721,8 +2847,8 @@ impl<'a> IrBuilder<'a> {
         match callee {
             SemCallable::User(symbol) | SemCallable::Builtin(symbol) => self
                 .model
-                .routine_signatures
-                .get(&normalize_name(&symbol.name))
+                .routine_signatures_by_symbol
+                .get(&symbol.id)
                 .map(|signature| {
                     callable_type_from_signature_parts(
                         signature.kind.clone(),
@@ -2745,8 +2871,8 @@ impl<'a> IrBuilder<'a> {
     fn callable_pointer_type_for_symbol(&self, symbol: &SemSymbolRef) -> ValueType {
         ValueType::callable_pointer(
             self.model
-                .routine_signatures
-                .get(&normalize_name(&symbol.name))
+                .routine_signatures_by_symbol
+                .get(&symbol.id)
                 .map(|signature| {
                     callable_type_from_signature_parts(
                         signature.kind.clone(),
@@ -2786,23 +2912,60 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn symbol_ref(&self, scope: ScopeId, name: &str, span: Span) -> Option<SemSymbolRef> {
-        let id = self.model.symbols.lookup(scope, name)?;
+        let name =
+            crate::ast::QualifiedName::new(name.split('.').map(str::to_string).collect::<Vec<_>>());
+        self.qualified_symbol_ref(scope, &name, span)
+    }
+
+    fn qualified_symbol_ref(
+        &self,
+        scope: ScopeId,
+        name: &crate::ast::QualifiedName,
+        span: Span,
+    ) -> Option<SemSymbolRef> {
+        let SemanticNameResolution::Symbol(id) = self.model.resolve_name(scope, name) else {
+            return None;
+        };
+        Some(self.symbol_ref_by_id(id, span))
+    }
+
+    fn symbol_ref_by_id(&self, id: SymbolId, span: Span) -> SemSymbolRef {
         let symbol = &self.model.symbols.symbols[id.0];
-        Some(SemSymbolRef {
+        SemSymbolRef {
             id,
             name: symbol.name.clone(),
+            defining_module: symbol.defining_module,
+            canonical_qualified_key: symbol.canonical_qualified_key.clone(),
+            qualified_name: symbol.qualified_name.clone(),
             class: symbol.class.clone(),
             ty: symbol.ty.clone(),
             is_volatile: symbol.is_volatile,
             scope: symbol.scope,
             span,
-        })
+        }
+    }
+
+    fn direct_symbol_ref_for_expr(&self, scope: ScopeId, expr: &Expr) -> Option<SemSymbolRef> {
+        match &expr.kind {
+            ExprKind::Name(name) => self.symbol_ref(scope, name, expr.span),
+            ExprKind::Field { base, field } => {
+                let ExprKind::Name(alias) = &base.kind else {
+                    return None;
+                };
+                let name = crate::ast::QualifiedName::new(vec![alias.clone(), field.clone()]);
+                self.qualified_symbol_ref(scope, &name, expr.span)
+            }
+            _ => None,
+        }
     }
 
     fn synthetic_symbol_ref(&self, name: &str, class: SymbolClass, span: Span) -> SemSymbolRef {
         SemSymbolRef {
             id: SymbolId(usize::MAX),
             name: name.to_string(),
+            defining_module: None,
+            canonical_qualified_key: normalize_name(name),
+            qualified_name: name.to_string(),
             class,
             ty: None,
             is_volatile: false,
@@ -2818,30 +2981,34 @@ impl<'a> IrBuilder<'a> {
         }
     }
 
-    fn collect_numeric_defines(&self, program: &Program) -> HashMap<SymbolId, NumberLiteral> {
+    fn collect_numeric_defines(
+        &self,
+        program: &Program,
+        top_scope: ScopeId,
+    ) -> HashMap<SymbolId, NumberLiteral> {
         let mut defines = HashMap::new();
-        let global_scope = self.model.symbols.global_scope();
-        let mut routine_index = 0usize;
         for module in &program.modules {
             for item in &module.items {
                 match item {
                     Item::Define(define) => {
-                        self.collect_numeric_define_decl(global_scope, define, &mut defines);
+                        self.collect_numeric_define_decl(top_scope, define, &mut defines);
                     }
                     Item::Routine(routine) => {
+                        let routine_symbol =
+                            self.model.symbols.lookup_exact(top_scope, &routine.name);
                         let routine_scope = self
                             .model
                             .routine_scopes
-                            .get(routine_index)
+                            .iter()
+                            .find(|scope| scope.symbol == routine_symbol)
                             .map(|routine| routine.scope)
-                            .unwrap_or(global_scope);
-                        routine_index += 1;
+                            .unwrap_or(top_scope);
                         for stmt in &routine.body {
                             self.collect_numeric_define_stmt(routine_scope, stmt, &mut defines);
                         }
                     }
                     Item::Statement(Stmt::Define(define)) => {
-                        self.collect_numeric_define_decl(global_scope, define, &mut defines);
+                        self.collect_numeric_define_decl(top_scope, define, &mut defines);
                     }
                     Item::Include(_)
                     | Item::Set(_)
@@ -2916,14 +3083,9 @@ impl<'a> IrBuilder<'a> {
             ExprKind::Name(name) => self
                 .symbol_ref(scope, name, expr.span)
                 .and_then(|symbol| symbol.ty),
-            ExprKind::Call { callee, .. } => {
-                if let ExprKind::Name(name) = &callee.kind {
-                    self.symbol_ref(scope, name, callee.span)
-                        .and_then(|symbol| symbol.ty)
-                } else {
-                    None
-                }
-            }
+            ExprKind::Call { callee, .. } => self
+                .direct_symbol_ref_for_expr(scope, callee)
+                .and_then(|symbol| symbol.ty),
             ExprKind::Index { base, .. } => self.fallback_expr_type(scope, base),
             ExprKind::Unary {
                 op: UnaryOp::Deref,
@@ -2936,8 +3098,8 @@ impl<'a> IrBuilder<'a> {
                 op: UnaryOp::AddressOf,
                 expr,
             } => {
-                if let ExprKind::Name(name) = &expr.kind {
-                    if let Some(symbol) = self.symbol_ref(scope, name, expr.span) {
+                if self.direct_symbol_ref_for_expr(scope, expr).is_some() {
+                    if let Some(symbol) = self.direct_symbol_ref_for_expr(scope, expr) {
                         if matches!(
                             symbol.class,
                             SymbolClass::Proc
@@ -2959,7 +3121,7 @@ impl<'a> IrBuilder<'a> {
                         .map(ValueType::pointer_to)
                 }
             }
-            ExprKind::Cast { ty, .. } => Some(ValueType::from(ty)),
+            ExprKind::Cast { ty, .. } => Some(self.resolved_type_ref(scope, ty)),
             _ => None,
         }
     }
@@ -2985,6 +3147,10 @@ impl<'a> IrBuilder<'a> {
                 self.fallback_expr_type(scope, callee)
                     .map(indexed_value_type)
             }
+            ExprKind::Field { .. } if self.direct_symbol_ref_for_expr(scope, expr).is_some() => {
+                self.direct_symbol_ref_for_expr(scope, expr)
+                    .and_then(|symbol| symbol.ty)
+            }
             ExprKind::Field { base, field } => self
                 .lvalue_expr_type(scope, base)
                 .and_then(|base_ty| self.field_descriptor(&base_ty, field))
@@ -2997,6 +3163,22 @@ impl<'a> IrBuilder<'a> {
         let id = SemEvalOrderId(self.next_eval_order);
         self.next_eval_order += 1;
         id
+    }
+
+    fn resolved_type_ref(&self, scope: ScopeId, ty: &TypeRef) -> ValueType {
+        let mut value = ValueType::from(ty);
+        let TypeBase::Named(name) = &ty.base else {
+            return value;
+        };
+        if name.eq_ignore_ascii_case("STRING") {
+            return value;
+        }
+        if let Some(symbol) = self.qualified_symbol_ref(scope, name, Span::new(0, 0))
+            && matches!(symbol.class, SymbolClass::Type | SymbolClass::Record)
+        {
+            value.base = ValueTypeBase::Named(symbol.qualified_name);
+        }
+        value
     }
 }
 
@@ -3013,7 +3195,7 @@ impl From<&crate::ast::TypeRef> for ValueType {
             crate::ast::TypeBase::Named(name) if name.eq_ignore_ascii_case("STRING") => {
                 ValueTypeBase::Fund(FundType::Char)
             }
-            crate::ast::TypeBase::Named(name) => ValueTypeBase::Named(name.clone()),
+            crate::ast::TypeBase::Named(name) => ValueTypeBase::Named(name.to_string()),
             crate::ast::TypeBase::Callable(kind) => ValueTypeBase::Callable(Box::new(
                 CallableType::from_routine_kind(kind.clone(), Vec::new()),
             )),

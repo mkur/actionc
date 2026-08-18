@@ -1,7 +1,7 @@
 use crate::asm6502::{InlineAsmProgram, InlineAsmRelocationTarget};
 use crate::ast::*;
 
-use super::{ConstValue, ScalarType, ScopeId, SemanticModel};
+use super::{ConstValue, ScalarType, ScopeId, SemanticModel, SemanticNameResolution};
 
 /// Prepare the semantic AST for consumers that still operate on source AST
 /// expressions.  CONST declarations have no runtime representation, and every
@@ -292,6 +292,9 @@ pub(super) fn materialize_inline_asm_constants(
 }
 
 fn constant(model: &SemanticModel, scope: ScopeId, name: &str) -> Option<ConstValue> {
-    let symbol = model.symbols.lookup(scope, name)?;
+    let name = QualifiedName::new(name.split('.').map(str::to_string).collect());
+    let SemanticNameResolution::Symbol(symbol) = model.resolve_name(scope, &name) else {
+        return None;
+    };
     model.constants.get(&symbol).copied()
 }

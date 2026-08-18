@@ -585,7 +585,7 @@ impl SemIrAstLowerer {
         TypeRef {
             base: match &ty.base {
                 ValueTypeBase::Fund(fund) => TypeBase::Fund(*fund),
-                ValueTypeBase::Named(name) => TypeBase::Named(name.clone()),
+                ValueTypeBase::Named(name) => TypeBase::Named(name.clone().into()),
                 ValueTypeBase::Callable(callable) => TypeBase::Callable(callable.kind.clone()),
                 ValueTypeBase::Error => TypeBase::Fund(FundType::Byte),
             },
@@ -682,7 +682,7 @@ fn sem_initializer_element_to_ast(element: &SemInitializerElement) -> Initialize
             addend,
         } => InitializerElementKind::Address {
             selector: *selector,
-            target: target.name.clone(),
+            target: target.name.clone().into(),
             addend: *addend,
         },
         SemInitializerElementKind::Invalid => InitializerElementKind::Invalid,
@@ -702,7 +702,7 @@ fn type_ref_text(ty: &TypeRef) -> String {
             FundType::Char => "CHAR".to_string(),
             FundType::Int => "INT".to_string(),
         },
-        TypeBase::Named(name) => name.clone(),
+        TypeBase::Named(name) => name.to_string(),
         TypeBase::Callable(kind) => routine_kind_text(kind),
     };
     if ty.pointer {
