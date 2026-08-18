@@ -675,14 +675,14 @@ fn print_error(error: &RunnerError) {
         for diagnostic in error.diagnostics() {
             match &diagnostic.site {
                 DiagnosticSite::Source {
-                    path,
+                    origin,
                     line,
                     column,
                     excerpt,
                     ..
                 } => eprintln!(
                     "{}:{}:{}: {}{}",
-                    path.display(),
+                    origin,
                     line,
                     column,
                     diagnostic.message,
@@ -691,8 +691,8 @@ fn print_error(error: &RunnerError) {
                         .map(|excerpt| format!(" | {excerpt}"))
                         .unwrap_or_default()
                 ),
-                DiagnosticSite::File { path } => {
-                    eprintln!("{}: {}", path.display(), diagnostic.message)
+                DiagnosticSite::File { origin } => {
+                    eprintln!("{}: {}", origin, diagnostic.message)
                 }
                 DiagnosticSite::Ir { routine, block } => {
                     let phase = compiler_phase_name(diagnostic.phase);

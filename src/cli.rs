@@ -880,14 +880,7 @@ fn print_diagnostics_with_source_path(
         let mapped = source_map.and_then(|source_map| source_map.location(diagnostic.span));
         let location = mapped
             .as_ref()
-            .map(|location| {
-                format!(
-                    "{}:{}:{}",
-                    location.path.display(),
-                    location.line,
-                    location.column
-                )
-            })
+            .map(|location| format!("{}:{}:{}", location.origin, location.line, location.column))
             .unwrap_or_else(|| {
                 let location = source_location(source_text, diagnostic.span);
                 fallback_path
@@ -919,7 +912,7 @@ fn print_compile_error(error: &CompileError, include_byte_ranges: bool) {
     for diagnostic in error.diagnostics() {
         match &diagnostic.site {
             DiagnosticSite::Source {
-                path,
+                origin,
                 line,
                 column,
                 byte_range,
@@ -935,7 +928,7 @@ fn print_compile_error(error: &CompileError, include_byte_ranges: bool) {
                 };
                 eprintln!(
                     "{}:{}:{}{}: {}{}",
-                    path.display(),
+                    origin,
                     line,
                     column,
                     byte_range,
@@ -946,8 +939,8 @@ fn print_compile_error(error: &CompileError, include_byte_ranges: bool) {
                         .unwrap_or_default()
                 );
             }
-            DiagnosticSite::File { path } => {
-                eprintln!("{}: {}", path.display(), diagnostic.message)
+            DiagnosticSite::File { origin } => {
+                eprintln!("{}: {}", origin, diagnostic.message)
             }
             DiagnosticSite::Ir { routine, block } => {
                 let phase = compiler_phase_name(diagnostic.phase);

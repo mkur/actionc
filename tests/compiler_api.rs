@@ -208,7 +208,8 @@ fn nir_preflight_failure_is_returned_as_a_source_diagnostic() {
     );
     assert!(matches!(
         &error.diagnostics()[0].site,
-        DiagnosticSite::Source { path, .. } if path == &source
+        DiagnosticSite::Source { origin, .. }
+            if origin.host_path() == Some(source.as_path())
     ));
 }
 
@@ -229,7 +230,8 @@ fn include_diagnostics_keep_the_included_path() {
     assert_eq!(error.diagnostics()[0].phase, CompilerPhase::Semantic);
     assert!(matches!(
         &error.diagnostics()[0].site,
-        DiagnosticSite::Source { path, .. } if path == &included
+        DiagnosticSite::Source { origin, .. }
+            if origin.host_path() == Some(included.as_path())
     ));
 }
 
@@ -284,7 +286,8 @@ fn invalid_source_returns_diagnostics_without_creating_outputs() {
     assert!(error.diagnostics()[0].message.contains("expected"));
     assert!(matches!(
         &error.diagnostics()[0].site,
-        DiagnosticSite::Source { path, .. } if path == &source
+        DiagnosticSite::Source { origin, .. }
+            if origin.host_path() == Some(source.as_path())
     ));
     assert_eq!(
         fs::read_dir(temp.path()).unwrap().count(),
