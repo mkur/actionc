@@ -6,7 +6,7 @@ use crate::semantic::{ValueType, ValueTypeBase};
 use crate::source::Span;
 use std::collections::BTreeMap;
 
-pub(super) fn semir_to_ast(program: &SemProgram) -> Result<Program, Vec<Diagnostic>> {
+pub(crate) fn semir_to_ast(program: &SemProgram) -> Result<Program, Vec<Diagnostic>> {
     let mut lowerer = SemIrAstLowerer {
         diagnostics: Vec::new(),
         type_link_names: module_type_link_names(program),

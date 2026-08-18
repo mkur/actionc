@@ -9,6 +9,7 @@ use crate::codegen::{
     CODE_ORIGIN, CodegenOutput, CodegenProfile, format_load_file, generate_profile_at_origin,
     generate_profile_with_origin, generate_semir_native_profile_with_origin,
     generate_semir_profile_at_origin, generate_semir_profile_with_origin,
+    generate_semir_standalone_profile_at_origin,
 };
 use crate::includes::{ModuleLoadOptions, load_compilation};
 use crate::mir6502;
@@ -280,6 +281,26 @@ fn compile_classic(
     path: &Path,
     source_map: &crate::includes::SourceMap,
 ) -> Result<CodegenOutput, CompileError> {
+    if request.runtime == Runtime::Standalone {
+        let origin = request
+            .origin
+            .unwrap_or_else(|| mir6502_default_origin_from_semir(semir, CODE_ORIGIN));
+        let mut output =
+            generate_semir_standalone_profile_at_origin(semir, origin, request.profile).map_err(
+                |diagnostics| {
+                    CompileError::from_source_diagnostics(
+                        CompilerPhase::Codegen,
+                        diagnostics,
+                        source,
+                        path,
+                        Some(source_map),
+                    )
+                },
+            )?;
+        output.map.runtime = request.runtime;
+        return Ok(output);
+    }
+
     let result = match request.codegen_source {
         CodegenSource::Ast if !named => {
             let materialized = materialize_constants(program, model);
@@ -416,12 +437,6 @@ fn resolve_request(
     if profile == CodegenProfile::Compat && backend == Backend::Mir6502 {
         return Err(CompileError::configuration(
             "--backend mir6502 requires --profile modern",
-        ));
-    }
-
-    if request.runtime == Runtime::Standalone && backend == Backend::Classic {
-        return Err(CompileError::configuration(
-            "--runtime standalone is not supported by the classic backend yet",
         ));
     }
 

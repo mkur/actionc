@@ -8,7 +8,7 @@ use crate::ast::Program;
 use crate::codegen::{
     CODE_ORIGIN, CodegenOptimizationKind, CodegenOutput, CodegenProfile, format_hex,
     format_load_file, generate_profile_with_origin, generate_semir_native_profile_with_origin,
-    generate_semir_profile_with_origin,
+    generate_semir_profile_with_origin, generate_semir_standalone_profile_at_origin,
 };
 use crate::compiler::{
     Backend, CodegenSource, CompileError, CompileErrorKind, CompileMode, CompileRequest,
@@ -402,10 +402,6 @@ fn run_main(flavor: CliFlavor) {
         eprintln!("{message}");
         process::exit(2);
     }
-    if let Some(message) = runtime_backend_error(runtime, backend) {
-        eprintln!("{message}");
-        process::exit(2);
-    }
 
     let model = match analyze_compilation(&loaded) {
         Ok(model) => model,
@@ -552,6 +548,36 @@ fn run_main(flavor: CliFlavor) {
                 ),
                 Err(diagnostics) => {
                     print_mir6502_diagnostics(diagnostics);
+                    process::exit(1);
+                }
+            }
+            return;
+        }
+
+        if runtime == Runtime::Standalone {
+            let standalone_origin = if origin_explicit {
+                origin
+            } else {
+                mir6502_default_origin_from_semir(&semir, origin)
+            };
+            match generate_semir_standalone_profile_at_origin(&semir, standalone_origin, profile) {
+                Ok(output) => emit_output(
+                    &output,
+                    &loaded.source,
+                    emit_load,
+                    emit_map,
+                    emit_proofs,
+                    emit_proof_attempts,
+                    emit_listing,
+                    emit_source_listing,
+                ),
+                Err(diagnostics) => {
+                    print_diagnostics_with_source(
+                        diagnostics,
+                        &loaded.source,
+                        Some(&loaded.source_map),
+                        diagnostic_byte_ranges,
+                    );
                     process::exit(1);
                 }
             }
@@ -723,16 +749,6 @@ fn profile_backend_error(profile: CodegenProfile, backend: Backend) -> Option<&'
         Some("--backend mir6502 requires --profile modern")
     } else {
         None
-    }
-}
-
-fn runtime_backend_error(runtime: Runtime, backend: Backend) -> Option<&'static str> {
-    match (runtime, backend) {
-        (Runtime::ActionCart, _) => None,
-        (Runtime::Standalone, Backend::Classic) => {
-            Some("--runtime standalone is not supported by the classic backend yet")
-        }
-        (Runtime::Standalone, Backend::Mir6502) => None,
     }
 }
 

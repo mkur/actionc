@@ -6,10 +6,6 @@ use super::ir::{
     MirCallTarget, MirInlineAsmTarget, MirMachineBlockId, MirMachineItem, MirOp, MirProgram,
     MirRuntimeHelper, MirRuntimeHelperTarget, MirTerminator, RoutineId,
 };
-use crate::embedded_vfs::EmbeddedSourceProvider;
-use crate::includes::{ModuleLoadOptions, load_compilation_from_provider};
-use crate::semantic::{analyze_compilation, ir};
-use crate::source::{InMemorySourceProvider, SourceOrigin};
 
 static SYSLIB_MIR: OnceLock<Result<MirProgram, Vec<MirDiagnostic>>> = OnceLock::new();
 
@@ -354,6 +350,56 @@ pub(super) fn dependency_closure(
     Ok(selected)
 }
 
+/// Return the source routine identities selected by the runtime dependency
+/// graph.  The classic linker uses this projection too, so both backends root
+/// and close over exactly the same embedded Action! implementations.
+pub(crate) fn selected_runtime_routine_names(
+    file_name: &str,
+    module_name: &str,
+    roots: &BTreeSet<String>,
+) -> Result<BTreeSet<String>, Vec<MirDiagnostic>> {
+    if roots.is_empty() {
+        return Ok(BTreeSet::new());
+    }
+    let runtime = if file_name.eq_ignore_ascii_case("syslib.act") {
+        syslib_mir()?
+    } else {
+        compile_runtime_unit(file_name, module_name)?
+    };
+    let root_ids = roots
+        .iter()
+        .map(|expected| {
+            let matches = runtime
+                .routines
+                .iter()
+                .filter(|routine| {
+                    runtime_routine_name(&routine.name, &module_name.replace('.', "_"))
+                        .eq_ignore_ascii_case(expected)
+                })
+                .map(|routine| routine.id)
+                .collect::<Vec<_>>();
+            match matches.as_slice() {
+                [id] => Ok(*id),
+                [] => Err(diagnostic(format!(
+                    "embedded runtime has no implementation routine `{expected}`"
+                ))),
+                _ => Err(diagnostic(format!(
+                    "embedded runtime has multiple implementation routines named `{expected}`"
+                ))),
+            }
+        })
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    let selected = dependency_closure(&runtime, root_ids)?;
+    Ok(runtime
+        .routines
+        .iter()
+        .filter(|routine| selected.contains(&routine.id))
+        .map(|routine| {
+            runtime_routine_name(&routine.name, &module_name.replace('.', "_")).to_string()
+        })
+        .collect())
+}
+
 fn rebased_routine(
     old: RoutineId,
     rebase: &BTreeMap<RoutineId, RoutineId>,
@@ -392,21 +438,8 @@ pub(super) fn compile_runtime_unit(
     file_name: &str,
     module_name: &str,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let source = EmbeddedSourceProvider
-        .runtime_source(file_name)
-        .ok_or_else(|| diagnostic(format!("embedded runtime source `{file_name}` is missing")))?;
-    let text = crate::source::decode_source(source.bytes);
-    let text = make_internal_named_module(&text, module_name, file_name)?;
-    let origin = SourceOrigin::embedded(
-        format!("runtime/internal/{file_name}"),
-        format!("<runtime:{}>", file_name.to_ascii_uppercase()),
-    );
-    let provider = InMemorySourceProvider::default().with_source(origin.clone(), text);
-    let loaded = load_compilation_from_provider(origin, &provider, &ModuleLoadOptions::default())
+    let semir = crate::runtime_source::compile_runtime_unit(file_name, module_name)
         .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
-    let model = analyze_compilation(&loaded)
-        .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
-    let semir = ir::lower_compilation(&loaded, &model);
     let nir = crate::nir::lower_program(&semir);
     crate::nir::verify_program(&nir).map_err(|diagnostics| {
         diagnostics
@@ -427,38 +460,6 @@ pub(super) fn compile_runtime_unit(
             })
             .collect()
     })
-}
-
-fn make_internal_named_module(
-    source: &str,
-    module_name: &str,
-    file_name: &str,
-) -> Result<String, Vec<MirDiagnostic>> {
-    let mut converted_first_marker = false;
-    let mut output = String::with_capacity(source.len() + 32);
-    for line in source.lines() {
-        let trimmed = line.trim_start();
-        if trimmed.to_ascii_uppercase().starts_with("MODULE ;") {
-            if !converted_first_marker {
-                output.push_str("MODULE ");
-                output.push_str(module_name);
-                converted_first_marker = true;
-            } else {
-                output.push_str("ENDMODULE");
-            }
-        } else if converted_first_marker && trimmed.eq_ignore_ascii_case("MODULE") {
-            output.push_str("ENDMODULE");
-        } else {
-            output.push_str(line);
-        }
-        output.push('\n');
-    }
-    if !converted_first_marker {
-        return Err(diagnostic(format!(
-            "embedded runtime source `{file_name}` has no legacy MODULE marker"
-        )));
-    }
-    Ok(output)
 }
 
 fn frontend_diagnostics(

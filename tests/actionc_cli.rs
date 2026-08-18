@@ -469,27 +469,91 @@ fn explicit_cart_runtime_matches_the_default_in_every_mode() {
 }
 
 #[test]
-fn unsupported_classic_standalone_configuration_fails_without_switching_backend() {
+fn classic_standalone_is_supported_without_switching_backend() {
     let temp = TestDir::new();
-    let object = temp.path().join("classic.com");
-    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+    for mode in ["compatibility", "optimized"] {
+        let object = temp.path().join(format!("classic-{mode}.com"));
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .args(["--mode", mode, "--runtime", "standalone", "--output"])
+            .arg(&object)
+            .arg(hello_world())
+            .output()
+            .expect("compile classic standalone configuration");
+        assert!(
+            output.status.success(),
+            "classic standalone {mode} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(!fs::read(&object).expect("read classic object").is_empty());
+    }
+}
+
+#[test]
+fn classic_standalone_links_the_same_sargs_source_closure() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sargs.act");
+    for profile in ["legacy", "modern"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args([
+                "--profile",
+                profile,
+                "--backend",
+                "classic",
+                "--runtime",
+                "standalone",
+                "--emit-map",
+            ])
+            .arg(&fixture)
+            .output()
+            .expect("emit classic standalone SArgs map");
+        assert!(
+            output.status.success(),
+            "classic standalone SArgs ({profile}) failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let map = String::from_utf8_lossy(&output.stdout);
+        for selected in ["ERROR", "BREAK", "SARGS"] {
+            assert!(
+                map.contains(&format!("M_ACTION_RUNTIME_SYSLIB_{selected}_")),
+                "missing {selected}: {map}"
+            );
+        }
+        for unused in ["LSHIFT", "RSHIFT", "MULTI", "DIVI", "REMI"] {
+            assert!(
+                !map.contains(&format!("M_ACTION_RUNTIME_SYSLIB_{unused}_")),
+                "unexpected {unused}: {map}"
+            );
+        }
+    }
+}
+
+#[test]
+fn classic_standalone_std_binding_is_selective() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_std_memory.act");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
         .args([
-            "--mode",
-            "compatibility",
+            "--profile",
+            "modern",
+            "--backend",
+            "classic",
             "--runtime",
             "standalone",
-            "--output",
+            "--emit-map",
         ])
-        .arg(&object)
-        .arg(hello_world())
+        .arg(&fixture)
         .output()
-        .expect("run unsupported standalone configuration");
-    assert_eq!(output.status.code(), Some(2));
+        .expect("emit classic standalone STD map");
     assert!(
+        output.status.success(),
+        "{}",
         String::from_utf8_lossy(&output.stderr)
-            .contains("--runtime standalone is not supported by the classic backend yet")
     );
-    assert!(!object.exists());
+    let map = String::from_utf8_lossy(&output.stdout);
+    assert!(map.contains("runtime-binding STD.Zero"));
+    assert!(map.contains("M_ACTION_RUNTIME_SYSBLK_ZERO_"));
+    assert!(map.contains("M_ACTION_RUNTIME_SYSBLK_SETBLOCK_"));
+    assert!(!map.contains("M_ACTION_RUNTIME_SYSBLK_MOVEBLOCK_"));
 }
 
 #[test]
@@ -738,6 +802,40 @@ fn standalone_sargs_local_override_suppresses_the_embedded_default() {
 }
 
 #[test]
+fn classic_standalone_honors_a_local_sargs_override() {
+    let temp = TestDir::new();
+    let source = temp.path().join("classic-local-sargs.act");
+    fs::write(
+        &source,
+        "PROC LocalSArgs=*() [$60]\nSET $4EE=LocalSArgs\nPROC Four(BYTE a,b,c,d) RETURN\nPROC Main() Four(1,2,3,4) RETURN\n",
+    )
+    .expect("write classic local SArgs override source");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "classic",
+            "--runtime",
+            "standalone",
+            "--emit-map",
+        ])
+        .arg(&source)
+        .output()
+        .expect("emit classic local SArgs override map");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let map = String::from_utf8_lossy(&output.stdout);
+    assert!(map.contains("runtime-binding SArgs"));
+    assert!(map.contains("LocalSArgs"));
+    assert!(map.contains("suppressed-default=ACTION.RUNTIME.SYSLIB::SArgs"));
+    assert!(!map.contains("M_ACTION_RUNTIME_SYSLIB_SARGS_"));
+}
+
+#[test]
 fn standalone_rejects_absolute_sargs_override() {
     let temp = TestDir::new();
     let source = temp.path().join("absolute-sargs.act");
@@ -751,6 +849,27 @@ fn standalone_rejects_absolute_sargs_override() {
         .arg(&source)
         .output()
         .expect("compile absolute SArgs override");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("standalone runtime rejects absolute override $A0F5 for `SArgs`")
+    );
+}
+
+#[test]
+fn classic_standalone_rejects_an_absolute_sargs_override() {
+    let temp = TestDir::new();
+    let source = temp.path().join("classic-absolute-sargs.act");
+    fs::write(
+        &source,
+        "SET $4EE=$A0F5\nPROC Four(BYTE a,b,c,d) RETURN\nPROC Main() Four(1,2,3,4) RETURN\n",
+    )
+    .expect("write classic absolute SArgs override source");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .args(["--mode", "optimized", "--runtime", "standalone"])
+        .arg(&source)
+        .output()
+        .expect("compile classic absolute SArgs override");
     assert_eq!(output.status.code(), Some(1));
     assert!(
         String::from_utf8_lossy(&output.stderr)

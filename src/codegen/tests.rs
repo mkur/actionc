@@ -16902,6 +16902,7 @@ fn test_generator(profile: CodegenProfile) -> Generator {
         numeric_defines: HashMap::new(),
         machine_defines: HashMap::new(),
         runtime_helpers: RuntimeHelperTargets::default_for_target(RuntimeTarget::Cartridge),
+        used_default_runtime_helpers: BTreeSet::new(),
         routine_assignment_targets: HashSet::new(),
         local_symbols: HashMap::new(),
         local_callable_pointers: HashMap::new(),

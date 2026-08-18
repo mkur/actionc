@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
@@ -298,6 +298,9 @@ pub use driver::{
 pub(crate) use driver::{generate_profile_at_origin, generate_semir_profile_at_origin};
 
 mod semir;
+
+mod standalone;
+pub(crate) use standalone::generate_semir_standalone_profile_at_origin;
 
 mod semir_native;
 
@@ -1070,6 +1073,7 @@ struct Generator {
     numeric_defines: HashMap<String, u16>,
     machine_defines: HashMap<String, Vec<MachineItem>>,
     runtime_helpers: RuntimeHelperTargets,
+    used_default_runtime_helpers: BTreeSet<RuntimeHelperSlot>,
     routine_assignment_targets: HashSet<String>,
     local_symbols: HashMap<String, StorageSlot>,
     local_callable_pointers: HashMap<String, CallablePointerInfo>,

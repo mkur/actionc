@@ -1,11 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
-use crate::ast::{Expr, ExprKind, Item};
-use crate::embedded_vfs::EmbeddedSourceProvider;
-use crate::lexer::tokenize;
-use crate::parser::parse;
 use crate::runtime::Runtime;
+use crate::runtime_bindings::{BindingTarget, binding_key, parse_bindings};
 
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
@@ -15,12 +12,6 @@ use super::ir::{
 };
 
 static SYSBLK_MIR: OnceLock<Result<MirProgram, Vec<MirDiagnostic>>> = OnceLock::new();
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum BindingTarget {
-    Absolute(u16),
-    RuntimeRoutine { unit: String, routine: String },
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ResolvedTarget {
@@ -43,7 +34,7 @@ pub(super) fn resolve_interfaces(
     }
 
     let referenced = referenced_external_routines(program, &external);
-    let bindings = parse_bindings(runtime)?;
+    let bindings = parse_bindings(runtime).map_err(frontend_diagnostics)?;
     let mut resolved = BTreeMap::new();
 
     match runtime {
@@ -133,83 +124,6 @@ fn sysblk_mir() -> Result<MirProgram, Vec<MirDiagnostic>> {
             super::standalone::compile_runtime_unit("sysblk.act", "ACTION.RUNTIME.SYSBLK")
         })
         .clone()
-}
-
-fn parse_bindings(runtime: Runtime) -> Result<BTreeMap<String, BindingTarget>, Vec<MirDiagnostic>> {
-    let file_name = match runtime {
-        Runtime::ActionCart => "std-cart.act",
-        Runtime::Standalone => "std-standalone.act",
-    };
-    let source = EmbeddedSourceProvider
-        .binding_source(file_name)
-        .ok_or_else(|| diagnostic(format!("embedded binding source `{file_name}` is missing")))?;
-    let text = crate::source::decode_source(source.bytes);
-    let tokens = tokenize(&text).map_err(frontend_diagnostics)?;
-    let program = parse(&tokens).map_err(frontend_diagnostics)?;
-    let mut bindings = BTreeMap::new();
-    for module in &program.modules {
-        for item in &module.items {
-            let Item::Set(set) = item else {
-                continue;
-            };
-            let Some(interface) = qualified_expr_name(&set.address) else {
-                return Err(diagnostic(format!(
-                    "binding target `{}` is not a qualified external name",
-                    set.address.text
-                )));
-            };
-            if !interface.to_ascii_uppercase().starts_with("STD.") {
-                return Err(diagnostic(format!(
-                    "binding target `{interface}` is outside STD"
-                )));
-            }
-            let target = if let ExprKind::Number(number) = &set.value.kind {
-                BindingTarget::Absolute(number.value.ok_or_else(|| {
-                    diagnostic(format!("binding value `{}` is not numeric", set.value.text))
-                })?)
-            } else {
-                let Some(implementation) = qualified_expr_name(&set.value) else {
-                    return Err(diagnostic(format!(
-                        "binding value `{}` is neither an address nor a runtime routine",
-                        set.value.text
-                    )));
-                };
-                let Some((unit, routine)) = implementation
-                    .split_once('.')
-                    .or_else(|| implementation.split_once('_'))
-                else {
-                    return Err(diagnostic(format!(
-                        "standalone binding `{implementation}` must name UNIT.Routine"
-                    )));
-                };
-                BindingTarget::RuntimeRoutine {
-                    unit: unit.to_string(),
-                    routine: routine.to_string(),
-                }
-            };
-            let key = binding_key(&interface);
-            if bindings.insert(key, target).is_some() {
-                return Err(diagnostic(format!(
-                    "duplicate runtime binding for `{interface}`"
-                )));
-            }
-        }
-    }
-    Ok(bindings)
-}
-
-fn qualified_expr_name(expr: &Expr) -> Option<String> {
-    match &expr.kind {
-        ExprKind::Name(name) => Some(name.clone()),
-        ExprKind::Field { base, field } => {
-            Some(format!("{}.{}", qualified_expr_name(base)?, field))
-        }
-        _ => None,
-    }
-}
-
-fn binding_key(name: &str) -> String {
-    name.replace("::", ".").to_ascii_uppercase()
 }
 
 fn find_runtime_routine(

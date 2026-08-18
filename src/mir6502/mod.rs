@@ -13,7 +13,7 @@ mod passes;
 mod printer;
 mod rewrite;
 mod runtime;
-mod standalone;
+pub(crate) mod standalone;
 mod verify;
 
 pub use diagnostics::MirDiagnostic;
