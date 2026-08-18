@@ -60,7 +60,11 @@ RETURN
 "#,
     );
 
-    for mode in [CompileMode::Compatibility, CompileMode::Optimized] {
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
         let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
             .unwrap_or_else(|err| panic!("compile volatile source in {mode:?}: {err}"));
         let bytes = compiled.object_bytes();
@@ -103,7 +107,11 @@ RETURN
 "#,
     );
 
-    for mode in [CompileMode::Compatibility, CompileMode::Optimized] {
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
         let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
             .unwrap_or_else(|err| panic!("compile volatile alias in {mode:?}: {err}"));
         assert_eq!(
@@ -132,7 +140,11 @@ RETURN
 "#,
     );
 
-    for mode in [CompileMode::Compatibility, CompileMode::Optimized] {
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
         let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
             .unwrap_or_else(|err| panic!("compile volatile array in {mode:?}: {err}"));
         let bytes = compiled.object_bytes();

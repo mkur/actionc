@@ -2,7 +2,8 @@
 
 Implementation status: in progress on the `Action-2027` branch. Syntax,
 semantic facts, the executable NIR contract, and both public classic modes are
-implemented.
+implemented. MIR6502 lowers volatile accesses through full-memory compiler
+barriers and preserves them through final emission.
 
 ## Goal
 
