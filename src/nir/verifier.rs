@@ -672,7 +672,7 @@ impl NirVerifier {
                     "legacy CompoundAssign op must be lowered to Load/Binary/Store",
                 ));
             }
-            NirOp::Load { dest, ty, place } => {
+            NirOp::Load { dest, ty, place } | NirOp::VolatileLoad { dest, ty, place } => {
                 self.op_type(routine, block, ty, "load result");
                 self.place_type(routine, block, place, "load place");
                 self.reject_executable_symbol_place(routine, block, place, "load place");
@@ -700,7 +700,7 @@ impl NirVerifier {
                     ));
                 }
             }
-            NirOp::Store { place, src, ty } => {
+            NirOp::Store { place, src, ty } | NirOp::VolatileStore { place, src, ty } => {
                 self.op_type(routine, block, ty, "store type");
                 self.place_type(routine, block, place, "store place");
                 self.reject_executable_symbol_place(routine, block, place, "store place");

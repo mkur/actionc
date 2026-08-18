@@ -1,6 +1,7 @@
 # Volatile Storage Implementation Plan
 
-Implementation status: planned on the `Action-2027` branch.
+Implementation status: in progress on the `Action-2027` branch. Syntax,
+semantic facts, and the executable NIR contract are implemented.
 
 ## Goal
 
@@ -65,21 +66,22 @@ SemIR owns qualifier legality and derives whether an lvalue access is
 volatile. The semantic model records the qualifier against stable storage
 identity rather than a name or formatted address.
 
-NIR owns normalized volatile access semantics. Loads and stores carry an
-explicit structured access kind:
+NIR owns normalized volatile access semantics. Executable accesses use
+explicit operation forms:
 
 ```text
-Ordinary | Volatile
+Load | VolatileLoad | Store | VolatileStore
 ```
 
 Volatility must not survive only as declaration metadata or debug text. This
 is important because absolute-backed declarations can become absolute places
 and indexed arrays become address computations before optimization.
 
-MIR6502 consumes the NIR access kind without consulting SemIR. Its effect and
-rewrite infrastructure must preserve each volatile load and store through
-materialization. Emission uses the normal 6502 instruction encodings; the
-qualifier changes legal transformations, not instruction syntax.
+MIR6502 consumes the NIR operation without consulting SemIR. Volatile accesses
+are surrounded by zero-byte full-memory barriers, which preserve each access
+through materialization while leaving the normal 6502 load/store encoding
+unchanged. The qualifier changes legal transformations, not instruction
+syntax.
 
 The classic backend keeps the same property on its structured storage slots.
 The declaration fact replaces the current name/zero-page heuristic used by

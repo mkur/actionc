@@ -348,6 +348,14 @@ fn op_summary(op: &NirOp) -> String {
                 place_summary(place)
             )
         }
+        NirOp::VolatileLoad { dest, ty, place } => {
+            format!(
+                "{}:{} = load volatile {}",
+                temp_summary(*dest),
+                ty.summary,
+                place_summary(place)
+            )
+        }
         NirOp::AddrOf { dest, ty, place } => {
             format!(
                 "{}:{} = addr {}",
@@ -358,6 +366,13 @@ fn op_summary(op: &NirOp) -> String {
         }
         NirOp::Store { place, src, .. } => {
             format!("store {} = {}", place_summary(place), value_summary(src))
+        }
+        NirOp::VolatileStore { place, src, .. } => {
+            format!(
+                "store volatile {} = {}",
+                place_summary(place),
+                value_summary(src)
+            )
         }
         NirOp::Unary { dest, ty, op, src } => {
             format!(

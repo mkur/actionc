@@ -1887,6 +1887,53 @@ fn optimizer_eliminates_dead_pure_temps_but_keeps_loads() {
 }
 
 #[test]
+fn volatile_accesses_survive_nir_optimization_in_source_order() {
+    let source = "VOLATILE BYTE VCOUNT=$D40B, COLBAK=$D01A \
+                  VOLATILE BYTE ARRAY POKEY(16)=$D200 \
+                  BYTE sink, index \
+                  PROC Main() \
+                    sink=VCOUNT sink=VCOUNT \
+                    COLBAK=0 COLBAK=0 \
+                    sink=POKEY(index) POKEY(index)=sink \
+                  RETURN";
+    let tokens = crate::lexer::tokenize(source).expect("tokenize volatile source");
+    let ast = crate::parser::parse(&tokens).expect("parse volatile source");
+    let model = crate::semantic::analyze(&ast).expect("analyze volatile source");
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let lowered = lower_program(&semir);
+    let optimized = optimize_program(&lowered).expect("optimize verifier-clean volatile NIR");
+    let main = optimized
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let volatile_ops = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::VolatileLoad { .. } => Some("load"),
+            NirOp::VolatileStore { .. } => Some("store"),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        volatile_ops,
+        vec!["load", "load", "store", "store", "load", "store"],
+        "{}",
+        format_program(&optimized)
+    );
+    let formatted = format_program(&optimized);
+    assert_eq!(formatted.matches("load volatile").count(), 3, "{formatted}");
+    assert_eq!(
+        formatted.matches("store volatile").count(),
+        3,
+        "{formatted}"
+    );
+}
+
+#[test]
 fn optimizer_keeps_pure_temp_used_in_successor_block() {
     let ty = byte_type();
     let program = NirProgram {
