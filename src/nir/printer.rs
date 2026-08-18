@@ -19,9 +19,9 @@ impl NirPrinter {
                 }
                 super::ir::NirGlobalBacking::Alias { ref target, offset } => {
                     if offset == 0 {
-                        format!(" alias {target}")
+                        format!(" alias g{}", target.0)
                     } else {
-                        format!(" alias {target}+{offset}")
+                        format!(" alias g{}+{offset}", target.0)
                     }
                 }
             };
@@ -211,14 +211,14 @@ fn global_init_suffix(init: Option<&NirGlobalInit>) -> String {
             section, mutable
         ),
         NirGlobalInit::RoutineAddress {
-            name,
+            routine,
             descriptor_size,
             size_word,
             mutable,
             section,
         } => format!(
             " init routine_address {} size={} size_word={} section={} mutable={}",
-            name,
+            format_args!("r{routine}"),
             descriptor_size,
             size_word
                 .map(|value| format!("${value:04X}"))
@@ -333,6 +333,13 @@ fn op_summary(op: &NirOp) -> String {
                 operand_summary(value)
             )
         }
+        NirOp::RuntimeHelperOverride { slot, target } => format!(
+            "runtime_helper_override ${slot:04X} {}",
+            match target {
+                NirRuntimeHelperTarget::Absolute(address) => format!("${address:04X}"),
+                NirRuntimeHelperTarget::Routine(id) => format!("r{id}"),
+            }
+        ),
         NirOp::Declare { name, kind } => format!("declare {name}: {kind}"),
         NirOp::Assign { target, value } => {
             format!("{} = {}", place_summary(target), operand_summary(value))
@@ -531,7 +538,7 @@ fn memory_region_summary(region: &NirMemoryRegion) -> String {
 
 fn callee_summary(callee: &NirCallee) -> String {
     match callee {
-        NirCallee::User(name) | NirCallee::Builtin(name) => name.clone(),
+        NirCallee::User { name, .. } | NirCallee::Builtin(name) => name.clone(),
         NirCallee::Indirect { target, .. } => format!("indirect({})", value_summary(target)),
         NirCallee::Runtime { name, address } => address
             .map(|address| format!("{name}@${address:04X}"))

@@ -73,34 +73,55 @@ fn repeatable_module_paths_are_used_by_compile_and_emit_commands() {
     let first = temp.path().join("first");
     let second = temp.path().join("second");
     fs::create_dir_all(second.join("lib")).expect("create module directory");
-    fs::write(&root, "MODULE APP\nIMPORT LIB.VALUE\nENDMODULE\n").expect("write root module");
+    fs::write(
+        &root,
+        "MODULE APP\nIMPORT LIB.VALUE\nPROC Main() VALUE.value=1 [<VALUE.value >VALUE.value] RETURN\nENDMODULE\n",
+    )
+    .expect("write root module");
     fs::write(
         second.join("lib/value.act"),
         "MODULE LIB.VALUE\nPUBLIC BYTE value\nENDMODULE\n",
     )
     .expect("write imported module");
 
-    for (binary, emit_arg) in [
-        (env!("CARGO_BIN_EXE_actionc"), None),
-        (env!("CARGO_BIN_EXE_actionc-emit"), Some("--emit-semir")),
-    ] {
-        let mut command = Command::new(binary);
+    for mode in ["compatibility", "optimized", "mir6502"] {
+        let object = temp.path().join(format!("app-{mode}.com"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_actionc"));
         command
             .arg("--module-path")
             .arg(&first)
-            .arg(format!("--module-path={}", second.display()));
-        if let Some(emit_arg) = emit_arg {
-            command.arg(emit_arg);
-        }
+            .arg(format!("--module-path={}", second.display()))
+            .arg("--mode")
+            .arg(mode)
+            .arg("-o")
+            .arg(&object);
         let output = command.arg(&root).output().expect("run module CLI");
-        assert_eq!(output.status.code(), Some(1));
-        let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
-            stderr.contains("named-module backend lowering is not implemented yet"),
-            "module was not found through the ordered paths:\n{stderr}"
+            output.status.success(),
+            "{mode} named-module compilation failed:\n{}",
+            String::from_utf8_lossy(&output.stderr)
         );
-        assert!(!stderr.contains("cannot find module"));
+        assert!(fs::metadata(object).expect("module object metadata").len() > 0);
     }
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .arg("--module-path")
+        .arg(&first)
+        .arg(format!("--module-path={}", second.display()))
+        .arg("--emit-semir")
+        .arg(&root)
+        .output()
+        .expect("emit named-module SemIR");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("LIB.VALUE.value"),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
 }
 
 #[test]

@@ -54,7 +54,7 @@ pub enum NirGlobalInit {
         section: String,
     },
     RoutineAddress {
-        name: String,
+        routine: u32,
         descriptor_size: u16,
         size_word: Option<u16>,
         mutable: bool,
@@ -103,7 +103,7 @@ pub struct NirStorageBacking {
 pub enum NirGlobalBacking {
     Ordinary,
     Absolute(u16),
-    Alias { target: String, offset: u16 },
+    Alias { target: SymbolId, offset: u16 },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -258,10 +258,26 @@ pub enum NirCompareOp {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirCallee {
-    User(String),
+    User {
+        id: u32,
+        /// Readable backend/link name; `id` is the executable identity.
+        name: String,
+    },
     Builtin(String),
-    Indirect { target: NirValue, ty: NirType },
-    Runtime { name: String, address: Option<u16> },
+    Indirect {
+        target: NirValue,
+        ty: NirType,
+    },
+    Runtime {
+        name: String,
+        address: Option<u16>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NirRuntimeHelperTarget {
+    Absolute(u16),
+    Routine(u32),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -439,6 +455,10 @@ pub enum NirOp {
         address: NirOperand,
         value: NirOperand,
     },
+    RuntimeHelperOverride {
+        slot: u16,
+        target: NirRuntimeHelperTarget,
+    },
     Declare {
         name: String,
         kind: String,
@@ -548,7 +568,7 @@ pub struct NirInlineAsmRelocation {
     pub span: Span,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirInlineAsmTarget {
     Storage(NirStorageId),
     Routine(u32),
@@ -573,6 +593,15 @@ pub enum NirMachineItem {
     AddressByte {
         high: bool,
         name: String,
+    },
+    /// A resolved symbolic machine-block operand. Legacy unresolved names are
+    /// retained only in the compatibility variants above.
+    Relocation {
+        kind: InlineAsmRelocationKind,
+        target: NirInlineAsmTarget,
+        addend: i32,
+        requires_zero_page: bool,
+        span: Span,
     },
     Raw(String),
 }

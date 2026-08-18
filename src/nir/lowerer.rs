@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::asm6502::{InlineAsmMode, InlineAsmSymbolUse};
+use crate::asm6502::{InlineAsmMode, InlineAsmRelocationKind, InlineAsmSymbolUse};
 use crate::ast::{
     AddressByteSelector, BinaryOp, FundType, MachineAddressAtom, MachineItem, UnaryOp,
 };
@@ -12,8 +12,8 @@ use crate::semantic::{
         SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind, SemDeclaration,
         SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind,
         SemInitializerElement, SemInitializerElementKind, SemInitializerLiteral, SemInlineAsm,
-        SemInlineAsmTarget, SemLValue, SemLValueKind, SemLiteral, SemProgram, SemReadEffect,
-        SemSet, SemStmt, SemStorageRef, SemSymbolRef, SemWriteEffect,
+        SemInlineAsmTarget, SemLValue, SemLValueKind, SemLiteral, SemMachineSymbolRef, SemProgram,
+        SemReadEffect, SemSet, SemStmt, SemStorageRef, SemSymbolRef, SemWriteEffect,
     },
 };
 use crate::source::source_char_byte;
@@ -92,7 +92,7 @@ impl NirLowerer {
                             continue;
                         }
                         self.apply_compatible_set(set);
-                        if let Some(op) = runtime_helper_set_op(set) {
+                        if let Some(op) = self.runtime_helper_override(set) {
                             top_level_ops.push(op);
                         }
                     }
@@ -173,6 +173,7 @@ impl NirLowerer {
                             record_storage_sizes.clone(),
                             self.machine_defines.clone(),
                             self.machine_define_names.clone(),
+                            module.id.is_some(),
                         );
                         for (index, param) in routine.params.iter().enumerate() {
                             let ty = match param.storage {
@@ -321,6 +322,7 @@ impl NirLowerer {
                 record_storage_sizes.clone(),
                 self.machine_defines.clone(),
                 self.machine_define_names.clone(),
+                program.modules.iter().any(|module| module.id.is_some()),
             );
             for op in top_level_ops {
                 builder.push(op);
@@ -440,7 +442,9 @@ impl NirLowerer {
             return NirGlobalBacking::Absolute(address);
         }
         if let Some((target, offset)) = alias_initializer {
-            return NirGlobalBacking::Alias { target, offset };
+            if let Some(target) = self.global_ids.get(&target).copied() {
+                return NirGlobalBacking::Alias { target, offset };
+            }
         }
 
         let Some(address) = self.compatible_cursor else {
@@ -487,6 +491,27 @@ impl NirLowerer {
             }
             _ => {}
         }
+    }
+
+    fn runtime_helper_override(&self, set: &SemSet) -> Option<NirOp> {
+        let slot = self.const_u16_expr(&set.address)?;
+        if !is_runtime_helper_slot(slot) {
+            return None;
+        }
+        let target = match &set.value.kind {
+            SemExprKind::Symbol(symbol) | SemExprKind::AddressOfSymbol(symbol)
+                if matches!(symbol.class, SymbolClass::Proc | SymbolClass::Func) =>
+            {
+                NirRuntimeHelperTarget::Routine(
+                    *self
+                        .routine_ids
+                        .get(&storage_key(&symbol.name))
+                        .expect("resolved helper override must have a routine id"),
+                )
+            }
+            _ => NirRuntimeHelperTarget::Absolute(self.const_u16_expr(&set.value)?),
+        };
+        Some(NirOp::RuntimeHelperOverride { slot, target })
     }
 
     fn apply_compatible_symbol_set(&mut self, set: &SemSet) -> bool {
@@ -644,6 +669,7 @@ pub(super) struct NirBuilder {
     record_storage_sizes: BTreeMap<String, u16>,
     machine_defines: BTreeMap<usize, Vec<MachineItem>>,
     machine_define_names: BTreeMap<String, Vec<MachineItem>>,
+    require_resolved_machine_symbols: bool,
     notes: Vec<NirRoutineNote>,
     blocks: Vec<NirBlock>,
     block_ids: BTreeMap<String, BlockId>,
@@ -668,6 +694,7 @@ impl NirBuilder {
         record_storage_sizes: BTreeMap<String, u16>,
         machine_defines: BTreeMap<usize, Vec<MachineItem>>,
         machine_define_names: BTreeMap<String, Vec<MachineItem>>,
+        require_resolved_machine_symbols: bool,
     ) -> Self {
         let entry_id = BlockId(0);
         let block_ids = BTreeMap::from([(entry_label.clone(), entry_id)]);
@@ -683,6 +710,7 @@ impl NirBuilder {
             record_storage_sizes,
             machine_defines,
             machine_define_names,
+            require_resolved_machine_symbols,
             notes: Vec::new(),
             blocks: vec![NirBlock {
                 id: entry_id,
@@ -857,12 +885,17 @@ impl NirBuilder {
                     effects: self.nir_call_effects(&call.effects),
                 });
             }
-            SemStmt::MachineBlock { items, effects, .. } => {
+            SemStmt::MachineBlock {
+                items,
+                resolved_symbols,
+                effects,
+                ..
+            } => {
                 if items.is_empty() {
                     return;
                 }
                 self.push(NirOp::MachineBlock {
-                    items: self.nir_machine_items(items),
+                    items: self.nir_machine_items(items, resolved_symbols),
                     effects: self.nir_machine_effects(effects),
                 });
             }
@@ -1003,7 +1036,15 @@ impl NirBuilder {
             .map(|items| items.iter().map(nir_machine_item).collect())
     }
 
-    fn nir_machine_items(&self, items: &[MachineItem]) -> Vec<NirMachineItem> {
+    fn nir_machine_items(
+        &self,
+        items: &[MachineItem],
+        resolved_symbols: &[SemMachineSymbolRef],
+    ) -> Vec<NirMachineItem> {
+        let resolved_symbols = resolved_symbols
+            .iter()
+            .map(|resolved| (resolved.item_index, &resolved.symbol))
+            .collect::<BTreeMap<_, _>>();
         let mut lowered = Vec::new();
         let mut index = 0;
         while index < items.len() {
@@ -1023,10 +1064,55 @@ impl NirBuilder {
                 index += 1;
                 continue;
             }
+            if self.require_resolved_machine_symbols
+                && let Some(symbol) = resolved_symbols.get(&index)
+                && let Some(item) = self.nir_machine_symbol_item(item, symbol)
+            {
+                lowered.push(item);
+                index += 1;
+                continue;
+            }
             lowered.push(nir_machine_item(item));
             index += 1;
         }
         lowered
+    }
+
+    fn nir_machine_symbol_item(
+        &self,
+        item: &MachineItem,
+        symbol: &SemSymbolRef,
+    ) -> Option<NirMachineItem> {
+        let target = self.nir_inline_asm_symbol_target(symbol)?;
+        let (kind, addend) = match item {
+            MachineItem::Name(_) => (InlineAsmRelocationKind::Absolute16, 0),
+            MachineItem::AddressByte { selector, .. } => (
+                match selector {
+                    AddressByteSelector::Low => InlineAsmRelocationKind::Low8,
+                    AddressByteSelector::High => InlineAsmRelocationKind::High8,
+                },
+                0,
+            ),
+            MachineItem::AddressExpr(expr) => (
+                match expr.selector {
+                    Some(AddressByteSelector::Low) => InlineAsmRelocationKind::Low8,
+                    Some(AddressByteSelector::High) => InlineAsmRelocationKind::High8,
+                    None => InlineAsmRelocationKind::Absolute16,
+                },
+                expr.offset,
+            ),
+            MachineItem::Number(_)
+            | MachineItem::StringLiteral(_)
+            | MachineItem::CharLiteral(_)
+            | MachineItem::Raw(_) => return None,
+        };
+        Some(NirMachineItem::Relocation {
+            kind,
+            target,
+            addend,
+            requires_zero_page: false,
+            span: symbol.span,
+        })
     }
 
     fn split_compact_machine_number_item(
@@ -1682,7 +1768,13 @@ impl NirBuilder {
 
     fn nir_callee(&mut self, callable: &SemCallable) -> NirCallee {
         match callable {
-            SemCallable::User(symbol) => NirCallee::User(symbol.name.clone()),
+            SemCallable::User(symbol) => NirCallee::User {
+                id: *self
+                    .routine_ids
+                    .get(&storage_key(&symbol.name))
+                    .expect("resolved user callee must have a routine id"),
+                name: symbol.name.clone(),
+            },
             SemCallable::Builtin(symbol) => NirCallee::Builtin(symbol.name.clone()),
             SemCallable::Indirect { target, .. } => NirCallee::Indirect {
                 target: self.nir_value(target),
@@ -2313,6 +2405,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         } => Some((result.dest, &result.ty)),
         NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
@@ -2607,7 +2700,9 @@ fn declaration_global_init(
             }
             if let Some(name) = symbolic_array_initializer_routine(declaration) {
                 return Some(NirGlobalInit::RoutineAddress {
-                    name,
+                    routine: *routine_ids
+                        .get(&storage_key(&name))
+                        .expect("resolved routine initializer must have a routine id"),
                     descriptor_size: if array_type.length.is_some() { 4 } else { 2 },
                     size_word: None,
                     mutable: true,
@@ -3198,6 +3293,7 @@ fn resolve_op_places(op: &mut NirOp, storage: &StorageNameResolution) {
             resolve_operand_places(address, storage);
             resolve_operand_places(value, storage);
         }
+        NirOp::RuntimeHelperOverride { .. } => {}
         NirOp::Define { .. }
         | NirOp::Declare { .. }
         | NirOp::Unary { .. }
@@ -3665,33 +3761,8 @@ fn sanitize_static_owner(owner: &str) -> String {
     }
 }
 
-fn runtime_helper_set_op(set: &SemSet) -> Option<NirOp> {
-    let address = lower_operand(&set.address);
-    let value = lower_operand(&set.value);
-    let address_value = literal_u16(&address)?;
-    if !is_runtime_helper_slot(address_value) {
-        return None;
-    }
-    matches!(
-        value.kind,
-        NirOperandKind::Literal { value: Some(_), .. }
-            | NirOperandKind::Symbol(_)
-            | NirOperandKind::AddressOfSymbol(_)
-    )
-    .then_some(NirOp::Set { address, value })
-}
-
 fn is_runtime_helper_slot(address: u16) -> bool {
     matches!(address, 0x04E4 | 0x04E6 | 0x04E8 | 0x04EA | 0x04EC | 0x04EE)
-}
-
-fn literal_u16(operand: &NirOperand) -> Option<u16> {
-    match operand.kind {
-        NirOperandKind::Literal {
-            value: Some(value), ..
-        } => Some(value),
-        _ => None,
-    }
 }
 
 #[cfg(test)]
@@ -3724,6 +3795,7 @@ mod memory_effect_tests {
             BTreeMap::new(),
             BTreeMap::new(),
             BTreeMap::new(),
+            false,
         );
         builder.params.push(NirParam {
             id: ParamId(2),

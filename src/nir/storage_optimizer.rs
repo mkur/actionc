@@ -261,6 +261,7 @@ fn transfer_op(
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. } => {
             facts.storage.clear();
@@ -320,7 +321,7 @@ fn apply_call_barrier(
         return;
     }
 
-    if matches!(callee, NirCallee::User(name) if name.eq_ignore_ascii_case(routine_name)) {
+    if matches!(callee, NirCallee::User { name, .. } if name.eq_ignore_ascii_case(routine_name)) {
         facts.storage.clear();
         return;
     }
@@ -423,6 +424,7 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
         }
         NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
@@ -499,6 +501,7 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
         } => Some((result.dest, &result.ty)),
         NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }

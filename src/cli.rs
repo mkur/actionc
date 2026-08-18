@@ -402,21 +402,10 @@ fn run_main(flavor: CliFlavor) {
             process::exit(1);
         }
     };
-    if let crate::ast::SourceUnitKind::Named(module) = &program.source_kind {
-        print_diagnostics_with_source(
-            vec![crate::diagnostic::Diagnostic::new(
-                module.span,
-                "named-module backend lowering is not implemented yet",
-            )],
-            &loaded.source,
-            Some(&loaded.source_map),
-            diagnostic_byte_ranges,
-        );
-        process::exit(1);
-    }
+    let semir = ir::lower_compilation(&loaded, &model);
+    let named = matches!(program.source_kind, crate::ast::SourceUnitKind::Named(_));
 
     if emit_semir {
-        let semir = ir::lower_program(program, &model);
         print!("{}", ir::format_program(&semir));
         return;
     }
@@ -428,7 +417,6 @@ fn run_main(flavor: CliFlavor) {
             Some(&loaded.source_map),
             diagnostic_byte_ranges,
         );
-        let semir = ir::lower_program(program, &model);
         let nir = nir::lower_program(&semir);
         if let Err(diagnostics) = nir::verify_program(&nir) {
             print_nir_diagnostics(diagnostics);
@@ -445,7 +433,6 @@ fn run_main(flavor: CliFlavor) {
             Some(&loaded.source_map),
             diagnostic_byte_ranges,
         );
-        let semir = ir::lower_program(program, &model);
         let lowered = nir::lower_program(&semir);
         let optimized = optimize_nir_or_exit(lowered.clone());
         if emit_nir_stats {
@@ -463,7 +450,6 @@ fn run_main(flavor: CliFlavor) {
             Some(&loaded.source_map),
             diagnostic_byte_ranges,
         );
-        let semir = ir::lower_program(program, &model);
         let nir = optimize_nir_or_exit(nir::lower_program(&semir));
         let mir = match mir6502::lower_program(&nir) {
             Ok(mir) => mir,
@@ -515,7 +501,6 @@ fn run_main(flavor: CliFlavor) {
                 Some(&loaded.source_map),
                 diagnostic_byte_ranges,
             );
-            let semir = ir::lower_program(program, &model);
             let nir = optimize_nir_or_exit(nir::lower_program(&semir));
             let mir_origin = if origin_explicit {
                 origin
@@ -550,7 +535,6 @@ fn run_main(flavor: CliFlavor) {
             codegen_source,
             CodegenSource::SemIr | CodegenSource::SemIrNative
         ) {
-            let semir = ir::lower_program(program, &model);
             let result = match codegen_source {
                 CodegenSource::SemIr => generate_semir_profile_with_origin(&semir, origin, profile),
                 CodegenSource::SemIrNative => {
@@ -582,7 +566,12 @@ fn run_main(flavor: CliFlavor) {
             return;
         }
 
-        match generate_profile_with_origin(program, origin, profile) {
+        let result = if named {
+            generate_semir_profile_with_origin(&semir, origin, profile)
+        } else {
+            generate_profile_with_origin(program, origin, profile)
+        };
+        match result {
             Ok(output) => emit_output(
                 &output,
                 &loaded.source,

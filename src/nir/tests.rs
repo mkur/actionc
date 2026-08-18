@@ -1,7 +1,9 @@
 use super::*;
 
 use crate::ast::FundType;
+use crate::includes::{ModuleLoadOptions, load_compilation_from_provider};
 use crate::semantic::ValueType;
+use crate::source::{InMemorySourceProvider, SourceOrigin};
 
 fn edge(target: u32) -> NirEdge {
     NirEdge {
@@ -59,6 +61,88 @@ fn formats_labeled_blocks() {
     assert!(formatted.contains("bb0:"));
     assert!(formatted.contains("store i = 0"));
     assert!(formatted.contains("return"));
+}
+
+#[test]
+fn named_module_executable_references_lower_to_stable_ids() {
+    let root = SourceOrigin::host("project/main.act");
+    let provider = InMemorySourceProvider::default()
+        .with_source(
+            root.clone(),
+            b"MODULE APP\nIMPORT LIB.ONE AS ONE\nIMPORT LIB.TWO AS TWO\nBYTE alias=ONE.shared\nCARD ARRAY callback=ONE.Touch\nPROC Main() [<ONE.shared >ONE.shared <ONE.Touch >ONE.Touch] ONE.Touch() TWO.Touch() RETURN\nENDMODULE\n".to_vec(),
+        )
+        .with_source(
+            SourceOrigin::host("project/lib/one.act"),
+            b"MODULE LIB.ONE\nPUBLIC BYTE shared\nBYTE hiddenValue\nPUBLIC PROC Touch() RETURN\nPROC HiddenProc() RETURN\nENDMODULE\n".to_vec(),
+        )
+        .with_source(
+            SourceOrigin::host("project/lib/two.act"),
+            b"MODULE LIB.TWO\nPUBLIC BYTE shared\nBYTE hiddenValue\nPUBLIC PROC Touch() RETURN\nPROC HiddenProc() RETURN\nENDMODULE\n".to_vec(),
+        );
+    let loaded = load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default())
+        .expect("load named modules");
+    let model = crate::semantic::analyze_compilation(&loaded).expect("analyze named modules");
+    let semir = crate::semantic::ir::lower_compilation(&loaded, &model);
+    let program = lower_program(&semir);
+    verify_program(&program).expect("named-module NIR should verify");
+
+    let hidden_names = program
+        .globals
+        .iter()
+        .filter(|global| global.name.contains("_HIDDENVALUE_"))
+        .map(|global| global.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(hidden_names.len(), 2);
+    assert_ne!(hidden_names[0], hidden_names[1]);
+
+    let alias = program
+        .globals
+        .iter()
+        .find(|global| global.name.contains("APP_ALIAS"))
+        .expect("module alias global");
+    let NirGlobalBacking::Alias { target, offset: 0 } = alias.backing else {
+        panic!("expected ID-backed global alias: {:?}", alias.backing);
+    };
+    assert!(program.globals.iter().any(|global| global.id == target));
+
+    let callback = program
+        .globals
+        .iter()
+        .find(|global| global.name.contains("APP_CALLBACK"))
+        .expect("routine-address global");
+    assert!(matches!(
+        callback.init,
+        Some(NirGlobalInit::RoutineAddress { routine, .. })
+            if (routine as usize) < program.routines.len()
+    ));
+
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name.contains("APP_MAIN"))
+        .expect("main routine");
+    let calls = main
+        .blocks
+        .iter()
+        .flat_map(|block| block.ops.iter())
+        .filter_map(|op| match op {
+            NirOp::Call {
+                callee: NirCallee::User { id, .. },
+                ..
+            } => Some(*id),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(calls.len(), 2);
+    assert_ne!(calls[0], calls[1]);
+    assert!(main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+        matches!(
+            op,
+            NirOp::MachineBlock { items, .. }
+                if items.iter().all(|item| matches!(item, NirMachineItem::Relocation { .. }))
+        )
+    }));
+    crate::mir6502::lower_program(&program).expect("MIR6502 must consume resolved module IDs");
 }
 
 #[test]
@@ -784,7 +868,7 @@ fn global_scalar_aliases_absolute_backed_global_storage() {
         assert_eq!(
             alias.backing,
             NirGlobalBacking::Alias {
-                target: "line".to_string(),
+                target: line.id,
                 offset,
             }
         );

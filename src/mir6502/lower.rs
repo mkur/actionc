@@ -46,6 +46,14 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
         .enumerate()
         .map(|(index, routine)| (routine.name.as_str(), RoutineId(index as u32)))
         .collect::<BTreeMap<_, _>>();
+    let routine_system_addresses_by_id = nir_program
+        .routines
+        .iter()
+        .enumerate()
+        .filter_map(|(index, routine)| {
+            routine_system_address(routine).map(|address| (index as u32, address))
+        })
+        .collect::<BTreeMap<_, _>>();
     let routine_system_addresses = nir_program
         .routines
         .iter()
@@ -68,11 +76,6 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                 )
             })
         })
-        .collect::<BTreeMap<_, _>>();
-    let global_ids_by_name = nir_program
-        .globals
-        .iter()
-        .map(|global| (global.name.as_str(), global.id))
         .collect::<BTreeMap<_, _>>();
     let machine_numeric_defines = collect_machine_numeric_defines(nir_program);
     let mut machine_blocks = Vec::new();
@@ -116,6 +119,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                         &block.label,
                         &block.ops,
                         &routine_ids,
+                        &routine_system_addresses_by_id,
                         &routine_system_addresses,
                         &global_array_pointer_backing,
                         &local_array_pointer_backing,
@@ -306,17 +310,15 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                             }
                             NirGlobalBacking::Alias { ref target, offset } => {
                                 MirGlobalBacking::Alias {
-                                    target: global_ids_by_name
-                                        .get(target.as_str())
-                                        .copied()
-                                        .unwrap_or(crate::nir::SymbolId(u32::MAX)),
+                                    target: *target,
                                     offset,
                                 }
                             }
                         },
-                        init: global.init.as_ref().map(|init| {
-                            lower_global_init(init, global.array.as_ref(), &routine_ids)
-                        }),
+                        init: global
+                            .init
+                            .as_ref()
+                            .map(|init| lower_global_init(init, global.array.as_ref())),
                     }
                 })
                 .collect()
@@ -358,17 +360,22 @@ fn runtime_helper_decls_from_sets(nir_program: &NirProgram) -> Vec<MirRuntimeHel
     for routine in &nir_program.routines {
         for block in &routine.blocks {
             for op in &block.ops {
-                let NirOpKind::Set { address, value } = op else {
+                let NirOpKind::RuntimeHelperOverride { slot, target } = op else {
                     continue;
                 };
-                let Some(helper) = runtime_helper_from_set_address(address) else {
+                let Some(helper) = runtime_helper_from_slot(*slot) else {
                     continue;
                 };
                 if decls.iter().any(|decl| decl.helper == helper) {
                     continue;
                 }
-                let Some(target) = runtime_helper_set_target(value) else {
-                    continue;
+                let target = match target {
+                    crate::nir::NirRuntimeHelperTarget::Absolute(address) => {
+                        MirRuntimeHelperTarget::KnownAbsolute(*address)
+                    }
+                    crate::nir::NirRuntimeHelperTarget::Routine(id) => {
+                        MirRuntimeHelperTarget::Routine(RoutineId(*id))
+                    }
                 };
                 decls.push(MirRuntimeHelperDecl {
                     effects: super::materialize::helper_effects(&helper),
@@ -382,15 +389,8 @@ fn runtime_helper_decls_from_sets(nir_program: &NirProgram) -> Vec<MirRuntimeHel
     decls
 }
 
-fn runtime_helper_from_set_address(address: &crate::nir::NirOperand) -> Option<MirRuntimeHelper> {
-    let crate::nir::NirOperandKind::Literal {
-        value: Some(address),
-        ..
-    } = address.kind
-    else {
-        return None;
-    };
-    match address {
+fn runtime_helper_from_slot(slot: u16) -> Option<MirRuntimeHelper> {
+    match slot {
         0x04E4 => Some(MirRuntimeHelper::Lsh),
         0x04E6 => Some(MirRuntimeHelper::Rsh),
         0x04E8 => Some(MirRuntimeHelper::Mul),
@@ -401,24 +401,9 @@ fn runtime_helper_from_set_address(address: &crate::nir::NirOperand) -> Option<M
     }
 }
 
-fn runtime_helper_set_target(value: &crate::nir::NirOperand) -> Option<MirRuntimeHelperTarget> {
-    match &value.kind {
-        crate::nir::NirOperandKind::Literal {
-            value: Some(address),
-            ..
-        } => Some(MirRuntimeHelperTarget::KnownAbsolute(*address)),
-        crate::nir::NirOperandKind::Symbol(name)
-        | crate::nir::NirOperandKind::AddressOfSymbol(name) => {
-            Some(MirRuntimeHelperTarget::RuntimeSymbol(name.clone()))
-        }
-        _ => None,
-    }
-}
-
 fn lower_global_init(
     init: &crate::nir::NirGlobalInit,
     array: Option<&crate::nir::NirArrayGlobalFact>,
-    routine_ids: &BTreeMap<&str, RoutineId>,
 ) -> MirGlobalInit {
     let array = array.map(|array| super::ir::MirArrayGlobalFact {
         elem_size: array.elem_size,
@@ -474,16 +459,13 @@ fn lower_global_init(
             }
         }
         crate::nir::NirGlobalInit::RoutineAddress {
-            name,
+            routine,
             descriptor_size,
             size_word,
             mutable,
             section,
         } => MirGlobalInit::RoutineAddress {
-            routine: routine_ids
-                .get(name.as_str())
-                .copied()
-                .unwrap_or(RoutineId(u32::MAX)),
+            routine: RoutineId(*routine),
             descriptor_size: *descriptor_size,
             size_word: *size_word,
             mutable: *mutable,
@@ -728,6 +710,7 @@ fn lower_ops(
     block: &str,
     ops: &[NirOpKind],
     routine_ids: &BTreeMap<&str, RoutineId>,
+    routine_system_addresses_by_id: &BTreeMap<u32, u16>,
     routine_system_addresses: &BTreeMap<&str, u16>,
     global_array_pointer_backing: &BTreeMap<crate::nir::SymbolId, bool>,
     local_array_pointer_backing: &[LocalId],
@@ -740,7 +723,7 @@ fn lower_ops(
     let mut addr_defs = BTreeMap::<TempId, MirAddrDef>::new();
     for op in ops {
         match op {
-            NirOpKind::Set { .. } => {}
+            NirOpKind::Set { .. } | NirOpKind::RuntimeHelperOverride { .. } => {}
             NirOpKind::Load { dest, ty, place } | NirOpKind::VolatileLoad { dest, ty, place } => {
                 let is_volatile = matches!(op, NirOpKind::VolatileLoad { .. });
                 let Some(width) = mir_width(ty) else {
@@ -1094,7 +1077,7 @@ fn lower_ops(
                     indirect_target,
                     effects,
                     routine_ids,
-                    routine_system_addresses,
+                    routine_system_addresses_by_id,
                     diagnostics,
                 ) else {
                     continue;
@@ -1235,6 +1218,19 @@ fn lower_machine_items(
                     });
                 }
             }
+            NirMachineItem::Relocation {
+                kind,
+                target,
+                addend,
+                requires_zero_page,
+                span,
+            } => lowered.push(MirMachineItem::Relocation {
+                kind: *kind,
+                target: lower_inline_asm_target(*target),
+                addend: *addend,
+                requires_zero_page: *requires_zero_page,
+                span: *span,
+            }),
             NirMachineItem::Raw(raw) => {
                 diagnostics.push(MirDiagnostic::block(
                     routine,
@@ -1261,20 +1257,7 @@ fn lower_inline_asm(code: &NirInlineAsm) -> Vec<MirMachineItem> {
                 .copied()
                 .map(MirMachineItem::Byte),
         );
-        let target = match relocation.target {
-            NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Local(id)) => {
-                MirInlineAsmTarget::Memory(MirMem::Local { id, offset: 0 })
-            }
-            NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Param(id)) => {
-                MirInlineAsmTarget::Memory(MirMem::Param { id, offset: 0 })
-            }
-            NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Global(id)) => {
-                MirInlineAsmTarget::Memory(MirMem::Global { id, offset: 0 })
-            }
-            NirInlineAsmTarget::Routine(id) => MirInlineAsmTarget::Routine(RoutineId(id)),
-            NirInlineAsmTarget::Absolute(address) => MirInlineAsmTarget::Absolute(address),
-            NirInlineAsmTarget::InlineOffset(offset) => MirInlineAsmTarget::InlineOffset(offset),
-        };
+        let target = lower_inline_asm_target(relocation.target);
         items.push(MirMachineItem::Relocation {
             kind: relocation.kind,
             target,
@@ -1297,6 +1280,23 @@ fn lower_inline_asm(code: &NirInlineAsm) -> Vec<MirMachineItem> {
             .map(MirMachineItem::Byte),
     );
     items
+}
+
+fn lower_inline_asm_target(target: NirInlineAsmTarget) -> MirInlineAsmTarget {
+    match target {
+        NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Local(id)) => {
+            MirInlineAsmTarget::Memory(MirMem::Local { id, offset: 0 })
+        }
+        NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Param(id)) => {
+            MirInlineAsmTarget::Memory(MirMem::Param { id, offset: 0 })
+        }
+        NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Global(id)) => {
+            MirInlineAsmTarget::Memory(MirMem::Global { id, offset: 0 })
+        }
+        NirInlineAsmTarget::Routine(id) => MirInlineAsmTarget::Routine(RoutineId(id)),
+        NirInlineAsmTarget::Absolute(address) => MirInlineAsmTarget::Absolute(address),
+        NirInlineAsmTarget::InlineOffset(offset) => MirInlineAsmTarget::InlineOffset(offset),
+    }
 }
 
 fn lower_machine_address_offset(

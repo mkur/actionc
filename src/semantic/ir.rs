@@ -2933,7 +2933,16 @@ impl<'a> IrBuilder<'a> {
         let symbol = &self.model.symbols.symbols[id.0];
         SemSymbolRef {
             id,
-            name: symbol.name.clone(),
+            name: symbol
+                .defining_module
+                .map(|_| {
+                    module_link_name(
+                        &symbol.qualified_name,
+                        &symbol.canonical_qualified_key,
+                        &symbol.class,
+                    )
+                })
+                .unwrap_or_else(|| symbol.name.clone()),
             defining_module: symbol.defining_module,
             canonical_qualified_key: symbol.canonical_qualified_key.clone(),
             qualified_name: symbol.qualified_name.clone(),
@@ -3407,6 +3416,30 @@ fn promote_numeric_types(left: &ValueType, right: &ValueType) -> ValueType {
 
 fn normalize_name(name: &str) -> String {
     name.to_ascii_uppercase()
+}
+
+/// Produce the backend-facing name for a named-module symbol.  The readable
+/// prefix keeps maps and listings useful; the stable hash makes the identity
+/// independent of module load order and distinguishes names which sanitize to
+/// the same assembler spelling.
+fn module_link_name(qualified_name: &str, canonical_key: &str, class: &SymbolClass) -> String {
+    let mut stem = String::from("M_");
+    for ch in qualified_name.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            stem.push(ch.to_ascii_uppercase());
+        } else if !stem.ends_with('_') {
+            stem.push('_');
+        }
+    }
+    while stem.ends_with('_') {
+        stem.pop();
+    }
+
+    let identity = format!("{canonical_key}:{class:?}");
+    let hash = identity.bytes().fold(0x811C_9DC5u32, |hash, byte| {
+        (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193)
+    });
+    format!("{stem}_{hash:08X}")
 }
 
 fn value_width(value: &ValueType) -> Option<u16> {

@@ -399,6 +399,7 @@ fn rename_block(
             }
             NirOp::Unsupported { .. }
             | NirOp::Set { .. }
+            | NirOp::RuntimeHelperOverride { .. }
             | NirOp::Assign { .. }
             | NirOp::CompoundAssign { .. } => {
                 let Some(value) = current.clone() else {
@@ -624,6 +625,7 @@ impl HomeAccess {
                     }
                     NirOp::Unsupported { .. }
                     | NirOp::Set { .. }
+                    | NirOp::RuntimeHelperOverride { .. }
                     | NirOp::Assign { .. }
                     | NirOp::CompoundAssign { .. } => {
                         uses_before_definition |= !defines;
@@ -705,7 +707,7 @@ fn call_access(
     if effects.opaque
         || effects.may_call_os
         || matches!(callee, NirCallee::Indirect { .. })
-        || matches!(callee, NirCallee::User(name) if name.eq_ignore_ascii_case(routine_name))
+        || matches!(callee, NirCallee::User { name, .. } if name.eq_ignore_ascii_case(routine_name))
     {
         return (true, true);
     }

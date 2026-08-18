@@ -97,6 +97,20 @@ impl NirVerifier {
                     global.name
                 )));
             }
+            if let super::ir::NirGlobalBacking::Alias { target, .. } = global.backing {
+                if !self.global_ids.contains(&target) {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "global `{}` aliases missing global id {}",
+                        global.name, target.0
+                    )));
+                }
+                if target == global.id {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "global `{}` cannot alias itself",
+                        global.name
+                    )));
+                }
+            }
             if let Some(init) = &global.init {
                 self.global_init(global, init);
             }
@@ -478,10 +492,17 @@ impl NirVerifier {
                 }
             }
             NirGlobalInit::RoutineAddress {
+                routine,
                 descriptor_size,
                 section,
                 ..
             } => {
+                if *routine as usize >= self.routine_count {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "global `{}` routine-address init references missing routine id {}",
+                        global.name, routine
+                    )));
+                }
                 if !matches!(*descriptor_size, 2 | 4) {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` routine-address init has unsupported size {}",
@@ -650,14 +671,31 @@ impl NirVerifier {
         temp_facts: &NirTempFacts<'_>,
     ) {
         match op {
-            NirOp::Set { address, value } if !is_runtime_helper_set(address, value) => {
+            NirOp::Set { .. } => {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
                     &block.label,
                     "compile-time SET must not appear in executable NIR",
                 ));
             }
-            NirOp::Set { .. } => {}
+            NirOp::RuntimeHelperOverride { slot, target } => {
+                if !matches!(*slot, 0x04E4 | 0x04E6 | 0x04E8 | 0x04EA | 0x04EC | 0x04EE) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("unknown runtime helper slot ${slot:04X}"),
+                    ));
+                }
+                if let NirRuntimeHelperTarget::Routine(id) = target
+                    && *id as usize >= self.routine_count
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("runtime helper override references missing routine id {id}"),
+                    ));
+                }
+            }
             NirOp::Assign { .. } => {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
@@ -860,6 +898,20 @@ impl NirVerifier {
                         "machine block must carry at least one machine item",
                     ));
                 }
+                for item in items {
+                    if let NirMachineItem::Relocation { target, addend, .. } = item {
+                        if !(-65535..=65535).contains(addend) {
+                            self.diagnostics.push(NirDiagnostic::block(
+                                &routine.name,
+                                &block.label,
+                                format!(
+                                    "machine relocation addend {addend} is outside the supported 16-bit address range"
+                                ),
+                            ));
+                        }
+                        self.resolved_symbol_target(routine, block, *target, "machine block");
+                    }
+                }
                 self.machine_effects(routine, block, effects);
             }
             NirOp::InlineAsm { code, effects } => {
@@ -989,6 +1041,59 @@ impl NirVerifier {
         }
     }
 
+    fn resolved_symbol_target(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        target: NirInlineAsmTarget,
+        label: &str,
+    ) {
+        match target {
+            NirInlineAsmTarget::Storage(NirStorageId::Param(id))
+                if !routine.params.iter().any(|param| param.id == id) =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} references unknown param id {}", id.0),
+                ));
+            }
+            NirInlineAsmTarget::Storage(NirStorageId::Local(id))
+                if !routine.locals.iter().any(|local| local.id == id) =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} references unknown local id {}", id.0),
+                ));
+            }
+            NirInlineAsmTarget::Storage(NirStorageId::Global(id))
+                if !self.global_sizes.contains_key(&id) =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} references unknown global id {}", id.0),
+                ));
+            }
+            NirInlineAsmTarget::Routine(id) if id as usize >= self.routine_count => {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} references unknown routine id {id}"),
+                ));
+            }
+            NirInlineAsmTarget::InlineOffset(_) if label == "machine block" => {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    "machine block relocation cannot target inline-assembler storage",
+                ));
+            }
+            _ => {}
+        }
+    }
+
     fn place_temp_uses(
         &mut self,
         routine: &NirRoutine,
@@ -1048,7 +1153,16 @@ impl NirVerifier {
                     ));
                 }
             }
-            NirCallee::User(_) | NirCallee::Builtin(_) | NirCallee::Runtime { .. } => {}
+            NirCallee::User { id, .. } => {
+                if *id as usize >= self.routine_count {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("direct call references missing routine id {id}"),
+                    ));
+                }
+            }
+            NirCallee::Builtin(_) | NirCallee::Runtime { .. } => {}
         }
     }
 
@@ -1658,25 +1772,6 @@ fn place_has_symbol_identity(place: &NirPlace) -> bool {
         | NirPlaceKind::Deref { .. }
         | NirPlaceKind::Index { .. } => false,
     }
-}
-
-fn is_runtime_helper_set(address: &NirOperand, value: &NirOperand) -> bool {
-    let NirOperandKind::Literal {
-        value: Some(address),
-        ..
-    } = address.kind
-    else {
-        return false;
-    };
-    if !matches!(address, 0x04E4 | 0x04E6 | 0x04E8 | 0x04EA | 0x04EC | 0x04EE) {
-        return false;
-    }
-    matches!(
-        value.kind,
-        NirOperandKind::Literal { value: Some(_), .. }
-            | NirOperandKind::Symbol(_)
-            | NirOperandKind::AddressOfSymbol(_)
-    )
 }
 
 pub(super) fn verify_program(program: &NirProgram) -> Result<(), Vec<NirDiagnostic>> {

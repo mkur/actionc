@@ -192,23 +192,15 @@ pub(crate) fn compile_file_with_request(
             Some(&loaded.source_map),
         )
     })?;
-    if let crate::ast::SourceUnitKind::Named(module) = &program.source_kind {
-        return Err(CompileError::from_source_diagnostics(
-            CompilerPhase::Codegen,
-            vec![crate::diagnostic::Diagnostic::new(
-                module.span,
-                "named-module backend lowering is not implemented yet",
-            )],
-            &loaded.source,
-            path,
-            Some(&loaded.source_map),
-        ));
-    }
+    let semir = ir::lower_compilation(&loaded, &model);
+    let named = matches!(program.source_kind, crate::ast::SourceUnitKind::Named(_));
 
     let output = match request.backend {
         Backend::Classic => compile_classic(
             program,
+            &semir,
             &model,
+            named,
             request,
             &loaded.source,
             path,
@@ -216,7 +208,7 @@ pub(crate) fn compile_file_with_request(
         )?,
         Backend::Mir6502 => compile_mir6502(
             program,
-            &model,
+            &semir,
             request,
             &loaded.source,
             path,
@@ -257,35 +249,35 @@ pub(crate) fn mode_profile_backend(mode: CompileMode) -> (CodegenProfile, Backen
 
 fn compile_classic(
     program: &crate::ast::Program,
+    semir: &ir::SemProgram,
     model: &crate::semantic::SemanticModel,
+    named: bool,
     request: ResolvedCompileRequest,
     source: &str,
     path: &Path,
     source_map: &crate::includes::SourceMap,
 ) -> Result<CodegenOutput, CompileError> {
     let result = match request.codegen_source {
-        CodegenSource::Ast => {
+        CodegenSource::Ast if !named => {
             let materialized = materialize_constants(program, model);
             match request.origin {
                 Some(origin) => generate_profile_at_origin(&materialized, origin, request.profile),
                 None => generate_profile_with_origin(&materialized, CODE_ORIGIN, request.profile),
             }
         }
-        CodegenSource::SemIr => {
-            let semir = ir::lower_program(program, model);
-            match request.origin {
-                Some(origin) => generate_semir_profile_at_origin(&semir, origin, request.profile),
-                None => generate_semir_profile_with_origin(&semir, CODE_ORIGIN, request.profile),
-            }
-        }
-        CodegenSource::SemIrNative => {
-            let semir = ir::lower_program(program, model);
-            generate_semir_native_profile_with_origin(
-                &semir,
-                request.origin.unwrap_or(CODE_ORIGIN),
-                request.profile,
-            )
-        }
+        CodegenSource::Ast => match request.origin {
+            Some(origin) => generate_semir_profile_at_origin(semir, origin, request.profile),
+            None => generate_semir_profile_with_origin(semir, CODE_ORIGIN, request.profile),
+        },
+        CodegenSource::SemIr => match request.origin {
+            Some(origin) => generate_semir_profile_at_origin(semir, origin, request.profile),
+            None => generate_semir_profile_with_origin(semir, CODE_ORIGIN, request.profile),
+        },
+        CodegenSource::SemIrNative => generate_semir_native_profile_with_origin(
+            semir,
+            request.origin.unwrap_or(CODE_ORIGIN),
+            request.profile,
+        ),
     };
     result.map_err(|diagnostics| {
         CompileError::from_source_diagnostics(
@@ -300,7 +292,7 @@ fn compile_classic(
 
 fn compile_mir6502(
     program: &crate::ast::Program,
-    model: &crate::semantic::SemanticModel,
+    semir: &ir::SemProgram,
     request: ResolvedCompileRequest,
     source: &str,
     path: &Path,
@@ -317,11 +309,10 @@ fn compile_mir6502(
         ));
     }
 
-    let semir = ir::lower_program(program, model);
     let origin = request
         .origin
-        .unwrap_or_else(|| mir6502_default_origin_from_semir(&semir, CODE_ORIGIN));
-    let nir = nir::lower_program(&semir);
+        .unwrap_or_else(|| mir6502_default_origin_from_semir(semir, CODE_ORIGIN));
+    let nir = nir::lower_program(semir);
     let nir = nir::optimize_program(&nir).map_err(CompileError::from_nir_diagnostics)?;
     let config = if request.profile == CodegenProfile::Modern {
         mir6502::Mir6502Config::optimized()

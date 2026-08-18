@@ -4,10 +4,12 @@ use crate::lexer::NumberLiteral;
 use crate::semantic::ir::*;
 use crate::semantic::{ValueType, ValueTypeBase};
 use crate::source::Span;
+use std::collections::BTreeMap;
 
 pub(super) fn semir_to_ast(program: &SemProgram) -> Result<Program, Vec<Diagnostic>> {
     let mut lowerer = SemIrAstLowerer {
         diagnostics: Vec::new(),
+        type_link_names: module_type_link_names(program),
     };
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
@@ -19,6 +21,7 @@ pub(super) fn semir_to_ast(program: &SemProgram) -> Result<Program, Vec<Diagnost
 
 struct SemIrAstLowerer {
     diagnostics: Vec<Diagnostic>,
+    type_link_names: BTreeMap<String, String>,
 }
 
 impl SemIrAstLowerer {
@@ -334,9 +337,13 @@ impl SemIrAstLowerer {
                 span: *span,
             }),
             SemStmt::MachineBlock {
-                items, text, span, ..
+                items,
+                resolved_symbols,
+                text,
+                span,
+                ..
             } => Some(Stmt::MachineBlock {
-                items: items.clone(),
+                items: self.machine_items(items, resolved_symbols),
                 text: text.clone(),
                 span: *span,
             }),
@@ -585,12 +592,54 @@ impl SemIrAstLowerer {
         TypeRef {
             base: match &ty.base {
                 ValueTypeBase::Fund(fund) => TypeBase::Fund(*fund),
-                ValueTypeBase::Named(name) => TypeBase::Named(name.clone().into()),
+                ValueTypeBase::Named(name) => TypeBase::Named(
+                    self.type_link_names
+                        .get(&name.to_ascii_uppercase())
+                        .cloned()
+                        .unwrap_or_else(|| name.clone())
+                        .into(),
+                ),
                 ValueTypeBase::Callable(callable) => TypeBase::Callable(callable.kind.clone()),
                 ValueTypeBase::Error => TypeBase::Fund(FundType::Byte),
             },
             pointer: ty.pointer && !matches!(ty.base, ValueTypeBase::Callable(_)),
         }
+    }
+
+    fn machine_items(
+        &self,
+        items: &[MachineItem],
+        resolved_symbols: &[SemMachineSymbolRef],
+    ) -> Vec<MachineItem> {
+        let resolved = resolved_symbols
+            .iter()
+            .map(|target| (target.item_index, target.symbol.name.as_str()))
+            .collect::<BTreeMap<_, _>>();
+        items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| {
+                let Some(name) = resolved.get(&index) else {
+                    return item.clone();
+                };
+                match item {
+                    MachineItem::Name(_) => MachineItem::Name((*name).into()),
+                    MachineItem::AddressByte { selector, .. } => MachineItem::AddressByte {
+                        selector: *selector,
+                        name: (*name).into(),
+                    },
+                    MachineItem::AddressExpr(expr) => {
+                        let mut expr = expr.clone();
+                        expr.atom = MachineAddressAtom::Name((*name).into());
+                        MachineItem::AddressExpr(expr)
+                    }
+                    MachineItem::Number(_)
+                    | MachineItem::StringLiteral(_)
+                    | MachineItem::CharLiteral(_)
+                    | MachineItem::Raw(_) => item.clone(),
+                }
+            })
+            .collect()
     }
 
     fn unsupported(&mut self, span: Span, feature: impl Into<String>) {
@@ -599,6 +648,28 @@ impl SemIrAstLowerer {
             format!("{} is not supported by SemIR codegen yet", feature.into()),
         ));
     }
+}
+
+fn module_type_link_names(program: &SemProgram) -> BTreeMap<String, String> {
+    program
+        .modules
+        .iter()
+        .flat_map(|module| module.items.iter())
+        .filter_map(|item| match item {
+            SemItem::Declaration(declaration)
+                if matches!(
+                    declaration.symbol.class,
+                    crate::semantic::SymbolClass::Type | crate::semantic::SymbolClass::Record
+                ) =>
+            {
+                Some((
+                    declaration.symbol.qualified_name.to_ascii_uppercase(),
+                    declaration.symbol.name.clone(),
+                ))
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 fn bare_call_stmt_name(expr: &SemExpr) -> Option<String> {

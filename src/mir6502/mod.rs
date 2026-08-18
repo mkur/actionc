@@ -1123,7 +1123,10 @@ mod tests {
         };
         let mut main = empty_routine("Main", 0);
         main.blocks[0].ops.push(NirOp::Call {
-            callee: crate::nir::NirCallee::User("Touch".to_string()),
+            callee: crate::nir::NirCallee::User {
+                id: 1,
+                name: "Touch".to_string(),
+            },
             args: Vec::new(),
             result: None,
             signature: Some(crate::nir::NirCallableSignature {

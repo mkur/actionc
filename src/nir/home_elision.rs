@@ -188,7 +188,7 @@ fn transfer_op_backwards(
             if effects.opaque
                 || effects.may_call_os
                 || matches!(callee, NirCallee::Indirect { .. })
-                || matches!(callee, NirCallee::User(name) if name.eq_ignore_ascii_case(routine_name))
+                || matches!(callee, NirCallee::User { name, .. } if name.eq_ignore_ascii_case(routine_name))
             {
                 live.extend(candidates.iter().copied());
             } else {
@@ -204,6 +204,7 @@ fn transfer_op_backwards(
         }
         NirOp::Unsupported { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. } => live.extend(candidates.iter().copied()),
         NirOp::Define { .. }
@@ -447,7 +448,10 @@ mod tests {
         let elided = elide_program(&program(vec![
             store(1),
             NirOp::Call {
-                callee: NirCallee::User("Observe".to_string()),
+                callee: NirCallee::User {
+                    id: 0,
+                    name: "Observe".to_string(),
+                },
                 args: Vec::new(),
                 result: None,
                 signature: None,
