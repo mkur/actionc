@@ -3741,6 +3741,7 @@ mod memory_effect_tests {
             name: "x".to_string(),
             class: SymbolClass::Var,
             ty: None,
+            is_volatile: false,
             scope: ScopeId(1),
             span: crate::source::Span::new(0, 1),
         };

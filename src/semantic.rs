@@ -143,6 +143,7 @@ pub struct Symbol {
     pub name: String,
     pub class: SymbolClass,
     pub ty: Option<ValueType>,
+    pub is_volatile: bool,
     pub scope: ScopeId,
     pub span: Span,
 }
@@ -2173,6 +2174,12 @@ impl Analyzer {
 
     fn validate_record_field_decl(&mut self, scope: ScopeId, field: &VarDecl) {
         self.validate_type_ref(scope, &field.ty, field.span);
+        if field.qualifiers.is_volatile {
+            self.diagnostics.push(Diagnostic::new(
+                field.span,
+                "VOLATILE record fields are not supported yet",
+            ));
+        }
         let valid_value_type = matches!(field.ty.base, TypeBase::Fund(_))
             || (!field.ty.pointer && self.type_ref_is_record(scope, &field.ty));
         if field.storage != VarStorage::Plain
@@ -2221,6 +2228,19 @@ impl Analyzer {
         self.validate_type_ref(scope, &decl.ty, decl.span);
         let ty = Some(ValueType::from_type_ref(&decl.ty));
 
+        if decl.qualifiers.is_volatile && is_param {
+            self.diagnostics.push(Diagnostic::new(
+                decl.span,
+                "VOLATILE parameters are not supported yet",
+            ));
+        }
+        if decl.qualifiers.is_volatile && decl.ty.pointer {
+            self.diagnostics.push(Diagnostic::new(
+                decl.span,
+                "VOLATILE pointer declarations are ambiguous; volatile pointee syntax is not supported yet",
+            ));
+        }
+
         for entry in &decl.entries {
             let class = if is_param {
                 SymbolClass::Param
@@ -2232,9 +2252,21 @@ impl Analyzer {
 
             if let Some(symbol_id) =
                 self.declare(scope, entry.name.clone(), class, ty.clone(), entry.span)
-                && (decl.storage == VarStorage::Array || is_string_type_ref(&decl.ty))
             {
-                self.array_symbols.insert(symbol_id);
+                let inherits_volatile = !is_param
+                    && decl.storage == VarStorage::Plain
+                    && !decl.ty.pointer
+                    && entry
+                        .initializer
+                        .as_ref()
+                        .and_then(storage_alias_source_name)
+                        .and_then(|name| self.symbols.lookup(scope, name))
+                        .is_some_and(|id| self.symbols.symbols[id.0].is_volatile);
+                self.symbols.symbols[symbol_id.0].is_volatile =
+                    decl.qualifiers.is_volatile || inherits_volatile;
+                if decl.storage == VarStorage::Array || is_string_type_ref(&decl.ty) {
+                    self.array_symbols.insert(symbol_id);
+                }
             }
             self.validate_initializer_elements(scope, decl, entry);
         }
@@ -2389,6 +2421,7 @@ impl SymbolTable {
             name,
             class,
             ty,
+            is_volatile: false,
             scope,
             span,
         });
@@ -2696,6 +2729,19 @@ fn scalar_mask(ty: ScalarType) -> u16 {
         0x00FF
     } else {
         0xFFFF
+    }
+}
+
+fn storage_alias_source_name(expr: &Expr) -> Option<&str> {
+    match &expr.kind {
+        ExprKind::Name(name) => Some(name),
+        ExprKind::Cast { expr, .. } => storage_alias_source_name(expr),
+        ExprKind::Binary {
+            op: BinaryOp::Add,
+            left,
+            ..
+        } => storage_alias_source_name(left),
+        _ => None,
     }
 }
 
@@ -3197,6 +3243,49 @@ mod tests {
             }
         );
         assert_eq!(constant("Inferred").ty, ScalarType::Card);
+    }
+
+    #[test]
+    fn records_volatile_storage_facts_for_globals_arrays_and_locals() {
+        let model = analyze_source(
+            "VOLATILE BYTE WSYNC=$D40A, VCOUNT=$D40B BYTE Alias=WSYNC VOLATILE BYTE ARRAY Pokey(16)=$D200 PROC Main() VOLATILE CARD Clock=$0012 RETURN",
+        );
+        let global = model.symbols.global_scope();
+        for name in ["WSYNC", "VCOUNT", "Alias", "Pokey"] {
+            let symbol = model.symbols.lookup(global, name).expect("volatile global");
+            assert!(model.symbols.symbols[symbol.0].is_volatile, "{name}");
+        }
+
+        let local = model.routine_scopes[0].scope;
+        let clock = model
+            .symbols
+            .lookup(local, "Clock")
+            .expect("volatile local");
+        assert!(model.symbols.symbols[clock.0].is_volatile);
+    }
+
+    #[test]
+    fn diagnoses_unsupported_volatile_declaration_contexts() {
+        let parameter = analyze_source_err("PROC P(VOLATILE BYTE value) RETURN");
+        assert!(parameter.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("VOLATILE parameters are not supported")
+        }));
+
+        let pointer = analyze_source_err("VOLATILE BYTE POINTER p PROC Main() RETURN");
+        assert!(pointer.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("VOLATILE pointer declarations are ambiguous")
+        }));
+
+        let field = analyze_source_err("TYPE Pair=[VOLATILE BYTE value] PROC Main() RETURN");
+        assert!(field.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("VOLATILE record fields are not supported")
+        }));
     }
 
     #[test]

@@ -60,6 +60,7 @@ pub struct SemSymbolRef {
     pub name: String,
     pub class: SymbolClass,
     pub ty: Option<ValueType>,
+    pub is_volatile: bool,
     pub scope: ScopeId,
     pub span: Span,
 }
@@ -818,7 +819,12 @@ impl SemIrFormatter {
 
     fn declaration(&mut self, decl: &SemDeclaration) {
         self.line(format!(
-            "decl {} {} {}",
+            "decl{} {} {} {}",
+            if decl.symbol.is_volatile {
+                " volatile"
+            } else {
+                ""
+            },
             type_summary(&decl.ty.value),
             symbol_summary(&decl.symbol),
             declaration_storage_summary(&decl.storage)
@@ -2758,6 +2764,7 @@ impl<'a> IrBuilder<'a> {
             name: symbol.name.clone(),
             class: symbol.class.clone(),
             ty: symbol.ty.clone(),
+            is_volatile: symbol.is_volatile,
             scope: symbol.scope,
             span,
         })
@@ -2769,6 +2776,7 @@ impl<'a> IrBuilder<'a> {
             name: name.to_string(),
             class,
             ty: None,
+            is_volatile: false,
             scope: self.model.symbols.global_scope(),
             span,
         }
