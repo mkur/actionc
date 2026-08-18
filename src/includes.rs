@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::ast::{ImportDecl, Item, Module, ModulePath, Program, SourceUnitKind};
@@ -249,8 +249,11 @@ impl<'a> CompilationLoader<'a> {
                     .map(Path::to_path_buf)
             })
             .unwrap_or_else(|| PathBuf::from("."));
-        let mut search_roots = vec![SourceOrigin::host(project_root)];
-        search_roots.extend(options.module_paths.iter().cloned().map(SourceOrigin::host));
+        let search_roots = coalesce_search_roots(
+            provider,
+            std::iter::once(SourceOrigin::host(project_root))
+                .chain(options.module_paths.iter().cloned().map(SourceOrigin::host)),
+        );
         Self {
             source_loader: SourceLoader::new(provider),
             root_origin,
@@ -444,6 +447,20 @@ impl<'a> CompilationLoader<'a> {
             source_span,
         })
     }
+}
+
+fn coalesce_search_roots(
+    provider: &dyn SourceProvider,
+    roots: impl IntoIterator<Item = SourceOrigin>,
+) -> Vec<SourceOrigin> {
+    let mut keys = HashSet::new();
+    roots
+        .into_iter()
+        .filter(|root| {
+            let resolved = provider.resolve(root);
+            keys.insert(provider.canonical_key(&resolved))
+        })
+        .collect()
 }
 
 fn named_path(program: &Program) -> Option<&ModulePath> {
@@ -1106,6 +1123,21 @@ mod tests {
 
         let loaded = load_compilation_from_provider(root, &provider, &options).unwrap();
         assert_eq!(loaded.modules[1].origin, project_module);
+    }
+
+    #[test]
+    fn repeated_physical_module_roots_are_coalesced_canonically() {
+        let dir = temp_dir("actionc-module-root-coalescing");
+        fs::create_dir_all(&dir).unwrap();
+        let roots = coalesce_search_roots(
+            &HostSourceProvider,
+            [
+                SourceOrigin::host(dir.clone()),
+                SourceOrigin::host(dir.join(".")),
+                SourceOrigin::host(dir.clone()),
+            ],
+        );
+        assert_eq!(roots, [SourceOrigin::host(dir)]);
     }
 
     #[test]
