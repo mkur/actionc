@@ -906,6 +906,16 @@ impl Analyzer {
 
         let module_path = self.modules[module_id.0 as usize].path.clone();
         let symbol = &mut self.symbols.symbols[symbol_id.0];
+        match routine.kind {
+            RoutineKind::Proc => {
+                symbol.class = SymbolClass::Proc;
+                symbol.ty = None;
+            }
+            RoutineKind::Func { return_type } => {
+                symbol.class = SymbolClass::Func;
+                symbol.ty = Some(fund_value(return_type));
+            }
+        }
         symbol.defining_module = Some(module_id);
         symbol.visibility = routine.visibility;
         symbol.canonical_qualified_key = format!(
@@ -1543,7 +1553,7 @@ impl Analyzer {
     }
 
     fn validate_routine_return_paths(&mut self, routine: &Routine) {
-        if !matches!(routine.kind, RoutineKind::Func { .. }) {
+        if routine.is_external || !matches!(routine.kind, RoutineKind::Func { .. }) {
             return;
         }
         if routine.body.is_empty()
@@ -4316,6 +4326,7 @@ mod tests {
         let app = named_module(&model, "APP");
         let sys = named_module(&model, "SYS");
         let public = sys.public_symbol("Zero").expect("SYS.Zero");
+        assert_eq!(model.symbols.symbols[public.0].class, SymbolClass::Proc);
         assert_eq!(model.symbols.lookup_exact(app.scope, "Zero"), Some(public));
         assert_eq!(
             model.resolve_name(
@@ -6015,6 +6026,17 @@ mod tests {
             err.iter()
                 .any(|diagnostic| diagnostic.message.contains("may exit without RETURN value"))
         );
+    }
+
+    #[test]
+    fn accepts_bodyless_external_function_interface() {
+        let model = analyze_named_sources(&[(
+            "project/main.act",
+            "MODULE SYS PUBLIC EXTERNAL BYTE FUNC Peek(CARD address) ENDMODULE",
+        )]);
+        let sys = named_module(&model, "SYS");
+        let peek = sys.public_symbol("Peek").expect("SYS.Peek");
+        assert_eq!(model.symbols.symbols[peek.0].class, SymbolClass::Func);
     }
 
     #[test]

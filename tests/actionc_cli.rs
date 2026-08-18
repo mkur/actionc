@@ -672,6 +672,78 @@ fn mir6502_sys_memory_binding_is_runtime_selected_and_selective() {
 }
 
 #[test]
+fn sys_string_bindings_work_in_every_backend_and_runtime_pair() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sys_strings.act");
+    let temp = TestDir::new();
+
+    for backend in ["classic", "mir6502"] {
+        for runtime in ["cart", "standalone"] {
+            let object = temp.path().join(format!("strings-{backend}-{runtime}.com"));
+            let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+                .args([
+                    "--profile",
+                    "modern",
+                    "--backend",
+                    backend,
+                    "--runtime",
+                    runtime,
+                    "-o",
+                ])
+                .arg(&object)
+                .arg(&fixture)
+                .output()
+                .expect("compile SYS string fixture");
+            assert!(
+                output.status.success(),
+                "{backend} + {runtime}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(fs::metadata(object).expect("string fixture object").len() > 0);
+        }
+    }
+
+    for backend in ["classic", "mir6502"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args([
+                "--profile",
+                "modern",
+                "--backend",
+                backend,
+                "--runtime",
+                "standalone",
+                "--emit-map",
+            ])
+            .arg(&fixture)
+            .output()
+            .expect("emit standalone SYS string map");
+        assert!(
+            output.status.success(),
+            "{backend}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let map = String::from_utf8_lossy(&output.stdout);
+        for routine in ["SCompare", "SCopy", "SCopyS", "SAssign"] {
+            let expected = if backend == "classic" {
+                format!("runtime-binding SYS.{routine}")
+            } else {
+                format!("ACTION.RUNTIME.SYSSTR::{}", routine.to_ascii_uppercase())
+            };
+            assert!(
+                map.to_ascii_uppercase()
+                    .contains(&expected.to_ascii_uppercase()),
+                "{backend}, missing {routine}: {map}"
+            );
+        }
+        assert!(
+            map.to_ascii_uppercase().contains("SYSSTR"),
+            "{backend}: {map}"
+        );
+        assert!(!map.contains("ACTION.RUNTIME.SYSBLK"), "{backend}: {map}");
+    }
+}
+
+#[test]
 fn mir6502_sys_routine_addresses_follow_the_selected_runtime() {
     let fixture =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sys_address.act");

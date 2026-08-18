@@ -438,6 +438,13 @@ pub(super) fn compile_runtime_unit(
     file_name: &str,
     module_name: &str,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    compile_runtime_unit_with_semir(file_name, module_name).map(|(_, mir)| mir)
+}
+
+pub(super) fn compile_runtime_unit_with_semir(
+    file_name: &str,
+    module_name: &str,
+) -> Result<(crate::semantic::ir::SemProgram, MirProgram), Vec<MirDiagnostic>> {
     let semir = crate::runtime_source::compile_runtime_unit(file_name, module_name)
         .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
     let nir = crate::nir::lower_program(&semir);
@@ -451,15 +458,16 @@ pub(super) fn compile_runtime_unit(
             })
             .collect::<Vec<_>>()
     })?;
-    super::lower_program(&nir).map_err(|diagnostics| {
+    let mir = super::lower_program(&nir).map_err(|diagnostics| {
         diagnostics
             .into_iter()
             .map(|mut diagnostic| {
                 diagnostic.message = format!("embedded {file_name} MIR: {}", diagnostic.message);
                 diagnostic
             })
-            .collect()
-    })
+            .collect::<Vec<_>>()
+    })?;
+    Ok((semir, mir))
 }
 
 fn frontend_diagnostics(

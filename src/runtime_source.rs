@@ -64,6 +64,28 @@ pub(crate) fn compile_runtime_unit(
     Ok(ir::lower_compilation(&loaded, &model))
 }
 
+/// Compile a named module directly from the compiler's embedded VFS.
+///
+/// Runtime binding validation uses this to compare the selected implementation
+/// against the authoritative public interface after lowering, including
+/// function result types which are not represented by a routine's parameter
+/// frame alone.
+pub(crate) fn compile_embedded_module(file_name: &str) -> Result<ir::SemProgram, Vec<Diagnostic>> {
+    let origin = SourceOrigin::embedded(
+        file_name.to_ascii_lowercase(),
+        format!("<embedded:{}>", file_name.to_ascii_uppercase()),
+    );
+    let loaded = load_compilation_from_provider(
+        origin,
+        &EmbeddedSourceProvider,
+        &ModuleLoadOptions::default(),
+    )
+    .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
+    let model = analyze_compilation(&loaded)
+        .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
+    Ok(ir::lower_compilation(&loaded, &model))
+}
+
 fn make_internal_named_module(
     source: &str,
     module_name: &str,
@@ -136,6 +158,32 @@ mod tests {
             diagnostics[0]
                 .message
                 .contains("invalid embedded runtime unit")
+        );
+    }
+
+    #[test]
+    fn embedded_sys_interface_retains_external_function_results() {
+        let program = compile_embedded_module("sys.act").expect("compile SYS interface");
+        let scompare = program
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine)
+                    if routine
+                        .symbol
+                        .qualified_name
+                        .eq_ignore_ascii_case("SYS.SCompare") =>
+                {
+                    Some(routine)
+                }
+                _ => None,
+            })
+            .expect("SYS.SCompare interface");
+        assert!(scompare.is_external);
+        assert_eq!(
+            scompare.signature.return_type,
+            Some(crate::ast::FundType::Int)
         );
     }
 }

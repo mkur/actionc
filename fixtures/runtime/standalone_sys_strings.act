@@ -1,0 +1,21 @@
+MODULE APP
+
+USE SYS
+
+BYTE ARRAY left="ABC"
+BYTE ARRAY right="BC"
+BYTE ARRAY destination(8)
+INT comparison
+
+PROC Main()
+  comparison=SYS.SCompare(left,right)
+  IF comparison<0 THEN
+    SYS.SCopy(destination,left)
+  ELSE
+    SYS.SCopy(destination,right)
+  FI
+  SYS.SCopyS(destination,left,1,2)
+  SYS.SAssign(destination,right,1,2)
+RETURN
+
+ENDMODULE

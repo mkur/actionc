@@ -6,4 +6,9 @@ PUBLIC EXTERNAL PROC Zero(BYTE POINTER address, CARD size)
 PUBLIC EXTERNAL PROC SetBlock(BYTE POINTER address, CARD size, BYTE value)
 PUBLIC EXTERNAL PROC MoveBlock(BYTE POINTER destination, source, CARD size)
 
+PUBLIC EXTERNAL INT FUNC SCompare(STRING left, right)
+PUBLIC EXTERNAL PROC SCopy(STRING destination, source)
+PUBLIC EXTERNAL PROC SCopyS(STRING destination, source, BYTE first, last)
+PUBLIC EXTERNAL PROC SAssign(STRING destination, source, BYTE first, last)
+
 ENDMODULE
