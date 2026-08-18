@@ -111,6 +111,23 @@ pub trait SourceProvider {
     fn canonical_key(&self, origin: &SourceOrigin) -> SourceOrigin {
         origin.clone()
     }
+
+    /// Resolve a compiler-owned embedded module before host search roots.
+    fn resolve_embedded_module(
+        &self,
+        _canonical_components: &[String],
+    ) -> Result<Option<SourceOrigin>, SourceLoadError> {
+        Ok(None)
+    }
+
+    /// Resolve a canonical lowercase module path below ordered search roots.
+    fn resolve_module(
+        &self,
+        _canonical_components: &[String],
+        _search_roots: &[SourceOrigin],
+    ) -> Result<Option<SourceOrigin>, SourceLoadError> {
+        Ok(None)
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -139,6 +156,22 @@ impl SourceProvider for HostSourceProvider {
         };
         SourceOrigin::Host(fs::canonicalize(path).unwrap_or_else(|_| path.clone()))
     }
+
+    fn resolve_module(
+        &self,
+        canonical_components: &[String],
+        search_roots: &[SourceOrigin],
+    ) -> Result<Option<SourceOrigin>, SourceLoadError> {
+        for root in search_roots {
+            let SourceOrigin::Host(root) = root else {
+                continue;
+            };
+            if let Some(path) = resolve_module_below_root(root, canonical_components)? {
+                return Ok(Some(SourceOrigin::Host(path)));
+            }
+        }
+        Ok(None)
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -163,6 +196,117 @@ impl SourceProvider for InMemorySourceProvider {
             SourceLoadError::new(format!("source `{origin}` is not present in memory"))
         })
     }
+
+    fn resolve_embedded_module(
+        &self,
+        canonical_components: &[String],
+    ) -> Result<Option<SourceOrigin>, SourceLoadError> {
+        let relative = module_relative_path(canonical_components);
+        Ok(self.sources.keys().find_map(|origin| match origin {
+            SourceOrigin::Embedded { virtual_path, .. } if Path::new(virtual_path) == relative => {
+                Some(origin.clone())
+            }
+            _ => None,
+        }))
+    }
+
+    fn resolve_module(
+        &self,
+        canonical_components: &[String],
+        search_roots: &[SourceOrigin],
+    ) -> Result<Option<SourceOrigin>, SourceLoadError> {
+        let relative = module_relative_path(canonical_components);
+        for root in search_roots {
+            let SourceOrigin::Host(root) = root else {
+                continue;
+            };
+            let expected = SourceOrigin::Host(root.join(&relative));
+            if self.sources.contains_key(&expected) {
+                return Ok(Some(expected));
+            }
+            if let Some(actual) = self.sources.keys().find(|origin| match origin {
+                SourceOrigin::Host(path) => path
+                    .to_string_lossy()
+                    .eq_ignore_ascii_case(&root.join(&relative).to_string_lossy()),
+                SourceOrigin::Embedded { .. } => false,
+            }) {
+                return Err(SourceLoadError::new(format!(
+                    "module path must use canonical lowercase spelling `{}`; found `{actual}`",
+                    root.join(&relative).display()
+                )));
+            }
+        }
+        Ok(None)
+    }
+}
+
+fn module_relative_path(canonical_components: &[String]) -> PathBuf {
+    let mut path = PathBuf::new();
+    for component in canonical_components
+        .iter()
+        .take(canonical_components.len().saturating_sub(1))
+    {
+        path.push(component);
+    }
+    if let Some(last) = canonical_components.last() {
+        path.push(format!("{last}.act"));
+    }
+    path
+}
+
+fn resolve_module_below_root(
+    root: &Path,
+    canonical_components: &[String],
+) -> Result<Option<PathBuf>, SourceLoadError> {
+    let mut current = root.to_path_buf();
+    for (index, component) in canonical_components.iter().enumerate() {
+        let expected = if index + 1 == canonical_components.len() {
+            format!("{component}.act")
+        } else {
+            component.clone()
+        };
+        let entries = match fs::read_dir(&current) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => {
+                return Err(SourceLoadError::new(format!(
+                    "failed to search module directory `{}`: {error}",
+                    current.display()
+                )));
+            }
+        };
+        let mut exact = None;
+        let mut mismatched = None;
+        for entry in entries {
+            let entry = entry.map_err(|error| {
+                SourceLoadError::new(format!(
+                    "failed to inspect module directory `{}`: {error}",
+                    current.display()
+                ))
+            })?;
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name == expected {
+                exact = Some(entry.path());
+                break;
+            }
+            if name.eq_ignore_ascii_case(&expected) {
+                mismatched = Some(entry.path());
+            }
+        }
+        if let Some(path) = exact {
+            current = path;
+        } else if let Some(path) = mismatched {
+            return Err(SourceLoadError::new(format!(
+                "module path must use canonical lowercase spelling `{}`; found `{}`",
+                current.join(&expected).display(),
+                path.display()
+            )));
+        } else {
+            return Ok(None);
+        }
+    }
+    Ok(Some(current))
 }
 
 fn resolve_case_insensitive(path: &Path) -> Option<PathBuf> {

@@ -95,9 +95,8 @@ impl<'a> Parser<'a> {
         let path = self
             .parse_module_path(false)
             .map(|(path, _)| path)
-            .unwrap_or_else(|| ModulePath {
-                components: vec!["<missing module name>".to_string()],
-                span: self.peek().span,
+            .unwrap_or_else(|| {
+                ModulePath::new(vec!["<missing module name>".to_string()], self.peek().span)
             });
         let mut imports = Vec::new();
         while self.is_contextual_at(self.pos, "IMPORT") {
@@ -256,10 +255,7 @@ impl<'a> Parser<'a> {
                 "expected module path after IMPORT",
             ));
             (
-                ModulePath {
-                    components: vec!["<missing module name>".to_string()],
-                    span: self.peek().span,
-                },
+                ModulePath::new(vec!["<missing module name>".to_string()], self.peek().span),
                 false,
             )
         });
@@ -307,10 +303,7 @@ impl<'a> Parser<'a> {
             path_end = self.previous_end();
         }
         Some((
-            ModulePath {
-                components,
-                span: Span::new(start, path_end),
-            },
+            ModulePath::new(components, Span::new(start, path_end)),
             open,
         ))
     }

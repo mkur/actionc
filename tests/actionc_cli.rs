@@ -67,6 +67,43 @@ fn help_describes_the_existing_listing_options_as_mads_assembly() {
 }
 
 #[test]
+fn repeatable_module_paths_are_used_by_compile_and_emit_commands() {
+    let temp = TestDir::new();
+    let root = temp.path().join("app.act");
+    let first = temp.path().join("first");
+    let second = temp.path().join("second");
+    fs::create_dir_all(second.join("lib")).expect("create module directory");
+    fs::write(&root, "MODULE APP\nIMPORT LIB.VALUE\nENDMODULE\n").expect("write root module");
+    fs::write(
+        second.join("lib/value.act"),
+        "MODULE LIB.VALUE\nPUBLIC BYTE value\nENDMODULE\n",
+    )
+    .expect("write imported module");
+
+    for (binary, emit_arg) in [
+        (env!("CARGO_BIN_EXE_actionc"), None),
+        (env!("CARGO_BIN_EXE_actionc-emit"), Some("--emit-semir")),
+    ] {
+        let mut command = Command::new(binary);
+        command
+            .arg("--module-path")
+            .arg(&first)
+            .arg(format!("--module-path={}", second.display()));
+        if let Some(emit_arg) = emit_arg {
+            command.arg(emit_arg);
+        }
+        let output = command.arg(&root).output().expect("run module CLI");
+        assert_eq!(output.status.code(), Some(1));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("named-module semantic resolution is not implemented yet"),
+            "module was not found through the ordered paths:\n{stderr}"
+        );
+        assert!(!stderr.contains("cannot find module"));
+    }
+}
+
+#[test]
 fn compiles_object_and_listing_in_one_invocation() {
     let temp = TestDir::new();
     let object = temp.path().join("nested/hello.com");

@@ -155,6 +155,7 @@ fn parse_args(
     let mut cartridge = None;
     let mut keep = false;
     let mut source = None;
+    let mut module_paths = Vec::new();
 
     while let Some(arg) = args.next() {
         if arg == OsStr::new("-h") || arg == OsStr::new("--help") {
@@ -177,6 +178,17 @@ fn parse_args(
         }
         if let Some(value) = os_option_value(&arg, "--mode=") {
             mode = Some(parse_mode(value)?);
+            continue;
+        }
+        if arg == OsStr::new("--module-path") {
+            let value = args.next().ok_or_else(|| {
+                RunnerError::configuration("--module-path requires a directory path")
+            })?;
+            module_paths.push(PathBuf::from(value));
+            continue;
+        }
+        if let Some(value) = os_option_value(&arg, "--module-path=") {
+            module_paths.push(PathBuf::from(value));
             continue;
         }
         if arg == OsStr::new("--emulator") {
@@ -249,7 +261,10 @@ fn parse_args(
             "--keep only applies when an emulator is launched",
         ));
     }
-    let compile = mode.map_or_else(CompileOptions::default, CompileOptions::for_mode);
+    let mut compile = mode.map_or_else(CompileOptions::default, CompileOptions::for_mode);
+    for module_path in module_paths {
+        compile = compile.with_module_path(module_path);
+    }
 
     Ok(Some(RunCliOptions {
         source,
@@ -661,6 +676,7 @@ fn install_temporary_file(temporary: &Path, destination: &Path) -> io::Result<()
 fn print_help() {
     eprintln!(
         "usage: actionc-run [--mode compatibility|optimized|mir6502]\n\
+         \x20                  [--module-path <directory>]...\n\
          \x20                  [--emulator auto|atari800|altirra]\n\
          \x20                  [--emulator-path <path>]\n\
          \x20                  [--cart <path>|--no-cart]\n\
@@ -938,6 +954,9 @@ mod tests {
     fn parser_maps_public_compiler_modes_and_default_atr_name() {
         let options = parse_args([
             OsString::from("--mode=mir6502"),
+            OsString::from("--module-path"),
+            OsString::from("first modules"),
+            OsString::from("--module-path=second-modules"),
             OsString::from("--no-run"),
             OsString::from("some path/demo.act"),
         ])
@@ -948,6 +967,13 @@ mod tests {
         assert_eq!(options.output_atr, None);
         assert_eq!(default_atr_path(&options.source), PathBuf::from("demo.atr"));
         assert_eq!(options.compile.mode(), Some(CompileMode::Mir6502));
+        assert_eq!(
+            options.compile.module_paths(),
+            [
+                PathBuf::from("first modules"),
+                PathBuf::from("second-modules")
+            ]
+        );
     }
 
     #[test]

@@ -3,14 +3,14 @@ mod diagnostics;
 pub(crate) mod validation;
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::codegen::{
     CODE_ORIGIN, CodegenOutput, CodegenProfile, format_load_file, generate_profile_at_origin,
     generate_profile_with_origin, generate_semir_native_profile_with_origin,
     generate_semir_profile_at_origin, generate_semir_profile_with_origin,
 };
-use crate::includes::load_program_with_expanded_source;
+use crate::includes::{ModuleLoadOptions, load_compilation};
 use crate::mir6502;
 use crate::nir;
 use crate::semantic::{analyze, ir, materialize::materialize_constants};
@@ -42,7 +42,7 @@ pub(crate) enum CodegenSource {
     SemIrNative,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CompileRequest {
     pub(crate) profile: CodegenProfile,
     pub(crate) profile_explicit: bool,
@@ -50,6 +50,8 @@ pub(crate) struct CompileRequest {
     pub(crate) backend_explicit: bool,
     pub(crate) codegen_source: CodegenSource,
     pub(crate) origin: Option<u16>,
+    pub(crate) project_root: Option<PathBuf>,
+    pub(crate) module_paths: Vec<PathBuf>,
 }
 
 impl Default for CompileRequest {
@@ -61,6 +63,8 @@ impl Default for CompileRequest {
             backend_explicit: false,
             codegen_source: CodegenSource::Ast,
             origin: None,
+            project_root: None,
+            module_paths: Vec::new(),
         }
     }
 }
@@ -73,10 +77,12 @@ struct ResolvedCompileRequest {
     origin: Option<u16>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CompileOptions {
     mode: Option<CompileMode>,
     origin: Option<u16>,
+    project_root: Option<PathBuf>,
+    module_paths: Vec<PathBuf>,
 }
 
 impl CompileOptions {
@@ -84,6 +90,8 @@ impl CompileOptions {
         Self {
             mode: Some(mode),
             origin: None,
+            project_root: None,
+            module_paths: Vec::new(),
         }
     }
 
@@ -98,6 +106,24 @@ impl CompileOptions {
 
     pub fn origin(&self) -> Option<u16> {
         self.origin
+    }
+
+    pub fn with_project_root(mut self, path: impl Into<PathBuf>) -> Self {
+        self.project_root = Some(path.into());
+        self
+    }
+
+    pub fn with_module_path(mut self, path: impl Into<PathBuf>) -> Self {
+        self.module_paths.push(path.into());
+        self
+    }
+
+    pub fn project_root(&self) -> Option<&Path> {
+        self.project_root.as_deref()
+    }
+
+    pub fn module_paths(&self) -> &[PathBuf] {
+        &self.module_paths
     }
 }
 
@@ -138,7 +164,11 @@ pub(crate) fn compile_file_with_request(
     path: &Path,
     request: &CompileRequest,
 ) -> Result<CompiledProgram, CompileError> {
-    let loaded = load_program_with_expanded_source(path).map_err(|diagnostics| {
+    let module_options = ModuleLoadOptions {
+        project_root: request.project_root.clone(),
+        module_paths: request.module_paths.clone(),
+    };
+    let loaded = load_compilation(path, &module_options).map_err(|diagnostics| {
         let source = fs::read(path)
             .map(|bytes| decode_source(&bytes))
             .unwrap_or_default();
@@ -150,9 +180,10 @@ pub(crate) fn compile_file_with_request(
             None,
         )
     })?;
+    let program = &loaded.root_module().program;
 
     let request = resolve_request(&loaded.source, request)?;
-    let model = analyze(&loaded.program).map_err(|diagnostics| {
+    let model = analyze(program).map_err(|diagnostics| {
         CompileError::from_source_diagnostics(
             CompilerPhase::Semantic,
             diagnostics,
@@ -164,7 +195,7 @@ pub(crate) fn compile_file_with_request(
 
     let output = match request.backend {
         Backend::Classic => compile_classic(
-            &loaded.program,
+            program,
             &model,
             request,
             &loaded.source,
@@ -172,7 +203,7 @@ pub(crate) fn compile_file_with_request(
             &loaded.source_map,
         )?,
         Backend::Mir6502 => compile_mir6502(
-            &loaded.program,
+            program,
             &model,
             request,
             &loaded.source,
@@ -192,6 +223,8 @@ pub(crate) fn compile_file_with_request(
 fn compile_request_from_options(options: &CompileOptions) -> CompileRequest {
     let mut request = CompileRequest {
         origin: options.origin,
+        project_root: options.project_root.clone(),
+        module_paths: options.module_paths.clone(),
         ..CompileRequest::default()
     };
     if let Some(mode) = options.mode {
@@ -454,6 +487,8 @@ mod relocation_tests {
                 backend_explicit: true,
                 codegen_source: CodegenSource::SemIrNative,
                 origin: Some(origin),
+                project_root: None,
+                module_paths: Vec::new(),
             };
             let baseline = compile_file_with_request(&fixture(), &request(baseline_origin))
                 .unwrap_or_else(|error| {

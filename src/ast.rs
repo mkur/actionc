@@ -44,7 +44,30 @@ pub struct ImportDecl {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModulePath {
     pub components: Vec<String>,
+    pub canonical_components: Vec<String>,
     pub span: Span,
+}
+
+impl ModulePath {
+    pub fn new(components: Vec<String>, span: Span) -> Self {
+        let canonical_components = components
+            .iter()
+            .map(|component| component.to_ascii_lowercase())
+            .collect();
+        Self {
+            components,
+            canonical_components,
+            span,
+        }
+    }
+
+    pub fn display_name(&self) -> String {
+        self.components.join(".")
+    }
+
+    pub fn canonical_name(&self) -> String {
+        self.canonical_components.join(".")
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]

@@ -17,7 +17,7 @@ use crate::compiler::{
     compile_file_with_request, mir6502_default_origin_from_semir, mode_profile_backend,
     validation::legacy_routine_retargeting_diagnostics,
 };
-use crate::includes::{SourceMap, load_program_with_expanded_source};
+use crate::includes::{ModuleLoadOptions, SourceMap, load_compilation};
 use crate::lexer::tokenize;
 use crate::mir6502;
 use crate::nir;
@@ -81,6 +81,7 @@ fn run_main(flavor: CliFlavor) {
     let mut output_path = None;
     let mut listing_path = None;
     let mut input_path = None;
+    let mut module_paths = Vec::new();
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -124,6 +125,17 @@ fn run_main(flavor: CliFlavor) {
             }
             _ if arg.starts_with("--listing=") => {
                 listing_path = Some(PathBuf::from(&arg["--listing=".len()..]));
+            }
+            "--module-path" => {
+                let Some(value) = args.next() else {
+                    eprintln!("--module-path requires a directory path");
+                    print_help_for(flavor);
+                    process::exit(2);
+                };
+                module_paths.push(PathBuf::from(value));
+            }
+            _ if arg.starts_with("--module-path=") => {
+                module_paths.push(PathBuf::from(&arg["--module-path=".len()..]));
             }
             "--mode" => {
                 let Some(value) = args.next() else {
@@ -303,6 +315,8 @@ fn run_main(flavor: CliFlavor) {
             backend_explicit,
             codegen_source,
             origin: origin_explicit.then_some(origin),
+            project_root: None,
+            module_paths: module_paths.clone(),
         };
         let compiled = match compile_file_with_request(Path::new(&input_path), &request) {
             Ok(compiled) => compiled,
@@ -348,13 +362,20 @@ fn run_main(flavor: CliFlavor) {
         return;
     }
 
-    let loaded = match load_program_with_expanded_source(&input_path) {
+    let loaded = match load_compilation(
+        &input_path,
+        &ModuleLoadOptions {
+            project_root: None,
+            module_paths,
+        },
+    ) {
         Ok(loaded) => loaded,
         Err(diagnostics) => {
             print_input_diagnostics(&input_path, diagnostics, diagnostic_byte_ranges);
             process::exit(1);
         }
     };
+    let program = &loaded.root_module().program;
     apply_source_codegen_settings(
         &loaded.source,
         &mut profile,
@@ -367,7 +388,7 @@ fn run_main(flavor: CliFlavor) {
         process::exit(2);
     }
 
-    let model = match analyze(&loaded.program) {
+    let model = match analyze(program) {
         Ok(model) => model,
         Err(diagnostics) => {
             print_diagnostics_with_source(
@@ -381,19 +402,19 @@ fn run_main(flavor: CliFlavor) {
     };
 
     if emit_semir {
-        let semir = ir::lower_program(&loaded.program, &model);
+        let semir = ir::lower_program(program, &model);
         print!("{}", ir::format_program(&semir));
         return;
     }
 
     if emit_nir {
         reject_nir_unsupported_legacy_routine_retargeting_or_exit(
-            &loaded.program,
+            program,
             &loaded.source,
             Some(&loaded.source_map),
             diagnostic_byte_ranges,
         );
-        let semir = ir::lower_program(&loaded.program, &model);
+        let semir = ir::lower_program(program, &model);
         let nir = nir::lower_program(&semir);
         if let Err(diagnostics) = nir::verify_program(&nir) {
             print_nir_diagnostics(diagnostics);
@@ -405,12 +426,12 @@ fn run_main(flavor: CliFlavor) {
 
     if emit_optimized_nir || emit_nir_stats {
         reject_nir_unsupported_legacy_routine_retargeting_or_exit(
-            &loaded.program,
+            program,
             &loaded.source,
             Some(&loaded.source_map),
             diagnostic_byte_ranges,
         );
-        let semir = ir::lower_program(&loaded.program, &model);
+        let semir = ir::lower_program(program, &model);
         let lowered = nir::lower_program(&semir);
         let optimized = optimize_nir_or_exit(lowered.clone());
         if emit_nir_stats {
@@ -423,12 +444,12 @@ fn run_main(flavor: CliFlavor) {
 
     if emit_mir6502 || emit_materialized_mir6502 {
         reject_nir_unsupported_legacy_routine_retargeting_or_exit(
-            &loaded.program,
+            program,
             &loaded.source,
             Some(&loaded.source_map),
             diagnostic_byte_ranges,
         );
-        let semir = ir::lower_program(&loaded.program, &model);
+        let semir = ir::lower_program(program, &model);
         let nir = optimize_nir_or_exit(nir::lower_program(&semir));
         let mir = match mir6502::lower_program(&nir) {
             Ok(mir) => mir,
@@ -475,12 +496,12 @@ fn run_main(flavor: CliFlavor) {
     ) {
         if matches!(backend, Backend::Mir6502) {
             reject_nir_unsupported_legacy_routine_retargeting_or_exit(
-                &loaded.program,
+                program,
                 &loaded.source,
                 Some(&loaded.source_map),
                 diagnostic_byte_ranges,
             );
-            let semir = ir::lower_program(&loaded.program, &model);
+            let semir = ir::lower_program(program, &model);
             let nir = optimize_nir_or_exit(nir::lower_program(&semir));
             let mir_origin = if origin_explicit {
                 origin
@@ -515,7 +536,7 @@ fn run_main(flavor: CliFlavor) {
             codegen_source,
             CodegenSource::SemIr | CodegenSource::SemIrNative
         ) {
-            let semir = ir::lower_program(&loaded.program, &model);
+            let semir = ir::lower_program(program, &model);
             let result = match codegen_source {
                 CodegenSource::SemIr => generate_semir_profile_with_origin(&semir, origin, profile),
                 CodegenSource::SemIrNative => {
@@ -547,7 +568,7 @@ fn run_main(flavor: CliFlavor) {
             return;
         }
 
-        match generate_profile_with_origin(&loaded.program, origin, profile) {
+        match generate_profile_with_origin(program, origin, profile) {
             Ok(output) => emit_output(
                 &output,
                 &loaded.source,
@@ -573,7 +594,7 @@ fn run_main(flavor: CliFlavor) {
 
     println!(
         "parsed {} module(s); compiler backend is not implemented yet",
-        loaded.program.modules.len()
+        program.modules.len()
     );
 }
 
@@ -1191,13 +1212,13 @@ fn print_help_for(flavor: CliFlavor) {
 
 fn print_compile_help() {
     eprintln!(
-        "usage: actionc [--mode compatibility|optimized|mir6502] [--origin <addr>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility. Advanced users may select --profile and\n--backend directly instead of --mode. With no -o option, write\n<source-stem>.com in the current directory. --listing writes re-originable,\nsource-annotated MADS assembly. Change only ACTIONC_ORIGIN in the generated\nlisting to move its main segment. Use actionc-emit for compiler representations."
+        "usage: actionc [--mode compatibility|optimized|mir6502] [--origin <addr>] [--module-path <dir>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility. Advanced users may select --profile and\n--backend directly instead of --mode. Repeat --module-path to add ordered\nnamed-module search roots. With no -o option, write <source-stem>.com in the\ncurrent directory. --listing writes re-originable, source-annotated\nMADS assembly. Change only ACTIONC_ORIGIN in the generated listing to move its\nmain segment. Use actionc-emit for compiler representations."
     );
 }
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nListings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move\nthe main segment. --emit-source-listing adds Action! source comments."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--origin <addr>] [--module-path <dir>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nRepeat --module-path to add ordered named-module search roots. Listings are\nre-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main\nsegment. --emit-source-listing adds Action! source comments."
     );
 }
 

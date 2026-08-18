@@ -95,6 +95,20 @@ fn compatibility_api_matches_the_existing_classic_pipeline() {
 }
 
 #[test]
+fn compile_options_preserve_project_root_and_ordered_module_paths() {
+    let options = CompileOptions::default()
+        .with_project_root("project")
+        .with_module_path("first")
+        .with_module_path("second");
+
+    assert_eq!(options.project_root(), Some(Path::new("project")));
+    assert_eq!(
+        options.module_paths(),
+        [PathBuf::from("first"), PathBuf::from("second")]
+    );
+}
+
+#[test]
 fn compiled_program_formats_a_mads_compatible_source_listing() {
     let compiled = compile_file(
         hello_world(),
