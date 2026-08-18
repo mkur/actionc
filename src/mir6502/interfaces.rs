@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::OnceLock;
 
 use crate::runtime::Runtime;
 use crate::runtime_bindings::{BindingTarget, binding_key, parse_bindings};
+use crate::runtime_source::{RuntimeUnit, resolve_runtime_unit};
 
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
@@ -10,8 +10,6 @@ use super::ir::{
     MirMachineItem, MirOp, MirProgram, MirRoutine, MirRoutineAbi, MirStorageInit, MirValue,
     RoutineId,
 };
-
-static SYSBLK_MIR: OnceLock<Result<MirProgram, Vec<MirDiagnostic>>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ResolvedTarget {
@@ -55,8 +53,7 @@ pub(super) fn resolve_interfaces(
             }
         }
         Runtime::Standalone => {
-            let mut sysblk_roots = BTreeMap::<RoutineId, RoutineId>::new();
-            let sysblk = sysblk_mir()?;
+            let mut roots_by_unit = BTreeMap::<RuntimeUnit, BTreeMap<RoutineId, String>>::new();
             for id in &referenced {
                 let name = &external[id];
                 let Some(binding) = bindings.get(&binding_key(name)) else {
@@ -67,41 +64,46 @@ pub(super) fn resolve_interfaces(
                         "standalone binding for external `{name}` is an absolute address"
                     )));
                 };
-                if !unit.eq_ignore_ascii_case("SYSBLK") {
-                    return Err(diagnostic(format!(
-                        "standalone binding for external `{name}` references unsupported runtime unit `{unit}`"
-                    )));
-                }
-                let implementation =
-                    find_runtime_routine(&sysblk, "ACTION_RUNTIME_SYSBLK", routine)?;
-                validate_abi(
-                    program
-                        .routines
-                        .iter()
-                        .find(|candidate| candidate.id == *id)
-                        .expect("external routine exists"),
-                    sysblk
-                        .routines
-                        .iter()
-                        .find(|candidate| candidate.id == implementation)
-                        .expect("runtime routine exists"),
-                )?;
-                sysblk_roots.insert(*id, implementation);
+                let unit = resolve_runtime_unit(unit).map_err(frontend_diagnostics)?;
+                roots_by_unit
+                    .entry(unit)
+                    .or_default()
+                    .insert(*id, routine.clone());
             }
 
-            if !sysblk_roots.is_empty() {
+            for (unit, external_roots) in roots_by_unit {
+                let runtime =
+                    super::standalone::compile_runtime_unit(&unit.file_name, &unit.module_name)?;
+                let mut implementation_roots = BTreeMap::new();
+                for (external_id, routine) in external_roots {
+                    let implementation =
+                        find_runtime_routine(&runtime, &unit.link_module, &routine)?;
+                    validate_abi(
+                        program
+                            .routines
+                            .iter()
+                            .find(|candidate| candidate.id == external_id)
+                            .expect("external routine exists"),
+                        runtime
+                            .routines
+                            .iter()
+                            .find(|candidate| candidate.id == implementation)
+                            .expect("runtime routine exists"),
+                    )?;
+                    implementation_roots.insert(external_id, implementation);
+                }
                 let selected = super::standalone::dependency_closure(
-                    &sysblk,
-                    sysblk_roots.values().copied().collect(),
+                    &runtime,
+                    implementation_roots.values().copied().collect(),
                 )?;
                 let rebase = super::standalone::append_runtime_closure(
                     program,
-                    &sysblk,
+                    &runtime,
                     &selected,
-                    "ACTION.RUNTIME.SYSBLK",
-                    "ACTION_RUNTIME_SYSBLK",
+                    &unit.module_name,
+                    &unit.link_module,
                 )?;
-                for (external_id, implementation) in sysblk_roots {
+                for (external_id, implementation) in implementation_roots {
                     resolved.insert(
                         external_id,
                         ResolvedTarget::Routine(rebase[&implementation]),
@@ -116,14 +118,6 @@ pub(super) fn resolve_interfaces(
         .routines
         .retain(|routine| routine.abi != MirRoutineAbi::ExternalInterface);
     Ok(())
-}
-
-fn sysblk_mir() -> Result<MirProgram, Vec<MirDiagnostic>> {
-    SYSBLK_MIR
-        .get_or_init(|| {
-            super::standalone::compile_runtime_unit("sysblk.act", "ACTION.RUNTIME.SYSBLK")
-        })
-        .clone()
 }
 
 fn find_runtime_routine(
@@ -479,19 +473,34 @@ mod tests {
     }
 
     #[test]
-    fn embedded_sysblk_compiles_as_an_isolated_runtime_unit() {
-        let runtime = sysblk_mir().expect("compile SYSBLK");
+    fn embedded_binding_unit_compiles_without_unit_specific_resolver_code() {
+        let unit = resolve_runtime_unit("SYSBLK").expect("SYSBLK unit");
+        let runtime =
+            super::super::standalone::compile_runtime_unit(&unit.file_name, &unit.module_name)
+                .expect("compile SYSBLK");
         for expected in ["Zero", "SetBlock", "MoveBlock"] {
-            find_runtime_routine(&runtime, "ACTION_RUNTIME_SYSBLK", expected)
+            find_runtime_routine(&runtime, &unit.link_module, expected)
                 .unwrap_or_else(|diagnostics| panic!("{expected}: {diagnostics:?}"));
         }
-        let zero = find_runtime_routine(&runtime, "ACTION_RUNTIME_SYSBLK", "Zero")
-            .expect("Zero implementation");
-        let set_block = find_runtime_routine(&runtime, "ACTION_RUNTIME_SYSBLK", "SetBlock")
+        let zero =
+            find_runtime_routine(&runtime, &unit.link_module, "Zero").expect("Zero implementation");
+        let set_block = find_runtime_routine(&runtime, &unit.link_module, "SetBlock")
             .expect("SetBlock implementation");
         let closure =
             super::super::standalone::dependency_closure(&runtime, [zero].into_iter().collect())
                 .expect("Zero dependency closure");
         assert_eq!(closure, [zero, set_block].into_iter().collect());
+    }
+
+    #[test]
+    fn a_second_embedded_binding_unit_uses_the_same_resolver_path() {
+        let unit = resolve_runtime_unit("SYSSTR").expect("SYSSTR unit");
+        let runtime =
+            super::super::standalone::compile_runtime_unit(&unit.file_name, &unit.module_name)
+                .expect("compile SYSSTR");
+        for expected in ["SCompare", "SCopy", "SCopyS", "SAssign"] {
+            find_runtime_routine(&runtime, &unit.link_module, expected)
+                .unwrap_or_else(|diagnostics| panic!("{expected}: {diagnostics:?}"));
+        }
     }
 }

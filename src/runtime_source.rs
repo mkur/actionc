@@ -4,6 +4,40 @@ use crate::includes::{ModuleLoadOptions, load_compilation_from_provider};
 use crate::semantic::{analyze_compilation, ir};
 use crate::source::{InMemorySourceProvider, SourceOrigin, Span};
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct RuntimeUnit {
+    pub(crate) name: String,
+    pub(crate) file_name: String,
+    pub(crate) module_name: String,
+    pub(crate) link_module: String,
+}
+
+/// Resolve the implementation-unit name used by an embedded runtime binding.
+///
+/// Binding sources use compact names such as `SYSBLK.Zero`; the runtime linker
+/// derives every physical embedded-source and private-module name from that
+/// value. Keeping this conversion in one place prevents each backend from
+/// growing another SYSBLK-specific catalog.
+pub(crate) fn resolve_runtime_unit(name: &str) -> Result<RuntimeUnit, Vec<Diagnostic>> {
+    let name = name.to_ascii_uppercase();
+    if name.is_empty()
+        || !name
+            .bytes()
+            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+    {
+        return Err(diagnostic(format!(
+            "invalid embedded runtime unit `{name}` in standalone binding"
+        )));
+    }
+    let module_name = format!("ACTION.RUNTIME.{name}");
+    Ok(RuntimeUnit {
+        file_name: format!("{}.act", name.to_ascii_lowercase()),
+        link_module: module_name.replace('.', "_"),
+        module_name,
+        name,
+    })
+}
+
 /// Compile one embedded Action! runtime source in an isolated semantic scope.
 ///
 /// Historical runtime files use a pair of bare `MODULE` markers.  The linker
@@ -76,4 +110,32 @@ fn frontend_diagnostics(file_name: &str, diagnostics: Vec<Diagnostic>) -> Vec<Di
 
 fn diagnostic(message: impl Into<String>) -> Vec<Diagnostic> {
     vec![Diagnostic::new(Span::new(0, 0), message)]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_unit_identity_is_derived_from_a_binding_name() {
+        assert_eq!(
+            resolve_runtime_unit("sysblk").expect("runtime unit"),
+            RuntimeUnit {
+                name: "SYSBLK".to_string(),
+                file_name: "sysblk.act".to_string(),
+                module_name: "ACTION.RUNTIME.SYSBLK".to_string(),
+                link_module: "ACTION_RUNTIME_SYSBLK".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn runtime_unit_identity_cannot_escape_the_embedded_vfs() {
+        let diagnostics = resolve_runtime_unit("../SYSBLK").expect_err("invalid unit");
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("invalid embedded runtime unit")
+        );
+    }
 }
