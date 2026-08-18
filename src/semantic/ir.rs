@@ -656,6 +656,7 @@ pub struct SemLValue {
     pub kind: SemLValueKind,
     pub ty: ValueType,
     pub access: PlaceAccess,
+    pub is_volatile: bool,
     pub storage: Option<SemStorageRef>,
     pub span: Span,
 }
@@ -2487,6 +2488,7 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn lower_lvalue(&mut self, scope: ScopeId, expr: &Expr) -> SemLValue {
+        let is_volatile = self.lvalue_expr_is_volatile(scope, expr);
         let kind = match &expr.kind {
             ExprKind::Name(name) => self
                 .symbol_ref(scope, name, expr.span)
@@ -2550,8 +2552,35 @@ impl<'a> IrBuilder<'a> {
             kind,
             ty,
             access,
+            is_volatile,
             storage: None,
             span: expr.span,
+        }
+    }
+
+    fn lvalue_expr_is_volatile(&self, scope: ScopeId, expr: &Expr) -> bool {
+        match &expr.kind {
+            ExprKind::Name(name) => self
+                .model
+                .symbols
+                .lookup(scope, name)
+                .is_some_and(|id| self.model.symbols.symbols[id.0].is_volatile),
+            ExprKind::Index { base, .. }
+            | ExprKind::Field { base, .. }
+            | ExprKind::Cast { expr: base, .. } => self.lvalue_expr_is_volatile(scope, base),
+            ExprKind::Call { callee, args } if args.len() == 1 => {
+                self.lvalue_expr_is_volatile(scope, callee)
+            }
+            ExprKind::Missing
+            | ExprKind::Raw
+            | ExprKind::InitializerList(_)
+            | ExprKind::CurrentLocation
+            | ExprKind::Number(_)
+            | ExprKind::String(_)
+            | ExprKind::Char(_)
+            | ExprKind::Unary { .. }
+            | ExprKind::Binary { .. }
+            | ExprKind::Call { .. } => false,
         }
     }
 

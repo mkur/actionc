@@ -189,6 +189,15 @@ fn transfer_op(
 ) -> Option<NirOp> {
     rewrite_op_values(&mut op, &facts.replacements);
     match &op {
+        NirOp::VolatileLoad { dest, .. } => {
+            // Volatile reads cannot be forwarded. They also delimit the
+            // validity of every cached memory value.
+            facts.replacements.remove(dest);
+            facts.storage.clear();
+        }
+        NirOp::VolatileStore { .. } => {
+            facts.storage.clear();
+        }
         NirOp::Load {
             dest, ty, place, ..
         } => {
@@ -388,11 +397,13 @@ fn resolve_value(value: &NirValue, replacements: &BTreeMap<TempId, NirValue>) ->
 
 fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) {
     match op {
-        NirOp::Store { place, src, .. } => {
+        NirOp::Store { place, src, .. } | NirOp::VolatileStore { place, src, .. } => {
             rewrite_place_values(place, replacements);
             rewrite_value(src, replacements);
         }
-        NirOp::Load { place, .. } | NirOp::AddrOf { place, .. } => {
+        NirOp::Load { place, .. }
+        | NirOp::VolatileLoad { place, .. }
+        | NirOp::AddrOf { place, .. } => {
             rewrite_place_values(place, replacements);
         }
         NirOp::Unary { src, .. } | NirOp::Cast { src, .. } => {
@@ -476,6 +487,7 @@ fn rewrite_terminator(terminator: &mut NirTerminator, replacements: &BTreeMap<Te
 fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
     match op {
         NirOp::Load { dest, ty, .. }
+        | NirOp::VolatileLoad { dest, ty, .. }
         | NirOp::AddrOf { dest, ty, .. }
         | NirOp::Unary { dest, ty, .. }
         | NirOp::Binary { dest, ty, .. }
@@ -491,6 +503,7 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Store { .. }
+        | NirOp::VolatileStore { .. }
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }

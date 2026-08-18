@@ -140,6 +140,7 @@ impl NirUseDef {
 fn op_definition(op: &NirOp) -> Option<TempId> {
     match op {
         NirOp::Load { dest, .. }
+        | NirOp::VolatileLoad { dest, .. }
         | NirOp::AddrOf { dest, .. }
         | NirOp::Unary { dest, .. }
         | NirOp::Cast { dest, .. }
@@ -155,6 +156,7 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Store { .. }
+        | NirOp::VolatileStore { .. }
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
@@ -175,11 +177,13 @@ fn record_op_uses(
         kind,
     };
     match op {
-        NirOp::Load { place, .. } => record_place(uses, place, site(NirUseKind::LoadPlace)),
+        NirOp::Load { place, .. } | NirOp::VolatileLoad { place, .. } => {
+            record_place(uses, place, site(NirUseKind::LoadPlace));
+        }
         NirOp::AddrOf { place, .. } => {
             record_place(uses, place, site(NirUseKind::AddressPlace));
         }
-        NirOp::Store { place, src, .. } => {
+        NirOp::Store { place, src, .. } | NirOp::VolatileStore { place, src, .. } => {
             record_place(uses, place, site(NirUseKind::StorePlace));
             record_value(uses, src, site(NirUseKind::StoreSource));
         }

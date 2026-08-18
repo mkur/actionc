@@ -124,8 +124,12 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
             for op in &block.ops {
                 increment(&mut stats.operation_kinds, op_kind(op));
                 match op {
-                    NirOp::Load { place, .. } => stats.loads.record(place),
-                    NirOp::Store { place, .. } => stats.stores.record(place),
+                    NirOp::Load { place, .. } | NirOp::VolatileLoad { place, .. } => {
+                        stats.loads.record(place);
+                    }
+                    NirOp::Store { place, .. } | NirOp::VolatileStore { place, .. } => {
+                        stats.stores.record(place);
+                    }
                     NirOp::Define { .. }
                     | NirOp::Set { .. }
                     | NirOp::Declare { .. }
@@ -308,8 +312,10 @@ fn op_kind(op: &NirOp) -> &'static str {
         NirOp::Assign { .. } => "assign",
         NirOp::CompoundAssign { .. } => "compound_assign",
         NirOp::Load { .. } => "load",
+        NirOp::VolatileLoad { .. } => "volatile_load",
         NirOp::AddrOf { .. } => "addr_of",
         NirOp::Store { .. } => "store",
+        NirOp::VolatileStore { .. } => "volatile_store",
         NirOp::Unary { .. } => "unary",
         NirOp::Cast { .. } => "cast",
         NirOp::Binary { .. } => "binary",
