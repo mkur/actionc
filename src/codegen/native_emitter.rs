@@ -118,6 +118,13 @@ impl NativeTrackedEmitter {
         self.state.call_unknown();
     }
 
+    /// Forget tracked register, flag, and memory facts without emitting code.
+    /// MIR uses this at compiler-only ordering barriers such as volatile
+    /// accesses.
+    pub(crate) fn compiler_barrier(&mut self) {
+        self.state.call_unknown();
+    }
+
     pub(crate) fn emit_u16_le(&mut self, value: u16) {
         self.emitter.emit_u16_le(value);
         self.state.call_unknown();
@@ -884,6 +891,15 @@ mod tests {
                 0x00,
                 0x31,
             ]
+        );
+
+        let mut compiler_barrier = NativeTrackedEmitter::with_origin(0x3000);
+        compiler_barrier.emit_lda_abs(0x3100);
+        compiler_barrier.compiler_barrier();
+        compiler_barrier.emit_lda_abs(0x3100);
+        assert_eq!(
+            compiler_barrier.finish().unwrap(),
+            [opcode::LDA_ABS, 0x00, 0x31, opcode::LDA_ABS, 0x00, 0x31,]
         );
     }
 
