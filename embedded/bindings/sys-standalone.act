@@ -19,5 +19,12 @@ SET SYS.Peek=SYSMISC_Peek
 SET SYS.PeekC=SYSMISC_PeekC
 SET SYS.Poke=SYSMISC_Poke
 SET SYS.PokeC=SYSMISC_PokeC
+SET SYS.Graphics=SYSGR_Graphics
+SET SYS.Position=SYSGR_Position
+SET SYS.DrawTo=SYSGR_DrawTo
+SET SYS.Locate=SYSGR_Locate
+SET SYS.Plot=SYSGR_Plot
+SET SYS.SetColor=SYSGR_SetColor
+SET SYS.Fill=SYSGR_Fill
 
 ENDMODULE

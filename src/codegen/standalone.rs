@@ -318,6 +318,10 @@ fn selected_routines(
         .iter()
         .flat_map(|module| &module.items)
         .filter_map(|item| match item {
+            // DEFINEs are compile-time aliases only. Keeping the image's
+            // private definitions costs no target bytes and lets selected
+            // machine blocks resolve constants such as SYSIO.OpenBuf.
+            Item::Define(define) => Some(Item::Define(define.clone())),
             Item::Routine(routine) if selected_names.contains(&routine.name) => {
                 Some(Item::Routine(routine.clone()))
             }
@@ -341,6 +345,10 @@ fn selected_runtime_items(
         .iter()
         .flat_map(|module| &module.items)
         .filter_map(|item| match item {
+            // DEFINEs are compile-time aliases only. Keeping the image's
+            // private definitions costs no target bytes and lets selected
+            // machine blocks resolve constants such as SYSIO.OpenBuf.
+            Item::Define(define) => Some(Item::Define(define.clone())),
             Item::Routine(routine) if selected_names.contains(&routine.name) => {
                 Some(Item::Routine(routine.clone()))
             }
