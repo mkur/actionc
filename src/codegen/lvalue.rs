@@ -143,7 +143,8 @@ impl Generator {
                 Some(
                     StorageSlot::indirect_indexed_y(pointer, field.size)
                         .offset_bytes(field.offset)
-                        .signed(field.signed),
+                        .signed(field.signed)
+                        .volatile(slot.is_volatile),
                 )
             }
             ExprKind::Index { base, index } => self.prepared_index_slot(base, index, pointer),
@@ -165,7 +166,11 @@ impl Generator {
         };
         let slot = self.lookup_slot(name)?;
         if let Some(size) = slot.pointee_size {
-            return Some(StorageSlot::indirect_indexed_y(pointer, size).signed(slot.signed));
+            return Some(
+                StorageSlot::indirect_indexed_y(pointer, size)
+                    .signed(slot.signed)
+                    .volatile(slot.is_volatile),
+            );
         }
         if !matches!(
             slot.array?,
@@ -173,7 +178,11 @@ impl Generator {
         ) {
             return None;
         }
-        Some(StorageSlot::indirect_indexed_y(pointer, slot.size).signed(slot.signed))
+        Some(
+            StorageSlot::indirect_indexed_y(pointer, slot.size)
+                .signed(slot.signed)
+                .volatile(slot.is_volatile),
+        )
     }
 
     pub(super) fn prepared_pointer_fact(&self, expr: &Expr) -> Option<PreparedPointerFact> {
@@ -289,7 +298,8 @@ impl Generator {
                 }
                 let field_slot = StorageSlot::indirect_indexed_y(pointer, field.size)
                     .offset_bytes(field.offset)
-                    .signed(field.signed);
+                    .signed(field.signed)
+                    .volatile(slot.is_volatile);
                 debug_assert_prepared_indirect_slot(field_slot, pointer, "record field");
                 return Some(field_slot);
             }
@@ -301,8 +311,9 @@ impl Generator {
             if !emitted {
                 return None;
             }
-            let field_slot =
-                StorageSlot::indirect_indexed_y(pointer, field.size).signed(field.signed);
+            let field_slot = StorageSlot::indirect_indexed_y(pointer, field.size)
+                .signed(field.signed)
+                .volatile(slot.is_volatile);
             debug_assert_prepared_indirect_slot(field_slot, pointer, "record field");
             return Some(field_slot);
         }

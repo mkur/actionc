@@ -164,7 +164,7 @@ impl SemIrAstLowerer {
 
         Some(Decl::Var(VarDecl {
             qualifiers: VarQualifiers {
-                is_volatile: first.symbol.is_volatile,
+                is_volatile: decls.iter().any(|decl| decl.symbol.is_volatile),
             },
             ty: self.type_ref(&first.ty.value),
             storage,

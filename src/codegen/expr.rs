@@ -341,7 +341,8 @@ impl Generator {
                 }
                 let field_slot = StorageSlot::indirect_indexed_y(addr, field.size)
                     .offset_bytes(field.offset)
-                    .signed(field.signed);
+                    .signed(field.signed)
+                    .volatile(slot.is_volatile);
                 debug_assert_prepared_indirect_slot(field_slot, addr, "record field");
                 self.processor.mark_prepared_pointer(
                     addr,
@@ -362,7 +363,9 @@ impl Generator {
                 }
                 self.emit_add_constant_to_addr(addr, field.offset);
             }
-            let field_slot = StorageSlot::indirect_indexed_y(addr, field.size).signed(field.signed);
+            let field_slot = StorageSlot::indirect_indexed_y(addr, field.size)
+                .signed(field.signed)
+                .volatile(slot.is_volatile);
             debug_assert_prepared_indirect_slot(field_slot, addr, "record field");
             return Some(field_slot);
         }
@@ -402,7 +405,9 @@ impl Generator {
             }
         }
         let pointer = self.emit_dynamic_array_address(slot, index)?;
-        let indexed = StorageSlot::indirect_indexed_y(pointer, slot.size).signed(slot.signed);
+        let indexed = StorageSlot::indirect_indexed_y(pointer, slot.size)
+            .signed(slot.signed)
+            .volatile(slot.is_volatile);
         debug_assert_prepared_indirect_slot(indexed, pointer, "dynamic array index");
         Some(indexed)
     }
@@ -430,7 +435,8 @@ impl Generator {
                     self.emit_add_constant_to_array_addr(offset);
                 }
                 let indexed = StorageSlot::indirect_indexed_y(runtime_zp::ARRAY_ADDR, array.size)
-                    .signed(array.signed);
+                    .signed(array.signed)
+                    .volatile(array.is_volatile);
                 debug_assert_prepared_indirect_slot(
                     indexed,
                     runtime_zp::ARRAY_ADDR,

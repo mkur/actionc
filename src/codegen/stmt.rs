@@ -34,6 +34,10 @@ fn constant_for_step(expr: &Expr) -> Option<ForStep> {
 impl Generator {
     pub(super) fn generate_stmt(&mut self, stmt: &Stmt) {
         let start = self.current_absolute_address();
+        let has_volatile_access = self.stmt_has_direct_volatile_access(stmt);
+        if has_volatile_access {
+            self.invalidate_volatile_access_state();
+        }
         match stmt {
             Stmt::Define(define) => self.generate_define(define),
             Stmt::Return(expr) => self.generate_return(expr.as_ref()),
@@ -96,6 +100,9 @@ impl Generator {
                 "codegen for this statement is not implemented yet",
             )),
         }
+        if has_volatile_access {
+            self.invalidate_volatile_access_state();
+        }
         self.record_source_range(
             stmt_source_range_kind(stmt),
             Some(stmt_source_range_name(stmt).to_string()),
@@ -103,6 +110,46 @@ impl Generator {
             start,
             self.current_absolute_address(),
         );
+    }
+
+    fn invalidate_volatile_access_state(&mut self) {
+        // This is a compiler barrier only. It emits no instruction, but keeps
+        // values observed before a volatile access from being reused after it.
+        self.processor.invalidate_after_call();
+        self.straight_line_store_y = None;
+    }
+
+    fn stmt_has_direct_volatile_access(&self, stmt: &Stmt) -> bool {
+        let reads_volatile = |expr: &Expr| self.expr_side_effect_facts(expr).reads_volatile;
+        match stmt {
+            Stmt::Return(value) => value.as_ref().is_some_and(reads_volatile),
+            Stmt::Assign { target, value, .. } | Stmt::CompoundAssign { target, value, .. } => {
+                reads_volatile(target) || reads_volatile(value)
+            }
+            Stmt::If { branches, .. } => branches
+                .iter()
+                .any(|branch| reads_volatile(&branch.condition)),
+            Stmt::While { condition, .. } => reads_volatile(condition),
+            Stmt::DoUntil { condition, .. } => condition.as_ref().is_some_and(reads_volatile),
+            Stmt::For {
+                target,
+                start,
+                end,
+                step,
+                ..
+            } => {
+                reads_volatile(target)
+                    || reads_volatile(start)
+                    || reads_volatile(end)
+                    || step.as_ref().is_some_and(reads_volatile)
+            }
+            Stmt::Call { expr, .. } => reads_volatile(expr),
+            Stmt::Define(_)
+            | Stmt::Exit { .. }
+            | Stmt::MachineBlock { .. }
+            | Stmt::InlineAsm { .. }
+            | Stmt::Unsupported { .. } => false,
+        }
     }
 
     pub(super) fn generate_define(&mut self, define: &DefineDecl) {
