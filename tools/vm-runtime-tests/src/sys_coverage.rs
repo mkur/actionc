@@ -12,6 +12,13 @@ const EXECUTED: &[(&str, &str)] = &[
     ("StrB", "resident_numeric_strings.act"),
     ("StrC", "resident_numeric_strings.act"),
     ("StrI", "resident_numeric_strings.act"),
+    ("Rand", "resident_hardware_helpers.act"),
+    ("Sound", "resident_hardware_helpers.act"),
+    ("SndRst", "resident_hardware_helpers.act"),
+    ("Paddle", "resident_hardware_helpers.act"),
+    ("PTrig", "resident_hardware_helpers.act"),
+    ("Stick", "resident_hardware_helpers.act"),
+    ("STrig", "resident_hardware_helpers.act"),
     ("Peek", "resident_memory_strings.act"),
     ("PeekC", "resident_memory_strings.act"),
     ("Poke", "resident_memory_strings.act"),
@@ -67,16 +74,6 @@ const EXECUTED: &[(&str, &str)] = &[
 ];
 
 const DEFERRED: &[(&str, &str)] = &[
-    (
-        "Rand",
-        "needs deterministic random-register control in actionc-vm",
-    ),
-    ("Sound", "needs POKEY output assertions in actionc-vm"),
-    ("SndRst", "needs POKEY output assertions in actionc-vm"),
-    ("Paddle", "needs deterministic paddle input in actionc-vm"),
-    ("PTrig", "needs deterministic PIA trigger input in actionc-vm"),
-    ("Stick", "needs deterministic PIA joystick input in actionc-vm"),
-    ("STrig", "needs deterministic GTIA trigger input in actionc-vm"),
     ("Error", "terminates through the OS error vector"),
     ("Break", "terminates through the OS error vector"),
 ];

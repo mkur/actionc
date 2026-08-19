@@ -768,6 +768,41 @@ mod tests {
     }
 
     #[test]
+    fn resident_hardware_helpers_match_under_both_runtimes_and_backends() {
+        let max_steps = 50_000;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_runtime_fixture_with_setup(
+                    "resident_hardware_helpers.act",
+                    mode,
+                    runtime,
+                    false,
+                    max_steps,
+                    |vm| {
+                        vm.bus_mut().write(0xD20A, 0x80);
+                        vm.bus_mut().ram_mut().write(0x0272, 0x66);
+                        vm.bus_mut().write(0xD300, 0xA5);
+                        vm.bus_mut().write(0xD012, 0x7F);
+                    },
+                );
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
+                    outcome.report
+                );
+                assert_eq!(
+                    (0..11)
+                        .map(|offset| outcome.memory().read(0x0600 + offset))
+                        .collect::<Vec<_>>(),
+                    [5, 0x66, 4, 0, 5, 10, 0x7F, 0x34, 0xA7, 0, 0],
+                    "hardware helper results with {runtime:?}/{mode:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn kalscope_backend_contracts_execute_through_the_vm_library() {
         assert_both_backends(
             "KALSCOPE backend contracts",
