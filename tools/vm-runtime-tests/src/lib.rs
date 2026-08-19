@@ -651,6 +651,57 @@ mod tests {
     }
 
     #[test]
+    fn resident_graphics_io_matches_under_both_runtimes_and_backends() {
+        let max_steps = 100_000;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_runtime_fixture(
+                    "resident_graphics_io.act",
+                    mode,
+                    runtime,
+                    true,
+                    max_steps,
+                );
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
+                    outcome.report
+                );
+                assert_eq!(
+                    (0..4)
+                        .map(|offset| outcome.memory().read(0x0600 + offset))
+                        .collect::<Vec<_>>(),
+                    [3, 5, 7, 0xA6],
+                    "graphics results with {runtime:?}/{mode:?}"
+                );
+                assert_eq!(outcome.vm.bus().graphics_mode(), Some(0x1C));
+                assert_eq!(outcome.vm.bus().graphics_pixel(10, 20), 5);
+                assert_eq!(outcome.vm.bus().graphics_pixel(11, 21), 5);
+                assert_eq!(outcome.vm.bus().graphics_pixel(13, 23), 7);
+                let summary = outcome.vm.bus().cio_summary();
+                assert_eq!(summary.opens, 2);
+                assert_eq!(summary.closes, 2);
+                assert_eq!(summary.reads, 3);
+                assert_eq!(summary.writes, 1);
+                for command in [0x11, 0x12] {
+                    assert!(
+                        outcome
+                            .vm
+                            .bus()
+                            .cio_observations()
+                            .iter()
+                            .any(|observation| {
+                                observation.command == command && observation.handled
+                            }),
+                        "graphics command ${command:02X} must be handled for {runtime:?}/{mode:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn kalscope_backend_contracts_execute_through_the_vm_library() {
         assert_both_backends(
             "KALSCOPE backend contracts",

@@ -556,9 +556,14 @@ impl MirObjectLayout {
                             output_relative: true,
                         },
                     );
+                    let machine_address = global
+                        .init
+                        .as_ref()
+                        .and_then(global_descriptor_backing_size)
+                        .map_or(address, |_| storage_address);
                     layout.storage_names.insert(
                         normalize_machine_name(&global.name),
-                        MirMachineSymbol::OutputRelative(address),
+                        MirMachineSymbol::OutputRelative(machine_address),
                     );
                     if let Some(value) = machine_caret_global_value(global) {
                         layout
@@ -874,6 +879,30 @@ impl MirObjectLayout {
             |slot| matches!(slot.base, MirStorageBase::Param(candidate) if candidate == id),
         )?;
         placement_absolute(routine_slot_placement(self, routine_id, slot)?)
+    }
+
+    fn inline_asm_memory_address(
+        &self,
+        mir: &MirProgram,
+        routine: RoutineId,
+        mem: &MirMem,
+    ) -> Option<Absolute> {
+        match mem {
+            MirMem::Global { id, offset } => {
+                Some(self.global_data_address(mir, *id)?.offset(*offset))
+            }
+            MirMem::Static { id, offset } => {
+                Some(placement_absolute(self.statics.get(id).copied()?)?.offset(*offset))
+            }
+            MirMem::Local { id, offset } => {
+                Some(self.local_data_address(mir, routine, *id)?.offset(*offset))
+            }
+            _ => self.direct_mem(routine, mem).map(|mem| match mem {
+                ResolvedMem::Absolute(address) => Absolute::new(address),
+                ResolvedMem::OutputRelative(address) => Absolute::output_relative(address),
+                ResolvedMem::ZeroPage(address) => Absolute::new(u16::from(address)),
+            }),
+        }
     }
 
     fn routine_label(&self, routine: RoutineId) -> String {
@@ -2934,7 +2963,7 @@ fn emit_inline_asm_relocation(
 ) {
     let resolved = match target {
         MirInlineAsmTarget::Memory(mem) => {
-            let Some(mem) = ctx.layout.direct_mem(routine, mem) else {
+            let Some(address) = ctx.layout.inline_asm_memory_address(ctx.mir, routine, mem) else {
                 unsupported(
                     ctx,
                     routine,
@@ -2943,11 +2972,7 @@ fn emit_inline_asm_relocation(
                 );
                 return;
             };
-            Some(match mem {
-                ResolvedMem::Absolute(address) => Absolute::new(address),
-                ResolvedMem::OutputRelative(address) => Absolute::output_relative(address),
-                ResolvedMem::ZeroPage(address) => Absolute::new(u16::from(address)),
-            })
+            Some(address)
         }
         MirInlineAsmTarget::Absolute(address) => Some(Absolute::new(*address)),
         MirInlineAsmTarget::InlineOffset(offset) => Some(Absolute::output_relative(
@@ -5177,6 +5202,60 @@ fn unsupported_message(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn initialized_array_machine_symbol_names_its_data_backing() {
+        let mir = MirProgram {
+            statics: Vec::new(),
+            globals: vec![super::super::ir::MirGlobal {
+                id: SymbolId(0),
+                name: "TABLE".to_string(),
+                kind: "card array".to_string(),
+                width: Some(MirWidth::Word),
+                storage_size: 2,
+                backing: MirGlobalBacking::Ordinary { offset: 0 },
+                init: Some(MirGlobalInit::Descriptor {
+                    backing: super::super::ir::MirDataBacking {
+                        owner: SymbolId(0),
+                        image: MirDataImage {
+                            bytes: vec![0x34, 0x12],
+                            relocations: Vec::new(),
+                        },
+                        zero_fill: 0,
+                        section: "test.backing".to_string(),
+                    },
+                    descriptor_size: 2,
+                    size_word: None,
+                    mutable: true,
+                    section: "test.descriptor".to_string(),
+                }),
+            }],
+            routines: Vec::new(),
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+        let mut diagnostics = Vec::new();
+
+        let layout = MirObjectLayout::new(&mir, 0x3000, None, &mut diagnostics);
+
+        assert!(diagnostics.is_empty());
+        assert!(matches!(
+            layout.machine_symbol(RoutineId(0), "TABLE"),
+            Some(MirMachineSymbol::OutputRelative(0x3000))
+        ));
+        assert_eq!(layout.global_address(SymbolId(0)), Some(0x3002));
+        assert_eq!(
+            layout.inline_asm_memory_address(
+                &mir,
+                RoutineId(0),
+                &MirMem::Global {
+                    id: SymbolId(0),
+                    offset: 0,
+                },
+            ),
+            Some(Absolute::output_relative(0x3000))
+        );
+    }
 
     #[test]
     fn dual_indirect_byte_compare_emits_one_shared_y_offset() {
