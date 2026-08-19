@@ -537,8 +537,8 @@ mod tests {
     fn embedded_sys_bindings_are_unique_and_runtime_specific() {
         let cart = parse_bindings(Runtime::ActionCart).expect("cart bindings");
         let standalone = parse_bindings(Runtime::Standalone).expect("standalone bindings");
-        assert_eq!(cart.len(), 62);
-        assert_eq!(standalone.len(), 62);
+        assert_eq!(cart.len(), 64);
+        assert_eq!(standalone.len(), 64);
         assert_eq!(cart["SYS.ZERO"], BindingTarget::Absolute(0xA78A));
         assert_eq!(
             standalone["SYS.ZERO"],
@@ -577,6 +577,22 @@ mod tests {
             BindingTarget::RuntimeRoutine {
                 unit: "SYSIO".to_string(),
                 routine: "Open".to_string(),
+            }
+        );
+        assert_eq!(cart["SYS.INPUTD"], BindingTarget::Absolute(0xA4A7));
+        assert_eq!(
+            standalone["SYS.INPUTD"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSIO".to_string(),
+                routine: "InputD".to_string(),
+            }
+        );
+        assert_eq!(cart["SYS.PRINTBDE"], BindingTarget::Absolute(0xA508));
+        assert_eq!(
+            standalone["SYS.PRINTBDE"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSIO".to_string(),
+                routine: "PrintBDE".to_string(),
             }
         );
     }

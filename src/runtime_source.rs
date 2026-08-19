@@ -161,10 +161,9 @@ pub(crate) fn compile_runtime_image() -> Result<RuntimeImage, Vec<Diagnostic>> {
     // A single private module keeps machine-code symbol references relocatable.
     // The original bare MODULE markers describe editor/library regions, not
     // namespaces, so flatten them before the ordinary named-module frontend.
-    let text = make_flat_internal_module(
-        &separate_machine_symbol_references(&expanded.source, &symbols),
-        "ACTION.RUNTIME.RESIDENT",
-    );
+    let text = separate_machine_symbol_references(&expanded.source, &symbols);
+    let text = apply_runtime_source_errata(&text);
+    let text = make_flat_internal_module(&text, "ACTION.RUNTIME.RESIDENT");
     let origin = SourceOrigin::embedded(
         "runtime/internal/sysall.act",
         "<runtime:SYSALL.ACT linked image>",
@@ -241,6 +240,14 @@ fn collect_decl_names(decl: &Decl, output: &mut BTreeSet<String>) {
 
 fn collect_var_names(var: &VarDecl, output: &mut BTreeSet<String>) {
     output.extend(var.entries.iter().map(|entry| entry.name.clone()));
+}
+
+/// Correct verified defects in the historical standalone source without
+/// rewriting the preserved source corpus.  The Action! 3.6 compiler accepts
+/// `PrintBDE(device,value)` and emits `LDA device; LDX value; JSR $A508`, while
+/// SYSIO.ACT accidentally omits the device parameter from its declaration.
+fn apply_runtime_source_errata(source: &str) -> String {
+    source.replace("PROC PrintBDE=*(BYTE n)", "PROC PrintBDE=*(BYTE d,n)")
 }
 
 /// The original Action! machine-code notation permits an opcode byte and a
@@ -405,5 +412,36 @@ mod tests {
         assert_eq!(image.routine_units["MULTI"].name, "SYSLIB");
         assert_eq!(image.routine_units["GRAPHICS"].name, "SYSGR");
         assert_eq!(image.routine_units["OPEN"].name, "SYSIO");
+    }
+
+    #[test]
+    fn runtime_image_applies_verified_printbde_signature_erratum() {
+        let image = compile_runtime_image().expect("compile resident runtime image");
+        let routine = image
+            .semir
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine)
+                    if routine
+                        .symbol
+                        .qualified_name
+                        .rsplit(['.', ':'])
+                        .find(|part| !part.is_empty())
+                        .is_some_and(|name| name.eq_ignore_ascii_case("PrintBDE")) =>
+                {
+                    Some(routine)
+                }
+                _ => None,
+            })
+            .expect("resident PrintBDE");
+        assert_eq!(routine.signature.params.len(), 2);
+        assert!(routine.signature.params.iter().all(|param| {
+            matches!(
+                &param.base,
+                crate::semantic::ValueTypeBase::Fund(crate::ast::FundType::Byte)
+            ) && !param.pointer
+        }));
     }
 }

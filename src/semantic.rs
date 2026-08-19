@@ -622,6 +622,7 @@ impl Analyzer {
                 "InputMD",
                 vec![byte.clone(), string_address.clone(), byte.clone()],
             ),
+            ("InputD", vec![byte.clone(), string_address.clone()]),
             ("GetD", vec![byte.clone()]),
             ("Error", vec![byte.clone(), byte.clone(), byte.clone()]),
             ("Break", vec![]),
