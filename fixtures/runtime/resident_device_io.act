@@ -1,0 +1,31 @@
+; Exercise resident file/device CIO against the VM's virtual D: device.
+BYTE ARRAY firstLine(16)=$0600
+BYTE ARRAY secondLine(16)=$0610
+BYTE ARRAY repeatedLine(16)=$0620
+CARD savedSector=$0630
+BYTE savedOffset=$0632
+
+PROC Main()
+  Open(1,"D:INPUT.TXT",4,0)
+
+  firstLine(0)=15
+  InputD(1,firstLine)
+  Note(1,@savedSector,@savedOffset)
+
+  secondLine(0)=15
+  InputD(1,secondLine)
+  Point(1,savedSector,savedOffset)
+
+  repeatedLine(0)=15
+  InputD(1,repeatedLine)
+  XIO(1,0,13,0,0,"D:INPUT.TXT")
+  Close(1)
+
+  Open(2,"D:OUTPUT.TXT",8,0)
+  PrintD(2,"OUT")
+  PutDE(2)
+  Close(2)
+
+  DO
+  OD
+RETURN

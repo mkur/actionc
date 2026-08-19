@@ -578,6 +578,79 @@ mod tests {
     }
 
     #[test]
+    fn resident_device_io_matches_under_both_runtimes_and_backends() {
+        let max_steps = 150_000;
+        let expected: &[(u16, &[u8])] = &[
+            (0x0600, b"\x05FIRST"),
+            (0x0610, b"\x06SECOND"),
+            (0x0620, b"\x06SECOND"),
+            (0x0630, &[0x00, 0x00, 0x06]),
+        ];
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_runtime_fixture_with_setup(
+                    "resident_device_io.act",
+                    mode,
+                    runtime,
+                    true,
+                    max_steps,
+                    |vm| {
+                        vm.bus_mut()
+                            .add_host_file("INPUT.TXT", b"FIRST\nSECOND\n".to_vec());
+                        vm.bus_mut().add_host_output("OUTPUT.TXT");
+                    },
+                );
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
+                    outcome.report
+                );
+                for &(start, bytes) in expected {
+                    assert_eq!(
+                        (0..bytes.len())
+                            .map(|offset| outcome.memory().read(start + offset as u16))
+                            .collect::<Vec<_>>(),
+                        bytes,
+                        "device-I/O result at ${start:04X} with {runtime:?}/{mode:?}"
+                    );
+                }
+                assert_eq!(
+                    outcome.vm.bus().host_file_bytes("OUTPUT.TXT"),
+                    Some(&b"OUT\x9B"[..]),
+                    "host output with {runtime:?}/{mode:?}"
+                );
+                let summary = outcome.vm.bus().cio_summary();
+                assert_eq!(summary.opens, 2);
+                assert_eq!(summary.closes, 2);
+                assert_eq!(summary.statuses, 1);
+                assert_eq!(summary.reads, 3);
+                assert_eq!(summary.writes, 2);
+                assert_eq!(summary.bytes_read, 20);
+                assert_eq!(summary.bytes_written, 4);
+                assert!(
+                    outcome
+                        .vm
+                        .bus()
+                        .cio_observations()
+                        .iter()
+                        .any(|observation| observation.command == 0x26 && observation.handled),
+                    "NOTE must be handled for {runtime:?}/{mode:?}"
+                );
+                assert!(
+                    outcome
+                        .vm
+                        .bus()
+                        .cio_observations()
+                        .iter()
+                        .any(|observation| observation.command == 0x25 && observation.handled),
+                    "POINT must be handled for {runtime:?}/{mode:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn kalscope_backend_contracts_execute_through_the_vm_library() {
         assert_both_backends(
             "KALSCOPE backend contracts",
