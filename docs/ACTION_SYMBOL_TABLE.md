@@ -141,12 +141,11 @@ runtime-library evidence.
 
 Current `actionc` state against that catalog:
 
-- Semantics seeds most listed resident names as built-ins.
-- Semantics seeds `StrB`, `StrC`, `StrI`, and `Error`; their runtime-neutral
-  identities are exported by the embedded `SYS` module.
-- Codegen has cartridge entry/ABI information only for the modeled subset in
-  `src/codegen.rs`. Other seeded library names are recognized semantically but
-  still need codegen ABI modeling before direct cartridge calls can compile.
+- Semantics seeds all 71 audited resident routines as built-ins.
+- Their runtime-neutral identities are exported by the embedded `SYS` module,
+  with cart and standalone bindings selected by `--runtime`.
+- Both code generators model the complete audited resident ABI. Cartridge
+  targets remain version-specific facts recorded in the table below.
 - Manual placeholders such as `<string>`, `<filestring>`, and `<data>` are not
   full type signatures. They should be treated as compatibility hints and
   verified with probes before tightening semantic checks.
@@ -188,6 +187,7 @@ more probes say otherwise.
 | `PrintID` | `PROC` | `PROC PrintID(BYTE d,INT n)` | `$A519` | `resident_output.act` emits `JSR $A519` |
 | `PrintIDE` | `PROC` | `PROC PrintIDE(BYTE d,INT n)` | `$A53C` | `resident_output.act` emits `JSR $A53C` |
 | `PrintF` | `PROC` | `PROC PrintF(STRING f,CARD a1,a2,a3,a4,a5)` | `$A3CC` | `io_builtin_calls.act` emits `JSR $A3CC`; `SYS.ACT` declares the signature |
+| `PrintH` | `PROC` | `PROC PrintH(CARD n)` | `$B8C2` | The pinned cartridge source labels the fixed-bank thunk `MAINBNK.PRTH`; its rebuilt ROM matches the bundled cartridge byte-for-byte. VM probes print `$1234` and verify that the thunk restores the library bank. |
 | `Put` | `PROC` | `PROC Put(CHAR c)` | `$A4CE` | `resident_output.act` emits `JSR $A4CE` |
 | `PutE` | `PROC` | `PROC PutE()` | `$A4CC` | `resident_output.act` emits `JSR $A4CC` |
 | `PutD` | `PROC` | `PROC PutD(BYTE d,CHAR c)` | `$A4D1` | `resident_output.act` emits `JSR $A4D1` |

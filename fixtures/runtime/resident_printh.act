@@ -1,0 +1,8 @@
+PROC Main()
+  PrintH($1234)
+  PutE()
+  Put('X)
+
+  DO
+  OD
+RETURN

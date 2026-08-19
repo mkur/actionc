@@ -7435,7 +7435,7 @@ mod tests {
     }
 
     #[test]
-    fn mir6502_emission_reports_explicit_unsupported_builtin_targets() {
+    fn mir6502_emission_reports_unmodeled_builtin_targets() {
         let mir = MirProgram {
             statics: Vec::new(),
             globals: Vec::new(),
@@ -7451,7 +7451,7 @@ mod tests {
                     params: Vec::new(),
                     ops: vec![MirOp::Call {
                         target: MirCallTarget::Builtin {
-                            name: "PrintH".to_string(),
+                            name: "NotAThing".to_string(),
                             address: None,
                         },
                         abi: MirCallAbi {
@@ -7473,11 +7473,11 @@ mod tests {
         };
 
         let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
-        let diagnostics = emit_program(&mir, &mut emitter).expect_err("unsupported builtin");
+        let diagnostics = emit_program(&mir, &mut emitter).expect_err("unmodeled builtin");
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic
                 .message
-                .contains("builtin call target `PrintH` is unsupported by MIR6502")
+                .contains("builtin call target `NotAThing` is not modeled by MIR6502")
         }));
     }
 

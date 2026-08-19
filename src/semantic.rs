@@ -621,6 +621,7 @@ impl Analyzer {
             ("PrintIE", vec![int.clone()]),
             ("PrintID", vec![byte.clone(), int.clone()]),
             ("PrintIDE", vec![byte.clone(), int.clone()]),
+            ("PrintH", vec![card.clone()]),
             ("Put", vec![char_ty.clone()]),
             ("PutE", vec![]),
             ("PutD", vec![byte.clone(), char_ty.clone()]),

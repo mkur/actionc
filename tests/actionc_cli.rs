@@ -891,52 +891,47 @@ fn unused_sys_import_adds_no_runtime_code() {
 }
 
 #[test]
-fn standalone_rejects_unbound_resident_routines_in_both_backends() {
+fn printh_is_bound_in_both_runtimes_and_backends() {
     let temp = TestDir::new();
     let source = temp.path().join("resident-print.act");
     fs::write(&source, "PROC Main() PrintH($1234) RETURN\n").expect("write resident-call source");
 
-    for backend in ["classic", "mir6502"] {
-        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
-            .args([
-                "--profile",
-                "modern",
-                "--backend",
-                backend,
-                "--runtime",
-                "standalone",
-            ])
-            .arg(&source)
-            .output()
-            .expect("compile unbound standalone resident call");
-
-        assert_eq!(output.status.code(), Some(1), "backend {backend}");
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr.contains("E-RUNTIME-STANDALONE-BINDING"),
-            "backend {backend}: {stderr}"
-        );
-        assert!(stderr.contains("PrintH"), "backend {backend}: {stderr}");
-
-        let emit = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
-            .args([
-                "--profile",
-                "modern",
-                "--backend",
-                backend,
-                "--runtime",
-                "standalone",
-                "--emit-map",
-            ])
-            .arg(&source)
-            .output()
-            .expect("emit unbound standalone resident call");
-        assert_eq!(emit.status.code(), Some(1), "emit backend {backend}");
-        assert!(
-            String::from_utf8_lossy(&emit.stderr).contains("E-RUNTIME-STANDALONE-BINDING"),
-            "emit backend {backend}: {}",
-            String::from_utf8_lossy(&emit.stderr)
-        );
+    for runtime in ["cart", "standalone"] {
+        for backend in ["classic", "mir6502"] {
+            let output_kind = if runtime == "cart" {
+                "--emit-listing"
+            } else {
+                "--emit-map"
+            };
+            let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+                .args([
+                    "--profile",
+                    "modern",
+                    "--backend",
+                    backend,
+                    "--runtime",
+                    runtime,
+                    output_kind,
+                ])
+                .arg(&source)
+                .output()
+                .expect("emit bound PrintH call");
+            assert!(
+                output.status.success(),
+                "{runtime}/{backend}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let map = String::from_utf8_lossy(&output.stdout);
+            if runtime == "cart" {
+                assert!(map.contains("$B8C2"), "{runtime}/{backend}: {map}");
+            } else {
+                assert!(
+                    map.to_ascii_uppercase().contains("RESIDENT::PRINTH")
+                        || map.to_ascii_uppercase().contains("RESIDENT_PRINTH_"),
+                    "{runtime}/{backend}: {map}"
+                );
+            }
+        }
     }
 }
 

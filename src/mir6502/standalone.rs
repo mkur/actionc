@@ -1544,6 +1544,37 @@ mod tests {
     }
 
     #[test]
+    fn resident_printh_selection_keeps_its_machine_code_output_chain() {
+        let unit = crate::runtime_source::resolve_runtime_unit("SYSIO").expect("SYSIO unit");
+        let selection = select_resident_image(&BTreeMap::from([(
+            unit,
+            BTreeSet::from(["PrintH".to_string()]),
+        )]))
+        .expect("select PrintH closure");
+
+        for expected in ["PrintH", "Put", "PutD", "PutD1", "CCIO", "ChkErr"] {
+            assert!(
+                selection
+                    .routine_names
+                    .iter()
+                    .any(|name| name.eq_ignore_ascii_case(expected)),
+                "missing {expected}: {:?}",
+                selection.routine_names
+            );
+        }
+        for unrelated in ["PrintF", "PrintC", "InputD"] {
+            assert!(
+                selection
+                    .routine_names
+                    .iter()
+                    .all(|name| !name.eq_ignore_ascii_case(unrelated)),
+                "unexpected {unrelated}: {:?}",
+                selection.routine_names
+            );
+        }
+    }
+
+    #[test]
     fn standalone_linking_rejects_a_logical_helper_contract_mismatch() {
         let runtime = syslib_mir().expect("compile embedded SYSLIB");
         let mut declaration = runtime

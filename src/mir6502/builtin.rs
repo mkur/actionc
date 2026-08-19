@@ -7,6 +7,7 @@ pub(super) enum MirBuiltinResolution {
     Deferred {
         reason: &'static str,
     },
+    #[allow(dead_code)]
     Unsupported {
         reason: &'static str,
     },
@@ -36,7 +37,7 @@ pub(super) const BUILTIN_TARGETS: &[MirBuiltinEntry] = &[
     resolved("PrintIE", 0xA536),
     resolved("PrintID", 0xA519),
     resolved("PrintIDE", 0xA53C),
-    unsupported("PrintH", "resident entry point is not modeled"),
+    resolved("PrintH", 0xB8C2),
     resolved("PrintF", 0xA3CC),
     resolved("Put", 0xA4CE),
     resolved("PutE", 0xA4CC),
@@ -109,13 +110,6 @@ const fn resolved(name: &'static str, address: u16) -> MirBuiltinEntry {
     }
 }
 
-const fn unsupported(name: &'static str, reason: &'static str) -> MirBuiltinEntry {
-    MirBuiltinEntry {
-        name,
-        resolution: MirBuiltinResolution::Unsupported { reason },
-    }
-}
-
 fn normalize_builtin_name(name: &str) -> String {
     name.chars()
         .filter(|ch| !matches!(ch, '_' | '-' | ' '))
@@ -153,16 +147,14 @@ mod tests {
             resolve_builtin_target("Error"),
             MirBuiltinResolution::Resolved { address: 0x04CB }
         );
+        assert_eq!(
+            resolve_builtin_target("PrintH"),
+            MirBuiltinResolution::Resolved { address: 0xB8C2 }
+        );
     }
 
     #[test]
-    fn classifies_currently_unresolved_seeded_builtins() {
-        assert_eq!(
-            resolve_builtin_target("PrintH"),
-            MirBuiltinResolution::Unsupported {
-                reason: "resident entry point is not modeled"
-            }
-        );
+    fn classifies_unknown_builtins() {
         assert_eq!(
             resolve_builtin_target("NotAThing"),
             MirBuiltinResolution::Unknown

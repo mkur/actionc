@@ -708,6 +708,7 @@ fn add_builtin_routine_info(routines: &mut HashMap<String, RoutineInfo>) {
     insert_builtin_routine(routines, "PrintIE", &[2], None, false, 0xA536);
     insert_builtin_routine(routines, "PrintID", &[1, 2], None, false, 0xA519);
     insert_builtin_routine(routines, "PrintIDE", &[1, 2], None, false, 0xA53C);
+    insert_builtin_routine(routines, "PrintH", &[2], None, false, 0xB8C2);
     insert_builtin_routine(routines, "InputB", &[], Some(1), false, 0xA588);
     insert_builtin_routine(routines, "InputBD", &[1], Some(1), false, 0xA58A);
     insert_builtin_routine(routines, "InputC", &[], Some(2), false, 0xA588);
