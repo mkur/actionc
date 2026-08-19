@@ -622,6 +622,59 @@ fn mir6502_standalone_links_only_the_sargs_dependency_group() {
 }
 
 #[test]
+fn standalone_sys_break_links_only_the_exception_group() {
+    let temp = TestDir::new();
+    let source = temp.path().join("sys-break.act");
+    fs::write(
+        &source,
+        "PROC Main() Break() RETURN\n",
+    )
+    .expect("write SYS.Break source");
+
+    for backend in ["classic", "mir6502"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args([
+                "--profile",
+                "modern",
+                "--backend",
+                backend,
+                "--runtime",
+                "standalone",
+                "--emit-map",
+            ])
+            .arg(&source)
+            .output()
+            .expect("emit standalone SYS.Break map");
+        assert!(
+            output.status.success(),
+            "{backend}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let map = String::from_utf8_lossy(&output.stdout).to_ascii_uppercase();
+        if backend == "classic" {
+            assert!(
+                map.contains("RUNTIME-BINDING SYS.BREAK"),
+                "{backend}: {map}"
+            );
+        }
+        assert!(
+            map.contains("RESIDENT::BREAK") || map.contains("RESIDENT_BREAK_"),
+            "{backend}: {map}"
+        );
+        assert!(
+            map.contains("RESIDENT::ERROR") || map.contains("RESIDENT_ERROR_"),
+            "{backend}: {map}"
+        );
+        for unused in ["SARGS", "LSHIFT", "RSHIFT", "MULTI", "DIVI", "REMI"] {
+            assert!(
+                !map.contains(unused),
+                "{backend}, unexpected {unused}: {map}"
+            );
+        }
+    }
+}
+
+#[test]
 fn mir6502_sys_memory_binding_is_runtime_selected_and_selective() {
     let fixture =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sys_memory.act");
