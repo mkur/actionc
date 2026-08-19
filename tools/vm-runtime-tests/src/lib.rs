@@ -702,6 +702,33 @@ mod tests {
     }
 
     #[test]
+    fn resident_formatted_output_matches_under_both_runtimes_and_backends() {
+        let max_steps = 100_000;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_runtime_fixture(
+                    "resident_formatted_output.act",
+                    mode,
+                    runtime,
+                    true,
+                    max_steps,
+                );
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
+                    outcome.report
+                );
+                assert_eq!(
+                    outcome.vm.bus().cio_channel0_output(),
+                    b"ABC\x9BD\x9B%|TXT|1234|-1|$BEEF\x9B",
+                    "formatted output with {runtime:?}/{mode:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn kalscope_backend_contracts_execute_through_the_vm_library() {
         assert_both_backends(
             "KALSCOPE backend contracts",

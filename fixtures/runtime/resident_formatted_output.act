@@ -1,0 +1,14 @@
+; Exercise the remaining resident output entry points and PrintF directives.
+PROC Main()
+  INT minusOne
+
+  minusOne=0
+  minusOne==-1
+  PutD(0,'A)
+  PrintE("BC")
+  PrintDE(0,"D")
+  PrintF("%%|%S|%U|%I|%H%E","TXT",1234,minusOne,$BEEF)
+
+  DO
+  OD
+RETURN
