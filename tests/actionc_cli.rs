@@ -832,8 +832,7 @@ fn unused_sys_import_adds_no_runtime_code() {
 fn standalone_rejects_unbound_resident_routines_in_both_backends() {
     let temp = TestDir::new();
     let source = temp.path().join("resident-print.act");
-    fs::write(&source, "PROC Main() PrintE(\"CART\") RETURN\n")
-        .expect("write resident-call source");
+    fs::write(&source, "PROC Main() PrintH($1234) RETURN\n").expect("write resident-call source");
 
     for backend in ["classic", "mir6502"] {
         let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
@@ -855,7 +854,7 @@ fn standalone_rejects_unbound_resident_routines_in_both_backends() {
             stderr.contains("E-RUNTIME-STANDALONE-BINDING"),
             "backend {backend}: {stderr}"
         );
-        assert!(stderr.contains("PrintE"), "backend {backend}: {stderr}");
+        assert!(stderr.contains("PrintH"), "backend {backend}: {stderr}");
 
         let emit = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
             .args([

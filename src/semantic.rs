@@ -71,9 +71,7 @@ pub enum SemanticNameResolution {
 
 impl SemanticModel {
     pub fn module(&self, id: ModuleId) -> Option<&SemanticModuleScope> {
-        self.modules
-            .get(id.0 as usize)
-            .filter(|module| module.id == id)
+        self.modules.iter().find(|module| module.id == id)
     }
 
     pub fn resolve_module_member(&self, module_id: ModuleId, name: &str) -> ModuleMemberResolution {
@@ -346,7 +344,10 @@ pub fn analyze_compilation(
         compilation.root_module().program.source_kind,
         SourceUnitKind::Legacy
     ) {
-        return analyze(&compilation.root_module().program);
+        let mut analyzer = Analyzer::new();
+        analyzer.seed_builtins();
+        analyzer.analyze_legacy_compilation(compilation);
+        return analyzer.finish();
     }
 
     let mut analyzer = Analyzer::new();
@@ -782,6 +783,65 @@ impl Analyzer {
             let program = &compilation.modules[module_id.0 as usize].program;
             self.resolve_named_module_bodies(*module_id, program);
         }
+    }
+
+    fn analyze_legacy_compilation(&mut self, compilation: &LoadedCompilation) {
+        for loaded in &compilation.modules {
+            if loaded.id == compilation.root {
+                // Keep ModuleId-to-index alignment while the implicit named
+                // prelude is analyzed. The placeholder is removed before the
+                // public semantic model is returned; legacy declarations
+                // continue to live in the ordinary global scope.
+                self.modules.push(SemanticModuleScope {
+                    id: loaded.id,
+                    path: ModulePath::new(vec!["<legacy-root>".to_string()], loaded.source_span),
+                    scope: self.symbols.global_scope(),
+                    public_symbols: BTreeMap::new(),
+                    module_aliases: BTreeMap::new(),
+                });
+            } else if let Some(path) = loaded.declared_path.clone() {
+                let scope = self
+                    .symbols
+                    .add_scope(ScopeKind::Module(loaded.id), Some(self.builtin_scope));
+                self.modules.push(SemanticModuleScope {
+                    id: loaded.id,
+                    path,
+                    scope,
+                    public_symbols: BTreeMap::new(),
+                    module_aliases: BTreeMap::new(),
+                });
+            } else {
+                self.diagnostics.push(Diagnostic::new(
+                    loaded.source_span,
+                    "a legacy compilation dependency must declare a named module",
+                ));
+            }
+        }
+        if self.modules.len() != compilation.modules.len() {
+            return;
+        }
+
+        for loaded in &compilation.modules {
+            if loaded.id != compilation.root {
+                self.collect_named_module_identities(loaded.id, &loaded.program);
+            }
+        }
+        self.install_named_uses(compilation);
+        for module_id in &compilation.graph_order {
+            if *module_id != compilation.root {
+                let program = &compilation.modules[module_id.0 as usize].program;
+                self.resolve_named_module_declarations(*module_id, program);
+            }
+        }
+        for module_id in &compilation.graph_order {
+            if *module_id != compilation.root {
+                let program = &compilation.modules[module_id.0 as usize].program;
+                self.resolve_named_module_bodies(*module_id, program);
+            }
+        }
+
+        self.analyze_program(&compilation.root_module().program);
+        self.modules.retain(|module| module.id != compilation.root);
     }
 
     fn allocate_module_scopes(&mut self, compilation: &LoadedCompilation) {

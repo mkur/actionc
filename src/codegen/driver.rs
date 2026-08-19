@@ -50,7 +50,7 @@ pub fn generate_semir_profile_with_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    let program = super::semir::semir_to_ast(program)?;
+    let program = super::semir::semir_to_cart_ast(program)?;
     generate_profile_with_origin(&program, origin, profile)
 }
 
@@ -59,7 +59,7 @@ pub(crate) fn generate_semir_profile_at_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    let program = super::semir::semir_to_ast(program)?;
+    let program = super::semir::semir_to_cart_ast(program)?;
     generate_profile_at_origin(&program, origin, profile)
 }
 

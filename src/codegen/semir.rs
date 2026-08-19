@@ -1,15 +1,17 @@
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
 use crate::lexer::NumberLiteral;
+use crate::runtime::Runtime;
 use crate::semantic::ir::*;
-use crate::semantic::{ValueType, ValueTypeBase};
+use crate::semantic::{SymbolId, ValueType, ValueTypeBase};
 use crate::source::Span;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub(crate) fn semir_to_ast(program: &SemProgram) -> Result<Program, Vec<Diagnostic>> {
     let mut lowerer = SemIrAstLowerer {
         diagnostics: Vec::new(),
         type_link_names: module_type_link_names(program),
+        external_addresses: None,
     };
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
@@ -19,12 +21,62 @@ pub(crate) fn semir_to_ast(program: &SemProgram) -> Result<Program, Vec<Diagnost
     }
 }
 
-struct SemIrAstLowerer {
-    diagnostics: Vec<Diagnostic>,
-    type_link_names: BTreeMap<String, String>,
+pub(crate) fn semir_to_cart_ast(program: &SemProgram) -> Result<Program, Vec<Diagnostic>> {
+    let addresses = cart_external_addresses(program)?;
+    let mut lowerer = SemIrAstLowerer {
+        diagnostics: Vec::new(),
+        type_link_names: module_type_link_names(program),
+        external_addresses: Some(&addresses),
+    };
+    let program = lowerer.program(program);
+    if lowerer.diagnostics.is_empty() {
+        Ok(program)
+    } else {
+        Err(lowerer.diagnostics)
+    }
 }
 
-impl SemIrAstLowerer {
+pub(crate) fn cart_external_addresses(
+    program: &SemProgram,
+) -> Result<HashMap<SymbolId, u16>, Vec<Diagnostic>> {
+    let bindings = crate::runtime_bindings::parse_bindings(Runtime::ActionCart)?;
+    let mut addresses = HashMap::new();
+    for routine in program
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            SemItem::Routine(routine) if routine.is_external => Some(routine),
+            _ => None,
+        })
+    {
+        let key = crate::runtime_bindings::binding_key(&routine.symbol.qualified_name);
+        match bindings.get(&key) {
+            Some(crate::runtime_bindings::BindingTarget::Absolute(address)) => {
+                addresses.insert(routine.symbol.id, *address);
+            }
+            Some(crate::runtime_bindings::BindingTarget::RuntimeRoutine { .. }) => {
+                return Err(vec![Diagnostic::new(
+                    routine.span,
+                    format!(
+                        "cart binding for external `{}` is not an absolute address",
+                        routine.symbol.qualified_name
+                    ),
+                )]);
+            }
+            None => {}
+        }
+    }
+    Ok(addresses)
+}
+
+struct SemIrAstLowerer<'a> {
+    diagnostics: Vec<Diagnostic>,
+    type_link_names: BTreeMap<String, String>,
+    external_addresses: Option<&'a HashMap<SymbolId, u16>>,
+}
+
+impl SemIrAstLowerer<'_> {
     fn program(&mut self, program: &SemProgram) -> Program {
         Program {
             modules: program
@@ -111,6 +163,14 @@ impl SemIrAstLowerer {
                 span: set.span,
             }),
             SemItem::Declaration(decl) => Item::Declaration(self.declaration(decl)?),
+            SemItem::Routine(routine)
+                if routine.is_external
+                    && self
+                        .external_addresses
+                        .is_some_and(|addresses| !addresses.contains_key(&routine.symbol.id)) =>
+            {
+                return None;
+            }
             SemItem::Routine(routine) => Item::Routine(self.routine(routine)?),
             SemItem::Statement(stmt) => Item::Statement(self.stmt(stmt)?),
             SemItem::Unsupported { span, note } => {
@@ -207,7 +267,20 @@ impl SemIrAstLowerer {
             system_address: routine
                 .system_address
                 .as_ref()
-                .and_then(|address| self.expr(address)),
+                .and_then(|address| self.expr(address))
+                .or_else(|| {
+                    self.external_addresses
+                        .and_then(|addresses| addresses.get(&routine.symbol.id))
+                        .map(|address| Expr {
+                            kind: ExprKind::Number(NumberLiteral {
+                                text: format!("${address:04X}"),
+                                kind: crate::lexer::NumberKind::Card,
+                                value: Some(*address),
+                            }),
+                            text: format!("${address:04X}"),
+                            span: routine.span,
+                        })
+                }),
             params: routine
                 .params
                 .iter()

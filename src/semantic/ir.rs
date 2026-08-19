@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::asm6502::{
     InlineAsmMode, InlineAsmProgram, InlineAsmRelocationKind, InlineAsmRelocationTarget,
@@ -32,7 +32,7 @@ pub fn lower_compilation(compilation: &LoadedCompilation, model: &SemanticModel)
         compilation.root_module().program.source_kind,
         crate::ast::SourceUnitKind::Legacy
     ) {
-        return lower_program(&compilation.root_module().program, model);
+        return IrBuilder::new(model).lower_legacy_compilation(compilation);
     }
     IrBuilder::new(model).lower_named_compilation(compilation)
 }
@@ -779,6 +779,276 @@ pub enum SemAddressSpace {
     IndirectIndexedY,
 }
 
+fn retain_referenced_external_routines(program: &mut SemProgram) {
+    let external = program
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            SemItem::Routine(routine) if routine.is_external => Some(routine.symbol.id),
+            _ => None,
+        })
+        .collect::<HashSet<_>>();
+    if external.is_empty() {
+        return;
+    }
+
+    let mut referenced = HashSet::new();
+    for module in &program.modules {
+        for item in &module.items {
+            collect_external_item_references(item, &external, &mut referenced);
+        }
+    }
+    for module in &mut program.modules {
+        module.items.retain(|item| {
+            !matches!(item, SemItem::Routine(routine) if routine.is_external && !referenced.contains(&routine.symbol.id))
+        });
+    }
+}
+
+fn collect_external_item_references(
+    item: &SemItem,
+    external: &HashSet<SymbolId>,
+    referenced: &mut HashSet<SymbolId>,
+) {
+    match item {
+        SemItem::Set(set) => {
+            collect_external_expr_references(&set.address, external, referenced);
+            collect_external_expr_references(&set.value, external, referenced);
+        }
+        SemItem::Declaration(declaration) => {
+            collect_external_declaration_references(declaration, external, referenced);
+        }
+        SemItem::Routine(routine) if !routine.is_external => {
+            if let Some(address) = &routine.system_address {
+                collect_external_expr_references(address, external, referenced);
+            }
+            for local in &routine.locals {
+                collect_external_declaration_references(local, external, referenced);
+            }
+            collect_external_stmt_references(&routine.body, external, referenced);
+        }
+        SemItem::Statement(statement) => {
+            collect_external_stmt_references(std::slice::from_ref(statement), external, referenced);
+        }
+        SemItem::Define(_)
+        | SemItem::Const(_)
+        | SemItem::Include(_)
+        | SemItem::Routine(_)
+        | SemItem::Unsupported { .. } => {}
+    }
+}
+
+fn collect_external_declaration_references(
+    declaration: &SemDeclaration,
+    external: &HashSet<SymbolId>,
+    referenced: &mut HashSet<SymbolId>,
+) {
+    if let Some(initializer) = &declaration.initializer {
+        collect_external_expr_references(initializer, external, referenced);
+    }
+    collect_external_storage_references(&declaration.storage, external, referenced);
+}
+
+fn collect_external_storage_references(
+    storage: &SemDeclarationStorage,
+    external: &HashSet<SymbolId>,
+    referenced: &mut HashSet<SymbolId>,
+) {
+    match storage {
+        SemDeclarationStorage::Array { length, .. } => {
+            if let Some(length) = length {
+                collect_external_expr_references(length, external, referenced);
+            }
+        }
+        SemDeclarationStorage::Type { fields, .. }
+        | SemDeclarationStorage::Record { fields, .. } => {
+            for field in fields {
+                collect_external_storage_references(&field.storage, external, referenced);
+            }
+        }
+        SemDeclarationStorage::Scalar => {}
+    }
+}
+
+fn collect_external_stmt_references(
+    statements: &[SemStmt],
+    external: &HashSet<SymbolId>,
+    referenced: &mut HashSet<SymbolId>,
+) {
+    for statement in statements {
+        match statement {
+            SemStmt::Return { value, .. } => {
+                if let Some(value) = value {
+                    collect_external_expr_references(value, external, referenced);
+                }
+            }
+            SemStmt::Assign { target, value, .. }
+            | SemStmt::CompoundAssign { target, value, .. } => {
+                collect_external_lvalue_references(target, external, referenced);
+                collect_external_expr_references(value, external, referenced);
+            }
+            SemStmt::Call { call, .. } => {
+                collect_external_call_references(call, external, referenced);
+            }
+            SemStmt::MachineBlock {
+                resolved_symbols, ..
+            } => {
+                for symbol in resolved_symbols {
+                    record_external_symbol(&symbol.symbol, external, referenced);
+                }
+            }
+            SemStmt::InlineAsm { program, .. } => {
+                for relocation in &program.relocations {
+                    if let SemInlineAsmTarget::Symbol(symbol) = &relocation.target {
+                        record_external_symbol(symbol, external, referenced);
+                    }
+                }
+            }
+            SemStmt::If {
+                branches,
+                else_body,
+                ..
+            } => {
+                for branch in branches {
+                    collect_external_expr_references(&branch.condition.expr, external, referenced);
+                    collect_external_stmt_references(&branch.body, external, referenced);
+                }
+                collect_external_stmt_references(else_body, external, referenced);
+            }
+            SemStmt::While {
+                condition, body, ..
+            } => {
+                collect_external_expr_references(&condition.expr, external, referenced);
+                collect_external_stmt_references(body, external, referenced);
+            }
+            SemStmt::DoUntil {
+                body, condition, ..
+            } => {
+                collect_external_stmt_references(body, external, referenced);
+                if let Some(condition) = condition {
+                    collect_external_expr_references(&condition.expr, external, referenced);
+                }
+            }
+            SemStmt::For {
+                target,
+                start,
+                end,
+                step,
+                body,
+                ..
+            } => {
+                collect_external_lvalue_references(target, external, referenced);
+                collect_external_expr_references(start, external, referenced);
+                collect_external_expr_references(end, external, referenced);
+                if let Some(step) = step {
+                    collect_external_expr_references(step, external, referenced);
+                }
+                collect_external_stmt_references(body, external, referenced);
+            }
+            SemStmt::Define(_) | SemStmt::Exit { .. } | SemStmt::Unsupported { .. } => {}
+        }
+    }
+}
+
+fn collect_external_call_references(
+    call: &SemCall,
+    external: &HashSet<SymbolId>,
+    referenced: &mut HashSet<SymbolId>,
+) {
+    match &call.callee {
+        SemCallable::User(symbol) | SemCallable::Builtin(symbol) => {
+            record_external_symbol(symbol, external, referenced);
+        }
+        SemCallable::Indirect { target, .. } => {
+            collect_external_expr_references(target, external, referenced);
+        }
+        SemCallable::Runtime { .. } => {}
+    }
+    for argument in &call.args {
+        collect_external_expr_references(argument, external, referenced);
+    }
+}
+
+fn collect_external_expr_references(
+    expression: &SemExpr,
+    external: &HashSet<SymbolId>,
+    referenced: &mut HashSet<SymbolId>,
+) {
+    match &expression.kind {
+        SemExprKind::InitializerList(elements) => {
+            for element in elements {
+                if let SemInitializerElementKind::Address { target, .. } = &element.kind {
+                    record_external_symbol(target, external, referenced);
+                }
+            }
+        }
+        SemExprKind::Symbol(symbol) | SemExprKind::AddressOfSymbol(symbol) => {
+            record_external_symbol(symbol, external, referenced);
+        }
+        SemExprKind::LValue(place) | SemExprKind::AddressOf(place) => {
+            collect_external_lvalue_references(place, external, referenced);
+        }
+        SemExprKind::ImplicitAddressOf(address) => {
+            collect_external_lvalue_references(&address.place, external, referenced);
+        }
+        SemExprKind::ArrayDecay(decay) => {
+            collect_external_lvalue_references(&decay.array, external, referenced);
+        }
+        SemExprKind::Cast { expr, .. } | SemExprKind::Unary { expr, .. } => {
+            collect_external_expr_references(expr, external, referenced);
+        }
+        SemExprKind::Binary { left, right, .. } => {
+            collect_external_expr_references(left, external, referenced);
+            collect_external_expr_references(right, external, referenced);
+        }
+        SemExprKind::Call(call) => collect_external_call_references(call, external, referenced),
+        SemExprKind::Missing
+        | SemExprKind::Raw(_)
+        | SemExprKind::UnresolvedName(_)
+        | SemExprKind::CurrentLocation
+        | SemExprKind::Literal(_) => {}
+    }
+}
+
+fn collect_external_lvalue_references(
+    place: &SemLValue,
+    external: &HashSet<SymbolId>,
+    referenced: &mut HashSet<SymbolId>,
+) {
+    if let Some(symbol) = place
+        .storage
+        .as_ref()
+        .and_then(|storage| storage.symbol.as_ref())
+    {
+        record_external_symbol(symbol, external, referenced);
+    }
+    match &place.kind {
+        SemLValueKind::Symbol(symbol) => record_external_symbol(symbol, external, referenced),
+        SemLValueKind::Deref { pointer } => {
+            collect_external_expr_references(pointer, external, referenced);
+        }
+        SemLValueKind::Index { base, index, .. } => {
+            collect_external_expr_references(base, external, referenced);
+            collect_external_expr_references(index, external, referenced);
+        }
+        SemLValueKind::Field { base, .. } => {
+            collect_external_lvalue_references(base, external, referenced);
+        }
+        SemLValueKind::UnresolvedName(_) => {}
+    }
+}
+
+fn record_external_symbol(
+    symbol: &SemSymbolRef,
+    external: &HashSet<SymbolId>,
+    referenced: &mut HashSet<SymbolId>,
+) {
+    if external.contains(&symbol.id) {
+        referenced.insert(symbol.id);
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SemEffects {
     pub writes: Vec<SemWriteEffect>,
@@ -1484,7 +1754,7 @@ impl<'a> IrBuilder<'a> {
             self.numeric_defines
                 .extend(self.collect_numeric_defines(&module.program, scope));
         }
-        SemProgram {
+        let mut program = SemProgram {
             modules: compilation
                 .graph_order
                 .iter()
@@ -1494,7 +1764,58 @@ impl<'a> IrBuilder<'a> {
                 })
                 .collect(),
             layout: self.model.layout.clone(),
+        };
+        if !compilation
+            .root_module()
+            .declared_path
+            .as_ref()
+            .is_some_and(|path| path.canonical_name() == "sys")
+        {
+            retain_referenced_external_routines(&mut program);
         }
+        program
+    }
+
+    fn lower_legacy_compilation(&mut self, compilation: &LoadedCompilation) -> SemProgram {
+        self.numeric_defines = self.collect_numeric_defines(
+            &compilation.root_module().program,
+            self.model.symbols.global_scope(),
+        );
+        for module_id in &compilation.graph_order {
+            if *module_id == compilation.root {
+                continue;
+            }
+            let loaded = &compilation.modules[module_id.0 as usize];
+            let scope = self
+                .model
+                .module(*module_id)
+                .map(|module| module.scope)
+                .expect("semantic module scope");
+            self.numeric_defines
+                .extend(self.collect_numeric_defines(&loaded.program, scope));
+        }
+
+        let mut modules = Vec::new();
+        for module_id in &compilation.graph_order {
+            let loaded = &compilation.modules[module_id.0 as usize];
+            if *module_id == compilation.root {
+                modules.extend(
+                    loaded
+                        .program
+                        .modules
+                        .iter()
+                        .map(|module| self.lower_module(module)),
+                );
+            } else {
+                modules.push(self.lower_named_module(*module_id, &loaded.program));
+            }
+        }
+        let mut program = SemProgram {
+            modules,
+            layout: self.model.layout.clone(),
+        };
+        retain_referenced_external_routines(&mut program);
+        program
     }
 
     fn lower_named_module(&mut self, id: ModuleId, program: &Program) -> SemModule {

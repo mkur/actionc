@@ -112,6 +112,7 @@ struct CompilationLoader<'a> {
     modules_by_path: HashMap<String, ModuleId>,
     active: Vec<(String, String)>,
     graph_order: Vec<ModuleId>,
+    implicit_sys: bool,
 }
 
 impl SourceMap {
@@ -211,11 +212,13 @@ pub fn load_compilation(
     options: &ModuleLoadOptions,
 ) -> Result<LoadedCompilation, Vec<Diagnostic>> {
     let provider = CompilerSourceProvider::default();
-    load_compilation_from_provider(
-        SourceOrigin::host(path.as_ref().to_path_buf()),
+    CompilationLoader::new(
         &provider,
+        SourceOrigin::host(path.as_ref().to_path_buf()),
         options,
     )
+    .with_implicit_sys()
+    .load()
 }
 
 pub fn load_compilation_from_provider(
@@ -268,7 +271,13 @@ impl<'a> CompilationLoader<'a> {
             modules_by_path: HashMap::new(),
             active: Vec::new(),
             graph_order: Vec::new(),
+            implicit_sys: false,
         }
+    }
+
+    fn with_implicit_sys(mut self) -> Self {
+        self.implicit_sys = true;
+        self
     }
 
     fn load(mut self) -> Result<LoadedCompilation, Vec<Diagnostic>> {
@@ -290,8 +299,11 @@ impl<'a> CompilationLoader<'a> {
             let key = path.canonical_name();
             self.modules_by_path.insert(key.clone(), root_id);
             self.active.push((key, path.display_name()));
+            self.load_implicit_sys(root_id)?;
             self.load_dependencies(root_id)?;
             self.active.pop();
+        } else {
+            self.load_implicit_sys(root_id)?;
         }
         self.graph_order.push(root_id);
 
@@ -302,6 +314,29 @@ impl<'a> CompilationLoader<'a> {
             source: self.source,
             source_map: self.source_map,
         })
+    }
+
+    fn load_implicit_sys(&mut self, importer: ModuleId) -> Result<(), Vec<Diagnostic>> {
+        if !self.implicit_sys
+            || self.modules[importer.0 as usize]
+                .declared_path
+                .as_ref()
+                .is_some_and(|path| path.canonical_name() == "sys")
+        {
+            return Ok(());
+        }
+
+        let span = self.modules[importer.0 as usize].source_span;
+        let dependency = self.load_import(&ImportDecl {
+            path: ModulePath::new(vec!["SYS".to_string()], span),
+            alias: Some("SYS".to_string()),
+            open: false,
+            span,
+        })?;
+        self.modules[importer.0 as usize]
+            .dependencies
+            .push(dependency);
+        Ok(())
     }
 
     fn load_dependencies(&mut self, importer: ModuleId) -> Result<(), Vec<Diagnostic>> {

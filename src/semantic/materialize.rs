@@ -9,16 +9,11 @@ use super::{ConstValue, ScalarType, ScopeId, SemanticModel, SemanticNameResoluti
 /// analysis.  This is a compatibility bridge for the classic code generator;
 /// SemIR and NIR carry the same values directly.
 pub(crate) fn materialize_constants(program: &Program, model: &SemanticModel) -> Program {
-    Materializer {
-        model,
-        routine_index: 0,
-    }
-    .program(program)
+    Materializer { model }.program(program)
 }
 
 struct Materializer<'a> {
     model: &'a SemanticModel,
-    routine_index: usize,
 }
 
 impl Materializer<'_> {
@@ -57,13 +52,14 @@ impl Materializer<'_> {
     }
 
     fn routine(&mut self, global_scope: ScopeId, routine: &mut Routine) {
+        let routine_symbol = self.model.symbols.lookup(global_scope, &routine.name);
         let routine_scope = self
             .model
             .routine_scopes
-            .get(self.routine_index)
-            .map(|routine| routine.scope)
+            .iter()
+            .find(|scope| scope.symbol == routine_symbol)
+            .map(|scope| scope.scope)
             .unwrap_or(global_scope);
-        self.routine_index += 1;
 
         if let Some(system_address) = &mut routine.system_address {
             self.expr(global_scope, system_address);
