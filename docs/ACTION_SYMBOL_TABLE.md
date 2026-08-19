@@ -141,17 +141,21 @@ runtime-library evidence.
 
 Current `actionc` state against that catalog:
 
-- Semantics seeds all 71 audited resident routines as built-ins.
-- Their runtime-neutral identities are exported by the embedded `SYS` module,
-  with cart and standalone bindings selected by `--runtime`.
-- Both code generators model the complete audited resident ABI. Cartridge
-  targets remain version-specific facts recorded in the table below.
+- The embedded `SYS` module owns the names and signatures of all 71 audited
+  resident routines. Semantics derives traditional unqualified aliases from
+  that interface.
+- Cart and standalone binding sources select implementations for the same
+  runtime-neutral identities through `--runtime`.
+- Both active code generators consume those declarations and bindings; neither
+  maintains a separate public resident name/address catalog. Cartridge targets
+  remain version-specific facts recorded in the table below and in the cart
+  binding source.
 - Manual placeholders such as `<string>`, `<filestring>`, and `<data>` are not
   full type signatures. They should be treated as compatibility hints and
   verified with probes before tightening semantic checks.
-- The catalog supports the current design choice that a built-in needs both a
-  semantic signature and a codegen target. The original cartridge likely carries
-  enough metadata to do both, but `actionc` still models that metadata manually.
+- The original cartridge likely carries enough metadata to reconstruct the
+  interface, but `actionc` keeps the audited source contract in `sys.act` and the
+  implementation choices in explicit binding sources.
 
 The broad resident entry-point probes are:
 

@@ -329,7 +329,7 @@ pub(super) fn collect_routine_info(
     }
 
     if runtime_target == RuntimeTarget::Cartridge {
-        add_cart_resident_routine_info(&mut routines, record_layouts)?;
+        add_cart_sys_interface_routine_info(&mut routines, record_layouts)?;
     }
     Ok(routines)
 }
@@ -395,7 +395,7 @@ fn routine_info(
     }
 }
 
-fn add_cart_resident_routine_info(
+fn add_cart_sys_interface_routine_info(
     routines: &mut HashMap<String, RoutineInfo>,
     record_layouts: &RecordLayouts,
 ) -> Result<(), Vec<Diagnostic>> {
