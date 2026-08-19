@@ -41,6 +41,13 @@ impl EmbeddedSourceProvider {
         })
     }
 
+    pub(crate) fn module_source(self, file_name: &str) -> Option<&'static EmbeddedSource> {
+        SOURCES.iter().find(|source| {
+            source.kind == EmbeddedSourceKind::Module
+                && source.virtual_path.eq_ignore_ascii_case(file_name)
+        })
+    }
+
     pub(crate) fn binding_source(self, file_name: &str) -> Option<&'static EmbeddedSource> {
         SOURCES.iter().find(|source| {
             source.kind == EmbeddedSourceKind::Binding
