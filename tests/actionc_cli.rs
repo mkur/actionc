@@ -627,7 +627,7 @@ fn standalone_sys_break_links_only_the_exception_group() {
     let source = temp.path().join("sys-break.act");
     fs::write(
         &source,
-        "PROC Main() Break() RETURN\n",
+        "PROC Main() Error(1) Error(1,2,3) Break() RETURN\n",
     )
     .expect("write SYS.Break source");
 
@@ -652,6 +652,10 @@ fn standalone_sys_break_links_only_the_exception_group() {
         );
         let map = String::from_utf8_lossy(&output.stdout).to_ascii_uppercase();
         if backend == "classic" {
+            assert!(
+                map.contains("RUNTIME-BINDING SYS.ERROR"),
+                "{backend}: {map}"
+            );
             assert!(
                 map.contains("RUNTIME-BINDING SYS.BREAK"),
                 "{backend}: {map}"

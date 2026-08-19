@@ -242,12 +242,18 @@ fn collect_var_names(var: &VarDecl, output: &mut BTreeSet<String>) {
     output.extend(var.entries.iter().map(|entry| entry.name.clone()));
 }
 
-/// Correct verified defects in the historical standalone source without
-/// rewriting the preserved source corpus.  The Action! 3.6 compiler accepts
-/// `PrintBDE(device,value)` and emits `LDA device; LDX value; JSR $A508`, while
-/// SYSIO.ACT accidentally omits the device parameter from its declaration.
+/// Correct verified interface defects in the historical standalone source
+/// without rewriting the preserved source corpus. The Action! 3.6 compiler
+/// accepts `PrintBDE(device,value)` and emits `LDA device; LDX value; JSR
+/// $A508`, while SYSIO.ACT accidentally omits the device parameter. `Error`
+/// accepts an error code in A plus optional X/Y handler context, as exercised
+/// by CATCH.ACT, while SYSLIB.ACT declares only the first byte. The normalized
+/// routine is a current-location machine-code entry because its body consumes
+/// the A/X/Y ABI directly and must not acquire an `SArgs` prologue.
 fn apply_runtime_source_errata(source: &str) -> String {
-    source.replace("PROC PrintBDE=*(BYTE n)", "PROC PrintBDE=*(BYTE d,n)")
+    source
+        .replace("PROC PrintBDE=*(BYTE n)", "PROC PrintBDE=*(BYTE d,n)")
+        .replace("PROC Error(BYTE err)", "PROC Error=*(BYTE err,x,y)")
 }
 
 /// The original Action! machine-code notation permits an opcode byte and a
@@ -415,7 +421,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_image_applies_verified_printbde_signature_erratum() {
+    fn runtime_image_applies_verified_interface_errata() {
         let image = compile_runtime_image().expect("compile resident runtime image");
         let routine = image
             .semir
@@ -438,6 +444,33 @@ mod tests {
             .expect("resident PrintBDE");
         assert_eq!(routine.signature.params.len(), 2);
         assert!(routine.signature.params.iter().all(|param| {
+            matches!(
+                &param.base,
+                crate::semantic::ValueTypeBase::Fund(crate::ast::FundType::Byte)
+            ) && !param.pointer
+        }));
+
+        let error = image
+            .semir
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine)
+                    if routine
+                        .symbol
+                        .qualified_name
+                        .rsplit(['.', ':'])
+                        .find(|part| !part.is_empty())
+                        .is_some_and(|name| name.eq_ignore_ascii_case("Error")) =>
+                {
+                    Some(routine)
+                }
+                _ => None,
+            })
+            .expect("resident Error");
+        assert_eq!(error.signature.params.len(), 3);
+        assert!(error.signature.params.iter().all(|param| {
             matches!(
                 &param.base,
                 crate::semantic::ValueTypeBase::Fund(crate::ast::FundType::Byte)

@@ -142,7 +142,8 @@ runtime-library evidence.
 Current `actionc` state against that catalog:
 
 - Semantics seeds most listed resident names as built-ins.
-- Semantics currently does not seed `StrB`, `StrC`, `StrI`, or `Error`.
+- Semantics seeds `StrB`, `StrC`, `StrI`, and `Error`; their runtime-neutral
+  identities are exported by the embedded `SYS` module.
 - Codegen has cartridge entry/ABI information only for the modeled subset in
   `src/codegen.rs`. Other seeded library names are recognized semantically but
   still need codegen ABI modeling before direct cartridge calls can compile.
@@ -232,7 +233,7 @@ more probes say otherwise.
 | `ValI` | `INT FUNC` | `INT FUNC ValI(<string>)` | `$A59A` | `resident_string_convert.act` emits `JSR $A59A` |
 | `Rand` | `BYTE FUNC` | `BYTE FUNC Rand(BYTE r)` | `$A6F1` | `resident_misc_memory.act` emits `JSR $A6F1` |
 | `Break` | `PROC` | `PROC Break()` | `$A7DA` | `resident_misc_memory.act` emits `JSR $A7DA` |
-| `Error` | `PROC` | `PROC Error(BYTE e)` | `$04CB` | `resident_misc_memory.act` emits `JSR $04CB` |
+| `Error` | `PROC` | `PROC Error(BYTE e,x,y)`; trailing context is optional | `$04CB` | `resident_misc_memory.act` emits `LDA #1; JSR $04CB`; `CATCH.ACT` supplies A/X/Y context |
 | `Peek` | `BYTE FUNC` | `BYTE FUNC Peek(CARD a)` | `$A767` | `resident_misc_memory.act` emits `JSR $A767` |
 | `PeekC` | `CARD FUNC` | `CARD FUNC PeekC(CARD a)` | `$A767` | `resident_misc_memory.act` emits `JSR $A767` |
 | `Poke` | `PROC` | `PROC Poke(CARD a,BYTE v)` | `$A777` | `resident_misc_memory.act` emits `JSR $A777` |
