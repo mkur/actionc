@@ -1,0 +1,22 @@
+; Execute representative standalone resident string routines and leave their
+; results at stable addresses for the VM harness.
+
+BYTE ARRAY left="ABC"
+BYTE ARRAY right="ABD"
+BYTE ARRAY copied(8)=$0600
+BYTE ARRAY slice(8)=$0610
+BYTE less=$0620
+
+PROC Main()
+  SCopy(copied,left)
+  SCopyS(slice,left,1,2)
+
+  IF SCompare(left,right)<0 THEN
+    less=1
+  ELSE
+    less=0
+  FI
+
+  DO
+  OD
+RETURN

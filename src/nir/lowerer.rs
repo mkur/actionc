@@ -2698,15 +2698,21 @@ fn declaration_array_fact(
         return None;
     };
     let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
+    let initializer_is_data_image = matches!(
+        declaration.initializer.as_ref().map(|expr| &expr.kind),
+        Some(SemExprKind::InitializerList(_))
+    );
     Some(NirArrayGlobalFact {
         elem_size,
         length: array_type.length,
-        pointer_backed: array_type.length.is_none()
+        pointer_backed: (array_type.length.is_none() && declaration.initializer.is_none())
             || (address_initializer.is_some()
                 && declaration_array_address_initializer_uses_pointer_storage(
                     declaration,
                     record_storage_sizes,
-                )),
+                ))
+            || symbolic_array_initializer_routine(declaration).is_some()
+            || (initializer_is_data_image && (elem_size > 1 || array_type.length.is_none())),
         address_initializer,
     })
 }

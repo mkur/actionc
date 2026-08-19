@@ -531,6 +531,30 @@ fn lowers_word_routine_addresses_to_descriptor_backing_relocations() {
 }
 
 #[test]
+fn unsized_string_initializer_is_inline_array_storage_not_a_pointer_cell() {
+    let source = "BYTE ARRAY text=\"ABC\"";
+    let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+    let ast = crate::parser::parse(&tokens).expect("parse source");
+    let model = crate::semantic::analyze(&ast).expect("analyze source");
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let program = lower_program(&semir);
+
+    verify_program(&program).expect("string-initialized array should verify");
+    let text = program
+        .globals
+        .iter()
+        .find(|global| global.name == "text")
+        .expect("text global");
+    assert!(matches!(text.init, Some(NirGlobalInit::Bytes { .. })));
+    assert!(
+        text.array
+            .as_ref()
+            .is_some_and(|array| !array.pointer_backed),
+        "inline string bytes must decay to their storage address: {text:#?}"
+    );
+}
+
+#[test]
 fn data_relocation_targets_are_address_observable_storage_roots() {
     let source = "PROC Main() BYTE value BYTE ARRAY refs(2)=[<value >value] value=1 RETURN";
     let tokens = crate::lexer::tokenize(source).expect("tokenize source");

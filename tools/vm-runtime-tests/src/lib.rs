@@ -153,6 +153,15 @@ mod tests {
     }
 
     fn run_standalone_fixture(name: &str, mode: CompileMode, max_steps: u64) -> RunOutcome {
+        run_standalone_fixture_with_os(name, mode, max_steps, false)
+    }
+
+    fn run_standalone_fixture_with_os(
+        name: &str,
+        mode: CompileMode,
+        max_steps: u64,
+        load_os: bool,
+    ) -> RunOutcome {
         let fixture = runtime_fixture(name);
         let compiled = compile_file(
             &fixture,
@@ -160,6 +169,16 @@ mod tests {
         )
         .unwrap_or_else(|error| panic!("compile standalone {name} with {mode:?}: {error}"));
         let mut vm = vm_for_profile(ExecutionProfile::StandaloneObject);
+        if load_os {
+            let os = repository_root().join("roms/altirraos-xl.rom");
+            vm.load_image_bytes(
+                ImageKind::Rom,
+                "altirraos-xl.rom",
+                OS_ROM_BASE,
+                std::fs::read(os).expect("read Atari OS ROM"),
+            )
+            .expect("load Atari OS ROM for standalone CIO");
+        }
         vm.load_atari_object_for_execution(
             ExecutionProfile::StandaloneObject,
             compiled.object_bytes(),
@@ -242,6 +261,72 @@ mod tests {
                     "{mode:?}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn selectively_linked_sys_strings_execute_without_a_cartridge() {
+        let max_steps = 5_000;
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            let outcome =
+                run_standalone_fixture("standalone_sys_strings_runtime.act", mode, max_steps);
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            assert_eq!(
+                (0..4)
+                    .map(|offset| outcome.memory().read(0x0600 + offset))
+                    .collect::<Vec<_>>(),
+                b"\x03ABC",
+                "SCopy with {mode:?}"
+            );
+            assert_eq!(
+                (0..3)
+                    .map(|offset| outcome.memory().read(0x0610 + offset))
+                    .collect::<Vec<_>>(),
+                b"\x02AB",
+                "SCopyS with {mode:?}"
+            );
+            assert_eq!(outcome.memory().read(0x0620), 1, "SCompare with {mode:?}");
+        }
+    }
+
+    #[test]
+    fn selectively_linked_sys_graphics_state_executes_without_a_cartridge() {
+        let max_steps = 2_000;
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            let outcome =
+                run_standalone_fixture("standalone_sys_graphics_runtime.act", mode, max_steps);
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            assert_eq!(outcome.memory().read(0x0054), 0x56, "ROWCRS with {mode:?}");
+            assert_eq!(
+                outcome.memory().read(0x0055),
+                0x34,
+                "COLCRS low with {mode:?}"
+            );
+            assert_eq!(
+                outcome.memory().read(0x0056),
+                0x12,
+                "COLCRS high with {mode:?}"
+            );
+            assert_eq!(outcome.memory().read(0x02C6), 0xAC, "COLOR2 with {mode:?}");
+        }
+    }
+
+    #[test]
+    fn selectively_linked_sys_output_executes_without_a_cartridge() {
+        let max_steps = 20_000;
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            let outcome = run_standalone_fixture_with_os(
+                "standalone_sys_output_runtime.act",
+                mode,
+                max_steps,
+                true,
+            );
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            assert_eq!(
+                outcome.vm.bus().cio_channel0_output(),
+                b"value=\x9B",
+                "CIO output with {mode:?}"
+            );
         }
     }
 

@@ -1,0 +1,10 @@
+; Exercise graphics helpers whose observable result is OS and GTIA state.
+; No screen device or cartridge is needed for these two routines.
+
+PROC Main()
+  Position($1234,$56)
+  SetColor(2,$0A,$0C)
+
+  DO
+  OD
+RETURN
