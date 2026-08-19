@@ -4,5 +4,9 @@ global g0 text: byte storage global+0 size=3 init bytes=[$02 $48 $49] zero_fill=
 routine r0 Main
 b0 bb0:
   v0 =.w lea global g0+0
-  call Print@$A47F args=[v0.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
+  call r1 args=[v0.w -> a:x] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
   return
+
+routine r1 SYS.Print
+b0 bb1:
+  unreachable

@@ -724,7 +724,7 @@ fn mir6502_sys_memory_binding_is_runtime_selected_and_selective() {
         String::from_utf8_lossy(&cart.stderr)
     );
     let mir = String::from_utf8_lossy(&cart.stdout);
-    assert!(mir.contains("SYS external@$A78A"), "{mir}");
+    assert!(mir.contains("Zero@$A78A"), "{mir}");
     assert!(!mir.contains("ACTION.RUNTIME.SYSBLK"));
 }
 

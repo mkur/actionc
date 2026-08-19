@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
 
 use crate::asm6502::{
     InlineAsmMode, InlineAsmProgram, InlineAsmRelocationKind, InlineAsmRelocationTarget,
@@ -25,6 +26,24 @@ use super::{
 pub fn lower_program(program: &Program, model: &SemanticModel) -> SemProgram {
     let mut builder = IrBuilder::new(model);
     builder.lower_program(program)
+}
+
+static LEGACY_SYS_INTERFACE: OnceLock<SemModule> = OnceLock::new();
+
+fn legacy_sys_interface() -> &'static SemModule {
+    LEGACY_SYS_INTERFACE.get_or_init(|| {
+        crate::runtime_source::compile_embedded_module("sys.act")
+            .expect("the embedded SYS interface must pass semantic analysis")
+            .modules
+            .into_iter()
+            .find(|module| {
+                module
+                    .path
+                    .as_ref()
+                    .is_some_and(|path| path.canonical_name() == "sys")
+            })
+            .expect("the embedded SYS source must define MODULE SYS")
+    })
 }
 
 pub fn lower_compilation(compilation: &LoadedCompilation, model: &SemanticModel) -> SemProgram {
@@ -1733,14 +1752,65 @@ impl<'a> IrBuilder<'a> {
     fn lower_program(&mut self, program: &Program) -> SemProgram {
         self.numeric_defines =
             self.collect_numeric_defines(program, self.model.symbols.global_scope());
-        SemProgram {
+        let mut lowered = SemProgram {
             modules: program
                 .modules
                 .iter()
                 .map(|module| self.lower_module(module))
                 .collect(),
             layout: self.model.layout.clone(),
+        };
+        if matches!(program.source_kind, crate::ast::SourceUnitKind::Legacy) {
+            self.attach_legacy_sys_interface(&mut lowered);
+            retain_referenced_external_routines(&mut lowered);
+            lowered.modules.retain(|module| {
+                !module
+                    .path
+                    .as_ref()
+                    .is_some_and(|path| path.canonical_name() == "sys" && module.items.is_empty())
+            });
         }
+        lowered
+    }
+
+    fn attach_legacy_sys_interface(&self, program: &mut SemProgram) {
+        let Some(builtin_scope) = self.model.symbols.builtin_scope() else {
+            return;
+        };
+        let mut interface = legacy_sys_interface().clone();
+        interface.id = None;
+        interface.items.retain_mut(|item| {
+            let SemItem::Routine(routine) = item else {
+                return false;
+            };
+            let public_name = routine
+                .symbol
+                .qualified_name
+                .rsplit('.')
+                .next()
+                .unwrap_or(&routine.symbol.name);
+            let Some(mut symbol) = self.symbol_ref(builtin_scope, public_name, routine.span) else {
+                return false;
+            };
+            let resident = self
+                .model
+                .routine_signatures_by_symbol
+                .get(&symbol.id)
+                .is_some_and(|signature| {
+                    signature.source == super::SemanticCallableSource::Resident
+                });
+            if !resident {
+                return false;
+            }
+            symbol.name = public_name.to_string();
+            symbol.canonical_qualified_key = format!("sys::{}", public_name.to_ascii_lowercase());
+            symbol.qualified_name = format!("SYS.{public_name}");
+            routine.symbol = symbol;
+            true
+        });
+        // Keep legacy user routines first so adding a referenced interface does
+        // not renumber their stable NIR routine IDs.
+        program.modules.push(interface);
     }
 
     fn lower_named_compilation(&mut self, compilation: &LoadedCompilation) -> SemProgram {
@@ -3164,6 +3234,7 @@ impl<'a> IrBuilder<'a> {
         let callable_type = self.callable_type_for_callee(&callee);
         let expected_params = callable_type.params.clone();
         let return_type = callable_type.return_type.clone();
+        let effects = self.call_effects_for_callee(&callee);
 
         SemCall {
             callee,
@@ -3179,8 +3250,36 @@ impl<'a> IrBuilder<'a> {
                 })
                 .collect(),
             return_type,
-            effects: SemEffects::default(),
+            effects,
             span: expr.span,
+        }
+    }
+
+    fn call_effects_for_callee(&self, callee: &SemCallable) -> SemEffects {
+        let external = match callee {
+            SemCallable::User(symbol) | SemCallable::Builtin(symbol) => self
+                .model
+                .routine_signatures_by_symbol
+                .get(&symbol.id)
+                .is_some_and(|signature| {
+                    matches!(
+                        signature.source,
+                        super::SemanticCallableSource::Resident
+                            | super::SemanticCallableSource::Runtime
+                    )
+                }),
+            SemCallable::Runtime { .. } => true,
+            SemCallable::Indirect { .. } => false,
+        };
+        if external {
+            SemEffects {
+                writes: vec![SemWriteEffect::Unknown],
+                reads: vec![SemReadEffect::Unknown],
+                may_call_os: true,
+                opaque: true,
+            }
+        } else {
+            SemEffects::default()
         }
     }
 

@@ -120,7 +120,7 @@ pub(super) fn resolve_interfaces(
         }
     }
 
-    rewrite_external_references(program, &resolved)?;
+    rewrite_external_references(program, &resolved, &external)?;
     program
         .routines
         .retain(|routine| routine.abi != MirRoutineAbi::ExternalInterface);
@@ -334,6 +334,7 @@ fn record_image_references(image: &MirDataImage, record: &mut impl FnMut(Routine
 fn rewrite_external_references(
     program: &mut MirProgram,
     resolved: &BTreeMap<RoutineId, ResolvedTarget>,
+    external_names: &BTreeMap<RoutineId, String>,
 ) -> Result<(), Vec<MirDiagnostic>> {
     for static_data in &mut program.statics {
         rewrite_image(&mut static_data.image, resolved)?;
@@ -364,7 +365,10 @@ fn rewrite_external_references(
                         if let Some(binding) = resolved.get(id) {
                             *target = match binding {
                                 ResolvedTarget::Absolute(address) => MirCallTarget::Runtime {
-                                    name: "SYS external".to_string(),
+                                    name: external_names
+                                        .get(id)
+                                        .map(|name| external_display_name(name))
+                                        .unwrap_or_else(|| "SYS external".to_string()),
                                     address: Some(*address),
                                 },
                                 ResolvedTarget::Routine(id) => MirCallTarget::Routine(*id),
@@ -401,6 +405,13 @@ fn rewrite_external_references(
         }
     }
     Ok(())
+}
+
+fn external_display_name(name: &str) -> String {
+    name.rsplit(['.', ':'])
+        .find(|component| !component.is_empty())
+        .unwrap_or(name)
+        .to_string()
 }
 
 fn rewrite_global_init(

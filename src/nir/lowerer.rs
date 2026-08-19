@@ -1883,7 +1883,16 @@ impl NirBuilder {
                     .expect("resolved user callee must have a routine id"),
                 name: symbol.name.clone(),
             },
-            SemCallable::Builtin(symbol) => NirCallee::Builtin(symbol.name.clone()),
+            SemCallable::Builtin(symbol) => {
+                if let Some(id) = self.routine_ids.get(&storage_key(&symbol.name)) {
+                    NirCallee::User {
+                        id: *id,
+                        name: symbol.name.clone(),
+                    }
+                } else {
+                    NirCallee::Builtin(symbol.name.clone())
+                }
+            }
             SemCallable::Indirect { target, .. } => NirCallee::Indirect {
                 target: self.nir_value(target),
                 ty: NirFacts::type_from_value(&target.ty),
@@ -3678,10 +3687,15 @@ fn nir_machine_item(item: &MachineItem) -> NirMachineItem {
 
 fn machine_symbol_has_link_identity(symbol: &SemSymbolRef) -> bool {
     // Module-owned symbols have a stable declaration identity that the linker
-    // can retarget for the selected runtime. Legacy root symbols retain their
-    // compatibility machine-item form until all symbolic-offset forms carry
-    // structured addends.
+    // can retarget for the selected runtime. Resident compatibility symbols
+    // also have a synthesized external SYS declaration in legacy SemIR. Other
+    // legacy root symbols retain their compatibility machine-item form until
+    // all symbolic-offset forms carry structured addends.
     symbol.defining_module.is_some()
+        || matches!(
+            symbol.class,
+            SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc
+        )
 }
 
 fn nir_machine_atom(atom: &MachineAddressAtom) -> NirMachineAtom {
