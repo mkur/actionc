@@ -153,7 +153,7 @@ mod tests {
     }
 
     fn run_standalone_fixture(name: &str, mode: CompileMode, max_steps: u64) -> RunOutcome {
-        run_standalone_fixture_with_os(name, mode, max_steps, false)
+        run_runtime_fixture(name, mode, Runtime::Standalone, false, max_steps)
     }
 
     fn run_standalone_fixture_with_os(
@@ -162,14 +162,28 @@ mod tests {
         max_steps: u64,
         load_os: bool,
     ) -> RunOutcome {
+        run_runtime_fixture(name, mode, Runtime::Standalone, load_os, max_steps)
+    }
+
+    fn run_runtime_fixture(
+        name: &str,
+        mode: CompileMode,
+        runtime: Runtime,
+        load_os: bool,
+        max_steps: u64,
+    ) -> RunOutcome {
         let fixture = runtime_fixture(name);
         let compiled = compile_file(
             &fixture,
-            &CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
-        .unwrap_or_else(|error| panic!("compile standalone {name} with {mode:?}: {error}"));
-        let mut vm = vm_for_profile(ExecutionProfile::StandaloneObject);
-        if load_os {
+        .unwrap_or_else(|error| panic!("compile {runtime:?} {name} with {mode:?}: {error}"));
+        let profile = match runtime {
+            Runtime::ActionCart => ExecutionProfile::CartridgeObject,
+            Runtime::Standalone => ExecutionProfile::StandaloneObject,
+        };
+        let mut vm = vm_for_profile(profile);
+        if load_os && runtime == Runtime::Standalone {
             let os = repository_root().join("roms/altirraos-xl.rom");
             vm.load_image_bytes(
                 ImageKind::Rom,
@@ -177,13 +191,10 @@ mod tests {
                 OS_ROM_BASE,
                 std::fs::read(os).expect("read Atari OS ROM"),
             )
-            .expect("load Atari OS ROM for standalone CIO");
+            .expect("load Atari OS ROM for standalone runtime call");
         }
-        vm.load_atari_object_for_execution(
-            ExecutionProfile::StandaloneObject,
-            compiled.object_bytes(),
-        )
-        .unwrap_or_else(|error| panic!("load standalone {name} with {mode:?}: {error}"));
+        vm.load_atari_object_for_execution(profile, compiled.object_bytes())
+            .unwrap_or_else(|error| panic!("load {runtime:?} {name} with {mode:?}: {error}"));
         VmRunner::new(vm).run(RunRequest {
             max_steps,
             history_len: 8,
