@@ -12,6 +12,7 @@ mod tests {
     };
 
     const RESULT_START: u16 = 0x0600;
+    const ERROR_TRAP: u16 = 0x0700;
 
     struct MemoryExpectation<'a> {
         start: u16,
@@ -797,6 +798,94 @@ mod tests {
                         .collect::<Vec<_>>(),
                     [5, 0x66, 4, 0, 5, 10, 0x7F, 0x34, 0xA7, 0, 0],
                     "hardware helper results with {runtime:?}/{mode:?}"
+                );
+            }
+        }
+    }
+
+    fn run_exception_fixture(
+        fixture: &str,
+        mode: CompileMode,
+        runtime: Runtime,
+        max_steps: u64,
+    ) -> RunOutcome {
+        run_runtime_fixture_with_setup(
+            fixture,
+            mode,
+            runtime,
+            false,
+            max_steps,
+            |vm| {
+                let spin = ERROR_TRAP + 14;
+                let [spin_low, spin_high] = spin.to_le_bytes();
+                vm.bus_mut()
+                    .ram_mut()
+                    .map(
+                        ERROR_TRAP,
+                        &[
+                            0x8D, 0x00, 0x06, // STA $0600
+                            0x8E, 0x01, 0x06, // STX $0601
+                            0x8C, 0x02, 0x06, // STY $0602
+                            0xA9, 0xA5, // LDA #$A5
+                            0x8D, 0x03, 0x06, // STA $0603
+                            0x4C, spin_low, spin_high, // JMP spin
+                        ],
+                    )
+                    .expect("install error-vector trap");
+                match runtime {
+                    Runtime::ActionCart => vm
+                        .bus_mut()
+                        .ram_mut()
+                        .map(0x04CB, &[0x4C, 0x00, 0x07])
+                        .expect("redirect cartridge Error entry"),
+                    Runtime::Standalone => vm.bus_mut().ram_mut().write_word(0x000A, ERROR_TRAP),
+                }
+            },
+        )
+    }
+
+    #[test]
+    fn resident_exception_entries_match_under_both_runtimes_and_backends() {
+        let max_steps = 2_000;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let error = run_exception_fixture("resident_error.act", mode, runtime, max_steps);
+                assert_eq!(
+                    error.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected Error stop for {runtime:?}/{mode:?}: {:?}",
+                    error.report
+                );
+                assert_eq!(
+                    (0..4)
+                        .map(|offset| error.memory().read(0x0600 + offset))
+                        .collect::<Vec<_>>(),
+                    [0x11, 0x22, 0x33, 0xA5],
+                    "Error context with {runtime:?}/{mode:?}"
+                );
+
+                let break_call =
+                    run_exception_fixture("resident_break.act", mode, runtime, max_steps);
+                assert_eq!(
+                    break_call.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected Break stop for {runtime:?}/{mode:?}: {:?}",
+                    break_call.report
+                );
+                assert_eq!(
+                    break_call.memory().read(0x0600),
+                    0x80,
+                    "Break error code with {runtime:?}/{mode:?}"
+                );
+                assert_eq!(
+                    break_call.memory().read(0x0602),
+                    0x80,
+                    "Break Y context with {runtime:?}/{mode:?}"
+                );
+                assert_eq!(
+                    break_call.memory().read(0x0603),
+                    0xA5,
+                    "Break trap marker with {runtime:?}/{mode:?}"
                 );
             }
         }

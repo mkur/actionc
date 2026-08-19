@@ -1,0 +1,7 @@
+; Error transfers control through the selected runtime's error handler.
+PROC Main()
+  Error($11,$22,$33)
+
+  DO
+  OD
+RETURN

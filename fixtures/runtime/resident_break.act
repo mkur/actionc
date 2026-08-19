@@ -1,0 +1,7 @@
+; Break synthesizes the historical $80 error context and does not return.
+PROC Main()
+  Break()
+
+  DO
+  OD
+RETURN

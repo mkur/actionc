@@ -12,6 +12,11 @@ the pinned `actionc-vm` revision:
 cargo test --locked
 ```
 
+The test-enforced coverage ledger in `src/sys_coverage.rs` maps every public
+`SYS` routine to a fixture that invokes it and is wired into this harness. Any
+new interface routine must gain VM execution coverage or an explicit deferral.
+The current ledger has no deferred routines.
+
 The selectively linked standalone-library groups can be exercised together:
 
 ```sh

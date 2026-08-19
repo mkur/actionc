@@ -23,6 +23,8 @@ const EXECUTED: &[(&str, &str)] = &[
     ("PeekC", "resident_memory_strings.act"),
     ("Poke", "resident_memory_strings.act"),
     ("PokeC", "resident_memory_strings.act"),
+    ("Error", "resident_error.act"),
+    ("Break", "resident_break.act"),
     ("Graphics", "resident_graphics_io.act"),
     ("Position", "standalone_sys_graphics_runtime.act"),
     ("DrawTo", "resident_graphics_io.act"),
@@ -73,10 +75,7 @@ const EXECUTED: &[(&str, &str)] = &[
     ("ValI", "resident_numeric_values.act"),
 ];
 
-const DEFERRED: &[(&str, &str)] = &[
-    ("Error", "terminates through the OS error vector"),
-    ("Break", "terminates through the OS error vector"),
-];
+const DEFERRED: &[(&str, &str)] = &[];
 
 fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
