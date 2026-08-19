@@ -598,6 +598,17 @@ impl Analyzer {
             ("PrintE", vec![string_address.clone()]),
             ("PrintD", vec![byte.clone(), string_address.clone()]),
             ("PrintDE", vec![byte.clone(), string_address.clone()]),
+            (
+                "PrintF",
+                vec![
+                    string_address.clone(),
+                    card.clone(),
+                    card.clone(),
+                    card.clone(),
+                    card.clone(),
+                    card.clone(),
+                ],
+            ),
             ("PrintB", vec![byte.clone()]),
             ("PrintBE", vec![byte.clone()]),
             ("PrintBD", vec![byte.clone(), byte.clone()]),
@@ -730,17 +741,6 @@ impl Analyzer {
                 );
                 self.remember_routine_signature(symbol_id, signature);
             }
-        }
-
-        if let Some(symbol_id) = self.lookup_symbol(self.builtin_scope, "PrintF") {
-            let symbol = &self.symbols.symbols[symbol_id.0];
-            let signature = SemanticCallableSignature::from_variadic_symbol(
-                symbol,
-                vec![string_address],
-                card,
-                SemanticCallableSource::Resident,
-            );
-            self.remember_routine_signature(symbol_id, signature);
         }
     }
 
@@ -3675,21 +3675,6 @@ impl SemanticCallableSignature {
             source,
         }
     }
-
-    fn from_variadic_symbol(
-        symbol: &Symbol,
-        params: Vec<ValueType>,
-        variadic: ValueType,
-        source: SemanticCallableSource,
-    ) -> Self {
-        Self {
-            kind: callable_kind_from_symbol(symbol),
-            params,
-            variadic: Some(variadic),
-            return_type: symbol.ty.clone(),
-            source,
-        }
-    }
 }
 
 fn callable_kind_from_symbol(symbol: &Symbol) -> RoutineKind {
@@ -5347,8 +5332,8 @@ mod tests {
             .get(&normalize_name("PrintF"))
             .expect("PrintF signature");
         assert_eq!(print_f.kind, RoutineKind::Proc);
-        assert_eq!(print_f.params, vec![fund_value(FundType::Card)]);
-        assert_eq!(print_f.variadic, Some(fund_value(FundType::Card)));
+        assert_eq!(print_f.params, vec![fund_value(FundType::Card); 6]);
+        assert_eq!(print_f.variadic, None);
         assert_eq!(print_f.return_type, None);
         assert_eq!(print_f.source, SemanticCallableSource::Resident);
     }
@@ -5392,6 +5377,17 @@ mod tests {
             err.iter()
                 .any(|diagnostic| diagnostic.message.contains("`PutE` expects at most 0")),
             "expected builtin arity diagnostic, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn print_f_accepts_five_values_but_rejects_a_sixth() {
+        analyze_source("PROC Main() PrintF(\"%U%U%U%U%U\",1,2,3,4,5) RETURN");
+        let err = analyze_source_err("PROC Main() PrintF(\"%U\",1,2,3,4,5,6) RETURN");
+        assert!(
+            err.iter()
+                .any(|diagnostic| diagnostic.message.contains("`PrintF` expects at most 6")),
+            "expected PrintF arity diagnostic, got {err:?}"
         );
     }
 
