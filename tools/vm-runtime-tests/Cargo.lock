@@ -12,7 +12,7 @@ dependencies = [
 [[package]]
 name = "actionc-vm"
 version = "0.1.0"
-source = "git+https://github.com/mkur/actionc-vm.git?rev=dd55aa2a89fe900e86dcc48b559a4a80e87c31df#dd55aa2a89fe900e86dcc48b559a4a80e87c31df"
+source = "git+https://github.com/mkur/actionc-vm.git?rev=208fa6f5f78a52f5420ec57aed92c7acaee4ae90#208fa6f5f78a52f5420ec57aed92c7acaee4ae90"
 
 [[package]]
 name = "actionc-vm-runtime-tests"

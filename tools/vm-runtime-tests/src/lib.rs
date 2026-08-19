@@ -172,6 +172,17 @@ mod tests {
         load_os: bool,
         max_steps: u64,
     ) -> RunOutcome {
+        run_runtime_fixture_with_setup(name, mode, runtime, load_os, max_steps, |_| {})
+    }
+
+    fn run_runtime_fixture_with_setup(
+        name: &str,
+        mode: CompileMode,
+        runtime: Runtime,
+        load_os: bool,
+        max_steps: u64,
+        setup: impl FnOnce(&mut CompilerVm),
+    ) -> RunOutcome {
         let fixture = runtime_fixture(name);
         let compiled = compile_file(
             &fixture,
@@ -195,6 +206,7 @@ mod tests {
         }
         vm.load_atari_object_for_execution(profile, compiled.object_bytes())
             .unwrap_or_else(|error| panic!("load {runtime:?} {name} with {mode:?}: {error}"));
+        setup(&mut vm);
         VmRunner::new(vm).run(RunRequest {
             max_steps,
             history_len: 8,
@@ -510,6 +522,56 @@ mod tests {
                     outcome.vm.bus().cio_channel0_output(),
                     expected.as_slice(),
                     "numeric CIO output with {runtime:?}/{mode:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn resident_console_input_matches_under_both_runtimes_and_backends() {
+        let max_steps = 200_000;
+        let input =
+            b"42\x9B255\x9B1234\x9B65535\x9B-1234\x9B-32768\x9BZABC\x9BDEFG\x9BWXYZ\x9BLAST\x9B";
+        let expected: &[(u16, &[u8])] = &[
+            (0x0600, &[42, 255, b'Z']),
+            (0x0610, &[0xD2, 0x04, 0xFF, 0xFF]),
+            (0x0620, &[0x2E, 0xFB, 0x00, 0x80]),
+            (0x0640, b"\x03ABC"),
+            (0x0650, b"\x04DEFG"),
+            (0x0660, b"\x04WXYZ"),
+            (0x0670, b"\x04LAST"),
+        ];
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_runtime_fixture_with_setup(
+                    "resident_console_input.act",
+                    mode,
+                    runtime,
+                    true,
+                    max_steps,
+                    |vm| vm.bus_mut().queue_scripted_cio_input_bytes(input),
+                );
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
+                    outcome.report
+                );
+                for &(start, bytes) in expected {
+                    assert_eq!(
+                        (0..bytes.len())
+                            .map(|offset| outcome.memory().read(start + offset as u16))
+                            .collect::<Vec<_>>(),
+                        bytes,
+                        "input result at ${start:04X} with {runtime:?}/{mode:?}"
+                    );
+                }
+                assert_eq!(outcome.vm.bus().cio_summary().opens, 1);
+                assert_eq!(outcome.vm.bus().cio_summary().closes, 1);
+                assert_eq!(outcome.vm.bus().cio_summary().reads, 11);
+                assert_eq!(
+                    outcome.vm.bus().cio_summary().bytes_read,
+                    input.len() as u64
                 );
             }
         }
