@@ -5,7 +5,6 @@ use crate::nir::{NirCallEffects, NirCallableSignature, NirCallee};
 use super::abi::{
     action_arg_home, action_arg_width_bytes, action_call_clobbers, mir_memory_effect,
 };
-use super::builtin::{MirBuiltinResolution, resolve_builtin_target};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirCallAbi, MirCallArg, MirCallResult, MirCallTarget, MirDef, MirEffects, MirMemoryEffect,
@@ -129,12 +128,7 @@ fn lower_call_target(
         }),
         NirCallee::Builtin(name) => Some(MirCallTarget::Builtin {
             name: name.clone(),
-            address: match resolve_builtin_target(name) {
-                MirBuiltinResolution::Resolved { address } => Some(address),
-                MirBuiltinResolution::Deferred { .. }
-                | MirBuiltinResolution::Unsupported { .. }
-                | MirBuiltinResolution::Unknown => None,
-            },
+            address: None,
         }),
         NirCallee::Indirect { .. } => indirect_target
             .map(|(target, width)| MirCallTarget::Indirect { target, width })

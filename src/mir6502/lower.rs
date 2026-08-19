@@ -10,7 +10,6 @@ use crate::nir::{
 };
 use crate::resident::resident_variable;
 
-use super::builtin::{MirBuiltinResolution, resolve_builtin_target};
 use super::call_plan;
 use super::classify::{
     MirAddressShape, MirPlaceShape, MirValueShape, classify_address, classify_place, classify_value,
@@ -1430,12 +1429,6 @@ fn fixed_machine_symbol_address(
         .or_else(|| machine_named_constant(name))
         .or_else(|| resident_variable(name).map(|variable| variable.address))
         .or_else(|| machine_routine_system_address(routine_system_addresses, name))
-        .or_else(|| match resolve_builtin_target(name) {
-            MirBuiltinResolution::Resolved { address } => Some(address),
-            MirBuiltinResolution::Deferred { .. }
-            | MirBuiltinResolution::Unsupported { .. }
-            | MirBuiltinResolution::Unknown => None,
-        })
 }
 
 fn machine_routine_system_address(

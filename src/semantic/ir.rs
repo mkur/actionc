@@ -2394,6 +2394,10 @@ impl<'a> IrBuilder<'a> {
                     _ => return None,
                 };
                 self.qualified_symbol_ref(scope, name, Span::new(0, 0))
+                    .or_else(|| {
+                        compact_machine_symbol_name(items, item_index)
+                            .and_then(|name| self.symbol_ref(scope, &name, Span::new(0, 0)))
+                    })
                     .map(|symbol| SemMachineSymbolRef { item_index, symbol })
             })
             .collect()
@@ -3731,6 +3735,59 @@ fn is_logical_condition_tree(expr: &SemExpr) -> bool {
         } => is_logical_condition_tree(left) && is_logical_condition_tree(right),
         _ => false,
     }
+}
+
+fn compact_machine_symbol_name(items: &[MachineItem], item_index: usize) -> Option<String> {
+    let MachineItem::Number(number) = items.get(item_index.checked_sub(1)?)? else {
+        return None;
+    };
+    let digits = number.text.strip_prefix('$')?;
+    if digits.len() <= 2 || !digits.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return None;
+    }
+    let suffix = match items.get(item_index)? {
+        MachineItem::Name(name) | MachineItem::AddressByte { name, .. } => name.display_name(),
+        MachineItem::AddressExpr(MachineAddressExpr {
+            atom: MachineAddressAtom::Name(name),
+            ..
+        }) => name.display_name(),
+        _ => return None,
+    };
+    Some(format!("{}{suffix}", &digits[2..]))
+}
+
+fn relink_inline_asm_items(
+    items: &[MachineItem],
+    link_names: &HashMap<String, String>,
+) -> Vec<MachineItem> {
+    let relink = |name: &QualifiedName| {
+        link_names
+            .get(&normalize_name(name.display_name()))
+            .map(|link_name| QualifiedName::simple(link_name.clone()))
+            .unwrap_or_else(|| name.clone())
+    };
+
+    items
+        .iter()
+        .cloned()
+        .map(|item| match item {
+            MachineItem::Name(name) => MachineItem::Name(relink(&name)),
+            MachineItem::AddressByte { selector, name } => MachineItem::AddressByte {
+                selector,
+                name: relink(&name),
+            },
+            MachineItem::AddressExpr(mut expression) => {
+                if let MachineAddressAtom::Name(name) = &expression.atom {
+                    expression.atom = MachineAddressAtom::Name(relink(name));
+                }
+                MachineItem::AddressExpr(expression)
+            }
+            MachineItem::Number(_)
+            | MachineItem::StringLiteral(_)
+            | MachineItem::CharLiteral(_)
+            | MachineItem::Raw(_) => item,
+        })
+        .collect()
 }
 
 fn promote_numeric_types(left: &ValueType, right: &ValueType) -> ValueType {

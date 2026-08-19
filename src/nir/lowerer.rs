@@ -179,7 +179,6 @@ impl NirLowerer {
                             record_storage_sizes.clone(),
                             self.machine_defines.clone(),
                             self.machine_define_names.clone(),
-                            module.id.is_some(),
                         );
                         for (index, param) in routine.params.iter().enumerate() {
                             let ty = match param.storage {
@@ -348,7 +347,6 @@ impl NirLowerer {
                 record_storage_sizes.clone(),
                 self.machine_defines.clone(),
                 self.machine_define_names.clone(),
-                program.modules.iter().any(|module| module.id.is_some()),
             );
             for op in top_level_ops {
                 builder.push(op);
@@ -724,7 +722,6 @@ pub(super) struct NirBuilder {
     record_storage_sizes: BTreeMap<String, u16>,
     machine_defines: BTreeMap<usize, Vec<MachineItem>>,
     machine_define_names: BTreeMap<String, Vec<MachineItem>>,
-    require_resolved_machine_symbols: bool,
     notes: Vec<NirRoutineNote>,
     blocks: Vec<NirBlock>,
     block_ids: BTreeMap<String, BlockId>,
@@ -749,7 +746,6 @@ impl NirBuilder {
         record_storage_sizes: BTreeMap<String, u16>,
         machine_defines: BTreeMap<usize, Vec<MachineItem>>,
         machine_define_names: BTreeMap<String, Vec<MachineItem>>,
-        require_resolved_machine_symbols: bool,
     ) -> Self {
         let entry_id = BlockId(0);
         let block_ids = BTreeMap::from([(entry_label.clone(), entry_id)]);
@@ -765,7 +761,6 @@ impl NirBuilder {
             record_storage_sizes,
             machine_defines,
             machine_define_names,
-            require_resolved_machine_symbols,
             notes: Vec::new(),
             blocks: vec![NirBlock {
                 id: entry_id,
@@ -1108,7 +1103,14 @@ impl NirBuilder {
                 self.split_compact_machine_number_item(item, items.get(index + 1))
             {
                 lowered.push(NirMachineItem::Byte(byte));
-                lowered.push(split_item);
+                if let Some(symbol) = resolved_symbols.get(&(index + 1))
+                    && machine_symbol_has_link_identity(symbol)
+                    && let Some(item) = self.resolved_nir_machine_symbol_item(&split_item, symbol)
+                {
+                    lowered.push(item);
+                } else {
+                    lowered.push(split_item);
+                }
                 index += 2;
                 continue;
             }
@@ -1128,8 +1130,8 @@ impl NirBuilder {
                 index += 1;
                 continue;
             }
-            if self.require_resolved_machine_symbols
-                && let Some(symbol) = resolved_symbols.get(&index)
+            if let Some(symbol) = resolved_symbols.get(&index)
+                && machine_symbol_has_link_identity(symbol)
                 && let Some(item) = self.nir_machine_symbol_item(item, symbol)
             {
                 lowered.push(item);
@@ -1169,6 +1171,48 @@ impl NirBuilder {
             | MachineItem::StringLiteral(_)
             | MachineItem::CharLiteral(_)
             | MachineItem::Raw(_) => return None,
+        };
+        Some(NirMachineItem::Relocation {
+            kind,
+            target,
+            addend,
+            requires_zero_page: false,
+            span: symbol.span,
+        })
+    }
+
+    fn resolved_nir_machine_symbol_item(
+        &self,
+        item: &NirMachineItem,
+        symbol: &SemSymbolRef,
+    ) -> Option<NirMachineItem> {
+        let target = self.nir_inline_asm_symbol_target(symbol)?;
+        let (kind, addend) = match item {
+            NirMachineItem::Name(_) => (InlineAsmRelocationKind::Absolute16, 0),
+            NirMachineItem::AddressByte { high, .. } => (
+                if *high {
+                    InlineAsmRelocationKind::High8
+                } else {
+                    InlineAsmRelocationKind::Low8
+                },
+                0,
+            ),
+            NirMachineItem::AddressExpr {
+                selector, offset, ..
+            } => (
+                match selector {
+                    Some(NirMachineByteSelector::Low) => InlineAsmRelocationKind::Low8,
+                    Some(NirMachineByteSelector::High) => InlineAsmRelocationKind::High8,
+                    None => InlineAsmRelocationKind::Absolute16,
+                },
+                *offset,
+            ),
+            NirMachineItem::Byte(_)
+            | NirMachineItem::Word(_)
+            | NirMachineItem::StringLiteral(_)
+            | NirMachineItem::CharLiteral(_)
+            | NirMachineItem::Relocation { .. }
+            | NirMachineItem::Raw(_) => return None,
         };
         Some(NirMachineItem::Relocation {
             kind,
@@ -3632,6 +3676,14 @@ fn nir_machine_item(item: &MachineItem) -> NirMachineItem {
     }
 }
 
+fn machine_symbol_has_link_identity(symbol: &SemSymbolRef) -> bool {
+    // Module-owned symbols have a stable declaration identity that the linker
+    // can retarget for the selected runtime. Legacy root symbols retain their
+    // compatibility machine-item form until all symbolic-offset forms carry
+    // structured addends.
+    symbol.defining_module.is_some()
+}
+
 fn nir_machine_atom(atom: &MachineAddressAtom) -> NirMachineAtom {
     match atom {
         MachineAddressAtom::Number(number) => number
@@ -3878,7 +3930,6 @@ mod memory_effect_tests {
             BTreeMap::new(),
             BTreeMap::new(),
             BTreeMap::new(),
-            false,
         );
         builder.params.push(NirParam {
             id: ParamId(2),

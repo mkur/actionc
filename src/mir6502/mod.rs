@@ -1,6 +1,5 @@
 mod abi;
 mod analysis;
-mod builtin;
 mod call_plan;
 mod classify;
 mod diagnostics;
@@ -8129,22 +8128,29 @@ mod tests {
             "DEFINE OFF=\"2\" BYTE ARRAY screen=$8010 PROC Main() [screen^+OFF >screen^-OFF]",
         );
 
-        assert!(bytes_contain(&output.bytes, &[0x12, 0x80, 0x80]));
+        assert!(
+            bytes_contain(&output.bytes, &[0x12, 0x80, 0x80]),
+            "{:02X?}",
+            output.bytes
+        );
     }
 
     #[test]
-    fn source_machine_block_resolves_runtime_symbols() {
+    fn source_machine_block_resolves_system_and_predefined_symbols() {
         let output = generate_mir6502_source(
-            "PROC Rom=$A326()[] PROC Main() [$20Rom $ADRom+1 $20Break $A5device $A9 EOL $AD EOF] RETURN",
+            "PROC Rom=$A326()[] PROC Main() [$20Rom $ADRom+1 $A5device $A9 EOL $AD EOF] RETURN",
         );
 
-        assert!(bytes_contain(
-            &output.bytes,
-            &[
-                0x20, 0x26, 0xA3, 0xAD, 0x27, 0xA3, 0x20, 0xDA, 0xA7, 0xA5, 0xB7, 0xA9, 0x9B, 0xAD,
-                0xC0, 0x05,
-            ],
-        ));
+        assert!(
+            bytes_contain(
+                &output.bytes,
+                &[
+                    0x20, 0x26, 0xA3, 0xAD, 0x27, 0xA3, 0xA5, 0xB7, 0xA9, 0x9B, 0xAD, 0xC0, 0x05,
+                ],
+            ),
+            "{:02X?}",
+            output.bytes
+        );
     }
 
     #[test]
