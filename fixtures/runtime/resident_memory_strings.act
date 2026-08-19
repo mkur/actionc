@@ -1,0 +1,27 @@
+; Exercise substring assignment and the resident direct-memory access helpers.
+BYTE ARRAY destination(8)="ABCDE"
+BYTE ARRAY source="xy"
+BYTE ARRAY stringResult(8)=$0600
+BYTE ARRAY memoryResult(3)=$0620
+
+PROC Main()
+  CARD value
+  BYTE index
+
+  SAssign(destination,source,2,4)
+  index=0
+  WHILE index<=destination(0) DO
+    stringResult(index)=destination(index)
+    index==+1
+  OD
+
+  Poke($0610,$34)
+  PokeC($0611,$BEEF)
+  memoryResult(0)=Peek($0610)
+  value=PeekC($0611)
+  memoryResult(1)=value
+  memoryResult(2)=value RSH 8
+
+  DO
+  OD
+RETURN

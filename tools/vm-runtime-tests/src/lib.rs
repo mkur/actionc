@@ -1,4 +1,7 @@
 #[cfg(test)]
+mod sys_coverage;
+
+#[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
 
@@ -723,6 +726,42 @@ mod tests {
                     outcome.vm.bus().cio_channel0_output(),
                     b"ABC\x9BD\x9B%|TXT|1234|-1|$BEEF\x9B",
                     "formatted output with {runtime:?}/{mode:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn resident_memory_and_string_helpers_match_under_both_runtimes_and_backends() {
+        let max_steps = 50_000;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_runtime_fixture(
+                    "resident_memory_strings.act",
+                    mode,
+                    runtime,
+                    false,
+                    max_steps,
+                );
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
+                    outcome.report
+                );
+                assert_eq!(
+                    (0..6)
+                        .map(|offset| outcome.memory().read(0x0600 + offset))
+                        .collect::<Vec<_>>(),
+                    b"\x05AxyDE",
+                    "SAssign result with {runtime:?}/{mode:?}"
+                );
+                assert_eq!(
+                    (0..3)
+                        .map(|offset| outcome.memory().read(0x0620 + offset))
+                        .collect::<Vec<_>>(),
+                    [0x34, 0xEF, 0xBE],
+                    "Peek/Poke result with {runtime:?}/{mode:?}"
                 );
             }
         }

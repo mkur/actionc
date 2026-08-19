@@ -215,6 +215,28 @@ fn resident_formatted_output_runtime_check() {
 }
 
 #[test]
+#[ignore = "executes resident string/memory contracts with actionc-vm; use cargo test --test compatibility resident_memory_strings_runtime_check -- --ignored"]
+fn resident_memory_strings_runtime_check() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let harness = repo_root.join("tools").join("vm-runtime-tests");
+
+    let output = Command::new("cargo")
+        .args(["test", "--locked", "resident_memory_and_string_"])
+        .current_dir(&harness)
+        .output()
+        .unwrap_or_else(|err| panic!("run string/memory VM tests in {}: {err}", harness.display()));
+
+    if !output.status.success() {
+        panic!(
+            "string/memory VM tests failed with status {}\nstdout:\n{}\nstderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
 #[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility -- --ignored"]
 fn scaled_card_index_runtime_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
