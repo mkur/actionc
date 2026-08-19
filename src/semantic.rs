@@ -517,6 +517,9 @@ impl Analyzer {
             "SCopy",
             "SCopyS",
             "SAssign",
+            "StrB",
+            "StrC",
+            "StrI",
         ];
 
         for name in builtin_procs {
@@ -695,6 +698,9 @@ impl Analyzer {
                     byte.clone(),
                 ],
             ),
+            ("StrB", vec![byte.clone(), string_address.clone()]),
+            ("StrC", vec![card.clone(), string_address.clone()]),
+            ("StrI", vec![int.clone(), string_address.clone()]),
             ("ValB", vec![string_address.clone()]),
             ("ValC", vec![string_address.clone()]),
             ("ValI", vec![string_address.clone()]),

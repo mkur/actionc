@@ -75,6 +75,9 @@ pub(super) const BUILTIN_TARGETS: &[MirBuiltinEntry] = &[
     resolved("SCopy", 0xA898),
     resolved("SCopyS", 0xA8AF),
     resolved("SAssign", 0xA8D8),
+    resolved("StrB", 0xA544),
+    resolved("StrC", 0xA54C),
+    resolved("StrI", 0xA55B),
     resolved("ValB", 0xA59A),
     resolved("ValC", 0xA59A),
     resolved("ValI", 0xA59A),
@@ -137,6 +140,10 @@ mod tests {
         assert_eq!(
             resolve_builtin_target("SCompare"),
             MirBuiltinResolution::Resolved { address: 0xA864 }
+        );
+        assert_eq!(
+            resolve_builtin_target("StrI"),
+            MirBuiltinResolution::Resolved { address: 0xA55B }
         );
         assert_eq!(
             resolve_builtin_target("Break"),

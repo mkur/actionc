@@ -729,6 +729,9 @@ fn add_builtin_routine_info(routines: &mut HashMap<String, RoutineInfo>) {
     insert_builtin_routine(routines, "SCopy", &[2, 2], None, false, 0xA898);
     insert_builtin_routine(routines, "SCopyS", &[2, 2, 1, 1], None, false, 0xA8AF);
     insert_builtin_routine(routines, "SAssign", &[2, 2, 1, 1], None, false, 0xA8D8);
+    insert_builtin_routine(routines, "StrB", &[1, 2], None, false, 0xA544);
+    insert_builtin_routine(routines, "StrC", &[2, 2], None, false, 0xA54C);
+    insert_builtin_routine(routines, "StrI", &[2, 2], None, false, 0xA55B);
     insert_builtin_routine(routines, "ValB", &[2], Some(1), false, 0xA59A);
     insert_builtin_routine(routines, "ValC", &[2], Some(2), false, 0xA59A);
     insert_builtin_routine(routines, "ValI", &[2], Some(2), true, 0xA59A);

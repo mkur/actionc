@@ -776,7 +776,9 @@ fn sys_string_bindings_work_in_every_backend_and_runtime_pair() {
             String::from_utf8_lossy(&output.stderr)
         );
         let map = String::from_utf8_lossy(&output.stdout);
-        for routine in ["SCompare", "SCopy", "SCopyS", "SAssign"] {
+        for routine in [
+            "SCompare", "SCopy", "SCopyS", "SAssign", "StrB", "StrC", "StrI",
+        ] {
             let expected = if backend == "classic" {
                 format!("runtime-binding SYS.{routine}")
             } else {
@@ -797,6 +799,9 @@ fn sys_string_bindings_work_in_every_backend_and_runtime_pair() {
             map.to_ascii_uppercase().contains(implementation_unit),
             "{backend}: {map}"
         );
+        if backend == "classic" {
+            assert!(map.contains("SYSIO.ACT"), "{backend}: {map}");
+        }
         assert!(!map.contains("ACTION.RUNTIME.SYSBLK"), "{backend}: {map}");
     }
 }
