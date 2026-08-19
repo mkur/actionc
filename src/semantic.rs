@@ -488,23 +488,7 @@ impl Analyzer {
     }
 
     fn seed_resident_interface(&mut self) {
-        let Some(source) = crate::embedded_vfs::EmbeddedSourceProvider.module_source("sys.act")
-        else {
-            self.diagnostics.push(Diagnostic::new(
-                Span::new(0, 0),
-                "embedded SYS interface is missing",
-            ));
-            return;
-        };
-        let text = crate::source::decode_source(source.bytes);
-        let tokens = match crate::lexer::tokenize(&text) {
-            Ok(tokens) => tokens,
-            Err(diagnostics) => {
-                self.diagnostics.extend(diagnostics);
-                return;
-            }
-        };
-        let program = match crate::parser::parse(&tokens) {
+        let program = match crate::runtime_bindings::parse_sys_interface() {
             Ok(program) => program,
             Err(diagnostics) => {
                 self.diagnostics.extend(diagnostics);
@@ -5133,11 +5117,7 @@ mod tests {
 
     #[test]
     fn resident_compatibility_prelude_matches_embedded_sys_interface() {
-        let source = crate::embedded_vfs::EmbeddedSourceProvider
-            .module_source("sys.act")
-            .expect("embedded SYS interface");
-        let text = crate::source::decode_source(source.bytes);
-        let program = parse(&tokenize(&text).expect("tokenize SYS")).expect("parse SYS");
+        let program = crate::runtime_bindings::parse_sys_interface().expect("parse SYS interface");
         let mut analyzer = Analyzer::new();
         analyzer.seed_builtins();
         assert!(

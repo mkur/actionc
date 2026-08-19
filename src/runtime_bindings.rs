@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::ast::{Expr, ExprKind, Item};
+use crate::ast::{Expr, ExprKind, Item, Program};
 use crate::diagnostic::Diagnostic;
 use crate::embedded_vfs::EmbeddedSourceProvider;
 use crate::lexer::tokenize;
@@ -12,6 +12,16 @@ use crate::source::Span;
 pub(crate) enum BindingTarget {
     Absolute(u16),
     RuntimeRoutine { unit: String, routine: String },
+}
+
+pub(crate) fn parse_sys_interface() -> Result<Program, Vec<Diagnostic>> {
+    let file_name = "sys.act";
+    let source = EmbeddedSourceProvider
+        .module_source(file_name)
+        .ok_or_else(|| diagnostic(format!("embedded SYS interface `{file_name}` is missing")))?;
+    let text = crate::source::decode_source(source.bytes);
+    let tokens = tokenize(&text)?;
+    parse(&tokens)
 }
 
 pub(crate) fn parse_bindings(

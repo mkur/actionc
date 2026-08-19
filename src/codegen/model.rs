@@ -307,83 +307,139 @@ fn pointer_pair_contains(pointer: ZeroPage, address: u8) -> bool {
 pub(super) fn collect_routine_info(
     program: &Program,
     record_layouts: &RecordLayouts,
-) -> HashMap<String, RoutineInfo> {
+    runtime_target: RuntimeTarget,
+) -> Result<HashMap<String, RoutineInfo>, Vec<Diagnostic>> {
     let mut routines = HashMap::new();
     for module in &program.modules {
         for item in &module.items {
             let Item::Routine(routine) = item else {
                 continue;
             };
-            let mut params = Vec::new();
-            let mut arg_offset = 0u8;
-            for param in &routine.params {
-                let Some(_element_size) = type_size_with_records(&param.ty, record_layouts) else {
-                    continue;
-                };
-                let slot_size = if decl_is_array_like(param) {
-                    2
-                } else if let Some(slot_size) = storage_size_with_records(&param.ty, record_layouts)
-                {
-                    slot_size
-                } else {
-                    continue;
-                };
-                let pointee_size = pointee_size_with_records(&param.ty, record_layouts);
-                let record = record_id_for_type(&param.ty, record_layouts);
-                for _ in &param.entries {
-                    let slot = if decl_is_array_like(param) {
-                        StorageSlot::zero_page(
-                            runtime_zp::ARGS.offset(arg_offset).address(),
-                            slot_size,
-                        )
-                        .signed(slot_signed_for_type(&param.ty))
-                    } else if let Some(pointee_size) = pointee_size {
-                        StorageSlot::zero_page_pointer(
-                            runtime_zp::ARGS.offset(arg_offset).address(),
-                            pointee_size,
-                        )
-                    } else {
-                        StorageSlot::zero_page(
-                            runtime_zp::ARGS.offset(arg_offset).address(),
-                            slot_size,
-                        )
-                    }
-                    .record(record)
-                    .signed(slot_signed_for_type(&param.ty));
-                    params.push(slot);
-                    arg_offset = arg_offset.wrapping_add(slot_size as u8);
-                }
-            }
-            let return_slot = match routine.kind {
-                RoutineKind::Proc => None,
-                RoutineKind::Func { return_type } => {
-                    let ty = TypeRef {
-                        base: TypeBase::Fund(return_type),
-                        pointer: false,
-                    };
-                    type_size(&ty).map(|size| {
-                        StorageSlot::zero_page(runtime_zp::ARGS.address(), size)
-                            .signed(type_is_signed(&ty))
-                    })
-                }
-            };
             let system_address = routine_absolute_system_address(routine);
             routines.insert(
                 normalize_name(&routine.name),
-                RoutineInfo {
-                    label: format!("routine:{}", routine.name),
-                    params,
-                    return_slot,
+                routine_info(
+                    routine,
+                    record_layouts,
+                    format!("routine:{}", routine.name),
                     system_address,
-                    facts: routine_facts_from_annotations(&routine.annotations),
-                    effects: system_effects_for_address(system_address)
-                        .unwrap_or_else(RoutineEffects::unknown),
-                },
+                ),
             );
         }
     }
-    add_builtin_routine_info(&mut routines);
-    routines
+
+    if runtime_target == RuntimeTarget::Cartridge {
+        add_cart_resident_routine_info(&mut routines, record_layouts)?;
+    }
+    Ok(routines)
+}
+
+fn routine_info(
+    routine: &Routine,
+    record_layouts: &RecordLayouts,
+    label: String,
+    system_address: Option<u16>,
+) -> RoutineInfo {
+    let mut params = Vec::new();
+    let mut arg_offset = 0u8;
+    for param in &routine.params {
+        let Some(_element_size) = type_size_with_records(&param.ty, record_layouts) else {
+            continue;
+        };
+        let slot_size = if decl_is_array_like(param) {
+            2
+        } else if let Some(slot_size) = storage_size_with_records(&param.ty, record_layouts) {
+            slot_size
+        } else {
+            continue;
+        };
+        let pointee_size = pointee_size_with_records(&param.ty, record_layouts);
+        let record = record_id_for_type(&param.ty, record_layouts);
+        for _ in &param.entries {
+            let slot = if decl_is_array_like(param) {
+                StorageSlot::zero_page(runtime_zp::ARGS.offset(arg_offset).address(), slot_size)
+                    .signed(slot_signed_for_type(&param.ty))
+            } else if let Some(pointee_size) = pointee_size {
+                StorageSlot::zero_page_pointer(
+                    runtime_zp::ARGS.offset(arg_offset).address(),
+                    pointee_size,
+                )
+            } else {
+                StorageSlot::zero_page(runtime_zp::ARGS.offset(arg_offset).address(), slot_size)
+            }
+            .record(record)
+            .signed(slot_signed_for_type(&param.ty));
+            params.push(slot);
+            arg_offset = arg_offset.wrapping_add(slot_size as u8);
+        }
+    }
+    let return_slot = match routine.kind {
+        RoutineKind::Proc => None,
+        RoutineKind::Func { return_type } => {
+            let ty = TypeRef {
+                base: TypeBase::Fund(return_type),
+                pointer: false,
+            };
+            type_size(&ty).map(|size| {
+                StorageSlot::zero_page(runtime_zp::ARGS.address(), size).signed(type_is_signed(&ty))
+            })
+        }
+    };
+    RoutineInfo {
+        label,
+        params,
+        return_slot,
+        system_address,
+        facts: routine_facts_from_annotations(&routine.annotations),
+        effects: system_effects_for_address(system_address).unwrap_or_else(RoutineEffects::unknown),
+    }
+}
+
+fn add_cart_resident_routine_info(
+    routines: &mut HashMap<String, RoutineInfo>,
+    record_layouts: &RecordLayouts,
+) -> Result<(), Vec<Diagnostic>> {
+    let interface = crate::runtime_bindings::parse_sys_interface()?;
+    let bindings = crate::runtime_bindings::parse_bindings(Runtime::ActionCart)?;
+    for routine in interface
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            Item::Routine(routine)
+                if routine.is_external && routine.visibility == Visibility::Public =>
+            {
+                Some(routine)
+            }
+            _ => None,
+        })
+    {
+        let binding_name = format!("SYS.{}", routine.name);
+        let key = crate::runtime_bindings::binding_key(&binding_name);
+        let Some(binding) = bindings.get(&key) else {
+            return Err(vec![Diagnostic::new(
+                routine.span,
+                format!("cart runtime has no binding for `{binding_name}`"),
+            )]);
+        };
+        let crate::runtime_bindings::BindingTarget::Absolute(address) = binding else {
+            return Err(vec![Diagnostic::new(
+                routine.span,
+                format!("cart runtime binding for `{binding_name}` is not an address"),
+            )]);
+        };
+        routines
+            .entry(normalize_name(&routine.name))
+            .or_insert_with(|| {
+                routine_info(
+                    routine,
+                    record_layouts,
+                    format!("runtime:{binding_name}"),
+                    Some(*address),
+                )
+            });
+    }
+    Ok(())
 }
 
 fn system_effects_for_address(address: Option<u16>) -> Option<RoutineEffects> {
@@ -401,383 +457,6 @@ fn system_effects_for_address(address: Option<u16>) -> Option<RoutineEffects> {
         0xF2F8 => Some(RoutineEffects::known_empty()),
         _ => None,
     }
-}
-
-fn add_builtin_routine_info(routines: &mut HashMap<String, RoutineInfo>) {
-    routines
-        .entry(normalize_name("Graphics"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:Graphics".to_string(),
-            params: vec![StorageSlot::zero_page(runtime_zp::ARGS.address(), 1)],
-            return_slot: None,
-            system_address: Some(0xA654),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("SetColor"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:SetColor".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(1).address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(2).address(), 1),
-            ],
-            return_slot: None,
-            system_address: Some(0xA6CE),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("Plot"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:Plot".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(2).address(), 1),
-            ],
-            return_slot: None,
-            system_address: Some(0xA6C3),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("DrawTo"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:DrawTo".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(2).address(), 1),
-            ],
-            return_slot: None,
-            system_address: Some(0xA68C),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("SCompare"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:SCompare".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(2).address(), 2),
-            ],
-            return_slot: Some(StorageSlot::zero_page(runtime_zp::ARGS.address(), 2).signed(true)),
-            system_address: Some(0xA864),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("PrintF"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:PrintF".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(2).address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(4).address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(6).address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(8).address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(10).address(), 2),
-            ],
-            return_slot: None,
-            system_address: Some(0xA3CC),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("Print"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:Print".to_string(),
-            params: vec![StorageSlot::zero_page(runtime_zp::ARGS.address(), 2)],
-            return_slot: None,
-            system_address: Some(0xA47F),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("PrintE"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:PrintE".to_string(),
-            params: vec![StorageSlot::zero_page(runtime_zp::ARGS.address(), 2)],
-            return_slot: None,
-            system_address: Some(0xA46C),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("PrintBE"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:PrintBE".to_string(),
-            params: vec![StorageSlot::zero_page(runtime_zp::ARGS.address(), 1)],
-            return_slot: None,
-            system_address: Some(0xA4EC),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("PrintD"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:PrintD".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(1).address(), 2),
-            ],
-            return_slot: None,
-            system_address: Some(0xA486),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("InputS"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:InputS".to_string(),
-            params: vec![StorageSlot::zero_page(runtime_zp::ARGS.address(), 2)],
-            return_slot: None,
-            system_address: Some(0xA48C),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("InputSD"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:InputSD".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(1).address(), 2),
-            ],
-            return_slot: None,
-            system_address: Some(0xA493),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("InputMD"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:InputMD".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(1).address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(3).address(), 1),
-            ],
-            return_slot: None,
-            system_address: Some(0xA499),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("InputD"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:InputD".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(1).address(), 2),
-            ],
-            return_slot: None,
-            system_address: Some(0xA4A7),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("XIO"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:XIO".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(1).address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(2).address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(3).address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(4).address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(5).address(), 2),
-            ],
-            return_slot: None,
-            system_address: Some(0xA4DE),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("Zero"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:Zero".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(2).address(), 2),
-            ],
-            return_slot: None,
-            system_address: Some(0xA78A),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("Close"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:Close".to_string(),
-            params: vec![StorageSlot::zero_page(runtime_zp::ARGS.address(), 1)],
-            return_slot: None,
-            system_address: Some(0xA479),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("Open"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:Open".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(1).address(), 2),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(3).address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(4).address(), 1),
-            ],
-            return_slot: None,
-            system_address: Some(0xA444),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("Break"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:Break".to_string(),
-            params: vec![],
-            return_slot: None,
-            system_address: Some(0xA7DA),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("Rand"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:Rand".to_string(),
-            params: vec![StorageSlot::zero_page(runtime_zp::ARGS.address(), 1)],
-            return_slot: Some(StorageSlot::zero_page(runtime_zp::ARGS.address(), 1)),
-            system_address: Some(0xA6F1),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("PutD"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:PutD".to_string(),
-            params: vec![
-                StorageSlot::zero_page(runtime_zp::ARGS.address(), 1),
-                StorageSlot::zero_page(runtime_zp::ARGS.offset(1).address(), 1),
-            ],
-            return_slot: None,
-            system_address: Some(0xA4D1),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("Put"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:Put".to_string(),
-            params: vec![StorageSlot::zero_page(runtime_zp::ARGS.address(), 1)],
-            return_slot: None,
-            system_address: Some(0xA4CE),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("PutE"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:PutE".to_string(),
-            params: vec![],
-            return_slot: None,
-            system_address: Some(0xA4CC),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-    routines
-        .entry(normalize_name("PutDE"))
-        .or_insert_with(|| RoutineInfo {
-            label: "builtin:PutDE".to_string(),
-            params: vec![StorageSlot::zero_page(runtime_zp::ARGS.address(), 1)],
-            return_slot: None,
-            system_address: Some(0xA4DA),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-
-    insert_builtin_routine(routines, "PrintDE", &[1, 2], None, false, 0xA473);
-    insert_builtin_routine(routines, "PrintB", &[1], None, false, 0xA4E4);
-    insert_builtin_routine(routines, "PrintBD", &[1, 1], None, false, 0xA4F4);
-    insert_builtin_routine(routines, "PrintBDE", &[1, 1], None, false, 0xA508);
-    insert_builtin_routine(routines, "PrintC", &[2], None, false, 0xA4E6);
-    insert_builtin_routine(routines, "PrintCE", &[2], None, false, 0xA4EE);
-    insert_builtin_routine(routines, "PrintCD", &[1, 2], None, false, 0xA4F6);
-    insert_builtin_routine(routines, "PrintCDE", &[1, 2], None, false, 0xA50A);
-    insert_builtin_routine(routines, "PrintI", &[2], None, false, 0xA512);
-    insert_builtin_routine(routines, "PrintIE", &[2], None, false, 0xA536);
-    insert_builtin_routine(routines, "PrintID", &[1, 2], None, false, 0xA519);
-    insert_builtin_routine(routines, "PrintIDE", &[1, 2], None, false, 0xA53C);
-    insert_builtin_routine(routines, "PrintH", &[2], None, false, 0xB8C2);
-    insert_builtin_routine(routines, "InputB", &[], Some(1), false, 0xA588);
-    insert_builtin_routine(routines, "InputBD", &[1], Some(1), false, 0xA58A);
-    insert_builtin_routine(routines, "InputC", &[], Some(2), false, 0xA588);
-    insert_builtin_routine(routines, "InputCD", &[1], Some(2), false, 0xA58A);
-    insert_builtin_routine(routines, "InputI", &[], Some(2), true, 0xA588);
-    insert_builtin_routine(routines, "InputID", &[1], Some(2), true, 0xA58A);
-    insert_builtin_routine(routines, "GetD", &[1], Some(1), false, 0xA4AD);
-    insert_builtin_routine(routines, "Note", &[1, 2, 2], None, false, 0xA60D);
-    insert_builtin_routine(routines, "Point", &[1, 2, 1], None, false, 0xA634);
-    insert_builtin_routine(routines, "Fill", &[2, 1], None, false, 0xA6E9);
-    insert_builtin_routine(routines, "Position", &[2, 1], None, false, 0xA6AE);
-    insert_builtin_routine(routines, "Locate", &[2, 1], Some(1), false, 0xA6BB);
-    insert_builtin_routine(routines, "Sound", &[1, 1, 1, 1], None, false, 0xA704);
-    insert_builtin_routine(routines, "SndRst", &[], None, false, 0xA721);
-    insert_builtin_routine(routines, "Paddle", &[1], Some(1), false, 0xAD37);
-    insert_builtin_routine(routines, "PTrig", &[1], Some(1), false, 0xA737);
-    insert_builtin_routine(routines, "Stick", &[1], Some(1), false, 0xA74E);
-    insert_builtin_routine(routines, "STrig", &[1], Some(1), false, 0xAD2F);
-    insert_builtin_routine(routines, "SCopy", &[2, 2], None, false, 0xA898);
-    insert_builtin_routine(routines, "SCopyS", &[2, 2, 1, 1], None, false, 0xA8AF);
-    insert_builtin_routine(routines, "SAssign", &[2, 2, 1, 1], None, false, 0xA8D8);
-    insert_builtin_routine(routines, "StrB", &[1, 2], None, false, 0xA544);
-    insert_builtin_routine(routines, "StrC", &[2, 2], None, false, 0xA54C);
-    insert_builtin_routine(routines, "StrI", &[2, 2], None, false, 0xA55B);
-    insert_builtin_routine(routines, "ValB", &[2], Some(1), false, 0xA59A);
-    insert_builtin_routine(routines, "ValC", &[2], Some(2), false, 0xA59A);
-    insert_builtin_routine(routines, "ValI", &[2], Some(2), true, 0xA59A);
-    insert_builtin_routine(routines, "Peek", &[2], Some(1), false, 0xA767);
-    insert_builtin_routine(routines, "PeekC", &[2], Some(2), false, 0xA767);
-    insert_builtin_routine(routines, "Poke", &[2, 1], None, false, 0xA777);
-    insert_builtin_routine(routines, "PokeC", &[2, 2], None, false, 0xA781);
-    insert_builtin_routine(routines, "Error", &[1, 1, 1], None, false, 0x04CB);
-    insert_builtin_routine(routines, "SetBlock", &[2, 2, 1], None, false, 0xA790);
-    insert_builtin_routine(routines, "MoveBlock", &[2, 2, 2], None, false, 0xA7B3);
-}
-
-fn insert_builtin_routine(
-    routines: &mut HashMap<String, RoutineInfo>,
-    name: &str,
-    param_sizes: &[u16],
-    return_size: Option<u16>,
-    return_signed: bool,
-    address: u16,
-) {
-    let params = builtin_arg_slots(param_sizes);
-    let return_slot = return_size
-        .map(|size| StorageSlot::zero_page(runtime_zp::ARGS.address(), size).signed(return_signed));
-    routines
-        .entry(normalize_name(name))
-        .or_insert_with(|| RoutineInfo {
-            label: format!("builtin:{name}"),
-            params,
-            return_slot,
-            system_address: Some(address),
-            facts: RoutineFacts::default(),
-            effects: RoutineEffects::unknown(),
-        });
-}
-
-fn builtin_arg_slots(sizes: &[u16]) -> Vec<StorageSlot> {
-    let mut offset = 0u8;
-    sizes
-        .iter()
-        .map(|size| {
-            let slot = StorageSlot::zero_page(runtime_zp::ARGS.offset(offset).address(), *size);
-            offset = offset.wrapping_add(*size as u8);
-            slot
-        })
-        .collect()
 }
 
 pub(super) fn routine_facts_from_annotations(annotations: &[ActioncAnnotation]) -> RoutineFacts {
