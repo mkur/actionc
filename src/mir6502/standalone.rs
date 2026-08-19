@@ -1374,7 +1374,78 @@ mod tests {
     use crate::asm6502::InlineAsmRelocationKind;
     use crate::mir6502::MirOp;
     use crate::mir6502::ir::{MirInlineAsmTarget, MirMachineItem, MirRuntimeHelperDecl};
+    use crate::runtime::Runtime;
+    use crate::runtime_bindings::{BindingTarget, parse_bindings};
     use crate::source::Span;
+
+    fn resident_routine_id(program: &MirProgram, expected: &str) -> RoutineId {
+        let matches = program
+            .routines
+            .iter()
+            .filter(|routine| {
+                runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT")
+                    .eq_ignore_ascii_case(expected)
+            })
+            .map(|routine| routine.id)
+            .collect::<Vec<_>>();
+        match matches.as_slice() {
+            [id] => *id,
+            [] => panic!("resident runtime has no routine named {expected}"),
+            _ => panic!("resident runtime has multiple routines named {expected}"),
+        }
+    }
+
+    fn standalone_sys_closure_inventory() -> String {
+        let bindings = parse_bindings(Runtime::Standalone).expect("standalone SYS bindings");
+        let (image, program) = compile_runtime_image_with_semir().expect("resident runtime image");
+        let mut inventory = String::new();
+
+        for (external, target) in bindings {
+            let BindingTarget::RuntimeRoutine { unit, routine } = target else {
+                panic!("standalone binding {external} must target a runtime routine");
+            };
+            let expected_unit = crate::runtime_source::resolve_runtime_unit(&unit)
+                .expect("standalone binding unit");
+            assert_eq!(
+                image.routine_units.get(&routine.to_ascii_uppercase()),
+                Some(&expected_unit),
+                "standalone binding {external} points at the wrong physical runtime unit"
+            );
+
+            let root = resident_routine_id(&program, &routine);
+            let selected = dependency_closure(&program, BTreeSet::from([root]))
+                .unwrap_or_else(|diagnostics| panic!("select {external}: {diagnostics:?}"));
+            let names = program
+                .routines
+                .iter()
+                .filter(|candidate| selected.contains(&candidate.id))
+                .map(|candidate| {
+                    runtime_routine_name(&candidate.name, "ACTION_RUNTIME_RESIDENT")
+                        .to_ascii_uppercase()
+                })
+                .collect::<BTreeSet<_>>();
+            assert!(
+                names.contains(&routine.to_ascii_uppercase()),
+                "{external} closure omitted its root {routine}"
+            );
+
+            inventory.push_str(&external);
+            inventory.push_str(" = ");
+            inventory.push_str(&names.into_iter().collect::<Vec<_>>().join(", "));
+            inventory.push('\n');
+        }
+        inventory
+    }
+
+    #[test]
+    fn every_standalone_sys_entry_point_has_an_audited_minimal_routine_closure() {
+        let actual = standalone_sys_closure_inventory();
+        assert_eq!(
+            actual,
+            include_str!("../../fixtures/runtime/standalone_sys_link_closures.txt"),
+            "a SYS dependency closure changed; audit the added/removed resident routines before updating the inventory"
+        );
+    }
 
     #[test]
     fn embedded_syslib_is_lowered_with_resolved_local_machine_references() {
