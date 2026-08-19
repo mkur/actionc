@@ -396,6 +396,126 @@ mod tests {
     }
 
     #[test]
+    fn resident_numeric_values_match_under_both_runtimes_and_backends() {
+        let max_steps = 50_000;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_runtime_fixture(
+                    "resident_numeric_values.act",
+                    mode,
+                    runtime,
+                    false,
+                    max_steps,
+                );
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
+                    outcome.report
+                );
+                assert_eq!(
+                    (0..2)
+                        .map(|offset| outcome.memory().read(0x0600 + offset))
+                        .collect::<Vec<_>>(),
+                    hex_bytes("00 ff"),
+                    "ValB with {runtime:?}/{mode:?}"
+                );
+                assert_eq!(
+                    (0..6)
+                        .map(|offset| outcome.memory().read(0x0610 + offset))
+                        .collect::<Vec<_>>(),
+                    hex_bytes("00 00 d2 04 ff ff"),
+                    "ValC with {runtime:?}/{mode:?}"
+                );
+                assert_eq!(
+                    (0..8)
+                        .map(|offset| outcome.memory().read(0x0620 + offset))
+                        .collect::<Vec<_>>(),
+                    hex_bytes("00 80 ff ff 00 00 ff 7f"),
+                    "ValI with {runtime:?}/{mode:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn resident_numeric_strings_match_under_both_runtimes_and_backends() {
+        let max_steps = 100_000;
+        let expected: &[(u16, &[u8])] = &[
+            (0x0600, b"\x010"),
+            (0x0610, b"\x03255"),
+            (0x0620, b"\x010"),
+            (0x0630, b"\x041234"),
+            (0x0640, b"\x0565535"),
+            (0x0650, b"\x06-32768"),
+            (0x0660, b"\x02-1"),
+            (0x0670, b"\x0532767"),
+        ];
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_runtime_fixture(
+                    "resident_numeric_strings.act",
+                    mode,
+                    runtime,
+                    true,
+                    max_steps,
+                );
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
+                    outcome.report
+                );
+                for &(start, bytes) in expected {
+                    assert_eq!(
+                        (0..bytes.len())
+                            .map(|offset| outcome.memory().read(start + offset as u16))
+                            .collect::<Vec<_>>(),
+                        bytes,
+                        "string at ${start:04X} with {runtime:?}/{mode:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn resident_numeric_output_matches_under_both_runtimes_and_backends() {
+        let max_steps = 150_000;
+        let expected = [
+            &b"0|255\x9B"[..],
+            &b"42|7\x9B"[..],
+            &b"0|65535\x9B"[..],
+            &b"1234|42\x9B"[..],
+            &b"-1|32767\x9B"[..],
+            &b"-1234|-32768\x9B"[..],
+        ]
+        .concat();
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_runtime_fixture(
+                    "resident_numeric_output.act",
+                    mode,
+                    runtime,
+                    true,
+                    max_steps,
+                );
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
+                    outcome.report
+                );
+                assert_eq!(
+                    outcome.vm.bus().cio_channel0_output(),
+                    expected.as_slice(),
+                    "numeric CIO output with {runtime:?}/{mode:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn kalscope_backend_contracts_execute_through_the_vm_library() {
         assert_both_backends(
             "KALSCOPE backend contracts",

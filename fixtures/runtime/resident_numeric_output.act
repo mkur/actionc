@@ -1,0 +1,37 @@
+; Exercise every public decimal output wrapper on CIO channel zero. Separators
+; make calls without an end-of-line distinguishable in the captured byte stream.
+PROC Main()
+  INT minimum,minusOne,minusValue
+
+  minimum=0
+  minimum==-32767
+  minimum==-1
+  minusOne=0
+  minusOne==-1
+  minusValue=0
+  minusValue==-1234
+
+  PrintB(0)
+  Put('|)
+  PrintBE(255)
+  PrintBD(0,42)
+  Put('|)
+  PrintBDE(0,7)
+
+  PrintC(0)
+  Put('|)
+  PrintCE(65535)
+  PrintCD(0,1234)
+  Put('|)
+  PrintCDE(0,42)
+
+  PrintI(minusOne)
+  Put('|)
+  PrintIE(32767)
+  PrintID(0,minusValue)
+  Put('|)
+  PrintIDE(0,minimum)
+
+  DO
+  OD
+RETURN

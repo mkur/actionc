@@ -1,0 +1,32 @@
+; Verify the resident binary-to-decimal string routines. Each destination is
+; separated by sixteen bytes so its Action! length byte and payload are clear.
+BYTE ARRAY byteZero(16)=$0600
+BYTE ARRAY byteMax(16)=$0610
+BYTE ARRAY cardZero(16)=$0620
+BYTE ARRAY cardValue(16)=$0630
+BYTE ARRAY cardMax(16)=$0640
+BYTE ARRAY intMin(16)=$0650
+BYTE ARRAY intMinusOne(16)=$0660
+BYTE ARRAY intMax(16)=$0670
+
+PROC Main()
+  INT minimum,minusOne
+
+  minimum=0
+  minimum==-32767
+  minimum==-1
+  minusOne=0
+  minusOne==-1
+
+  StrB(0,byteZero)
+  StrB(255,byteMax)
+  StrC(0,cardZero)
+  StrC(1234,cardValue)
+  StrC(65535,cardMax)
+  StrI(minimum,intMin)
+  StrI(minusOne,intMinusOne)
+  StrI(32767,intMax)
+
+  DO
+  OD
+RETURN
