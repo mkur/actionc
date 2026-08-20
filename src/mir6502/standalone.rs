@@ -1501,9 +1501,10 @@ mod tests {
     #[test]
     fn every_standalone_sys_entry_point_has_an_audited_minimal_routine_closure() {
         let actual = standalone_sys_closure_inventory();
+        let expected = include_str!("../../fixtures/runtime/standalone_sys_link_closures.txt")
+            .replace("\r\n", "\n");
         assert_eq!(
-            actual,
-            include_str!("../../fixtures/runtime/standalone_sys_link_closures.txt"),
+            actual, expected,
             "a SYS dependency closure changed; audit the added/removed resident routines before updating the inventory"
         );
     }
