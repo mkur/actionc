@@ -1,0 +1,20 @@
+CARD product=$0600
+CARD quotient=$0602
+CARD remainder=$0604
+CARD shiftedLeft=$0606
+CARD shiftedRight=$0608
+CARD left=$0610
+CARD right=$0612
+
+PROC Main()
+  left=$1234
+  right=7
+  product=left*right
+  quotient=left/right
+  remainder=left MOD right
+  right=3
+  shiftedLeft=left LSH right
+  shiftedRight=left RSH right
+  DO
+  OD
+RETURN

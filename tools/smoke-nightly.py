@@ -75,6 +75,9 @@ def smoke(args: argparse.Namespace) -> None:
     source = repo_root / "samples/hello-world.act"
     if not source.is_file():
         raise SmokeError(f"missing smoke-test source: {source}")
+    standalone_source = repo_root / "fixtures/runtime/standalone_arithmetic.act"
+    if not standalone_source.is_file():
+        raise SmokeError(f"missing standalone smoke-test source: {standalone_source}")
 
     modes = (
         ("compatibility", "optimized", "mir6502")
@@ -108,6 +111,36 @@ def smoke(args: argparse.Namespace) -> None:
             ]
         )
         require_atr(atr_file)
+
+        standalone_object = output_dir / "arithmetic-standalone.com"
+        run(
+            [
+                binaries["actionc"],
+                "--mode",
+                "optimized",
+                "--runtime",
+                "standalone",
+                "--output",
+                standalone_object,
+                standalone_source,
+            ]
+        )
+        require_load_file(standalone_object)
+
+        standalone_atr = output_dir / "arithmetic-standalone.atr"
+        run(
+            [
+                binaries["actionc-run"],
+                "--mode",
+                "optimized",
+                "--no-cart",
+                "--no-run",
+                "--out-atr",
+                standalone_atr,
+                standalone_source,
+            ]
+        )
+        require_atr(standalone_atr)
 
         nir = run([binaries["actionc-emit"], "--emit-nir", source]).stdout
         if not nir.startswith(b"nir program\n"):

@@ -278,6 +278,9 @@ pub enum VarStorage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Routine {
     pub visibility: Visibility,
+    /// A signature-only callable whose implementation is selected by the
+    /// compiler's runtime binding stage.
+    pub is_external: bool,
     pub kind: RoutineKind,
     pub name: String,
     pub system_address: Option<Expr>,

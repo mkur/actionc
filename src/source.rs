@@ -271,9 +271,7 @@ impl SourceProvider for InMemorySourceProvider {
                 return Ok(Some(expected));
             }
             if let Some(actual) = self.sources.keys().find(|origin| match origin {
-                SourceOrigin::Host(path) => path
-                    .to_string_lossy()
-                    .eq_ignore_ascii_case(&root.join(&relative).to_string_lossy()),
+                SourceOrigin::Host(path) => paths_eq_ignore_ascii_case(path, &root.join(&relative)),
                 SourceOrigin::Embedded { .. } => false,
             }) {
                 return Err(SourceLoadError::new(format!(
@@ -283,6 +281,22 @@ impl SourceProvider for InMemorySourceProvider {
             }
         }
         Ok(None)
+    }
+}
+
+fn paths_eq_ignore_ascii_case(left: &Path, right: &Path) -> bool {
+    let mut left = left.components();
+    let mut right = right.components();
+    loop {
+        match (left.next(), right.next()) {
+            (Some(left), Some(right))
+                if left
+                    .as_os_str()
+                    .to_string_lossy()
+                    .eq_ignore_ascii_case(&right.as_os_str().to_string_lossy()) => {}
+            (None, None) => return true,
+            _ => return false,
+        }
     }
 }
 

@@ -8,14 +8,14 @@ use crate::ast::Program;
 use crate::codegen::{
     CODE_ORIGIN, CodegenOptimizationKind, CodegenOutput, CodegenProfile, format_hex,
     format_load_file, generate_profile_with_origin, generate_semir_native_profile_with_origin,
-    generate_semir_profile_with_origin,
+    generate_semir_profile_with_origin, generate_semir_standalone_profile_at_origin,
 };
 use crate::compiler::{
     Backend, CodegenSource, CompileError, CompileErrorKind, CompileMode, CompileRequest,
-    CompiledProgram, CompilerPhase, DiagnosticSite,
+    CompiledProgram, CompilerPhase, DiagnosticSite, Runtime,
     artifacts::{format_listing_with_boundaries, format_listing_with_source},
     compile_file_with_request, mir6502_default_origin_from_semir, mode_profile_backend,
-    validation::legacy_routine_retargeting_diagnostics,
+    validation::{legacy_routine_retargeting_diagnostics, standalone_resident_diagnostics},
 };
 use crate::includes::{ModuleLoadOptions, SourceMap, load_compilation};
 use crate::lexer::tokenize;
@@ -79,6 +79,8 @@ fn run_main(flavor: CliFlavor) {
     let mut codegen_source = CodegenSource::Ast;
     let mut backend = Backend::Classic;
     let mut backend_explicit = false;
+    let mut runtime = Runtime::ActionCart;
+    let mut runtime_explicit = false;
     let mut compile_mode = None;
     let mut output_path = None;
     let mut listing_path = None;
@@ -196,6 +198,15 @@ fn run_main(flavor: CliFlavor) {
                 };
                 backend = parse_backend_or_exit(&value);
                 backend_explicit = true;
+            }
+            "--runtime" => {
+                let Some(value) = args.next() else {
+                    eprintln!("--runtime requires cart or standalone");
+                    print_help_for(flavor);
+                    process::exit(2);
+                };
+                runtime = parse_runtime_or_exit(&value);
+                runtime_explicit = true;
             }
             _ if arg.starts_with("--backend=") => {
                 backend = parse_backend_or_exit(&arg["--backend=".len()..]);
@@ -315,6 +326,8 @@ fn run_main(flavor: CliFlavor) {
             profile_explicit,
             backend,
             backend_explicit,
+            runtime,
+            runtime_explicit,
             codegen_source,
             origin: origin_explicit.then_some(origin),
             project_root: None,
@@ -405,6 +418,19 @@ fn run_main(flavor: CliFlavor) {
     let semir = ir::lower_compilation(&loaded, &model);
     let named = matches!(program.source_kind, crate::ast::SourceUnitKind::Named(_));
 
+    if runtime == Runtime::Standalone {
+        let diagnostics = standalone_resident_diagnostics(&semir);
+        if !diagnostics.is_empty() {
+            print_diagnostics_with_source(
+                diagnostics,
+                &loaded.source,
+                Some(&loaded.source_map),
+                diagnostic_byte_ranges,
+            );
+            process::exit(1);
+        }
+    }
+
     if emit_semir {
         print!("{}", ir::format_program(&semir));
         return;
@@ -465,7 +491,12 @@ fn run_main(flavor: CliFlavor) {
             process::exit(1);
         }
         if emit_materialized_mir6502 {
-            let mir = match mir6502::materialize_program(mir, &mir6502::Mir6502Config::default()) {
+            let mir = match mir6502::materialize_program_with_origin_and_runtime(
+                mir,
+                &mir6502::Mir6502Config::default(),
+                CODE_ORIGIN,
+                runtime,
+            ) {
                 Ok(mir) => mir,
                 Err(diagnostics) => {
                     print_mir6502_diagnostics(diagnostics);
@@ -512,7 +543,12 @@ fn run_main(flavor: CliFlavor) {
             } else {
                 mir6502::Mir6502Config::default()
             };
-            match mir6502::generate_output_with_config(&nir, mir_origin, &mir_config) {
+            match mir6502::generate_output_with_config_and_runtime(
+                &nir,
+                mir_origin,
+                &mir_config,
+                runtime,
+            ) {
                 Ok(output) => emit_output(
                     &output,
                     &loaded.source,
@@ -525,6 +561,36 @@ fn run_main(flavor: CliFlavor) {
                 ),
                 Err(diagnostics) => {
                     print_mir6502_diagnostics(diagnostics);
+                    process::exit(1);
+                }
+            }
+            return;
+        }
+
+        if runtime == Runtime::Standalone {
+            let standalone_origin = if origin_explicit {
+                origin
+            } else {
+                mir6502_default_origin_from_semir(&semir, origin)
+            };
+            match generate_semir_standalone_profile_at_origin(&semir, standalone_origin, profile) {
+                Ok(output) => emit_output(
+                    &output,
+                    &loaded.source,
+                    emit_load,
+                    emit_map,
+                    emit_proofs,
+                    emit_proof_attempts,
+                    emit_listing,
+                    emit_source_listing,
+                ),
+                Err(diagnostics) => {
+                    print_diagnostics_with_source(
+                        diagnostics,
+                        &loaded.source,
+                        Some(&loaded.source_map),
+                        diagnostic_byte_ranges,
+                    );
                     process::exit(1);
                 }
             }
@@ -654,6 +720,17 @@ fn parse_backend_or_exit(value: &str) -> Backend {
         "mir6502" => Backend::Mir6502,
         _ => {
             eprintln!("unknown backend: {value}");
+            process::exit(2);
+        }
+    }
+}
+
+fn parse_runtime_or_exit(value: &str) -> Runtime {
+    match value {
+        "cart" => Runtime::ActionCart,
+        "standalone" => Runtime::Standalone,
+        _ => {
+            eprintln!("unknown runtime: {value}; expected cart or standalone");
             process::exit(2);
         }
     }
@@ -1066,6 +1143,25 @@ fn write_file_atomically(path: &Path, contents: &[u8]) -> io::Result<()> {
 }
 
 fn print_map(output: &CodegenOutput) {
+    println!("runtime {}", output.map.runtime);
+    for binding in &output.map.runtime_bindings {
+        let target = binding
+            .address
+            .map(|address| format!("${address:04X}"))
+            .unwrap_or_else(|| binding.implementation.clone());
+        println!(
+            "runtime-binding {} {} origin={} reason={}{}",
+            binding.helper,
+            target,
+            binding.origin,
+            binding.reason,
+            binding
+                .suppressed_default
+                .as_ref()
+                .map(|default| format!(" suppressed-default={default}"))
+                .unwrap_or_default()
+        );
+    }
     for routine in &output.routine_addresses {
         println!("${:04X} {}", routine.address, routine.name);
     }
@@ -1215,13 +1311,13 @@ fn print_help_for(flavor: CliFlavor) {
 
 fn print_compile_help() {
     eprintln!(
-        "usage: actionc [--mode compatibility|optimized|mir6502] [--origin <addr>] [--module-path <dir>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility. Advanced users may select --profile and\n--backend directly instead of --mode. Repeat --module-path to add ordered\nnamed-module search roots. With no -o option, write <source-stem>.com in the\ncurrent directory. --listing writes re-originable, source-annotated\nMADS assembly. Change only ACTIONC_ORIGIN in the generated listing to move its\nmain segment. Use actionc-emit for compiler representations."
+        "usage: actionc [--mode compatibility|optimized|mir6502] [--runtime cart|standalone] [--origin <addr>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility and the default runtime is cart. Advanced\nusers may select --profile and --backend directly instead of --mode. With no\n-o option, write <source-stem>.com in the current directory. --listing writes\nre-originable, source-annotated MADS assembly. Change only ACTIONC_ORIGIN in\nthe generated listing to move its main segment. Use actionc-emit for compiler\nrepresentations."
     );
 }
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--origin <addr>] [--module-path <dir>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nRepeat --module-path to add ordered named-module search roots. Listings are\nre-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main\nsegment. --emit-source-listing adds Action! source comments."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--runtime cart|standalone] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nListings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move\nthe main segment. --emit-source-listing adds Action! source comments."
     );
 }
 
@@ -1550,6 +1646,8 @@ mod tests {
             proofs: Vec::new(),
             proof_attempts: Vec::new(),
             map: CodegenMap {
+                runtime: crate::runtime::Runtime::ActionCart,
+                runtime_bindings: Vec::new(),
                 origin,
                 run_address: origin,
                 skipped_ranges: Vec::new(),

@@ -1536,7 +1536,9 @@ fn refine_terminal_indirect_jump_effects(program: &mut MirProgram) {
         .filter(|routine| {
             matches!(
                 routine.abi,
-                super::ir::MirRoutineAbi::Action | super::ir::MirRoutineAbi::ActionObservable
+                super::ir::MirRoutineAbi::Action
+                    | super::ir::MirRoutineAbi::ProgramEntry
+                    | super::ir::MirRoutineAbi::ActionObservable
             ) && routine.frame.params.is_empty()
         })
         .map(|routine| routine.name.to_ascii_lowercase())

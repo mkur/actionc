@@ -33,6 +33,13 @@ fn hello_world() -> PathBuf {
         .join("hello-world.act")
 }
 
+fn standalone_fixture(name: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("runtime")
+        .join(name)
+}
+
 fn load_file_origin(bytes: &[u8]) -> u16 {
     assert!(bytes.len() >= 4, "load file is too short");
     assert_eq!(&bytes[..2], &[0xff, 0xff], "missing load-file header");
@@ -434,6 +441,594 @@ fn invalid_profile_backend_combination_remains_a_configuration_error() {
             .contains("--backend mir6502 requires --profile modern")
     );
     assert!(!object.exists());
+}
+
+#[test]
+fn explicit_cart_runtime_matches_the_default_in_every_mode() {
+    let temp = TestDir::new();
+    for mode in ["compatibility", "optimized", "mir6502"] {
+        let implicit = temp.path().join(format!("{mode}-implicit.com"));
+        let explicit = temp.path().join(format!("{mode}-cart.com"));
+        for (output, runtime) in [(&implicit, None), (&explicit, Some("cart"))] {
+            let mut command = Command::new(env!("CARGO_BIN_EXE_actionc"));
+            command.arg("--mode").arg(mode);
+            if let Some(runtime) = runtime {
+                command.arg("--runtime").arg(runtime);
+            }
+            let result = command
+                .arg("--output")
+                .arg(output)
+                .arg(hello_world())
+                .output()
+                .expect("compile runtime-equivalence fixture");
+            assert!(
+                result.status.success(),
+                "actionc --mode {mode} failed\nstderr:\n{}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+        }
+        assert_eq!(
+            fs::read(&implicit).expect("read implicit-runtime object"),
+            fs::read(&explicit).expect("read explicit-cart object"),
+            "explicit cart changed {mode} output"
+        );
+    }
+}
+
+#[test]
+fn classic_standalone_is_supported_without_switching_backend() {
+    let temp = TestDir::new();
+    for mode in ["compatibility", "optimized"] {
+        let object = temp.path().join(format!("classic-{mode}.com"));
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .args(["--mode", mode, "--runtime", "standalone", "--output"])
+            .arg(&object)
+            .arg(standalone_fixture("standalone_arithmetic.act"))
+            .output()
+            .expect("compile classic standalone configuration");
+        assert!(
+            output.status.success(),
+            "classic standalone {mode} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(!fs::read(&object).expect("read classic object").is_empty());
+    }
+}
+
+#[test]
+fn classic_standalone_links_the_same_sargs_source_closure() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sargs.act");
+    for profile in ["legacy", "modern"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args([
+                "--profile",
+                profile,
+                "--backend",
+                "classic",
+                "--runtime",
+                "standalone",
+                "--emit-map",
+            ])
+            .arg(&fixture)
+            .output()
+            .expect("emit classic standalone SArgs map");
+        assert!(
+            output.status.success(),
+            "classic standalone SArgs ({profile}) failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let map = String::from_utf8_lossy(&output.stdout);
+        for selected in ["ERROR", "BREAK", "SARGS"] {
+            assert!(
+                map.contains(&format!("M_ACTION_RUNTIME_SYSLIB_{selected}_")),
+                "missing {selected}: {map}"
+            );
+        }
+        for unused in ["LSHIFT", "RSHIFT", "MULTI", "DIVI", "REMI"] {
+            assert!(
+                !map.contains(&format!("M_ACTION_RUNTIME_SYSLIB_{unused}_")),
+                "unexpected {unused}: {map}"
+            );
+        }
+    }
+}
+
+#[test]
+fn classic_standalone_sys_binding_is_selective() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sys_memory.act");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "classic",
+            "--runtime",
+            "standalone",
+            "--emit-map",
+        ])
+        .arg(&fixture)
+        .output()
+        .expect("emit classic standalone SYS map");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let map = String::from_utf8_lossy(&output.stdout);
+    assert!(map.contains("runtime-binding SYS.Zero"));
+    assert!(map.contains("M_ACTION_RUNTIME_SYSBLK_ZERO_"));
+    assert!(map.contains("M_ACTION_RUNTIME_SYSBLK_SETBLOCK_"));
+    assert!(!map.contains("M_ACTION_RUNTIME_SYSBLK_MOVEBLOCK_"));
+}
+
+#[test]
+fn mir6502_standalone_without_helpers_adds_no_runtime_routines() {
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "mir6502",
+            "--runtime",
+            "standalone",
+            "--emit-map",
+        ])
+        .arg(standalone_fixture("standalone_minimal.act"))
+        .output()
+        .expect("emit a standalone map for a helper-free program");
+    assert!(
+        output.status.success(),
+        "standalone helper-free compilation failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let map = String::from_utf8_lossy(&output.stdout);
+    assert!(map.starts_with("runtime standalone\n"));
+    assert!(!map.contains("ACTION.RUNTIME.SYSLIB"));
+    assert!(!map.contains("runtime-binding"));
+}
+
+#[test]
+fn mir6502_standalone_links_only_the_sargs_dependency_group() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sargs.act");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "mir6502",
+            "--runtime",
+            "standalone",
+            "--emit-map",
+        ])
+        .arg(&fixture)
+        .output()
+        .expect("emit standalone SArgs map");
+    assert!(
+        output.status.success(),
+        "standalone SArgs compilation failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let map = String::from_utf8_lossy(&output.stdout);
+    assert!(map.contains("runtime-binding SArgs"));
+    assert!(map.contains("ACTION.RUNTIME.SYSLIB::SArgs"));
+    assert!(map.contains("ACTION.RUNTIME.SYSLIB::Break"));
+    assert!(map.contains("ACTION.RUNTIME.SYSLIB::Error"));
+    for unused in ["LShift", "RShift", "MultI", "DivI", "RemI"] {
+        assert!(!map.contains(&format!("ACTION.RUNTIME.SYSLIB::{unused}")));
+    }
+}
+
+#[test]
+fn mir6502_sys_memory_binding_is_runtime_selected_and_selective() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sys_memory.act");
+    let standalone = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "mir6502",
+            "--runtime",
+            "standalone",
+            "--emit-map",
+        ])
+        .arg(&fixture)
+        .output()
+        .expect("emit standalone SYS map");
+    assert!(
+        standalone.status.success(),
+        "{}",
+        String::from_utf8_lossy(&standalone.stderr)
+    );
+    let map = String::from_utf8_lossy(&standalone.stdout);
+    assert_eq!(map.matches("ACTION.RUNTIME.SYSBLK::Zero").count(), 3);
+    assert_eq!(map.matches("ACTION.RUNTIME.SYSBLK::SetBlock").count(), 3);
+    assert!(!map.contains("ACTION.RUNTIME.SYSBLK::MoveBlock"));
+
+    let cart = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "mir6502",
+            "--runtime",
+            "cart",
+            "--emit-materialized-mir6502",
+        ])
+        .arg(&fixture)
+        .output()
+        .expect("emit cart SYS MIR");
+    assert!(
+        cart.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cart.stderr)
+    );
+    let mir = String::from_utf8_lossy(&cart.stdout);
+    assert!(mir.contains("SYS external@$A78A"), "{mir}");
+    assert!(!mir.contains("ACTION.RUNTIME.SYSBLK"));
+}
+
+#[test]
+fn mir6502_sys_routine_addresses_follow_the_selected_runtime() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sys_address.act");
+    let cart = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "mir6502",
+            "--runtime",
+            "cart",
+            "--emit-code",
+        ])
+        .arg(&fixture)
+        .output()
+        .expect("emit cart SYS routine address");
+    assert!(
+        cart.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cart.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&cart.stdout).starts_with("8A A7 "),
+        "{}",
+        String::from_utf8_lossy(&cart.stdout)
+    );
+
+    let standalone = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "mir6502",
+            "--runtime",
+            "standalone",
+            "--emit-map",
+        ])
+        .arg(&fixture)
+        .output()
+        .expect("emit standalone SYS routine address map");
+    assert!(
+        standalone.status.success(),
+        "{}",
+        String::from_utf8_lossy(&standalone.stderr)
+    );
+    assert!(String::from_utf8_lossy(&standalone.stdout).contains("ACTION.RUNTIME.SYSBLK::Zero"));
+}
+
+#[test]
+fn unused_sys_import_adds_no_runtime_code() {
+    let temp = TestDir::new();
+    let source = temp.path().join("unused-sys.act");
+    fs::write(
+        &source,
+        "MODULE APP\nIMPORT SYS\nPROC Main() RETURN\nENDMODULE\n",
+    )
+    .expect("write unused SYS source");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "mir6502",
+            "--runtime",
+            "standalone",
+            "--emit-map",
+        ])
+        .arg(&source)
+        .output()
+        .expect("emit unused SYS map");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let map = String::from_utf8_lossy(&output.stdout);
+    assert!(!map.contains("ACTION.RUNTIME.SYSBLK"));
+}
+
+#[test]
+fn standalone_rejects_unbound_resident_routines_in_both_backends() {
+    let temp = TestDir::new();
+    let source = temp.path().join("resident-print.act");
+    fs::write(&source, "PROC Main() PrintE(\"CART\") RETURN\n")
+        .expect("write resident-call source");
+
+    for backend in ["classic", "mir6502"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .args([
+                "--profile",
+                "modern",
+                "--backend",
+                backend,
+                "--runtime",
+                "standalone",
+            ])
+            .arg(&source)
+            .output()
+            .expect("compile unbound standalone resident call");
+
+        assert_eq!(output.status.code(), Some(1), "backend {backend}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("E-RUNTIME-STANDALONE-BINDING"),
+            "backend {backend}: {stderr}"
+        );
+        assert!(stderr.contains("PrintE"), "backend {backend}: {stderr}");
+
+        let emit = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args([
+                "--profile",
+                "modern",
+                "--backend",
+                backend,
+                "--runtime",
+                "standalone",
+                "--emit-map",
+            ])
+            .arg(&source)
+            .output()
+            .expect("emit unbound standalone resident call");
+        assert_eq!(emit.status.code(), Some(1), "emit backend {backend}");
+        assert!(
+            String::from_utf8_lossy(&emit.stderr).contains("E-RUNTIME-STANDALONE-BINDING"),
+            "emit backend {backend}: {}",
+            String::from_utf8_lossy(&emit.stderr)
+        );
+    }
+}
+
+#[test]
+fn referenced_external_without_selected_binding_fails_closed() {
+    let temp = TestDir::new();
+    let source = temp.path().join("missing-binding.act");
+    fs::write(
+        &source,
+        "MODULE APP\nPUBLIC EXTERNAL PROC Missing()\n\
+         PROC Main() Missing() RETURN\nENDMODULE\n",
+    )
+    .expect("write missing binding source");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .args(["--mode", "mir6502", "--runtime", "standalone"])
+        .arg(&source)
+        .output()
+        .expect("compile missing binding source");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("E-BINDING-MISSING-FOR-RUNTIME"),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn standalone_sargs_local_override_suppresses_the_embedded_default() {
+    let temp = TestDir::new();
+    let source = temp.path().join("local-sargs.act");
+    fs::write(
+        &source,
+        "PROC LocalSArgs=*() [$60]\nSET $4EE=LocalSArgs\nPROC Four(BYTE a,b,c,d) RETURN\nPROC Main() Four(1,2,3,4) RETURN\n",
+    )
+    .expect("write local SArgs override source");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "mir6502",
+            "--runtime",
+            "standalone",
+            "--emit-map",
+        ])
+        .arg(&source)
+        .output()
+        .expect("emit local SArgs override map");
+    assert!(
+        output.status.success(),
+        "local SArgs override failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let map = String::from_utf8_lossy(&output.stdout);
+    assert!(map.contains("runtime-binding SArgs"));
+    assert!(map.contains("LocalSArgs"));
+    assert!(map.contains("suppressed-default=ACTION.RUNTIME.SYSLIB::SArgs"));
+    assert!(!map.contains("$A0F5"));
+}
+
+#[test]
+fn classic_standalone_honors_a_local_sargs_override() {
+    let temp = TestDir::new();
+    let source = temp.path().join("classic-local-sargs.act");
+    fs::write(
+        &source,
+        "PROC LocalSArgs=*() [$60]\nSET $4EE=LocalSArgs\nPROC Four(BYTE a,b,c,d) RETURN\nPROC Main() Four(1,2,3,4) RETURN\n",
+    )
+    .expect("write classic local SArgs override source");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "classic",
+            "--runtime",
+            "standalone",
+            "--emit-map",
+        ])
+        .arg(&source)
+        .output()
+        .expect("emit classic local SArgs override map");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let map = String::from_utf8_lossy(&output.stdout);
+    assert!(map.contains("runtime-binding SArgs"));
+    assert!(map.contains("LocalSArgs"));
+    assert!(map.contains("suppressed-default=ACTION.RUNTIME.SYSLIB::SArgs"));
+    assert!(!map.contains("M_ACTION_RUNTIME_SYSLIB_SARGS_"));
+}
+
+#[test]
+fn standalone_rejects_absolute_sargs_override() {
+    let temp = TestDir::new();
+    let source = temp.path().join("absolute-sargs.act");
+    fs::write(
+        &source,
+        "SET $4EE=$A0F5\nPROC Four(BYTE a,b,c,d) RETURN\nPROC Main() Four(1,2,3,4) RETURN\n",
+    )
+    .expect("write absolute SArgs override source");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .args(["--mode", "mir6502", "--runtime", "standalone"])
+        .arg(&source)
+        .output()
+        .expect("compile absolute SArgs override");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("standalone runtime rejects absolute override $A0F5 for `SArgs`")
+    );
+}
+
+#[test]
+fn classic_standalone_rejects_an_absolute_sargs_override() {
+    let temp = TestDir::new();
+    let source = temp.path().join("classic-absolute-sargs.act");
+    fs::write(
+        &source,
+        "SET $4EE=$A0F5\nPROC Four(BYTE a,b,c,d) RETURN\nPROC Main() Four(1,2,3,4) RETURN\n",
+    )
+    .expect("write classic absolute SArgs override source");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .args(["--mode", "optimized", "--runtime", "standalone"])
+        .arg(&source)
+        .output()
+        .expect("compile classic absolute SArgs override");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("standalone runtime rejects absolute override $A0F5 for `SArgs`")
+    );
+}
+
+#[test]
+fn standalone_arithmetic_selects_deterministic_minimal_dependency_closures() {
+    let cases: [(&str, &str, &[&str], &[&str]); 5] = [
+        (
+            "lsh",
+            "LSH",
+            &["LShift"],
+            &["RShift", "MultI", "DivI", "RemI"],
+        ),
+        (
+            "rsh",
+            "RSH",
+            &["RShift"],
+            &["LShift", "MultI", "DivI", "RemI"],
+        ),
+        (
+            "mul",
+            "*",
+            &["SetSign", "SS1", "SMOps", "MultB", "MultI"],
+            &["LShift", "RShift", "DivI", "RemI"],
+        ),
+        (
+            "div",
+            "/",
+            &["SetSign", "SS1", "SMOps", "DivI"],
+            &["LShift", "RShift", "MultB", "MultI", "RemI"],
+        ),
+        (
+            "rem",
+            "MOD",
+            &["SetSign", "SS1", "SMOps", "DivI", "RemI"],
+            &["LShift", "RShift", "MultB", "MultI"],
+        ),
+    ];
+    let temp = TestDir::new();
+    for (label, operator, expected, absent) in cases {
+        let source = temp.path().join(format!("{label}.act"));
+        fs::write(
+            &source,
+            format!(
+                "CARD result=$600\nCARD left=$610\nCARD right=$612\nPROC Main() left=17 right=3 result=left {operator} right result=left {operator} right RETURN\n"
+            ),
+        )
+        .expect("write standalone arithmetic selection source");
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args([
+                "--profile",
+                "modern",
+                "--backend",
+                "mir6502",
+                "--runtime",
+                "standalone",
+                "--emit-map",
+            ])
+            .arg(&source)
+            .output()
+            .expect("emit standalone arithmetic map");
+        assert!(
+            output.status.success(),
+            "standalone {label} compilation failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let map = String::from_utf8_lossy(&output.stdout);
+        for routine in expected {
+            let address_rows = map
+                .lines()
+                .filter(|line| {
+                    line.starts_with('$')
+                        && line.ends_with(&format!("ACTION.RUNTIME.SYSLIB::{routine}"))
+                })
+                .count();
+            assert_eq!(address_rows, 1, "{label} selected {routine} more than once");
+        }
+        for routine in absent {
+            assert!(
+                !map.contains(&format!("ACTION.RUNTIME.SYSLIB::{routine}")),
+                "{label} unexpectedly selected {routine}"
+            );
+        }
+        assert!(!map.contains("copy_right"));
+    }
+}
+
+#[test]
+fn runtime_option_uses_the_space_separated_cli_form() {
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .arg("--runtime=cart")
+        .arg(hello_world())
+        .output()
+        .expect("run invalid equals-form runtime option");
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("unexpected argument: --runtime=cart")
+    );
 }
 
 #[test]

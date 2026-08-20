@@ -213,6 +213,7 @@ impl SemLValue {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemRoutine {
     pub symbol: SemSymbolRef,
+    pub is_external: bool,
     pub signature: SemRoutineSignature,
     pub callable_type: CallableType,
     pub params: Vec<SemParam>,
@@ -901,6 +902,9 @@ impl SemIrFormatter {
                 "callable {}",
                 callable_type_summary(&routine.callable_type)
             ));
+            if routine.is_external {
+                this.line("external");
+            }
             if let Some(address) = &routine.system_address {
                 this.line(format!("system {}", expr_summary(address)));
             }
@@ -1804,6 +1808,7 @@ impl<'a> IrBuilder<'a> {
         );
 
         SemRoutine {
+            is_external: routine.is_external,
             callable_type: signature.callable_type(),
             signature,
             params,
@@ -2780,6 +2785,17 @@ impl<'a> IrBuilder<'a> {
         let callee = match self.direct_symbol_ref_for_expr(scope, callee) {
             Some(symbol) => Some(symbol)
                 .map(|symbol| match symbol.class {
+                    SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc
+                        if self
+                            .model
+                            .routine_signatures_by_symbol
+                            .get(&symbol.id)
+                            .is_some_and(|signature| {
+                                signature.source == super::SemanticCallableSource::Runtime
+                            }) =>
+                    {
+                        SemCallable::User(symbol)
+                    }
                     SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc => {
                         SemCallable::Builtin(symbol)
                     }

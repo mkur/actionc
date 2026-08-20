@@ -7,7 +7,8 @@ use super::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCondDest, MirDataImage,
     MirDataRelocationTarget, MirDef, MirEdge, MirFrame, MirGlobal, MirGlobalInit,
     MirMachineBlockId, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
-    MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator, MirValue, RoutineId,
+    MirRoutineAbi, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator, MirValue,
+    RoutineId,
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 
@@ -152,6 +153,17 @@ impl MirVerifier {
             }
         }
         let mut routine_ids = BTreeSet::new();
+        let entry_count = program
+            .routines
+            .iter()
+            .filter(|routine| routine.abi == MirRoutineAbi::ProgramEntry)
+            .count();
+        if entry_count > 1 {
+            self.diagnostics.push(MirDiagnostic::routine(
+                "program",
+                "MIR contains more than one program-entry routine",
+            ));
+        }
         if matches!(self.phase, MirPhase::PreEmission) {
             for helper in &program.runtime_helpers {
                 if matches!(helper.target, MirRuntimeHelperTarget::Deferred) {

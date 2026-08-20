@@ -9,6 +9,7 @@ use crate::codegen::{
     CODE_ORIGIN, CodegenOutput, CodegenProfile, format_load_file, generate_profile_at_origin,
     generate_profile_with_origin, generate_semir_native_profile_with_origin,
     generate_semir_profile_at_origin, generate_semir_profile_with_origin,
+    generate_semir_standalone_profile_at_origin,
 };
 use crate::includes::{ModuleLoadOptions, load_compilation};
 use crate::mir6502;
@@ -16,8 +17,9 @@ use crate::nir;
 use crate::semantic::{analyze_compilation, ir, materialize::materialize_constants};
 use crate::source::decode_source;
 
-use self::validation::legacy_routine_retargeting_diagnostics;
+use self::validation::{legacy_routine_retargeting_diagnostics, standalone_resident_diagnostics};
 
+pub use crate::runtime::Runtime;
 pub use diagnostics::{
     CompileError, CompileErrorKind, CompilerDiagnostic, CompilerPhase, DiagnosticSite,
 };
@@ -48,6 +50,8 @@ pub(crate) struct CompileRequest {
     pub(crate) profile_explicit: bool,
     pub(crate) backend: Backend,
     pub(crate) backend_explicit: bool,
+    pub(crate) runtime: Runtime,
+    pub(crate) runtime_explicit: bool,
     pub(crate) codegen_source: CodegenSource,
     pub(crate) origin: Option<u16>,
     pub(crate) project_root: Option<PathBuf>,
@@ -61,6 +65,8 @@ impl Default for CompileRequest {
             profile_explicit: false,
             backend: Backend::Classic,
             backend_explicit: false,
+            runtime: Runtime::ActionCart,
+            runtime_explicit: false,
             codegen_source: CodegenSource::Ast,
             origin: None,
             project_root: None,
@@ -73,6 +79,7 @@ impl Default for CompileRequest {
 struct ResolvedCompileRequest {
     profile: CodegenProfile,
     backend: Backend,
+    runtime: Runtime,
     codegen_source: CodegenSource,
     origin: Option<u16>,
 }
@@ -83,6 +90,7 @@ pub struct CompileOptions {
     origin: Option<u16>,
     project_root: Option<PathBuf>,
     module_paths: Vec<PathBuf>,
+    runtime: Runtime,
 }
 
 impl CompileOptions {
@@ -92,6 +100,7 @@ impl CompileOptions {
             origin: None,
             project_root: None,
             module_paths: Vec::new(),
+            runtime: Runtime::ActionCart,
         }
     }
 
@@ -106,6 +115,15 @@ impl CompileOptions {
 
     pub fn origin(&self) -> Option<u16> {
         self.origin
+    }
+
+    pub fn with_runtime(mut self, runtime: Runtime) -> Self {
+        self.runtime = runtime;
+        self
+    }
+
+    pub fn runtime(&self) -> Runtime {
+        self.runtime
     }
 
     pub fn with_project_root(mut self, path: impl Into<PathBuf>) -> Self {
@@ -150,6 +168,10 @@ impl CompiledProgram {
     pub fn run_address(&self) -> u16 {
         self.output.run_address
     }
+
+    pub fn runtime(&self) -> Runtime {
+        self.output.map.runtime
+    }
 }
 
 pub fn compile_file(
@@ -193,6 +215,18 @@ pub(crate) fn compile_file_with_request(
         )
     })?;
     let semir = ir::lower_compilation(&loaded, &model);
+    if request.runtime == Runtime::Standalone {
+        let diagnostics = standalone_resident_diagnostics(&semir);
+        if !diagnostics.is_empty() {
+            return Err(CompileError::from_source_diagnostics(
+                CompilerPhase::Codegen,
+                diagnostics,
+                &loaded.source,
+                path,
+                Some(&loaded.source_map),
+            ));
+        }
+    }
     let named = matches!(program.source_kind, crate::ast::SourceUnitKind::Named(_));
 
     let output = match request.backend {
@@ -229,6 +263,8 @@ fn compile_request_from_options(options: &CompileOptions) -> CompileRequest {
         origin: options.origin,
         project_root: options.project_root.clone(),
         module_paths: options.module_paths.clone(),
+        runtime: options.runtime,
+        runtime_explicit: options.runtime != Runtime::ActionCart,
         ..CompileRequest::default()
     };
     if let Some(mode) = options.mode {
@@ -257,6 +293,26 @@ fn compile_classic(
     path: &Path,
     source_map: &crate::includes::SourceMap,
 ) -> Result<CodegenOutput, CompileError> {
+    if request.runtime == Runtime::Standalone {
+        let origin = request
+            .origin
+            .unwrap_or_else(|| mir6502_default_origin_from_semir(semir, CODE_ORIGIN));
+        let mut output =
+            generate_semir_standalone_profile_at_origin(semir, origin, request.profile).map_err(
+                |diagnostics| {
+                    CompileError::from_source_diagnostics(
+                        CompilerPhase::Codegen,
+                        diagnostics,
+                        source,
+                        path,
+                        Some(source_map),
+                    )
+                },
+            )?;
+        output.map.runtime = request.runtime;
+        return Ok(output);
+    }
+
     let result = match request.codegen_source {
         CodegenSource::Ast if !named => {
             let materialized = materialize_constants(program, model);
@@ -279,7 +335,7 @@ fn compile_classic(
             request.profile,
         ),
     };
-    result.map_err(|diagnostics| {
+    let mut output = result.map_err(|diagnostics| {
         CompileError::from_source_diagnostics(
             CompilerPhase::Codegen,
             diagnostics,
@@ -287,7 +343,9 @@ fn compile_classic(
             path,
             Some(source_map),
         )
-    })
+    })?;
+    output.map.runtime = request.runtime;
+    Ok(output)
 }
 
 fn compile_mir6502(
@@ -319,7 +377,7 @@ fn compile_mir6502(
     } else {
         mir6502::Mir6502Config::default()
     };
-    mir6502::generate_output_with_config(&nir, origin, &config)
+    mir6502::generate_output_with_config_and_runtime(&nir, origin, &config, request.runtime)
         .map_err(CompileError::from_mir6502_diagnostics)
 }
 
@@ -397,6 +455,7 @@ fn resolve_request(
     Ok(ResolvedCompileRequest {
         profile,
         backend,
+        runtime: request.runtime,
         codegen_source: request.codegen_source,
         origin: request.origin,
     })
@@ -488,6 +547,8 @@ mod relocation_tests {
                 profile_explicit: true,
                 backend: Backend::Classic,
                 backend_explicit: true,
+                runtime: Runtime::ActionCart,
+                runtime_explicit: false,
                 codegen_source: CodegenSource::SemIrNative,
                 origin: Some(origin),
                 project_root: None,

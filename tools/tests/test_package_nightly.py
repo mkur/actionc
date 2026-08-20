@@ -14,6 +14,22 @@ import zipfile
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGER = REPO_ROOT / "tools/package-nightly.py"
+ACTION_RUNTIME_SOURCE_FILES = {
+    "BIGST.ACT",
+    "CATCH.ACT",
+    "KALROM.ACT",
+    "SAMPLE.ACT",
+    "SAMPLE2.ACT",
+    "ST.ACT",
+    "SYS.ACT",
+    "SYSALL.ACT",
+    "SYSBLK.ACT",
+    "SYSGR.ACT",
+    "SYSIO.ACT",
+    "SYSLIB.ACT",
+    "SYSMISC.ACT",
+    "SYSSTR.ACT",
+}
 COMMON_FILES = {
     "BUILD-INFO.txt",
     "LICENSE",
@@ -21,11 +37,13 @@ COMMON_FILES = {
     "USAGE.md",
     "docs/ACTIONC_RUN.md",
     "licenses/ACTION-ROM-NOTICE.md",
+    "licenses/ACTION-RUNTIME-NOTICE.md",
     "licenses/ALTIRRAOS-LICENSE",
     "licenses/MYDOS-NOTICE.md",
     "licenses/MYDOS-SOURCE-README.md",
     "licenses/MYDOS453.ARC",
     "licenses/ROM-IMAGES.md",
+    *(f"licenses/runtime-source/{name}" for name in ACTION_RUNTIME_SOURCE_FILES),
 }
 
 
@@ -118,6 +136,9 @@ class NightlyPackageTests(unittest.TestCase):
             mydos_source = package.extractfile(
                 files[f"{root}/licenses/MYDOS453.ARC"]
             ).read()
+            runtime_source = package.extractfile(
+                files[f"{root}/licenses/runtime-source/SYSLIB.ACT"]
+            ).read().decode()
 
         self.assertIn("channel: nightly", build_info)
         self.assertIn("commit: 0123456789abcdef", build_info)
@@ -129,6 +150,7 @@ class NightlyPackageTests(unittest.TestCase):
             hashlib.sha256(mydos_source).hexdigest(),
             "52853bdf6fa03c73cf1292c9ec6ca355f8109056d71a7531b05b51a4fdb75e87",
         )
+        self.assertIn("PROC SArgs", runtime_source)
 
         first_archive = archive.read_bytes()
         repeated = self.run_packager("x86_64-unknown-linux-musl")

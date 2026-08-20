@@ -1,0 +1,9 @@
+; Runtime-neutral Action system-library interface. Runtime-specific implementation
+; addresses live in compiler-owned binding units, never in this public module.
+MODULE SYS
+
+PUBLIC EXTERNAL PROC Zero(BYTE POINTER address, CARD size)
+PUBLIC EXTERNAL PROC SetBlock(BYTE POINTER address, CARD size, BYTE value)
+PUBLIC EXTERNAL PROC MoveBlock(BYTE POINTER destination, source, CARD size)
+
+ENDMODULE

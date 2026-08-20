@@ -1041,6 +1041,9 @@ impl Generator {
         span: Span,
     ) {
         debug_assert_runtime_helper_target_is_callable(&target);
+        if target.is_default_standalone_slot(helper_slot) {
+            self.used_default_runtime_helpers.insert(helper_slot);
+        }
         match target {
             RuntimeHelperTarget::Absolute(address) => self.emitter.emit_jsr_absolute(address),
             RuntimeHelperTarget::Label(label) => self.emitter.emit_jsr_label(label, span),

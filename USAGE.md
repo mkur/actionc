@@ -9,7 +9,8 @@ cargo install --path . --bin actionc
 Compile an Action! source file with:
 
 ```sh
-actionc [--mode <mode>] [options] [-o <file.com>] [--listing <file.lst>] <file.act>
+actionc [--mode <mode>] [--runtime cart|standalone] [options] \
+  [-o <file.com>] [--listing <file.lst>] <file.act>
 ```
 
 Without `-o` or `--output`, `actionc` writes `<source-stem>.com` in the current
@@ -211,11 +212,32 @@ These settings are used only when the corresponding command-line option is not
 provided. An explicit mode overrides both annotations; explicit `--profile`
 and `--backend` flags override their corresponding annotation.
 
+## Runtimes
+
+Runtime selection is independent of profile and backend:
+
+- `--runtime cart` is the default and resolves helpers and library calls to the
+  Action! cartridge ABI.
+- `--runtime standalone` selectively links implemented GPL runtime routines
+  into the generated program and never silently falls back to a cartridge
+  address.
+
+Both classic and MIR6502 support standalone output. The initial experimental
+surface covers compiler-required Action ABI argument-copy and integer
+arithmetic helpers. A referenced resident routine without a standalone binding
+fails at compile time; select the cart runtime until that routine is available.
+
+Runtime selections appear in generated maps and MADS listings. `--emit-map`
+prints `runtime` and `runtime-binding` records; listings use corresponding
+`Runtime` comments and include GPL source provenance for linked routines.
+
 ## Other Options
 
 - `--origin <addr>` sets the code origin. Addresses may be decimal, `$` hex, or
   `0x` hex, for example `12288`, `$3000`, or `0x3000`.
 - `--origin=<addr>` is also accepted.
+- `--runtime cart|standalone` selects the runtime provider. The value is a
+  separate argument; `--runtime=<value>` is intentionally not accepted.
 - `--mode=<mode>` is accepted as an alternative to `--mode <mode>`.
 - `--profile=<profile>` and `--backend=<backend>` are also accepted.
 - `--diagnostic-byte-ranges` includes byte ranges in diagnostics.
@@ -262,7 +284,8 @@ Use `--mode compatibility|optimized|mir6502` to select a compiler mode,
 `--emulator auto|atari800|altirra` to select an adapter, and
 `--emulator-path <path>` to override discovery. The bundled Action! cartridge
 is used by default; replace it with `--cart <path>` or disable it with
-`--no-cart`.
+`--no-cart`. `--no-cart` also selects standalone compilation, while the
+default and `--cart <path>` select cart compilation.
 
 To create an ATR without launching an emulator:
 

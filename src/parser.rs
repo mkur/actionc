@@ -149,9 +149,23 @@ impl<'a> Parser<'a> {
             } else {
                 Visibility::Private
             };
+            let external_span = if self.eat_contextual("EXTERNAL") {
+                Some(self.tokens[self.pos - 1].span)
+            } else {
+                None
+            };
+            if let Some(span) = external_span
+                && public_span.is_none()
+            {
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    "EXTERNAL callable declarations must be PUBLIC",
+                ));
+            }
 
             if self.check_keyword(Keyword::Define) {
                 pending_annotations.clear();
+                self.reject_external_on_non_routine(external_span, "DEFINE");
                 if let Some(span) = public_span {
                     self.diagnostics.push(Diagnostic::new(
                         span,
@@ -161,39 +175,46 @@ impl<'a> Parser<'a> {
                 items.push(Item::Define(self.parse_define()));
             } else if self.check_keyword(Keyword::Include) {
                 pending_annotations.clear();
+                self.reject_external_on_non_routine(external_span, "INCLUDE");
                 self.reject_public_on_non_declaration(public_span, "INCLUDE");
                 items.push(Item::Include(self.parse_include()));
             } else if self.check_keyword(Keyword::Set) {
                 pending_annotations.clear();
+                self.reject_external_on_non_routine(external_span, "SET");
                 self.reject_public_on_non_declaration(public_span, "SET");
                 items.push(Item::Set(self.parse_set()));
             } else if self.check_keyword(Keyword::Type) {
                 pending_annotations.clear();
+                self.reject_external_on_non_routine(external_span, "TYPE");
                 let mut decl = self.parse_type_decl();
                 decl.visibility = visibility;
                 items.push(Item::Declaration(Decl::Type(decl)));
             } else if self.check_keyword(Keyword::Record) {
                 pending_annotations.clear();
+                self.reject_external_on_non_routine(external_span, "RECORD");
                 let mut decl = self.parse_record_decl();
                 decl.visibility = visibility;
                 items.push(Item::Declaration(Decl::Record(decl)));
             } else if self.is_const_decl_start() {
                 pending_annotations.clear();
+                self.reject_external_on_non_routine(external_span, "CONST");
                 let mut decl = self.parse_const_decl();
                 decl.visibility = visibility;
                 items.push(Item::Declaration(Decl::Const(decl)));
             } else if self.is_var_decl_start() {
                 pending_annotations.clear();
+                self.reject_external_on_non_routine(external_span, "a variable declaration");
                 let mut decl = self.parse_var_decl();
                 decl.visibility = visibility;
                 items.push(Item::Declaration(Decl::Var(decl)));
             } else if self.check_keyword(Keyword::Proc) || self.is_func_decl_start() {
                 let annotations = std::mem::take(&mut pending_annotations);
-                let mut routine = self.parse_routine(annotations);
+                let mut routine = self.parse_routine(annotations, external_span.is_some());
                 routine.visibility = visibility;
                 items.push(Item::Routine(routine));
             } else if self.is_statement_start() {
                 pending_annotations.clear();
+                self.reject_external_on_non_routine(external_span, "a statement");
                 self.reject_public_on_non_declaration(public_span, "a statement");
                 let statement_start = self.peek().span.start;
                 self.parse_statement();
@@ -203,6 +224,7 @@ impl<'a> Parser<'a> {
                 ));
             } else {
                 pending_annotations.clear();
+                self.reject_external_on_non_routine(external_span, "this construct");
                 self.reject_public_on_non_declaration(public_span, "this construct");
                 let token = self.bump().clone();
                 items.push(Item::Unsupported {
@@ -317,6 +339,15 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn reject_external_on_non_routine(&mut self, span: Option<Span>, target: &str) {
+        if let Some(span) = span {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                format!("EXTERNAL cannot qualify {target}"),
+            ));
+        }
+    }
+
     fn is_named_module_start_at(&self, pos: usize) -> bool {
         matches!(
             (
@@ -397,7 +428,7 @@ impl<'a> Parser<'a> {
                 items.push(Item::Declaration(Decl::Var(self.parse_var_decl())));
             } else if self.check_keyword(Keyword::Proc) || self.is_func_decl_start() {
                 let annotations = std::mem::take(&mut pending_annotations);
-                items.push(Item::Routine(self.parse_routine(annotations)));
+                items.push(Item::Routine(self.parse_routine(annotations, false)));
             } else if self.is_statement_start() {
                 pending_annotations.clear();
                 items.push(Item::Statement(self.parse_statement()));
@@ -574,7 +605,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_routine(&mut self, annotations: Vec<ActioncAnnotation>) -> Routine {
+    fn parse_routine(&mut self, annotations: Vec<ActioncAnnotation>, is_external: bool) -> Routine {
         let start = self.peek().span.start;
         let kind = if self.eat_keyword(Keyword::Proc) {
             RoutineKind::Proc
@@ -599,6 +630,26 @@ impl<'a> Parser<'a> {
         };
 
         let params = self.parse_param_list();
+        if is_external {
+            if let Some(address) = &system_address {
+                self.diagnostics.push(Diagnostic::new(
+                    address.span,
+                    "EXTERNAL callable declarations cannot specify a system address",
+                ));
+            }
+            return Routine {
+                visibility: Visibility::Private,
+                is_external: true,
+                kind,
+                name,
+                system_address,
+                params,
+                locals: Vec::new(),
+                body: Vec::new(),
+                annotations,
+                span: Span::new(start, self.previous_end()),
+            };
+        }
         let mut locals = Vec::new();
         let mut leading_body = Vec::new();
         while !self.is_routine_boundary() {
@@ -618,6 +669,7 @@ impl<'a> Parser<'a> {
 
         Routine {
             visibility: Visibility::Private,
+            is_external: false,
             kind,
             name,
             system_address,
@@ -1717,7 +1769,10 @@ impl<'a> Parser<'a> {
         if !self.is_contextual_at(self.pos, "PUBLIC") {
             return false;
         }
-        let next = self.pos + 1;
+        let mut next = self.pos + 1;
+        if self.is_contextual_at(next, "EXTERNAL") {
+            next += 1;
+        }
         matches!(
             self.tokens.get(next).map(|token| &token.kind),
             Some(TokenKind::Keyword(
@@ -2957,7 +3012,7 @@ mod tests {
             MODULE DEMO.VIDEO
               IMPORT ATARI.ANTIC
               IMPORT ATARI.GTIA AS VIDEO
-              IMPORT STD.*
+              IMPORT SYS.*
               PUBLIC VOLATILE BYTE DMACTL=$D400, WSYNC=$D40A
             ENDMODULE
         "#;
@@ -2977,6 +3032,47 @@ mod tests {
         assert_eq!(registers.visibility, Visibility::Public);
         assert!(registers.qualifiers.is_volatile);
         assert_eq!(registers.entries.len(), 2);
+    }
+
+    #[test]
+    fn parses_public_external_callable_signatures_without_bodies() {
+        let source = "MODULE SYS\n\
+                      PUBLIC EXTERNAL PROC Zero(BYTE POINTER address, CARD size)\n\
+                      PUBLIC EXTERNAL BYTE FUNC Peek(CARD address)\n\
+                      ENDMODULE\n";
+        let program = parse(&tokenize(source).unwrap()).unwrap();
+        assert_eq!(program.modules[0].items.len(), 2);
+        for item in &program.modules[0].items {
+            let Item::Routine(routine) = item else {
+                panic!("expected external routine");
+            };
+            assert!(routine.is_external);
+            assert!(routine.body.is_empty());
+            assert!(routine.locals.is_empty());
+            assert_eq!(routine.visibility, Visibility::Public);
+        }
+    }
+
+    #[test]
+    fn rejects_private_or_fixed_address_external_callables() {
+        for (source, expected) in [
+            (
+                "MODULE BAD\nEXTERNAL PROC Hidden()\nENDMODULE",
+                "EXTERNAL callable declarations must be PUBLIC",
+            ),
+            (
+                "MODULE BAD\nPUBLIC EXTERNAL PROC Fixed=$A000()\nENDMODULE",
+                "EXTERNAL callable declarations cannot specify a system address",
+            ),
+        ] {
+            let diagnostics = parse(&tokenize(source).unwrap()).unwrap_err();
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "{diagnostics:?}"
+            );
+        }
     }
 
     #[test]
@@ -3010,7 +3106,7 @@ mod tests {
         for (source, expected) in [
             ("MODULE DEMO\nBYTE value", "missing ENDMODULE"),
             (
-                "MODULE DEMO\nBYTE value\nIMPORT STD\nENDMODULE",
+                "MODULE DEMO\nBYTE value\nIMPORT SYS\nENDMODULE",
                 "IMPORT declarations must precede",
             ),
             (
@@ -3022,7 +3118,7 @@ mod tests {
                 "executable top-level statements",
             ),
             (
-                "MODULE DEMO\nIMPORT STD.* AS S\nENDMODULE",
+                "MODULE DEMO\nIMPORT SYS.* AS S\nENDMODULE",
                 "open import cannot use AS",
             ),
             (

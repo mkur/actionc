@@ -8,7 +8,9 @@ fn codegen_symbol_scope_key(scope: &CodegenSymbolScope) -> (&str, &str) {
 }
 
 impl Generator {
-    pub(super) fn finish(self) -> Result<CodegenOutput, Vec<Diagnostic>> {
+    pub(super) fn finish_with_runtime_requirements(
+        self,
+    ) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
         if !self.diagnostics.is_empty() {
             return Err(self.diagnostics);
         }
@@ -47,6 +49,8 @@ impl Generator {
         let optimizations = self.optimizations;
         let proofs = self.proofs;
         let proof_attempts = self.proof_attempts;
+        let classic_runtime_requirements =
+            self.used_default_runtime_helpers.iter().copied().collect();
         let mut storage_symbols = self.layout.codegen_storage_symbols();
         storage_symbols.extend(self.storage_symbols);
         storage_symbols.sort_by(|left, right| {
@@ -55,6 +59,8 @@ impl Generator {
                 .then_with(|| left.name.cmp(&right.name))
         });
         let map = CodegenMap {
+            runtime: crate::runtime::Runtime::ActionCart,
+            runtime_bindings: Vec::new(),
             origin,
             run_address,
             skipped_ranges: skipped_ranges.clone(),
@@ -69,20 +75,23 @@ impl Generator {
             proofs: proofs.clone(),
             proof_attempts: proof_attempts.clone(),
         };
-        self.emitter
-            .finish_with_relocations()
-            .map(|emission| CodegenOutput {
-                bytes: emission.bytes,
-                origin,
-                run_address,
-                relocations: emission.relocations,
-                skipped_ranges,
-                routine_addresses,
-                optimizations,
-                proofs,
-                proof_attempts,
-                map,
-            })
+        self.emitter.finish_with_relocations().map(|emission| {
+            (
+                CodegenOutput {
+                    bytes: emission.bytes,
+                    origin,
+                    run_address,
+                    relocations: emission.relocations,
+                    skipped_ranges,
+                    routine_addresses,
+                    optimizations,
+                    proofs,
+                    proof_attempts,
+                    map,
+                },
+                classic_runtime_requirements,
+            )
+        })
     }
 }
 

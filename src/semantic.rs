@@ -835,15 +835,20 @@ impl Analyzer {
                             RoutineKind::Proc => None,
                             RoutineKind::Func { return_type } => Some(ValueType::fund(return_type)),
                         };
-                        if let Some(symbol_id) = self.declare_module_symbol(
-                            module_id,
-                            scope,
-                            routine.name.clone(),
-                            class,
-                            ty,
-                            routine.visibility,
-                            routine.span,
-                        ) {
+                        let symbol_id = self
+                            .coalesce_sys_compatibility_routine(module_id, scope, routine)
+                            .or_else(|| {
+                                self.declare_module_symbol(
+                                    module_id,
+                                    scope,
+                                    routine.name.clone(),
+                                    class,
+                                    ty,
+                                    routine.visibility,
+                                    routine.span,
+                                )
+                            });
+                        if let Some(symbol_id) = symbol_id {
                             self.remember_routine_signature(
                                 symbol_id,
                                 SemanticCallableSignature::from_routine(routine),
@@ -857,6 +862,65 @@ impl Analyzer {
                 }
             }
         }
+    }
+
+    fn coalesce_sys_compatibility_routine(
+        &mut self,
+        module_id: ModuleId,
+        scope: ScopeId,
+        routine: &Routine,
+    ) -> Option<SymbolId> {
+        let module = &self.modules[module_id.0 as usize];
+        if module.path.canonical_name() != "sys" || !routine.is_external {
+            return None;
+        }
+        let symbol_id = self
+            .symbols
+            .lookup_exact(self.builtin_scope, &routine.name)?;
+        let compatible = matches!(
+            (&self.symbols.symbols[symbol_id.0].class, &routine.kind),
+            (SymbolClass::BuiltinProc, RoutineKind::Proc)
+                | (SymbolClass::BuiltinFunc, RoutineKind::Func { .. })
+        );
+        if !compatible {
+            self.diagnostics.push(Diagnostic::new(
+                routine.span,
+                format!(
+                    "SYS external `{}` conflicts with its compatibility-prelude kind",
+                    routine.name
+                ),
+            ));
+            return Some(symbol_id);
+        }
+        if let Err(existing) = self
+            .symbols
+            .bind_alias(scope, routine.name.clone(), symbol_id)
+            && existing != symbol_id
+        {
+            self.diagnostics.push(Diagnostic::new(
+                routine.span,
+                format!("duplicate SYS external `{}`", routine.name),
+            ));
+            return Some(symbol_id);
+        }
+
+        let module_path = self.modules[module_id.0 as usize].path.clone();
+        let symbol = &mut self.symbols.symbols[symbol_id.0];
+        symbol.defining_module = Some(module_id);
+        symbol.visibility = routine.visibility;
+        symbol.canonical_qualified_key = format!(
+            "{}::{}",
+            module_path.canonical_name(),
+            routine.name.to_ascii_lowercase()
+        );
+        symbol.qualified_name = format!("{}.{}", module_path.display_name(), routine.name);
+        symbol.span = routine.span;
+        if routine.visibility == Visibility::Public {
+            self.modules[module_id.0 as usize]
+                .public_symbols
+                .insert(normalize_name(&routine.name), symbol_id);
+        }
+        Some(symbol_id)
     }
 
     fn collect_named_declaration(
@@ -2865,7 +2929,11 @@ impl Analyzer {
                 params,
                 variadic: None,
                 return_type,
-                source: SemanticCallableSource::User,
+                source: if routine.is_external {
+                    SemanticCallableSource::Runtime
+                } else {
+                    SemanticCallableSource::User
+                },
             },
         );
         if let Some(address) = &routine.system_address {
@@ -3108,6 +3176,8 @@ impl Analyzer {
                                         | SymbolClass::Param
                                         | SymbolClass::Proc
                                         | SymbolClass::Func
+                                        | SymbolClass::BuiltinProc
+                                        | SymbolClass::BuiltinFunc
                                 )
                             ) {
                                 self.diagnostics.push(Diagnostic::new(
@@ -3507,7 +3577,11 @@ impl SemanticCallableSignature {
             params,
             variadic: None,
             return_type,
-            source: SemanticCallableSource::User,
+            source: if routine.is_external {
+                SemanticCallableSource::Runtime
+            } else {
+                SemanticCallableSource::User
+            },
         }
     }
 
@@ -4215,6 +4289,53 @@ mod tests {
                 .resolve_action_name(main_scope, "Limit")
                 .map(|resolved| resolved.stage),
             Some(LookupStage::Module)
+        );
+    }
+
+    #[test]
+    fn sys_external_and_compatibility_names_share_one_symbol_identity() {
+        let root = SourceOrigin::host("project/main.act");
+        let provider = InMemorySourceProvider::default()
+            .with_source(
+                root.clone(),
+                b"MODULE APP\nIMPORT SYS\nIMPORT SYS.*\n\
+                  PROC Main() RETURN\nENDMODULE\n"
+                    .to_vec(),
+            )
+            .with_source(
+                SourceOrigin::embedded("sys.act", "<embedded:SYS>"),
+                b"MODULE SYS\n\
+                  PUBLIC EXTERNAL PROC Zero(BYTE POINTER address,CARD size)\n\
+                  ENDMODULE\n"
+                    .to_vec(),
+            );
+        let compilation =
+            load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default())
+                .expect("load SYS fixture");
+        let model = analyze_compilation(&compilation).expect("analyze SYS fixture");
+        let app = named_module(&model, "APP");
+        let sys = named_module(&model, "SYS");
+        let public = sys.public_symbol("Zero").expect("SYS.Zero");
+        assert_eq!(model.symbols.lookup_exact(app.scope, "Zero"), Some(public));
+        assert_eq!(
+            model.resolve_name(
+                app.scope,
+                &crate::ast::QualifiedName::new(vec!["SYS".to_string(), "Zero".to_string()])
+            ),
+            SemanticNameResolution::Symbol(public)
+        );
+        assert_eq!(
+            model.symbols.lookup_exact(
+                model.symbols.builtin_scope().expect("builtin scope"),
+                "Zero"
+            ),
+            Some(public)
+        );
+        let signature = &model.routine_signatures_by_symbol[&public];
+        assert_eq!(signature.source, SemanticCallableSource::Runtime);
+        assert_eq!(
+            model.symbols.symbols[public.0].canonical_qualified_key,
+            "sys::zero"
         );
     }
 

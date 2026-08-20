@@ -1,0 +1,17 @@
+; The SYS interface is runtime-neutral. Standalone mode selects only the
+; referenced SYSBLK routine from the compiler's embedded runtime image.
+MODULE RUNTIME.SYS.MEMORY
+
+IMPORT SYS
+
+BYTE ARRAY buffer(8)=$0600
+
+PROC Main()
+  buffer(0)=1
+  buffer(7)=2
+  SYS.Zero(buffer,8)
+  DO
+  OD
+RETURN
+
+ENDMODULE

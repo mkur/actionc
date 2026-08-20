@@ -31,6 +31,22 @@ REQUIRED_LICENSE_FILES = {
     "atr/MYDOS-NOTICE.md": "the embedded MyDOS disk image",
     "atr/source/MYDOS453.ARC": "machine-readable MyDOS 4.53/3 source",
 }
+ACTION_RUNTIME_SOURCE_FILES = (
+    "BIGST.ACT",
+    "CATCH.ACT",
+    "KALROM.ACT",
+    "SAMPLE.ACT",
+    "SAMPLE2.ACT",
+    "ST.ACT",
+    "SYS.ACT",
+    "SYSALL.ACT",
+    "SYSBLK.ACT",
+    "SYSGR.ACT",
+    "SYSIO.ACT",
+    "SYSLIB.ACT",
+    "SYSMISC.ACT",
+    "SYSSTR.ACT",
+)
 
 
 class PackageError(Exception):
@@ -134,6 +150,22 @@ def license_inputs(
         ),
     ]
     missing = []
+    runtime_notice = repo_root / "corpora/action-runtime/README.md"
+    if runtime_notice.is_file() and not runtime_notice.is_symlink():
+        inputs.append((runtime_notice, Path("ACTION-RUNTIME-NOTICE.md")))
+    else:
+        missing.append(
+            "corpora/action-runtime/README.md: the embedded Action runtime source"
+        )
+    for file_name in ACTION_RUNTIME_SOURCE_FILES:
+        source = repo_root / "corpora/action-runtime/extracted" / file_name
+        if source.is_file() and not source.is_symlink():
+            inputs.append((source, Path("runtime-source") / file_name))
+        else:
+            missing.append(
+                f"corpora/action-runtime/extracted/{file_name}: "
+                "embedded Action runtime corresponding source"
+            )
     for relative, description in REQUIRED_LICENSE_FILES.items():
         source = repo_root / relative
         if source.is_file() and not source.is_symlink():
@@ -193,7 +225,6 @@ def stage_package(
         repo_root / "docs/ACTIONC_RUN.md",
         stage_root / "docs/ACTIONC_RUN.md",
     )
-
     notices, missing = license_inputs(
         repo_root, args.allow_incomplete_license_notices
     )

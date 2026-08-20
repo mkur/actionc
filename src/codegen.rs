@@ -1,8 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
 use crate::resident::{ResidentVariableKind, ResidentVariableStorage, resident_variable};
+use crate::runtime::Runtime;
 use crate::source::{Span, source_char_byte};
 
 const DATA_BASE: u16 = 0x0600;
@@ -57,6 +58,8 @@ pub(crate) struct FinalizedEmission {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CodegenMap {
+    pub runtime: Runtime,
+    pub runtime_bindings: Vec<CodegenRuntimeBinding>,
     pub origin: u16,
     pub run_address: u16,
     pub skipped_ranges: Vec<SkippedRange>,
@@ -70,6 +73,16 @@ pub struct CodegenMap {
     pub optimizations: Vec<CodegenOptimization>,
     pub proofs: Vec<CodegenProof>,
     pub proof_attempts: Vec<CodegenProofAttempt>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CodegenRuntimeBinding {
+    pub helper: String,
+    pub implementation: String,
+    pub address: Option<u16>,
+    pub reason: String,
+    pub origin: String,
+    pub suppressed_default: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -285,6 +298,9 @@ pub use driver::{
 pub(crate) use driver::{generate_profile_at_origin, generate_semir_profile_at_origin};
 
 mod semir;
+
+mod standalone;
+pub(crate) use standalone::generate_semir_standalone_profile_at_origin;
 
 mod semir_native;
 
@@ -1057,6 +1073,7 @@ struct Generator {
     numeric_defines: HashMap<String, u16>,
     machine_defines: HashMap<String, Vec<MachineItem>>,
     runtime_helpers: RuntimeHelperTargets,
+    used_default_runtime_helpers: BTreeSet<RuntimeHelperSlot>,
     routine_assignment_targets: HashSet<String>,
     local_symbols: HashMap<String, StorageSlot>,
     local_callable_pointers: HashMap<String, CallablePointerInfo>,

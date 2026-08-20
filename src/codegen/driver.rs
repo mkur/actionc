@@ -8,7 +8,13 @@ pub fn generate_with_origin(
     program: &Program,
     origin: u16,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    generate_with_options(program, origin, false, CodegenProfile::Compat)
+    generate_with_options(
+        program,
+        origin,
+        false,
+        CodegenProfile::Compat,
+        RuntimeTarget::StandaloneSlots,
+    )
 }
 
 pub fn generate_compatible_with_origin(
@@ -28,7 +34,7 @@ pub fn generate_profile_with_origin(
     } else {
         origin
     };
-    generate_with_options(program, origin, true, profile)
+    generate_with_options(program, origin, true, profile, RuntimeTarget::Cartridge)
 }
 
 pub(crate) fn generate_profile_at_origin(
@@ -36,7 +42,7 @@ pub(crate) fn generate_profile_at_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    generate_with_options(program, origin, true, profile)
+    generate_with_options(program, origin, true, profile, RuntimeTarget::Cartridge)
 }
 
 pub fn generate_semir_profile_with_origin(
@@ -65,17 +71,30 @@ pub fn generate_semir_native_profile_with_origin(
     super::semir_native::generate_native_profile_with_origin(program, origin, profile)
 }
 
-fn generate_with_options(
+pub(super) fn generate_with_options(
     program: &Program,
     origin: u16,
     segment_storage: bool,
     profile: CodegenProfile,
+    runtime_target: RuntimeTarget,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    let runtime_target = if segment_storage {
-        RuntimeTarget::Cartridge
-    } else {
-        RuntimeTarget::StandaloneSlots
-    };
+    generate_with_options_and_requirements(
+        program,
+        origin,
+        segment_storage,
+        profile,
+        runtime_target,
+    )
+    .map(|(output, _)| output)
+}
+
+pub(super) fn generate_with_options_and_requirements(
+    program: &Program,
+    origin: u16,
+    segment_storage: bool,
+    profile: CodegenProfile,
+    runtime_target: RuntimeTarget,
+) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
     let storage_base = if segment_storage { origin } else { DATA_BASE };
     let record_layouts = collect_record_layouts(program);
     let routines = collect_routine_info(program, &record_layouts);
@@ -107,6 +126,7 @@ fn generate_with_options(
         numeric_defines,
         machine_defines,
         runtime_helpers: RuntimeHelperTargets::default_for_target(runtime_target),
+        used_default_runtime_helpers: BTreeSet::new(),
         routine_assignment_targets,
         local_symbols: HashMap::new(),
         local_callable_pointers: HashMap::new(),
@@ -146,7 +166,7 @@ fn generate_with_options(
         inline_byte_constant_shift: false,
     };
     generator.generate_program(program);
-    generator.finish()
+    generator.finish_with_runtime_requirements()
 }
 
 fn program_code_origin(program: &Program) -> Option<u16> {

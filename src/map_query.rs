@@ -295,6 +295,8 @@ mod tests {
 
     fn sample_map() -> CodegenMap {
         CodegenMap {
+            runtime: crate::runtime::Runtime::ActionCart,
+            runtime_bindings: Vec::new(),
             origin: 0x3000,
             run_address: 0x3004,
             skipped_ranges: vec![SkippedRange {

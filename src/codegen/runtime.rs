@@ -36,14 +36,56 @@ pub(super) enum RuntimeTarget {
     StandaloneSlots,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum RuntimeHelperSlot {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum RuntimeHelperSlot {
     Lsh,
     Rsh,
     Mul,
     Div,
     Mod,
     SArgs,
+}
+
+impl RuntimeHelperSlot {
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            Self::Lsh => "LShift",
+            Self::Rsh => "RShift",
+            Self::Mul => "MultI",
+            Self::Div => "DivI",
+            Self::Mod => "RemI",
+            Self::SArgs => "SArgs",
+        }
+    }
+
+    fn standalone_slot(self) -> Absolute {
+        match self {
+            Self::Lsh => runtime_helper::LSH_SLOT,
+            Self::Rsh => runtime_helper::RSH_SLOT,
+            Self::Mul => runtime_helper::MUL_SLOT,
+            Self::Div => runtime_helper::DIV_SLOT,
+            Self::Mod => runtime_helper::MOD_SLOT,
+            Self::SArgs => runtime_helper::SARGS_SLOT,
+        }
+    }
+
+    pub(crate) fn from_slot_address(address: u16) -> Option<Self> {
+        match address {
+            address if address == runtime_helper::LSH_SLOT.address() => Some(Self::Lsh),
+            address if address == runtime_helper::RSH_SLOT.address() => Some(Self::Rsh),
+            address if address == runtime_helper::MUL_SLOT.address() => Some(Self::Mul),
+            address if address == runtime_helper::DIV_SLOT.address() => Some(Self::Div),
+            address if address == runtime_helper::MOD_SLOT.address() => Some(Self::Mod),
+            address if address == runtime_helper::SARGS_SLOT.address() => Some(Self::SArgs),
+            _ => None,
+        }
+    }
+}
+
+impl RuntimeHelperTarget {
+    pub(super) fn is_default_standalone_slot(&self, helper: RuntimeHelperSlot) -> bool {
+        matches!(self, Self::Absolute(address) if *address == helper.standalone_slot())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

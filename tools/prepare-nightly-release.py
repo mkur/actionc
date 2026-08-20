@@ -15,6 +15,22 @@ TARGET_ASSETS = {
     "aarch64-apple-darwin": "actionc-nightly-aarch64-apple-darwin.tar.gz",
     "x86_64-apple-darwin": "actionc-nightly-x86_64-apple-darwin.tar.gz",
 }
+ACTION_RUNTIME_SOURCE_FILES = {
+    "BIGST.ACT",
+    "CATCH.ACT",
+    "KALROM.ACT",
+    "SAMPLE.ACT",
+    "SAMPLE2.ACT",
+    "ST.ACT",
+    "SYS.ACT",
+    "SYSALL.ACT",
+    "SYSBLK.ACT",
+    "SYSGR.ACT",
+    "SYSIO.ACT",
+    "SYSLIB.ACT",
+    "SYSMISC.ACT",
+    "SYSSTR.ACT",
+}
 COMMON_PACKAGE_FILES = {
     "BUILD-INFO.txt",
     "LICENSE",
@@ -22,11 +38,13 @@ COMMON_PACKAGE_FILES = {
     "USAGE.md",
     "docs/ACTIONC_RUN.md",
     "licenses/ACTION-ROM-NOTICE.md",
+    "licenses/ACTION-RUNTIME-NOTICE.md",
     "licenses/ALTIRRAOS-LICENSE",
     "licenses/MYDOS-NOTICE.md",
     "licenses/MYDOS-SOURCE-README.md",
     "licenses/MYDOS453.ARC",
     "licenses/ROM-IMAGES.md",
+    *(f"licenses/runtime-source/{name}" for name in ACTION_RUNTIME_SOURCE_FILES),
 }
 ACTION_SOURCE_NAME = "action-3.6-source-0b8bcedb.tar.gz"
 ACTION_SOURCE_SHA256 = (

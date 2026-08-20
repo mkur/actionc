@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use atrcopy_rs::AtrImage;
 
 static NEXT_TEMP_DIR: AtomicU64 = AtomicU64::new(0);
@@ -48,6 +48,13 @@ fn hello_world() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("samples")
         .join("hello-world.act")
+}
+
+fn standalone_minimal() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("runtime")
+        .join("standalone_minimal.act")
 }
 
 #[test]
@@ -121,7 +128,7 @@ fn no_cart_writes_the_compiler_object_directly_as_ar0() {
         .arg("--no-run")
         .arg("--out-atr")
         .arg(&output_atr)
-        .arg(hello_world())
+        .arg(standalone_minimal())
         .output()
         .expect("run actionc-run --no-cart --no-run");
 
@@ -137,8 +144,11 @@ fn no_cart_writes_the_compiler_object_directly_as_ar0() {
         .read_file_named("PROGRAM.AR0")
         .expect("read output directory")
         .expect("find PROGRAM.AR0");
-    let compiled =
-        compile_file(hello_world(), &CompileOptions::default()).expect("compile expected object");
+    let compiled = compile_file(
+        standalone_minimal(),
+        &CompileOptions::default().with_runtime(Runtime::Standalone),
+    )
+    .expect("compile expected standalone object");
 
     assert_eq!(program, compiled.object_bytes());
     assert!(
@@ -150,6 +160,62 @@ fn no_cart_writes_the_compiler_object_directly_as_ar0() {
     assert!(
         image
             .read_file_named("PROGRAM.AR1")
+            .expect("read output directory")
+            .is_none()
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn no_cart_launches_atari800_with_standalone_program_and_no_cart_argument() {
+    let temp = TestDir::new();
+    let record = temp.path().join("atari800-no-cart-args.txt");
+    let output_atr = temp.path().join("standalone.atr");
+    let emulator = temp.executable(
+        "atari800",
+        "#!/bin/sh\nset -eu\ntest -s \"$2\"\ntest -s \"$6\"\ntest -s \"$7\"\nprintf '%s\\n' \"$@\" > \"$ACTIONC_TEST_RECORD\"\n",
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
+        .arg("--no-cart")
+        .arg("--mode=optimized")
+        .arg("--emulator=atari800")
+        .arg("--emulator-path")
+        .arg(&emulator)
+        .arg("--out-atr")
+        .arg(&output_atr)
+        .arg(standalone_minimal())
+        .env("ACTIONC_TEST_RECORD", &record)
+        .output()
+        .expect("run standalone program with fake Atari800");
+
+    assert!(
+        output.status.success(),
+        "actionc-run failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let args = fs::read_to_string(&record).expect("read Atari800 arguments");
+    let args = args.lines().collect::<Vec<_>>();
+    assert_eq!(args.len(), 7);
+    assert_eq!(args[0], "-config");
+    assert_eq!(args[2], "-no-autosave-config");
+    assert_eq!(args[3], "-xl");
+    assert_eq!(args[4], "-xlxe_rom");
+    assert!(!args.contains(&"-cart"));
+    assert_eq!(Path::new(args[6]), output_atr);
+
+    let image = AtrImage::from_bytes(fs::read(&output_atr).expect("read output ATR"))
+        .expect("parse standalone ATR");
+    assert!(
+        image
+            .read_file_named("PROGRAM.AR0")
+            .expect("read output directory")
+            .is_some()
+    );
+    assert!(
+        image
+            .read_file_named("BOOT.AR0")
             .expect("read output directory")
             .is_none()
     );

@@ -2,10 +2,10 @@
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+    use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
     use actionc_vm::{
-        CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE, RunRequest,
-        StopReason, VmRunner,
+        CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE, RunOutcome,
+        RunRequest, StopReason, VmRunner,
     };
 
     const RESULT_START: u16 = 0x0600;
@@ -152,6 +152,26 @@ mod tests {
             .collect()
     }
 
+    fn run_standalone_fixture(name: &str, mode: CompileMode, max_steps: u64) -> RunOutcome {
+        let fixture = runtime_fixture(name);
+        let compiled = compile_file(
+            &fixture,
+            &CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone),
+        )
+        .unwrap_or_else(|error| panic!("compile standalone {name} with {mode:?}: {error}"));
+        let mut vm = vm_for_profile(ExecutionProfile::StandaloneObject);
+        vm.load_atari_object_for_execution(
+            ExecutionProfile::StandaloneObject,
+            compiled.object_bytes(),
+        )
+        .unwrap_or_else(|error| panic!("load standalone {name} with {mode:?}: {error}"));
+        VmRunner::new(vm).run(RunRequest {
+            max_steps,
+            history_len: 8,
+            ..RunRequest::default()
+        })
+    }
+
     #[test]
     fn initialized_arrays_execute_through_the_vm_library() {
         assert_both_backends(
@@ -163,6 +183,66 @@ mod tests {
                 bytes: &[0x02, 0x22, 0x22, 0x05, 0x44, 0x44],
             }],
         );
+    }
+
+    #[test]
+    fn selectively_linked_sargs_executes_without_a_cartridge() {
+        let max_steps = 1_000;
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            let outcome = run_standalone_fixture("standalone_sargs.act", mode, max_steps);
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            assert_eq!(outcome.memory().read(RESULT_START), 4, "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn selectively_linked_arithmetic_executes_without_a_cartridge() {
+        let max_steps = 10_000;
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            let outcome = run_standalone_fixture("standalone_arithmetic.act", mode, max_steps);
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            assert_eq!(
+                (0..10)
+                    .map(|offset| outcome.memory().read(RESULT_START + offset))
+                    .collect::<Vec<_>>(),
+                hex_bytes("6c 7f 99 02 05 00 a0 91 46 02"),
+                "{mode:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn selectively_linked_sys_zero_executes_without_a_cartridge() {
+        let max_steps = 1_000;
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            let outcome = run_standalone_fixture("standalone_sys_memory.act", mode, max_steps);
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            assert_eq!(
+                (0..8)
+                    .map(|offset| outcome.memory().read(RESULT_START + offset))
+                    .collect::<Vec<_>>(),
+                vec![0; 8],
+                "{mode:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn selectively_linked_sys_block_operations_execute_without_a_cartridge() {
+        let max_steps = 2_000;
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            let outcome = run_standalone_fixture("standalone_sys_blocks.act", mode, max_steps);
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            for start in [0x0600, 0x0610] {
+                assert_eq!(
+                    (0..4)
+                        .map(|offset| outcome.memory().read(start + offset))
+                        .collect::<Vec<_>>(),
+                    vec![0x5A; 4],
+                    "{mode:?}"
+                );
+            }
+        }
     }
 
     #[test]

@@ -12,8 +12,10 @@ The release provides separate archives for:
 
 Each package contains `actionc`, `actionc-run`, `actionc-emit`, build identity,
 documentation, and notices/source material for embedded third-party assets.
-The separate Action! source archive contains corresponding source for the
-bundled cartridge. Use `SHA256SUMS` to verify downloaded assets.
+The package's `licenses/runtime-source` directory contains the exact GPL Action
+runtime sources embedded in the compiler. The separate Action! source archive
+contains corresponding source for the bundled cartridge. Use `SHA256SUMS` to
+verify downloaded assets.
 
 Windows and macOS binaries are currently unsigned. SmartScreen or Gatekeeper
 may therefore display a warning. The exact source commit and build toolchain are

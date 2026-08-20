@@ -56,6 +56,7 @@ impl NirLowerer {
         self.machine_define_names = machine_defines.names;
         self.machine_defines = machine_defines.ids;
         let record_storage_sizes = record_storage_sizes(program);
+        let root_module = program.modules.last().and_then(|module| module.id);
 
         for module in &program.modules {
             for item in &module.items {
@@ -161,8 +162,13 @@ impl NirLowerer {
                         self.storage_symbols.insert(declaration.symbol.name.clone());
                     }
                     crate::semantic::ir::SemItem::Routine(routine) => {
+                        let routine_name = if routine.is_external {
+                            &routine.symbol.qualified_name
+                        } else {
+                            &routine.symbol.name
+                        };
                         let mut builder = NirBuilder::new(
-                            &routine.symbol.name,
+                            routine_name,
                             self.next_block_label(),
                             self.next_static,
                             self.global_ids.clone(),
@@ -278,6 +284,26 @@ impl NirLowerer {
                                 });
                             }
                         }
+                        if routine.is_external {
+                            builder.notes.push(NirRoutineNote {
+                                text: routine.symbol.canonical_qualified_key.clone(),
+                                kind: NirRoutineNoteKind::ExternalInterface,
+                            });
+                        }
+                        if module.id == root_module
+                            && module.id.is_some()
+                            && routine
+                                .symbol
+                                .qualified_name
+                                .rsplit('.')
+                                .next()
+                                .is_some_and(|name| name.eq_ignore_ascii_case("Main"))
+                        {
+                            builder.notes.push(NirRoutineNote {
+                                text: "named root Main".to_string(),
+                                kind: NirRoutineNoteKind::ProgramEntry,
+                            });
+                        }
                         if let Some(address) = &routine.system_address {
                             builder.notes.push(NirRoutineNote {
                                 text: format!("system-address {}", expr_summary(address)),
@@ -341,12 +367,35 @@ impl NirLowerer {
                 }
                 for block in &mut routine.blocks {
                     for op in &mut block.ops {
-                        if let NirOp::InlineAsm { code, .. } = op {
-                            for relocation in &mut code.relocations {
-                                if let NirInlineAsmTarget::Routine(id) = &mut relocation.target {
-                                    *id = id.saturating_add(1);
+                        match op {
+                            NirOp::RuntimeHelperOverride {
+                                target: NirRuntimeHelperTarget::Routine(id),
+                                ..
+                            } => *id = id.saturating_add(1),
+                            NirOp::Call {
+                                callee: NirCallee::User { id, .. },
+                                ..
+                            } => *id = id.saturating_add(1),
+                            NirOp::MachineBlock { items, .. } => {
+                                for item in items {
+                                    if let NirMachineItem::Relocation {
+                                        target: NirInlineAsmTarget::Routine(id),
+                                        ..
+                                    } = item
+                                    {
+                                        *id = id.saturating_add(1);
+                                    }
                                 }
                             }
+                            NirOp::InlineAsm { code, .. } => {
+                                for relocation in &mut code.relocations {
+                                    if let NirInlineAsmTarget::Routine(id) = &mut relocation.target
+                                    {
+                                        *id = id.saturating_add(1);
+                                    }
+                                }
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -500,7 +549,13 @@ impl NirLowerer {
         }
         let target = match &set.value.kind {
             SemExprKind::Symbol(symbol) | SemExprKind::AddressOfSymbol(symbol)
-                if matches!(symbol.class, SymbolClass::Proc | SymbolClass::Func) =>
+                if matches!(
+                    symbol.class,
+                    SymbolClass::Proc
+                        | SymbolClass::Func
+                        | SymbolClass::BuiltinProc
+                        | SymbolClass::BuiltinFunc
+                ) =>
             {
                 NirRuntimeHelperTarget::Routine(
                     *self
@@ -1875,7 +1930,10 @@ impl NirBuilder {
                     .find(|(name, _)| storage_key(name) == key)
                     .map(|(_, id)| NirInlineAsmTarget::Storage(NirStorageId::Global(*id)))
             }
-            SymbolClass::Proc | SymbolClass::Func => self
+            SymbolClass::Proc
+            | SymbolClass::Func
+            | SymbolClass::BuiltinProc
+            | SymbolClass::BuiltinFunc => self
                 .routine_ids
                 .get(&key)
                 .copied()
@@ -1888,7 +1946,7 @@ impl NirBuilder {
                     _ => None,
                 })
                 .map(NirInlineAsmTarget::Absolute),
-            SymbolClass::Const | SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc => None,
+            SymbolClass::Const => None,
         }
     }
 
@@ -2605,7 +2663,13 @@ fn symbolic_array_initializer_routine_expr(expr: &SemExpr) -> Option<String> {
     match &expr.kind {
         SemExprKind::Cast { expr, .. } => symbolic_array_initializer_routine_expr(expr),
         SemExprKind::Symbol(symbol)
-            if matches!(symbol.class, SymbolClass::Proc | SymbolClass::Func) =>
+            if matches!(
+                symbol.class,
+                SymbolClass::Proc
+                    | SymbolClass::Func
+                    | SymbolClass::BuiltinProc
+                    | SymbolClass::BuiltinFunc
+            ) =>
         {
             Some(symbol.name.clone())
         }
@@ -3061,7 +3125,10 @@ fn global_data_relocation_target(
     global_ids: &BTreeMap<String, SymbolId>,
     routine_ids: &BTreeMap<String, u32>,
 ) -> Option<NirDataRelocationTarget> {
-    if matches!(target.class, SymbolClass::Proc | SymbolClass::Func) {
+    if matches!(
+        target.class,
+        SymbolClass::Proc | SymbolClass::Func | SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc
+    ) {
         return routine_ids
             .get(&storage_key(&target.name))
             .copied()
@@ -3104,9 +3171,10 @@ fn increment_data_image_routine_ids_in_global_init(init: &mut NirGlobalInit) {
         NirGlobalInit::Descriptor { backing, .. } => {
             increment_data_image_routine_ids(&mut backing.image)
         }
-        NirGlobalInit::ZeroFill { .. }
-        | NirGlobalInit::ProgramEndWord { .. }
-        | NirGlobalInit::RoutineAddress { .. } => {}
+        NirGlobalInit::RoutineAddress { routine, .. } => {
+            *routine = routine.saturating_add(1);
+        }
+        NirGlobalInit::ZeroFill { .. } | NirGlobalInit::ProgramEndWord { .. } => {}
     }
 }
 

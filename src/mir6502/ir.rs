@@ -246,9 +246,13 @@ pub enum MirRoutineAbi {
     /// Ordinary Action ABI entry whose private parameter storage is not part of
     /// an externally observable routine boundary.
     Action,
+    /// Ordinary Action ABI plus the stable executable-entry designation.
+    ProgramEntry,
     /// Action ABI entry whose physical parameter storage remains observable,
     /// for example a system-address or current-location routine.
     ActionObservable,
+    /// A signature-only interface that the selected runtime must resolve.
+    ExternalInterface,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -840,7 +844,7 @@ pub enum MirResultHome {
     ReturnSlot { offset: u16 },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MirRuntimeHelper {
     Mul,
     Div,

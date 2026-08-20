@@ -1,0 +1,11 @@
+BYTE result=$0600
+
+PROC KeepFourth(BYTE first,second,third,fourth)
+  result=fourth
+RETURN
+
+PROC Main()
+  KeepFourth(1,2,3,4)
+  DO
+  OD
+RETURN

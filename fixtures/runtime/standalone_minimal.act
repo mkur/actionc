@@ -1,0 +1,3 @@
+; A helper-free, single-file program for standalone runtime smoke tests.
+PROC Main()
+RETURN
