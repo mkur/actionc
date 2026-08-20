@@ -28,7 +28,7 @@
 ; raster sync where that line begins.  ANTIC starts the display list at
 ; physical scanline 8, each ANTIC_BLANK_8 adds eight scanlines, and VCOUNT
 ; counts pairs of physical scanlines.  Therefore keep FIRST_VISIBLE_VCOUNT
-; equal to 4+(TOP_BLANK_ROWS*4).  The current values start mode F at scanline 32.
+; equal to 4+(TOP_BLANK_ROWS*4).  The current values start mode F at scanline 40.
 
 DEFINE FIRST_VISIBLE_VCOUNT="$14",
        PLASMA_SCANLINES="160",
@@ -241,15 +241,15 @@ ASM
     ; both self-modified loads: one primes the first line and the other fetches
     ; each following line's hue at the end of its predecessor.
     lda colorPhase
-    sta firstColorLoad+1
-    sta colorLoad+1
+    sta firstColorLoad
+    sta colorLoad
 
     ; Point the STA at the final wave entry.  Only its low address
     ; byte changes because the complete array fits within page $63.
     lda #<wave
     clc
     adc #PLASMA_SCANLINES-1
-    sta waveStore+1
+    sta waveStore
 
     ldx wavePhaseA
     ldy wavePhaseB
@@ -275,8 +275,7 @@ rasterSync:
     cmp #FIRST_VISIBLE_VCOUNT-2
     bne rasterSync
     sta WSYNC
-firstColorLoad:
-    lda hueTable
+    lda firstColorLoad:hueTable
     sta WSYNC
     sta COLBAK
 
@@ -284,12 +283,11 @@ rasterLoop:
     clc
     lda sineTable,x
     adc sineTable,y
-    ; Add the final bias in four-times units, plus two for rounding.  Store
-    ; the high-precision sum here; the inactive-list updater scales it later
-    ; so the beam-racing kernel stays within one scanline.
+    ; Add the constant wave bias in four-times units.  Store the high-precision
+    ; sum here; the inactive-list updater scales it later so the beam-racing
+    ; kernel stays within one scanline.
     adc #WAVE_BIAS
-waveStore:
-    sta wave
+    sta waveStore:wave
 
     ; Equal and opposite spatial steps create the standing wave.
     inx
@@ -298,19 +296,18 @@ waveStore:
     dey
 
     ; Self-modify the absolute address encoded in the LDA at colorLoad.
-    ; colorLoad+1 is its low address byte; adding two selects the hue for the
+    ; colorLoad is its low address byte; adding two selects the hue for the
     ; next scanline and wraps naturally within hueTable's page.
     clc
-    lda colorLoad+1
+    lda colorLoad
     adc #2
-    sta colorLoad+1
+    sta colorLoad
 
     ; Self-modify the STA address to move one byte backward through the
     ; wave buffer.  Reaching a zero low byte ends the 160-line loop.
-    dec waveStore+1
+    dec waveStore
     beq rasterDone
-colorLoad:
-    lda hueTable
+    lda colorLoad:hueTable
     sta WSYNC
     sta COLBAK
     jmp rasterLoop
@@ -335,8 +332,8 @@ ASM
     ; Only their page bytes need patching; Y advances by the fixed three-byte
     ; size of each mode-F LMS instruction.
     lda inactiveDisplayList+1
-    sta updateLowStore+2
-    sta updateHighStore+2
+    sta updateLowStore+1
+    sta updateHighStore+1
 
     ldx #0
     ; Each leading blank occupies one byte.  The following mode-F opcode puts
@@ -347,24 +344,22 @@ updateLoop:
     lsr a
     lsr a
     lsr a
-updateLowStore:
-    sta displayListA,y
+    sta updateLowStore:displayListA,y
 
     ; The third LSR left the final displacement's low bit in carry.  Loading
     ; the rampA page preserves it; adding zero selects rampA when clear or the
     ; following rampB page when set.
     lda #>rampA
     adc #0
-updateHighStore:
-    sta displayListA+1,y
+    sta updateHighStore:displayListA+1,y
 
     tya
     clc
     adc #3
     tay
     bcc updatePageReady
-    inc updateLowStore+2
-    inc updateHighStore+2
+    inc updateLowStore+1
+    inc updateHighStore+1
 updatePageReady:
 
     inx
@@ -409,7 +404,7 @@ PROC RunPlasma()
 
     ; Select the next list before VBLANK.  Its LMS region can then be completed
     ; during VBLANK because ANTIC will not fetch the first mode-F row until
-    ; physical scanline 32.
+    ; physical scanline 40.
     QueueInactiveDisplayList()
     ApplyWaveToInactiveDisplayList()
     SwapDisplayListRoles()
