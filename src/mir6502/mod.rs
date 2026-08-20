@@ -31,6 +31,8 @@ pub use ir::{
 };
 pub use passes::{Mir6502Config, MirPeepholeReportMode};
 
+use std::collections::BTreeSet;
+
 use crate::nir::NirProgram;
 
 pub fn lower_program(nir: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>> {
@@ -147,6 +149,15 @@ fn codegen_output(
     runtime: crate::runtime::Runtime,
     mir: &MirProgram,
 ) -> crate::codegen::CodegenOutput {
+    let linked_runtime_routines = if runtime == crate::runtime::Runtime::Standalone {
+        mir.routines
+            .iter()
+            .filter(|routine| routine.name.starts_with("ACTION.RUNTIME."))
+            .map(|routine| routine.name.clone())
+            .collect::<BTreeSet<_>>()
+    } else {
+        BTreeSet::new()
+    };
     let skipped_ranges = summary.skipped_ranges;
     let routine_addresses = summary.routine_addresses;
     let optimizations = Vec::new();
@@ -187,7 +198,7 @@ fn codegen_output(
         proofs: proofs.clone(),
         proof_attempts: proof_attempts.clone(),
     };
-    crate::codegen::CodegenOutput {
+    let mut output = crate::codegen::CodegenOutput {
         bytes: emission.bytes,
         origin,
         run_address,
@@ -198,7 +209,9 @@ fn codegen_output(
         proofs,
         proof_attempts,
         map,
-    }
+    };
+    crate::codegen::suppress_source_ranges_for_routines(&mut output, &linked_runtime_routines);
+    output
 }
 
 fn runtime_bindings(

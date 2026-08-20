@@ -40,6 +40,13 @@ fn standalone_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
+fn standalone_runtime_helpers() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("samples")
+        .join("standalone")
+        .join("runtime-helpers.act")
+}
+
 fn load_file_origin(bytes: &[u8]) -> u16 {
     assert!(bytes.len() >= 4, "load file is too short");
     assert_eq!(&bytes[..2], &[0xff, 0xff], "missing load-file header");
@@ -567,6 +574,79 @@ fn classic_standalone_links_the_same_sargs_source_closure() {
                 !map.contains(&format!("M_ACTION_RUNTIME_SYSLIB_{unused}_")),
                 "unexpected {unused}: {map}"
             );
+        }
+    }
+}
+
+#[test]
+fn standalone_source_listings_omit_library_source_annotations() {
+    for backend in ["classic", "mir6502"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args([
+                "--profile",
+                "modern",
+                "--backend",
+                backend,
+                "--runtime",
+                "standalone",
+                "--emit-source-listing",
+            ])
+            .arg(standalone_runtime_helpers())
+            .output()
+            .expect("emit standalone source listing");
+        assert!(
+            output.status.success(),
+            "{backend}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let listing = String::from_utf8_lossy(&output.stdout);
+        let mut in_runtime_routine = false;
+        let mut runtime_routines = 0;
+        for line in listing.lines() {
+            if line.starts_with("; ===== PROC ") {
+                in_runtime_routine =
+                    line.contains("M_ACTION_RUNTIME_") || line.contains("ACTION.RUNTIME.");
+                runtime_routines += usize::from(in_runtime_routine);
+            }
+            if in_runtime_routine {
+                assert!(
+                    !line.contains(" | "),
+                    "{backend} runtime source annotation was not suppressed: {line}"
+                );
+            }
+            if line.starts_with("; ===== END PROC ") {
+                in_runtime_routine = false;
+            }
+        }
+
+        assert!(
+            runtime_routines > 0,
+            "{backend}: no runtime assembler found"
+        );
+        assert!(listing.contains("STA.Z $A0"), "{backend}: {listing}");
+        assert!(!listing.contains("PUBLIC EXTERNAL PROC Poke"));
+        assert!(
+            listing.contains("proc_syslib_sargs:"),
+            "{backend}: {listing}"
+        );
+        assert!(
+            listing.contains("proc_resident_print:"),
+            "{backend}: {listing}"
+        );
+        assert!(!listing.contains("proc_m_action_runtime_"));
+        assert!(!listing.contains("proc_action_runtime_"));
+        assert!(
+            listing.contains("loc_resident_in_1"),
+            "{backend}: {listing}"
+        );
+        assert!(!listing.contains("loc_m_action_runtime_"));
+        assert!(!listing.contains("loc_action_runtime_"));
+        assert!(listing.contains("param_syslib_error_err"));
+        assert!(!listing.contains("param_m_action_runtime_"));
+        assert!(!listing.contains("param_action_runtime_"));
+        if backend == "classic" {
+            assert!(listing.contains("| PROC SaveResults(CARD p,q,r,s)"));
         }
     }
 }
