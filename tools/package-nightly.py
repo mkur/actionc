@@ -225,11 +225,6 @@ def stage_package(
         repo_root / "docs/ACTIONC_RUN.md",
         stage_root / "docs/ACTIONC_RUN.md",
     )
-    copy_file(
-        repo_root / "docs/Action_2027/MODULES_AND_RUNTIME_USAGE.md",
-        stage_root / "docs/Action_2027/MODULES_AND_RUNTIME_USAGE.md",
-    )
-
     notices, missing = license_inputs(
         repo_root, args.allow_incomplete_license_notices
     )

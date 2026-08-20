@@ -33,11 +33,11 @@ fn hello_world() -> PathBuf {
         .join("hello-world.act")
 }
 
-fn standalone_rainbow() -> PathBuf {
+fn standalone_fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("samples")
-        .join("Action_2027")
-        .join("rainbow-modules.act")
+        .join("fixtures")
+        .join("runtime")
+        .join(name)
 }
 
 fn load_file_origin(bytes: &[u8]) -> u16 {
@@ -483,7 +483,7 @@ fn classic_standalone_is_supported_without_switching_backend() {
         let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
             .args(["--mode", mode, "--runtime", "standalone", "--output"])
             .arg(&object)
-            .arg(standalone_rainbow())
+            .arg(standalone_fixture("standalone_arithmetic.act"))
             .output()
             .expect("compile classic standalone configuration");
         assert!(
@@ -575,7 +575,7 @@ fn mir6502_standalone_without_helpers_adds_no_runtime_routines() {
             "standalone",
             "--emit-map",
         ])
-        .arg(standalone_rainbow())
+        .arg(standalone_fixture("standalone_minimal.act"))
         .output()
         .expect("emit a standalone map for a helper-free program");
     assert!(

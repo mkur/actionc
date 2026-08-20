@@ -50,11 +50,11 @@ fn hello_world() -> PathBuf {
         .join("hello-world.act")
 }
 
-fn standalone_rainbow() -> PathBuf {
+fn standalone_minimal() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("samples")
-        .join("Action_2027")
-        .join("rainbow-modules.act")
+        .join("fixtures")
+        .join("runtime")
+        .join("standalone_minimal.act")
 }
 
 #[test]
@@ -128,7 +128,7 @@ fn no_cart_writes_the_compiler_object_directly_as_ar0() {
         .arg("--no-run")
         .arg("--out-atr")
         .arg(&output_atr)
-        .arg(standalone_rainbow())
+        .arg(standalone_minimal())
         .output()
         .expect("run actionc-run --no-cart --no-run");
 
@@ -145,7 +145,7 @@ fn no_cart_writes_the_compiler_object_directly_as_ar0() {
         .expect("read output directory")
         .expect("find PROGRAM.AR0");
     let compiled = compile_file(
-        standalone_rainbow(),
+        standalone_minimal(),
         &CompileOptions::default().with_runtime(Runtime::Standalone),
     )
     .expect("compile expected standalone object");
@@ -184,7 +184,7 @@ fn no_cart_launches_atari800_with_standalone_program_and_no_cart_argument() {
         .arg(&emulator)
         .arg("--out-atr")
         .arg(&output_atr)
-        .arg(standalone_rainbow())
+        .arg(standalone_minimal())
         .env("ACTIONC_TEST_RECORD", &record)
         .output()
         .expect("run standalone program with fake Atari800");

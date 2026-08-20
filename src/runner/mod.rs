@@ -861,11 +861,11 @@ mod tests {
             .join("hello-world.act")
     }
 
-    fn standalone_rainbow() -> PathBuf {
+    fn standalone_minimal() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("samples")
-            .join("Action_2027")
-            .join("rainbow-modules.act")
+            .join("fixtures")
+            .join("runtime")
+            .join("standalone_minimal.act")
     }
 
     #[test]
@@ -934,7 +934,7 @@ mod tests {
 
     #[test]
     fn prepared_atr_without_a_cartridge_runs_the_program_directly_as_ar0() {
-        let source = standalone_rainbow();
+        let source = standalone_minimal();
         let options =
             CompileOptions::for_mode(CompileMode::Compatibility).with_runtime(Runtime::Standalone);
         let compiled = compile_file(&source, &options).expect("compile expected object");
@@ -966,7 +966,7 @@ mod tests {
 
     #[test]
     fn prepared_atr_rejects_a_runtime_that_disagrees_with_the_cartridge() {
-        let source = standalone_rainbow();
+        let source = standalone_minimal();
         let cart_error = prepare_atr(
             &source,
             &CompileOptions::default().with_runtime(Runtime::Standalone),

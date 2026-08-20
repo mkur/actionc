@@ -37,7 +37,6 @@ COMMON_PACKAGE_FILES = {
     "README.md",
     "USAGE.md",
     "docs/ACTIONC_RUN.md",
-    "docs/Action_2027/MODULES_AND_RUNTIME_USAGE.md",
     "licenses/ACTION-ROM-NOTICE.md",
     "licenses/ACTION-RUNTIME-NOTICE.md",
     "licenses/ALTIRRAOS-LICENSE",

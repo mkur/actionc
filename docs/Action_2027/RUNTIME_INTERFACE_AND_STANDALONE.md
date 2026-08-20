@@ -1,12 +1,11 @@
 # Action 2027 Runtime Interface and Standalone Linking
 
-Design status: implemented for the Milestone C helper and initial `SYS` surface
-on the experimental `Action-2027` branch. This note defines how one resolved
-Action program can use either the Action! cartridge implementation or
-selectively included OSS runtime source. Module syntax and visibility are
-specified in
-[`MODULE_SYSTEM_DESIGN.md`](./MODULE_SYSTEM_DESIGN.md); source embedding is
-specified in [`MODULE_LOADER_AND_VFS.md`](./MODULE_LOADER_AND_VFS.md).
+Design status: implemented for the experimental standalone kernel and its
+initial internal `SYS` surface. This note defines how one resolved Action
+program can use either the Action! cartridge implementation or selectively
+included OSS runtime source. The module syntax below describes compiler-owned
+infrastructure; users select the runtime on ordinary single-file source without
+adopting modules.
 
 ## Goals
 

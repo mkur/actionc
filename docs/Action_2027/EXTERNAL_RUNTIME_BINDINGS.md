@@ -1,11 +1,14 @@
 # External Runtime Bindings
 
-Status: accepted implementation contract for Module System Gate A.
+Status: accepted internal compiler contract. The module syntax shown here is
+implementation infrastructure and is not part of the standalone-runtime public
+rollout.
 
 ## Purpose
 
-The public system-library interface must describe Action source semantics
-without exposing the physical address or source routine selected by a runtime.
+The compiler-owned system-library interface must describe Action source
+semantics without exposing the physical address or source routine selected by a
+runtime.
 The same `SYS` symbol identity is therefore used with both the cartridge and
 standalone runtimes.
 
