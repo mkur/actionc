@@ -178,10 +178,8 @@ impl NirDataflowProblem for NirPredicateProblem<'_> {
                 | NirOp::MachineBlock { .. }
                 | NirOp::InlineAsm { .. }
                 | NirOp::Unsupported { .. } => facts.kill_storage(None),
-                NirOp::Define { .. }
-                | NirOp::Set { .. }
+                NirOp::Set { .. }
                 | NirOp::RuntimeHelperOverride { .. }
-                | NirOp::Declare { .. }
                 | NirOp::Assign { .. }
                 | NirOp::CompoundAssign { .. }
                 | NirOp::Load { .. }
@@ -189,8 +187,7 @@ impl NirDataflowProblem for NirPredicateProblem<'_> {
                 | NirOp::Unary { .. }
                 | NirOp::Cast { .. }
                 | NirOp::Binary { .. }
-                | NirOp::Compare { .. }
-                | NirOp::Note { .. } => {}
+                | NirOp::Compare { .. } => {}
             }
         }
         Some(facts)
@@ -384,10 +381,8 @@ fn invalidates_storage(op: &NirOp, storage: NirStorageId) -> bool {
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => true,
-        NirOp::Define { .. }
-        | NirOp::Set { .. }
+        NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Load { .. }
@@ -395,8 +390,7 @@ fn invalidates_storage(op: &NirOp, storage: NirStorageId) -> bool {
         | NirOp::Unary { .. }
         | NirOp::Cast { .. }
         | NirOp::Binary { .. }
-        | NirOp::Compare { .. }
-        | NirOp::Note { .. } => false,
+        | NirOp::Compare { .. } => false,
     }
 }
 

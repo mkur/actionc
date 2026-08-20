@@ -452,10 +452,6 @@ pub struct NirBlockParam {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirOp {
-    Define {
-        name: String,
-        value: String,
-    },
     Set {
         address: NirOperand,
         value: NirOperand,
@@ -463,10 +459,6 @@ pub enum NirOp {
     RuntimeHelperOverride {
         slot: u16,
         target: NirRuntimeHelperTarget,
-    },
-    Declare {
-        name: String,
-        kind: String,
     },
     Assign {
         target: NirPlace,
@@ -549,9 +541,6 @@ pub enum NirOp {
     },
     Unsupported {
         note: String,
-    },
-    Note {
-        text: String,
     },
 }
 

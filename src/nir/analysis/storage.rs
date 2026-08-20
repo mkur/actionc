@@ -374,18 +374,15 @@ fn analyze_routine_storage(
                         }
                     }
                 }
-                NirOp::Define { .. }
-                | NirOp::Set { .. }
+                NirOp::Set { .. }
                 | NirOp::RuntimeHelperOverride { .. }
-                | NirOp::Declare { .. }
                 | NirOp::Assign { .. }
                 | NirOp::CompoundAssign { .. }
                 | NirOp::Unary { .. }
                 | NirOp::Cast { .. }
                 | NirOp::Binary { .. }
                 | NirOp::Compare { .. }
-                | NirOp::Unsupported { .. }
-                | NirOp::Note { .. } => {}
+                | NirOp::Unsupported { .. } => {}
             }
         }
     }
@@ -650,10 +647,8 @@ fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
         | NirOp::AddrOf { place, .. }
         | NirOp::Store { place, .. }
         | NirOp::VolatileStore { place, .. } => visit(place),
-        NirOp::Define { .. }
-        | NirOp::Set { .. }
+        NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Unary { .. }
@@ -663,8 +658,7 @@ fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
         | NirOp::Call { .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::Note { .. } => {}
+        | NirOp::Unsupported { .. } => {}
     }
 }
 
@@ -778,10 +772,8 @@ fn mark_read_before_definition(
                         defined.insert(id);
                     }
                 }
-                NirOp::Define { .. }
-                | NirOp::Set { .. }
+                NirOp::Set { .. }
                 | NirOp::RuntimeHelperOverride { .. }
-                | NirOp::Declare { .. }
                 | NirOp::Assign { .. }
                 | NirOp::CompoundAssign { .. }
                 | NirOp::AddrOf { .. }
@@ -792,8 +784,7 @@ fn mark_read_before_definition(
                 | NirOp::Call { .. }
                 | NirOp::MachineBlock { .. }
                 | NirOp::InlineAsm { .. }
-                | NirOp::Unsupported { .. }
-                | NirOp::Note { .. } => {}
+                | NirOp::Unsupported { .. } => {}
             }
         }
     }

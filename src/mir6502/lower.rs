@@ -1368,17 +1368,6 @@ fn collect_machine_numeric_defines(nir_program: &NirProgram) -> BTreeMap<String,
             defines.insert(machine_name_key(&global.name), value);
         }
     }
-    for routine in &nir_program.routines {
-        for block in &routine.blocks {
-            for op in &block.ops {
-                if let NirOpKind::Define { name, value } = op
-                    && let Some(value) = parse_machine_numeric_define_value(value)
-                {
-                    defines.insert(machine_name_key(name), value);
-                }
-            }
-        }
-    }
     defines
 }
 

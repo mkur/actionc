@@ -277,7 +277,6 @@ fn transfer_op(
             facts.replacements.remove(dest);
             retain_available_storage_values(facts, block, op_index, use_def);
         }
-        NirOp::Define { .. } | NirOp::Declare { .. } | NirOp::Note { .. } => {}
     }
     Some(op)
 }
@@ -422,16 +421,13 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
                 rewrite_value(arg, replacements);
             }
         }
-        NirOp::Define { .. }
-        | NirOp::Set { .. }
+        NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::Note { .. } => {}
+        | NirOp::Unsupported { .. } => {}
     }
 }
 
@@ -499,10 +495,8 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
             result: Some(result),
             ..
         } => Some((result.dest, &result.ty)),
-        NirOp::Define { .. }
-        | NirOp::Set { .. }
+        NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Store { .. }
@@ -510,8 +504,7 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::Note { .. } => None,
+        | NirOp::Unsupported { .. } => None,
     }
 }
 

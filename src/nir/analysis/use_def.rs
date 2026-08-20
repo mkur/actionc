@@ -150,10 +150,8 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
             result: Some(result),
             ..
         } => Some(result.dest),
-        NirOp::Define { .. }
-        | NirOp::Set { .. }
+        NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Store { .. }
@@ -161,8 +159,7 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::Note { .. } => None,
+        | NirOp::Unsupported { .. } => None,
     }
 }
 
@@ -212,16 +209,13 @@ fn record_op_uses(
                 record_value(uses, value, site(NirUseKind::CallArgument(argument)));
             }
         }
-        NirOp::Define { .. }
-        | NirOp::Set { .. }
+        NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::Note { .. } => {}
+        | NirOp::Unsupported { .. } => {}
     }
 }
 

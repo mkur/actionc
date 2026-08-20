@@ -829,10 +829,8 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
             };
             Some((*dest, NirValue::ConstU8(u8::from(result))))
         }
-        NirOp::Define { .. }
-        | NirOp::Set { .. }
+        NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Load { .. }
@@ -843,8 +841,7 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
         | NirOp::Call { .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::Note { .. } => None,
+        | NirOp::Unsupported { .. } => None,
     }
 }
 
@@ -912,13 +909,10 @@ fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
         NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. }
-        | NirOp::Define { .. }
         | NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
-        | NirOp::CompoundAssign { .. }
-        | NirOp::Note { .. } => {}
+        | NirOp::CompoundAssign { .. } => {}
     }
 }
 
@@ -1044,16 +1038,13 @@ fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
                 collect_value_use(arg, out);
             }
         }
-        NirOp::Define { .. }
-        | NirOp::Set { .. }
+        NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::Note { .. } => {}
+        | NirOp::Unsupported { .. } => {}
     }
 }
 
@@ -1130,10 +1121,8 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
             result: Some(result),
             ..
         } => Some((result.dest, &result.ty)),
-        NirOp::Define { .. }
-        | NirOp::Set { .. }
+        NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Store { .. }
@@ -1141,8 +1130,7 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::Note { .. } => None,
+        | NirOp::Unsupported { .. } => None,
     }
 }
 

@@ -325,7 +325,6 @@ fn relocations_summary(image: &NirDataImage) -> String {
 
 fn op_summary(op: &NirOp) -> String {
     match op {
-        NirOp::Define { name, value } => format!("define {name} = {value}"),
         NirOp::Set { address, value } => {
             format!(
                 "set {} = {}",
@@ -340,7 +339,6 @@ fn op_summary(op: &NirOp) -> String {
                 NirRuntimeHelperTarget::Routine(id) => format!("r{id}"),
             }
         ),
-        NirOp::Declare { name, kind } => format!("declare {name}: {kind}"),
         NirOp::Assign { target, value } => {
             format!("{} = {}", place_summary(target), operand_summary(value))
         }
@@ -474,7 +472,6 @@ fn op_summary(op: &NirOp) -> String {
             )
         }
         NirOp::Unsupported { note } => format!("unsupported {note}"),
-        NirOp::Note { text } => format!("note {text}"),
     }
 }
 

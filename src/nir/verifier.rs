@@ -883,13 +883,6 @@ impl NirVerifier {
                 }
                 self.call_effects(routine, block, effects);
             }
-            NirOp::Define { .. } | NirOp::Declare { .. } | NirOp::Note { .. } => {
-                self.diagnostics.push(NirDiagnostic::block(
-                    &routine.name,
-                    &block.label,
-                    "metadata op must not appear in executable NIR block",
-                ));
-            }
             NirOp::MachineBlock { items, effects } => {
                 if items.is_empty() {
                     self.diagnostics.push(NirDiagnostic::block(

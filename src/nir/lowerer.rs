@@ -2523,10 +2523,8 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
             result: Some(result),
             ..
         } => Some((result.dest, &result.ty)),
-        NirOp::Define { .. }
-        | NirOp::Set { .. }
+        NirOp::Set { .. }
         | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Store { .. }
@@ -2534,8 +2532,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::Note { .. } => None,
+        | NirOp::Unsupported { .. } => None,
     }
 }
 
@@ -3430,17 +3427,14 @@ fn resolve_op_places(op: &mut NirOp, storage: &StorageNameResolution) {
             resolve_operand_places(value, storage);
         }
         NirOp::RuntimeHelperOverride { .. } => {}
-        NirOp::Define { .. }
-        | NirOp::Declare { .. }
-        | NirOp::Unary { .. }
+        NirOp::Unary { .. }
         | NirOp::Cast { .. }
         | NirOp::Binary { .. }
         | NirOp::Compare { .. }
         | NirOp::Call { .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::Note { .. } => {}
+        | NirOp::Unsupported { .. } => {}
     }
 }
 

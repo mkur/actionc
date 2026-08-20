@@ -207,13 +207,8 @@ fn transfer_op_backwards(
         | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. } => live.extend(candidates.iter().copied()),
-        NirOp::Define { .. }
-        | NirOp::Declare { .. }
-        | NirOp::Unary { .. }
-        | NirOp::Cast { .. }
-        | NirOp::Binary { .. }
-        | NirOp::Compare { .. }
-        | NirOp::Note { .. } => {}
+        NirOp::Unary { .. } | NirOp::Cast { .. } | NirOp::Binary { .. } | NirOp::Compare { .. } => {
+        }
     }
 }
 

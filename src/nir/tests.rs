@@ -397,13 +397,6 @@ fn routine_local_defines_do_not_lower_to_executable_metadata_ops() {
         main.blocks
             .iter()
             .flat_map(|block| &block.ops)
-            .all(|op| !matches!(op, NirOp::Define { .. })),
-        "{main:#?}"
-    );
-    assert!(
-        main.blocks
-            .iter()
-            .flat_map(|block| &block.ops)
             .any(|op| matches!(
                 op,
                 NirOp::MachineBlock { items, .. } if items == &[NirMachineItem::Byte(0xEA)]
@@ -438,12 +431,6 @@ fn const_declarations_lower_to_typed_literals_without_nir_storage_or_metadata() 
         .find(|routine| routine.name == "Main")
         .expect("Main routine");
     assert!(main.locals.iter().all(|local| local.name != "Local"));
-    assert!(main.blocks.iter().flat_map(|block| &block.ops).all(|op| {
-        !matches!(
-            op,
-            NirOp::Define { .. } | NirOp::Declare { .. } | NirOp::Note { .. }
-        )
-    }));
     assert!(main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
         matches!(
             op,
@@ -1235,52 +1222,6 @@ fn verifier_rejects_duplicate_block_ids() {
             .any(|diagnostic| diagnostic.message.contains("duplicate block id")),
         "expected duplicate-block-id diagnostic, got {diagnostics:?}"
     );
-}
-
-#[test]
-fn verifier_rejects_metadata_ops_in_executable_blocks() {
-    let metadata_ops = [
-        NirOp::Define {
-            name: "SIZE".to_string(),
-            value: "1".to_string(),
-        },
-        NirOp::Declare {
-            name: "x".to_string(),
-            kind: "Byte".to_string(),
-        },
-        NirOp::Note {
-            text: "local x: Byte".to_string(),
-        },
-    ];
-
-    for op in metadata_ops {
-        let program = NirProgram {
-            globals: Vec::new(),
-            statics: Vec::new(),
-            routines: vec![NirRoutine {
-                name: "Main".to_string(),
-                params: Vec::new(),
-                locals: Vec::new(),
-                temps: Vec::new(),
-                notes: Vec::new(),
-                blocks: vec![NirBlock {
-                    id: BlockId(0),
-                    label: "bb0".to_string(),
-                    params: Vec::new(),
-                    ops: vec![op],
-                    terminator: NirTerminator::Return(None),
-                }],
-            }],
-        };
-
-        let diagnostics = verify_program(&program).expect_err("expected verifier error");
-        assert!(
-            diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.message.contains("metadata op")),
-            "expected metadata-op diagnostic, got {diagnostics:?}"
-        );
-    }
 }
 
 #[test]

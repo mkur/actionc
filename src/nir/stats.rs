@@ -130,10 +130,8 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                     NirOp::Store { place, .. } | NirOp::VolatileStore { place, .. } => {
                         stats.stores.record(place);
                     }
-                    NirOp::Define { .. }
-                    | NirOp::Set { .. }
+                    NirOp::Set { .. }
                     | NirOp::RuntimeHelperOverride { .. }
-                    | NirOp::Declare { .. }
                     | NirOp::Assign { .. }
                     | NirOp::CompoundAssign { .. }
                     | NirOp::AddrOf { .. }
@@ -144,8 +142,7 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                     | NirOp::Call { .. }
                     | NirOp::MachineBlock { .. }
                     | NirOp::InlineAsm { .. }
-                    | NirOp::Unsupported { .. }
-                    | NirOp::Note { .. } => {}
+                    | NirOp::Unsupported { .. } => {}
                 }
             }
         }
@@ -307,10 +304,8 @@ fn increment(counts: &mut BTreeMap<&'static str, usize>, key: &'static str) {
 
 fn op_kind(op: &NirOp) -> &'static str {
     match op {
-        NirOp::Define { .. } => "define",
         NirOp::Set { .. } => "set",
         NirOp::RuntimeHelperOverride { .. } => "runtime-helper-override",
-        NirOp::Declare { .. } => "declare",
         NirOp::Assign { .. } => "assign",
         NirOp::CompoundAssign { .. } => "compound_assign",
         NirOp::Load { .. } => "load",
@@ -326,7 +321,6 @@ fn op_kind(op: &NirOp) -> &'static str {
         NirOp::MachineBlock { .. } => "machine_block",
         NirOp::InlineAsm { .. } => "inline_asm",
         NirOp::Unsupported { .. } => "unsupported",
-        NirOp::Note { .. } => "note",
     }
 }
 

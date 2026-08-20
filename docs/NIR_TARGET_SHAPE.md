@@ -743,7 +743,6 @@ NirPlaceKind::UnresolvedName       -> diagnose before NIR construction
 NirOp::Assign                      -> Store
 NirOp::CompoundAssign              -> Load/Binary/Store
 NirOp::Set                         -> structured initialization metadata
-NirOp::Define/Declare/Note         -> routine/program metadata tables
 ```
 
 ## Red Lines
