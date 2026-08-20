@@ -1,0 +1,36 @@
+; Exercise character, numeric, and string input through a scripted Q: device.
+; Fixed result addresses let the VM compare cart and standalone implementations.
+BYTE byteDefault=$0600
+BYTE byteDevice=$0601
+CHAR character=$0602
+CARD cardDefault=$0610
+CARD cardDevice=$0612
+INT intDefault=$0620
+INT intDevice=$0622
+
+BYTE ARRAY stringDefault(8)=$0640
+BYTE ARRAY stringDevice(8)=$0650
+BYTE ARRAY stringMaximum(8)=$0660
+BYTE ARRAY stringDirect(8)=$0670
+
+PROC Main()
+  Open(0,"Q:",4,0)
+
+  byteDefault=InputB()
+  byteDevice=InputBD(0)
+  cardDefault=InputC()
+  cardDevice=InputCD(0)
+  intDefault=InputI()
+  intDevice=InputID(0)
+  character=GetD(0)
+
+  InputS(stringDefault)
+  InputSD(0,stringDevice)
+  InputMD(0,stringMaximum,5)
+  stringDirect(0)=7
+  InputD(0,stringDirect)
+  Close(0)
+
+  DO
+  OD
+RETURN

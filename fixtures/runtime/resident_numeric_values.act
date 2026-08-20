@@ -1,0 +1,30 @@
+; Verify the resident decimal parsers without relying on CIO or the OS math
+; package. Results use fixed addresses so the VM can inspect each type exactly.
+BYTE byteZero=$0600
+BYTE byteMax=$0601
+
+CARD cardZero=$0610
+CARD cardValue=$0612
+CARD cardMax=$0614
+
+INT intMin=$0620
+INT intMinusOne=$0622
+INT intZero=$0624
+INT intMax=$0626
+
+PROC Main()
+  byteZero=ValB("0")
+  byteMax=ValB("255")
+
+  cardZero=ValC("0")
+  cardValue=ValC("1234")
+  cardMax=ValC("65535")
+
+  intMin=ValI("-32768")
+  intMinusOne=ValI("-1")
+  intZero=ValI("0")
+  intMax=ValI("32767")
+
+  DO
+  OD
+RETURN

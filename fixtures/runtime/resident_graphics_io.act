@@ -1,0 +1,27 @@
+; Exercise the resident graphics API against the VM's headless S: device.
+BYTE drawingColor=$02FD
+BYTE plottedPixel=$0600
+BYTE linePixel=$0601
+BYTE fillPixel=$0602
+BYTE colorRegister=$0603
+
+PROC Main()
+  Graphics(8)
+  SetColor(2,10,6)
+
+  drawingColor=3
+  Plot(10,20)
+  plottedPixel=Locate(10,20)
+
+  drawingColor=5
+  DrawTo(12,22)
+  linePixel=Locate(11,21)
+
+  drawingColor=7
+  Fill(14,24)
+  fillPixel=Locate(13,23)
+  colorRegister=Peek($02C6)
+
+  DO
+  OD
+RETURN

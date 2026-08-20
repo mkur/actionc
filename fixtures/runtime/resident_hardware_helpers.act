@@ -1,0 +1,22 @@
+; Exercise the resident random, sound, paddle, joystick, and trigger helpers.
+BYTE ARRAY result(11)=$0600
+
+PROC Main()
+  result(0)=Rand(10)
+  result(1)=Paddle(2)
+  result(2)=PTrig(0)
+  result(3)=PTrig(1)
+  result(4)=Stick(0)
+  result(5)=Stick(1)
+  result(6)=STrig(2)
+
+  Sound(1,$34,10,7)
+  result(7)=Peek($D202)
+  result(8)=Peek($D203)
+  SndRst()
+  result(9)=Peek($D202)
+  result(10)=Peek($D203)
+
+  DO
+  OD
+RETURN

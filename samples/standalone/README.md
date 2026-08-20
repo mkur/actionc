@@ -1,0 +1,22 @@
+# Standalone runtime example
+
+`runtime-helpers.act` is ordinary Action! source: it does not declare or import
+a module, and it calls resident routines by their traditional unqualified
+names. The compiler selects and links the required GPL runtime routines when
+`--runtime standalone` is used.
+
+Run it without the Action! cartridge:
+
+```sh
+actionc-run --runtime standalone samples/standalone/runtime-helpers.act
+```
+
+The MIR6502 backend accepts the same source:
+
+```sh
+actionc-run --mode mir6502 --runtime standalone \
+  samples/standalone/runtime-helpers.act
+```
+
+The program prints the product, quotient, remainder, and shifted result of its
+sample calculation.

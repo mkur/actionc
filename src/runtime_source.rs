@@ -252,7 +252,9 @@ fn collect_var_names(var: &VarDecl, output: &mut BTreeSet<String>) {
 /// overwrites `$A4`; move that private value to the unused `$A2/$A3` pair. The
 /// normalized routines remain current-location machine-code entries because
 /// their bodies consume the Action ABI directly and must not acquire an
-/// `SArgs` prologue.
+/// `SArgs` prologue. SYSGR loads `dev_E` and `dev_S` as pointer words, matching
+/// the original compiler's global STRING representation; materialize explicit
+/// pointer arrays so the modern frontend preserves that machine-code contract.
 fn apply_runtime_source_errata(source: &str) -> String {
     source
         .replace("PROC PrintBDE=*(BYTE n)", "PROC PrintBDE=*(BYTE d,n)")
@@ -261,6 +263,13 @@ fn apply_runtime_source_errata(source: &str) -> String {
         .replace(
             "$A9$0$4A2$A406$A526$2A$CA$F8D0",
             "$A9$0$4A2$A206$A326$2A$CA$F8D0",
+        )
+        .replace(
+            "STRING dev_S=\"S:\", dev_E=\"E:\"",
+            "BYTE ARRAY dev_S_value=\"S:\"\n\
+             BYTE ARRAY dev_E_value=\"E:\"\n\
+             CARD ARRAY dev_S(1)=[@dev_S_value]\n\
+             CARD ARRAY dev_E(1)=[@dev_E_value]",
         )
 }
 
@@ -438,6 +447,13 @@ mod tests {
         assert!(normalized.contains("$A9$0$4A2$A206$A326$2A$CA$F8D0"));
         assert!(!normalized.contains("$A485$A586$4A9$A685$24A9"));
         assert!(!normalized.contains("$A9$0$4A2$A406$A526$2A$CA$F8D0"));
+        let sysgr = EmbeddedSourceProvider
+            .runtime_source("sysgr.act")
+            .expect("embedded SYSGR source");
+        let normalized_graphics =
+            apply_runtime_source_errata(&crate::source::decode_source(sysgr.bytes));
+        assert!(normalized_graphics.contains("CARD ARRAY dev_S(1)=[@dev_S_value]"));
+        assert!(normalized_graphics.contains("CARD ARRAY dev_E(1)=[@dev_E_value]"));
 
         let image = compile_runtime_image().expect("compile resident runtime image");
         let routine = image
