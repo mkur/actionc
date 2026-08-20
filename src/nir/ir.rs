@@ -487,6 +487,10 @@ pub enum NirOp {
         left: NirValue,
         right: NirValue,
     },
+    /// Address-based native REAL computation. REAL values never inhabit the
+    /// byte/word temporary lane; only comparison results and integer
+    /// conversion sources use ordinary scalar temps.
+    Real(NirRealOp),
     Call {
         callee: NirCallee,
         args: Vec<NirValue>,
@@ -505,6 +509,43 @@ pub enum NirOp {
     Unsupported {
         note: String,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NirRealOp {
+    Copy {
+        destination: NirPlace,
+        source: NirRealSource,
+    },
+    Unary {
+        operation: NirUnaryOp,
+        destination: NirPlace,
+        operand: NirPlace,
+    },
+    Binary {
+        operation: NirBinaryOp,
+        destination: NirPlace,
+        left: NirPlace,
+        right: NirPlace,
+    },
+    Compare {
+        predicate: NirCompareOp,
+        result: TempId,
+        result_type: NirType,
+        left: NirPlace,
+        right: NirPlace,
+    },
+    IntegerToReal {
+        destination: NirPlace,
+        source: NirValue,
+        source_type: NirType,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NirRealSource {
+    Place(NirPlace),
+    Static { id: SymbolId, name: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

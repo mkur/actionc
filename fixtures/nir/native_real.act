@@ -1,0 +1,10 @@
+REAL x,y,result
+BYTE is_large
+
+PROC Main()
+  x=1.25
+  y=2
+  result=x*y+0.5
+  is_large=result>2
+  result=-result
+RETURN

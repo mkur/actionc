@@ -120,6 +120,7 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                         stats.stores.record(place);
                     }
                     NirOp::RuntimeHelperOverride { .. }
+                    | NirOp::Real(_)
                     | NirOp::AddrOf { .. }
                     | NirOp::Unary { .. }
                     | NirOp::Cast { .. }
@@ -300,6 +301,7 @@ fn op_kind(op: &NirOp) -> &'static str {
         NirOp::Cast { .. } => "cast",
         NirOp::Binary { .. } => "binary",
         NirOp::Compare { .. } => "compare",
+        NirOp::Real(_) => "real",
         NirOp::Call { .. } => "call",
         NirOp::MachineBlock { .. } => "machine_block",
         NirOp::InlineAsm { .. } => "inline_asm",

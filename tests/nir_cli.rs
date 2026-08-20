@@ -18,6 +18,31 @@ fn emit_nir_prints_nir_output() {
 }
 
 #[test]
+fn emit_nir_honors_the_modern_semantic_profile_for_native_real() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("nir")
+        .join("native_real.act");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args(["--profile", "modern", "--emit-nir"])
+        .arg(&fixture)
+        .output()
+        .unwrap_or_else(|err| panic!("run actionc-emit for {}: {err}", fixture.display()));
+
+    assert!(
+        output.status.success(),
+        "actionc-emit failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("UTF-8 NIR output");
+    assert!(stdout.contains("static __nir_real_Main_0:REAL"));
+    assert!(stdout.contains("real.mul"));
+    assert!(stdout.contains("real.cmp.gt"));
+}
+
+#[test]
 fn emit_optimized_nir_prints_the_post_optimizer_program() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")

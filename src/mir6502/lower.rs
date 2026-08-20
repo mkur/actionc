@@ -1149,6 +1149,11 @@ fn lower_ops(
                     effects: lower_inline_asm_effects(code, effects),
                 });
             }
+            NirOpKind::Real(_) => diagnostics.push(MirDiagnostic::block(
+                routine,
+                block,
+                "native REAL NIR lowering is not implemented yet",
+            )),
             _ => {}
         }
     }

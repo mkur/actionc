@@ -418,6 +418,7 @@ fn op_summary(op: &NirOp) -> String {
             compare_op_summary(*op),
             value_summary(right)
         ),
+        NirOp::Real(real) => real_op_summary(real),
         NirOp::Call {
             callee,
             args,
@@ -459,6 +460,71 @@ fn op_summary(op: &NirOp) -> String {
             )
         }
         NirOp::Unsupported { note } => format!("unsupported {note}"),
+    }
+}
+
+fn real_op_summary(op: &NirRealOp) -> String {
+    match op {
+        NirRealOp::Copy {
+            destination,
+            source,
+        } => format!(
+            "real.copy {} = {}",
+            place_summary(destination),
+            real_source_summary(source)
+        ),
+        NirRealOp::Unary {
+            operation,
+            destination,
+            operand,
+        } => format!(
+            "real.{} {} = {}",
+            unary_op_summary(*operation).to_ascii_lowercase(),
+            place_summary(destination),
+            place_summary(operand)
+        ),
+        NirRealOp::Binary {
+            operation,
+            destination,
+            left,
+            right,
+        } => format!(
+            "real.{} {} = {}, {}",
+            binary_op_summary(*operation).to_ascii_lowercase(),
+            place_summary(destination),
+            place_summary(left),
+            place_summary(right)
+        ),
+        NirRealOp::Compare {
+            predicate,
+            result,
+            result_type: _,
+            left,
+            right,
+        } => format!(
+            "{}:condition = real.cmp.{} {}, {}",
+            temp_summary(*result),
+            compare_op_summary(*predicate).to_ascii_lowercase(),
+            place_summary(left),
+            place_summary(right)
+        ),
+        NirRealOp::IntegerToReal {
+            destination,
+            source,
+            source_type,
+        } => format!(
+            "real.convert {} = {}:{}",
+            place_summary(destination),
+            value_summary(source),
+            source_type.summary
+        ),
+    }
+}
+
+fn real_source_summary(source: &NirRealSource) -> String {
+    match source {
+        NirRealSource::Place(place) => place_summary(place),
+        NirRealSource::Static { name, .. } => format!("&{name}"),
     }
 }
 

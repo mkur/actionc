@@ -202,7 +202,7 @@ fn transfer_op_backwards(
                 apply_effects_backwards(&effects.memory, live, candidates);
             }
         }
-        NirOp::Unsupported { .. } | NirOp::RuntimeHelperOverride { .. } => {
+        NirOp::Real(_) | NirOp::Unsupported { .. } | NirOp::RuntimeHelperOverride { .. } => {
             live.extend(candidates.iter().copied())
         }
         NirOp::Unary { .. } | NirOp::Cast { .. } | NirOp::Binary { .. } | NirOp::Compare { .. } => {
@@ -304,6 +304,11 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
                     result: Some(result),
                     ..
                 } => Some((result.dest, &result.ty)),
+                NirOp::Real(NirRealOp::Compare {
+                    result,
+                    result_type,
+                    ..
+                }) => Some((*result, result_type)),
                 _ => None,
             };
             if let Some((id, ty)) = result {

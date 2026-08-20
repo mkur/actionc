@@ -47,7 +47,9 @@ struct NirVerifier {
     diagnostics: Vec<NirDiagnostic>,
     static_ids: BTreeSet<SymbolId>,
     static_sizes: BTreeMap<SymbolId, u16>,
+    static_types: BTreeMap<SymbolId, NirType>,
     global_sizes: BTreeMap<SymbolId, u16>,
+    global_types: BTreeMap<SymbolId, NirType>,
     global_ids: BTreeSet<SymbolId>,
     routine_count: usize,
 }
@@ -66,6 +68,9 @@ impl NirVerifier {
         let mut global_ids = BTreeSet::new();
         for global in &program.globals {
             self.global_sizes.insert(global.id, global.storage_size);
+            if let Some(ty) = &global.ty {
+                self.global_types.insert(global.id, ty.clone());
+            }
             if !global_ids.insert(global.id) {
                 self.diagnostics.push(NirDiagnostic::program(format!(
                     "duplicate global id `{}`",
@@ -122,6 +127,8 @@ impl NirVerifier {
                 static_data.id,
                 u16::try_from(static_data.image.bytes.len()).unwrap_or(u16::MAX),
             );
+            self.static_types
+                .insert(static_data.id, static_data.ty.clone());
             if static_data.name.is_empty() {
                 self.diagnostics
                     .push(NirDiagnostic::program("static data name must not be empty"));
@@ -164,6 +171,16 @@ impl NirVerifier {
                 None,
             );
             self.type_shape_static(&static_data.ty, &static_data.name);
+            if matches!(static_data.ty.kind, NirTypeKind::Real)
+                && (static_data.image.bytes.len() != 6
+                    || static_data.mutable
+                    || static_data.section != "rodata")
+            {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "REAL static data `{}` must be an immutable six-byte rodata object",
+                    static_data.name
+                )));
+            }
         }
 
         let mut routines = BTreeSet::new();
@@ -290,6 +307,15 @@ impl NirVerifier {
                 ));
             }
             self.type_shape_static(&temp.ty, &format!("temp `%t{}`", temp.id.0));
+            if matches!(temp.ty.kind, NirTypeKind::Real) {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "temp `%t{}` cannot carry address-based REAL data",
+                        temp.id.0
+                    ),
+                ));
+            }
             if !cfg.block_ids().contains(&temp.def.block) {
                 self.diagnostics.push(NirDiagnostic::routine(
                     &routine.name,
@@ -687,6 +713,8 @@ impl NirVerifier {
             NirOp::Load { dest, ty, place } | NirOp::VolatileLoad { dest, ty, place } => {
                 self.op_type(routine, block, ty, "load result");
                 self.place_type(routine, block, place, "load place");
+                self.reject_real_type(routine, block, ty, "ordinary load result");
+                self.reject_real_place(routine, block, place, "ordinary load place");
                 self.place_temp_uses(routine, block, place, op_index, temp_facts, "load place");
                 self.temp_def_matches_table(routine, block, *dest, ty, op_index);
                 if !defined_temps.insert(*dest) {
@@ -713,6 +741,8 @@ impl NirVerifier {
             NirOp::Store { place, src, ty } | NirOp::VolatileStore { place, src, ty } => {
                 self.op_type(routine, block, ty, "store type");
                 self.place_type(routine, block, place, "store place");
+                self.reject_real_type(routine, block, ty, "ordinary store type");
+                self.reject_real_place(routine, block, place, "ordinary store place");
                 self.place_temp_uses(routine, block, place, op_index, temp_facts, "store place");
                 self.value_type(routine, block, src, "store source");
                 self.value_temp_use(routine, block, src, op_index, temp_facts, "store source");
@@ -721,6 +751,8 @@ impl NirVerifier {
             NirOp::Unary { dest, ty, src, .. } => {
                 self.op_type(routine, block, ty, "unary result");
                 self.value_type(routine, block, src, "unary source");
+                self.reject_real_type(routine, block, ty, "ordinary unary result");
+                self.reject_real_value(routine, block, src, "ordinary unary source");
                 self.value_temp_use(routine, block, src, op_index, temp_facts, "unary source");
                 self.temp_def_matches_table(routine, block, *dest, ty, op_index);
                 if !defined_temps.insert(*dest) {
@@ -739,7 +771,10 @@ impl NirVerifier {
             } => {
                 self.op_type(routine, block, from, "cast source type");
                 self.op_type(routine, block, to, "cast result");
+                self.reject_real_type(routine, block, from, "ordinary cast source type");
+                self.reject_real_type(routine, block, to, "ordinary cast result type");
                 self.value_type(routine, block, src, "cast source");
+                self.reject_real_value(routine, block, src, "ordinary cast source");
                 self.value_temp_use(routine, block, src, op_index, temp_facts, "cast source");
                 self.temp_def_matches_table(routine, block, *dest, to, op_index);
                 if !defined_temps.insert(*dest) {
@@ -758,7 +793,9 @@ impl NirVerifier {
                 ..
             } => {
                 self.op_type(routine, block, ty, "binary result");
+                self.reject_real_type(routine, block, ty, "ordinary binary result");
                 self.value_type(routine, block, left, "binary left operand");
+                self.reject_real_value(routine, block, left, "ordinary binary left operand");
                 self.value_temp_use(
                     routine,
                     block,
@@ -768,6 +805,7 @@ impl NirVerifier {
                     "binary left operand",
                 );
                 self.value_type(routine, block, right, "binary right operand");
+                self.reject_real_value(routine, block, right, "ordinary binary right operand");
                 self.value_temp_use(
                     routine,
                     block,
@@ -794,6 +832,7 @@ impl NirVerifier {
             } => {
                 self.op_type(routine, block, ty, "compare result");
                 self.value_type(routine, block, left, "compare left operand");
+                self.reject_real_value(routine, block, left, "ordinary compare left operand");
                 self.value_temp_use(
                     routine,
                     block,
@@ -803,6 +842,7 @@ impl NirVerifier {
                     "compare left operand",
                 );
                 self.value_type(routine, block, right, "compare right operand");
+                self.reject_real_value(routine, block, right, "ordinary compare right operand");
                 self.value_temp_use(
                     routine,
                     block,
@@ -820,6 +860,9 @@ impl NirVerifier {
                     ));
                 }
             }
+            NirOp::Real(real) => {
+                self.real_op(routine, block, real, op_index, defined_temps, temp_facts);
+            }
             NirOp::Call {
                 callee,
                 args,
@@ -830,10 +873,12 @@ impl NirVerifier {
                 self.callee_type(routine, block, callee, op_index, temp_facts);
                 for arg in args {
                     self.value_type(routine, block, arg, "call argument");
+                    self.reject_real_value(routine, block, arg, "call argument");
                     self.value_temp_use(routine, block, arg, op_index, temp_facts, "call argument");
                 }
                 if let Some(result) = result {
                     self.op_type(routine, block, &result.ty, "call result");
+                    self.reject_real_type(routine, block, &result.ty, "call result");
                     self.temp_def_matches_table(routine, block, result.dest, &result.ty, op_index);
                     if !defined_temps.insert(result.dest) {
                         self.diagnostics.push(NirDiagnostic::block(
@@ -894,6 +939,307 @@ impl NirVerifier {
                 );
             }
             NirOp::Unsupported { .. } => {}
+        }
+    }
+
+    fn real_op(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        op: &NirRealOp,
+        op_index: usize,
+        defined_temps: &mut BTreeSet<TempId>,
+        temp_facts: &NirTempFacts<'_>,
+    ) {
+        match op {
+            NirRealOp::Copy {
+                destination,
+                source,
+            } => {
+                self.real_place(
+                    routine,
+                    block,
+                    destination,
+                    op_index,
+                    temp_facts,
+                    "REAL copy destination",
+                );
+                match source {
+                    NirRealSource::Place(source) => self.real_place(
+                        routine,
+                        block,
+                        source,
+                        op_index,
+                        temp_facts,
+                        "REAL copy source",
+                    ),
+                    NirRealSource::Static { id, name } => {
+                        let valid = self.static_sizes.get(id) == Some(&6)
+                            && self
+                                .static_types
+                                .get(id)
+                                .is_some_and(|ty| matches!(ty.kind, NirTypeKind::Real));
+                        if !valid {
+                            self.diagnostics.push(NirDiagnostic::block(
+                                &routine.name,
+                                &block.label,
+                                format!(
+                                    "REAL copy source `{name}` does not name six-byte REAL static data"
+                                ),
+                            ));
+                        }
+                    }
+                }
+            }
+            NirRealOp::Unary {
+                operation: _,
+                destination,
+                operand,
+            } => {
+                self.real_place(
+                    routine,
+                    block,
+                    destination,
+                    op_index,
+                    temp_facts,
+                    "REAL unary destination",
+                );
+                self.real_place(
+                    routine,
+                    block,
+                    operand,
+                    op_index,
+                    temp_facts,
+                    "REAL unary operand",
+                );
+            }
+            NirRealOp::Binary {
+                operation,
+                destination,
+                left,
+                right,
+            } => {
+                if !matches!(
+                    operation,
+                    NirBinaryOp::Add | NirBinaryOp::Sub | NirBinaryOp::Mul | NirBinaryOp::Div
+                ) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "REAL binary operation must be Add, Sub, Mul, or Div",
+                    ));
+                }
+                self.real_place(
+                    routine,
+                    block,
+                    destination,
+                    op_index,
+                    temp_facts,
+                    "REAL binary destination",
+                );
+                self.real_place(
+                    routine,
+                    block,
+                    left,
+                    op_index,
+                    temp_facts,
+                    "REAL binary left operand",
+                );
+                self.real_place(
+                    routine,
+                    block,
+                    right,
+                    op_index,
+                    temp_facts,
+                    "REAL binary right operand",
+                );
+            }
+            NirRealOp::Compare {
+                predicate: _,
+                result,
+                result_type,
+                left,
+                right,
+            } => {
+                self.real_place(
+                    routine,
+                    block,
+                    left,
+                    op_index,
+                    temp_facts,
+                    "REAL compare left operand",
+                );
+                self.real_place(
+                    routine,
+                    block,
+                    right,
+                    op_index,
+                    temp_facts,
+                    "REAL compare right operand",
+                );
+                let ty = super::facts::condition_type();
+                if result_type != &ty {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "REAL comparison result must have Bool/condition type",
+                    ));
+                }
+                self.temp_def_matches_table(routine, block, *result, result_type, op_index);
+                if !defined_temps.insert(*result) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("duplicate temp definition `%t{}`", result.0),
+                    ));
+                }
+            }
+            NirRealOp::IntegerToReal {
+                destination,
+                source,
+                source_type,
+            } => {
+                self.real_place(
+                    routine,
+                    block,
+                    destination,
+                    op_index,
+                    temp_facts,
+                    "REAL conversion destination",
+                );
+                self.op_type(routine, block, source_type, "REAL conversion source type");
+                if !matches!(
+                    source_type.kind,
+                    NirTypeKind::U8 | NirTypeKind::I8 | NirTypeKind::U16 | NirTypeKind::I16
+                ) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "integer-to-REAL conversion source must be an integer",
+                    ));
+                }
+                self.value_type(routine, block, source, "REAL conversion source");
+                self.reject_real_value(routine, block, source, "REAL conversion source");
+                self.value_temp_use(
+                    routine,
+                    block,
+                    source,
+                    op_index,
+                    temp_facts,
+                    "REAL conversion source",
+                );
+                self.match_value_widths(
+                    routine,
+                    block,
+                    Some(source_type),
+                    source,
+                    "REAL conversion source",
+                );
+            }
+        }
+    }
+
+    fn real_place(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        place: &NirPlace,
+        op_index: usize,
+        temp_facts: &NirTempFacts<'_>,
+        label: &str,
+    ) {
+        self.place_type(routine, block, place, label);
+        self.place_temp_uses(routine, block, place, op_index, temp_facts, label);
+        if !place
+            .ty
+            .as_ref()
+            .is_some_and(|ty| matches!(ty.kind, NirTypeKind::Real) && ty.width == Some(6))
+        {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("{label} must be a six-byte REAL place"),
+            ));
+            return;
+        }
+        match &place.kind {
+            NirPlaceKind::Param { .. } => self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("{label} cannot use deferred by-value REAL parameter storage"),
+            )),
+            NirPlaceKind::Local { id, .. }
+                if !routine.locals.iter().any(|local| {
+                    local.id == *id
+                        && matches!(local.ty.kind, NirTypeKind::Real)
+                        && local.ty.width == Some(6)
+                }) =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} references missing or non-REAL local id {}", id.0),
+                ));
+            }
+            NirPlaceKind::Global { id, .. }
+                if self.global_sizes.get(id) != Some(&6)
+                    || !self
+                        .global_types
+                        .get(id)
+                        .is_some_and(|ty| matches!(ty.kind, NirTypeKind::Real)) =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} references missing or non-REAL global id {}", id.0),
+                ));
+            }
+            NirPlaceKind::Local { .. }
+            | NirPlaceKind::Global { .. }
+            | NirPlaceKind::Absolute(_)
+            | NirPlaceKind::Deref { .. }
+            | NirPlaceKind::Index { .. }
+            | NirPlaceKind::Field { .. } => {}
+        }
+    }
+
+    fn reject_real_type(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        ty: &NirType,
+        label: &str,
+    ) {
+        if matches!(ty.kind, NirTypeKind::Real) {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("{label} cannot use REAL in the byte/word scalar lane"),
+            ));
+        }
+    }
+
+    fn reject_real_place(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        place: &NirPlace,
+        label: &str,
+    ) {
+        if let Some(ty) = &place.ty {
+            self.reject_real_type(routine, block, ty, label);
+        }
+    }
+
+    fn reject_real_value(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        value: &NirValue,
+        label: &str,
+    ) {
+        if let NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } = value {
+            self.reject_real_type(routine, block, ty, label);
         }
     }
 

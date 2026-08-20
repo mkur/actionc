@@ -7,7 +7,7 @@ use crate::ast::{
 use crate::lexer::{TokenKind, tokenize};
 use crate::resident::{ResidentVariableKind, resident_variable};
 use crate::semantic::{
-    ArrayType, SymbolClass, ValueType,
+    ArrayType, SymbolClass, ValueType, ValueTypeKind,
     ir::{
         SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind, SemDeclaration,
         SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind,
@@ -843,6 +843,10 @@ impl NirBuilder {
                 let fallback_ty = NirFacts::type_from_value(&target.ty);
                 let target = self.lower_place(target);
                 let target_ty = target.ty.clone().unwrap_or(fallback_ty);
+                if is_real_nir_type(&target_ty) {
+                    self.lower_real_expr_into(value, target);
+                    return;
+                }
                 let value = self.value(value);
                 self.assign_or_store(target, target_ty, value, is_volatile);
             }
@@ -853,6 +857,10 @@ impl NirBuilder {
                 let fallback_ty = NirFacts::type_from_value(&target.ty);
                 let target = self.lower_place(target);
                 let target_ty = target.ty.clone().unwrap_or(fallback_ty);
+                if is_real_nir_type(&target_ty) {
+                    self.lower_real_compound_into(target, *op, value);
+                    return;
+                }
                 let value = self.value(value);
                 self.compound_or_unsupported(target, target_ty, *op, value, is_volatile);
             }
@@ -1244,6 +1252,162 @@ impl NirBuilder {
         }
     }
 
+    fn lower_real_compound_into(&mut self, destination: NirPlace, op: BinaryOp, value: &SemExpr) {
+        let Some(operation) = NirClassifier::binary_op(op) else {
+            self.push(NirOp::Unsupported {
+                note: "REAL compound assignment operator is not supported".to_string(),
+            });
+            return;
+        };
+        let left = self.allocate_hidden_real_local();
+        self.push(NirOp::Real(NirRealOp::Copy {
+            destination: left.clone(),
+            source: NirRealSource::Place(destination.clone()),
+        }));
+        let right = self.real_place(value);
+        self.push(NirOp::Real(NirRealOp::Binary {
+            operation,
+            destination,
+            left,
+            right,
+        }));
+    }
+
+    fn lower_real_expr_into(&mut self, expr: &SemExpr, destination: NirPlace) {
+        match &expr.kind {
+            SemExprKind::Literal(SemLiteral::Real { source, value }) => {
+                let source = self.intern_real_literal(&source.text, *value);
+                self.push(NirOp::Real(NirRealOp::Copy {
+                    destination,
+                    source,
+                }));
+            }
+            SemExprKind::LValue(lvalue) => {
+                let source = self.lower_place(lvalue);
+                self.push(NirOp::Real(NirRealOp::Copy {
+                    destination,
+                    source: NirRealSource::Place(source),
+                }));
+            }
+            SemExprKind::Symbol(symbol) => {
+                let source = self
+                    .resolved_symbol_place(&symbol.name, Some(NirFacts::type_from_value(&expr.ty)));
+                self.push(NirOp::Real(NirRealOp::Copy {
+                    destination,
+                    source: NirRealSource::Place(source),
+                }));
+            }
+            SemExprKind::Cast { expr: inner, .. } if is_real_value_type(&inner.ty) => {
+                self.lower_real_expr_into(inner, destination);
+            }
+            SemExprKind::Cast { expr: inner, .. } => {
+                let source = self.nir_value(inner);
+                self.push(NirOp::Real(NirRealOp::IntegerToReal {
+                    destination,
+                    source,
+                    source_type: NirFacts::type_from_value(&inner.ty),
+                }));
+            }
+            SemExprKind::Unary { op, expr: operand } => {
+                let Some(operation) = NirClassifier::unary_op(*op) else {
+                    self.push(NirOp::Unsupported {
+                        note: "REAL unary operator is not supported".to_string(),
+                    });
+                    return;
+                };
+                let operand = self.real_place(operand);
+                self.push(NirOp::Real(NirRealOp::Unary {
+                    operation,
+                    destination,
+                    operand,
+                }));
+            }
+            SemExprKind::Binary { op, left, right } => {
+                let Some(operation) = NirClassifier::binary_op(*op) else {
+                    self.push(NirOp::Unsupported {
+                        note: "REAL binary operator is not supported".to_string(),
+                    });
+                    return;
+                };
+                let left = self.real_place(left);
+                let right = self.real_place(right);
+                self.push(NirOp::Real(NirRealOp::Binary {
+                    operation,
+                    destination,
+                    left,
+                    right,
+                }));
+            }
+            _ => self.push(NirOp::Unsupported {
+                note: "REAL expression is not materialized".to_string(),
+            }),
+        }
+    }
+
+    fn real_place(&mut self, expr: &SemExpr) -> NirPlace {
+        let place = self.allocate_hidden_real_local();
+        self.lower_real_expr_into(expr, place.clone());
+        place
+    }
+
+    fn allocate_hidden_real_local(&mut self) -> NirPlace {
+        let id = LocalId(
+            self.locals
+                .iter()
+                .map(|local| local.id.0)
+                .max()
+                .map_or(0, |id| id.saturating_add(1)),
+        );
+        let mut name = format!("__nir_real_tmp_{}", id.0);
+        while self.locals.iter().any(|local| local.name == name) {
+            name.push('_');
+        }
+        let ty = real_nir_type();
+        self.locals.push(NirLocal {
+            id,
+            name: name.clone(),
+            kind: "hidden REAL evaluation".to_string(),
+            storage: NirStorageClass::Scalar,
+            ty: ty.clone(),
+            backing: NirLocalBacking::Ordinary,
+            init: None,
+        });
+        NirPlace {
+            kind: NirPlaceKind::Local { id, name },
+            ty: Some(ty),
+        }
+    }
+
+    fn intern_real_literal(
+        &mut self,
+        source: &str,
+        value: crate::atari_real::AtariReal,
+    ) -> NirRealSource {
+        let bytes = value.to_bytes();
+        if let Some(existing) = self.statics.iter().find(|static_data| {
+            is_real_nir_type(&static_data.ty) && static_data.image.bytes == bytes
+        }) {
+            return NirRealSource::Static {
+                id: existing.id,
+                name: existing.name.clone(),
+            };
+        }
+        let id = SymbolId(self.next_static);
+        self.next_static += 1;
+        let name = format!("__nir_real_{}_{}", sanitize_static_owner(&self.name), id.0);
+        self.statics.push(NirStaticData {
+            id,
+            name: name.clone(),
+            ty: real_nir_type(),
+            image: NirDataImage::literal(bytes.to_vec()),
+            display: source.to_string(),
+            alignment: 1,
+            mutable: false,
+            section: "rodata".to_string(),
+        });
+        NirRealSource::Static { id, name }
+    }
+
     fn compound_or_unsupported(
         &mut self,
         target: NirPlace,
@@ -1293,6 +1457,26 @@ impl NirBuilder {
 
     fn value(&mut self, expr: &SemExpr) -> Option<NirValue> {
         match &expr.kind {
+            SemExprKind::Binary { op, left, right }
+                if NirClassifier::is_nir_compare_op(*op)
+                    && (is_real_value_type(&left.ty) || is_real_value_type(&right.ty)) =>
+            {
+                let left = self.real_place(left);
+                let right = self.real_place(right);
+                let result = self.next_temp();
+                self.push(NirOp::Real(NirRealOp::Compare {
+                    predicate: NirClassifier::compare_op(*op)
+                        .expect("compare-classified REAL op should lower to NIR"),
+                    result,
+                    result_type: NirFacts::condition_type(),
+                    left,
+                    right,
+                }));
+                Some(NirValue::Temp {
+                    id: result,
+                    ty: NirFacts::condition_type(),
+                })
+            }
             SemExprKind::Binary { op, left, right } if NirClassifier::is_nir_compare_op(*op) => {
                 let left = self.nir_value(left);
                 let right = self.nir_value(right);
@@ -2493,6 +2677,11 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Unary { dest, ty, .. }
         | NirOp::Binary { dest, ty, .. }
         | NirOp::Compare { dest, ty, .. } => Some((*dest, ty)),
+        NirOp::Real(NirRealOp::Compare {
+            result,
+            result_type,
+            ..
+        }) => Some((*result, result_type)),
         NirOp::Cast { dest, to, .. } => Some((*dest, to)),
         NirOp::Call {
             result: Some(result),
@@ -2501,6 +2690,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         NirOp::RuntimeHelperOverride { .. }
         | NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
+        | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
@@ -3651,6 +3841,23 @@ fn literal_summary(literal: &SemLiteral) -> String {
         SemLiteral::String(value) => format!("{value:?}"),
         SemLiteral::Char(value) => format!("{value:?}"),
         SemLiteral::Constant(value) => value.number_literal().text,
+    }
+}
+
+fn is_real_value_type(ty: &ValueType) -> bool {
+    matches!(ty.kind(), ValueTypeKind::Real)
+}
+
+fn is_real_nir_type(ty: &NirType) -> bool {
+    matches!(ty.kind, NirTypeKind::Real)
+}
+
+fn real_nir_type() -> NirType {
+    NirType {
+        kind: NirTypeKind::Real,
+        summary: "REAL".to_string(),
+        width: Some(6),
+        pointer: false,
     }
 }
 

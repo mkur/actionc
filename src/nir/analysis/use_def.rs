@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::nir::{
-    BlockId, NirCallee, NirEdge, NirOp, NirPlace, NirPlaceKind, NirRoutine, NirTerminator,
-    NirValue, TempId,
+    BlockId, NirCallee, NirEdge, NirOp, NirPlace, NirPlaceKind, NirRealOp, NirRealSource,
+    NirRoutine, NirTerminator, NirValue, TempId,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -146,6 +146,7 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
         | NirOp::Cast { dest, .. }
         | NirOp::Binary { dest, .. }
         | NirOp::Compare { dest, .. } => Some(*dest),
+        NirOp::Real(NirRealOp::Compare { result, .. }) => Some(*result),
         NirOp::Call {
             result: Some(result),
             ..
@@ -153,6 +154,7 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
         NirOp::RuntimeHelperOverride { .. }
         | NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
+        | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
@@ -192,6 +194,47 @@ fn record_op_uses(
             record_value(uses, left, site(NirUseKind::CompareLeft));
             record_value(uses, right, site(NirUseKind::CompareRight));
         }
+        NirOp::Real(real) => match real {
+            NirRealOp::Copy {
+                destination,
+                source,
+            } => {
+                record_place(uses, destination, site(NirUseKind::StorePlace));
+                if let NirRealSource::Place(source) = source {
+                    record_place(uses, source, site(NirUseKind::LoadPlace));
+                }
+            }
+            NirRealOp::Unary {
+                destination,
+                operand,
+                ..
+            } => {
+                record_place(uses, destination, site(NirUseKind::StorePlace));
+                record_place(uses, operand, site(NirUseKind::LoadPlace));
+            }
+            NirRealOp::Binary {
+                destination,
+                left,
+                right,
+                ..
+            } => {
+                record_place(uses, destination, site(NirUseKind::StorePlace));
+                record_place(uses, left, site(NirUseKind::LoadPlace));
+                record_place(uses, right, site(NirUseKind::LoadPlace));
+            }
+            NirRealOp::Compare { left, right, .. } => {
+                record_place(uses, left, site(NirUseKind::LoadPlace));
+                record_place(uses, right, site(NirUseKind::LoadPlace));
+            }
+            NirRealOp::IntegerToReal {
+                destination,
+                source,
+                ..
+            } => {
+                record_place(uses, destination, site(NirUseKind::StorePlace));
+                record_value(uses, source, site(NirUseKind::CastSource));
+            }
+        },
         NirOp::Call {
             callee,
             args,

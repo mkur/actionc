@@ -257,6 +257,13 @@ fn transfer_op(
             retain_available_storage_values(facts, block, op_index, use_def);
             apply_call_barrier(facts, callee, effects, trackable, routine_name);
         }
+        NirOp::Real(real) => {
+            if let NirRealOp::Compare { result, .. } = real {
+                facts.replacements.remove(result);
+            }
+            retain_available_storage_values(facts, block, op_index, use_def);
+            facts.storage.clear();
+        }
         NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. }
@@ -410,6 +417,7 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
             rewrite_value(left, replacements);
             rewrite_value(right, replacements);
         }
+        NirOp::Real(real) => rewrite_real_op_values(real, replacements),
         NirOp::Call { callee, args, .. } => {
             if let NirCallee::Indirect { target, .. } = callee {
                 rewrite_value(target, replacements);
@@ -422,6 +430,51 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => {}
+    }
+}
+
+fn rewrite_real_op_values(op: &mut NirRealOp, replacements: &BTreeMap<TempId, NirValue>) {
+    let rewrite_place = |place: &mut NirPlace| rewrite_place_values(place, replacements);
+    match op {
+        NirRealOp::Copy {
+            destination,
+            source,
+        } => {
+            rewrite_place(destination);
+            if let NirRealSource::Place(source) = source {
+                rewrite_place(source);
+            }
+        }
+        NirRealOp::Unary {
+            destination,
+            operand,
+            ..
+        } => {
+            rewrite_place(destination);
+            rewrite_place(operand);
+        }
+        NirRealOp::Binary {
+            destination,
+            left,
+            right,
+            ..
+        } => {
+            rewrite_place(destination);
+            rewrite_place(left);
+            rewrite_place(right);
+        }
+        NirRealOp::Compare { left, right, .. } => {
+            rewrite_place(left);
+            rewrite_place(right);
+        }
+        NirRealOp::IntegerToReal {
+            destination,
+            source,
+            ..
+        } => {
+            rewrite_place(destination);
+            rewrite_value(source, replacements);
+        }
     }
 }
 
@@ -481,6 +534,11 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Unary { dest, ty, .. }
         | NirOp::Binary { dest, ty, .. }
         | NirOp::Compare { dest, ty, .. } => Some((*dest, ty)),
+        NirOp::Real(NirRealOp::Compare {
+            result,
+            result_type,
+            ..
+        }) => Some((*result, result_type)),
         NirOp::Cast { dest, to, .. } => Some((*dest, to)),
         NirOp::Call {
             result: Some(result),
@@ -489,6 +547,7 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
         NirOp::RuntimeHelperOverride { .. }
         | NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
+        | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }

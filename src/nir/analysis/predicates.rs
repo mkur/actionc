@@ -175,6 +175,7 @@ impl NirDataflowProblem for NirPredicateProblem<'_> {
                     facts.kill_storage(None);
                 }
                 NirOp::Call { .. }
+                | NirOp::Real(_)
                 | NirOp::MachineBlock { .. }
                 | NirOp::InlineAsm { .. }
                 | NirOp::Unsupported { .. } => facts.kill_storage(None),
@@ -375,6 +376,7 @@ fn invalidates_storage(op: &NirOp, storage: NirStorageId) -> bool {
         NirOp::Store { place, .. } => direct_storage_id(place).is_none_or(|id| id == storage),
         NirOp::VolatileLoad { .. } | NirOp::VolatileStore { .. } => true,
         NirOp::Call { .. }
+        | NirOp::Real(_)
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => true,

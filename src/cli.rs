@@ -23,7 +23,7 @@ use crate::mir6502;
 use crate::nir;
 #[cfg(test)]
 use crate::semantic::analyze;
-use crate::semantic::{analyze_compilation, ir};
+use crate::semantic::{SemanticOptions, analyze_compilation_with_options, ir};
 use crate::source::decode_source;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -402,7 +402,12 @@ fn run_main(flavor: CliFlavor) {
         process::exit(2);
     }
 
-    let model = match analyze_compilation(&loaded) {
+    let semantic_options = if profile == CodegenProfile::Modern {
+        SemanticOptions::modern()
+    } else {
+        SemanticOptions::default()
+    };
+    let model = match analyze_compilation_with_options(&loaded, semantic_options) {
         Ok(model) => model,
         Err(diagnostics) => {
             print_diagnostics_with_source(

@@ -1,7 +1,7 @@
 # NIR Target Shape
 
 Snapshot date: 2026-05-31. Updated for the completed TAC-to-NIR naming
-migration on 2026-08-20.
+migration and address-based native `REAL` operations on 2026-08-20.
 
 This document describes the target shape of NIR, the Normalized Intermediate
 Representation implemented under `src/nir`. It is the contract for hardening,
@@ -34,6 +34,7 @@ NIR owns:
 - typed temps and typed values;
 - explicit loads and stores;
 - explicit casts, unary ops, binary ops, compares, and branches;
+- destination-passing operations for address-only native `REAL` values;
 - explicit address-of and address-shaped storage facts;
 - static data references;
 - call signatures and conservative effects;
@@ -146,6 +147,7 @@ pub enum NirType {
     I8,
     U16,
     I16,
+    Real,
     Ptr16 {
         pointee: Option<Box<NirType>>,
     },
@@ -176,6 +178,7 @@ U8/I8     -> 1 byte
 U16/I16   -> 2 bytes
 Ptr16     -> 2 bytes
 Callable  -> 2 bytes
+Real      -> 6 bytes, address-only
 Record    -> known record size
 ```
 
@@ -208,6 +211,8 @@ Rules:
 - `StaticAddr`, `RoutineAddr`, and `GlobalAddr` are address-valued and should be
   compatible with a 16-bit pointer/callable type.
 - Values must never be raw expression strings.
+- Native `REAL` is not a `NirValue`: a six-byte value remains in a typed place
+  or immutable typed static throughout NIR.
 
 ## Places
 
@@ -310,6 +315,7 @@ pub enum NirOp {
     MachineBlock {
         id: MachineBlockId,
     },
+    Real(NirRealOp),
 }
 ```
 
@@ -362,6 +368,72 @@ Rules:
 - Expensive operations such as word multiply/divide may remain semantic NIR ops
   and lower to runtime helpers in MIR6502.
 - NIR should not encode final 6502 addressing modes.
+
+### Address-based native REAL
+
+Native `REAL` does not use ordinary `Load`, `Store`, `Unary`, `Binary`, `Cast`,
+or six-byte temps. Its executable shape is explicitly destination-passing:
+
+```rust
+pub enum NirRealOp {
+    Copy {
+        destination: NirPlace,
+        source: NirRealSource,
+    },
+    Unary {
+        operation: NirUnaryOp,
+        destination: NirPlace,
+        operand: NirPlace,
+    },
+    Binary {
+        operation: NirBinaryOp,
+        destination: NirPlace,
+        left: NirPlace,
+        right: NirPlace,
+    },
+    Compare {
+        predicate: NirCompareOp,
+        result: TempId,
+        result_type: NirType,
+        left: NirPlace,
+        right: NirPlace,
+    },
+    IntegerToReal {
+        destination: NirPlace,
+        source: NirValue,
+        source_type: NirType,
+    },
+}
+
+pub enum NirRealSource {
+    Place(NirPlace),
+    Static {
+        id: StaticId,
+        name: String, // display metadata only
+    },
+}
+```
+
+The lowerer materializes expression children left-to-right into compiler-owned
+six-byte locals. Literal operands are immutable six-byte `rodata` statics,
+identified by stable IDs and optionally deduplicated by canonical Atari packed
+decimal bytes. The static name is diagnostic/printer metadata, not executable
+identity.
+
+The verifier guarantees:
+
+- every real operand and destination is a typed, six-byte `Real` place;
+- every real literal source names immutable six-byte `rodata`;
+- routine temps and block parameters never carry `Real`;
+- scalar operations, scalar calls, and scalar returns never carry `Real`;
+- real comparisons alone define an ordinary canonical Boolean temp;
+- integer-to-real conversion sources are ordinary typed 8- or 16-bit integers.
+
+Until a narrower proof exists, optimizers treat real operations as memory/call
+ordering barriers. They may rewrite scalar temps used to address a real place,
+but they do not fold, eliminate, reorder, or scalarize the real operation.
+Selection of Atari FR0/FR1 workspaces and FPP entry points belongs exclusively
+to MIR6502.
 
 ## Terminators
 

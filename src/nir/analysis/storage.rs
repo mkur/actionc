@@ -5,8 +5,8 @@ use super::dataflow::{NirDataflowDirection, NirDataflowProblem, solve_dataflow};
 use crate::nir::facts::{NirStorageId, root_storage_id};
 use crate::nir::{
     BlockId, NirGlobal, NirGlobalBacking, NirLocalBacking, NirMachineAtom, NirMachineItem,
-    NirMemoryAccess, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirPlace, NirProgram, NirRoutine,
-    NirStorageClass, NirStorageInit, NirType, NirTypeKind,
+    NirMemoryAccess, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirPlace, NirProgram, NirRealOp,
+    NirRealSource, NirRoutine, NirStorageClass, NirStorageInit, NirType, NirTypeKind,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -371,6 +371,13 @@ fn analyze_routine_storage(
                         }
                     }
                 }
+                NirOp::Real(_) => {
+                    for facts in homes.values_mut() {
+                        facts.machine_visible = true;
+                        facts.calls_may_read = true;
+                        facts.calls_may_write = true;
+                    }
+                }
                 NirOp::RuntimeHelperOverride { .. }
                 | NirOp::Unary { .. }
                 | NirOp::Cast { .. }
@@ -641,6 +648,7 @@ fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
         | NirOp::AddrOf { place, .. }
         | NirOp::Store { place, .. }
         | NirOp::VolatileStore { place, .. } => visit(place),
+        NirOp::Real(real) => for_each_real_place(real, visit),
         NirOp::RuntimeHelperOverride { .. }
         | NirOp::Unary { .. }
         | NirOp::Cast { .. }
@@ -762,6 +770,13 @@ fn mark_read_before_definition(
                         defined.insert(id);
                     }
                 }
+                NirOp::Real(real) => {
+                    for destination in real_destinations(real) {
+                        if let Some(id) = crate::nir::direct_storage_id(destination) {
+                            defined.insert(id);
+                        }
+                    }
+                }
                 NirOp::RuntimeHelperOverride { .. }
                 | NirOp::AddrOf { .. }
                 | NirOp::Unary { .. }
@@ -775,6 +790,54 @@ fn mark_read_before_definition(
             }
         }
     }
+}
+
+fn for_each_real_place(op: &NirRealOp, mut visit: impl FnMut(&NirPlace)) {
+    match op {
+        NirRealOp::Copy {
+            destination,
+            source,
+        } => {
+            visit(destination);
+            if let NirRealSource::Place(source) = source {
+                visit(source);
+            }
+        }
+        NirRealOp::Unary {
+            destination,
+            operand,
+            ..
+        } => {
+            visit(destination);
+            visit(operand);
+        }
+        NirRealOp::Binary {
+            destination,
+            left,
+            right,
+            ..
+        } => {
+            visit(destination);
+            visit(left);
+            visit(right);
+        }
+        NirRealOp::Compare { left, right, .. } => {
+            visit(left);
+            visit(right);
+        }
+        NirRealOp::IntegerToReal { destination, .. } => visit(destination),
+    }
+}
+
+fn real_destinations(op: &NirRealOp) -> impl Iterator<Item = &NirPlace> {
+    match op {
+        NirRealOp::Copy { destination, .. }
+        | NirRealOp::Unary { destination, .. }
+        | NirRealOp::Binary { destination, .. }
+        | NirRealOp::IntegerToReal { destination, .. } => Some(destination),
+        NirRealOp::Compare { .. } => None,
+    }
+    .into_iter()
 }
 
 #[cfg(test)]

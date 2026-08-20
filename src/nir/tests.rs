@@ -2,7 +2,9 @@ use super::*;
 
 use crate::ast::FundType;
 use crate::includes::{ModuleLoadOptions, load_compilation_from_provider};
-use crate::semantic::ValueType;
+use crate::lexer::tokenize;
+use crate::parser::parse;
+use crate::semantic::{SemanticOptions, ValueType, analyze_with_options};
 use crate::source::{InMemorySourceProvider, SourceOrigin};
 
 fn edge(target: u32) -> NirEdge {
@@ -10,6 +12,15 @@ fn edge(target: u32) -> NirEdge {
         target: BlockId(target),
         args: Vec::new(),
     }
+}
+
+fn lower_modern_source(source: &str) -> NirProgram {
+    let tokens = tokenize(source).expect("tokenize modern source");
+    let program = parse(&tokens).expect("parse modern source");
+    let model =
+        analyze_with_options(&program, SemanticOptions::modern()).expect("analyze modern source");
+    let semir = crate::semantic::ir::lower_program(&program, &model);
+    lower_program(&semir)
 }
 
 #[test]
@@ -175,6 +186,121 @@ fn nir_type_kind_tracks_semir_value_types() {
         }
     );
     assert_eq!(record.width, None);
+}
+
+#[test]
+fn real_expressions_lower_to_address_based_verified_nir() {
+    let program = lower_modern_source(
+        "REAL x,y,result BYTE flag PROC Main() x=1.25 y=2 result=x*y+0.5 flag=result>2 RETURN",
+    );
+    verify_program(&program).expect("address-based REAL NIR should verify");
+
+    assert_eq!(
+        program
+            .statics
+            .iter()
+            .map(|static_data| static_data.image.bytes.as_slice())
+            .collect::<Vec<_>>(),
+        vec![
+            [0x40, 0x01, 0x25, 0, 0, 0].as_slice(),
+            [0x3F, 0x50, 0, 0, 0, 0].as_slice(),
+        ]
+    );
+    assert!(program.routines.iter().all(|routine| {
+        routine
+            .temps
+            .iter()
+            .all(|temp| !matches!(temp.ty.kind, NirTypeKind::Real))
+    }));
+    assert!(
+        program.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .any(|op| matches!(op, NirOp::Real(NirRealOp::Binary { .. })))
+    );
+    assert!(
+        program.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .any(|op| matches!(op, NirOp::Real(NirRealOp::Compare { .. })))
+    );
+
+    let optimized = optimize_program(&program).expect("REAL NIR should remain optimizer-clean");
+    verify_program(&optimized).expect("optimized REAL NIR should verify");
+    let diagnostics = crate::mir6502::lower_program(&optimized)
+        .expect_err("Slice 4 must retain an explicit MIR6502 gate");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("native REAL NIR lowering is not implemented yet")
+    }));
+}
+
+#[test]
+fn verifier_rejects_malformed_real_static_data() {
+    let mut program = lower_modern_source("REAL value PROC Main() value=1.25 RETURN");
+    program.statics[0].image.bytes.pop();
+
+    let diagnostics = verify_program(&program).expect_err("short REAL static must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("must be an immutable six-byte rodata object")
+    }));
+}
+
+#[test]
+fn verifier_rejects_real_in_the_scalar_operation_lane() {
+    let mut program = lower_modern_source("REAL value PROC Main() value=1.25 RETURN");
+    let block = &mut program.routines[0].blocks[0];
+    let destination = match &block.ops[0] {
+        NirOp::Real(NirRealOp::Copy { destination, .. }) => destination.clone(),
+        other => panic!("expected REAL copy, got {other:?}"),
+    };
+    block.ops[0] = NirOp::Store {
+        place: destination,
+        src: NirValue::ConstU8(0),
+        ty: NirType::from_value(&ValueType::real()),
+    };
+
+    let diagnostics = verify_program(&program).expect_err("scalar REAL store must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("cannot use REAL in the byte/word scalar lane")
+    }));
+}
+
+#[test]
+fn verifier_rejects_non_real_real_operation_places() {
+    let mut program =
+        lower_modern_source("REAL value BYTE flag PROC Main() value=1.25 flag=0 RETURN");
+    let source = match &program.routines[0].blocks[0].ops[0] {
+        NirOp::Real(NirRealOp::Copy { source, .. }) => source.clone(),
+        other => panic!("expected REAL copy, got {other:?}"),
+    };
+    program.routines[0].blocks[0].ops.insert(
+        1,
+        NirOp::Real(NirRealOp::Copy {
+            destination: NirPlace {
+                kind: NirPlaceKind::Global {
+                    id: program.globals[1].id,
+                    name: program.globals[1].name.clone(),
+                },
+                ty: program.globals[1].ty.clone(),
+            },
+            source,
+        }),
+    );
+
+    let diagnostics = verify_program(&program).expect_err("non-REAL destination must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("REAL copy destination must be a six-byte REAL place")
+    }));
 }
 
 #[test]
