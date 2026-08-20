@@ -483,8 +483,7 @@ fn append_phi_arguments(
         NirTerminator::Open
         | NirTerminator::Fallthrough
         | NirTerminator::Return(_)
-        | NirTerminator::Exit
-        | NirTerminator::Unknown(_) => true,
+        | NirTerminator::Exit => true,
     }
 }
 

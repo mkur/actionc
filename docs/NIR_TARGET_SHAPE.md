@@ -396,7 +396,6 @@ Rules:
 - Branch conditions must be `Bool` values, or a future explicitly documented test
   terminator must be added.
 - There is no `Open` terminator in verifier-clean NIR.
-- There is no `Unknown(String)` terminator in verifier-clean NIR.
 - Fallthrough should either be made explicit as `Return(None)` where appropriate
   or represented by a documented terminator with clear MIR6502 behavior.
 

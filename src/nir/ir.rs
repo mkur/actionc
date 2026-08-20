@@ -601,7 +601,6 @@ pub enum NirTerminator {
     },
     Return(Option<NirValue>),
     Exit,
-    Unknown(String),
 }
 
 #[cfg(test)]

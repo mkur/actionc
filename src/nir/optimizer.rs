@@ -486,8 +486,7 @@ impl NirDataflowProblem for NirValuePropagationProblem<'_> {
             NirTerminator::Open
             | NirTerminator::Fallthrough
             | NirTerminator::Return(_)
-            | NirTerminator::Exit
-            | NirTerminator::Unknown(_) => false,
+            | NirTerminator::Exit => false,
         }
     }
 }
@@ -936,8 +935,7 @@ fn rewrite_terminator_values(
         NirTerminator::Open
         | NirTerminator::Fallthrough
         | NirTerminator::Return(None)
-        | NirTerminator::Exit
-        | NirTerminator::Unknown(_) => {}
+        | NirTerminator::Exit => {}
     }
 }
 
@@ -985,8 +983,7 @@ fn terminator_edges(terminator: &NirTerminator) -> impl Iterator<Item = &NirEdge
         NirTerminator::Open
         | NirTerminator::Fallthrough
         | NirTerminator::Return(_)
-        | NirTerminator::Exit
-        | NirTerminator::Unknown(_) => [None, None],
+        | NirTerminator::Exit => [None, None],
     };
     edges.into_iter().flatten()
 }
@@ -1002,8 +999,7 @@ fn terminator_edges_mut(terminator: &mut NirTerminator) -> impl Iterator<Item = 
         NirTerminator::Open
         | NirTerminator::Fallthrough
         | NirTerminator::Return(_)
-        | NirTerminator::Exit
-        | NirTerminator::Unknown(_) => [None, None],
+        | NirTerminator::Exit => [None, None],
     };
     edges.into_iter().flatten()
 }
@@ -1060,8 +1056,7 @@ fn collect_terminator_uses(terminator: &NirTerminator, out: &mut BTreeSet<TempId
         NirTerminator::Open
         | NirTerminator::Fallthrough
         | NirTerminator::Return(None)
-        | NirTerminator::Exit
-        | NirTerminator::Unknown(_) => {}
+        | NirTerminator::Exit => {}
     }
 }
 

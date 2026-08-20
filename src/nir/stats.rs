@@ -109,8 +109,7 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                 NirTerminator::Open
                 | NirTerminator::Fallthrough
                 | NirTerminator::Return(_)
-                | NirTerminator::Exit
-                | NirTerminator::Unknown(_) => 0,
+                | NirTerminator::Exit => 0,
             };
             stats.operations += block.ops.len();
             for op in &block.ops {

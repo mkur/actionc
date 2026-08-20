@@ -952,36 +952,6 @@ fn empty_machine_blocks_do_not_lower_to_executable_ops() {
 }
 
 #[test]
-fn verifier_rejects_unknown_terminator() {
-    let program = NirProgram {
-        globals: Vec::new(),
-        statics: Vec::new(),
-        routines: vec![NirRoutine {
-            name: "Main".to_string(),
-            params: Vec::new(),
-            locals: Vec::new(),
-            temps: Vec::new(),
-            notes: Vec::new(),
-            blocks: vec![NirBlock {
-                id: BlockId(0),
-                label: "bb0".to_string(),
-                params: Vec::new(),
-                ops: Vec::new(),
-                terminator: NirTerminator::Unknown("unsupported branch shape".to_string()),
-            }],
-        }],
-    };
-
-    let diagnostics = verify_program(&program).expect_err("expected verifier error");
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("unknown terminator")),
-        "expected unknown-terminator diagnostic, got {diagnostics:?}"
-    );
-}
-
-#[test]
 fn verifier_rejects_executable_error_type() {
     let error = error_type();
     let program = NirProgram {

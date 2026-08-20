@@ -1981,7 +1981,7 @@ fn lower_terminator(
         }
         NirTerminator::Return(_) => MirTerminator::Return,
         NirTerminator::Exit => MirTerminator::Exit,
-        NirTerminator::Open | NirTerminator::Unknown(_) => block_ids
+        NirTerminator::Open => block_ids
             .get(&block_id)
             .copied()
             .map(|target| MirTerminator::Jump(MirEdge::plain(target)))

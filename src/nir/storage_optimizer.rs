@@ -469,8 +469,7 @@ fn rewrite_terminator(terminator: &mut NirTerminator, replacements: &BTreeMap<Te
         NirTerminator::Open
         | NirTerminator::Fallthrough
         | NirTerminator::Return(None)
-        | NirTerminator::Exit
-        | NirTerminator::Unknown(_) => {}
+        | NirTerminator::Exit => {}
     }
 }
 

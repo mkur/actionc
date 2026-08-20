@@ -586,7 +586,6 @@ fn terminator_summary(
             .map(|value| format!("return {}", value_summary(value)))
             .unwrap_or_else(|| "return".to_string()),
         NirTerminator::Exit => "exit".to_string(),
-        NirTerminator::Unknown(note) => format!("unknown {note}"),
     }
 }
 

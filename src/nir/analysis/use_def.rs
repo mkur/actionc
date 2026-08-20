@@ -247,8 +247,7 @@ fn record_terminator_uses(
         NirTerminator::Open
         | NirTerminator::Fallthrough
         | NirTerminator::Return(None)
-        | NirTerminator::Exit
-        | NirTerminator::Unknown(_) => {}
+        | NirTerminator::Exit => {}
     }
 }
 

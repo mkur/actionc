@@ -395,11 +395,6 @@ impl NirVerifier {
                         "return value",
                     );
                 }
-                NirTerminator::Unknown(note) => self.diagnostics.push(NirDiagnostic::block(
-                    &routine.name,
-                    &block.label,
-                    format!("unknown terminator must be resolved before NIR verification: {note}"),
-                )),
                 NirTerminator::Fallthrough | NirTerminator::Return(None) | NirTerminator::Exit => {}
             }
         }

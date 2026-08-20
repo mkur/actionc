@@ -161,8 +161,7 @@ fn for_each_target(terminator: &NirTerminator, mut visit: impl FnMut(BlockId)) {
         NirTerminator::Open
         | NirTerminator::Fallthrough
         | NirTerminator::Return(_)
-        | NirTerminator::Exit
-        | NirTerminator::Unknown(_) => {}
+        | NirTerminator::Exit => {}
     }
 }
 
