@@ -737,7 +737,6 @@ forms are still representable internally but must not survive as verifier-clean
 NIR:
 
 ```text
-NirOperand                         -> remove from executable paths
 NirPlaceKind::Symbol(String)       -> Param/Local/Global/Absolute IDs
 NirPlaceKind::UnresolvedName       -> diagnose before NIR construction
 ```
@@ -748,7 +747,6 @@ Do not consider NIR complete while any of these are true:
 
 - optimizer passes run on legacy/stringly NIR shapes;
 - MIR6502 consults SemIR to recover missing NIR facts;
-- executable code uses `NirOperand`;
 - executable storage identity depends on `Symbol(String)`;
 - executable field/index forms preserve source syntax instead of semantic facts;
 - calls lack signatures or conservative effects;

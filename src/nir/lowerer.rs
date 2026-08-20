@@ -1045,18 +1045,7 @@ impl NirBuilder {
                 let value = step
                     .as_ref()
                     .map(|step| self.value(step))
-                    .unwrap_or_else(|| NirOperand {
-                        kind: NirOperandKind::Literal {
-                            text: "1".to_string(),
-                            value: Some(1),
-                        },
-                        ty: Some(NirType {
-                            kind: NirTypeKind::U8,
-                            summary: "Byte".to_string(),
-                            width: Some(1),
-                            pointer: false,
-                        }),
-                    });
+                    .unwrap_or(Some(NirValue::ConstU8(1)));
                 self.compound_or_legacy(target, target_ty, BinaryOp::Add, value, is_volatile);
                 self.finish_open_goto(&test_label);
                 self.loop_exits.pop();
@@ -1282,10 +1271,10 @@ impl NirBuilder {
         &mut self,
         target: NirPlace,
         target_ty: NirType,
-        value: NirOperand,
+        value: Option<NirValue>,
         is_volatile: bool,
     ) {
-        if let Some(src) = NirValue::from_legacy_operand(&value) {
+        if let Some(src) = value {
             self.push_store(target, src, target_ty, is_volatile);
         } else {
             self.push(NirOp::Unsupported {
@@ -1299,10 +1288,10 @@ impl NirBuilder {
         target: NirPlace,
         target_ty: NirType,
         op: BinaryOp,
-        value: NirOperand,
+        value: Option<NirValue>,
         is_volatile: bool,
     ) {
-        let Some(src) = NirValue::from_legacy_operand(&value) else {
+        let Some(src) = value else {
             self.push(NirOp::Unsupported {
                 note: "compound assignment source is not materialized".to_string(),
             });
@@ -1341,7 +1330,7 @@ impl NirBuilder {
         );
     }
 
-    fn value(&mut self, expr: &SemExpr) -> NirOperand {
+    fn value(&mut self, expr: &SemExpr) -> Option<NirValue> {
         match &expr.kind {
             SemExprKind::Binary { op, left, right } if NirClassifier::is_nir_compare_op(*op) => {
                 let left = self.nir_value(left);
@@ -1356,10 +1345,7 @@ impl NirBuilder {
                     left,
                     right,
                 });
-                NirOperand {
-                    kind: NirOperandKind::Temp(dest),
-                    ty: Some(ty),
-                }
+                Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::Cast { expr: inner, .. } => {
                 let src = self.nir_value(inner);
@@ -1372,10 +1358,7 @@ impl NirBuilder {
                     from,
                     to: to.clone(),
                 });
-                NirOperand {
-                    kind: NirOperandKind::Temp(dest),
-                    ty: Some(to),
-                }
+                Some(NirValue::Temp { id: dest, ty: to })
             }
             SemExprKind::Unary { op, expr: inner } if NirClassifier::unary_op(*op).is_some() => {
                 let src = self.nir_value(inner);
@@ -1388,10 +1371,7 @@ impl NirBuilder {
                         .expect("unary-classified op should lower to NIR"),
                     src,
                 });
-                NirOperand {
-                    kind: NirOperandKind::Temp(dest),
-                    ty: Some(ty),
-                }
+                Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::Binary { op, left, right } => {
                 let left = self.nir_value(left);
@@ -1406,10 +1386,7 @@ impl NirBuilder {
                     left,
                     right,
                 });
-                NirOperand {
-                    kind: NirOperandKind::Temp(dest),
-                    ty: Some(ty),
-                }
+                Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::LValue(lvalue) => {
                 let is_volatile = lvalue.is_volatile;
@@ -1417,10 +1394,7 @@ impl NirBuilder {
                 let dest = self.next_temp();
                 let ty = NirFacts::type_from_value(&expr.ty);
                 self.push_load(dest, ty.clone(), place, is_volatile);
-                NirOperand {
-                    kind: NirOperandKind::Temp(dest),
-                    ty: Some(ty),
-                }
+                Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::Symbol(symbol) => {
                 let dest = self.next_temp();
@@ -1436,15 +1410,12 @@ impl NirBuilder {
                     },
                     symbol.is_volatile,
                 );
-                NirOperand {
-                    kind: NirOperandKind::Temp(dest),
-                    ty: Some(ty),
-                }
+                Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::AddressOf(lvalue) => {
                 let place = self.lower_place(lvalue);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                self.addr_of_place(place, ty)
+                Some(self.addr_of_place(place, ty))
             }
             SemExprKind::AddressOfSymbol(symbol) => {
                 let place_ty = symbol
@@ -1457,12 +1428,12 @@ impl NirBuilder {
                     ty: place_ty,
                 };
                 let ty = NirFacts::type_from_value(&expr.ty);
-                self.addr_of_place(place, ty)
+                Some(self.addr_of_place(place, ty))
             }
             SemExprKind::ImplicitAddressOf(address) => {
                 let place = self.lower_place(&address.place);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                self.addr_of_place(place, ty)
+                Some(self.addr_of_place(place, ty))
             }
             SemExprKind::ArrayDecay(decay) => {
                 if decay.origin == SemArrayOrigin::Parameter
@@ -1470,11 +1441,11 @@ impl NirBuilder {
                 {
                     let place = self.lower_place(&decay.array);
                     let ty = NirFacts::type_from_value(&expr.ty);
-                    return self.load_place_value(place, ty);
+                    return Some(self.load_place_value(place, ty));
                 }
                 let place = self.lower_place(&decay.array);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                self.addr_of_place(place, ty)
+                Some(self.addr_of_place(place, ty))
             }
             SemExprKind::Call(call) if NirClassifier::is_index_call_syntax(call) => {
                 let is_volatile = matches!(
@@ -1485,10 +1456,7 @@ impl NirBuilder {
                 let dest = self.next_temp();
                 let ty = NirFacts::type_from_value(&expr.ty);
                 self.push_load(dest, ty.clone(), place, is_volatile);
-                NirOperand {
-                    kind: NirOperandKind::Temp(dest),
-                    ty: Some(ty),
-                }
+                Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::Call(call) if NirClassifier::is_materializable_call(call) => {
                 let args = call.args.iter().map(|arg| self.nir_value(arg)).collect();
@@ -1505,12 +1473,12 @@ impl NirBuilder {
                     signature: Some(nir_call_signature(call)),
                     effects: self.nir_call_effects(&call.effects),
                 });
-                NirOperand {
-                    kind: NirOperandKind::Temp(dest),
-                    ty: Some(ty),
-                }
+                Some(NirValue::Temp { id: dest, ty })
             }
-            _ => lower_operand(expr),
+            SemExprKind::Literal(literal) => {
+                literal_value(literal, &NirFacts::type_from_value(&expr.ty))
+            }
+            _ => None,
         }
     }
 
@@ -1518,8 +1486,8 @@ impl NirBuilder {
         if let SemExprKind::Literal(SemLiteral::String(value)) = &expr.kind {
             return self.intern_string_literal(value, NirFacts::type_from_value(&expr.ty));
         }
-        let operand = self.value(expr);
-        NirValue::from_legacy_operand(&operand).expect("lowered NIR value operand should be simple")
+        self.value(expr)
+            .expect("lowered NIR value should be materialized")
     }
 
     fn intern_string_literal(&mut self, value: &str, ty: NirType) -> NirValue {
@@ -1541,7 +1509,7 @@ impl NirBuilder {
         NirValue::StaticAddr { id, name, ty }
     }
 
-    fn addr_of_place(&mut self, place: NirPlace, ty: NirType) -> NirOperand {
+    fn addr_of_place(&mut self, place: NirPlace, ty: NirType) -> NirValue {
         if let NirPlaceKind::Symbol(name) = &place.kind
             && let Some(address) = self
                 .absolute_array_value_addresses
@@ -1549,13 +1517,7 @@ impl NirBuilder {
                 .copied()
                 .or_else(|| resident_array_address(name))
         {
-            return NirOperand {
-                kind: NirOperandKind::Literal {
-                    text: format!("${address:04X}"),
-                    value: Some(address),
-                },
-                ty: Some(ty),
-            };
+            return NirValue::ConstU16(address);
         }
         let dest = self.next_temp();
         self.push(NirOp::AddrOf {
@@ -1563,19 +1525,13 @@ impl NirBuilder {
             ty: ty.clone(),
             place,
         });
-        NirOperand {
-            kind: NirOperandKind::Temp(dest),
-            ty: Some(ty),
-        }
+        NirValue::Temp { id: dest, ty }
     }
 
-    fn load_place_value(&mut self, place: NirPlace, ty: NirType) -> NirOperand {
+    fn load_place_value(&mut self, place: NirPlace, ty: NirType) -> NirValue {
         let dest = self.next_temp();
         self.push_load(dest, ty.clone(), place, false);
-        NirOperand {
-            kind: NirOperandKind::Temp(dest),
-            ty: Some(ty),
-        }
+        NirValue::Temp { id: dest, ty }
     }
 
     fn lower_place(&mut self, lvalue: &SemLValue) -> NirPlace {
@@ -1663,13 +1619,11 @@ impl NirBuilder {
         };
         let pointer_ty = pointer_type_to(ty);
         let base_addr = if matches!(symbol.class, crate::semantic::SymbolClass::Param) {
-            NirValue::from_legacy_operand(&self.load_place_value(place, pointer_ty))
-                .expect("parameter array index callee pointer load should produce a temp")
+            self.load_place_value(place, pointer_ty)
         } else if let Some(address) = self.absolute_index_base_for_name(&symbol.name) {
             NirValue::ConstU16(address)
         } else {
-            NirValue::from_legacy_operand(&self.addr_of_place(place, pointer_ty))
-                .expect("address-of index callee should produce a temp")
+            self.addr_of_place(place, pointer_ty)
         };
         NirPlace {
             kind: NirPlaceKind::Index {
@@ -1701,9 +1655,7 @@ impl NirBuilder {
         {
             let place = self.lower_place(lvalue);
             let pointer_ty = pointer_type_to(element_type);
-            let operand = self.load_place_value(place, pointer_ty);
-            return NirValue::from_legacy_operand(&operand)
-                .expect("parameter array pointer load should produce a temp");
+            return self.load_place_value(place, pointer_ty);
         }
         if let SemExprKind::Symbol(symbol) = &base.kind
             && matches!(symbol.class, crate::semantic::SymbolClass::Param)
@@ -1713,9 +1665,7 @@ impl NirBuilder {
                 kind: NirPlaceKind::Symbol(symbol.name.clone()),
                 ty: Some(pointer_ty.clone()),
             };
-            let operand = self.load_place_value(place, pointer_ty);
-            return NirValue::from_legacy_operand(&operand)
-                .expect("parameter array pointer load should produce a temp");
+            return self.load_place_value(place, pointer_ty);
         }
 
         let place = match &base.kind {
@@ -1727,8 +1677,7 @@ impl NirBuilder {
             _ => return self.nir_value(base),
         };
         let pointer_ty = pointer_type_to(element_type);
-        let operand = self.addr_of_place(place, pointer_ty);
-        NirValue::from_legacy_operand(&operand).expect("address-of place should produce a temp")
+        self.addr_of_place(place, pointer_ty)
     }
 
     fn absolute_array_base_address(&self, base: &SemExpr) -> Option<u16> {
@@ -3355,45 +3304,6 @@ fn builtin_variable_type(name: &str) -> Option<NirType> {
     })
 }
 
-fn lower_operand(expr: &SemExpr) -> NirOperand {
-    let ty = Some(NirFacts::type_from_value(&expr.ty));
-    let kind = match &expr.kind {
-        SemExprKind::Missing => NirOperandKind::Missing,
-        SemExprKind::Raw(raw) => NirOperandKind::Raw(raw.clone()),
-        SemExprKind::InitializerList(_) => {
-            NirOperandKind::Raw("structured initializer list".to_string())
-        }
-        SemExprKind::UnresolvedName(name) => NirOperandKind::UnresolvedName(name.clone()),
-        SemExprKind::CurrentLocation => NirOperandKind::CurrentLocation,
-        SemExprKind::Literal(literal) => literal_operand_kind(literal),
-        SemExprKind::Symbol(symbol) => NirOperandKind::Symbol(symbol.name.clone()),
-        SemExprKind::LValue(lvalue) => NirOperandKind::Place(Box::new(lower_legacy_place(lvalue))),
-        SemExprKind::AddressOf(lvalue) => {
-            NirOperandKind::AddressOf(Box::new(lower_legacy_place(lvalue)))
-        }
-        SemExprKind::AddressOfSymbol(symbol) => {
-            NirOperandKind::AddressOfSymbol(symbol.name.clone())
-        }
-        SemExprKind::ImplicitAddressOf(address) => {
-            NirOperandKind::AddressOf(Box::new(lower_legacy_place(&address.place)))
-        }
-        SemExprKind::Call(call) => NirOperandKind::Call(format!(
-            "{}({})",
-            callable_summary(&call.callee),
-            call.args
-                .iter()
-                .map(expr_summary)
-                .collect::<Vec<_>>()
-                .join(", ")
-        )),
-        SemExprKind::ArrayDecay(_)
-        | SemExprKind::Cast { .. }
-        | SemExprKind::Unary { .. }
-        | SemExprKind::Binary { .. } => NirOperandKind::Expr(expr_summary(expr)),
-    };
-    NirOperand { kind, ty }
-}
-
 struct StorageNameResolution {
     params: BTreeMap<String, ParamId>,
     locals: BTreeMap<String, LocalId>,
@@ -3476,44 +3386,6 @@ fn resolve_place_storage(place: &mut NirPlace, storage: &StorageNameResolution) 
         | NirPlaceKind::Absolute(_)
         | NirPlaceKind::UnresolvedName(_) => {}
     }
-}
-
-fn lower_legacy_place(lvalue: &SemLValue) -> NirPlace {
-    let ty = Some(NirFacts::type_from_value(&lvalue.ty));
-    let kind = match &lvalue.kind {
-        SemLValueKind::Symbol(symbol) => {
-            if let Some(address) = lvalue.storage.as_ref().and_then(|storage| storage.address) {
-                NirPlaceKind::Absolute(address)
-            } else {
-                NirPlaceKind::Symbol(symbol.name.clone())
-            }
-        }
-        SemLValueKind::UnresolvedName(name) => NirPlaceKind::UnresolvedName(name.clone()),
-        SemLValueKind::Deref { pointer } => {
-            let operand = lower_operand(pointer);
-            let addr = NirValue::from_legacy_operand(&operand).unwrap_or(NirValue::ConstU16(0));
-            NirPlaceKind::Deref { addr }
-        }
-        SemLValueKind::Index {
-            base,
-            index,
-            element_type,
-            ..
-        } => NirPlaceKind::Index {
-            base_addr: NirValue::from_legacy_operand(&lower_operand(base))
-                .unwrap_or(NirValue::ConstU16(0)),
-            index: NirValue::from_legacy_operand(&lower_operand(index))
-                .unwrap_or(NirValue::ConstU8(0)),
-            elem_ty: NirFacts::type_from_value(element_type),
-            elem_size: NirFacts::type_from_value(element_type).width.unwrap_or(1),
-        },
-        SemLValueKind::Field { base, field } => NirPlaceKind::Field {
-            base: Box::new(lower_legacy_place(base)),
-            offset: field.offset.unwrap_or(0),
-            ty: NirFacts::type_from_value(&field.ty),
-        },
-    };
-    NirPlace { kind, ty }
 }
 
 fn pointer_type_to(pointee: &ValueType) -> NirType {
@@ -3825,24 +3697,17 @@ fn literal_summary(literal: &SemLiteral) -> String {
     }
 }
 
-fn literal_operand_kind(literal: &SemLiteral) -> NirOperandKind {
-    match literal {
-        SemLiteral::Number(number) => NirOperandKind::Literal {
-            text: number.text.clone(),
-            value: number.value,
-        },
-        SemLiteral::String(value) => NirOperandKind::Literal {
-            text: format!("{value:?}"),
-            value: None,
-        },
-        SemLiteral::Char(value) => NirOperandKind::Literal {
-            text: format!("{value:?}"),
-            value: Some(*value as u16),
-        },
-        SemLiteral::Constant(value) => NirOperandKind::Literal {
-            text: value.number_literal().text,
-            value: Some(value.bits),
-        },
+fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
+    let value = match literal {
+        SemLiteral::Number(number) => number.value?,
+        SemLiteral::Char(value) => *value as u16,
+        SemLiteral::Constant(value) => value.bits,
+        SemLiteral::String(_) => return None,
+    };
+    match ty.kind.width() {
+        Some(1) => u8::try_from(value).ok().map(NirValue::ConstU8),
+        Some(2) => Some(NirValue::ConstU16(value)),
+        _ => None,
     }
 }
 fn array_origin_summary(origin: SemArrayOrigin) -> &'static str {

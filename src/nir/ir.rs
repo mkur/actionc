@@ -204,28 +204,6 @@ pub enum NirPlaceKind {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NirOperand {
-    pub kind: NirOperandKind,
-    pub ty: Option<NirType>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum NirOperandKind {
-    Missing,
-    Raw(String),
-    UnresolvedName(String),
-    CurrentLocation,
-    Literal { text: String, value: Option<u16> },
-    Temp(TempId),
-    Symbol(String),
-    Place(Box<NirPlace>),
-    AddressOf(Box<NirPlace>),
-    AddressOfSymbol(String),
-    Expr(String),
-    Call(String),
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirUnaryOp {
     Plus,

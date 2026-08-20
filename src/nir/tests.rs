@@ -178,39 +178,6 @@ fn nir_type_kind_tracks_semir_value_types() {
 }
 
 #[test]
-fn nir_value_reads_simple_legacy_operands() {
-    let byte = NirOperand {
-        kind: NirOperandKind::Literal {
-            text: "7".to_string(),
-            value: Some(7),
-        },
-        ty: Some(byte_type()),
-    };
-    assert_eq!(
-        NirValue::from_legacy_operand(&byte),
-        Some(NirValue::ConstU8(7))
-    );
-
-    let card = card_literal_with_value("$1234", 0x1234);
-    assert_eq!(
-        NirValue::from_legacy_operand(&card),
-        Some(NirValue::ConstU16(0x1234))
-    );
-
-    let temp = temp_operand(3, byte_type());
-    assert_eq!(
-        NirValue::from_legacy_operand(&temp),
-        Some(temp_value(3, byte_type()))
-    );
-
-    let place = NirOperand {
-        kind: NirOperandKind::Place(Box::new(byte_place("x"))),
-        ty: Some(byte_type()),
-    };
-    assert_eq!(NirValue::from_legacy_operand(&place), None);
-}
-
-#[test]
 fn verifier_accepts_valid_targets() {
     let program = NirProgram {
         globals: Vec::new(),
@@ -2699,16 +2666,6 @@ fn byte_place(name: &str) -> NirPlace {
     }
 }
 
-fn card_literal_with_value(text: &str, value: u16) -> NirOperand {
-    NirOperand {
-        kind: NirOperandKind::Literal {
-            text: text.to_string(),
-            value: Some(value),
-        },
-        ty: Some(card_type()),
-    }
-}
-
 fn byte_value(value: u8) -> NirValue {
     NirValue::ConstU8(value)
 }
@@ -2844,13 +2801,6 @@ fn optimizer_program(temps: Vec<NirTemp>, blocks: Vec<NirBlock>) -> NirProgram {
             notes: Vec::new(),
             blocks,
         }],
-    }
-}
-
-fn temp_operand(id: u32, ty: NirType) -> NirOperand {
-    NirOperand {
-        kind: NirOperandKind::Temp(TempId(id)),
-        ty: Some(ty),
     }
 }
 

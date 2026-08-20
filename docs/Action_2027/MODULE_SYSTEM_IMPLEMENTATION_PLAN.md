@@ -375,9 +375,9 @@ Implementation:
 - Replace executable NIR name dependencies exposed by modules with IDs,
   including direct callees, global aliases, routine-address initializers,
   helper override targets, and inline-assembler relocations.
-- Do not add optimizer passes over `NirOperand`, unresolved names, or stringly
-  compatibility forms. Migrate a form, then tighten the verifier so it cannot
-  reappear in verifier-clean NIR.
+- Do not add optimizer passes over unresolved names or stringly compatibility
+  forms. Migrate a form, then tighten the verifier so it cannot reappear in
+  verifier-clean NIR.
 - Ensure MIR6502 consumes only resolved NIR IDs and never consults SemIR or
   qualified source strings.
 - Keep module paths in SemIR/NIR only as display, diagnostic, and listing

@@ -1,6 +1,6 @@
 use crate::semantic::{ScalarType, ValueType, ValueTypeBase, ValueTypeKind};
 
-use super::ir::{NirOperand, NirOperandKind, NirPlace, NirPlaceKind};
+use super::ir::{NirPlace, NirPlaceKind};
 
 pub(super) struct NirFacts;
 
@@ -152,23 +152,6 @@ pub enum NirValue {
 }
 
 impl NirValue {
-    pub(super) fn from_legacy_operand(operand: &NirOperand) -> Option<Self> {
-        match &operand.kind {
-            NirOperandKind::Literal {
-                value: Some(value), ..
-            } if operand.ty.as_ref().and_then(|ty| ty.kind.width()) == Some(1) => {
-                u8::try_from(*value).ok().map(Self::ConstU8)
-            }
-            NirOperandKind::Literal {
-                value: Some(value), ..
-            } if operand.ty.as_ref().and_then(|ty| ty.kind.width()) == Some(2) => {
-                Some(Self::ConstU16(*value))
-            }
-            NirOperandKind::Temp(id) => operand.ty.clone().map(|ty| Self::Temp { id: *id, ty }),
-            _ => None,
-        }
-    }
-
     pub(super) fn temp(&self) -> Option<TempId> {
         match self {
             Self::Temp { id, .. } => Some(*id),
