@@ -1,5 +1,8 @@
 # SemIR Native Validation Policy
 
+> Retired on 2026-08-20 when the experimental SemIR-native backend was removed.
+> This policy no longer governs maintained compiler paths.
+
 Native SemIR lowering uses byte-for-byte comparison as a calibration tool, not
 as the long-term product contract.
 

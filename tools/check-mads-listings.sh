@@ -221,13 +221,9 @@ for origin_pair in '$3000:$41C7' '$2B40:$52D3'; do
   run_reorigin_case "reorigin-optimized-$pair_name" \
     "optimized" "modern" "classic" \
     "fixtures/listing/mads_reorigin_contract.act" "$origin_a" "$origin_b"
-  run_reorigin_case "reorigin-semir-native-$pair_name" \
-    "optimized" "modern" "classic" \
-    "fixtures/listing/mads_reorigin_contract.act" "$origin_a" "$origin_b" \
-    "semir-native"
   run_reorigin_case "reorigin-mir6502-$pair_name" \
     "mir6502" "modern" "mir6502" \
     "fixtures/listing/mads_reorigin_contract.act" "$origin_a" "$origin_b"
 done
 
-echo "MADS listing oracle passed: 12 compiler cases, 40 assembled listings"
+echo "MADS listing oracle passed: 10 compiler cases, 32 assembled listings"

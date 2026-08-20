@@ -7,8 +7,7 @@ before doing broader refactors.
 
 - Treat `--profile legacy --backend classic` as the supported default path.
 - Document modern/classic as usable where it is known to work.
-- Document `mir6502`, SemIR-native, stress probes, and runtime sweeps as
-  experimental.
+- Document `mir6502`, stress probes, and runtime sweeps as experimental.
 - Avoid broad architecture refactors before the tag; limit pre-release work to
   release hardening.
 

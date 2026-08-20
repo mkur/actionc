@@ -259,17 +259,9 @@ it at the default.
 - `--codegen-source semir` uses the SemIR bridge. It lowers through SemIR, then
   reconstructs the AST-facing backend input so output can be compared with the
   AST path.
-- `--codegen-source semir-native` uses the SemIR-native path.
 - `--codegen-source=<source>` is also accepted.
 
-Accepted aliases are:
-
-- `sem-ir` for `semir`;
-- `native`, `sem-ir-native`, `native-ir`, and `modern-ir` for `semir-native`.
-
-For compatibility with older scripts, `--profile semir-native`,
-`--profile sem-ir-native`, `--profile native-ir`, and `--profile modern-ir`
-select the modern profile and the SemIR-native codegen source.
+`sem-ir` is accepted as an alias for `semir`.
 
 `--codegen-source` does not select the MIR6502 pipeline. `--backend mir6502`
 always lowers through SemIR, NIR, optimized NIR, and MIR6502.
@@ -373,7 +365,7 @@ Helper options:
 
 Advanced helper options:
 
-- `--codegen-source <ast|semir|semir-native>` passes the classic-backend
+- `--codegen-source <ast|semir>` passes the classic-backend
   development switch through to `actionc`. The default is `ast`.
 - `--codegen-source=<source>` is also accepted.
 - `--codegen <source>` and `--codegen=<source>` are accepted as aliases for

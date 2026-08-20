@@ -1,5 +1,8 @@
 # SemIR Native Architecture
 
+> Retired on 2026-08-20 when the experimental SemIR-native backend was removed.
+> This document is retained only as historical design context.
+
 SemIR-native is the modern backend path. Its purpose is not to recreate the old
 AST code generator under a new name. It should consume semantic meaning from
 SemIR and lower it through a small set of reusable backend primitives.

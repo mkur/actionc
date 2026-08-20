@@ -152,8 +152,8 @@ Land:
 - classic and MIR6502 target resolution through runtime bindings;
 - removal of duplicated resident catalogs from active backend paths.
 
-This corresponds to the feature work through `9bff4a4`. Keep SemIR-native
-deprecation separate if it makes review or rollback clearer.
+This corresponds to the feature work through `9bff4a4`. The experimental
+SemIR-native backend was removed separately; it is not a runtime provider.
 
 Exit criteria:
 

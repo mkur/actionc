@@ -1288,7 +1288,7 @@ fn advanced_classic_codegen_sources_survive_the_api_migration() {
     let temp = TestDir::new();
     let source = temp.path().join("minimal.act");
     fs::write(&source, "PROC Main()\nRETURN\n").expect("write advanced-codegen source");
-    for codegen_source in ["ast", "semir", "semir-native"] {
+    for codegen_source in ["ast", "semir"] {
         let object = temp.path().join(format!("{codegen_source}.com"));
         let compiled = Command::new(env!("CARGO_BIN_EXE_actionc"))
             .arg("--profile")
@@ -1324,6 +1324,47 @@ fn advanced_classic_codegen_sources_survive_the_api_migration() {
             fs::read(&object).expect("read advanced-codegen object"),
             emitted.stdout,
             "actionc changed --codegen-source {codegen_source}"
+        );
+    }
+}
+
+#[test]
+fn removed_semir_native_selectors_fail_as_invalid_values() {
+    for codegen_source in [
+        "native",
+        "semir-native",
+        "sem-ir-native",
+        "native-ir",
+        "modern-ir",
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .arg("--codegen-source")
+            .arg(codegen_source)
+            .arg(hello_world())
+            .output()
+            .expect("run actionc with a removed codegen source");
+        assert_eq!(output.status.code(), Some(2));
+        assert!(
+            String::from_utf8_lossy(&output.stderr)
+                .contains(&format!("invalid codegen source: {codegen_source}")),
+            "unexpected diagnostic for {codegen_source}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    for profile in ["semir-native", "sem-ir-native", "native-ir", "modern-ir"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .arg("--profile")
+            .arg(profile)
+            .arg(hello_world())
+            .output()
+            .expect("run actionc with a removed profile alias");
+        assert_eq!(output.status.code(), Some(2));
+        assert!(
+            String::from_utf8_lossy(&output.stderr)
+                .contains(&format!("invalid codegen profile: {profile}")),
+            "unexpected diagnostic for {profile}: {}",
+            String::from_utf8_lossy(&output.stderr)
         );
     }
 }

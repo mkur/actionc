@@ -7,8 +7,8 @@ use std::process;
 use crate::ast::Program;
 use crate::codegen::{
     CODE_ORIGIN, CodegenOptimizationKind, CodegenOutput, CodegenProfile, format_hex,
-    format_load_file, generate_profile_with_origin, generate_semir_native_profile_with_origin,
-    generate_semir_profile_with_origin, generate_semir_standalone_profile_at_origin,
+    format_load_file, generate_profile_with_origin, generate_semir_profile_with_origin,
+    generate_semir_standalone_profile_at_origin,
 };
 use crate::compiler::{
     Backend, CodegenSource, CompileError, CompileErrorKind, CompileMode, CompileRequest,
@@ -171,17 +171,16 @@ fn run_main(flavor: CliFlavor) {
                     print_help_for(flavor);
                     process::exit(2);
                 };
-                profile = parse_profile_or_codegen_alias(&value, &mut codegen_source);
+                profile = parse_profile(&value);
                 profile_explicit = true;
             }
             _ if arg.starts_with("--profile=") => {
-                profile =
-                    parse_profile_or_codegen_alias(&arg["--profile=".len()..], &mut codegen_source);
+                profile = parse_profile(&arg["--profile=".len()..]);
                 profile_explicit = true;
             }
             "--codegen-source" => {
                 let Some(value) = args.next() else {
-                    eprintln!("--codegen-source requires ast, semir, or semir-native");
+                    eprintln!("--codegen-source requires ast or semir");
                     print_help_for(flavor);
                     process::exit(2);
                 };
@@ -597,17 +596,8 @@ fn run_main(flavor: CliFlavor) {
             return;
         }
 
-        if matches!(
-            codegen_source,
-            CodegenSource::SemIr | CodegenSource::SemIrNative
-        ) {
-            let result = match codegen_source {
-                CodegenSource::SemIr => generate_semir_profile_with_origin(&semir, origin, profile),
-                CodegenSource::SemIrNative => {
-                    generate_semir_native_profile_with_origin(&semir, origin, profile)
-                }
-                CodegenSource::Ast => unreachable!("AST codegen handled separately"),
-            };
+        if matches!(codegen_source, CodegenSource::SemIr) {
+            let result = generate_semir_profile_with_origin(&semir, origin, profile);
             match result {
                 Ok(output) => emit_output(
                     &output,
@@ -1332,26 +1322,10 @@ fn parse_profile(value: &str) -> CodegenProfile {
     }
 }
 
-fn parse_profile_or_codegen_alias(
-    value: &str,
-    codegen_source: &mut CodegenSource,
-) -> CodegenProfile {
-    match value {
-        "semir-native" | "sem-ir-native" | "native-ir" | "modern-ir" => {
-            *codegen_source = CodegenSource::SemIrNative;
-            CodegenProfile::Modern
-        }
-        _ => parse_profile(value),
-    }
-}
-
 fn parse_codegen_source(value: &str) -> Option<CodegenSource> {
     match value {
         "ast" => Some(CodegenSource::Ast),
         "semir" | "sem-ir" => Some(CodegenSource::SemIr),
-        "native" | "semir-native" | "sem-ir-native" | "native-ir" | "modern-ir" => {
-            Some(CodegenSource::SemIrNative)
-        }
         _ => None,
     }
 }
@@ -1426,23 +1400,9 @@ mod tests {
         assert_eq!(parse_codegen_source("ast"), Some(CodegenSource::Ast));
         assert_eq!(parse_codegen_source("semir"), Some(CodegenSource::SemIr));
         assert_eq!(parse_codegen_source("sem-ir"), Some(CodegenSource::SemIr));
-        assert_eq!(
-            parse_codegen_source("semir-native"),
-            Some(CodegenSource::SemIrNative)
-        );
-        assert_eq!(
-            parse_codegen_source("modern-ir"),
-            Some(CodegenSource::SemIrNative)
-        );
+        assert_eq!(parse_codegen_source("semir-native"), None);
+        assert_eq!(parse_codegen_source("modern-ir"), None);
         assert_eq!(parse_codegen_source("modern"), None);
-    }
-
-    #[test]
-    fn parses_native_codegen_profile_alias_for_compatibility() {
-        let mut codegen_source = CodegenSource::Ast;
-        let profile = parse_profile_or_codegen_alias("semir-native", &mut codegen_source);
-        assert_eq!(profile, CodegenProfile::Modern);
-        assert_eq!(codegen_source, CodegenSource::SemIrNative);
     }
 
     #[test]

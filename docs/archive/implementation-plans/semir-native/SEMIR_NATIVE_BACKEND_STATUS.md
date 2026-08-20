@@ -1,12 +1,19 @@
 # SemIR Native Backend Status
 
+> Retired on 2026-08-20 when the experimental SemIR-native backend was removed.
+> The measurements and commands below describe the pre-removal snapshot.
+
 Snapshot date: 2026-05-30.
 
-SemIR-native is the active modern native backend path. It is past pure
-bring-up: it has a typed SemIR input, a classifier, reusable materializers, a
-tracked emission facade, source listings, map/proof hooks, and compile/run
-script support. It is not yet a proven production replacement for the AST
-backend. The current work is still semantic stabilization, especially under TN.
+> Removal decision, 2026-08-20: this experimental backend was removed directly,
+> without landing the separate deprecation change. See the active
+> [removal decision record](../../../SEMIR_NATIVE_REMOVAL_PLAN.md).
+
+At the snapshot date, SemIR-native was the active modern native backend path.
+It was past pure bring-up: it had a typed SemIR input, a classifier, reusable
+materializers, a tracked emission facade, source listings, map/proof hooks, and
+compile/run script support. It did not become a production replacement for the
+AST backend and was subsequently removed.
 
 ## Entry Points
 

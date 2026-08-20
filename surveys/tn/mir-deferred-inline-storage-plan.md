@@ -64,7 +64,7 @@ Old compatible codegen paths to mirror:
    - Keep listings intelligible for skipped storage.
 
 5. TN verification:
-   - Compare MIR `BUFFER`/image high-water against old/semir-native.
+   - Compare MIR `BUFFER`/image high-water against the classic baseline.
    - Re-run targeted MIR tests and TN stability checks available locally.
 
 Commit after each slice that leaves the compiler in a coherent, tested state.

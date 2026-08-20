@@ -73,18 +73,13 @@ crowding the active reference set.
 
 ## Architecture And Status
 
+- [SEMIR_NATIVE_REMOVAL_PLAN.md](SEMIR_NATIVE_REMOVAL_PLAN.md) - implemented
+  decision record for removing the direct SemIR-native backend without a
+  deprecation window while retaining shared MIR6502 emission infrastructure.
 - [CODEGEN_PROOFS.md](CODEGEN_PROOFS.md) and
   [PROOF_ARCHITECTURE.md](PROOF_ARCHITECTURE.md) - proof/fact layer.
 - [OBSERVABILITY_NORTH_STAR.md](OBSERVABILITY_NORTH_STAR.md) - observability
   direction.
-- [SEMIR_NATIVE_ARCHITECTURE.md](SEMIR_NATIVE_ARCHITECTURE.md) - SemIR-native
-  architecture overview.
-- [SEMIR_NATIVE_BACKEND_STATUS.md](SEMIR_NATIVE_BACKEND_STATUS.md) - current
-  SemIR-native status.
-- [SEMIR_NATIVE_STRESS_BACKLOG.md](SEMIR_NATIVE_STRESS_BACKLOG.md) - active
-  SemIR-native stress backlog.
-- [SEMIR_NATIVE_VALIDATION_POLICY.md](SEMIR_NATIVE_VALIDATION_POLICY.md) - SemIR
-  validation policy.
 - [BACKLOG.md](BACKLOG.md) - cross-cutting backlog.
 
 ## Triage Notes

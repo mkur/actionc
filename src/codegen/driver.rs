@@ -63,14 +63,6 @@ pub(crate) fn generate_semir_profile_at_origin(
     generate_profile_at_origin(&program, origin, profile)
 }
 
-pub fn generate_semir_native_profile_with_origin(
-    program: &crate::semantic::ir::SemProgram,
-    origin: u16,
-    profile: CodegenProfile,
-) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    super::semir_native::generate_native_profile_with_origin(program, origin, profile)
-}
-
 pub(super) fn generate_with_options(
     program: &Program,
     origin: u16,

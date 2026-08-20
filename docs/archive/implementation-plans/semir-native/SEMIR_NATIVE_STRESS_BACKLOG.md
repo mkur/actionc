@@ -1,5 +1,8 @@
 # SemIR Native Stress Backlog
 
+> Retired on 2026-08-20 when the experimental SemIR-native backend was removed.
+> This backlog is retained only for historical context.
+
 Snapshot date: 2026-05-30.
 
 This note tracks the missing SemIR-native backend shapes exposed by the stress

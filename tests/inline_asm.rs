@@ -1,6 +1,4 @@
-use actionc::codegen::{
-    CodegenProfile, generate_semir_native_profile_with_origin, generate_semir_profile_with_origin,
-};
+use actionc::codegen::{CodegenProfile, generate_semir_profile_with_origin};
 use actionc::{lexer, mir6502, nir, parser, semantic};
 
 const SOURCE: &str = r#"
@@ -74,9 +72,8 @@ fn semir(source: &str) -> semantic::ir::SemProgram {
 
 #[test]
 fn inline_asm_emits_in_modern_classic() {
-    let output =
-        generate_semir_native_profile_with_origin(&semir(SOURCE), 0x3000, CodegenProfile::Modern)
-            .expect("emit modern/classic inline assembler");
+    let output = generate_semir_profile_with_origin(&semir(SOURCE), 0x3000, CodegenProfile::Modern)
+        .expect("emit modern/classic inline assembler");
 
     assert!(
         output
@@ -122,18 +119,6 @@ RETURN
         ast_classic.bytes
     );
 
-    let native_classic =
-        generate_semir_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
-            .expect("emit SemIR/classic absolute operand whose resolved address is in zero page");
-    assert!(
-        native_classic
-            .bytes
-            .windows(6)
-            .any(|bytes| bytes == [0xAD, 0x58, 0x00, 0x8D, 0x00, 0x06]),
-        "SemIR/classic output: {:02X?}",
-        native_classic.bytes
-    );
-
     let nir = nir::optimize_program(&nir::lower_program(&semir)).unwrap();
     let mir = mir6502::generate_output(&nir, 0x3000)
         .expect("emit MIR absolute operand whose resolved address is in zero page");
@@ -155,7 +140,7 @@ ASM
 ENDASM
 RETURN
 "#;
-    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+    generate_semir_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
         .expect("emit single-character Action symbol in classic inline assembler");
 
     let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
@@ -265,23 +250,16 @@ fn inline_asm_negative_fixed_array_addend_targets_absolute_region_in_nir() {
 }
 
 #[test]
-fn inline_asm_negative_fixed_array_addend_emits_in_all_backends() {
+fn inline_asm_negative_fixed_array_addend_emits_in_maintained_backends() {
     let semir = semir(FIXED_ARRAY_NEGATIVE_SOURCE);
     let ast_classic = generate_semir_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
         .expect("emit negative fixed-array addend from AST/classic");
-    let native_classic =
-        generate_semir_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
-            .expect("emit negative fixed-array addend from SemIR/classic");
     let nir = nir::optimize_program(&nir::lower_program(&semir))
         .expect("optimize negative fixed-array inline assembler NIR");
     let mir = mir6502::generate_output(&nir, 0x3000)
         .expect("emit negative fixed-array addend from MIR6502");
 
-    for (backend, output) in [
-        ("AST/classic", ast_classic),
-        ("SemIR/classic", native_classic),
-        ("MIR6502", mir),
-    ] {
+    for (backend, output) in [("AST/classic", ast_classic), ("MIR6502", mir)] {
         assert!(
             output
                 .bytes
@@ -343,23 +321,16 @@ RETURN
 }
 
 #[test]
-fn inline_asm_fixed_array_addend_emits_declared_backing_address_in_all_backends() {
+fn inline_asm_fixed_array_addend_emits_declared_backing_address_in_maintained_backends() {
     let semir = semir(FIXED_ARRAY_ADDRESS_FORMS_SOURCE);
     let ast_classic = generate_semir_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
         .expect("emit fixed-array operand from AST/classic");
-    let native_classic =
-        generate_semir_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
-            .expect("emit fixed-array operand from SemIR/classic");
     let nir = nir::optimize_program(&nir::lower_program(&semir))
         .expect("optimize fixed-array inline assembler NIR");
     let mir =
         mir6502::generate_output(&nir, 0x3000).expect("emit fixed-array operand from MIR6502");
 
-    for (backend, output) in [
-        ("AST/classic", ast_classic),
-        ("SemIR/classic", native_classic),
-        ("MIR6502", mir),
-    ] {
+    for (backend, output) in [("AST/classic", ast_classic), ("MIR6502", mir)] {
         assert!(
             output
                 .bytes
@@ -460,9 +431,8 @@ ASM
 ENDASM
 RETURN
 "#;
-    let classic =
-        generate_semir_native_profile_with_origin(&semir(valid), 0x3000, CodegenProfile::Modern)
-            .expect("emit fixed-zero-page indirect operand");
+    let classic = generate_semir_profile_with_origin(&semir(valid), 0x3000, CodegenProfile::Modern)
+        .expect("emit fixed-zero-page indirect operand");
     assert!(classic.bytes.windows(2).any(|bytes| bytes == [0xB1, 0xA0]));
 
     let nir = nir::optimize_program(&nir::lower_program(&semir(valid))).unwrap();
@@ -480,15 +450,6 @@ ENDASM
 RETURN
 "#;
     let invalid_semir = semir(invalid);
-    let classic_error =
-        generate_semir_native_profile_with_origin(&invalid_semir, 0x3000, CodegenProfile::Modern)
-            .unwrap_err();
-    assert!(
-        classic_error
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("requires zero-page storage"))
-    );
-
     let invalid_nir = nir::optimize_program(&nir::lower_program(&invalid_semir)).unwrap();
     let mir_error = mir6502::generate_output(&invalid_nir, 0x3000).unwrap_err();
     assert!(
@@ -509,7 +470,7 @@ PROC Touch(BYTE value)
   ENDASM
 RETURN
 "#;
-    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+    generate_semir_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
         .expect("classic emitter retains inline assembler parameter/local homes");
     let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
     mir6502::generate_output(&nir, 0x3000)
@@ -549,7 +510,7 @@ ASM
     jmp (handler)
 ENDASM
 "#;
-    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+    generate_semir_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
         .expect("emit indirect jump through PROC POINTER storage");
 
     let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
@@ -566,7 +527,7 @@ PROC Dispatch()
       jmp (handler)
   ENDASM
 "#;
-    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+    generate_semir_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
         .expect("emit exact-address local from classic inline assembler");
 
     let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
@@ -618,7 +579,7 @@ ASM
     rts
 ENDASM
 "#;
-    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+    generate_semir_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
         .expect("emit function implemented by terminal inline assembler");
 
     let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
@@ -642,7 +603,7 @@ ASM
 ENDASM
 RETURN
 "#;
-    generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+    generate_semir_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
         .expect("emit inline assembler after ordinary statements");
 
     let nir = nir::optimize_program(&nir::lower_program(&semir(source))).unwrap();
@@ -661,7 +622,7 @@ ENDASM
 RETURN
 "#;
     let classic =
-        generate_semir_native_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
+        generate_semir_profile_with_origin(&semir(source), 0x3000, CodegenProfile::Modern)
             .expect("emit Action constant in classic inline assembler");
     assert!(classic.bytes.windows(2).any(|bytes| bytes == [0xA9, 0x2A]));
 
@@ -678,9 +639,8 @@ ASM
 ENDASM
 RETURN
 "#;
-    let diagnostics =
-        generate_semir_native_profile_with_origin(&semir(too_wide), 0x3000, CodegenProfile::Modern)
-            .unwrap_err();
+    let too_wide_nir = nir::optimize_program(&nir::lower_program(&semir(too_wide))).unwrap();
+    let diagnostics = mir6502::generate_output(&too_wide_nir, 0x3000).unwrap_err();
     assert!(
         diagnostics
             .iter()
