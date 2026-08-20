@@ -186,6 +186,25 @@ pub enum CodegenSourceRangeKind {
     MachineBlock,
 }
 
+pub(crate) fn suppress_source_ranges_for_routines(
+    output: &mut CodegenOutput,
+    routine_names: &BTreeSet<String>,
+) {
+    let suppressed_ranges = output
+        .map
+        .routine_ranges
+        .iter()
+        .filter(|routine| routine_names.contains(&routine.name))
+        .map(|routine| (routine.start, routine.end))
+        .collect::<Vec<_>>();
+
+    output.map.source_ranges.retain(|source| {
+        !suppressed_ranges
+            .iter()
+            .any(|&(start, end)| source.start < end && start < source.end)
+    });
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CodegenSymbolScope {
     Global,

@@ -178,7 +178,7 @@ impl MadsDisplaySymbols {
             if is_pseudo_routine_name(&routine.name) {
                 continue;
             }
-            let base = format!("proc_{}", sanitize_mads_component(&routine.name));
+            let base = routine_symbol_base(&routine.name);
             let name = allocate_mads_symbol(&base, &mut used_names);
             symbols
                 .code_references
@@ -290,7 +290,7 @@ impl MadsDisplaySymbols {
                 SyntheticTargetKind::Code => {
                     let scope = symbols
                         .routine_name_at(target)
-                        .map(sanitize_mads_component)
+                        .map(routine_symbol_component)
                         .unwrap_or_else(|| "program".to_string());
                     let ordinal = scope_ordinals.entry(scope.clone()).or_default();
                     *ordinal += 1;
@@ -510,18 +510,66 @@ fn is_pseudo_routine_name(name: &str) -> bool {
     name.starts_with('<') && name.ends_with('>')
 }
 
+fn routine_symbol_base(name: &str) -> String {
+    format!("proc_{}", routine_symbol_component(name))
+}
+
+fn routine_symbol_component(name: &str) -> String {
+    runtime_symbol_component(name).unwrap_or_else(|| sanitize_mads_component(name))
+}
+
+fn runtime_symbol_component(name: &str) -> Option<String> {
+    let name = sanitize_mads_component(name);
+    for (prefix, short_prefix, has_semantic_hash) in [
+        ("m_action_runtime_syslib_", "syslib_", true),
+        ("m_action_runtime_resident_", "resident_", true),
+        ("action_runtime_syslib_", "syslib_", false),
+        ("action_runtime_resident_", "resident_", false),
+    ] {
+        let Some(routine) = name.strip_prefix(prefix) else {
+            continue;
+        };
+        let routine = if has_semantic_hash {
+            strip_semantic_hash(routine)
+        } else {
+            routine
+        };
+        return Some(format!("{short_prefix}{routine}"));
+    }
+    None
+}
+
+fn strip_semantic_hash(name: &str) -> &str {
+    let Some((stem, suffix)) = name.rsplit_once('_') else {
+        return name;
+    };
+    if suffix.len() == 8 && suffix.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        stem
+    } else {
+        name
+    }
+}
+
 fn storage_symbol_base(symbol: &crate::codegen::CodegenStorageSymbol) -> String {
-    let name = sanitize_mads_component(&symbol.name);
     match &symbol.scope {
         CodegenSymbolScope::Global => {
             if let Some(static_name) = symbol.name.strip_prefix("__nir_str_") {
                 format!("static_string_{}", sanitize_mads_component(static_name))
             } else {
+                let name = runtime_symbol_component(&symbol.name)
+                    .unwrap_or_else(|| sanitize_mads_component(&symbol.name));
                 format!("global_{name}")
             }
         }
         CodegenSymbolScope::Routine(routine) => {
-            let routine = sanitize_mads_component(routine);
+            let routine = routine_symbol_component(routine);
+            let name = runtime_symbol_component(&symbol.name)
+                .and_then(|name| {
+                    name.strip_prefix(&routine)
+                        .and_then(|name| name.strip_prefix('_'))
+                        .map(str::to_string)
+                })
+                .unwrap_or_else(|| sanitize_mads_component(&symbol.name));
             match symbol.kind {
                 CodegenSymbolKind::Parameter => format!("param_{routine}_{name}"),
                 CodegenSymbolKind::Local if name.starts_with("spill") => {
@@ -1246,5 +1294,30 @@ fn format_source_range_kind(kind: CodegenSourceRangeKind) -> &'static str {
         CodegenSourceRangeKind::Declaration => "declaration",
         CodegenSourceRangeKind::StorageInitializer => "storage",
         CodegenSourceRangeKind::MachineBlock => "machine",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shortens_runtime_routine_and_storage_components() {
+        assert_eq!(
+            routine_symbol_component("M_ACTION_RUNTIME_SYSLIB_REMI_7A64A35C"),
+            "syslib_remi"
+        );
+        assert_eq!(
+            routine_symbol_component("ACTION.RUNTIME.RESIDENT::PrintC"),
+            "resident_printc"
+        );
+        assert_eq!(
+            runtime_symbol_component("M_ACTION_RUNTIME_RESIDENT_PRINTC_N_27014C22"),
+            Some("resident_printc_n".to_string())
+        );
+        assert_eq!(
+            runtime_symbol_component("M_ACTION_RUNTIME_RESIDENT_BUFFER_DEADBEEF"),
+            Some("resident_buffer".to_string())
+        );
     }
 }

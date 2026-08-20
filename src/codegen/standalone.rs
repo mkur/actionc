@@ -114,6 +114,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         &selected_syslib,
         &syslib_names,
     ));
+    let runtime_routine_names = item_routine_names(&runtime_items);
     let helper_sets = selected_helper_sets(&syslib.ast, &helper_roots, &syslib_names);
 
     let mut modules = Vec::new();
@@ -144,6 +145,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         &external_interfaces,
         &local_helper_overrides,
     );
+    suppress_source_ranges_for_routines(&mut output, &runtime_routine_names);
     output.map.runtime = crate::runtime::Runtime::Standalone;
     Ok(output)
 }
@@ -384,6 +386,16 @@ fn selected_helper_sets(
             {
                 Some(Item::Set(set.clone()))
             }
+            _ => None,
+        })
+        .collect()
+}
+
+fn item_routine_names(items: &[Item]) -> BTreeSet<String> {
+    items
+        .iter()
+        .filter_map(|item| match item {
+            Item::Routine(routine) => Some(routine.name.clone()),
             _ => None,
         })
         .collect()
