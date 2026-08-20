@@ -112,8 +112,8 @@ resident-library coverage is not yet declared complete.
 
 ## Pull Request 3: Unified Resident Image And Compatibility Prelude
 
-Goal: make standalone useful to existing Action! programs without requiring
-`USE SYS`.
+Goal: make standalone useful to existing Action! programs without requiring an
+explicit `SYS` import.
 
 Land the unified embedded runtime image and authoritative `SYS` identity:
 

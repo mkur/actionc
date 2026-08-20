@@ -826,7 +826,7 @@ impl Analyzer {
                 self.collect_named_module_identities(loaded.id, &loaded.program);
             }
         }
-        self.install_named_uses(compilation);
+        self.install_named_imports(compilation);
         for module_id in &compilation.graph_order {
             if *module_id != compilation.root {
                 let program = &compilation.modules[module_id.0 as usize].program;
