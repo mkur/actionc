@@ -66,25 +66,6 @@ impl NativeTrackedEmitter {
         self.emitter.label_position(label)
     }
 
-    pub(super) fn patch_absolute_bytes(&mut self, address: u16, value: u16, width: u16) -> bool {
-        if address < self.emitter.origin {
-            return false;
-        }
-        let offset = usize::from(address.wrapping_sub(self.emitter.origin));
-        let width = usize::from(width.min(2));
-        if offset
-            .checked_add(width)
-            .is_none_or(|end| end > self.emitter.bytes.len())
-        {
-            return false;
-        }
-        self.emitter.bytes[offset] = (value & 0x00FF) as u8;
-        if width > 1 {
-            self.emitter.bytes[offset + 1] = (value >> 8) as u8;
-        }
-        true
-    }
-
     #[cfg(test)]
     pub(crate) fn finish(self) -> Result<Vec<u8>, Vec<Diagnostic>> {
         self.emitter.finish()
@@ -92,16 +73,6 @@ impl NativeTrackedEmitter {
 
     pub(crate) fn finish_with_relocations(self) -> Result<FinalizedEmission, Vec<Diagnostic>> {
         self.emitter.finish_with_relocations()
-    }
-
-    pub(super) fn bind_label_at_position(
-        &mut self,
-        label: impl Into<String>,
-        position: usize,
-        span: Span,
-    ) -> Result<(), Diagnostic> {
-        self.state.bind_label();
-        self.emitter.bind_label_at_position(label, position, span)
     }
 
     pub(crate) fn bind_label(
@@ -501,16 +472,6 @@ impl NativeTrackedEmitter {
     pub(crate) fn emit_sbc_indirect_indexed_y(&mut self, indexed: IndirectIndexedY) {
         self.emitter.emit_sbc_indirect_indexed_y(indexed);
         self.state.arithmetic_a();
-    }
-
-    pub(super) fn emit_lsr_absolute(&mut self, absolute: Absolute) {
-        self.emitter.emit_lsr_absolute(absolute);
-        self.state.call_unknown();
-    }
-
-    pub(super) fn emit_ror_absolute(&mut self, absolute: Absolute) {
-        self.emitter.emit_ror_absolute(absolute);
-        self.state.call_unknown();
     }
 
     pub(crate) fn emit_dec_absolute(&mut self, absolute: Absolute) {

@@ -516,53 +516,20 @@ fn classic_profiles_resolve_forward_storage_and_routine_relocations() {
 }
 
 #[test]
-fn semir_native_emits_relocatable_array_initializers() {
-    let source = "BYTE ARRAY dlist(4)=[$41 <dlist+2 >dlist $70] CARD ARRAY handlers(1)=[@Draw] PROC Draw() RETURN";
-    for origin in [0x3000, 0x4200] {
-        let output =
-            generate_semir_native_source_with_origin(source, origin, CodegenProfile::Modern)
-                .unwrap();
-        let draw = output
-            .routine_addresses
-            .iter()
-            .find(|routine| routine.name == "Draw")
-            .unwrap();
-
-        assert_eq!(
-            &output.bytes[..4],
-            &[
-                0x41,
-                origin.wrapping_add(2) as u8,
-                (origin >> 8) as u8,
-                0x70
-            ]
-        );
-        assert_eq!(
-            u16::from_le_bytes([output.bytes[4], output.bytes[5]]),
-            draw.address
-        );
-    }
-}
-
-#[test]
-fn classic_backends_relocate_fixed_storage_addresses() {
+fn classic_profiles_relocate_fixed_storage_addresses() {
     let source = "BYTE hscrol=$D404 BYTE ARRAY refs(2)=[<hscrol >hscrol] PROC Main() RETURN";
     for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
         let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
         assert_eq!(&output.bytes[..2], &[0x04, 0xD4]);
     }
-    let output =
-        generate_semir_native_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
-    assert_eq!(&output.bytes[..2], &[0x04, 0xD4]);
 }
 
 #[test]
-fn classic_backends_relocate_local_and_parameter_storage() {
+fn classic_profiles_relocate_local_and_parameter_storage() {
     let source = "PROC Main(BYTE param) BYTE local BYTE ARRAY refs(4)=[<local >local <param >param] local=param RETURN";
     let outputs = [
         generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Compat).unwrap(),
         generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap(),
-        generate_semir_native_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap(),
     ];
     for output in outputs {
         let scope = CodegenSymbolScope::Routine("Main".into());
@@ -5082,29 +5049,6 @@ fn local_scalar_machine_define_expands_inside_machine_block() {
 fn machine_block_emits_named_variable_address_with_offset() {
     let output = generate_source("CARD ptr PROC Main() [$AD ptr+1] RETURN").unwrap();
     assert_eq!(output.bytes, vec![opcode::LDA_ABS, 0x01, 0x06, opcode::RTS]);
-}
-
-#[test]
-fn semir_native_machine_block_wraps_ffff_symbol_offset() {
-    let output = generate_semir_native_source_with_origin(
-        "PROC Main() CHAR ARRAY fnam(40) [$99 fnam+$FFFF] RETURN",
-        0x3000,
-        CodegenProfile::Compat,
-    )
-    .unwrap();
-    let fnam = storage_symbol(
-        &output,
-        CodegenSymbolScope::Routine("Main".to_string()),
-        "fnam",
-    );
-    let expected = fnam.address.wrapping_sub(1);
-
-    assert!(output.bytes.windows(3).any(|bytes| bytes
-        == [
-            opcode::STA_ABS_Y,
-            (expected & 0x00FF) as u8,
-            (expected >> 8) as u8,
-        ]));
 }
 
 #[test]
@@ -16791,18 +16735,6 @@ fn generate_profile_source_with_origin(
     let program = parse(&tokens)?;
     analyze(&program)?;
     generate_profile_with_origin(&program, origin, profile)
-}
-
-fn generate_semir_native_source_with_origin(
-    source: &str,
-    origin: u16,
-    profile: CodegenProfile,
-) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    let tokens = tokenize(source).unwrap();
-    let program = parse(&tokens)?;
-    let model = analyze(&program)?;
-    let semir = crate::semantic::ir::lower_program(&program, &model);
-    generate_semir_native_profile_with_origin(&semir, origin, profile)
 }
 
 fn assert_compatible_diagnostic_contains(source: &str, needle: &str) {

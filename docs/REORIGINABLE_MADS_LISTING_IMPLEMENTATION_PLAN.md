@@ -11,10 +11,9 @@ variants now use this re-originable contract.
 The implementation retains resolved relocation provenance in `CodegenOutput`,
 uses semantic or stable ordinal display symbols, and renders word/low/high and
 relative references as MADS expressions. Compatibility/classic,
-optimized/classic, selectable SemIR-native classic, and MIR6502 are covered by
-the same formatter contract. `tools/check-mads-listings.sh` currently validates
-12 compiler/origin cases and 40 complete MADS load-file assemblies, including
-two cross-origin pairs.
+optimized/classic, and MIR6502 are covered by the same formatter contract.
+`tools/check-mads-listings.sh` currently validates 10 compiler/origin cases and
+32 complete MADS load-file assemblies, including two cross-origin pairs.
 
 ## Goal
 
@@ -194,8 +193,8 @@ The finalizer must validate that:
 
 Keep the existing byte-only `finish()` helper for focused emitter tests if that
 avoids broad churn. Production output paths should use a new finalization
-result containing both bytes and resolved relocation records. Classic,
-SemIR-native classic, and MIR6502 must all populate the same output shape.
+result containing both bytes and resolved relocation records. Classic and
+MIR6502 must both populate the same output shape.
 
 `CodegenOutput` is currently public, so adding a field is a Rust API change for
 clients that construct it with a struct literal. Keep the new type small,
@@ -299,8 +298,8 @@ This slice should not alter generated machine bytes or existing listing text.
   records while retaining the simple byte-only helper for unit tests.
 - Convert backend label names to output-relative target offsets during
   finalization.
-- Thread the records through AST/classic, SemIR-native classic, and MIR6502
-  `CodegenOutput` construction.
+- Thread the records through AST/classic and MIR6502 `CodegenOutput`
+  construction.
 - Add emitter tests for word, low, high, relative, addend, bounds, overlap,
   duplicate, and original-origin byte consistency cases.
 
@@ -389,8 +388,7 @@ that, for every selected mode:
 
 Use at least two origin pairs with different high and low bytes so the oracle
 cannot pass while testing only one selector. Cover compatibility/classic,
-optimized/classic, SemIR-native classic where directly selectable, and
-modern/MIR6502.
+optimized/classic, and modern/MIR6502.
 
 Add a Rust-side relocation application oracle as well: applying the final
 relocation records to the original payload at origin B must reproduce the

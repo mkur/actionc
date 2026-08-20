@@ -7,9 +7,8 @@ use std::path::{Path, PathBuf};
 
 use crate::codegen::{
     CODE_ORIGIN, CodegenOutput, CodegenProfile, format_load_file, generate_profile_at_origin,
-    generate_profile_with_origin, generate_semir_native_profile_with_origin,
-    generate_semir_profile_at_origin, generate_semir_profile_with_origin,
-    generate_semir_standalone_profile_at_origin,
+    generate_profile_with_origin, generate_semir_profile_at_origin,
+    generate_semir_profile_with_origin, generate_semir_standalone_profile_at_origin,
 };
 use crate::includes::{ModuleLoadOptions, load_compilation};
 use crate::mir6502;
@@ -41,7 +40,6 @@ pub(crate) enum Backend {
 pub(crate) enum CodegenSource {
     Ast,
     SemIr,
-    SemIrNative,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -329,11 +327,6 @@ fn compile_classic(
             Some(origin) => generate_semir_profile_at_origin(semir, origin, request.profile),
             None => generate_semir_profile_with_origin(semir, CODE_ORIGIN, request.profile),
         },
-        CodegenSource::SemIrNative => generate_semir_native_profile_with_origin(
-            semir,
-            request.origin.unwrap_or(CODE_ORIGIN),
-            request.profile,
-        ),
     };
     let mut output = result.map_err(|diagnostics| {
         CompileError::from_source_diagnostics(
@@ -540,7 +533,7 @@ mod relocation_tests {
     }
 
     #[test]
-    fn semir_native_relocations_explain_origin_changes_in_the_listing_contract_fixture() {
+    fn semir_bridge_relocations_explain_origin_changes_in_the_listing_contract_fixture() {
         for (baseline_origin, candidate_origin) in [(0x3000, 0x41c7), (0x2b40, 0x52d3)] {
             let request = |origin| CompileRequest {
                 profile: CodegenProfile::Modern,
@@ -549,24 +542,24 @@ mod relocation_tests {
                 backend_explicit: true,
                 runtime: Runtime::ActionCart,
                 runtime_explicit: false,
-                codegen_source: CodegenSource::SemIrNative,
+                codegen_source: CodegenSource::SemIr,
                 origin: Some(origin),
                 project_root: None,
                 module_paths: Vec::new(),
             };
             let baseline = compile_file_with_request(&fixture(), &request(baseline_origin))
                 .unwrap_or_else(|error| {
-                    panic!("compile SemIR-native baseline at ${baseline_origin:04X}: {error}")
+                    panic!("compile SemIR bridge baseline at ${baseline_origin:04X}: {error}")
                 });
             let candidate = compile_file_with_request(&fixture(), &request(candidate_origin))
                 .unwrap_or_else(|error| {
-                    panic!("compile SemIR-native candidate at ${candidate_origin:04X}: {error}")
+                    panic!("compile SemIR bridge candidate at ${candidate_origin:04X}: {error}")
                 });
             let relocated = apply_origin(&baseline.output, candidate.output.origin);
 
             assert_eq!(
                 relocated, candidate.output.bytes,
-                "SemIR-native ${baseline_origin:04X}->${candidate_origin:04X} origin-dependent bytes lack relocation provenance\nrelocations: {:#?}",
+                "SemIR bridge ${baseline_origin:04X}->${candidate_origin:04X} origin-dependent bytes lack relocation provenance\nrelocations: {:#?}",
                 baseline.output.relocations
             );
         }

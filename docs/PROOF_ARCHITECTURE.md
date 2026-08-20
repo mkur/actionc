@@ -1,8 +1,7 @@
 # Proof Architecture
 
 This note records the current proof/fact-finding architecture and the intended
-direction as `actionc` moves from AST lowering toward semantic-IR native
-lowering.
+direction as `actionc` moves from AST lowering toward NIR and MIR6502 lowering.
 
 ## Current Codegen Paths
 
@@ -20,10 +19,10 @@ lowering.
    - Uses the current processor-state tracker.
    - Consumes some proof objects from `codegen/proof.rs`.
 
-3. **semIR-native codegen**
-   - Consumes semantic IR and emits 6502 through `NativeTrackedEmitter`.
-   - Has a native processor-state guardrail and optimization guard.
-   - Does not yet consume the existing proof system.
+3. **NIR/MIR6502 codegen**
+   - Lowers semantic IR into verified NIR and then MIR6502.
+   - Emits through the shared tracked-emitter infrastructure.
+   - Owns target layout, instruction selection, and machine-state reasoning.
 
 ## Current Proofs
 
@@ -57,9 +56,8 @@ deeply consumed by lowering:
 
 ## Desired Direction
 
-Do not directly transplant AST `Generator` proofs into semIR-native lowering.
-They are useful evidence, but they are coupled to AST-era storage and lowering
-decisions.
+Do not directly transplant AST `Generator` proofs into NIR or MIR6502. They are
+useful evidence, but they are coupled to AST-era storage and lowering decisions.
 
 Instead, split facts into two layers:
 
@@ -67,18 +65,18 @@ Instead, split facts into two layers:
    - Derived from semantic IR, symbols, and types.
    - Examples: value width, signedness, byte-sized index, pointer element type,
      expression purity, call/evaluation-order sensitivity.
-   - These should be reusable by future modern lowering and eventually TAC/SSA.
+   - These should be carried into NIR when downstream lowering needs them.
 
 2. **Lowering proofs**
    - Derived after modern layout and internal ABI decisions.
    - Examples: this byte is available in A, this lvalue has direct absolute
      storage, this array access can use absolute,Y, this call result does not
      need public return-slot materialization.
-   - These are target/layout-specific and belong under `codegen`.
+   - These are target/layout-specific and belong in MIR6502 or tracked emission.
 
-The semIR-native backend should consume semantic facts plus native lowering
-proofs, guarded by `NativeTrackedEmitter` state. Modern AST codegen may keep
-using its existing proof system while it remains the transitional backend.
+NIR/MIR6502 should consume semantic facts through structured IR, without
+looking back into SemIR. Modern AST codegen may keep using its existing proof
+system while it remains a maintained classic backend.
 
 ## Rule Of Thumb
 

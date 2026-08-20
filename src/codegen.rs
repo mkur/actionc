@@ -311,8 +311,7 @@ use runtime::*;
 mod driver;
 pub use driver::{
     generate, generate_compatible_with_origin, generate_profile_with_origin,
-    generate_semir_native_profile_with_origin, generate_semir_profile_with_origin,
-    generate_with_origin,
+    generate_semir_profile_with_origin, generate_with_origin,
 };
 pub(crate) use driver::{generate_profile_at_origin, generate_semir_profile_at_origin};
 
@@ -320,8 +319,6 @@ mod semir;
 
 mod standalone;
 pub(crate) use standalone::generate_semir_standalone_profile_at_origin;
-
-mod semir_native;
 
 mod guards;
 use guards::*;
@@ -389,7 +386,6 @@ use state::*;
 mod native_state;
 
 pub(crate) mod native_emitter;
-use native_emitter::*;
 
 fn ranges_overlap(left_address: u16, left_size: u16, right_address: u16, right_size: u16) -> bool {
     let left_end = left_address.saturating_add(left_size.max(1));

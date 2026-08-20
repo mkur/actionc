@@ -84,10 +84,6 @@ as `MUSIC.SCR`.
 For WARP-specific runtime/control-flow notes, especially the main loop and its
 absolute-address timer/collision aliases, see `WARP_MAIN_LOOP.md`.
 
-For SemIR-native coverage under the modern profile, see
-`SEMIR_NATIVE_MODERN.md`. That note tracks modern-specific source copies and
-the remaining comparison work exposed by the Toolkit sweep.
-
 Original-compiler object captures for Toolkit demo/program files are generated
 with:
 

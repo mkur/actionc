@@ -188,8 +188,8 @@ The shared semantic type model exposes record shape as `RecordType`:
 
 SemIR `TYPE` and `RECORD` declarations should carry `RecordType` alongside the
 lowered field nodes. Current codegen may still bridge through `ValueType`, but
-future SemIR-native lowering should use `RecordType` for field layout and record
-pointer reasoning.
+NIR lowering should use `RecordType` for field layout and record-pointer
+reasoning rather than rebuilding it from source text.
 
 `ValueType` still bridges named records and record pointers for the transitional
 backends. Code that needs record family identity should use the record helpers
@@ -260,8 +260,8 @@ addressing path without rediscovering array provenance from raw names.
 
 `SemanticLayoutFacts` also records source array facts by symbol: element type,
 derived pointer type, and origin (`Global`, `Local`, or `Parameter`). SemIR and
-SemIR-native codegen should use those facts instead of re-deriving array shape
-from symbol class and scope.
+NIR lowering should use those facts instead of re-deriving array shape from
+symbol class and scope.
 
 The shared semantic type model exposes this shape as `ArrayType`:
 
@@ -320,6 +320,7 @@ Known gaps between these invariants and the current implementation:
   instead of being fully bound once in semantic analysis;
 - the older AST codegen still rebuilds record and array layout facts from AST
   declarations;
-- SemIR-native does not yet consume the full semantic binding/fact model.
+- NIR still needs more of the semantic binding/fact model represented as
+  structured, verifier-checked facts.
 
 These gaps should be closed slowly, with tests added before broad rewiring.

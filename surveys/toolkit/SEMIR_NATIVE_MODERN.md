@@ -1,5 +1,8 @@
 # SemIR Native Modern Toolkit Sweep
 
+> Historical snapshot. The experimental SemIR-native backend was removed on
+> 2026-08-20; the commands and comparisons below are no longer active guidance.
+
 Last swept: 2026-05-30.
 
 This note tracks the Action Toolkit as integration pressure for the

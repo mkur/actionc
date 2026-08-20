@@ -6,7 +6,7 @@ use std::process;
 
 use actionc::codegen::{
     CODE_ORIGIN, CodegenOutput, CodegenProfile, format_hex, generate_profile_with_origin,
-    generate_semir_native_profile_with_origin, generate_semir_profile_with_origin,
+    generate_semir_profile_with_origin,
 };
 use actionc::diagnostic::Diagnostic;
 use actionc::includes::load_program_with_expanded_source;
@@ -18,23 +18,7 @@ struct Config {
     profile: CodegenProfile,
     origin: u16,
     verbose: bool,
-    candidate: SemIrCandidate,
-    dashboard: bool,
-    validation_policy: ValidationPolicy,
     report: ReportFormat,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SemIrCandidate {
-    Bridge,
-    Native,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ValidationPolicy {
-    Exact,
-    Coverage,
-    Mixed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,17 +28,9 @@ enum ReportFormat {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum OutputExpectation {
-    Exact,
-    Coverage,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Outcome {
     Match,
-    Delta,
     Mismatch,
-    Unsupported,
     AstFailed,
     SemIrFailed,
     LoadFailed,
@@ -70,9 +46,7 @@ struct SweepResult {
 #[derive(Debug, Default)]
 struct SweepCounts {
     matched: usize,
-    deltas: usize,
     mismatched: usize,
-    unsupported: usize,
     ast_failed: usize,
     semir_failed: usize,
     load_failed: usize,
@@ -103,24 +77,15 @@ fn main() {
     }
 
     let counts = count_results(&results);
-
     match config.report {
-        ReportFormat::Text => {
-            println!(
-                "SemIR {} sweep summary: match={} delta={} mismatch={} unsupported={} ast_failed={} semir_failed={} load_failed={}",
-                config.candidate.label(),
-                counts.matched,
-                counts.deltas,
-                counts.mismatched,
-                counts.unsupported,
-                counts.ast_failed,
-                counts.semir_failed,
-                counts.load_failed
-            );
-            if config.dashboard {
-                print_dashboard(&results);
-            }
-        }
+        ReportFormat::Text => println!(
+            "SemIR bridge sweep summary: match={} mismatch={} ast_failed={} semir_failed={} load_failed={}",
+            counts.matched,
+            counts.mismatched,
+            counts.ast_failed,
+            counts.semir_failed,
+            counts.load_failed
+        ),
         ReportFormat::Markdown => print_markdown_report(&config, &results, &counts),
     }
 
@@ -135,32 +100,10 @@ fn parse_args() -> Config {
     let mut profile = CodegenProfile::Compat;
     let mut origin = CODE_ORIGIN;
     let mut verbose = false;
-    let mut candidate = SemIrCandidate::Bridge;
-    let mut dashboard = false;
-    let mut validation_policy = ValidationPolicy::Exact;
     let mut report = ReportFormat::Text;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--candidate" | "--semir-candidate" => {
-                let Some(value) = args.next() else {
-                    usage_and_exit("--candidate requires bridge or native");
-                };
-                candidate = parse_candidate(&value).unwrap_or_else(|| {
-                    usage_and_exit("--candidate requires bridge or native");
-                });
-            }
-            value if value.starts_with("--candidate=") => {
-                candidate = parse_candidate(&value["--candidate=".len()..]).unwrap_or_else(|| {
-                    usage_and_exit("--candidate requires bridge or native");
-                });
-            }
-            value if value.starts_with("--semir-candidate=") => {
-                candidate =
-                    parse_candidate(&value["--semir-candidate=".len()..]).unwrap_or_else(|| {
-                        usage_and_exit("--candidate requires bridge or native");
-                    });
-            }
             "--profile" => {
                 let Some(value) = args.next() else {
                     usage_and_exit("--profile requires legacy or modern");
@@ -188,7 +131,6 @@ fn parse_args() -> Config {
                 });
             }
             "-v" | "--verbose" => verbose = true,
-            "--dashboard" | "--support-dashboard" => dashboard = true,
             "--markdown" => report = ReportFormat::Markdown,
             "--report" => {
                 let Some(value) = args.next() else {
@@ -202,26 +144,6 @@ fn parse_args() -> Config {
                 report = parse_report_format(&value["--report=".len()..]).unwrap_or_else(|| {
                     usage_and_exit("--report requires text or markdown");
                 });
-            }
-            "--validation-policy" | "--validation" => {
-                let Some(value) = args.next() else {
-                    usage_and_exit("--validation-policy requires exact, coverage, or mixed");
-                };
-                validation_policy = parse_validation_policy(&value).unwrap_or_else(|| {
-                    usage_and_exit("--validation-policy requires exact, coverage, or mixed");
-                });
-            }
-            value if value.starts_with("--validation-policy=") => {
-                validation_policy = parse_validation_policy(&value["--validation-policy=".len()..])
-                    .unwrap_or_else(|| {
-                        usage_and_exit("--validation-policy requires exact, coverage, or mixed");
-                    });
-            }
-            value if value.starts_with("--validation=") => {
-                validation_policy = parse_validation_policy(&value["--validation=".len()..])
-                    .unwrap_or_else(|| {
-                        usage_and_exit("--validation-policy requires exact, coverage, or mixed");
-                    });
             }
             "-h" | "--help" => {
                 print_usage();
@@ -245,9 +167,6 @@ fn parse_args() -> Config {
         profile,
         origin,
         verbose,
-        candidate,
-        dashboard,
-        validation_policy,
         report,
     }
 }
@@ -288,19 +207,11 @@ fn sweep_file(config: &Config, path: &Path) -> SweepResult {
     };
 
     let semir = ir::lower_program(&loaded.program, &model);
-    let semir_output = match catch_codegen(|| candidate_codegen(config, &semir)) {
+    let semir_output = match catch_codegen(|| {
+        generate_semir_profile_with_origin(&semir, config.origin, config.profile)
+    }) {
         Ok(output) => output,
         Err(detail) => {
-            if config.dashboard
-                && matches!(config.candidate, SemIrCandidate::Native)
-                && let Some(reason) = native_unsupported_reason(&detail)
-            {
-                return SweepResult {
-                    path: path.to_path_buf(),
-                    outcome: Outcome::Unsupported,
-                    detail: reason,
-                };
-            }
             return SweepResult {
                 path: path.to_path_buf(),
                 outcome: Outcome::SemIrFailed,
@@ -309,67 +220,17 @@ fn sweep_file(config: &Config, path: &Path) -> SweepResult {
         }
     };
 
-    let expectation = output_expectation(config, path);
     if equivalent_output(&ast_output, &semir_output) {
         SweepResult {
             path: path.to_path_buf(),
             outcome: Outcome::Match,
             detail: format!("{} bytes", ast_output.bytes.len()),
         }
-    } else if expectation == OutputExpectation::Coverage {
-        SweepResult {
-            path: path.to_path_buf(),
-            outcome: Outcome::Delta,
-            detail: mismatch_summary(&ast_output, &semir_output, config.candidate.label()),
-        }
     } else {
         SweepResult {
             path: path.to_path_buf(),
             outcome: Outcome::Mismatch,
-            detail: mismatch_summary(&ast_output, &semir_output, config.candidate.label()),
-        }
-    }
-}
-
-fn output_expectation(config: &Config, path: &Path) -> OutputExpectation {
-    match config.validation_policy {
-        ValidationPolicy::Exact => OutputExpectation::Exact,
-        ValidationPolicy::Coverage => OutputExpectation::Coverage,
-        ValidationPolicy::Mixed => {
-            if is_semir_exact_fixture(path) {
-                OutputExpectation::Exact
-            } else {
-                OutputExpectation::Coverage
-            }
-        }
-    }
-}
-
-fn is_semir_exact_fixture(path: &Path) -> bool {
-    let mut previous = None;
-    for component in path.components() {
-        let Some(name) = component.as_os_str().to_str() else {
-            previous = None;
-            continue;
-        };
-        if previous == Some("fixtures") && name == "semir" {
-            return true;
-        }
-        previous = Some(name);
-    }
-    false
-}
-
-fn candidate_codegen(
-    config: &Config,
-    semir: &ir::SemProgram,
-) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    match config.candidate {
-        SemIrCandidate::Bridge => {
-            generate_semir_profile_with_origin(semir, config.origin, config.profile)
-        }
-        SemIrCandidate::Native => {
-            generate_semir_native_profile_with_origin(semir, config.origin, config.profile)
+            detail: mismatch_summary(&ast_output, &semir_output),
         }
     }
 }
@@ -402,11 +263,11 @@ fn equivalent_output(left: &CodegenOutput, right: &CodegenOutput) -> bool {
         && left.routine_addresses == right.routine_addresses
 }
 
-fn mismatch_summary(ast: &CodegenOutput, semir: &CodegenOutput, candidate: &str) -> String {
+fn mismatch_summary(ast: &CodegenOutput, semir: &CodegenOutput) -> String {
     let mut detail = String::new();
     let _ = write!(
         detail,
-        "ast={} bytes {candidate}={} bytes origin ${:04X}/${:04X} run ${:04X}/${:04X}",
+        "ast={} bytes semir={} bytes origin ${:04X}/${:04X} run ${:04X}/${:04X}",
         ast.bytes.len(),
         semir.bytes.len(),
         ast.origin,
@@ -422,12 +283,10 @@ fn mismatch_summary(ast: &CodegenOutput, semir: &CodegenOutput, candidate: &str)
             .zip(semir.bytes.iter())
             .position(|(left, right)| left != right)
         {
-            let ast_byte = ast.bytes[index];
-            let semir_byte = semir.bytes[index];
             let _ = write!(
                 detail,
                 " first_byte_diff={} ast={:02X} semir={:02X}",
-                index, ast_byte, semir_byte
+                index, ast.bytes[index], semir.bytes[index]
             );
         } else {
             let _ = write!(
@@ -451,71 +310,11 @@ fn hex_tail(bytes: &[u8], other_len: usize) -> String {
 }
 
 fn print_result(result: &SweepResult, verbose: bool) {
-    let label = match result.outcome {
-        Outcome::Match => "MATCH",
-        Outcome::Delta => "DELTA",
-        Outcome::Mismatch => "MISMATCH",
-        Outcome::Unsupported => "UNSUPPORTED",
-        Outcome::AstFailed => "ASTFAIL",
-        Outcome::SemIrFailed => "SEMFAIL",
-        Outcome::LoadFailed => "LOADFAIL",
-    };
+    let label = outcome_label(result.outcome);
     if result.outcome == Outcome::Match && !verbose {
         println!("{label:<8} {}", result.path.display());
     } else {
         println!("{label:<8} {:<56} {}", result.path.display(), result.detail);
-    }
-}
-
-fn print_dashboard(results: &[SweepResult]) {
-    let total = results.len();
-    let supported = results
-        .iter()
-        .filter(|result| {
-            matches!(
-                result.outcome,
-                Outcome::Match | Outcome::Delta | Outcome::Mismatch
-            )
-        })
-        .count();
-    let matched = results
-        .iter()
-        .filter(|result| matches!(result.outcome, Outcome::Match))
-        .count();
-    let deltas = results
-        .iter()
-        .filter(|result| matches!(result.outcome, Outcome::Delta))
-        .count();
-    let unsupported = results
-        .iter()
-        .filter(|result| matches!(result.outcome, Outcome::Unsupported))
-        .count();
-    println!(
-        "SemIR support dashboard: total={total} supported={supported} matched={matched} deltas={deltas} unsupported={unsupported}"
-    );
-
-    let mut unsupported_by_reason = std::collections::BTreeMap::<String, Vec<&Path>>::new();
-    for result in results {
-        if result.outcome == Outcome::Unsupported {
-            unsupported_by_reason
-                .entry(result.detail.clone())
-                .or_default()
-                .push(result.path.as_path());
-        }
-    }
-    if unsupported_by_reason.is_empty() {
-        return;
-    }
-
-    println!("Unsupported blockers:");
-    for (reason, paths) in unsupported_by_reason {
-        println!("  {:>3} {}", paths.len(), reason);
-        for path in paths.iter().take(5) {
-            println!("      {}", path.display());
-        }
-        if paths.len() > 5 {
-            println!("      ... {} more", paths.len() - 5);
-        }
     }
 }
 
@@ -524,9 +323,7 @@ fn count_results(results: &[SweepResult]) -> SweepCounts {
     for result in results {
         match result.outcome {
             Outcome::Match => counts.matched += 1,
-            Outcome::Delta => counts.deltas += 1,
             Outcome::Mismatch => counts.mismatched += 1,
-            Outcome::Unsupported => counts.unsupported += 1,
             Outcome::AstFailed => counts.ast_failed += 1,
             Outcome::SemIrFailed => counts.semir_failed += 1,
             Outcome::LoadFailed => counts.load_failed += 1,
@@ -536,14 +333,11 @@ fn count_results(results: &[SweepResult]) -> SweepCounts {
 }
 
 fn print_markdown_report(config: &Config, results: &[SweepResult], counts: &SweepCounts) {
-    println!("# SemIR {} Sweep Report", config.candidate.label());
+    println!("# SemIR Bridge Sweep Report");
     println!();
     println!("- Profile: `{}`", profile_label(config.profile));
     println!("- Origin: `${:04X}`", config.origin);
-    println!(
-        "- Validation policy: `{}`",
-        validation_policy_label(config.validation_policy)
-    );
+    println!("- Validation policy: `exact`");
     println!("- Files: {}", results.len());
     println!();
     println!("## Summary");
@@ -551,9 +345,7 @@ fn print_markdown_report(config: &Config, results: &[SweepResult], counts: &Swee
     println!("| Outcome | Count |");
     println!("| --- | ---: |");
     println!("| `MATCH` | {} |", counts.matched);
-    println!("| `DELTA` | {} |", counts.deltas);
     println!("| `MISMATCH` | {} |", counts.mismatched);
-    println!("| `UNSUPPORTED` | {} |", counts.unsupported);
     println!("| `ASTFAIL` | {} |", counts.ast_failed);
     println!("| `SEMFAIL` | {} |", counts.semir_failed);
     println!("| `LOADFAIL` | {} |", counts.load_failed);
@@ -570,89 +362,12 @@ fn print_markdown_report(config: &Config, results: &[SweepResult], counts: &Swee
             escape_markdown_cell(&result.detail)
         );
     }
-
-    if config.dashboard {
-        print_markdown_dashboard(results);
-    }
-}
-
-fn print_markdown_dashboard(results: &[SweepResult]) {
-    let total = results.len();
-    let supported = results
-        .iter()
-        .filter(|result| {
-            matches!(
-                result.outcome,
-                Outcome::Match | Outcome::Delta | Outcome::Mismatch
-            )
-        })
-        .count();
-    let matched = results
-        .iter()
-        .filter(|result| matches!(result.outcome, Outcome::Match))
-        .count();
-    let deltas = results
-        .iter()
-        .filter(|result| matches!(result.outcome, Outcome::Delta))
-        .count();
-    let unsupported = results
-        .iter()
-        .filter(|result| matches!(result.outcome, Outcome::Unsupported))
-        .count();
-
-    println!();
-    println!("## Support Dashboard");
-    println!();
-    println!("- Total: {total}");
-    println!("- Supported: {supported}");
-    println!("- Matched: {matched}");
-    println!("- Deltas: {deltas}");
-    println!("- Unsupported: {unsupported}");
-
-    let mut unsupported_by_reason = std::collections::BTreeMap::<String, Vec<&Path>>::new();
-    for result in results {
-        if result.outcome == Outcome::Unsupported {
-            unsupported_by_reason
-                .entry(result.detail.clone())
-                .or_default()
-                .push(result.path.as_path());
-        }
-    }
-    if unsupported_by_reason.is_empty() {
-        return;
-    }
-
-    println!();
-    println!("| Unsupported reason | Count | Examples |");
-    println!("| --- | ---: | --- |");
-    for (reason, paths) in unsupported_by_reason {
-        let examples = paths
-            .iter()
-            .take(5)
-            .map(|path| format!("`{}`", escape_markdown_cell(&path.display().to_string())))
-            .collect::<Vec<_>>()
-            .join("<br>");
-        let suffix = if paths.len() > 5 {
-            format!("<br>... {} more", paths.len() - 5)
-        } else {
-            String::new()
-        };
-        println!(
-            "| {} | {} | {}{} |",
-            escape_markdown_cell(&reason),
-            paths.len(),
-            examples,
-            suffix
-        );
-    }
 }
 
 fn outcome_label(outcome: Outcome) -> &'static str {
     match outcome {
         Outcome::Match => "MATCH",
-        Outcome::Delta => "DELTA",
         Outcome::Mismatch => "MISMATCH",
-        Outcome::Unsupported => "UNSUPPORTED",
         Outcome::AstFailed => "ASTFAIL",
         Outcome::SemIrFailed => "SEMFAIL",
         Outcome::LoadFailed => "LOADFAIL",
@@ -663,14 +378,6 @@ fn profile_label(profile: CodegenProfile) -> &'static str {
     match profile {
         CodegenProfile::Compat => "legacy",
         CodegenProfile::Modern => "modern",
-    }
-}
-
-fn validation_policy_label(policy: ValidationPolicy) -> &'static str {
-    match policy {
-        ValidationPolicy::Exact => "exact",
-        ValidationPolicy::Coverage => "coverage",
-        ValidationPolicy::Mixed => "mixed",
     }
 }
 
@@ -732,38 +439,10 @@ fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
         .join("; ")
 }
 
-fn native_unsupported_reason(detail: &str) -> Option<String> {
-    let marker = "native SemIR codegen is not implemented yet (";
-    let start = detail.find(marker)? + marker.len();
-    let rest = &detail[start..];
-    let end = rest
-        .find("; read model:")
-        .or_else(|| rest.find(')'))
-        .unwrap_or(rest.len());
-    Some(rest[..end].trim().to_string())
-}
-
 fn parse_profile(value: &str) -> Option<CodegenProfile> {
     match value {
         "legacy" | "compat" => Some(CodegenProfile::Compat),
         "modern" => Some(CodegenProfile::Modern),
-        _ => None,
-    }
-}
-
-fn parse_candidate(value: &str) -> Option<SemIrCandidate> {
-    match value {
-        "bridge" => Some(SemIrCandidate::Bridge),
-        "native" => Some(SemIrCandidate::Native),
-        _ => None,
-    }
-}
-
-fn parse_validation_policy(value: &str) -> Option<ValidationPolicy> {
-    match value {
-        "exact" => Some(ValidationPolicy::Exact),
-        "coverage" => Some(ValidationPolicy::Coverage),
-        "mixed" | "by-path" => Some(ValidationPolicy::Mixed),
         _ => None,
     }
 }
@@ -773,15 +452,6 @@ fn parse_report_format(value: &str) -> Option<ReportFormat> {
         "text" => Some(ReportFormat::Text),
         "markdown" | "md" => Some(ReportFormat::Markdown),
         _ => None,
-    }
-}
-
-impl SemIrCandidate {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Bridge => "bridge",
-            Self::Native => "native",
-        }
     }
 }
 
@@ -806,66 +476,13 @@ fn usage_and_exit(message: &str) -> ! {
 
 fn print_usage() {
     eprintln!(
-        "usage: actionc-semir-sweep [--candidate bridge|native] [--profile legacy|modern] [--origin <addr>] [--validation-policy exact|coverage|mixed] [--report text|markdown] [--dashboard] [--verbose] [path ...]"
+        "usage: actionc-semir-sweep [--profile legacy|modern] [--origin <addr>] [--report text|markdown] [--verbose] [path ...]"
     );
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn extracts_native_unsupported_reason() {
-        let detail = "29..64: native SemIR codegen is not implemented yet (dynamic indexes are not supported; read model: origin=$3000, profile=legacy)";
-        assert_eq!(
-            native_unsupported_reason(detail),
-            Some("dynamic indexes are not supported".to_string())
-        );
-    }
-
-    #[test]
-    fn parses_validation_policy_aliases() {
-        assert_eq!(
-            parse_validation_policy("exact"),
-            Some(ValidationPolicy::Exact)
-        );
-        assert_eq!(
-            parse_validation_policy("coverage"),
-            Some(ValidationPolicy::Coverage)
-        );
-        assert_eq!(
-            parse_validation_policy("mixed"),
-            Some(ValidationPolicy::Mixed)
-        );
-        assert_eq!(
-            parse_validation_policy("by-path"),
-            Some(ValidationPolicy::Mixed)
-        );
-        assert_eq!(parse_validation_policy("other"), None);
-    }
-
-    #[test]
-    fn mixed_policy_keeps_semir_fixtures_exact() {
-        let config = Config {
-            roots: Vec::new(),
-            profile: CodegenProfile::Compat,
-            origin: CODE_ORIGIN,
-            verbose: false,
-            candidate: SemIrCandidate::Native,
-            dashboard: false,
-            validation_policy: ValidationPolicy::Mixed,
-            report: ReportFormat::Text,
-        };
-
-        assert_eq!(
-            output_expectation(&config, Path::new("fixtures/semir/scalar_assignments.act")),
-            OutputExpectation::Exact
-        );
-        assert_eq!(
-            output_expectation(&config, Path::new("fixtures/stress/calls.act")),
-            OutputExpectation::Coverage
-        );
-    }
 
     #[test]
     fn parses_report_format_aliases() {

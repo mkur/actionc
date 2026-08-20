@@ -55,8 +55,8 @@ Options:
   -h, --help                 show this help
 
 Advanced compiler-development options:
-  --codegen-source <source>   classic-backend codegen source: ast, semir,
-                              semir-native; default: $codegen_source
+  --codegen-source <source>   classic-backend codegen source: ast or semir;
+                              default: $codegen_source
   --codegen <source>          alias for --codegen-source
 
 Environment:
@@ -109,9 +109,6 @@ normalize_codegen_source() {
       ;;
     semir|sem-ir)
       printf '%s\n' "semir"
-      ;;
-    native|semir-native|sem-ir-native|native-ir|modern-ir)
-      printf '%s\n' "semir-native"
       ;;
     *)
       echo "invalid --codegen-source value: $value" >&2
@@ -188,7 +185,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --codegen-source|--codegen)
-      [[ $# -ge 2 ]] || { echo "$1 requires ast, semir, or semir-native" >&2; exit 2; }
+      [[ $# -ge 2 ]] || { echo "$1 requires ast or semir" >&2; exit 2; }
       codegen_source="$(normalize_codegen_source "$2")"
       shift 2
       ;;

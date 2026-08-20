@@ -131,8 +131,7 @@ Status: complete.
 
 Status: complete.
 
-- Extend AST/classic and SemIR-native classic storage initializers with the
-  same low/high/word fixups.
+- Extend AST/classic storage initializers with the same low/high/word fixups.
 - Use labels rather than prematurely resolved numeric addresses.
 - Cover legacy and modern layouts without changing numeric initializer bytes.
 
@@ -154,7 +153,7 @@ Status: complete.
 - Test self, forward, routine, fixed-address, and addend relocations at
   multiple origins.
 - Test unknown targets, invalid widths, overlap, overflow, and malformed lists.
-- Compare legacy/classic, modern/classic, SemIR-native classic, and MIR6502.
+- Compare legacy/classic, modern/classic, and MIR6502.
 - Confirm existing numeric initializer output remains byte-identical.
 - Rebuild the fine-scroller ATRs.
 
@@ -166,8 +165,8 @@ fixed a MIR6502 interaction where write-only parameter-home elision did not
 count initializer relocation references as address-observable uses.
 
 The fine-scroller was compiled and packed into temporary ATRs through
-legacy/classic, modern/classic, SemIR-native classic, and MIR6502. No generated
-ATR is checked into the repository.
+legacy/classic, modern/classic, and MIR6502. No generated ATR is checked into
+the repository.
 
 Required final checks:
 
