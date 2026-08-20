@@ -1,0 +1,42 @@
+; Standalone runtime-linking example using traditional unqualified Action!
+; source. The classic backend lowers the arithmetic operators to embedded
+; SYSLIB routines. Both backends also select SArgs for SaveResults' argument
+; frame and link the output routines used below.
+
+CARD left,right
+CARD product,quotient,remainder,shifted
+BYTE shift
+
+PROC SaveResults(CARD p,q,r,s)
+  product=p
+  quotient=q
+  remainder=r
+  shifted=s
+RETURN
+
+PROC Main()
+  left=1234
+  right=37
+  shift=3
+
+  SaveResults(left*right,
+              left/right,
+              left MOD right,
+              left RSH shift)
+
+  Print("product: ")
+  PrintC(product)
+  PutE()
+  Print("quotient: ")
+  PrintC(quotient)
+  PutE()
+  Print("remainder: ")
+  PrintC(remainder)
+  PutE()
+  Print("shifted: ")
+  PrintC(shifted)
+  PutE()
+
+  DO
+  OD
+RETURN
