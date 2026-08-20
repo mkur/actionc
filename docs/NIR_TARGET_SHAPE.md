@@ -579,6 +579,8 @@ Rules:
 
 - Machine blocks must either carry enough payload for MIR6502/emission to
   preserve them or produce a precise unsupported diagnostic before MIR6502.
+- Raw parser items do not enter executable NIR; lowering replaces the whole
+  machine block with an explicit `Unsupported` operation.
 - Formatted effect strings are not optimizer-grade effects.
 - Default effects should be opaque and conservative.
 

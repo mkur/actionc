@@ -560,7 +560,6 @@ pub enum NirMachineItem {
         requires_zero_page: bool,
         span: Span,
     },
-    Raw(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -858,10 +858,13 @@ impl NirBuilder {
             }
             SemStmt::Call { call, .. } => {
                 if let Some(items) = self.machine_define_call_items(call) {
-                    self.push(NirOp::MachineBlock {
-                        items,
-                        effects: self.nir_machine_effects(&SemEffects::default()),
-                    });
+                    match items {
+                        Ok(items) => self.push(NirOp::MachineBlock {
+                            items,
+                            effects: self.nir_machine_effects(&SemEffects::default()),
+                        }),
+                        Err(note) => self.push(NirOp::Unsupported { note }),
+                    }
                     return;
                 }
                 let args = call.args.iter().map(|arg| self.nir_value(arg)).collect();
@@ -887,10 +890,13 @@ impl NirBuilder {
                 if items.is_empty() {
                     return;
                 }
-                self.push(NirOp::MachineBlock {
-                    items: self.nir_machine_items(items, resolved_symbols),
-                    effects: self.nir_machine_effects(effects),
-                });
+                match self.nir_machine_items(items, resolved_symbols) {
+                    Ok(items) => self.push(NirOp::MachineBlock {
+                        items,
+                        effects: self.nir_machine_effects(effects),
+                    }),
+                    Err(note) => self.push(NirOp::Unsupported { note }),
+                }
             }
             SemStmt::InlineAsm { program, .. } => {
                 if program.bytes.is_empty() {
@@ -1000,7 +1006,10 @@ impl NirBuilder {
         }
     }
 
-    fn machine_define_call_items(&self, call: &SemCall) -> Option<Vec<NirMachineItem>> {
+    fn machine_define_call_items(
+        &self,
+        call: &SemCall,
+    ) -> Option<Result<Vec<NirMachineItem>, String>> {
         if !call.args.is_empty() {
             return None;
         }
@@ -1022,7 +1031,7 @@ impl NirBuilder {
         &self,
         items: &[MachineItem],
         resolved_symbols: &[SemMachineSymbolRef],
-    ) -> Vec<NirMachineItem> {
+    ) -> Result<Vec<NirMachineItem>, String> {
         let resolved_symbols = resolved_symbols
             .iter()
             .map(|resolved| (resolved.item_index, &resolved.symbol))
@@ -1051,14 +1060,24 @@ impl NirBuilder {
                 && symbol.class == SymbolClass::Define
                 && let Some(items) = self.machine_defines.get(&symbol.id.0)
             {
-                lowered.extend(items.iter().map(nir_machine_item));
+                lowered.extend(
+                    items
+                        .iter()
+                        .map(nir_machine_item)
+                        .collect::<Result<Vec<_>, _>>()?,
+                );
                 index += 1;
                 continue;
             }
             if let MachineItem::Name(name) = item
                 && let Some(items) = self.machine_define_names.get(&storage_key(name))
             {
-                lowered.extend(items.iter().map(nir_machine_item));
+                lowered.extend(
+                    items
+                        .iter()
+                        .map(nir_machine_item)
+                        .collect::<Result<Vec<_>, _>>()?,
+                );
                 index += 1;
                 continue;
             }
@@ -1070,10 +1089,10 @@ impl NirBuilder {
                 index += 1;
                 continue;
             }
-            lowered.push(nir_machine_item(item));
+            lowered.push(nir_machine_item(item)?);
             index += 1;
         }
-        lowered
+        Ok(lowered)
     }
 
     fn nir_machine_symbol_item(
@@ -1143,8 +1162,7 @@ impl NirBuilder {
             | NirMachineItem::Word(_)
             | NirMachineItem::StringLiteral(_)
             | NirMachineItem::CharLiteral(_)
-            | NirMachineItem::Relocation { .. }
-            | NirMachineItem::Raw(_) => return None,
+            | NirMachineItem::Relocation { .. } => return None,
         };
         Some(NirMachineItem::Relocation {
             kind,
@@ -3412,18 +3430,18 @@ fn callable_summary(callable: &SemCallable) -> String {
     }
 }
 
-fn nir_machine_item(item: &MachineItem) -> NirMachineItem {
-    match item {
-        MachineItem::Number(number) => number
-            .value
-            .map(|value| {
-                if let Ok(byte) = u8::try_from(value) {
-                    NirMachineItem::Byte(byte)
-                } else {
-                    NirMachineItem::Word(value)
-                }
-            })
-            .unwrap_or_else(|| NirMachineItem::Raw(number.text.clone())),
+fn nir_machine_item(item: &MachineItem) -> Result<NirMachineItem, String> {
+    Ok(match item {
+        MachineItem::Number(number) => {
+            let value = number
+                .value
+                .ok_or_else(|| machine_raw_item_diagnostic(&number.text))?;
+            if let Ok(byte) = u8::try_from(value) {
+                NirMachineItem::Byte(byte)
+            } else {
+                NirMachineItem::Word(value)
+            }
+        }
         MachineItem::StringLiteral(value) => NirMachineItem::StringLiteral(value.clone()),
         MachineItem::CharLiteral(value) => NirMachineItem::CharLiteral(*value),
         MachineItem::Name(name) => NirMachineItem::Name(name.to_string()),
@@ -3438,7 +3456,21 @@ fn nir_machine_item(item: &MachineItem) -> NirMachineItem {
             high: matches!(selector, AddressByteSelector::High),
             name: name.to_string(),
         },
-        MachineItem::Raw(raw) => NirMachineItem::Raw(raw.clone()),
+        MachineItem::Raw(raw) => return Err(machine_raw_item_diagnostic(raw)),
+    })
+}
+
+fn machine_raw_item_diagnostic(raw: &str) -> String {
+    match raw {
+        "+" | "-" => {
+            format!(
+                "machine block item `{raw}` is not a byte-stream item; use it only inside an address expression"
+            )
+        }
+        _ if raw.starts_with('$') || raw.chars().next().is_some_and(|ch| ch.is_ascii_digit()) => {
+            format!("machine block item `{raw}` does not fit in 16 bits")
+        }
+        _ => format!("unsupported raw machine block item `{raw}`"),
     }
 }
 

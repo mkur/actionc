@@ -1162,7 +1162,6 @@ fn lower_machine_items(
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<Vec<MirMachineItem>> {
     let mut lowered = Vec::new();
-    let mut ok = true;
     for item in items {
         match item {
             NirMachineItem::Byte(value) => lowered.push(MirMachineItem::Byte(*value)),
@@ -1198,8 +1197,7 @@ fn lower_machine_items(
                     machine_numeric_defines,
                     diagnostics,
                 ) else {
-                    ok = false;
-                    continue;
+                    return None;
                 };
                 let atom = lower_machine_atom_with_fixed_symbols(
                     atom,
@@ -1248,17 +1246,9 @@ fn lower_machine_items(
                 requires_zero_page: *requires_zero_page,
                 span: *span,
             }),
-            NirMachineItem::Raw(raw) => {
-                diagnostics.push(MirDiagnostic::block(
-                    routine,
-                    block,
-                    machine_raw_item_diagnostic(raw),
-                ));
-                ok = false;
-            }
         }
     }
-    ok.then_some(lowered)
+    Some(lowered)
 }
 
 fn lower_inline_asm(code: &NirInlineAsm) -> Vec<MirMachineItem> {
@@ -1448,20 +1438,6 @@ fn machine_value_item(value: u16) -> MirMachineItem {
 
 fn machine_name_key(name: &str) -> String {
     name.to_ascii_lowercase()
-}
-
-fn machine_raw_item_diagnostic(raw: &str) -> String {
-    match raw {
-        "+" | "-" => {
-            format!(
-                "machine block item `{raw}` is not a byte-stream item; use it only inside an address expression"
-            )
-        }
-        _ if raw.starts_with('$') || raw.chars().next().is_some_and(|ch| ch.is_ascii_digit()) => {
-            format!("machine block item `{raw}` does not fit in 16 bits")
-        }
-        _ => format!("unsupported raw machine block item `{raw}`"),
-    }
 }
 
 fn lower_machine_byte_selector(selector: NirMachineByteSelector) -> MirMachineByteSelector {

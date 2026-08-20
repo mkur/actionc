@@ -332,10 +332,7 @@ fn analyze_routine_storage(
                 }
                 NirOp::MachineBlock { items, effects } => {
                     let names_used = machine_item_names(items);
-                    let unknown_text = items
-                        .iter()
-                        .any(|item| matches!(item, NirMachineItem::Raw(_)));
-                    if effects.opaque || unknown_text {
+                    if effects.opaque {
                         for facts in homes.values_mut() {
                             facts.machine_visible = true;
                         }
@@ -672,8 +669,7 @@ fn machine_item_names(items: &[NirMachineItem]) -> BTreeSet<String> {
             | NirMachineItem::StringLiteral(_)
             | NirMachineItem::CharLiteral(_)
             | NirMachineItem::AddressExpr { .. }
-            | NirMachineItem::Relocation { .. }
-            | NirMachineItem::Raw(_) => None,
+            | NirMachineItem::Relocation { .. } => None,
         })
         .collect()
 }

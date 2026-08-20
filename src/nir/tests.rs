@@ -778,6 +778,40 @@ fn logical_while_and_until_lower_to_short_circuit_cfg() {
 }
 
 #[test]
+fn raw_machine_items_lower_to_explicit_unsupported_ops() {
+    for (item, expected_note) in [
+        ("+", "machine block item `+` is not a byte-stream item"),
+        ("=", "unsupported raw machine block item `=`"),
+    ] {
+        let source = format!("PROC Main() [{item}] RETURN");
+        let tokens = crate::lexer::tokenize(&source).expect("tokenize raw machine item");
+        let ast = crate::parser::parse(&tokens).expect("parse raw machine item");
+        let model = crate::semantic::analyze(&ast).expect("analyze raw machine item");
+        let semir = crate::semantic::ir::lower_program(&ast, &model);
+        let program = lower_program(&semir);
+
+        verify_program(&program).expect("unsupported operation remains verifier-clean");
+        let ops = program.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .collect::<Vec<_>>();
+        assert!(
+            ops.iter().any(|op| matches!(
+                op,
+                NirOp::Unsupported { note } if note.contains(expected_note)
+            )),
+            "expected `{expected_note}` for `{item}`, got {ops:#?}"
+        );
+        assert!(
+            ops.iter()
+                .all(|op| !matches!(op, NirOp::MachineBlock { .. })),
+            "raw machine item must not enter an executable machine block: {ops:#?}"
+        );
+    }
+}
+
+#[test]
 fn routine_local_scalar_aliases_global_storage() {
     let source = "BYTE state PROC Main() BYTE high=state+1 high=$42 RETURN";
     let tokens = crate::lexer::tokenize(source).unwrap();
