@@ -92,7 +92,7 @@ pub fn format_program(program: &MirProgram) -> String {
 #[cfg(test)]
 fn emit_program(
     mir: &MirProgram,
-    emitter: &mut crate::codegen::native_emitter::NativeTrackedEmitter,
+    emitter: &mut crate::codegen::tracked_emitter::TrackedEmitter,
 ) -> Result<emit::MirEmissionSummary, Vec<MirDiagnostic>> {
     emit::emit_program(mir, emitter_origin(emitter), emitter)
 }
@@ -127,7 +127,7 @@ pub fn generate_output_with_config_and_runtime(
     let mir = materialize_program_with_origin_and_runtime(mir, config, origin, runtime)?;
     verify::verify_program(&mir, MirPhase::PreEmission)
         .map_err(|diagnostics| phase_diagnostics("pre-emission", diagnostics))?;
-    let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(origin);
+    let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(origin);
     let summary = emit::emit_program(&mir, origin, &mut emitter)?;
     let emission = emitter.finish_with_relocations().map_err(|diagnostics| {
         diagnostics
@@ -280,7 +280,7 @@ fn runtime_selection_reason(helper: MirRuntimeHelper) -> &'static str {
 }
 
 #[cfg(test)]
-fn emitter_origin(_emitter: &crate::codegen::native_emitter::NativeTrackedEmitter) -> u16 {
+fn emitter_origin(_emitter: &crate::codegen::tracked_emitter::TrackedEmitter) -> u16 {
     crate::codegen::CODE_ORIGIN
 }
 
@@ -5538,7 +5538,7 @@ mod tests {
 
         verify_program(&mir, MirPhase::PreEmission).expect("pointer deref is emission-ready");
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit pointer deref read");
         let bytes = emitter.finish().expect("finish emitter");
         assert!(bytes.windows(2).any(|bytes| bytes == [0xB1, 0xAC]));
@@ -5609,7 +5609,7 @@ mod tests {
 
         verify_program(&mir, MirPhase::PreEmission).expect("pointer deref write is emission-ready");
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit pointer deref write");
         let bytes = emitter.finish().expect("finish emitter");
         assert!(
@@ -5934,7 +5934,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         let summary = emit_program(&mir, &mut emitter).expect("emit pre-emission MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x00, 0xA9, 0x07, 0x8D, 0x00, 0x30, 0x60]);
@@ -5997,7 +5997,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit absolute alias MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0xA9, 0x0A, 0x8D, 0xC8, 0x02, 0x60]);
@@ -6046,7 +6046,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit static MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![1, 2, 3, 0xAD, 0x01, 0x30, 0x60]);
@@ -6090,7 +6090,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit fixed zero-page MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0xA9, 0x55, 0x85, 0x80, 0x60]);
@@ -6146,7 +6146,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit local storage MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x00, 0xA9, 0x04, 0x8D, 0x00, 0x30, 0x60]);
@@ -6196,7 +6196,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit direct arithmetic MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(
@@ -6271,7 +6271,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit byte sub/logic MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(
@@ -6341,8 +6341,7 @@ mod tests {
                 runtime_helpers: Vec::new(),
             };
 
-            let mut emitter =
-                crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+            let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
             emit_program(&mir, &mut emitter).expect("emit branch MIR");
             emitter.finish().expect("finish emitter")
         }
@@ -6423,7 +6422,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit zero compare branch MIR");
         assert_eq!(
             emitter.finish().expect("finish emitter"),
@@ -6472,7 +6471,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit fallthrough jump MIR");
         assert_eq!(
             emitter.finish().expect("finish emitter"),
@@ -6565,7 +6564,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit byte-lane word MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(
@@ -6625,7 +6624,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit virtual zero-page MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0xA9, 0x22, 0x85, 0xE0, 0xA5, 0xE0, 0x60]);
@@ -6693,7 +6692,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit indexed absolute MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(
@@ -6745,7 +6744,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit indexed zero-page MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0xB5, 0xE0, 0x95, 0xE0, 0x60]);
@@ -6794,7 +6793,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit indirect indexed MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0xB1, 0xE2, 0x91, 0xE2, 0x60]);
@@ -6838,7 +6837,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit word index address advance");
         let bytes = emitter.finish().expect("finish emitter");
 
@@ -6885,7 +6884,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit indexed address materialization");
         let bytes = emitter.finish().expect("finish emitter");
 
@@ -6940,7 +6939,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit scaled-Y indexed address");
         let bytes = emitter.finish().expect("finish emitter");
 
@@ -7016,7 +7015,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit shared scaled-Y word copy");
         let bytes = emitter.finish().expect("finish emitter");
 
@@ -7080,7 +7079,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit direct call MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x60, 0x4C, 0x00, 0x30]);
@@ -7125,7 +7124,7 @@ mod tests {
             }],
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit runtime helper MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x4C, 0x00, 0xA0]);
@@ -7190,7 +7189,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit non-tail call MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x60, 0x20, 0x00, 0x30, 0xA9, 0x01, 0x60]);
@@ -7257,7 +7256,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit return-edge tail call");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x60, 0x4C, 0x00, 0x30, 0x60]);
@@ -7303,7 +7302,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit direct return edge");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x60, 0x60, 0x60]);
@@ -7342,7 +7341,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit implicit return fallthrough");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x60]);
@@ -7383,7 +7382,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit byte-sized word constants");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0xA2, 0x9B, 0xA0, 0x7D, 0x60]);
@@ -7427,7 +7426,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit builtin call MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x4C, 0x56, 0xE4]);
@@ -7484,7 +7483,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         let diagnostics = emit_program(&mir, &mut emitter).expect_err("unmodeled builtin");
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic
@@ -7526,7 +7525,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         let summary = emit_program(&mir, &mut emitter).expect("emit machine block MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0xEA, 0x34, 0x12, 0x60]);
@@ -7612,7 +7611,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit machine block label offsets");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x60, 0x01, 0x30, 0x02, 0x30, 0x60]);
@@ -7654,7 +7653,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit machine block literals");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0x02, 0x41, 0x42, 0x00, 0x30, 0x43, 0x9A, 0x60]);
@@ -7689,7 +7688,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit byte unary negation");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0xA9, 0x01, 0x49, 0xFF, 0x18, 0x69, 0x01, 0x60]);
@@ -7738,7 +7737,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit byte constant shifts");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0xA9, 0x04, 0x4A, 0xA9, 0x03, 0x0A, 0x0A, 0x60]);
@@ -7788,7 +7787,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit relaxed branch");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(bytes, vec![0xD0, 0x01, 0x60, 0x60]);
@@ -7843,8 +7842,7 @@ mod tests {
                 runtime_helpers: Vec::new(),
             };
 
-            let mut emitter =
-                crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+            let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
             emit_program(&mir, &mut emitter).expect("emit any-flag forward branch");
             emitter.finish().expect("finish emitter")
         }
@@ -7909,7 +7907,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit far forward branch MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(&bytes[..3], &[0xD0, 0x01, 0x60]);
@@ -7965,7 +7963,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit self-enabling forward branch MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(&bytes[..2], &[0xF0, 0x7E]);
@@ -8028,7 +8026,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit far branch MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert!(bytes.ends_with(&[0xD0, 0x01, 0x60, 0x60]));
@@ -8099,7 +8097,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         emit_program(&mir, &mut emitter).expect("emit machine block MIR");
         let bytes = emitter.finish().expect("finish emitter");
         assert_eq!(
@@ -8203,7 +8201,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         let diagnostics = emit_program(&mir, &mut emitter).expect_err("machine name is unresolved");
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic
@@ -8248,7 +8246,7 @@ mod tests {
             runtime_helpers: Vec::new(),
         };
 
-        let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
         let diagnostics =
             emit_program(&mir, &mut emitter).expect_err("machine address expr is unresolved");
         assert!(diagnostics.iter().any(|diagnostic| {

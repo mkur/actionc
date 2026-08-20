@@ -41,9 +41,9 @@ The removed backend owned:
 
 ## Boundaries
 
-- Keep `src/codegen/native_emitter.rs` and `src/codegen/native_state.rs`. MIR6502
-  actively uses this tracked emission layer. Their names are historical, but
-  renaming them is a separate cleanup.
+- Keep the tracked emission layer used by MIR6502. Its retained emitter now
+  lives in `src/codegen/tracked_emitter.rs`; `src/codegen/native_state.rs`
+  remains a separate naming cleanup.
 - Keep `src/codegen/semir.rs`. It is the SemIR-to-AST bridge used by classic
   code generation, including named-module paths.
 - Keep `actionc-semir-sweep` as an exact AST-versus-SemIR-bridge fidelity tool.
@@ -121,12 +121,12 @@ This should be a coverage-transfer commit that is green before deletion.
 - Add a release-note entry that the experimental API and CLI aliases were
   removed without a deprecation window.
 
-### 5. Consider shared-name cleanup separately
+### 5. Rename the retained tracked emitter
 
-After removal is merged and stable, decide whether `NativeTrackedEmitter`,
-`native_emitter.rs`, and `native_state.rs` should be renamed around MIR6502's
-tracked-emission role. Do not combine that broad mechanical rename with backend
-deletion.
+Completed after the removal merged: `NativeTrackedEmitter` and
+`native_emitter.rs` became `TrackedEmitter` and `tracked_emitter.rs`.
+The processor-state vocabulary remains unchanged and can be considered
+separately.
 
 ## Suggested Delivery
 

@@ -5,20 +5,20 @@ use super::emitter::Emitter;
 use super::native_state::NativeProcessorState;
 use super::*;
 
-pub(crate) struct NativeTrackedEmitter {
+pub(crate) struct TrackedEmitter {
     emitter: Emitter,
     state: NativeProcessorState,
 }
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy)]
-pub(super) struct NativeOptimizationGuard<'a> {
+pub(super) struct TrackedOptimizationGuard<'a> {
     name: &'a str,
     state: &'a NativeProcessorState,
 }
 
 #[cfg(test)]
-impl<'a> NativeOptimizationGuard<'a> {
+impl<'a> TrackedOptimizationGuard<'a> {
     pub(super) fn name(self) -> &'a str {
         self.name
     }
@@ -32,7 +32,7 @@ impl<'a> NativeOptimizationGuard<'a> {
     }
 }
 
-impl NativeTrackedEmitter {
+impl TrackedEmitter {
     pub(crate) fn with_origin(origin: u16) -> Self {
         Self {
             emitter: Emitter::with_origin(origin),
@@ -46,8 +46,8 @@ impl NativeTrackedEmitter {
     }
 
     #[cfg(test)]
-    pub(super) fn optimization_guard(&self, name: &'static str) -> NativeOptimizationGuard<'_> {
-        NativeOptimizationGuard {
+    pub(super) fn optimization_guard(&self, name: &'static str) -> TrackedOptimizationGuard<'_> {
+        TrackedOptimizationGuard {
             name,
             state: &self.state,
         }
@@ -671,8 +671,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn native_tracked_emitter_tracks_load_store_aliases() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_tracks_load_store_aliases() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_lda_imm(0x44);
         emitter.emit_sta_absolute(Absolute::new(0x3100));
@@ -690,8 +690,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_selects_zero_page_direct_opcodes() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_selects_zero_page_direct_opcodes() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_lda_abs(0x00E0);
         emitter.emit_sta_absolute(Absolute::new(0x00E1));
@@ -720,8 +720,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_removes_adjacent_reload_after_store() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_removes_adjacent_reload_after_store() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_lda_abs(0x3100);
         emitter.emit_sta_absolute(Absolute::new(0x3101));
@@ -734,8 +734,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_suppresses_redundant_ldy_immediate() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_suppresses_redundant_ldy_immediate() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_ldy_imm(1);
         emitter.emit_ldy_imm(1);
@@ -744,8 +744,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_keeps_ldy_immediate_when_flags_differ() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_keeps_ldy_immediate_when_flags_differ() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_ldy_imm(1);
         emitter.emit_lda_imm(0);
@@ -758,8 +758,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_steps_adjacent_ldy_immediates() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_steps_adjacent_ldy_immediates() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_ldy_imm(0);
         emitter.emit_ldy_imm(1);
@@ -772,8 +772,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_step_ldy_immediate_sets_matching_flags() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_step_ldy_immediate_sets_matching_flags() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_ldy_imm(0);
         emitter.emit_lda_imm(0x80);
@@ -790,8 +790,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_keeps_reload_across_barriers() {
-        let mut call_barrier = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_keeps_reload_across_barriers() {
+        let mut call_barrier = TrackedEmitter::with_origin(0x3000);
         call_barrier.emit_lda_imm(0x44);
         call_barrier.emit_sta_absolute(Absolute::new(0x3100));
         call_barrier.emit_jsr_abs(0x4000);
@@ -813,7 +813,7 @@ mod tests {
             ]
         );
 
-        let mut label_barrier = NativeTrackedEmitter::with_origin(0x3000);
+        let mut label_barrier = TrackedEmitter::with_origin(0x3000);
         label_barrier.emit_lda_imm(0x44);
         label_barrier.emit_sta_absolute(Absolute::new(0x3100));
         label_barrier
@@ -834,7 +834,7 @@ mod tests {
             ]
         );
 
-        let mut raw_barrier = NativeTrackedEmitter::with_origin(0x3000);
+        let mut raw_barrier = TrackedEmitter::with_origin(0x3000);
         raw_barrier.emit_lda_imm(0x44);
         raw_barrier.emit_sta_absolute(Absolute::new(0x3100));
         raw_barrier.emit_u8(0xEA);
@@ -854,7 +854,7 @@ mod tests {
             ]
         );
 
-        let mut compiler_barrier = NativeTrackedEmitter::with_origin(0x3000);
+        let mut compiler_barrier = TrackedEmitter::with_origin(0x3000);
         compiler_barrier.emit_lda_abs(0x3100);
         compiler_barrier.compiler_barrier();
         compiler_barrier.emit_lda_abs(0x3100);
@@ -865,8 +865,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_clears_state_across_calls_and_labels() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_clears_state_across_calls_and_labels() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_lda_imm(1);
         emitter.emit_jsr_abs(0x4000);
@@ -878,8 +878,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_retests_unknown_call_result_for_zero_branch() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_retests_unknown_call_result_for_zero_branch() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_jsr_abs(0x4000);
         emitter.emit_cmp_imm_for_z_branch(0);
@@ -891,8 +891,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_clears_state_on_raw_data_barriers() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_clears_state_on_raw_data_barriers() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_lda_imm(1);
         emitter.emit_u8(0xEA);
@@ -912,8 +912,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_exposes_state_snapshots_for_tests() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_exposes_state_snapshots_for_tests() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_lda_imm(0x7F);
         emitter.emit_sta_absolute(Absolute::new(0x3200));
@@ -934,8 +934,8 @@ mod tests {
     }
 
     #[test]
-    fn native_tracked_emitter_requires_explicit_optimization_guard() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+    fn tracked_emitter_requires_explicit_optimization_guard() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emitter.emit_lda_imm(0);
         let guard = emitter.optimization_guard("redundant LDA #imm");

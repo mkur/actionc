@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::asm6502::InlineAsmRelocationKind;
-use crate::codegen::native_emitter::NativeTrackedEmitter;
+use crate::codegen::tracked_emitter::TrackedEmitter;
 use crate::codegen::{
     Absolute, AbsoluteX, CodegenAddressSpace, CodegenMachineBlockAnalysis, CodegenRelocationKind,
     CodegenRoutineEffect, CodegenRoutineParam, CodegenRoutineSignature, CodegenSourceRange,
@@ -43,7 +43,7 @@ pub(super) struct MirEmissionSummary {
 pub(super) fn emit_program(
     mir: &MirProgram,
     origin: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> Result<MirEmissionSummary, Vec<MirDiagnostic>> {
     verify::verify_program(mir, MirPhase::PreEmission)?;
     let mut layout_diagnostics = Vec::new();
@@ -143,7 +143,7 @@ fn emission_probe_for_layout(
     branch_plan: MirBranchRelaxationPlan,
 ) -> (u16, MirEmissionMeasurements, Vec<MirDiagnostic>) {
     let mut ctx = MirEmitContext::with_layout(mir, origin, layout, branch_plan);
-    let mut emitter = NativeTrackedEmitter::with_origin(origin);
+    let mut emitter = TrackedEmitter::with_origin(origin);
     emit_storage(&mut ctx, &mut emitter);
     for routine in &mir.routines {
         emit_routine(&mut ctx, routine, &mut emitter);
@@ -1328,7 +1328,7 @@ fn machine_caret_global_value(global: &super::ir::MirGlobal) -> Option<u16> {
     Some(u16::from_le_bytes([*low, *high]))
 }
 
-fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut NativeTrackedEmitter) {
+fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut TrackedEmitter) {
     for item in ctx.layout.storage_items.clone() {
         match item {
             MirStorageItem::Global { id, address } => {
@@ -1376,7 +1376,7 @@ fn emit_storage(ctx: &mut MirEmitContext<'_>, emitter: &mut NativeTrackedEmitter
 
 fn bind_data_label(
     ctx: &mut MirEmitContext<'_>,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
     label: String,
     address: u16,
 ) {
@@ -1403,7 +1403,7 @@ fn bind_data_label(
 fn emit_global_storage(
     ctx: &mut MirEmitContext<'_>,
     global: &super::ir::MirGlobal,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     emit_storage_init(ctx, global.init.as_ref(), global.storage_size, emitter);
 }
@@ -1412,7 +1412,7 @@ fn emit_storage_init(
     ctx: &mut MirEmitContext<'_>,
     init: Option<&impl StorageInitView>,
     storage_size: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     match init {
         Some(init) => init.emit(ctx, emitter),
@@ -1423,7 +1423,7 @@ fn emit_storage_init(
 fn emit_data_image(
     ctx: &mut MirEmitContext<'_>,
     image: &MirDataImage,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     let mut relocations = image.relocations.iter().collect::<Vec<_>>();
     relocations.sort_by_key(|relocation| relocation.offset);
@@ -1462,7 +1462,7 @@ fn emit_data_image(
 fn emit_data_relocation(
     ctx: &mut MirEmitContext<'_>,
     relocation: &MirDataRelocation,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     if let MirDataRelocationTarget::Routine(routine) = relocation.target {
         let label = ctx.layout.routine_label(routine);
@@ -1535,12 +1535,12 @@ fn emit_data_relocation(
 }
 
 trait StorageInitView {
-    fn emit(&self, ctx: &mut MirEmitContext<'_>, emitter: &mut NativeTrackedEmitter);
+    fn emit(&self, ctx: &mut MirEmitContext<'_>, emitter: &mut TrackedEmitter);
     fn object_size(&self, storage_size: u16) -> u16;
 }
 
 impl StorageInitView for MirGlobalInit {
-    fn emit(&self, ctx: &mut MirEmitContext<'_>, emitter: &mut NativeTrackedEmitter) {
+    fn emit(&self, ctx: &mut MirEmitContext<'_>, emitter: &mut TrackedEmitter) {
         match self {
             MirGlobalInit::Bytes {
                 image, zero_fill, ..
@@ -1625,7 +1625,7 @@ impl StorageInitView for MirGlobalInit {
 }
 
 impl StorageInitView for MirStorageInit {
-    fn emit(&self, ctx: &mut MirEmitContext<'_>, emitter: &mut NativeTrackedEmitter) {
+    fn emit(&self, ctx: &mut MirEmitContext<'_>, emitter: &mut TrackedEmitter) {
         match self {
             MirStorageInit::Bytes {
                 image, zero_fill, ..
@@ -1697,11 +1697,7 @@ impl StorageInitView for MirStorageInit {
     }
 }
 
-fn emit_routine(
-    ctx: &mut MirEmitContext<'_>,
-    routine: &MirRoutine,
-    emitter: &mut NativeTrackedEmitter,
-) {
+fn emit_routine(ctx: &mut MirEmitContext<'_>, routine: &MirRoutine, emitter: &mut TrackedEmitter) {
     let range_start = current_address(ctx, emitter);
     let routine_label = ctx.layout.routine_label(routine.id);
     bind_label(ctx, emitter, routine.id, None, routine_label);
@@ -1798,7 +1794,7 @@ fn emit_jump_or_return(
     ctx: &mut MirEmitContext<'_>,
     routine: &MirRoutine,
     edge: &MirEdge,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     if edge_is_pure_return(routine, edge) {
         emitter.emit_rts();
@@ -1848,7 +1844,7 @@ fn mir_width_bytes(width: MirWidth) -> u16 {
 
 fn bind_label(
     ctx: &mut MirEmitContext<'_>,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
     routine: RoutineId,
     block: Option<MirBlockId>,
     label: String,
@@ -1867,7 +1863,7 @@ fn emit_op(
     routine: RoutineId,
     block: MirBlockId,
     op: &MirOp,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     match op {
         MirOp::LoadImm {
@@ -2871,7 +2867,7 @@ fn emit_machine_item(
     block: MirBlockId,
     machine_origin: u16,
     item: &MirMachineItem,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     match item {
         MirMachineItem::Byte(value) => emitter.emit_u8(*value),
@@ -2959,7 +2955,7 @@ fn emit_inline_asm_relocation(
     addend: i32,
     requires_zero_page: bool,
     span: Span,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     let resolved = match target {
         MirInlineAsmTarget::Memory(mem) => {
@@ -3068,7 +3064,7 @@ fn emit_machine_string_literal(
     routine: RoutineId,
     block: MirBlockId,
     text: &str,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     let literal_address = current_address(ctx, emitter);
     let char_count = text.chars().count();
@@ -3108,7 +3104,7 @@ fn emit_machine_char_literal(
     routine: RoutineId,
     block: MirBlockId,
     value: char,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     let Some(byte) = source_char_byte(value) else {
         unsupported(
@@ -3131,7 +3127,7 @@ fn emit_machine_address_expr(
     atom: &MirMachineAtom,
     offset: i32,
     text: &str,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     match atom {
         MirMachineAtom::Number(value) => {
@@ -3160,7 +3156,7 @@ fn emit_machine_name(
     selector: Option<MirMachineByteSelector>,
     offset: i32,
     text: &str,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     if machine_text_uses_caret(text) {
         if let Some(address) = ctx.layout.machine_caret_symbol(name) {
@@ -3213,7 +3209,7 @@ fn apply_machine_offset(base: u16, offset: i32) -> u16 {
 }
 
 fn emit_machine_output_relative_value(
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
     address: u16,
     offset: i32,
     selector: Option<MirMachineByteSelector>,
@@ -3227,7 +3223,7 @@ fn emit_machine_output_relative_value(
 }
 
 fn emit_machine_resolved_value(
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
     value: u16,
     selector: Option<MirMachineByteSelector>,
 ) {
@@ -3240,7 +3236,7 @@ fn emit_machine_resolved_value(
 }
 
 fn emit_machine_label_value(
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
     label: String,
     selector: Option<MirMachineByteSelector>,
     offset: i32,
@@ -3307,7 +3303,7 @@ fn emit_call(
     routine: RoutineId,
     block: MirBlockId,
     target: &MirCallTarget,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     match target {
         MirCallTarget::Routine(target) => {
@@ -3383,7 +3379,7 @@ fn emit_tail_call(
     routine: RoutineId,
     block: MirBlockId,
     op: &MirOp,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     match op {
         MirOp::Call { target, .. } => emit_tail_call_target(ctx, routine, block, target, emitter),
@@ -3417,7 +3413,7 @@ fn emit_tail_call_target(
     routine: RoutineId,
     block: MirBlockId,
     target: &MirCallTarget,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     match target {
         MirCallTarget::Routine(target) => {
@@ -3463,11 +3459,7 @@ fn emit_tail_call_target(
     }
 }
 
-fn emit_indirect_call(
-    ctx: &mut MirEmitContext<'_>,
-    address: u16,
-    emitter: &mut NativeTrackedEmitter,
-) {
+fn emit_indirect_call(ctx: &mut MirEmitContext<'_>, address: u16, emitter: &mut TrackedEmitter) {
     let return_minus_one = format!(
         "__mir6502_indirect_return_minus_one_{}",
         ctx.indirect_call_counter
@@ -3521,7 +3513,7 @@ fn emit_terminator(
     block: MirBlockId,
     next_block: Option<MirBlockId>,
     terminator: &MirTerminator,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     let routine_id = routine.id;
     match terminator {
@@ -3566,7 +3558,7 @@ fn emit_direct_branch_if_in_range(
     then_edge: &MirEdge,
     else_edge: &MirEdge,
     next_block: Option<MirBlockId>,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     let routine_id = routine.id;
     let then_block = then_edge.target;
@@ -3731,7 +3723,7 @@ fn emit_direct_branch_if_in_range(
 
 fn branch_target_is_in_range(
     ctx: &MirEmitContext<'_>,
-    emitter: &NativeTrackedEmitter,
+    emitter: &TrackedEmitter,
     routine: RoutineId,
     block: MirBlockId,
     target: MirBlockId,
@@ -3773,7 +3765,7 @@ fn emit_value_to_a(
     routine: RoutineId,
     block: MirBlockId,
     value: &MirValue,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     match value {
         MirValue::ConstU8(value) => {
@@ -3829,7 +3821,7 @@ fn emit_value_to_a(
     }
 }
 
-fn emit_carry(carry: Option<MirCarryIn>, op: MirBinaryOp, emitter: &mut NativeTrackedEmitter) {
+fn emit_carry(carry: Option<MirCarryIn>, op: MirBinaryOp, emitter: &mut TrackedEmitter) {
     match (carry, op) {
         (Some(MirCarryIn::Clear), MirBinaryOp::Add) => emitter.emit_clc(),
         (Some(MirCarryIn::Set), MirBinaryOp::Sub) => emitter.emit_sec(),
@@ -3837,7 +3829,7 @@ fn emit_carry(carry: Option<MirCarryIn>, op: MirBinaryOp, emitter: &mut NativeTr
     }
 }
 
-fn emit_lda_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_lda_mem(mem: ResolvedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_lda_abs(address),
         ResolvedMem::OutputRelative(address) => {
@@ -3852,7 +3844,7 @@ fn emit_adc_value_to_a(
     routine: RoutineId,
     block: MirBlockId,
     value: &MirValue,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     match value {
         MirValue::ConstU8(value) => {
@@ -3895,7 +3887,7 @@ fn emit_scaled_index_to_scratch(
     block: MirBlockId,
     index: &MirValue,
     scale: u8,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     let Some((index_lo, index_hi)) = split_index_value_as_word(ctx, index) else {
         return false;
@@ -3926,7 +3918,7 @@ fn emit_scaled_index_plus_base_to_pointer(
     base_lo: &MirValue,
     base_hi: &MirValue,
     pointer_slot: u8,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     let Some((index_lo, index_hi)) = split_index_value_as_word(ctx, index) else {
         return false;
@@ -3968,7 +3960,7 @@ fn emit_scaled_y_index_plus_base_to_pointer(
     base_lo: &MirValue,
     base_hi: &MirValue,
     pointer_slot: u8,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     let Some((index_lo, index_hi)) = split_index_value_as_word(ctx, index) else {
         return false;
@@ -4012,7 +4004,7 @@ fn emit_scaled_index_advance_pointer(
     index: &MirValue,
     scale: u8,
     pointer_slot: u8,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     let Some((index_lo, index_hi)) = split_index_value_as_word(ctx, index) else {
         return false;
@@ -4097,7 +4089,7 @@ fn emit_address_to_def(
     block: MirBlockId,
     dst: &MirDef,
     address: Absolute,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     let immediate = Immediate::from_absolute(address);
     match dst {
@@ -4145,7 +4137,7 @@ fn emit_address_byte_to_spill(
     spill: MirSpillId,
     immediate: Immediate,
     byte_index: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     let Some(mem) = ctx.layout.direct_mem(
         routine,
@@ -4161,7 +4153,7 @@ fn emit_address_byte_to_spill(
     emit_sta_mem(mem, emitter);
 }
 
-fn emit_ldx_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_ldx_mem(mem: ResolvedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_ldx_abs(address),
         ResolvedMem::OutputRelative(address) => {
@@ -4171,7 +4163,7 @@ fn emit_ldx_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     }
 }
 
-fn emit_ldy_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_ldy_mem(mem: ResolvedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_ldy_abs(address),
         ResolvedMem::OutputRelative(address) => {
@@ -4181,7 +4173,7 @@ fn emit_ldy_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     }
 }
 
-fn emit_sta_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_sta_mem(mem: ResolvedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_sta_absolute(Absolute::new(address)),
         ResolvedMem::OutputRelative(address) => {
@@ -4191,7 +4183,7 @@ fn emit_sta_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     }
 }
 
-fn emit_update_mem(op: MirUpdateOp, mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_update_mem(op: MirUpdateOp, mem: ResolvedMem, emitter: &mut TrackedEmitter) {
     match (op, mem) {
         (MirUpdateOp::Inc, ResolvedMem::Absolute(address)) => {
             emitter.emit_inc_absolute(Absolute::new(address));
@@ -4219,7 +4211,7 @@ fn emit_word_inc_mem(
     routine: RoutineId,
     block: MirBlockId,
     mem: ResolvedMem,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     let done = format!(
         "__mir6502_word_inc_done_{}_{}_{}",
@@ -4238,7 +4230,7 @@ fn emit_word_dec_mem(
     routine: RoutineId,
     block: MirBlockId,
     mem: ResolvedMem,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     let dec_low = format!(
         "__mir6502_word_dec_low_{}_{}_{}",
@@ -4260,7 +4252,7 @@ fn emit_byte_to_word_mem(
     op: MirBinaryOp,
     mem: ResolvedMem,
     value: &MirValue,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     emit_lda_mem(mem, emitter);
     emit_carry(
@@ -4323,7 +4315,7 @@ fn emit_offset_pointer_by_indirect_byte(
     dst: ResolvedMem,
     source_slot: u8,
     offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     emitter.emit_ldy_imm(offset as u8);
     emit_lda_mem(ResolvedMem::ZeroPage(source_slot), emitter);
@@ -4358,7 +4350,7 @@ fn emit_copy_indirect_word(
     destination_slot: u8,
     source_offset: u16,
     destination_offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     if !prepare_indirect_y(ctx, source, source_offset, emitter) {
         return false;
@@ -4372,7 +4364,7 @@ fn emit_copy_indirect_word_body(
     source_slot: u8,
     destination_slot: u8,
     destination_offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(source_slot)));
     emitter.emit_pha();
@@ -4391,7 +4383,7 @@ fn emit_copy_direct_word_to_indirect(
     source: ResolvedMem,
     destination_slot: u8,
     destination_offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     emit_lda_mem(source, emitter);
     emitter.emit_tax();
@@ -4409,7 +4401,7 @@ fn emit_copy_indirect_bytes_to_fixed_zp(
     source_slot: u8,
     source_offset: u16,
     destinations: &[MirFixedZpSlot],
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     emitter.emit_ldy_imm(source_offset as u8);
     for (index, _) in destinations.iter().enumerate() {
@@ -4430,7 +4422,7 @@ fn emit_absolute_word_sub_to_indirect(
     rhs: ResolvedMem,
     destination_slot: u8,
     destination_offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     emit_lda_mem(source, emitter);
     emitter.emit_sec();
@@ -4447,7 +4439,7 @@ fn emit_absolute_word_sub_to_indirect(
     emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(destination_slot)));
 }
 
-fn emit_sbc_resolved_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_sbc_resolved_mem(mem: ResolvedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_sbc_abs(address),
         ResolvedMem::OutputRelative(address) => {
@@ -4467,7 +4459,7 @@ fn offset_resolved_mem(mem: ResolvedMem, offset: u16) -> ResolvedMem {
     }
 }
 
-fn emit_stx_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_stx_mem(mem: ResolvedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_stx_absolute(Absolute::new(address)),
         ResolvedMem::OutputRelative(address) => {
@@ -4477,7 +4469,7 @@ fn emit_stx_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     }
 }
 
-fn emit_sty_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_sty_mem(mem: ResolvedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_sty_absolute(Absolute::new(address)),
         ResolvedMem::OutputRelative(address) => {
@@ -4487,7 +4479,7 @@ fn emit_sty_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
     }
 }
 
-fn emit_lda_indexed(mem: ResolvedIndexedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_lda_indexed(mem: ResolvedIndexedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedIndexedMem::AbsoluteX(address) => emitter.emit_lda_abs_x(address),
         ResolvedIndexedMem::AbsoluteY(address) => emitter.emit_lda_abs_y(address),
@@ -4506,7 +4498,7 @@ fn emit_lda_indexed(mem: ResolvedIndexedMem, emitter: &mut NativeTrackedEmitter)
     }
 }
 
-fn emit_sta_indexed(mem: ResolvedIndexedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_sta_indexed(mem: ResolvedIndexedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedIndexedMem::AbsoluteX(address) => emitter.emit_sta_abs_x(address),
         ResolvedIndexedMem::AbsoluteY(address) => emitter.emit_sta_abs_y(address),
@@ -4541,7 +4533,7 @@ fn emit_lda_indirect(
     consumer: MirAddressConsumer,
     pointer_slot: u8,
     offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     if !prepare_indirect_y(ctx, consumer, offset, emitter) {
         return false;
@@ -4555,7 +4547,7 @@ fn emit_sta_indirect(
     consumer: MirAddressConsumer,
     pointer_slot: u8,
     offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     if !prepare_indirect_y(ctx, consumer, offset, emitter) {
         return false;
@@ -4568,7 +4560,7 @@ fn prepare_indirect_y(
     ctx: &mut MirEmitContext<'_>,
     consumer: MirAddressConsumer,
     offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     if consumer.uses_scaled_y() {
         let Some(current) = ctx.scaled_y_offset else {
@@ -4599,7 +4591,7 @@ fn emit_indirect_byte_compound(
     target_slot: u8,
     source_slot: u8,
     offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     emitter.emit_ldy_imm(offset as u8);
     emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(target_slot)));
@@ -4622,7 +4614,7 @@ fn emit_indirect_word_compound(
     target_slot: u8,
     source_slot: u8,
     offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     assert_eq!(
         op,
@@ -4654,7 +4646,7 @@ fn emit_indirect_byte_compare(
     left_slot: u8,
     right_slot: u8,
     offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     emitter.emit_ldy_imm(offset as u8);
     emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(left_slot)));
@@ -4665,7 +4657,7 @@ fn emit_indirect_word_compare(
     left_slot: u8,
     right_slot: u8,
     offset: u16,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     let left = IndirectIndexedY::new(ZeroPage::new(left_slot));
     let right = IndirectIndexedY::new(ZeroPage::new(right_slot));
@@ -4713,7 +4705,7 @@ fn emit_binary_imm(
     block: MirBlockId,
     op: MirBinaryOp,
     right: u8,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     match op {
         MirBinaryOp::Add => emitter.emit_adc_imm(right),
@@ -4741,7 +4733,7 @@ fn emit_binary_mem(
     block: MirBlockId,
     op: MirBinaryOp,
     mem: ResolvedMem,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     match (op, mem) {
         (MirBinaryOp::Add, ResolvedMem::Absolute(address)) => emitter.emit_adc_abs(address),
@@ -4783,7 +4775,7 @@ fn emit_binary_mem(
     }
 }
 
-fn emit_cmp_mem(mem: ResolvedMem, emitter: &mut NativeTrackedEmitter) {
+fn emit_cmp_mem(mem: ResolvedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_cmp_abs(address),
         ResolvedMem::OutputRelative(address) => {
@@ -4804,7 +4796,7 @@ fn emit_compare(
     left: &MirValue,
     right: &MirValue,
     signed: bool,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) {
     match dst {
         MirCondDest::Flags => {
@@ -4908,7 +4900,7 @@ fn emit_compare_flags(
     op: MirCompareOp,
     left: &MirValue,
     right: &MirValue,
-    emitter: &mut NativeTrackedEmitter,
+    emitter: &mut TrackedEmitter,
 ) -> bool {
     if !emit_value_to_a(ctx, routine, block, left, emitter) {
         unsupported(ctx, routine, block, "compare left source is not emit-ready");
@@ -5085,7 +5077,7 @@ fn width_size(width: MirWidth) -> u16 {
     }
 }
 
-fn current_address(ctx: &MirEmitContext<'_>, emitter: &NativeTrackedEmitter) -> u16 {
+fn current_address(ctx: &MirEmitContext<'_>, emitter: &TrackedEmitter) -> u16 {
     ctx.origin.saturating_add(emitter.position() as u16)
 }
 
@@ -5259,7 +5251,7 @@ mod tests {
 
     #[test]
     fn dual_indirect_byte_compare_emits_one_shared_y_offset() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emit_indirect_byte_compare(0xAE, 0xAC, 3, &mut emitter);
 
@@ -5271,7 +5263,7 @@ mod tests {
 
     #[test]
     fn pointer_indirect_byte_offset_emits_one_carry_chain() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emit_offset_pointer_by_indirect_byte(
             MirBinaryOp::Add,
@@ -5305,7 +5297,7 @@ mod tests {
 
     #[test]
     fn indirect_word_copy_reads_both_bytes_before_writing_destination() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emit_copy_indirect_word_body(0xAC, 0xAA, 3, &mut emitter);
 
@@ -5334,7 +5326,7 @@ mod tests {
 
     #[test]
     fn direct_to_indirect_word_copy_reads_both_bytes_before_writing_destination() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emit_copy_direct_word_to_indirect(ResolvedMem::Absolute(0x4000), 0xAC, 2, &mut emitter);
 
@@ -5364,7 +5356,7 @@ mod tests {
 
     #[test]
     fn absolute_word_subtraction_reads_all_operands_before_indirect_writes() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emit_absolute_word_sub_to_indirect(
             ResolvedMem::Absolute(0x4000),
@@ -5407,7 +5399,7 @@ mod tests {
 
     #[test]
     fn indirect_byte_range_reads_every_byte_before_fixed_zp_writes() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emit_copy_indirect_bytes_to_fixed_zp(
             0xAC,
@@ -5459,7 +5451,7 @@ mod tests {
 
     #[test]
     fn indirect_word_compound_reads_both_lanes_before_target_writes() {
-        let mut emitter = NativeTrackedEmitter::with_origin(0x3000);
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
 
         emit_indirect_word_compound(MirBinaryOp::Add, 0xAA, 0xAC, 3, &mut emitter);
 

@@ -385,7 +385,7 @@ use state::*;
 
 mod native_state;
 
-pub(crate) mod native_emitter;
+pub(crate) mod tracked_emitter;
 
 fn ranges_overlap(left_address: u16, left_size: u16, right_address: u16, right_size: u16) -> bool {
     let left_end = left_address.saturating_add(left_size.max(1));
