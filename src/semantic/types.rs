@@ -66,6 +66,7 @@ pub struct CallableType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueTypeKind {
     Scalar(ScalarType),
+    Real,
     Pointer(PointerType),
     CallablePointer(CallableType),
     Record(String),
@@ -77,6 +78,7 @@ pub enum TypeCompatibility {
     Exact,
     ScalarAssignment,
     ScalarArgument,
+    IntegerToReal,
     PointerExact,
     PointerAddress,
     AddressAsCard,
@@ -290,6 +292,13 @@ impl ValueType {
         Self::scalar(ScalarType::from_fund(fund))
     }
 
+    pub fn real() -> Self {
+        Self {
+            base: ValueTypeBase::Real,
+            pointer: false,
+        }
+    }
+
     pub fn record(name: impl Into<String>) -> Self {
         Self {
             base: ValueTypeBase::Named(name.into()),
@@ -346,7 +355,10 @@ impl ValueType {
         }
         match self.base {
             ValueTypeBase::Fund(fund) => Some(ScalarType::from_fund(fund)),
-            ValueTypeBase::Named(_) | ValueTypeBase::Callable(_) | ValueTypeBase::Error => None,
+            ValueTypeBase::Real
+            | ValueTypeBase::Named(_)
+            | ValueTypeBase::Callable(_)
+            | ValueTypeBase::Error => None,
         }
     }
 
@@ -358,9 +370,18 @@ impl ValueType {
         self.as_scalar().is_some()
     }
 
+    pub fn is_real(&self) -> bool {
+        !self.pointer && matches!(self.base, ValueTypeBase::Real)
+    }
+
+    pub fn is_numeric_value(&self) -> bool {
+        self.is_numeric_scalar() || self.is_real()
+    }
+
     pub fn value_width_bytes(&self) -> Option<u16> {
         match self.kind() {
             ValueTypeKind::Scalar(scalar) => Some(scalar.width_bytes()),
+            ValueTypeKind::Real => Some(6),
             ValueTypeKind::Pointer(_) => Some(2),
             ValueTypeKind::CallablePointer(_) => Some(2),
             ValueTypeKind::Record(_) | ValueTypeKind::Error => None,
@@ -382,6 +403,7 @@ impl ValueType {
 
         match &self.base {
             ValueTypeBase::Fund(fund) => ValueTypeKind::Scalar(ScalarType::from_fund(*fund)),
+            ValueTypeBase::Real => ValueTypeKind::Real,
             ValueTypeBase::Named(name) => ValueTypeKind::Record(name.clone()),
             ValueTypeBase::Callable(callable) if !self.pointer => {
                 ValueTypeKind::CallablePointer((**callable).clone())
@@ -415,7 +437,10 @@ impl ValueType {
                 name,
                 is_pointer: self.pointer,
             }),
-            ValueTypeBase::Fund(_) | ValueTypeBase::Callable(_) | ValueTypeBase::Error => None,
+            ValueTypeBase::Fund(_)
+            | ValueTypeBase::Real
+            | ValueTypeBase::Callable(_)
+            | ValueTypeBase::Error => None,
         }
     }
 
@@ -443,6 +468,9 @@ impl ValueType {
         }
         if self == actual {
             return TypeCompatibility::Exact;
+        }
+        if self.is_real() && actual.as_scalar().is_some() {
+            return TypeCompatibility::IntegerToReal;
         }
         if matches!(self.kind(), ValueTypeKind::CallablePointer(_))
             && matches!(actual.kind(), ValueTypeKind::Scalar(ScalarType::Card))
@@ -495,6 +523,7 @@ fn pointer_compatibility(expected: &PointerType, actual: &ValueType) -> TypeComp
             TypeCompatibility::PointerExact
         }
         ValueTypeKind::Scalar(ScalarType::Card) => TypeCompatibility::PointerAddress,
+        ValueTypeKind::Real => TypeCompatibility::Incompatible,
         ValueTypeKind::Error => TypeCompatibility::Error,
         _ => TypeCompatibility::Incompatible,
     }
@@ -644,6 +673,27 @@ mod tests {
         let record = ValueType::record("Pair");
         assert_eq!(record.value_width_bytes(), None);
         assert_eq!(ValueType::error().value_width_bytes(), None);
+    }
+
+    #[test]
+    fn real_is_a_distinct_six_byte_numeric_value() {
+        let real = ValueType::real();
+        assert_eq!(real.kind(), ValueTypeKind::Real);
+        assert_eq!(real.value_width_bytes(), Some(6));
+        assert!(real.is_numeric_value());
+        assert!(!real.is_numeric_scalar());
+        assert_eq!(
+            real.assignment_compatibility(&ValueType::fund(FundType::Int)),
+            TypeCompatibility::IntegerToReal
+        );
+        assert_eq!(
+            ValueType::fund(FundType::Int).assignment_compatibility(&real),
+            TypeCompatibility::Incompatible
+        );
+        assert_eq!(
+            ValueType::pointer_to(real.clone()).value_width_bytes(),
+            Some(2)
+        );
     }
 
     #[test]

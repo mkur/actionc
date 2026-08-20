@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::ast::*;
+use crate::atari_real::AtariReal;
 use crate::diagnostic::Diagnostic;
 use crate::includes::{LoadedCompilation, ModuleId};
 use crate::lexer::{NumberKind, NumberLiteral};
@@ -264,6 +265,7 @@ pub struct ValueType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueTypeBase {
     Fund(FundType),
+    Real,
     Named(String),
     Callable(Box<CallableType>),
     Error,
@@ -322,7 +324,25 @@ pub struct StmtFlowFacts {
     pub max_loop_depth: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SemanticOptions {
+    pub native_real: bool,
+}
+
+impl SemanticOptions {
+    pub const fn modern() -> Self {
+        Self { native_real: true }
+    }
+}
+
 pub fn analyze(program: &Program) -> Result<SemanticModel, Vec<Diagnostic>> {
+    analyze_with_options(program, SemanticOptions::default())
+}
+
+pub fn analyze_with_options(
+    program: &Program,
+    options: SemanticOptions,
+) -> Result<SemanticModel, Vec<Diagnostic>> {
     if let SourceUnitKind::Named(module) = &program.source_kind {
         return Err(vec![Diagnostic::new(
             module.span,
@@ -330,7 +350,7 @@ pub fn analyze(program: &Program) -> Result<SemanticModel, Vec<Diagnostic>> {
         )]);
     }
 
-    let mut analyzer = Analyzer::new();
+    let mut analyzer = Analyzer::with_options(options);
     analyzer.seed_builtins();
     analyzer.analyze_program(program);
 
@@ -340,17 +360,24 @@ pub fn analyze(program: &Program) -> Result<SemanticModel, Vec<Diagnostic>> {
 pub fn analyze_compilation(
     compilation: &LoadedCompilation,
 ) -> Result<SemanticModel, Vec<Diagnostic>> {
+    analyze_compilation_with_options(compilation, SemanticOptions::default())
+}
+
+pub fn analyze_compilation_with_options(
+    compilation: &LoadedCompilation,
+    options: SemanticOptions,
+) -> Result<SemanticModel, Vec<Diagnostic>> {
     if matches!(
         compilation.root_module().program.source_kind,
         SourceUnitKind::Legacy
     ) {
-        let mut analyzer = Analyzer::new();
+        let mut analyzer = Analyzer::with_options(options);
         analyzer.seed_builtins();
         analyzer.analyze_legacy_compilation(compilation);
         return analyzer.finish();
     }
 
-    let mut analyzer = Analyzer::new();
+    let mut analyzer = Analyzer::with_options(options);
     analyzer.seed_builtins();
     analyzer.analyze_named_compilation(compilation);
     analyzer.finish()
@@ -380,6 +407,7 @@ impl Analyzer {
 }
 
 struct Analyzer {
+    options: SemanticOptions,
     symbols: SymbolTable,
     builtin_scope: ScopeId,
     global_scope: ScopeId,
@@ -429,7 +457,12 @@ impl<'a> ControlContext<'a> {
 }
 
 impl Analyzer {
+    #[cfg(test)]
     fn new() -> Self {
+        Self::with_options(SemanticOptions::default())
+    }
+
+    fn with_options(options: SemanticOptions) -> Self {
         let mut symbols = SymbolTable {
             scopes: Vec::new(),
             symbols: Vec::new(),
@@ -438,6 +471,7 @@ impl Analyzer {
         let global_scope = symbols.add_scope(ScopeKind::Global, Some(builtin_scope));
 
         Self {
+            options,
             symbols,
             builtin_scope,
             global_scope,
@@ -466,6 +500,16 @@ impl Analyzer {
             None,
             Span::new(0, 0),
         );
+
+        if self.options.native_real {
+            self.declare(
+                self.builtin_scope,
+                "REAL".to_string(),
+                SymbolClass::Type,
+                Some(ValueType::real()),
+                Span::new(0, 0),
+            );
+        }
 
         self.seed_resident_interface();
 
@@ -1363,7 +1407,13 @@ impl Analyzer {
 
     fn validate_condition(&mut self, scope: ScopeId, expr: &Expr) {
         let diagnostic_count = self.diagnostics.len();
-        self.expect_expr(scope, expr, expr.span);
+        let typed = self.expect_expr(scope, expr, expr.span);
+        if typed.ty.is_real() {
+            self.diagnostics.push(Diagnostic::new(
+                expr.span,
+                "direct REAL conditions are not supported yet; compare the value explicitly",
+            ));
+        }
         if self.diagnostics.len() == diagnostic_count {
             self.lower_expr(scope, expr);
         }
@@ -1442,6 +1492,25 @@ impl Analyzer {
         if expected.is_error() || actual.is_error() {
             return;
         }
+        if expected.is_real() {
+            if !actual.is_numeric_value() {
+                self.diagnostics.push(Diagnostic::new(
+                    value.span,
+                    format!("cannot assign {:?} to REAL", actual),
+                ));
+            }
+            return;
+        }
+        if actual.is_real() && !expected.is_real() {
+            self.diagnostics.push(Diagnostic::new(
+                value.span,
+                format!(
+                    "REAL requires an explicit conversion before assignment to {:?}",
+                    expected
+                ),
+            ));
+            return;
+        }
         if !expected.pointer {
             return;
         }
@@ -1493,6 +1562,25 @@ impl Analyzer {
                 self.diagnostics.push(Diagnostic::new(
                     value_expr.span,
                     "pointer compound assignment value must be numeric",
+                ));
+            }
+            return;
+        }
+
+        if target_ty.is_real() {
+            if !real_binary_operator_supported(op) {
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    format!(
+                        "operator {} is not supported for REAL",
+                        binary_operator_text(op)
+                    ),
+                ));
+            }
+            if !value_ty.is_numeric_value() {
+                self.diagnostics.push(Diagnostic::new(
+                    value_expr.span,
+                    "REAL compound assignment value must be numeric",
                 ));
             }
             return;
@@ -1624,13 +1712,7 @@ impl Analyzer {
                 kind: subject::SemExprKind::CurrentLocation,
                 span: expr.span,
             }),
-            ExprKind::Number(number) => subject::SemSubject::Expr(subject::SemExpr {
-                ty: ScalarType::from_number_kind(number.kind)
-                    .map(ValueType::scalar)
-                    .unwrap_or_else(ValueType::error),
-                kind: subject::SemExprKind::Literal(subject::SemLiteral::Number(number.clone())),
-                span: expr.span,
-            }),
+            ExprKind::Number(number) => self.classify_number_subject(number, expr.span),
             ExprKind::String(value) => subject::SemSubject::Expr(subject::SemExpr {
                 ty: string_literal_type(),
                 kind: subject::SemExprKind::Literal(subject::SemLiteral::String(value.clone())),
@@ -1746,11 +1828,28 @@ impl Analyzer {
             ExprKind::Binary { op, left, right } => {
                 let left = self.expect_expr(scope, left, expr.span);
                 let right = self.expect_expr(scope, right, expr.span);
-                let ty = if is_condition_op(*op) {
-                    fund_value(FundType::Byte)
-                } else {
-                    promote_numeric(&left.ty, &right.ty)
-                };
+                let uses_real = left.ty.is_real() || right.ty.is_real();
+                let ty =
+                    if uses_real && (!left.ty.is_numeric_value() || !right.ty.is_numeric_value()) {
+                        self.diagnostics.push(Diagnostic::new(
+                            expr.span,
+                            "REAL operators require numeric operands",
+                        ));
+                        ValueType::error()
+                    } else if uses_real && !real_binary_operator_supported(*op) {
+                        self.diagnostics.push(Diagnostic::new(
+                            expr.span,
+                            format!(
+                                "operator {} is not supported for REAL",
+                                binary_operator_text(*op)
+                            ),
+                        ));
+                        ValueType::error()
+                    } else if is_condition_op(*op) {
+                        fund_value(FundType::Byte)
+                    } else {
+                        promote_numeric(&left.ty, &right.ty)
+                    };
                 subject::SemSubject::Expr(subject::SemExpr {
                     ty,
                     kind: subject::SemExprKind::Binary {
@@ -1892,6 +1991,45 @@ impl Analyzer {
             }
             SemanticNameResolution::Unknown => None,
         }
+    }
+
+    fn classify_number_subject(
+        &mut self,
+        number: &NumberLiteral,
+        span: Span,
+    ) -> subject::SemSubject {
+        if number.kind == NumberKind::Real {
+            if !self.options.native_real {
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    "native REAL requires the modern profile",
+                ));
+                return subject::SemSubject::Expr(self.error_expr(span));
+            }
+            return match AtariReal::from_decimal(&number.text) {
+                Ok(value) => subject::SemSubject::Expr(subject::SemExpr {
+                    ty: ValueType::real(),
+                    kind: subject::SemExprKind::Literal(subject::SemLiteral::Real {
+                        source: number.clone(),
+                        value,
+                    }),
+                    span,
+                }),
+                Err(error) => {
+                    self.diagnostics
+                        .push(Diagnostic::new(span, error.to_string()));
+                    subject::SemSubject::Expr(self.error_expr(span))
+                }
+            };
+        }
+
+        subject::SemSubject::Expr(subject::SemExpr {
+            ty: ScalarType::from_number_kind(number.kind)
+                .map(ValueType::scalar)
+                .unwrap_or_else(ValueType::error),
+            kind: subject::SemExprKind::Literal(subject::SemLiteral::Number(number.clone())),
+            span,
+        })
     }
 
     fn classify_name_subject(
@@ -2739,6 +2877,12 @@ impl Analyzer {
     fn validate_predeclared_var(&mut self, scope: ScopeId, declaration: &VarDecl) {
         self.validate_type_ref(scope, &declaration.ty, declaration.span);
         let ty = self.value_type_from_type_ref(scope, &declaration.ty);
+        if ty.is_real() && declaration.storage == VarStorage::Array {
+            self.diagnostics.push(Diagnostic::new(
+                declaration.span,
+                "REAL arrays are not supported yet",
+            ));
+        }
         if declaration.qualifiers.is_volatile && declaration.ty.pointer {
             self.diagnostics.push(Diagnostic::new(
                 declaration.span,
@@ -2938,7 +3082,21 @@ impl Analyzer {
 
     fn analyze_var_decl(&mut self, scope: ScopeId, decl: &VarDecl, is_param: bool) {
         self.validate_type_ref(scope, &decl.ty, decl.span);
-        let ty = Some(self.value_type_from_type_ref(scope, &decl.ty));
+        let resolved_ty = self.value_type_from_type_ref(scope, &decl.ty);
+        let ty = Some(resolved_ty.clone());
+
+        if resolved_ty.is_real() && decl.storage == VarStorage::Array {
+            self.diagnostics.push(Diagnostic::new(
+                decl.span,
+                "REAL arrays are not supported yet",
+            ));
+        }
+        if is_param && resolved_ty.is_real() {
+            self.diagnostics.push(Diagnostic::new(
+                decl.span,
+                "by-value REAL parameters are not supported yet; use REAL POINTER",
+            ));
+        }
 
         if decl.qualifiers.is_volatile && is_param {
             self.diagnostics.push(Diagnostic::new(
@@ -3124,8 +3282,12 @@ impl Analyzer {
                 SymbolClass::Type | SymbolClass::Record
             )
         {
-            value.base =
-                ValueTypeBase::Named(self.symbols.symbols[symbol_id.0].qualified_name.clone());
+            let symbol = &self.symbols.symbols[symbol_id.0];
+            value.base = if symbol.ty.as_ref().is_some_and(ValueType::is_real) {
+                ValueTypeBase::Real
+            } else {
+                ValueTypeBase::Named(symbol.qualified_name.clone())
+            };
         }
         value
     }
@@ -3450,6 +3612,7 @@ fn callable_kind_from_symbol(symbol: &Symbol) -> RoutineKind {
     match (&symbol.class, symbol.ty.as_ref()) {
         (SymbolClass::Func | SymbolClass::BuiltinFunc, Some(ty)) => match ty.base {
             ValueTypeBase::Fund(fund) => RoutineKind::Func { return_type: fund },
+            ValueTypeBase::Real => RoutineKind::Proc,
             ValueTypeBase::Named(_) => RoutineKind::Proc,
             ValueTypeBase::Callable(_) => RoutineKind::Proc,
             ValueTypeBase::Error => RoutineKind::Proc,
@@ -3482,6 +3645,13 @@ fn promote_numeric(left: &ValueType, right: &ValueType) -> ValueType {
     if left.pointer || right.pointer {
         return fund_value(FundType::Card);
     }
+    if left.is_real() || right.is_real() {
+        return if left.is_numeric_value() && right.is_numeric_value() {
+            ValueType::real()
+        } else {
+            ValueType::error()
+        };
+    }
 
     let Some(left) = left.as_scalar() else {
         return ValueType::error();
@@ -3503,6 +3673,9 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
         subject::SemExprKind::Literal(subject::SemLiteral::Number(number)) => number
             .value
             .ok_or_else(|| "real values are not supported in CONST expressions".to_string())?,
+        subject::SemExprKind::Literal(subject::SemLiteral::Real { .. }) => {
+            return Err("real values are not supported in CONST expressions".to_string());
+        }
         subject::SemExprKind::Literal(subject::SemLiteral::Char(ch)) => u16::from(
             source_char_byte(*ch)
                 .ok_or_else(|| "character cannot be represented as an Action! byte".to_string())?,
@@ -3609,6 +3782,43 @@ fn is_condition_op(op: BinaryOp) -> bool {
         op,
         BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge
     )
+}
+
+fn real_binary_operator_supported(op: BinaryOp) -> bool {
+    matches!(
+        op,
+        BinaryOp::Add
+            | BinaryOp::Sub
+            | BinaryOp::Mul
+            | BinaryOp::Div
+            | BinaryOp::Eq
+            | BinaryOp::Ne
+            | BinaryOp::Lt
+            | BinaryOp::Le
+            | BinaryOp::Gt
+            | BinaryOp::Ge
+    )
+}
+
+fn binary_operator_text(op: BinaryOp) -> &'static str {
+    match op {
+        BinaryOp::Add => "+",
+        BinaryOp::Sub => "-",
+        BinaryOp::Mul => "*",
+        BinaryOp::Div => "/",
+        BinaryOp::Mod => "MOD",
+        BinaryOp::Lsh => "LSH",
+        BinaryOp::Rsh => "RSH",
+        BinaryOp::And => "AND",
+        BinaryOp::Or => "OR",
+        BinaryOp::Xor => "XOR",
+        BinaryOp::Eq => "=",
+        BinaryOp::Ne => "#",
+        BinaryOp::Lt => "<",
+        BinaryOp::Le => "<=",
+        BinaryOp::Gt => ">",
+        BinaryOp::Ge => ">=",
+    }
 }
 
 fn diagnostic_span(span: Span, fallback: Span) -> Span {
@@ -4760,6 +4970,175 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![("r1", 0), ("r2", 2), ("r3", 4)]
         );
+    }
+
+    #[test]
+    fn modern_profile_seeds_native_real_without_reserving_the_name() {
+        let model = analyze_modern_source("REAL value REAL POINTER ptr PROC Main() RETURN");
+        let global = model.symbols.global_scope();
+        let builtin = model.symbols.lookup(global, "REAL").expect("REAL builtin");
+        let value = model.symbols.lookup(global, "value").expect("REAL value");
+        let pointer = model.symbols.lookup(global, "ptr").expect("REAL pointer");
+
+        assert_eq!(model.symbols.symbols[builtin.0].class, SymbolClass::Type);
+        assert_eq!(model.symbols.symbols[builtin.0].ty, Some(ValueType::real()));
+        assert_eq!(model.symbols.symbols[value.0].ty, Some(ValueType::real()));
+        assert_eq!(
+            model.symbols.symbols[pointer.0].ty,
+            Some(ValueType::pointer_to(ValueType::real()))
+        );
+        assert_eq!(ValueType::real().value_width_bytes(), Some(6));
+    }
+
+    #[test]
+    fn native_real_is_not_available_in_the_compatibility_semantic_profile() {
+        let err = analyze_source_err("REAL value PROC Main() RETURN");
+        assert!(
+            err.iter()
+                .any(|diagnostic| diagnostic.message.contains("unknown type `REAL`"))
+        );
+
+        let err = analyze_source_err("BYTE value PROC Main() value=1.25 RETURN");
+        assert!(err.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("native REAL requires the modern profile")
+        }));
+    }
+
+    #[test]
+    fn source_real_type_shadows_the_modern_builtin() {
+        let model = analyze_modern_source(
+            "TYPE REAL=[CARD r1,r2,r3] REAL value PROC Main() value.r2=$1234 RETURN",
+        );
+        let global = model.symbols.global_scope();
+        let real = model.symbols.lookup(global, "REAL").expect("source REAL");
+        let value = model.symbols.lookup(global, "value").expect("REAL value");
+
+        assert_eq!(model.symbols.symbols[real.0].scope, global);
+        assert_eq!(
+            model.symbols.symbols[value.0].ty,
+            Some(ValueType {
+                base: ValueTypeBase::Named("REAL".to_string()),
+                pointer: false,
+            })
+        );
+        assert_eq!(
+            model
+                .layout
+                .record_for_owner(real)
+                .map(|layout| layout.size),
+            Some(6)
+        );
+    }
+
+    #[test]
+    fn semir_records_exact_real_literals_and_integer_promotions() {
+        let (program, model) =
+            analyze_modern_program_source("REAL value PROC Main() value=1.25+2 RETURN");
+        let semir = ir::lower_program(&program, &model);
+        let main = semir.modules[0]
+            .items
+            .iter()
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine) if routine.symbol.name == "Main" => Some(routine),
+                _ => None,
+            })
+            .expect("Main");
+        let ir::SemStmt::Assign { target, value, .. } = &main.body[0] else {
+            panic!("expected REAL assignment");
+        };
+        assert_eq!(target.ty, ValueType::real());
+        assert_eq!(value.ty, ValueType::real());
+        let ir::SemExprKind::Binary { left, right, .. } = &value.kind else {
+            panic!("expected REAL binary expression");
+        };
+        let ir::SemExprKind::Literal(ir::SemLiteral::Real { source, value }) = &left.kind else {
+            panic!("expected exact REAL literal");
+        };
+        assert_eq!(source.text, "1.25");
+        assert_eq!(value.to_bytes(), [0x40, 0x01, 0x25, 0, 0, 0]);
+        let ir::SemExprKind::Cast { ty, expr } = &right.kind else {
+            panic!("expected explicit integer-to-REAL conversion");
+        };
+        assert_eq!(*ty, ValueType::real());
+        assert_eq!(expr.ty, ValueType::fund(FundType::Byte));
+    }
+
+    #[test]
+    fn real_comparisons_promote_integer_operands_and_produce_byte() {
+        let (program, model) = analyze_modern_program_source(
+            "REAL value BYTE result PROC Main() result=value<2 RETURN",
+        );
+        let semir = ir::lower_program(&program, &model);
+        let main = semir.modules[0]
+            .items
+            .iter()
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine) if routine.symbol.name == "Main" => Some(routine),
+                _ => None,
+            })
+            .expect("Main");
+        let ir::SemStmt::Assign { value, .. } = &main.body[0] else {
+            panic!("expected comparison assignment");
+        };
+        assert_eq!(value.ty, ValueType::fund(FundType::Byte));
+        let ir::SemExprKind::Binary { left, right, .. } = &value.kind else {
+            panic!("expected comparison");
+        };
+        assert_eq!(left.ty, ValueType::real());
+        assert_eq!(right.ty, ValueType::real());
+        assert!(matches!(right.kind, ir::SemExprKind::Cast { .. }));
+    }
+
+    #[test]
+    fn native_real_rejects_deferred_or_invalid_semantic_forms() {
+        let invalid_operator =
+            analyze_modern_source_err("REAL value PROC Main() value=value MOD 2 RETURN");
+        assert!(invalid_operator.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("operator MOD is not supported for REAL")
+        }));
+
+        let narrowing =
+            analyze_modern_source_err("REAL value BYTE result PROC Main() result=value RETURN");
+        assert!(narrowing.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("REAL requires an explicit conversion")
+        }));
+
+        let parameter = analyze_modern_source_err("PROC Consume(REAL value) RETURN");
+        assert!(parameter.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("by-value REAL parameters are not supported")
+        }));
+
+        let array = analyze_modern_source_err("REAL ARRAY values(2) PROC Main() RETURN");
+        assert!(
+            array
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("REAL arrays are not supported"))
+        );
+
+        let condition =
+            analyze_modern_source_err("REAL value PROC Main() IF value THEN RETURN FI RETURN");
+        assert!(condition.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("direct REAL conditions are not supported")
+        }));
+
+        let exponent = analyze_modern_source_err("REAL value PROC Main() value=1E100 RETURN");
+        assert!(exponent.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("exponent may contain at most two digits")
+        }));
+
+        analyze_modern_source("PROC Consume(REAL POINTER value) RETURN");
     }
 
     #[test]
@@ -7144,10 +7523,21 @@ mod tests {
         analyze_program_source(source).1
     }
 
+    fn analyze_modern_source(source: &str) -> SemanticModel {
+        analyze_modern_program_source(source).1
+    }
+
     fn analyze_program_source(source: &str) -> (Program, SemanticModel) {
         let tokens = tokenize(source).unwrap();
         let program = parse(&tokens).unwrap();
         let model = analyze(&program).unwrap();
+        (program, model)
+    }
+
+    fn analyze_modern_program_source(source: &str) -> (Program, SemanticModel) {
+        let tokens = tokenize(source).unwrap();
+        let program = parse(&tokens).unwrap();
+        let model = analyze_with_options(&program, SemanticOptions::modern()).unwrap();
         (program, model)
     }
 
@@ -7180,6 +7570,12 @@ mod tests {
         let tokens = tokenize(source).unwrap();
         let program = parse(&tokens).unwrap();
         analyze(&program).unwrap_err()
+    }
+
+    fn analyze_modern_source_err(source: &str) -> Vec<Diagnostic> {
+        let tokens = tokenize(source).unwrap();
+        let program = parse(&tokens).unwrap();
+        analyze_with_options(&program, SemanticOptions::modern()).unwrap_err()
     }
 
     fn analyze_named_sources(sources: &[(&str, &str)]) -> SemanticModel {

@@ -12,6 +12,7 @@ use crate::ast::{
     RecordDecl, Routine, RoutineKind, SetDirective, Stmt, TypeBase, TypeDecl, TypeRef, UnaryOp,
     VarDecl, VarStorage,
 };
+use crate::atari_real::AtariReal;
 use crate::includes::{LoadedCompilation, ModuleId};
 use crate::lexer::{NumberLiteral, TokenKind, tokenize};
 use crate::source::Span;
@@ -681,6 +682,10 @@ pub struct SemArrayDecay {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemLiteral {
     Number(NumberLiteral),
+    Real {
+        source: NumberLiteral,
+        value: AtariReal,
+    },
     String(String),
     Char(char),
     Constant(ConstValue),
@@ -1500,6 +1505,7 @@ fn lvalue_summary(lvalue: &SemLValue) -> String {
 fn literal_summary(literal: &SemLiteral) -> String {
     match literal {
         SemLiteral::Number(number) => number.text.clone(),
+        SemLiteral::Real { source, .. } => source.text.clone(),
         SemLiteral::String(text) => format!("{text:?}"),
         SemLiteral::Char(ch) => format!("'{ch}'"),
         SemLiteral::Constant(value) => const_value_summary(*value),
@@ -1635,6 +1641,7 @@ fn sem_array_origin_from_layout(origin: super::SemanticArrayOrigin) -> SemArrayO
 fn type_summary(ty: &ValueType) -> String {
     let base = match &ty.base {
         ValueTypeBase::Fund(fund) => format!("{fund:?}"),
+        ValueTypeBase::Real => "REAL".to_string(),
         ValueTypeBase::Named(name) => name.clone(),
         ValueTypeBase::Callable(callable) => callable_type_summary(callable),
         ValueTypeBase::Error => "<error>".to_string(),
@@ -2307,7 +2314,7 @@ impl<'a> IrBuilder<'a> {
             } => vec![SemStmt::CompoundAssign {
                 target: self.lower_lvalue(scope, target),
                 op: *op,
-                value: self.lower_expr(scope, value),
+                value: self.lower_compound_assignment_value(scope, target, value),
                 span: *span,
             }],
             Stmt::Call { expr, span } => vec![SemStmt::Call {
@@ -2489,6 +2496,14 @@ impl<'a> IrBuilder<'a> {
                     .collect(),
             ),
             ExprKind::CurrentLocation => SemExprKind::CurrentLocation,
+            ExprKind::Number(number) if number.kind == crate::lexer::NumberKind::Real => {
+                let value = AtariReal::from_decimal(&number.text)
+                    .expect("semantic analysis validated the REAL literal");
+                SemExprKind::Literal(SemLiteral::Real {
+                    source: number.clone(),
+                    value,
+                })
+            }
             ExprKind::Number(number) => SemExprKind::Literal(SemLiteral::Number(number.clone())),
             ExprKind::String(value) => SemExprKind::Literal(SemLiteral::String(value.clone())),
             ExprKind::Char(value) => SemExprKind::Literal(SemLiteral::Char(*value)),
@@ -2530,11 +2545,7 @@ impl<'a> IrBuilder<'a> {
                 op: *op,
                 expr: Box::new(self.lower_expr(scope, inner)),
             },
-            ExprKind::Binary { op, left, right } => SemExprKind::Binary {
-                op: *op,
-                left: Box::new(self.lower_expr(scope, left)),
-                right: Box::new(self.lower_expr(scope, right)),
-            },
+            ExprKind::Binary { op, left, right } => self.lower_binary_expr(scope, *op, left, right),
             ExprKind::Call { callee, args }
                 if args.len() == 1 && self.is_indexable_lvalue(scope, callee) =>
             {
@@ -2593,6 +2604,7 @@ impl<'a> IrBuilder<'a> {
             | SemExprKind::UnresolvedName(_) => ValueType::error(),
             SemExprKind::CurrentLocation => card_type(),
             SemExprKind::Literal(SemLiteral::Number(number)) => value_type_for_number(number),
+            SemExprKind::Literal(SemLiteral::Real { .. }) => ValueType::real(),
             SemExprKind::Literal(SemLiteral::String(_)) => ValueType::pointer_to(char_type()),
             SemExprKind::Literal(SemLiteral::Char(_)) => char_type(),
             SemExprKind::Literal(SemLiteral::Constant(value)) => value.value_type(),
@@ -2696,6 +2708,11 @@ impl<'a> IrBuilder<'a> {
             };
         }
 
+        if expected.is_real() {
+            let lowered = self.lower_expr(scope, expr);
+            return self.coerce_integer_expr_to_real(lowered);
+        }
+
         if expected.is_word_sized_value()
             && let ExprKind::Name(name) = &expr.kind
             && let Some(symbol) = self.symbol_ref(scope, name, expr.span)
@@ -2715,6 +2732,60 @@ impl<'a> IrBuilder<'a> {
         }
 
         self.lower_expr(scope, expr)
+    }
+
+    fn lower_compound_assignment_value(
+        &mut self,
+        scope: ScopeId,
+        target: &Expr,
+        value: &Expr,
+    ) -> SemExpr {
+        if self
+            .lvalue_expr_type(scope, target)
+            .is_some_and(|ty| ty.is_real())
+        {
+            let lowered = self.lower_expr(scope, value);
+            self.coerce_integer_expr_to_real(lowered)
+        } else {
+            self.lower_expr(scope, value)
+        }
+    }
+
+    fn lower_binary_expr(
+        &mut self,
+        scope: ScopeId,
+        op: BinaryOp,
+        left: &Expr,
+        right: &Expr,
+    ) -> SemExprKind {
+        let mut left = self.lower_expr(scope, left);
+        let mut right = self.lower_expr(scope, right);
+        if left.ty.is_real() || right.ty.is_real() {
+            left = self.coerce_integer_expr_to_real(left);
+            right = self.coerce_integer_expr_to_real(right);
+        }
+        SemExprKind::Binary {
+            op,
+            left: Box::new(left),
+            right: Box::new(right),
+        }
+    }
+
+    fn coerce_integer_expr_to_real(&mut self, expr: SemExpr) -> SemExpr {
+        if expr.ty.is_real() || expr.ty.as_scalar().is_none() {
+            return expr;
+        }
+        let span = expr.span;
+        SemExpr {
+            kind: SemExprKind::Cast {
+                ty: ValueType::real(),
+                expr: Box::new(expr),
+            },
+            ty: ValueType::real(),
+            class: SemExprClass::Value,
+            eval_order: Some(self.next_eval_order()),
+            span,
+        }
     }
 
     fn lower_arithmetic_for_expected_word_scalar(
@@ -3630,7 +3701,11 @@ impl<'a> IrBuilder<'a> {
         if let Some(symbol) = self.qualified_symbol_ref(scope, name, Span::new(0, 0))
             && matches!(symbol.class, SymbolClass::Type | SymbolClass::Record)
         {
-            value.base = ValueTypeBase::Named(symbol.qualified_name);
+            value.base = if symbol.ty.as_ref().is_some_and(ValueType::is_real) {
+                ValueTypeBase::Real
+            } else {
+                ValueTypeBase::Named(symbol.qualified_name)
+            };
         }
         value
     }
@@ -3772,7 +3847,7 @@ fn value_type_for_number(number: &NumberLiteral) -> ValueType {
         crate::lexer::NumberKind::Byte => byte_type(),
         crate::lexer::NumberKind::Int => int_type(),
         crate::lexer::NumberKind::Card => card_type(),
-        crate::lexer::NumberKind::Real => ValueType::error(),
+        crate::lexer::NumberKind::Real => ValueType::real(),
     }
 }
 
@@ -3900,6 +3975,13 @@ fn promote_numeric_types(left: &ValueType, right: &ValueType) -> ValueType {
     }
     if left.pointer || right.pointer {
         return card_type();
+    }
+    if left.is_real() || right.is_real() {
+        return if left.is_numeric_value() && right.is_numeric_value() {
+            ValueType::real()
+        } else {
+            ValueType::error()
+        };
     }
 
     let Some(left) = left.as_scalar() else {

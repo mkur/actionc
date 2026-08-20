@@ -13,7 +13,9 @@ use crate::codegen::{
 use crate::includes::{ModuleLoadOptions, load_compilation};
 use crate::mir6502;
 use crate::nir;
-use crate::semantic::{analyze_compilation, ir, materialize::materialize_constants};
+use crate::semantic::{
+    SemanticOptions, analyze_compilation_with_options, ir, materialize::materialize_constants,
+};
 use crate::source::decode_source;
 
 use self::validation::{legacy_routine_retargeting_diagnostics, standalone_resident_diagnostics};
@@ -203,16 +205,34 @@ pub(crate) fn compile_file_with_request(
     let program = &loaded.root_module().program;
 
     let request = resolve_request(&loaded.source, request)?;
-    let model = analyze_compilation(&loaded).map_err(|diagnostics| {
-        CompileError::from_source_diagnostics(
-            CompilerPhase::Semantic,
-            diagnostics,
+    let semantic_options = if request.profile == CodegenProfile::Modern {
+        SemanticOptions::modern()
+    } else {
+        SemanticOptions::default()
+    };
+    let model =
+        analyze_compilation_with_options(&loaded, semantic_options).map_err(|diagnostics| {
+            CompileError::from_source_diagnostics(
+                CompilerPhase::Semantic,
+                diagnostics,
+                &loaded.source,
+                path,
+                Some(&loaded.source_map),
+            )
+        })?;
+    let semir = ir::lower_compilation(&loaded, &model);
+    if let Some(span) = first_native_real_codegen_use(&model) {
+        return Err(CompileError::from_source_diagnostics(
+            CompilerPhase::Codegen,
+            vec![crate::diagnostic::Diagnostic::new(
+                span,
+                "native REAL semantics are available, but code generation is not implemented yet",
+            )],
             &loaded.source,
             path,
             Some(&loaded.source_map),
-        )
-    })?;
-    let semir = ir::lower_compilation(&loaded, &model);
+        ));
+    }
     if request.runtime == Runtime::Standalone {
         let diagnostics = standalone_resident_diagnostics(&semir);
         if !diagnostics.is_empty() {
@@ -254,6 +274,30 @@ pub(crate) fn compile_file_with_request(
         output,
         expanded_source: loaded.source,
     })
+}
+
+fn first_native_real_codegen_use(
+    model: &crate::semantic::SemanticModel,
+) -> Option<crate::source::Span> {
+    model
+        .symbols
+        .symbols
+        .iter()
+        .find_map(|symbol| {
+            let uses_real = symbol
+                .ty
+                .as_ref()
+                .is_some_and(|ty| matches!(ty.base, crate::semantic::ValueTypeBase::Real));
+            (uses_real && symbol.class != crate::semantic::SymbolClass::Type).then_some(symbol.span)
+        })
+        .or_else(|| {
+            model.expression_observations.iter().find_map(|expr| {
+                expr.ty
+                    .as_ref()
+                    .is_some_and(|ty| matches!(ty.base, crate::semantic::ValueTypeBase::Real))
+                    .then_some(expr.span)
+            })
+        })
 }
 
 fn compile_request_from_options(options: &CompileOptions) -> CompileRequest {

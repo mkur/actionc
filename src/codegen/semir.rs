@@ -652,6 +652,9 @@ impl SemIrAstLowerer<'_> {
     fn literal(&self, literal: &SemLiteral, span: Span) -> Expr {
         let (kind, text) = match literal {
             SemLiteral::Number(number) => (ExprKind::Number(number.clone()), number.text.clone()),
+            SemLiteral::Real { source, .. } => {
+                (ExprKind::Number(source.clone()), source.text.clone())
+            }
             SemLiteral::String(text) => (ExprKind::String(text.clone()), format!("{text:?}")),
             SemLiteral::Char(ch) => (ExprKind::Char(*ch), format!("'{ch}'")),
             SemLiteral::Constant(value) => {
@@ -666,6 +669,10 @@ impl SemIrAstLowerer<'_> {
         TypeRef {
             base: match &ty.base {
                 ValueTypeBase::Fund(fund) => TypeBase::Fund(*fund),
+                // The classic bridge still projects SemIR back to an AST. REAL
+                // backend semantics remain in SemIR; this spelling only keeps
+                // the source-shaped carrier intact until classic parity lands.
+                ValueTypeBase::Real => TypeBase::Named("REAL".into()),
                 ValueTypeBase::Named(name) => TypeBase::Named(
                     self.type_link_names
                         .get(&name.to_ascii_uppercase())

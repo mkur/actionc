@@ -228,6 +228,48 @@ fn nir_preflight_failure_is_returned_as_a_source_diagnostic() {
 }
 
 #[test]
+fn native_real_stops_at_the_explicit_intermediate_codegen_gate() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "native-real.act",
+        "REAL value PROC Main() value=1.25+2 RETURN",
+    );
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let error = compile_file(&source, &CompileOptions::for_mode(mode)).unwrap_err();
+        assert_eq!(error.kind(), CompileErrorKind::Compilation, "{mode:?}");
+        assert_eq!(
+            error.diagnostics()[0].phase,
+            CompilerPhase::Codegen,
+            "{mode:?}"
+        );
+        assert!(
+            error.diagnostics()[0]
+                .message
+                .contains("native REAL semantics are available"),
+            "{mode:?}: {error}"
+        );
+    }
+
+    let compatibility = compile_file(
+        &source,
+        &CompileOptions::for_mode(CompileMode::Compatibility),
+    )
+    .unwrap_err();
+    assert_eq!(
+        compatibility.diagnostics()[0].phase,
+        CompilerPhase::Semantic
+    );
+    assert!(
+        compatibility
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("unknown type `REAL`"))
+    );
+}
+
+#[test]
 fn include_diagnostics_keep_the_included_path() {
     let temp = TestDir::new();
     let source_dir = temp.path().join("source tree");

@@ -3647,6 +3647,7 @@ fn inline_asm_regions(code: &NirInlineAsm, reads: bool) -> Option<Vec<NirMemoryR
 fn literal_summary(literal: &SemLiteral) -> String {
     match literal {
         SemLiteral::Number(number) => number.text.clone(),
+        SemLiteral::Real { source, .. } => source.text.clone(),
         SemLiteral::String(value) => format!("{value:?}"),
         SemLiteral::Char(value) => format!("{value:?}"),
         SemLiteral::Constant(value) => value.number_literal().text,
@@ -3656,6 +3657,7 @@ fn literal_summary(literal: &SemLiteral) -> String {
 fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
     let value = match literal {
         SemLiteral::Number(number) => number.value?,
+        SemLiteral::Real { .. } => return None,
         SemLiteral::Char(value) => *value as u16,
         SemLiteral::Constant(value) => value.bits,
         SemLiteral::String(_) => return None,

@@ -42,6 +42,7 @@ pub enum NirTypeKind {
     I8,
     U16,
     I16,
+    Real,
     Ptr16 { pointee: Option<Box<NirTypeKind>> },
     Record { name: String, size: Option<u16> },
     Callable { kind: String },
@@ -52,6 +53,7 @@ impl NirTypeKind {
     pub(super) fn from_value(value: &ValueType) -> Self {
         match value.kind() {
             ValueTypeKind::Scalar(scalar) => Self::from_scalar(scalar),
+            ValueTypeKind::Real => Self::Real,
             ValueTypeKind::Pointer(pointer) => Self::Ptr16 {
                 pointee: Some(Box::new(Self::from_value(&pointer.pointee))),
             },
@@ -76,6 +78,7 @@ impl NirTypeKind {
             Self::Void => Some(0),
             Self::Bool | Self::U8 | Self::I8 => Some(1),
             Self::U16 | Self::I16 | Self::Ptr16 { .. } | Self::Callable { .. } => Some(2),
+            Self::Real => Some(6),
             Self::Record { size, .. } => *size,
             Self::Error => None,
         }
@@ -165,6 +168,7 @@ impl NirValue {
 pub(super) fn type_summary(ty: &ValueType) -> String {
     let base = match &ty.base {
         ValueTypeBase::Fund(fund) => format!("{fund:?}"),
+        ValueTypeBase::Real => "REAL".to_string(),
         ValueTypeBase::Named(name) => name.clone(),
         ValueTypeBase::Callable(callable) => format!("{:?}", callable.kind),
         ValueTypeBase::Error => "error".to_string(),

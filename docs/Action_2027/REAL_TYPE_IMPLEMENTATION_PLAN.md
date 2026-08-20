@@ -1,6 +1,8 @@
 # Native REAL Implementation Plan
 
-Implementation status: planned.
+Implementation status: in progress. Slices 0 through 2 are complete: the Atari
+oracle, exact decimal codec, and modern-profile semantic contract are in place.
+Executable NIR and backend lowering remain gated by an explicit diagnostic.
 
 ## Goal
 
@@ -164,6 +166,11 @@ The semantic model records:
 Verifier-clean NIR must not pretend a real value fits in the existing byte/word
 temporary lane. Real values are addressable, typed places. Proposed operations
 are structurally equivalent to:
+
+Slice 2 establishes `NirTypeKind::Real` as a six-byte type fact so the SemIR/NIR
+boundary does not erase the semantic type. It does not authorize that type in
+existing executable scalar operations; those remain behind the code-generation
+gate until Slice 4 adds and verifies the structured forms below.
 
 ```text
 CopyValue   { type: REAL, destination, source }

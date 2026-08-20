@@ -1,4 +1,5 @@
 use crate::ast::{BinaryOp, UnaryOp};
+use crate::atari_real::AtariReal;
 use crate::lexer::NumberLiteral;
 use crate::source::Span;
 
@@ -52,6 +53,10 @@ pub enum SemExprKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemLiteral {
     Number(NumberLiteral),
+    Real {
+        source: NumberLiteral,
+        value: AtariReal,
+    },
     String(String),
     Char(char),
     Constant(ConstValue),
