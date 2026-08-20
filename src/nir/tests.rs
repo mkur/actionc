@@ -325,6 +325,64 @@ fn verifier_rejects_real_to_integer_with_a_non_integer_result() {
 }
 
 #[test]
+fn verifier_rejects_real_index_with_scalar_element_stride() {
+    let mut program = lower_modern_source(
+        "REAL ARRAY values(2) BYTE index PROC Main() index=1 values(index)=1.25 RETURN",
+    );
+    let destination = program.routines[0]
+        .blocks
+        .iter_mut()
+        .flat_map(|block| &mut block.ops)
+        .find_map(|op| match op {
+            NirOp::Real(NirRealOp::Copy { destination, .. })
+                if matches!(destination.kind, NirPlaceKind::Index { .. }) =>
+            {
+                Some(destination)
+            }
+            _ => None,
+        })
+        .expect("indexed REAL destination");
+    let NirPlaceKind::Index { elem_size, .. } = &mut destination.kind else {
+        unreachable!()
+    };
+    *elem_size = 1;
+
+    let diagnostics = verify_program(&program).expect_err("scalar REAL stride must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("must index six-byte REAL elements")
+    }));
+}
+
+#[test]
+fn identical_real_literals_share_one_immutable_static_across_routines() {
+    let program = lower_modern_source(
+        "REAL left,right PROC First() left=1.25 RETURN PROC Second() right=1.25 RETURN",
+    );
+
+    assert_eq!(program.statics.len(), 1);
+    assert_eq!(program.statics[0].image.bytes, [0x40, 0x01, 0x25, 0, 0, 0]);
+    assert!(!program.statics[0].mutable);
+    assert_eq!(program.statics[0].section, "rodata");
+    let ids = program
+        .routines
+        .iter()
+        .flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::Real(NirRealOp::Copy {
+                source: NirRealSource::Static { id, .. },
+                ..
+            }) => Some(*id),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(ids, [program.statics[0].id, program.statics[0].id]);
+    verify_program(&program).expect("deduplicated REAL statics verify");
+}
+
+#[test]
 fn verifier_accepts_valid_targets() {
     let program = NirProgram {
         globals: Vec::new(),

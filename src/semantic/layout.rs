@@ -192,13 +192,9 @@ fn array_origin(
 }
 
 fn semantic_value_width(value: &ValueType, record_sizes: &HashMap<String, u16>) -> Option<u16> {
-    if value.pointer {
-        Some(2)
-    } else {
-        value.scalar_width_bytes().or_else(|| {
-            value
-                .as_record_name()
-                .and_then(|name| record_sizes.get(name).copied())
-        })
-    }
+    value.value_width_bytes().or_else(|| {
+        value
+            .as_record_name()
+            .and_then(|name| record_sizes.get(name).copied())
+    })
 }

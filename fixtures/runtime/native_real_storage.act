@@ -1,0 +1,44 @@
+; Native REAL Slice 7: initialized scalar/array storage plus indexed,
+; pointer-dereferenced, record-field, local, and absolute lvalues.
+TYPE Sample=[BYTE tag REAL value BYTE tail]
+CONST REAL StoredConstant=9.25, ConstantAlias=StoredConstant
+
+REAL scalar_init=4.75
+REAL ARRAY initialized(3)=[1.25 -2.5 3]
+REAL ARRAY values(3)
+REAL ARRAY absolute_values(2)=$0640
+REAL POINTER real_ptr
+Sample box
+BYTE idx
+
+REAL scalar_result=$0600, first_result=$0606, negative_result=$060C
+REAL dynamic_result=$0612, pointer_result=$0618, field_result=$061E
+REAL local_result=$0624, absolute_result=$062A, copied_result=$0630
+REAL constant_result=$0636
+
+PROC Main()
+  REAL ARRAY local_values(2)=[6.25 -7.5]
+
+  scalar_result=scalar_init
+  first_result=initialized(0)
+  negative_result=initialized(1)
+
+  idx=2
+  dynamic_result=initialized(idx)
+  values(idx)=initialized(0)
+  copied_result=values(idx)
+
+  real_ptr=values
+  real_ptr^=-4.5
+  pointer_result=values(0)
+
+  box.tag=$AA
+  box.value=5.5
+  box.tail=$55
+  field_result=box.value
+
+  local_result=local_values(1)
+  absolute_values(idx-1)=8.5
+  absolute_result=absolute_values(1)
+  constant_result=ConstantAlias
+RETURN

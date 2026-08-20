@@ -1,10 +1,10 @@
 # Native REAL Implementation Plan
 
-Implementation status: in progress. Slices 0 through 6 are complete: the Atari
+Implementation status: in progress. Slices 0 through 7 are complete: the Atari
 oracle, exact decimal codec, modern-profile semantic contract, MIR storage-size
 foundation, address-based NIR, MIR6502 core FPP arithmetic, comparisons, unary
-operations, and scalar conversions are in place. Aggregate storage remains
-explicitly gated.
+operations, scalar conversions, and aggregate/indirect storage are in place.
+Classic-backend parity remains explicitly gated.
 
 ## Goal
 
@@ -75,12 +75,15 @@ The initial native type has these properties:
   nearest-integer rounding followed by the target Action integer width;
 - `MOD`, shifts, and bitwise operators reject real operands;
 - taking the address of a real value and using `REAL POINTER` are supported;
+- REAL arrays, indexed values, pointer dereferences, and REAL record fields are
+  supported;
+- `CONST REAL Name=1.25` defines an exact immutable value;
 - by-value real parameters and real function results are deferred until their
   calling convention has been designed.
 
-Arrays, indexed real lvalues, typed real constants, and library I/O are staged
-after scalar storage and arithmetic. Unsupported forms receive explicit
-diagnostics rather than being represented as six unrelated bytes.
+By-value call ABI forms and library I/O remain staged after storage and
+arithmetic. Unsupported forms receive explicit diagnostics rather than being
+represented as six unrelated bytes.
 
 The implementation must define and test conversion details against Atari OS,
 including exponent limits, rounding, underflow, overflow, signed zero, and
@@ -337,6 +340,8 @@ then apply the requested Action integer width to the FPI word.
 
 ### Slice 7: Initializers, Arrays, and Indirect Storage
 
+Status: complete.
+
 - Emit six-byte global/static initializers.
 - Support arrays, indexed lvalues, pointer dereferences, fields containing
   native real values, and overlap-safe copies where required.
@@ -348,6 +353,21 @@ then apply the requested Action integer width to the FPI word.
 
 Exit criterion: every normal storage path either handles six-byte values or
 produces a focused unsupported diagnostic.
+
+Scalar REAL declarations initialized with a REAL literal and REAL array
+initializer lists emit exact packed-decimal bytes. The contextual grammar
+`CONST REAL Name=...` is recognized only when `REAL` is followed by a constant
+name, so `CONST REAL=1` still declares an ordinary constant named `REAL`.
+Initially a typed REAL constant accepts a signed REAL literal or an earlier
+`CONST REAL`; it has value semantics and no source-level address. Uses lower to
+immutable REAL `rodata`, deduplicated by canonical six-byte value across
+routines. This cannot coalesce or move user-declared storage.
+
+REAL copies now retain NIR's structured index, dereference, and field address
+forms through MIR. Six source bytes are staged before any destination byte is
+written. Dynamic indexes use the six-byte element-size fact; MIR address
+advance supports nonzero byte scales beyond the scalar 1/2-byte cases. Record
+layout counts a REAL field as six bytes.
 
 ### Slice 8: Classic Backend Parity
 

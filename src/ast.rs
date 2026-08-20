@@ -205,9 +205,15 @@ pub enum Decl {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConstDecl {
     pub visibility: Visibility,
-    pub declared_type: Option<FundType>,
+    pub declared_type: Option<ConstDeclaredType>,
     pub entries: Vec<ConstEntry>,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConstDeclaredType {
+    Fund(FundType),
+    Real,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

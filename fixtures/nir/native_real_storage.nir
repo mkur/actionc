@@ -1,0 +1,29 @@
+nir program
+global Sample: type RecordType { name: "Sample", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "value", ty: ValueType { base: Real, pointer: false }, offset: 1 }], size: 7 } fields=2
+global initialized: array ArrayType { element: ValueType { base: Real, pointer: false }, length: Some(2) } length=2 storage=Array origin=global init descriptor size=4 backing=g1 bytes=[$40 $01 $25 $00 $00 $00 $C0 $02 $50 $00 $00 $00] zero_fill=0 backing_section=global.backing size_word=$0000 section=global mutable=true
+global values: array ArrayType { element: ValueType { base: Real, pointer: false }, length: Some(2) } length=2 storage=Array origin=global init zero_fill=12 section=global mutable=true
+global ptr: REAL*
+global box: Sample
+global result: REAL
+global constant_result: REAL
+global index: Byte
+static __nir_real_Main_0:REAL bytes=[$40 $01 $25 $00 $00 $00] = "1.25"
+
+routine Main params=[-] locals=[local_values]
+  local local_values: array ArrayType { element: ValueType { base: Real, pointer: false }, length: Some(1) } length=1 storage=Array origin=local init descriptor size=4 backing=local bytes=[$40 $03 $50 $00 $00 $00] zero_fill=0 backing_section=local.backing size_word=$0000 section=local mutable=true
+bb0:
+  store index = 1
+  %t0:REAL* = addr values
+  %t1:Byte = load index
+  %t2:REAL* = addr initialized
+  real.copy %t0[%t1;6] = %t2[0;6]
+  %t3:REAL* = addr values
+  store ptr = %t3
+  %t4:REAL* = load ptr
+  %t5:REAL* = addr local_values
+  real.copy *%t4 = %t5[0;6]
+  %t6:REAL* = load ptr
+  real.copy box.+1 = *%t6
+  real.copy result = box.+1
+  real.copy constant_result = &__nir_real_Main_0
+  return

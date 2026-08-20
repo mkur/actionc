@@ -1,0 +1,20 @@
+TYPE Sample=[BYTE tag REAL value]
+CONST REAL Unit=1.25
+REAL ARRAY initialized(2)=[1.25 -2.5]
+REAL ARRAY values(2)
+REAL POINTER ptr
+Sample box
+REAL result
+REAL constant_result
+BYTE index
+
+PROC Main()
+  REAL ARRAY local_values(1)=[3.5]
+  index=1
+  values(index)=initialized(0)
+  ptr=values
+  ptr^=local_values(0)
+  box.value=ptr^
+  result=box.value
+  constant_result=Unit
+RETURN

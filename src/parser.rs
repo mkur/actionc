@@ -594,7 +594,20 @@ impl<'a> Parser<'a> {
     fn parse_const_decl(&mut self) -> ConstDecl {
         let start = self.peek().span.start;
         self.bump();
-        let declared_type = self.parse_fund_type();
+        let declared_type = self
+            .parse_fund_type()
+            .map(ConstDeclaredType::Fund)
+            .or_else(|| {
+                let is_typed_real = matches!(
+                    (&self.peek().kind, self.tokens.get(self.pos + 1).map(|token| &token.kind)),
+                    (TokenKind::Ident(name), Some(TokenKind::Ident(_)))
+                        if name.eq_ignore_ascii_case("REAL")
+                );
+                is_typed_real.then(|| {
+                    self.bump();
+                    ConstDeclaredType::Real
+                })
+            });
         let mut entries = Vec::new();
 
         loop {
@@ -1652,7 +1665,21 @@ impl<'a> Parser<'a> {
                 ),
                 (Some(TokenKind::Ident(_)), Some(TokenKind::Assign))
             );
-        untyped || typed
+        let typed_real = matches!(
+            (
+                self.tokens.get(pos).map(|token| &token.kind),
+                self.tokens.get(pos + 1).map(|token| &token.kind),
+                self.tokens.get(pos + 2).map(|token| &token.kind),
+                self.tokens.get(pos + 3).map(|token| &token.kind),
+            ),
+            (
+                Some(TokenKind::Ident(keyword)),
+                Some(TokenKind::Ident(real)),
+                Some(TokenKind::Ident(_)),
+                Some(TokenKind::Assign),
+            ) if keyword.eq_ignore_ascii_case("CONST") && real.eq_ignore_ascii_case("REAL")
+        );
+        untyped || typed || typed_real
     }
 
     fn is_var_decl_start_at(&self, pos: usize) -> bool {
@@ -3546,12 +3573,43 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(declarations.len(), 4);
-        assert_eq!(declarations[0].declared_type, Some(FundType::Byte));
+        assert_eq!(
+            declarations[0].declared_type,
+            Some(ConstDeclaredType::Fund(FundType::Byte))
+        );
         assert_eq!(declarations[0].entries[1].value.text, "Color");
-        assert_eq!(declarations[1].declared_type, Some(FundType::Card));
+        assert_eq!(
+            declarations[1].declared_type,
+            Some(ConstDeclaredType::Fund(FundType::Card))
+        );
         assert_eq!(declarations[1].entries[1].value.text, "Base + $100");
-        assert_eq!(declarations[2].declared_type, Some(FundType::Char));
-        assert_eq!(declarations[3].declared_type, Some(FundType::Int));
+        assert_eq!(
+            declarations[2].declared_type,
+            Some(ConstDeclaredType::Fund(FundType::Char))
+        );
+        assert_eq!(
+            declarations[3].declared_type,
+            Some(ConstDeclaredType::Fund(FundType::Int))
+        );
+    }
+
+    #[test]
+    fn parses_contextual_real_const_type_without_stealing_real_as_a_name() {
+        let tokens = tokenize("CONST REAL Pi=3.14 CONST REAL=1").unwrap();
+        let program = parse(&tokens).unwrap();
+        let declarations = program.modules[0]
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                Item::Declaration(Decl::Const(declaration)) => Some(declaration),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(declarations[0].declared_type, Some(ConstDeclaredType::Real));
+        assert_eq!(declarations[0].entries[0].name, "Pi");
+        assert_eq!(declarations[1].declared_type, None);
+        assert_eq!(declarations[1].entries[0].name, "REAL");
     }
 
     #[test]

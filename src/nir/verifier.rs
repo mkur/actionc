@@ -1227,6 +1227,27 @@ impl NirVerifier {
                     format!("{label} references missing or non-REAL global id {}", id.0),
                 ));
             }
+            NirPlaceKind::Index {
+                elem_ty, elem_size, ..
+            } if !matches!(elem_ty.kind, NirTypeKind::Real)
+                || elem_ty.width != Some(6)
+                || *elem_size != 6 =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} must index six-byte REAL elements"),
+                ));
+            }
+            NirPlaceKind::Field { ty, .. }
+                if !matches!(ty.kind, NirTypeKind::Real) || ty.width != Some(6) =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} field metadata must describe six-byte REAL storage"),
+                ));
+            }
             NirPlaceKind::Local { .. }
             | NirPlaceKind::Global { .. }
             | NirPlaceKind::Absolute(_)

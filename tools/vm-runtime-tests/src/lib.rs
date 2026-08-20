@@ -290,6 +290,38 @@ mod tests {
     }
 
     #[test]
+    fn native_real_aggregate_storage_runs_in_both_runtimes() {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let outcome = run_runtime_fixture(
+                "native_real_storage.act",
+                CompileMode::Mir6502,
+                runtime,
+                true,
+                100_000,
+            );
+            let bytes = |address: u16| {
+                (0..6)
+                    .map(|offset| outcome.memory().read(address + offset))
+                    .collect::<Vec<_>>()
+            };
+            for (address, expected) in [
+                (0x0600, [0x40, 0x04, 0x75, 0, 0, 0]),
+                (0x0606, [0x40, 0x01, 0x25, 0, 0, 0]),
+                (0x060C, [0xC0, 0x02, 0x50, 0, 0, 0]),
+                (0x0612, [0x40, 0x03, 0, 0, 0, 0]),
+                (0x0618, [0xC0, 0x04, 0x50, 0, 0, 0]),
+                (0x061E, [0x40, 0x05, 0x50, 0, 0, 0]),
+                (0x0624, [0xC0, 0x07, 0x50, 0, 0, 0]),
+                (0x062A, [0x40, 0x08, 0x50, 0, 0, 0]),
+                (0x0630, [0x40, 0x01, 0x25, 0, 0, 0]),
+                (0x0636, [0x40, 0x09, 0x25, 0, 0, 0]),
+            ] {
+                assert_eq!(bytes(address), expected, "{runtime:?} at ${address:04X}");
+            }
+        }
+    }
+
+    #[test]
     fn initialized_arrays_execute_through_the_vm_library() {
         assert_both_backends(
             "initialized arrays",

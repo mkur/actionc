@@ -421,7 +421,7 @@ pub enum NirRealSource {
 
 The lowerer materializes expression children left-to-right into compiler-owned
 six-byte locals. Literal operands are immutable six-byte `rodata` statics,
-identified by stable IDs and optionally deduplicated by canonical Atari packed
+identified by stable IDs and deduplicated by canonical Atari packed
 decimal bytes. The static name is diagnostic/printer metadata, not executable
 identity.
 
@@ -435,6 +435,8 @@ The verifier guarantees:
 - integer-to-real conversion sources are ordinary typed 8- or 16-bit integers.
 - real-to-integer conversion results are ordinary typed 8- or 16-bit integers;
   the six-byte source remains an address-based place.
+- indexed REAL places carry a six-byte REAL element type and an element stride
+  of six; REAL field places carry the same six-byte field type metadata.
 
 Until a narrower proof exists, optimizers treat real operations as memory/call
 ordering barriers. They may rewrite scalar temps used to address a real place,

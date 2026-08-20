@@ -1226,6 +1226,7 @@ fn lower_ops(
                 routine,
                 block,
                 real,
+                &addr_defs,
                 next_generated_temp,
                 generated_temps,
                 next_generated_local,
@@ -1248,6 +1249,7 @@ fn lower_real_op(
     routine: &str,
     block: &str,
     op: &NirRealOp,
+    addr_defs: &BTreeMap<TempId, MirAddrDef>,
     next_generated_temp: &mut u32,
     generated_temps: &mut Vec<MirTemp>,
     next_generated_local: &mut u32,
@@ -1261,15 +1263,18 @@ fn lower_real_op(
             destination,
             source,
         } => {
-            let Some(destination) = lower_place_mem(routine, block, destination, diagnostics)
+            let Some(destination) =
+                lower_place_addr(routine, block, destination, addr_defs, diagnostics)
             else {
                 return;
             };
             let source = match source {
                 NirRealSource::Place(source) => {
-                    lower_place_mem(routine, block, source, diagnostics)
+                    lower_place_addr(routine, block, source, addr_defs, diagnostics)
                 }
-                NirRealSource::Static { id, .. } => Some(MirMem::Static { id: *id, offset: 0 }),
+                NirRealSource::Static { id, .. } => {
+                    Some(MirAddr::Direct(MirMem::Static { id: *id, offset: 0 }))
+                }
             };
             let Some(source) = source else {
                 return;
@@ -1296,33 +1301,35 @@ fn lower_real_op(
                 ));
                 return;
             };
-            let Some(destination) = lower_place_mem(routine, block, destination, diagnostics)
+            let Some(destination) =
+                lower_place_addr(routine, block, destination, addr_defs, diagnostics)
             else {
                 return;
             };
-            let Some(left) = lower_place_mem(routine, block, left, diagnostics) else {
+            let Some(left) = lower_place_addr(routine, block, left, addr_defs, diagnostics) else {
                 return;
             };
-            let Some(right) = lower_place_mem(routine, block, right, diagnostics) else {
+            let Some(right) = lower_place_addr(routine, block, right, addr_defs, diagnostics)
+            else {
                 return;
             };
             push_staged_real_copy(
                 &left,
-                &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+                &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
                 next_generated_temp,
                 generated_temps,
                 lowered,
             );
             push_staged_real_copy(
                 &right,
-                &MirMem::FixedZeroPage(ATARI_FPP_FR1),
+                &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR1)),
                 next_generated_temp,
                 generated_temps,
                 lowered,
             );
             lowered.push(atari_fpp_call(service));
             push_staged_real_copy(
-                &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+                &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
                 &destination,
                 next_generated_temp,
                 generated_temps,
@@ -1334,14 +1341,15 @@ fn lower_real_op(
             source,
             source_type,
         } => {
-            let Some(destination) = lower_place_mem(routine, block, destination, diagnostics)
+            let Some(destination) =
+                lower_place_addr(routine, block, destination, addr_defs, diagnostics)
             else {
                 return;
             };
             if let Some(bytes) = constant_integer_real_bytes(source, source_type) {
                 for (offset, byte) in bytes.into_iter().enumerate() {
                     lowered.push(MirOp::Store {
-                        dst: MirAddr::Direct(offset_mem(&destination, offset as u16)),
+                        dst: offset_addr(&destination, offset as u16),
                         src: MirValue::ConstU8(byte),
                         width: MirWidth::Byte,
                     });
@@ -1367,11 +1375,13 @@ fn lower_real_op(
             destination,
             operand,
         } => {
-            let Some(destination) = lower_place_mem(routine, block, destination, diagnostics)
+            let Some(destination) =
+                lower_place_addr(routine, block, destination, addr_defs, diagnostics)
             else {
                 return;
             };
-            let Some(operand) = lower_place_mem(routine, block, operand, diagnostics) else {
+            let Some(operand) = lower_place_addr(routine, block, operand, addr_defs, diagnostics)
+            else {
                 return;
             };
             match operation {
@@ -1395,14 +1405,14 @@ fn lower_real_op(
                     }
                     push_staged_real_copy(
                         &operand,
-                        &MirMem::FixedZeroPage(ATARI_FPP_FR1),
+                        &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR1)),
                         next_generated_temp,
                         generated_temps,
                         lowered,
                     );
                     lowered.push(atari_fpp_call(MirAtariFppService::Subtract));
                     push_staged_real_copy(
-                        &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+                        &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
                         &destination,
                         next_generated_temp,
                         generated_temps,
@@ -1418,10 +1428,11 @@ fn lower_real_op(
             right,
             ..
         } => {
-            let Some(left) = lower_place_mem(routine, block, left, diagnostics) else {
+            let Some(left) = lower_place_addr(routine, block, left, addr_defs, diagnostics) else {
                 return;
             };
-            let Some(right) = lower_place_mem(routine, block, right, diagnostics) else {
+            let Some(right) = lower_place_addr(routine, block, right, addr_defs, diagnostics)
+            else {
                 return;
             };
             let answer = push_real_compare(
@@ -1440,7 +1451,8 @@ fn lower_real_op(
             result_type,
             source,
         } => {
-            let Some(source) = lower_place_mem(routine, block, source, diagnostics) else {
+            let Some(source) = lower_place_addr(routine, block, source, addr_defs, diagnostics)
+            else {
                 return;
             };
             push_real_to_integer(
@@ -1558,8 +1570,8 @@ fn push_bool_binary(
 
 fn push_real_byte_compare(
     operation: MirCompareOp,
-    left: &MirMem,
-    right: &MirMem,
+    left: &MirAddr,
+    right: &MirAddr,
     offset: u16,
     next_generated_temp: &mut u32,
     generated_temps: &mut Vec<MirTemp>,
@@ -1568,13 +1580,13 @@ fn push_real_byte_compare(
     let left_byte = generated_temp(next_generated_temp, generated_temps);
     lowered.push(MirOp::Load {
         dst: MirDef::VTemp(left_byte),
-        src: MirAddr::Direct(offset_mem(left, offset)),
+        src: offset_addr(left, offset),
         width: MirWidth::Byte,
     });
     let right_byte = generated_temp(next_generated_temp, generated_temps);
     lowered.push(MirOp::Load {
         dst: MirDef::VTemp(right_byte),
-        src: MirAddr::Direct(offset_mem(right, offset)),
+        src: offset_addr(right, offset),
         width: MirWidth::Byte,
     });
     push_generated_compare(
@@ -1589,7 +1601,7 @@ fn push_real_byte_compare(
 
 fn push_real_byte_const_compare(
     operation: MirCompareOp,
-    source: &MirMem,
+    source: &MirAddr,
     offset: u16,
     constant: u8,
     next_generated_temp: &mut u32,
@@ -1599,7 +1611,7 @@ fn push_real_byte_const_compare(
     let byte = generated_temp(next_generated_temp, generated_temps);
     lowered.push(MirOp::Load {
         dst: MirDef::VTemp(byte),
-        src: MirAddr::Direct(offset_mem(source, offset)),
+        src: offset_addr(source, offset),
         width: MirWidth::Byte,
     });
     push_generated_compare(
@@ -1615,8 +1627,8 @@ fn push_real_byte_const_compare(
 fn push_real_compare(
     predicate: NirCompareOp,
     result: MirTempId,
-    left: &MirMem,
-    right: &MirMem,
+    left: &MirAddr,
+    right: &MirAddr,
     next_generated_temp: &mut u32,
     generated_temps: &mut Vec<MirTemp>,
     lowered: &mut Vec<MirOp>,
@@ -1854,7 +1866,7 @@ fn push_real_compare(
 fn push_integer_to_real(
     source: MirValue,
     source_type: &NirType,
-    destination: &MirMem,
+    destination: &MirAddr,
     next_generated_temp: &mut u32,
     generated_temps: &mut Vec<MirTemp>,
     next_generated_local: &mut u32,
@@ -1982,7 +1994,7 @@ fn push_integer_to_real(
         });
     }
     push_staged_real_copy(
-        &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+        &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
         destination,
         next_generated_temp,
         generated_temps,
@@ -1991,7 +2003,7 @@ fn push_integer_to_real(
 }
 
 fn push_real_to_integer(
-    source: &MirMem,
+    source: &MirAddr,
     result: MirTempId,
     result_type: &NirType,
     next_generated_temp: &mut u32,
@@ -2002,7 +2014,7 @@ fn push_real_to_integer(
 ) {
     push_staged_real_copy(
         source,
-        &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+        &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
         next_generated_temp,
         generated_temps,
         lowered,
@@ -2024,7 +2036,7 @@ fn push_real_to_integer(
     let magnitude_source = generated_temp(next_generated_temp, generated_temps);
     lowered.push(MirOp::Load {
         dst: MirDef::VTemp(magnitude_source),
-        src: MirAddr::Direct(offset_mem(source, 0)),
+        src: offset_addr(source, 0),
         width: MirWidth::Byte,
     });
     let magnitude_exponent = push_generated_binary(
@@ -2127,8 +2139,8 @@ fn real_binary_service(operation: NirBinaryOp) -> Option<MirAtariFppService> {
 }
 
 fn push_staged_real_copy(
-    source: &MirMem,
-    destination: &MirMem,
+    source: &MirAddr,
+    destination: &MirAddr,
     next_generated_temp: &mut u32,
     generated_temps: &mut Vec<MirTemp>,
     lowered: &mut Vec<MirOp>,
@@ -2144,13 +2156,13 @@ fn push_staged_real_copy(
     for (offset, temp) in temps.iter().enumerate() {
         lowered.push(MirOp::Load {
             dst: MirDef::VTemp(*temp),
-            src: MirAddr::Direct(offset_mem(source, offset as u16)),
+            src: offset_addr(source, offset as u16),
             width: MirWidth::Byte,
         });
     }
     for (offset, temp) in temps.into_iter().enumerate() {
         lowered.push(MirOp::Store {
-            dst: MirAddr::Direct(offset_mem(destination, offset as u16)),
+            dst: offset_addr(destination, offset as u16),
             src: MirValue::Def(MirDef::VTemp(temp)),
             width: MirWidth::Byte,
         });
@@ -2762,6 +2774,60 @@ fn offset_mem(mem: &MirMem, offset: u16) -> MirMem {
         MirMem::ZeroPage(id) => MirMem::ZeroPage(*id),
         MirMem::FixedZeroPage(id) => {
             MirMem::FixedZeroPage(MirFixedZpSlot(id.0.saturating_add(offset as u8)))
+        }
+    }
+}
+
+fn offset_addr(addr: &MirAddr, offset: u16) -> MirAddr {
+    match addr {
+        MirAddr::Direct(mem) => MirAddr::Direct(offset_mem(mem, offset)),
+        MirAddr::AbsoluteIndexedX { base } => MirAddr::AbsoluteIndexedX {
+            base: offset_mem(base, offset),
+        },
+        MirAddr::AbsoluteIndexedY { base } => MirAddr::AbsoluteIndexedY {
+            base: offset_mem(base, offset),
+        },
+        MirAddr::ComputedIndex {
+            base,
+            index,
+            elem_size,
+            offset: base_offset,
+        } => MirAddr::ComputedIndex {
+            base: base.clone(),
+            index: index.clone(),
+            elem_size: *elem_size,
+            offset: base_offset.saturating_add(offset),
+        },
+        MirAddr::PointerCell {
+            ptr,
+            offset: base_offset,
+        } => MirAddr::PointerCell {
+            ptr: ptr.clone(),
+            offset: base_offset.saturating_add(offset),
+        },
+        MirAddr::PointerIndex {
+            ptr,
+            index,
+            elem_size,
+            offset: base_offset,
+        } => MirAddr::PointerIndex {
+            ptr: ptr.clone(),
+            index: index.clone(),
+            elem_size: *elem_size,
+            offset: base_offset.saturating_add(offset),
+        },
+        MirAddr::Deref {
+            ptr,
+            offset: base_offset,
+        } => MirAddr::Deref {
+            ptr: ptr.clone(),
+            offset: base_offset.saturating_add(offset),
+        },
+        MirAddr::Label(_)
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. } => {
+            unreachable!("pre-materialization REAL address has an unsupported indexed form")
         }
     }
 }

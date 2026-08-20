@@ -44,6 +44,7 @@ pub struct SemanticModel {
     /// name-keyed table above remains a legacy/debug compatibility projection.
     pub routine_signatures_by_symbol: HashMap<SymbolId, SemanticCallableSignature>,
     pub constants: HashMap<SymbolId, ConstValue>,
+    pub real_constants: HashMap<SymbolId, RealConstValue>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -119,6 +120,12 @@ impl SemanticModuleScope {
 pub struct ConstValue {
     pub ty: ScalarType,
     pub bits: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RealConstValue {
+    pub source: NumberLiteral,
+    pub value: AtariReal,
 }
 
 impl ConstValue {
@@ -402,6 +409,7 @@ impl Analyzer {
             routine_signatures: self.routines,
             routine_signatures_by_symbol: self.routines_by_symbol,
             constants: self.constants,
+            real_constants: self.real_constants,
         })
     }
 }
@@ -425,6 +433,7 @@ struct Analyzer {
     diagnostics: Vec<Diagnostic>,
     expression_observations: Vec<ExpressionObservation>,
     constants: HashMap<SymbolId, ConstValue>,
+    real_constants: HashMap<SymbolId, RealConstValue>,
 }
 
 #[derive(Clone, Copy)]
@@ -489,6 +498,7 @@ impl Analyzer {
             diagnostics: Vec::new(),
             expression_observations: Vec::new(),
             constants: HashMap::new(),
+            real_constants: HashMap::new(),
         }
     }
 
@@ -1528,6 +1538,15 @@ impl Analyzer {
         if expected.is_error() || actual.is_error() {
             return;
         }
+        if expected.pointer {
+            if !self.pointer_target_accepts_expr(scope, expected, value_expr, actual) {
+                self.diagnostics.push(Diagnostic::new(
+                    value.span,
+                    format!("cannot assign {:?} to {:?}", actual, expected),
+                ));
+            }
+            return;
+        }
         if expected.is_real() {
             if !actual.is_numeric_value() {
                 self.diagnostics.push(Diagnostic::new(
@@ -1546,15 +1565,6 @@ impl Analyzer {
                 ),
             ));
             return;
-        }
-        if !expected.pointer {
-            return;
-        }
-        if !self.pointer_target_accepts_expr(scope, expected, value_expr, actual) {
-            self.diagnostics.push(Diagnostic::new(
-                value.span,
-                format!("cannot assign {:?} to {:?}", actual, expected),
-            ));
         }
     }
 
@@ -2121,13 +2131,24 @@ impl Analyzer {
                 symbol: symbol_id,
                 span,
             }),
-            SymbolClass::Const => match self.constants.get(&symbol_id).copied() {
-                Some(value) => subject::SemSubject::Expr(subject::SemExpr {
+            SymbolClass::Const => match (
+                self.constants.get(&symbol_id).copied(),
+                self.real_constants.get(&symbol_id).cloned(),
+            ) {
+                (Some(value), _) => subject::SemSubject::Expr(subject::SemExpr {
                     ty: value.value_type(),
                     kind: subject::SemExprKind::Literal(subject::SemLiteral::Constant(value)),
                     span,
                 }),
-                None => {
+                (_, Some(value)) => subject::SemSubject::Expr(subject::SemExpr {
+                    ty: ValueType::real(),
+                    kind: subject::SemExprKind::Literal(subject::SemLiteral::Real {
+                        source: value.source,
+                        value: value.value,
+                    }),
+                    span,
+                }),
+                (None, None) => {
                     self.diagnostics.push(Diagnostic::new(
                         span,
                         format!(
@@ -2857,22 +2878,7 @@ impl Analyzer {
                 continue;
             };
 
-            let expression = self.lower_expr(scope, &entry.value);
-            match evaluate_const_expr(&expression).map(|value| {
-                declaration
-                    .declared_type
-                    .map_or(value, |declared_type| value.cast(declared_type))
-            }) {
-                Ok(value) => {
-                    self.symbols.symbols[symbol_id.0].ty = Some(value.value_type());
-                    self.constants.insert(symbol_id, value);
-                }
-                Err(message) => {
-                    self.symbols.symbols[symbol_id.0].ty = Some(ValueType::error());
-                    self.diagnostics
-                        .push(Diagnostic::new(entry.value.span, message));
-                }
-            }
+            self.evaluate_declared_const(scope, symbol_id, declaration, entry);
         }
     }
 
@@ -2901,21 +2907,63 @@ impl Analyzer {
             let Some(symbol_id) = self.symbols.lookup_exact(scope, &entry.name) else {
                 continue;
             };
-            let expression = self.lower_expr(scope, &entry.value);
-            match evaluate_const_expr(&expression).map(|value| {
-                declaration
-                    .declared_type
-                    .map_or(value, |declared_type| value.cast(declared_type))
-            }) {
-                Ok(value) => {
-                    self.symbols.symbols[symbol_id.0].ty = Some(value.value_type());
-                    self.constants.insert(symbol_id, value);
-                }
-                Err(message) => {
-                    self.symbols.symbols[symbol_id.0].ty = Some(ValueType::error());
-                    self.diagnostics
-                        .push(Diagnostic::new(entry.value.span, message));
-                }
+            self.evaluate_declared_const(scope, symbol_id, declaration, entry);
+        }
+    }
+
+    fn evaluate_declared_const(
+        &mut self,
+        scope: ScopeId,
+        symbol_id: SymbolId,
+        declaration: &ConstDecl,
+        entry: &ConstEntry,
+    ) {
+        let expression = self.lower_expr(scope, &entry.value);
+        if declaration.declared_type == Some(ConstDeclaredType::Real) {
+            if !self.options.native_real {
+                self.symbols.symbols[symbol_id.0].ty = Some(ValueType::error());
+                self.diagnostics.push(Diagnostic::new(
+                    entry.value.span,
+                    "typed CONST REAL requires the modern profile",
+                ));
+                return;
+            }
+            let Some(value) = static_subject_real(&expression) else {
+                self.symbols.symbols[symbol_id.0].ty = Some(ValueType::error());
+                self.diagnostics.push(Diagnostic::new(
+                    entry.value.span,
+                    "CONST REAL currently requires a signed REAL literal or earlier CONST REAL",
+                ));
+                return;
+            };
+            self.symbols.symbols[symbol_id.0].ty = Some(ValueType::real());
+            self.real_constants.insert(
+                symbol_id,
+                RealConstValue {
+                    source: NumberLiteral {
+                        text: entry.value.text.clone(),
+                        kind: NumberKind::Real,
+                        value: None,
+                    },
+                    value,
+                },
+            );
+            return;
+        }
+
+        match evaluate_const_expr(&expression).map(|value| match declaration.declared_type {
+            Some(ConstDeclaredType::Fund(declared_type)) => value.cast(declared_type),
+            Some(ConstDeclaredType::Real) => unreachable!(),
+            None => value,
+        }) {
+            Ok(value) => {
+                self.symbols.symbols[symbol_id.0].ty = Some(value.value_type());
+                self.constants.insert(symbol_id, value);
+            }
+            Err(message) => {
+                self.symbols.symbols[symbol_id.0].ty = Some(ValueType::error());
+                self.diagnostics
+                    .push(Diagnostic::new(entry.value.span, message));
             }
         }
     }
@@ -2923,12 +2971,6 @@ impl Analyzer {
     fn validate_predeclared_var(&mut self, scope: ScopeId, declaration: &VarDecl) {
         self.validate_type_ref(scope, &declaration.ty, declaration.span);
         let ty = self.value_type_from_type_ref(scope, &declaration.ty);
-        if ty.is_real() && declaration.storage == VarStorage::Array {
-            self.diagnostics.push(Diagnostic::new(
-                declaration.span,
-                "REAL arrays are not supported yet",
-            ));
-        }
         if declaration.qualifiers.is_volatile && declaration.ty.pointer {
             self.diagnostics.push(Diagnostic::new(
                 declaration.span,
@@ -3131,12 +3173,6 @@ impl Analyzer {
         let resolved_ty = self.value_type_from_type_ref(scope, &decl.ty);
         let ty = Some(resolved_ty.clone());
 
-        if resolved_ty.is_real() && decl.storage == VarStorage::Array {
-            self.diagnostics.push(Diagnostic::new(
-                decl.span,
-                "REAL arrays are not supported yet",
-            ));
-        }
         if is_param && resolved_ty.is_real() {
             self.diagnostics.push(Diagnostic::new(
                 decl.span,
@@ -3192,14 +3228,30 @@ impl Analyzer {
         let Some(initializer) = &entry.initializer else {
             return;
         };
+        let element_type = self.value_type_from_type_ref(scope, &decl.ty);
         match &initializer.kind {
             ExprKind::InitializerList(elements) => {
-                let element_width = self
-                    .value_storage_width(&self.value_type_from_type_ref(scope, &decl.ty))
-                    .unwrap_or(0);
+                let element_width = self.value_storage_width(&element_type).unwrap_or(0);
                 for element in elements {
                     match &element.kind {
-                        InitializerElementKind::Literal { .. } => {}
+                        InitializerElementKind::Literal { value, negative } => {
+                            if element_type.is_real() {
+                                if let Err(error) = initializer_literal_atari_real(value, *negative)
+                                {
+                                    self.diagnostics
+                                        .push(Diagnostic::new(element.span, error.to_string()));
+                                }
+                            } else if matches!(
+                                value,
+                                crate::ast::InitializerLiteral::Number(number)
+                                    if number.kind == NumberKind::Real
+                            ) {
+                                self.diagnostics.push(Diagnostic::new(
+                                    element.span,
+                                    "REAL initializer element requires REAL array storage",
+                                ));
+                            }
+                        }
                         InitializerElementKind::Address {
                             selector, target, ..
                         } => {
@@ -3268,6 +3320,14 @@ impl Analyzer {
                 initializer.span,
                 format!("unsupported initializer for `{}`", entry.name),
             )),
+            ExprKind::Number(number)
+                if element_type.is_real() && number.kind == NumberKind::Real =>
+            {
+                if let Err(error) = AtariReal::from_decimal(&number.text) {
+                    self.diagnostics
+                        .push(Diagnostic::new(initializer.span, error.to_string()));
+                }
+            }
             _ if module_for_scope(&self.symbols, scope).is_some() => {
                 self.lower_expr(scope, initializer);
             }
@@ -3685,6 +3745,32 @@ fn static_subject_real(expr: &subject::SemExpr) -> Option<crate::atari_real::Ata
         } => static_subject_real(expr).map(crate::atari_real::AtariReal::negated),
         _ => None,
     }
+}
+
+fn initializer_literal_atari_real(
+    value: &InitializerLiteral,
+    negative: bool,
+) -> Result<AtariReal, String> {
+    let magnitude = match value {
+        InitializerLiteral::Number(number) if number.kind == NumberKind::Real => {
+            number.text.clone()
+        }
+        InitializerLiteral::Number(number) => number
+            .value
+            .map(|value| value.to_string())
+            .ok_or_else(|| "REAL initializer requires a numeric literal".to_string())?,
+        InitializerLiteral::Char(ch) => source_char_byte(*ch)
+            .map(|value| value.to_string())
+            .ok_or_else(|| format!("character `{ch}` is outside byte source encoding"))?,
+        InitializerLiteral::True => "1".to_string(),
+        InitializerLiteral::False | InitializerLiteral::Nil => "0".to_string(),
+    };
+    let text = if negative {
+        format!("-{magnitude}")
+    } else {
+        magnitude
+    };
+    AtariReal::from_decimal(&text).map_err(|error| error.to_string())
 }
 
 fn string_literal_type() -> ValueType {
@@ -5194,13 +5280,6 @@ mod tests {
                 .contains("by-value REAL parameters are not supported")
         }));
 
-        let array = analyze_modern_source_err("REAL ARRAY values(2) PROC Main() RETURN");
-        assert!(
-            array
-                .iter()
-                .any(|diagnostic| diagnostic.message.contains("REAL arrays are not supported"))
-        );
-
         let exponent = analyze_modern_source_err("REAL value PROC Main() value=1E100 RETURN");
         assert!(exponent.iter().any(|diagnostic| {
             diagnostic
@@ -5208,7 +5287,10 @@ mod tests {
                 .contains("exponent may contain at most two digits")
         }));
 
-        analyze_modern_source("PROC Consume(REAL POINTER value) RETURN");
+        analyze_modern_source(
+            "TYPE Sample=[BYTE tag REAL value] REAL ARRAY values(2) REAL POINTER real_ptr \
+             Sample box PROC Main() real_ptr=values real_ptr^=box.value RETURN",
+        );
     }
 
     #[test]
@@ -5775,6 +5857,60 @@ mod tests {
                 (&"tail".to_string(), fund_value(FundType::Byte), 3),
             ]
         );
+    }
+
+    #[test]
+    fn native_real_record_fields_contribute_six_bytes_to_layout() {
+        let model = analyze_modern_source("TYPE Sample=[BYTE tag REAL value BYTE tail] Sample box");
+        let sample = model
+            .symbols
+            .lookup(model.symbols.global_scope(), "Sample")
+            .expect("Sample type");
+        let layout = model
+            .layout
+            .record_for_owner(sample)
+            .expect("record layout");
+
+        assert_eq!(layout.size, 8);
+        assert_eq!(
+            layout
+                .fields
+                .iter()
+                .map(|field| (field.name.as_str(), field.offset))
+                .collect::<Vec<_>>(),
+            [("tag", 0), ("value", 1), ("tail", 7)]
+        );
+    }
+
+    #[test]
+    fn typed_real_constants_are_exact_modern_values() {
+        let model = analyze_modern_source(
+            "CONST REAL Unit=1.25, Negative=-Unit REAL value PROC Main() value=Negative RETURN",
+        );
+        let unit = model
+            .symbols
+            .lookup(model.symbols.global_scope(), "Unit")
+            .expect("Unit constant");
+        let negative = model
+            .symbols
+            .lookup(model.symbols.global_scope(), "Negative")
+            .expect("Negative constant");
+
+        assert_eq!(
+            model.real_constants[&unit].value.to_bytes(),
+            [0x40, 0x01, 0x25, 0, 0, 0]
+        );
+        assert_eq!(
+            model.real_constants[&negative].value.to_bytes(),
+            [0xC0, 0x01, 0x25, 0, 0, 0]
+        );
+
+        let diagnostics = analyze_source_err("CONST REAL Unit=1.25 PROC Main() RETURN");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("typed CONST REAL requires the modern profile")
+        }));
     }
 
     #[test]

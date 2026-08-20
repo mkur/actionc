@@ -2446,15 +2446,6 @@ fn emit_op(
                 );
                 return;
             };
-            if !matches!(*scale, 1 | 2) {
-                unsupported(
-                    ctx,
-                    routine,
-                    block,
-                    "only byte and word index address advance is supported",
-                );
-                return;
-            }
             if emit_scaled_index_advance_pointer(
                 ctx,
                 routine,
@@ -4027,6 +4018,27 @@ fn emit_scaled_index_advance_pointer(
     pointer_slot: u8,
     emitter: &mut TrackedEmitter,
 ) -> bool {
+    if scale > 2 {
+        if !emit_scaled_index_to_scratch(ctx, routine, block, index, 1, emitter) {
+            return false;
+        }
+        for _ in 0..scale {
+            emitter.emit_clc();
+            emit_lda_mem(ResolvedMem::ZeroPage(pointer_slot), emitter);
+            emitter.emit_adc_zero_page(ZeroPage::new(ADDRESS_INDEX_SCRATCH_LO));
+            emit_sta_mem(ResolvedMem::ZeroPage(pointer_slot), emitter);
+            emit_lda_mem(
+                ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
+                emitter,
+            );
+            emitter.emit_adc_zero_page(ZeroPage::new(ADDRESS_INDEX_SCRATCH_HI));
+            emit_sta_mem(
+                ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
+                emitter,
+            );
+        }
+        return true;
+    }
     let Some((index_lo, index_hi)) = split_index_value_as_word(ctx, index) else {
         return false;
     };

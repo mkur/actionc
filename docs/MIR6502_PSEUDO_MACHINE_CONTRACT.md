@@ -422,6 +422,11 @@ pub enum MirAddr {
     AbsoluteIndexedX { base: MirMem },
     AbsoluteIndexedY { base: MirMem },
     IndirectIndexedY { zp: MirZpSlot },
+    FixedIndirectIndexedY { zp: MirFixedZpSlot },
+    ComputedIndex { base: MirValue, index: MirValue, elem_size: u16, offset: u16 },
+    PointerCell { ptr: MirMem, offset: u16 },
+    PointerIndex { ptr: MirMem, index: MirValue, elem_size: u16, offset: u16 },
+    Deref { ptr: MirValue, offset: u16 },
 }
 ```
 
@@ -429,9 +434,8 @@ Rules:
 
 - `MirMem` says what memory is being accessed.
 - `MirAddr` says how the access will be addressed.
-- The first lowering slice should support only `Direct` forms.
-- Indexed and indirect forms should be added when pointer and array lowering need
-  them.
+- Direct, indexed, pointer-cell, pointer-index, and dereference forms preserve
+  structured NIR address facts until materialization.
 - Do not add source-shaped address forms.
 - `Field` lowering must already have a byte offset before MIR.
 - `Index` lowering should use element size facts from NIR, not source syntax.
@@ -441,6 +445,9 @@ Rules:
   descriptor-backed arrays must retain an indirect address strategy.
 - `Deref` lowering should materialize pointer values into an explicit address
   strategy, usually a zero-page pointer pair plus `Y` for indirect-indexed work.
+- `AdvanceAddress` accepts any nonzero byte scale representable by the MIR form.
+  Scale 1/2 retain their compact paths; larger aggregate strides stage the
+  index and add it to the address the required number of times.
 
 ## Carry And Borrow Model
 
@@ -953,6 +960,12 @@ classes and then compares bytes lexicographically, reversing same-sign order
 for negative values. This preserves distinctions between adjacent packed
 decimal values that subtraction-based comparison could round away. Direct REAL
 conditions compare against canonical zero.
+
+Aggregate REAL copies use these same structured address forms for every byte.
+They first load all six source bytes into compiler temps and only then issue
+stores, preserving overlap safety for array elements, pointer dereferences, and
+record fields. Initialized scalar/array storage already contains authoritative
+packed-decimal bytes; FPP calls are needed only for runtime computation.
 
 FPP calls conservatively clobber A, X, Y, flags, FR0, FR1, and unknown FPP
 workspace. MIR represents them as opaque OS calls with all-memory effects until

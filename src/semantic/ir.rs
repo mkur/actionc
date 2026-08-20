@@ -2585,6 +2585,13 @@ impl<'a> IrBuilder<'a> {
             && let Some(value) = self.model.constants.get(&symbol.id).copied()
         {
             SemExprKind::Literal(SemLiteral::Constant(value))
+        } else if symbol.class == SymbolClass::Const
+            && let Some(value) = self.model.real_constants.get(&symbol.id)
+        {
+            SemExprKind::Literal(SemLiteral::Real {
+                source: value.source.clone(),
+                value: value.value,
+            })
         } else if symbol.class == SymbolClass::Define
             && let Some(number) = self.numeric_defines.get(&symbol.id)
         {

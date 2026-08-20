@@ -408,6 +408,8 @@ impl NirLowerer {
             }
         }
 
+        deduplicate_real_statics(&mut statics, &mut routines);
+
         NirProgram {
             globals,
             statics,
@@ -693,6 +695,49 @@ impl NirLowerer {
             };
         }
         NirLocalBacking::Ordinary
+    }
+}
+
+fn deduplicate_real_statics(statics: &mut Vec<NirStaticData>, routines: &mut [NirRoutine]) {
+    let mut canonical = BTreeMap::<Vec<u8>, (SymbolId, String)>::new();
+    let mut replacements = BTreeMap::<SymbolId, (SymbolId, String)>::new();
+    statics.retain(|static_data| {
+        if !is_real_nir_type(&static_data.ty) {
+            return true;
+        }
+        match canonical.get(&static_data.image.bytes) {
+            Some((id, name)) => {
+                replacements.insert(static_data.id, (*id, name.clone()));
+                false
+            }
+            None => {
+                canonical.insert(
+                    static_data.image.bytes.clone(),
+                    (static_data.id, static_data.name.clone()),
+                );
+                true
+            }
+        }
+    });
+    if replacements.is_empty() {
+        return;
+    }
+    for routine in routines {
+        for block in &mut routine.blocks {
+            for op in &mut block.ops {
+                let NirOp::Real(NirRealOp::Copy {
+                    source: NirRealSource::Static { id, name },
+                    ..
+                }) = op
+                else {
+                    continue;
+                };
+                if let Some((replacement_id, replacement_name)) = replacements.get(id) {
+                    *id = *replacement_id;
+                    *name = replacement_name.clone();
+                }
+            }
+        }
     }
 }
 
@@ -3014,9 +3059,12 @@ fn declaration_global_init(
         SemDeclarationStorage::Array { array_type, .. } => {
             let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
             let data_image = declaration.initializer.as_ref().and_then(|initializer| {
-                initializer_data_image(initializer, elem_size, |target| {
-                    global_data_relocation_target(target, global_ids, routine_ids)
-                })
+                initializer_data_image(
+                    initializer,
+                    elem_size,
+                    array_type.element.is_real(),
+                    |target| global_data_relocation_target(target, global_ids, routine_ids),
+                )
             });
             if let Some(address) = address_initializer
                 && declaration_array_address_initializer_uses_pointer_storage(
@@ -3189,15 +3237,20 @@ fn declaration_local_init(
         SemDeclarationStorage::Array { array_type, .. } => {
             let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
             let data_image = declaration.initializer.as_ref().and_then(|initializer| {
-                initializer_data_image(initializer, elem_size, |target| {
-                    local_data_relocation_target(
-                        target,
-                        global_ids,
-                        routine_ids,
-                        param_ids,
-                        local_ids,
-                    )
-                })
+                initializer_data_image(
+                    initializer,
+                    elem_size,
+                    array_type.element.is_real(),
+                    |target| {
+                        local_data_relocation_target(
+                            target,
+                            global_ids,
+                            routine_ids,
+                            param_ids,
+                            local_ids,
+                        )
+                    },
+                )
             });
             if elem_size > 1
                 && let Some(image) = data_image.clone()
@@ -3275,6 +3328,15 @@ fn string_literal_storage_bytes(text: &str) -> Result<Vec<u8>, String> {
 }
 
 fn scalar_initializer_bytes(declaration: &SemDeclaration, total_size: u16) -> Option<Vec<u8>> {
+    if declaration.ty.value.is_real() {
+        return match &declaration.initializer.as_ref()?.kind {
+            SemExprKind::Literal(SemLiteral::Real { value, .. }) => Some(value.to_bytes().to_vec()),
+            SemExprKind::InitializerList(elements) if elements.len() == 1 => {
+                sem_initializer_real_value(&elements[0]).map(|value| value.to_bytes().to_vec())
+            }
+            _ => None,
+        };
+    }
     let value = literal_number_u16_expr(declaration.initializer.as_ref()?).or_else(|| {
         let values = numeric_initializer_values(declaration.initializer.as_ref()?)?;
         (values.len() == 1).then_some(values[0])
@@ -3328,9 +3390,10 @@ fn numeric_initializer_bytes(declaration: &SemDeclaration, elem_size: u16) -> Op
 fn initializer_data_image(
     expr: &SemExpr,
     elem_size: u16,
+    real_elements: bool,
     mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataRelocationTarget>,
 ) -> Option<NirDataImage> {
-    if !matches!(elem_size, 1 | 2) {
+    if !matches!(elem_size, 1 | 2) && !(real_elements && elem_size == 6) {
         return None;
     }
     let SemExprKind::InitializerList(elements) = &expr.kind else {
@@ -3340,6 +3403,14 @@ fn initializer_data_image(
     for element in elements {
         match &element.kind {
             SemInitializerElementKind::Literal { .. } => {
+                if real_elements {
+                    image.bytes.extend(
+                        sem_initializer_real_value(element)
+                            .expect("verified REAL initializer literal")
+                            .to_bytes(),
+                    );
+                    continue;
+                }
                 let value = sem_initializer_literal_value(element)
                     .expect("verified SemIR initializer literal must have a constant value");
                 image.bytes.push(value as u8);
@@ -3352,6 +3423,9 @@ fn initializer_data_image(
                 target,
                 addend,
             } => {
+                if real_elements {
+                    return None;
+                }
                 let kind = match selector {
                     Some(AddressByteSelector::Low) => NirDataRelocationKind::Low8,
                     Some(AddressByteSelector::High) => NirDataRelocationKind::High8,
@@ -3382,8 +3456,14 @@ fn initializer_data_image(
 }
 
 fn array_initializer_byte_len(declaration: &SemDeclaration, elem_size: u16) -> Option<usize> {
+    let real_elements = matches!(
+        &declaration.storage,
+        SemDeclarationStorage::Array { array_type, .. } if array_type.element.is_real()
+    );
     match &declaration.initializer.as_ref()?.kind {
-        SemExprKind::InitializerList(elements) if matches!(elem_size, 1 | 2) => {
+        SemExprKind::InitializerList(elements)
+            if matches!(elem_size, 1 | 2) || (real_elements && elem_size == 6) =>
+        {
             Some(elements.len().saturating_mul(usize::from(elem_size)))
         }
         _ => numeric_initializer_bytes(declaration, elem_size).map(|bytes| bytes.len()),
@@ -3495,6 +3575,29 @@ fn sem_initializer_literal_value(element: &SemInitializerElement) -> Option<u16>
     } else {
         value
     })
+}
+
+fn sem_initializer_real_value(
+    element: &SemInitializerElement,
+) -> Option<crate::atari_real::AtariReal> {
+    let SemInitializerElementKind::Literal { value, negative } = &element.kind else {
+        return None;
+    };
+    let magnitude = match value {
+        SemInitializerLiteral::Number(number) if number.kind == crate::lexer::NumberKind::Real => {
+            number.text.clone()
+        }
+        SemInitializerLiteral::Number(number) => number.value?.to_string(),
+        SemInitializerLiteral::Char(ch) => source_char_byte(*ch)?.to_string(),
+        SemInitializerLiteral::True => "1".to_string(),
+        SemInitializerLiteral::False | SemInitializerLiteral::Nil => "0".to_string(),
+    };
+    let text = if *negative {
+        format!("-{magnitude}")
+    } else {
+        magnitude
+    };
+    crate::atari_real::AtariReal::from_decimal(&text).ok()
 }
 
 fn raw_initializer_values(inner: &str) -> Option<Vec<u16>> {
