@@ -1,0 +1,19 @@
+; A multi-file program.  DEMO.COLOR is loaded from demo/color.act relative to
+; this root source; ATARI modules come from actionc's embedded VFS.
+MODULE GALLERY
+
+USE ATARI.ANTIC
+USE ATARI.OS
+USE DEMO.COLOR AS PALETTE
+
+PROC Main()
+  OS.CH=OS.NO_KEY
+
+  DO
+    ANTIC.WSYNC=0
+    PALETTE.Advance()
+  UNTIL OS.CH#OS.NO_KEY
+  OD
+RETURN
+
+ENDMODULE

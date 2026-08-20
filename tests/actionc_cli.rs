@@ -73,6 +73,7 @@ fn help_describes_the_existing_listing_options_as_mads_assembly() {
     }
 }
 
+#[cfg(feature = "experimental-named-modules")]
 #[test]
 fn repeatable_module_paths_are_used_by_compile_and_emit_commands() {
     let temp = TestDir::new();
@@ -82,7 +83,7 @@ fn repeatable_module_paths_are_used_by_compile_and_emit_commands() {
     fs::create_dir_all(second.join("lib")).expect("create module directory");
     fs::write(
         &root,
-        "MODULE APP\nIMPORT LIB.VALUE\nPROC Main() VALUE.value=1 [<VALUE.value >VALUE.value] RETURN\nENDMODULE\n",
+        "MODULE APP\nUSE LIB.VALUE\nPROC Main() VALUE.value=1 [<VALUE.value >VALUE.value] RETURN\nENDMODULE\n",
     )
     .expect("write root module");
     fs::write(
@@ -131,13 +132,14 @@ fn repeatable_module_paths_are_used_by_compile_and_emit_commands() {
     );
 }
 
+#[cfg(feature = "experimental-named-modules")]
 #[test]
-fn named_module_semantic_diagnostics_point_into_imported_sources() {
+fn named_module_semantic_diagnostics_point_into_used_sources() {
     let temp = TestDir::new();
     let root = temp.path().join("main.act");
     let library = temp.path().join("lib/bad.act");
     fs::create_dir_all(library.parent().unwrap()).expect("create module directory");
-    fs::write(&root, "MODULE APP\nIMPORT LIB.BAD\nENDMODULE\n").expect("write root module");
+    fs::write(&root, "MODULE APP\nUSE LIB.BAD\nENDMODULE\n").expect("write root module");
     fs::write(
         &library,
         "MODULE LIB.BAD\nPUBLIC PROC Broken() Missing=1 RETURN\nENDMODULE\n",
@@ -155,6 +157,41 @@ fn named_module_semantic_diagnostics_point_into_imported_sources() {
     assert!(
         stderr.contains("PUBLIC PROC Broken() Missing=1 RETURN"),
         "{stderr}"
+    );
+}
+
+#[cfg(not(feature = "experimental-named-modules"))]
+#[test]
+fn named_modules_and_module_paths_are_disabled_by_default() {
+    let temp = TestDir::new();
+    let root = temp.path().join("app.act");
+    fs::write(&root, "MODULE APP\nENDMODULE\n").expect("write named module");
+
+    let named = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .arg(&root)
+        .output()
+        .expect("compile disabled named module");
+    assert_eq!(named.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&named.stderr).contains("named modules are disabled in this build"),
+        "{}",
+        String::from_utf8_lossy(&named.stderr)
+    );
+
+    let module_path = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .args([
+            "--module-path",
+            temp.path().to_str().expect("UTF-8 test path"),
+        ])
+        .arg(hello_world())
+        .output()
+        .expect("compile with disabled module path");
+    assert_eq!(module_path.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&module_path.stderr)
+            .contains("named modules are disabled in this build"),
+        "{}",
+        String::from_utf8_lossy(&module_path.stderr)
     );
 }
 
@@ -859,13 +896,14 @@ fn mir6502_sys_routine_addresses_follow_the_selected_runtime() {
     assert!(String::from_utf8_lossy(&standalone.stdout).contains("ACTION.RUNTIME.RESIDENT::Zero"));
 }
 
+#[cfg(feature = "experimental-named-modules")]
 #[test]
-fn unused_sys_import_adds_no_runtime_code() {
+fn unused_sys_use_adds_no_runtime_code() {
     let temp = TestDir::new();
     let source = temp.path().join("unused-sys.act");
     fs::write(
         &source,
-        "MODULE APP\nIMPORT SYS\nPROC Main() RETURN\nENDMODULE\n",
+        "MODULE APP\nUSE SYS\nPROC Main() RETURN\nENDMODULE\n",
     )
     .expect("write unused SYS source");
     let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
@@ -935,6 +973,7 @@ fn printh_is_bound_in_both_runtimes_and_backends() {
     }
 }
 
+#[cfg(feature = "experimental-named-modules")]
 #[test]
 fn referenced_external_without_selected_binding_fails_closed() {
     let temp = TestDir::new();

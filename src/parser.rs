@@ -92,28 +92,33 @@ impl<'a> Parser<'a> {
     fn parse_named_program(&mut self) -> Program {
         let start = self.peek().span.start;
         self.expect_keyword(Keyword::Module);
-        let path = self
-            .parse_module_path(false)
-            .map(|(path, _)| path)
-            .unwrap_or_else(|| {
-                ModulePath::new(vec!["<missing module name>".to_string()], self.peek().span)
-            });
-        let mut imports = Vec::new();
-        while self.is_contextual_at(self.pos, "IMPORT") {
-            imports.push(self.parse_import());
+        let path = self.parse_module_path().unwrap_or_else(|| {
+            ModulePath::new(vec!["<missing module name>".to_string()], self.peek().span)
+        });
+        let mut uses = Vec::new();
+        while self.is_contextual_at(self.pos, "USE") {
+            uses.push(self.parse_use());
         }
 
         self.in_named_module = true;
         let mut items = Vec::new();
         let mut pending_annotations = Vec::new();
         while !self.at_eof() && !self.is_contextual_at(self.pos, "ENDMODULE") {
-            if self.is_contextual_at(self.pos, "IMPORT") {
+            if self.is_contextual_at(self.pos, "USE") {
                 let span = self.peek().span;
                 self.diagnostics.push(Diagnostic::new(
                     span,
-                    "IMPORT declarations must precede module declarations",
+                    "USE clauses must precede module declarations",
                 ));
-                self.parse_import();
+                self.parse_use();
+                continue;
+            }
+            if self.is_contextual_at(self.pos, "IMPORT") {
+                let span = self.bump().span;
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    "IMPORT is not supported; use USE <module> or USE ALL FROM <module>",
+                ));
                 continue;
             }
             if self.check_keyword(Keyword::Module) {
@@ -262,72 +267,92 @@ impl<'a> Parser<'a> {
             modules: vec![Module { items }],
             source_kind: SourceUnitKind::Named(NamedModuleDecl {
                 path,
-                imports,
+                uses,
                 span: Span::new(start, end),
             }),
         }
     }
 
-    fn parse_import(&mut self) -> ImportDecl {
+    fn parse_use(&mut self) -> UseDecl {
         let start = self.peek().span.start;
-        self.eat_contextual("IMPORT");
-        let (path, open) = self.parse_module_path(true).unwrap_or_else(|| {
+        self.eat_contextual("USE");
+        let all = self.eat_contextual("ALL");
+        if all && !self.eat_contextual("FROM") {
             self.diagnostics.push(Diagnostic::new(
                 self.peek().span,
-                "expected module path after IMPORT",
+                "expected FROM after USE ALL",
             ));
-            (
-                ModulePath::new(vec!["<missing module name>".to_string()], self.peek().span),
-                false,
-            )
+        }
+        let path = self.parse_module_path().unwrap_or_else(|| {
+            self.diagnostics.push(Diagnostic::new(
+                self.peek().span,
+                if all {
+                    "expected module path after USE ALL FROM"
+                } else {
+                    "expected module path after USE"
+                },
+            ));
+            ModulePath::new(vec!["<missing module name>".to_string()], self.peek().span)
         });
+
+        if self.check(TokenKind::Dot)
+            && matches!(
+                self.tokens.get(self.pos + 1).map(|token| &token.kind),
+                Some(TokenKind::Star)
+            )
+        {
+            let wildcard_start = self.bump().span.start;
+            let wildcard_end = self.bump().span.end;
+            self.diagnostics.push(Diagnostic::new(
+                Span::new(wildcard_start, wildcard_end),
+                "USE <module>.* is not supported; use USE ALL FROM <module>",
+            ));
+        }
 
         let explicit_alias = if self.eat_contextual("AS") {
             self.expect_ident()
         } else {
             None
         };
-        if open && explicit_alias.is_some() {
+        if all && explicit_alias.is_some() {
             self.diagnostics.push(Diagnostic::new(
                 Span::new(start, self.previous_end()),
-                "an open import cannot use AS",
+                "USE ALL FROM cannot use AS",
             ));
         }
-        let alias = if open {
+        let alias = if all {
             None
         } else {
             explicit_alias.or_else(|| path.components.last().cloned())
         };
 
-        ImportDecl {
+        UseDecl {
             path,
             alias,
-            open,
+            all,
             span: Span::new(start, self.previous_end()),
         }
     }
 
-    fn parse_module_path(&mut self, allow_open: bool) -> Option<(ModulePath, bool)> {
+    fn parse_module_path(&mut self) -> Option<ModulePath> {
         let start = self.peek().span.start;
         let first = self.expect_ident_if_present()?;
         let mut components = vec![first];
         let mut path_end = self.previous_end();
-        let mut open = false;
-        while self.eat(TokenKind::Dot) {
-            if allow_open && self.eat(TokenKind::Star) {
-                open = true;
-                break;
-            }
+        while self.check(TokenKind::Dot)
+            && !matches!(
+                self.tokens.get(self.pos + 1).map(|token| &token.kind),
+                Some(TokenKind::Star)
+            )
+        {
+            self.bump();
             let Some(component) = self.expect_ident() else {
                 break;
             };
             components.push(component);
             path_end = self.previous_end();
         }
-        Some((
-            ModulePath::new(components, Span::new(start, path_end)),
-            open,
-        ))
+        Some(ModulePath::new(components, Span::new(start, path_end)))
     }
 
     fn reject_public_on_non_declaration(&mut self, span: Option<Span>, target: &str) {
@@ -1899,7 +1924,7 @@ impl<'a> Parser<'a> {
         matches!(self.peek().kind, TokenKind::ActioncAnnotation(_))
             || (self.in_named_module
                 && (self.is_contextual_at(self.pos, "ENDMODULE")
-                    || self.is_contextual_at(self.pos, "IMPORT")
+                    || self.is_contextual_at(self.pos, "USE")
                     || self.is_contextual_at(self.pos, "PUBLIC")))
             || self.check_keyword(Keyword::Module)
             || self.check_keyword(Keyword::Include)
@@ -3007,12 +3032,12 @@ mod tests {
     }
 
     #[test]
-    fn parses_named_imports_and_grouped_public_volatile_storage() {
+    fn parses_named_uses_and_grouped_public_volatile_storage() {
         let source = r#"
             MODULE DEMO.VIDEO
-              IMPORT ATARI.ANTIC
-              IMPORT ATARI.GTIA AS VIDEO
-              IMPORT SYS.*
+              USE ATARI.ANTIC
+              USE ATARI.GTIA AS VIDEO
+              USE ALL FROM SYS
               PUBLIC VOLATILE BYTE DMACTL=$D400, WSYNC=$D40A
             ENDMODULE
         "#;
@@ -3020,11 +3045,11 @@ mod tests {
         let SourceUnitKind::Named(module) = &program.source_kind else {
             panic!("expected named module");
         };
-        assert_eq!(module.imports.len(), 3);
-        assert_eq!(module.imports[0].alias.as_deref(), Some("ANTIC"));
-        assert_eq!(module.imports[1].alias.as_deref(), Some("VIDEO"));
-        assert!(module.imports[2].open);
-        assert_eq!(module.imports[2].alias, None);
+        assert_eq!(module.uses.len(), 3);
+        assert_eq!(module.uses[0].alias.as_deref(), Some("ANTIC"));
+        assert_eq!(module.uses[1].alias.as_deref(), Some("VIDEO"));
+        assert!(module.uses[2].all);
+        assert_eq!(module.uses[2].alias, None);
 
         let Item::Declaration(Decl::Var(registers)) = &program.modules[0].items[0] else {
             panic!("expected register declaration");
@@ -3106,8 +3131,8 @@ mod tests {
         for (source, expected) in [
             ("MODULE DEMO\nBYTE value", "missing ENDMODULE"),
             (
-                "MODULE DEMO\nBYTE value\nIMPORT SYS\nENDMODULE",
-                "IMPORT declarations must precede",
+                "MODULE DEMO\nBYTE value\nUSE SYS\nENDMODULE",
+                "USE clauses must precede",
             ),
             (
                 "MODULE DEMO\nPUBLIC DEFINE X=\"BYTE\"\nENDMODULE",
@@ -3118,8 +3143,16 @@ mod tests {
                 "executable top-level statements",
             ),
             (
-                "MODULE DEMO\nIMPORT SYS.* AS S\nENDMODULE",
-                "open import cannot use AS",
+                "MODULE DEMO\nUSE ALL FROM SYS AS S\nENDMODULE",
+                "USE ALL FROM cannot use AS",
+            ),
+            (
+                "MODULE DEMO\nIMPORT SYS\nENDMODULE",
+                "IMPORT is not supported",
+            ),
+            (
+                "MODULE DEMO\nUSE SYS.*\nENDMODULE",
+                "use USE ALL FROM <module>",
             ),
             (
                 "MODULE ONE\nENDMODULE\nMODULE TWO\nENDMODULE",
@@ -3142,7 +3175,9 @@ mod tests {
 
     #[test]
     fn contextual_module_words_remain_legacy_identifiers() {
-        let program = parse(&tokenize("BYTE IMPORT, AS, PUBLIC, ENDMODULE").unwrap()).unwrap();
+        let program =
+            parse(&tokenize("BYTE USE, ALL, FROM, AS, PUBLIC, ENDMODULE, IMPORT").unwrap())
+                .unwrap();
         let Item::Declaration(Decl::Var(decl)) = &program.modules[0].items[0] else {
             panic!("expected legacy declaration");
         };
@@ -3151,7 +3186,7 @@ mod tests {
                 .iter()
                 .map(|entry| entry.name.as_str())
                 .collect::<Vec<_>>(),
-            ["IMPORT", "AS", "PUBLIC", "ENDMODULE"]
+            ["USE", "ALL", "FROM", "AS", "PUBLIC", "ENDMODULE", "IMPORT"]
         );
     }
 

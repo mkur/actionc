@@ -1,0 +1,14 @@
+; The module path mirrors the qualified name: DEMO.COLOR -> demo/color.act.
+MODULE DEMO.COLOR
+
+USE ATARI.GTIA
+USE ATARI.OS
+
+BYTE phase
+
+PUBLIC PROC Advance()
+  phase==+1
+  GTIA.COLPF2=phase+OS.RTCLOK_LO
+RETURN
+
+ENDMODULE

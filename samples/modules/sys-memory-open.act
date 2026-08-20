@@ -1,0 +1,13 @@
+; USE ALL FROM introduces all public SYS names without a qualifier.
+MODULE SYS_MEMORY_OPEN
+
+USE ALL FROM SYS
+
+BYTE ARRAY buffer(256)=$6000
+
+PROC Main()
+  Zero(buffer,256)
+  SetBlock(buffer,256,$55)
+RETURN
+
+ENDMODULE

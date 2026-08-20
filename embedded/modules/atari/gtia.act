@@ -1,0 +1,43 @@
+; GTIA write registers and priority-mode constants.
+MODULE ATARI.GTIA
+
+PUBLIC VOLATILE BYTE HPOSP0=$D000,
+                     HPOSP1=$D001,
+                     HPOSP2=$D002,
+                     HPOSP3=$D003,
+                     HPOSM0=$D004,
+                     HPOSM1=$D005,
+                     HPOSM2=$D006,
+                     HPOSM3=$D007,
+                     SIZEP0=$D008,
+                     SIZEP1=$D009,
+                     SIZEP2=$D00A,
+                     SIZEP3=$D00B,
+                     SIZEM=$D00C,
+                     GRAFP0=$D00D,
+                     GRAFP1=$D00E,
+                     GRAFP2=$D00F,
+                     GRAFP3=$D010,
+                     GRAFM=$D011,
+                     COLPM0=$D012,
+                     COLPM1=$D013,
+                     COLPM2=$D014,
+                     COLPM3=$D015,
+                     COLPF0=$D016,
+                     COLPF1=$D017,
+                     COLPF2=$D018,
+                     COLPF3=$D019,
+                     COLBAK=$D01A,
+                     PRIOR=$D01B,
+                     VDELAY=$D01C,
+                     GRACTL=$D01D,
+                     HITCLR=$D01E,
+                     CONSOL=$D01F
+
+PUBLIC CONST BYTE MODE_9=$40,
+                  MODE_10=$80,
+                  MODE_11=$C0,
+                  ENABLE_MISSILES=$01,
+                  ENABLE_PLAYERS=$02
+
+ENDMODULE

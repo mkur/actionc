@@ -1,0 +1,9 @@
+; Peripheral Interface Adapter registers.
+MODULE ATARI.PIA
+
+PUBLIC VOLATILE BYTE PORTA=$D300,
+                     PORTB=$D301,
+                     PACTL=$D302,
+                     PBCTL=$D303
+
+ENDMODULE

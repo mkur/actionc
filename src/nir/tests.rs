@@ -69,7 +69,7 @@ fn named_module_executable_references_lower_to_stable_ids() {
     let provider = InMemorySourceProvider::default()
         .with_source(
             root.clone(),
-            b"MODULE APP\nIMPORT LIB.ONE AS ONE\nIMPORT LIB.TWO AS TWO\nBYTE alias=ONE.shared\nCARD ARRAY callback=ONE.Touch\nPROC Main() [<ONE.shared >ONE.shared <ONE.Touch >ONE.Touch] ONE.Touch() TWO.Touch() RETURN\nENDMODULE\n".to_vec(),
+            b"MODULE APP\nUSE LIB.ONE AS ONE\nUSE LIB.TWO AS TWO\nBYTE alias=ONE.shared\nCARD ARRAY callback=ONE.Touch\nPROC Main() [<ONE.shared >ONE.shared <ONE.Touch >ONE.Touch] ONE.Touch() TWO.Touch() RETURN\nENDMODULE\n".to_vec(),
         )
         .with_source(
             SourceOrigin::host("project/lib/one.act"),

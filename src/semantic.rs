@@ -550,16 +550,16 @@ impl Analyzer {
             return;
         }
 
-        // Allocate every defining SymbolId before imports or bodies are
+        // Allocate every defining SymbolId before USE clauses or bodies are
         // resolved. This is the semantic interface boundary: aliases always
         // refer to an existing identity and never copy a declaration.
         for loaded in &compilation.modules {
             self.collect_named_module_identities(loaded.id, &loaded.program);
         }
-        self.install_named_imports(compilation);
+        self.install_named_uses(compilation);
 
-        // Dependencies precede importers. Constants, record layouts, and
-        // callable signatures are therefore available when an importer is
+        // Dependencies precede users. Constants, record layouts, and callable
+        // signatures are therefore available when a using module is
         // validated, while source order remains irrelevant to routine bodies.
         for module_id in &compilation.graph_order {
             let program = &compilation.modules[module_id.0 as usize].program;
@@ -612,7 +612,7 @@ impl Analyzer {
                 self.collect_named_module_identities(loaded.id, &loaded.program);
             }
         }
-        self.install_named_imports(compilation);
+        self.install_named_uses(compilation);
         for module_id in &compilation.graph_order {
             if *module_id != compilation.root {
                 let program = &compilation.modules[module_id.0 as usize].program;
@@ -851,7 +851,7 @@ impl Analyzer {
         }
     }
 
-    fn install_named_imports(&mut self, compilation: &LoadedCompilation) {
+    fn install_named_uses(&mut self, compilation: &LoadedCompilation) {
         let module_ids = self
             .modules
             .iter()
@@ -862,21 +862,22 @@ impl Analyzer {
             let SourceUnitKind::Named(declaration) = &loaded.program.source_kind else {
                 continue;
             };
-            for import in &declaration.imports {
-                let Some(target_id) = module_ids.get(&import.path.canonical_name()).copied() else {
+            for use_decl in &declaration.uses {
+                let Some(target_id) = module_ids.get(&use_decl.path.canonical_name()).copied()
+                else {
                     self.diagnostics.push(Diagnostic::new(
-                        import.span,
+                        use_decl.span,
                         format!(
                             "loaded module `{}` has no semantic identity",
-                            import.path.display_name()
+                            use_decl.path.display_name()
                         ),
                     ));
                     continue;
                 };
-                if import.open {
-                    self.install_open_import(loaded.id, target_id, import);
-                } else if let Some(alias) = &import.alias {
-                    self.install_module_alias(loaded.id, target_id, alias, import.span);
+                if use_decl.all {
+                    self.install_use_all(loaded.id, target_id, use_decl);
+                } else if let Some(alias) = &use_decl.alias {
+                    self.install_module_alias(loaded.id, target_id, alias, use_decl.span);
                 }
             }
         }
@@ -884,21 +885,23 @@ impl Analyzer {
 
     fn install_module_alias(
         &mut self,
-        importer: ModuleId,
+        using_module: ModuleId,
         target: ModuleId,
         alias: &str,
         span: Span,
     ) {
         let key = normalize_name(alias);
-        let scope = self.module_scope(importer);
+        let scope = self.module_scope(using_module);
         if self.symbols.lookup_exact(scope, alias).is_some() {
             self.diagnostics.push(Diagnostic::new(
                 span,
-                format!("module alias `{alias}` conflicts with a declaration or open import"),
+                format!(
+                    "module alias `{alias}` conflicts with a declaration or name from USE ALL FROM"
+                ),
             ));
             return;
         }
-        let module = &mut self.modules[importer.0 as usize];
+        let module = &mut self.modules[using_module.0 as usize];
         match module.module_aliases.get(&key).copied() {
             Some(existing) if existing == target => {}
             Some(_) => self.diagnostics.push(Diagnostic::new(
@@ -911,36 +914,36 @@ impl Analyzer {
         }
     }
 
-    fn install_open_import(&mut self, importer: ModuleId, target: ModuleId, import: &ImportDecl) {
+    fn install_use_all(&mut self, using_module: ModuleId, target: ModuleId, use_decl: &UseDecl) {
         let target_symbols = self.modules[target.0 as usize]
             .public_symbols
             .values()
             .copied()
             .collect::<Vec<_>>();
-        let importer_scope = self.module_scope(importer);
+        let using_scope = self.module_scope(using_module);
         for symbol_id in target_symbols {
             let name = self.symbols.symbols[symbol_id.0].name.clone();
             let key = normalize_name(&name);
-            if self.modules[importer.0 as usize]
+            if self.modules[using_module.0 as usize]
                 .module_aliases
                 .contains_key(&key)
             {
                 self.diagnostics.push(Diagnostic::new(
-                    import.span,
-                    format!("open import `{name}` conflicts with a module alias"),
+                    use_decl.span,
+                    format!("USE ALL FROM name `{name}` conflicts with a module alias"),
                 ));
                 continue;
             }
             match self
                 .symbols
-                .bind_alias(importer_scope, name.clone(), symbol_id)
+                .bind_alias(using_scope, name.clone(), symbol_id)
             {
                 Ok(()) => {}
                 Err(existing) if existing == symbol_id => {}
                 Err(_) => self.diagnostics.push(Diagnostic::new(
-                    import.span,
+                    use_decl.span,
                     format!(
-                        "open import collision for `{name}`; the name denotes different symbols"
+                        "USE ALL FROM collision for `{name}`; the name denotes different symbols"
                     ),
                 )),
             }
@@ -4009,10 +4012,7 @@ mod tests {
     #[test]
     fn named_modules_collect_private_and_public_interfaces_with_stable_ownership() {
         let model = analyze_named_sources(&[
-            (
-                "project/main.act",
-                "MODULE APP\nIMPORT LIB.API\nENDMODULE\n",
-            ),
+            ("project/main.act", "MODULE APP\nUSE LIB.API\nENDMODULE\n"),
             (
                 "project/lib/api.act",
                 "MODULE LIB.API\n\
@@ -4067,13 +4067,13 @@ mod tests {
     }
 
     #[test]
-    fn named_imports_bind_module_aliases_and_public_symbols_by_identity() {
+    fn named_uses_bind_module_aliases_and_public_symbols_by_identity() {
         let model = analyze_named_sources(&[
             (
                 "project/main.act",
                 "MODULE APP\n\
-                 IMPORT LIB.DATA\nIMPORT LIB.DATA AS D\n\
-                 IMPORT LIB.DATA.*\nIMPORT LIB.DATA.*\n\
+                 USE LIB.DATA\nUSE LIB.DATA AS D\n\
+                 USE ALL FROM LIB.DATA\nUSE ALL FROM LIB.DATA\n\
                  Pair item\nPROC Main() BYTE Value Value=Limit item.x=Value RETURN\n\
                  ENDMODULE\n",
             ),
@@ -4100,7 +4100,7 @@ mod tests {
             model.symbols.lookup_exact(app.scope, "Pair"),
             data.public_symbol("Pair")
         );
-        // An open import adds bindings but never re-exports them.
+        // USE ALL FROM adds bindings but never re-exports them.
         assert!(app.public_symbols().next().is_none());
 
         let main_scope = model
@@ -4126,7 +4126,7 @@ mod tests {
         let provider = InMemorySourceProvider::default()
             .with_source(
                 root.clone(),
-                b"MODULE APP\nIMPORT SYS\nIMPORT SYS.*\n\
+                b"MODULE APP\nUSE SYS\nUSE ALL FROM SYS\n\
                   PROC Main() RETURN\nENDMODULE\n"
                     .to_vec(),
             )
@@ -4190,11 +4190,11 @@ mod tests {
     }
 
     #[test]
-    fn open_import_collisions_are_diagnosed_but_equal_id_bindings_coalesce() {
+    fn use_all_collisions_are_diagnosed_but_equal_id_bindings_coalesce() {
         analyze_named_sources(&[
             (
                 "project/main.act",
-                "MODULE APP\nIMPORT LIB.A.*\nIMPORT LIB.A.*\nENDMODULE\n",
+                "MODULE APP\nUSE ALL FROM LIB.A\nUSE ALL FROM LIB.A\nENDMODULE\n",
             ),
             (
                 "project/lib/a.act",
@@ -4205,7 +4205,7 @@ mod tests {
         let diagnostics = analyze_named_sources_err(&[
             (
                 "project/main.act",
-                "MODULE APP\nIMPORT LIB.A.*\nIMPORT LIB.B.*\nENDMODULE\n",
+                "MODULE APP\nUSE ALL FROM LIB.A\nUSE ALL FROM LIB.B\nENDMODULE\n",
             ),
             (
                 "project/lib/a.act",
@@ -4219,13 +4219,13 @@ mod tests {
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic
                 .message
-                .contains("open import collision for `Value`")
+                .contains("USE ALL FROM collision for `Value`")
         }));
 
         let local_collision = analyze_named_sources_err(&[
             (
                 "project/main.act",
-                "MODULE APP\nIMPORT LIB.A.*\nBYTE Value\nENDMODULE\n",
+                "MODULE APP\nUSE ALL FROM LIB.A\nBYTE Value\nENDMODULE\n",
             ),
             (
                 "project/lib/a.act",
@@ -4235,16 +4235,16 @@ mod tests {
         assert!(local_collision.iter().any(|diagnostic| {
             diagnostic
                 .message
-                .contains("open import collision for `Value`")
+                .contains("USE ALL FROM collision for `Value`")
         }));
     }
 
     #[test]
-    fn named_modules_cannot_see_private_or_unimported_members() {
+    fn named_modules_cannot_see_private_members_or_members_from_unused_modules() {
         let private = analyze_named_sources_err(&[
             (
                 "project/main.act",
-                "MODULE APP\nIMPORT LIB.DATA.*\nPROC Main() Hidden=1 RETURN\nENDMODULE\n",
+                "MODULE APP\nUSE ALL FROM LIB.DATA\nPROC Main() Hidden=1 RETURN\nENDMODULE\n",
             ),
             (
                 "project/lib/data.act",
@@ -4257,7 +4257,7 @@ mod tests {
                 .any(|diagnostic| diagnostic.message.contains("undefined symbol `Hidden`"))
         );
 
-        let unimported = analyze_named_sources_err(&[
+        let unused_module = analyze_named_sources_err(&[
             (
                 "project/main.act",
                 "MODULE APP\nPROC Main() Visible=1 RETURN\nENDMODULE\n",
@@ -4268,7 +4268,7 @@ mod tests {
             ),
         ]);
         assert!(
-            unimported
+            unused_module
                 .iter()
                 .any(|diagnostic| diagnostic.message.contains("undefined symbol `Visible`"))
         );
@@ -4279,7 +4279,7 @@ mod tests {
         let model = analyze_named_sources(&[
             (
                 "project/main.act",
-                "MODULE APP\nIMPORT LIB.A\nIMPORT LIB.B\nENDMODULE\n",
+                "MODULE APP\nUSE LIB.A\nUSE LIB.B\nENDMODULE\n",
             ),
             ("project/lib/a.act", "MODULE LIB.A\nBYTE state\nENDMODULE\n"),
             ("project/lib/b.act", "MODULE LIB.B\nBYTE state\nENDMODULE\n"),
@@ -4305,7 +4305,7 @@ mod tests {
             (
                 "project/main.act",
                 "MODULE APP\n\
-                 IMPORT LIB.DATA\n\
+                 USE LIB.DATA\n\
                  DATA.Pair item\n\
                  BYTE ARRAY buffer(DATA.Width)\n\
                  CARD ARRAY refs=[@DATA.Table,@DATA.Touch]\n\
@@ -4370,7 +4370,7 @@ mod tests {
         let private = analyze_named_sources_err(&[
             (
                 "project/main.act",
-                "MODULE APP\nIMPORT LIB.DATA\nPROC Main() DATA.Secret=1 RETURN\nENDMODULE\n",
+                "MODULE APP\nUSE LIB.DATA\nPROC Main() DATA.Secret=1 RETURN\nENDMODULE\n",
             ),
             (
                 "project/lib/data.act",
@@ -4386,7 +4386,7 @@ mod tests {
         let missing = analyze_named_sources_err(&[
             (
                 "project/main.act",
-                "MODULE APP\nIMPORT LIB.DATA\nPROC Main() DATA.Missing=1 RETURN\nENDMODULE\n",
+                "MODULE APP\nUSE LIB.DATA\nPROC Main() DATA.Missing=1 RETURN\nENDMODULE\n",
             ),
             ("project/lib/data.act", "MODULE LIB.DATA\nENDMODULE\n"),
         ]);
@@ -4400,7 +4400,7 @@ mod tests {
             (
                 "project/main.act",
                 "MODULE APP\n\
-                 IMPORT LIB.DATA\n\
+                 USE LIB.DATA\n\
                  TYPE Pair=[BYTE x]\n\
                  PROC Main() Pair DATA DATA.x=1 RETURN\n\
                  ENDMODULE\n",
@@ -4415,7 +4415,7 @@ mod tests {
             (
                 "project/main.act",
                 "MODULE APP\n\
-                 IMPORT LIB.DATA\n\
+                 USE LIB.DATA\n\
                  DATA.Pair item\n\
                  CARD ARRAY refs=[@DATA.Table]\n\
                  ENDMODULE\n",
@@ -4450,10 +4450,7 @@ mod tests {
     #[test]
     fn included_declarations_belong_to_the_owning_module_interface() {
         let model = analyze_named_sources(&[
-            (
-                "project/main.act",
-                "MODULE APP\nIMPORT LIB.DATA\nENDMODULE\n",
-            ),
+            ("project/main.act", "MODULE APP\nUSE LIB.DATA\nENDMODULE\n"),
             (
                 "project/lib/data.act",
                 "MODULE LIB.DATA\nINCLUDE \"fields.act\"\nENDMODULE\n",
