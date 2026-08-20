@@ -383,6 +383,7 @@ impl CodegenProfile {
 mod state;
 use state::*;
 
+mod native_real;
 mod native_state;
 
 pub(crate) mod tracked_emitter;
@@ -682,6 +683,28 @@ impl Generator {
         let Some(size) = pointer.pointee_size else {
             return false;
         };
+        if size > 2 {
+            let temp = if addr == runtime_zp::ADDR {
+                runtime_zp::ARRAY_ADDR
+            } else {
+                runtime_zp::ADDR
+            };
+            if !self.emit_index_expr_to_temp(index, temp)
+                || !self.emit_pointer_slot_to_addr(pointer, addr)
+            {
+                return false;
+            }
+            for _ in 0..size {
+                self.emit_clc();
+                self.emit_lda_zero_page(addr);
+                self.emit_adc_zero_page(temp);
+                self.emit_sta_zero_page(addr);
+                self.emit_lda_zero_page(addr.offset(1));
+                self.emit_adc_zero_page(temp.offset(1));
+                self.emit_sta_zero_page(addr.offset(1));
+            }
+            return true;
+        }
         if size != 1 && size != 2 {
             return false;
         }
@@ -718,6 +741,17 @@ impl Generator {
     }
 
     pub(super) fn emit_expr_to_slot(&mut self, expr: &Expr, slot: StorageSlot) -> bool {
+        if let Some(emitted) = self.try_emit_native_real_expr_to_slot(expr, slot) {
+            return emitted;
+        }
+        self.emit_expr_to_slot_without_native_real(expr, slot)
+    }
+
+    pub(super) fn emit_expr_to_slot_without_native_real(
+        &mut self,
+        expr: &Expr,
+        slot: StorageSlot,
+    ) -> bool {
         debug_assert_expr_target_slot_shape(expr, slot);
         if self.segment_storage && expr_uses_compatible_runtime_arithmetic(expr) {
             return self.emit_binary_expr_to_slot(expr, slot);
@@ -1126,6 +1160,10 @@ struct Generator {
     deferred_output_cursor: u16,
     suppress_implicit_rts_once: bool,
     inline_byte_constant_shift: bool,
+    native_real: native_real::ClassicNativeRealFacts,
+    current_native_real_scope: Option<String>,
+    native_real_fact_suppression: usize,
+    used_atari_fpp_services: BTreeSet<native_real::ClassicAtariFppService>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1261,6 +1299,7 @@ fn codegen_routine_signature_from_ast(
 fn type_ref_trace_name(ty: &TypeRef) -> String {
     let mut text = match &ty.base {
         TypeBase::Fund(fund) => fund_type_trace_name(*fund).to_string(),
+        TypeBase::NativeReal => "REAL".to_string(),
         TypeBase::Named(name) => name.to_string(),
         TypeBase::Callable(kind) => match kind {
             RoutineKind::Proc => "PROC".to_string(),
@@ -1412,6 +1451,14 @@ fn constant_u16(expr: &Expr) -> Option<u16> {
     match &expr.kind {
         ExprKind::Number(number) => number.value,
         ExprKind::Char(ch) => source_char_byte(*ch).map(u16::from),
+        ExprKind::Cast { ty, expr } => {
+            let value = constant_u16(expr)?;
+            Some(if type_size(ty) == Some(1) {
+                value & 0x00FF
+            } else {
+                value
+            })
+        }
         ExprKind::Unary {
             op: UnaryOp::Plus,
             expr,

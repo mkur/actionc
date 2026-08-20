@@ -322,6 +322,7 @@ pub(super) fn type_size(ty: &TypeRef) -> Option<u16> {
     match &ty.base {
         TypeBase::Fund(FundType::Byte | FundType::Char) => Some(1),
         TypeBase::Fund(FundType::Card | FundType::Int) => Some(2),
+        TypeBase::NativeReal => Some(6),
         TypeBase::Named(name) if is_string_type_name(name) => Some(1),
         TypeBase::Named(_) => None,
         TypeBase::Callable(_) => Some(2),
@@ -342,6 +343,14 @@ pub(super) fn constant_u16_with_defines(
 ) -> Option<u16> {
     match &expr.kind {
         ExprKind::Name(name) => numeric_defines.get(&normalize_name(name)).copied(),
+        ExprKind::Cast { ty, expr } => {
+            let value = constant_u16_with_defines(expr, numeric_defines)?;
+            Some(if type_size(ty) == Some(1) {
+                value & 0x00FF
+            } else {
+                value
+            })
+        }
         ExprKind::Unary {
             op: UnaryOp::Plus,
             expr,
@@ -571,7 +580,7 @@ pub(super) fn structured_array_initializer_storage(
     entry: &DeclEntry,
     element_size: u16,
 ) -> Option<Vec<StorageInit>> {
-    if !matches!(element_size, 1 | 2) {
+    if !matches!(element_size, 1 | 2 | 6) {
         return None;
     }
     let ExprKind::InitializerList(elements) = &entry.initializer.as_ref()?.kind else {
@@ -581,6 +590,13 @@ pub(super) fn structured_array_initializer_storage(
     let mut initializers = Vec::new();
     for element in elements {
         match &element.kind {
+            InitializerElementKind::Literal { .. } if element_size == 6 => {
+                initializers.extend(
+                    real_initializer_element_bytes(element)?
+                        .into_iter()
+                        .map(StorageInit::Byte),
+                );
+            }
             InitializerElementKind::Literal { .. } => {
                 let value = initializer_literal_value(element)?;
                 initializers.push(StorageInit::Byte(value as u8));
@@ -722,6 +738,9 @@ pub(super) fn extend_entry_initializers(
 }
 
 pub(super) fn scalar_initializer_storage(entry: &DeclEntry, total_size: u16) -> Option<Vec<u8>> {
+    if total_size == 6 {
+        return real_initializer_expr_bytes(entry.initializer.as_ref()?).map(Vec::from);
+    }
     let value = if let Some(value) = constant_u16(entry.initializer.as_ref()?) {
         value
     } else {
@@ -740,6 +759,47 @@ pub(super) fn scalar_initializer_storage(entry: &DeclEntry, total_size: u16) -> 
         bytes.push(immediate.high());
     }
     Some(bytes)
+}
+
+fn real_initializer_expr_bytes(expr: &Expr) -> Option<[u8; 6]> {
+    let text = match &expr.kind {
+        ExprKind::Number(number) => number.text.clone(),
+        ExprKind::Unary {
+            op: UnaryOp::Plus,
+            expr,
+        } => return real_initializer_expr_bytes(expr),
+        ExprKind::Unary {
+            op: UnaryOp::Neg,
+            expr,
+        } => {
+            let ExprKind::Number(number) = &expr.kind else {
+                return None;
+            };
+            format!("-{}", number.text)
+        }
+        _ => return None,
+    };
+    crate::atari_real::AtariReal::from_decimal(&text)
+        .ok()
+        .map(crate::atari_real::AtariReal::to_bytes)
+}
+
+fn real_initializer_element_bytes(element: &InitializerElement) -> Option<[u8; 6]> {
+    let InitializerElementKind::Literal {
+        value: InitializerLiteral::Number(number),
+        negative,
+    } = &element.kind
+    else {
+        return None;
+    };
+    let text = if *negative {
+        format!("-{}", number.text)
+    } else {
+        number.text.clone()
+    };
+    crate::atari_real::AtariReal::from_decimal(&text)
+        .ok()
+        .map(crate::atari_real::AtariReal::to_bytes)
 }
 
 pub(super) fn sized_byte_array_storage_bytes(byte_size: u16, len: u16) -> Vec<u8> {

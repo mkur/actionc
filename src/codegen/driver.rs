@@ -50,8 +50,20 @@ pub fn generate_semir_profile_with_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    let program = super::semir::semir_to_cart_ast(program)?;
-    generate_profile_with_origin(&program, origin, profile)
+    let projection = super::semir::semir_to_cart_projection(program)?;
+    let origin = if origin == CODE_ORIGIN {
+        program_code_origin(&projection.program).unwrap_or(origin)
+    } else {
+        origin
+    };
+    generate_with_options_and_facts(
+        &projection.program,
+        &projection.native_real,
+        origin,
+        true,
+        profile,
+        RuntimeTarget::Cartridge,
+    )
 }
 
 pub(crate) fn generate_semir_profile_at_origin(
@@ -59,8 +71,15 @@ pub(crate) fn generate_semir_profile_at_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    let program = super::semir::semir_to_cart_ast(program)?;
-    generate_profile_at_origin(&program, origin, profile)
+    let projection = super::semir::semir_to_cart_projection(program)?;
+    generate_with_options_and_facts(
+        &projection.program,
+        &projection.native_real,
+        origin,
+        true,
+        profile,
+        RuntimeTarget::Cartridge,
+    )
 }
 
 pub(super) fn generate_with_options(
@@ -80,8 +99,45 @@ pub(super) fn generate_with_options(
     .map(|(output, _)| output)
 }
 
+pub(super) fn generate_with_options_and_facts(
+    program: &Program,
+    native_real: &super::native_real::ClassicNativeRealFacts,
+    origin: u16,
+    segment_storage: bool,
+    profile: CodegenProfile,
+    runtime_target: RuntimeTarget,
+) -> Result<CodegenOutput, Vec<Diagnostic>> {
+    generate_with_options_and_requirements_with_facts(
+        program,
+        native_real,
+        origin,
+        segment_storage,
+        profile,
+        runtime_target,
+    )
+    .map(|(output, _)| output)
+}
+
 pub(super) fn generate_with_options_and_requirements(
     program: &Program,
+    origin: u16,
+    segment_storage: bool,
+    profile: CodegenProfile,
+    runtime_target: RuntimeTarget,
+) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
+    generate_with_options_and_requirements_with_facts(
+        program,
+        &super::native_real::ClassicNativeRealFacts::default(),
+        origin,
+        segment_storage,
+        profile,
+        runtime_target,
+    )
+}
+
+pub(super) fn generate_with_options_and_requirements_with_facts(
+    program: &Program,
+    native_real: &super::native_real::ClassicNativeRealFacts,
     origin: u16,
     segment_storage: bool,
     profile: CodegenProfile,
@@ -156,6 +212,10 @@ pub(super) fn generate_with_options_and_requirements(
         deferred_output_cursor: origin,
         suppress_implicit_rts_once: false,
         inline_byte_constant_shift: false,
+        native_real: native_real.clone(),
+        current_native_real_scope: None,
+        native_real_fact_suppression: 0,
+        used_atari_fpp_services: BTreeSet::new(),
     };
     generator.generate_program(program);
     generator.finish_with_runtime_requirements()

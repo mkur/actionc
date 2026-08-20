@@ -229,7 +229,7 @@ fn nir_preflight_failure_is_returned_as_a_source_diagnostic() {
 }
 
 #[test]
-fn native_real_core_arithmetic_compiles_with_mir6502_in_both_runtimes() {
+fn native_real_core_arithmetic_compiles_with_both_backends_and_runtimes() {
     let temp = TestDir::new();
     let source = write_source(
         &temp,
@@ -237,34 +237,26 @@ fn native_real_core_arithmetic_compiles_with_mir6502_in_both_runtimes() {
         "REAL value PROC Main() value=1.25+2 RETURN",
     );
 
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-        let compiled = compile_file(
-            &source,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
-        )
-        .unwrap_or_else(|error| panic!("compile native REAL for {runtime}: {error}"));
-        assert_eq!(compiled.runtime(), runtime);
-        assert!(
-            compiled
-                .object_bytes()
-                .windows(3)
-                .any(|bytes| bytes == [0x20, 0x66, 0xDA]),
-            "expected FADD call for {runtime}"
-        );
-        let listing = compiled.source_listing();
-        assert!(listing.contains("ATARI_FPP_FADD"));
-        assert!(listing.contains("Atari OS ROM"));
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let compiled = compile_file(
+                &source,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap_or_else(|error| panic!("compile native REAL for {mode:?}/{runtime}: {error}"));
+            assert_eq!(compiled.runtime(), runtime);
+            assert!(
+                compiled
+                    .object_bytes()
+                    .windows(3)
+                    .any(|bytes| bytes == [0x20, 0x66, 0xDA]),
+                "expected FADD call for {mode:?}/{runtime}"
+            );
+            let listing = compiled.source_listing();
+            assert!(listing.contains("ATARI_FPP_FADD"));
+            assert!(listing.contains("Atari OS ROM"));
+        }
     }
-
-    let classic =
-        compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized)).unwrap_err();
-    assert_eq!(classic.kind(), CompileErrorKind::Compilation);
-    assert_eq!(classic.diagnostics()[0].phase, CompilerPhase::Codegen);
-    assert!(
-        classic.diagnostics()[0]
-            .message
-            .contains("native REAL semantics are available")
-    );
 
     let compatibility = compile_file(
         &source,
@@ -281,6 +273,15 @@ fn native_real_core_arithmetic_compiles_with_mir6502_in_both_runtimes() {
             .iter()
             .any(|diagnostic| diagnostic.message.contains("unknown type `REAL`"))
     );
+}
+
+#[test]
+fn historical_toolkit_real_source_remains_a_record_in_modern_backends() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/toolkit/modern/REAL.ACT");
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        compile_file(&source, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile Toolkit REAL.ACT with {mode:?}: {error}"));
+    }
 }
 
 #[test]

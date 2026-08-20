@@ -1049,6 +1049,28 @@ impl Generator {
         index: &Expr,
         pointer: ZeroPage,
     ) -> bool {
+        if array.size > 2 {
+            let temp = if pointer == runtime_zp::ADDR {
+                runtime_zp::ARRAY_ADDR
+            } else {
+                runtime_zp::ADDR
+            };
+            if !self.emit_index_expr_to_temp(index, temp)
+                || self.emit_array_base_to_pointer(array, pointer).is_none()
+            {
+                return false;
+            }
+            for _ in 0..array.size {
+                self.emit_clc();
+                self.emit_lda_zero_page(pointer);
+                self.emit_adc_zero_page(temp);
+                self.emit_sta_zero_page(pointer);
+                self.emit_lda_zero_page(pointer.offset(1));
+                self.emit_adc_zero_page(temp.offset(1));
+                self.emit_sta_zero_page(pointer.offset(1));
+            }
+            return true;
+        }
         if array.size != 1 && array.size != 2 {
             return false;
         }

@@ -1,10 +1,10 @@
 # Native REAL Implementation Plan
 
-Implementation status: in progress. Slices 0 through 7 are complete: the Atari
+Implementation status: in progress. Slices 0 through 8 are complete: the Atari
 oracle, exact decimal codec, modern-profile semantic contract, MIR storage-size
 foundation, address-based NIR, MIR6502 core FPP arithmetic, comparisons, unary
-operations, scalar conversions, and aggregate/indirect storage are in place.
-Classic-backend parity remains explicitly gated.
+operations, scalar conversions, aggregate/indirect storage, and classic-backend
+parity are in place. The first-party library surface remains.
 
 ## Goal
 
@@ -371,6 +371,8 @@ layout counts a REAL field as six bytes.
 
 ### Slice 8: Classic Backend Parity
 
+Status: complete.
+
 - Extend the SemIR-to-classic bridge with structured native-real facts and
   hidden storage; do not make classic code generation infer semantics from the
   identifier spelling.
@@ -382,6 +384,27 @@ layout counts a REAL field as six bytes.
 
 Exit criterion: native real behavior is backend-independent for the supported
 language surface.
+
+The SemIR-to-classic projection uses a compiler-only `NativeReal` type carrier
+and structured expression facts containing exact literal bytes, resolved
+integer conversions, operators, and lvalue shapes. The parser never constructs
+the carrier, and classic code generation never decides native semantics from a
+type name. A source-defined record named `REAL` therefore remains an ordinary
+named record in this bridge.
+
+Classic routines reserve hidden six-byte evaluation slots plus integer, sign,
+and saved-address scratch selected from the resolved expression tree. Binary
+operands are materialized left-to-right before FR0/FR1 service calls. Assignment
+captures an indirect destination address before evaluating the right-hand side,
+and all six source bytes are staged before stores, preserving evaluation order
+and overlap behavior. Dynamic array and pointer indexes use their structured
+six-byte element size.
+
+Classic emission records the same Atari OS FPP service bindings in maps and
+listings as MIR6502. `Optimized` remains the classic backend; it is not routed
+through MIR6502. The core, overlap, control/conversion, and aggregate fixtures
+run in the cart/standalone matrix under both backends and compare the same
+observable packed-decimal bytes.
 
 ### Slice 9: First-Party Library Surface
 

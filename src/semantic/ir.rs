@@ -3750,6 +3750,7 @@ impl From<&crate::ast::TypeRef> for ValueType {
     fn from(value: &crate::ast::TypeRef) -> Self {
         let base = match &value.base {
             crate::ast::TypeBase::Fund(fund) => ValueTypeBase::Fund(*fund),
+            crate::ast::TypeBase::NativeReal => ValueTypeBase::Real,
             crate::ast::TypeBase::Named(name) if name.eq_ignore_ascii_case("STRING") => {
                 ValueTypeBase::Fund(FundType::Char)
             }

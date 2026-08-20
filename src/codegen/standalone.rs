@@ -11,7 +11,9 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    let mut application = super::semir::semir_to_ast(semir)?;
+    let application_projection = super::semir::semir_to_projection(semir)?;
+    let mut application = application_projection.program;
+    let native_real = application_projection.native_real;
     reject_absolute_helper_overrides(&application)?;
     let local_helper_overrides = local_helper_overrides(&application);
 
@@ -92,13 +94,15 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
             },
         );
     }
-    let (_, classic_runtime_requirements) = super::driver::generate_with_options_and_requirements(
-        &preflight,
-        origin,
-        true,
-        profile,
-        RuntimeTarget::StandaloneSlots,
-    )?;
+    let (_, classic_runtime_requirements) =
+        super::driver::generate_with_options_and_requirements_with_facts(
+            &preflight,
+            &native_real,
+            origin,
+            true,
+            profile,
+            RuntimeTarget::StandaloneSlots,
+        )?;
     let helper_roots = classic_runtime_requirements
         .iter()
         .map(|helper| helper.name().to_string())
@@ -127,8 +131,9 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     ));
     application.modules = modules;
 
-    let mut output = super::driver::generate_with_options(
+    let mut output = super::driver::generate_with_options_and_facts(
         &application,
+        &native_real,
         origin,
         true,
         profile,

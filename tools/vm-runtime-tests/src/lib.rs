@@ -214,10 +214,11 @@ mod tests {
 
     #[test]
     fn native_real_core_arithmetic_uses_atari_fpp_in_both_runtimes() {
-        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+          for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             let outcome = run_runtime_fixture(
                 "native_real_core.act",
-                CompileMode::Mir6502,
+                mode,
                 runtime,
                 true,
                 10_000,
@@ -228,7 +229,7 @@ mod tests {
             assert_eq!(
                 result,
                 [0x40, 0x03, 0, 0, 0, 0],
-                "native REAL result for {runtime:?}: {:?}",
+                "native REAL result for {mode:?}/{runtime:?}: {:?}",
                 outcome.report
             );
             for (address, expected) in [
@@ -240,17 +241,19 @@ mod tests {
                 let actual = (0..6)
                     .map(|offset| outcome.memory().read(address + offset))
                     .collect::<Vec<_>>();
-                assert_eq!(actual, expected, "native REAL result at ${address:04X}");
+                assert_eq!(actual, expected, "{mode:?}/{runtime:?} at ${address:04X}");
             }
+          }
         }
     }
 
     #[test]
     fn native_real_assignment_is_overlap_safe() {
-        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+          for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             let outcome = run_runtime_fixture(
                 "native_real_overlap.act",
-                CompileMode::Mir6502,
+                mode,
                 runtime,
                 true,
                 1_000,
@@ -258,16 +261,18 @@ mod tests {
             let destination = (0..6)
                 .map(|offset| outcome.memory().read(0x0602 + offset))
                 .collect::<Vec<_>>();
-            assert_eq!(destination, [0x44, 0x12, 0x34, 0x56, 0x78, 0x90]);
+            assert_eq!(destination, [0x44, 0x12, 0x34, 0x56, 0x78, 0x90], "{mode:?}/{runtime:?}");
+          }
         }
     }
 
     #[test]
     fn native_real_control_and_conversion_surface_runs_in_both_runtimes() {
-        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+          for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             let outcome = run_runtime_fixture(
                 "native_real_control.act",
-                CompileMode::Mir6502,
+                mode,
                 runtime,
                 true,
                 100_000,
@@ -286,15 +291,17 @@ mod tests {
             assert_eq!(bytes(0x0614, 6), [0, 1, 1, 1, 0, 0]);
             assert_eq!(bytes(0x061A, 4), [1, 1, 1, 1]);
             assert_eq!(bytes(0x061E, 2), [2, 0]);
+          }
         }
     }
 
     #[test]
     fn native_real_aggregate_storage_runs_in_both_runtimes() {
-        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+          for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             let outcome = run_runtime_fixture(
                 "native_real_storage.act",
-                CompileMode::Mir6502,
+                mode,
                 runtime,
                 true,
                 100_000,
@@ -316,8 +323,9 @@ mod tests {
                 (0x0630, [0x40, 0x01, 0x25, 0, 0, 0]),
                 (0x0636, [0x40, 0x09, 0x25, 0, 0, 0]),
             ] {
-                assert_eq!(bytes(address), expected, "{runtime:?} at ${address:04X}");
+                assert_eq!(bytes(address), expected, "{mode:?}/{runtime:?} at ${address:04X}");
             }
+          }
         }
     }
 

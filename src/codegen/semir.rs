@@ -7,30 +7,58 @@ use crate::semantic::{SymbolId, ValueType, ValueTypeBase};
 use crate::source::Span;
 use std::collections::{BTreeMap, HashMap};
 
+use super::native_real::{
+    ClassicNativeExpr, ClassicNativeRealFacts, ClassicRealValue, real_address_temp_name,
+    real_integer_temp_name, real_sign_temp_name, real_temp_name,
+};
+
+pub(crate) struct ClassicProjection {
+    pub(crate) program: Program,
+    pub(crate) native_real: ClassicNativeRealFacts,
+}
+
 pub(crate) fn semir_to_ast(program: &SemProgram) -> Result<Program, Vec<Diagnostic>> {
+    semir_to_projection(program).map(|projection| projection.program)
+}
+
+pub(crate) fn semir_to_projection(
+    program: &SemProgram,
+) -> Result<ClassicProjection, Vec<Diagnostic>> {
     let mut lowerer = SemIrAstLowerer {
         diagnostics: Vec::new(),
         type_link_names: module_type_link_names(program),
         external_addresses: None,
+        native_real: ClassicNativeRealFacts::default(),
+        native_real_scope: None,
     };
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
-        Ok(program)
+        Ok(ClassicProjection {
+            program,
+            native_real: lowerer.native_real,
+        })
     } else {
         Err(lowerer.diagnostics)
     }
 }
 
-pub(crate) fn semir_to_cart_ast(program: &SemProgram) -> Result<Program, Vec<Diagnostic>> {
+pub(crate) fn semir_to_cart_projection(
+    program: &SemProgram,
+) -> Result<ClassicProjection, Vec<Diagnostic>> {
     let addresses = cart_external_addresses(program)?;
     let mut lowerer = SemIrAstLowerer {
         diagnostics: Vec::new(),
         type_link_names: module_type_link_names(program),
         external_addresses: Some(&addresses),
+        native_real: ClassicNativeRealFacts::default(),
+        native_real_scope: None,
     };
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
-        Ok(program)
+        Ok(ClassicProjection {
+            program,
+            native_real: lowerer.native_real,
+        })
     } else {
         Err(lowerer.diagnostics)
     }
@@ -74,6 +102,8 @@ struct SemIrAstLowerer<'a> {
     diagnostics: Vec<Diagnostic>,
     type_link_names: BTreeMap<String, String>,
     external_addresses: Option<&'a HashMap<SymbolId, u16>>,
+    native_real: ClassicNativeRealFacts,
+    native_real_scope: Option<String>,
 }
 
 impl SemIrAstLowerer<'_> {
@@ -259,6 +289,22 @@ impl SemIrAstLowerer<'_> {
     }
 
     fn routine(&mut self, routine: &SemRoutine) -> Option<Routine> {
+        let mut locals = self.local_declarations(&routine.locals);
+        let native_real_nodes = routine_native_real_node_count(routine);
+        if native_real_nodes > 0 {
+            locals.extend(native_real_hidden_declarations(
+                native_real_nodes.saturating_add(3),
+                routine.span,
+            ));
+        }
+        let previous_native_real_scope = self.native_real_scope.take();
+        self.native_real_scope = Some(routine.symbol.name.to_ascii_uppercase());
+        let body = routine
+            .body
+            .iter()
+            .filter_map(|stmt| self.stmt(stmt))
+            .collect();
+        self.native_real_scope = previous_native_real_scope;
         Some(Routine {
             visibility: Visibility::Private,
             is_external: routine.is_external,
@@ -286,12 +332,8 @@ impl SemIrAstLowerer<'_> {
                 .iter()
                 .map(|param| self.param(param))
                 .collect(),
-            locals: self.local_declarations(&routine.locals),
-            body: routine
-                .body
-                .iter()
-                .filter_map(|stmt| self.stmt(stmt))
-                .collect(),
+            locals,
+            body,
             annotations: routine.annotations.clone(),
             span: routine.span,
         })
@@ -504,6 +546,20 @@ impl SemIrAstLowerer<'_> {
     }
 
     fn expr(&mut self, expr: &SemExpr) -> Option<Expr> {
+        let output = self.expr_inner(expr)?;
+        if let Some(native) = self.classic_native_expr(expr, &output) {
+            self.native_real
+                .insert(self.native_real_scope.as_deref(), expr.span, native);
+        } else {
+            // A projected outer expression can share a span with a nested
+            // lvalue or implicit cast. The outer resolved type wins.
+            self.native_real
+                .remove(self.native_real_scope.as_deref(), expr.span);
+        }
+        Some(output)
+    }
+
+    fn expr_inner(&mut self, expr: &SemExpr) -> Option<Expr> {
         let kind = match &expr.kind {
             SemExprKind::Missing => ExprKind::Missing,
             SemExprKind::Raw(text) => {
@@ -566,6 +622,18 @@ impl SemIrAstLowerer<'_> {
     }
 
     fn lvalue(&mut self, lvalue: &SemLValue) -> Option<Expr> {
+        let output = self.lvalue_inner(lvalue)?;
+        if lvalue.ty.is_real() {
+            self.native_real.insert(
+                self.native_real_scope.as_deref(),
+                lvalue.span,
+                ClassicNativeExpr::Real(ClassicRealValue::Place(output.clone())),
+            );
+        }
+        Some(output)
+    }
+
+    fn lvalue_inner(&mut self, lvalue: &SemLValue) -> Option<Expr> {
         let kind = match &lvalue.kind {
             SemLValueKind::Symbol(symbol) => ExprKind::Name(symbol.name.clone()),
             SemLValueKind::UnresolvedName(name) => ExprKind::Name(name.clone()),
@@ -669,10 +737,7 @@ impl SemIrAstLowerer<'_> {
         TypeRef {
             base: match &ty.base {
                 ValueTypeBase::Fund(fund) => TypeBase::Fund(*fund),
-                // The classic bridge still projects SemIR back to an AST. REAL
-                // backend semantics remain in SemIR; this spelling only keeps
-                // the source-shaped carrier intact until classic parity lands.
-                ValueTypeBase::Real => TypeBase::Named("REAL".into()),
+                ValueTypeBase::Real => TypeBase::NativeReal,
                 ValueTypeBase::Named(name) => TypeBase::Named(
                     self.type_link_names
                         .get(&name.to_ascii_uppercase())
@@ -684,6 +749,110 @@ impl SemIrAstLowerer<'_> {
                 ValueTypeBase::Error => TypeBase::Fund(FundType::Byte),
             },
             pointer: ty.pointer && !matches!(ty.base, ValueTypeBase::Callable(_)),
+        }
+    }
+
+    fn classic_native_expr(
+        &self,
+        semantic: &SemExpr,
+        projected: &Expr,
+    ) -> Option<ClassicNativeExpr> {
+        if semantic.ty.is_real() {
+            return self
+                .classic_real_value(semantic, projected)
+                .map(ClassicNativeExpr::Real);
+        }
+
+        match (&semantic.kind, &projected.kind) {
+            (
+                SemExprKind::Binary { op, left, right },
+                ExprKind::Binary {
+                    left: projected_left,
+                    right: projected_right,
+                    ..
+                },
+            ) if matches!(
+                op,
+                BinaryOp::Eq
+                    | BinaryOp::Ne
+                    | BinaryOp::Lt
+                    | BinaryOp::Le
+                    | BinaryOp::Gt
+                    | BinaryOp::Ge
+            ) && left.ty.is_real()
+                && right.ty.is_real() =>
+            {
+                Some(ClassicNativeExpr::Compare {
+                    op: *op,
+                    left: self.classic_real_value(left, projected_left)?,
+                    right: self.classic_real_value(right, projected_right)?,
+                })
+            }
+            (
+                SemExprKind::Cast { expr: inner, .. },
+                ExprKind::Cast {
+                    expr: projected_inner,
+                    ..
+                },
+            ) if inner.ty.is_real() => Some(ClassicNativeExpr::ToInteger {
+                value: self.classic_real_value(inner, projected_inner)?,
+            }),
+            _ => None,
+        }
+    }
+
+    fn classic_real_value(&self, semantic: &SemExpr, projected: &Expr) -> Option<ClassicRealValue> {
+        match (&semantic.kind, &projected.kind) {
+            (SemExprKind::Literal(SemLiteral::Real { value, .. }), _) => {
+                Some(ClassicRealValue::Literal(value.to_bytes()))
+            }
+            (SemExprKind::LValue(_), _)
+            | (SemExprKind::Symbol(_), _)
+            | (SemExprKind::ArrayDecay(_), _) => Some(ClassicRealValue::Place(projected.clone())),
+            (
+                SemExprKind::Cast { expr: inner, .. },
+                ExprKind::Cast {
+                    expr: projected_inner,
+                    ..
+                },
+            ) if inner.ty.is_real() => self.classic_real_value(inner, projected_inner),
+            (
+                SemExprKind::Cast { expr: inner, .. },
+                ExprKind::Cast {
+                    expr: projected_inner,
+                    ..
+                },
+            ) => {
+                let scalar = inner.ty.as_scalar()?;
+                Some(ClassicRealValue::IntegerToReal {
+                    source: (**projected_inner).clone(),
+                    width: scalar.width_bytes(),
+                    signed: scalar.is_signed(),
+                })
+            }
+            (
+                SemExprKind::Unary { op, expr: inner },
+                ExprKind::Unary {
+                    expr: projected_inner,
+                    ..
+                },
+            ) => Some(ClassicRealValue::Unary {
+                op: *op,
+                value: Box::new(self.classic_real_value(inner, projected_inner)?),
+            }),
+            (
+                SemExprKind::Binary { op, left, right },
+                ExprKind::Binary {
+                    left: projected_left,
+                    right: projected_right,
+                    ..
+                },
+            ) => Some(ClassicRealValue::Binary {
+                op: *op,
+                left: Box::new(self.classic_real_value(left, projected_left)?),
+                right: Box::new(self.classic_real_value(right, projected_right)?),
+            }),
+            _ => None,
         }
     }
 
@@ -751,6 +920,240 @@ fn module_type_link_names(program: &SemProgram) -> BTreeMap<String, String> {
             _ => None,
         })
         .collect()
+}
+
+fn native_real_hidden_declarations(count: usize, span: Span) -> Vec<Decl> {
+    let real_entries = (0..count)
+        .map(|index| DeclEntry {
+            name: real_temp_name(index),
+            size: None,
+            initializer: None,
+            span,
+        })
+        .collect();
+    vec![
+        Decl::Var(VarDecl {
+            visibility: Visibility::Private,
+            qualifiers: VarQualifiers::default(),
+            ty: TypeRef {
+                base: TypeBase::NativeReal,
+                pointer: false,
+            },
+            storage: VarStorage::Plain,
+            entries: real_entries,
+            span,
+        }),
+        hidden_scalar_decl(
+            FundType::Card,
+            vec![real_integer_temp_name(), real_address_temp_name()],
+            span,
+        ),
+        hidden_scalar_decl(FundType::Byte, vec![real_sign_temp_name()], span),
+    ]
+}
+
+fn hidden_scalar_decl(ty: FundType, names: Vec<&str>, span: Span) -> Decl {
+    Decl::Var(VarDecl {
+        visibility: Visibility::Private,
+        qualifiers: VarQualifiers::default(),
+        ty: TypeRef {
+            base: TypeBase::Fund(ty),
+            pointer: false,
+        },
+        storage: VarStorage::Plain,
+        entries: names
+            .into_iter()
+            .map(|name| DeclEntry {
+                name: name.to_string(),
+                size: None,
+                initializer: None,
+                span,
+            })
+            .collect(),
+        span,
+    })
+}
+
+fn routine_native_real_node_count(routine: &SemRoutine) -> usize {
+    let count = routine.body.iter().map(stmt_expr_node_count).sum::<usize>();
+    routine
+        .body
+        .iter()
+        .any(stmt_uses_native_real)
+        .then_some(count.max(1))
+        .unwrap_or(0)
+}
+
+fn stmt_uses_native_real(stmt: &SemStmt) -> bool {
+    match stmt {
+        SemStmt::Assign { target, value, .. } | SemStmt::CompoundAssign { target, value, .. } => {
+            target.ty.is_real() || expr_uses_native_real(value) || lvalue_uses_native_real(target)
+        }
+        SemStmt::Return { value, .. } => value.as_ref().is_some_and(expr_uses_native_real),
+        SemStmt::Call { call, .. } => call.args.iter().any(expr_uses_native_real),
+        SemStmt::If {
+            branches,
+            else_body,
+            ..
+        } => {
+            branches.iter().any(|branch| {
+                expr_uses_native_real(&branch.condition.expr)
+                    || branch.body.iter().any(stmt_uses_native_real)
+            }) || else_body.iter().any(stmt_uses_native_real)
+        }
+        SemStmt::While {
+            condition, body, ..
+        } => expr_uses_native_real(&condition.expr) || body.iter().any(stmt_uses_native_real),
+        SemStmt::DoUntil {
+            body, condition, ..
+        } => {
+            condition
+                .as_ref()
+                .is_some_and(|condition| expr_uses_native_real(&condition.expr))
+                || body.iter().any(stmt_uses_native_real)
+        }
+        SemStmt::For {
+            target,
+            start,
+            end,
+            step,
+            body,
+            ..
+        } => {
+            lvalue_uses_native_real(target)
+                || expr_uses_native_real(start)
+                || expr_uses_native_real(end)
+                || step.as_ref().is_some_and(expr_uses_native_real)
+                || body.iter().any(stmt_uses_native_real)
+        }
+        SemStmt::Define(_)
+        | SemStmt::Exit { .. }
+        | SemStmt::MachineBlock { .. }
+        | SemStmt::InlineAsm { .. }
+        | SemStmt::Unsupported { .. } => false,
+    }
+}
+
+fn expr_uses_native_real(expr: &SemExpr) -> bool {
+    expr.ty.is_real()
+        || match &expr.kind {
+            SemExprKind::LValue(value) => lvalue_uses_native_real(value),
+            SemExprKind::ArrayDecay(value) => lvalue_uses_native_real(&value.array),
+            SemExprKind::AddressOf(value) => lvalue_uses_native_real(value),
+            SemExprKind::ImplicitAddressOf(value) => lvalue_uses_native_real(&value.place),
+            SemExprKind::Cast { expr, .. } | SemExprKind::Unary { expr, .. } => {
+                expr_uses_native_real(expr)
+            }
+            SemExprKind::Binary { left, right, .. } => {
+                expr_uses_native_real(left) || expr_uses_native_real(right)
+            }
+            SemExprKind::Call(call) => call.args.iter().any(expr_uses_native_real),
+            SemExprKind::Missing
+            | SemExprKind::Raw(_)
+            | SemExprKind::InitializerList(_)
+            | SemExprKind::UnresolvedName(_)
+            | SemExprKind::CurrentLocation
+            | SemExprKind::Literal(_)
+            | SemExprKind::Symbol(_)
+            | SemExprKind::AddressOfSymbol(_) => false,
+        }
+}
+
+fn lvalue_uses_native_real(value: &SemLValue) -> bool {
+    value.ty.is_real()
+        || match &value.kind {
+            SemLValueKind::Deref { pointer } => expr_uses_native_real(pointer),
+            SemLValueKind::Index { base, index, .. } => {
+                expr_uses_native_real(base) || expr_uses_native_real(index)
+            }
+            SemLValueKind::Field { base, .. } => lvalue_uses_native_real(base),
+            SemLValueKind::Symbol(_) | SemLValueKind::UnresolvedName(_) => false,
+        }
+}
+
+fn stmt_expr_node_count(stmt: &SemStmt) -> usize {
+    match stmt {
+        SemStmt::Assign { target, value, .. } | SemStmt::CompoundAssign { target, value, .. } => {
+            lvalue_expr_node_count(target) + expr_node_count(value)
+        }
+        SemStmt::Return { value, .. } => value.as_ref().map_or(0, expr_node_count),
+        SemStmt::Call { call, .. } => call.args.iter().map(expr_node_count).sum(),
+        SemStmt::If {
+            branches,
+            else_body,
+            ..
+        } => {
+            branches
+                .iter()
+                .map(|branch| {
+                    expr_node_count(&branch.condition.expr)
+                        + branch.body.iter().map(stmt_expr_node_count).sum::<usize>()
+                })
+                .sum::<usize>()
+                + else_body.iter().map(stmt_expr_node_count).sum::<usize>()
+        }
+        SemStmt::While {
+            condition, body, ..
+        } => {
+            expr_node_count(&condition.expr) + body.iter().map(stmt_expr_node_count).sum::<usize>()
+        }
+        SemStmt::DoUntil {
+            body, condition, ..
+        } => {
+            condition
+                .as_ref()
+                .map_or(0, |condition| expr_node_count(&condition.expr))
+                + body.iter().map(stmt_expr_node_count).sum::<usize>()
+        }
+        SemStmt::For {
+            target,
+            start,
+            end,
+            step,
+            body,
+            ..
+        } => {
+            lvalue_expr_node_count(target)
+                + expr_node_count(start)
+                + expr_node_count(end)
+                + step.as_ref().map_or(0, expr_node_count)
+                + body.iter().map(stmt_expr_node_count).sum::<usize>()
+        }
+        SemStmt::Define(_)
+        | SemStmt::Exit { .. }
+        | SemStmt::MachineBlock { .. }
+        | SemStmt::InlineAsm { .. }
+        | SemStmt::Unsupported { .. } => 0,
+    }
+}
+
+fn expr_node_count(expr: &SemExpr) -> usize {
+    1 + match &expr.kind {
+        SemExprKind::LValue(value) => lvalue_expr_node_count(value),
+        SemExprKind::ArrayDecay(value) => lvalue_expr_node_count(&value.array),
+        SemExprKind::AddressOf(value) => lvalue_expr_node_count(value),
+        SemExprKind::ImplicitAddressOf(value) => lvalue_expr_node_count(&value.place),
+        SemExprKind::Cast { expr, .. } | SemExprKind::Unary { expr, .. } => expr_node_count(expr),
+        SemExprKind::Binary { left, right, .. } => expr_node_count(left) + expr_node_count(right),
+        SemExprKind::Call(call) => call.args.iter().map(expr_node_count).sum(),
+        SemExprKind::Missing
+        | SemExprKind::Raw(_)
+        | SemExprKind::InitializerList(_)
+        | SemExprKind::UnresolvedName(_)
+        | SemExprKind::CurrentLocation
+        | SemExprKind::Literal(_)
+        | SemExprKind::Symbol(_)
+        | SemExprKind::AddressOfSymbol(_) => 0,
+    }
+}
+
+fn lvalue_expr_node_count(value: &SemLValue) -> usize {
+    1 + match &value.kind {
+        SemLValueKind::Deref { pointer } => expr_node_count(pointer),
+        SemLValueKind::Index { base, index, .. } => expr_node_count(base) + expr_node_count(index),
+        SemLValueKind::Field { base, .. } => lvalue_expr_node_count(base),
+        SemLValueKind::Symbol(_) | SemLValueKind::UnresolvedName(_) => 0,
+    }
 }
 
 fn bare_call_stmt_name(expr: &SemExpr) -> Option<String> {
@@ -854,6 +1257,7 @@ fn type_ref_text(ty: &TypeRef) -> String {
             FundType::Char => "CHAR".to_string(),
             FundType::Int => "INT".to_string(),
         },
+        TypeBase::NativeReal => "REAL".to_string(),
         TypeBase::Named(name) => name.to_string(),
         TypeBase::Callable(kind) => routine_kind_text(kind),
     };
@@ -918,7 +1322,73 @@ mod tests {
     use crate::codegen::{CODE_ORIGIN, CodegenProfile, generate_profile_with_origin};
     use crate::lexer::tokenize;
     use crate::parser::parse;
-    use crate::semantic::{analyze, ir};
+    use crate::semantic::{SemanticOptions, analyze, analyze_with_options, ir};
+
+    #[test]
+    fn native_real_projection_uses_structured_type_and_expression_facts() {
+        let (_, semir) = lower_modern_source("REAL value PROC Main() value=1.25+2 RETURN");
+        let projection = semir_to_projection(&semir).unwrap();
+
+        let declaration = projection
+            .program
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .find_map(|item| match item {
+                Item::Declaration(Decl::Var(decl))
+                    if decl.entries.iter().any(|entry| entry.name == "value") =>
+                {
+                    Some(decl)
+                }
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(declaration.ty.base, TypeBase::NativeReal);
+
+        let value_span = projection
+            .program
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .find_map(|item| match item {
+                Item::Routine(routine) if routine.name == "Main" => {
+                    routine.body.iter().find_map(|stmt| match stmt {
+                        Stmt::Assign { value, .. } => Some(value.span),
+                        _ => None,
+                    })
+                }
+                _ => None,
+            })
+            .unwrap();
+        assert!(matches!(
+            projection.native_real.expression(Some("MAIN"), value_span),
+            Some(ClassicNativeExpr::Real(ClassicRealValue::Binary { .. }))
+        ));
+    }
+
+    #[test]
+    fn source_defined_real_record_does_not_gain_native_carriers() {
+        let (_, semir) = lower_modern_source(
+            "TYPE REAL=[CARD r1,r2,r3] REAL value PROC Main() value.r1=1 RETURN",
+        );
+        let projection = semir_to_projection(&semir).unwrap();
+
+        let declaration = projection
+            .program
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .find_map(|item| match item {
+                Item::Declaration(Decl::Var(decl))
+                    if decl.entries.iter().any(|entry| entry.name == "value") =>
+                {
+                    Some(decl)
+                }
+                _ => None,
+            })
+            .unwrap();
+        assert!(matches!(declaration.ty.base, TypeBase::Named(_)));
+    }
 
     #[test]
     fn semir_codegen_matches_ast_for_scalar_assignment_slice() {
@@ -1055,6 +1525,14 @@ mod tests {
         let tokens = tokenize(source).unwrap();
         let program = parse(&tokens).unwrap();
         let model = analyze(&program).unwrap();
+        let semir = ir::lower_program(&program, &model);
+        (program, semir)
+    }
+
+    fn lower_modern_source(source: &str) -> (Program, SemProgram) {
+        let tokens = tokenize(source).unwrap();
+        let program = parse(&tokens).unwrap();
+        let model = analyze_with_options(&program, SemanticOptions::modern()).unwrap();
         let semir = ir::lower_program(&program, &model);
         (program, semir)
     }

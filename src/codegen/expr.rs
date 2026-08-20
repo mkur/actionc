@@ -271,6 +271,7 @@ impl Generator {
             ExprKind::Cast { ty, expr } => match ty.base {
                 TypeBase::Fund(FundType::Int) => true,
                 TypeBase::Fund(FundType::Byte | FundType::Card | FundType::Char)
+                | TypeBase::NativeReal
                 | TypeBase::Named(_)
                 | TypeBase::Callable(_) => self.expr_signed(expr),
             },
@@ -614,6 +615,7 @@ fn cast_type_size(ty: &TypeRef) -> Option<u16> {
     match ty.base {
         TypeBase::Fund(FundType::Byte | FundType::Char) => Some(1),
         TypeBase::Fund(FundType::Card | FundType::Int) => Some(2),
+        TypeBase::NativeReal => Some(6),
         TypeBase::Callable(_) => Some(2),
         TypeBase::Named(_) => None,
     }

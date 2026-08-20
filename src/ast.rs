@@ -271,6 +271,11 @@ pub struct TypeRef {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeBase {
     Fund(FundType),
+    /// Compiler-internal carrier for the modern semantic native REAL type.
+    /// The parser never constructs this variant; the SemIR-to-classic bridge
+    /// uses it so classic code generation does not rediscover the type from an
+    /// identifier spelling.
+    NativeReal,
     Named(QualifiedName),
     Callable(RoutineKind),
 }

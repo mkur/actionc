@@ -984,6 +984,15 @@ impl Generator {
     }
 
     pub(super) fn generate_assignment(&mut self, target: &Expr, value: &Expr, span: Span) {
+        if let Some(emitted) = self.try_emit_native_real_assignment(target, value) {
+            if !emitted {
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    "classic code generation could not materialize the resolved native REAL assignment",
+                ));
+            }
+            return;
+        }
         if self.emit_array_name_assignment(target, value) {
             return;
         }
@@ -1081,6 +1090,15 @@ impl Generator {
         value: &Expr,
         span: Span,
     ) {
+        if let Some(emitted) = self.try_emit_native_real_compound_assignment(target, op, value) {
+            if !emitted {
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    "classic code generation could not materialize the resolved native REAL compound assignment",
+                ));
+            }
+            return;
+        }
         if self.emit_compatible_compound_peephole(target, op, value) {
             return;
         }

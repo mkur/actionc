@@ -49,6 +49,19 @@ impl Generator {
         let optimizations = self.optimizations;
         let proofs = self.proofs;
         let proof_attempts = self.proof_attempts;
+        let runtime_bindings = self
+            .used_atari_fpp_services
+            .iter()
+            .copied()
+            .map(|service| CodegenRuntimeBinding {
+                helper: format!("ATARI_FPP_{}", service.name()),
+                implementation: format!("Atari OS FPP {}", service.name()),
+                address: Some(service.address()),
+                reason: "native REAL arithmetic/conversion".to_string(),
+                origin: "Atari OS ROM".to_string(),
+                suppressed_default: None,
+            })
+            .collect();
         let classic_runtime_requirements =
             self.used_default_runtime_helpers.iter().copied().collect();
         let mut storage_symbols = self.layout.codegen_storage_symbols();
@@ -60,7 +73,7 @@ impl Generator {
         });
         let map = CodegenMap {
             runtime: crate::runtime::Runtime::ActionCart,
-            runtime_bindings: Vec::new(),
+            runtime_bindings,
             origin,
             run_address,
             skipped_ranges: skipped_ranges.clone(),

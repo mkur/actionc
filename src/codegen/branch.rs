@@ -250,6 +250,9 @@ impl Generator {
         label: &str,
         span: Span,
     ) -> bool {
+        if let Some(emitted) = self.try_emit_native_real_branch_if_true(condition, label, span) {
+            return emitted;
+        }
         match &condition.kind {
             ExprKind::Binary { op, left, right }
                 if matches!(

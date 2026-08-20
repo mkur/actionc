@@ -3665,6 +3665,7 @@ impl ValueType {
     fn from_type_ref(ty: &TypeRef) -> Self {
         let base = match &ty.base {
             TypeBase::Fund(fund) => ValueTypeBase::Fund(*fund),
+            TypeBase::NativeReal => ValueTypeBase::Real,
             TypeBase::Named(name) if is_string_type_name(name) => {
                 ValueTypeBase::Fund(FundType::Char)
             }

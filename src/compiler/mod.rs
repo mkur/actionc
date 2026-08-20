@@ -221,20 +221,7 @@ pub(crate) fn compile_file_with_request(
             )
         })?;
     let semir = ir::lower_compilation(&loaded, &model);
-    if request.backend == Backend::Classic
-        && let Some(span) = first_native_real_codegen_use(&model)
-    {
-        return Err(CompileError::from_source_diagnostics(
-            CompilerPhase::Codegen,
-            vec![crate::diagnostic::Diagnostic::new(
-                span,
-                "native REAL semantics are available, but code generation is not implemented yet",
-            )],
-            &loaded.source,
-            path,
-            Some(&loaded.source_map),
-        ));
-    }
+    let uses_native_real = first_native_real_codegen_use(&model).is_some();
     if request.runtime == Runtime::Standalone {
         let diagnostics = standalone_resident_diagnostics(&semir);
         if !diagnostics.is_empty() {
@@ -255,6 +242,7 @@ pub(crate) fn compile_file_with_request(
             &semir,
             &model,
             named,
+            uses_native_real,
             request,
             &loaded.source,
             path,
@@ -332,6 +320,7 @@ fn compile_classic(
     semir: &ir::SemProgram,
     model: &crate::semantic::SemanticModel,
     named: bool,
+    uses_native_real: bool,
     request: ResolvedCompileRequest,
     source: &str,
     path: &Path,
@@ -358,7 +347,7 @@ fn compile_classic(
     }
 
     let result = match request.codegen_source {
-        CodegenSource::Ast if !named => {
+        CodegenSource::Ast if !named && !uses_native_real => {
             let materialized = materialize_constants(program, model);
             match request.origin {
                 Some(origin) => generate_profile_at_origin(&materialized, origin, request.profile),
