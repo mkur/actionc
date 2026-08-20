@@ -3,7 +3,7 @@
 This note documents the current proof and fact layer used by modern direct
 codegen. These proofs are deliberately conservative. Their job is to make
 optimization decisions explicit and inspectable while remaining useful later as
-inputs to TAC/SSA lowering.
+inputs to NIR and MIR6502 lowering.
 
 ## Tooling
 
@@ -393,4 +393,5 @@ The preferred direction is:
 - log accepted proof-guided lowering;
 - expose rejected attempts only through debug tooling;
 - avoid encoding large source-pattern rewrites directly in proof consumers;
-- carry these facts forward into TAC/SSA rather than replacing that layer.
+- carry these facts forward into NIR/MIR6502 rather than replacing those
+  layers.

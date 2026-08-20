@@ -41,9 +41,6 @@ crowding the active reference set.
 - [MIR6502 rewrite workflow baseline](../surveys/tn/mir6502-rewrite-workflow-baseline.md)
   - reproducible TN artifacts and the checked migration inventory for that
   plan.
-- [TAC_BOUNDARY_FOR_6502_MIR.md](TAC_BOUNDARY_FOR_6502_MIR.md) - TAC/MIR
-  boundary vocabulary.
-
 ## Tooling
 
 - [ACTIONC_VM_USAGE.md](ACTIONC_VM_USAGE.md) - in-repo compiler

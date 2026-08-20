@@ -28,3 +28,7 @@ removed without a deprecation window. The `semir-native`, `native`,
 `sem-ir-native`, `native-ir`, and `modern-ir` codegen-source spellings, along
 with the equivalent profile aliases, now fail as invalid values. The SemIR
 bridge and the SemIR -> NIR -> MIR6502 pipeline remain available.
+
+The obsolete `actionc::tac` Rust compatibility namespace and duplicate
+`actionc-tac-sweep` binary were also removed. Rust clients and developer tools
+should use `actionc::nir` and `actionc-nir-sweep` directly.

@@ -1,5 +1,9 @@
 # TAC Boundary For 6502 MIR
 
+> Retired on 2026-08-20 when the obsolete `actionc::tac` compatibility alias
+> and `actionc-tac-sweep` wrapper were removed. This document describes the
+> historical pre-NIR boundary and is retained only for archaeology.
+
 Snapshot date: 2026-05-31.
 
 This document is the consumer contract for a 6502 MIR that lowers from

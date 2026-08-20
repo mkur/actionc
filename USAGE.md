@@ -104,8 +104,7 @@ hex-text behavior.
   is accepted as an alias.
 - `--emit-tokens` writes lexer tokens.
 - `--emit-semir` writes the semantic IR.
-- `--emit-nir` writes verified NIR before optimization. The old `--emit-tac`
-  alias has been removed.
+- `--emit-nir` writes verified NIR before optimization.
 - `--emit-optimized-nir` writes the optimized NIR passed to MIR6502.
 - `--emit-nir-stats` writes deterministic lowered/optimized NIR censuses,
   scalar-home promotability and blocker counts, and the aggregate optimizer

@@ -1,7 +1,7 @@
 # Semantic Invariants
 
 This note records language-level invariants that `actionc` should preserve as
-we move from AST codegen toward semantic IR and later TAC/SSA.
+we move from AST codegen toward semantic IR, NIR, and MIR6502.
 
 These are not optimization preferences. They are semantic rules or strong
 working assumptions about Action! behavior. If a future probe contradicts one,
@@ -108,7 +108,7 @@ The current analyzer still exposes `SemanticModel.expression_observations` as a
 compatibility/debug projection of expression span, category, and type. This side
 table must not drive SemIR lowering or code generation. It exists to keep older
 tests and observability hooks working while the compiler migrates toward typed
-semantic nodes and later TAC/SSA.
+semantic nodes and NIR.
 
 Consequences:
 

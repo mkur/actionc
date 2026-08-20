@@ -1,19 +1,16 @@
 # NIR Target Shape
 
-Snapshot date: 2026-05-31.
+Snapshot date: 2026-05-31. Updated for the completed TAC-to-NIR naming
+migration on 2026-08-20.
 
-This document describes the recommended final shape of NIR, the Normalized
-Intermediate Representation that should grow out of the current `tac` module.
-It is the target contract for migration work, optimizer work, and the future
-MIR6502 consumer.
+This document describes the target shape of NIR, the Normalized Intermediate
+Representation implemented under `src/nir`. It is the contract for hardening,
+optimizer work, and the MIR6502 consumer.
 
-This document is intentionally aspirational. The current `tac` implementation is
-transitional and may temporarily contain legacy forms while it is being migrated.
-Verifier-clean NIR is the end state described here.
-During the migration, `actionc-emit --emit-nir` is backed by the transitional `tac`
-module. The old `--emit-tac` observation alias has been removed. `fixtures/nir`
-is the optimizer-facing snapshot contract; `fixtures/tac` remains as
-transitional compatibility coverage for historical TAC shapes.
+Parts of this document remain aspirational where legacy NIR variants are still
+representable internally. The verifier rejects those variants from executable
+NIR, and `fixtures/nir` is the optimizer-facing snapshot contract. There is no
+separate TAC module or TAC fixture contract.
 
 ## Position In The Compiler
 
@@ -58,7 +55,7 @@ NIR must not own:
 
 Verifier-clean NIR is not:
 
-- printed TAC text;
+- printed or source-summary text;
 - AST-shaped syntax;
 - a collection of expression summary strings;
 - a 6502 instruction stream;
@@ -733,53 +730,29 @@ Target-specific optimizations such as zero-page placement, compare/branch flag
 fusion, indexed addressing selection, helper selection, and peepholes belong in
 MIR6502 or later.
 
-## Mapping From Current TAC To Target NIR
+## Remaining Legacy NIR Shapes
 
-The current TAC typed core maps naturally to NIR:
-
-```text
-TacProgram        -> NirProgram
-TacRoutine        -> NirRoutine
-TacBlock          -> NirBlock
-TacTypeKind       -> NirType
-TacValue          -> NirValue
-TacPlace          -> NirPlace
-TacOp::Load       -> NirOp::Load
-TacOp::Store      -> NirOp::Store
-TacOp::AddrOf     -> NirOp::AddrOf
-TacOp::Unary      -> NirOp::Unary
-TacOp::Cast       -> NirOp::Cast
-TacOp::Binary     -> NirOp::Binary
-TacOp::Compare    -> NirOp::Compare
-TacOp::Call       -> NirOp::Call
-TacTerminator     -> NirTerminator
-```
-
-Current transitional forms should not survive as verifier-clean NIR:
+The public TAC compatibility namespace is gone. The following transitional NIR
+forms are still representable internally but must not survive as verifier-clean
+NIR:
 
 ```text
-TacOperand                         -> remove from executable paths
-TacPlaceKind::Symbol(String)       -> Param/Local/Global/Absolute IDs
-TacPlaceKind::Field { field }      -> Field { offset }
-TacPlaceKind::Index { syntax }     -> Index { base_addr, index, elem_size }
-TacCallee::Indirect { target }     -> Indirect { target: NirValue }
-TacOp::Assign                      -> Store
-TacOp::CompoundAssign              -> Load/Binary/Store
-TacOp::Set                         -> Store Absolute or explicit init segment
-TacOp::Define/Declare/Note         -> metadata tables
-TacOp::MachineBlock { effects }    -> structured payload and effects
-TacTerminator::Goto(String)        -> Goto(BlockId)
-TacTerminator::Branch string labels -> Branch with BlockId targets
-TacTerminator::Open/Unknown        -> reject before verifier-clean NIR
+NirOperand                         -> remove from executable paths
+NirPlaceKind::Symbol(String)       -> Param/Local/Global/Absolute IDs
+NirPlaceKind::UnresolvedName       -> diagnose before NIR construction
+NirOp::Assign                      -> Store
+NirOp::CompoundAssign              -> Load/Binary/Store
+NirOp::Set                         -> structured initialization metadata
+NirOp::Define/Declare/Note         -> routine/program metadata tables
 ```
 
 ## Red Lines
 
 Do not consider NIR complete while any of these are true:
 
-- optimizer passes run on legacy/stringly TAC shapes;
+- optimizer passes run on legacy/stringly NIR shapes;
 - MIR6502 consults SemIR to recover missing NIR facts;
-- executable code uses `TacOperand`;
+- executable code uses `NirOperand`;
 - executable storage identity depends on `Symbol(String)`;
 - executable field/index forms preserve source syntax instead of semantic facts;
 - calls lack signatures or conservative effects;
