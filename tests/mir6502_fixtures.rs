@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502;
 use actionc::nir;
-use actionc::semantic::{analyze, ir};
+use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
 
 mod snapshot_support;
 
@@ -26,7 +26,7 @@ fn mir6502_fixtures_match_snapshots() {
         assert_eq!(
             actual,
             expected,
-            "MIR6502 fixture changed for {}\n\nrefresh with:\n  cargo run --bin actionc-emit -- --emit-mir6502 {} > {}",
+            "MIR6502 fixture changed for {}\n\nrefresh with:\n  cargo run --bin actionc-emit -- --profile modern --emit-mir6502 {} > {}",
             source_path.display(),
             source_path.display(),
             expected_path.display()
@@ -37,7 +37,7 @@ fn mir6502_fixtures_match_snapshots() {
 fn emit_mir6502(path: &Path) -> String {
     let loaded = load_program_with_expanded_source(path)
         .unwrap_or_else(|err| panic!("load {}: {err:?}", path.display()));
-    let model = analyze(&loaded.program)
+    let model = analyze_with_options(&loaded.program, SemanticOptions::modern())
         .unwrap_or_else(|err| panic!("analyze {}: {err:?}", path.display()));
     let semir = ir::lower_program(&loaded.program, &model);
     let nir_program = nir::optimize_program(&nir::lower_program(&semir))

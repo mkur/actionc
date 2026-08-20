@@ -636,7 +636,8 @@ fn call_target_references_param_storage(target: &MirCallTarget) -> bool {
         MirCallTarget::Indirect { target, .. } => value_references_param_storage(target),
         MirCallTarget::Routine(_)
         | MirCallTarget::Builtin { .. }
-        | MirCallTarget::Runtime { .. } => false,
+        | MirCallTarget::Runtime { .. }
+        | MirCallTarget::AtariFpp(_) => false,
     }
 }
 

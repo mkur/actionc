@@ -1391,7 +1391,7 @@ impl MirVerifier {
                 abi,
                 args,
                 result,
-                effects: _,
+                effects,
             } => {
                 match target {
                     super::ir::MirCallTarget::Routine(id) if !routine_ids.contains(id) => {
@@ -1419,6 +1419,42 @@ impl MirVerifier {
                         );
                     }
                     _ => {}
+                }
+                if matches!(target, super::ir::MirCallTarget::AtariFpp(_)) {
+                    let expected_clobbers = super::ir::MirRegisterSet {
+                        a: true,
+                        x: true,
+                        y: true,
+                        flags: true,
+                        sp: false,
+                    };
+                    if !args.is_empty()
+                        || result.is_some()
+                        || !abi.params.is_empty()
+                        || abi.result.is_some()
+                    {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            "Atari FPP service calls must use the implicit FR0/FR1 ABI",
+                        ));
+                    }
+                    if abi.clobbers != expected_clobbers
+                        || abi.preserves != super::ir::MirRegisterSet::default()
+                        || effects.clobbers != expected_clobbers
+                        || effects.preserves != super::ir::MirRegisterSet::default()
+                        || effects.memory_reads != super::ir::MirMemoryEffect::All
+                        || effects.memory_writes != super::ir::MirMemoryEffect::All
+                        || effects.stack_depth_delta != Some(0)
+                        || !effects.may_call_os
+                        || !effects.opaque
+                    {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            "Atari FPP service call effects must conservatively clobber registers and memory",
+                        ));
+                    }
                 }
                 if args.len() != abi.params.len() {
                     self.diagnostics.push(MirDiagnostic::block(

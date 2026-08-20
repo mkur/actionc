@@ -1,0 +1,7 @@
+REAL source=$0600
+REAL destination=$0602
+
+PROC Main()
+  source=1234567890.0
+  destination=source
+RETURN

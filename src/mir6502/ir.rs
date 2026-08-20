@@ -793,9 +793,49 @@ pub enum MirCarryOut {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MirCallTarget {
     Routine(RoutineId),
-    Indirect { target: MirValue, width: MirWidth },
-    Builtin { name: String, address: Option<u16> },
-    Runtime { name: String, address: Option<u16> },
+    Indirect {
+        target: MirValue,
+        width: MirWidth,
+    },
+    Builtin {
+        name: String,
+        address: Option<u16>,
+    },
+    Runtime {
+        name: String,
+        address: Option<u16>,
+    },
+    /// Fixed Atari OS floating-point package entry point. This is a target
+    /// service, not an Action runtime helper or source-level routine.
+    AtariFpp(MirAtariFppService),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MirAtariFppService {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+impl MirAtariFppService {
+    pub const fn address(self) -> u16 {
+        match self {
+            Self::Subtract => 0xDA60,
+            Self::Add => 0xDA66,
+            Self::Multiply => 0xDADB,
+            Self::Divide => 0xDB28,
+        }
+    }
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Add => "FADD",
+            Self::Subtract => "FSUB",
+            Self::Multiply => "FMULT",
+            Self::Divide => "FDIV",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

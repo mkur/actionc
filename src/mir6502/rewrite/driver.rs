@@ -1186,6 +1186,7 @@ enum MirCallTargetIdentity {
     Indirect(crate::mir6502::ir::MirWidth),
     Builtin { name: String, address: Option<u16> },
     Runtime { name: String, address: Option<u16> },
+    AtariFpp(crate::mir6502::ir::MirAtariFppService),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1224,6 +1225,9 @@ fn call_effect_identity(op: &MirOp) -> Option<MirCallEffectIdentity> {
                 name: name.clone(),
                 address: *address,
             }
+        }
+        crate::mir6502::ir::MirCallTarget::AtariFpp(service) => {
+            MirCallTargetIdentity::AtariFpp(*service)
         }
     };
     Some(MirCallEffectIdentity {

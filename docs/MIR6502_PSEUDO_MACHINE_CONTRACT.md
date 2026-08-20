@@ -911,6 +911,44 @@ Rules:
   when emission needs them.
 - Unknown helper targets are allowed only before pre-emission MIR.
 
+### Atari FPP target services
+
+Native `REAL` arithmetic uses a distinct structured call target:
+
+```rust
+pub enum MirCallTarget {
+    // Ordinary source/runtime call targets omitted.
+    AtariFpp(MirAtariFppService),
+}
+
+pub enum MirAtariFppService {
+    Add,       // FADD  $DA66
+    Subtract,  // FSUB  $DA60
+    Multiply,  // FMULT $DADB
+    Divide,    // FDIV  $DB28
+}
+```
+
+These identities are fixed Atari OS services. They are neither source-level
+routines nor Action cartridge/standalone runtime helpers, and standalone
+linking leaves them unchanged. Maps and listings expose them as Atari OS ROM
+dependencies; the existing runtime-binding record is output metadata only and
+does not cause an embedded routine to be linked.
+
+Before a service call, lowering copies all six left operand bytes into FR0
+(`$D4`-`$D9`) and all six right operand bytes into FR1 (`$E0`-`$E5`). After the
+call it copies all six FR0 bytes to the typed destination. Every six-byte copy
+loads the complete source before its first write, so assignment remains correct
+for overlapping aliases. Constant integer promotions use the same exact Atari
+decimal codec as literals; dynamic conversion remains a separate target
+service slice.
+
+FPP calls conservatively clobber A, X, Y, flags, FR0, FR1, and unknown FPP
+workspace. MIR represents them as opaque OS calls with all-memory effects until
+an audited narrower contract exists. The stack is known balanced across the
+call. Optimization and materialization must therefore preserve operand/result
+copies around the service call.
+
 ## Effects And Barriers
 
 Effects are required from the first MIR slice.

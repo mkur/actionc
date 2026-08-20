@@ -230,11 +230,11 @@ fn real_expressions_lower_to_address_based_verified_nir() {
     let optimized = optimize_program(&program).expect("REAL NIR should remain optimizer-clean");
     verify_program(&optimized).expect("optimized REAL NIR should verify");
     let diagnostics = crate::mir6502::lower_program(&optimized)
-        .expect_err("Slice 4 must retain an explicit MIR6502 gate");
+        .expect_err("REAL comparisons remain explicitly gated until Slice 6");
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic
             .message
-            .contains("native REAL NIR lowering is not implemented yet")
+            .contains("native REAL comparison lowering is not implemented yet")
     }));
 }
 

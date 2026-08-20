@@ -1,0 +1,16 @@
+REAL result=$0600
+REAL added=$0606
+REAL subtracted=$060C
+REAL multiplied=$0612
+REAL divided=$0618
+
+PROC Main()
+  REAL x,y
+  x=1.25
+  y=2
+  result=x*y+0.5
+  added=x+y
+  subtracted=x-y
+  multiplied=x*y
+  divided=x/y
+RETURN

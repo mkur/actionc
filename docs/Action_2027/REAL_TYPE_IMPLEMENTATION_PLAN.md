@@ -1,9 +1,9 @@
 # Native REAL Implementation Plan
 
-Implementation status: in progress. Slices 0 through 4 are complete: the Atari
+Implementation status: in progress. Slices 0 through 5 are complete: the Atari
 oracle, exact decimal codec, modern-profile semantic contract, MIR storage-size
-foundation, and address-based NIR are in place. MIR6502 FPP lowering remains
-gated by an explicit diagnostic.
+foundation, address-based NIR, and MIR6502 core FPP arithmetic are in place.
+Comparisons, unary operations, and dynamic conversions remain explicitly gated.
 
 ## Goal
 

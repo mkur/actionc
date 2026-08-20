@@ -859,6 +859,9 @@ fn call_target_summary(target: &MirCallTarget) -> String {
         MirCallTarget::Runtime { name, address } => address
             .map(|address| format!("{name}@${address:04X}"))
             .unwrap_or_else(|| name.clone()),
+        MirCallTarget::AtariFpp(service) => {
+            format!("atari-fpp.{}@${:04X}", service.name(), service.address())
+        }
     }
 }
 

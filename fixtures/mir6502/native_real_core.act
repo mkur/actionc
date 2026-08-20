@@ -1,0 +1,7 @@
+REAL x,y,result
+
+PROC Main()
+  x=1.25
+  y=2
+  result=x*y+0.5
+RETURN

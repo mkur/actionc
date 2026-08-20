@@ -213,6 +213,56 @@ mod tests {
     }
 
     #[test]
+    fn native_real_core_arithmetic_uses_atari_fpp_in_both_runtimes() {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let outcome = run_runtime_fixture(
+                "native_real_core.act",
+                CompileMode::Mir6502,
+                runtime,
+                true,
+                10_000,
+            );
+            let result = (0..6)
+                .map(|offset| outcome.memory().read(0x0600 + offset))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                result,
+                [0x40, 0x03, 0, 0, 0, 0],
+                "native REAL result for {runtime:?}: {:?}",
+                outcome.report
+            );
+            for (address, expected) in [
+                (0x0606, [0x40, 0x03, 0x25, 0, 0, 0]),
+                (0x060C, [0xBF, 0x75, 0, 0, 0, 0]),
+                (0x0612, [0x40, 0x02, 0x50, 0, 0, 0]),
+                (0x0618, [0x3F, 0x62, 0x50, 0, 0, 0]),
+            ] {
+                let actual = (0..6)
+                    .map(|offset| outcome.memory().read(address + offset))
+                    .collect::<Vec<_>>();
+                assert_eq!(actual, expected, "native REAL result at ${address:04X}");
+            }
+        }
+    }
+
+    #[test]
+    fn native_real_assignment_is_overlap_safe() {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let outcome = run_runtime_fixture(
+                "native_real_overlap.act",
+                CompileMode::Mir6502,
+                runtime,
+                true,
+                1_000,
+            );
+            let destination = (0..6)
+                .map(|offset| outcome.memory().read(0x0602 + offset))
+                .collect::<Vec<_>>();
+            assert_eq!(destination, [0x44, 0x12, 0x34, 0x56, 0x78, 0x90]);
+        }
+    }
+
+    #[test]
     fn initialized_arrays_execute_through_the_vm_library() {
         assert_both_backends(
             "initialized arrays",

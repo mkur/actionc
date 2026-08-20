@@ -3333,6 +3333,7 @@ fn emit_call(
             address: Some(address),
             ..
         } => emitter.emit_jsr_abs(*address),
+        MirCallTarget::AtariFpp(service) => emitter.emit_jsr_abs(service.address()),
         MirCallTarget::Builtin {
             name,
             address: None,
@@ -3445,6 +3446,10 @@ fn emit_tail_call_target(
             ..
         } => {
             emitter.emit_jmp_abs(*address);
+            true
+        }
+        MirCallTarget::AtariFpp(service) => {
+            emitter.emit_jmp_abs(service.address());
             true
         }
         MirCallTarget::Builtin {

@@ -686,7 +686,9 @@ fn rebase_op(
                 MirCallTarget::Indirect { target, .. } => {
                     rebase_value(target, routines, globals, statics)?
                 }
-                MirCallTarget::Builtin { .. } | MirCallTarget::Runtime { .. } => {}
+                MirCallTarget::Builtin { .. }
+                | MirCallTarget::Runtime { .. }
+                | MirCallTarget::AtariFpp(_) => {}
             }
             for arg in args {
                 rebase_value(&mut arg.value, routines, globals, statics)?;

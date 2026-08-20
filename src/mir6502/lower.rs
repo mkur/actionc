@@ -5,8 +5,9 @@ use crate::codegen::runtime_zp;
 use crate::nir::{
     self, BlockId, LocalId, NirBinaryOp, NirCompareOp, NirGlobalBacking, NirInlineAsm,
     NirInlineAsmTarget, NirLocalBacking, NirMachineAtom, NirMachineByteSelector, NirMachineEffects,
-    NirMachineItem, NirOp as NirOpKind, NirPlace, NirPlaceKind, NirProgram, NirTerminator, NirType,
-    NirTypeKind, NirUnaryOp, NirValue as NirValueKind, TempId,
+    NirMachineItem, NirOp as NirOpKind, NirPlace, NirPlaceKind, NirProgram, NirRealOp,
+    NirRealSource, NirTerminator, NirType, NirTypeKind, NirUnaryOp, NirValue as NirValueKind,
+    TempId,
 };
 use crate::resident::resident_variable;
 
@@ -16,15 +17,15 @@ use super::classify::{
 };
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam, MirCarryOut, MirCompareOp, MirCond,
-    MirCondDest, MirDataBacking, MirDataImage, MirDataRelocation, MirDataRelocationKind,
-    MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFrame,
-    MirGlobal, MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom,
-    MirMachineBlock, MirMachineBlockId, MirMachineByteSelector, MirMachineItem, MirMem,
-    MirMemoryEffect, MirOp, MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi,
-    MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic, MirStorageBacking,
-    MirStorageBase, MirStorageClass, MirStorageId, MirStorageInit, MirStorageSlot, MirTemp,
-    MirTempId, MirTerminator, MirUnaryOp, MirValue, MirWidth, RoutineId,
+    MirAddr, MirAtariFppService, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam, MirCallAbi,
+    MirCallTarget, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDataBacking, MirDataImage,
+    MirDataRelocation, MirDataRelocationKind, MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg,
+    MirEffects, MirFixedZpSlot, MirFrame, MirGlobal, MirGlobalBacking, MirGlobalInit,
+    MirInlineAsmTarget, MirMachineAtom, MirMachineBlock, MirMachineBlockId, MirMachineByteSelector,
+    MirMachineItem, MirMem, MirMemoryEffect, MirOp, MirProgram, MirRegisterSet, MirRoutine,
+    MirRoutineAbi, MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic,
+    MirStorageBacking, MirStorageBase, MirStorageClass, MirStorageId, MirStorageInit,
+    MirStorageSlot, MirTemp, MirTempId, MirTerminator, MirUnaryOp, MirValue, MirWidth, RoutineId,
 };
 
 pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>> {
@@ -108,6 +109,13 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                     .filter(|local| local_pointer_backed_array(local))
                     .map(|local| local.id)
                     .collect::<Vec<_>>();
+                let mut next_generated_temp = routine
+                    .temps
+                    .iter()
+                    .map(|temp| temp.id.0)
+                    .max()
+                    .map_or(0, |id| id.saturating_add(1));
+                let mut generated_temps = Vec::new();
 
                 let blocks: Vec<MirBlock> = routine
                     .blocks
@@ -126,6 +134,8 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                             &local_absolute_addresses,
                             &machine_numeric_defines,
                             &mut machine_blocks,
+                            &mut next_generated_temp,
+                            &mut generated_temps,
                             &mut diagnostics,
                         );
                         lower_return_value_ops(
@@ -274,6 +284,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                     .map(|temp| MirTemp {
                         id: MirTempId(temp.id.0),
                     })
+                    .chain(generated_temps)
                     .collect(),
                 blocks,
                 effects: MirEffects::default(),
@@ -748,6 +759,8 @@ fn lower_ops(
     local_absolute_addresses: &BTreeMap<String, u16>,
     machine_numeric_defines: &BTreeMap<String, u16>,
     machine_blocks: &mut Vec<MirMachineBlock>,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Vec<MirOp> {
     let mut lowered = Vec::new();
@@ -1149,15 +1162,232 @@ fn lower_ops(
                     effects: lower_inline_asm_effects(code, effects),
                 });
             }
-            NirOpKind::Real(_) => diagnostics.push(MirDiagnostic::block(
+            NirOpKind::Real(real) => lower_real_op(
                 routine,
                 block,
-                "native REAL NIR lowering is not implemented yet",
-            )),
+                real,
+                next_generated_temp,
+                generated_temps,
+                &mut lowered,
+                diagnostics,
+            ),
             _ => {}
         }
     }
     lowered
+}
+
+const ATARI_FPP_FR0: MirFixedZpSlot = MirFixedZpSlot(0xD4);
+const ATARI_FPP_FR1: MirFixedZpSlot = MirFixedZpSlot(0xE0);
+const ATARI_REAL_BYTES: u16 = 6;
+
+fn lower_real_op(
+    routine: &str,
+    block: &str,
+    op: &NirRealOp,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+    diagnostics: &mut Vec<MirDiagnostic>,
+) {
+    match op {
+        NirRealOp::Copy {
+            destination,
+            source,
+        } => {
+            let Some(destination) = lower_place_mem(routine, block, destination, diagnostics)
+            else {
+                return;
+            };
+            let source = match source {
+                NirRealSource::Place(source) => {
+                    lower_place_mem(routine, block, source, diagnostics)
+                }
+                NirRealSource::Static { id, .. } => Some(MirMem::Static { id: *id, offset: 0 }),
+            };
+            let Some(source) = source else {
+                return;
+            };
+            push_staged_real_copy(
+                &source,
+                &destination,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+        }
+        NirRealOp::Binary {
+            operation,
+            destination,
+            left,
+            right,
+        } => {
+            let Some(service) = real_binary_service(*operation) else {
+                diagnostics.push(MirDiagnostic::block(
+                    routine,
+                    block,
+                    "unsupported native REAL arithmetic operation",
+                ));
+                return;
+            };
+            let Some(destination) = lower_place_mem(routine, block, destination, diagnostics)
+            else {
+                return;
+            };
+            let Some(left) = lower_place_mem(routine, block, left, diagnostics) else {
+                return;
+            };
+            let Some(right) = lower_place_mem(routine, block, right, diagnostics) else {
+                return;
+            };
+            push_staged_real_copy(
+                &left,
+                &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            push_staged_real_copy(
+                &right,
+                &MirMem::FixedZeroPage(ATARI_FPP_FR1),
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            lowered.push(atari_fpp_call(service));
+            push_staged_real_copy(
+                &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+                &destination,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+        }
+        NirRealOp::IntegerToReal {
+            destination,
+            source,
+            source_type,
+        } => {
+            let Some(destination) = lower_place_mem(routine, block, destination, diagnostics)
+            else {
+                return;
+            };
+            let Some(bytes) = constant_integer_real_bytes(source, source_type) else {
+                diagnostics.push(MirDiagnostic::block(
+                    routine,
+                    block,
+                    "dynamic integer-to-REAL conversion is not implemented yet",
+                ));
+                return;
+            };
+            for (offset, byte) in bytes.into_iter().enumerate() {
+                lowered.push(MirOp::Store {
+                    dst: MirAddr::Direct(offset_mem(&destination, offset as u16)),
+                    src: MirValue::ConstU8(byte),
+                    width: MirWidth::Byte,
+                });
+            }
+        }
+        NirRealOp::Unary { .. } => diagnostics.push(MirDiagnostic::block(
+            routine,
+            block,
+            "native REAL unary lowering is not implemented yet",
+        )),
+        NirRealOp::Compare { .. } => diagnostics.push(MirDiagnostic::block(
+            routine,
+            block,
+            "native REAL comparison lowering is not implemented yet",
+        )),
+    }
+}
+
+fn real_binary_service(operation: NirBinaryOp) -> Option<MirAtariFppService> {
+    match operation {
+        NirBinaryOp::Add => Some(MirAtariFppService::Add),
+        NirBinaryOp::Sub => Some(MirAtariFppService::Subtract),
+        NirBinaryOp::Mul => Some(MirAtariFppService::Multiply),
+        NirBinaryOp::Div => Some(MirAtariFppService::Divide),
+        NirBinaryOp::Mod
+        | NirBinaryOp::Lsh
+        | NirBinaryOp::Rsh
+        | NirBinaryOp::And
+        | NirBinaryOp::Or
+        | NirBinaryOp::Xor => None,
+    }
+}
+
+fn push_staged_real_copy(
+    source: &MirMem,
+    destination: &MirMem,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+) {
+    let temps = (0..ATARI_REAL_BYTES)
+        .map(|_| {
+            let id = MirTempId(*next_generated_temp);
+            *next_generated_temp = next_generated_temp.saturating_add(1);
+            generated_temps.push(MirTemp { id });
+            id
+        })
+        .collect::<Vec<_>>();
+    for (offset, temp) in temps.iter().enumerate() {
+        lowered.push(MirOp::Load {
+            dst: MirDef::VTemp(*temp),
+            src: MirAddr::Direct(offset_mem(source, offset as u16)),
+            width: MirWidth::Byte,
+        });
+    }
+    for (offset, temp) in temps.into_iter().enumerate() {
+        lowered.push(MirOp::Store {
+            dst: MirAddr::Direct(offset_mem(destination, offset as u16)),
+            src: MirValue::Def(MirDef::VTemp(temp)),
+            width: MirWidth::Byte,
+        });
+    }
+}
+
+fn constant_integer_real_bytes(value: &NirValueKind, ty: &NirType) -> Option<[u8; 6]> {
+    let decimal = match (&ty.kind, value) {
+        (NirTypeKind::U8, NirValueKind::ConstU8(value)) => value.to_string(),
+        (NirTypeKind::I8, NirValueKind::ConstU8(value)) => (*value as i8).to_string(),
+        (NirTypeKind::U16, NirValueKind::ConstU16(value)) => value.to_string(),
+        (NirTypeKind::I16, NirValueKind::ConstU16(value)) => (*value as i16).to_string(),
+        _ => return None,
+    };
+    crate::atari_real::AtariReal::from_decimal(&decimal)
+        .ok()
+        .map(|value| value.to_bytes())
+}
+
+fn atari_fpp_call(service: MirAtariFppService) -> MirOp {
+    let clobbers = MirRegisterSet {
+        a: true,
+        x: true,
+        y: true,
+        flags: true,
+        sp: false,
+    };
+    MirOp::Call {
+        target: MirCallTarget::AtariFpp(service),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: None,
+            clobbers,
+            preserves: MirRegisterSet::default(),
+        },
+        args: Vec::new(),
+        result: None,
+        effects: MirEffects {
+            memory_reads: MirMemoryEffect::All,
+            memory_writes: MirMemoryEffect::All,
+            clobbers,
+            stack_depth_delta: Some(0),
+            may_call_os: true,
+            opaque: true,
+            ..MirEffects::default()
+        },
+    }
 }
 
 fn volatile_memory_barrier() -> MirOp {

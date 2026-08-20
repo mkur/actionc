@@ -17,9 +17,9 @@ mod verify;
 
 pub use diagnostics::MirDiagnostic;
 pub use ir::{
-    MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam,
-    MirCallAbi, MirCallArg, MirCallResult, MirCallTarget, MirCarryIn, MirCarryOut, MirCompareOp,
-    MirCond, MirCondDest, MirDataImage, MirDataRelocation, MirDataRelocationKind,
+    MirAddr, MirAddressConsumer, MirArgHome, MirAtariFppService, MirBinaryOp, MirBlock, MirBlockId,
+    MirBlockParam, MirCallAbi, MirCallArg, MirCallResult, MirCallTarget, MirCarryIn, MirCarryOut,
+    MirCompareOp, MirCond, MirCondDest, MirDataImage, MirDataRelocation, MirDataRelocationKind,
     MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFlag,
     MirFlagTest, MirFrame, MirGlobal, MirGlobalBacking, MirLabel, MirMachineBlockId, MirMem,
     MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase,
@@ -218,7 +218,8 @@ fn runtime_bindings(
     mir: &MirProgram,
     routine_addresses: &[crate::codegen::RoutineAddress],
 ) -> Vec<crate::codegen::CodegenRuntimeBinding> {
-    mir.runtime_helpers
+    let mut bindings = mir
+        .runtime_helpers
         .iter()
         .map(|declaration| {
             let helper = runtime::helper_name(declaration.helper);
@@ -265,7 +266,33 @@ fn runtime_bindings(
                 suppressed_default,
             }
         })
-        .collect()
+        .collect::<Vec<_>>();
+    let services = mir
+        .routines
+        .iter()
+        .flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            MirOp::Call {
+                target: MirCallTarget::AtariFpp(service),
+                ..
+            } => Some(*service),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    bindings.extend(
+        services
+            .into_iter()
+            .map(|service| crate::codegen::CodegenRuntimeBinding {
+                helper: format!("ATARI_FPP_{}", service.name()),
+                implementation: format!("Atari OS FPP {}", service.name()),
+                address: Some(service.address()),
+                reason: "native REAL arithmetic".to_string(),
+                origin: "Atari OS ROM".to_string(),
+                suppressed_default: None,
+            }),
+    );
+    bindings
 }
 
 fn runtime_selection_reason(helper: MirRuntimeHelper) -> &'static str {

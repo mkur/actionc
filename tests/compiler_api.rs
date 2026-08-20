@@ -6,7 +6,8 @@ use actionc::codegen::{
     CODE_ORIGIN, CodegenProfile, format_load_file, generate_profile_with_origin,
 };
 use actionc::compiler::{
-    CompileErrorKind, CompileMode, CompileOptions, CompilerPhase, DiagnosticSite, compile_file,
+    CompileErrorKind, CompileMode, CompileOptions, CompilerPhase, DiagnosticSite, Runtime,
+    compile_file,
 };
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502::{self, Mir6502Config};
@@ -228,7 +229,7 @@ fn nir_preflight_failure_is_returned_as_a_source_diagnostic() {
 }
 
 #[test]
-fn native_real_stops_at_the_explicit_intermediate_codegen_gate() {
+fn native_real_core_arithmetic_compiles_with_mir6502_in_both_runtimes() {
     let temp = TestDir::new();
     let source = write_source(
         &temp,
@@ -236,21 +237,34 @@ fn native_real_stops_at_the_explicit_intermediate_codegen_gate() {
         "REAL value PROC Main() value=1.25+2 RETURN",
     );
 
-    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-        let error = compile_file(&source, &CompileOptions::for_mode(mode)).unwrap_err();
-        assert_eq!(error.kind(), CompileErrorKind::Compilation, "{mode:?}");
-        assert_eq!(
-            error.diagnostics()[0].phase,
-            CompilerPhase::Codegen,
-            "{mode:?}"
-        );
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let compiled = compile_file(
+            &source,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+        )
+        .unwrap_or_else(|error| panic!("compile native REAL for {runtime}: {error}"));
+        assert_eq!(compiled.runtime(), runtime);
         assert!(
-            error.diagnostics()[0]
-                .message
-                .contains("native REAL semantics are available"),
-            "{mode:?}: {error}"
+            compiled
+                .object_bytes()
+                .windows(3)
+                .any(|bytes| bytes == [0x20, 0x66, 0xDA]),
+            "expected FADD call for {runtime}"
         );
+        let listing = compiled.source_listing();
+        assert!(listing.contains("ATARI_FPP_FADD"));
+        assert!(listing.contains("Atari OS ROM"));
     }
+
+    let classic =
+        compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized)).unwrap_err();
+    assert_eq!(classic.kind(), CompileErrorKind::Compilation);
+    assert_eq!(classic.diagnostics()[0].phase, CompilerPhase::Codegen);
+    assert!(
+        classic.diagnostics()[0]
+            .message
+            .contains("native REAL semantics are available")
+    );
 
     let compatibility = compile_file(
         &source,

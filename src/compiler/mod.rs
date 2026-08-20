@@ -221,7 +221,9 @@ pub(crate) fn compile_file_with_request(
             )
         })?;
     let semir = ir::lower_compilation(&loaded, &model);
-    if let Some(span) = first_native_real_codegen_use(&model) {
+    if request.backend == Backend::Classic
+        && let Some(span) = first_native_real_codegen_use(&model)
+    {
         return Err(CompileError::from_source_diagnostics(
             CompilerPhase::Codegen,
             vec![crate::diagnostic::Diagnostic::new(
