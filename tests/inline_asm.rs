@@ -63,6 +63,17 @@ ENDASM
 RETURN
 "#;
 
+const SELF_MODIFYING_SOURCE: &str = r#"
+PROC Main()
+ASM
+    lda patch:#0
+    sta patch
+    lda source:$ff00,y
+    sta source+1
+ENDASM
+RETURN
+"#;
+
 fn semir(source: &str) -> semantic::ir::SemProgram {
     let tokens = lexer::tokenize(source).expect("tokenize inline assembler source");
     let program = parser::parse(&tokens).expect("parse inline assembler source");
@@ -172,6 +183,68 @@ fn inline_asm_emits_in_mir6502() {
             .windows(4)
             .any(|bytes| bytes == [0xA9, 0x30, 0x85, 0x81])
     );
+}
+
+#[test]
+fn inline_asm_self_modification_labels_emit_in_all_backends() {
+    let semir = semir(SELF_MODIFYING_SOURCE);
+    let ast_classic = generate_semir_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
+        .expect("emit MADS self-modification labels from AST/classic");
+    let native_classic =
+        generate_semir_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
+            .expect("emit MADS self-modification labels from SemIR/classic");
+    let nir = nir::optimize_program(&nir::lower_program(&semir))
+        .expect("optimize self-modifying inline assembler NIR");
+    let mir = mir6502::generate_output(&nir, 0x3000)
+        .expect("emit MADS self-modification labels from MIR6502");
+
+    for (backend, output) in [
+        ("AST/classic", ast_classic),
+        ("SemIR/classic", native_classic),
+        ("MIR6502", mir),
+    ] {
+        let start = output
+            .bytes
+            .windows(3)
+            .position(|bytes| bytes == [0xA9, 0x00, 0x8D])
+            .unwrap_or_else(|| panic!("{backend} omitted the self-modifying sequence"));
+        let patched_operand = output.origin.wrapping_add(start as u16 + 1);
+        assert_eq!(
+            &output.bytes[start + 3..start + 5],
+            &patched_operand.to_le_bytes(),
+            "{backend} did not target the immediate operand byte"
+        );
+
+        let absolute = start + 5;
+        assert_eq!(&output.bytes[absolute..absolute + 3], &[0xB9, 0x00, 0xFF]);
+        let high_operand = output.origin.wrapping_add(absolute as u16 + 2);
+        assert_eq!(
+            &output.bytes[absolute + 4..absolute + 6],
+            &high_operand.to_le_bytes()
+        );
+    }
+}
+
+#[test]
+fn inline_asm_self_code_writes_have_conservative_nir_effects() {
+    let program = nir::lower_program(&semir(SELF_MODIFYING_SOURCE));
+    let (code, effects) = program
+        .routines
+        .iter()
+        .flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            nir::NirOp::InlineAsm { code, effects } => Some((code, effects)),
+            _ => None,
+        })
+        .expect("self-modifying inline assembler NIR operation");
+
+    assert!(code.relocations.iter().any(|relocation| {
+        relocation.target == nir::NirInlineAsmTarget::InlineOffset(1)
+            && relocation.symbol_use == actionc::asm6502::InlineAsmSymbolUse::Write
+    }));
+    assert_eq!(effects.memory.writes, nir::NirMemoryAccess::Unknown);
+    nir::verify_program(&program).expect("self-modifying inline assembler NIR must verify");
 }
 
 #[test]

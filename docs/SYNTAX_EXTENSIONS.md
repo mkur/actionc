@@ -341,6 +341,25 @@ A direct `JSR` to an Action! routine is relocated through the normal routine
 identity; storage references likewise retain a stable compiler storage
 identity rather than a source-name string.
 
+MADS-style self-modification labels can name the first encoded operand byte:
+
+```action
+ASM
+    lda patch:#0
+    clc
+    adc #1
+    sta patch
+
+    lda source:$ff00,y
+    sta source+1
+ENDASM
+```
+
+For a word operand, the label names its low byte and `label+1` names its high
+byte. The instruction must have an encoded operand, so implied and accumulator
+forms cannot carry such a label. Reads or writes through an inline-code label
+are treated as conservative memory effects by the optimizer.
+
 Analyzed blocks participate in MIR6502 memory-effect and machine-register
 liveness analysis. Fall-through and return paths must preserve stack depth.
 Operations whose effects are deliberately outside that contract can use

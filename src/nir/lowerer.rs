@@ -2373,7 +2373,15 @@ impl NirBuilder {
                     | InlineAsmSymbolUse::PointerRead
                     | InlineAsmSymbolUse::IndexedRead
                     | InlineAsmSymbolUse::IndexedReadWrite
-            )
+            ) || matches!(relocation.target, NirInlineAsmTarget::InlineOffset(_))
+                && matches!(
+                    relocation.symbol_use,
+                    InlineAsmSymbolUse::Read
+                        | InlineAsmSymbolUse::ReadWrite
+                        | InlineAsmSymbolUse::IndexedRead
+                        | InlineAsmSymbolUse::IndexedReadWrite
+                        | InlineAsmSymbolUse::PointerRead
+                )
         });
         let writes_unknown = code.relocations.iter().any(|relocation| {
             matches!(
@@ -2382,7 +2390,14 @@ impl NirBuilder {
                     | InlineAsmSymbolUse::PointerRead
                     | InlineAsmSymbolUse::IndexedWrite
                     | InlineAsmSymbolUse::IndexedReadWrite
-            )
+            ) || matches!(relocation.target, NirInlineAsmTarget::InlineOffset(_))
+                && matches!(
+                    relocation.symbol_use,
+                    InlineAsmSymbolUse::Write
+                        | InlineAsmSymbolUse::ReadWrite
+                        | InlineAsmSymbolUse::IndexedWrite
+                        | InlineAsmSymbolUse::IndexedReadWrite
+                )
         });
         let reads = inline_asm_regions(code, true);
         let writes = inline_asm_regions(code, false);

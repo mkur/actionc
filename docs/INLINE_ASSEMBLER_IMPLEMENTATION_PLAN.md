@@ -61,8 +61,7 @@ does not initially support:
 - redefinable `SET` symbols;
 - illegal opcodes, 65C02 instructions, or 65816 instructions;
 - arbitrary `DTA` data construction;
-- branches between an assembler block and the surrounding Action! CFG;
-- self-modifying references to instruction operand bytes.
+- branches between an assembler block and the surrounding Action! CFG.
 
 Static tables should continue to use Action! arrays. The first milestone is
 code assembly and integration, not a second data-definition language.
@@ -134,6 +133,7 @@ The first useful subset includes:
 - arithmetic, shifts, bitwise operators, and parentheses;
 - current-location `*`;
 - named labels, with the colon optional;
+- MADS self-modification labels between a mnemonic and its operand;
 - anonymous `@`, `@+`, and `@-` labels;
 - block-local constants using `name = expression` and `EQU`;
 - `;` comments, with `//` and `/* ... */` accepted when unambiguous.

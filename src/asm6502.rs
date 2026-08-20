@@ -138,6 +138,7 @@ struct PendingInstruction {
     mnemonic: String,
     suffix: SizeSuffix,
     operand: String,
+    operand_label: Option<String>,
     span: Span,
     line_index: usize,
 }
@@ -223,6 +224,17 @@ pub fn assemble(
                 continue;
             }
         };
+        if let Some(label) = &pending.operand_label
+            && pending.operand.is_empty()
+        {
+            diagnostics.push(Diagnostic::new(
+                line.span,
+                format!(
+                    "self-modification label `{label}` requires an instruction with an encoded operand"
+                ),
+            ));
+            continue;
+        }
         let (opcode, addressing) = match select_instruction(&pending, &constants, line.span) {
             Ok(selection) => selection,
             Err(diagnostic) => {
@@ -230,6 +242,24 @@ pub fn assemble(
                 continue;
             }
         };
+        if let Some(label) = &pending.operand_label {
+            if addressing_len(addressing) == 1 {
+                diagnostics.push(Diagnostic::new(
+                    line.span,
+                    format!(
+                        "self-modification label `{label}` requires an instruction with an encoded operand"
+                    ),
+                ));
+            } else {
+                let key = normalize(label);
+                if labels.insert(key, offset + 1).is_some() {
+                    diagnostics.push(Diagnostic::new(
+                        line.span,
+                        format!("duplicate inline assembler label `{label}`"),
+                    ));
+                }
+            }
+        }
         instructions.push(ParsedInstruction {
             mnemonic: pending.mnemonic,
             operand: pending.operand,
@@ -438,7 +468,11 @@ fn parse_instruction_line(
 ) -> Result<PendingInstruction, Diagnostic> {
     let split = text.find(char::is_whitespace).unwrap_or(text.len());
     let mnemonic_token = &text[..split];
-    let operand = text[split..].trim().to_string();
+    let raw_operand = text[split..].trim();
+    let (operand_label, operand) = split_operand_label(raw_operand)
+        .map_or((None, raw_operand), |(label, operand)| {
+            (Some(label.to_string()), operand)
+        });
     let (mnemonic, suffix) = if let Some((mnemonic, suffix)) = mnemonic_token.rsplit_once('.') {
         let suffix = match suffix.to_ascii_uppercase().as_str() {
             "Z" | "B" => SizeSuffix::ZeroPage,
@@ -463,10 +497,18 @@ fn parse_instruction_line(
     Ok(PendingInstruction {
         mnemonic: mnemonic.to_ascii_uppercase(),
         suffix,
-        operand,
+        operand: operand.to_string(),
+        operand_label,
         span,
         line_index,
     })
+}
+
+fn split_operand_label(operand: &str) -> Option<(&str, &str)> {
+    let (candidate, operand) = operand.split_once(':')?;
+    let candidate = candidate.trim();
+    let operand = operand.trim();
+    valid_name(candidate).then_some((candidate, operand))
 }
 
 fn select_instruction(
@@ -1815,6 +1857,51 @@ mod tests {
             bytes("loop:\n  dex\n  bne loop\n@:\n  beq @+\n  nop\n@:\n  rts\n"),
             vec![0xCA, 0xD0, 0xFD, 0xF0, 0x01, 0xEA, 0x60]
         );
+    }
+
+    #[test]
+    fn binds_mads_self_modification_labels_to_operand_bytes() {
+        let program = assemble(
+            "lda immediate:#$00\nlda source:$ff00,y\nsta immediate\nsta source+1\n",
+            0,
+            InlineAsmMode::Analyzed,
+        )
+        .unwrap();
+
+        assert_eq!(
+            program.bytes,
+            vec![
+                0xA9, 0x00, 0xB9, 0x00, 0xFF, 0x8D, 0x00, 0x00, 0x8D, 0x00, 0x00
+            ]
+        );
+        assert!(matches!(
+            program.relocations.as_slice(),
+            [
+                InlineAsmRelocation {
+                    target: InlineAsmRelocationTarget::Absolute(0xff00),
+                    ..
+                },
+                InlineAsmRelocation {
+                    target: InlineAsmRelocationTarget::InlineOffset(1),
+                    symbol_use: InlineAsmSymbolUse::Write,
+                    ..
+                },
+                InlineAsmRelocation {
+                    target: InlineAsmRelocationTarget::InlineOffset(4),
+                    symbol_use: InlineAsmSymbolUse::Write,
+                    ..
+                }
+            ]
+        ));
+    }
+
+    #[test]
+    fn rejects_self_modification_labels_without_operand_bytes() {
+        let diagnostics = assemble("nop patch:\n", 0, InlineAsmMode::Analyzed).unwrap_err();
+        assert!(diagnostics[0].message.contains("encoded operand"));
+
+        let diagnostics = assemble("asl patch:a\n", 0, InlineAsmMode::Analyzed).unwrap_err();
+        assert!(diagnostics[0].message.contains("encoded operand"));
     }
 
     #[test]
