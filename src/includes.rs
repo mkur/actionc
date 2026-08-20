@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
-use crate::ast::{ImportDecl, Item, Module, ModulePath, Program, SourceUnitKind};
+use crate::ast::{Item, Module, ModulePath, Program, SourceUnitKind, UseDecl};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::tokenize;
 use crate::parser::parse;
@@ -43,7 +43,7 @@ pub struct LoadedModule {
 pub struct LoadedCompilation {
     pub root: ModuleId,
     pub modules: Vec<LoadedModule>,
-    /// Dependencies precede importers; each module occurs exactly once.
+    /// Dependencies precede using modules; each module occurs exactly once.
     pub graph_order: Vec<ModuleId>,
     pub source: String,
     pub source_map: SourceMap,
@@ -113,6 +113,7 @@ struct CompilationLoader<'a> {
     active: Vec<(String, String)>,
     graph_order: Vec<ModuleId>,
     implicit_sys: bool,
+    allow_host_named_modules: bool,
 }
 
 impl SourceMap {
@@ -211,11 +212,21 @@ pub fn load_compilation(
     path: impl AsRef<Path>,
     options: &ModuleLoadOptions,
 ) -> Result<LoadedCompilation, Vec<Diagnostic>> {
+    let allow_host_named_modules = cfg!(feature = "experimental-named-modules");
+    if !allow_host_named_modules
+        && (options.project_root.is_some() || !options.module_paths.is_empty())
+    {
+        return Err(vec![Diagnostic::new(
+            Span::new(0, 0),
+            "named modules are disabled in this build; rebuild with the experimental-named-modules feature",
+        )]);
+    }
     let provider = CompilerSourceProvider::default();
     CompilationLoader::new(
         &provider,
         SourceOrigin::host(path.as_ref().to_path_buf()),
         options,
+        allow_host_named_modules,
     )
     .with_implicit_sys()
     .load()
@@ -226,7 +237,7 @@ pub fn load_compilation_from_provider(
     provider: &dyn SourceProvider,
     options: &ModuleLoadOptions,
 ) -> Result<LoadedCompilation, Vec<Diagnostic>> {
-    CompilationLoader::new(provider, root_origin, options).load()
+    CompilationLoader::new(provider, root_origin, options, true).load()
 }
 
 pub fn expand_includes(
@@ -245,6 +256,7 @@ impl<'a> CompilationLoader<'a> {
         provider: &'a dyn SourceProvider,
         root_origin: SourceOrigin,
         options: &ModuleLoadOptions,
+        allow_host_named_modules: bool,
     ) -> Self {
         let project_root = options
             .project_root
@@ -272,6 +284,7 @@ impl<'a> CompilationLoader<'a> {
             active: Vec::new(),
             graph_order: Vec::new(),
             implicit_sys: false,
+            allow_host_named_modules,
         }
     }
 
@@ -285,6 +298,12 @@ impl<'a> CompilationLoader<'a> {
         let root = self.load_unit(root_origin)?;
         let root_id = ModuleId(0);
         let root_path = named_path(&root.program).cloned();
+        if root_path.is_some() && !self.allow_host_named_modules {
+            return Err(vec![Diagnostic::new(
+                root.source_span,
+                "named modules are disabled in this build; rebuild with the experimental-named-modules feature",
+            )]);
+        }
         self.modules.push(LoadedModule {
             id: root_id,
             declared_path: root_path.clone(),
@@ -316,9 +335,9 @@ impl<'a> CompilationLoader<'a> {
         })
     }
 
-    fn load_implicit_sys(&mut self, importer: ModuleId) -> Result<(), Vec<Diagnostic>> {
+    fn load_implicit_sys(&mut self, using_module: ModuleId) -> Result<(), Vec<Diagnostic>> {
         if !self.implicit_sys
-            || self.modules[importer.0 as usize]
+            || self.modules[using_module.0 as usize]
                 .declared_path
                 .as_ref()
                 .is_some_and(|path| path.canonical_name() == "sys")
@@ -326,24 +345,24 @@ impl<'a> CompilationLoader<'a> {
             return Ok(());
         }
 
-        let span = self.modules[importer.0 as usize].source_span;
-        let dependency = self.load_import(&ImportDecl {
+        let span = self.modules[using_module.0 as usize].source_span;
+        let dependency = self.load_use(&UseDecl {
             path: ModulePath::new(vec!["SYS".to_string()], span),
-            alias: Some("SYS".to_string()),
-            open: false,
+            alias: None,
+            all: false,
             span,
         })?;
-        self.modules[importer.0 as usize]
+        self.modules[using_module.0 as usize]
             .dependencies
             .push(dependency);
         Ok(())
     }
 
-    fn load_dependencies(&mut self, importer: ModuleId) -> Result<(), Vec<Diagnostic>> {
-        let imports = named_imports(&self.modules[importer.0 as usize].program).to_vec();
-        for import in imports {
-            let dependency = self.load_import(&import)?;
-            let dependencies = &mut self.modules[importer.0 as usize].dependencies;
+    fn load_dependencies(&mut self, using_module: ModuleId) -> Result<(), Vec<Diagnostic>> {
+        let uses = named_uses(&self.modules[using_module.0 as usize].program).to_vec();
+        for use_decl in uses {
+            let dependency = self.load_use(&use_decl)?;
+            let dependencies = &mut self.modules[using_module.0 as usize].dependencies;
             if !dependencies.contains(&dependency) {
                 dependencies.push(dependency);
             }
@@ -351,40 +370,40 @@ impl<'a> CompilationLoader<'a> {
         Ok(())
     }
 
-    fn load_import(&mut self, import: &ImportDecl) -> Result<ModuleId, Vec<Diagnostic>> {
-        let key = import.path.canonical_name();
+    fn load_use(&mut self, use_decl: &UseDecl) -> Result<ModuleId, Vec<Diagnostic>> {
+        let key = use_decl.path.canonical_name();
         if let Some(cycle_start) = self.active.iter().position(|(active, _)| active == &key) {
             let mut chain = self.active[cycle_start..]
                 .iter()
                 .map(|(_, display)| display.clone())
                 .collect::<Vec<_>>();
-            chain.push(import.path.display_name());
+            chain.push(use_decl.path.display_name());
             return Err(vec![Diagnostic::new(
-                import.span,
-                format!("module import cycle: {}", chain.join(" -> ")),
+                use_decl.span,
+                format!("module dependency cycle: {}", chain.join(" -> ")),
             )]);
         }
         if let Some(id) = self.modules_by_path.get(&key) {
             return Ok(*id);
         }
 
-        let origin = self.resolve_import(import)?;
+        let origin = self.resolve_use(use_decl)?;
         let unit = self.load_unit(origin)?;
         let SourceUnitKind::Named(declaration) = &unit.program.source_kind else {
             return Err(vec![Diagnostic::new(
-                import.span,
+                use_decl.span,
                 format!(
-                    "module `{}` resolved to a legacy source file; imported files must declare a named module",
-                    import.path.display_name()
+                    "module `{}` resolved to a legacy source file; files named by USE must declare a named module",
+                    use_decl.path.display_name()
                 ),
             )]);
         };
-        if declaration.path.canonical_components != import.path.canonical_components {
+        if declaration.path.canonical_components != use_decl.path.canonical_components {
             return Err(vec![Diagnostic::new(
                 declaration.path.span,
                 format!(
                     "requested module `{}` but the file declares `{}`",
-                    import.path.display_name(),
+                    use_decl.path.display_name(),
                     declaration.path.display_name()
                 ),
             )]);
@@ -412,8 +431,8 @@ impl<'a> CompilationLoader<'a> {
         Ok(id)
     }
 
-    fn resolve_import(&self, import: &ImportDecl) -> Result<SourceOrigin, Vec<Diagnostic>> {
-        let canonical = &import.path.canonical_components;
+    fn resolve_use(&self, use_decl: &UseDecl) -> Result<SourceOrigin, Vec<Diagnostic>> {
+        let canonical = &use_decl.path.canonical_components;
         match self
             .source_loader
             .provider
@@ -421,7 +440,7 @@ impl<'a> CompilationLoader<'a> {
         {
             Ok(Some(origin)) => return Ok(origin),
             Ok(None) => {}
-            Err(error) => return Err(vec![Diagnostic::new(import.span, error.to_string())]),
+            Err(error) => return Err(vec![Diagnostic::new(use_decl.span, error.to_string())]),
         }
 
         let reserved = canonical
@@ -429,10 +448,10 @@ impl<'a> CompilationLoader<'a> {
             .is_some_and(|root| matches!(root.as_str(), "sys" | "atari"));
         if reserved {
             return Err(vec![Diagnostic::new(
-                import.span,
+                use_decl.span,
                 format!(
                     "reserved embedded module `{}` is not available",
-                    import.path.display_name()
+                    use_decl.path.display_name()
                 ),
             )]);
         }
@@ -444,13 +463,13 @@ impl<'a> CompilationLoader<'a> {
         {
             Ok(Some(origin)) => Ok(origin),
             Ok(None) => Err(vec![Diagnostic::new(
-                import.span,
+                use_decl.span,
                 format!(
                     "cannot find module `{}` in the project root or configured module paths",
-                    import.path.display_name()
+                    use_decl.path.display_name()
                 ),
             )]),
-            Err(error) => Err(vec![Diagnostic::new(import.span, error.to_string())]),
+            Err(error) => Err(vec![Diagnostic::new(use_decl.span, error.to_string())]),
         }
     }
 
@@ -509,9 +528,9 @@ fn named_path(program: &Program) -> Option<&ModulePath> {
     }
 }
 
-fn named_imports(program: &Program) -> &[ImportDecl] {
+fn named_uses(program: &Program) -> &[UseDecl] {
     match &program.source_kind {
-        SourceUnitKind::Named(module) => &module.imports,
+        SourceUnitKind::Named(module) => &module.uses,
         SourceUnitKind::Legacy => &[],
     }
 }
@@ -600,7 +619,7 @@ impl<'a> SourceLoader<'a> {
         if !allow_named && let SourceUnitKind::Named(module) = &program.source_kind {
             return Err(vec![Diagnostic::new(
                 module.span,
-                "an included fragment cannot declare a named module; use IMPORT instead",
+                "an included fragment cannot declare a named module; use USE instead",
             )]);
         }
         let mut source_map = SourceMap::default();
@@ -727,7 +746,7 @@ impl<'a> SourceLoader<'a> {
         if let SourceUnitKind::Named(module) = &program.source_kind {
             return Err(vec![Diagnostic::new(
                 module.span,
-                "an included fragment cannot declare a named module; use IMPORT instead",
+                "an included fragment cannot declare a named module; use USE instead",
             )]);
         }
         self.expand_program(program, &source_text.origin, active)
@@ -1176,15 +1195,15 @@ mod tests {
         let provider = InMemorySourceProvider::default()
             .with_source(
                 root.clone(),
-                b"MODULE APP\nIMPORT LIB.B\nIMPORT LIB.A\nENDMODULE\n".to_vec(),
+                b"MODULE APP\nUSE LIB.B\nUSE LIB.A\nENDMODULE\n".to_vec(),
             )
             .with_source(
                 SourceOrigin::host(PathBuf::from("project/lib/b.act")),
-                b"MODULE LIB.B\nIMPORT LIB.COMMON\nENDMODULE\n".to_vec(),
+                b"MODULE LIB.B\nUSE LIB.COMMON\nENDMODULE\n".to_vec(),
             )
             .with_source(
                 SourceOrigin::host(PathBuf::from("project/lib/a.act")),
-                b"MODULE LIB.A\nIMPORT LIB.COMMON\nENDMODULE\n".to_vec(),
+                b"MODULE LIB.A\nUSE LIB.COMMON\nENDMODULE\n".to_vec(),
             )
             .with_source(
                 SourceOrigin::host(PathBuf::from("project/lib/common.act")),
@@ -1222,7 +1241,7 @@ mod tests {
         let provider = InMemorySourceProvider::default()
             .with_source(
                 root.clone(),
-                b"MODULE APP\nIMPORT LIB.MATH\nENDMODULE\n".to_vec(),
+                b"MODULE APP\nUSE LIB.MATH\nENDMODULE\n".to_vec(),
             )
             .with_source(
                 project_module.clone(),
@@ -1260,17 +1279,14 @@ mod tests {
     fn rejects_module_cycles_with_the_complete_closing_chain() {
         let root = SourceOrigin::host(PathBuf::from("project/main.act"));
         let provider = InMemorySourceProvider::default()
-            .with_source(
-                root.clone(),
-                b"MODULE APP\nIMPORT LIB.A\nENDMODULE\n".to_vec(),
-            )
+            .with_source(root.clone(), b"MODULE APP\nUSE LIB.A\nENDMODULE\n".to_vec())
             .with_source(
                 SourceOrigin::host(PathBuf::from("project/lib/a.act")),
-                b"MODULE LIB.A\nIMPORT LIB.B\nENDMODULE\n".to_vec(),
+                b"MODULE LIB.A\nUSE LIB.B\nENDMODULE\n".to_vec(),
             )
             .with_source(
                 SourceOrigin::host(PathBuf::from("project/lib/b.act")),
-                b"MODULE LIB.B\nIMPORT APP\nENDMODULE\n".to_vec(),
+                b"MODULE LIB.B\nUSE APP\nENDMODULE\n".to_vec(),
             );
 
         let Err(diagnostics) =
@@ -1291,7 +1307,7 @@ mod tests {
         let wrong_declaration = InMemorySourceProvider::default()
             .with_source(
                 root.clone(),
-                b"MODULE APP\nIMPORT LIB.MATH\nENDMODULE\n".to_vec(),
+                b"MODULE APP\nUSE LIB.MATH\nENDMODULE\n".to_vec(),
             )
             .with_source(
                 SourceOrigin::host(PathBuf::from("project/lib/math.act")),
@@ -1309,7 +1325,7 @@ mod tests {
         let wrong_case = InMemorySourceProvider::default()
             .with_source(
                 root.clone(),
-                b"MODULE APP\nIMPORT LIB.MATH\nENDMODULE\n".to_vec(),
+                b"MODULE APP\nUSE LIB.MATH\nENDMODULE\n".to_vec(),
             )
             .with_source(
                 SourceOrigin::host(PathBuf::from("project/Lib/Math.ACT")),
@@ -1333,7 +1349,7 @@ mod tests {
             let provider = InMemorySourceProvider::default()
                 .with_source(
                     root.clone(),
-                    format!("MODULE APP\nIMPORT {module}\nENDMODULE\n").into_bytes(),
+                    format!("MODULE APP\nUSE {module}\nENDMODULE\n").into_bytes(),
                 )
                 .with_source(
                     SourceOrigin::host(PathBuf::from(path)),
@@ -1356,7 +1372,7 @@ mod tests {
         let provider = InMemorySourceProvider::default()
             .with_source(
                 root.clone(),
-                b"MODULE APP\nIMPORT ATARI.GTIA\nENDMODULE\n".to_vec(),
+                b"MODULE APP\nUSE ATARI.GTIA\nENDMODULE\n".to_vec(),
             )
             .with_source(
                 embedded.clone(),
@@ -1378,27 +1394,30 @@ mod tests {
         fs::create_dir_all(dir.join("Lib")).unwrap();
         fs::write(
             dir.join("main.act"),
-            "MODULE APP\nIMPORT LIB.MATH\nENDMODULE\n",
+            "MODULE APP\nUSE LIB.MATH\nENDMODULE\n",
         )
         .unwrap();
         fs::write(dir.join("Lib/Math.ACT"), "MODULE LIB.MATH\nENDMODULE\n").unwrap();
 
-        let Err(diagnostics) =
-            load_compilation(dir.join("main.act"), &ModuleLoadOptions::default())
-        else {
+        let provider = CompilerSourceProvider::default();
+        let Err(diagnostics) = load_compilation_from_provider(
+            SourceOrigin::host(dir.join("main.act")),
+            &provider,
+            &ModuleLoadOptions::default(),
+        ) else {
             panic!("expected canonical host path case diagnostic");
         };
         assert!(diagnostics[0].message.contains("canonical lowercase"));
     }
 
     #[test]
-    fn aggregate_source_map_preserves_imported_module_origins() {
+    fn aggregate_source_map_preserves_used_module_origins() {
         let root = SourceOrigin::host(PathBuf::from("project/main.act"));
         let library = SourceOrigin::host(PathBuf::from("project/lib/data.act"));
         let provider = InMemorySourceProvider::default()
             .with_source(
                 root.clone(),
-                b"MODULE APP\nIMPORT LIB.DATA\nENDMODULE\n".to_vec(),
+                b"MODULE APP\nUSE LIB.DATA\nENDMODULE\n".to_vec(),
             )
             .with_source(
                 library.clone(),
@@ -1410,7 +1429,7 @@ mod tests {
         let Item::Declaration(crate::ast::Decl::Var(var)) =
             &loaded.modules[1].program.modules[0].items[0]
         else {
-            panic!("expected imported declaration");
+            panic!("expected declaration from used module");
         };
         let location = loaded.source_map.location(var.span).unwrap();
         assert_eq!(location.origin, library);

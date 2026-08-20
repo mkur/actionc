@@ -75,14 +75,39 @@ fn collect_modules(root: &Path, directory: &Path, inputs: &mut Vec<SourceInput>)
             .unwrap_or(&relative)
             .replace('/', ".")
             .to_ascii_uppercase();
+        let bytes = fs::read(&path).expect("read embedded module");
+        validate_module_identity(&path, &bytes, &module_name);
         inputs.push(SourceInput {
             kind: "Module".to_string(),
             canonical_key: format!("module:{relative}"),
             virtual_path: relative,
             display_name: format!("<embedded:{module_name}>"),
-            bytes: fs::read(&path).expect("read embedded module"),
+            bytes,
         });
     }
+}
+
+fn validate_module_identity(path: &Path, bytes: &[u8], expected: &str) {
+    let text = std::str::from_utf8(bytes)
+        .unwrap_or_else(|error| panic!("{} is not UTF-8: {error}", path.display()));
+    let declaration = text
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with(';'))
+        .find_map(|line| {
+            let mut words = line.split_whitespace();
+            words
+                .next()
+                .is_some_and(|word| word.eq_ignore_ascii_case("MODULE"))
+                .then(|| words.next().unwrap_or(""))
+        })
+        .unwrap_or_else(|| panic!("{} has no named MODULE declaration", path.display()));
+    assert_eq!(
+        declaration,
+        expected,
+        "{} must declare MODULE {expected} exactly",
+        path.display()
+    );
 }
 
 fn collect_runtime(directory: &Path, inputs: &mut Vec<SourceInput>) {

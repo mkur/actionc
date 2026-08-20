@@ -1,7 +1,4 @@
 ; Exercise the remaining initial SYS memory bindings without a cartridge.
-MODULE RUNTIME.SYS.BLOCKS
-
-IMPORT SYS.*
 
 BYTE ARRAY source(4)=$0600
 BYTE ARRAY destination(4)=$0610
@@ -12,5 +9,3 @@ PROC Main()
   DO
   OD
 RETURN
-
-ENDMODULE

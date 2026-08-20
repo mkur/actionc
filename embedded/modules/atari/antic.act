@@ -1,0 +1,37 @@
+; ANTIC hardware registers and display-list constants.
+;
+; CARD register pairs are declared only where the hardware exposes consecutive
+; low-byte/high-byte registers.  A volatile CARD access is ordered, not atomic.
+MODULE ATARI.ANTIC
+
+PUBLIC VOLATILE BYTE DMACTL=$D400,
+                     CHACTL=$D401,
+                     HSCROL=$D404,
+                     VSCROL=$D405,
+                     PMBASE=$D407,
+                     CHBASE=$D409,
+                     WSYNC=$D40A,
+                     VCOUNT=$D40B,
+                     PENH=$D40C,
+                     PENV=$D40D,
+                     NMIEN=$D40E,
+                     NMIST=$D40F,
+                     NMIRES=$D40F
+
+; DLISTL/DLISTH are a low-byte-first pair.
+PUBLIC VOLATILE CARD DLIST=$D402
+
+PUBLIC CONST BYTE PLAYFIELD_DMA=$20,
+                  NARROW_PLAYFIELD_DMA=$21,
+                  NORMAL_PLAYFIELD_DMA=$22,
+                  WIDE_PLAYFIELD_DMA=$23,
+                  PLAYER_DMA=$08,
+                  MISSILE_DMA=$04,
+                  ONE_LINE_PM_DMA=$10,
+                  DL_LMS=$40,
+                  DL_DLI=$80,
+                  BLANK_8=$70,
+                  MODE_F_LMS=$4F,
+                  JVB=$41
+
+ENDMODULE

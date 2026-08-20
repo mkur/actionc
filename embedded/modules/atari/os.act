@@ -1,0 +1,26 @@
+; Atari OS variables and shadow registers.
+;
+; These names deliberately remain separate from the direct ANTIC and GTIA
+; registers: the OS normally copies its shadows to hardware during VBLANK.
+MODULE ATARI.OS
+
+PUBLIC VOLATILE BYTE SDMCTL=$022F,
+                     GPRIOR=$026F,
+                     COLOR0=$02C4,
+                     COLOR1=$02C5,
+                     COLOR2=$02C6,
+                     COLOR3=$02C7,
+                     COLOR4=$02C8,
+                     CHACT=$02F3,
+                     CH=$02FC,
+                     RAMTOP=$006A,
+                     RTCLOK_LO=$0014
+
+; SDLSTL/SDLSTH and SAVMSC/SAVMSC+1 are low-byte-first pairs.
+PUBLIC VOLATILE CARD SDLST=$0230,
+                     SAVMSC=$0058
+
+PUBLIC CONST BYTE NO_KEY=$FF,
+                  ESCAPE_KEY=$1C
+
+ENDMODULE

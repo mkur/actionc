@@ -3940,6 +3940,25 @@ fn module_link_name(qualified_name: &str, canonical_key: &str, class: &SymbolCla
     format!("{stem}_{hash:08X}")
 }
 
+#[cfg(test)]
+mod module_link_name_tests {
+    use super::*;
+
+    #[test]
+    fn sanitized_collisions_have_stable_identity_suffixes() {
+        let first = module_link_name("LIB.A_B.C", "lib.a_b.c", &SymbolClass::Var);
+        let second = module_link_name("LIB.A.B_C", "lib.a.b_c", &SymbolClass::Var);
+
+        assert!(first.starts_with("M_LIB_A_B_C_"));
+        assert!(second.starts_with("M_LIB_A_B_C_"));
+        assert_ne!(first, second);
+        assert_eq!(
+            first,
+            module_link_name("LIB.A_B.C", "lib.a_b.c", &SymbolClass::Var)
+        );
+    }
+}
+
 fn value_width(value: &ValueType) -> Option<u16> {
     if value.pointer {
         return Some(2);

@@ -40,6 +40,9 @@ jobs:
       - name: Test workspace
         run: cargo test --locked
 
+      - name: Test latent named modules
+        run: cargo test --locked --features experimental-named-modules --test actionc_cli --test embedded_modules
+
       - name: Test VM runtime contracts
         working-directory: tools/vm-runtime-tests
         run: cargo test --locked

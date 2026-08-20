@@ -1,0 +1,649 @@
+#![cfg(feature = "experimental-named-modules")]
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use actionc::ast::{FundType, SourceUnitKind, Visibility};
+use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
+use actionc::includes::{ModuleLoadOptions, load_compilation};
+use actionc::semantic::ir::{self, SemExprKind, SemItem, SemLiteral};
+use actionc::semantic::{SymbolClass, SymbolId, ValueTypeBase, analyze_compilation};
+
+static NEXT_TEMP_DIR: AtomicU64 = AtomicU64::new(0);
+
+struct TestDir(PathBuf);
+
+impl TestDir {
+    fn new() -> Self {
+        let sequence = NEXT_TEMP_DIR.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "actionc-embedded-modules-{}-{sequence}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&path).expect("create embedded-module test directory");
+        Self(path)
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+
+    fn source(&self, name: &str, source: &str) -> PathBuf {
+        let path = self.path().join(name);
+        fs::write(&path, source).expect("write Action source");
+        path
+    }
+}
+
+impl Drop for TestDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+fn hardware_source(temp: &TestDir) -> PathBuf {
+    temp.source(
+        "hardware.act",
+        r#"MODULE HARDWARE.TEST
+USE ATARI.ANTIC
+USE ATARI.GTIA
+USE ATARI.OS
+USE ATARI.POKEY
+USE ATARI.PIA
+
+BYTE sink
+
+PROC Main()
+  sink=ANTIC.VCOUNT
+  ANTIC.DMACTL=sink
+  GTIA.COLBAK=sink
+  OS.SDLST=$3456
+  POKEY.AUDF1=sink
+  PIA.PORTA=sink
+RETURN
+ENDMODULE
+"#,
+    )
+}
+
+fn count_instruction(bytes: &[u8], instruction: &[u8]) -> usize {
+    bytes
+        .windows(instruction.len())
+        .filter(|candidate| *candidate == instruction)
+        .count()
+}
+
+#[test]
+fn embedded_atari_registers_compile_with_exact_volatile_accesses_in_all_modes() {
+    let temp = TestDir::new();
+    let source = hardware_source(&temp);
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile embedded modules in {mode:?}: {error}"));
+        let bytes = compiled.object_bytes();
+
+        for (name, instruction) in [
+            ("ANTIC.VCOUNT read", [0xAD, 0x0B, 0xD4]),
+            ("ANTIC.DMACTL write", [0x8D, 0x00, 0xD4]),
+            ("GTIA.COLBAK write", [0x8D, 0x1A, 0xD0]),
+            ("POKEY.AUDF1 write", [0x8D, 0x00, 0xD2]),
+            ("PIA.PORTA write", [0x8D, 0x00, 0xD3]),
+        ] {
+            assert_eq!(
+                count_instruction(bytes, &instruction),
+                1,
+                "{mode:?} must issue exactly one {name}: {bytes:02X?}"
+            );
+        }
+        assert!(
+            bytes.windows(3).any(|bytes| bytes == [0x8D, 0x30, 0x02]),
+            "{mode:?} must write the low byte of OS.SDLST"
+        );
+        assert!(
+            bytes.windows(3).any(|bytes| bytes == [0x8D, 0x31, 0x02]),
+            "{mode:?} must write the high byte of OS.SDLST"
+        );
+    }
+}
+
+#[test]
+fn module_examples_compile_standalone_with_both_backends() {
+    let samples = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("samples")
+        .join("modules");
+
+    for file_name in [
+        "hardware-rainbow.act",
+        "sys-memory-qualified.act",
+        "sys-memory-open.act",
+        "local-runtime-override.act",
+        "project/main.act",
+    ] {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
+            compile_file(samples.join(file_name), &options).unwrap_or_else(|error| {
+                panic!("compile standalone {file_name} in {mode:?}: {error}")
+            });
+        }
+    }
+}
+
+#[test]
+fn sys_misc_routines_compile_standalone_with_both_backends() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "sys-misc.act",
+        r#"MODULE SYS_MISC_TEST
+USE SYS
+
+BYTE byteValue
+CARD cardValue
+
+PROC Main()
+  byteValue=SYS.Rand(10)
+  SYS.Sound(0,0,0,0)
+  SYS.SndRst()
+  byteValue=SYS.Paddle(0)
+  byteValue=SYS.PTrig(0)
+  byteValue=SYS.Stick(0)
+  byteValue=SYS.STrig(0)
+  byteValue=SYS.Peek($D20A)
+  cardValue=SYS.PeekC($D20A)
+  SYS.Poke($D01A,0)
+  SYS.PokeC($0230,$4000)
+RETURN
+
+ENDMODULE
+"#,
+    );
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
+        compile_file(&source, &options)
+            .unwrap_or_else(|error| panic!("compile standalone SYS misc in {mode:?}: {error}"));
+    }
+}
+
+#[test]
+fn sys_graphics_routines_link_cross_unit_standalone_dependencies() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "sys-graphics.act",
+        r#"MODULE SYS_GRAPHICS_TEST
+USE SYS
+
+BYTE pixel
+
+PROC Main()
+  SYS.Graphics(8)
+  SYS.Position(10,20)
+  SYS.DrawTo(30,40)
+  pixel=SYS.Locate(10,20)
+  SYS.Plot(10,20)
+  SYS.SetColor(0,8,6)
+  SYS.Fill(30,40)
+RETURN
+
+ENDMODULE
+"#,
+    );
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
+        compile_file(&source, &options)
+            .unwrap_or_else(|error| panic!("compile standalone SYS graphics in {mode:?}: {error}"));
+    }
+}
+
+#[test]
+fn sys_io_routines_compile_with_both_runtimes_and_backends() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "sys-io.act",
+        r#"MODULE SYS_IO_TEST
+USE SYS
+
+STRING fileName(0)="E:"
+STRING text(0)="TEST"
+STRING input(40)
+CHAR value
+CARD sector
+BYTE offset
+BYTE byteValue
+CARD cardValue
+INT intValue
+
+PROC Main()
+  SYS.Put('A)
+  SYS.PutE()
+  SYS.PutD(0,'A)
+  SYS.PutDE(0)
+  SYS.Print(text)
+  SYS.PrintE(text)
+  SYS.PrintD(0,text)
+  SYS.PrintDE(0,text)
+  SYS.PrintF(text,cardValue)
+  PrintF(text,cardValue)
+  SYS.PrintH(cardValue)
+  PrintH(cardValue)
+  value=SYS.GetD(0)
+  SYS.InputS(input)
+  SYS.InputSD(0,input)
+  SYS.InputMD(0,input,39)
+  SYS.InputD(0,input)
+  InputD(0,input)
+  SYS.Open(1,fileName,4,0)
+  SYS.Close(1)
+  SYS.XIO(1,0,0,0,0,text)
+  SYS.Note(1,@sector,@offset)
+  SYS.Point(1,sector,offset)
+  SYS.PrintB(byteValue)
+  SYS.PrintBE(byteValue)
+  SYS.PrintBD(0,byteValue)
+  SYS.PrintBDE(0,byteValue)
+  PrintBDE(0,byteValue)
+  SYS.PrintC(cardValue)
+  SYS.PrintCE(cardValue)
+  SYS.PrintCD(0,cardValue)
+  SYS.PrintCDE(0,cardValue)
+  SYS.PrintI(intValue)
+  SYS.PrintIE(intValue)
+  SYS.PrintID(0,intValue)
+  SYS.PrintIDE(0,intValue)
+  byteValue=SYS.InputB()
+  byteValue=SYS.InputBD(0)
+  cardValue=SYS.InputC()
+  cardValue=SYS.InputCD(0)
+  intValue=SYS.InputI()
+  intValue=SYS.InputID(0)
+  byteValue=SYS.ValB(text)
+  cardValue=SYS.ValC(text)
+  intValue=SYS.ValI(text)
+RETURN
+
+ENDMODULE
+"#,
+    );
+
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            let options = CompileOptions::for_mode(mode).with_runtime(runtime);
+            compile_file(&source, &options)
+                .unwrap_or_else(|error| panic!("compile {runtime:?} SYS I/O in {mode:?}: {error}"));
+        }
+    }
+}
+
+#[test]
+fn legacy_inputd_and_printbde_use_the_verified_cartridge_entries() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "legacy-inputd.act",
+        r#"STRING input(40)
+
+PROC Main()
+  InputD(0,input)
+  PrintBDE(0,1)
+RETURN
+"#,
+    );
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile legacy cartridge I/O in {mode:?}: {error}"));
+        let bytes = compiled.object_bytes();
+        assert!(
+            bytes.windows(3).any(|bytes| bytes == [0x20, 0xA7, 0xA4]),
+            "{mode:?} must call the verified InputD entry at $A4A7"
+        );
+        assert!(
+            bytes
+                .windows(3)
+                .any(|bytes| { matches!(bytes, [0x20 | 0x4C, 0x08, 0xA5]) }),
+            "{mode:?} must call or tail-call the verified PrintBDE entry at $A508"
+        );
+    }
+}
+
+fn implicit_sys_source(named: bool) -> &'static str {
+    if named {
+        r#"MODULE IMPLICIT_SYS_TEST
+
+BYTE ARRAY buffer(8)
+BYTE ARRAY left="A",right="B"
+STRING input(40)
+BYTE byteValue
+CARD cardValue
+INT comparison
+INT intValue
+
+PROC Main()
+  Zero(buffer,8)
+  byteValue=Rand(10)
+  comparison=SCompare(left,right)
+  Position(10,20)
+  InputD(0,input)
+  PrintBDE(0,byteValue)
+  PrintF(input,cardValue)
+  PrintH(cardValue)
+  StrB(byteValue,input)
+  StrC(cardValue,input)
+  StrI(intValue,input)
+  Error(1)
+  Break()
+RETURN
+
+ENDMODULE
+"#
+    } else {
+        r#"BYTE ARRAY buffer(8)
+BYTE ARRAY left="A",right="B"
+STRING input(40)
+BYTE byteValue
+CARD cardValue
+INT comparison
+INT intValue
+
+PROC Main()
+  Zero(buffer,8)
+  byteValue=Rand(10)
+  comparison=SCompare(left,right)
+  Position(10,20)
+  InputD(0,input)
+  PrintBDE(0,byteValue)
+  PrintF(input,cardValue)
+  PrintH(cardValue)
+  StrB(byteValue,input)
+  StrC(cardValue,input)
+  StrI(intValue,input)
+  Error(1)
+  Break()
+RETURN
+"#
+    }
+}
+
+#[test]
+fn implicit_sys_compatibility_aliases_compile_in_all_backend_runtime_pairs() {
+    let temp = TestDir::new();
+    for (name, named) in [("legacy.act", false), ("named.act", true)] {
+        let source = temp.source(name, implicit_sys_source(named));
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let options = CompileOptions::for_mode(mode).with_runtime(runtime);
+                let compiled = compile_file(&source, &options).unwrap_or_else(|error| {
+                    panic!("compile implicit SYS source {name} in {mode:?}/{runtime:?}: {error}")
+                });
+                assert_eq!(compiled.runtime(), runtime);
+                if named && runtime == Runtime::ActionCart && mode == CompileMode::Optimized {
+                    for address in [
+                        0x04CB, 0xA3CC, 0xA4A7, 0xA508, 0xA544, 0xA54C, 0xA55B, 0xA6AE, 0xA6F1,
+                        0xA78A, 0xA7DA, 0xA864,
+                    ] {
+                        assert!(
+                            compiled.object_bytes().windows(3).any(|bytes| {
+                                matches!(bytes[0], 0x20 | 0x4C)
+                                    && bytes[1] == (address & 0x00FF) as u8
+                                    && bytes[2] == (address >> 8) as u8
+                            }),
+                            "named classic cart output calls or tail-calls resident address ${address:04X}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn implicit_sys_public_routines_share_the_compatibility_symbol_ids() {
+    let temp = TestDir::new();
+    for (name, named) in [("legacy.act", false), ("named.act", true)] {
+        let source = temp.source(name, implicit_sys_source(named));
+        let loaded = load_compilation(&source, &ModuleLoadOptions::default())
+            .unwrap_or_else(|diagnostics| panic!("load implicit SYS source: {diagnostics:#?}"));
+        let model = analyze_compilation(&loaded)
+            .unwrap_or_else(|diagnostics| panic!("analyze implicit SYS source: {diagnostics:#?}"));
+        let sys = loaded
+            .modules
+            .iter()
+            .find(|module| {
+                module
+                    .declared_path
+                    .as_ref()
+                    .is_some_and(|path| path.canonical_name() == "sys")
+            })
+            .expect("implicit SYS module");
+        let source_scope = model
+            .module(loaded.root)
+            .map(|module| module.scope)
+            .unwrap_or_else(|| model.symbols.global_scope());
+        let builtin_scope = model.symbols.builtin_scope().expect("builtin scope");
+        let public_routines = model
+            .symbols
+            .symbols
+            .iter()
+            .enumerate()
+            .filter_map(|(index, symbol)| {
+                (symbol.defining_module == Some(sys.id)
+                    && symbol.visibility == Visibility::Public
+                    && matches!(symbol.class, SymbolClass::Proc | SymbolClass::Func))
+                .then_some((SymbolId(index), symbol))
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(public_routines.len(), 71, "complete SYS compatibility API");
+        for (symbol_id, symbol) in public_routines {
+            let alias = model
+                .symbols
+                .resolve_action_name(source_scope, &symbol.name)
+                .unwrap_or_else(|| panic!("compatibility alias for SYS.{}", symbol.name));
+            assert_eq!(
+                alias.id,
+                model
+                    .symbols
+                    .lookup_exact(builtin_scope, &symbol.name)
+                    .unwrap()
+            );
+            assert_eq!(alias.id, symbol_id);
+        }
+    }
+}
+
+#[test]
+fn mir6502_machine_blocks_resolve_resident_routines_through_sys_bindings() {
+    let temp = TestDir::new();
+    let source = temp.source("machine-sys.act", "PROC Main() [$20Break] RETURN\n");
+    let compiled = compile_file(&source, &CompileOptions::for_mode(CompileMode::Mir6502))
+        .expect("compile machine reference to the implicit SYS interface");
+
+    assert!(
+        compiled
+            .object_bytes()
+            .windows(3)
+            .any(|bytes| bytes == [0x20, 0xDA, 0xA7]),
+        "MIR6502 must bind the structured Break relocation through sys-cart.act"
+    );
+
+    compile_file(
+        &source,
+        &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(Runtime::Standalone),
+    )
+    .expect("link machine reference to the standalone SYS implementation");
+}
+
+#[test]
+fn embedded_atari_interfaces_preserve_addresses_types_visibility_and_origins() {
+    let temp = TestDir::new();
+    let source = hardware_source(&temp);
+    let loaded = load_compilation(&source, &ModuleLoadOptions::default())
+        .expect("load embedded Atari modules");
+    let model = analyze_compilation(&loaded).expect("analyze embedded Atari modules");
+    let semir = ir::lower_compilation(&loaded, &model);
+
+    for path in [
+        "ATARI.ANTIC",
+        "ATARI.GTIA",
+        "ATARI.OS",
+        "ATARI.POKEY",
+        "ATARI.PIA",
+    ] {
+        let module = loaded
+            .modules
+            .iter()
+            .find(|module| match &module.program.source_kind {
+                SourceUnitKind::Named(declaration) => declaration.path.display_name() == path,
+                SourceUnitKind::Legacy => false,
+            })
+            .unwrap_or_else(|| panic!("loaded module {path}"));
+        assert_eq!(module.origin.to_string(), format!("<embedded:{path}>"));
+    }
+
+    for (qualified_name, address, fund_type) in [
+        ("ATARI.ANTIC.DLIST", 0xD402, FundType::Card),
+        ("ATARI.GTIA.COLBAK", 0xD01A, FundType::Byte),
+        ("ATARI.OS.SDLST", 0x0230, FundType::Card),
+        ("ATARI.POKEY.RANDOM", 0xD20A, FundType::Byte),
+        ("ATARI.PIA.PORTA", 0xD300, FundType::Byte),
+    ] {
+        let symbol = model
+            .symbols
+            .symbols
+            .iter()
+            .find(|symbol| symbol.qualified_name == qualified_name)
+            .unwrap_or_else(|| panic!("semantic symbol {qualified_name}"));
+        assert_eq!(symbol.class, SymbolClass::Var);
+        assert_eq!(symbol.visibility, Visibility::Public);
+        assert!(symbol.is_volatile);
+        assert!(matches!(
+            symbol.ty.as_ref().map(|ty| &ty.base),
+            Some(ValueTypeBase::Fund(actual)) if *actual == fund_type
+        ));
+
+        let declaration = semir
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .find_map(|item| match item {
+                SemItem::Declaration(declaration)
+                    if declaration.symbol.qualified_name == qualified_name =>
+                {
+                    Some(declaration)
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("SemIR declaration {qualified_name}"));
+        assert!(matches!(
+            declaration.initializer.as_ref().map(|initializer| &initializer.kind),
+            Some(SemExprKind::Literal(SemLiteral::Number(number)))
+                if number.value == Some(address)
+        ));
+    }
+
+    let mode_9 = model
+        .symbols
+        .symbols
+        .iter()
+        .position(|symbol| symbol.qualified_name == "ATARI.GTIA.MODE_9")
+        .expect("GTIA.MODE_9 symbol");
+    let mode_9_symbol = &model.symbols.symbols[mode_9];
+    assert_eq!(mode_9_symbol.class, SymbolClass::Const);
+    assert_eq!(mode_9_symbol.visibility, Visibility::Public);
+    assert!(!mode_9_symbol.is_volatile);
+    assert_eq!(
+        model.constants[&actionc::semantic::SymbolId(mode_9)].bits,
+        0x40
+    );
+}
+
+#[test]
+fn module_derived_listing_is_byte_identical_across_compilations() {
+    let temp = TestDir::new();
+    let source = hardware_source(&temp);
+    let options = CompileOptions::for_mode(CompileMode::Optimized);
+    let first = compile_file(&source, &options).expect("first module compilation");
+    let second = compile_file(&source, &options).expect("second module compilation");
+
+    assert_eq!(first.object_bytes(), second.object_bytes());
+    assert_eq!(first.source_listing(), second.source_listing());
+    assert!(
+        first
+            .source_listing()
+            .contains("global_m_atari_antic_vcount_")
+    );
+
+    let emit_map = || {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args(["--profile", "modern", "--backend", "classic", "--emit-map"])
+            .arg(&source)
+            .output()
+            .expect("emit module-derived map");
+        assert!(
+            output.status.success(),
+            "map emission failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        output.stdout
+    };
+    let first_map = emit_map();
+    let second_map = emit_map();
+    assert_eq!(first_map, second_map);
+    assert!(
+        String::from_utf8(first_map)
+            .expect("map is UTF-8")
+            .contains("M_HARDWARE_TEST_MAIN_")
+    );
+}
+
+#[test]
+fn copied_compiler_compiles_standalone_plasma_without_adjacent_support_files() {
+    let temp = TestDir::new();
+    let compiler_source = Path::new(env!("CARGO_BIN_EXE_actionc"));
+    let compiler = temp.path().join(
+        compiler_source
+            .file_name()
+            .expect("compiler executable has a file name"),
+    );
+    fs::copy(compiler_source, &compiler).expect("copy compiler executable");
+
+    let sample_source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("samples")
+        .join("demoscene")
+        .join("plasma-2027.act");
+    let sample = temp.path().join("plasma-2027.act");
+    fs::copy(sample_source, &sample).expect("copy module sample");
+    let output = temp.path().join("plasma-2027.com");
+
+    let result = Command::new(&compiler)
+        .current_dir(temp.path())
+        .args(["--mode", "mir6502", "--runtime", "standalone", "-o"])
+        .arg(&output)
+        .arg(&sample)
+        .output()
+        .expect("run copied compiler");
+    assert!(
+        result.status.success(),
+        "copied compiler failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(output.exists());
+    assert_eq!(
+        fs::read_dir(temp.path())
+            .expect("read copied compiler directory")
+            .count(),
+        3,
+        "embedded modules must not be extracted beside the compiler"
+    );
+}

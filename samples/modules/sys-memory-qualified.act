@@ -1,0 +1,13 @@
+; A qualified use keeps the source of each library routine visible.
+MODULE SYS_MEMORY_QUALIFIED
+
+USE SYS
+
+BYTE ARRAY buffer(256)=$6000
+
+PROC Main()
+  SYS.Zero(buffer,256)
+  SYS.SetBlock(buffer,256,$55)
+RETURN
+
+ENDMODULE

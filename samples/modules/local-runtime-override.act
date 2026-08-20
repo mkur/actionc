@@ -1,0 +1,16 @@
+; A local symbolic helper override wins over either runtime provider.
+MODULE LOCAL_RUNTIME_OVERRIDE
+
+; RTS is sufficient only because Four does not inspect its copied arguments.
+; A useful replacement must implement the complete Action SArgs ABI.
+PROC LocalSArgs=*() [$60]
+SET $4EE=LocalSArgs
+
+PROC Four(BYTE a,b,c,d)
+RETURN
+
+PROC Main()
+  Four(1,2,3,4)
+RETURN
+
+ENDMODULE

@@ -12,7 +12,9 @@ fn parses_all_sample_programs() {
     let mut sample_count = 0usize;
 
     for path in entries {
-        if is_known_action_macro_expansion_sample(&path) {
+        if is_known_action_macro_expansion_sample(&path)
+            || is_latent_named_module_sample(&path, &samples_dir)
+        {
             continue;
         }
         check_sample(&path);
@@ -35,6 +37,13 @@ fn unqualified_runtime_helper_sample_compiles_with_both_standalone_backends() {
             panic!("compile unqualified runtime sample in {mode:?} standalone mode: {error}")
         });
     }
+}
+
+fn is_latent_named_module_sample(path: &Path, samples_dir: &Path) -> bool {
+    path.strip_prefix(samples_dir)
+        .ok()
+        .and_then(|relative| relative.components().next())
+        .is_some_and(|component| component.as_os_str() == "modules")
 }
 
 fn check_sample(path: &Path) {

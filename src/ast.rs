@@ -28,16 +28,16 @@ pub enum SourceUnitKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamedModuleDecl {
     pub path: ModulePath,
-    pub imports: Vec<ImportDecl>,
+    pub uses: Vec<UseDecl>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ImportDecl {
+pub struct UseDecl {
     pub path: ModulePath,
-    /// The explicit or default alias. Open imports have no alias.
+    /// The explicit or default alias. `USE ALL FROM` clauses have no alias.
     pub alias: Option<String>,
-    pub open: bool,
+    pub all: bool,
     pub span: Span,
 }
 
@@ -48,7 +48,7 @@ pub struct ModulePath {
     pub span: Span,
 }
 
-/// A source-level symbol reference which may be qualified through an imported
+/// A source-level symbol reference which may be qualified through a `USE`d
 /// module alias. Keeping components separate prevents later compiler stages
 /// from rediscovering namespace meaning by splitting display strings.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

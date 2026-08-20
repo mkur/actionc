@@ -875,11 +875,14 @@ mod tests {
 
     #[test]
     fn module_extension_words_remain_contextual_identifiers() {
-        let tokens = tokenize("IMPORT AS PUBLIC ENDMODULE").unwrap();
-        assert!(matches!(tokens[0].kind, TokenKind::Ident(ref name) if name == "IMPORT"));
-        assert!(matches!(tokens[1].kind, TokenKind::Ident(ref name) if name == "AS"));
-        assert!(matches!(tokens[2].kind, TokenKind::Ident(ref name) if name == "PUBLIC"));
-        assert!(matches!(tokens[3].kind, TokenKind::Ident(ref name) if name == "ENDMODULE"));
+        let tokens = tokenize("USE ALL FROM AS PUBLIC ENDMODULE IMPORT").unwrap();
+        for (token, expected) in
+            tokens
+                .iter()
+                .zip(["USE", "ALL", "FROM", "AS", "PUBLIC", "ENDMODULE", "IMPORT"])
+        {
+            assert!(matches!(&token.kind, TokenKind::Ident(name) if name == expected));
+        }
         assert_eq!(Keyword::Module.action_token_id(), 87);
     }
 
