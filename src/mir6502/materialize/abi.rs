@@ -26,7 +26,7 @@ pub(super) fn prepend_action_abi_param_prologue(
         .frame
         .params
         .iter()
-        .map(|param| width_bytes(param.width))
+        .filter_map(|param| param.scalar_width.map(width_bytes))
         .sum::<u16>();
     let prologue = if arg_bytes >= 3 {
         action_abi_sargs_param_prologue(routine, arg_bytes, machine_blocks, helpers)
@@ -59,7 +59,7 @@ pub(super) fn elide_write_only_param_homes(
         .frame
         .params
         .iter()
-        .map(|param| width_bytes(param.width))
+        .filter_map(|param| param.scalar_width.map(width_bytes))
         .sum::<u16>();
     if arg_bytes == 0 || arg_bytes > 2 {
         return;
@@ -88,9 +88,10 @@ pub(super) fn elide_write_only_param_homes(
                 .filter(|op| store_targets_param(op, id))
                 .count();
             let store_count = routine_param_removable_store_count(routine, id)?;
-            (capture_count == usize::from(width_bytes(slot.width))).then_some((
+            let width = slot.scalar_width?;
+            (capture_count == usize::from(width_bytes(width))).then_some((
                 id,
-                width_bytes(slot.width),
+                width_bytes(width),
                 slot.name.clone(),
                 store_count,
                 capture_count,
@@ -169,7 +170,7 @@ pub(super) fn coalesce_leaf_word_param_with_result_home(
     if routine_data_relocations_reference_param(routine, param) {
         return;
     }
-    if slot.storage != MirStorageClass::Scalar || slot.width != MirWidth::Word {
+    if slot.storage != MirStorageClass::Scalar || slot.scalar_width != Some(MirWidth::Word) {
         return;
     }
     let slot_name = slot.name.clone();
@@ -738,8 +739,8 @@ fn action_abi_direct_param_prologue(routine: &crate::mir6502::ir::MirRoutine) ->
             _ => continue,
         };
         let start = offset;
-        match param.width {
-            MirWidth::Byte => {
+        match param.scalar_width {
+            Some(MirWidth::Byte) => {
                 if needs_capture {
                     bytes.push(store_param_byte_from_abi_home(
                         id,
@@ -749,7 +750,7 @@ fn action_abi_direct_param_prologue(routine: &crate::mir6502::ir::MirRoutine) ->
                 }
                 offset = offset.saturating_add(1);
             }
-            MirWidth::Word => {
+            Some(MirWidth::Word) => {
                 if needs_capture {
                     bytes.push(store_param_byte_from_abi_home(
                         id,
@@ -764,6 +765,7 @@ fn action_abi_direct_param_prologue(routine: &crate::mir6502::ir::MirRoutine) ->
                 }
                 offset = offset.saturating_add(2);
             }
+            None => continue,
         }
     }
     if bytes.len() == 2 {

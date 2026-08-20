@@ -693,7 +693,8 @@ impl MirObjectLayout {
                         id: MirStorageId(spill.0),
                         name: None,
                         storage: MirStorageClass::Scalar,
-                        width: MirWidth::Byte,
+                        storage_size: 1,
+                        scalar_width: Some(MirWidth::Byte),
                         base: MirStorageBase::Spill(*spill),
                         offset: 0,
                         mutable: true,
@@ -980,7 +981,8 @@ impl MirObjectLayout {
                     id: MirStorageId(spill.0),
                     name: None,
                     storage: MirStorageClass::Scalar,
-                    width: MirWidth::Byte,
+                    storage_size: 1,
+                    scalar_width: Some(MirWidth::Byte),
                     base: MirStorageBase::Spill(*spill),
                     offset: 0,
                     mutable: true,
@@ -1039,7 +1041,7 @@ fn place_routine_slot(
             {
                 MirStoragePlacement::Absolute {
                     address: address.saturating_add(slot.offset),
-                    size: logical_slot_size(slot, width_size(slot.width)),
+                    size: logical_slot_size(slot, slot.storage_size),
                     output_relative: placement_is_output_relative(target),
                 }
             } else {
@@ -1255,12 +1257,12 @@ fn fixed_machine_alias(slot: &MirStorageSlot) -> Option<u16> {
     if *zero_fill != 0 || !image.relocations.is_empty() {
         return None;
     }
-    match slot.width {
-        MirWidth::Byte => image.bytes.first().copied().map(u16::from),
-        MirWidth::Word if image.bytes.len() >= 2 => {
+    match slot.scalar_width {
+        Some(MirWidth::Byte) => image.bytes.first().copied().map(u16::from),
+        Some(MirWidth::Word) if image.bytes.len() >= 2 => {
             Some(u16::from_le_bytes([image.bytes[0], image.bytes[1]]))
         }
-        MirWidth::Word => None,
+        Some(MirWidth::Word) | None => None,
     }
 }
 
@@ -1415,7 +1417,14 @@ fn emit_storage_init(
     emitter: &mut TrackedEmitter,
 ) {
     match init {
-        Some(init) => init.emit(ctx, emitter),
+        Some(init) => {
+            let start = emitter.position();
+            init.emit(ctx, emitter);
+            let emitted = emitter.position().saturating_sub(start) as u16;
+            if emitted < storage_size {
+                emitter.emit_zeroes(storage_size - emitted);
+            }
+        }
         None => emitter.emit_zeroes(storage_size),
     }
 }
@@ -1819,8 +1828,15 @@ fn mir_routine_signature(routine: &MirRoutine) -> CodegenRoutineSignature {
                     .name
                     .clone()
                     .unwrap_or_else(|| format!("p{}", param.id.0)),
-                type_name: mir_width_trace_name(param.width).to_string(),
-                width: mir_width_bytes(param.width),
+                type_name: param
+                    .scalar_width
+                    .map(mir_width_trace_name)
+                    .unwrap_or("STORAGE")
+                    .to_string(),
+                width: param
+                    .scalar_width
+                    .map(mir_width_bytes)
+                    .unwrap_or(param.storage_size),
             })
             .collect(),
         return_type: None,
@@ -5065,16 +5081,9 @@ fn global_object_size(storage_size: u16, init: Option<&MirGlobalInit>) -> u16 {
 }
 
 fn slot_size(slot: &MirStorageSlot) -> u16 {
-    slot.init.as_ref().map_or(width_size(slot.width), |init| {
-        init.object_size(width_size(slot.width))
+    slot.init.as_ref().map_or(slot.storage_size, |init| {
+        init.object_size(slot.storage_size)
     })
-}
-
-fn width_size(width: MirWidth) -> u16 {
-    match width {
-        MirWidth::Byte => 1,
-        MirWidth::Word => 2,
-    }
 }
 
 fn current_address(ctx: &MirEmitContext<'_>, emitter: &TrackedEmitter) -> u16 {

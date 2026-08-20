@@ -13,8 +13,8 @@ pub(in crate::mir6502) struct MaterializeLayout {
 
 #[derive(Debug, Default, Clone)]
 struct MaterializeRoutineStorage {
-    params: Vec<(ParamId, u16, u16, MirWidth)>,
-    locals: Vec<(LocalId, u16, u16, MirWidth)>,
+    params: Vec<(ParamId, u16, u16, Option<MirWidth>)>,
+    locals: Vec<(LocalId, u16, u16, Option<MirWidth>)>,
     spills: Vec<(MirSpillId, u16, u16)>,
     descriptor_params: Vec<ParamId>,
     descriptor_locals: Vec<LocalId>,
@@ -323,7 +323,7 @@ impl MaterializeRoutineStorage {
 
     fn is_byte_scalar_param(&self, id: ParamId) -> bool {
         self.params.iter().any(|(candidate, _, size, width)| {
-            *candidate == id && *size == 1 && *width == MirWidth::Byte
+            *candidate == id && *size == 1 && *width == Some(MirWidth::Byte)
         })
     }
 
@@ -343,7 +343,7 @@ impl MaterializeRoutineStorage {
 
     fn is_byte_scalar_local(&self, id: LocalId) -> bool {
         self.locals.iter().any(|(candidate, _, size, width)| {
-            *candidate == id && *size == 1 && *width == MirWidth::Byte
+            *candidate == id && *size == 1 && *width == Some(MirWidth::Byte)
         })
     }
 
@@ -370,7 +370,7 @@ fn place_materialize_slot(
                 id,
                 address.saturating_add(slot.offset),
                 storage_slot_logical_size(slot),
-                slot.width,
+                slot.scalar_width,
             ));
         }
         return;
@@ -383,13 +383,13 @@ fn place_materialize_slot(
             if matches!(slot.init, Some(MirStorageInit::Descriptor { .. })) {
                 storage.descriptor_params.push(id);
             }
-            storage.params.push((id, address, size, slot.width));
+            storage.params.push((id, address, size, slot.scalar_width));
         }
         MirStorageBase::Local(id) => {
             if matches!(slot.init, Some(MirStorageInit::Descriptor { .. })) {
                 storage.descriptor_locals.push(id);
             }
-            storage.locals.push((id, address, size, slot.width));
+            storage.locals.push((id, address, size, slot.scalar_width));
         }
         MirStorageBase::Spill(id) => storage.spills.push((id, address, size)),
         MirStorageBase::ParamAbiOnly(_)
@@ -401,7 +401,7 @@ fn place_materialize_slot(
 }
 
 fn find_materialize_slot<T: Copy + PartialEq>(
-    slots: &[(T, u16, u16, MirWidth)],
+    slots: &[(T, u16, u16, Option<MirWidth>)],
     id: T,
     offset: u16,
 ) -> Option<u16> {
@@ -421,21 +421,24 @@ fn find_spill_slot<T: Copy + PartialEq>(
 }
 
 fn storage_slot_size(slot: &MirStorageSlot) -> u16 {
-    let width = match slot.width {
-        MirWidth::Byte => 1,
-        MirWidth::Word => 2,
-    };
-    let storage_size = slot.offset.saturating_add(width);
-    slot.init.as_ref().map_or(storage_size, |init| {
-        storage_init_object_size(init, storage_size)
+    slot.init.as_ref().map_or(slot.storage_size, |init| {
+        storage_init_object_size(init, slot.storage_size)
     })
 }
 
 fn storage_slot_logical_size(slot: &MirStorageSlot) -> u16 {
-    match slot.width {
-        MirWidth::Byte => 1,
-        MirWidth::Word => 2,
-    }
+    slot.init
+        .as_ref()
+        .and_then(|init| match init {
+            MirStorageInit::Descriptor {
+                descriptor_size, ..
+            }
+            | MirStorageInit::RoutineAddress {
+                descriptor_size, ..
+            } => Some(*descriptor_size),
+            _ => None,
+        })
+        .unwrap_or(slot.storage_size)
 }
 
 fn storage_init_object_size(init: &MirStorageInit, storage_size: u16) -> u16 {
@@ -457,5 +460,211 @@ fn storage_init_object_size(init: &MirStorageInit, storage_size: u16) -> u16 {
         MirStorageInit::RoutineAddress {
             descriptor_size, ..
         } => (*descriptor_size).max(storage_size),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mir6502::ir::{
+        MirBlock, MirBlockId, MirEffects, MirFrame, MirRoutine, MirRoutineAbi, MirStorageClass,
+        MirStorageId, MirTerminator,
+    };
+
+    #[test]
+    fn address_only_slots_reserve_their_full_size_and_bound_aliases() {
+        let real = MirStorageSlot {
+            id: MirStorageId(0),
+            name: Some("real".to_string()),
+            storage: MirStorageClass::Scalar,
+            storage_size: 6,
+            scalar_width: None,
+            base: MirStorageBase::Local(LocalId(0)),
+            offset: 0,
+            mutable: true,
+            init: None,
+        };
+        let tail = MirStorageSlot {
+            id: MirStorageId(4),
+            name: Some("tail".to_string()),
+            storage: MirStorageClass::Scalar,
+            storage_size: 1,
+            scalar_width: Some(MirWidth::Byte),
+            base: MirStorageBase::Local(LocalId(4)),
+            offset: 0,
+            mutable: true,
+            init: None,
+        };
+        let record = MirStorageSlot {
+            id: MirStorageId(1),
+            name: Some("record".to_string()),
+            storage: MirStorageClass::Record,
+            storage_size: 4,
+            scalar_width: None,
+            base: MirStorageBase::Local(LocalId(1)),
+            offset: 0,
+            mutable: true,
+            init: Some(MirStorageInit::ZeroFill {
+                bytes: 4,
+                mutable: true,
+                section: "local".to_string(),
+            }),
+        };
+        let array = MirStorageSlot {
+            id: MirStorageId(2),
+            name: Some("array".to_string()),
+            storage: MirStorageClass::Array,
+            storage_size: 3,
+            scalar_width: None,
+            base: MirStorageBase::Local(LocalId(2)),
+            offset: 0,
+            mutable: true,
+            init: Some(MirStorageInit::Bytes {
+                image: crate::mir6502::MirDataImage {
+                    bytes: vec![1, 2],
+                    relocations: Vec::new(),
+                },
+                zero_fill: 1,
+                mutable: true,
+                section: "local".to_string(),
+            }),
+        };
+        let word = MirStorageSlot {
+            id: MirStorageId(3),
+            name: Some("word".to_string()),
+            storage: MirStorageClass::Scalar,
+            storage_size: 2,
+            scalar_width: Some(MirWidth::Word),
+            base: MirStorageBase::Local(LocalId(3)),
+            offset: 0,
+            mutable: true,
+            init: None,
+        };
+        let high_word_alias = MirStorageSlot {
+            id: MirStorageId(5),
+            name: Some("high_word".to_string()),
+            storage: MirStorageClass::Scalar,
+            storage_size: 2,
+            scalar_width: Some(MirWidth::Word),
+            base: MirStorageBase::LocalAlias {
+                id: LocalId(5),
+                target: LocalId(0),
+            },
+            offset: 4,
+            mutable: true,
+            init: None,
+        };
+        let program = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: vec![MirRoutine {
+                id: RoutineId(0),
+                name: "Main".to_string(),
+                abi: MirRoutineAbi::Action,
+                frame: MirFrame {
+                    locals: vec![real, record, array, word, tail, high_word_alias],
+                    ..MirFrame::default()
+                },
+                temps: Vec::new(),
+                blocks: vec![MirBlock {
+                    id: MirBlockId(0),
+                    label: "entry".to_string(),
+                    params: Vec::new(),
+                    ops: Vec::new(),
+                    terminator: MirTerminator::Return,
+                }],
+                effects: MirEffects::default(),
+            }],
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+
+        crate::mir6502::verify_program(&program, crate::mir6502::MirPhase::PreMaterialization)
+            .expect("address-only local storage is verifier-clean");
+        let layout = MaterializeLayout::new(&program, 0x2000);
+        assert_eq!(
+            layout.mem_address(
+                RoutineId(0),
+                &MirMem::Local {
+                    id: LocalId(0),
+                    offset: 5,
+                },
+            ),
+            Some(0x2005)
+        );
+        assert_eq!(
+            layout.mem_address(
+                RoutineId(0),
+                &MirMem::Local {
+                    id: LocalId(0),
+                    offset: 6,
+                },
+            ),
+            None
+        );
+        assert_eq!(
+            layout.mem_address(
+                RoutineId(0),
+                &MirMem::Local {
+                    id: LocalId(1),
+                    offset: 0,
+                },
+            ),
+            Some(0x2006)
+        );
+        assert_eq!(
+            layout.mem_address(
+                RoutineId(0),
+                &MirMem::Local {
+                    id: LocalId(2),
+                    offset: 2,
+                },
+            ),
+            Some(0x200C)
+        );
+        assert_eq!(
+            layout.mem_address(
+                RoutineId(0),
+                &MirMem::Local {
+                    id: LocalId(3),
+                    offset: 1,
+                },
+            ),
+            Some(0x200E)
+        );
+        assert_eq!(
+            layout.mem_address(
+                RoutineId(0),
+                &MirMem::Local {
+                    id: LocalId(4),
+                    offset: 0,
+                },
+            ),
+            Some(0x200F)
+        );
+        assert_eq!(
+            layout.mem_address(
+                RoutineId(0),
+                &MirMem::Local {
+                    id: LocalId(5),
+                    offset: 1,
+                },
+            ),
+            Some(0x2005)
+        );
+        assert!(layout.is_byte_scalar_storage(
+            RoutineId(0),
+            &MirMem::Local {
+                id: LocalId(4),
+                offset: 0,
+            }
+        ));
+        assert!(!layout.is_byte_scalar_storage(
+            RoutineId(0),
+            &MirMem::Local {
+                id: LocalId(0),
+                offset: 0,
+            }
+        ));
     }
 }

@@ -230,13 +230,13 @@ fn validate_abi(
         .frame
         .params
         .iter()
-        .map(|param| (param.storage, param.width))
+        .map(|param| (param.storage, param.storage_size, param.scalar_width))
         .collect::<Vec<_>>();
     let implementation_params = implementation
         .frame
         .params
         .iter()
-        .map(|param| (param.storage, param.width))
+        .map(|param| (param.storage, param.storage_size, param.scalar_width))
         .collect::<Vec<_>>();
     if interface_params != implementation_params {
         return Err(diagnostic(format!(

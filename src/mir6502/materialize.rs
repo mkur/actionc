@@ -1682,7 +1682,7 @@ fn proven_action_dispatch_vector(
     };
     let vector_slot = routine.frame.locals.iter().find(|slot| {
         slot.base == MirStorageBase::Local(*vector)
-            && slot.width == MirWidth::Word
+            && slot.scalar_width == Some(MirWidth::Word)
             && slot.offset == 0
             && slot
                 .name

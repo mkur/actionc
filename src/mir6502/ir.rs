@@ -285,7 +285,13 @@ pub struct MirStorageSlot {
     pub id: MirStorageId,
     pub name: Option<String>,
     pub storage: MirStorageClass,
-    pub width: MirWidth,
+    /// Bytes reserved for this object. This is independent of the width of an
+    /// individual 6502 transfer and may be larger than two bytes.
+    pub storage_size: u16,
+    /// Width of the slot when it participates in the byte/word scalar lane.
+    /// Address-only objects such as inline arrays, records, and native REAL
+    /// storage do not have a scalar width.
+    pub scalar_width: Option<MirWidth>,
     pub base: MirStorageBase,
     pub offset: u16,
     pub mutable: bool,

@@ -7,8 +7,8 @@ use super::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCondDest, MirDataImage,
     MirDataRelocationTarget, MirDef, MirEdge, MirFrame, MirGlobal, MirGlobalInit,
     MirMachineBlockId, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
-    MirRoutineAbi, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator, MirValue,
-    RoutineId,
+    MirRoutineAbi, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirStorageSlot,
+    MirTerminator, MirValue, MirWidth, RoutineId,
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 
@@ -533,6 +533,21 @@ impl MirVerifier {
     }
 
     fn verify_frame_inits(&mut self, routine: &MirRoutine) {
+        for param in &routine.frame.params {
+            self.verify_storage_slot(&routine.name, &format!("p{}", param.id.0), param);
+            if param.scalar_width.is_none() {
+                self.diagnostics.push(MirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "parameter storage `p{}` has no byte/word ABI width",
+                        param.id.0
+                    ),
+                ));
+            }
+        }
+        for local in &routine.frame.locals {
+            self.verify_storage_slot(&routine.name, &format!("l{}", local.id.0), local);
+        }
         let virtual_slots = routine
             .frame
             .virtual_zero_page
@@ -607,6 +622,42 @@ impl MirVerifier {
                 continue;
             };
             self.verify_storage_init(&routine.name, &format!("l{}", local.id.0), init);
+        }
+    }
+
+    fn verify_storage_slot(&mut self, routine: &str, name: &str, slot: &MirStorageSlot) {
+        if slot.storage_size == 0 {
+            self.diagnostics.push(MirDiagnostic::routine(
+                routine,
+                format!("storage `{name}` has zero allocation size"),
+            ));
+        }
+        if let Some(width) = slot.scalar_width {
+            let width = match width {
+                MirWidth::Byte => 1,
+                MirWidth::Word => 2,
+            };
+            if slot.storage_size < width {
+                self.diagnostics.push(MirDiagnostic::routine(
+                    routine,
+                    format!(
+                        "storage `{name}` size {} is smaller than its {width}-byte scalar width",
+                        slot.storage_size
+                    ),
+                ));
+            }
+        }
+        if let Some(init) = &slot.init {
+            let initialized_size = storage_init_size(init);
+            if initialized_size < slot.storage_size {
+                self.diagnostics.push(MirDiagnostic::routine(
+                    routine,
+                    format!(
+                        "storage `{name}` initializer covers {initialized_size} byte(s), expected at least {}",
+                        slot.storage_size
+                    ),
+                ));
+            }
         }
     }
 
@@ -2290,6 +2341,25 @@ impl MirVerifier {
     }
 }
 
+fn storage_init_size(init: &MirStorageInit) -> u16 {
+    match init {
+        MirStorageInit::Bytes {
+            image, zero_fill, ..
+        } => (image.bytes.len() as u16).saturating_add(*zero_fill),
+        MirStorageInit::ZeroFill { bytes, .. } => *bytes,
+        MirStorageInit::Descriptor {
+            backing,
+            descriptor_size,
+            ..
+        } => (backing.image.bytes.len() as u16)
+            .saturating_add(backing.zero_fill)
+            .saturating_add(*descriptor_size),
+        MirStorageInit::RoutineAddress {
+            descriptor_size, ..
+        } => *descriptor_size,
+    }
+}
+
 fn pointer_pair_homes(pair: MirPointerPair) -> Vec<MirHomeByte> {
     match pair {
         MirPointerPair::Fixed { lo } => vec![
@@ -3160,6 +3230,73 @@ mod tests {
             diagnostic
                 .message
                 .contains("scaled-Y store at op #2 moves backward from offset 1 to 0")
+        }));
+    }
+
+    #[test]
+    fn rejects_invalid_storage_sizes_and_initializer_coverage() {
+        let mut routine = routine(
+            RoutineId(0),
+            "Main",
+            vec![block(MirBlockId(0), "bb0", MirTerminator::Return)],
+        );
+        routine.frame.params.push(MirStorageSlot {
+            id: crate::mir6502::MirStorageId(0),
+            name: Some("wide".to_string()),
+            storage: crate::mir6502::MirStorageClass::Scalar,
+            storage_size: 6,
+            scalar_width: None,
+            base: MirStorageBase::Param(ParamId(0)),
+            offset: 0,
+            mutable: true,
+            init: None,
+        });
+        routine.frame.locals.push(MirStorageSlot {
+            id: crate::mir6502::MirStorageId(0),
+            name: Some("base".to_string()),
+            storage: crate::mir6502::MirStorageClass::Record,
+            storage_size: 4,
+            scalar_width: None,
+            base: MirStorageBase::Local(LocalId(0)),
+            offset: 0,
+            mutable: true,
+            init: Some(MirStorageInit::ZeroFill {
+                bytes: 3,
+                mutable: true,
+                section: "local".to_string(),
+            }),
+        });
+        routine.frame.locals.push(MirStorageSlot {
+            id: crate::mir6502::MirStorageId(1),
+            name: Some("undersized".to_string()),
+            storage: crate::mir6502::MirStorageClass::Scalar,
+            storage_size: 1,
+            scalar_width: Some(MirWidth::Word),
+            base: MirStorageBase::Local(LocalId(1)),
+            offset: 0,
+            mutable: true,
+            init: None,
+        });
+
+        let diagnostics = verify_program(
+            &program_with_routines(vec![routine]),
+            MirPhase::PreMaterialization,
+        )
+        .expect_err("invalid frame storage must be rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("parameter storage `p0` has no byte/word ABI width")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("initializer covers 3 byte(s), expected at least 4")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("storage `l1` size 1 is smaller than its 2-byte scalar width")
         }));
     }
 

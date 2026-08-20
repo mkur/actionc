@@ -78,77 +78,78 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
         .collect::<BTreeMap<_, _>>();
     let machine_numeric_defines = collect_machine_numeric_defines(nir_program);
     let mut machine_blocks = Vec::new();
-    let routines = nir_program
-        .routines
-        .iter()
-        .enumerate()
-        .map(|(routine_index, routine)| {
-            let block_ids = routine
-                .blocks
-                .iter()
-                .enumerate()
-                .map(|(index, block)| (block.id, MirBlockId(index as u32)))
-                .collect::<BTreeMap<_, _>>();
-            let local_absolute_addresses = routine
-                .locals
-                .iter()
-                .filter_map(|local| match local.backing {
-                    NirLocalBacking::Absolute(address) => {
-                        Some((machine_name_key(&local.name), address))
-                    }
-                    NirLocalBacking::Ordinary
-                    | NirLocalBacking::Alias { .. }
-                    | NirLocalBacking::GlobalAlias { .. } => None,
-                })
-                .collect::<BTreeMap<_, _>>();
-            let local_array_pointer_backing = routine
-                .locals
-                .iter()
-                .filter(|local| local_pointer_backed_array(local))
-                .map(|local| local.id)
-                .collect::<Vec<_>>();
+    let routines =
+        nir_program
+            .routines
+            .iter()
+            .enumerate()
+            .map(|(routine_index, routine)| {
+                let block_ids = routine
+                    .blocks
+                    .iter()
+                    .enumerate()
+                    .map(|(index, block)| (block.id, MirBlockId(index as u32)))
+                    .collect::<BTreeMap<_, _>>();
+                let local_absolute_addresses = routine
+                    .locals
+                    .iter()
+                    .filter_map(|local| match local.backing {
+                        NirLocalBacking::Absolute(address) => {
+                            Some((machine_name_key(&local.name), address))
+                        }
+                        NirLocalBacking::Ordinary
+                        | NirLocalBacking::Alias { .. }
+                        | NirLocalBacking::GlobalAlias { .. } => None,
+                    })
+                    .collect::<BTreeMap<_, _>>();
+                let local_array_pointer_backing = routine
+                    .locals
+                    .iter()
+                    .filter(|local| local_pointer_backed_array(local))
+                    .map(|local| local.id)
+                    .collect::<Vec<_>>();
 
-            let blocks: Vec<MirBlock> = routine
-                .blocks
-                .iter()
-                .enumerate()
-                .map(|(block_index, block)| {
-                    let mut ops = lower_ops(
-                        &routine.name,
-                        &block.label,
-                        &block.ops,
-                        &routine_ids,
-                        &routine_system_addresses_by_id,
-                        &routine_system_addresses,
-                        &global_array_pointer_backing,
-                        &local_array_pointer_backing,
-                        &local_absolute_addresses,
-                        &machine_numeric_defines,
-                        &mut machine_blocks,
-                        &mut diagnostics,
-                    );
-                    lower_return_value_ops(
-                        &routine.name,
-                        &block.label,
-                        routine_return_width(routine),
-                        &block.terminator,
-                        &mut ops,
-                        &mut diagnostics,
-                    );
-                    MirBlock {
-                        id: MirBlockId(block_index as u32),
-                        label: block.label.clone(),
-                        params: block
-                            .params
-                            .iter()
-                            .filter_map(|param| {
-                                mir_width(&param.ty)
-                                    .map(|width| MirBlockParam {
-                                        dest: MirTempId(param.dest.0),
-                                        width,
-                                    })
-                                    .or_else(|| {
-                                        diagnostics.push(MirDiagnostic::block(
+                let blocks: Vec<MirBlock> = routine
+                    .blocks
+                    .iter()
+                    .enumerate()
+                    .map(|(block_index, block)| {
+                        let mut ops = lower_ops(
+                            &routine.name,
+                            &block.label,
+                            &block.ops,
+                            &routine_ids,
+                            &routine_system_addresses_by_id,
+                            &routine_system_addresses,
+                            &global_array_pointer_backing,
+                            &local_array_pointer_backing,
+                            &local_absolute_addresses,
+                            &machine_numeric_defines,
+                            &mut machine_blocks,
+                            &mut diagnostics,
+                        );
+                        lower_return_value_ops(
+                            &routine.name,
+                            &block.label,
+                            routine_return_width(routine),
+                            &block.terminator,
+                            &mut ops,
+                            &mut diagnostics,
+                        );
+                        MirBlock {
+                            id: MirBlockId(block_index as u32),
+                            label: block.label.clone(),
+                            params: block
+                                .params
+                                .iter()
+                                .filter_map(|param| {
+                                    mir_width(&param.ty)
+                                        .map(|width| MirBlockParam {
+                                            dest: MirTempId(param.dest.0),
+                                            width,
+                                        })
+                                        .or_else(|| {
+                                            diagnostics.push(MirDiagnostic::block(
                                             &routine.name,
                                             &block.label,
                                             format!(
@@ -156,24 +157,24 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                                                 param.dest.0
                                             ),
                                         ));
-                                        None
-                                    })
-                            })
-                            .collect(),
-                        ops,
-                        terminator: lower_terminator(
-                            &routine.name,
-                            &block.label,
-                            block.id,
-                            &block.terminator,
-                            &block_ids,
-                            &mut diagnostics,
-                        ),
-                    }
-                })
-                .collect();
+                                            None
+                                        })
+                                })
+                                .collect(),
+                            ops,
+                            terminator: lower_terminator(
+                                &routine.name,
+                                &block.label,
+                                block.id,
+                                &block.terminator,
+                                &block_ids,
+                                &mut diagnostics,
+                            ),
+                        }
+                    })
+                    .collect();
 
-            MirRoutine {
+                MirRoutine {
                 id: RoutineId(routine_index as u32),
                 name: routine.name.clone(),
                 abi: if routine_has_external_interface(routine) {
@@ -190,15 +191,23 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                         .params
                         .iter()
                         .enumerate()
-                        .map(|(index, param)| MirStorageSlot {
-                            id: MirStorageId(index as u32),
-                            name: Some(param.name.clone()),
-                            storage: lower_storage_class(param.storage),
-                            width: mir_width(&param.ty).unwrap_or(MirWidth::Byte),
-                            base: MirStorageBase::Param(param.id),
-                            offset: 0,
-                            mutable: true,
-                            init: None,
+                        .map(|(index, param)| {
+                            let scalar_width = mir_width(&param.ty);
+                            MirStorageSlot {
+                                id: MirStorageId(index as u32),
+                                name: Some(param.name.clone()),
+                                storage: lower_storage_class(param.storage),
+                                storage_size: param
+                                    .ty
+                                    .width
+                                    .or_else(|| scalar_width.map(mir_width_bytes))
+                                    .unwrap_or(1),
+                                scalar_width,
+                                base: MirStorageBase::Param(param.id),
+                                offset: 0,
+                                mutable: true,
+                                init: None,
+                            }
                         })
                         .collect(),
                     locals: routine
@@ -211,11 +220,19 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                             )
                         })
                         .enumerate()
-                        .map(|(index, local)| MirStorageSlot {
+                        .map(|(index, local)| {
+                            let scalar_width = local_scalar_width(local);
+                            let init = lower_local_storage_init(
+                                local,
+                                &routine_ids,
+                                RoutineId(routine_index as u32),
+                            );
+                            MirStorageSlot {
                             id: MirStorageId(index as u32),
                             name: Some(local.name.clone()),
                             storage: lower_storage_class(local.storage),
-                            width: local_storage_width(local),
+                            storage_size: local_storage_size(local, scalar_width, init.as_ref()),
+                            scalar_width,
                             base: match local.backing {
                                 NirLocalBacking::Alias { target, .. } => {
                                     MirStorageBase::LocalAlias {
@@ -242,11 +259,8 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                                 ),
                             },
                             mutable: true,
-                            init: lower_local_storage_init(
-                                local,
-                                &routine_ids,
-                                RoutineId(routine_index as u32),
-                            ),
+                            init,
+                        }
                         })
                         .collect(),
                     spills: Vec::new(),
@@ -264,8 +278,8 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                 blocks,
                 effects: MirEffects::default(),
             }
-        })
-        .collect();
+            })
+            .collect();
 
     if !diagnostics.is_empty() {
         return Err(diagnostics);
@@ -1900,11 +1914,62 @@ fn lower_storage_class(storage: nir::NirStorageClass) -> MirStorageClass {
     }
 }
 
-fn local_storage_width(local: &nir::NirLocal) -> MirWidth {
+fn local_scalar_width(local: &nir::NirLocal) -> Option<MirWidth> {
     if local_pointer_backed_array(local) {
+        Some(MirWidth::Word)
+    } else if local.storage == nir::NirStorageClass::Scalar {
+        mir_width(&local.ty)
+    } else {
+        None
+    }
+}
+
+fn local_storage_size(
+    local: &nir::NirLocal,
+    scalar_width: Option<MirWidth>,
+    init: Option<&MirStorageInit>,
+) -> u16 {
+    let declared_size = if local_pointer_backed_array(local) {
         MirWidth::Word
     } else {
-        mir_width(&local.ty).unwrap_or(MirWidth::Byte)
+        scalar_width.unwrap_or(MirWidth::Byte)
+    };
+    let declared_size = local
+        .ty
+        .width
+        .filter(|_| !local_pointer_backed_array(local))
+        .unwrap_or_else(|| mir_width_bytes(declared_size));
+    init.map_or(declared_size, |init| {
+        mir_storage_init_object_size(init, declared_size)
+    })
+}
+
+fn mir_storage_init_object_size(init: &MirStorageInit, storage_size: u16) -> u16 {
+    match init {
+        MirStorageInit::Bytes {
+            image, zero_fill, ..
+        } => (image.bytes.len() as u16)
+            .saturating_add(*zero_fill)
+            .max(storage_size),
+        MirStorageInit::ZeroFill { bytes, .. } => (*bytes).max(storage_size),
+        MirStorageInit::Descriptor {
+            backing,
+            descriptor_size,
+            ..
+        } => (backing.image.bytes.len() as u16)
+            .saturating_add(backing.zero_fill)
+            .saturating_add(*descriptor_size)
+            .max(storage_size),
+        MirStorageInit::RoutineAddress {
+            descriptor_size, ..
+        } => (*descriptor_size).max(storage_size),
+    }
+}
+
+fn mir_width_bytes(width: MirWidth) -> u16 {
+    match width {
+        MirWidth::Byte => 1,
+        MirWidth::Word => 2,
     }
 }
 
@@ -1989,4 +2054,49 @@ fn lower_edge(
         args.push(MirEdgeArg { value, width });
     }
     Some(MirEdge { target, args })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lowers_six_byte_real_local_as_address_only_storage() {
+        let program = nir::NirProgram {
+            globals: Vec::new(),
+            statics: Vec::new(),
+            routines: vec![nir::NirRoutine {
+                name: "Main".to_string(),
+                params: Vec::new(),
+                locals: vec![nir::NirLocal {
+                    id: LocalId(0),
+                    name: "value".to_string(),
+                    kind: "REAL".to_string(),
+                    storage: nir::NirStorageClass::Scalar,
+                    ty: NirType {
+                        kind: NirTypeKind::Real,
+                        summary: "REAL".to_string(),
+                        width: Some(6),
+                        pointer: false,
+                    },
+                    backing: NirLocalBacking::Ordinary,
+                    init: None,
+                }],
+                temps: Vec::new(),
+                notes: Vec::new(),
+                blocks: vec![nir::NirBlock {
+                    id: BlockId(0),
+                    label: "entry".to_string(),
+                    params: Vec::new(),
+                    ops: Vec::new(),
+                    terminator: NirTerminator::Return(None),
+                }],
+            }],
+        };
+
+        let mir = lower_program(&program).expect("address-only REAL local lowers to MIR");
+        let slot = &mir.routines[0].frame.locals[0];
+        assert_eq!(slot.storage_size, 6);
+        assert_eq!(slot.scalar_width, None);
+    }
 }

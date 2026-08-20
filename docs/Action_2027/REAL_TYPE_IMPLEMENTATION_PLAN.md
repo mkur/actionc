@@ -1,8 +1,9 @@
 # Native REAL Implementation Plan
 
-Implementation status: in progress. Slices 0 through 2 are complete: the Atari
-oracle, exact decimal codec, and modern-profile semantic contract are in place.
-Executable NIR and backend lowering remain gated by an explicit diagnostic.
+Implementation status: in progress. Slices 0 through 3 are complete: the Atari
+oracle, exact decimal codec, modern-profile semantic contract, and MIR
+storage-size foundation are in place. Executable NIR and backend lowering
+remain gated by an explicit diagnostic.
 
 ## Goal
 
@@ -198,6 +199,12 @@ MIR currently couples a storage slot to `MirWidth::Byte` or `MirWidth::Word`.
 Before native real lowering, storage allocation size must be separated from the
 width of an individual machine transfer. A local may then reserve six bytes
 while every emitted 6502 load/store remains byte- or word-sized.
+
+Slice 3 establishes that separation with `MirStorageSlot::storage_size` and an
+optional `scalar_width`. Parameters retain a byte/word scalar width because the
+Action ABI requires one; inline arrays, records, and native `REAL` locals may be
+address-only. Layout and initialization use `storage_size`, while ABI and
+machine-transfer selection use `scalar_width`.
 
 Atari FPP calls are target services, not Action runtime helpers. They should be
 represented by a structured MIR operation or service identifier carrying the
