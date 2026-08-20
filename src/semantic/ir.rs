@@ -8,9 +8,9 @@ use crate::asm6502::{
 use crate::ast::{
     ActioncAnnotation, AddressByteSelector, BinaryOp, ConstDecl, Decl, DefineDecl, Expr, ExprKind,
     FundType, IncludeDirective, InitializerElement, InitializerElementKind, InitializerLiteral,
-    Item, MachineAddressAtom, MachineAddressExpr, MachineItem, Module, Program, RecordDecl,
-    Routine, RoutineKind, SetDirective, Stmt, TypeBase, TypeDecl, TypeRef, UnaryOp, VarDecl,
-    VarStorage,
+    Item, MachineAddressAtom, MachineAddressExpr, MachineItem, Module, Program, QualifiedName,
+    RecordDecl, Routine, RoutineKind, SetDirective, Stmt, TypeBase, TypeDecl, TypeRef, UnaryOp,
+    VarDecl, VarStorage,
 };
 use crate::includes::{LoadedCompilation, ModuleId};
 use crate::lexer::{NumberLiteral, TokenKind, tokenize};
@@ -2411,13 +2411,16 @@ impl<'a> IrBuilder<'a> {
     fn lower_inline_asm(&self, scope: ScopeId, program: &InlineAsmProgram) -> SemInlineAsm {
         let program =
             super::materialize::materialize_inline_asm_constants(program, scope, self.model);
+        let mut compatibility_link_names = HashMap::new();
         let relocations = program
             .relocations
             .iter()
             .filter_map(|relocation| {
                 let target = match &relocation.target {
                     InlineAsmRelocationTarget::Symbol(name) => {
-                        SemInlineAsmTarget::Symbol(self.symbol_ref(scope, name, relocation.span)?)
+                        let symbol = self.symbol_ref(scope, name, relocation.span)?;
+                        compatibility_link_names.insert(normalize_name(name), symbol.name.clone());
+                        SemInlineAsmTarget::Symbol(symbol)
                     }
                     InlineAsmRelocationTarget::InlineOffset(offset) => {
                         SemInlineAsmTarget::InlineOffset(*offset)
@@ -2437,12 +2440,14 @@ impl<'a> IrBuilder<'a> {
                 })
             })
             .collect();
+        let compatibility_items =
+            relink_inline_asm_items(&program.items, &compatibility_link_names);
         SemInlineAsm {
             bytes: program.bytes,
             relocations,
             source: program.source,
             mode: program.mode,
-            compatibility_items: program.items,
+            compatibility_items,
         }
     }
 
