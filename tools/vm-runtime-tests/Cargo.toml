@@ -5,7 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
-actionc-vm = { git = "https://github.com/mkur/actionc-vm.git", rev = "fc20136ac4f659e346b67ac5e849953fed4bc680" }
+actionc-vm = { git = "https://github.com/mkur/actionc-vm.git", rev = "a621eedf728bd9343d2f1513f36173bc2a4b66c3" }
 actionc = { path = "../.." }
 
 [workspace]
