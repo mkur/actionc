@@ -374,10 +374,7 @@ fn analyze_routine_storage(
                         }
                     }
                 }
-                NirOp::Set { .. }
-                | NirOp::RuntimeHelperOverride { .. }
-                | NirOp::Assign { .. }
-                | NirOp::CompoundAssign { .. }
+                NirOp::RuntimeHelperOverride { .. }
                 | NirOp::Unary { .. }
                 | NirOp::Cast { .. }
                 | NirOp::Binary { .. }
@@ -647,10 +644,7 @@ fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
         | NirOp::AddrOf { place, .. }
         | NirOp::Store { place, .. }
         | NirOp::VolatileStore { place, .. } => visit(place),
-        NirOp::Set { .. }
-        | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Assign { .. }
-        | NirOp::CompoundAssign { .. }
+        NirOp::RuntimeHelperOverride { .. }
         | NirOp::Unary { .. }
         | NirOp::Cast { .. }
         | NirOp::Binary { .. }
@@ -772,10 +766,7 @@ fn mark_read_before_definition(
                         defined.insert(id);
                     }
                 }
-                NirOp::Set { .. }
-                | NirOp::RuntimeHelperOverride { .. }
-                | NirOp::Assign { .. }
-                | NirOp::CompoundAssign { .. }
+                NirOp::RuntimeHelperOverride { .. }
                 | NirOp::AddrOf { .. }
                 | NirOp::Unary { .. }
                 | NirOp::Cast { .. }

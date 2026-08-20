@@ -829,10 +829,7 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
             };
             Some((*dest, NirValue::ConstU8(u8::from(result))))
         }
-        NirOp::Set { .. }
-        | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Assign { .. }
-        | NirOp::CompoundAssign { .. }
+        NirOp::RuntimeHelperOverride { .. }
         | NirOp::Load { .. }
         | NirOp::VolatileLoad { .. }
         | NirOp::AddrOf { .. }
@@ -909,10 +906,7 @@ fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
         NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. }
-        | NirOp::Set { .. }
-        | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Assign { .. }
-        | NirOp::CompoundAssign { .. } => {}
+        | NirOp::RuntimeHelperOverride { .. } => {}
     }
 }
 
@@ -1038,10 +1032,7 @@ fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
                 collect_value_use(arg, out);
             }
         }
-        NirOp::Set { .. }
-        | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Assign { .. }
-        | NirOp::CompoundAssign { .. }
+        NirOp::RuntimeHelperOverride { .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => {}
@@ -1121,10 +1112,7 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
             result: Some(result),
             ..
         } => Some((result.dest, &result.ty)),
-        NirOp::Set { .. }
-        | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Assign { .. }
-        | NirOp::CompoundAssign { .. }
+        NirOp::RuntimeHelperOverride { .. }
         | NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
         | NirOp::Call { result: None, .. }

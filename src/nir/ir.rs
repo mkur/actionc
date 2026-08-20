@@ -452,22 +452,9 @@ pub struct NirBlockParam {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirOp {
-    Set {
-        address: NirOperand,
-        value: NirOperand,
-    },
     RuntimeHelperOverride {
         slot: u16,
         target: NirRuntimeHelperTarget,
-    },
-    Assign {
-        target: NirPlace,
-        value: NirOperand,
-    },
-    CompoundAssign {
-        target: NirPlace,
-        op: String,
-        value: NirOperand,
     },
     Load {
         dest: TempId,

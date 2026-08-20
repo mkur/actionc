@@ -671,13 +671,6 @@ impl NirVerifier {
         temp_facts: &NirTempFacts<'_>,
     ) {
         match op {
-            NirOp::Set { .. } => {
-                self.diagnostics.push(NirDiagnostic::block(
-                    &routine.name,
-                    &block.label,
-                    "compile-time SET must not appear in executable NIR",
-                ));
-            }
             NirOp::RuntimeHelperOverride { slot, target } => {
                 if !matches!(*slot, 0x04E4 | 0x04E6 | 0x04E8 | 0x04EA | 0x04EC | 0x04EE) {
                     self.diagnostics.push(NirDiagnostic::block(
@@ -695,20 +688,6 @@ impl NirVerifier {
                         format!("runtime helper override references missing routine id {id}"),
                     ));
                 }
-            }
-            NirOp::Assign { .. } => {
-                self.diagnostics.push(NirDiagnostic::block(
-                    &routine.name,
-                    &block.label,
-                    "legacy Assign op must be lowered to Store",
-                ));
-            }
-            NirOp::CompoundAssign { .. } => {
-                self.diagnostics.push(NirDiagnostic::block(
-                    &routine.name,
-                    &block.label,
-                    "legacy CompoundAssign op must be lowered to Load/Binary/Store",
-                ));
             }
             NirOp::Load { dest, ty, place } | NirOp::VolatileLoad { dest, ty, place } => {
                 self.op_type(routine, block, ty, "load result");

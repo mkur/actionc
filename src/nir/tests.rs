@@ -1225,81 +1225,6 @@ fn verifier_rejects_duplicate_block_ids() {
 }
 
 #[test]
-fn verifier_rejects_legacy_assign_ops() {
-    let program = NirProgram {
-        globals: Vec::new(),
-        statics: Vec::new(),
-        routines: vec![NirRoutine {
-            name: "Main".to_string(),
-            params: Vec::new(),
-            locals: Vec::new(),
-            temps: Vec::new(),
-            notes: Vec::new(),
-            blocks: vec![NirBlock {
-                id: BlockId(0),
-                label: "bb0".to_string(),
-                params: Vec::new(),
-                ops: vec![NirOp::Assign {
-                    target: NirPlace {
-                        kind: NirPlaceKind::Symbol("x".to_string()),
-                        ty: None,
-                    },
-                    value: NirOperand {
-                        kind: NirOperandKind::Literal {
-                            text: "1".to_string(),
-                            value: Some(1),
-                        },
-                        ty: None,
-                    },
-                }],
-                terminator: NirTerminator::Return(None),
-            }],
-        }],
-    };
-
-    let diagnostics = verify_program(&program).expect_err("expected verifier error");
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("legacy Assign op")),
-        "expected legacy-assign diagnostic, got {diagnostics:?}"
-    );
-}
-
-#[test]
-fn verifier_rejects_executable_compile_time_set_ops() {
-    let program = NirProgram {
-        globals: Vec::new(),
-        statics: Vec::new(),
-        routines: vec![NirRoutine {
-            name: "Main".to_string(),
-            params: Vec::new(),
-            locals: Vec::new(),
-            temps: Vec::new(),
-            notes: Vec::new(),
-            blocks: vec![NirBlock {
-                id: BlockId(0),
-                label: "bb0".to_string(),
-                params: Vec::new(),
-                ops: vec![NirOp::Set {
-                    address: card_literal_with_value("$491", 0x0491),
-                    value: card_literal_with_value("$3000", 0x3000),
-                }],
-                terminator: NirTerminator::Return(None),
-            }],
-        }],
-    };
-
-    let diagnostics = verify_program(&program).expect_err("expected verifier error");
-    assert!(
-        diagnostics.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("compile-time SET must not appear in executable NIR")),
-        "expected compile-time SET diagnostic, got {diagnostics:?}"
-    );
-}
-
-#[test]
 fn verifier_rejects_store_with_untyped_place() {
     let program = NirProgram {
         globals: Vec::new(),
@@ -1333,74 +1258,6 @@ fn verifier_rejects_store_with_untyped_place() {
             .iter()
             .any(|diagnostic| diagnostic.message.contains("store place has no NIR type")),
         "expected untyped-store-place diagnostic, got {diagnostics:?}"
-    );
-}
-
-#[test]
-fn verifier_rejects_legacy_compound_assignment_ops() {
-    let program = NirProgram {
-        globals: Vec::new(),
-        statics: Vec::new(),
-        routines: vec![NirRoutine {
-            name: "Main".to_string(),
-            params: Vec::new(),
-            locals: Vec::new(),
-            temps: Vec::new(),
-            notes: Vec::new(),
-            blocks: vec![NirBlock {
-                id: BlockId(0),
-                label: "bb0".to_string(),
-                params: Vec::new(),
-                ops: vec![NirOp::CompoundAssign {
-                    target: byte_place("x"),
-                    op: "Add".to_string(),
-                    value: card_literal("$1234"),
-                }],
-                terminator: NirTerminator::Return(None),
-            }],
-        }],
-    };
-
-    let diagnostics = verify_program(&program).expect_err("expected verifier error");
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("legacy CompoundAssign op")),
-        "expected legacy-CompoundAssign diagnostic, got {diagnostics:?}"
-    );
-}
-
-#[test]
-fn verifier_rejects_legacy_for_step_compound_assignment() {
-    let program = NirProgram {
-        globals: Vec::new(),
-        statics: Vec::new(),
-        routines: vec![NirRoutine {
-            name: "Main".to_string(),
-            params: Vec::new(),
-            locals: Vec::new(),
-            temps: Vec::new(),
-            notes: Vec::new(),
-            blocks: vec![NirBlock {
-                id: BlockId(0),
-                label: "bb0".to_string(),
-                params: Vec::new(),
-                ops: vec![NirOp::CompoundAssign {
-                    target: byte_place("i"),
-                    op: "ForStep".to_string(),
-                    value: byte_literal_with_value("1", 1),
-                }],
-                terminator: NirTerminator::Return(None),
-            }],
-        }],
-    };
-
-    let diagnostics = verify_program(&program).expect_err("expected verifier error");
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("legacy CompoundAssign op")),
-        "expected legacy-CompoundAssign diagnostic, got {diagnostics:?}"
     );
 }
 
@@ -2842,10 +2699,6 @@ fn byte_place(name: &str) -> NirPlace {
     }
 }
 
-fn card_literal(value: &str) -> NirOperand {
-    card_literal_with_value(value, 0x1234)
-}
-
 fn card_literal_with_value(text: &str, value: u16) -> NirOperand {
     NirOperand {
         kind: NirOperandKind::Literal {
@@ -2853,16 +2706,6 @@ fn card_literal_with_value(text: &str, value: u16) -> NirOperand {
             value: Some(value),
         },
         ty: Some(card_type()),
-    }
-}
-
-fn byte_literal_with_value(text: &str, value: u16) -> NirOperand {
-    NirOperand {
-        kind: NirOperandKind::Literal {
-            text: text.to_string(),
-            value: Some(value),
-        },
-        ty: Some(byte_type()),
     }
 }
 

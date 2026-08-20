@@ -740,7 +740,7 @@ fn lower_ops(
     let mut addr_defs = BTreeMap::<TempId, MirAddrDef>::new();
     for op in ops {
         match op {
-            NirOpKind::Set { .. } | NirOpKind::RuntimeHelperOverride { .. } => {}
+            NirOpKind::RuntimeHelperOverride { .. } => {}
             NirOpKind::Load { dest, ty, place } | NirOpKind::VolatileLoad { dest, ty, place } => {
                 let is_volatile = matches!(op, NirOpKind::VolatileLoad { .. });
                 let Some(width) = mir_width(ty) else {

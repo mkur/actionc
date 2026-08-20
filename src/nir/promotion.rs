@@ -397,11 +397,7 @@ fn rename_block(
                     });
                 }
             }
-            NirOp::Unsupported { .. }
-            | NirOp::Set { .. }
-            | NirOp::RuntimeHelperOverride { .. }
-            | NirOp::Assign { .. }
-            | NirOp::CompoundAssign { .. } => {
+            NirOp::Unsupported { .. } | NirOp::RuntimeHelperOverride { .. } => {
                 let Some(value) = current.clone() else {
                     return false;
                 };
@@ -623,11 +619,7 @@ impl HomeAccess {
                             definition_blocks.insert(block.id);
                         }
                     }
-                    NirOp::Unsupported { .. }
-                    | NirOp::Set { .. }
-                    | NirOp::RuntimeHelperOverride { .. }
-                    | NirOp::Assign { .. }
-                    | NirOp::CompoundAssign { .. } => {
+                    NirOp::Unsupported { .. } | NirOp::RuntimeHelperOverride { .. } => {
                         uses_before_definition |= !defines;
                         defines = true;
                         definition_blocks.insert(block.id);

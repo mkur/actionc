@@ -178,10 +178,7 @@ impl NirDataflowProblem for NirPredicateProblem<'_> {
                 | NirOp::MachineBlock { .. }
                 | NirOp::InlineAsm { .. }
                 | NirOp::Unsupported { .. } => facts.kill_storage(None),
-                NirOp::Set { .. }
-                | NirOp::RuntimeHelperOverride { .. }
-                | NirOp::Assign { .. }
-                | NirOp::CompoundAssign { .. }
+                NirOp::RuntimeHelperOverride { .. }
                 | NirOp::Load { .. }
                 | NirOp::AddrOf { .. }
                 | NirOp::Unary { .. }
@@ -381,10 +378,7 @@ fn invalidates_storage(op: &NirOp, storage: NirStorageId) -> bool {
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => true,
-        NirOp::Set { .. }
-        | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Assign { .. }
-        | NirOp::CompoundAssign { .. }
+        NirOp::RuntimeHelperOverride { .. }
         | NirOp::Load { .. }
         | NirOp::AddrOf { .. }
         | NirOp::Unary { .. }

@@ -740,9 +740,6 @@ NIR:
 NirOperand                         -> remove from executable paths
 NirPlaceKind::Symbol(String)       -> Param/Local/Global/Absolute IDs
 NirPlaceKind::UnresolvedName       -> diagnose before NIR construction
-NirOp::Assign                      -> Store
-NirOp::CompoundAssign              -> Load/Binary/Store
-NirOp::Set                         -> structured initialization metadata
 ```
 
 ## Red Lines

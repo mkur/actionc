@@ -325,13 +325,6 @@ fn relocations_summary(image: &NirDataImage) -> String {
 
 fn op_summary(op: &NirOp) -> String {
     match op {
-        NirOp::Set { address, value } => {
-            format!(
-                "set {} = {}",
-                operand_summary(address),
-                operand_summary(value)
-            )
-        }
         NirOp::RuntimeHelperOverride { slot, target } => format!(
             "runtime_helper_override ${slot:04X} {}",
             match target {
@@ -339,12 +332,6 @@ fn op_summary(op: &NirOp) -> String {
                 NirRuntimeHelperTarget::Routine(id) => format!("r{id}"),
             }
         ),
-        NirOp::Assign { target, value } => {
-            format!("{} = {}", place_summary(target), operand_summary(value))
-        }
-        NirOp::CompoundAssign { target, op, value } => {
-            format!("{} {op}= {}", place_summary(target), operand_summary(value))
-        }
         NirOp::Load { dest, ty, place } => {
             format!(
                 "{}:{} = load {}",
@@ -619,22 +606,6 @@ fn edge_summary(edge: &NirEdge, labels: &std::collections::BTreeMap<BlockId, &st
             .collect::<Vec<_>>()
             .join(", ");
         format!("{target}({args})")
-    }
-}
-fn operand_summary(operand: &NirOperand) -> String {
-    match &operand.kind {
-        NirOperandKind::Missing => "<missing>".to_string(),
-        NirOperandKind::Raw(raw) => raw.clone(),
-        NirOperandKind::UnresolvedName(name) => format!("unresolved({name})"),
-        NirOperandKind::CurrentLocation => "*".to_string(),
-        NirOperandKind::Literal { text, .. } => text.clone(),
-        NirOperandKind::Temp(temp) => temp_summary(*temp),
-        NirOperandKind::Symbol(symbol) => symbol.clone(),
-        NirOperandKind::Place(place) => place_summary(place),
-        NirOperandKind::AddressOf(place) => format!("&{}", place_summary(place)),
-        NirOperandKind::AddressOfSymbol(symbol) => format!("&{symbol}"),
-        NirOperandKind::Expr(expr) => expr.clone(),
-        NirOperandKind::Call(call) => call.clone(),
     }
 }
 

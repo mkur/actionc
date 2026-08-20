@@ -130,10 +130,7 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                     NirOp::Store { place, .. } | NirOp::VolatileStore { place, .. } => {
                         stats.stores.record(place);
                     }
-                    NirOp::Set { .. }
-                    | NirOp::RuntimeHelperOverride { .. }
-                    | NirOp::Assign { .. }
-                    | NirOp::CompoundAssign { .. }
+                    NirOp::RuntimeHelperOverride { .. }
                     | NirOp::AddrOf { .. }
                     | NirOp::Unary { .. }
                     | NirOp::Cast { .. }
@@ -304,10 +301,7 @@ fn increment(counts: &mut BTreeMap<&'static str, usize>, key: &'static str) {
 
 fn op_kind(op: &NirOp) -> &'static str {
     match op {
-        NirOp::Set { .. } => "set",
         NirOp::RuntimeHelperOverride { .. } => "runtime-helper-override",
-        NirOp::Assign { .. } => "assign",
-        NirOp::CompoundAssign { .. } => "compound_assign",
         NirOp::Load { .. } => "load",
         NirOp::VolatileLoad { .. } => "volatile_load",
         NirOp::AddrOf { .. } => "addr_of",

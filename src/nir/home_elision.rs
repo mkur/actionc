@@ -202,11 +202,9 @@ fn transfer_op_backwards(
                 apply_effects_backwards(&effects.memory, live, candidates);
             }
         }
-        NirOp::Unsupported { .. }
-        | NirOp::Set { .. }
-        | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Assign { .. }
-        | NirOp::CompoundAssign { .. } => live.extend(candidates.iter().copied()),
+        NirOp::Unsupported { .. } | NirOp::RuntimeHelperOverride { .. } => {
+            live.extend(candidates.iter().copied())
+        }
         NirOp::Unary { .. } | NirOp::Cast { .. } | NirOp::Binary { .. } | NirOp::Compare { .. } => {
         }
     }

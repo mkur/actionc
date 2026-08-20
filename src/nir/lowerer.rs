@@ -2523,10 +2523,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
             result: Some(result),
             ..
         } => Some((result.dest, &result.ty)),
-        NirOp::Set { .. }
-        | NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Assign { .. }
-        | NirOp::CompoundAssign { .. }
+        NirOp::RuntimeHelperOverride { .. }
         | NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
         | NirOp::Call { result: None, .. }
@@ -3407,24 +3404,12 @@ struct StorageNameResolution {
 
 fn resolve_op_places(op: &mut NirOp, storage: &StorageNameResolution) {
     match op {
-        NirOp::Assign { target, value } => {
-            resolve_place_storage(target, storage);
-            resolve_operand_places(value, storage);
-        }
-        NirOp::CompoundAssign { target, value, .. } => {
-            resolve_place_storage(target, storage);
-            resolve_operand_places(value, storage);
-        }
         NirOp::Load { place, .. }
         | NirOp::VolatileLoad { place, .. }
         | NirOp::AddrOf { place, .. }
         | NirOp::Store { place, .. }
         | NirOp::VolatileStore { place, .. } => {
             resolve_place_storage(place, storage);
-        }
-        NirOp::Set { address, value } => {
-            resolve_operand_places(address, storage);
-            resolve_operand_places(value, storage);
         }
         NirOp::RuntimeHelperOverride { .. } => {}
         NirOp::Unary { .. }
@@ -3435,24 +3420,6 @@ fn resolve_op_places(op: &mut NirOp, storage: &StorageNameResolution) {
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => {}
-    }
-}
-
-fn resolve_operand_places(operand: &mut NirOperand, storage: &StorageNameResolution) {
-    match &mut operand.kind {
-        NirOperandKind::Place(place) | NirOperandKind::AddressOf(place) => {
-            resolve_place_storage(place, storage);
-        }
-        NirOperandKind::Missing
-        | NirOperandKind::Raw(_)
-        | NirOperandKind::UnresolvedName(_)
-        | NirOperandKind::CurrentLocation
-        | NirOperandKind::Literal { .. }
-        | NirOperandKind::Temp(_)
-        | NirOperandKind::Symbol(_)
-        | NirOperandKind::AddressOfSymbol(_)
-        | NirOperandKind::Expr(_)
-        | NirOperandKind::Call(_) => {}
     }
 }
 
