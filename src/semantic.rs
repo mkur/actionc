@@ -4728,6 +4728,41 @@ mod tests {
     }
 
     #[test]
+    fn historical_real_name_is_an_ordinary_six_byte_record_type() {
+        let model = analyze_source(
+            "TYPE REAL=[CARD r1,r2,r3] REAL value PROC Main() value.r2=$1234 RETURN",
+        );
+        let global = model.symbols.global_scope();
+        let real = model.symbols.lookup(global, "REAL").expect("REAL type");
+        let value = model.symbols.lookup(global, "value").expect("REAL value");
+
+        assert_eq!(model.symbols.symbols[real.0].class, SymbolClass::Type);
+        assert_eq!(
+            model
+                .layout
+                .record_for_owner(real)
+                .map(|layout| layout.size),
+            Some(6)
+        );
+        assert_eq!(
+            model.symbols.symbols[value.0].ty,
+            Some(ValueType {
+                base: ValueTypeBase::Named("REAL".to_string()),
+                pointer: false,
+            })
+        );
+        assert_eq!(
+            model
+                .fields
+                .iter()
+                .filter(|field| field.owner == real)
+                .map(|field| (field.name.as_str(), field.offset))
+                .collect::<Vec<_>>(),
+            vec![("r1", 0), ("r2", 2), ("r3", 4)]
+        );
+    }
+
+    #[test]
     fn action_lookup_reports_global_stage() {
         let model = analyze_source("BYTE value");
         let resolved = model

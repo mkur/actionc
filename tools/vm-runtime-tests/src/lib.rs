@@ -1,4 +1,7 @@
 #[cfg(test)]
+mod atari_fpp_oracle;
+
+#[cfg(test)]
 mod sys_coverage;
 
 #[cfg(test)]
