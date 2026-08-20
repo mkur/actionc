@@ -540,6 +540,52 @@ fn classic_standalone_is_supported_without_switching_backend() {
 }
 
 #[test]
+fn classic_standalone_appends_runtime_after_source_controlled_layout() {
+    let temp = TestDir::new();
+    let source = temp.path().join("classic-fixed-layout.act");
+    fs::write(
+        &source,
+        "SET $E=$2C00\n\
+         SET $491=$2C00\n\
+         BYTE ARRAY buffer\n\
+         BYTE ARRAY allocbuf($800)=$2000\n\
+         CARD left, right, result\n\
+         PROC Four(BYTE a,b,c,d) RETURN\n\
+         PROC Main()\n\
+           result=left*right\n\
+           result=left/right\n\
+           result=left MOD right\n\
+           Four(1,2,3,4)\n\
+         RETURN\n\
+         SET buffer=*\n",
+    )
+    .expect("write fixed-layout classic standalone source");
+
+    for mode in ["compatibility", "optimized"] {
+        let object = temp.path().join(format!("classic-fixed-layout-{mode}.com"));
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .args(["--mode", mode, "--runtime", "standalone", "--output"])
+            .arg(&object)
+            .arg(&source)
+            .output()
+            .expect("compile fixed-layout classic standalone source");
+        assert!(
+            output.status.success(),
+            "classic standalone {mode} placed runtime before application layout: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let bytes = fs::read(&object).expect("read fixed-layout classic standalone object");
+        assert_eq!(load_file_origin(&bytes), 0x2c00);
+        let segment_end = u16::from_le_bytes([bytes[4], bytes[5]]);
+        let buffer = u16::from_le_bytes([bytes[6], bytes[7]]);
+        assert!(
+            buffer >= segment_end,
+            "classic standalone {mode} patched `SET buffer=*` before its runtime closure: ${buffer:04X} < ${segment_end:04X}"
+        );
+    }
+}
+
+#[test]
 fn classic_standalone_links_the_same_sargs_source_closure() {
     let fixture =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sargs.act");

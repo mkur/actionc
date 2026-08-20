@@ -121,12 +121,10 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     if !helper_sets.is_empty() {
         modules.push(Module { items: helper_sets });
     }
-    if !runtime_items.is_empty() {
-        modules.push(Module {
-            items: runtime_items,
-        });
-    }
-    modules.extend(application.modules);
+    modules.extend(insert_runtime_after_application_layout(
+        application.modules,
+        runtime_items,
+    ));
     application.modules = modules;
 
     let mut output = super::driver::generate_with_options(
@@ -148,6 +146,50 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     suppress_source_ranges_for_routines(&mut output, &runtime_routine_names);
     output.map.runtime = crate::runtime::Runtime::Standalone;
     Ok(output)
+}
+
+fn insert_runtime_after_application_layout(
+    mut application: Vec<Module>,
+    runtime_items: Vec<Item>,
+) -> Vec<Module> {
+    if runtime_items.is_empty() {
+        return application;
+    }
+
+    let insertion = application
+        .iter()
+        .enumerate()
+        .rev()
+        .find_map(|(module_index, module)| {
+            module
+                .items
+                .iter()
+                .rposition(|item| matches!(item, Item::Declaration(_) | Item::Routine(_)))
+                .map(|item_index| (module_index, item_index + 1))
+        });
+    let Some((module_index, item_index)) = insertion else {
+        application.push(Module {
+            items: runtime_items,
+        });
+        return application;
+    };
+
+    let trailing_items = application[module_index].items.split_off(item_index);
+    application.insert(
+        module_index + 1,
+        Module {
+            items: runtime_items,
+        },
+    );
+    if !trailing_items.is_empty() {
+        application.insert(
+            module_index + 2,
+            Module {
+                items: trailing_items,
+            },
+        );
+    }
+    application
 }
 
 #[derive(Clone)]

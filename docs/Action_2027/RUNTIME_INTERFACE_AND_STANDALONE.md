@@ -262,6 +262,13 @@ Only the closure is laid out and emitted. Historical top-level `SET` statements
 inside `SYSLIB.ACT` document original bindings but do not root every helper in
 standalone output.
 
+Classic standalone emission places the selected runtime closure after the
+application's source-controlled layout. This preserves programs that set the
+compatibility code pointer explicitly: runtime selection must not occupy that
+address range before the application has applied its own `SET $E` or
+`SET $491` directives. Helper binding directives remain compiler-visible
+independently of module emission order.
+
 Runtime-specific static or zero-page storage is reserved only when a selected
 routine requires it. ABI slots used directly by generated program calls remain
 part of the target ABI independently of runtime selection.
