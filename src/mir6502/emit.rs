@@ -2786,18 +2786,8 @@ fn emit_op(
             };
             match &decl.target {
                 MirRuntimeHelperTarget::KnownAbsolute(address) => emitter.emit_jsr_abs(*address),
-                MirRuntimeHelperTarget::RuntimeSymbol(symbol) => {
-                    let normalized = normalize_machine_name(symbol);
-                    let Some(target) = ctx.layout.routine_names.get(&normalized).copied() else {
-                        unsupported(
-                            ctx,
-                            routine,
-                            block,
-                            &format!("runtime helper symbol `{symbol}` is unresolved"),
-                        );
-                        return;
-                    };
-                    emitter.emit_jsr_label(ctx.layout.routine_label(target), SYNTHETIC_SPAN);
+                MirRuntimeHelperTarget::Routine(target) => {
+                    emitter.emit_jsr_label(ctx.layout.routine_label(*target), SYNTHETIC_SPAN)
                 }
                 MirRuntimeHelperTarget::Deferred => {
                     unsupported(ctx, routine, block, "runtime helper target is deferred")
@@ -3380,18 +3370,8 @@ fn emit_tail_call(
             };
             match &decl.target {
                 MirRuntimeHelperTarget::KnownAbsolute(address) => emitter.emit_jmp_abs(*address),
-                MirRuntimeHelperTarget::RuntimeSymbol(symbol) => {
-                    let normalized = normalize_machine_name(symbol);
-                    let Some(target) = ctx.layout.routine_names.get(&normalized).copied() else {
-                        unsupported(
-                            ctx,
-                            routine,
-                            block,
-                            &format!("runtime helper symbol `{symbol}` is unresolved"),
-                        );
-                        return true;
-                    };
-                    emitter.emit_jmp_label(ctx.layout.routine_label(target), SYNTHETIC_SPAN);
+                MirRuntimeHelperTarget::Routine(target) => {
+                    emitter.emit_jmp_label(ctx.layout.routine_label(*target), SYNTHETIC_SPAN)
                 }
                 MirRuntimeHelperTarget::Deferred => {
                     unsupported(ctx, routine, block, "runtime helper target is deferred")

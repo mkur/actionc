@@ -152,6 +152,7 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
         } => Some(result.dest),
         NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
@@ -213,6 +214,7 @@ fn record_op_uses(
         }
         NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }

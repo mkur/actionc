@@ -95,6 +95,20 @@ fn compatibility_api_matches_the_existing_classic_pipeline() {
 }
 
 #[test]
+fn compile_options_preserve_project_root_and_ordered_module_paths() {
+    let options = CompileOptions::default()
+        .with_project_root("project")
+        .with_module_path("first")
+        .with_module_path("second");
+
+    assert_eq!(options.project_root(), Some(Path::new("project")));
+    assert_eq!(
+        options.module_paths(),
+        [PathBuf::from("first"), PathBuf::from("second")]
+    );
+}
+
+#[test]
 fn compiled_program_formats_a_mads_compatible_source_listing() {
     let compiled = compile_file(
         hello_world(),
@@ -208,7 +222,8 @@ fn nir_preflight_failure_is_returned_as_a_source_diagnostic() {
     );
     assert!(matches!(
         &error.diagnostics()[0].site,
-        DiagnosticSite::Source { path, .. } if path == &source
+        DiagnosticSite::Source { origin, .. }
+            if origin.host_path() == Some(source.as_path())
     ));
 }
 
@@ -229,7 +244,8 @@ fn include_diagnostics_keep_the_included_path() {
     assert_eq!(error.diagnostics()[0].phase, CompilerPhase::Semantic);
     assert!(matches!(
         &error.diagnostics()[0].site,
-        DiagnosticSite::Source { path, .. } if path == &included
+        DiagnosticSite::Source { origin, .. }
+            if origin.host_path() == Some(included.as_path())
     ));
 }
 
@@ -284,7 +300,8 @@ fn invalid_source_returns_diagnostics_without_creating_outputs() {
     assert!(error.diagnostics()[0].message.contains("expected"));
     assert!(matches!(
         &error.diagnostics()[0].site,
-        DiagnosticSite::Source { path, .. } if path == &source
+        DiagnosticSite::Source { origin, .. }
+            if origin.host_path() == Some(source.as_path())
     ));
     assert_eq!(
         fs::read_dir(temp.path()).unwrap().count(),

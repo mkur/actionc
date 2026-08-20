@@ -245,6 +245,15 @@ fn analyze_routine_storage(
                         referenced_globals.insert(*id);
                     }
                 }
+                for item in items {
+                    if let NirMachineItem::Relocation {
+                        target: crate::nir::NirInlineAsmTarget::Storage(NirStorageId::Global(id)),
+                        ..
+                    } = item
+                    {
+                        referenced_globals.insert(*id);
+                    }
+                }
             }
             if let NirOp::InlineAsm { code, .. } = op {
                 for relocation in &code.relocations {
@@ -271,7 +280,6 @@ fn analyze_routine_storage(
     }
     for global in globals.values() {
         if let NirGlobalBacking::Alias { target, .. } = &global.backing
-            && let Some(target) = global_names.get(&target.to_ascii_lowercase())
             && let Some(target) = homes.get_mut(&NirStorageId::Global(*target))
         {
             target.blockers.insert(NirPromotionBlocker::AliasedStorage);
@@ -368,6 +376,7 @@ fn analyze_routine_storage(
                 }
                 NirOp::Define { .. }
                 | NirOp::Set { .. }
+                | NirOp::RuntimeHelperOverride { .. }
                 | NirOp::Declare { .. }
                 | NirOp::Assign { .. }
                 | NirOp::CompoundAssign { .. }
@@ -643,6 +652,7 @@ fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
         | NirOp::VolatileStore { place, .. } => visit(place),
         NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
@@ -674,6 +684,7 @@ fn machine_item_names(items: &[NirMachineItem]) -> BTreeSet<String> {
             | NirMachineItem::StringLiteral(_)
             | NirMachineItem::CharLiteral(_)
             | NirMachineItem::AddressExpr { .. }
+            | NirMachineItem::Relocation { .. }
             | NirMachineItem::Raw(_) => None,
         })
         .collect()
@@ -769,6 +780,7 @@ fn mark_read_before_definition(
                 }
                 NirOp::Define { .. }
                 | NirOp::Set { .. }
+                | NirOp::RuntimeHelperOverride { .. }
                 | NirOp::Declare { .. }
                 | NirOp::Assign { .. }
                 | NirOp::CompoundAssign { .. }

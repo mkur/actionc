@@ -67,6 +67,91 @@ fn help_describes_the_existing_listing_options_as_mads_assembly() {
 }
 
 #[test]
+fn repeatable_module_paths_are_used_by_compile_and_emit_commands() {
+    let temp = TestDir::new();
+    let root = temp.path().join("app.act");
+    let first = temp.path().join("first");
+    let second = temp.path().join("second");
+    fs::create_dir_all(second.join("lib")).expect("create module directory");
+    fs::write(
+        &root,
+        "MODULE APP\nIMPORT LIB.VALUE\nPROC Main() VALUE.value=1 [<VALUE.value >VALUE.value] RETURN\nENDMODULE\n",
+    )
+    .expect("write root module");
+    fs::write(
+        second.join("lib/value.act"),
+        "MODULE LIB.VALUE\nPUBLIC BYTE value\nENDMODULE\n",
+    )
+    .expect("write imported module");
+
+    for mode in ["compatibility", "optimized", "mir6502"] {
+        let object = temp.path().join(format!("app-{mode}.com"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_actionc"));
+        command
+            .arg("--module-path")
+            .arg(&first)
+            .arg(format!("--module-path={}", second.display()))
+            .arg("--mode")
+            .arg(mode)
+            .arg("-o")
+            .arg(&object);
+        let output = command.arg(&root).output().expect("run module CLI");
+        assert!(
+            output.status.success(),
+            "{mode} named-module compilation failed:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(fs::metadata(object).expect("module object metadata").len() > 0);
+    }
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .arg("--module-path")
+        .arg(&first)
+        .arg(format!("--module-path={}", second.display()))
+        .arg("--emit-semir")
+        .arg(&root)
+        .output()
+        .expect("emit named-module SemIR");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("LIB.VALUE.value"),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[test]
+fn named_module_semantic_diagnostics_point_into_imported_sources() {
+    let temp = TestDir::new();
+    let root = temp.path().join("main.act");
+    let library = temp.path().join("lib/bad.act");
+    fs::create_dir_all(library.parent().unwrap()).expect("create module directory");
+    fs::write(&root, "MODULE APP\nIMPORT LIB.BAD\nENDMODULE\n").expect("write root module");
+    fs::write(
+        &library,
+        "MODULE LIB.BAD\nPUBLIC PROC Broken() Missing=1 RETURN\nENDMODULE\n",
+    )
+    .expect("write imported module");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .arg(&root)
+        .output()
+        .expect("run compiler");
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("undefined symbol `Missing`"), "{stderr}");
+    assert!(stderr.contains("bad.act"), "{stderr}");
+    assert!(
+        stderr.contains("PUBLIC PROC Broken() Missing=1 RETURN"),
+        "{stderr}"
+    );
+}
+
+#[test]
 fn compiles_object_and_listing_in_one_invocation() {
     let temp = TestDir::new();
     let object = temp.path().join("nested/hello.com");

@@ -39,6 +39,7 @@ struct Parser<'a> {
     diagnostics: Vec<Diagnostic>,
     known_non_type_defines: HashSet<String>,
     known_define_values: HashMap<String, String>,
+    in_named_module: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -49,18 +50,311 @@ impl<'a> Parser<'a> {
             diagnostics: Vec::new(),
             known_non_type_defines: HashSet::new(),
             known_define_values: HashMap::new(),
+            in_named_module: false,
         }
     }
 
     fn parse_program(&mut self) -> Program {
+        if let Some(named_start) = self.named_module_start_after_source_annotations() {
+            while self.pos < named_start {
+                let TokenKind::ActioncAnnotation(text) = self.peek().kind.clone() else {
+                    unreachable!("named-module prefix accepts only source annotations");
+                };
+                let span = self.bump().span;
+                if !is_source_actionc_annotation(&text) {
+                    self.diagnostics.push(Diagnostic::new(
+                        span,
+                        "only source-level actionc annotations may precede a named module",
+                    ));
+                }
+            }
+            return self.parse_named_program();
+        }
+
         let mut modules = Vec::new();
 
         while !self.at_eof() {
+            if self.is_named_module_start_at(self.pos) {
+                self.diagnostics.push(Diagnostic::new(
+                    self.peek().span,
+                    "a source file cannot mix legacy regions with a named module",
+                ));
+                self.skip_named_module();
+                continue;
+            }
             self.eat_keyword(Keyword::Module);
             modules.push(self.parse_module());
         }
 
-        Program { modules }
+        Program::legacy(modules)
+    }
+
+    fn parse_named_program(&mut self) -> Program {
+        let start = self.peek().span.start;
+        self.expect_keyword(Keyword::Module);
+        let path = self
+            .parse_module_path(false)
+            .map(|(path, _)| path)
+            .unwrap_or_else(|| {
+                ModulePath::new(vec!["<missing module name>".to_string()], self.peek().span)
+            });
+        let mut imports = Vec::new();
+        while self.is_contextual_at(self.pos, "IMPORT") {
+            imports.push(self.parse_import());
+        }
+
+        self.in_named_module = true;
+        let mut items = Vec::new();
+        let mut pending_annotations = Vec::new();
+        while !self.at_eof() && !self.is_contextual_at(self.pos, "ENDMODULE") {
+            if self.is_contextual_at(self.pos, "IMPORT") {
+                let span = self.peek().span;
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    "IMPORT declarations must precede module declarations",
+                ));
+                self.parse_import();
+                continue;
+            }
+            if self.check_keyword(Keyword::Module) {
+                self.diagnostics.push(Diagnostic::new(
+                    self.peek().span,
+                    "a named module cannot contain a legacy or second MODULE",
+                ));
+                self.bump();
+                continue;
+            }
+            if let TokenKind::ActioncAnnotation(text) = self.peek().kind.clone() {
+                let span = self.bump().span;
+                if let Some(annotation) = parse_actionc_annotation(&text) {
+                    pending_annotations.push(annotation);
+                } else if is_source_actionc_annotation(&text) {
+                    pending_annotations.clear();
+                } else {
+                    self.diagnostics.push(Diagnostic::new(
+                        span,
+                        format!("unknown actionc annotation `{text}`"),
+                    ));
+                }
+                continue;
+            }
+
+            let public_span = if self.eat_contextual("PUBLIC") {
+                Some(self.tokens[self.pos - 1].span)
+            } else {
+                None
+            };
+            let visibility = if public_span.is_some() {
+                Visibility::Public
+            } else {
+                Visibility::Private
+            };
+
+            if self.check_keyword(Keyword::Define) {
+                pending_annotations.clear();
+                if let Some(span) = public_span {
+                    self.diagnostics.push(Diagnostic::new(
+                        span,
+                        "PUBLIC cannot qualify DEFINE; use a typed CONST for an exported value",
+                    ));
+                }
+                items.push(Item::Define(self.parse_define()));
+            } else if self.check_keyword(Keyword::Include) {
+                pending_annotations.clear();
+                self.reject_public_on_non_declaration(public_span, "INCLUDE");
+                items.push(Item::Include(self.parse_include()));
+            } else if self.check_keyword(Keyword::Set) {
+                pending_annotations.clear();
+                self.reject_public_on_non_declaration(public_span, "SET");
+                items.push(Item::Set(self.parse_set()));
+            } else if self.check_keyword(Keyword::Type) {
+                pending_annotations.clear();
+                let mut decl = self.parse_type_decl();
+                decl.visibility = visibility;
+                items.push(Item::Declaration(Decl::Type(decl)));
+            } else if self.check_keyword(Keyword::Record) {
+                pending_annotations.clear();
+                let mut decl = self.parse_record_decl();
+                decl.visibility = visibility;
+                items.push(Item::Declaration(Decl::Record(decl)));
+            } else if self.is_const_decl_start() {
+                pending_annotations.clear();
+                let mut decl = self.parse_const_decl();
+                decl.visibility = visibility;
+                items.push(Item::Declaration(Decl::Const(decl)));
+            } else if self.is_var_decl_start() {
+                pending_annotations.clear();
+                let mut decl = self.parse_var_decl();
+                decl.visibility = visibility;
+                items.push(Item::Declaration(Decl::Var(decl)));
+            } else if self.check_keyword(Keyword::Proc) || self.is_func_decl_start() {
+                let annotations = std::mem::take(&mut pending_annotations);
+                let mut routine = self.parse_routine(annotations);
+                routine.visibility = visibility;
+                items.push(Item::Routine(routine));
+            } else if self.is_statement_start() {
+                pending_annotations.clear();
+                self.reject_public_on_non_declaration(public_span, "a statement");
+                let statement_start = self.peek().span.start;
+                self.parse_statement();
+                self.diagnostics.push(Diagnostic::new(
+                    Span::new(statement_start, self.previous_end()),
+                    "named modules cannot contain executable top-level statements",
+                ));
+            } else {
+                pending_annotations.clear();
+                self.reject_public_on_non_declaration(public_span, "this construct");
+                let token = self.bump().clone();
+                items.push(Item::Unsupported {
+                    span: token.span,
+                    note: format!("top-level construct starting with {:?}", token.kind),
+                });
+            }
+        }
+
+        if self.eat_contextual("ENDMODULE") {
+            // The block is complete.
+        } else {
+            self.diagnostics.push(Diagnostic::new(
+                self.peek().span,
+                "named module is missing ENDMODULE",
+            ));
+        }
+        self.in_named_module = false;
+        let end = self.previous_end();
+
+        if !self.at_eof() {
+            let message = if self.is_named_module_start_at(self.pos) {
+                "a source file can contain only one named module"
+            } else {
+                "declarations are not allowed after ENDMODULE"
+            };
+            self.diagnostics
+                .push(Diagnostic::new(self.peek().span, message));
+            while !self.at_eof() {
+                self.bump();
+            }
+        }
+
+        Program {
+            modules: vec![Module { items }],
+            source_kind: SourceUnitKind::Named(NamedModuleDecl {
+                path,
+                imports,
+                span: Span::new(start, end),
+            }),
+        }
+    }
+
+    fn parse_import(&mut self) -> ImportDecl {
+        let start = self.peek().span.start;
+        self.eat_contextual("IMPORT");
+        let (path, open) = self.parse_module_path(true).unwrap_or_else(|| {
+            self.diagnostics.push(Diagnostic::new(
+                self.peek().span,
+                "expected module path after IMPORT",
+            ));
+            (
+                ModulePath::new(vec!["<missing module name>".to_string()], self.peek().span),
+                false,
+            )
+        });
+
+        let explicit_alias = if self.eat_contextual("AS") {
+            self.expect_ident()
+        } else {
+            None
+        };
+        if open && explicit_alias.is_some() {
+            self.diagnostics.push(Diagnostic::new(
+                Span::new(start, self.previous_end()),
+                "an open import cannot use AS",
+            ));
+        }
+        let alias = if open {
+            None
+        } else {
+            explicit_alias.or_else(|| path.components.last().cloned())
+        };
+
+        ImportDecl {
+            path,
+            alias,
+            open,
+            span: Span::new(start, self.previous_end()),
+        }
+    }
+
+    fn parse_module_path(&mut self, allow_open: bool) -> Option<(ModulePath, bool)> {
+        let start = self.peek().span.start;
+        let first = self.expect_ident_if_present()?;
+        let mut components = vec![first];
+        let mut path_end = self.previous_end();
+        let mut open = false;
+        while self.eat(TokenKind::Dot) {
+            if allow_open && self.eat(TokenKind::Star) {
+                open = true;
+                break;
+            }
+            let Some(component) = self.expect_ident() else {
+                break;
+            };
+            components.push(component);
+            path_end = self.previous_end();
+        }
+        Some((
+            ModulePath::new(components, Span::new(start, path_end)),
+            open,
+        ))
+    }
+
+    fn reject_public_on_non_declaration(&mut self, span: Option<Span>, target: &str) {
+        if let Some(span) = span {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                format!("PUBLIC cannot qualify {target}"),
+            ));
+        }
+    }
+
+    fn is_named_module_start_at(&self, pos: usize) -> bool {
+        matches!(
+            (
+                self.tokens.get(pos),
+                self.tokens.get(pos + 1),
+            ),
+            (
+                Some(Token {
+                    kind: TokenKind::Keyword(Keyword::Module),
+                    line: module_line,
+                    ..
+                }),
+                Some(Token {
+                    kind: TokenKind::Ident(_),
+                    line: name_line,
+                    ..
+                })
+            ) if module_line == name_line
+        )
+    }
+
+    fn named_module_start_after_source_annotations(&self) -> Option<usize> {
+        let mut pos = self.pos;
+        while matches!(
+            self.tokens.get(pos).map(|token| &token.kind),
+            Some(TokenKind::ActioncAnnotation(_))
+        ) {
+            pos += 1;
+        }
+        self.is_named_module_start_at(pos).then_some(pos)
+    }
+
+    fn skip_named_module(&mut self) {
+        self.bump();
+        while !self.at_eof() && !self.is_contextual_at(self.pos, "ENDMODULE") {
+            self.bump();
+        }
+        self.eat_contextual("ENDMODULE");
     }
 
     fn parse_module(&mut self) -> Module {
@@ -211,6 +505,7 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::RBracket);
 
         TypeDecl {
+            visibility: Visibility::Private,
             name,
             fields,
             span: Span::new(start, self.previous_end()),
@@ -233,6 +528,7 @@ impl<'a> Parser<'a> {
         };
 
         RecordDecl {
+            visibility: Visibility::Private,
             name,
             fields,
             span: Span::new(start, self.previous_end()),
@@ -271,6 +567,7 @@ impl<'a> Parser<'a> {
         }
 
         ConstDecl {
+            visibility: Visibility::Private,
             declared_type,
             entries,
             span: Span::new(start, self.previous_end()),
@@ -320,6 +617,7 @@ impl<'a> Parser<'a> {
         body.extend(self.parse_statement_list_until(&[]));
 
         Routine {
+            visibility: Visibility::Private,
             kind,
             name,
             system_address,
@@ -375,7 +673,7 @@ impl<'a> Parser<'a> {
             is_volatile: self.eat_contextual("VOLATILE"),
         };
         let ty = self.parse_type_ref().unwrap_or_else(|| TypeRef {
-            base: TypeBase::Named("<missing type>".to_string()),
+            base: TypeBase::Named(QualifiedName::simple("<missing type>")),
             pointer: false,
         });
         let storage = if self.eat_keyword(Keyword::Array) {
@@ -386,6 +684,7 @@ impl<'a> Parser<'a> {
         let entries = self.parse_decl_entries(&ty, storage, stop);
 
         VarDecl {
+            visibility: Visibility::Private,
             qualifiers,
             ty,
             storage,
@@ -733,6 +1032,7 @@ impl<'a> Parser<'a> {
             TokenKind::Char(value) => (MachineItem::CharLiteral(value), vec![first]),
             TokenKind::Ident(name) => {
                 let mut tokens = vec![first];
+                let name = self.parse_qualified_name_tail(name, &mut tokens);
                 if matches!(self.peek().kind, TokenKind::Caret) {
                     tokens.push(self.bump().clone());
                     let offset =
@@ -857,7 +1157,9 @@ impl<'a> Parser<'a> {
             }
             TokenKind::Ident(name) => {
                 tokens.push(self.bump().clone());
-                Some(MachineAddressAtom::Name(name))
+                Some(MachineAddressAtom::Name(
+                    self.parse_qualified_name_tail(name, tokens),
+                ))
             }
             TokenKind::Star => {
                 tokens.push(self.bump().clone());
@@ -961,7 +1263,7 @@ impl<'a> Parser<'a> {
                 TypeBase::Fund(fund)
             }
         } else if let Some(name) = self.expect_ident_if_present() {
-            TypeBase::Named(name)
+            TypeBase::Named(self.parse_qualified_name_tail(name, &mut Vec::new()))
         } else {
             self.diagnostics
                 .push(Diagnostic::new(self.peek().span, "expected type"));
@@ -970,6 +1272,31 @@ impl<'a> Parser<'a> {
         let pointer = !matches!(base, TypeBase::Callable(_)) && self.eat_keyword(Keyword::Pointer);
 
         Some(TypeRef { base, pointer })
+    }
+
+    fn parse_qualified_name_tail(
+        &mut self,
+        first: String,
+        consumed: &mut Vec<Token>,
+    ) -> QualifiedName {
+        let mut components = vec![first];
+        while matches!(self.peek().kind, TokenKind::Dot)
+            && matches!(
+                self.tokens
+                    .get(self.pos.saturating_add(1))
+                    .map(|token| &token.kind),
+                Some(TokenKind::Ident(_))
+            )
+        {
+            consumed.push(self.bump().clone());
+            let token = self.bump().clone();
+            let TokenKind::Ident(component) = token.kind.clone() else {
+                unreachable!();
+            };
+            consumed.push(token);
+            components.push(component);
+        }
+        QualifiedName::new(components)
     }
 
     fn parse_fund_type(&mut self) -> Option<FundType> {
@@ -1312,14 +1639,20 @@ impl<'a> Parser<'a> {
         if self.known_non_type_defines.contains(&normalize_name(name)) {
             return false;
         }
+        let mut next = pos + 1;
+        while matches!(
+            (
+                self.tokens.get(next).map(|token| &token.kind),
+                self.tokens.get(next + 1).map(|token| &token.kind)
+            ),
+            (Some(TokenKind::Dot), Some(TokenKind::Ident(_)))
+        ) {
+            next += 2;
+        }
         matches!(
-            self.tokens.get(pos + 1).map(|token| &token.kind),
+            self.tokens.get(next).map(|token| &token.kind),
             Some(TokenKind::Ident(_)) | Some(TokenKind::Keyword(Keyword::Array | Keyword::Pointer))
         )
-    }
-
-    fn is_fund_type_start(&self) -> bool {
-        self.is_fund_type_start_at(self.pos)
     }
 
     fn is_fund_type_start_at(&self, pos: usize) -> bool {
@@ -1335,11 +1668,15 @@ impl<'a> Parser<'a> {
     }
 
     fn is_func_decl_start(&self) -> bool {
-        self.is_fund_type_start()
+        self.is_func_decl_start_at(self.pos)
+    }
+
+    fn is_func_decl_start_at(&self, pos: usize) -> bool {
+        self.is_fund_type_start_at(pos)
             && matches!(
                 (
-                    self.tokens.get(self.pos + 1).map(|token| &token.kind),
-                    self.tokens.get(self.pos + 2).map(|token| &token.kind)
+                    self.tokens.get(pos + 1).map(|token| &token.kind),
+                    self.tokens.get(pos + 2).map(|token| &token.kind)
                 ),
                 (
                     Some(TokenKind::Keyword(Keyword::Func)),
@@ -1368,9 +1705,32 @@ impl<'a> Parser<'a> {
 
     fn is_routine_boundary(&self) -> bool {
         self.check_keyword(Keyword::Module)
+            || (self.in_named_module
+                && (self.is_contextual_at(self.pos, "ENDMODULE")
+                    || self.is_public_top_level_start()))
             || (self.check_keyword(Keyword::Proc) && !self.is_proc_pointer_decl_start_at(self.pos))
             || self.is_func_decl_start()
             || self.at_eof()
+    }
+
+    fn is_public_top_level_start(&self) -> bool {
+        if !self.is_contextual_at(self.pos, "PUBLIC") {
+            return false;
+        }
+        let next = self.pos + 1;
+        matches!(
+            self.tokens.get(next).map(|token| &token.kind),
+            Some(TokenKind::Keyword(
+                Keyword::Define
+                    | Keyword::Include
+                    | Keyword::Set
+                    | Keyword::Type
+                    | Keyword::Record
+                    | Keyword::Proc
+            ))
+        ) || self.is_const_decl_start_at(next)
+            || self.is_var_decl_start_at(next)
+            || self.is_func_decl_start_at(next)
     }
 
     fn is_statement_body_boundary(&self) -> bool {
@@ -1482,6 +1842,10 @@ impl<'a> Parser<'a> {
 
     fn is_top_level_start(&self) -> bool {
         matches!(self.peek().kind, TokenKind::ActioncAnnotation(_))
+            || (self.in_named_module
+                && (self.is_contextual_at(self.pos, "ENDMODULE")
+                    || self.is_contextual_at(self.pos, "IMPORT")
+                    || self.is_contextual_at(self.pos, "PUBLIC")))
             || self.check_keyword(Keyword::Module)
             || self.check_keyword(Keyword::Include)
             || self.check_keyword(Keyword::Set)
@@ -1977,8 +2341,16 @@ fn initializer_list_expr(tokens: Vec<Token>, span: Span) -> Expr {
                     ));
                     continue;
                 };
-                let target = target.clone();
+                let mut target_components = vec![target.clone()];
                 index += 1;
+                while index + 1 < body.len()
+                    && matches!(body[index].kind, TokenKind::Dot)
+                    && let TokenKind::Ident(component) = &body[index + 1].kind
+                {
+                    target_components.push(component.clone());
+                    index += 2;
+                }
+                let target = QualifiedName::new(target_components);
                 let mut addend = 0i32;
                 if index + 1 < body.len()
                     && matches!(body[index].kind, TokenKind::Plus | TokenKind::Minus)
@@ -2549,6 +2921,171 @@ mod tests {
         let program = parse(&tokens).unwrap();
         assert_eq!(program.modules.len(), 1);
         assert_eq!(program.modules[0].items.len(), 1);
+    }
+
+    #[test]
+    fn same_line_module_name_commits_to_named_syntax() {
+        let program = parse(&tokenize("; lead\n\nMODULE DEMO.PLAYER\nENDMODULE").unwrap()).unwrap();
+        let SourceUnitKind::Named(module) = &program.source_kind else {
+            panic!("expected named module");
+        };
+        assert_eq!(module.path.components, ["DEMO", "PLAYER"]);
+        assert_eq!(program.modules.len(), 1);
+    }
+
+    #[test]
+    fn source_annotations_may_precede_a_named_module() {
+        let source = ";@actionc profile modern\n; ordinary comment\nMODULE DEMO\nENDMODULE";
+        let program = parse(&tokenize(source).unwrap()).unwrap();
+        assert!(matches!(program.source_kind, SourceUnitKind::Named(_)));
+    }
+
+    #[test]
+    fn next_line_identifier_keeps_legacy_module_boundary() {
+        let program = parse(&tokenize("MODULE\nPLAYER_STATE current").unwrap()).unwrap();
+        assert_eq!(program.source_kind, SourceUnitKind::Legacy);
+        assert_eq!(program.modules.len(), 1);
+        assert!(matches!(
+            program.modules[0].items[0],
+            Item::Declaration(Decl::Var(_))
+        ));
+    }
+
+    #[test]
+    fn parses_named_imports_and_grouped_public_volatile_storage() {
+        let source = r#"
+            MODULE DEMO.VIDEO
+              IMPORT ATARI.ANTIC
+              IMPORT ATARI.GTIA AS VIDEO
+              IMPORT STD.*
+              PUBLIC VOLATILE BYTE DMACTL=$D400, WSYNC=$D40A
+            ENDMODULE
+        "#;
+        let program = parse(&tokenize(source).unwrap()).unwrap();
+        let SourceUnitKind::Named(module) = &program.source_kind else {
+            panic!("expected named module");
+        };
+        assert_eq!(module.imports.len(), 3);
+        assert_eq!(module.imports[0].alias.as_deref(), Some("ANTIC"));
+        assert_eq!(module.imports[1].alias.as_deref(), Some("VIDEO"));
+        assert!(module.imports[2].open);
+        assert_eq!(module.imports[2].alias, None);
+
+        let Item::Declaration(Decl::Var(registers)) = &program.modules[0].items[0] else {
+            panic!("expected register declaration");
+        };
+        assert_eq!(registers.visibility, Visibility::Public);
+        assert!(registers.qualifiers.is_volatile);
+        assert_eq!(registers.entries.len(), 2);
+    }
+
+    #[test]
+    fn parses_public_types_constants_records_and_routines() {
+        let source = r#"
+            MODULE API
+              PUBLIC CONST BYTE LIMIT=10
+              PUBLIC TYPE PAIR=[BYTE left,right]
+              PUBLIC RECORD STATE=[BYTE value]
+              PUBLIC PROC Reset() RETURN
+            ENDMODULE
+        "#;
+        let program = parse(&tokenize(source).unwrap()).unwrap();
+        let items = &program.modules[0].items;
+        assert!(
+            matches!(&items[0], Item::Declaration(Decl::Const(decl)) if decl.visibility == Visibility::Public)
+        );
+        assert!(
+            matches!(&items[1], Item::Declaration(Decl::Type(decl)) if decl.visibility == Visibility::Public)
+        );
+        assert!(
+            matches!(&items[2], Item::Declaration(Decl::Record(decl)) if decl.visibility == Visibility::Public)
+        );
+        assert!(
+            matches!(&items[3], Item::Routine(routine) if routine.visibility == Visibility::Public)
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_named_module_constructs() {
+        for (source, expected) in [
+            ("MODULE DEMO\nBYTE value", "missing ENDMODULE"),
+            (
+                "MODULE DEMO\nBYTE value\nIMPORT STD\nENDMODULE",
+                "IMPORT declarations must precede",
+            ),
+            (
+                "MODULE DEMO\nPUBLIC DEFINE X=\"BYTE\"\nENDMODULE",
+                "PUBLIC cannot qualify DEFINE",
+            ),
+            (
+                "MODULE DEMO\nBYTE value\nvalue=1\nENDMODULE",
+                "executable top-level statements",
+            ),
+            (
+                "MODULE DEMO\nIMPORT STD.* AS S\nENDMODULE",
+                "open import cannot use AS",
+            ),
+            (
+                "MODULE ONE\nENDMODULE\nMODULE TWO\nENDMODULE",
+                "only one named module",
+            ),
+            (
+                "BYTE legacy\nMODULE DEMO\nENDMODULE",
+                "cannot mix legacy regions",
+            ),
+        ] {
+            let diagnostics = parse(&tokenize(source).unwrap()).unwrap_err();
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "expected `{expected}` for `{source}`, got {diagnostics:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn contextual_module_words_remain_legacy_identifiers() {
+        let program = parse(&tokenize("BYTE IMPORT, AS, PUBLIC, ENDMODULE").unwrap()).unwrap();
+        let Item::Declaration(Decl::Var(decl)) = &program.modules[0].items[0] else {
+            panic!("expected legacy declaration");
+        };
+        assert_eq!(
+            decl.entries
+                .iter()
+                .map(|entry| entry.name.as_str())
+                .collect::<Vec<_>>(),
+            ["IMPORT", "AS", "PUBLIC", "ENDMODULE"]
+        );
+    }
+
+    #[test]
+    fn public_remains_an_identifier_inside_named_routine_bodies() {
+        let program = parse(
+            &tokenize(
+                "MODULE DEMO\nBYTE PUBLIC\nPROC Main() PUBLIC=1 RETURN\nPUBLIC BYTE Result\nENDMODULE",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let items = &program.modules[0].items;
+        let Item::Routine(routine) = &items[1] else {
+            panic!("expected routine");
+        };
+        assert!(matches!(
+            &routine.body[0],
+            Stmt::Assign {
+                target: Expr {
+                    kind: ExprKind::Name(name),
+                    ..
+                },
+                ..
+            } if name.eq_ignore_ascii_case("PUBLIC")
+        ));
+        let Item::Declaration(Decl::Var(result)) = &items[2] else {
+            panic!("expected public declaration after routine");
+        };
+        assert_eq!(result.visibility, Visibility::Public);
     }
 
     #[test]
@@ -3302,14 +3839,14 @@ mod tests {
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: Some(AddressByteSelector::Low),
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("Target".to_string()),
+                    atom: MachineAddressAtom::Name("Target".into()),
                     offset: 0,
                     text: "<Target".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: Some(AddressByteSelector::High),
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("Target".to_string()),
+                    atom: MachineAddressAtom::Name("Target".into()),
                     offset: 0,
                     text: ">Target".to_string()
                 })
@@ -3331,9 +3868,9 @@ mod tests {
         assert_eq!(
             items,
             &[
-                MachineItem::Name("TSX".to_string()),
-                MachineItem::Name("STX".to_string()),
-                MachineItem::Name("sp".to_string()),
+                MachineItem::Name("TSX".into()),
+                MachineItem::Name("STX".into()),
+                MachineItem::Name("sp".into()),
             ]
         );
     }
@@ -3355,35 +3892,35 @@ mod tests {
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: None,
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("screen".to_string()),
+                    atom: MachineAddressAtom::Name("screen".into()),
                     offset: 0,
                     text: "screen^".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: Some(AddressByteSelector::Low),
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("screen".to_string()),
+                    atom: MachineAddressAtom::Name("screen".into()),
                     offset: 0,
                     text: "<screen^".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: Some(AddressByteSelector::High),
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("screen".to_string()),
+                    atom: MachineAddressAtom::Name("screen".into()),
                     offset: 0,
                     text: ">screen^".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: None,
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("screen".to_string()),
+                    atom: MachineAddressAtom::Name("screen".into()),
                     offset: 1,
                     text: "screen^+1".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: None,
                     explicit_address: false,
-                    atom: MachineAddressAtom::Name("screen".to_string()),
+                    atom: MachineAddressAtom::Name("screen".into()),
                     offset: 0,
                     text: "screen^+OFF".to_string()
                 })
@@ -3408,14 +3945,14 @@ mod tests {
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: None,
                     explicit_address: true,
-                    atom: MachineAddressAtom::Name("Target".to_string()),
+                    atom: MachineAddressAtom::Name("Target".into()),
                     offset: 1,
                     text: "@Target+1".to_string()
                 }),
                 MachineItem::AddressExpr(MachineAddressExpr {
                     selector: Some(AddressByteSelector::Low),
                     explicit_address: true,
-                    atom: MachineAddressAtom::Name("Target".to_string()),
+                    atom: MachineAddressAtom::Name("Target".into()),
                     offset: 0,
                     text: "<@Target".to_string()
                 }),

@@ -1,12 +1,12 @@
 use std::fmt;
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::diagnostic::Diagnostic;
 use crate::includes::SourceMap;
 use crate::mir6502::MirDiagnostic;
 use crate::nir::NirDiagnostic;
-use crate::source::Span;
+use crate::source::{SourceOrigin, Span};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompileErrorKind {
@@ -35,14 +35,14 @@ pub struct CompilerDiagnostic {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DiagnosticSite {
     Source {
-        path: PathBuf,
+        origin: SourceOrigin,
         line: usize,
         column: usize,
         byte_range: Option<Range<usize>>,
         excerpt: Option<String>,
     },
     File {
-        path: PathBuf,
+        origin: SourceOrigin,
     },
     Ir {
         routine: Option<String>,
@@ -162,7 +162,7 @@ fn diagnostic_site(
 ) -> DiagnosticSite {
     if let Some(location) = source_map.and_then(|source_map| source_map.location(span)) {
         return DiagnosticSite::Source {
-            path: location.path,
+            origin: location.origin,
             line: location.line,
             column: location.column,
             byte_range: Some(span.start..span.end),
@@ -171,11 +171,11 @@ fn diagnostic_site(
     }
     let Some((line, column, excerpt)) = source_location_parts(source, span.start) else {
         return DiagnosticSite::File {
-            path: fallback_path.to_path_buf(),
+            origin: SourceOrigin::host(fallback_path.to_path_buf()),
         };
     };
     DiagnosticSite::Source {
-        path: fallback_path.to_path_buf(),
+        origin: SourceOrigin::host(fallback_path.to_path_buf()),
         line,
         column,
         byte_range: Some(span.start..span.end),

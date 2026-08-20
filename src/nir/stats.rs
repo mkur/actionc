@@ -132,6 +132,7 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                     }
                     NirOp::Define { .. }
                     | NirOp::Set { .. }
+                    | NirOp::RuntimeHelperOverride { .. }
                     | NirOp::Declare { .. }
                     | NirOp::Assign { .. }
                     | NirOp::CompoundAssign { .. }
@@ -308,6 +309,7 @@ fn op_kind(op: &NirOp) -> &'static str {
     match op {
         NirOp::Define { .. } => "define",
         NirOp::Set { .. } => "set",
+        NirOp::RuntimeHelperOverride { .. } => "runtime-helper-override",
         NirOp::Declare { .. } => "declare",
         NirOp::Assign { .. } => "assign",
         NirOp::CompoundAssign { .. } => "compound_assign",

@@ -4,7 +4,153 @@ use crate::source::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Program {
+    /// Retained as declaration regions for compatibility with the existing
+    /// semantic and code-generation pipeline. Named files always have one.
     pub modules: Vec<Module>,
+    pub source_kind: SourceUnitKind,
+}
+
+impl Program {
+    pub fn legacy(modules: Vec<Module>) -> Self {
+        Self {
+            modules,
+            source_kind: SourceUnitKind::Legacy,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SourceUnitKind {
+    Legacy,
+    Named(NamedModuleDecl),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedModuleDecl {
+    pub path: ModulePath,
+    pub imports: Vec<ImportDecl>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportDecl {
+    pub path: ModulePath,
+    /// The explicit or default alias. Open imports have no alias.
+    pub alias: Option<String>,
+    pub open: bool,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModulePath {
+    pub components: Vec<String>,
+    pub canonical_components: Vec<String>,
+    pub span: Span,
+}
+
+/// A source-level symbol reference which may be qualified through an imported
+/// module alias. Keeping components separate prevents later compiler stages
+/// from rediscovering namespace meaning by splitting display strings.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct QualifiedName {
+    pub components: Vec<String>,
+    text: String,
+}
+
+impl QualifiedName {
+    pub fn simple(name: impl Into<String>) -> Self {
+        let name = name.into();
+        Self {
+            components: vec![name.clone()],
+            text: name,
+        }
+    }
+
+    pub fn new(components: Vec<String>) -> Self {
+        debug_assert!(!components.is_empty());
+        let text = components.join(".");
+        Self { components, text }
+    }
+
+    pub fn display_name(&self) -> &str {
+        &self.text
+    }
+
+    pub fn simple_name(&self) -> Option<&str> {
+        (self.components.len() == 1).then(|| self.components[0].as_str())
+    }
+
+    pub fn module_member(&self) -> Option<(&str, &str)> {
+        (self.components.len() == 2)
+            .then(|| (self.components[0].as_str(), self.components[1].as_str()))
+    }
+}
+
+impl std::ops::Deref for QualifiedName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.text
+    }
+}
+
+impl std::fmt::Display for QualifiedName {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.text.fmt(formatter)
+    }
+}
+
+impl PartialEq<str> for QualifiedName {
+    fn eq(&self, other: &str) -> bool {
+        self.text == other
+    }
+}
+
+impl PartialEq<&str> for QualifiedName {
+    fn eq(&self, other: &&str) -> bool {
+        self.text == *other
+    }
+}
+
+impl From<String> for QualifiedName {
+    fn from(name: String) -> Self {
+        Self::simple(name)
+    }
+}
+
+impl From<&str> for QualifiedName {
+    fn from(name: &str) -> Self {
+        Self::simple(name)
+    }
+}
+
+impl ModulePath {
+    pub fn new(components: Vec<String>, span: Span) -> Self {
+        let canonical_components = components
+            .iter()
+            .map(|component| component.to_ascii_lowercase())
+            .collect();
+        Self {
+            components,
+            canonical_components,
+            span,
+        }
+    }
+
+    pub fn display_name(&self) -> String {
+        self.components.join(".")
+    }
+
+    pub fn canonical_name(&self) -> String {
+        self.canonical_components.join(".")
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Visibility {
+    #[default]
+    Private,
+    Public,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,6 +204,7 @@ pub enum Decl {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConstDecl {
+    pub visibility: Visibility,
     pub declared_type: Option<FundType>,
     pub entries: Vec<ConstEntry>,
     pub span: Span,
@@ -72,6 +219,7 @@ pub struct ConstEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VarDecl {
+    pub visibility: Visibility,
     pub qualifiers: VarQualifiers,
     pub ty: TypeRef,
     pub storage: VarStorage,
@@ -94,6 +242,7 @@ pub struct DeclEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeDecl {
+    pub visibility: Visibility,
     pub name: String,
     pub fields: Vec<VarDecl>,
     pub span: Span,
@@ -101,6 +250,7 @@ pub struct TypeDecl {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordDecl {
+    pub visibility: Visibility,
     pub name: String,
     pub fields: Vec<VarDecl>,
     pub span: Span,
@@ -115,7 +265,7 @@ pub struct TypeRef {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeBase {
     Fund(FundType),
-    Named(String),
+    Named(QualifiedName),
     Callable(RoutineKind),
 }
 
@@ -127,6 +277,7 @@ pub enum VarStorage {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Routine {
+    pub visibility: Visibility,
     pub kind: RoutineKind,
     pub name: String,
     pub system_address: Option<Expr>,
@@ -311,11 +462,11 @@ pub enum MachineItem {
     Number(NumberLiteral),
     StringLiteral(String),
     CharLiteral(char),
-    Name(String),
+    Name(QualifiedName),
     AddressExpr(MachineAddressExpr),
     AddressByte {
         selector: AddressByteSelector,
-        name: String,
+        name: QualifiedName,
     },
     Raw(String),
 }
@@ -332,7 +483,7 @@ pub struct MachineAddressExpr {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MachineAddressAtom {
     Number(NumberLiteral),
-    Name(String),
+    Name(QualifiedName),
     Current,
 }
 
@@ -421,7 +572,7 @@ pub enum InitializerElementKind {
     },
     Address {
         selector: Option<AddressByteSelector>,
-        target: String,
+        target: QualifiedName,
         addend: i32,
     },
     Invalid,

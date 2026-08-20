@@ -32,8 +32,8 @@ pub use ir::{
     NirLocalBacking, NirMachineAtom, NirMachineByteSelector, NirMachineEffects, NirMachineItem,
     NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirOperand,
     NirOperandKind, NirParam, NirPlace, NirPlaceKind, NirProgram, NirRoutine, NirRoutineNote,
-    NirRoutineNoteKind, NirStaticData, NirStorageBacking, NirStorageClass, NirStorageInit, NirTemp,
-    NirTempDef, NirTerminator, NirUnaryOp,
+    NirRoutineNoteKind, NirRuntimeHelperTarget, NirStaticData, NirStorageBacking, NirStorageClass,
+    NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirUnaryOp,
 };
 pub use stats::{
     NirPlaceStats, NirProgramStats, NirStorageKindStats, NirStorageStats, collect_program_stats,

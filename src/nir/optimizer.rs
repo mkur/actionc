@@ -831,6 +831,7 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
         }
         NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
@@ -913,6 +914,7 @@ fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
         | NirOp::Unsupported { .. }
         | NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
@@ -1044,6 +1046,7 @@ fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
         }
         NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
@@ -1129,6 +1132,7 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         } => Some((result.dest, &result.ty)),
         NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }

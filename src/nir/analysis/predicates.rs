@@ -180,6 +180,7 @@ impl NirDataflowProblem for NirPredicateProblem<'_> {
                 | NirOp::Unsupported { .. } => facts.kill_storage(None),
                 NirOp::Define { .. }
                 | NirOp::Set { .. }
+                | NirOp::RuntimeHelperOverride { .. }
                 | NirOp::Declare { .. }
                 | NirOp::Assign { .. }
                 | NirOp::CompoundAssign { .. }
@@ -385,6 +386,7 @@ fn invalidates_storage(op: &NirOp, storage: NirStorageId) -> bool {
         | NirOp::Unsupported { .. } => true,
         NirOp::Define { .. }
         | NirOp::Set { .. }
+        | NirOp::RuntimeHelperOverride { .. }
         | NirOp::Declare { .. }
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }

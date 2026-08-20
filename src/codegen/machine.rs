@@ -295,7 +295,7 @@ impl Generator {
             MachineItem::Name(suffix) => {
                 let name = format!("{}{suffix}", &digits[2..]);
                 self.machine_symbol_name_is_known(&name)
-                    .then_some((byte, MachineItem::Name(name)))
+                    .then_some((byte, MachineItem::Name(name.into())))
             }
             MachineItem::AddressExpr(expr) => {
                 let MachineAddressAtom::Name(suffix) = &expr.atom else {
@@ -308,7 +308,7 @@ impl Generator {
                         MachineItem::AddressExpr(MachineAddressExpr {
                             selector: expr.selector,
                             explicit_address: expr.explicit_address,
-                            atom: MachineAddressAtom::Name(name),
+                            atom: MachineAddressAtom::Name(name.into()),
                             offset: expr.offset,
                             text: format!("{}{}", &digits[2..], expr.text),
                         }),
@@ -881,7 +881,7 @@ pub(super) fn parse_machine_define_value(value: &str) -> Option<Vec<MachineItem>
             TokenKind::Number(number) => items.push(MachineItem::Number(number.clone())),
             TokenKind::String(value) => items.push(MachineItem::StringLiteral(value.clone())),
             TokenKind::Char(value) => items.push(MachineItem::CharLiteral(*value)),
-            TokenKind::Ident(name) => items.push(MachineItem::Name(name.clone())),
+            TokenKind::Ident(name) => items.push(MachineItem::Name(name.clone().into())),
             TokenKind::Lt | TokenKind::Gt
                 if matches!(
                     tokens.get(index + 1).map(|token| &token.kind),
@@ -899,7 +899,7 @@ pub(super) fn parse_machine_define_value(value: &str) -> Option<Vec<MachineItem>
                 };
                 items.push(MachineItem::AddressByte {
                     selector,
-                    name: name.clone(),
+                    name: name.clone().into(),
                 });
                 index += 1;
             }

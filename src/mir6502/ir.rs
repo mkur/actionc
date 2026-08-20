@@ -226,7 +226,7 @@ pub enum MirMachineByteSelector {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MirRuntimeHelperTarget {
     KnownAbsolute(u16),
-    RuntimeSymbol(String),
+    Routine(RoutineId),
     Deferred,
 }
 

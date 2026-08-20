@@ -7,7 +7,9 @@
 
 use std::collections::HashMap;
 
-use crate::ast::{AddressByteSelector, MachineAddressAtom, MachineAddressExpr, MachineItem};
+use crate::ast::{
+    AddressByteSelector, MachineAddressAtom, MachineAddressExpr, MachineItem, QualifiedName,
+};
 use crate::codegen::{AddressingMode, decode_6502_opcode};
 use crate::diagnostic::Diagnostic;
 use crate::lexer::{NumberKind, NumberLiteral, decode_atascii_escape};
@@ -1069,7 +1071,7 @@ fn emit_operand_items(
     items.push(MachineItem::AddressExpr(MachineAddressExpr {
         selector,
         explicit_address: true,
-        atom: MachineAddressAtom::Name(name.clone()),
+        atom: MachineAddressAtom::Name(qualified_asm_name(name)),
         offset: expr.addend,
         text: expression_text.to_string(),
     }));
@@ -1102,6 +1104,10 @@ fn emit_operand_items(
         span: instruction.span,
     });
     Ok(())
+}
+
+fn qualified_asm_name(name: &str) -> QualifiedName {
+    QualifiedName::new(name.split('.').map(str::to_string).collect())
 }
 
 fn operand_expression(operand: &str, mode: AddressingMode) -> Option<&str> {

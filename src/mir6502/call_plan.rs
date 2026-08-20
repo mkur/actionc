@@ -30,8 +30,8 @@ pub(super) fn plan_call(
     result: Option<(MirDef, MirWidth)>,
     indirect_target: Option<(MirValue, MirWidth)>,
     effects: &NirCallEffects,
-    routine_ids: &BTreeMap<&str, RoutineId>,
-    routine_system_addresses: &BTreeMap<&str, u16>,
+    _routine_ids: &BTreeMap<&str, RoutineId>,
+    routine_system_addresses: &BTreeMap<u32, u16>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<MirCallPlan> {
     let target = lower_call_target(
@@ -39,7 +39,6 @@ pub(super) fn plan_call(
         block,
         callee,
         indirect_target,
-        routine_ids,
         routine_system_addresses,
         diagnostics,
     )?;
@@ -111,30 +110,18 @@ fn lower_call_target(
     block: &str,
     callee: &NirCallee,
     indirect_target: Option<(MirValue, MirWidth)>,
-    routine_ids: &BTreeMap<&str, RoutineId>,
-    routine_system_addresses: &BTreeMap<&str, u16>,
+    routine_system_addresses: &BTreeMap<u32, u16>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<MirCallTarget> {
     match callee {
-        NirCallee::User(name) => {
-            if let Some(address) = routine_system_addresses.get(name.as_str()) {
+        NirCallee::User { id, name } => {
+            if let Some(address) = routine_system_addresses.get(id) {
                 return Some(MirCallTarget::Runtime {
                     name: name.clone(),
                     address: Some(*address),
                 });
             }
-            routine_ids
-                .get(name.as_str())
-                .copied()
-                .map(MirCallTarget::Routine)
-                .or_else(|| {
-                    diagnostics.push(MirDiagnostic::block(
-                        routine,
-                        block,
-                        format!("direct call target `{name}` does not have a routine id"),
-                    ));
-                    None
-                })
+            Some(MirCallTarget::Routine(RoutineId(*id)))
         }
         NirCallee::Runtime { name, address } => Some(MirCallTarget::Runtime {
             name: name.clone(),
