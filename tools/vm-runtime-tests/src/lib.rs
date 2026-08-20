@@ -215,117 +215,140 @@ mod tests {
     #[test]
     fn native_real_core_arithmetic_uses_atari_fpp_in_both_runtimes() {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-          for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-            let outcome = run_runtime_fixture(
-                "native_real_core.act",
-                mode,
-                runtime,
-                true,
-                10_000,
-            );
-            let result = (0..6)
-                .map(|offset| outcome.memory().read(0x0600 + offset))
-                .collect::<Vec<_>>();
-            assert_eq!(
-                result,
-                [0x40, 0x03, 0, 0, 0, 0],
-                "native REAL result for {mode:?}/{runtime:?}: {:?}",
-                outcome.report
-            );
-            for (address, expected) in [
-                (0x0606, [0x40, 0x03, 0x25, 0, 0, 0]),
-                (0x060C, [0xBF, 0x75, 0, 0, 0, 0]),
-                (0x0612, [0x40, 0x02, 0x50, 0, 0, 0]),
-                (0x0618, [0x3F, 0x62, 0x50, 0, 0, 0]),
-            ] {
-                let actual = (0..6)
-                    .map(|offset| outcome.memory().read(address + offset))
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_core.act", mode, runtime, true, 10_000);
+                let result = (0..6)
+                    .map(|offset| outcome.memory().read(0x0600 + offset))
                     .collect::<Vec<_>>();
-                assert_eq!(actual, expected, "{mode:?}/{runtime:?} at ${address:04X}");
+                assert_eq!(
+                    result,
+                    [0x40, 0x03, 0, 0, 0, 0],
+                    "native REAL result for {mode:?}/{runtime:?}: {:?}",
+                    outcome.report
+                );
+                for (address, expected) in [
+                    (0x0606, [0x40, 0x03, 0x25, 0, 0, 0]),
+                    (0x060C, [0xBF, 0x75, 0, 0, 0, 0]),
+                    (0x0612, [0x40, 0x02, 0x50, 0, 0, 0]),
+                    (0x0618, [0x3F, 0x62, 0x50, 0, 0, 0]),
+                ] {
+                    let actual = (0..6)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>();
+                    assert_eq!(actual, expected, "{mode:?}/{runtime:?} at ${address:04X}");
+                }
             }
-          }
         }
     }
 
     #[test]
     fn native_real_assignment_is_overlap_safe() {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-          for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-            let outcome = run_runtime_fixture(
-                "native_real_overlap.act",
-                mode,
-                runtime,
-                true,
-                1_000,
-            );
-            let destination = (0..6)
-                .map(|offset| outcome.memory().read(0x0602 + offset))
-                .collect::<Vec<_>>();
-            assert_eq!(destination, [0x44, 0x12, 0x34, 0x56, 0x78, 0x90], "{mode:?}/{runtime:?}");
-          }
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_overlap.act", mode, runtime, true, 1_000);
+                let destination = (0..6)
+                    .map(|offset| outcome.memory().read(0x0602 + offset))
+                    .collect::<Vec<_>>();
+                assert_eq!(
+                    destination,
+                    [0x44, 0x12, 0x34, 0x56, 0x78, 0x90],
+                    "{mode:?}/{runtime:?}"
+                );
+            }
         }
     }
 
     #[test]
     fn native_real_control_and_conversion_surface_runs_in_both_runtimes() {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-          for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-            let outcome = run_runtime_fixture(
-                "native_real_control.act",
-                mode,
-                runtime,
-                true,
-                100_000,
-            );
-            let bytes = |address: u16, length: u16| {
-                (0..length)
-                    .map(|offset| outcome.memory().read(address + offset))
-                    .collect::<Vec<_>>()
-            };
-            assert_eq!(bytes(0x0600, 6), [0xC1, 0x01, 0x23, 0, 0, 0]);
-            assert_eq!(bytes(0x0606, 6), [0x41, 0x01, 0x23, 0, 0, 0]);
-            assert_eq!(bytes(0x060C, 2), [0x85, 0xFF]);
-            assert_eq!(bytes(0x060E, 2), [0xFF, 0xFF]);
-            assert_eq!(bytes(0x0610, 1), [0xFF]);
-            assert_eq!(bytes(0x0611, 3), [1, 3, 65]);
-            assert_eq!(bytes(0x0614, 6), [0, 1, 1, 1, 0, 0]);
-            assert_eq!(bytes(0x061A, 4), [1, 1, 1, 1]);
-            assert_eq!(bytes(0x061E, 2), [2, 0]);
-          }
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_control.act", mode, runtime, true, 100_000);
+                let bytes = |address: u16, length: u16| {
+                    (0..length)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                assert_eq!(bytes(0x0600, 6), [0xC1, 0x01, 0x23, 0, 0, 0]);
+                assert_eq!(bytes(0x0606, 6), [0x41, 0x01, 0x23, 0, 0, 0]);
+                assert_eq!(bytes(0x060C, 2), [0x85, 0xFF]);
+                assert_eq!(bytes(0x060E, 2), [0xFF, 0xFF]);
+                assert_eq!(bytes(0x0610, 1), [0xFF]);
+                assert_eq!(bytes(0x0611, 3), [1, 3, 65]);
+                assert_eq!(bytes(0x0614, 6), [0, 1, 1, 1, 0, 0]);
+                assert_eq!(bytes(0x061A, 4), [1, 1, 1, 1]);
+                assert_eq!(bytes(0x061E, 2), [2, 0]);
+            }
         }
     }
 
     #[test]
     fn native_real_aggregate_storage_runs_in_both_runtimes() {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-          for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-            let outcome = run_runtime_fixture(
-                "native_real_storage.act",
-                mode,
-                runtime,
-                true,
-                100_000,
-            );
-            let bytes = |address: u16| {
-                (0..6)
-                    .map(|offset| outcome.memory().read(address + offset))
-                    .collect::<Vec<_>>()
-            };
-            for (address, expected) in [
-                (0x0600, [0x40, 0x04, 0x75, 0, 0, 0]),
-                (0x0606, [0x40, 0x01, 0x25, 0, 0, 0]),
-                (0x060C, [0xC0, 0x02, 0x50, 0, 0, 0]),
-                (0x0612, [0x40, 0x03, 0, 0, 0, 0]),
-                (0x0618, [0xC0, 0x04, 0x50, 0, 0, 0]),
-                (0x061E, [0x40, 0x05, 0x50, 0, 0, 0]),
-                (0x0624, [0xC0, 0x07, 0x50, 0, 0, 0]),
-                (0x062A, [0x40, 0x08, 0x50, 0, 0, 0]),
-                (0x0630, [0x40, 0x01, 0x25, 0, 0, 0]),
-                (0x0636, [0x40, 0x09, 0x25, 0, 0, 0]),
-            ] {
-                assert_eq!(bytes(address), expected, "{mode:?}/{runtime:?} at ${address:04X}");
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_storage.act", mode, runtime, true, 100_000);
+                let bytes = |address: u16| {
+                    (0..6)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                for (address, expected) in [
+                    (0x0600, [0x40, 0x04, 0x75, 0, 0, 0]),
+                    (0x0606, [0x40, 0x01, 0x25, 0, 0, 0]),
+                    (0x060C, [0xC0, 0x02, 0x50, 0, 0, 0]),
+                    (0x0612, [0x40, 0x03, 0, 0, 0, 0]),
+                    (0x0618, [0xC0, 0x04, 0x50, 0, 0, 0]),
+                    (0x061E, [0x40, 0x05, 0x50, 0, 0, 0]),
+                    (0x0624, [0xC0, 0x07, 0x50, 0, 0, 0]),
+                    (0x062A, [0x40, 0x08, 0x50, 0, 0, 0]),
+                    (0x0630, [0x40, 0x01, 0x25, 0, 0, 0]),
+                    (0x0636, [0x40, 0x09, 0x25, 0, 0, 0]),
+                ] {
+                    assert_eq!(
+                        bytes(address),
+                        expected,
+                        "{mode:?}/{runtime:?} at ${address:04X}"
+                    );
+                }
             }
-          }
+        }
+    }
+
+    #[test]
+    fn native_real_library_runs_in_both_backends_and_runtimes() {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_library.act", mode, runtime, true, 250_000);
+                let bytes = |address: u16, length: u16| {
+                    (0..length)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+                assert_eq!(
+                    bytes(0x0606, 6),
+                    [0x3F, 0x99, 0x99, 0x99, 0x99, 0x98],
+                    "{context}"
+                );
+                assert_eq!(
+                    bytes(0x060C, 6),
+                    [0x40, 0x99, 0x99, 0x99, 0x99, 0x98],
+                    "{context}"
+                );
+                assert_eq!(
+                    bytes(0x0612, 6),
+                    [0x3B, 0x04, 0x60, 0x51, 0x70, 0x18],
+                    "{context}"
+                );
+                assert_eq!(bytes(0x0618, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x061E, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0624, 2), [1, b'2'], "{context}");
+                assert_eq!(bytes(0x0638, 1), [0xA5], "{context}");
+            }
         }
     }
 

@@ -11,6 +11,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
+    let program_entry = named_program_entry(semir);
     let application_projection = super::semir::semir_to_projection(semir)?;
     let mut application = application_projection.program;
     let native_real = application_projection.native_real;
@@ -149,8 +150,38 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         &local_helper_overrides,
     );
     suppress_source_ranges_for_routines(&mut output, &runtime_routine_names);
+    if let Some(program_entry) = program_entry {
+        let address = output
+            .routine_addresses
+            .iter()
+            .find(|routine| routine.name == program_entry)
+            .map(|routine| routine.address)
+            .ok_or_else(|| {
+                diagnostic(format!(
+                    "classic standalone output lost named program entry `{program_entry}`"
+                ))
+            })?;
+        output.run_address = address;
+        output.map.run_address = address;
+    }
     output.map.runtime = crate::runtime::Runtime::Standalone;
     Ok(output)
+}
+
+fn named_program_entry(semir: &crate::semantic::ir::SemProgram) -> Option<String> {
+    let root = semir.modules.last().filter(|module| module.id.is_some())?;
+    root.items.iter().find_map(|item| {
+        let crate::semantic::ir::SemItem::Routine(routine) = item else {
+            return None;
+        };
+        routine
+            .symbol
+            .qualified_name
+            .rsplit('.')
+            .next()
+            .is_some_and(|name| name.eq_ignore_ascii_case("Main"))
+            .then(|| routine.symbol.name.clone())
+    })
 }
 
 fn insert_runtime_after_application_layout(

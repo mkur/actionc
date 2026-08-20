@@ -1,10 +1,9 @@
 # Native REAL Implementation Plan
 
-Implementation status: in progress. Slices 0 through 8 are complete: the Atari
-oracle, exact decimal codec, modern-profile semantic contract, MIR storage-size
-foundation, address-based NIR, MIR6502 core FPP arithmetic, comparisons, unary
-operations, scalar conversions, aggregate/indirect storage, and classic-backend
-parity are in place. The first-party library surface remains.
+Implementation status: complete. Slices 0 through 9 provide the Atari oracle,
+exact decimal codec, modern-profile semantic contract, MIR storage-size
+foundation, address-based NIR, both code-generation backends, aggregate and
+indirect storage, and a clean-room first-party library surface.
 
 ## Goal
 
@@ -408,6 +407,8 @@ observable packed-decimal bytes.
 
 ### Slice 9: First-Party Library Surface
 
+Status: complete.
+
 - Add clean-room, pointer-oriented procedures for text conversion and output,
   such as `ValR`, `StrR`, and printing support.
 - Add wrappers for confirmed FPP functions such as exponent and logarithm
@@ -418,6 +419,21 @@ observable packed-decimal bytes.
 
 Exit criterion: ordinary programs can input, calculate, and display native real
 values without importing the historical Toolkit source.
+
+The clean-room `ATARI.REAL` embedded module exposes pointer-oriented `StrR`,
+`ValR`, output/input helpers, `Exp`, `Exp10`, `Ln`, `Log10`, and `Power`. It is
+implemented as ordinary Action 2027 source in
+`embedded/modules/atari/real.act`; the compiler's native type and lowering do
+not depend on it. Programs should import it with an alias, for example
+`USE ATARI.REAL AS FPP`, because the default module alias `REAL` is also the
+native type name.
+
+Executable AltirraOS oracle tests confirm FASC's high-bit-terminated output and
+the four transcendental ROM entries. The library preserves the ROM's actual
+packed-decimal approximations rather than replacing them with host math. Its
+procedures share FR0, CIX, INBUFF, and the wider FPP workspace, so they are not
+reentrant or interrupt-safe. Both cart and standalone runtime modes still
+require a compatible Atari OS when this module is used.
 
 ## Validation Matrix
 

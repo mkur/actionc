@@ -1,0 +1,29 @@
+MODULE NATIVE_REAL_LIBRARY_TEST
+
+USE ATARI.REAL AS FPP
+
+REAL source=$0600,
+     exp_result=$0606,
+     exp10_result=$060C,
+     ln_result=$0612,
+     log10_result=$0618,
+     parsed_result=$061E
+BYTE ARRAY text(20)=$0624
+BYTE done=$0638
+
+PROC Main()
+  source=0
+  FPP.Exp(@source,@exp_result)
+  source=2
+  FPP.Exp10(@source,@exp10_result)
+  source=1
+  FPP.Ln(@source,@ln_result)
+  source=100
+  FPP.Log10(@source,@log10_result)
+  FPP.StrR(@log10_result,text)
+  FPP.ValR(text,@parsed_result)
+  done=$A5
+  DO OD
+RETURN
+
+ENDMODULE

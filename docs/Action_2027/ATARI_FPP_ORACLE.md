@@ -21,12 +21,17 @@ fractional, exponent, truncation, overflow-boundary, and underflow cases.
 | CIX | `$00F2` |
 | INBUFF | `$00F3` |
 | AFP | `$D800` |
+| FASC | `$D8E6` |
 | IFP | `$D9AA` |
 | FPI | `$D9D2` |
 | FSUB | `$DA60` |
 | FADD | `$DA66` |
 | FMULT | `$DADB` |
 | FDIV | `$DB28` |
+| EXP | `$DDC0` |
+| EXP10 | `$DDCC` |
+| LOG | `$DECD` |
+| LOG10 | `$DED1` |
 
 FR0 and FR1 are six-byte packed-decimal values. Zero is six zero bytes. A
 nonzero value stores sign and a biased base-100 exponent in the first byte,
@@ -61,6 +66,27 @@ prefix, leaves the last digit unconsumed (`CIX=4`), and produces the value for
 copy this prefix-accepting API behavior. Invalid leading input produces the
 probed sentinel `7F 00 00 00 00 00` with `CIX=0`; compiler source should
 receive a diagnostic instead of storing that sentinel.
+
+## FASC and Transcendental Vectors
+
+FASC writes through INBUFF and terminates its ATASCII result by setting bit 7
+on the final character. The oracle confirms minimal spellings including `0`,
+`1.25`, `-1.25`, `100`, `1E+20`, and `1E-20`. A library adapter must clear the
+terminator bit before constructing an Action length-prefixed string.
+
+The transcendental entry points consume and replace FR0. Their results retain
+the ROM package's decimal approximations; they are not host-math identities:
+
+| Call | FR0 bytes |
+| --- | --- |
+| `EXP(0)` | `3F 99 99 99 99 98` |
+| `EXP10(2)` | `40 99 99 99 99 98` |
+| `LOG(1)` | `3B 04 60 51 70 18` |
+| `LOG10(100)` | `40 02 00 00 00 00` |
+
+These routines share FR0, CIX, INBUFF, and additional FPP workspace. Calls are
+therefore treated as non-reentrant and not interrupt-safe unless the caller
+saves and restores the complete workspace around every possible interruption.
 
 ## Arithmetic Vectors
 

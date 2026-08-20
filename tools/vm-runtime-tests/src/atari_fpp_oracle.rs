@@ -12,12 +12,17 @@ const FR0: u16 = 0x00d4;
 const FR1: u16 = 0x00e0;
 
 const AFP: u16 = 0xd800;
+const FASC: u16 = 0xd8e6;
 const IFP: u16 = 0xd9aa;
 const FPI: u16 = 0xd9d2;
 const FSUB: u16 = 0xda60;
 const FADD: u16 = 0xda66;
 const FMULT: u16 = 0xdadb;
 const FDIV: u16 = 0xdb28;
+const EXP: u16 = 0xddc0;
+const EXP10: u16 = 0xddcc;
+const LOG: u16 = 0xdecd;
+const LOG10: u16 = 0xded1;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FppCapture {
@@ -143,6 +148,57 @@ fn binary(routine: u16, left: [u8; 6], right: [u8; 6]) -> FppCapture {
     })
 }
 
+fn unary(routine: u16, value: [u8; 6]) -> FppCapture {
+    call_fpp(routine, |vm| {
+        vm.bus_mut().ram_mut().map(FR0, &value).expect("map FR0");
+    })
+}
+
+fn format_ascii(value: [u8; 6]) -> Vec<u8> {
+    let mut code = vec![0x20, FASC as u8, (FASC >> 8) as u8]; // JSR FASC
+    code.extend_from_slice(&[0xa0, 0x00]); // LDY #0
+    let loop_offset = code.len();
+    code.extend_from_slice(&[0xb1, INBUFF as u8]); // LDA (INBUFF),Y
+    code.extend_from_slice(&[0x99, 0x00, 0x06]); // STA $0600,Y
+    let done_branch = code.len();
+    code.extend_from_slice(&[0x30, 0x00]); // BMI done
+    code.push(0xc8); // INY
+    let branch_next = code.len() + 2;
+    let displacement = loop_offset as isize - branch_next as isize;
+    code.extend_from_slice(&[0xd0, displacement as i8 as u8]); // BNE loop
+    let done_offset = code.len();
+    code[done_branch + 1] = (done_offset as isize - (done_branch + 2) as isize) as i8 as u8;
+    code.extend_from_slice(&[0xa9, 0xa5]); // LDA #$A5
+    code.extend_from_slice(&[0x8d, 0xff, 0x06]); // STA completion marker
+    let halt = LOAD_ADDRESS + code.len() as u16;
+    code.extend_from_slice(&[0x4c, halt as u8, (halt >> 8) as u8]); // JMP halt
+
+    let object = atari_object(&code);
+    let mut vm = CompilerVm::default();
+    vm.load_bundled_altirra_os().expect("load AltirraOS");
+    vm.load_atari_object_for_execution(ExecutionProfile::StandaloneObject, &object)
+        .expect("load FASC oracle object");
+    vm.bus_mut().ram_mut().map(FR0, &value).expect("map FR0");
+
+    let outcome = VmRunner::new(vm).run(RunRequest {
+        max_steps: 50_000,
+        stop_after_pc: Some(halt),
+        history_len: 8,
+    });
+    assert_eq!(outcome.stop_reason(), StopReason::PcReached { pc: halt });
+    assert_eq!(outcome.memory().read(COMPLETION_MARKER), 0xa5);
+
+    let mut output = Vec::new();
+    for offset in 0..=u8::MAX {
+        let byte = outcome.memory().read(CAPTURE_ADDRESS + u16::from(offset));
+        output.push(byte);
+        if byte & 0x80 != 0 {
+            break;
+        }
+    }
+    output
+}
+
 #[test]
 fn afp_produces_canonical_six_byte_values() {
     let cases = [
@@ -205,6 +261,41 @@ fn core_fpp_binary_entry_points_use_fr0_and_fr1() {
         assert_eq!(
             capture.registers_and_status, expected_registers,
             "A/X/Y/P after FPP routine ${routine:04X}"
+        );
+    }
+}
+
+#[test]
+fn fasc_uses_a_high_bit_terminated_minimal_decimal_spelling() {
+    for (text, expected) in [
+        ("0", &[0xb0][..]),
+        ("1", &[0xb1][..]),
+        ("1.25", &[0x31, 0x2e, 0x32, 0xb5][..]),
+        ("-1.25", &[0x2d, 0x31, 0x2e, 0x32, 0xb5][..]),
+        ("100", &[0x31, 0x30, 0xb0][..]),
+        ("1E20", &[0x31, 0x45, 0x2b, 0x32, 0xb0][..]),
+        ("1E-20", &[0x31, 0x45, 0x2d, 0x32, 0xb0][..]),
+    ] {
+        assert_eq!(
+            format_ascii(parse_ascii(text).fr0()),
+            expected,
+            "FASC({text})"
+        );
+    }
+}
+
+#[test]
+fn transcendental_entry_points_use_fr0() {
+    for (routine, input, expected) in [
+        (EXP, "0", [0x3f, 0x99, 0x99, 0x99, 0x99, 0x98]),
+        (EXP10, "2", [0x40, 0x99, 0x99, 0x99, 0x99, 0x98]),
+        (LOG, "1", [0x3b, 0x04, 0x60, 0x51, 0x70, 0x18]),
+        (LOG10, "100", [0x40, 0x02, 0x00, 0x00, 0x00, 0x00]),
+    ] {
+        assert_eq!(
+            unary(routine, parse_ascii(input).fr0()).fr0(),
+            expected,
+            "FPP routine ${routine:04X}({input})"
         );
     }
 }
