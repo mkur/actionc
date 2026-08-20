@@ -951,12 +951,10 @@ fn rewrite_place_values(place: &mut NirPlace, constants: &BTreeMap<TempId, NirVa
             rewrite_value(index, constants);
         }
         NirPlaceKind::Field { base, .. } => rewrite_place_values(base, constants),
-        NirPlaceKind::Symbol(_)
-        | NirPlaceKind::Param { .. }
+        NirPlaceKind::Param { .. }
         | NirPlaceKind::Local { .. }
         | NirPlaceKind::Global { .. }
-        | NirPlaceKind::Absolute(_)
-        | NirPlaceKind::UnresolvedName(_) => {}
+        | NirPlaceKind::Absolute(_) => {}
     }
 }
 
@@ -1077,12 +1075,10 @@ fn collect_place_uses(place: &NirPlace, out: &mut BTreeSet<TempId>) {
             collect_value_use(index, out);
         }
         NirPlaceKind::Field { base, .. } => collect_place_uses(base, out),
-        NirPlaceKind::Symbol(_)
-        | NirPlaceKind::Param { .. }
+        NirPlaceKind::Param { .. }
         | NirPlaceKind::Local { .. }
         | NirPlaceKind::Global { .. }
-        | NirPlaceKind::Absolute(_)
-        | NirPlaceKind::UnresolvedName(_) => {}
+        | NirPlaceKind::Absolute(_) => {}
     }
 }
 

@@ -20,7 +20,6 @@ pub(super) enum MirPlaceShape {
         base: Box<NirPlace>,
         offset: u16,
     },
-    Unsupported(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,9 +71,6 @@ pub(super) fn classify_place(place: &NirPlace) -> MirPlaceShape {
             base: base.clone(),
             offset: *offset,
         },
-        NirPlaceKind::Symbol(_) | NirPlaceKind::UnresolvedName(_) => {
-            MirPlaceShape::Unsupported("unresolved storage")
-        }
     }
 }
 
@@ -106,6 +102,5 @@ pub(super) fn classify_address(place: &NirPlace) -> MirAddressShape {
             MirAddressShape::Unsupported("indexed element address")
         }
         MirPlaceShape::RecordField { .. } => MirAddressShape::Unsupported("record field address"),
-        MirPlaceShape::Unsupported(reason) => MirAddressShape::Unsupported(reason),
     }
 }

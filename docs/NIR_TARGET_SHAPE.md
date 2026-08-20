@@ -730,24 +730,12 @@ Target-specific optimizations such as zero-page placement, compare/branch flag
 fusion, indexed addressing selection, helper selection, and peepholes belong in
 MIR6502 or later.
 
-## Remaining Legacy NIR Shapes
-
-The public TAC compatibility namespace is gone. The following transitional NIR
-forms are still representable internally but must not survive as verifier-clean
-NIR:
-
-```text
-NirPlaceKind::Symbol(String)       -> Param/Local/Global/Absolute IDs
-NirPlaceKind::UnresolvedName       -> diagnose before NIR construction
-```
-
 ## Red Lines
 
 Do not consider NIR complete while any of these are true:
 
 - optimizer passes run on legacy/stringly NIR shapes;
 - MIR6502 consults SemIR to recover missing NIR facts;
-- executable storage identity depends on `Symbol(String)`;
 - executable field/index forms preserve source syntax instead of semantic facts;
 - calls lack signatures or conservative effects;
 - machine blocks lack payload/effect handling or an explicit unsupported barrier;

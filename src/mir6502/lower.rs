@@ -1552,10 +1552,6 @@ fn lower_place_addr(
         MirPlaceShape::RecordField { base, offset } => {
             lower_field_addr(routine, block, &base, offset, addr_defs, diagnostics)
         }
-        MirPlaceShape::Unsupported(reason) => {
-            unsupported_place(routine, block, reason, diagnostics);
-            None
-        }
     }
 }
 
@@ -1764,9 +1760,7 @@ fn routine_address_place(
     routine_ids: &BTreeMap<&str, RoutineId>,
 ) -> Option<RoutineId> {
     match &place.kind {
-        NirPlaceKind::Symbol(name) | NirPlaceKind::Global { name, .. } => {
-            routine_ids.get(name.as_str()).copied()
-        }
+        NirPlaceKind::Global { name, .. } => routine_ids.get(name.as_str()).copied(),
         _ => None,
     }
 }

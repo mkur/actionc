@@ -26,16 +26,8 @@ const OP_KINDS: [&str; 16] = [
     "note",
 ];
 
-const PLACE_KINDS: [&str; 9] = [
-    "param",
-    "local",
-    "global",
-    "absolute",
-    "deref",
-    "index",
-    "field",
-    "legacy_symbol",
-    "unresolved",
+const PLACE_KINDS: [&str; 7] = [
+    "param", "local", "global", "absolute", "deref", "index", "field",
 ];
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -327,8 +319,6 @@ fn place_kind(place: &NirPlace) -> &'static str {
         NirPlaceKind::Deref { .. } => "deref",
         NirPlaceKind::Index { .. } => "index",
         NirPlaceKind::Field { .. } => "field",
-        NirPlaceKind::Symbol(_) => "legacy_symbol",
-        NirPlaceKind::UnresolvedName(_) => "unresolved",
     }
 }
 

@@ -435,12 +435,10 @@ fn rewrite_place_values(place: &mut NirPlace, replacements: &BTreeMap<TempId, Ni
             rewrite_value(index, replacements);
         }
         NirPlaceKind::Field { base, .. } => rewrite_place_values(base, replacements),
-        NirPlaceKind::Symbol(_)
-        | NirPlaceKind::Param { .. }
+        NirPlaceKind::Param { .. }
         | NirPlaceKind::Local { .. }
         | NirPlaceKind::Global { .. }
-        | NirPlaceKind::Absolute(_)
-        | NirPlaceKind::UnresolvedName(_) => {}
+        | NirPlaceKind::Absolute(_) => {}
     }
 }
 

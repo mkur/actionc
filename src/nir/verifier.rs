@@ -692,7 +692,6 @@ impl NirVerifier {
             NirOp::Load { dest, ty, place } | NirOp::VolatileLoad { dest, ty, place } => {
                 self.op_type(routine, block, ty, "load result");
                 self.place_type(routine, block, place, "load place");
-                self.reject_executable_symbol_place(routine, block, place, "load place");
                 self.place_temp_uses(routine, block, place, op_index, temp_facts, "load place");
                 self.temp_def_matches_table(routine, block, *dest, ty, op_index);
                 if !defined_temps.insert(*dest) {
@@ -706,7 +705,6 @@ impl NirVerifier {
             NirOp::AddrOf { dest, ty, place } => {
                 self.op_type(routine, block, ty, "address result");
                 self.place_type(routine, block, place, "address place");
-                self.reject_executable_symbol_place(routine, block, place, "address place");
                 self.place_temp_uses(routine, block, place, op_index, temp_facts, "address place");
                 self.temp_def_matches_table(routine, block, *dest, ty, op_index);
                 if !defined_temps.insert(*dest) {
@@ -720,7 +718,6 @@ impl NirVerifier {
             NirOp::Store { place, src, ty } | NirOp::VolatileStore { place, src, ty } => {
                 self.op_type(routine, block, ty, "store type");
                 self.place_type(routine, block, place, "store place");
-                self.reject_executable_symbol_place(routine, block, place, "store place");
                 self.place_temp_uses(routine, block, place, op_index, temp_facts, "store place");
                 self.value_type(routine, block, src, "store source");
                 self.value_temp_use(routine, block, src, op_index, temp_facts, "store source");
@@ -1088,12 +1085,10 @@ impl NirVerifier {
             NirPlaceKind::Field { base, .. } => {
                 self.place_temp_uses(routine, block, base, use_index, temp_facts, label);
             }
-            NirPlaceKind::Symbol(_)
-            | NirPlaceKind::Param { .. }
+            NirPlaceKind::Param { .. }
             | NirPlaceKind::Local { .. }
             | NirPlaceKind::Global { .. }
-            | NirPlaceKind::Absolute(_)
-            | NirPlaceKind::UnresolvedName(_) => {}
+            | NirPlaceKind::Absolute(_) => {}
         }
     }
 
@@ -1337,22 +1332,6 @@ impl NirVerifier {
                     "{label} region {}+{} exceeds storage size {available}",
                     region.offset, region.size
                 ),
-            ));
-        }
-    }
-
-    fn reject_executable_symbol_place(
-        &mut self,
-        routine: &NirRoutine,
-        block: &NirBlock,
-        place: &NirPlace,
-        label: &str,
-    ) {
-        if place_has_symbol_identity(place) {
-            self.diagnostics.push(NirDiagnostic::block(
-                &routine.name,
-                &block.label,
-                format!("{label} uses string storage identity"),
             ));
         }
     }
@@ -1729,20 +1708,6 @@ fn value_matches_type(value: &NirValue, expected: &NirType) -> bool {
         NirValue::ConstU16(_) => expected.width == Some(2),
         NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty == expected,
         NirValue::Param(_) | NirValue::GlobalAddr(_) => false,
-    }
-}
-
-fn place_has_symbol_identity(place: &NirPlace) -> bool {
-    match &place.kind {
-        NirPlaceKind::Symbol(_) => true,
-        NirPlaceKind::Field { base, .. } => place_has_symbol_identity(base),
-        NirPlaceKind::Param { .. }
-        | NirPlaceKind::Local { .. }
-        | NirPlaceKind::Global { .. }
-        | NirPlaceKind::Absolute(_)
-        | NirPlaceKind::UnresolvedName(_)
-        | NirPlaceKind::Deref { .. }
-        | NirPlaceKind::Index { .. } => false,
     }
 }
 

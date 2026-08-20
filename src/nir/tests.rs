@@ -1208,7 +1208,7 @@ fn verifier_rejects_store_with_untyped_place() {
                 params: Vec::new(),
                 ops: vec![NirOp::Store {
                     place: NirPlace {
-                        kind: NirPlaceKind::Symbol("x".to_string()),
+                        kind: NirPlaceKind::Absolute(0),
                         ty: None,
                     },
                     src: byte_value(1),
@@ -1395,43 +1395,6 @@ fn verifier_rejects_undefined_temp_use() {
             .iter()
             .any(|diagnostic| diagnostic.message.contains("uses undefined temp `%t0`")),
         "expected undefined-temp diagnostic, got {diagnostics:?}"
-    );
-}
-
-#[test]
-fn verifier_rejects_string_storage_identity_in_scalar_load() {
-    let program = NirProgram {
-        globals: Vec::new(),
-        statics: Vec::new(),
-        routines: vec![NirRoutine {
-            name: "Main".to_string(),
-            params: Vec::new(),
-            locals: Vec::new(),
-            temps: vec![temp_table_entry(0, byte_type(), 0, 0)],
-            notes: Vec::new(),
-            blocks: vec![NirBlock {
-                id: BlockId(0),
-                label: "bb0".to_string(),
-                params: Vec::new(),
-                ops: vec![NirOp::Load {
-                    dest: TempId(0),
-                    ty: byte_type(),
-                    place: NirPlace {
-                        kind: NirPlaceKind::Symbol("x".to_string()),
-                        ty: Some(byte_type()),
-                    },
-                }],
-                terminator: NirTerminator::Return(None),
-            }],
-        }],
-    };
-
-    let diagnostics = verify_program(&program).expect_err("expected verifier error");
-    assert!(
-        diagnostics.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("load place uses string storage identity")),
-        "expected string-storage diagnostic, got {diagnostics:?}"
     );
 }
 

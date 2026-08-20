@@ -118,9 +118,7 @@ pub fn direct_storage_id(place: &NirPlace) -> Option<NirStorageId> {
         NirPlaceKind::Local { id, .. } => Some(NirStorageId::Local(id)),
         NirPlaceKind::Param { id, .. } => Some(NirStorageId::Param(id)),
         NirPlaceKind::Global { id, .. } => Some(NirStorageId::Global(id)),
-        NirPlaceKind::Symbol(_)
-        | NirPlaceKind::Absolute(_)
-        | NirPlaceKind::UnresolvedName(_)
+        NirPlaceKind::Absolute(_)
         | NirPlaceKind::Deref { .. }
         | NirPlaceKind::Index { .. }
         | NirPlaceKind::Field { .. } => None,

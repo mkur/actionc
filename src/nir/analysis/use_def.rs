@@ -278,12 +278,10 @@ fn record_place(uses: &mut BTreeMap<TempId, Vec<NirUseSite>>, place: &NirPlace, 
             record_value(uses, index, site);
         }
         NirPlaceKind::Field { base, .. } => record_place(uses, base, site),
-        NirPlaceKind::Symbol(_)
-        | NirPlaceKind::Param { .. }
+        NirPlaceKind::Param { .. }
         | NirPlaceKind::Local { .. }
         | NirPlaceKind::Global { .. }
-        | NirPlaceKind::Absolute(_)
-        | NirPlaceKind::UnresolvedName(_) => {}
+        | NirPlaceKind::Absolute(_) => {}
     }
 }
 

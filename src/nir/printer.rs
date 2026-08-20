@@ -626,12 +626,10 @@ fn temp_summary(temp: TempId) -> String {
 
 fn place_summary(place: &NirPlace) -> String {
     match &place.kind {
-        NirPlaceKind::Symbol(symbol) => symbol.clone(),
         NirPlaceKind::Param { name, .. }
         | NirPlaceKind::Local { name, .. }
         | NirPlaceKind::Global { name, .. } => name.clone(),
         NirPlaceKind::Absolute(address) => format!("@${address:04X}"),
-        NirPlaceKind::UnresolvedName(name) => format!("unresolved({name})"),
         NirPlaceKind::Deref { addr } => format!("*{}", value_summary(addr)),
         NirPlaceKind::Index {
             base_addr,

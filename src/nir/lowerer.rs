@@ -779,8 +779,7 @@ impl NirBuilder {
         }
     }
 
-    fn finish(mut self) -> (NirRoutine, Vec<NirStaticData>, u32) {
-        self.resolve_storage_places();
+    fn finish(self) -> (NirRoutine, Vec<NirStaticData>, u32) {
         (
             NirRoutine {
                 name: self.name,
@@ -793,62 +792,6 @@ impl NirBuilder {
             self.statics,
             self.next_static,
         )
-    }
-
-    fn resolve_storage_places(&mut self) {
-        let params = self
-            .params
-            .iter()
-            .map(|param| (param.name.clone(), param.id))
-            .collect::<BTreeMap<_, _>>();
-        let locals = self
-            .locals
-            .iter()
-            .filter(|local| {
-                matches!(
-                    local.backing,
-                    NirLocalBacking::Ordinary | NirLocalBacking::Alias { .. }
-                )
-            })
-            .map(|local| (local.name.clone(), local.id))
-            .collect::<BTreeMap<_, _>>();
-        let local_absolutes = self
-            .locals
-            .iter()
-            .filter_map(|local| match local.backing {
-                NirLocalBacking::Absolute(address) => Some((local.name.clone(), address)),
-                NirLocalBacking::Ordinary
-                | NirLocalBacking::Alias { .. }
-                | NirLocalBacking::GlobalAlias { .. } => None,
-            })
-            .collect::<BTreeMap<_, _>>();
-        let local_global_aliases = self
-            .locals
-            .iter()
-            .filter_map(|local| match &local.backing {
-                NirLocalBacking::GlobalAlias {
-                    target,
-                    target_name,
-                    offset,
-                } => Some((local.name.clone(), (*target, target_name.clone(), *offset))),
-                NirLocalBacking::Ordinary
-                | NirLocalBacking::Absolute(_)
-                | NirLocalBacking::Alias { .. } => None,
-            })
-            .collect::<BTreeMap<_, _>>();
-        let storage = StorageNameResolution {
-            params,
-            locals,
-            local_absolutes,
-            local_global_aliases,
-            globals: self.global_ids.clone(),
-        };
-
-        for block in &mut self.blocks {
-            for op in &mut block.ops {
-                resolve_op_places(op, &storage);
-            }
-        }
     }
 
     fn push(&mut self, op: NirOp) {
@@ -1401,21 +1344,15 @@ impl NirBuilder {
                 let ty = self
                     .symbol_storage_type(&symbol.name)
                     .unwrap_or_else(|| NirFacts::type_from_value(&expr.ty));
-                self.push_load(
-                    dest,
-                    ty.clone(),
-                    NirPlace {
-                        kind: NirPlaceKind::Symbol(symbol.name.clone()),
-                        ty: Some(ty.clone()),
-                    },
-                    symbol.is_volatile,
-                );
+                let place = self.resolved_symbol_place(&symbol.name, Some(ty.clone()));
+                self.push_load(dest, ty.clone(), place, symbol.is_volatile);
                 Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::AddressOf(lvalue) => {
+                let source_name = lvalue_symbol_name(lvalue);
                 let place = self.lower_place(lvalue);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                Some(self.addr_of_place(place, ty))
+                Some(self.addr_of_place(place, ty, source_name))
             }
             SemExprKind::AddressOfSymbol(symbol) => {
                 let place_ty = symbol
@@ -1423,17 +1360,15 @@ impl NirBuilder {
                     .as_ref()
                     .map(NirType::from_value)
                     .or_else(|| Some(NirFacts::type_from_value(&expr.ty)));
-                let place = NirPlace {
-                    kind: NirPlaceKind::Symbol(symbol.name.clone()),
-                    ty: place_ty,
-                };
+                let place = self.resolved_symbol_place(&symbol.name, place_ty);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                Some(self.addr_of_place(place, ty))
+                Some(self.addr_of_place(place, ty, Some(&symbol.name)))
             }
             SemExprKind::ImplicitAddressOf(address) => {
+                let source_name = lvalue_symbol_name(&address.place);
                 let place = self.lower_place(&address.place);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                Some(self.addr_of_place(place, ty))
+                Some(self.addr_of_place(place, ty, source_name))
             }
             SemExprKind::ArrayDecay(decay) => {
                 if decay.origin == SemArrayOrigin::Parameter
@@ -1443,9 +1378,10 @@ impl NirBuilder {
                     let ty = NirFacts::type_from_value(&expr.ty);
                     return Some(self.load_place_value(place, ty));
                 }
+                let source_name = lvalue_symbol_name(&decay.array);
                 let place = self.lower_place(&decay.array);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                Some(self.addr_of_place(place, ty))
+                Some(self.addr_of_place(place, ty, source_name))
             }
             SemExprKind::Call(call) if NirClassifier::is_index_call_syntax(call) => {
                 let is_volatile = matches!(
@@ -1509,8 +1445,13 @@ impl NirBuilder {
         NirValue::StaticAddr { id, name, ty }
     }
 
-    fn addr_of_place(&mut self, place: NirPlace, ty: NirType) -> NirValue {
-        if let NirPlaceKind::Symbol(name) = &place.kind
+    fn addr_of_place(
+        &mut self,
+        place: NirPlace,
+        ty: NirType,
+        source_name: Option<&str>,
+    ) -> NirValue {
+        if let Some(name) = source_name
             && let Some(address) = self
                 .absolute_array_value_addresses
                 .get(&storage_key(name))
@@ -1536,32 +1477,106 @@ impl NirBuilder {
 
     fn lower_place(&mut self, lvalue: &SemLValue) -> NirPlace {
         let ty = self.lvalue_storage_type(lvalue);
-        let kind = match &lvalue.kind {
+        match &lvalue.kind {
             SemLValueKind::Symbol(symbol) => {
                 if let Some(address) = lvalue.storage.as_ref().and_then(|storage| storage.address) {
-                    NirPlaceKind::Absolute(address)
+                    NirPlace {
+                        kind: NirPlaceKind::Absolute(address),
+                        ty,
+                    }
                 } else {
-                    NirPlaceKind::Symbol(symbol.name.clone())
+                    self.resolved_symbol_place(&symbol.name, ty)
                 }
             }
-            SemLValueKind::UnresolvedName(name) => NirPlaceKind::UnresolvedName(name.clone()),
+            SemLValueKind::UnresolvedName(name) => {
+                panic!("unresolved storage name `{name}` must be diagnosed before NIR lowering")
+            }
             SemLValueKind::Deref { pointer } => {
                 let addr = self.nir_value(pointer);
-                NirPlaceKind::Deref { addr }
+                NirPlace {
+                    kind: NirPlaceKind::Deref { addr },
+                    ty,
+                }
             }
             SemLValueKind::Index {
                 base,
                 index,
                 element_type,
                 ..
-            } => self.lower_index_place(base, index, element_type),
-            SemLValueKind::Field { base, field } => NirPlaceKind::Field {
-                base: Box::new(self.lower_place(base)),
-                offset: field.offset.unwrap_or(0),
-                ty: NirFacts::type_from_value(&field.ty),
+            } => NirPlace {
+                kind: self.lower_index_place(base, index, element_type),
+                ty,
             },
-        };
-        NirPlace { kind, ty }
+            SemLValueKind::Field { base, field } => NirPlace {
+                kind: NirPlaceKind::Field {
+                    base: Box::new(self.lower_place(base)),
+                    offset: field.offset.unwrap_or(0),
+                    ty: NirFacts::type_from_value(&field.ty),
+                },
+                ty,
+            },
+        }
+    }
+
+    fn resolved_symbol_place(&self, name: &str, ty: Option<NirType>) -> NirPlace {
+        if let Some(local) = self.locals.iter().find(|local| local.name == name) {
+            let kind = match &local.backing {
+                NirLocalBacking::Absolute(address) => NirPlaceKind::Absolute(*address),
+                NirLocalBacking::GlobalAlias {
+                    target,
+                    target_name,
+                    offset,
+                } => {
+                    let ty = ty.clone().unwrap_or(NirType {
+                        kind: NirTypeKind::U8,
+                        summary: "Byte".to_string(),
+                        width: Some(1),
+                        pointer: false,
+                    });
+                    NirPlaceKind::Field {
+                        base: Box::new(NirPlace {
+                            kind: NirPlaceKind::Global {
+                                id: *target,
+                                name: target_name.clone(),
+                            },
+                            ty: Some(ty.clone()),
+                        }),
+                        offset: *offset,
+                        ty,
+                    }
+                }
+                NirLocalBacking::Ordinary | NirLocalBacking::Alias { .. } => NirPlaceKind::Local {
+                    id: local.id,
+                    name: name.to_string(),
+                },
+            };
+            return NirPlace { kind, ty };
+        }
+        if let Some(param) = self.params.iter().find(|param| param.name == name) {
+            return NirPlace {
+                kind: NirPlaceKind::Param {
+                    id: param.id,
+                    name: name.to_string(),
+                },
+                ty,
+            };
+        }
+        if let Some(id) = self.global_ids.get(name).copied() {
+            return NirPlace {
+                kind: NirPlaceKind::Global {
+                    id,
+                    name: name.to_string(),
+                },
+                ty,
+            };
+        }
+        if let Some(address) = builtin_variable_address(name) {
+            return NirPlace {
+                kind: NirPlaceKind::Absolute(address),
+                ty,
+            };
+        }
+        panic!("resolved storage symbol `{name}` has no NIR storage identity")
     }
 
     fn lvalue_storage_type(&self, lvalue: &SemLValue) -> Option<NirType> {
@@ -1613,17 +1628,15 @@ impl NirBuilder {
             .expect("index call syntax has one argument");
         let elem_ty = NirFacts::type_from_value(ty);
         let elem_size = self.element_width(ty).unwrap_or(1);
-        let place = NirPlace {
-            kind: NirPlaceKind::Symbol(symbol.name.clone()),
-            ty: symbol.ty.as_ref().map(NirType::from_value),
-        };
+        let place =
+            self.resolved_symbol_place(&symbol.name, symbol.ty.as_ref().map(NirType::from_value));
         let pointer_ty = pointer_type_to(ty);
         let base_addr = if matches!(symbol.class, crate::semantic::SymbolClass::Param) {
             self.load_place_value(place, pointer_ty)
         } else if let Some(address) = self.absolute_index_base_for_name(&symbol.name) {
             NirValue::ConstU16(address)
         } else {
-            self.addr_of_place(place, pointer_ty)
+            self.addr_of_place(place, pointer_ty, Some(&symbol.name))
         };
         NirPlace {
             kind: NirPlaceKind::Index {
@@ -1661,23 +1674,18 @@ impl NirBuilder {
             && matches!(symbol.class, crate::semantic::SymbolClass::Param)
         {
             let pointer_ty = pointer_type_to(element_type);
-            let place = NirPlace {
-                kind: NirPlaceKind::Symbol(symbol.name.clone()),
-                ty: Some(pointer_ty.clone()),
-            };
+            let place = self.resolved_symbol_place(&symbol.name, Some(pointer_ty.clone()));
             return self.load_place_value(place, pointer_ty);
         }
 
         let place = match &base.kind {
-            SemExprKind::Symbol(symbol) => NirPlace {
-                kind: NirPlaceKind::Symbol(symbol.name.clone()),
-                ty: symbol.ty.as_ref().map(NirType::from_value),
-            },
+            SemExprKind::Symbol(symbol) => self
+                .resolved_symbol_place(&symbol.name, symbol.ty.as_ref().map(NirType::from_value)),
             SemExprKind::LValue(lvalue) => self.lower_place(lvalue),
             _ => return self.nir_value(base),
         };
         let pointer_ty = pointer_type_to(element_type);
-        self.addr_of_place(place, pointer_ty)
+        self.addr_of_place(place, pointer_ty, None)
     }
 
     fn absolute_array_base_address(&self, base: &SemExpr) -> Option<u16> {
@@ -3302,90 +3310,6 @@ fn builtin_variable_type(name: &str) -> Option<NirType> {
         },
         ResidentVariableKind::ByteArray { .. } => pointer_type_to(&ValueType::fund(FundType::Byte)),
     })
-}
-
-struct StorageNameResolution {
-    params: BTreeMap<String, ParamId>,
-    locals: BTreeMap<String, LocalId>,
-    local_absolutes: BTreeMap<String, u16>,
-    local_global_aliases: BTreeMap<String, (SymbolId, String, u16)>,
-    globals: BTreeMap<String, SymbolId>,
-}
-
-fn resolve_op_places(op: &mut NirOp, storage: &StorageNameResolution) {
-    match op {
-        NirOp::Load { place, .. }
-        | NirOp::VolatileLoad { place, .. }
-        | NirOp::AddrOf { place, .. }
-        | NirOp::Store { place, .. }
-        | NirOp::VolatileStore { place, .. } => {
-            resolve_place_storage(place, storage);
-        }
-        NirOp::RuntimeHelperOverride { .. } => {}
-        NirOp::Unary { .. }
-        | NirOp::Cast { .. }
-        | NirOp::Binary { .. }
-        | NirOp::Compare { .. }
-        | NirOp::Call { .. }
-        | NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. } => {}
-    }
-}
-
-fn resolve_place_storage(place: &mut NirPlace, storage: &StorageNameResolution) {
-    match &mut place.kind {
-        NirPlaceKind::Symbol(name) => {
-            if let Some(address) = storage.local_absolutes.get(name).copied() {
-                place.kind = NirPlaceKind::Absolute(address);
-            } else if let Some((id, target_name, offset)) =
-                storage.local_global_aliases.get(name).cloned()
-            {
-                let ty = place.ty.clone().unwrap_or(NirType {
-                    kind: NirTypeKind::U8,
-                    summary: "Byte".to_string(),
-                    width: Some(1),
-                    pointer: false,
-                });
-                place.kind = NirPlaceKind::Field {
-                    base: Box::new(NirPlace {
-                        kind: NirPlaceKind::Global {
-                            id,
-                            name: target_name,
-                        },
-                        ty: Some(ty.clone()),
-                    }),
-                    offset,
-                    ty,
-                };
-            } else if let Some(id) = storage.locals.get(name).copied() {
-                place.kind = NirPlaceKind::Local {
-                    id,
-                    name: name.clone(),
-                };
-            } else if let Some(id) = storage.params.get(name).copied() {
-                place.kind = NirPlaceKind::Param {
-                    id,
-                    name: name.clone(),
-                };
-            } else if let Some(id) = storage.globals.get(name).copied() {
-                place.kind = NirPlaceKind::Global {
-                    id,
-                    name: name.clone(),
-                };
-            } else if let Some(address) = builtin_variable_address(name) {
-                place.kind = NirPlaceKind::Absolute(address);
-            }
-        }
-        NirPlaceKind::Deref { .. } => {}
-        NirPlaceKind::Index { .. } => {}
-        NirPlaceKind::Field { base, .. } => resolve_place_storage(base, storage),
-        NirPlaceKind::Param { .. }
-        | NirPlaceKind::Local { .. }
-        | NirPlaceKind::Global { .. }
-        | NirPlaceKind::Absolute(_)
-        | NirPlaceKind::UnresolvedName(_) => {}
-    }
 }
 
 fn pointer_type_to(pointee: &ValueType) -> NirType {

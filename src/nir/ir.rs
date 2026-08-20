@@ -173,7 +173,6 @@ pub struct NirPlace {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirPlaceKind {
-    Symbol(String),
     Param {
         id: ParamId,
         name: String,
@@ -187,7 +186,6 @@ pub enum NirPlaceKind {
         name: String,
     },
     Absolute(u16),
-    UnresolvedName(String),
     Deref {
         addr: NirValue,
     },
