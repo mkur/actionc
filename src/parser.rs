@@ -4287,6 +4287,40 @@ mod tests {
     }
 
     #[test]
+    fn lexical_block_words_remain_ordinary_names() {
+        let tokens = tokenize(
+            "TYPE Begin=[BYTE End] Begin value PROC Main(Begin POINTER begin) \
+             Begin POINTER end begin.End=1 End() RETURN PROC End() RETURN",
+        )
+        .unwrap();
+        let program = parse(&tokens).unwrap();
+
+        assert!(matches!(
+            program.modules[0].items[0],
+            Item::Declaration(Decl::Type(ref decl)) if decl.name == "Begin"
+        ));
+        assert!(matches!(
+            program.modules[0].items[1],
+            Item::Declaration(Decl::Var(ref decl))
+                if decl.entries[0].name == "value"
+        ));
+        let Item::Routine(main) = &program.modules[0].items[2] else {
+            panic!("expected Main routine");
+        };
+        assert_eq!(main.params[0].entries[0].name, "begin");
+        assert!(matches!(
+            main.locals[0],
+            Decl::Var(ref decl) if decl.entries[0].name == "end"
+        ));
+        assert!(matches!(main.body[0], Stmt::Assign { .. }));
+        assert!(matches!(main.body[1], Stmt::Call { .. }));
+        assert!(matches!(
+            program.modules[0].items[3],
+            Item::Routine(ref routine) if routine.name == "End"
+        ));
+    }
+
+    #[test]
     fn parses_colon_separated_statements() {
         let tokens = tokenize("PROC Main() x=1:y==+1:Print(x):RETURN").unwrap();
         let program = parse(&tokens).unwrap();

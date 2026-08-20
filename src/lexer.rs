@@ -1139,6 +1139,26 @@ mod tests {
     }
 
     #[test]
+    fn lexical_block_words_remain_identifiers() {
+        let tokens = tokenize("BEGIN END Begin End begin end").unwrap();
+        let identifiers = tokens
+            .iter()
+            .filter_map(|token| match &token.kind {
+                TokenKind::Ident(name) => Some(name.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            identifiers,
+            ["BEGIN", "END", "Begin", "End", "begin", "end"]
+        );
+        assert!(tokens[..tokens.len() - 1]
+            .iter()
+            .all(|token| token.kind.action_token_id().is_none()));
+    }
+
+    #[test]
     fn maps_punctuation_to_compiler_def_token_ids() {
         let cases = [
             ("+", 1),
