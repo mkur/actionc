@@ -222,10 +222,14 @@ Runtime selection is independent of profile and backend:
   into the generated program and never silently falls back to a cartridge
   address.
 
-Both classic and MIR6502 support standalone output. The initial experimental
-surface covers compiler-required Action ABI argument-copy and integer
-arithmetic helpers. A referenced resident routine without a standalone binding
-fails at compile time; select the cart runtime until that routine is available.
+Both classic and MIR6502 support standalone output. The experimental surface
+includes compiler-required argument-copy and integer-arithmetic helpers plus
+migrated block-memory, string, miscellaneous, graphics, and core I/O resident
+routines. Traditional single-file programs call these routines by their usual
+unqualified names, such as `Zero`, `SCopy`, `Position`, `Print`, and `PutE`;
+no source-level module declaration or import is required. Coverage is not yet
+complete. A referenced resident routine without a standalone binding fails at
+compile time; select the cart runtime until that routine is available.
 
 Runtime selections appear in generated maps and MADS listings. `--emit-map`
 prints `runtime` and `runtime-binding` records; listings use corresponding

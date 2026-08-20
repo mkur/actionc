@@ -113,15 +113,18 @@ the cart address while claiming to be standalone.
 
 ### Compatibility prelude
 
-Traditional unqualified resident names remain available with the cart runtime.
-Standalone compilation rejects such a call when no runtime-neutral binding has
-been implemented, rather than retaining its cartridge address. The initial
-standalone system-library surface is imported explicitly from `SYS`:
+Traditional unqualified resident names remain available through an implicit
+compatibility prelude. When a routine has migrated, its unqualified spelling
+and `SYS` member are aliases of one symbol and select either the cart or
+standalone implementation. Standalone compilation still rejects an unmigrated
+resident call rather than retaining its cartridge address. During the
+standalone rollout, ordinary source continues to use the traditional
+unqualified spelling; the `SYS` identity remains compiler-owned infrastructure.
 
-```action
-IMPORT SYS
-SYS.Zero(buffer,256)
-```
+The full interface is available during semantic analysis, but SemIR retains
+only external routines referenced by executable code or static data. The
+implicit prelude therefore does not add unused routines to NIR, maps, or the
+generated program.
 
 Additional resident names can migrate to aliases of the same `SYS` identities
 as their standalone implementations are added. The prelude must not become a

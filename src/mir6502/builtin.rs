@@ -51,6 +51,7 @@ pub(super) const BUILTIN_TARGETS: &[MirBuiltinEntry] = &[
     resolved("InputS", 0xA48C),
     resolved("InputSD", 0xA493),
     resolved("InputMD", 0xA499),
+    resolved("InputD", 0xA4A7),
     resolved("GetD", 0xA4AD),
     resolved("Open", 0xA444),
     resolved("Close", 0xA479),

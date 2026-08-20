@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::OnceLock;
 
 use crate::runtime::Runtime;
 use crate::runtime_bindings::{BindingTarget, binding_key, parse_bindings};
+use crate::runtime_source::{RuntimeImage, RuntimeUnit, resolve_runtime_unit};
 
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
@@ -11,13 +11,14 @@ use super::ir::{
     RoutineId,
 };
 
-static SYSBLK_MIR: OnceLock<Result<MirProgram, Vec<MirDiagnostic>>> = OnceLock::new();
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ResolvedTarget {
     Absolute(u16),
     Routine(RoutineId),
 }
+
+const RESIDENT_MODULE: &str = "ACTION.RUNTIME.RESIDENT";
+const RESIDENT_LINK_MODULE: &str = "ACTION_RUNTIME_RESIDENT";
 
 pub(super) fn resolve_interfaces(
     program: &mut MirProgram,
@@ -55,8 +56,8 @@ pub(super) fn resolve_interfaces(
             }
         }
         Runtime::Standalone => {
-            let mut sysblk_roots = BTreeMap::<RoutineId, RoutineId>::new();
-            let sysblk = sysblk_mir()?;
+            let interface_signatures = sys_interface_signatures()?;
+            let mut external_roots = BTreeMap::<RoutineId, (RuntimeUnit, String)>::new();
             for id in &referenced {
                 let name = &external[id];
                 let Some(binding) = bindings.get(&binding_key(name)) else {
@@ -67,46 +68,54 @@ pub(super) fn resolve_interfaces(
                         "standalone binding for external `{name}` is an absolute address"
                     )));
                 };
-                if !unit.eq_ignore_ascii_case("SYSBLK") {
-                    return Err(diagnostic(format!(
-                        "standalone binding for external `{name}` references unsupported runtime unit `{unit}`"
-                    )));
-                }
+                let unit = resolve_runtime_unit(unit).map_err(frontend_diagnostics)?;
+                external_roots.insert(*id, (unit, routine.clone()));
+            }
+
+            let (runtime_image, runtime) = super::standalone::compile_runtime_image_with_semir()?;
+            let mut implementation_roots = BTreeMap::new();
+            for (external_id, (unit, routine)) in external_roots {
+                let interface_name = &external[&external_id];
+                validate_semantic_abi(
+                    interface_name,
+                    &interface_signatures,
+                    &runtime_image,
+                    &unit,
+                    &routine,
+                )?;
                 let implementation =
-                    find_runtime_routine(&sysblk, "ACTION_RUNTIME_SYSBLK", routine)?;
+                    find_runtime_routine(&runtime, RESIDENT_LINK_MODULE, &routine)?;
                 validate_abi(
                     program
                         .routines
                         .iter()
-                        .find(|candidate| candidate.id == *id)
+                        .find(|candidate| candidate.id == external_id)
                         .expect("external routine exists"),
-                    sysblk
+                    runtime
                         .routines
                         .iter()
                         .find(|candidate| candidate.id == implementation)
                         .expect("runtime routine exists"),
                 )?;
-                sysblk_roots.insert(*id, implementation);
+                implementation_roots.insert(external_id, implementation);
             }
-
-            if !sysblk_roots.is_empty() {
-                let selected = super::standalone::dependency_closure(
-                    &sysblk,
-                    sysblk_roots.values().copied().collect(),
-                )?;
-                let rebase = super::standalone::append_runtime_closure(
-                    program,
-                    &sysblk,
-                    &selected,
-                    "ACTION.RUNTIME.SYSBLK",
-                    "ACTION_RUNTIME_SYSBLK",
-                )?;
-                for (external_id, implementation) in sysblk_roots {
-                    resolved.insert(
-                        external_id,
-                        ResolvedTarget::Routine(rebase[&implementation]),
-                    );
-                }
+            let selected = super::standalone::dependency_closure(
+                &runtime,
+                implementation_roots.values().copied().collect(),
+            )?;
+            let rebase = super::standalone::append_runtime_closure(
+                program,
+                &runtime,
+                &selected,
+                RESIDENT_MODULE,
+                RESIDENT_LINK_MODULE,
+            )?;
+            super::standalone::append_runtime_helper_requirements(program, &runtime, &selected)?;
+            for (external_id, implementation) in implementation_roots {
+                resolved.insert(
+                    external_id,
+                    ResolvedTarget::Routine(rebase[&implementation]),
+                );
             }
         }
     }
@@ -118,12 +127,74 @@ pub(super) fn resolve_interfaces(
     Ok(())
 }
 
-fn sysblk_mir() -> Result<MirProgram, Vec<MirDiagnostic>> {
-    SYSBLK_MIR
-        .get_or_init(|| {
-            super::standalone::compile_runtime_unit("sysblk.act", "ACTION.RUNTIME.SYSBLK")
+fn sys_interface_signatures()
+-> Result<BTreeMap<String, crate::semantic::ir::SemRoutineSignature>, Vec<MirDiagnostic>> {
+    let program =
+        crate::runtime_source::compile_embedded_module("sys.act").map_err(frontend_diagnostics)?;
+    Ok(program
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            crate::semantic::ir::SemItem::Routine(routine) if routine.is_external => Some((
+                binding_key(&routine.symbol.qualified_name),
+                routine.signature.clone(),
+            )),
+            _ => None,
         })
-        .clone()
+        .collect())
+}
+
+fn validate_semantic_abi(
+    interface_name: &str,
+    interfaces: &BTreeMap<String, crate::semantic::ir::SemRoutineSignature>,
+    runtime: &RuntimeImage,
+    unit: &RuntimeUnit,
+    expected: &str,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let Some(interface) = interfaces.get(&binding_key(interface_name)) else {
+        return Err(diagnostic(format!(
+            "authoritative SYS interface has no external `{interface_name}`"
+        )));
+    };
+    let implementation_unit = runtime.routine_units.get(&expected.to_ascii_uppercase());
+    if implementation_unit != Some(unit) {
+        return Err(diagnostic(format!(
+            "embedded {} has no implementation routine `{expected}`",
+            unit.name
+        )));
+    }
+    let implementation = runtime
+        .semir
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .find_map(|item| match item {
+            crate::semantic::ir::SemItem::Routine(routine)
+                if routine
+                    .symbol
+                    .qualified_name
+                    .rsplit('.')
+                    .next()
+                    .is_some_and(|name| name.eq_ignore_ascii_case(expected)) =>
+            {
+                Some(routine)
+            }
+            _ => None,
+        });
+    let Some(implementation) = implementation else {
+        return Err(diagnostic(format!(
+            "embedded {} has no implementation routine `{expected}`",
+            unit.name
+        )));
+    };
+    if interface != &implementation.signature {
+        return Err(diagnostic(format!(
+            "ABI mismatch between external `{interface_name}` and runtime implementation `{}.{expected}`",
+            unit.name
+        )));
+    }
+    Ok(())
 }
 
 fn find_runtime_routine(
@@ -466,8 +537,8 @@ mod tests {
     fn embedded_sys_bindings_are_unique_and_runtime_specific() {
         let cart = parse_bindings(Runtime::ActionCart).expect("cart bindings");
         let standalone = parse_bindings(Runtime::Standalone).expect("standalone bindings");
-        assert_eq!(cart.len(), 3);
-        assert_eq!(standalone.len(), 3);
+        assert_eq!(cart.len(), 64);
+        assert_eq!(standalone.len(), 64);
         assert_eq!(cart["SYS.ZERO"], BindingTarget::Absolute(0xA78A));
         assert_eq!(
             standalone["SYS.ZERO"],
@@ -476,22 +547,102 @@ mod tests {
                 routine: "Zero".to_string(),
             }
         );
+        assert_eq!(cart["SYS.SCOMPARE"], BindingTarget::Absolute(0xA864));
+        assert_eq!(
+            standalone["SYS.SCOMPARE"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSSTR".to_string(),
+                routine: "SCompare".to_string(),
+            }
+        );
+        assert_eq!(cart["SYS.RAND"], BindingTarget::Absolute(0xA6F1));
+        assert_eq!(
+            standalone["SYS.RAND"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSMISC".to_string(),
+                routine: "Rand".to_string(),
+            }
+        );
+        assert_eq!(cart["SYS.GRAPHICS"], BindingTarget::Absolute(0xA654));
+        assert_eq!(
+            standalone["SYS.GRAPHICS"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSGR".to_string(),
+                routine: "Graphics".to_string(),
+            }
+        );
+        assert_eq!(cart["SYS.OPEN"], BindingTarget::Absolute(0xA444));
+        assert_eq!(
+            standalone["SYS.OPEN"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSIO".to_string(),
+                routine: "Open".to_string(),
+            }
+        );
+        assert_eq!(cart["SYS.INPUTD"], BindingTarget::Absolute(0xA4A7));
+        assert_eq!(
+            standalone["SYS.INPUTD"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSIO".to_string(),
+                routine: "InputD".to_string(),
+            }
+        );
+        assert_eq!(cart["SYS.PRINTBDE"], BindingTarget::Absolute(0xA508));
+        assert_eq!(
+            standalone["SYS.PRINTBDE"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSIO".to_string(),
+                routine: "PrintBDE".to_string(),
+            }
+        );
     }
 
     #[test]
-    fn embedded_sysblk_compiles_as_an_isolated_runtime_unit() {
-        let runtime = sysblk_mir().expect("compile SYSBLK");
+    fn embedded_binding_unit_compiles_without_unit_specific_resolver_code() {
+        let unit = resolve_runtime_unit("SYSBLK").expect("SYSBLK unit");
+        let runtime =
+            super::super::standalone::compile_runtime_unit(&unit.file_name, &unit.module_name)
+                .expect("compile SYSBLK");
         for expected in ["Zero", "SetBlock", "MoveBlock"] {
-            find_runtime_routine(&runtime, "ACTION_RUNTIME_SYSBLK", expected)
+            find_runtime_routine(&runtime, &unit.link_module, expected)
                 .unwrap_or_else(|diagnostics| panic!("{expected}: {diagnostics:?}"));
         }
-        let zero = find_runtime_routine(&runtime, "ACTION_RUNTIME_SYSBLK", "Zero")
-            .expect("Zero implementation");
-        let set_block = find_runtime_routine(&runtime, "ACTION_RUNTIME_SYSBLK", "SetBlock")
+        let zero =
+            find_runtime_routine(&runtime, &unit.link_module, "Zero").expect("Zero implementation");
+        let set_block = find_runtime_routine(&runtime, &unit.link_module, "SetBlock")
             .expect("SetBlock implementation");
         let closure =
             super::super::standalone::dependency_closure(&runtime, [zero].into_iter().collect())
                 .expect("Zero dependency closure");
         assert_eq!(closure, [zero, set_block].into_iter().collect());
+    }
+
+    #[test]
+    fn a_second_embedded_binding_unit_uses_the_same_resolver_path() {
+        let unit = resolve_runtime_unit("SYSSTR").expect("SYSSTR unit");
+        let runtime =
+            super::super::standalone::compile_runtime_unit(&unit.file_name, &unit.module_name)
+                .expect("compile SYSSTR");
+        for expected in ["SCompare", "SCopy", "SCopyS", "SAssign"] {
+            find_runtime_routine(&runtime, &unit.link_module, expected)
+                .unwrap_or_else(|diagnostics| panic!("{expected}: {diagnostics:?}"));
+        }
+        let scompare = find_runtime_routine(&runtime, &unit.link_module, "SCompare")
+            .expect("SCompare implementation");
+        let scompare_closure = super::super::standalone::dependency_closure(
+            &runtime,
+            [scompare].into_iter().collect(),
+        )
+        .expect("SCompare dependency closure");
+        assert_eq!(scompare_closure, [scompare].into_iter().collect());
+
+        let scopy = find_runtime_routine(&runtime, &unit.link_module, "SCopy")
+            .expect("SCopy implementation");
+        let scopys = find_runtime_routine(&runtime, &unit.link_module, "SCopyS")
+            .expect("SCopyS implementation");
+        let scopys_closure =
+            super::super::standalone::dependency_closure(&runtime, [scopys].into_iter().collect())
+                .expect("SCopyS dependency closure");
+        assert_eq!(scopys_closure, [scopy, scopys].into_iter().collect());
     }
 }

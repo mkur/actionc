@@ -200,6 +200,7 @@ more probes say otherwise.
 | `InputS` | `PROC` | `PROC InputS(<string>)` | `$A48C` | `resident_input.act` emits `JSR $A48C` |
 | `InputSD` | `PROC` | `PROC InputSD(BYTE d,<string>)` | `$A493` | `resident_input.act` emits `JSR $A493` |
 | `InputMD` | `PROC` | `PROC InputMD(BYTE d,<string>,BYTE m)` | `$A499` | `resident_input.act` emits `JSR $A499`; `SYS.ACT` declares the signature |
+| `InputD` | `PROC` | `PROC InputD(BYTE d,<string>)` | `$A4A7` | Focused VM probe with an explicit declaration emits `JSR $A4A7`; execution reaches the `JSR InS` / `JMP ChkErr` body. The cartridge compiler omits the public symbol. |
 | `GetD` | `CHAR FUNC` | `CHAR FUNC GetD(BYTE d)` | `$A4AD` | `resident_input.act` emits `JSR $A4AD` |
 | `Open` | `PROC` | `PROC Open(BYTE d,<filestring>,BYTE m,a2)` | `$A444` | `resident_file.act` emits `JSR $A444` |
 | `Close` | `PROC` | `PROC Close(BYTE d)` | `$A479` | `resident_file.act` emits `JSR $A479` |

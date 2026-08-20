@@ -565,6 +565,19 @@ fn add_builtin_routine_info(routines: &mut HashMap<String, RoutineInfo>) {
             effects: RoutineEffects::unknown(),
         });
     routines
+        .entry(normalize_name("InputD"))
+        .or_insert_with(|| RoutineInfo {
+            label: "builtin:InputD".to_string(),
+            params: vec![
+                StorageSlot::zero_page(runtime_zp::ARGS.address(), 1),
+                StorageSlot::zero_page(runtime_zp::ARGS.offset(1).address(), 2),
+            ],
+            return_slot: None,
+            system_address: Some(0xA4A7),
+            facts: RoutineFacts::default(),
+            effects: RoutineEffects::unknown(),
+        });
+    routines
         .entry(normalize_name("XIO"))
         .or_insert_with(|| RoutineInfo {
             label: "builtin:XIO".to_string(),

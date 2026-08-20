@@ -531,6 +531,30 @@ fn lowers_word_routine_addresses_to_descriptor_backing_relocations() {
 }
 
 #[test]
+fn unsized_string_initializer_is_inline_array_storage_not_a_pointer_cell() {
+    let source = "BYTE ARRAY text=\"ABC\"";
+    let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+    let ast = crate::parser::parse(&tokens).expect("parse source");
+    let model = crate::semantic::analyze(&ast).expect("analyze source");
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let program = lower_program(&semir);
+
+    verify_program(&program).expect("string-initialized array should verify");
+    let text = program
+        .globals
+        .iter()
+        .find(|global| global.name == "text")
+        .expect("text global");
+    assert!(matches!(text.init, Some(NirGlobalInit::Bytes { .. })));
+    assert!(
+        text.array
+            .as_ref()
+            .is_some_and(|array| !array.pointer_backed),
+        "inline string bytes must decay to their storage address: {text:#?}"
+    );
+}
+
+#[test]
 fn data_relocation_targets_are_address_observable_storage_roots() {
     let source = "PROC Main() BYTE value BYTE ARRAY refs(2)=[<value >value] value=1 RETURN";
     let tokens = crate::lexer::tokenize(source).expect("tokenize source");
@@ -911,6 +935,41 @@ fn routine_local_machine_defines_do_not_leak_between_routines() {
     assert_eq!(
         routine_machine_bytes("Two"),
         vec![NirMachineItem::Byte(0x60)]
+    );
+}
+
+#[test]
+fn named_module_machine_defines_expand_by_resolved_identity() {
+    let root = SourceOrigin::host("project/runtime.act");
+    let provider = InMemorySourceProvider::default().with_source(
+        root.clone(),
+        b"MODULE RUNTIME\nDEFINE EOL=\"$9B\"\nPROC PutE=*()[$A9 EOL]\nENDMODULE\n".to_vec(),
+    );
+    let loaded = load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default())
+        .expect("load named runtime module");
+    let model = crate::semantic::analyze_compilation(&loaded).expect("analyze runtime module");
+    let semir = crate::semantic::ir::lower_compilation(&loaded, &model);
+    let program = lower_program(&semir);
+
+    verify_program(&program).expect("named-module machine DEFINE should verify");
+    let put_e = program
+        .routines
+        .iter()
+        .find(|routine| routine.name.to_ascii_uppercase().contains("PUTE"))
+        .expect("PutE routine");
+    let items = put_e
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            NirOp::MachineBlock { items, .. } => Some(items.as_slice()),
+            _ => None,
+        })
+        .expect("PutE machine block");
+
+    assert_eq!(
+        items,
+        [NirMachineItem::Byte(0xA9), NirMachineItem::Byte(0x9B)]
     );
 }
 

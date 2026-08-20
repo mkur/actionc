@@ -5,11 +5,17 @@ This isolated harness runs generated Action! objects through the reusable
 revision and is deliberately absent from the root `actionc` manifest, so normal
 compiler builds do not resolve or compile the VM.
 
-The VM repository is private. Run the tests from this directory so Cargo reads
-`.cargo/config.toml` and uses the Git CLI's configured credentials:
+Run the tests from this directory so Cargo reads `.cargo/config.toml` and uses
+the pinned `actionc-vm` revision:
 
 ```sh
 cargo test --locked
+```
+
+The selectively linked standalone-library groups can be exercised together:
+
+```sh
+cargo test --locked selectively_linked_
 ```
 
 Self-contained fixtures use the VM's standalone-object profile and need no

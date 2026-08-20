@@ -1,0 +1,9 @@
+; Exercise standalone CIO output with the Atari OS but no Action! cartridge.
+
+PROC Main()
+  Print("value=")
+  PutE()
+
+  DO
+  OD
+RETURN

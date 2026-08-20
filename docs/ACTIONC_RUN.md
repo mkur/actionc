@@ -102,9 +102,13 @@ actionc-run [--mode compatibility|optimized|mir6502]
 the emulator exits. Temporary media remains available for that whole time and
 is removed afterward unless `--keep` was used.
 
-The experimental standalone runtime currently covers compiler arithmetic and
-argument-copy helpers. A source-level resident call without a standalone
-binding is rejected instead of retaining a hidden cartridge dependency.
+The experimental standalone runtime covers compiler arithmetic and
+argument-copy helpers plus migrated block-memory, string, miscellaneous,
+graphics, and core I/O resident routines. Ordinary single-file source keeps
+using traditional unqualified calls such as `Zero`, `SCopy`, `Position`,
+`Print`, and `PutE`; no module declaration or import is required. A resident
+call without a standalone binding is rejected instead of retaining a hidden
+cartridge dependency.
 Standalone programs that include embedded Action runtime code are subject to
 GPL-3.0-or-later; release archives carry the exact embedded runtime sources
 under `licenses/runtime-source/` and their provenance in
