@@ -6,6 +6,12 @@ floating-point package directly with a small machine-code harness. It does not
 exercise either actionc backend, so these values can be used as an independent
 codec and lowering oracle.
 
+The exact compiler-side codec lives in `src/atari_real.rs`. It parses decimal
+digits without using host binary floating point, requires full-token
+consumption, canonicalizes zero, and diagnoses values above the Atari range.
+The VM gate compares that codec directly with AFP across ordinary, signed,
+fractional, exponent, truncation, overflow-boundary, and underflow cases.
+
 ## Confirmed Interface
 
 | Purpose | Address |

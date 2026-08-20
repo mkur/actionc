@@ -1,3 +1,4 @@
+use actionc::atari_real::AtariReal;
 use actionc_vm::{CompilerVm, ExecutionProfile, RUNAD, RunRequest, StopReason, VmRunner};
 
 const LOAD_ADDRESS: u16 = 0x2000;
@@ -84,7 +85,9 @@ fn capture_program(routine: u16) -> Vec<u8> {
 }
 
 fn call_fpp(routine: u16, setup: impl FnOnce(&mut CompilerVm)) -> FppCapture {
-    let object = atari_object(&capture_program(routine));
+    let code = capture_program(routine);
+    let halt = LOAD_ADDRESS + code.len() as u16 - 3;
+    let object = atari_object(&code);
     let mut vm = CompilerVm::default();
     vm.load_bundled_altirra_os().expect("load AltirraOS");
     vm.load_atari_object_for_execution(ExecutionProfile::StandaloneObject, &object)
@@ -93,12 +96,12 @@ fn call_fpp(routine: u16, setup: impl FnOnce(&mut CompilerVm)) -> FppCapture {
 
     let outcome = VmRunner::new(vm).run(RunRequest {
         max_steps: 50_000,
+        stop_after_pc: Some(halt),
         history_len: 8,
-        ..RunRequest::default()
     });
     assert_eq!(
         outcome.stop_reason(),
-        StopReason::StepLimit { max_steps: 50_000 },
+        StopReason::PcReached { pc: halt },
         "unexpected VM stop: {:?}",
         outcome.report
     );
@@ -236,4 +239,36 @@ fn afp_rounding_and_range_vectors_are_stable() {
         [0x45, 0x01, 0x00, 0x00, 0x00, 0x00]
     );
     assert_eq!(excess_exponent_digit.cix, 4);
+}
+
+#[test]
+fn actionc_decimal_codec_matches_the_os_oracle() {
+    let cases = [
+        "0",
+        "-0",
+        "1",
+        "-1",
+        "1.",
+        ".5",
+        "0.00123",
+        "001.2300",
+        "12.345678956",
+        "1234567890",
+        "7E-2",
+        "123E-3",
+        "1E-98",
+        "1E-99",
+        "1E98",
+        "1E99",
+        "9.999999999E97",
+        "-98.765432109",
+    ];
+
+    for text in cases {
+        let compiler = AtariReal::from_decimal(text)
+            .unwrap_or_else(|error| panic!("compiler codec rejected {text:?}: {error}"));
+        let os = parse_ascii(text);
+        assert_eq!(compiler.to_bytes(), os.fr0(), "codec mismatch for {text:?}");
+        assert_eq!(os.cix as usize, text.len(), "AFP did not consume {text:?}");
+    }
 }
