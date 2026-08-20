@@ -854,7 +854,7 @@ impl NirBuilder {
                 let target = self.lower_place(target);
                 let target_ty = target.ty.clone().unwrap_or(fallback_ty);
                 let value = self.value(value);
-                self.compound_or_legacy(target, target_ty, *op, value, is_volatile);
+                self.compound_or_unsupported(target, target_ty, *op, value, is_volatile);
             }
             SemStmt::Call { call, .. } => {
                 if let Some(items) = self.machine_define_call_items(call) {
@@ -995,7 +995,7 @@ impl NirBuilder {
                     .as_ref()
                     .map(|step| self.value(step))
                     .unwrap_or(Some(NirValue::ConstU8(1)));
-                self.compound_or_legacy(target, target_ty, BinaryOp::Add, value, is_volatile);
+                self.compound_or_unsupported(target, target_ty, BinaryOp::Add, value, is_volatile);
                 self.finish_open_goto(&test_label);
                 self.loop_exits.pop();
                 self.start_block(after_label);
@@ -1244,7 +1244,7 @@ impl NirBuilder {
         }
     }
 
-    fn compound_or_legacy(
+    fn compound_or_unsupported(
         &mut self,
         target: NirPlace,
         target_ty: NirType,

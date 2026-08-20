@@ -7,23 +7,21 @@ use super::{
     analyze_program_storage,
 };
 
-const OP_KINDS: [&str; 16] = [
-    "define",
-    "set",
-    "declare",
-    "assign",
-    "compound_assign",
+const OP_KINDS: [&str; 14] = [
+    "runtime-helper-override",
     "load",
+    "volatile_load",
     "addr_of",
     "store",
+    "volatile_store",
     "unary",
     "cast",
     "binary",
     "compare",
     "call",
     "machine_block",
+    "inline_asm",
     "unsupported",
-    "note",
 ];
 
 const PLACE_KINDS: [&str; 7] = [
@@ -408,6 +406,14 @@ mod tests {
         assert_eq!(stats.routines, 1);
         assert_eq!(stats.blocks, 2);
         assert_eq!(stats.operations, 2);
+        assert_eq!(stats.operation_kinds.len(), OP_KINDS.len());
+        assert!(
+            OP_KINDS
+                .iter()
+                .all(|kind| stats.operation_kinds.contains_key(kind))
+        );
+        assert_eq!(stats.operation_kinds["load"], 1);
+        assert_eq!(stats.operation_kinds["store"], 1);
         assert_eq!(stats.temp_definitions, 1);
         assert_eq!(stats.cross_block_temp_uses, 1);
         assert_eq!(stats.loads.total, 1);
