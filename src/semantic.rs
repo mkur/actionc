@@ -1228,6 +1228,12 @@ impl Analyzer {
 
     fn analyze_stmt(&mut self, scope: ScopeId, stmt: &Stmt, context: ControlContext<'_>) {
         match stmt {
+            Stmt::LexicalBlock { span, .. } => {
+                self.diagnostics.push(Diagnostic::new(
+                    *span,
+                    "lexical blocks require Action 2027 semantic support",
+                ));
+            }
             Stmt::Define(define) => self.analyze_define(scope, define),
             Stmt::Return(expr) => self.validate_return(scope, expr.as_ref(), context.routine_kind),
             Stmt::Exit { span } if context.loop_depth == 0 => {
@@ -4139,6 +4145,7 @@ pub(super) fn routine_uses_machine_return(routine: &Routine) -> bool {
 
 fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize) -> StmtFlowFacts {
     match stmt {
+        Stmt::LexicalBlock { body, .. } => statement_list_flow_facts(body, loop_depth),
         Stmt::Return(_) => StmtFlowFacts {
             may_continue: false,
             may_return: true,
@@ -5040,6 +5047,17 @@ mod tests {
         assert!(locals.contains(&(&"tmp".to_string(), &SymbolClass::Var)));
         assert_eq!(model.routine_scopes[0].name, "Copy");
         assert_eq!(model.routine_scopes[0].scope, routine_scope);
+    }
+
+    #[test]
+    fn gates_parsed_lexical_blocks_before_semantic_support() {
+        let diagnostics =
+            analyze_source_err("PROC Main()\nBEGIN\nBYTE value\nvalue=1\nEND\nRETURN\n");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("lexical blocks require Action 2027 semantic support")
+        }));
     }
 
     #[test]

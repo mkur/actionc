@@ -405,8 +405,17 @@ pub enum FundType {
     Int,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct LexicalBlockSyntaxId(pub u32);
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stmt {
+    LexicalBlock {
+        syntax_id: LexicalBlockSyntaxId,
+        declarations: Vec<Decl>,
+        body: Vec<Stmt>,
+        span: Span,
+    },
     Define(DefineDecl),
     Return(Option<Expr>),
     Exit {

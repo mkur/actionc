@@ -40,6 +40,8 @@ struct Parser<'a> {
     known_non_type_defines: HashSet<String>,
     known_define_values: HashMap<String, String>,
     in_named_module: bool,
+    next_lexical_block_syntax_id: u32,
+    lexical_block_depth: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -51,6 +53,8 @@ impl<'a> Parser<'a> {
             known_non_type_defines: HashSet::new(),
             known_define_values: HashMap::new(),
             in_named_module: false,
+            next_lexical_block_syntax_id: 0,
+            lexical_block_depth: 0,
         }
     }
 
@@ -454,9 +458,22 @@ impl<'a> Parser<'a> {
             } else if self.check_keyword(Keyword::Proc) || self.is_func_decl_start() {
                 let annotations = std::mem::take(&mut pending_annotations);
                 items.push(Item::Routine(self.parse_routine(annotations, false)));
+            } else if self.is_bare_contextual_at(self.pos, "END") {
+                pending_annotations.clear();
+                let span = self.bump().span;
+                self.diagnostics
+                    .push(Diagnostic::new(span, "stray END without a matching BEGIN"));
             } else if self.is_statement_start() {
                 pending_annotations.clear();
-                items.push(Item::Statement(self.parse_statement()));
+                let is_lexical_block = self.is_bare_contextual_at(self.pos, "BEGIN");
+                let statement = self.parse_statement();
+                if is_lexical_block && let Stmt::LexicalBlock { span, .. } = &statement {
+                    self.diagnostics.push(Diagnostic::new(
+                        *span,
+                        "lexical blocks are only allowed inside routines",
+                    ));
+                }
+                items.push(Item::Statement(statement));
             } else {
                 pending_annotations.clear();
                 let token = self.bump().clone();
@@ -887,7 +904,9 @@ impl<'a> Parser<'a> {
 
     fn parse_statement(&mut self) -> Stmt {
         let start = self.peek().span.start;
-        if self.eat_keyword(Keyword::Return) {
+        if self.is_bare_contextual_at(self.pos, "BEGIN") {
+            self.parse_lexical_block_statement()
+        } else if self.eat_keyword(Keyword::Return) {
             let expr = if self.eat(TokenKind::LParen) {
                 let expr = self.collect_expr_until(Stop::return_expr());
                 self.expect(TokenKind::RParen);
@@ -918,6 +937,89 @@ impl<'a> Parser<'a> {
             self.parse_define_directive_invocation()
         } else {
             self.parse_assignment_or_call_statement(start)
+        }
+    }
+
+    fn parse_lexical_block_statement(&mut self) -> Stmt {
+        let start = self.peek().span.start;
+        self.bump();
+        let syntax_id = LexicalBlockSyntaxId(self.next_lexical_block_syntax_id);
+        self.next_lexical_block_syntax_id += 1;
+        self.lexical_block_depth += 1;
+        let mut declarations = Vec::new();
+        let mut body = Vec::new();
+        let mut saw_statement = false;
+        let mut closed = false;
+
+        loop {
+            if self.consume_statement_separators() {
+                continue;
+            }
+            if self.is_bare_contextual_at(self.pos, "END") {
+                self.bump();
+                closed = true;
+                break;
+            }
+            if self.at_eof()
+                || self.is_routine_boundary()
+                || self.is_structural_statement_terminator()
+            {
+                break;
+            }
+            if self.is_decl_start() {
+                if saw_statement {
+                    self.diagnostics.push(Diagnostic::new(
+                        self.peek().span,
+                        "block declarations must precede statements",
+                    ));
+                }
+                declarations.push(self.parse_decl());
+                continue;
+            }
+            if self.check_keyword(Keyword::Define) {
+                let span = self.peek().span;
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    "DEFINE is not supported inside a lexical block",
+                ));
+            }
+            if self.check_keyword(Keyword::Include) || self.check_keyword(Keyword::Set) {
+                let span = self.peek().span;
+                let construct = if self.check_keyword(Keyword::Include) {
+                    self.parse_include();
+                    "INCLUDE"
+                } else {
+                    self.parse_set();
+                    "SET"
+                };
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    format!("{construct} is not allowed inside a lexical block"),
+                ));
+                continue;
+            }
+
+            saw_statement = true;
+            let before = self.pos;
+            body.push(self.parse_statement());
+            if self.pos == before {
+                self.bump();
+            }
+        }
+
+        if !closed {
+            self.diagnostics.push(Diagnostic::new(
+                self.peek().span,
+                "lexical block is missing END",
+            ));
+        }
+        self.lexical_block_depth -= 1;
+
+        Stmt::LexicalBlock {
+            syntax_id,
+            declarations,
+            body,
+            span: Span::new(start, self.previous_end()),
         }
     }
 
@@ -1683,6 +1785,9 @@ impl<'a> Parser<'a> {
     }
 
     fn is_var_decl_start_at(&self, pos: usize) -> bool {
+        if self.is_bare_contextual_at(pos, "BEGIN") || self.is_bare_contextual_at(pos, "END") {
+            return false;
+        }
         self.is_contextual_at(pos, "VOLATILE") && self.is_unqualified_var_decl_start_at(pos + 1)
             || self.is_unqualified_var_decl_start_at(pos)
     }
@@ -1860,6 +1965,9 @@ impl<'a> Parser<'a> {
             || self.check_keyword(Keyword::Type)
             || self.check_keyword(Keyword::Record)
             || self.is_const_decl_start()
+            || (self.lexical_block_depth > 0
+                && self.current_token_begins_physical_line()
+                && self.is_decl_start())
             || matches!(self.peek().kind, TokenKind::ActioncAnnotation(_))
             || self.is_structural_statement_terminator()
             || matches!(
@@ -1874,6 +1982,27 @@ impl<'a> Parser<'a> {
             || self.check_keyword(Keyword::Fi)
             || self.check_keyword(Keyword::Od)
             || self.check_keyword(Keyword::Until)
+            || self.is_bare_contextual_at(self.pos, "END")
+    }
+
+    fn is_bare_contextual_at(&self, pos: usize, expected: &str) -> bool {
+        if !self.is_contextual_at(pos, expected) {
+            return false;
+        }
+        let line = self.tokens[pos].line;
+        let previous_is_same_line = pos
+            .checked_sub(1)
+            .and_then(|previous| self.tokens.get(previous))
+            .is_some_and(|token| token.line == line);
+        let next_is_same_line = self
+            .tokens
+            .get(pos + 1)
+            .is_some_and(|token| !matches!(token.kind, TokenKind::Eof) && token.line == line);
+        !previous_is_same_line && !next_is_same_line
+    }
+
+    fn current_token_begins_physical_line(&self) -> bool {
+        self.pos == 0 || self.tokens[self.pos - 1].line != self.peek().line
     }
 
     fn is_statement_list_terminator(&self, terminators: &[Keyword]) -> bool {
@@ -4318,6 +4447,79 @@ mod tests {
             program.modules[0].items[3],
             Item::Routine(ref routine) if routine.name == "End"
         ));
+    }
+
+    #[test]
+    fn parses_nested_line_delimited_lexical_blocks() {
+        let tokens = tokenize(
+            "PROC Main()\n\
+             BYTE outer\n\
+             BEGIN\n\
+               CARD value\n\
+               value=1\n\
+               BEGIN\n\
+                 BYTE value\n\
+                 value=2\n\
+               END\n\
+               outer=value\n\
+             END\n\
+             RETURN\n",
+        )
+        .unwrap();
+        let program = parse(&tokens).unwrap();
+        let Item::Routine(routine) = &program.modules[0].items[0] else {
+            panic!("expected routine");
+        };
+        let Stmt::LexicalBlock {
+            syntax_id,
+            declarations,
+            body,
+            ..
+        } = &routine.body[0]
+        else {
+            panic!("expected outer lexical block");
+        };
+
+        assert_eq!(*syntax_id, LexicalBlockSyntaxId(0));
+        assert_eq!(declarations.len(), 1);
+        assert!(matches!(body[0], Stmt::Assign { .. }));
+        let Stmt::LexicalBlock {
+            syntax_id,
+            declarations,
+            body,
+            ..
+        } = &body[1]
+        else {
+            panic!("expected nested lexical block");
+        };
+        assert_eq!(*syntax_id, LexicalBlockSyntaxId(1));
+        assert_eq!(declarations.len(), 1);
+        assert_eq!(body.len(), 1);
+        assert!(matches!(routine.body[1], Stmt::Return(None)));
+    }
+
+    #[test]
+    fn diagnoses_malformed_lexical_blocks() {
+        for (source, expected) in [
+            ("PROC Main()\nBEGIN\nx=1\n", "lexical block is missing END"),
+            (
+                "PROC Main()\nBEGIN\nx=1\nBYTE late\nEND\nRETURN\n",
+                "block declarations must precede statements",
+            ),
+            ("PROC Main()\nEND\n", "stray END without a matching BEGIN"),
+            (
+                "BEGIN\nBYTE value\nEND\n",
+                "lexical blocks are only allowed inside routines",
+            ),
+        ] {
+            let diagnostics = parse(&tokenize(source).unwrap()).unwrap_err();
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(expected)),
+                "missing `{expected}` for {source:?}: {diagnostics:#?}"
+            );
+        }
     }
 
     #[test]

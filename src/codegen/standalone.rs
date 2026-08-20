@@ -692,6 +692,14 @@ fn rewrite_stmt_list_names(statements: &mut [Stmt], replacements: &BTreeMap<Stri
 
 fn rewrite_stmt_names(stmt: &mut Stmt, replacements: &BTreeMap<String, String>) {
     match stmt {
+        Stmt::LexicalBlock {
+            declarations, body, ..
+        } => {
+            for declaration in declarations {
+                rewrite_decl_names(declaration, replacements);
+            }
+            rewrite_stmt_list_names(body, replacements);
+        }
         Stmt::Return(value) => {
             if let Some(value) = value {
                 rewrite_expr_names(value, replacements);
@@ -889,6 +897,14 @@ fn collect_stmt_list_names(
 
 fn collect_stmt_names(stmt: &Stmt, candidates: &BTreeSet<String>, output: &mut BTreeSet<String>) {
     match stmt {
+        Stmt::LexicalBlock {
+            declarations, body, ..
+        } => {
+            for declaration in declarations {
+                collect_decl_names(declaration, candidates, output);
+            }
+            collect_stmt_list_names(body, candidates, output);
+        }
         Stmt::Return(value) => {
             if let Some(value) = value {
                 collect_expr_names(value, candidates, output);

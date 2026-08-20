@@ -122,6 +122,9 @@ impl Generator {
     fn stmt_has_direct_volatile_access(&self, stmt: &Stmt) -> bool {
         let reads_volatile = |expr: &Expr| self.expr_side_effect_facts(expr).reads_volatile;
         match stmt {
+            Stmt::LexicalBlock { body, .. } => body
+                .iter()
+                .any(|stmt| self.stmt_has_direct_volatile_access(stmt)),
             Stmt::Return(value) => value.as_ref().is_some_and(reads_volatile),
             Stmt::Assign { target, value, .. } | Stmt::CompoundAssign { target, value, .. } => {
                 reads_volatile(target) || reads_volatile(value)
@@ -364,6 +367,12 @@ impl Generator {
         for stmt in body {
             match stmt {
                 Stmt::Define(_) => continue,
+                Stmt::LexicalBlock { body, .. } => {
+                    if let Some(value) = self.next_y_constant_store_in_straight_line(body) {
+                        return Some(value);
+                    }
+                    return None;
+                }
                 Stmt::Assign { target, value, .. } => {
                     if let Some(value) = self.y_constant_store_value(target, value) {
                         return Some(value);

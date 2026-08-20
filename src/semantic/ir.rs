@@ -2281,6 +2281,10 @@ impl<'a> IrBuilder<'a> {
 
     fn lower_stmt(&mut self, scope: ScopeId, stmt: &Stmt) -> Vec<SemStmt> {
         match stmt {
+            Stmt::LexicalBlock { span, .. } => vec![SemStmt::Unsupported {
+                span: *span,
+                note: "lexical block reached SemIR before semantic support".to_string(),
+            }],
             Stmt::Define(define) => {
                 let defines = self.lower_define(scope, define);
                 if defines.is_empty() {
@@ -3582,6 +3586,11 @@ impl<'a> IrBuilder<'a> {
         defines: &mut HashMap<SymbolId, NumberLiteral>,
     ) {
         match stmt {
+            Stmt::LexicalBlock { body, .. } => {
+                for stmt in body {
+                    self.collect_numeric_define_stmt(scope, stmt, defines);
+                }
+            }
             Stmt::Define(define) => self.collect_numeric_define_decl(scope, define, defines),
             Stmt::If {
                 branches,

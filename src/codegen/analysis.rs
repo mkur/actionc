@@ -76,6 +76,7 @@ pub(super) fn stmt_list_contains_machine_block(body: &[Stmt]) -> bool {
 fn stmt_contains_machine_block(stmt: &Stmt) -> bool {
     match stmt {
         Stmt::MachineBlock { .. } | Stmt::InlineAsm { .. } => true,
+        Stmt::LexicalBlock { body, .. } => stmt_list_contains_machine_block(body),
         Stmt::If {
             branches,
             else_body,
@@ -121,6 +122,7 @@ fn stmt_list_exprs_any(body: &[Stmt], predicate: &impl Fn(&Expr) -> bool) -> boo
 
 fn stmt_exprs_any(stmt: &Stmt, predicate: &impl Fn(&Expr) -> bool) -> bool {
     match stmt {
+        Stmt::LexicalBlock { body, .. } => stmt_list_exprs_any(body, predicate),
         Stmt::Assign { target, value, .. } | Stmt::CompoundAssign { target, value, .. } => {
             expr_tree_any(target, predicate) || expr_tree_any(value, predicate)
         }

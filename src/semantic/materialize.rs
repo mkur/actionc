@@ -116,6 +116,16 @@ impl Materializer<'_> {
 
     fn statement(&self, scope: ScopeId, statement: &mut Stmt) {
         match statement {
+            Stmt::LexicalBlock {
+                declarations, body, ..
+            } => {
+                for declaration in declarations {
+                    self.declaration(scope, declaration);
+                }
+                for statement in body {
+                    self.statement(scope, statement);
+                }
+            }
             Stmt::Return(value) => {
                 if let Some(value) = value {
                     self.expr(scope, value);

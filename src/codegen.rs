@@ -1512,6 +1512,7 @@ fn normalize_name(name: &str) -> String {
 
 fn stmt_span(stmt: &Stmt) -> Span {
     match stmt {
+        Stmt::LexicalBlock { span, .. } => *span,
         Stmt::Define(define) => define
             .entries
             .first()
@@ -1542,6 +1543,7 @@ fn stmt_source_range_kind(stmt: &Stmt) -> CodegenSourceRangeKind {
 
 fn stmt_source_range_name(stmt: &Stmt) -> &'static str {
     match stmt {
+        Stmt::LexicalBlock { .. } => "lexical block",
         Stmt::Define(_) => "define",
         Stmt::Return(_) => "return",
         Stmt::Exit { .. } => "exit",
