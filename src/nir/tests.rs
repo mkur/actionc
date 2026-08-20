@@ -939,6 +939,41 @@ fn routine_local_machine_defines_do_not_leak_between_routines() {
 }
 
 #[test]
+fn named_module_machine_defines_expand_by_resolved_identity() {
+    let root = SourceOrigin::host("project/runtime.act");
+    let provider = InMemorySourceProvider::default().with_source(
+        root.clone(),
+        b"MODULE RUNTIME\nDEFINE EOL=\"$9B\"\nPROC PutE=*()[$A9 EOL]\nENDMODULE\n".to_vec(),
+    );
+    let loaded = load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default())
+        .expect("load named runtime module");
+    let model = crate::semantic::analyze_compilation(&loaded).expect("analyze runtime module");
+    let semir = crate::semantic::ir::lower_compilation(&loaded, &model);
+    let program = lower_program(&semir);
+
+    verify_program(&program).expect("named-module machine DEFINE should verify");
+    let put_e = program
+        .routines
+        .iter()
+        .find(|routine| routine.name.to_ascii_uppercase().contains("PUTE"))
+        .expect("PutE routine");
+    let items = put_e
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            NirOp::MachineBlock { items, .. } => Some(items.as_slice()),
+            _ => None,
+        })
+        .expect("PutE machine block");
+
+    assert_eq!(
+        items,
+        [NirMachineItem::Byte(0xA9), NirMachineItem::Byte(0x9B)]
+    );
+}
+
+#[test]
 fn empty_machine_blocks_do_not_lower_to_executable_ops() {
     let source = "PROC Cold=$A326()[] PROC Main() Cold() RETURN";
     let tokens = crate::lexer::tokenize(source).unwrap();

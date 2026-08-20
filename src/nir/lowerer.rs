@@ -1112,6 +1112,15 @@ impl NirBuilder {
                 index += 2;
                 continue;
             }
+            if matches!(item, MachineItem::Name(_))
+                && let Some(symbol) = resolved_symbols.get(&index)
+                && symbol.class == SymbolClass::Define
+                && let Some(items) = self.machine_defines.get(&symbol.id.0)
+            {
+                lowered.extend(items.iter().map(nir_machine_item));
+                index += 1;
+                continue;
+            }
             if let MachineItem::Name(name) = item
                 && let Some(items) = self.machine_define_names.get(&storage_key(name))
             {
