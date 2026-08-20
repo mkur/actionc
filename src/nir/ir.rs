@@ -457,12 +457,26 @@ pub enum NirOp {
         ty: NirType,
         place: NirPlace,
     },
+    /// An observable source read that must execute exactly once and remain
+    /// ordered with other memory effects.
+    VolatileLoad {
+        dest: TempId,
+        ty: NirType,
+        place: NirPlace,
+    },
     AddrOf {
         dest: TempId,
         ty: NirType,
         place: NirPlace,
     },
     Store {
+        place: NirPlace,
+        src: NirValue,
+        ty: NirType,
+    },
+    /// An observable source write that must execute exactly once and remain
+    /// ordered with other memory effects.
+    VolatileStore {
         place: NirPlace,
         src: NirValue,
         ty: NirType,

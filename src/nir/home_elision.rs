@@ -162,6 +162,12 @@ fn transfer_op_backwards(
             }
             add_place_dependencies(place, live, candidates);
         }
+        NirOp::VolatileLoad { place, .. } => {
+            // A volatile access is an ordering boundary. Keep every candidate
+            // home materialized across it, in addition to its address inputs.
+            live.extend(candidates.iter().copied());
+            add_place_dependencies(place, live, candidates);
+        }
         NirOp::Store { place, .. } => {
             if let Some(id) = direct_storage_id(place)
                 && candidates.contains(&id)
@@ -170,6 +176,10 @@ fn transfer_op_backwards(
             } else {
                 add_place_dependencies(place, live, candidates);
             }
+        }
+        NirOp::VolatileStore { place, .. } => {
+            live.extend(candidates.iter().copied());
+            add_place_dependencies(place, live, candidates);
         }
         NirOp::AddrOf { place, .. } => add_place_dependencies(place, live, candidates),
         NirOp::Call {
@@ -290,6 +300,7 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
         for (op_index, op) in block.ops.iter().enumerate() {
             let result = match op {
                 NirOp::Load { dest, ty, .. }
+                | NirOp::VolatileLoad { dest, ty, .. }
                 | NirOp::AddrOf { dest, ty, .. }
                 | NirOp::Unary { dest, ty, .. }
                 | NirOp::Binary { dest, ty, .. }

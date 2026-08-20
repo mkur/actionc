@@ -617,7 +617,8 @@ impl ValueAvailabilityProof {
 }
 
 fn storage_name_is_volatile(name: &str, slot: StorageSlot) -> bool {
-    matches!(normalize_name(name).as_str(), "COLOR" | "DEVICE")
+    slot.is_volatile
+        || matches!(normalize_name(name).as_str(), "COLOR" | "DEVICE")
         || matches!(slot.space, AddressSpace::ZeroPage)
             && matches!(slot.address as u8, 0x11 | 0x82..=0x87 | 0xB7 | 0xC2)
 }

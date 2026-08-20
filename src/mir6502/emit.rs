@@ -2804,7 +2804,7 @@ fn emit_op(
                 }
             }
         }
-        MirOp::Barrier { .. } => {}
+        MirOp::Barrier { .. } => emitter.compiler_barrier(),
         MirOp::MachineBlock { id, .. } => {
             let Some(machine_block) = ctx.mir.machine_blocks.iter().find(|item| item.id == *id)
             else {

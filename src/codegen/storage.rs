@@ -39,6 +39,7 @@ pub(super) struct StorageSlot {
     pub(super) array: Option<ArrayStorage>,
     pub(super) record: Option<usize>,
     pub(super) signed: bool,
+    pub(super) is_volatile: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -327,6 +328,7 @@ impl StorageLayout {
             .signed(slot_signed_for_type(&decl.ty));
             self.symbols.insert(normalize_name(&entry.name), slot);
         }
+        mark_decl_slots_volatile(&mut self.symbols, decl);
     }
 
     fn record_machine_caret_value(&mut self, decl: &VarDecl, entry: &DeclEntry) {
@@ -893,6 +895,7 @@ fn add_var_decl_to_routine_storage(
         .signed(slot_signed_for_type(&decl.ty));
         symbols.insert(normalize_name(&entry.name), slot);
     }
+    mark_decl_slots_volatile(symbols, decl);
 }
 
 pub(super) fn add_var_decl_to_symbols(
@@ -952,6 +955,18 @@ pub(super) fn add_var_decl_to_symbols(
         .signed(slot_signed_for_type(&decl.ty));
         symbols.insert(normalize_name(&entry.name), slot);
     }
+    mark_decl_slots_volatile(symbols, decl);
+}
+
+fn mark_decl_slots_volatile(symbols: &mut HashMap<String, StorageSlot>, decl: &VarDecl) {
+    if !decl.qualifiers.is_volatile {
+        return;
+    }
+    for entry in &decl.entries {
+        if let Some(slot) = symbols.get_mut(&normalize_name(&entry.name)) {
+            slot.is_volatile = true;
+        }
+    }
 }
 
 // Extracted from src/codegen.rs: storage slot impl
@@ -967,6 +982,7 @@ impl StorageSlot {
             array: None,
             record: None,
             signed: false,
+            is_volatile: false,
         }
     }
 
@@ -990,6 +1006,7 @@ impl StorageSlot {
             array: Some(array),
             record: None,
             signed: false,
+            is_volatile: false,
         }
     }
 
@@ -1004,6 +1021,7 @@ impl StorageSlot {
             array: None,
             record: None,
             signed: false,
+            is_volatile: false,
         }
     }
 
@@ -1018,6 +1036,7 @@ impl StorageSlot {
             array: None,
             record: None,
             signed: false,
+            is_volatile: false,
         }
     }
 
@@ -1032,6 +1051,7 @@ impl StorageSlot {
             array: None,
             record: None,
             signed: false,
+            is_volatile: false,
         }
     }
 
@@ -1046,6 +1066,7 @@ impl StorageSlot {
             array: None,
             record: None,
             signed: false,
+            is_volatile: false,
         }
     }
 
@@ -1060,6 +1081,7 @@ impl StorageSlot {
             array: None,
             record: None,
             signed: false,
+            is_volatile: false,
         }
     }
 
@@ -1070,6 +1092,11 @@ impl StorageSlot {
 
     pub(super) fn signed(mut self, signed: bool) -> Self {
         self.signed = signed;
+        self
+    }
+
+    pub(super) fn volatile(mut self, is_volatile: bool) -> Self {
+        self.is_volatile = is_volatile;
         self
     }
 
@@ -1472,7 +1499,9 @@ pub(super) fn pointer_pointee_slot(pointer: StorageSlot, addr: ZeroPage) -> Opti
     let size = pointer
         .pointee_size
         .or_else(|| pointer.array.map(|_| pointer.size))?;
-    let slot = StorageSlot::indirect_indexed_y(addr, size).signed(pointer.signed);
+    let slot = StorageSlot::indirect_indexed_y(addr, size)
+        .signed(pointer.signed)
+        .volatile(pointer.is_volatile);
     debug_assert_pointer_pointee_slot(pointer, slot);
     debug_assert_indirect_slot_pointer(slot, addr, "pointer pointee");
     Some(slot)

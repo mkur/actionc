@@ -21,11 +21,11 @@ use super::ir::{
     MirCondDest, MirDataBacking, MirDataImage, MirDataRelocation, MirDataRelocationKind,
     MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg, MirEffects, MirFixedZpSlot, MirFrame,
     MirGlobal, MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom,
-    MirMachineBlock, MirMachineBlockId, MirMachineByteSelector, MirMachineItem, MirMem, MirOp,
-    MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi, MirRuntimeHelper, MirRuntimeHelperDecl,
-    MirRuntimeHelperTarget, MirStatic, MirStorageBacking, MirStorageBase, MirStorageClass,
-    MirStorageId, MirStorageInit, MirStorageSlot, MirTemp, MirTempId, MirTerminator, MirUnaryOp,
-    MirValue, MirWidth, RoutineId,
+    MirMachineBlock, MirMachineBlockId, MirMachineByteSelector, MirMachineItem, MirMem,
+    MirMemoryEffect, MirOp, MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi,
+    MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic, MirStorageBacking,
+    MirStorageBase, MirStorageClass, MirStorageId, MirStorageInit, MirStorageSlot, MirTemp,
+    MirTempId, MirTerminator, MirUnaryOp, MirValue, MirWidth, RoutineId,
 };
 
 pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>> {
@@ -741,7 +741,8 @@ fn lower_ops(
     for op in ops {
         match op {
             NirOpKind::Set { .. } => {}
-            NirOpKind::Load { dest, ty, place } => {
+            NirOpKind::Load { dest, ty, place } | NirOpKind::VolatileLoad { dest, ty, place } => {
+                let is_volatile = matches!(op, NirOpKind::VolatileLoad { .. });
                 let Some(width) = mir_width(ty) else {
                     diagnostics.push(MirDiagnostic::block(
                         routine,
@@ -754,13 +755,20 @@ fn lower_ops(
                 else {
                     continue;
                 };
+                if is_volatile {
+                    lowered.push(volatile_memory_barrier());
+                }
                 lowered.push(MirOp::Load {
                     dst: MirDef::VTemp(MirTempId(dest.0)),
                     src,
                     width,
                 });
+                if is_volatile {
+                    lowered.push(volatile_memory_barrier());
+                }
             }
-            NirOpKind::Store { place, src, ty } => {
+            NirOpKind::Store { place, src, ty } | NirOpKind::VolatileStore { place, src, ty } => {
+                let is_volatile = matches!(op, NirOpKind::VolatileStore { .. });
                 let src_width = value_width(src);
                 let Some(declared_width) = mir_width(ty) else {
                     diagnostics.push(MirDiagnostic::block(
@@ -789,11 +797,17 @@ fn lower_ops(
                     src_width,
                 )
                 .unwrap_or(declared_width);
+                if is_volatile {
+                    lowered.push(volatile_memory_barrier());
+                }
                 lowered.push(MirOp::Store {
                     dst,
                     src: src_value,
                     width,
                 });
+                if is_volatile {
+                    lowered.push(volatile_memory_barrier());
+                }
             }
             NirOpKind::Cast {
                 dest,
@@ -1125,6 +1139,17 @@ fn lower_ops(
         }
     }
     lowered
+}
+
+fn volatile_memory_barrier() -> MirOp {
+    MirOp::Barrier {
+        effects: MirEffects {
+            memory_reads: MirMemoryEffect::All,
+            memory_writes: MirMemoryEffect::All,
+            opaque: true,
+            ..MirEffects::default()
+        },
+    }
 }
 
 fn lower_machine_items(

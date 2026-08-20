@@ -835,8 +835,10 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Load { .. }
+        | NirOp::VolatileLoad { .. }
         | NirOp::AddrOf { .. }
         | NirOp::Store { .. }
+        | NirOp::VolatileStore { .. }
         | NirOp::Call { .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
@@ -884,11 +886,13 @@ fn const_u16(value: &NirValue) -> Option<u16> {
 
 fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
     match op {
-        NirOp::Store { place, src, .. } => {
+        NirOp::Store { place, src, .. } | NirOp::VolatileStore { place, src, .. } => {
             rewrite_place_values(place, constants);
             rewrite_value(src, constants);
         }
-        NirOp::Load { place, .. } | NirOp::AddrOf { place, .. } => {
+        NirOp::Load { place, .. }
+        | NirOp::VolatileLoad { place, .. }
+        | NirOp::AddrOf { place, .. } => {
             rewrite_place_values(place, constants);
         }
         NirOp::Unary { src, .. } | NirOp::Cast { src, .. } => rewrite_value(src, constants),
@@ -1018,11 +1022,13 @@ fn terminator_edges_mut(terminator: &mut NirTerminator) -> impl Iterator<Item = 
 
 fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
     match op {
-        NirOp::Store { place, src, .. } => {
+        NirOp::Store { place, src, .. } | NirOp::VolatileStore { place, src, .. } => {
             collect_place_uses(place, out);
             collect_value_use(src, out);
         }
-        NirOp::Load { place, .. } | NirOp::AddrOf { place, .. } => collect_place_uses(place, out),
+        NirOp::Load { place, .. }
+        | NirOp::VolatileLoad { place, .. }
+        | NirOp::AddrOf { place, .. } => collect_place_uses(place, out),
         NirOp::Unary { src, .. } | NirOp::Cast { src, .. } => collect_value_use(src, out),
         NirOp::Binary { left, right, .. } | NirOp::Compare { left, right, .. } => {
             collect_value_use(left, out);
@@ -1111,6 +1117,7 @@ fn is_pure_temp_op(op: &NirOp) -> bool {
 fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
     match op {
         NirOp::Load { dest, ty, .. }
+        | NirOp::VolatileLoad { dest, ty, .. }
         | NirOp::AddrOf { dest, ty, .. }
         | NirOp::Unary { dest, ty, .. }
         | NirOp::Binary { dest, ty, .. }
@@ -1126,6 +1133,7 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Store { .. }
+        | NirOp::VolatileStore { .. }
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }

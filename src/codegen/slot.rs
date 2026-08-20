@@ -155,7 +155,7 @@ impl Generator {
     }
 
     pub(super) fn emit_word_inc_peephole(&mut self, slot: StorageSlot) -> bool {
-        if slot.size != 2 || slot.array.is_some() {
+        if slot.is_volatile || slot.size != 2 || slot.array.is_some() {
             return false;
         }
         let done_label = self.next_label("inc:done");
@@ -194,6 +194,9 @@ impl Generator {
     }
 
     pub(super) fn emit_inc_slot_peephole(&mut self, slot: StorageSlot) -> bool {
+        if slot.is_volatile {
+            return false;
+        }
         if slot.space == AddressSpace::Absolute && slot.size == 1 && slot.array.is_none() {
             self.emit_inc_absolute(slot.absolute_byte(0));
             true
@@ -219,7 +222,7 @@ impl Generator {
     }
 
     pub(super) fn emit_dec_slot_peephole(&mut self, slot: StorageSlot) -> bool {
-        if slot.size != 1 || slot.array.is_some() {
+        if slot.is_volatile || slot.size != 1 || slot.array.is_some() {
             return false;
         }
         match slot.space {
@@ -458,10 +461,12 @@ impl Generator {
         // unsound. In particular, consecutive CARD-array element loads used
         // as call arguments can share the same (zp),Y template while naming
         // different elements.
-        if matches!(
-            slot.space,
-            AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY
-        ) {
+        if slot.is_volatile
+            || matches!(
+                slot.space,
+                AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY
+            )
+        {
             return ValueFact::Unknown;
         }
         if let Some(value) = self.processor.memory_value(slot, byte_index) {

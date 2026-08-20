@@ -296,8 +296,16 @@ fn analyze_routine_storage(
                 NirOp::Load { ty, place, .. } => {
                     record_direct_access(&mut homes, block.id, place, ty, true);
                 }
+                NirOp::VolatileLoad { ty, place, .. } => {
+                    record_direct_access(&mut homes, block.id, place, ty, true);
+                    mark_volatile_access(&mut homes, place);
+                }
                 NirOp::Store { place, ty, .. } => {
                     record_direct_access(&mut homes, block.id, place, ty, false);
+                }
+                NirOp::VolatileStore { place, ty, .. } => {
+                    record_direct_access(&mut homes, block.id, place, ty, false);
+                    mark_volatile_access(&mut homes, place);
                 }
                 NirOp::AddrOf { place, .. } => {
                     if let Some(id) = root_storage_id(place)
@@ -616,11 +624,23 @@ fn memory_accesses_storage(
     }
 }
 
+fn mark_volatile_access(homes: &mut BTreeMap<NirStorageId, NirStorageFacts>, place: &NirPlace) {
+    if let Some(id) = root_storage_id(place)
+        && let Some(facts) = homes.get_mut(&id)
+    {
+        // Reuse the existing conservative promotion boundary: volatile homes
+        // must remain observable memory just like machine-visible storage.
+        facts.machine_visible = true;
+    }
+}
+
 fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
     match op {
-        NirOp::Load { place, .. } | NirOp::AddrOf { place, .. } | NirOp::Store { place, .. } => {
-            visit(place)
-        }
+        NirOp::Load { place, .. }
+        | NirOp::VolatileLoad { place, .. }
+        | NirOp::AddrOf { place, .. }
+        | NirOp::Store { place, .. }
+        | NirOp::VolatileStore { place, .. } => visit(place),
         NirOp::Define { .. }
         | NirOp::Set { .. }
         | NirOp::Declare { .. }
@@ -697,7 +717,7 @@ impl NirDataflowProblem for DefinitelyDefined<'_> {
             return Some(state);
         };
         for op in &block.ops {
-            if let NirOp::Store { place, .. } = op
+            if let NirOp::Store { place, .. } | NirOp::VolatileStore { place, .. } = op
                 && let Some(id) = crate::nir::direct_storage_id(place)
             {
                 state.insert(id);
@@ -731,7 +751,7 @@ fn mark_read_before_definition(
         };
         for op in &block.ops {
             match op {
-                NirOp::Load { place, .. } => {
+                NirOp::Load { place, .. } | NirOp::VolatileLoad { place, .. } => {
                     let Some(id @ NirStorageId::Local(_)) = crate::nir::direct_storage_id(place)
                     else {
                         continue;
@@ -742,7 +762,7 @@ fn mark_read_before_definition(
                         facts.possible_read_before_definition = true;
                     }
                 }
-                NirOp::Store { place, .. } => {
+                NirOp::Store { place, .. } | NirOp::VolatileStore { place, .. } => {
                     if let Some(id) = crate::nir::direct_storage_id(place) {
                         defined.insert(id);
                     }

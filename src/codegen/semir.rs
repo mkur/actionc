@@ -163,6 +163,9 @@ impl SemIrAstLowerer {
         };
 
         Some(Decl::Var(VarDecl {
+            qualifiers: VarQualifiers {
+                is_volatile: decls.iter().any(|decl| decl.symbol.is_volatile),
+            },
             ty: self.type_ref(&first.ty.value),
             storage,
             entries: decls
@@ -241,6 +244,7 @@ impl SemIrAstLowerer {
 
     fn param(&mut self, param: &SemParam) -> VarDecl {
         VarDecl {
+            qualifiers: VarQualifiers::default(),
             ty: self.type_ref(&param.ty.value),
             storage: match param.storage {
                 SemParamStorage::Value => VarStorage::Plain,
@@ -270,6 +274,7 @@ impl SemIrAstLowerer {
                     ),
                 };
                 VarDecl {
+                    qualifiers: VarQualifiers::default(),
                     ty: self.type_ref(&field.ty.value),
                     storage,
                     entries: vec![DeclEntry {

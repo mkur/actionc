@@ -753,6 +753,7 @@ fn fresh_temp(next_temp: &mut u32) -> TempId {
 fn op_result(op: &NirOp) -> Option<TempId> {
     match op {
         NirOp::Load { dest, .. }
+        | NirOp::VolatileLoad { dest, .. }
         | NirOp::AddrOf { dest, .. }
         | NirOp::Unary { dest, .. }
         | NirOp::Cast { dest, .. }
@@ -768,11 +769,13 @@ fn op_result(op: &NirOp) -> Option<TempId> {
 
 fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) {
     match op {
-        NirOp::Store { place, src, .. } => {
+        NirOp::Store { place, src, .. } | NirOp::VolatileStore { place, src, .. } => {
             rewrite_place_values(place, replacements);
             rewrite_value(src, replacements);
         }
-        NirOp::Load { place, .. } | NirOp::AddrOf { place, .. } => {
+        NirOp::Load { place, .. }
+        | NirOp::VolatileLoad { place, .. }
+        | NirOp::AddrOf { place, .. } => {
             rewrite_place_values(place, replacements);
         }
         NirOp::Unary { src, .. } | NirOp::Cast { src, .. } => rewrite_value(src, replacements),
@@ -864,6 +867,7 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
             };
             let ty = match op {
                 NirOp::Load { ty, .. }
+                | NirOp::VolatileLoad { ty, .. }
                 | NirOp::AddrOf { ty, .. }
                 | NirOp::Unary { ty, .. }
                 | NirOp::Binary { ty, .. }

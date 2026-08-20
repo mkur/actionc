@@ -781,6 +781,22 @@ impl NirBuilder {
         self.blocks[self.current].ops.push(op);
     }
 
+    fn push_load(&mut self, dest: TempId, ty: NirType, place: NirPlace, is_volatile: bool) {
+        self.push(if is_volatile {
+            NirOp::VolatileLoad { dest, ty, place }
+        } else {
+            NirOp::Load { dest, ty, place }
+        });
+    }
+
+    fn push_store(&mut self, place: NirPlace, src: NirValue, ty: NirType, is_volatile: bool) {
+        self.push(if is_volatile {
+            NirOp::VolatileStore { place, src, ty }
+        } else {
+            NirOp::Store { place, src, ty }
+        });
+    }
+
     fn stmt_list(&mut self, statements: &[SemStmt], lowering: &mut NirLowerer) {
         for stmt in statements {
             self.stmt(stmt, lowering);
@@ -802,20 +818,22 @@ impl NirBuilder {
                 }
             }
             SemStmt::Assign { target, value, .. } => {
+                let is_volatile = target.is_volatile;
                 let fallback_ty = NirFacts::type_from_value(&target.ty);
                 let target = self.lower_place(target);
                 let target_ty = target.ty.clone().unwrap_or(fallback_ty);
                 let value = self.value(value);
-                self.assign_or_store(target, target_ty, value);
+                self.assign_or_store(target, target_ty, value, is_volatile);
             }
             SemStmt::CompoundAssign {
                 target, op, value, ..
             } => {
+                let is_volatile = target.is_volatile;
                 let fallback_ty = NirFacts::type_from_value(&target.ty);
                 let target = self.lower_place(target);
                 let target_ty = target.ty.clone().unwrap_or(fallback_ty);
                 let value = self.value(value);
-                self.compound_or_legacy(target, target_ty, *op, value);
+                self.compound_or_legacy(target, target_ty, *op, value, is_volatile);
             }
             SemStmt::Call { call, .. } => {
                 if let Some(items) = self.machine_define_call_items(call) {
@@ -926,16 +944,17 @@ impl NirBuilder {
                 body,
                 ..
             } => {
+                let is_volatile = target.is_volatile;
                 let target_ty = NirFacts::type_from_value(&target.ty);
                 let target = self.lower_place(target);
                 let test_label = lowering.next_block_label();
                 let body_label = lowering.next_block_label();
                 let after_label = lowering.next_block_label();
                 let start = self.value(start);
-                self.assign_or_store(target.clone(), target_ty.clone(), start);
+                self.assign_or_store(target.clone(), target_ty.clone(), start, is_volatile);
                 self.finish_open_goto(&test_label);
                 self.start_block(test_label.clone());
-                let condition = self.for_limit_condition(&target, end);
+                let condition = self.for_limit_condition(&target, end, is_volatile);
                 self.terminate_branch(condition, &body_label, &after_label);
                 self.loop_exits.push(after_label.clone());
                 self.start_block(body_label);
@@ -955,7 +974,7 @@ impl NirBuilder {
                             pointer: false,
                         }),
                     });
-                self.compound_or_legacy(target, target_ty, BinaryOp::Add, value);
+                self.compound_or_legacy(target, target_ty, BinaryOp::Add, value, is_volatile);
                 self.finish_open_goto(&test_label);
                 self.loop_exits.pop();
                 self.start_block(after_label);
@@ -1065,13 +1084,15 @@ impl NirBuilder {
                 .any(|candidate| storage_key(candidate) == key)
     }
 
-    fn assign_or_store(&mut self, target: NirPlace, target_ty: NirType, value: NirOperand) {
+    fn assign_or_store(
+        &mut self,
+        target: NirPlace,
+        target_ty: NirType,
+        value: NirOperand,
+        is_volatile: bool,
+    ) {
         if let Some(src) = NirValue::from_legacy_operand(&value) {
-            self.push(NirOp::Store {
-                place: target,
-                src,
-                ty: target_ty,
-            });
+            self.push_store(target, src, target_ty, is_volatile);
         } else {
             self.push(NirOp::Unsupported {
                 note: "assignment source is not materialized".to_string(),
@@ -1085,6 +1106,7 @@ impl NirBuilder {
         target_ty: NirType,
         op: BinaryOp,
         value: NirOperand,
+        is_volatile: bool,
     ) {
         let Some(src) = NirValue::from_legacy_operand(&value) else {
             self.push(NirOp::Unsupported {
@@ -1100,11 +1122,7 @@ impl NirBuilder {
         };
 
         let loaded = self.next_temp();
-        self.push(NirOp::Load {
-            dest: loaded,
-            ty: target_ty.clone(),
-            place: target.clone(),
-        });
+        self.push_load(loaded, target_ty.clone(), target.clone(), is_volatile);
 
         let result = self.next_temp();
         self.push(NirOp::Binary {
@@ -1118,14 +1136,15 @@ impl NirBuilder {
             right: src,
         });
 
-        self.push(NirOp::Store {
-            place: target,
-            src: NirValue::Temp {
+        self.push_store(
+            target,
+            NirValue::Temp {
                 id: result,
                 ty: target_ty.clone(),
             },
-            ty: target_ty,
-        });
+            target_ty,
+            is_volatile,
+        );
     }
 
     fn value(&mut self, expr: &SemExpr) -> NirOperand {
@@ -1199,14 +1218,11 @@ impl NirBuilder {
                 }
             }
             SemExprKind::LValue(lvalue) => {
+                let is_volatile = lvalue.is_volatile;
                 let place = self.lower_place(lvalue);
                 let dest = self.next_temp();
                 let ty = NirFacts::type_from_value(&expr.ty);
-                self.push(NirOp::Load {
-                    dest,
-                    ty: ty.clone(),
-                    place,
-                });
+                self.push_load(dest, ty.clone(), place, is_volatile);
                 NirOperand {
                     kind: NirOperandKind::Temp(dest),
                     ty: Some(ty),
@@ -1217,14 +1233,15 @@ impl NirBuilder {
                 let ty = self
                     .symbol_storage_type(&symbol.name)
                     .unwrap_or_else(|| NirFacts::type_from_value(&expr.ty));
-                self.push(NirOp::Load {
+                self.push_load(
                     dest,
-                    ty: ty.clone(),
-                    place: NirPlace {
+                    ty.clone(),
+                    NirPlace {
                         kind: NirPlaceKind::Symbol(symbol.name.clone()),
                         ty: Some(ty.clone()),
                     },
-                });
+                    symbol.is_volatile,
+                );
                 NirOperand {
                     kind: NirOperandKind::Temp(dest),
                     ty: Some(ty),
@@ -1266,14 +1283,14 @@ impl NirBuilder {
                 self.addr_of_place(place, ty)
             }
             SemExprKind::Call(call) if NirClassifier::is_index_call_syntax(call) => {
+                let is_volatile = matches!(
+                    &call.callee,
+                    SemCallable::User(symbol) if symbol.is_volatile
+                );
                 let place = self.lower_call_index_place(call, &expr.ty);
                 let dest = self.next_temp();
                 let ty = NirFacts::type_from_value(&expr.ty);
-                self.push(NirOp::Load {
-                    dest,
-                    ty: ty.clone(),
-                    place,
-                });
+                self.push_load(dest, ty.clone(), place, is_volatile);
                 NirOperand {
                     kind: NirOperandKind::Temp(dest),
                     ty: Some(ty),
@@ -1360,11 +1377,7 @@ impl NirBuilder {
 
     fn load_place_value(&mut self, place: NirPlace, ty: NirType) -> NirOperand {
         let dest = self.next_temp();
-        self.push(NirOp::Load {
-            dest,
-            ty: ty.clone(),
-            place,
-        });
+        self.push_load(dest, ty.clone(), place, false);
         NirOperand {
             kind: NirOperandKind::Temp(dest),
             ty: Some(ty),
@@ -1636,14 +1649,15 @@ impl NirBuilder {
         }
     }
 
-    fn for_limit_condition(&mut self, target: &NirPlace, end: &SemExpr) -> NirValue {
+    fn for_limit_condition(
+        &mut self,
+        target: &NirPlace,
+        end: &SemExpr,
+        is_volatile: bool,
+    ) -> NirValue {
         let left_ty = target.ty.clone().unwrap_or_else(NirFacts::condition_type);
         let left_temp = self.next_temp();
-        self.push(NirOp::Load {
-            dest: left_temp,
-            ty: left_ty.clone(),
-            place: target.clone(),
-        });
+        self.push_load(left_temp, left_ty.clone(), target.clone(), is_volatile);
         let right = self.nir_value(end);
         let dest = self.next_temp();
         let ty = NirFacts::condition_type();
@@ -2287,6 +2301,7 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
 fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
     match op {
         NirOp::Load { dest, ty, .. }
+        | NirOp::VolatileLoad { dest, ty, .. }
         | NirOp::AddrOf { dest, ty, .. }
         | NirOp::Unary { dest, ty, .. }
         | NirOp::Binary { dest, ty, .. }
@@ -2302,6 +2317,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Assign { .. }
         | NirOp::CompoundAssign { .. }
         | NirOp::Store { .. }
+        | NirOp::VolatileStore { .. }
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
@@ -3171,7 +3187,11 @@ fn resolve_op_places(op: &mut NirOp, storage: &StorageNameResolution) {
             resolve_place_storage(target, storage);
             resolve_operand_places(value, storage);
         }
-        NirOp::Load { place, .. } | NirOp::AddrOf { place, .. } | NirOp::Store { place, .. } => {
+        NirOp::Load { place, .. }
+        | NirOp::VolatileLoad { place, .. }
+        | NirOp::AddrOf { place, .. }
+        | NirOp::Store { place, .. }
+        | NirOp::VolatileStore { place, .. } => {
             resolve_place_storage(place, storage);
         }
         NirOp::Set { address, value } => {
@@ -3741,6 +3761,7 @@ mod memory_effect_tests {
             name: "x".to_string(),
             class: SymbolClass::Var,
             ty: None,
+            is_volatile: false,
             scope: ScopeId(1),
             span: crate::source::Span::new(0, 1),
         };

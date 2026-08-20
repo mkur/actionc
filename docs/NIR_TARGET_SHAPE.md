@@ -261,7 +261,15 @@ pub enum NirOp {
         dest: TempId,
         place: NirPlace,
     },
+    VolatileLoad {
+        dest: TempId,
+        place: NirPlace,
+    },
     Store {
+        place: NirPlace,
+        src: NirValue,
+    },
+    VolatileStore {
         place: NirPlace,
         src: NirValue,
     },
@@ -307,6 +315,13 @@ pub enum NirOp {
     },
 }
 ```
+
+SemIR decides whether a source lvalue is volatile. NIR records that decision
+on the executable access, after names and aliases have been resolved, so MIR
+does not need to recover language meaning from SemIR. A volatile load or store
+executes exactly once and is a conservative memory-ordering barrier. It may
+use the same target instruction as an ordinary access; the distinction limits
+legal transformations rather than prescribing an opcode.
 
 Recommended operator sets:
 
