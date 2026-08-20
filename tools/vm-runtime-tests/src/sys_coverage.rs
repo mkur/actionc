@@ -86,9 +86,9 @@ fn sys_interface_names(source: &str) -> BTreeSet<String> {
         .lines()
         .filter_map(|line| {
             let words = line.split_ascii_whitespace().collect::<Vec<_>>();
-            let routine = words
-                .iter()
-                .position(|word| word.eq_ignore_ascii_case("PROC") || word.eq_ignore_ascii_case("FUNC"))?;
+            let routine = words.iter().position(|word| {
+                word.eq_ignore_ascii_case("PROC") || word.eq_ignore_ascii_case("FUNC")
+            })?;
             (words.get(..routine) == Some(&["PUBLIC", "EXTERNAL"][..])
                 || words.get(..routine).is_some_and(|prefix| {
                     prefix.len() == 3
@@ -109,20 +109,23 @@ fn sys_interface_names(source: &str) -> BTreeSet<String> {
 fn source_calls(source: &str, routine: &str) -> bool {
     let source = source.as_bytes();
     let routine = routine.as_bytes();
-    source.windows(routine.len()).enumerate().any(|(start, word)| {
-        if !word.eq_ignore_ascii_case(routine) {
-            return false;
-        }
-        let before_is_identifier = start > 0
-            && (source[start - 1].is_ascii_alphanumeric() || source[start - 1] == b'_');
-        if before_is_identifier {
-            return false;
-        }
-        source[start + routine.len()..]
-            .iter()
-            .find(|byte| !byte.is_ascii_whitespace())
-            == Some(&b'(')
-    })
+    source
+        .windows(routine.len())
+        .enumerate()
+        .any(|(start, word)| {
+            if !word.eq_ignore_ascii_case(routine) {
+                return false;
+            }
+            let before_is_identifier = start > 0
+                && (source[start - 1].is_ascii_alphanumeric() || source[start - 1] == b'_');
+            if before_is_identifier {
+                return false;
+            }
+            source[start + routine.len()..]
+                .iter()
+                .find(|byte| !byte.is_ascii_whitespace())
+                == Some(&b'(')
+        })
 }
 
 #[test]
@@ -137,7 +140,9 @@ fn every_public_sys_routine_has_vm_execution_or_an_explicit_deferral() {
     for (routine, fixture) in EXECUTED {
         let key = routine.to_ascii_uppercase();
         assert!(
-            inventory.insert(key, format!("fixture {fixture}")).is_none(),
+            inventory
+                .insert(key, format!("fixture {fixture}"))
+                .is_none(),
             "duplicate coverage entry for SYS.{routine}"
         );
         let fixture_path = root.join("fixtures/runtime").join(fixture);

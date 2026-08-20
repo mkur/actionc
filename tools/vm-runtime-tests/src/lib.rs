@@ -663,13 +663,8 @@ mod tests {
         let max_steps = 100_000;
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-                let outcome = run_runtime_fixture(
-                    "resident_graphics_io.act",
-                    mode,
-                    runtime,
-                    true,
-                    max_steps,
-                );
+                let outcome =
+                    run_runtime_fixture("resident_graphics_io.act", mode, runtime, true, max_steps);
                 assert_eq!(
                     outcome.stop_reason(),
                     StopReason::StepLimit { max_steps },
@@ -813,39 +808,32 @@ mod tests {
         runtime: Runtime,
         max_steps: u64,
     ) -> RunOutcome {
-        run_runtime_fixture_with_setup(
-            fixture,
-            mode,
-            runtime,
-            false,
-            max_steps,
-            |vm| {
-                let spin = ERROR_TRAP + 14;
-                let [spin_low, spin_high] = spin.to_le_bytes();
-                vm.bus_mut()
+        run_runtime_fixture_with_setup(fixture, mode, runtime, false, max_steps, |vm| {
+            let spin = ERROR_TRAP + 14;
+            let [spin_low, spin_high] = spin.to_le_bytes();
+            vm.bus_mut()
+                .ram_mut()
+                .map(
+                    ERROR_TRAP,
+                    &[
+                        0x8D, 0x00, 0x06, // STA $0600
+                        0x8E, 0x01, 0x06, // STX $0601
+                        0x8C, 0x02, 0x06, // STY $0602
+                        0xA9, 0xA5, // LDA #$A5
+                        0x8D, 0x03, 0x06, // STA $0603
+                        0x4C, spin_low, spin_high, // JMP spin
+                    ],
+                )
+                .expect("install error-vector trap");
+            match runtime {
+                Runtime::ActionCart => vm
+                    .bus_mut()
                     .ram_mut()
-                    .map(
-                        ERROR_TRAP,
-                        &[
-                            0x8D, 0x00, 0x06, // STA $0600
-                            0x8E, 0x01, 0x06, // STX $0601
-                            0x8C, 0x02, 0x06, // STY $0602
-                            0xA9, 0xA5, // LDA #$A5
-                            0x8D, 0x03, 0x06, // STA $0603
-                            0x4C, spin_low, spin_high, // JMP spin
-                        ],
-                    )
-                    .expect("install error-vector trap");
-                match runtime {
-                    Runtime::ActionCart => vm
-                        .bus_mut()
-                        .ram_mut()
-                        .map(0x04CB, &[0x4C, 0x00, 0x07])
-                        .expect("redirect cartridge Error entry"),
-                    Runtime::Standalone => vm.bus_mut().ram_mut().write_word(0x000A, ERROR_TRAP),
-                }
-            },
-        )
+                    .map(0x04CB, &[0x4C, 0x00, 0x07])
+                    .expect("redirect cartridge Error entry"),
+                Runtime::Standalone => vm.bus_mut().ram_mut().write_word(0x000A, ERROR_TRAP),
+            }
+        })
     }
 
     #[test]
