@@ -97,7 +97,7 @@ pub(super) fn generate_with_options_and_requirements(
 ) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
     let storage_base = if segment_storage { origin } else { DATA_BASE };
     let record_layouts = collect_record_layouts(program);
-    let routines = collect_routine_info(program, &record_layouts);
+    let routines = collect_routine_info(program, &record_layouts, runtime_target)?;
     let routine_assignment_targets = collect_routine_assignment_targets(program, &routines);
     let numeric_defines = collect_numeric_defines(program);
     match profile {

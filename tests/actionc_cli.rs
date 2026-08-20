@@ -622,6 +622,63 @@ fn mir6502_standalone_links_only_the_sargs_dependency_group() {
 }
 
 #[test]
+fn standalone_sys_break_links_only_the_exception_group() {
+    let temp = TestDir::new();
+    let source = temp.path().join("sys-break.act");
+    fs::write(
+        &source,
+        "PROC Main() Error(1) Error(1,2,3) Break() RETURN\n",
+    )
+    .expect("write SYS.Break source");
+
+    for backend in ["classic", "mir6502"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args([
+                "--profile",
+                "modern",
+                "--backend",
+                backend,
+                "--runtime",
+                "standalone",
+                "--emit-map",
+            ])
+            .arg(&source)
+            .output()
+            .expect("emit standalone SYS.Break map");
+        assert!(
+            output.status.success(),
+            "{backend}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let map = String::from_utf8_lossy(&output.stdout).to_ascii_uppercase();
+        if backend == "classic" {
+            assert!(
+                map.contains("RUNTIME-BINDING SYS.ERROR"),
+                "{backend}: {map}"
+            );
+            assert!(
+                map.contains("RUNTIME-BINDING SYS.BREAK"),
+                "{backend}: {map}"
+            );
+        }
+        assert!(
+            map.contains("RESIDENT::BREAK") || map.contains("RESIDENT_BREAK_"),
+            "{backend}: {map}"
+        );
+        assert!(
+            map.contains("RESIDENT::ERROR") || map.contains("RESIDENT_ERROR_"),
+            "{backend}: {map}"
+        );
+        for unused in ["SARGS", "LSHIFT", "RSHIFT", "MULTI", "DIVI", "REMI"] {
+            assert!(
+                !map.contains(unused),
+                "{backend}, unexpected {unused}: {map}"
+            );
+        }
+    }
+}
+
+#[test]
 fn mir6502_sys_memory_binding_is_runtime_selected_and_selective() {
     let fixture =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sys_memory.act");
@@ -667,7 +724,7 @@ fn mir6502_sys_memory_binding_is_runtime_selected_and_selective() {
         String::from_utf8_lossy(&cart.stderr)
     );
     let mir = String::from_utf8_lossy(&cart.stdout);
-    assert!(mir.contains("SYS external@$A78A"), "{mir}");
+    assert!(mir.contains("Zero@$A78A"), "{mir}");
     assert!(!mir.contains("ACTION.RUNTIME.SYSBLK"));
 }
 
@@ -723,7 +780,9 @@ fn sys_string_bindings_work_in_every_backend_and_runtime_pair() {
             String::from_utf8_lossy(&output.stderr)
         );
         let map = String::from_utf8_lossy(&output.stdout);
-        for routine in ["SCompare", "SCopy", "SCopyS", "SAssign"] {
+        for routine in [
+            "SCompare", "SCopy", "SCopyS", "SAssign", "StrB", "StrC", "StrI",
+        ] {
             let expected = if backend == "classic" {
                 format!("runtime-binding SYS.{routine}")
             } else {
@@ -744,6 +803,9 @@ fn sys_string_bindings_work_in_every_backend_and_runtime_pair() {
             map.to_ascii_uppercase().contains(implementation_unit),
             "{backend}: {map}"
         );
+        if backend == "classic" {
+            assert!(map.contains("SYSIO.ACT"), "{backend}: {map}");
+        }
         assert!(!map.contains("ACTION.RUNTIME.SYSBLK"), "{backend}: {map}");
     }
 }
@@ -829,52 +891,47 @@ fn unused_sys_import_adds_no_runtime_code() {
 }
 
 #[test]
-fn standalone_rejects_unbound_resident_routines_in_both_backends() {
+fn printh_is_bound_in_both_runtimes_and_backends() {
     let temp = TestDir::new();
     let source = temp.path().join("resident-print.act");
     fs::write(&source, "PROC Main() PrintH($1234) RETURN\n").expect("write resident-call source");
 
-    for backend in ["classic", "mir6502"] {
-        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
-            .args([
-                "--profile",
-                "modern",
-                "--backend",
-                backend,
-                "--runtime",
-                "standalone",
-            ])
-            .arg(&source)
-            .output()
-            .expect("compile unbound standalone resident call");
-
-        assert_eq!(output.status.code(), Some(1), "backend {backend}");
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr.contains("E-RUNTIME-STANDALONE-BINDING"),
-            "backend {backend}: {stderr}"
-        );
-        assert!(stderr.contains("PrintH"), "backend {backend}: {stderr}");
-
-        let emit = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
-            .args([
-                "--profile",
-                "modern",
-                "--backend",
-                backend,
-                "--runtime",
-                "standalone",
-                "--emit-map",
-            ])
-            .arg(&source)
-            .output()
-            .expect("emit unbound standalone resident call");
-        assert_eq!(emit.status.code(), Some(1), "emit backend {backend}");
-        assert!(
-            String::from_utf8_lossy(&emit.stderr).contains("E-RUNTIME-STANDALONE-BINDING"),
-            "emit backend {backend}: {}",
-            String::from_utf8_lossy(&emit.stderr)
-        );
+    for runtime in ["cart", "standalone"] {
+        for backend in ["classic", "mir6502"] {
+            let output_kind = if runtime == "cart" {
+                "--emit-listing"
+            } else {
+                "--emit-map"
+            };
+            let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+                .args([
+                    "--profile",
+                    "modern",
+                    "--backend",
+                    backend,
+                    "--runtime",
+                    runtime,
+                    output_kind,
+                ])
+                .arg(&source)
+                .output()
+                .expect("emit bound PrintH call");
+            assert!(
+                output.status.success(),
+                "{runtime}/{backend}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let map = String::from_utf8_lossy(&output.stdout);
+            if runtime == "cart" {
+                assert!(map.contains("$B8C2"), "{runtime}/{backend}: {map}");
+            } else {
+                assert!(
+                    map.to_ascii_uppercase().contains("RESIDENT::PRINTH")
+                        || map.to_ascii_uppercase().contains("RESIDENT_PRINTH_"),
+                    "{runtime}/{backend}: {map}"
+                );
+            }
+        }
     }
 }
 

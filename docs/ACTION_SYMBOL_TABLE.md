@@ -141,17 +141,21 @@ runtime-library evidence.
 
 Current `actionc` state against that catalog:
 
-- Semantics seeds most listed resident names as built-ins.
-- Semantics currently does not seed `StrB`, `StrC`, `StrI`, or `Error`.
-- Codegen has cartridge entry/ABI information only for the modeled subset in
-  `src/codegen.rs`. Other seeded library names are recognized semantically but
-  still need codegen ABI modeling before direct cartridge calls can compile.
+- The embedded `SYS` module owns the names and signatures of all 71 audited
+  resident routines. Semantics derives traditional unqualified aliases from
+  that interface.
+- Cart and standalone binding sources select implementations for the same
+  runtime-neutral identities through `--runtime`.
+- Both active code generators consume those declarations and bindings; neither
+  maintains a separate public resident name/address catalog. Cartridge targets
+  remain version-specific facts recorded in the table below and in the cart
+  binding source.
 - Manual placeholders such as `<string>`, `<filestring>`, and `<data>` are not
   full type signatures. They should be treated as compatibility hints and
   verified with probes before tightening semantic checks.
-- The catalog supports the current design choice that a built-in needs both a
-  semantic signature and a codegen target. The original cartridge likely carries
-  enough metadata to do both, but `actionc` still models that metadata manually.
+- The original cartridge likely carries enough metadata to reconstruct the
+  interface, but `actionc` keeps the audited source contract in `sys.act` and the
+  implementation choices in explicit binding sources.
 
 The broad resident entry-point probes are:
 
@@ -187,6 +191,7 @@ more probes say otherwise.
 | `PrintID` | `PROC` | `PROC PrintID(BYTE d,INT n)` | `$A519` | `resident_output.act` emits `JSR $A519` |
 | `PrintIDE` | `PROC` | `PROC PrintIDE(BYTE d,INT n)` | `$A53C` | `resident_output.act` emits `JSR $A53C` |
 | `PrintF` | `PROC` | `PROC PrintF(STRING f,CARD a1,a2,a3,a4,a5)` | `$A3CC` | `io_builtin_calls.act` emits `JSR $A3CC`; `SYS.ACT` declares the signature |
+| `PrintH` | `PROC` | `PROC PrintH(CARD n)` | `$B8C2` | The pinned cartridge source labels the fixed-bank thunk `MAINBNK.PRTH`; its rebuilt ROM matches the bundled cartridge byte-for-byte. VM probes print `$1234` and verify that the thunk restores the library bank. |
 | `Put` | `PROC` | `PROC Put(CHAR c)` | `$A4CE` | `resident_output.act` emits `JSR $A4CE` |
 | `PutE` | `PROC` | `PROC PutE()` | `$A4CC` | `resident_output.act` emits `JSR $A4CC` |
 | `PutD` | `PROC` | `PROC PutD(BYTE d,CHAR c)` | `$A4D1` | `resident_output.act` emits `JSR $A4D1` |
@@ -232,7 +237,7 @@ more probes say otherwise.
 | `ValI` | `INT FUNC` | `INT FUNC ValI(<string>)` | `$A59A` | `resident_string_convert.act` emits `JSR $A59A` |
 | `Rand` | `BYTE FUNC` | `BYTE FUNC Rand(BYTE r)` | `$A6F1` | `resident_misc_memory.act` emits `JSR $A6F1` |
 | `Break` | `PROC` | `PROC Break()` | `$A7DA` | `resident_misc_memory.act` emits `JSR $A7DA` |
-| `Error` | `PROC` | `PROC Error(BYTE e)` | `$04CB` | `resident_misc_memory.act` emits `JSR $04CB` |
+| `Error` | `PROC` | `PROC Error(BYTE e,x,y)`; trailing context is optional | `$04CB` | `resident_misc_memory.act` emits `LDA #1; JSR $04CB`; `CATCH.ACT` supplies A/X/Y context |
 | `Peek` | `BYTE FUNC` | `BYTE FUNC Peek(CARD a)` | `$A767` | `resident_misc_memory.act` emits `JSR $A767` |
 | `PeekC` | `CARD FUNC` | `CARD FUNC PeekC(CARD a)` | `$A767` | `resident_misc_memory.act` emits `JSR $A767` |
 | `Poke` | `PROC` | `PROC Poke(CARD a,BYTE v)` | `$A777` | `resident_misc_memory.act` emits `JSR $A777` |

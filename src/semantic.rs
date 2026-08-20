@@ -467,99 +467,7 @@ impl Analyzer {
             Span::new(0, 0),
         );
 
-        let builtin_procs = [
-            "Print",
-            "PrintE",
-            "PrintD",
-            "PrintDE",
-            "PrintF",
-            "PrintB",
-            "PrintBE",
-            "PrintC",
-            "PrintCE",
-            "PrintBD",
-            "PrintBDE",
-            "PrintCD",
-            "PrintCDE",
-            "PrintI",
-            "PrintIE",
-            "PrintID",
-            "PrintIDE",
-            "PrintH",
-            "Put",
-            "PutE",
-            "PutD",
-            "PutDE",
-            "InputS",
-            "InputD",
-            "InputSD",
-            "InputMD",
-            "Open",
-            "Close",
-            "Error",
-            "Break",
-            "XIO",
-            "Note",
-            "Point",
-            "Poke",
-            "PokeC",
-            "Position",
-            "Graphics",
-            "DrawTo",
-            "Plot",
-            "SetColor",
-            "Fill",
-            "Sound",
-            "SndRst",
-            "Zero",
-            "SetBlock",
-            "MoveBlock",
-            "SCopy",
-            "SCopyS",
-            "SAssign",
-        ];
-
-        for name in builtin_procs {
-            self.declare(
-                self.builtin_scope,
-                name.to_string(),
-                SymbolClass::BuiltinProc,
-                None,
-                Span::new(0, 0),
-            );
-        }
-
-        let builtin_funcs = [
-            ("GetD", FundType::Char),
-            ("InputB", FundType::Byte),
-            ("InputBD", FundType::Byte),
-            ("InputC", FundType::Card),
-            ("InputCD", FundType::Card),
-            ("InputI", FundType::Int),
-            ("InputID", FundType::Int),
-            ("ValB", FundType::Byte),
-            ("ValC", FundType::Card),
-            ("ValI", FundType::Int),
-            ("Locate", FundType::Byte),
-            ("Rand", FundType::Byte),
-            ("Paddle", FundType::Byte),
-            ("PTrig", FundType::Byte),
-            ("Stick", FundType::Byte),
-            ("STrig", FundType::Byte),
-            ("Peek", FundType::Byte),
-            ("PeekC", FundType::Card),
-            ("SCompare", FundType::Int),
-        ];
-
-        for (name, fund) in builtin_funcs {
-            self.declare(
-                self.builtin_scope,
-                name.to_string(),
-                SymbolClass::BuiltinFunc,
-                Some(fund_value(fund)),
-                Span::new(0, 0),
-            );
-        }
+        self.seed_resident_interface();
 
         for variable in RESIDENT_VARIABLES {
             let class = match variable.kind {
@@ -577,163 +485,41 @@ impl Analyzer {
                 self.array_symbols.insert(symbol_id);
             }
         }
-
-        self.seed_builtin_signatures();
     }
 
-    fn seed_builtin_signatures(&mut self) {
-        let byte = fund_value(FundType::Byte);
-        let card = fund_value(FundType::Card);
-        let char_ty = fund_value(FundType::Char);
-        let int = fund_value(FundType::Int);
-        let string_address = card.clone();
-        let byte_pointer = ValueType::pointer_to(byte.clone());
-        let card_pointer = ValueType::pointer_to(card.clone());
-
-        let signatures = [
-            ("Print", vec![string_address.clone()]),
-            ("PrintE", vec![string_address.clone()]),
-            ("PrintD", vec![byte.clone(), string_address.clone()]),
-            ("PrintDE", vec![byte.clone(), string_address.clone()]),
-            ("PrintB", vec![byte.clone()]),
-            ("PrintBE", vec![byte.clone()]),
-            ("PrintBD", vec![byte.clone(), byte.clone()]),
-            ("PrintBDE", vec![byte.clone(), byte.clone()]),
-            ("PrintC", vec![card.clone()]),
-            ("PrintCE", vec![card.clone()]),
-            ("PrintCD", vec![byte.clone(), card.clone()]),
-            ("PrintCDE", vec![byte.clone(), card.clone()]),
-            ("PrintI", vec![int.clone()]),
-            ("PrintIE", vec![int.clone()]),
-            ("PrintID", vec![byte.clone(), int.clone()]),
-            ("PrintIDE", vec![byte.clone(), int.clone()]),
-            ("Put", vec![char_ty.clone()]),
-            ("PutE", vec![]),
-            ("PutD", vec![byte.clone(), char_ty.clone()]),
-            ("PutDE", vec![byte.clone()]),
-            ("InputB", vec![]),
-            ("InputBD", vec![byte.clone()]),
-            ("InputC", vec![]),
-            ("InputCD", vec![byte.clone()]),
-            ("InputI", vec![]),
-            ("InputID", vec![byte.clone()]),
-            ("InputS", vec![string_address.clone()]),
-            ("InputSD", vec![byte.clone(), string_address.clone()]),
-            (
-                "InputMD",
-                vec![byte.clone(), string_address.clone(), byte.clone()],
-            ),
-            ("InputD", vec![byte.clone(), string_address.clone()]),
-            ("GetD", vec![byte.clone()]),
-            ("Error", vec![byte.clone(), byte.clone(), byte.clone()]),
-            ("Break", vec![]),
-            (
-                "Open",
-                vec![
-                    byte.clone(),
-                    string_address.clone(),
-                    byte.clone(),
-                    byte.clone(),
-                ],
-            ),
-            ("Close", vec![byte.clone()]),
-            (
-                "XIO",
-                vec![
-                    byte.clone(),
-                    byte.clone(),
-                    byte.clone(),
-                    byte.clone(),
-                    byte.clone(),
-                    string_address.clone(),
-                ],
-            ),
-            (
-                "Note",
-                vec![byte.clone(), card_pointer.clone(), byte_pointer.clone()],
-            ),
-            ("Point", vec![byte.clone(), card.clone(), byte.clone()]),
-            ("Graphics", vec![byte.clone()]),
-            ("SetColor", vec![byte.clone(), byte.clone(), byte.clone()]),
-            ("Plot", vec![card.clone(), byte.clone()]),
-            ("DrawTo", vec![card.clone(), byte.clone()]),
-            ("Fill", vec![card.clone(), byte.clone()]),
-            ("Position", vec![card.clone(), byte.clone()]),
-            ("Locate", vec![card.clone(), byte.clone()]),
-            (
-                "Sound",
-                vec![byte.clone(), byte.clone(), byte.clone(), byte.clone()],
-            ),
-            ("SndRst", vec![]),
-            ("Paddle", vec![byte.clone()]),
-            ("PTrig", vec![byte.clone()]),
-            ("Stick", vec![byte.clone()]),
-            ("STrig", vec![byte.clone()]),
-            (
-                "SCompare",
-                vec![string_address.clone(), string_address.clone()],
-            ),
-            (
-                "SCopy",
-                vec![string_address.clone(), string_address.clone()],
-            ),
-            (
-                "SCopyS",
-                vec![
-                    string_address.clone(),
-                    string_address.clone(),
-                    byte.clone(),
-                    byte.clone(),
-                ],
-            ),
-            (
-                "SAssign",
-                vec![
-                    string_address.clone(),
-                    string_address.clone(),
-                    byte.clone(),
-                    byte.clone(),
-                ],
-            ),
-            ("ValB", vec![string_address.clone()]),
-            ("ValC", vec![string_address.clone()]),
-            ("ValI", vec![string_address.clone()]),
-            ("Rand", vec![byte.clone()]),
-            ("Peek", vec![card.clone()]),
-            ("PeekC", vec![card.clone()]),
-            ("Poke", vec![card.clone(), byte.clone()]),
-            ("PokeC", vec![card.clone(), card.clone()]),
-            ("Zero", vec![byte_pointer.clone(), card.clone()]),
-            (
-                "SetBlock",
-                vec![byte_pointer.clone(), card.clone(), byte.clone()],
-            ),
-            (
-                "MoveBlock",
-                vec![byte_pointer.clone(), byte_pointer.clone(), card.clone()],
-            ),
-        ];
-
-        for (name, params) in signatures {
-            if let Some(symbol_id) = self.lookup_symbol(self.builtin_scope, name) {
-                let symbol = &self.symbols.symbols[symbol_id.0];
-                let signature = SemanticCallableSignature::from_symbol(
-                    symbol,
-                    params,
-                    SemanticCallableSource::Resident,
-                );
-                self.remember_routine_signature(symbol_id, signature);
+    fn seed_resident_interface(&mut self) {
+        let program = match crate::runtime_bindings::parse_sys_interface() {
+            Ok(program) => program,
+            Err(diagnostics) => {
+                self.diagnostics.extend(diagnostics);
+                return;
             }
-        }
+        };
 
-        if let Some(symbol_id) = self.lookup_symbol(self.builtin_scope, "PrintF") {
-            let symbol = &self.symbols.symbols[symbol_id.0];
-            let signature = SemanticCallableSignature::from_variadic_symbol(
-                symbol,
-                vec![string_address],
-                card,
-                SemanticCallableSource::Resident,
-            );
+        for item in program.modules.iter().flat_map(|module| &module.items) {
+            let Item::Routine(routine) = item else {
+                continue;
+            };
+            if !routine.is_external || routine.visibility != Visibility::Public {
+                continue;
+            }
+            let (class, ty) = match routine.kind {
+                RoutineKind::Proc => (SymbolClass::BuiltinProc, None),
+                RoutineKind::Func { return_type } => {
+                    (SymbolClass::BuiltinFunc, Some(fund_value(return_type)))
+                }
+            };
+            let Some(symbol_id) = self.declare(
+                self.builtin_scope,
+                routine.name.clone(),
+                class,
+                ty,
+                routine.span,
+            ) else {
+                continue;
+            };
+            let mut signature = SemanticCallableSignature::from_routine(routine);
+            signature.source = SemanticCallableSource::Resident;
             self.remember_routine_signature(symbol_id, signature);
         }
     }
@@ -3655,35 +3441,6 @@ impl SemanticCallableSignature {
             },
         }
     }
-
-    fn from_symbol(
-        symbol: &Symbol,
-        params: Vec<ValueType>,
-        source: SemanticCallableSource,
-    ) -> Self {
-        Self {
-            kind: callable_kind_from_symbol(symbol),
-            params,
-            variadic: None,
-            return_type: symbol.ty.clone(),
-            source,
-        }
-    }
-
-    fn from_variadic_symbol(
-        symbol: &Symbol,
-        params: Vec<ValueType>,
-        variadic: ValueType,
-        source: SemanticCallableSource,
-    ) -> Self {
-        Self {
-            kind: callable_kind_from_symbol(symbol),
-            params,
-            variadic: Some(variadic),
-            return_type: symbol.ty.clone(),
-            source,
-        }
-    }
 }
 
 fn callable_kind_from_symbol(symbol: &Symbol) -> RoutineKind {
@@ -5314,13 +5071,14 @@ mod tests {
     fn builtin_signatures_are_available_for_argument_typing() {
         let model =
             analyze_source("PROC Main() PrintE(\"READY\") Position(10,2) Zero($4000,16) RETURN");
+        let string = ValueType::pointer_to(fund_value(FundType::Char));
 
         let print_e = model
             .routine_signatures
             .get(&normalize_name("PrintE"))
             .expect("PrintE signature");
         assert_eq!(print_e.kind, RoutineKind::Proc);
-        assert_eq!(print_e.params, vec![fund_value(FundType::Card)]);
+        assert_eq!(print_e.params, vec![string.clone()]);
         assert_eq!(print_e.return_type, None);
         assert_eq!(print_e.source, SemanticCallableSource::Resident);
 
@@ -5341,10 +5099,67 @@ mod tests {
             .get(&normalize_name("PrintF"))
             .expect("PrintF signature");
         assert_eq!(print_f.kind, RoutineKind::Proc);
-        assert_eq!(print_f.params, vec![fund_value(FundType::Card)]);
-        assert_eq!(print_f.variadic, Some(fund_value(FundType::Card)));
+        assert_eq!(
+            print_f.params,
+            vec![
+                string,
+                fund_value(FundType::Card),
+                fund_value(FundType::Card),
+                fund_value(FundType::Card),
+                fund_value(FundType::Card),
+                fund_value(FundType::Card),
+            ]
+        );
+        assert_eq!(print_f.variadic, None);
         assert_eq!(print_f.return_type, None);
         assert_eq!(print_f.source, SemanticCallableSource::Resident);
+    }
+
+    #[test]
+    fn resident_compatibility_prelude_matches_embedded_sys_interface() {
+        let program = crate::runtime_bindings::parse_sys_interface().expect("parse SYS interface");
+        let mut analyzer = Analyzer::new();
+        analyzer.seed_builtins();
+        assert!(
+            analyzer.diagnostics.is_empty(),
+            "{:?}",
+            analyzer.diagnostics
+        );
+
+        let routines = program
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .filter_map(|item| match item {
+                Item::Routine(routine)
+                    if routine.is_external && routine.visibility == Visibility::Public =>
+                {
+                    Some(routine)
+                }
+                _ => None,
+            });
+        let mut interface_count = 0;
+        for routine in routines {
+            interface_count += 1;
+            let symbol_id = analyzer
+                .lookup_symbol(analyzer.builtin_scope, &routine.name)
+                .unwrap_or_else(|| panic!("resident alias for SYS.{}", routine.name));
+            let mut expected = SemanticCallableSignature::from_routine(routine);
+            expected.source = SemanticCallableSource::Resident;
+            assert_eq!(analyzer.routines_by_symbol[&symbol_id], expected);
+        }
+
+        let builtin_routine_count = analyzer
+            .symbols
+            .symbols_in_scope(analyzer.builtin_scope)
+            .filter(|symbol| {
+                matches!(
+                    symbol.class,
+                    SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc
+                )
+            })
+            .count();
+        assert_eq!(builtin_routine_count, interface_count);
     }
 
     #[test]
@@ -5386,6 +5201,17 @@ mod tests {
             err.iter()
                 .any(|diagnostic| diagnostic.message.contains("`PutE` expects at most 0")),
             "expected builtin arity diagnostic, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn print_f_accepts_five_values_but_rejects_a_sixth() {
+        analyze_source("PROC Main() PrintF(\"%U%U%U%U%U\",1,2,3,4,5) RETURN");
+        let err = analyze_source_err("PROC Main() PrintF(\"%U\",1,2,3,4,5,6) RETURN");
+        assert!(
+            err.iter()
+                .any(|diagnostic| diagnostic.message.contains("`PrintF` expects at most 6")),
+            "expected PrintF arity diagnostic, got {err:?}"
         );
     }
 

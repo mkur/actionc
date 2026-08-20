@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
 
 use crate::asm6502::{
     InlineAsmMode, InlineAsmProgram, InlineAsmRelocationKind, InlineAsmRelocationTarget,
@@ -7,9 +8,9 @@ use crate::asm6502::{
 use crate::ast::{
     ActioncAnnotation, AddressByteSelector, BinaryOp, ConstDecl, Decl, DefineDecl, Expr, ExprKind,
     FundType, IncludeDirective, InitializerElement, InitializerElementKind, InitializerLiteral,
-    Item, MachineAddressAtom, MachineAddressExpr, MachineItem, Module, Program, RecordDecl,
-    Routine, RoutineKind, SetDirective, Stmt, TypeBase, TypeDecl, TypeRef, UnaryOp, VarDecl,
-    VarStorage,
+    Item, MachineAddressAtom, MachineAddressExpr, MachineItem, Module, Program, QualifiedName,
+    RecordDecl, Routine, RoutineKind, SetDirective, Stmt, TypeBase, TypeDecl, TypeRef, UnaryOp,
+    VarDecl, VarStorage,
 };
 use crate::includes::{LoadedCompilation, ModuleId};
 use crate::lexer::{NumberLiteral, TokenKind, tokenize};
@@ -25,6 +26,24 @@ use super::{
 pub fn lower_program(program: &Program, model: &SemanticModel) -> SemProgram {
     let mut builder = IrBuilder::new(model);
     builder.lower_program(program)
+}
+
+static LEGACY_SYS_INTERFACE: OnceLock<SemModule> = OnceLock::new();
+
+fn legacy_sys_interface() -> &'static SemModule {
+    LEGACY_SYS_INTERFACE.get_or_init(|| {
+        crate::runtime_source::compile_embedded_module("sys.act")
+            .expect("the embedded SYS interface must pass semantic analysis")
+            .modules
+            .into_iter()
+            .find(|module| {
+                module
+                    .path
+                    .as_ref()
+                    .is_some_and(|path| path.canonical_name() == "sys")
+            })
+            .expect("the embedded SYS source must define MODULE SYS")
+    })
 }
 
 pub fn lower_compilation(compilation: &LoadedCompilation, model: &SemanticModel) -> SemProgram {
@@ -1733,14 +1752,65 @@ impl<'a> IrBuilder<'a> {
     fn lower_program(&mut self, program: &Program) -> SemProgram {
         self.numeric_defines =
             self.collect_numeric_defines(program, self.model.symbols.global_scope());
-        SemProgram {
+        let mut lowered = SemProgram {
             modules: program
                 .modules
                 .iter()
                 .map(|module| self.lower_module(module))
                 .collect(),
             layout: self.model.layout.clone(),
+        };
+        if matches!(program.source_kind, crate::ast::SourceUnitKind::Legacy) {
+            self.attach_legacy_sys_interface(&mut lowered);
+            retain_referenced_external_routines(&mut lowered);
+            lowered.modules.retain(|module| {
+                !module
+                    .path
+                    .as_ref()
+                    .is_some_and(|path| path.canonical_name() == "sys" && module.items.is_empty())
+            });
         }
+        lowered
+    }
+
+    fn attach_legacy_sys_interface(&self, program: &mut SemProgram) {
+        let Some(builtin_scope) = self.model.symbols.builtin_scope() else {
+            return;
+        };
+        let mut interface = legacy_sys_interface().clone();
+        interface.id = None;
+        interface.items.retain_mut(|item| {
+            let SemItem::Routine(routine) = item else {
+                return false;
+            };
+            let public_name = routine
+                .symbol
+                .qualified_name
+                .rsplit('.')
+                .next()
+                .unwrap_or(&routine.symbol.name);
+            let Some(mut symbol) = self.symbol_ref(builtin_scope, public_name, routine.span) else {
+                return false;
+            };
+            let resident = self
+                .model
+                .routine_signatures_by_symbol
+                .get(&symbol.id)
+                .is_some_and(|signature| {
+                    signature.source == super::SemanticCallableSource::Resident
+                });
+            if !resident {
+                return false;
+            }
+            symbol.name = public_name.to_string();
+            symbol.canonical_qualified_key = format!("sys::{}", public_name.to_ascii_lowercase());
+            symbol.qualified_name = format!("SYS.{public_name}");
+            routine.symbol = symbol;
+            true
+        });
+        // Keep legacy user routines first so adding a referenced interface does
+        // not renumber their stable NIR routine IDs.
+        program.modules.push(interface);
     }
 
     fn lower_named_compilation(&mut self, compilation: &LoadedCompilation) -> SemProgram {
@@ -2341,13 +2411,16 @@ impl<'a> IrBuilder<'a> {
     fn lower_inline_asm(&self, scope: ScopeId, program: &InlineAsmProgram) -> SemInlineAsm {
         let program =
             super::materialize::materialize_inline_asm_constants(program, scope, self.model);
+        let mut compatibility_link_names = HashMap::new();
         let relocations = program
             .relocations
             .iter()
             .filter_map(|relocation| {
                 let target = match &relocation.target {
                     InlineAsmRelocationTarget::Symbol(name) => {
-                        SemInlineAsmTarget::Symbol(self.symbol_ref(scope, name, relocation.span)?)
+                        let symbol = self.symbol_ref(scope, name, relocation.span)?;
+                        compatibility_link_names.insert(normalize_name(name), symbol.name.clone());
+                        SemInlineAsmTarget::Symbol(symbol)
                     }
                     InlineAsmRelocationTarget::InlineOffset(offset) => {
                         SemInlineAsmTarget::InlineOffset(*offset)
@@ -2367,12 +2440,14 @@ impl<'a> IrBuilder<'a> {
                 })
             })
             .collect();
+        let compatibility_items =
+            relink_inline_asm_items(&program.items, &compatibility_link_names);
         SemInlineAsm {
             bytes: program.bytes,
             relocations,
             source: program.source,
             mode: program.mode,
-            compatibility_items: program.items,
+            compatibility_items,
         }
     }
 
@@ -2394,6 +2469,10 @@ impl<'a> IrBuilder<'a> {
                     _ => return None,
                 };
                 self.qualified_symbol_ref(scope, name, Span::new(0, 0))
+                    .or_else(|| {
+                        compact_machine_symbol_name(items, item_index)
+                            .and_then(|name| self.symbol_ref(scope, &name, Span::new(0, 0)))
+                    })
                     .map(|symbol| SemMachineSymbolRef { item_index, symbol })
             })
             .collect()
@@ -3160,6 +3239,7 @@ impl<'a> IrBuilder<'a> {
         let callable_type = self.callable_type_for_callee(&callee);
         let expected_params = callable_type.params.clone();
         let return_type = callable_type.return_type.clone();
+        let effects = self.call_effects_for_callee(&callee);
 
         SemCall {
             callee,
@@ -3175,8 +3255,36 @@ impl<'a> IrBuilder<'a> {
                 })
                 .collect(),
             return_type,
-            effects: SemEffects::default(),
+            effects,
             span: expr.span,
+        }
+    }
+
+    fn call_effects_for_callee(&self, callee: &SemCallable) -> SemEffects {
+        let external = match callee {
+            SemCallable::User(symbol) | SemCallable::Builtin(symbol) => self
+                .model
+                .routine_signatures_by_symbol
+                .get(&symbol.id)
+                .is_some_and(|signature| {
+                    matches!(
+                        signature.source,
+                        super::SemanticCallableSource::Resident
+                            | super::SemanticCallableSource::Runtime
+                    )
+                }),
+            SemCallable::Runtime { .. } => true,
+            SemCallable::Indirect { .. } => false,
+        };
+        if external {
+            SemEffects {
+                writes: vec![SemWriteEffect::Unknown],
+                reads: vec![SemReadEffect::Unknown],
+                may_call_os: true,
+                opaque: true,
+            }
+        } else {
+            SemEffects::default()
         }
     }
 
@@ -3731,6 +3839,59 @@ fn is_logical_condition_tree(expr: &SemExpr) -> bool {
         } => is_logical_condition_tree(left) && is_logical_condition_tree(right),
         _ => false,
     }
+}
+
+fn compact_machine_symbol_name(items: &[MachineItem], item_index: usize) -> Option<String> {
+    let MachineItem::Number(number) = items.get(item_index.checked_sub(1)?)? else {
+        return None;
+    };
+    let digits = number.text.strip_prefix('$')?;
+    if digits.len() <= 2 || !digits.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return None;
+    }
+    let suffix = match items.get(item_index)? {
+        MachineItem::Name(name) | MachineItem::AddressByte { name, .. } => name.display_name(),
+        MachineItem::AddressExpr(MachineAddressExpr {
+            atom: MachineAddressAtom::Name(name),
+            ..
+        }) => name.display_name(),
+        _ => return None,
+    };
+    Some(format!("{}{suffix}", &digits[2..]))
+}
+
+fn relink_inline_asm_items(
+    items: &[MachineItem],
+    link_names: &HashMap<String, String>,
+) -> Vec<MachineItem> {
+    let relink = |name: &QualifiedName| {
+        link_names
+            .get(&normalize_name(name.display_name()))
+            .map(|link_name| QualifiedName::simple(link_name.clone()))
+            .unwrap_or_else(|| name.clone())
+    };
+
+    items
+        .iter()
+        .cloned()
+        .map(|item| match item {
+            MachineItem::Name(name) => MachineItem::Name(relink(&name)),
+            MachineItem::AddressByte { selector, name } => MachineItem::AddressByte {
+                selector,
+                name: relink(&name),
+            },
+            MachineItem::AddressExpr(mut expression) => {
+                if let MachineAddressAtom::Name(name) = &expression.atom {
+                    expression.atom = MachineAddressAtom::Name(relink(name));
+                }
+                MachineItem::AddressExpr(expression)
+            }
+            MachineItem::Number(_)
+            | MachineItem::StringLiteral(_)
+            | MachineItem::CharLiteral(_)
+            | MachineItem::Raw(_) => item,
+        })
+        .collect()
 }
 
 fn promote_numeric_types(left: &ValueType, right: &ValueType) -> ValueType {

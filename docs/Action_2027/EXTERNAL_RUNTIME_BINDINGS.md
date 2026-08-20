@@ -55,10 +55,11 @@ them and they do not create a second public declaration. An absolute target is
 valid only for the cartridge provider. A standalone target names a routine in
 an embedded GPL runtime source unit.
 
-The compiler diagnoses duplicate bindings, malformed targets, a referenced
-interface without a binding for the selected runtime, a missing implementation,
-and an incompatible implementation ABI. Unreferenced declarations do not need
-to be linked and add no bytes.
+The compiler requires each provider to bind exactly the public external names in
+`SYS`. It diagnoses duplicate, missing, and unknown bindings; malformed targets;
+a target of the wrong runtime kind; a missing implementation; and an
+incompatible implementation ABI. Unreferenced declarations do not need to be
+linked and add no bytes.
 
 ## Resolution
 
@@ -75,8 +76,9 @@ Consequently `@SYS.Zero` observes the selected implementation. Standalone code
 cannot accidentally retain a cartridge address, and importing `SYS` without
 using a member cannot pull runtime code into the output.
 
-The initial implemented interface consists of `Zero`, `SetBlock`, and
-`MoveBlock`. Runtime closure follows both explicit relocations and legacy
-machine-code fallthrough. In particular, standalone `Zero` retains the adjacent
-`SetBlock` body because the original six-byte entry prepares a zero value and
-falls through into that implementation.
+The complete audited 71-routine interface is declared in
+[`embedded/modules/sys.act`](../../embedded/modules/sys.act) and is available
+from both providers. Runtime closure follows both explicit relocations and
+legacy machine-code fallthrough. In particular, standalone `Zero` retains the
+adjacent `SetBlock` body because the original six-byte entry prepares a zero
+value and falls through into that implementation.

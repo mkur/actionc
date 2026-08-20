@@ -242,12 +242,26 @@ fn collect_var_names(var: &VarDecl, output: &mut BTreeSet<String>) {
     output.extend(var.entries.iter().map(|entry| entry.name.clone()));
 }
 
-/// Correct verified defects in the historical standalone source without
-/// rewriting the preserved source corpus.  The Action! 3.6 compiler accepts
-/// `PrintBDE(device,value)` and emits `LDA device; LDX value; JSR $A508`, while
-/// SYSIO.ACT accidentally omits the device parameter from its declaration.
+/// Correct verified interface defects in the historical standalone source
+/// without rewriting the preserved source corpus. The Action! 3.6 compiler
+/// accepts `PrintBDE(device,value)` and emits `LDA device; LDX value; JSR
+/// $A508`, while SYSIO.ACT accidentally omits the device parameter. `Error`
+/// accepts an error code in A plus optional X/Y handler context, as exercised
+/// by CATCH.ACT, while SYSLIB.ACT declares only the first byte. `PrintH` stores
+/// its shifting value in `$A4/$A5`, but its call to `Put` reaches `CCIO`, which
+/// overwrites `$A4`; move that private value to the unused `$A2/$A3` pair. The
+/// normalized routines remain current-location machine-code entries because
+/// their bodies consume the Action ABI directly and must not acquire an
+/// `SArgs` prologue.
 fn apply_runtime_source_errata(source: &str) -> String {
-    source.replace("PROC PrintBDE=*(BYTE n)", "PROC PrintBDE=*(BYTE d,n)")
+    source
+        .replace("PROC PrintBDE=*(BYTE n)", "PROC PrintBDE=*(BYTE d,n)")
+        .replace("PROC Error(BYTE err)", "PROC Error=*(BYTE err,x,y)")
+        .replace("$A485$A586$4A9$A685$24A9", "$A285$A386$4A9$A685$24A9")
+        .replace(
+            "$A9$0$4A2$A406$A526$2A$CA$F8D0",
+            "$A9$0$4A2$A206$A326$2A$CA$F8D0",
+        )
 }
 
 /// The original Action! machine-code notation permits an opcode byte and a
@@ -415,7 +429,16 @@ mod tests {
     }
 
     #[test]
-    fn runtime_image_applies_verified_printbde_signature_erratum() {
+    fn runtime_image_applies_verified_interface_errata() {
+        let sysio = EmbeddedSourceProvider
+            .runtime_source("sysio.act")
+            .expect("embedded SYSIO source");
+        let normalized = apply_runtime_source_errata(&crate::source::decode_source(sysio.bytes));
+        assert!(normalized.contains("$A285$A386$4A9$A685$24A9"));
+        assert!(normalized.contains("$A9$0$4A2$A206$A326$2A$CA$F8D0"));
+        assert!(!normalized.contains("$A485$A586$4A9$A685$24A9"));
+        assert!(!normalized.contains("$A9$0$4A2$A406$A526$2A$CA$F8D0"));
+
         let image = compile_runtime_image().expect("compile resident runtime image");
         let routine = image
             .semir
@@ -438,6 +461,33 @@ mod tests {
             .expect("resident PrintBDE");
         assert_eq!(routine.signature.params.len(), 2);
         assert!(routine.signature.params.iter().all(|param| {
+            matches!(
+                &param.base,
+                crate::semantic::ValueTypeBase::Fund(crate::ast::FundType::Byte)
+            ) && !param.pointer
+        }));
+
+        let error = image
+            .semir
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine)
+                    if routine
+                        .symbol
+                        .qualified_name
+                        .rsplit(['.', ':'])
+                        .find(|part| !part.is_empty())
+                        .is_some_and(|name| name.eq_ignore_ascii_case("Error")) =>
+                {
+                    Some(routine)
+                }
+                _ => None,
+            })
+            .expect("resident Error");
+        assert_eq!(error.signature.params.len(), 3);
+        assert!(error.signature.params.iter().all(|param| {
             matches!(
                 &param.base,
                 crate::semantic::ValueTypeBase::Fund(crate::ast::FundType::Byte)

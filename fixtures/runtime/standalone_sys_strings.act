@@ -6,6 +6,9 @@ BYTE ARRAY left="ABC"
 BYTE ARRAY right="BC"
 BYTE ARRAY destination(8)
 INT comparison
+BYTE byteValue
+CARD cardValue
+INT intValue
 
 PROC Main()
   comparison=SYS.SCompare(left,right)
@@ -16,6 +19,12 @@ PROC Main()
   FI
   SYS.SCopyS(destination,left,1,2)
   SYS.SAssign(destination,right,1,2)
+  SYS.StrB(byteValue,destination)
+  SYS.StrC(cardValue,destination)
+  SYS.StrI(intValue,destination)
+  StrB(byteValue,destination)
+  StrC(cardValue,destination)
+  StrI(intValue,destination)
 RETURN
 
 ENDMODULE

@@ -1049,6 +1049,85 @@ fn flatten_machine_items(
     Some(bytes)
 }
 
+pub(in crate::mir6502) fn machine_block_byte_len(
+    machine: &MirMachineBlock,
+    _routine: &MirRoutine,
+    _program: &MirProgram,
+) -> Option<usize> {
+    machine.items.iter().try_fold(0usize, |size, item| {
+        let item_size = match item {
+            MirMachineItem::Byte(_) | MirMachineItem::CharLiteral(_) => 1,
+            MirMachineItem::Word(_) | MirMachineItem::Name(_) => 2,
+            MirMachineItem::StringLiteral(value) => value.len(),
+            MirMachineItem::AddressExpr { selector, .. } => {
+                if selector.is_some() {
+                    1
+                } else {
+                    2
+                }
+            }
+            MirMachineItem::AddressByte { .. } => 1,
+            MirMachineItem::Relocation { kind, .. } => match kind {
+                crate::asm6502::InlineAsmRelocationKind::Absolute16 => 2,
+                crate::asm6502::InlineAsmRelocationKind::Byte8
+                | crate::asm6502::InlineAsmRelocationKind::Low8
+                | crate::asm6502::InlineAsmRelocationKind::High8 => 1,
+            },
+        };
+        size.checked_add(item_size)
+    })
+}
+
+/// Return the number of bytes that must remain immediately before this block
+/// for a backward relative branch whose target precedes the block itself.
+pub(in crate::mir6502) fn machine_block_backward_prefix_bytes(
+    machine: &MirMachineBlock,
+    routine: &MirRoutine,
+    program: &MirProgram,
+) -> Option<usize> {
+    let bytes = flatten_machine_items(&machine.items, routine, program)
+        .or_else(|| flatten_literal_machine_items(&machine.items))?;
+    let starts = machine_instruction_starts(&bytes)?;
+    let mut required = 0usize;
+    for start in starts {
+        let opcode = bytes[start].value?;
+        let (_, mode, len) = crate::codegen::decode_6502_opcode(opcode)?;
+        if mode != AddressingMode::Relative || len != 2 {
+            continue;
+        }
+        let displacement = bytes.get(start + 1)?.value? as i8 as isize;
+        let target = start as isize + len as isize + displacement;
+        if target < 0 {
+            required = required.max((-target) as usize);
+        }
+    }
+    Some(required)
+}
+
+fn flatten_literal_machine_items(items: &[MirMachineItem]) -> Option<Vec<MachineByte>> {
+    let mut bytes = Vec::new();
+    for item in items {
+        match item {
+            MirMachineItem::Byte(value) => bytes.push(MachineByte {
+                value: Some(*value),
+                memory: None,
+            }),
+            MirMachineItem::Word(value) => {
+                bytes.push(MachineByte {
+                    value: Some(*value as u8),
+                    memory: None,
+                });
+                bytes.push(MachineByte {
+                    value: Some((*value >> 8) as u8),
+                    memory: None,
+                });
+            }
+            _ => return None,
+        }
+    }
+    Some(bytes)
+}
+
 /// Return whether execution can continue into the bytes immediately following
 /// a structured machine block. Unknown encodings are conservative: retaining
 /// the following runtime routine is safer than truncating a legacy fallthrough

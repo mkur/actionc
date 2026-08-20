@@ -1,6 +1,5 @@
 mod abi;
 mod analysis;
-mod builtin;
 mod call_plan;
 mod classify;
 mod diagnostics;
@@ -7435,7 +7434,7 @@ mod tests {
     }
 
     #[test]
-    fn mir6502_emission_reports_explicit_unsupported_builtin_targets() {
+    fn mir6502_emission_reports_unmodeled_builtin_targets() {
         let mir = MirProgram {
             statics: Vec::new(),
             globals: Vec::new(),
@@ -7451,7 +7450,7 @@ mod tests {
                     params: Vec::new(),
                     ops: vec![MirOp::Call {
                         target: MirCallTarget::Builtin {
-                            name: "PrintH".to_string(),
+                            name: "NotAThing".to_string(),
                             address: None,
                         },
                         abi: MirCallAbi {
@@ -7473,11 +7472,11 @@ mod tests {
         };
 
         let mut emitter = crate::codegen::native_emitter::NativeTrackedEmitter::with_origin(0x3000);
-        let diagnostics = emit_program(&mir, &mut emitter).expect_err("unsupported builtin");
+        let diagnostics = emit_program(&mir, &mut emitter).expect_err("unmodeled builtin");
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic
                 .message
-                .contains("builtin call target `PrintH` is unsupported by MIR6502")
+                .contains("builtin call target `NotAThing` is not modeled by MIR6502")
         }));
     }
 
@@ -8129,22 +8128,29 @@ mod tests {
             "DEFINE OFF=\"2\" BYTE ARRAY screen=$8010 PROC Main() [screen^+OFF >screen^-OFF]",
         );
 
-        assert!(bytes_contain(&output.bytes, &[0x12, 0x80, 0x80]));
+        assert!(
+            bytes_contain(&output.bytes, &[0x12, 0x80, 0x80]),
+            "{:02X?}",
+            output.bytes
+        );
     }
 
     #[test]
-    fn source_machine_block_resolves_runtime_symbols() {
+    fn source_machine_block_resolves_system_and_predefined_symbols() {
         let output = generate_mir6502_source(
-            "PROC Rom=$A326()[] PROC Main() [$20Rom $ADRom+1 $20Break $A5device $A9 EOL $AD EOF] RETURN",
+            "PROC Rom=$A326()[] PROC Main() [$20Rom $ADRom+1 $A5device $A9 EOL $AD EOF] RETURN",
         );
 
-        assert!(bytes_contain(
-            &output.bytes,
-            &[
-                0x20, 0x26, 0xA3, 0xAD, 0x27, 0xA3, 0x20, 0xDA, 0xA7, 0xA5, 0xB7, 0xA9, 0x9B, 0xAD,
-                0xC0, 0x05,
-            ],
-        ));
+        assert!(
+            bytes_contain(
+                &output.bytes,
+                &[
+                    0x20, 0x26, 0xA3, 0xAD, 0x27, 0xA3, 0xA5, 0xB7, 0xA9, 0x9B, 0xAD, 0xC0, 0x05,
+                ],
+            ),
+            "{:02X?}",
+            output.bytes
+        );
     }
 
     #[test]

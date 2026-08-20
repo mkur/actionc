@@ -4,9 +4,10 @@ use std::sync::OnceLock;
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirCallTarget, MirCond, MirDataImage, MirDataRelocationTarget, MirEffects,
-    MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineBlockId, MirMachineItem, MirMem,
-    MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram, MirRuntimeHelper,
-    MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator, MirValue, RoutineId,
+    MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineBlock, MirMachineBlockId,
+    MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram,
+    MirRuntimeHelper, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator,
+    MirValue, RoutineId,
 };
 use crate::nir::SymbolId;
 use crate::runtime_source::{RuntimeImage, RuntimeUnit};
@@ -1087,7 +1088,13 @@ pub(super) fn dependency_closure(
             .iter()
             .find(|routine| routine.id == id)
             .expect("validated runtime routine exists");
-        let mut falls_through = false;
+        // Adjacent declarations with no body are entry aliases for the next
+        // resident routine. Their empty, unreachable MIR block is as much a
+        // fallthrough edge as a machine block whose final instruction is not
+        // RTS/JMP. This is used by families such as InputB/C/I and ValB/C/I.
+        let mut falls_through = routine.blocks.len() == 1
+            && routine.blocks[0].ops.is_empty()
+            && matches!(routine.blocks[0].terminator, MirTerminator::Unreachable);
         for block in &routine.blocks {
             for (op_index, op) in block.ops.iter().enumerate() {
                 match op {
@@ -1111,6 +1118,21 @@ pub(super) fn dependency_closure(
                             } = item
                             {
                                 pending.insert(*target);
+                            }
+                        }
+                        if routine.blocks.len() == 1 {
+                            let required_prefix = super::analysis::known_callees::machine_block_backward_prefix_bytes(
+                                machine, routine, program,
+                            )
+                            .unwrap_or(0);
+                            if required_prefix > 0 {
+                                retain_preceding_runtime_bytes(
+                                    program,
+                                    &machine_blocks,
+                                    routine.id,
+                                    required_prefix,
+                                    &mut pending,
+                                );
                             }
                         }
                         if routine.blocks.len() == 1
@@ -1141,6 +1163,45 @@ pub(super) fn dependency_closure(
         }
     }
     Ok(selected)
+}
+
+fn retain_preceding_runtime_bytes(
+    program: &MirProgram,
+    machine_blocks: &BTreeMap<MirMachineBlockId, &MirMachineBlock>,
+    routine_id: RoutineId,
+    required: usize,
+    pending: &mut BTreeSet<RoutineId>,
+) {
+    let Some(index) = program
+        .routines
+        .iter()
+        .position(|routine| routine.id == routine_id)
+    else {
+        return;
+    };
+    let mut retained = 0usize;
+    for routine in program.routines[..index].iter().rev() {
+        pending.insert(routine.id);
+        for block in &routine.blocks {
+            for op in &block.ops {
+                let MirOp::MachineBlock { id, .. } = op else {
+                    continue;
+                };
+                let Some(machine) = machine_blocks.get(id) else {
+                    continue;
+                };
+                retained = retained.saturating_add(
+                    super::analysis::known_callees::machine_block_byte_len(
+                        machine, routine, program,
+                    )
+                    .unwrap_or(0),
+                );
+            }
+        }
+        if retained >= required {
+            break;
+        }
+    }
 }
 
 /// Return the source routine identities selected by the runtime dependency
@@ -1374,7 +1435,79 @@ mod tests {
     use crate::asm6502::InlineAsmRelocationKind;
     use crate::mir6502::MirOp;
     use crate::mir6502::ir::{MirInlineAsmTarget, MirMachineItem, MirRuntimeHelperDecl};
+    use crate::runtime::Runtime;
+    use crate::runtime_bindings::{BindingTarget, parse_bindings};
     use crate::source::Span;
+
+    fn resident_routine_id(program: &MirProgram, expected: &str) -> RoutineId {
+        let matches = program
+            .routines
+            .iter()
+            .filter(|routine| {
+                runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT")
+                    .eq_ignore_ascii_case(expected)
+            })
+            .map(|routine| routine.id)
+            .collect::<Vec<_>>();
+        match matches.as_slice() {
+            [id] => *id,
+            [] => panic!("resident runtime has no routine named {expected}"),
+            _ => panic!("resident runtime has multiple routines named {expected}"),
+        }
+    }
+
+    fn standalone_sys_closure_inventory() -> String {
+        let bindings = parse_bindings(Runtime::Standalone).expect("standalone SYS bindings");
+        let (image, program) = compile_runtime_image_with_semir().expect("resident runtime image");
+        let mut inventory = String::new();
+
+        for (external, target) in bindings {
+            let BindingTarget::RuntimeRoutine { unit, routine } = target else {
+                panic!("standalone binding {external} must target a runtime routine");
+            };
+            let expected_unit = crate::runtime_source::resolve_runtime_unit(&unit)
+                .expect("standalone binding unit");
+            assert_eq!(
+                image.routine_units.get(&routine.to_ascii_uppercase()),
+                Some(&expected_unit),
+                "standalone binding {external} points at the wrong physical runtime unit"
+            );
+
+            let root = resident_routine_id(&program, &routine);
+            let selected = dependency_closure(&program, BTreeSet::from([root]))
+                .unwrap_or_else(|diagnostics| panic!("select {external}: {diagnostics:?}"));
+            let names = program
+                .routines
+                .iter()
+                .filter(|candidate| selected.contains(&candidate.id))
+                .map(|candidate| {
+                    runtime_routine_name(&candidate.name, "ACTION_RUNTIME_RESIDENT")
+                        .to_ascii_uppercase()
+                })
+                .collect::<BTreeSet<_>>();
+            assert!(
+                names.contains(&routine.to_ascii_uppercase()),
+                "{external} closure omitted its root {routine}"
+            );
+
+            inventory.push_str(&external);
+            inventory.push_str(" = ");
+            inventory.push_str(&names.into_iter().collect::<Vec<_>>().join(", "));
+            inventory.push('\n');
+        }
+        inventory
+    }
+
+    #[test]
+    fn every_standalone_sys_entry_point_has_an_audited_minimal_routine_closure() {
+        let actual = standalone_sys_closure_inventory();
+        let expected = include_str!("../../fixtures/runtime/standalone_sys_link_closures.txt")
+            .replace("\r\n", "\n");
+        assert_eq!(
+            actual, expected,
+            "a SYS dependency closure changed; audit the added/removed resident routines before updating the inventory"
+        );
+    }
 
     #[test]
     fn embedded_syslib_is_lowered_with_resolved_local_machine_references() {
@@ -1505,6 +1638,43 @@ mod tests {
     }
 
     #[test]
+    fn resident_selection_closes_over_aliases_and_backward_branch_targets() {
+        let unit = crate::runtime_source::resolve_runtime_unit("SYSIO").expect("SYSIO unit");
+        let input = select_resident_image(&BTreeMap::from([(
+            unit.clone(),
+            BTreeSet::from(["InputB".to_string()]),
+        )]))
+        .expect("select InputB closure");
+
+        for expected in [
+            "InputB", "InputC", "InputI", "InputBD", "InputCD", "InputID", "ValB", "ValC", "ValI",
+        ] {
+            assert!(
+                input
+                    .routine_names
+                    .iter()
+                    .any(|name| name.eq_ignore_ascii_case(expected)),
+                "missing {expected}: {:?}",
+                input.routine_names
+            );
+        }
+
+        let put_de = select_resident_image(&BTreeMap::from([(
+            unit,
+            BTreeSet::from(["PutDE".to_string()]),
+        )]))
+        .expect("select PutDE closure");
+        assert!(
+            put_de
+                .routine_names
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case("PutD1")),
+            "missing backward branch target: {:?}",
+            put_de.routine_names
+        );
+    }
+
+    #[test]
     fn resident_selection_keeps_cross_unit_code_and_only_referenced_data() {
         let unit = crate::runtime_source::resolve_runtime_unit("SYSGR").expect("SYSGR unit");
         let selection = select_resident_image(&BTreeMap::from([(
@@ -1541,6 +1711,37 @@ mod tests {
                 .iter()
                 .all(|name| !name.to_ascii_uppercase().contains("COPY_RIGHT"))
         );
+    }
+
+    #[test]
+    fn resident_printh_selection_keeps_its_machine_code_output_chain() {
+        let unit = crate::runtime_source::resolve_runtime_unit("SYSIO").expect("SYSIO unit");
+        let selection = select_resident_image(&BTreeMap::from([(
+            unit,
+            BTreeSet::from(["PrintH".to_string()]),
+        )]))
+        .expect("select PrintH closure");
+
+        for expected in ["PrintH", "Put", "PutD", "PutD1", "CCIO", "ChkErr"] {
+            assert!(
+                selection
+                    .routine_names
+                    .iter()
+                    .any(|name| name.eq_ignore_ascii_case(expected)),
+                "missing {expected}: {:?}",
+                selection.routine_names
+            );
+        }
+        for unrelated in ["PrintF", "PrintC", "InputD"] {
+            assert!(
+                selection
+                    .routine_names
+                    .iter()
+                    .all(|name| !name.eq_ignore_ascii_case(unrelated)),
+                "unexpected {unrelated}: {:?}",
+                selection.routine_names
+            );
+        }
     }
 
     #[test]

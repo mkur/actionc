@@ -11,7 +11,6 @@ use crate::codegen::{
 use crate::nir::{LocalId, ParamId, SymbolId};
 use crate::source::{Span, source_char_byte};
 
-use super::builtin::{MirBuiltinResolution, resolve_builtin_target};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCallTarget, MirCarryIn,
@@ -3300,7 +3299,12 @@ fn emit_call(
         MirCallTarget::Builtin {
             name,
             address: None,
-        } => emit_resolved_or_diagnose_builtin_call(ctx, routine, block, name, emitter),
+        } => unsupported(
+            ctx,
+            routine,
+            block,
+            &format!("builtin call target `{name}` is not modeled by MIR6502"),
+        ),
         MirCallTarget::Runtime {
             name,
             address: None,
@@ -3409,39 +3413,15 @@ fn emit_tail_call_target(
         MirCallTarget::Builtin {
             name,
             address: None,
-        } => match resolve_builtin_target(name) {
-            MirBuiltinResolution::Resolved { address } => {
-                emitter.emit_jmp_abs(address);
-                true
-            }
-            MirBuiltinResolution::Deferred { reason } => {
-                unsupported(
-                    ctx,
-                    routine,
-                    block,
-                    &format!("builtin call target `{name}` is deferred: {reason}"),
-                );
-                true
-            }
-            MirBuiltinResolution::Unsupported { reason } => {
-                unsupported(
-                    ctx,
-                    routine,
-                    block,
-                    &format!("builtin call target `{name}` is unsupported by MIR6502: {reason}"),
-                );
-                true
-            }
-            MirBuiltinResolution::Unknown => {
-                unsupported(
-                    ctx,
-                    routine,
-                    block,
-                    &format!("builtin call target `{name}` is not modeled by MIR6502"),
-                );
-                true
-            }
-        },
+        } => {
+            unsupported(
+                ctx,
+                routine,
+                block,
+                &format!("builtin call target `{name}` is not modeled by MIR6502"),
+            );
+            true
+        }
         MirCallTarget::Runtime {
             name,
             address: None,
@@ -3456,31 +3436,6 @@ fn emit_tail_call_target(
         }
         MirCallTarget::Indirect { .. } => false,
     }
-}
-
-fn emit_resolved_or_diagnose_builtin_call(
-    ctx: &mut MirEmitContext<'_>,
-    routine: RoutineId,
-    block: MirBlockId,
-    name: &str,
-    emitter: &mut NativeTrackedEmitter,
-) {
-    let message = match resolve_builtin_target(name) {
-        MirBuiltinResolution::Resolved { address } => {
-            emitter.emit_jsr_abs(address);
-            return;
-        }
-        MirBuiltinResolution::Deferred { reason } => {
-            format!("builtin call target `{name}` is deferred: {reason}")
-        }
-        MirBuiltinResolution::Unsupported { reason } => {
-            format!("builtin call target `{name}` is unsupported by MIR6502: {reason}")
-        }
-        MirBuiltinResolution::Unknown => {
-            format!("builtin call target `{name}` is not modeled by MIR6502")
-        }
-    };
-    unsupported(ctx, routine, block, &message);
 }
 
 fn emit_indirect_call(

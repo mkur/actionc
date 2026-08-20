@@ -265,6 +265,60 @@ mod tests {
     }
 
     #[test]
+    fn printh_implementations_print_hex_and_preserve_following_output() {
+        let fixture = runtime_fixture("resident_printh.act");
+        let max_steps = 20_000;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let compiled = compile_file(
+                    &fixture,
+                    &CompileOptions::for_mode(mode).with_runtime(runtime),
+                )
+                .unwrap_or_else(|error| {
+                    panic!("compile {runtime:?} PrintH with {mode:?}: {error}")
+                });
+                let profile = if runtime == Runtime::ActionCart {
+                    ExecutionProfile::CartridgeObject
+                } else {
+                    ExecutionProfile::StandaloneObject
+                };
+                let mut vm = vm_for_profile(profile);
+                if runtime == Runtime::Standalone {
+                    let os = repository_root().join("roms/altirraos-xl.rom");
+                    vm.load_image_bytes(
+                        ImageKind::Rom,
+                        "altirraos-xl.rom",
+                        OS_ROM_BASE,
+                        std::fs::read(os).expect("read Atari OS ROM"),
+                    )
+                    .expect("load Atari OS ROM for standalone CIO");
+                }
+                vm.load_atari_object_for_execution(profile, compiled.object_bytes())
+                    .unwrap_or_else(|error| {
+                        panic!("load {runtime:?} PrintH with {mode:?}: {error}")
+                    });
+
+                let outcome = VmRunner::new(vm).run(RunRequest {
+                    max_steps,
+                    history_len: 8,
+                    ..RunRequest::default()
+                });
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
+                    outcome.report
+                );
+                assert_eq!(
+                    outcome.vm.bus().cio_channel0_output(),
+                    b"$1234\x9BX",
+                    "following Put must work for {runtime:?}/{mode:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn selectively_linked_sys_strings_execute_without_a_cartridge() {
         let max_steps = 5_000;
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
