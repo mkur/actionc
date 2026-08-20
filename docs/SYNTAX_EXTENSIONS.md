@@ -8,6 +8,59 @@ behavior. Legacy code may still use many old implicit idioms; modernized code
 should prefer these explicit forms, and the modern profile requires them for
 some ambiguous routine-address cases.
 
+## Compile-Time Constants
+
+`CONST` declares a typed scalar value evaluated by the compiler:
+
+```action
+CONST BYTE TOP_BLANK_ROWS=4
+CONST BYTE FIRST_VISIBLE_VCOUNT=2+TOP_BLANK_ROWS
+CONST CARD DISPLAY_LIST_A_BASE=$5000,
+      DISPLAY_LIST_B_BASE=DISPLAY_LIST_A_BASE+$400
+
+PROC Draw()
+  CONST BYTE LAST_ROW=159
+  BYTE row
+
+  FOR row=0 TO LAST_ROW DO
+    ; ...
+  OD
+RETURN
+```
+
+The scalar type is optional:
+
+```text
+CONST [BYTE|CHAR|CARD|INT] name=expression [, name=expression ...]
+```
+
+Without it, each entry's type is inferred using normal Action! expression
+typing. With it, the declared type applies to every entry in that declaration
+and has exactly the same wrapping and truncation behavior as an explicit cast.
+For example, `CONST BYTE MASK=$1FF` is equivalent to
+`CONST MASK=BYTE($1FF)` and produces `$FF`. Use separate declarations when
+constants need different declared types.
+
+Constants may be global or local to a routine. Names are case-insensitive and
+use the ordinary local-before-global lookup order. Entries are evaluated from
+left to right and may refer only to constants already visible at that point;
+forward references are rejected.
+
+Constant expressions support numeric and character literals, parentheses,
+unary `+` and `-`, explicit `BYTE`, `CHAR`, `CARD`, and `INT` casts, and the
+arithmetic and bitwise operators `+`, `-`, `*`, `/`, `MOD`, `LSH`, `RSH`,
+`AND`, `OR`, and `XOR`. Calls, storage references, strings, addresses, and the
+current-location `*` value are not constant expressions.
+
+A constant has no address and allocates no storage. It works anywhere its
+typed value is accepted, including array bounds, initializers, `SET`, fixed
+routine addresses, loop bounds, and inline assembler operands. `CONST` is an
+`actionc` extension supported by both compiler profiles and both backends; the
+original Action! cartridge compiler does not recognize it.
+
+`DEFINE` remains available for textual type aliases, directive macros, and
+machine-byte macros. `CONST` does not change those expansion rules.
+
 ## ATASCII And Screen-Code Escapes
 
 String literals and character constants accept textual byte escapes. In
@@ -241,12 +294,12 @@ ENDASM
 RETURN
 ```
 
-Low and high address bytes are written `#<name` and `#>name`. A byte-valued
-Action! `DEFINE` can be used directly as `#CONSTANT`; the compiler diagnoses a
-value that does not fit instead of truncating it. A direct `JSR` to an Action!
-routine is relocated through the normal routine identity; storage references
-likewise retain a stable compiler storage identity rather than a source-name
-string.
+Low and high address bytes are written `#<name` and `#>name`. A numeric
+Action! `DEFINE` or a visible `CONST` can be used directly as an operand; the
+compiler diagnoses a byte operand that does not fit instead of truncating it.
+A direct `JSR` to an Action! routine is relocated through the normal routine
+identity; storage references likewise retain a stable compiler storage
+identity rather than a source-name string.
 
 Analyzed blocks participate in MIR6502 memory-effect and machine-register
 liveness analysis. Fall-through and return paths must preserve stack depth.

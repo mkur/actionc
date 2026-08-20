@@ -31,6 +31,7 @@ separate namespaces for variables, routines, types, and defines.
 User-visible symbol classes include:
 
 - `DEFINE`
+- `CONST`
 - `TYPE`
 - `RECORD`
 - scalar variables
@@ -55,7 +56,7 @@ Examples:
 
 Inside a routine body, local scope wins over global scope. The local scope
 contains parameters and declarations after the routine header, including local
-`DEFINE`, `TYPE`, and `RECORD` declarations.
+`DEFINE`, `CONST`, `TYPE`, and `RECORD` declarations.
 
 At global/module level, only the global scope is searched before the resident
 library.
@@ -103,6 +104,30 @@ or interpretation is context-sensitive:
 
 Semantic binding should record the define symbol used. It should not leave a
 bare string lookup for codegen.
+
+## Constants
+
+`CONST` names participate in the same ordinary, case-insensitive symbol space
+as variables, routines, types, records, and defines. A routine-local constant
+shadows a global constant; duplicate declarations in one scope are errors.
+
+Constant entries are declared and evaluated in source order. An entry can use
+an earlier entry in the same declaration or another already-visible constant,
+but not a later entry. This deliberately avoids a separate dependency graph or
+cycle-resolution rule.
+
+An optional `BYTE`, `CHAR`, `CARD`, or `INT` after `CONST` declares the scalar
+type of every entry in that declaration. It changes only the canonical type and
+cast/wrapping behavior of the resulting values; it does not create a separate
+namespace or storage class. Without a declared type, each entry's type is
+inferred independently.
+
+Binding records each constant as a stable `SymbolId` with a canonical scalar
+type and value. Constants have no storage identity and are not lvalues.
+Executable SemIR references carry the typed value, and executable NIR sees an
+ordinary literal rather than a constant name or metadata operation. Inline
+assembler operands are resolved from the same local-before-global semantic
+facts before backend lowering.
 
 ## Types And Records
 

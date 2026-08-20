@@ -95,6 +95,9 @@ impl<'a> Parser<'a> {
             } else if self.check_keyword(Keyword::Record) {
                 pending_annotations.clear();
                 items.push(Item::Declaration(Decl::Record(self.parse_record_decl())));
+            } else if self.is_const_decl_start() {
+                pending_annotations.clear();
+                items.push(Item::Declaration(Decl::Const(self.parse_const_decl())));
             } else if self.is_var_decl_start() {
                 pending_annotations.clear();
                 items.push(Item::Declaration(Decl::Var(self.parse_var_decl())));
@@ -236,6 +239,44 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_const_decl(&mut self) -> ConstDecl {
+        let start = self.peek().span.start;
+        self.bump();
+        let declared_type = self.parse_fund_type();
+        let mut entries = Vec::new();
+
+        loop {
+            let entry_start = self.peek().span.start;
+            let Some(name) = self.expect_ident() else {
+                break;
+            };
+            self.expect(TokenKind::Assign);
+            let value = self.collect_scalar_initializer_expr(Stop::const_entry());
+            if matches!(value.kind, ExprKind::Missing) {
+                self.diagnostics
+                    .push(Diagnostic::new(value.span, "expected expression in CONST"));
+            } else if matches!(value.kind, ExprKind::Raw) {
+                self.diagnostics
+                    .push(Diagnostic::new(value.span, "invalid expression in CONST"));
+            }
+            entries.push(ConstEntry {
+                name,
+                span: Span::new(entry_start, value.span.end),
+                value,
+            });
+
+            if !self.eat(TokenKind::Comma) {
+                break;
+            }
+        }
+
+        ConstDecl {
+            declared_type,
+            entries,
+            span: Span::new(start, self.previous_end()),
+        }
+    }
+
     fn parse_routine(&mut self, annotations: Vec<ActioncAnnotation>) -> Routine {
         let start = self.peek().span.start;
         let kind = if self.eat_keyword(Keyword::Proc) {
@@ -317,6 +358,8 @@ impl<'a> Parser<'a> {
             Decl::Type(self.parse_type_decl())
         } else if self.check_keyword(Keyword::Record) {
             Decl::Record(self.parse_record_decl())
+        } else if self.is_const_decl_start() {
+            Decl::Const(self.parse_const_decl())
         } else {
             Decl::Var(self.parse_var_decl())
         }
@@ -1016,7 +1059,8 @@ impl<'a> Parser<'a> {
         while !self.at_eof() {
             if paren_depth == 0
                 && bracket_depth == 0
-                && ((!tokens.is_empty() && self.check_stop(stop))
+                && ((!tokens.is_empty()
+                    && self.check_scalar_initializer_stop(stop, tokens.last().unwrap()))
                     || (tokens.is_empty() && self.check_initializer_leading_stop(stop)))
             {
                 break;
@@ -1042,6 +1086,25 @@ impl<'a> Parser<'a> {
         }
 
         build_expr(tokens, Span::new(start, end))
+    }
+
+    fn check_scalar_initializer_stop(&self, stop: Stop, previous: &Token) -> bool {
+        if stop.tokens.iter().any(|kind| self.check(kind.clone()))
+            || stop
+                .keywords
+                .iter()
+                .any(|keyword| self.check_keyword(*keyword))
+        {
+            return true;
+        }
+
+        // A name followed by a declaration can superficially resemble the
+        // start of a named-type declaration.  Do not stop after an operator:
+        // consume the operand first, then recognize the actual declaration
+        // boundary on the next token.
+        token_can_end_expr(previous)
+            && ((stop.stop_at_top_level && self.is_top_level_start())
+                || (stop.stop_before_decl_start && self.is_decl_start()))
     }
 
     fn check_initializer_leading_stop(&self, stop: Stop) -> bool {
@@ -1133,6 +1196,7 @@ impl<'a> Parser<'a> {
     fn is_decl_start(&self) -> bool {
         self.check_keyword(Keyword::Type)
             || self.check_keyword(Keyword::Record)
+            || self.is_const_decl_start()
             || self.is_var_decl_start()
     }
 
@@ -1148,7 +1212,39 @@ impl<'a> Parser<'a> {
         matches!(
             self.tokens.get(pos).map(|token| &token.kind),
             Some(TokenKind::Keyword(Keyword::Type)) | Some(TokenKind::Keyword(Keyword::Record))
-        ) || self.is_var_decl_start_at(pos)
+        ) || self.is_const_decl_start_at(pos)
+            || self.is_var_decl_start_at(pos)
+    }
+
+    fn is_const_decl_start(&self) -> bool {
+        self.is_const_decl_start_at(self.pos)
+    }
+
+    fn is_const_decl_start_at(&self, pos: usize) -> bool {
+        let untyped = matches!(
+            (
+                self.tokens.get(pos).map(|token| &token.kind),
+                self.tokens.get(pos + 1).map(|token| &token.kind),
+                self.tokens.get(pos + 2).map(|token| &token.kind)
+            ),
+            (
+                Some(TokenKind::Ident(keyword)),
+                Some(TokenKind::Ident(_)),
+                Some(TokenKind::Assign)
+            ) if keyword.eq_ignore_ascii_case("CONST")
+        );
+        let typed = matches!(
+            self.tokens.get(pos).map(|token| &token.kind),
+            Some(TokenKind::Ident(keyword)) if keyword.eq_ignore_ascii_case("CONST")
+        ) && self.is_fund_type_start_at(pos + 1)
+            && matches!(
+                (
+                    self.tokens.get(pos + 2).map(|token| &token.kind),
+                    self.tokens.get(pos + 3).map(|token| &token.kind)
+                ),
+                (Some(TokenKind::Ident(_)), Some(TokenKind::Assign))
+            );
+        untyped || typed
     }
 
     fn is_var_decl_start_at(&self, pos: usize) -> bool {
@@ -1266,9 +1362,7 @@ impl<'a> Parser<'a> {
             || matches!(self.peek().kind, TokenKind::ActioncAnnotation(_))
             || self.check_keyword(Keyword::Include)
             || self.check_keyword(Keyword::Set)
-            || self.check_keyword(Keyword::Type)
-            || self.check_keyword(Keyword::Record)
-            || self.is_var_decl_start()
+            || self.is_decl_start()
     }
 
     fn is_statement_start(&self) -> bool {
@@ -1282,6 +1376,7 @@ impl<'a> Parser<'a> {
             || self.check_keyword(Keyword::Define)
             || self.check_keyword(Keyword::Type)
             || self.check_keyword(Keyword::Record)
+            || self.is_const_decl_start()
             || matches!(self.peek().kind, TokenKind::ActioncAnnotation(_))
             || self.is_structural_statement_terminator()
             || matches!(
@@ -1377,6 +1472,7 @@ impl<'a> Parser<'a> {
             || self.check_keyword(Keyword::Define)
             || self.check_keyword(Keyword::Type)
             || self.check_keyword(Keyword::Record)
+            || self.is_const_decl_start()
             || self.check_keyword(Keyword::Proc)
             || self.is_func_decl_start()
             || self.is_var_decl_start()
@@ -1495,6 +1591,15 @@ struct Stop {
 }
 
 impl Stop {
+    fn const_entry() -> Self {
+        Self {
+            tokens: &[TokenKind::Comma],
+            keywords: &[],
+            stop_at_top_level: true,
+            stop_before_decl_start: true,
+        }
+    }
+
     fn define_entry() -> Self {
         Self {
             tokens: &[TokenKind::Comma],
@@ -2693,6 +2798,120 @@ mod tests {
     fn rejects_numeric_define_values_like_original_grammar() {
         let tokens = tokenize("DEFINE RTCLOK = 20").unwrap();
         assert!(parse(&tokens).is_err());
+    }
+
+    #[test]
+    fn parses_global_const_expressions() {
+        let tokens = tokenize(
+            "CONST Width=40, Height=Width+2*4 CONST ScreenBytes=CARD(Width)*Height PROC Main() RETURN",
+        )
+        .unwrap();
+        let program = parse(&tokens).unwrap();
+
+        let Item::Declaration(Decl::Const(first)) = &program.modules[0].items[0] else {
+            panic!("expected first CONST declaration");
+        };
+        assert_eq!(first.entries.len(), 2);
+        assert_eq!(first.entries[0].name, "Width");
+        assert_eq!(first.entries[0].value.text, "40");
+        assert!(matches!(
+            first.entries[1].value.kind,
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                ..
+            }
+        ));
+
+        let Item::Declaration(Decl::Const(second)) = &program.modules[0].items[1] else {
+            panic!("expected second CONST declaration");
+        };
+        assert_eq!(second.entries[0].name, "ScreenBytes");
+        assert!(matches!(
+            second.entries[0].value.kind,
+            ExprKind::Binary {
+                op: BinaryOp::Mul,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_typed_and_adjacent_const_declarations() {
+        let tokens = tokenize(
+            "CONST BYTE Color=$70, Mode=Color CONST CARD Base=$5000, End=Base+$100 \
+             CONST CHAR Eol='E CONST INT MinusOne=-1 PROC Main() RETURN",
+        )
+        .unwrap();
+        let program = parse(&tokens).unwrap();
+
+        let declarations = program.modules[0]
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                Item::Declaration(Decl::Const(declaration)) => Some(declaration),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(declarations.len(), 4);
+        assert_eq!(declarations[0].declared_type, Some(FundType::Byte));
+        assert_eq!(declarations[0].entries[1].value.text, "Color");
+        assert_eq!(declarations[1].declared_type, Some(FundType::Card));
+        assert_eq!(declarations[1].entries[1].value.text, "Base + $100");
+        assert_eq!(declarations[2].declared_type, Some(FundType::Char));
+        assert_eq!(declarations[3].declared_type, Some(FundType::Int));
+    }
+
+    #[test]
+    fn adjacent_inferred_const_can_end_in_another_const_name() {
+        let tokens = tokenize("CONST First=1 CONST Second=First CONST Third=Second+1").unwrap();
+        let program = parse(&tokens).unwrap();
+
+        assert_eq!(program.modules[0].items.len(), 3);
+        let Item::Declaration(Decl::Const(second)) = &program.modules[0].items[1] else {
+            panic!("expected second CONST declaration");
+        };
+        assert_eq!(second.declared_type, None);
+        assert_eq!(second.entries[0].value.text, "First");
+    }
+
+    #[test]
+    fn parses_case_insensitive_local_const_declaration() {
+        let tokens = tokenize(
+            "PROC Main() const Stride=2, Limit=Stride LSH 3 BYTE value value=Limit RETURN",
+        )
+        .unwrap();
+        let program = parse(&tokens).unwrap();
+        let Item::Routine(routine) = &program.modules[0].items[0] else {
+            panic!("expected routine");
+        };
+
+        assert_eq!(routine.locals.len(), 2);
+        let Decl::Const(constants) = &routine.locals[0] else {
+            panic!("expected local CONST declaration");
+        };
+        assert_eq!(constants.entries.len(), 2);
+        assert_eq!(constants.entries[1].value.text, "Stride LSH 3");
+        assert!(matches!(routine.locals[1], Decl::Var(_)));
+        assert!(matches!(routine.body[0], Stmt::Assign { .. }));
+    }
+
+    #[test]
+    fn const_is_contextual_outside_declaration_position() {
+        let tokens = tokenize("BYTE CONST PROC Main() CONST=1 RETURN").unwrap();
+        let program = parse(&tokens).unwrap();
+        let Item::Routine(routine) = &program.modules[0].items[1] else {
+            panic!("expected routine");
+        };
+        assert!(matches!(routine.body[0], Stmt::Assign { .. }));
+    }
+
+    #[test]
+    fn rejects_missing_or_invalid_const_expression() {
+        let missing = tokenize("CONST Value= PROC Main() RETURN").unwrap();
+        assert!(parse(&missing).is_err());
+
+        let invalid = tokenize("CONST Value=1+ PROC Main() RETURN").unwrap();
+        assert!(parse(&invalid).is_err());
     }
 
     #[test]

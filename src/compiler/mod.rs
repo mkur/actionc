@@ -13,7 +13,7 @@ use crate::codegen::{
 use crate::includes::load_program_with_expanded_source;
 use crate::mir6502;
 use crate::nir;
-use crate::semantic::{analyze, ir};
+use crate::semantic::{analyze, ir, materialize::materialize_constants};
 use crate::source::decode_source;
 
 use self::validation::legacy_routine_retargeting_diagnostics;
@@ -219,10 +219,13 @@ fn compile_classic(
     source_map: &crate::includes::SourceMap,
 ) -> Result<CodegenOutput, CompileError> {
     let result = match request.codegen_source {
-        CodegenSource::Ast => match request.origin {
-            Some(origin) => generate_profile_at_origin(program, origin, request.profile),
-            None => generate_profile_with_origin(program, CODE_ORIGIN, request.profile),
-        },
+        CodegenSource::Ast => {
+            let materialized = materialize_constants(program, model);
+            match request.origin {
+                Some(origin) => generate_profile_at_origin(&materialized, origin, request.profile),
+                None => generate_profile_with_origin(&materialized, CODE_ORIGIN, request.profile),
+            }
+        }
         CodegenSource::SemIr => {
             let semir = ir::lower_program(program, model);
             match request.origin {
@@ -321,6 +324,7 @@ pub(crate) fn mir6502_default_origin_from_semir(program: &ir::SemProgram, fallba
 fn sem_const_u16(expr: &ir::SemExpr) -> Option<u16> {
     match &expr.kind {
         ir::SemExprKind::Literal(ir::SemLiteral::Number(number)) => number.value,
+        ir::SemExprKind::Literal(ir::SemLiteral::Constant(value)) => Some(value.bits),
         _ => None,
     }
 }

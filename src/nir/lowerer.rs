@@ -73,6 +73,7 @@ impl NirLowerer {
                             backing: NirGlobalBacking::Ordinary,
                         });
                     }
+                    crate::semantic::ir::SemItem::Const(_) => {}
                     crate::semantic::ir::SemItem::Include(include) => {
                         let id = self.global_id(&include.path);
                         globals.push(NirGlobal {
@@ -389,6 +390,7 @@ impl NirLowerer {
             for item in &module.items {
                 let name = match item {
                     crate::semantic::ir::SemItem::Define(define) => Some(&define.symbol.name),
+                    crate::semantic::ir::SemItem::Const(_) => None,
                     crate::semantic::ir::SemItem::Include(include) => Some(&include.path),
                     crate::semantic::ir::SemItem::Declaration(declaration) => {
                         Some(&declaration.symbol.name)
@@ -505,6 +507,7 @@ impl NirLowerer {
     fn const_u16_expr(&self, expr: &SemExpr) -> Option<u16> {
         match &expr.kind {
             SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
+            SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
             SemExprKind::Symbol(symbol) => self
                 .absolute_globals
                 .get(&storage_key(&symbol.name))
@@ -1779,7 +1782,7 @@ impl NirBuilder {
                     _ => None,
                 })
                 .map(NirInlineAsmTarget::Absolute),
-            SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc => None,
+            SymbolClass::Const | SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc => None,
         }
     }
 
@@ -2084,6 +2087,7 @@ fn collect_machine_defines_from_item(
             collect_machine_defines_from_stmt(stmt, defines);
         }
         crate::semantic::ir::SemItem::Include(_)
+        | crate::semantic::ir::SemItem::Const(_)
         | crate::semantic::ir::SemItem::Set(_)
         | crate::semantic::ir::SemItem::Declaration(_)
         | crate::semantic::ir::SemItem::Unsupported { .. } => {}
@@ -2421,6 +2425,7 @@ fn storage_alias_initializer_expr(expr: &SemExpr) -> Option<(&str, u16)> {
 fn literal_expr_u16(expr: &SemExpr) -> Option<u16> {
     match &expr.kind {
         SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
+        SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
         SemExprKind::Cast { expr, .. } => literal_expr_u16(expr),
         _ => None,
     }
@@ -3590,6 +3595,7 @@ fn literal_summary(literal: &SemLiteral) -> String {
         SemLiteral::Number(number) => number.text.clone(),
         SemLiteral::String(value) => format!("{value:?}"),
         SemLiteral::Char(value) => format!("{value:?}"),
+        SemLiteral::Constant(value) => value.number_literal().text,
     }
 }
 
@@ -3606,6 +3612,10 @@ fn literal_operand_kind(literal: &SemLiteral) -> NirOperandKind {
         SemLiteral::Char(value) => NirOperandKind::Literal {
             text: format!("{value:?}"),
             value: Some(*value as u16),
+        },
+        SemLiteral::Constant(value) => NirOperandKind::Literal {
+            text: value.number_literal().text,
+            value: Some(value.bits),
         },
     }
 }

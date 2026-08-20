@@ -2,11 +2,13 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
+use crate::lexer::{NumberKind, NumberLiteral};
 use crate::resident::{RESIDENT_VARIABLES, ResidentVariableKind};
-use crate::source::Span;
+use crate::source::{Span, source_char_byte};
 
 pub mod ir;
 pub mod layout;
+pub(crate) mod materialize;
 pub mod subject;
 pub mod types;
 
@@ -33,6 +35,45 @@ pub struct SemanticModel {
     pub field_lookup: HashMap<String, HashMap<String, FieldId>>,
     pub layout: SemanticLayoutFacts,
     pub routine_signatures: HashMap<String, SemanticCallableSignature>,
+    pub constants: HashMap<SymbolId, ConstValue>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConstValue {
+    pub ty: ScalarType,
+    pub bits: u16,
+}
+
+impl ConstValue {
+    fn cast(self, declared_type: FundType) -> Self {
+        let ty = ScalarType::from_fund(declared_type);
+        Self {
+            ty,
+            bits: self.bits & scalar_mask(ty),
+        }
+    }
+
+    pub fn value_type(self) -> ValueType {
+        ValueType::scalar(self.ty)
+    }
+
+    pub fn number_literal(self) -> NumberLiteral {
+        let kind = match self.ty {
+            ScalarType::Byte | ScalarType::Char => NumberKind::Byte,
+            ScalarType::Card => NumberKind::Card,
+            ScalarType::Int => NumberKind::Int,
+        };
+        let text = if self.ty.width_bytes() == 1 {
+            format!("${:02X}", self.bits as u8)
+        } else {
+            format!("${:04X}", self.bits)
+        };
+        NumberLiteral {
+            text,
+            kind,
+            value: Some(self.bits),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,6 +158,7 @@ pub enum SymbolClass {
     BuiltinProc,
     BuiltinFunc,
     Define,
+    Const,
     Type,
     Record,
     Var,
@@ -213,6 +255,7 @@ pub fn analyze(program: &Program) -> Result<SemanticModel, Vec<Diagnostic>> {
             field_lookup: analyzer.field_lookup,
             layout,
             routine_signatures: analyzer.routines,
+            constants: analyzer.constants,
         })
     } else {
         Err(analyzer.diagnostics)
@@ -232,6 +275,7 @@ struct Analyzer {
     field_lookup: HashMap<String, HashMap<String, FieldId>>,
     diagnostics: Vec<Diagnostic>,
     expression_observations: Vec<ExpressionObservation>,
+    constants: HashMap<SymbolId, ConstValue>,
 }
 
 #[derive(Clone, Copy)]
@@ -285,6 +329,7 @@ impl Analyzer {
             field_lookup: HashMap::new(),
             diagnostics: Vec::new(),
             expression_observations: Vec::new(),
+            constants: HashMap::new(),
         }
     }
 
@@ -712,7 +757,10 @@ impl Analyzer {
                         | crate::asm6502::InlineAsmSymbolUse::Control => {
                             matches!(
                                 symbol.class,
-                                SymbolClass::Proc | SymbolClass::Func | SymbolClass::Define
+                                SymbolClass::Proc
+                                    | SymbolClass::Func
+                                    | SymbolClass::Define
+                                    | SymbolClass::Const
                             )
                         }
                         crate::asm6502::InlineAsmSymbolUse::Read
@@ -724,6 +772,7 @@ impl Analyzer {
                         | crate::asm6502::InlineAsmSymbolUse::PointerRead => matches!(
                             symbol.class,
                             SymbolClass::Define
+                                | SymbolClass::Const
                                 | SymbolClass::Var
                                 | SymbolClass::Array
                                 | SymbolClass::Param
@@ -731,6 +780,7 @@ impl Analyzer {
                         crate::asm6502::InlineAsmSymbolUse::Address => matches!(
                             symbol.class,
                             SymbolClass::Define
+                                | SymbolClass::Const
                                 | SymbolClass::Var
                                 | SymbolClass::Array
                                 | SymbolClass::Param
@@ -738,7 +788,7 @@ impl Analyzer {
                                 | SymbolClass::Func
                         ),
                         crate::asm6502::InlineAsmSymbolUse::Constant => {
-                            symbol.class == SymbolClass::Define
+                            matches!(symbol.class, SymbolClass::Define | SymbolClass::Const)
                         }
                     };
                     if !valid {
@@ -1339,6 +1389,23 @@ impl Analyzer {
                 symbol: symbol_id,
                 span,
             }),
+            SymbolClass::Const => match self.constants.get(&symbol_id).copied() {
+                Some(value) => subject::SemSubject::Expr(subject::SemExpr {
+                    ty: value.value_type(),
+                    kind: subject::SemExprKind::Literal(subject::SemLiteral::Constant(value)),
+                    span,
+                }),
+                None => {
+                    self.diagnostics.push(Diagnostic::new(
+                        span,
+                        format!(
+                            "constant `{}` is not available before its declaration",
+                            symbol.name
+                        ),
+                    ));
+                    self.subject_error(span)
+                }
+            },
         }
     }
 
@@ -1968,6 +2035,7 @@ impl Analyzer {
     fn analyze_decl(&mut self, scope: ScopeId, decl: &Decl, is_param: bool) {
         match decl {
             Decl::Var(var) => self.analyze_var_decl(scope, var, is_param),
+            Decl::Const(constants) => self.analyze_const_decl(scope, constants),
             Decl::Type(type_decl) => {
                 if let Some(owner) = self.declare(
                     scope,
@@ -1994,6 +2062,37 @@ impl Analyzer {
                 }
                 for field in &record_decl.fields {
                     self.validate_record_field_decl(scope, field);
+                }
+            }
+        }
+    }
+
+    fn analyze_const_decl(&mut self, scope: ScopeId, declaration: &ConstDecl) {
+        for entry in &declaration.entries {
+            let Some(symbol_id) = self.declare(
+                scope,
+                entry.name.clone(),
+                SymbolClass::Const,
+                None,
+                entry.span,
+            ) else {
+                continue;
+            };
+
+            let expression = self.lower_expr(scope, &entry.value);
+            match evaluate_const_expr(&expression).map(|value| {
+                declaration
+                    .declared_type
+                    .map_or(value, |declared_type| value.cast(declared_type))
+            }) {
+                Ok(value) => {
+                    self.symbols.symbols[symbol_id.0].ty = Some(value.value_type());
+                    self.constants.insert(symbol_id, value);
+                }
+                Err(message) => {
+                    self.symbols.symbols[symbol_id.0].ty = Some(ValueType::error());
+                    self.diagnostics
+                        .push(Diagnostic::new(entry.value.span, message));
                 }
             }
         }
@@ -2502,6 +2601,104 @@ fn promote_numeric(left: &ValueType, right: &ValueType) -> ValueType {
     ValueType::scalar(ScalarType::promote_binary(left, right))
 }
 
+fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
+    let scalar = expr
+        .ty
+        .as_scalar()
+        .ok_or_else(|| "CONST expression must produce a scalar value".to_string())?;
+    let mask = scalar_mask(scalar);
+    let bits = match &expr.kind {
+        subject::SemExprKind::Literal(subject::SemLiteral::Number(number)) => number
+            .value
+            .ok_or_else(|| "real values are not supported in CONST expressions".to_string())?,
+        subject::SemExprKind::Literal(subject::SemLiteral::Char(ch)) => u16::from(
+            source_char_byte(*ch)
+                .ok_or_else(|| "character cannot be represented as an Action! byte".to_string())?,
+        ),
+        subject::SemExprKind::Literal(subject::SemLiteral::Constant(value)) => value.bits,
+        subject::SemExprKind::Literal(subject::SemLiteral::String(_)) => {
+            return Err("strings are not supported in CONST expressions".to_string());
+        }
+        subject::SemExprKind::Cast { expr: inner, .. } => evaluate_const_expr(inner)?.bits,
+        subject::SemExprKind::Unary { op, expr: inner } => {
+            let value = evaluate_const_expr(inner)?.bits;
+            match op {
+                UnaryOp::Plus => value,
+                UnaryOp::Neg => 0u16.wrapping_sub(value),
+                UnaryOp::AddressOf | UnaryOp::Deref => {
+                    return Err(
+                        "address and pointer operations are not supported in CONST expressions"
+                            .to_string(),
+                    );
+                }
+            }
+        }
+        subject::SemExprKind::Binary { op, left, right } => {
+            let left = evaluate_const_expr(left)?.bits;
+            let right = evaluate_const_expr(right)?.bits;
+            match op {
+                BinaryOp::Add => left.wrapping_add(right),
+                BinaryOp::Sub => left.wrapping_sub(right),
+                BinaryOp::Mul => left.wrapping_mul(right),
+                BinaryOp::Div if right != 0 => left / right,
+                BinaryOp::Mod if right != 0 => left % right,
+                BinaryOp::Div => return Err("division by zero in CONST expression".to_string()),
+                BinaryOp::Mod => return Err("modulo by zero in CONST expression".to_string()),
+                BinaryOp::Lsh => {
+                    if right >= 16 {
+                        0
+                    } else {
+                        left.wrapping_shl(u32::from(right))
+                    }
+                }
+                BinaryOp::Rsh => {
+                    if right >= 16 {
+                        0
+                    } else {
+                        left.wrapping_shr(u32::from(right))
+                    }
+                }
+                BinaryOp::And => left & right,
+                BinaryOp::Or => left | right,
+                BinaryOp::Xor => left ^ right,
+                BinaryOp::Eq
+                | BinaryOp::Ne
+                | BinaryOp::Lt
+                | BinaryOp::Le
+                | BinaryOp::Gt
+                | BinaryOp::Ge => {
+                    return Err("comparisons are not supported in CONST expressions".to_string());
+                }
+            }
+        }
+        subject::SemExprKind::CurrentLocation => {
+            return Err("the current location is not supported in CONST expressions".to_string());
+        }
+        subject::SemExprKind::Load(_)
+        | subject::SemExprKind::AddressOf(_)
+        | subject::SemExprKind::AddressOfSymbol(_)
+        | subject::SemExprKind::Call { .. } => {
+            return Err("CONST expression depends on a runtime value".to_string());
+        }
+        subject::SemExprKind::Raw(_) | subject::SemExprKind::Error => {
+            return Err("invalid CONST expression".to_string());
+        }
+    };
+
+    Ok(ConstValue {
+        ty: scalar,
+        bits: bits & mask,
+    })
+}
+
+fn scalar_mask(ty: ScalarType) -> u16 {
+    if ty.width_bytes() == 1 {
+        0x00FF
+    } else {
+        0xFFFF
+    }
+}
+
 fn is_condition_op(op: BinaryOp) -> bool {
     matches!(
         op,
@@ -2918,6 +3115,138 @@ mod tests {
         assert!(globals.contains(&(&"X".to_string(), &SymbolClass::Var)));
         assert!(globals.contains(&(&"Buf".to_string(), &SymbolClass::Array)));
         assert!(globals.contains(&(&"Main".to_string(), &SymbolClass::Proc)));
+    }
+
+    #[test]
+    fn evaluates_typed_global_const_expressions_in_source_order() {
+        let model = analyze_source(
+            "CONST Width=40, Height=Width+2*4 CONST Page=CARD(Width) LSH 8 PROC Main() BYTE x x=Height RETURN",
+        );
+        let global = model.symbols.global_scope();
+
+        let width = model.symbols.lookup(global, "Width").expect("Width CONST");
+        let height = model
+            .symbols
+            .lookup(global, "Height")
+            .expect("Height CONST");
+        let page = model.symbols.lookup(global, "Page").expect("Page CONST");
+
+        assert_eq!(model.symbols.symbols[width.0].class, SymbolClass::Const);
+        assert_eq!(
+            model.constants[&width],
+            ConstValue {
+                ty: ScalarType::Byte,
+                bits: 40,
+            }
+        );
+        assert_eq!(
+            model.constants[&height],
+            ConstValue {
+                ty: ScalarType::Byte,
+                bits: 48,
+            }
+        );
+        assert_eq!(
+            model.constants[&page],
+            ConstValue {
+                ty: ScalarType::Card,
+                bits: 0x2800,
+            }
+        );
+    }
+
+    #[test]
+    fn declared_const_type_casts_every_entry() {
+        let model = analyze_source(
+            "CONST BYTE Mask=$1FF, Copy=Mask CONST CHAR Letter='A CONST CARD Screen=$4000 CONST INT Negative=-300 CONST Inferred=$1234 PROC Main() RETURN",
+        );
+        let global = model.symbols.global_scope();
+
+        let constant = |name: &str| {
+            let symbol = model.symbols.lookup(global, name).expect("declared CONST");
+            model.constants[&symbol]
+        };
+
+        assert_eq!(
+            constant("Mask"),
+            ConstValue {
+                ty: ScalarType::Byte,
+                bits: 0x00FF,
+            }
+        );
+        assert_eq!(constant("Copy"), constant("Mask"));
+        assert_eq!(
+            constant("Letter"),
+            ConstValue {
+                ty: ScalarType::Char,
+                bits: b'A'.into(),
+            }
+        );
+        assert_eq!(
+            constant("Screen"),
+            ConstValue {
+                ty: ScalarType::Card,
+                bits: 0x4000,
+            }
+        );
+        assert_eq!(
+            constant("Negative"),
+            ConstValue {
+                ty: ScalarType::Int,
+                bits: (-300i16) as u16,
+            }
+        );
+        assert_eq!(constant("Inferred").ty, ScalarType::Card);
+    }
+
+    #[test]
+    fn local_const_shadows_global_const_and_keeps_no_storage_class() {
+        let model = analyze_source(
+            "CONST Value=1 PROC Main() CONST Value=2, Twice=Value*2 BYTE x x=Twice RETURN",
+        );
+        let local = model.routine_scopes[0].scope;
+        let value = model.symbols.lookup(local, "Value").expect("local Value");
+        let twice = model.symbols.lookup(local, "Twice").expect("local Twice");
+
+        assert_eq!(model.symbols.symbols[value.0].scope, local);
+        assert_eq!(model.symbols.symbols[value.0].class, SymbolClass::Const);
+        assert_eq!(model.constants[&value].bits, 2);
+        assert_eq!(model.constants[&twice].bits, 4);
+        assert!(!model.array_symbols.contains(&value));
+    }
+
+    #[test]
+    fn rejects_forward_and_runtime_const_dependencies() {
+        let forward = analyze_source_err("CONST A=B, B=1");
+        assert!(
+            forward
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("undefined symbol `B`"))
+        );
+
+        let runtime = analyze_source_err("BYTE x CONST Bad=x+1");
+        assert!(runtime.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("CONST expression depends on a runtime value")
+        }));
+    }
+
+    #[test]
+    fn rejects_const_division_by_zero_and_mutation() {
+        let division = analyze_source_err("CONST Bad=10/0");
+        assert!(
+            division
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("division by zero"))
+        );
+
+        let assignment = analyze_source_err("CONST Value=1 PROC Main() Value=2 RETURN");
+        assert!(
+            assignment
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("invalid assignment target"))
+        );
     }
 
     #[test]
@@ -5358,6 +5687,7 @@ mod tests {
                     }
                     ir::SemItem::Statement(stmt) => assert_semir_stmt_types(stmt),
                     ir::SemItem::Define(_)
+                    | ir::SemItem::Const(_)
                     | ir::SemItem::Include(_)
                     | ir::SemItem::Set(_)
                     | ir::SemItem::Unsupported { .. } => {}

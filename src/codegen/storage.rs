@@ -1341,7 +1341,7 @@ pub(super) fn collect_record_layout_decl(records: &mut RecordLayouts, decl: &Dec
     let (name, fields) = match decl {
         Decl::Type(type_decl) => (&type_decl.name, &type_decl.fields),
         Decl::Record(record_decl) => (&record_decl.name, &record_decl.fields),
-        Decl::Var(_) => return,
+        Decl::Var(_) | Decl::Const(_) => return,
     };
     let Some(layout) = build_record_layout(fields) else {
         return;
