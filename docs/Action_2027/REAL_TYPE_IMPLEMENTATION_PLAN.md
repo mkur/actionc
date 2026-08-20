@@ -1,9 +1,10 @@
 # Native REAL Implementation Plan
 
-Implementation status: in progress. Slices 0 through 5 are complete: the Atari
+Implementation status: in progress. Slices 0 through 6 are complete: the Atari
 oracle, exact decimal codec, modern-profile semantic contract, MIR storage-size
-foundation, address-based NIR, and MIR6502 core FPP arithmetic are in place.
-Comparisons, unary operations, and dynamic conversions remain explicitly gated.
+foundation, address-based NIR, MIR6502 core FPP arithmetic, comparisons, unary
+operations, and scalar conversions are in place. Aggregate storage remains
+explicitly gated.
 
 ## Goal
 
@@ -69,8 +70,9 @@ The initial native type has these properties:
 - unary `+` and `-` are supported;
 - comparisons produce the existing Boolean/condition result;
 - integer-to-real conversion is implicit in mixed arithmetic and assignment;
-- real-to-integer conversion is explicit and diagnoses overflow according to a
-  documented policy;
+- real-to-integer conversion is explicit; statically known non-integral and
+  out-of-range values are diagnosed, while dynamic values use Atari FPI
+  nearest-integer rounding followed by the target Action integer width;
 - `MOD`, shifts, and bitwise operators reject real operands;
 - taking the address of a real value and using `REAL POINTER` are supported;
 - by-value real parameters and real function results are deferred until their
@@ -311,6 +313,8 @@ aliased operands.
 
 ### Slice 6: Comparisons, Unary Operations, and Conversions
 
+Status: complete.
+
 - Add all relational predicates and real truth/nonzero testing.
 - Add unary sign handling with a canonical zero policy.
 - Add BYTE, CHAR, CARD, and INT to/from real conversions using confirmed Atari
@@ -321,6 +325,15 @@ aliased operands.
 
 Exit criterion: native real participates consistently in the ordinary
 expression and control-flow type system.
+
+The implementation compares canonical six-byte representations directly, with
+sign-aware ordering, so adjacent representable values remain distinguishable.
+Unary negation canonicalizes zero. Atari IFP and FPI operate on unsigned
+16-bit magnitudes; the MIR6502 adapters preserve signed Action `INT` semantics
+and keep sign state in hidden frame storage across the opaque OS call. FPI
+rounds dynamic nonnegative magnitudes to the nearest integer. Statically known
+non-integral or out-of-range casts are rejected before lowering; dynamic casts
+then apply the requested Action integer width to the FPI word.
 
 ### Slice 7: Initializers, Arrays, and Indirect Storage
 

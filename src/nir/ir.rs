@@ -540,6 +540,11 @@ pub enum NirRealOp {
         source: NirValue,
         source_type: NirType,
     },
+    RealToInteger {
+        result: TempId,
+        result_type: NirType,
+        source: NirPlace,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

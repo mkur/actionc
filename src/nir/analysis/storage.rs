@@ -826,6 +826,7 @@ fn for_each_real_place(op: &NirRealOp, mut visit: impl FnMut(&NirPlace)) {
             visit(right);
         }
         NirRealOp::IntegerToReal { destination, .. } => visit(destination),
+        NirRealOp::RealToInteger { source, .. } => visit(source),
     }
 }
 
@@ -835,7 +836,7 @@ fn real_destinations(op: &NirRealOp) -> impl Iterator<Item = &NirPlace> {
         | NirRealOp::Unary { destination, .. }
         | NirRealOp::Binary { destination, .. }
         | NirRealOp::IntegerToReal { destination, .. } => Some(destination),
-        NirRealOp::Compare { .. } => None,
+        NirRealOp::Compare { .. } | NirRealOp::RealToInteger { .. } => None,
     }
     .into_iter()
 }

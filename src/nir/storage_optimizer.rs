@@ -258,7 +258,9 @@ fn transfer_op(
             apply_call_barrier(facts, callee, effects, trackable, routine_name);
         }
         NirOp::Real(real) => {
-            if let NirRealOp::Compare { result, .. } = real {
+            if let NirRealOp::Compare { result, .. } | NirRealOp::RealToInteger { result, .. } =
+                real
+            {
                 facts.replacements.remove(result);
             }
             retain_available_storage_values(facts, block, op_index, use_def);
@@ -475,6 +477,7 @@ fn rewrite_real_op_values(op: &mut NirRealOp, replacements: &BTreeMap<TempId, Ni
             rewrite_place(destination);
             rewrite_value(source, replacements);
         }
+        NirRealOp::RealToInteger { source, .. } => rewrite_place(source),
     }
 }
 
@@ -535,6 +538,11 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Binary { dest, ty, .. }
         | NirOp::Compare { dest, ty, .. } => Some((*dest, ty)),
         NirOp::Real(NirRealOp::Compare {
+            result,
+            result_type,
+            ..
+        })
+        | NirOp::Real(NirRealOp::RealToInteger {
             result,
             result_type,
             ..

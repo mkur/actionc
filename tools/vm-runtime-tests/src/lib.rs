@@ -263,6 +263,33 @@ mod tests {
     }
 
     #[test]
+    fn native_real_control_and_conversion_surface_runs_in_both_runtimes() {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let outcome = run_runtime_fixture(
+                "native_real_control.act",
+                CompileMode::Mir6502,
+                runtime,
+                true,
+                100_000,
+            );
+            let bytes = |address: u16, length: u16| {
+                (0..length)
+                    .map(|offset| outcome.memory().read(address + offset))
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(bytes(0x0600, 6), [0xC1, 0x01, 0x23, 0, 0, 0]);
+            assert_eq!(bytes(0x0606, 6), [0x41, 0x01, 0x23, 0, 0, 0]);
+            assert_eq!(bytes(0x060C, 2), [0x85, 0xFF]);
+            assert_eq!(bytes(0x060E, 2), [0xFF, 0xFF]);
+            assert_eq!(bytes(0x0610, 1), [0xFF]);
+            assert_eq!(bytes(0x0611, 3), [1, 3, 65]);
+            assert_eq!(bytes(0x0614, 6), [0, 1, 1, 1, 0, 0]);
+            assert_eq!(bytes(0x061A, 4), [1, 1, 1, 1]);
+            assert_eq!(bytes(0x061E, 2), [2, 0]);
+        }
+    }
+
+    #[test]
     fn initialized_arrays_execute_through_the_vm_library() {
         assert_both_backends(
             "initialized arrays",

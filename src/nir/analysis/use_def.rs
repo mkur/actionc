@@ -146,7 +146,8 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
         | NirOp::Cast { dest, .. }
         | NirOp::Binary { dest, .. }
         | NirOp::Compare { dest, .. } => Some(*dest),
-        NirOp::Real(NirRealOp::Compare { result, .. }) => Some(*result),
+        NirOp::Real(NirRealOp::Compare { result, .. })
+        | NirOp::Real(NirRealOp::RealToInteger { result, .. }) => Some(*result),
         NirOp::Call {
             result: Some(result),
             ..
@@ -233,6 +234,9 @@ fn record_op_uses(
             } => {
                 record_place(uses, destination, site(NirUseKind::StorePlace));
                 record_value(uses, source, site(NirUseKind::CastSource));
+            }
+            NirRealOp::RealToInteger { source, .. } => {
+                record_place(uses, source, site(NirUseKind::CastSource));
             }
         },
         NirOp::Call {

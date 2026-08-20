@@ -756,7 +756,8 @@ fn op_result(op: &NirOp) -> Option<TempId> {
             result: Some(result),
             ..
         } => Some(result.dest),
-        NirOp::Real(NirRealOp::Compare { result, .. }) => Some(*result),
+        NirOp::Real(NirRealOp::Compare { result, .. })
+        | NirOp::Real(NirRealOp::RealToInteger { result, .. }) => Some(*result),
         _ => None,
     }
 }
@@ -830,6 +831,9 @@ fn rewrite_real_op_values(op: &mut NirRealOp, replacements: &BTreeMap<TempId, Ni
         } => {
             rewrite_place_values(destination, replacements);
             rewrite_value(source, replacements);
+        }
+        NirRealOp::RealToInteger { source, .. } => {
+            rewrite_place_values(source, replacements);
         }
     }
 }
@@ -916,7 +920,8 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
                     result: Some(result),
                     ..
                 } => &result.ty,
-                NirOp::Real(NirRealOp::Compare { result_type, .. }) => result_type,
+                NirOp::Real(NirRealOp::Compare { result_type, .. })
+                | NirOp::Real(NirRealOp::RealToInteger { result_type, .. }) => result_type,
                 _ => continue,
             };
             temps.push(NirTemp {

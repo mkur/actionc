@@ -20,7 +20,7 @@ use super::ir::{
     MirAddr, MirAtariFppService, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam, MirCallAbi,
     MirCallTarget, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDataBacking, MirDataImage,
     MirDataRelocation, MirDataRelocationKind, MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg,
-    MirEffects, MirFixedZpSlot, MirFrame, MirGlobal, MirGlobalBacking, MirGlobalInit,
+    MirEffects, MirFixedZpSlot, MirFlagTest, MirFrame, MirGlobal, MirGlobalBacking, MirGlobalInit,
     MirInlineAsmTarget, MirMachineAtom, MirMachineBlock, MirMachineBlockId, MirMachineByteSelector,
     MirMachineItem, MirMem, MirMemoryEffect, MirOp, MirProgram, MirRegisterSet, MirRoutine,
     MirRoutineAbi, MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic,
@@ -116,12 +116,20 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                     .max()
                     .map_or(0, |id| id.saturating_add(1));
                 let mut generated_temps = Vec::new();
+                let mut next_generated_local = routine
+                    .locals
+                    .iter()
+                    .map(|local| local.id.0)
+                    .max()
+                    .map_or(0, |id| id.saturating_add(1));
+                let mut generated_locals = Vec::new();
 
                 let blocks: Vec<MirBlock> = routine
                     .blocks
                     .iter()
                     .enumerate()
                     .map(|(block_index, block)| {
+                        let mut real_branch_values = BTreeMap::new();
                         let mut ops = lower_ops(
                             &routine.name,
                             &block.label,
@@ -136,6 +144,9 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                             &mut machine_blocks,
                             &mut next_generated_temp,
                             &mut generated_temps,
+                            &mut next_generated_local,
+                            &mut generated_locals,
+                            &mut real_branch_values,
                             &mut diagnostics,
                         );
                         lower_return_value_ops(
@@ -146,6 +157,33 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                             &mut ops,
                             &mut diagnostics,
                         );
+                        let mut terminator = lower_terminator(
+                            &routine.name,
+                            &block.label,
+                            block.id,
+                            &block.terminator,
+                            &block_ids,
+                            &mut diagnostics,
+                        );
+                        if let MirTerminator::Branch {
+                            cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(result))),
+                            ..
+                        } = &mut terminator
+                            && let Some(answer) = real_branch_values.get(&result.0).copied()
+                        {
+                            let _ = answer;
+                            ops.push(MirOp::Compare {
+                                dst: MirCondDest::Flags,
+                                op: MirCompareOp::Ne,
+                                left: temp_value(*result),
+                                right: MirValue::ConstU8(0),
+                                width: MirWidth::Byte,
+                                signed: false,
+                            });
+                            if let MirTerminator::Branch { cond, .. } = &mut terminator {
+                                *cond = MirCond::FlagTest(MirFlagTest::ZClear);
+                            }
+                        }
                         MirBlock {
                             id: MirBlockId(block_index as u32),
                             label: block.label.clone(),
@@ -172,14 +210,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                                 })
                                 .collect(),
                             ops,
-                            terminator: lower_terminator(
-                                &routine.name,
-                                &block.label,
-                                block.id,
-                                &block.terminator,
-                                &block_ids,
-                                &mut diagnostics,
-                            ),
+                            terminator,
                         }
                     })
                     .collect();
@@ -272,6 +303,32 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                             init,
                         }
                         })
+                        .chain(generated_locals.into_iter().enumerate().map(
+                            |(generated_index, (id, name))| MirStorageSlot {
+                                id: MirStorageId(
+                                    routine
+                                        .locals
+                                        .iter()
+                                        .filter(|local| {
+                                            matches!(
+                                                local.backing,
+                                                NirLocalBacking::Ordinary
+                                                    | NirLocalBacking::Alias { .. }
+                                            )
+                                        })
+                                        .count() as u32
+                                        + generated_index as u32,
+                                ),
+                                name: Some(name),
+                                storage: MirStorageClass::Scalar,
+                                storage_size: 1,
+                                scalar_width: Some(MirWidth::Byte),
+                                base: MirStorageBase::Local(id),
+                                offset: 0,
+                                mutable: true,
+                                init: None,
+                            },
+                        ))
                         .collect(),
                     spills: Vec::new(),
                     virtual_zero_page: Vec::new(),
@@ -761,6 +818,9 @@ fn lower_ops(
     machine_blocks: &mut Vec<MirMachineBlock>,
     next_generated_temp: &mut u32,
     generated_temps: &mut Vec<MirTemp>,
+    next_generated_local: &mut u32,
+    generated_locals: &mut Vec<(LocalId, String)>,
+    real_branch_values: &mut BTreeMap<u32, MirTempId>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Vec<MirOp> {
     let mut lowered = Vec::new();
@@ -1168,6 +1228,9 @@ fn lower_ops(
                 real,
                 next_generated_temp,
                 generated_temps,
+                next_generated_local,
+                generated_locals,
+                real_branch_values,
                 &mut lowered,
                 diagnostics,
             ),
@@ -1187,6 +1250,9 @@ fn lower_real_op(
     op: &NirRealOp,
     next_generated_temp: &mut u32,
     generated_temps: &mut Vec<MirTemp>,
+    next_generated_local: &mut u32,
+    generated_locals: &mut Vec<(LocalId, String)>,
+    real_branch_values: &mut BTreeMap<u32, MirTempId>,
     lowered: &mut Vec<MirOp>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) {
@@ -1272,32 +1338,776 @@ fn lower_real_op(
             else {
                 return;
             };
-            let Some(bytes) = constant_integer_real_bytes(source, source_type) else {
-                diagnostics.push(MirDiagnostic::block(
-                    routine,
-                    block,
-                    "dynamic integer-to-REAL conversion is not implemented yet",
-                ));
+            if let Some(bytes) = constant_integer_real_bytes(source, source_type) {
+                for (offset, byte) in bytes.into_iter().enumerate() {
+                    lowered.push(MirOp::Store {
+                        dst: MirAddr::Direct(offset_mem(&destination, offset as u16)),
+                        src: MirValue::ConstU8(byte),
+                        width: MirWidth::Byte,
+                    });
+                }
+                return;
+            }
+            let Some(source) = lower_value(routine, block, source, diagnostics) else {
                 return;
             };
-            for (offset, byte) in bytes.into_iter().enumerate() {
-                lowered.push(MirOp::Store {
-                    dst: MirAddr::Direct(offset_mem(&destination, offset as u16)),
-                    src: MirValue::ConstU8(byte),
-                    width: MirWidth::Byte,
-                });
+            push_integer_to_real(
+                source,
+                source_type,
+                &destination,
+                next_generated_temp,
+                generated_temps,
+                next_generated_local,
+                generated_locals,
+                lowered,
+            );
+        }
+        NirRealOp::Unary {
+            operation,
+            destination,
+            operand,
+        } => {
+            let Some(destination) = lower_place_mem(routine, block, destination, diagnostics)
+            else {
+                return;
+            };
+            let Some(operand) = lower_place_mem(routine, block, operand, diagnostics) else {
+                return;
+            };
+            match operation {
+                NirUnaryOp::Plus => push_staged_real_copy(
+                    &operand,
+                    &destination,
+                    next_generated_temp,
+                    generated_temps,
+                    lowered,
+                ),
+                NirUnaryOp::Neg => {
+                    for offset in 0..ATARI_REAL_BYTES {
+                        lowered.push(MirOp::Store {
+                            dst: MirAddr::Direct(offset_mem(
+                                &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+                                offset,
+                            )),
+                            src: MirValue::ConstU8(0),
+                            width: MirWidth::Byte,
+                        });
+                    }
+                    push_staged_real_copy(
+                        &operand,
+                        &MirMem::FixedZeroPage(ATARI_FPP_FR1),
+                        next_generated_temp,
+                        generated_temps,
+                        lowered,
+                    );
+                    lowered.push(atari_fpp_call(MirAtariFppService::Subtract));
+                    push_staged_real_copy(
+                        &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+                        &destination,
+                        next_generated_temp,
+                        generated_temps,
+                        lowered,
+                    );
+                }
             }
         }
-        NirRealOp::Unary { .. } => diagnostics.push(MirDiagnostic::block(
-            routine,
-            block,
-            "native REAL unary lowering is not implemented yet",
-        )),
-        NirRealOp::Compare { .. } => diagnostics.push(MirDiagnostic::block(
-            routine,
-            block,
-            "native REAL comparison lowering is not implemented yet",
-        )),
+        NirRealOp::Compare {
+            predicate,
+            result,
+            left,
+            right,
+            ..
+        } => {
+            let Some(left) = lower_place_mem(routine, block, left, diagnostics) else {
+                return;
+            };
+            let Some(right) = lower_place_mem(routine, block, right, diagnostics) else {
+                return;
+            };
+            let answer = push_real_compare(
+                *predicate,
+                MirTempId(result.0),
+                &left,
+                &right,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            real_branch_values.insert(result.0, answer);
+        }
+        NirRealOp::RealToInteger {
+            result,
+            result_type,
+            source,
+        } => {
+            let Some(source) = lower_place_mem(routine, block, source, diagnostics) else {
+                return;
+            };
+            push_real_to_integer(
+                &source,
+                MirTempId(result.0),
+                result_type,
+                next_generated_temp,
+                generated_temps,
+                next_generated_local,
+                generated_locals,
+                lowered,
+            );
+        }
+    }
+}
+
+fn generated_temp(next_generated_temp: &mut u32, generated_temps: &mut Vec<MirTemp>) -> MirTempId {
+    let id = MirTempId(*next_generated_temp);
+    *next_generated_temp = next_generated_temp.saturating_add(1);
+    generated_temps.push(MirTemp { id });
+    id
+}
+
+fn generated_scratch_local(
+    next_generated_local: &mut u32,
+    generated_locals: &mut Vec<(LocalId, String)>,
+) -> MirMem {
+    let id = LocalId(*next_generated_local);
+    *next_generated_local = next_generated_local.saturating_add(1);
+    let name = format!("__mir_real_scratch_{}", id.0);
+    generated_locals.push((id, name));
+    MirMem::Local { id, offset: 0 }
+}
+
+fn temp_value(id: MirTempId) -> MirValue {
+    MirValue::Def(MirDef::VTemp(id))
+}
+
+fn push_generated_binary(
+    operation: MirBinaryOp,
+    left: MirValue,
+    right: MirValue,
+    width: MirWidth,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+) -> MirTempId {
+    let result = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Binary {
+        op: operation,
+        dst: MirDef::VTemp(result),
+        left,
+        right,
+        width,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    });
+    result
+}
+
+fn push_generated_compare(
+    operation: MirCompareOp,
+    left: MirValue,
+    right: MirValue,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+) -> MirTempId {
+    let result = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Compare {
+        dst: MirCondDest::Temp(result),
+        op: operation,
+        left,
+        right,
+        width: MirWidth::Byte,
+        signed: false,
+    });
+    result
+}
+
+fn push_bool_not(
+    value: MirTempId,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+) -> MirTempId {
+    push_generated_compare(
+        MirCompareOp::Eq,
+        temp_value(value),
+        MirValue::ConstU8(0),
+        next_generated_temp,
+        generated_temps,
+        lowered,
+    )
+}
+
+fn push_bool_binary(
+    operation: MirBinaryOp,
+    left: MirTempId,
+    right: MirTempId,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+) -> MirTempId {
+    push_generated_binary(
+        operation,
+        temp_value(left),
+        temp_value(right),
+        MirWidth::Byte,
+        next_generated_temp,
+        generated_temps,
+        lowered,
+    )
+}
+
+fn push_real_byte_compare(
+    operation: MirCompareOp,
+    left: &MirMem,
+    right: &MirMem,
+    offset: u16,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+) -> MirTempId {
+    let left_byte = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Load {
+        dst: MirDef::VTemp(left_byte),
+        src: MirAddr::Direct(offset_mem(left, offset)),
+        width: MirWidth::Byte,
+    });
+    let right_byte = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Load {
+        dst: MirDef::VTemp(right_byte),
+        src: MirAddr::Direct(offset_mem(right, offset)),
+        width: MirWidth::Byte,
+    });
+    push_generated_compare(
+        operation,
+        temp_value(left_byte),
+        temp_value(right_byte),
+        next_generated_temp,
+        generated_temps,
+        lowered,
+    )
+}
+
+fn push_real_byte_const_compare(
+    operation: MirCompareOp,
+    source: &MirMem,
+    offset: u16,
+    constant: u8,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+) -> MirTempId {
+    let byte = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Load {
+        dst: MirDef::VTemp(byte),
+        src: MirAddr::Direct(offset_mem(source, offset)),
+        width: MirWidth::Byte,
+    });
+    push_generated_compare(
+        operation,
+        temp_value(byte),
+        MirValue::ConstU8(constant),
+        next_generated_temp,
+        generated_temps,
+        lowered,
+    )
+}
+
+fn push_real_compare(
+    predicate: NirCompareOp,
+    result: MirTempId,
+    left: &MirMem,
+    right: &MirMem,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+) -> MirTempId {
+    let equality_parts = (0..ATARI_REAL_BYTES)
+        .map(|offset| {
+            push_real_byte_compare(
+                MirCompareOp::Eq,
+                left,
+                right,
+                offset,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            )
+        })
+        .collect::<Vec<_>>();
+    let equal = equality_parts
+        .iter()
+        .copied()
+        .reduce(|left, right| {
+            push_bool_binary(
+                MirBinaryOp::And,
+                left,
+                right,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            )
+        })
+        .expect("REAL has at least one byte");
+
+    let answer = match predicate {
+        NirCompareOp::Eq => equal,
+        NirCompareOp::Ne => push_bool_not(equal, next_generated_temp, generated_temps, lowered),
+        NirCompareOp::Lt | NirCompareOp::Le | NirCompareOp::Gt | NirCompareOp::Ge => {
+            let left_negative = push_real_byte_const_compare(
+                MirCompareOp::Ge,
+                left,
+                0,
+                0x80,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            let right_negative = push_real_byte_const_compare(
+                MirCompareOp::Ge,
+                right,
+                0,
+                0x80,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            let left_nonnegative =
+                push_bool_not(left_negative, next_generated_temp, generated_temps, lowered);
+            let right_nonnegative = push_bool_not(
+                right_negative,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            let negative_before_nonnegative = push_bool_binary(
+                MirBinaryOp::And,
+                left_negative,
+                right_nonnegative,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            let both_nonnegative = push_bool_binary(
+                MirBinaryOp::And,
+                left_nonnegative,
+                right_nonnegative,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            let both_negative = push_bool_binary(
+                MirBinaryOp::And,
+                left_negative,
+                right_negative,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+
+            let mut prefix_equal = equality_parts[0];
+            let mut lex_less = push_real_byte_compare(
+                MirCompareOp::Lt,
+                left,
+                right,
+                0,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            let mut lex_greater = push_real_byte_compare(
+                MirCompareOp::Lt,
+                right,
+                left,
+                0,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            for index in 1..ATARI_REAL_BYTES as usize {
+                let byte_less = push_real_byte_compare(
+                    MirCompareOp::Lt,
+                    left,
+                    right,
+                    index as u16,
+                    next_generated_temp,
+                    generated_temps,
+                    lowered,
+                );
+                let byte_greater = push_real_byte_compare(
+                    MirCompareOp::Lt,
+                    right,
+                    left,
+                    index as u16,
+                    next_generated_temp,
+                    generated_temps,
+                    lowered,
+                );
+                let first_less = push_bool_binary(
+                    MirBinaryOp::And,
+                    prefix_equal,
+                    byte_less,
+                    next_generated_temp,
+                    generated_temps,
+                    lowered,
+                );
+                let first_greater = push_bool_binary(
+                    MirBinaryOp::And,
+                    prefix_equal,
+                    byte_greater,
+                    next_generated_temp,
+                    generated_temps,
+                    lowered,
+                );
+                lex_less = push_bool_binary(
+                    MirBinaryOp::Or,
+                    lex_less,
+                    first_less,
+                    next_generated_temp,
+                    generated_temps,
+                    lowered,
+                );
+                lex_greater = push_bool_binary(
+                    MirBinaryOp::Or,
+                    lex_greater,
+                    first_greater,
+                    next_generated_temp,
+                    generated_temps,
+                    lowered,
+                );
+                prefix_equal = push_bool_binary(
+                    MirBinaryOp::And,
+                    prefix_equal,
+                    equality_parts[index],
+                    next_generated_temp,
+                    generated_temps,
+                    lowered,
+                );
+            }
+            let positive_less = push_bool_binary(
+                MirBinaryOp::And,
+                both_nonnegative,
+                lex_less,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            let negative_less = push_bool_binary(
+                MirBinaryOp::And,
+                both_negative,
+                lex_greater,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            let same_sign_less = push_bool_binary(
+                MirBinaryOp::Or,
+                positive_less,
+                negative_less,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            let less = push_bool_binary(
+                MirBinaryOp::Or,
+                negative_before_nonnegative,
+                same_sign_less,
+                next_generated_temp,
+                generated_temps,
+                lowered,
+            );
+            match predicate {
+                NirCompareOp::Lt => less,
+                NirCompareOp::Le => push_bool_binary(
+                    MirBinaryOp::Or,
+                    less,
+                    equal,
+                    next_generated_temp,
+                    generated_temps,
+                    lowered,
+                ),
+                NirCompareOp::Gt => {
+                    let less_or_equal = push_bool_binary(
+                        MirBinaryOp::Or,
+                        less,
+                        equal,
+                        next_generated_temp,
+                        generated_temps,
+                        lowered,
+                    );
+                    push_bool_not(less_or_equal, next_generated_temp, generated_temps, lowered)
+                }
+                NirCompareOp::Ge => {
+                    push_bool_not(less, next_generated_temp, generated_temps, lowered)
+                }
+                NirCompareOp::Eq | NirCompareOp::Ne => unreachable!(),
+            }
+        }
+    };
+    lowered.push(MirOp::Move {
+        dst: MirDef::VTemp(result),
+        src: temp_value(answer),
+        width: MirWidth::Byte,
+    });
+    answer
+}
+
+fn push_integer_to_real(
+    source: MirValue,
+    source_type: &NirType,
+    destination: &MirMem,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    next_generated_local: &mut u32,
+    generated_locals: &mut Vec<(LocalId, String)>,
+    lowered: &mut Vec<MirOp>,
+) {
+    let byte_source = matches!(source_type.kind, NirTypeKind::U8 | NirTypeKind::I8);
+    let signed = matches!(source_type.kind, NirTypeKind::I8 | NirTypeKind::I16);
+    let source_word = if byte_source {
+        let extended = generated_temp(next_generated_temp, generated_temps);
+        lowered.push(MirOp::Extend {
+            dst: MirDef::VTemp(extended),
+            src: source,
+            from_width: MirWidth::Byte,
+            to_width: MirWidth::Word,
+            signed,
+        });
+        temp_value(extended)
+    } else {
+        source
+    };
+
+    let (magnitude, sign_scratch) = if signed {
+        let sign = generated_temp(next_generated_temp, generated_temps);
+        lowered.push(MirOp::Compare {
+            dst: MirCondDest::Temp(sign),
+            op: MirCompareOp::Lt,
+            left: source_word.clone(),
+            right: MirValue::ConstU16(0),
+            width: MirWidth::Word,
+            signed: true,
+        });
+        let sign_word = generated_temp(next_generated_temp, generated_temps);
+        lowered.push(MirOp::Extend {
+            dst: MirDef::VTemp(sign_word),
+            src: temp_value(sign),
+            from_width: MirWidth::Byte,
+            to_width: MirWidth::Word,
+            signed: false,
+        });
+        let mask = generated_temp(next_generated_temp, generated_temps);
+        lowered.push(MirOp::Unary {
+            op: MirUnaryOp::Neg,
+            dst: MirDef::VTemp(mask),
+            src: temp_value(sign_word),
+            width: MirWidth::Word,
+        });
+        let complemented = push_generated_binary(
+            MirBinaryOp::Xor,
+            source_word,
+            temp_value(mask),
+            MirWidth::Word,
+            next_generated_temp,
+            generated_temps,
+            lowered,
+        );
+        let magnitude = push_generated_binary(
+            MirBinaryOp::Add,
+            temp_value(complemented),
+            temp_value(sign_word),
+            MirWidth::Word,
+            next_generated_temp,
+            generated_temps,
+            lowered,
+        );
+        let sign_mask = generated_temp(next_generated_temp, generated_temps);
+        lowered.push(MirOp::Unary {
+            op: MirUnaryOp::Neg,
+            dst: MirDef::VTemp(sign_mask),
+            src: temp_value(sign),
+            width: MirWidth::Byte,
+        });
+        let sign_bit = push_generated_binary(
+            MirBinaryOp::And,
+            temp_value(sign_mask),
+            MirValue::ConstU8(0x80),
+            MirWidth::Byte,
+            next_generated_temp,
+            generated_temps,
+            lowered,
+        );
+        let sign_scratch = generated_scratch_local(next_generated_local, generated_locals);
+        lowered.push(MirOp::Store {
+            dst: MirAddr::Direct(sign_scratch.clone()),
+            src: temp_value(sign_bit),
+            width: MirWidth::Byte,
+        });
+        (temp_value(magnitude), Some(sign_scratch))
+    } else {
+        (source_word, None)
+    };
+
+    lowered.push(MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
+        src: magnitude,
+        width: MirWidth::Word,
+    });
+    lowered.push(atari_fpp_call(MirAtariFppService::IntegerToFloat));
+    if let Some(sign_scratch) = sign_scratch {
+        let sign_bit = generated_temp(next_generated_temp, generated_temps);
+        lowered.push(MirOp::Load {
+            dst: MirDef::VTemp(sign_bit),
+            src: MirAddr::Direct(sign_scratch),
+            width: MirWidth::Byte,
+        });
+        let exponent = generated_temp(next_generated_temp, generated_temps);
+        lowered.push(MirOp::Load {
+            dst: MirDef::VTemp(exponent),
+            src: MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
+            width: MirWidth::Byte,
+        });
+        let signed_exponent = push_generated_binary(
+            MirBinaryOp::Or,
+            temp_value(exponent),
+            temp_value(sign_bit),
+            MirWidth::Byte,
+            next_generated_temp,
+            generated_temps,
+            lowered,
+        );
+        lowered.push(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
+            src: temp_value(signed_exponent),
+            width: MirWidth::Byte,
+        });
+    }
+    push_staged_real_copy(
+        &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+        destination,
+        next_generated_temp,
+        generated_temps,
+        lowered,
+    );
+}
+
+fn push_real_to_integer(
+    source: &MirMem,
+    result: MirTempId,
+    result_type: &NirType,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    next_generated_local: &mut u32,
+    generated_locals: &mut Vec<(LocalId, String)>,
+    lowered: &mut Vec<MirOp>,
+) {
+    push_staged_real_copy(
+        source,
+        &MirMem::FixedZeroPage(ATARI_FPP_FR0),
+        next_generated_temp,
+        generated_temps,
+        lowered,
+    );
+    let exponent = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Load {
+        dst: MirDef::VTemp(exponent),
+        src: MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
+        width: MirWidth::Byte,
+    });
+    let sign = push_generated_compare(
+        MirCompareOp::Ge,
+        temp_value(exponent),
+        MirValue::ConstU8(0x80),
+        next_generated_temp,
+        generated_temps,
+        lowered,
+    );
+    let magnitude_source = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Load {
+        dst: MirDef::VTemp(magnitude_source),
+        src: MirAddr::Direct(offset_mem(source, 0)),
+        width: MirWidth::Byte,
+    });
+    let magnitude_exponent = push_generated_binary(
+        MirBinaryOp::And,
+        temp_value(magnitude_source),
+        MirValue::ConstU8(0x7F),
+        MirWidth::Byte,
+        next_generated_temp,
+        generated_temps,
+        lowered,
+    );
+    lowered.push(MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
+        src: temp_value(magnitude_exponent),
+        width: MirWidth::Byte,
+    });
+    let sign_scratch = generated_scratch_local(next_generated_local, generated_locals);
+    lowered.push(MirOp::Store {
+        dst: MirAddr::Direct(sign_scratch.clone()),
+        src: temp_value(sign),
+        width: MirWidth::Byte,
+    });
+    lowered.push(atari_fpp_call(MirAtariFppService::FloatToInteger));
+    let sign_after_call = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Load {
+        dst: MirDef::VTemp(sign_after_call),
+        src: MirAddr::Direct(sign_scratch),
+        width: MirWidth::Byte,
+    });
+    let sign_word = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Extend {
+        dst: MirDef::VTemp(sign_word),
+        src: temp_value(sign_after_call),
+        from_width: MirWidth::Byte,
+        to_width: MirWidth::Word,
+        signed: false,
+    });
+    let magnitude = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Load {
+        dst: MirDef::VTemp(magnitude),
+        src: MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
+        width: MirWidth::Word,
+    });
+    let mask = generated_temp(next_generated_temp, generated_temps);
+    lowered.push(MirOp::Unary {
+        op: MirUnaryOp::Neg,
+        dst: MirDef::VTemp(mask),
+        src: temp_value(sign_word),
+        width: MirWidth::Word,
+    });
+    let complemented = push_generated_binary(
+        MirBinaryOp::Xor,
+        temp_value(magnitude),
+        temp_value(mask),
+        MirWidth::Word,
+        next_generated_temp,
+        generated_temps,
+        lowered,
+    );
+    let signed_value = push_generated_binary(
+        MirBinaryOp::Add,
+        temp_value(complemented),
+        temp_value(sign_word),
+        MirWidth::Word,
+        next_generated_temp,
+        generated_temps,
+        lowered,
+    );
+    match result_type.width {
+        Some(1) => lowered.push(MirOp::Move {
+            dst: MirDef::VTemp(result),
+            src: MirValue::Def(MirDef::VTempByte {
+                id: signed_value,
+                byte: 0,
+            }),
+            width: MirWidth::Byte,
+        }),
+        Some(2) => lowered.push(MirOp::Move {
+            dst: MirDef::VTemp(result),
+            src: temp_value(signed_value),
+            width: MirWidth::Word,
+        }),
+        _ => unreachable!("NIR verifier accepts only byte/word REAL conversion results"),
     }
 }
 

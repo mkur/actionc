@@ -1136,6 +1136,39 @@ impl NirVerifier {
                     "REAL conversion source",
                 );
             }
+            NirRealOp::RealToInteger {
+                result,
+                result_type,
+                source,
+            } => {
+                self.real_place(
+                    routine,
+                    block,
+                    source,
+                    op_index,
+                    temp_facts,
+                    "REAL conversion source",
+                );
+                self.op_type(routine, block, result_type, "REAL conversion result type");
+                if !matches!(
+                    result_type.kind,
+                    NirTypeKind::U8 | NirTypeKind::I8 | NirTypeKind::U16 | NirTypeKind::I16
+                ) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "REAL-to-integer conversion result must be an integer",
+                    ));
+                }
+                self.temp_def_matches_table(routine, block, *result, result_type, op_index);
+                if !defined_temps.insert(*result) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("duplicate temp definition `%t{}`", result.0),
+                    ));
+                }
+            }
         }
     }
 

@@ -403,6 +403,11 @@ pub enum NirRealOp {
         source: NirValue,
         source_type: NirType,
     },
+    RealToInteger {
+        result: TempId,
+        result_type: NirType,
+        source: NirPlace,
+    },
 }
 
 pub enum NirRealSource {
@@ -428,6 +433,8 @@ The verifier guarantees:
 - scalar operations, scalar calls, and scalar returns never carry `Real`;
 - real comparisons alone define an ordinary canonical Boolean temp;
 - integer-to-real conversion sources are ordinary typed 8- or 16-bit integers.
+- real-to-integer conversion results are ordinary typed 8- or 16-bit integers;
+  the six-byte source remains an address-based place.
 
 Until a narrower proof exists, optimizers treat real operations as memory/call
 ordering barriers. They may rewrite scalar temps used to address a real place,

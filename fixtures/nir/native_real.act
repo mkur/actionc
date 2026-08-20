@@ -1,5 +1,6 @@
 REAL x,y,result
 BYTE is_large
+INT rounded
 
 PROC Main()
   x=1.25
@@ -7,4 +8,5 @@ PROC Main()
   result=x*y+0.5
   is_large=result>2
   result=-result
+  rounded=INT(result)
 RETURN

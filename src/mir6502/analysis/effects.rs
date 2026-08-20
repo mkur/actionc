@@ -561,6 +561,10 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                         id: projected_temp_spill(*temp, 0),
                         offset: 0,
                     });
+                    // Materializing a Boolean compare result branches to load
+                    // canonical 0/1 into A before storing the temp home.
+                    set_register(&mut summary.machine.register_writes, MirReg::A);
+                    summary.machine.conservative_register_clobbers.a = true;
                 }
                 MirCondDest::Flags => {
                     summary.machine.definitely_overwrites_carry = true;

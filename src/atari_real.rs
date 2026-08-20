@@ -15,6 +15,12 @@ const MANTISSA_DIGITS: usize = 10;
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AtariReal([u8; 6]);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AtariRealInteger {
+    pub value: i128,
+    pub exact: bool,
+}
+
 impl AtariReal {
     pub const ZERO: Self = Self([0; 6]);
 
@@ -38,9 +44,65 @@ impl AtariReal {
         !self.is_zero() && self.0[0] & 0x80 != 0
     }
 
+    pub const fn negated(self) -> Self {
+        if self.is_zero() {
+            self
+        } else {
+            let mut bytes = self.0;
+            bytes[0] ^= 0x80;
+            Self(bytes)
+        }
+    }
+
+    /// Return the integer selected by Atari FPI's round-to-nearest magnitude
+    /// rule. `None` means the represented magnitude exceeds `i128`.
+    pub fn rounded_integer(self) -> Option<AtariRealInteger> {
+        if self.is_zero() {
+            return Some(AtariRealInteger {
+                value: 0,
+                exact: true,
+            });
+        }
+        let exponent = i32::from(self.0[0] & 0x7F) - EXPONENT_BIAS;
+        let mantissa = self.0[1..].iter().fold(0u128, |value, byte| {
+            value * 100 + u128::from(byte >> 4) * 10 + u128::from(byte & 0x0F)
+        });
+        let pair_scale = exponent - 4;
+        let (magnitude, exact) = if pair_scale >= 0 {
+            let factor = checked_pow_100(pair_scale as u32)?;
+            (mantissa.checked_mul(factor)?, true)
+        } else {
+            let denominator_pairs = pair_scale.unsigned_abs();
+            if denominator_pairs >= 6 {
+                (0, false)
+            } else {
+                let denominator = checked_pow_100(denominator_pairs)?;
+                let quotient = mantissa / denominator;
+                let remainder = mantissa % denominator;
+                (
+                    quotient + u128::from(remainder.saturating_mul(2) >= denominator),
+                    remainder == 0,
+                )
+            }
+        };
+        let magnitude = i128::try_from(magnitude).ok()?;
+        Some(AtariRealInteger {
+            value: if self.is_negative() {
+                -magnitude
+            } else {
+                magnitude
+            },
+            exact,
+        })
+    }
+
     pub fn from_decimal(text: &str) -> Result<Self, ParseAtariRealError> {
         ParsedDecimal::parse(text)?.encode()
     }
+}
+
+fn checked_pow_100(exponent: u32) -> Option<u128> {
+    (0..exponent).try_fold(1u128, |value, _| value.checked_mul(100))
 }
 
 impl fmt::Debug for AtariReal {
@@ -347,5 +409,40 @@ mod tests {
         assert_eq!(bytes("+001.2300"), [0x40, 0x01, 0x23, 0x00, 0x00, 0x00]);
         assert!(AtariReal::from_decimal("-1").unwrap().is_negative());
         assert!(!AtariReal::ZERO.is_negative());
+    }
+
+    #[test]
+    fn exposes_exact_integer_and_fpi_rounding_facts_without_host_float() {
+        let cases = [
+            ("0", 0, true),
+            ("-123", -123, true),
+            ("1.25", 1, false),
+            ("1.5", 2, false),
+            ("-1.5", -2, false),
+            ("32768", 32_768, true),
+            ("1E-98", 0, false),
+        ];
+        for (text, expected, exact) in cases {
+            let integer = AtariReal::from_decimal(text)
+                .expect("REAL")
+                .rounded_integer()
+                .expect("integer magnitude");
+            assert_eq!((integer.value, integer.exact), (expected, exact), "{text}");
+        }
+        assert_eq!(
+            AtariReal::from_decimal("1.5")
+                .expect("REAL")
+                .negated()
+                .rounded_integer()
+                .expect("integer")
+                .value,
+            -2
+        );
+        assert!(
+            AtariReal::from_decimal("1E99")
+                .expect("REAL")
+                .rounded_integer()
+                .is_none()
+        );
     }
 }

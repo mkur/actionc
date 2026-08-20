@@ -2710,7 +2710,7 @@ impl<'a> IrBuilder<'a> {
 
         if expected.is_real() {
             let lowered = self.lower_expr(scope, expr);
-            return self.coerce_integer_expr_to_real(lowered);
+            return self.coerce_assignment_expr_to_real(lowered);
         }
 
         if expected.is_word_sized_value()
@@ -2745,10 +2745,32 @@ impl<'a> IrBuilder<'a> {
             .is_some_and(|ty| ty.is_real())
         {
             let lowered = self.lower_expr(scope, value);
-            self.coerce_integer_expr_to_real(lowered)
+            self.coerce_assignment_expr_to_real(lowered)
         } else {
             self.lower_expr(scope, value)
         }
+    }
+
+    fn coerce_assignment_expr_to_real(&mut self, expr: SemExpr) -> SemExpr {
+        if expr.ty.as_scalar().is_some()
+            && let SemExprKind::Unary {
+                op: op @ (UnaryOp::Plus | UnaryOp::Neg),
+                expr: operand,
+            } = expr.kind
+        {
+            let span = expr.span;
+            return SemExpr {
+                kind: SemExprKind::Unary {
+                    op,
+                    expr: Box::new(self.coerce_integer_expr_to_real(*operand)),
+                },
+                ty: ValueType::real(),
+                class: SemExprClass::Value,
+                eval_order: Some(self.next_eval_order()),
+                span,
+            };
+        }
+        self.coerce_integer_expr_to_real(expr)
     }
 
     fn lower_binary_expr(

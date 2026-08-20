@@ -952,6 +952,9 @@ fn rewrite_real_op_values(op: &mut NirRealOp, constants: &BTreeMap<TempId, NirVa
             rewrite_place_values(destination, constants);
             rewrite_value(source, constants);
         }
+        NirRealOp::RealToInteger { source, .. } => {
+            rewrite_place_values(source, constants);
+        }
     }
 }
 
@@ -1121,6 +1124,7 @@ fn collect_real_op_uses(op: &NirRealOp, out: &mut BTreeSet<TempId>) {
             collect_place_uses(destination, out);
             collect_value_use(source, out);
         }
+        NirRealOp::RealToInteger { source, .. } => collect_place_uses(source, out),
     }
 }
 
@@ -1190,6 +1194,11 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Binary { dest, ty, .. }
         | NirOp::Compare { dest, ty, .. } => Some((*dest, ty)),
         NirOp::Real(NirRealOp::Compare {
+            result,
+            result_type,
+            ..
+        })
+        | NirOp::Real(NirRealOp::RealToInteger {
             result,
             result_type,
             ..

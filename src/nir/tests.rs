@@ -229,13 +229,10 @@ fn real_expressions_lower_to_address_based_verified_nir() {
 
     let optimized = optimize_program(&program).expect("REAL NIR should remain optimizer-clean");
     verify_program(&optimized).expect("optimized REAL NIR should verify");
-    let diagnostics = crate::mir6502::lower_program(&optimized)
-        .expect_err("REAL comparisons remain explicitly gated until Slice 6");
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic
-            .message
-            .contains("native REAL comparison lowering is not implemented yet")
-    }));
+    let mir = crate::mir6502::lower_program(&optimized)
+        .expect("REAL comparisons should lower after Slice 6");
+    crate::mir6502::verify_program(&mir, crate::mir6502::MirPhase::PreMaterialization)
+        .expect("lowered REAL comparison MIR should verify");
 }
 
 #[test]
@@ -300,6 +297,30 @@ fn verifier_rejects_non_real_real_operation_places() {
         diagnostic
             .message
             .contains("REAL copy destination must be a six-byte REAL place")
+    }));
+}
+
+#[test]
+fn verifier_rejects_real_to_integer_with_a_non_integer_result() {
+    let mut program = lower_modern_source(
+        "REAL value INT result PROC Main() value=1.25 result=INT(value) RETURN",
+    );
+    let operation = program.routines[0]
+        .blocks
+        .iter_mut()
+        .flat_map(|block| &mut block.ops)
+        .find_map(|op| match op {
+            NirOp::Real(NirRealOp::RealToInteger { result_type, .. }) => Some(result_type),
+            _ => None,
+        })
+        .expect("REAL-to-integer conversion");
+    *operation = NirType::from_value(&ValueType::real());
+
+    let diagnostics = verify_program(&program).expect_err("REAL result lane must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("REAL-to-integer conversion result must be an integer")
     }));
 }
 

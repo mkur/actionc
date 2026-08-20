@@ -2627,7 +2627,12 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
             collect_value_spills(left, spills);
             collect_value_spills(right, spills);
         }
-        MirOp::Compare { left, right, .. } => {
+        MirOp::Compare {
+            dst, left, right, ..
+        } => {
+            if let MirCondDest::Temp(id) = dst {
+                collect_spill(MirSpillId(id.0.saturating_mul(2)), spills);
+            }
             collect_value_spills(left, spills);
             collect_value_spills(right, spills);
         }

@@ -518,6 +518,16 @@ fn real_op_summary(op: &NirRealOp) -> String {
             value_summary(source),
             source_type.summary
         ),
+        NirRealOp::RealToInteger {
+            result,
+            result_type,
+            source,
+        } => format!(
+            "{}:{} = real.convert {}",
+            temp_summary(*result),
+            result_type.summary,
+            place_summary(source)
+        ),
     }
 }
 

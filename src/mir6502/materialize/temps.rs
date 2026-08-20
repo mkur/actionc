@@ -839,6 +839,9 @@ fn materialize_temp_ops_with_widths(
                 width: MirWidth::Byte,
                 signed,
             } => {
+                if let MirCondDest::Temp(id) = &dst {
+                    ensure_spill(spills, MirSpillId(id.0.saturating_mul(2)));
+                }
                 let left = materialize_value_to_a(&mut out, left, spills);
                 let right = materialize_compare_rhs(right, spills);
                 out.push(MirOp::Compare {

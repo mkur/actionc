@@ -12,6 +12,8 @@ const FR0: u16 = 0x00d4;
 const FR1: u16 = 0x00e0;
 
 const AFP: u16 = 0xd800;
+const IFP: u16 = 0xd9aa;
+const FPI: u16 = 0xd9d2;
 const FSUB: u16 = 0xda60;
 const FADD: u16 = 0xda66;
 const FMULT: u16 = 0xdadb;
@@ -270,5 +272,52 @@ fn actionc_decimal_codec_matches_the_os_oracle() {
         let os = parse_ascii(text);
         assert_eq!(compiler.to_bytes(), os.fr0(), "codec mismatch for {text:?}");
         assert_eq!(os.cix as usize, text.len(), "AFP did not consume {text:?}");
+    }
+}
+
+#[test]
+fn ifp_converts_an_unsigned_16_bit_magnitude() {
+    let cases = [
+        (0u16, [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+        (1, [0x40, 0x01, 0x00, 0x00, 0x00, 0x00]),
+        (255, [0x41, 0x02, 0x55, 0x00, 0x00, 0x00]),
+        (256, [0x41, 0x02, 0x56, 0x00, 0x00, 0x00]),
+        (32_768, [0x42, 0x03, 0x27, 0x68, 0x00, 0x00]),
+        (65_535, [0x42, 0x06, 0x55, 0x35, 0x00, 0x00]),
+    ];
+    for (value, expected) in cases {
+        let capture = call_fpp(IFP, |vm| {
+            vm.bus_mut()
+                .ram_mut()
+                .map(FR0, &value.to_le_bytes())
+                .expect("map integer magnitude");
+        });
+        assert_eq!(capture.fr0(), expected, "IFP({value})");
+    }
+}
+
+#[test]
+fn fpi_rounds_a_nonnegative_magnitude_to_an_unsigned_word() {
+    let cases = [
+        ("0", 0u16),
+        ("1", 1),
+        ("1.25", 1),
+        ("1.5", 2),
+        ("255", 255),
+        ("256", 256),
+        ("32767", 32_767),
+        ("32768", 32_768),
+        ("65535", 65_535),
+    ];
+    for (text, expected) in cases {
+        let real = parse_ascii(text).fr0();
+        let capture = call_fpp(FPI, |vm| {
+            vm.bus_mut().ram_mut().map(FR0, &real).expect("map real");
+        });
+        assert_eq!(
+            u16::from_le_bytes(capture.fr0()[..2].try_into().expect("FR0 integer")),
+            expected,
+            "FPI({text})"
+        );
     }
 }

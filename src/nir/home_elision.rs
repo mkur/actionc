@@ -308,6 +308,11 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
                     result,
                     result_type,
                     ..
+                })
+                | NirOp::Real(NirRealOp::RealToInteger {
+                    result,
+                    result_type,
+                    ..
                 }) => Some((*result, result_type)),
                 _ => None,
             };

@@ -812,6 +812,8 @@ pub enum MirCallTarget {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MirAtariFppService {
+    IntegerToFloat,
+    FloatToInteger,
     Add,
     Subtract,
     Multiply,
@@ -821,6 +823,8 @@ pub enum MirAtariFppService {
 impl MirAtariFppService {
     pub const fn address(self) -> u16 {
         match self {
+            Self::IntegerToFloat => 0xD9AA,
+            Self::FloatToInteger => 0xD9D2,
             Self::Subtract => 0xDA60,
             Self::Add => 0xDA66,
             Self::Multiply => 0xDADB,
@@ -830,6 +834,8 @@ impl MirAtariFppService {
 
     pub const fn name(self) -> &'static str {
         match self {
+            Self::IntegerToFloat => "IFP",
+            Self::FloatToInteger => "FPI",
             Self::Add => "FADD",
             Self::Subtract => "FSUB",
             Self::Multiply => "FMULT",

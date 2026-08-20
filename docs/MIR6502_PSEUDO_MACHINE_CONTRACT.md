@@ -922,6 +922,8 @@ pub enum MirCallTarget {
 }
 
 pub enum MirAtariFppService {
+    IntegerToFloat, // IFP   $D9AA
+    FloatToInteger, // FPI   $D9D2
     Add,       // FADD  $DA66
     Subtract,  // FSUB  $DA60
     Multiply,  // FMULT $DADB
@@ -940,8 +942,17 @@ Before a service call, lowering copies all six left operand bytes into FR0
 call it copies all six FR0 bytes to the typed destination. Every six-byte copy
 loads the complete source before its first write, so assignment remains correct
 for overlapping aliases. Constant integer promotions use the same exact Atari
-decimal codec as literals; dynamic conversion remains a separate target
-service slice.
+decimal codec as literals. Dynamic integer conversion calls IFP/FPI, whose
+unsigned-word convention is adapted for signed Action `INT` values. Sign state
+that must survive a call uses generated frame storage rather than a register or
+virtual temp.
+
+REAL equality and ordering compare the canonical six-byte representation
+directly. Equality requires all six bytes to match; ordering first handles sign
+classes and then compares bytes lexicographically, reversing same-sign order
+for negative values. This preserves distinctions between adjacent packed
+decimal values that subtraction-based comparison could round away. Direct REAL
+conditions compare against canonical zero.
 
 FPP calls conservatively clobber A, X, Y, flags, FR0, FR1, and unknown FPP
 workspace. MIR represents them as opaque OS calls with all-memory effects until

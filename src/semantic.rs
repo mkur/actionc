@@ -1407,15 +1407,51 @@ impl Analyzer {
 
     fn validate_condition(&mut self, scope: ScopeId, expr: &Expr) {
         let diagnostic_count = self.diagnostics.len();
-        let typed = self.expect_expr(scope, expr, expr.span);
-        if typed.ty.is_real() {
-            self.diagnostics.push(Diagnostic::new(
-                expr.span,
-                "direct REAL conditions are not supported yet; compare the value explicitly",
-            ));
-        }
+        self.expect_expr(scope, expr, expr.span);
         if self.diagnostics.len() == diagnostic_count {
             self.lower_expr(scope, expr);
+        }
+    }
+
+    fn validate_static_real_integer_cast(
+        &mut self,
+        span: Span,
+        target: ScalarType,
+        expr: &subject::SemExpr,
+    ) {
+        let Some(value) = static_subject_real(expr) else {
+            return;
+        };
+        let target_name = match target {
+            ScalarType::Byte => "BYTE",
+            ScalarType::Char => "CHAR",
+            ScalarType::Card => "CARD",
+            ScalarType::Int => "INT",
+        };
+        let Some(integer) = value.rounded_integer() else {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                format!("REAL constant overflows {target_name} conversion"),
+            ));
+            return;
+        };
+        if !integer.exact {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                format!("non-integral REAL constant cannot be converted to {target_name}"),
+            ));
+            return;
+        }
+        let in_range = match target {
+            ScalarType::Byte | ScalarType::Char => (0..=u8::MAX as i128).contains(&integer.value),
+            ScalarType::Card => (0..=u16::MAX as i128).contains(&integer.value),
+            ScalarType::Int => (i16::MIN as i128..=i16::MAX as i128).contains(&integer.value),
+        };
+        if !in_range {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                format!("REAL constant overflows {target_name} conversion"),
+            ));
         }
     }
 
@@ -1727,6 +1763,16 @@ impl Analyzer {
             ExprKind::Cast { ty, expr: inner } => {
                 let inner = self.expect_expr(scope, inner, expr.span);
                 let ty = self.value_type_from_type_ref(scope, ty);
+                if inner.ty.is_real() {
+                    if let Some(target) = ty.as_scalar() {
+                        self.validate_static_real_integer_cast(expr.span, target, &inner);
+                    } else if !ty.is_real() && !ty.is_error() {
+                        self.diagnostics.push(Diagnostic::new(
+                            expr.span,
+                            "REAL can only be explicitly converted to BYTE, CHAR, CARD, or INT",
+                        ));
+                    }
+                }
                 subject::SemSubject::Expr(subject::SemExpr {
                     ty: ty.clone(),
                     kind: subject::SemExprKind::Cast {
@@ -3625,6 +3671,22 @@ fn fund_value(fund: FundType) -> ValueType {
     ValueType::fund(fund)
 }
 
+fn static_subject_real(expr: &subject::SemExpr) -> Option<crate::atari_real::AtariReal> {
+    match &expr.kind {
+        subject::SemExprKind::Literal(subject::SemLiteral::Real { value, .. }) => Some(*value),
+        subject::SemExprKind::Cast { expr, .. }
+        | subject::SemExprKind::Unary {
+            op: UnaryOp::Plus,
+            expr,
+        } => static_subject_real(expr),
+        subject::SemExprKind::Unary {
+            op: UnaryOp::Neg,
+            expr,
+        } => static_subject_real(expr).map(crate::atari_real::AtariReal::negated),
+        _ => None,
+    }
+}
+
 fn string_literal_type() -> ValueType {
     ValueType::pointer_to(fund_value(FundType::Char))
 }
@@ -5109,6 +5171,22 @@ mod tests {
                 .contains("REAL requires an explicit conversion")
         }));
 
+        let non_integral =
+            analyze_modern_source_err("INT result PROC Main() result=INT(1.5) RETURN");
+        assert!(non_integral.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("non-integral REAL constant cannot be converted to INT")
+        }));
+
+        let overflow =
+            analyze_modern_source_err("BYTE result PROC Main() result=BYTE(256.0) RETURN");
+        assert!(overflow.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("REAL constant overflows BYTE conversion")
+        }));
+
         let parameter = analyze_modern_source_err("PROC Consume(REAL value) RETURN");
         assert!(parameter.iter().any(|diagnostic| {
             diagnostic
@@ -5122,14 +5200,6 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.message.contains("REAL arrays are not supported"))
         );
-
-        let condition =
-            analyze_modern_source_err("REAL value PROC Main() IF value THEN RETURN FI RETURN");
-        assert!(condition.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("direct REAL conditions are not supported")
-        }));
 
         let exponent = analyze_modern_source_err("REAL value PROC Main() value=1E100 RETURN");
         assert!(exponent.iter().any(|diagnostic| {

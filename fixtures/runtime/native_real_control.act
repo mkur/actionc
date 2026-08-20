@@ -1,0 +1,65 @@
+; Native REAL Slice 6: exact comparisons, truth tests, unary signs, dynamic
+; integer promotions, explicit integer conversions, and loop conditions.
+REAL left, right, zero, fractional, converted=$0600, negated=$0606
+INT signed_source, signed_result=$060C, rounded_dynamic=$061E
+CARD card_source, card_result=$060E
+BYTE byte_source, byte_result=$0610, truth_result=$0611, loop_count=$0612
+CHAR char_source, char_result=$0613
+BYTE eq_result=$0614, ne_result=$0615, lt_result=$0616
+BYTE le_result=$0617, gt_result=$0618, ge_result=$0619
+BYTE positive_adjacent=$061A, negative_adjacent=$061B
+BYTE zero_equal=$061C, unary_plus_equal=$061D
+
+PROC Main()
+  signed_source=-123
+  converted=signed_source
+  negated=-converted
+  signed_result=INT(-123.0)
+
+  card_source=65535
+  right=card_source
+  card_result=CARD(65535.0)
+
+  byte_source=200
+  left=byte_source
+  byte_result=BYTE(255.0)
+
+  char_source='A
+  zero=char_source
+  char_result=CHAR(65.0)
+
+  fractional=1.5
+  rounded_dynamic=INT(fractional)
+
+  left=-2
+  right=1.5
+  eq_result=left=right
+  ne_result=left<>right
+  lt_result=left<right
+  le_result=left<=right
+  gt_result=left>right
+  ge_result=left>=right
+
+  left=1.00000001
+  right=1.00000002
+  positive_adjacent=left<right
+  left=-1.00000002
+  right=-1.00000001
+  negative_adjacent=left<right
+  zero=0
+  zero_equal=zero=0
+  left=+right
+  unary_plus_equal=left=right
+
+  truth_result=0
+  IF right THEN truth_result=1 FI
+  IF 0.0 THEN truth_result=2 FI
+
+  loop_count=0
+  left=-2
+  WHILE left<1
+  DO
+    loop_count==+1
+    left==+1
+  OD
+RETURN

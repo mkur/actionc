@@ -1492,6 +1492,22 @@ impl NirBuilder {
                 });
                 Some(NirValue::Temp { id: dest, ty })
             }
+            SemExprKind::Cast { expr: inner, .. }
+                if is_real_value_type(&inner.ty) && !is_real_value_type(&expr.ty) =>
+            {
+                let source = self.real_place(inner);
+                let result = self.next_temp();
+                let result_type = NirFacts::type_from_value(&expr.ty);
+                self.push(NirOp::Real(NirRealOp::RealToInteger {
+                    result,
+                    result_type: result_type.clone(),
+                    source,
+                }));
+                Some(NirValue::Temp {
+                    id: result,
+                    ty: result_type,
+                })
+            }
             SemExprKind::Cast { expr: inner, .. } => {
                 let src = self.nir_value(inner);
                 let dest = self.next_temp();
@@ -1983,6 +1999,28 @@ impl NirBuilder {
     }
 
     fn nonzero_condition(&mut self, expr: &SemExpr) -> NirValue {
+        if is_real_value_type(&expr.ty) {
+            let left = self.real_place(expr);
+            let right = self.allocate_hidden_real_local();
+            let zero = self.intern_real_literal("0", crate::atari_real::AtariReal::ZERO);
+            self.push(NirOp::Real(NirRealOp::Copy {
+                destination: right.clone(),
+                source: zero,
+            }));
+            let result = self.next_temp();
+            let result_type = NirFacts::condition_type();
+            self.push(NirOp::Real(NirRealOp::Compare {
+                predicate: NirCompareOp::Ne,
+                result,
+                result_type: result_type.clone(),
+                left,
+                right,
+            }));
+            return NirValue::Temp {
+                id: result,
+                ty: result_type,
+            };
+        }
         let value = self.nir_value(expr);
         match value {
             NirValue::ConstU8(value) => NirValue::ConstU8(u8::from(value != 0)),
@@ -2678,6 +2716,11 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::Binary { dest, ty, .. }
         | NirOp::Compare { dest, ty, .. } => Some((*dest, ty)),
         NirOp::Real(NirRealOp::Compare {
+            result,
+            result_type,
+            ..
+        })
+        | NirOp::Real(NirRealOp::RealToInteger {
             result,
             result_type,
             ..

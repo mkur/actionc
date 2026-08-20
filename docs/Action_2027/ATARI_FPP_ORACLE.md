@@ -21,6 +21,8 @@ fractional, exponent, truncation, overflow-boundary, and underflow cases.
 | CIX | `$00F2` |
 | INBUFF | `$00F3` |
 | AFP | `$D800` |
+| IFP | `$D9AA` |
+| FPI | `$D9D2` |
 | FSUB | `$DA60` |
 | FADD | `$DA66` |
 | FMULT | `$DADB` |
@@ -76,6 +78,21 @@ it. A, X, Y, and status also have routine-specific observable results. Native
 REAL lowering must therefore treat all processor registers, flags, FR0, FR1,
 and the intervening FPP workspace as clobbered until a narrower audited effect
 contract exists.
+
+## Integer Conversion Vectors
+
+IFP interprets the low two bytes of FR0 as an unsigned 16-bit magnitude. The
+oracle confirms exact conversions for 0, 1, 255, 256, 32768, and 65535. FPI
+likewise returns an unsigned word in FR0 and rounds a nonnegative magnitude to
+the nearest integer: `1.25` becomes 1 and `1.5` becomes 2. The oracle covers
+the full unsigned boundary through 65535.
+
+The compiler owns signed Action `INT` adaptation around these unsigned OS
+routines. It converts an integer's magnitude with IFP and applies the sign to
+the packed REAL result. In the reverse direction it clears the REAL sign,
+calls FPI, and applies two's-complement sign to the returned word. Sign state
+is held in compiler-generated frame storage because FPP calls are opaque and
+may clobber registers, flags, FR0, FR1, and workspace.
 
 ## Compatibility Baseline
 

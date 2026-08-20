@@ -287,7 +287,7 @@ fn runtime_bindings(
                 helper: format!("ATARI_FPP_{}", service.name()),
                 implementation: format!("Atari OS FPP {}", service.name()),
                 address: Some(service.address()),
-                reason: "native REAL arithmetic".to_string(),
+                reason: "native REAL arithmetic/conversion".to_string(),
                 origin: "Atari OS ROM".to_string(),
                 suppressed_default: None,
             }),
