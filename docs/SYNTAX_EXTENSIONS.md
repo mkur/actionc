@@ -8,6 +8,21 @@ behavior. Legacy code may still use many old implicit idioms; modernized code
 should prefer these explicit forms, and the modern profile requires them for
 some ambiguous routine-address cases.
 
+## Contents
+
+- [Compile-Time Constants](#compile-time-constants)
+- [Volatile Storage](#volatile-storage)
+- [ATASCII And Screen-Code Escapes](#atascii-and-screen-code-escapes)
+- [Typed Cast Expressions](#typed-cast-expressions)
+- [Explicit Address Values](#explicit-address-values)
+- [Plain CARD Values Are Not Typed Pointers](#plain-card-values-are-not-typed-pointers)
+- [Function Pointers](#function-pointers)
+- [Machine Block Label Bytes](#machine-block-label-bytes)
+- [Relocatable Static Initializers](#relocatable-static-initializers)
+- [MADS-Style Inline Assembler](#mads-style-inline-assembler)
+- [Explicit Lexical Blocks](#explicit-lexical-blocks)
+- [Compatibility Policy](#compatibility-policy)
+
 ## Compile-Time Constants
 
 `CONST` declares a typed scalar value evaluated by the compiler:
