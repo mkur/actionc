@@ -1,5 +1,3 @@
-#![cfg(feature = "experimental-named-modules")]
-
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -629,6 +627,60 @@ fn module_derived_listing_is_byte_identical_across_compilations() {
             .expect("map is UTF-8")
             .contains("M_HARDWARE_TEST_MAIN_")
     );
+}
+
+#[test]
+fn loaded_user_modules_are_emitted_whole_in_all_modes() {
+    let temp = TestDir::new();
+    let library = temp.path().join("lib/util.act");
+    fs::create_dir_all(library.parent().expect("library parent")).expect("create module directory");
+    fs::write(
+        &library,
+        r#"MODULE LIB.UTIL
+BYTE sink
+
+PUBLIC PROC Used()
+  sink=1
+RETURN
+
+PROC Unused()
+  sink=2
+RETURN
+
+ENDMODULE
+"#,
+    )
+    .expect("write user module");
+    let source = temp.source(
+        "app.act",
+        r#"MODULE APP
+USE LIB.UTIL
+
+PROC Main()
+  UTIL.Used()
+RETURN
+
+ENDMODULE
+"#,
+    );
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile whole user module in {mode:?}: {error}"));
+        let listing = compiled.source_listing();
+        assert!(
+            listing.contains("M_LIB_UTIL_USED_"),
+            "{mode:?} omitted the referenced user routine:\n{listing}"
+        );
+        assert!(
+            listing.contains("M_LIB_UTIL_UNUSED_"),
+            "{mode:?} selectively removed an unreferenced user routine:\n{listing}"
+        );
+    }
 }
 
 #[test]

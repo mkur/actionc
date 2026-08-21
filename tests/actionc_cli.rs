@@ -166,7 +166,6 @@ fn lexical_block_listings_use_readable_scope_paths() {
     }
 }
 
-#[cfg(feature = "experimental-named-modules")]
 #[test]
 fn repeatable_module_paths_are_used_by_compile_and_emit_commands() {
     let temp = TestDir::new();
@@ -225,7 +224,6 @@ fn repeatable_module_paths_are_used_by_compile_and_emit_commands() {
     );
 }
 
-#[cfg(feature = "experimental-named-modules")]
 #[test]
 fn named_module_semantic_diagnostics_point_into_used_sources() {
     let temp = TestDir::new();
@@ -250,41 +248,6 @@ fn named_module_semantic_diagnostics_point_into_used_sources() {
     assert!(
         stderr.contains("PUBLIC PROC Broken() Missing=1 RETURN"),
         "{stderr}"
-    );
-}
-
-#[cfg(not(feature = "experimental-named-modules"))]
-#[test]
-fn named_modules_and_module_paths_are_disabled_by_default() {
-    let temp = TestDir::new();
-    let root = temp.path().join("app.act");
-    fs::write(&root, "MODULE APP\nENDMODULE\n").expect("write named module");
-
-    let named = Command::new(env!("CARGO_BIN_EXE_actionc"))
-        .arg(&root)
-        .output()
-        .expect("compile disabled named module");
-    assert_eq!(named.status.code(), Some(1));
-    assert!(
-        String::from_utf8_lossy(&named.stderr).contains("named modules are disabled in this build"),
-        "{}",
-        String::from_utf8_lossy(&named.stderr)
-    );
-
-    let module_path = Command::new(env!("CARGO_BIN_EXE_actionc"))
-        .args([
-            "--module-path",
-            temp.path().to_str().expect("UTF-8 test path"),
-        ])
-        .arg(hello_world())
-        .output()
-        .expect("compile with disabled module path");
-    assert_eq!(module_path.status.code(), Some(1));
-    assert!(
-        String::from_utf8_lossy(&module_path.stderr)
-            .contains("named modules are disabled in this build"),
-        "{}",
-        String::from_utf8_lossy(&module_path.stderr)
     );
 }
 
@@ -1108,7 +1071,6 @@ fn mir6502_sys_routine_addresses_follow_the_selected_runtime() {
     assert!(String::from_utf8_lossy(&standalone.stdout).contains("ACTION.RUNTIME.RESIDENT::Zero"));
 }
 
-#[cfg(feature = "experimental-named-modules")]
 #[test]
 fn unused_sys_use_adds_no_runtime_code() {
     let temp = TestDir::new();
@@ -1185,7 +1147,6 @@ fn printh_is_bound_in_both_runtimes_and_backends() {
     }
 }
 
-#[cfg(feature = "experimental-named-modules")]
 #[test]
 fn referenced_external_without_selected_binding_fails_closed() {
     let temp = TestDir::new();

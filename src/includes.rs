@@ -113,7 +113,6 @@ struct CompilationLoader<'a> {
     active: Vec<(String, String)>,
     graph_order: Vec<ModuleId>,
     implicit_sys: bool,
-    allow_host_named_modules: bool,
 }
 
 impl SourceMap {
@@ -212,21 +211,11 @@ pub fn load_compilation(
     path: impl AsRef<Path>,
     options: &ModuleLoadOptions,
 ) -> Result<LoadedCompilation, Vec<Diagnostic>> {
-    let allow_host_named_modules = cfg!(feature = "experimental-named-modules");
-    if !allow_host_named_modules
-        && (options.project_root.is_some() || !options.module_paths.is_empty())
-    {
-        return Err(vec![Diagnostic::new(
-            Span::new(0, 0),
-            "named modules are disabled in this build; rebuild with the experimental-named-modules feature",
-        )]);
-    }
     let provider = CompilerSourceProvider::default();
     CompilationLoader::new(
         &provider,
         SourceOrigin::host(path.as_ref().to_path_buf()),
         options,
-        allow_host_named_modules,
     )
     .with_implicit_sys()
     .load()
@@ -237,7 +226,7 @@ pub fn load_compilation_from_provider(
     provider: &dyn SourceProvider,
     options: &ModuleLoadOptions,
 ) -> Result<LoadedCompilation, Vec<Diagnostic>> {
-    CompilationLoader::new(provider, root_origin, options, true).load()
+    CompilationLoader::new(provider, root_origin, options).load()
 }
 
 pub fn expand_includes(
@@ -256,7 +245,6 @@ impl<'a> CompilationLoader<'a> {
         provider: &'a dyn SourceProvider,
         root_origin: SourceOrigin,
         options: &ModuleLoadOptions,
-        allow_host_named_modules: bool,
     ) -> Self {
         let project_root = options
             .project_root
@@ -284,7 +272,6 @@ impl<'a> CompilationLoader<'a> {
             active: Vec::new(),
             graph_order: Vec::new(),
             implicit_sys: false,
-            allow_host_named_modules,
         }
     }
 
@@ -298,12 +285,6 @@ impl<'a> CompilationLoader<'a> {
         let root = self.load_unit(root_origin)?;
         let root_id = ModuleId(0);
         let root_path = named_path(&root.program).cloned();
-        if root_path.is_some() && !self.allow_host_named_modules {
-            return Err(vec![Diagnostic::new(
-                root.source_span,
-                "named modules are disabled in this build; rebuild with the experimental-named-modules feature",
-            )]);
-        }
         self.modules.push(LoadedModule {
             id: root_id,
             declared_path: root_path.clone(),

@@ -6,6 +6,6 @@ publish = false
 
 [dependencies]
 actionc-vm = { git = "https://github.com/mkur/actionc-vm.git", rev = "7ec0cc454ebf43b088b7bcd11515533085ea1964" }
-actionc = { path = "../..", features = ["experimental-named-modules"] }
+actionc = { path = "../.." }
 
 [workspace]

@@ -1,10 +1,8 @@
 # Action 2027 Module System Design
 
-Design status: integrated behind the default-off
-`experimental-named-modules` Cargo feature and not yet a public language
-commitment. This note defines the proposed Action 2027 module language
-contract. Two companion notes own the mechanisms deliberately kept out of the
-language contract:
+Design status: implemented and enabled in standard builds. This note defines
+the supported Action 2027 module language contract. Two companion notes own
+the mechanisms deliberately kept out of the language contract:
 
 - [`MODULE_LOADER_AND_VFS.md`](./MODULE_LOADER_AND_VFS.md) defines file
   discovery, the embedded virtual filesystem, source identity, and diagnostics;

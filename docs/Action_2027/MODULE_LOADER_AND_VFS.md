@@ -1,10 +1,9 @@
 # Action 2027 Module Loader and Embedded VFS
 
-Design status: integrated behind the default-off
-`experimental-named-modules` Cargo feature. Compiler-owned embedded modules
-remain active without that feature, while host named-module roots and search
-paths are rejected. This note defines how the compiler finds, identifies,
-loads, and diagnoses Action 2027 modules. The source-language contract is in
+Design status: implemented and enabled in standard builds. Host named-module
+roots, explicit search paths, and compiler-owned embedded modules use the same
+loader. This note defines how the compiler finds, identifies, loads, and
+diagnoses Action 2027 modules. The source-language contract is in
 [`MODULE_SYSTEM_DESIGN.md`](./MODULE_SYSTEM_DESIGN.md). Runtime implementation
 selection is in
 [`RUNTIME_INTERFACE_AND_STANDALONE.md`](./RUNTIME_INTERFACE_AND_STANDALONE.md).

@@ -496,7 +496,6 @@ Validation:
 cargo test nir_fixtures_match_snapshots
 cargo run --bin actionc-nir-sweep -- fixtures/nir
 cargo test
-cargo test --features experimental-named-modules
 cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml
 ```
 

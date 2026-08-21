@@ -103,6 +103,8 @@ custom-ATR and compiler-development workflows.
 - the original Action! source style used by historical programs;
 - explicit casts, address values, typed function pointers, and other documented
   syntax extensions;
+- named project modules with deterministic `USE` lookup, plus embedded `SYS`
+  and `ATARI.*` modules;
 - compatibility, optimized, and experimental MIR6502 build modes;
 - classic AST-based code generation and the experimental MIR6502 pipeline;
 - source annotations that select a default profile or backend;
@@ -157,6 +159,8 @@ The detailed rules and source-level differences are documented in
   effect rewritten with inline assembly;
 - [Action! Toolkit](samples/toolkit/README.md) — maintained modernized Toolkit
   programs;
+- [Named modules](samples/modules/README.md) — reusable project modules,
+  embedded hardware interfaces, and standalone `SYS` examples;
 - [TOMS Navigator](samples/tn/README.md) — a large real-world Action! program.
 
 | [ACS Logo](samples/logo.act) | [Kalscope](samples/toolkit/modern/KALSCOPE.DEM) | [TOMS Navigator](samples/tn/modern/TN.ACT) |

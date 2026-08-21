@@ -1,7 +1,6 @@
 # Action 2027 Modules and Standalone Runtime Implementation Plan
 
-Plan status: integrated but disabled in default builds. Milestones A, B, and C
-are retained behind the `experimental-named-modules` Cargo feature; all 14
+Plan status: complete and enabled in standard builds. All 14 module-system
 slices are complete. The follow-on resident-library plan is also complete
 through its Milestone E: all 71 audited
 `SYS` routines share one interface and are available in all four

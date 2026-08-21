@@ -1,9 +1,8 @@
 # Action 2027 Modules and Runtime Usage
 
-Implementation status: integrated but disabled in default builds. This surface
-is available only when `actionc` is built with the
-`experimental-named-modules` Cargo feature; it is not part of the current
-public language or CLI stability promise.
+Implementation status: enabled in standard builds. Named modules, host module
+lookup, and the embedded `SYS` and `ATARI.*` modules are part of the supported
+`actionc` language and CLI surface.
 
 Action 2027 named modules make hardware interfaces and reusable project code
 explicit while preserving a single-file compiler installation. `SYS`,
@@ -116,6 +115,29 @@ the project root, and then each explicit module path from left to right. It does
 not read an environment module path or search beside the compiler executable.
 Host files cannot shadow the reserved `SYS` or `ATARI` roots. Host module path
 components must use lowercase spelling even on a case-insensitive filesystem.
+
+## User-module inclusion
+
+The loader follows the root module's transitive `USE` graph. An unrelated host
+module that is not reachable through that graph is not loaded. Once a user
+module is loaded, however, the compiler currently emits the module as a whole:
+all of its storage and routine bodies are included even when some routines are
+not called.
+
+`PUBLIC`, qualified `USE`, and `USE ALL FROM` control name visibility; they do
+not control code inclusion. This whole-module rule applies to project modules
+from the source tree and `--module-path`. Keep optional or expensive code in
+smaller modules when binary size matters.
+
+Selective linking is currently reserved for compiler-owned runtime code. With
+`--runtime standalone`, `actionc` includes the transitive implementation
+closure of referenced `SYS` routines and compiler helpers. Merely writing
+`USE SYS` adds no runtime implementation code. Maps and listings show which
+user routines and runtime implementations were emitted.
+
+User-module selective linking is a possible future optimization, not a source
+contract. Programs must not depend on an unused routine being emitted or on
+the current addresses or relative order of module members.
 
 ## Runtime choice
 

@@ -151,8 +151,7 @@ cargo test --locked nir_fixtures_match_snapshots
 cargo run --locked --bin actionc-nir-sweep -- fixtures/nir
 cargo run --locked --bin actionc-semir-sweep -- --profile modern fixtures/semir
 cargo test --locked
-cargo test --locked --features experimental-named-modules \
-  --test actionc_cli --test embedded_modules
+cargo test --locked --test actionc_cli --test embedded_modules
 cargo test --locked --manifest-path tools/vm-runtime-tests/Cargo.toml
 python3 -m unittest discover -s tools/tests -p 'test_*.py'
 ```

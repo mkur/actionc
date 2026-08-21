@@ -265,6 +265,36 @@ it at the default.
 `--codegen-source` does not select the MIR6502 pipeline. `--backend mir6502`
 always lowers through SemIR, NIR, optimized NIR, and MIR6502.
 
+## Named Modules
+
+Named modules are enabled in standard builds. A module occupies one source
+file and imports other modules with `USE`:
+
+```action
+MODULE GAME
+USE DEMO.COLOR
+
+PROC Main()
+  COLOR.Show()
+RETURN
+ENDMODULE
+```
+
+The root source directory is the default project module root. Add repeatable
+search roots for shared code with `--module-path`:
+
+```sh
+actionc --module-path ../shared --module-path ./generated game.act
+```
+
+The compiler loads the transitive `USE` graph. Each loaded user module is
+currently emitted whole, including unreferenced routines and storage;
+visibility through `PUBLIC` and `USE ALL FROM` does not alter inclusion. By
+contrast, the standalone `SYS` runtime and compiler helpers are selectively
+linked from the referenced dependency closure. See
+[Modules and runtime usage](docs/Action_2027/MODULES_AND_RUNTIME_USAGE.md) for
+syntax, lookup order, examples, and the detailed inclusion contract.
+
 ## Compile And Run
 
 `actionc-run` is the user-facing compile-and-run command. It builds a bootable

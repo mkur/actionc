@@ -63,6 +63,9 @@ crowding the active reference set.
 - [ATASCII_ESCAPES.md](ATASCII_ESCAPES.md) - textual ATASCII and ANTIC
   screen-code escape formats.
 - [NAME_RESOLUTION.md](NAME_RESOLUTION.md) - name lookup rules.
+- [Action 2027 modules and runtime usage](Action_2027/MODULES_AND_RUNTIME_USAGE.md)
+  - named-module syntax, lookup, examples, and user-module versus runtime code
+  inclusion.
 - [RUNTIME_HELPER_EFFECTS.md](RUNTIME_HELPER_EFFECTS.md) - known runtime helper
   effects.
 - [SYNTAX_EXTENSIONS.md](SYNTAX_EXTENSIONS.md) - supported syntax extensions.
