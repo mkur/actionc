@@ -10,6 +10,7 @@ bb0:
   return
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb1:
   call Take(&__nir_str_Main_0)
   return

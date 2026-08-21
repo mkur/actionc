@@ -4,6 +4,7 @@ global w: Card
 global i: Int
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb0:
   %t0:Byte = Neg 1
   store b = %t0

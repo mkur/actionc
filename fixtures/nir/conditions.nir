@@ -5,6 +5,7 @@ global total: Byte
 global ptr: Card
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb0:
   %t0:Byte = load flag
   %t1:condition = cmp %t0 Ne 0

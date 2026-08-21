@@ -1143,6 +1143,7 @@ struct Generator {
     compatible_cursor: Option<u16>,
     skipped_ranges: Vec<SkippedRange>,
     last_routine_label: Option<String>,
+    program_entry_label: Option<String>,
     last_routine_ended_with_rts: bool,
     routine_addresses: Vec<RoutineAddress>,
     routine_ranges: Vec<RoutineRange>,

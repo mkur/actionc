@@ -5,6 +5,7 @@ routine Main params=[-] locals=[value, address, Main::block0::value, Main::block
   local address: Card
   local Main::block0::value: Byte
   local Main::block0::block1::value: Byte
+  note Action program entry (last source PROC)
 bb0:
   store value = 1
   store Main::block0::value = 2

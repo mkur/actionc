@@ -369,6 +369,44 @@ fn compatible_load_file_runad_falls_back_to_last_routine_without_main() {
 }
 
 #[test]
+fn runad_uses_the_last_proc_even_when_main_appears_earlier() {
+    let source = "PROC Main() RETURN PROC NavInit() RETURN";
+
+    for output in [
+        generate_compatible_source_with_origin(source, 0x3000).unwrap(),
+        generate_source_with_origin(source, 0x3000).unwrap(),
+    ] {
+        assert_eq!(
+            output.run_address,
+            routine_address(&output, "NavInit").unwrap()
+        );
+        assert_ne!(
+            output.run_address,
+            routine_address(&output, "Main").unwrap()
+        );
+    }
+}
+
+#[test]
+fn runad_ignores_a_function_after_the_last_proc() {
+    let source = "PROC Start() RETURN BYTE FUNC Helper() RETURN(0)";
+
+    for output in [
+        generate_compatible_source_with_origin(source, 0x3000).unwrap(),
+        generate_source_with_origin(source, 0x3000).unwrap(),
+    ] {
+        assert_eq!(
+            output.run_address,
+            routine_address(&output, "Start").unwrap()
+        );
+        assert_ne!(
+            output.run_address,
+            routine_address(&output, "Helper").unwrap()
+        );
+    }
+}
+
+#[test]
 fn compatible_generation_zero_fills_storage_deterministically() {
     let output = generate_compatible_source_with_origin(
         "BYTE g CARD w BYTE FUNC F(BYTE x) BYTE t t=x RETURN(t) PROC Main() g=F(1) RETURN",
@@ -11383,7 +11421,8 @@ fn compatible_zero_page_pointer_deref_uses_pointer_directly() {
     )
     .unwrap();
 
-    assert_eq!(output.run_address, 0x3002);
+    // A function named Main is not an Action! program entry.
+    assert_eq!(output.run_address, 0x3000);
     assert!(
         output
             .bytes
@@ -16853,6 +16892,7 @@ fn test_generator(profile: CodegenProfile) -> Generator {
         compatible_cursor: Some(0x3000),
         skipped_ranges: Vec::new(),
         last_routine_label: None,
+        program_entry_label: None,
         last_routine_ended_with_rts: false,
         routine_addresses: Vec::new(),
         routine_ranges: Vec::new(),

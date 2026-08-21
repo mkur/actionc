@@ -2,6 +2,7 @@ nir program
 global displayList: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(1024) } length=$400 storage=Array origin=global init bytes=[$00 $50 $00 $50] zero_fill=0 section=global mutable=true
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb0:
   inline-asm bytes=8 relocations=2 effects=reads:none writes:absolute+20470:1|absolute+20488:1
   return

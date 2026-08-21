@@ -1538,6 +1538,7 @@ fn refine_terminal_indirect_jump_effects(program: &mut MirProgram) {
                 routine.abi,
                 super::ir::MirRoutineAbi::Action
                     | super::ir::MirRoutineAbi::ProgramEntry
+                    | super::ir::MirRoutineAbi::ProgramEntryObservable
                     | super::ir::MirRoutineAbi::ActionObservable
             ) && routine.frame.params.is_empty()
         })

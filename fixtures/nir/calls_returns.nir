@@ -16,6 +16,7 @@ bb1:
   return
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb2:
   %t0:Byte = call Inc(1)
   store total = %t0

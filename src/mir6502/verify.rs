@@ -156,7 +156,12 @@ impl MirVerifier {
         let entry_count = program
             .routines
             .iter()
-            .filter(|routine| routine.abi == MirRoutineAbi::ProgramEntry)
+            .filter(|routine| {
+                matches!(
+                    routine.abi,
+                    MirRoutineAbi::ProgramEntry | MirRoutineAbi::ProgramEntryObservable
+                )
+            })
             .count();
         if entry_count > 1 {
             self.diagnostics.push(MirDiagnostic::routine(

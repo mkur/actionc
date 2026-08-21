@@ -3,6 +3,7 @@ global x: Byte
 global y: Byte
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb0:
   store x = 1
   %t0:Byte = load x

@@ -11,6 +11,7 @@ static __nir_real_Main_0:REAL bytes=[$40 $01 $25 $00 $00 $00] = "1.25"
 
 routine Main params=[-] locals=[local_values]
   local local_values: array ArrayType { element: ValueType { base: Real, pointer: false }, length: Some(1) } length=1 storage=Array origin=local init descriptor size=4 backing=local bytes=[$40 $03 $50 $00 $00 $00] zero_fill=0 backing_section=local.backing size_word=$0000 section=local mutable=true
+  note Action program entry (last source PROC)
 bb0:
   store index = 1
   %t0:REAL* = addr values

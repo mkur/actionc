@@ -8,6 +8,7 @@ bb0:
   fallthrough
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb1:
   machine items=1 effects=opaque
   call Raw()

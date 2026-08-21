@@ -3,6 +3,7 @@ global i: Byte
 global total: Byte
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb0:
   store i = 0
   goto bb1

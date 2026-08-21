@@ -163,21 +163,21 @@ fn codegen_output(
     let optimizations = Vec::new();
     let proofs = Vec::new();
     let proof_attempts = Vec::new();
-    let named_entry = mir
+    let program_entry = mir
         .routines
         .iter()
-        .find(|routine| routine.abi == MirRoutineAbi::ProgramEntry)
+        .find(|routine| {
+            matches!(
+                routine.abi,
+                MirRoutineAbi::ProgramEntry | MirRoutineAbi::ProgramEntryObservable
+            )
+        })
         .map(|routine| routine.name.as_str());
-    let run_address = named_entry
+    let run_address = program_entry
         .and_then(|name| {
             routine_addresses
                 .iter()
                 .find(|routine| routine.name == name)
-        })
-        .or_else(|| {
-            routine_addresses
-                .iter()
-                .find(|routine| routine.name.eq_ignore_ascii_case("main"))
         })
         .or_else(|| routine_addresses.last())
         .map_or(origin, |routine| routine.address);
@@ -2045,7 +2045,7 @@ mod tests {
             .expect("Keep routine");
         let formatted = format_program(&mir);
 
-        assert_eq!(keep.abi, MirRoutineAbi::ActionObservable);
+        assert_eq!(keep.abi, MirRoutineAbi::ProgramEntryObservable);
         assert!(matches!(
             keep.frame.params[0].base,
             MirStorageBase::Param(ParamId(0))

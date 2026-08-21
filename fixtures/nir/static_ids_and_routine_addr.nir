@@ -19,6 +19,7 @@ bb2:
   fallthrough
 
 routine Second params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb3:
   call Use(&__nir_str_Second_1)
   %t0:Byte* = cast Proc -> Byte* routine_addr2(Menu)

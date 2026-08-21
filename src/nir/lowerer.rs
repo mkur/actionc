@@ -58,7 +58,9 @@ impl NirLowerer {
         self.machine_define_names = machine_defines.names;
         self.machine_defines = machine_defines.ids;
         let record_storage_sizes = record_storage_sizes(program);
-        let root_module = program.modules.last().and_then(|module| module.id);
+        let program_entry = program
+            .program_entry_routine()
+            .map(|routine| routine.symbol.id);
 
         for module in &program.modules {
             for item in &module.items {
@@ -308,17 +310,9 @@ impl NirLowerer {
                                 kind: NirRoutineNoteKind::ExternalInterface,
                             });
                         }
-                        if module.id == root_module
-                            && module.id.is_some()
-                            && routine
-                                .symbol
-                                .qualified_name
-                                .rsplit('.')
-                                .next()
-                                .is_some_and(|name| name.eq_ignore_ascii_case("Main"))
-                        {
+                        if program_entry == Some(routine.symbol.id) {
                             builder.notes.push(NirRoutineNote {
-                                text: "named root Main".to_string(),
+                                text: "Action program entry (last source PROC)".to_string(),
                                 kind: NirRoutineNoteKind::ProgramEntry,
                             });
                         }

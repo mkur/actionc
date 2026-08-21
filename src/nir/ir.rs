@@ -378,7 +378,7 @@ pub struct NirRoutineNote {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirRoutineNoteKind {
     Informational,
-    /// The routine selected as the named root module's executable entry.
+    /// The last source procedure selected as the Action! program entry.
     ProgramEntry,
     CurrentLocationEntry,
     /// Signature-only declaration that runtime binding must resolve before

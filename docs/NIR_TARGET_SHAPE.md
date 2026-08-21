@@ -122,6 +122,16 @@ printer strings. In particular, a source `=*` entry carries a structured
 current-location entry kind so MIR6502 can preserve the public Action ABI
 boundary without parsing a displayed note.
 
+The `ProgramEntry` routine note records Action!'s source rule that the last
+code-emitting `PROC` is the program entry. `Main` has no special entry-point
+meaning, a trailing function cannot replace the entry, and runtime routines
+linked after the application must not inherit or override this note. MIR6502
+uses the preserved fact when it emits Atari `RUNAD`.
+
+When that procedure also has a current-location (`=*`) entry, MIR6502 retains a
+combined program-entry/observable-ABI classification; choosing it for `RUNAD`
+must not enable private-entry parameter-home optimizations.
+
 ## Stable IDs
 
 NIR should use stable ID newtypes for every entity that MIR6502 or optimizer

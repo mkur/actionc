@@ -15,6 +15,7 @@ bb0:
   return
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb1:
   %t0:Pair* = addr rec
   call Touch(%t0)

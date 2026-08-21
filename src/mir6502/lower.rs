@@ -220,6 +220,10 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                 name: routine.name.clone(),
                 abi: if routine_has_external_interface(routine) {
                     MirRoutineAbi::ExternalInterface
+                } else if routine_is_program_entry(routine)
+                    && routine_has_observable_action_entry(routine)
+                {
+                    MirRoutineAbi::ProgramEntryObservable
                 } else if routine_is_program_entry(routine) {
                     MirRoutineAbi::ProgramEntry
                 } else if routine_has_observable_action_entry(routine) {

@@ -3,6 +3,7 @@ global a: Card
 global b: Card
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb0:
   store a = $1234
   store b = $101

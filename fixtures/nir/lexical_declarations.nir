@@ -20,6 +20,7 @@ routine Main params=[-] locals=[root, Main::block0::value, Main::block0::alias, 
   local Main::block2::data: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init bytes=[$07 $08] zero_fill=0 section=local mutable=true
   local __nir_real_tmp_12: hidden REAL evaluation
   local __nir_real_tmp_13: hidden REAL evaluation
+  note Action program entry (last source PROC)
 bb0:
   store root = 1
   store volatile Main::block0::value = 2

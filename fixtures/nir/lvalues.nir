@@ -4,6 +4,7 @@ global bp: Byte*
 global a: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(4) } length=4 storage=Array origin=global init zero_fill=4 section=global mutable=true
 
 routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb0:
   %t0:Byte* = addr b
   store bp = %t0

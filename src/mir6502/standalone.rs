@@ -6,8 +6,8 @@ use super::ir::{
     MirAddr, MirCallTarget, MirCond, MirDataImage, MirDataRelocationTarget, MirEffects,
     MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineBlock, MirMachineBlockId,
     MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram,
-    MirRuntimeHelper, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator,
-    MirValue, RoutineId,
+    MirRuntimeHelper, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator, MirValue,
+    RoutineId,
 };
 use crate::nir::SymbolId;
 use crate::runtime_source::{RuntimeImage, RuntimeUnit};
@@ -1359,7 +1359,7 @@ pub(super) fn compile_runtime_unit_with_semir(
 ) -> Result<(crate::semantic::ir::SemProgram, MirProgram), Vec<MirDiagnostic>> {
     let semir = crate::runtime_source::compile_runtime_unit(file_name, module_name)
         .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
-    let nir = crate::nir::lower_program(&semir);
+    let nir = lower_runtime_nir(&semir);
     crate::nir::verify_program(&nir).map_err(|diagnostics| {
         diagnostics
             .into_iter()
@@ -1386,7 +1386,7 @@ pub(super) fn compile_runtime_image_with_semir()
 -> Result<(crate::runtime_source::RuntimeImage, MirProgram), Vec<MirDiagnostic>> {
     let image = crate::runtime_source::compile_runtime_image()
         .map_err(|diagnostics| frontend_diagnostics("sysall.act", diagnostics))?;
-    let nir = crate::nir::lower_program(&image.semir);
+    let nir = lower_runtime_nir(&image.semir);
     crate::nir::verify_program(&nir).map_err(|diagnostics| {
         diagnostics
             .into_iter()
@@ -1407,6 +1407,16 @@ pub(super) fn compile_runtime_image_with_semir()
             .collect::<Vec<_>>()
     })?;
     Ok((image, mir))
+}
+
+fn lower_runtime_nir(semir: &crate::semantic::ir::SemProgram) -> crate::nir::NirProgram {
+    let mut nir = crate::nir::lower_program(semir);
+    for routine in &mut nir.routines {
+        routine
+            .notes
+            .retain(|note| note.kind != crate::nir::NirRoutineNoteKind::ProgramEntry);
+    }
+    nir
 }
 
 fn frontend_diagnostics(

@@ -30,6 +30,41 @@ fn display_name_leaf(name: &str) -> &str {
 }
 
 #[test]
+fn program_entry_note_tracks_the_last_proc_instead_of_main_or_a_function() {
+    let program = lower_modern_source(
+        "PROC Main() RETURN PROC Start() RETURN BYTE FUNC Helper() RETURN(0)",
+    );
+    verify_program(&program).expect("program-entry NIR should verify");
+
+    let entries = program
+        .routines
+        .iter()
+        .filter(|routine| {
+            routine
+                .notes
+                .iter()
+                .any(|note| note.kind == NirRoutineNoteKind::ProgramEntry)
+        })
+        .map(|routine| routine.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(entries, ["Start"]);
+}
+
+#[test]
+fn verifier_rejects_more_than_one_program_entry() {
+    let mut program = lower_modern_source("PROC First() RETURN PROC Second() RETURN");
+    program.routines[0].notes.push(NirRoutineNote {
+        text: "invalid second program entry".to_string(),
+        kind: NirRoutineNoteKind::ProgramEntry,
+    });
+
+    let diagnostics = verify_program(&program).expect_err("duplicate entry must fail");
+    assert!(diagnostics.iter().any(|diagnostic| diagnostic
+        .message
+        .contains("more than one program-entry routine")));
+}
+
+#[test]
 fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
     let program = lower_modern_source(include_str!("../../fixtures/nir/lexical_blocks.act"));
     verify_program(&program).expect("lexical-block NIR should verify");

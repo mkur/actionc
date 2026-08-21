@@ -2,6 +2,7 @@ nir program
 global x: Byte
 
 routine Spin params=[-] locals=[-]
+  note Action program entry (last source PROC)
 bb0:
   goto bb1
 bb1:

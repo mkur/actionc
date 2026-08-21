@@ -10,6 +10,9 @@ impl Generator {
             self.profile == CodegenProfile::Modern && routine_uses_debug_compat_profile(routine);
         let routine_start = self.current_absolute_address();
         self.last_routine_label = Some(format!("routine:{}", routine.name));
+        if matches!(routine.kind, RoutineKind::Proc) {
+            self.program_entry_label = self.last_routine_label.clone();
+        }
         self.processor.invalidate_after_call();
         self.straight_line_store_y = None;
         self.label_store_y_hints.clear();

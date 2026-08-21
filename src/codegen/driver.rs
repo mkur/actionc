@@ -199,6 +199,7 @@ pub(super) fn generate_with_options_and_requirements_with_facts(
         compatible_cursor: segment_storage.then_some(origin),
         skipped_ranges: Vec::new(),
         last_routine_label: None,
+        program_entry_label: None,
         last_routine_ended_with_rts: false,
         routine_addresses: Vec::new(),
         routine_ranges: Vec::new(),

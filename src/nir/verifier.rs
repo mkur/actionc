@@ -184,6 +184,21 @@ impl NirVerifier {
         }
 
         let mut routines = BTreeSet::new();
+        let program_entry_count = program
+            .routines
+            .iter()
+            .filter(|routine| {
+                routine
+                    .notes
+                    .iter()
+                    .any(|note| note.kind == NirRoutineNoteKind::ProgramEntry)
+            })
+            .count();
+        if program_entry_count > 1 {
+            self.diagnostics.push(NirDiagnostic::program(
+                "NIR contains more than one program-entry routine",
+            ));
+        }
         for routine in &program.routines {
             if routine.name.is_empty() {
                 self.diagnostics

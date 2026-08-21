@@ -16,18 +16,11 @@ impl Generator {
         }
 
         let origin = self.emitter.origin;
-        let main_run_address = self.emitter.labels.iter().find_map(|(label, offset)| {
-            label
-                .strip_prefix("routine:")
-                .filter(|name| normalize_name(name) == "MAIN")
-                .map(|_| origin.wrapping_add(*offset as u16))
-        });
-        let last_run_address = self
-            .last_routine_label
+        let run_address = self
+            .program_entry_label
             .as_ref()
             .and_then(|label| self.emitter.labels.get(label))
-            .map(|offset| origin.wrapping_add(*offset as u16));
-        let run_address = main_run_address.or(last_run_address).unwrap_or(origin);
+            .map_or(origin, |offset| origin.wrapping_add(*offset as u16));
         let skipped_ranges = self.skipped_ranges;
         let routine_addresses = self.routine_addresses;
         let routine_ranges = self.routine_ranges;

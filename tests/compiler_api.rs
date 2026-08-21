@@ -276,6 +276,57 @@ fn native_real_core_arithmetic_compiles_with_both_backends_and_runtimes() {
 }
 
 #[test]
+fn standalone_runtime_linking_preserves_the_last_application_proc_as_runad() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "last-proc-entry.act",
+        "BYTE result=$0600\n\
+         PROC Main() result=1 RETURN\n\
+         PROC KeepFourth(BYTE first,second,third,fourth) result=fourth RETURN\n\
+         PROC Start() KeepFourth(1,2,3,4) RETURN\n\
+         BYTE FUNC Helper() RETURN(0)\n",
+    );
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let compiled = compile_file(
+            &source,
+            &CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone),
+        )
+        .unwrap_or_else(|error| panic!("compile last-PROC standalone {mode:?}: {error}"));
+        let listing = compiled.source_listing();
+        let start_header = listing
+            .lines()
+            .find(|line| line.contains("PROC Start $") && line.contains("..$"))
+            .unwrap_or_else(|| panic!("missing Start listing header for {mode:?}:\n{listing}"));
+        let start_entry_hex = start_header
+            .split(" entry $")
+            .nth(1)
+            .and_then(|tail| tail.split_whitespace().next())
+            .or_else(|| {
+                start_header
+                    .split("PROC Start $")
+                    .nth(1)
+                    .and_then(|tail| tail.split("..$").next())
+            })
+            .expect("find Start entry address");
+        let start_entry = u16::from_str_radix(start_entry_hex, 16)
+            .expect("parse Start entry address");
+
+        assert_eq!(compiled.run_address(), start_entry, "{mode:?}");
+        assert!(listing.contains("proc_syslib_sargs:"), "{mode:?}: {listing}");
+        assert!(
+            listing.contains("ORG $02E2\n        DTA A(proc_start)"),
+            "{mode:?}: {listing}"
+        );
+    }
+}
+
+#[test]
 fn historical_toolkit_real_source_remains_a_record_in_modern_backends() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/toolkit/modern/REAL.ACT");
     for mode in [CompileMode::Optimized, CompileMode::Mir6502] {

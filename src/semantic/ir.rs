@@ -69,6 +69,30 @@ pub struct SemProgram {
     pub layout: SemanticLayoutFacts,
 }
 
+impl SemProgram {
+    /// Action! starts a compiled program at the last source procedure that
+    /// emits code. Functions and external/absolute routine declarations are
+    /// not executable program entries.
+    pub(crate) fn program_entry_routine(&self) -> Option<&SemRoutine> {
+        self.modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .filter_map(|item| match item {
+                SemItem::Routine(routine)
+                    if !routine.is_external
+                        && matches!(routine.signature.kind, RoutineKind::Proc)
+                        && routine.system_address.as_ref().is_none_or(|address| {
+                            matches!(address.kind, SemExprKind::CurrentLocation)
+                        }) =>
+                {
+                    Some(routine)
+                }
+                _ => None,
+            })
+            .last()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemModule {
     pub id: Option<ModuleId>,

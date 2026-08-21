@@ -16,6 +16,7 @@ routine Main params=[-] locals=[__nir_real_tmp_0, __nir_real_tmp_1, __nir_real_t
   local __nir_real_tmp_5: hidden REAL evaluation
   local __nir_real_tmp_6: hidden REAL evaluation
   local __nir_real_tmp_7: hidden REAL evaluation
+  note Action program entry (last source PROC)
 bb0:
   real.copy x = &__nir_real_Main_0
   real.convert y = 2:Byte
