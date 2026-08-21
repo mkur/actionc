@@ -7432,6 +7432,106 @@ mod tests {
     }
 
     #[test]
+    fn semantic_ir_preserves_lexical_scope_ownership_and_resolved_shadowing() {
+        let (program, model) = analyze_modern_program_source(
+            "PROC Main()\n\
+             BYTE value\n\
+             BEGIN\n\
+               CARD value\n\
+               CONST Limit=3\n\
+               value=Limit\n\
+               BEGIN\n\
+                 BYTE value\n\
+                 value=2\n\
+               END\n\
+             END\n\
+             value=1\n\
+             RETURN\n",
+        );
+        let semir = ir::lower_program(&program, &model);
+        let main = semir.modules[0]
+            .items
+            .iter()
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine) if routine.symbol.name == "Main" => Some(routine),
+                _ => None,
+            })
+            .expect("Main");
+        let routine_value = main.locals[0].symbol.id;
+        let ir::SemStmt::LexicalBlock {
+            scope,
+            declarations,
+            constants,
+            body,
+            ..
+        } = &main.body[0]
+        else {
+            panic!("expected outer lexical block");
+        };
+        assert_eq!(scope.depth, 1);
+        assert_eq!(constants.len(), 1);
+        let outer_value = declarations[0].symbol.id;
+        assert_ne!(outer_value, routine_value);
+        let ir::SemStmt::Assign { target, .. } = &body[0] else {
+            panic!("expected outer assignment");
+        };
+        assert!(matches!(
+            &target.kind,
+            ir::SemLValueKind::Symbol(symbol) if symbol.id == outer_value
+        ));
+
+        let ir::SemStmt::LexicalBlock {
+            declarations,
+            body: nested_body,
+            ..
+        } = &body[1]
+        else {
+            panic!("expected nested lexical block");
+        };
+        let inner_value = declarations[0].symbol.id;
+        assert_ne!(inner_value, outer_value);
+        let ir::SemStmt::Assign { target, .. } = &nested_body[0] else {
+            panic!("expected inner assignment");
+        };
+        assert!(matches!(
+            &target.kind,
+            ir::SemLValueKind::Symbol(symbol) if symbol.id == inner_value
+        ));
+
+        let ir::SemStmt::Assign { target, .. } = &main.body[1] else {
+            panic!("expected routine-scope assignment");
+        };
+        assert!(matches!(
+            &target.kind,
+            ir::SemLValueKind::Symbol(symbol) if symbol.id == routine_value
+        ));
+
+        let dump = ir::format_program(&semir);
+        assert!(dump.contains("lexical-block syntax=0"));
+        assert!(dump.contains("lexical-block syntax=1"));
+    }
+
+    #[test]
+    fn semantic_ir_lexical_block_flow_matches_its_body() {
+        let (program, model) =
+            analyze_modern_program_source("BYTE FUNC F()\nBEGIN\nRETURN(1)\nEND\n");
+        let semir = ir::lower_program(&program, &model);
+        let routine = semir.modules[0]
+            .items
+            .iter()
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine) => Some(routine),
+                _ => None,
+            })
+            .unwrap();
+        let facts = ir::statement_flow_facts(&routine.body[0]);
+        assert!(!facts.may_continue);
+        assert!(facts.may_return);
+        assert!(facts.always_returns);
+        assert!(!facts.contains_loop);
+    }
+
+    #[test]
     fn semantic_ir_record_call_argument_uses_implicit_address() {
         let (program, model) = analyze_program_source(
             "TYPE Pair=[BYTE tag] PROC Touch(Pair POINTER p) RETURN Pair rec PROC Main() Touch(rec) RETURN",
@@ -8306,6 +8406,17 @@ mod tests {
 
     fn assert_semir_stmt_types(stmt: &ir::SemStmt) {
         match stmt {
+            ir::SemStmt::LexicalBlock {
+                declarations, body, ..
+            } => {
+                for declaration in declarations {
+                    assert_semir_storage_types(&declaration.storage);
+                    if let Some(initializer) = &declaration.initializer {
+                        assert_semir_value_expr_typed(initializer);
+                    }
+                }
+                assert_semir_stmt_list_types(body);
+            }
             ir::SemStmt::Define(_)
             | ir::SemStmt::Exit { .. }
             | ir::SemStmt::MachineBlock { .. }

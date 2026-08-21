@@ -871,6 +871,9 @@ impl NirBuilder {
 
     fn stmt(&mut self, stmt: &SemStmt, lowering: &mut NirLowerer) {
         match stmt {
+            SemStmt::LexicalBlock { .. } => self.push(NirOp::Unsupported {
+                note: "lexical block reached NIR before stable local identity lowering".to_string(),
+            }),
             SemStmt::Define(_) => {}
             SemStmt::Return { value, .. } => {
                 let value = value.as_ref().map(|value| self.nir_value(value));
@@ -2582,6 +2585,9 @@ fn collect_machine_define_ids_from_stmt(
     ids: &mut BTreeMap<usize, Vec<MachineItem>>,
 ) {
     match stmt {
+        SemStmt::LexicalBlock { body, .. } => {
+            collect_machine_define_ids_from_statements(body, ids);
+        }
         SemStmt::Define(define) => {
             if let Some(items) = parse_machine_define_value(&define.value) {
                 ids.insert(define.symbol.id.0, items);
@@ -2633,6 +2639,9 @@ fn collect_machine_define_names_from_stmt(
     names: &mut BTreeMap<String, Vec<MachineItem>>,
 ) {
     match stmt {
+        SemStmt::LexicalBlock { body, .. } => {
+            collect_machine_define_names_from_statements(body, names);
+        }
         SemStmt::Define(define) => {
             if let Some(items) = parse_machine_define_value(&define.value) {
                 names.insert(storage_key(&define.symbol.name), items);
@@ -2664,6 +2673,9 @@ fn collect_machine_define_names_from_stmt(
 
 fn collect_machine_defines_from_stmt(stmt: &SemStmt, defines: &mut MachineDefines) {
     match stmt {
+        SemStmt::LexicalBlock { body, .. } => {
+            collect_machine_defines_from_statements(body, defines);
+        }
         SemStmt::Define(define) => {
             if let Some(items) = parse_machine_define_value(&define.value) {
                 insert_machine_define(defines, define.symbol.id.0, &define.symbol.name, items);

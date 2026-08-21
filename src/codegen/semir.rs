@@ -417,6 +417,10 @@ impl SemIrAstLowerer<'_> {
 
     fn stmt(&mut self, stmt: &SemStmt) -> Option<Stmt> {
         match stmt {
+            SemStmt::LexicalBlock { span, .. } => {
+                self.unsupported(*span, "classic lexical block projection is not implemented");
+                None
+            }
             SemStmt::Define(define) => Some(Stmt::Define(DefineDecl {
                 entries: vec![DefineEntry {
                     name: define.symbol.name.clone(),
@@ -986,6 +990,17 @@ fn routine_native_real_node_count(routine: &SemRoutine) -> usize {
 
 fn stmt_uses_native_real(stmt: &SemStmt) -> bool {
     match stmt {
+        SemStmt::LexicalBlock {
+            declarations, body, ..
+        } => {
+            declarations.iter().any(|declaration| {
+                declaration.ty.value.is_real()
+                    || declaration
+                        .initializer
+                        .as_ref()
+                        .is_some_and(expr_uses_native_real)
+            }) || body.iter().any(stmt_uses_native_real)
+        }
         SemStmt::Assign { target, value, .. } | SemStmt::CompoundAssign { target, value, .. } => {
             target.ty.is_real() || expr_uses_native_real(value) || lvalue_uses_native_real(target)
         }
@@ -1073,6 +1088,16 @@ fn lvalue_uses_native_real(value: &SemLValue) -> bool {
 
 fn stmt_expr_node_count(stmt: &SemStmt) -> usize {
     match stmt {
+        SemStmt::LexicalBlock {
+            declarations, body, ..
+        } => {
+            declarations
+                .iter()
+                .filter_map(|declaration| declaration.initializer.as_ref())
+                .map(expr_node_count)
+                .sum::<usize>()
+                + body.iter().map(stmt_expr_node_count).sum::<usize>()
+        }
         SemStmt::Assign { target, value, .. } | SemStmt::CompoundAssign { target, value, .. } => {
             lvalue_expr_node_count(target) + expr_node_count(value)
         }

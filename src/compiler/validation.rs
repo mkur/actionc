@@ -63,6 +63,16 @@ fn collect_standalone_stmt_list_diagnostics(
 
 fn collect_standalone_stmt_diagnostics(statement: &SemStmt, diagnostics: &mut Vec<Diagnostic>) {
     match statement {
+        SemStmt::LexicalBlock {
+            declarations, body, ..
+        } => {
+            for declaration in declarations {
+                if let Some(initializer) = &declaration.initializer {
+                    collect_standalone_expr_diagnostics(initializer, diagnostics);
+                }
+            }
+            collect_standalone_stmt_list_diagnostics(body, diagnostics);
+        }
         SemStmt::Return { value, .. } => {
             if let Some(value) = value {
                 collect_standalone_expr_diagnostics(value, diagnostics);

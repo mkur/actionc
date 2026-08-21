@@ -117,13 +117,24 @@ impl Materializer<'_> {
     fn statement(&self, scope: ScopeId, statement: &mut Stmt) {
         match statement {
             Stmt::LexicalBlock {
-                declarations, body, ..
+                syntax_id,
+                declarations,
+                body,
+                ..
             } => {
+                let block_scope = self
+                    .model
+                    .lexical_blocks
+                    .iter()
+                    .find(|block| block.parent == scope && block.syntax_id == *syntax_id)
+                    .map(|block| block.scope)
+                    .unwrap_or(scope);
+                declarations.retain(|declaration| !matches!(declaration, Decl::Const(_)));
                 for declaration in declarations {
-                    self.declaration(scope, declaration);
+                    self.declaration(block_scope, declaration);
                 }
                 for statement in body {
-                    self.statement(scope, statement);
+                    self.statement(block_scope, statement);
                 }
             }
             Stmt::Return(value) => {

@@ -8,9 +8,9 @@ use crate::asm6502::{
 use crate::ast::{
     ActioncAnnotation, AddressByteSelector, BinaryOp, ConstDecl, Decl, DefineDecl, Expr, ExprKind,
     FundType, IncludeDirective, InitializerElement, InitializerElementKind, InitializerLiteral,
-    Item, MachineAddressAtom, MachineAddressExpr, MachineItem, Module, Program, QualifiedName,
-    RecordDecl, Routine, RoutineKind, SetDirective, Stmt, TypeBase, TypeDecl, TypeRef, UnaryOp,
-    VarDecl, VarStorage,
+    Item, LexicalBlockSyntaxId, MachineAddressAtom, MachineAddressExpr, MachineItem, Module,
+    Program, QualifiedName, RecordDecl, Routine, RoutineKind, SetDirective, Stmt, TypeBase,
+    TypeDecl, TypeRef, UnaryOp, VarDecl, VarStorage,
 };
 use crate::atari_real::AtariReal;
 use crate::includes::{LoadedCompilation, ModuleId};
@@ -313,6 +313,13 @@ pub enum SemArrayOrigin {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemStmt {
+    LexicalBlock {
+        scope: SemLexicalScopeRef,
+        declarations: Vec<SemDeclaration>,
+        constants: Vec<SemConst>,
+        body: Vec<SemStmt>,
+        span: Span,
+    },
     Define(SemDefine),
     Return {
         value: Option<SemExpr>,
@@ -378,6 +385,15 @@ pub enum SemStmt {
         span: Span,
         note: String,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SemLexicalScopeRef {
+    pub syntax_id: LexicalBlockSyntaxId,
+    pub scope: ScopeId,
+    pub parent: ScopeId,
+    pub depth: usize,
+    pub ordinal: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -454,6 +470,7 @@ fn statement_list_flow_facts_at_depth(statements: &[SemStmt], loop_depth: usize)
 
 fn stmt_flow_facts_at_depth(stmt: &SemStmt, loop_depth: usize) -> StmtFlowFacts {
     match stmt {
+        SemStmt::LexicalBlock { body, .. } => statement_list_flow_facts_at_depth(body, loop_depth),
         SemStmt::Return { .. } => StmtFlowFacts {
             may_continue: false,
             may_return: true,
@@ -902,6 +919,14 @@ fn collect_external_stmt_references(
 ) {
     for statement in statements {
         match statement {
+            SemStmt::LexicalBlock {
+                declarations, body, ..
+            } => {
+                for declaration in declarations {
+                    collect_external_declaration_references(declaration, external, referenced);
+                }
+                collect_external_stmt_references(body, external, referenced);
+            }
             SemStmt::Return { value, .. } => {
                 if let Some(value) = value {
                     collect_external_expr_references(value, external, referenced);
@@ -1268,6 +1293,31 @@ impl SemIrFormatter {
 
     fn stmt(&mut self, stmt: &SemStmt) {
         match stmt {
+            SemStmt::LexicalBlock {
+                scope,
+                declarations,
+                constants,
+                body,
+                ..
+            } => {
+                self.line(format!(
+                    "lexical-block syntax={} scope={} parent={} depth={} ordinal={}",
+                    scope.syntax_id.0, scope.scope.0, scope.parent.0, scope.depth, scope.ordinal
+                ));
+                self.indented(|this| {
+                    for declaration in declarations {
+                        this.declaration(declaration);
+                    }
+                    for constant in constants {
+                        this.line(format!(
+                            "const {} = {}",
+                            symbol_summary(&constant.symbol),
+                            const_value_summary(constant.value)
+                        ));
+                    }
+                    this.stmt_list(body);
+                });
+            }
             SemStmt::Define(define) => self.line(format!(
                 "define {} = {:?}",
                 symbol_summary(&define.symbol),
@@ -2281,10 +2331,52 @@ impl<'a> IrBuilder<'a> {
 
     fn lower_stmt(&mut self, scope: ScopeId, stmt: &Stmt) -> Vec<SemStmt> {
         match stmt {
-            Stmt::LexicalBlock { span, .. } => vec![SemStmt::Unsupported {
-                span: *span,
-                note: "lexical block reached SemIR before semantic support".to_string(),
-            }],
+            Stmt::LexicalBlock {
+                syntax_id,
+                declarations,
+                body,
+                span,
+            } => {
+                let Some(block) = self
+                    .model
+                    .lexical_blocks
+                    .iter()
+                    .find(|block| block.parent == scope && block.syntax_id == *syntax_id)
+                else {
+                    return vec![SemStmt::Unsupported {
+                        span: *span,
+                        note: "lexical block has no semantic scope".to_string(),
+                    }];
+                };
+                let block_scope = block.scope;
+                let scope_ref = SemLexicalScopeRef {
+                    syntax_id: *syntax_id,
+                    scope: block.scope,
+                    parent: block.parent,
+                    depth: block.depth,
+                    ordinal: block.ordinal,
+                };
+                vec![SemStmt::LexicalBlock {
+                    scope: scope_ref,
+                    declarations: declarations
+                        .iter()
+                        .flat_map(|declaration| self.lower_decl(block_scope, declaration))
+                        .collect(),
+                    constants: declarations
+                        .iter()
+                        .filter_map(|declaration| match declaration {
+                            Decl::Const(constants) => Some(constants),
+                            _ => None,
+                        })
+                        .flat_map(|constants| self.lower_const_decl(block_scope, constants))
+                        .collect(),
+                    body: body
+                        .iter()
+                        .flat_map(|statement| self.lower_stmt(block_scope, statement))
+                        .collect(),
+                    span: *span,
+                }]
+            }
             Stmt::Define(define) => {
                 let defines = self.lower_define(scope, define);
                 if defines.is_empty() {
@@ -3586,9 +3678,18 @@ impl<'a> IrBuilder<'a> {
         defines: &mut HashMap<SymbolId, NumberLiteral>,
     ) {
         match stmt {
-            Stmt::LexicalBlock { body, .. } => {
+            Stmt::LexicalBlock {
+                syntax_id, body, ..
+            } => {
+                let block_scope = self
+                    .model
+                    .lexical_blocks
+                    .iter()
+                    .find(|block| block.parent == scope && block.syntax_id == *syntax_id)
+                    .map(|block| block.scope)
+                    .unwrap_or(scope);
                 for stmt in body {
-                    self.collect_numeric_define_stmt(scope, stmt, defines);
+                    self.collect_numeric_define_stmt(block_scope, stmt, defines);
                 }
             }
             Stmt::Define(define) => self.collect_numeric_define_decl(scope, define, defines),
