@@ -188,19 +188,15 @@ fn inline_asm_emits_in_mir6502() {
 #[test]
 fn inline_asm_self_modification_labels_emit_in_all_backends() {
     let semir = semir(SELF_MODIFYING_SOURCE);
-    let ast_classic = generate_semir_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
-        .expect("emit MADS self-modification labels from AST/classic");
-    let native_classic =
-        generate_semir_native_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
-            .expect("emit MADS self-modification labels from SemIR/classic");
+    let classic = generate_semir_profile_with_origin(&semir, 0x3000, CodegenProfile::Modern)
+        .expect("emit MADS self-modification labels from classic");
     let nir = nir::optimize_program(&nir::lower_program(&semir))
         .expect("optimize self-modifying inline assembler NIR");
     let mir = mir6502::generate_output(&nir, 0x3000)
         .expect("emit MADS self-modification labels from MIR6502");
 
     for (backend, output) in [
-        ("AST/classic", ast_classic),
-        ("SemIR/classic", native_classic),
+        ("classic", classic),
         ("MIR6502", mir),
     ] {
         let start = output
