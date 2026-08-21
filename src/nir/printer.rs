@@ -407,16 +407,18 @@ fn op_summary(op: &NirOp) -> String {
         NirOp::Compare {
             dest,
             ty,
+            operand_ty,
             op,
             left,
             right,
         } => format!(
-            "{}:{} = cmp {} {} {}",
+            "{}:{} = cmp {} {} {} operand_ty={}",
             temp_summary(*dest),
             ty.summary,
             value_summary(left),
             compare_op_summary(*op),
-            value_summary(right)
+            value_summary(right),
+            operand_ty.summary
         ),
         NirOp::Real(real) => real_op_summary(real),
         NirOp::Call {

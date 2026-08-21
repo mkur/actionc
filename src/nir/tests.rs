@@ -25,6 +25,159 @@ fn lower_modern_source(source: &str) -> NirProgram {
     lower_program(&semir)
 }
 
+#[test]
+fn mixed_scalar_comparison_widens_negative_literal_to_word() {
+    let program = lower_modern_source("INT value BYTE result PROC Main() result=value>=-64 RETURN");
+    verify_program(&program).expect("mixed scalar comparison NIR should verify");
+
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let (operand_ty, left, right) = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            NirOp::Compare {
+                op: NirCompareOp::Ge,
+                operand_ty,
+                left,
+                right,
+                ..
+            } => Some((operand_ty, left, right)),
+            _ => None,
+        })
+        .expect("word comparison");
+    let NirValue::Temp { ty: left_ty, .. } = left else {
+        panic!("expected loaded word operand");
+    };
+    let NirValue::Temp { ty: right_ty, .. } = right else {
+        panic!("expected widened negative word operand");
+    };
+    assert_eq!(left_ty.width, Some(2));
+    assert_eq!(right_ty.width, Some(2));
+    assert_eq!(operand_ty.kind, NirTypeKind::I16);
+
+    let optimized = optimize_program(&program).expect("optimize mixed scalar comparison");
+    let main = optimized
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let right = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            NirOp::Compare {
+                op: NirCompareOp::Ge,
+                right,
+                ..
+            } => Some(right),
+            _ => None,
+        })
+        .expect("optimized word comparison");
+    assert_eq!(right, &NirValue::ConstU16(0xFFC0));
+}
+
+#[test]
+fn verifier_rejects_mixed_width_compare_operands() {
+    let mut program =
+        lower_modern_source("INT value BYTE result PROC Main() result=value>=-64 RETURN");
+    let compare = program
+        .routines
+        .iter_mut()
+        .flat_map(|routine| &mut routine.blocks)
+        .flat_map(|block| &mut block.ops)
+        .find(|op| {
+            matches!(
+                op,
+                NirOp::Compare {
+                    op: NirCompareOp::Ge,
+                    ..
+                }
+            )
+        })
+        .expect("word comparison");
+    let NirOp::Compare { right, .. } = compare else {
+        unreachable!();
+    };
+    *right = NirValue::ConstU8(0xC0);
+
+    let diagnostics = verify_program(&program).expect_err("mixed widths must be rejected");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("compare operands width mismatch: left is 2 byte(s), right is 1 byte(s)")
+    }));
+}
+
+#[test]
+fn verifier_rejects_compare_operand_signedness_mismatch() {
+    let mut program =
+        lower_modern_source("INT value BYTE result PROC Main() result=value>=-64 RETURN");
+    let compare = program
+        .routines
+        .iter_mut()
+        .flat_map(|routine| &mut routine.blocks)
+        .flat_map(|block| &mut block.ops)
+        .find(|op| {
+            matches!(
+                op,
+                NirOp::Compare {
+                    op: NirCompareOp::Ge,
+                    ..
+                }
+            )
+        })
+        .expect("word comparison");
+    let NirOp::Compare { operand_ty, .. } = compare else {
+        unreachable!();
+    };
+    operand_ty.kind = NirTypeKind::U16;
+    operand_ty.summary = "Card".to_string();
+
+    let diagnostics = verify_program(&program).expect_err("mixed signedness must be rejected");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("operand type Card does not match value type Int")
+    }));
+}
+
+#[test]
+fn optimizer_folds_constant_int_comparisons_as_signed() {
+    let program = lower_modern_source(
+        "INT value BYTE result PROC Main() value=64 IF value<=-64 THEN result=1 ELSE result=0 FI RETURN",
+    );
+    let optimized = optimize_program(&program).expect("optimize signed comparison");
+    let main = optimized
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let stored = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::Store {
+                src: NirValue::ConstU8(value),
+                place:
+                    NirPlace {
+                        kind: NirPlaceKind::Global { name, .. },
+                        ..
+                    },
+                ..
+            } if name == "result" => Some(*value),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(stored, [0]);
+}
+
 fn display_name_leaf(name: &str) -> &str {
     name.rsplit("::").next().unwrap_or(name)
 }
@@ -2133,6 +2286,7 @@ fn optimizer_folds_constants_and_simplifies_branches() {
                     ops: vec![NirOp::Compare {
                         dest: TempId(0),
                         ty: condition.clone(),
+                        operand_ty: byte_type(),
                         op: NirCompareOp::Eq,
                         left: byte_value(1),
                         right: byte_value(1),
@@ -2518,6 +2672,7 @@ fn optimizer_propagates_common_alias_through_diamond_join() {
                     NirOp::Compare {
                         dest: TempId(2),
                         ty: condition.clone(),
+                        operand_ty: byte.clone(),
                         op: NirCompareOp::Ne,
                         left: temp_value(0, byte.clone()),
                         right: byte_value(0),

@@ -1594,6 +1594,7 @@ impl NirBuilder {
                 })
             }
             SemExprKind::Binary { op, left, right } if NirClassifier::is_nir_compare_op(*op) => {
+                let operand_ty = NirFacts::type_from_value(&left.ty);
                 let left = self.nir_value(left);
                 let right = self.nir_value(right);
                 let dest = self.next_temp();
@@ -1601,6 +1602,7 @@ impl NirBuilder {
                 self.push(NirOp::Compare {
                     dest,
                     ty: ty.clone(),
+                    operand_ty,
                     op: NirClassifier::compare_op(*op)
                         .expect("compare-classified op should lower to NIR"),
                     left,
@@ -2166,9 +2168,11 @@ impl NirBuilder {
             value => {
                 let dest = self.next_temp();
                 let ty = NirFacts::condition_type();
+                let operand_ty = NirFacts::type_from_value(&expr.ty);
                 self.push(NirOp::Compare {
                     dest,
                     ty: ty.clone(),
+                    operand_ty,
                     op: NirCompareOp::Ne,
                     left: value,
                     right: zero_value_for_type(&expr.ty),
@@ -2193,6 +2197,7 @@ impl NirBuilder {
         self.push(NirOp::Compare {
             dest,
             ty: ty.clone(),
+            operand_ty: left_ty.clone(),
             op: NirCompareOp::Le,
             left: NirValue::Temp {
                 id: left_temp,

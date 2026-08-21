@@ -207,6 +207,7 @@ enum PureExpression {
     },
     Compare {
         ty: NirType,
+        operand_ty: NirType,
         op: NirCompareOp,
         left: NirValue,
         right: NirValue,
@@ -347,12 +348,14 @@ fn pure_expression(op: &NirOp) -> Option<PureExpression> {
         }),
         NirOp::Compare {
             ty,
+            operand_ty,
             op,
             left,
             right,
             ..
         } => Some(PureExpression::Compare {
             ty: ty.clone(),
+            operand_ty: operand_ty.clone(),
             op: *op,
             left: left.clone(),
             right: right.clone(),
@@ -815,6 +818,7 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
         NirOp::Compare {
             dest,
             ty,
+            operand_ty,
             op,
             left,
             right,
@@ -822,16 +826,7 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
             if !matches!(ty.kind, NirTypeKind::Bool) {
                 return None;
             }
-            let left = const_u16(left)?;
-            let right = const_u16(right)?;
-            let result = match op {
-                NirCompareOp::Eq => left == right,
-                NirCompareOp::Ne => left != right,
-                NirCompareOp::Lt => left < right,
-                NirCompareOp::Le => left <= right,
-                NirCompareOp::Gt => left > right,
-                NirCompareOp::Ge => left >= right,
-            };
+            let result = eval_compare(*op, left, right, operand_ty)?;
             Some((*dest, NirValue::ConstU8(u8::from(result))))
         }
         NirOp::RuntimeHelperOverride { .. }
@@ -845,6 +840,32 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => None,
+    }
+}
+
+fn eval_compare(
+    op: NirCompareOp,
+    left: &NirValue,
+    right: &NirValue,
+    operand_ty: &NirType,
+) -> Option<bool> {
+    let left = const_u16(left)?;
+    let right = const_u16(right)?;
+    Some(match &operand_ty.kind {
+        NirTypeKind::I8 => apply_compare(op, left as u8 as i8, right as u8 as i8),
+        NirTypeKind::I16 => apply_compare(op, left as i16, right as i16),
+        _ => apply_compare(op, left, right),
+    })
+}
+
+fn apply_compare<T: Ord>(op: NirCompareOp, left: T, right: T) -> bool {
+    match op {
+        NirCompareOp::Eq => left == right,
+        NirCompareOp::Ne => left != right,
+        NirCompareOp::Lt => left < right,
+        NirCompareOp::Le => left <= right,
+        NirCompareOp::Gt => left > right,
+        NirCompareOp::Ge => left >= right,
     }
 }
 
@@ -1324,6 +1345,12 @@ mod value_fact_tests {
                     ops: vec![NirOp::Compare {
                         dest: TempId(0),
                         ty: condition.clone(),
+                        operand_ty: NirType {
+                            kind: NirTypeKind::U8,
+                            summary: "Byte".to_string(),
+                            width: Some(1),
+                            pointer: false,
+                        },
                         op: NirCompareOp::Eq,
                         left: NirValue::ConstU8(1),
                         right: NirValue::ConstU8(1),

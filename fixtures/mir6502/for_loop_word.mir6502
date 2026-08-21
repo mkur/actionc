@@ -4,20 +4,20 @@ global g1 sum: word storage global+2
 
 routine r0 Main
 b0 bb0:
-  store.w global g0+0, #$00
+  store.w global g0+0, #$0000
   jump b1
 b1 bb1:
-  v0 =.w load global g0+0
-  v1 = cmp.w v0 le #$012C
-  branch bool v1 ? b2 : b3
+  v1 =.w load global g0+0
+  v3 = cmp.w v1 le #$012C
+  branch bool v3 ? b2 : b3
 b2 bb2:
-  v2 =.w load global g0+0
-  v3 =.w load global g1+0
-  v4 =.w v3 add v2 carry_in=- carry_out=ignore
-  store.w global g1+0, v4
-  v5 =.w load global g0+0
-  v6 =.w v5 add #$01 carry_in=- carry_out=ignore
-  store.w global g0+0, v6
+  v4 =.w load global g0+0
+  v5 =.w load global g1+0
+  v6 =.w v5 add v4 carry_in=- carry_out=ignore
+  store.w global g1+0, v6
+  v7 =.w load global g0+0
+  v8 =.w v7 add #$01 carry_in=- carry_out=ignore
+  store.w global g0+0, v8
   jump b1
 b3 bb3:
   return

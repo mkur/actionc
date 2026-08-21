@@ -5586,6 +5586,40 @@ mod tests {
     }
 
     #[test]
+    fn scalar_comparisons_widen_negative_literals_before_negation() {
+        let (program, model) = analyze_modern_program_source(
+            "INT value BYTE result PROC Main() result=value>=-64 RETURN",
+        );
+        let semir = ir::lower_program(&program, &model);
+        let main = semir.modules[0]
+            .items
+            .iter()
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine) if routine.symbol.name == "Main" => Some(routine),
+                _ => None,
+            })
+            .expect("Main");
+        let ir::SemStmt::Assign { value, .. } = &main.body[0] else {
+            panic!("expected comparison assignment");
+        };
+        let ir::SemExprKind::Binary { left, right, .. } = &value.kind else {
+            panic!("expected comparison");
+        };
+        let int = ValueType::fund(FundType::Int);
+        assert_eq!(left.ty, int);
+        assert_eq!(right.ty, int);
+        let ir::SemExprKind::Unary {
+            op: UnaryOp::Neg,
+            expr,
+        } = &right.kind
+        else {
+            panic!("expected widened unary negation");
+        };
+        assert_eq!(expr.ty, int);
+        assert!(matches!(expr.kind, ir::SemExprKind::Cast { .. }));
+    }
+
+    #[test]
     fn native_real_rejects_deferred_or_invalid_semantic_forms() {
         let invalid_operator =
             analyze_modern_source_err("REAL value PROC Main() value=value MOD 2 RETURN");

@@ -9,11 +9,11 @@ bb0:
   goto bb1
 bb1:
   %t0:Byte = load i
-  %t1:condition = cmp %t0 Lt 3
+  %t1:condition = cmp %t0 Lt 3 operand_ty=Byte
   branch %t1 ? bb2 : bb3
 bb2:
   %t2:Byte = load i
-  %t3:condition = cmp %t2 Eq 1
+  %t3:condition = cmp %t2 Eq 1 operand_ty=Byte
   branch %t3 ? bb5 : bb6
 bb5:
   %t4:Byte = load total

@@ -385,6 +385,7 @@ mod tests {
                     NirOp::Compare {
                         dest: TempId(2),
                         ty: byte_type(),
+                        operand_ty: byte_type(),
                         op: NirCompareOp::Eq,
                         left: temp(1),
                         right: temp(12),

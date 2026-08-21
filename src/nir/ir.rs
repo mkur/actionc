@@ -483,6 +483,7 @@ pub enum NirOp {
     Compare {
         dest: TempId,
         ty: NirType,
+        operand_ty: NirType,
         op: NirCompareOp,
         left: NirValue,
         right: NirValue,

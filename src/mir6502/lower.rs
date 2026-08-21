@@ -1040,12 +1040,13 @@ fn lower_ops(
             }
             NirOpKind::Compare {
                 dest,
-                ty,
+                operand_ty,
                 op,
                 left,
                 right,
+                ..
             } => {
-                let Some(width) = compare_width(left, right) else {
+                let Some(width) = mir_width(operand_ty) else {
                     diagnostics.push(MirDiagnostic::block(
                         routine,
                         block,
@@ -1053,7 +1054,7 @@ fn lower_ops(
                     ));
                     continue;
                 };
-                let signed = is_signed_compare(ty, left, right);
+                let signed = is_signed(operand_ty);
                 let Some(left) = lower_compare_value(routine, block, left, width, diagnostics)
                 else {
                     continue;
@@ -2867,39 +2868,6 @@ fn unsupported_place(
 
 fn is_signed(ty: &NirType) -> bool {
     matches!(ty.kind, NirTypeKind::I8 | NirTypeKind::I16)
-}
-
-fn is_signed_compare(ty: &NirType, left: &NirValueKind, right: &NirValueKind) -> bool {
-    is_signed(ty) || value_is_signed(left) || value_is_signed(right)
-}
-
-fn compare_width(left: &NirValueKind, right: &NirValueKind) -> Option<MirWidth> {
-    let left_width = compare_operand_width(left)?;
-    let right_width = compare_operand_width(right)?;
-    match (left_width, right_width) {
-        (MirWidth::Word, MirWidth::Byte) if value_is_signed(right) => Some(MirWidth::Byte),
-        (MirWidth::Byte, MirWidth::Word) if value_is_signed(left) => Some(MirWidth::Byte),
-        (MirWidth::Word, _) | (_, MirWidth::Word) => Some(MirWidth::Word),
-        (MirWidth::Byte, MirWidth::Byte) => Some(MirWidth::Byte),
-    }
-}
-
-fn compare_operand_width(value: &NirValueKind) -> Option<MirWidth> {
-    match value {
-        NirValueKind::ConstU16(value) if *value <= u16::from(u8::MAX) => Some(MirWidth::Byte),
-        _ => value_width(value),
-    }
-}
-
-fn value_is_signed(value: &NirValueKind) -> bool {
-    match value {
-        NirValueKind::Temp { ty, .. } | NirValueKind::StaticAddr { ty, .. } => is_signed(ty),
-        NirValueKind::ConstU8(_)
-        | NirValueKind::ConstU16(_)
-        | NirValueKind::Param(_)
-        | NirValueKind::GlobalAddr(_)
-        | NirValueKind::RoutineAddr { .. } => false,
-    }
 }
 
 fn lower_compare_value(

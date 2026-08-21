@@ -2515,17 +2515,23 @@ impl<'a> IrBuilder<'a> {
                 step,
                 body,
                 span,
-            } => vec![SemStmt::For {
-                target: self.lower_lvalue(scope, target),
-                start: self.lower_expr(scope, start),
-                end: self.lower_expr(scope, end),
-                step: step.as_ref().map(|expr| self.lower_expr(scope, expr)),
-                body: body
-                    .iter()
-                    .flat_map(|stmt| self.lower_stmt(scope, stmt))
-                    .collect(),
-                span: *span,
-            }],
+            } => {
+                let target = self.lower_lvalue(scope, target);
+                let target_ty = target.ty.clone();
+                vec![SemStmt::For {
+                    target,
+                    start: self.lower_scalar_value_for_expected_type(scope, &target_ty, start),
+                    end: self.lower_scalar_value_for_expected_type(scope, &target_ty, end),
+                    step: step.as_ref().map(|expr| {
+                        self.lower_scalar_value_for_expected_type(scope, &target_ty, expr)
+                    }),
+                    body: body
+                        .iter()
+                        .flat_map(|stmt| self.lower_stmt(scope, stmt))
+                        .collect(),
+                    span: *span,
+                }]
+            }
             Stmt::Unsupported { span, note } => vec![SemStmt::Unsupported {
                 span: *span,
                 note: note.clone(),
@@ -2538,6 +2544,27 @@ impl<'a> IrBuilder<'a> {
             return self.lower_expr(scope, value);
         };
         self.lower_value_for_expected_type(scope, &target_ty, value)
+    }
+
+    fn lower_scalar_value_for_expected_type(
+        &mut self,
+        scope: ScopeId,
+        expected: &ValueType,
+        expr: &Expr,
+    ) -> SemExpr {
+        let lowered = self.lower_value_for_expected_type(scope, expected, expr);
+        let machine_type_differs = expected
+            .as_scalar()
+            .zip(lowered.ty.as_scalar())
+            .is_some_and(|(expected, actual)| {
+                expected.width_bytes() != actual.width_bytes()
+                    || expected.signedness() != actual.signedness()
+            });
+        if scalar_expected_type_can_accept_expr(expected, &lowered.ty) && machine_type_differs {
+            self.coerce_scalar_expr_for_expected_type(lowered, expected)
+        } else {
+            lowered
+        }
     }
 
     fn lower_inline_asm(&self, scope: ScopeId, program: &InlineAsmProgram) -> SemInlineAsm {
@@ -2917,6 +2944,15 @@ impl<'a> IrBuilder<'a> {
         if left.ty.is_real() || right.ty.is_real() {
             left = self.coerce_integer_expr_to_real(left);
             right = self.coerce_integer_expr_to_real(right);
+        } else if is_compare_op(op)
+            && left.ty.as_scalar().is_some()
+            && right.ty.as_scalar().is_some()
+        {
+            let operand_ty = promote_numeric_types(&left.ty, &right.ty);
+            left = self.widen_arithmetic_tree_for_expected_type(left, &operand_ty);
+            left = self.coerce_scalar_comparison_expr(left, &operand_ty);
+            right = self.widen_arithmetic_tree_for_expected_type(right, &operand_ty);
+            right = self.coerce_scalar_comparison_expr(right, &operand_ty);
         }
         SemExprKind::Binary {
             op,
@@ -3045,6 +3081,22 @@ impl<'a> IrBuilder<'a> {
             class: SemExprClass::Value,
             eval_order: Some(self.next_eval_order()),
             span,
+        }
+    }
+
+    fn coerce_scalar_comparison_expr(&mut self, expr: SemExpr, expected: &ValueType) -> SemExpr {
+        let same_machine_type =
+            expected
+                .as_scalar()
+                .zip(expr.ty.as_scalar())
+                .is_some_and(|(expected, actual)| {
+                    expected.width_bytes() == actual.width_bytes()
+                        && expected.signedness() == actual.signedness()
+                });
+        if same_machine_type {
+            expr
+        } else {
+            self.coerce_scalar_expr_for_expected_type(expr, expected)
         }
     }
 

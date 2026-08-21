@@ -387,6 +387,10 @@ Rules:
   cast destinations define temps.
 - The temp table is the type authority for temp IDs.
 - `Compare` result type is always `Bool`; signedness comes from `operand_ty`.
+- Ordinary `Compare` operands have one common scalar machine type. SemIR
+  promotes both source operands before NIR lowering, including widening
+  arithmetic and unary trees before evaluation; the NIR verifier checks operand
+  width and signedness against `operand_ty`.
 - Expensive operations such as word multiply/divide may remain semantic NIR ops
   and lower to runtime helpers in MIR6502.
 - NIR should not encode final 6502 addressing modes.

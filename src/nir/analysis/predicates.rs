@@ -491,6 +491,7 @@ mod tests {
                 NirOp::Compare {
                     dest: TempId(condition),
                     ty: condition_type(),
+                    operand_ty: byte_type(),
                     op,
                     left: NirValue::Temp {
                         id: TempId(load),

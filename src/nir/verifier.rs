@@ -835,11 +835,14 @@ impl NirVerifier {
             NirOp::Compare {
                 dest,
                 ty,
+                operand_ty,
                 left,
                 right,
                 ..
             } => {
                 self.op_type(routine, block, ty, "compare result");
+                self.op_type(routine, block, operand_ty, "compare operand");
+                self.reject_real_type(routine, block, operand_ty, "ordinary compare operand");
                 self.value_type(routine, block, left, "compare left operand");
                 self.reject_real_value(routine, block, left, "ordinary compare left operand");
                 self.value_temp_use(
@@ -858,6 +861,35 @@ impl NirVerifier {
                     right,
                     op_index,
                     temp_facts,
+                    "compare right operand",
+                );
+                self.match_operand_widths(routine, block, left, right, "compare operands");
+                self.match_operand_type_width(
+                    routine,
+                    block,
+                    operand_ty,
+                    left,
+                    "compare left operand",
+                );
+                self.match_operand_type_width(
+                    routine,
+                    block,
+                    operand_ty,
+                    right,
+                    "compare right operand",
+                );
+                self.match_operand_machine_type(
+                    routine,
+                    block,
+                    operand_ty,
+                    left,
+                    "compare left operand",
+                );
+                self.match_operand_machine_type(
+                    routine,
+                    block,
+                    operand_ty,
+                    right,
                     "compare right operand",
                 );
                 self.temp_def_matches_table(routine, block, *dest, ty, op_index);
@@ -2093,6 +2125,86 @@ impl NirVerifier {
         }
     }
 
+    fn match_operand_widths(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        left: &NirValue,
+        right: &NirValue,
+        label: &str,
+    ) {
+        let (Some(left_width), Some(right_width)) = (value_width(left), value_width(right)) else {
+            return;
+        };
+        if left_width != right_width {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!(
+                    "{label} width mismatch: left is {left_width} byte(s), right is {right_width} byte(s)"
+                ),
+            ));
+        }
+    }
+
+    fn match_operand_type_width(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        operand_ty: &NirType,
+        value: &NirValue,
+        label: &str,
+    ) {
+        let (Some(expected_width), Some(actual_width)) = (operand_ty.width, value_width(value))
+        else {
+            return;
+        };
+        if expected_width != actual_width {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!(
+                    "{label} width mismatch: operand type {} is {expected_width} byte(s), value is {actual_width} byte(s)",
+                    operand_ty.summary
+                ),
+            ));
+        }
+    }
+
+    fn match_operand_machine_type(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        operand_ty: &NirType,
+        value: &NirValue,
+        label: &str,
+    ) {
+        let value_ty = match value {
+            NirValue::Temp { ty, .. } | NirValue::StaticAddr { ty, .. } => ty,
+            NirValue::ConstU8(_)
+            | NirValue::ConstU16(_)
+            | NirValue::Param(_)
+            | NirValue::GlobalAddr(_)
+            | NirValue::RoutineAddr { .. } => return,
+        };
+        let Some(expected) = compare_machine_type(operand_ty) else {
+            return;
+        };
+        let Some(actual) = compare_machine_type(value_ty) else {
+            return;
+        };
+        if expected != actual {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!(
+                    "{label} type mismatch: operand type {} does not match value type {}",
+                    operand_ty.summary, value_ty.summary
+                ),
+            ));
+        }
+    }
+
     fn require_edge(
         &mut self,
         routine: &NirRoutine,
@@ -2155,6 +2267,22 @@ fn value_matches_type(value: &NirValue, expected: &NirType) -> bool {
         NirValue::RoutineAddr { .. } => expected.width == Some(2),
         NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty == expected,
         NirValue::Param(_) | NirValue::GlobalAddr(_) => false,
+    }
+}
+
+fn compare_machine_type(ty: &NirType) -> Option<(u16, bool)> {
+    let signed = matches!(ty.kind, NirTypeKind::I8 | NirTypeKind::I16);
+    match ty.kind {
+        NirTypeKind::Bool
+        | NirTypeKind::U8
+        | NirTypeKind::I8
+        | NirTypeKind::U16
+        | NirTypeKind::I16
+        | NirTypeKind::Ptr16 { .. }
+        | NirTypeKind::Callable { .. } => ty.width.map(|width| (width, signed)),
+        NirTypeKind::Void | NirTypeKind::Real | NirTypeKind::Record { .. } | NirTypeKind::Error => {
+            None
+        }
     }
 }
 

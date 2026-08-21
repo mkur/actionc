@@ -1,0 +1,25 @@
+; Regression for comparisons between an INT value and a negative byte literal.
+; The literal must be widened before unary negation, yielding $FFC0 rather than
+; byte-wrapped $00C0.
+
+BYTE result0=$0600, result1=$0601, result2=$0602, result3=$0603
+BYTE signature=$0604
+INT value
+
+PROC Main()
+  value=-64
+  IF value>=-64 THEN result0=1 ELSE result0=0 FI
+
+  value=-65
+  IF value>=-64 THEN result1=1 ELSE result1=0 FI
+
+  value=64
+  IF value<=-64 THEN result2=1 ELSE result2=0 FI
+
+  value=-63
+  IF value<=-64 THEN result3=1 ELSE result3=0 FI
+
+  signature=$A5
+  DO
+  OD
+RETURN

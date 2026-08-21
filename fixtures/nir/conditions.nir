@@ -8,7 +8,7 @@ routine Main params=[-] locals=[-]
   note Action program entry (last source PROC)
 bb0:
   %t0:Byte = load flag
-  %t1:condition = cmp %t0 Ne 0
+  %t1:condition = cmp %t0 Ne 0 operand_ty=Byte
   branch %t1 ? bb2 : bb1
 bb2:
   %t2:Byte = load total
@@ -20,7 +20,7 @@ bb1:
 bb3:
   %t4:Byte = load skstat
   %t5:Card = %t4 And $4
-  %t6:condition = cmp %t5 Ne $0
+  %t6:condition = cmp %t5 Ne $0 operand_ty=Card
   branch %t6 ? bb4 : bb5
 bb4:
   %t7:Byte = load total
@@ -30,7 +30,7 @@ bb4:
   goto bb3
 bb5:
   %t9:Card = load ptr
-  %t10:condition = cmp %t9 Ne $0
+  %t10:condition = cmp %t9 Ne $0 operand_ty=Card
   branch %t10 ? bb7 : bb6
 bb7:
   %t11:Byte = load total
@@ -39,15 +39,15 @@ bb7:
   goto bb6
 bb6:
   %t13:Byte = load flag
-  %t14:condition = cmp %t13 Eq 1
+  %t14:condition = cmp %t13 Eq 1 operand_ty=Byte
   branch %t14 ? bb11 : bb10
 bb11:
   %t15:Byte = load total
-  %t16:condition = cmp %t15 Eq 2
+  %t16:condition = cmp %t15 Eq 2 operand_ty=Byte
   branch %t16 ? bb9 : bb10
 bb10:
   %t17:Byte = load skstat
-  %t18:condition = cmp %t17 Eq 3
+  %t18:condition = cmp %t17 Eq 3 operand_ty=Byte
   branch %t18 ? bb9 : bb8
 bb9:
   %t19:Byte = load total
