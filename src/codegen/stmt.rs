@@ -31,6 +31,47 @@ fn constant_for_step(expr: &Expr) -> Option<ForStep> {
     }
 }
 
+fn descending_for_wrap_threshold(slot: StorageSlot, amount: u16) -> Option<u16> {
+    match (slot.size, slot.signed) {
+        (1, false) if amount <= u16::from(u8::MAX) => Some(amount),
+        (1, true) if amount <= 0x80 => Some((0x80 + amount) & 0x00FF),
+        (2, false) => Some(amount),
+        (2, true) if amount <= 0x8000 => Some(0x8000u16.wrapping_add(amount)),
+        _ => None,
+    }
+}
+
+fn for_bound_is_at_or_above(slot: StorageSlot, bound: u16, threshold: u16) -> bool {
+    match (slot.size, slot.signed) {
+        (1, false) => (bound as u8) >= threshold as u8,
+        (1, true) => (bound as u8 as i8) >= threshold as u8 as i8,
+        (2, false) => bound >= threshold,
+        (2, true) => (bound as i16) >= threshold as i16,
+        _ => false,
+    }
+}
+
+fn for_guard_constant(value: u16, width: u16, span: Span) -> Expr {
+    let text = if width == 1 {
+        format!("${:02X}", value as u8)
+    } else {
+        format!("${value:04X}")
+    };
+    Expr {
+        kind: ExprKind::Number(crate::lexer::NumberLiteral {
+            text: text.clone(),
+            kind: if width == 1 {
+                crate::lexer::NumberKind::Byte
+            } else {
+                crate::lexer::NumberKind::Card
+            },
+            value: Some(value),
+        }),
+        text,
+        span,
+    }
+}
+
 impl Generator {
     pub(super) fn generate_stmt(&mut self, stmt: &Stmt) {
         let start = self.current_absolute_address();
@@ -736,7 +777,6 @@ impl Generator {
         } else {
             let compare = match step {
                 ForStep::Up(_) => BinaryOp::Le,
-                ForStep::Down(_) if self.segment_storage => BinaryOp::Le,
                 ForStep::Down(_) => BinaryOp::Ge,
             };
             if !self.emit_branch_if_false_compare(compare, target, end, &end_label, span) {
@@ -751,6 +791,22 @@ impl Generator {
         self.exit_labels.push(end_label.clone());
         self.generate_stmt_list(body);
         self.exit_labels.pop();
+        if let ForStep::Down(amount) = step
+            && let Some(threshold) = descending_for_wrap_threshold(slot, amount)
+            && !self
+                .constant_u16(end)
+                .is_some_and(|bound| for_bound_is_at_or_above(slot, bound, threshold))
+        {
+            let threshold = for_guard_constant(threshold, slot.size, span);
+            if !self.emit_branch_if_true_compare(BinaryOp::Lt, target, &threshold, &end_label, span)
+            {
+                self.diagnostics.push(Diagnostic::new(
+                    span,
+                    "codegen could not guard a descending FOR step against underflow",
+                ));
+                return;
+            }
+        }
         self.emit_for_step_slot(slot, step);
         self.emit_jmp_label(start_label, span);
         self.bind_codegen_label(end_label, span);

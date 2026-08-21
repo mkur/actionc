@@ -10,7 +10,7 @@ use crate::semantic::{
     ArrayType, SymbolClass, SymbolId as SemSymbolId, ValueType, ValueTypeKind,
     ir::{
         SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind, SemDeclaration,
-        SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind,
+        SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind, SemForStep,
         SemInitializerElement, SemInitializerElementKind, SemInitializerLiteral, SemInlineAsm,
         SemInlineAsmTarget, SemLValue, SemLValueKind, SemLiteral, SemMachineSymbolRef, SemProgram,
         SemReadEffect, SemSet, SemStmt, SemStorageRef, SemSymbolRef, SemWriteEffect,
@@ -1097,11 +1097,23 @@ impl NirBuilder {
                 start,
                 end,
                 step,
+                step_control,
                 body,
                 ..
             } => {
                 let is_volatile = target.is_volatile;
                 let target_ty = NirFacts::type_from_value(&target.ty);
+                let descending_wrap_threshold = match step_control {
+                    SemForStep::Down(amount) => descending_for_wrap_threshold(&target_ty, *amount)
+                        .and_then(|threshold| {
+                            let guard_is_unnecessary =
+                                lowering.const_u16_expr(end).is_some_and(|bound| {
+                                    for_bound_is_at_or_above(&target_ty, bound, threshold)
+                                });
+                            (!guard_is_unnecessary).then_some(threshold)
+                        }),
+                    SemForStep::Up(_) | SemForStep::Unknown => None,
+                };
                 let target = self.lower_place(target);
                 let test_label = lowering.next_block_label();
                 let body_label = lowering.next_block_label();
@@ -1110,11 +1122,24 @@ impl NirBuilder {
                 self.assign_or_store(target.clone(), target_ty.clone(), start, is_volatile);
                 self.finish_open_goto(&test_label);
                 self.start_block(test_label.clone());
-                let condition = self.for_limit_condition(&target, end, is_volatile);
+                let compare = match step_control {
+                    SemForStep::Down(_) => NirCompareOp::Ge,
+                    SemForStep::Up(_) | SemForStep::Unknown => NirCompareOp::Le,
+                };
+                let condition = self.for_limit_condition(&target, end, compare, is_volatile);
                 self.terminate_branch(condition, &body_label, &after_label);
                 self.loop_exits.push(after_label.clone());
                 self.start_block(body_label);
                 self.stmt_list(body, lowering);
+                if let Some(threshold) = descending_wrap_threshold
+                    && self.current_is_open()
+                {
+                    let step_label = lowering.next_block_label();
+                    let condition =
+                        self.for_wrap_condition(&target, &target_ty, threshold, is_volatile);
+                    self.terminate_branch(condition, &after_label, &step_label);
+                    self.start_block(step_label);
+                }
                 let value = step
                     .as_ref()
                     .map(|step| self.value(step))
@@ -2186,6 +2211,7 @@ impl NirBuilder {
         &mut self,
         target: &NirPlace,
         end: &SemExpr,
+        op: NirCompareOp,
         is_volatile: bool,
     ) -> NirValue {
         let left_ty = target.ty.clone().unwrap_or_else(NirFacts::condition_type);
@@ -2198,12 +2224,37 @@ impl NirBuilder {
             dest,
             ty: ty.clone(),
             operand_ty: left_ty.clone(),
-            op: NirCompareOp::Le,
+            op,
             left: NirValue::Temp {
                 id: left_temp,
                 ty: left_ty,
             },
             right,
+        });
+        NirValue::Temp { id: dest, ty }
+    }
+
+    fn for_wrap_condition(
+        &mut self,
+        target: &NirPlace,
+        target_ty: &NirType,
+        threshold: u16,
+        is_volatile: bool,
+    ) -> NirValue {
+        let left_temp = self.next_temp();
+        self.push_load(left_temp, target_ty.clone(), target.clone(), is_volatile);
+        let dest = self.next_temp();
+        let ty = NirFacts::condition_type();
+        self.push(NirOp::Compare {
+            dest,
+            ty: ty.clone(),
+            operand_ty: target_ty.clone(),
+            op: NirCompareOp::Lt,
+            left: NirValue::Temp {
+                id: left_temp,
+                ty: target_ty.clone(),
+            },
+            right: nir_scalar_constant(target_ty, threshold),
         });
         NirValue::Temp { id: dest, ty }
     }
@@ -3858,6 +3909,34 @@ fn pointer_type_to(pointee: &ValueType) -> NirType {
         summary: format!("{}*", type_summary(pointee)),
         width: Some(2),
         pointer: true,
+    }
+}
+
+fn descending_for_wrap_threshold(ty: &NirType, amount: u16) -> Option<u16> {
+    match ty.kind {
+        NirTypeKind::U8 if amount <= u16::from(u8::MAX) => Some(amount),
+        NirTypeKind::I8 if amount <= 0x80 => Some((0x80 + amount) & 0x00FF),
+        NirTypeKind::U16 => Some(amount),
+        NirTypeKind::I16 if amount <= 0x8000 => Some(0x8000u16.wrapping_add(amount)),
+        _ => None,
+    }
+}
+
+fn for_bound_is_at_or_above(ty: &NirType, bound: u16, threshold: u16) -> bool {
+    match ty.kind {
+        NirTypeKind::U8 => (bound as u8) >= threshold as u8,
+        NirTypeKind::I8 => (bound as u8 as i8) >= threshold as u8 as i8,
+        NirTypeKind::U16 => bound >= threshold,
+        NirTypeKind::I16 => (bound as i16) >= threshold as i16,
+        _ => false,
+    }
+}
+
+fn nir_scalar_constant(ty: &NirType, value: u16) -> NirValue {
+    if ty.width == Some(1) {
+        NirValue::ConstU8(value as u8)
+    } else {
+        NirValue::ConstU16(value)
     }
 }
 

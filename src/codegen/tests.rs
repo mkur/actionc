@@ -1026,11 +1026,11 @@ fn compatible_negative_for_step_uses_original_add_shape() {
 
     assert!(output.bytes.windows(7).any(|bytes| bytes
         == [
-            opcode::LDA_IMM,
-            0x01,
-            opcode::CMP_ABS,
+            opcode::LDA_ABS,
             0x00,
             0x30,
+            opcode::CMP_IMM,
+            0x01,
             opcode::BCS_REL,
             0x03,
         ]));

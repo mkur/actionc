@@ -26,6 +26,42 @@ fn lower_modern_source(source: &str) -> NirProgram {
 }
 
 #[test]
+fn descending_for_uses_directional_limit_and_underflow_guard() {
+    let program = lower_modern_source(
+        "BYTE i BYTE count PROC Main() FOR i=1 TO 0 STEP -1 DO count==+1 OD RETURN",
+    );
+    verify_program(&program).expect("descending FOR NIR should verify");
+
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let comparisons = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::Compare { op, right, .. } => Some((*op, right)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        comparisons
+            .iter()
+            .any(|(op, right)| *op == NirCompareOp::Ge && **right == NirValue::ConstU8(0)),
+        "descending limit must compare the counter >= the end: {comparisons:?}"
+    );
+    assert!(
+        comparisons
+            .iter()
+            .any(|(op, right)| *op == NirCompareOp::Lt && **right == NirValue::ConstU8(1)),
+        "descending byte loop must exit before subtracting one from zero: {comparisons:?}"
+    );
+}
+
+#[test]
 fn mixed_scalar_comparison_widens_negative_literal_to_word() {
     let program = lower_modern_source("INT value BYTE result PROC Main() result=value>=-64 RETURN");
     verify_program(&program).expect("mixed scalar comparison NIR should verify");

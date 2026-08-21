@@ -392,6 +392,32 @@ mod tests {
     }
 
     #[test]
+    fn descending_for_steps_execute_in_all_public_modes() {
+        let max_steps = 10_000;
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            let outcome = run_standalone_fixture("descending_for_steps.act", mode, max_steps);
+            assert_eq!(
+                outcome.stop_reason(),
+                StopReason::StepLimit { max_steps },
+                "{mode:?}: {:?}",
+                outcome.report
+            );
+            assert_eq!(
+                (0..7)
+                    .map(|offset| outcome.memory().read(RESULT_START + offset))
+                    .collect::<Vec<_>>(),
+                [3, 2, 3, 2, 3, 2, 0xA5],
+                "{mode:?}: {:?}",
+                outcome.report
+            );
+        }
+    }
+
+    #[test]
     fn resident_sys_zero_matches_under_both_runtimes_and_backends() {
         let max_steps = 1_000;
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {

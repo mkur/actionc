@@ -337,6 +337,13 @@ pub enum SemArrayOrigin {
     Unknown,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemForStep {
+    Up(u16),
+    Down(u16),
+    Unknown,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemStmt {
     LexicalBlock {
@@ -404,6 +411,7 @@ pub enum SemStmt {
         start: SemExpr,
         end: SemExpr,
         step: Option<SemExpr>,
+        step_control: SemForStep,
         body: Vec<SemStmt>,
         span: Span,
     },
@@ -1820,6 +1828,76 @@ fn is_compare_op(op: BinaryOp) -> bool {
     )
 }
 
+fn sem_for_step(step: Option<&SemExpr>) -> SemForStep {
+    let Some(step) = step else {
+        return SemForStep::Up(1);
+    };
+    sem_for_step_expr(step)
+}
+
+fn sem_for_step_expr(expr: &SemExpr) -> SemForStep {
+    match &expr.kind {
+        SemExprKind::Cast { expr, .. } => sem_for_step_expr(expr),
+        SemExprKind::Unary {
+            op: UnaryOp::Plus,
+            expr,
+        } => sem_for_step_expr(expr),
+        SemExprKind::Unary {
+            op: UnaryOp::Neg,
+            expr,
+        } => const_u16_sem_expr(expr)
+            .map(SemForStep::Down)
+            .unwrap_or(SemForStep::Unknown),
+        SemExprKind::Literal(SemLiteral::Constant(value))
+            if value.ty == ScalarType::Int && value.bits & 0x8000 != 0 =>
+        {
+            SemForStep::Down(0u16.wrapping_sub(value.bits))
+        }
+        _ => const_u16_sem_expr(expr)
+            .map(SemForStep::Up)
+            .unwrap_or(SemForStep::Unknown),
+    }
+}
+
+fn const_u16_sem_expr(expr: &SemExpr) -> Option<u16> {
+    match &expr.kind {
+        SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
+        SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
+        SemExprKind::Cast { expr, .. } => const_u16_sem_expr(expr),
+        SemExprKind::Unary { op, expr } => {
+            let value = const_u16_sem_expr(expr)?;
+            match op {
+                UnaryOp::Plus => Some(value),
+                UnaryOp::Neg => Some(0u16.wrapping_sub(value)),
+                UnaryOp::AddressOf | UnaryOp::Deref => None,
+            }
+        }
+        SemExprKind::Binary { op, left, right } => {
+            let left = const_u16_sem_expr(left)?;
+            let right = const_u16_sem_expr(right)?;
+            match op {
+                BinaryOp::Add => Some(left.wrapping_add(right)),
+                BinaryOp::Sub => Some(left.wrapping_sub(right)),
+                BinaryOp::Mul => Some(left.wrapping_mul(right)),
+                BinaryOp::Div => (right != 0).then_some(left / right),
+                BinaryOp::Mod => (right != 0).then_some(left % right),
+                BinaryOp::Lsh => Some(left.wrapping_shl(u32::from(right & 0x0F))),
+                BinaryOp::Rsh => Some(left.wrapping_shr(u32::from(right & 0x0F))),
+                BinaryOp::And => Some(left & right),
+                BinaryOp::Or => Some(left | right),
+                BinaryOp::Xor => Some(left ^ right),
+                BinaryOp::Eq
+                | BinaryOp::Ne
+                | BinaryOp::Lt
+                | BinaryOp::Le
+                | BinaryOp::Gt
+                | BinaryOp::Ge => None,
+            }
+        }
+        _ => None,
+    }
+}
+
 struct IrBuilder<'a> {
     model: &'a SemanticModel,
     next_eval_order: u32,
@@ -2518,13 +2596,16 @@ impl<'a> IrBuilder<'a> {
             } => {
                 let target = self.lower_lvalue(scope, target);
                 let target_ty = target.ty.clone();
+                let step = step
+                    .as_ref()
+                    .map(|expr| self.lower_scalar_value_for_expected_type(scope, &target_ty, expr));
+                let step_control = sem_for_step(step.as_ref());
                 vec![SemStmt::For {
                     target,
                     start: self.lower_scalar_value_for_expected_type(scope, &target_ty, start),
                     end: self.lower_scalar_value_for_expected_type(scope, &target_ty, end),
-                    step: step.as_ref().map(|expr| {
-                        self.lower_scalar_value_for_expected_type(scope, &target_ty, expr)
-                    }),
+                    step,
+                    step_control,
                     body: body
                         .iter()
                         .flat_map(|stmt| self.lower_stmt(scope, stmt))

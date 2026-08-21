@@ -536,13 +536,14 @@ impl SemIrAstLowerer<'_> {
                 start,
                 end,
                 step,
+                step_control,
                 body,
                 span,
             } => Some(Stmt::For {
                 target: self.lvalue(target)?,
                 start: self.expr(start)?,
                 end: self.expr(end)?,
-                step: step.as_ref().and_then(|step| self.expr(step)),
+                step: self.for_step(step.as_ref(), *step_control, *span),
                 body: self.stmt_list(body),
                 span: *span,
             }),
@@ -551,6 +552,39 @@ impl SemIrAstLowerer<'_> {
                 None
             }
         }
+    }
+
+    fn for_step(
+        &mut self,
+        step: Option<&SemExpr>,
+        control: SemForStep,
+        span: Span,
+    ) -> Option<Expr> {
+        let SemForStep::Down(amount) = control else {
+            return step.and_then(|step| self.expr(step));
+        };
+        let text = amount.to_string();
+        let magnitude = Expr {
+            kind: ExprKind::Number(NumberLiteral {
+                text: text.clone(),
+                kind: if amount <= u16::from(u8::MAX) {
+                    crate::lexer::NumberKind::Byte
+                } else {
+                    crate::lexer::NumberKind::Card
+                },
+                value: Some(amount),
+            }),
+            text: text.clone(),
+            span,
+        };
+        Some(Expr {
+            kind: ExprKind::Unary {
+                op: UnaryOp::Neg,
+                expr: Box::new(magnitude),
+            },
+            text: format!("-{text}"),
+            span,
+        })
     }
 
     fn if_branch(&mut self, branch: &SemIfBranch) -> Option<IfBranch> {

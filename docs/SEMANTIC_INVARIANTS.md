@@ -146,6 +146,11 @@ Names used inside these bodies resolve in the enclosing routine or global
 scope. A `FOR` target is an ordinary assignment target resolved through normal
 lookup, not a loop-local declaration.
 
+SemIR owns the resolved `FOR` step control fact. Constant steps are classified
+as ascending or descending with an explicit magnitude; an unclassifiable step
+remains explicit as unknown. NIR and later backends consume this fact instead
+of recovering loop direction from expression syntax.
+
 Compiler-generated storage needed to implement a loop, such as cached end
 values or step values, is not a source symbol. It must be represented as
 generated codegen/layout storage or semantic temporaries, and it must not
