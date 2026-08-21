@@ -222,8 +222,12 @@ impl NirLowerer {
                                 ty,
                             });
                         }
-                        let mut all_locals = routine.locals.iter().collect::<Vec<_>>();
-                        collect_nested_declarations(&routine.body, &mut all_locals);
+                        let mut all_declarations = routine.locals.iter().collect::<Vec<_>>();
+                        collect_nested_declarations(&routine.body, &mut all_declarations);
+                        let all_locals = all_declarations
+                            .into_iter()
+                            .filter(|declaration| declaration_has_storage(declaration))
+                            .collect::<Vec<_>>();
                         let mut local_alias_targets = BTreeMap::new();
                         let param_ids_by_symbol = routine
                             .params
@@ -2628,21 +2632,38 @@ impl NirBuilder {
 }
 
 fn record_storage_sizes(program: &SemProgram) -> BTreeMap<String, u16> {
-    program
-        .modules
-        .iter()
-        .flat_map(|module| module.items.iter())
-        .filter_map(|item| match item {
-            crate::semantic::ir::SemItem::Declaration(declaration) => match &declaration.storage {
-                SemDeclarationStorage::Type { record_type, .. }
-                | SemDeclarationStorage::Record { record_type, .. } => {
-                    Some((record_type.name.clone(), record_type.size))
+    let mut sizes = BTreeMap::new();
+    for module in &program.modules {
+        for item in &module.items {
+            match item {
+                crate::semantic::ir::SemItem::Declaration(declaration) => {
+                    insert_record_storage_size(&mut sizes, declaration);
                 }
-                SemDeclarationStorage::Scalar | SemDeclarationStorage::Array { .. } => None,
-            },
-            _ => None,
-        })
-        .collect()
+                crate::semantic::ir::SemItem::Routine(routine) => {
+                    for declaration in &routine.locals {
+                        insert_record_storage_size(&mut sizes, declaration);
+                    }
+                    let mut nested = Vec::new();
+                    collect_nested_declarations(&routine.body, &mut nested);
+                    for declaration in nested {
+                        insert_record_storage_size(&mut sizes, declaration);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    sizes
+}
+
+fn insert_record_storage_size(sizes: &mut BTreeMap<String, u16>, declaration: &SemDeclaration) {
+    match &declaration.storage {
+        SemDeclarationStorage::Type { record_type, .. }
+        | SemDeclarationStorage::Record { record_type, .. } => {
+            sizes.insert(record_type.name.clone(), record_type.size);
+        }
+        SemDeclarationStorage::Scalar | SemDeclarationStorage::Array { .. } => {}
+    }
 }
 
 #[derive(Default)]
@@ -3009,6 +3030,13 @@ fn declaration_storage_size(
 
 fn declaration_is_array(declaration: &SemDeclaration) -> bool {
     matches!(declaration.storage, SemDeclarationStorage::Array { .. })
+}
+
+fn declaration_has_storage(declaration: &SemDeclaration) -> bool {
+    matches!(
+        declaration.storage,
+        SemDeclarationStorage::Scalar | SemDeclarationStorage::Array { .. }
+    )
 }
 
 fn storage_alias_initializer_expr(expr: &SemExpr) -> Option<(&SemSymbolRef, u16)> {

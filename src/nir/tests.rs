@@ -1,5 +1,7 @@
 use super::*;
 
+use std::collections::BTreeSet;
+
 use crate::ast::FundType;
 use crate::includes::{ModuleLoadOptions, load_compilation_from_provider};
 use crate::lexer::tokenize;
@@ -126,6 +128,142 @@ fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
             .message
             .contains("references unknown local id 99")
     }));
+}
+
+#[test]
+fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
+    let program = lower_modern_source(include_str!("../../fixtures/nir/lexical_declarations.act"));
+    verify_program(&program).expect("lexical declaration NIR should verify");
+    let routine = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+
+    assert!(routine.locals.iter().all(|local| {
+        !matches!(
+            local.storage,
+            NirStorageClass::Type | NirStorageClass::Record
+        )
+    }));
+    let data_ids = routine
+        .locals
+        .iter()
+        .filter(|local| local.name.eq_ignore_ascii_case("data"))
+        .map(|local| local.id)
+        .collect::<Vec<_>>();
+    assert_eq!(data_ids.len(), 3);
+    assert_eq!(data_ids.iter().copied().collect::<BTreeSet<_>>().len(), 3);
+
+    let item_sizes = routine
+        .locals
+        .iter()
+        .filter(|local| local.name.eq_ignore_ascii_case("item"))
+        .filter_map(|local| match local.init {
+            Some(NirStorageInit::ZeroFill { bytes, .. }) => Some(bytes),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(item_sizes, [1, 2]);
+
+    let value = routine
+        .locals
+        .iter()
+        .find(|local| local.name.eq_ignore_ascii_case("value"))
+        .expect("block-local value");
+    let alias = routine
+        .locals
+        .iter()
+        .find(|local| local.name.eq_ignore_ascii_case("alias"))
+        .expect("block-local alias");
+    assert!(matches!(
+        alias.backing,
+        NirLocalBacking::Alias {
+            target,
+            offset: 0,
+            ..
+        } if target == value.id
+    ));
+    assert!(routine.locals.iter().any(|local| {
+        local.name.eq_ignore_ascii_case("absolute")
+            && matches!(local.backing, NirLocalBacking::Absolute(0xD01F))
+    }));
+    let addresses = routine
+        .locals
+        .iter()
+        .find(|local| local.name.eq_ignore_ascii_case("addresses"))
+        .expect("block-local relocation array");
+    assert!(matches!(
+        &addresses.init,
+        Some(NirStorageInit::Descriptor { backing, .. })
+            if matches!(
+                backing.image.relocations.as_slice(),
+                [NirDataRelocation {
+                    target: NirDataRelocationTarget::Storage(NirStorageId::Local(id)),
+                    ..
+                }] if *id == value.id
+            )
+    ));
+    assert!(
+        !routine
+            .locals
+            .iter()
+            .any(|local| local.name.eq_ignore_ascii_case("Index"))
+    );
+
+    let ops = routine
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .collect::<Vec<_>>();
+    assert!(
+        ops.iter()
+            .any(|op| matches!(op, NirOp::VolatileLoad { .. }))
+    );
+    assert!(
+        ops.iter()
+            .any(|op| matches!(op, NirOp::VolatileStore { .. }))
+    );
+    assert!(ops.iter().any(|op| matches!(op, NirOp::Real(_))));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        NirOp::AddrOf {
+            place: NirPlace {
+                kind: NirPlaceKind::Local { id, .. },
+                ..
+            },
+            ..
+        } if *id == value.id
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        NirOp::InlineAsm { code, .. }
+            if code.relocations.iter().all(|relocation| matches!(
+                relocation.target,
+                NirInlineAsmTarget::Storage(NirStorageId::Local(id)) if id == value.id
+            ))
+    )));
+
+    let output = crate::mir6502::generate_output(&program, crate::codegen::CODE_ORIGIN)
+        .expect("MIR6502 should emit duplicate lexical display names by stable local ID");
+    for name in ["item", "data"] {
+        let addresses = output
+            .map
+            .storage_symbols
+            .iter()
+            .filter(|symbol| {
+                symbol.name.eq_ignore_ascii_case(name)
+                    && matches!(
+                        &symbol.scope,
+                        crate::codegen::CodegenSymbolScope::Routine(routine)
+                            if routine == "Main"
+                    )
+            })
+            .map(|symbol| symbol.address)
+            .collect::<BTreeSet<_>>();
+        let expected = if name == "item" { 2 } else { 3 };
+        assert_eq!(addresses.len(), expected, "{name} storage addresses");
+    }
 }
 
 #[test]

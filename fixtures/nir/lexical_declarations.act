@@ -1,0 +1,51 @@
+BYTE firstResult, secondResult
+CARD wordResult
+BYTE POINTER escaped
+
+PROC Main()
+  BYTE root
+  root=1
+
+  BEGIN
+    CONST BYTE Index=1
+    VOLATILE BYTE value
+    BYTE alias=value
+    BYTE absolute=$D01F
+    BYTE ARRAY data(2)=[3 4]
+    CARD ARRAY addresses(1)=[@value]
+    TYPE Pair=[BYTE field]
+    Pair item
+    Pair POINTER itemPointer
+    REAL realValue
+
+    value=2
+    alias=3
+    data(Index)=alias
+    item.field=data(Index)
+    itemPointer=@item
+    escaped=@value
+    realValue=1.5+Index
+    firstResult=itemPointer.field
+
+    ASM
+      lda value
+      sta value
+    ENDASM
+
+    BEGIN
+      TYPE Pair=[CARD field]
+      Pair item
+      CARD ARRAY data(2)=[5 6]
+
+      item.field=data(0)
+      wordResult=item.field
+    END
+  END
+
+  escaped^=4
+
+  BEGIN
+    BYTE ARRAY data(2)=[7 8]
+    secondResult=data(1)
+  END
+RETURN

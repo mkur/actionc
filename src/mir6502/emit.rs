@@ -5177,7 +5177,17 @@ fn static_label(id: SymbolId) -> String {
 }
 
 fn routine_slot_label(routine: RoutineId, slot: &MirStorageSlot) -> String {
-    format!("mir6502:r{}:slot:{}", routine.0, routine_slot_name(slot))
+    let identity = match slot.base {
+        MirStorageBase::Param(id) | MirStorageBase::ParamAbiOnly(id) => format!("p{}", id.0),
+        MirStorageBase::Local(id) | MirStorageBase::LocalAlias { id, .. } => {
+            format!("l{}", id.0)
+        }
+        MirStorageBase::Spill(id) => format!("spill{}", id.0),
+        MirStorageBase::Global(id) => format!("g{}", id.0),
+        MirStorageBase::Static(id) => format!("s{}", id.0),
+        MirStorageBase::Absolute(address) => format!("abs_{address:04X}"),
+    };
+    format!("mir6502:r{}:slot:{identity}", routine.0)
 }
 
 fn routine_label(routine: RoutineId) -> String {

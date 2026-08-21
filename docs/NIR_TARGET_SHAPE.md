@@ -109,6 +109,14 @@ Display names such as routine names, block labels, local names, and global names
 are metadata for printing and diagnostics. Stable IDs are the executable
 identity.
 
+`NirRoutine.locals` contains storage-bearing parameters and declarations only.
+Source-local `TYPE` and `RECORD` declarations are consumed into semantic type,
+layout, field-offset, and record-size facts; they do not acquire `LocalId`
+values or MIR6502 frame slots. Lexical shadowing may produce duplicate local
+display names in one routine, but each stored declaration has a distinct
+`LocalId`, and target labels derive uniqueness from that ID rather than from
+the display name.
+
 Routine-entry facts that affect calling convention are structured metadata, not
 printer strings. In particular, a source `=*` entry carries a structured
 current-location entry kind so MIR6502 can preserve the public Action ABI

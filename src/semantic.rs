@@ -5320,6 +5320,29 @@ mod tests {
     }
 
     #[test]
+    fn shadowed_block_record_values_cannot_cross_pointer_type_boundaries() {
+        let diagnostics = analyze_modern_source_err(
+            "PROC Main()\n\
+             BEGIN\n\
+               TYPE Pair=[BYTE field]\n\
+               Pair POINTER outerPointer\n\
+               BEGIN\n\
+                 TYPE Pair=[CARD field]\n\
+                 Pair inner\n\
+                 outerPointer=inner\n\
+               END\n\
+             END\n\
+             RETURN\n",
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("cannot assign")),
+            "{diagnostics:#?}"
+        );
+    }
+
+    #[test]
     fn lexical_blocks_preserve_return_and_exit_context() {
         analyze_modern_source("BYTE FUNC F()\nBEGIN\nRETURN(1)\nEND\n");
         analyze_modern_source("PROC Main()\nWHILE 1 DO\nBEGIN\nEXIT\nEND\nOD\nRETURN\n");
