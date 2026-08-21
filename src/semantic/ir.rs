@@ -3034,6 +3034,20 @@ impl<'a> IrBuilder<'a> {
             left = self.coerce_scalar_comparison_expr(left, &operand_ty);
             right = self.widen_arithmetic_tree_for_expected_type(right, &operand_ty);
             right = self.coerce_scalar_comparison_expr(right, &operand_ty);
+        } else if is_compare_op(op)
+            && left.ty.is_pointer()
+            && right.ty.as_scalar().is_some()
+            && left.ty.value_width_bytes() != right.ty.value_width_bytes()
+        {
+            let operand_ty = left.ty.clone();
+            right = self.coerce_scalar_expr_for_expected_type(right, &operand_ty);
+        } else if is_compare_op(op)
+            && right.ty.is_pointer()
+            && left.ty.as_scalar().is_some()
+            && right.ty.value_width_bytes() != left.ty.value_width_bytes()
+        {
+            let operand_ty = right.ty.clone();
+            left = self.coerce_scalar_expr_for_expected_type(left, &operand_ty);
         }
         SemExprKind::Binary {
             op,

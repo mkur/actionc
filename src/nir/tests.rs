@@ -62,6 +62,41 @@ fn descending_for_uses_directional_limit_and_underflow_guard() {
 }
 
 #[test]
+fn pointer_null_comparisons_use_pointer_width_operands() {
+    let program = lower_modern_source(
+        "BYTE POINTER p BYTE leftResult,rightResult PROC Main() leftResult=p<>0 rightResult=0<>p RETURN",
+    );
+    verify_program(&program).expect("pointer/null comparison NIR should verify");
+
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let comparisons = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::Compare {
+                operand_ty,
+                left,
+                right,
+                ..
+            } => Some((operand_ty, left, right)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(comparisons.len(), 2);
+    for (operand_ty, left, right) in comparisons {
+        assert!(matches!(operand_ty.kind, NirTypeKind::Ptr16 { .. }));
+        assert_eq!(super::facts::value_width(left), Some(2));
+        assert_eq!(super::facts::value_width(right), Some(2));
+    }
+}
+
+#[test]
 fn mixed_scalar_comparison_widens_negative_literal_to_word() {
     let program = lower_modern_source("INT value BYTE result PROC Main() result=value>=-64 RETURN");
     verify_program(&program).expect("mixed scalar comparison NIR should verify");
