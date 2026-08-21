@@ -5,7 +5,7 @@ use crate::runtime::Runtime;
 use crate::semantic::ir::*;
 use crate::semantic::{SymbolId, ValueType, ValueTypeBase};
 use crate::source::Span;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use super::native_real::{
     ClassicNativeExpr, ClassicNativeRealFacts, ClassicRealValue, real_address_temp_name,
@@ -24,9 +24,11 @@ pub(crate) fn semir_to_ast(program: &SemProgram) -> Result<Program, Vec<Diagnost
 pub(crate) fn semir_to_projection(
     program: &SemProgram,
 ) -> Result<ClassicProjection, Vec<Diagnostic>> {
+    let projection_names = classic_projection_names(program);
     let mut lowerer = SemIrAstLowerer {
         diagnostics: Vec::new(),
-        type_link_names: module_type_link_names(program),
+        type_link_names: module_type_link_names(program, &projection_names),
+        projection_names,
         external_addresses: None,
         native_real: ClassicNativeRealFacts::default(),
         native_real_scope: None,
@@ -46,9 +48,11 @@ pub(crate) fn semir_to_cart_projection(
     program: &SemProgram,
 ) -> Result<ClassicProjection, Vec<Diagnostic>> {
     let addresses = cart_external_addresses(program)?;
+    let projection_names = classic_projection_names(program);
     let mut lowerer = SemIrAstLowerer {
         diagnostics: Vec::new(),
-        type_link_names: module_type_link_names(program),
+        type_link_names: module_type_link_names(program, &projection_names),
+        projection_names,
         external_addresses: Some(&addresses),
         native_real: ClassicNativeRealFacts::default(),
         native_real_scope: None,
@@ -101,6 +105,7 @@ pub(crate) fn cart_external_addresses(
 struct SemIrAstLowerer<'a> {
     diagnostics: Vec<Diagnostic>,
     type_link_names: BTreeMap<String, String>,
+    projection_names: BTreeMap<SymbolId, String>,
     external_addresses: Option<&'a HashMap<SymbolId, u16>>,
     native_real: ClassicNativeRealFacts,
     native_real_scope: Option<String>,
@@ -219,7 +224,7 @@ impl SemIrAstLowerer<'_> {
             SemDeclarationStorage::Type { fields, .. } => {
                 return Some(Decl::Type(TypeDecl {
                     visibility: Visibility::Private,
-                    name: decl.symbol.name.clone(),
+                    name: self.symbol_name(&decl.symbol),
                     fields: self.record_fields(fields),
                     span: decl.span,
                 }));
@@ -227,7 +232,7 @@ impl SemIrAstLowerer<'_> {
             SemDeclarationStorage::Record { fields, .. } => {
                 return Some(Decl::Record(RecordDecl {
                     visibility: Visibility::Private,
-                    name: decl.symbol.name.clone(),
+                    name: self.symbol_name(&decl.symbol),
                     fields: self.record_fields(fields),
                     span: decl.span,
                 }));
@@ -268,7 +273,7 @@ impl SemIrAstLowerer<'_> {
             entries: decls
                 .iter()
                 .map(|decl| DeclEntry {
-                    name: decl.symbol.name.clone(),
+                    name: self.symbol_name(&decl.symbol),
                     size: match &decl.storage {
                         SemDeclarationStorage::Array { length, .. } => {
                             length.as_ref().and_then(|expr| self.expr(expr))
@@ -289,7 +294,9 @@ impl SemIrAstLowerer<'_> {
     }
 
     fn routine(&mut self, routine: &SemRoutine) -> Option<Routine> {
-        let mut locals = self.local_declarations(&routine.locals);
+        let mut projected_locals = routine.locals.clone();
+        collect_lexical_declarations(&routine.body, &mut projected_locals);
+        let mut locals = self.local_declarations(&projected_locals);
         let native_real_nodes = routine_native_real_node_count(routine);
         if native_real_nodes > 0 {
             locals.extend(native_real_hidden_declarations(
@@ -299,11 +306,7 @@ impl SemIrAstLowerer<'_> {
         }
         let previous_native_real_scope = self.native_real_scope.take();
         self.native_real_scope = Some(routine.symbol.name.to_ascii_uppercase());
-        let body = routine
-            .body
-            .iter()
-            .filter_map(|stmt| self.stmt(stmt))
-            .collect();
+        let body = self.stmt_list(&routine.body);
         self.native_real_scope = previous_native_real_scope;
         Some(Routine {
             visibility: Visibility::Private,
@@ -376,7 +379,7 @@ impl SemIrAstLowerer<'_> {
                 SemParamStorage::Array => VarStorage::Array,
             },
             entries: vec![DeclEntry {
-                name: param.symbol.name.clone(),
+                name: self.symbol_name(&param.symbol),
                 size: None,
                 initializer: None,
                 span: param.span,
@@ -417,13 +420,10 @@ impl SemIrAstLowerer<'_> {
 
     fn stmt(&mut self, stmt: &SemStmt) -> Option<Stmt> {
         match stmt {
-            SemStmt::LexicalBlock { span, .. } => {
-                self.unsupported(*span, "classic lexical block projection is not implemented");
-                None
-            }
+            SemStmt::LexicalBlock { .. } => None,
             SemStmt::Define(define) => Some(Stmt::Define(DefineDecl {
                 entries: vec![DefineEntry {
-                    name: define.symbol.name.clone(),
+                    name: self.symbol_name(&define.symbol),
                     value: define.value.clone(),
                     span: define.span,
                 }],
@@ -469,7 +469,7 @@ impl SemIrAstLowerer<'_> {
             }),
             SemStmt::InlineAsm { program, span, .. } => Some(Stmt::InlineAsm {
                 program: crate::asm6502::InlineAsmProgram {
-                    items: program.compatibility_items.clone(),
+                    items: self.inline_asm_items(program),
                     bytes: program.bytes.clone(),
                     relocations: Vec::new(),
                     source: program.source.clone(),
@@ -486,10 +486,7 @@ impl SemIrAstLowerer<'_> {
                     .iter()
                     .filter_map(|branch| self.if_branch(branch))
                     .collect(),
-                else_body: else_body
-                    .iter()
-                    .filter_map(|stmt| self.stmt(stmt))
-                    .collect(),
+                else_body: self.stmt_list(else_body),
                 span: *span,
             }),
             SemStmt::While {
@@ -498,7 +495,7 @@ impl SemIrAstLowerer<'_> {
                 span,
             } => Some(Stmt::While {
                 condition: self.condition(condition)?,
-                body: body.iter().filter_map(|stmt| self.stmt(stmt)).collect(),
+                body: self.stmt_list(body),
                 span: *span,
             }),
             SemStmt::DoUntil {
@@ -506,7 +503,7 @@ impl SemIrAstLowerer<'_> {
                 condition,
                 span,
             } => Some(Stmt::DoUntil {
-                body: body.iter().filter_map(|stmt| self.stmt(stmt)).collect(),
+                body: self.stmt_list(body),
                 condition: condition
                     .as_ref()
                     .and_then(|condition| self.condition(condition)),
@@ -524,7 +521,7 @@ impl SemIrAstLowerer<'_> {
                 start: self.expr(start)?,
                 end: self.expr(end)?,
                 step: step.as_ref().and_then(|step| self.expr(step)),
-                body: body.iter().filter_map(|stmt| self.stmt(stmt)).collect(),
+                body: self.stmt_list(body),
                 span: *span,
             }),
             SemStmt::Unsupported { span, note } => {
@@ -537,12 +534,19 @@ impl SemIrAstLowerer<'_> {
     fn if_branch(&mut self, branch: &SemIfBranch) -> Option<IfBranch> {
         Some(IfBranch {
             condition: self.condition(&branch.condition)?,
-            body: branch
-                .body
-                .iter()
-                .filter_map(|stmt| self.stmt(stmt))
-                .collect(),
+            body: self.stmt_list(&branch.body),
         })
+    }
+
+    fn stmt_list(&mut self, statements: &[SemStmt]) -> Vec<Stmt> {
+        let mut output = Vec::new();
+        for statement in statements {
+            match statement {
+                SemStmt::LexicalBlock { body, .. } => output.extend(self.stmt_list(body)),
+                _ => output.extend(self.stmt(statement)),
+            }
+        }
+        output
     }
 
     fn condition(&mut self, condition: &SemCondition) -> Option<Expr> {
@@ -576,13 +580,13 @@ impl SemIrAstLowerer<'_> {
             SemExprKind::InitializerList(elements) => ExprKind::InitializerList(
                 elements
                     .iter()
-                    .map(sem_initializer_element_to_ast)
+                    .map(|element| self.initializer_element(element))
                     .collect(),
             ),
             SemExprKind::UnresolvedName(name) => ExprKind::Name(name.clone()),
             SemExprKind::CurrentLocation => ExprKind::CurrentLocation,
             SemExprKind::Literal(literal) => return Some(self.literal(literal, expr.span)),
-            SemExprKind::Symbol(symbol) => ExprKind::Name(symbol.name.clone()),
+            SemExprKind::Symbol(symbol) => ExprKind::Name(self.symbol_name(symbol)),
             SemExprKind::LValue(lvalue) => return self.lvalue(lvalue),
             SemExprKind::ArrayDecay(decay) => return self.lvalue(&decay.array),
             SemExprKind::ImplicitAddressOf(address) => ExprKind::Unary {
@@ -595,10 +599,13 @@ impl SemIrAstLowerer<'_> {
             },
             SemExprKind::AddressOfSymbol(symbol) => ExprKind::Unary {
                 op: UnaryOp::AddressOf,
-                expr: Box::new(Expr {
-                    kind: ExprKind::Name(symbol.name.clone()),
-                    text: symbol.name.clone(),
-                    span: symbol.span,
+                expr: Box::new({
+                    let name = self.symbol_name(symbol);
+                    Expr {
+                        kind: ExprKind::Name(name.clone()),
+                        text: name,
+                        span: symbol.span,
+                    }
                 }),
             },
             SemExprKind::Cast { ty, expr: inner } => ExprKind::Cast {
@@ -639,7 +646,7 @@ impl SemIrAstLowerer<'_> {
 
     fn lvalue_inner(&mut self, lvalue: &SemLValue) -> Option<Expr> {
         let kind = match &lvalue.kind {
-            SemLValueKind::Symbol(symbol) => ExprKind::Name(symbol.name.clone()),
+            SemLValueKind::Symbol(symbol) => ExprKind::Name(self.symbol_name(symbol)),
             SemLValueKind::UnresolvedName(name) => ExprKind::Name(name.clone()),
             SemLValueKind::Deref { pointer } => ExprKind::Unary {
                 op: UnaryOp::Deref,
@@ -675,11 +682,14 @@ impl SemIrAstLowerer<'_> {
 
     fn call_expr(&mut self, call: &SemCall) -> Option<Expr> {
         let callee = match &call.callee {
-            SemCallable::User(symbol) | SemCallable::Builtin(symbol) => Expr {
-                kind: ExprKind::Name(symbol.name.clone()),
-                text: symbol.name.clone(),
-                span: symbol.span,
-            },
+            SemCallable::User(symbol) | SemCallable::Builtin(symbol) => {
+                let name = self.symbol_name(symbol);
+                Expr {
+                    kind: ExprKind::Name(name.clone()),
+                    text: name,
+                    span: symbol.span,
+                }
+            }
             SemCallable::Indirect { target, .. } => self.expr(target)?,
             SemCallable::Runtime { name, .. } => Expr {
                 kind: ExprKind::Name(name.clone()),
@@ -707,7 +717,7 @@ impl SemIrAstLowerer<'_> {
     fn call_stmt_expr(&mut self, call: &SemCall) -> Option<Expr> {
         if call.args.is_empty()
             && let SemCallable::Indirect { target, .. } = &call.callee
-            && let Some(name) = bare_call_stmt_name(target)
+            && let Some(name) = self.bare_call_stmt_name(target)
         {
             let kind = ExprKind::Name(name);
             let text = expr_text(&kind);
@@ -735,6 +745,41 @@ impl SemIrAstLowerer<'_> {
             }
         };
         Expr { kind, text, span }
+    }
+
+    fn initializer_element(&self, element: &SemInitializerElement) -> InitializerElement {
+        let kind = match &element.kind {
+            SemInitializerElementKind::Literal { value, negative } => {
+                let value = match value {
+                    SemInitializerLiteral::Number(number) => {
+                        InitializerLiteral::Number(number.clone())
+                    }
+                    SemInitializerLiteral::Char(ch) => InitializerLiteral::Char(*ch),
+                    SemInitializerLiteral::True => InitializerLiteral::True,
+                    SemInitializerLiteral::False => InitializerLiteral::False,
+                    SemInitializerLiteral::Nil => InitializerLiteral::Nil,
+                };
+                InitializerElementKind::Literal {
+                    value,
+                    negative: *negative,
+                }
+            }
+            SemInitializerElementKind::Address {
+                selector,
+                target,
+                addend,
+            } => InitializerElementKind::Address {
+                selector: *selector,
+                target: self.symbol_name(target).into(),
+                addend: *addend,
+            },
+            SemInitializerElementKind::Invalid => InitializerElementKind::Invalid,
+        };
+        InitializerElement {
+            kind,
+            text: element.text.clone(),
+            span: element.span,
+        }
     }
 
     fn type_ref(&self, ty: &ValueType) -> TypeRef {
@@ -867,7 +912,7 @@ impl SemIrAstLowerer<'_> {
     ) -> Vec<MachineItem> {
         let resolved = resolved_symbols
             .iter()
-            .map(|target| (target.item_index, target.symbol.name.as_str()))
+            .map(|target| (target.item_index, self.symbol_name(&target.symbol)))
             .collect::<BTreeMap<_, _>>();
         items
             .iter()
@@ -877,14 +922,14 @@ impl SemIrAstLowerer<'_> {
                     return item.clone();
                 };
                 match item {
-                    MachineItem::Name(_) => MachineItem::Name((*name).into()),
+                    MachineItem::Name(_) => MachineItem::Name(name.clone().into()),
                     MachineItem::AddressByte { selector, .. } => MachineItem::AddressByte {
                         selector: *selector,
-                        name: (*name).into(),
+                        name: name.clone().into(),
                     },
                     MachineItem::AddressExpr(expr) => {
                         let mut expr = expr.clone();
-                        expr.atom = MachineAddressAtom::Name((*name).into());
+                        expr.atom = MachineAddressAtom::Name(name.clone().into());
                         MachineItem::AddressExpr(expr)
                     }
                     MachineItem::Number(_)
@@ -896,6 +941,45 @@ impl SemIrAstLowerer<'_> {
             .collect()
     }
 
+    fn inline_asm_items(&self, program: &SemInlineAsm) -> Vec<MachineItem> {
+        let link_names = program
+            .relocations
+            .iter()
+            .filter_map(|relocation| match &relocation.target {
+                SemInlineAsmTarget::Symbol(symbol) => {
+                    Some((symbol.name.to_ascii_uppercase(), self.symbol_name(symbol)))
+                }
+                SemInlineAsmTarget::InlineOffset(_) | SemInlineAsmTarget::Absolute(_) => None,
+            })
+            .collect::<BTreeMap<_, _>>();
+        relink_machine_items(&program.compatibility_items, &link_names)
+    }
+
+    fn bare_call_stmt_name(&self, expr: &SemExpr) -> Option<String> {
+        match &expr.kind {
+            SemExprKind::UnresolvedName(name) => Some(name.clone()),
+            SemExprKind::Symbol(symbol) => Some(self.symbol_name(symbol)),
+            SemExprKind::ArrayDecay(decay) => self.lvalue_name(&decay.array),
+            SemExprKind::Cast { expr, .. } => self.bare_call_stmt_name(expr),
+            _ => None,
+        }
+    }
+
+    fn lvalue_name(&self, lvalue: &SemLValue) -> Option<String> {
+        match &lvalue.kind {
+            SemLValueKind::Symbol(symbol) => Some(self.symbol_name(symbol)),
+            SemLValueKind::UnresolvedName(name) => Some(name.clone()),
+            _ => None,
+        }
+    }
+
+    fn symbol_name(&self, symbol: &SemSymbolRef) -> String {
+        self.projection_names
+            .get(&symbol.id)
+            .cloned()
+            .unwrap_or_else(|| symbol.name.clone())
+    }
+
     fn unsupported(&mut self, span: Span, feature: impl Into<String>) {
         self.diagnostics.push(Diagnostic::new(
             span,
@@ -904,26 +988,219 @@ impl SemIrAstLowerer<'_> {
     }
 }
 
-fn module_type_link_names(program: &SemProgram) -> BTreeMap<String, String> {
-    program
+fn classic_projection_names(program: &SemProgram) -> BTreeMap<SymbolId, String> {
+    let global_names = program
         .modules
         .iter()
-        .flat_map(|module| module.items.iter())
+        .flat_map(|module| &module.items)
+        .filter_map(sem_item_symbol)
+        .map(|symbol| symbol.name.to_ascii_uppercase())
+        .collect::<BTreeSet<_>>();
+    let mut output = BTreeMap::new();
+
+    for routine in program
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
         .filter_map(|item| match item {
-            SemItem::Declaration(declaration)
-                if matches!(
-                    declaration.symbol.class,
-                    crate::semantic::SymbolClass::Type | crate::semantic::SymbolClass::Record
-                ) =>
-            {
-                Some((
-                    declaration.symbol.qualified_name.to_ascii_uppercase(),
-                    declaration.symbol.name.clone(),
-                ))
-            }
+            SemItem::Routine(routine) => Some(routine),
             _ => None,
         })
+    {
+        let mut occupied = global_names.clone();
+        occupied.extend(
+            routine
+                .params
+                .iter()
+                .map(|param| param.symbol.name.to_ascii_uppercase()),
+        );
+        occupied.extend(
+            routine
+                .locals
+                .iter()
+                .map(|declaration| declaration.symbol.name.to_ascii_uppercase()),
+        );
+
+        let mut lexical = Vec::new();
+        visit_lexical_declarations(&routine.body, &mut |ordinal, declaration| {
+            lexical.push((ordinal, declaration));
+        });
+
+        // Reserve every source spelling before inventing projected names so a
+        // generated name cannot collide with a later declaration.
+        let mut used = occupied.clone();
+        used.extend(
+            lexical
+                .iter()
+                .map(|(_, declaration)| declaration.symbol.name.to_ascii_uppercase()),
+        );
+
+        for (ordinal, declaration) in lexical {
+            let source_name = declaration.symbol.name.clone();
+            let normalized = source_name.to_ascii_uppercase();
+            let projected = if occupied.insert(normalized) {
+                source_name
+            } else {
+                unique_lexical_name(ordinal, &source_name, &mut used)
+            };
+            occupied.insert(projected.to_ascii_uppercase());
+            output.insert(declaration.symbol.id, projected);
+        }
+    }
+
+    output
+}
+
+fn unique_lexical_name(ordinal: u32, source_name: &str, used: &mut BTreeSet<String>) -> String {
+    let base = format!("__lex{ordinal}_{source_name}");
+    let mut candidate = base.clone();
+    let mut suffix = 2u32;
+    while !used.insert(candidate.to_ascii_uppercase()) {
+        candidate = format!("{base}_{suffix}");
+        suffix += 1;
+    }
+    candidate
+}
+
+fn sem_item_symbol(item: &SemItem) -> Option<&SemSymbolRef> {
+    match item {
+        SemItem::Define(define) => Some(&define.symbol),
+        SemItem::Const(constant) => Some(&constant.symbol),
+        SemItem::Declaration(declaration) => Some(&declaration.symbol),
+        SemItem::Routine(routine) => Some(&routine.symbol),
+        SemItem::Include(_)
+        | SemItem::Set(_)
+        | SemItem::Statement(_)
+        | SemItem::Unsupported { .. } => None,
+    }
+}
+
+fn collect_lexical_declarations(statements: &[SemStmt], output: &mut Vec<SemDeclaration>) {
+    visit_lexical_declarations(statements, &mut |_, declaration| {
+        output.push(declaration.clone());
+    });
+}
+
+fn visit_lexical_declarations<'a>(
+    statements: &'a [SemStmt],
+    visitor: &mut impl FnMut(u32, &'a SemDeclaration),
+) {
+    for statement in statements {
+        match statement {
+            SemStmt::LexicalBlock {
+                scope,
+                declarations,
+                body,
+                ..
+            } => {
+                for declaration in declarations {
+                    visitor(scope.ordinal, declaration);
+                }
+                visit_lexical_declarations(body, visitor);
+            }
+            SemStmt::If {
+                branches,
+                else_body,
+                ..
+            } => {
+                for branch in branches {
+                    visit_lexical_declarations(&branch.body, visitor);
+                }
+                visit_lexical_declarations(else_body, visitor);
+            }
+            SemStmt::While { body, .. }
+            | SemStmt::DoUntil { body, .. }
+            | SemStmt::For { body, .. } => visit_lexical_declarations(body, visitor),
+            SemStmt::Define(_)
+            | SemStmt::Return { .. }
+            | SemStmt::Exit { .. }
+            | SemStmt::Assign { .. }
+            | SemStmt::CompoundAssign { .. }
+            | SemStmt::Call { .. }
+            | SemStmt::MachineBlock { .. }
+            | SemStmt::InlineAsm { .. }
+            | SemStmt::Unsupported { .. } => {}
+        }
+    }
+}
+
+fn insert_type_link_name(
+    output: &mut BTreeMap<String, String>,
+    declaration: &SemDeclaration,
+    projection_names: &BTreeMap<SymbolId, String>,
+) {
+    if matches!(
+        declaration.symbol.class,
+        crate::semantic::SymbolClass::Type | crate::semantic::SymbolClass::Record
+    ) {
+        output.insert(
+            declaration.symbol.qualified_name.to_ascii_uppercase(),
+            projection_names
+                .get(&declaration.symbol.id)
+                .cloned()
+                .unwrap_or_else(|| declaration.symbol.name.clone()),
+        );
+    }
+}
+
+fn relink_machine_items(
+    items: &[MachineItem],
+    link_names: &BTreeMap<String, String>,
+) -> Vec<MachineItem> {
+    let relink = |name: &QualifiedName| {
+        link_names
+            .get(&name.display_name().to_ascii_uppercase())
+            .map(|link_name| QualifiedName::simple(link_name.clone()))
+            .unwrap_or_else(|| name.clone())
+    };
+
+    items
+        .iter()
+        .cloned()
+        .map(|item| match item {
+            MachineItem::Name(name) => MachineItem::Name(relink(&name)),
+            MachineItem::AddressByte { selector, name } => MachineItem::AddressByte {
+                selector,
+                name: relink(&name),
+            },
+            MachineItem::AddressExpr(mut expression) => {
+                if let MachineAddressAtom::Name(name) = &expression.atom {
+                    expression.atom = MachineAddressAtom::Name(relink(name));
+                }
+                MachineItem::AddressExpr(expression)
+            }
+            MachineItem::Number(_)
+            | MachineItem::StringLiteral(_)
+            | MachineItem::CharLiteral(_)
+            | MachineItem::Raw(_) => item,
+        })
         .collect()
+}
+
+fn module_type_link_names(
+    program: &SemProgram,
+    projection_names: &BTreeMap<SymbolId, String>,
+) -> BTreeMap<String, String> {
+    let mut output = BTreeMap::new();
+    for module in &program.modules {
+        for item in &module.items {
+            match item {
+                SemItem::Declaration(declaration) => {
+                    insert_type_link_name(&mut output, declaration, projection_names);
+                }
+                SemItem::Routine(routine) => {
+                    for declaration in &routine.locals {
+                        insert_type_link_name(&mut output, declaration, projection_names);
+                    }
+                    visit_lexical_declarations(&routine.body, &mut |_, declaration| {
+                        insert_type_link_name(&mut output, declaration, projection_names);
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+    output
 }
 
 fn native_real_hidden_declarations(count: usize, span: Span) -> Vec<Decl> {
@@ -1181,24 +1458,6 @@ fn lvalue_expr_node_count(value: &SemLValue) -> usize {
     }
 }
 
-fn bare_call_stmt_name(expr: &SemExpr) -> Option<String> {
-    match &expr.kind {
-        SemExprKind::UnresolvedName(name) => Some(name.clone()),
-        SemExprKind::Symbol(symbol) => Some(symbol.name.clone()),
-        SemExprKind::ArrayDecay(decay) => lvalue_name(&decay.array),
-        SemExprKind::Cast { expr, .. } => bare_call_stmt_name(expr),
-        _ => None,
-    }
-}
-
-fn lvalue_name(lvalue: &SemLValue) -> Option<String> {
-    match &lvalue.kind {
-        SemLValueKind::Symbol(symbol) => Some(symbol.name.clone()),
-        SemLValueKind::UnresolvedName(name) => Some(name.clone()),
-        _ => None,
-    }
-}
-
 fn is_var_declaration(decl: &SemDeclaration) -> bool {
     matches!(
         decl.storage,
@@ -1238,39 +1497,6 @@ fn expr_text(kind: &ExprKind) -> String {
         }
         ExprKind::Index { base, index } => format!("{}({})", base.text, index.text),
         ExprKind::Field { base, field } => format!("{}.{}", base.text, field),
-    }
-}
-
-fn sem_initializer_element_to_ast(element: &SemInitializerElement) -> InitializerElement {
-    let kind = match &element.kind {
-        SemInitializerElementKind::Literal { value, negative } => {
-            let value = match value {
-                SemInitializerLiteral::Number(number) => InitializerLiteral::Number(number.clone()),
-                SemInitializerLiteral::Char(ch) => InitializerLiteral::Char(*ch),
-                SemInitializerLiteral::True => InitializerLiteral::True,
-                SemInitializerLiteral::False => InitializerLiteral::False,
-                SemInitializerLiteral::Nil => InitializerLiteral::Nil,
-            };
-            InitializerElementKind::Literal {
-                value,
-                negative: *negative,
-            }
-        }
-        SemInitializerElementKind::Address {
-            selector,
-            target,
-            addend,
-        } => InitializerElementKind::Address {
-            selector: *selector,
-            target: target.name.clone().into(),
-            addend: *addend,
-        },
-        SemInitializerElementKind::Invalid => InitializerElementKind::Invalid,
-    };
-    InitializerElement {
-        kind,
-        text: element.text.clone(),
-        span: element.span,
     }
 }
 
@@ -1413,6 +1639,178 @@ mod tests {
             })
             .unwrap();
         assert!(matches!(declaration.ty.base, TypeBase::Named(_)));
+    }
+
+    #[test]
+    fn classic_projection_hoists_lexical_storage_and_rewrites_shadow_uses() {
+        let (_, semir) = lower_modern_source(
+            "PROC Main()\n\
+             BYTE value\n\
+             value=1\n\
+             BEGIN\n\
+               BYTE value, scratch\n\
+               value=2 scratch=value\n\
+               BEGIN\n\
+                 BYTE value\n\
+                 value=3\n\
+                 ASM\n\
+                   lda value\n\
+                   sta value\n\
+                 ENDASM\n\
+               END\n\
+               value=4\n\
+             END\n\
+             value=5\n\
+             RETURN",
+        );
+
+        let first = semir_to_projection(&semir).unwrap().program;
+        let second = semir_to_projection(&semir).unwrap().program;
+        assert_eq!(first, second, "classic projection must be deterministic");
+
+        let routine = first
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .find_map(|item| match item {
+                Item::Routine(routine) if routine.name == "Main" => Some(routine),
+                _ => None,
+            })
+            .unwrap();
+        let local_names = routine
+            .locals
+            .iter()
+            .flat_map(|declaration| match declaration {
+                Decl::Var(declaration) => declaration
+                    .entries
+                    .iter()
+                    .map(|entry| entry.name.as_str())
+                    .collect::<Vec<_>>(),
+                Decl::Const(_) | Decl::Type(_) | Decl::Record(_) => Vec::new(),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(local_names.len(), 4);
+        assert_eq!(local_names[0], "value");
+        assert_eq!(local_names[2], "scratch");
+        assert_ne!(local_names[1], "value");
+        assert_ne!(local_names[3], "value");
+        assert_ne!(local_names[1], local_names[3]);
+
+        let assignment_targets = routine
+            .body
+            .iter()
+            .filter_map(|statement| match statement {
+                Stmt::Assign {
+                    target:
+                        Expr {
+                            kind: ExprKind::Name(name),
+                            ..
+                        },
+                    ..
+                } => Some(name.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            assignment_targets,
+            vec![
+                "value",
+                local_names[1],
+                "scratch",
+                local_names[3],
+                local_names[1],
+                "value"
+            ]
+        );
+        assert!(
+            routine
+                .body
+                .iter()
+                .all(|statement| !matches!(statement, Stmt::LexicalBlock { .. }))
+        );
+
+        let asm_names = routine
+            .body
+            .iter()
+            .find_map(|statement| match statement {
+                Stmt::InlineAsm { program, .. } => Some(
+                    program
+                        .items
+                        .iter()
+                        .filter_map(|item| match item {
+                            MachineItem::Name(name) => Some(name.display_name()),
+                            MachineItem::AddressByte { name, .. } => Some(name.display_name()),
+                            MachineItem::AddressExpr(MachineAddressExpr {
+                                atom: MachineAddressAtom::Name(name),
+                                ..
+                            }) => Some(name.display_name()),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>(),
+                ),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(asm_names, vec![local_names[3], local_names[3]]);
+
+        let output = crate::codegen::generate_semir_profile_with_origin(
+            &semir,
+            CODE_ORIGIN,
+            CodegenProfile::Modern,
+        )
+        .unwrap();
+        let addresses = output
+            .map
+            .storage_symbols
+            .iter()
+            .filter(|symbol| {
+                matches!(
+                    &symbol.scope,
+                    crate::codegen::CodegenSymbolScope::Routine(name) if name == "Main"
+                ) && local_names
+                    .iter()
+                    .any(|name| name.eq_ignore_ascii_case(&symbol.name))
+            })
+            .map(|symbol| symbol.address)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(addresses.len(), local_names.len());
+    }
+
+    #[test]
+    fn classic_projection_keeps_shadowed_native_real_storage_distinct() {
+        let (_, semir) = lower_modern_source(
+            "PROC Main()\n\
+               REAL value\n\
+               value=1.0\n\
+               BEGIN\n\
+                 REAL value\n\
+                 value=2.5\n\
+               END\n\
+               value=3.0\n\
+             RETURN",
+        );
+        let output = crate::codegen::generate_semir_profile_with_origin(
+            &semir,
+            CODE_ORIGIN,
+            CodegenProfile::Modern,
+        )
+        .unwrap();
+        let real_locals = output
+            .map
+            .storage_symbols
+            .iter()
+            .filter(|symbol| {
+                matches!(
+                    &symbol.scope,
+                    crate::codegen::CodegenSymbolScope::Routine(name) if name == "Main"
+                ) && symbol.name.to_ascii_uppercase().contains("VALUE")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(real_locals.len(), 2);
+        assert_ne!(real_locals[0].name, real_locals[1].name);
+        assert_ne!(real_locals[0].address, real_locals[1].address);
+        assert_eq!(real_locals[0].size, 6);
+        assert_eq!(real_locals[1].size, 6);
     }
 
     #[test]

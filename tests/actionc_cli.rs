@@ -47,6 +47,13 @@ fn standalone_runtime_helpers() -> PathBuf {
         .join("runtime-helpers.act")
 }
 
+fn lexical_blocks_fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("nir")
+        .join("lexical_blocks.act")
+}
+
 fn load_file_origin(bytes: &[u8]) -> u16 {
     assert!(bytes.len() >= 4, "load file is too short");
     assert_eq!(&bytes[..2], &[0xff, 0xff], "missing load-file header");
@@ -77,6 +84,35 @@ fn help_describes_the_existing_listing_options_as_mads_assembly() {
             stderr.contains("MADS assembly"),
             "unexpected help:\n{stderr}"
         );
+    }
+}
+
+#[test]
+fn lexical_blocks_compile_across_backends_and_runtimes() {
+    let temp = TestDir::new();
+    for (mode, runtime) in [
+        ("optimized", "cart"),
+        ("optimized", "standalone"),
+        ("mir6502", "cart"),
+        ("mir6502", "standalone"),
+    ] {
+        let object = temp.path().join(format!("lexical-{mode}-{runtime}.com"));
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .arg("--mode")
+            .arg(mode)
+            .arg("--runtime")
+            .arg(runtime)
+            .arg("--output")
+            .arg(&object)
+            .arg(lexical_blocks_fixture())
+            .output()
+            .unwrap_or_else(|error| panic!("run {mode}/{runtime}: {error}"));
+        assert!(
+            output.status.success(),
+            "{mode}/{runtime} failed:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(fs::metadata(object).unwrap().len() > 0);
     }
 }
 
