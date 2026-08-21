@@ -21,7 +21,6 @@ bb2:
 routine Second params=[-] locals=[-]
 bb3:
   call Use(&__nir_str_Second_1)
-  %t0:Proc = addr Menu
-  %t1:Byte* = cast Proc -> Byte* %t0
-  store menu_ptr = %t1
+  %t0:Byte* = cast Proc -> Byte* routine_addr2(Menu)
+  store menu_ptr = %t0
   return

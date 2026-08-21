@@ -61,15 +61,13 @@ b5 bb6:
 routine r4 Main
 b0 bb9:
   v0 =.w routine_addr r0
-  v1 =.w v0
-  call r2 args=[v1.w -> a:x] result=v2.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
-  store.w global g2+0, v2
-  v3 =.w routine_addr r0
-  v4 =.w v3
+  call r2 args=[v0.w -> a:x] result=v1.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  store.w global g2+0, v1
+  v2 =.w routine_addr r0
+  v3 =.w load global g2+0
+  call r3 args=[v2.w -> a:x, v3.w -> y:fixed_zp $A3] result=v4.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  store.b global g0+0, v4
   v5 =.w load global g2+0
-  call r3 args=[v4.w -> a:x, v5.w -> y:fixed_zp $A3] result=v6.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
-  store.b global g0+0, v6
-  v7 =.w load global g2+0
-  call r1 args=[v7.w -> a:x] result=v8.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
-  store.b global g1+0, v8
+  call r1 args=[v5.w -> a:x] result=v6.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  store.b global g1+0, v6
   return

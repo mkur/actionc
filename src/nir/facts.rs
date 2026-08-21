@@ -150,6 +150,10 @@ pub enum NirValue {
     },
     Param(ParamId),
     GlobalAddr(SymbolId),
+    RoutineAddr {
+        id: u32,
+        name: String,
+    },
 }
 
 impl NirValue {
@@ -160,7 +164,8 @@ impl NirValue {
             | Self::ConstU16(_)
             | Self::StaticAddr { .. }
             | Self::Param(_)
-            | Self::GlobalAddr(_) => None,
+            | Self::GlobalAddr(_)
+            | Self::RoutineAddr { .. } => None,
         }
     }
 }
@@ -190,6 +195,7 @@ pub(super) fn value_width(value: &NirValue) -> Option<u16> {
         NirValue::ConstU8(_) => Some(1),
         NirValue::ConstU16(_) => Some(2),
         NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty.width,
+        NirValue::RoutineAddr { .. } => Some(2),
         NirValue::Param(_) | NirValue::GlobalAddr(_) => None,
     }
 }

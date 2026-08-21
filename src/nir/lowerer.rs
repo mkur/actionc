@@ -7,7 +7,7 @@ use crate::ast::{
 use crate::lexer::{TokenKind, tokenize};
 use crate::resident::{ResidentVariableKind, resident_variable};
 use crate::semantic::{
-    ArrayType, SymbolClass, ValueType, ValueTypeKind,
+    ArrayType, SymbolClass, SymbolId as SemSymbolId, ValueType, ValueTypeKind,
     ir::{
         SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind, SemDeclaration,
         SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind,
@@ -31,12 +31,14 @@ pub(super) struct NirLowerer {
     next_global: u32,
     next_static: u32,
     global_ids: BTreeMap<String, SymbolId>,
+    global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
     routine_ids: BTreeMap<String, u32>,
-    storage_symbols: BTreeSet<String>,
     symbol_storage_types: BTreeMap<String, NirType>,
-    absolute_globals: BTreeMap<String, u16>,
-    absolute_array_element_bases: BTreeMap<String, u16>,
-    absolute_array_value_addresses: BTreeMap<String, u16>,
+    semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
+    semantic_absolute_globals: BTreeMap<SemSymbolId, u16>,
+    semantic_absolute_array_element_bases: BTreeMap<SemSymbolId, u16>,
+    semantic_absolute_array_value_addresses: BTreeMap<SemSymbolId, u16>,
+    storage_symbol_ids: BTreeSet<SemSymbolId>,
     compatible_cursor: Option<u16>,
     machine_defines: BTreeMap<usize, Vec<MachineItem>>,
     machine_define_names: BTreeMap<String, Vec<MachineItem>>,
@@ -107,7 +109,9 @@ impl NirLowerer {
                             declaration_symbol_storage_type(declaration, address_initializer)
                         {
                             self.symbol_storage_types
-                                .insert(declaration.symbol.name.clone(), ty);
+                                .insert(declaration.symbol.name.clone(), ty.clone());
+                            self.semantic_storage_types
+                                .insert(declaration.symbol.id, ty);
                         }
                         let alias_initializer = self.scalar_storage_alias_initializer(declaration);
                         let backing = self.declaration_backing(
@@ -117,11 +121,11 @@ impl NirLowerer {
                             alias_initializer,
                         );
                         if let NirGlobalBacking::Absolute(address) = backing {
-                            self.absolute_globals
-                                .insert(storage_key(&declaration.symbol.name), address);
+                            self.semantic_absolute_globals
+                                .insert(declaration.symbol.id, address);
                             if declaration_is_array(declaration) {
-                                self.absolute_array_element_bases
-                                    .insert(storage_key(&declaration.symbol.name), address);
+                                self.semantic_absolute_array_element_bases
+                                    .insert(declaration.symbol.id, address);
                             }
                         }
                         if let Some(address) = address_initializer
@@ -130,8 +134,8 @@ impl NirLowerer {
                                 &record_storage_sizes,
                             )
                         {
-                            self.absolute_array_value_addresses
-                                .insert(storage_key(&declaration.symbol.name), address);
+                            self.semantic_absolute_array_value_addresses
+                                .insert(declaration.symbol.id, address);
                         }
                         globals.push(NirGlobal {
                             id,
@@ -159,7 +163,7 @@ impl NirLowerer {
                             ),
                             backing,
                         });
-                        self.storage_symbols.insert(declaration.symbol.name.clone());
+                        self.storage_symbol_ids.insert(declaration.symbol.id);
                     }
                     crate::semantic::ir::SemItem::Routine(routine) => {
                         let routine_name = if routine.is_external {
@@ -172,10 +176,12 @@ impl NirLowerer {
                             self.next_block_label(),
                             self.next_static,
                             self.global_ids.clone(),
+                            self.global_ids_by_symbol.clone(),
                             self.routine_ids.clone(),
                             self.symbol_storage_types.clone(),
-                            self.absolute_array_element_bases.clone(),
-                            self.absolute_array_value_addresses.clone(),
+                            self.semantic_storage_types.clone(),
+                            self.semantic_absolute_array_element_bases.clone(),
+                            self.semantic_absolute_array_value_addresses.clone(),
                             record_storage_sizes.clone(),
                             self.machine_defines.clone(),
                             self.machine_define_names.clone(),
@@ -195,7 +201,13 @@ impl NirLowerer {
                                 builder
                                     .symbol_storage_types
                                     .insert(param.symbol.name.clone(), ty.clone());
+                                builder
+                                    .semantic_storage_types
+                                    .insert(param.symbol.id, ty.clone());
                             }
+                            builder
+                                .param_ids_by_symbol
+                                .insert(param.symbol.id, ParamId(index as u32));
                             builder.params.push(NirParam {
                                 id: ParamId(index as u32),
                                 name: param.symbol.name.clone(),
@@ -210,24 +222,23 @@ impl NirLowerer {
                                 ty,
                             });
                         }
+                        let mut all_locals = routine.locals.iter().collect::<Vec<_>>();
+                        collect_nested_declarations(&routine.body, &mut all_locals);
                         let mut local_alias_targets = BTreeMap::new();
-                        let param_ids_by_name = routine
+                        let param_ids_by_symbol = routine
                             .params
                             .iter()
                             .enumerate()
-                            .map(|(index, param)| {
-                                (storage_key(&param.symbol.name), ParamId(index as u32))
-                            })
+                            .map(|(index, param)| (param.symbol.id, ParamId(index as u32)))
                             .collect::<BTreeMap<_, _>>();
-                        let local_ids_by_name = routine
-                            .locals
+                        let local_ids_by_symbol = all_locals
                             .iter()
                             .enumerate()
-                            .map(|(index, local)| {
-                                (storage_key(&local.symbol.name), LocalId(index as u32))
-                            })
+                            .map(|(index, local)| (local.symbol.id, LocalId(index as u32)))
                             .collect::<BTreeMap<_, _>>();
-                        for (index, local) in routine.locals.iter().enumerate() {
+                        builder.param_ids_by_symbol = param_ids_by_symbol.clone();
+                        builder.local_ids_by_symbol = local_ids_by_symbol.clone();
+                        for (index, local) in all_locals.into_iter().enumerate() {
                             let address_initializer = local
                                 .initializer
                                 .as_ref()
@@ -242,15 +253,16 @@ impl NirLowerer {
                                 && declaration_is_array(local)
                             {
                                 builder
-                                    .absolute_array_element_bases
-                                    .insert(storage_key(&local.symbol.name), address);
+                                    .semantic_absolute_array_element_bases
+                                    .insert(local.symbol.id, address);
                             }
                             if let Some(ty) =
                                 declaration_symbol_storage_type(local, address_initializer)
                             {
                                 builder
                                     .symbol_storage_types
-                                    .insert(local.symbol.name.clone(), ty);
+                                    .insert(local.symbol.name.clone(), ty.clone());
+                                builder.semantic_storage_types.insert(local.symbol.id, ty);
                             }
                             builder.locals.push(NirLocal {
                                 id: LocalId(index as u32),
@@ -264,13 +276,13 @@ impl NirLowerer {
                                     &backing,
                                     &self.global_ids,
                                     &self.routine_ids,
-                                    &param_ids_by_name,
-                                    &local_ids_by_name,
+                                    &param_ids_by_symbol,
+                                    &local_ids_by_symbol,
                                 ),
                                 backing,
                             });
                             local_alias_targets.insert(
-                                storage_key(&local.symbol.name),
+                                local.symbol.id,
                                 (LocalId(index as u32), local.symbol.name.clone()),
                             );
                         }
@@ -340,10 +352,12 @@ impl NirLowerer {
                 self.next_block_label(),
                 self.next_static,
                 self.global_ids.clone(),
+                self.global_ids_by_symbol.clone(),
                 self.routine_ids.clone(),
                 self.symbol_storage_types.clone(),
-                self.absolute_array_element_bases.clone(),
-                self.absolute_array_value_addresses.clone(),
+                self.semantic_storage_types.clone(),
+                self.semantic_absolute_array_element_bases.clone(),
+                self.semantic_absolute_array_value_addresses.clone(),
                 record_storage_sizes.clone(),
                 self.machine_defines.clone(),
                 self.machine_define_names.clone(),
@@ -439,23 +453,33 @@ impl NirLowerer {
     fn collect_global_ids(&mut self, program: &SemProgram) {
         for module in &program.modules {
             for item in &module.items {
-                let name = match item {
-                    crate::semantic::ir::SemItem::Define(define) => Some(&define.symbol.name),
-                    crate::semantic::ir::SemItem::Const(_) => None,
-                    crate::semantic::ir::SemItem::Include(include) => Some(&include.path),
-                    crate::semantic::ir::SemItem::Declaration(declaration) => {
-                        Some(&declaration.symbol.name)
+                let (name, semantic_symbol) = match item {
+                    crate::semantic::ir::SemItem::Define(define) => {
+                        (Some(&define.symbol.name), Some(define.symbol.id))
                     }
-                    crate::semantic::ir::SemItem::Routine(routine) => Some(&routine.symbol.name),
+                    crate::semantic::ir::SemItem::Const(_) => (None, None),
+                    crate::semantic::ir::SemItem::Include(include) => (Some(&include.path), None),
+                    crate::semantic::ir::SemItem::Declaration(declaration) => {
+                        (Some(&declaration.symbol.name), Some(declaration.symbol.id))
+                    }
+                    crate::semantic::ir::SemItem::Routine(routine) => {
+                        (Some(&routine.symbol.name), Some(routine.symbol.id))
+                    }
                     crate::semantic::ir::SemItem::Set(_)
                     | crate::semantic::ir::SemItem::Statement(_)
-                    | crate::semantic::ir::SemItem::Unsupported { .. } => None,
+                    | crate::semantic::ir::SemItem::Unsupported { .. } => (None, None),
                 };
-                if let Some(name) = name
-                    && !self.global_ids.contains_key(name)
-                {
-                    let id = self.next_global_id();
-                    self.global_ids.insert(name.clone(), id);
+                if let Some(name) = name {
+                    let id = if let Some(id) = self.global_ids.get(name).copied() {
+                        id
+                    } else {
+                        let id = self.next_global_id();
+                        self.global_ids.insert(name.clone(), id);
+                        id
+                    };
+                    if let Some(symbol) = semantic_symbol {
+                        self.global_ids_by_symbol.insert(symbol, id);
+                    }
                 }
             }
         }
@@ -479,7 +503,7 @@ impl NirLowerer {
         declaration: &SemDeclaration,
         record_storage_sizes: &BTreeMap<String, u16>,
         address_initializer: Option<u16>,
-        alias_initializer: Option<(String, u16)>,
+        alias_initializer: Option<(SemSymbolId, String, u16)>,
     ) -> NirGlobalBacking {
         if let Some(address) = address_initializer {
             if declaration_array_address_initializer_uses_pointer_storage(
@@ -490,8 +514,8 @@ impl NirLowerer {
             }
             return NirGlobalBacking::Absolute(address);
         }
-        if let Some((target, offset)) = alias_initializer {
-            if let Some(target) = self.global_ids.get(&target).copied() {
+        if let Some((target_symbol, _target_name, offset)) = alias_initializer {
+            if let Some(target) = self.global_ids_by_symbol.get(&target_symbol).copied() {
                 return NirGlobalBacking::Alias { target, offset };
             }
         }
@@ -507,7 +531,7 @@ impl NirLowerer {
     fn scalar_storage_alias_initializer(
         &self,
         declaration: &SemDeclaration,
-    ) -> Option<(String, u16)> {
+    ) -> Option<(SemSymbolId, String, u16)> {
         if !matches!(declaration.storage, SemDeclarationStorage::Scalar)
             || declaration.ty.value.pointer
         {
@@ -515,10 +539,10 @@ impl NirLowerer {
         }
         let initializer = declaration.initializer.as_ref()?;
         let (target, offset) = storage_alias_initializer_expr(initializer)?;
-        if !self.storage_symbols.contains(target) {
+        if !self.storage_symbol_ids.contains(&target.id) {
             return None;
         }
-        Some((target.to_string(), offset))
+        Some((target.id, target.name.clone(), offset))
     }
 
     fn apply_compatible_set(&mut self, set: &SemSet) {
@@ -579,8 +603,7 @@ impl NirLowerer {
         let Some(value) = self.const_u16_expr(&set.value) else {
             return false;
         };
-        self.absolute_globals
-            .insert(storage_key(&symbol.name), value);
+        self.semantic_absolute_globals.insert(symbol.id, value);
         true
     }
 
@@ -588,10 +611,7 @@ impl NirLowerer {
         match &expr.kind {
             SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
             SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
-            SemExprKind::Symbol(symbol) => self
-                .absolute_globals
-                .get(&storage_key(&symbol.name))
-                .copied(),
+            SemExprKind::Symbol(symbol) => self.semantic_absolute_globals.get(&symbol.id).copied(),
             SemExprKind::LValue(lvalue) => self.const_u16_lvalue(lvalue),
             SemExprKind::Cast { expr, .. } => self.const_u16_expr(expr),
             SemExprKind::Unary { op, expr } => {
@@ -641,10 +661,9 @@ impl NirLowerer {
             return Some(address.wrapping_add(storage.offset));
         }
         match &lvalue.kind {
-            SemLValueKind::Symbol(symbol) => self
-                .absolute_globals
-                .get(&storage_key(&symbol.name))
-                .copied(),
+            SemLValueKind::Symbol(symbol) => {
+                self.semantic_absolute_globals.get(&symbol.id).copied()
+            }
             _ => None,
         }
     }
@@ -654,7 +673,7 @@ impl NirLowerer {
         declaration: &SemDeclaration,
         record_storage_sizes: &BTreeMap<String, u16>,
         address_initializer: Option<u16>,
-        local_alias_targets: &BTreeMap<String, (LocalId, String)>,
+        local_alias_targets: &BTreeMap<SemSymbolId, (LocalId, String)>,
     ) -> NirLocalBacking {
         if let Some(address) = address_initializer {
             match &declaration.storage {
@@ -684,13 +703,13 @@ impl NirLowerer {
         if matches!(declaration.storage, SemDeclarationStorage::Scalar)
             && !declaration.ty.value.pointer
             && let Some(initializer) = declaration.initializer.as_ref()
-            && let Some((target_name, offset)) = storage_alias_initializer_expr(initializer)
-            && self.storage_symbols.contains(target_name)
-            && let Some(target) = self.global_ids.get(target_name).copied()
+            && let Some((target_symbol, offset)) = storage_alias_initializer_expr(initializer)
+            && self.storage_symbol_ids.contains(&target_symbol.id)
+            && let Some(target) = self.global_ids_by_symbol.get(&target_symbol.id).copied()
         {
             return NirLocalBacking::GlobalAlias {
                 target,
-                target_name: target_name.to_string(),
+                target_name: target_symbol.name.clone(),
                 offset,
             };
         }
@@ -743,7 +762,7 @@ fn deduplicate_real_statics(statics: &mut Vec<NirStaticData>, routines: &mut [Ni
 
 fn local_scalar_storage_alias_initializer(
     declaration: &SemDeclaration,
-    local_alias_targets: &BTreeMap<String, (LocalId, String)>,
+    local_alias_targets: &BTreeMap<SemSymbolId, (LocalId, String)>,
 ) -> Option<(LocalId, String, u16)> {
     if !matches!(declaration.storage, SemDeclarationStorage::Scalar) || declaration.ty.value.pointer
     {
@@ -751,8 +770,48 @@ fn local_scalar_storage_alias_initializer(
     }
     let initializer = declaration.initializer.as_ref()?;
     let (target, offset) = storage_alias_initializer_expr(initializer)?;
-    let (target_id, target_name) = local_alias_targets.get(&storage_key(target))?;
+    let (target_id, target_name) = local_alias_targets.get(&target.id)?;
     Some((*target_id, target_name.clone(), offset))
+}
+
+fn collect_nested_declarations<'a>(
+    statements: &'a [SemStmt],
+    declarations: &mut Vec<&'a SemDeclaration>,
+) {
+    for statement in statements {
+        match statement {
+            SemStmt::LexicalBlock {
+                declarations: nested,
+                body,
+                ..
+            } => {
+                declarations.extend(nested);
+                collect_nested_declarations(body, declarations);
+            }
+            SemStmt::If {
+                branches,
+                else_body,
+                ..
+            } => {
+                for branch in branches {
+                    collect_nested_declarations(&branch.body, declarations);
+                }
+                collect_nested_declarations(else_body, declarations);
+            }
+            SemStmt::While { body, .. }
+            | SemStmt::DoUntil { body, .. }
+            | SemStmt::For { body, .. } => collect_nested_declarations(body, declarations),
+            SemStmt::Define(_)
+            | SemStmt::Return { .. }
+            | SemStmt::Exit { .. }
+            | SemStmt::Assign { .. }
+            | SemStmt::CompoundAssign { .. }
+            | SemStmt::Call { .. }
+            | SemStmt::MachineBlock { .. }
+            | SemStmt::InlineAsm { .. }
+            | SemStmt::Unsupported { .. } => {}
+        }
+    }
 }
 
 pub(super) struct NirBuilder {
@@ -760,10 +819,14 @@ pub(super) struct NirBuilder {
     params: Vec<NirParam>,
     locals: Vec<NirLocal>,
     global_ids: BTreeMap<String, SymbolId>,
+    global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
     routine_ids: BTreeMap<String, u32>,
     symbol_storage_types: BTreeMap<String, NirType>,
-    absolute_array_element_bases: BTreeMap<String, u16>,
-    absolute_array_value_addresses: BTreeMap<String, u16>,
+    semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
+    semantic_absolute_array_element_bases: BTreeMap<SemSymbolId, u16>,
+    semantic_absolute_array_value_addresses: BTreeMap<SemSymbolId, u16>,
+    param_ids_by_symbol: BTreeMap<SemSymbolId, ParamId>,
+    local_ids_by_symbol: BTreeMap<SemSymbolId, LocalId>,
     record_storage_sizes: BTreeMap<String, u16>,
     machine_defines: BTreeMap<usize, Vec<MachineItem>>,
     machine_define_names: BTreeMap<String, Vec<MachineItem>>,
@@ -784,10 +847,12 @@ impl NirBuilder {
         entry_label: String,
         next_static: u32,
         global_ids: BTreeMap<String, SymbolId>,
+        global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
         routine_ids: BTreeMap<String, u32>,
         symbol_storage_types: BTreeMap<String, NirType>,
-        absolute_array_element_bases: BTreeMap<String, u16>,
-        absolute_array_value_addresses: BTreeMap<String, u16>,
+        semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
+        semantic_absolute_array_element_bases: BTreeMap<SemSymbolId, u16>,
+        semantic_absolute_array_value_addresses: BTreeMap<SemSymbolId, u16>,
         record_storage_sizes: BTreeMap<String, u16>,
         machine_defines: BTreeMap<usize, Vec<MachineItem>>,
         machine_define_names: BTreeMap<String, Vec<MachineItem>>,
@@ -799,10 +864,14 @@ impl NirBuilder {
             params: Vec::new(),
             locals: Vec::new(),
             global_ids,
+            global_ids_by_symbol,
             routine_ids,
             symbol_storage_types,
-            absolute_array_element_bases,
-            absolute_array_value_addresses,
+            semantic_storage_types,
+            semantic_absolute_array_element_bases,
+            semantic_absolute_array_value_addresses,
+            param_ids_by_symbol: BTreeMap::new(),
+            local_ids_by_symbol: BTreeMap::new(),
             record_storage_sizes,
             machine_defines,
             machine_define_names,
@@ -871,9 +940,7 @@ impl NirBuilder {
 
     fn stmt(&mut self, stmt: &SemStmt, lowering: &mut NirLowerer) {
         match stmt {
-            SemStmt::LexicalBlock { .. } => self.push(NirOp::Unsupported {
-                note: "lexical block reached NIR before stable local identity lowering".to_string(),
-            }),
+            SemStmt::LexicalBlock { body, .. } => self.stmt_list(body, lowering),
             SemStmt::Define(_) => {}
             SemStmt::Return { value, .. } => {
                 let value = value.as_ref().map(|value| self.nir_value(value));
@@ -1338,8 +1405,8 @@ impl NirBuilder {
                 }));
             }
             SemExprKind::Symbol(symbol) => {
-                let source = self
-                    .resolved_symbol_place(&symbol.name, Some(NirFacts::type_from_value(&expr.ty)));
+                let source =
+                    self.resolved_symbol_place(symbol, Some(NirFacts::type_from_value(&expr.ty)));
                 self.push(NirOp::Real(NirRealOp::Copy {
                     destination,
                     source: NirRealSource::Place(source),
@@ -1608,33 +1675,49 @@ impl NirBuilder {
             SemExprKind::Symbol(symbol) => {
                 let dest = self.next_temp();
                 let ty = self
-                    .symbol_storage_type(&symbol.name)
+                    .symbol_storage_type(symbol)
                     .unwrap_or_else(|| NirFacts::type_from_value(&expr.ty));
-                let place = self.resolved_symbol_place(&symbol.name, Some(ty.clone()));
+                let place = self.resolved_symbol_place(symbol, Some(ty.clone()));
                 self.push_load(dest, ty.clone(), place, symbol.is_volatile);
                 Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::AddressOf(lvalue) => {
-                let source_name = lvalue_symbol_name(lvalue);
+                let source_symbol = lvalue_symbol(lvalue);
                 let place = self.lower_place(lvalue);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                Some(self.addr_of_place(place, ty, source_name))
+                Some(self.addr_of_place(place, ty, source_symbol))
             }
             SemExprKind::AddressOfSymbol(symbol) => {
+                if matches!(
+                    symbol.class,
+                    SymbolClass::Proc
+                        | SymbolClass::Func
+                        | SymbolClass::BuiltinProc
+                        | SymbolClass::BuiltinFunc
+                ) {
+                    let id = *self
+                        .routine_ids
+                        .get(&storage_key(&symbol.name))
+                        .expect("resolved routine address must have a routine id");
+                    return Some(NirValue::RoutineAddr {
+                        id,
+                        name: symbol.name.clone(),
+                    });
+                }
                 let place_ty = symbol
                     .ty
                     .as_ref()
                     .map(NirType::from_value)
                     .or_else(|| Some(NirFacts::type_from_value(&expr.ty)));
-                let place = self.resolved_symbol_place(&symbol.name, place_ty);
+                let place = self.resolved_symbol_place(symbol, place_ty);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                Some(self.addr_of_place(place, ty, Some(&symbol.name)))
+                Some(self.addr_of_place(place, ty, Some(symbol)))
             }
             SemExprKind::ImplicitAddressOf(address) => {
-                let source_name = lvalue_symbol_name(&address.place);
+                let source_symbol = lvalue_symbol(&address.place);
                 let place = self.lower_place(&address.place);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                Some(self.addr_of_place(place, ty, source_name))
+                Some(self.addr_of_place(place, ty, source_symbol))
             }
             SemExprKind::ArrayDecay(decay) => {
                 if decay.origin == SemArrayOrigin::Parameter
@@ -1644,10 +1727,10 @@ impl NirBuilder {
                     let ty = NirFacts::type_from_value(&expr.ty);
                     return Some(self.load_place_value(place, ty));
                 }
-                let source_name = lvalue_symbol_name(&decay.array);
+                let source_symbol = lvalue_symbol(&decay.array);
                 let place = self.lower_place(&decay.array);
                 let ty = NirFacts::type_from_value(&expr.ty);
-                Some(self.addr_of_place(place, ty, source_name))
+                Some(self.addr_of_place(place, ty, source_symbol))
             }
             SemExprKind::Call(call) if NirClassifier::is_index_call_syntax(call) => {
                 let is_volatile = matches!(
@@ -1715,14 +1798,14 @@ impl NirBuilder {
         &mut self,
         place: NirPlace,
         ty: NirType,
-        source_name: Option<&str>,
+        source_symbol: Option<&SemSymbolRef>,
     ) -> NirValue {
-        if let Some(name) = source_name
+        if let Some(symbol) = source_symbol
             && let Some(address) = self
-                .absolute_array_value_addresses
-                .get(&storage_key(name))
+                .semantic_absolute_array_value_addresses
+                .get(&symbol.id)
                 .copied()
-                .or_else(|| resident_array_address(name))
+                .or_else(|| resident_array_address(&symbol.name))
         {
             return NirValue::ConstU16(address);
         }
@@ -1751,7 +1834,7 @@ impl NirBuilder {
                         ty,
                     }
                 } else {
-                    self.resolved_symbol_place(&symbol.name, ty)
+                    self.resolved_symbol_place(symbol, ty)
                 }
             }
             SemLValueKind::UnresolvedName(name) => {
@@ -1784,8 +1867,10 @@ impl NirBuilder {
         }
     }
 
-    fn resolved_symbol_place(&self, name: &str, ty: Option<NirType>) -> NirPlace {
-        if let Some(local) = self.locals.iter().find(|local| local.name == name) {
+    fn resolved_symbol_place(&self, symbol: &SemSymbolRef, ty: Option<NirType>) -> NirPlace {
+        if let Some(local_id) = self.local_ids_by_symbol.get(&symbol.id)
+            && let Some(local) = self.locals.iter().find(|local| local.id == *local_id)
+        {
             let kind = match &local.backing {
                 NirLocalBacking::Absolute(address) => NirPlaceKind::Absolute(*address),
                 NirLocalBacking::GlobalAlias {
@@ -1813,58 +1898,63 @@ impl NirBuilder {
                 }
                 NirLocalBacking::Ordinary | NirLocalBacking::Alias { .. } => NirPlaceKind::Local {
                     id: local.id,
-                    name: name.to_string(),
+                    name: symbol.name.clone(),
                 },
             };
             return NirPlace { kind, ty };
         }
-        if let Some(param) = self.params.iter().find(|param| param.name == name) {
+        if let Some(param_id) = self.param_ids_by_symbol.get(&symbol.id)
+            && let Some(param) = self.params.iter().find(|param| param.id == *param_id)
+        {
             return NirPlace {
                 kind: NirPlaceKind::Param {
                     id: param.id,
-                    name: name.to_string(),
+                    name: symbol.name.clone(),
                 },
                 ty,
             };
         }
-        if let Some(id) = self.global_ids.get(name).copied() {
+        if let Some(id) = self.global_ids_by_symbol.get(&symbol.id).copied() {
             return NirPlace {
                 kind: NirPlaceKind::Global {
                     id,
-                    name: name.to_string(),
+                    name: symbol.name.clone(),
                 },
                 ty,
             };
         }
-        if let Some(address) = builtin_variable_address(name) {
+        if let Some(address) = builtin_variable_address(&symbol.name) {
             return NirPlace {
                 kind: NirPlaceKind::Absolute(address),
                 ty,
             };
         }
-        panic!("resolved storage symbol `{name}` has no NIR storage identity")
+        panic!(
+            "resolved storage symbol `{}#{}` has no NIR storage identity",
+            symbol.name, symbol.id.0
+        )
     }
 
     fn lvalue_storage_type(&self, lvalue: &SemLValue) -> Option<NirType> {
         if let SemLValueKind::Symbol(symbol) = &lvalue.kind
-            && let Some(ty) = self.symbol_storage_type(&symbol.name)
+            && let Some(ty) = self.symbol_storage_type(symbol)
         {
             return Some(ty);
         }
         Some(NirFacts::type_from_value(&lvalue.ty))
     }
 
-    fn symbol_storage_type(&self, name: &str) -> Option<NirType> {
-        self.symbol_storage_types
-            .get(name)
+    fn symbol_storage_type(&self, symbol: &SemSymbolRef) -> Option<NirType> {
+        self.semantic_storage_types
+            .get(&symbol.id)
             .cloned()
-            .or_else(|| builtin_variable_type(name))
+            .or_else(|| builtin_variable_type(&symbol.name))
     }
 
     fn lvalue_uses_pointer_storage(&self, lvalue: &SemLValue) -> bool {
         matches!(
             &lvalue.kind,
-            SemLValueKind::Symbol(symbol) if self.symbol_storage_types.contains_key(&symbol.name)
+            SemLValueKind::Symbol(symbol) if self.semantic_storage_types.contains_key(&symbol.id)
         )
     }
 
@@ -1894,15 +1984,14 @@ impl NirBuilder {
             .expect("index call syntax has one argument");
         let elem_ty = NirFacts::type_from_value(ty);
         let elem_size = self.element_width(ty).unwrap_or(1);
-        let place =
-            self.resolved_symbol_place(&symbol.name, symbol.ty.as_ref().map(NirType::from_value));
+        let place = self.resolved_symbol_place(symbol, symbol.ty.as_ref().map(NirType::from_value));
         let pointer_ty = pointer_type_to(ty);
         let base_addr = if matches!(symbol.class, crate::semantic::SymbolClass::Param) {
             self.load_place_value(place, pointer_ty)
-        } else if let Some(address) = self.absolute_index_base_for_name(&symbol.name) {
+        } else if let Some(address) = self.absolute_index_base_for_symbol(symbol) {
             NirValue::ConstU16(address)
         } else {
-            self.addr_of_place(place, pointer_ty, Some(&symbol.name))
+            self.addr_of_place(place, pointer_ty, Some(symbol))
         };
         NirPlace {
             kind: NirPlaceKind::Index {
@@ -1940,13 +2029,14 @@ impl NirBuilder {
             && matches!(symbol.class, crate::semantic::SymbolClass::Param)
         {
             let pointer_ty = pointer_type_to(element_type);
-            let place = self.resolved_symbol_place(&symbol.name, Some(pointer_ty.clone()));
+            let place = self.resolved_symbol_place(symbol, Some(pointer_ty.clone()));
             return self.load_place_value(place, pointer_ty);
         }
 
         let place = match &base.kind {
-            SemExprKind::Symbol(symbol) => self
-                .resolved_symbol_place(&symbol.name, symbol.ty.as_ref().map(NirType::from_value)),
+            SemExprKind::Symbol(symbol) => {
+                self.resolved_symbol_place(symbol, symbol.ty.as_ref().map(NirType::from_value))
+            }
             SemExprKind::LValue(lvalue) => self.lower_place(lvalue),
             _ => return self.nir_value(base),
         };
@@ -1955,22 +2045,21 @@ impl NirBuilder {
     }
 
     fn absolute_array_base_address(&self, base: &SemExpr) -> Option<u16> {
-        let name = match &base.kind {
-            SemExprKind::Symbol(symbol) => Some(symbol.name.as_str()),
-            SemExprKind::LValue(lvalue) => lvalue_symbol_name(lvalue),
-            SemExprKind::ArrayDecay(decay) => lvalue_symbol_name(&decay.array),
+        let symbol = match &base.kind {
+            SemExprKind::Symbol(symbol) => Some(symbol),
+            SemExprKind::LValue(lvalue) => lvalue_symbol(lvalue),
+            SemExprKind::ArrayDecay(decay) => lvalue_symbol(&decay.array),
             _ => None,
         }?;
-        self.absolute_index_base_for_name(name)
+        self.absolute_index_base_for_symbol(symbol)
     }
 
-    fn absolute_index_base_for_name(&self, name: &str) -> Option<u16> {
-        let key = storage_key(name);
-        self.absolute_array_value_addresses
-            .get(&key)
-            .or_else(|| self.absolute_array_element_bases.get(&key))
+    fn absolute_index_base_for_symbol(&self, symbol: &SemSymbolRef) -> Option<u16> {
+        self.semantic_absolute_array_value_addresses
+            .get(&symbol.id)
+            .or_else(|| self.semantic_absolute_array_element_bases.get(&symbol.id))
             .copied()
-            .or_else(|| resident_array_address(name))
+            .or_else(|| resident_array_address(&symbol.name))
     }
 
     fn condition(&mut self, condition: &SemCondition) -> NirValue {
@@ -2210,15 +2299,13 @@ impl NirBuilder {
         let key = storage_key(&symbol.name);
         match symbol.class {
             SymbolClass::Param => self
-                .params
-                .iter()
-                .find(|param| storage_key(&param.name) == key)
-                .map(|param| NirInlineAsmTarget::Storage(NirStorageId::Param(param.id))),
+                .param_ids_by_symbol
+                .get(&symbol.id)
+                .copied()
+                .map(|id| NirInlineAsmTarget::Storage(NirStorageId::Param(id))),
             SymbolClass::Var | SymbolClass::Array | SymbolClass::Record | SymbolClass::Type => {
-                if let Some(local) = self
-                    .locals
-                    .iter()
-                    .find(|local| storage_key(&local.name) == key)
+                if let Some(local_id) = self.local_ids_by_symbol.get(&symbol.id)
+                    && let Some(local) = self.locals.iter().find(|local| local.id == *local_id)
                 {
                     return Some(match local.backing {
                         NirLocalBacking::Absolute(address) => NirInlineAsmTarget::Absolute(address),
@@ -2229,13 +2316,17 @@ impl NirBuilder {
                         }
                     });
                 }
-                if let Some(address) = self.absolute_array_value_addresses.get(&key).copied() {
+                if let Some(address) = self
+                    .semantic_absolute_array_value_addresses
+                    .get(&symbol.id)
+                    .copied()
+                {
                     return Some(NirInlineAsmTarget::Absolute(address));
                 }
-                self.global_ids
-                    .iter()
-                    .find(|(name, _)| storage_key(name) == key)
-                    .map(|(_, id)| NirInlineAsmTarget::Storage(NirStorageId::Global(*id)))
+                self.global_ids_by_symbol
+                    .get(&symbol.id)
+                    .copied()
+                    .map(|id| NirInlineAsmTarget::Storage(NirStorageId::Global(id)))
             }
             SymbolClass::Proc
             | SymbolClass::Func
@@ -2366,21 +2457,21 @@ impl NirBuilder {
             }),
             SemAddressSpace::RoutineLocal => Some(NirMemoryRegion {
                 kind: NirMemoryRegionKind::Storage(NirStorageId::Local(
-                    self.local_id(storage.symbol.as_ref()?.name.as_str())?,
+                    self.local_id(storage.symbol.as_ref()?)?,
                 )),
                 offset: storage.offset,
                 size,
             }),
             SemAddressSpace::Parameter => Some(NirMemoryRegion {
                 kind: NirMemoryRegionKind::Storage(NirStorageId::Param(
-                    self.param_id(storage.symbol.as_ref()?.name.as_str())?,
+                    self.param_id(storage.symbol.as_ref()?)?,
                 )),
                 offset: storage.offset,
                 size,
             }),
             SemAddressSpace::Unknown => {
                 let symbol = storage.symbol.as_ref()?;
-                let mut region = self.nir_symbol_region(&symbol.name)?;
+                let mut region = self.nir_symbol_region_ref(symbol)?;
                 region.offset = region.offset.checked_add(storage.offset)?;
                 region.size = size;
                 Some(region)
@@ -2421,18 +2512,47 @@ impl NirBuilder {
         })
     }
 
-    fn local_id(&self, name: &str) -> Option<LocalId> {
-        self.locals
-            .iter()
-            .find(|local| local.name.eq_ignore_ascii_case(name))
-            .map(|local| local.id)
+    fn nir_symbol_region_ref(&self, symbol: &SemSymbolRef) -> Option<NirMemoryRegion> {
+        let (id, size) = self
+            .param_ids_by_symbol
+            .get(&symbol.id)
+            .and_then(|id| {
+                self.params
+                    .iter()
+                    .find(|param| param.id == *id)
+                    .map(|param| (NirStorageId::Param(*id), param.ty.width))
+            })
+            .or_else(|| {
+                self.local_ids_by_symbol.get(&symbol.id).and_then(|id| {
+                    self.locals
+                        .iter()
+                        .find(|local| local.id == *id)
+                        .map(|local| (NirStorageId::Local(*id), local.ty.width))
+                })
+            })
+            .or_else(|| {
+                self.global_ids_by_symbol.get(&symbol.id).map(|id| {
+                    (
+                        NirStorageId::Global(*id),
+                        self.semantic_storage_types
+                            .get(&symbol.id)
+                            .and_then(|ty| ty.width),
+                    )
+                })
+            })?;
+        Some(NirMemoryRegion {
+            kind: NirMemoryRegionKind::Storage(id),
+            offset: 0,
+            size: size?,
+        })
     }
 
-    fn param_id(&self, name: &str) -> Option<ParamId> {
-        self.params
-            .iter()
-            .find(|param| param.name.eq_ignore_ascii_case(name))
-            .map(|param| param.id)
+    fn local_id(&self, symbol: &SemSymbolRef) -> Option<LocalId> {
+        self.local_ids_by_symbol.get(&symbol.id).copied()
+    }
+
+    fn param_id(&self, symbol: &SemSymbolRef) -> Option<ParamId> {
+        self.param_ids_by_symbol.get(&symbol.id).copied()
     }
 
     fn terminate(&mut self, terminator: NirTerminator) {
@@ -2891,20 +3011,20 @@ fn declaration_is_array(declaration: &SemDeclaration) -> bool {
     matches!(declaration.storage, SemDeclarationStorage::Array { .. })
 }
 
-fn storage_alias_initializer_expr(expr: &SemExpr) -> Option<(&str, u16)> {
+fn storage_alias_initializer_expr(expr: &SemExpr) -> Option<(&SemSymbolRef, u16)> {
     match &expr.kind {
-        SemExprKind::Symbol(symbol) => Some((symbol.name.as_str(), 0)),
-        SemExprKind::LValue(lvalue) => lvalue_symbol_name(lvalue).map(|name| (name, 0)),
-        SemExprKind::ArrayDecay(decay) => lvalue_symbol_name(&decay.array).map(|name| (name, 0)),
+        SemExprKind::Symbol(symbol) => Some((symbol, 0)),
+        SemExprKind::LValue(lvalue) => lvalue_symbol(lvalue).map(|symbol| (symbol, 0)),
+        SemExprKind::ArrayDecay(decay) => lvalue_symbol(&decay.array).map(|symbol| (symbol, 0)),
         SemExprKind::Cast { expr, .. } => storage_alias_initializer_expr(expr),
         SemExprKind::Binary {
             op: BinaryOp::Add,
             left,
             right,
         } => {
-            let (name, base_offset) = storage_alias_initializer_expr(left)?;
+            let (symbol, base_offset) = storage_alias_initializer_expr(left)?;
             let offset = literal_expr_u16(right)?;
-            Some((name, base_offset.wrapping_add(offset)))
+            Some((symbol, base_offset.wrapping_add(offset)))
         }
         _ => None,
     }
@@ -3220,8 +3340,8 @@ fn declaration_local_init(
     backing: &NirLocalBacking,
     global_ids: &BTreeMap<String, SymbolId>,
     routine_ids: &BTreeMap<String, u32>,
-    param_ids: &BTreeMap<String, ParamId>,
-    local_ids: &BTreeMap<String, LocalId>,
+    param_ids: &BTreeMap<SemSymbolId, ParamId>,
+    local_ids: &BTreeMap<SemSymbolId, LocalId>,
 ) -> Option<NirStorageInit> {
     if matches!(
         backing,
@@ -3510,17 +3630,16 @@ fn local_data_relocation_target(
     target: &SemSymbolRef,
     global_ids: &BTreeMap<String, SymbolId>,
     routine_ids: &BTreeMap<String, u32>,
-    param_ids: &BTreeMap<String, ParamId>,
-    local_ids: &BTreeMap<String, LocalId>,
+    param_ids: &BTreeMap<SemSymbolId, ParamId>,
+    local_ids: &BTreeMap<SemSymbolId, LocalId>,
 ) -> Option<NirDataRelocationTarget> {
-    let key = storage_key(&target.name);
     local_ids
-        .get(&key)
+        .get(&target.id)
         .copied()
         .map(|id| NirDataRelocationTarget::Storage(NirStorageId::Local(id)))
         .or_else(|| {
             param_ids
-                .get(&key)
+                .get(&target.id)
                 .copied()
                 .map(|id| NirDataRelocationTarget::Storage(NirStorageId::Param(id)))
         })
@@ -3861,9 +3980,9 @@ fn lvalue_is_param_symbol(lvalue: &SemLValue) -> bool {
     )
 }
 
-fn lvalue_symbol_name(lvalue: &SemLValue) -> Option<&str> {
+fn lvalue_symbol(lvalue: &SemLValue) -> Option<&SemSymbolRef> {
     match &lvalue.kind {
-        SemLValueKind::Symbol(symbol) => Some(symbol.name.as_str()),
+        SemLValueKind::Symbol(symbol) => Some(symbol),
         _ => None,
     }
 }
@@ -4087,7 +4206,9 @@ mod memory_effect_tests {
             0,
             global_ids,
             BTreeMap::new(),
+            BTreeMap::new(),
             storage_types,
+            BTreeMap::new(),
             BTreeMap::new(),
             BTreeMap::new(),
             BTreeMap::new(),
@@ -4119,6 +4240,9 @@ mod memory_effect_tests {
             backing: NirLocalBacking::Ordinary,
             init: None,
         });
+        builder
+            .local_ids_by_symbol
+            .insert(SemSymbolId(9), LocalId(3));
         builder
     }
 

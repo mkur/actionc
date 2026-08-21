@@ -24,6 +24,111 @@ fn lower_modern_source(source: &str) -> NirProgram {
 }
 
 #[test]
+fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
+    let program = lower_modern_source(include_str!("../../fixtures/nir/lexical_blocks.act"));
+    verify_program(&program).expect("lexical-block NIR should verify");
+    let routine = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+
+    let value_ids = routine
+        .locals
+        .iter()
+        .filter(|local| local.name.eq_ignore_ascii_case("value"))
+        .map(|local| local.id)
+        .collect::<Vec<_>>();
+    assert_eq!(value_ids, [LocalId(0), LocalId(2), LocalId(3)]);
+
+    let value_store_ids = routine
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::Store {
+                place:
+                    NirPlace {
+                        kind: NirPlaceKind::Local { id, name },
+                        ..
+                    },
+                ..
+            } if name.eq_ignore_ascii_case("value") => Some(*id),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        value_store_ids,
+        [LocalId(0), LocalId(2), LocalId(3), LocalId(2), LocalId(0)]
+    );
+
+    let addressed_local =
+        routine
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .find_map(|op| match op {
+                NirOp::AddrOf {
+                    place:
+                        NirPlace {
+                            kind: NirPlaceKind::Local { id, name },
+                            ..
+                        },
+                    ..
+                } if name.eq_ignore_ascii_case("value") => Some(*id),
+                _ => None,
+            });
+    assert_eq!(addressed_local, Some(LocalId(3)));
+
+    let assembler_local_ids = routine
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::InlineAsm { code, .. } => Some(&code.relocations),
+            _ => None,
+        })
+        .flatten()
+        .filter_map(|relocation| match relocation {
+            NirInlineAsmRelocation {
+                target: NirInlineAsmTarget::Storage(NirStorageId::Local(id)),
+                ..
+            } => Some(*id),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(assembler_local_ids, [LocalId(3), LocalId(3)]);
+
+    let printed = format_program(&program);
+    assert!(!printed.to_ascii_lowercase().contains("lexical"));
+    crate::mir6502::lower_program(&program).expect("MIR6502 should consume lexical local IDs");
+
+    let mut invalid = program.clone();
+    let invalid_place = invalid
+        .routines
+        .iter_mut()
+        .flat_map(|routine| &mut routine.blocks)
+        .flat_map(|block| &mut block.ops)
+        .find_map(|op| match op {
+            NirOp::Store { place, .. } if matches!(place.kind, NirPlaceKind::Local { .. }) => {
+                Some(place)
+            }
+            _ => None,
+        })
+        .expect("local store place");
+    let NirPlaceKind::Local { id, .. } = &mut invalid_place.kind else {
+        unreachable!()
+    };
+    *id = LocalId(99);
+    let diagnostics = verify_program(&invalid).expect_err("unknown LocalId must be rejected");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("references unknown local id 99")
+    }));
+}
+
+#[test]
 fn formats_labeled_blocks() {
     let program = NirProgram {
         globals: vec![NirGlobal {
@@ -1445,7 +1550,7 @@ fn verifier_accepts_literal_that_fits_narrow_store() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: Vec::new(),
             notes: Vec::new(),
             blocks: vec![NirBlock {
@@ -1473,7 +1578,7 @@ fn verifier_accepts_defined_temp_use() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: vec![temp_table_entry(0, byte_type(), 0, 0)],
             notes: Vec::new(),
             blocks: vec![NirBlock {
@@ -1510,7 +1615,7 @@ fn verifier_accepts_store_with_defined_temp_use() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: vec![temp_table_entry(0, byte_type(), 0, 0)],
             notes: Vec::new(),
             blocks: vec![NirBlock {
@@ -1615,7 +1720,7 @@ fn verifier_accepts_temp_use_from_dominating_block() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: vec![temp_table_entry(0, byte_type(), 0, 0)],
             notes: Vec::new(),
             blocks: vec![
@@ -1929,7 +2034,7 @@ fn optimizer_eliminates_dead_pure_temps_but_keeps_loads() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: vec![
                 temp_table_entry(0, byte_type(), 0, 0),
                 temp_table_entry(1, byte_type(), 0, 1),
@@ -2022,7 +2127,7 @@ fn optimizer_keeps_pure_temp_used_in_successor_block() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: vec![
                 temp_table_entry(0, ty.clone(), 0, 0),
                 temp_table_entry(1, ty.clone(), 0, 1),
@@ -2089,7 +2194,7 @@ fn optimizer_eliminates_dead_pure_temp_chain_across_blocks_to_fixed_point() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: vec![
                 temp_table_entry(0, ty.clone(), 0, 0),
                 temp_table_entry(1, ty.clone(), 0, 1),
@@ -2411,7 +2516,7 @@ fn optimizer_aliases_algebraic_identity_temps() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: (0..7)
                 .map(|id| temp_table_entry(id, ty.clone(), 0, id as usize))
                 .collect(),
@@ -2508,7 +2613,7 @@ fn optimizer_aliases_word_all_ones_identity() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: vec![
                 temp_table_entry(0, ty.clone(), 0, 0),
                 temp_table_entry(1, ty.clone(), 0, 1),
@@ -2555,7 +2660,7 @@ fn optimizer_cancels_local_constant_offsets() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: vec![
                 temp_table_entry(0, ty.clone(), 0, 0),
                 temp_table_entry(1, ty.clone(), 0, 1),
@@ -2610,7 +2715,7 @@ fn optimizer_canonicalizes_local_constant_offset_chains() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: vec![
                 temp_table_entry(0, ty.clone(), 0, 0),
                 temp_table_entry(1, ty.clone(), 0, 1),
@@ -2679,7 +2784,7 @@ fn optimizer_keeps_non_identity_subtraction_and_pointer_arithmetic() {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps: vec![
                 temp_table_entry(0, byte.clone(), 0, 0),
                 temp_table_entry(1, byte.clone(), 0, 1),
@@ -2838,6 +2943,18 @@ fn byte_place(name: &str) -> NirPlace {
     }
 }
 
+fn byte_local() -> NirLocal {
+    NirLocal {
+        id: LocalId(0),
+        name: "storage".to_string(),
+        kind: "Byte".to_string(),
+        storage: NirStorageClass::Scalar,
+        ty: byte_type(),
+        backing: NirLocalBacking::Absolute(0xD000),
+        init: None,
+    }
+}
+
 fn byte_value(value: u8) -> NirValue {
     NirValue::ConstU8(value)
 }
@@ -2968,7 +3085,7 @@ fn optimizer_program(temps: Vec<NirTemp>, blocks: Vec<NirBlock>) -> NirProgram {
         routines: vec![NirRoutine {
             name: "Main".to_string(),
             params: Vec::new(),
-            locals: Vec::new(),
+            locals: vec![byte_local()],
             temps,
             notes: Vec::new(),
             blocks,

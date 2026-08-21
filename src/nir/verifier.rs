@@ -222,7 +222,6 @@ impl NirVerifier {
             self.type_shape_static(&param.ty, &format!("param `{}`", param.name));
         }
 
-        let mut locals = BTreeSet::new();
         let mut local_ids = BTreeSet::new();
         for local in &routine.locals {
             if !local_ids.insert(local.id) {
@@ -235,11 +234,6 @@ impl NirVerifier {
                 self.diagnostics.push(NirDiagnostic::routine(
                     &routine.name,
                     "local name must not be empty",
-                ));
-            } else if !locals.insert(local.name.as_str()) {
-                self.diagnostics.push(NirDiagnostic::routine(
-                    &routine.name,
-                    format!("duplicate local `{}`", local.name),
                 ));
             }
             if local.kind.is_empty() {
@@ -1743,6 +1737,34 @@ impl NirVerifier {
             return;
         };
         self.type_shape(routine, block, ty, label);
+        match place.kind {
+            NirPlaceKind::Param { id, .. }
+                if !routine.params.iter().any(|param| param.id == id) =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} references unknown param id {}", id.0),
+                ));
+            }
+            NirPlaceKind::Local { id, .. }
+                if !routine.locals.iter().any(|local| local.id == id) =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} references unknown local id {}", id.0),
+                ));
+            }
+            NirPlaceKind::Global { id, .. } if !self.global_sizes.contains_key(&id) => {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!("{label} references unknown global id {}", id.0),
+                ));
+            }
+            _ => {}
+        }
     }
 
     fn type_shape(&mut self, routine: &NirRoutine, block: &NirBlock, ty: &NirType, label: &str) {
@@ -1819,6 +1841,18 @@ impl NirVerifier {
                 self.type_shape(routine, block, ty, label)
             }
             NirValue::Temp { ty, .. } => self.type_shape(routine, block, ty, label),
+            NirValue::RoutineAddr { id, .. } => {
+                if usize::try_from(*id)
+                    .ok()
+                    .is_none_or(|id| id >= self.routine_count)
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("{label} references missing routine id `{id}`"),
+                    ));
+                }
+            }
             NirValue::Param(_) | NirValue::GlobalAddr(_) => {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
@@ -1836,7 +1870,8 @@ impl NirVerifier {
             NirValue::ConstU16(_)
             | NirValue::StaticAddr { .. }
             | NirValue::Param(_)
-            | NirValue::GlobalAddr(_) => false,
+            | NirValue::GlobalAddr(_)
+            | NirValue::RoutineAddr { .. } => false,
         };
         if !valid {
             self.diagnostics.push(NirDiagnostic::block(
@@ -1865,7 +1900,8 @@ impl NirVerifier {
                     | NirValue::ConstU16(_)
                     | NirValue::StaticAddr { .. }
                     | NirValue::Param(_)
-                    | NirValue::GlobalAddr(_) => None,
+                    | NirValue::GlobalAddr(_)
+                    | NirValue::RoutineAddr { .. } => None,
                 };
                 if let Some(value_type) = value_type
                     && value_type != &temp.ty
@@ -2101,6 +2137,7 @@ fn value_matches_type(value: &NirValue, expected: &NirType) -> bool {
     match value {
         NirValue::ConstU8(_) => expected.width == Some(1),
         NirValue::ConstU16(_) => expected.width == Some(2),
+        NirValue::RoutineAddr { .. } => expected.width == Some(2),
         NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty == expected,
         NirValue::Param(_) | NirValue::GlobalAddr(_) => false,
     }

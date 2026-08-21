@@ -217,7 +217,6 @@ routine r8 Main
 b0 bb36:
   store.b global g1+0, #$00
   v0 =.w routine_addr r0
-  v1 =.w v0
-  call r7 args=[v1.w -> a:x, #$00.b -> y, #$03.b -> fixed_zp $A3] result=v3.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
-  store.b global g2+0, v3
+  call r7 args=[v0.w -> a:x, #$00.b -> y, #$03.b -> fixed_zp $A3] result=v2.b <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  store.b global g2+0, v2
   return

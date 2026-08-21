@@ -135,6 +135,10 @@ pub struct BuiltinId(pub u32);
 String names should not be executable identity in verifier-clean NIR. A printer
 may map IDs back to labels and names for readability.
 
+Routine addresses are carried as `NirValue::RoutineAddr` with a stable routine
+ID. They are not encoded as `AddrOf` on a name-bearing or synthetic global
+place. MIR6502 maps that value directly to its routine-address form.
+
 ## Types
 
 NIR types should preserve the machine-relevant semantic facts from SemIR:

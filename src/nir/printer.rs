@@ -692,6 +692,7 @@ fn value_summary(value: &NirValue) -> String {
         NirValue::Temp { id, .. } => temp_summary(*id),
         NirValue::Param(id) => format!("param{}", id.0),
         NirValue::GlobalAddr(id) => format!("global_addr{}", id.0),
+        NirValue::RoutineAddr { id, name } => format!("routine_addr{id}({name})"),
     }
 }
 

@@ -9,8 +9,7 @@ b0 bb0:
 
 routine r1 Main
 b0 bb1:
-  v0 =.w routine_addr r0
-  store.w global g1+0, v0
-  call indirect v0.w args=[] result=v1.w <- return+0 clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
-  store.w global g2+0, v1
+  store.w global g1+0, routine_addr r0
+  call indirect routine_addr r0.w args=[] result=v0.w <- return+0 clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=?,reads=unknown,writes=unknown,clobbers=a|x|y|flags
+  store.w global g2+0, v0
   return

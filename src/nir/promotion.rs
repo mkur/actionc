@@ -501,7 +501,7 @@ fn coerce_to_home_type(
         }
         NirValue::ConstU8(_) | NirValue::ConstU16(_) => return Some(value),
         NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty.clone(),
-        NirValue::Param(_) | NirValue::GlobalAddr(_) => return None,
+        NirValue::Param(_) | NirValue::GlobalAddr(_) | NirValue::RoutineAddr { .. } => return None,
     };
     if actual == context.ty {
         return Some(value);

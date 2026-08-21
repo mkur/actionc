@@ -1,0 +1,20 @@
+PROC Main()
+  BYTE value
+  CARD address
+  value=1
+  BEGIN
+    BYTE value
+    value=2
+    BEGIN
+      BYTE value
+      value=3
+      address=@value
+      ASM
+        lda value
+        sta value
+      ENDASM
+    END
+    value=4
+  END
+  value=5
+RETURN

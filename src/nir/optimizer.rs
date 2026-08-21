@@ -168,7 +168,10 @@ fn uniform_value_dominates(
     dominance: &NirDominance,
 ) -> bool {
     match value {
-        NirValue::ConstU8(_) | NirValue::ConstU16(_) | NirValue::StaticAddr { .. } => true,
+        NirValue::ConstU8(_)
+        | NirValue::ConstU16(_)
+        | NirValue::StaticAddr { .. }
+        | NirValue::RoutineAddr { .. } => true,
         NirValue::Temp { id, .. } => routine
             .temps
             .iter()
@@ -480,7 +483,10 @@ impl NirDataflowProblem for NirValuePropagationProblem<'_> {
                     | NirValue::StaticAddr { .. }
                     | NirValue::Temp { .. }
                     | NirValue::Param(_)
-                    | NirValue::GlobalAddr(_) => then_edge.target == to || else_edge.target == to,
+                    | NirValue::GlobalAddr(_)
+                    | NirValue::RoutineAddr { .. } => {
+                        then_edge.target == to || else_edge.target == to
+                    }
                 }
             }
             NirTerminator::Open
@@ -875,7 +881,8 @@ fn const_u16(value: &NirValue) -> Option<u16> {
         NirValue::StaticAddr { .. }
         | NirValue::Temp { .. }
         | NirValue::Param(_)
-        | NirValue::GlobalAddr(_) => None,
+        | NirValue::GlobalAddr(_)
+        | NirValue::RoutineAddr { .. } => None,
     }
 }
 

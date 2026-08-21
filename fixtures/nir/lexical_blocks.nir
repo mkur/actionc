@@ -1,0 +1,17 @@
+nir program
+
+routine Main params=[-] locals=[value, address, value, value]
+  local value: Byte
+  local address: Card
+  local value: Byte
+  local value: Byte
+bb0:
+  store value = 1
+  store value = 2
+  store value = 3
+  %t0:Byte* = addr value
+  store address = %t0
+  inline-asm bytes=6 relocations=2 effects=reads:local3+0:1 writes:local3+0:1
+  store value = 4
+  store value = 5
+  return

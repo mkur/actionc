@@ -960,14 +960,6 @@ fn lower_ops(
                     ));
                     continue;
                 };
-                if let Some(routine_id) = routine_address_place(place, routine_ids) {
-                    lowered.push(MirOp::Move {
-                        dst: MirDef::VTemp(MirTempId(dest.0)),
-                        src: MirValue::RoutineAddr(routine_id),
-                        width,
-                    });
-                    continue;
-                }
                 let Some(target) = lower_place_mem(routine, block, place, diagnostics) else {
                     continue;
                 };
@@ -2856,16 +2848,6 @@ fn lower_place_mem(
     }
 }
 
-fn routine_address_place(
-    place: &NirPlace,
-    routine_ids: &BTreeMap<&str, RoutineId>,
-) -> Option<RoutineId> {
-    match &place.kind {
-        NirPlaceKind::Global { name, .. } => routine_ids.get(name.as_str()).copied(),
-        _ => None,
-    }
-}
-
 fn unsupported_place(
     routine: &str,
     block: &str,
@@ -2911,7 +2893,8 @@ fn value_is_signed(value: &NirValueKind) -> bool {
         NirValueKind::ConstU8(_)
         | NirValueKind::ConstU16(_)
         | NirValueKind::Param(_)
-        | NirValueKind::GlobalAddr(_) => false,
+        | NirValueKind::GlobalAddr(_)
+        | NirValueKind::RoutineAddr { .. } => false,
     }
 }
 
@@ -2978,6 +2961,7 @@ fn value_width(value: &NirValueKind) -> Option<MirWidth> {
         NirValueKind::ConstU8(_) => Some(MirWidth::Byte),
         NirValueKind::ConstU16(_) => Some(MirWidth::Word),
         NirValueKind::Temp { ty, .. } | NirValueKind::StaticAddr { ty, .. } => mir_width(ty),
+        NirValueKind::RoutineAddr { .. } => Some(MirWidth::Word),
         NirValueKind::Param(_) | NirValueKind::GlobalAddr(_) => None,
     }
 }
@@ -2994,6 +2978,7 @@ fn lower_value(
         MirValueShape::Temp(id) => Some(MirValue::Def(MirDef::VTemp(MirTempId(id.0)))),
         MirValueShape::StaticAddress(id) => Some(MirValue::StaticAddr(id)),
         MirValueShape::GlobalAddress(id) => Some(MirValue::GlobalAddr(id)),
+        MirValueShape::RoutineAddress(id) => Some(MirValue::RoutineAddr(RoutineId(id))),
         MirValueShape::ParamValue(id) => {
             diagnostics.push(MirDiagnostic::block(
                 routine,
