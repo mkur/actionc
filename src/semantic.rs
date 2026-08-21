@@ -35,6 +35,7 @@ pub struct SemanticModel {
     /// nodes. Codegen and SemIR lowering must not depend on this side table.
     pub expression_observations: Vec<ExpressionObservation>,
     pub routine_scopes: Vec<RoutineScope>,
+    pub lexical_blocks: Vec<SemanticLexicalBlock>,
     pub array_symbols: HashSet<SymbolId>,
     pub fields: Vec<SemanticField>,
     pub field_lookup: HashMap<String, HashMap<String, FieldId>>,
@@ -91,6 +92,16 @@ impl SemanticModel {
 
     pub fn resolve_name(&self, scope: ScopeId, name: &QualifiedName) -> SemanticNameResolution {
         resolve_semantic_name(&self.symbols, &self.modules, scope, name)
+    }
+
+    pub fn lexical_block(
+        &self,
+        routine: SymbolId,
+        syntax_id: LexicalBlockSyntaxId,
+    ) -> Option<&SemanticLexicalBlock> {
+        self.lexical_blocks
+            .iter()
+            .find(|block| block.routine == routine && block.syntax_id == syntax_id)
     }
 }
 
@@ -168,6 +179,18 @@ pub struct RoutineScope {
     pub module: Option<ModuleId>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemanticLexicalBlock {
+    pub syntax_id: LexicalBlockSyntaxId,
+    pub scope: ScopeId,
+    pub parent: ScopeId,
+    pub routine: SymbolId,
+    pub module: Option<ModuleId>,
+    pub depth: usize,
+    pub ordinal: u32,
+    pub span: Span,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FieldId(pub usize);
 
@@ -210,6 +233,7 @@ pub enum ScopeKind {
     Global,
     Module(ModuleId),
     Routine,
+    LexicalBlock,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -334,11 +358,15 @@ pub struct StmtFlowFacts {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SemanticOptions {
     pub native_real: bool,
+    pub lexical_blocks: bool,
 }
 
 impl SemanticOptions {
     pub const fn modern() -> Self {
-        Self { native_real: true }
+        Self {
+            native_real: true,
+            lexical_blocks: true,
+        }
     }
 }
 
@@ -402,6 +430,7 @@ impl Analyzer {
             modules: self.modules,
             expression_observations: self.expression_observations,
             routine_scopes: self.routine_scopes,
+            lexical_blocks: self.lexical_blocks,
             array_symbols: self.array_symbols,
             fields: self.fields,
             field_lookup: self.field_lookup,
@@ -422,11 +451,14 @@ struct Analyzer {
     modules: Vec<SemanticModuleScope>,
     active_module: Option<ModuleId>,
     active_routine: Option<String>,
+    active_routine_symbol: Option<SymbolId>,
+    active_lexical_path: Vec<u32>,
     routines: HashMap<String, SemanticCallableSignature>,
     routines_by_symbol: HashMap<SymbolId, SemanticCallableSignature>,
     static_initializer_targets: HashMap<String, SymbolClass>,
     retargeted_routine_names: HashSet<String>,
     routine_scopes: Vec<RoutineScope>,
+    lexical_blocks: Vec<SemanticLexicalBlock>,
     array_symbols: HashSet<SymbolId>,
     fields: Vec<SemanticField>,
     field_lookup: HashMap<String, HashMap<String, FieldId>>,
@@ -487,11 +519,14 @@ impl Analyzer {
             modules: Vec::new(),
             active_module: None,
             active_routine: None,
+            active_routine_symbol: None,
+            active_lexical_path: Vec::new(),
             routines: HashMap::new(),
             routines_by_symbol: HashMap::new(),
             static_initializer_targets: HashMap::new(),
             retargeted_routine_names: HashSet::new(),
             routine_scopes: Vec::new(),
+            lexical_blocks: Vec::new(),
             array_symbols: HashSet::new(),
             fields: Vec::new(),
             field_lookup: HashMap::new(),
@@ -1197,11 +1232,14 @@ impl Analyzer {
     ) {
         let previous_module = self.active_module;
         let previous_routine = self.active_routine.replace(routine.name.clone());
+        let previous_routine_symbol = self.active_routine_symbol;
+        let previous_lexical_path = std::mem::take(&mut self.active_lexical_path);
         self.active_module = module;
         let routine_scope = self
             .symbols
             .add_scope(ScopeKind::Routine, Some(parent_scope));
         let symbol = self.symbols.lookup_exact(parent_scope, &routine.name);
+        self.active_routine_symbol = symbol;
         self.routine_scopes.push(RoutineScope {
             name: routine.name.clone(),
             scope: routine_scope,
@@ -1224,16 +1262,18 @@ impl Analyzer {
         self.validate_routine_return_paths(routine);
         self.active_module = previous_module;
         self.active_routine = previous_routine;
+        self.active_routine_symbol = previous_routine_symbol;
+        self.active_lexical_path = previous_lexical_path;
     }
 
     fn analyze_stmt(&mut self, scope: ScopeId, stmt: &Stmt, context: ControlContext<'_>) {
         match stmt {
-            Stmt::LexicalBlock { span, .. } => {
-                self.diagnostics.push(Diagnostic::new(
-                    *span,
-                    "lexical blocks require Action 2027 semantic support",
-                ));
-            }
+            Stmt::LexicalBlock {
+                syntax_id,
+                declarations,
+                body,
+                span,
+            } => self.analyze_lexical_block(scope, *syntax_id, declarations, body, *span, context),
             Stmt::Define(define) => self.analyze_define(scope, define),
             Stmt::Return(expr) => self.validate_return(scope, expr.as_ref(), context.routine_kind),
             Stmt::Exit { span } if context.loop_depth == 0 => {
@@ -1408,6 +1448,53 @@ impl Analyzer {
             }
             Stmt::Exit { .. } | Stmt::Unsupported { .. } => {}
         }
+    }
+
+    fn analyze_lexical_block(
+        &mut self,
+        parent: ScopeId,
+        syntax_id: LexicalBlockSyntaxId,
+        declarations: &[Decl],
+        body: &[Stmt],
+        span: Span,
+        context: ControlContext<'_>,
+    ) {
+        if !self.options.lexical_blocks {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                "lexical blocks require the modern profile",
+            ));
+            return;
+        }
+
+        let scope = self
+            .symbols
+            .add_scope(ScopeKind::LexicalBlock, Some(parent));
+        let depth = self.active_lexical_path.len() + 1;
+        if let Some(routine) = self.active_routine_symbol {
+            self.lexical_blocks.push(SemanticLexicalBlock {
+                syntax_id,
+                scope,
+                parent,
+                routine,
+                module: self.active_module,
+                depth,
+                ordinal: syntax_id.0,
+                span,
+            });
+        } else {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                "lexical blocks are only allowed inside routines",
+            ));
+        }
+
+        self.active_lexical_path.push(syntax_id.0);
+        for declaration in declarations {
+            self.analyze_decl(scope, declaration, false);
+        }
+        self.analyze_statements(scope, body, context);
+        self.active_lexical_path.pop();
     }
 
     fn analyze_statements(
@@ -3424,6 +3511,7 @@ impl Analyzer {
         let result = if let Some(module_id) = self.active_module {
             let module = &self.modules[module_id.0 as usize];
             let owner = self.active_routine.as_deref().unwrap_or("<module>");
+            let lexical_path = self.lexical_identity_path();
             self.symbols.declare_with_identity(
                 scope,
                 name.clone(),
@@ -3433,12 +3521,38 @@ impl Analyzer {
                 Some(module_id),
                 Visibility::Private,
                 format!(
-                    "{}::{}::{}",
+                    "{}::{}{}::{}",
                     module.path.canonical_name(),
                     owner.to_ascii_lowercase(),
+                    lexical_path.0,
                     name.to_ascii_lowercase()
                 ),
-                format!("{}.{}.{}", module.path.display_name(), owner, name),
+                format!(
+                    "{}.{}{}.{}",
+                    module.path.display_name(),
+                    owner,
+                    lexical_path.1,
+                    name
+                ),
+            )
+        } else if !self.active_lexical_path.is_empty() {
+            let owner = self.active_routine.as_deref().unwrap_or("<routine>");
+            let lexical_path = self.lexical_identity_path();
+            self.symbols.declare_with_identity(
+                scope,
+                name.clone(),
+                class,
+                ty,
+                span,
+                None,
+                Visibility::Private,
+                format!(
+                    "{}{}::{}",
+                    owner.to_ascii_lowercase(),
+                    lexical_path.0,
+                    name.to_ascii_lowercase()
+                ),
+                format!("{}{}.{}", owner, lexical_path.1, name),
             )
         } else {
             self.symbols.declare(scope, name.clone(), class, ty, span)
@@ -3457,6 +3571,20 @@ impl Analyzer {
                 None
             }
         }
+    }
+
+    fn lexical_identity_path(&self) -> (String, String) {
+        let canonical = self
+            .active_lexical_path
+            .iter()
+            .map(|ordinal| format!("::block{ordinal}"))
+            .collect::<String>();
+        let display = self
+            .active_lexical_path
+            .iter()
+            .map(|ordinal| format!(".block{ordinal}"))
+            .collect::<String>();
+        (canonical, display)
     }
 }
 
@@ -3567,7 +3695,7 @@ impl SymbolTable {
             let current_scope = self.scopes.get(scope_id.0)?;
             if let Some(id) = self.lookup_exact(scope_id, name) {
                 let stage = match current_scope.kind {
-                    ScopeKind::Routine => LookupStage::Local,
+                    ScopeKind::Routine | ScopeKind::LexicalBlock => LookupStage::Local,
                     ScopeKind::Module(_) => LookupStage::Module,
                     ScopeKind::Global => LookupStage::Global,
                     ScopeKind::Builtin => LookupStage::Builtin,
@@ -5050,14 +5178,190 @@ mod tests {
     }
 
     #[test]
-    fn gates_parsed_lexical_blocks_before_semantic_support() {
+    fn compatibility_profile_rejects_lexical_blocks() {
         let diagnostics =
             analyze_source_err("PROC Main()\nBEGIN\nBYTE value\nvalue=1\nEND\nRETURN\n");
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic
                 .message
-                .contains("lexical blocks require Action 2027 semantic support")
+                .contains("lexical blocks require the modern profile")
         }));
+    }
+
+    #[test]
+    fn modern_lexical_blocks_create_child_scopes_and_distinct_shadow_symbols() {
+        let model = analyze_modern_source(
+            "BYTE value\n\
+             PROC Main(BYTE param)\n\
+             BYTE value\n\
+             BEGIN\n\
+               CARD value\n\
+               BYTE param, Print\n\
+               value=1000\n\
+               BEGIN\n\
+                 BYTE value\n\
+                 value=2\n\
+               END\n\
+             END\n\
+             value=1\n\
+             RETURN\n",
+        );
+
+        let routine = &model.routine_scopes[0];
+        assert_eq!(model.lexical_blocks.len(), 2);
+        let outer = &model.lexical_blocks[0];
+        let inner = &model.lexical_blocks[1];
+        assert_eq!(outer.parent, routine.scope);
+        assert_eq!(inner.parent, outer.scope);
+        assert_eq!(outer.depth, 1);
+        assert_eq!(inner.depth, 2);
+        assert_eq!(
+            model.symbols.scopes[outer.scope.0].kind,
+            ScopeKind::LexicalBlock
+        );
+
+        let routine_value = model.symbols.lookup_exact(routine.scope, "value").unwrap();
+        let outer_value = model.symbols.lookup_exact(outer.scope, "value").unwrap();
+        let inner_value = model.symbols.lookup_exact(inner.scope, "value").unwrap();
+        assert_ne!(routine_value, outer_value);
+        assert_ne!(outer_value, inner_value);
+        assert_eq!(
+            model.symbols.lookup(inner.scope, "value"),
+            Some(inner_value)
+        );
+        assert_eq!(
+            model.symbols.lookup(outer.scope, "value"),
+            Some(outer_value)
+        );
+        assert_eq!(
+            model.symbols.lookup(routine.scope, "value"),
+            Some(routine_value)
+        );
+        assert_ne!(
+            model.symbols.symbols[outer_value.0].canonical_qualified_key,
+            model.symbols.symbols[inner_value.0].canonical_qualified_key
+        );
+
+        let block_param = model.symbols.lookup_exact(outer.scope, "param").unwrap();
+        let routine_param = model.symbols.lookup_exact(routine.scope, "param").unwrap();
+        assert_ne!(block_param, routine_param);
+        assert_eq!(
+            model
+                .symbols
+                .resolve_action_name(outer.scope, "Print")
+                .unwrap()
+                .stage,
+            LookupStage::Local
+        );
+    }
+
+    #[test]
+    fn sibling_lexical_blocks_may_reuse_names_but_completed_names_do_not_leak() {
+        let model = analyze_modern_source(
+            "PROC Main()\n\
+             BEGIN\nBYTE item\nitem=1\nEND\n\
+             BEGIN\nCARD item\nitem=2\nEND\n\
+             RETURN\n",
+        );
+        let first = &model.lexical_blocks[0];
+        let second = &model.lexical_blocks[1];
+        assert_eq!(first.parent, second.parent);
+        assert_ne!(
+            model.symbols.lookup_exact(first.scope, "item"),
+            model.symbols.lookup_exact(second.scope, "item")
+        );
+
+        let diagnostics = analyze_modern_source_err(
+            "PROC Main()\nBEGIN\nBYTE hidden\nhidden=1\nEND\nhidden=2\nRETURN\n",
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("undefined symbol `hidden`"))
+        );
+    }
+
+    #[test]
+    fn lexical_block_duplicates_remain_case_insensitive() {
+        let diagnostics =
+            analyze_modern_source_err("PROC Main()\nBEGIN\nBYTE Value\nCARD value\nEND\nRETURN\n");
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("duplicate symbol `value`"))
+        );
+    }
+
+    #[test]
+    fn shadowed_block_record_types_have_distinct_identities() {
+        let model = analyze_modern_source(
+            "PROC Main()\n\
+             BEGIN\n\
+               TYPE Pair=[BYTE field]\n\
+               Pair outer\n\
+               BEGIN\n\
+                 TYPE Pair=[CARD field]\n\
+                 Pair inner\n\
+               END\n\
+             END\n\
+             RETURN\n",
+        );
+        let outer = &model.lexical_blocks[0];
+        let inner = &model.lexical_blocks[1];
+        let outer_type = model.symbols.lookup_exact(outer.scope, "Pair").unwrap();
+        let inner_type = model.symbols.lookup_exact(inner.scope, "Pair").unwrap();
+        assert_ne!(outer_type, inner_type);
+        assert_ne!(
+            model.symbols.symbols[outer_type.0].qualified_name,
+            model.symbols.symbols[inner_type.0].qualified_name
+        );
+        assert_ne!(model.fields[0].owner, model.fields[1].owner);
+        assert_ne!(model.fields[0].ty, model.fields[1].ty);
+    }
+
+    #[test]
+    fn lexical_blocks_preserve_return_and_exit_context() {
+        analyze_modern_source("BYTE FUNC F()\nBEGIN\nRETURN(1)\nEND\n");
+        analyze_modern_source("PROC Main()\nWHILE 1 DO\nBEGIN\nEXIT\nEND\nOD\nRETURN\n");
+        let diagnostics = analyze_modern_source_err("PROC Main()\nBEGIN\nEXIT\nEND\nRETURN\n");
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("EXIT outside loop"))
+        );
+    }
+
+    #[test]
+    fn named_module_lookup_reaches_aliases_through_lexical_scopes() {
+        let compilation = load_named_sources(&[
+            (
+                "project/dep.act",
+                "MODULE DEP\nPUBLIC BYTE value\nENDMODULE\n",
+            ),
+            (
+                "project/main.act",
+                "MODULE MAIN\n\
+                 USE DEP AS D\n\
+                 PROC Main()\n\
+                 BYTE result\n\
+                 BEGIN\n\
+                   BYTE value\n\
+                   result=D.value\n\
+                 END\n\
+                 RETURN\n\
+                 ENDMODULE\n",
+            ),
+        ]);
+        let model = analyze_compilation_with_options(&compilation, SemanticOptions::modern())
+            .expect("modern named-module lexical scope");
+        let block = &model.lexical_blocks[0];
+        let value = model.symbols.lookup_exact(block.scope, "value").unwrap();
+        assert_eq!(model.symbols.symbols[value.0].defining_module, block.module);
+        assert!(
+            model.symbols.symbols[value.0]
+                .canonical_qualified_key
+                .contains("::block0::value")
+        );
     }
 
     #[test]
