@@ -563,13 +563,14 @@ fn storage_symbol_base(symbol: &crate::codegen::CodegenStorageSymbol) -> String 
         }
         CodegenSymbolScope::Routine(routine) => {
             let routine = routine_symbol_component(routine);
-            let name = runtime_symbol_component(&symbol.name)
+            let display_name = strip_routine_lexical_prefix(&symbol.name, &routine);
+            let name = runtime_symbol_component(display_name)
                 .and_then(|name| {
                     name.strip_prefix(&routine)
                         .and_then(|name| name.strip_prefix('_'))
                         .map(str::to_string)
                 })
-                .unwrap_or_else(|| sanitize_mads_component(&symbol.name));
+                .unwrap_or_else(|| sanitize_mads_component(display_name));
             match symbol.kind {
                 CodegenSymbolKind::Parameter => format!("param_{routine}_{name}"),
                 CodegenSymbolKind::Local if name.starts_with("spill") => {
@@ -579,6 +580,17 @@ fn storage_symbol_base(symbol: &crate::codegen::CodegenStorageSymbol) -> String 
                 CodegenSymbolKind::Storage => format!("storage_{routine}_{name}"),
             }
         }
+    }
+}
+
+fn strip_routine_lexical_prefix<'a>(name: &'a str, routine: &str) -> &'a str {
+    let Some((prefix, rest)) = name.split_once("::") else {
+        return name;
+    };
+    if prefix.eq_ignore_ascii_case(routine) {
+        rest
+    } else {
+        name
     }
 }
 

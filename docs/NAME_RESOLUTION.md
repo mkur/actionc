@@ -1,11 +1,11 @@
 # Name Resolution And Symbol Binding
 
-This note records the name-resolution rules we currently believe Action! uses
-and the direction `actionc` should take while moving toward semantic IR.
+This note records the name-resolution rules implemented by `actionc`, together
+with the original Action! lookup evidence on which the compatibility behavior
+is based.
 
-The goal is deliberately narrow: every identifier use should eventually point
-to exactly one declaration, or to an explicit unresolved/error placeholder. This
-note documents the rules before changing compiler behavior.
+The invariant is deliberately narrow: every identifier use points to exactly
+one declaration, or to an explicit unresolved/error placeholder.
 
 ## Evidence Level
 
@@ -54,9 +54,20 @@ Examples:
 
 ## Scope Order
 
-Inside a routine body, local scope wins over global scope. The local scope
-contains parameters and declarations after the routine header, including local
+Inside a routine body, lookup proceeds through every active explicit lexical
+block from innermost to outermost, then through the routine scope, global or
+module scope, and finally the resident library. The routine scope contains
+parameters and declarations after the routine header, including routine-local
 `DEFINE`, `CONST`, `TYPE`, and `RECORD` declarations.
+
+An explicit modern-profile `BEGIN`/`END` block creates exactly one child scope.
+Declarations in its prefix may shadow any outer user or resident-library name.
+After `END`, lookup resumes in the parent scope. Sibling blocks do not see one
+another's declarations. Duplicate names in the same scope remain errors.
+
+Control-flow syntax does not create an implicit scope: `IF`, `ELSE`, loop, and
+similar bodies use their surrounding scope unless the body contains an explicit
+`BEGIN`/`END` block.
 
 At global/module level, only the global scope is searched before the resident
 library.
@@ -90,6 +101,10 @@ implementation detail of the original compiler.
 For semantic analysis, `actionc` should still create a separate stable routine
 scope for every routine. Symbol IDs should remain stable even if the original
 compiler would discard a previous routine's local symbol-table entries.
+
+Explicit lexical visibility does not change Action!'s storage model. A block
+local has statically allocated routine storage, so an address taken inside the
+block remains valid after `END`; only the source name becomes unavailable.
 
 ## Defines
 
@@ -187,7 +202,7 @@ routine assignment.
 
 ## Desired `actionc` Invariant
 
-Eventually, every identifier use in semantic IR should be one of:
+Every identifier use in semantic IR is one of:
 
 - `Resolved(SymbolId)` with source span and use kind;
 - `ResolvedField(record/type id, field id)` for record fields;
@@ -196,13 +211,14 @@ Eventually, every identifier use in semantic IR should be one of:
 Codegen should not perform ordinary source-name lookup. It should consume bound
 symbols, field descriptors, types, layout facts, and resident-library metadata.
 
-## Immediate Next Step
+## Implemented Invariant
 
-Before changing lowering, add tests around the documented lookup order:
+Every executable identifier is resolved before backend lowering. Lexical
+declarations have stable semantic symbol IDs and distinct NIR local IDs;
+readable paths such as `Main::block0::value` are display metadata only. Neither
+MIR6502 nor classic code generation re-runs source name lookup.
 
-- local variable shadows global variable;
-- user global shadows resident-library name;
-- local define/type/record names bind before global names;
-- type name in value context is bound but rejected by context validation;
-- record fields resolve through the base type, not global scope;
-- unresolved names produce one diagnostic and one explicit unresolved use.
+Regression coverage includes local/global/library shadowing, block-local
+constants and types, record-field resolution, out-of-scope diagnostics,
+address escape, inline assembler, and duplicate spellings backed by distinct
+storage identities.

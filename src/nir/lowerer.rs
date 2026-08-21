@@ -270,7 +270,7 @@ impl NirLowerer {
                             }
                             builder.locals.push(NirLocal {
                                 id: LocalId(index as u32),
-                                name: local.symbol.name.clone(),
+                                name: semantic_local_display_name(&local.symbol),
                                 kind: declaration_kind(local),
                                 storage: declaration_storage_class(&local.storage),
                                 ty: NirFacts::type_from_value(&local.ty.value),
@@ -287,7 +287,10 @@ impl NirLowerer {
                             });
                             local_alias_targets.insert(
                                 local.symbol.id,
-                                (LocalId(index as u32), local.symbol.name.clone()),
+                                (
+                                    LocalId(index as u32),
+                                    semantic_local_display_name(&local.symbol),
+                                ),
                             );
                         }
                         if let Some(return_type) = routine.callable_type.return_type.as_ref() {
@@ -1902,7 +1905,7 @@ impl NirBuilder {
                 }
                 NirLocalBacking::Ordinary | NirLocalBacking::Alias { .. } => NirPlaceKind::Local {
                     id: local.id,
-                    name: symbol.name.clone(),
+                    name: local.name.clone(),
                 },
             };
             return NirPlace { kind, ty };
@@ -3037,6 +3040,13 @@ fn declaration_has_storage(declaration: &SemDeclaration) -> bool {
         declaration.storage,
         SemDeclarationStorage::Scalar | SemDeclarationStorage::Array { .. }
     )
+}
+
+fn semantic_local_display_name(symbol: &SemSymbolRef) -> String {
+    symbol
+        .lexical_display_name
+        .clone()
+        .unwrap_or_else(|| symbol.name.clone())
 }
 
 fn storage_alias_initializer_expr(expr: &SemExpr) -> Option<(&SemSymbolRef, u16)> {
@@ -4283,6 +4293,7 @@ mod memory_effect_tests {
             defining_module: None,
             canonical_qualified_key: "X".to_string(),
             qualified_name: "x".to_string(),
+            lexical_display_name: None,
             class: SymbolClass::Var,
             ty: None,
             is_volatile: false,

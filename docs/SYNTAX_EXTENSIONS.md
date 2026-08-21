@@ -357,6 +357,50 @@ Macros, conditional assembly, repetition, include/output directives, data
 directives, illegal opcodes, and 65C02/65816 instructions are not part of this
 initial subset. Keep static data in Action! arrays.
 
+## Explicit Lexical Blocks
+
+The modern profile supports nestable, line-delimited `BEGIN`/`END` blocks:
+
+```action
+PROC Main()
+  BYTE value
+
+  value=1
+  BEGIN
+    CARD value
+
+    value=1000
+  END
+
+  ; BYTE value is visible again.
+RETURN
+```
+
+Each explicit block creates one lexical scope. Its declarations form a prefix:
+all declarations must appear before the first executable statement. A block may
+shadow names from an outer block, the routine, a module/global scope, or the
+resident library. Lookup after `END` resumes in the parent scope, and sibling
+blocks cannot see one another's declarations.
+
+Supported block declarations include scalar and array storage, pointers,
+`VOLATILE` and absolute storage, storage aliases, native `REAL`, `CONST`,
+`TYPE`, and `RECORD`. Block-local `DEFINE` is not supported because source-text
+expansion requires its own scoped parser environment.
+
+An `IF`, loop, or other control-flow body does not create a scope by itself; put
+an explicit block inside it when local declarations or shadowing are wanted.
+Lexical visibility also does not imply stack allocation. Block locals retain
+Action!'s static routine-storage lifetime, so an address may escape the block
+even though the declaration's name is no longer visible.
+
+`BEGIN` and `END` are contextual words rather than lexer keywords. They remain
+legal ordinary identifier spellings in compatibility source. A lexical block
+is a modern-profile feature and is rejected by the compatibility profile with a
+focused diagnostic.
+
+See [samples/lexical-blocks.act](../samples/lexical-blocks.act) for nested
+shadowing, a block-local type, a branch-local block, and address escape.
+
 ## Compatibility Policy
 
 These extensions are accepted by `actionc`, but they are not proof that the

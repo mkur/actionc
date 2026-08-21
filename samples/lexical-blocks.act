@@ -1,0 +1,45 @@
+; Action 2027 explicit lexical blocks.
+;
+; BEGIN/END creates a source scope while preserving Action!'s static routine
+; storage. Nested declarations may shadow outer names, and an escaped address
+; remains valid after the declaration leaves source scope.
+
+BYTE outerResult, recordResult, nestedResult, branchResult, escapedResult
+BYTE POINTER escaped
+
+PROC Main()
+  BYTE value
+
+  value=1
+  BEGIN
+    TYPE Cell=[BYTE tag CARD payload]
+    Cell item
+    CARD value
+
+    value=$1234
+    item.tag=BYTE(value)
+    item.payload=value
+    recordResult=item.tag
+
+    BEGIN
+      BYTE value
+
+      value=3
+      nestedResult=value
+      escaped=@value
+    END
+  END
+
+  outerResult=value
+  escaped^=4
+  escapedResult=escaped^
+
+  IF value=1 THEN
+    BEGIN
+      BYTE branchValue
+
+      branchValue=5
+      branchResult=branchValue
+    END
+  FI
+RETURN

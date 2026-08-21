@@ -1,0 +1,48 @@
+; Runtime proof for explicit lexical storage identity.
+
+BYTE outerBefore=$0600
+BYTE firstBlock=$0601
+BYTE nestedBlock=$0602
+BYTE firstRestored=$0603
+BYTE outerRestored=$0604
+BYTE siblingBlock=$0605
+BYTE outerAfterSibling=$0606
+BYTE signature=$0607
+
+PROC Main()
+  BYTE value
+
+  value=10
+  outerBefore=value
+
+  BEGIN
+    BYTE value
+
+    value=20
+    firstBlock=value
+
+    BEGIN
+      BYTE value
+
+      value=30
+      nestedBlock=value
+    END
+
+    firstRestored=value
+  END
+
+  outerRestored=value
+
+  BEGIN
+    BYTE value
+
+    value=40
+    siblingBlock=value
+  END
+
+  outerAfterSibling=value
+  signature=$A5
+
+  DO
+  OD
+RETURN

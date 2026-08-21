@@ -7532,6 +7532,8 @@ mod tests {
         let dump = ir::format_program(&semir);
         assert!(dump.contains("lexical-block syntax=0"));
         assert!(dump.contains("lexical-block syntax=1"));
+        assert!(dump.contains("Main::block0::value"));
+        assert!(dump.contains("Main::block0::block1::value"));
     }
 
     #[test]

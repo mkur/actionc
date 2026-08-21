@@ -28,6 +28,31 @@ fn original_compiler_probe_sweep() {
 }
 
 #[test]
+#[ignore = "executes generated code with actionc-vm; use cargo test --test compatibility lexical_blocks_runtime_check -- --ignored"]
+fn lexical_blocks_runtime_check() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let script = repo_root
+        .join("fixtures")
+        .join("runtime")
+        .join("run-lexical-blocks-vm.sh");
+
+    let output = Command::new(&script)
+        .current_dir(repo_root)
+        .output()
+        .unwrap_or_else(|err| panic!("run {}: {err}", script.display()));
+
+    if !output.status.success() {
+        panic!(
+            "{} failed with status {}\nstdout:\n{}\nstderr:\n{}",
+            script.display(),
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
 #[ignore = "compiles the full TN source in legacy and modern profiles; use cargo test --test compatibility -- --ignored"]
 fn tn_stability_check() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));

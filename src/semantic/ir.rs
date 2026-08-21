@@ -95,6 +95,8 @@ pub struct SemSymbolRef {
     pub defining_module: Option<ModuleId>,
     pub canonical_qualified_key: String,
     pub qualified_name: String,
+    /// Readable lexical path retained as source metadata, never executable identity.
+    pub lexical_display_name: Option<String>,
     pub class: SymbolClass,
     pub ty: Option<ValueType>,
     pub is_volatile: bool,
@@ -1624,6 +1626,9 @@ fn symbol_summary(symbol: &SemSymbolRef) -> String {
 }
 
 fn symbol_display_name(symbol: &SemSymbolRef) -> &str {
+    if let Some(display_name) = &symbol.lexical_display_name {
+        return display_name;
+    }
     if symbol.defining_module.is_some() {
         &symbol.qualified_name
     } else {
@@ -3587,6 +3592,11 @@ impl<'a> IrBuilder<'a> {
             defining_module: symbol.defining_module,
             canonical_qualified_key: symbol.canonical_qualified_key.clone(),
             qualified_name: symbol.qualified_name.clone(),
+            lexical_display_name: matches!(
+                self.model.symbols.scopes[symbol.scope.0].kind,
+                crate::semantic::ScopeKind::LexicalBlock
+            )
+            .then(|| symbol.qualified_name.replace('.', "::")),
             class: symbol.class.clone(),
             ty: symbol.ty.clone(),
             is_volatile: symbol.is_volatile,
@@ -3616,6 +3626,7 @@ impl<'a> IrBuilder<'a> {
             defining_module: None,
             canonical_qualified_key: normalize_name(name),
             qualified_name: name.to_string(),
+            lexical_display_name: None,
             class,
             ty: None,
             is_volatile: false,

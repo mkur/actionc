@@ -130,6 +130,42 @@ fn lexical_blocks_compile_across_backends_and_runtimes() {
     }
 }
 
+#[test]
+fn lexical_block_listings_use_readable_scope_paths() {
+    let temp = TestDir::new();
+    for mode in ["optimized", "mir6502"] {
+        let object = temp.path().join(format!("lexical-{mode}.com"));
+        let listing = temp.path().join(format!("lexical-{mode}.lst"));
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+            .arg("--mode")
+            .arg(mode)
+            .arg("--runtime")
+            .arg("cart")
+            .arg("--output")
+            .arg(&object)
+            .arg("--listing")
+            .arg(&listing)
+            .arg(lexical_blocks_fixture())
+            .output()
+            .unwrap_or_else(|error| panic!("run lexical listing {mode}: {error}"));
+        assert!(
+            output.status.success(),
+            "lexical listing {mode} failed:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let listing = fs::read_to_string(listing).expect("read lexical block listing");
+        assert!(
+            listing.contains("local_main_block0_block1_value"),
+            "missing nested lexical path in {mode} listing:\n{listing}"
+        );
+        assert!(
+            !listing.contains("__lex"),
+            "internal projection name leaked into {mode} listing:\n{listing}"
+        );
+    }
+}
+
 #[cfg(feature = "experimental-named-modules")]
 #[test]
 fn repeatable_module_paths_are_used_by_compile_and_emit_commands() {

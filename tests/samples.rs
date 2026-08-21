@@ -3,7 +3,7 @@ use std::path::Path;
 
 use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use actionc::includes::load_program_with_includes;
-use actionc::semantic::analyze;
+use actionc::semantic::{SemanticOptions, analyze_with_options};
 
 #[test]
 fn parses_all_sample_programs() {
@@ -50,7 +50,8 @@ fn check_sample(path: &Path) {
     if is_action_source(path) {
         let program = load_program_with_includes(path)
             .unwrap_or_else(|err| panic!("load {} with includes: {err:?}", path.display()));
-        analyze(&program).unwrap_or_else(|err| panic!("analyze {}: {err:?}", path.display()));
+        analyze_with_options(&program, SemanticOptions::modern())
+            .unwrap_or_else(|err| panic!("analyze {}: {err:?}", path.display()));
     }
 }
 

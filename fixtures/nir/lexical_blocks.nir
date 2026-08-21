@@ -1,17 +1,17 @@
 nir program
 
-routine Main params=[-] locals=[value, address, value, value]
+routine Main params=[-] locals=[value, address, Main::block0::value, Main::block0::block1::value]
   local value: Byte
   local address: Card
-  local value: Byte
-  local value: Byte
+  local Main::block0::value: Byte
+  local Main::block0::block1::value: Byte
 bb0:
   store value = 1
-  store value = 2
-  store value = 3
-  %t0:Byte* = addr value
+  store Main::block0::value = 2
+  store Main::block0::block1::value = 3
+  %t0:Byte* = addr Main::block0::block1::value
   store address = %t0
   inline-asm bytes=6 relocations=2 effects=reads:local3+0:1 writes:local3+0:1
-  store value = 4
+  store Main::block0::value = 4
   store value = 5
   return

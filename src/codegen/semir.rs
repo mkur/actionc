@@ -15,6 +15,7 @@ use super::native_real::{
 pub(crate) struct ClassicProjection {
     pub(crate) program: Program,
     pub(crate) native_real: ClassicNativeRealFacts,
+    pub(crate) storage_display_names: BTreeMap<(String, String), String>,
 }
 
 pub(crate) fn semir_to_ast(program: &SemProgram) -> Result<Program, Vec<Diagnostic>> {
@@ -25,6 +26,7 @@ pub(crate) fn semir_to_projection(
     program: &SemProgram,
 ) -> Result<ClassicProjection, Vec<Diagnostic>> {
     let projection_names = classic_projection_names(program);
+    let storage_display_names = classic_storage_display_names(program, &projection_names);
     let mut lowerer = SemIrAstLowerer {
         diagnostics: Vec::new(),
         type_link_names: module_type_link_names(program, &projection_names),
@@ -38,6 +40,7 @@ pub(crate) fn semir_to_projection(
         Ok(ClassicProjection {
             program,
             native_real: lowerer.native_real,
+            storage_display_names,
         })
     } else {
         Err(lowerer.diagnostics)
@@ -49,6 +52,7 @@ pub(crate) fn semir_to_cart_projection(
 ) -> Result<ClassicProjection, Vec<Diagnostic>> {
     let addresses = cart_external_addresses(program)?;
     let projection_names = classic_projection_names(program);
+    let storage_display_names = classic_storage_display_names(program, &projection_names);
     let mut lowerer = SemIrAstLowerer {
         diagnostics: Vec::new(),
         type_link_names: module_type_link_names(program, &projection_names),
@@ -62,9 +66,27 @@ pub(crate) fn semir_to_cart_projection(
         Ok(ClassicProjection {
             program,
             native_real: lowerer.native_real,
+            storage_display_names,
         })
     } else {
         Err(lowerer.diagnostics)
+    }
+}
+
+pub(crate) fn apply_storage_display_names(
+    output: &mut crate::codegen::CodegenOutput,
+    display_names: &BTreeMap<(String, String), String>,
+) {
+    for symbol in &mut output.map.storage_symbols {
+        let crate::codegen::CodegenSymbolScope::Routine(routine) = &symbol.scope else {
+            continue;
+        };
+        if let Some(display) = display_names.get(&(
+            routine.to_ascii_uppercase(),
+            symbol.name.to_ascii_uppercase(),
+        )) {
+            symbol.name = display.clone();
+        }
     }
 }
 
@@ -1051,6 +1073,43 @@ fn classic_projection_names(program: &SemProgram) -> BTreeMap<SymbolId, String> 
     output
 }
 
+fn classic_storage_display_names(
+    program: &SemProgram,
+    projection_names: &BTreeMap<SymbolId, String>,
+) -> BTreeMap<(String, String), String> {
+    let mut output = BTreeMap::new();
+    for routine in program
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            SemItem::Routine(routine) => Some(routine),
+            _ => None,
+        })
+    {
+        visit_lexical_declarations(&routine.body, &mut |_, declaration| {
+            let Some(projected) = projection_names.get(&declaration.symbol.id) else {
+                return;
+            };
+            output.insert(
+                (
+                    routine.symbol.name.to_ascii_uppercase(),
+                    projected.to_ascii_uppercase(),
+                ),
+                lexical_symbol_display_name(&declaration.symbol),
+            );
+        });
+    }
+    output
+}
+
+fn lexical_symbol_display_name(symbol: &SemSymbolRef) -> String {
+    symbol
+        .lexical_display_name
+        .clone()
+        .unwrap_or_else(|| symbol.qualified_name.replace('.', "::"))
+}
+
 fn unique_lexical_name(ordinal: u32, source_name: &str, used: &mut BTreeSet<String>) -> String {
     let base = format!("__lex{ordinal}_{source_name}");
     let mut candidate = base.clone();
@@ -1767,13 +1826,23 @@ mod tests {
                 matches!(
                     &symbol.scope,
                     crate::codegen::CodegenSymbolScope::Routine(name) if name == "Main"
-                ) && local_names
-                    .iter()
-                    .any(|name| name.eq_ignore_ascii_case(&symbol.name))
+                ) && matches!(
+                    symbol.name.rsplit("::").next(),
+                    Some(name) if name.eq_ignore_ascii_case("value")
+                        || name.eq_ignore_ascii_case("scratch")
+                )
             })
             .map(|symbol| symbol.address)
             .collect::<BTreeSet<_>>();
         assert_eq!(addresses.len(), local_names.len());
+        assert!(output.map.storage_symbols.iter().any(|symbol| {
+            symbol.name == "Main::block0::value"
+                && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Main".to_string())
+        }));
+        assert!(output.map.storage_symbols.iter().any(|symbol| {
+            symbol.name == "Main::block0::block1::value"
+                && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Main".to_string())
+        }));
     }
 
     #[test]

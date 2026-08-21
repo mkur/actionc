@@ -1,6 +1,11 @@
 # Lexical Blocks Implementation Plan
 
-Plan status: proposed.
+Plan status: implemented.
+
+Slices 0 through 6 landed as commits `ddcfd0b`, `694a24c`, `9376801`,
+`71a057d`, `ca9ab98`, `9fe9d5f`, and `dfc8f01`. The final artifact,
+documentation, sample, and runtime-proof slice completes the eight-slice
+rollout described below.
 
 ## Goal
 
@@ -124,7 +129,10 @@ sees the completed declaration prefix.
 - The feature must not require named modules. A legacy-shaped single source
   file selected with the modern profile may use lexical blocks.
 
-## Current Compiler Baseline
+## Pre-Implementation Compiler Baseline
+
+This section is retained as the historical baseline used to design the slices;
+it no longer describes the implemented compiler.
 
 The implementation order is constrained by the following current shapes:
 

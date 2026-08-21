@@ -60,11 +60,16 @@ Modern is also the profile used by maintained modernized sources under
 
 ## Source Surface Changes
 
-The syntax extensions documented in [SYNTAX_EXTENSIONS.md](SYNTAX_EXTENSIONS.md)
-are accepted by `actionc` in both profiles. They include typed casts, explicit
-address values, function pointer declarations, and machine-block label-byte
-syntax. They are not the switch that makes a source file "modern"; they are
-available so source can express intent explicitly.
+Most syntax extensions documented in
+[SYNTAX_EXTENSIONS.md](SYNTAX_EXTENSIONS.md) are accepted by `actionc` in both
+profiles. They include typed casts, explicit address values, function pointer
+declarations, and machine-block label-byte syntax. They are not the switch that
+makes a source file "modern"; they are available so source can express intent
+explicitly.
+
+Explicit lexical `BEGIN`/`END` blocks are the exception: they require the modern
+profile. In compatibility source, `BEGIN` and `END` remain ordinary identifier
+spellings and do not acquire cartridge token IDs.
 
 Legacy accepts many old Action! idioms that depend on implicit address-taking or
 loose routine-address handling. Modern prefers the explicit extension forms for

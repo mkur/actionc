@@ -25,6 +25,10 @@ fn lower_modern_source(source: &str) -> NirProgram {
     lower_program(&semir)
 }
 
+fn display_name_leaf(name: &str) -> &str {
+    name.rsplit("::").next().unwrap_or(name)
+}
+
 #[test]
 fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
     let program = lower_modern_source(include_str!("../../fixtures/nir/lexical_blocks.act"));
@@ -38,7 +42,7 @@ fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
     let value_ids = routine
         .locals
         .iter()
-        .filter(|local| local.name.eq_ignore_ascii_case("value"))
+        .filter(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("value"))
         .map(|local| local.id)
         .collect::<Vec<_>>();
     assert_eq!(value_ids, [LocalId(0), LocalId(2), LocalId(3)]);
@@ -55,7 +59,7 @@ fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
                         ..
                     },
                 ..
-            } if name.eq_ignore_ascii_case("value") => Some(*id),
+            } if display_name_leaf(name).eq_ignore_ascii_case("value") => Some(*id),
             _ => None,
         })
         .collect::<Vec<_>>();
@@ -77,7 +81,7 @@ fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
                             ..
                         },
                     ..
-                } if name.eq_ignore_ascii_case("value") => Some(*id),
+                } if display_name_leaf(name).eq_ignore_ascii_case("value") => Some(*id),
                 _ => None,
             });
     assert_eq!(addressed_local, Some(LocalId(3)));
@@ -103,6 +107,8 @@ fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
 
     let printed = format_program(&program);
     assert!(!printed.to_ascii_lowercase().contains("lexical"));
+    assert!(printed.contains("Main::block0::value"));
+    assert!(printed.contains("Main::block0::block1::value"));
     crate::mir6502::lower_program(&program).expect("MIR6502 should consume lexical local IDs");
 
     let mut invalid = program.clone();
@@ -149,7 +155,7 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
     let data_ids = routine
         .locals
         .iter()
-        .filter(|local| local.name.eq_ignore_ascii_case("data"))
+        .filter(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("data"))
         .map(|local| local.id)
         .collect::<Vec<_>>();
     assert_eq!(data_ids.len(), 3);
@@ -158,7 +164,7 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
     let item_sizes = routine
         .locals
         .iter()
-        .filter(|local| local.name.eq_ignore_ascii_case("item"))
+        .filter(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("item"))
         .filter_map(|local| match local.init {
             Some(NirStorageInit::ZeroFill { bytes, .. }) => Some(bytes),
             _ => None,
@@ -169,12 +175,12 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
     let value = routine
         .locals
         .iter()
-        .find(|local| local.name.eq_ignore_ascii_case("value"))
+        .find(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("value"))
         .expect("block-local value");
     let alias = routine
         .locals
         .iter()
-        .find(|local| local.name.eq_ignore_ascii_case("alias"))
+        .find(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("alias"))
         .expect("block-local alias");
     assert!(matches!(
         alias.backing,
@@ -185,13 +191,13 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
         } if target == value.id
     ));
     assert!(routine.locals.iter().any(|local| {
-        local.name.eq_ignore_ascii_case("absolute")
+        display_name_leaf(&local.name).eq_ignore_ascii_case("absolute")
             && matches!(local.backing, NirLocalBacking::Absolute(0xD01F))
     }));
     let addresses = routine
         .locals
         .iter()
-        .find(|local| local.name.eq_ignore_ascii_case("addresses"))
+        .find(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("addresses"))
         .expect("block-local relocation array");
     assert!(matches!(
         &addresses.init,
@@ -208,7 +214,7 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
         !routine
             .locals
             .iter()
-            .any(|local| local.name.eq_ignore_ascii_case("Index"))
+            .any(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("Index"))
     );
 
     let ops = routine
@@ -252,7 +258,7 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
             .storage_symbols
             .iter()
             .filter(|symbol| {
-                symbol.name.eq_ignore_ascii_case(name)
+                display_name_leaf(&symbol.name).eq_ignore_ascii_case(name)
                     && matches!(
                         &symbol.scope,
                         crate::codegen::CodegenSymbolScope::Routine(routine)

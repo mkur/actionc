@@ -56,14 +56,16 @@ pub fn generate_semir_profile_with_origin(
     } else {
         origin
     };
-    generate_with_options_and_facts(
+    let mut output = generate_with_options_and_facts(
         &projection.program,
         &projection.native_real,
         origin,
         true,
         profile,
         RuntimeTarget::Cartridge,
-    )
+    )?;
+    super::semir::apply_storage_display_names(&mut output, &projection.storage_display_names);
+    Ok(output)
 }
 
 pub(crate) fn generate_semir_profile_at_origin(
@@ -72,14 +74,16 @@ pub(crate) fn generate_semir_profile_at_origin(
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
     let projection = super::semir::semir_to_cart_projection(program)?;
-    generate_with_options_and_facts(
+    let mut output = generate_with_options_and_facts(
         &projection.program,
         &projection.native_real,
         origin,
         true,
         profile,
         RuntimeTarget::Cartridge,
-    )
+    )?;
+    super::semir::apply_storage_display_names(&mut output, &projection.storage_display_names);
+    Ok(output)
 }
 
 pub(super) fn generate_with_options(

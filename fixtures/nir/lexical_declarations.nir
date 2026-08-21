@@ -5,49 +5,49 @@ global wordResult: Card
 global escaped: Byte*
 static __nir_real_Main_0:REAL bytes=[$40 $01 $50 $00 $00 $00] = "1.5"
 
-routine Main params=[-] locals=[root, value, alias, absolute, data, addresses, item, itemPointer, realValue, item, data, data, __nir_real_tmp_12, __nir_real_tmp_13]
+routine Main params=[-] locals=[root, Main::block0::value, Main::block0::alias, Main::block0::absolute, Main::block0::data, Main::block0::addresses, Main::block0::item, Main::block0::itemPointer, Main::block0::realValue, Main::block0::block1::item, Main::block0::block1::data, Main::block2::data, __nir_real_tmp_12, __nir_real_tmp_13]
   local root: Byte
-  local value: Byte
-  local alias: Byte alias value
-  local absolute: Byte absolute $D01F
-  local data: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init bytes=[$03 $04] zero_fill=0 section=local mutable=true
-  local addresses: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(1) } length=1 storage=Array origin=local init descriptor size=4 backing=local bytes=[$00 $00] relocs=[0:word(l1)] zero_fill=0 backing_section=local.backing size_word=$0000 section=local mutable=true
-  local item: Main.block0.Pair init zero_fill=1 section=local mutable=true
-  local itemPointer: Main.block0.Pair*
-  local realValue: REAL
-  local item: Main.block0.block1.Pair init zero_fill=2 section=local mutable=true
-  local data: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init descriptor size=4 backing=local bytes=[$05 $00 $06 $00] zero_fill=0 backing_section=local.backing size_word=$0000 section=local mutable=true
-  local data: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init bytes=[$07 $08] zero_fill=0 section=local mutable=true
+  local Main::block0::value: Byte
+  local Main::block0::alias: Byte alias Main::block0::value
+  local Main::block0::absolute: Byte absolute $D01F
+  local Main::block0::data: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init bytes=[$03 $04] zero_fill=0 section=local mutable=true
+  local Main::block0::addresses: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(1) } length=1 storage=Array origin=local init descriptor size=4 backing=local bytes=[$00 $00] relocs=[0:word(l1)] zero_fill=0 backing_section=local.backing size_word=$0000 section=local mutable=true
+  local Main::block0::item: Main.block0.Pair init zero_fill=1 section=local mutable=true
+  local Main::block0::itemPointer: Main.block0.Pair*
+  local Main::block0::realValue: REAL
+  local Main::block0::block1::item: Main.block0.block1.Pair init zero_fill=2 section=local mutable=true
+  local Main::block0::block1::data: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init descriptor size=4 backing=local bytes=[$05 $00 $06 $00] zero_fill=0 backing_section=local.backing size_word=$0000 section=local mutable=true
+  local Main::block2::data: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init bytes=[$07 $08] zero_fill=0 section=local mutable=true
   local __nir_real_tmp_12: hidden REAL evaluation
   local __nir_real_tmp_13: hidden REAL evaluation
 bb0:
   store root = 1
-  store volatile value = 2
-  store volatile alias = 3
-  %t0:Byte* = addr data
-  %t1:Byte = load volatile alias
+  store volatile Main::block0::value = 2
+  store volatile Main::block0::alias = 3
+  %t0:Byte* = addr Main::block0::data
+  %t1:Byte = load volatile Main::block0::alias
   store %t0[1;1] = %t1
-  %t2:Byte* = addr data
+  %t2:Byte* = addr Main::block0::data
   %t3:Byte = load %t2[1;1]
-  store item.+0 = %t3
-  %t4:Main.block0.Pair* = addr item
-  store itemPointer = %t4
-  %t5:Byte* = addr value
+  store Main::block0::item.+0 = %t3
+  %t4:Main.block0.Pair* = addr Main::block0::item
+  store Main::block0::itemPointer = %t4
+  %t5:Byte* = addr Main::block0::value
   store escaped = %t5
   real.copy __nir_real_tmp_12 = &__nir_real_Main_0
   real.convert __nir_real_tmp_13 = 1:Byte
-  real.add realValue = __nir_real_tmp_12, __nir_real_tmp_13
-  %t6:Byte = load itemPointer.+0
+  real.add Main::block0::realValue = __nir_real_tmp_12, __nir_real_tmp_13
+  %t6:Byte = load Main::block0::itemPointer.+0
   store firstResult = %t6
   inline-asm bytes=6 relocations=2 effects=reads:local1+0:1 writes:local1+0:1
-  %t7:Card* = addr data
+  %t7:Card* = addr Main::block0::block1::data
   %t8:Card = load %t7[0;2]
-  store item.+0 = %t8
-  %t9:Card = load item.+0
+  store Main::block0::block1::item.+0 = %t8
+  %t9:Card = load Main::block0::block1::item.+0
   store wordResult = %t9
   %t10:Byte* = load escaped
   store *%t10 = 4
-  %t11:Byte* = addr data
+  %t11:Byte* = addr Main::block2::data
   %t12:Byte = load %t11[1;1]
   store secondResult = %t12
   return

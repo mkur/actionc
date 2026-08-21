@@ -13,6 +13,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
     let program_entry = named_program_entry(semir);
     let application_projection = super::semir::semir_to_projection(semir)?;
+    let storage_display_names = application_projection.storage_display_names;
     let mut application = application_projection.program;
     let native_real = application_projection.native_real;
     reject_absolute_helper_overrides(&application)?;
@@ -165,6 +166,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         output.map.run_address = address;
     }
     output.map.runtime = crate::runtime::Runtime::Standalone;
+    super::semir::apply_storage_display_names(&mut output, &storage_display_names);
     Ok(output)
 }
 
