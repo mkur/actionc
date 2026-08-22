@@ -608,7 +608,7 @@ impl Generator {
     }
 }
 
-fn cast_type_size(ty: &TypeRef) -> Option<u16> {
+pub(super) fn cast_type_size(ty: &TypeRef) -> Option<u16> {
     if ty.pointer {
         return Some(2);
     }

@@ -276,6 +276,55 @@ fn native_real_core_arithmetic_compiles_with_both_backends_and_runtimes() {
 }
 
 #[test]
+fn loop_conditions_accept_all_original_binary_operators_in_all_pipelines() {
+    let temp = TestDir::new();
+    let mut source = String::from(
+        "CONST BYTE UNDERFLOW=$FF\n\
+         BYTE left,right\n\
+         CARD wide\n\
+         PROC Main()\n\
+           left=2 right=1 wide=1\n",
+    );
+
+    for op in [
+        "+", "-", "*", "/", " MOD ", " LSH ", " RSH ", "&", "%", "!", "=", "#", "<", "<=", ">",
+        ">=",
+    ] {
+        source.push_str(&format!(
+            "  WHILE left{op}right DO EXIT OD\n  DO UNTIL left{op}right OD\n"
+        ));
+    }
+
+    source.push_str("  WHILE left#UNDERFLOW DO EXIT OD\n  DO UNTIL left#UNDERFLOW OD\n");
+    for op in ["=", "#", "<", "<=", ">", ">="] {
+        source.push_str(&format!(
+            "  WHILE left{op}wide DO EXIT OD\n\
+               WHILE wide{op}left DO EXIT OD\n\
+               DO UNTIL left{op}wide OD\n\
+               DO UNTIL wide{op}left OD\n"
+        ));
+    }
+    source.push_str("RETURN\n");
+    let source = write_source(&temp, "loop-operators.act", &source);
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            compile_file(
+                &source,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap_or_else(|error| {
+                panic!("compile loop operators for {mode:?}/{runtime}: {error}")
+            });
+        }
+    }
+}
+
+#[test]
 fn standalone_runtime_linking_preserves_the_last_application_proc_as_runad() {
     let temp = TestDir::new();
     let source = write_source(

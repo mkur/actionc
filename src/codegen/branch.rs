@@ -1,4 +1,5 @@
 use super::array::indexed_expr_index;
+use super::expr::cast_type_size;
 use super::proof::{
     IndexAddressMode, ValueAvailabilityProof, ValueAvailabilitySource, ValueByteAvailability,
 };
@@ -346,6 +347,33 @@ impl Generator {
         span: Span,
     ) -> bool {
         let width = self.expr_size(condition).unwrap_or(1);
+        if matches!(
+            &condition.kind,
+            ExprKind::Binary {
+                op: BinaryOp::Add
+                    | BinaryOp::Sub
+                    | BinaryOp::Mul
+                    | BinaryOp::Div
+                    | BinaryOp::Mod
+                    | BinaryOp::Lsh
+                    | BinaryOp::Rsh,
+                ..
+            }
+        ) {
+            if !matches!(width, 1 | 2) {
+                return false;
+            }
+            let slot = StorageSlot::zero_page(runtime_zp::ARRAY_ADDR.address(), width)
+                .signed(self.expr_signed(condition));
+            if !self.emit_expr_to_slot(condition, slot) {
+                return false;
+            }
+            for byte_index in 0..width {
+                self.emit_lda_slot_byte(slot, byte_index);
+                self.emitter.emit_branch_label(opcode::BNE_REL, label, span);
+            }
+            return true;
+        }
         for byte_index in 0..width {
             if !self.emit_load_simple_byte(condition, byte_index) {
                 return false;
@@ -2341,7 +2369,14 @@ impl Generator {
     }
 
     pub(super) fn emit_load_simple_byte(&mut self, expr: &Expr, byte_index: u16) -> bool {
-        if let ExprKind::Cast { expr, .. } = &expr.kind {
+        if let ExprKind::Cast { ty, expr } = &expr.kind {
+            let Some(width) = cast_type_size(ty) else {
+                return false;
+            };
+            if byte_index >= width {
+                self.emit_lda_imm(0);
+                return true;
+            }
             return self.emit_load_simple_byte(expr, byte_index);
         }
 
@@ -2429,7 +2464,14 @@ impl Generator {
         expr: &Expr,
         byte_index: u16,
     ) -> bool {
-        if let ExprKind::Cast { expr, .. } = &expr.kind {
+        if let ExprKind::Cast { ty, expr } = &expr.kind {
+            let Some(width) = cast_type_size(ty) else {
+                return false;
+            };
+            if byte_index >= width {
+                self.emit_lda_imm(0);
+                return true;
+            }
             return self.emit_load_simple_byte_value_only(expr, byte_index);
         }
         if let Some(slot) = self.direct_scalar_slot(expr) {
@@ -2671,6 +2713,20 @@ impl Generator {
                 return false;
             }
             self.emit_cmp_immediate(Immediate::new(value), byte_index);
+            return true;
+        }
+
+        if let ExprKind::Cast { ty, expr } = &right.kind {
+            let Some(width) = cast_type_size(ty) else {
+                return false;
+            };
+            if byte_index < width {
+                return self.emit_compare_simple_byte(left, expr, byte_index);
+            }
+            if !self.emit_load_simple_byte_value_only(left, byte_index) {
+                return false;
+            }
+            self.emit_cmp_imm(0);
             return true;
         }
 

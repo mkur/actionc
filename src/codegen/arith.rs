@@ -1,3 +1,4 @@
+use super::expr::cast_type_size;
 use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -396,6 +397,16 @@ impl Generator {
         expr: &Expr,
         byte_index: u16,
     ) -> bool {
+        if let ExprKind::Cast { ty, expr } = &expr.kind {
+            let Some(width) = cast_type_size(ty) else {
+                return false;
+            };
+            if byte_index >= width {
+                self.emit_arithmetic_zero(op);
+                return true;
+            }
+            return self.emit_arithmetic_simple_byte(op, expr, byte_index);
+        }
         if let Some(value) = self.constant_u16(expr) {
             self.emit_arithmetic_raw_immediate(op, Immediate::new(value), byte_index);
             return true;
@@ -421,6 +432,16 @@ impl Generator {
         expr: &Expr,
         byte_index: u16,
     ) -> bool {
+        if let ExprKind::Cast { ty, expr } = &expr.kind {
+            let Some(width) = cast_type_size(ty) else {
+                return false;
+            };
+            if byte_index >= width {
+                self.emit_bitwise_missing_simple_byte(op);
+                return true;
+            }
+            return self.emit_bitwise_simple_byte(op, expr, byte_index);
+        }
         if let Some(value) = self.constant_u16(expr) {
             self.emit_bitwise_immediate(op, Immediate::new(value), byte_index);
             return true;
@@ -529,6 +550,16 @@ impl Generator {
     }
 
     pub(super) fn emit_or_simple_byte(&mut self, expr: &Expr, byte_index: u16) -> bool {
+        if let ExprKind::Cast { ty, expr } = &expr.kind {
+            let Some(width) = cast_type_size(ty) else {
+                return false;
+            };
+            if byte_index >= width {
+                self.emit_ora_imm(0);
+                return true;
+            }
+            return self.emit_or_simple_byte(expr, byte_index);
+        }
         if let Some(value) = self.constant_u16(expr) {
             self.emitter
                 .emit_ora_immediate(Immediate::new(value), byte_index);
@@ -547,6 +578,16 @@ impl Generator {
     }
 
     pub(super) fn emit_xor_simple_byte(&mut self, expr: &Expr, byte_index: u16) -> bool {
+        if let ExprKind::Cast { ty, expr } = &expr.kind {
+            let Some(width) = cast_type_size(ty) else {
+                return false;
+            };
+            if byte_index >= width {
+                self.emit_eor_imm(0);
+                return true;
+            }
+            return self.emit_xor_simple_byte(expr, byte_index);
+        }
         if let Some(value) = self.constant_u16(expr) {
             self.emitter
                 .emit_eor_immediate(Immediate::new(value), byte_index);
