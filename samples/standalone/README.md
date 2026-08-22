@@ -2,9 +2,7 @@
 
 `standalone-runtime.act` is ordinary Action! source: it does not declare or import
 a module, and it calls resident routines by their traditional unqualified
-names. The standalone runtime covers the audited system library, not only
-compiler arithmetic helpers. The compiler selects and links just the required
-GPL runtime routines when `--runtime standalone` is used.
+names. The standalone runtime covers the whole Action! system library. The compiler selects and links just the required runtime routines when `--runtime standalone` is used.
 
 Run it without the Action! cartridge:
 
