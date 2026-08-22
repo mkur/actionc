@@ -1,0 +1,53 @@
+MODULE BENCH.FLAMES_POINTER
+
+USE SYS
+USE ATARI.OS
+USE ATARI.POKEY
+USE BENCH.SUPPORT
+
+CONST CARD FIRE_SCREEN=$A400
+
+BYTE ARRAY workspace=$A000
+BYTE POINTER first=$F0,second=$F2,third=$F4
+BYTE index=$E0
+BYTE tenThousands=$CB,thousands=$CC,hundreds=$CD,tens=$CE,ones=$CF
+
+PUBLIC PROC Run(BYTE resultIndex)
+  SYS.Zero(workspace,$1000)
+  tenThousands=0
+  thousands=0
+  hundreds=0
+  tens=0
+  ones=0
+  OS.RTCLOK_LO=0
+
+  WHILE OS.RTCLOK_LO<250 DO
+    first=FIRE_SCREEN-31
+    second=FIRE_SCREEN-31+$100
+    third=FIRE_SCREEN-31+$200
+
+    FOR index=255 TO 0 STEP -1 DO
+      first^=BYTE(first(30)+first(31)+first(32)+first(63)) RSH 2
+      second^=BYTE(second(30)+second(31)+second(32)+second(63)) RSH 2
+      third^=BYTE(third(30)+third(31)+third(32)+third(63)) RSH 2
+      first==+1
+      second==+1
+      third==+1
+    OD
+
+    first=FIRE_SCREEN+$2E0
+    FOR index=31 TO 0 STEP -1 DO
+      first(index)=POKEY.RANDOM&15
+    OD
+
+    ones==+1
+    IF ones=10 THEN tens==+1 ones=0 FI
+    IF tens=10 THEN hundreds==+1 tens=0 FI
+    IF hundreds=10 THEN thousands==+1 hundreds=0 FI
+    IF thousands=10 THEN tenThousands==+1 thousands=0 FI
+  OD
+
+  SUPPORT.SaveIterations(resultIndex,tenThousands,thousands,hundreds,tens,ones)
+RETURN
+
+ENDMODULE

@@ -1,0 +1,29 @@
+; Mad Pascal's four-byte IEEE SINGLE has no Action! equivalent.  This port
+; exercises the same algorithm with Action 2027's six-byte Atari FPP REAL.
+MODULE BENCH.FLOATING_REAL
+
+USE ATARI.REAL AS FPP
+
+REAL value,sum,error
+BYTE number,iteration
+
+PUBLIC PROC Run()
+  sum=0
+  FOR number=1 TO 100 DO
+    value=number
+    FOR iteration=1 TO 10 DO
+      FPP.Sqrt(@value,@value)
+    OD
+    FOR iteration=1 TO 10 DO
+      value=value*value
+    OD
+    sum==+value
+  OD
+
+  error=5050-sum
+  IF error<0 THEN
+    error=-error
+  FI
+RETURN
+
+ENDMODULE

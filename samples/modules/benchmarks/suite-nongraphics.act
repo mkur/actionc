@@ -1,0 +1,98 @@
+;@actionc profile modern
+; Non-graphics subset of the Action! benchmark suite.
+MODULE ACTION_BENCH_SUITE_NONGRAPHICS
+
+USE SYS
+USE BENCH.SUPPORT
+USE BENCH.COUNTDOWN_FOR
+USE BENCH.COUNTDOWN_WHILE
+USE BENCH.SIEVE1028
+USE BENCH.SIEVE1899
+USE BENCH.BSORT
+USE BENCH.MONTECARLO
+USE BENCH.LUDOLPHIAN
+USE BENCH.YOSHPLUS
+USE BENCH.GUESSING
+USE BENCH.FLOATING_REAL
+
+PROC PrintResults()
+  SYS.Graphics(0)
+  SYS.PrintE("Action! non-graphics benchmarks")
+
+  SYS.Print("Countdown FOR: ")
+  SUPPORT.PrintResult(0)
+  SYS.Print("Countdown WHILE: ")
+  SUPPORT.PrintResult(1)
+  SYS.Print("Sieve 1028: ")
+  SUPPORT.PrintResult(2)
+  SYS.Print("Sieve 1899: ")
+  SUPPORT.PrintResult(3)
+  SYS.Print("Bubble sort: ")
+  SUPPORT.PrintResult(4)
+  SYS.Print("Monte Carlo: ")
+  SUPPORT.PrintResult(5)
+  SYS.Print("Ludolphian REAL: ")
+  SUPPORT.PrintResult(6)
+  SYS.Print("YoshPlus: ")
+  SUPPORT.PrintResult(7)
+  SYS.Print("Guessing: ")
+  SUPPORT.PrintResult(8)
+  SYS.Print("Floating REAL: ")
+  SUPPORT.PrintResult(9)
+RETURN
+
+PROC Main()
+  SUPPORT.Announce("Countdown FOR")
+  SUPPORT.StartTimer()
+  COUNTDOWN_FOR.Run()
+  SUPPORT.StopTimer(0)
+
+  SUPPORT.Announce("Countdown WHILE")
+  SUPPORT.StartTimer()
+  COUNTDOWN_WHILE.Run()
+  SUPPORT.StopTimer(1)
+
+  SUPPORT.Announce("Sieve 1028")
+  SUPPORT.StartTimer()
+  SIEVE1028.Run()
+  SUPPORT.StopTimer(2)
+
+  SUPPORT.Announce("Sieve 1899")
+  SUPPORT.StartTimer()
+  SIEVE1899.Run()
+  SUPPORT.StopTimer(3)
+
+  SUPPORT.Announce("Bubble sort")
+  SUPPORT.StartTimer()
+  BSORT.Run()
+  SUPPORT.StopTimer(4)
+
+ ; SUPPORT.Announce("Monte Carlo")
+ ; SUPPORT.StartTimer()
+ ; MONTECARLO.Run()
+ ; SUPPORT.StopTimer(5)
+
+ ; SUPPORT.Announce("Ludolphian REAL")
+ ; SUPPORT.StartTimer()
+ ; LUDOLPHIAN.Run()
+ ; SUPPORT.StopTimer(6)
+
+ ; SUPPORT.Announce("YoshPlus")
+ ; YOSHPLUS.Run(7)
+
+; SUPPORT.Announce("Guessing")
+; SUPPORT.StartTimer()
+;  GUESSING.Run()
+;  SUPPORT.StopTimer(8)
+
+;  SUPPORT.Announce("Floating REAL")
+;  SUPPORT.StartTimer()
+;  FLOATING_REAL.Run()
+;  SUPPORT.StopTimer(9)
+
+  PrintResults()
+  DO
+  OD
+RETURN
+
+ENDMODULE

@@ -1,0 +1,38 @@
+MODULE BENCH.COUNTDOWN_WHILE
+
+BYTE za=$CB,zb=$CC,zc=$CD,zd=$CE,ze=$CF,zf=$D0,zg=$D1,
+     underflow
+
+PUBLIC PROC Run()
+  underflow=$FF
+  za=1
+  DO
+    zb=9
+    DO
+      zc=9
+      DO
+        zd=9
+        DO
+          ze=9
+          DO
+            zf=9
+            DO
+              zg=9
+              DO
+                zg==-1
+              UNTIL zg=underflow OD
+              zf==-1
+            UNTIL zf=underflow OD
+            ze==-1
+          UNTIL ze=underflow OD
+          zd==-1
+        UNTIL zd=underflow OD
+        zc==-1
+      UNTIL zc=underflow OD
+      zb==-1
+    UNTIL zb=underflow OD
+    za==-1
+  UNTIL za=underflow OD
+RETURN
+
+ENDMODULE

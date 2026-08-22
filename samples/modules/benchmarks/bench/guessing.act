@@ -1,0 +1,27 @@
+MODULE BENCH.GUESSING
+
+CARD target=$E0,guess=$E2,guessStep
+BYTE iteration=$E4
+CARD matches
+
+PUBLIC PROC Run()
+  matches=0
+  FOR target=1 TO 1000 DO
+    guess=500
+    iteration=0
+    DO
+      guessStep=100-iteration
+      IF guess>target THEN
+        guess=guess-guessStep
+      ELSEIF guess<target THEN
+        guess=guess+guessStep
+      ELSE
+        matches==+1
+        EXIT
+      FI
+      iteration==+1
+    OD
+  OD
+RETURN
+
+ENDMODULE

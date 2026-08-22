@@ -1,0 +1,31 @@
+MODULE BENCH.SIEVE1028
+
+USE SYS
+
+BYTE ARRAY flags(8192)=$A000
+BYTE prime=$E0,pass=$E4
+CARD index=$E2,count=$E6
+
+PUBLIC PROC Run()
+  FOR pass=9 TO 0 STEP -1 DO
+    count=0
+    SYS.SetBlock(flags,8192,1)
+    FOR prime=2 TO 91 DO
+      IF flags(prime)#0 THEN
+        index=CARD(prime) LSH 1
+        WHILE index<=8191 DO
+          flags(index)=0
+          index==+prime
+        OD
+      FI
+    OD
+  OD
+
+  FOR index=2 TO 8191 DO
+    IF flags(index)#0 THEN
+      count==+1
+    FI
+  OD
+RETURN
+
+ENDMODULE

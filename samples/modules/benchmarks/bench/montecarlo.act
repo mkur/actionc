@@ -1,0 +1,26 @@
+MODULE BENCH.MONTECARLO
+
+USE ATARI.POKEY
+
+CARD radiusSquared=$E0,xSquared=$E2,ySquared=$E4,bingo=$E6,
+     probe=$E8,piEstimate=$EC
+BYTE randomValue=$EA
+
+PUBLIC PROC Run()
+  bingo=0
+  radiusSquared=CARD(127)*127
+
+  FOR probe=9999 TO 0 STEP -1 DO
+    randomValue=POKEY.RANDOM&127
+    xSquared=CARD(randomValue)*randomValue
+    randomValue=POKEY.RANDOM&127
+    ySquared=CARD(randomValue)*randomValue
+    IF xSquared+ySquared<=radiusSquared THEN
+      bingo==+1
+    FI
+  OD
+
+  piEstimate=4*bingo
+RETURN
+
+ENDMODULE

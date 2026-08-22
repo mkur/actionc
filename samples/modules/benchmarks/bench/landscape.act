@@ -1,0 +1,70 @@
+MODULE BENCH.LANDSCAPE
+
+USE SYS
+USE ATARI.GTIA
+USE ATARI.OS
+USE ATARI.POKEY
+
+BYTE ARRAY baseHeights(14)=[170 150 144 144 122 122 110
+                            110 94 94 86 86 82 80],
+           columnHeights(14)=$E2
+
+BYTE stopRow=$E0,startRow=$E1,color,column,half,pass
+BYTE POINTER pixel
+CARD distance
+CARD screenAddress
+
+PUBLIC PROC Run()
+  ; Mad Pascal's mode8 helper selects ANTIC Graphics 8.  PRIOR then changes
+  ; interpretation of that bitmap to GTIA mode 9.
+  SYS.Graphics(24)
+  GTIA.PRIOR=GTIA.MODE_9
+  GTIA.COLBAK=$B0
+  screenAddress=OS.SAVMSC
+
+  FOR pass=9 TO 0 STEP -1 DO
+    SYS.MoveBlock(columnHeights,baseHeights,14)
+    FOR column=39 TO 0 STEP -1 DO
+      FOR half=1 TO 0 STEP -1 DO
+        pixel=screenAddress+column
+        startRow=0
+        FOR color=13 TO 0 STEP -1 DO
+          stopRow=columnHeights(color)
+          IF startRow>stopRow THEN
+            distance=startRow-stopRow
+            distance=distance*40
+            pixel=pixel-distance
+            stopRow=startRow
+            startRow=columnHeights(color)
+          FI
+
+          IF half#0 THEN
+            WHILE startRow<stopRow DO
+              pixel^=color
+              pixel==+40
+              startRow==+1
+            OD
+          ELSE
+            WHILE startRow<stopRow DO
+              pixel^=(pixel^&$0F) OR (color LSH 4)
+              pixel==+40
+              startRow==+1
+            OD
+          FI
+
+          startRow=stopRow
+          IF POKEY.RANDOM<128 THEN
+            columnHeights(color)==-1
+          FI
+          IF POKEY.RANDOM<128 THEN
+            columnHeights(color)==+1
+          FI
+        OD
+      OD
+    OD
+  OD
+
+  GTIA.PRIOR=0
+RETURN
+
+ENDMODULE

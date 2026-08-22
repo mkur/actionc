@@ -1,0 +1,89 @@
+; Shared timing and result storage for the Mad Pascal benchmark ports.
+MODULE BENCH.SUPPORT
+
+USE SYS
+
+VOLATILE BYTE RTCLOK_MIDDLE=$0013,
+              RTCLOK_LOW=$0014
+
+CONST BYTE RESULT_COUNT=16,
+           RESULT_TICKS=0,
+           RESULT_ITERATIONS=1
+
+PUBLIC CARD ARRAY results(RESULT_COUNT)
+PUBLIC BYTE ARRAY resultKinds(RESULT_COUNT),
+                  iterationDigits(RESULT_COUNT*5)
+
+BYTE startMiddle,startLow,endMiddle,endLow,checkMiddle
+CARD highPart,lowPart
+
+PUBLIC PROC Announce(STRING benchmarkName)
+  SYS.Graphics(0)
+  SYS.Print("Running: ")
+  SYS.PrintE(benchmarkName)
+RETURN
+
+PROC ReadClock()
+  ; RTCLOK is updated asynchronously.  Retrying when its middle byte changes
+  ; avoids combining bytes from opposite sides of a low-byte wrap.
+  DO
+    endMiddle=RTCLOK_MIDDLE
+    endLow=RTCLOK_LOW
+    checkMiddle=RTCLOK_MIDDLE
+  UNTIL endMiddle=checkMiddle
+  OD
+RETURN
+
+PUBLIC PROC StartTimer()
+  ReadClock()
+  startMiddle=endMiddle
+  startLow=endLow
+RETURN
+
+PUBLIC PROC StopTimer(BYTE resultIndex)
+  BYTE highDifference
+
+  ReadClock()
+  highDifference=endMiddle-startMiddle
+  IF endLow<startLow THEN
+    highDifference==-1
+  FI
+
+  highPart=highDifference
+  highPart=highPart*256
+  lowPart=endLow-startLow
+  results(resultIndex)=highPart+lowPart
+  resultKinds(resultIndex)=RESULT_TICKS
+RETURN
+
+PUBLIC PROC SaveIterations(BYTE resultIndex,
+                           tenThousands,thousands,hundreds,tens,ones)
+  BYTE offset
+
+  offset=resultIndex*5
+  iterationDigits(offset)=tenThousands
+  iterationDigits(offset+1)=thousands
+  iterationDigits(offset+2)=hundreds
+  iterationDigits(offset+3)=tens
+  iterationDigits(offset+4)=ones
+  resultKinds(resultIndex)=RESULT_ITERATIONS
+RETURN
+
+PUBLIC PROC PrintResult(BYTE resultIndex)
+  BYTE offset
+
+  IF resultKinds(resultIndex)=RESULT_TICKS THEN
+    SYS.PrintC(results(resultIndex))
+    SYS.PrintE(" ticks")
+  ELSE
+    offset=resultIndex*5
+    SYS.PrintB(iterationDigits(offset))
+    SYS.PrintB(iterationDigits(offset+1))
+    SYS.PrintB(iterationDigits(offset+2))
+    SYS.PrintB(iterationDigits(offset+3))
+    SYS.PrintB(iterationDigits(offset+4))
+    SYS.PrintE(" iterations")
+  FI
+RETURN
+
+ENDMODULE

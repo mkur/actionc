@@ -1,0 +1,27 @@
+MODULE BENCH.YOSHPLUS
+
+USE ATARI.OS
+USE BENCH.SUPPORT
+
+BYTE tenThousands=$CB,thousands=$CC,hundreds=$CD,tens=$CE,ones=$CF
+
+PUBLIC PROC Run(BYTE resultIndex)
+  tenThousands=0
+  thousands=0
+  hundreds=0
+  tens=0
+  ones=0
+  OS.RTCLOK_LO=0
+
+  WHILE OS.RTCLOK_LO<100 DO
+    ones==+1
+    IF ones=10 THEN tens==+1 ones=0 FI
+    IF tens=10 THEN hundreds==+1 tens=0 FI
+    IF hundreds=10 THEN thousands==+1 hundreds=0 FI
+    IF thousands=10 THEN tenThousands==+1 thousands=0 FI
+  OD
+
+  SUPPORT.SaveIterations(resultIndex,tenThousands,thousands,hundreds,tens,ones)
+RETURN
+
+ENDMODULE

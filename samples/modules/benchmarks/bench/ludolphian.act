@@ -1,0 +1,27 @@
+; Uses Action 2027's six-byte Atari FPP REAL in place of Mad Pascal SINGLE.
+MODULE BENCH.LUDOLPHIAN
+
+REAL piQuarter,term,piEstimate
+CARD denominator,iteration
+
+PUBLIC PROC Run()
+  piQuarter=1.0
+  denominator=3
+  iteration=1
+
+  DO
+    term=1.0/denominator
+    IF (iteration&1)#0 THEN
+      piQuarter==-term
+    ELSE
+      piQuarter==+term
+    FI
+    denominator==+2
+    iteration==+1
+  UNTIL iteration=5000
+  OD
+
+  piEstimate=piQuarter*4
+RETURN
+
+ENDMODULE

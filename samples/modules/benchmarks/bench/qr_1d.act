@@ -1,0 +1,81 @@
+MODULE BENCH.QR_1D
+
+USE SYS
+USE ATARI.OS
+USE BENCH.SUPPORT
+
+BYTE ARRAY qr(175)=[
+  $FF $FF $FF $FF $E0
+  $80 $8A $7F $20 $20
+  $BE $8D $07 $EF $A0
+  $A2 $A4 $4E $68 $A0
+  $A2 $94 $6D $68 $A0
+  $A2 $FC $ED $28 $A0
+  $BE $B2 $42 $6F $A0
+  $80 $AA $AA $A0 $20
+  $FF $D9 $8F $3F $E0
+  $98 $F4 $D5 $34 $20
+  $99 $4B $27 $D9 $A0
+  $A2 $B3 $9C $FA $60
+  $AF $65 $4F $5F $20
+  $E8 $28 $12 $BC $E0
+  $A3 $9F $8B $01 $A0
+  $B0 $AC $0E $72 $60
+  $99 $2B $9E $A1 $20
+  $B6 $32 $41 $DB $E0
+  $B7 $58 $EA $BD $A0
+  $BC $27 $5C $FA $60
+  $91 $7B $58 $F1 $E0
+  $E2 $95 $D1 $0B $E0
+  $95 $4B $2D $DB $A0
+  $EC $9E $38 $FB $60
+  $F7 $A5 $9D $7D $E0
+  $8A $C7 $D1 $82 $60
+  $FF $98 $9F $BB $60
+  $80 $DD $58 $A8 $E0
+  $BE $BD $48 $39 $20
+  $A2 $88 $C9 $83 $A0
+  $A2 $D5 $27 $BF $20
+  $A2 $EA $1C $BD $60
+  $BE $90 $5C $C1 $E0
+  $80 $A2 $B1 $EF $A0
+  $FF $FF $FF $FF $E0]
+
+BYTE sourceIndex=$E2,rowMask=$E3
+BYTE tenThousands=$CB,thousands=$CC,hundreds=$CD,tens=$CE,ones=$CF
+BYTE POINTER destination=$E0
+CARD screenAddress
+
+PUBLIC PROC Run(BYTE resultIndex)
+  SYS.Graphics(20)
+  screenAddress=OS.SAVMSC
+  tenThousands=0
+  thousands=0
+  hundreds=0
+  tens=0
+  ones=0
+  OS.RTCLOK_LO=0
+
+  WHILE OS.RTCLOK_LO<200 DO
+    destination=screenAddress
+    rowMask=$10
+    FOR sourceIndex=0 TO 174 DO
+      destination(sourceIndex)=qr(sourceIndex)
+      rowMask=rowMask RSH 1
+      IF rowMask=0 THEN
+        destination==+5
+        rowMask=$10
+      FI
+    OD
+
+    ones==+1
+    IF ones=10 THEN tens==+1 ones=0 FI
+    IF tens=10 THEN hundreds==+1 tens=0 FI
+    IF hundreds=10 THEN thousands==+1 hundreds=0 FI
+    IF thousands=10 THEN tenThousands==+1 thousands=0 FI
+  OD
+
+  SUPPORT.SaveIterations(resultIndex,tenThousands,thousands,hundreds,tens,ones)
+RETURN
+
+ENDMODULE

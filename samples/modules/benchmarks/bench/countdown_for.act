@@ -1,0 +1,22 @@
+MODULE BENCH.COUNTDOWN_FOR
+
+BYTE za=$CB,zb=$CC,zc=$CD,zd=$CE,ze=$CF,zf=$D0,zg=$D1
+
+PUBLIC PROC Run()
+  FOR za=1 TO 0 STEP -1 DO
+    FOR zb=9 TO 0 STEP -1 DO
+      FOR zc=9 TO 0 STEP -1 DO
+        FOR zd=9 TO 0 STEP -1 DO
+          FOR ze=9 TO 0 STEP -1 DO
+            FOR zf=9 TO 0 STEP -1 DO
+              FOR zg=9 TO 0 STEP -1 DO
+              OD
+            OD
+          OD
+        OD
+      OD
+    OD
+  OD
+RETURN
+
+ENDMODULE

@@ -1,0 +1,138 @@
+;@actionc profile modern
+; Action! port of the supported a8-mad-pascal-bench-suite kernels.
+; This complete runner requires the modern profile for native REAL.
+MODULE ACTION_BENCH_SUITE
+
+USE SYS
+USE BENCH.SUPPORT
+USE BENCH.FLAMES_POINTER
+USE BENCH.FLAMES_ARRAY
+USE BENCH.LANDSCAPE
+USE BENCH.CHESSBOARD
+USE BENCH.LIPSUM
+USE BENCH.QR_1D
+USE BENCH.COUNTDOWN_FOR
+USE BENCH.COUNTDOWN_WHILE
+USE BENCH.SIEVE1028
+USE BENCH.SIEVE1899
+USE BENCH.BSORT
+USE BENCH.MONTECARLO
+USE BENCH.LUDOLPHIAN
+USE BENCH.YOSHPLUS
+USE BENCH.GUESSING
+USE BENCH.FLOATING_REAL
+
+PROC PrintResults()
+  SYS.Graphics(0)
+  SYS.PrintE("Action! benchmark suite")
+
+  SYS.Print("Flames pointer: ")
+  SUPPORT.PrintResult(0)
+  SYS.Print("Flames array: ")
+  SUPPORT.PrintResult(1)
+  SYS.Print("Landscape: ")
+  SUPPORT.PrintResult(2)
+  SYS.Print("Chessboard: ")
+  SUPPORT.PrintResult(3)
+  SYS.Print("Lorem ipsum: ")
+  SUPPORT.PrintResult(4)
+  SYS.Print("QR 1-D: ")
+  SUPPORT.PrintResult(5)
+  SYS.Print("Countdown FOR: ")
+  SUPPORT.PrintResult(6)
+  SYS.Print("Countdown WHILE: ")
+  SUPPORT.PrintResult(7)
+  SYS.Print("Sieve 1028: ")
+  SUPPORT.PrintResult(8)
+  SYS.Print("Sieve 1899: ")
+  SUPPORT.PrintResult(9)
+  SYS.Print("Bubble sort: ")
+  SUPPORT.PrintResult(10)
+  SYS.Print("Monte Carlo: ")
+  SUPPORT.PrintResult(11)
+  SYS.Print("Ludolphian REAL: ")
+  SUPPORT.PrintResult(12)
+  SYS.Print("YoshPlus: ")
+  SUPPORT.PrintResult(13)
+  SYS.Print("Guessing: ")
+  SUPPORT.PrintResult(14)
+  SYS.Print("Floating REAL: ")
+  SUPPORT.PrintResult(15)
+RETURN
+
+PROC Main()
+  SUPPORT.Announce("Flames pointer")
+  FLAMES_POINTER.Run(0)
+  SUPPORT.Announce("Flames array")
+  FLAMES_ARRAY.Run(1)
+
+  SUPPORT.Announce("Landscape")
+  SUPPORT.StartTimer()
+  LANDSCAPE.Run()
+  SUPPORT.StopTimer(2)
+
+  SUPPORT.Announce("Chessboard")
+  CHESSBOARD.Run(3)
+
+  SUPPORT.Announce("Lorem ipsum")
+  SUPPORT.StartTimer()
+  LIPSUM.Run()
+  SUPPORT.StopTimer(4)
+
+  SUPPORT.Announce("QR 1-D")
+  QR_1D.Run(5)
+
+  SUPPORT.Announce("Countdown FOR")
+  SUPPORT.StartTimer()
+  COUNTDOWN_FOR.Run()
+  SUPPORT.StopTimer(6)
+
+  SUPPORT.Announce("Countdown WHILE")
+  SUPPORT.StartTimer()
+  COUNTDOWN_WHILE.Run()
+  SUPPORT.StopTimer(7)
+
+  SUPPORT.Announce("Sieve 1028")
+  SUPPORT.StartTimer()
+  SIEVE1028.Run()
+  SUPPORT.StopTimer(8)
+
+  SUPPORT.Announce("Sieve 1899")
+  SUPPORT.StartTimer()
+  SIEVE1899.Run()
+  SUPPORT.StopTimer(9)
+
+  SUPPORT.Announce("Bubble sort")
+  SUPPORT.StartTimer()
+  BSORT.Run()
+  SUPPORT.StopTimer(10)
+
+  SUPPORT.Announce("Monte Carlo")
+  SUPPORT.StartTimer()
+  MONTECARLO.Run()
+  SUPPORT.StopTimer(11)
+
+  SUPPORT.Announce("Ludolphian REAL")
+  SUPPORT.StartTimer()
+  LUDOLPHIAN.Run()
+  SUPPORT.StopTimer(12)
+
+  SUPPORT.Announce("YoshPlus")
+  YOSHPLUS.Run(13)
+
+  SUPPORT.Announce("Guessing")
+  SUPPORT.StartTimer()
+  GUESSING.Run()
+  SUPPORT.StopTimer(14)
+
+  SUPPORT.Announce("Floating REAL")
+  SUPPORT.StartTimer()
+  FLOATING_REAL.Run()
+  SUPPORT.StopTimer(15)
+
+  PrintResults()
+  DO
+  OD
+RETURN
+
+ENDMODULE

@@ -1,0 +1,51 @@
+MODULE BENCH.CHESSBOARD
+
+USE SYS
+USE ATARI.OS
+USE BENCH.SUPPORT
+
+BYTE outer=$E4,rows=$E3,blocks=$E2
+BYTE tenThousands=$CB,thousands=$CC,hundreds=$CD,tens=$CE,ones=$CF
+BYTE POINTER pixel=$E0
+CARD screenAddress
+
+PUBLIC PROC Run(BYTE resultIndex)
+  SYS.Graphics(24)
+  screenAddress=OS.SAVMSC
+  tenThousands=0
+  thousands=0
+  hundreds=0
+  tens=0
+  ones=0
+  OS.RTCLOK_LO=0
+
+  WHILE OS.RTCLOK_LO<200 DO
+    pixel=screenAddress
+    FOR outer=7 TO 0 STEP -1 DO
+      FOR rows=23 TO 0 STEP -1 DO
+        FOR blocks=3 TO 0 STEP -1 DO
+          pixel(0)=255
+          pixel(1)=255
+          pixel(2)=255
+          pixel==+6
+        OD
+        pixel==+16
+      OD
+      IF (outer&1)=0 THEN
+        pixel==-3
+      ELSE
+        pixel==+3
+      FI
+    OD
+
+    ones==+1
+    IF ones=10 THEN tens==+1 ones=0 FI
+    IF tens=10 THEN hundreds==+1 tens=0 FI
+    IF hundreds=10 THEN thousands==+1 hundreds=0 FI
+    IF thousands=10 THEN tenThousands==+1 thousands=0 FI
+  OD
+
+  SUPPORT.SaveIterations(resultIndex,tenThousands,thousands,hundreds,tens,ones)
+RETURN
+
+ENDMODULE
