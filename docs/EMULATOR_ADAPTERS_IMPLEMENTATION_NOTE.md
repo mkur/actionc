@@ -20,8 +20,8 @@ use emulator-specific direct executable loading. A small `BOOT.AR0` selects the
 Action! resident-library bank, opens `E:` on a dedicated IOCB, and makes that
 channel Action!'s default device; then MyDOS loads the generated object from
 `PROGRAM.AR1`. The dedicated channel is required because MyDOS still owns IOCB
-0 when it invokes RUNAD. With `--no-cart`, the bootstrap is omitted and the
-object is stored directly as `PROGRAM.AR0`.
+0 when it invokes RUNAD. With `--runtime standalone` or `--no-cart`, the
+bootstrap is omitted and the object is stored directly as `PROGRAM.AR0`.
 
 ## Existing Prerequisites
 
@@ -129,8 +129,8 @@ pub(crate) struct RunAssets {
 - The repository AltirraOS image may be embedded and materialized when an
   adapter needs an explicit OS ROM.
 - Cartridge support is present from the first runnable slice. The bundled
-  Action! cartridge is the default; `--cart` can replace it and `--no-cart`
-  disables it.
+  Action! cartridge is the default; `--cart` can replace it, while `--runtime
+  standalone` and its `--no-cart` convenience form disable it.
 - Emulator processes receive filesystem paths because both Atari800 and
   Altirra load media from files.
 
@@ -204,6 +204,7 @@ Keep the first public surface small:
 
 ```text
 actionc-run [--mode compatibility|optimized|mir6502]
+            [--runtime cart|standalone]
             [--emulator auto|atari800|altirra]
             [--emulator-path <path>]
             [--cart <path>|--no-cart]
@@ -276,8 +277,8 @@ Acceptance criteria:
 - `actionc-run --no-run --out-atr output.atr sample.act` succeeds;
 - extracting `BOOT.AR0` returns the embedded bootstrap exactly;
 - extracting `PROGRAM.AR1` returns the compiler API object bytes exactly;
-- with `--no-cart`, `BOOT.AR0` is absent and `PROGRAM.AR0` equals the compiler
-  API object bytes;
+- with `--runtime standalone` or `--no-cart`, `BOOT.AR0` is absent and
+  `PROGRAM.AR0` equals the compiler API object bytes;
 - a failed compilation does not create the requested ATR.
 
 ### Slice 3: Atari800 adapter
@@ -351,7 +352,7 @@ At minimum, cover:
 | Unix auto | Atari800 preferred |
 | missing emulator | checked candidates reported |
 | path containing spaces | one argument per path |
-| `--no-cart` | no bootstrap or cartridge leaks into run; program uses `.AR0` |
+| `--runtime standalone` / `--no-cart` | no bootstrap or cartridge leaks into run; program uses `.AR0` |
 | `--no-run` | no emulator discovery or process spawn |
 | normal child exit | temporary directory removed |
 | `--keep` | temporary directory retained and reported |

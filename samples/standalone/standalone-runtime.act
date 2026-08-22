@@ -1,7 +1,7 @@
 ; Standalone runtime-linking example using traditional unqualified Action!
-; source. The classic backend lowers the arithmetic operators to embedded
-; SYSLIB routines. Both backends also select SArgs for SaveResults' argument
-; frame and link the output routines used below.
+; source. The standalone runtime now provides the audited system library, not
+; only compiler arithmetic helpers. This sample links console I/O alongside
+; the arithmetic routines and SArgs needed by SaveResults' argument frame.
 
 CARD left,right
 CARD product,quotient,remainder,shifted
@@ -15,6 +15,10 @@ PROC SaveResults(CARD p,q,r,s)
 RETURN
 
 PROC Main()
+  PrintE("Hello from standalone!")
+  PrintE("No Action! cartridge required.")
+  PutE()
+
   left=1234
   right=37
   shift=3
@@ -24,6 +28,18 @@ PROC Main()
               left MOD right,
               left RSH shift)
 
+  PrintE("inputs:")
+  Print("left: ")
+  PrintC(left)
+  PutE()
+  Print("right: ")
+  PrintC(right)
+  PutE()
+  Print("shift: ")
+  PrintB(shift)
+  PutE()
+
+  PrintE("results:")
   Print("product: ")
   PrintC(product)
   PutE()
@@ -37,6 +53,7 @@ PROC Main()
   PrintC(shifted)
   PutE()
 
-  DO
-  OD
+  PutE()
+  Print("Press any key to continue...")
+  GetD(0)
 RETURN

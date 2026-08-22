@@ -25,16 +25,16 @@ fn parses_all_sample_programs() {
 }
 
 #[test]
-fn unqualified_runtime_helper_sample_compiles_with_both_standalone_backends() {
+fn unqualified_standalone_runtime_sample_compiles_with_both_backends() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("samples")
         .join("standalone")
-        .join("runtime-helpers.act");
+        .join("standalone-runtime.act");
 
     for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
         let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
         compile_file(&source, &options).unwrap_or_else(|error| {
-            panic!("compile unqualified runtime sample in {mode:?} standalone mode: {error}")
+            panic!("compile standalone runtime sample in {mode:?} mode: {error}")
         });
     }
 }

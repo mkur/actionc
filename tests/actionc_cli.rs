@@ -40,11 +40,11 @@ fn standalone_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn standalone_runtime_helpers() -> PathBuf {
+fn standalone_runtime_sample() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("samples")
         .join("standalone")
-        .join("runtime-helpers.act")
+        .join("standalone-runtime.act")
 }
 
 fn lexical_blocks_fixture() -> PathBuf {
@@ -686,7 +686,7 @@ fn standalone_source_listings_omit_library_source_annotations() {
                 "standalone",
                 "--emit-source-listing",
             ])
-            .arg(standalone_runtime_helpers())
+            .arg(standalone_runtime_sample())
             .output()
             .expect("emit standalone source listing");
         assert!(

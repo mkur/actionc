@@ -295,18 +295,16 @@ or lowering operation, and available alternatives when useful.
 startup as one coherent choice:
 
 ```text
---no-cart       -> compile with --runtime standalone; launch without cart
---cart PATH     -> compile with --runtime cart; mount PATH
+--runtime standalone -> compile for standalone; launch without cart
+--runtime cart       -> compile for cart; mount the bundled cart
+--no-cart            -> convenience form of --runtime standalone
+--cart PATH          -> imply --runtime cart; mount PATH
 ```
 
-If a future explicit `actionc-run --runtime` option is exposed, contradictory
-combinations are errors rather than precedence puzzles. A standalone program
-may physically run with a cartridge present, but it neither calls nor requires
-that cartridge.
-
-The implemented runner derives both choices from the cartridge option and
-checks the invariant again before compiling the ATR. Its public interface does
-not expose a separate runtime option that could contradict the mounted media.
+The runner accepts explicit, consistent combinations such as `--runtime cart
+--cart PATH`, but contradictory combinations are errors rather than precedence
+puzzles. It resolves the runtime and cartridge choices together and checks the
+invariant again before compiling the ATR.
 
 ## Maps, Listings, and Reproducibility
 
@@ -382,8 +380,10 @@ Suggested commit: `modules: bind std to selected runtime`.
 
 ### Slice 5: Runner and documentation
 
-- Make `actionc-run --no-cart` request standalone compilation.
-- Make `--cart PATH` request the cart runtime.
+- Expose `actionc-run --runtime cart|standalone` as the canonical runtime
+  selector.
+- Keep `--no-cart` as the standalone convenience form and make `--cart PATH`
+  imply the cart runtime.
 - Document runtime license consequences and corresponding source.
 - Add maps, listing explanations, and migration guidance for local helper
   definitions that are no longer necessary.

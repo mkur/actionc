@@ -6,9 +6,10 @@ bootstrap followed by the generated object as `PROGRAM.AR1`. The bootstrap
 selects the Action! cartridge's resident-library bank and opens `E:` on IOCB 6
 before MyDOS starts the program. Action!'s default output device is set to that
 dedicated channel because MyDOS still owns IOCB 0 while it invokes the load
-file's RUNAD. With `--no-cart`, the compiler selects the standalone runtime,
-the bootstrap and cartridge are omitted, and the generated object is stored
-directly as `PROGRAM.AR0`. No Bash or intermediate `.com` file is required.
+file's RUNAD. With `--runtime standalone` or its `--no-cart` convenience form,
+the compiler selects the standalone runtime, the bootstrap and cartridge are
+omitted, and the generated object is stored directly as `PROGRAM.AR0`. No Bash
+or intermediate `.com` file is required.
 
 Install it with:
 
@@ -61,13 +62,17 @@ actionc-run \
 Compile and run a standalone arithmetic fixture with no Action! cartridge:
 
 ```sh
-actionc-run --no-cart fixtures/runtime/standalone_arithmetic.act
+actionc-run --runtime standalone fixtures/runtime/standalone_arithmetic.act
 ```
+
+For runner-oriented commands, `--no-cart` is a shorter spelling of the same
+standalone compilation and launch choice.
 
 ## Options
 
 ```text
 actionc-run [--mode compatibility|optimized|mir6502]
+            [--runtime cart|standalone]
             [--emulator auto|atari800|altirra]
             [--emulator-path <path>]
             [--cart <path>|--no-cart]
@@ -80,16 +85,20 @@ actionc-run [--mode compatibility|optimized|mir6502]
 - `--mode` selects the same public compiler modes as `actionc`. Without it,
   source annotations remain active and the compiler otherwise uses its
   compatibility defaults.
+- `--runtime` selects the same runtime provider as `actionc` and
+  `actionc-emit`. `cart` uses the bundled cartridge unless `--cart` supplies a
+  replacement. `standalone` runs without a cartridge.
 - `--emulator auto` is the default. On Windows it prefers Altirra and then
   Atari800; on Linux and macOS it looks for Atari800.
 - `--emulator-path` overrides executable discovery. With `auto`, recognized
   names such as `Altirra64.exe`, `Altirra.exe`, and `atari800` also select the
   adapter. For another filename, specify `--emulator` too.
-- `--cart` replaces the bundled Action! cartridge and selects cart-runtime
-  compilation. `--no-cart` selects standalone compilation, runs without a
-  cartridge, omits the Action! bank/default-output bootstrap, stores the
+- `--cart` replaces the bundled Action! cartridge and implies `--runtime cart`.
+  `--no-cart` is a convenience form of `--runtime standalone`: it runs without
+  a cartridge, omits the Action! bank/default-output bootstrap, stores the
   program as `PROGRAM.AR0`, and prevents Atari800 from restoring a cartridge
-  from saved settings.
+  from saved settings. Contradictory runtime and cartridge options are
+  rejected.
 - `--no-run` writes an ATR and does not inspect emulator configuration or the
   host PATH. Without `--out-atr`, it writes `<source-stem>.atr` in the current
   directory.

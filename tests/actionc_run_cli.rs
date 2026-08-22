@@ -58,6 +58,19 @@ fn standalone_minimal() -> PathBuf {
 }
 
 #[test]
+fn help_documents_the_canonical_runtime_selector_and_no_cart_convenience() {
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
+        .arg("--help")
+        .output()
+        .expect("run actionc-run --help");
+
+    assert!(output.status.success());
+    let help = String::from_utf8_lossy(&output.stderr);
+    assert!(help.contains("[--runtime cart|standalone]"));
+    assert!(help.contains("[--cart <path>|--no-cart]"));
+}
+
+#[test]
 fn no_run_writes_an_atr_with_the_bootstrap_and_compiler_object() {
     let temp = TestDir::new();
     let output_atr = temp.path().join("nested/hello world.atr");
@@ -162,6 +175,65 @@ fn no_cart_writes_the_compiler_object_directly_as_ar0() {
             .read_file_named("PROGRAM.AR1")
             .expect("read output directory")
             .is_none()
+    );
+}
+
+#[test]
+fn runtime_standalone_writes_the_compiler_object_directly_as_ar0() {
+    let temp = TestDir::new();
+    let output_atr = temp.path().join("standalone-runtime.atr");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
+        .args(["--runtime", "standalone", "--no-run", "--out-atr"])
+        .arg(&output_atr)
+        .arg(standalone_minimal())
+        .output()
+        .expect("run actionc-run --runtime standalone --no-run");
+
+    assert!(
+        output.status.success(),
+        "actionc-run failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let image = AtrImage::from_bytes(fs::read(&output_atr).expect("read output ATR"))
+        .expect("parse output ATR");
+    let program = image
+        .read_file_named("PROGRAM.AR0")
+        .expect("read output directory")
+        .expect("find PROGRAM.AR0");
+    let compiled = compile_file(
+        standalone_minimal(),
+        &CompileOptions::default().with_runtime(Runtime::Standalone),
+    )
+    .expect("compile expected standalone object");
+
+    assert_eq!(program, compiled.object_bytes());
+    assert!(
+        image
+            .read_file_named("BOOT.AR0")
+            .expect("read output directory")
+            .is_none()
+    );
+    assert!(
+        image
+            .read_file_named("PROGRAM.AR1")
+            .expect("read output directory")
+            .is_none()
+    );
+}
+
+#[test]
+fn runtime_standalone_rejects_an_explicit_cartridge() {
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
+        .args(["--runtime=standalone", "--cart=action.car"])
+        .arg(standalone_minimal())
+        .output()
+        .expect("run actionc-run with conflicting runtime and cartridge");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("--runtime standalone conflicts with --cart")
     );
 }
 

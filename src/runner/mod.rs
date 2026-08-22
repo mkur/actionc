@@ -157,6 +157,7 @@ fn parse_args(
     let mut emulator = EmulatorSelection::Auto;
     let mut emulator_path = None;
     let mut cartridge = None;
+    let mut runtime = None;
     let mut keep = false;
     let mut source = None;
     let mut module_paths = Vec::new();
@@ -182,6 +183,17 @@ fn parse_args(
         }
         if let Some(value) = os_option_value(&arg, "--mode=") {
             mode = Some(parse_mode(value)?);
+            continue;
+        }
+        if arg == OsStr::new("--runtime") {
+            let value = args.next().ok_or_else(|| {
+                RunnerError::configuration("--runtime requires cart or standalone")
+            })?;
+            set_runtime(&mut runtime, parse_runtime(&value)?)?;
+            continue;
+        }
+        if let Some(value) = os_option_value(&arg, "--runtime=") {
+            set_runtime(&mut runtime, parse_runtime(value)?)?;
             continue;
         }
         if arg == OsStr::new("--module-path") {
@@ -265,10 +277,29 @@ fn parse_args(
             "--keep only applies when an emulator is launched",
         ));
     }
-    let cartridge = cartridge.unwrap_or(CartridgeChoice::Bundled);
+    let runtime = runtime.unwrap_or_else(|| {
+        cartridge
+            .as_ref()
+            .map_or(Runtime::ActionCart, CartridgeChoice::runtime)
+    });
+    let cartridge = match cartridge {
+        Some(CartridgeChoice::File(_)) if runtime == Runtime::Standalone => {
+            return Err(RunnerError::configuration(
+                "--runtime standalone conflicts with --cart",
+            ));
+        }
+        Some(CartridgeChoice::None) if runtime == Runtime::ActionCart => {
+            return Err(RunnerError::configuration(
+                "--runtime cart conflicts with --no-cart",
+            ));
+        }
+        Some(cartridge) => cartridge,
+        None if runtime == Runtime::Standalone => CartridgeChoice::None,
+        None => CartridgeChoice::Bundled,
+    };
     let mut compile = mode
         .map_or_else(CompileOptions::default, CompileOptions::for_mode)
-        .with_runtime(cartridge.runtime());
+        .with_runtime(runtime);
     for module_path in module_paths {
         compile = compile.with_module_path(module_path);
     }
@@ -297,6 +328,15 @@ fn set_cartridge_choice(
     Ok(())
 }
 
+fn set_runtime(current: &mut Option<Runtime>, runtime: Runtime) -> Result<(), RunnerError> {
+    if current.replace(runtime).is_some() {
+        return Err(RunnerError::configuration(
+            "--runtime may only be specified once",
+        ));
+    }
+    Ok(())
+}
+
 fn parse_mode(value: &OsStr) -> Result<CompileMode, RunnerError> {
     match value.to_str() {
         Some("compatibility") => Ok(CompileMode::Compatibility),
@@ -304,6 +344,17 @@ fn parse_mode(value: &OsStr) -> Result<CompileMode, RunnerError> {
         Some("mir6502") => Ok(CompileMode::Mir6502),
         _ => Err(RunnerError::configuration(format!(
             "unknown mode: {}; expected compatibility, optimized, or mir6502",
+            value.to_string_lossy()
+        ))),
+    }
+}
+
+fn parse_runtime(value: &OsStr) -> Result<Runtime, RunnerError> {
+    match value.to_str() {
+        Some("cart") => Ok(Runtime::ActionCart),
+        Some("standalone") => Ok(Runtime::Standalone),
+        _ => Err(RunnerError::configuration(format!(
+            "unknown runtime: {}; expected cart or standalone",
             value.to_string_lossy()
         ))),
     }
@@ -691,14 +742,16 @@ fn install_temporary_file(temporary: &Path, destination: &Path) -> io::Result<()
 fn print_help() {
     eprintln!(
         "usage: actionc-run [--mode compatibility|optimized|mir6502]\n\
+         \x20                  [--runtime cart|standalone]\n\
          \x20                  [--emulator auto|atari800|altirra]\n\
          \x20                  [--emulator-path <path>]\n\
          \x20                  [--cart <path>|--no-cart]\n\
          \x20                  [--no-run] [--out-atr <file.atr>] [--keep]\n\
          \x20                  <file.act>\n\
          \x20     actionc-run --version\n\n\
-         The default and --cart compile for the Action! cartridge runtime.\n\
-         --no-cart compiles for the standalone runtime and mounts no cartridge."
+         The default, --runtime cart, and --cart compile for the Action!\n\
+         cartridge runtime. --runtime standalone and --no-cart compile for the\n\
+         standalone runtime and mount no cartridge."
     );
 }
 
@@ -1069,6 +1122,54 @@ mod tests {
     }
 
     #[test]
+    fn parser_maps_explicit_runtime_to_the_matching_cartridge_layout() {
+        let standalone = parse_args([
+            OsString::from("--runtime=standalone"),
+            OsString::from("program.act"),
+        ])
+        .expect("parse standalone runtime")
+        .expect("not help");
+        assert_eq!(standalone.cartridge, CartridgeChoice::None);
+        assert_eq!(standalone.compile.runtime(), Runtime::Standalone);
+
+        let cart = parse_args([
+            OsString::from("--runtime"),
+            OsString::from("cart"),
+            OsString::from("program.act"),
+        ])
+        .expect("parse cart runtime")
+        .expect("not help");
+        assert_eq!(cart.cartridge, CartridgeChoice::Bundled);
+        assert_eq!(cart.compile.runtime(), Runtime::ActionCart);
+    }
+
+    #[test]
+    fn parser_accepts_consistent_explicit_runtime_and_cartridge_options() {
+        let cart = parse_args([
+            OsString::from("--runtime=cart"),
+            OsString::from("--cart=action.car"),
+            OsString::from("program.act"),
+        ])
+        .expect("parse matching cart options")
+        .expect("not help");
+        assert_eq!(cart.compile.runtime(), Runtime::ActionCart);
+        assert_eq!(
+            cart.cartridge,
+            CartridgeChoice::File(PathBuf::from("action.car"))
+        );
+
+        let standalone = parse_args([
+            OsString::from("--runtime=standalone"),
+            OsString::from("--no-cart"),
+            OsString::from("program.act"),
+        ])
+        .expect("parse matching standalone options")
+        .expect("not help");
+        assert_eq!(standalone.compile.runtime(), Runtime::Standalone);
+        assert_eq!(standalone.cartridge, CartridgeChoice::None);
+    }
+
+    #[test]
     fn parser_rejects_conflicting_cartridge_options() {
         let error = parse_args([
             OsString::from("--no-cart"),
@@ -1079,6 +1180,59 @@ mod tests {
 
         assert_eq!(error.exit_code(), 2);
         assert!(error.to_string().contains("--cart and --no-cart"));
+    }
+
+    #[test]
+    fn parser_rejects_runtime_and_cartridge_conflicts() {
+        let cart_error = parse_args([
+            OsString::from("--runtime=standalone"),
+            OsString::from("--cart=action.car"),
+            OsString::from("program.act"),
+        ])
+        .expect_err("standalone runtime with a cartridge should fail");
+        assert!(
+            cart_error
+                .to_string()
+                .contains("--runtime standalone conflicts with --cart")
+        );
+
+        let no_cart_error = parse_args([
+            OsString::from("--runtime=cart"),
+            OsString::from("--no-cart"),
+            OsString::from("program.act"),
+        ])
+        .expect_err("cart runtime without a cartridge should fail");
+        assert!(
+            no_cart_error
+                .to_string()
+                .contains("--runtime cart conflicts with --no-cart")
+        );
+    }
+
+    #[test]
+    fn parser_rejects_invalid_or_repeated_runtime_options() {
+        let invalid = parse_args([
+            OsString::from("--runtime=native"),
+            OsString::from("program.act"),
+        ])
+        .expect_err("unknown runtime should fail");
+        assert!(
+            invalid
+                .to_string()
+                .contains("unknown runtime: native; expected cart or standalone")
+        );
+
+        let repeated = parse_args([
+            OsString::from("--runtime=cart"),
+            OsString::from("--runtime=cart"),
+            OsString::from("program.act"),
+        ])
+        .expect_err("repeated runtime should fail");
+        assert!(
+            repeated
+                .to_string()
+                .contains("--runtime may only be specified once")
+        );
     }
 
     #[test]

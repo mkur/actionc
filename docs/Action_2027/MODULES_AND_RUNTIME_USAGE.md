@@ -225,13 +225,18 @@ actionc-run program.act
 actionc-run --cart roms/action.rom program.act
 
 # Standalone runtime and no cartridge
+actionc-run --runtime standalone program.act
+
+# Equivalent runner convenience
 actionc-run --no-cart program.act
 ```
 
-`--no-cart` selects standalone compilation and launch behavior together.
-Standalone runs store the program directly as `PROGRAM.AR0`. Cart runs add the
-small `BOOT.AR0` cartridge-bank bootstrap and store the program as
-`PROGRAM.AR1`.
+`--runtime` is the canonical selector shared with `actionc` and
+`actionc-emit`. In the runner, `--no-cart` is a convenience form of
+`--runtime standalone`, while `--cart PATH` implies `--runtime cart`.
+Contradictory combinations are rejected. Standalone runs store the program
+directly as `PROGRAM.AR0`. Cart runs add the small `BOOT.AR0` cartridge-bank
+bootstrap and store the program as `PROGRAM.AR1`.
 
 ## Inspecting runtime decisions
 
