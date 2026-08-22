@@ -1,7 +1,7 @@
 program modules=1
   module #0 items=6
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
-    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
     decl Byte total#77/scope1:Var:Byte scalar
     routine Byte FUNC Inc#78/scope1:Func:Byte
       callable Byte FUNC(Byte)

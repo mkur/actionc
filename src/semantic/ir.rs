@@ -2948,6 +2948,13 @@ impl<'a> IrBuilder<'a> {
             };
         }
 
+        if expected.pointer && matches!(expr.kind, ExprKind::Number(_)) {
+            let lowered = self.lower_expr(scope, expr);
+            if lowered.ty.as_scalar().is_some() {
+                return self.coerce_scalar_expr_for_expected_type(lowered, expected);
+            }
+        }
+
         if expected.is_real() {
             let lowered = self.lower_expr(scope, expr);
             return self.coerce_assignment_expr_to_real(lowered);

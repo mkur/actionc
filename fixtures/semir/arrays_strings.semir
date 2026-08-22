@@ -1,7 +1,7 @@
 program modules=1
   module #0 items=9
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
-    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
     define STRING#77/scope1:Define:? = "CHAR ARRAY"
     decl Char hello#78/scope1:Array:Char array Char ARRAY(0)->Char POINTER/Array/Global
       init "HELLO":Char POINTER:Value:eval5:facts=w2,ptr,to=Char,pointee_w1

@@ -19,8 +19,8 @@ bb1:
   goto bb3
 bb3:
   %t4:Byte = load skstat
-  %t5:Card = %t4 And $4
-  %t6:condition = cmp %t5 Ne $0 operand_ty=Card
+  %t5:Byte = %t4 And 4
+  %t6:condition = cmp %t5 Ne 0 operand_ty=Byte
   branch %t6 ? bb4 : bb5
 bb4:
   %t7:Byte = load total

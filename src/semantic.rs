@@ -2812,6 +2812,9 @@ impl Analyzer {
         if self.routine_address_expr_type(scope, expr).is_some() {
             return true;
         }
+        if matches!(expr.kind, ExprKind::Number(_)) && actual.as_scalar().is_some() {
+            return true;
+        }
         if actual.base == ValueTypeBase::Fund(FundType::Card) {
             return true;
         }
@@ -6758,6 +6761,11 @@ mod tests {
     #[test]
     fn accepts_card_literal_assignment_to_pointer() {
         analyze_source("BYTE POINTER p PROC Main() p=$4000 RETURN");
+    }
+
+    #[test]
+    fn accepts_byte_sized_address_literal_assignment_to_pointer() {
+        analyze_source("BYTE POINTER p PROC Main() p=$FF RETURN");
     }
 
     #[test]

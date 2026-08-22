@@ -1,7 +1,7 @@
 program modules=1
   module #0 items=8
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
-    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
     decl Byte a#77/scope1:Var:Byte scalar
     decl Byte b#78/scope1:Var:Byte scalar
     decl Byte c#79/scope1:Var:Byte scalar
@@ -14,6 +14,6 @@ program modules=1
         assign a:Byte:facts=w1,Unsigned = 7:Byte:Value:eval4:facts=w1,Unsigned
         assign b:Byte:facts=w1,Unsigned = 3:Byte:Value:eval5:facts=w1,Unsigned
         assign c:Byte:facts=w1,Unsigned = (a:Byte:LValue:eval6:facts=w1,Unsigned - b:Byte:LValue:eval7:facts=w1,Unsigned):Byte:Value:eval8:facts=w1,Unsigned
-        assign d:Byte:facts=w1,Unsigned = (c:Byte:LValue:eval9:facts=w1,Unsigned AND $0F:Card:Value:eval10:facts=w2,Unsigned):Card:Value:eval11:facts=w2,Unsigned
-        assign e:Byte:facts=w1,Unsigned = (d:Byte:LValue:eval12:facts=w1,Unsigned XOR $80:Card:Value:eval13:facts=w2,Unsigned):Card:Value:eval14:facts=w2,Unsigned
+        assign d:Byte:facts=w1,Unsigned = (c:Byte:LValue:eval9:facts=w1,Unsigned AND $0F:Byte:Value:eval10:facts=w1,Unsigned):Byte:Value:eval11:facts=w1,Unsigned
+        assign e:Byte:facts=w1,Unsigned = (d:Byte:LValue:eval12:facts=w1,Unsigned XOR $80:Byte:Value:eval13:facts=w1,Unsigned):Byte:Value:eval14:facts=w1,Unsigned
         return

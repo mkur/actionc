@@ -130,7 +130,8 @@ fn repeated_pointer_store_read_reuses_staged_address_pair() {
 
     assert_eq!(formatted.matches("store.b fixed_zp $AC, a").count(), 1);
     assert_eq!(formatted.matches("store.b fixed_zp $AD, a").count(), 1);
-    assert!(formatted.contains("store_indirect (zp$AC),y+0 #$0011"));
+    assert!(formatted.contains("a =.b #17"));
+    assert!(formatted.contains("store_indirect (zp$AC),y+0 a"));
     assert!(formatted.contains("a =.b load_indirect (zp$AC),y+0"));
     assert!(formatted.contains("store.b global g2+0, a"));
     assert!(!formatted.contains("spill sp"));

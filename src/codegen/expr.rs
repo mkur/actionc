@@ -238,45 +238,97 @@ impl Generator {
         }
     }
 
-    // Extracted from src/codegen.rs: expr_signed
-    pub(super) fn expr_signed(&self, expr: &Expr) -> bool {
+    pub(super) fn expr_scalar_type(&self, expr: &Expr) -> Option<ScalarType> {
         match &expr.kind {
-            ExprKind::Name(name) => self
-                .lookup_slot(name)
-                .is_some_and(|slot| slot.pointee_size.is_none() && slot.signed),
+            ExprKind::CurrentLocation | ExprKind::String(_) => Some(ScalarType::Card),
+            ExprKind::Number(number) => ScalarType::from_number_kind(number.kind),
+            ExprKind::Char(_) => Some(ScalarType::Char),
+            ExprKind::Name(name) => {
+                if let Some(slot) = self.lookup_slot(name) {
+                    if slot.array.is_some() || slot.pointee_size.is_some() {
+                        Some(ScalarType::Card)
+                    } else {
+                        scalar_type_for_storage(slot.size, slot.signed)
+                    }
+                } else {
+                    self.numeric_defines
+                        .get(&normalize_name(name))
+                        .map(|value| {
+                            if *value <= u16::from(u8::MAX) {
+                                ScalarType::Byte
+                            } else {
+                                ScalarType::Card
+                            }
+                        })
+                }
+            }
             ExprKind::Index { base, .. } => {
                 let ExprKind::Name(name) = &base.kind else {
-                    return false;
+                    return None;
                 };
-                self.lookup_slot(name).is_some_and(|slot| slot.signed)
+                let slot = self.lookup_slot(name)?;
+                scalar_type_for_storage(slot.size, slot.signed)
             }
             ExprKind::Field { base, field } => self
                 .record_field_metadata(base, field)
-                .is_some_and(|field| field.signed),
+                .and_then(|field| scalar_type_for_storage(field.size, field.signed)),
             ExprKind::Call { callee, args } => {
-                if let Some(signed) = self.array_call_signed(callee, args) {
-                    signed
+                if let Some(size) = self.array_call_slot_size(callee, args) {
+                    scalar_type_for_storage(
+                        size,
+                        self.array_call_signed(callee, args).unwrap_or(false),
+                    )
                 } else {
                     self.call_return_slot(callee)
-                        .is_some_and(|slot| slot.signed)
+                        .and_then(|slot| scalar_type_for_storage(slot.size, slot.signed))
                 }
             }
             ExprKind::Unary {
+                op: UnaryOp::Plus | UnaryOp::Neg,
+                expr,
+            } => self.expr_scalar_type(expr),
+            ExprKind::Unary {
+                op: UnaryOp::AddressOf,
+                ..
+            } => Some(ScalarType::Card),
+            ExprKind::Unary {
                 op: UnaryOp::Deref,
                 expr,
-            } => self.pointer_expr_pointee_signed(expr),
-            ExprKind::Binary { left, right, .. } => {
-                self.expr_signed(left) || self.expr_signed(right)
+            } => scalar_type_for_storage(
+                self.pointer_expr_pointee_size(expr)?,
+                self.pointer_expr_pointee_signed(expr),
+            ),
+            ExprKind::Binary { op, left, right } => {
+                if matches!(
+                    op,
+                    BinaryOp::Eq
+                        | BinaryOp::Ne
+                        | BinaryOp::Lt
+                        | BinaryOp::Le
+                        | BinaryOp::Gt
+                        | BinaryOp::Ge
+                ) {
+                    Some(ScalarType::Byte)
+                } else {
+                    Some(ScalarType::promote_binary(
+                        self.expr_scalar_type(left)?,
+                        self.expr_scalar_type(right)?,
+                    ))
+                }
             }
-            ExprKind::Cast { ty, expr } => match ty.base {
-                TypeBase::Fund(FundType::Int) => true,
-                TypeBase::Fund(FundType::Byte | FundType::Card | FundType::Char)
-                | TypeBase::NativeReal
-                | TypeBase::Named(_)
-                | TypeBase::Callable(_) => self.expr_signed(expr),
+            ExprKind::Cast { ty, .. } if ty.pointer => Some(ScalarType::Card),
+            ExprKind::Cast { ty, .. } => match &ty.base {
+                TypeBase::Fund(fund) => Some(ScalarType::from_fund(*fund)),
+                TypeBase::Callable(_) => Some(ScalarType::Card),
+                TypeBase::NativeReal | TypeBase::Named(_) => None,
             },
-            _ => false,
+            ExprKind::Missing | ExprKind::Raw | ExprKind::InitializerList(_) => None,
         }
+    }
+
+    // Extracted from src/codegen.rs: expr_signed
+    pub(super) fn expr_signed(&self, expr: &Expr) -> bool {
+        self.expr_scalar_type(expr) == Some(ScalarType::Int)
     }
 
     // Extracted from src/codegen.rs: pointer_expr_pointee_size
@@ -605,6 +657,15 @@ impl Generator {
             return None;
         };
         self.pointer_deref_slot_with_addr(expr, pointer)
+    }
+}
+
+fn scalar_type_for_storage(size: u16, signed: bool) -> Option<ScalarType> {
+    match (size, signed) {
+        (1, _) => Some(ScalarType::Byte),
+        (2, true) => Some(ScalarType::Int),
+        (2, false) => Some(ScalarType::Card),
+        _ => None,
     }
 }
 

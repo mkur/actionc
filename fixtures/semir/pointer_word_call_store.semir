@@ -1,7 +1,7 @@
 program modules=1
   module #0 items=7
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
-    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
     decl Byte bytes#77/scope1:Array:Byte array Byte ARRAY(4)->Byte POINTER/Array/Global
       length 4:Byte:Value:eval4:facts=w1,Unsigned
     decl Card POINTER words#78/scope1:Var:Card POINTER scalar
@@ -27,9 +27,9 @@ program modules=1
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:
-        assign words:Card POINTER:facts=w2,ptr,to=Card,pointee_w2 = $4000:Card:Value:eval17:facts=w2,Unsigned
+        assign words:Card POINTER:facts=w2,ptr,to=Card,pointee_w2 = Card POINTER($4000:Card:Value:eval17:facts=w2,Unsigned):Card POINTER:Value:eval18:facts=w2,ptr,to=Card,pointee_w2
         call user Store -> ? callable=PROC(Byte POINTER,Card POINTER,Byte) effects=none
-          arg #0 array_decay/Global bytes:Byte:facts=w1,Unsigned:Byte POINTER:Value:eval18:facts=w2,ptr,to=Byte,pointee_w1
-          arg #1 words:Card POINTER:LValue:eval19:facts=w2,ptr,to=Card,pointee_w2
-          arg #2 1:Byte:Value:eval20:facts=w1,Unsigned
+          arg #0 array_decay/Global bytes:Byte:facts=w1,Unsigned:Byte POINTER:Value:eval19:facts=w2,ptr,to=Byte,pointee_w1
+          arg #1 words:Card POINTER:LValue:eval20:facts=w2,ptr,to=Card,pointee_w2
+          arg #2 1:Byte:Value:eval21:facts=w1,Unsigned
         return

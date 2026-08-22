@@ -1,0 +1,77 @@
+; The original Action! compiler promotes ordered scalar comparisons as follows:
+; CARD dominates INT, and INT dominates BYTE. Hex literals up to $FF are BYTE.
+
+BYTE intByte=$0600, byteInt=$0601,
+     intCard=$0602, cardInt=$0603,
+     intHex=$0604, hexInt=$0605,
+     intDec=$0606, decInt=$0607,
+     signature=$0608,
+     byteValue
+INT intValue
+CARD cardValue
+
+PROC Main()
+  intByte=0 byteInt=0 intCard=0 cardInt=0
+  intHex=0 hexInt=0 intDec=0 decInt=0
+  intValue=-1 byteValue=1 cardValue=1
+
+  IF intValue=byteValue THEN intByte==+1 FI
+  IF intValue#byteValue THEN intByte==+2 FI
+  IF intValue<byteValue THEN intByte==+4 FI
+  IF intValue<=byteValue THEN intByte==+8 FI
+  IF intValue>byteValue THEN intByte==+16 FI
+  IF intValue>=byteValue THEN intByte==+32 FI
+
+  IF byteValue=intValue THEN byteInt==+1 FI
+  IF byteValue#intValue THEN byteInt==+2 FI
+  IF byteValue<intValue THEN byteInt==+4 FI
+  IF byteValue<=intValue THEN byteInt==+8 FI
+  IF byteValue>intValue THEN byteInt==+16 FI
+  IF byteValue>=intValue THEN byteInt==+32 FI
+
+  IF intValue=cardValue THEN intCard==+1 FI
+  IF intValue#cardValue THEN intCard==+2 FI
+  IF intValue<cardValue THEN intCard==+4 FI
+  IF intValue<=cardValue THEN intCard==+8 FI
+  IF intValue>cardValue THEN intCard==+16 FI
+  IF intValue>=cardValue THEN intCard==+32 FI
+
+  IF cardValue=intValue THEN cardInt==+1 FI
+  IF cardValue#intValue THEN cardInt==+2 FI
+  IF cardValue<intValue THEN cardInt==+4 FI
+  IF cardValue<=intValue THEN cardInt==+8 FI
+  IF cardValue>intValue THEN cardInt==+16 FI
+  IF cardValue>=intValue THEN cardInt==+32 FI
+
+  IF intValue=$FF THEN intHex==+1 FI
+  IF intValue#$FF THEN intHex==+2 FI
+  IF intValue<$FF THEN intHex==+4 FI
+  IF intValue<=$FF THEN intHex==+8 FI
+  IF intValue>$FF THEN intHex==+16 FI
+  IF intValue>=$FF THEN intHex==+32 FI
+
+  IF $FF=intValue THEN hexInt==+1 FI
+  IF $FF#intValue THEN hexInt==+2 FI
+  IF $FF<intValue THEN hexInt==+4 FI
+  IF $FF<=intValue THEN hexInt==+8 FI
+  IF $FF>intValue THEN hexInt==+16 FI
+  IF $FF>=intValue THEN hexInt==+32 FI
+
+  IF intValue=255 THEN intDec==+1 FI
+  IF intValue#255 THEN intDec==+2 FI
+  IF intValue<255 THEN intDec==+4 FI
+  IF intValue<=255 THEN intDec==+8 FI
+  IF intValue>255 THEN intDec==+16 FI
+  IF intValue>=255 THEN intDec==+32 FI
+
+  IF 255=intValue THEN decInt==+1 FI
+  IF 255#intValue THEN decInt==+2 FI
+  IF 255<intValue THEN decInt==+4 FI
+  IF 255<=intValue THEN decInt==+8 FI
+  IF 255>intValue THEN decInt==+16 FI
+  IF 255>=intValue THEN decInt==+32 FI
+
+  signature=$A5
+  DO
+  OD
+RETURN

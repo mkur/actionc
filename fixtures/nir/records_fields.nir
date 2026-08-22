@@ -6,7 +6,7 @@ global gw: Card
 
 routine Touch params=[rp] locals=[-]
 bb0:
-  store rp.+0 = $11
+  store rp.+0 = 17
   store rp.+1 = $2233
   %t0:Byte = load rp.+0
   store gb = %t0

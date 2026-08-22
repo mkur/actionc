@@ -4,5 +4,5 @@ global g1 rec: Pair storage global+0 size=3
 
 routine r0 Main
 b0 bb0:
-  store.b global g1+0, #$0011
+  store.b global g1+0, #$11
   return

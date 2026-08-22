@@ -478,12 +478,12 @@ impl<'a> Lexer<'a> {
                     }
                 }
             };
+            let kind = match value {
+                Some(value) if value <= u16::from(u8::MAX) => NumberKind::Byte,
+                _ => NumberKind::Card,
+            };
             return Token {
-                kind: TokenKind::Number(NumberLiteral {
-                    text,
-                    kind: NumberKind::Card,
-                    value,
-                }),
+                kind: TokenKind::Number(NumberLiteral { text, kind, value }),
                 span: Span::new(start, self.pos),
                 line: start_line,
             };
@@ -1035,18 +1035,19 @@ mod tests {
         assert_number(&tokens[1].kind, "255", NumberKind::Byte, Some(255));
         assert_number(&tokens[2].kind, "256", NumberKind::Int, Some(256));
         assert_number(&tokens[3].kind, "65535", NumberKind::Int, Some(65535));
-        assert_number(&tokens[4].kind, "$0", NumberKind::Card, Some(0));
-        assert_number(&tokens[5].kind, "$FF", NumberKind::Card, Some(255));
+        assert_number(&tokens[4].kind, "$0", NumberKind::Byte, Some(0));
+        assert_number(&tokens[5].kind, "$FF", NumberKind::Byte, Some(255));
         assert_number(&tokens[6].kind, "$1234", NumberKind::Card, Some(0x1234));
     }
 
     #[test]
     fn maps_numeric_literal_kinds_to_compiler_def_token_ids() {
-        let tokens = tokenize("1 256 $1234 1.0").unwrap();
+        let tokens = tokenize("1 256 $FF $100 1.0").unwrap();
         assert_eq!(tokens[0].kind.action_token_id(), Some(130));
         assert_eq!(tokens[1].kind.action_token_id(), Some(131));
-        assert_eq!(tokens[2].kind.action_token_id(), Some(132));
-        assert_eq!(tokens[3].kind.action_token_id(), Some(134));
+        assert_eq!(tokens[2].kind.action_token_id(), Some(130));
+        assert_eq!(tokens[3].kind.action_token_id(), Some(132));
+        assert_eq!(tokens[4].kind.action_token_id(), Some(134));
     }
 
     #[test]

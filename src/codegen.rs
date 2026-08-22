@@ -4,6 +4,7 @@ use crate::ast::*;
 use crate::diagnostic::Diagnostic;
 use crate::resident::{ResidentVariableKind, ResidentVariableStorage, resident_variable};
 use crate::runtime::Runtime;
+use crate::semantic::ScalarType;
 use crate::source::{Span, source_char_byte};
 
 const DATA_BASE: u16 = 0x0600;

@@ -7960,6 +7960,31 @@ fn compatible_unsigned_word_comparisons_use_subtract_carry_shape() {
 }
 
 #[test]
+fn mixed_scalar_ordered_comparisons_use_the_promoted_type_in_classic_profiles() {
+    let source = "INT signed CARD unsigned BYTE result,byteValue PROC Main() \
+                  IF signed<unsigned THEN result=1 FI \
+                  IF unsigned<signed THEN result=2 FI \
+                  IF signed<byteValue THEN result=3 FI \
+                  IF byteValue<signed THEN result=4 FI RETURN";
+
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
+        let listing = format_listing_with_origin(&output.bytes, output.origin);
+        let unsigned_branches = listing
+            .lines()
+            .filter(|line| line.contains(" BCC ") || line.contains(" BCS "))
+            .count();
+        let signed_branches = listing
+            .lines()
+            .filter(|line| line.contains(" BMI ") || line.contains(" BPL "))
+            .count();
+
+        assert_eq!(unsigned_branches, 2, "{profile:?}:\n{listing}");
+        assert_eq!(signed_branches, 2, "{profile:?}:\n{listing}");
+    }
+}
+
+#[test]
 fn compatible_byte_less_equal_uses_reversed_carry_shape() {
     let output = generate_compatible_source_with_origin(
         "BYTE a,b,x PROC Main() IF a<=b THEN x=1 FI RETURN",

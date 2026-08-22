@@ -1,11 +1,11 @@
 program modules=1
   module #0 items=5
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
-    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
     decl Card vec#77/scope1:Var:Card scalar
-      init $0A:Card:Value:eval4:facts=w2,Unsigned
+      init $0A:Byte:Value:eval4:facts=w1,Unsigned
     decl Card tmp#78/scope1:Var:Card scalar
-      init $86:Card:Value:eval5:facts=w2,Unsigned
+      init $86:Byte:Value:eval5:facts=w1,Unsigned
     routine PROC Main#79/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0

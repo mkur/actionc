@@ -541,7 +541,7 @@ impl Generator {
         }
         if self.segment_storage
             && width == 2
-            && self.expr_signed(left)
+            && self.is_signed_compare(left, right, width)
             && matches!(
                 op,
                 BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge
@@ -1364,10 +1364,13 @@ impl Generator {
         if compare_op.signed_order_branch_plan().is_none() {
             return false;
         }
-        if self.constant_u16(right) == Some(0) && self.expr_signed(left) {
+        if !self.is_signed_compare(left, right, 2) {
+            return false;
+        }
+        if self.constant_u16(right) == Some(0) {
             return self.emit_modern_signed_expr_zero_branch(compare_op, left, label, span);
         }
-        if self.constant_u16(left) == Some(0) && self.expr_signed(right) {
+        if self.constant_u16(left) == Some(0) {
             return self.emit_modern_signed_expr_zero_branch(
                 compare_op.reversed_operands(),
                 right,
@@ -1498,7 +1501,7 @@ impl Generator {
         let Some(branch) = compare_op.signed_zero_lvalue_branch() else {
             return false;
         };
-        if self.constant_u16(right) != Some(0) || !self.expr_signed(left) {
+        if self.constant_u16(right) != Some(0) || !self.is_signed_compare(left, right, 2) {
             return false;
         }
         let Some(slot) = self.lvalue_slot(left) else {
@@ -2023,7 +2026,13 @@ impl Generator {
     }
 
     pub(super) fn is_signed_compare(&self, left: &Expr, right: &Expr, width: u16) -> bool {
-        width == 2 && (self.expr_signed(left) || self.expr_signed(right))
+        width == 2
+            && match (self.expr_scalar_type(left), self.expr_scalar_type(right)) {
+                (Some(left), Some(right)) => {
+                    ScalarType::promote_binary(left, right) == ScalarType::Int
+                }
+                _ => self.expr_signed(left) || self.expr_signed(right),
+            }
     }
 
     pub(super) fn emit_compatible_signed_ordered_branch(

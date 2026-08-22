@@ -1,7 +1,7 @@
 program modules=1
   module #0 items=5
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
-    set $E:Card:Value:eval2:facts=w2,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
+    set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
     decl Byte observed#77/scope1:Var:Byte scalar
     routine PROC Guard#78/scope1:Proc:?
       callable PROC()
@@ -14,12 +14,12 @@ program modules=1
         decl Card setini#81/scope2:Var:Card scalar
           init $1BBE:Card:Value:eval5:facts=w2,Unsigned
         decl Card dosini#82/scope2:Var:Card scalar
-          init $0C:Card:Value:eval6:facts=w2,Unsigned
+          init $0C:Byte:Value:eval6:facts=w1,Unsigned
         decl Card dosvec#83/scope2:Var:Card scalar
-          init $0A:Card:Value:eval7:facts=w2,Unsigned
+          init $0A:Byte:Value:eval7:facts=w1,Unsigned
       body:
         assign oldrun:Byte:facts=w1,Unsigned = cartrun:Byte:LValue:eval8:facts=w1,Unsigned
-        assign cartrun:Byte:facts=w1,Unsigned XOR= $FF:Card:Value:eval9:facts=w2,Unsigned
+        assign cartrun:Byte:facts=w1,Unsigned XOR= $FF:Byte:Value:eval9:facts=w1,Unsigned
         if
           when Compare (cartrun:Byte:LValue:eval10:facts=w1,Unsigned = oldrun:Byte:LValue:eval11:facts=w1,Unsigned):Byte:Condition:eval12:facts=w1,Unsigned
             assign dosini:Card:facts=w2,Unsigned = setini:Card:LValue:eval13:facts=w2,Unsigned
