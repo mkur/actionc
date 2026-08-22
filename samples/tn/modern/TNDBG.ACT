@@ -402,7 +402,7 @@ BYTE FUNC FindNext(BYTE c)
   FOR j = c TO files - 1 DO
     IF IsTagged( j ) THEN RETURN( j ) FI
   OD
-RETURN( -1 ) 
+RETURN( BYTE(-1) )
 
 
 ;@actionc profile compat

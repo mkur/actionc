@@ -13,6 +13,6 @@ routine r1 Main
 b0 bb1:
   store.b global g1+0, #$24
   store.b global g2+0, #$0B
-  call r0 args=[#$01BC.w -> a:x] result=v5.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
-  store.w global g3+0, v5
+  call r0 args=[#$01BC.w -> a:x] result=v6.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  store.w global g3+0, v6
   return

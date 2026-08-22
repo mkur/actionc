@@ -200,6 +200,21 @@ impl Generator {
 
     // Extracted from src/codegen.rs: expr_size
     pub(super) fn expr_size(&self, expr: &Expr) -> Option<u16> {
+        if matches!(
+            &expr.kind,
+            ExprKind::Unary {
+                op: UnaryOp::Neg,
+                ..
+            } | ExprKind::Binary {
+                op: BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul,
+                ..
+            }
+        ) && self
+            .expr_scalar_type(expr)
+            .is_some_and(|ty| ty.width_bytes() == 2)
+        {
+            return Some(2);
+        }
         if let Some(value) = self.constant_u16(expr) {
             return Some(if value > 0xFF { 2 } else { 1 });
         }
@@ -284,9 +299,13 @@ impl Generator {
                 }
             }
             ExprKind::Unary {
-                op: UnaryOp::Plus | UnaryOp::Neg,
+                op: UnaryOp::Plus,
                 expr,
             } => self.expr_scalar_type(expr),
+            ExprKind::Unary {
+                op: UnaryOp::Neg,
+                expr,
+            } => self.expr_scalar_type(expr).map(|_| ScalarType::Int),
             ExprKind::Unary {
                 op: UnaryOp::AddressOf,
                 ..
@@ -310,9 +329,26 @@ impl Generator {
                 ) {
                     Some(ScalarType::Byte)
                 } else {
-                    Some(ScalarType::promote_binary(
-                        self.expr_scalar_type(left)?,
-                        self.expr_scalar_type(right)?,
+                    let left_ty = self.expr_scalar_type(left)?;
+                    let right_ty = self.expr_scalar_type(right)?;
+                    let constant_result = if matches!(op, BinaryOp::Add | BinaryOp::Sub) {
+                        self.constant_u16(left).zip(self.constant_u16(right)).map(
+                            |(left, right)| match op {
+                                BinaryOp::Add => left.wrapping_add(right),
+                                BinaryOp::Sub => left.wrapping_sub(right),
+                                _ => unreachable!(
+                                    "only addition and subtraction reach constant-result typing"
+                                ),
+                            },
+                        )
+                    } else {
+                        None
+                    };
+                    Some(ScalarType::arithmetic_result(
+                        *op,
+                        left_ty,
+                        right_ty,
+                        constant_result,
                     ))
                 }
             }

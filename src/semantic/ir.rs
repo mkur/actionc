@@ -1860,7 +1860,7 @@ fn sem_for_step_expr(expr: &SemExpr) -> SemForStep {
 }
 
 fn const_u16_sem_expr(expr: &SemExpr) -> Option<u16> {
-    match &expr.kind {
+    let value = match &expr.kind {
         SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
         SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
         SemExprKind::Cast { expr, .. } => const_u16_sem_expr(expr),
@@ -1895,7 +1895,12 @@ fn const_u16_sem_expr(expr: &SemExpr) -> Option<u16> {
             }
         }
         _ => None,
-    }
+    }?;
+    Some(
+        expr.ty
+            .as_scalar()
+            .map_or(value, |ty| value & super::scalar_mask(ty)),
+    )
 }
 
 struct IrBuilder<'a> {
@@ -2621,6 +2626,12 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn lower_assignment_value(&mut self, scope: ScopeId, target: &Expr, value: &Expr) -> SemExpr {
+        if self
+            .direct_symbol_ref_for_expr(scope, target)
+            .is_some_and(|symbol| symbol.class == SymbolClass::Array)
+        {
+            return self.lower_expr(scope, value);
+        }
         let Some(target_ty) = self.lvalue_expr_type(scope, target) else {
             return self.lower_expr(scope, value);
         };
@@ -2774,10 +2785,23 @@ impl<'a> IrBuilder<'a> {
             ExprKind::Unary {
                 op: UnaryOp::Deref, ..
             } => SemExprKind::LValue(Box::new(self.lower_lvalue(scope, expr))),
-            ExprKind::Unary { op, expr: inner } => SemExprKind::Unary {
-                op: *op,
-                expr: Box::new(self.lower_expr(scope, inner)),
-            },
+            ExprKind::Unary { op, expr: inner } => {
+                let inner = self.lower_expr(scope, inner);
+                let inner = if *op == UnaryOp::Neg
+                    && inner.ty.as_scalar().is_some_and(|ty| ty.width_bytes() == 1)
+                {
+                    self.coerce_scalar_expr_for_expected_type(
+                        inner,
+                        &ValueType::scalar(ScalarType::Int),
+                    )
+                } else {
+                    inner
+                };
+                SemExprKind::Unary {
+                    op: *op,
+                    expr: Box::new(inner),
+                }
+            }
             ExprKind::Binary { op, left, right } => self.lower_binary_expr(scope, *op, left, right),
             ExprKind::Call { callee, args }
                 if args.len() == 1 && self.is_indexable_lvalue(scope, callee) =>
@@ -2855,12 +2879,21 @@ impl<'a> IrBuilder<'a> {
             SemExprKind::ImplicitAddressOf(address) => address.pointer_type.clone(),
             SemExprKind::ArrayDecay(decay) => decay.pointer_type.clone(),
             SemExprKind::Cast { ty, .. } => ty.clone(),
+            SemExprKind::Unary {
+                op: UnaryOp::Neg,
+                expr,
+            } if expr.ty.as_scalar().is_some() => ValueType::scalar(ScalarType::Int),
             SemExprKind::Unary { expr, .. } => expr.ty.clone(),
             SemExprKind::Binary { op, left, right } => {
                 if is_compare_op(*op) {
                     byte_type()
                 } else {
-                    promote_numeric_types(&left.ty, &right.ty)
+                    arithmetic_numeric_result_type(
+                        *op,
+                        &left.ty,
+                        &right.ty,
+                        constant_sem_binary_result(*op, left, right),
+                    )
                 }
             }
             SemExprKind::Call(call) => call.return_type.clone().unwrap_or_else(ValueType::error),
@@ -2978,7 +3011,19 @@ impl<'a> IrBuilder<'a> {
             return expr;
         }
 
-        self.lower_expr(scope, expr)
+        let lowered = self.lower_expr(scope, expr);
+        let machine_type_differs = expected
+            .as_scalar()
+            .zip(lowered.ty.as_scalar())
+            .is_some_and(|(expected, actual)| {
+                expected.width_bytes() != actual.width_bytes()
+                    || expected.signedness() != actual.signedness()
+            });
+        if machine_type_differs {
+            self.coerce_scalar_expr_for_expected_type(lowered, expected)
+        } else {
+            lowered
+        }
     }
 
     fn lower_compound_assignment_value(
@@ -3105,8 +3150,15 @@ impl<'a> IrBuilder<'a> {
         }
 
         let lowered = self.lower_expr(scope, expr);
-        scalar_expected_type_can_accept_expr(expected, &lowered.ty)
-            .then(|| self.widen_arithmetic_tree_for_expected_type(lowered, expected))
+        if !scalar_expected_type_can_accept_expr(expected, &lowered.ty) {
+            return None;
+        }
+        let widened = self.widen_arithmetic_tree_for_expected_type(lowered, expected);
+        if widened.ty == *expected {
+            Some(widened)
+        } else {
+            Some(self.coerce_scalar_expr_for_expected_type(widened, expected))
+        }
     }
 
     fn widen_arithmetic_tree_for_expected_type(
@@ -3115,6 +3167,13 @@ impl<'a> IrBuilder<'a> {
         expected: &ValueType,
     ) -> SemExpr {
         if !scalar_expected_type_can_accept_expr(expected, &expr.ty) {
+            return expr;
+        }
+        if expected
+            .as_scalar()
+            .zip(expr.ty.as_scalar())
+            .is_some_and(|(expected, actual)| expected.width_bytes() == actual.width_bytes())
+        {
             return expr;
         }
 
@@ -4321,6 +4380,54 @@ fn promote_numeric_types(left: &ValueType, right: &ValueType) -> ValueType {
     };
 
     ValueType::scalar(ScalarType::promote_binary(left, right))
+}
+
+fn arithmetic_numeric_result_type(
+    op: BinaryOp,
+    left: &ValueType,
+    right: &ValueType,
+    constant_result: Option<u16>,
+) -> ValueType {
+    if left.is_error() || right.is_error() {
+        return ValueType::error();
+    }
+    if left.pointer || right.pointer {
+        return card_type();
+    }
+    if left.is_real() || right.is_real() {
+        return if left.is_numeric_value() && right.is_numeric_value() {
+            ValueType::real()
+        } else {
+            ValueType::error()
+        };
+    }
+
+    let Some(left) = left.as_scalar() else {
+        return ValueType::error();
+    };
+    let Some(right) = right.as_scalar() else {
+        return ValueType::error();
+    };
+
+    ValueType::scalar(ScalarType::arithmetic_result(
+        op,
+        left,
+        right,
+        constant_result,
+    ))
+}
+
+fn constant_sem_binary_result(op: BinaryOp, left: &SemExpr, right: &SemExpr) -> Option<u16> {
+    if !matches!(op, BinaryOp::Add | BinaryOp::Sub) {
+        return None;
+    }
+    let left = const_u16_sem_expr(left)?;
+    let right = const_u16_sem_expr(right)?;
+    Some(match op {
+        BinaryOp::Add => left.wrapping_add(right),
+        BinaryOp::Sub => left.wrapping_sub(right),
+        _ => unreachable!("only addition and subtraction reach constant-result typing"),
+    })
 }
 
 fn normalize_name(name: &str) -> String {

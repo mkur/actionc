@@ -89,8 +89,8 @@ fn turtle_exposes_the_expected_codegen_baseline() {
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     assert!(
-        output.bytes.len() <= 1_077,
-        "expected TURTLE1 MIR6502 output no larger than 1077 bytes, got {}",
+        output.bytes.len() <= 1_078,
+        "expected TURTLE1 MIR6502 output no larger than 1078 bytes, got {}",
         output.bytes.len()
     );
 }

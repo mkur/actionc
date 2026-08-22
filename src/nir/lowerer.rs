@@ -609,7 +609,8 @@ impl NirLowerer {
     }
 
     fn const_u16_expr(&self, expr: &SemExpr) -> Option<u16> {
-        match &expr.kind {
+        let storage_address = matches!(&expr.kind, SemExprKind::Symbol(_) | SemExprKind::LValue(_));
+        let value = match &expr.kind {
             SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
             SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
             SemExprKind::Symbol(symbol) => self.semantic_absolute_globals.get(&symbol.id).copied(),
@@ -646,7 +647,14 @@ impl NirLowerer {
                 }
             }
             _ => None,
-        }
+        }?;
+        Some(
+            if !storage_address && expr.ty.value_width_bytes() == Some(1) {
+                value & 0x00FF
+            } else {
+                value
+            },
+        )
     }
 
     fn const_u16_lvalue(&self, lvalue: &SemLValue) -> Option<u16> {

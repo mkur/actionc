@@ -1320,8 +1320,17 @@ fn card_store_preserves_runtime_multiply_high_byte_through_byte_subtract() {
                         opcode::SBC_IMM,
                         0x00,
                         opcode::STA_ABS,
+                    ])
+                || output.bytes.windows(5).any(|bytes| bytes
+                    == [
+                        opcode::LDA_ZP,
+                        runtime_zp::ELEMENT_ADDR.offset(1).address(),
+                        opcode::SBC_IMM,
+                        0x00,
+                        opcode::STA_ABS,
                     ]),
-            "CARD high byte should subtract through the runtime multiply high result"
+            "CARD high byte should subtract through the runtime multiply high result ({profile:?}):\n{}",
+            format_listing_with_origin(&output.bytes, output.origin)
         );
         assert!(
             !output
@@ -7981,6 +7990,34 @@ fn mixed_scalar_ordered_comparisons_use_the_promoted_type_in_classic_profiles() 
 
         assert_eq!(unsigned_branches, 2, "{profile:?}:\n{listing}");
         assert_eq!(signed_branches, 2, "{profile:?}:\n{listing}");
+    }
+}
+
+#[test]
+fn byte_multiplication_and_negation_compare_as_signed_words_in_classic_profiles() {
+    let source = "BYTE a,b,result PROC Main() \
+                  IF a*b<100 THEN result=1 FI \
+                  IF -a<0 THEN result=2 FI RETURN";
+
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
+        let listing = format_listing_with_origin(&output.bytes, output.origin);
+
+        assert!(
+            output.bytes.windows(3).any(|bytes| bytes
+                == [
+                    opcode::JSR_ABS,
+                    runtime_helper::CARTRIDGE_MUL.low(),
+                    runtime_helper::CARTRIDGE_MUL.high(),
+                ]),
+            "{profile:?}:\n{listing}"
+        );
+        assert!(
+            listing
+                .lines()
+                .any(|line| line.contains(" BMI ") || line.contains(" BPL ")),
+            "{profile:?}:\n{listing}"
+        );
     }
 }
 

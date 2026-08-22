@@ -757,7 +757,7 @@ impl NirVerifier {
                 self.value_temp_use(routine, block, src, op_index, temp_facts, "store source");
                 self.match_value_widths(routine, block, Some(ty), src, "store");
             }
-            NirOp::Unary { dest, ty, src, .. } => {
+            NirOp::Unary { dest, ty, op, src } => {
                 self.op_type(routine, block, ty, "unary result");
                 self.value_type(routine, block, src, "unary source");
                 self.reject_real_type(routine, block, ty, "ordinary unary result");
@@ -769,6 +769,13 @@ impl NirVerifier {
                         &routine.name,
                         &block.label,
                         format!("duplicate temp definition `%t{}`", dest.0),
+                    ));
+                }
+                if *op == NirUnaryOp::Neg && ty.kind != NirTypeKind::I16 {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "integer negation must produce cartridge-compatible INT",
                     ));
                 }
             }
@@ -797,9 +804,9 @@ impl NirVerifier {
             NirOp::Binary {
                 dest,
                 ty,
+                op,
                 left,
                 right,
-                ..
             } => {
                 self.op_type(routine, block, ty, "binary result");
                 self.reject_real_type(routine, block, ty, "ordinary binary result");
@@ -829,6 +836,24 @@ impl NirVerifier {
                         &routine.name,
                         &block.label,
                         format!("duplicate temp definition `%t{}`", dest.0),
+                    ));
+                }
+                if *op == NirBinaryOp::Mul && ty.kind != NirTypeKind::I16 {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "integer multiplication must produce cartridge-compatible INT",
+                    ));
+                }
+                if matches!(op, NirBinaryOp::Add | NirBinaryOp::Sub)
+                    && ty.kind == NirTypeKind::U8
+                    && constant_binary_value(*op, left, right)
+                        .is_some_and(|value| value > u16::from(u8::MAX))
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "overflowing constant BYTE addition or subtraction must produce INT",
                     ));
                 }
             }
@@ -2257,6 +2282,21 @@ impl NirVerifier {
                 ));
             }
         }
+    }
+}
+
+fn constant_binary_value(op: NirBinaryOp, left: &NirValue, right: &NirValue) -> Option<u16> {
+    let value = |value: &NirValue| match value {
+        NirValue::ConstU8(value) => Some(u16::from(*value)),
+        NirValue::ConstU16(value) => Some(*value),
+        _ => None,
+    };
+    let left = value(left)?;
+    let right = value(right)?;
+    match op {
+        NirBinaryOp::Add => Some(left.wrapping_add(right)),
+        NirBinaryOp::Sub => Some(left.wrapping_sub(right)),
+        _ => None,
     }
 }
 

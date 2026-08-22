@@ -154,6 +154,176 @@ fn mixed_scalar_comparison_widens_negative_literal_to_word() {
 }
 
 #[test]
+fn cartridge_integer_arithmetic_types_survive_semir_and_nir_lowering() {
+    let program = lower_modern_source(
+        "BYTE a,b,byteProduct,byteSum,byteDifference,comparison CARD cardProduct INT intProduct,negative \
+         PROC Main() \
+         intProduct=a*b \
+         cardProduct=a*b \
+         byteProduct=BYTE(a*b) \
+         negative=-a \
+         byteSum=250+10 \
+         byteDifference=BYTE(1-2) \
+         comparison=a*b<100 \
+         RETURN",
+    );
+    verify_program(&program).expect("cartridge-compatible arithmetic NIR should verify");
+
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let ops = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .collect::<Vec<_>>();
+
+    let multiplication_types = ops
+        .iter()
+        .filter_map(|op| match op {
+            NirOp::Binary {
+                op: NirBinaryOp::Mul,
+                ty,
+                ..
+            } => Some(&ty.kind),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(multiplication_types.len(), 4);
+    assert!(
+        multiplication_types
+            .iter()
+            .all(|ty| **ty == NirTypeKind::I16),
+        "multiplications must remain INT in assignment and comparison contexts: {ops:#?}"
+    );
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        NirOp::Unary {
+            op: NirUnaryOp::Neg,
+            ty,
+            ..
+        } if ty.kind == NirTypeKind::I16
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        NirOp::Compare {
+            op: NirCompareOp::Lt,
+            operand_ty,
+            ..
+        } if operand_ty.kind == NirTypeKind::I16
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        NirOp::Cast {
+            from,
+            to,
+            ..
+        } if from.kind == NirTypeKind::I16 && to.kind == NirTypeKind::U16
+    )));
+
+    let optimized = optimize_program(&program).expect("arithmetic optimization should verify");
+    let main = optimized
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let stored_constants = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::Store { src, .. } => match src {
+                NirValue::ConstU8(value) => Some(*value),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(stored_constants.contains(&4), "{main:#?}");
+    assert!(stored_constants.contains(&u8::MAX), "{main:#?}");
+}
+
+#[test]
+fn verifier_rejects_pre_cartridge_multiply_and_negation_result_types() {
+    let byte = byte_type();
+    let multiplication = optimizer_program(
+        vec![temp_table_entry(0, byte.clone(), 0, 0)],
+        vec![NirBlock {
+            id: BlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![NirOp::Binary {
+                dest: TempId(0),
+                ty: byte.clone(),
+                op: NirBinaryOp::Mul,
+                left: NirValue::ConstU8(20),
+                right: NirValue::ConstU8(20),
+            }],
+            terminator: NirTerminator::Return(None),
+        }],
+    );
+    let diagnostics = verify_program(&multiplication).expect_err("BYTE multiply must be rejected");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("multiplication must produce cartridge-compatible INT")
+    }));
+
+    let negation = optimizer_program(
+        vec![temp_table_entry(0, byte.clone(), 0, 0)],
+        vec![NirBlock {
+            id: BlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: vec![NirOp::Unary {
+                dest: TempId(0),
+                ty: byte,
+                op: NirUnaryOp::Neg,
+                src: NirValue::ConstU8(1),
+            }],
+            terminator: NirTerminator::Return(None),
+        }],
+    );
+    let diagnostics = verify_program(&negation).expect_err("BYTE negation must be rejected");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("negation must produce cartridge-compatible INT")
+    }));
+}
+
+#[test]
+fn verifier_rejects_unwidened_overflowing_constant_byte_arithmetic() {
+    for (op, left, right) in [(NirBinaryOp::Add, 250, 10), (NirBinaryOp::Sub, 1, 2)] {
+        let byte = byte_type();
+        let program = optimizer_program(
+            vec![temp_table_entry(0, byte.clone(), 0, 0)],
+            vec![NirBlock {
+                id: BlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: vec![NirOp::Binary {
+                    dest: TempId(0),
+                    ty: byte,
+                    op,
+                    left: NirValue::ConstU8(left),
+                    right: NirValue::ConstU8(right),
+                }],
+                terminator: NirTerminator::Return(None),
+            }],
+        );
+        let diagnostics = verify_program(&program).expect_err("constant BYTE result must widen");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("constant BYTE addition or subtraction must produce INT")
+        }));
+    }
+}
+
+#[test]
 fn verifier_rejects_mixed_width_compare_operands() {
     let mut program =
         lower_modern_source("INT value BYTE result PROC Main() result=value>=-64 RETURN");
@@ -1099,7 +1269,7 @@ fn const_declarations_lower_to_typed_literals_without_nir_storage_or_metadata() 
         formatted_semir.contains("const Local#"),
         "{formatted_semir}"
     );
-    assert!(formatted_semir.contains("$09:BYTE"), "{formatted_semir}");
+    assert!(formatted_semir.contains("$0009:INT"), "{formatted_semir}");
 
     let program = lower_program(&semir);
     verify_program(&program).expect("CONST values should leave verifier-clean NIR");
@@ -1111,15 +1281,22 @@ fn const_declarations_lower_to_typed_literals_without_nir_storage_or_metadata() 
         .find(|routine| routine.name == "Main")
         .expect("Main routine");
     assert!(main.locals.iter().all(|local| local.name != "Local"));
-    assert!(main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
-        matches!(
-            op,
-            NirOp::Store {
-                src: NirValue::ConstU8(9),
-                ..
-            }
-        )
-    }));
+    assert!(
+        main.blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .any(|op| matches!(
+                op,
+                NirOp::Cast {
+                    src: NirValue::ConstU16(9),
+                    from,
+                    to,
+                    ..
+                } if from.kind == NirTypeKind::I16 && to.kind == NirTypeKind::U8
+            ))
+    );
+
+    optimize_program(&program).expect("CONST narrowing should optimize cleanly");
 }
 
 #[test]

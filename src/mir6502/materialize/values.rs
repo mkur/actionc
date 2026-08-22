@@ -38,6 +38,20 @@ pub(super) fn split_value(value: MirValue, _layout: &MaterializeLayout) -> (MirV
     }
 }
 
+pub(super) fn low_value(value: MirValue) -> MirValue {
+    match value {
+        MirValue::ConstU8(value) => MirValue::ConstU8(value),
+        MirValue::ConstU16(value) => MirValue::ConstU8(value as u8),
+        MirValue::Def(MirDef::VTemp(id)) => MirValue::Def(MirDef::VTempByte { id, byte: 0 }),
+        MirValue::Word { lo, .. } => *lo,
+        MirValue::StaticAddr(id) => split_storage_address(MirMem::Static { id, offset: 0 }).0,
+        MirValue::GlobalAddr(id) => split_storage_address(MirMem::Global { id, offset: 0 }).0,
+        MirValue::RoutineAddr(id) => split_routine_address(id).0,
+        MirValue::PointerCell(mem) => MirValue::PointerCell(mem),
+        other => other,
+    }
+}
+
 pub(super) fn split_value_with_temp_widths(
     value: MirValue,
     layout: &MaterializeLayout,

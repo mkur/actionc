@@ -757,6 +757,25 @@ fn materialize_temp_ops_with_widths(
                 });
                 store_a_to_spill(&mut out, hi_spill);
             }
+            MirOp::Truncate {
+                dst,
+                src,
+                from_width: MirWidth::Word,
+                to_width: MirWidth::Byte,
+            } if temp_def_spill(&dst).is_some() => {
+                let spill = temp_def_spill(&dst).expect("temp spill");
+                ensure_spill(spills, spill);
+                let src = super::values::low_value(src);
+                let src = materialize_value_to_a(&mut out, src, spills);
+                if !matches!(src, MirValue::Def(MirDef::Reg(MirReg::A))) {
+                    out.push(MirOp::Move {
+                        dst: MirDef::Reg(MirReg::A),
+                        src,
+                        width: MirWidth::Byte,
+                    });
+                }
+                store_a_to_spill(&mut out, spill);
+            }
             MirOp::Unary {
                 op,
                 dst,

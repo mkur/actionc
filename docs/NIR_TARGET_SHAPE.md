@@ -1,7 +1,8 @@
 # NIR Target Shape
 
 Snapshot date: 2026-05-31. Updated for the completed TAC-to-NIR naming
-migration and address-based native `REAL` operations on 2026-08-20.
+migration, address-based native `REAL` operations, and cartridge-compatible
+integer arithmetic typing on 2026-08-22.
 
 This document describes the target shape of NIR, the Normalized Intermediate
 Representation implemented under `src/nir`. It is the contract for hardening,
@@ -388,9 +389,18 @@ Rules:
 - The temp table is the type authority for temp IDs.
 - `Compare` result type is always `Bool`; signedness comes from `operand_ty`.
 - Ordinary `Compare` operands have one common scalar machine type. SemIR
-  promotes both source operands before NIR lowering, including widening
-  arithmetic and unary trees before evaluation; the NIR verifier checks operand
-  width and signedness against `operand_ty`.
+  promotes both source operands before NIR lowering. An operator retains its
+  own semantic result type, and any assignment or comparison conversion is an
+  explicit outer `Cast`; the NIR verifier checks operand width and signedness
+  against `operand_ty`.
+- Integer `Mul` always has an `I16` result, and integer `Neg` always has an
+  `I16` result. Byte operands are explicitly extended before negation. The
+  verifier rejects the former byte-result shapes so MIR6502 never has to
+  reconstruct the cartridge typing rule.
+- Constant `U8` addition and subtraction remain `U8` only when their 16-bit
+  result fits in one byte. Overflow and subtraction underflow produce `I16`;
+  an explicit cast back to `U8` records intentional truncation. Dynamic byte
+  addition and subtraction remain byte operations.
 - Expensive operations such as word multiply/divide may remain semantic NIR ops
   and lower to runtime helpers in MIR6502.
 - NIR should not encode final 6502 addressing modes.

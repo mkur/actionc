@@ -11,5 +11,5 @@ b0 bb0:
 
 routine r1 Main
 b0 bb1:
-  call r0 args=[word(#$0A, #$00).w -> a:x, #$02.b -> y] result=v0.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  call r0 args=[#$000A.w -> a:x, #$02.b -> y] result=v1.w <- return+0 clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
   return

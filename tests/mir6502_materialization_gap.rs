@@ -337,8 +337,8 @@ fn byte_multiply_into_word_store_keeps_runtime_high_result() {
     assert!(formatted.contains("store.b fixed_zp $85, a"));
     assert!(formatted.contains("helper mul args=[a, x, fixed_zp $84, fixed_zp $85]"));
     assert!(formatted.contains("store.b global g2+0, a"));
-    assert!(formatted.contains("store.b global g2+1, x"));
-    assert!(!formatted.contains("store.b spill "));
+    assert_spilled_x_is_reloaded_into_a(&formatted);
+    assert!(formatted.contains("store.b global g2+1, a"));
     assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0x84]));
 }
 
@@ -730,9 +730,7 @@ fn unsigned_word_relational_branch_materializes_to_cmp_sbc_carry_chain() {
         formatted.contains("flags = cmp.b a lt *global g1+0"),
         "{formatted}"
     );
-    assert!(formatted.contains(
-        "a =.b a sub *global g1+1 carry_in=previous carry_out=ignore"
-    ));
+    assert!(formatted.contains("a =.b a sub *global g1+1 carry_in=previous carry_out=ignore"));
     assert!(formatted.contains("branch flag c_clear"));
     assert!(!formatted.contains("cmp_word_hi_lt"));
     assert!(!formatted.contains("cmp_word_hi_eq"));

@@ -4,7 +4,7 @@ global g1 y: word storage global+2
 
 routine r0 Main
 b0 bb0:
-  store.w global g0+0, #$01
+  store.w global g0+0, #$0001
   store.w global g1+0, #$0103
   store.w global g1+0, #$0102
   return

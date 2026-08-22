@@ -1964,7 +1964,11 @@ impl Analyzer {
             }
             ExprKind::Unary { op, expr: inner } => {
                 let inner = self.expect_expr(scope, inner, expr.span);
-                let ty = inner.ty.clone();
+                let ty = if *op == UnaryOp::Neg && inner.ty.as_scalar().is_some() {
+                    fund_value(FundType::Int)
+                } else {
+                    inner.ty.clone()
+                };
                 subject::SemSubject::Expr(subject::SemExpr {
                     ty,
                     kind: subject::SemExprKind::Unary {
@@ -1997,7 +2001,12 @@ impl Analyzer {
                     } else if is_condition_op(*op) {
                         fund_value(FundType::Byte)
                     } else {
-                        promote_numeric(&left.ty, &right.ty)
+                        promote_numeric(
+                            *op,
+                            &left.ty,
+                            &right.ty,
+                            constant_binary_result(*op, &left, &right),
+                        )
                     };
                 subject::SemSubject::Expr(subject::SemExpr {
                     ty,
@@ -3924,7 +3933,12 @@ fn param_signature_type(param: &VarDecl) -> ValueType {
     }
 }
 
-fn promote_numeric(left: &ValueType, right: &ValueType) -> ValueType {
+fn promote_numeric(
+    op: BinaryOp,
+    left: &ValueType,
+    right: &ValueType,
+    constant_result: Option<u16>,
+) -> ValueType {
     if left.is_error() || right.is_error() {
         return ValueType::error();
     }
@@ -3946,7 +3960,29 @@ fn promote_numeric(left: &ValueType, right: &ValueType) -> ValueType {
         return ValueType::error();
     };
 
-    ValueType::scalar(ScalarType::promote_binary(left, right))
+    ValueType::scalar(ScalarType::arithmetic_result(
+        op,
+        left,
+        right,
+        constant_result,
+    ))
+}
+
+fn constant_binary_result(
+    op: BinaryOp,
+    left: &subject::SemExpr,
+    right: &subject::SemExpr,
+) -> Option<u16> {
+    if !matches!(op, BinaryOp::Add | BinaryOp::Sub) {
+        return None;
+    }
+    let left = evaluate_const_expr(left).ok()?.bits;
+    let right = evaluate_const_expr(right).ok()?.bits;
+    Some(match op {
+        BinaryOp::Add => left.wrapping_add(right),
+        BinaryOp::Sub => left.wrapping_sub(right),
+        _ => unreachable!("only addition and subtraction reach constant-result typing"),
+    })
 }
 
 fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
@@ -5006,7 +5042,7 @@ mod tests {
         assert_eq!(
             model.constants[&height],
             ConstValue {
-                ty: ScalarType::Byte,
+                ty: ScalarType::Int,
                 bits: 48,
             }
         );
@@ -5015,6 +5051,93 @@ mod tests {
             ConstValue {
                 ty: ScalarType::Card,
                 bits: 0x2800,
+            }
+        );
+    }
+
+    #[test]
+    fn constant_integer_arithmetic_uses_cartridge_types_and_explicit_truncation() {
+        let model = analyze_source(
+            "CONST SmallProduct=2*3, Product=20*20, WideSum=250+10, \
+             Difference=1-2, FittingSum=250+5, ExplicitSum=BYTE(250+10), \
+             ExplicitDifference=BYTE(1-2) \
+             CONST BYTE TruncatedProduct=20*20, TruncatedSum=250+10, TruncatedDifference=1-2 \
+             PROC Main() RETURN",
+        );
+        let global = model.symbols.global_scope();
+        let value = |name: &str| {
+            let symbol = model.symbols.lookup(global, name).expect("CONST symbol");
+            model.constants[&symbol]
+        };
+
+        assert_eq!(
+            value("SmallProduct"),
+            ConstValue {
+                ty: ScalarType::Int,
+                bits: 6,
+            }
+        );
+        assert_eq!(
+            value("Product"),
+            ConstValue {
+                ty: ScalarType::Int,
+                bits: 400,
+            }
+        );
+        assert_eq!(
+            value("WideSum"),
+            ConstValue {
+                ty: ScalarType::Int,
+                bits: 260,
+            }
+        );
+        assert_eq!(
+            value("Difference"),
+            ConstValue {
+                ty: ScalarType::Int,
+                bits: u16::MAX,
+            }
+        );
+        assert_eq!(
+            value("FittingSum"),
+            ConstValue {
+                ty: ScalarType::Byte,
+                bits: 255,
+            }
+        );
+        assert_eq!(
+            value("ExplicitSum"),
+            ConstValue {
+                ty: ScalarType::Byte,
+                bits: 4,
+            }
+        );
+        assert_eq!(
+            value("ExplicitDifference"),
+            ConstValue {
+                ty: ScalarType::Byte,
+                bits: u16::from(u8::MAX),
+            }
+        );
+        assert_eq!(
+            value("TruncatedProduct"),
+            ConstValue {
+                ty: ScalarType::Byte,
+                bits: 144,
+            }
+        );
+        assert_eq!(
+            value("TruncatedSum"),
+            ConstValue {
+                ty: ScalarType::Byte,
+                bits: 4,
+            }
+        );
+        assert_eq!(
+            value("TruncatedDifference"),
+            ConstValue {
+                ty: ScalarType::Byte,
+                bits: u16::from(u8::MAX),
             }
         );
     }
@@ -7273,7 +7396,7 @@ mod tests {
     }
 
     #[test]
-    fn semantic_ir_widens_expected_word_binary_arithmetic_before_evaluating() {
+    fn semantic_ir_keeps_multiplication_int_before_card_context_conversion() {
         let (program, model) = analyze_program_source(
             "CARD n PROC Take(CARD v) RETURN PROC Main() n=40*90 Take(40*90) RETURN",
         );
@@ -7300,6 +7423,11 @@ mod tests {
 
         for value in values {
             assert_eq!(value.ty, fund_value(FundType::Card));
+            let ir::SemExprKind::Cast { ty, expr: value } = &value.kind else {
+                panic!("expected outer CARD conversion, got {value:?}");
+            };
+            assert_eq!(ty, &fund_value(FundType::Card));
+            assert_eq!(value.ty, fund_value(FundType::Int));
             let ir::SemExprKind::Binary {
                 op: BinaryOp::Mul,
                 left,

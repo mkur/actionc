@@ -110,12 +110,10 @@ fn user_calls_may_omit_trailing_declared_params() {
 
     assert!(formatted.contains("call r0 args=[static_addr s0.w -> a:x]"));
     assert!(
-        formatted.contains(
-            "call r0 args=[static_addr s1.w -> a:x, word(#$01, #$00).w -> y:fixed_zp $A3]"
-        )
+        formatted.contains("call r0 args=[static_addr s1.w -> a:x, #$0001.w -> y:fixed_zp $A3]")
     );
     assert!(formatted.contains(
-        "call r0 args=[static_addr s2.w -> a:x, word(#$01, #$00).w -> y:fixed_zp $A3, word(#$02, #$00).w -> fixed_zp $A4:fixed_zp $A5, word(#$03, #$00).w -> fixed_zp $A6:fixed_zp $A7]"
+        "call r0 args=[static_addr s2.w -> a:x, #$0001.w -> y:fixed_zp $A3, #$0002.w -> fixed_zp $A4:fixed_zp $A5, #$0003.w -> fixed_zp $A6:fixed_zp $A7]"
     ));
 }
 

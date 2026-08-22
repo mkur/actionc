@@ -833,13 +833,29 @@ fn call_arg_expr_producer(
                 width: MirWidth::Word,
             },
         )),
-        MirOp::Move { dst, src, width } => Some((
-            split_def_as_temp(dst)?,
-            CallArgExpr::Value {
-                value: call_arg_expr_value(src, exprs, layout)?,
-                width: *width,
-            },
-        )),
+        MirOp::Move { dst, src, width } => {
+            let temp = split_def_as_temp(dst)?;
+            let expr =
+                if let Some(source) = value_as_temp(src).and_then(|source| exprs.get(&source)) {
+                    source.clone()
+                } else {
+                    CallArgExpr::Value {
+                        value: call_arg_expr_value(src, exprs, layout)?,
+                        width: *width,
+                    }
+                };
+            Some((temp, expr))
+        }
+        MirOp::Truncate {
+            dst,
+            src,
+            from_width: MirWidth::Word,
+            to_width: MirWidth::Byte,
+        } => {
+            let temp = split_def_as_temp(dst)?;
+            let source = exprs.get(&value_as_temp(src)?)?.clone();
+            truncated_call_arg_expr_supported(&source, layout).then_some((temp, source))
+        }
         MirOp::Binary {
             op,
             dst,
@@ -1116,6 +1132,31 @@ fn call_arg_expr_can_materialize_byte(expr: &CallArgExpr) -> bool {
             width: MirWidth::Byte,
         } => call_arg_expr_can_materialize_byte(left) && call_arg_expr_can_materialize_byte(right),
         CallArgExpr::Binary { .. } => false,
+    }
+}
+
+fn truncated_call_arg_expr_supported(expr: &CallArgExpr, layout: &MaterializeLayout) -> bool {
+    match expr {
+        CallArgExpr::Value {
+            width: MirWidth::Word,
+            ..
+        }
+        | CallArgExpr::AddressValue {
+            width: MirWidth::Word,
+            ..
+        } => expr_low_value(expr, layout).is_some(),
+        CallArgExpr::Binary {
+            op: MirBinaryOp::Add | MirBinaryOp::Sub,
+            left,
+            right,
+            width: MirWidth::Word,
+        } => expr_binary_low_operands(left, right, layout).is_some(),
+        CallArgExpr::Binary {
+            op: MirBinaryOp::Lsh | MirBinaryOp::Rsh,
+            width: MirWidth::Word,
+            ..
+        } => word_shift_expr_parts(expr, layout).is_some(),
+        _ => false,
     }
 }
 

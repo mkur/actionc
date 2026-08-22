@@ -53,8 +53,8 @@ fn emit_optimized_nir_prints_the_post_optimizer_program() {
     let optimized = run_actionc("--emit-optimized-nir", &fixture);
     let expected = optimized_nir_from_library(&fixture);
 
-    assert!(lowered.contains("%t0:Byte = Neg 1"));
-    assert!(!optimized.contains("%t0:Byte = Neg 1"));
+    assert!(lowered.contains("%t1:Int = Neg %t0"));
+    assert!(!optimized.contains("%t1:Int = Neg %t0"));
     assert!(optimized.contains("store b = 255"));
     assert_eq!(optimized, expected);
 }
@@ -75,8 +75,8 @@ fn emit_nir_stats_compares_lowered_and_optimized_programs() {
     assert!(first.contains("optimizer_total\n"));
     assert!(first.contains("block_parameters=0\n"));
     assert!(first.contains("edge_arguments=0\n"));
-    assert!(first.contains("operations.removed=7\n"));
-    assert!(first.contains("temp_definitions.removed=7\n"));
+    assert!(first.contains("operations.removed=9\n"));
+    assert!(first.contains("temp_definitions.removed=9\n"));
     assert!(first.contains("loads.removed=2\n"));
 }
 

@@ -17279,6 +17279,46 @@ fn mir_copy_prop_forwards_const_temp_bytes_into_truncate_src() {
 }
 
 #[test]
+fn temp_materialization_lowers_word_truncate_to_byte_spill() {
+    let src = MirTempId(13);
+    let dst = MirTempId(14);
+    let mut spills = Vec::new();
+    let ops = materialize_temp_ops_with_routine_widths(
+        vec![MirOp::Truncate {
+            dst: MirDef::VTemp(dst),
+            src: MirValue::Def(MirDef::VTemp(src)),
+            from_width: MirWidth::Word,
+            to_width: MirWidth::Byte,
+        }],
+        &mut spills,
+        &BTreeMap::from([(src, MirWidth::Word), (dst, MirWidth::Byte)]),
+    );
+
+    assert_eq!(spills, vec![MirSpillId(28), MirSpillId(26)]);
+    assert!(matches!(
+        ops.as_slice(),
+        [
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(MirMem::Spill {
+                    id: MirSpillId(26),
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Spill {
+                    id: MirSpillId(28),
+                    offset: 0,
+                }),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            }
+        ]
+    ));
+}
+
+#[test]
 fn mir_copy_prop_forwards_const_temps_into_byte_binary() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
@@ -21117,6 +21157,17 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
             carry_in: None,
             carry_out: MirCarryOut::Ignore,
         },
+        MirOp::Move {
+            dst: MirDef::VTemp(MirTempId(45)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(15))),
+            width: MirWidth::Word,
+        },
+        MirOp::Truncate {
+            dst: MirDef::VTemp(MirTempId(115)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(45))),
+            from_width: MirWidth::Word,
+            to_width: MirWidth::Byte,
+        },
         MirOp::Load {
             dst: MirDef::VTemp(MirTempId(16)),
             src: MirAddr::Direct(MirMem::Param {
@@ -21142,6 +21193,12 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
             carry_in: None,
             carry_out: MirCarryOut::Ignore,
         },
+        MirOp::Truncate {
+            dst: MirDef::VTemp(MirTempId(118)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(18))),
+            from_width: MirWidth::Word,
+            to_width: MirWidth::Byte,
+        },
         MirOp::Call {
             target: MirCallTarget::Routine(RoutineId(7)),
             abi: MirCallAbi {
@@ -21152,18 +21209,12 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
             },
             args: vec![
                 MirCallArg {
-                    value: MirValue::Def(MirDef::VTempByte {
-                        id: MirTempId(15),
-                        byte: 0,
-                    }),
+                    value: MirValue::Def(MirDef::VTemp(MirTempId(115))),
                     width: MirWidth::Byte,
                     home: MirArgHome::Reg(MirReg::A),
                 },
                 MirCallArg {
-                    value: MirValue::Def(MirDef::VTempByte {
-                        id: MirTempId(18),
-                        byte: 0,
-                    }),
+                    value: MirValue::Def(MirDef::VTemp(MirTempId(118))),
                     width: MirWidth::Byte,
                     home: MirArgHome::Reg(MirReg::X),
                 },
@@ -21259,6 +21310,9 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
     );
     assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(15))));
     assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(18))));
+    assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(45))));
+    assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(115))));
+    assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(118))));
     assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(20))));
     assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(21))));
     assert!(out.iter().all(|op| !op_uses_temp(op, MirTempId(22))));
@@ -22422,6 +22476,7 @@ fn paired_word_shift_call_ops(second_source: MirMem) -> Vec<MirOp> {
     let first_result = MirTempId(911);
     let second_source_temp = MirTempId(912);
     let second_result = MirTempId(913);
+    let second_truncated = MirTempId(914);
     vec![
         MirOp::Load {
             dst: MirDef::VTemp(first_source),
@@ -22454,6 +22509,12 @@ fn paired_word_shift_call_ops(second_source: MirMem) -> Vec<MirOp> {
             carry_in: None,
             carry_out: MirCarryOut::Ignore,
         },
+        MirOp::Truncate {
+            dst: MirDef::VTemp(second_truncated),
+            src: MirValue::Def(MirDef::VTemp(second_result)),
+            from_width: MirWidth::Word,
+            to_width: MirWidth::Byte,
+        },
         MirOp::Call {
             target: MirCallTarget::Builtin {
                 name: "Point".to_string(),
@@ -22481,7 +22542,7 @@ fn paired_word_shift_call_ops(second_source: MirMem) -> Vec<MirOp> {
                     },
                 },
                 MirCallArg {
-                    value: MirValue::Def(MirDef::VTemp(second_result)),
+                    value: MirValue::Def(MirDef::VTemp(second_truncated)),
                     width: MirWidth::Byte,
                     home: MirArgHome::Reg(MirReg::Y),
                 },

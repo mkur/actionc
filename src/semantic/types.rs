@@ -1,4 +1,4 @@
-use crate::ast::{FundType, RoutineKind};
+use crate::ast::{BinaryOp, FundType, RoutineKind};
 use crate::lexer::NumberKind;
 
 use super::{FieldId, ValueType, ValueTypeBase};
@@ -276,6 +276,31 @@ impl ScalarType {
             (Self::Byte, Self::Byte) => Self::Byte,
             (Self::Char, Self::Char) => Self::Char,
             (Self::Byte | Self::Char, Self::Byte | Self::Char) => Self::Byte,
+        }
+    }
+
+    /// Return the cartridge-compatible type of an integer binary expression.
+    ///
+    /// `constant_result` is the untruncated 16-bit result when both operands
+    /// are compile-time constants.  The cartridge keeps dynamic byte addition
+    /// and subtraction byte-sized, but widens a constant byte result which no
+    /// longer fits in a byte.  Multiplication is always an INT operation.
+    pub fn arithmetic_result(
+        op: BinaryOp,
+        left: Self,
+        right: Self,
+        constant_result: Option<u16>,
+    ) -> Self {
+        let promoted = Self::promote_binary(left, right);
+        match op {
+            BinaryOp::Mul => Self::Int,
+            BinaryOp::Add | BinaryOp::Sub
+                if promoted == Self::Byte
+                    && constant_result.is_some_and(|value| value > u16::from(u8::MAX)) =>
+            {
+                Self::Int
+            }
+            _ => promoted,
         }
     }
 }
@@ -597,6 +622,54 @@ mod tests {
         assert_eq!(
             ScalarType::promote_binary(ScalarType::Int, ScalarType::Card),
             ScalarType::Card
+        );
+    }
+
+    #[test]
+    fn cartridge_integer_multiplication_always_produces_int() {
+        for left in [ScalarType::Byte, ScalarType::Int, ScalarType::Card] {
+            for right in [ScalarType::Byte, ScalarType::Int, ScalarType::Card] {
+                assert_eq!(
+                    ScalarType::arithmetic_result(BinaryOp::Mul, left, right, None),
+                    ScalarType::Int,
+                    "{left:?} * {right:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn constant_byte_addition_and_subtraction_widen_only_when_needed() {
+        assert_eq!(
+            ScalarType::arithmetic_result(
+                BinaryOp::Add,
+                ScalarType::Byte,
+                ScalarType::Byte,
+                Some(255),
+            ),
+            ScalarType::Byte
+        );
+        assert_eq!(
+            ScalarType::arithmetic_result(
+                BinaryOp::Add,
+                ScalarType::Byte,
+                ScalarType::Byte,
+                Some(260),
+            ),
+            ScalarType::Int
+        );
+        assert_eq!(
+            ScalarType::arithmetic_result(
+                BinaryOp::Sub,
+                ScalarType::Byte,
+                ScalarType::Byte,
+                Some(u16::MAX),
+            ),
+            ScalarType::Int
+        );
+        assert_eq!(
+            ScalarType::arithmetic_result(BinaryOp::Add, ScalarType::Byte, ScalarType::Byte, None,),
+            ScalarType::Byte
         );
     }
 

@@ -3,6 +3,17 @@
 This file tracks cross-cutting compiler work that does not naturally belong to a
 single backend or survey note.
 
+## Arithmetic Compatibility Follow-ups
+
+- Extend the executable original-compiler probe corpus for integer arithmetic;
+  the compiler regressions now cover ordered multiplication types, products
+  above `$FF`, comparison contexts, unary negation, constant BYTE widening, and
+  explicit truncation.
+- Audit mixed-type shift result width against the cartridge and document any
+  intentionally rejected quirks.
+- Audit signed-helper selection for `CARD` division and remainder against the
+  cartridge before changing those operators.
+
 ## Builtin Symbol Coverage
 
 - Add tests that enumerate all valid Action! builtin symbols and verify that

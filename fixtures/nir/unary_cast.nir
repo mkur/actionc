@@ -6,14 +6,16 @@ global i: Int
 routine Main params=[-] locals=[-]
   note Action program entry (last source PROC)
 bb0:
-  %t0:Byte = Neg 1
-  store b = %t0
-  %t1:Byte = load b
-  %t2:Byte = Plus %t1
-  %t3:Card = cast Byte -> Card %t2
-  store w = %t3
-  %t4:Card = load w
-  %t5:Int = cast Card -> Int %t4
-  %t6:Int = Neg %t5
-  store i = %t6
+  %t0:Int = cast Byte -> Int 1
+  %t1:Int = Neg %t0
+  %t2:Byte = cast Int -> Byte %t1
+  store b = %t2
+  %t3:Byte = load b
+  %t4:Byte = Plus %t3
+  %t5:Card = cast Byte -> Card %t4
+  store w = %t5
+  %t6:Card = load w
+  %t7:Int = cast Card -> Int %t6
+  %t8:Int = Neg %t7
+  store i = %t8
   return
