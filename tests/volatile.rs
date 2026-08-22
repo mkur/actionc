@@ -169,11 +169,26 @@ RETURN
 }
 
 #[test]
-fn action_2027_plasma_uses_volatile_registers_in_every_public_mode() {
+fn action_2027_plasma_uses_hardware_modules_in_every_public_mode() {
     let sample = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("samples")
         .join("demoscene")
         .join("plasma-2027.act");
+    let source = fs::read_to_string(&sample).expect("read Action 2027 plasma source");
+
+    for expected in [
+        "MODULE PLASMA",
+        "USE ATARI.ANTIC",
+        "USE ATARI.GTIA",
+        "USE ATARI.OS",
+        "ANTIC.VCOUNT",
+        "GTIA.COLBAK",
+        "OS.SDLST",
+    ] {
+        assert!(source.contains(expected), "missing `{expected}`");
+    }
+    assert!(!source.contains("VOLATILE CARD SDLSTL"));
+    assert!(!source.contains("VOLATILE BYTE SDMCTL"));
 
     for mode in [
         CompileMode::Compatibility,

@@ -12,26 +12,33 @@
 ; instructions swap the lists at the normal display-list boundary, avoiding
 ; visible updates and display-list restarts in the middle of a frame.
 ;
-; Press ESC to restore the previous display.
+; Press any key to restore the previous display.
+; Compile with --runtime standalone to generate a standalone binary.
 ;
 ; This Action 2027 variant uses typed CONST expressions for compile-time
 ; geometry, timing, memory layout, and inline-assembler operands. With the
 ; standalone runtime, actionc includes the parameter-copy helper
 ; required by the larger procedure calls; no local r_Par copy is needed.
 
+MODULE PLASMA
+
+USE ATARI.ANTIC
+USE ATARI.GTIA
+USE ATARI.OS
+
 ; Memory map:
-; $5000  displayListA  1 KiB; ANTIC display lists cannot cross a 1 KiB boundary
-; $5400  displayListB  1 KiB; separate buffer on the next 1 KiB boundary
-; $6000  rampA         luminancePatternA repeated across one page
-; $6100  rampB         luminancePatternB repeated across one page
-; $6200  sineTable     sine64 repeated across one page
+; $5000  dlist_A       1 KiB; ANTIC display lists cannot cross a 1 KiB boundary
+; $5400  dlist_B       1 KiB; separate buffer on the next 1 KiB boundary
+; $6000  rampA         patternA repeated across one page
+; $6100  rampB         patternB repeated across one page
+; $6200  sines         sine64 repeated across one page
 ; $6301  wave          160 row displacements; starts at page offset 1
-; $6400  hueTable      15 hues x 17 entries, followed by one hue-1 wrap entry
+; $6400  hues          15 hues x 17 entries, followed by one hue-1 wrap entry
 
 ; Effect geometry and timing.  FIRST_VISIBLE_VCOUNT and TOP_BLANK_ROWS are
-; coupled: the blank rows place the first mode-F line, while VCOUNT tells the
-; raster sync where that line begins.  ANTIC starts the display list at
-; physical scanline 8, each ANTIC_BLANK_8 adds eight scanlines, and VCOUNT
+; coupled: the blank rows place the first mode-F line, while ANTIC.VCOUNT tells
+; the raster sync where that line begins.  ANTIC starts the display list at
+; physical scanline 8, each ANTIC.BLANK_8 adds eight scanlines, and VCOUNT
 ; counts pairs of physical scanlines.  FIRST_VISIBLE_VCOUNT is therefore
 ; derived as 4+(TOP_BLANK_ROWS*4).  The current values start mode F at line 40.
 
@@ -51,17 +58,15 @@ CONST BYTE TOP_BLANK_ROWS=4,
            HUE_STEP_PER_FRAME=6,
            FIRST_LMS_LOW_OFFSET=TOP_BLANK_ROWS+1,
            LMS_INSTRUCTION_SIZE=3,
-           OUTSIDE_COLOR=$00,
-           NO_KEY=$FF,
-           ESCAPE_KEY=$1C
+           OUTSIDE_COLOR=$00
 
 ; Each large table address is derived from the preceding memory window.  This
 ; makes adjacency explicit, so changing an anchor or window size propagates
 ; without repeating the dependent absolute values.
 CONST CARD PAGE_SIZE=$100,
-           DISPLAY_LIST_WINDOW_SIZE=$400,
+           DLIST_SIZE=$400,
            DISPLAY_LIST_A_BASE=$5000,
-           DISPLAY_LIST_B_BASE=DISPLAY_LIST_A_BASE+DISPLAY_LIST_WINDOW_SIZE,
+           DISPLAY_LIST_B_BASE=DISPLAY_LIST_A_BASE+DLIST_SIZE,
            RAMP_A_BASE=$6000,
            RAMP_B_BASE=RAMP_A_BASE+PAGE_SIZE,
            SINE_TABLE_BASE=RAMP_B_BASE+PAGE_SIZE,
@@ -69,33 +74,13 @@ CONST CARD PAGE_SIZE=$100,
            WAVE_BASE=WAVE_PAGE_BASE+1,
            HUE_TABLE_BASE=WAVE_PAGE_BASE+PAGE_SIZE
 
-; ANTIC display-list opcodes and ANTIC/GTIA control values.
-CONST BYTE ANTIC_BLANK_8=$70,
-           ANTIC_MODE_F_LMS=$4F,
-           ANTIC_JVB=$41,
-           NORMAL_PLAYFIELD_DMA=$22,
-           GTIA_MODE_9=$40
-
-; Atari OS shadow registers and their hardware counterparts.
-VOLATILE CARD SDLSTL=$0230,
-              DLISTL=$D402
-VOLATILE BYTE SDMCTL=$022F,
-              DMACTL=$D400,
-              GPRIOR=$026F,
-              PRIOR=$D01B,
-              COLBAK=$D01A,
-              COLOR4=$02C8,
-              WSYNC=$D40A,
-              VCOUNT=$D40B,
-              CH=$02FC
-
 ; The patterns differ by half a byte, or one GTIA mode 9 pixel.  Repeating
 ; each pattern across a page produces two horizontally interleaved ramps;
 ; choosing page $60 or $61 selects between them.
-BYTE ARRAY luminancePatternA(RAMP_PERIOD)=[$FF $EE $DD $CC $BB $AA $99
+BYTE ARRAY patternA(RAMP_PERIOD)=[$FF $EE $DD $CC $BB $AA $99
   $88 $77 $66 $55 $44 $33 $22 $11 $22 $33 $44 $55 $66
   $77 $88 $99 $AA $BB $CC $DD $EE]
-BYTE ARRAY luminancePatternB(RAMP_PERIOD)=[$FE $ED $DC $CB $BA $A9 $98
+BYTE ARRAY patternB(RAMP_PERIOD)=[$FE $ED $DC $CB $BA $A9 $98
   $87 $76 $65 $54 $43 $32 $21 $12 $23 $34 $45 $56 $67
   $78 $89 $9A $AB $BC $CD $DE $EF]
 
@@ -116,24 +101,24 @@ BYTE ARRAY sine64(SINE_PERIOD)=[$30 $35 $39 $3E $42 $47 $4B $4E
   $00 $00 $01 $02 $04 $06 $08 $0B
   $0E $12 $15 $19 $1E $22 $27 $2B]
 
-BYTE ARRAY sineTable(PAGE_SIZE)=SINE_TABLE_BASE
+BYTE ARRAY sines(PAGE_SIZE)=SINE_TABLE_BASE
 ; wave must start at page offset 1 and fit within that page.  The raster store
 ; walks backward from its final entry.  After PLASMA_SCANLINES writes, its
 ; address low byte reaches zero and terminates the loop.  This requires
 ; PLASMA_SCANLINES to remain in the range 1..255.
 BYTE ARRAY wave(PLASMA_SCANLINES)=WAVE_BASE
-BYTE ARRAY hueTable(PAGE_SIZE)=HUE_TABLE_BASE
+BYTE ARRAY hues(PAGE_SIZE)=HUE_TABLE_BASE
 
 ; ANTIC display lists cannot cross a 1 KiB boundary, so both buffers begin on
 ; separate 1 KiB boundaries at $5000 and $5400.
-BYTE ARRAY displayListA(DISPLAY_LIST_WINDOW_SIZE)=DISPLAY_LIST_A_BASE
-BYTE ARRAY displayListB(DISPLAY_LIST_WINDOW_SIZE)=DISPLAY_LIST_B_BASE
+BYTE ARRAY dlist_A(DLIST_SIZE)=DISPLAY_LIST_A_BASE
+BYTE ARRAY dlist_B(DLIST_SIZE)=DISPLAY_LIST_B_BASE
 
-CARD savedDisplayList,activeDisplayList,inactiveDisplayList
+CARD savedDList,activeDList,inactiveDList
 BYTE savedDmaControl,savedPriority,savedBackground,
-     colorPhase,wavePhaseA,wavePhaseB
+     color,waveA,waveB
 
-PROC BuildHueTable()
+PROC BuildHues()
   BYTE index,hue,count
 
   ; Fill a page-sized table with the 15 chromatic Atari hues.  GTIA mode 9
@@ -143,7 +128,7 @@ PROC BuildHueTable()
   WHILE hue<HUE_COUNT DO
     count=0
     WHILE count<ROWS_PER_HUE DO
-      hueTable(index)=hue LSH 4
+      hues(index)=hue LSH 4
       index==+1
       count==+1
     OD
@@ -152,103 +137,103 @@ PROC BuildHueTable()
 
   ; Fifteen 17-entry bands occupy 255 bytes.  Extend hue 1 by one entry so
   ; the raster lookup can retain inexpensive page wrapping.
-  hueTable(index)=FIRST_HUE LSH 4
+  hues(index)=FIRST_HUE LSH 4
 RETURN
 
 
-PROC FillPage(BYTE ARRAY destination, BYTE ARRAY pattern, BYTE patternLength)
-  BYTE destinationIndex,patternIndex
+PROC FillPage(BYTE ARRAY dst, BYTE ARRAY src, BYTE len)
+  BYTE di,si
 
-  destinationIndex=0
-  patternIndex=0
+  di=0
+  si=0
 
   ; Repeat the source pattern across a complete 256-byte destination page.
   ; BYTE wraparound makes 256 iterations explicit without a CARD counter.
   DO
-    destination(destinationIndex)=pattern(patternIndex)
+    dst(di)=src(si)
 
-    patternIndex==+1
-    IF patternIndex=patternLength THEN patternIndex=0 FI
-    destinationIndex==+1
-  UNTIL destinationIndex=0
+    si==+1
+    IF si=len THEN si=0 FI
+    di==+1
+  UNTIL di=0
   OD
 RETURN
 
 
-PROC BuildDisplayList(BYTE ARRAY list,CARD nextList)
-  CARD position
-  BYTE row,blank
+PROC BuildDList(BYTE ARRAY dl,CARD nxt)
+  CARD pos
+  BYTE row,blanks
 
-  position=0
+  pos=0
   row=0
-  blank=0
+  blanks=0
 
-  WHILE blank<TOP_BLANK_ROWS DO
-    list(position)=ANTIC_BLANK_8
-    position==+1
-    blank==+1
+  WHILE blanks<TOP_BLANK_ROWS DO
+    dl(pos)=ANTIC.BLANK_8
+    pos==+1
+    blanks==+1
   OD
 
   ; Each scanline has an independent mode-F LMS.  Once display DMA is running,
   ; only the operands in the inactive list are changed.
   WHILE row<PLASMA_SCANLINES DO
-    list(position)=ANTIC_MODE_F_LMS
-    position==+1
-    list(position)=0
-    position==+1
-    list(position)=@rampA RSH 8
-    position==+1
+    dl(pos)=ANTIC.MODE_F_LMS
+    pos==+1
+    dl(pos)=0
+    pos==+1
+    dl(pos)=@rampA RSH 8
+    pos==+1
     row==+1
   OD
 
   ; The caller supplies the other list as the JVB target.  ANTIC switches
   ; lists at its natural VBLANK boundary.
-  list(position)=ANTIC_JVB
-  position==+1
-  list(position)=nextList
-  position==+1
-  list(position)=nextList RSH 8
+  dl(pos)=ANTIC.JVB
+  pos==+1
+  dl(pos)=nxt
+  pos==+1
+  dl(pos)=nxt RSH 8
 RETURN
 
 
-PROC BuildDisplayLists()
-  BuildDisplayList(displayListA,@displayListB)
-  BuildDisplayList(displayListB,@displayListA)
+PROC BuildDLists()
+  BuildDList(dlist_A,@dlist_B)
+  BuildDList(dlist_B,@dlist_A)
 RETURN
 
 
-PROC GenerateWaveDuringRaster()
+PROC Raster()
   ; The active display list remains read-only.  The kernel first synchronizes
   ; to the exact physical scanline where ANTIC starts mode F.  On every one of
-  ; the 160 visible scanlines it changes COLBAK, then stores one wave value
+  ; the 160 visible scanlines it changes GTIA.COLBAK, then stores one wave value
   ; for the next frame.  Fixed table addresses keep the beam-racing loop short.
 ASM
-    ; colorPhase is this frame's starting index into hueTable.  Copy it into
+    ; color is this frame's starting index into hues.  Copy it into
     ; both self-modified loads: one primes the first line and the other fetches
     ; each following line's hue at the end of its predecessor.
-    lda colorPhase
-    sta firstColorLoad+1
-    sta colorLoad+1
+    lda color
+    sta firstColorLoad
+    sta colorLoad
 
     ; Point the STA at the final wave entry.  Only its low address
     ; byte changes because the complete array fits within page $63.
     lda #<wave
     clc
     adc #WAVE_LAST_INDEX
-    sta waveStore+1
+    sta waveStore
 
-    ldx wavePhaseA
-    ldy wavePhaseB
+    ldx waveA
+    ldy waveB
 
     ; If setup reaches the reserved lead pair, skip it.  Both physical lines
     ; share one VCOUNT value, so entering here cannot determine whether enough
     ; time remains to prime the color pipeline safely.
-    lda VCOUNT
+    lda ANTIC.VCOUNT
     cmp #RASTER_SYNC_VCOUNT
     bne rasterSync
 waitPastRasterLead:
-    sta WSYNC
-    lda VCOUNT
+    sta ANTIC.WSYNC
+    lda ANTIC.VCOUNT
     cmp #RASTER_SYNC_VCOUNT
     beq waitPastRasterLead
 
@@ -256,26 +241,24 @@ waitPastRasterLead:
     ; before the first mode-F row.  This reserves four physical scanlines to
     ; establish the WSYNC/color pipeline before ANTIC reaches visible data.
 rasterSync:
-    sta WSYNC
-    lda VCOUNT
+    sta ANTIC.WSYNC
+    lda ANTIC.VCOUNT
     cmp #RASTER_SYNC_VCOUNT
     bne rasterSync
-    sta WSYNC
-firstColorLoad:
-    lda hueTable
-    sta WSYNC
-    sta COLBAK
+    sta ANTIC.WSYNC
+    lda firstColorLoad:hues
+    sta ANTIC.WSYNC
+    sta GTIA.COLBAK
 
 rasterLoop:
     clc
-    lda sineTable,x
-    adc sineTable,y
+    lda sines,x
+    adc sines,y
     ; Add the constant wave bias in four-times units.  Store the high-precision
     ; sum here; the inactive-list updater scales it later so the beam-racing
     ; kernel stays within one scanline.
     adc #WAVE_BIAS
-waveStore:
-    sta wave
+    sta waveStore:wave
 
     ; Equal and opposite spatial steps create the standing wave.
     inx
@@ -284,34 +267,33 @@ waveStore:
     dey
 
     ; Self-modify the absolute address encoded in the LDA at colorLoad.
-    ; colorLoad+1 is its low address byte; adding two selects the hue for the
-    ; next scanline and wraps naturally within hueTable's page.
+    ; colorLoad is its low address byte; adding two selects the hue for the
+    ; next scanline and wraps naturally within hues' page.
     clc
-    lda colorLoad+1
+    lda colorLoad
     adc #HUE_TABLE_STEP_PER_SCANLINE
-    sta colorLoad+1
+    sta colorLoad
 
     ; Self-modify the STA address to move one byte backward through the
     ; wave buffer.  Reaching a zero low byte ends the 160-line loop.
-    dec waveStore+1
+    dec waveStore
     beq rasterDone
-colorLoad:
-    lda hueTable
-    sta WSYNC
-    sta COLBAK
+    lda colorLoad:hues
+    sta ANTIC.WSYNC
+    sta GTIA.COLBAK
     jmp rasterLoop
 rasterDone:
     ; Preload the outside color without changing COLBAK, preserve the final hue
     ; through its complete scanline, then set COLBAK immediately after
     ; WSYNC releases the CPU on the first line below the effect.
     lda #OUTSIDE_COLOR
-    sta WSYNC
-    sta COLBAK
+    sta ANTIC.WSYNC
+    sta GTIA.COLBAK
 ENDASM
 RETURN
 
 
-PROC ApplyWaveToInactiveDisplayList()
+PROC ApplyWave()
   ; Expand the completed high-precision waveform into the inactive list's 160
   ; LMS operands.  The first two shifts reduce each value to its final scale;
   ; the third divides its pixel displacement by two.  Its carry selects ramp
@@ -320,9 +302,9 @@ ASM
     ; Both stores use Y as the byte offset within the inactive display list.
     ; Only their page bytes need patching; Y advances by the fixed three-byte
     ; size of each mode-F LMS instruction.
-    lda inactiveDisplayList+1
-    sta updateLowStore+2
-    sta updateHighStore+2
+    lda inactiveDList+1
+    sta updateLowStore+1
+    sta updateHighStore+1
 
     ldx #0
     ; Each leading blank occupies one byte.  The following mode-F opcode puts
@@ -333,24 +315,22 @@ updateLoop:
     lsr a
     lsr a
     lsr a
-updateLowStore:
-    sta displayListA,y
+    sta updateLowStore:dlist_A,y
 
     ; The third LSR left the final displacement's low bit in carry.  Loading
     ; the rampA page preserves it; adding zero selects rampA when clear or the
     ; following rampB page when set.
     lda #>rampA
     adc #0
-updateHighStore:
-    sta displayListA+1,y
+    sta updateHighStore:dlist_A+1,y
 
     tya
     clc
     adc #LMS_INSTRUCTION_SIZE
     tay
     bcc updatePageReady
-    inc updateLowStore+2
-    inc updateHighStore+2
+    inc updateLowStore+1
+    inc updateHighStore+1
 updatePageReady:
 
     inx
@@ -360,113 +340,115 @@ ENDASM
 RETURN
 
 
-PROC QueueInactiveDisplayList()
+PROC QueueDList()
   ; Keep the OS shadow in step with the cross-linked JVB target.
-  SDLSTL=inactiveDisplayList
+  OS.SDLST=inactiveDList
 RETURN
 
 
-PROC SwapDisplayListRoles()
+PROC SwapDLists()
   CARD previousActiveList
 
   ; ANTIC changes lists through their cross-linked JVB instructions.  This
   ; swap only tracks that hardware transition in software, keeping the next
   ; updater aimed at the list ANTIC is not currently reading.
-  previousActiveList=activeDisplayList
-  activeDisplayList=inactiveDisplayList
-  inactiveDisplayList=previousActiveList
+  previousActiveList=activeDList
+  activeDList=inactiveDList
+  inactiveDList=previousActiveList
 RETURN
 
 
 PROC RunPlasma()
-  CH=NO_KEY
-  WHILE CH#ESCAPE_KEY DO
+  OS.CH=OS.NO_KEY
+  WHILE OS.CH=OS.NO_KEY DO
     ; Move both temporal phases together.  This changes amplitude while the
     ; interference nodes remain at the same vertical positions.
-    wavePhaseA==+1
-    wavePhaseB==+1
-    GenerateWaveDuringRaster()
+    waveA==+1
+    waveB==+1
+    Raster()
 
-    ; colorLoad advances by two hueTable bytes per scanline.  Starting the
+    ; colorLoad advances by two bytes in hues per scanline.  Starting the
     ; next frame six bytes earlier therefore scrolls every band by 6/2=3
     ; scanlines.  Both steps are even, so all frames sample the same table
     ; parity and retain the same eight- or nine-scanline width for each hue.
-    colorPhase==-HUE_STEP_PER_FRAME
+    color==-HUE_STEP_PER_FRAME
 
     ; Select the next list before VBLANK.  Its LMS region can then be completed
     ; during VBLANK because ANTIC will not fetch the first mode-F row until
     ; physical scanline 40.
-    QueueInactiveDisplayList()
-    ApplyWaveToInactiveDisplayList()
-    SwapDisplayListRoles()
+    QueueDList()
+    ApplyWave()
+    SwapDLists()
   OD
 RETURN
 
 
 PROC SaveDisplayState()
-  savedDisplayList=SDLSTL
-  savedDmaControl=SDMCTL
-  savedPriority=GPRIOR
-  savedBackground=COLOR4
+  savedDList=OS.SDLST
+  savedDmaControl=OS.SDMCTL
+  savedPriority=OS.GPRIOR
+  savedBackground=OS.COLOR4
 RETURN
 
 
 PROC StopDisplay()
   ; Stop ANTIC before changing display-list memory or hardware state.
-  SDMCTL=0
-  DMACTL=0
+  OS.SDMCTL=0
+  ANTIC.DMACTL=0
 RETURN
 
 
-PROC InitializePlasma()
-  BuildHueTable()
+PROC InitPlasma()
+  BuildHues()
   ; Full-page copies let the raster indexes wrap without range checks and give
   ; each display-list row an independent LMS low byte.
-  FillPage(sineTable,sine64,SINE_PERIOD)
-  FillPage(rampA,luminancePatternA,RAMP_PERIOD)
-  FillPage(rampB,luminancePatternB,RAMP_PERIOD)
-  BuildDisplayLists()
+  FillPage(sines,sine64,SINE_PERIOD)
+  FillPage(rampA,patternA,RAMP_PERIOD)
+  FillPage(rampB,patternB,RAMP_PERIOD)
+  BuildDLists()
 
-  ; List A keeps the flat ramp created by BuildDisplayList for the first frame.
+  ; List A keeps the flat ramp created by BuildDList for the first frame.
   ; Its raster pass fills wave completely before list B is updated from it.
 
-  activeDisplayList=@displayListA
-  inactiveDisplayList=@displayListB
+  activeDList=@dlist_A
+  inactiveDList=@dlist_B
 
-  colorPhase=0
-  wavePhaseA=INITIAL_WAVE_PHASE
-  wavePhaseB=INITIAL_WAVE_PHASE
+  color=0
+  waveA=INITIAL_WAVE_PHASE
+  waveB=INITIAL_WAVE_PHASE
 RETURN
 
 
 PROC StartPlasmaDisplay()
-  ; Publish list A to both the OS shadow and ANTIC.  Normal playfield DMA
-  ; ($22) fetches 40 mode-F bytes per row; PRIOR=$40 selects GTIA mode 9.
-  SDLSTL=displayListA
-  GPRIOR=GTIA_MODE_9
-  SDMCTL=NORMAL_PLAYFIELD_DMA
+  ; Publish list A through the OS shadow. Normal playfield DMA ($22) fetches
+  ; 40 mode-F bytes per row; OS.GPRIOR=GTIA.MODE_9 selects GTIA mode 9.
+  OS.SDLST=dlist_A
+  OS.GPRIOR=GTIA.MODE_9
+  OS.SDMCTL=ANTIC.NORMAL_PLAYFIELD_DMA
 
-  ; The OS copies COLOR4 to COLBAK during VBLANK.  Keep the shadow at the
-  ; selected outside color between successive raster passes.
-  COLOR4=OUTSIDE_COLOR
+  ; The OS copies OS.COLOR4 to GTIA.COLBAK during VBLANK. Keep the shadow at
+  ; the selected outside color between successive raster passes.
+  OS.COLOR4=OUTSIDE_COLOR
 
 RETURN
 
 
 PROC RestoreDisplayState()
   StopDisplay()
-  SDLSTL=savedDisplayList
-  GPRIOR=savedPriority
-  COLOR4=savedBackground
-  SDMCTL=savedDmaControl
+  OS.SDLST=savedDList
+  OS.GPRIOR=savedPriority
+  OS.COLOR4=savedBackground
+  OS.SDMCTL=savedDmaControl
 RETURN
 
 
 PROC Main()
   SaveDisplayState()
   StopDisplay()
-  InitializePlasma()
+  InitPlasma()
   StartPlasmaDisplay()
   RunPlasma()
   RestoreDisplayState()
 RETURN
+
+ENDMODULE
