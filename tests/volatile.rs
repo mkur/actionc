@@ -169,12 +169,12 @@ RETURN
 }
 
 #[test]
-fn action_2027_plasma_uses_hardware_modules_in_every_public_mode() {
+fn plasma_uses_hardware_modules_in_every_public_mode() {
     let sample = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("samples")
         .join("demoscene")
-        .join("plasma-2027.act");
-    let source = fs::read_to_string(&sample).expect("read Action 2027 plasma source");
+        .join("plasma.act");
+    let source = fs::read_to_string(&sample).expect("read plasma source");
 
     for expected in [
         "MODULE PLASMA",
@@ -196,6 +196,6 @@ fn action_2027_plasma_uses_hardware_modules_in_every_public_mode() {
         CompileMode::Mir6502,
     ] {
         compile_file(&sample, &CompileOptions::for_mode(mode))
-            .unwrap_or_else(|err| panic!("compile Action 2027 plasma in {mode:?}: {err}"));
+            .unwrap_or_else(|err| panic!("compile plasma in {mode:?}: {err}"));
     }
 }

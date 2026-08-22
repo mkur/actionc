@@ -697,10 +697,10 @@ fn copied_compiler_compiles_standalone_plasma_without_adjacent_support_files() {
     let sample_source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("samples")
         .join("demoscene")
-        .join("plasma-2027.act");
-    let sample = temp.path().join("plasma-2027.act");
+        .join("plasma.act");
+    let sample = temp.path().join("plasma.act");
     fs::copy(sample_source, &sample).expect("copy module sample");
-    let output = temp.path().join("plasma-2027.com");
+    let output = temp.path().join("plasma.com");
 
     let result = Command::new(&compiler)
         .current_dir(temp.path())
