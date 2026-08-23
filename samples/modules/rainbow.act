@@ -1,6 +1,6 @@
 ; Qualified uses make it clear which Atari chip or OS object owns each
 ; register.  The module sources themselves are embedded in actionc.
-MODULE RAINBOW_MODULE
+MODULE RAINBOW
 
 USE ATARI.ANTIC
 USE ATARI.GTIA

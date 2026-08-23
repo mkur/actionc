@@ -118,7 +118,7 @@ fn module_examples_compile_standalone_with_both_backends() {
         .join("modules");
 
     for file_name in [
-        "hardware-rainbow.act",
+        "rainbow.act",
         "sys-memory-qualified.act",
         "sys-memory-open.act",
         "local-runtime-override.act",

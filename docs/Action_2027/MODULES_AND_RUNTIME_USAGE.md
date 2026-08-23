@@ -57,7 +57,7 @@ Declarations are private unless marked `PUBLIC`. Names introduced by `USE ALL
 FROM` are not re-exported, and collisions are errors rather than source-order
 dependent.
 
-Runnable versions are in `samples/modules`: `hardware-rainbow.act` uses
+Runnable versions are in `samples/modules`: `rainbow.act` uses
 qualified hardware modules, while `sys-memory-qualified.act` and
 `sys-memory-open.act` show the two `SYS` forms. The `project` directory
 is a complete multi-file example with a public project-module procedure.

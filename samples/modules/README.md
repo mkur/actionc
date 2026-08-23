@@ -7,7 +7,7 @@ embedded virtual filesystem.
 For a guided introduction that builds up to these examples, see the
 [modules tutorial](../../docs/tutorials/MODULES.md).
 
-- `hardware-rainbow.act` uses qualified Atari hardware and OS names.
+- `rainbow.act` uses qualified Atari hardware and OS names.
 - `hello.act` is a minimal named module using qualified `SYS` and Atari OS
   interfaces.
 - `sys-memory-qualified.act` calls compiler-provided `SYS` routines through the
@@ -23,7 +23,7 @@ Compile a single-file example without the Action! cartridge:
 ```sh
 cargo run --bin actionc -- \
   --mode optimized --runtime standalone \
-  samples/modules/hardware-rainbow.act
+  samples/modules/rainbow.act
 ```
 
 The directory containing the root source is automatically the project module
@@ -39,5 +39,5 @@ It can also be compiled and launched directly:
 
 ```sh
 cargo run --bin actionc-run -- \
-  --no-cart samples/modules/hardware-rainbow.act
+  --no-cart samples/modules/rainbow.act
 ```
