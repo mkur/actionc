@@ -536,9 +536,63 @@ fn embedded_atari_interfaces_preserve_addresses_types_visibility_and_origins() {
     for (qualified_name, address, fund_type) in [
         ("ATARI.ANTIC.DLIST", 0xD402, FundType::Card),
         ("ATARI.GTIA.COLBAK", 0xD01A, FundType::Byte),
+        ("ATARI.GTIA.M0PF", 0xD000, FundType::Byte),
+        ("ATARI.GTIA.M1PF", 0xD001, FundType::Byte),
+        ("ATARI.GTIA.M2PF", 0xD002, FundType::Byte),
+        ("ATARI.GTIA.M3PF", 0xD003, FundType::Byte),
+        ("ATARI.GTIA.P0PF", 0xD004, FundType::Byte),
+        ("ATARI.GTIA.P1PF", 0xD005, FundType::Byte),
+        ("ATARI.GTIA.P2PF", 0xD006, FundType::Byte),
+        ("ATARI.GTIA.P3PF", 0xD007, FundType::Byte),
+        ("ATARI.GTIA.M0PL", 0xD008, FundType::Byte),
+        ("ATARI.GTIA.M1PL", 0xD009, FundType::Byte),
+        ("ATARI.GTIA.M2PL", 0xD00A, FundType::Byte),
+        ("ATARI.GTIA.M3PL", 0xD00B, FundType::Byte),
+        ("ATARI.GTIA.P0PL", 0xD00C, FundType::Byte),
+        ("ATARI.GTIA.P1PL", 0xD00D, FundType::Byte),
+        ("ATARI.GTIA.P2PL", 0xD00E, FundType::Byte),
+        ("ATARI.GTIA.P3PL", 0xD00F, FundType::Byte),
+        ("ATARI.GTIA.TRIG0", 0xD010, FundType::Byte),
+        ("ATARI.GTIA.TRIG1", 0xD011, FundType::Byte),
+        ("ATARI.GTIA.TRIG2", 0xD012, FundType::Byte),
+        ("ATARI.GTIA.TRIG3", 0xD013, FundType::Byte),
+        ("ATARI.GTIA.PAL", 0xD014, FundType::Byte),
+        ("ATARI.OS.RTCLOK", 0x0012, FundType::Byte),
+        ("ATARI.OS.RTCLOK_MID", 0x0013, FundType::Byte),
+        ("ATARI.OS.RTCLOK_LO", 0x0014, FundType::Byte),
+        ("ATARI.OS.ATRACT", 0x004D, FundType::Byte),
+        ("ATARI.OS.LMARGIN", 0x0052, FundType::Byte),
+        ("ATARI.OS.RMARGIN", 0x0053, FundType::Byte),
+        ("ATARI.OS.ROWCRS", 0x0054, FundType::Byte),
+        ("ATARI.OS.COLCRS", 0x0055, FundType::Card),
+        ("ATARI.OS.DINDEX", 0x0057, FundType::Byte),
+        ("ATARI.OS.SAVMSC", 0x0058, FundType::Card),
+        ("ATARI.OS.RAMTOP", 0x006A, FundType::Byte),
+        ("ATARI.OS.VDSLST", 0x0200, FundType::Card),
+        ("ATARI.OS.SDMCTL", 0x022F, FundType::Byte),
         ("ATARI.OS.SDLST", 0x0230, FundType::Card),
+        ("ATARI.OS.GPRIOR", 0x026F, FundType::Byte),
+        ("ATARI.OS.TXTROW", 0x0290, FundType::Byte),
+        ("ATARI.OS.TXTCOL", 0x0291, FundType::Card),
+        ("ATARI.OS.TINDEX", 0x0293, FundType::Byte),
+        ("ATARI.OS.TXTMSC", 0x0294, FundType::Card),
+        ("ATARI.OS.PCOLR0", 0x02C0, FundType::Byte),
+        ("ATARI.OS.PCOLR1", 0x02C1, FundType::Byte),
+        ("ATARI.OS.PCOLR2", 0x02C2, FundType::Byte),
+        ("ATARI.OS.PCOLR3", 0x02C3, FundType::Byte),
+        ("ATARI.OS.COLOR0", 0x02C4, FundType::Byte),
+        ("ATARI.OS.COLOR1", 0x02C5, FundType::Byte),
+        ("ATARI.OS.COLOR2", 0x02C6, FundType::Byte),
+        ("ATARI.OS.COLOR3", 0x02C7, FundType::Byte),
+        ("ATARI.OS.COLOR4", 0x02C8, FundType::Byte),
+        ("ATARI.OS.CRSINH", 0x02F0, FundType::Byte),
+        ("ATARI.OS.CHACT", 0x02F3, FundType::Byte),
+        ("ATARI.OS.CHBAS", 0x02F4, FundType::Byte),
+        ("ATARI.OS.CH", 0x02FC, FundType::Byte),
         ("ATARI.POKEY.RANDOM", 0xD20A, FundType::Byte),
         ("ATARI.PIA.PORTA", 0xD300, FundType::Byte),
+        ("ATARI.PIA.DDRA", 0xD300, FundType::Byte),
+        ("ATARI.PIA.DDRB", 0xD301, FundType::Byte),
     ] {
         let symbol = model
             .symbols
@@ -574,20 +628,41 @@ fn embedded_atari_interfaces_preserve_addresses_types_visibility_and_origins() {
         ));
     }
 
-    let mode_9 = model
-        .symbols
-        .symbols
-        .iter()
-        .position(|symbol| symbol.qualified_name == "ATARI.GTIA.MODE_9")
-        .expect("GTIA.MODE_9 symbol");
-    let mode_9_symbol = &model.symbols.symbols[mode_9];
-    assert_eq!(mode_9_symbol.class, SymbolClass::Const);
-    assert_eq!(mode_9_symbol.visibility, Visibility::Public);
-    assert!(!mode_9_symbol.is_volatile);
-    assert_eq!(
-        model.constants[&actionc::semantic::SymbolId(mode_9)].bits,
-        0x40
-    );
+    for (qualified_name, value) in [
+        ("ATARI.ANTIC.CHACTL_REFLECT", 0x04),
+        ("ATARI.ANTIC.MODE_2", 0x02),
+        ("ATARI.ANTIC.MODE_F", 0x0F),
+        ("ATARI.ANTIC.DL_HSCROL", 0x10),
+        ("ATARI.ANTIC.BLANK_1", 0x00),
+        ("ATARI.ANTIC.BLANK_8", 0x70),
+        ("ATARI.ANTIC.NMI_DLI", 0x80),
+        ("ATARI.GTIA.MODE_9", 0x40),
+        ("ATARI.GTIA.PRIOR_FIFTH_PLAYER", 0x10),
+        ("ATARI.GTIA.LATCH_TRIGGERS", 0x04),
+        ("ATARI.GTIA.COLLISION_3", 0x08),
+        ("ATARI.GTIA.TV_PAL", 0x01),
+        ("ATARI.GTIA.CONSOL_START", 0x01),
+        ("ATARI.POKEY.AUDC_VOLUME_MASK", 0x0F),
+        ("ATARI.POKEY.AUDCTL_POLY9", 0x80),
+        ("ATARI.POKEY.IRQ_TIMER4", 0x04),
+        ("ATARI.POKEY.SKCTL_NORMAL", 0x03),
+        ("ATARI.POKEY.KBCODE_MASK", 0x3F),
+        ("ATARI.PIA.CONTROL_PORT_ACCESS", 0x04),
+        ("ATARI.PIA.CONTROL_C2_HIGH", 0x38),
+    ] {
+        let symbol_id = model
+            .symbols
+            .symbols
+            .iter()
+            .position(|symbol| symbol.qualified_name == qualified_name)
+            .map(SymbolId)
+            .unwrap_or_else(|| panic!("semantic constant {qualified_name}"));
+        let symbol = &model.symbols.symbols[symbol_id.0];
+        assert_eq!(symbol.class, SymbolClass::Const);
+        assert_eq!(symbol.visibility, Visibility::Public);
+        assert!(!symbol.is_volatile);
+        assert_eq!(model.constants[&symbol_id].bits, value, "{qualified_name}");
+    }
 }
 
 #[test]

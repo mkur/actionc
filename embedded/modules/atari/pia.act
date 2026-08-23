@@ -6,4 +6,23 @@ PUBLIC VOLATILE BYTE PORTA=$D300,
                      PACTL=$D302,
                      PBCTL=$D303
 
+; DDRA/DDRB share the port addresses and are selected when control bit 2 is
+; clear. PORTA/PORTB are selected when that bit is set.
+PUBLIC VOLATILE BYTE DDRA=$D300,
+                     DDRB=$D301
+
+PUBLIC CONST BYTE CONTROL_IRQ1_ENABLE=$01,
+                  CONTROL_IRQ1_POSITIVE=$02,
+                  CONTROL_PORT_ACCESS=$04,
+                  CONTROL_C2_NEGATIVE_NO_IRQ=$00,
+                  CONTROL_C2_NEGATIVE_IRQ=$08,
+                  CONTROL_C2_POSITIVE_NO_IRQ=$10,
+                  CONTROL_C2_POSITIVE_IRQ=$18,
+                  CONTROL_C2_HANDSHAKE=$20,
+                  CONTROL_C2_PULSE=$28,
+                  CONTROL_C2_LOW=$30,
+                  CONTROL_C2_HIGH=$38,
+                  CONTROL_IRQ2_STATUS=$40,
+                  CONTROL_IRQ1_STATUS=$80
+
 ENDMODULE

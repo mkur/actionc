@@ -4,21 +4,42 @@
 ; registers: the OS normally copies its shadows to hardware during VBLANK.
 MODULE ATARI.OS
 
-PUBLIC VOLATILE BYTE SDMCTL=$022F,
+; RTCLOK is a three-byte big-endian counter: RTCLOK is the high byte and
+; RTCLOK_LO changes on every VBLANK.
+PUBLIC VOLATILE BYTE RTCLOK=$0012,
+                     RTCLOK_MID=$0013,
+                     RTCLOK_LO=$0014,
+                     ATRACT=$004D,
+                     LMARGIN=$0052,
+                     RMARGIN=$0053,
+                     ROWCRS=$0054,
+                     DINDEX=$0057,
+                     RAMTOP=$006A,
+                     SDMCTL=$022F,
                      GPRIOR=$026F,
+                     TXTROW=$0290,
+                     TINDEX=$0293,
+                     PCOLR0=$02C0,
+                     PCOLR1=$02C1,
+                     PCOLR2=$02C2,
+                     PCOLR3=$02C3,
                      COLOR0=$02C4,
                      COLOR1=$02C5,
                      COLOR2=$02C6,
                      COLOR3=$02C7,
                      COLOR4=$02C8,
+                     CRSINH=$02F0,
                      CHACT=$02F3,
-                     CH=$02FC,
-                     RAMTOP=$006A,
-                     RTCLOK_LO=$0014
+                     CHBAS=$02F4,
+                     CH=$02FC
 
-; SDLSTL/SDLSTH and SAVMSC/SAVMSC+1 are low-byte-first pairs.
-PUBLIC VOLATILE CARD SDLST=$0230,
-                     SAVMSC=$0058
+; These OS word variables are low-byte-first pairs at consecutive addresses.
+PUBLIC VOLATILE CARD COLCRS=$0055,
+                     SAVMSC=$0058,
+                     VDSLST=$0200,
+                     SDLST=$0230,
+                     TXTCOL=$0291,
+                     TXTMSC=$0294
 
 PUBLIC CONST BYTE NO_KEY=$FF,
                   ESCAPE_KEY=$1C
