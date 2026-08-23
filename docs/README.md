@@ -10,6 +10,8 @@ crowding the active reference set.
   helper.
 - [ACTIONC_RUN.md](ACTIONC_RUN.md) - cross-platform `actionc-run` usage,
   emulator discovery, and artifact lifetime.
+- [Modules tutorial](tutorials/MODULES.md) - step-by-step introduction to
+  project modules, imports, embedded Atari interfaces, and runtime selection.
 - [CODEGEN_PROFILES.md](CODEGEN_PROFILES.md) - user-facing profile/backend
   naming and policy.
 - [ACTION_STORAGE_LAYOUT.md](ACTION_STORAGE_LAYOUT.md) - Action! storage layout
@@ -57,6 +59,8 @@ crowding the active reference set.
 
 ## Language And Runtime Reference
 
+- [Modules tutorial](tutorials/MODULES.md) - task-oriented guide to creating
+  and running modular programs.
 - [ACTIONC_ANNOTATIONS.md](ACTIONC_ANNOTATIONS.md) - supported `;@actionc`
   annotations.
 - [ACTION_SYMBOL_TABLE.md](ACTION_SYMBOL_TABLE.md) - Action! symbol table notes.

@@ -4,6 +4,9 @@ Implementation status: enabled in standard builds. Named modules, host module
 lookup, and the embedded `SYS` and `ATARI.*` modules are part of the supported
 `actionc` language and CLI surface.
 
+For a task-oriented introduction, start with the
+[modules tutorial](../tutorials/MODULES.md).
+
 Action 2027 named modules make hardware interfaces and reusable project code
 explicit while preserving a single-file compiler installation. `SYS`,
 `ATARI.*`, runtime bindings, and the original GPL runtime sources are embedded
@@ -260,3 +263,8 @@ archives include those runtime source inputs under `licenses/runtime-source/`
 and their provenance as `licenses/ACTION-RUNTIME-NOTICE.md`. Distributors must
 preserve the GPL notice and provide the corresponding source as required by the
 license.
+
+When a standalone build includes GPL runtime code, `actionc` and `actionc-run`
+print a warning naming the directly selected public `SYS` procedures and
+compiler helpers. Their required runtime dependencies are covered by the same
+warning even though they are not listed individually.

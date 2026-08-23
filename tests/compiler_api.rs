@@ -6,8 +6,8 @@ use actionc::codegen::{
     CODE_ORIGIN, CodegenProfile, format_load_file, generate_profile_with_origin,
 };
 use actionc::compiler::{
-    CompileErrorKind, CompileMode, CompileOptions, CompilerPhase, DiagnosticSite, Runtime,
-    compile_file,
+    CompileErrorKind, CompileMode, CompileOptions, CompileWarning, CompilerPhase, DiagnosticSite,
+    Runtime, compile_file,
 };
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502::{self, Mir6502Config};
@@ -149,6 +149,60 @@ fn compatibility_api_honors_an_explicit_nondefault_origin() {
 
     assert_eq!(compiled.origin(), 0x3a00);
     assert_eq!(&compiled.object_bytes()[2..4], &0x3a00u16.to_le_bytes());
+}
+
+#[test]
+fn standalone_sys_warning_is_structured_and_backend_independent() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "sys-warning.act",
+        "MODULE APP\n\
+         USE SYS\n\
+         BYTE ARRAY buffer(1)\n\
+         PROC Main() SYS.Zero(buffer,1) PrintE(\"Ready\") RETURN\n\
+         ENDMODULE\n",
+    );
+    let expected = [CompileWarning::StandaloneGplRuntime {
+        sys_routines: vec!["SYS.PrintE".to_string(), "SYS.Zero".to_string()],
+        helpers: Vec::new(),
+    }];
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let compiled = compile_file(
+            &source,
+            &CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone),
+        )
+        .unwrap_or_else(|error| panic!("compile standalone SYS warning in {mode:?}: {error}"));
+        assert_eq!(compiled.warnings(), expected, "{mode:?}");
+    }
+
+    let cart = compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized))
+        .expect("compile cart SYS program");
+    assert!(cart.warnings().is_empty());
+
+    let helper_only = write_source(
+        &temp,
+        "helper-only.act",
+        "CARD left,right,value\n\
+         PROC Main() left=300 right=300 value=left*right RETURN\n",
+    );
+    let helper_only = compile_file(
+        &helper_only,
+        &CompileOptions::for_mode(CompileMode::Optimized).with_runtime(Runtime::Standalone),
+    )
+    .expect("compile helper-only standalone program");
+    assert_eq!(
+        helper_only.warnings(),
+        [CompileWarning::StandaloneGplRuntime {
+            sys_routines: Vec::new(),
+            helpers: vec!["MultI".to_string()],
+        }]
+    );
 }
 
 #[test]

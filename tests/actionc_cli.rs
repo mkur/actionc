@@ -776,6 +776,54 @@ fn classic_standalone_sys_binding_is_selective() {
 }
 
 #[test]
+fn actionc_warns_when_standalone_output_uses_sys_runtime_code() {
+    let temp = TestDir::new();
+    let object = temp.path().join("sys-warning.com");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .args([
+            "--profile",
+            "modern",
+            "--backend",
+            "classic",
+            "--runtime",
+            "standalone",
+            "--output",
+        ])
+        .arg(&object)
+        .arg(standalone_fixture("standalone_sys_memory.act"))
+        .output()
+        .expect("compile standalone SYS program");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains(
+        "warning: standalone output links GPL-3.0-or-later runtime code: SYS procedures SYS.Zero"
+    ));
+    assert!(stderr.contains("the required runtime dependencies"));
+    assert!(object.is_file());
+
+    let helper_source = temp.path().join("helper-warning.act");
+    fs::write(
+        &helper_source,
+        "CARD left,right,value\nPROC Main() left=300 right=301 value=left*right RETURN\n",
+    )
+    .expect("write helper-only source");
+    let helper_output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .args(["--mode", "optimized", "--runtime", "standalone", "--output"])
+        .arg(temp.path().join("helper-warning.com"))
+        .arg(&helper_source)
+        .output()
+        .expect("compile helper-only standalone program");
+    assert!(helper_output.status.success());
+    assert!(String::from_utf8_lossy(&helper_output.stderr).contains(
+        "warning: standalone output links GPL-3.0-or-later runtime code: compiler helpers MultI"
+    ));
+}
+
+#[test]
 fn mir6502_standalone_without_helpers_adds_no_runtime_routines() {
     let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
         .args([

@@ -1,0 +1,16 @@
+; Minimal named-module program using qualified SYS and Atari OS interfaces.
+MODULE HELLO
+
+USE SYS
+USE ATARI.OS
+
+PROC Main()
+  SYS.PrintE("Hello from a module!")
+  OS.CH=OS.NO_KEY
+  SYS.PrintE("Press any key to continue.")
+  DO
+  UNTIL OS.CH#OS.NO_KEY
+  OD
+RETURN
+
+ENDMODULE

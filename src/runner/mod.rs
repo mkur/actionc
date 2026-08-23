@@ -12,8 +12,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use atrcopy_rs::{AtrImage, MYDOS_ATR};
 
 use crate::compiler::{
-    CompileError, CompileErrorKind, CompileMode, CompileOptions, CompilerPhase, DiagnosticSite,
-    Runtime, compile_file,
+    CompileError, CompileErrorKind, CompileMode, CompileOptions, CompileWarning, CompilerPhase,
+    DiagnosticSite, Runtime, compile_file,
 };
 use emulator::altirra::AltirraAdapter;
 use emulator::atari800::Atari800Adapter;
@@ -131,7 +131,13 @@ fn run_cli(args: impl IntoIterator<Item = OsString>) -> Result<RunCliOutcome, Ru
     let Some(options) = parse_args(args)? else {
         return Ok(RunCliOutcome::Help);
     };
-    let atr_bytes = prepare_atr(&options.source, &options.compile, &options.cartridge)?;
+    let PreparedAtr {
+        bytes: atr_bytes,
+        warnings,
+    } = prepare_atr(&options.source, &options.compile, &options.cartridge)?;
+    for warning in warnings {
+        eprintln!("warning: {warning}");
+    }
 
     if options.no_run {
         let output_atr = options
@@ -375,11 +381,17 @@ fn default_atr_path(source: &Path) -> PathBuf {
     PathBuf::from(file_name)
 }
 
+#[derive(Debug)]
+struct PreparedAtr {
+    bytes: Vec<u8>,
+    warnings: Vec<CompileWarning>,
+}
+
 fn prepare_atr(
     source: &Path,
     options: &CompileOptions,
     cartridge: &CartridgeChoice,
-) -> Result<Vec<u8>, RunnerError> {
+) -> Result<PreparedAtr, RunnerError> {
     let expected_runtime = cartridge.runtime();
     if options.runtime() != expected_runtime {
         return Err(RunnerError::configuration(format!(
@@ -404,7 +416,10 @@ fn prepare_atr(
     image
         .upsert_file(program_name, compiled.object_bytes())
         .map_err(|message| RunnerError::Atr(format!("add {program_name}: {message}")))?;
-    Ok(image.into_bytes())
+    Ok(PreparedAtr {
+        bytes: image.into_bytes(),
+        warnings: compiled.warnings().to_vec(),
+    })
 }
 
 fn action_library_bootstrap_object() -> Vec<u8> {
@@ -961,7 +976,7 @@ mod tests {
 
         let atr = prepare_atr(&source, &options, &CartridgeChoice::Bundled)
             .expect("prepare runnable ATR");
-        let image = AtrImage::from_bytes(atr).expect("parse prepared ATR");
+        let image = AtrImage::from_bytes(atr.bytes).expect("parse prepared ATR");
 
         assert_eq!(
             image
@@ -994,7 +1009,7 @@ mod tests {
 
         let atr =
             prepare_atr(&source, &options, &CartridgeChoice::None).expect("prepare runnable ATR");
-        let image = AtrImage::from_bytes(atr).expect("parse prepared ATR");
+        let image = AtrImage::from_bytes(atr.bytes).expect("parse prepared ATR");
 
         assert_eq!(
             image

@@ -558,6 +558,8 @@ fn append_runtime_binding_metadata(
             reason: "classic code generation requires a runtime helper".to_string(),
             origin: "embedded SYSLIB.ACT (GPL-3.0)".to_string(),
             suppressed_default: None,
+            kind: CodegenRuntimeBindingKind::CompilerHelper,
+            license: Some(CodegenRuntimeLicense::Gpl3OrLater),
         });
     }
     for (external, root) in external_roots {
@@ -574,6 +576,8 @@ fn append_runtime_binding_metadata(
                 root.unit.file_name.to_ascii_uppercase()
             ),
             suppressed_default: None,
+            kind: CodegenRuntimeBindingKind::SystemInterface,
+            license: Some(CodegenRuntimeLicense::Gpl3OrLater),
         });
     }
     for (helper, implementation) in local_overrides {
@@ -584,6 +588,8 @@ fn append_runtime_binding_metadata(
             reason: "source-level local helper override".to_string(),
             origin: "application".to_string(),
             suppressed_default: Some(format!("{INTERNAL_SYSLIB_MODULE}::{}", helper.name())),
+            kind: CodegenRuntimeBindingKind::LocalOverride,
+            license: None,
         });
     }
 }

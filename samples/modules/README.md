@@ -4,7 +4,12 @@ These examples exercise the Action 2027 module system without external include
 or library directories. `SYS` and `ATARI.*` are supplied by the compiler's
 embedded virtual filesystem.
 
+For a guided introduction that builds up to these examples, see the
+[modules tutorial](../../docs/tutorials/MODULES.md).
+
 - `hardware-rainbow.act` uses qualified Atari hardware and OS names.
+- `hello.act` is a minimal named module using qualified `SYS` and Atari OS
+  interfaces.
 - `sys-memory-qualified.act` calls compiler-provided `SYS` routines through the
   module qualifier.
 - `sys-memory-open.act` uses all public `SYS` names with `USE ALL FROM SYS`.

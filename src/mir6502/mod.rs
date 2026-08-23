@@ -224,39 +224,56 @@ fn runtime_bindings(
         .map(|declaration| {
             let helper = runtime::helper_name(declaration.helper);
             let reason = runtime_selection_reason(declaration.helper).to_string();
-            let (implementation, address, origin, suppressed_default) = match declaration.target {
-                MirRuntimeHelperTarget::KnownAbsolute(address) => (
-                    "absolute runtime entry".to_string(),
-                    Some(address),
-                    "Action! cartridge or explicit absolute override".to_string(),
-                    None,
-                ),
-                MirRuntimeHelperTarget::Routine(id) => {
-                    let name = mir
-                        .routines
-                        .iter()
-                        .find(|routine| routine.id == id)
-                        .map(|routine| routine.name.clone())
-                        .unwrap_or_else(|| format!("r{}", id.0));
-                    let address = routine_addresses
-                        .iter()
-                        .find(|routine| routine.name == name)
-                        .map(|routine| routine.address);
-                    if name.starts_with("ACTION.RUNTIME.SYSLIB::") {
-                        (name, address, "<runtime:SYSLIB.ACT>".to_string(), None)
-                    } else {
-                        (
-                            name,
-                            address,
-                            "application source".to_string(),
-                            Some(format!("ACTION.RUNTIME.SYSLIB::{helper}")),
-                        )
+            let (implementation, address, origin, suppressed_default, kind, license) =
+                match declaration.target {
+                    MirRuntimeHelperTarget::KnownAbsolute(address) => (
+                        "absolute runtime entry".to_string(),
+                        Some(address),
+                        "Action! cartridge or explicit absolute override".to_string(),
+                        None,
+                        crate::codegen::CodegenRuntimeBindingKind::CompilerHelper,
+                        None,
+                    ),
+                    MirRuntimeHelperTarget::Routine(id) => {
+                        let name = mir
+                            .routines
+                            .iter()
+                            .find(|routine| routine.id == id)
+                            .map(|routine| routine.name.clone())
+                            .unwrap_or_else(|| format!("r{}", id.0));
+                        let address = routine_addresses
+                            .iter()
+                            .find(|routine| routine.name == name)
+                            .map(|routine| routine.address);
+                        if name.starts_with("ACTION.RUNTIME.SYSLIB::") {
+                            (
+                                name,
+                                address,
+                                "<runtime:SYSLIB.ACT>".to_string(),
+                                None,
+                                crate::codegen::CodegenRuntimeBindingKind::CompilerHelper,
+                                Some(crate::codegen::CodegenRuntimeLicense::Gpl3OrLater),
+                            )
+                        } else {
+                            (
+                                name,
+                                address,
+                                "application source".to_string(),
+                                Some(format!("ACTION.RUNTIME.SYSLIB::{helper}")),
+                                crate::codegen::CodegenRuntimeBindingKind::LocalOverride,
+                                None,
+                            )
+                        }
                     }
-                }
-                MirRuntimeHelperTarget::Deferred => {
-                    ("deferred".to_string(), None, "unresolved".to_string(), None)
-                }
-            };
+                    MirRuntimeHelperTarget::Deferred => (
+                        "deferred".to_string(),
+                        None,
+                        "unresolved".to_string(),
+                        None,
+                        crate::codegen::CodegenRuntimeBindingKind::CompilerHelper,
+                        None,
+                    ),
+                };
             crate::codegen::CodegenRuntimeBinding {
                 helper: helper.to_string(),
                 implementation,
@@ -264,6 +281,8 @@ fn runtime_bindings(
                 reason,
                 origin,
                 suppressed_default,
+                kind,
+                license,
             }
         })
         .collect::<Vec<_>>();
@@ -290,6 +309,8 @@ fn runtime_bindings(
                 reason: "native REAL arithmetic/conversion".to_string(),
                 origin: "Atari OS ROM".to_string(),
                 suppressed_default: None,
+                kind: crate::codegen::CodegenRuntimeBindingKind::AtariFpp,
+                license: None,
             }),
     );
     bindings

@@ -3,6 +3,15 @@
 This file tracks cross-cutting compiler work that does not naturally belong to a
 single backend or survey note.
 
+## Standalone Runtime Licensing
+
+- Replace the GPL-only standalone `SYS` implementation with an independently
+  maintained syslib under a more permissive license.
+- Preserve the public `SYS` interface and selective-linking boundary so existing
+  programs do not need source changes.
+- Until that replacement exists, retain the standalone GPL warning for selected
+  `SYS` procedures, compiler helpers, and their runtime dependencies.
+
 ## Arithmetic Compatibility Follow-ups
 
 - Extend the executable original-compiler probe corpus for integer arithmetic;

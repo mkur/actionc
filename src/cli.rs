@@ -12,7 +12,7 @@ use crate::codegen::{
 };
 use crate::compiler::{
     Backend, CodegenSource, CompileError, CompileErrorKind, CompileMode, CompileRequest,
-    CompiledProgram, CompilerPhase, DiagnosticSite, Runtime,
+    CompileWarning, CompiledProgram, CompilerPhase, DiagnosticSite, Runtime,
     artifacts::{format_listing_with_boundaries, format_listing_with_source},
     compile_file_with_request, mir6502_default_origin_from_semir, mode_profile_backend,
     validation::{legacy_routine_retargeting_diagnostics, standalone_resident_diagnostics},
@@ -343,6 +343,7 @@ fn run_main(flavor: CliFlavor) {
                 process::exit(exit_code);
             }
         };
+        print_compile_warnings(compiled.warnings());
         write_compiled_program_or_exit(&compiled, outputs);
         return;
     }
@@ -1094,6 +1095,12 @@ fn emit_output(
         println!("{}", format_listing_with_source(output, source_text));
     } else {
         println!("{}", format_hex(&output.bytes));
+    }
+}
+
+fn print_compile_warnings(warnings: &[CompileWarning]) {
+    for warning in warnings {
+        eprintln!("warning: {warning}");
     }
 }
 

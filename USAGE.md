@@ -234,6 +234,12 @@ Runtime selections appear in generated maps and MADS listings. `--emit-map`
 prints `runtime` and `runtime-binding` records; listings use corresponding
 `Runtime` comments and include GPL source provenance for linked routines.
 
+When standalone output includes GPL runtime code, `actionc` and `actionc-run`
+print a warning. It names the directly selected public `SYS` procedures and
+compiler helpers; their required runtime dependencies are included too. A
+standalone program that needs no embedded runtime code does not produce the
+warning.
+
 ## Other Options
 
 - `--origin <addr>` sets the code origin. Addresses may be decimal, `$` hex, or
@@ -291,9 +297,10 @@ The compiler loads the transitive `USE` graph. Each loaded user module is
 currently emitted whole, including unreferenced routines and storage;
 visibility through `PUBLIC` and `USE ALL FROM` does not alter inclusion. By
 contrast, the standalone `SYS` runtime and compiler helpers are selectively
-linked from the referenced dependency closure. See
-[Modules and runtime usage](docs/Action_2027/MODULES_AND_RUNTIME_USAGE.md) for
-syntax, lookup order, examples, and the detailed inclusion contract.
+linked from the referenced dependency closure. Start with the
+[modules tutorial](docs/tutorials/MODULES.md), then see
+[modules and runtime usage](docs/Action_2027/MODULES_AND_RUNTIME_USAGE.md) for
+the detailed lookup and inclusion contract.
 
 ## Compile And Run
 

@@ -2,6 +2,7 @@ pub(crate) mod artifacts;
 mod diagnostics;
 pub(crate) mod validation;
 
+use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -146,10 +147,43 @@ impl CompileOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CompileWarning {
+    StandaloneGplRuntime {
+        sys_routines: Vec<String>,
+        helpers: Vec<String>,
+    },
+}
+
+impl fmt::Display for CompileWarning {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::StandaloneGplRuntime {
+                sys_routines,
+                helpers,
+            } => {
+                let mut selected = Vec::new();
+                if !sys_routines.is_empty() {
+                    selected.push(format!("SYS procedures {}", sys_routines.join(", ")));
+                }
+                if !helpers.is_empty() {
+                    selected.push(format!("compiler helpers {}", helpers.join(", ")));
+                }
+                write!(
+                    formatter,
+                    "standalone output links GPL-3.0-or-later runtime code: {}; the required runtime dependencies are included; distribution must comply with the GPL",
+                    selected.join("; ")
+                )
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledProgram {
     object: Vec<u8>,
     pub(crate) output: CodegenOutput,
     pub(crate) expanded_source: String,
+    warnings: Vec<CompileWarning>,
 }
 
 impl CompiledProgram {
@@ -171,6 +205,10 @@ impl CompiledProgram {
 
     pub fn runtime(&self) -> Runtime {
         self.output.map.runtime
+    }
+
+    pub fn warnings(&self) -> &[CompileWarning] {
+        &self.warnings
     }
 }
 
@@ -259,13 +297,61 @@ pub(crate) fn compile_file_with_request(
             &loaded.source_map,
         )?,
     };
+    let warnings = compile_warnings(&semir, &output);
     let object = format_load_file(&output);
 
     Ok(CompiledProgram {
         object,
         output,
         expanded_source: loaded.source,
+        warnings,
     })
+}
+
+fn compile_warnings(program: &ir::SemProgram, output: &CodegenOutput) -> Vec<CompileWarning> {
+    if output.map.runtime != Runtime::Standalone {
+        return Vec::new();
+    }
+    let sys_routines = program
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            ir::SemItem::Routine(routine)
+                if routine.is_external
+                    && routine
+                        .symbol
+                        .qualified_name
+                        .to_ascii_uppercase()
+                        .starts_with("SYS.") =>
+            {
+                Some(routine.symbol.qualified_name.clone())
+            }
+            _ => None,
+        })
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let helpers = output
+        .map
+        .runtime_bindings
+        .iter()
+        .filter(|binding| {
+            binding.kind == crate::codegen::CodegenRuntimeBindingKind::CompilerHelper
+                && binding.license == Some(crate::codegen::CodegenRuntimeLicense::Gpl3OrLater)
+        })
+        .map(|binding| binding.helper.clone())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    if sys_routines.is_empty() && helpers.is_empty() {
+        Vec::new()
+    } else {
+        vec![CompileWarning::StandaloneGplRuntime {
+            sys_routines,
+            helpers,
+        }]
+    }
 }
 
 fn first_native_real_codegen_use(

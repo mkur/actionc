@@ -53,6 +53,8 @@ impl Generator {
                 reason: "native REAL arithmetic/conversion".to_string(),
                 origin: "Atari OS ROM".to_string(),
                 suppressed_default: None,
+                kind: CodegenRuntimeBindingKind::AtariFpp,
+                license: None,
             })
             .collect();
         let classic_runtime_requirements =

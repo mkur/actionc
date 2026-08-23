@@ -84,6 +84,21 @@ pub struct CodegenRuntimeBinding {
     pub reason: String,
     pub origin: String,
     pub suppressed_default: Option<String>,
+    pub kind: CodegenRuntimeBindingKind,
+    pub license: Option<CodegenRuntimeLicense>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodegenRuntimeBindingKind {
+    CompilerHelper,
+    SystemInterface,
+    AtariFpp,
+    LocalOverride,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodegenRuntimeLicense {
+    Gpl3OrLater,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

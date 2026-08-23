@@ -57,6 +57,13 @@ fn standalone_minimal() -> PathBuf {
         .join("standalone_minimal.act")
 }
 
+fn standalone_sys_memory() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("runtime")
+        .join("standalone_sys_memory.act")
+}
+
 #[test]
 fn help_documents_the_canonical_runtime_selector_and_no_cart_convenience() {
     let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
@@ -151,6 +158,7 @@ fn no_cart_writes_the_compiler_object_directly_as_ar0() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("GPL-3.0-or-later SYS runtime"));
     let image = AtrImage::from_bytes(fs::read(&output_atr).expect("read output ATR"))
         .expect("parse output ATR");
     let program = image
@@ -176,6 +184,27 @@ fn no_cart_writes_the_compiler_object_directly_as_ar0() {
             .expect("read output directory")
             .is_none()
     );
+}
+
+#[test]
+fn no_cart_warns_when_the_program_uses_sys_runtime_code() {
+    let temp = TestDir::new();
+    let output_atr = temp.path().join("sys-warning.atr");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-run"))
+        .args(["--no-cart", "--no-run", "--out-atr"])
+        .arg(&output_atr)
+        .arg(standalone_sys_memory())
+        .output()
+        .expect("run standalone SYS program");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains(
+        "warning: standalone output links GPL-3.0-or-later runtime code: SYS procedures SYS.Zero"
+    ));
+    assert!(output_atr.is_file());
 }
 
 #[test]
