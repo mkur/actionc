@@ -46,14 +46,14 @@ a source-annotated 6502 listing at the same time:
 
 ```sh
 actionc samples/hello-world.act \
-  --output build/hello-world.com \
+  --output build/hello-world.xex \
   --listing build/hello-world.asm
 ```
 
 `actionc` creates missing output directories. If `--output` is omitted, it
-writes `<source-stem>.com` in the current directory.
+writes `<source-stem>.xex` in the current directory.
 
-The `.com` file is an Atari load-format executable. The optional `.asm` file is
+The `.xex` file is an Atari load-format executable. The optional `.asm` file is
 a re-originable, source-annotated MADS assembly listing. Generated addresses
 and bytes remain visible in comments, while routines and known storage use
 readable labels such as `proc_main` and `global_buffer`. If MADS 2.1.7 is
@@ -61,8 +61,8 @@ installed, the unedited listing reconstructs the same complete load file,
 including `RUNAD`:
 
 ```sh
-mads build/hello-world.asm -o:build/hello-world-mads.com -s
-cmp build/hello-world.com build/hello-world-mads.com
+mads build/hello-world.asm -o:build/hello-world-mads.xex -s
+cmp build/hello-world.xex build/hello-world-mads.xex
 ```
 
 To move the generated main segment, change only the generated
@@ -122,7 +122,7 @@ The default `compatibility` mode is intended for old Action! source code:
 ```sh
 actionc PROGRAM.ACT \
   --mode compatibility \
-  --output build/PROGRAM.COM
+  --output build/PROGRAM.XEX
 ```
 
 For maintained source where smaller output is preferred, use `optimized` mode:
@@ -130,7 +130,7 @@ For maintained source where smaller output is preferred, use `optimized` mode:
 ```sh
 actionc PROGRAM.ACT \
   --mode optimized \
-  --output build/PROGRAM.COM
+  --output build/PROGRAM.XEX
 ```
 
 Use `mir6502` mode for the experimental compiler pipeline:
@@ -138,7 +138,7 @@ Use `mir6502` mode for the experimental compiler pipeline:
 ```sh
 actionc PROGRAM.ACT \
   --mode mir6502 \
-  --output build/PROGRAM-MIR.COM
+  --output build/PROGRAM-MIR.XEX
 ```
 
 Modes select the appropriate lower-level compiler profile and backend. Advanced

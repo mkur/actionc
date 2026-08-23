@@ -9,7 +9,7 @@ dedicated channel because MyDOS still owns IOCB 0 while it invokes the load
 file's RUNAD. With `--runtime standalone` or its `--no-cart` convenience form,
 the compiler selects the standalone runtime, the bootstrap and cartridge are
 omitted, and the generated object is stored directly as `PROGRAM.AR0`. No Bash
-or intermediate `.com` file is required.
+or intermediate `.xex` file is required.
 
 Install it with:
 

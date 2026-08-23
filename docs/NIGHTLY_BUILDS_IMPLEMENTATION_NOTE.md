@@ -130,7 +130,7 @@ Every archive has one root directory and contains:
 
 The release also contains the pinned Action! corresponding-source snapshot and
 `SHA256SUMS` covering all four platform archives plus that source snapshot.
-Generated `.com` files, ATR files, and emulator executables are not packaged.
+Generated `.xex` files, ATR files, and emulator executables are not packaged.
 
 A single portable repository script assembles every package. It receives the
 target, input executable directory, output directory, and build metadata as

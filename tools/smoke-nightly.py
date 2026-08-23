@@ -87,7 +87,7 @@ def smoke(args: argparse.Namespace) -> None:
     with tempfile.TemporaryDirectory(prefix="actionc-nightly-smoke-") as temporary:
         output_dir = Path(temporary)
         for mode in modes:
-            object_file = output_dir / f"hello-{mode}.com"
+            object_file = output_dir / f"hello-{mode}.xex"
             run(
                 [
                     binaries["actionc"],
@@ -112,7 +112,7 @@ def smoke(args: argparse.Namespace) -> None:
         )
         require_atr(atr_file)
 
-        standalone_object = output_dir / "arithmetic-standalone.com"
+        standalone_object = output_dir / "arithmetic-standalone.xex"
         run(
             [
                 binaries["actionc"],

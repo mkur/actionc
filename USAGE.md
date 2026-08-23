@@ -10,10 +10,10 @@ Compile an Action! source file with:
 
 ```sh
 actionc [--mode <mode>] [--runtime cart|standalone] [options] \
-  [-o <file.com>] [--listing <file.lst>] <file.act>
+  [-o <file.xex>] [--listing <file.lst>] <file.act>
 ```
 
-Without `-o` or `--output`, `actionc` writes `<source-stem>.com` in the current
+Without `-o` or `--output`, `actionc` writes `<source-stem>.xex` in the current
 directory. Missing parent directories are created automatically. Developer
 representations and raw stdout output are provided by `actionc-emit`.
 
@@ -44,7 +44,7 @@ invocation:
 
 ```sh
 actionc samples/hello-world.act \
-  --output target/hello-world.com \
+  --output target/hello-world.xex \
   --listing target/hello-world.lst
 ```
 
@@ -53,7 +53,7 @@ Generate the optimized classic-backend listing:
 ```sh
 actionc samples/hello-world.act \
   --mode optimized \
-  --output target/hello-world-modern.com \
+  --output target/hello-world-modern.xex \
   --listing target/hello-world-modern.lst
 ```
 
@@ -90,8 +90,8 @@ cargo run --quiet --bin actionc-emit -- \
 exclusive; with no explicit mode it preserves the historical `--emit-code`
 hex-text behavior.
 
-- `--emit-load` writes an Atari load-format binary to stdout. Redirect it to a
-  `.com` file.
+- `--emit-load` writes an Atari load-format binary to stdout. Redirect it to an
+  `.xex` file.
 - `--emit-source-listing` writes re-originable MADS assembly with Action! source
   comments. `--emit-listing-source` is accepted as an alias.
 - `--emit-listing` writes the same MADS assembly without Action! source
@@ -135,10 +135,10 @@ byte for byte:
 
 ```sh
 actionc samples/hello-world.act \
-  --output build/hello-world.com \
+  --output build/hello-world.xex \
   --listing build/hello-world.asm
-mads build/hello-world.asm -o:build/hello-world-mads.com -s
-cmp build/hello-world.com build/hello-world-mads.com
+mads build/hello-world.asm -o:build/hello-world-mads.xex -s
+cmp build/hello-world.xex build/hello-world-mads.xex
 ```
 
 The listing starts with one editable definition:
@@ -305,7 +305,7 @@ the detailed lookup and inclusion contract.
 ## Compile And Run
 
 `actionc-run` is the user-facing compile-and-run command. It builds a bootable
-MyDOS ATR without an intermediate `.com` file and launches Atari800 or Altirra:
+MyDOS ATR without an intermediate `.xex` file and launches Atari800 or Altirra:
 
 ```sh
 cargo install --path . --bin actionc-run

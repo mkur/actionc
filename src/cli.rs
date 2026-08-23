@@ -883,7 +883,7 @@ fn default_object_path(input_path: &str) -> PathBuf {
         .file_stem()
         .filter(|stem| !stem.is_empty())
         .unwrap_or_else(|| std::ffi::OsStr::new("output"));
-    PathBuf::from(stem).with_extension("com")
+    PathBuf::from(stem).with_extension("xex")
 }
 
 fn should_run_codegen_backend(
@@ -1313,7 +1313,7 @@ fn print_help_for(flavor: CliFlavor) {
 
 fn print_compile_help() {
     eprintln!(
-        "usage: actionc [--mode compatibility|optimized|mir6502] [--runtime cart|standalone] [--origin <addr>] [-o <file.com>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility and the default runtime is cart. Advanced\nusers may select --profile and --backend directly instead of --mode. With no\n-o option, write <source-stem>.com in the current directory. --listing writes\nre-originable, source-annotated MADS assembly. Change only ACTIONC_ORIGIN in\nthe generated listing to move its main segment. Use actionc-emit for compiler\nrepresentations."
+        "usage: actionc [--mode compatibility|optimized|mir6502] [--runtime cart|standalone] [--origin <addr>] [-o <file.xex>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility and the default runtime is cart. Advanced\nusers may select --profile and --backend directly instead of --mode. With no\n-o option, write <source-stem>.xex in the current directory. --listing writes\nre-originable, source-annotated MADS assembly. Change only ACTIONC_ORIGIN in\nthe generated listing to move its main segment. Use actionc-emit for compiler\nrepresentations."
     );
 }
 

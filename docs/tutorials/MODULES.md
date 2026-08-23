@@ -122,7 +122,7 @@ ENDMODULE
 Compile it without an Action! cartridge dependency:
 
 ```sh
-actionc --runtime standalone --output build/hello.com hello.act
+actionc --runtime standalone --output build/hello.xex hello.act
 ```
 
 Or compile and launch it in a configured emulator:

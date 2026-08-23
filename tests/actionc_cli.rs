@@ -92,6 +92,17 @@ fn help_describes_the_existing_listing_options_as_mads_assembly() {
             "unexpected help:\n{stderr}"
         );
     }
+
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+        .arg("--help")
+        .output()
+        .expect("run actionc --help");
+    let help = String::from_utf8_lossy(&output.stderr);
+    assert!(help.contains("<file.xex>"), "unexpected help:\n{help}");
+    assert!(
+        help.contains("<source-stem>.xex"),
+        "unexpected help:\n{help}"
+    );
 }
 
 #[test]
@@ -297,7 +308,8 @@ fn bare_invocation_uses_source_stem_in_current_directory() {
         .expect("run actionc");
 
     assert!(output.status.success());
-    assert!(temp.path().join("hello-world.com").is_file());
+    assert!(temp.path().join("hello-world.xex").is_file());
+    assert!(!temp.path().join("hello-world.com").exists());
 }
 
 #[test]

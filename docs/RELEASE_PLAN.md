@@ -37,10 +37,10 @@ Run and record:
 
 ```sh
 cargo test
-cargo run --bin actionc -- --output target/release-smoke/hello-world.com samples/hello-world.act
-cargo run --bin actionc -- --profile legacy --backend classic --output target/release-smoke/logo-legacy.com samples/logo.act
-cargo run --bin actionc -- --profile modern --backend classic --output target/release-smoke/logo-modern.com samples/logo.act
-cargo run --bin actionc -- --profile modern --backend classic --output target/release-smoke/tn-modern.com samples/tn/modern/TN.ACT
+cargo run --bin actionc -- --output target/release-smoke/hello-world.xex samples/hello-world.act
+cargo run --bin actionc -- --profile legacy --backend classic --output target/release-smoke/logo-legacy.xex samples/logo.act
+cargo run --bin actionc -- --profile modern --backend classic --output target/release-smoke/logo-modern.xex samples/logo.act
+cargo run --bin actionc -- --profile modern --backend classic --output target/release-smoke/tn-modern.xex samples/tn/modern/TN.ACT
 ```
 
 Also run report-only sweeps:

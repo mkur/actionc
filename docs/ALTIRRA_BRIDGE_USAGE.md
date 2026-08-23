@@ -103,7 +103,7 @@ Compile a load file normally:
 ```sh
 cargo run -q --bin actionc -- \
   --backend mir6502 \
-  --output target/pmg_bridge_mir.com \
+  --output target/pmg_bridge_mir.xex \
   samples/toolkit/modern/PMG.DM1
 ```
 
@@ -114,7 +114,7 @@ from altirra_bridge import AltirraBridge
 
 with AltirraBridge.from_token_file(token_file) as a:
     a.config("debugbrkrun", "true")
-    a.boot("target/pmg_bridge_mir.com")
+    a.boot("target/pmg_bridge_mir.xex")
     # Prefer small staged frame counts or RUNAD breakpoints for load files.
     a.frame(1)
     print(a.regs())
@@ -126,7 +126,7 @@ with AltirraBridge.from_token_file(token_file) as a:
 For generated Action load files, do not start with a blind `frame(300)`.
 A quick experiment showed:
 
-- `BOOT target/pmg_bridge_mir.com` was accepted and dispatched.
+- `BOOT target/pmg_bridge_mir.xex` was accepted and dispatched.
 - The client then hung during `FRAME 300`.
 - The bridge log confirmed the last processed command was `FRAME 300`.
 
