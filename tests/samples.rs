@@ -2,8 +2,8 @@ use std::fs;
 use std::path::Path;
 
 use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
-use actionc::includes::load_program_with_includes;
-use actionc::semantic::{SemanticOptions, analyze_with_options};
+use actionc::includes::{ModuleLoadOptions, load_compilation};
+use actionc::semantic::{SemanticOptions, analyze_compilation_with_options};
 
 #[test]
 fn parses_all_sample_programs() {
@@ -48,9 +48,9 @@ fn is_latent_named_module_sample(path: &Path, samples_dir: &Path) -> bool {
 
 fn check_sample(path: &Path) {
     if is_action_source(path) {
-        let program = load_program_with_includes(path)
-            .unwrap_or_else(|err| panic!("load {} with includes: {err:?}", path.display()));
-        analyze_with_options(&program, SemanticOptions::modern())
+        let compilation = load_compilation(path, &ModuleLoadOptions::default())
+            .unwrap_or_else(|err| panic!("load compilation {}: {err:?}", path.display()));
+        analyze_compilation_with_options(&compilation, SemanticOptions::modern())
             .unwrap_or_else(|err| panic!("analyze {}: {err:?}", path.display()));
     }
 }
