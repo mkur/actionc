@@ -16382,6 +16382,19 @@ fn modern_profile_reuses_untracked_zero_page_memory_alias() {
 }
 
 #[test]
+fn modern_widened_byte_call_in_word_subtraction_is_evaluated_once() {
+    let output = generate_profile_source_with_origin(
+        "BYTE counter BYTE FUNC Next() counter==+1 RETURN(counter) INT roughness,result PROC Main() roughness=4 result=INT(Next())-roughness RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    let next = routine_address(&output, "Next").expect("Next address");
+    assert_eq!(count_jsr_to(&output.bytes, next), 1);
+}
+
+#[test]
 fn modern_profile_reuses_value_only_zero_page_load_before_shift() {
     let mut generator = test_generator(CodegenProfile::Modern);
     let source = StorageSlot::absolute(0x3000, 1);

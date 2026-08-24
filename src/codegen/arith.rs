@@ -2459,7 +2459,9 @@ impl Generator {
                 op: UnaryOp::Deref | UnaryOp::Neg,
                 ..
             } => true,
-            ExprKind::Unary { expr, .. } => Self::arithmetic_operand_needs_materialization(expr),
+            ExprKind::Unary { expr, .. } | ExprKind::Cast { expr, .. } => {
+                Self::arithmetic_operand_needs_materialization(expr)
+            }
             ExprKind::Binary {
                 op:
                     BinaryOp::Add
