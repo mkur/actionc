@@ -7,7 +7,13 @@ REAL source=$0600,
      exp10_result=$060C,
      ln_result=$0612,
      log10_result=$0618,
-     parsed_result=$061E
+     parsed_result=$061E,
+     sqrt_zero=$0700,
+     sqrt_one=$0706,
+     sqrt_two=$070C,
+     sqrt_four=$0712,
+     sqrt_small=$0718,
+     sqrt_large=$071E
 BYTE ARRAY text(20)=$0624
 BYTE done=$0638
 
@@ -22,6 +28,18 @@ PROC Main()
   FPP.Log10(@source,@log10_result)
   FPP.StrR(@log10_result,text)
   FPP.ValR(text,@parsed_result)
+  source=0
+  FPP.Sqrt(@source,@sqrt_zero)
+  source=1
+  FPP.Sqrt(@source,@sqrt_one)
+  source=2
+  FPP.Sqrt(@source,@sqrt_two)
+  source=4
+  FPP.Sqrt(@source,@sqrt_four)
+  source=0.0001
+  FPP.Sqrt(@source,@sqrt_small)
+  source=10000
+  FPP.Sqrt(@source,@sqrt_large)
   done=$A5
   DO OD
 RETURN

@@ -163,6 +163,41 @@ fn vbxe_gradient_sample_compiles_standalone_with_both_backends() {
 }
 
 #[test]
+fn native_real_square_root_compiles_with_both_backends() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "real-square-root.act",
+        r#"MODULE REAL_SQUARE_ROOT_TEST
+USE ATARI.REAL AS FPP
+
+REAL input,result
+
+PROC Main()
+  input=0
+  FPP.Sqrt(@input,@result)
+  input=1
+  FPP.Sqrt(@input,@result)
+  input=2
+  FPP.Sqrt(@input,@result)
+  input=4
+  FPP.Sqrt(@input,@result)
+  input=0.0001
+  FPP.Sqrt(@input,@result)
+  input=10000
+  FPP.Sqrt(@input,@result)
+RETURN
+
+ENDMODULE
+"#,
+    );
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        compile_file(&source, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile native REAL square root in {mode:?}: {error}"));
+    }
+}
+
+#[test]
 fn classic_standalone_keeps_the_named_root_main_as_the_run_address() {
     let source =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/modules/native-real-library.act");

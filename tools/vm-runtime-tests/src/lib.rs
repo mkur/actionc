@@ -322,7 +322,7 @@ mod tests {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
                 let outcome =
-                    run_runtime_fixture("native_real_library.act", mode, runtime, true, 250_000);
+                    run_runtime_fixture("native_real_library.act", mode, runtime, true, 1_000_000);
                 let bytes = |address: u16, length: u16| {
                     (0..length)
                         .map(|offset| outcome.memory().read(address + offset))
@@ -348,6 +348,16 @@ mod tests {
                 assert_eq!(bytes(0x061E, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
                 assert_eq!(bytes(0x0624, 2), [1, b'2'], "{context}");
                 assert_eq!(bytes(0x0638, 1), [0xA5], "{context}");
+                assert_eq!(bytes(0x0700, 6), [0, 0, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0706, 6), [0x40, 0x01, 0, 0, 0, 0], "{context}");
+                assert_eq!(
+                    bytes(0x070C, 6),
+                    [0x40, 0x01, 0x41, 0x42, 0x13, 0x56],
+                    "{context}"
+                );
+                assert_eq!(bytes(0x0712, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0718, 6), [0x3F, 0x01, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x071E, 6), [0x41, 0x01, 0, 0, 0, 0], "{context}");
             }
         }
     }
