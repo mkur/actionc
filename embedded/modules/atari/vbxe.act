@@ -1,0 +1,168 @@
+; VBXE FX core registers and control constants.
+;
+; VBXE is commonly decoded at either $D640 or $D740. The indexed register
+; arrays are both volatile; Detect() selects a bank using read-only accesses
+; before any writes are made.
+MODULE ATARI.VBXE
+
+PUBLIC TYPE ADDRESS=[BYTE lo,hi,bank]
+
+PUBLIC VOLATILE BYTE ARRAY D6_REGS(32)=$D640
+PUBLIC VOLATILE BYTE ARRAY D7_REGS(32)=$D740
+
+PUBLIC CONST BYTE NO_VBXE=$00,
+                  BASE_D6=$D6,
+                  BASE_D7=$D7,
+                  FX_CORE=$10,
+                  REVISION_MASK=$7F,
+                  REVISION_20_FAMILY=$20,
+                  REVISION_FAMILY_MASK=$70,
+                  SHARED_MEMORY=$80
+
+; Register indexes relative to the selected $Dx40 base.
+PUBLIC CONST BYTE REG_CORE_REVISION=$00,
+                  REG_VIDEO_CONTROL=$00,
+                  REG_MINOR_REVISION=$01,
+                  REG_XDL_ADR0=$01,
+                  REG_XDL_ADR1=$02,
+                  REG_XDL_ADR2=$03,
+                  REG_CSEL=$04,
+                  REG_PSEL=$05,
+                  REG_CR=$06,
+                  REG_CG=$07,
+                  REG_CB=$08,
+                  REG_COLMASK=$09,
+                  REG_COLDETECT=$0A,
+                  REG_COLCLR=$0A,
+                  REG_BLT_COLLISION_CODE=$10,
+                  REG_BL_ADR0=$10,
+                  REG_BL_ADR1=$11,
+                  REG_BL_ADR2=$12,
+                  REG_BLITTER_BUSY=$13,
+                  REG_BLITTER_START=$13,
+                  REG_IRQ_STATUS=$14,
+                  REG_IRQ_CONTROL=$14,
+                  REG_P0=$15,
+                  REG_P1=$16,
+                  REG_P2=$17,
+                  REG_P3=$18,
+                  REG_MEMAC_B_CONTROL=$1D,
+                  REG_MEMAC_CONTROL=$1E,
+                  REG_MEMAC_BANK_SEL=$1F
+
+PUBLIC CONST BYTE VIDEO_XDL_ENABLE=$01,
+                  VIDEO_EXTENDED_COLOR=$02,
+                  VIDEO_TRANSPARENT_0=$04,
+                  VIDEO_TRANSPARENT_15=$08,
+                  PALETTE_0=$00,
+                  PALETTE_1=$01,
+                  PALETTE_2=$02,
+                  PALETTE_3=$03,
+                  BLITTER_START=$01,
+                  BLITTER_BUSY=$02,
+                  IRQ_BLITTER=$01
+
+; XDL control byte 1.
+PUBLIC CONST BYTE XDLC_TEXT=$01,
+                  XDLC_GRAPHICS=$02,
+                  XDLC_OVERLAY_OFF=$04,
+                  XDLC_MAP_ON=$08,
+                  XDLC_MAP_OFF=$10,
+                  XDLC_REPEAT=$20,
+                  XDLC_OVERLAY_ADDRESS=$40,
+                  XDLC_OVERLAY_SCROLL=$80
+
+; XDL control byte 2.
+PUBLIC CONST BYTE XDLC_CHAR_BASE=$01,
+                  XDLC_MAP_ADDRESS=$02,
+                  XDLC_MAP_PARAMETERS=$04,
+                  XDLC_OVERLAY_ATTRIBUTES=$08,
+                  XDLC_STANDARD_RES=$00,
+                  XDLC_HIGH_RES=$10,
+                  XDLC_LOW_RES=$20,
+                  XDLC_END=$80
+
+PUBLIC CONST BYTE OVERLAY_WIDTH_NARROW=$00,
+                  OVERLAY_WIDTH_NORMAL=$01,
+                  OVERLAY_WIDTH_WIDE=$02,
+                  OVERLAY_PRIORITY_ALL=$FF
+
+; MEMAC A: the high nibble selects the CPU page, the low nibble selects size
+; and whether ANTIC and/or the CPU can access the window.
+PUBLIC CONST BYTE MEMAC_SIZE_4K=$00,
+                  MEMAC_SIZE_8K=$01,
+                  MEMAC_SIZE_16K=$02,
+                  MEMAC_SIZE_32K=$03,
+                  MEMAC_ANTIC_ENABLE=$04,
+                  MEMAC_CPU_ENABLE=$08,
+                  MEMAC_BANK_ENABLE=$80,
+                  MEMAC_BANK_MASK=$7F,
+                  MEMAC_B_BANK_MASK=$1F,
+                  MEMAC_B_ANTIC_ENABLE=$40,
+                  MEMAC_B_CPU_ENABLE=$80
+
+PUBLIC CONST BYTE LOCAL_ADDRESS_BANK_MASK=$07,
+                  LOCAL_STRIDE_HIGH_MASK=$0F
+
+BYTE selectedPage
+
+PUBLIC BYTE FUNC Detect()
+  BYTE revision
+
+  revision=D6_REGS(REG_CORE_REVISION)
+  IF revision=FX_CORE THEN
+    selectedPage=BASE_D6
+    RETURN(selectedPage)
+  FI
+
+  revision=D7_REGS(REG_CORE_REVISION)
+  IF revision=FX_CORE THEN
+    selectedPage=BASE_D7
+    RETURN(selectedPage)
+  FI
+
+  selectedPage=NO_VBXE
+RETURN(NO_VBXE)
+
+PUBLIC BYTE FUNC BasePage()
+RETURN(selectedPage)
+
+PUBLIC BYTE FUNC Read(BYTE reg)
+  IF selectedPage=BASE_D6 THEN
+    RETURN(D6_REGS(reg))
+  FI
+  IF selectedPage=BASE_D7 THEN
+    RETURN(D7_REGS(reg))
+  FI
+RETURN($FF)
+
+PUBLIC PROC Write(BYTE reg,value)
+  IF selectedPage=BASE_D6 THEN
+    D6_REGS(reg)=value
+  ELSEIF selectedPage=BASE_D7 THEN
+    D7_REGS(reg)=value
+  FI
+RETURN
+
+PUBLIC BYTE FUNC CoreRevision()
+RETURN(Read(REG_CORE_REVISION))
+
+PUBLIC BYTE FUNC MinorRevision()
+RETURN(Read(REG_MINOR_REVISION)&REVISION_MASK)
+
+PUBLIC BYTE FUNC HasSharedMemory()
+  IF (Read(REG_MINOR_REVISION)&SHARED_MEMORY)#0 THEN
+    RETURN(1)
+  FI
+RETURN(0)
+
+PUBLIC BYTE FUNC Is20Family()
+  BYTE revision
+
+  revision=MinorRevision()
+  IF (revision&REVISION_FAMILY_MASK)=REVISION_20_FAMILY THEN
+    RETURN(1)
+  FI
+RETURN(0)
+
+ENDMODULE

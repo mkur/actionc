@@ -1,0 +1,46 @@
+; Detects a VBXE FX core at either standard register location.
+; Compile with --profile modern --runtime standalone.
+MODULE VBXE_DETECT
+
+USE ATARI.OS
+USE ATARI.VBXE
+USE SYS
+
+STRING missing(0)="No VBXE FX core found."
+STRING found(0)="VBXE FX core found."
+STRING baseText(0)="Register page: $"
+STRING revisionText(0)="Core revision: $"
+STRING unsupported(0)="This sample needs an FX 1.2x core."
+STRING keyText(0)="Press any key to continue."
+
+PROC WaitKey()
+  OS.CH=OS.NO_KEY
+  WHILE OS.CH=OS.NO_KEY
+  DO
+  OD
+RETURN
+
+PROC Main()
+  BYTE base
+
+  SYS.Graphics(0)
+  base=VBXE.Detect()
+  IF base=VBXE.NO_VBXE THEN
+    SYS.PrintE(missing)
+  ELSE
+    SYS.PrintE(found)
+    SYS.Print(baseText)
+    SYS.PrintH(base)
+    SYS.PutE()
+    SYS.Print(revisionText)
+    SYS.PrintH(VBXE.MinorRevision())
+    SYS.PutE()
+    IF VBXE.Is20Family()=0 THEN
+      SYS.PrintE(unsupported)
+    FI
+  FI
+  SYS.PrintE(keyText)
+  WaitKey()
+RETURN
+
+ENDMODULE

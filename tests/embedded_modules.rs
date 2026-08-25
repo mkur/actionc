@@ -50,6 +50,7 @@ USE ATARI.GTIA
 USE ATARI.OS
 USE ATARI.POKEY
 USE ATARI.PIA
+USE ATARI.VBXE
 
 BYTE sink
 
@@ -60,6 +61,7 @@ PROC Main()
   OS.SDLST=$3456
   POKEY.AUDF1=sink
   PIA.PORTA=sink
+  sink=VBXE.D6_REGS(VBXE.REG_CORE_REVISION)
 RETURN
 ENDMODULE
 "#,
@@ -108,6 +110,10 @@ fn embedded_atari_registers_compile_with_exact_volatile_accesses_in_all_modes() 
             bytes.windows(3).any(|bytes| bytes == [0x8D, 0x31, 0x02]),
             "{mode:?} must write the high byte of OS.SDLST"
         );
+        assert!(
+            count_instruction(bytes, &[0xAD, 0x40, 0xD6]) >= 1,
+            "{mode:?} must read VBXE's D6 core revision register"
+        );
     }
 }
 
@@ -131,6 +137,17 @@ fn module_examples_compile_standalone_with_both_backends() {
                 panic!("compile standalone {file_name} in {mode:?}: {error}")
             });
         }
+    }
+}
+
+#[test]
+fn vbxe_detection_sample_compiles_standalone_with_both_backends() {
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe/detect.act");
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
+        compile_file(&sample, &options)
+            .unwrap_or_else(|error| panic!("compile VBXE detection sample in {mode:?}: {error}"));
     }
 }
 
@@ -521,6 +538,7 @@ fn embedded_atari_interfaces_preserve_addresses_types_visibility_and_origins() {
         "ATARI.OS",
         "ATARI.POKEY",
         "ATARI.PIA",
+        "ATARI.VBXE",
     ] {
         let module = loaded
             .modules
@@ -649,6 +667,11 @@ fn embedded_atari_interfaces_preserve_addresses_types_visibility_and_origins() {
         ("ATARI.POKEY.KBCODE_MASK", 0x3F),
         ("ATARI.PIA.CONTROL_PORT_ACCESS", 0x04),
         ("ATARI.PIA.CONTROL_C2_HIGH", 0x38),
+        ("ATARI.VBXE.REG_CORE_REVISION", 0x00),
+        ("ATARI.VBXE.REG_MEMAC_BANK_SEL", 0x1F),
+        ("ATARI.VBXE.VIDEO_XDL_ENABLE", 0x01),
+        ("ATARI.VBXE.XDLC_LOW_RES", 0x20),
+        ("ATARI.VBXE.MEMAC_SIZE_16K", 0x02),
     ] {
         let symbol_id = model
             .symbols
