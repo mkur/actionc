@@ -24,6 +24,7 @@ PROC WaitKey()
   OS.CH=OS.NO_KEY
   WHILE OS.CH=OS.NO_KEY
   DO
+    OS.ATRACT=0
   OD
 RETURN
 
@@ -34,6 +35,7 @@ PROC TraceLine(BYTE row)
   col=0
   WHILE col<RAY.WIDTH
   DO
+    OS.ATRACT=0
     shade=RAY.Trace(col,row)
     line(col)=shade
     col==+1
