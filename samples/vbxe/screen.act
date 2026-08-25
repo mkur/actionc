@@ -1,33 +1,35 @@
 ; Small LR160 framebuffer layer used by the VBXE samples.
 ;
-; The 160x192 framebuffer has a 256-byte stride. Three 16KB VBXE banks each
-; contain 64 rows, which keeps every mapped scanline inside the $A000-$BFFF
+; The 160x192 framebuffer has a 256-byte stride. Six 8KB VBXE banks each
+; contain 32 rows, which keeps every mapped scanline inside the $A000-$BFFF
 ; MEMAC window. Programs using this layer must keep code and data below $A000.
 MODULE SCREEN
 
+USE ATARI.PIA
 USE ATARI.VBXE
 
 PUBLIC CONST BYTE WIDTH=160,
                   HEIGHT=192,
-                  BAND_ROWS=64,
-                  BAND_MASK=$3F,
-                  BAND_COUNT=3
+                  BAND_ROWS=32,
+                  BAND_MASK=$1F,
+                  BAND_COUNT=6
 
 PUBLIC CONST CARD STRIDE=$0100,
                   WINDOW_BASE=$A000,
-                  WINDOW_SIZE=$4000,
+                  WINDOW_SIZE=$2000,
                   FRAMEBUFFER_LOCAL_BASE=$4000
 
 CONST BYTE XDL_BANK=$00,
            FRAMEBUFFER_FIRST_BANK=$04,
-           MEMAC_CONTROL_VALUE=$AA,
+           MEMAC_CONTROL_VALUE=$A9,
+           BASIC_ROM_DISABLE=$02,
            TOP_MARGIN_REPEAT=23,
            DISPLAY_REPEAT=191,
            BOTTOM_MARGIN_REPEAT=23,
            NO_BANK=$FF
 
-BYTE ARRAY Window(16384)=WINDOW_BASE
-BYTE currentBank
+BYTE ARRAY Window(8192)=WINDOW_BASE
+BYTE currentBank,savedPortB
 
 PROC MapLocal(BYTE bank)
   IF currentBank=bank THEN
@@ -88,7 +90,7 @@ RETURN
 PUBLIC PROC MapBand(BYTE band)
   BYTE localBank
 
-  localBank=FRAMEBUFFER_FIRST_BANK+(band LSH 2)
+  localBank=FRAMEBUFFER_FIRST_BANK+(band LSH 1)
   MapLocal(localBank)
 RETURN
 
@@ -96,7 +98,7 @@ PUBLIC CARD FUNC RowAddress(BYTE y)
   BYTE band,row
   CARD offset
 
-  band=y RSH 6
+  band=y RSH 5
   row=y&BAND_MASK
   MapBand(band)
   offset=row
@@ -143,6 +145,12 @@ PUBLIC BYTE FUNC Init()
     RETURN(0)
   FI
 
+  ; MEMAC has lower bus priority than the built-in BASIC ROM. Altirra keeps
+  ; BASIC enabled when an XEX does not itself load into $A000-$BFFF, so expose
+  ; RAM in that range before selecting the VBXE window there.
+  savedPortB=PIA.PORTB
+  PIA.PORTB=savedPortB%BASIC_ROM_DISABLE
+
   VBXE.Write(VBXE.REG_VIDEO_CONTROL,0)
   BuildXdl()
   SetGrayPalette()
@@ -158,6 +166,7 @@ RETURN(1)
 PUBLIC PROC Shutdown()
   VBXE.Write(VBXE.REG_VIDEO_CONTROL,0)
   Unmap()
+  PIA.PORTB=savedPortB
 RETURN
 
 ENDMODULE

@@ -32,8 +32,9 @@ PROC DrawGradient()
       x==+1
     OD
 
-    ; Bright lines make both 16KB bank transitions immediately visible.
-    IF y=63 OR y=64 OR y=127 OR y=128 THEN
+    ; Bright lines make all five 8KB bank transitions immediately visible.
+    IF y=31 OR y=32 OR y=63 OR y=64 OR y=95 OR y=96 OR
+       y=127 OR y=128 OR y=159 OR y=160 THEN
       VIDEO.FillRow(y,$FF)
     FI
     y==+1

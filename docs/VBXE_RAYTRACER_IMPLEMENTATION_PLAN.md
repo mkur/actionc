@@ -28,7 +28,7 @@ The first display target is an LR160 8-bit overlay:
 - one byte per pixel;
 - a 256-byte row stride;
 - 49,152 bytes of VBXE local memory;
-- three 16KB framebuffer bands, each containing 64 rows.
+- six 8KB framebuffer bands, each containing 32 rows.
 
 The padded stride makes every row start at the same offset within a bank and
 prevents scanlines from crossing bank boundaries. MEMAC exposes one band at a

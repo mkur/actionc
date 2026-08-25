@@ -25,7 +25,7 @@ spacings until every source row has been calculated exactly once. The image
 therefore appears quickly and sharpens in place while the much slower REAL
 geometry continues.
 
-The framebuffer uses a 256-byte stride and three 16KB regions in VBXE local
+The framebuffer uses a 256-byte stride and six 8KB regions in VBXE local
 memory. MEMAC exposes one region at a time through `$A000-$BFFF`; compiler tests
 verify that both maintained backends keep the standalone program outside that
 CPU window.
