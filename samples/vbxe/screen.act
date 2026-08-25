@@ -1,23 +1,23 @@
-; Small LR160 framebuffer layer used by the VBXE samples.
+; Small SR320 framebuffer layer used by the VBXE samples.
 ;
-; The 160x192 framebuffer has a 256-byte stride. Six 8KB VBXE banks each
-; contain 32 rows, which keeps every mapped scanline inside the $A000-$BFFF
+; The 320x192 framebuffer has a 512-byte stride. Twelve 8KB VBXE banks each
+; contain 16 rows, which keeps every mapped scanline inside the $A000-$BFFF
 ; MEMAC window. Programs using this layer must keep code and data below $A000.
 MODULE SCREEN
 
 USE ATARI.PIA
 USE ATARI.VBXE
 
-PUBLIC CONST BYTE WIDTH=160,
-                  HEIGHT=192,
-                  BAND_ROWS=32,
-                  BAND_MASK=$1F,
-                  BAND_COUNT=6
-
-PUBLIC CONST CARD STRIDE=$0100,
+PUBLIC CONST CARD WIDTH=320,
+                  STRIDE=$0200,
                   WINDOW_BASE=$A000,
                   WINDOW_SIZE=$2000,
                   FRAMEBUFFER_LOCAL_BASE=$4000
+
+PUBLIC CONST BYTE HEIGHT=192,
+                  BAND_ROWS=16,
+                  BAND_MASK=$0F,
+                  BAND_COUNT=12
 
 CONST BYTE XDL_BANK=$00,
            FRAMEBUFFER_FIRST_BANK=$04,
@@ -54,15 +54,15 @@ PROC BuildXdl()
   Window(1)=0
   Window(2)=TOP_MARGIN_REPEAT
 
-  ; Display 192 LR160 rows from local address $04000 with a 256-byte stride.
+  ; Display 192 SR320 rows from local address $04000 with a 512-byte stride.
   Window(3)=VBXE.XDLC_GRAPHICS%VBXE.XDLC_REPEAT%VBXE.XDLC_OVERLAY_ADDRESS
-  Window(4)=VBXE.XDLC_LOW_RES%VBXE.XDLC_OVERLAY_ATTRIBUTES
+  Window(4)=VBXE.XDLC_STANDARD_RES%VBXE.XDLC_OVERLAY_ATTRIBUTES
   Window(5)=DISPLAY_REPEAT
   Window(6)=0
   Window(7)=$40
   Window(8)=0
   Window(9)=0
-  Window(10)=1
+  Window(10)=2
   Window(11)=$11 ; overlay palette 1, normal width
   Window(12)=VBXE.OVERLAY_PRIORITY_ALL
 
@@ -98,15 +98,15 @@ PUBLIC CARD FUNC RowAddress(BYTE y)
   BYTE band,row
   CARD offset
 
-  band=y RSH 5
+  band=y RSH 4
   row=y&BAND_MASK
   MapBand(band)
   offset=row
-  offset=offset LSH 8
+  offset=offset LSH 9
 RETURN(WINDOW_BASE+offset)
 
 PUBLIC PROC FillRow(BYTE y,value)
-  BYTE x
+  CARD x
   BYTE POINTER row
 
   row=RowAddress(y)

@@ -3,7 +3,7 @@
 ## Objective
 
 Build an Action! ray tracer for VBXE based on the Atari BASIC ten-liner used as
-the behavioral reference. The renderer traces a full 160 by 192 image while
+the behavioral reference. The renderer traces a full 320 by 192 image while
 preserving the field of view of the original 80-pixel BASIC display. A later
 stage can use the larger VBXE palette for smoother shading or color.
 
@@ -22,13 +22,13 @@ the dominant cost on a 1.79MHz 6502.
 
 ## Target display architecture
 
-The first display target is an LR160 8-bit overlay:
+The display target is an SR320 8-bit overlay:
 
-- 160 visible pixels by 192 lines;
+- 320 visible pixels by 192 lines;
 - one byte per pixel;
-- a 256-byte row stride;
-- 49,152 bytes of VBXE local memory;
-- six 8KB framebuffer bands, each containing 32 rows.
+- a 512-byte row stride;
+- 98,304 bytes of VBXE local memory;
+- twelve 8KB framebuffer bands, each containing 16 rows.
 
 The padded stride makes every row start at the same offset within a bank and
 prevents scanlines from crossing bank boundaries. MEMAC exposes one band at a
@@ -90,8 +90,8 @@ Add a small high-level screen module for the sample. It owns policy that does
 not belong in the hardware module:
 
 - allocation of XDL and framebuffer regions in VBXE RAM;
-- LR160 overlay construction;
-- 256-byte row stride;
+- SR320 overlay construction;
+- 512-byte row stride;
 - palette initialization;
 - MEMAC bank mapping;
 - row-address calculation;
@@ -156,7 +156,7 @@ once but quickly covers the screen with provisional vertical spans.
 
 For every selected row:
 
-1. trace all 160 LR160 pixels;
+1. trace all 320 SR320 pixels;
 2. replicate the row over its current provisional vertical span;
 3. continue with the next refinement level.
 
@@ -183,7 +183,7 @@ Optimize in this order:
 Every optimization must preserve the reference checksum or document the
 intended visual change.
 
-## Slice 7: native LR160 color rendering
+## Slice 7: native SR320 grayscale rendering
 
 After the reference renderer is correct and measured:
 
@@ -191,7 +191,7 @@ After the reference renderer is correct and measured:
 - optionally give objects, checkerboard squares, and background separate
   palette ramps.
 
-If native 160 by 192 REAL rendering is not practical, keep the 80-pixel mode as
+If native 320 by 192 REAL rendering is not practical, keep a 160-pixel mode as
 the default preview and expose full resolution as a final-quality pass.
 
 ## Slice 8: interaction, sound, and delivery

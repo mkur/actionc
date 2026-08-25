@@ -1,23 +1,24 @@
 ; Hardware-independent ray kernel for the VBXE ray tracer sample.
 ;
 ; This is a structured translation of the geometry in the Atari BASIC
-; ten-liner. It traces one of the 160x192 VBXE pixels and returns an 8-bit
+; ten-liner. It traces one of the 320x192 VBXE pixels and returns an 8-bit
 ; grayscale palette index.
 MODULE RAY
 
 USE ATARI.REALMATH AS FPP
 
-PUBLIC CONST BYTE WIDTH=160,
-                  HEIGHT=192,
+PUBLIC CONST CARD WIDTH=320
+
+PUBLIC CONST BYTE HEIGHT=192,
                   REFERENCE_MAX_REFLECTIONS=4,
                   REFLECTION_LIMIT=8
 
-; The horizontal scale and center are doubled from the BASIC camera so that
-; its original column M has identical geometry at VBXE column 2*M. Keeping the
-; projection values as constants avoids evaluating an exponent for every ray.
-CONST REAL HORIZONTAL_SCALE=325.6724252,
+; The horizontal scale and center preserve the current field of view so that
+; the previous LR160 column M has identical geometry at SR320 column 2*M.
+; Keeping the projection values as constants avoids an exponent per ray.
+CONST REAL HORIZONTAL_SCALE=651.3448504,
            VERTICAL_SCALE=136.0,
-           HALF_WIDTH=81.0,
+           HALF_WIDTH=162.0,
            HALF_HEIGHT=96.5
 
 PUBLIC BYTE LastReflections
@@ -36,7 +37,7 @@ INT FUNC FloorR(REAL POINTER value)
   FI
 RETURN(whole)
 
-PUBLIC BYTE FUNC Trace(BYTE col,row)
+PUBLIC BYTE FUNC Trace(CARD col, BYTE row)
   REAL x,y,z,u,v,w,e,f,g,p,disc,t
   REAL rootArg,root,floorX,floorZ,checkerReal,shadeReal
   INT sphere,checker,level

@@ -10,8 +10,9 @@ USE RAY
 USE SCREEN AS VIDEO
 USE SYS
 
-CONST BYTE OUTPUT_WIDTH=160,
-           LAST_ROW=191
+CONST CARD OUTPUT_WIDTH=320
+
+CONST BYTE LAST_ROW=191
 
 BYTE ARRAY line(OUTPUT_WIDTH)
 
@@ -27,7 +28,8 @@ PROC WaitKey()
 RETURN
 
 PROC TraceLine(BYTE row)
-  BYTE col,shade
+  BYTE shade
+  CARD col
 
   col=0
   WHILE col<RAY.WIDTH
@@ -39,7 +41,7 @@ PROC TraceLine(BYTE row)
 RETURN
 
 PROC CopyLine(BYTE row)
-  BYTE x
+  CARD x
   BYTE POINTER destination
 
   destination=VIDEO.RowAddress(row)

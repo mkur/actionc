@@ -9,23 +9,23 @@ BYTE ARRAY shades(10)=$0700
 BYTE ARRAY reflections(10)=$0710
 BYTE done=$0720
 
-PROC Sample(BYTE index,col,row)
+PROC Sample(BYTE index, CARD col, BYTE row)
   shades(index)=RAY.Trace(col,row)
   reflections(index)=RAY.LastReflections
 RETURN
 
 PROC Main()
   Sample(0,0,0)
-  Sample(1,80,0)
+  Sample(1,160,0)
   Sample(2,0,96)
-  Sample(3,40,96)
-  Sample(4,80,96)
-  Sample(5,120,96)
-  Sample(6,159,96)
-  Sample(7,80,191)
-  Sample(8,159,191)
+  Sample(3,80,96)
+  Sample(4,160,96)
+  Sample(5,240,96)
+  Sample(6,319,96)
+  Sample(7,160,191)
+  Sample(8,319,191)
   ; This ray reaches the measured four-reflection maximum of the reference.
-  Sample(9,34,80)
+  Sample(9,68,80)
   done=$A5
   DO OD
 RETURN

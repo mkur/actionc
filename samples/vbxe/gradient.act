@@ -1,4 +1,4 @@
-; VBXE LR160 framebuffer and bank-boundary test.
+; VBXE SR320 framebuffer and bank-boundary test.
 ; Compile with --profile modern --runtime standalone.
 MODULE VBXE_GRADIENT
 
@@ -17,7 +17,8 @@ PROC WaitKey()
 RETURN
 
 PROC DrawGradient()
-  BYTE x,y,shade
+  BYTE y,shade
+  CARD x
   BYTE POINTER row
 
   y=0
@@ -27,14 +28,15 @@ PROC DrawGradient()
     x=0
     WHILE x<VIDEO.WIDTH
     DO
-      shade=x+(y RSH 1)
+      shade=BYTE(x)+(y RSH 1)
       row(x)=shade
       x==+1
     OD
 
-    ; Bright lines make all five 8KB bank transitions immediately visible.
-    IF y=31 OR y=32 OR y=63 OR y=64 OR y=95 OR y=96 OR
-       y=127 OR y=128 OR y=159 OR y=160 THEN
+    ; Bright lines make both sides of each 8KB bank transition visible.
+    IF (y&VIDEO.BAND_MASK)=VIDEO.BAND_MASK THEN
+      VIDEO.FillRow(y,$FF)
+    ELSEIF y#0 AND (y&VIDEO.BAND_MASK)=0 THEN
       VIDEO.FillRow(y,$FF)
     FI
     y==+1
