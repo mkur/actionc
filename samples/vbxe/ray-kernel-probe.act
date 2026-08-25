@@ -16,16 +16,16 @@ RETURN
 
 PROC Main()
   Sample(0,0,0)
-  Sample(1,40,0)
+  Sample(1,80,0)
   Sample(2,0,96)
-  Sample(3,20,96)
-  Sample(4,40,96)
-  Sample(5,60,96)
-  Sample(6,79,96)
-  Sample(7,40,191)
-  Sample(8,79,191)
+  Sample(3,40,96)
+  Sample(4,80,96)
+  Sample(5,120,96)
+  Sample(6,159,96)
+  Sample(7,80,191)
+  Sample(8,159,191)
   ; This ray reaches the measured four-reflection maximum of the reference.
-  Sample(9,17,80)
+  Sample(9,34,80)
   done=$A5
   DO OD
 RETURN

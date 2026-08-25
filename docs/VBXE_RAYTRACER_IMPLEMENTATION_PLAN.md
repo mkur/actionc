@@ -3,9 +3,9 @@
 ## Objective
 
 Build an Action! ray tracer for VBXE based on the Atari BASIC ten-liner used as
-the behavioral reference. The first faithful target renders 80 by 192 logical
-pixels and doubles them horizontally into a 160-pixel VBXE overlay. A later
-stage renders the full 160 by 192 image and uses the larger VBXE palette.
+the behavioral reference. The renderer traces a full 160 by 192 image while
+preserving the field of view of the original 80-pixel BASIC display. A later
+stage can use the larger VBXE palette for smoother shading or color.
 
 The implementation must keep these concerns separate:
 
@@ -156,10 +156,9 @@ once but quickly covers the screen with provisional vertical spans.
 
 For every selected row:
 
-1. trace all 80 logical pixels;
-2. duplicate each shade into two LR160 pixels;
-3. replicate the row over its current provisional vertical span;
-4. continue with the next refinement level.
+1. trace all 160 LR160 pixels;
+2. replicate the row over its current provisional vertical span;
+3. continue with the next refinement level.
 
 Start with CPU copies through MEMAC. Once the result is correct, use the VBXE
 blitter for clear operations and provisional row replication.
@@ -188,9 +187,8 @@ intended visual change.
 
 After the reference renderer is correct and measured:
 
-- trace all 160 horizontal pixels;
 - replace ordered dithering with a 256-entry smooth palette;
-- retain the faithful 80-pixel dithered mode for comparison;
+- optionally retain a fast 80-pixel preview mode for comparison;
 - optionally give objects, checkerboard squares, and background separate
   palette ramps.
 

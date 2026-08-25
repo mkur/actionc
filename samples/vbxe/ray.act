@@ -1,22 +1,23 @@
 ; Hardware-independent ray kernel for the VBXE ray tracer sample.
 ;
 ; This is a structured translation of the geometry and ordered-dither shading
-; in the Atari BASIC ten-liner. It traces one of the original 80x192 logical
-; pixels and returns a Graphics 9-compatible shade from 0 through 15.
+; in the Atari BASIC ten-liner. It traces one of the 160x192 VBXE pixels and
+; returns a Graphics 9-compatible shade from 0 through 15.
 MODULE RAY
 
 USE ATARI.REALMATH AS FPP
 
-PUBLIC CONST BYTE WIDTH=80,
+PUBLIC CONST BYTE WIDTH=160,
                   HEIGHT=192,
                   REFERENCE_MAX_REFLECTIONS=4,
                   REFLECTION_LIMIT=8
 
-; 20**1.7 and 80*1.7 from the BASIC camera expressions. Keeping them as
-; constants avoids evaluating an exponent for every ray.
-CONST REAL HORIZONTAL_SCALE=162.8362126,
+; The horizontal scale and center are doubled from the BASIC camera so that
+; its original column M has identical geometry at VBXE column 2*M. Keeping the
+; projection values as constants avoids evaluating an exponent for every ray.
+CONST REAL HORIZONTAL_SCALE=325.6724252,
            VERTICAL_SCALE=136.0,
-           HALF_WIDTH=40.5,
+           HALF_WIDTH=81.0,
            HALF_HEIGHT=96.5
 
 BYTE ARRAY Dither(16)=[0 24 6 30

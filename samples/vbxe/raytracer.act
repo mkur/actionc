@@ -28,15 +28,13 @@ PROC WaitKey()
 RETURN
 
 PROC TraceLine(BYTE row)
-  BYTE col,pos,shade
+  BYTE col,shade
 
   col=0
   WHILE col<RAY.WIDTH
   DO
     shade=RAY.Trace(col,row)*SHADE_SCALE
-    pos=col LSH 1
-    line(pos)=shade
-    line(pos+1)=shade
+    line(col)=shade
     col==+1
   OD
 RETURN

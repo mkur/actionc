@@ -16,8 +16,8 @@ actionc --profile modern --runtime standalone samples/vbxe/raytracer.act
 
 Enable a VBXE FX 1.2x expansion in Altirra, then open `raytracer.xex` as an
 executable image. The program does not require the Action! cartridge. It keeps
-the original BASIC program's 80 by 192 logical resolution and doubles each
-pixel horizontally into a 160 by 192 LR160 overlay.
+the original BASIC program's field of view while tracing every pixel of a
+160 by 192 LR160 overlay independently.
 
 The first pass traces rows 0, 64, and 128 and temporarily expands each result
 over 64 display lines. Later passes fill the midpoints at progressively smaller
