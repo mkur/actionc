@@ -1,7 +1,8 @@
 ; Small LR160 framebuffer layer used by the VBXE samples.
 ;
 ; The 160x192 framebuffer has a 256-byte stride. Three 16KB VBXE banks each
-; contain 64 rows, which keeps every mapped scanline inside one MEMAC window.
+; contain 64 rows, which keeps every mapped scanline inside the $A000-$BFFF
+; MEMAC window. Programs using this layer must keep code and data below $A000.
 MODULE SCREEN
 
 USE ATARI.VBXE
@@ -13,13 +14,13 @@ PUBLIC CONST BYTE WIDTH=160,
                   BAND_COUNT=3
 
 PUBLIC CONST CARD STRIDE=$0100,
-                  WINDOW_BASE=$8000,
+                  WINDOW_BASE=$A000,
                   WINDOW_SIZE=$4000,
                   FRAMEBUFFER_LOCAL_BASE=$4000
 
 CONST BYTE XDL_BANK=$00,
            FRAMEBUFFER_FIRST_BANK=$04,
-           MEMAC_CONTROL_VALUE=$8A,
+           MEMAC_CONTROL_VALUE=$AA,
            TOP_MARGIN_REPEAT=23,
            DISPLAY_REPEAT=191,
            BOTTOM_MARGIN_REPEAT=23,

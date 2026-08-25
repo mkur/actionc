@@ -75,6 +75,30 @@ fn count_instruction(bytes: &[u8], instruction: &[u8]) -> usize {
         .count()
 }
 
+fn load_file_segment_ranges(bytes: &[u8]) -> Vec<(u16, u16)> {
+    let mut ranges = Vec::new();
+    let mut cursor = 0;
+    while cursor + 1 < bytes.len() && bytes[cursor..cursor + 2] == [0xFF, 0xFF] {
+        cursor += 2;
+    }
+    while cursor + 4 <= bytes.len() {
+        let start = u16::from_le_bytes([bytes[cursor], bytes[cursor + 1]]);
+        let end = u16::from_le_bytes([bytes[cursor + 2], bytes[cursor + 3]]);
+        assert!(
+            end >= start,
+            "invalid load-file segment ${start:04X}-${end:04X}"
+        );
+        cursor += 4;
+        ranges.push((start, end));
+        cursor += usize::from(end - start) + 1;
+        while cursor + 1 < bytes.len() && bytes[cursor..cursor + 2] == [0xFF, 0xFF] {
+            cursor += 2;
+        }
+    }
+    assert_eq!(cursor, bytes.len(), "truncated load-file segment");
+    ranges
+}
+
 #[test]
 fn embedded_atari_registers_compile_with_exact_volatile_accesses_in_all_modes() {
     let temp = TestDir::new();
@@ -199,13 +223,30 @@ ENDMODULE
 
 #[test]
 fn vbxe_ray_kernel_probe_compiles_standalone_with_both_backends() {
-    let sample =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe/ray-kernel-probe.act");
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe/ray-kernel-probe.act");
 
     for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
         let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
         compile_file(&sample, &options)
             .unwrap_or_else(|error| panic!("compile VBXE ray kernel probe in {mode:?}: {error}"));
+    }
+}
+
+#[test]
+fn vbxe_raytracer_stays_below_its_memac_window_in_both_backends() {
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe/raytracer.act");
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
+        let compiled = compile_file(&sample, &options)
+            .unwrap_or_else(|error| panic!("compile VBXE ray tracer in {mode:?}: {error}"));
+
+        for (start, end) in load_file_segment_ranges(compiled.object_bytes()) {
+            assert!(
+                end < 0xA000 || start > 0xBFFF,
+                "{mode:?} segment ${start:04X}-${end:04X} overlaps the VBXE MEMAC window"
+            );
+        }
     }
 }
 
