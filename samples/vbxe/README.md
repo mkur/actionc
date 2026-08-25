@@ -31,6 +31,7 @@ verify that both maintained backends keep the standalone program outside that
 CPU window.
 
 The ray kernel in `ray.act` is independent of VBXE. It preserves the BASIC
-camera, two alternating unit spheres, reflections, checkerboard floor, and 4 by
-4 ordered dither. Representative rays are executed against the Atari OS
+camera, two alternating unit spheres, reflections, and checkerboard floor. It
+uses all 256 entries of the grayscale VBXE palette instead of the original
+16-level ordered dither. Representative rays are executed against the Atari OS
 floating-point package in the VM test suite.

@@ -163,8 +163,8 @@ For every selected row:
 Start with CPU copies through MEMAC. Once the result is correct, use the VBXE
 blitter for clear operations and provisional row replication.
 
-The reference mode keeps the original 4 by 4 ordered dither and 16-level
-grayscale mapping.
+The VBXE renderer replaces the original 4 by 4 ordered dither and 16-level
+Graphics 9 mapping with a smooth 256-entry grayscale ramp.
 
 ## Slice 6: measurement and optimization
 
@@ -187,7 +187,6 @@ intended visual change.
 
 After the reference renderer is correct and measured:
 
-- replace ordered dithering with a 256-entry smooth palette;
 - optionally retain a fast 80-pixel preview mode for comparison;
 - optionally give objects, checkerboard squares, and background separate
   palette ramps.

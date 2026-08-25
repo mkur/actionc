@@ -11,7 +11,6 @@ USE SCREEN AS VIDEO
 USE SYS
 
 CONST BYTE OUTPUT_WIDTH=160,
-           SHADE_SCALE=17,
            LAST_ROW=191
 
 BYTE ARRAY line(OUTPUT_WIDTH)
@@ -33,7 +32,7 @@ PROC TraceLine(BYTE row)
   col=0
   WHILE col<RAY.WIDTH
   DO
-    shade=RAY.Trace(col,row)*SHADE_SCALE
+    shade=RAY.Trace(col,row)
     line(col)=shade
     col==+1
   OD

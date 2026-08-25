@@ -1,8 +1,8 @@
 ; Hardware-independent ray kernel for the VBXE ray tracer sample.
 ;
-; This is a structured translation of the geometry and ordered-dither shading
-; in the Atari BASIC ten-liner. It traces one of the 160x192 VBXE pixels and
-; returns a Graphics 9-compatible shade from 0 through 15.
+; This is a structured translation of the geometry in the Atari BASIC
+; ten-liner. It traces one of the 160x192 VBXE pixels and returns an 8-bit
+; grayscale palette index.
 MODULE RAY
 
 USE ATARI.REALMATH AS FPP
@@ -19,11 +19,6 @@ CONST REAL HORIZONTAL_SCALE=325.6724252,
            VERTICAL_SCALE=136.0,
            HALF_WIDTH=81.0,
            HALF_HEIGHT=96.5
-
-BYTE ARRAY Dither(16)=[0 24 6 30
-                       36 12 42 18
-                       9 33 3 27
-                       45 21 39 15]
 
 PUBLIC BYTE LastReflections
 
@@ -43,9 +38,9 @@ RETURN(whole)
 
 PUBLIC BYTE FUNC Trace(BYTE col,row)
   REAL x,y,z,u,v,w,e,f,g,p,disc,t
-  REAL rootArg,root,floorX,floorZ,checkerReal,shadeReal,ditherReal
+  REAL rootArg,root,floorX,floorZ,checkerReal,shadeReal
   INT sphere,checker,level
-  BYTE ditherIndex,parity,shade
+  BYTE parity,shade
 
   x=0
   y=-0.1
@@ -105,20 +100,19 @@ PUBLIC BYTE FUNC Trace(BYTE col,row)
     v=-v*(checkerReal/2+0.3)+0.2
   FI
 
-  ; The reference expression applies a 4x4 ordered dither before quantizing
-  ; the brightness to the inverse 16-level Graphics 9 shade.
+  ; The BASIC reference quantizes this value to 16 Graphics 9 shades. VBXE
+  ; has a 256-entry palette, so preserve the same contrast range without the
+  ; ordered dither or 16-level quantization.
   IF v<0 THEN
     v=0
   FI
   FPP.Sqrt(@v,@root)
-  ditherIndex=(col&3)+((row&3) LSH 2)
-  ditherReal=Dither(ditherIndex)
-  shadeReal=(224*root+ditherReal/3)/16
+  shadeReal=238*root
   level=FloorR(@shadeReal)
-  IF level>15 THEN
+  IF level>255 THEN
     RETURN(0)
   FI
-  shade=15-level
+  shade=255-level
 RETURN(shade)
 
 ENDMODULE
