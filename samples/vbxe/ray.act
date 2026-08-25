@@ -1,0 +1,123 @@
+; Hardware-independent ray kernel for the VBXE ray tracer sample.
+;
+; This is a structured translation of the geometry and ordered-dither shading
+; in the Atari BASIC ten-liner. It traces one of the original 80x192 logical
+; pixels and returns a Graphics 9-compatible shade from 0 through 15.
+MODULE RAY
+
+USE ATARI.REAL AS FPP
+
+PUBLIC CONST BYTE WIDTH=80,
+                  HEIGHT=192,
+                  REFERENCE_MAX_REFLECTIONS=4,
+                  REFLECTION_LIMIT=8
+
+; 20**1.7 and 80*1.7 from the BASIC camera expressions. Keeping them as
+; constants avoids evaluating an exponent for every ray.
+CONST REAL HORIZONTAL_SCALE=162.8362126,
+           VERTICAL_SCALE=136.0,
+           HALF_WIDTH=40.5,
+           HALF_HEIGHT=96.5
+
+BYTE ARRAY Dither(16)=[0 24 6 30
+                       36 12 42 18
+                       9 33 3 27
+                       45 21 39 15]
+
+PUBLIC BYTE LastReflections
+
+; Native REAL-to-INT conversion follows Atari FPI and rounds to the nearest
+; integer. Atari BASIC INT rounds down, so adjust a rounded result when needed.
+INT FUNC FloorR(REAL POINTER value)
+  REAL original,wholeReal
+  INT whole
+
+  original=value^
+  whole=INT(original)
+  wholeReal=whole
+  IF wholeReal>original THEN
+    whole==-1
+  FI
+RETURN(whole)
+
+PUBLIC BYTE FUNC Trace(BYTE col,row)
+  REAL x,y,z,u,v,w,e,f,g,p,disc,t
+  REAL rootArg,root,floorX,floorZ,checkerReal,shadeReal,ditherReal
+  INT sphere,checker,level
+  BYTE ditherIndex,parity,shade
+
+  x=0
+  y=-0.1
+  z=3
+  u=(col-HALF_WIDTH)/HORIZONTAL_SCALE
+  v=(row-HALF_HEIGHT)/VERTICAL_SCALE
+  rootArg=u*u+v*v+1
+  FPP.Sqrt(@rootArg,@root)
+  w=1/root
+  u=u*w
+  v=v*w
+
+  IF u<0 THEN
+    sphere=-1
+  ELSE
+    sphere=1
+  FI
+
+  LastReflections=0
+  WHILE LastReflections<REFLECTION_LIMIT
+  DO
+    e=x-sphere
+    f=y-sphere
+    p=u*e+v*f-w*z
+    disc=p*p-e*e-f*f-z*z+1
+    IF disc<=0 THEN
+      EXIT
+    FI
+
+    FPP.Sqrt(@disc,@root)
+    t=-p-root
+    IF t<=0 THEN
+      EXIT
+    FI
+
+    x=x+t*u
+    y=y+t*v
+    z=z-t*w
+    e=x-sphere
+    f=y-sphere
+    g=z
+    p=2*(u*e+v*f-w*g)
+    u=u-p*e
+    v=v-p*f
+    w=w+p*g
+    sphere=-sphere
+    LastReflections==+1
+  OD
+
+  IF v<0 THEN
+    p=(y+2)/v
+    floorX=x-u*p
+    floorZ=z-w*p
+    checker=FloorR(@floorX)+FloorR(@floorZ)
+    parity=checker&1
+    checkerReal=parity
+    v=-v*(checkerReal/2+0.3)+0.2
+  FI
+
+  ; The reference expression applies a 4x4 ordered dither before quantizing
+  ; the brightness to the inverse 16-level Graphics 9 shade.
+  IF v<0 THEN
+    v=0
+  FI
+  FPP.Sqrt(@v,@root)
+  ditherIndex=(col&3)+((row&3) LSH 2)
+  ditherReal=Dither(ditherIndex)
+  shadeReal=(224*root+ditherReal/3)/16
+  level=FloorR(@shadeReal)
+  IF level>15 THEN
+    RETURN(0)
+  FI
+  shade=15-level
+RETURN(shade)
+
+ENDMODULE
