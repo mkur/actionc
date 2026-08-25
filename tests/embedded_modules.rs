@@ -152,6 +152,17 @@ fn vbxe_detection_sample_compiles_standalone_with_both_backends() {
 }
 
 #[test]
+fn vbxe_gradient_sample_compiles_standalone_with_both_backends() {
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe/gradient.act");
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
+        compile_file(&sample, &options)
+            .unwrap_or_else(|error| panic!("compile VBXE gradient sample in {mode:?}: {error}"));
+    }
+}
+
+#[test]
 fn classic_standalone_keeps_the_named_root_main_as_the_run_address() {
     let source =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/modules/native-real-library.act");

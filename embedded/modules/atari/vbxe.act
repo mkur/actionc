@@ -52,7 +52,7 @@ PUBLIC CONST BYTE REG_CORE_REVISION=$00,
 
 PUBLIC CONST BYTE VIDEO_XDL_ENABLE=$01,
                   VIDEO_EXTENDED_COLOR=$02,
-                  VIDEO_TRANSPARENT_0=$04,
+                  VIDEO_NO_TRANSPARENCY=$04,
                   VIDEO_TRANSPARENT_15=$08,
                   PALETTE_0=$00,
                   PALETTE_1=$01,

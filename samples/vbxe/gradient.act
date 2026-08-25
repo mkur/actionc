@@ -1,0 +1,59 @@
+; VBXE LR160 framebuffer and bank-boundary test.
+; Compile with --profile modern --runtime standalone.
+MODULE VBXE_GRADIENT
+
+USE ATARI.OS
+USE SCREEN AS VIDEO
+USE SYS
+
+STRING missing(0)="VBXE FX 1.2x is required."
+STRING keyText(0)="Press any key to continue."
+
+PROC WaitKey()
+  OS.CH=OS.NO_KEY
+  WHILE OS.CH=OS.NO_KEY
+  DO
+  OD
+RETURN
+
+PROC DrawGradient()
+  BYTE x,y,shade
+  BYTE POINTER row
+
+  y=0
+  WHILE y<VIDEO.HEIGHT
+  DO
+    row=VIDEO.RowAddress(y)
+    x=0
+    WHILE x<VIDEO.WIDTH
+    DO
+      shade=x+(y RSH 1)
+      row(x)=shade
+      x==+1
+    OD
+
+    ; Bright lines make both 16KB bank transitions immediately visible.
+    IF y=63 OR y=64 OR y=127 OR y=128 THEN
+      VIDEO.FillRow(y,$FF)
+    FI
+    y==+1
+  OD
+RETURN
+
+PROC Main()
+  SYS.Graphics(0)
+  IF VIDEO.Init()=0 THEN
+    SYS.PrintE(missing)
+    SYS.PrintE(keyText)
+    WaitKey()
+    RETURN
+  FI
+
+  SYS.PrintE(keyText)
+  DrawGradient()
+  WaitKey()
+  VIDEO.Shutdown()
+  SYS.Graphics(0)
+RETURN
+
+ENDMODULE

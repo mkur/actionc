@@ -1,0 +1,162 @@
+; Small LR160 framebuffer layer used by the VBXE samples.
+;
+; The 160x192 framebuffer has a 256-byte stride. Three 16KB VBXE banks each
+; contain 64 rows, which keeps every mapped scanline inside one MEMAC window.
+MODULE SCREEN
+
+USE ATARI.VBXE
+
+PUBLIC CONST BYTE WIDTH=160,
+                  HEIGHT=192,
+                  BAND_ROWS=64,
+                  BAND_MASK=$3F,
+                  BAND_COUNT=3
+
+PUBLIC CONST CARD STRIDE=$0100,
+                  WINDOW_BASE=$8000,
+                  WINDOW_SIZE=$4000,
+                  FRAMEBUFFER_LOCAL_BASE=$4000
+
+CONST BYTE XDL_BANK=$00,
+           FRAMEBUFFER_FIRST_BANK=$04,
+           MEMAC_CONTROL_VALUE=$8A,
+           TOP_MARGIN_REPEAT=23,
+           DISPLAY_REPEAT=191,
+           BOTTOM_MARGIN_REPEAT=23,
+           NO_BANK=$FF
+
+BYTE ARRAY Window(16384)=WINDOW_BASE
+BYTE currentBank
+
+PROC MapLocal(BYTE bank)
+  IF currentBank=bank THEN
+    RETURN
+  FI
+  VBXE.Write(VBXE.REG_MEMAC_CONTROL,MEMAC_CONTROL_VALUE)
+  VBXE.Write(VBXE.REG_MEMAC_BANK_SEL,VBXE.MEMAC_BANK_ENABLE%bank)
+  currentBank=bank
+RETURN
+
+PROC Unmap()
+  VBXE.Write(VBXE.REG_MEMAC_BANK_SEL,0)
+  VBXE.Write(VBXE.REG_MEMAC_CONTROL,0)
+  currentBank=NO_BANK
+RETURN
+
+PROC BuildXdl()
+  MapLocal(XDL_BANK)
+
+  ; Disable the overlay for the 24-line top margin.
+  Window(0)=VBXE.XDLC_OVERLAY_OFF%VBXE.XDLC_REPEAT
+  Window(1)=0
+  Window(2)=TOP_MARGIN_REPEAT
+
+  ; Display 192 LR160 rows from local address $04000 with a 256-byte stride.
+  Window(3)=VBXE.XDLC_GRAPHICS%VBXE.XDLC_REPEAT%VBXE.XDLC_OVERLAY_ADDRESS
+  Window(4)=VBXE.XDLC_LOW_RES%VBXE.XDLC_OVERLAY_ATTRIBUTES
+  Window(5)=DISPLAY_REPEAT
+  Window(6)=0
+  Window(7)=$40
+  Window(8)=0
+  Window(9)=0
+  Window(10)=1
+  Window(11)=$11 ; overlay palette 1, normal width
+  Window(12)=VBXE.OVERLAY_PRIORITY_ALL
+
+  ; Disable the overlay for the remaining 24 lines and terminate the XDL.
+  Window(13)=VBXE.XDLC_OVERLAY_OFF%VBXE.XDLC_REPEAT
+  Window(14)=VBXE.XDLC_END
+  Window(15)=BOTTOM_MARGIN_REPEAT
+RETURN
+
+PROC SetGrayPalette()
+  BYTE color
+
+  VBXE.Write(VBXE.REG_PSEL,VBXE.PALETTE_1)
+  VBXE.Write(VBXE.REG_CSEL,0)
+  color=0
+  DO
+    VBXE.Write(VBXE.REG_CR,color)
+    VBXE.Write(VBXE.REG_CG,color)
+    VBXE.Write(VBXE.REG_CB,color)
+    color==+1
+  UNTIL color=0
+  OD
+RETURN
+
+PUBLIC PROC MapBand(BYTE band)
+  BYTE localBank
+
+  localBank=FRAMEBUFFER_FIRST_BANK+(band LSH 2)
+  MapLocal(localBank)
+RETURN
+
+PUBLIC CARD FUNC RowAddress(BYTE y)
+  BYTE band,row
+  CARD offset
+
+  band=y RSH 6
+  row=y&BAND_MASK
+  MapBand(band)
+  offset=row
+  offset=offset LSH 8
+RETURN(WINDOW_BASE+offset)
+
+PUBLIC PROC FillRow(BYTE y,value)
+  BYTE x
+  BYTE POINTER row
+
+  row=RowAddress(y)
+  x=0
+  WHILE x<WIDTH
+  DO
+    row(x)=value
+    x==+1
+  OD
+RETURN
+
+PUBLIC PROC Clear()
+  BYTE band
+  CARD offset
+
+  band=0
+  WHILE band<BAND_COUNT
+  DO
+    MapBand(band)
+    offset=0
+    WHILE offset<WINDOW_SIZE
+    DO
+      Window(offset)=0
+      offset==+1
+    OD
+    band==+1
+  OD
+RETURN
+
+PUBLIC BYTE FUNC Init()
+  currentBank=NO_BANK
+  IF VBXE.Detect()=VBXE.NO_VBXE THEN
+    RETURN(0)
+  FI
+  IF VBXE.Is20Family()=0 THEN
+    RETURN(0)
+  FI
+
+  VBXE.Write(VBXE.REG_VIDEO_CONTROL,0)
+  BuildXdl()
+  SetGrayPalette()
+  Clear()
+
+  VBXE.Write(VBXE.REG_XDL_ADR0,0)
+  VBXE.Write(VBXE.REG_XDL_ADR1,0)
+  VBXE.Write(VBXE.REG_XDL_ADR2,0)
+  VBXE.Write(VBXE.REG_VIDEO_CONTROL,
+             VBXE.VIDEO_XDL_ENABLE%VBXE.VIDEO_NO_TRANSPARENCY)
+RETURN(1)
+
+PUBLIC PROC Shutdown()
+  VBXE.Write(VBXE.REG_VIDEO_CONTROL,0)
+  Unmap()
+RETURN
+
+ENDMODULE
