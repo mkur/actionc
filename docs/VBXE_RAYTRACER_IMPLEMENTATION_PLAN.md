@@ -4,8 +4,9 @@
 
 Build an Action! ray tracer for VBXE based on the Atari BASIC ten-liner used as
 the behavioral reference. The renderer traces a full 320 by 192 image while
-preserving the field of view of the original 80-pixel BASIC display. A later
-stage can use the larger VBXE palette for smoother shading or color.
+preserving the field of view of the original 80-pixel BASIC display. The
+renderer uses the larger VBXE palette for smoother shading and restrained
+color.
 
 The implementation must keep these concerns separate:
 
@@ -164,7 +165,7 @@ Start with CPU copies through MEMAC. Once the result is correct, use the VBXE
 blitter for clear operations and provisional row replication.
 
 The VBXE renderer replaces the original 4 by 4 ordered dither and 16-level
-Graphics 9 mapping with a smooth 256-entry grayscale ramp.
+Graphics 9 mapping with a smooth, monotonic 256-entry cold-steel ramp.
 
 ## Slice 6: measurement and optimization
 
@@ -183,7 +184,7 @@ Optimize in this order:
 Every optimization must preserve the reference checksum or document the
 intended visual change.
 
-## Slice 7: native SR320 grayscale rendering
+## Slice 7: native SR320 color rendering
 
 After the reference renderer is correct and measured:
 

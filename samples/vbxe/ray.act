@@ -2,7 +2,7 @@
 ;
 ; This is a structured translation of the geometry in the Atari BASIC
 ; ten-liner. It traces one of the 320x192 VBXE pixels and returns an 8-bit
-; grayscale palette index.
+; luminance palette index.
 MODULE RAY
 
 USE ATARI.REALMATH AS FPP
@@ -104,7 +104,8 @@ PUBLIC BYTE FUNC Trace(CARD col, BYTE row)
 
   ; The BASIC reference quantizes this value to 16 Graphics 9 shades. VBXE
   ; has a 256-entry palette, so preserve the same contrast range without the
-  ; ordered dither or 16-level quantization.
+  ; ordered dither or 16-level quantization. The screen module maps the index
+  ; through a monotonic color ramp.
   IF v<0 THEN
     v=0
   FI

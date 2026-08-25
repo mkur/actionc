@@ -72,16 +72,47 @@ PROC BuildXdl()
   Window(15)=BOTTOM_MARGIN_REPEAT
 RETURN
 
-PROC SetGrayPalette()
-  BYTE color
+BYTE FUNC Blend(BYTE lo,hi,pos,span)
+  CARD value
+
+  value=hi
+  value=value-lo
+  value=value*pos
+  value=value/span
+RETURN(lo+BYTE(value))
+
+PROC SetSteelPalette()
+  BYTE color,pos,red,green,blue
 
   VBXE.Write(VBXE.REG_PSEL,VBXE.PALETTE_1)
   VBXE.Write(VBXE.REG_CSEL,0)
   color=0
   DO
-    VBXE.Write(VBXE.REG_CR,color)
-    VBXE.Write(VBXE.REG_CG,color)
-    VBXE.Write(VBXE.REG_CB,color)
+    IF color<64 THEN
+      pos=color
+      red=Blend(0,16,pos,64)
+      green=Blend(4,29,pos,64)
+      blue=Blend(10,42,pos,64)
+    ELSEIF color<128 THEN
+      pos=color-64
+      red=Blend(16,78,pos,64)
+      green=Blend(29,102,pos,64)
+      blue=Blend(42,117,pos,64)
+    ELSEIF color<192 THEN
+      pos=color-128
+      red=Blend(78,178,pos,64)
+      green=Blend(102,195,pos,64)
+      blue=Blend(117,204,pos,64)
+    ELSE
+      pos=color-192
+      red=Blend(178,255,pos,63)
+      green=Blend(195,255,pos,63)
+      blue=Blend(204,255,pos,63)
+    FI
+
+    VBXE.Write(VBXE.REG_CR,red)
+    VBXE.Write(VBXE.REG_CG,green)
+    VBXE.Write(VBXE.REG_CB,blue)
     color==+1
   UNTIL color=0
   OD
@@ -153,7 +184,7 @@ PUBLIC BYTE FUNC Init()
 
   VBXE.Write(VBXE.REG_VIDEO_CONTROL,0)
   BuildXdl()
-  SetGrayPalette()
+  SetSteelPalette()
   Clear()
 
   VBXE.Write(VBXE.REG_XDL_ADR0,0)
