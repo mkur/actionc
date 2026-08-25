@@ -24,8 +24,8 @@ PROC Main()
   Sample(6,319,96)
   Sample(7,160,191)
   Sample(8,319,191)
-  ; This ray reaches the measured four-reflection maximum of the reference.
-  Sample(9,68,80)
+  ; This SR320 ray reaches the measured four-reflection maximum.
+  Sample(9,142,80)
   done=$A5
   DO OD
 RETURN

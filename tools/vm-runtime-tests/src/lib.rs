@@ -407,12 +407,12 @@ mod tests {
                 let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
                 assert_eq!(
                     bytes(0x0700, 10),
-                    [111, 110, 59, 148, 148, 149, 148, 76, 21, 99],
+                    [82, 110, 149, 148, 148, 148, 149, 76, 102, 103],
                     "{context}"
                 );
                 assert_eq!(
                     bytes(0x0710, 10),
-                    [0, 0, 1, 0, 0, 0, 0, 0, 1, 4],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 4],
                     "{context}"
                 );
                 assert_eq!(bytes(0x0720, 1), [0xA5], "{context}");

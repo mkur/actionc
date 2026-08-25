@@ -47,7 +47,7 @@ listing into structured pseudocode and record:
 - the two sphere centers and sphere-selection rule;
 - ray/sphere intersection and reflection order;
 - floor-plane intersection and checkerboard expression;
-- Atari BASIC `INT`, `SGN`, exponent, and rounding behavior;
+- Atari BASIC `INT`, `SGN`, and rounding behavior;
 - maximum reflection depth reached by the reference image;
 - the progressive row order and provisional vertical spans.
 
@@ -111,7 +111,7 @@ FPP.Sqrt(@input,@result)
 
 Use bounded Newton iterations and define behavior for zero, positive values,
 negative values, and convergence failure. Do not add a by-value REAL call ABI.
-Projection constants such as `20^1.7` are compile-time constants in the sample
+Projection constants such as `20*1.7` and `80*1.7` are folded at compile time
 and are not recomputed per pixel.
 
 Keep the implementation in the compact `ATARI.REALMATH` module and expose a

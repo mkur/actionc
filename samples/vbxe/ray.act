@@ -13,10 +13,11 @@ PUBLIC CONST BYTE HEIGHT=192,
                   REFERENCE_MAX_REFLECTIONS=4,
                   REFLECTION_LIMIT=8
 
-; The horizontal scale and center preserve the current field of view so that
-; the previous LR160 column M has identical geometry at SR320 column 2*M.
-; Keeping the projection values as constants avoids an exponent per ray.
-CONST REAL HORIZONTAL_SCALE=651.3448504,
+; Graphics 9 pixels are four times as wide as SR320 pixels. The BASIC camera
+; divides its 80 columns by 20*1.7, so the equivalent SR320 divisor is
+; 4*20*1.7. This also makes the horizontal and vertical projection scales
+; equal at 320x192.
+CONST REAL HORIZONTAL_SCALE=136.0,
            VERTICAL_SCALE=136.0,
            HALF_WIDTH=162.0,
            HALF_HEIGHT=96.5
