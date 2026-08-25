@@ -114,6 +114,10 @@ negative values, and convergence failure. Do not add a by-value REAL call ABI.
 Projection constants such as `20^1.7` are compile-time constants in the sample
 and are not recomputed per pixel.
 
+Keep the implementation in the compact `ATARI.REALMATH` module and expose a
+compatible `ATARI.REAL.Sqrt` wrapper. Geometry-only programs can then avoid
+linking the text and console-I/O surface of `ATARI.REAL`.
+
 Acceptance criteria:
 
 - zero, one, two, four, small, and large positive values are covered;

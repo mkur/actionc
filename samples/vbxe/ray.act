@@ -5,7 +5,7 @@
 ; pixels and returns a Graphics 9-compatible shade from 0 through 15.
 MODULE RAY
 
-USE ATARI.REAL AS FPP
+USE ATARI.REALMATH AS FPP
 
 PUBLIC CONST BYTE WIDTH=80,
                   HEIGHT=192,

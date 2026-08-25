@@ -1,0 +1,46 @@
+; Compact native REAL math helpers for programs that do not need the text,
+; console I/O, or transcendental surface from ATARI.REAL.
+MODULE ATARI.REALMATH
+
+; Square root using magnitude normalization followed by bounded Newton steps.
+; Negative inputs produce zero. If packed-decimal rounding does not converge
+; early, the result after ten Newton steps is returned.
+PUBLIC PROC Sqrt(REAL POINTER source, destination)
+  REAL value,scaled,scale,estimate,next
+  BYTE iterations
+
+  value=source^
+  IF value<=0 THEN
+    destination^=0
+    RETURN
+  FI
+
+  scaled=value
+  scale=1
+  WHILE scaled>=100
+  DO
+    scaled=scaled/100
+    scale=scale*10
+  OD
+  WHILE scaled<1
+  DO
+    scaled=scaled*100
+    scale=scale/10
+  OD
+
+  estimate=(scaled+1)/2
+  iterations=0
+  WHILE iterations<10
+  DO
+    next=(estimate+scaled/estimate)/2
+    IF next=estimate THEN
+      destination^=next*scale
+      RETURN
+    FI
+    estimate=next
+    iterations==+1
+  OD
+  destination^=estimate*scale
+RETURN
+
+ENDMODULE
