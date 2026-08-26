@@ -1,0 +1,93 @@
+MODULE ; SYSREAL.ACT
+
+; Compiler-owned native REAL conversion and standalone I/O implementation.
+; The numeric representation and entry points are the Atari OS FPP ABI.
+
+REAL SysRealAccumulator=$00D4
+BYTE SysRealTextIndex=$00F2
+CARD SysRealTextPointer=$00F3
+
+PROC SysRealAsciiToFp=$D800()
+PROC SysRealFpToAscii=$D8E6()
+
+PROC SysStrR(REAL POINTER value STRING destination)
+  CHAR POINTER source
+  BYTE character, length
+
+  SysRealAccumulator=value^
+  SysRealFpToAscii()
+  source=SysRealTextPointer
+  length=0
+  DO
+    character=source^
+    length==+1
+    destination(length)=character&$7F
+    source==+1
+  UNTIL character&$80
+  OD
+  destination(0)=length
+RETURN
+
+PROC SysValR(STRING source REAL POINTER destination)
+  BYTE ARRAY buffer(256)
+  BYTE index, length
+
+  length=source(0)
+  index=0
+  WHILE index<length
+  DO
+    buffer(index)=source(index+1)
+    index==+1
+  OD
+  buffer(length)=0
+  SysRealTextPointer=buffer
+  SysRealTextIndex=0
+  SysRealAsciiToFp()
+  destination^=SysRealAccumulator
+RETURN
+
+PROC SysPrintRD(BYTE device REAL POINTER value)
+  STRING text(20)
+
+  SysStrR(value,text)
+  PrintD(device,text)
+RETURN
+
+PROC SysPrintR(REAL POINTER value)
+  STRING text(20)
+
+  SysStrR(value,text)
+  PrintD(0,text)
+RETURN
+
+PROC SysPrintRDE(BYTE device REAL POINTER value)
+  STRING text(20)
+
+  SysStrR(value,text)
+  PrintD(device,text)
+  PutDE(device)
+RETURN
+
+PROC SysPrintRE(REAL POINTER value)
+  STRING text(20)
+
+  SysStrR(value,text)
+  PrintD(0,text)
+  PutDE(0)
+RETURN
+
+PROC SysInputRD(BYTE device REAL POINTER destination)
+  STRING text(127)
+
+  InputMD(device,text,126)
+  SysValR(text,destination)
+RETURN
+
+PROC SysInputR(REAL POINTER destination)
+  STRING text(127)
+
+  InputMD(0,text,126)
+  SysValR(text,destination)
+RETURN
+
+MODULE

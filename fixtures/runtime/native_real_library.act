@@ -1,27 +1,89 @@
 MODULE NATIVE_REAL_LIBRARY_TEST
 
-USE ATARI.REAL AS FPP
+USE SYS
+USE MATH
 
 REAL source=$0600,
      exp_result=$0606,
      exp10_result=$060C,
      ln_result=$0612,
      log10_result=$0618,
-     parsed_result=$061E
-BYTE ARRAY text(20)=$0624
-BYTE done=$0638
+     parsed_result=$061E,
+     sqrt_result=$0624,
+     sin_result=$062A,
+     cos_result=$0630,
+     tan_result=$0636,
+     atan_result=$063C,
+     alias_result=$0642,
+     abs_result=$0660,
+     sgn_negative=$0666,
+     sgn_zero=$066C,
+     sgn_positive=$0672,
+     rnd_result=$0678,
+     floor_positive=$0682,
+     floor_negative=$0688,
+     floor_below_one=$068E,
+     floor_negative_below_one=$0694,
+     floor_large=$069A,
+     floor_exact=$06A0
+BYTE ARRAY text(20)=$0648
+BYTE done=$065C
+BYTE rnd_in_range=$067E
+CARD rnd_bits=$067F
+BYTE rnd_has_low_bits=$0681
 
 PROC Main()
   source=0
-  FPP.Exp(@source,@exp_result)
+  MATH.Exp(@source,@exp_result)
   source=2
-  FPP.Exp10(@source,@exp10_result)
+  MATH.Exp10(@source,@exp10_result)
   source=1
-  FPP.Ln(@source,@ln_result)
+  MATH.Ln(@source,@ln_result)
   source=100
-  FPP.Log10(@source,@log10_result)
-  FPP.StrR(@log10_result,text)
-  FPP.ValR(text,@parsed_result)
+  MATH.Log10(@source,@log10_result)
+  SYS.StrR(@log10_result,text)
+  SYS.ValR(text,@parsed_result)
+  source=2
+  MATH.Sqrt(@source,@sqrt_result)
+  source=0.5
+  MATH.Sin(@source,@sin_result)
+  MATH.Cos(@source,@cos_result)
+  MATH.Tan(@source,@tan_result)
+  source=1
+  MATH.Atan(@source,@atan_result)
+  source=9
+  MATH.Sqr(@source,@alias_result)
+  source=-2.5
+  MATH.Abs(@source,@abs_result)
+  MATH.Sgn(@source,@sgn_negative)
+  source=0
+  MATH.Sgn(@source,@sgn_zero)
+  source=2.5
+  MATH.Sgn(@source,@sgn_positive)
+  MATH.Rnd(@rnd_result)
+  rnd_in_range=0
+  IF rnd_result>=0 THEN
+    IF rnd_result<1 THEN
+      rnd_in_range=1
+    FI
+  FI
+  rnd_bits=CARD(rnd_result*65536.0)
+  rnd_has_low_bits=0
+  IF (rnd_bits&$FF)<>0 THEN
+    rnd_has_low_bits=1
+  FI
+  source=2.9
+  MATH.Floor(@source,@floor_positive)
+  source=-2.1
+  MATH.Floor(@source,@floor_negative)
+  source=0.9
+  MATH.Floor(@source,@floor_below_one)
+  source=-0.1
+  MATH.Floor(@source,@floor_negative_below_one)
+  source=123456.78
+  MATH.Floor(@source,@floor_large)
+  source=-42
+  MATH.Floor(@source,@floor_exact)
   done=$A5
   DO OD
 RETURN

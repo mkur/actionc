@@ -38,85 +38,79 @@ pub(super) fn resolve_interfaces(
     let bindings = parse_bindings(runtime).map_err(frontend_diagnostics)?;
     let mut resolved = BTreeMap::new();
 
-    match runtime {
-        Runtime::ActionCart => {
-            for id in &referenced {
-                let name = &external[id];
-                match bindings.get(&binding_key(name)) {
-                    Some(BindingTarget::Absolute(address)) => {
-                        resolved.insert(*id, ResolvedTarget::Absolute(*address));
-                    }
-                    Some(BindingTarget::RuntimeRoutine { .. }) => {
-                        return Err(diagnostic(format!(
-                            "cart binding for external `{name}` is not an absolute address"
-                        )));
-                    }
-                    None => return Err(missing_binding(name, runtime)),
-                }
+    let interface_signatures = sys_interface_signatures()?;
+    let mut external_roots = BTreeMap::<RoutineId, (RuntimeUnit, String)>::new();
+    for id in &referenced {
+        let name = &external[id];
+        let Some(binding) = bindings.get(&binding_key(name)) else {
+            return Err(missing_binding(name, runtime));
+        };
+        match binding {
+            BindingTarget::Absolute(address) if runtime == Runtime::ActionCart => {
+                resolved.insert(*id, ResolvedTarget::Absolute(*address));
             }
-        }
-        Runtime::Standalone => {
-            let interface_signatures = sys_interface_signatures()?;
-            let mut external_roots = BTreeMap::<RoutineId, (RuntimeUnit, String)>::new();
-            for id in &referenced {
-                let name = &external[id];
-                let Some(binding) = bindings.get(&binding_key(name)) else {
-                    return Err(missing_binding(name, runtime));
-                };
-                let BindingTarget::RuntimeRoutine { unit, routine } = binding else {
-                    return Err(diagnostic(format!(
-                        "standalone binding for external `{name}` is an absolute address"
-                    )));
-                };
+            BindingTarget::Absolute(_) => {
+                return Err(diagnostic(format!(
+                    "standalone binding for external `{name}` is an absolute address"
+                )));
+            }
+            BindingTarget::RuntimeRoutine { unit, routine } => {
                 let unit = resolve_runtime_unit(unit).map_err(frontend_diagnostics)?;
                 external_roots.insert(*id, (unit, routine.clone()));
             }
+        }
+    }
 
-            let (runtime_image, runtime) = super::standalone::compile_runtime_image_with_semir()?;
-            let mut implementation_roots = BTreeMap::new();
-            for (external_id, (unit, routine)) in external_roots {
-                let interface_name = &external[&external_id];
-                validate_semantic_abi(
-                    interface_name,
-                    &interface_signatures,
-                    &runtime_image,
-                    &unit,
-                    &routine,
-                )?;
-                let implementation =
-                    find_runtime_routine(&runtime, RESIDENT_LINK_MODULE, &routine)?;
-                validate_abi(
-                    program
-                        .routines
-                        .iter()
-                        .find(|candidate| candidate.id == external_id)
-                        .expect("external routine exists"),
-                    runtime
-                        .routines
-                        .iter()
-                        .find(|candidate| candidate.id == implementation)
-                        .expect("runtime routine exists"),
-                )?;
-                implementation_roots.insert(external_id, implementation);
-            }
-            let selected = super::standalone::dependency_closure(
-                &runtime,
-                implementation_roots.values().copied().collect(),
+    if !external_roots.is_empty() {
+        let (runtime_image, runtime_program) =
+            super::standalone::compile_runtime_image_with_semir()?;
+        let mut implementation_roots = BTreeMap::new();
+        for (external_id, (unit, routine)) in external_roots {
+            let interface_name = &external[&external_id];
+            validate_semantic_abi(
+                interface_name,
+                &interface_signatures,
+                &runtime_image,
+                &unit,
+                &routine,
             )?;
-            let rebase = super::standalone::append_runtime_closure(
-                program,
-                &runtime,
-                &selected,
-                RESIDENT_MODULE,
-                RESIDENT_LINK_MODULE,
+            let implementation =
+                find_runtime_routine(&runtime_program, RESIDENT_LINK_MODULE, &routine)?;
+            validate_abi(
+                program
+                    .routines
+                    .iter()
+                    .find(|candidate| candidate.id == external_id)
+                    .expect("external routine exists"),
+                runtime_program
+                    .routines
+                    .iter()
+                    .find(|candidate| candidate.id == implementation)
+                    .expect("runtime routine exists"),
             )?;
-            super::standalone::append_runtime_helper_requirements(program, &runtime, &selected)?;
-            for (external_id, implementation) in implementation_roots {
-                resolved.insert(
-                    external_id,
-                    ResolvedTarget::Routine(rebase[&implementation]),
-                );
-            }
+            implementation_roots.insert(external_id, implementation);
+        }
+        let selected = super::standalone::dependency_closure(
+            &runtime_program,
+            implementation_roots.values().copied().collect(),
+        )?;
+        let rebase = super::standalone::append_runtime_closure(
+            program,
+            &runtime_program,
+            &selected,
+            RESIDENT_MODULE,
+            RESIDENT_LINK_MODULE,
+        )?;
+        super::standalone::append_runtime_helper_requirements(
+            program,
+            &runtime_program,
+            &selected,
+        )?;
+        for (external_id, implementation) in implementation_roots {
+            resolved.insert(
+                external_id,
+                ResolvedTarget::Routine(rebase[&implementation]),
+            );
         }
     }
 
@@ -548,8 +542,8 @@ mod tests {
     fn embedded_sys_bindings_are_unique_and_runtime_specific() {
         let cart = parse_bindings(Runtime::ActionCart).expect("cart bindings");
         let standalone = parse_bindings(Runtime::Standalone).expect("standalone bindings");
-        assert_eq!(cart.len(), 71);
-        assert_eq!(standalone.len(), 71);
+        assert_eq!(cart.len(), 79);
+        assert_eq!(standalone.len(), 79);
         assert_eq!(cart["SYS.ZERO"], BindingTarget::Absolute(0xA78A));
         assert_eq!(
             standalone["SYS.ZERO"],
@@ -559,6 +553,13 @@ mod tests {
             }
         );
         assert_eq!(cart["SYS.SCOMPARE"], BindingTarget::Absolute(0xA864));
+        assert_eq!(
+            cart["SYS.STRR"],
+            BindingTarget::RuntimeRoutine {
+                unit: "SYSREAL".to_string(),
+                routine: "SysStrR".to_string(),
+            }
+        );
         assert_eq!(
             standalone["SYS.SCOMPARE"],
             BindingTarget::RuntimeRoutine {

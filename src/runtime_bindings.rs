@@ -141,6 +141,7 @@ fn validate_bindings(
         let valid = matches!(
             (runtime, target),
             (Runtime::ActionCart, BindingTarget::Absolute(_))
+                | (Runtime::ActionCart, BindingTarget::RuntimeRoutine { .. })
                 | (Runtime::Standalone, BindingTarget::RuntimeRoutine { .. })
         );
         if !valid {
@@ -193,7 +194,11 @@ mod tests {
         );
         assert!(
             cart.values()
-                .all(|target| matches!(target, BindingTarget::Absolute(_)))
+                .any(|target| matches!(target, BindingTarget::Absolute(_)))
+        );
+        assert!(
+            cart.values()
+                .any(|target| matches!(target, BindingTarget::RuntimeRoutine { .. }))
         );
         assert!(
             standalone
@@ -219,7 +224,7 @@ mod tests {
             },
         );
 
-        let diagnostics = validate_bindings(Runtime::ActionCart, &bindings)
+        let diagnostics = validate_bindings(Runtime::Standalone, &bindings)
             .expect_err("invalid binding inventory");
         let messages = diagnostics
             .iter()

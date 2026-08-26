@@ -64,45 +64,62 @@ is a complete multi-file example with a public project-module procedure.
 
 ## Native REAL library
 
-`ATARI.REAL` is a clean-room optional module layered on the Action 2027 native
-`REAL` type. Import it with an alias so its final path component does not
-compete with the type name:
+Native REAL support is divided by responsibility. `MATH` is the portable
+numerical interface, `SYS` owns conversion and I/O, and `ATARI.REAL` is the
+Atari OS FPP implementation provider behind `MATH`. Application code normally
+imports `MATH` and `SYS`, without naming the target provider:
 
 ```action
 MODULE CALCULATOR
 
-USE ATARI.REAL AS FPP
+USE SYS
+USE MATH
 
 REAL input, result
 STRING text(20)
 
 PROC Main()
   input=2
-  FPP.Exp10(@input,@result)
-  FPP.StrR(@result,text)
-  FPP.PrintRE(@result)
+  MATH.Exp10(@input,@result)
+  SYS.StrR(@result,text)
+  SYS.PrintRE(@result)
 RETURN
 
 ENDMODULE
 ```
 
-The public procedures are pointer-oriented because by-value REAL parameters
-and results remain deferred:
+The procedures are pointer-oriented because by-value REAL parameters and
+results remain deferred:
 
-- conversion: `StrR`, `ValR`;
-- transcendental operations: `Exp`, `Exp10`, `Ln`, `Log10`, `Power`;
-- output: `PrintR`, `PrintRE`, `PrintRD`, `PrintRDE`;
-- input: `InputR`, `InputRD`.
+- `SYS` conversion: `StrR`, `ValR`;
+- `SYS` output: `PrintR`, `PrintRE`, `PrintRD`, `PrintRDE`;
+- `SYS` input: `InputR`, `InputRD`;
+- `MATH` transcendental operations: `Exp`, `Exp10`, `Ln`, `Log10`, `Power`;
+- `MATH` elementary operations: `Abs`, `Sgn`, `Floor`, `Rnd`, `Sqrt`/`Sqr`, `Sin`, `Cos`,
+  `Tan`, and `Atan`/`Atn`;
 
 `StrR` destinations should reserve at least 20 bytes. `ValR` delegates runtime
 text validation to Atari AFP and therefore exposes the OS routine's invalid
-input result. Both runtime modes require a compatible Atari OS for this module.
+input result. Trigonometric arguments and results use radians. `Sqrt` returns
+zero for a non-positive input, while `Tan` exposes the underlying division
+behavior at its poles. The trig routines use range reduction and convergent
+series in ordinary Action source; they do not require the Atari BASIC
+cartridge. Both runtime modes require a compatible Atari OS for this API.
+`Floor` implements Atari BASIC `INT` semantics (rounding toward negative
+infinity); it uses a different name because `INT` is an Action type keyword.
 All routines share the Atari FPP zero-page workspace, including FR0, CIX, and
 INBUFF, and are neither reentrant nor safe against interrupts that also use
-FPP. The module is ordinary source and is independent of the compiler's native
-REAL type implementation.
+FPP. `ATARI.REAL` is ordinary provider source and remains independent of the
+compiler's native REAL type implementation.
 
-See `samples/modules/native-real-library.act` for the complete example.
+The REAL members of `SYS` are modern, qualified-only extensions. This avoids
+adding `StrR`, `PrintR`, and similar names to the compatibility prelude, so
+existing Action! sources may continue to declare those names. Write `USE SYS`
+when calling them as `SYS.StrR`, `SYS.PrintRE`, and so on.
+
+See `samples/modules/native-real-library.act` for the basic API and
+`samples/graphics/sine-surface.act` for a translated graphics program using
+`Sqr` and `Sin`.
 
 ## Module lookup
 

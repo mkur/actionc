@@ -7,7 +7,7 @@ use crate::includes::{
     ModuleLoadOptions, load_compilation_from_provider,
     load_program_with_expanded_source_from_provider,
 };
-use crate::semantic::{analyze_compilation, ir};
+use crate::semantic::{SemanticOptions, analyze_compilation, analyze_compilation_with_options, ir};
 use crate::source::{InMemorySourceProvider, SourceOrigin, Span};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -106,8 +106,8 @@ pub(crate) fn compile_embedded_module(file_name: &str) -> Result<ir::SemProgram,
 /// calls between implementation units while the source map records which
 /// physical unit owns every routine.
 pub(crate) fn compile_runtime_image() -> Result<RuntimeImage, Vec<Diagnostic>> {
-    let file_name = "sysall.act";
-    let origin = SourceOrigin::embedded("runtime/sysall.act", "<runtime:SYSALL.ACT>");
+    let file_name = "actionc.act";
+    let origin = SourceOrigin::embedded("runtime/actionc.act", "<runtime:ACTIONC.ACT>");
     let expanded = load_program_with_expanded_source_from_provider(origin, &EmbeddedSourceProvider)
         .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
     let mut routine_units = BTreeMap::new();
@@ -171,8 +171,14 @@ pub(crate) fn compile_runtime_image() -> Result<RuntimeImage, Vec<Diagnostic>> {
     let provider = InMemorySourceProvider::default().with_source(origin.clone(), text);
     let loaded = load_compilation_from_provider(origin, &provider, &ModuleLoadOptions::default())
         .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
-    let model = analyze_compilation(&loaded)
-        .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
+    let model = analyze_compilation_with_options(
+        &loaded,
+        SemanticOptions {
+            native_real: true,
+            lexical_blocks: false,
+        },
+    )
+    .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
     let semir = ir::lower_compilation(&loaded, &model);
     Ok(RuntimeImage {
         semir,

@@ -79,6 +79,10 @@ pub(super) enum ClassicRealValue {
 }
 
 impl ClassicNativeRealFacts {
+    pub(super) fn extend(&mut self, other: Self) {
+        self.expressions.extend(other.expressions);
+    }
+
     pub(super) fn insert(
         &mut self,
         scope: Option<&str>,

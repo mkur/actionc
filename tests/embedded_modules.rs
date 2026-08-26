@@ -242,6 +242,7 @@ BYTE offset
 BYTE byteValue
 CARD cardValue
 INT intValue
+REAL realValue
 
 PROC Main()
   SYS.Put('A)
@@ -289,6 +290,14 @@ PROC Main()
   byteValue=SYS.ValB(text)
   cardValue=SYS.ValC(text)
   intValue=SYS.ValI(text)
+  SYS.StrR(@realValue,text)
+  SYS.ValR(text,@realValue)
+  SYS.PrintR(@realValue)
+  SYS.PrintRE(@realValue)
+  SYS.PrintRD(0,@realValue)
+  SYS.PrintRDE(0,@realValue)
+  SYS.InputR(@realValue)
+  SYS.InputRD(0,@realValue)
 RETURN
 
 ENDMODULE
@@ -302,6 +311,27 @@ ENDMODULE
                 .unwrap_or_else(|error| panic!("compile {runtime:?} SYS I/O in {mode:?}: {error}"));
         }
     }
+}
+
+#[test]
+fn real_sys_extensions_do_not_claim_legacy_unqualified_names() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "legacy-strr.act",
+        r#"PROC StrR()
+RETURN
+
+PROC Main()
+  StrR()
+RETURN
+"#,
+    );
+
+    compile_file(
+        &source,
+        &CompileOptions::for_mode(CompileMode::Compatibility),
+    )
+    .expect("legacy source may keep its own unqualified StrR");
 }
 
 #[test]
@@ -466,8 +496,27 @@ fn implicit_sys_public_routines_share_the_compatibility_symbol_ids() {
             })
             .collect::<Vec<_>>();
 
-        assert_eq!(public_routines.len(), 71, "complete SYS compatibility API");
+        assert_eq!(public_routines.len(), 79, "complete SYS API");
         for (symbol_id, symbol) in public_routines {
+            if matches!(
+                symbol.name.to_ascii_uppercase().as_str(),
+                "STRR"
+                    | "VALR"
+                    | "PRINTR"
+                    | "PRINTRE"
+                    | "PRINTRD"
+                    | "PRINTRDE"
+                    | "INPUTR"
+                    | "INPUTRD"
+            ) {
+                assert!(
+                    model
+                        .symbols
+                        .lookup_exact(builtin_scope, &symbol.name)
+                        .is_none()
+                );
+                continue;
+            }
             let alias = model
                 .symbols
                 .resolve_action_name(source_scope, &symbol.name)

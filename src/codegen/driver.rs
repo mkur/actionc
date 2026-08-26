@@ -50,6 +50,15 @@ pub fn generate_semir_profile_with_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
+    if super::standalone::has_cart_runtime_extensions(program)? {
+        let projection = super::semir::semir_to_cart_projection(program)?;
+        let origin = if origin == CODE_ORIGIN {
+            program_code_origin(&projection.program).unwrap_or(origin)
+        } else {
+            origin
+        };
+        return super::standalone::generate_semir_cart_profile_at_origin(program, origin, profile);
+    }
     let projection = super::semir::semir_to_cart_projection(program)?;
     let origin = if origin == CODE_ORIGIN {
         program_code_origin(&projection.program).unwrap_or(origin)
@@ -73,6 +82,9 @@ pub(crate) fn generate_semir_profile_at_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
+    if super::standalone::has_cart_runtime_extensions(program)? {
+        return super::standalone::generate_semir_cart_profile_at_origin(program, origin, profile);
+    }
     let projection = super::semir::semir_to_cart_projection(program)?;
     let mut output = generate_with_options_and_facts(
         &projection.program,

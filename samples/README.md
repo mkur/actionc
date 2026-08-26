@@ -5,6 +5,7 @@ examples.
 
 ```text
 *.act       small standalone Action! examples
+graphics/   graphics demonstrations
 toolkit/    maintained modernized ACTION! Toolkit programs
 tn/         maintained TOMS Navigator sources
 ```
@@ -15,6 +16,9 @@ display buffer, and an immediate vertical-blank routine.
 
 `rainbow_asm.act` is a compact inline-assembly version of the original
 `rainbow.act` raster effect.
+
+`graphics/sine-surface.act` translates an Atari BASIC 3D surface plot and uses
+the portable `MATH.Sqr` and `MATH.Sin` native REAL procedures.
 
 Archived disk images, byte-exact extractions, raw ATASCII sidecars, and original
 compiler outputs live under `corpora/`. Survey scripts and generated comparison

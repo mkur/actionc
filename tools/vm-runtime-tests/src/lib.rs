@@ -346,8 +346,45 @@ mod tests {
                 );
                 assert_eq!(bytes(0x0618, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
                 assert_eq!(bytes(0x061E, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
-                assert_eq!(bytes(0x0624, 2), [1, b'2'], "{context}");
-                assert_eq!(bytes(0x0638, 1), [0xA5], "{context}");
+                for (address, expected) in [
+                    (0x0624, [0x40, 0x01, 0x41, 0x42, 0x13, 0x56]),
+                    (0x062A, [0x3F, 0x47, 0x94, 0x25, 0x53, 0x86]),
+                    (0x0630, [0x3F, 0x87, 0x75, 0x82, 0x56, 0x52]),
+                    (0x0636, [0x3F, 0x54, 0x63, 0x02, 0x48, 0x77]),
+                    (0x063C, [0x3F, 0x78, 0x53, 0x98, 0x16, 0x34]),
+                    (0x0642, [0x40, 0x03, 0, 0, 0, 0]),
+                    (0x0660, [0x40, 0x02, 0x50, 0, 0, 0]),
+                    (0x0666, [0xC0, 0x01, 0, 0, 0, 0]),
+                    (0x066C, [0, 0, 0, 0, 0, 0]),
+                    (0x0672, [0x40, 0x01, 0, 0, 0, 0]),
+                ] {
+                    assert_eq!(bytes(address, 6), expected, "{context}");
+                }
+                assert_eq!(bytes(0x0648, 2), [1, b'2'], "{context}");
+                assert_eq!(bytes(0x065C, 1), [0xA5], "{context}");
+                assert_eq!(
+                    bytes(0x067E, 1),
+                    [1],
+                    "{context}; rnd={:?}",
+                    bytes(0x0678, 6)
+                );
+                assert_eq!(
+                    bytes(0x0681, 1),
+                    [1],
+                    "{context}; rnd={:?}, reconstructed={:?}",
+                    bytes(0x0678, 6),
+                    bytes(0x067F, 2)
+                );
+                for (address, expected) in [
+                    (0x0682, [0x40, 0x02, 0, 0, 0, 0]),
+                    (0x0688, [0xC0, 0x03, 0, 0, 0, 0]),
+                    (0x068E, [0, 0, 0, 0, 0, 0]),
+                    (0x0694, [0xC0, 0x01, 0, 0, 0, 0]),
+                    (0x069A, [0x42, 0x12, 0x34, 0x56, 0, 0]),
+                    (0x06A0, [0xC0, 0x42, 0, 0, 0, 0]),
+                ] {
+                    assert_eq!(bytes(address, 6), expected, "{context}");
+                }
             }
         }
     }

@@ -420,17 +420,19 @@ Status: complete.
 Exit criterion: ordinary programs can input, calculate, and display native real
 values without importing the historical Toolkit source.
 
-The clean-room `ATARI.REAL` embedded module exposes pointer-oriented `StrR`,
-`ValR`, output/input helpers, `Exp`, `Exp10`, `Ln`, `Log10`, and `Power`. It is
-implemented as ordinary Action 2027 source in
-`embedded/modules/atari/real.act`; the compiler's native type and lowering do
-not depend on it. Programs should import it with an alias, for example
-`USE ATARI.REAL AS FPP`, because the default module alias `REAL` is also the
-native type name.
+The clean-room library is split into a portable `MATH` facade, qualified `SYS`
+conversion and I/O entry points, and the Atari-specific `ATARI.REAL` provider.
+`MATH` exposes `Exp`, `Exp10`, `Ln`, `Log10`, `Power`, `Sqrt`/`Sqr`, `Sin`,
+`Cos`, `Tan`, `Atan`/`Atn`, `Abs`, `Sgn`, `Floor`, and `Rnd`. `SYS` exposes
+pointer-oriented `StrR`, `ValR`, output, and input helpers. The provider is
+ordinary Action 2027 source in `embedded/modules/atari/real.act`; the
+compiler's native type and lowering do not depend on it.
 
 Executable AltirraOS oracle tests confirm FASC's high-bit-terminated output and
-the four transcendental ROM entries. The library preserves the ROM's actual
-packed-decimal approximations rather than replacing them with host math. Its
+the four transcendental ROM entries. Square root and trigonometry are clean-room
+Action implementations layered on those primitives and native REAL arithmetic,
+so they remain available without the BASIC cartridge. The library preserves
+packed-decimal computation rather than replacing it with host math. Its
 procedures share FR0, CIX, INBUFF, and the wider FPP workspace, so they are not
 reentrant or interrupt-safe. Both cart and standalone runtime modes still
 require a compatible Atari OS when this module is used.

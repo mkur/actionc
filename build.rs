@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 fn main() {
     println!("cargo:rerun-if-changed=embedded/modules");
     println!("cargo:rerun-if-changed=embedded/bindings");
+    println!("cargo:rerun-if-changed=embedded/runtime");
     println!("cargo:rerun-if-changed=corpora/action-runtime/extracted");
 
     let mut inputs = Vec::new();
@@ -18,6 +19,7 @@ fn main() {
     );
     collect_bindings(Path::new("embedded/bindings"), &mut inputs);
     collect_runtime(Path::new("corpora/action-runtime/extracted"), &mut inputs);
+    collect_runtime(Path::new("embedded/runtime"), &mut inputs);
     let image = prepare_image(inputs);
     let generated = render_image(&image);
     let output =

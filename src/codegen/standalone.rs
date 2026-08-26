@@ -17,7 +17,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     let application_projection = super::semir::semir_to_projection(semir)?;
     let storage_display_names = application_projection.storage_display_names;
     let mut application = application_projection.program;
-    let native_real = application_projection.native_real;
+    let mut native_real = application_projection.native_real;
     reject_absolute_helper_overrides(&application)?;
     let local_helper_overrides = local_helper_overrides(&application);
 
@@ -59,6 +59,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
 
     let resident = select_resident_image(&roots_by_unit)?;
     let projection = runtime_image_projection(resident.image.semir)?;
+    native_real.extend(projection.native_real.clone());
     validate_external_signatures(
         &external_roots,
         &external_interfaces,
@@ -172,6 +173,132 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     Ok(output)
 }
 
+pub(crate) fn has_cart_runtime_extensions(
+    semir: &crate::semantic::ir::SemProgram,
+) -> Result<bool, Vec<Diagnostic>> {
+    let bindings = parse_bindings(crate::runtime::Runtime::ActionCart)?;
+    Ok(semir
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            crate::semantic::ir::SemItem::Routine(routine) if routine.is_external => {
+                Some(&routine.symbol.qualified_name)
+            }
+            _ => None,
+        })
+        .any(|name| {
+            matches!(
+                bindings.get(&binding_key(name)),
+                Some(BindingTarget::RuntimeRoutine { .. })
+            )
+        }))
+}
+
+pub(crate) fn generate_semir_cart_profile_at_origin(
+    semir: &crate::semantic::ir::SemProgram,
+    origin: u16,
+    profile: CodegenProfile,
+) -> Result<CodegenOutput, Vec<Diagnostic>> {
+    let program_entry = semir
+        .program_entry_routine()
+        .map(|routine| routine.symbol.name.clone());
+    let application_projection = super::semir::semir_to_cart_projection(semir)?;
+    let storage_display_names = application_projection.storage_display_names;
+    let mut application = application_projection.program;
+    let mut native_real = application_projection.native_real;
+
+    let external_interfaces = external_interfaces(semir);
+    let referenced_names = referenced_external_names(&application, &external_interfaces);
+    let bindings = parse_bindings(crate::runtime::Runtime::ActionCart)?;
+    let mut roots_by_unit = BTreeMap::<RuntimeUnit, BTreeSet<String>>::new();
+    let mut external_roots = BTreeMap::new();
+    for external_name in referenced_names {
+        let interface = &external_interfaces[&external_name];
+        let Some(BindingTarget::RuntimeRoutine { unit, routine }) =
+            bindings.get(&binding_key(&interface.qualified_name))
+        else {
+            continue;
+        };
+        let unit = resolve_runtime_unit(unit)?;
+        roots_by_unit
+            .entry(unit.clone())
+            .or_default()
+            .insert(routine.clone());
+        external_roots.insert(
+            external_name,
+            ExternalRuntimeRoot {
+                unit,
+                routine: routine.clone(),
+            },
+        );
+    }
+
+    let resident = select_resident_image(&roots_by_unit)?;
+    let projection = runtime_image_projection(resident.image.semir)?;
+    native_real.extend(projection.native_real.clone());
+    validate_external_signatures(
+        &external_roots,
+        &external_interfaces,
+        &projection,
+        &resident.image.routine_units,
+    )?;
+    let resident_names = projection.routine_names();
+    let rename_external = external_roots
+        .iter()
+        .map(|(external, root)| {
+            let implementation = resident_names
+                .get(&root.routine.to_ascii_uppercase())
+                .ok_or_else(|| {
+                    diagnostic(format!(
+                        "embedded {} has no implementation routine `{}`",
+                        root.unit.name, root.routine
+                    ))
+                })?;
+            Ok((external.clone(), implementation.clone()))
+        })
+        .collect::<Result<BTreeMap<_, _>, Vec<Diagnostic>>>()?;
+    rewrite_program_names(&mut application, &rename_external);
+    remove_external_routines_named(&mut application, external_roots.keys());
+
+    let runtime_items = selected_runtime_items(
+        &projection.ast,
+        &resident.routine_names,
+        &resident.global_names,
+        &resident_names,
+    );
+    let runtime_routine_names = item_routine_names(&runtime_items);
+    application.modules =
+        insert_runtime_after_application_layout(application.modules, runtime_items);
+
+    let mut output = super::driver::generate_with_options_and_facts(
+        &application,
+        &native_real,
+        origin,
+        true,
+        profile,
+        RuntimeTarget::Cartridge,
+    )?;
+    suppress_source_ranges_for_routines(&mut output, &runtime_routine_names);
+    if let Some(program_entry) = program_entry {
+        let address = output
+            .routine_addresses
+            .iter()
+            .find(|routine| routine.name == program_entry)
+            .map(|routine| routine.address)
+            .ok_or_else(|| {
+                diagnostic(format!(
+                    "classic cart output lost application entry `{program_entry}`"
+                ))
+            })?;
+        output.run_address = address;
+        output.map.run_address = address;
+    }
+    output.map.runtime = crate::runtime::Runtime::ActionCart;
+    super::semir::apply_storage_display_names(&mut output, &storage_display_names);
+    Ok(output)
+}
+
 fn insert_runtime_after_application_layout(
     mut application: Vec<Module>,
     runtime_items: Vec<Item>,
@@ -251,6 +378,7 @@ fn external_interfaces(
 struct RuntimeProjection {
     semir: crate::semantic::ir::SemProgram,
     ast: Program,
+    native_real: super::native_real::ClassicNativeRealFacts,
 }
 
 impl RuntimeProjection {
@@ -275,15 +403,23 @@ fn runtime_projection(
     module_name: &str,
 ) -> Result<RuntimeProjection, Vec<Diagnostic>> {
     let semir = crate::runtime_source::compile_runtime_unit(file_name, module_name)?;
-    let ast = super::semir::semir_to_ast(&semir)?;
-    Ok(RuntimeProjection { semir, ast })
+    let projection = super::semir::semir_to_projection(&semir)?;
+    Ok(RuntimeProjection {
+        semir,
+        ast: projection.program,
+        native_real: projection.native_real,
+    })
 }
 
 fn runtime_image_projection(
     semir: crate::semantic::ir::SemProgram,
 ) -> Result<RuntimeProjection, Vec<Diagnostic>> {
-    let ast = super::semir::semir_to_ast(&semir)?;
-    Ok(RuntimeProjection { semir, ast })
+    let projection = super::semir::semir_to_projection(&semir)?;
+    Ok(RuntimeProjection {
+        semir,
+        ast: projection.program,
+        native_real: projection.native_real,
+    })
 }
 
 fn select_resident_image(
@@ -393,6 +529,14 @@ fn selected_routines(
             Item::Routine(routine) if selected_names.contains(&routine.name) => {
                 Some(Item::Routine(routine.clone()))
             }
+            // Absolute declarations are ABI metadata rather than emitted
+            // routines. A selected source routine may call one even though it
+            // is not part of the resident call-graph closure.
+            Item::Routine(routine)
+                if routine.system_address.as_ref().and_then(expr_u16).is_some() =>
+            {
+                Some(Item::Routine(routine.clone()))
+            }
             _ => None,
         })
         .collect()
@@ -418,6 +562,11 @@ fn selected_runtime_items(
             // machine blocks resolve constants such as SYSIO.OpenBuf.
             Item::Define(define) => Some(Item::Define(define.clone())),
             Item::Routine(routine) if selected_names.contains(&routine.name) => {
+                Some(Item::Routine(routine.clone()))
+            }
+            Item::Routine(routine)
+                if routine.system_address.as_ref().and_then(expr_u16).is_some() =>
+            {
                 Some(Item::Routine(routine.clone()))
             }
             Item::Declaration(Decl::Var(var))
@@ -535,6 +684,24 @@ fn remove_external_routines(program: &mut Program) {
         module
             .items
             .retain(|item| !matches!(item, Item::Routine(routine) if routine.is_external));
+    }
+}
+
+fn remove_external_routines_named<'a>(
+    program: &mut Program,
+    names: impl Iterator<Item = &'a String>,
+) {
+    let names = names
+        .map(|name| normalize_name(name))
+        .collect::<BTreeSet<_>>();
+    for module in &mut program.modules {
+        module.items.retain(|item| {
+            !matches!(
+                item,
+                Item::Routine(routine)
+                    if routine.is_external && names.contains(&normalize_name(&routine.name))
+            )
+        });
     }
 }
 

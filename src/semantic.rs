@@ -592,6 +592,13 @@ impl Analyzer {
             if !routine.is_external || routine.visibility != Visibility::Public {
                 continue;
             }
+            // Native REAL is a modern extension, while the compatibility
+            // prelude must keep REAL available as an ordinary user name.
+            // These SYS members therefore remain qualified-only and are
+            // installed through MODULE SYS rather than the legacy prelude.
+            if is_qualified_only_sys_extension(&routine.name) {
+                continue;
+            }
             let (class, ty) = match routine.kind {
                 RoutineKind::Proc => (SymbolClass::BuiltinProc, None),
                 RoutineKind::Func { return_type } => {
@@ -3445,6 +3452,10 @@ impl Analyzer {
             return;
         };
 
+        if self.is_sys_native_real_type(scope, name) {
+            return;
+        }
+
         match resolve_semantic_name(&self.symbols, &self.modules, scope, name) {
             SemanticNameResolution::Symbol(symbol_id) => {
                 let symbol = &self.symbols.symbols[symbol_id.0];
@@ -3483,6 +3494,10 @@ impl Analyzer {
         let TypeBase::Named(name) = &ty.base else {
             return value;
         };
+        if self.is_sys_native_real_type(scope, name) {
+            value.base = ValueTypeBase::Real;
+            return value;
+        }
         if is_string_type_name(name) {
             return value;
         }
@@ -3501,6 +3516,18 @@ impl Analyzer {
             };
         }
         value
+    }
+
+    fn is_sys_native_real_type(&self, scope: ScopeId, name: &QualifiedName) -> bool {
+        if !name.to_string().eq_ignore_ascii_case("REAL") {
+            return false;
+        }
+        let Some(module_id) = module_for_scope(&self.symbols, scope) else {
+            return false;
+        };
+        self.modules
+            .get(module_id.0 as usize)
+            .is_some_and(|module| module.path.canonical_name() == "sys")
     }
 
     fn param_signature_type(&self, scope: ScopeId, parameter: &VarDecl) -> ValueType {
@@ -3798,6 +3825,13 @@ fn module_for_scope(symbols: &SymbolTable, scope: ScopeId) -> Option<ModuleId> {
         current = scope.parent;
     }
     None
+}
+
+fn is_qualified_only_sys_extension(name: &str) -> bool {
+    matches!(
+        name.to_ascii_uppercase().as_str(),
+        "STRR" | "VALR" | "PRINTR" | "PRINTRE" | "PRINTRD" | "PRINTRDE" | "INPUTR" | "INPUTRD"
+    )
 }
 
 impl ValueType {
@@ -6209,6 +6243,9 @@ mod tests {
             });
         let mut interface_count = 0;
         for routine in routines {
+            if is_qualified_only_sys_extension(&routine.name) {
+                continue;
+            }
             interface_count += 1;
             let symbol_id = analyzer
                 .lookup_symbol(analyzer.builtin_scope, &routine.name)

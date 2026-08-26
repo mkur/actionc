@@ -423,10 +423,9 @@ fn add_cart_sys_interface_routine_info(
             )]);
         };
         let crate::runtime_bindings::BindingTarget::Absolute(address) = binding else {
-            return Err(vec![Diagnostic::new(
-                routine.span,
-                format!("cart runtime binding for `{binding_name}` is not an address"),
-            )]);
+            // Some modern SYS extensions have no cartridge entry point. They
+            // are linked from compiler-owned source by the SemIR cart path.
+            continue;
         };
         routines
             .entry(normalize_name(&routine.name))

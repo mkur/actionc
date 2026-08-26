@@ -1,0 +1,87 @@
+; Native REAL translation of the Atari BASIC sine-surface program.
+;
+; The original used BASIC's SQR and SIN. MATH supplies pointer-oriented
+; implementations built on native REAL and the target math provider.
+; Press the Atari key with scan code 42 to stop drawing; the finished picture
+; remains on screen.
+MODULE SINE_SURFACE
+
+USE SYS
+USE MATH
+
+BYTE PlotColor=$02FD,
+     KeyCode=$02FC
+
+PROC ProjectAndPlot(REAL POINTER xx, yy, zz)
+  INT x, y
+  CARD column
+  BYTE row
+  REAL projectedX, projectedY
+
+  projectedX=xx^+zz^+160
+  projectedY=yy^-zz^+100
+  x=INT(projectedX)
+  y=INT(projectedY)
+  y=191-y
+
+  IF x>=0 AND x<=319 AND y>=0 AND y<=191 THEN
+    column=CARD(x)
+    row=BYTE(y)
+    PlotColor=1
+    SYS.Plot(column,row)
+    IF y<190 THEN
+      row==+1
+      PlotColor=2
+      SYS.Plot(column,row)
+      SYS.DrawTo(column,191)
+    FI
+  FI
+RETURN
+
+PROC Main()
+  INT zi, xi, xl
+  REAL xr, xf, yf, zt, zz, xlReal
+  REAL radiusSquared, xt, xx, yy
+  REAL fundamental, harmonic, tripleXt
+
+  SYS.Graphics(24)
+  PlotColor=1
+  KeyCode=$FF
+
+  xr=1.5*3.1415927
+  xf=xr/144
+  yf=56
+
+  zi=-100
+  WHILE zi<100 AND KeyCode#42
+  DO
+    IF zi>=-64 AND zi<=64 THEN
+      zt=zi*144.0/64
+      zz=zi
+      radiusSquared=144.0*144.0-zt*zt
+      MATH.Sqr(@radiusSquared,@xlReal)
+      xl=INT(xlReal+0.5)
+
+      xi=-xl
+      WHILE xi<=xl
+      DO
+        radiusSquared=xi*xi+zt*zt
+        MATH.Sqr(@radiusSquared,@xt)
+        xt==*xf
+        xx=xi
+
+        MATH.Sin(@xt,@fundamental)
+        tripleXt=3*xt
+        MATH.Sin(@tripleXt,@harmonic)
+        yy=(fundamental+0.4*harmonic)*yf
+        ProjectAndPlot(@xx,@yy,@zz)
+        xi==+1
+      OD
+    FI
+    zi==+1
+  OD
+
+  DO OD
+RETURN
+
+ENDMODULE
