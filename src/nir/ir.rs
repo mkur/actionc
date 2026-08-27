@@ -327,10 +327,17 @@ pub struct NirLocal {
     pub id: LocalId,
     pub name: String,
     pub kind: String,
+    pub purpose: NirLocalPurpose,
     pub storage: NirStorageClass,
     pub ty: NirType,
     pub backing: NirLocalBacking,
     pub init: Option<NirStorageInit>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NirLocalPurpose {
+    Storage,
+    RealTemporary,
 }
 
 /// Source-independent storage shape retained for NIR consumers.

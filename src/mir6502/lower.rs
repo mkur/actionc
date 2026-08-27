@@ -1,12 +1,13 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ast::machine_address_symbolic_offset;
 use crate::codegen::runtime_zp;
 use crate::nir::{
     self, BlockId, LocalId, NirBinaryOp, NirCompareOp, NirGlobalBacking, NirInlineAsm,
-    NirInlineAsmTarget, NirLocalBacking, NirMachineAtom, NirMachineByteSelector, NirMachineEffects,
-    NirMachineItem, NirOp as NirOpKind, NirPlace, NirPlaceKind, NirProgram, NirRealOp,
-    NirRealSource, NirTerminator, NirType, NirTypeKind, NirUnaryOp, NirValue as NirValueKind,
+    NirInlineAsmTarget, NirLocalBacking, NirLocalPurpose, NirMachineAtom, NirMachineByteSelector,
+    NirMachineEffects, NirMachineItem, NirMemoryAccess, NirMemoryRegionKind, NirOp as NirOpKind,
+    NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutine, NirStorageId,
+    NirStorageInit, NirTerminator, NirType, NirTypeKind, NirUnaryOp, NirValue as NirValueKind,
     TempId,
 };
 use crate::resident::resident_variable;
@@ -57,6 +58,285 @@ fn direct_real_branch_result(block: &nir::NirBlock) -> Option<TempId> {
         return None;
     }
     Some(*result)
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+struct RealLocalAccesses {
+    reads: usize,
+    writes: usize,
+    other: usize,
+}
+
+fn adjacent_fpp_result_chains(routine: &NirRoutine) -> BTreeSet<LocalId> {
+    let private_real_temps = routine
+        .locals
+        .iter()
+        .filter(|local| matches!(local.purpose, NirLocalPurpose::RealTemporary))
+        .map(|local| local.id)
+        .collect::<BTreeSet<_>>();
+    let accesses = real_local_accesses(routine);
+    let mut chained = BTreeSet::new();
+
+    for block in &routine.blocks {
+        for pair in block.ops.windows(2) {
+            let Some(local) = adjacent_fpp_result_local(&pair[0], &pair[1]) else {
+                continue;
+            };
+            if private_real_temps.contains(&local)
+                && accesses.get(&local).is_some_and(|access| {
+                    access.reads == 1 && access.writes == 1 && access.other == 0
+                })
+            {
+                chained.insert(local);
+            }
+        }
+    }
+    chained
+}
+
+fn adjacent_real_copy_forwards(routine: &NirRoutine) -> BTreeSet<LocalId> {
+    let private_real_temps = routine
+        .locals
+        .iter()
+        .filter(|local| matches!(local.purpose, NirLocalPurpose::RealTemporary))
+        .map(|local| local.id)
+        .collect::<BTreeSet<_>>();
+    let accesses = real_local_accesses(routine);
+    let mut forwarded = BTreeSet::new();
+
+    for block in &routine.blocks {
+        for pair in block.ops.windows(2) {
+            let Some(local) = adjacent_real_copy_forward_local(&pair[0], &pair[1]) else {
+                continue;
+            };
+            if private_real_temps.contains(&local)
+                && accesses.get(&local).is_some_and(|access| {
+                    access.reads == 1 && access.writes == 1 && access.other == 0
+                })
+            {
+                forwarded.insert(local);
+            }
+        }
+    }
+    forwarded
+}
+
+fn adjacent_fpp_result_local(producer: &NirOpKind, consumer: &NirOpKind) -> Option<LocalId> {
+    let NirOpKind::Real(NirRealOp::Binary { destination, .. }) = producer else {
+        return None;
+    };
+    let consumer_left = match consumer {
+        NirOpKind::Real(NirRealOp::Binary { left, .. })
+        | NirOpKind::Real(NirRealOp::Compare { left, .. }) => left,
+        _ => return None,
+    };
+    let local = direct_real_local(destination)?;
+    match consumer_left {
+        NirRealSource::Place(place) if direct_real_local(place) == Some(local) => Some(local),
+        NirRealSource::Place(_) | NirRealSource::Static { .. } => None,
+    }
+}
+
+fn adjacent_real_copy_forward_local(producer: &NirOpKind, consumer: &NirOpKind) -> Option<LocalId> {
+    let NirOpKind::Real(NirRealOp::Copy { destination, .. }) = producer else {
+        return None;
+    };
+    let local = direct_real_local(destination)?;
+    match consumer {
+        NirOpKind::Real(real) if real_op_reads_direct_local(real, local) => Some(local),
+        _ => None,
+    }
+}
+
+fn real_op_reads_direct_local(op: &NirRealOp, local: LocalId) -> bool {
+    let reads = |source: &NirRealSource| matches!(source, NirRealSource::Place(place) if direct_real_local(place) == Some(local));
+    match op {
+        NirRealOp::Copy { source, .. } => reads(source),
+        NirRealOp::Unary { operand, .. } => reads(operand),
+        NirRealOp::Binary { left, right, .. } | NirRealOp::Compare { left, right, .. } => {
+            reads(left) || reads(right)
+        }
+        NirRealOp::RealToInteger { source, .. } => direct_real_local(source) == Some(local),
+        NirRealOp::IntegerToReal { .. } => false,
+    }
+}
+
+fn direct_real_local(place: &NirPlace) -> Option<LocalId> {
+    match place.kind {
+        NirPlaceKind::Local { id, .. } => Some(id),
+        _ => None,
+    }
+}
+
+fn real_local_accesses(routine: &NirRoutine) -> BTreeMap<LocalId, RealLocalAccesses> {
+    let mut accesses = BTreeMap::<LocalId, RealLocalAccesses>::new();
+    for local in &routine.locals {
+        if let NirLocalBacking::Alias { target, .. } = local.backing {
+            accesses.entry(target).or_default().other += 1;
+        }
+        if let Some(init) = &local.init {
+            record_storage_init_local_references(init, &mut accesses);
+        }
+    }
+    for block in &routine.blocks {
+        for op in &block.ops {
+            match op {
+                NirOpKind::Load { place, .. }
+                | NirOpKind::VolatileLoad { place, .. }
+                | NirOpKind::AddrOf { place, .. }
+                | NirOpKind::Store { place, .. }
+                | NirOpKind::VolatileStore { place, .. } => {
+                    record_other_real_local(place, &mut accesses);
+                }
+                NirOpKind::Real(real) => record_real_local_accesses(real, &mut accesses),
+                NirOpKind::Call { effects, .. } => {
+                    record_effect_local_references(&effects.memory, &mut accesses);
+                }
+                NirOpKind::MachineBlock { items, effects } => {
+                    for item in items {
+                        if let NirMachineItem::Relocation { target, .. } = item {
+                            record_inline_target_local(*target, &mut accesses);
+                        }
+                    }
+                    record_effect_local_references(&effects.memory, &mut accesses);
+                }
+                NirOpKind::InlineAsm { code, effects } => {
+                    for relocation in &code.relocations {
+                        record_inline_target_local(relocation.target, &mut accesses);
+                    }
+                    record_effect_local_references(&effects.memory, &mut accesses);
+                }
+                NirOpKind::RuntimeHelperOverride { .. }
+                | NirOpKind::Unary { .. }
+                | NirOpKind::Cast { .. }
+                | NirOpKind::Binary { .. }
+                | NirOpKind::Compare { .. }
+                | NirOpKind::Unsupported { .. } => {}
+            }
+        }
+    }
+    accesses
+}
+
+fn record_real_local_accesses(op: &NirRealOp, accesses: &mut BTreeMap<LocalId, RealLocalAccesses>) {
+    match op {
+        NirRealOp::Copy {
+            destination,
+            source,
+        } => {
+            record_real_local_write(destination, accesses);
+            record_real_local_read(source, accesses);
+        }
+        NirRealOp::Unary {
+            destination,
+            operand,
+            ..
+        } => {
+            record_real_local_write(destination, accesses);
+            record_real_local_read(operand, accesses);
+        }
+        NirRealOp::Binary {
+            destination,
+            left,
+            right,
+            ..
+        } => {
+            record_real_local_write(destination, accesses);
+            record_real_local_read(left, accesses);
+            record_real_local_read(right, accesses);
+        }
+        NirRealOp::Compare { left, right, .. } => {
+            record_real_local_read(left, accesses);
+            record_real_local_read(right, accesses);
+        }
+        NirRealOp::IntegerToReal { destination, .. } => {
+            record_real_local_write(destination, accesses);
+        }
+        NirRealOp::RealToInteger { source, .. } => {
+            if let Some(id) = root_real_local(source) {
+                accesses.entry(id).or_default().reads += 1;
+            }
+        }
+    }
+}
+
+fn record_real_local_read(
+    source: &NirRealSource,
+    accesses: &mut BTreeMap<LocalId, RealLocalAccesses>,
+) {
+    if let NirRealSource::Place(place) = source
+        && let Some(id) = root_real_local(place)
+    {
+        accesses.entry(id).or_default().reads += 1;
+    }
+}
+
+fn record_real_local_write(place: &NirPlace, accesses: &mut BTreeMap<LocalId, RealLocalAccesses>) {
+    if let Some(id) = root_real_local(place) {
+        accesses.entry(id).or_default().writes += 1;
+    }
+}
+
+fn record_other_real_local(place: &NirPlace, accesses: &mut BTreeMap<LocalId, RealLocalAccesses>) {
+    if let Some(id) = root_real_local(place) {
+        accesses.entry(id).or_default().other += 1;
+    }
+}
+
+fn root_real_local(place: &NirPlace) -> Option<LocalId> {
+    match &place.kind {
+        NirPlaceKind::Local { id, .. } => Some(*id),
+        NirPlaceKind::Field { base, .. } => root_real_local(base),
+        NirPlaceKind::Param { .. }
+        | NirPlaceKind::Global { .. }
+        | NirPlaceKind::Absolute(_)
+        | NirPlaceKind::Deref { .. }
+        | NirPlaceKind::Index { .. } => None,
+    }
+}
+
+fn record_effect_local_references(
+    effects: &nir::NirMemoryEffects,
+    accesses: &mut BTreeMap<LocalId, RealLocalAccesses>,
+) {
+    for access in [&effects.reads, &effects.writes] {
+        let NirMemoryAccess::Regions(regions) = access else {
+            continue;
+        };
+        for region in regions {
+            if let NirMemoryRegionKind::Storage(NirStorageId::Local(id)) = region.kind {
+                accesses.entry(id).or_default().other += 1;
+            }
+        }
+    }
+}
+
+fn record_inline_target_local(
+    target: NirInlineAsmTarget,
+    accesses: &mut BTreeMap<LocalId, RealLocalAccesses>,
+) {
+    if let NirInlineAsmTarget::Storage(NirStorageId::Local(id)) = target {
+        accesses.entry(id).or_default().other += 1;
+    }
+}
+
+fn record_storage_init_local_references(
+    init: &NirStorageInit,
+    accesses: &mut BTreeMap<LocalId, RealLocalAccesses>,
+) {
+    let image = match init {
+        NirStorageInit::Bytes { image, .. } => Some(image),
+        NirStorageInit::Descriptor { backing, .. } => Some(&backing.image),
+        NirStorageInit::ZeroFill { .. } => None,
+    };
+    let Some(image) = image else {
+        return;
+    };
+    for relocation in &image.relocations {
+        if let nir::NirDataRelocationTarget::Storage(NirStorageId::Local(id)) = relocation.target {
+            accesses.entry(id).or_default().other += 1;
+        }
+    }
 }
 
 pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>> {
@@ -154,8 +434,10 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                     .max()
                     .map_or(0, |id| id.saturating_add(1));
                 let mut generated_locals = Vec::new();
+                let fpp_result_chains = adjacent_fpp_result_chains(routine);
+                let real_copy_forwards = adjacent_real_copy_forwards(routine);
 
-                let blocks: Vec<MirBlock> = routine
+                let mut blocks: Vec<MirBlock> = routine
                     .blocks
                     .iter()
                     .enumerate()
@@ -248,6 +530,22 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                         }
                     })
                     .collect();
+                let mut elided_real_locals =
+                    eliminate_adjacent_fpp_result_round_trips(&mut blocks, &fpp_result_chains);
+                elided_real_locals.extend(forward_adjacent_real_temp_copies(
+                    &mut blocks,
+                    &real_copy_forwards,
+                ));
+                let retained_source_local_count = routine
+                    .locals
+                    .iter()
+                    .filter(|local| {
+                        matches!(
+                            local.backing,
+                            NirLocalBacking::Ordinary | NirLocalBacking::Alias { .. }
+                        ) && !elided_real_locals.contains(&local.id)
+                    })
+                    .count();
 
                 MirRoutine {
                 id: RoutineId(routine_index as u32),
@@ -296,7 +594,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                             matches!(
                                 local.backing,
                                 NirLocalBacking::Ordinary | NirLocalBacking::Alias { .. }
-                            )
+                            ) && !elided_real_locals.contains(&local.id)
                         })
                         .enumerate()
                         .map(|(index, local)| {
@@ -344,17 +642,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                         .chain(generated_locals.into_iter().enumerate().map(
                             |(generated_index, (id, name))| MirStorageSlot {
                                 id: MirStorageId(
-                                    routine
-                                        .locals
-                                        .iter()
-                                        .filter(|local| {
-                                            matches!(
-                                                local.backing,
-                                                NirLocalBacking::Ordinary
-                                                    | NirLocalBacking::Alias { .. }
-                                            )
-                                        })
-                                        .count() as u32
+                                    retained_source_local_count as u32
                                         + generated_index as u32,
                                 ),
                                 name: Some(name),
@@ -1314,6 +1602,150 @@ const ATARI_FPP_FR0: MirFixedZpSlot = MirFixedZpSlot(0xD4);
 const ATARI_FPP_FR1: MirFixedZpSlot = MirFixedZpSlot(0xE0);
 const ATARI_REAL_BYTES: u16 = 6;
 
+fn eliminate_adjacent_fpp_result_round_trips(
+    blocks: &mut [MirBlock],
+    candidates: &BTreeSet<LocalId>,
+) -> BTreeSet<LocalId> {
+    let mut eliminated = BTreeSet::new();
+    for block in blocks {
+        let mut index = 0;
+        while index + 1 < block.ops.len() {
+            let Some(local) =
+                adjacent_fpp_result_round_trip(&block.ops[index], &block.ops[index + 1])
+            else {
+                index += 1;
+                continue;
+            };
+            if !candidates.contains(&local) {
+                index += 1;
+                continue;
+            }
+            block.ops.drain(index..index + 2);
+            eliminated.insert(local);
+        }
+    }
+    eliminated
+}
+
+fn adjacent_fpp_result_round_trip(first: &MirOp, second: &MirOp) -> Option<LocalId> {
+    let MirOp::PackedRealCopy {
+        source: MirAddr::Direct(MirMem::FixedZeroPage(first_source)),
+        destination:
+            MirAddr::Direct(MirMem::Local {
+                id: local,
+                offset: first_local_offset,
+            }),
+        source_offset: first_source_offset,
+        destination_offset: first_destination_offset,
+        negate: first_negate,
+    } = first
+    else {
+        return None;
+    };
+    let MirOp::PackedRealCopy {
+        source:
+            MirAddr::Direct(MirMem::Local {
+                id: second_local,
+                offset: second_local_offset,
+            }),
+        destination: MirAddr::Direct(MirMem::FixedZeroPage(second_destination)),
+        source_offset: second_source_offset,
+        destination_offset: second_destination_offset,
+        negate: second_negate,
+    } = second
+    else {
+        return None;
+    };
+    (*first_source == ATARI_FPP_FR0
+        && *second_destination == ATARI_FPP_FR0
+        && local == second_local
+        && *first_local_offset == 0
+        && *second_local_offset == 0
+        && *first_source_offset == 0
+        && *first_destination_offset == 0
+        && *second_source_offset == 0
+        && *second_destination_offset == 0
+        && !*first_negate
+        && !*second_negate)
+        .then_some(*local)
+}
+
+fn forward_adjacent_real_temp_copies(
+    blocks: &mut [MirBlock],
+    candidates: &BTreeSet<LocalId>,
+) -> BTreeSet<LocalId> {
+    let mut eliminated = BTreeSet::new();
+    for block in blocks {
+        let mut index = 0;
+        while index + 1 < block.ops.len() {
+            let Some((local, replacement)) =
+                adjacent_real_temp_copy_forward(&block.ops[index], &block.ops[index + 1])
+            else {
+                index += 1;
+                continue;
+            };
+            if !candidates.contains(&local) {
+                index += 1;
+                continue;
+            }
+            block.ops.splice(index..index + 2, [replacement]);
+            eliminated.insert(local);
+            index += 1;
+        }
+    }
+    eliminated
+}
+
+fn adjacent_real_temp_copy_forward(first: &MirOp, second: &MirOp) -> Option<(LocalId, MirOp)> {
+    let MirOp::PackedRealCopy {
+        source,
+        destination:
+            MirAddr::Direct(MirMem::Local {
+                id: local,
+                offset: first_local_offset,
+            }),
+        source_offset,
+        destination_offset: first_destination_offset,
+        negate: first_negate,
+    } = first
+    else {
+        return None;
+    };
+    let MirOp::PackedRealCopy {
+        source:
+            MirAddr::Direct(MirMem::Local {
+                id: second_local,
+                offset: second_local_offset,
+            }),
+        destination,
+        source_offset: second_source_offset,
+        destination_offset,
+        negate,
+    } = second
+    else {
+        return None;
+    };
+    if local != second_local
+        || *first_local_offset != 0
+        || *second_local_offset != 0
+        || *first_destination_offset != 0
+        || *second_source_offset != 0
+        || *first_negate
+    {
+        return None;
+    }
+    Some((
+        *local,
+        MirOp::PackedRealCopy {
+            source: source.clone(),
+            destination: destination.clone(),
+            source_offset: *source_offset,
+            destination_offset: *destination_offset,
+            negate: *negate,
+        },
+    ))
+}
+
 fn lower_real_op(
     routine: &str,
     block: &str,
@@ -2069,15 +2501,9 @@ fn push_real_to_integer(
         generated_temps,
         lowered,
     );
-    let magnitude_source = generated_temp(next_generated_temp, generated_temps);
-    lowered.push(MirOp::Load {
-        dst: MirDef::VTemp(magnitude_source),
-        src: offset_addr(source, 0),
-        width: MirWidth::Byte,
-    });
     let magnitude_exponent = push_generated_binary(
         MirBinaryOp::And,
-        temp_value(magnitude_source),
+        temp_value(exponent),
         MirValue::ConstU8(0x7F),
         MirWidth::Byte,
         next_generated_temp,
@@ -3184,6 +3610,7 @@ mod tests {
                     id: LocalId(0),
                     name: "value".to_string(),
                     kind: "REAL".to_string(),
+                    purpose: nir::NirLocalPurpose::Storage,
                     storage: nir::NirStorageClass::Scalar,
                     ty: NirType {
                         kind: NirTypeKind::Real,

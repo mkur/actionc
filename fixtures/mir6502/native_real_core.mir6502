@@ -19,8 +19,6 @@ b0 bb0:
   packed_real_copy fixed_zp $D4+0, local l1+0+0
   packed_real_copy fixed_zp $E0+0, local l2+0+0
   call atari-fpp.FMULT@$DADB args=[] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=0,reads=all,writes=all,clobbers=a|x|y|flags
-  packed_real_copy local l0+0+0, fixed_zp $D4+0
-  packed_real_copy fixed_zp $D4+0, local l0+0+0
   packed_real_copy fixed_zp $E0+0, static s1+0+0
   call atari-fpp.FADD@$DA66 args=[] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=0,reads=all,writes=all,clobbers=a|x|y|flags
   packed_real_copy global g2+0+0, fixed_zp $D4+0

@@ -274,6 +274,7 @@ impl NirLowerer {
                                 id: LocalId(index as u32),
                                 name: semantic_local_display_name(&local.symbol),
                                 kind: declaration_kind(local),
+                                purpose: NirLocalPurpose::Storage,
                                 storage: declaration_storage_class(&local.storage),
                                 ty: NirFacts::type_from_value(&local.ty.value),
                                 init: declaration_local_init(
@@ -1547,6 +1548,7 @@ impl NirBuilder {
             id,
             name: name.clone(),
             kind: "hidden REAL evaluation".to_string(),
+            purpose: NirLocalPurpose::RealTemporary,
             storage: NirStorageClass::Scalar,
             ty: ty.clone(),
             backing: NirLocalBacking::Ordinary,
@@ -4395,6 +4397,7 @@ mod memory_effect_tests {
             id: LocalId(3),
             name: "x".to_string(),
             kind: "Byte".to_string(),
+            purpose: NirLocalPurpose::Storage,
             storage: NirStorageClass::Scalar,
             ty: NirType {
                 kind: NirTypeKind::U8,

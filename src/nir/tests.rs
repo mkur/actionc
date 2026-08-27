@@ -425,9 +425,8 @@ fn display_name_leaf(name: &str) -> &str {
 
 #[test]
 fn program_entry_note_tracks_the_last_proc_instead_of_main_or_a_function() {
-    let program = lower_modern_source(
-        "PROC Main() RETURN PROC Start() RETURN BYTE FUNC Helper() RETURN(0)",
-    );
+    let program =
+        lower_modern_source("PROC Main() RETURN PROC Start() RETURN BYTE FUNC Helper() RETURN(0)");
     verify_program(&program).expect("program-entry NIR should verify");
 
     let entries = program
@@ -453,9 +452,11 @@ fn verifier_rejects_more_than_one_program_entry() {
     });
 
     let diagnostics = verify_program(&program).expect_err("duplicate entry must fail");
-    assert!(diagnostics.iter().any(|diagnostic| diagnostic
-        .message
-        .contains("more than one program-entry routine")));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("more than one program-entry routine")
+    }));
 }
 
 #[test]
@@ -722,6 +723,7 @@ fn formats_labeled_blocks() {
                 id: LocalId(0),
                 name: "i".to_string(),
                 kind: "Byte".to_string(),
+                purpose: NirLocalPurpose::Storage,
                 storage: NirStorageClass::Scalar,
                 ty: byte_type(),
                 backing: NirLocalBacking::Ordinary,
@@ -974,6 +976,24 @@ fn verifier_rejects_malformed_direct_real_operand_static_data() {
         diagnostic
             .message
             .contains("does not name six-byte REAL static data")
+    }));
+}
+
+#[test]
+fn verifier_rejects_malformed_real_temporary_purpose() {
+    let mut program = lower_modern_source("REAL value PROC Main() value=value+1.25 RETURN");
+    let temporary = program.routines[0]
+        .locals
+        .iter_mut()
+        .find(|local| matches!(local.purpose, NirLocalPurpose::RealTemporary))
+        .expect("REAL evaluation temporary");
+    temporary.storage = NirStorageClass::Array;
+
+    let diagnostics = verify_program(&program).expect_err("malformed REAL temporary must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("must be ordinary, uninitialized, scalar six-byte REAL storage")
     }));
 }
 
@@ -1964,6 +1984,7 @@ fn verifier_rejects_executable_error_type() {
                 id: LocalId(0),
                 name: "bad".to_string(),
                 kind: "error".to_string(),
+                purpose: NirLocalPurpose::Storage,
                 storage: NirStorageClass::Scalar,
                 ty: error.clone(),
                 backing: NirLocalBacking::Ordinary,
@@ -3560,6 +3581,7 @@ fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
                 id: LocalId(0),
                 name: "x".to_string(),
                 kind: "Byte".to_string(),
+                purpose: NirLocalPurpose::Storage,
                 storage: NirStorageClass::Scalar,
                 ty: byte_type(),
                 backing: NirLocalBacking::Ordinary,
@@ -3606,6 +3628,7 @@ fn byte_local() -> NirLocal {
         id: LocalId(0),
         name: "storage".to_string(),
         kind: "Byte".to_string(),
+        purpose: NirLocalPurpose::Storage,
         storage: NirStorageClass::Scalar,
         ty: byte_type(),
         backing: NirLocalBacking::Absolute(0xD000),

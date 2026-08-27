@@ -455,6 +455,12 @@ pub enum NirRealSource {
 }
 ```
 
+Compiler-created six-byte evaluation locals carry
+`NirLocalPurpose::RealTemporary`. Ordinary addressable locals carry
+`NirLocalPurpose::Storage`. This structured purpose is the only fact target
+lowering may use to distinguish private REAL staging storage; printable names
+and declaration-kind strings never affect executable lowering.
+
 The lowerer materializes mutable or computed expression children left-to-right
 into compiler-owned six-byte locals. Literal operands flow directly into unary,
 binary, and comparison operations as immutable six-byte `rodata` sources, so
@@ -467,6 +473,8 @@ The verifier guarantees:
 
 - every real place operand and destination is typed six-byte `Real` storage;
 - every real static operand names immutable six-byte `rodata`;
+- every `RealTemporary` local is ordinary, uninitialized, scalar six-byte
+  `Real` storage;
 - routine temps and block parameters never carry `Real`;
 - scalar operations, scalar calls, and scalar returns never carry `Real`;
 - real comparisons alone define an ordinary canonical Boolean temp;

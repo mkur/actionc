@@ -257,6 +257,21 @@ impl NirVerifier {
                     format!("local `{}` kind must not be empty", local.name),
                 ));
             }
+            if matches!(local.purpose, NirLocalPurpose::RealTemporary)
+                && (!matches!(local.ty.kind, NirTypeKind::Real)
+                    || local.ty.width != Some(6)
+                    || !matches!(local.storage, NirStorageClass::Scalar)
+                    || !matches!(local.backing, NirLocalBacking::Ordinary)
+                    || local.init.is_some())
+            {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "REAL temporary local `{}` must be ordinary, uninitialized, scalar six-byte REAL storage",
+                        local.name
+                    ),
+                ));
+            }
             self.type_shape_static(&local.ty, &format!("local `{}`", local.name));
         }
         for local in &routine.locals {

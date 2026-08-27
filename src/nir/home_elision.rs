@@ -394,6 +394,7 @@ mod tests {
                     id: LocalId(0),
                     name: "value".to_string(),
                     kind: "Byte".to_string(),
+                    purpose: NirLocalPurpose::Storage,
                     storage: NirStorageClass::Scalar,
                     ty: byte_type(),
                     backing: NirLocalBacking::Ordinary,
