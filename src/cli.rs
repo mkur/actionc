@@ -63,6 +63,7 @@ fn run_main(flavor: CliFlavor) {
     let mut emit_source_listing = false;
     let mut emit_load = false;
     let mut emit_map = false;
+    let mut emit_link_plan = false;
     let mut emit_proofs = false;
     let mut emit_proof_attempts = false;
     let mut emit_semir = false;
@@ -95,6 +96,7 @@ fn run_main(flavor: CliFlavor) {
             "--emit-source-listing" | "--emit-listing-source" => emit_source_listing = true,
             "--emit-load" => emit_load = true,
             "--emit-map" => emit_map = true,
+            "--emit-link-plan" => emit_link_plan = true,
             "--emit-proofs" => emit_proofs = true,
             "--emit-proof-attempts" | "--emit-proof-debug" => emit_proof_attempts = true,
             "--emit-semir" => emit_semir = true,
@@ -270,6 +272,7 @@ fn run_main(flavor: CliFlavor) {
                 emit_source_listing,
                 emit_load,
                 emit_map,
+                emit_link_plan,
                 emit_proofs,
                 emit_proof_attempts,
                 emit_semir,
@@ -306,6 +309,7 @@ fn run_main(flavor: CliFlavor) {
         emit_source_listing,
         emit_load,
         emit_map,
+        emit_link_plan,
         emit_proofs,
         emit_proof_attempts,
         emit_semir,
@@ -381,7 +385,7 @@ fn run_main(flavor: CliFlavor) {
         &input_path,
         &ModuleLoadOptions {
             project_root: None,
-            module_paths,
+            module_paths: module_paths.clone(),
         },
     ) {
         Ok(loaded) => loaded,
@@ -420,28 +424,75 @@ fn run_main(flavor: CliFlavor) {
             process::exit(1);
         }
     };
-    let semir = ir::lower_compilation(&loaded, &model);
+    let full_semir = ir::lower_compilation(&loaded, &model);
     let link_policy = if profile == CodegenProfile::Modern {
         crate::linker::SemLinkPolicy::EntryReachable
     } else {
         crate::linker::SemLinkPolicy::RetainAll
     };
-    let semir = match crate::linker::select_semir(&semir, link_policy) {
-        Ok(semir) => semir,
-        Err(message) => {
-            print_diagnostics_with_source(
-                vec![crate::diagnostic::Diagnostic::new(
-                    crate::source::Span::new(0, 0),
-                    message,
-                )],
-                &loaded.source,
-                Some(&loaded.source_map),
-                diagnostic_byte_ranges,
-            );
-            process::exit(1);
-        }
-    };
+    let (semir, link_selection) =
+        match crate::linker::select_semir_with_plan(&full_semir, link_policy) {
+            Ok(selection) => selection,
+            Err(message) => {
+                print_diagnostics_with_source(
+                    vec![crate::diagnostic::Diagnostic::new(
+                        crate::source::Span::new(0, 0),
+                        message,
+                    )],
+                    &loaded.source,
+                    Some(&loaded.source_map),
+                    diagnostic_byte_ranges,
+                );
+                process::exit(1);
+            }
+        };
     let named = matches!(program.source_kind, crate::ast::SourceUnitKind::Named(_));
+
+    if emit_link_plan {
+        let request = CompileRequest {
+            profile,
+            profile_explicit,
+            backend,
+            backend_explicit,
+            runtime,
+            runtime_explicit,
+            codegen_source,
+            origin: origin_explicit.then_some(origin),
+            project_root: None,
+            module_paths: module_paths.clone(),
+        };
+        let compile = |policy| {
+            crate::compiler::compile_file_with_request_and_link_policy(
+                Path::new(&input_path),
+                &request,
+                policy,
+            )
+        };
+        let selected = match compile(None) {
+            Ok(compiled) => compiled,
+            Err(error) => {
+                print_compile_error(&error, diagnostic_byte_ranges);
+                process::exit(1);
+            }
+        };
+        let baseline = match compile(Some(crate::linker::SemLinkPolicy::RetainAll)) {
+            Ok(compiled) => compiled,
+            Err(error) => {
+                print_compile_error(&error, diagnostic_byte_ranges);
+                process::exit(1);
+            }
+        };
+        println!(
+            "{}",
+            crate::compiler::artifacts::format_link_plan(
+                &selected.output,
+                &baseline.output,
+                &full_semir,
+                &link_selection,
+            )
+        );
+        return;
+    }
 
     if runtime == Runtime::Standalone {
         let diagnostics = standalone_resident_diagnostics(&semir);
@@ -789,6 +840,7 @@ fn emit_mode_error(
     emit_source_listing: bool,
     emit_load: bool,
     emit_map: bool,
+    emit_link_plan: bool,
     emit_proofs: bool,
     emit_proof_attempts: bool,
     emit_semir: bool,
@@ -835,6 +887,9 @@ fn emit_mode_error(
     if emit_map {
         modes.push("--emit-map");
     }
+    if emit_link_plan {
+        modes.push("--emit-link-plan");
+    }
     if emit_proofs {
         modes.push("--emit-proofs");
     }
@@ -853,6 +908,7 @@ fn emit_mode_selected(
     emit_source_listing: bool,
     emit_load: bool,
     emit_map: bool,
+    emit_link_plan: bool,
     emit_proofs: bool,
     emit_proof_attempts: bool,
     emit_semir: bool,
@@ -868,6 +924,7 @@ fn emit_mode_selected(
         || emit_source_listing
         || emit_load
         || emit_map
+        || emit_link_plan
         || emit_proofs
         || emit_proof_attempts
         || emit_semir
@@ -1339,7 +1396,7 @@ fn print_compile_help() {
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--runtime cart|standalone] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nListings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move\nthe main segment. --emit-source-listing adds Action! source comments."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--runtime cart|standalone] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nListings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move\nthe main segment. --emit-source-listing adds Action! source comments."
     );
 }
 
@@ -1478,14 +1535,14 @@ mod tests {
         assert_eq!(
             emit_mode_error(
                 false, false, true, false, true, false, false, false, false, false, false, false,
-                false, false,
+                false, false, false,
             ),
             Some("multiple emit modes selected: --emit-listing, --emit-load".to_string())
         );
         assert_eq!(
             emit_mode_error(
                 false, false, false, false, true, false, false, false, false, false, false, false,
-                false, false,
+                false, false, false,
             ),
             None
         );

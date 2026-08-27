@@ -343,7 +343,11 @@ loader note.
 
 Runtime selection, dependency traversal, group ordering, layout, and map output
 must be deterministic for identical inputs. The embedded VFS digest reported
-by `actionc --version` makes the exact runtime source set observable.
+by `actionc --version` makes the exact runtime source set observable. For size audits,
+`actionc-emit --emit-link-plan` reports retained and removed emitted bytes by
+application/runtime module and reason against a retain-all baseline. Its
+`<layout/data>` row owns bytes outside routine ranges, so the module rows sum to
+the reported totals.
 
 ## Implementation Slices
 

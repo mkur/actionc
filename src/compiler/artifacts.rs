@@ -7,6 +7,200 @@ use crate::codegen::{
 };
 use crate::map_query::MapQuery;
 
+pub(crate) fn format_link_plan(
+    selected: &CodegenOutput,
+    baseline: &CodegenOutput,
+    program: &crate::semantic::ir::SemProgram,
+    selection: &crate::linker::LinkSelection<crate::linker::SemLinkNode>,
+) -> String {
+    let catalog = link_routine_catalog(program, selection);
+    let selected_names = selected
+        .map
+        .routine_ranges
+        .iter()
+        .map(|range| range.name.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut retained_ranges = BTreeMap::<String, Vec<(u16, u16)>>::new();
+    let mut removed_ranges = BTreeMap::<String, Vec<(u16, u16)>>::new();
+    let mut retained_reasons = BTreeMap::<String, BTreeSet<String>>::new();
+    for range in &selected.map.routine_ranges {
+        let (module, reason) = link_routine_module_and_reason(&range.name, &catalog);
+        retained_ranges
+            .entry(module.clone())
+            .or_default()
+            .push((range.start, range.end));
+        retained_reasons.entry(module).or_default().insert(reason);
+    }
+    for range in &baseline.map.routine_ranges {
+        if selected_names.contains(range.name.as_str()) {
+            continue;
+        }
+        let (module, _) = link_routine_module_and_reason(&range.name, &catalog);
+        removed_ranges
+            .entry(module)
+            .or_default()
+            .push((range.start, range.end));
+    }
+
+    let retained_by_module = retained_ranges
+        .iter()
+        .map(|(module, ranges)| (module.clone(), merged_range_bytes(ranges)))
+        .collect::<BTreeMap<_, _>>();
+    let removed_by_module = removed_ranges
+        .iter()
+        .map(|(module, ranges)| (module.clone(), merged_range_bytes(ranges)))
+        .collect::<BTreeMap<_, _>>();
+    let retained_routine_bytes = merged_range_bytes(
+        &selected
+            .map
+            .routine_ranges
+            .iter()
+            .map(|range| (range.start, range.end))
+            .collect::<Vec<_>>(),
+    );
+    let removed_routine_bytes = merged_range_bytes(
+        &baseline
+            .map
+            .routine_ranges
+            .iter()
+            .filter(|range| !selected_names.contains(range.name.as_str()))
+            .map(|range| (range.start, range.end))
+            .collect::<Vec<_>>(),
+    );
+    let retained_total = selected.bytes.len() as u32;
+    let baseline_total = baseline.bytes.len() as u32;
+    let removed_total = baseline_total.saturating_sub(retained_total);
+    let retained_layout = retained_total.saturating_sub(retained_routine_bytes);
+    let removed_layout = removed_total.saturating_sub(removed_routine_bytes);
+
+    let mut modules = retained_by_module
+        .keys()
+        .chain(removed_by_module.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    if retained_layout != 0 || removed_layout != 0 {
+        modules.insert("<layout/data>".to_string());
+    }
+    let mut lines = vec![format!(
+        "link-plan selected-bytes={retained_total} baseline-bytes={baseline_total}"
+    )];
+    for module in modules {
+        let (retained, removed, reasons) = if module == "<layout/data>" {
+            (
+                retained_layout,
+                removed_layout,
+                "layout-or-static-data".to_string(),
+            )
+        } else {
+            (
+                retained_by_module.get(&module).copied().unwrap_or(0),
+                removed_by_module.get(&module).copied().unwrap_or(0),
+                retained_reasons
+                    .get(&module)
+                    .filter(|reasons| !reasons.is_empty())
+                    .map(|reasons| reasons.iter().cloned().collect::<Vec<_>>().join(","))
+                    .unwrap_or_else(|| "-".to_string()),
+            )
+        };
+        let removed_reason = if removed == 0 {
+            "-"
+        } else if module.starts_with("ACTION.RUNTIME.") {
+            "unreferenced-provider"
+        } else {
+            "unreachable"
+        };
+        lines.push(format!(
+            "link-module {module} retained={retained} removed={removed} retained-reasons={reasons} removed-reason={removed_reason}"
+        ));
+    }
+    lines.push(format!(
+        "link-total retained={retained_total} removed={removed_total}"
+    ));
+    lines.join("\n")
+}
+
+fn link_routine_catalog(
+    program: &crate::semantic::ir::SemProgram,
+    selection: &crate::linker::LinkSelection<crate::linker::SemLinkNode>,
+) -> BTreeMap<String, (String, String)> {
+    let mut catalog = BTreeMap::new();
+    for module in &program.modules {
+        let module_name = module.path.as_ref().map_or_else(
+            || "<root>".to_string(),
+            crate::ast::ModulePath::display_name,
+        );
+        for item in &module.items {
+            let crate::semantic::ir::SemItem::Routine(routine) = item else {
+                continue;
+            };
+            let node = crate::linker::SemLinkNode::Routine(routine.symbol.id);
+            let reason = match selection.reasons.get(&node) {
+                Some(crate::linker::LinkRetention::Root) => "root".to_string(),
+                Some(crate::linker::LinkRetention::Dependency { reason, .. }) => {
+                    reason.token().to_string()
+                }
+                None => "unreachable".to_string(),
+            };
+            catalog.insert(routine.symbol.name.clone(), (module_name.clone(), reason));
+        }
+    }
+    catalog
+}
+
+fn link_routine_module_and_reason(
+    name: &str,
+    catalog: &BTreeMap<String, (String, String)>,
+) -> (String, String) {
+    if let Some((module, reason)) = catalog.get(name) {
+        return (module.clone(), reason.clone());
+    }
+    let normalized = name.to_ascii_uppercase();
+    if normalized.starts_with("ACTION.RUNTIME.RESIDENT::")
+        || normalized.starts_with("M_ACTION_RUNTIME_RESIDENT_")
+    {
+        return (
+            "ACTION.RUNTIME.RESIDENT".to_string(),
+            "runtime-binding-closure".to_string(),
+        );
+    }
+    if normalized.starts_with("ACTION.RUNTIME.SYSLIB::")
+        || normalized.starts_with("M_ACTION_RUNTIME_SYSLIB_")
+    {
+        return (
+            "ACTION.RUNTIME.SYSLIB".to_string(),
+            "runtime-helper-dependency".to_string(),
+        );
+    }
+    ("<generated>".to_string(), "backend-required".to_string())
+}
+
+fn merged_range_bytes(ranges: &[(u16, u16)]) -> u32 {
+    let mut ranges = ranges
+        .iter()
+        .copied()
+        .filter(|(start, end)| start < end)
+        .collect::<Vec<_>>();
+    ranges.sort_unstable();
+    let mut total = 0u32;
+    let mut current = None::<(u16, u16)>;
+    for (start, end) in ranges {
+        match current {
+            Some((current_start, current_end)) if start <= current_end => {
+                current = Some((current_start, current_end.max(end)));
+            }
+            Some((current_start, current_end)) => {
+                total += u32::from(current_end - current_start);
+                current = Some((start, end));
+            }
+            None => current = Some((start, end)),
+        }
+    }
+    if let Some((start, end)) = current {
+        total += u32::from(end - start);
+    }
+    total
+}
+
 pub(crate) fn format_listing_with_source(output: &CodegenOutput, source_text: &str) -> String {
     format_mads_listing(output, Some(source_text))
 }

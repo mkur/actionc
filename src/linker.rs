@@ -295,6 +295,13 @@ pub(crate) fn select_semir(
     program: &SemProgram,
     policy: SemLinkPolicy,
 ) -> Result<SemProgram, String> {
+    select_semir_with_plan(program, policy).map(|(program, _)| program)
+}
+
+pub(crate) fn select_semir_with_plan(
+    program: &SemProgram,
+    policy: SemLinkPolicy,
+) -> Result<(SemProgram, LinkSelection<SemLinkNode>), String> {
     let graph = semir_link_graph(program);
     let roots = match policy {
         SemLinkPolicy::RetainAll => graph.nodes().iter().copied().collect::<BTreeSet<_>>(),
@@ -370,7 +377,7 @@ pub(crate) fn select_semir(
     if !retained_entry {
         return Err("SemIR link selection removed the program entry".to_string());
     }
-    Ok(selected)
+    Ok((selected, selection))
 }
 
 struct SemGraphBuilder {

@@ -224,6 +224,14 @@ pub(crate) fn compile_file_with_request(
     path: &Path,
     request: &CompileRequest,
 ) -> Result<CompiledProgram, CompileError> {
+    compile_file_with_request_and_link_policy(path, request, None)
+}
+
+pub(crate) fn compile_file_with_request_and_link_policy(
+    path: &Path,
+    request: &CompileRequest,
+    link_policy: Option<crate::linker::SemLinkPolicy>,
+) -> Result<CompiledProgram, CompileError> {
     let module_options = ModuleLoadOptions {
         project_root: request.project_root.clone(),
         module_paths: request.module_paths.clone(),
@@ -259,11 +267,13 @@ pub(crate) fn compile_file_with_request(
             )
         })?;
     let semir = ir::lower_compilation(&loaded, &model);
-    let link_policy = if request.profile == CodegenProfile::Modern {
-        crate::linker::SemLinkPolicy::EntryReachable
-    } else {
-        crate::linker::SemLinkPolicy::RetainAll
-    };
+    let link_policy = link_policy.unwrap_or_else(|| {
+        if request.profile == CodegenProfile::Modern {
+            crate::linker::SemLinkPolicy::EntryReachable
+        } else {
+            crate::linker::SemLinkPolicy::RetainAll
+        }
+    });
     let semir = crate::linker::select_semir(&semir, link_policy).map_err(|message| {
         CompileError::from_source_diagnostics(
             CompilerPhase::Semantic,

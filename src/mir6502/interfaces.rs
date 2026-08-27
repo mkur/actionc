@@ -648,49 +648,38 @@ mod tests {
     #[test]
     fn embedded_binding_unit_compiles_without_unit_specific_resolver_code() {
         let unit = resolve_runtime_unit("SYSBLK").expect("SYSBLK unit");
-        let runtime =
-            super::super::standalone::compile_runtime_unit(&unit.file_name, &unit.module_name)
-                .expect("compile SYSBLK");
-        for expected in ["Zero", "SetBlock", "MoveBlock"] {
-            find_runtime_routine(&runtime, &unit.link_module, expected)
-                .unwrap_or_else(|diagnostics| panic!("{expected}: {diagnostics:?}"));
-        }
-        let zero =
-            find_runtime_routine(&runtime, &unit.link_module, "Zero").expect("Zero implementation");
-        let set_block = find_runtime_routine(&runtime, &unit.link_module, "SetBlock")
-            .expect("SetBlock implementation");
-        let closure =
-            super::super::standalone::dependency_closure(&runtime, [zero].into_iter().collect())
-                .expect("Zero dependency closure");
-        assert_eq!(closure, [zero, set_block].into_iter().collect());
+        let selected = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
+            unit,
+            BTreeSet::from(["Zero".to_string()]),
+        )]))
+        .expect("select SYSBLK Zero");
+        assert_eq!(
+            selected.selection.routines,
+            BTreeSet::from(["SETBLOCK".to_string(), "ZERO".to_string()])
+        );
     }
 
     #[test]
     fn a_second_embedded_binding_unit_uses_the_same_resolver_path() {
         let unit = resolve_runtime_unit("SYSSTR").expect("SYSSTR unit");
-        let runtime =
-            super::super::standalone::compile_runtime_unit(&unit.file_name, &unit.module_name)
-                .expect("compile SYSSTR");
-        for expected in ["SCompare", "SCopy", "SCopyS", "SAssign"] {
-            find_runtime_routine(&runtime, &unit.link_module, expected)
-                .unwrap_or_else(|diagnostics| panic!("{expected}: {diagnostics:?}"));
-        }
-        let scompare = find_runtime_routine(&runtime, &unit.link_module, "SCompare")
-            .expect("SCompare implementation");
-        let scompare_closure = super::super::standalone::dependency_closure(
-            &runtime,
-            [scompare].into_iter().collect(),
-        )
-        .expect("SCompare dependency closure");
-        assert_eq!(scompare_closure, [scompare].into_iter().collect());
+        let scompare = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
+            unit.clone(),
+            BTreeSet::from(["SCompare".to_string()]),
+        )]))
+        .expect("select SCompare");
+        assert_eq!(
+            scompare.selection.routines,
+            BTreeSet::from(["SCOMPARE".to_string()])
+        );
 
-        let scopy = find_runtime_routine(&runtime, &unit.link_module, "SCopy")
-            .expect("SCopy implementation");
-        let scopys = find_runtime_routine(&runtime, &unit.link_module, "SCopyS")
-            .expect("SCopyS implementation");
-        let scopys_closure =
-            super::super::standalone::dependency_closure(&runtime, [scopys].into_iter().collect())
-                .expect("SCopyS dependency closure");
-        assert_eq!(scopys_closure, [scopy, scopys].into_iter().collect());
+        let scopys = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
+            unit,
+            BTreeSet::from(["SCopyS".to_string()]),
+        )]))
+        .expect("select SCopyS");
+        assert_eq!(
+            scopys.selection.routines,
+            BTreeSet::from(["SCOPY".to_string(), "SCOPYS".to_string()])
+        );
     }
 }

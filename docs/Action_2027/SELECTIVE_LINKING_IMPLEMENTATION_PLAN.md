@@ -4,7 +4,7 @@
 
 This note defines the migration from backend-specific runtime selection and
 whole-module application emission to one common selective linker. Slices 1
-through 5 are implemented: the Action! program entry and root module are
+through 6 are implemented: the Action! program entry and root module are
 explicit SemIR identities, application/user-module dependencies use the common
 graph, optimized classic and MIR6502 receive the same selected SemIR, and
 resident SYS and compiler-helper selection filter common provider SemIR using
@@ -276,6 +276,39 @@ manifest generator and test oracle.
 - Rebuild `sine-surface.xex` in optimized classic and MIR6502 modes.
 - Audit the remaining size difference after module selection.
 - Remove migration-only adapters and name-based selection paths.
+
+`actionc-emit --emit-link-plan` now performs an explicit retained build and a
+`RetainAll` baseline build, then reports exact emitted payload bytes by module
+and deterministic retention/removal reasons. The extra baseline compilation is
+paid only when this diagnostic mode is requested. Routine ranges are attributed
+to their SemIR or runtime provider module; non-routine initialization, layout,
+and static bytes use the explicit `<layout/data>` bucket, so every report sums
+exactly to `link-total`.
+
+The optimized standalone sine-surface rebuild produced:
+
+| Module | Classic retained | MIR6502 retained | Classic minus MIR6502 |
+|---|---:|---:|---:|
+| `<layout/data>` | 120 | 635 | -515 |
+| `ACTION.RUNTIME.RESIDENT` | 320 | 320 | 0 |
+| `ACTION.RUNTIME.SYSLIB` | 229 | 225 | 4 |
+| `ATARI.REAL` | 5,049 | 2,599 | 2,450 |
+| `MATH` | 54 | 46 | 8 |
+| `SINE_SURFACE` | 3,390 | 2,202 | 1,188 |
+| **Emitted payload** | **9,162** | **6,027** | **3,135** |
+| **XEX file** | **9,174** | **6,039** | **3,135** |
+
+Both builds select the same 320-byte resident SYS closure and nearly identical
+SYSLIB code. The remaining gap is therefore code generation, led by 2,450 bytes
+in `ATARI.REAL` and 1,188 bytes in the application; MIR6502's 515-byte larger
+layout/data bucket partially offsets those savings. Selective linking removed
+7,705 classic payload bytes and 4,369 MIR6502 payload bytes relative to each
+backend's own retain-all baseline.
+
+The migration-only resident SemIR-to-name test adapter and classic-to-MIR
+helper selection path have been removed. The MIR dependency decoder remains
+only for deterministic manifest generation and parity tests, never production
+linking.
 
 ## Required Coverage
 

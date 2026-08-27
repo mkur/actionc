@@ -16,16 +16,7 @@ use crate::nir::SymbolId;
 use crate::runtime_link_manifest::embedded_sys_link_manifest;
 use crate::runtime_link_manifest::{RuntimeLinkManifest, RuntimeLinkNode};
 #[cfg(test)]
-use crate::runtime_source::RuntimeUnit;
-
-#[cfg(test)]
 static SYSLIB_MIR: OnceLock<Result<MirProgram, Vec<MirDiagnostic>>> = OnceLock::new();
-
-#[cfg(test)]
-pub(crate) struct ResidentSelection {
-    pub(crate) routine_names: BTreeSet<String>,
-    pub(crate) global_names: BTreeSet<String>,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum MirLinkNode {
@@ -106,62 +97,6 @@ pub(super) fn bind_runtime_selection(
             .map(|static_data| static_data.id)
             .collect(),
     })
-}
-
-#[cfg(test)]
-pub(crate) fn select_resident_image(
-    roots_by_unit: &BTreeMap<RuntimeUnit, BTreeSet<String>>,
-) -> Result<ResidentSelection, Vec<MirDiagnostic>> {
-    let selected = crate::runtime_source::select_runtime_image(roots_by_unit)
-        .map_err(|diagnostics| frontend_diagnostics("sysall.act", diagnostics))?;
-    let image = selected.image;
-    Ok(ResidentSelection {
-        routine_names: image
-            .semir
-            .modules
-            .iter()
-            .flat_map(|module| &module.items)
-            .filter_map(|item| match item {
-                crate::semantic::ir::SemItem::Routine(routine)
-                    if routine.system_address.as_ref().is_none_or(|address| {
-                        matches!(
-                            address.kind,
-                            crate::semantic::ir::SemExprKind::CurrentLocation
-                        )
-                    }) =>
-                {
-                    Some(source_runtime_name(&routine.symbol.qualified_name).to_string())
-                }
-                _ => None,
-            })
-            .collect(),
-        global_names: image
-            .semir
-            .modules
-            .iter()
-            .flat_map(|module| &module.items)
-            .filter_map(|item| match item {
-                crate::semantic::ir::SemItem::Declaration(declaration)
-                    if matches!(
-                        declaration.storage,
-                        crate::semantic::ir::SemDeclarationStorage::Scalar
-                            | crate::semantic::ir::SemDeclarationStorage::Array { .. }
-                    ) =>
-                {
-                    Some(source_runtime_name(&declaration.symbol.qualified_name).to_string())
-                }
-                _ => None,
-            })
-            .collect(),
-    })
-}
-
-#[cfg(test)]
-fn source_runtime_name(qualified_name: &str) -> &str {
-    qualified_name
-        .rsplit(['.', ':'])
-        .find(|part| !part.is_empty())
-        .unwrap_or(qualified_name)
 }
 
 #[cfg(test)]
@@ -2090,14 +2025,14 @@ mod tests {
     fn production_resident_selection_never_discovers_the_sys_graph() {
         RUNTIME_GRAPH_DISCOVERIES.with(|count| count.set(0));
         let unit = crate::runtime_source::resolve_runtime_unit("SYSBLK").expect("SYSBLK unit");
-        let selection = select_resident_image(&BTreeMap::from([(
+        let selection = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
             unit,
             BTreeSet::from(["Zero".to_string()]),
         )]))
         .expect("select embedded Zero graph");
 
-        assert!(selection.routine_names.contains("Zero"));
-        assert!(selection.routine_names.contains("SetBlock"));
+        assert!(selection.selection.routines.contains("ZERO"));
+        assert!(selection.selection.routines.contains("SETBLOCK"));
         assert_eq!(runtime_graph_discoveries(), 0);
     }
 
@@ -2268,7 +2203,7 @@ mod tests {
     #[test]
     fn resident_selection_closes_over_aliases_and_backward_branch_targets() {
         let unit = crate::runtime_source::resolve_runtime_unit("SYSIO").expect("SYSIO unit");
-        let input = select_resident_image(&BTreeMap::from([(
+        let input = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
             unit.clone(),
             BTreeSet::from(["InputB".to_string()]),
         )]))
@@ -2279,33 +2214,30 @@ mod tests {
         ] {
             assert!(
                 input
-                    .routine_names
-                    .iter()
-                    .any(|name| name.eq_ignore_ascii_case(expected)),
+                    .selection
+                    .routines
+                    .contains(&expected.to_ascii_uppercase()),
                 "missing {expected}: {:?}",
-                input.routine_names
+                input.selection.routines
             );
         }
 
-        let put_de = select_resident_image(&BTreeMap::from([(
+        let put_de = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
             unit,
             BTreeSet::from(["PutDE".to_string()]),
         )]))
         .expect("select PutDE closure");
         assert!(
-            put_de
-                .routine_names
-                .iter()
-                .any(|name| name.eq_ignore_ascii_case("PutD1")),
+            put_de.selection.routines.contains("PUTD1"),
             "missing backward branch target: {:?}",
-            put_de.routine_names
+            put_de.selection.routines
         );
     }
 
     #[test]
     fn resident_selection_keeps_cross_unit_code_and_only_referenced_data() {
         let unit = crate::runtime_source::resolve_runtime_unit("SYSGR").expect("SYSGR unit");
-        let selection = select_resident_image(&BTreeMap::from([(
+        let selection = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
             unit,
             BTreeSet::from(["Graphics".to_string()]),
         )]))
@@ -2314,28 +2246,31 @@ mod tests {
         for expected in ["Graphics", "Close", "Open", "ChkErr", "Error"] {
             assert!(
                 selection
-                    .routine_names
-                    .iter()
-                    .any(|name| name.eq_ignore_ascii_case(expected)),
+                    .selection
+                    .routines
+                    .contains(&expected.to_ascii_uppercase()),
                 "missing {expected}: {:?}",
-                selection.routine_names
+                selection.selection.routines
             );
         }
         assert!(
             selection
-                .global_names
+                .selection
+                .globals
                 .iter()
                 .any(|name| name.to_ascii_uppercase().contains("DEV_S"))
         );
         assert!(
             selection
-                .global_names
+                .selection
+                .globals
                 .iter()
                 .any(|name| name.to_ascii_uppercase().contains("DEV_E"))
         );
         assert!(
             selection
-                .global_names
+                .selection
+                .globals
                 .iter()
                 .all(|name| !name.to_ascii_uppercase().contains("COPY_RIGHT"))
         );
@@ -2344,7 +2279,7 @@ mod tests {
     #[test]
     fn resident_printh_selection_keeps_its_machine_code_output_chain() {
         let unit = crate::runtime_source::resolve_runtime_unit("SYSIO").expect("SYSIO unit");
-        let selection = select_resident_image(&BTreeMap::from([(
+        let selection = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
             unit,
             BTreeSet::from(["PrintH".to_string()]),
         )]))
@@ -2353,21 +2288,22 @@ mod tests {
         for expected in ["PrintH", "Put", "PutD", "PutD1", "CCIO", "ChkErr"] {
             assert!(
                 selection
-                    .routine_names
-                    .iter()
-                    .any(|name| name.eq_ignore_ascii_case(expected)),
+                    .selection
+                    .routines
+                    .contains(&expected.to_ascii_uppercase()),
                 "missing {expected}: {:?}",
-                selection.routine_names
+                selection.selection.routines
             );
         }
         for unrelated in ["PrintF", "PrintC", "InputD"] {
             assert!(
                 selection
-                    .routine_names
+                    .selection
+                    .routines
                     .iter()
                     .all(|name| !name.eq_ignore_ascii_case(unrelated)),
                 "unexpected {unrelated}: {:?}",
-                selection.routine_names
+                selection.selection.routines
             );
         }
     }
