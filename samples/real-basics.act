@@ -1,0 +1,21 @@
+; A first native REAL program. Compile it with --mode optimized or --mode
+; mir6502; native REAL is not enabled by compatibility mode.
+MODULE REAL_BASICS
+
+USE SYS
+
+CONST REAL UnitPrice=1.25
+
+BYTE quantity
+REAL subtotal, total
+
+PROC Main()
+  quantity=4
+  subtotal=UnitPrice*quantity
+  total=subtotal+0.5
+
+  SYS.PrintE("Total:")
+  SYS.PrintRE(@total)
+RETURN
+
+ENDMODULE

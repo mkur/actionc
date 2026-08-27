@@ -12,6 +12,8 @@ crowding the active reference set.
   emulator discovery, and artifact lifetime.
 - [Modules tutorial](tutorials/MODULES.md) - step-by-step introduction to
   project modules, imports, embedded Atari interfaces, and runtime selection.
+- [Native REAL tutorial](tutorials/REAL.md) - practical introduction to REAL
+  arithmetic, conversions, storage, math, and I/O.
 - [CODEGEN_PROFILES.md](CODEGEN_PROFILES.md) - user-facing profile/backend
   naming and policy.
 - [ACTION_STORAGE_LAYOUT.md](ACTION_STORAGE_LAYOUT.md) - Action! storage layout
@@ -61,6 +63,8 @@ crowding the active reference set.
 
 - [Modules tutorial](tutorials/MODULES.md) - task-oriented guide to creating
   and running modular programs.
+- [Native REAL tutorial](tutorials/REAL.md) - task-oriented guide to using the
+  six-byte Atari packed-decimal type and its first-party libraries.
 - [ACTIONC_ANNOTATIONS.md](ACTIONC_ANNOTATIONS.md) - supported `;@actionc`
   annotations.
 - [ACTION_SYMBOL_TABLE.md](ACTION_SYMBOL_TABLE.md) - Action! symbol table notes.
