@@ -737,8 +737,9 @@ and all existing programs still use the cart runtime by default.
 
 Slices 9 through 12 complete for MIR6502. `SArgs`, arithmetic helpers, and the
 initial `SYS` memory surface are selectively linked from embedded GPL sources.
-Named-root `Main` is retained as an explicit IR entry fact, so appending a
-runtime closure cannot change the executable RUN address.
+The root program's last source `PROC` is retained as an explicit IR entry fact,
+so appending a runtime closure cannot change the executable RUN address. A
+routine named `Main` has no special entry semantics.
 
 ### Milestone C: runtime/backend orthogonality
 

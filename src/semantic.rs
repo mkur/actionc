@@ -8103,6 +8103,50 @@ mod tests {
     }
 
     #[test]
+    fn semantic_ir_records_the_last_source_proc_as_a_stable_entry_identity() {
+        let (program, model) = analyze_program_source(
+            "PROC Main() RETURN PROC Start() RETURN BYTE FUNC Helper() RETURN(0)",
+        );
+        let mut semir = ir::lower_program(&program, &model);
+        let entry = semir.entry_routine.expect("program entry identity");
+        assert_eq!(
+            semir
+                .program_entry_routine()
+                .expect("entry routine")
+                .symbol
+                .name,
+            "Start"
+        );
+
+        semir.modules[0].items.reverse();
+        assert_eq!(semir.entry_routine, Some(entry));
+        assert_eq!(
+            semir
+                .program_entry_routine()
+                .expect("entry survives transformed order")
+                .symbol
+                .name,
+            "Start"
+        );
+
+        for module in &mut semir.modules {
+            module.items.retain(|item| match item {
+                ir::SemItem::Routine(routine) => routine.symbol.id == entry,
+                _ => true,
+            });
+        }
+        assert_eq!(semir.entry_routine, Some(entry));
+        assert_eq!(
+            semir
+                .program_entry_routine()
+                .expect("entry survives pruning unrelated routines")
+                .symbol
+                .name,
+            "Start"
+        );
+    }
+
+    #[test]
     fn semantic_ir_routines_carry_control_flow_facts() {
         let (program, model) = analyze_program_source(
             "PROC P() BYTE x x=1 BYTE FUNC F(BYTE x) IF x THEN RETURN(1) ELSE RETURN(0) FI PROC L() WHILE 1 DO EXIT OD RETURN",

@@ -425,8 +425,14 @@ fn display_name_leaf(name: &str) -> &str {
 
 #[test]
 fn program_entry_note_tracks_the_last_proc_instead_of_main_or_a_function() {
-    let program =
-        lower_modern_source("PROC Main() RETURN PROC Start() RETURN BYTE FUNC Helper() RETURN(0)");
+    let tokens = tokenize("PROC Main() RETURN PROC Start() RETURN BYTE FUNC Helper() RETURN(0)")
+        .expect("tokenize entry source");
+    let ast = parse(&tokens).expect("parse entry source");
+    let model =
+        analyze_with_options(&ast, SemanticOptions::modern()).expect("analyze entry source");
+    let mut semir = crate::semantic::ir::lower_program(&ast, &model);
+    semir.modules[0].items.reverse();
+    let program = lower_program(&semir);
     verify_program(&program).expect("program-entry NIR should verify");
 
     let entries = program

@@ -171,7 +171,7 @@ ENDMODULE
 }
 
 #[test]
-fn classic_standalone_keeps_the_named_root_main_as_the_run_address() {
+fn classic_standalone_keeps_the_last_root_proc_as_the_run_address() {
     let source =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/modules/native-real-library.act");
     let compiled = compile_file(
@@ -180,16 +180,16 @@ fn classic_standalone_keeps_the_named_root_main_as_the_run_address() {
     )
     .expect("compile named standalone REAL library sample");
     let listing = compiled.source_listing();
-    let main_header = listing
+    let entry_header = listing
         .lines()
         .find(|line| line.contains("PROC M_NATIVE_REAL_LIBRARY_MAIN_") && line.contains(" entry $"))
-        .expect("named Main listing header");
-    let entry = main_header
+        .expect("last root PROC listing header");
+    let entry = entry_header
         .split(" entry $")
         .nth(1)
         .and_then(|tail| tail.split_whitespace().next())
         .and_then(|hex| u16::from_str_radix(hex, 16).ok())
-        .expect("named Main entry address");
+        .expect("last root PROC entry address");
 
     assert_eq!(compiled.run_address(), entry);
 }
