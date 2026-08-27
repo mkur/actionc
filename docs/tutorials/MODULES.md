@@ -323,9 +323,10 @@ and shadow registers when the operating system should own the update.
 
 `MATH` is layered on the native `REAL` type, which requires the modern profile.
 The `optimized` and `mir6502` modes select that profile. REAL text conversion
-and I/O are qualified `SYS` operations. Their complete usage and Atari FPP
-workspace restrictions are documented in the
-[modules and runtime reference](../Action_2027/MODULES_AND_RUNTIME_USAGE.md#native-real-library).
+and I/O are qualified `SYS` operations. Start with the
+[native REAL tutorial](REAL.md) for their use. The complete library contract
+and Atari FPP workspace restrictions are documented in the [modules and
+runtime reference](../Action_2027/MODULES_AND_RUNTIME_USAGE.md#native-real-library).
 
 ## Choose the runtime
 

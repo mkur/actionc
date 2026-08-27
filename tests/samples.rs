@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
-use actionc::includes::{ModuleLoadOptions, load_compilation};
-use actionc::semantic::{SemanticOptions, analyze_compilation_with_options};
+use actionc::compiler::{compile_file, CompileMode, CompileOptions, Runtime};
+use actionc::includes::{load_compilation, ModuleLoadOptions};
+use actionc::semantic::{analyze_compilation_with_options, SemanticOptions};
 
 #[test]
 fn parses_all_sample_programs() {
@@ -35,6 +35,20 @@ fn unqualified_standalone_runtime_sample_compiles_with_both_backends() {
         let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
         compile_file(&source, &options).unwrap_or_else(|error| {
             panic!("compile standalone runtime sample in {mode:?} mode: {error}")
+        });
+    }
+}
+
+#[test]
+fn native_real_tutorial_sample_compiles_with_both_backends() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("samples")
+        .join("real-basics.act");
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
+        compile_file(&source, &options).unwrap_or_else(|error| {
+            panic!("compile native REAL tutorial sample in {mode:?} mode: {error}")
         });
     }
 }

@@ -4,8 +4,9 @@ Implementation status: enabled in standard builds. Named modules, host module
 lookup, and the embedded `SYS` and `ATARI.*` modules are part of the supported
 `actionc` language and CLI surface.
 
-For a task-oriented introduction, start with the
-[modules tutorial](../tutorials/MODULES.md).
+For task-oriented introductions, start with the
+[modules tutorial](../tutorials/MODULES.md) or the
+[native REAL tutorial](../tutorials/REAL.md).
 
 Action 2027 named modules make hardware interfaces and reusable project code
 explicit while preserving a single-file compiler installation. `SYS`,
@@ -63,6 +64,10 @@ qualified hardware modules, while `sys-memory-qualified.act` and
 is a complete multi-file example with a public project-module procedure.
 
 ## Native REAL library
+
+For a guided introduction to the type, operators, conversions, storage, and
+these library calls, start with the
+[native REAL tutorial](../tutorials/REAL.md).
 
 Native REAL support is divided by responsibility. `MATH` is the portable
 numerical interface, `SYS` owns conversion and I/O, and `ATARI.REAL` is the

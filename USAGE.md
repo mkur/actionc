@@ -302,6 +302,22 @@ linked from the referenced dependency closure. Start with the
 [modules and runtime usage](docs/Action_2027/MODULES_AND_RUNTIME_USAGE.md) for
 the detailed lookup and inclusion contract.
 
+## Native REAL
+
+The modern profile provides a native six-byte Atari packed-decimal `REAL`
+type. Select it through the recommended optimized mode:
+
+```sh
+actionc --mode optimized --runtime standalone samples/real-basics.act
+```
+
+REAL supports arithmetic, comparisons, explicit conversion back to Action
+integer types, aggregate storage, and pointer-oriented `MATH` and qualified
+`SYS` library procedures. Both runtime choices still use the Atari OS
+floating-point package. Start with the
+[native REAL tutorial](docs/tutorials/REAL.md), then see the
+[native REAL library reference](docs/Action_2027/MODULES_AND_RUNTIME_USAGE.md#native-real-library).
+
 ## Compile And Run
 
 `actionc-run` is the user-facing compile-and-run command. It builds a bootable

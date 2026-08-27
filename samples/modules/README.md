@@ -16,7 +16,8 @@ For a guided introduction that builds up to these examples, see the
 - `local-runtime-override.act` supplies a local implementation of a runtime
   helper.
 - `native-real-library.act` demonstrates portable `MATH` operations and
-  qualified `SYS` REAL conversion/output.
+  qualified `SYS` REAL conversion/output; the
+  [native REAL tutorial](../../docs/tutorials/REAL.md) builds up to this API.
 - `project/` is a multi-file program whose `DEMO.COLOR` module exports a public
   procedure to `main.act`.
 

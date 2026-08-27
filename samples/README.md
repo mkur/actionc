@@ -25,6 +25,9 @@ instructions.
 displacement landscape using integer arithmetic and draws it in high-resolution
 graphics mode.
 
+`real-basics.act` is the complete introductory program from the
+[native REAL tutorial](../docs/tutorials/REAL.md).
+
 `graphics/sine-surface.act` translates an Atari BASIC 3D surface plot and uses
 the portable `MATH.Sqr` and `MATH.Sin` native REAL procedures.
 

@@ -105,6 +105,8 @@ custom-ATR and compiler-development workflows.
   syntax extensions;
 - named project modules with deterministic `USE` lookup, plus embedded `SYS`
   and `ATARI.*` modules;
+- native six-byte Atari packed-decimal `REAL` arithmetic and first-party math,
+  conversion, and I/O libraries in the modern profile;
 - compatibility, optimized, and experimental MIR6502 build modes;
 - classic AST-based code generation and the experimental MIR6502 pipeline;
 - source annotations that select a default profile or backend;
@@ -161,6 +163,8 @@ The detailed rules and source-level differences are documented in
   programs;
 - [Named modules](samples/modules/README.md) — reusable project modules,
   embedded hardware interfaces, and standalone `SYS` examples;
+- [Native REAL basics](samples/real-basics.act) — packed-decimal arithmetic,
+  integer promotion, and qualified REAL output;
 - [TOMS Navigator](samples/tn/README.md) — a large real-world Action! program.
 
 | [ACS Logo](samples/logo.act) | [Kalscope](samples/toolkit/modern/KALSCOPE.DEM) | [TOMS Navigator](samples/tn/modern/TN.ACT) |
@@ -202,6 +206,7 @@ cargo install --path . --bin actionc-emit
 - [Command-line usage](USAGE.md)
 - [Running programs with actionc-run](docs/ACTIONC_RUN.md)
 - [Modules tutorial](docs/tutorials/MODULES.md)
+- [Native REAL tutorial](docs/tutorials/REAL.md)
 - [Documentation index](docs/README.md)
 - [Code-generation profiles](docs/CODEGEN_PROFILES.md)
 - [Syntax extensions](docs/SYNTAX_EXTENSIONS.md)
