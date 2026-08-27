@@ -266,10 +266,12 @@ standalone output.
 The resident graph is embedded in the compiler and records calls, machine
 relocations, legacy entry aliases, machine-code fallthrough, backward-prefix
 requirements, storage references, aliases, and initializer relocations. Normal
-linking traverses this graph; it does not reconstruct it from MIR or decode SYS
-machine bytes. A generator and exhaustive parity tests keep the artifact in
-sync with the embedded runtime sources. Compiler-internal `SYSLIB` helper
-selection remains separate until the common helper-package migration.
+linking binds this graph to the provider SemIR and filters the provider before
+classic projection or NIR/MIR lowering; it does not reconstruct dependencies
+from MIR or decode SYS machine bytes. Fixed-address declarations remain as
+non-emitting ABI metadata. A generator and exhaustive parity tests keep the
+artifact in sync with the embedded runtime sources. Compiler-internal `SYSLIB`
+helper selection remains separate until the common helper-package migration.
 
 Classic standalone emission places the selected runtime closure after the
 application's source-controlled layout. This preserves programs that set the

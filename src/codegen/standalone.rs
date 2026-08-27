@@ -57,7 +57,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         );
     }
 
-    let resident = select_resident_image(&roots_by_unit)?;
+    let resident = crate::runtime_source::select_runtime_image(&roots_by_unit)?;
     let projection = runtime_image_projection(resident.image.semir)?;
     native_real.extend(projection.native_real.clone());
     validate_external_signatures(
@@ -84,12 +84,12 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     rewrite_program_names(&mut application, &rename_external);
     remove_external_routines(&mut application);
 
-    let runtime_items = selected_runtime_items(
-        &projection.ast,
-        &resident.routine_names,
-        &resident.global_names,
-        &resident_names,
-    );
+    let runtime_items = projection
+        .ast
+        .modules
+        .iter()
+        .flat_map(|module| module.items.iter().cloned())
+        .collect::<Vec<_>>();
     let mut preflight = application.clone();
     if !runtime_items.is_empty() {
         preflight.modules.insert(
@@ -229,7 +229,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
         );
     }
 
-    let resident = select_resident_image(&roots_by_unit)?;
+    let resident = crate::runtime_source::select_runtime_image(&roots_by_unit)?;
     let projection = runtime_image_projection(resident.image.semir)?;
     native_real.extend(projection.native_real.clone());
     validate_external_signatures(
@@ -256,12 +256,12 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
     rewrite_program_names(&mut application, &rename_external);
     remove_external_routines_named(&mut application, external_roots.keys());
 
-    let runtime_items = selected_runtime_items(
-        &projection.ast,
-        &resident.routine_names,
-        &resident.global_names,
-        &resident_names,
-    );
+    let runtime_items = projection
+        .ast
+        .modules
+        .iter()
+        .flat_map(|module| module.items.iter().cloned())
+        .collect::<Vec<_>>();
     let runtime_routine_names = item_routine_names(&runtime_items);
     application.modules =
         insert_runtime_after_application_layout(application.modules, runtime_items);
@@ -417,22 +417,6 @@ fn runtime_image_projection(
     })
 }
 
-fn select_resident_image(
-    roots: &BTreeMap<RuntimeUnit, BTreeSet<String>>,
-) -> Result<crate::mir6502::standalone::ResidentSelection, Vec<Diagnostic>> {
-    crate::mir6502::standalone::select_resident_image(roots).map_err(|diagnostics| {
-        diagnostics
-            .into_iter()
-            .map(|diagnostic| {
-                Diagnostic::new(
-                    Span::new(0, 0),
-                    format!("classic runtime selection: {}", diagnostic.message),
-                )
-            })
-            .collect()
-    })
-}
-
 fn select_runtime_names(
     file_name: &str,
     module_name: &str,
@@ -531,46 +515,6 @@ fn selected_routines(
                 if routine.system_address.as_ref().and_then(expr_u16).is_some() =>
             {
                 Some(Item::Routine(routine.clone()))
-            }
-            _ => None,
-        })
-        .collect()
-}
-
-fn selected_runtime_items(
-    runtime: &Program,
-    selected_routines: &BTreeSet<String>,
-    selected_globals: &BTreeSet<String>,
-    names: &BTreeMap<String, String>,
-) -> Vec<Item> {
-    let selected_names = selected_routines
-        .iter()
-        .filter_map(|name| names.get(&name.to_ascii_uppercase()))
-        .collect::<BTreeSet<_>>();
-    runtime
-        .modules
-        .iter()
-        .flat_map(|module| &module.items)
-        .filter_map(|item| match item {
-            // DEFINEs are compile-time aliases only. Keeping the image's
-            // private definitions costs no target bytes and lets selected
-            // machine blocks resolve constants such as SYSIO.OpenBuf.
-            Item::Define(define) => Some(Item::Define(define.clone())),
-            Item::Routine(routine) if selected_names.contains(&routine.name) => {
-                Some(Item::Routine(routine.clone()))
-            }
-            Item::Routine(routine)
-                if routine.system_address.as_ref().and_then(expr_u16).is_some() =>
-            {
-                Some(Item::Routine(routine.clone()))
-            }
-            Item::Declaration(Decl::Var(var))
-                if var
-                    .entries
-                    .iter()
-                    .any(|entry| selected_globals.contains(&entry.name)) =>
-            {
-                Some(Item::Declaration(Decl::Var(var.clone())))
             }
             _ => None,
         })

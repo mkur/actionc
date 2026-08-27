@@ -74,6 +74,13 @@ pub(crate) struct RuntimeLinkManifest {
     pub(crate) graph: LinkGraph<RuntimeLinkNode>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RuntimeLinkSelection {
+    pub(crate) routines: BTreeSet<String>,
+    pub(crate) globals: BTreeSet<String>,
+    pub(crate) statics: BTreeSet<String>,
+}
+
 impl RuntimeLinkManifest {
     pub(crate) fn new(graph: LinkGraph<RuntimeLinkNode>) -> Self {
         Self {
@@ -235,6 +242,39 @@ pub(crate) fn embedded_sys_link_manifest() -> Result<&'static RuntimeLinkManifes
         Ok(manifest) => Ok(manifest),
         Err(error) => Err(error.clone()),
     }
+}
+
+pub(crate) fn select_embedded_sys(
+    routine_roots: impl IntoIterator<Item = String>,
+) -> Result<RuntimeLinkSelection, String> {
+    let manifest = embedded_sys_link_manifest()?;
+    let selected = manifest
+        .graph
+        .closure(
+            routine_roots
+                .into_iter()
+                .map(|name| RuntimeLinkNode::routine(&name)),
+        )
+        .map_err(|node| format!("embedded SYS link root or dependency {node:?} is missing"))?;
+    let mut output = RuntimeLinkSelection {
+        routines: BTreeSet::new(),
+        globals: BTreeSet::new(),
+        statics: BTreeSet::new(),
+    };
+    for node in selected.retained {
+        match node {
+            RuntimeLinkNode::Routine(name) => {
+                output.routines.insert(name);
+            }
+            RuntimeLinkNode::Global(name) => {
+                output.globals.insert(name);
+            }
+            RuntimeLinkNode::Static(name) => {
+                output.statics.insert(name);
+            }
+        }
+    }
+    Ok(output)
 }
 
 fn current_source_fingerprints() -> BTreeMap<String, String> {

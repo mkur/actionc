@@ -62,25 +62,36 @@ pub(super) fn resolve_interfaces(
     }
 
     if !external_roots.is_empty() {
-        let (runtime_image, runtime_program) =
-            super::standalone::compile_runtime_image_with_semir()?;
+        let roots_by_unit = external_roots.values().fold(
+            BTreeMap::<RuntimeUnit, BTreeSet<String>>::new(),
+            |mut roots, (unit, routine)| {
+                roots
+                    .entry(unit.clone())
+                    .or_default()
+                    .insert(routine.clone());
+                roots
+            },
+        );
+        let selected_runtime = crate::runtime_source::select_runtime_image(&roots_by_unit)
+            .map_err(frontend_diagnostics)?;
+        let runtime_program = super::standalone::lower_runtime_image(&selected_runtime.image)?;
         let mut implementation_roots = BTreeMap::new();
-        for (external_id, (unit, routine)) in external_roots {
+        for (external_id, (unit, routine)) in &external_roots {
             let interface_name = &external[&external_id];
             validate_semantic_abi(
                 interface_name,
                 &interface_signatures,
-                &runtime_image,
-                &unit,
-                &routine,
+                &selected_runtime.image,
+                unit,
+                routine,
             )?;
             let implementation =
-                find_runtime_routine(&runtime_program, RESIDENT_LINK_MODULE, &routine)?;
+                find_runtime_routine(&runtime_program, RESIDENT_LINK_MODULE, routine)?;
             validate_abi(
                 program
                     .routines
                     .iter()
-                    .find(|candidate| candidate.id == external_id)
+                    .find(|candidate| candidate.id == *external_id)
                     .expect("external routine exists"),
                 runtime_program
                     .routines
@@ -88,11 +99,11 @@ pub(super) fn resolve_interfaces(
                     .find(|candidate| candidate.id == implementation)
                     .expect("runtime routine exists"),
             )?;
-            implementation_roots.insert(external_id, implementation);
+            implementation_roots.insert(*external_id, implementation);
         }
-        let selected = super::standalone::embedded_resident_selection(
+        let selected = super::standalone::bind_runtime_selection(
             &runtime_program,
-            implementation_roots.values().copied().collect(),
+            &selected_runtime.selection,
         )?;
         let rebase = super::standalone::append_runtime_selection(
             program,

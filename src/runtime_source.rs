@@ -7,6 +7,9 @@ use crate::includes::{
     ModuleLoadOptions, load_compilation_from_provider,
     load_program_with_expanded_source_from_provider,
 };
+use crate::runtime_link_manifest::{
+    RuntimeLinkNode, embedded_sys_link_manifest, select_embedded_sys,
+};
 use crate::semantic::{SemanticOptions, analyze_compilation, analyze_compilation_with_options, ir};
 use crate::source::{InMemorySourceProvider, SourceOrigin, Span};
 
@@ -23,6 +26,12 @@ pub(crate) struct RuntimeImage {
     pub(crate) semir: ir::SemProgram,
     /// Physical implementation unit for each case-normalized routine name.
     pub(crate) routine_units: BTreeMap<String, RuntimeUnit>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct SelectedRuntimeImage {
+    pub(crate) image: RuntimeImage,
+    pub(crate) selection: crate::runtime_link_manifest::RuntimeLinkSelection,
 }
 
 /// Resolve the implementation-unit name used by an embedded runtime binding.
@@ -184,6 +193,241 @@ pub(crate) fn compile_runtime_image() -> Result<RuntimeImage, Vec<Diagnostic>> {
         semir,
         routine_units,
     })
+}
+
+/// Select the embedded resident provider before either backend lowers it.
+/// The checked-in graph owns dependencies; this function only binds stable
+/// provider names to the freshly lowered SemIR and preserves source order.
+pub(crate) fn select_runtime_image(
+    roots_by_unit: &BTreeMap<RuntimeUnit, BTreeSet<String>>,
+) -> Result<SelectedRuntimeImage, Vec<Diagnostic>> {
+    let mut image = compile_runtime_image()?;
+    let mut roots = BTreeSet::new();
+    for (unit, expected_names) in roots_by_unit {
+        for expected in expected_names {
+            if image.routine_units.get(&expected.to_ascii_uppercase()) != Some(unit) {
+                return Err(diagnostic(format!(
+                    "embedded {} has no implementation routine `{expected}`",
+                    unit.name
+                )));
+            }
+            roots.insert(expected.to_ascii_uppercase());
+        }
+    }
+
+    validate_runtime_manifest_bindings(&image.semir)?;
+    let selection = select_embedded_sys(roots).map_err(|message| diagnostic(message))?;
+    if !selection.statics.is_empty() {
+        return Err(diagnostic(format!(
+            "embedded SYS link manifest contains source-unbound static nodes: {}",
+            selection.statics.into_iter().collect::<Vec<_>>().join(", ")
+        )));
+    }
+
+    for module in &mut image.semir.modules {
+        module.items.retain(|item| match item {
+            ir::SemItem::Routine(routine) if runtime_routine_emits_code(routine) => selection
+                .routines
+                .contains(&runtime_symbol_name(&routine.symbol)),
+            // Fixed-address routines, DEFINEs, constants, and type metadata
+            // are compile-time ABI facts needed by classic projection. They
+            // emit no resident bytes by themselves.
+            ir::SemItem::Routine(_) => true,
+            ir::SemItem::Declaration(declaration)
+                if matches!(
+                    declaration.storage,
+                    ir::SemDeclarationStorage::Type { .. }
+                        | ir::SemDeclarationStorage::Record { .. }
+                ) =>
+            {
+                true
+            }
+            ir::SemItem::Declaration(declaration) => selection
+                .globals
+                .contains(&runtime_symbol_name(&declaration.symbol)),
+            ir::SemItem::Define(_) | ir::SemItem::Const(_) | ir::SemItem::Include(_) => true,
+            ir::SemItem::Set(_) | ir::SemItem::Statement(_) | ir::SemItem::Unsupported { .. } => {
+                false
+            }
+        });
+    }
+    image.semir.entry_routine = None;
+    image
+        .routine_units
+        .retain(|name, _| selection.routines.contains(name));
+
+    Ok(SelectedRuntimeImage { image, selection })
+}
+
+fn validate_runtime_manifest_bindings(program: &ir::SemProgram) -> Result<(), Vec<Diagnostic>> {
+    let manifest = embedded_sys_link_manifest().map_err(|message| diagnostic(message))?;
+    let expected_routines = manifest
+        .graph
+        .nodes()
+        .iter()
+        .filter_map(|node| match node {
+            RuntimeLinkNode::Routine(name) if name != "<PROGRAM>" => Some(name.clone()),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    let expected_globals = manifest
+        .graph
+        .nodes()
+        .iter()
+        .filter_map(|node| match node {
+            RuntimeLinkNode::Global(name) => Some(name.clone()),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    let mut actual_routines = BTreeSet::new();
+    let mut actual_globals = BTreeSet::new();
+    for item in program.modules.iter().flat_map(|module| &module.items) {
+        match item {
+            ir::SemItem::Define(define) => {
+                let name = runtime_symbol_name(&define.symbol);
+                if expected_globals.contains(&name) && !actual_globals.insert(name.clone()) {
+                    return Err(diagnostic(format!(
+                        "embedded runtime has multiple source globals named `{name}`"
+                    )));
+                }
+            }
+            ir::SemItem::Routine(routine) => {
+                let name = runtime_symbol_name(&routine.symbol);
+                if !actual_routines.insert(name.clone()) {
+                    return Err(diagnostic(format!(
+                        "embedded runtime has multiple source routines named `{name}`"
+                    )));
+                }
+                for declaration in &routine.locals {
+                    insert_runtime_global_binding(
+                        declaration,
+                        &expected_globals,
+                        &mut actual_globals,
+                    )?;
+                }
+                for statement in &routine.body {
+                    collect_runtime_statement_globals(
+                        statement,
+                        &expected_globals,
+                        &mut actual_globals,
+                    )?;
+                }
+            }
+            ir::SemItem::Declaration(declaration)
+                if matches!(
+                    declaration.storage,
+                    ir::SemDeclarationStorage::Scalar | ir::SemDeclarationStorage::Array { .. }
+                ) =>
+            {
+                let name = runtime_symbol_name(&declaration.symbol);
+                if expected_globals.contains(&name) && !actual_globals.insert(name.clone()) {
+                    return Err(diagnostic(format!(
+                        "embedded runtime has multiple source globals named `{name}`"
+                    )));
+                }
+            }
+            _ => {}
+        }
+    }
+    if actual_routines != expected_routines || actual_globals != expected_globals {
+        let missing = expected_routines
+            .difference(&actual_routines)
+            .chain(expected_globals.difference(&actual_globals))
+            .cloned()
+            .collect::<Vec<_>>();
+        let unexpected = actual_routines
+            .difference(&expected_routines)
+            .chain(actual_globals.difference(&expected_globals))
+            .cloned()
+            .collect::<Vec<_>>();
+        return Err(diagnostic(format!(
+            "embedded SYS link manifest source-node mismatch; missing [{}], unexpected [{}]",
+            missing.join(", "),
+            unexpected.join(", ")
+        )));
+    }
+    Ok(())
+}
+
+fn collect_runtime_statement_globals(
+    statement: &ir::SemStmt,
+    expected: &BTreeSet<String>,
+    globals: &mut BTreeSet<String>,
+) -> Result<(), Vec<Diagnostic>> {
+    match statement {
+        ir::SemStmt::LexicalBlock {
+            declarations, body, ..
+        } => {
+            for declaration in declarations {
+                insert_runtime_global_binding(declaration, expected, globals)?;
+            }
+            for statement in body {
+                collect_runtime_statement_globals(statement, expected, globals)?;
+            }
+        }
+        ir::SemStmt::If {
+            branches,
+            else_body,
+            ..
+        } => {
+            for branch in branches {
+                for statement in &branch.body {
+                    collect_runtime_statement_globals(statement, expected, globals)?;
+                }
+            }
+            for statement in else_body {
+                collect_runtime_statement_globals(statement, expected, globals)?;
+            }
+        }
+        ir::SemStmt::While { body, .. }
+        | ir::SemStmt::DoUntil { body, .. }
+        | ir::SemStmt::For { body, .. } => {
+            for statement in body {
+                collect_runtime_statement_globals(statement, expected, globals)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn insert_runtime_global_binding(
+    declaration: &ir::SemDeclaration,
+    expected: &BTreeSet<String>,
+    globals: &mut BTreeSet<String>,
+) -> Result<(), Vec<Diagnostic>> {
+    if !matches!(
+        declaration.storage,
+        ir::SemDeclarationStorage::Scalar | ir::SemDeclarationStorage::Array { .. }
+    ) {
+        return Ok(());
+    }
+    let name = runtime_symbol_name(&declaration.symbol);
+    if !expected.contains(&name) {
+        return Ok(());
+    }
+    if !globals.insert(name.clone()) {
+        return Err(diagnostic(format!(
+            "embedded runtime has multiple source globals named `{name}`"
+        )));
+    }
+    Ok(())
+}
+
+fn runtime_routine_emits_code(routine: &ir::SemRoutine) -> bool {
+    routine
+        .system_address
+        .as_ref()
+        .is_none_or(|address| matches!(address.kind, ir::SemExprKind::CurrentLocation))
+}
+
+fn runtime_symbol_name(symbol: &ir::SemSymbolRef) -> String {
+    symbol
+        .qualified_name
+        .rsplit(['.', ':'])
+        .find(|part| !part.is_empty())
+        .unwrap_or(&symbol.name)
+        .to_ascii_uppercase()
 }
 
 fn runtime_unit_from_origin(
@@ -441,6 +685,43 @@ mod tests {
         assert_eq!(image.routine_units["MULTI"].name, "SYSLIB");
         assert_eq!(image.routine_units["GRAPHICS"].name, "SYSGR");
         assert_eq!(image.routine_units["OPEN"].name, "SYSIO");
+    }
+
+    #[test]
+    fn resident_provider_is_filtered_in_semir_before_backend_lowering() {
+        let unit = resolve_runtime_unit("SYSBLK").expect("SYSBLK unit");
+        let selected = select_runtime_image(&BTreeMap::from([(
+            unit,
+            BTreeSet::from(["Zero".to_string()]),
+        )]))
+        .expect("select Zero provider SemIR");
+        let routines = selected
+            .image
+            .semir
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .filter_map(|item| match item {
+                ir::SemItem::Routine(routine) if runtime_routine_emits_code(routine) => {
+                    Some(runtime_symbol_name(&routine.symbol))
+                }
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(
+            routines,
+            BTreeSet::from(["SETBLOCK".to_string(), "ZERO".to_string()])
+        );
+        assert_eq!(routines, selected.selection.routines);
+        assert!(selected.selection.globals.is_empty());
+        assert!(selected.image.semir.entry_routine.is_none());
+        assert!(selected.image.semir.modules.iter().all(|module| {
+            module
+                .items
+                .iter()
+                .all(|item| !matches!(item, ir::SemItem::Set(_) | ir::SemItem::Statement(_)))
+        }));
     }
 
     #[test]

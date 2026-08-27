@@ -11,15 +11,16 @@ use super::ir::{
 };
 use crate::linker::{LinkGraph, LinkReason};
 use crate::nir::SymbolId;
-use crate::runtime_link_manifest::{
-    RuntimeLinkManifest, RuntimeLinkNode, embedded_sys_link_manifest,
-};
-use crate::runtime_source::{RuntimeImage, RuntimeUnit};
+#[cfg(test)]
+use crate::runtime_link_manifest::embedded_sys_link_manifest;
+use crate::runtime_link_manifest::{RuntimeLinkManifest, RuntimeLinkNode};
+#[cfg(test)]
+use crate::runtime_source::RuntimeUnit;
 
 static SYSLIB_MIR: OnceLock<Result<MirProgram, Vec<MirDiagnostic>>> = OnceLock::new();
 
+#[cfg(test)]
 pub(crate) struct ResidentSelection {
-    pub(crate) image: RuntimeImage,
     pub(crate) routine_names: BTreeSet<String>,
     pub(crate) global_names: BTreeSet<String>,
 }
@@ -38,63 +39,131 @@ pub(super) struct RuntimeSelection {
     statics: BTreeSet<SymbolId>,
 }
 
+pub(super) fn bind_runtime_selection(
+    program: &MirProgram,
+    selected: &crate::runtime_link_manifest::RuntimeLinkSelection,
+) -> Result<RuntimeSelection, Vec<MirDiagnostic>> {
+    let routines = program
+        .routines
+        .iter()
+        .filter(|routine| {
+            selected.routines.contains(
+                &runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT")
+                    .to_ascii_uppercase(),
+            )
+        })
+        .map(|routine| routine.id)
+        .collect::<BTreeSet<_>>();
+    let globals = program
+        .globals
+        .iter()
+        .filter(|global| {
+            selected.globals.contains(
+                &runtime_storage_name(&global.name, "ACTION_RUNTIME_RESIDENT").to_ascii_uppercase(),
+            )
+        })
+        .map(|global| global.id)
+        .collect::<BTreeSet<_>>();
+    let bound_routines = program
+        .routines
+        .iter()
+        .filter(|routine| routines.contains(&routine.id))
+        .map(|routine| {
+            runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT").to_ascii_uppercase()
+        })
+        .collect::<BTreeSet<_>>();
+    let bound_globals = program
+        .globals
+        .iter()
+        .filter(|global| globals.contains(&global.id))
+        .map(|global| {
+            runtime_storage_name(&global.name, "ACTION_RUNTIME_RESIDENT").to_ascii_uppercase()
+        })
+        .collect::<BTreeSet<_>>();
+    if bound_routines != selected.routines || bound_globals != selected.globals {
+        return Err(diagnostic(format!(
+            "selected resident SemIR did not lower every manifest node; missing routines [{}], globals [{}]",
+            selected
+                .routines
+                .difference(&bound_routines)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", "),
+            selected
+                .globals
+                .difference(&bound_globals)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        )));
+    }
+    Ok(RuntimeSelection {
+        routines,
+        globals,
+        // Provider statics are owned by already-selected source routines and
+        // do not have independent SemIR identities.
+        statics: program
+            .statics
+            .iter()
+            .map(|static_data| static_data.id)
+            .collect(),
+    })
+}
+
+#[cfg(test)]
 pub(crate) fn select_resident_image(
     roots_by_unit: &BTreeMap<RuntimeUnit, BTreeSet<String>>,
 ) -> Result<ResidentSelection, Vec<MirDiagnostic>> {
-    let (image, runtime) = compile_runtime_image_with_semir()?;
-    let mut roots = BTreeSet::new();
-    for (unit, expected_names) in roots_by_unit {
-        for expected in expected_names {
-            if image.routine_units.get(&expected.to_ascii_uppercase()) != Some(unit) {
-                return Err(diagnostic(format!(
-                    "embedded {} has no implementation routine `{expected}`",
-                    unit.name
-                )));
-            }
-            let id = runtime
-                .routines
-                .iter()
-                .filter(|routine| {
-                    runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT")
-                        .eq_ignore_ascii_case(expected)
-                })
-                .map(|routine| routine.id)
-                .collect::<Vec<_>>();
-            match id.as_slice() {
-                [id] => {
-                    roots.insert(*id);
-                }
-                [] => {
-                    return Err(diagnostic(format!(
-                        "embedded runtime has no implementation routine `{expected}`"
-                    )));
-                }
-                _ => {
-                    return Err(diagnostic(format!(
-                        "embedded runtime has multiple implementation routines named `{expected}`"
-                    )));
-                }
-            }
-        }
-    }
-    let selected = embedded_resident_selection(&runtime, roots)?;
+    let selected = crate::runtime_source::select_runtime_image(roots_by_unit)
+        .map_err(|diagnostics| frontend_diagnostics("sysall.act", diagnostics))?;
+    let image = selected.image;
     Ok(ResidentSelection {
-        routine_names: runtime
-            .routines
+        routine_names: image
+            .semir
+            .modules
             .iter()
-            .filter(|routine| selected.routines.contains(&routine.id))
-            .map(|routine| {
-                runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT").to_string()
+            .flat_map(|module| &module.items)
+            .filter_map(|item| match item {
+                crate::semantic::ir::SemItem::Routine(routine)
+                    if routine.system_address.as_ref().is_none_or(|address| {
+                        matches!(
+                            address.kind,
+                            crate::semantic::ir::SemExprKind::CurrentLocation
+                        )
+                    }) =>
+                {
+                    Some(source_runtime_name(&routine.symbol.qualified_name).to_string())
+                }
+                _ => None,
             })
             .collect(),
-        global_names: runtime
-            .globals
+        global_names: image
+            .semir
+            .modules
             .iter()
-            .filter(|global| selected.globals.contains(&global.id))
-            .map(|global| global.name.clone())
+            .flat_map(|module| &module.items)
+            .filter_map(|item| match item {
+                crate::semantic::ir::SemItem::Declaration(declaration)
+                    if matches!(
+                        declaration.storage,
+                        crate::semantic::ir::SemDeclarationStorage::Scalar
+                            | crate::semantic::ir::SemDeclarationStorage::Array { .. }
+                    ) =>
+                {
+                    Some(source_runtime_name(&declaration.symbol.qualified_name).to_string())
+                }
+                _ => None,
+            })
             .collect(),
-        image,
     })
+}
+
+#[cfg(test)]
+fn source_runtime_name(qualified_name: &str) -> &str {
+    qualified_name
+        .rsplit(['.', ':'])
+        .find(|part| !part.is_empty())
+        .unwrap_or(qualified_name)
 }
 
 pub(super) fn syslib_mir() -> Result<MirProgram, Vec<MirDiagnostic>> {
@@ -1464,6 +1533,7 @@ fn runtime_selection_from_nodes(nodes: &BTreeSet<MirLinkNode>) -> RuntimeSelecti
     selection
 }
 
+#[cfg(test)]
 pub(super) fn embedded_resident_selection(
     program: &MirProgram,
     roots: BTreeSet<RoutineId>,
@@ -1504,6 +1574,7 @@ pub(super) fn embedded_resident_selection(
     Ok(runtime_selection_from_nodes(&selected))
 }
 
+#[cfg(test)]
 fn resident_node_bindings(
     program: &MirProgram,
 ) -> Result<
@@ -1973,6 +2044,13 @@ pub(super) fn compile_runtime_image_with_semir()
 -> Result<(crate::runtime_source::RuntimeImage, MirProgram), Vec<MirDiagnostic>> {
     let image = crate::runtime_source::compile_runtime_image()
         .map_err(|diagnostics| frontend_diagnostics("sysall.act", diagnostics))?;
+    let mir = lower_runtime_image(&image)?;
+    Ok((image, mir))
+}
+
+pub(super) fn lower_runtime_image(
+    image: &crate::runtime_source::RuntimeImage,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let nir = lower_runtime_nir(&image.semir);
     crate::nir::verify_program(&nir).map_err(|diagnostics| {
         diagnostics
@@ -1993,7 +2071,7 @@ pub(super) fn compile_runtime_image_with_semir()
             })
             .collect::<Vec<_>>()
     })?;
-    Ok((image, mir))
+    Ok(mir)
 }
 
 fn lower_runtime_nir(semir: &crate::semantic::ir::SemProgram) -> crate::nir::NirProgram {

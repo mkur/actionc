@@ -4,11 +4,12 @@
 
 This note defines the migration from backend-specific runtime selection and
 whole-module application emission to one common selective linker. Slices 1
-through 3 are implemented: the Action! program entry and root module are
+through 4 are implemented: the Action! program entry and root module are
 explicit SemIR identities, application/user-module dependencies use the common
 graph, optimized classic and MIR6502 receive the same selected SemIR, and
-resident SYS selection uses a generated embedded graph. Compatibility mode
-still retains the whole application through its root policy.
+resident SYS selection filters a common provider SemIR using the generated
+embedded graph before either backend lowers it. Compatibility mode still
+retains the whole application through its root policy.
 
 ## Goal
 
@@ -159,11 +160,13 @@ cargo run --bin actionc-runtime-link-manifest -- embedded/manifests/sys-link-v1.
 ```
 
 Normal classic and MIR6502 resident selection parse and validate the embedded
-artifact, bind its provider-local identities to the current lowered runtime
-image, and traverse closure from program-specific roots. They do not scan MIR
-calls or decode machine bytes. Tests retain the old discovery implementation as
-an oracle and compare every individual resident routine root, including its
-storage closure.
+artifact, bind its provider-local identities to the current provider SemIR,
+traverse closure from program-specific roots, and filter that SemIR while
+preserving source order and identities. Classic projects the selected provider;
+MIR6502 lowers the same selected provider through NIR. Neither production path
+scans MIR calls or decodes machine bytes. Tests retain the old discovery
+implementation as an oracle and compare every individual resident routine
+root, including its storage closure.
 
 The separately compiled `SYSLIB` helper package remains dynamic until slice 5.
 That package is rooted by target helper discovery and is not the resident SYS
@@ -243,6 +246,14 @@ remain available but emit no target storage.
 - Select resident runtime source through the common graph.
 - Make both classic and MIR6502 lower the selected provider SemIR.
 - Retire classic name filtering and MIR-only SYS closure authority.
+
+Implemented provider selection validates manifest routine/global identities
+against the embedded source SemIR, clears the provider's incidental program
+entry, and removes unselected routines, backing storage, and top-level runtime
+items before backend lowering. Fixed-address routine declarations and DEFINEs
+remain as non-emitting ABI metadata for classic projection; MIR6502 binds only
+the manifest-selected executable identities after lowering that selected
+source, without performing another dependency analysis.
 
 ### 5. Compiler runtime packages
 
