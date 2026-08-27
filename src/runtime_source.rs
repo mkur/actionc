@@ -34,6 +34,12 @@ pub(crate) struct SelectedRuntimeImage {
     pub(crate) selection: crate::runtime_link_manifest::RuntimeLinkSelection,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct SelectedRuntimeUnit {
+    pub(crate) semir: ir::SemProgram,
+    pub(crate) selection: crate::runtime_link_manifest::RuntimeLinkSelection,
+}
+
 /// Resolve the implementation-unit name used by an embedded runtime binding.
 ///
 /// Binding sources use compact names such as `SYSBLK.Zero`; the runtime linker
@@ -224,7 +230,89 @@ pub(crate) fn select_runtime_image(
         )));
     }
 
-    for module in &mut image.semir.modules {
+    filter_runtime_semir(&mut image.semir, &selection, &BTreeSet::new());
+    image
+        .routine_units
+        .retain(|name, _| selection.routines.contains(name));
+
+    Ok(SelectedRuntimeImage { image, selection })
+}
+
+/// Select a compiler runtime package after the target has discovered its
+/// required helper roots. The embedded manifest remains the sole dependency
+/// authority, while the package is filtered as SemIR before either backend
+/// lowers it.
+pub(crate) fn select_runtime_unit(
+    file_name: &str,
+    module_name: &str,
+    routine_roots: &BTreeSet<String>,
+) -> Result<SelectedRuntimeUnit, Vec<Diagnostic>> {
+    let mut semir = compile_runtime_unit(file_name, module_name)?;
+    let available_routines = semir
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            ir::SemItem::Routine(routine) if runtime_routine_emits_code(routine) => {
+                Some(runtime_symbol_name(&routine.symbol))
+            }
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    for root in routine_roots {
+        if !available_routines.contains(&root.to_ascii_uppercase()) {
+            return Err(diagnostic(format!(
+                "embedded runtime unit `{file_name}` has no implementation routine `{root}`"
+            )));
+        }
+    }
+
+    let selection = select_embedded_sys(routine_roots.iter().cloned())
+        .map_err(|message| diagnostic(message))?;
+    if !selection.statics.is_empty() {
+        return Err(diagnostic(format!(
+            "embedded runtime package contains source-unbound static nodes: {}",
+            selection
+                .statics
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        )));
+    }
+    let missing_routines = selection
+        .routines
+        .difference(&available_routines)
+        .cloned()
+        .collect::<Vec<_>>();
+    let available_globals = runtime_top_level_globals(&semir);
+    let missing_globals = selection
+        .globals
+        .difference(&available_globals)
+        .cloned()
+        .collect::<Vec<_>>();
+    if !missing_routines.is_empty() || !missing_globals.is_empty() {
+        return Err(diagnostic(format!(
+            "embedded runtime package selection escaped `{file_name}`; routines [{}], globals [{}]",
+            missing_routines.join(", "),
+            missing_globals.join(", ")
+        )));
+    }
+
+    let roots = routine_roots
+        .iter()
+        .map(|name| name.to_ascii_uppercase())
+        .collect::<BTreeSet<_>>();
+    filter_runtime_semir(&mut semir, &selection, &roots);
+    Ok(SelectedRuntimeUnit { semir, selection })
+}
+
+fn filter_runtime_semir(
+    program: &mut ir::SemProgram,
+    selection: &crate::runtime_link_manifest::RuntimeLinkSelection,
+    set_roots: &BTreeSet<String>,
+) {
+    for module in &mut program.modules {
         module.items.retain(|item| match item {
             ir::SemItem::Routine(routine) if runtime_routine_emits_code(routine) => selection
                 .routines
@@ -245,18 +333,48 @@ pub(crate) fn select_runtime_image(
             ir::SemItem::Declaration(declaration) => selection
                 .globals
                 .contains(&runtime_symbol_name(&declaration.symbol)),
-            ir::SemItem::Define(_) | ir::SemItem::Const(_) | ir::SemItem::Include(_) => true,
-            ir::SemItem::Set(_) | ir::SemItem::Statement(_) | ir::SemItem::Unsupported { .. } => {
-                false
+            ir::SemItem::Set(set) => {
+                runtime_set_target_name(set).is_some_and(|name| set_roots.contains(&name))
             }
+            ir::SemItem::Define(_) | ir::SemItem::Const(_) | ir::SemItem::Include(_) => true,
+            ir::SemItem::Statement(_) | ir::SemItem::Unsupported { .. } => false,
         });
     }
-    image.semir.entry_routine = None;
-    image
-        .routine_units
-        .retain(|name, _| selection.routines.contains(name));
+    program.entry_routine = None;
+}
 
-    Ok(SelectedRuntimeImage { image, selection })
+fn runtime_top_level_globals(program: &ir::SemProgram) -> BTreeSet<String> {
+    program
+        .modules
+        .iter()
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            ir::SemItem::Declaration(declaration)
+                if matches!(
+                    declaration.storage,
+                    ir::SemDeclarationStorage::Scalar | ir::SemDeclarationStorage::Array { .. }
+                ) =>
+            {
+                Some(runtime_symbol_name(&declaration.symbol))
+            }
+            ir::SemItem::Define(define) => Some(runtime_symbol_name(&define.symbol)),
+            _ => None,
+        })
+        .collect()
+}
+
+fn runtime_set_target_name(set: &ir::SemSet) -> Option<String> {
+    fn target(expr: &ir::SemExpr) -> Option<&ir::SemSymbolRef> {
+        match &expr.kind {
+            ir::SemExprKind::Symbol(symbol) | ir::SemExprKind::AddressOfSymbol(symbol) => {
+                Some(symbol)
+            }
+            ir::SemExprKind::Cast { expr, .. } => target(expr),
+            _ => None,
+        }
+    }
+
+    target(&set.value).map(runtime_symbol_name)
 }
 
 fn validate_runtime_manifest_bindings(program: &ir::SemProgram) -> Result<(), Vec<Diagnostic>> {
@@ -721,6 +839,56 @@ mod tests {
                 .items
                 .iter()
                 .all(|item| !matches!(item, ir::SemItem::Set(_) | ir::SemItem::Statement(_)))
+        }));
+    }
+
+    #[test]
+    fn compiler_helper_package_is_filtered_in_semir_with_only_root_bindings() {
+        let selected = select_runtime_unit(
+            "syslib.act",
+            "ACTION.RUNTIME.SYSLIB",
+            &BTreeSet::from(["RemI".to_string()]),
+        )
+        .expect("select RemI helper package");
+        let routines = selected
+            .semir
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .filter_map(|item| match item {
+                ir::SemItem::Routine(routine) if runtime_routine_emits_code(routine) => {
+                    Some(runtime_symbol_name(&routine.symbol))
+                }
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+        let sets = selected
+            .semir
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .filter_map(|item| match item {
+                ir::SemItem::Set(set) => runtime_set_target_name(set),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(routines, selected.selection.routines);
+        assert!(routines.contains("REMI"));
+        assert!(routines.contains("DIVI"));
+        assert!(routines.contains("SETSIGN"));
+        assert!(!routines.contains("MULTI"));
+        assert_eq!(sets, BTreeSet::from(["REMI".to_string()]));
+        assert!(selected.selection.globals.is_empty());
+        assert!(selected.semir.entry_routine.is_none());
+        assert!(selected.semir.modules.iter().all(|module| {
+            module.items.iter().all(|item| {
+                !matches!(
+                    item,
+                    ir::SemItem::Declaration(declaration)
+                        if runtime_symbol_name(&declaration.symbol) == "COPY_RIGHT"
+                )
+            })
         }));
     }
 

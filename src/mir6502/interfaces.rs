@@ -104,6 +104,7 @@ pub(super) fn resolve_interfaces(
         let selected = super::standalone::bind_runtime_selection(
             &runtime_program,
             &selected_runtime.selection,
+            RESIDENT_LINK_MODULE,
         )?;
         let rebase = super::standalone::append_runtime_selection(
             program,

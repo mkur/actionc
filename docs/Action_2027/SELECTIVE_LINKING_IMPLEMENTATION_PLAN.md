@@ -4,12 +4,12 @@
 
 This note defines the migration from backend-specific runtime selection and
 whole-module application emission to one common selective linker. Slices 1
-through 4 are implemented: the Action! program entry and root module are
+through 5 are implemented: the Action! program entry and root module are
 explicit SemIR identities, application/user-module dependencies use the common
 graph, optimized classic and MIR6502 receive the same selected SemIR, and
-resident SYS selection filters a common provider SemIR using the generated
-embedded graph before either backend lowers it. Compatibility mode still
-retains the whole application through its root policy.
+resident SYS and compiler-helper selection filter common provider SemIR using
+the generated embedded graph before either backend lowers it. Compatibility
+mode still retains the whole application through its root policy.
 
 ## Goal
 
@@ -168,9 +168,10 @@ scans MIR calls or decodes machine bytes. Tests retain the old discovery
 implementation as an oracle and compare every individual resident routine
 root, including its storage closure.
 
-The separately compiled `SYSLIB` helper package remains dynamic until slice 5.
-That package is rooted by target helper discovery and is not the resident SYS
-provider graph migrated in slice 2.
+The separately compiled `SYSLIB` helper package uses the same embedded graph.
+Target-owned helper discovery supplies its roots; common selection retains the
+transitive package routines and only the `SET` binding directives for requested
+helper slots before classic projection or NIR/MIR lowering.
 
 ## Machine Code and Layout
 
@@ -261,6 +262,13 @@ source, without performing another dependency analysis.
 - Preserve target ownership of helper discovery and ABI selection.
 - Remove duplicated routine/storage closure implementations after parity is
   proven.
+
+Implemented helper-package selection preserves target ownership of helper
+requirements and ABI validation. Both backends pass the discovered SYSLIB root
+names to the shared embedded-graph selector and lower its filtered SemIR. The
+classic-to-MIR name-selection adapter and MIR's production helper dependency
+scan have been removed; the dynamic analyzer remains only as the resident
+manifest generator and test oracle.
 
 ### 6. Measurement and cleanup
 

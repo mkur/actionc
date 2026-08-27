@@ -271,7 +271,8 @@ classic projection or NIR/MIR lowering; it does not reconstruct dependencies
 from MIR or decode SYS machine bytes. Fixed-address declarations remain as
 non-emitting ABI metadata. A generator and exhaustive parity tests keep the
 artifact in sync with the embedded runtime sources. Compiler-internal `SYSLIB`
-helper selection remains separate until the common helper-package migration.
+requirements remain target-owned, but their roots now use that same common
+closure engine and filter SYSLIB SemIR before either backend lowers it.
 
 Classic standalone emission places the selected runtime closure after the
 application's source-controlled layout. This preserves programs that set the

@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+#[cfg(test)]
 use std::sync::OnceLock;
 
 use super::diagnostics::MirDiagnostic;
@@ -17,6 +18,7 @@ use crate::runtime_link_manifest::{RuntimeLinkManifest, RuntimeLinkNode};
 #[cfg(test)]
 use crate::runtime_source::RuntimeUnit;
 
+#[cfg(test)]
 static SYSLIB_MIR: OnceLock<Result<MirProgram, Vec<MirDiagnostic>>> = OnceLock::new();
 
 #[cfg(test)]
@@ -42,15 +44,15 @@ pub(super) struct RuntimeSelection {
 pub(super) fn bind_runtime_selection(
     program: &MirProgram,
     selected: &crate::runtime_link_manifest::RuntimeLinkSelection,
+    link_module: &str,
 ) -> Result<RuntimeSelection, Vec<MirDiagnostic>> {
     let routines = program
         .routines
         .iter()
         .filter(|routine| {
-            selected.routines.contains(
-                &runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT")
-                    .to_ascii_uppercase(),
-            )
+            selected
+                .routines
+                .contains(&runtime_routine_name(&routine.name, link_module).to_ascii_uppercase())
         })
         .map(|routine| routine.id)
         .collect::<BTreeSet<_>>();
@@ -58,9 +60,9 @@ pub(super) fn bind_runtime_selection(
         .globals
         .iter()
         .filter(|global| {
-            selected.globals.contains(
-                &runtime_storage_name(&global.name, "ACTION_RUNTIME_RESIDENT").to_ascii_uppercase(),
-            )
+            selected
+                .globals
+                .contains(&runtime_storage_name(&global.name, link_module).to_ascii_uppercase())
         })
         .map(|global| global.id)
         .collect::<BTreeSet<_>>();
@@ -68,21 +70,17 @@ pub(super) fn bind_runtime_selection(
         .routines
         .iter()
         .filter(|routine| routines.contains(&routine.id))
-        .map(|routine| {
-            runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT").to_ascii_uppercase()
-        })
+        .map(|routine| runtime_routine_name(&routine.name, link_module).to_ascii_uppercase())
         .collect::<BTreeSet<_>>();
     let bound_globals = program
         .globals
         .iter()
         .filter(|global| globals.contains(&global.id))
-        .map(|global| {
-            runtime_storage_name(&global.name, "ACTION_RUNTIME_RESIDENT").to_ascii_uppercase()
-        })
+        .map(|global| runtime_storage_name(&global.name, link_module).to_ascii_uppercase())
         .collect::<BTreeSet<_>>();
     if bound_routines != selected.routines || bound_globals != selected.globals {
         return Err(diagnostic(format!(
-            "selected resident SemIR did not lower every manifest node; missing routines [{}], globals [{}]",
+            "selected runtime SemIR did not lower every manifest node; missing routines [{}], globals [{}]",
             selected
                 .routines
                 .difference(&bound_routines)
@@ -166,6 +164,7 @@ fn source_runtime_name(qualified_name: &str) -> &str {
         .unwrap_or(qualified_name)
 }
 
+#[cfg(test)]
 pub(super) fn syslib_mir() -> Result<MirProgram, Vec<MirDiagnostic>> {
     SYSLIB_MIR.get_or_init(compile_syslib).clone()
 }
@@ -202,7 +201,17 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
         return Ok(());
     }
 
-    let runtime = syslib_mir()?;
+    let helper_roots = required
+        .iter()
+        .map(|helper| super::runtime::helper_name(*helper).to_string())
+        .collect::<BTreeSet<_>>();
+    let selected_runtime = crate::runtime_source::select_runtime_unit(
+        "syslib.act",
+        "ACTION.RUNTIME.SYSLIB",
+        &helper_roots,
+    )
+    .map_err(|diagnostics| frontend_diagnostics("syslib.act", diagnostics))?;
+    let runtime = lower_runtime_semir(&selected_runtime.semir, "syslib.act")?;
     let roots = required
         .iter()
         .map(|helper| {
@@ -210,8 +219,12 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
             find_runtime_helper(&runtime, *helper).map(|routine| (*helper, routine))
         })
         .collect::<Result<BTreeMap<_, _>, _>>()?;
-    let selected = dependency_closure(&runtime, roots.values().copied().collect::<BTreeSet<_>>())?;
-    let routine_rebase = append_runtime_closure(
+    let selected = bind_runtime_selection(
+        &runtime,
+        &selected_runtime.selection,
+        "ACTION_RUNTIME_SYSLIB",
+    )?;
+    let routine_rebase = append_runtime_selection(
         program,
         &runtime,
         &selected,
@@ -226,28 +239,6 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
         }
     }
     Ok(())
-}
-
-pub(super) fn append_runtime_closure(
-    program: &mut MirProgram,
-    runtime: &MirProgram,
-    selected: &BTreeSet<RoutineId>,
-    display_module: &str,
-    link_module: &str,
-) -> Result<BTreeMap<RoutineId, RoutineId>, Vec<MirDiagnostic>> {
-    let selected_machine_ids = selected_machine_ids(runtime, selected);
-    let (globals, statics) = selected_runtime_storage(runtime, selected, &selected_machine_ids)?;
-    append_runtime_selection(
-        program,
-        runtime,
-        &RuntimeSelection {
-            routines: selected.clone(),
-            globals,
-            statics,
-        },
-        display_module,
-        link_module,
-    )
 }
 
 pub(super) fn append_runtime_selection(
@@ -417,109 +408,6 @@ fn selected_machine_ids(
             _ => None,
         })
         .collect()
-}
-
-fn selected_runtime_storage(
-    runtime: &MirProgram,
-    selected_routines: &BTreeSet<RoutineId>,
-    selected_machines: &BTreeSet<MirMachineBlockId>,
-) -> Result<(BTreeSet<SymbolId>, BTreeSet<SymbolId>), Vec<MirDiagnostic>> {
-    let all_globals = runtime
-        .globals
-        .iter()
-        .map(|global| (global.id, global))
-        .collect::<BTreeMap<_, _>>();
-    let all_statics = runtime
-        .statics
-        .iter()
-        .map(|static_data| (static_data.id, static_data))
-        .collect::<BTreeMap<_, _>>();
-    let mut globals = BTreeSet::new();
-    let mut statics = BTreeSet::new();
-    let mut pending_globals = BTreeSet::new();
-    let mut pending_statics = BTreeSet::new();
-    for routine in runtime
-        .routines
-        .iter()
-        .filter(|routine| selected_routines.contains(&routine.id))
-    {
-        for slot in routine.frame.params.iter().chain(&routine.frame.locals) {
-            match slot.base {
-                MirStorageBase::Global(id) => {
-                    pending_globals.insert(id);
-                }
-                MirStorageBase::Static(id) => {
-                    pending_statics.insert(id);
-                }
-                _ => {}
-            }
-            if let Some(init) = &slot.init {
-                visit_storage_init_storage(init, &mut pending_globals);
-            }
-        }
-        visit_effect_storage(&routine.effects, &mut pending_globals, &mut pending_statics);
-        for block in &routine.blocks {
-            for op in &block.ops {
-                visit_op_storage(op, &mut pending_globals, &mut pending_statics);
-            }
-            visit_terminator_storage(
-                &block.terminator,
-                &mut pending_globals,
-                &mut pending_statics,
-            );
-        }
-    }
-    for machine in runtime
-        .machine_blocks
-        .iter()
-        .filter(|machine| selected_machines.contains(&machine.id))
-    {
-        for item in &machine.items {
-            if let MirMachineItem::Relocation {
-                target: MirInlineAsmTarget::Memory(mem),
-                ..
-            } = item
-            {
-                record_mem_storage(mem, &mut pending_globals, &mut pending_statics);
-            }
-        }
-    }
-
-    loop {
-        if let Some(id) = pending_globals.pop_first() {
-            if !globals.insert(id) {
-                continue;
-            }
-            let global = all_globals.get(&id).ok_or_else(|| {
-                diagnostic(format!(
-                    "embedded runtime references missing global g{}",
-                    id.0
-                ))
-            })?;
-            if let MirGlobalBacking::Alias { target, .. } = global.backing {
-                pending_globals.insert(target);
-            }
-            if let Some(init) = &global.init {
-                visit_global_init_storage(init, &mut pending_globals);
-            }
-            continue;
-        }
-        if let Some(id) = pending_statics.pop_first() {
-            if !statics.insert(id) {
-                continue;
-            }
-            let static_data = all_statics.get(&id).ok_or_else(|| {
-                diagnostic(format!(
-                    "embedded runtime references missing static s{}",
-                    id.0
-                ))
-            })?;
-            visit_data_image_storage(&static_data.image, &mut pending_globals);
-            continue;
-        }
-        break;
-    }
-    Ok((globals, statics))
 }
 
 fn visit_op_storage(
@@ -1185,6 +1073,7 @@ pub(super) fn runtime_routine_name<'a>(name: &'a str, link_module: &str) -> &'a 
     }
 }
 
+#[cfg(test)]
 pub(super) fn dependency_closure(
     program: &MirProgram,
     roots: BTreeSet<RoutineId>,
@@ -1193,6 +1082,7 @@ pub(super) fn dependency_closure(
     Ok(selection.routines)
 }
 
+#[cfg(test)]
 fn dynamic_runtime_selection(
     program: &MirProgram,
     roots: BTreeSet<RoutineId>,
@@ -1511,6 +1401,7 @@ fn preceding_runtime_bytes(
     selected
 }
 
+#[cfg(test)]
 fn runtime_selection_from_nodes(nodes: &BTreeSet<MirLinkNode>) -> RuntimeSelection {
     let mut selection = RuntimeSelection {
         routines: BTreeSet::new(),
@@ -1689,8 +1580,8 @@ std::thread_local! {
     static RUNTIME_GRAPH_DISCOVERIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
+#[cfg(test)]
 fn note_runtime_graph_discovery() {
-    #[cfg(test)]
     RUNTIME_GRAPH_DISCOVERIES.with(|count| count.set(count.get() + 1));
 }
 
@@ -1864,56 +1755,6 @@ fn visit_data_image_routines(image: &MirDataImage, routines: &mut BTreeSet<Routi
     }
 }
 
-/// Return the source routine identities selected by the runtime dependency
-/// graph.  The classic linker uses this projection too, so both backends root
-/// and close over exactly the same embedded Action! implementations.
-pub(crate) fn selected_runtime_routine_names(
-    file_name: &str,
-    module_name: &str,
-    roots: &BTreeSet<String>,
-) -> Result<BTreeSet<String>, Vec<MirDiagnostic>> {
-    if roots.is_empty() {
-        return Ok(BTreeSet::new());
-    }
-    let runtime = if file_name.eq_ignore_ascii_case("syslib.act") {
-        syslib_mir()?
-    } else {
-        compile_runtime_unit(file_name, module_name)?
-    };
-    let root_ids = roots
-        .iter()
-        .map(|expected| {
-            let matches = runtime
-                .routines
-                .iter()
-                .filter(|routine| {
-                    runtime_routine_name(&routine.name, &module_name.replace('.', "_"))
-                        .eq_ignore_ascii_case(expected)
-                })
-                .map(|routine| routine.id)
-                .collect::<Vec<_>>();
-            match matches.as_slice() {
-                [id] => Ok(*id),
-                [] => Err(diagnostic(format!(
-                    "embedded runtime has no implementation routine `{expected}`"
-                ))),
-                _ => Err(diagnostic(format!(
-                    "embedded runtime has multiple implementation routines named `{expected}`"
-                ))),
-            }
-        })
-        .collect::<Result<BTreeSet<_>, _>>()?;
-    let selected = dependency_closure(&runtime, root_ids)?;
-    Ok(runtime
-        .routines
-        .iter()
-        .filter(|routine| selected.contains(&routine.id))
-        .map(|routine| {
-            runtime_routine_name(&routine.name, &module_name.replace('.', "_")).to_string()
-        })
-        .collect())
-}
-
 fn rebased_routine(
     old: RoutineId,
     rebase: &BTreeMap<RoutineId, RoutineId>,
@@ -2000,10 +1841,12 @@ fn next_global_offset(program: &MirProgram) -> u16 {
         .unwrap_or(0)
 }
 
+#[cfg(test)]
 fn compile_syslib() -> Result<MirProgram, Vec<MirDiagnostic>> {
     compile_runtime_unit("syslib.act", "ACTION.RUNTIME.SYSLIB")
 }
 
+#[cfg(test)]
 pub(super) fn compile_runtime_unit(
     file_name: &str,
     module_name: &str,
@@ -2011,13 +1854,22 @@ pub(super) fn compile_runtime_unit(
     compile_runtime_unit_with_semir(file_name, module_name).map(|(_, mir)| mir)
 }
 
+#[cfg(test)]
 pub(super) fn compile_runtime_unit_with_semir(
     file_name: &str,
     module_name: &str,
 ) -> Result<(crate::semantic::ir::SemProgram, MirProgram), Vec<MirDiagnostic>> {
     let semir = crate::runtime_source::compile_runtime_unit(file_name, module_name)
         .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
-    let nir = lower_runtime_nir(&semir);
+    let mir = lower_runtime_semir(&semir, file_name)?;
+    Ok((semir, mir))
+}
+
+fn lower_runtime_semir(
+    semir: &crate::semantic::ir::SemProgram,
+    file_name: &str,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    let nir = lower_runtime_nir(semir);
     crate::nir::verify_program(&nir).map_err(|diagnostics| {
         diagnostics
             .into_iter()
@@ -2037,7 +1889,7 @@ pub(super) fn compile_runtime_unit_with_semir(
             })
             .collect::<Vec<_>>()
     })?;
-    Ok((semir, mir))
+    Ok(mir)
 }
 
 pub(super) fn compile_runtime_image_with_semir()
@@ -2051,27 +1903,7 @@ pub(super) fn compile_runtime_image_with_semir()
 pub(super) fn lower_runtime_image(
     image: &crate::runtime_source::RuntimeImage,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let nir = lower_runtime_nir(&image.semir);
-    crate::nir::verify_program(&nir).map_err(|diagnostics| {
-        diagnostics
-            .into_iter()
-            .map(|diagnostic| MirDiagnostic {
-                routine: diagnostic.routine,
-                block: diagnostic.block,
-                message: format!("embedded sysall.act NIR: {}", diagnostic.message),
-            })
-            .collect::<Vec<_>>()
-    })?;
-    let mir = super::lower_program(&nir).map_err(|diagnostics| {
-        diagnostics
-            .into_iter()
-            .map(|mut diagnostic| {
-                diagnostic.message = format!("embedded sysall.act MIR: {}", diagnostic.message);
-                diagnostic
-            })
-            .collect::<Vec<_>>()
-    })?;
-    Ok(mir)
+    lower_runtime_semir(&image.semir, "sysall.act")
 }
 
 fn lower_runtime_nir(semir: &crate::semantic::ir::SemProgram) -> crate::nir::NirProgram {
@@ -2266,6 +2098,42 @@ mod tests {
 
         assert!(selection.routine_names.contains("Zero"));
         assert!(selection.routine_names.contains("SetBlock"));
+        assert_eq!(runtime_graph_discoveries(), 0);
+    }
+
+    #[test]
+    fn production_helper_selection_never_discovers_the_syslib_graph() {
+        let runtime = syslib_mir().expect("compile embedded SYSLIB");
+        let mut declaration = runtime
+            .runtime_helpers
+            .iter()
+            .find(|declaration| declaration.helper == MirRuntimeHelper::Mod)
+            .expect("RemI helper declaration")
+            .clone();
+        declaration.target = MirRuntimeHelperTarget::Deferred;
+        let mut application = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: Vec::new(),
+            machine_blocks: Vec::new(),
+            runtime_helpers: vec![declaration],
+        };
+
+        RUNTIME_GRAPH_DISCOVERIES.with(|count| count.set(0));
+        link_helpers(&mut application).expect("link selected RemI package");
+
+        let routines = application
+            .routines
+            .iter()
+            .map(|routine| routine.name.as_str())
+            .collect::<BTreeSet<_>>();
+        for expected in ["RemI", "DivI", "SMOps", "SetSign", "SS1"] {
+            assert!(
+                routines.contains(format!("ACTION.RUNTIME.SYSLIB::{expected}").as_str()),
+                "missing {expected}: {routines:?}"
+            );
+        }
+        assert!(!routines.contains("ACTION.RUNTIME.SYSLIB::MultI"));
         assert_eq!(runtime_graph_discoveries(), 0);
     }
 

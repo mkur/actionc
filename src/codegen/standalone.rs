@@ -112,19 +112,29 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         .iter()
         .map(|helper| helper.name().to_string())
         .collect::<BTreeSet<_>>();
-    let selected_syslib =
-        select_runtime_names("syslib.act", INTERNAL_SYSLIB_MODULE, &helper_roots)?;
-    let syslib = runtime_projection("syslib.act", INTERNAL_SYSLIB_MODULE)?;
+    let selected_syslib = crate::runtime_source::select_runtime_unit(
+        "syslib.act",
+        INTERNAL_SYSLIB_MODULE,
+        &helper_roots,
+    )?;
+    let syslib = runtime_image_projection(selected_syslib.semir)?;
     let syslib_names = syslib.routine_names();
 
     let mut runtime_items = runtime_items;
-    runtime_items.extend(selected_routines(
-        &syslib.ast,
-        &selected_syslib,
-        &syslib_names,
-    ));
+    let mut helper_sets = Vec::new();
+    for item in syslib
+        .ast
+        .modules
+        .iter()
+        .flat_map(|module| module.items.iter().cloned())
+    {
+        if matches!(item, Item::Set(_)) {
+            helper_sets.push(item);
+        } else {
+            runtime_items.push(item);
+        }
+    }
     let runtime_routine_names = item_routine_names(&runtime_items);
-    let helper_sets = selected_helper_sets(&syslib.ast, &helper_roots, &syslib_names);
 
     let mut modules = Vec::new();
     if !helper_sets.is_empty() {
@@ -393,19 +403,6 @@ impl RuntimeProjection {
     }
 }
 
-fn runtime_projection(
-    file_name: &str,
-    module_name: &str,
-) -> Result<RuntimeProjection, Vec<Diagnostic>> {
-    let semir = crate::runtime_source::compile_runtime_unit(file_name, module_name)?;
-    let projection = super::semir::semir_to_projection(&semir)?;
-    Ok(RuntimeProjection {
-        semir,
-        ast: projection.program,
-        native_real: projection.native_real,
-    })
-}
-
 fn runtime_image_projection(
     semir: crate::semantic::ir::SemProgram,
 ) -> Result<RuntimeProjection, Vec<Diagnostic>> {
@@ -415,25 +412,6 @@ fn runtime_image_projection(
         ast: projection.program,
         native_real: projection.native_real,
     })
-}
-
-fn select_runtime_names(
-    file_name: &str,
-    module_name: &str,
-    roots: &BTreeSet<String>,
-) -> Result<BTreeSet<String>, Vec<Diagnostic>> {
-    crate::mir6502::standalone::selected_runtime_routine_names(file_name, module_name, roots)
-        .map_err(|diagnostics| {
-            diagnostics
-                .into_iter()
-                .map(|diagnostic| {
-                    Diagnostic::new(
-                        Span::new(0, 0),
-                        format!("classic runtime selection: {}", diagnostic.message),
-                    )
-                })
-                .collect()
-        })
 }
 
 fn validate_external_signatures(
@@ -485,64 +463,6 @@ fn source_routine_name(qualified_name: &str) -> &str {
         .rsplit(['.', ':'])
         .find(|part| !part.is_empty())
         .unwrap_or(qualified_name)
-}
-
-fn selected_routines(
-    runtime: &Program,
-    selected: &BTreeSet<String>,
-    names: &BTreeMap<String, String>,
-) -> Vec<Item> {
-    let selected_names = selected
-        .iter()
-        .filter_map(|name| names.get(&name.to_ascii_uppercase()))
-        .collect::<BTreeSet<_>>();
-    runtime
-        .modules
-        .iter()
-        .flat_map(|module| &module.items)
-        .filter_map(|item| match item {
-            // DEFINEs are compile-time aliases only. Keeping the image's
-            // private definitions costs no target bytes and lets selected
-            // machine blocks resolve constants such as SYSIO.OpenBuf.
-            Item::Define(define) => Some(Item::Define(define.clone())),
-            Item::Routine(routine) if selected_names.contains(&routine.name) => {
-                Some(Item::Routine(routine.clone()))
-            }
-            // Absolute declarations are ABI metadata rather than emitted
-            // routines. A selected source routine may call one even though it
-            // is not part of the resident call-graph closure.
-            Item::Routine(routine)
-                if routine.system_address.as_ref().and_then(expr_u16).is_some() =>
-            {
-                Some(Item::Routine(routine.clone()))
-            }
-            _ => None,
-        })
-        .collect()
-}
-
-fn selected_helper_sets(
-    runtime: &Program,
-    roots: &BTreeSet<String>,
-    names: &BTreeMap<String, String>,
-) -> Vec<Item> {
-    let root_names = roots
-        .iter()
-        .filter_map(|name| names.get(&name.to_ascii_uppercase()))
-        .collect::<BTreeSet<_>>();
-    runtime
-        .modules
-        .iter()
-        .flat_map(|module| &module.items)
-        .filter_map(|item| match item {
-            Item::Set(set)
-                if matches!(&set.value.kind, ExprKind::Name(name) if root_names.contains(name)) =>
-            {
-                Some(Item::Set(set.clone()))
-            }
-            _ => None,
-        })
-        .collect()
 }
 
 fn item_routine_names(items: &[Item]) -> BTreeSet<String> {
