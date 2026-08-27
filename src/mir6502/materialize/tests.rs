@@ -2,9 +2,9 @@ use super::*;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{
-    MirBlock, MirCallResult, MirDataImage, MirEdge, MirGlobal, MirGlobalBacking, MirMachineBlock,
-    MirMachineBlockId, MirRegisterSet, MirStatic, MirStorageBacking, MirStorageInit, MirTemp,
-    MirZpAllocation,
+    MirAtariFppService, MirBlock, MirCallResult, MirDataImage, MirEdge, MirGlobal,
+    MirGlobalBacking, MirMachineBlock, MirMachineBlockId, MirRegisterSet, MirStatic,
+    MirStorageBacking, MirStorageInit, MirTemp, MirZpAllocation,
 };
 use crate::mir6502::passes::MirPeepholeReportMode;
 use crate::mir6502::rewrite::context::{PostHomeRewriteContext, PreHomeRewriteContext};
@@ -132,6 +132,62 @@ fn known_call_result_pair_keeps_ram_across_unknown_call() {
     let remaps = lower_known_call_result_spills_to_reused_zero_page(&mut program, &summaries);
 
     assert!(remaps.is_empty());
+}
+
+#[test]
+fn known_call_result_pair_reuses_zero_page_preserved_by_audited_fpp_call() {
+    let mut program = known_call_result_reuse_program(false, true);
+    program.routines[0].frame.zero_page_allocations = vec![
+        MirZpAllocation {
+            slot: MirZpSlot(0),
+            start: MirFixedZpSlot(0xAC),
+            size: 1,
+        },
+        MirZpAllocation {
+            slot: MirZpSlot(1),
+            start: MirFixedZpSlot(0xAD),
+            size: 1,
+        },
+    ];
+    let effects = MirAtariFppService::Multiply.effects();
+    let call = program.routines[0].blocks[0]
+        .ops
+        .iter_mut()
+        .find(|op| {
+            matches!(
+                op,
+                MirOp::Call {
+                    target: MirCallTarget::Builtin { name, .. },
+                    ..
+                } if name == "unknown"
+            )
+        })
+        .expect("crossed external call");
+    let MirOp::Call {
+        target,
+        abi,
+        effects: call_effects,
+        ..
+    } = call
+    else {
+        unreachable!();
+    };
+    *target = MirCallTarget::AtariFpp(MirAtariFppService::Multiply);
+    abi.clobbers = effects.clobbers;
+    abi.preserves = effects.preserves;
+    *call_effects = effects;
+
+    let summaries = MirKnownCalleeSummaries::analyze(&program);
+    let remaps = lower_known_call_result_spills_to_reused_zero_page(&mut program, &summaries);
+
+    assert_eq!(
+        remaps.get(&RoutineId(0)),
+        Some(&BTreeMap::from([
+            (MirSpillId(0), MirZpSlot(0)),
+            (MirSpillId(1), MirZpSlot(1)),
+        ]))
+    );
+    assert!(program.routines[0].frame.spills.is_empty());
 }
 
 fn known_call_result_reuse_program(
@@ -13846,6 +13902,65 @@ fn ssa_lite_keeps_accumulator_reload_after_calls() {
 }
 
 #[test]
+fn ssa_lite_keeps_accumulator_reload_after_boolean_temp_compare() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let ops = vec![
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Compare {
+            dst: MirCondDest::Temp(MirTempId(0)),
+            op: MirCompareOp::Ge,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0x80),
+            width: MirWidth::Byte,
+            signed: false,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source.clone()),
+            width: MirWidth::Byte,
+        },
+    ];
+    let mut stats = MirPeepholeStats::default();
+
+    let rewritten = fold_ssa_lite_byte_loads(
+        ops,
+        RoutineId(0),
+        &layout,
+        &MirTerminator::Return,
+        &mut stats,
+    );
+
+    assert_eq!(
+        rewritten
+            .iter()
+            .filter(|op| matches!(
+                op,
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(mem),
+                    width: MirWidth::Byte,
+                } if *mem == source
+            ))
+            .count(),
+        2
+    );
+    assert!(
+        !stats
+            .aggregate_counts()
+            .contains_key("ssa-lite-redundant-reloads")
+    );
+}
+
+#[test]
 fn ssa_lite_reports_reload_retained_at_call_boundary() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
@@ -15427,6 +15542,36 @@ fn ssa_lite_v2_observes_temp_alias_copy_prop_potential() {
     assert_eq!(stats.temp_aliases_learned, 1);
     assert_eq!(stats.replaceable_temp_uses, 1);
     assert_eq!(stats.copy_prop_candidates, 1);
+}
+
+#[test]
+fn ssa_lite_v2_invalidates_accumulator_fact_for_boolean_temp_compare_only() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let compare = |dst| MirOp::Compare {
+        dst,
+        op: MirCompareOp::Ge,
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(0x80),
+        width: MirWidth::Byte,
+        signed: false,
+    };
+    let load = MirOp::LoadImm {
+        dst: MirDef::Reg(MirReg::A),
+        value: 0x42,
+        width: MirWidth::Byte,
+    };
+
+    let boolean_stats = scan_ssa_lite_v2_observability(
+        &[load.clone(), compare(MirCondDest::Temp(MirTempId(0)))],
+        RoutineId(0),
+        &layout,
+    );
+    let flags_stats =
+        scan_ssa_lite_v2_observability(&[load, compare(MirCondDest::Flags)], RoutineId(0), &layout);
+
+    assert_eq!(boolean_stats.facts_killed_by_unknown, 1);
+    assert_eq!(flags_stats.facts_killed_by_unknown, 0);
 }
 
 #[test]
@@ -19035,6 +19180,80 @@ fn pre_materialization_rematerializes_private_load_after_safe_known_call() {
     let once = ops.clone();
     cleanup_pre_materialization_temp_artifacts(&mut routine, &layout);
     assert_eq!(routine.blocks[0].ops, once);
+}
+
+#[test]
+fn pre_materialization_rematerializes_private_load_after_audited_fpp_call() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let source_temp = MirTempId(0);
+    let effects = MirAtariFppService::Multiply.effects();
+    let call = MirOp::Call {
+        target: MirCallTarget::AtariFpp(MirAtariFppService::Multiply),
+        abi: MirCallAbi {
+            params: Vec::new(),
+            result: None,
+            clobbers: effects.clobbers,
+            preserves: effects.preserves,
+        },
+        args: Vec::new(),
+        result: None,
+        effects,
+    };
+    assert!(!op_may_write_mem(&call, &source));
+    assert!(!op_may_write_mem(
+        &call,
+        &MirMem::FixedZeroPage(MirFixedZpSlot(0xAC))
+    ));
+    assert!(op_may_write_mem(
+        &call,
+        &MirMem::FixedZeroPage(MirFixedZpSlot(0xD4))
+    ));
+
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(source_temp),
+                src: MirAddr::Direct(source),
+                width: MirWidth::Word,
+            },
+            call,
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Local {
+                    id: LocalId(0),
+                    offset: 0,
+                }),
+                src: MirValue::Def(MirDef::VTemp(source_temp)),
+                width: MirWidth::Word,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: source_temp }];
+
+    cleanup_pre_materialization_temp_artifacts(&mut routine, &layout);
+
+    assert!(matches!(
+        routine.blocks[0].ops.as_slice(),
+        [
+            MirOp::Call {
+                target: MirCallTarget::AtariFpp(MirAtariFppService::Multiply),
+                ..
+            },
+            MirOp::Load {
+                src: MirAddr::Direct(MirMem::Param { .. }),
+                ..
+            },
+            MirOp::Store { .. }
+        ]
+    ));
 }
 
 #[test]

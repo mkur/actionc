@@ -1,0 +1,86 @@
+; Portable numerical facade for native REAL programs. Target-specific
+; implementations live behind this module so application code need not name
+; the Atari OS FPP provider directly.
+MODULE MATH
+
+USE ATARI.REAL AS PLATFORM
+
+PUBLIC CONST REAL Pi=3.141592654,
+                  HalfPi=1.570796327,
+                  QuarterPi=0.7853981634,
+                  TwoPi=6.283185307,
+                  E=2.718281828,
+                  Ln2=0.6931471806,
+                  Ln10=2.302585093,
+                  Log2E=1.442695041,
+                  Log10E=0.4342944819,
+                  Sqrt2=1.414213562,
+                  InvSqrt2=0.7071067812,
+                  DegToRad=0.01745329252,
+                  RadToDeg=57.29577951
+
+PUBLIC PROC Exp(REAL POINTER source, destination)
+  PLATFORM.Exp(source,destination)
+RETURN
+
+PUBLIC PROC Exp10(REAL POINTER source, destination)
+  PLATFORM.Exp10(source,destination)
+RETURN
+
+PUBLIC PROC Ln(REAL POINTER source, destination)
+  PLATFORM.Ln(source,destination)
+RETURN
+
+PUBLIC PROC Log10(REAL POINTER source, destination)
+  PLATFORM.Log10(source,destination)
+RETURN
+
+PUBLIC PROC Power(REAL POINTER base, exponent, destination)
+  PLATFORM.Power(base,exponent,destination)
+RETURN
+
+PUBLIC PROC Abs(REAL POINTER source, destination)
+  PLATFORM.Abs(source,destination)
+RETURN
+
+PUBLIC PROC Sgn(REAL POINTER source, destination)
+  PLATFORM.Sgn(source,destination)
+RETURN
+
+PUBLIC PROC Floor(REAL POINTER source, destination)
+  PLATFORM.Floor(source,destination)
+RETURN
+
+PUBLIC PROC Rnd(REAL POINTER destination)
+  PLATFORM.Rnd(destination)
+RETURN
+
+PUBLIC PROC Sqrt(REAL POINTER source, destination)
+  PLATFORM.Sqrt(source,destination)
+RETURN
+
+PUBLIC PROC Sqr(REAL POINTER source, destination)
+  PLATFORM.Sqr(source,destination)
+RETURN
+
+PUBLIC PROC Sin(REAL POINTER source, destination)
+  PLATFORM.Sin(source,destination)
+RETURN
+
+PUBLIC PROC Cos(REAL POINTER source, destination)
+  PLATFORM.Cos(source,destination)
+RETURN
+
+PUBLIC PROC Tan(REAL POINTER source, destination)
+  PLATFORM.Tan(source,destination)
+RETURN
+
+PUBLIC PROC Atan(REAL POINTER source, destination)
+  PLATFORM.Atan(source,destination)
+RETURN
+
+PUBLIC PROC Atn(REAL POINTER source, destination)
+  PLATFORM.Atn(source,destination)
+RETURN
+
+ENDMODULE

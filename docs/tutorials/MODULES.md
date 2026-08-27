@@ -301,7 +301,8 @@ their source files:
 | `ATARI.GTIA` | GTIA hardware registers and constants |
 | `ATARI.POKEY` | POKEY hardware registers and constants |
 | `ATARI.PIA` | PIA hardware registers and constants |
-| `ATARI.REAL` | Optional pointer-oriented Atari floating-point library |
+| `MATH` | Portable pointer-oriented native REAL operations |
+| `ATARI.REAL` | Atari OS FPP implementation provider used by `MATH` |
 
 Qualified hardware code shows whether an access is direct or mediated by an OS
 shadow:
@@ -320,9 +321,10 @@ OS.SDMCTL=ANTIC.NORMAL_PLAYFIELD_DMA
 Use the chip module for direct hardware access. Use `ATARI.OS` for OS variables
 and shadow registers when the operating system should own the update.
 
-`ATARI.REAL` is layered on the native `REAL` type, which requires the modern
-profile. The `optimized` and `mir6502` modes select that profile. Its complete
-usage and workspace restrictions are documented in the
+`MATH` is layered on the native `REAL` type, which requires the modern profile.
+The `optimized` and `mir6502` modes select that profile. REAL text conversion
+and I/O are qualified `SYS` operations. Their complete usage and Atari FPP
+workspace restrictions are documented in the
 [modules and runtime reference](../Action_2027/MODULES_AND_RUNTIME_USAGE.md#native-real-library).
 
 ## Choose the runtime

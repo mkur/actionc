@@ -79,9 +79,65 @@ pub(super) fn op_may_have_unknown_memory_effects(op: &MirOp) -> bool {
 
 pub(super) fn op_may_write_mem(op: &MirOp, mem: &MirMem) -> bool {
     let effects = classify_op(op);
+    if let MirMemoryEffect::Regions(regions) = &effects.memory.structured_writes {
+        if effects.memory.opaque
+            || effects.memory.indirect_writes
+            || effects.memory.may_write_any
+            || effects.memory.has_unknown_effects
+        {
+            return true;
+        }
+        return effects.memory.definitely_writes(mem)
+            || regions
+                .iter()
+                .any(|region| structured_region_may_write_mem(region, mem));
+    }
     if matches!(op, MirOp::RuntimeHelper { .. }) {
         effects.memory.may_write_any_compat
     } else {
         effects.memory.may_write_compat(mem)
+    }
+}
+
+fn structured_region_may_write_mem(
+    region: &crate::mir6502::ir::MirMemoryRegion,
+    mem: &MirMem,
+) -> bool {
+    let contains =
+        |offset: u16| offset >= region.offset && offset < region.offset.saturating_add(region.size);
+    match (&region.kind, mem) {
+        (MirMemoryRegionKind::Local(region_id), MirMem::Local { id, offset }) => {
+            region_id == id && contains(*offset)
+        }
+        (MirMemoryRegionKind::Param(region_id), MirMem::Param { id, offset }) => {
+            region_id == id && contains(*offset)
+        }
+        (MirMemoryRegionKind::Global(region_id), MirMem::Global { id, offset }) => {
+            region_id == id && contains(*offset)
+        }
+        (MirMemoryRegionKind::Static(region_id), MirMem::Static { id, offset }) => {
+            region_id == id && contains(*offset)
+        }
+        (MirMemoryRegionKind::AbsoluteRange, MirMem::Absolute(address)) => contains(*address),
+        (MirMemoryRegionKind::AbsoluteRange, _)
+        // A logical global may have fixed zero-page backing. The physical
+        // source allocation is deliberately not recovered in this query.
+        | (MirMemoryRegionKind::ZeroPage, MirMem::Global { .. })
+        // Virtual zero-page identities are resolved later. Workspace ranges
+        // are reserved from allocation, but retain the conservative answer
+        // here for callers operating before that invariant is established.
+        | (MirMemoryRegionKind::ZeroPage, MirMem::ZeroPage(_)) => true,
+        (MirMemoryRegionKind::ZeroPage, MirMem::FixedZeroPage(slot)) => {
+            contains(u16::from(slot.0))
+        }
+        (MirMemoryRegionKind::ZeroPage, MirMem::Absolute(address)) => {
+            *address < 0x100 && contains(*address)
+        }
+        (MirMemoryRegionKind::Stack, _)
+        | (MirMemoryRegionKind::Local(_), _)
+        | (MirMemoryRegionKind::Param(_), _)
+        | (MirMemoryRegionKind::Global(_), _)
+        | (MirMemoryRegionKind::Static(_), _)
+        | (MirMemoryRegionKind::ZeroPage, _) => false,
     }
 }

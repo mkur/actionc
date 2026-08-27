@@ -127,7 +127,7 @@ pub(super) fn expr_needs_call_staging(expr: &Expr) -> bool {
         ExprKind::Unary {
             op: UnaryOp::Neg, ..
         } => true,
-        ExprKind::Unary { expr, .. } => expr_needs_call_staging(expr),
+        ExprKind::Cast { expr, .. } | ExprKind::Unary { expr, .. } => expr_needs_call_staging(expr),
         ExprKind::Index { base, index } => {
             expr_needs_call_staging(base) || expr_needs_call_staging(index)
         }

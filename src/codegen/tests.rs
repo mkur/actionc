@@ -16988,6 +16988,7 @@ fn test_generator(profile: CodegenProfile) -> Generator {
         suppress_implicit_rts_once: false,
         inline_byte_constant_shift: false,
         native_real: native_real::ClassicNativeRealFacts::default(),
+        native_real_literal_pool: BTreeMap::new(),
         current_native_real_scope: None,
         native_real_fact_suppression: 0,
         used_atari_fpp_services: BTreeSet::new(),

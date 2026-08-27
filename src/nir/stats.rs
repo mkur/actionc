@@ -325,8 +325,8 @@ fn place_kind(place: &NirPlace) -> &'static str {
 mod tests {
     use super::*;
     use crate::nir::{
-        BlockId, NirBlock, NirBlockParam, NirEdge, NirLocal, NirLocalBacking, NirRoutine,
-        NirTerminator, NirType, NirTypeKind, NirValue, TempId,
+        BlockId, NirBlock, NirBlockParam, NirEdge, NirLocal, NirLocalBacking, NirLocalPurpose,
+        NirRoutine, NirTerminator, NirType, NirTypeKind, NirValue, TempId,
     };
 
     fn byte_type() -> NirType {
@@ -345,6 +345,7 @@ mod tests {
             id: crate::nir::LocalId(0),
             name: "value".to_string(),
             kind: "scalar".to_string(),
+            purpose: NirLocalPurpose::Storage,
             storage: crate::nir::NirStorageClass::Scalar,
             ty: ty.clone(),
             backing: NirLocalBacking::Ordinary,

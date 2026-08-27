@@ -425,9 +425,14 @@ fn display_name_leaf(name: &str) -> &str {
 
 #[test]
 fn program_entry_note_tracks_the_last_proc_instead_of_main_or_a_function() {
-    let program = lower_modern_source(
-        "PROC Main() RETURN PROC Start() RETURN BYTE FUNC Helper() RETURN(0)",
-    );
+    let tokens = tokenize("PROC Main() RETURN PROC Start() RETURN BYTE FUNC Helper() RETURN(0)")
+        .expect("tokenize entry source");
+    let ast = parse(&tokens).expect("parse entry source");
+    let model =
+        analyze_with_options(&ast, SemanticOptions::modern()).expect("analyze entry source");
+    let mut semir = crate::semantic::ir::lower_program(&ast, &model);
+    semir.modules[0].items.reverse();
+    let program = lower_program(&semir);
     verify_program(&program).expect("program-entry NIR should verify");
 
     let entries = program
@@ -453,9 +458,11 @@ fn verifier_rejects_more_than_one_program_entry() {
     });
 
     let diagnostics = verify_program(&program).expect_err("duplicate entry must fail");
-    assert!(diagnostics.iter().any(|diagnostic| diagnostic
-        .message
-        .contains("more than one program-entry routine")));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("more than one program-entry routine")
+    }));
 }
 
 #[test]
@@ -722,6 +729,7 @@ fn formats_labeled_blocks() {
                 id: LocalId(0),
                 name: "i".to_string(),
                 kind: "Byte".to_string(),
+                purpose: NirLocalPurpose::Storage,
                 storage: NirStorageClass::Scalar,
                 ty: byte_type(),
                 backing: NirLocalBacking::Ordinary,
@@ -895,7 +903,15 @@ fn real_expressions_lower_to_address_based_verified_nir() {
             .blocks
             .iter()
             .flat_map(|block| &block.ops)
-            .any(|op| matches!(op, NirOp::Real(NirRealOp::Binary { .. })))
+            .any(|op| matches!(
+                op,
+                NirOp::Real(NirRealOp::Binary {
+                    operation: NirBinaryOp::Mul,
+                    left: NirRealSource::Place(_),
+                    right: NirRealSource::Place(_),
+                    ..
+                })
+            ))
     );
     assert!(
         program.routines[0]
@@ -903,6 +919,35 @@ fn real_expressions_lower_to_address_based_verified_nir() {
             .iter()
             .flat_map(|block| &block.ops)
             .any(|op| matches!(op, NirOp::Real(NirRealOp::Compare { .. })))
+    );
+    let half_static = program.statics[1].id;
+    assert!(
+        program.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .any(|op| matches!(
+                op,
+                NirOp::Real(NirRealOp::Binary {
+                    operation: NirBinaryOp::Add,
+                    right: NirRealSource::Static { id, .. },
+                    ..
+                }) if *id == half_static
+            ))
+    );
+    assert!(
+        !program.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .any(|op| matches!(
+                op,
+                NirOp::Real(NirRealOp::Copy {
+                    source: NirRealSource::Static { id, .. },
+                    ..
+                }) if *id == half_static
+            )),
+        "literal REAL operands must not be staged through a copy"
     );
 
     let optimized = optimize_program(&program).expect("REAL NIR should remain optimizer-clean");
@@ -923,6 +968,38 @@ fn verifier_rejects_malformed_real_static_data() {
         diagnostic
             .message
             .contains("must be an immutable six-byte rodata object")
+    }));
+}
+
+#[test]
+fn verifier_rejects_malformed_direct_real_operand_static_data() {
+    let mut program = lower_modern_source("REAL value PROC Main() value=value+1.25 RETURN");
+    program.statics[0].image.bytes.pop();
+
+    let diagnostics =
+        verify_program(&program).expect_err("short direct REAL operand static must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("does not name six-byte REAL static data")
+    }));
+}
+
+#[test]
+fn verifier_rejects_malformed_real_temporary_purpose() {
+    let mut program = lower_modern_source("REAL value PROC Main() value=value+1.25 RETURN");
+    let temporary = program.routines[0]
+        .locals
+        .iter_mut()
+        .find(|local| matches!(local.purpose, NirLocalPurpose::RealTemporary))
+        .expect("REAL evaluation temporary");
+    temporary.storage = NirStorageClass::Array;
+
+    let diagnostics = verify_program(&program).expect_err("malformed REAL temporary must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("must be ordinary, uninitialized, scalar six-byte REAL storage")
     }));
 }
 
@@ -1058,6 +1135,31 @@ fn identical_real_literals_share_one_immutable_static_across_routines() {
         .collect::<Vec<_>>();
     assert_eq!(ids, [program.statics[0].id, program.statics[0].id]);
     verify_program(&program).expect("deduplicated REAL statics verify");
+}
+
+#[test]
+fn identical_direct_real_operands_share_one_static_across_routines() {
+    let program = lower_modern_source(
+        "REAL left,right PROC First() left=left+1.25 RETURN PROC Second() right=right+1.25 RETURN",
+    );
+
+    assert_eq!(program.statics.len(), 1);
+    let static_id = program.statics[0].id;
+    let ids = program
+        .routines
+        .iter()
+        .flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::Real(NirRealOp::Binary {
+                right: NirRealSource::Static { id, .. },
+                ..
+            }) => Some(*id),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(ids, [static_id, static_id]);
+    verify_program(&program).expect("deduplicated direct REAL operand statics verify");
 }
 
 #[test]
@@ -1888,6 +1990,7 @@ fn verifier_rejects_executable_error_type() {
                 id: LocalId(0),
                 name: "bad".to_string(),
                 kind: "error".to_string(),
+                purpose: NirLocalPurpose::Storage,
                 storage: NirStorageClass::Scalar,
                 ty: error.clone(),
                 backing: NirLocalBacking::Ordinary,
@@ -3484,6 +3587,7 @@ fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
                 id: LocalId(0),
                 name: "x".to_string(),
                 kind: "Byte".to_string(),
+                purpose: NirLocalPurpose::Storage,
                 storage: NirStorageClass::Scalar,
                 ty: byte_type(),
                 backing: NirLocalBacking::Ordinary,
@@ -3530,6 +3634,7 @@ fn byte_local() -> NirLocal {
         id: LocalId(0),
         name: "storage".to_string(),
         kind: "Byte".to_string(),
+        purpose: NirLocalPurpose::Storage,
         storage: NirStorageClass::Scalar,
         ty: byte_type(),
         backing: NirLocalBacking::Absolute(0xD000),

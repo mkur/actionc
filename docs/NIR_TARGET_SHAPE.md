@@ -419,20 +419,20 @@ pub enum NirRealOp {
     Unary {
         operation: NirUnaryOp,
         destination: NirPlace,
-        operand: NirPlace,
+        operand: NirRealSource,
     },
     Binary {
         operation: NirBinaryOp,
         destination: NirPlace,
-        left: NirPlace,
-        right: NirPlace,
+        left: NirRealSource,
+        right: NirRealSource,
     },
     Compare {
         predicate: NirCompareOp,
         result: TempId,
         result_type: NirType,
-        left: NirPlace,
-        right: NirPlace,
+        left: NirRealSource,
+        right: NirRealSource,
     },
     IntegerToReal {
         destination: NirPlace,
@@ -455,16 +455,26 @@ pub enum NirRealSource {
 }
 ```
 
-The lowerer materializes expression children left-to-right into compiler-owned
-six-byte locals. Literal operands are immutable six-byte `rodata` statics,
-identified by stable IDs and deduplicated by canonical Atari packed
+Compiler-created six-byte evaluation locals carry
+`NirLocalPurpose::RealTemporary`. Ordinary addressable locals carry
+`NirLocalPurpose::Storage`. This structured purpose is the only fact target
+lowering may use to distinguish private REAL staging storage; printable names
+and declaration-kind strings never affect executable lowering.
+
+The lowerer materializes mutable or computed expression children left-to-right
+into compiler-owned six-byte locals. Literal operands flow directly into unary,
+binary, and comparison operations as immutable six-byte `rodata` sources, so
+they do not require an otherwise redundant six-byte staging local and copy.
+Statics are identified by stable IDs and deduplicated by canonical Atari packed
 decimal bytes. The static name is diagnostic/printer metadata, not executable
 identity.
 
 The verifier guarantees:
 
-- every real operand and destination is a typed, six-byte `Real` place;
-- every real literal source names immutable six-byte `rodata`;
+- every real place operand and destination is typed six-byte `Real` storage;
+- every real static operand names immutable six-byte `rodata`;
+- every `RealTemporary` local is ordinary, uninitialized, scalar six-byte
+  `Real` storage;
 - routine temps and block parameters never carry `Real`;
 - scalar operations, scalar calls, and scalar returns never carry `Real`;
 - real comparisons alone define an ordinary canonical Boolean temp;

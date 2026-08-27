@@ -1424,6 +1424,58 @@ fn standalone_arithmetic_selects_deterministic_minimal_dependency_closures() {
 }
 
 #[test]
+fn link_plan_reports_deterministic_module_bytes_and_reasons_for_both_backends() {
+    let temp = TestDir::new();
+    let source = temp.path().join("link-plan.act");
+    fs::write(
+        &source,
+        "MODULE LINK_PLAN\nUSE SYS\nBYTE ARRAY buffer(1)\nCARD result\nPROC Dead() RETURN\nPROC Used() RETURN\nPROC Main() Used() result=result*3 SYS.Zero(buffer,1) RETURN\nENDMODULE\n",
+    )
+    .expect("write link-plan source");
+
+    for backend in ["classic", "mir6502"] {
+        let run = || {
+            Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+                .args([
+                    "--profile",
+                    "modern",
+                    "--backend",
+                    backend,
+                    "--runtime",
+                    "standalone",
+                    "--emit-link-plan",
+                ])
+                .arg(&source)
+                .output()
+                .unwrap_or_else(|error| panic!("run {backend} link plan: {error}"))
+        };
+        let first = run();
+        assert!(
+            first.status.success(),
+            "{backend} link plan failed: {}",
+            String::from_utf8_lossy(&first.stderr)
+        );
+        let second = run();
+        assert!(second.status.success());
+        assert_eq!(first.stdout, second.stdout, "{backend} plan is unstable");
+
+        let plan = String::from_utf8(first.stdout).expect("UTF-8 link plan");
+        let application = plan
+            .lines()
+            .find(|line| line.starts_with("link-module LINK_PLAN "))
+            .unwrap_or_else(|| panic!("missing application module in {backend} plan:\n{plan}"));
+        assert!(application.contains("retained-reasons=direct-call,root"));
+        assert!(!application.contains("removed=0 "), "{application}");
+        assert!(application.ends_with("removed-reason=unreachable"));
+        assert!(plan.contains("link-module ACTION.RUNTIME.RESIDENT "));
+        assert!(plan.contains("retained-reasons=runtime-binding-closure"));
+        assert!(plan.contains("link-module ACTION.RUNTIME.SYSLIB "));
+        assert!(plan.contains("retained-reasons=runtime-helper-dependency"));
+        assert!(plan.contains("link-total retained="));
+    }
+}
+
+#[test]
 fn runtime_option_uses_the_space_separated_cli_form() {
     let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
         .arg("--runtime=cart")

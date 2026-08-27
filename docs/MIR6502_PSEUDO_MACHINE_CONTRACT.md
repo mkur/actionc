@@ -946,13 +946,22 @@ does not cause an embedded routine to be linked.
 
 Before a service call, lowering copies all six left operand bytes into FR0
 (`$D4`-`$D9`) and all six right operand bytes into FR1 (`$E0`-`$E5`). After the
-call it copies all six FR0 bytes to the typed destination. Every six-byte copy
-loads the complete source before its first write, so assignment remains correct
-for overlapping aliases. Constant integer promotions use the same exact Atari
-decimal codec as literals. Dynamic integer conversion calls IFP/FPI, whose
-unsigned-word convention is adapted for signed Action `INT` values. Sign state
-that must survive a call uses generated frame storage rather than a register or
-virtual temp.
+call it copies all six FR0 bytes to the typed destination. `PackedRealCopy`
+provides the directional direct transfer and complete indirect-source staging
+described below, so assignment remains correct for supported aliases. Constant
+integer promotions use the same exact Atari decimal codec as literals. Dynamic
+integer conversion calls IFP/FPI, whose unsigned-word convention is adapted for
+signed Action `INT` values. Sign state that must survive a call uses generated
+frame storage rather than a register or virtual temp.
+
+An adjacent, single-use compiler-owned REAL result may remain in FR0 instead of
+round-tripping through its six-byte frame slot. A following left-hand consumer
+uses FR0 directly. A following right-hand subtraction or division first copies
+FR0 to FR1 and then stages the left operand in FR0; addition and multiplication
+instead stage the other operand directly in FR1. The latter rewrite relies only
+on those operations' commutativity. Target lowering applies these forms only
+after structured NIR use counting and an exact MIR sequence match; intervening
+operand evaluation keeps the frame slot.
 
 REAL equality and ordering compare the canonical six-byte representation
 directly. Equality requires all six bytes to match; ordering first handles sign
@@ -961,17 +970,62 @@ for negative values. This preserves distinctions between adjacent packed
 decimal values that subtraction-based comparison could round away. Direct REAL
 conditions compare against canonical zero.
 
-Aggregate REAL copies use these same structured address forms for every byte.
-They first load all six source bytes into compiler temps and only then issue
-stores, preserving overlap safety for array elements, pointer dereferences, and
-record fields. Initialized scalar/array storage already contains authoritative
-packed-decimal bytes; FPP calls are needed only for runtime computation.
+When a REAL comparison is the final NIR operation in a block and its result is
+consumed only by that block's branch, MIR6502 selects `PackedRealCompare` after
+staging the operands in FR0 and FR1. The operation compares sign and packed
+bytes directly, leaves A as canonical Boolean zero or one, and exposes Z for
+the immediate branch. It reads `$D4`-`$D9` and `$E0`-`$E5`, clobbers A and C,
+and writes N/Z. The verifier requires it to be the final operation before a
+Z-flag branch. Comparisons whose result is stored, returned, or otherwise used
+as a value retain the ordinary explicit Boolean-producing lowering.
 
-FPP calls conservatively clobber A, X, Y, flags, FR0, FR1, and unknown FPP
-workspace. MIR represents them as opaque OS calls with all-memory effects until
-an audited narrower contract exists. The stack is known balanced across the
-call. Optimization and materialization must therefore preserve operand/result
-copies around the service call.
+Aggregate REAL assignment lowers to one `PackedRealCopy` carrying structured
+source and destination addresses plus byte offsets. Materialization prepares
+independent fixed-ZP pointer pairs for indirect operands; pre-emission MIR
+permits only direct or `(zp),Y` copy endpoints, and each indirect offset must
+leave room for all six bytes. Ordinary direct ranges use one descending
+X-indexed loop; a statically known leftward overlap retains a forward fallback
+for explicit absolute aliases. If either endpoint is indirect, emission uses
+two Y-indexed loops: the first pushes all six source bytes before any write and
+the second pulls and stores them in reverse lane order. The stack is balanced
+on exit, pointer aliases retain copy semantics, and the six lanes never become
+six simultaneously live compiler temporaries.
+
+The same operation implements native REAL negation with its `negate` flag.
+After copying, it tests the six-byte magnitude and toggles bit 7 of byte zero
+only for a nonzero value; zero is normalized to its canonical positive form.
+This avoids staging zero and the operand in FR0/FR1 and avoids an Atari FPP
+subtraction call. The operation clobbers A and N/Z, clobbers X for direct copies
+or Y/C for an indirect endpoint, preserves V, and uses only transient balanced
+stack storage. A negated immutable static source with one same-block consumer
+may carry that flag directly to the consumer's packed copy, eliminating its
+private REAL frame slot. Initialized scalar/array storage already contains
+authoritative packed-decimal bytes; FPP calls are needed only for runtime
+computation.
+
+The audited core FPP services clobber A, X, Y, flags, and service-specific
+subsets of the Atari FPP workspace. MIR uses the stable portable envelope for
+compatible ROMs: structured zero-page reads and writes over `$D4-$FF`. These
+calls are not opaque, do not make nested OS calls, and have a known balanced
+stack-depth delta of zero. The verifier requires that exact contract. Emission
+implements an Atari FPP call as `JSR service; CLD`, restoring the compiler's
+binary-arithmetic invariant because compatible packages do not provide a
+portable decimal-flag result.
+
+The allocator reserves `$D4-$FF` in every routine containing an FPP call, so
+virtual zero-page homes cannot overlap the workspace. Structured-effect
+analysis records those bytes as exact fixed-zero-page homes rather than
+turning them into unknown compiler-home effects. Consequently a pointer or
+other value held in an ordinary param, local, spill, or the `$AA-$AF` pointer
+scratch may be rematerialized across an FPP call. Values stored in the FPP
+workspace itself remain killed normally. The byte-level source audit and the
+original/AltirraOS compatibility union are recorded in
+`docs/Action_2027/ATARI_FPP_ORACLE.md`.
+
+This preservation proof applies only to the FPP call. It does not make a
+pointer snapshot removable when its live range also crosses an indirect write:
+without a stronger alias fact, an indirect `PackedRealCopy` may overwrite the
+pointer cell itself, so the original pointer value still needs a durable home.
 
 ## Effects And Barriers
 

@@ -234,9 +234,10 @@ source.
 
 ## Selective Inclusion
 
-Importing `SYS` exposes an interface but includes no code by itself. After
-semantic resolution and target lowering, the compiler computes a runtime
-dependency closure from:
+Importing `SYS` exposes an interface but includes no code by itself. The
+compiler binds referenced standalone interfaces to nodes in its generated,
+fingerprinted resident SYS graph and computes a runtime dependency closure
+from:
 
 1. referenced `SYS` routine identities;
 2. address-taken `SYS` routines and conservative indirect-call roots;
@@ -261,6 +262,17 @@ Each selected routine or group carries:
 Only the closure is laid out and emitted. Historical top-level `SET` statements
 inside `SYSLIB.ACT` document original bindings but do not root every helper in
 standalone output.
+
+The resident graph is embedded in the compiler and records calls, machine
+relocations, legacy entry aliases, machine-code fallthrough, backward-prefix
+requirements, storage references, aliases, and initializer relocations. Normal
+linking binds this graph to the provider SemIR and filters the provider before
+classic projection or NIR/MIR lowering; it does not reconstruct dependencies
+from MIR or decode SYS machine bytes. Fixed-address declarations remain as
+non-emitting ABI metadata. A generator and exhaustive parity tests keep the
+artifact in sync with the embedded runtime sources. Compiler-internal `SYSLIB`
+requirements remain target-owned, but their roots now use that same common
+closure engine and filter SYSLIB SemIR before either backend lowers it.
 
 Classic standalone emission places the selected runtime closure after the
 application's source-controlled layout. This preserves programs that set the
@@ -331,7 +343,11 @@ loader note.
 
 Runtime selection, dependency traversal, group ordering, layout, and map output
 must be deterministic for identical inputs. The embedded VFS digest reported
-by `actionc --version` makes the exact runtime source set observable.
+by `actionc --version` makes the exact runtime source set observable. For size audits,
+`actionc-emit --emit-link-plan` reports retained and removed emitted bytes by
+application/runtime module and reason against a retain-all baseline. Its
+`<layout/data>` row owns bytes outside routine ranges, so the module rows sum to
+the reported totals.
 
 ## Implementation Slices
 

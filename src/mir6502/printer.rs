@@ -631,6 +631,23 @@ fn op_summary(op: &MirOp) -> String {
             address_consumer_summary(right),
             offset
         ),
+        MirOp::PackedRealCompare { op } => {
+            format!("packed_real_cmp.flags FR0 {} FR1", compare_summary(*op))
+        }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            source_offset,
+            destination_offset,
+            negate,
+        } => format!(
+            "packed_real_{} {}+{}, {}+{}",
+            if *negate { "neg" } else { "copy" },
+            addr_summary(destination),
+            destination_offset,
+            addr_summary(source),
+            source_offset,
+        ),
         MirOp::Call {
             target,
             abi,

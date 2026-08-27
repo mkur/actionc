@@ -1,0 +1,5 @@
+; actionc runtime composition root. The preserved Action! runtime remains the
+; base image; compiler-owned extensions are appended as separate units.
+INCLUDE "SYSALL.ACT"
+INCLUDE "SYSREAL.ACT"
+INCLUDE "SYSREALC.ACT"

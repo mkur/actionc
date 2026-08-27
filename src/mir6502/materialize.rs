@@ -127,8 +127,9 @@ use indexes::{
 use indexes::{
     collect_delayed_byte_index_plan, indexed_addr_parts,
     indexed_word_copy_rematerialized_producer_ops, materialize_base_address,
-    materialize_index_to_y, materialize_indexed_read_to_def, materialize_indexed_write_from_value,
-    storage_address_value, try_fuse_dynamic_inline_byte_index, try_fuse_indexed_byte_copy,
+    materialize_index_to_y, materialize_indexed_address_for_consumer,
+    materialize_indexed_read_to_def, materialize_indexed_write_from_value, storage_address_value,
+    try_fuse_dynamic_inline_byte_index, try_fuse_indexed_byte_copy,
     try_fuse_indexed_byte_inc_dec_update, try_fuse_indexed_to_indirect_word_copy,
     try_fuse_indexed_word_copy, try_fuse_indirect_to_indexed_word_copy,
     try_fuse_private_indirect_word_copy, try_prepare_dynamic_byte_index,
@@ -3552,6 +3553,52 @@ fn record_unspecified_add_sub_carry_observability(
     }
 }
 
+fn materialize_packed_real_addr(
+    addr: MirAddr,
+    consumer: MirAddressConsumer,
+    layout: &MaterializeLayout,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    out: &mut Vec<MirOp>,
+) -> (MirAddr, u16) {
+    let fixed_indirect = || match consumer.pointer_pair() {
+        MirPointerPair::Fixed { lo } => MirAddr::FixedIndirectIndexedY { zp: lo },
+        MirPointerPair::Virtual(zp) => MirAddr::IndirectIndexedY { zp },
+    };
+    match addr {
+        MirAddr::Direct(mem) => (MirAddr::Direct(mem), 0),
+        MirAddr::Deref { ptr, offset } => {
+            let (lo, hi) = split_value_with_temp_widths(ptr, layout, temp_widths);
+            out.push(MirOp::MaterializeAddress {
+                consumer,
+                value: MirValue::Word {
+                    lo: Box::new(lo),
+                    hi: Box::new(hi),
+                },
+            });
+            (fixed_indirect(), offset)
+        }
+        MirAddr::PointerCell { ptr, offset } => {
+            let (lo, hi) =
+                split_value_with_temp_widths(pointer_value_from_mem(&ptr), layout, temp_widths);
+            out.push(MirOp::MaterializeAddress {
+                consumer,
+                value: MirValue::Word {
+                    lo: Box::new(lo),
+                    hi: Box::new(hi),
+                },
+            });
+            (fixed_indirect(), offset)
+        }
+        addr @ (MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. }) => {
+            let parts = indexed_addr_parts(&addr).expect("packed REAL indexed address");
+            let offset = parts.offset;
+            materialize_indexed_address_for_consumer(parts, consumer, layout, None, out);
+            (fixed_indirect(), offset)
+        }
+        other => (other, 0),
+    }
+}
+
 fn materialize_ops_impl(
     routine_id: RoutineId,
     _block_id: MirBlockId,
@@ -4002,6 +4049,36 @@ fn materialize_ops_impl(
         }
 
         match ops[index].clone() {
+            MirOp::PackedRealCopy {
+                source,
+                destination,
+                source_offset,
+                destination_offset,
+                negate,
+            } => {
+                let (source, address_source_offset) = materialize_packed_real_addr(
+                    source,
+                    DEFAULT_POINTER_PAIR,
+                    layout,
+                    &temp_widths,
+                    &mut out,
+                );
+                let (destination, address_destination_offset) = materialize_packed_real_addr(
+                    destination,
+                    DEST_POINTER_PAIR,
+                    layout,
+                    &temp_widths,
+                    &mut out,
+                );
+                out.push(MirOp::PackedRealCopy {
+                    source,
+                    destination,
+                    source_offset: source_offset.saturating_add(address_source_offset),
+                    destination_offset: destination_offset
+                        .saturating_add(address_destination_offset),
+                    negate,
+                });
+            }
             MirOp::Load {
                 dst,
                 src: MirAddr::Direct(src),

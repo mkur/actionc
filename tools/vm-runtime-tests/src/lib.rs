@@ -243,6 +243,31 @@ mod tests {
     }
 
     #[test]
+    fn native_real_constant_promotion_and_compact_negation_run_in_both_runtimes() {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_compaction.act", mode, runtime, true, 10_000);
+                let bytes = |address: u16| {
+                    (0..6)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+
+                assert_eq!(bytes(0x0600), [0x40, 0x12, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0606), [0xC1, 0x01, 0x23, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x060C), [0, 0, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0612), [0xC0, 0x12, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0618), [0x41, 0x01, 0x23, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x061E), [0x40, 0x65, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0624), [0x42, 0x06, 0x55, 0x35, 0, 0], "{context}");
+                assert_eq!(outcome.memory().read(0x062A), 0xA7, "{context}");
+            }
+        }
+    }
+
+    #[test]
     fn native_real_assignment_is_overlap_safe() {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
@@ -255,6 +280,14 @@ mod tests {
                     destination,
                     [0x44, 0x12, 0x34, 0x56, 0x78, 0x90],
                     "{mode:?}/{runtime:?}"
+                );
+                let forward_destination = (0..6)
+                    .map(|offset| outcome.memory().read(0x0610 + offset))
+                    .collect::<Vec<_>>();
+                assert_eq!(
+                    forward_destination,
+                    [0x44, 0x98, 0x76, 0x54, 0x32, 0x10],
+                    "forward overlap for {mode:?}/{runtime:?}"
                 );
             }
         }
@@ -280,6 +313,68 @@ mod tests {
                 assert_eq!(bytes(0x0614, 6), [0, 1, 1, 1, 0, 0]);
                 assert_eq!(bytes(0x061A, 4), [1, 1, 1, 1]);
                 assert_eq!(bytes(0x061E, 2), [2, 0]);
+            }
+        }
+    }
+
+    #[test]
+    fn signed_native_real_to_int_preserves_source_exponents() {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_to_int.act", mode, runtime, true, 25_000);
+                let bytes = |address: u16, length: u16| {
+                    (0..length)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+
+                assert_eq!(
+                    bytes(0x0600, 6),
+                    [0x41, 0x01, 0x23, 0x50, 0, 0],
+                    "{context}"
+                );
+                assert_eq!(
+                    bytes(0x0606, 6),
+                    [0xC1, 0x04, 0x56, 0x50, 0, 0],
+                    "{context}"
+                );
+                assert_eq!(bytes(0x060C, 2), [124, 0], "{context}");
+                assert_eq!(bytes(0x060E, 2), [0x37, 0xFE], "{context}");
+                assert_eq!(bytes(0x0610, 6), bytes(0x0600, 6), "{context}");
+                assert_eq!(bytes(0x0616, 6), bytes(0x0606, 6), "{context}");
+                assert_eq!(bytes(0x061C, 1), [0xA7], "{context}");
+            }
+        }
+    }
+
+    #[test]
+    fn native_real_fpp_calls_restore_binary_decimal_mode() {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let mut os = std::fs::read(repository_root().join("roms/altirraos-xl.rom"))
+                    .expect("read Atari OS ROM");
+                let fpi_offset = usize::from(0xD9D2u16 - OS_ROM_BASE);
+                os[fpi_offset..fpi_offset + 2].copy_from_slice(&[0xF8, 0x60]); // SED; RTS
+                let outcome = run_runtime_fixture_with_setup(
+                    "native_real_decimal_mode.act",
+                    mode,
+                    runtime,
+                    true,
+                    25_000,
+                    move |vm| {
+                        vm.bus_mut()
+                            .map_os_rom(OS_ROM_BASE, os)
+                            .expect("install decimal-returning FPI test shim");
+                    },
+                );
+                let read = |address| outcome.memory().read(address);
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+
+                assert_eq!(read(0x060C) & 0x08, 0, "decimal flag after FPI: {context}");
+                assert_eq!(read(0x060A), 10, "binary addition after FPI: {context}");
+                assert_eq!(read(0x060B), 0xA7, "completion marker: {context}");
             }
         }
     }
@@ -346,18 +441,77 @@ mod tests {
                 );
                 assert_eq!(bytes(0x0618, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
                 assert_eq!(bytes(0x061E, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
-                assert_eq!(bytes(0x0624, 2), [1, b'2'], "{context}");
-                assert_eq!(bytes(0x0638, 1), [0xA5], "{context}");
-                assert_eq!(bytes(0x0700, 6), [0, 0, 0, 0, 0, 0], "{context}");
-                assert_eq!(bytes(0x0706, 6), [0x40, 0x01, 0, 0, 0, 0], "{context}");
+                for (address, expected) in [
+                    (0x0624, [0x40, 0x01, 0x41, 0x42, 0x13, 0x56]),
+                    (0x062A, [0x3F, 0x47, 0x94, 0x25, 0x53, 0x86]),
+                    (0x0630, [0x3F, 0x87, 0x75, 0x82, 0x56, 0x44]),
+                    (0x0636, [0x3F, 0x54, 0x63, 0x02, 0x48, 0x82]),
+                    (0x063C, [0x3F, 0x78, 0x53, 0x98, 0x16, 0x34]),
+                    (0x0642, [0x40, 0x03, 0, 0, 0, 0]),
+                    (0x0660, [0x40, 0x02, 0x50, 0, 0, 0]),
+                    (0x0666, [0xC0, 0x01, 0, 0, 0, 0]),
+                    (0x066C, [0, 0, 0, 0, 0, 0]),
+                    (0x0672, [0x40, 0x01, 0, 0, 0, 0]),
+                ] {
+                    assert_eq!(bytes(address, 6), expected, "{context}");
+                }
+                assert_eq!(bytes(0x0648, 2), [1, b'2'], "{context}");
+                assert_eq!(bytes(0x065C, 1), [0xA5], "{context}");
                 assert_eq!(
-                    bytes(0x070C, 6),
-                    [0x40, 0x01, 0x41, 0x42, 0x13, 0x56],
-                    "{context}"
+                    bytes(0x067E, 1),
+                    [1],
+                    "{context}; rnd={:?}",
+                    bytes(0x0678, 6)
                 );
-                assert_eq!(bytes(0x0712, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
-                assert_eq!(bytes(0x0718, 6), [0x3F, 0x01, 0, 0, 0, 0], "{context}");
-                assert_eq!(bytes(0x071E, 6), [0x41, 0x01, 0, 0, 0, 0], "{context}");
+                assert_eq!(
+                    bytes(0x0681, 1),
+                    [1],
+                    "{context}; rnd={:?}, reconstructed={:?}",
+                    bytes(0x0678, 6),
+                    bytes(0x067F, 2)
+                );
+                for (address, expected) in [
+                    (0x0682, [0x40, 0x02, 0, 0, 0, 0]),
+                    (0x0688, [0xC0, 0x03, 0, 0, 0, 0]),
+                    (0x068E, [0, 0, 0, 0, 0, 0]),
+                    (0x0694, [0xC0, 0x01, 0, 0, 0, 0]),
+                    (0x069A, [0x42, 0x12, 0x34, 0x56, 0, 0]),
+                    (0x06A0, [0xC0, 0x42, 0, 0, 0, 0]),
+                ] {
+                    assert_eq!(bytes(address, 6), expected, "{context}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn native_real_trig_reduction_is_bounded_in_both_backends_and_runtimes() {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_trig.act", mode, runtime, true, 250_000);
+                let bytes = |address: u16, length: u16| {
+                    (0..length)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+                for (address, expected) in [
+                    (0x0606, [0, 0, 0, 0, 0, 0]),
+                    (0x060C, [0x40, 0x01, 0, 0, 0, 0x01]),
+                    (0x0612, [0xC0, 0x01, 0, 0, 0, 0x01]),
+                    (0x0618, [0x3F, 0x65, 0x69, 0x86, 0x59, 0x88]),
+                    (0x061E, [0xBF, 0x65, 0x69, 0x86, 0x59, 0x88]),
+                    (0x0624, [0xBF, 0x41, 0x61, 0x46, 0x83, 0x97]),
+                    (0x062A, [0x3F, 0x82, 0x68, 0x79, 0x54, 0x15]),
+                    (0x0630, [0xBF, 0x97, 0x73, 0x52, 0x00, 0x26]),
+                    (0x0636, [0, 0, 0, 0, 0, 0]),
+                    (0x063C, [0, 0, 0, 0, 0, 0]),
+                    (0x0642, [0, 0, 0, 0, 0, 0]),
+                ] {
+                    assert_eq!(bytes(address, 6), expected, "{context}");
+                }
+                assert_eq!(bytes(0x0648, 1), [0xA6], "{context}");
             }
         }
     }
@@ -799,6 +953,8 @@ mod tests {
             &b"1234|42\x9B"[..],
             &b"-1|32767\x9B"[..],
             &b"-1234|-32768\x9B"[..],
+            &b"1.25|1.25\x9B"[..],
+            &b"-2.5|-2.5\x9B"[..],
         ]
         .concat();
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
@@ -828,8 +984,7 @@ mod tests {
     #[test]
     fn resident_console_input_matches_under_both_runtimes_and_backends() {
         let max_steps = 200_000;
-        let input =
-            b"42\x9B255\x9B1234\x9B65535\x9B-1234\x9B-32768\x9BZABC\x9BDEFG\x9BWXYZ\x9BLAST\x9B";
+        let input = b"42\x9B255\x9B1234\x9B65535\x9B-1234\x9B-32768\x9B1.25\x9B-2.5\x9BZABC\x9BDEFG\x9BWXYZ\x9BLAST\x9B";
         let expected: &[(u16, &[u8])] = &[
             (0x0600, &[42, 255, b'Z']),
             (0x0610, &[0xD2, 0x04, 0xFF, 0xFF]),
@@ -838,6 +993,8 @@ mod tests {
             (0x0650, b"\x04DEFG"),
             (0x0660, b"\x04WXYZ"),
             (0x0670, b"\x04LAST"),
+            (0x0680, &[0x40, 0x01, 0x25, 0, 0, 0]),
+            (0x0686, &[0xC0, 0x02, 0x50, 0, 0, 0]),
         ];
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
@@ -866,7 +1023,7 @@ mod tests {
                 }
                 assert_eq!(outcome.vm.bus().cio_summary().opens, 1);
                 assert_eq!(outcome.vm.bus().cio_summary().closes, 1);
-                assert_eq!(outcome.vm.bus().cio_summary().reads, 11);
+                assert_eq!(outcome.vm.bus().cio_summary().reads, 13);
                 assert_eq!(
                     outcome.vm.bus().cio_summary().bytes_read,
                     input.len() as u64

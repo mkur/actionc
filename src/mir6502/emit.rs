@@ -471,7 +471,7 @@ enum MirStorageItem {
     },
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ResolvedMem {
     Absolute(u16),
     OutputRelative(u16),
@@ -485,6 +485,12 @@ enum ResolvedIndexedMem {
     OutputRelativeX(u16),
     OutputRelativeY(u16),
     ZeroPageX(u8),
+    IndirectY(u8),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResolvedPackedRealAddr {
+    Direct(ResolvedMem),
     IndirectY(u8),
 }
 
@@ -2804,6 +2810,26 @@ fn emit_op(
             };
             emit_indirect_word_compare(left_slot, right_slot, *offset, emitter);
         }
+        MirOp::PackedRealCompare { op } => {
+            emit_packed_real_compare(ctx, routine, block, *op, emitter);
+        }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            source_offset,
+            destination_offset,
+            negate,
+        } => emit_packed_real_copy(
+            ctx,
+            routine,
+            block,
+            source,
+            destination,
+            *source_offset,
+            *destination_offset,
+            *negate,
+            emitter,
+        ),
         MirOp::Call { target, .. } => emit_call(ctx, routine, block, target, emitter),
         MirOp::RuntimeHelper { helper, .. } => {
             let Some(decl) = ctx
@@ -3324,7 +3350,13 @@ fn emit_call(
             address: Some(address),
             ..
         } => emitter.emit_jsr_abs(*address),
-        MirCallTarget::AtariFpp(service) => emitter.emit_jsr_abs(service.address()),
+        MirCallTarget::AtariFpp(service) => {
+            emitter.emit_jsr_abs(service.address());
+            // Compatible FPP implementations do not agree on the returned
+            // decimal flag. Re-establish the compiler's binary-mode invariant
+            // before any generated ADC/SBC can execute.
+            emitter.emit_cld();
+        }
         MirCallTarget::Builtin {
             name,
             address: None,
@@ -3439,8 +3471,13 @@ fn emit_tail_call_target(
             emitter.emit_jmp_abs(*address);
             true
         }
+        // FPP calls are currently excluded by `is_tail_call_op` because the
+        // post-call CLD prevents a tail JMP. Keep the fallback semantically
+        // complete if that selector is broadened later.
         MirCallTarget::AtariFpp(service) => {
-            emitter.emit_jmp_abs(service.address());
+            emitter.emit_jsr_abs(service.address());
+            emitter.emit_cld();
+            emitter.emit_rts();
             true
         }
         MirCallTarget::Builtin {
@@ -4492,6 +4529,48 @@ fn offset_resolved_mem(mem: ResolvedMem, offset: u16) -> ResolvedMem {
     }
 }
 
+fn resolved_mem_address(mem: ResolvedMem) -> u16 {
+    match mem {
+        ResolvedMem::Absolute(address) | ResolvedMem::OutputRelative(address) => address,
+        ResolvedMem::ZeroPage(address) => u16::from(address),
+    }
+}
+
+fn x_indexed_resolved_mem(mem: ResolvedMem, offset: u16) -> ResolvedIndexedMem {
+    match mem {
+        ResolvedMem::Absolute(address) => {
+            ResolvedIndexedMem::AbsoluteX(address.wrapping_add(offset))
+        }
+        ResolvedMem::OutputRelative(address) => {
+            ResolvedIndexedMem::OutputRelativeX(address.wrapping_add(offset))
+        }
+        ResolvedMem::ZeroPage(address) => {
+            ResolvedIndexedMem::ZeroPageX(address.wrapping_add(offset as u8))
+        }
+    }
+}
+
+fn y_indexed_packed_real_addr(
+    addr: ResolvedPackedRealAddr,
+    offset: u16,
+) -> (ResolvedIndexedMem, u8) {
+    match addr {
+        ResolvedPackedRealAddr::Direct(ResolvedMem::Absolute(address)) => (
+            ResolvedIndexedMem::AbsoluteY(address.wrapping_add(offset)),
+            0,
+        ),
+        ResolvedPackedRealAddr::Direct(ResolvedMem::OutputRelative(address)) => (
+            ResolvedIndexedMem::OutputRelativeY(address.wrapping_add(offset)),
+            0,
+        ),
+        ResolvedPackedRealAddr::Direct(ResolvedMem::ZeroPage(address)) => (
+            ResolvedIndexedMem::AbsoluteY(u16::from(address.wrapping_add(offset as u8))),
+            0,
+        ),
+        ResolvedPackedRealAddr::IndirectY(zp) => (ResolvedIndexedMem::IndirectY(zp), offset as u8),
+    }
+}
+
 fn emit_stx_mem(mem: ResolvedMem, emitter: &mut TrackedEmitter) {
     match mem {
         ResolvedMem::Absolute(address) => emitter.emit_stx_absolute(Absolute::new(address)),
@@ -4926,6 +5005,301 @@ fn emit_compare(
     }
 }
 
+fn resolve_packed_real_addr(
+    ctx: &MirEmitContext<'_>,
+    routine: RoutineId,
+    addr: &MirAddr,
+) -> Option<ResolvedPackedRealAddr> {
+    match addr {
+        MirAddr::Direct(mem) => ctx
+            .layout
+            .direct_mem(routine, mem)
+            .map(ResolvedPackedRealAddr::Direct),
+        MirAddr::IndirectIndexedY { .. } | MirAddr::FixedIndirectIndexedY { .. } => {
+            match ctx.layout.indexed_addr(routine, addr)? {
+                ResolvedIndexedMem::IndirectY(zp) => Some(ResolvedPackedRealAddr::IndirectY(zp)),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn emit_packed_real_lane_load(
+    addr: ResolvedPackedRealAddr,
+    offset: u16,
+    emitter: &mut TrackedEmitter,
+) {
+    match addr {
+        ResolvedPackedRealAddr::Direct(mem) => {
+            emit_lda_mem(offset_resolved_mem(mem, offset), emitter)
+        }
+        ResolvedPackedRealAddr::IndirectY(zp) => {
+            emitter.emit_ldy_imm(offset as u8);
+            emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(zp)));
+        }
+    }
+}
+
+fn emit_packed_real_lane_store(
+    addr: ResolvedPackedRealAddr,
+    offset: u16,
+    emitter: &mut TrackedEmitter,
+) {
+    match addr {
+        ResolvedPackedRealAddr::Direct(mem) => {
+            emit_sta_mem(offset_resolved_mem(mem, offset), emitter)
+        }
+        ResolvedPackedRealAddr::IndirectY(zp) => {
+            emitter.emit_ldy_imm(offset as u8);
+            emitter.emit_sta_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(zp)));
+        }
+    }
+}
+
+fn emit_packed_real_copy(
+    ctx: &mut MirEmitContext<'_>,
+    routine: RoutineId,
+    block: MirBlockId,
+    source: &MirAddr,
+    destination: &MirAddr,
+    source_offset: u16,
+    destination_offset: u16,
+    negate: bool,
+    emitter: &mut TrackedEmitter,
+) {
+    let Some(source) = resolve_packed_real_addr(ctx, routine, source) else {
+        unsupported(
+            ctx,
+            routine,
+            block,
+            "packed REAL copy source is not emit-ready",
+        );
+        return;
+    };
+    let Some(destination) = resolve_packed_real_addr(ctx, routine, destination) else {
+        unsupported(
+            ctx,
+            routine,
+            block,
+            "packed REAL copy destination is not emit-ready",
+        );
+        return;
+    };
+    if (matches!(source, ResolvedPackedRealAddr::IndirectY(_))
+        && source_offset.saturating_add(5) > u16::from(u8::MAX))
+        || (matches!(destination, ResolvedPackedRealAddr::IndirectY(_))
+            && destination_offset.saturating_add(5) > u16::from(u8::MAX))
+    {
+        unsupported(
+            ctx,
+            routine,
+            block,
+            "packed REAL indirect copy offset exceeds the 6502 Y range",
+        );
+        return;
+    }
+
+    match (source, destination) {
+        (ResolvedPackedRealAddr::Direct(source), ResolvedPackedRealAddr::Direct(destination)) => {
+            let source_start = resolved_mem_address(source).wrapping_add(source_offset);
+            let destination_start =
+                resolved_mem_address(destination).wrapping_add(destination_offset);
+            let requires_forward_copy = destination_start < source_start
+                && destination_start.saturating_add(6) > source_start;
+            if requires_forward_copy {
+                // Explicit absolute aliases can overlap in this direction. It
+                // is rare, so retain the simple unrolled fallback rather than
+                // making every direct copy pay for a larger forward loop.
+                for lane in 0..6 {
+                    emit_lda_mem(
+                        offset_resolved_mem(source, source_offset.saturating_add(lane)),
+                        emitter,
+                    );
+                    emit_sta_mem(
+                        offset_resolved_mem(destination, destination_offset.saturating_add(lane)),
+                        emitter,
+                    );
+                }
+            } else {
+                // The descending loop is safe for distinct ranges, exact
+                // self-copies, and rightward overlap. It is the compact normal
+                // path for typed REAL objects.
+                let loop_label = format!(
+                    "__mir6502_packed_real_copy_{}_{}_{}",
+                    routine.0,
+                    block.0,
+                    emitter.position()
+                );
+                let source = x_indexed_resolved_mem(source, source_offset);
+                let destination = x_indexed_resolved_mem(destination, destination_offset);
+                emitter.emit_ldx_imm(5);
+                bind_label(ctx, emitter, routine, Some(block), loop_label.clone());
+                emit_lda_indexed(source, emitter);
+                emit_sta_indexed(destination, emitter);
+                emitter.emit_dex();
+                emitter.emit_branch_label(opcode::BPL_REL, loop_label, SYNTHETIC_SPAN);
+            }
+        }
+        _ => {
+            // An indirect endpoint may alias any storage at runtime. Stage the
+            // complete source before the first write. Two compact Y-indexed
+            // loops retain overlap safety without six unrolled lane copies or
+            // six simultaneously live compiler homes.
+            let base = format!(
+                "__mir6502_packed_real_stack_copy_{}_{}_{}",
+                routine.0,
+                block.0,
+                emitter.position()
+            );
+            let load_loop = format!("{base}_load");
+            let store_loop = format!("{base}_store");
+            let (source, source_index) = y_indexed_packed_real_addr(source, source_offset);
+            let source_end = source_index.wrapping_add(6);
+            emitter.emit_ldy_imm(source_index);
+            bind_label(ctx, emitter, routine, Some(block), load_loop.clone());
+            emit_lda_indexed(source, emitter);
+            emitter.emit_pha();
+            emitter.emit_iny();
+            emitter.emit_cpy_imm(source_end);
+            emitter.emit_branch_label(opcode::BNE_REL, load_loop, SYNTHETIC_SPAN);
+
+            let (destination, destination_index) =
+                y_indexed_packed_real_addr(destination, destination_offset);
+            emitter.emit_ldy_imm(destination_index.wrapping_add(5));
+            bind_label(ctx, emitter, routine, Some(block), store_loop.clone());
+            emitter.emit_pla();
+            emit_sta_indexed(destination, emitter);
+            emitter.emit_dey();
+            if destination_index == 0 {
+                emitter.emit_branch_label(opcode::BPL_REL, store_loop, SYNTHETIC_SPAN);
+            } else {
+                emitter.emit_cpy_imm(destination_index.wrapping_sub(1));
+                emitter.emit_branch_label(opcode::BNE_REL, store_loop, SYNTHETIC_SPAN);
+            }
+        }
+    }
+
+    if !negate {
+        return;
+    }
+
+    let base = format!(
+        "__mir6502_packed_real_neg_{}_{}_{}",
+        routine.0,
+        block.0,
+        emitter.position()
+    );
+    let toggle = format!("{base}_toggle");
+    let done = format!("{base}_done");
+
+    emit_packed_real_lane_load(destination, destination_offset, emitter);
+    emitter.emit_and_imm(0x7F);
+    emitter.emit_branch_label(opcode::BNE_REL, toggle.clone(), SYNTHETIC_SPAN);
+    for lane in 1..6 {
+        emit_packed_real_lane_load(destination, destination_offset + lane, emitter);
+        emitter.emit_branch_label(opcode::BNE_REL, toggle.clone(), SYNTHETIC_SPAN);
+    }
+
+    // Normalize either spelling of zero to the canonical all-positive form.
+    emit_packed_real_lane_load(destination, destination_offset, emitter);
+    emitter.emit_and_imm(0x7F);
+    emit_packed_real_lane_store(destination, destination_offset, emitter);
+    emitter.emit_jmp_label(done.clone(), SYNTHETIC_SPAN);
+
+    bind_label(ctx, emitter, routine, Some(block), toggle);
+    emit_packed_real_lane_load(destination, destination_offset, emitter);
+    emitter.emit_eor_imm(0x80);
+    emit_packed_real_lane_store(destination, destination_offset, emitter);
+    bind_label(ctx, emitter, routine, Some(block), done);
+}
+
+fn emit_packed_real_compare(
+    ctx: &mut MirEmitContext<'_>,
+    routine: RoutineId,
+    block: MirBlockId,
+    op: MirCompareOp,
+    emitter: &mut TrackedEmitter,
+) {
+    const FR0: u8 = 0xD4;
+    const FR1: u8 = 0xE0;
+
+    let base = format!(
+        "__mir6502_packed_real_cmp_{}_{}_{}",
+        routine.0,
+        block.0,
+        emitter.position()
+    );
+    let same_sign = format!("{base}_same_sign");
+    let raw_less = format!("{base}_raw_less");
+    let raw_greater = format!("{base}_raw_greater");
+    let result_true = format!("{base}_true");
+    let result_false = format!("{base}_false");
+    let less = if packed_real_relation_matches(op, -1) {
+        result_true.clone()
+    } else {
+        result_false.clone()
+    };
+    let equal = if packed_real_relation_matches(op, 0) {
+        result_true.clone()
+    } else {
+        result_false.clone()
+    };
+    let greater = if packed_real_relation_matches(op, 1) {
+        result_true.clone()
+    } else {
+        result_false.clone()
+    };
+    let done = format!("{base}_done");
+
+    // Differing signs determine the result without inspecting the magnitude.
+    emitter.emit_lda_zero_page(ZeroPage::new(FR0));
+    emitter.emit_eor_zero_page(ZeroPage::new(FR1));
+    emitter.emit_branch_label(opcode::BPL_REL, same_sign.clone(), SYNTHETIC_SPAN);
+    emitter.emit_lda_zero_page(ZeroPage::new(FR0));
+    emitter.emit_branch_label(opcode::BMI_REL, less.clone(), SYNTHETIC_SPAN);
+    emitter.emit_jmp_label(greater.clone(), SYNTHETIC_SPAN);
+
+    // Equal-sign Atari REAL values are lexicographically ordered by their six
+    // packed bytes. Negative values use the reverse relation.
+    bind_label(ctx, emitter, routine, Some(block), same_sign);
+    for offset in 0..6u8 {
+        emitter.emit_lda_zero_page(ZeroPage::new(FR0 + offset));
+        emitter.emit_cmp_zero_page(ZeroPage::new(FR1 + offset));
+        emitter.emit_branch_label(opcode::BCC_REL, raw_less.clone(), SYNTHETIC_SPAN);
+        emitter.emit_branch_label(opcode::BNE_REL, raw_greater.clone(), SYNTHETIC_SPAN);
+    }
+    emitter.emit_jmp_label(equal.clone(), SYNTHETIC_SPAN);
+
+    bind_label(ctx, emitter, routine, Some(block), raw_less);
+    emitter.emit_lda_zero_page(ZeroPage::new(FR0));
+    emitter.emit_branch_label(opcode::BMI_REL, greater.clone(), SYNTHETIC_SPAN);
+    emitter.emit_jmp_label(less.clone(), SYNTHETIC_SPAN);
+
+    bind_label(ctx, emitter, routine, Some(block), raw_greater);
+    emitter.emit_lda_zero_page(ZeroPage::new(FR0));
+    emitter.emit_branch_label(opcode::BMI_REL, less.clone(), SYNTHETIC_SPAN);
+    emitter.emit_jmp_label(greater.clone(), SYNTHETIC_SPAN);
+
+    bind_label(ctx, emitter, routine, Some(block), result_true);
+    emitter.emit_lda_imm(1);
+    emitter.emit_jmp_label(done.clone(), SYNTHETIC_SPAN);
+    bind_label(ctx, emitter, routine, Some(block), result_false);
+    emitter.emit_lda_imm(0);
+    bind_label(ctx, emitter, routine, Some(block), done);
+}
+
+fn packed_real_relation_matches(op: MirCompareOp, relation: i8) -> bool {
+    match op {
+        MirCompareOp::Eq => relation == 0,
+        MirCompareOp::Ne => relation != 0,
+        MirCompareOp::Lt => relation < 0,
+        MirCompareOp::Le => relation <= 0,
+        MirCompareOp::Gt => relation > 0,
+        MirCompareOp::Ge => relation >= 0,
+    }
+}
+
 fn emit_compare_flags(
     ctx: &mut MirEmitContext<'_>,
     routine: RoutineId,
@@ -5230,6 +5604,30 @@ fn unsupported_message(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn packed_real_relation_mapping_covers_all_compare_predicates() {
+        let cases = [
+            (MirCompareOp::Eq, [false, true, false]),
+            (MirCompareOp::Ne, [true, false, true]),
+            (MirCompareOp::Lt, [true, false, false]),
+            (MirCompareOp::Le, [true, true, false]),
+            (MirCompareOp::Gt, [false, false, true]),
+            (MirCompareOp::Ge, [false, true, true]),
+        ];
+
+        for (op, expected) in cases {
+            assert_eq!(
+                [
+                    packed_real_relation_matches(op, -1),
+                    packed_real_relation_matches(op, 0),
+                    packed_real_relation_matches(op, 1),
+                ],
+                expected,
+                "{op:?}"
+            );
+        }
+    }
 
     #[test]
     fn initialized_array_machine_symbol_names_its_data_backing() {

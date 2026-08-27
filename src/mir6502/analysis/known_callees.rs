@@ -1128,16 +1128,24 @@ fn flatten_literal_machine_items(items: &[MirMachineItem]) -> Option<Vec<Machine
     Some(bytes)
 }
 
-/// Return whether execution can continue into the bytes immediately following
-/// a structured machine block. Unknown encodings are conservative: retaining
-/// the following runtime routine is safer than truncating a legacy fallthrough
-/// implementation.
-pub(in crate::mir6502) fn machine_block_falls_through(machine: &MirMachineBlock) -> bool {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::mir6502) enum MachineBlockFallthrough {
+    Stops,
+    FallsThrough,
+    Conservative,
+}
+
+/// Classify whether execution can continue into the bytes immediately
+/// following a structured machine block. Unknown final encodings require
+/// conservative retention of the following layout item.
+pub(in crate::mir6502) fn machine_block_fallthrough(
+    machine: &MirMachineBlock,
+) -> MachineBlockFallthrough {
     let Some(last) = machine.items.last() else {
-        return true;
+        return MachineBlockFallthrough::FallsThrough;
     };
     if matches!(machine_item_last_byte(last), Some(0x60 | 0x40)) {
-        return false;
+        return MachineBlockFallthrough::Stops;
     }
     let trailing_address = matches!(
         last,
@@ -1155,9 +1163,13 @@ pub(in crate::mir6502) fn machine_block_falls_through(machine: &MirMachineBlock)
             .and_then(machine_item_last_byte)
             .is_some_and(|opcode| matches!(opcode, 0x4C | 0x6C))
     {
-        return false;
+        return MachineBlockFallthrough::Stops;
     }
-    true
+    if machine_item_last_byte(last).is_none() {
+        MachineBlockFallthrough::Conservative
+    } else {
+        MachineBlockFallthrough::FallsThrough
+    }
 }
 
 fn machine_item_last_byte(item: &MirMachineItem) -> Option<u8> {

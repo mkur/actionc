@@ -1,6 +1,7 @@
 use crate::mir6502::ir::{
-    MirAddr, MirAddressConsumer, MirCallTarget, MirFixedZpSlot, MirGlobalBacking, MirMem, MirOp,
-    MirPointerPair, MirProgram, MirRoutine, MirValue, MirZpAllocation,
+    MirAddr, MirAddressConsumer, MirCallTarget, MirFixedZpSlot, MirGlobalBacking, MirMem,
+    MirMemoryEffect, MirMemoryRegionKind, MirOp, MirPointerPair, MirProgram, MirRoutine, MirValue,
+    MirZpAllocation,
 };
 
 pub(super) fn reserve_pointer_scratch_slots(program: &mut MirProgram) {
@@ -58,6 +59,11 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
     routine.blocks.iter().any(|block| {
         block.ops.iter().any(|op| match op {
             MirOp::Load { src, .. } | MirOp::Store { dst: src, .. } => addr_contains_deref(src),
+            MirOp::PackedRealCopy {
+                source,
+                destination,
+                ..
+            } => addr_contains_deref(source) || addr_contains_deref(destination),
             MirOp::LoadIndirect { .. }
             | MirOp::StoreIndirect { .. }
             | MirOp::CopyIndirectWord { .. }
@@ -79,6 +85,7 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             | MirOp::Compare { .. }
             | MirOp::CompareIndirectBytes { .. }
             | MirOp::CompareIndirectWords { .. }
+            | MirOp::PackedRealCompare { .. }
             | MirOp::Call { .. }
             | MirOp::RuntimeHelper { .. }
             | MirOp::Barrier { .. }
@@ -202,17 +209,96 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
             collect_consumer_fixed_zero_page(*left, slots);
             collect_consumer_fixed_zero_page(*right, slots);
         }
+        MirOp::PackedRealCompare { .. } => {
+            for slot in 0xD4..=0xD9 {
+                collect_fixed_zero_page_slot(MirFixedZpSlot(slot), slots);
+            }
+            for slot in 0xE0..=0xE5 {
+                collect_fixed_zero_page_slot(MirFixedZpSlot(slot), slots);
+            }
+        }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            source_offset,
+            destination_offset,
+            ..
+        } => {
+            collect_packed_real_addr_fixed_zero_page(source, *source_offset, slots);
+            collect_packed_real_addr_fixed_zero_page(destination, *destination_offset, slots);
+        }
         MirOp::Move { src, .. } => collect_value_fixed_zero_page(src, slots),
-        MirOp::Call { target, args, .. } => {
+        MirOp::Call {
+            target,
+            args,
+            effects,
+            ..
+        } => {
             collect_call_target_fixed_zero_page(target, slots);
             for arg in args {
                 collect_value_fixed_zero_page(&arg.value, slots);
             }
+            collect_effect_fixed_zero_page(&effects.memory_reads, slots);
+            collect_effect_fixed_zero_page(&effects.memory_writes, slots);
+        }
+        MirOp::RuntimeHelper { effects, .. }
+        | MirOp::Barrier { effects }
+        | MirOp::MachineBlock { effects, .. } => {
+            collect_effect_fixed_zero_page(&effects.memory_reads, slots);
+            collect_effect_fixed_zero_page(&effects.memory_writes, slots);
         }
         MirOp::Compare { left, right, .. } | MirOp::Binary { left, right, .. } => {
             collect_value_fixed_zero_page(left, slots);
             collect_value_fixed_zero_page(right, slots);
         }
+        _ => {}
+    }
+}
+
+fn collect_effect_fixed_zero_page(effect: &MirMemoryEffect, slots: &mut Vec<MirFixedZpSlot>) {
+    let MirMemoryEffect::Regions(regions) = effect else {
+        return;
+    };
+    for region in regions
+        .iter()
+        .filter(|region| region.kind == MirMemoryRegionKind::ZeroPage)
+    {
+        let end = region.offset.saturating_add(region.size).min(0x100);
+        for address in region.offset.min(0x100)..end {
+            collect_fixed_zero_page_slot(MirFixedZpSlot(address as u8), slots);
+        }
+    }
+}
+
+fn collect_packed_real_addr_fixed_zero_page(
+    addr: &MirAddr,
+    base_offset: u16,
+    slots: &mut Vec<MirFixedZpSlot>,
+) {
+    match addr {
+        MirAddr::Direct(MirMem::FixedZeroPage(slot)) => {
+            for lane in 0..6u16 {
+                collect_fixed_zero_page_slot(
+                    MirFixedZpSlot(
+                        slot.0
+                            .saturating_add(base_offset.saturating_add(lane) as u8),
+                    ),
+                    slots,
+                );
+            }
+        }
+        MirAddr::FixedIndirectIndexedY { zp } => collect_consumer_fixed_zero_page(
+            MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *zp }),
+            slots,
+        ),
+        MirAddr::PointerCell { ptr, .. } | MirAddr::PointerIndex { ptr, .. } => {
+            collect_mem_fixed_zero_page(ptr, slots)
+        }
+        MirAddr::ComputedIndex { base, index, .. } => {
+            collect_value_fixed_zero_page(base, slots);
+            collect_value_fixed_zero_page(index, slots);
+        }
+        MirAddr::Deref { ptr, .. } => collect_value_fixed_zero_page(ptr, slots),
         _ => {}
     }
 }

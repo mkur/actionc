@@ -1,0 +1,57 @@
+MODULE ; SYSREALC.ACT
+
+; Cartridge provider for the REAL I/O wrappers. Conversion remains in the
+; shared SYSREAL unit; ordinary character/string I/O uses cartridge entry
+; points and therefore does not pull the standalone SYSIO implementation in.
+
+PROC CartRealPrint=$A47F(STRING value)
+PROC CartRealPrintE=$A46C(STRING value)
+PROC CartRealPrintD=$A486(BYTE device STRING value)
+PROC CartRealPutDE=$A4DA(BYTE device)
+PROC CartRealInputS=$A48C(STRING destination)
+PROC CartRealInputMD=$A499(BYTE device STRING destination BYTE maximum)
+
+PROC CartPrintRD(BYTE device REAL POINTER value)
+  STRING text(20)
+
+  SysStrR(value,text)
+  CartRealPrintD(device,text)
+RETURN
+
+PROC CartPrintR(REAL POINTER value)
+  STRING text(20)
+
+  SysStrR(value,text)
+  CartRealPrint(text)
+RETURN
+
+PROC CartPrintRDE(BYTE device REAL POINTER value)
+  STRING text(20)
+
+  SysStrR(value,text)
+  CartRealPrintD(device,text)
+  CartRealPutDE(device)
+RETURN
+
+PROC CartPrintRE(REAL POINTER value)
+  STRING text(20)
+
+  SysStrR(value,text)
+  CartRealPrintE(text)
+RETURN
+
+PROC CartInputRD(BYTE device REAL POINTER destination)
+  STRING text(127)
+
+  CartRealInputMD(device,text,126)
+  SysValR(text,destination)
+RETURN
+
+PROC CartInputR(REAL POINTER destination)
+  STRING text(127)
+
+  CartRealInputS(text)
+  SysValR(text,destination)
+RETURN
+
+MODULE

@@ -654,6 +654,14 @@ fn op_kind(op: &MirOp) -> &'static str {
         MirOp::Compare { .. } => "compare",
         MirOp::CompareIndirectBytes { .. } => "compare-indirect-bytes",
         MirOp::CompareIndirectWords { .. } => "compare-indirect-words",
+        MirOp::PackedRealCompare { .. } => "packed-real-compare",
+        MirOp::PackedRealCopy { negate, .. } => {
+            if *negate {
+                "packed-real-neg"
+            } else {
+                "packed-real-copy"
+            }
+        }
         MirOp::Call { .. } => "call",
         MirOp::RuntimeHelper { .. } => "runtime-helper",
         MirOp::MaterializeAddress { .. } => "materialize-address",
@@ -1290,6 +1298,14 @@ fn record_op_uses(
 ) {
     match op {
         MirOp::Load { src, .. } => record_addr_uses(src, block, op_index, widths, facts),
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            record_addr_uses(source, block, op_index, widths, facts);
+            record_addr_uses(destination, block, op_index, widths, facts);
+        }
         MirOp::Store { dst, src, width } => {
             record_addr_uses(dst, block, op_index, widths, facts);
             record_op_value_use(
@@ -1384,6 +1400,7 @@ fn record_op_uses(
         MirOp::LoadImm { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateMem { .. }

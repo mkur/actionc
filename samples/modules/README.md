@@ -15,6 +15,8 @@ For a guided introduction that builds up to these examples, see the
 - `sys-memory-open.act` uses all public `SYS` names with `USE ALL FROM SYS`.
 - `local-runtime-override.act` supplies a local implementation of a runtime
   helper.
+- `native-real-library.act` demonstrates portable `MATH` operations and
+  qualified `SYS` REAL conversion/output.
 - `project/` is a multi-file program whose `DEMO.COLOR` module exports a public
   procedure to `main.act`.
 

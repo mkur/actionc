@@ -1,17 +1,17 @@
-; ATARI.REAL is an optional pointer-based library layered on the native type.
-; Alias it because the default final-component alias REAL is also the type name.
+; MATH provides portable numerical operations; SYS owns text conversion and I/O.
 MODULE NATIVE_REAL_LIBRARY
 
-USE ATARI.REAL AS FPP
+USE SYS
+USE MATH
 
 REAL input, result
 STRING text(20)
 
 PROC Main()
   input=2
-  FPP.Exp10(@input,@result)
-  FPP.StrR(@result,text)
-  FPP.PrintRE(@result)
+  MATH.Exp10(@input,@result)
+  SYS.StrR(@result,text)
+  SYS.PrintRE(@result)
 RETURN
 
 ENDMODULE

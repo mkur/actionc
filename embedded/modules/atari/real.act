@@ -1,4 +1,4 @@
-; Clean-room native REAL text, I/O, and transcendental helpers.
+; Atari OS FPP implementation provider for the portable MATH module.
 ;
 ; All public entry points pass REAL values by pointer. The Action 2027 native
 ; type deliberately has no by-value call ABI yet. These routines use Atari OS
@@ -6,54 +6,45 @@
 ; compatible Atari OS.
 MODULE ATARI.REAL
 
-USE ATARI.REALMATH
 USE SYS
 
 REAL FpAccumulator=$00D4
-BYTE FpTextIndex=$00F2
-CARD FpTextPointer=$00F3
 
-PROC OsAsciiToFp=$D800()
-PROC OsFpToAscii=$D8E6()
+CONST REAL Pi=3.141592654,
+           HalfPi=1.570796327,
+           QuarterPi=0.7853981634,
+           TwoPi=6.283185307,
+           OneOverTwoPi=0.1591549431,
+           TwoPiHigh=6.28,
+           TwoPiTail=0.00318530718,
+           HalfPiHigh=1.57,
+           HalfPiTail=0.0007963267949,
+           TanPiOverEight=0.4142135624,
+           TanThreePiOverEight=2.414213562,
+           RandomScale=65536.0
+
 PROC OsExp=$DDC0()
 PROC OsExp10=$DDCC()
 PROC OsLog=$DECD()
 PROC OsLog10=$DED1()
 
-PUBLIC PROC StrR(REAL POINTER value STRING destination)
-  CHAR POINTER source
-  BYTE character, length
+PROC AtanSeries(REAL POINTER source, destination)
+  REAL square, term, sum
+  BYTE divisor, count
 
-  FpAccumulator=value^
-  OsFpToAscii()
-  source=FpTextPointer
-  length=0
+  square=source^*source^
+  term=source^
+  sum=term
+  divisor=3
+  count=0
+  WHILE count<12
   DO
-    character=source^
-    length==+1
-    destination(length)=character&$7F
-    source==+1
-  UNTIL character&$80
+    term=-term*square
+    sum==+term/divisor
+    divisor==+2
+    count==+1
   OD
-  destination(0)=length
-RETURN
-
-PUBLIC PROC ValR(STRING source REAL POINTER destination)
-  BYTE ARRAY buffer(256)
-  BYTE index, length
-
-  length=source(0)
-  index=0
-  WHILE index<length
-  DO
-    buffer(index)=source(index+1)
-    index==+1
-  OD
-  buffer(length)=0
-  FpTextPointer=buffer
-  FpTextIndex=0
-  OsAsciiToFp()
-  destination^=FpAccumulator
+  destination^=sum
 RETURN
 
 PUBLIC PROC Exp(REAL POINTER source, destination)
@@ -91,51 +82,253 @@ PUBLIC PROC Power(REAL POINTER base, exponent, destination)
   destination^=FpAccumulator
 RETURN
 
+PUBLIC PROC Abs(REAL POINTER source, destination)
+  IF source^<0 THEN
+    destination^=-source^
+  ELSE
+    destination^=source^
+  FI
+RETURN
+
+; Return the sign as a REAL value so the result follows Atari BASIC's numeric
+; convention and the pointer-based native REAL ABI.
+PUBLIC PROC Sgn(REAL POINTER source, destination)
+  IF source^<0 THEN
+    destination^=-1
+  ELSEIF source^>0 THEN
+    destination^=1
+  ELSE
+    destination^=0
+  FI
+RETURN
+
+BYTE FUNC TruncateForFloor(BYTE POINTER bytes)
+  BYTE exponent, keep, index, fractional, negative
+
+  IF bytes^=0 THEN RETURN(0) FI
+
+  negative=bytes^&$80
+  exponent=bytes^&$7F
+  IF exponent<$40 THEN
+    index=0
+    WHILE index<=5
+    DO
+      bytes(index)=0
+      index==+1
+    OD
+    RETURN(negative)
+  FI
+
+  ; At exponent $44 all five mantissa bytes are already part of the integer.
+  IF exponent>=$44 THEN RETURN(0) FI
+
+  keep=exponent-$3F
+  index=keep+1
+  fractional=0
+  WHILE index<=5
+  DO
+    IF bytes(index)<>0 THEN fractional=1 FI
+    bytes(index)=0
+    index==+1
+  OD
+
+  IF negative THEN
+    RETURN(fractional)
+  FI
+RETURN(0)
+
+; Atari BASIC INT semantics: return the greatest integer no larger than the
+; source. The packed-decimal exponent identifies how many base-100 mantissa
+; bytes belong to the integer part. Negative non-integers are adjusted down
+; after truncation. This works across the full REAL range, not just INT values.
+PUBLIC PROC Floor(REAL POINTER source, destination)
+  BYTE adjust
+
+  destination^=source^
+  adjust=TruncateForFloor(BYTE POINTER(destination))
+  IF adjust THEN destination^==-1 FI
+RETURN
+
+; Reduce a supported trigonometric argument to [-pi/2,pi/2] and return whether
+; its cosine is negative. A nearest-multiple reduction and split constants
+; preserve substantially more phase than repeated subtraction. Inputs beyond
+; magnitude 1E6 use $FF as a total-loss marker; the public trigonometric
+; routines return zero for that marker instead of risking an unbounded loop.
+BYTE FUNC ReduceTrigAngle(REAL POINTER value)
+  REAL scaled, turns
+  BYTE POINTER bytes
+  BYTE cosineNegative, reduce
+
+  bytes=BYTE POINTER(value)
+  IF (bytes^&$7F)>=$43 THEN
+    RETURN($FF)
+  FI
+
+  reduce=0
+  IF value^>Pi THEN
+    reduce=1
+  ELSEIF value^<(-Pi) THEN
+    reduce=1
+  FI
+
+  IF reduce THEN
+    scaled=value^*OneOverTwoPi+0.5
+    Floor(@scaled,@turns)
+
+    value^==-(turns*TwoPiHigh)
+    value^==-(turns*TwoPiTail)
+  FI
+
+  cosineNegative=0
+  IF value^>HalfPi THEN
+    value^=Pi-value^
+    cosineNegative=1
+  ELSEIF value^<(-HalfPi) THEN
+    value^=(-Pi)-value^
+    cosineNegative=1
+  FI
+RETURN(cosineNegative)
+
+PROC SinSeries(REAL POINTER source, destination)
+  REAL square, term, sum
+  BYTE factor
+  CARD divisor
+
+  square=source^*source^
+  term=source^
+  sum=term
+  factor=2
+  WHILE factor<=14
+  DO
+    divisor=CARD(factor)*(factor+1)
+    term=-term*square/divisor
+    sum==+term
+    factor==+2
+  OD
+  destination^=sum
+RETURN
+
+PROC CosFromSinAngle(REAL POINTER source, destination BYTE negative)
+  REAL angle
+
+  angle=source^
+  IF angle<0 THEN angle=-angle FI
+  angle=HalfPiHigh-angle
+  angle==+HalfPiTail
+  SinSeries(@angle,destination)
+  IF negative THEN destination^=-destination^ FI
+RETURN
+
+; SYS.Rand(0) exposes an unscaled POKEY random byte. Combine two samples to
+; obtain 16 bits of resolution, then scale into the half-open interval [0,1).
+PUBLIC PROC Rnd(REAL POINTER destination)
+  CARD random
+
+  random=SYS.Rand(0)
+  random=random LSH 8
+  random==+SYS.Rand(0)
+  destination^=random
+  destination^==/RandomScale
+RETURN
+
+; Square root is built from the OS logarithm/exponential primitives and one
+; Newton step. Zero is handled separately because log(0) is undefined.
+; Negative inputs produce zero; callers that need domain diagnostics should
+; reject them before calling.
 PUBLIC PROC Sqrt(REAL POINTER source, destination)
-  REALMATH.Sqrt(source,destination)
+  REAL work, root
+
+  IF source^<=0 THEN
+    destination^=0
+  ELSE
+    FpAccumulator=source^
+    OsLog()
+    work=FpAccumulator/2
+    FpAccumulator=work
+    OsExp()
+    root=FpAccumulator
+    destination^=(root+source^/root)/2
+  FI
 RETURN
 
-PUBLIC PROC PrintRD(BYTE device, REAL POINTER value)
-  STRING text(20)
-
-  StrR(value,text)
-  SYS.PrintD(device,text)
+; Atari BASIC spelling retained as a pointer-based alias.
+PUBLIC PROC Sqr(REAL POINTER source, destination)
+  Sqrt(source,destination)
 RETURN
 
-PUBLIC PROC PrintR(REAL POINTER value)
-  STRING text(20)
+; Trigonometric arguments and results are radians. Range reduction confines
+; the series to [-pi/2,pi/2] and preserves the cosine sign separately.
+PUBLIC PROC Sin(REAL POINTER source, destination)
+  REAL x
+  BYTE cosineNegative
 
-  StrR(value,text)
-  SYS.Print(text)
+  x=source^
+  cosineNegative=ReduceTrigAngle(@x)
+  IF cosineNegative=$FF THEN
+    destination^=0
+  ELSE
+    SinSeries(@x,destination)
+  FI
 RETURN
 
-PUBLIC PROC PrintRDE(BYTE device, REAL POINTER value)
-  STRING text(20)
+PUBLIC PROC Cos(REAL POINTER source, destination)
+  REAL x
+  BYTE cosineNegative
 
-  StrR(value,text)
-  SYS.PrintD(device,text)
-  SYS.PutDE(device)
+  x=source^
+  cosineNegative=ReduceTrigAngle(@x)
+  IF cosineNegative=$FF THEN
+    destination^=0
+  ELSE
+    CosFromSinAngle(@x,destination,cosineNegative)
+  FI
 RETURN
 
-PUBLIC PROC PrintRE(REAL POINTER value)
-  STRING text(20)
+PUBLIC PROC Tan(REAL POINTER source, destination)
+  REAL x, sine, cosine
+  BYTE cosineNegative
 
-  StrR(value,text)
-  SYS.PrintE(text)
+  x=source^
+  cosineNegative=ReduceTrigAngle(@x)
+  IF cosineNegative=$FF THEN
+    destination^=0
+  ELSE
+    SinSeries(@x,@sine)
+    CosFromSinAngle(@x,@cosine,cosineNegative)
+    destination^=sine/cosine
+  FI
 RETURN
 
-PUBLIC PROC InputRD(BYTE device, REAL POINTER destination)
-  STRING text(127)
+PUBLIC PROC Atan(REAL POINTER source, destination)
+  REAL x, reduced, series, result
+  BYTE negative
 
-  SYS.InputMD(device,text,126)
-  ValR(text,destination)
+  x=source^
+  negative=0
+  IF x<0 THEN
+    negative=1
+    x=-x
+  FI
+
+  IF x>TanThreePiOverEight THEN
+    reduced=1/x
+    AtanSeries(@reduced,@series)
+    result=HalfPi-series
+  ELSEIF x>TanPiOverEight THEN
+    reduced=(x-1)/(x+1)
+    AtanSeries(@reduced,@series)
+    result=QuarterPi+series
+  ELSE
+    AtanSeries(@x,@result)
+  FI
+
+  IF negative THEN result=-result FI
+  destination^=result
 RETURN
 
-PUBLIC PROC InputR(REAL POINTER destination)
-  STRING text(127)
-
-  SYS.InputS(text)
-  ValR(text,destination)
+; Atari BASIC spelling retained as a pointer-based alias.
+PUBLIC PROC Atn(REAL POINTER source, destination)
+  Atan(source,destination)
 RETURN
 
 ENDMODULE

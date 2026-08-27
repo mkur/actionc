@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+#[cfg(test)]
 use std::sync::OnceLock;
 
 use super::diagnostics::MirDiagnostic;
@@ -6,81 +7,99 @@ use super::ir::{
     MirAddr, MirCallTarget, MirCond, MirDataImage, MirDataRelocationTarget, MirEffects,
     MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineBlock, MirMachineBlockId,
     MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram,
-    MirRuntimeHelper, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator, MirValue,
-    RoutineId,
+    MirRuntimeHelper, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator,
+    MirValue, RoutineId,
 };
+use crate::linker::{LinkGraph, LinkReason};
 use crate::nir::SymbolId;
-use crate::runtime_source::{RuntimeImage, RuntimeUnit};
-
+#[cfg(test)]
+use crate::runtime_link_manifest::embedded_sys_link_manifest;
+use crate::runtime_link_manifest::{RuntimeLinkManifest, RuntimeLinkNode};
+#[cfg(test)]
 static SYSLIB_MIR: OnceLock<Result<MirProgram, Vec<MirDiagnostic>>> = OnceLock::new();
 
-pub(crate) struct ResidentSelection {
-    pub(crate) image: RuntimeImage,
-    pub(crate) routine_names: BTreeSet<String>,
-    pub(crate) global_names: BTreeSet<String>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum MirLinkNode {
+    Routine(RoutineId),
+    Global(SymbolId),
+    Static(SymbolId),
 }
 
-pub(crate) fn select_resident_image(
-    roots_by_unit: &BTreeMap<RuntimeUnit, BTreeSet<String>>,
-) -> Result<ResidentSelection, Vec<MirDiagnostic>> {
-    let (image, runtime) = compile_runtime_image_with_semir()?;
-    let mut roots = BTreeSet::new();
-    for (unit, expected_names) in roots_by_unit {
-        for expected in expected_names {
-            if image.routine_units.get(&expected.to_ascii_uppercase()) != Some(unit) {
-                return Err(diagnostic(format!(
-                    "embedded {} has no implementation routine `{expected}`",
-                    unit.name
-                )));
-            }
-            let id = runtime
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct RuntimeSelection {
+    pub(super) routines: BTreeSet<RoutineId>,
+    globals: BTreeSet<SymbolId>,
+    statics: BTreeSet<SymbolId>,
+}
+
+pub(super) fn bind_runtime_selection(
+    program: &MirProgram,
+    selected: &crate::runtime_link_manifest::RuntimeLinkSelection,
+    link_module: &str,
+) -> Result<RuntimeSelection, Vec<MirDiagnostic>> {
+    let routines = program
+        .routines
+        .iter()
+        .filter(|routine| {
+            selected
                 .routines
-                .iter()
-                .filter(|routine| {
-                    runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT")
-                        .eq_ignore_ascii_case(expected)
-                })
-                .map(|routine| routine.id)
-                .collect::<Vec<_>>();
-            match id.as_slice() {
-                [id] => {
-                    roots.insert(*id);
-                }
-                [] => {
-                    return Err(diagnostic(format!(
-                        "embedded runtime has no implementation routine `{expected}`"
-                    )));
-                }
-                _ => {
-                    return Err(diagnostic(format!(
-                        "embedded runtime has multiple implementation routines named `{expected}`"
-                    )));
-                }
-            }
-        }
+                .contains(&runtime_routine_name(&routine.name, link_module).to_ascii_uppercase())
+        })
+        .map(|routine| routine.id)
+        .collect::<BTreeSet<_>>();
+    let globals = program
+        .globals
+        .iter()
+        .filter(|global| {
+            selected
+                .globals
+                .contains(&runtime_storage_name(&global.name, link_module).to_ascii_uppercase())
+        })
+        .map(|global| global.id)
+        .collect::<BTreeSet<_>>();
+    let bound_routines = program
+        .routines
+        .iter()
+        .filter(|routine| routines.contains(&routine.id))
+        .map(|routine| runtime_routine_name(&routine.name, link_module).to_ascii_uppercase())
+        .collect::<BTreeSet<_>>();
+    let bound_globals = program
+        .globals
+        .iter()
+        .filter(|global| globals.contains(&global.id))
+        .map(|global| runtime_storage_name(&global.name, link_module).to_ascii_uppercase())
+        .collect::<BTreeSet<_>>();
+    if bound_routines != selected.routines || bound_globals != selected.globals {
+        return Err(diagnostic(format!(
+            "selected runtime SemIR did not lower every manifest node; missing routines [{}], globals [{}]",
+            selected
+                .routines
+                .difference(&bound_routines)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", "),
+            selected
+                .globals
+                .difference(&bound_globals)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        )));
     }
-    let selected = dependency_closure(&runtime, roots)?;
-    let machine_ids = selected_machine_ids(&runtime, &selected);
-    let (globals, _) = selected_runtime_storage(&runtime, &selected, &machine_ids)?;
-    Ok(ResidentSelection {
-        routine_names: runtime
-            .routines
+    Ok(RuntimeSelection {
+        routines,
+        globals,
+        // Provider statics are owned by already-selected source routines and
+        // do not have independent SemIR identities.
+        statics: program
+            .statics
             .iter()
-            .filter(|routine| selected.contains(&routine.id))
-            .map(|routine| {
-                runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT").to_string()
-            })
+            .map(|static_data| static_data.id)
             .collect(),
-        global_names: runtime
-            .globals
-            .iter()
-            .filter(|global| globals.contains(&global.id))
-            .map(|global| global.name.clone())
-            .collect(),
-        image,
     })
 }
 
+#[cfg(test)]
 pub(super) fn syslib_mir() -> Result<MirProgram, Vec<MirDiagnostic>> {
     SYSLIB_MIR.get_or_init(compile_syslib).clone()
 }
@@ -117,7 +136,17 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
         return Ok(());
     }
 
-    let runtime = syslib_mir()?;
+    let helper_roots = required
+        .iter()
+        .map(|helper| super::runtime::helper_name(*helper).to_string())
+        .collect::<BTreeSet<_>>();
+    let selected_runtime = crate::runtime_source::select_runtime_unit(
+        "syslib.act",
+        "ACTION.RUNTIME.SYSLIB",
+        &helper_roots,
+    )
+    .map_err(|diagnostics| frontend_diagnostics("syslib.act", diagnostics))?;
+    let runtime = lower_runtime_semir(&selected_runtime.semir, "syslib.act")?;
     let roots = required
         .iter()
         .map(|helper| {
@@ -125,8 +154,12 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
             find_runtime_helper(&runtime, *helper).map(|routine| (*helper, routine))
         })
         .collect::<Result<BTreeMap<_, _>, _>>()?;
-    let selected = dependency_closure(&runtime, roots.values().copied().collect::<BTreeSet<_>>())?;
-    let routine_rebase = append_runtime_closure(
+    let selected = bind_runtime_selection(
+        &runtime,
+        &selected_runtime.selection,
+        "ACTION_RUNTIME_SYSLIB",
+    )?;
+    let routine_rebase = append_runtime_selection(
         program,
         &runtime,
         &selected,
@@ -143,14 +176,15 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
     Ok(())
 }
 
-pub(super) fn append_runtime_closure(
+pub(super) fn append_runtime_selection(
     program: &mut MirProgram,
     runtime: &MirProgram,
-    selected: &BTreeSet<RoutineId>,
+    selected: &RuntimeSelection,
     display_module: &str,
     link_module: &str,
 ) -> Result<BTreeMap<RoutineId, RoutineId>, Vec<MirDiagnostic>> {
     let routine_rebase = selected
+        .routines
         .iter()
         .copied()
         .enumerate()
@@ -162,7 +196,7 @@ pub(super) fn append_runtime_closure(
         })
         .collect::<BTreeMap<_, _>>();
 
-    let selected_machine_ids = selected_machine_ids(runtime, selected);
+    let selected_machine_ids = selected_machine_ids(runtime, &selected.routines);
     let machine_base = next_machine_id(program);
     let machine_rebase = selected_machine_ids
         .iter()
@@ -175,24 +209,24 @@ pub(super) fn append_runtime_closure(
             )
         })
         .collect::<BTreeMap<_, _>>();
-    let (selected_globals, selected_statics) =
-        selected_runtime_storage(runtime, selected, &selected_machine_ids)?;
     let global_base = next_global_id(program);
-    let global_rebase = selected_globals
+    let global_rebase = selected
+        .globals
         .iter()
         .copied()
         .enumerate()
         .map(|(index, old)| (old, SymbolId(global_base.wrapping_add(index as u32))))
         .collect::<BTreeMap<_, _>>();
     let static_base = next_static_id(program);
-    let static_rebase = selected_statics
+    let static_rebase = selected
+        .statics
         .iter()
         .copied()
         .enumerate()
         .map(|(index, old)| (old, SymbolId(static_base.wrapping_add(index as u32))))
         .collect::<BTreeMap<_, _>>();
 
-    for old_id in selected {
+    for old_id in &selected.routines {
         let mut routine = runtime
             .routines
             .iter()
@@ -255,7 +289,7 @@ pub(super) fn append_runtime_closure(
     }
 
     let global_offset_base = next_global_offset(program);
-    for old_id in &selected_globals {
+    for old_id in &selected.globals {
         let mut global = runtime
             .globals
             .iter()
@@ -279,7 +313,7 @@ pub(super) fn append_runtime_closure(
         }
         program.globals.push(global);
     }
-    for old_id in &selected_statics {
+    for old_id in &selected.statics {
         let mut static_data = runtime
             .statics
             .iter()
@@ -311,109 +345,6 @@ fn selected_machine_ids(
         .collect()
 }
 
-fn selected_runtime_storage(
-    runtime: &MirProgram,
-    selected_routines: &BTreeSet<RoutineId>,
-    selected_machines: &BTreeSet<MirMachineBlockId>,
-) -> Result<(BTreeSet<SymbolId>, BTreeSet<SymbolId>), Vec<MirDiagnostic>> {
-    let all_globals = runtime
-        .globals
-        .iter()
-        .map(|global| (global.id, global))
-        .collect::<BTreeMap<_, _>>();
-    let all_statics = runtime
-        .statics
-        .iter()
-        .map(|static_data| (static_data.id, static_data))
-        .collect::<BTreeMap<_, _>>();
-    let mut globals = BTreeSet::new();
-    let mut statics = BTreeSet::new();
-    let mut pending_globals = BTreeSet::new();
-    let mut pending_statics = BTreeSet::new();
-    for routine in runtime
-        .routines
-        .iter()
-        .filter(|routine| selected_routines.contains(&routine.id))
-    {
-        for slot in routine.frame.params.iter().chain(&routine.frame.locals) {
-            match slot.base {
-                MirStorageBase::Global(id) => {
-                    pending_globals.insert(id);
-                }
-                MirStorageBase::Static(id) => {
-                    pending_statics.insert(id);
-                }
-                _ => {}
-            }
-            if let Some(init) = &slot.init {
-                visit_storage_init_storage(init, &mut pending_globals);
-            }
-        }
-        visit_effect_storage(&routine.effects, &mut pending_globals, &mut pending_statics);
-        for block in &routine.blocks {
-            for op in &block.ops {
-                visit_op_storage(op, &mut pending_globals, &mut pending_statics);
-            }
-            visit_terminator_storage(
-                &block.terminator,
-                &mut pending_globals,
-                &mut pending_statics,
-            );
-        }
-    }
-    for machine in runtime
-        .machine_blocks
-        .iter()
-        .filter(|machine| selected_machines.contains(&machine.id))
-    {
-        for item in &machine.items {
-            if let MirMachineItem::Relocation {
-                target: MirInlineAsmTarget::Memory(mem),
-                ..
-            } = item
-            {
-                record_mem_storage(mem, &mut pending_globals, &mut pending_statics);
-            }
-        }
-    }
-
-    loop {
-        if let Some(id) = pending_globals.pop_first() {
-            if !globals.insert(id) {
-                continue;
-            }
-            let global = all_globals.get(&id).ok_or_else(|| {
-                diagnostic(format!(
-                    "embedded runtime references missing global g{}",
-                    id.0
-                ))
-            })?;
-            if let MirGlobalBacking::Alias { target, .. } = global.backing {
-                pending_globals.insert(target);
-            }
-            if let Some(init) = &global.init {
-                visit_global_init_storage(init, &mut pending_globals);
-            }
-            continue;
-        }
-        if let Some(id) = pending_statics.pop_first() {
-            if !statics.insert(id) {
-                continue;
-            }
-            let static_data = all_statics.get(&id).ok_or_else(|| {
-                diagnostic(format!(
-                    "embedded runtime references missing static s{}",
-                    id.0
-                ))
-            })?;
-            visit_data_image_storage(&static_data.image, &mut pending_globals);
-            continue;
-        }
-        break;
-    }
-    Ok((globals, statics))
-}
-
 fn visit_op_storage(
     op: &MirOp,
     globals: &mut BTreeSet<SymbolId>,
@@ -424,6 +355,14 @@ fn visit_op_storage(
         MirOp::Store { dst, src, .. } => {
             visit_addr_storage(dst, globals, statics);
             visit_value_storage(src, globals, statics);
+        }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            visit_addr_storage(source, globals, statics);
+            visit_addr_storage(destination, globals, statics);
         }
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
@@ -480,6 +419,7 @@ fn visit_op_storage(
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. } => {}
@@ -651,6 +591,14 @@ fn rebase_op(
             rebase_addr(dst, routines, globals, statics)?;
             rebase_value(src, routines, globals, statics)?;
         }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            rebase_addr(source, routines, globals, statics)?;
+            rebase_addr(destination, routines, globals, statics)?;
+        }
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -707,6 +655,7 @@ fn rebase_op(
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. } => {}
@@ -1059,52 +1008,92 @@ pub(super) fn runtime_routine_name<'a>(name: &'a str, link_module: &str) -> &'a 
     }
 }
 
+#[cfg(test)]
 pub(super) fn dependency_closure(
     program: &MirProgram,
     roots: BTreeSet<RoutineId>,
 ) -> Result<BTreeSet<RoutineId>, Vec<MirDiagnostic>> {
-    let all_ids = program
-        .routines
-        .iter()
-        .map(|routine| routine.id)
-        .collect::<BTreeSet<_>>();
+    let selection = dynamic_runtime_selection(program, roots)?;
+    Ok(selection.routines)
+}
+
+#[cfg(test)]
+fn dynamic_runtime_selection(
+    program: &MirProgram,
+    roots: BTreeSet<RoutineId>,
+) -> Result<RuntimeSelection, Vec<MirDiagnostic>> {
+    note_runtime_graph_discovery();
+    let graph = discover_runtime_dependency_graph(program)?;
+    let selection = graph
+        .closure(roots.into_iter().map(MirLinkNode::Routine))
+        .map_err(|node| diagnostic(format!("embedded runtime dependency {node:?} is missing")))?;
+    Ok(runtime_selection_from_nodes(&selection.retained))
+}
+
+fn discover_runtime_dependency_graph(
+    program: &MirProgram,
+) -> Result<LinkGraph<MirLinkNode>, Vec<MirDiagnostic>> {
     let machine_blocks = program
         .machine_blocks
         .iter()
         .map(|machine| (machine.id, machine))
         .collect::<BTreeMap<_, _>>();
-    let mut selected = BTreeSet::new();
-    let mut pending = roots;
-    while let Some(id) = pending.pop_first() {
-        if !all_ids.contains(&id) {
-            return Err(diagnostic(format!(
-                "embedded runtime dependency r{} is missing",
-                id.0
-            )));
-        }
-        if !selected.insert(id) {
-            continue;
-        }
-        let routine = program
-            .routines
-            .iter()
-            .find(|routine| routine.id == id)
-            .expect("validated runtime routine exists");
+    let mut graph = LinkGraph::default();
+    for routine in &program.routines {
+        graph.add_node(MirLinkNode::Routine(routine.id));
+    }
+    for global in &program.globals {
+        graph.add_node(MirLinkNode::Global(global.id));
+    }
+    for static_data in &program.statics {
+        graph.add_node(MirLinkNode::Static(static_data.id));
+    }
+
+    for routine in &program.routines {
+        let source = MirLinkNode::Routine(routine.id);
         // Adjacent declarations with no body are entry aliases for the next
         // resident routine. Their empty, unreachable MIR block is as much a
         // fallthrough edge as a machine block whose final instruction is not
         // RTS/JMP. This is used by families such as InputB/C/I and ValB/C/I.
-        let mut falls_through = routine.blocks.len() == 1
+        let entry_alias = routine.blocks.len() == 1
             && routine.blocks[0].ops.is_empty()
             && matches!(routine.blocks[0].terminator, MirTerminator::Unreachable);
+        let mut machine_fallthrough_reason = None;
+        let mut globals = BTreeSet::new();
+        let mut statics = BTreeSet::new();
+        let mut routine_addresses = BTreeSet::new();
+
+        for slot in routine.frame.params.iter().chain(&routine.frame.locals) {
+            match slot.base {
+                MirStorageBase::Global(id) => {
+                    globals.insert(id);
+                }
+                MirStorageBase::Static(id) => {
+                    statics.insert(id);
+                }
+                _ => {}
+            }
+            if let Some(init) = &slot.init {
+                visit_storage_init_storage(init, &mut globals);
+                visit_storage_init_routines(init, &mut routine_addresses);
+            }
+        }
+        visit_effect_storage(&routine.effects, &mut globals, &mut statics);
         for block in &routine.blocks {
             for (op_index, op) in block.ops.iter().enumerate() {
+                visit_op_storage(op, &mut globals, &mut statics);
+                visit_op_routines(op, &mut routine_addresses);
                 match op {
                     MirOp::Call {
                         target: MirCallTarget::Routine(target),
                         ..
                     } => {
-                        pending.insert(*target);
+                        add_checked_runtime_edge(
+                            &mut graph,
+                            source,
+                            MirLinkNode::Routine(*target),
+                            LinkReason::DirectCall,
+                        )?;
                     }
                     MirOp::MachineBlock { id, .. } => {
                         let machine = machine_blocks.get(id).ok_or_else(|| {
@@ -1119,7 +1108,19 @@ pub(super) fn dependency_closure(
                                 ..
                             } = item
                             {
-                                pending.insert(*target);
+                                add_checked_runtime_edge(
+                                    &mut graph,
+                                    source,
+                                    MirLinkNode::Routine(*target),
+                                    LinkReason::MachineRelocation,
+                                )?;
+                            }
+                            if let MirMachineItem::Relocation {
+                                target: MirInlineAsmTarget::Memory(mem),
+                                ..
+                            } = item
+                            {
+                                record_mem_storage(mem, &mut globals, &mut statics);
                             }
                         }
                         if routine.blocks.len() == 1 {
@@ -1128,62 +1129,190 @@ pub(super) fn dependency_closure(
                             )
                             .unwrap_or(0);
                             if required_prefix > 0 {
-                                retain_preceding_runtime_bytes(
+                                for preceding in preceding_runtime_bytes(
                                     program,
                                     &machine_blocks,
                                     routine.id,
                                     required_prefix,
-                                    &mut pending,
-                                );
+                                ) {
+                                    add_checked_runtime_edge(
+                                        &mut graph,
+                                        source,
+                                        MirLinkNode::Routine(preceding),
+                                        LinkReason::RequiredPrefix,
+                                    )?;
+                                }
                             }
                         }
                         if routine.blocks.len() == 1
                             && op_index + 1 == block.ops.len()
                             && matches!(block.terminator, MirTerminator::Unreachable)
                         {
-                            falls_through |=
-                                super::analysis::known_callees::machine_block_falls_through(
+                            use super::analysis::known_callees::MachineBlockFallthrough;
+                            machine_fallthrough_reason =
+                                match super::analysis::known_callees::machine_block_fallthrough(
                                     machine,
-                                );
+                                ) {
+                                    MachineBlockFallthrough::Stops => None,
+                                    MachineBlockFallthrough::FallsThrough => {
+                                        Some(LinkReason::MachineFallthrough)
+                                    }
+                                    MachineBlockFallthrough::Conservative => {
+                                        Some(LinkReason::ConservativeLayout)
+                                    }
+                                };
                         }
                     }
                     _ => {}
                 }
             }
+            visit_terminator_storage(&block.terminator, &mut globals, &mut statics);
+            visit_terminator_routines(&block.terminator, &mut routine_addresses);
         }
-        if falls_through {
-            let Some(index) = program
+
+        for target in routine_addresses {
+            add_checked_runtime_edge(
+                &mut graph,
+                source,
+                MirLinkNode::Routine(target),
+                LinkReason::RoutineAddress,
+            )?;
+        }
+        for global in globals {
+            add_checked_runtime_edge(
+                &mut graph,
+                source,
+                MirLinkNode::Global(global),
+                LinkReason::StorageReference,
+            )?;
+        }
+        for static_data in statics {
+            add_checked_runtime_edge(
+                &mut graph,
+                source,
+                MirLinkNode::Static(static_data),
+                LinkReason::StorageReference,
+            )?;
+        }
+        if entry_alias || machine_fallthrough_reason.is_some() {
+            if let Some(index) = program
                 .routines
                 .iter()
                 .position(|candidate| candidate.id == routine.id)
-            else {
-                continue;
-            };
-            if let Some(next) = program.routines.get(index + 1) {
-                pending.insert(next.id);
+            {
+                if let Some(next) = program.routines.get(index + 1) {
+                    if entry_alias {
+                        add_checked_runtime_edge(
+                            &mut graph,
+                            source,
+                            MirLinkNode::Routine(next.id),
+                            LinkReason::EntryAlias,
+                        )?;
+                    }
+                    if let Some(reason) = machine_fallthrough_reason {
+                        add_checked_runtime_edge(
+                            &mut graph,
+                            source,
+                            MirLinkNode::Routine(next.id),
+                            reason,
+                        )?;
+                    }
+                }
             }
         }
     }
-    Ok(selected)
+
+    for global in &program.globals {
+        let source = MirLinkNode::Global(global.id);
+        let mut globals = BTreeSet::new();
+        let mut routines = BTreeSet::new();
+        if let MirGlobalBacking::Alias { target, .. } = global.backing {
+            add_checked_runtime_edge(
+                &mut graph,
+                source,
+                MirLinkNode::Global(target),
+                LinkReason::AliasBacking,
+            )?;
+        }
+        if let Some(init) = &global.init {
+            visit_global_init_storage(init, &mut globals);
+            visit_global_init_routines(init, &mut routines);
+        }
+        for target in globals {
+            add_checked_runtime_edge(
+                &mut graph,
+                source,
+                MirLinkNode::Global(target),
+                LinkReason::InitializerRelocation,
+            )?;
+        }
+        for target in routines {
+            add_checked_runtime_edge(
+                &mut graph,
+                source,
+                MirLinkNode::Routine(target),
+                LinkReason::InitializerRelocation,
+            )?;
+        }
+    }
+    for static_data in &program.statics {
+        let source = MirLinkNode::Static(static_data.id);
+        let mut globals = BTreeSet::new();
+        let mut routines = BTreeSet::new();
+        visit_data_image_storage(&static_data.image, &mut globals);
+        visit_data_image_routines(&static_data.image, &mut routines);
+        for target in globals {
+            add_checked_runtime_edge(
+                &mut graph,
+                source,
+                MirLinkNode::Global(target),
+                LinkReason::InitializerRelocation,
+            )?;
+        }
+        for target in routines {
+            add_checked_runtime_edge(
+                &mut graph,
+                source,
+                MirLinkNode::Routine(target),
+                LinkReason::InitializerRelocation,
+            )?;
+        }
+    }
+    Ok(graph)
 }
 
-fn retain_preceding_runtime_bytes(
+fn add_checked_runtime_edge(
+    graph: &mut LinkGraph<MirLinkNode>,
+    source: MirLinkNode,
+    target: MirLinkNode,
+    reason: LinkReason,
+) -> Result<(), Vec<MirDiagnostic>> {
+    if !graph.nodes().contains(&target) {
+        return Err(diagnostic(format!(
+            "embedded runtime dependency {target:?} is missing"
+        )));
+    }
+    graph.add_edge(source, target, reason);
+    Ok(())
+}
+
+fn preceding_runtime_bytes(
     program: &MirProgram,
     machine_blocks: &BTreeMap<MirMachineBlockId, &MirMachineBlock>,
     routine_id: RoutineId,
     required: usize,
-    pending: &mut BTreeSet<RoutineId>,
-) {
+) -> BTreeSet<RoutineId> {
+    let mut selected = BTreeSet::new();
     let Some(index) = program
         .routines
         .iter()
         .position(|routine| routine.id == routine_id)
     else {
-        return;
+        return selected;
     };
     let mut retained = 0usize;
     for routine in program.routines[..index].iter().rev() {
-        pending.insert(routine.id);
+        selected.insert(routine.id);
         for block in &routine.blocks {
             for op in &block.ops {
                 let MirOp::MachineBlock { id, .. } = op else {
@@ -1204,56 +1333,361 @@ fn retain_preceding_runtime_bytes(
             break;
         }
     }
+    selected
 }
 
-/// Return the source routine identities selected by the runtime dependency
-/// graph.  The classic linker uses this projection too, so both backends root
-/// and close over exactly the same embedded Action! implementations.
-pub(crate) fn selected_runtime_routine_names(
-    file_name: &str,
-    module_name: &str,
-    roots: &BTreeSet<String>,
-) -> Result<BTreeSet<String>, Vec<MirDiagnostic>> {
-    if roots.is_empty() {
-        return Ok(BTreeSet::new());
-    }
-    let runtime = if file_name.eq_ignore_ascii_case("syslib.act") {
-        syslib_mir()?
-    } else {
-        compile_runtime_unit(file_name, module_name)?
+#[cfg(test)]
+fn runtime_selection_from_nodes(nodes: &BTreeSet<MirLinkNode>) -> RuntimeSelection {
+    let mut selection = RuntimeSelection {
+        routines: BTreeSet::new(),
+        globals: BTreeSet::new(),
+        statics: BTreeSet::new(),
     };
-    let root_ids = roots
-        .iter()
-        .map(|expected| {
-            let matches = runtime
-                .routines
-                .iter()
-                .filter(|routine| {
-                    runtime_routine_name(&routine.name, &module_name.replace('.', "_"))
-                        .eq_ignore_ascii_case(expected)
-                })
-                .map(|routine| routine.id)
-                .collect::<Vec<_>>();
-            match matches.as_slice() {
-                [id] => Ok(*id),
-                [] => Err(diagnostic(format!(
-                    "embedded runtime has no implementation routine `{expected}`"
-                ))),
-                _ => Err(diagnostic(format!(
-                    "embedded runtime has multiple implementation routines named `{expected}`"
-                ))),
+    for node in nodes {
+        match node {
+            MirLinkNode::Routine(id) => {
+                selection.routines.insert(*id);
             }
+            MirLinkNode::Global(id) => {
+                selection.globals.insert(*id);
+            }
+            MirLinkNode::Static(id) => {
+                selection.statics.insert(*id);
+            }
+        }
+    }
+    selection
+}
+
+#[cfg(test)]
+pub(super) fn embedded_resident_selection(
+    program: &MirProgram,
+    roots: BTreeSet<RoutineId>,
+) -> Result<RuntimeSelection, Vec<MirDiagnostic>> {
+    let manifest = embedded_sys_link_manifest()
+        .map_err(|message| diagnostic(format!("embedded SYS link manifest: {message}")))?;
+    let (stable_to_mir, mir_to_stable) = resident_node_bindings(program)?;
+    let stable_roots = roots
+        .into_iter()
+        .map(|id| {
+            mir_to_stable
+                .get(&MirLinkNode::Routine(id))
+                .cloned()
+                .ok_or_else(|| {
+                    diagnostic(format!(
+                        "embedded SYS link manifest has no binding for routine r{}",
+                        id.0
+                    ))
+                })
         })
         .collect::<Result<BTreeSet<_>, _>>()?;
-    let selected = dependency_closure(&runtime, root_ids)?;
-    Ok(runtime
-        .routines
+    let selected = manifest.graph.closure(stable_roots).map_err(|node| {
+        diagnostic(format!(
+            "embedded SYS link manifest dependency {node:?} is missing"
+        ))
+    })?;
+    let selected = selected
+        .retained
         .iter()
-        .filter(|routine| selected.contains(&routine.id))
-        .map(|routine| {
-            runtime_routine_name(&routine.name, &module_name.replace('.', "_")).to_string()
+        .map(|node| {
+            stable_to_mir.get(node).copied().ok_or_else(|| {
+                diagnostic(format!(
+                    "embedded SYS link manifest node {node:?} does not bind to the runtime image"
+                ))
+            })
         })
-        .collect())
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    Ok(runtime_selection_from_nodes(&selected))
+}
+
+#[cfg(test)]
+fn resident_node_bindings(
+    program: &MirProgram,
+) -> Result<
+    (
+        BTreeMap<RuntimeLinkNode, MirLinkNode>,
+        BTreeMap<MirLinkNode, RuntimeLinkNode>,
+    ),
+    Vec<MirDiagnostic>,
+> {
+    let (stable_to_mir, mir_to_stable) = resident_node_bindings_without_manifest(program)?;
+
+    let manifest = embedded_sys_link_manifest()
+        .map_err(|message| diagnostic(format!("embedded SYS link manifest: {message}")))?;
+    let actual = stable_to_mir.keys().cloned().collect::<BTreeSet<_>>();
+    if actual != *manifest.graph.nodes() {
+        let missing = manifest
+            .graph
+            .nodes()
+            .difference(&actual)
+            .map(|node| format!("{node:?}"))
+            .collect::<Vec<_>>();
+        let unexpected = actual
+            .difference(manifest.graph.nodes())
+            .map(|node| format!("{node:?}"))
+            .collect::<Vec<_>>();
+        return Err(diagnostic(format!(
+            "embedded SYS link manifest node mismatch; missing [{}], unexpected [{}]",
+            missing.join(", "),
+            unexpected.join(", ")
+        )));
+    }
+    Ok((stable_to_mir, mir_to_stable))
+}
+
+fn runtime_storage_name<'a>(name: &'a str, link_module: &str) -> &'a str {
+    let prefix = format!("M_{link_module}_");
+    name.strip_prefix(&prefix)
+        .and_then(|name| name.rsplit_once('_').map(|(name, _)| name))
+        .unwrap_or(name)
+}
+
+pub(crate) fn generate_resident_link_manifest() -> Result<String, Vec<MirDiagnostic>> {
+    let (_, program) = compile_runtime_image_with_semir()?;
+    let graph = discover_runtime_dependency_graph(&program)?;
+    let (_, mir_to_stable) = resident_node_bindings_without_manifest(&program)?;
+    let mut stable = LinkGraph::default();
+    for node in graph.nodes() {
+        stable.add_node(mir_to_stable[node].clone());
+    }
+    for (source, edge) in graph.edges() {
+        stable.add_edge(
+            mir_to_stable[source].clone(),
+            mir_to_stable[&edge.target].clone(),
+            edge.reason,
+        );
+    }
+    Ok(RuntimeLinkManifest::new(stable).render())
+}
+
+fn resident_node_bindings_without_manifest(
+    program: &MirProgram,
+) -> Result<
+    (
+        BTreeMap<RuntimeLinkNode, MirLinkNode>,
+        BTreeMap<MirLinkNode, RuntimeLinkNode>,
+    ),
+    Vec<MirDiagnostic>,
+> {
+    let mut stable_to_mir = BTreeMap::new();
+    let mut mir_to_stable = BTreeMap::new();
+    let mut insert = |stable: RuntimeLinkNode, node: MirLinkNode| {
+        if let Some(previous) = stable_to_mir.insert(stable.clone(), node) {
+            return Err(diagnostic(format!(
+                "embedded runtime nodes {previous:?} and {node:?} share manifest identity {stable:?}"
+            )));
+        }
+        mir_to_stable.insert(node, stable);
+        Ok(())
+    };
+    for routine in &program.routines {
+        insert(
+            RuntimeLinkNode::routine(runtime_routine_name(
+                &routine.name,
+                "ACTION_RUNTIME_RESIDENT",
+            )),
+            MirLinkNode::Routine(routine.id),
+        )?;
+    }
+    for global in &program.globals {
+        insert(
+            RuntimeLinkNode::global(runtime_storage_name(
+                &global.name,
+                "ACTION_RUNTIME_RESIDENT",
+            )),
+            MirLinkNode::Global(global.id),
+        )?;
+    }
+    for static_data in &program.statics {
+        insert(
+            RuntimeLinkNode::static_data(runtime_storage_name(
+                &static_data.name,
+                "ACTION_RUNTIME_RESIDENT",
+            )),
+            MirLinkNode::Static(static_data.id),
+        )?;
+    }
+    Ok((stable_to_mir, mir_to_stable))
+}
+
+#[cfg(test)]
+std::thread_local! {
+    static RUNTIME_GRAPH_DISCOVERIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn note_runtime_graph_discovery() {
+    RUNTIME_GRAPH_DISCOVERIES.with(|count| count.set(count.get() + 1));
+}
+
+#[cfg(test)]
+fn runtime_graph_discoveries() -> usize {
+    RUNTIME_GRAPH_DISCOVERIES.with(std::cell::Cell::get)
+}
+
+fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<RoutineId>) {
+    match op {
+        MirOp::Load { src, .. } => visit_addr_routines(src, routines),
+        MirOp::Store { dst, src, .. } => {
+            visit_addr_routines(dst, routines);
+            visit_value_routines(src, routines);
+        }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            visit_addr_routines(source, routines);
+            visit_addr_routines(destination, routines);
+        }
+        MirOp::Move { src, .. }
+        | MirOp::Extend { src, .. }
+        | MirOp::Truncate { src, .. }
+        | MirOp::Unary { src, .. }
+        | MirOp::MaterializeAddress { value: src, .. }
+        | MirOp::AdvanceAddress { index: src, .. }
+        | MirOp::StoreIndirect { src, .. } => visit_value_routines(src, routines),
+        MirOp::AddByteToWordMem { value, .. } | MirOp::SubByteFromWordMem { value, .. } => {
+            visit_value_routines(value, routines)
+        }
+        MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
+            visit_value_routines(left, routines);
+            visit_value_routines(right, routines);
+        }
+        MirOp::Call { target, args, .. } => {
+            if let MirCallTarget::Indirect { target, .. } = target {
+                visit_value_routines(target, routines);
+            }
+            for argument in args {
+                visit_value_routines(&argument.value, routines);
+            }
+        }
+        MirOp::MaterializeIndexedAddress { base, index, .. } => {
+            visit_value_routines(base, routines);
+            visit_value_routines(index, routines);
+        }
+        MirOp::LoadImm { .. }
+        | MirOp::LeaAddr { .. }
+        | MirOp::UpdateMem { .. }
+        | MirOp::UpdateIndexedMem { .. }
+        | MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::CopyDirectWordToIndirect { .. }
+        | MirOp::AbsoluteWordSubToIndirect { .. }
+        | MirOp::RuntimeHelper { .. }
+        | MirOp::Barrier { .. }
+        | MirOp::MachineBlock { .. }
+        | MirOp::CopyIndirectWord { .. }
+        | MirOp::CopyIndirectBytesToFixedZp { .. }
+        | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
+        | MirOp::LoadIndirect { .. }
+        | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. } => {}
+    }
+}
+
+fn visit_addr_routines(addr: &MirAddr, routines: &mut BTreeSet<RoutineId>) {
+    match addr {
+        MirAddr::ComputedIndex { base, index, .. } => {
+            visit_value_routines(base, routines);
+            visit_value_routines(index, routines);
+        }
+        MirAddr::PointerIndex { index, .. } => visit_value_routines(index, routines),
+        MirAddr::Deref { ptr, .. } => visit_value_routines(ptr, routines),
+        MirAddr::Direct(_)
+        | MirAddr::AbsoluteIndexedX { .. }
+        | MirAddr::AbsoluteIndexedY { .. }
+        | MirAddr::PointerCell { .. }
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. }
+        | MirAddr::Label(_) => {}
+    }
+}
+
+fn visit_value_routines(value: &MirValue, routines: &mut BTreeSet<RoutineId>) {
+    match value {
+        MirValue::RoutineAddr(id) | MirValue::RoutineAddrByte { id, .. } => {
+            routines.insert(*id);
+        }
+        MirValue::Word { lo, hi } => {
+            visit_value_routines(lo, routines);
+            visit_value_routines(hi, routines);
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::StorageAddrByte { .. }
+        | MirValue::PointerCell(_) => {}
+    }
+}
+
+fn visit_terminator_routines(terminator: &MirTerminator, routines: &mut BTreeSet<RoutineId>) {
+    let edges = match terminator {
+        MirTerminator::Jump(edge) => std::slice::from_ref(edge),
+        MirTerminator::Branch {
+            cond,
+            then_edge,
+            else_edge,
+        } => {
+            if let MirCond::BoolValue(value) = cond {
+                visit_value_routines(value, routines);
+            }
+            for argument in then_edge.args.iter().chain(&else_edge.args) {
+                visit_value_routines(&argument.value, routines);
+            }
+            return;
+        }
+        MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => return,
+    };
+    for edge in edges {
+        for argument in &edge.args {
+            visit_value_routines(&argument.value, routines);
+        }
+    }
+}
+
+fn visit_storage_init_routines(init: &MirStorageInit, routines: &mut BTreeSet<RoutineId>) {
+    match init {
+        MirStorageInit::Bytes { image, .. }
+        | MirStorageInit::Descriptor {
+            backing: super::ir::MirStorageBacking { image, .. },
+            ..
+        } => visit_data_image_routines(image, routines),
+        MirStorageInit::RoutineAddress { routine, .. } => {
+            routines.insert(*routine);
+        }
+        MirStorageInit::ZeroFill { .. } => {}
+    }
+}
+
+fn visit_global_init_routines(init: &MirGlobalInit, routines: &mut BTreeSet<RoutineId>) {
+    match init {
+        MirGlobalInit::Bytes { image, .. } => visit_data_image_routines(image, routines),
+        MirGlobalInit::Descriptor { backing, .. } => {
+            visit_data_image_routines(&backing.image, routines)
+        }
+        MirGlobalInit::RoutineAddress { routine, .. } => {
+            routines.insert(*routine);
+        }
+        MirGlobalInit::ZeroFill { .. } | MirGlobalInit::ProgramEndWord { .. } => {}
+    }
+}
+
+fn visit_data_image_routines(image: &MirDataImage, routines: &mut BTreeSet<RoutineId>) {
+    for relocation in &image.relocations {
+        match relocation.target {
+            MirDataRelocationTarget::Routine(id)
+            | MirDataRelocationTarget::Local { routine: id, .. }
+            | MirDataRelocationTarget::Param { routine: id, .. } => {
+                routines.insert(id);
+            }
+            MirDataRelocationTarget::Global(_) | MirDataRelocationTarget::Absolute(_) => {}
+        }
+    }
 }
 
 fn rebased_routine(
@@ -1342,10 +1776,12 @@ fn next_global_offset(program: &MirProgram) -> u16 {
         .unwrap_or(0)
 }
 
+#[cfg(test)]
 fn compile_syslib() -> Result<MirProgram, Vec<MirDiagnostic>> {
     compile_runtime_unit("syslib.act", "ACTION.RUNTIME.SYSLIB")
 }
 
+#[cfg(test)]
 pub(super) fn compile_runtime_unit(
     file_name: &str,
     module_name: &str,
@@ -1353,13 +1789,22 @@ pub(super) fn compile_runtime_unit(
     compile_runtime_unit_with_semir(file_name, module_name).map(|(_, mir)| mir)
 }
 
+#[cfg(test)]
 pub(super) fn compile_runtime_unit_with_semir(
     file_name: &str,
     module_name: &str,
 ) -> Result<(crate::semantic::ir::SemProgram, MirProgram), Vec<MirDiagnostic>> {
     let semir = crate::runtime_source::compile_runtime_unit(file_name, module_name)
         .map_err(|diagnostics| frontend_diagnostics(file_name, diagnostics))?;
-    let nir = lower_runtime_nir(&semir);
+    let mir = lower_runtime_semir(&semir, file_name)?;
+    Ok((semir, mir))
+}
+
+fn lower_runtime_semir(
+    semir: &crate::semantic::ir::SemProgram,
+    file_name: &str,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    let nir = lower_runtime_nir(semir);
     crate::nir::verify_program(&nir).map_err(|diagnostics| {
         diagnostics
             .into_iter()
@@ -1379,34 +1824,21 @@ pub(super) fn compile_runtime_unit_with_semir(
             })
             .collect::<Vec<_>>()
     })?;
-    Ok((semir, mir))
+    Ok(mir)
 }
 
 pub(super) fn compile_runtime_image_with_semir()
 -> Result<(crate::runtime_source::RuntimeImage, MirProgram), Vec<MirDiagnostic>> {
     let image = crate::runtime_source::compile_runtime_image()
         .map_err(|diagnostics| frontend_diagnostics("sysall.act", diagnostics))?;
-    let nir = lower_runtime_nir(&image.semir);
-    crate::nir::verify_program(&nir).map_err(|diagnostics| {
-        diagnostics
-            .into_iter()
-            .map(|diagnostic| MirDiagnostic {
-                routine: diagnostic.routine,
-                block: diagnostic.block,
-                message: format!("embedded sysall.act NIR: {}", diagnostic.message),
-            })
-            .collect::<Vec<_>>()
-    })?;
-    let mir = super::lower_program(&nir).map_err(|diagnostics| {
-        diagnostics
-            .into_iter()
-            .map(|mut diagnostic| {
-                diagnostic.message = format!("embedded sysall.act MIR: {}", diagnostic.message);
-                diagnostic
-            })
-            .collect::<Vec<_>>()
-    })?;
+    let mir = lower_runtime_image(&image)?;
     Ok((image, mir))
+}
+
+pub(super) fn lower_runtime_image(
+    image: &crate::runtime_source::RuntimeImage,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    lower_runtime_semir(&image.semir, "sysall.act")
 }
 
 fn lower_runtime_nir(semir: &crate::semantic::ir::SemProgram) -> crate::nir::NirProgram {
@@ -1519,6 +1951,125 @@ mod tests {
             actual, expected,
             "a SYS dependency closure changed; audit the added/removed resident routines before updating the inventory"
         );
+    }
+
+    #[test]
+    fn generated_sys_link_manifest_matches_the_embedded_artifact() {
+        let generated = generate_resident_link_manifest().expect("generate SYS link manifest");
+        let embedded =
+            include_str!("../../embedded/manifests/sys-link-v1.txt").replace("\r\n", "\n");
+        assert_eq!(
+            generated, embedded,
+            "embedded SYS sources or graph extraction changed; audit the graph and regenerate with `cargo run --bin actionc-runtime-link-manifest -- embedded/manifests/sys-link-v1.txt`"
+        );
+    }
+
+    #[test]
+    fn embedded_sys_graph_matches_dynamic_analysis_for_every_routine_root() {
+        let (_, program) = compile_runtime_image_with_semir().expect("resident runtime image");
+        let dynamic = discover_runtime_dependency_graph(&program).expect("discover runtime graph");
+
+        for routine in &program.routines {
+            let expected = dynamic
+                .closure([MirLinkNode::Routine(routine.id)])
+                .unwrap_or_else(|node| panic!("dynamic root {} misses {node:?}", routine.name));
+            let expected = runtime_selection_from_nodes(&expected.retained);
+            let actual = embedded_resident_selection(&program, BTreeSet::from([routine.id]))
+                .unwrap_or_else(|diagnostics| {
+                    panic!("embedded root {}: {diagnostics:?}", routine.name)
+                });
+            assert_eq!(actual, expected, "runtime root {}", routine.name);
+        }
+    }
+
+    #[test]
+    fn embedded_sys_manifest_records_legacy_layout_edges_explicitly() {
+        let manifest = embedded_sys_link_manifest().expect("embedded SYS link manifest");
+        let has_edge = |source: &str, target: &str, reason: LinkReason| {
+            manifest
+                .graph
+                .edges_from(&RuntimeLinkNode::routine(source))
+                .any(|edge| {
+                    edge.target == RuntimeLinkNode::routine(target) && edge.reason == reason
+                })
+        };
+
+        assert!(has_edge("InputB", "InputC", LinkReason::EntryAlias));
+        assert!(has_edge("InputC", "InputI", LinkReason::EntryAlias));
+        assert!(has_edge(
+            "InputI",
+            "InputBD",
+            LinkReason::MachineFallthrough
+        ));
+        assert!(has_edge("ValB", "ValC", LinkReason::EntryAlias));
+        assert!(has_edge("ValC", "ValI", LinkReason::EntryAlias));
+        assert!(has_edge("Zero", "SetBlock", LinkReason::MachineFallthrough));
+        assert!(has_edge("PutDE", "PutD1", LinkReason::RequiredPrefix));
+        assert!(has_edge("InputID", "InputD", LinkReason::MachineRelocation));
+
+        assert!(
+            manifest
+                .graph
+                .edges_from(&RuntimeLinkNode::routine("SetBlock"))
+                .all(|edge| !matches!(
+                    edge.reason,
+                    LinkReason::EntryAlias
+                        | LinkReason::MachineFallthrough
+                        | LinkReason::ConservativeLayout
+                )),
+            "terminal SetBlock must not retain the following routine"
+        );
+    }
+
+    #[test]
+    fn production_resident_selection_never_discovers_the_sys_graph() {
+        RUNTIME_GRAPH_DISCOVERIES.with(|count| count.set(0));
+        let unit = crate::runtime_source::resolve_runtime_unit("SYSBLK").expect("SYSBLK unit");
+        let selection = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
+            unit,
+            BTreeSet::from(["Zero".to_string()]),
+        )]))
+        .expect("select embedded Zero graph");
+
+        assert!(selection.selection.routines.contains("ZERO"));
+        assert!(selection.selection.routines.contains("SETBLOCK"));
+        assert_eq!(runtime_graph_discoveries(), 0);
+    }
+
+    #[test]
+    fn production_helper_selection_never_discovers_the_syslib_graph() {
+        let runtime = syslib_mir().expect("compile embedded SYSLIB");
+        let mut declaration = runtime
+            .runtime_helpers
+            .iter()
+            .find(|declaration| declaration.helper == MirRuntimeHelper::Mod)
+            .expect("RemI helper declaration")
+            .clone();
+        declaration.target = MirRuntimeHelperTarget::Deferred;
+        let mut application = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: Vec::new(),
+            machine_blocks: Vec::new(),
+            runtime_helpers: vec![declaration],
+        };
+
+        RUNTIME_GRAPH_DISCOVERIES.with(|count| count.set(0));
+        link_helpers(&mut application).expect("link selected RemI package");
+
+        let routines = application
+            .routines
+            .iter()
+            .map(|routine| routine.name.as_str())
+            .collect::<BTreeSet<_>>();
+        for expected in ["RemI", "DivI", "SMOps", "SetSign", "SS1"] {
+            assert!(
+                routines.contains(format!("ACTION.RUNTIME.SYSLIB::{expected}").as_str()),
+                "missing {expected}: {routines:?}"
+            );
+        }
+        assert!(!routines.contains("ACTION.RUNTIME.SYSLIB::MultI"));
+        assert_eq!(runtime_graph_discoveries(), 0);
     }
 
     #[test]
@@ -1652,7 +2203,7 @@ mod tests {
     #[test]
     fn resident_selection_closes_over_aliases_and_backward_branch_targets() {
         let unit = crate::runtime_source::resolve_runtime_unit("SYSIO").expect("SYSIO unit");
-        let input = select_resident_image(&BTreeMap::from([(
+        let input = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
             unit.clone(),
             BTreeSet::from(["InputB".to_string()]),
         )]))
@@ -1663,33 +2214,30 @@ mod tests {
         ] {
             assert!(
                 input
-                    .routine_names
-                    .iter()
-                    .any(|name| name.eq_ignore_ascii_case(expected)),
+                    .selection
+                    .routines
+                    .contains(&expected.to_ascii_uppercase()),
                 "missing {expected}: {:?}",
-                input.routine_names
+                input.selection.routines
             );
         }
 
-        let put_de = select_resident_image(&BTreeMap::from([(
+        let put_de = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
             unit,
             BTreeSet::from(["PutDE".to_string()]),
         )]))
         .expect("select PutDE closure");
         assert!(
-            put_de
-                .routine_names
-                .iter()
-                .any(|name| name.eq_ignore_ascii_case("PutD1")),
+            put_de.selection.routines.contains("PUTD1"),
             "missing backward branch target: {:?}",
-            put_de.routine_names
+            put_de.selection.routines
         );
     }
 
     #[test]
     fn resident_selection_keeps_cross_unit_code_and_only_referenced_data() {
         let unit = crate::runtime_source::resolve_runtime_unit("SYSGR").expect("SYSGR unit");
-        let selection = select_resident_image(&BTreeMap::from([(
+        let selection = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
             unit,
             BTreeSet::from(["Graphics".to_string()]),
         )]))
@@ -1698,28 +2246,31 @@ mod tests {
         for expected in ["Graphics", "Close", "Open", "ChkErr", "Error"] {
             assert!(
                 selection
-                    .routine_names
-                    .iter()
-                    .any(|name| name.eq_ignore_ascii_case(expected)),
+                    .selection
+                    .routines
+                    .contains(&expected.to_ascii_uppercase()),
                 "missing {expected}: {:?}",
-                selection.routine_names
+                selection.selection.routines
             );
         }
         assert!(
             selection
-                .global_names
+                .selection
+                .globals
                 .iter()
                 .any(|name| name.to_ascii_uppercase().contains("DEV_S"))
         );
         assert!(
             selection
-                .global_names
+                .selection
+                .globals
                 .iter()
                 .any(|name| name.to_ascii_uppercase().contains("DEV_E"))
         );
         assert!(
             selection
-                .global_names
+                .selection
+                .globals
                 .iter()
                 .all(|name| !name.to_ascii_uppercase().contains("COPY_RIGHT"))
         );
@@ -1728,7 +2279,7 @@ mod tests {
     #[test]
     fn resident_printh_selection_keeps_its_machine_code_output_chain() {
         let unit = crate::runtime_source::resolve_runtime_unit("SYSIO").expect("SYSIO unit");
-        let selection = select_resident_image(&BTreeMap::from([(
+        let selection = crate::runtime_source::select_runtime_image(&BTreeMap::from([(
             unit,
             BTreeSet::from(["PrintH".to_string()]),
         )]))
@@ -1737,21 +2288,22 @@ mod tests {
         for expected in ["PrintH", "Put", "PutD", "PutD1", "CCIO", "ChkErr"] {
             assert!(
                 selection
-                    .routine_names
-                    .iter()
-                    .any(|name| name.eq_ignore_ascii_case(expected)),
+                    .selection
+                    .routines
+                    .contains(&expected.to_ascii_uppercase()),
                 "missing {expected}: {:?}",
-                selection.routine_names
+                selection.selection.routines
             );
         }
         for unrelated in ["PrintF", "PrintC", "InputD"] {
             assert!(
                 selection
-                    .routine_names
+                    .selection
+                    .routines
                     .iter()
                     .all(|name| !name.eq_ignore_ascii_case(unrelated)),
                 "unexpected {unrelated}: {:?}",
-                selection.routine_names
+                selection.selection.routines
             );
         }
     }

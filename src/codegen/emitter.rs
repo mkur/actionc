@@ -339,6 +339,10 @@ impl Emitter {
         self.emit_u8(opcode::DEY);
     }
 
+    pub fn emit_dex(&mut self) {
+        self.emit_u8(opcode::DEX);
+    }
+
     pub fn emit_txa(&mut self) {
         self.emit_u8(opcode::TXA);
     }
@@ -562,6 +566,11 @@ impl Emitter {
         self.emit_u8(value);
     }
 
+    pub fn emit_cpy_imm(&mut self, value: u8) {
+        self.emit_u8(opcode::CPY_IMM);
+        self.emit_u8(value);
+    }
+
     pub fn emit_cmp_immediate(&mut self, immediate: Immediate, byte_index: u16) {
         self.emit_cmp_imm(immediate.byte(byte_index));
     }
@@ -710,6 +719,10 @@ impl Emitter {
 
     pub fn emit_clc(&mut self) {
         self.emit_u8(opcode::CLC);
+    }
+
+    pub fn emit_cld(&mut self) {
+        self.emit_u8(opcode::CLD);
     }
 
     pub fn emit_sec(&mut self) {
@@ -2177,6 +2190,7 @@ pub mod opcode {
     pub const ASL_ABS: u8 = 0x0E;
     pub const PHP: u8 = 0x08;
     pub const CLC: u8 = 0x18;
+    pub const CLD: u8 = 0xD8;
     pub const ROL_A: u8 = 0x2A;
     pub const ROL_ABS: u8 = 0x2E;
     pub const PLP: u8 = 0x28;
@@ -2254,6 +2268,8 @@ pub mod opcode {
     pub const INC_ZP: u8 = 0xE6;
     pub const INC_ABS: u8 = 0xEE;
     pub const INC_ABS_X: u8 = 0xFE;
+    pub const DEX: u8 = 0xCA;
+    pub const CPY_IMM: u8 = 0xC0;
     pub const JMP_ABS: u8 = 0x4C;
     pub const JMP_IND: u8 = 0x6C;
     pub const JSR_ABS: u8 = 0x20;

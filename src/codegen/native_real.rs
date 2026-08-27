@@ -79,6 +79,10 @@ pub(super) enum ClassicRealValue {
 }
 
 impl ClassicNativeRealFacts {
+    pub(super) fn extend(&mut self, other: Self) {
+        self.expressions.extend(other.expressions);
+    }
+
     pub(super) fn insert(
         &mut self,
         scope: Option<&str>,
@@ -100,6 +104,32 @@ impl ClassicNativeRealFacts {
         self.expressions
             .remove(&(scope.unwrap_or_default().to_owned(), span.start, span.end));
     }
+}
+
+fn native_real_literal_label(bytes: [u8; REAL_BYTES as usize]) -> String {
+    let suffix = bytes
+        .into_iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    format!("native-real:literal:{suffix}")
+}
+
+fn is_direct_real_slot(slot: StorageSlot) -> bool {
+    matches!(slot.space, AddressSpace::Absolute | AddressSpace::ZeroPage)
+}
+
+fn real_y_index_start(slot: StorageSlot) -> Option<u8> {
+    let start = if slot.space == AddressSpace::IndirectIndexedY {
+        slot.index_offset
+    } else if is_direct_real_slot(slot) {
+        0
+    } else {
+        return None;
+    };
+    start
+        .checked_add(REAL_BYTES.saturating_sub(1))
+        .filter(|end| *end <= u16::from(u8::MAX))?;
+    Some(start as u8)
 }
 
 pub(super) fn real_temp_name(index: usize) -> String {
@@ -313,13 +343,7 @@ impl Generator {
             return false;
         }
         match value {
-            ClassicRealValue::Literal(bytes) => {
-                for (offset, byte) in bytes.iter().copied().enumerate() {
-                    self.emit_lda_imm(byte);
-                    self.emit_sta_slot_byte(target, offset as u16);
-                }
-                true
-            }
+            ClassicRealValue::Literal(bytes) => self.emit_real_constant(*bytes, target, span),
             ClassicRealValue::Place(source) => {
                 self.native_real_fact_suppression += 1;
                 let source_slot = self.lvalue_slot(source);
@@ -333,7 +357,13 @@ impl Generator {
                 source,
                 width,
                 signed,
-            } => self.emit_integer_to_real(source, *width, *signed, target, span),
+            } => {
+                if let Some(bytes) = self.constant_integer_real_bytes(source, *width, *signed) {
+                    self.emit_real_constant(bytes, target, span)
+                } else {
+                    self.emit_integer_to_real(source, *width, *signed, target, span)
+                }
+            }
             ClassicRealValue::Unary { op, value } => match op {
                 UnaryOp::Plus => self.emit_real_value_to_slot(value, target, depth, span),
                 UnaryOp::Neg => {
@@ -343,17 +373,7 @@ impl Generator {
                     if !self.emit_real_value_to_slot(value, operand, depth + 1, span) {
                         return false;
                     }
-                    let fr0 = StorageSlot::zero_page(0xD4, REAL_BYTES);
-                    let fr1 = StorageSlot::zero_page(0xE0, REAL_BYTES);
-                    for offset in 0..REAL_BYTES {
-                        self.emit_lda_imm(0);
-                        self.emit_sta_slot_byte(fr0, offset);
-                    }
-                    if !self.emit_staged_real_copy(operand, fr1) {
-                        return false;
-                    }
-                    self.emit_atari_fpp_call(ClassicAtariFppService::Subtract);
-                    self.emit_staged_real_copy(fr0, target)
+                    self.emit_negated_real_copy(operand, target, span)
                 }
                 UnaryOp::Deref | UnaryOp::AddressOf => false,
             },
@@ -387,6 +407,42 @@ impl Generator {
                 self.emit_staged_real_copy(fr0, target)
             }
         }
+    }
+
+    fn constant_integer_real_bytes(
+        &self,
+        source: &Expr,
+        width: u16,
+        signed: bool,
+    ) -> Option<[u8; REAL_BYTES as usize]> {
+        let value = self.constant_u16(source)?;
+        let decimal = match (width, signed) {
+            (1, false) => (value as u8).to_string(),
+            (1, true) => (value as u8 as i8).to_string(),
+            (2, false) => value.to_string(),
+            (2, true) => (value as i16).to_string(),
+            _ => return None,
+        };
+        crate::atari_real::AtariReal::from_decimal(&decimal)
+            .ok()
+            .map(|value| value.to_bytes())
+    }
+
+    fn emit_real_constant(
+        &mut self,
+        bytes: [u8; REAL_BYTES as usize],
+        target: StorageSlot,
+        span: Span,
+    ) -> bool {
+        let label = if let Some((label, _)) = self.native_real_literal_pool.get(&bytes) {
+            label.clone()
+        } else {
+            let label = native_real_literal_label(bytes);
+            self.native_real_literal_pool
+                .insert(bytes, (label.clone(), span));
+            label
+        };
+        self.emit_pooled_real_copy(&label, target, span)
     }
 
     fn emit_integer_to_real(
@@ -646,6 +702,29 @@ impl Generator {
         {
             return false;
         }
+
+        if source.is_volatile || target.is_volatile {
+            return self.emit_unrolled_staged_real_copy(source, target);
+        }
+
+        if is_direct_real_slot(source) && is_direct_real_slot(target) {
+            let source_start = source.address;
+            let target_start = target.address;
+            let requires_forward_copy = target_start < source_start
+                && target_start.saturating_add(REAL_BYTES) > source_start;
+            if requires_forward_copy {
+                for offset in 0..REAL_BYTES {
+                    self.emit_copy_slot_byte_to_slot_byte(source, offset, target, offset);
+                }
+                return true;
+            }
+            return self.emit_compact_direct_real_copy(source, target);
+        }
+
+        self.emit_compact_staged_real_copy(source, target)
+    }
+
+    fn emit_unrolled_staged_real_copy(&mut self, source: StorageSlot, target: StorageSlot) -> bool {
         for offset in 0..REAL_BYTES {
             self.emit_lda_slot_byte_value_only(source, offset);
             self.emitter.emit_pha();
@@ -657,11 +736,264 @@ impl Generator {
         true
     }
 
+    fn emit_compact_direct_real_copy(&mut self, source: StorageSlot, target: StorageSlot) -> bool {
+        let span = Span::new(0, 0);
+        let loop_label = self.next_label("real:copy");
+        self.emit_ldx_imm((REAL_BYTES - 1) as u8);
+        self.bind_codegen_label(loop_label.clone(), span);
+        self.emit_real_indexed_x_load(source);
+        self.emit_real_indexed_x_store(target);
+        self.emitter.emit_dex();
+        self.emitter
+            .emit_branch_label(opcode::BPL_REL, loop_label, span);
+        self.finish_compact_real_copy(target, true, false);
+        true
+    }
+
+    fn emit_compact_staged_real_copy(&mut self, source: StorageSlot, target: StorageSlot) -> bool {
+        let Some(source_index) = real_y_index_start(source) else {
+            return false;
+        };
+        let Some(target_index) = real_y_index_start(target) else {
+            return false;
+        };
+        let span = Span::new(0, 0);
+        let load_loop = self.next_label("real:stack-copy-load");
+        let store_loop = self.next_label("real:stack-copy-store");
+
+        self.emit_ldy_imm(source_index);
+        self.bind_codegen_label(load_loop.clone(), span);
+        self.emit_real_indexed_y_load(source);
+        self.emitter.emit_pha();
+        self.emit_iny();
+        self.emitter
+            .emit_cpy_imm(source_index.wrapping_add(REAL_BYTES as u8));
+        self.emitter
+            .emit_branch_label(opcode::BNE_REL, load_loop, span);
+
+        self.emit_ldy_imm(target_index.wrapping_add((REAL_BYTES - 1) as u8));
+        self.bind_codegen_label(store_loop.clone(), span);
+        self.emit_pla();
+        self.emit_real_indexed_y_store(target);
+        self.emit_dey();
+        if target_index == 0 {
+            self.emitter
+                .emit_branch_label(opcode::BPL_REL, store_loop, span);
+        } else {
+            self.emitter.emit_cpy_imm(target_index.wrapping_sub(1));
+            self.emitter
+                .emit_branch_label(opcode::BNE_REL, store_loop, span);
+        }
+        self.finish_compact_real_copy(target, false, true);
+        true
+    }
+
+    fn emit_pooled_real_copy(&mut self, label: &str, target: StorageSlot, span: Span) -> bool {
+        if target.size != REAL_BYTES {
+            return false;
+        }
+        if is_direct_real_slot(target) {
+            let loop_label = self.next_label("real:literal-copy");
+            self.emit_ldx_imm((REAL_BYTES - 1) as u8);
+            self.bind_codegen_label(loop_label.clone(), span);
+            self.emitter.emit_u8(opcode::LDA_ABS_X);
+            self.emitter.emit_u16_label(label, span);
+            self.emit_real_indexed_x_store(target);
+            self.emitter.emit_dex();
+            self.emitter
+                .emit_branch_label(opcode::BPL_REL, loop_label, span);
+            self.finish_compact_real_copy(target, true, false);
+            return true;
+        }
+        if target.space != AddressSpace::IndirectIndexedY {
+            return false;
+        }
+
+        let Some(target_index) = real_y_index_start(target) else {
+            return false;
+        };
+        let load_loop = self.next_label("real:literal-stack-load");
+        let store_loop = self.next_label("real:literal-stack-store");
+        self.emit_ldy_imm(0);
+        self.bind_codegen_label(load_loop.clone(), span);
+        self.emitter.emit_u8(opcode::LDA_ABS_Y);
+        self.emitter.emit_u16_label(label, span);
+        self.emitter.emit_pha();
+        self.emit_iny();
+        self.emitter.emit_cpy_imm(REAL_BYTES as u8);
+        self.emitter
+            .emit_branch_label(opcode::BNE_REL, load_loop, span);
+
+        self.emit_ldy_imm(target_index.wrapping_add((REAL_BYTES - 1) as u8));
+        self.bind_codegen_label(store_loop.clone(), span);
+        self.emit_pla();
+        self.emit_real_indexed_y_store(target);
+        self.emit_dey();
+        if target_index == 0 {
+            self.emitter
+                .emit_branch_label(opcode::BPL_REL, store_loop, span);
+        } else {
+            self.emitter.emit_cpy_imm(target_index.wrapping_sub(1));
+            self.emitter
+                .emit_branch_label(opcode::BNE_REL, store_loop, span);
+        }
+        self.finish_compact_real_copy(target, false, true);
+        true
+    }
+
+    fn emit_real_indexed_x_load(&mut self, source: StorageSlot) {
+        match source.space {
+            AddressSpace::Absolute => self
+                .emitter
+                .emit_lda_absolute_x(source.absolute_x_operand()),
+            AddressSpace::ZeroPage => self
+                .emitter
+                .emit_lda_zero_page_x(ZeroPageX::new(source.address as u8)),
+            AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY => unreachable!(),
+        }
+    }
+
+    fn emit_real_indexed_x_store(&mut self, target: StorageSlot) {
+        match target.space {
+            AddressSpace::Absolute => self
+                .emitter
+                .emit_sta_absolute_x(target.absolute_x_operand()),
+            AddressSpace::ZeroPage => self
+                .emitter
+                .emit_sta_zero_page_x(ZeroPageX::new(target.address as u8)),
+            AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY => unreachable!(),
+        }
+    }
+
+    fn emit_real_indexed_y_load(&mut self, source: StorageSlot) {
+        match source.space {
+            AddressSpace::Absolute | AddressSpace::ZeroPage => {
+                self.emitter.emit_lda_absolute_y(source.absolute_byte(0))
+            }
+            AddressSpace::IndirectIndexedY => self
+                .emitter
+                .emit_lda_indirect_indexed_y(IndirectIndexedY::new(source.zero_page_byte(0))),
+            AddressSpace::AbsoluteX => unreachable!(),
+        }
+    }
+
+    fn emit_real_indexed_y_store(&mut self, target: StorageSlot) {
+        match target.space {
+            AddressSpace::Absolute | AddressSpace::ZeroPage => {
+                self.emitter.emit_sta_absolute_y(target.absolute_byte(0))
+            }
+            AddressSpace::IndirectIndexedY => self
+                .emitter
+                .emit_sta_indirect_indexed_y(IndirectIndexedY::new(target.zero_page_byte(0))),
+            AddressSpace::AbsoluteX => unreachable!(),
+        }
+    }
+
+    fn finish_compact_real_copy(
+        &mut self,
+        target: StorageSlot,
+        clobbers_x: bool,
+        clobbers_y: bool,
+    ) {
+        match target.space {
+            AddressSpace::Absolute => {
+                self.record_current_absolute_write(target.address, REAL_BYTES);
+                self.processor
+                    .invalidate_prepared_pointers_touching_range(target.address, REAL_BYTES);
+            }
+            AddressSpace::ZeroPage => {
+                for offset in 0..REAL_BYTES {
+                    self.record_current_zero_page_write(target.zero_page_byte(offset));
+                }
+                self.processor.invalidate_all_zp();
+            }
+            AddressSpace::IndirectIndexedY => {
+                self.record_current_unknown_absolute_write();
+                self.processor.invalidate_all_zp();
+            }
+            AddressSpace::AbsoluteX => unreachable!(),
+        }
+        self.processor.invalidate_accumulator();
+        if clobbers_x {
+            self.processor.invalidate_index_x();
+        }
+        if clobbers_y {
+            self.processor.invalidate_index_y();
+            self.processor.invalidate_carry();
+            self.straight_line_store_y = None;
+        }
+        self.processor.invalidate_memory();
+    }
+
+    pub(super) fn emit_native_real_literal_pool(&mut self) {
+        let entries = self
+            .native_real_literal_pool
+            .iter()
+            .map(|(bytes, (label, span))| (*bytes, label.clone(), *span))
+            .collect::<Vec<_>>();
+        for (bytes, label, span) in entries {
+            if let Err(diagnostic) = self.emitter.bind_label(label, span) {
+                self.diagnostics.push(diagnostic);
+                continue;
+            }
+            let start = self.current_absolute_address();
+            for byte in bytes {
+                self.emitter.emit_u8(byte);
+            }
+            let end = self.current_absolute_address();
+            self.record_source_range(
+                CodegenSourceRangeKind::StorageInitializer,
+                Some("native REAL literal pool".to_string()),
+                span,
+                start,
+                end,
+            );
+        }
+    }
+
+    fn emit_negated_real_copy(
+        &mut self,
+        source: StorageSlot,
+        target: StorageSlot,
+        span: Span,
+    ) -> bool {
+        if !self.emit_staged_real_copy(source, target) {
+            return false;
+        }
+
+        let toggle = self.next_label("real:neg-toggle");
+        let done = self.next_label("real:neg-done");
+        self.emit_lda_slot_byte(target, 0);
+        self.emit_and_imm(0x7F);
+        self.emitter
+            .emit_branch_label(opcode::BNE_REL, &toggle, span);
+        for offset in 1..REAL_BYTES {
+            self.emit_lda_slot_byte(target, offset);
+            self.emitter
+                .emit_branch_label(opcode::BNE_REL, &toggle, span);
+        }
+
+        // A is zero on this path. Normalize either spelling of zero to the
+        // canonical positive representation without invoking FPP subtraction.
+        self.emit_sta_slot_byte(target, 0);
+        self.emit_jmp_label(&done, span);
+
+        self.bind_codegen_label(toggle, span);
+        self.emit_lda_slot_byte(target, 0);
+        self.emit_eor_imm(0x80);
+        self.emit_sta_slot_byte(target, 0);
+        self.bind_codegen_label(done, span);
+        true
+    }
+
     fn emit_atari_fpp_call(&mut self, service: ClassicAtariFppService) {
         self.used_atari_fpp_services.insert(service);
         self.record_current_unknown_effects();
         self.emitter
             .emit_jsr_absolute(Absolute::new(service.address()));
+        // Compatible Atari math packs do not agree on the returned decimal
+        // flag. Generated ADC/SBC sequences require binary mode.
+        self.emitter.emit_cld();
         self.processor.invalidate_after_call();
         self.straight_line_store_y = None;
     }

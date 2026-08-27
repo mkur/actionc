@@ -453,7 +453,9 @@ fn rewrite_real_op_values(op: &mut NirRealOp, replacements: &BTreeMap<TempId, Ni
             ..
         } => {
             rewrite_place(destination);
-            rewrite_place(operand);
+            if let NirRealSource::Place(operand) = operand {
+                rewrite_place(operand);
+            }
         }
         NirRealOp::Binary {
             destination,
@@ -462,12 +464,20 @@ fn rewrite_real_op_values(op: &mut NirRealOp, replacements: &BTreeMap<TempId, Ni
             ..
         } => {
             rewrite_place(destination);
-            rewrite_place(left);
-            rewrite_place(right);
+            if let NirRealSource::Place(left) = left {
+                rewrite_place(left);
+            }
+            if let NirRealSource::Place(right) = right {
+                rewrite_place(right);
+            }
         }
         NirRealOp::Compare { left, right, .. } => {
-            rewrite_place(left);
-            rewrite_place(right);
+            if let NirRealSource::Place(left) = left {
+                rewrite_place(left);
+            }
+            if let NirRealSource::Place(right) = right {
+                rewrite_place(right);
+            }
         }
         NirRealOp::IntegerToReal {
             destination,
@@ -609,6 +619,7 @@ mod tests {
             id: LocalId(id),
             name: name.to_string(),
             kind: "Byte".to_string(),
+            purpose: NirLocalPurpose::Storage,
             storage: NirStorageClass::Scalar,
             ty: byte_type(),
             backing: NirLocalBacking::Ordinary,

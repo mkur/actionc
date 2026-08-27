@@ -222,6 +222,42 @@ ENDMODULE
 }
 
 #[test]
+fn portable_math_constants_compile_with_both_backends() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "math-constants.act",
+        r#"MODULE MATH_CONSTANTS_TEST
+USE MATH
+
+REAL value
+
+PROC Main()
+  value=MATH.Pi
+  value=MATH.HalfPi
+  value=MATH.QuarterPi
+  value=MATH.TwoPi
+  value=MATH.E
+  value=MATH.Ln2
+  value=MATH.Ln10
+  value=MATH.Log2E
+  value=MATH.Log10E
+  value=MATH.Sqrt2
+  value=MATH.InvSqrt2
+  value=MATH.DegToRad
+  value=MATH.RadToDeg
+RETURN
+
+ENDMODULE
+"#,
+    );
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        compile_file(&source, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile MATH constants in {mode:?}: {error}"));
+    }
+}
+
+#[test]
 fn vbxe_ray_kernel_probe_compiles_standalone_with_both_backends() {
     let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe/ray-kernel-probe.act");
 
@@ -280,7 +316,7 @@ fn vbxe_neon_planet_stays_below_its_memac_window_in_both_backends() {
 }
 
 #[test]
-fn classic_standalone_keeps_the_named_root_main_as_the_run_address() {
+fn classic_standalone_keeps_the_last_root_proc_as_the_run_address() {
     let source =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/modules/native-real-library.act");
     let compiled = compile_file(
@@ -289,16 +325,16 @@ fn classic_standalone_keeps_the_named_root_main_as_the_run_address() {
     )
     .expect("compile named standalone REAL library sample");
     let listing = compiled.source_listing();
-    let main_header = listing
+    let entry_header = listing
         .lines()
         .find(|line| line.contains("PROC M_NATIVE_REAL_LIBRARY_MAIN_") && line.contains(" entry $"))
-        .expect("named Main listing header");
-    let entry = main_header
+        .expect("last root PROC listing header");
+    let entry = entry_header
         .split(" entry $")
         .nth(1)
         .and_then(|tail| tail.split_whitespace().next())
         .and_then(|hex| u16::from_str_radix(hex, 16).ok())
-        .expect("named Main entry address");
+        .expect("last root PROC entry address");
 
     assert_eq!(compiled.run_address(), entry);
 }
@@ -387,6 +423,7 @@ BYTE offset
 BYTE byteValue
 CARD cardValue
 INT intValue
+REAL realValue
 
 PROC Main()
   SYS.Put('A)
@@ -434,6 +471,14 @@ PROC Main()
   byteValue=SYS.ValB(text)
   cardValue=SYS.ValC(text)
   intValue=SYS.ValI(text)
+  SYS.StrR(@realValue,text)
+  SYS.ValR(text,@realValue)
+  SYS.PrintR(@realValue)
+  SYS.PrintRE(@realValue)
+  SYS.PrintRD(0,@realValue)
+  SYS.PrintRDE(0,@realValue)
+  SYS.InputR(@realValue)
+  SYS.InputRD(0,@realValue)
 RETURN
 
 ENDMODULE
@@ -447,6 +492,27 @@ ENDMODULE
                 .unwrap_or_else(|error| panic!("compile {runtime:?} SYS I/O in {mode:?}: {error}"));
         }
     }
+}
+
+#[test]
+fn real_sys_extensions_do_not_claim_legacy_unqualified_names() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "legacy-strr.act",
+        r#"PROC StrR()
+RETURN
+
+PROC Main()
+  StrR()
+RETURN
+"#,
+    );
+
+    compile_file(
+        &source,
+        &CompileOptions::for_mode(CompileMode::Compatibility),
+    )
+    .expect("legacy source may keep its own unqualified StrR");
 }
 
 #[test]
@@ -611,8 +677,27 @@ fn implicit_sys_public_routines_share_the_compatibility_symbol_ids() {
             })
             .collect::<Vec<_>>();
 
-        assert_eq!(public_routines.len(), 71, "complete SYS compatibility API");
+        assert_eq!(public_routines.len(), 79, "complete SYS API");
         for (symbol_id, symbol) in public_routines {
+            if matches!(
+                symbol.name.to_ascii_uppercase().as_str(),
+                "STRR"
+                    | "VALR"
+                    | "PRINTR"
+                    | "PRINTRE"
+                    | "PRINTRD"
+                    | "PRINTRDE"
+                    | "INPUTR"
+                    | "INPUTRD"
+            ) {
+                assert!(
+                    model
+                        .symbols
+                        .lookup_exact(builtin_scope, &symbol.name)
+                        .is_none()
+                );
+                continue;
+            }
             let alias = model
                 .symbols
                 .resolve_action_name(source_scope, &symbol.name)
@@ -856,7 +941,7 @@ fn module_derived_listing_is_byte_identical_across_compilations() {
 }
 
 #[test]
-fn loaded_user_modules_are_emitted_whole_in_all_modes() {
+fn optimized_modes_select_only_reachable_user_module_routines() {
     let temp = TestDir::new();
     let library = temp.path().join("lib/util.act");
     fs::create_dir_all(library.parent().expect("library parent")).expect("create module directory");
@@ -866,6 +951,10 @@ fn loaded_user_modules_are_emitted_whole_in_all_modes() {
 BYTE sink
 
 PUBLIC PROC Used()
+  Private()
+RETURN
+
+PROC Private()
   sink=1
 RETURN
 
@@ -896,15 +985,20 @@ ENDMODULE
         CompileMode::Mir6502,
     ] {
         let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
-            .unwrap_or_else(|error| panic!("compile whole user module in {mode:?}: {error}"));
+            .unwrap_or_else(|error| panic!("compile selected user module in {mode:?}: {error}"));
         let listing = compiled.source_listing();
         assert!(
             listing.contains("M_LIB_UTIL_USED_"),
             "{mode:?} omitted the referenced user routine:\n{listing}"
         );
         assert!(
-            listing.contains("M_LIB_UTIL_UNUSED_"),
-            "{mode:?} selectively removed an unreferenced user routine:\n{listing}"
+            listing.contains("M_LIB_UTIL_PRIVATE_"),
+            "{mode:?} omitted a private transitive callee:\n{listing}"
+        );
+        let expects_unused = mode == CompileMode::Compatibility;
+        assert!(
+            listing.contains("M_LIB_UTIL_UNUSED_") == expects_unused,
+            "{mode:?} has the wrong unreferenced-routine policy:\n{listing}"
         );
     }
 }

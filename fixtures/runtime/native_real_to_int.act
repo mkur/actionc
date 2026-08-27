@@ -1,0 +1,17 @@
+; Dynamic signed REAL-to-INT conversion.  The copies after both conversions
+; make the complete packed source values, including their exponent/sign bytes,
+; observable to the VM oracle.
+REAL positive=$0600, negative=$0606
+INT positive_result=$060C, negative_result=$060E
+REAL positive_after=$0610, negative_after=$0616
+BYTE done=$061C
+
+PROC Main()
+  positive=123.5
+  negative=-456.5
+  positive_result=INT(positive)
+  negative_result=INT(negative)
+  positive_after=positive
+  negative_after=negative
+  done=$A7
+RETURN

@@ -115,9 +115,9 @@ negative values, and convergence failure. Do not add a by-value REAL call ABI.
 Projection constants such as `20*1.7` and `80*1.7` are folded at compile time
 and are not recomputed per pixel.
 
-Keep the implementation in the compact `ATARI.REALMATH` module and expose a
-compatible `ATARI.REAL.Sqrt` wrapper. Geometry-only programs can then avoid
-linking the text and console-I/O surface of `ATARI.REAL`.
+Keep the implementation behind the portable `MATH.Sqrt` facade. Selective
+linking lets geometry-only programs use the Atari provider without retaining
+unreferenced text and console-I/O routines.
 
 Acceptance criteria:
 

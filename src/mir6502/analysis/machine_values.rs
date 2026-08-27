@@ -666,7 +666,9 @@ fn update_fixed_zero_page_values(
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::LoadIndirect { .. } => {}
+        MirOp::PackedRealCopy { .. } => state.fixed_zero_page.clear(),
     }
 }
 
@@ -793,6 +795,7 @@ fn operation_preserves_accumulator(op: &MirOp) -> bool {
         }
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::Compare {
+            dst: crate::mir6502::ir::MirCondDest::Flags,
             left: MirValue::Def(MirDef::Reg(MirReg::A)),
             ..
         } => true,
@@ -980,8 +983,9 @@ fn terminator_preserves_flags(terminator: &MirTerminator) -> bool {
 mod tests {
     use super::*;
     use crate::mir6502::ir::{
-        MirBlock, MirCallAbi, MirCallTarget, MirEdge, MirEffects, MirFlagTest, MirFrame,
-        MirProgram, MirRegisterSet, MirRoutineAbi, MirSpillId, RoutineId,
+        MirBlock, MirCallAbi, MirCallTarget, MirCompareOp, MirCondDest, MirEdge, MirEffects,
+        MirFlagTest, MirFrame, MirProgram, MirRegisterSet, MirRoutineAbi, MirSpillId, MirTempId,
+        RoutineId,
     };
 
     fn spill(id: u32) -> MirMem {
@@ -1108,6 +1112,62 @@ mod tests {
                 Ok(Some(MirMachineValue::DirectMem(value.clone())))
             );
         }
+    }
+
+    #[test]
+    fn boolean_temp_compare_clobbers_accumulator_value() {
+        let value = spill(1);
+        let routine = routine(vec![block(
+            0,
+            vec![
+                load_a(value),
+                MirOp::Compare {
+                    dst: MirCondDest::Temp(MirTempId(0)),
+                    op: MirCompareOp::Ge,
+                    left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    right: MirValue::ConstU8(0x80),
+                    width: MirWidth::Byte,
+                    signed: false,
+                },
+            ],
+            MirTerminator::Return,
+        )]);
+        let values = analyze(&routine);
+
+        assert_eq!(
+            values.accumulator_at(MirSite::Terminator {
+                block: MirBlockId(0)
+            }),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn flags_compare_with_accumulator_left_preserves_accumulator_value() {
+        let value = spill(1);
+        let routine = routine(vec![block(
+            0,
+            vec![
+                load_a(value.clone()),
+                MirOp::Compare {
+                    dst: MirCondDest::Flags,
+                    op: MirCompareOp::Ge,
+                    left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    right: MirValue::ConstU8(0x80),
+                    width: MirWidth::Byte,
+                    signed: false,
+                },
+            ],
+            MirTerminator::Return,
+        )]);
+        let values = analyze(&routine);
+
+        assert_eq!(
+            values.accumulator_at(MirSite::Terminator {
+                block: MirBlockId(0)
+            }),
+            Ok(Some(MirMachineValue::DirectMem(value)))
+        );
     }
 
     #[test]

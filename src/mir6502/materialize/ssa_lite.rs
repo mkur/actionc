@@ -343,7 +343,25 @@ impl SsaLiteValueEnv {
                     self.kill_reg(MirReg::Y);
                 }
             }
-            MirOp::Compare { .. } => {}
+            MirOp::Compare {
+                dst: MirCondDest::Temp(_),
+                ..
+            } => {
+                self.kill_reg(MirReg::A);
+            }
+            MirOp::Compare {
+                dst: MirCondDest::Flags,
+                ..
+            } => {}
+            MirOp::PackedRealCompare { .. } => {
+                self.kill_reg(MirReg::A);
+            }
+            MirOp::PackedRealCopy { .. } => {
+                self.kill_reg(MirReg::A);
+                self.kill_reg(MirReg::X);
+                self.kill_reg(MirReg::Y);
+                self.kill_memory_dependencies();
+            }
             MirOp::CompareIndirectBytes { .. } | MirOp::CompareIndirectWords { .. } => {
                 self.kill_reg(MirReg::A);
                 self.kill_reg(MirReg::Y);
@@ -640,7 +658,25 @@ impl SsaLiteV2ObserveEnv {
                     SsaLiteV2KillReason::Store,
                 );
             }
-            MirOp::Compare { .. } => {}
+            MirOp::Compare {
+                dst: MirCondDest::Temp(_),
+                ..
+            } => {
+                self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
+            }
+            MirOp::Compare {
+                dst: MirCondDest::Flags,
+                ..
+            } => {}
+            MirOp::PackedRealCompare { .. } => {
+                self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
+            }
+            MirOp::PackedRealCopy { .. } => {
+                self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
+                self.kill_def(&MirDef::Reg(MirReg::X), SsaLiteV2KillReason::Unknown);
+                self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
+                self.kill_memory_dependencies(SsaLiteV2KillReason::Unknown);
+            }
             MirOp::CompareIndirectBytes { .. } | MirOp::CompareIndirectWords { .. } => {
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
                 self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
@@ -1206,6 +1242,15 @@ fn address_consumer_pair_contains_resolved_address(
 
 fn op_values(op: &MirOp) -> Vec<&MirValue> {
     match op {
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            let mut values = addr_values(source);
+            values.extend(addr_values(destination));
+            values
+        }
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -1262,6 +1307,7 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
@@ -1271,6 +1317,15 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => Vec::new(),
+    }
+}
+
+fn addr_values(addr: &MirAddr) -> Vec<&MirValue> {
+    match addr {
+        MirAddr::ComputedIndex { base, index, .. } => vec![base, index],
+        MirAddr::PointerIndex { index, .. } => vec![index],
+        MirAddr::Deref { ptr, .. } => vec![ptr],
+        _ => Vec::new(),
     }
 }
 
@@ -1865,6 +1920,14 @@ impl LiveTempByteLanes {
                 self.observe_addr(dst);
                 self.observe_typed_value(src, *width);
             }
+            MirOp::PackedRealCopy {
+                source,
+                destination,
+                ..
+            } => {
+                self.observe_addr(source);
+                self.observe_addr(destination);
+            }
             MirOp::Move { src, width, .. } | MirOp::Unary { src, width, .. } => {
                 self.observe_typed_value(src, *width);
             }
@@ -1908,6 +1971,7 @@ impl LiveTempByteLanes {
             | MirOp::LoadIndirect { .. }
             | MirOp::CompareIndirectBytes { .. }
             | MirOp::CompareIndirectWords { .. }
+            | MirOp::PackedRealCompare { .. }
             | MirOp::OffsetPointerByIndirectByte { .. }
             | MirOp::CopyIndirectWord { .. }
             | MirOp::CopyDirectWordToIndirect { .. }

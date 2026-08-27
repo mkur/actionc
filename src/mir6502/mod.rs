@@ -39,6 +39,11 @@ pub fn lower_program(nir: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>>
     lower::lower_program(nir)
 }
 
+#[doc(hidden)]
+pub fn generate_embedded_sys_link_manifest() -> Result<String, Vec<MirDiagnostic>> {
+    standalone::generate_resident_link_manifest()
+}
+
 pub fn verify_program(program: &MirProgram, phase: MirPhase) -> Result<(), Vec<MirDiagnostic>> {
     verify::verify_program(program, phase)
 }
@@ -10415,6 +10420,656 @@ mod tests {
             super::classify::classify_place(&place),
             super::classify::MirPlaceShape::PointerDeref { .. }
         ));
+    }
+
+    #[test]
+    fn direct_native_real_branch_uses_packed_flag_compare() {
+        let source = r#"
+            REAL left, right
+            BYTE stored, branched
+
+            PROC StoreValue()
+              stored=left<right
+            RETURN
+
+            PROC Main()
+              IF left<right THEN
+                branched=1
+              ELSE
+                branched=2
+              FI
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let formatted = format_program(&mir);
+        let main = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        let packed_block = main
+            .blocks
+            .iter()
+            .find(|block| {
+                block
+                    .ops
+                    .iter()
+                    .any(|op| matches!(op, MirOp::PackedRealCompare { .. }))
+            })
+            .expect("packed compare block");
+
+        assert_eq!(
+            formatted
+                .matches("packed_real_cmp.flags FR0 lt FR1")
+                .count(),
+            1
+        );
+        assert!(
+            !packed_block
+                .ops
+                .iter()
+                .any(|op| matches!(op, MirOp::Compare { .. })),
+            "the direct branch must not also contain the bytewise Boolean DAG"
+        );
+        assert!(
+            formatted.matches("cmp.b").count() > 6,
+            "the value-producing REAL comparison must retain Boolean lowering:\n{formatted}"
+        );
+    }
+
+    #[test]
+    fn native_real_copy_and_negation_use_compact_packed_ops() {
+        let source = r#"
+            REAL source_value, copied, negated
+
+            PROC Main()
+              copied=source_value
+              negated=-source_value
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let ops = mir
+            .routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .flat_map(|block| &block.ops)
+            .collect::<Vec<_>>();
+
+        assert!(
+            ops.iter()
+                .any(|op| matches!(op, MirOp::PackedRealCopy { negate: false, .. }))
+        );
+        assert!(
+            ops.iter()
+                .any(|op| matches!(op, MirOp::PackedRealCopy { negate: true, .. }))
+        );
+        assert!(ops.iter().all(|op| !matches!(
+            op,
+            MirOp::Call {
+                target: MirCallTarget::AtariFpp(MirAtariFppService::Subtract),
+                ..
+            }
+        )));
+    }
+
+    #[test]
+    fn atari_fpp_calls_use_the_audited_workspace_contract() {
+        let workspace = MirMemoryEffect::Regions(vec![MirMemoryRegion {
+            kind: MirMemoryRegionKind::ZeroPage,
+            offset: 0x00D4,
+            size: 0x002C,
+        }]);
+        for service in [
+            MirAtariFppService::IntegerToFloat,
+            MirAtariFppService::FloatToInteger,
+            MirAtariFppService::Add,
+            MirAtariFppService::Subtract,
+            MirAtariFppService::Multiply,
+            MirAtariFppService::Divide,
+        ] {
+            let effects = service.effects();
+            assert_eq!(effects.memory_reads, workspace);
+            assert_eq!(effects.memory_writes, workspace);
+            assert_eq!(
+                effects.clobbers,
+                MirRegisterSet {
+                    a: true,
+                    x: true,
+                    y: true,
+                    flags: true,
+                    sp: false,
+                }
+            );
+            assert_eq!(effects.stack_depth_delta, Some(0));
+            assert!(!effects.may_call_os);
+            assert!(!effects.opaque);
+        }
+
+        let source = r#"
+            REAL left, right, result
+
+            PROC Main()
+              result=left*right
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir = crate::nir::lower_program(&semir);
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let main = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        for address in 0xD4..=0xFF {
+            assert!(
+                main.frame
+                    .fixed_zero_page
+                    .contains(&MirFixedZpSlot(address)),
+                "FPP workspace byte ${address:02X} must be allocator-reserved"
+            );
+        }
+        assert!(main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+            matches!(
+                op,
+                MirOp::Call {
+                    target: MirCallTarget::AtariFpp(MirAtariFppService::Multiply),
+                    effects,
+                    ..
+                } if effects == &MirAtariFppService::Multiply.effects()
+            )
+        }));
+        verify_program(&mir, MirPhase::PreMaterialization)
+            .expect("audited FPP effect verifies before materialization");
+
+        let mut invalid = mir.clone();
+        let invalid_effects = invalid
+            .routines
+            .iter_mut()
+            .flat_map(|routine| &mut routine.blocks)
+            .flat_map(|block| &mut block.ops)
+            .find_map(|op| match op {
+                MirOp::Call {
+                    target: MirCallTarget::AtariFpp(MirAtariFppService::Multiply),
+                    effects,
+                    ..
+                } => Some(effects),
+                _ => None,
+            })
+            .expect("lowered multiply call");
+        invalid_effects.memory_writes = MirMemoryEffect::None;
+        let diagnostics = verify_program(&invalid, MirPhase::PreMaterialization)
+            .expect_err("the verifier must reject weakened FPP effects");
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.message.contains(
+            "Atari FPP service call effects must match the audited register and workspace contract"
+        )
+            })
+        );
+    }
+
+    #[test]
+    fn adjacent_native_real_arithmetic_keeps_the_intermediate_in_fr0() {
+        let source = r#"
+            REAL x, y, result
+
+            PROC Main()
+              result=x*y+0.5
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let chained_local = nir.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| block.ops.windows(2))
+            .find_map(|pair| match (&pair[0], &pair[1]) {
+                (
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Binary {
+                        destination:
+                            crate::nir::NirPlace {
+                                kind: crate::nir::NirPlaceKind::Local { id, .. },
+                                ..
+                            },
+                        ..
+                    }),
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Binary {
+                        left:
+                            crate::nir::NirRealSource::Place(crate::nir::NirPlace {
+                                kind: crate::nir::NirPlaceKind::Local { id: consumer, .. },
+                                ..
+                            }),
+                        ..
+                    }),
+                ) if id == consumer => Some(*id),
+                _ => None,
+            })
+            .expect("adjacent REAL arithmetic result");
+
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let main = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        assert!(main.frame.locals.iter().all(|slot| {
+            !matches!(slot.base, MirStorageBase::Local(id) if id == chained_local)
+        }));
+        assert_eq!(
+            main.blocks
+                .iter()
+                .flat_map(|block| &block.ops)
+                .filter(|op| matches!(op, MirOp::PackedRealCopy { .. }))
+                .count(),
+            6
+        );
+    }
+
+    #[test]
+    fn native_real_arithmetic_does_not_chain_across_rhs_evaluation() {
+        let source = r#"
+            REAL x, y, result
+
+            PROC Main()
+              result=x*y+y
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let inner_result = nir.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .find_map(|op| match op {
+                crate::nir::NirOp::Real(crate::nir::NirRealOp::Binary {
+                    operation: crate::nir::NirBinaryOp::Mul,
+                    destination:
+                        crate::nir::NirPlace {
+                            kind: crate::nir::NirPlaceKind::Local { id, .. },
+                            ..
+                        },
+                    ..
+                }) => Some(*id),
+                _ => None,
+            })
+            .expect("inner multiplication result");
+
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let main = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        assert!(
+            main.frame.locals.iter().any(|slot| {
+                matches!(slot.base, MirStorageBase::Local(id) if id == inner_result)
+            })
+        );
+    }
+
+    #[test]
+    fn adjacent_native_real_copy_is_forwarded_into_integer_conversion() {
+        let source = r#"
+            REAL value
+            INT result
+
+            PROC Main()
+              result=INT(value)
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let forwarded_local = nir.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| block.ops.windows(2))
+            .find_map(|pair| match (&pair[0], &pair[1]) {
+                (
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Copy {
+                        destination:
+                            crate::nir::NirPlace {
+                                kind: crate::nir::NirPlaceKind::Local { id, .. },
+                                ..
+                            },
+                        ..
+                    }),
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::RealToInteger {
+                        source:
+                            crate::nir::NirPlace {
+                                kind: crate::nir::NirPlaceKind::Local { id: consumer, .. },
+                                ..
+                            },
+                        ..
+                    }),
+                ) if id == consumer => Some(*id),
+                _ => None,
+            })
+            .expect("adjacent REAL copy and integer conversion");
+
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let main = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        assert!(main.frame.locals.iter().all(|slot| {
+            !matches!(slot.base, MirStorageBase::Local(id) if id == forwarded_local)
+        }));
+        assert_eq!(
+            main.blocks
+                .iter()
+                .flat_map(|block| &block.ops)
+                .filter(|op| matches!(op, MirOp::PackedRealCopy { .. }))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn native_real_right_copy_is_forwarded_across_static_fr0_staging() {
+        let source = r#"
+            REAL value, result
+
+            PROC Main()
+              result=1.25-value
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let forwarded_local = nir.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| block.ops.windows(2))
+            .find_map(|pair| match (&pair[0], &pair[1]) {
+                (
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Copy {
+                        destination:
+                            crate::nir::NirPlace {
+                                kind: crate::nir::NirPlaceKind::Local { id, .. },
+                                ..
+                            },
+                        ..
+                    }),
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Binary {
+                        operation: crate::nir::NirBinaryOp::Sub,
+                        left: crate::nir::NirRealSource::Static { .. },
+                        right:
+                            crate::nir::NirRealSource::Place(crate::nir::NirPlace {
+                                kind: crate::nir::NirPlaceKind::Local { id: consumer, .. },
+                                ..
+                            }),
+                        ..
+                    }),
+                ) if id == consumer => Some(*id),
+                _ => None,
+            })
+            .expect("copied REAL right operand");
+
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let main = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        assert!(main.frame.locals.iter().all(|slot| {
+            !matches!(slot.base, MirStorageBase::Local(id) if id == forwarded_local)
+        }));
+        assert!(
+            main.blocks
+                .iter()
+                .flat_map(|block| block.ops.windows(2))
+                .any(|pair| matches!(
+                    pair,
+                    [
+                        MirOp::PackedRealCopy {
+                            destination: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                                0xE0
+                            ))),
+                            ..
+                        },
+                        MirOp::PackedRealCopy {
+                            source: MirAddr::Direct(MirMem::Static { .. }),
+                            destination: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                                0xD4
+                            ))),
+                            ..
+                        }
+                    ]
+                ))
+        );
+    }
+
+    #[test]
+    fn adjacent_native_real_right_results_stay_in_fpp_workspaces() {
+        for (source, consumer_operation, expect_workspace_copy) in [
+            (
+                "REAL x,result INT n PROC Main() result=x/n RETURN",
+                crate::nir::NirBinaryOp::Div,
+                true,
+            ),
+            (
+                "REAL x,y,z,result PROC Main() result=x+y*z RETURN",
+                crate::nir::NirBinaryOp::Add,
+                false,
+            ),
+        ] {
+            let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+            let program = crate::parser::parse(&tokens).expect("parse source");
+            let model = crate::semantic::analyze_with_options(
+                &program,
+                crate::semantic::SemanticOptions::modern(),
+            )
+            .expect("analyze source");
+            let semir = crate::semantic::ir::lower_program(&program, &model);
+            let nir = crate::nir::optimize_program(&crate::nir::lower_program(&semir))
+                .expect("optimize NIR");
+            let chained_local = nir.routines[0]
+                .blocks
+                .iter()
+                .flat_map(|block| block.ops.windows(2))
+                .find_map(|pair| {
+                    let producer = match &pair[0] {
+                        crate::nir::NirOp::Real(crate::nir::NirRealOp::Binary {
+                            destination,
+                            ..
+                        })
+                        | crate::nir::NirOp::Real(crate::nir::NirRealOp::IntegerToReal {
+                            destination,
+                            ..
+                        }) => destination,
+                        _ => return None,
+                    };
+                    let crate::nir::NirPlaceKind::Local { id, .. } = producer.kind else {
+                        return None;
+                    };
+                    match &pair[1] {
+                        crate::nir::NirOp::Real(crate::nir::NirRealOp::Binary {
+                            operation,
+                            right:
+                                crate::nir::NirRealSource::Place(crate::nir::NirPlace {
+                                    kind: crate::nir::NirPlaceKind::Local { id: consumer, .. },
+                                    ..
+                                }),
+                            ..
+                        }) if *operation == consumer_operation && id == *consumer => Some(id),
+                        _ => None,
+                    }
+                })
+                .expect("adjacent right-hand FPP result");
+
+            let mir = lower_program(&nir).expect("lower MIR6502");
+            let main = mir
+                .routines
+                .iter()
+                .find(|routine| routine.name == "Main")
+                .expect("Main routine");
+            assert!(main.frame.locals.iter().all(|slot| {
+                !matches!(slot.base, MirStorageBase::Local(id) if id == chained_local)
+            }));
+            let has_workspace_copy = main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+                matches!(
+                    op,
+                    MirOp::PackedRealCopy {
+                        source: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xD4))),
+                        destination: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xE0))),
+                        ..
+                    }
+                )
+            });
+            assert_eq!(has_workspace_copy, expect_workspace_copy, "{source}");
+        }
+    }
+
+    #[test]
+    fn one_use_static_real_negation_is_forwarded_to_its_consumer() {
+        let source = r#"
+            REAL value
+            BYTE flag
+
+            PROC Main()
+              IF value < -1.25 THEN
+                flag=1
+              FI
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let negated_local = nir.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .find_map(|op| match op {
+                crate::nir::NirOp::Real(crate::nir::NirRealOp::Unary {
+                    operation: crate::nir::NirUnaryOp::Neg,
+                    destination:
+                        crate::nir::NirPlace {
+                            kind: crate::nir::NirPlaceKind::Local { id, .. },
+                            ..
+                        },
+                    operand: crate::nir::NirRealSource::Static { .. },
+                }) => Some(*id),
+                _ => None,
+            })
+            .expect("negated static REAL temporary");
+        let copied_local = nir.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| block.ops.windows(3))
+            .find_map(|ops| match ops {
+                [
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Copy {
+                        destination:
+                            crate::nir::NirPlace {
+                                kind: crate::nir::NirPlaceKind::Local { id, .. },
+                                ..
+                            },
+                        ..
+                    }),
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Unary {
+                        operation: crate::nir::NirUnaryOp::Neg,
+                        ..
+                    }),
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Compare { .. }),
+                ] => Some(*id),
+                _ => None,
+            })
+            .expect("REAL copy separated from its consumer by static negation");
+
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let main = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        assert!(main.frame.locals.iter().all(|slot| {
+            !matches!(slot.base, MirStorageBase::Local(id) if id == negated_local)
+        }));
+        assert!(
+            main.frame.locals.iter().all(|slot| {
+                !matches!(slot.base, MirStorageBase::Local(id) if id == copied_local)
+            })
+        );
+        assert!(
+            main.blocks
+                .iter()
+                .flat_map(|block| &block.ops)
+                .any(|op| matches!(
+                    op,
+                    MirOp::PackedRealCopy {
+                        source: MirAddr::Direct(MirMem::Static { .. }),
+                        destination: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xE0))),
+                        negate: true,
+                        ..
+                    }
+                ))
+        );
     }
 
     fn generate_mir6502_source(source: &str) -> crate::codegen::CodegenOutput {

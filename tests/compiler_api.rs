@@ -330,6 +330,181 @@ fn native_real_core_arithmetic_compiles_with_both_backends_and_runtimes() {
 }
 
 #[test]
+fn optimized_classic_folds_integer_real_constants_and_negates_without_fpp() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "native-real-compact.act",
+        r#"
+            REAL byte_value, char_value, card_value, int_value, negated
+
+            PROC Main()
+              byte_value=BYTE(200)
+              char_value=CHAR('A)
+              card_value=CARD(65535)
+              int_value=INT(-123)
+              negated=-byte_value
+            RETURN
+        "#,
+    );
+
+    let compiled = compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized))
+        .expect("compile compact classic native REAL operations");
+    let object = compiled.object_bytes();
+
+    assert!(
+        !object.windows(3).any(|bytes| bytes == [0x20, 0xAA, 0xD9]),
+        "constant integer promotions must not call Atari FPP IFP"
+    );
+    assert!(
+        !object.windows(3).any(|bytes| bytes == [0x20, 0x60, 0xDA]),
+        "native REAL negation must not call Atari FPP FSUB"
+    );
+    assert!(
+        object.windows(2).any(|bytes| bytes == [0x49, 0x80]),
+        "native REAL negation should toggle the packed sign bit"
+    );
+}
+
+#[test]
+fn optimized_classic_pools_real_literals_and_uses_compact_copy_loops() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "native-real-copy-pool.act",
+        r#"
+            REAL first, second, copied
+            REAL POINTER destination
+
+            PROC StoreFirst()
+              first=1.23456789
+              copied=first
+              destination=@second
+              destination^=copied
+            RETURN
+
+            PROC Main()
+              second=1.23456789
+              StoreFirst()
+            RETURN
+        "#,
+    );
+
+    let compiled = compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized))
+        .expect("compile pooled classic native REAL literals");
+    let object = compiled.object_bytes();
+    let literal = [0x40, 0x01, 0x23, 0x45, 0x67, 0x89];
+
+    assert_eq!(
+        object
+            .windows(literal.len())
+            .filter(|bytes| *bytes == literal)
+            .count(),
+        1,
+        "identical executable REAL literals should share one pool entry"
+    );
+    assert!(
+        object.windows(11).any(|bytes| {
+            bytes[0] == 0xA2
+                && bytes[1] == 5
+                && bytes[2] == 0xBD
+                && bytes[5] == 0x9D
+                && bytes[8] == 0xCA
+                && bytes[9] == 0x10
+        }),
+        "direct REAL copies should use an X-indexed descending loop"
+    );
+    assert!(
+        object.windows(11).any(|bytes| {
+            bytes[0] == 0xA0
+                && bytes[1] == 0
+                && bytes[2] == 0xB9
+                && bytes[5] == 0x48
+                && bytes[6] == 0xC8
+                && bytes[7] == 0xC0
+                && bytes[8] == 6
+                && bytes[9] == 0xD0
+        }),
+        "an indirect REAL copy should use a compact staged load loop"
+    );
+    assert!(
+        object.windows(8).any(|bytes| {
+            bytes[0] == 0xA0
+                && bytes[1] == 5
+                && bytes[2] == 0x68
+                && bytes[3] == 0x91
+                && bytes[5] == 0x88
+                && bytes[6] == 0x10
+        }),
+        "an indirect REAL copy should use a compact staged store loop"
+    );
+}
+
+#[test]
+fn optimized_classic_stages_cast_wrapped_call_arguments() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "cast-wrapped-call-arguments.act",
+        r#"
+            INT left, right
+            CARD input
+
+            PROC Capture(CARD first BYTE second)
+            RETURN
+
+            PROC Consume(INT value)
+            RETURN
+
+            PROC Main()
+              Capture(left+right,BYTE(left-right))
+              Consume(input-700)
+            RETURN
+        "#,
+    );
+
+    compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized))
+        .expect("compile cast-wrapped computed call arguments");
+}
+
+#[test]
+fn every_native_real_fpp_call_restores_binary_decimal_mode() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "native-real-fpp-decimal.act",
+        r#"
+            REAL left, right, result
+            INT integer
+
+            PROC Main()
+              left=integer
+              integer=INT(left)
+              result=left+right
+              result=left-right
+              result=left*right
+              result=left/right
+            RETURN
+        "#,
+    );
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile native REAL FPP calls for {mode:?}: {error}"));
+        for address in [0xD9AAu16, 0xD9D2, 0xDA66, 0xDA60, 0xDADB, 0xDB28] {
+            let [lo, hi] = address.to_le_bytes();
+            assert!(
+                compiled
+                    .object_bytes()
+                    .windows(4)
+                    .any(|bytes| bytes == [0x20, lo, hi, 0xD8]),
+                "expected JSR ${address:04X}; CLD for {mode:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn loop_conditions_accept_all_original_binary_operators_in_all_pipelines() {
     let temp = TestDir::new();
     let mut source = String::from(

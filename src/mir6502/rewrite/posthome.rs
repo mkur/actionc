@@ -131,6 +131,26 @@ fn estimated_op_cost(op: &MirOp) -> (u16, u16) {
         MirOp::AbsoluteWordSubToIndirect { .. } => (24, 43),
         MirOp::IndirectByteCompound { .. } => (8, 12),
         MirOp::IndirectWordCompound { .. } => (26, 50),
+        MirOp::PackedRealCompare { .. } => (85, 150),
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            negate,
+            ..
+        } if matches!(source, MirAddr::Direct(_)) && matches!(destination, MirAddr::Direct(_)) => {
+            if *negate {
+                (62, 165)
+            } else {
+                (11, 85)
+            }
+        }
+        MirOp::PackedRealCopy { negate, .. } => {
+            if *negate {
+                (76, 280)
+            } else {
+                (22, 190)
+            }
+        }
         MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => (0, 0),
     }
 }

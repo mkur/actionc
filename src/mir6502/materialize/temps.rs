@@ -177,7 +177,10 @@ fn single_use_temp_sink_index(
         return None;
     }
     let intervening = &ops[index + 1..consumer_index];
-    if private_direct_load_source(producer).is_some() && !intervening.iter().any(is_safe_known_call)
+    if let Some(source) = private_direct_load_source(producer)
+        && !intervening
+            .iter()
+            .any(|op| is_safe_call_for_direct_load(op, source))
     {
         return None;
     }
@@ -253,6 +256,8 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
+        | MirOp::PackedRealCopy { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }
@@ -373,15 +378,15 @@ fn private_direct_load_source(op: &MirOp) -> Option<&MirMem> {
     }
 }
 
-fn is_safe_known_call(op: &MirOp) -> bool {
+fn is_safe_call_for_direct_load(op: &MirOp, source: &MirMem) -> bool {
     matches!(
         op,
         MirOp::Call {
-            target: MirCallTarget::Routine(_),
+            target: MirCallTarget::Routine(_) | MirCallTarget::AtariFpp(_),
             effects,
             ..
-        } if !effects.opaque && matches!(effects.memory_writes, MirMemoryEffect::None)
-    )
+        } if !effects.opaque
+    ) && !op_may_write_mem(op, source)
 }
 
 fn value_is_safe_temp_replacement(value: &MirValue) -> bool {
@@ -424,14 +429,6 @@ fn op_blocks_temp_producer_sink(producer: &MirOp, op: &MirOp) -> bool {
         if matches!(op, MirOp::MachineBlock { .. } | MirOp::Barrier { .. }) {
             return true;
         }
-        if matches!(
-            op,
-            MirOp::Call { effects, .. }
-                if effects.opaque
-                    || !matches!(effects.memory_writes, MirMemoryEffect::None)
-        ) {
-            return true;
-        }
         return op_may_write_mem(op, source);
     }
     if !matches!(producer, MirOp::LoadImm { .. }) {
@@ -453,6 +450,14 @@ pub(in crate::mir6502) fn replace_op_temp_values(
         MirOp::Store { dst, src, .. } => {
             *dst = replace_temp_addr(dst.clone(), temp, replacement);
             *src = replace_temp_value(src.clone(), temp, replacement);
+        }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            *source = replace_temp_addr(source.clone(), temp, replacement);
+            *destination = replace_temp_addr(destination.clone(), temp, replacement);
         }
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
@@ -492,6 +497,7 @@ pub(in crate::mir6502) fn replace_op_temp_values(
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
@@ -925,7 +931,9 @@ fn invalidate_staged_address_for_op(
         | MirOp::LoadIndirect { .. }
         | MirOp::StoreIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
-        | MirOp::LeaAddr { .. } => false,
+        | MirOp::LeaAddr { .. }
+        | MirOp::PackedRealCompare { .. } => false,
+        MirOp::PackedRealCopy { .. } => true,
         MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }

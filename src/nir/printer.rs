@@ -483,7 +483,7 @@ fn real_op_summary(op: &NirRealOp) -> String {
             "real.{} {} = {}",
             unary_op_summary(*operation).to_ascii_lowercase(),
             place_summary(destination),
-            place_summary(operand)
+            real_source_summary(operand)
         ),
         NirRealOp::Binary {
             operation,
@@ -494,8 +494,8 @@ fn real_op_summary(op: &NirRealOp) -> String {
             "real.{} {} = {}, {}",
             binary_op_summary(*operation).to_ascii_lowercase(),
             place_summary(destination),
-            place_summary(left),
-            place_summary(right)
+            real_source_summary(left),
+            real_source_summary(right)
         ),
         NirRealOp::Compare {
             predicate,
@@ -507,8 +507,8 @@ fn real_op_summary(op: &NirRealOp) -> String {
             "{}:condition = real.cmp.{} {}, {}",
             temp_summary(*result),
             compare_op_summary(*predicate).to_ascii_lowercase(),
-            place_summary(left),
-            place_summary(right)
+            real_source_summary(left),
+            real_source_summary(right)
         ),
         NirRealOp::IntegerToReal {
             destination,

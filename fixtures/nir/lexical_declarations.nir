@@ -5,7 +5,7 @@ global wordResult: Card
 global escaped: Byte*
 static __nir_real_Main_0:REAL bytes=[$40 $01 $50 $00 $00 $00] = "1.5"
 
-routine Main params=[-] locals=[root, Main::block0::value, Main::block0::alias, Main::block0::absolute, Main::block0::data, Main::block0::addresses, Main::block0::item, Main::block0::itemPointer, Main::block0::realValue, Main::block0::block1::item, Main::block0::block1::data, Main::block2::data, __nir_real_tmp_12, __nir_real_tmp_13]
+routine Main params=[-] locals=[root, Main::block0::value, Main::block0::alias, Main::block0::absolute, Main::block0::data, Main::block0::addresses, Main::block0::item, Main::block0::itemPointer, Main::block0::realValue, Main::block0::block1::item, Main::block0::block1::data, Main::block2::data, __nir_real_tmp_12]
   local root: Byte
   local Main::block0::value: Byte
   local Main::block0::alias: Byte alias Main::block0::value
@@ -19,7 +19,6 @@ routine Main params=[-] locals=[root, Main::block0::value, Main::block0::alias, 
   local Main::block0::block1::data: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init descriptor size=4 backing=local bytes=[$05 $00 $06 $00] zero_fill=0 backing_section=local.backing size_word=$0000 section=local mutable=true
   local Main::block2::data: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init bytes=[$07 $08] zero_fill=0 section=local mutable=true
   local __nir_real_tmp_12: hidden REAL evaluation
-  local __nir_real_tmp_13: hidden REAL evaluation
   note Action program entry (last source PROC)
 bb0:
   store root = 1
@@ -35,9 +34,8 @@ bb0:
   store Main::block0::itemPointer = %t4
   %t5:Byte* = addr Main::block0::value
   store escaped = %t5
-  real.copy __nir_real_tmp_12 = &__nir_real_Main_0
-  real.convert __nir_real_tmp_13 = 1:Byte
-  real.add Main::block0::realValue = __nir_real_tmp_12, __nir_real_tmp_13
+  real.convert __nir_real_tmp_12 = 1:Byte
+  real.add Main::block0::realValue = &__nir_real_Main_0, __nir_real_tmp_12
   %t6:Byte = load Main::block0::itemPointer.+0
   store firstResult = %t6
   inline-asm bytes=6 relocations=2 effects=reads:local1+0:1 writes:local1+0:1

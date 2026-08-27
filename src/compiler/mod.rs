@@ -224,6 +224,14 @@ pub(crate) fn compile_file_with_request(
     path: &Path,
     request: &CompileRequest,
 ) -> Result<CompiledProgram, CompileError> {
+    compile_file_with_request_and_link_policy(path, request, None)
+}
+
+pub(crate) fn compile_file_with_request_and_link_policy(
+    path: &Path,
+    request: &CompileRequest,
+    link_policy: Option<crate::linker::SemLinkPolicy>,
+) -> Result<CompiledProgram, CompileError> {
     let module_options = ModuleLoadOptions {
         project_root: request.project_root.clone(),
         module_paths: request.module_paths.clone(),
@@ -259,6 +267,25 @@ pub(crate) fn compile_file_with_request(
             )
         })?;
     let semir = ir::lower_compilation(&loaded, &model);
+    let link_policy = link_policy.unwrap_or_else(|| {
+        if request.profile == CodegenProfile::Modern {
+            crate::linker::SemLinkPolicy::EntryReachable
+        } else {
+            crate::linker::SemLinkPolicy::RetainAll
+        }
+    });
+    let semir = crate::linker::select_semir(&semir, link_policy).map_err(|message| {
+        CompileError::from_source_diagnostics(
+            CompilerPhase::Semantic,
+            vec![crate::diagnostic::Diagnostic::new(
+                crate::source::Span::new(0, 0),
+                message,
+            )],
+            &loaded.source,
+            path,
+            Some(&loaded.source_map),
+        )
+    })?;
     let uses_native_real = first_native_real_codegen_use(&model).is_some();
     let uses_lexical_blocks = !model.lexical_blocks.is_empty();
     if request.runtime == Runtime::Standalone {
@@ -436,7 +463,12 @@ fn compile_classic(
     }
 
     let result = match request.codegen_source {
-        CodegenSource::Ast if !named && !uses_native_real && !uses_lexical_blocks => {
+        CodegenSource::Ast
+            if request.profile == CodegenProfile::Compat
+                && !named
+                && !uses_native_real
+                && !uses_lexical_blocks =>
+        {
             let materialized = materialize_constants(program, model);
             match request.origin {
                 Some(origin) => generate_profile_at_origin(&materialized, origin, request.profile),

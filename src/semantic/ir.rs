@@ -67,30 +67,50 @@ pub fn format_program(program: &SemProgram) -> String {
 pub struct SemProgram {
     pub modules: Vec<SemModule>,
     pub layout: SemanticLayoutFacts,
+    /// Stable identity of the source root module. Legacy source regions share
+    /// `None`; named compilations use the loader-assigned module identity.
+    pub root_module: Option<ModuleId>,
+    /// Stable identity of the last source PROC in the root program which emits
+    /// code. Link selection and runtime composition must preserve this value
+    /// instead of inferring an entry from transformed routine order.
+    pub entry_routine: Option<SymbolId>,
 }
 
 impl SemProgram {
-    /// Action! starts a compiled program at the last source procedure that
-    /// emits code. Functions and external/absolute routine declarations are
-    /// not executable program entries.
     pub(crate) fn program_entry_routine(&self) -> Option<&SemRoutine> {
-        self.modules
-            .iter()
-            .flat_map(|module| &module.items)
-            .filter_map(|item| match item {
-                SemItem::Routine(routine)
-                    if !routine.is_external
-                        && matches!(routine.signature.kind, RoutineKind::Proc)
-                        && routine.system_address.as_ref().is_none_or(|address| {
-                            matches!(address.kind, SemExprKind::CurrentLocation)
-                        }) =>
-                {
-                    Some(routine)
-                }
-                _ => None,
-            })
-            .last()
+        let entry = self.entry_routine?;
+        Some(
+            self.modules
+                .iter()
+                .flat_map(|module| &module.items)
+                .filter_map(|item| match item {
+                    SemItem::Routine(routine) if routine.symbol.id == entry => Some(routine),
+                    _ => None,
+                })
+                .next()
+                .expect("SemIR program entry must refer to a retained routine"),
+        )
     }
+}
+
+fn source_program_entry(modules: &[SemModule], root_module: Option<ModuleId>) -> Option<SymbolId> {
+    modules
+        .iter()
+        .filter(|module| module.id == root_module)
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            SemItem::Routine(routine)
+                if !routine.is_external
+                    && matches!(routine.signature.kind, RoutineKind::Proc)
+                    && routine.system_address.as_ref().is_none_or(|address| {
+                        matches!(address.kind, SemExprKind::CurrentLocation)
+                    }) =>
+            {
+                Some(routine.symbol.id)
+            }
+            _ => None,
+        })
+        .last()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1921,13 +1941,17 @@ impl<'a> IrBuilder<'a> {
     fn lower_program(&mut self, program: &Program) -> SemProgram {
         self.numeric_defines =
             self.collect_numeric_defines(program, self.model.symbols.global_scope());
+        let modules = program
+            .modules
+            .iter()
+            .map(|module| self.lower_module(module))
+            .collect::<Vec<_>>();
+        let entry_routine = source_program_entry(&modules, None);
         let mut lowered = SemProgram {
-            modules: program
-                .modules
-                .iter()
-                .map(|module| self.lower_module(module))
-                .collect(),
+            modules,
             layout: self.model.layout.clone(),
+            root_module: None,
+            entry_routine,
         };
         if matches!(program.source_kind, crate::ast::SourceUnitKind::Legacy) {
             self.attach_legacy_sys_interface(&mut lowered);
@@ -1993,16 +2017,20 @@ impl<'a> IrBuilder<'a> {
             self.numeric_defines
                 .extend(self.collect_numeric_defines(&module.program, scope));
         }
+        let modules = compilation
+            .graph_order
+            .iter()
+            .map(|module_id| {
+                let loaded = &compilation.modules[module_id.0 as usize];
+                self.lower_named_module(*module_id, &loaded.program)
+            })
+            .collect::<Vec<_>>();
+        let entry_routine = source_program_entry(&modules, Some(compilation.root));
         let mut program = SemProgram {
-            modules: compilation
-                .graph_order
-                .iter()
-                .map(|module_id| {
-                    let loaded = &compilation.modules[module_id.0 as usize];
-                    self.lower_named_module(*module_id, &loaded.program)
-                })
-                .collect(),
+            modules,
             layout: self.model.layout.clone(),
+            root_module: Some(compilation.root),
+            entry_routine,
         };
         if !compilation
             .root_module()
@@ -2049,9 +2077,12 @@ impl<'a> IrBuilder<'a> {
                 modules.push(self.lower_named_module(*module_id, &loaded.program));
             }
         }
+        let entry_routine = source_program_entry(&modules, None);
         let mut program = SemProgram {
             modules,
             layout: self.model.layout.clone(),
+            root_module: None,
+            entry_routine,
         };
         retain_referenced_external_routines(&mut program);
         program

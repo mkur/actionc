@@ -309,11 +309,12 @@ top-level statements. `USE` clauses therefore have no hidden initialization
 order or runtime side effects.
 
 Fixed-address storage, static data, `CONST`, `TYPE`, and `RECORD` declarations
-require no runtime initializer and are allowed. The root application module
-retains the existing `Main` entry convention. Semantic lowering records that
-root `Main` as structured entry metadata carried through NIR and MIR6502.
-Runtime routines appended during selective linking therefore cannot become the
-executable entry merely because they are laid out after application code.
+require no runtime initializer and are allowed. Action! starts at the last
+source `PROC` in the root program that emits code; `Main` has no special
+meaning. Semantic lowering records that routine's stable identity as entry
+metadata carried through NIR and MIR6502. Runtime routines appended during
+selective linking therefore cannot become the executable entry merely because
+they are laid out after application code.
 
 A future explicit `PROGRAM`, `ENTRY`, or module-initialization construct is a
 separate design. `USE`-clause order must never become implicit execution order.

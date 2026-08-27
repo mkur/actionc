@@ -18,10 +18,6 @@ pub(crate) struct ClassicProjection {
     pub(crate) storage_display_names: BTreeMap<(String, String), String>,
 }
 
-pub(crate) fn semir_to_ast(program: &SemProgram) -> Result<Program, Vec<Diagnostic>> {
-    semir_to_projection(program).map(|projection| projection.program)
-}
-
 pub(crate) fn semir_to_projection(
     program: &SemProgram,
 ) -> Result<ClassicProjection, Vec<Diagnostic>> {
@@ -109,15 +105,7 @@ pub(crate) fn cart_external_addresses(
             Some(crate::runtime_bindings::BindingTarget::Absolute(address)) => {
                 addresses.insert(routine.symbol.id, *address);
             }
-            Some(crate::runtime_bindings::BindingTarget::RuntimeRoutine { .. }) => {
-                return Err(vec![Diagnostic::new(
-                    routine.span,
-                    format!(
-                        "cart binding for external `{}` is not an absolute address",
-                        routine.symbol.qualified_name
-                    ),
-                )]);
-            }
+            Some(crate::runtime_bindings::BindingTarget::RuntimeRoutine { .. }) => {}
             None => {}
         }
     }

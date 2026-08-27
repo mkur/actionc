@@ -99,11 +99,58 @@ With FR0=`1.25` and FR1=`2`:
 | FMULT | `40 02 50 00 00 00 00` (`2.5`) |
 | FDIV | `3F 62 50 00 00 00 00` (`0.625`) |
 
-FR1 is not preserved: the four routines leave different intermediate bytes in
-it. A, X, Y, and status also have routine-specific observable results. Native
-REAL lowering must therefore treat all processor registers, flags, FR0, FR1,
-and the intervening FPP workspace as clobbered until a narrower audited effect
-contract exists.
+FR1 is not portable preserved state. The bundled AltirraOS FADD happens to
+leave it unchanged for this vector, while FSUB changes its first byte and
+FMULT uses the full value destructively. The original Atari routines have a
+different byte-level clobber pattern, so compiler correctness must use the
+union documented below rather than observations from one ROM and one input.
+
+## Audited Core-Service Effects
+
+The audit covers the six entry points emitted by native `REAL` lowering. The
+original-package column comes from the byte-by-byte compatibility matrix in
+[AltirraOS `mathpack.s`](https://github.com/atari800/atari800/blob/bbe287d6d2c233bc8bad92ed2b2637f6a3859eb6/emuos/src/mathpack.s).
+The AltirraOS column follows the complete helper call graph at that same
+revision, which is the source revision for the bundled ROM. A VM bus-write
+probe against that ROM additionally confirmed that representative successful
+calls remain within these sets and do not write page-five FPP scratch.
+
+| Service | Original math pack may modify | AltirraOS may modify | Portable union |
+| --- | --- | --- | --- |
+| IFP `$D9AA` | `$D4-$D9`, `$F8-$F9` | `$D4-$D9` | `$D4-$D9`, `$F8-$F9` |
+| FPI `$D9D2` | `$D4-$D9`, `$EC`, `$F5`, `$F7-$FA` | `$D4-$D9` | `$D4-$D9`, `$EC`, `$F5`, `$F7-$FA` |
+| FADD `$DA66` | `$D4-$DA`, `$E0-$E5`, `$F7-$F9` | `$D4-$D9` | `$D4-$DA`, `$E0-$E5`, `$F7-$F9` |
+| FSUB `$DA60` | `$D4-$DA`, `$E0-$E5`, `$F7-$F9` | `$D4-$D9`, `$E0` | `$D4-$DA`, `$E0-$E5`, `$F7-$F9` |
+| FMULT `$DADB` | `$D4-$E0`, `$E6-$EE`, `$F5-$F7` | `$D4-$EB` | `$D4-$EE`, `$F5-$F7` |
+| FDIV `$DB28` | `$D4-$E0`, `$E6-$EE`, `$F5`, `$F7` | `$D4-$E0`, `$E6-$EC` | `$D4-$E0`, `$E6-$EE`, `$F5`, `$F7` |
+
+The conventional names for these bytes—FR0, FRE, FR1, FR2, FRX, and the
+ZTEMP variables—are also recorded in
+[cc65's Atari equates](https://github.com/cc65/cc65/blob/master/asminc/atari.inc).
+The complete package owns zero page `$D4-$FF`; other entry points, especially
+polynomial and transcendental functions, additionally use page-five scratch.
+
+The processor and call effects shared by these six services are:
+
+- A, X, Y, N, Z, C, and V are volatile. MIR therefore clobbers A, X, Y, and
+  its aggregate flags state.
+- The interrupt-disable flag is preserved. Decimal mode is not a portable
+  preserved value: IFP can return with it set, and arithmetic routines use and
+  clear it on path-dependent exits. Both compiler backends therefore append
+  `CLD` to every emitted core-service call and expose binary mode as the
+  post-call compiler invariant.
+- Internal JSR and PHA operations use hardware-stack bytes transiently, but SP
+  is restored and the public stack-depth delta is zero.
+- The routines call only internal math-pack helpers. They do not invoke CIO,
+  SIO, Action runtime code, or a general OS service, and perform no arbitrary
+  indirect program-memory writes.
+
+MIR deliberately represents both reads and writes as the complete package
+workspace `$D4-$FF`, rather than encoding the smaller per-service unions. This
+is a stable contract for compatible replacement ROMs and remains narrow enough
+to prove that ordinary params, locals, spills, non-overlapping globals, and the
+`$AA-$AF` pointer scratch are preserved. Calls are non-opaque, do not set
+`may_call_os`, and reserve the workspace from virtual zero-page allocation.
 
 ## Integer Conversion Vectors
 
@@ -117,8 +164,9 @@ The compiler owns signed Action `INT` adaptation around these unsigned OS
 routines. It converts an integer's magnitude with IFP and applies the sign to
 the packed REAL result. In the reverse direction it clears the REAL sign,
 calls FPI, and applies two's-complement sign to the returned word. Sign state
-is held in compiler-generated frame storage because FPP calls are opaque and
-may clobber registers, flags, FR0, FR1, and workspace.
+is held in compiler-generated frame storage because FPP calls may clobber
+registers, flags, FR0, FR1, and workspace. The audited structured effect proves
+that the frame byte itself survives the call.
 
 ## Compatibility Baseline
 

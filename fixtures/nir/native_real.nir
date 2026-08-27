@@ -7,7 +7,7 @@ global rounded: Int
 static __nir_real_Main_0:REAL bytes=[$40 $01 $25 $00 $00 $00] = "1.25"
 static __nir_real_Main_1:REAL bytes=[$3F $50 $00 $00 $00 $00] = "0.5"
 
-routine Main params=[-] locals=[__nir_real_tmp_0, __nir_real_tmp_1, __nir_real_tmp_2, __nir_real_tmp_3, __nir_real_tmp_4, __nir_real_tmp_5, __nir_real_tmp_6, __nir_real_tmp_7]
+routine Main params=[-] locals=[__nir_real_tmp_0, __nir_real_tmp_1, __nir_real_tmp_2, __nir_real_tmp_3, __nir_real_tmp_4, __nir_real_tmp_5, __nir_real_tmp_6]
   local __nir_real_tmp_0: hidden REAL evaluation
   local __nir_real_tmp_1: hidden REAL evaluation
   local __nir_real_tmp_2: hidden REAL evaluation
@@ -15,7 +15,6 @@ routine Main params=[-] locals=[__nir_real_tmp_0, __nir_real_tmp_1, __nir_real_t
   local __nir_real_tmp_4: hidden REAL evaluation
   local __nir_real_tmp_5: hidden REAL evaluation
   local __nir_real_tmp_6: hidden REAL evaluation
-  local __nir_real_tmp_7: hidden REAL evaluation
   note Action program entry (last source PROC)
 bb0:
   real.copy x = &__nir_real_Main_0
@@ -23,15 +22,14 @@ bb0:
   real.copy __nir_real_tmp_1 = x
   real.copy __nir_real_tmp_2 = y
   real.mul __nir_real_tmp_0 = __nir_real_tmp_1, __nir_real_tmp_2
-  real.copy __nir_real_tmp_3 = &__nir_real_Main_1
-  real.add result = __nir_real_tmp_0, __nir_real_tmp_3
-  real.copy __nir_real_tmp_4 = result
-  real.convert __nir_real_tmp_5 = 2:Byte
-  %t0:condition = real.cmp.gt __nir_real_tmp_4, __nir_real_tmp_5
+  real.add result = __nir_real_tmp_0, &__nir_real_Main_1
+  real.copy __nir_real_tmp_3 = result
+  real.convert __nir_real_tmp_4 = 2:Byte
+  %t0:condition = real.cmp.gt __nir_real_tmp_3, __nir_real_tmp_4
   store is_large = %t0
+  real.copy __nir_real_tmp_5 = result
+  real.neg result = __nir_real_tmp_5
   real.copy __nir_real_tmp_6 = result
-  real.neg result = __nir_real_tmp_6
-  real.copy __nir_real_tmp_7 = result
-  %t1:Int = real.convert __nir_real_tmp_7
+  %t1:Int = real.convert __nir_real_tmp_6
   store rounded = %t1
   return
