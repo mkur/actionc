@@ -850,6 +850,11 @@ pub enum MirAtariFppService {
 }
 
 impl MirAtariFppService {
+    /// First byte of the Atari floating-point package's zero-page workspace.
+    pub const WORKSPACE_START: u16 = 0x00D4;
+    /// Size of the complete package-owned zero-page workspace ($D4-$FF).
+    pub const WORKSPACE_SIZE: u16 = 0x002C;
+
     pub const fn address(self) -> u16 {
         match self {
             Self::IntegerToFloat => 0xD9AA,
@@ -869,6 +874,40 @@ impl MirAtariFppService {
             Self::Subtract => "FSUB",
             Self::Multiply => "FMULT",
             Self::Divide => "FDIV",
+        }
+    }
+
+    /// Audited portable effects for the core Atari FPP services used by
+    /// native REAL lowering.
+    ///
+    /// Individual entry points use smaller subsets, but the complete package
+    /// workspace is the stable contract across the original Atari math pack,
+    /// AltirraOS, and compatible replacement ROMs. The routines do not make
+    /// nested OS calls and return with the hardware stack balanced.
+    pub fn effects(self) -> MirEffects {
+        let _ = self;
+        let clobbers = MirRegisterSet {
+            a: true,
+            x: true,
+            y: true,
+            flags: true,
+            sp: false,
+        };
+        let workspace = || {
+            MirMemoryEffect::Regions(vec![MirMemoryRegion {
+                kind: MirMemoryRegionKind::ZeroPage,
+                offset: Self::WORKSPACE_START,
+                size: Self::WORKSPACE_SIZE,
+            }])
+        };
+        MirEffects {
+            memory_reads: workspace(),
+            memory_writes: workspace(),
+            clobbers,
+            stack_depth_delta: Some(0),
+            may_call_os: false,
+            opaque: false,
+            ..MirEffects::default()
         }
     }
 }

@@ -1,6 +1,7 @@
 use crate::mir6502::ir::{
-    MirAddr, MirAddressConsumer, MirCallTarget, MirFixedZpSlot, MirGlobalBacking, MirMem, MirOp,
-    MirPointerPair, MirProgram, MirRoutine, MirValue, MirZpAllocation,
+    MirAddr, MirAddressConsumer, MirCallTarget, MirFixedZpSlot, MirGlobalBacking, MirMem,
+    MirMemoryEffect, MirMemoryRegionKind, MirOp, MirPointerPair, MirProgram, MirRoutine, MirValue,
+    MirZpAllocation,
 };
 
 pub(super) fn reserve_pointer_scratch_slots(program: &mut MirProgram) {
@@ -227,17 +228,45 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
             collect_packed_real_addr_fixed_zero_page(destination, *destination_offset, slots);
         }
         MirOp::Move { src, .. } => collect_value_fixed_zero_page(src, slots),
-        MirOp::Call { target, args, .. } => {
+        MirOp::Call {
+            target,
+            args,
+            effects,
+            ..
+        } => {
             collect_call_target_fixed_zero_page(target, slots);
             for arg in args {
                 collect_value_fixed_zero_page(&arg.value, slots);
             }
+            collect_effect_fixed_zero_page(&effects.memory_reads, slots);
+            collect_effect_fixed_zero_page(&effects.memory_writes, slots);
+        }
+        MirOp::RuntimeHelper { effects, .. }
+        | MirOp::Barrier { effects }
+        | MirOp::MachineBlock { effects, .. } => {
+            collect_effect_fixed_zero_page(&effects.memory_reads, slots);
+            collect_effect_fixed_zero_page(&effects.memory_writes, slots);
         }
         MirOp::Compare { left, right, .. } | MirOp::Binary { left, right, .. } => {
             collect_value_fixed_zero_page(left, slots);
             collect_value_fixed_zero_page(right, slots);
         }
         _ => {}
+    }
+}
+
+fn collect_effect_fixed_zero_page(effect: &MirMemoryEffect, slots: &mut Vec<MirFixedZpSlot>) {
+    let MirMemoryEffect::Regions(regions) = effect else {
+        return;
+    };
+    for region in regions
+        .iter()
+        .filter(|region| region.kind == MirMemoryRegionKind::ZeroPage)
+    {
+        let end = region.offset.saturating_add(region.size).min(0x100);
+        for address in region.offset.min(0x100)..end {
+            collect_fixed_zero_page_slot(MirFixedZpSlot(address as u8), slots);
+        }
     }
 }
 

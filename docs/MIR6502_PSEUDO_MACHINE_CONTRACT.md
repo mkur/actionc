@@ -1003,11 +1003,26 @@ private REAL frame slot. Initialized scalar/array storage already contains
 authoritative packed-decimal bytes; FPP calls are needed only for runtime
 computation.
 
-FPP calls conservatively clobber A, X, Y, flags, FR0, FR1, and unknown FPP
-workspace. MIR represents them as opaque OS calls with all-memory effects until
-an audited narrower contract exists. The stack is known balanced across the
-call. Optimization and materialization must therefore preserve operand/result
-copies around the service call.
+The audited core FPP services clobber A, X, Y, flags, and service-specific
+subsets of the Atari FPP workspace. MIR uses the stable portable envelope for
+compatible ROMs: structured zero-page reads and writes over `$D4-$FF`. These
+calls are not opaque, do not make nested OS calls, and have a known balanced
+stack-depth delta of zero. The verifier requires that exact contract.
+
+The allocator reserves `$D4-$FF` in every routine containing an FPP call, so
+virtual zero-page homes cannot overlap the workspace. Structured-effect
+analysis records those bytes as exact fixed-zero-page homes rather than
+turning them into unknown compiler-home effects. Consequently a pointer or
+other value held in an ordinary param, local, spill, or the `$AA-$AF` pointer
+scratch may be rematerialized across an FPP call. Values stored in the FPP
+workspace itself remain killed normally. The byte-level source audit and the
+original/AltirraOS compatibility union are recorded in
+`docs/Action_2027/ATARI_FPP_ORACLE.md`.
+
+This preservation proof applies only to the FPP call. It does not make a
+pointer snapshot removable when its live range also crosses an indirect write:
+without a stronger alias fact, an indirect `PackedRealCopy` may overwrite the
+pointer cell itself, so the original pointer value still needs a durable home.
 
 ## Effects And Barriers
 

@@ -177,7 +177,10 @@ fn single_use_temp_sink_index(
         return None;
     }
     let intervening = &ops[index + 1..consumer_index];
-    if private_direct_load_source(producer).is_some() && !intervening.iter().any(is_safe_known_call)
+    if let Some(source) = private_direct_load_source(producer)
+        && !intervening
+            .iter()
+            .any(|op| is_safe_call_for_direct_load(op, source))
     {
         return None;
     }
@@ -375,15 +378,15 @@ fn private_direct_load_source(op: &MirOp) -> Option<&MirMem> {
     }
 }
 
-fn is_safe_known_call(op: &MirOp) -> bool {
+fn is_safe_call_for_direct_load(op: &MirOp, source: &MirMem) -> bool {
     matches!(
         op,
         MirOp::Call {
-            target: MirCallTarget::Routine(_),
+            target: MirCallTarget::Routine(_) | MirCallTarget::AtariFpp(_),
             effects,
             ..
-        } if !effects.opaque && matches!(effects.memory_writes, MirMemoryEffect::None)
-    )
+        } if !effects.opaque
+    ) && !op_may_write_mem(op, source)
 }
 
 fn value_is_safe_temp_replacement(value: &MirValue) -> bool {
@@ -424,14 +427,6 @@ fn op_blocks_temp_producer_sink(producer: &MirOp, op: &MirOp) -> bool {
     } = producer
     {
         if matches!(op, MirOp::MachineBlock { .. } | MirOp::Barrier { .. }) {
-            return true;
-        }
-        if matches!(
-            op,
-            MirOp::Call { effects, .. }
-                if effects.opaque
-                    || !matches!(effects.memory_writes, MirMemoryEffect::None)
-        ) {
             return true;
         }
         return op_may_write_mem(op, source);

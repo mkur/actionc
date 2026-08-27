@@ -1475,10 +1475,18 @@ fn live_range_preserves_fixed_pair(
             }
             match op {
                 MirOp::Call { target, .. } => {
-                    if !known_callees
-                        .for_target(target)
-                        .is_some_and(|summary| summary.preserves_fixed_pair(fixed_lo))
-                    {
+                    if let Some(summary) = known_callees.for_target(target) {
+                        if !summary.preserves_fixed_pair(fixed_lo) {
+                            return false;
+                        }
+                    } else if matches!(target, MirCallTarget::AtariFpp(_)) {
+                        // The Atari FPP target has a verifier-enforced audited
+                        // contract, so its physical workspace can prove
+                        // preservation without a source-routine summary.
+                        if op_may_write_fixed_pair(op, fixed_lo) {
+                            return false;
+                        }
+                    } else {
                         return false;
                     }
                 }

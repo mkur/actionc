@@ -1402,24 +1402,21 @@ fn apply_structured_effects(
     opaque_is_memory_effect: bool,
     summary: &mut MirOpEffectSummary,
 ) {
+    let has_unknown_reads = matches!(
+        effects.memory_reads,
+        MirMemoryEffect::Unknown | MirMemoryEffect::All
+    );
+    let has_unknown_writes = matches!(
+        effects.memory_writes,
+        MirMemoryEffect::Unknown | MirMemoryEffect::All
+    );
     summary.memory.structured_reads = effects.memory_reads.clone();
     summary.memory.structured_writes = effects.memory_writes.clone();
     summary.memory.opaque = effects.opaque;
-    summary.memory.indirect_reads |= effects.opaque
-        || matches!(
-            effects.memory_reads,
-            MirMemoryEffect::Unknown | MirMemoryEffect::All
-        );
-    summary.memory.indirect_writes |= effects.opaque
-        || matches!(
-            effects.memory_writes,
-            MirMemoryEffect::Unknown | MirMemoryEffect::All
-        );
-    summary.memory.has_unknown_effects = effects.opaque
-        || !matches!(effects.memory_reads, MirMemoryEffect::None)
-        || !matches!(effects.memory_writes, MirMemoryEffect::None);
-    summary.memory.may_write_any =
-        effects.opaque || !matches!(effects.memory_writes, MirMemoryEffect::None);
+    summary.memory.indirect_reads |= effects.opaque || has_unknown_reads;
+    summary.memory.indirect_writes |= effects.opaque || has_unknown_writes;
+    summary.memory.has_unknown_effects = effects.opaque || has_unknown_reads || has_unknown_writes;
+    summary.memory.may_write_any = effects.opaque || has_unknown_writes;
     summary.memory.has_unknown_effects_compat = (opaque_is_memory_effect && effects.opaque)
         || !matches!(effects.memory_reads, MirMemoryEffect::None)
         || !matches!(effects.memory_writes, MirMemoryEffect::None);
@@ -1460,12 +1457,14 @@ fn structured_effect_may_alias_compiler_homes(effect: &MirMemoryEffect) -> bool 
     match effect {
         MirMemoryEffect::None => false,
         MirMemoryEffect::Unknown | MirMemoryEffect::All => true,
-        MirMemoryEffect::Regions(regions) => regions.iter().any(|region| {
-            matches!(
-                region.kind,
-                MirMemoryRegionKind::AbsoluteRange | MirMemoryRegionKind::ZeroPage
-            )
-        }),
+        // Named regions have stable identities. Zero-page regions are also
+        // exact physical identities: their bytes are recorded as
+        // `FixedZeroPage` homes above and reserved from virtual allocation.
+        // Raw absolute ranges can still overlap laid-out globals or private
+        // frame storage, so they retain the unknown-home fallback.
+        MirMemoryEffect::Regions(regions) => regions
+            .iter()
+            .any(|region| region.kind == MirMemoryRegionKind::AbsoluteRange),
     }
 }
 
@@ -2312,7 +2311,36 @@ mod tests {
                 ..MirEffects::default()
             },
         });
-        assert!(zero_page.homes.unknown_reads);
+        assert!(!zero_page.homes.unknown_reads);
+        assert!(!zero_page.memory.indirect_reads);
+        assert!(!zero_page.memory.has_unknown_effects);
+        assert!(
+            zero_page
+                .homes
+                .reads
+                .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xAC)))
+        );
+        assert!(
+            zero_page
+                .homes
+                .reads
+                .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xAD)))
+        );
+
+        let absolute = classify_op(&MirOp::MachineBlock {
+            id: MirMachineBlockId(3),
+            effects: MirEffects {
+                memory_reads: MirMemoryEffect::Regions(vec![crate::mir6502::MirMemoryRegion {
+                    kind: MirMemoryRegionKind::AbsoluteRange,
+                    offset: 0x3000,
+                    size: 2,
+                }]),
+                opaque: false,
+                ..MirEffects::default()
+            },
+        });
+        assert!(absolute.homes.unknown_reads);
+        assert!(!absolute.memory.has_unknown_effects);
     }
 
     #[test]

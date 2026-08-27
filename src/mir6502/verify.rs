@@ -1503,14 +1503,8 @@ impl MirVerifier {
                     }
                     _ => {}
                 }
-                if matches!(target, super::ir::MirCallTarget::AtariFpp(_)) {
-                    let expected_clobbers = super::ir::MirRegisterSet {
-                        a: true,
-                        x: true,
-                        y: true,
-                        flags: true,
-                        sp: false,
-                    };
+                if let super::ir::MirCallTarget::AtariFpp(service) = target {
+                    let expected_effects = service.effects();
                     if !args.is_empty()
                         || result.is_some()
                         || !abi.params.is_empty()
@@ -1522,20 +1516,14 @@ impl MirVerifier {
                             "Atari FPP service calls must use the implicit FR0/FR1 ABI",
                         ));
                     }
-                    if abi.clobbers != expected_clobbers
-                        || abi.preserves != super::ir::MirRegisterSet::default()
-                        || effects.clobbers != expected_clobbers
-                        || effects.preserves != super::ir::MirRegisterSet::default()
-                        || effects.memory_reads != super::ir::MirMemoryEffect::All
-                        || effects.memory_writes != super::ir::MirMemoryEffect::All
-                        || effects.stack_depth_delta != Some(0)
-                        || !effects.may_call_os
-                        || !effects.opaque
+                    if abi.clobbers != expected_effects.clobbers
+                        || abi.preserves != expected_effects.preserves
+                        || effects != &expected_effects
                     {
                         self.diagnostics.push(MirDiagnostic::block(
                             &routine.name,
                             block,
-                            "Atari FPP service call effects must conservatively clobber registers and memory",
+                            "Atari FPP service call effects must match the audited register and workspace contract",
                         ));
                     }
                 }

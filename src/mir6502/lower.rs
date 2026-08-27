@@ -23,10 +23,11 @@ use super::ir::{
     MirDataRelocation, MirDataRelocationKind, MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg,
     MirEffects, MirFixedZpSlot, MirFlagTest, MirFrame, MirGlobal, MirGlobalBacking, MirGlobalInit,
     MirInlineAsmTarget, MirMachineAtom, MirMachineBlock, MirMachineBlockId, MirMachineByteSelector,
-    MirMachineItem, MirMem, MirMemoryEffect, MirOp, MirProgram, MirRegisterSet, MirRoutine,
-    MirRoutineAbi, MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic,
-    MirStorageBacking, MirStorageBase, MirStorageClass, MirStorageId, MirStorageInit,
-    MirStorageSlot, MirTemp, MirTempId, MirTerminator, MirUnaryOp, MirValue, MirWidth, RoutineId,
+    MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram,
+    MirRegisterSet, MirRoutine, MirRoutineAbi, MirRuntimeHelper, MirRuntimeHelperDecl,
+    MirRuntimeHelperTarget, MirStatic, MirStorageBacking, MirStorageBase, MirStorageClass,
+    MirStorageId, MirStorageInit, MirStorageSlot, MirTemp, MirTempId, MirTerminator, MirUnaryOp,
+    MirValue, MirWidth, RoutineId,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -1272,7 +1273,32 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
             collect_packed_real_fixed_zero_page(source, *source_offset, slots);
             collect_packed_real_fixed_zero_page(destination, *destination_offset, slots);
         }
+        MirOp::Call { effects, .. }
+        | MirOp::RuntimeHelper { effects, .. }
+        | MirOp::Barrier { effects }
+        | MirOp::MachineBlock { effects, .. } => {
+            collect_effect_fixed_zero_page(&effects.memory_reads, slots);
+            collect_effect_fixed_zero_page(&effects.memory_writes, slots);
+        }
         _ => {}
+    }
+}
+
+fn collect_effect_fixed_zero_page(effect: &MirMemoryEffect, slots: &mut Vec<MirFixedZpSlot>) {
+    let MirMemoryEffect::Regions(regions) = effect else {
+        return;
+    };
+    for region in regions
+        .iter()
+        .filter(|region| region.kind == MirMemoryRegionKind::ZeroPage)
+    {
+        let end = region.offset.saturating_add(region.size).min(0x100);
+        for address in region.offset.min(0x100)..end {
+            collect_mem_fixed_zero_page(
+                &MirMem::FixedZeroPage(MirFixedZpSlot(address as u8)),
+                slots,
+            );
+        }
     }
 }
 
@@ -1917,6 +1943,18 @@ fn forward_adjacent_real_temp_copies(
     for block in blocks {
         let mut index = 0;
         while index + 1 < block.ops.len() {
+            if let Some((local, replacements)) = block.ops.get(index..index + 3).and_then(|ops| {
+                let [producer, staging, consumer] = ops else {
+                    return None;
+                };
+                real_temp_copy_around_static_fr0_stage(producer, staging, consumer)
+            }) && candidates.contains(&local)
+            {
+                block.ops.splice(index..index + 3, replacements);
+                eliminated.insert(local);
+                index += 2;
+                continue;
+            }
             let Some((local, replacement)) =
                 adjacent_real_temp_copy_forward(&block.ops[index], &block.ops[index + 1])
             else {
@@ -1933,6 +1971,42 @@ fn forward_adjacent_real_temp_copies(
         }
     }
     eliminated
+}
+
+fn real_temp_copy_around_static_fr0_stage(
+    producer: &MirOp,
+    staging: &MirOp,
+    consumer: &MirOp,
+) -> Option<(LocalId, [MirOp; 2])> {
+    let (local, forwarded) = adjacent_real_temp_copy_forward(producer, consumer)?;
+    let MirOp::PackedRealCopy {
+        source: MirAddr::Direct(MirMem::Static { .. }),
+        destination: MirAddr::Direct(MirMem::FixedZeroPage(staging_destination)),
+        source_offset: staging_source_offset,
+        destination_offset: staging_destination_offset,
+        ..
+    } = staging
+    else {
+        return None;
+    };
+    let MirOp::PackedRealCopy {
+        destination: MirAddr::Direct(MirMem::FixedZeroPage(forwarded_destination)),
+        destination_offset: forwarded_destination_offset,
+        ..
+    } = &forwarded
+    else {
+        return None;
+    };
+    if *staging_destination != ATARI_FPP_FR0
+        || *forwarded_destination != ATARI_FPP_FR1
+        || *staging_source_offset != 0
+        || *staging_destination_offset != 0
+        || *forwarded_destination_offset != 0
+    {
+        return None;
+    }
+
+    Some((local, [forwarded, staging.clone()]))
 }
 
 fn forward_static_real_temp_negations(
@@ -2976,13 +3050,8 @@ fn constant_integer_real_bytes(value: &NirValueKind, ty: &NirType) -> Option<[u8
 }
 
 fn atari_fpp_call(service: MirAtariFppService) -> MirOp {
-    let clobbers = MirRegisterSet {
-        a: true,
-        x: true,
-        y: true,
-        flags: true,
-        sp: false,
-    };
+    let effects = service.effects();
+    let clobbers = effects.clobbers;
     MirOp::Call {
         target: MirCallTarget::AtariFpp(service),
         abi: MirCallAbi {
@@ -2993,15 +3062,7 @@ fn atari_fpp_call(service: MirAtariFppService) -> MirOp {
         },
         args: Vec::new(),
         result: None,
-        effects: MirEffects {
-            memory_reads: MirMemoryEffect::All,
-            memory_writes: MirMemoryEffect::All,
-            clobbers,
-            stack_depth_delta: Some(0),
-            may_call_os: true,
-            opaque: true,
-            ..MirEffects::default()
-        },
+        effects,
     }
 }
 

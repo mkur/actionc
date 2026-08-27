@@ -236,7 +236,13 @@ The direct BYTE-array and paired word-arithmetic gates also run their memory
 oracles through the direct library harness. The paired gate retains its
 compiler-selection preflight in the compatibility script.
 
-It is also part of the opt-in compatibility integration tests:
+The native REAL-to-INT fixture checks dynamic positive and negative rounding
+under both modern backends and both runtime link modes. It also copies both
+source values after conversion so the VM oracle proves that their complete
+six-byte packed representations, including the exponent/sign byte, remain
+unchanged.
+
+The scripted gates are also part of the opt-in compatibility integration tests:
 
 ```sh
 cargo test --test compatibility -- --ignored

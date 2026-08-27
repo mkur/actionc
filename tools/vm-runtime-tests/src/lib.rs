@@ -293,6 +293,38 @@ mod tests {
     }
 
     #[test]
+    fn signed_native_real_to_int_preserves_source_exponents() {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_to_int.act", mode, runtime, true, 25_000);
+                let bytes = |address: u16, length: u16| {
+                    (0..length)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+
+                assert_eq!(
+                    bytes(0x0600, 6),
+                    [0x41, 0x01, 0x23, 0x50, 0, 0],
+                    "{context}"
+                );
+                assert_eq!(
+                    bytes(0x0606, 6),
+                    [0xC1, 0x04, 0x56, 0x50, 0, 0],
+                    "{context}"
+                );
+                assert_eq!(bytes(0x060C, 2), [124, 0], "{context}");
+                assert_eq!(bytes(0x060E, 2), [0x37, 0xFE], "{context}");
+                assert_eq!(bytes(0x0610, 6), bytes(0x0600, 6), "{context}");
+                assert_eq!(bytes(0x0616, 6), bytes(0x0606, 6), "{context}");
+                assert_eq!(bytes(0x061C, 1), [0xA7], "{context}");
+            }
+        }
+    }
+
+    #[test]
     fn native_real_aggregate_storage_runs_in_both_runtimes() {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
