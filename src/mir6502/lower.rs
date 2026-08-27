@@ -150,6 +150,45 @@ fn adjacent_real_copy_forwards(routine: &NirRoutine) -> BTreeSet<LocalId> {
     forwarded
 }
 
+fn static_real_negation_forwards(routine: &NirRoutine) -> BTreeSet<LocalId> {
+    let private_real_temps = routine
+        .locals
+        .iter()
+        .filter(|local| matches!(local.purpose, NirLocalPurpose::RealTemporary))
+        .map(|local| local.id)
+        .collect::<BTreeSet<_>>();
+    let accesses = real_local_accesses(routine);
+    let mut forwarded = BTreeSet::new();
+
+    for block in &routine.blocks {
+        for (index, producer) in block.ops.iter().enumerate() {
+            let NirOpKind::Real(NirRealOp::Unary {
+                operation: NirUnaryOp::Neg,
+                destination,
+                operand: NirRealSource::Static { .. },
+            }) = producer
+            else {
+                continue;
+            };
+            let Some(local) = direct_real_local(destination) else {
+                continue;
+            };
+            let read_later_in_block = block.ops[index + 1..].iter().any(
+                |op| matches!(op, NirOpKind::Real(real) if real_op_reads_direct_local(real, local)),
+            );
+            if read_later_in_block
+                && private_real_temps.contains(&local)
+                && accesses.get(&local).is_some_and(|access| {
+                    access.reads == 1 && access.writes == 1 && access.other == 0
+                })
+            {
+                forwarded.insert(local);
+            }
+        }
+    }
+    forwarded
+}
+
 fn adjacent_fpp_result_chain(
     producer: &NirOpKind,
     consumer: &NirOpKind,
@@ -498,6 +537,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                 let mut generated_locals = Vec::new();
                 let fpp_result_chains = adjacent_fpp_result_chains(routine);
                 let real_copy_forwards = adjacent_real_copy_forwards(routine);
+                let real_negation_forwards = static_real_negation_forwards(routine);
 
                 let mut blocks: Vec<MirBlock> = routine
                     .blocks
@@ -602,6 +642,10 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                 elided_real_locals.extend(forward_adjacent_real_temp_copies(
                     &mut blocks,
                     &real_copy_forwards,
+                ));
+                elided_real_locals.extend(forward_static_real_temp_negations(
+                    &mut blocks,
+                    &real_negation_forwards,
                 ));
                 let retained_source_local_count = routine
                     .locals
@@ -1864,6 +1908,93 @@ fn forward_adjacent_real_temp_copies(
         }
     }
     eliminated
+}
+
+fn forward_static_real_temp_negations(
+    blocks: &mut [MirBlock],
+    candidates: &BTreeSet<LocalId>,
+) -> BTreeSet<LocalId> {
+    let mut eliminated = BTreeSet::new();
+    for block in blocks {
+        for local in candidates {
+            let Some((producer_index, static_source)) =
+                block.ops.iter().enumerate().find_map(|(index, op)| {
+                    static_real_temp_negation(op, *local).map(|source| (index, source))
+                })
+            else {
+                continue;
+            };
+            let Some((consumer_index, replacement)) = block
+                .ops
+                .iter()
+                .enumerate()
+                .skip(producer_index + 1)
+                .find_map(|(index, op)| {
+                    forwarded_static_real_negation(op, *local, &static_source)
+                        .map(|replacement| (index, replacement))
+                })
+            else {
+                continue;
+            };
+            block.ops[consumer_index] = replacement;
+            block.ops.remove(producer_index);
+            eliminated.insert(*local);
+        }
+    }
+    eliminated
+}
+
+fn static_real_temp_negation(op: &MirOp, candidate: LocalId) -> Option<MirAddr> {
+    let MirOp::PackedRealCopy {
+        source: source @ MirAddr::Direct(MirMem::Static { .. }),
+        destination:
+            MirAddr::Direct(MirMem::Local {
+                id,
+                offset: local_offset,
+            }),
+        source_offset,
+        destination_offset,
+        negate,
+    } = op
+    else {
+        return None;
+    };
+    (*id == candidate
+        && *local_offset == 0
+        && *source_offset == 0
+        && *destination_offset == 0
+        && *negate)
+        .then(|| source.clone())
+}
+
+fn forwarded_static_real_negation(
+    op: &MirOp,
+    candidate: LocalId,
+    static_source: &MirAddr,
+) -> Option<MirOp> {
+    let MirOp::PackedRealCopy {
+        source:
+            MirAddr::Direct(MirMem::Local {
+                id,
+                offset: local_offset,
+            }),
+        destination,
+        source_offset,
+        destination_offset,
+        negate,
+    } = op
+    else {
+        return None;
+    };
+    (*id == candidate && *local_offset == 0 && *source_offset == 0 && !*negate).then(|| {
+        MirOp::PackedRealCopy {
+            source: static_source.clone(),
+            destination: destination.clone(),
+            source_offset: 0,
+            destination_offset: *destination_offset,
+            negate: true,
+        }
+    })
 }
 
 fn adjacent_real_temp_copy_forward(first: &MirOp, second: &MirOp) -> Option<(LocalId, MirOp)> {

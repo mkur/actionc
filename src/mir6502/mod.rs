@@ -10789,6 +10789,71 @@ mod tests {
         }
     }
 
+    #[test]
+    fn one_use_static_real_negation_is_forwarded_to_its_consumer() {
+        let source = r#"
+            REAL value
+            BYTE flag
+
+            PROC Main()
+              IF value < -1.25 THEN
+                flag=1
+              FI
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let negated_local = nir.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .find_map(|op| match op {
+                crate::nir::NirOp::Real(crate::nir::NirRealOp::Unary {
+                    operation: crate::nir::NirUnaryOp::Neg,
+                    destination:
+                        crate::nir::NirPlace {
+                            kind: crate::nir::NirPlaceKind::Local { id, .. },
+                            ..
+                        },
+                    operand: crate::nir::NirRealSource::Static { .. },
+                }) => Some(*id),
+                _ => None,
+            })
+            .expect("negated static REAL temporary");
+
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let main = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        assert!(main.frame.locals.iter().all(|slot| {
+            !matches!(slot.base, MirStorageBase::Local(id) if id == negated_local)
+        }));
+        assert!(
+            main.blocks
+                .iter()
+                .flat_map(|block| &block.ops)
+                .any(|op| matches!(
+                    op,
+                    MirOp::PackedRealCopy {
+                        source: MirAddr::Direct(MirMem::Static { .. }),
+                        destination: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xE0))),
+                        negate: true,
+                        ..
+                    }
+                ))
+        );
+    }
+
     fn generate_mir6502_source(source: &str) -> crate::codegen::CodegenOutput {
         generate_mir6502_source_with_origin(source, crate::codegen::CODE_ORIGIN)
     }

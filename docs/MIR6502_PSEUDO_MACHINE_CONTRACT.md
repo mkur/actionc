@@ -997,8 +997,11 @@ only for a nonzero value; zero is normalized to its canonical positive form.
 This avoids staging zero and the operand in FR0/FR1 and avoids an Atari FPP
 subtraction call. The operation clobbers A and N/Z, clobbers X for direct copies
 or Y/C for an indirect endpoint, preserves V, and uses only transient balanced
-stack storage. Initialized scalar/array storage already contains authoritative
-packed-decimal bytes; FPP calls are needed only for runtime computation.
+stack storage. A negated immutable static source with one same-block consumer
+may carry that flag directly to the consumer's packed copy, eliminating its
+private REAL frame slot. Initialized scalar/array storage already contains
+authoritative packed-decimal bytes; FPP calls are needed only for runtime
+computation.
 
 FPP calls conservatively clobber A, X, Y, flags, FR0, FR1, and unknown FPP
 workspace. MIR represents them as opaque OS calls with all-memory effects until
