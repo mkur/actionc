@@ -1,5 +1,9 @@
 ; Exercise character, numeric, and string input through a scripted Q: device.
 ; Fixed result addresses let the VM compare cart and standalone implementations.
+MODULE RESIDENT_CONSOLE_INPUT_TEST
+
+USE SYS
+
 BYTE byteDefault=$0600
 BYTE byteDevice=$0601
 CHAR character=$0602
@@ -12,6 +16,8 @@ BYTE ARRAY stringDefault(8)=$0640
 BYTE ARRAY stringDevice(8)=$0650
 BYTE ARRAY stringMaximum(8)=$0660
 BYTE ARRAY stringDirect(8)=$0670
+REAL realDefault=$0680
+REAL realDevice=$0686
 
 PROC Main()
   Open(0,"Q:",4,0)
@@ -22,6 +28,8 @@ PROC Main()
   cardDevice=InputCD(0)
   intDefault=InputI()
   intDevice=InputID(0)
+  SYS.InputR(@realDefault)
+  SYS.InputRD(0,@realDevice)
   character=GetD(0)
 
   InputS(stringDefault)
@@ -34,3 +42,5 @@ PROC Main()
   DO
   OD
 RETURN
+
+ENDMODULE

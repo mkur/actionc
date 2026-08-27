@@ -842,6 +842,8 @@ mod tests {
             &b"1234|42\x9B"[..],
             &b"-1|32767\x9B"[..],
             &b"-1234|-32768\x9B"[..],
+            &b"1.25|1.25\x9B"[..],
+            &b"-2.5|-2.5\x9B"[..],
         ]
         .concat();
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
@@ -871,8 +873,7 @@ mod tests {
     #[test]
     fn resident_console_input_matches_under_both_runtimes_and_backends() {
         let max_steps = 200_000;
-        let input =
-            b"42\x9B255\x9B1234\x9B65535\x9B-1234\x9B-32768\x9BZABC\x9BDEFG\x9BWXYZ\x9BLAST\x9B";
+        let input = b"42\x9B255\x9B1234\x9B65535\x9B-1234\x9B-32768\x9B1.25\x9B-2.5\x9BZABC\x9BDEFG\x9BWXYZ\x9BLAST\x9B";
         let expected: &[(u16, &[u8])] = &[
             (0x0600, &[42, 255, b'Z']),
             (0x0610, &[0xD2, 0x04, 0xFF, 0xFF]),
@@ -881,6 +882,8 @@ mod tests {
             (0x0650, b"\x04DEFG"),
             (0x0660, b"\x04WXYZ"),
             (0x0670, b"\x04LAST"),
+            (0x0680, &[0x40, 0x01, 0x25, 0, 0, 0]),
+            (0x0686, &[0xC0, 0x02, 0x50, 0, 0, 0]),
         ];
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
@@ -909,7 +912,7 @@ mod tests {
                 }
                 assert_eq!(outcome.vm.bus().cio_summary().opens, 1);
                 assert_eq!(outcome.vm.bus().cio_summary().closes, 1);
-                assert_eq!(outcome.vm.bus().cio_summary().reads, 11);
+                assert_eq!(outcome.vm.bus().cio_summary().reads, 13);
                 assert_eq!(
                     outcome.vm.bus().cio_summary().bytes_read,
                     input.len() as u64

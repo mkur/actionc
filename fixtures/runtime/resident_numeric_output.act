@@ -1,5 +1,11 @@
 ; Exercise every public decimal output wrapper on CIO channel zero. Separators
 ; make calls without an end-of-line distinguishable in the captured byte stream.
+MODULE RESIDENT_NUMERIC_OUTPUT_TEST
+
+USE SYS
+
+REAL positiveReal,negativeReal
+
 PROC Main()
   INT minimum,minusOne,minusValue
 
@@ -32,6 +38,17 @@ PROC Main()
   Put('|)
   PrintIDE(0,minimum)
 
+  positiveReal=1.25
+  negativeReal=-2.5
+  SYS.PrintR(@positiveReal)
+  Put('|)
+  SYS.PrintRE(@positiveReal)
+  SYS.PrintRD(0,@negativeReal)
+  Put('|)
+  SYS.PrintRDE(0,@negativeReal)
+
   DO
   OD
 RETURN
+
+ENDMODULE

@@ -177,22 +177,17 @@ pub(crate) fn has_cart_runtime_extensions(
     semir: &crate::semantic::ir::SemProgram,
 ) -> Result<bool, Vec<Diagnostic>> {
     let bindings = parse_bindings(crate::runtime::Runtime::ActionCart)?;
-    Ok(semir
-        .modules
-        .iter()
-        .flat_map(|module| &module.items)
-        .filter_map(|item| match item {
-            crate::semantic::ir::SemItem::Routine(routine) if routine.is_external => {
-                Some(&routine.symbol.qualified_name)
-            }
-            _ => None,
-        })
-        .any(|name| {
+    let interfaces = external_interfaces(semir);
+    let application = super::semir::semir_to_cart_projection(semir)?.program;
+    let referenced = referenced_external_names(&application, &interfaces);
+    Ok(referenced.iter().any(|name| {
+        interfaces.get(name).is_some_and(|interface| {
             matches!(
-                bindings.get(&binding_key(name)),
+                bindings.get(&binding_key(&interface.qualified_name)),
                 Some(BindingTarget::RuntimeRoutine { .. })
             )
-        }))
+        })
+    }))
 }
 
 pub(crate) fn generate_semir_cart_profile_at_origin(

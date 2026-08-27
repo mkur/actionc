@@ -441,6 +441,33 @@ fn optimized_classic_pools_real_literals_and_uses_compact_copy_loops() {
 }
 
 #[test]
+fn optimized_classic_stages_cast_wrapped_call_arguments() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "cast-wrapped-call-arguments.act",
+        r#"
+            INT left, right
+            CARD input
+
+            PROC Capture(CARD first BYTE second)
+            RETURN
+
+            PROC Consume(INT value)
+            RETURN
+
+            PROC Main()
+              Capture(left+right,BYTE(left-right))
+              Consume(input-700)
+            RETURN
+        "#,
+    );
+
+    compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized))
+        .expect("compile cast-wrapped computed call arguments");
+}
+
+#[test]
 fn every_native_real_fpp_call_restores_binary_decimal_mode() {
     let temp = TestDir::new();
     let source = write_source(
