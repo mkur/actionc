@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::ast::*;
 use crate::diagnostic::Diagnostic;
@@ -1178,6 +1178,7 @@ struct Generator {
     suppress_implicit_rts_once: bool,
     inline_byte_constant_shift: bool,
     native_real: native_real::ClassicNativeRealFacts,
+    native_real_literal_pool: BTreeMap<[u8; 6], (String, Span)>,
     current_native_real_scope: Option<String>,
     native_real_fact_suppression: usize,
     used_atari_fpp_services: BTreeSet<native_real::ClassicAtariFppService>,

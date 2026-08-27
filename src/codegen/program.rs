@@ -15,6 +15,7 @@ impl Generator {
                 }
             }
         }
+        self.emit_native_real_literal_pool();
     }
 
     pub(super) fn generate_compatible_program_source_order(&mut self, program: &Program) {
@@ -67,6 +68,7 @@ impl Generator {
                 "removed duplicate final program RTS",
             );
         }
+        self.emit_native_real_literal_pool();
         self.emit_array_backing_storage();
     }
 

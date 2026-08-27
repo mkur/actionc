@@ -399,6 +399,14 @@ and all six source bytes are staged before stores, preserving evaluation order
 and overlap behavior. Dynamic array and pointer indexes use their structured
 six-byte element size.
 
+Executable compile-time REAL constants, including decimal literals and folded
+integer promotions, share one immutable program-wide pool keyed by their
+canonical six-byte representation. Ordinary direct REAL transfers use a
+descending indexed loop; explicit leftward overlaps retain a forward copy, and
+copies with an indirect endpoint stage all six bytes on the hardware stack
+before writing. This keeps classic assignment overlap-safe without expanding
+every transfer into six separate compiler temporaries or lane pairs.
+
 Classic emission records the same Atari OS FPP service bindings in maps and
 listings as MIR6502. `Optimized` remains the classic backend; it is not routed
 through MIR6502. The core, overlap, control/conversion, and aggregate fixtures

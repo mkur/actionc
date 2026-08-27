@@ -367,6 +367,80 @@ fn optimized_classic_folds_integer_real_constants_and_negates_without_fpp() {
 }
 
 #[test]
+fn optimized_classic_pools_real_literals_and_uses_compact_copy_loops() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "native-real-copy-pool.act",
+        r#"
+            REAL first, second, copied
+            REAL POINTER destination
+
+            PROC StoreFirst()
+              first=1.23456789
+              copied=first
+              destination=@second
+              destination^=copied
+            RETURN
+
+            PROC Main()
+              second=1.23456789
+              StoreFirst()
+            RETURN
+        "#,
+    );
+
+    let compiled = compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized))
+        .expect("compile pooled classic native REAL literals");
+    let object = compiled.object_bytes();
+    let literal = [0x40, 0x01, 0x23, 0x45, 0x67, 0x89];
+
+    assert_eq!(
+        object
+            .windows(literal.len())
+            .filter(|bytes| *bytes == literal)
+            .count(),
+        1,
+        "identical executable REAL literals should share one pool entry"
+    );
+    assert!(
+        object.windows(11).any(|bytes| {
+            bytes[0] == 0xA2
+                && bytes[1] == 5
+                && bytes[2] == 0xBD
+                && bytes[5] == 0x9D
+                && bytes[8] == 0xCA
+                && bytes[9] == 0x10
+        }),
+        "direct REAL copies should use an X-indexed descending loop"
+    );
+    assert!(
+        object.windows(11).any(|bytes| {
+            bytes[0] == 0xA0
+                && bytes[1] == 0
+                && bytes[2] == 0xB9
+                && bytes[5] == 0x48
+                && bytes[6] == 0xC8
+                && bytes[7] == 0xC0
+                && bytes[8] == 6
+                && bytes[9] == 0xD0
+        }),
+        "an indirect REAL copy should use a compact staged load loop"
+    );
+    assert!(
+        object.windows(8).any(|bytes| {
+            bytes[0] == 0xA0
+                && bytes[1] == 5
+                && bytes[2] == 0x68
+                && bytes[3] == 0x91
+                && bytes[5] == 0x88
+                && bytes[6] == 0x10
+        }),
+        "an indirect REAL copy should use a compact staged store loop"
+    );
+}
+
+#[test]
 fn every_native_real_fpp_call_restores_binary_decimal_mode() {
     let temp = TestDir::new();
     let source = write_source(

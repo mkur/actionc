@@ -230,6 +230,7 @@ pub(super) fn generate_with_options_and_requirements_with_facts(
         suppress_implicit_rts_once: false,
         inline_byte_constant_shift: false,
         native_real: native_real.clone(),
+        native_real_literal_pool: BTreeMap::new(),
         current_native_real_scope: None,
         native_real_fact_suppression: 0,
         used_atari_fpp_services: BTreeSet::new(),
