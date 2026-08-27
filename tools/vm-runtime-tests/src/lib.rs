@@ -421,6 +421,59 @@ mod tests {
     }
 
     #[test]
+    fn vbxe_neon_scene_kernel_matches_selected_reference_pixels() {
+        let sample = repository_root().join("samples/vbxe/neon-scene-probe.act");
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let compiled = compile_file(
+                    &sample,
+                    &CompileOptions::for_mode(mode).with_runtime(runtime),
+                )
+                .unwrap_or_else(|error| {
+                    panic!("compile neon scene probe for {mode:?}/{runtime:?}: {error}")
+                });
+                let profile = match runtime {
+                    Runtime::ActionCart => ExecutionProfile::CartridgeObject,
+                    Runtime::Standalone => ExecutionProfile::StandaloneObject,
+                };
+                let mut vm = vm_for_profile(profile);
+                if runtime == Runtime::Standalone {
+                    let os = repository_root().join("roms/altirraos-xl.rom");
+                    vm.load_image_bytes(
+                        ImageKind::Rom,
+                        "altirraos-xl.rom",
+                        OS_ROM_BASE,
+                        std::fs::read(os).expect("read Atari OS ROM"),
+                    )
+                    .expect("load Atari OS ROM for neon scene kernel");
+                }
+                vm.load_atari_object_for_execution(profile, compiled.object_bytes())
+                    .unwrap_or_else(|error| {
+                        panic!("load neon scene probe for {mode:?}/{runtime:?}: {error}")
+                    });
+                let max_steps = 500_000;
+                let outcome = VmRunner::new(vm).run(RunRequest {
+                    max_steps,
+                    history_len: 8,
+                    ..RunRequest::default()
+                });
+                let bytes = |address: u16, length: u16| {
+                    (0..length)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+                assert_eq!(
+                    bytes(0x0700, 11),
+                    [4, 62, 86, 127, 182, 176, 90, 255, 74, 202, 229],
+                    "{context}"
+                );
+                assert_eq!(bytes(0x0710, 1), [0xA5], "{context}");
+            }
+        }
+    }
+
+    #[test]
     fn initialized_arrays_execute_through_the_vm_library() {
         assert_both_backends(
             "initialized arrays",

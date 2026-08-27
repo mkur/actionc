@@ -1,0 +1,84 @@
+; Four 64-entry material ramps for the VBXE neon-planet scene.
+MODULE NEON_PALETTE
+
+USE ATARI.VBXE
+
+BYTE FUNC Blend(BYTE lo,hi,pos,span)
+  CARD value
+
+  value=hi
+  value=value-lo
+  value=value*pos
+  value=value/span
+RETURN(lo+BYTE(value))
+
+PROC SetColor(BYTE index,red,green,blue)
+  VBXE.Write(VBXE.REG_CSEL,index)
+  VBXE.Write(VBXE.REG_CR,red)
+  VBXE.Write(VBXE.REG_CG,green)
+  VBXE.Write(VBXE.REG_CB,blue)
+RETURN
+
+PUBLIC PROC Install()
+  BYTE color,pos,red,green,blue
+
+  VBXE.Write(VBXE.REG_PSEL,VBXE.PALETTE_1)
+  color=0
+  DO
+    IF color<60 THEN
+      pos=color
+      red=Blend(1,45,pos,59)
+      green=Blend(1,12,pos,59)
+      blue=Blend(9,72,pos,59)
+    ELSEIF color<64 THEN
+      ; Four cool-white star colors live above the sky ramp.
+      pos=color-60
+      red=180+pos*20
+      green=205+pos*15
+      blue=255
+    ELSEIF color<112 THEN
+      pos=color-64
+      red=Blend(8,240,pos,47)
+      green=Blend(2,90,pos,47)
+      blue=Blend(0,12,pos,47)
+    ELSEIF color<128 THEN
+      pos=color-112
+      red=Blend(240,255,pos,15)
+      green=Blend(90,240,pos,15)
+      blue=Blend(12,205,pos,15)
+    ELSEIF color<192 THEN
+      pos=color-128
+      red=Blend(0,92,pos,63)
+      green=Blend(9,255,pos,63)
+      blue=Blend(18,255,pos,63)
+    ELSE
+      pos=color-192
+      red=Blend(4,255,pos,63)
+      green=Blend(0,46,pos,63)
+      blue=Blend(10,218,pos,63)
+    FI
+
+    SetColor(color,red,green,blue)
+    color==+1
+  UNTIL color=0
+  OD
+RETURN
+
+; Pulse the emissive ring and grid endpoints without touching the framebuffer.
+PUBLIC PROC Animate(BYTE phase)
+  BYTE pulse,red,green,blue
+
+  pulse=phase AND 31
+  IF pulse>=16 THEN pulse=31-pulse FI
+  VBXE.Write(VBXE.REG_PSEL,VBXE.PALETTE_1)
+  red=48+pulse*3
+  green=195+pulse*4
+  blue=210+pulse*3
+  SetColor($BF,red,green,blue)
+  red=185+pulse*4
+  green=22+pulse
+  blue=155+pulse*5
+  SetColor($FF,red,green,blue)
+RETURN
+
+ENDMODULE

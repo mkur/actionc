@@ -1,0 +1,347 @@
+; Hardware-independent REAL ray kernel for the VBXE neon-planet sample.
+;
+; Every visible primitive is intersected in perspective: a sphere, a tilted
+; annulus, and a floor plane. The floor reflection traces a virtual mirrored
+; sphere, which is equivalent to reflecting the camera ray at the plane.
+; Trace() returns a material in the upper two bits and a 64-level shade in the
+; lower six bits.
+MODULE NEON_SCENE
+
+USE ATARI.REALMATH AS FPP
+
+PUBLIC CONST CARD WIDTH=320
+PUBLIC CONST BYTE HEIGHT=192
+
+CONST BYTE MATERIAL_SKY=$00,
+           MATERIAL_PLANET=$40,
+           MATERIAL_RING=$80,
+           MATERIAL_FLOOR=$C0
+
+; Shared Atari floating-point workspaces and arithmetic entry points. Keeping
+; the four operators in procedures is important on an 8-bit target: the scene
+; stays compact enough to leave VBXE's $A000-$BFFF MEMAC window unused.
+REAL FpAccumulator=$00D4,FpArgument=$00E0
+INT FpInteger=$00D4
+BYTE FpExponent=$00D4
+
+PROC OsIntToFp=$D9AA()
+PROC OsFpAdd=$DA66()
+PROC OsFpSubtract=$DA60()
+PROC OsFpMultiply=$DADB()
+PROC OsFpDivide=$DB28()
+
+PROC CopyR(REAL POINTER source,destination)
+  destination^=source^
+RETURN
+
+PROC FromIntR(INT value, REAL POINTER destination)
+  BYTE negative
+
+  negative=0
+  IF value<0 THEN
+    value=-value
+    negative=1
+  FI
+  FpInteger=value
+  OsIntToFp()
+  IF negative#0 THEN FpExponent=FpExponent XOR $80 FI
+  destination^=FpAccumulator
+RETURN
+
+PROC AddR(REAL POINTER left,right,result)
+  FpAccumulator=left^
+  FpArgument=right^
+  OsFpAdd()
+  result^=FpAccumulator
+RETURN
+
+PROC SubtractR(REAL POINTER left,right,result)
+  FpAccumulator=left^
+  FpArgument=right^
+  OsFpSubtract()
+  result^=FpAccumulator
+RETURN
+
+PROC MultiplyR(REAL POINTER left,right,result)
+  FpAccumulator=left^
+  FpArgument=right^
+  OsFpMultiply()
+  result^=FpAccumulator
+RETURN
+
+PROC DivideR(REAL POINTER left,right,result)
+  FpAccumulator=left^
+  FpArgument=right^
+  OsFpDivide()
+  result^=FpAccumulator
+RETURN
+
+BYTE FUNC GreaterR(REAL POINTER left,right)
+  IF left^>right^ THEN RETURN(1) FI
+RETURN(0)
+
+; Scene constants have storage so the pointer-based REAL ABI can pass them to
+; the compact arithmetic procedures without materializing literals per pixel.
+REAL R0=0.0,R05=0.5,R1=1.0,R3=3.0,R6=6.0,R8=8.0,R9=9.0
+REAL R10=10.0
+REAL R16=16.0,R18=18.0,R20=20.0,R29=29.0,R32=32.0,R38=38.0
+REAL R42=42.0,R45=45.0,R57=57.0,R58=58.0
+REAL R95=0.95,R985=0.985,R100=100.0,R120=120.0,R200=200.0
+REAL R506=506.0,R736=736.0,R2304=2304.0,R2700=2700.0
+REAL R3300=3300.0,R3900=3900.0,R4500=4500.0,R4624=4624.0
+REAL R10000=10000.0,R11600=11600.0
+REAL LightX=0.4264,LightY=0.6396,LightZ=0.6396
+REAL HalfX=0.286,HalfY=0.476,HalfZ=0.833,LightY50=31.98
+
+; Native REAL-to-INT conversion rounds to the nearest integer. This helper
+; supplies floor semantics for negative world coordinates as well.
+INT FUNC FloorR(REAL POINTER value)
+  REAL original,wholeReal
+  INT whole
+
+  original=value^
+  whole=INT(original)
+  FromIntR(whole,@wholeReal)
+  IF GreaterR(@wholeReal,@original)#0 THEN whole==-1 FI
+RETURN(whole)
+
+PUBLIC BYTE FUNC Trace(CARD col, BYTE row)
+  REAL u,v,a,b,c,disc,root,t,nearestT,floorT
+  REAL x,y,z,normalX,normalY,normalZ,diffuse,specular,shadeReal
+  REAL denominator,ringT,ringRadiusSquared,worldX,worldZ,tileReal
+  INT rawX,rawY,worldXInt,worldZInt,tileX,tileZ,level
+  BYTE hitKind,ringShade,grid,hash
+
+  ; Pixel-center camera ray d=(u,v,1). It stays unnormalized: retaining d.d in
+  ; a makes the quadratic intersections exact and saves one square root.
+  rawX=col-160
+  rawY=INT(row)-120
+  FromIntR(rawX,@u)
+  AddR(@u,@R05,@u)
+  DivideR(@u,@R120,@u)
+  FromIntR(rawY,@v)
+  AddR(@v,@R05,@v)
+  DivideR(@v,@R120,@v)
+  MultiplyR(@u,@u,@x)
+  MultiplyR(@v,@v,@y)
+  AddR(@x,@y,@a)
+  AddR(@a,@R1,@a)
+  hitKind=0
+
+  IF rawX>=-110 THEN
+    IF rawX<=110 THEN
+      IF row<140 THEN
+        ; Sphere center (0,-42,100), radius 42. Its quadratic constant is
+        ; exactly 10000 because centerY squared cancels radius squared.
+        MultiplyR(@R42,@v,@b)
+        SubtractR(@b,@R100,@b)
+        MultiplyR(@b,@b,@disc)
+        MultiplyR(@a,@R10000,@c)
+        SubtractR(@disc,@c,@disc)
+        IF GreaterR(@disc,@R0)#0 THEN
+          FPP.Sqrt(@disc,@root)
+          SubtractR(@R0,@b,@t)
+          SubtractR(@t,@root,@t)
+          DivideR(@t,@a,@t)
+          IF GreaterR(@t,@R0)#0 THEN
+            CopyR(@t,@nearestT)
+            hitKind=1
+          FI
+        FI
+
+        ; Tilted annulus through the sphere center, normal (0,57,29).
+        MultiplyR(@v,@R57,@denominator)
+        AddR(@denominator,@R29,@denominator)
+        IF GreaterR(@denominator,@R0)#0 THEN
+          DivideR(@R506,@denominator,@ringT)
+          IF GreaterR(@ringT,@R20)#0 THEN
+            IF GreaterR(@R200,@ringT)#0 THEN
+              IF hitKind=0 OR GreaterR(@nearestT,@ringT)#0 THEN
+                MultiplyR(@u,@ringT,@x)
+                MultiplyR(@v,@ringT,@y)
+                AddR(@y,@R42,@y)
+                SubtractR(@ringT,@R100,@z)
+                MultiplyR(@x,@x,@ringRadiusSquared)
+                MultiplyR(@y,@y,@c)
+                AddR(@ringRadiusSquared,@c,@ringRadiusSquared)
+                MultiplyR(@z,@z,@c)
+                AddR(@ringRadiusSquared,@c,@ringRadiusSquared)
+                IF GreaterR(@ringRadiusSquared,@R2304)#0 THEN
+                  IF GreaterR(@R4624,@ringRadiusSquared)#0 THEN
+                    CopyR(@ringT,@nearestT)
+                    hitKind=2
+                    IF GreaterR(@R2700,@ringRadiusSquared)#0 THEN
+                      ringShade=32
+                    ELSEIF GreaterR(@R3300,@ringRadiusSquared)#0 THEN
+                      ringShade=48
+                    ELSEIF GreaterR(@R3900,@ringRadiusSquared)#0 THEN
+                      ringShade=39
+                    ELSEIF GreaterR(@R4500,@ringRadiusSquared)#0 THEN
+                      ringShade=54
+                    ELSE
+                      ringShade=63
+                    FI
+                  FI
+                FI
+              FI
+            FI
+          FI
+        FI
+
+        ; The opaque floor can hide a finite object below the horizon.
+        IF GreaterR(@v,@R0)#0 THEN
+          DivideR(@R8,@v,@floorT)
+          IF hitKind#0 THEN
+            IF GreaterR(@nearestT,@floorT)#0 THEN hitKind=0 FI
+          FI
+        FI
+
+        IF hitKind=1 THEN
+          ; Unit surface normal and coherent directional lighting.
+          MultiplyR(@u,@nearestT,@normalX)
+          DivideR(@normalX,@R42,@normalX)
+          MultiplyR(@v,@nearestT,@normalY)
+          AddR(@normalY,@R42,@normalY)
+          DivideR(@normalY,@R42,@normalY)
+          SubtractR(@nearestT,@R100,@normalZ)
+          DivideR(@normalZ,@R42,@normalZ)
+          MultiplyR(@normalX,@LightX,@diffuse)
+          MultiplyR(@normalY,@LightY,@c)
+          AddR(@diffuse,@c,@diffuse)
+          MultiplyR(@normalZ,@LightZ,@c)
+          AddR(@diffuse,@c,@diffuse)
+          SubtractR(@R0,@diffuse,@diffuse)
+          IF GreaterR(@R0,@diffuse)#0 THEN CopyR(@R0,@diffuse) FI
+          MultiplyR(@diffuse,@R45,@shadeReal)
+          AddR(@shadeReal,@R8,@shadeReal)
+
+          ; Compact Blinn-Phong lobe around the light/view half-vector.
+          MultiplyR(@normalX,@HalfX,@specular)
+          MultiplyR(@normalY,@HalfY,@c)
+          AddR(@specular,@c,@specular)
+          MultiplyR(@normalZ,@HalfZ,@c)
+          AddR(@specular,@c,@specular)
+          SubtractR(@R0,@specular,@specular)
+          IF GreaterR(@specular,@R985)#0 THEN
+            AddR(@shadeReal,@R18,@shadeReal)
+          ELSEIF GreaterR(@specular,@R95)#0 THEN
+            AddR(@shadeReal,@R9,@shadeReal)
+          FI
+          level=FloorR(@shadeReal)
+          IF level>63 THEN level=63 FI
+          RETURN(MATERIAL_PLANET+BYTE(level))
+        FI
+        IF hitKind=2 THEN RETURN(MATERIAL_RING+ringShade) FI
+      FI
+    FI
+  FI
+
+  IF rawY>=0 THEN
+    ; Exact floor-plane intersection of the same pixel-center camera ray.
+    MultiplyR(@R8,@u,@worldX)
+    DivideR(@worldX,@v,@worldX)
+    DivideR(@R8,@v,@worldZ)
+    worldXInt=FloorR(@worldX)
+    worldZInt=FloorR(@worldZ)
+
+    IF row=120 THEN RETURN(MATERIAL_FLOOR+63) FI
+    grid=0
+    IF GreaterR(@R200,@worldZ)#0 THEN
+      IF (BYTE(worldXInt) AND 15)=0 THEN grid=1 FI
+      IF (BYTE(worldZInt) AND 15)=0 THEN grid=1 FI
+    FI
+    IF grid#0 THEN RETURN(MATERIAL_FLOOR+63) FI
+
+    ; Planar mirror: trace the virtual sphere centered at (0,58,100).
+    IF rawX>=-85 THEN
+      IF rawX<=85 THEN
+        IF row>135 THEN
+          MultiplyR(@R58,@v,@b)
+          SubtractR(@R0,@b,@b)
+          SubtractR(@b,@R100,@b)
+          MultiplyR(@b,@b,@disc)
+          MultiplyR(@a,@R11600,@c)
+          SubtractR(@disc,@c,@disc)
+          IF GreaterR(@disc,@R0)#0 THEN
+            FPP.Sqrt(@disc,@root)
+            SubtractR(@R0,@b,@t)
+            SubtractR(@t,@root,@t)
+            DivideR(@t,@a,@t)
+            DivideR(@R8,@v,@floorT)
+            IF GreaterR(@t,@floorT)#0 THEN
+              MultiplyR(@u,@t,@normalX)
+              DivideR(@normalX,@R42,@normalX)
+              MultiplyR(@v,@t,@normalY)
+              SubtractR(@normalY,@R58,@normalY)
+              SubtractR(@R0,@normalY,@normalY)
+              DivideR(@normalY,@R42,@normalY)
+              SubtractR(@t,@R100,@normalZ)
+              DivideR(@normalZ,@R42,@normalZ)
+              MultiplyR(@normalX,@LightX,@diffuse)
+              MultiplyR(@normalY,@LightY,@c)
+              AddR(@diffuse,@c,@diffuse)
+              MultiplyR(@normalZ,@LightZ,@c)
+              AddR(@diffuse,@c,@diffuse)
+              SubtractR(@R0,@diffuse,@diffuse)
+              IF GreaterR(@R0,@diffuse)#0 THEN CopyR(@R0,@diffuse) FI
+              MultiplyR(@diffuse,@R38,@shadeReal)
+              AddR(@shadeReal,@R10,@shadeReal)
+              level=FloorR(@shadeReal)
+              IF level>48 THEN level=48 FI
+              RETURN(MATERIAL_PLANET+BYTE(level))
+            FI
+          FI
+        FI
+      FI
+    FI
+
+    DivideR(@worldZ,@R32,@shadeReal)
+    SubtractR(@R38,@shadeReal,@shadeReal)
+    DivideR(@worldX,@R16,@tileReal)
+    tileX=FloorR(@tileReal)
+    DivideR(@worldZ,@R16,@tileReal)
+    tileZ=FloorR(@tileReal)
+    IF ((BYTE(tileX) XOR BYTE(tileZ)) AND 1)#0 THEN
+      SubtractR(@shadeReal,@R6,@shadeReal)
+    FI
+
+    ; Directional shadow ray from this floor hit to the sphere. Its y offset
+    ; is always 50, so the quadratic constant simplifies to x*x+z*z+736.
+    CopyR(@worldX,@x)
+    SubtractR(@worldZ,@R100,@z)
+    MultiplyR(@x,@LightX,@b)
+    AddR(@b,@LightY50,@b)
+    MultiplyR(@z,@LightZ,@c)
+    AddR(@b,@c,@b)
+    SubtractR(@R0,@b,@b)
+    MultiplyR(@x,@x,@c)
+    MultiplyR(@z,@z,@disc)
+    AddR(@c,@disc,@c)
+    AddR(@c,@R736,@c)
+    MultiplyR(@b,@b,@disc)
+    SubtractR(@disc,@c,@disc)
+    IF GreaterR(@R0,@b)#0 THEN
+      IF GreaterR(@disc,@R0)#0 THEN DivideR(@shadeReal,@R3,@shadeReal) FI
+    FI
+
+    level=FloorR(@shadeReal)
+    IF level<5 THEN level=5 FI
+    IF level>45 THEN level=45 FI
+    RETURN(MATERIAL_FLOOR+BYTE(level))
+  FI
+
+  ; Integer star hash above a smooth programmable-palette sky gradient.
+  hash=BYTE(col)
+  hash=hash*17
+  hash==+row
+  hash=hash XOR (hash RSH 3)
+  hash=hash*29
+  hash==+BYTE(col RSH 1)
+  IF row<112 AND hash>253 THEN
+    RETURN(MATERIAL_SKY+60+(hash AND 3))
+  FI
+  level=4+(row RSH 2)
+  IF level>59 THEN level=59 FI
+RETURN(MATERIAL_SKY+BYTE(level))
+
+ENDMODULE

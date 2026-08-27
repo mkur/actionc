@@ -1,0 +1,31 @@
+; Deterministic, hardware-independent probe for the REAL neon scene kernel.
+; The result bytes are exercised by the actionc VM tests without requiring
+; VBXE hardware.
+MODULE NEON_SCENE_PROBE
+
+USE NEON_SCENE AS SCENE
+
+BYTE ARRAY shades(11)=$0700
+BYTE done=$0710
+
+PROC Sample(BYTE index, CARD col, BYTE row)
+  shades(index)=SCENE.Trace(col,row)
+RETURN
+
+PROC Main()
+  Sample(0,0,0)       ; sky
+  Sample(1,316,3)     ; star outside the planet silhouette
+  Sample(2,160,70)    ; diffuse planet
+  Sample(3,145,5)     ; specular highlight
+  Sample(4,90,80)     ; unobscured ring
+  Sample(5,160,80)    ; ring in front of planet
+  Sample(6,160,60)    ; planet surface
+  Sample(7,160,150)   ; emissive grid
+  Sample(8,170,175)   ; reflected planet
+  Sample(9,186,125)   ; cast shadow between grid lines
+  Sample(10,240,151)  ; floor tile
+  done=$A5
+  DO OD
+RETURN
+
+ENDMODULE
