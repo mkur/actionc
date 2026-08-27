@@ -10828,6 +10828,29 @@ mod tests {
                 _ => None,
             })
             .expect("negated static REAL temporary");
+        let copied_local = nir.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| block.ops.windows(3))
+            .find_map(|ops| match ops {
+                [
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Copy {
+                        destination:
+                            crate::nir::NirPlace {
+                                kind: crate::nir::NirPlaceKind::Local { id, .. },
+                                ..
+                            },
+                        ..
+                    }),
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Unary {
+                        operation: crate::nir::NirUnaryOp::Neg,
+                        ..
+                    }),
+                    crate::nir::NirOp::Real(crate::nir::NirRealOp::Compare { .. }),
+                ] => Some(*id),
+                _ => None,
+            })
+            .expect("REAL copy separated from its consumer by static negation");
 
         let mir = lower_program(&nir).expect("lower MIR6502");
         let main = mir
@@ -10838,6 +10861,11 @@ mod tests {
         assert!(main.frame.locals.iter().all(|slot| {
             !matches!(slot.base, MirStorageBase::Local(id) if id == negated_local)
         }));
+        assert!(
+            main.frame.locals.iter().all(|slot| {
+                !matches!(slot.base, MirStorageBase::Local(id) if id == copied_local)
+            })
+        );
         assert!(
             main.blocks
                 .iter()

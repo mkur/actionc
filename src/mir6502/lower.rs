@@ -134,8 +134,22 @@ fn adjacent_real_copy_forwards(routine: &NirRoutine) -> BTreeSet<LocalId> {
     let mut forwarded = BTreeSet::new();
 
     for block in &routine.blocks {
-        for pair in block.ops.windows(2) {
-            let Some(local) = adjacent_real_copy_forward_local(&pair[0], &pair[1]) else {
+        for (index, producer) in block.ops.iter().enumerate() {
+            let adjacent = block
+                .ops
+                .get(index + 1)
+                .and_then(|consumer| adjacent_real_copy_forward_local(producer, consumer));
+            let after_static_negation =
+                block
+                    .ops
+                    .get(index + 1..=index + 2)
+                    .and_then(|ops| match ops {
+                        [intervening, consumer] if is_static_real_negation(intervening) => {
+                            adjacent_real_copy_forward_local(producer, consumer)
+                        }
+                        _ => None,
+                    });
+            let Some(local) = adjacent.or(after_static_negation) else {
                 continue;
             };
             if private_real_temps.contains(&local)
@@ -148,6 +162,17 @@ fn adjacent_real_copy_forwards(routine: &NirRoutine) -> BTreeSet<LocalId> {
         }
     }
     forwarded
+}
+
+fn is_static_real_negation(op: &NirOpKind) -> bool {
+    matches!(
+        op,
+        NirOpKind::Real(NirRealOp::Unary {
+            operation: NirUnaryOp::Neg,
+            operand: NirRealSource::Static { .. },
+            ..
+        })
+    )
 }
 
 fn static_real_negation_forwards(routine: &NirRoutine) -> BTreeSet<LocalId> {
@@ -639,13 +664,13 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                     &fpp_result_chains.ordered_right,
                     &fpp_result_chains.commutative_right,
                 ));
-                elided_real_locals.extend(forward_adjacent_real_temp_copies(
-                    &mut blocks,
-                    &real_copy_forwards,
-                ));
                 elided_real_locals.extend(forward_static_real_temp_negations(
                     &mut blocks,
                     &real_negation_forwards,
+                ));
+                elided_real_locals.extend(forward_adjacent_real_temp_copies(
+                    &mut blocks,
+                    &real_copy_forwards,
                 ));
                 let retained_source_local_count = routine
                     .locals
