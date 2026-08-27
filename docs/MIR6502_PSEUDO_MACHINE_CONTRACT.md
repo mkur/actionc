@@ -954,6 +954,15 @@ integer conversion calls IFP/FPI, whose unsigned-word convention is adapted for
 signed Action `INT` values. Sign state that must survive a call uses generated
 frame storage rather than a register or virtual temp.
 
+An adjacent, single-use compiler-owned REAL result may remain in FR0 instead of
+round-tripping through its six-byte frame slot. A following left-hand consumer
+uses FR0 directly. A following right-hand subtraction or division first copies
+FR0 to FR1 and then stages the left operand in FR0; addition and multiplication
+instead stage the other operand directly in FR1. The latter rewrite relies only
+on those operations' commutativity. Target lowering applies these forms only
+after structured NIR use counting and an exact MIR sequence match; intervening
+operand evaluation keeps the frame slot.
+
 REAL equality and ordering compare the canonical six-byte representation
 directly. Equality requires all six bytes to match; ordering first handles sign
 classes and then compares bytes lexicographically, reversing same-sign order

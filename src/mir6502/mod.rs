@@ -10708,6 +10708,87 @@ mod tests {
         );
     }
 
+    #[test]
+    fn adjacent_native_real_right_results_stay_in_fpp_workspaces() {
+        for (source, consumer_operation, expect_workspace_copy) in [
+            (
+                "REAL x,result INT n PROC Main() result=x/n RETURN",
+                crate::nir::NirBinaryOp::Div,
+                true,
+            ),
+            (
+                "REAL x,y,z,result PROC Main() result=x+y*z RETURN",
+                crate::nir::NirBinaryOp::Add,
+                false,
+            ),
+        ] {
+            let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+            let program = crate::parser::parse(&tokens).expect("parse source");
+            let model = crate::semantic::analyze_with_options(
+                &program,
+                crate::semantic::SemanticOptions::modern(),
+            )
+            .expect("analyze source");
+            let semir = crate::semantic::ir::lower_program(&program, &model);
+            let nir = crate::nir::optimize_program(&crate::nir::lower_program(&semir))
+                .expect("optimize NIR");
+            let chained_local = nir.routines[0]
+                .blocks
+                .iter()
+                .flat_map(|block| block.ops.windows(2))
+                .find_map(|pair| {
+                    let producer = match &pair[0] {
+                        crate::nir::NirOp::Real(crate::nir::NirRealOp::Binary {
+                            destination,
+                            ..
+                        })
+                        | crate::nir::NirOp::Real(crate::nir::NirRealOp::IntegerToReal {
+                            destination,
+                            ..
+                        }) => destination,
+                        _ => return None,
+                    };
+                    let crate::nir::NirPlaceKind::Local { id, .. } = producer.kind else {
+                        return None;
+                    };
+                    match &pair[1] {
+                        crate::nir::NirOp::Real(crate::nir::NirRealOp::Binary {
+                            operation,
+                            right:
+                                crate::nir::NirRealSource::Place(crate::nir::NirPlace {
+                                    kind: crate::nir::NirPlaceKind::Local { id: consumer, .. },
+                                    ..
+                                }),
+                            ..
+                        }) if *operation == consumer_operation && id == *consumer => Some(id),
+                        _ => None,
+                    }
+                })
+                .expect("adjacent right-hand FPP result");
+
+            let mir = lower_program(&nir).expect("lower MIR6502");
+            let main = mir
+                .routines
+                .iter()
+                .find(|routine| routine.name == "Main")
+                .expect("Main routine");
+            assert!(main.frame.locals.iter().all(|slot| {
+                !matches!(slot.base, MirStorageBase::Local(id) if id == chained_local)
+            }));
+            let has_workspace_copy = main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+                matches!(
+                    op,
+                    MirOp::PackedRealCopy {
+                        source: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xD4))),
+                        destination: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xE0))),
+                        ..
+                    }
+                )
+            });
+            assert_eq!(has_workspace_copy, expect_workspace_copy, "{source}");
+        }
+    }
+
     fn generate_mir6502_source(source: &str) -> crate::codegen::CodegenOutput {
         generate_mir6502_source_with_origin(source, crate::codegen::CODE_ORIGIN)
     }

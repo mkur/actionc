@@ -67,7 +67,21 @@ struct RealLocalAccesses {
     other: usize,
 }
 
-fn adjacent_fpp_result_chains(routine: &NirRoutine) -> BTreeSet<LocalId> {
+#[derive(Debug, Default)]
+struct AdjacentFppResultChains {
+    left: BTreeSet<LocalId>,
+    ordered_right: BTreeSet<LocalId>,
+    commutative_right: BTreeSet<LocalId>,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum AdjacentFppResultChain {
+    Left(LocalId),
+    OrderedRight(LocalId),
+    CommutativeRight(LocalId),
+}
+
+fn adjacent_fpp_result_chains(routine: &NirRoutine) -> AdjacentFppResultChains {
     let private_real_temps = routine
         .locals
         .iter()
@@ -75,19 +89,34 @@ fn adjacent_fpp_result_chains(routine: &NirRoutine) -> BTreeSet<LocalId> {
         .map(|local| local.id)
         .collect::<BTreeSet<_>>();
     let accesses = real_local_accesses(routine);
-    let mut chained = BTreeSet::new();
+    let mut chained = AdjacentFppResultChains::default();
 
     for block in &routine.blocks {
         for pair in block.ops.windows(2) {
-            let Some(local) = adjacent_fpp_result_local(&pair[0], &pair[1]) else {
+            let Some(chain) = adjacent_fpp_result_chain(&pair[0], &pair[1]) else {
                 continue;
+            };
+            let local = match chain {
+                AdjacentFppResultChain::Left(local)
+                | AdjacentFppResultChain::OrderedRight(local)
+                | AdjacentFppResultChain::CommutativeRight(local) => local,
             };
             if private_real_temps.contains(&local)
                 && accesses.get(&local).is_some_and(|access| {
                     access.reads == 1 && access.writes == 1 && access.other == 0
                 })
             {
-                chained.insert(local);
+                match chain {
+                    AdjacentFppResultChain::Left(local) => {
+                        chained.left.insert(local);
+                    }
+                    AdjacentFppResultChain::OrderedRight(local) => {
+                        chained.ordered_right.insert(local);
+                    }
+                    AdjacentFppResultChain::CommutativeRight(local) => {
+                        chained.commutative_right.insert(local);
+                    }
+                }
             }
         }
     }
@@ -121,20 +150,53 @@ fn adjacent_real_copy_forwards(routine: &NirRoutine) -> BTreeSet<LocalId> {
     forwarded
 }
 
-fn adjacent_fpp_result_local(producer: &NirOpKind, consumer: &NirOpKind) -> Option<LocalId> {
-    let NirOpKind::Real(NirRealOp::Binary { destination, .. }) = producer else {
-        return None;
-    };
-    let consumer_left = match consumer {
-        NirOpKind::Real(NirRealOp::Binary { left, .. })
-        | NirOpKind::Real(NirRealOp::Compare { left, .. }) => left,
+fn adjacent_fpp_result_chain(
+    producer: &NirOpKind,
+    consumer: &NirOpKind,
+) -> Option<AdjacentFppResultChain> {
+    let destination = match producer {
+        NirOpKind::Real(NirRealOp::Binary { destination, .. })
+        | NirOpKind::Real(NirRealOp::IntegerToReal { destination, .. }) => destination,
         _ => return None,
     };
     let local = direct_real_local(destination)?;
-    match consumer_left {
-        NirRealSource::Place(place) if direct_real_local(place) == Some(local) => Some(local),
-        NirRealSource::Place(_) | NirRealSource::Static { .. } => None,
+    let (left, right, operation) = match consumer {
+        NirOpKind::Real(NirRealOp::Binary {
+            operation,
+            left,
+            right,
+            ..
+        }) => (left, right, Some(*operation)),
+        NirOpKind::Real(NirRealOp::Compare { left, right, .. }) => (left, right, None),
+        _ => return None,
+    };
+    if real_source_is_direct_local(left, local) {
+        return Some(AdjacentFppResultChain::Left(local));
     }
+    if !real_source_is_direct_local(right, local) {
+        return None;
+    }
+    match operation {
+        Some(NirBinaryOp::Add | NirBinaryOp::Mul) => {
+            Some(AdjacentFppResultChain::CommutativeRight(local))
+        }
+        Some(NirBinaryOp::Sub | NirBinaryOp::Div) => {
+            Some(AdjacentFppResultChain::OrderedRight(local))
+        }
+        Some(
+            NirBinaryOp::Mod
+            | NirBinaryOp::Lsh
+            | NirBinaryOp::Rsh
+            | NirBinaryOp::And
+            | NirBinaryOp::Or
+            | NirBinaryOp::Xor,
+        )
+        | None => None,
+    }
+}
+
+fn real_source_is_direct_local(source: &NirRealSource, local: LocalId) -> bool {
+    matches!(source, NirRealSource::Place(place) if direct_real_local(place) == Some(local))
 }
 
 fn adjacent_real_copy_forward_local(producer: &NirOpKind, consumer: &NirOpKind) -> Option<LocalId> {
@@ -531,7 +593,12 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                     })
                     .collect();
                 let mut elided_real_locals =
-                    eliminate_adjacent_fpp_result_round_trips(&mut blocks, &fpp_result_chains);
+                    eliminate_adjacent_fpp_result_round_trips(&mut blocks, &fpp_result_chains.left);
+                elided_real_locals.extend(eliminate_adjacent_fpp_right_result_round_trips(
+                    &mut blocks,
+                    &fpp_result_chains.ordered_right,
+                    &fpp_result_chains.commutative_right,
+                ));
                 elided_real_locals.extend(forward_adjacent_real_temp_copies(
                     &mut blocks,
                     &real_copy_forwards,
@@ -1668,6 +1735,109 @@ fn adjacent_fpp_result_round_trip(first: &MirOp, second: &MirOp) -> Option<Local
         && !*first_negate
         && !*second_negate)
         .then_some(*local)
+}
+
+fn eliminate_adjacent_fpp_right_result_round_trips(
+    blocks: &mut [MirBlock],
+    ordered_candidates: &BTreeSet<LocalId>,
+    commutative_candidates: &BTreeSet<LocalId>,
+) -> BTreeSet<LocalId> {
+    let mut eliminated = BTreeSet::new();
+    for block in blocks {
+        let mut index = 0;
+        while index + 2 < block.ops.len() {
+            let Some((local, mut left_staging)) = adjacent_fpp_right_result_round_trip(
+                &block.ops[index],
+                &block.ops[index + 1],
+                &block.ops[index + 2],
+            ) else {
+                index += 1;
+                continue;
+            };
+            let replacement = if commutative_candidates.contains(&local) {
+                let MirOp::PackedRealCopy { destination, .. } = &mut left_staging else {
+                    unreachable!("right-result matcher returns packed REAL staging");
+                };
+                *destination = MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR1));
+                vec![left_staging]
+            } else if ordered_candidates.contains(&local) {
+                vec![
+                    MirOp::PackedRealCopy {
+                        source: MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
+                        destination: MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR1)),
+                        source_offset: 0,
+                        destination_offset: 0,
+                        negate: false,
+                    },
+                    left_staging,
+                ]
+            } else {
+                index += 1;
+                continue;
+            };
+            block.ops.splice(index..index + 3, replacement);
+            eliminated.insert(local);
+            index += 1;
+        }
+    }
+    eliminated
+}
+
+fn adjacent_fpp_right_result_round_trip(
+    first: &MirOp,
+    second: &MirOp,
+    third: &MirOp,
+) -> Option<(LocalId, MirOp)> {
+    let MirOp::PackedRealCopy {
+        source: MirAddr::Direct(MirMem::FixedZeroPage(first_source)),
+        destination:
+            MirAddr::Direct(MirMem::Local {
+                id: local,
+                offset: first_local_offset,
+            }),
+        source_offset: first_source_offset,
+        destination_offset: first_destination_offset,
+        negate: first_negate,
+    } = first
+    else {
+        return None;
+    };
+    let MirOp::PackedRealCopy {
+        destination: MirAddr::Direct(MirMem::FixedZeroPage(second_destination)),
+        destination_offset: second_destination_offset,
+        ..
+    } = second
+    else {
+        return None;
+    };
+    let MirOp::PackedRealCopy {
+        source:
+            MirAddr::Direct(MirMem::Local {
+                id: third_local,
+                offset: third_local_offset,
+            }),
+        destination: MirAddr::Direct(MirMem::FixedZeroPage(third_destination)),
+        source_offset: third_source_offset,
+        destination_offset: third_destination_offset,
+        negate: third_negate,
+    } = third
+    else {
+        return None;
+    };
+    (*first_source == ATARI_FPP_FR0
+        && *second_destination == ATARI_FPP_FR0
+        && *third_destination == ATARI_FPP_FR1
+        && local == third_local
+        && *first_local_offset == 0
+        && *third_local_offset == 0
+        && *first_source_offset == 0
+        && *first_destination_offset == 0
+        && *second_destination_offset == 0
+        && *third_source_offset == 0
+        && *third_destination_offset == 0
+        && !*first_negate
+        && !*third_negate)
+        .then(|| (*local, second.clone()))
 }
 
 fn forward_adjacent_real_temp_copies(
