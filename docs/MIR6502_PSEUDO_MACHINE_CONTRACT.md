@@ -946,13 +946,13 @@ does not cause an embedded routine to be linked.
 
 Before a service call, lowering copies all six left operand bytes into FR0
 (`$D4`-`$D9`) and all six right operand bytes into FR1 (`$E0`-`$E5`). After the
-call it copies all six FR0 bytes to the typed destination. Every six-byte copy
-loads the complete source before its first write, so assignment remains correct
-for overlapping aliases. Constant integer promotions use the same exact Atari
-decimal codec as literals. Dynamic integer conversion calls IFP/FPI, whose
-unsigned-word convention is adapted for signed Action `INT` values. Sign state
-that must survive a call uses generated frame storage rather than a register or
-virtual temp.
+call it copies all six FR0 bytes to the typed destination. `PackedRealCopy`
+provides the directional direct transfer and complete indirect-source staging
+described below, so assignment remains correct for supported aliases. Constant
+integer promotions use the same exact Atari decimal codec as literals. Dynamic
+integer conversion calls IFP/FPI, whose unsigned-word convention is adapted for
+signed Action `INT` values. Sign state that must survive a call uses generated
+frame storage rather than a register or virtual temp.
 
 REAL equality and ordering compare the canonical six-byte representation
 directly. Equality requires all six bytes to match; ordering first handles sign
@@ -961,10 +961,34 @@ for negative values. This preserves distinctions between adjacent packed
 decimal values that subtraction-based comparison could round away. Direct REAL
 conditions compare against canonical zero.
 
-Aggregate REAL copies use these same structured address forms for every byte.
-They first load all six source bytes into compiler temps and only then issue
-stores, preserving overlap safety for array elements, pointer dereferences, and
-record fields. Initialized scalar/array storage already contains authoritative
+When a REAL comparison is the final NIR operation in a block and its result is
+consumed only by that block's branch, MIR6502 selects `PackedRealCompare` after
+staging the operands in FR0 and FR1. The operation compares sign and packed
+bytes directly, leaves A as canonical Boolean zero or one, and exposes Z for
+the immediate branch. It reads `$D4`-`$D9` and `$E0`-`$E5`, clobbers A and C,
+and writes N/Z. The verifier requires it to be the final operation before a
+Z-flag branch. Comparisons whose result is stored, returned, or otherwise used
+as a value retain the ordinary explicit Boolean-producing lowering.
+
+Aggregate REAL assignment lowers to one `PackedRealCopy` carrying structured
+source and destination addresses plus byte offsets. Materialization prepares
+independent fixed-ZP pointer pairs for indirect operands; pre-emission MIR
+permits only direct or `(zp),Y` copy endpoints, and each indirect offset must
+leave room for all six bytes. Ordinary direct ranges use one descending
+X-indexed loop; a statically known leftward overlap retains a forward fallback
+for explicit absolute aliases. If either endpoint is indirect, emission uses
+two Y-indexed loops: the first pushes all six source bytes before any write and
+the second pulls and stores them in reverse lane order. The stack is balanced
+on exit, pointer aliases retain copy semantics, and the six lanes never become
+six simultaneously live compiler temporaries.
+
+The same operation implements native REAL negation with its `negate` flag.
+After copying, it tests the six-byte magnitude and toggles bit 7 of byte zero
+only for a nonzero value; zero is normalized to its canonical positive form.
+This avoids staging zero and the operand in FR0/FR1 and avoids an Atari FPP
+subtraction call. The operation clobbers A and N/Z, clobbers X for direct copies
+or Y/C for an indirect endpoint, preserves V, and uses only transient balanced
+stack storage. Initialized scalar/array storage already contains authoritative
 packed-decimal bytes; FPP calls are needed only for runtime computation.
 
 FPP calls conservatively clobber A, X, Y, flags, FR0, FR1, and unknown FPP

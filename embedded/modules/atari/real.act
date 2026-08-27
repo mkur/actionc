@@ -14,6 +14,11 @@ CONST REAL Pi=3.141592654,
            HalfPi=1.570796327,
            QuarterPi=0.7853981634,
            TwoPi=6.283185307,
+           OneOverTwoPi=0.1591549431,
+           TwoPiHigh=6.28,
+           TwoPiTail=0.00318530718,
+           HalfPiHigh=1.57,
+           HalfPiTail=0.0007963267949,
            TanPiOverEight=0.4142135624,
            TanThreePiOverEight=2.414213562,
            RandomScale=65536.0
@@ -22,23 +27,6 @@ PROC OsExp=$DDC0()
 PROC OsExp10=$DDCC()
 PROC OsLog=$DECD()
 PROC OsLog10=$DED1()
-
-PROC ReduceSinAngle(REAL POINTER value)
-  WHILE value^>Pi
-  DO
-    value^==-TwoPi
-  OD
-  WHILE value^<(-Pi)
-  DO
-    value^==+TwoPi
-  OD
-
-  IF value^>HalfPi THEN
-    value^=Pi-value^
-  ELSEIF value^<(-HalfPi) THEN
-    value^=(-Pi)-value^
-  FI
-RETURN
 
 PROC AtanSeries(REAL POINTER source, destination)
   REAL square, term, sum
@@ -161,6 +149,76 @@ PUBLIC PROC Floor(REAL POINTER source, destination)
   IF adjust THEN destination^==-1 FI
 RETURN
 
+; Reduce a supported trigonometric argument to [-pi/2,pi/2] and return whether
+; its cosine is negative. A nearest-multiple reduction and split constants
+; preserve substantially more phase than repeated subtraction. Inputs beyond
+; magnitude 1E6 use $FF as a total-loss marker; the public trigonometric
+; routines return zero for that marker instead of risking an unbounded loop.
+BYTE FUNC ReduceTrigAngle(REAL POINTER value)
+  REAL scaled, turns
+  BYTE POINTER bytes
+  BYTE cosineNegative, reduce
+
+  bytes=BYTE POINTER(value)
+  IF (bytes^&$7F)>=$43 THEN
+    RETURN($FF)
+  FI
+
+  reduce=0
+  IF value^>Pi THEN
+    reduce=1
+  ELSEIF value^<(-Pi) THEN
+    reduce=1
+  FI
+
+  IF reduce THEN
+    scaled=value^*OneOverTwoPi+0.5
+    Floor(@scaled,@turns)
+
+    value^==-(turns*TwoPiHigh)
+    value^==-(turns*TwoPiTail)
+  FI
+
+  cosineNegative=0
+  IF value^>HalfPi THEN
+    value^=Pi-value^
+    cosineNegative=1
+  ELSEIF value^<(-HalfPi) THEN
+    value^=(-Pi)-value^
+    cosineNegative=1
+  FI
+RETURN(cosineNegative)
+
+PROC SinSeries(REAL POINTER source, destination)
+  REAL square, term, sum
+  BYTE factor
+  CARD divisor
+
+  square=source^*source^
+  term=source^
+  sum=term
+  factor=2
+  WHILE factor<=14
+  DO
+    divisor=CARD(factor)*(factor+1)
+    term=-term*square/divisor
+    sum==+term
+    factor==+2
+  OD
+  destination^=sum
+RETURN
+
+PROC CosFromSinAngle(REAL POINTER source, destination BYTE negative)
+  REAL angle
+
+  angle=source^
+  IF angle<0 THEN angle=-angle FI
+  angle=HalfPiHigh-angle
+  angle==+HalfPiTail
+  SinSeries(@angle,destination)
+  IF negative THEN destination^=-destination^ FI
+RETURN
+
 ; SYS.Rand(0) exposes an unscaled POKEY random byte. Combine two samples to
 ; obtain 16 bits of resolution, then scale into the half-open interval [0,1).
 PUBLIC PROC Rnd(REAL POINTER destination)
@@ -199,41 +257,46 @@ PUBLIC PROC Sqr(REAL POINTER source, destination)
 RETURN
 
 ; Trigonometric arguments and results are radians. Range reduction confines
-; the sine series to [-pi/2, pi/2].
+; the series to [-pi/2,pi/2] and preserves the cosine sign separately.
 PUBLIC PROC Sin(REAL POINTER source, destination)
-  REAL x, square, term, sum
-  BYTE factor
-  CARD divisor
+  REAL x
+  BYTE cosineNegative
 
   x=source^
-  ReduceSinAngle(@x)
-  square=x*x
-  term=x
-  sum=x
-  factor=2
-  WHILE factor<=14
-  DO
-    divisor=CARD(factor)*(factor+1)
-    term=-term*square/divisor
-    sum==+term
-    factor==+2
-  OD
-  destination^=sum
+  cosineNegative=ReduceTrigAngle(@x)
+  IF cosineNegative=$FF THEN
+    destination^=0
+  ELSE
+    SinSeries(@x,destination)
+  FI
 RETURN
 
 PUBLIC PROC Cos(REAL POINTER source, destination)
-  REAL shifted
+  REAL x
+  BYTE cosineNegative
 
-  shifted=source^+HalfPi
-  Sin(@shifted,destination)
+  x=source^
+  cosineNegative=ReduceTrigAngle(@x)
+  IF cosineNegative=$FF THEN
+    destination^=0
+  ELSE
+    CosFromSinAngle(@x,destination,cosineNegative)
+  FI
 RETURN
 
 PUBLIC PROC Tan(REAL POINTER source, destination)
-  REAL sine, cosine
+  REAL x, sine, cosine
+  BYTE cosineNegative
 
-  Sin(source,@sine)
-  Cos(source,@cosine)
-  destination^=sine/cosine
+  x=source^
+  cosineNegative=ReduceTrigAngle(@x)
+  IF cosineNegative=$FF THEN
+    destination^=0
+  ELSE
+    SinSeries(@x,@sine)
+    CosFromSinAngle(@x,@cosine,cosineNegative)
+    destination^=sine/cosine
+  FI
 RETURN
 
 PUBLIC PROC Atan(REAL POINTER source, destination)

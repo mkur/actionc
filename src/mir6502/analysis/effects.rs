@@ -109,6 +109,8 @@ pub(in crate::mir6502) enum MirOpKind {
     AbsoluteWordSubToIndirect,
     Compare,
     CompareIndirectBytes,
+    PackedRealCompare,
+    PackedRealCopy,
     Call,
     RuntimeHelper,
     MaterializeAddress,
@@ -338,6 +340,8 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::CompareIndirectBytes { .. } | MirOp::CompareIndirectWords { .. } => {
             MirOpKind::CompareIndirectBytes
         }
+        MirOp::PackedRealCompare { .. } => MirOpKind::PackedRealCompare,
+        MirOp::PackedRealCopy { .. } => MirOpKind::PackedRealCopy,
         MirOp::Call { .. } => MirOpKind::Call,
         MirOp::RuntimeHelper { .. } => MirOpKind::RuntimeHelper,
         MirOp::MaterializeAddress { .. } => MirOpKind::MaterializeAddress,
@@ -617,6 +621,48 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             write_zn(&mut summary.machine.flag_writes);
             summary.machine.writes_any_flags_compat = true;
             summary.removable_when_results_dead = matches!(dst, MirCondDest::Temp(_));
+        }
+        MirOp::PackedRealCompare { .. } => {
+            for offset in 0..6 {
+                record_memory_read(
+                    &MirMem::FixedZeroPage(MirFixedZpSlot(0xD4 + offset)),
+                    &mut summary,
+                );
+                record_memory_read(
+                    &MirMem::FixedZeroPage(MirFixedZpSlot(0xE0 + offset)),
+                    &mut summary,
+                );
+            }
+            set_register(&mut summary.machine.register_writes, MirReg::A);
+            summary.machine.conservative_register_clobbers.a = true;
+            summary.machine.flag_clobbers.c = true;
+            write_zn(&mut summary.machine.flag_writes);
+            summary.machine.writes_any_flags_compat = true;
+        }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            source_offset,
+            destination_offset,
+            negate,
+        } => {
+            record_packed_real_read(source, *source_offset, &mut summary);
+            record_packed_real_write(destination, *destination_offset, &mut summary);
+            if *negate {
+                record_packed_real_read(destination, *destination_offset, &mut summary);
+            }
+            set_register(&mut summary.machine.register_writes, MirReg::A);
+            summary.machine.conservative_register_clobbers.a = true;
+            if matches!(source, MirAddr::Direct(_)) && matches!(destination, MirAddr::Direct(_)) {
+                set_register(&mut summary.machine.register_writes, MirReg::X);
+                summary.machine.conservative_register_clobbers.x = true;
+            } else {
+                set_register(&mut summary.machine.register_writes, MirReg::Y);
+                summary.machine.conservative_register_clobbers.y = true;
+                summary.machine.flag_clobbers.c = true;
+            }
+            write_zn(&mut summary.machine.flag_writes);
+            summary.machine.writes_any_flags_compat = true;
         }
         MirOp::Call {
             target,
@@ -1006,6 +1052,61 @@ fn record_def(def: &MirDef, width: MirWidth, summary: &mut MirOpEffectSummary) {
             }
         }
         MirDef::Reg(reg) => set_register(&mut summary.machine.register_writes, *reg),
+    }
+}
+
+fn record_packed_real_read(addr: &MirAddr, base_offset: u16, summary: &mut MirOpEffectSummary) {
+    match addr {
+        MirAddr::Direct(mem) => {
+            for lane in 0..6 {
+                record_memory_read(&offset_mem(mem, base_offset.saturating_add(lane)), summary);
+            }
+        }
+        MirAddr::IndirectIndexedY { zp } => {
+            record_consumer_read(
+                MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(*zp)),
+                summary,
+            );
+            summary.memory.indirect_reads = true;
+        }
+        MirAddr::FixedIndirectIndexedY { zp } => {
+            record_consumer_read(
+                MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *zp }),
+                summary,
+            );
+            summary.memory.indirect_reads = true;
+        }
+        _ => record_load_addr(addr, MirWidth::Byte, summary),
+    }
+}
+
+fn record_packed_real_write(addr: &MirAddr, base_offset: u16, summary: &mut MirOpEffectSummary) {
+    match addr {
+        MirAddr::Direct(mem) => {
+            for lane in 0..6 {
+                record_definite_memory_write(
+                    &offset_mem(mem, base_offset.saturating_add(lane)),
+                    summary,
+                );
+            }
+        }
+        MirAddr::IndirectIndexedY { zp } => {
+            record_consumer_read(
+                MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(*zp)),
+                summary,
+            );
+            summary.memory.indirect_writes = true;
+            mark_may_write_any(summary);
+        }
+        MirAddr::FixedIndirectIndexedY { zp } => {
+            record_consumer_read(
+                MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *zp }),
+                summary,
+            );
+            summary.memory.indirect_writes = true;
+            mark_may_write_any(summary);
+        }
+        _ => record_store_addr(addr, MirWidth::Byte, summary),
     }
 }
 
@@ -1718,6 +1819,22 @@ mod tests {
                 },
             ),
             (
+                MirOpKind::PackedRealCompare,
+                MirOp::PackedRealCompare {
+                    op: MirCompareOp::Lt,
+                },
+            ),
+            (
+                MirOpKind::PackedRealCopy,
+                MirOp::PackedRealCopy {
+                    source: MirAddr::Direct(spill(1, 0)),
+                    destination: MirAddr::Direct(spill(2, 0)),
+                    source_offset: 0,
+                    destination_offset: 0,
+                    negate: false,
+                },
+            ),
+            (
                 MirOpKind::Call,
                 MirOp::Call {
                     target: MirCallTarget::Indirect {
@@ -1847,7 +1964,7 @@ mod tests {
             ),
         ];
 
-        assert_eq!(operations.len(), 29);
+        assert_eq!(operations.len(), 31);
         for (expected, operation) in operations {
             assert_eq!(classify_op(&operation).kind, expected, "{operation:?}");
         }
@@ -1940,6 +2057,56 @@ mod tests {
     }
 
     #[test]
+    fn direct_packed_real_copy_records_all_six_lanes_and_clobbers_x() {
+        let source = spill(3, 4);
+        let destination = spill(7, 2);
+        let effects = classify_op(&MirOp::PackedRealCopy {
+            source: MirAddr::Direct(source.clone()),
+            destination: MirAddr::Direct(destination.clone()),
+            source_offset: 0,
+            destination_offset: 0,
+            negate: true,
+        });
+
+        for lane in 0..6 {
+            assert!(effects.memory.reads(&offset_mem(&source, lane)));
+            assert!(
+                effects
+                    .memory
+                    .definitely_writes(&offset_mem(&destination, lane))
+            );
+            assert!(effects.memory.reads(&offset_mem(&destination, lane)));
+        }
+        assert!(effects.may_clobber_reg_compat(MirReg::A));
+        assert!(effects.may_clobber_reg_compat(MirReg::X));
+        assert!(!effects.may_clobber_reg_compat(MirReg::Y));
+        assert!(effects.machine.flag_writes.z);
+        assert!(effects.machine.flag_writes.n);
+        assert!(!effects.machine.flag_clobbers.c);
+        assert!(!effects.machine.flag_clobbers.v);
+    }
+
+    #[test]
+    fn indirect_packed_real_copy_preserves_x_and_clobbers_y() {
+        let effects = classify_op(&MirOp::PackedRealCopy {
+            source: MirAddr::FixedIndirectIndexedY {
+                zp: MirFixedZpSlot(0xAC),
+            },
+            destination: MirAddr::Direct(spill(7, 0)),
+            source_offset: 0,
+            destination_offset: 0,
+            negate: false,
+        });
+
+        assert!(effects.may_clobber_reg_compat(MirReg::A));
+        assert!(!effects.may_clobber_reg_compat(MirReg::X));
+        assert!(effects.may_clobber_reg_compat(MirReg::Y));
+        assert!(effects.memory.indirect_reads);
+        assert!(effects.machine.flag_clobbers.c);
+        assert!(!effects.machine.flag_clobbers.v);
+    }
+
+    #[test]
     fn indirect_word_compound_records_pointer_scratch_and_machine_effects() {
         let target = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
             lo: MirFixedZpSlot(0xAA),
@@ -2020,6 +2187,33 @@ mod tests {
                 .iter()
                 .any(|access| access.temp() == MirTempId(7))
         );
+    }
+
+    #[test]
+    fn packed_real_compare_reads_both_fpp_operands_and_clobbers_a_and_flags() {
+        let effects = classify_op(&MirOp::PackedRealCompare {
+            op: MirCompareOp::Lt,
+        });
+
+        for slot in 0xD4..=0xD9 {
+            assert!(
+                effects
+                    .memory
+                    .reads(&MirMem::FixedZeroPage(MirFixedZpSlot(slot)))
+            );
+        }
+        for slot in 0xE0..=0xE5 {
+            assert!(
+                effects
+                    .memory
+                    .reads(&MirMem::FixedZeroPage(MirFixedZpSlot(slot)))
+            );
+        }
+        assert!(effects.writes_reg(MirReg::A));
+        assert!(effects.machine.flag_writes.z);
+        assert!(effects.machine.flag_writes.n);
+        assert!(effects.machine.flag_clobbers.c);
+        assert!(effects.memory.definite_writes.is_empty());
     }
 
     #[test]

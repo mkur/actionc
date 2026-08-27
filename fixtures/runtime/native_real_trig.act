@@ -1,0 +1,45 @@
+MODULE NATIVE_REAL_TRIG_TEST
+
+USE MATH
+
+REAL source=$0600,
+     sin_zero=$0606,
+     sin_half_pi=$060C,
+     sin_negative_half_pi=$0612,
+     sin_wrapped_positive=$0618,
+     sin_wrapped_negative=$061E,
+     cos_second_quadrant=$0624,
+     sin_thousand=$062A,
+     sin_large_supported=$0630,
+     sin_total_loss=$0636,
+     cos_total_loss=$063C,
+     tan_total_loss=$0642
+BYTE done=$0648
+
+PROC Main()
+  source=0
+  MATH.Sin(@source,@sin_zero)
+  source=MATH.HalfPi
+  MATH.Sin(@source,@sin_half_pi)
+  source=-MATH.HalfPi
+  MATH.Sin(@source,@sin_negative_half_pi)
+  source=7
+  MATH.Sin(@source,@sin_wrapped_positive)
+  source=-7
+  MATH.Sin(@source,@sin_wrapped_negative)
+  source=2
+  MATH.Cos(@source,@cos_second_quadrant)
+  source=1000
+  MATH.Sin(@source,@sin_thousand)
+  source=999999.0
+  MATH.Sin(@source,@sin_large_supported)
+  source=1000000.0
+  MATH.Sin(@source,@sin_total_loss)
+  source=-10000000000.0
+  MATH.Cos(@source,@cos_total_loss)
+  MATH.Tan(@source,@tan_total_loss)
+  done=$A6
+  DO OD
+RETURN
+
+ENDMODULE

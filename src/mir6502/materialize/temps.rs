@@ -253,6 +253,8 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
+        | MirOp::PackedRealCopy { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }
@@ -454,6 +456,14 @@ pub(in crate::mir6502) fn replace_op_temp_values(
             *dst = replace_temp_addr(dst.clone(), temp, replacement);
             *src = replace_temp_value(src.clone(), temp, replacement);
         }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            *source = replace_temp_addr(source.clone(), temp, replacement);
+            *destination = replace_temp_addr(destination.clone(), temp, replacement);
+        }
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -492,6 +502,7 @@ pub(in crate::mir6502) fn replace_op_temp_values(
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::Barrier { .. }
@@ -925,7 +936,9 @@ fn invalidate_staged_address_for_op(
         | MirOp::LoadIndirect { .. }
         | MirOp::StoreIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
-        | MirOp::LeaAddr { .. } => false,
+        | MirOp::LeaAddr { .. }
+        | MirOp::PackedRealCompare { .. } => false,
+        MirOp::PackedRealCopy { .. } => true,
         MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }

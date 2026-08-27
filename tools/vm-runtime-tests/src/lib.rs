@@ -256,6 +256,14 @@ mod tests {
                     [0x44, 0x12, 0x34, 0x56, 0x78, 0x90],
                     "{mode:?}/{runtime:?}"
                 );
+                let forward_destination = (0..6)
+                    .map(|offset| outcome.memory().read(0x0610 + offset))
+                    .collect::<Vec<_>>();
+                assert_eq!(
+                    forward_destination,
+                    [0x44, 0x98, 0x76, 0x54, 0x32, 0x10],
+                    "forward overlap for {mode:?}/{runtime:?}"
+                );
             }
         }
     }
@@ -349,8 +357,8 @@ mod tests {
                 for (address, expected) in [
                     (0x0624, [0x40, 0x01, 0x41, 0x42, 0x13, 0x56]),
                     (0x062A, [0x3F, 0x47, 0x94, 0x25, 0x53, 0x86]),
-                    (0x0630, [0x3F, 0x87, 0x75, 0x82, 0x56, 0x52]),
-                    (0x0636, [0x3F, 0x54, 0x63, 0x02, 0x48, 0x77]),
+                    (0x0630, [0x3F, 0x87, 0x75, 0x82, 0x56, 0x44]),
+                    (0x0636, [0x3F, 0x54, 0x63, 0x02, 0x48, 0x82]),
                     (0x063C, [0x3F, 0x78, 0x53, 0x98, 0x16, 0x34]),
                     (0x0642, [0x40, 0x03, 0, 0, 0, 0]),
                     (0x0660, [0x40, 0x02, 0x50, 0, 0, 0]),
@@ -385,6 +393,38 @@ mod tests {
                 ] {
                     assert_eq!(bytes(address, 6), expected, "{context}");
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn native_real_trig_reduction_is_bounded_in_both_backends_and_runtimes() {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_trig.act", mode, runtime, true, 250_000);
+                let bytes = |address: u16, length: u16| {
+                    (0..length)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+                for (address, expected) in [
+                    (0x0606, [0, 0, 0, 0, 0, 0]),
+                    (0x060C, [0x40, 0x01, 0, 0, 0, 0x01]),
+                    (0x0612, [0xC0, 0x01, 0, 0, 0, 0x01]),
+                    (0x0618, [0x3F, 0x65, 0x69, 0x86, 0x59, 0x88]),
+                    (0x061E, [0xBF, 0x65, 0x69, 0x86, 0x59, 0x88]),
+                    (0x0624, [0xBF, 0x41, 0x61, 0x46, 0x83, 0x97]),
+                    (0x062A, [0x3F, 0x82, 0x68, 0x79, 0x54, 0x15]),
+                    (0x0630, [0xBF, 0x97, 0x73, 0x52, 0x00, 0x26]),
+                    (0x0636, [0, 0, 0, 0, 0, 0]),
+                    (0x063C, [0, 0, 0, 0, 0, 0]),
+                    (0x0642, [0, 0, 0, 0, 0, 0]),
+                ] {
+                    assert_eq!(bytes(address, 6), expected, "{context}");
+                }
+                assert_eq!(bytes(0x0648, 1), [0xA6], "{context}");
             }
         }
     }

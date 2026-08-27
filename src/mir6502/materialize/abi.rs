@@ -568,6 +568,11 @@ fn op_references_param_storage(op: &MirOp) -> bool {
     match op {
         MirOp::LoadImm { .. } | MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => false,
         MirOp::Load { src, .. } => addr_references_param_storage(src),
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => addr_references_param_storage(source) || addr_references_param_storage(destination),
         MirOp::Store { dst, src, .. } => {
             addr_references_param_storage(dst) || value_references_param_storage(src)
         }
@@ -604,6 +609,7 @@ fn op_references_param_storage(op: &MirOp) -> bool {
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }

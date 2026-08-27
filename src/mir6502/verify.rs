@@ -426,6 +426,34 @@ impl MirVerifier {
                     machine_ids,
                 );
             }
+            if let Some(index) = block
+                .ops
+                .iter()
+                .position(|op| matches!(op, MirOp::PackedRealCompare { .. }))
+            {
+                if index + 1 != block.ops.len() {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "packed REAL compare must be the final operation in its block",
+                    ));
+                }
+                if !matches!(
+                    &block.terminator,
+                    MirTerminator::Branch {
+                        cond: super::ir::MirCond::FlagTest(
+                            super::ir::MirFlagTest::ZClear | super::ir::MirFlagTest::ZSet
+                        ),
+                        ..
+                    }
+                ) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "packed REAL compare requires an immediate Z-flag branch",
+                    ));
+                }
+            }
             self.verify_scaled_y_protocol(routine, block.label.as_str(), &block.ops);
 
             match &block.terminator {
@@ -890,6 +918,56 @@ impl MirVerifier {
                 self.verify_pre_emission_width(routine, block, *width);
                 self.verify_addr(routine, block, dst, static_ids, global_ids, routine_ids);
                 self.verify_value(routine, block, src, static_ids, global_ids, routine_ids);
+            }
+            MirOp::PackedRealCopy {
+                source,
+                destination,
+                source_offset,
+                destination_offset,
+                ..
+            } => {
+                self.verify_addr(routine, block, source, static_ids, global_ids, routine_ids);
+                self.verify_addr(
+                    routine,
+                    block,
+                    destination,
+                    static_ids,
+                    global_ids,
+                    routine_ids,
+                );
+                if matches!(self.phase, MirPhase::PreEmission) {
+                    for (role, addr, offset) in [
+                        ("source", source, *source_offset),
+                        ("destination", destination, *destination_offset),
+                    ] {
+                        if !matches!(
+                            addr,
+                            MirAddr::Direct(_)
+                                | MirAddr::IndirectIndexedY { .. }
+                                | MirAddr::FixedIndirectIndexedY { .. }
+                        ) {
+                            self.diagnostics.push(MirDiagnostic::block(
+                                &routine.name,
+                                block,
+                                format!("packed REAL copy {role} is not emit-ready"),
+                            ));
+                        }
+                        if matches!(
+                            addr,
+                            MirAddr::IndirectIndexedY { .. }
+                                | MirAddr::FixedIndirectIndexedY { .. }
+                        ) && offset.saturating_add(5) > u16::from(u8::MAX)
+                        {
+                            self.diagnostics.push(MirDiagnostic::block(
+                                &routine.name,
+                                block,
+                                format!(
+                                    "packed REAL copy {role} offset must leave room for six bytes"
+                                ),
+                            ));
+                        }
+                    }
+                }
             }
             MirOp::UpdateMem { op, mem, width } => {
                 if !matches!(
@@ -1652,7 +1730,9 @@ impl MirVerifier {
                     }
                 }
             }
-            MirOp::RuntimeHelper { .. } | MirOp::Barrier { .. } => {}
+            MirOp::PackedRealCompare { .. }
+            | MirOp::RuntimeHelper { .. }
+            | MirOp::Barrier { .. } => {}
             MirOp::MachineBlock { id, .. } => {
                 if !machine_ids.contains(id) {
                     self.diagnostics.push(MirDiagnostic::block(

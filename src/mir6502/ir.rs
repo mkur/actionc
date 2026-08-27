@@ -532,6 +532,32 @@ pub enum MirOp {
         offset: u16,
         signed: bool,
     },
+    /// Compare the two six-byte Atari packed-REAL operands staged in FR0
+    /// ($D4..$D9) and FR1 ($E0..$E5).
+    ///
+    /// The operation leaves A equal to canonical Boolean 0 or 1 for `op`, so
+    /// Z is set for false and clear for true. It is a target operation used
+    /// when a native REAL comparison feeds a branch directly; this avoids
+    /// materializing a Boolean expression for every packed byte.
+    PackedRealCompare {
+        op: MirCompareOp,
+    },
+    /// Copy one six-byte Atari packed-REAL value without exposing its lanes as
+    /// six simultaneously live MIR temporaries.
+    ///
+    /// Emission uses a compact descending X-indexed loop for ordinary direct
+    /// ranges, with a forward fallback only for a statically known leftward
+    /// overlap. It stack-stages the complete source with two compact Y-indexed
+    /// loops when either endpoint is indirect. When `negate` is set, emission
+    /// toggles the packed sign bit only when the copied magnitude is nonzero,
+    /// preserving canonical positive zero.
+    PackedRealCopy {
+        source: MirAddr,
+        destination: MirAddr,
+        source_offset: u16,
+        destination_offset: u16,
+        negate: bool,
+    },
     Call {
         target: MirCallTarget,
         abi: MirCallAbi,

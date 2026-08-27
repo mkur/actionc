@@ -10417,6 +10417,116 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn direct_native_real_branch_uses_packed_flag_compare() {
+        let source = r#"
+            REAL left, right
+            BYTE stored, branched
+
+            PROC StoreValue()
+              stored=left<right
+            RETURN
+
+            PROC Main()
+              IF left<right THEN
+                branched=1
+              ELSE
+                branched=2
+              FI
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let formatted = format_program(&mir);
+        let main = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        let packed_block = main
+            .blocks
+            .iter()
+            .find(|block| {
+                block
+                    .ops
+                    .iter()
+                    .any(|op| matches!(op, MirOp::PackedRealCompare { .. }))
+            })
+            .expect("packed compare block");
+
+        assert_eq!(
+            formatted
+                .matches("packed_real_cmp.flags FR0 lt FR1")
+                .count(),
+            1
+        );
+        assert!(
+            !packed_block
+                .ops
+                .iter()
+                .any(|op| matches!(op, MirOp::Compare { .. })),
+            "the direct branch must not also contain the bytewise Boolean DAG"
+        );
+        assert!(
+            formatted.matches("cmp.b").count() > 6,
+            "the value-producing REAL comparison must retain Boolean lowering:\n{formatted}"
+        );
+    }
+
+    #[test]
+    fn native_real_copy_and_negation_use_compact_packed_ops() {
+        let source = r#"
+            REAL source_value, copied, negated
+
+            PROC Main()
+              copied=source_value
+              negated=-source_value
+            RETURN
+        "#;
+        let tokens = crate::lexer::tokenize(source).expect("tokenize source");
+        let program = crate::parser::parse(&tokens).expect("parse source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        let nir =
+            crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");
+        let mir = lower_program(&nir).expect("lower MIR6502");
+        let ops = mir
+            .routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .flat_map(|block| &block.ops)
+            .collect::<Vec<_>>();
+
+        assert!(
+            ops.iter()
+                .any(|op| matches!(op, MirOp::PackedRealCopy { negate: false, .. }))
+        );
+        assert!(
+            ops.iter()
+                .any(|op| matches!(op, MirOp::PackedRealCopy { negate: true, .. }))
+        );
+        assert!(ops.iter().all(|op| !matches!(
+            op,
+            MirOp::Call {
+                target: MirCallTarget::AtariFpp(MirAtariFppService::Subtract),
+                ..
+            }
+        )));
+    }
+
     fn generate_mir6502_source(source: &str) -> crate::codegen::CodegenOutput {
         generate_mir6502_source_with_origin(source, crate::codegen::CODE_ORIGIN)
     }

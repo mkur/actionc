@@ -8,7 +8,16 @@ USE ATARI.REAL AS PLATFORM
 PUBLIC CONST REAL Pi=3.141592654,
                   HalfPi=1.570796327,
                   QuarterPi=0.7853981634,
-                  TwoPi=6.283185307
+                  TwoPi=6.283185307,
+                  E=2.718281828,
+                  Ln2=0.6931471806,
+                  Ln10=2.302585093,
+                  Log2E=1.442695041,
+                  Log10E=0.4342944819,
+                  Sqrt2=1.414213562,
+                  InvSqrt2=0.7071067812,
+                  DegToRad=0.01745329252,
+                  RadToDeg=57.29577951
 
 PUBLIC PROC Exp(REAL POINTER source, destination)
   PLATFORM.Exp(source,destination)

@@ -6,8 +6,8 @@ use super::ir::{
     MirAddr, MirCallTarget, MirCond, MirDataImage, MirDataRelocationTarget, MirEffects,
     MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineBlock, MirMachineBlockId,
     MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram,
-    MirRuntimeHelper, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator, MirValue,
-    RoutineId,
+    MirRuntimeHelper, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator,
+    MirValue, RoutineId,
 };
 use crate::nir::SymbolId;
 use crate::runtime_source::{RuntimeImage, RuntimeUnit};
@@ -425,6 +425,14 @@ fn visit_op_storage(
             visit_addr_storage(dst, globals, statics);
             visit_value_storage(src, globals, statics);
         }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            visit_addr_storage(source, globals, statics);
+            visit_addr_storage(destination, globals, statics);
+        }
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -480,6 +488,7 @@ fn visit_op_storage(
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. } => {}
@@ -651,6 +660,14 @@ fn rebase_op(
             rebase_addr(dst, routines, globals, statics)?;
             rebase_value(src, routines, globals, statics)?;
         }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            rebase_addr(source, routines, globals, statics)?;
+            rebase_addr(destination, routines, globals, statics)?;
+        }
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -707,6 +724,7 @@ fn rebase_op(
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. } => {}

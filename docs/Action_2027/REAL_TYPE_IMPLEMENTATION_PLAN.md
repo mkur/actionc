@@ -437,6 +437,12 @@ procedures share FR0, CIX, INBUFF, and the wider FPP workspace, so they are not
 reentrant or interrupt-safe. Both cart and standalone runtime modes still
 require a compatible Atari OS when this module is used.
 
+Trigonometric reduction is bounded: supported arguments use a nearest-period
+calculation and split `2*pi` subtraction rather than an input-proportional
+subtraction loop. `Sin`, `Cos`, and `Tan` define `|x| >= 1E6` as total loss and
+return zero, ensuring that every native REAL input terminates even when the OS
+FPP can no longer represent subtracting one period from the original value.
+
 ## Validation Matrix
 
 The feature needs tests at every ownership boundary:

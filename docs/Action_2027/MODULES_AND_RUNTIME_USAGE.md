@@ -97,14 +97,19 @@ results remain deferred:
 - `MATH` transcendental operations: `Exp`, `Exp10`, `Ln`, `Log10`, `Power`;
 - `MATH` elementary operations: `Abs`, `Sgn`, `Floor`, `Rnd`, `Sqrt`/`Sqr`, `Sin`, `Cos`,
   `Tan`, and `Atan`/`Atn`;
+- `MATH` constants: `Pi`, `HalfPi`, `QuarterPi`, `TwoPi`, `E`, `Ln2`, `Ln10`,
+  `Log2E`, `Log10E`, `Sqrt2`, `InvSqrt2`, `DegToRad`, and `RadToDeg`;
 
 `StrR` destinations should reserve at least 20 bytes. `ValR` delegates runtime
 text validation to Atari AFP and therefore exposes the OS routine's invalid
 input result. Trigonometric arguments and results use radians. `Sqrt` returns
 zero for a non-positive input, while `Tan` exposes the underlying division
-behavior at its poles. The trig routines use range reduction and convergent
-series in ordinary Action source; they do not require the Atari BASIC
-cartridge. Both runtime modes require a compatible Atari OS for this API.
+behavior at its poles. The trig routines use a bounded nearest-period range
+reduction with a split `2*pi` constant, followed by a convergent sine series in
+ordinary Action source; `Sin`, `Cos`, and `Tan` return zero as a documented
+total-loss result when the absolute argument is at least `1E6`. They do not
+require the Atari BASIC cartridge. Both runtime modes require a compatible
+Atari OS for this API.
 `Floor` implements Atari BASIC `INT` semantics (rounding toward negative
 infinity); it uses a different name because `INT` is an Action type keyword.
 All routines share the Atari FPP zero-page workspace, including FR0, CIX, and

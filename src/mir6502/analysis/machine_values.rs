@@ -666,7 +666,9 @@ fn update_fixed_zero_page_values(
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::LoadIndirect { .. } => {}
+        MirOp::PackedRealCopy { .. } => state.fixed_zero_page.clear(),
     }
 }
 

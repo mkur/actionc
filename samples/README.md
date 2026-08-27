@@ -17,6 +17,10 @@ display buffer, and an immediate vertical-blank routine.
 `rainbow_asm.act` is a compact inline-assembly version of the original
 `rainbow.act` raster effect.
 
+`demoscene/midpoint-displacement.act` generates a one-dimensional midpoint-
+displacement landscape using integer arithmetic and draws it in high-resolution
+graphics mode.
+
 `graphics/sine-surface.act` translates an Atari BASIC 3D surface plot and uses
 the portable `MATH.Sqr` and `MATH.Sin` native REAL procedures.
 

@@ -566,6 +566,11 @@ impl TrackedEmitter {
         self.state.invalidate_flags();
     }
 
+    pub(crate) fn emit_cpy_imm(&mut self, value: u8) {
+        self.emitter.emit_cpy_imm(value);
+        self.state.invalidate_flags();
+    }
+
     pub(crate) fn emit_cmp_imm_for_z_branch(&mut self, value: u8) {
         if value == 0 && self.state.flags_match_a_value() {
             return;
@@ -618,6 +623,12 @@ impl TrackedEmitter {
     pub(crate) fn emit_dey(&mut self) {
         self.emitter.emit_dey();
         self.state.decrement_y();
+    }
+
+    pub(crate) fn emit_dex(&mut self) {
+        self.emitter.emit_dex();
+        self.state.load_x_unknown();
+        self.state.invalidate_flags();
     }
 
     pub(crate) fn emit_inc_zero_page(&mut self, zero_page: ZeroPage) {

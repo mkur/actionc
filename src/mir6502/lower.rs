@@ -28,6 +28,37 @@ use super::ir::{
     MirStorageSlot, MirTemp, MirTempId, MirTerminator, MirUnaryOp, MirValue, MirWidth, RoutineId,
 };
 
+#[derive(Debug, Clone, Copy)]
+enum LoweredRealBranch {
+    Boolean,
+    PackedFlags,
+}
+
+fn direct_real_branch_result(block: &nir::NirBlock) -> Option<TempId> {
+    let NirTerminator::Branch {
+        condition: NirValueKind::Temp { id: condition, .. },
+        then_edge,
+        else_edge,
+        ..
+    } = &block.terminator
+    else {
+        return None;
+    };
+    let Some(NirOpKind::Real(NirRealOp::Compare { result, .. })) = block.ops.last() else {
+        return None;
+    };
+    if *condition != *result
+        || then_edge
+            .args
+            .iter()
+            .chain(&else_edge.args)
+            .any(|arg| matches!(arg, NirValueKind::Temp { id, .. } if id == result))
+    {
+        return None;
+    }
+    Some(*result)
+}
+
 pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>> {
     if let Err(diagnostics) = nir::verify_program(nir_program) {
         return Err(diagnostics
@@ -130,6 +161,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                     .enumerate()
                     .map(|(block_index, block)| {
                         let mut real_branch_values = BTreeMap::new();
+                        let direct_real_branch_result = direct_real_branch_result(block);
                         let mut ops = lower_ops(
                             &routine.name,
                             &block.label,
@@ -146,6 +178,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                             &mut generated_temps,
                             &mut next_generated_local,
                             &mut generated_locals,
+                            direct_real_branch_result,
                             &mut real_branch_values,
                             &mut diagnostics,
                         );
@@ -171,15 +204,16 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                         } = &mut terminator
                             && let Some(answer) = real_branch_values.get(&result.0).copied()
                         {
-                            let _ = answer;
-                            ops.push(MirOp::Compare {
-                                dst: MirCondDest::Flags,
-                                op: MirCompareOp::Ne,
-                                left: temp_value(*result),
-                                right: MirValue::ConstU8(0),
-                                width: MirWidth::Byte,
-                                signed: false,
-                            });
+                            if let LoweredRealBranch::Boolean = answer {
+                                ops.push(MirOp::Compare {
+                                    dst: MirCondDest::Flags,
+                                    op: MirCompareOp::Ne,
+                                    left: temp_value(*result),
+                                    right: MirValue::ConstU8(0),
+                                    width: MirWidth::Byte,
+                                    signed: false,
+                                });
+                            }
                             if let MirTerminator::Branch { cond, .. } = &mut terminator {
                                 *cond = MirCond::FlagTest(MirFlagTest::ZClear);
                             }
@@ -796,7 +830,43 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
             dst: MirAddr::Direct(mem),
             ..
         } => collect_mem_fixed_zero_page(mem, slots),
+        MirOp::PackedRealCompare { .. } => {
+            for slot in 0xD4..=0xD9 {
+                collect_mem_fixed_zero_page(&MirMem::FixedZeroPage(MirFixedZpSlot(slot)), slots);
+            }
+            for slot in 0xE0..=0xE5 {
+                collect_mem_fixed_zero_page(&MirMem::FixedZeroPage(MirFixedZpSlot(slot)), slots);
+            }
+        }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            source_offset,
+            destination_offset,
+            ..
+        } => {
+            collect_packed_real_fixed_zero_page(source, *source_offset, slots);
+            collect_packed_real_fixed_zero_page(destination, *destination_offset, slots);
+        }
         _ => {}
+    }
+}
+
+fn collect_packed_real_fixed_zero_page(
+    addr: &MirAddr,
+    base_offset: u16,
+    slots: &mut Vec<MirFixedZpSlot>,
+) {
+    if let MirAddr::Direct(MirMem::FixedZeroPage(slot)) = addr {
+        for lane in 0..ATARI_REAL_BYTES {
+            collect_mem_fixed_zero_page(
+                &MirMem::FixedZeroPage(MirFixedZpSlot(
+                    slot.0
+                        .saturating_add(base_offset.saturating_add(lane) as u8),
+                )),
+                slots,
+            );
+        }
     }
 }
 
@@ -824,7 +894,8 @@ fn lower_ops(
     generated_temps: &mut Vec<MirTemp>,
     next_generated_local: &mut u32,
     generated_locals: &mut Vec<(LocalId, String)>,
-    real_branch_values: &mut BTreeMap<u32, MirTempId>,
+    direct_real_branch_result: Option<TempId>,
+    real_branch_values: &mut BTreeMap<u32, LoweredRealBranch>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Vec<MirOp> {
     let mut lowered = Vec::new();
@@ -1228,6 +1299,7 @@ fn lower_ops(
                 generated_temps,
                 next_generated_local,
                 generated_locals,
+                direct_real_branch_result,
                 real_branch_values,
                 &mut lowered,
                 diagnostics,
@@ -1251,7 +1323,8 @@ fn lower_real_op(
     generated_temps: &mut Vec<MirTemp>,
     next_generated_local: &mut u32,
     generated_locals: &mut Vec<(LocalId, String)>,
-    real_branch_values: &mut BTreeMap<u32, MirTempId>,
+    direct_real_branch_result: Option<TempId>,
+    real_branch_values: &mut BTreeMap<u32, LoweredRealBranch>,
     lowered: &mut Vec<MirOp>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) {
@@ -1276,13 +1349,7 @@ fn lower_real_op(
             let Some(source) = source else {
                 return;
             };
-            push_staged_real_copy(
-                &source,
-                &destination,
-                next_generated_temp,
-                generated_temps,
-                lowered,
-            );
+            push_staged_real_copy(&source, &destination, lowered);
         }
         NirRealOp::Binary {
             operation,
@@ -1313,23 +1380,17 @@ fn lower_real_op(
             push_staged_real_copy(
                 &left,
                 &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
-                next_generated_temp,
-                generated_temps,
                 lowered,
             );
             push_staged_real_copy(
                 &right,
                 &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR1)),
-                next_generated_temp,
-                generated_temps,
                 lowered,
             );
             lowered.push(atari_fpp_call(service));
             push_staged_real_copy(
                 &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
                 &destination,
-                next_generated_temp,
-                generated_temps,
                 lowered,
             );
         }
@@ -1382,40 +1443,8 @@ fn lower_real_op(
                 return;
             };
             match operation {
-                NirUnaryOp::Plus => push_staged_real_copy(
-                    &operand,
-                    &destination,
-                    next_generated_temp,
-                    generated_temps,
-                    lowered,
-                ),
-                NirUnaryOp::Neg => {
-                    for offset in 0..ATARI_REAL_BYTES {
-                        lowered.push(MirOp::Store {
-                            dst: MirAddr::Direct(offset_mem(
-                                &MirMem::FixedZeroPage(ATARI_FPP_FR0),
-                                offset,
-                            )),
-                            src: MirValue::ConstU8(0),
-                            width: MirWidth::Byte,
-                        });
-                    }
-                    push_staged_real_copy(
-                        &operand,
-                        &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR1)),
-                        next_generated_temp,
-                        generated_temps,
-                        lowered,
-                    );
-                    lowered.push(atari_fpp_call(MirAtariFppService::Subtract));
-                    push_staged_real_copy(
-                        &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
-                        &destination,
-                        next_generated_temp,
-                        generated_temps,
-                        lowered,
-                    );
-                }
+                NirUnaryOp::Plus => push_staged_real_copy(&operand, &destination, lowered),
+                NirUnaryOp::Neg => push_packed_real_copy(&operand, &destination, true, lowered),
             }
         }
         NirRealOp::Compare {
@@ -1432,6 +1461,23 @@ fn lower_real_op(
             else {
                 return;
             };
+            if direct_real_branch_result == Some(*result) {
+                push_staged_real_copy(
+                    &left,
+                    &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
+                    lowered,
+                );
+                push_staged_real_copy(
+                    &right,
+                    &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR1)),
+                    lowered,
+                );
+                lowered.push(MirOp::PackedRealCompare {
+                    op: mir_compare_op(*predicate),
+                });
+                real_branch_values.insert(result.0, LoweredRealBranch::PackedFlags);
+                return;
+            }
             let answer = push_real_compare(
                 *predicate,
                 MirTempId(result.0),
@@ -1441,7 +1487,8 @@ fn lower_real_op(
                 generated_temps,
                 lowered,
             );
-            real_branch_values.insert(result.0, answer);
+            let _ = answer;
+            real_branch_values.insert(result.0, LoweredRealBranch::Boolean);
         }
         NirRealOp::RealToInteger {
             result,
@@ -1993,8 +2040,6 @@ fn push_integer_to_real(
     push_staged_real_copy(
         &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
         destination,
-        next_generated_temp,
-        generated_temps,
         lowered,
     );
 }
@@ -2012,8 +2057,6 @@ fn push_real_to_integer(
     push_staged_real_copy(
         source,
         &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
-        next_generated_temp,
-        generated_temps,
         lowered,
     );
     let exponent = generated_temp(next_generated_temp, generated_temps);
@@ -2135,35 +2178,23 @@ fn real_binary_service(operation: NirBinaryOp) -> Option<MirAtariFppService> {
     }
 }
 
-fn push_staged_real_copy(
+fn push_staged_real_copy(source: &MirAddr, destination: &MirAddr, lowered: &mut Vec<MirOp>) {
+    push_packed_real_copy(source, destination, false, lowered);
+}
+
+fn push_packed_real_copy(
     source: &MirAddr,
     destination: &MirAddr,
-    next_generated_temp: &mut u32,
-    generated_temps: &mut Vec<MirTemp>,
+    negate: bool,
     lowered: &mut Vec<MirOp>,
 ) {
-    let temps = (0..ATARI_REAL_BYTES)
-        .map(|_| {
-            let id = MirTempId(*next_generated_temp);
-            *next_generated_temp = next_generated_temp.saturating_add(1);
-            generated_temps.push(MirTemp { id });
-            id
-        })
-        .collect::<Vec<_>>();
-    for (offset, temp) in temps.iter().enumerate() {
-        lowered.push(MirOp::Load {
-            dst: MirDef::VTemp(*temp),
-            src: offset_addr(source, offset as u16),
-            width: MirWidth::Byte,
-        });
-    }
-    for (offset, temp) in temps.into_iter().enumerate() {
-        lowered.push(MirOp::Store {
-            dst: offset_addr(destination, offset as u16),
-            src: MirValue::Def(MirDef::VTemp(temp)),
-            width: MirWidth::Byte,
-        });
-    }
+    lowered.push(MirOp::PackedRealCopy {
+        source: source.clone(),
+        destination: destination.clone(),
+        source_offset: 0,
+        destination_offset: 0,
+        negate,
+    });
 }
 
 fn constant_integer_real_bytes(value: &NirValueKind, ty: &NirType) -> Option<[u8; 6]> {

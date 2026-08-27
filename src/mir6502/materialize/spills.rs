@@ -799,6 +799,8 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::Compare { .. })
         | Some(MirOp::CompareIndirectBytes { .. })
         | Some(MirOp::CompareIndirectWords { .. })
+        | Some(MirOp::PackedRealCompare { .. })
+        | Some(MirOp::PackedRealCopy { .. })
         | Some(MirOp::Unary { .. })
         | Some(MirOp::Binary { .. })
         | Some(MirOp::Call { .. })
@@ -943,6 +945,8 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
+        | MirOp::PackedRealCopy { .. }
         | MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::MaterializeAddress { .. }
@@ -2242,6 +2246,14 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
             remap_addr_spills(dst, remap);
             remap_value_spills(src, remap);
         }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            remap_addr_spills(source, remap);
+            remap_addr_spills(destination, remap);
+        }
         MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => {
             remap_mem_spills(mem, remap)
         }
@@ -2280,6 +2292,7 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::IndirectByteCompound { .. }
@@ -2363,6 +2376,14 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
             remap_addr_spills_to_zero_page(dst, remap);
             remap_value_spills_to_zero_page(src, remap);
         }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            remap_addr_spills_to_zero_page(source, remap);
+            remap_addr_spills_to_zero_page(destination, remap);
+        }
         MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => {
             remap_mem_spills_to_zero_page(mem, remap)
         }
@@ -2403,6 +2424,7 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::IndirectByteCompound { .. }
@@ -2492,6 +2514,14 @@ where
             visit_addr_mems(dst, visitor);
             visit_value_mems(src, visitor);
         }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            visit_addr_mems(source, visitor);
+            visit_addr_mems(destination, visitor);
+        }
         MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => visitor(mem),
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             visitor(mem);
@@ -2530,6 +2560,7 @@ where
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::IndirectByteCompound { .. }
@@ -2595,6 +2626,14 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
             collect_addr_spills(dst, spills);
             collect_value_spills(src, spills);
         }
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => {
+            collect_addr_spills(source, spills);
+            collect_addr_spills(destination, spills);
+        }
         MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => {
             collect_mem_spills(mem, spills)
         }
@@ -2652,7 +2691,8 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::CompareIndirectBytes { .. }
-        | MirOp::CompareIndirectWords { .. } => {}
+        | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. } => {}
     }
 }
 

@@ -48,7 +48,7 @@ PROC Main()
   PlotColor=1
   KeyCode=$FF
 
-  xr=1.5*3.1415927
+  xr=1.5*MATH.Pi
   xf=xr/144
   yf=56
 

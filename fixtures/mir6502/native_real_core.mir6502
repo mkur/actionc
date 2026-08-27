@@ -7,132 +7,22 @@ static s1 __nir_real_Main_1: REAL bytes [$3F $50 $00 $00 $00 $00] section=rodata
 
 routine r0 Main
 b0 bb0:
-  v0 =.b load static s0+0
-  v1 =.b load static s0+1
-  v2 =.b load static s0+2
-  v3 =.b load static s0+3
-  v4 =.b load static s0+4
-  v5 =.b load static s0+5
-  store.b global g0+0, v0
-  store.b global g0+1, v1
-  store.b global g0+2, v2
-  store.b global g0+3, v3
-  store.b global g0+4, v4
-  store.b global g0+5, v5
+  packed_real_copy global g0+0+0, static s0+0+0
   store.b global g1+0, #$40
   store.b global g1+1, #$02
   store.b global g1+2, #$00
   store.b global g1+3, #$00
   store.b global g1+4, #$00
   store.b global g1+5, #$00
-  v6 =.b load global g0+0
-  v7 =.b load global g0+1
-  v8 =.b load global g0+2
-  v9 =.b load global g0+3
-  v10 =.b load global g0+4
-  v11 =.b load global g0+5
-  store.b local l1+0, v6
-  store.b local l1+1, v7
-  store.b local l1+2, v8
-  store.b local l1+3, v9
-  store.b local l1+4, v10
-  store.b local l1+5, v11
-  v12 =.b load global g1+0
-  v13 =.b load global g1+1
-  v14 =.b load global g1+2
-  v15 =.b load global g1+3
-  v16 =.b load global g1+4
-  v17 =.b load global g1+5
-  store.b local l2+0, v12
-  store.b local l2+1, v13
-  store.b local l2+2, v14
-  store.b local l2+3, v15
-  store.b local l2+4, v16
-  store.b local l2+5, v17
-  v18 =.b load local l1+0
-  v19 =.b load local l1+1
-  v20 =.b load local l1+2
-  v21 =.b load local l1+3
-  v22 =.b load local l1+4
-  v23 =.b load local l1+5
-  store.b fixed_zp $D4, v18
-  store.b fixed_zp $D5, v19
-  store.b fixed_zp $D6, v20
-  store.b fixed_zp $D7, v21
-  store.b fixed_zp $D8, v22
-  store.b fixed_zp $D9, v23
-  v24 =.b load local l2+0
-  v25 =.b load local l2+1
-  v26 =.b load local l2+2
-  v27 =.b load local l2+3
-  v28 =.b load local l2+4
-  v29 =.b load local l2+5
-  store.b fixed_zp $E0, v24
-  store.b fixed_zp $E1, v25
-  store.b fixed_zp $E2, v26
-  store.b fixed_zp $E3, v27
-  store.b fixed_zp $E4, v28
-  store.b fixed_zp $E5, v29
+  packed_real_copy local l1+0+0, global g0+0+0
+  packed_real_copy local l2+0+0, global g1+0+0
+  packed_real_copy fixed_zp $D4+0, local l1+0+0
+  packed_real_copy fixed_zp $E0+0, local l2+0+0
   call atari-fpp.FMULT@$DADB args=[] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=0,reads=all,writes=all,clobbers=a|x|y|flags
-  v30 =.b load fixed_zp $D4
-  v31 =.b load fixed_zp $D5
-  v32 =.b load fixed_zp $D6
-  v33 =.b load fixed_zp $D7
-  v34 =.b load fixed_zp $D8
-  v35 =.b load fixed_zp $D9
-  store.b local l0+0, v30
-  store.b local l0+1, v31
-  store.b local l0+2, v32
-  store.b local l0+3, v33
-  store.b local l0+4, v34
-  store.b local l0+5, v35
-  v36 =.b load static s1+0
-  v37 =.b load static s1+1
-  v38 =.b load static s1+2
-  v39 =.b load static s1+3
-  v40 =.b load static s1+4
-  v41 =.b load static s1+5
-  store.b local l3+0, v36
-  store.b local l3+1, v37
-  store.b local l3+2, v38
-  store.b local l3+3, v39
-  store.b local l3+4, v40
-  store.b local l3+5, v41
-  v42 =.b load local l0+0
-  v43 =.b load local l0+1
-  v44 =.b load local l0+2
-  v45 =.b load local l0+3
-  v46 =.b load local l0+4
-  v47 =.b load local l0+5
-  store.b fixed_zp $D4, v42
-  store.b fixed_zp $D5, v43
-  store.b fixed_zp $D6, v44
-  store.b fixed_zp $D7, v45
-  store.b fixed_zp $D8, v46
-  store.b fixed_zp $D9, v47
-  v48 =.b load local l3+0
-  v49 =.b load local l3+1
-  v50 =.b load local l3+2
-  v51 =.b load local l3+3
-  v52 =.b load local l3+4
-  v53 =.b load local l3+5
-  store.b fixed_zp $E0, v48
-  store.b fixed_zp $E1, v49
-  store.b fixed_zp $E2, v50
-  store.b fixed_zp $E3, v51
-  store.b fixed_zp $E4, v52
-  store.b fixed_zp $E5, v53
+  packed_real_copy local l0+0+0, fixed_zp $D4+0
+  packed_real_copy local l3+0+0, static s1+0+0
+  packed_real_copy fixed_zp $D4+0, local l0+0+0
+  packed_real_copy fixed_zp $E0+0, local l3+0+0
   call atari-fpp.FADD@$DA66 args=[] result=- clobbers=a|x|y|flags preserves=- effects=opaque,os,stack=0,reads=all,writes=all,clobbers=a|x|y|flags
-  v54 =.b load fixed_zp $D4
-  v55 =.b load fixed_zp $D5
-  v56 =.b load fixed_zp $D6
-  v57 =.b load fixed_zp $D7
-  v58 =.b load fixed_zp $D8
-  v59 =.b load fixed_zp $D9
-  store.b global g2+0, v54
-  store.b global g2+1, v55
-  store.b global g2+2, v56
-  store.b global g2+3, v57
-  store.b global g2+4, v58
-  store.b global g2+5, v59
+  packed_real_copy global g2+0+0, fixed_zp $D4+0
   return

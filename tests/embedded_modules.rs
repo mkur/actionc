@@ -135,6 +135,42 @@ fn module_examples_compile_standalone_with_both_backends() {
 }
 
 #[test]
+fn portable_math_constants_compile_with_both_backends() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "math-constants.act",
+        r#"MODULE MATH_CONSTANTS_TEST
+USE MATH
+
+REAL value
+
+PROC Main()
+  value=MATH.Pi
+  value=MATH.HalfPi
+  value=MATH.QuarterPi
+  value=MATH.TwoPi
+  value=MATH.E
+  value=MATH.Ln2
+  value=MATH.Ln10
+  value=MATH.Log2E
+  value=MATH.Log10E
+  value=MATH.Sqrt2
+  value=MATH.InvSqrt2
+  value=MATH.DegToRad
+  value=MATH.RadToDeg
+RETURN
+
+ENDMODULE
+"#,
+    );
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        compile_file(&source, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile MATH constants in {mode:?}: {error}"));
+    }
+}
+
+#[test]
 fn classic_standalone_keeps_the_named_root_main_as_the_run_address() {
     let source =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/modules/native-real-library.act");

@@ -3630,6 +3630,8 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         | MirOp::Compare { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
+        | MirOp::PackedRealCopy { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::MaterializeAddress { .. }
         | MirOp::MaterializeIndexedAddress { .. }

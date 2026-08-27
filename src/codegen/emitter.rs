@@ -339,6 +339,10 @@ impl Emitter {
         self.emit_u8(opcode::DEY);
     }
 
+    pub fn emit_dex(&mut self) {
+        self.emit_u8(opcode::DEX);
+    }
+
     pub fn emit_txa(&mut self) {
         self.emit_u8(opcode::TXA);
     }
@@ -559,6 +563,11 @@ impl Emitter {
 
     pub fn emit_cmp_imm(&mut self, value: u8) {
         self.emit_u8(opcode::CMP_IMM);
+        self.emit_u8(value);
+    }
+
+    pub fn emit_cpy_imm(&mut self, value: u8) {
+        self.emit_u8(opcode::CPY_IMM);
         self.emit_u8(value);
     }
 
@@ -2254,6 +2263,8 @@ pub mod opcode {
     pub const INC_ZP: u8 = 0xE6;
     pub const INC_ABS: u8 = 0xEE;
     pub const INC_ABS_X: u8 = 0xFE;
+    pub const DEX: u8 = 0xCA;
+    pub const CPY_IMM: u8 = 0xC0;
     pub const JMP_ABS: u8 = 0x4C;
     pub const JMP_IND: u8 = 0x6C;
     pub const JSR_ABS: u8 = 0x20;
