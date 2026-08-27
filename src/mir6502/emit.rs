@@ -3350,7 +3350,13 @@ fn emit_call(
             address: Some(address),
             ..
         } => emitter.emit_jsr_abs(*address),
-        MirCallTarget::AtariFpp(service) => emitter.emit_jsr_abs(service.address()),
+        MirCallTarget::AtariFpp(service) => {
+            emitter.emit_jsr_abs(service.address());
+            // Compatible FPP implementations do not agree on the returned
+            // decimal flag. Re-establish the compiler's binary-mode invariant
+            // before any generated ADC/SBC can execute.
+            emitter.emit_cld();
+        }
         MirCallTarget::Builtin {
             name,
             address: None,
@@ -3465,8 +3471,13 @@ fn emit_tail_call_target(
             emitter.emit_jmp_abs(*address);
             true
         }
+        // FPP calls are currently excluded by `is_tail_call_op` because the
+        // post-call CLD prevents a tail JMP. Keep the fallback semantically
+        // complete if that selector is broadened later.
         MirCallTarget::AtariFpp(service) => {
-            emitter.emit_jmp_abs(service.address());
+            emitter.emit_jsr_abs(service.address());
+            emitter.emit_cld();
+            emitter.emit_rts();
             true
         }
         MirCallTarget::Builtin {

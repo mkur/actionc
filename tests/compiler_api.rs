@@ -330,6 +330,43 @@ fn native_real_core_arithmetic_compiles_with_both_backends_and_runtimes() {
 }
 
 #[test]
+fn every_native_real_fpp_call_restores_binary_decimal_mode() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "native-real-fpp-decimal.act",
+        r#"
+            REAL left, right, result
+            INT integer
+
+            PROC Main()
+              left=integer
+              integer=INT(left)
+              result=left+right
+              result=left-right
+              result=left*right
+              result=left/right
+            RETURN
+        "#,
+    );
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile native REAL FPP calls for {mode:?}: {error}"));
+        for address in [0xD9AAu16, 0xD9D2, 0xDA66, 0xDA60, 0xDADB, 0xDB28] {
+            let [lo, hi] = address.to_le_bytes();
+            assert!(
+                compiled
+                    .object_bytes()
+                    .windows(4)
+                    .any(|bytes| bytes == [0x20, lo, hi, 0xD8]),
+                "expected JSR ${address:04X}; CLD for {mode:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn loop_conditions_accept_all_original_binary_operators_in_all_pipelines() {
     let temp = TestDir::new();
     let mut source = String::from(

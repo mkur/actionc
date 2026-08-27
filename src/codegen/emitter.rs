@@ -721,6 +721,10 @@ impl Emitter {
         self.emit_u8(opcode::CLC);
     }
 
+    pub fn emit_cld(&mut self) {
+        self.emit_u8(opcode::CLD);
+    }
+
     pub fn emit_sec(&mut self) {
         self.emit_u8(opcode::SEC);
     }
@@ -2186,6 +2190,7 @@ pub mod opcode {
     pub const ASL_ABS: u8 = 0x0E;
     pub const PHP: u8 = 0x08;
     pub const CLC: u8 = 0x18;
+    pub const CLD: u8 = 0xD8;
     pub const ROL_A: u8 = 0x2A;
     pub const ROL_ABS: u8 = 0x2E;
     pub const PLP: u8 = 0x28;

@@ -136,7 +136,9 @@ The processor and call effects shared by these six services are:
   its aggregate flags state.
 - The interrupt-disable flag is preserved. Decimal mode is not a portable
   preserved value: IFP can return with it set, and arithmetic routines use and
-  clear it on path-dependent exits.
+  clear it on path-dependent exits. Both compiler backends therefore append
+  `CLD` to every emitted core-service call and expose binary mode as the
+  post-call compiler invariant.
 - Internal JSR and PHA operations use hardware-stack bytes transiently, but SP
   is restored and the public stack-depth delta is zero.
 - The routines call only internal math-pack helpers. They do not invoke CIO,

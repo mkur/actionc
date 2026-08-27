@@ -325,6 +325,36 @@ mod tests {
     }
 
     #[test]
+    fn native_real_fpp_calls_restore_binary_decimal_mode() {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let mut os = std::fs::read(repository_root().join("roms/altirraos-xl.rom"))
+                    .expect("read Atari OS ROM");
+                let fpi_offset = usize::from(0xD9D2u16 - OS_ROM_BASE);
+                os[fpi_offset..fpi_offset + 2].copy_from_slice(&[0xF8, 0x60]); // SED; RTS
+                let outcome = run_runtime_fixture_with_setup(
+                    "native_real_decimal_mode.act",
+                    mode,
+                    runtime,
+                    true,
+                    25_000,
+                    move |vm| {
+                        vm.bus_mut()
+                            .map_os_rom(OS_ROM_BASE, os)
+                            .expect("install decimal-returning FPI test shim");
+                    },
+                );
+                let read = |address| outcome.memory().read(address);
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+
+                assert_eq!(read(0x060C) & 0x08, 0, "decimal flag after FPI: {context}");
+                assert_eq!(read(0x060A), 10, "binary addition after FPI: {context}");
+                assert_eq!(read(0x060B), 0xA7, "completion marker: {context}");
+            }
+        }
+    }
+
+    #[test]
     fn native_real_aggregate_storage_runs_in_both_runtimes() {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {

@@ -1007,7 +1007,10 @@ The audited core FPP services clobber A, X, Y, flags, and service-specific
 subsets of the Atari FPP workspace. MIR uses the stable portable envelope for
 compatible ROMs: structured zero-page reads and writes over `$D4-$FF`. These
 calls are not opaque, do not make nested OS calls, and have a known balanced
-stack-depth delta of zero. The verifier requires that exact contract.
+stack-depth delta of zero. The verifier requires that exact contract. Emission
+implements an Atari FPP call as `JSR service; CLD`, restoring the compiler's
+binary-arithmetic invariant because compatible packages do not provide a
+portable decimal-flag result.
 
 The allocator reserves `$D4-$FF` in every routine containing an FPP call, so
 virtual zero-page homes cannot overlap the workspace. Structured-effect

@@ -666,6 +666,9 @@ impl Generator {
         self.record_current_unknown_effects();
         self.emitter
             .emit_jsr_absolute(Absolute::new(service.address()));
+        // Compatible Atari math packs do not agree on the returned decimal
+        // flag. Generated ADC/SBC sequences require binary mode.
+        self.emitter.emit_cld();
         self.processor.invalidate_after_call();
         self.straight_line_store_y = None;
     }

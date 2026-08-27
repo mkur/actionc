@@ -242,6 +242,12 @@ source values after conversion so the VM oracle proves that their complete
 six-byte packed representations, including the exponent/sign byte, remain
 unchanged.
 
+The native REAL decimal-mode fixture runs against a controlled FPI test shim
+that returns with the processor decimal flag set, captures status immediately
+after the conversion, and performs dynamic byte addition. Both modern backends
+and runtime modes must clear D after the FPP call and produce the binary sum
+rather than its BCD counterpart.
+
 The scripted gates are also part of the opt-in compatibility integration tests:
 
 ```sh

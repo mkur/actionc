@@ -410,6 +410,12 @@ impl TrackedEmitter {
         self.state.clc();
     }
 
+    /// Restore the compiler's binary-arithmetic invariant. Decimal mode is
+    /// not part of the tracked N/Z/C/V facts and CLD does not alter them.
+    pub(crate) fn emit_cld(&mut self) {
+        self.emitter.emit_cld();
+    }
+
     pub(crate) fn emit_sec(&mut self) {
         self.emitter.emit_sec();
         self.state.sec();

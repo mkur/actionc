@@ -1,0 +1,15 @@
+; The VM test replaces FPI with a controlled SED/RTS shim, modeling a compatible
+; math pack that returns with D set. Call lowering must restore binary mode.
+REAL source=$0600
+INT converted=$0606
+BYTE left=$0608, right=$0609, sum=$060A, done=$060B, status=$060C
+
+PROC Main()
+  source=1.5
+  left=9
+  right=1
+  converted=INT(source)
+  [$08 $68 $8D $0C $06]
+  sum=left+right
+  done=$A7
+RETURN
