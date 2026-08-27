@@ -809,7 +809,9 @@ fn for_each_real_place(op: &NirRealOp, mut visit: impl FnMut(&NirPlace)) {
             ..
         } => {
             visit(destination);
-            visit(operand);
+            if let NirRealSource::Place(operand) = operand {
+                visit(operand);
+            }
         }
         NirRealOp::Binary {
             destination,
@@ -818,12 +820,20 @@ fn for_each_real_place(op: &NirRealOp, mut visit: impl FnMut(&NirPlace)) {
             ..
         } => {
             visit(destination);
-            visit(left);
-            visit(right);
+            if let NirRealSource::Place(left) = left {
+                visit(left);
+            }
+            if let NirRealSource::Place(right) = right {
+                visit(right);
+            }
         }
         NirRealOp::Compare { left, right, .. } => {
-            visit(left);
-            visit(right);
+            if let NirRealSource::Place(left) = left {
+                visit(left);
+            }
+            if let NirRealSource::Place(right) = right {
+                visit(right);
+            }
         }
         NirRealOp::IntegerToReal { destination, .. } => visit(destination),
         NirRealOp::RealToInteger { source, .. } => visit(source),

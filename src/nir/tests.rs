@@ -895,7 +895,15 @@ fn real_expressions_lower_to_address_based_verified_nir() {
             .blocks
             .iter()
             .flat_map(|block| &block.ops)
-            .any(|op| matches!(op, NirOp::Real(NirRealOp::Binary { .. })))
+            .any(|op| matches!(
+                op,
+                NirOp::Real(NirRealOp::Binary {
+                    operation: NirBinaryOp::Mul,
+                    left: NirRealSource::Place(_),
+                    right: NirRealSource::Place(_),
+                    ..
+                })
+            ))
     );
     assert!(
         program.routines[0]
@@ -903,6 +911,35 @@ fn real_expressions_lower_to_address_based_verified_nir() {
             .iter()
             .flat_map(|block| &block.ops)
             .any(|op| matches!(op, NirOp::Real(NirRealOp::Compare { .. })))
+    );
+    let half_static = program.statics[1].id;
+    assert!(
+        program.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .any(|op| matches!(
+                op,
+                NirOp::Real(NirRealOp::Binary {
+                    operation: NirBinaryOp::Add,
+                    right: NirRealSource::Static { id, .. },
+                    ..
+                }) if *id == half_static
+            ))
+    );
+    assert!(
+        !program.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .any(|op| matches!(
+                op,
+                NirOp::Real(NirRealOp::Copy {
+                    source: NirRealSource::Static { id, .. },
+                    ..
+                }) if *id == half_static
+            )),
+        "literal REAL operands must not be staged through a copy"
     );
 
     let optimized = optimize_program(&program).expect("REAL NIR should remain optimizer-clean");
@@ -923,6 +960,20 @@ fn verifier_rejects_malformed_real_static_data() {
         diagnostic
             .message
             .contains("must be an immutable six-byte rodata object")
+    }));
+}
+
+#[test]
+fn verifier_rejects_malformed_direct_real_operand_static_data() {
+    let mut program = lower_modern_source("REAL value PROC Main() value=value+1.25 RETURN");
+    program.statics[0].image.bytes.pop();
+
+    let diagnostics =
+        verify_program(&program).expect_err("short direct REAL operand static must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("does not name six-byte REAL static data")
     }));
 }
 
@@ -1058,6 +1109,31 @@ fn identical_real_literals_share_one_immutable_static_across_routines() {
         .collect::<Vec<_>>();
     assert_eq!(ids, [program.statics[0].id, program.statics[0].id]);
     verify_program(&program).expect("deduplicated REAL statics verify");
+}
+
+#[test]
+fn identical_direct_real_operands_share_one_static_across_routines() {
+    let program = lower_modern_source(
+        "REAL left,right PROC First() left=left+1.25 RETURN PROC Second() right=right+1.25 RETURN",
+    );
+
+    assert_eq!(program.statics.len(), 1);
+    let static_id = program.statics[0].id;
+    let ids = program
+        .routines
+        .iter()
+        .flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::Real(NirRealOp::Binary {
+                right: NirRealSource::Static { id, .. },
+                ..
+            }) => Some(*id),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(ids, [static_id, static_id]);
+    verify_program(&program).expect("deduplicated direct REAL operand statics verify");
 }
 
 #[test]

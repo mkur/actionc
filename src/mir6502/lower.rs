@@ -1338,14 +1338,7 @@ fn lower_real_op(
             else {
                 return;
             };
-            let source = match source {
-                NirRealSource::Place(source) => {
-                    lower_place_addr(routine, block, source, addr_defs, diagnostics)
-                }
-                NirRealSource::Static { id, .. } => {
-                    Some(MirAddr::Direct(MirMem::Static { id: *id, offset: 0 }))
-                }
-            };
+            let source = lower_real_source_addr(routine, block, source, addr_defs, diagnostics);
             let Some(source) = source else {
                 return;
             };
@@ -1370,10 +1363,11 @@ fn lower_real_op(
             else {
                 return;
             };
-            let Some(left) = lower_place_addr(routine, block, left, addr_defs, diagnostics) else {
+            let Some(left) = lower_real_source_addr(routine, block, left, addr_defs, diagnostics)
+            else {
                 return;
             };
-            let Some(right) = lower_place_addr(routine, block, right, addr_defs, diagnostics)
+            let Some(right) = lower_real_source_addr(routine, block, right, addr_defs, diagnostics)
             else {
                 return;
             };
@@ -1438,7 +1432,8 @@ fn lower_real_op(
             else {
                 return;
             };
-            let Some(operand) = lower_place_addr(routine, block, operand, addr_defs, diagnostics)
+            let Some(operand) =
+                lower_real_source_addr(routine, block, operand, addr_defs, diagnostics)
             else {
                 return;
             };
@@ -1454,10 +1449,11 @@ fn lower_real_op(
             right,
             ..
         } => {
-            let Some(left) = lower_place_addr(routine, block, left, addr_defs, diagnostics) else {
+            let Some(left) = lower_real_source_addr(routine, block, left, addr_defs, diagnostics)
+            else {
                 return;
             };
-            let Some(right) = lower_place_addr(routine, block, right, addr_defs, diagnostics)
+            let Some(right) = lower_real_source_addr(routine, block, right, addr_defs, diagnostics)
             else {
                 return;
             };
@@ -2175,6 +2171,23 @@ fn real_binary_service(operation: NirBinaryOp) -> Option<MirAtariFppService> {
         | NirBinaryOp::And
         | NirBinaryOp::Or
         | NirBinaryOp::Xor => None,
+    }
+}
+
+fn lower_real_source_addr(
+    routine: &str,
+    block: &str,
+    source: &NirRealSource,
+    addr_defs: &BTreeMap<TempId, MirAddrDef>,
+    diagnostics: &mut Vec<MirDiagnostic>,
+) -> Option<MirAddr> {
+    match source {
+        NirRealSource::Place(source) => {
+            lower_place_addr(routine, block, source, addr_defs, diagnostics)
+        }
+        NirRealSource::Static { id, .. } => {
+            Some(MirAddr::Direct(MirMem::Static { id: *id, offset: 0 }))
+        }
     }
 }
 

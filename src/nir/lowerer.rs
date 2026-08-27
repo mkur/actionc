@@ -753,19 +753,38 @@ fn deduplicate_real_statics(statics: &mut Vec<NirStaticData>, routines: &mut [Ni
     for routine in routines {
         for block in &mut routine.blocks {
             for op in &mut block.ops {
-                let NirOp::Real(NirRealOp::Copy {
-                    source: NirRealSource::Static { id, name },
-                    ..
-                }) = op
-                else {
+                let NirOp::Real(real) = op else {
                     continue;
                 };
-                if let Some((replacement_id, replacement_name)) = replacements.get(id) {
-                    *id = *replacement_id;
-                    *name = replacement_name.clone();
+                match real {
+                    NirRealOp::Copy { source, .. } => {
+                        rewrite_real_static_source(source, &replacements);
+                    }
+                    NirRealOp::Unary { operand, .. } => {
+                        rewrite_real_static_source(operand, &replacements);
+                    }
+                    NirRealOp::Binary { left, right, .. }
+                    | NirRealOp::Compare { left, right, .. } => {
+                        rewrite_real_static_source(left, &replacements);
+                        rewrite_real_static_source(right, &replacements);
+                    }
+                    NirRealOp::IntegerToReal { .. } | NirRealOp::RealToInteger { .. } => {}
                 }
             }
         }
+    }
+}
+
+fn rewrite_real_static_source(
+    source: &mut NirRealSource,
+    replacements: &BTreeMap<SymbolId, (SymbolId, String)>,
+) {
+    let NirRealSource::Static { id, name } = source else {
+        return;
+    };
+    if let Some((replacement_id, replacement_name)) = replacements.get(id) {
+        *id = *replacement_id;
+        *name = replacement_name.clone();
     }
 }
 
@@ -1413,11 +1432,11 @@ impl NirBuilder {
             destination: left.clone(),
             source: NirRealSource::Place(destination.clone()),
         }));
-        let right = self.real_place(value);
+        let right = self.real_source(value);
         self.push(NirOp::Real(NirRealOp::Binary {
             operation,
             destination,
-            left,
+            left: NirRealSource::Place(left),
             right,
         }));
     }
@@ -1464,7 +1483,7 @@ impl NirBuilder {
                     });
                     return;
                 };
-                let operand = self.real_place(operand);
+                let operand = self.real_source(operand);
                 self.push(NirOp::Real(NirRealOp::Unary {
                     operation,
                     destination,
@@ -1478,8 +1497,8 @@ impl NirBuilder {
                     });
                     return;
                 };
-                let left = self.real_place(left);
-                let right = self.real_place(right);
+                let left = self.real_source(left);
+                let right = self.real_source(right);
                 self.push(NirOp::Real(NirRealOp::Binary {
                     operation,
                     destination,
@@ -1497,6 +1516,18 @@ impl NirBuilder {
         let place = self.allocate_hidden_real_local();
         self.lower_real_expr_into(expr, place.clone());
         place
+    }
+
+    fn real_source(&mut self, expr: &SemExpr) -> NirRealSource {
+        match &expr.kind {
+            SemExprKind::Literal(SemLiteral::Real { source, value }) => {
+                self.intern_real_literal(&source.text, *value)
+            }
+            SemExprKind::Cast { expr: inner, .. } if is_real_value_type(&inner.ty) => {
+                self.real_source(inner)
+            }
+            _ => NirRealSource::Place(self.real_place(expr)),
+        }
     }
 
     fn allocate_hidden_real_local(&mut self) -> NirPlace {
@@ -1610,8 +1641,8 @@ impl NirBuilder {
                 if NirClassifier::is_nir_compare_op(*op)
                     && (is_real_value_type(&left.ty) || is_real_value_type(&right.ty)) =>
             {
-                let left = self.real_place(left);
-                let right = self.real_place(right);
+                let left = self.real_source(left);
+                let right = self.real_source(right);
                 let result = self.next_temp();
                 self.push(NirOp::Real(NirRealOp::Compare {
                     predicate: NirClassifier::compare_op(*op)
@@ -2173,13 +2204,8 @@ impl NirBuilder {
 
     fn nonzero_condition(&mut self, expr: &SemExpr) -> NirValue {
         if is_real_value_type(&expr.ty) {
-            let left = self.real_place(expr);
-            let right = self.allocate_hidden_real_local();
+            let left = self.real_source(expr);
             let zero = self.intern_real_literal("0", crate::atari_real::AtariReal::ZERO);
-            self.push(NirOp::Real(NirRealOp::Copy {
-                destination: right.clone(),
-                source: zero,
-            }));
             let result = self.next_temp();
             let result_type = NirFacts::condition_type();
             self.push(NirOp::Real(NirRealOp::Compare {
@@ -2187,7 +2213,7 @@ impl NirBuilder {
                 result,
                 result_type: result_type.clone(),
                 left,
-                right,
+                right: zero,
             }));
             return NirValue::Temp {
                 id: result,

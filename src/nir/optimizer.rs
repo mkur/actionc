@@ -956,7 +956,7 @@ fn rewrite_real_op_values(op: &mut NirRealOp, constants: &BTreeMap<TempId, NirVa
             ..
         } => {
             rewrite_place_values(destination, constants);
-            rewrite_place_values(operand, constants);
+            rewrite_real_source_values(operand, constants);
         }
         NirRealOp::Binary {
             destination,
@@ -965,12 +965,12 @@ fn rewrite_real_op_values(op: &mut NirRealOp, constants: &BTreeMap<TempId, NirVa
             ..
         } => {
             rewrite_place_values(destination, constants);
-            rewrite_place_values(left, constants);
-            rewrite_place_values(right, constants);
+            rewrite_real_source_values(left, constants);
+            rewrite_real_source_values(right, constants);
         }
         NirRealOp::Compare { left, right, .. } => {
-            rewrite_place_values(left, constants);
-            rewrite_place_values(right, constants);
+            rewrite_real_source_values(left, constants);
+            rewrite_real_source_values(right, constants);
         }
         NirRealOp::IntegerToReal {
             destination,
@@ -1030,6 +1030,12 @@ fn rewrite_place_values(place: &mut NirPlace, constants: &BTreeMap<TempId, NirVa
         | NirPlaceKind::Local { .. }
         | NirPlaceKind::Global { .. }
         | NirPlaceKind::Absolute(_) => {}
+    }
+}
+
+fn rewrite_real_source_values(source: &mut NirRealSource, constants: &BTreeMap<TempId, NirValue>) {
+    if let NirRealSource::Place(place) = source {
+        rewrite_place_values(place, constants);
     }
 }
 
@@ -1128,7 +1134,7 @@ fn collect_real_op_uses(op: &NirRealOp, out: &mut BTreeSet<TempId>) {
             ..
         } => {
             collect_place_uses(destination, out);
-            collect_place_uses(operand, out);
+            collect_real_source_uses(operand, out);
         }
         NirRealOp::Binary {
             destination,
@@ -1137,12 +1143,12 @@ fn collect_real_op_uses(op: &NirRealOp, out: &mut BTreeSet<TempId>) {
             ..
         } => {
             collect_place_uses(destination, out);
-            collect_place_uses(left, out);
-            collect_place_uses(right, out);
+            collect_real_source_uses(left, out);
+            collect_real_source_uses(right, out);
         }
         NirRealOp::Compare { left, right, .. } => {
-            collect_place_uses(left, out);
-            collect_place_uses(right, out);
+            collect_real_source_uses(left, out);
+            collect_real_source_uses(right, out);
         }
         NirRealOp::IntegerToReal {
             destination,
@@ -1197,6 +1203,12 @@ fn collect_place_uses(place: &NirPlace, out: &mut BTreeSet<TempId>) {
         | NirPlaceKind::Local { .. }
         | NirPlaceKind::Global { .. }
         | NirPlaceKind::Absolute(_) => {}
+    }
+}
+
+fn collect_real_source_uses(source: &NirRealSource, out: &mut BTreeSet<TempId>) {
+    if let NirRealSource::Place(place) = source {
+        collect_place_uses(place, out);
     }
 }
 

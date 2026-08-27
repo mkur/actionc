@@ -1030,32 +1030,14 @@ impl NirVerifier {
                     temp_facts,
                     "REAL copy destination",
                 );
-                match source {
-                    NirRealSource::Place(source) => self.real_place(
-                        routine,
-                        block,
-                        source,
-                        op_index,
-                        temp_facts,
-                        "REAL copy source",
-                    ),
-                    NirRealSource::Static { id, name } => {
-                        let valid = self.static_sizes.get(id) == Some(&6)
-                            && self
-                                .static_types
-                                .get(id)
-                                .is_some_and(|ty| matches!(ty.kind, NirTypeKind::Real));
-                        if !valid {
-                            self.diagnostics.push(NirDiagnostic::block(
-                                &routine.name,
-                                &block.label,
-                                format!(
-                                    "REAL copy source `{name}` does not name six-byte REAL static data"
-                                ),
-                            ));
-                        }
-                    }
-                }
+                self.real_source(
+                    routine,
+                    block,
+                    source,
+                    op_index,
+                    temp_facts,
+                    "REAL copy source",
+                );
             }
             NirRealOp::Unary {
                 operation: _,
@@ -1070,7 +1052,7 @@ impl NirVerifier {
                     temp_facts,
                     "REAL unary destination",
                 );
-                self.real_place(
+                self.real_source(
                     routine,
                     block,
                     operand,
@@ -1103,7 +1085,7 @@ impl NirVerifier {
                     temp_facts,
                     "REAL binary destination",
                 );
-                self.real_place(
+                self.real_source(
                     routine,
                     block,
                     left,
@@ -1111,7 +1093,7 @@ impl NirVerifier {
                     temp_facts,
                     "REAL binary left operand",
                 );
-                self.real_place(
+                self.real_source(
                     routine,
                     block,
                     right,
@@ -1127,7 +1109,7 @@ impl NirVerifier {
                 left,
                 right,
             } => {
-                self.real_place(
+                self.real_source(
                     routine,
                     block,
                     left,
@@ -1135,7 +1117,7 @@ impl NirVerifier {
                     temp_facts,
                     "REAL compare left operand",
                 );
-                self.real_place(
+                self.real_source(
                     routine,
                     block,
                     right,
@@ -1320,6 +1302,36 @@ impl NirVerifier {
             | NirPlaceKind::Deref { .. }
             | NirPlaceKind::Index { .. }
             | NirPlaceKind::Field { .. } => {}
+        }
+    }
+
+    fn real_source(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        source: &NirRealSource,
+        op_index: usize,
+        temp_facts: &NirTempFacts<'_>,
+        label: &str,
+    ) {
+        match source {
+            NirRealSource::Place(place) => {
+                self.real_place(routine, block, place, op_index, temp_facts, label)
+            }
+            NirRealSource::Static { id, name } => {
+                let valid = self.static_sizes.get(id) == Some(&6)
+                    && self
+                        .static_types
+                        .get(id)
+                        .is_some_and(|ty| matches!(ty.kind, NirTypeKind::Real));
+                if !valid {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("{label} `{name}` does not name six-byte REAL static data"),
+                    ));
+                }
+            }
         }
     }
 

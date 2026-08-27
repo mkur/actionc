@@ -211,7 +211,7 @@ fn record_op_uses(
                 ..
             } => {
                 record_place(uses, destination, site(NirUseKind::StorePlace));
-                record_place(uses, operand, site(NirUseKind::LoadPlace));
+                record_real_source(uses, operand, site(NirUseKind::LoadPlace));
             }
             NirRealOp::Binary {
                 destination,
@@ -220,12 +220,12 @@ fn record_op_uses(
                 ..
             } => {
                 record_place(uses, destination, site(NirUseKind::StorePlace));
-                record_place(uses, left, site(NirUseKind::LoadPlace));
-                record_place(uses, right, site(NirUseKind::LoadPlace));
+                record_real_source(uses, left, site(NirUseKind::LoadPlace));
+                record_real_source(uses, right, site(NirUseKind::LoadPlace));
             }
             NirRealOp::Compare { left, right, .. } => {
-                record_place(uses, left, site(NirUseKind::LoadPlace));
-                record_place(uses, right, site(NirUseKind::LoadPlace));
+                record_real_source(uses, left, site(NirUseKind::LoadPlace));
+                record_real_source(uses, right, site(NirUseKind::LoadPlace));
             }
             NirRealOp::IntegerToReal {
                 destination,
@@ -328,6 +328,16 @@ fn record_place(uses: &mut BTreeMap<TempId, Vec<NirUseSite>>, place: &NirPlace, 
         | NirPlaceKind::Local { .. }
         | NirPlaceKind::Global { .. }
         | NirPlaceKind::Absolute(_) => {}
+    }
+}
+
+fn record_real_source(
+    uses: &mut BTreeMap<TempId, Vec<NirUseSite>>,
+    source: &NirRealSource,
+    site: NirUseSite,
+) {
+    if let NirRealSource::Place(place) = source {
+        record_place(uses, place, site);
     }
 }
 

@@ -521,20 +521,20 @@ pub enum NirRealOp {
     Unary {
         operation: NirUnaryOp,
         destination: NirPlace,
-        operand: NirPlace,
+        operand: NirRealSource,
     },
     Binary {
         operation: NirBinaryOp,
         destination: NirPlace,
-        left: NirPlace,
-        right: NirPlace,
+        left: NirRealSource,
+        right: NirRealSource,
     },
     Compare {
         predicate: NirCompareOp,
         result: TempId,
         result_type: NirType,
-        left: NirPlace,
-        right: NirPlace,
+        left: NirRealSource,
+        right: NirRealSource,
     },
     IntegerToReal {
         destination: NirPlace,

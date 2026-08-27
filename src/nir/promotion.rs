@@ -808,7 +808,7 @@ fn rewrite_real_op_values(op: &mut NirRealOp, replacements: &BTreeMap<TempId, Ni
             ..
         } => {
             rewrite_place_values(destination, replacements);
-            rewrite_place_values(operand, replacements);
+            rewrite_real_source_values(operand, replacements);
         }
         NirRealOp::Binary {
             destination,
@@ -817,12 +817,12 @@ fn rewrite_real_op_values(op: &mut NirRealOp, replacements: &BTreeMap<TempId, Ni
             ..
         } => {
             rewrite_place_values(destination, replacements);
-            rewrite_place_values(left, replacements);
-            rewrite_place_values(right, replacements);
+            rewrite_real_source_values(left, replacements);
+            rewrite_real_source_values(right, replacements);
         }
         NirRealOp::Compare { left, right, .. } => {
-            rewrite_place_values(left, replacements);
-            rewrite_place_values(right, replacements);
+            rewrite_real_source_values(left, replacements);
+            rewrite_real_source_values(right, replacements);
         }
         NirRealOp::IntegerToReal {
             destination,
@@ -849,6 +849,15 @@ fn rewrite_place_values(place: &mut NirPlace, replacements: &BTreeMap<TempId, Ni
         }
         NirPlaceKind::Field { base, .. } => rewrite_place_values(base, replacements),
         _ => {}
+    }
+}
+
+fn rewrite_real_source_values(
+    source: &mut NirRealSource,
+    replacements: &BTreeMap<TempId, NirValue>,
+) {
+    if let NirRealSource::Place(place) = source {
+        rewrite_place_values(place, replacements);
     }
 }
 
