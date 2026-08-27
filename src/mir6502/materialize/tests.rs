@@ -13846,6 +13846,65 @@ fn ssa_lite_keeps_accumulator_reload_after_calls() {
 }
 
 #[test]
+fn ssa_lite_keeps_accumulator_reload_after_boolean_temp_compare() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Local {
+        id: LocalId(0),
+        offset: 0,
+    };
+    let ops = vec![
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Compare {
+            dst: MirCondDest::Temp(MirTempId(0)),
+            op: MirCompareOp::Ge,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0x80),
+            width: MirWidth::Byte,
+            signed: false,
+        },
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(source.clone()),
+            width: MirWidth::Byte,
+        },
+    ];
+    let mut stats = MirPeepholeStats::default();
+
+    let rewritten = fold_ssa_lite_byte_loads(
+        ops,
+        RoutineId(0),
+        &layout,
+        &MirTerminator::Return,
+        &mut stats,
+    );
+
+    assert_eq!(
+        rewritten
+            .iter()
+            .filter(|op| matches!(
+                op,
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(mem),
+                    width: MirWidth::Byte,
+                } if *mem == source
+            ))
+            .count(),
+        2
+    );
+    assert!(
+        !stats
+            .aggregate_counts()
+            .contains_key("ssa-lite-redundant-reloads")
+    );
+}
+
+#[test]
 fn ssa_lite_reports_reload_retained_at_call_boundary() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
@@ -15427,6 +15486,36 @@ fn ssa_lite_v2_observes_temp_alias_copy_prop_potential() {
     assert_eq!(stats.temp_aliases_learned, 1);
     assert_eq!(stats.replaceable_temp_uses, 1);
     assert_eq!(stats.copy_prop_candidates, 1);
+}
+
+#[test]
+fn ssa_lite_v2_invalidates_accumulator_fact_for_boolean_temp_compare_only() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let compare = |dst| MirOp::Compare {
+        dst,
+        op: MirCompareOp::Ge,
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(0x80),
+        width: MirWidth::Byte,
+        signed: false,
+    };
+    let load = MirOp::LoadImm {
+        dst: MirDef::Reg(MirReg::A),
+        value: 0x42,
+        width: MirWidth::Byte,
+    };
+
+    let boolean_stats = scan_ssa_lite_v2_observability(
+        &[load.clone(), compare(MirCondDest::Temp(MirTempId(0)))],
+        RoutineId(0),
+        &layout,
+    );
+    let flags_stats =
+        scan_ssa_lite_v2_observability(&[load, compare(MirCondDest::Flags)], RoutineId(0), &layout);
+
+    assert_eq!(boolean_stats.facts_killed_by_unknown, 1);
+    assert_eq!(flags_stats.facts_killed_by_unknown, 0);
 }
 
 #[test]

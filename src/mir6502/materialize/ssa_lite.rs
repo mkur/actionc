@@ -343,7 +343,16 @@ impl SsaLiteValueEnv {
                     self.kill_reg(MirReg::Y);
                 }
             }
-            MirOp::Compare { .. } => {}
+            MirOp::Compare {
+                dst: MirCondDest::Temp(_),
+                ..
+            } => {
+                self.kill_reg(MirReg::A);
+            }
+            MirOp::Compare {
+                dst: MirCondDest::Flags,
+                ..
+            } => {}
             MirOp::PackedRealCompare { .. } => {
                 self.kill_reg(MirReg::A);
             }
@@ -649,7 +658,16 @@ impl SsaLiteV2ObserveEnv {
                     SsaLiteV2KillReason::Store,
                 );
             }
-            MirOp::Compare { .. } => {}
+            MirOp::Compare {
+                dst: MirCondDest::Temp(_),
+                ..
+            } => {
+                self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
+            }
+            MirOp::Compare {
+                dst: MirCondDest::Flags,
+                ..
+            } => {}
             MirOp::PackedRealCompare { .. } => {
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
             }
