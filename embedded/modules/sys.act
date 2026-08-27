@@ -35,6 +35,8 @@ PUBLIC EXTERNAL PROC PokeC(CARD address, value)
 PUBLIC EXTERNAL PROC Error(BYTE code, x, y)
 PUBLIC EXTERNAL PROC Break()
 
+; Graphics color index consumed by Plot, DrawTo, and Fill.
+PUBLIC VOLATILE BYTE COLOR=$02FD
 PUBLIC EXTERNAL PROC Graphics(BYTE mode)
 PUBLIC EXTERNAL PROC Position(CARD column, BYTE row)
 PUBLIC EXTERNAL PROC DrawTo(CARD column, BYTE row)

@@ -195,8 +195,8 @@ The public `SYS` groups are:
 - strings: `SCompare`, `SCopy`, `SCopyS`, `SAssign`, `StrB`, `StrC`, `StrI`;
 - memory, devices, and control: `Rand`, `Sound`, `SndRst`, `Paddle`, `PTrig`,
   `Stick`, `STrig`, `Peek`, `PeekC`, `Poke`, `PokeC`, `Error`, `Break`;
-- graphics: `Graphics`, `Position`, `DrawTo`, `Locate`, `Plot`, `SetColor`,
-  `Fill`;
+- graphics: the `COLOR` drawing latch plus `Graphics`, `Position`, `DrawTo`,
+  `Locate`, `Plot`, `SetColor`, and `Fill`;
 - character and string I/O: `Put`, `PutE`, `PutD`, `PutDE`, `Print`, `PrintE`,
   `PrintD`, `PrintDE`, `PrintF`, `PrintH`, `GetD`;
 - input and file/device I/O: `InputS`, `InputSD`, `InputMD`, `InputD`, `Open`,

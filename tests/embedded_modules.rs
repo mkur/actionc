@@ -390,7 +390,9 @@ PROC Main()
   SYS.Position(10,20)
   SYS.DrawTo(30,40)
   pixel=SYS.Locate(10,20)
+  SYS.COLOR=2
   SYS.Plot(10,20)
+  pixel=SYS.COLOR
   SYS.SetColor(0,8,6)
   SYS.Fill(30,40)
 RETURN
@@ -401,8 +403,17 @@ ENDMODULE
 
     for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
         let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
-        compile_file(&source, &options)
+        let compiled = compile_file(&source, &options)
             .unwrap_or_else(|error| panic!("compile standalone SYS graphics in {mode:?}: {error}"));
+        let bytes = compiled.object_bytes();
+        assert!(
+            bytes.windows(3).any(|bytes| bytes == [0x8D, 0xFD, 0x02]),
+            "{mode:?} must store SYS.COLOR at $02FD"
+        );
+        assert!(
+            bytes.windows(3).any(|bytes| bytes == [0xAD, 0xFD, 0x02]),
+            "{mode:?} must load SYS.COLOR from $02FD"
+        );
     }
 }
 

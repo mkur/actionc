@@ -874,8 +874,8 @@ pub enum SemAddressSpace {
     IndirectIndexedY,
 }
 
-fn retain_referenced_external_routines(program: &mut SemProgram) {
-    let external = program
+fn retain_referenced_external_interface_items(program: &mut SemProgram) {
+    let external_routines = program
         .modules
         .iter()
         .flat_map(|module| &module.items)
@@ -883,6 +883,36 @@ fn retain_referenced_external_routines(program: &mut SemProgram) {
             SemItem::Routine(routine) if routine.is_external => Some(routine.symbol.id),
             _ => None,
         })
+        .collect::<HashSet<_>>();
+    let external_storage = program
+        .modules
+        .iter()
+        // SYS is an always-available compiler interface. Its fixed volatile
+        // storage belongs in executable SemIR only when source references it.
+        .filter(|module| {
+            module
+                .path
+                .as_ref()
+                .is_some_and(|path| path.canonical_name() == "sys")
+        })
+        .flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            SemItem::Declaration(declaration)
+                if declaration.symbol.is_volatile
+                    && declaration
+                        .initializer
+                        .as_ref()
+                        .and_then(const_u16_sem_expr)
+                        .is_some() =>
+            {
+                Some(declaration.symbol.id)
+            }
+            _ => None,
+        })
+        .collect::<HashSet<_>>();
+    let external = external_routines
+        .union(&external_storage)
+        .copied()
         .collect::<HashSet<_>>();
     if external.is_empty() {
         return;
@@ -896,7 +926,8 @@ fn retain_referenced_external_routines(program: &mut SemProgram) {
     }
     for module in &mut program.modules {
         module.items.retain(|item| {
-            !matches!(item, SemItem::Routine(routine) if routine.is_external && !referenced.contains(&routine.symbol.id))
+            !matches!(item, SemItem::Routine(routine) if external_routines.contains(&routine.symbol.id) && !referenced.contains(&routine.symbol.id))
+                && !matches!(item, SemItem::Declaration(declaration) if external_storage.contains(&declaration.symbol.id) && !referenced.contains(&declaration.symbol.id))
         });
     }
 }
@@ -1955,7 +1986,7 @@ impl<'a> IrBuilder<'a> {
         };
         if matches!(program.source_kind, crate::ast::SourceUnitKind::Legacy) {
             self.attach_legacy_sys_interface(&mut lowered);
-            retain_referenced_external_routines(&mut lowered);
+            retain_referenced_external_interface_items(&mut lowered);
             lowered.modules.retain(|module| {
                 !module
                     .path
@@ -2038,7 +2069,7 @@ impl<'a> IrBuilder<'a> {
             .as_ref()
             .is_some_and(|path| path.canonical_name() == "sys")
         {
-            retain_referenced_external_routines(&mut program);
+            retain_referenced_external_interface_items(&mut program);
         }
         program
     }
@@ -2084,7 +2115,7 @@ impl<'a> IrBuilder<'a> {
             root_module: None,
             entry_routine,
         };
-        retain_referenced_external_routines(&mut program);
+        retain_referenced_external_interface_items(&mut program);
         program
     }
 

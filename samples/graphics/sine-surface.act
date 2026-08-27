@@ -2,36 +2,35 @@
 ;
 ; The original used BASIC's SQR and SIN. MATH supplies pointer-oriented
 ; implementations built on native REAL and the target math provider.
-; Press the Atari key with scan code 42 to stop drawing; the finished picture
-; remains on screen.
 MODULE SINE_SURFACE
 
+USE ATARI.OS
 USE SYS
 USE MATH
 
-BYTE PlotColor=$02FD,
-     KeyCode=$02FC
-
-PROC ProjectAndPlot(REAL POINTER xx, yy, zz)
-  INT x, y
+PROC ProjectAndPlot(REAL POINTER surfaceX, surfaceY, surfaceZ)
+  INT screenX, screenY
   CARD column
   BYTE row
   REAL projectedX, projectedY
 
-  projectedX=xx^+zz^+160
-  projectedY=yy^-zz^+100
-  x=INT(projectedX)
-  y=INT(projectedY)
-  y=191-y
+  ; Project the three-dimensional point onto the screen.
+  projectedX=surfaceX^+surfaceZ^+160
+  projectedY=surfaceY^-surfaceZ^+100
+  screenX=INT(projectedX)
+  screenY=INT(projectedY)
+  screenY=191-screenY
 
-  IF x>=0 AND x<=319 AND y>=0 AND y<=191 THEN
-    column=CARD(x)
-    row=BYTE(y)
-    PlotColor=1
+  IF screenX>=0 AND screenX<=319 AND screenY>=0 AND screenY<=191 THEN
+    column=CARD(screenX)
+    row=BYTE(screenY)
+
+    ; Plot the visible surface, then shade everything below it.
+    SYS.COLOR=1
     SYS.Plot(column,row)
-    IF y<190 THEN
+    IF screenY<190 THEN
       row==+1
-      PlotColor=2
+      SYS.COLOR=2
       SYS.Plot(column,row)
       SYS.DrawTo(column,191)
     FI
@@ -39,49 +38,60 @@ PROC ProjectAndPlot(REAL POINTER xx, yy, zz)
 RETURN
 
 PROC Main()
-  INT zi, xi, xl
-  REAL xr, xf, yf, zt, zz, xlReal
-  REAL radiusSquared, xt, xx, yy
-  REAL fundamental, harmonic, tripleXt
+  INT zIndex, xIndex, xLimit
+  REAL maximumAngle, angleScale, heightScale
+  REAL scaledZ, surfaceZ, xLimitReal
+  REAL radiusSquared, angle, surfaceX, surfaceY
+  REAL fundamentalWave, thirdHarmonic, tripleAngle
 
+  ; Graphics 24 is a full-screen 320 by 192 bitmap.
   SYS.Graphics(24)
-  PlotColor=1
-  KeyCode=$FF
+  SYS.SetColor(2,2,4) ; background
+  SYS.SetColor(4,2,4) ; outer frame
+  SYS.COLOR=1
 
-  xr=1.5*MATH.Pi
-  xf=xr/144
-  yf=56
+  maximumAngle=1.5*MATH.Pi
+  angleScale=maximumAngle/144
+  heightScale=56
 
-  zi=-100
-  WHILE zi<100 AND KeyCode#42
+  ; Draw the surface one depth slice at a time.
+  zIndex=-100
+  WHILE zIndex<100
   DO
-    IF zi>=-64 AND zi<=64 THEN
-      zt=zi*144.0/64
-      zz=zi
-      radiusSquared=144.0*144.0-zt*zt
-      MATH.Sqr(@radiusSquared,@xlReal)
-      xl=INT(xlReal+0.5)
+    IF zIndex>=-64 AND zIndex<=64 THEN
+      scaledZ=zIndex*144.0/64
+      surfaceZ=zIndex
 
-      xi=-xl
-      WHILE xi<=xl
+      ; Find the horizontal span of this slice inside a radius-144 circle.
+      radiusSquared=144.0*144.0-scaledZ*scaledZ
+      MATH.Sqr(@radiusSquared,@xLimitReal)
+      xLimit=INT(xLimitReal+0.5)
+
+      xIndex=-xLimit
+      WHILE xIndex<=xLimit
       DO
-        radiusSquared=xi*xi+zt*zt
-        MATH.Sqr(@radiusSquared,@xt)
-        xt==*xf
-        xx=xi
+        OS.ATRACT=0
 
-        MATH.Sin(@xt,@fundamental)
-        tripleXt=3*xt
-        MATH.Sin(@tripleXt,@harmonic)
-        yy=(fundamental+0.4*harmonic)*yf
-        ProjectAndPlot(@xx,@yy,@zz)
-        xi==+1
+        ; Combine a sine wave with its third harmonic to shape the surface.
+        radiusSquared=xIndex*xIndex+scaledZ*scaledZ
+        MATH.Sqr(@radiusSquared,@angle)
+        angle==*angleScale
+        surfaceX=xIndex
+
+        MATH.Sin(@angle,@fundamentalWave)
+        tripleAngle=3*angle
+        MATH.Sin(@tripleAngle,@thirdHarmonic)
+        surfaceY=(fundamentalWave+0.4*thirdHarmonic)*heightScale
+
+        ProjectAndPlot(@surfaceX,@surfaceY,@surfaceZ)
+        xIndex==+1
       OD
     FI
-    zi==+1
+    zIndex==+1
   OD
 
-  DO OD
+  ; Keep the completed picture visible without entering attract mode.
+  DO OS.ATRACT=0 OD
 RETURN
 
 ENDMODULE

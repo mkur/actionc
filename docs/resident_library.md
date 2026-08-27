@@ -67,6 +67,8 @@ PROC Point(BYTE chan, CARD sector, BYTE offset)
 ; Graphics and game-controller routines
 ; ----------------------------------------------------------------------
 
+VOLATILE BYTE COLOR=$02FD
+
 PROC Graphics(BYTE mode)
 PROC SetColor(BYTE register, hue, luminance)
 

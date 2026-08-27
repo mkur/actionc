@@ -245,7 +245,7 @@ more probes say otherwise.
 | `Zero` | `PROC` | `PROC Zero(BYTE POINTER a,CARD s)` | `$A78A` | `resident_misc_memory.act` emits `JSR $A78A`; `SYS.ACT` declares the signature |
 | `SetBlock` | `PROC` | `PROC SetBlock(BYTE POINTER a,CARD s,BYTE v)` | `$A790` | `resident_misc_memory.act` emits `JSR $A790` |
 | `MoveBlock` | `PROC` | `PROC MoveBlock(BYTE POINTER d,s,CARD sz)` | `$A7B3` | `resident_misc_memory.act` emits `JSR $A7B3` |
-| `color` | byte storage | graphics color latch | `$02FD` | `graphics_calls.act` stores `color=3` as `STA $02FD`; `SYS.ACT` `Plot` implementation also reads `$2FD` |
+| `color` / `SYS.COLOR` | byte storage | graphics color latch | `$02FD` | both names address the same fixed storage; `graphics_calls.act` stores `color=3` as `STA $02FD`; `SYS.ACT` `Plot` implementation also reads `$02FD` |
 | `device` | byte storage | default I/O device/channel | `$B7` | `put_device_call.act` VM probe compiles `d=device` as `LDA $B7` |
 
 ## Probe Details

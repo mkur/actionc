@@ -486,7 +486,9 @@ a transient numeric `SymbolId`. Module aliases never rename the defining
 symbol's emitted label.
 
 `USE` clauses and public fixed-address storage emit no bytes by themselves.
-Ordinary module data and routines use existing layout and dead-code policies.
+Unreferenced fixed-address storage in the compiler-owned `SYS` interface is
+also omitted from executable SemIR and NIR. Ordinary module data and routines
+use existing layout and dead-code policies.
 
 ## Implementation Slices
 
