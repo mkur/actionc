@@ -67,6 +67,9 @@ pub fn format_program(program: &SemProgram) -> String {
 pub struct SemProgram {
     pub modules: Vec<SemModule>,
     pub layout: SemanticLayoutFacts,
+    /// Stable identity of the source root module. Legacy source regions share
+    /// `None`; named compilations use the loader-assigned module identity.
+    pub root_module: Option<ModuleId>,
     /// Stable identity of the last source PROC in the root program which emits
     /// code. Link selection and runtime composition must preserve this value
     /// instead of inferring an entry from transformed routine order.
@@ -1947,6 +1950,7 @@ impl<'a> IrBuilder<'a> {
         let mut lowered = SemProgram {
             modules,
             layout: self.model.layout.clone(),
+            root_module: None,
             entry_routine,
         };
         if matches!(program.source_kind, crate::ast::SourceUnitKind::Legacy) {
@@ -2025,6 +2029,7 @@ impl<'a> IrBuilder<'a> {
         let mut program = SemProgram {
             modules,
             layout: self.model.layout.clone(),
+            root_module: Some(compilation.root),
             entry_routine,
         };
         if !compilation
@@ -2076,6 +2081,7 @@ impl<'a> IrBuilder<'a> {
         let mut program = SemProgram {
             modules,
             layout: self.model.layout.clone(),
+            root_module: None,
             entry_routine,
         };
         retain_referenced_external_routines(&mut program);

@@ -790,7 +790,7 @@ fn module_derived_listing_is_byte_identical_across_compilations() {
 }
 
 #[test]
-fn loaded_user_modules_are_emitted_whole_in_all_modes() {
+fn optimized_modes_select_only_reachable_user_module_routines() {
     let temp = TestDir::new();
     let library = temp.path().join("lib/util.act");
     fs::create_dir_all(library.parent().expect("library parent")).expect("create module directory");
@@ -800,6 +800,10 @@ fn loaded_user_modules_are_emitted_whole_in_all_modes() {
 BYTE sink
 
 PUBLIC PROC Used()
+  Private()
+RETURN
+
+PROC Private()
   sink=1
 RETURN
 
@@ -830,15 +834,20 @@ ENDMODULE
         CompileMode::Mir6502,
     ] {
         let compiled = compile_file(&source, &CompileOptions::for_mode(mode))
-            .unwrap_or_else(|error| panic!("compile whole user module in {mode:?}: {error}"));
+            .unwrap_or_else(|error| panic!("compile selected user module in {mode:?}: {error}"));
         let listing = compiled.source_listing();
         assert!(
             listing.contains("M_LIB_UTIL_USED_"),
             "{mode:?} omitted the referenced user routine:\n{listing}"
         );
         assert!(
-            listing.contains("M_LIB_UTIL_UNUSED_"),
-            "{mode:?} selectively removed an unreferenced user routine:\n{listing}"
+            listing.contains("M_LIB_UTIL_PRIVATE_"),
+            "{mode:?} omitted a private transitive callee:\n{listing}"
+        );
+        let expects_unused = mode == CompileMode::Compatibility;
+        assert!(
+            listing.contains("M_LIB_UTIL_UNUSED_") == expects_unused,
+            "{mode:?} has the wrong unreferenced-routine policy:\n{listing}"
         );
     }
 }

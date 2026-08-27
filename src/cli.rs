@@ -421,6 +421,26 @@ fn run_main(flavor: CliFlavor) {
         }
     };
     let semir = ir::lower_compilation(&loaded, &model);
+    let link_policy = if profile == CodegenProfile::Modern {
+        crate::linker::SemLinkPolicy::EntryReachable
+    } else {
+        crate::linker::SemLinkPolicy::RetainAll
+    };
+    let semir = match crate::linker::select_semir(&semir, link_policy) {
+        Ok(semir) => semir,
+        Err(message) => {
+            print_diagnostics_with_source(
+                vec![crate::diagnostic::Diagnostic::new(
+                    crate::source::Span::new(0, 0),
+                    message,
+                )],
+                &loaded.source,
+                Some(&loaded.source_map),
+                diagnostic_byte_ranges,
+            );
+            process::exit(1);
+        }
+    };
     let named = matches!(program.source_kind, crate::ast::SourceUnitKind::Named(_));
 
     if runtime == Runtime::Standalone {
@@ -628,7 +648,7 @@ fn run_main(flavor: CliFlavor) {
             return;
         }
 
-        let result = if named {
+        let result = if named || profile == CodegenProfile::Modern {
             generate_semir_profile_with_origin(&semir, origin, profile)
         } else {
             generate_profile_with_origin(program, origin, profile)

@@ -259,7 +259,23 @@ pub(crate) fn compile_file_with_request(
             )
         })?;
     let semir = ir::lower_compilation(&loaded, &model);
-    let _link_audit = crate::linker::semir_link_graph(&semir);
+    let link_policy = if request.profile == CodegenProfile::Modern {
+        crate::linker::SemLinkPolicy::EntryReachable
+    } else {
+        crate::linker::SemLinkPolicy::RetainAll
+    };
+    let semir = crate::linker::select_semir(&semir, link_policy).map_err(|message| {
+        CompileError::from_source_diagnostics(
+            CompilerPhase::Semantic,
+            vec![crate::diagnostic::Diagnostic::new(
+                crate::source::Span::new(0, 0),
+                message,
+            )],
+            &loaded.source,
+            path,
+            Some(&loaded.source_map),
+        )
+    })?;
     let uses_native_real = first_native_real_codegen_use(&model).is_some();
     let uses_lexical_blocks = !model.lexical_blocks.is_empty();
     if request.runtime == Runtime::Standalone {
@@ -437,7 +453,12 @@ fn compile_classic(
     }
 
     let result = match request.codegen_source {
-        CodegenSource::Ast if !named && !uses_native_real && !uses_lexical_blocks => {
+        CodegenSource::Ast
+            if request.profile == CodegenProfile::Compat
+                && !named
+                && !uses_native_real
+                && !uses_lexical_blocks =>
+        {
             let materialized = materialize_constants(program, model);
             match request.origin {
                 Some(origin) => generate_profile_at_origin(&materialized, origin, request.profile),

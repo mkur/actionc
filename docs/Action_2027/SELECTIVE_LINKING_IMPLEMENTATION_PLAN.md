@@ -3,11 +3,12 @@
 ## Status
 
 This note defines the migration from backend-specific runtime selection and
-whole-module application emission to one common selective linker. Slices 1 and
-2 are implemented: the Action! program entry is an explicit SemIR identity,
-application/user-module dependencies are extracted in audit mode, and resident
-SYS selection uses a generated embedded graph. Application routine or storage
-pruning is not enabled yet.
+whole-module application emission to one common selective linker. Slices 1
+through 3 are implemented: the Action! program entry and root module are
+explicit SemIR identities, application/user-module dependencies use the common
+graph, optimized classic and MIR6502 receive the same selected SemIR, and
+resident SYS selection uses a generated embedded graph. Compatibility mode
+still retains the whole application through its root policy.
 
 ## Goal
 
@@ -226,6 +227,15 @@ reason in the link plan.
 - Enable pruning for optimized classic and MIR6502.
 - Keep compatibility application output whole through its root policy.
 - Replace the test which currently requires unused user routines in all modes.
+
+Implemented behavior preserves original module/item order and semantic IDs.
+The entry routine and root-module top-level items seed optimized selection;
+routine-address initializers that escape through emitted storage are also
+roots. References then retain calls, ordinary storage, aliases, initializer
+relocations, and structured assembly targets transitively. A reachable opaque
+machine or inline-assembly body conservatively retains its whole source module
+as an explicit layout group. Compile-time definitions and type/record metadata
+remain available but emit no target storage.
 
 ### 4. SYS provider migration
 

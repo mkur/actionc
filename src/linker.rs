@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::includes::ModuleId;
 use crate::semantic::SymbolId;
 use crate::semantic::ir::{
     SemArrayDecay, SemCall, SemCallable, SemCondition, SemDeclaration, SemDeclarationStorage,
@@ -156,12 +157,21 @@ pub(crate) struct LinkSelection<Node> {
 pub(crate) enum SemLinkNode {
     Routine(SymbolId),
     Storage(SymbolId),
-    TopLevel(u32),
+    TopLevel {
+        module: Option<ModuleId>,
+        ordinal: u32,
+    },
 }
 
-/// Extract source-level dependencies without pruning. Slice 3 will consume
-/// this graph to filter SemIR; slice 2 deliberately uses it only for audit and
-/// determinism checks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SemLinkPolicy {
+    RetainAll,
+    EntryReachable,
+}
+
+/// Extract source-level dependencies independently of the selection policy.
+/// Optimized builds consume this graph to filter SemIR; compatibility builds
+/// seed every executable node through the same closure implementation.
 pub(crate) fn semir_link_graph(program: &SemProgram) -> LinkGraph<SemLinkNode> {
     let routine_ids = program
         .modules
@@ -181,20 +191,47 @@ pub(crate) fn semir_link_graph(program: &SemProgram) -> LinkGraph<SemLinkNode> {
             _ => None,
         })
         .collect::<BTreeSet<_>>();
-    let mut builder = SemGraphBuilder {
-        graph: LinkGraph::default(),
-        routine_ids,
-        storage_ids,
-    };
-    for id in &builder.routine_ids {
-        builder.graph.add_node(SemLinkNode::Routine(*id));
-    }
-    for id in &builder.storage_ids {
-        builder.graph.add_node(SemLinkNode::Storage(*id));
+    let mut graph = LinkGraph::default();
+    let mut node_modules = BTreeMap::new();
+    for module in &program.modules {
+        let mut top_level = 0u32;
+        for item in &module.items {
+            match item {
+                SemItem::Routine(routine) => {
+                    let node = SemLinkNode::Routine(routine.symbol.id);
+                    graph.add_node(node);
+                    node_modules.insert(node, module.id);
+                }
+                SemItem::Declaration(declaration) => {
+                    let node = SemLinkNode::Storage(declaration.symbol.id);
+                    graph.add_node(node);
+                    node_modules.insert(node, module.id);
+                }
+                SemItem::Set(_) | SemItem::Statement(_) => {
+                    let node = SemLinkNode::TopLevel {
+                        module: module.id,
+                        ordinal: top_level,
+                    };
+                    top_level = top_level.wrapping_add(1);
+                    graph.add_node(node);
+                    node_modules.insert(node, module.id);
+                }
+                SemItem::Define(_)
+                | SemItem::Const(_)
+                | SemItem::Include(_)
+                | SemItem::Unsupported { .. } => {}
+            }
+        }
     }
 
-    let mut top_level = 0u32;
+    let mut builder = SemGraphBuilder {
+        graph,
+        routine_ids,
+        storage_ids,
+        opaque_owners: BTreeSet::new(),
+    };
     for module in &program.modules {
+        let mut top_level = 0u32;
         for item in &module.items {
             match item {
                 SemItem::Routine(routine) => {
@@ -213,32 +250,134 @@ pub(crate) fn semir_link_graph(program: &SemProgram) -> LinkGraph<SemLinkNode> {
                     builder.declaration(SemLinkNode::Storage(declaration.symbol.id), declaration);
                 }
                 SemItem::Set(set) => {
-                    let owner = SemLinkNode::TopLevel(top_level);
+                    let owner = SemLinkNode::TopLevel {
+                        module: module.id,
+                        ordinal: top_level,
+                    };
                     top_level = top_level.wrapping_add(1);
-                    builder.graph.add_node(owner);
                     builder.expression(owner, &set.address, LinkReason::StorageReference);
                     builder.expression(owner, &set.value, LinkReason::StorageReference);
                 }
                 SemItem::Statement(statement) => {
-                    let owner = SemLinkNode::TopLevel(top_level);
+                    let owner = SemLinkNode::TopLevel {
+                        module: module.id,
+                        ordinal: top_level,
+                    };
                     top_level = top_level.wrapping_add(1);
-                    builder.graph.add_node(owner);
                     builder.statement(owner, statement);
                 }
-                SemItem::Define(_)
-                | SemItem::Const(_)
-                | SemItem::Include(_)
-                | SemItem::Unsupported { .. } => {}
+                SemItem::Unsupported { .. } => {}
+                SemItem::Define(_) | SemItem::Const(_) | SemItem::Include(_) => {}
+            }
+        }
+    }
+
+    // Raw machine bodies can hide relative branches or byte-prefix ownership
+    // which SemIR cannot prove. Retain their provider module as one explicit,
+    // conservative layout group. Unreachable opaque routines do not become
+    // roots merely because they exist.
+    for owner in builder.opaque_owners.clone() {
+        let Some(module) = node_modules.get(&owner) else {
+            continue;
+        };
+        for (target, target_module) in &node_modules {
+            if target != &owner && target_module == module {
+                builder
+                    .graph
+                    .add_edge(owner, *target, LinkReason::ConservativeLayout);
             }
         }
     }
     builder.graph
 }
 
+pub(crate) fn select_semir(
+    program: &SemProgram,
+    policy: SemLinkPolicy,
+) -> Result<SemProgram, String> {
+    let graph = semir_link_graph(program);
+    let roots = match policy {
+        SemLinkPolicy::RetainAll => graph.nodes().iter().copied().collect::<BTreeSet<_>>(),
+        SemLinkPolicy::EntryReachable => {
+            let mut roots = graph
+                .nodes()
+                .iter()
+                .filter(|node| {
+                    matches!(
+                        node,
+                        SemLinkNode::TopLevel { module, .. }
+                            if *module == program.root_module
+                    )
+                })
+                .copied()
+                .collect::<BTreeSet<_>>();
+            roots.extend(graph.edges().filter_map(|(source, edge)| {
+                (matches!(source, SemLinkNode::Storage(_))
+                    && matches!(edge.target, SemLinkNode::Routine(_))
+                    && edge.reason == LinkReason::InitializerRelocation)
+                    .then_some(*source)
+            }));
+            if let Some(entry) = program.entry_routine {
+                roots.insert(SemLinkNode::Routine(entry));
+            }
+            roots
+        }
+    };
+    let selection = graph
+        .closure(roots)
+        .map_err(|node| format!("SemIR link root or dependency {node:?} is missing"))?;
+    let mut selected = program.clone();
+    for module in &mut selected.modules {
+        let mut top_level = 0u32;
+        module.items.retain(|item| match item {
+            SemItem::Routine(routine) => selection
+                .retained
+                .contains(&SemLinkNode::Routine(routine.symbol.id)),
+            SemItem::Declaration(declaration)
+                if matches!(
+                    declaration.storage,
+                    SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. }
+                ) =>
+            {
+                true
+            }
+            SemItem::Declaration(declaration) => selection
+                .retained
+                .contains(&SemLinkNode::Storage(declaration.symbol.id)),
+            SemItem::Set(_) | SemItem::Statement(_) => {
+                let node = SemLinkNode::TopLevel {
+                    module: module.id,
+                    ordinal: top_level,
+                };
+                top_level = top_level.wrapping_add(1);
+                selection.retained.contains(&node)
+            }
+            // These are compile-time facts or diagnostics and emit no target
+            // storage by themselves.
+            SemItem::Define(_)
+            | SemItem::Const(_)
+            | SemItem::Include(_)
+            | SemItem::Unsupported { .. } => true,
+        });
+    }
+    let retained_entry = selected.entry_routine.is_none_or(|entry| {
+        selected
+            .modules
+            .iter()
+            .flat_map(|module| &module.items)
+            .any(|item| matches!(item, SemItem::Routine(routine) if routine.symbol.id == entry))
+    });
+    if !retained_entry {
+        return Err("SemIR link selection removed the program entry".to_string());
+    }
+    Ok(selected)
+}
+
 struct SemGraphBuilder {
     graph: LinkGraph<SemLinkNode>,
     routine_ids: BTreeSet<SymbolId>,
     storage_ids: BTreeSet<SymbolId>,
+    opaque_owners: BTreeSet<SemLinkNode>,
 }
 
 impl SemGraphBuilder {
@@ -305,11 +444,13 @@ impl SemGraphBuilder {
             SemStmt::MachineBlock {
                 resolved_symbols, ..
             } => {
+                self.opaque_owners.insert(owner);
                 for reference in resolved_symbols {
                     self.symbol(owner, reference.symbol.id, LinkReason::MachineRelocation);
                 }
             }
             SemStmt::InlineAsm { program, .. } => {
+                self.opaque_owners.insert(owner);
                 for relocation in &program.relocations {
                     if let SemInlineAsmTarget::Symbol(symbol) = &relocation.target {
                         self.symbol(owner, symbol.id, LinkReason::MachineRelocation);
@@ -367,7 +508,10 @@ impl SemGraphBuilder {
                     self.statement(owner, statement);
                 }
             }
-            SemStmt::Define(_) | SemStmt::Exit { .. } | SemStmt::Unsupported { .. } => {}
+            SemStmt::Unsupported { .. } => {
+                self.opaque_owners.insert(owner);
+            }
+            SemStmt::Define(_) | SemStmt::Exit { .. } => {}
         }
     }
 
@@ -424,11 +568,10 @@ impl SemGraphBuilder {
                 self.expression(owner, right, reason);
             }
             SemExprKind::Call(call) => self.call(owner, call),
-            SemExprKind::Missing
-            | SemExprKind::Raw(_)
-            | SemExprKind::UnresolvedName(_)
-            | SemExprKind::CurrentLocation
-            | SemExprKind::Literal(_) => {}
+            SemExprKind::Missing | SemExprKind::CurrentLocation | SemExprKind::Literal(_) => {}
+            SemExprKind::Raw(_) | SemExprKind::UnresolvedName(_) => {
+                self.opaque_owners.insert(owner);
+            }
         }
     }
 
@@ -519,5 +662,46 @@ mod tests {
             4,
             "audit mode must not prune SemIR"
         );
+
+        let selected = select_semir(&semir, SemLinkPolicy::EntryReachable)
+            .expect("select entry-reachable SemIR");
+        let retained = selected.modules[0]
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                SemItem::Routine(routine) => Some(routine.symbol.name.as_str()),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+        assert_eq!(retained, BTreeSet::from(["Leaf", "Start"]));
+
+        let compatible = select_semir(&semir, SemLinkPolicy::RetainAll).expect("retain all SemIR");
+        assert_eq!(
+            compatible.modules[0].items.len(),
+            semir.modules[0].items.len()
+        );
+    }
+
+    #[test]
+    fn selected_opaque_machine_routine_conservatively_retains_its_module() {
+        let tokens =
+            tokenize("PROC Hidden() RETURN PROC Machine() [$EA] PROC Start() Machine() RETURN")
+                .expect("tokenize opaque machine source");
+        let ast = parse(&tokens).expect("parse opaque machine source");
+        let model = analyze_with_options(&ast, SemanticOptions::modern())
+            .expect("analyze opaque machine source");
+        let semir = crate::semantic::ir::lower_program(&ast, &model);
+        let selected = select_semir(&semir, SemLinkPolicy::EntryReachable)
+            .expect("select opaque machine source");
+        let retained = selected.modules[0]
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                SemItem::Routine(routine) => Some(routine.symbol.name.as_str()),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(retained, BTreeSet::from(["Hidden", "Machine", "Start"]));
     }
 }
