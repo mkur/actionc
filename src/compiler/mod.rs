@@ -259,6 +259,7 @@ pub(crate) fn compile_file_with_request(
             )
         })?;
     let semir = ir::lower_compilation(&loaded, &model);
+    let _link_audit = crate::linker::semir_link_graph(&semir);
     let uses_native_real = first_native_real_codegen_use(&model).is_some();
     let uses_lexical_blocks = !model.lexical_blocks.is_empty();
     if request.runtime == Runtime::Standalone {

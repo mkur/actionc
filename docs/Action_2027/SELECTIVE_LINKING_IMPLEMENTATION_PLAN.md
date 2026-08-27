@@ -3,9 +3,11 @@
 ## Status
 
 This note defines the migration from backend-specific runtime selection and
-whole-module application emission to one common selective linker. The first
-implementation slice records the Action! program entry as an explicit SemIR
-identity. No routine or storage pruning is enabled by that slice.
+whole-module application emission to one common selective linker. Slices 1 and
+2 are implemented: the Action! program entry is an explicit SemIR identity,
+application/user-module dependencies are extracted in audit mode, and resident
+SYS selection uses a generated embedded graph. Application routine or storage
+pruning is not enabled yet.
 
 ## Goal
 
@@ -141,6 +143,30 @@ Application and provider compilations have separate numeric ID spaces. Binding
 resolution maps to stable identities inside the provider image; it must not use
 display-name equality as executable semantics. Backend-specific rebasing may
 remain during the migration, but selection itself is common.
+
+### Embedded resident SYS graph
+
+Resident SYS sources and standalone bindings are compiler inputs, so their
+dependency graph is generated once rather than rediscovered for every program.
+The checked-in artifact is
+[`../../embedded/manifests/sys-link-v1.txt`](../../embedded/manifests/sys-link-v1.txt).
+It contains schema and source fingerprints, provider-local routine and storage
+nodes, and reasoned direct edges. Regenerate it with:
+
+```sh
+cargo run --bin actionc-runtime-link-manifest -- embedded/manifests/sys-link-v1.txt
+```
+
+Normal classic and MIR6502 resident selection parse and validate the embedded
+artifact, bind its provider-local identities to the current lowered runtime
+image, and traverse closure from program-specific roots. They do not scan MIR
+calls or decode machine bytes. Tests retain the old discovery implementation as
+an oracle and compare every individual resident routine root, including its
+storage closure.
+
+The separately compiled `SYSLIB` helper package remains dynamic until slice 5.
+That package is rooted by target helper discovery and is not the resident SYS
+provider graph migrated in slice 2.
 
 ## Machine Code and Layout
 

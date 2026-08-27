@@ -1,0 +1,293 @@
+ACTIONC-SYS-LINK-MANIFEST	1
+source	binding:sys-standalone.act	c8530bc94b3d7b4ba6bcf55e4cf8d3dcd2ce0368d2d855ceb41bd301f314a504
+source	runtime:actionc.act	b1a3e5b8073e226b7238435c3522845481869ed71fabf1e0cf44fae54cb373c4
+source	runtime:sysall.act	3e417df3b1fe14468dc261aaca6d3f5bc23172f2a3c1d0da9f9dc7d442ce260e
+source	runtime:sysblk.act	019f479d2595712d32068fc733cf5c0aad4acaf22454d7c69cebb50065ddcbe7
+source	runtime:sysgr.act	0b592fa6ea3285761371f351fa3a6c6aa40ad0a9145272f3bf0f2ce7d99a4e53
+source	runtime:sysio.act	079faaa0775bd6cff1a213c2742f2488a71bc54357d3f2f458add324b0a13b29
+source	runtime:syslib.act	a1fa4a79a447abe63bff9347d76bcf2b6e9cd47e9636c55efed5cb5e4d4a7dc7
+source	runtime:sysmisc.act	3008ba6bd95a69334659b754fb58d3b4c34df910d7aa8c8ad26c6e0a7812f352
+source	runtime:sysreal.act	e05fbceef3b3a27d878869a1705a834843bf122f0dc67fe01a06afbf5c9669c0
+source	runtime:sysrealc.act	c93d63bb4a58626de1c3930b7697ff0425749e3d08e2252846b74e037c628ea6
+source	runtime:sysstr.act	4eb152fba0970e303f82e76fc7e4816a0fed7959edc752474b9836fe2c8ebe92
+node	routine	<PROGRAM>
+node	routine	BREAK
+node	routine	BREAK1
+node	routine	CARTINPUTR
+node	routine	CARTINPUTRD
+node	routine	CARTPRINTR
+node	routine	CARTPRINTRD
+node	routine	CARTPRINTRDE
+node	routine	CARTPRINTRE
+node	routine	CARTREALINPUTMD
+node	routine	CARTREALINPUTS
+node	routine	CARTREALPRINT
+node	routine	CARTREALPRINTD
+node	routine	CARTREALPRINTE
+node	routine	CARTREALPUTDE
+node	routine	CCIO
+node	routine	CHKERR
+node	routine	CLOS
+node	routine	CLOSE
+node	routine	CTOSTR
+node	routine	DIVI
+node	routine	DRAWTO
+node	routine	ERROR
+node	routine	FILL
+node	routine	GETD
+node	routine	GRAPHICS
+node	routine	GRIO
+node	routine	IN
+node	routine	INPUTB
+node	routine	INPUTBD
+node	routine	INPUTC
+node	routine	INPUTCD
+node	routine	INPUTD
+node	routine	INPUTI
+node	routine	INPUTID
+node	routine	INPUTMD
+node	routine	INPUTS
+node	routine	INPUTSD
+node	routine	INS
+node	routine	LOCATE
+node	routine	LSHIFT
+node	routine	MOVEBLOCK
+node	routine	MULTB
+node	routine	MULTI
+node	routine	NOTE
+node	routine	OPEN
+node	routine	OPN
+node	routine	OUTPUT
+node	routine	PADDLE
+node	routine	PEEK
+node	routine	PEEKC
+node	routine	PF2
+node	routine	PLOT
+node	routine	PNUM
+node	routine	POINT
+node	routine	POKE
+node	routine	POKEC
+node	routine	POS1
+node	routine	POSITION
+node	routine	PRINT
+node	routine	PRINTB
+node	routine	PRINTBD
+node	routine	PRINTBDE
+node	routine	PRINTBE
+node	routine	PRINTC
+node	routine	PRINTCD
+node	routine	PRINTCDE
+node	routine	PRINTCE
+node	routine	PRINTD
+node	routine	PRINTDE
+node	routine	PRINTE
+node	routine	PRINTF
+node	routine	PRINTH
+node	routine	PRINTI
+node	routine	PRINTID
+node	routine	PRINTIDE
+node	routine	PRINTIE
+node	routine	PRT
+node	routine	PTRIG
+node	routine	PUT
+node	routine	PUTD
+node	routine	PUTD1
+node	routine	PUTDE
+node	routine	PUTE
+node	routine	RAND
+node	routine	REMI
+node	routine	RSHIFT
+node	routine	SARGS
+node	routine	SASSIGN
+node	routine	SCOMPARE
+node	routine	SCOPY
+node	routine	SCOPYS
+node	routine	SETBLOCK
+node	routine	SETCOLOR
+node	routine	SETSIGN
+node	routine	SMOPS
+node	routine	SNDRST
+node	routine	SOUND
+node	routine	SS1
+node	routine	STICK
+node	routine	STRB
+node	routine	STRC
+node	routine	STRI
+node	routine	STRIG
+node	routine	SYSINPUTR
+node	routine	SYSINPUTRD
+node	routine	SYSPRINTR
+node	routine	SYSPRINTRD
+node	routine	SYSPRINTRDE
+node	routine	SYSPRINTRE
+node	routine	SYSREALASCIITOFP
+node	routine	SYSREALFPTOASCII
+node	routine	SYSSTRR
+node	routine	SYSVALR
+node	routine	VALB
+node	routine	VALC
+node	routine	VALI
+node	routine	XIO
+node	routine	XIOSTR
+node	routine	ZERO
+node	global	COPY_RIGHT
+node	global	DEV_E
+node	global	DEV_E_VALUE
+node	global	DEV_S
+node	global	DEV_S_VALUE
+node	global	EOL
+node	global	OPENBUF
+node	global	OPENBUFH
+node	global	OPENBUFL
+node	global	STRING
+node	global	SYSREALACCUMULATOR
+node	global	SYSREALTEXTINDEX
+node	global	SYSREALTEXTPOINTER
+edge	routine	<PROGRAM>	routine	CLOS	entry-alias
+edge	routine	BREAK	routine	ERROR	machine-relocation
+edge	routine	BREAK1	routine	BREAK	machine-relocation
+edge	routine	CARTINPUTR	routine	SYSVALR	direct-call
+edge	routine	CARTINPUTRD	routine	SYSVALR	direct-call
+edge	routine	CARTPRINTR	routine	SYSSTRR	direct-call
+edge	routine	CARTPRINTRD	routine	SYSSTRR	direct-call
+edge	routine	CARTPRINTRDE	routine	SYSSTRR	direct-call
+edge	routine	CARTPRINTRE	routine	SYSSTRR	direct-call
+edge	routine	CARTREALINPUTMD	routine	CARTPRINTRD	entry-alias
+edge	routine	CARTREALINPUTS	routine	CARTREALINPUTMD	entry-alias
+edge	routine	CARTREALPRINT	routine	CARTREALPRINTE	entry-alias
+edge	routine	CARTREALPRINTD	routine	CARTREALPUTDE	entry-alias
+edge	routine	CARTREALPRINTE	routine	CARTREALPRINTD	entry-alias
+edge	routine	CARTREALPUTDE	routine	CARTREALINPUTS	entry-alias
+edge	routine	CCIO	routine	CHKERR	machine-relocation
+edge	routine	CHKERR	routine	ERROR	machine-relocation
+edge	routine	CLOS	routine	OUTPUT	machine-fallthrough
+edge	routine	CLOSE	routine	CHKERR	machine-relocation
+edge	routine	CLOSE	routine	CLOS	machine-relocation
+edge	routine	DIVI	routine	SETSIGN	machine-relocation
+edge	routine	DIVI	routine	SMOPS	machine-relocation
+edge	routine	DRAWTO	routine	GRIO	machine-relocation
+edge	routine	DRAWTO	routine	XIO	machine-relocation
+edge	routine	ERROR	routine	BREAK	machine-fallthrough
+edge	routine	FILL	routine	GRIO	machine-relocation
+edge	routine	FILL	routine	XIO	machine-relocation
+edge	routine	GETD	routine	CCIO	machine-fallthrough
+edge	routine	GRAPHICS	routine	CLOSE	machine-relocation
+edge	routine	GRAPHICS	routine	OPEN	machine-relocation
+edge	routine	GRAPHICS	global	DEV_E	storage-reference
+edge	routine	GRAPHICS	global	DEV_S	storage-reference
+edge	routine	GRIO	routine	POS1	machine-relocation
+edge	routine	GRIO	global	DEV_S	storage-reference
+edge	routine	IN	routine	XIOSTR	machine-fallthrough
+edge	routine	INPUTB	routine	INPUTC	entry-alias
+edge	routine	INPUTBD	routine	INPUTCD	entry-alias
+edge	routine	INPUTC	routine	INPUTI	entry-alias
+edge	routine	INPUTCD	routine	INPUTID	entry-alias
+edge	routine	INPUTD	routine	CHKERR	machine-relocation
+edge	routine	INPUTD	routine	INS	machine-relocation
+edge	routine	INPUTI	routine	INPUTBD	machine-fallthrough
+edge	routine	INPUTID	routine	INPUTD	machine-relocation
+edge	routine	INPUTID	routine	VALB	machine-fallthrough
+edge	routine	INPUTMD	routine	INPUTD	machine-fallthrough
+edge	routine	INPUTS	routine	INPUTSD	machine-fallthrough
+edge	routine	INPUTSD	routine	INPUTMD	machine-fallthrough
+edge	routine	INS	routine	IN	machine-relocation
+edge	routine	LOCATE	routine	GETD	machine-relocation
+edge	routine	LOCATE	routine	POSITION	machine-relocation
+edge	routine	MULTI	routine	MULTB	machine-relocation
+edge	routine	MULTI	routine	SETSIGN	machine-relocation
+edge	routine	MULTI	routine	SMOPS	machine-relocation
+edge	routine	NOTE	routine	CHKERR	machine-relocation
+edge	routine	OPEN	routine	CHKERR	machine-relocation
+edge	routine	OPEN	routine	OPN	machine-relocation
+edge	routine	OPN	routine	XIOSTR	machine-relocation
+edge	routine	OUTPUT	routine	IN	machine-fallthrough
+edge	routine	PEEK	routine	PEEKC	entry-alias
+edge	routine	PF2	routine	PF2	machine-relocation
+edge	routine	PF2	routine	PRINT	machine-relocation
+edge	routine	PF2	routine	PRINTC	machine-relocation
+edge	routine	PF2	routine	PRINTH	machine-relocation
+edge	routine	PF2	routine	PRINTI	machine-relocation
+edge	routine	PF2	routine	PUT	machine-relocation
+edge	routine	PLOT	routine	POS1	machine-relocation
+edge	routine	PLOT	routine	PUTD	machine-relocation
+edge	routine	PNUM	routine	CHKERR	machine-relocation
+edge	routine	PNUM	routine	OUTPUT	machine-relocation
+edge	routine	POINT	routine	CHKERR	machine-relocation
+edge	routine	POKEC	routine	POKE	machine-relocation
+edge	routine	POSITION	routine	POS1	machine-fallthrough
+edge	routine	PRINT	routine	PRINTD	machine-fallthrough
+edge	routine	PRINTB	routine	PRINTC	machine-fallthrough
+edge	routine	PRINTBD	routine	PRINTCD	machine-fallthrough
+edge	routine	PRINTBDE	routine	PRINTCDE	machine-fallthrough
+edge	routine	PRINTBE	routine	PRINTCE	machine-fallthrough
+edge	routine	PRINTC	routine	CTOSTR	machine-relocation
+edge	routine	PRINTC	routine	PNUM	machine-fallthrough
+edge	routine	PRINTCD	routine	CTOSTR	machine-relocation
+edge	routine	PRINTCD	routine	PNUM	machine-relocation
+edge	routine	PRINTCDE	routine	PRINTCD	machine-relocation
+edge	routine	PRINTCDE	routine	PUTDE	machine-relocation
+edge	routine	PRINTCE	routine	PRINTC	machine-relocation
+edge	routine	PRINTCE	routine	PUTE	machine-relocation
+edge	routine	PRINTD	routine	CHKERR	machine-relocation
+edge	routine	PRINTD	routine	OUTPUT	machine-relocation
+edge	routine	PRINTDE	routine	CHKERR	machine-relocation
+edge	routine	PRINTDE	routine	PRT	machine-relocation
+edge	routine	PRINTE	routine	PRINTDE	machine-fallthrough
+edge	routine	PRINTF	routine	PF2	machine-fallthrough
+edge	routine	PRINTH	routine	PUT	machine-relocation
+edge	routine	PRINTI	routine	PRINTID	machine-fallthrough
+edge	routine	PRINTID	routine	PRINTCD	machine-relocation
+edge	routine	PRINTID	routine	PUTD1	machine-relocation
+edge	routine	PRINTIDE	routine	PRINTID	machine-relocation
+edge	routine	PRINTIDE	routine	PUTDE	machine-relocation
+edge	routine	PRINTIE	routine	PRINTI	machine-relocation
+edge	routine	PRINTIE	routine	PUTE	machine-relocation
+edge	routine	PRT	routine	XIOSTR	machine-relocation
+edge	routine	PTRIG	routine	STICK	machine-fallthrough
+edge	routine	PUT	routine	PUTD	machine-fallthrough
+edge	routine	PUTD	routine	PUTD1	machine-fallthrough
+edge	routine	PUTD1	routine	CCIO	machine-relocation
+edge	routine	PUTDE	routine	PUTD1	required-prefix
+edge	routine	PUTDE	routine	XIO	machine-fallthrough
+edge	routine	PUTE	routine	PUT	machine-fallthrough
+edge	routine	RAND	routine	MULTI	machine-relocation
+edge	routine	REMI	routine	DIVI	machine-relocation
+edge	routine	SARGS	routine	BREAK	machine-relocation
+edge	routine	SASSIGN	routine	SCOPY	machine-relocation
+edge	routine	SCOPYS	routine	SCOPY	machine-relocation
+edge	routine	SETSIGN	routine	SS1	machine-fallthrough
+edge	routine	SMOPS	routine	SS1	machine-relocation
+edge	routine	SOUND	routine	ERROR	machine-relocation
+edge	routine	STRB	routine	STRC	machine-fallthrough
+edge	routine	STRC	routine	CTOSTR	machine-relocation
+edge	routine	STRI	routine	CTOSTR	machine-relocation
+edge	routine	SYSINPUTR	routine	INPUTMD	direct-call
+edge	routine	SYSINPUTR	routine	SYSVALR	direct-call
+edge	routine	SYSINPUTRD	routine	INPUTMD	direct-call
+edge	routine	SYSINPUTRD	routine	SYSVALR	direct-call
+edge	routine	SYSPRINTR	routine	PRINTD	direct-call
+edge	routine	SYSPRINTR	routine	SYSSTRR	direct-call
+edge	routine	SYSPRINTRD	routine	PRINTD	direct-call
+edge	routine	SYSPRINTRD	routine	SYSSTRR	direct-call
+edge	routine	SYSPRINTRDE	routine	PRINTD	direct-call
+edge	routine	SYSPRINTRDE	routine	PUTDE	direct-call
+edge	routine	SYSPRINTRDE	routine	SYSSTRR	direct-call
+edge	routine	SYSPRINTRE	routine	PRINTD	direct-call
+edge	routine	SYSPRINTRE	routine	PUTDE	direct-call
+edge	routine	SYSPRINTRE	routine	SYSSTRR	direct-call
+edge	routine	SYSREALASCIITOFP	routine	SYSREALFPTOASCII	entry-alias
+edge	routine	SYSREALFPTOASCII	routine	SYSSTRR	entry-alias
+edge	routine	SYSSTRR	global	SYSREALACCUMULATOR	storage-reference
+edge	routine	SYSSTRR	global	SYSREALTEXTPOINTER	storage-reference
+edge	routine	SYSVALR	global	SYSREALACCUMULATOR	storage-reference
+edge	routine	SYSVALR	global	SYSREALTEXTINDEX	storage-reference
+edge	routine	SYSVALR	global	SYSREALTEXTPOINTER	storage-reference
+edge	routine	VALB	routine	VALC	entry-alias
+edge	routine	VALC	routine	VALI	entry-alias
+edge	routine	XIO	routine	CHKERR	machine-relocation
+edge	routine	XIO	routine	XIOSTR	machine-relocation
+edge	routine	ZERO	routine	SETBLOCK	machine-fallthrough
+edge	global	DEV_E	global	DEV_E	initializer-relocation
+edge	global	DEV_E	global	DEV_E_VALUE	initializer-relocation
+edge	global	DEV_S	global	DEV_S	initializer-relocation
+edge	global	DEV_S	global	DEV_S_VALUE	initializer-relocation

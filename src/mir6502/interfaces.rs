@@ -90,11 +90,11 @@ pub(super) fn resolve_interfaces(
             )?;
             implementation_roots.insert(external_id, implementation);
         }
-        let selected = super::standalone::dependency_closure(
+        let selected = super::standalone::embedded_resident_selection(
             &runtime_program,
             implementation_roots.values().copied().collect(),
         )?;
-        let rebase = super::standalone::append_runtime_closure(
+        let rebase = super::standalone::append_runtime_selection(
             program,
             &runtime_program,
             &selected,
@@ -104,7 +104,7 @@ pub(super) fn resolve_interfaces(
         super::standalone::append_runtime_helper_requirements(
             program,
             &runtime_program,
-            &selected,
+            &selected.routines,
         )?;
         for (external_id, implementation) in implementation_roots {
             resolved.insert(

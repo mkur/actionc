@@ -234,9 +234,10 @@ source.
 
 ## Selective Inclusion
 
-Importing `SYS` exposes an interface but includes no code by itself. After
-semantic resolution and target lowering, the compiler computes a runtime
-dependency closure from:
+Importing `SYS` exposes an interface but includes no code by itself. The
+compiler binds referenced standalone interfaces to nodes in its generated,
+fingerprinted resident SYS graph and computes a runtime dependency closure
+from:
 
 1. referenced `SYS` routine identities;
 2. address-taken `SYS` routines and conservative indirect-call roots;
@@ -261,6 +262,14 @@ Each selected routine or group carries:
 Only the closure is laid out and emitted. Historical top-level `SET` statements
 inside `SYSLIB.ACT` document original bindings but do not root every helper in
 standalone output.
+
+The resident graph is embedded in the compiler and records calls, machine
+relocations, legacy entry aliases, machine-code fallthrough, backward-prefix
+requirements, storage references, aliases, and initializer relocations. Normal
+linking traverses this graph; it does not reconstruct it from MIR or decode SYS
+machine bytes. A generator and exhaustive parity tests keep the artifact in
+sync with the embedded runtime sources. Compiler-internal `SYSLIB` helper
+selection remains separate until the common helper-package migration.
 
 Classic standalone emission places the selected runtime closure after the
 application's source-controlled layout. This preserves programs that set the

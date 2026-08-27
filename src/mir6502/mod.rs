@@ -39,6 +39,11 @@ pub fn lower_program(nir: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>>
     lower::lower_program(nir)
 }
 
+#[doc(hidden)]
+pub fn generate_embedded_sys_link_manifest() -> Result<String, Vec<MirDiagnostic>> {
+    standalone::generate_resident_link_manifest()
+}
+
 pub fn verify_program(program: &MirProgram, phase: MirPhase) -> Result<(), Vec<MirDiagnostic>> {
     verify::verify_program(program, phase)
 }
