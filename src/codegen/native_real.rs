@@ -337,7 +337,17 @@ impl Generator {
                 source,
                 width,
                 signed,
-            } => self.emit_integer_to_real(source, *width, *signed, target, span),
+            } => {
+                if let Some(bytes) = self.constant_integer_real_bytes(source, *width, *signed) {
+                    for (offset, byte) in bytes.into_iter().enumerate() {
+                        self.emit_lda_imm(byte);
+                        self.emit_sta_slot_byte(target, offset as u16);
+                    }
+                    true
+                } else {
+                    self.emit_integer_to_real(source, *width, *signed, target, span)
+                }
+            }
             ClassicRealValue::Unary { op, value } => match op {
                 UnaryOp::Plus => self.emit_real_value_to_slot(value, target, depth, span),
                 UnaryOp::Neg => {
@@ -347,17 +357,7 @@ impl Generator {
                     if !self.emit_real_value_to_slot(value, operand, depth + 1, span) {
                         return false;
                     }
-                    let fr0 = StorageSlot::zero_page(0xD4, REAL_BYTES);
-                    let fr1 = StorageSlot::zero_page(0xE0, REAL_BYTES);
-                    for offset in 0..REAL_BYTES {
-                        self.emit_lda_imm(0);
-                        self.emit_sta_slot_byte(fr0, offset);
-                    }
-                    if !self.emit_staged_real_copy(operand, fr1) {
-                        return false;
-                    }
-                    self.emit_atari_fpp_call(ClassicAtariFppService::Subtract);
-                    self.emit_staged_real_copy(fr0, target)
+                    self.emit_negated_real_copy(operand, target, span)
                 }
                 UnaryOp::Deref | UnaryOp::AddressOf => false,
             },
@@ -391,6 +391,25 @@ impl Generator {
                 self.emit_staged_real_copy(fr0, target)
             }
         }
+    }
+
+    fn constant_integer_real_bytes(
+        &self,
+        source: &Expr,
+        width: u16,
+        signed: bool,
+    ) -> Option<[u8; REAL_BYTES as usize]> {
+        let value = self.constant_u16(source)?;
+        let decimal = match (width, signed) {
+            (1, false) => (value as u8).to_string(),
+            (1, true) => (value as u8 as i8).to_string(),
+            (2, false) => value.to_string(),
+            (2, true) => (value as i16).to_string(),
+            _ => return None,
+        };
+        crate::atari_real::AtariReal::from_decimal(&decimal)
+            .ok()
+            .map(|value| value.to_bytes())
     }
 
     fn emit_integer_to_real(
@@ -658,6 +677,41 @@ impl Generator {
             self.emit_pla();
             self.emit_sta_slot_byte(target, offset);
         }
+        true
+    }
+
+    fn emit_negated_real_copy(
+        &mut self,
+        source: StorageSlot,
+        target: StorageSlot,
+        span: Span,
+    ) -> bool {
+        if !self.emit_staged_real_copy(source, target) {
+            return false;
+        }
+
+        let toggle = self.next_label("real:neg-toggle");
+        let done = self.next_label("real:neg-done");
+        self.emit_lda_slot_byte(target, 0);
+        self.emit_and_imm(0x7F);
+        self.emitter
+            .emit_branch_label(opcode::BNE_REL, &toggle, span);
+        for offset in 1..REAL_BYTES {
+            self.emit_lda_slot_byte(target, offset);
+            self.emitter
+                .emit_branch_label(opcode::BNE_REL, &toggle, span);
+        }
+
+        // A is zero on this path. Normalize either spelling of zero to the
+        // canonical positive representation without invoking FPP subtraction.
+        self.emit_sta_slot_byte(target, 0);
+        self.emit_jmp_label(&done, span);
+
+        self.bind_codegen_label(toggle, span);
+        self.emit_lda_slot_byte(target, 0);
+        self.emit_eor_imm(0x80);
+        self.emit_sta_slot_byte(target, 0);
+        self.bind_codegen_label(done, span);
         true
     }
 

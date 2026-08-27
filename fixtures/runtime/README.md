@@ -242,6 +242,11 @@ source values after conversion so the VM oracle proves that their complete
 six-byte packed representations, including the exponent/sign byte, remain
 unchanged.
 
+The native REAL compaction fixture checks compile-time integer promotion and
+sign-bit negation under both modern backends and runtime modes. Its memory
+oracle covers positive and negative packed values, both negation directions,
+and canonical positive zero after negating zero.
+
 The native REAL decimal-mode fixture runs against a controlled FPI test shim
 that returns with the processor decimal flag set, captures status immediately
 after the conversion, and performs dynamic byte addition. Both modern backends

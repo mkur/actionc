@@ -330,6 +330,43 @@ fn native_real_core_arithmetic_compiles_with_both_backends_and_runtimes() {
 }
 
 #[test]
+fn optimized_classic_folds_integer_real_constants_and_negates_without_fpp() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "native-real-compact.act",
+        r#"
+            REAL byte_value, char_value, card_value, int_value, negated
+
+            PROC Main()
+              byte_value=BYTE(200)
+              char_value=CHAR('A)
+              card_value=CARD(65535)
+              int_value=INT(-123)
+              negated=-byte_value
+            RETURN
+        "#,
+    );
+
+    let compiled = compile_file(&source, &CompileOptions::for_mode(CompileMode::Optimized))
+        .expect("compile compact classic native REAL operations");
+    let object = compiled.object_bytes();
+
+    assert!(
+        !object.windows(3).any(|bytes| bytes == [0x20, 0xAA, 0xD9]),
+        "constant integer promotions must not call Atari FPP IFP"
+    );
+    assert!(
+        !object.windows(3).any(|bytes| bytes == [0x20, 0x60, 0xDA]),
+        "native REAL negation must not call Atari FPP FSUB"
+    );
+    assert!(
+        object.windows(2).any(|bytes| bytes == [0x49, 0x80]),
+        "native REAL negation should toggle the packed sign bit"
+    );
+}
+
+#[test]
 fn every_native_real_fpp_call_restores_binary_decimal_mode() {
     let temp = TestDir::new();
     let source = write_source(

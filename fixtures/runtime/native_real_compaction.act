@@ -1,0 +1,18 @@
+; Compile-time integer promotion and compact native REAL negation. The zero
+; case proves that negation emits the canonical all-zero packed value.
+REAL positive=$0600, negative=$0606, negative_zero=$060C
+REAL negated_positive=$0612, negated_negative=$0618
+REAL char_value=$061E, card_value=$0624
+BYTE done=$062A
+
+PROC Main()
+  positive=BYTE(12)
+  negative=INT(-123)
+  negative_zero=0
+  negated_positive=-positive
+  negated_negative=-negative
+  negative_zero=-negative_zero
+  char_value=CHAR('A)
+  card_value=CARD(65535)
+  done=$A7
+RETURN

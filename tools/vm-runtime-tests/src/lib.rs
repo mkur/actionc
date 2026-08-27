@@ -243,6 +243,31 @@ mod tests {
     }
 
     #[test]
+    fn native_real_constant_promotion_and_compact_negation_run_in_both_runtimes() {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("native_real_compaction.act", mode, runtime, true, 10_000);
+                let bytes = |address: u16| {
+                    (0..6)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+
+                assert_eq!(bytes(0x0600), [0x40, 0x12, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0606), [0xC1, 0x01, 0x23, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x060C), [0, 0, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0612), [0xC0, 0x12, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0618), [0x41, 0x01, 0x23, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x061E), [0x40, 0x65, 0, 0, 0, 0], "{context}");
+                assert_eq!(bytes(0x0624), [0x42, 0x06, 0x55, 0x35, 0, 0], "{context}");
+                assert_eq!(outcome.memory().read(0x062A), 0xA7, "{context}");
+            }
+        }
+    }
+
+    #[test]
     fn native_real_assignment_is_overlap_safe() {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
