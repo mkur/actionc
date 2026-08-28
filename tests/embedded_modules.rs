@@ -258,19 +258,22 @@ ENDMODULE
 }
 
 #[test]
-fn vbxe_ray_kernel_probe_compiles_standalone_with_both_backends() {
-    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe/ray-kernel-probe.act");
+fn vbxe_spheres_scene_probe_compiles_standalone_with_both_backends() {
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("samples/vbxe/raytracer/spheres/spheres_scene_probe.act");
 
     for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
         let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
-        compile_file(&sample, &options)
-            .unwrap_or_else(|error| panic!("compile VBXE ray kernel probe in {mode:?}: {error}"));
+        compile_file(&sample, &options).unwrap_or_else(|error| {
+            panic!("compile VBXE spheres scene probe in {mode:?}: {error}")
+        });
     }
 }
 
 #[test]
 fn vbxe_neon_scene_probe_compiles_standalone_with_both_backends() {
-    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe/neon-scene-probe.act");
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("samples/vbxe/raytracer/neon/neon_scene_probe.act");
 
     for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
         let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
@@ -280,13 +283,28 @@ fn vbxe_neon_scene_probe_compiles_standalone_with_both_backends() {
 }
 
 #[test]
-fn vbxe_raytracer_stays_below_its_memac_window_in_both_backends() {
-    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe/raytracer.act");
+fn vbxe_fuji_scene_probe_compiles_standalone_with_both_backends() {
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("samples/vbxe/raytracer/fuji/fuji_scene_probe.act");
 
     for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
         let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
+        compile_file(&sample, &options)
+            .unwrap_or_else(|error| panic!("compile VBXE Fuji scene probe in {mode:?}: {error}"));
+    }
+}
+
+#[test]
+fn vbxe_spheres_raytracer_stays_below_its_memac_window_in_both_backends() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe");
+    let sample = root.join("raytracer/spheres/spheres_raytracer.act");
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let options = CompileOptions::for_mode(mode)
+            .with_runtime(Runtime::Standalone)
+            .with_module_path(root.clone());
         let compiled = compile_file(&sample, &options)
-            .unwrap_or_else(|error| panic!("compile VBXE ray tracer in {mode:?}: {error}"));
+            .unwrap_or_else(|error| panic!("compile VBXE spheres ray tracer in {mode:?}: {error}"));
 
         for (start, end) in load_file_segment_ranges(compiled.object_bytes()) {
             assert!(
@@ -298,13 +316,37 @@ fn vbxe_raytracer_stays_below_its_memac_window_in_both_backends() {
 }
 
 #[test]
-fn vbxe_neon_planet_stays_below_its_memac_window_in_both_backends() {
-    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe/neon_planet.act");
+fn vbxe_neon_raytracer_stays_below_its_memac_window_in_both_backends() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe");
+    let sample = root.join("raytracer/neon/neon_raytracer.act");
 
     for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-        let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
+        let options = CompileOptions::for_mode(mode)
+            .with_runtime(Runtime::Standalone)
+            .with_module_path(root.clone());
         let compiled = compile_file(&sample, &options)
             .unwrap_or_else(|error| panic!("compile VBXE neon planet in {mode:?}: {error}"));
+
+        for (start, end) in load_file_segment_ranges(compiled.object_bytes()) {
+            assert!(
+                end < 0xA000 || start > 0xBFFF,
+                "{mode:?} segment ${start:04X}-${end:04X} overlaps the VBXE MEMAC window"
+            );
+        }
+    }
+}
+
+#[test]
+fn vbxe_fuji_raytracer_stays_below_its_memac_window_in_both_backends() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/vbxe");
+    let sample = root.join("raytracer/fuji/fuji_raytracer.act");
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let options = CompileOptions::for_mode(mode)
+            .with_runtime(Runtime::Standalone)
+            .with_module_path(root.clone());
+        let compiled = compile_file(&sample, &options)
+            .unwrap_or_else(|error| panic!("compile VBXE Fuji ray tracer in {mode:?}: {error}"));
 
         for (start, end) in load_file_segment_ranges(compiled.object_bytes()) {
             assert!(

@@ -209,13 +209,14 @@ Ship:
 - `embedded/modules/atari/vbxe.act`;
 - a reusable VBXE surface module or sample-local support module;
 - a VBXE detection/gradient sample;
-- `samples/vbxe/raytracer.act`;
+- `samples/vbxe/raytracer/spheres/spheres_raytracer.act`;
 - build and Altirra configuration documentation.
 
 The expected build command is:
 
 ```sh
-actionc --profile modern --runtime standalone samples/vbxe/raytracer.act
+actionc --module-path samples/vbxe --profile modern \
+  --runtime standalone samples/vbxe/raytracer/spheres/spheres_raytracer.act
 ```
 
 Execution validation initially uses Altirra because the repository's internal

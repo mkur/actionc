@@ -1,0 +1,66 @@
+; Four readable 64-entry ramps for the VBXE Fuji ray tracer.
+MODULE FUJI_PALETTE
+
+USE ATARI.VBXE
+
+BYTE FUNC Blend(BYTE lo,hi,pos,span)
+  CARD value
+
+  value=hi
+  value=value-lo
+  value=value*pos
+  value=value/span
+RETURN(lo+BYTE(value))
+
+PROC SetColor(BYTE index,red,green,blue)
+  VBXE.Write(VBXE.REG_CSEL,index)
+  VBXE.Write(VBXE.REG_CR,red)
+  VBXE.Write(VBXE.REG_CG,green)
+  VBXE.Write(VBXE.REG_CB,blue)
+RETURN
+
+PUBLIC PROC Install()
+  BYTE color,pos,red,green,blue
+
+  VBXE.Write(VBXE.REG_PSEL,VBXE.PALETTE_1)
+  color=0
+  DO
+    IF color<60 THEN
+      ; Deep blue-black backdrop.
+      pos=color
+      red=Blend(2,42,pos,59)
+      green=Blend(4,30,pos,59)
+      blue=Blend(16,100,pos,59)
+    ELSEIF color<64 THEN
+      ; Warm stars above the sky ramp.
+      pos=color-60
+      red=210+pos*15
+      green=195+pos*18
+      blue=170+pos*25
+    ELSEIF color<128 THEN
+      ; Front face: Atari red through a warm specular highlight.
+      pos=color-64
+      red=Blend(40,255,pos,63)
+      green=Blend(0,82,pos,63)
+      blue=Blend(4,42,pos,63)
+    ELSEIF color<192 THEN
+      ; Side walls: a darker red ramp emphasizes the extrusion.
+      pos=color-128
+      red=Blend(14,190,pos,63)
+      green=Blend(0,38,pos,63)
+      blue=Blend(2,18,pos,63)
+    ELSE
+      ; Reserved warm-neutral ramp for future floor or plinth materials.
+      pos=color-192
+      red=Blend(8,210,pos,63)
+      green=Blend(5,170,pos,63)
+      blue=Blend(3,95,pos,63)
+    FI
+
+    SetColor(color,red,green,blue)
+    color==+1
+  UNTIL color=0
+  OD
+RETURN
+
+ENDMODULE

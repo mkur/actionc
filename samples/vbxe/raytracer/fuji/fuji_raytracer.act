@@ -1,0 +1,119 @@
+; Progressive VBXE ray tracing of a three-dimensional Atari Fuji.
+;
+; Compile with:
+;   actionc --module-path samples/vbxe --profile modern \
+;     --runtime standalone samples/vbxe/raytracer/fuji/fuji_raytracer.act
+MODULE VBXE_FUJI_RAYTRACER
+
+USE ATARI.GTIA
+USE ATARI.OS
+USE FUJI_PALETTE AS COLORS
+USE FUJI_SCENE AS SCENE
+USE SHARED.SCREEN AS VIDEO
+USE SYS
+
+STRING missing(0)="VBXE FX 1.2x is required."
+STRING rendering(0)="Rendering the 3D Atari Fuji..."
+STRING keyText(0)="Press any key to continue."
+
+PROC WaitKey()
+  OS.CH=OS.NO_KEY
+  WHILE OS.CH=OS.NO_KEY
+  DO
+    OS.ATRACT=0
+  OD
+RETURN
+
+PROC PaintTile(CARD left,BYTE top,size,color)
+  CARD right,column
+  BYTE bottom,row
+  BYTE POINTER destination
+
+  right=left+size
+  IF right>SCENE.WIDTH THEN right=SCENE.WIDTH FI
+  bottom=top+size
+  IF bottom>SCENE.HEIGHT THEN bottom=SCENE.HEIGHT FI
+
+  row=top
+  WHILE row<bottom
+  DO
+    destination=VIDEO.RowAddress(row)
+    column=left
+    WHILE column<right
+    DO
+      destination(column)=color
+      column==+1
+    OD
+    row==+1
+  OD
+RETURN
+
+; Trace one sample for each square tile and display it immediately. Large tiles
+; reveal the composition quickly; later passes replace them with finer samples.
+PROC RenderPass(BYTE tileSize)
+  CARD column
+  BYTE row,color
+
+  row=0
+  WHILE row<SCENE.HEIGHT
+  DO
+    column=0
+    WHILE column<SCENE.WIDTH
+    DO
+      OS.ATRACT=0
+      color=SCENE.Trace(column,row)
+      PaintTile(column,row,tileSize,color)
+      column==+tileSize
+    OD
+    row==+tileSize
+  OD
+RETURN
+
+; Put a visible sky on screen before the first expensive REAL scanline is
+; traced. The renderer progressively replaces these rows with exact samples.
+PROC PrepareBackdrop()
+  BYTE row,color
+
+  row=0
+  WHILE row<SCENE.HEIGHT
+  DO
+    color=20+(row RSH 3)
+    VIDEO.FillRow(row,color)
+    row==+1
+  OD
+RETURN
+
+; Start with a 32-pixel mosaic, then halve the tile size until the last pass
+; has traced every pixel exactly.
+PROC Render()
+  BYTE tileSize
+
+  tileSize=32
+  WHILE tileSize>0
+  DO
+    RenderPass(tileSize)
+    tileSize=tileSize RSH 1
+  OD
+RETURN
+
+PROC Main()
+  SYS.Graphics(0)
+  SYS.PrintE(rendering)
+  IF VIDEO.Init()=0 THEN
+    SYS.PrintE(missing)
+    SYS.PrintE(keyText)
+    WaitKey()
+    RETURN
+  FI
+
+  COLORS.Install()
+  GTIA.COLBAK=0
+  OS.COLOR4=0
+  PrepareBackdrop()
+  Render()
+  WaitKey()
+  VIDEO.Shutdown()
+  SYS.Graphics(0)
+RETURN
+
+ENDMODULE

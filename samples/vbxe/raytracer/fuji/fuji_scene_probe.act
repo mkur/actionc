@@ -1,0 +1,33 @@
+; Deterministic, hardware-independent rays through the extruded Fuji scene.
+; This probe exercises the scene kernel without requiring VBXE hardware.
+MODULE FUJI_SCENE_PROBE
+
+USE FUJI_SCENE AS SCENE
+
+BYTE ARRAY shades(12)=$0700
+BYTE ARRAY hitKinds(12)=$0710
+BYTE done=$0720
+
+PROC Sample(BYTE index,CARD column,BYTE row)
+  shades(index)=SCENE.Trace(column,row)
+  hitKinds(index)=SCENE.LastHitKind
+RETURN
+
+PROC Main()
+  Sample(0,0,0)       ; sky
+  Sample(1,156,36)    ; center tip
+  Sample(2,137,52)    ; left wing front
+  Sample(3,147,52)    ; left wing side wall
+  Sample(4,156,72)    ; center front
+  Sample(5,166,72)    ; center side wall
+  Sample(6,188,72)    ; right wing front
+  Sample(7,116,108)   ; left wing front
+  Sample(8,134,108)   ; left wing side wall
+  Sample(9,156,132)   ; center base
+  Sample(10,224,144)  ; right wing base
+  Sample(11,319,191)  ; lower background
+  done=$A5
+  DO OD
+RETURN
+
+ENDMODULE

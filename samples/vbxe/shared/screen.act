@@ -1,9 +1,9 @@
-; Small SR320 framebuffer layer used by the VBXE samples.
+; Small SR320 framebuffer layer shared by the VBXE graphics samples.
 ;
 ; The 320x192 framebuffer has a 512-byte stride. Twelve 8KB VBXE banks each
 ; contain 16 rows, which keeps every mapped scanline inside the $A000-$BFFF
 ; MEMAC window. Programs using this layer must keep code and data below $A000.
-MODULE SCREEN
+MODULE SHARED.SCREEN
 
 USE ATARI.PIA
 USE ATARI.VBXE

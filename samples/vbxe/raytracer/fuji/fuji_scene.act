@@ -1,0 +1,220 @@
+; Hardware-independent REAL ray kernel for an extruded Atari Fuji.
+;
+; The logo is described as three curved vertical bands. Camera rays are
+; transformed into logo space, where the shape occupies the slab from z=-8
+; to z=8. A ray inside the near silhouette hits the front face. A ray outside
+; the near silhouette but inside the far silhouette crosses a visible side
+; wall; binary refinement locates that crossing for coherent lighting.
+MODULE FUJI_SCENE
+
+USE MATH AS FPP
+
+PUBLIC CONST CARD WIDTH=320
+PUBLIC CONST BYTE HEIGHT=192,
+                  HIT_BACKGROUND=0,
+                  HIT_FRONT=1,
+                  HIT_SIDE=2
+
+CONST BYTE SIDE_REFINEMENTS=5,
+           MATERIAL_SKY=$00,
+           MATERIAL_FRONT=$40,
+           MATERIAL_SIDE=$80
+
+CONST REAL PROJECTION_SCALE=135.0,
+           ROTATION_SIN=0.3420201433,
+           ROTATION_COS=0.9396926208,
+           CAMERA_LOCAL_X=34.20201433,
+           CAMERA_LOCAL_Z=-93.96926208,
+           LOGO_HALF_DEPTH=8.0,
+           LOGO_TOP=45.0,
+           LOGO_BOTTOM=-45.0,
+           LIGHT_X=-0.35,
+           LIGHT_Y=0.55,
+           LIGHT_Z=-0.75
+
+PUBLIC BYTE LastHitKind
+
+; At any height the silhouette contains a center band and two side wings.
+; Squared vertical distance bends the channels outward toward the base.
+BYTE FUNC InsideFuji(REAL POINTER x,y)
+  REAL localX,localY,absoluteX,fromTop,curve
+  REAL centerHalfWidth,wingInnerEdge,outerEdge
+
+  localX=x^
+  localY=y^
+  IF localY>LOGO_TOP THEN RETURN(0) FI
+  IF localY<LOGO_BOTTOM THEN RETURN(0) FI
+
+  absoluteX=localX
+  IF absoluteX<0 THEN absoluteX=-absoluteX FI
+  fromTop=LOGO_TOP-localY
+  curve=fromTop*fromTop
+
+  centerHalfWidth=4+curve/720
+  IF absoluteX<=centerHalfWidth THEN RETURN(1) FI
+
+  ; The center rises above the two wings, creating the three Fuji tips.
+  IF fromTop<6 THEN RETURN(0) FI
+  wingInnerEdge=8+curve/250
+  outerEdge=12+0.58*fromTop
+  IF absoluteX>=wingInnerEdge THEN
+    IF absoluteX<=outerEdge THEN RETURN(1) FI
+  FI
+RETURN(0)
+
+; Recover an outward normal for whichever silhouette boundary the side ray
+; crossed. The three curved bands make this more expressive than a box normal.
+PROC FujiSideNormal(REAL POINTER x,y,normalX,normalY)
+  REAL localX,localY,absoluteX,fromTop,curve
+  REAL centerHalfWidth,wingInnerEdge,outerEdge
+  REAL innerDistance,outerDistance,lengthSquared,length
+
+  localX=x^
+  localY=y^
+  IF localY>44 THEN
+    normalX^=0
+    normalY^=1
+    RETURN
+  ELSEIF localY<-44 THEN
+    normalX^=0
+    normalY^=-1
+    RETURN
+  FI
+
+  absoluteX=localX
+  IF absoluteX<0 THEN absoluteX=-absoluteX FI
+  fromTop=LOGO_TOP-localY
+  curve=fromTop*fromTop
+  centerHalfWidth=4+curve/720
+
+  IF absoluteX<=centerHalfWidth THEN
+    normalX^=1
+    IF localX<0 THEN normalX^=-1 FI
+    normalY^=2*fromTop/720
+  ELSE
+    wingInnerEdge=8+curve/250
+    outerEdge=12+0.58*fromTop
+    innerDistance=absoluteX-wingInnerEdge
+    outerDistance=outerEdge-absoluteX
+
+    IF innerDistance<outerDistance THEN
+      normalX^=-1
+      IF localX<0 THEN normalX^=1 FI
+      normalY^=-2*fromTop/250
+    ELSE
+      normalX^=1
+      IF localX<0 THEN normalX^=-1 FI
+      normalY^=0.58
+    FI
+  FI
+
+  lengthSquared=normalX^*normalX^+normalY^*normalY^
+  FPP.Sqrt(@lengthSquared,@length)
+  normalX^==/length
+  normalY^==/length
+RETURN
+
+BYTE FUNC ShadeFuji(REAL POINTER localNormalX,localNormalY,localNormalZ,
+                    BYTE material)
+  REAL worldNormalX,worldNormalY,worldNormalZ,diffuse,levelReal
+  INT level
+
+  ; Transform the object-space normal back through the logo's Y rotation.
+  worldNormalX=ROTATION_COS*localNormalX^+ROTATION_SIN*localNormalZ^
+  worldNormalY=localNormalY^
+  worldNormalZ=-ROTATION_SIN*localNormalX^+ROTATION_COS*localNormalZ^
+
+  diffuse=worldNormalX*LIGHT_X+
+          worldNormalY*LIGHT_Y+
+          worldNormalZ*LIGHT_Z
+  IF diffuse<0 THEN diffuse=0 FI
+  levelReal=12+48*diffuse
+  level=INT(levelReal)
+  IF level<0 THEN level=0 FI
+  IF level>63 THEN level=63 FI
+RETURN(material+BYTE(level))
+
+BYTE FUNC Background(CARD col,BYTE row)
+  BYTE hash,level
+
+  hash=BYTE(col)
+  hash=hash*17
+  hash==+row
+  hash=hash XOR (hash RSH 3)
+  hash=hash*29
+  hash==+BYTE(col RSH 1)
+  IF row<150 AND hash>253 THEN RETURN(60+(hash AND 3)) FI
+
+  level=4+(row RSH 2)
+  IF level>59 THEN level=59 FI
+RETURN(level)
+
+PUBLIC BYTE FUNC Trace(CARD col,BYTE row)
+  INT screenX,screenY
+  BYTE refinement
+  REAL rayX,rayY,localDirectionX,localDirectionY,localDirectionZ
+  REAL nearT,farT,outsideT,insideT,middleT,hitT
+  REAL localX,localY,normalX,normalY,normalZ
+
+  LastHitKind=HIT_BACKGROUND
+
+  ; A cheap projected bound avoids REAL work for most background pixels.
+  IF col<40 OR col>280 OR row<18 OR row>178 THEN
+    RETURN(Background(col,row))
+  FI
+
+  screenX=INT(col)-160
+  screenY=96-INT(row)
+  rayX=screenX
+  rayY=screenY
+  rayX==/PROJECTION_SCALE
+  rayY==/PROJECTION_SCALE
+
+  ; Inverse Y rotation places the camera ray in the logo's local space.
+  localDirectionX=ROTATION_COS*rayX-ROTATION_SIN
+  localDirectionY=rayY
+  localDirectionZ=ROTATION_SIN*rayX+ROTATION_COS
+
+  nearT=(-LOGO_HALF_DEPTH-CAMERA_LOCAL_Z)/localDirectionZ
+  farT=(LOGO_HALF_DEPTH-CAMERA_LOCAL_Z)/localDirectionZ
+
+  localX=CAMERA_LOCAL_X+nearT*localDirectionX
+  localY=nearT*localDirectionY
+  IF InsideFuji(@localX,@localY)#0 THEN
+    normalX=0
+    normalY=0
+    normalZ=-1
+    LastHitKind=HIT_FRONT
+    RETURN(ShadeFuji(@normalX,@normalY,@normalZ,MATERIAL_FRONT))
+  FI
+
+  ; If only the far silhouette contains the ray, it entered through a side.
+  localX=CAMERA_LOCAL_X+farT*localDirectionX
+  localY=farT*localDirectionY
+  IF InsideFuji(@localX,@localY)=0 THEN RETURN(Background(col,row)) FI
+
+  outsideT=nearT
+  insideT=farT
+  refinement=0
+  WHILE refinement<SIDE_REFINEMENTS
+  DO
+    middleT=(outsideT+insideT)/2
+    localX=CAMERA_LOCAL_X+middleT*localDirectionX
+    localY=middleT*localDirectionY
+    IF InsideFuji(@localX,@localY)#0 THEN
+      insideT=middleT
+    ELSE
+      outsideT=middleT
+    FI
+    refinement==+1
+  OD
+
+  hitT=insideT
+  localX=CAMERA_LOCAL_X+hitT*localDirectionX
+  localY=hitT*localDirectionY
+  FujiSideNormal(@localX,@localY,@normalX,@normalY)
+  normalZ=0
+  LastHitKind=HIT_SIDE
+RETURN(ShadeFuji(@normalX,@normalY,@normalZ,MATERIAL_SIDE))
+
+ENDMODULE

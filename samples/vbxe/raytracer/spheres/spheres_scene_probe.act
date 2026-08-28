@@ -1,17 +1,17 @@
-; Deterministic, hardware-independent probe for the BASIC ray kernel.
+; Deterministic, hardware-independent probe for the sphere ray kernel.
 ; Compile with --profile modern. The result bytes are also exercised by the
 ; actionc VM tests, so this program does not require VBXE.
-MODULE RAY_KERNEL_PROBE
+MODULE SPHERES_SCENE_PROBE
 
-USE RAY
+USE SPHERES_SCENE AS SCENE
 
 BYTE ARRAY shades(10)=$0700
 BYTE ARRAY reflections(10)=$0710
 BYTE done=$0720
 
 PROC Sample(BYTE index, CARD col, BYTE row)
-  shades(index)=RAY.Trace(col,row)
-  reflections(index)=RAY.LastReflections
+  shades(index)=SCENE.Trace(col,row)
+  reflections(index)=SCENE.LastReflections
 RETURN
 
 PROC Main()

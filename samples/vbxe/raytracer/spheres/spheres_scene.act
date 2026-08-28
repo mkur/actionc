@@ -1,9 +1,9 @@
-; Hardware-independent ray kernel for the VBXE ray tracer sample.
+; Hardware-independent ray kernel for the VBXE sphere ray tracer.
 ;
 ; This is a structured translation of the geometry in the Atari BASIC
 ; ten-liner. It traces one of the 320x192 VBXE pixels and returns an 8-bit
 ; luminance palette index.
-MODULE RAY
+MODULE SPHERES_SCENE
 
 USE MATH AS FPP
 

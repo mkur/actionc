@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use actionc::compiler::{compile_file, CompileMode, CompileOptions, Runtime};
-use actionc::includes::{load_compilation, ModuleLoadOptions};
-use actionc::semantic::{analyze_compilation_with_options, SemanticOptions};
+use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
+use actionc::includes::{ModuleLoadOptions, load_compilation};
+use actionc::semantic::{SemanticOptions, analyze_compilation_with_options};
 
 #[test]
 fn parses_all_sample_programs() {
@@ -17,7 +17,7 @@ fn parses_all_sample_programs() {
         {
             continue;
         }
-        check_sample(&path);
+        check_sample(&path, &samples_dir);
         sample_count += 1;
     }
 
@@ -60,9 +60,18 @@ fn is_latent_named_module_sample(path: &Path, samples_dir: &Path) -> bool {
         .is_some_and(|component| component.as_os_str() == "modules")
 }
 
-fn check_sample(path: &Path) {
+fn check_sample(path: &Path, samples_dir: &Path) {
     if is_action_source(path) {
-        let compilation = load_compilation(path, &ModuleLoadOptions::default())
+        let raytracer_root = samples_dir.join("vbxe/raytracer");
+        let options = if path.starts_with(&raytracer_root) {
+            ModuleLoadOptions {
+                module_paths: vec![samples_dir.join("vbxe")],
+                ..ModuleLoadOptions::default()
+            }
+        } else {
+            ModuleLoadOptions::default()
+        };
+        let compilation = load_compilation(path, &options)
             .unwrap_or_else(|err| panic!("load compilation {}: {err:?}", path.display()));
         analyze_compilation_with_options(&compilation, SemanticOptions::modern())
             .unwrap_or_else(|err| panic!("analyze {}: {err:?}", path.display()));

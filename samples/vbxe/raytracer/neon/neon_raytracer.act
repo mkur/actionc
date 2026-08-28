@@ -1,43 +1,51 @@
-; Progressive VBXE ray tracer based on the Atari BASIC ten-liner.
+; Progressive VBXE rendering of a neon ringed planet and reflective grid.
 ;
 ; Compile with:
-;   actionc --profile modern --runtime standalone samples/vbxe/raytracer.act
-MODULE VBXE_RAYTRACER
+;   actionc --module-path samples/vbxe --profile modern \
+;     --runtime standalone samples/vbxe/raytracer/neon/neon_raytracer.act
+MODULE VBXE_NEON_RAYTRACER
 
 USE ATARI.GTIA
 USE ATARI.OS
-USE RAY
-USE SCREEN AS VIDEO
+USE NEON_PALETTE AS COLORS
+USE NEON_SCENE AS SCENE
+USE SHARED.SCREEN AS VIDEO
 USE SYS
 
 CONST CARD OUTPUT_WIDTH=320
-
 CONST BYTE LAST_ROW=191
 
 BYTE ARRAY line(OUTPUT_WIDTH)
 
 STRING missing(0)="VBXE FX 1.2x is required."
-STRING rendering(0)="Rendering the VBXE ray tracer..."
+STRING rendering(0)="Rendering the VBXE neon planet..."
 STRING keyText(0)="Press any key to continue."
 
-PROC WaitKey()
+PROC AnimateUntilKey()
+  BYTE frame,phase
+
   OS.CH=OS.NO_KEY
+  frame=OS.RTCLOK_LO
+  phase=0
   WHILE OS.CH=OS.NO_KEY
   DO
     OS.ATRACT=0
+    IF OS.RTCLOK_LO#frame THEN
+      frame=OS.RTCLOK_LO
+      phase==+1
+      COLORS.Animate(phase)
+    FI
   OD
 RETURN
 
 PROC TraceLine(BYTE row)
-  BYTE shade
   CARD col
 
   col=0
-  WHILE col<RAY.WIDTH
+  WHILE col<SCENE.WIDTH
   DO
     OS.ATRACT=0
-    shade=RAY.Trace(col,row)
-    line(col)=shade
+    line(col)=SCENE.Trace(col,row)
     col==+1
   OD
 RETURN
@@ -56,11 +64,11 @@ PROC CopyLine(BYTE row)
 RETURN
 
 PROC ShowSpan(BYTE sourceRow,height)
-  BYTE firstRow,lastRow,row
+  BYTE lastRow,row
 
-  lastRow=LAST_ROW-sourceRow
-  firstRow=lastRow-height
-  row=firstRow
+  lastRow=sourceRow+height
+  IF lastRow>LAST_ROW THEN lastRow=LAST_ROW FI
+  row=sourceRow
   WHILE row<=lastRow
   DO
     CopyLine(row)
@@ -76,7 +84,7 @@ PROC Render()
   height=63
   DO
     row=offset
-    WHILE row<RAY.HEIGHT
+    WHILE row<SCENE.HEIGHT
     DO
       TraceLine(row)
       ShowSpan(row,height)
@@ -84,14 +92,11 @@ PROC Render()
     OD
 
     IF offset=0 THEN
-      ; The first refinement samples the midpoint of each 64-row span.
       offset=gap RSH 1
       height=offset-1
     ELSE
       gap=gap RSH 1
-      IF gap<=1 THEN
-        EXIT
-      FI
+      IF gap<=1 THEN EXIT FI
       offset=gap RSH 1
       height=offset-1
     FI
@@ -104,14 +109,15 @@ PROC Main()
   IF VIDEO.Init()=0 THEN
     SYS.PrintE(missing)
     SYS.PrintE(keyText)
-    WaitKey()
+    AnimateUntilKey()
     RETURN
   FI
 
+  COLORS.Install()
   GTIA.COLBAK=0
   OS.COLOR4=0
   Render()
-  WaitKey()
+  AnimateUntilKey()
   VIDEO.Shutdown()
   SYS.Graphics(0)
 RETURN

@@ -517,8 +517,9 @@ mod tests {
     }
 
     #[test]
-    fn vbxe_ray_kernel_matches_selected_reference_pixels() {
-        let sample = repository_root().join("samples/vbxe/ray-kernel-probe.act");
+    fn vbxe_spheres_scene_matches_selected_reference_pixels() {
+        let sample =
+            repository_root().join("samples/vbxe/raytracer/spheres/spheres_scene_probe.act");
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
                 let compiled = compile_file(
@@ -526,7 +527,7 @@ mod tests {
                     &CompileOptions::for_mode(mode).with_runtime(runtime),
                 )
                 .unwrap_or_else(|error| {
-                    panic!("compile ray kernel probe for {mode:?}/{runtime:?}: {error}")
+                    panic!("compile spheres scene probe for {mode:?}/{runtime:?}: {error}")
                 });
                 let profile = match runtime {
                     Runtime::ActionCart => ExecutionProfile::CartridgeObject,
@@ -541,11 +542,11 @@ mod tests {
                         OS_ROM_BASE,
                         std::fs::read(os).expect("read Atari OS ROM"),
                     )
-                    .expect("load Atari OS ROM for ray kernel");
+                    .expect("load Atari OS ROM for spheres scene");
                 }
                 vm.load_atari_object_for_execution(profile, compiled.object_bytes())
                     .unwrap_or_else(|error| {
-                        panic!("load ray kernel probe for {mode:?}/{runtime:?}: {error}")
+                        panic!("load spheres scene probe for {mode:?}/{runtime:?}: {error}")
                     });
                 let max_steps = 2_000_000;
                 let outcome = VmRunner::new(vm).run(RunRequest {
@@ -576,7 +577,7 @@ mod tests {
 
     #[test]
     fn vbxe_neon_scene_kernel_matches_selected_reference_pixels() {
-        let sample = repository_root().join("samples/vbxe/neon-scene-probe.act");
+        let sample = repository_root().join("samples/vbxe/raytracer/neon/neon_scene_probe.act");
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
                 let compiled = compile_file(
@@ -623,6 +624,64 @@ mod tests {
                     "{context}"
                 );
                 assert_eq!(bytes(0x0710, 1), [0xA5], "{context}");
+            }
+        }
+    }
+
+    #[test]
+    fn vbxe_fuji_scene_kernel_matches_selected_reference_pixels() {
+        let sample = repository_root().join("samples/vbxe/raytracer/fuji/fuji_scene_probe.act");
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let compiled = compile_file(
+                    &sample,
+                    &CompileOptions::for_mode(mode).with_runtime(runtime),
+                )
+                .unwrap_or_else(|error| {
+                    panic!("compile Fuji scene probe for {mode:?}/{runtime:?}: {error}")
+                });
+                let profile = match runtime {
+                    Runtime::ActionCart => ExecutionProfile::CartridgeObject,
+                    Runtime::Standalone => ExecutionProfile::StandaloneObject,
+                };
+                let mut vm = vm_for_profile(profile);
+                if runtime == Runtime::Standalone {
+                    let os = repository_root().join("roms/altirraos-xl.rom");
+                    vm.load_image_bytes(
+                        ImageKind::Rom,
+                        "altirraos-xl.rom",
+                        OS_ROM_BASE,
+                        std::fs::read(os).expect("read Atari OS ROM"),
+                    )
+                    .expect("load Atari OS ROM for Fuji scene kernel");
+                }
+                vm.load_atari_object_for_execution(profile, compiled.object_bytes())
+                    .unwrap_or_else(|error| {
+                        panic!("load Fuji scene probe for {mode:?}/{runtime:?}: {error}")
+                    });
+                let max_steps = 750_000;
+                let outcome = VmRunner::new(vm).run(RunRequest {
+                    max_steps,
+                    history_len: 8,
+                    ..RunRequest::default()
+                });
+                let bytes = |address: u16, length: u16| {
+                    (0..length)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+                assert_eq!(
+                    bytes(0x0700, 12),
+                    [4, 116, 116, 140, 116, 140, 116, 116, 140, 116, 116, 51],
+                    "{context}"
+                );
+                assert_eq!(
+                    bytes(0x0710, 12),
+                    [0, 1, 1, 2, 1, 2, 1, 1, 2, 1, 1, 0],
+                    "{context}"
+                );
+                assert_eq!(bytes(0x0720, 1), [0xA5], "{context}");
             }
         }
     }

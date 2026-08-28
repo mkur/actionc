@@ -1,4 +1,4 @@
-; Hardware-independent REAL ray kernel for the VBXE neon-planet sample.
+; Hardware-independent REAL ray kernel for the VBXE neon-planet scene.
 ;
 ; Every visible primitive is intersected in perspective: a sphere, a tilted
 ; annulus, and a floor plane. The floor reflection traces a virtual mirrored
