@@ -42,9 +42,11 @@ fn spill_byte_may_be_read_after(
     start: usize,
     spill: MirSpillId,
     offset: u16,
-    visited: &mut BTreeSet<usize>,
+    visited: &mut BTreeSet<(usize, usize)>,
 ) -> bool {
-    if !visited.insert(block_index) {
+    // The initial scan may begin after a candidate store, while a backedge
+    // re-enters the same block at op zero and can read the stored value first.
+    if !visited.insert((block_index, start)) {
         return false;
     }
     let Some(block) = routine.blocks.get(block_index) else {

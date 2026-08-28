@@ -1,0 +1,32 @@
+; Regression for a loop-carried CARD whose high byte becomes nonzero. The
+; body reads the old value before the latch stores the next iteration's value.
+MODULE CARD_LOOP_ABOVE_BYTE_RANGE_TEST
+
+USE ATARI.OS
+
+CARD observed=$0600
+BYTE signature=$0602
+BYTE ARRAY pixels(320)=$0800
+
+PROC Observe(CARD value)
+  observed=value
+RETURN
+
+PROC Main()
+  CARD col
+
+  col=0
+  WHILE col<320
+  DO
+    OS.ATRACT=0
+    Observe(col)
+    pixels(col)=1
+    col==+1
+  OD
+
+  signature=$A5
+  DO
+  OD
+RETURN
+
+ENDMODULE

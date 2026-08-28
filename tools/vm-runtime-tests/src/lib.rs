@@ -700,6 +700,25 @@ mod tests {
     }
 
     #[test]
+    fn card_loop_crosses_the_byte_boundary() {
+        assert_both_backends(
+            "CARD loop above the BYTE range",
+            "card_loop_above_byte_range.act",
+            10_000,
+            &[
+                MemoryExpectation {
+                    start: RESULT_START,
+                    bytes: &[0x3F, 0x01, 0xA5],
+                },
+                MemoryExpectation {
+                    start: 0x093F,
+                    bytes: &[1],
+                },
+            ],
+        );
+    }
+
+    #[test]
     fn selectively_linked_sargs_executes_without_a_cartridge() {
         let max_steps = 1_000;
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {

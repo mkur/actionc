@@ -11853,6 +11853,68 @@ fn dead_private_scratch_store_keeps_values_live_into_successors() {
 }
 
 #[test]
+fn dead_spill_store_keeps_value_read_before_store_on_next_iteration() {
+    let spill = MirMem::Spill {
+        id: MirSpillId(30),
+        offset: 0,
+    };
+    let mut routine = MirRoutine {
+        id: RoutineId(0),
+        name: "loop_carried_spill".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame {
+            spills: vec![MirSpillId(30)],
+            ..MirFrame::default()
+        },
+        temps: Vec::new(),
+        blocks: vec![
+            MirBlock {
+                id: MirBlockId(0),
+                label: "body".to_string(),
+                params: Vec::new(),
+                ops: vec![
+                    MirOp::Load {
+                        dst: MirDef::Reg(MirReg::X),
+                        src: MirAddr::Direct(spill.clone()),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Store {
+                        dst: MirAddr::Direct(spill.clone()),
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                    },
+                ],
+                terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            },
+            MirBlock {
+                id: MirBlockId(1),
+                label: "latch".to_string(),
+                params: Vec::new(),
+                ops: Vec::new(),
+                terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(0))),
+            },
+        ],
+        effects: MirEffects::default(),
+    };
+
+    remove_dead_spill_stores(&mut routine);
+
+    assert!(matches!(
+        routine.blocks[0].ops.as_slice(),
+        [
+            MirOp::Load {
+                src: MirAddr::Direct(load),
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(store),
+                ..
+            }
+        ] if load == &spill && store == &spill
+    ));
+}
+
+#[test]
 fn staged_rhs_keeps_private_scratch_values_live_into_successors() {
     let rhs_source = MirMem::Global {
         id: crate::nir::SymbolId(1),
