@@ -108,6 +108,9 @@ USE SYS
 USE ATARI.OS
 
 PROC Main()
+  SYS.Close(0)
+  SYS.Open(0,"E:",12,0)
+
   SYS.PrintE("Hello from a module!")
   OS.CH=OS.NO_KEY
   SYS.PrintE("Press any key to continue.")
@@ -136,6 +139,8 @@ unqualified names, so existing code can call `PrintE` without an import. The
 explicit `USE SYS` above creates the qualifier needed for `SYS.PrintE`; it does
 not add every system routine to the executable. With the standalone runtime,
 the call links `PrintE` and the runtime routines on which it depends.
+Closing IOCB 0 and reopening `E:` ensures that the editor device is available
+when the XEX is booted directly in an emulator.
 `USE ATARI.OS` provides the OS keyboard latch and `NO_KEY` constant. Clearing
 `OS.CH` discards any earlier key, and the loop ends as soon as the OS records a
 new keypress; Return is not required.

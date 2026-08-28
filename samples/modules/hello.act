@@ -5,6 +5,9 @@ USE SYS
 USE ATARI.OS
 
 PROC Main()
+  SYS.Close(0)
+  SYS.Open(0,"E:",12,0)
+
   SYS.PrintE("Hello from a module!")
   OS.CH=OS.NO_KEY
   SYS.PrintE("Press any key to continue.")
