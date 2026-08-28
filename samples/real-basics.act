@@ -3,19 +3,33 @@
 MODULE REAL_BASICS
 
 USE SYS
+USE ATARI.OS
 
+CONST BYTE EditorChannel=0
 CONST REAL UnitPrice=1.25
 
+VOLATILE BYTE editorHandler=$0340
 BYTE quantity
 REAL subtotal, total
 
 PROC Main()
+  IF editorHandler#$FF THEN
+    SYS.Close(EditorChannel)
+  FI
+  SYS.Open(EditorChannel,"E:",12,0)
+
   quantity=4
   subtotal=UnitPrice*quantity
   total=subtotal+0.5
 
-  SYS.PrintE("Total:")
-  SYS.PrintRE(@total)
+  SYS.PrintDE(EditorChannel,"Total:")
+  SYS.PrintRDE(EditorChannel,@total) ; call by reference
+
+  OS.CH=OS.NO_KEY
+  SYS.PrintDE(EditorChannel,"Press any key to continue.")
+  DO
+  UNTIL OS.CH#OS.NO_KEY
+  OD
 RETURN
 
 ENDMODULE
