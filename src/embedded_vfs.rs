@@ -130,6 +130,23 @@ mod tests {
     }
 
     #[test]
+    fn embedded_image_is_identical_for_lf_and_crlf_checkouts() {
+        let input = |bytes| embedded_image::SourceInput {
+            kind: "Runtime".to_string(),
+            canonical_key: "runtime:example.act".to_string(),
+            virtual_path: "runtime/example.act".to_string(),
+            display_name: "<runtime:EXAMPLE.ACT>".to_string(),
+            bytes,
+        };
+        let lf = embedded_image::prepare_image(vec![input(b"PROC Main()\nRETURN\n".to_vec())]);
+        let crlf =
+            embedded_image::prepare_image(vec![input(b"PROC Main()\r\nRETURN\r\n".to_vec())]);
+
+        assert_eq!(crlf, lf);
+        assert_eq!(lf.sources[0].input.bytes, b"PROC Main()\nRETURN\n");
+    }
+
+    #[test]
     fn generated_image_is_sorted_hashed_and_readable_without_host_io() {
         assert_eq!(VFS_DIGEST.len(), 64);
         assert!(

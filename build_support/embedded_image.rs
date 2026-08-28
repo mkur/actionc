@@ -20,6 +20,12 @@ pub struct PreparedImage {
 }
 
 pub fn prepare_image(mut inputs: Vec<SourceInput>) -> PreparedImage {
+    // Git may materialize text files with CRLF on Windows.  Canonicalize the
+    // embedded bytes so source fingerprints and the aggregate image digest do
+    // not depend on the checkout platform.
+    for input in &mut inputs {
+        input.bytes = normalize_crlf(std::mem::take(&mut input.bytes));
+    }
     inputs.sort_by(|left, right| left.canonical_key.cmp(&right.canonical_key));
     let sources = inputs
         .into_iter()
@@ -40,6 +46,25 @@ pub fn prepare_image(mut inputs: Vec<SourceInput>) -> PreparedImage {
         sha256: sha256_hex(&manifest),
         sources,
     }
+}
+
+fn normalize_crlf(bytes: Vec<u8>) -> Vec<u8> {
+    if !bytes.windows(2).any(|pair| pair == b"\r\n") {
+        return bytes;
+    }
+
+    let mut normalized = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'\r' && bytes.get(index + 1) == Some(&b'\n') {
+            normalized.push(b'\n');
+            index += 2;
+        } else {
+            normalized.push(bytes[index]);
+            index += 1;
+        }
+    }
+    normalized
 }
 
 fn append_field(output: &mut Vec<u8>, field: &[u8]) {
