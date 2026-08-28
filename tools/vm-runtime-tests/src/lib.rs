@@ -659,7 +659,7 @@ mod tests {
                     .unwrap_or_else(|error| {
                         panic!("load Fuji scene probe for {mode:?}/{runtime:?}: {error}")
                     });
-                let max_steps = 750_000;
+                let max_steps = 1_250_000;
                 let outcome = VmRunner::new(vm).run(RunRequest {
                     max_steps,
                     history_len: 8,
@@ -672,13 +672,16 @@ mod tests {
                 };
                 let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
                 assert_eq!(
-                    bytes(0x0700, 12),
-                    [4, 116, 116, 140, 116, 140, 116, 116, 140, 116, 116, 51],
+                    bytes(0x0700, 16),
+                    [
+                        4, 116, 116, 140, 116, 140, 116, 116, 140, 116, 116, 231, 210, 200,
+                        88, 142,
+                    ],
                     "{context}"
                 );
                 assert_eq!(
-                    bytes(0x0710, 12),
-                    [0, 1, 1, 2, 1, 2, 1, 1, 2, 1, 1, 0],
+                    bytes(0x0710, 16),
+                    [0, 1, 1, 2, 1, 2, 1, 1, 2, 1, 1, 0, 0, 0, 0, 0],
                     "{context}"
                 );
                 assert_eq!(bytes(0x0720, 1), [0xA5], "{context}");

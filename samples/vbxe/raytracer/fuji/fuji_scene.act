@@ -18,7 +18,8 @@ PUBLIC CONST BYTE HEIGHT=192,
 CONST BYTE SIDE_REFINEMENTS=5,
            MATERIAL_SKY=$00,
            MATERIAL_FRONT=$40,
-           MATERIAL_SIDE=$80
+           MATERIAL_SIDE=$80,
+           MATERIAL_FLOOR=$C0
 
 CONST REAL PROJECTION_SCALE=135.0,
            ROTATION_SIN=0.3420201433,
@@ -28,17 +29,33 @@ CONST REAL PROJECTION_SCALE=135.0,
            LOGO_HALF_DEPTH=8.0,
            LOGO_TOP=45.0,
            LOGO_BOTTOM=-45.0,
+           LOGO_HEIGHT=90.0,
+           CENTER_HALF_WIDTH=6.25,
+           WING_INNER_TOP=9.0,
+           WING_OUTER_TOP=16.0,
+           WING_TIP_X=56.0,
+           WING_INNER_BEND=47.0,
+           WING_OUTER_BEND=40.0,
+           WING_TIP_START=77.0,
+           INNER_SLOPE_SCALE=3.133333333,
+           OUTER_SLOPE_SCALE=2.077922078,
+           FLOOR_Y=-45.0,
+           MIRROR_CENTER_Y=-90.0,
            LIGHT_X=-0.35,
            LIGHT_Y=0.55,
-           LIGHT_Z=-0.75
+           LIGHT_Z=-0.75,
+           LIGHT_LOCAL_X=-0.0723773098,
+           LIGHT_LOCAL_Z=-0.8244765158
 
 PUBLIC BYTE LastHitKind
 
-; At any height the silhouette contains a center band and two side wings.
-; Squared vertical distance bends the channels outward toward the base.
+; The classic Fuji has a straight center pillar and two narrow strokes which
+; begin beside it, then sweep outward into rounded feet. The sixth- and
+; fourth-power curves below closely follow that silhouette while keeping the
+; geometry analytic and inexpensive to describe.
 BYTE FUNC InsideFuji(REAL POINTER x,y)
-  REAL localX,localY,absoluteX,fromTop,curve
-  REAL centerHalfWidth,wingInnerEdge,outerEdge
+  REAL localX,localY,absoluteX,fromTop,normalized,squared
+  REAL wingInnerEdge,wingOuterEdge
 
   localX=x^
   localY=y^
@@ -47,26 +64,66 @@ BYTE FUNC InsideFuji(REAL POINTER x,y)
 
   absoluteX=localX
   IF absoluteX<0 THEN absoluteX=-absoluteX FI
+
+  ; Unlike the earlier approximation, the center does not flare at the base.
+  IF absoluteX<=CENTER_HALF_WIDTH THEN RETURN(1) FI
+
   fromTop=LOGO_TOP-localY
-  curve=fromTop*fromTop
 
-  centerHalfWidth=4+curve/720
-  IF absoluteX<=centerHalfWidth THEN RETURN(1) FI
+  ; The inner boundary stays nearly upright through most of the mark, then
+  ; curls sharply outward near the foot.
+  normalized=fromTop/LOGO_HEIGHT
+  squared=normalized*normalized
+  wingInnerEdge=WING_INNER_TOP+WING_INNER_BEND*squared*squared*squared
 
-  ; The center rises above the two wings, creating the three Fuji tips.
-  IF fromTop<6 THEN RETURN(0) FI
-  wingInnerEdge=8+curve/250
-  outerEdge=12+0.58*fromTop
-  IF absoluteX>=wingInnerEdge THEN
-    IF absoluteX<=outerEdge THEN RETURN(1) FI
+  ; The outer boundary begins wider and reaches the tip sooner. Its final
+  ; vertical segment rounds off the outside of the foot.
+  IF fromTop<WING_TIP_START THEN
+    normalized=fromTop/WING_TIP_START
+    squared=normalized*normalized
+    wingOuterEdge=WING_OUTER_TOP+WING_OUTER_BEND*squared*squared
+  ELSE
+    wingOuterEdge=WING_TIP_X
   FI
+
+  IF absoluteX>=wingInnerEdge THEN
+    IF absoluteX<=wingOuterEdge THEN RETURN(1) FI
+  FI
+RETURN(0)
+
+; Trace a directional-light ray from the floor through the logo's depth slab.
+; Sampling the entry, middle, and exit points is sufficient for these broad
+; analytic strokes and gives the ground plane a real cast shadow.
+BYTE FUNC FujiShadowsFloor(REAL POINTER worldX,worldZ)
+  REAL originX,originZ,nearT,farT,middleT,localX,localY
+
+  originX=ROTATION_COS*worldX^-ROTATION_SIN*worldZ^
+  originZ=ROTATION_SIN*worldX^+ROTATION_COS*worldZ^
+  IF originZ<=LOGO_HALF_DEPTH THEN RETURN(0) FI
+
+  nearT=(LOGO_HALF_DEPTH-originZ)/LIGHT_LOCAL_Z
+  IF nearT<0 THEN RETURN(0) FI
+  farT=(-LOGO_HALF_DEPTH-originZ)/LIGHT_LOCAL_Z
+
+  localX=originX+nearT*LIGHT_LOCAL_X
+  localY=FLOOR_Y+nearT*LIGHT_Y
+  IF InsideFuji(@localX,@localY)#0 THEN RETURN(1) FI
+
+  middleT=(nearT+farT)/2
+  localX=originX+middleT*LIGHT_LOCAL_X
+  localY=FLOOR_Y+middleT*LIGHT_Y
+  IF InsideFuji(@localX,@localY)#0 THEN RETURN(1) FI
+
+  localX=originX+farT*LIGHT_LOCAL_X
+  localY=FLOOR_Y+farT*LIGHT_Y
+  IF InsideFuji(@localX,@localY)#0 THEN RETURN(1) FI
 RETURN(0)
 
 ; Recover an outward normal for whichever silhouette boundary the side ray
 ; crossed. The three curved bands make this more expressive than a box normal.
 PROC FujiSideNormal(REAL POINTER x,y,normalX,normalY)
-  REAL localX,localY,absoluteX,fromTop,curve
-  REAL centerHalfWidth,wingInnerEdge,outerEdge
+  REAL localX,localY,absoluteX,fromTop,normalized,squared
+  REAL wingInnerEdge,wingOuterEdge,boundarySlope
   REAL innerDistance,outerDistance,lengthSquared,length
 
   localX=x^
@@ -84,27 +141,46 @@ PROC FujiSideNormal(REAL POINTER x,y,normalX,normalY)
   absoluteX=localX
   IF absoluteX<0 THEN absoluteX=-absoluteX FI
   fromTop=LOGO_TOP-localY
-  curve=fromTop*fromTop
-  centerHalfWidth=4+curve/720
 
-  IF absoluteX<=centerHalfWidth THEN
+  IF absoluteX<=CENTER_HALF_WIDTH THEN
     normalX^=1
     IF localX<0 THEN normalX^=-1 FI
-    normalY^=2*fromTop/720
+    normalY^=0
   ELSE
-    wingInnerEdge=8+curve/250
-    outerEdge=12+0.58*fromTop
+    normalized=fromTop/LOGO_HEIGHT
+    squared=normalized*normalized
+    wingInnerEdge=WING_INNER_TOP+WING_INNER_BEND*squared*squared*squared
+
+    IF fromTop<WING_TIP_START THEN
+      normalized=fromTop/WING_TIP_START
+      squared=normalized*normalized
+      wingOuterEdge=WING_OUTER_TOP+WING_OUTER_BEND*squared*squared
+    ELSE
+      wingOuterEdge=WING_TIP_X
+    FI
+
     innerDistance=absoluteX-wingInnerEdge
-    outerDistance=outerEdge-absoluteX
+    outerDistance=wingOuterEdge-absoluteX
 
     IF innerDistance<outerDistance THEN
+      ; d(9 + 47*(t/90)^6)/dt
+      normalized=fromTop/LOGO_HEIGHT
+      squared=normalized*normalized
+      boundarySlope=INNER_SLOPE_SCALE*normalized*squared*squared
       normalX^=-1
       IF localX<0 THEN normalX^=1 FI
-      normalY^=-2*fromTop/250
+      normalY^=-boundarySlope
     ELSE
+      ; d(16 + 40*(t/77)^4)/dt; the rounded tip is vertical.
+      boundarySlope=0
+      IF fromTop<WING_TIP_START THEN
+        normalized=fromTop/WING_TIP_START
+        squared=normalized*normalized
+        boundarySlope=OUTER_SLOPE_SCALE*normalized*squared
+      FI
       normalX^=1
       IF localX<0 THEN normalX^=-1 FI
-      normalY^=0.58
+      normalY^=boundarySlope
     FI
   FI
 
@@ -149,19 +225,50 @@ BYTE FUNC Background(CARD col,BYTE row)
   IF level>59 THEN level=59 FI
 RETURN(level)
 
-PUBLIC BYTE FUNC Trace(CARD col,BYTE row)
+; Intersect the camera ray with a warm checkerboard ground plane. This is kept
+; separate from the object trace so their REAL temporaries are not live at the
+; same time on the small 6502 runtime stack.
+BYTE FUNC TraceFloor(CARD col,BYTE row)
+  INT screenX,screenY,tileX,tileZ
+  REAL rayX,rayY,floorT,worldX,worldZ,tileCoordinate
+  BYTE level
+
+  screenX=INT(col)-160
+  screenY=96-INT(row)
+  rayX=screenX
+  rayY=screenY
+  rayX==/PROJECTION_SCALE
+  rayY==/PROJECTION_SCALE
+
+  floorT=FLOOR_Y/rayY
+  worldX=floorT*rayX
+  worldZ=-100+floorT
+
+  level=16+((row-97) RSH 2)
+  IF level>47 THEN level=47 FI
+
+  ; Suppress tiny distant checks near the horizon, where they would alias.
+  IF row>108 THEN
+    tileCoordinate=worldX/18
+    tileX=INT(tileCoordinate)
+    tileCoordinate=worldZ/18
+    tileZ=INT(tileCoordinate)
+    IF ((BYTE(tileX) XOR BYTE(tileZ)) AND 1)#0 THEN level==-6 FI
+  FI
+
+  IF FujiShadowsFloor(@worldX,@worldZ)#0 THEN level=level/3 FI
+RETURN(MATERIAL_FLOOR+level)
+
+; Trace only the physical extruded logo. Zero is safe as the miss sentinel
+; because both logo material families start above palette index 63.
+BYTE FUNC TraceObject(CARD col,BYTE row)
   INT screenX,screenY
   BYTE refinement
   REAL rayX,rayY,localDirectionX,localDirectionY,localDirectionZ
   REAL nearT,farT,outsideT,insideT,middleT,hitT
   REAL localX,localY,normalX,normalY,normalZ
 
-  LastHitKind=HIT_BACKGROUND
-
-  ; A cheap projected bound avoids REAL work for most background pixels.
-  IF col<40 OR col>280 OR row<18 OR row>178 THEN
-    RETURN(Background(col,row))
-  FI
+  IF col<40 OR col>280 OR row<18 OR row>178 THEN RETURN(0) FI
 
   screenX=INT(col)-160
   screenY=96-INT(row)
@@ -191,7 +298,7 @@ PUBLIC BYTE FUNC Trace(CARD col,BYTE row)
   ; If only the far silhouette contains the ray, it entered through a side.
   localX=CAMERA_LOCAL_X+farT*localDirectionX
   localY=farT*localDirectionY
-  IF InsideFuji(@localX,@localY)=0 THEN RETURN(Background(col,row)) FI
+  IF InsideFuji(@localX,@localY)=0 THEN RETURN(0) FI
 
   outsideT=nearT
   insideT=farT
@@ -216,5 +323,49 @@ PUBLIC BYTE FUNC Trace(CARD col,BYTE row)
   normalZ=0
   LastHitKind=HIT_SIDE
 RETURN(ShadeFuji(@normalX,@normalY,@normalZ,MATERIAL_SIDE))
+
+; A planar reflection can be traced as an upside-down virtual object centered
+; at twice the floor height. It is deliberately dimmer than the physical Fuji.
+BYTE FUNC TraceReflection(CARD col,BYTE row)
+  INT screenX,screenY
+  REAL rayX,rayY,localDirectionX,localDirectionZ
+  REAL nearT,farT,localX,localY
+
+  IF col<40 OR col>280 OR row<154 THEN RETURN(0) FI
+
+  screenX=INT(col)-160
+  screenY=96-INT(row)
+  rayX=screenX
+  rayY=screenY
+  rayX==/PROJECTION_SCALE
+  rayY==/PROJECTION_SCALE
+
+  localDirectionX=ROTATION_COS*rayX-ROTATION_SIN
+  localDirectionZ=ROTATION_SIN*rayX+ROTATION_COS
+  nearT=(-LOGO_HALF_DEPTH-CAMERA_LOCAL_Z)/localDirectionZ
+  farT=(LOGO_HALF_DEPTH-CAMERA_LOCAL_Z)/localDirectionZ
+
+  localX=CAMERA_LOCAL_X+nearT*localDirectionX
+  localY=MIRROR_CENTER_Y-nearT*rayY
+  IF InsideFuji(@localX,@localY)#0 THEN RETURN(MATERIAL_FRONT+24) FI
+
+  localX=CAMERA_LOCAL_X+farT*localDirectionX
+  localY=MIRROR_CENTER_Y-farT*rayY
+  IF InsideFuji(@localX,@localY)#0 THEN RETURN(MATERIAL_SIDE+14) FI
+RETURN(0)
+
+PUBLIC BYTE FUNC Trace(CARD col,BYTE row)
+  BYTE color
+
+  LastHitKind=HIT_BACKGROUND
+  color=TraceObject(col,row)
+  IF color#0 THEN RETURN(color) FI
+
+  IF row>96 THEN
+    color=TraceReflection(col,row)
+    IF color#0 THEN RETURN(color) FI
+    RETURN(TraceFloor(col,row))
+  FI
+RETURN(Background(col,row))
 
 ENDMODULE

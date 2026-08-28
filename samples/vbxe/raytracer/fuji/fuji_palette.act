@@ -50,7 +50,7 @@ PUBLIC PROC Install()
       green=Blend(0,38,pos,63)
       blue=Blend(2,18,pos,63)
     ELSE
-      ; Reserved warm-neutral ramp for future floor or plinth materials.
+      ; Warm-neutral ramp for the checkerboard floor and its cast shadow.
       pos=color-192
       red=Blend(8,210,pos,63)
       green=Blend(5,170,pos,63)

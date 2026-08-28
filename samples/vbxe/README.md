@@ -77,8 +77,10 @@ mesh, extrudes that silhouette through a finite depth, and rotates it around
 the vertical axis. Rays that enter the near silhouette hit the red front face;
 rays that enter only the far silhouette cross a side wall. Binary refinement
 locates those side hits, and transformed surface normals give the extrusion
-its darker directional shading. A dedicated VBXE palette separates the deep
-blue backdrop, warm stars, bright face, and darker red side material.
+its darker directional shading. Secondary rays cast the Fuji's shadow onto a
+warm checkerboard floor, while reflected camera rays trace an upside-down
+virtual copy below that plane. A dedicated VBXE palette separates the deep
+blue sky, warm stars, bright face, darker side walls, and neutral floor.
 
 All complete renderers progressively refine the same banked 320 by 192
 framebuffer and are checked with both maintained compiler backends to keep all
