@@ -56,28 +56,24 @@ MODULE REAL_BASICS
 USE SYS
 USE ATARI.OS
 
-CONST BYTE EditorChannel=0
 CONST REAL UnitPrice=1.25
 
-VOLATILE BYTE editorHandler=$0340
 BYTE quantity
 REAL subtotal, total
 
 PROC Main()
-  IF editorHandler#$FF THEN
-    SYS.Close(EditorChannel)
-  FI
-  SYS.Open(EditorChannel,"E:",12,0)
+  SYS.Close(0)
+  SYS.Open(0,"E:",12,0)
 
   quantity=4
   subtotal=UnitPrice*quantity
   total=subtotal+0.5
 
-  SYS.PrintDE(EditorChannel,"Total:")
-  SYS.PrintRDE(EditorChannel,@total)
+  SYS.PrintE("Total:")
+  SYS.PrintRE(@total) ;  pass the address of total
 
   OS.CH=OS.NO_KEY
-  SYS.PrintDE(EditorChannel,"Press any key to continue.")
+  SYS.PrintE("Press any key to continue.")
   DO
   UNTIL OS.CH#OS.NO_KEY
   OD
@@ -99,13 +95,12 @@ Or compile and launch it in a configured emulator:
 actionc-run --mode optimized --no-cart samples/real-basics.act
 ```
 
-The sample closes IOCB 0 when necessary and explicitly opens the editor device,
-so output works even when the XEX is booted directly in an emulator without
-`E:` already open. The device-specific print routines keep all output on that
-channel. `quantity` is a `BYTE`, but multiplication by the REAL constant
-promotes it to REAL automatically. `SYS.PrintRDE` expects the address of a REAL,
-so the call uses `@total`. The final `E` in `PrintRDE` means that it also writes
-an end-of-line.
+The sample closes IOCB 0 and explicitly reopens the editor device, so output
+works when the XEX is booted directly in an emulator without `E:` already open.
+`quantity` is a `BYTE`, but multiplication by the REAL constant promotes it to
+REAL automatically. `SYS.PrintRE` expects the address of a REAL, so the call
+uses `@total`. The final `E` in `PrintRE` means that it also writes an
+end-of-line.
 
 If module syntax and `USE` are new to you, the
 [modules tutorial](MODULES.md) introduces them independently.
