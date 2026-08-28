@@ -28,8 +28,9 @@ graphics mode.
 `real-basics.act` is the complete introductory program from the
 [native REAL tutorial](../docs/tutorials/REAL.md).
 
-`graphics/sine-surface.act` translates an Atari BASIC 3D surface plot and uses
-the portable `MATH.Sqr` and `MATH.Sin` native REAL procedures.
+`graphics/fedora.act` translates an Atari BASIC 3D sine-surface plot whose
+rendered shape resembles a fedora. It uses the portable `MATH.Sqr` and
+`MATH.Sin` native REAL procedures.
 
 Archived disk images, byte-exact extractions, raw ATASCII sidecars, and original
 compiler outputs live under `corpora/`. Survey scripts and generated comparison

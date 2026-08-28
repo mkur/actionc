@@ -504,9 +504,9 @@ Atari OS floating-point package.
   introductory program from this tutorial.
 - [`samples/modules/native-real-library.act`](../../samples/modules/native-real-library.act)
   uses `MATH.Exp10`, `SYS.StrR`, and REAL output.
-- [`samples/graphics/sine-surface.act`](../../samples/graphics/sine-surface.act)
-  is a larger graphics program using native REAL expressions, conversions,
-  `MATH.Sqrt`, and `MATH.Sin`.
+- [`samples/graphics/fedora.act`](../../samples/graphics/fedora.act) is a larger
+  graphics program using native REAL expressions, conversions, `MATH.Sqrt`,
+  and `MATH.Sin`.
 - [Modules and runtime usage](../Action_2027/MODULES_AND_RUNTIME_USAGE.md#native-real-library)
   is the detailed first-party library and runtime reference.
 - [Native REAL implementation plan](../Action_2027/REAL_TYPE_IMPLEMENTATION_PLAN.md)

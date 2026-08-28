@@ -1,8 +1,9 @@
-; Native REAL translation of the Atari BASIC sine-surface program.
+; Native REAL translation of the Atari BASIC sine-surface program, whose
+; rendered surface resembles a fedora.
 ;
 ; The original used BASIC's SQR and SIN. MATH supplies pointer-oriented
 ; implementations built on native REAL and the target math provider.
-MODULE SINE_SURFACE
+MODULE FEDORA
 
 USE ATARI.OS
 USE SYS

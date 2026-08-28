@@ -273,7 +273,7 @@ manifest generator and test oracle.
 ### 6. Measurement and cleanup
 
 - Report retained and removed bytes by module and reason.
-- Rebuild `sine-surface.xex` in optimized classic and MIR6502 modes.
+- Rebuild `fedora.xex` in optimized classic and MIR6502 modes.
 - Audit the remaining size difference after module selection.
 - Remove migration-only adapters and name-based selection paths.
 
@@ -285,7 +285,7 @@ to their SemIR or runtime provider module; non-routine initialization, layout,
 and static bytes use the explicit `<layout/data>` bucket, so every report sums
 exactly to `link-total`.
 
-The optimized standalone sine-surface rebuild produced:
+The optimized standalone Fedora rebuild produced:
 
 | Module | Classic retained | MIR6502 retained | Classic minus MIR6502 |
 |---|---:|---:|---:|
@@ -294,7 +294,7 @@ The optimized standalone sine-surface rebuild produced:
 | `ACTION.RUNTIME.SYSLIB` | 229 | 225 | 4 |
 | `ATARI.REAL` | 5,049 | 2,599 | 2,450 |
 | `MATH` | 54 | 46 | 8 |
-| `SINE_SURFACE` | 3,390 | 2,202 | 1,188 |
+| `FEDORA` | 3,390 | 2,202 | 1,188 |
 | **Emitted payload** | **9,162** | **6,027** | **3,135** |
 | **XEX file** | **9,174** | **6,039** | **3,135** |
 

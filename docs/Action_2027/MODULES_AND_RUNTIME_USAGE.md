@@ -128,8 +128,8 @@ existing Action! sources may continue to declare those names. Write `USE SYS`
 when calling them as `SYS.StrR`, `SYS.PrintRE`, and so on.
 
 See `samples/modules/native-real-library.act` for the basic API and
-`samples/graphics/sine-surface.act` for a translated graphics program using
-`Sqr` and `Sin`.
+`samples/graphics/fedora.act` for a translated graphics program using `Sqr`
+and `Sin`.
 
 ## Module lookup
 
