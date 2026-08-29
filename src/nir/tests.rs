@@ -1581,6 +1581,93 @@ fn verifier_rejects_out_of_bounds_and_overlapping_data_relocations() {
 }
 
 #[test]
+fn verifier_rejects_nonzero_relocation_placeholders_and_oversized_data_extents() {
+    let mut program = NirProgram {
+        globals: vec![NirGlobal {
+            id: SymbolId(0),
+            name: "data".to_string(),
+            kind: "Byte Array".to_string(),
+            ty: Some(byte_type()),
+            storage_size: 2,
+            array: None,
+            init: Some(NirGlobalInit::Bytes {
+                image: NirDataImage {
+                    bytes: vec![1, 0],
+                    relocations: vec![NirDataRelocation {
+                        offset: 0,
+                        kind: NirDataRelocationKind::Word16,
+                        target: NirDataRelocationTarget::Storage(NirStorageId::Global(SymbolId(0))),
+                        addend: 0,
+                        span: crate::source::Span::new(0, 0),
+                    }],
+                },
+                zero_fill: 0,
+                mutable: true,
+                section: "global".to_string(),
+            }),
+            backing: NirGlobalBacking::Ordinary,
+        }],
+        statics: Vec::new(),
+        routines: Vec::new(),
+    };
+
+    let diagnostics = verify_program(&program).expect_err("nonzero relocation placeholder");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("placeholder bytes must be zero")
+    }));
+
+    let Some(NirGlobalInit::Bytes {
+        image, zero_fill, ..
+    }) = &mut program.globals[0].init
+    else {
+        unreachable!();
+    };
+    image.bytes = vec![0; usize::from(u16::MAX)];
+    image.relocations.clear();
+    *zero_fill = 1;
+    program.globals[0].storage_size = u16::MAX;
+
+    let diagnostics = verify_program(&program).expect_err("oversized initialized extent");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("initialized extent exceeds the 16-bit storage range")
+    }));
+}
+
+#[test]
+fn verifier_requires_global_byte_initializers_to_match_their_storage_extent() {
+    let program = NirProgram {
+        globals: vec![NirGlobal {
+            id: SymbolId(0),
+            name: "data".to_string(),
+            kind: "Byte Array".to_string(),
+            ty: Some(byte_type()),
+            storage_size: 2,
+            array: None,
+            init: Some(NirGlobalInit::Bytes {
+                image: NirDataImage::literal(vec![0]),
+                zero_fill: 0,
+                mutable: true,
+                section: "global".to_string(),
+            }),
+            backing: NirGlobalBacking::Ordinary,
+        }],
+        statics: Vec::new(),
+        routines: Vec::new(),
+    };
+
+    let diagnostics = verify_program(&program).expect_err("mismatched initialized extent");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("init payload does not match storage size 2")
+    }));
+}
+
+#[test]
 fn compile_time_sets_do_not_lower_to_executable_stores() {
     let source =
         "SET $22F=0 SET $E=$E6 SET $F=0 BYTE POINTER screen SET $E=$3000 PROC Main() RETURN";

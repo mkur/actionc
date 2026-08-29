@@ -16821,6 +16821,30 @@ fn absolute_mutations_invalidate_tracked_zero_page_aliases() {
     );
 }
 
+#[test]
+fn classic_codegen_rejects_aggregate_initializers_without_semantic_facts() {
+    let source = "TYPE Pair=[BYTE tag CARD word] Pair ARRAY pairs(1)=[1 $2345] PROC Main() RETURN";
+    let tokens = tokenize(source).unwrap();
+    let program = parse(&tokens).unwrap();
+    analyze(&program).unwrap();
+
+    let diagnostics = driver::generate_with_options_and_requirements_with_facts(
+        &program,
+        &native_real::ClassicNativeRealFacts::default(),
+        0x3000,
+        true,
+        CodegenProfile::Compat,
+        RuntimeTarget::Cartridge,
+    )
+    .expect_err("missing aggregate initializer facts");
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("missing resolved semantic layout facts")
+    }));
+}
+
 fn generate_source(source: &str) -> Result<CodegenOutput, Vec<Diagnostic>> {
     generate_source_with_origin(source, CODE_ORIGIN)
 }

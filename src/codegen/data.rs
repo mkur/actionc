@@ -427,7 +427,7 @@ pub(super) fn array_byte_size_with_defines(
             numeric_defines,
         );
     }
-    if let Some(initializers) = structured_array_initializer_storage(entry, element_size) {
+    if let Some(initializers) = scalar_array_initializer_storage(entry, element_size) {
         let initialized_size = storage_initializers_size(&initializers);
         return element_size
             .saturating_mul(
@@ -448,7 +448,7 @@ pub(super) fn array_entry_is_unsized_pointer_with_defines(
         && absolute_array_address_initializer(entry).is_none()
         && symbolic_array_address_initializer(entry).is_none()
         && !(element_size == 1 && string_initializer_storage(entry).is_some())
-        && structured_array_initializer_storage(entry, element_size).is_none()
+        && scalar_array_initializer_storage(entry, element_size).is_none()
 }
 
 pub(super) fn symbolic_array_address_initializer(entry: &DeclEntry) -> Option<String> {
@@ -466,7 +466,7 @@ pub(super) fn uninitialized_sized_byte_array_len_with_defines(
     (element_size == 1
         && absolute_array_address_initializer(entry).is_none()
         && string_initializer_storage(entry).is_none()
-        && structured_array_initializer_storage(entry, element_size).is_none())
+        && scalar_array_initializer_storage(entry, element_size).is_none())
     .then(|| array_len_with_defines(entry, numeric_defines))
     .flatten()
 }
@@ -576,7 +576,9 @@ pub(super) fn numeric_array_initializer_storage(
     Some(bytes)
 }
 
-pub(super) fn structured_array_initializer_storage(
+// Legacy AST adapter for scalar arrays. Record and record-array initialization
+// is resolved in SemIR and reaches classic emission through projection facts.
+pub(super) fn scalar_array_initializer_storage(
     entry: &DeclEntry,
     element_size: u16,
 ) -> Option<Vec<StorageInit>> {
@@ -726,10 +728,10 @@ pub(super) fn extend_entry_initializers(
     } else if element_size == 1 {
         string_initializer_storage(entry)
             .map(|bytes| bytes.into_iter().map(StorageInit::Byte).collect())
-            .or_else(|| structured_array_initializer_storage(entry, element_size))
+            .or_else(|| scalar_array_initializer_storage(entry, element_size))
             .unwrap_or_default()
     } else {
-        structured_array_initializer_storage(entry, element_size).unwrap_or_default()
+        scalar_array_initializer_storage(entry, element_size).unwrap_or_default()
     };
     let initialized_size = storage_initializers_size(&entry_initializers);
     initializers.extend(entry_initializers);

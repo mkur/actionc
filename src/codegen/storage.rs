@@ -340,9 +340,8 @@ impl StorageLayout {
                     |initializer| {
                         element_size
                             .saturating_mul(
-                                array_len_with_defines(entry, numeric_defines).unwrap_or(
-                                    initializer.initialized_extent / element_size,
-                                ),
+                                array_len_with_defines(entry, numeric_defines)
+                                    .unwrap_or(initializer.initialized_extent / element_size),
                             )
                             .max(initializer.initialized_extent)
                     },
@@ -362,10 +361,7 @@ impl StorageLayout {
             }
             let address = if compatible {
                 if let Some(initializer) = static_initializer {
-                    self.allocate_storage_initializers(
-                        total_size,
-                        initializer.initializers.clone(),
-                    )
+                    self.allocate_storage_initializers(total_size, initializer.initializers.clone())
                 } else {
                     self.allocate_entry_initialized(entry, total_size, element_size)
                 }
@@ -461,7 +457,12 @@ impl StorageLayout {
 
         if let Some(initializers) = static_initializer
             .map(|initializer| initializer.initializers.clone())
-            .or_else(|| structured_array_initializer_storage(entry, element_size))
+            .or_else(|| {
+                record
+                    .is_none()
+                    .then(|| scalar_array_initializer_storage(entry, element_size))
+                    .flatten()
+            })
         {
             let initialized_size = static_initializer.map_or_else(
                 || storage_initializers_size(&initializers),
@@ -763,7 +764,8 @@ fn add_var_decl_to_routine_storage(
             .filter(|entry| {
                 entry.size.is_none()
                     && (static_initializers.get(entry).is_some()
-                        || structured_array_initializer_storage(entry, element_size).is_some())
+                        || (record.is_none()
+                            && scalar_array_initializer_storage(entry, element_size).is_some()))
             })
             .count()
     } else {
@@ -799,7 +801,12 @@ fn add_var_decl_to_routine_storage(
         let static_initializer = static_initializers.get(entry);
         let projected_initializers = static_initializer
             .map(|initializer| initializer.initializers.clone())
-            .or_else(|| structured_array_initializer_storage(entry, element_size));
+            .or_else(|| {
+                record
+                    .is_none()
+                    .then(|| scalar_array_initializer_storage(entry, element_size))
+                    .flatten()
+            });
         if decl_is_array_like(decl)
             && element_size > 1
             && let Some(entry_initializers) = projected_initializers.as_ref()

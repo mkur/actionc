@@ -8,8 +8,11 @@ pub fn generate_with_origin(
     program: &Program,
     origin: u16,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    generate_with_options(
+    let static_initializers = ast_static_initializer_facts(program)?;
+    generate_with_options_and_projection_facts(
         program,
+        &super::native_real::ClassicNativeRealFacts::default(),
+        &static_initializers,
         origin,
         false,
         CodegenProfile::Compat,
@@ -34,7 +37,16 @@ pub fn generate_profile_with_origin(
     } else {
         origin
     };
-    generate_with_options(program, origin, true, profile, RuntimeTarget::Cartridge)
+    let static_initializers = ast_static_initializer_facts(program)?;
+    generate_with_options_and_projection_facts(
+        program,
+        &super::native_real::ClassicNativeRealFacts::default(),
+        &static_initializers,
+        origin,
+        true,
+        profile,
+        RuntimeTarget::Cartridge,
+    )
 }
 
 pub(crate) fn generate_profile_at_origin(
@@ -42,7 +54,16 @@ pub(crate) fn generate_profile_at_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    generate_with_options(program, origin, true, profile, RuntimeTarget::Cartridge)
+    let static_initializers = ast_static_initializer_facts(program)?;
+    generate_with_options_and_projection_facts(
+        program,
+        &super::native_real::ClassicNativeRealFacts::default(),
+        &static_initializers,
+        origin,
+        true,
+        profile,
+        RuntimeTarget::Cartridge,
+    )
 }
 
 pub(crate) fn generate_profile_with_origin_and_semir_facts(
@@ -123,23 +144,6 @@ pub(crate) fn generate_semir_profile_at_origin(
     Ok(output)
 }
 
-pub(super) fn generate_with_options(
-    program: &Program,
-    origin: u16,
-    segment_storage: bool,
-    profile: CodegenProfile,
-    runtime_target: RuntimeTarget,
-) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    generate_with_options_and_requirements(
-        program,
-        origin,
-        segment_storage,
-        profile,
-        runtime_target,
-    )
-    .map(|(output, _)| output)
-}
-
 pub(super) fn generate_with_options_and_projection_facts(
     program: &Program,
     native_real: &super::native_real::ClassicNativeRealFacts,
@@ -159,23 +163,6 @@ pub(super) fn generate_with_options_and_projection_facts(
         runtime_target,
     )
     .map(|(output, _)| output)
-}
-
-pub(super) fn generate_with_options_and_requirements(
-    program: &Program,
-    origin: u16,
-    segment_storage: bool,
-    profile: CodegenProfile,
-    runtime_target: RuntimeTarget,
-) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
-    generate_with_options_and_requirements_with_facts(
-        program,
-        &super::native_real::ClassicNativeRealFacts::default(),
-        origin,
-        segment_storage,
-        profile,
-        runtime_target,
-    )
 }
 
 pub(super) fn generate_with_options_and_requirements_with_facts(
@@ -208,6 +195,7 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
 ) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
     let storage_base = if segment_storage { origin } else { DATA_BASE };
     let record_layouts = collect_record_layouts(program);
+    validate_aggregate_static_initializer_facts(program, &record_layouts, static_initializers)?;
     let routines = collect_routine_info(program, &record_layouts, runtime_target)?;
     let routine_assignment_targets = collect_routine_assignment_targets(program, &routines);
     let numeric_defines = collect_numeric_defines(program);
@@ -286,6 +274,110 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
     };
     generator.generate_program(program);
     generator.finish_with_runtime_requirements()
+}
+
+fn ast_static_initializer_facts(
+    program: &Program,
+) -> Result<ClassicStaticInitializerFacts, Vec<Diagnostic>> {
+    let record_layouts = collect_record_layouts(program);
+    if !program.modules.iter().any(|module| {
+        module.items.iter().any(|item| match item {
+            Item::Declaration(Decl::Var(decl)) => {
+                var_decl_has_aggregate_initializer(decl, &record_layouts)
+            }
+            Item::Routine(routine) => routine.locals.iter().any(|decl| match decl {
+                Decl::Var(decl) => var_decl_has_aggregate_initializer(decl, &record_layouts),
+                _ => false,
+            }),
+            _ => false,
+        })
+    }) {
+        return Ok(ClassicStaticInitializerFacts::default());
+    }
+
+    let model = crate::semantic::analyze(program)?;
+    let semir = crate::semantic::ir::lower_program(program, &model);
+    Ok(super::semir::semir_to_projection(&semir)?.static_initializers)
+}
+
+fn validate_aggregate_static_initializer_facts(
+    program: &Program,
+    record_layouts: &RecordLayouts,
+    static_initializers: &ClassicStaticInitializerFacts,
+) -> Result<(), Vec<Diagnostic>> {
+    let mut diagnostics = Vec::new();
+    for module in &program.modules {
+        for item in &module.items {
+            match item {
+                Item::Declaration(Decl::Var(decl)) => validate_var_decl_static_initializer_facts(
+                    decl,
+                    record_layouts,
+                    static_initializers,
+                    &mut diagnostics,
+                ),
+                Item::Routine(routine) => {
+                    for declaration in &routine.locals {
+                        if let Decl::Var(decl) = declaration {
+                            validate_var_decl_static_initializer_facts(
+                                decl,
+                                record_layouts,
+                                static_initializers,
+                                &mut diagnostics,
+                            );
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    if diagnostics.is_empty() {
+        Ok(())
+    } else {
+        Err(diagnostics)
+    }
+}
+
+fn validate_var_decl_static_initializer_facts(
+    decl: &VarDecl,
+    record_layouts: &RecordLayouts,
+    static_initializers: &ClassicStaticInitializerFacts,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if record_id_for_type(&decl.ty, record_layouts).is_none() {
+        return;
+    }
+    for entry in &decl.entries {
+        if matches!(
+            entry
+                .initializer
+                .as_ref()
+                .map(|initializer| &initializer.kind),
+            Some(ExprKind::InitializerList(_))
+        ) && static_initializers.get(entry).is_none()
+        {
+            diagnostics.push(Diagnostic::new(
+                entry.span,
+                format!(
+                    "aggregate initializer for `{}` is missing resolved semantic layout facts",
+                    entry.name
+                ),
+            ));
+        }
+    }
+}
+
+fn var_decl_has_aggregate_initializer(decl: &VarDecl, record_layouts: &RecordLayouts) -> bool {
+    record_id_for_type(&decl.ty, record_layouts).is_some()
+        && decl.entries.iter().any(|entry| {
+            matches!(
+                entry
+                    .initializer
+                    .as_ref()
+                    .map(|initializer| &initializer.kind),
+                Some(ExprKind::InitializerList(_))
+            )
+        })
 }
 
 fn program_code_origin(program: &Program) -> Option<u16> {

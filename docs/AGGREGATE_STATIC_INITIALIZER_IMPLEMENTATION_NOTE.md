@@ -1,6 +1,6 @@
 # Aggregate Static Initializers Implementation Note
 
-Status: Slices 1-4 complete; legacy width cleanup is next.
+Status: Slices 1-5 complete; documentation and the motivating sample are next.
 
 Snapshot date: 2026-08-29.
 
@@ -354,6 +354,8 @@ unsupported elements, and any unrepresentable storage extent.
 
 ### Slice 5: remove legacy width assumptions
 
+Status: complete.
+
 - Replace `structured_array_initializer_storage` as an initializer authority.
 - Remove aggregate dependence on `numeric_array_initializer_storage`.
 - Remove the `1 | 2 | 6` enclosing-element gates from NIR lowering.
@@ -363,6 +365,11 @@ unsupported elements, and any unrepresentable storage extent.
 
 Existing scalar helpers may remain only as wrappers around the general plan or
 as narrowly documented support for non-list scalar aliases.
+
+The remaining `legacy_scalar_array_initializer_data_image` and
+`scalar_array_initializer_storage` helpers are explicitly scalar-array
+compatibility adapters. Aggregate paths require SemIR projection facts, never
+fall back to those helpers, and report missing facts before storage planning.
 
 ### Slice 6: documentation and motivating sample
 

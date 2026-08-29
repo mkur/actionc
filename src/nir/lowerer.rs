@@ -3326,41 +3326,35 @@ fn declaration_global_init(
     let storage_size =
         declaration_storage_size(declaration, record_storage_sizes, address_initializer);
     match &declaration.storage {
-        SemDeclarationStorage::Scalar => declaration
-            .static_initializer
-            .as_ref()
-            .and_then(|initializer| {
+        SemDeclarationStorage::Scalar => match &declaration.static_initializer {
+            Some(initializer) => Some(data_image_init(
                 static_initializer_data_image(initializer, |target| {
                     global_data_relocation_target(target, global_ids, routine_ids)
                 })
-            })
-            .map(|image| data_image_init(image, storage_size))
-            .or_else(|| {
-                scalar_initializer_bytes(declaration, storage_size)
-                    .map(|bytes| bytes_init(bytes, storage_size))
-            }),
+                .expect("verified semantic static initializer must lower to a NIR data image"),
+                storage_size,
+            )),
+            None => scalar_initializer_bytes(declaration, storage_size)
+                .map(|bytes| bytes_init(bytes, storage_size)),
+        },
         SemDeclarationStorage::Array { array_type, .. } => {
             let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
-            let data_image = declaration
-                .static_initializer
-                .as_ref()
-                .and_then(|initializer| {
+            let data_image = match &declaration.static_initializer {
+                Some(initializer) => Some(
                     static_initializer_data_image(initializer, |target| {
                         global_data_relocation_target(target, global_ids, routine_ids)
                     })
-                })
-                .or_else(|| {
-                    declaration.initializer.as_ref().and_then(|initializer| {
-                        initializer_data_image(
-                            initializer,
-                            elem_size,
-                            array_type.element.is_real(),
-                            |target| {
-                                global_data_relocation_target(target, global_ids, routine_ids)
-                            },
-                        )
-                    })
-                });
+                    .expect("verified semantic static initializer must lower to a NIR data image"),
+                ),
+                None => declaration.initializer.as_ref().and_then(|initializer| {
+                    legacy_scalar_array_initializer_data_image(
+                        initializer,
+                        elem_size,
+                        array_type.element.is_real(),
+                        |target| global_data_relocation_target(target, global_ids, routine_ids),
+                    )
+                }),
+            };
             if let Some(address) = address_initializer
                 && declaration_array_address_initializer_uses_pointer_storage(
                     declaration,
@@ -3517,8 +3511,8 @@ fn declaration_local_init(
     let storage_size = declaration_storage_size(declaration, record_storage_sizes, None);
     match &declaration.storage {
         SemDeclarationStorage::Scalar => {
-            if let Some(image) = declaration.static_initializer.as_ref().and_then(|initializer| {
-                static_initializer_data_image(initializer, |target| {
+            if let Some(initializer) = &declaration.static_initializer {
+                let image = static_initializer_data_image(initializer, |target| {
                     local_data_relocation_target(
                         target,
                         global_ids,
@@ -3527,7 +3521,7 @@ fn declaration_local_init(
                         local_ids,
                     )
                 })
-            }) {
+                .expect("verified semantic static initializer must lower to a NIR data image");
                 return Some(storage_data_image_init(image, storage_size));
             }
             if let Some(bytes) = scalar_initializer_bytes(declaration, storage_size) {
@@ -3544,10 +3538,8 @@ fn declaration_local_init(
         }
         SemDeclarationStorage::Array { array_type, .. } => {
             let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
-            let data_image = declaration
-                .static_initializer
-                .as_ref()
-                .and_then(|initializer| {
+            let data_image = match &declaration.static_initializer {
+                Some(initializer) => Some(
                     static_initializer_data_image(initializer, |target| {
                         local_data_relocation_target(
                             target,
@@ -3557,25 +3549,25 @@ fn declaration_local_init(
                             local_ids,
                         )
                     })
-                })
-                .or_else(|| {
-                    declaration.initializer.as_ref().and_then(|initializer| {
-                        initializer_data_image(
-                            initializer,
-                            elem_size,
-                            array_type.element.is_real(),
-                            |target| {
-                                local_data_relocation_target(
-                                    target,
-                                    global_ids,
-                                    routine_ids,
-                                    param_ids,
-                                    local_ids,
-                                )
-                            },
-                        )
-                    })
-                });
+                    .expect("verified semantic static initializer must lower to a NIR data image"),
+                ),
+                None => declaration.initializer.as_ref().and_then(|initializer| {
+                    legacy_scalar_array_initializer_data_image(
+                        initializer,
+                        elem_size,
+                        array_type.element.is_real(),
+                        |target| {
+                            local_data_relocation_target(
+                                target,
+                                global_ids,
+                                routine_ids,
+                                param_ids,
+                                local_ids,
+                            )
+                        },
+                    )
+                }),
+            };
             if elem_size > 1
                 && let Some(image) = data_image.clone()
             {
@@ -3711,7 +3703,9 @@ fn numeric_initializer_bytes(declaration: &SemDeclaration, elem_size: u16) -> Op
     Some(bytes)
 }
 
-fn initializer_data_image(
+// Compatibility adapter for scalar arrays that predate SemIR static plans.
+// Aggregate declarations must use `static_initializer_data_image` instead.
+fn legacy_scalar_array_initializer_data_image(
     expr: &SemExpr,
     elem_size: u16,
     real_elements: bool,
@@ -3783,10 +3777,7 @@ fn static_initializer_data_image(
     initializer: &SemStaticInitializer,
     mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataRelocationTarget>,
 ) -> Option<NirDataImage> {
-    let mut image = NirDataImage::literal(vec![
-        0;
-        usize::from(initializer.initialized_extent)
-    ]);
+    let mut image = NirDataImage::literal(vec![0; usize::from(initializer.initialized_extent)]);
     for write in &initializer.writes {
         let offset = usize::from(write.offset);
         let end = offset.checked_add(usize::from(write.width))?;

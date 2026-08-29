@@ -329,6 +329,20 @@ fn global_mixed_width_record_array_has_identical_backing_in_all_backends() {
 }
 
 #[test]
+fn public_ast_codegen_builds_semantic_record_initializer_facts() {
+    let source = "TYPE Pair=[BYTE tag CARD word] \
+                  Pair ARRAY pairs(2)=[1 $2345 2 $6789] PROC Main() RETURN";
+    let (program, _) = parse_and_analyze(source);
+    let output = generate_profile_with_origin(&program, ORIGIN, CodegenProfile::Compat)
+        .expect("public AST codegen aggregate initializer adapter");
+
+    assert_eq!(
+        record_array_backing(&output, "pairs", 6),
+        [1, 0x45, 0x23, 2, 0x89, 0x67]
+    );
+}
+
+#[test]
 fn compiler_api_accepts_global_record_arrays_in_every_mode() {
     let source = "TYPE Pair=[BYTE tag CARD word] \
                   Pair ARRAY pairs(2)=[1 $2345 2 $6789] \

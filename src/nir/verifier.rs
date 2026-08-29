@@ -465,10 +465,12 @@ impl NirVerifier {
                     )));
                 }
                 self.data_image(&format!("global `{}`", global.name), image, None);
-                if (image.bytes.len() as u16).saturating_add(*zero_fill) < global.storage_size {
+                if self.data_extent(&format!("global `{}`", global.name), image, *zero_fill)
+                    != Some(usize::from(global.storage_size))
+                {
                     self.diagnostics.push(NirDiagnostic::program(format!(
-                        "global `{}` init payload is smaller than storage size",
-                        global.name
+                        "global `{}` init payload does not match storage size {}",
+                        global.name, global.storage_size
                     )));
                 }
             }
@@ -478,6 +480,12 @@ impl NirVerifier {
                 section,
                 ..
             } => {
+                if usize::from(*descriptor_size) != usize::from(global.storage_size) {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "global `{}` descriptor size {} does not match storage size {}",
+                        global.name, descriptor_size, global.storage_size
+                    )));
+                }
                 if !matches!(*descriptor_size, 2 | 4) {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` descriptor init has unsupported size {}",
@@ -494,6 +502,11 @@ impl NirVerifier {
                     &format!("global `{}` descriptor backing", global.name),
                     &backing.image,
                     None,
+                );
+                self.data_extent(
+                    &format!("global `{}` descriptor backing", global.name),
+                    &backing.image,
+                    backing.zero_fill,
                 );
                 if backing.image.bytes.is_empty() && backing.zero_fill == 0 {
                     self.diagnostics.push(NirDiagnostic::program(format!(
@@ -573,7 +586,12 @@ impl NirVerifier {
         local_ids: &BTreeSet<super::facts::LocalId>,
     ) {
         match init {
-            NirStorageInit::Bytes { image, section, .. } => {
+            NirStorageInit::Bytes {
+                image,
+                zero_fill,
+                section,
+                ..
+            } => {
                 if section.is_empty() {
                     self.diagnostics.push(NirDiagnostic::routine(
                         routine,
@@ -585,6 +603,7 @@ impl NirVerifier {
                     image,
                     Some((param_ids, local_ids)),
                 );
+                self.data_extent(&format!("local `{name}` in `{routine}`"), image, *zero_fill);
             }
             NirStorageInit::ZeroFill { section, .. } => {
                 if section.is_empty() {
@@ -612,6 +631,11 @@ impl NirVerifier {
                     &format!("local `{name}` descriptor backing in `{routine}`"),
                     &backing.image,
                     Some((param_ids, local_ids)),
+                );
+                self.data_extent(
+                    &format!("local `{name}` descriptor backing in `{routine}`"),
+                    &backing.image,
+                    backing.zero_fill,
                 );
                 if backing.image.bytes.is_empty() && backing.zero_fill == 0 {
                     self.diagnostics.push(NirDiagnostic::routine(
@@ -654,6 +678,12 @@ impl NirVerifier {
             if occupied[start..end].iter().any(|occupied| *occupied) {
                 self.diagnostics.push(NirDiagnostic::program(format!(
                     "{owner} has overlapping relocation at {}",
+                    relocation.offset
+                )));
+            }
+            if image.bytes[start..end].iter().any(|byte| *byte != 0) {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "{owner} relocation at {} placeholder bytes must be zero",
                     relocation.offset
                 )));
             }
@@ -704,6 +734,17 @@ impl NirVerifier {
                 }
             }
         }
+    }
+
+    fn data_extent(&mut self, owner: &str, image: &NirDataImage, zero_fill: u16) -> Option<usize> {
+        let extent = image.bytes.len().checked_add(usize::from(zero_fill));
+        if extent.is_none_or(|extent| extent > usize::from(u16::MAX)) {
+            self.diagnostics.push(NirDiagnostic::program(format!(
+                "{owner} initialized extent exceeds the 16-bit storage range"
+            )));
+            return None;
+        }
+        extent
     }
 
     fn op(

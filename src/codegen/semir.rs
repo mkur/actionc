@@ -327,6 +327,7 @@ impl SemIrAstLowerer<'_> {
         let mut cursor = 0u16;
         for write in &plan.writes {
             if write.offset < cursor {
+                self.invalid_static_initializer_projection(declaration, write);
                 return;
             }
             initializers.extend(std::iter::repeat_n(
@@ -336,18 +337,21 @@ impl SemIrAstLowerer<'_> {
             match &write.value {
                 SemStaticInitializerValue::Literal { .. } if write.destination.is_real() => {
                     let Some(value) = classic_static_initializer_real_value(&write.value) else {
+                        self.invalid_static_initializer_projection(declaration, write);
                         return;
                     };
                     initializers.extend(value.to_bytes().into_iter().map(StorageInit::Byte));
                 }
                 SemStaticInitializerValue::Literal { .. } => {
                     let Some(value) = classic_static_initializer_literal_value(&write.value) else {
+                        self.invalid_static_initializer_projection(declaration, write);
                         return;
                     };
                     initializers.push(StorageInit::Byte(value as u8));
                     if write.width == 2 {
                         initializers.push(StorageInit::Byte((value >> 8) as u8));
                     } else if write.width != 1 {
+                        self.invalid_static_initializer_projection(declaration, write);
                         return;
                     }
                 }
@@ -362,6 +366,7 @@ impl SemIrAstLowerer<'_> {
                         None => StorageRelocationKind::Word16,
                     };
                     if kind.width() != write.width {
+                        self.invalid_static_initializer_projection(declaration, write);
                         return;
                     }
                     initializers.push(StorageInit::Relocation {
@@ -385,6 +390,20 @@ impl SemIrAstLowerer<'_> {
                 initializers,
             },
         );
+    }
+
+    fn invalid_static_initializer_projection(
+        &mut self,
+        declaration: &SemDeclaration,
+        write: &SemStaticInitializerWrite,
+    ) {
+        self.diagnostics.push(Diagnostic::new(
+            write.span,
+            format!(
+                "resolved aggregate initializer write `{}` for `{}` cannot be represented by classic storage emission",
+                write.display_path, declaration.symbol.name
+            ),
+        ));
     }
 
     fn routine(&mut self, routine: &SemRoutine) -> Option<Routine> {
