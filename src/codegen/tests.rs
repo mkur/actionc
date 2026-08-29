@@ -8752,6 +8752,68 @@ fn compatible_indirect_assignment_preserves_pointer_across_call_rhs() {
 }
 
 #[test]
+fn computed_index_assignment_preserves_target_pointer_across_nested_byte_rhs() {
+    let source = "BYTE ARRAY pixels(256) BYTE base,index,value,carry \
+                  PROC Main() pixels(base+index)=(value RSH 2) OR carry RETURN";
+
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
+        let pointer = runtime_zp::ELEMENT_ADDR;
+
+        let reloads_high_before_save = output.bytes.windows(6).any(|bytes| {
+            bytes
+                == [
+                    opcode::LDA_ZP,
+                    pointer.offset(1).address(),
+                    opcode::PHA,
+                    opcode::LDA_ZP,
+                    pointer.address(),
+                    opcode::PHA,
+                ]
+        });
+        let saves_known_high_from_a = output.bytes.windows(6).any(|bytes| {
+            bytes
+                == [
+                    opcode::STA_ZP,
+                    pointer.offset(1).address(),
+                    opcode::PHA,
+                    opcode::LDA_ZP,
+                    pointer.address(),
+                    opcode::PHA,
+                ]
+        });
+        assert!(
+            reloads_high_before_save || saves_known_high_from_a,
+            "{profile:?} must preserve the computed destination pointer before lowering the nested RHS"
+        );
+        assert!(
+            output.bytes.windows(6).any(|bytes| bytes
+                == [
+                    opcode::PLA,
+                    opcode::STA_ZP,
+                    pointer.address(),
+                    opcode::PLA,
+                    opcode::STA_ZP,
+                    pointer.offset(1).address(),
+                ]),
+            "{profile:?} must restore the computed destination pointer before the indirect store"
+        );
+        assert!(
+            output.bytes.windows(6).any(|bytes| bytes
+                == [
+                    opcode::LDA_ZP,
+                    runtime_zp::ARGS.address(),
+                    opcode::LDY_IMM,
+                    0x00,
+                    opcode::STA_IZY,
+                    pointer.address(),
+                ]),
+            "{profile:?} must store the staged RHS through the restored destination pointer"
+        );
+    }
+}
+
+#[test]
 fn modern_indirect_call_assignment_skips_pointer_save_for_known_preserving_callee() {
     let output = generate_profile_source_with_origin(
         "BYTE POINTER p BYTE x BYTE FUNC Id(BYTE v) RETURN(v) \

@@ -766,10 +766,15 @@ impl Generator {
         if !self.segment_storage || target.space != AddressSpace::IndirectIndexedY {
             return false;
         }
+        // Nested binary operands are staged through the canonical Action!
+        // scratch pairs.  Lvalue preparation may have selected one of those
+        // same pairs for the destination, even when the RHS itself contains
+        // no indirect lvalue, so preserve the prepared pointer in that case.
+        let nested_rhs_needs_scratch = Self::expr_has_materialized_binary_operand(value);
         let needs_preservation = if target.size == 1 {
-            Self::expr_contains_indirect_lvalue(value)
+            Self::expr_contains_indirect_lvalue(value) || nested_rhs_needs_scratch
         } else {
-            Self::expr_may_prepare_indirect_slot(value)
+            Self::expr_may_prepare_indirect_slot(value) || nested_rhs_needs_scratch
         };
         if !needs_preservation {
             return false;
@@ -1041,6 +1046,21 @@ impl Generator {
         self.emit_pla();
         self.emit_sta_zero_page(pointer.offset(1));
         self.emit_copy_slot_to_slot(temp, target)
+    }
+
+    fn expr_has_materialized_binary_operand(expr: &Expr) -> bool {
+        match &expr.kind {
+            ExprKind::Binary { left, right, .. } => {
+                Self::arithmetic_operand_needs_materialization(left)
+                    || Self::arithmetic_operand_needs_materialization(right)
+            }
+            ExprKind::Cast { expr, .. }
+            | ExprKind::Unary {
+                op: UnaryOp::Plus | UnaryOp::Neg,
+                expr,
+            } => Self::expr_has_materialized_binary_operand(expr),
+            _ => false,
+        }
     }
 
     pub(super) fn emit_absolute_x_rhs_assignment_preserving_index(
