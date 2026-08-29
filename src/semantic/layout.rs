@@ -78,6 +78,12 @@ impl SemanticLayoutFacts {
             .and_then(|id| self.records.get(id.0))
     }
 
+    pub fn record_for_name(&self, name: &str) -> Option<&SemanticRecordLayout> {
+        self.records
+            .iter()
+            .find(|record| record.name.eq_ignore_ascii_case(name))
+    }
+
     pub fn array_for_symbol(&self, symbol: SymbolId) -> Option<&SemanticArrayLayout> {
         self.array_lookup
             .get(&symbol)

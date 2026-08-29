@@ -4,6 +4,7 @@ use actionc::codegen::{
 };
 use actionc::lexer::tokenize;
 use actionc::parser::parse;
+use actionc::semantic::ir::{self, SemItem, SemStaticInitializerValue};
 use actionc::semantic::{SemanticModel, analyze};
 
 const ORIGIN: u16 = 0x3000;
@@ -126,4 +127,107 @@ fn sized_card_array_zero_fills_its_descriptor_backing() {
     );
 
     assert_eq!(output_bytes(&output, pointer, 6), [1, 0, 0, 0, 0, 0]);
+}
+
+#[test]
+fn semir_plans_mixed_width_record_array_writes_at_leaf_offsets() {
+    let (program, model) = parse_and_analyze(
+        "TYPE Pair=[BYTE tag CARD word] \
+         Pair ARRAY pairs(2)=[1 $2345 2 $6789] PROC Main() RETURN",
+    );
+    let semir = ir::lower_program(&program, &model);
+    let declaration = semir.modules[0]
+        .items
+        .iter()
+        .find_map(|item| match item {
+            SemItem::Declaration(declaration)
+                if declaration.symbol.name.eq_ignore_ascii_case("pairs") =>
+            {
+                Some(declaration)
+            }
+            _ => None,
+        })
+        .expect("pairs SemIR declaration");
+    let plan = declaration
+        .static_initializer
+        .as_ref()
+        .expect("layout-resolved static initializer");
+
+    assert_eq!(plan.initialized_extent, 6);
+    assert_eq!(
+        plan.writes
+            .iter()
+            .map(|write| (write.offset, write.width, write.display_path.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            (0, 1, "pairs(0).tag"),
+            (1, 2, "pairs(0).word"),
+            (3, 1, "pairs(1).tag"),
+            (4, 2, "pairs(1).word"),
+        ]
+    );
+}
+
+#[test]
+fn semir_rounds_partial_inferred_record_array_to_a_complete_element() {
+    let (program, model) = parse_and_analyze(
+        "TYPE Pair=[BYTE tag CARD word] \
+         Pair ARRAY pairs=[1 $2345 2] PROC Main() RETURN",
+    );
+    let semir = ir::lower_program(&program, &model);
+    let plan = semir.modules[0]
+        .items
+        .iter()
+        .find_map(|item| match item {
+            SemItem::Declaration(declaration)
+                if declaration.symbol.name.eq_ignore_ascii_case("pairs") =>
+            {
+                declaration.static_initializer.as_ref()
+            }
+            _ => None,
+        })
+        .expect("pairs static initializer plan");
+
+    assert_eq!(plan.initialized_extent, 6);
+    assert_eq!(
+        plan.writes.iter().map(|write| write.offset).collect::<Vec<_>>(),
+        [0, 1, 3]
+    );
+}
+
+#[test]
+fn semantic_address_width_checks_use_the_record_leaf_destination() {
+    let (program, model) = parse_and_analyze(
+        "TYPE Pair=[BYTE low CARD word] BYTE target \
+         Pair ARRAY pairs(1)=[<target @target] PROC Main() RETURN",
+    );
+    let semir = ir::lower_program(&program, &model);
+    let plan = semir.modules[0]
+        .items
+        .iter()
+        .find_map(|item| match item {
+            SemItem::Declaration(declaration)
+                if declaration.symbol.name.eq_ignore_ascii_case("pairs") =>
+            {
+                declaration.static_initializer.as_ref()
+            }
+            _ => None,
+        })
+        .expect("pairs relocation plan");
+
+    assert!(matches!(
+        plan.writes[0].value,
+        SemStaticInitializerValue::Address {
+            selector: Some(_),
+            ..
+        }
+    ));
+    assert!(matches!(
+        plan.writes[1].value,
+        SemStaticInitializerValue::Address { selector: None, .. }
+    ));
+    assert_eq!(
+        plan.writes.iter().map(|write| write.width).collect::<Vec<_>>(),
+        [1, 2]
+    );
 }

@@ -1,0 +1,7 @@
+TYPE Pair=[BYTE tag CARD word]
+
+BYTE target
+Pair ARRAY pairs(2)=[1 $2345 2 @target]
+
+PROC Main()
+RETURN

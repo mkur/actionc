@@ -3343,11 +3343,39 @@ impl Analyzer {
         let element_type = self.value_type_from_type_ref(scope, &decl.ty);
         match &initializer.kind {
             ExprKind::InitializerList(elements) => {
-                let element_width = self.value_storage_width(&element_type).unwrap_or(0);
-                for element in elements {
+                let aggregate_leaves = element_type
+                    .is_record()
+                    .then(|| self.static_initializer_leaf_types(&element_type))
+                    .flatten();
+                for (index, element) in elements.iter().enumerate() {
+                    let destination_type = aggregate_leaves
+                        .as_ref()
+                        .and_then(|leaves| {
+                            if decl.storage == VarStorage::Array {
+                                (!leaves.is_empty()).then(|| &leaves[index % leaves.len()])
+                            } else {
+                                leaves.get(index)
+                            }
+                        })
+                        .unwrap_or(&element_type);
+                    if aggregate_leaves.is_some()
+                        && decl.storage != VarStorage::Array
+                        && index >= aggregate_leaves.as_ref().map_or(0, Vec::len)
+                    {
+                        self.diagnostics.push(Diagnostic::new(
+                            element.span,
+                            format!(
+                                "too many initializer elements for record `{}`",
+                                entry.name
+                            ),
+                        ));
+                        continue;
+                    }
+                    let destination_width =
+                        self.value_storage_width(destination_type).unwrap_or(0);
                     match &element.kind {
                         InitializerElementKind::Literal { value, negative } => {
-                            if element_type.is_real() {
+                            if destination_type.is_real() {
                                 if let Err(error) = initializer_literal_atari_real(value, *negative)
                                 {
                                     self.diagnostics
@@ -3360,7 +3388,11 @@ impl Analyzer {
                             ) {
                                 self.diagnostics.push(Diagnostic::new(
                                     element.span,
-                                    "REAL initializer element requires REAL array storage",
+                                    if aggregate_leaves.is_some() {
+                                        "REAL initializer element requires a REAL scalar leaf"
+                                    } else {
+                                        "REAL initializer element requires REAL array storage"
+                                    },
                                 ));
                             }
                         }
@@ -3368,13 +3400,20 @@ impl Analyzer {
                             selector, target, ..
                         } => {
                             let expected_width = if selector.is_some() { 1 } else { 2 };
-                            if element_width != expected_width {
+                            if destination_width != expected_width {
                                 self.diagnostics.push(Diagnostic::new(
                                     element.span,
-                                    format!(
-                                        "initializer address element `{}` requires a {expected_width}-byte array element",
-                                        element.text
-                                    ),
+                                    if aggregate_leaves.is_some() {
+                                        format!(
+                                            "initializer address element `{}` requires a {expected_width}-byte scalar leaf",
+                                            element.text
+                                        )
+                                    } else {
+                                        format!(
+                                            "initializer address element `{}` requires a {expected_width}-byte array element",
+                                            element.text
+                                        )
+                                    },
                                 ));
                                 continue;
                             }
@@ -3445,6 +3484,40 @@ impl Analyzer {
             }
             _ => {}
         }
+    }
+
+    fn static_initializer_leaf_types(&self, ty: &ValueType) -> Option<Vec<ValueType>> {
+        fn append(
+            analyzer: &Analyzer,
+            ty: &ValueType,
+            active_records: &mut HashSet<String>,
+            leaves: &mut Vec<ValueType>,
+        ) -> Option<()> {
+            if ty.value_width_bytes().is_some() {
+                leaves.push(ty.clone());
+                return Some(());
+            }
+            let record_name = ty.as_record_name()?;
+            let key = normalize_name(record_name);
+            if !active_records.insert(key.clone()) {
+                return None;
+            }
+            let field_ids = analyzer.field_lookup.get(&key)?;
+            let mut fields = field_ids
+                .values()
+                .filter_map(|id| analyzer.fields.get(id.0))
+                .collect::<Vec<_>>();
+            fields.sort_by_key(|field| (field.offset, field.id.0));
+            for field in fields {
+                append(analyzer, &field.ty, active_records, leaves)?;
+            }
+            active_records.remove(&key);
+            Some(())
+        }
+
+        let mut leaves = Vec::new();
+        append(self, ty, &mut HashSet::new(), &mut leaves)?;
+        Some(leaves)
     }
 
     fn validate_type_ref(&mut self, scope: ScopeId, ty: &TypeRef, span: Span) {

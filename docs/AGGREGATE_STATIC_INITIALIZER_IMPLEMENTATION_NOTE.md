@@ -1,6 +1,6 @@
 # Aggregate Static Initializers Implementation Note
 
-Status: Slice 1 complete; semantic initializer planning is next.
+Status: Slices 1-2 complete; the first cross-backend vertical slice is next.
 
 Snapshot date: 2026-08-29.
 
@@ -300,6 +300,8 @@ otherwise.
 This slice changes no emitted data.
 
 ### Slice 2: add the semantic aggregate plan
+
+Status: complete.
 
 - Introduce the SemIR initializer plan and scalar-leaf write model.
 - Build aggregate shapes from `SemanticLayoutFacts`, not from byte-size

@@ -181,8 +181,42 @@ pub struct SemDeclaration {
     pub ty: SemType,
     pub storage: SemDeclarationStorage,
     pub initializer: Option<SemExpr>,
+    /// Layout-resolved static data writes. Source initializer syntax remains in
+    /// `initializer` for diagnostics and projection during migration, while
+    /// this plan is authoritative for aggregate layout.
+    pub static_initializer: Option<SemStaticInitializer>,
     pub span: Span,
     pub group_span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemStaticInitializer {
+    pub initialized_extent: u16,
+    pub writes: Vec<SemStaticInitializerWrite>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemStaticInitializerWrite {
+    pub offset: u16,
+    pub destination: ValueType,
+    pub width: u16,
+    pub value: SemStaticInitializerValue,
+    pub span: Span,
+    /// Readable aggregate path retained only for diagnostics and IR printing.
+    pub display_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SemStaticInitializerValue {
+    Literal {
+        value: SemInitializerLiteral,
+        negative: bool,
+    },
+    Address {
+        selector: Option<AddressByteSelector>,
+        target: SemSymbolRef,
+        addend: i32,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1270,6 +1304,26 @@ impl SemIrFormatter {
             if let Some(initializer) = &decl.initializer {
                 this.line(format!("init {}", expr_summary(initializer)));
             }
+            if decl.ty.value.is_record()
+                && let Some(initializer) = &decl.static_initializer
+            {
+                this.line(format!(
+                    "static-init extent={} writes={}",
+                    initializer.initialized_extent,
+                    initializer.writes.len()
+                ));
+                this.indented(|this| {
+                    for write in &initializer.writes {
+                        this.line(format!(
+                            "write +{} width={} {} <- {}",
+                            write.offset,
+                            write.width,
+                            write.display_path,
+                            static_initializer_value_summary(&write.value)
+                        ));
+                    }
+                });
+            }
             match &decl.storage {
                 SemDeclarationStorage::Type { fields, .. }
                 | SemDeclarationStorage::Record { fields, .. } => {
@@ -1598,6 +1652,42 @@ fn expr_summary(expr: &SemExpr) -> String {
             .unwrap_or_else(|| "?".to_string()),
         type_facts_summary(&expr.type_facts())
     )
+}
+
+fn static_initializer_value_summary(value: &SemStaticInitializerValue) -> String {
+    match value {
+        SemStaticInitializerValue::Literal { value, negative } => {
+            let magnitude = match value {
+                SemInitializerLiteral::Number(number) => number.text.clone(),
+                SemInitializerLiteral::Char(ch) => format!("'{ch}'"),
+                SemInitializerLiteral::True => "TRUE".to_string(),
+                SemInitializerLiteral::False => "FALSE".to_string(),
+                SemInitializerLiteral::Nil => "NIL".to_string(),
+            };
+            if *negative {
+                format!("-{magnitude}")
+            } else {
+                magnitude
+            }
+        }
+        SemStaticInitializerValue::Address {
+            selector,
+            target,
+            addend,
+        } => {
+            let prefix = match selector {
+                Some(AddressByteSelector::Low) => "<",
+                Some(AddressByteSelector::High) => ">",
+                None => "@",
+            };
+            let addend = match addend.cmp(&0) {
+                std::cmp::Ordering::Less => addend.to_string(),
+                std::cmp::Ordering::Equal => String::new(),
+                std::cmp::Ordering::Greater => format!("+{addend}"),
+            };
+            format!("{prefix}{}{addend}", target.qualified_name)
+        }
+    }
 }
 
 fn condition_summary(condition: &SemCondition) -> String {
@@ -1960,6 +2050,13 @@ struct IrBuilder<'a> {
     numeric_defines: HashMap<SymbolId, NumberLiteral>,
 }
 
+struct SemStaticInitializerLeaf {
+    offset: u16,
+    ty: ValueType,
+    width: u16,
+    path: String,
+}
+
 impl<'a> IrBuilder<'a> {
     fn new(model: &'a SemanticModel) -> Self {
         Self {
@@ -2255,14 +2352,20 @@ impl<'a> IrBuilder<'a> {
                 } else {
                     SemDeclarationStorage::Scalar
                 };
+                let ty = self.sem_type_from_symbol(&symbol);
+                let initializer = entry
+                    .initializer
+                    .as_ref()
+                    .map(|initializer| self.lower_expr(scope, initializer));
+                let static_initializer = initializer.as_ref().and_then(|initializer| {
+                    self.layout_static_initializer(&symbol, &ty, &storage, initializer)
+                });
                 Some(SemDeclaration {
-                    ty: self.sem_type_from_symbol(&symbol),
+                    ty,
                     symbol,
                     storage,
-                    initializer: entry
-                        .initializer
-                        .as_ref()
-                        .map(|initializer| self.lower_expr(scope, initializer)),
+                    initializer,
+                    static_initializer,
                     span: entry.span,
                     group_span: decl.span,
                 })
@@ -2283,6 +2386,7 @@ impl<'a> IrBuilder<'a> {
                         fields,
                     },
                     initializer: None,
+                    static_initializer: None,
                     span: decl.span,
                     group_span: decl.span,
                 }]
@@ -2303,11 +2407,139 @@ impl<'a> IrBuilder<'a> {
                         fields,
                     },
                     initializer: None,
+                    static_initializer: None,
                     span: decl.span,
                     group_span: decl.span,
                 }]
             })
             .unwrap_or_default()
+    }
+
+    fn layout_static_initializer(
+        &self,
+        symbol: &SemSymbolRef,
+        ty: &SemType,
+        storage: &SemDeclarationStorage,
+        initializer: &SemExpr,
+    ) -> Option<SemStaticInitializer> {
+        let SemExprKind::InitializerList(elements) = &initializer.kind else {
+            return None;
+        };
+        let (element_type, repeats) = match storage {
+            SemDeclarationStorage::Array { array_type, .. } => {
+                (array_type.element.as_ref(), true)
+            }
+            SemDeclarationStorage::Scalar => (&ty.value, false),
+            SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } => {
+                return None;
+            }
+        };
+        let element_width = self.value_storage_width(element_type)?;
+        let mut leaves = Vec::new();
+        self.append_static_initializer_leaves(element_type, 0, String::new(), &mut leaves)?;
+        if leaves.is_empty() {
+            return None;
+        }
+
+        let mut writes = Vec::with_capacity(elements.len());
+        for (index, element) in elements.iter().enumerate() {
+            let element_index = index / leaves.len();
+            if !repeats && element_index != 0 {
+                return None;
+            }
+            let leaf = &leaves[index % leaves.len()];
+            let base = u16::try_from(element_index)
+                .ok()?
+                .checked_mul(element_width)?;
+            let offset = base.checked_add(leaf.offset)?;
+            let value = match &element.kind {
+                SemInitializerElementKind::Literal { value, negative } => {
+                    SemStaticInitializerValue::Literal {
+                        value: value.clone(),
+                        negative: *negative,
+                    }
+                }
+                SemInitializerElementKind::Address {
+                    selector,
+                    target,
+                    addend,
+                } => SemStaticInitializerValue::Address {
+                    selector: *selector,
+                    target: target.clone(),
+                    addend: *addend,
+                },
+                SemInitializerElementKind::Invalid => return None,
+            };
+            let suffix = if leaf.path.is_empty() {
+                String::new()
+            } else {
+                format!(".{}", leaf.path)
+            };
+            let display_path = if repeats {
+                format!("{}({element_index}){suffix}", symbol.name)
+            } else {
+                format!("{}{suffix}", symbol.name)
+            };
+            writes.push(SemStaticInitializerWrite {
+                offset,
+                destination: leaf.ty.clone(),
+                width: leaf.width,
+                value,
+                span: element.span,
+                display_path,
+            });
+        }
+
+        let initialized_extent = if elements.is_empty() {
+            0
+        } else if repeats {
+            let initialized_elements = elements.len().div_ceil(leaves.len());
+            u16::try_from(initialized_elements)
+                .ok()?
+                .checked_mul(element_width)?
+        } else {
+            element_width
+        };
+        Some(SemStaticInitializer {
+            initialized_extent,
+            writes,
+        })
+    }
+
+    fn append_static_initializer_leaves(
+        &self,
+        ty: &ValueType,
+        base_offset: u16,
+        path: String,
+        leaves: &mut Vec<SemStaticInitializerLeaf>,
+    ) -> Option<()> {
+        if let Some(width) = ty.value_width_bytes() {
+            leaves.push(SemStaticInitializerLeaf {
+                offset: base_offset,
+                ty: ty.clone(),
+                width,
+                path,
+            });
+            return Some(());
+        }
+        let record = self
+            .model
+            .layout
+            .record_for_name(ty.as_record_name()?)?;
+        for field in &record.fields {
+            let field_path = if path.is_empty() {
+                field.name.clone()
+            } else {
+                format!("{path}.{}", field.name)
+            };
+            self.append_static_initializer_leaves(
+                &field.ty,
+                base_offset.checked_add(field.offset)?,
+                field_path,
+                leaves,
+            )?;
+        }
+        Some(())
     }
 
     fn lower_record_fields(
