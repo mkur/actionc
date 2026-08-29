@@ -8,13 +8,21 @@ pub struct Program {
     /// semantic and code-generation pipeline. Named files always have one.
     pub modules: Vec<Module>,
     pub source_kind: SourceUnitKind,
+    /// Optional source-selected placement for the emitted program segment.
+    /// This is program metadata, not an executable top-level item.
+    pub origin: Option<OrgDirective>,
 }
 
 impl Program {
     pub fn legacy(modules: Vec<Module>) -> Self {
+        Self::legacy_with_origin(modules, None)
+    }
+
+    pub fn legacy_with_origin(modules: Vec<Module>, origin: Option<OrgDirective>) -> Self {
         Self {
             modules,
             source_kind: SourceUnitKind::Legacy,
+            origin,
         }
     }
 }
@@ -184,6 +192,12 @@ pub struct DefineEntry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IncludeDirective {
     pub path: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OrgDirective {
+    pub address: Expr,
     pub span: Span,
 }
 

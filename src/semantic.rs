@@ -638,6 +638,7 @@ impl Analyzer {
         for module in &program.modules {
             self.analyze_module(module);
         }
+        self.validate_program_origin(self.global_scope, program);
     }
 
     fn analyze_named_compilation(&mut self, compilation: &LoadedCompilation) {
@@ -665,6 +666,9 @@ impl Analyzer {
             let program = &compilation.modules[module_id.0 as usize].program;
             self.resolve_named_module_bodies(*module_id, program);
         }
+        self.reject_dependency_origins(compilation);
+        let root = compilation.root_module();
+        self.validate_program_origin(self.module_scope(root.id), &root.program);
     }
 
     fn analyze_legacy_compilation(&mut self, compilation: &LoadedCompilation) {
@@ -722,8 +726,36 @@ impl Analyzer {
             }
         }
 
+        self.reject_dependency_origins(compilation);
+
         self.analyze_program(&compilation.root_module().program);
         self.modules.retain(|module| module.id != compilation.root);
+    }
+
+    fn reject_dependency_origins(&mut self, compilation: &LoadedCompilation) {
+        for loaded in &compilation.modules {
+            if loaded.id != compilation.root
+                && let Some(origin) = &loaded.program.origin
+            {
+                self.diagnostics.push(Diagnostic::new(
+                    origin.span,
+                    "ORG is program placement metadata and is only allowed in the root source module",
+                ));
+            }
+        }
+    }
+
+    fn validate_program_origin(&mut self, scope: ScopeId, program: &Program) {
+        let Some(origin) = &program.origin else {
+            return;
+        };
+        let expression = self.lower_expr(scope, &origin.address);
+        if let Err(message) = evaluate_const_expr(&expression) {
+            self.diagnostics.push(Diagnostic::new(
+                origin.address.span,
+                format!("ORG address must be a compile-time scalar constant: {message}"),
+            ));
+        }
     }
 
     fn allocate_module_scopes(&mut self, compilation: &LoadedCompilation) {

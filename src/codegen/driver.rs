@@ -1,7 +1,7 @@
 use super::*;
 
 pub fn generate(program: &Program) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    generate_with_origin(program, CODE_ORIGIN)
+    generate_with_origin(program, program_code_origin(program).unwrap_or(CODE_ORIGIN))
 }
 
 pub fn generate_with_origin(
@@ -49,7 +49,7 @@ pub fn generate_profile_with_origin(
     )
 }
 
-pub(crate) fn generate_profile_at_origin(
+pub fn generate_profile_at_origin(
     program: &Program,
     origin: u16,
     profile: CodegenProfile,
@@ -94,10 +94,13 @@ pub fn generate_semir_profile_with_origin(
     origin: u16,
     profile: CodegenProfile,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
+    let source_origin = program.origin.map(|origin| origin.address);
     if super::standalone::has_cart_runtime_extensions(program)? {
         let projection = super::semir::semir_to_cart_projection(program)?;
         let origin = if origin == CODE_ORIGIN {
-            program_code_origin(&projection.program).unwrap_or(origin)
+            source_origin
+                .or_else(|| program_code_origin(&projection.program))
+                .unwrap_or(origin)
         } else {
             origin
         };
@@ -105,7 +108,9 @@ pub fn generate_semir_profile_with_origin(
     }
     let projection = super::semir::semir_to_cart_projection(program)?;
     let origin = if origin == CODE_ORIGIN {
-        program_code_origin(&projection.program).unwrap_or(origin)
+        source_origin
+            .or_else(|| program_code_origin(&projection.program))
+            .unwrap_or(origin)
     } else {
         origin
     };
@@ -362,6 +367,12 @@ fn var_decl_has_aggregate_initializer(decl: &VarDecl, record_layouts: &RecordLay
 }
 
 fn program_code_origin(program: &Program) -> Option<u16> {
+    if let Some(origin) = &program.origin
+        && let Some(address) = constant_u16(&origin.address)
+    {
+        return Some(address);
+    }
+
     let mut appmhi_low = None;
     let mut appmhi_high = None;
     let mut codebase_low = None;

@@ -7,14 +7,15 @@ use std::process;
 use crate::ast::Program;
 use crate::codegen::{
     CODE_ORIGIN, CodegenOptimizationKind, CodegenOutput, CodegenProfile, format_hex,
-    format_load_file, generate_profile_with_origin, generate_semir_profile_with_origin,
+    format_load_file, generate_profile_at_origin, generate_profile_with_origin,
+    generate_semir_profile_at_origin, generate_semir_profile_with_origin,
     generate_semir_standalone_profile_at_origin,
 };
 use crate::compiler::{
     Backend, CodegenSource, CompileError, CompileErrorKind, CompileMode, CompileRequest,
     CompileWarning, CompiledProgram, CompilerPhase, DiagnosticSite, Runtime,
     artifacts::{format_listing_with_boundaries, format_listing_with_source},
-    compile_file_with_request, mir6502_default_origin_from_semir, mode_profile_backend,
+    compile_file_with_request, mode_profile_backend, program_default_origin_from_semir,
     validation::{legacy_routine_retargeting_diagnostics, standalone_resident_diagnostics},
 };
 use crate::includes::{ModuleLoadOptions, SourceMap, load_compilation};
@@ -567,10 +568,15 @@ fn run_main(flavor: CliFlavor) {
             process::exit(1);
         }
         if emit_materialized_mir6502 {
+            let materialized_origin = if origin_explicit {
+                origin
+            } else {
+                program_default_origin_from_semir(&semir, origin)
+            };
             let mir = match mir6502::materialize_program_with_origin_and_runtime(
                 mir,
                 &mir6502::Mir6502Config::default(),
-                CODE_ORIGIN,
+                materialized_origin,
                 runtime,
             ) {
                 Ok(mir) => mir,
@@ -612,7 +618,7 @@ fn run_main(flavor: CliFlavor) {
             let mir_origin = if origin_explicit {
                 origin
             } else {
-                mir6502_default_origin_from_semir(&semir, origin)
+                program_default_origin_from_semir(&semir, origin)
             };
             let mir_config = if matches!(profile, CodegenProfile::Modern) {
                 mir6502::Mir6502Config::optimized()
@@ -647,7 +653,7 @@ fn run_main(flavor: CliFlavor) {
             let standalone_origin = if origin_explicit {
                 origin
             } else {
-                mir6502_default_origin_from_semir(&semir, origin)
+                program_default_origin_from_semir(&semir, origin)
             };
             match generate_semir_standalone_profile_at_origin(&semir, standalone_origin, profile) {
                 Ok(output) => emit_output(
@@ -674,7 +680,11 @@ fn run_main(flavor: CliFlavor) {
         }
 
         if matches!(codegen_source, CodegenSource::SemIr) {
-            let result = generate_semir_profile_with_origin(&semir, origin, profile);
+            let result = if origin_explicit {
+                generate_semir_profile_at_origin(&semir, origin, profile)
+            } else {
+                generate_semir_profile_with_origin(&semir, origin, profile)
+            };
             match result {
                 Ok(output) => emit_output(
                     &output,
@@ -700,7 +710,13 @@ fn run_main(flavor: CliFlavor) {
         }
 
         let result = if named || profile == CodegenProfile::Modern {
-            generate_semir_profile_with_origin(&semir, origin, profile)
+            if origin_explicit {
+                generate_semir_profile_at_origin(&semir, origin, profile)
+            } else {
+                generate_semir_profile_with_origin(&semir, origin, profile)
+            }
+        } else if origin_explicit {
+            generate_profile_at_origin(program, origin, profile)
         } else {
             generate_profile_with_origin(program, origin, profile)
         };
@@ -1621,7 +1637,7 @@ mod tests {
     }
 
     #[test]
-    fn mir6502_default_origin_honors_action_code_pointer_sets() {
+    fn program_default_origin_honors_action_code_pointer_sets() {
         let source = "SET $491=$E6 SET $492=$00 SET $491=$2C00 PROC Main() RETURN";
         let tokens = tokenize(source).unwrap();
         let program = crate::parser::parse(&tokens).unwrap();
@@ -1629,7 +1645,7 @@ mod tests {
         let semir = ir::lower_program(&program, &model);
 
         assert_eq!(
-            mir6502_default_origin_from_semir(&semir, CODE_ORIGIN),
+            program_default_origin_from_semir(&semir, CODE_ORIGIN),
             0x2C00
         );
     }

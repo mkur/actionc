@@ -9,8 +9,8 @@ use crate::ast::{
     ActioncAnnotation, AddressByteSelector, BinaryOp, ConstDecl, Decl, DefineDecl, Expr, ExprKind,
     FundType, IncludeDirective, InitializerElement, InitializerElementKind, InitializerLiteral,
     Item, LexicalBlockSyntaxId, MachineAddressAtom, MachineAddressExpr, MachineItem, Module,
-    Program, QualifiedName, RecordDecl, Routine, RoutineKind, SetDirective, Stmt, TypeBase,
-    TypeDecl, TypeRef, UnaryOp, VarDecl, VarStorage,
+    OrgDirective, Program, QualifiedName, RecordDecl, Routine, RoutineKind, SetDirective, Stmt,
+    TypeBase, TypeDecl, TypeRef, UnaryOp, VarDecl, VarStorage,
 };
 use crate::atari_real::AtariReal;
 use crate::includes::{LoadedCompilation, ModuleId};
@@ -67,6 +67,9 @@ pub fn format_program(program: &SemProgram) -> String {
 pub struct SemProgram {
     pub modules: Vec<SemModule>,
     pub layout: SemanticLayoutFacts,
+    /// Resolved root-source program placement. This compile-time fact is
+    /// consumed before NIR lowering and never becomes an executable NIR op.
+    pub origin: Option<SemOrigin>,
     /// Stable identity of the source root module. Legacy source regions share
     /// `None`; named compilations use the loader-assigned module identity.
     pub root_module: Option<ModuleId>,
@@ -74,6 +77,12 @@ pub struct SemProgram {
     /// code. Link selection and runtime composition must preserve this value
     /// instead of inferring an entry from transformed routine order.
     pub entry_routine: Option<SymbolId>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SemOrigin {
+    pub address: u16,
+    pub span: Span,
 }
 
 impl SemProgram {
@@ -1248,7 +1257,14 @@ impl SemIrFormatter {
     }
 
     fn program(&mut self, program: &SemProgram) {
-        self.line(format!("program modules={}", program.modules.len()));
+        self.line(match program.origin {
+            Some(origin) => format!(
+                "program modules={} origin=${:04X}",
+                program.modules.len(),
+                origin.address
+            ),
+            None => format!("program modules={}", program.modules.len()),
+        });
         self.indented(|this| {
             for (index, module) in program.modules.iter().enumerate() {
                 let identity = module
@@ -2078,6 +2094,10 @@ impl<'a> IrBuilder<'a> {
         let mut lowered = SemProgram {
             modules,
             layout: self.model.layout.clone(),
+            origin: program
+                .origin
+                .as_ref()
+                .and_then(|origin| self.lower_origin(self.model.symbols.global_scope(), origin)),
             root_module: None,
             entry_routine,
         };
@@ -2157,6 +2177,18 @@ impl<'a> IrBuilder<'a> {
         let mut program = SemProgram {
             modules,
             layout: self.model.layout.clone(),
+            origin: compilation
+                .root_module()
+                .program
+                .origin
+                .as_ref()
+                .and_then(|origin| {
+                    let scope = self
+                        .model
+                        .module(compilation.root)
+                        .map(|module| module.scope)?;
+                    self.lower_origin(scope, origin)
+                }),
             root_module: Some(compilation.root),
             entry_routine,
         };
@@ -2209,6 +2241,12 @@ impl<'a> IrBuilder<'a> {
         let mut program = SemProgram {
             modules,
             layout: self.model.layout.clone(),
+            origin: compilation
+                .root_module()
+                .program
+                .origin
+                .as_ref()
+                .and_then(|origin| self.lower_origin(self.model.symbols.global_scope(), origin)),
             root_module: None,
             entry_routine,
         };
@@ -2281,6 +2319,14 @@ impl<'a> IrBuilder<'a> {
             path: include.path.clone(),
             span: include.span,
         }
+    }
+
+    fn lower_origin(&mut self, scope: ScopeId, origin: &OrgDirective) -> Option<SemOrigin> {
+        let expression = self.lower_expr(scope, &origin.address);
+        const_u16_sem_expr(&expression).map(|address| SemOrigin {
+            address,
+            span: origin.span,
+        })
     }
 
     fn lower_set(&mut self, scope: ScopeId, set: &SetDirective) -> SemSet {

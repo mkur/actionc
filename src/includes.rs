@@ -742,6 +742,7 @@ impl<'a> SourceLoader<'a> {
         let mut diagnostics = Vec::new();
         let mut modules = Vec::new();
         let source_kind = program.source_kind;
+        let origin = program.origin;
 
         for module in program.modules {
             let mut items = Vec::new();
@@ -753,6 +754,7 @@ impl<'a> SourceLoader<'a> {
             Ok(Program {
                 modules,
                 source_kind,
+                origin,
             })
         } else {
             Err(diagnostics)
@@ -779,6 +781,13 @@ impl<'a> SourceLoader<'a> {
                     };
                     match self.load_file(include_origin.clone(), active) {
                         Ok(program) => {
+                            if program.origin.is_some() {
+                                diagnostics.push(Diagnostic::new(
+                                    include.span,
+                                    "an included fragment cannot declare ORG; place ORG in the root source file",
+                                ));
+                                continue;
+                            }
                             for module in program.modules {
                                 output.extend(module.items);
                             }

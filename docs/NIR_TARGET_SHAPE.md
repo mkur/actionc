@@ -129,6 +129,12 @@ meaning, a trailing function cannot replace the entry, and runtime routines
 linked after the application must not inherit or override this note. MIR6502
 uses the preserved fact when it emits Atari `RUNAD`.
 
+Source `ORG` is root-program placement metadata owned by SemIR. SemIR resolves
+its constant expression to a numeric address, after which compiler orchestration
+selects the effective origin using command-line override precedence. `ORG` does
+not become a `SemItem`, executable NIR operation, or target instruction; NIR and
+MIR6502 receive the already selected materialization origin.
+
 When that procedure also has a current-location (`=*`) entry, MIR6502 retains a
 combined program-entry/observable-ABI classification; choosing it for `RUNAD`
 must not enable private-entry parameter-home optimizations.

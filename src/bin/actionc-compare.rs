@@ -8,7 +8,8 @@ use actionc::codegen::{
     AddressingMode, CODE_ORIGIN, CodegenMap, CodegenOptimization, CodegenOptimizationKind,
     CodegenOutput, CodegenProfile, CodegenSourceRange, CodegenSourceRangeKind,
     CodegenStorageSymbol, CodegenSymbolScope, DisassembledInstruction, RoutineRange, SkippedRange,
-    disassemble_with_origin, format_load_file, generate_profile_with_origin,
+    disassemble_with_origin, format_load_file, generate_profile_at_origin,
+    generate_profile_with_origin,
 };
 use actionc::diagnostic::Diagnostic;
 use actionc::includes::load_program_with_includes;
@@ -135,14 +136,29 @@ fn main() {
         });
 
     let original = options.original.as_ref().map(read_artifact);
+    let origin_is_override = options.origin.is_some() || original.is_some();
     let origin = options
         .origin
         .or_else(|| original.as_ref().map(|artifact| artifact.code_origin))
         .unwrap_or(CODE_ORIGIN);
-    let compat = (options.mode.includes_compat() || options.mode.includes_profiles())
-        .then(|| compile_artifact(&program, CodegenProfile::Compat, "legacy", origin));
-    let modern = (options.mode.includes_modern() || options.mode.includes_profiles())
-        .then(|| compile_artifact(&program, CodegenProfile::Modern, "modern", origin));
+    let compat = (options.mode.includes_compat() || options.mode.includes_profiles()).then(|| {
+        compile_artifact(
+            &program,
+            CodegenProfile::Compat,
+            "legacy",
+            origin,
+            origin_is_override,
+        )
+    });
+    let modern = (options.mode.includes_modern() || options.mode.includes_profiles()).then(|| {
+        compile_artifact(
+            &program,
+            CodegenProfile::Modern,
+            "modern",
+            origin,
+            origin_is_override,
+        )
+    });
     let original_symbols = load_original_symbols(
         options.original_symbols.as_ref(),
         options.original_symbol_snapshots.as_ref(),
@@ -359,8 +375,14 @@ fn compile_artifact(
     profile: CodegenProfile,
     name: &str,
     origin: u16,
+    origin_is_override: bool,
 ) -> Artifact {
-    let output = generate_profile_with_origin(program, origin, profile).unwrap_or_else(|err| {
+    let result = if origin_is_override {
+        generate_profile_at_origin(program, origin, profile)
+    } else {
+        generate_profile_with_origin(program, origin, profile)
+    };
+    let output = result.unwrap_or_else(|err| {
         print_diagnostics(err);
         process::exit(1);
     });

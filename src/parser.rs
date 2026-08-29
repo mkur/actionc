@@ -42,6 +42,7 @@ struct Parser<'a> {
     in_named_module: bool,
     next_lexical_block_syntax_id: u32,
     lexical_block_depth: usize,
+    origin: Option<OrgDirective>,
 }
 
 impl<'a> Parser<'a> {
@@ -55,21 +56,25 @@ impl<'a> Parser<'a> {
             in_named_module: false,
             next_lexical_block_syntax_id: 0,
             lexical_block_depth: 0,
+            origin: None,
         }
     }
 
     fn parse_program(&mut self) -> Program {
         if let Some(named_start) = self.named_module_start_after_source_annotations() {
             while self.pos < named_start {
-                let TokenKind::ActioncAnnotation(text) = self.peek().kind.clone() else {
-                    unreachable!("named-module prefix accepts only source annotations");
-                };
-                let span = self.bump().span;
-                if !is_source_actionc_annotation(&text) {
-                    self.diagnostics.push(Diagnostic::new(
-                        span,
-                        "only source-level actionc annotations may precede a named module",
-                    ));
+                if let TokenKind::ActioncAnnotation(text) = self.peek().kind.clone() {
+                    let span = self.bump().span;
+                    if !is_source_actionc_annotation(&text) {
+                        self.diagnostics.push(Diagnostic::new(
+                            span,
+                            "only source-level actionc annotations may precede a named module",
+                        ));
+                    }
+                } else if self.is_org_directive_at(self.pos) {
+                    self.parse_org();
+                } else {
+                    unreachable!("named-module prefix accepts only source annotations and ORG");
                 }
             }
             return self.parse_named_program();
@@ -90,7 +95,7 @@ impl<'a> Parser<'a> {
             modules.push(self.parse_module());
         }
 
-        Program::legacy(modules)
+        Program::legacy_with_origin(modules, self.origin.clone())
     }
 
     fn parse_named_program(&mut self) -> Program {
@@ -145,6 +150,12 @@ impl<'a> Parser<'a> {
                         format!("unknown actionc annotation `{text}`"),
                     ));
                 }
+                continue;
+            }
+
+            if self.is_org_directive_at(self.pos) {
+                pending_annotations.clear();
+                self.parse_org();
                 continue;
             }
 
@@ -274,6 +285,7 @@ impl<'a> Parser<'a> {
                 uses,
                 span: Span::new(start, end),
             }),
+            origin: self.origin.clone(),
         }
     }
 
@@ -400,11 +412,25 @@ impl<'a> Parser<'a> {
 
     fn named_module_start_after_source_annotations(&self) -> Option<usize> {
         let mut pos = self.pos;
-        while matches!(
-            self.tokens.get(pos).map(|token| &token.kind),
-            Some(TokenKind::ActioncAnnotation(_))
-        ) {
-            pos += 1;
+        loop {
+            if matches!(
+                self.tokens.get(pos).map(|token| &token.kind),
+                Some(TokenKind::ActioncAnnotation(_))
+            ) {
+                pos += 1;
+                continue;
+            }
+            if self.is_org_directive_at(pos) {
+                let line = self.tokens[pos].line;
+                pos += 1;
+                while self.tokens.get(pos).is_some_and(|token| {
+                    !matches!(token.kind, TokenKind::Eof) && token.line == line
+                }) {
+                    pos += 1;
+                }
+                continue;
+            }
+            break;
         }
         self.is_named_module_start_at(pos).then_some(pos)
     }
@@ -434,6 +460,9 @@ impl<'a> Parser<'a> {
                         format!("unknown actionc annotation `{text}`"),
                     ));
                 }
+            } else if self.is_org_directive_at(self.pos) {
+                pending_annotations.clear();
+                self.parse_org();
             } else if self.check_keyword(Keyword::Define) {
                 pending_annotations.clear();
                 items.push(Item::Define(self.parse_define()));
@@ -549,6 +578,34 @@ impl<'a> Parser<'a> {
         IncludeDirective {
             path,
             span: Span::new(start, self.previous_end()),
+        }
+    }
+
+    fn parse_org(&mut self) {
+        let start = self.peek().span.start;
+        let line = self.peek().line;
+        self.bump();
+
+        let expr_start = self.peek().span.start;
+        let mut expr_end = expr_start;
+        let mut tokens = Vec::new();
+        while !self.at_eof() && self.peek().line == line {
+            let token = self.bump();
+            expr_end = token.span.end;
+            tokens.push(token.clone());
+        }
+        let address = build_expr(tokens, Span::new(expr_start, expr_end));
+        let directive = OrgDirective {
+            address,
+            span: Span::new(start, self.previous_end()),
+        };
+        if self.origin.is_some() {
+            self.diagnostics.push(Diagnostic::new(
+                directive.span,
+                "duplicate ORG directive; a program can declare its origin only once",
+            ));
+        } else {
+            self.origin = Some(directive);
         }
     }
 
@@ -1810,6 +1867,28 @@ impl<'a> Parser<'a> {
         )
     }
 
+    fn is_org_directive_at(&self, pos: usize) -> bool {
+        if !self.is_contextual_at(pos, "ORG") {
+            return false;
+        }
+        let Some(token) = self.tokens.get(pos) else {
+            return false;
+        };
+        let begins_line = pos == 0
+            || self
+                .tokens
+                .get(pos - 1)
+                .is_none_or(|previous| previous.line != token.line);
+        begins_line
+            && self.tokens.get(pos + 1).is_none_or(|next| {
+                next.line != token.line
+                    || !matches!(
+                        next.kind,
+                        TokenKind::Assign | TokenKind::CompoundAssign(_) | TokenKind::LParen
+                    )
+            })
+    }
+
     fn is_proc_pointer_decl_start_at(&self, pos: usize) -> bool {
         matches!(
             (
@@ -2083,6 +2162,7 @@ impl<'a> Parser<'a> {
                     || self.is_contextual_at(self.pos, "USE")
                     || self.is_contextual_at(self.pos, "PUBLIC")))
             || self.check_keyword(Keyword::Module)
+            || self.is_org_directive_at(self.pos)
             || self.check_keyword(Keyword::Include)
             || self.check_keyword(Keyword::Set)
             || self.check_keyword(Keyword::Define)
@@ -3837,6 +3917,41 @@ mod tests {
         assert!(matches!(program.modules[0].items[1], Item::Set(_)));
         assert!(matches!(program.modules[1].items[0], Item::Declaration(_)));
         assert!(matches!(program.modules[1].items[1], Item::Declaration(_)));
+    }
+
+    #[test]
+    fn parses_org_before_a_named_module_as_program_metadata() {
+        let tokens = tokenize("ORG $A000\nMODULE Demo\nPROC Main() RETURN\nENDMODULE").unwrap();
+        let program = parse(&tokens).unwrap();
+        let origin = program.origin.expect("parsed ORG directive");
+
+        assert!(matches!(
+            origin.address.kind,
+            ExprKind::Number(number) if number.value == Some(0xA000)
+        ));
+        assert!(matches!(program.source_kind, SourceUnitKind::Named(_)));
+    }
+
+    #[test]
+    fn rejects_duplicate_org_directives() {
+        let diagnostics =
+            parse(&tokenize("ORG $A000\nORG $B000\nPROC Main() RETURN").unwrap()).unwrap_err();
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("duplicate ORG directive"))
+        );
+    }
+
+    #[test]
+    fn org_remains_contextual_in_identifier_positions() {
+        let program = parse(&tokenize("BYTE ORG\nPROC Main()\nORG=1\nRETURN").unwrap()).unwrap();
+        let Item::Routine(routine) = &program.modules[0].items[1] else {
+            panic!("expected routine");
+        };
+        assert!(matches!(routine.body[0], Stmt::Assign { .. }));
+        assert!(program.origin.is_none());
     }
 
     #[test]

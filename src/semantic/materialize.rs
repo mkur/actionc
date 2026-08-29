@@ -32,6 +32,10 @@ impl Materializer<'_> {
                 })
                 .collect(),
             source_kind: program.source_kind.clone(),
+            origin: program.origin.clone().map(|mut origin| {
+                self.expr(global_scope, &mut origin.address);
+                origin
+            }),
         }
     }
 

@@ -454,7 +454,7 @@ fn source_origin_and_explicit_origin_precedence_are_stable() {
     let source = temp.path().join("origin.act");
     fs::write(
         &source,
-        "SET $E=$4000\nSET $491=$4000\nPROC Main()\nRETURN\n",
+        "ORG $4000\nSET $E=$4200\nSET $491=$4200\nPROC Main()\nRETURN\n",
     )
     .expect("write origin source");
 
@@ -524,6 +524,38 @@ fn source_origin_and_explicit_origin_precedence_are_stable() {
             0x3000,
             "--mode {mode} treated explicit $3000 as an implicit origin"
         );
+
+        let (profile, backend) = match mode {
+            "compatibility" => ("legacy", "classic"),
+            "optimized" => ("modern", "classic"),
+            "mir6502" => ("modern", "mir6502"),
+            _ => unreachable!(),
+        };
+        let emitted = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .arg("--profile")
+            .arg(profile)
+            .arg("--backend")
+            .arg(backend)
+            .arg("--emit-load")
+            .arg(&source)
+            .output()
+            .expect("emit with source ORG");
+        assert!(emitted.status.success());
+        assert_eq!(load_file_origin(&emitted.stdout), 0x4000);
+
+        let emitted_override = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .arg("--profile")
+            .arg(profile)
+            .arg("--backend")
+            .arg(backend)
+            .arg("--origin")
+            .arg("$3000")
+            .arg("--emit-load")
+            .arg(&source)
+            .output()
+            .expect("emit with explicit default origin");
+        assert!(emitted_override.status.success());
+        assert_eq!(load_file_origin(&emitted_override.stdout), 0x3000);
     }
 }
 

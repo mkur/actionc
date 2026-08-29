@@ -211,25 +211,57 @@ fn origin_precedence_is_consistent_in_all_modes() {
     let source = write_source(
         &temp,
         "origin.act",
-        "SET $E=$4000\nSET $491=$4000\nPROC Main()\nRETURN\n",
+        "CONST CARD BASE=$A000\n\
+         ORG BASE\n\
+         BYTE value\n\
+         PROC Main()\nvalue=1\nRETURN\n",
     );
 
-    for mode in [
-        CompileMode::Compatibility,
-        CompileMode::Optimized,
-        CompileMode::Mir6502,
-    ] {
-        let implicit = compile_file(&source, &CompileOptions::for_mode(mode))
-            .unwrap_or_else(|error| panic!("compile implicit-origin {mode:?}: {error}"));
-        assert_eq!(implicit.origin(), 0x4000);
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            let implicit = compile_file(
+                &source,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap_or_else(|error| {
+                panic!("compile implicit ORG with {mode:?}/{runtime:?}: {error}")
+            });
+            assert_eq!(implicit.origin(), 0xA000);
 
-        let explicit = compile_file(
-            &source,
-            &CompileOptions::for_mode(mode).with_origin(CODE_ORIGIN),
-        )
-        .unwrap_or_else(|error| panic!("compile explicit-origin {mode:?}: {error}"));
-        assert_eq!(explicit.origin(), CODE_ORIGIN);
+            let explicit = compile_file(
+                &source,
+                &CompileOptions::for_mode(mode)
+                    .with_runtime(runtime)
+                    .with_origin(CODE_ORIGIN),
+            )
+            .unwrap_or_else(|error| {
+                panic!("compile explicit origin with {mode:?}/{runtime:?}: {error}")
+            });
+            assert_eq!(explicit.origin(), CODE_ORIGIN);
+        }
     }
+}
+
+#[test]
+fn org_rejects_runtime_dependent_addresses() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "invalid-org.act",
+        "CARD address\nORG address\nPROC Main() RETURN\n",
+    );
+
+    let error = compile_file(&source, &CompileOptions::default()).unwrap_err();
+    assert_eq!(error.diagnostics()[0].phase, CompilerPhase::Semantic);
+    assert!(error.diagnostics().iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("ORG address must be a compile-time")
+    }));
 }
 
 #[test]

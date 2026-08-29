@@ -445,7 +445,7 @@ fn compile_classic(
     if request.runtime == Runtime::Standalone {
         let origin = request
             .origin
-            .unwrap_or_else(|| mir6502_default_origin_from_semir(semir, CODE_ORIGIN));
+            .unwrap_or_else(|| program_default_origin_from_semir(semir, CODE_ORIGIN));
         let mut output =
             generate_semir_standalone_profile_at_origin(semir, origin, request.profile).map_err(
                 |diagnostics| {
@@ -520,7 +520,7 @@ fn compile_mir6502(
 
     let origin = request
         .origin
-        .unwrap_or_else(|| mir6502_default_origin_from_semir(semir, CODE_ORIGIN));
+        .unwrap_or_else(|| program_default_origin_from_semir(semir, CODE_ORIGIN));
     let nir = nir::lower_program(semir);
     let nir = nir::optimize_program(&nir).map_err(CompileError::from_nir_diagnostics)?;
     let config = if request.profile == CodegenProfile::Modern {
@@ -532,7 +532,11 @@ fn compile_mir6502(
         .map_err(CompileError::from_mir6502_diagnostics)
 }
 
-pub(crate) fn mir6502_default_origin_from_semir(program: &ir::SemProgram, fallback: u16) -> u16 {
+pub(crate) fn program_default_origin_from_semir(program: &ir::SemProgram, fallback: u16) -> u16 {
+    if let Some(origin) = program.origin {
+        return origin.address;
+    }
+
     let mut cursor = fallback;
     let mut origin = fallback;
     for module in &program.modules {

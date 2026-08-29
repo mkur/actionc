@@ -140,6 +140,18 @@ impl SemIrAstLowerer<'_> {
                 .map(|module| self.module(module))
                 .collect(),
             source_kind: SourceUnitKind::Legacy,
+            origin: program.origin.as_ref().map(|origin| OrgDirective {
+                address: Expr {
+                    kind: ExprKind::Number(NumberLiteral {
+                        text: format!("${:04X}", origin.address),
+                        kind: crate::lexer::NumberKind::Card,
+                        value: Some(origin.address),
+                    }),
+                    text: format!("${:04X}", origin.address),
+                    span: origin.span,
+                },
+                span: origin.span,
+            }),
         }
     }
 

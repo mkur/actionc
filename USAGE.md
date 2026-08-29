@@ -240,10 +240,28 @@ compiler helpers; their required runtime dependencies are included too. A
 standalone program that needs no embedded runtime code does not produce the
 warning.
 
+## Source Origin
+
+A root source file may select the emitted program address directly:
+
+```action
+ORG $A000
+```
+
+`ORG` accepts a compile-time scalar constant expression and may appear once in
+the root source file, either before a named `MODULE` or among its top-level
+declarations. It is program placement metadata and does not emit an executable
+operation. A command-line `--origin` explicitly overrides it.
+
+Origin precedence is: explicit `--origin`, source `ORG`, legacy Action! code
+pointer `SET` inference, then the `$3000` compiler default. The `SET` behavior
+is retained for compatibility with existing Action! sources; new programs
+should use `ORG` when they need a fixed load address.
+
 ## Other Options
 
-- `--origin <addr>` sets the code origin. Addresses may be decimal, `$` hex, or
-  `0x` hex, for example `12288`, `$3000`, or `0x3000`.
+- `--origin <addr>` overrides the source code origin. Addresses may be decimal,
+  `$` hex, or `0x` hex, for example `12288`, `$3000`, or `0x3000`.
 - `--origin=<addr>` is also accepted.
 - `--runtime cart|standalone` selects the runtime provider. The value is a
   separate argument; `--runtime=<value>` is intentionally not accepted.
