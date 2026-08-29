@@ -17,6 +17,7 @@ pub(super) struct RecordLayout {
 pub(super) struct RecordField {
     pub(super) offset: u16,
     pub(super) size: u16,
+    pub(super) record: Option<usize>,
     pub(super) signed: bool,
 }
 
@@ -254,34 +255,25 @@ impl StorageLayout {
         compatible: bool,
         record_layouts: &RecordLayouts,
         numeric_defines: &HashMap<String, u16>,
+        static_initializers: &ClassicStaticInitializerFacts,
     ) -> Self {
         let mut layout = Self::empty(storage_base);
 
         for module in &program.modules {
             for item in &module.items {
                 if let Item::Declaration(Decl::Var(decl)) = item {
-                    layout.add_var_decl(decl, compatible, record_layouts, numeric_defines);
+                    layout.add_var_decl_with_static_initializers(
+                        decl,
+                        compatible,
+                        record_layouts,
+                        numeric_defines,
+                        static_initializers,
+                    );
                 }
             }
         }
 
         layout
-    }
-
-    pub(super) fn add_var_decl(
-        &mut self,
-        decl: &VarDecl,
-        compatible: bool,
-        record_layouts: &RecordLayouts,
-        numeric_defines: &HashMap<String, u16>,
-    ) {
-        self.add_var_decl_with_static_initializers(
-            decl,
-            compatible,
-            record_layouts,
-            numeric_defines,
-            &ClassicStaticInitializerFacts::default(),
-        );
     }
 
     pub(super) fn add_var_decl_with_static_initializers(
@@ -309,6 +301,7 @@ impl StorageLayout {
         let mut compatible_card_alias_seen = false;
 
         for entry in &decl.entries {
+            let static_initializer = static_initializers.get(entry);
             self.record_machine_caret_value(decl, entry);
             if array_like && compatible {
                 self.add_compatible_array_decl(
@@ -316,7 +309,8 @@ impl StorageLayout {
                     entry,
                     element_size,
                     numeric_defines,
-                    static_initializers.get(entry),
+                    static_initializer,
+                    record,
                 );
                 continue;
             }
@@ -341,20 +335,40 @@ impl StorageLayout {
                 && compatible_card_alias_seen
                 && entry.initializer.is_some();
             let total_size = if array_like {
-                array_byte_size_with_defines(entry, element_size, numeric_defines)
+                static_initializer.map_or_else(
+                    || array_byte_size_with_defines(entry, element_size, numeric_defines),
+                    |initializer| {
+                        element_size
+                            .saturating_mul(
+                                array_len_with_defines(entry, numeric_defines).unwrap_or(
+                                    initializer.initialized_extent / element_size,
+                                ),
+                            )
+                            .max(initializer.initialized_extent)
+                    },
+                )
             } else if compatible_card_vector_decl
                 && compatible_card_alias_seen
                 && entry.initializer.is_none()
             {
                 4
             } else {
-                slot_size
+                static_initializer
+                    .map(|initializer| slot_size.max(initializer.initialized_extent))
+                    .unwrap_or(slot_size)
             };
             if compatible_card_alias_initialized_padding {
                 self.allocate_initialized(3, StorageInit::Byte(0));
             }
             let address = if compatible {
-                self.allocate_entry_initialized(entry, total_size, element_size)
+                if let Some(initializer) = static_initializer {
+                    self.allocate_storage_initializers(
+                        total_size,
+                        initializer.initializers.clone(),
+                    )
+                } else {
+                    self.allocate_entry_initialized(entry, total_size, element_size)
+                }
             } else {
                 let address = self.next_address;
                 self.advance(total_size);
@@ -397,6 +411,7 @@ impl StorageLayout {
         element_size: u16,
         numeric_defines: &HashMap<String, u16>,
         static_initializer: Option<&ClassicStaticInitializer>,
+        record: Option<usize>,
     ) {
         let signed = type_is_signed(&decl.ty);
         let name = normalize_name(&entry.name);
@@ -406,6 +421,7 @@ impl StorageLayout {
                     self.allocate_initialized_bytes(4, &fixed_array_pointer_storage(address));
                 let slot = StorageSlot::array(descriptor, element_size, ArrayStorage::Descriptor)
                     .emitted()
+                    .record(record)
                     .signed(signed);
                 self.symbols.insert(name.clone(), slot);
                 self.absolute_array_value_addresses
@@ -418,7 +434,9 @@ impl StorageLayout {
             }
             self.symbols.insert(
                 name,
-                StorageSlot::array(address, element_size, ArrayStorage::Inline).signed(signed),
+                StorageSlot::array(address, element_size, ArrayStorage::Inline)
+                    .record(record)
+                    .signed(signed),
             );
             return;
         }
@@ -435,6 +453,7 @@ impl StorageLayout {
                 name,
                 StorageSlot::array(address, element_size, ArrayStorage::Inline)
                     .emitted()
+                    .record(record)
                     .signed(signed),
             );
             return;
@@ -457,6 +476,7 @@ impl StorageLayout {
                     name,
                     StorageSlot::array(address, element_size, ArrayStorage::Inline)
                         .emitted()
+                        .record(record)
                         .signed(signed),
                 );
                 return;
@@ -478,6 +498,7 @@ impl StorageLayout {
             let slot =
                 StorageSlot::array(descriptor_address, element_size, ArrayStorage::Descriptor)
                     .emitted()
+                    .record(record)
                     .signed(signed);
             self.symbols.insert(name.clone(), slot);
             self.fixed_array_base_targets
@@ -505,6 +526,7 @@ impl StorageLayout {
                 name,
                 StorageSlot::array(address, element_size, ArrayStorage::Pointer)
                     .emitted()
+                    .record(record)
                     .signed(signed),
             );
             return;
@@ -517,6 +539,7 @@ impl StorageLayout {
                 name,
                 StorageSlot::array(address, element_size, ArrayStorage::Inline)
                     .emitted()
+                    .record(record)
                     .signed(signed),
             );
             return;
@@ -536,6 +559,7 @@ impl StorageLayout {
         });
         let slot = StorageSlot::array(address, element_size, ArrayStorage::Descriptor)
             .emitted()
+            .record(record)
             .signed(signed);
         self.symbols.insert(name.clone(), slot);
         self.fixed_array_base_targets
@@ -619,6 +643,7 @@ pub(super) fn allocate_routine_symbols(
     compatible_layout: bool,
     numeric_defines: &HashMap<String, u16>,
     outer_symbols: &HashMap<String, StorageSlot>,
+    static_initializers: &ClassicStaticInitializerFacts,
 ) -> RoutineAllocation {
     // Local declarations may name global storage in an address initializer
     // (`BYTE high=word+1`).  Resolve against the enclosing program layout,
@@ -678,6 +703,7 @@ pub(super) fn allocate_routine_symbols(
                 &mut fixed_array_base_targets,
                 compatible_layout,
                 numeric_defines,
+                static_initializers,
             );
         }
     }
@@ -720,6 +746,7 @@ fn add_var_decl_to_routine_storage(
     fixed_array_base_targets: &mut Vec<(StorageSlot, MachineSymbolAddress)>,
     compatible_layout: bool,
     numeric_defines: &HashMap<String, u16>,
+    static_initializers: &ClassicStaticInitializerFacts,
 ) {
     let Some(element_size) = type_size_with_records(&decl.ty, record_layouts) else {
         return;
@@ -735,7 +762,8 @@ fn add_var_decl_to_routine_storage(
             .iter()
             .filter(|entry| {
                 entry.size.is_none()
-                    && structured_array_initializer_storage(entry, element_size).is_some()
+                    && (static_initializers.get(entry).is_some()
+                        || structured_array_initializer_storage(entry, element_size).is_some())
             })
             .count()
     } else {
@@ -768,12 +796,19 @@ fn add_var_decl_to_routine_storage(
                 let threshold = if compatible_layout { 0x0100 } else { 0x00FF };
                 len > threshold
             });
+        let static_initializer = static_initializers.get(entry);
+        let projected_initializers = static_initializer
+            .map(|initializer| initializer.initializers.clone())
+            .or_else(|| structured_array_initializer_storage(entry, element_size));
         if decl_is_array_like(decl)
             && element_size > 1
-            && let Some(entry_initializers) =
-                structured_array_initializer_storage(entry, element_size)
+            && let Some(entry_initializers) = projected_initializers.as_ref()
         {
-            let initialized_size = storage_initializers_size(&entry_initializers);
+            let entry_initializers = entry_initializers.clone();
+            let initialized_size = static_initializer.map_or_else(
+                || storage_initializers_size(&entry_initializers),
+                |initializer| initializer.initialized_extent,
+            );
             let len = array_len_with_defines(entry, numeric_defines)
                 .unwrap_or(initialized_size / element_size);
             let byte_size = element_size.saturating_mul(len).max(initialized_size);
@@ -819,7 +854,7 @@ fn add_var_decl_to_routine_storage(
         }
         if decl_is_array_like(decl)
             && absolute_array_address_initializer(entry).is_none()
-            && structured_array_initializer_storage(entry, element_size).is_none()
+            && projected_initializers.is_none()
             && string_initializer_storage(entry).is_none()
             && let Some(initializer) = &entry.initializer
             && let Some(target_address) = absolute_alias_initializer(symbols, initializer)
@@ -843,7 +878,7 @@ fn add_var_decl_to_routine_storage(
         }
         if decl_is_array_like(decl)
             && absolute_array_address_initializer(entry).is_none()
-            && structured_array_initializer_storage(entry, element_size).is_none()
+            && projected_initializers.is_none()
             && string_initializer_storage(entry).is_none()
             && let Some(label) = symbolic_array_address_initializer(entry)
         {
@@ -863,7 +898,7 @@ fn add_var_decl_to_routine_storage(
         }
         let descriptor_backed_array = decl_is_array_like(decl)
             && !pointer_backed_array
-            && structured_array_initializer_storage(entry, element_size).is_none()
+            && projected_initializers.is_none()
             && (element_size > 1 || large_uninitialized_byte_array);
         if descriptor_backed_array && let Some(len) = array_len_with_defines(entry, numeric_defines)
         {
@@ -911,7 +946,7 @@ fn add_var_decl_to_routine_storage(
         if decl_is_array_like(decl)
             && element_size == 1
             && string_initializer_storage(entry).is_none()
-            && structured_array_initializer_storage(entry, element_size).is_none()
+            && projected_initializers.is_none()
             && let Some(len) = array_len_with_defines(entry, numeric_defines)
         {
             let skip_threshold = if compatible_layout { 0x0100 } else { 0x00FF };
@@ -929,7 +964,16 @@ fn add_var_decl_to_routine_storage(
                 );
             }
         } else {
-            extend_entry_initializers(initializers, entry, total_size, element_size);
+            if let Some(initializer) = static_initializer {
+                let initialized_size = initializer.initialized_extent;
+                initializers.extend(initializer.initializers.clone());
+                initializers.extend(std::iter::repeat_n(
+                    StorageInit::Byte(0),
+                    usize::from(total_size.saturating_sub(initialized_size)),
+                ));
+            } else {
+                extend_entry_initializers(initializers, entry, total_size, element_size);
+            }
         }
         let slot = if let Some(address) = absolute_array_address {
             StorageSlot::array(address, element_size, ArrayStorage::Inline)
@@ -1421,7 +1465,7 @@ pub(super) fn collect_record_layout_decl(records: &mut RecordLayouts, decl: &Dec
         Decl::Record(record_decl) => (&record_decl.name, &record_decl.fields),
         Decl::Var(_) | Decl::Const(_) => return,
     };
-    let Some(layout) = build_record_layout(fields) else {
+    let Some(layout) = build_record_layout_with_records(fields, records) else {
         return;
     };
     let id = records.layouts.len();
@@ -1429,7 +1473,10 @@ pub(super) fn collect_record_layout_decl(records: &mut RecordLayouts, decl: &Dec
     records.layouts.push(layout);
 }
 
-pub(super) fn build_record_layout(fields: &[VarDecl]) -> Option<RecordLayout> {
+fn build_record_layout_with_records(
+    fields: &[VarDecl],
+    records: &RecordLayouts,
+) -> Option<RecordLayout> {
     let mut layout = RecordLayout {
         size: 0,
         fields: HashMap::new(),
@@ -1438,7 +1485,7 @@ pub(super) fn build_record_layout(fields: &[VarDecl]) -> Option<RecordLayout> {
         if decl.storage != VarStorage::Plain || decl.ty.pointer {
             return None;
         }
-        let size = type_size(&decl.ty)?;
+        let size = type_size_with_records(&decl.ty, records)?;
         for entry in &decl.entries {
             if entry.size.is_some() || entry.initializer.is_some() {
                 return None;
@@ -1448,6 +1495,7 @@ pub(super) fn build_record_layout(fields: &[VarDecl]) -> Option<RecordLayout> {
                 RecordField {
                     offset: layout.size,
                     size,
+                    record: record_id_for_type(&decl.ty, records),
                     signed: type_is_signed(&decl.ty),
                 },
             );
@@ -1551,6 +1599,7 @@ pub(super) fn pointer_pointee_slot(pointer: StorageSlot, addr: ZeroPage) -> Opti
         .pointee_size
         .or_else(|| pointer.array.map(|_| pointer.size))?;
     let slot = StorageSlot::indirect_indexed_y(addr, size)
+        .record(pointer.record)
         .signed(pointer.signed)
         .volatile(pointer.is_volatile);
     debug_assert_pointer_pointee_slot(pointer, slot);

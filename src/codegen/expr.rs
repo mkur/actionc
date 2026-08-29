@@ -386,11 +386,31 @@ impl Generator {
 
     // Extracted from src/codegen.rs: record_field_metadata
     pub(super) fn record_field_metadata(&self, base: &Expr, field: &str) -> Option<RecordField> {
-        let ExprKind::Name(name) = &base.kind else {
-            return None;
-        };
-        let slot = self.lookup_slot(name)?;
-        self.record_layouts.field(slot.record?, field)
+        self.record_layouts
+            .field(self.expr_record_id(base)?, field)
+    }
+
+    fn expr_record_id(&self, expr: &Expr) -> Option<usize> {
+        match &expr.kind {
+            ExprKind::Name(name) => self.lookup_slot(name)?.record,
+            ExprKind::Index { base, .. } => {
+                let ExprKind::Name(name) = &base.kind else {
+                    return None;
+                };
+                self.lookup_slot(name)?.record
+            }
+            ExprKind::Call { callee, args } if args.len() == 1 => {
+                let ExprKind::Name(name) = &callee.kind else {
+                    return None;
+                };
+                self.lookup_slot(name)?.record
+            }
+            ExprKind::Field { base, field } => self
+                .record_layouts
+                .field(self.expr_record_id(base)?, field)?
+                .record,
+            _ => None,
+        }
     }
 
     // Extracted from src/codegen.rs: lvalue_slot
@@ -412,10 +432,14 @@ impl Generator {
 
     // Extracted from src/codegen.rs: record_field_slot
     pub(super) fn record_field_slot(&mut self, base: &Expr, field: &str) -> Option<StorageSlot> {
-        let ExprKind::Name(name) = &base.kind else {
-            return None;
+        let base_key = match &base.kind {
+            ExprKind::Name(name) => normalize_name(name),
+            _ => normalize_name(&base.text),
         };
-        let slot = self.lookup_slot(name)?;
+        let slot = match &base.kind {
+            ExprKind::Name(name) => self.lookup_slot(name)?,
+            _ => self.lvalue_slot(base)?,
+        };
         let record = slot.record?;
         let field = self.record_layouts.field(record, field)?;
         if slot.pointee_size.is_some() {
@@ -430,13 +454,14 @@ impl Generator {
                 }
                 let field_slot = StorageSlot::indirect_indexed_y(addr, field.size)
                     .offset_bytes(field.offset)
+                    .record(field.record)
                     .signed(field.signed)
                     .volatile(slot.is_volatile);
                 debug_assert_prepared_indirect_slot(field_slot, addr, "record field");
                 self.processor.mark_prepared_pointer(
                     addr,
                     PreparedPointerFact {
-                        key: format!("record-base:{}", normalize_name(name)),
+                        key: format!("record-base:{base_key}"),
                         deps: vec![slot_dependency(slot)],
                     },
                 );
@@ -453,17 +478,30 @@ impl Generator {
                 self.emit_add_constant_to_addr(addr, field.offset);
             }
             let field_slot = StorageSlot::indirect_indexed_y(addr, field.size)
+                .record(field.record)
                 .signed(field.signed)
                 .volatile(slot.is_volatile);
             debug_assert_prepared_indirect_slot(field_slot, addr, "record field");
             return Some(field_slot);
         }
-        if slot.space != AddressSpace::Absolute {
+        if slot.space == AddressSpace::IndirectIndexedY {
+            let last = slot
+                .index_offset
+                .checked_add(field.offset)?
+                .checked_add(field.size.saturating_sub(1))?;
+            if last > u16::from(u8::MAX) {
+                return None;
+            }
+        } else if !matches!(
+            slot.space,
+            AddressSpace::Absolute | AddressSpace::ZeroPage | AddressSpace::AbsoluteX
+        ) {
             return None;
         }
         Some(
             slot.offset_bytes(field.offset)
                 .with_size(field.size)
+                .record(field.record)
                 .signed(field.signed),
         )
     }
@@ -495,6 +533,7 @@ impl Generator {
         }
         let pointer = self.emit_dynamic_array_address(slot, index)?;
         let indexed = StorageSlot::indirect_indexed_y(pointer, slot.size)
+            .record(slot.record)
             .signed(slot.signed)
             .volatile(slot.is_volatile);
         debug_assert_prepared_indirect_slot(indexed, pointer, "dynamic array index");
@@ -524,6 +563,7 @@ impl Generator {
                     self.emit_add_constant_to_array_addr(offset);
                 }
                 let indexed = StorageSlot::indirect_indexed_y(runtime_zp::ARRAY_ADDR, array.size)
+                    .record(array.record)
                     .signed(array.signed)
                     .volatile(array.is_volatile);
                 debug_assert_prepared_indirect_slot(

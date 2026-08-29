@@ -224,6 +224,7 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
             segment_storage,
             &record_layouts,
             &numeric_defines,
+            static_initializers,
         )
     };
     let callable_pointers = collect_global_callable_pointers(program);

@@ -3326,8 +3326,19 @@ fn declaration_global_init(
     let storage_size =
         declaration_storage_size(declaration, record_storage_sizes, address_initializer);
     match &declaration.storage {
-        SemDeclarationStorage::Scalar => scalar_initializer_bytes(declaration, storage_size)
-            .map(|bytes| bytes_init(bytes, storage_size)),
+        SemDeclarationStorage::Scalar => declaration
+            .static_initializer
+            .as_ref()
+            .and_then(|initializer| {
+                static_initializer_data_image(initializer, |target| {
+                    global_data_relocation_target(target, global_ids, routine_ids)
+                })
+            })
+            .map(|image| data_image_init(image, storage_size))
+            .or_else(|| {
+                scalar_initializer_bytes(declaration, storage_size)
+                    .map(|bytes| bytes_init(bytes, storage_size))
+            }),
         SemDeclarationStorage::Array { array_type, .. } => {
             let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
             let data_image = declaration
@@ -3506,6 +3517,19 @@ fn declaration_local_init(
     let storage_size = declaration_storage_size(declaration, record_storage_sizes, None);
     match &declaration.storage {
         SemDeclarationStorage::Scalar => {
+            if let Some(image) = declaration.static_initializer.as_ref().and_then(|initializer| {
+                static_initializer_data_image(initializer, |target| {
+                    local_data_relocation_target(
+                        target,
+                        global_ids,
+                        routine_ids,
+                        param_ids,
+                        local_ids,
+                    )
+                })
+            }) {
+                return Some(storage_data_image_init(image, storage_size));
+            }
             if let Some(bytes) = scalar_initializer_bytes(declaration, storage_size) {
                 return Some(storage_bytes_init(bytes, storage_size));
             }

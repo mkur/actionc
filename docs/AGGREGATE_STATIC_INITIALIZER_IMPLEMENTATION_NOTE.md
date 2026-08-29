@@ -1,7 +1,6 @@
 # Aggregate Static Initializers Implementation Note
 
-Status: Slices 1-3 complete; direct, local, nested, and relocation coverage is
-next.
+Status: Slices 1-4 complete; legacy width cleanup is next.
 
 Snapshot date: 2026-08-29.
 
@@ -338,6 +337,8 @@ The slice is complete only when compatibility/classic, modern/classic, and
 MIR6502 agree on data bytes and runtime behavior.
 
 ### Slice 4: complete aggregate storage coverage
+
+Status: complete.
 
 - Direct initialized record variables.
 - Routine-local initialized records and arrays of records.

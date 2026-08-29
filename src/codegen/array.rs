@@ -47,6 +47,7 @@ impl Generator {
         };
         Some(
             StorageSlot::from_absolute(address, array.size)
+                .record(array.record)
                 .signed(array.signed)
                 .volatile(array.is_volatile),
         )

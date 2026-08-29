@@ -484,6 +484,7 @@ impl Generator {
             !self.profile.enables_modern_optimizations(),
             &self.numeric_defines,
             &self.layout.symbols,
+            &self.static_initializers,
         );
         resolve_storage_initializer_targets(
             &mut allocation.initializers,

@@ -12848,6 +12848,7 @@ fn pointer_dereference_proof_classifies_record_pointer_field_offsets() {
         RecordField {
             offset: 0xFE,
             size: 2,
+            record: None,
             signed: false,
         },
     );
@@ -12881,6 +12882,7 @@ fn pointer_dereference_proof_rejects_record_field_offsets_that_do_not_fit_y() {
         RecordField {
             offset: 0xFF,
             size: 2,
+            record: None,
             signed: false,
         },
     );
