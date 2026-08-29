@@ -8,6 +8,7 @@ use actionc::lexer::tokenize;
 use actionc::mir6502::{self, Mir6502Config};
 use actionc::nir;
 use actionc::parser::parse;
+use actionc::runtime::Runtime;
 use actionc::semantic::ir::{self, SemItem, SemStaticInitializerValue};
 use actionc::semantic::{SemanticModel, analyze};
 
@@ -353,13 +354,17 @@ fn compiler_api_accepts_global_record_arrays_in_every_mode() {
     ));
     std::fs::write(&path, source).expect("write aggregate initializer compiler fixture");
 
-    for mode in [
-        CompileMode::Compatibility,
-        CompileMode::Optimized,
-        CompileMode::Mir6502,
-    ] {
-        compile_file(&path, &CompileOptions::for_mode(mode))
-            .unwrap_or_else(|error| panic!("compile aggregate initializer in {mode:?}: {error}"));
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            let options = CompileOptions::for_mode(mode).with_runtime(runtime);
+            compile_file(&path, &options).unwrap_or_else(|error| {
+                panic!("compile aggregate initializer in {mode:?}/{runtime:?}: {error}")
+            });
+        }
     }
 
     std::fs::remove_file(path).expect("remove aggregate initializer compiler fixture");

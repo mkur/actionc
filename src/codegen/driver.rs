@@ -165,25 +165,6 @@ pub(super) fn generate_with_options_and_projection_facts(
     .map(|(output, _)| output)
 }
 
-pub(super) fn generate_with_options_and_requirements_with_facts(
-    program: &Program,
-    native_real: &super::native_real::ClassicNativeRealFacts,
-    origin: u16,
-    segment_storage: bool,
-    profile: CodegenProfile,
-    runtime_target: RuntimeTarget,
-) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
-    generate_with_options_and_requirements_with_projection_facts(
-        program,
-        native_real,
-        &ClassicStaticInitializerFacts::default(),
-        origin,
-        segment_storage,
-        profile,
-        runtime_target,
-    )
-}
-
 pub(super) fn generate_with_options_and_requirements_with_projection_facts(
     program: &Program,
     native_real: &super::native_real::ClassicNativeRealFacts,

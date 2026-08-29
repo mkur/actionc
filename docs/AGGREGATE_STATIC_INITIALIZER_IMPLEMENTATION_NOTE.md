@@ -1,8 +1,8 @@
 # Aggregate Static Initializers Implementation Note
 
-Status: Slices 1-5 complete; documentation and the motivating sample are next.
+Status: complete; slices 1-6 are implemented and validated.
 
-Snapshot date: 2026-08-29.
+Snapshot date: 2026-08-30.
 
 ## Goal
 
@@ -373,6 +373,8 @@ fall back to those helpers, and report missing facts before storage planning.
 
 ### Slice 6: documentation and motivating sample
 
+Status: complete.
+
 - Add the aggregate initializer contract to `docs/SEMANTIC_INVARIANTS.md`.
 - Add record and record-array initialized backing shapes to
   `docs/ACTION_STORAGE_LAYOUT.md`.
@@ -382,6 +384,14 @@ fall back to those helpers, and report missing facts before storage planning.
   aggregate relocations reuse that mechanism rather than replacing it.
 - Convert the unlimited-bobs parametrization to an `EffectParams ARRAY` only
   after compiler support and regression coverage are complete.
+
+The language and storage contracts now live in `docs/SEMANTIC_INVARIANTS.md`,
+`docs/ACTION_STORAGE_LAYOUT.md`, and `docs/NIR_TARGET_SHAPE.md`. Address-valued
+aggregate leaves reuse the stable relocation pipeline documented in
+`docs/RELOCATABLE_STATIC_INITIALIZER_IMPLEMENTATION_PLAN.md`. The combined
+unlimited-bobs demo now stores its four twelve-byte effect parameter sets in a
+single `EffectParams ARRAY` and reads fields through ordinary record-array
+access.
 
 ## Test Matrix
 

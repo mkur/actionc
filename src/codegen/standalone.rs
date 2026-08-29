@@ -101,9 +101,10 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         );
     }
     let (_, classic_runtime_requirements) =
-        super::driver::generate_with_options_and_requirements_with_facts(
+        super::driver::generate_with_options_and_requirements_with_projection_facts(
             &preflight,
             &native_real,
+            &static_initializers,
             origin,
             true,
             profile,

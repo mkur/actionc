@@ -282,6 +282,39 @@ bridge for current codegen, but future semantic-IR/native lowering should use
 Plain scalar variables do not decay to pointers. A pointer can still be
 assigned a `CARD` value as an explicit raw-address escape hatch.
 
+## Aggregate Static Initializers
+
+A bracketed initializer for a record or an array of records is a flat source
+sequence interpreted against the resolved destination layout. Values map to
+scalar leaves in recursive declaration order; record field widths and offsets,
+not a uniform enclosing-element width, determine every write.
+
+For example, `Pair ARRAY pairs(2)=[1 $2345 2 $6789]` for
+`TYPE Pair=[BYTE tag CARD word]` initializes packed bytes
+`01 45 23 02 89 67`. Direct record variables use the same rule. Nested records
+are recursively flattened, while their field paths remain diagnostic metadata
+and do not become executable field-name dependencies.
+
+Semantic analysis and SemIR own this interpretation. A verified
+`SemStaticInitializer` records the total initialized extent plus typed writes
+with explicit byte offsets, widths, values, stable relocation targets, and
+source spans. NIR and either backend consume that plan; they must not infer
+record layout from initializer syntax.
+
+The storage extent follows these rules:
+
+- an explicit record-array bound determines the full extent and missing leaves
+  are zero-filled;
+- an inferred record-array bound rounds a partial final record up to one full
+  record and zero-fills its trailing leaves;
+- excess values, invalid leaf types, invalid address widths, overflow, and
+  unrepresentable layouts are diagnostics rather than implicit zero data.
+
+Address-valued leaves reuse the relocatable-static-initializer contract in
+`docs/RELOCATABLE_STATIC_INITIALIZER_IMPLEMENTATION_PLAN.md`: SemIR resolves
+the target and selector, NIR carries stable-ID relocations, and emission patches
+the final address after layout.
+
 ## Evaluation Order
 
 Action! expression evaluation order matters. Where probes show left-to-right

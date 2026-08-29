@@ -203,6 +203,35 @@ data immediately after the preceding local storage.
 Dynamic indexing into descriptor-backed arrays loads/builds an element address in
 zero page and then uses `($xx),Y`.
 
+## Records And Record Arrays
+
+Record storage is packed in recursive field declaration order with no implicit
+alignment padding. Each scalar leaf uses its normal width and byte order, so
+`TYPE Pair=[BYTE tag CARD word]` occupies three bytes and stores `word`
+low-byte first at offsets 1 and 2. Nested record fields contribute their full
+packed size at the enclosing field offset.
+
+A direct record variable is inline storage. An initialized direct record emits
+its packed data in place. A sized or initializer-sized record array follows the
+non-byte-array ABI: its variable is a four-byte descriptor and its elements
+occupy contiguous backing storage. Initialized backing data is emitted in the
+load image, and descriptor bytes 0..1 point to its first record; descriptor
+bytes 2..3 retain the existing initialized-array convention.
+
+Bracketed aggregate values fill scalar leaves, not raw bytes. Consequently a
+mixed-width initializer such as:
+
+```action
+TYPE Pair=[BYTE tag CARD word]
+Pair ARRAY pairs(2)=[1 $2345 2 $6789]
+```
+
+has six backing bytes: `$01,$45,$23,$02,$89,$67`. Missing leaves within the
+chosen extent are zero-filled. Address leaves produce ordinary low/high/word
+relocations in those same backing offsets, including self and forward targets;
+the array target denotes its element backing rather than its descriptor cell.
+Global and routine-local aggregates use the same packed data contract.
+
 ## Array Parameters
 
 Array parameters are passed as two-byte base pointers, not as full descriptors.

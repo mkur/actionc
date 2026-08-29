@@ -16828,9 +16828,10 @@ fn classic_codegen_rejects_aggregate_initializers_without_semantic_facts() {
     let program = parse(&tokens).unwrap();
     analyze(&program).unwrap();
 
-    let diagnostics = driver::generate_with_options_and_requirements_with_facts(
+    let diagnostics = driver::generate_with_options_and_requirements_with_projection_facts(
         &program,
         &native_real::ClassicNativeRealFacts::default(),
+        &ClassicStaticInitializerFacts::default(),
         0x3000,
         true,
         CodegenProfile::Compat,
