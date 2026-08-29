@@ -16,6 +16,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         .map(|routine| routine.symbol.name.clone());
     let application_projection = super::semir::semir_to_projection(semir)?;
     let storage_display_names = application_projection.storage_display_names;
+    let static_initializers = application_projection.static_initializers;
     let mut application = application_projection.program;
     let mut native_real = application_projection.native_real;
     reject_absolute_helper_overrides(&application)?;
@@ -146,9 +147,10 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     ));
     application.modules = modules;
 
-    let mut output = super::driver::generate_with_options_and_facts(
+    let mut output = super::driver::generate_with_options_and_projection_facts(
         &application,
         &native_real,
+        &static_initializers,
         origin,
         true,
         profile,
@@ -210,6 +212,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
         .map(|routine| routine.symbol.name.clone());
     let application_projection = super::semir::semir_to_cart_projection(semir)?;
     let storage_display_names = application_projection.storage_display_names;
+    let static_initializers = application_projection.static_initializers;
     let mut application = application_projection.program;
     let mut native_real = application_projection.native_real;
 
@@ -276,9 +279,10 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
     application.modules =
         insert_runtime_after_application_layout(application.modules, runtime_items);
 
-    let mut output = super::driver::generate_with_options_and_facts(
+    let mut output = super::driver::generate_with_options_and_projection_facts(
         &application,
         &native_real,
+        &static_initializers,
         origin,
         true,
         profile,

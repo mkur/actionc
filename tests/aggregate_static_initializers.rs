@@ -1,8 +1,12 @@
 use actionc::ast::{Decl, ExprKind, Item};
 use actionc::codegen::{
     CodegenOutput, CodegenProfile, CodegenSymbolScope, generate_profile_with_origin,
+    generate_semir_profile_with_origin,
 };
+use actionc::compiler::{CompileMode, CompileOptions, compile_file};
 use actionc::lexer::tokenize;
+use actionc::mir6502::{self, Mir6502Config};
+use actionc::nir;
 use actionc::parser::parse;
 use actionc::semantic::ir::{self, SemItem, SemStaticInitializerValue};
 use actionc::semantic::{SemanticModel, analyze};
@@ -37,6 +41,20 @@ fn global_address(output: &CodegenOutput, name: &str) -> u16 {
 fn output_bytes(output: &CodegenOutput, address: u16, len: usize) -> &[u8] {
     let offset = usize::from(address.wrapping_sub(output.origin));
     &output.bytes[offset..offset + len]
+}
+
+fn record_array_backing<'a>(
+    output: &'a CodegenOutput,
+    name: &str,
+    byte_len: usize,
+) -> &'a [u8] {
+    let descriptor = global_address(output, name);
+    let pointer = u16::from_le_bytes(
+        output_bytes(output, descriptor, 2)
+            .try_into()
+            .expect("record-array descriptor pointer"),
+    );
+    output_bytes(output, pointer, byte_len)
 }
 
 #[test]
@@ -230,4 +248,61 @@ fn semantic_address_width_checks_use_the_record_leaf_destination() {
         plan.writes.iter().map(|write| write.width).collect::<Vec<_>>(),
         [1, 2]
     );
+}
+
+#[test]
+fn global_mixed_width_record_array_has_identical_backing_in_all_backends() {
+    let source = "TYPE Pair=[BYTE tag CARD word] \
+                  Pair ARRAY pairs(2)=[1 $2345 2 $6789] \
+                  PROC Main() RETURN";
+    let (program, model) = parse_and_analyze(source);
+    let semir = ir::lower_program(&program, &model);
+    let compatibility =
+        generate_semir_profile_with_origin(&semir, ORIGIN, CodegenProfile::Compat)
+            .expect("compatibility/classic aggregate initializer");
+    let modern = generate_semir_profile_with_origin(&semir, ORIGIN, CodegenProfile::Modern)
+        .expect("modern/classic aggregate initializer");
+    let nir = nir::lower_program(&semir);
+    let nir = nir::optimize_program(&nir).expect("verify aggregate initializer NIR");
+    let mir6502 = mir6502::generate_output_with_config(
+        &nir,
+        ORIGIN,
+        &Mir6502Config::optimized(),
+    )
+    .expect("MIR6502 aggregate initializer");
+
+    for (backend, output) in [
+        ("compatibility/classic", compatibility),
+        ("modern/classic", modern),
+        ("MIR6502", mir6502),
+    ] {
+        assert_eq!(
+            record_array_backing(&output, "pairs", 6),
+            [1, 0x45, 0x23, 2, 0x89, 0x67],
+            "{backend} record backing"
+        );
+    }
+}
+
+#[test]
+fn compiler_api_accepts_global_record_arrays_in_every_mode() {
+    let source = "TYPE Pair=[BYTE tag CARD word] \
+                  Pair ARRAY pairs(2)=[1 $2345 2 $6789] \
+                  PROC Main() RETURN";
+    let path = std::env::temp_dir().join(format!(
+        "actionc-aggregate-initializer-{}.act",
+        std::process::id()
+    ));
+    std::fs::write(&path, source).expect("write aggregate initializer compiler fixture");
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        compile_file(&path, &CompileOptions::for_mode(mode))
+            .unwrap_or_else(|error| panic!("compile aggregate initializer in {mode:?}: {error}"));
+    }
+
+    std::fs::remove_file(path).expect("remove aggregate initializer compiler fixture");
 }

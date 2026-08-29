@@ -87,6 +87,27 @@ pub(super) enum StorageInit {
     Skip(SkippedRange),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ClassicStaticInitializer {
+    pub(super) initialized_extent: u16,
+    pub(super) initializers: Vec<StorageInit>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct ClassicStaticInitializerFacts {
+    by_span: BTreeMap<(usize, usize), ClassicStaticInitializer>,
+}
+
+impl ClassicStaticInitializerFacts {
+    pub(super) fn insert(&mut self, span: Span, initializer: ClassicStaticInitializer) {
+        self.by_span.insert((span.start, span.end), initializer);
+    }
+
+    pub(super) fn get(&self, entry: &DeclEntry) -> Option<&ClassicStaticInitializer> {
+        self.by_span.get(&(entry.span.start, entry.span.end))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum StorageRelocationKind {
     Low8,
@@ -254,6 +275,23 @@ impl StorageLayout {
         record_layouts: &RecordLayouts,
         numeric_defines: &HashMap<String, u16>,
     ) {
+        self.add_var_decl_with_static_initializers(
+            decl,
+            compatible,
+            record_layouts,
+            numeric_defines,
+            &ClassicStaticInitializerFacts::default(),
+        );
+    }
+
+    pub(super) fn add_var_decl_with_static_initializers(
+        &mut self,
+        decl: &VarDecl,
+        compatible: bool,
+        record_layouts: &RecordLayouts,
+        numeric_defines: &HashMap<String, u16>,
+        static_initializers: &ClassicStaticInitializerFacts,
+    ) {
         let Some(element_size) = type_size_with_records(&decl.ty, record_layouts) else {
             return;
         };
@@ -273,7 +311,13 @@ impl StorageLayout {
         for entry in &decl.entries {
             self.record_machine_caret_value(decl, entry);
             if array_like && compatible {
-                self.add_compatible_array_decl(decl, entry, element_size, numeric_defines);
+                self.add_compatible_array_decl(
+                    decl,
+                    entry,
+                    element_size,
+                    numeric_defines,
+                    static_initializers.get(entry),
+                );
                 continue;
             }
 
@@ -352,6 +396,7 @@ impl StorageLayout {
         entry: &DeclEntry,
         element_size: u16,
         numeric_defines: &HashMap<String, u16>,
+        static_initializer: Option<&ClassicStaticInitializer>,
     ) {
         let signed = type_is_signed(&decl.ty);
         let name = normalize_name(&entry.name);
@@ -395,8 +440,14 @@ impl StorageLayout {
             return;
         }
 
-        if let Some(initializers) = structured_array_initializer_storage(entry, element_size) {
-            let initialized_size = storage_initializers_size(&initializers);
+        if let Some(initializers) = static_initializer
+            .map(|initializer| initializer.initializers.clone())
+            .or_else(|| structured_array_initializer_storage(entry, element_size))
+        {
+            let initialized_size = static_initializer.map_or_else(
+                || storage_initializers_size(&initializers),
+                |initializer| initializer.initialized_extent,
+            );
             let len = array_len_with_defines(entry, numeric_defines)
                 .unwrap_or(initialized_size / element_size);
             let byte_size = element_size.saturating_mul(len).max(initialized_size);

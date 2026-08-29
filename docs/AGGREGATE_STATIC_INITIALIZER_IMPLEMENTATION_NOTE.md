@@ -1,6 +1,7 @@
 # Aggregate Static Initializers Implementation Note
 
-Status: Slices 1-2 complete; the first cross-backend vertical slice is next.
+Status: Slices 1-3 complete; direct, local, nested, and relocation coverage is
+next.
 
 Snapshot date: 2026-08-29.
 
@@ -316,6 +317,8 @@ Keep the old initializer expression temporarily as source/debug metadata only
 if required for migration. New lowering must use the typed plan.
 
 ### Slice 3: complete one vertical backend slice
+
+Status: complete.
 
 Support a global array of mixed-width records through both output paths:
 

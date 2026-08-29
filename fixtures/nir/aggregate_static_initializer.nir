@@ -1,0 +1,8 @@
+nir program
+global Pair: type RecordType { name: "Pair", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "word", ty: ValueType { base: Fund(Card), pointer: false }, offset: 1 }], size: 3 } fields=2
+global pairs: array ArrayType { element: ValueType { base: Named("Pair"), pointer: false }, length: Some(2) } length=2 storage=Array origin=global init descriptor size=4 backing=g1 bytes=[$01 $45 $23 $02 $89 $67] zero_fill=0 backing_section=global.backing size_word=$0000 section=global mutable=true
+
+routine Main params=[-] locals=[-]
+  note Action program entry (last source PROC)
+bb0:
+  return

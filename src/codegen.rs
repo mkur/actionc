@@ -325,6 +325,7 @@ pub use runtime::runtime_helper;
 use runtime::*;
 
 mod driver;
+pub(crate) use driver::generate_profile_with_origin_and_semir_facts;
 pub use driver::{
     generate, generate_compatible_with_origin, generate_profile_with_origin,
     generate_semir_profile_with_origin, generate_with_origin,
@@ -1178,6 +1179,7 @@ struct Generator {
     suppress_implicit_rts_once: bool,
     inline_byte_constant_shift: bool,
     native_real: native_real::ClassicNativeRealFacts,
+    static_initializers: ClassicStaticInitializerFacts,
     native_real_literal_pool: BTreeMap<[u8; 6], (String, Span)>,
     current_native_real_scope: Option<String>,
     native_real_fact_suppression: usize,

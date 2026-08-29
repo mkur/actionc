@@ -13,7 +13,8 @@ use crate::semantic::{
         SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind, SemForStep,
         SemInitializerElement, SemInitializerElementKind, SemInitializerLiteral, SemInlineAsm,
         SemInlineAsmTarget, SemLValue, SemLValueKind, SemLiteral, SemMachineSymbolRef, SemProgram,
-        SemReadEffect, SemSet, SemStmt, SemStorageRef, SemSymbolRef, SemWriteEffect,
+        SemReadEffect, SemSet, SemStaticInitializer, SemStaticInitializerValue, SemStmt,
+        SemStorageRef, SemSymbolRef, SemWriteEffect,
     },
 };
 use crate::source::source_char_byte;
@@ -3329,14 +3330,26 @@ fn declaration_global_init(
             .map(|bytes| bytes_init(bytes, storage_size)),
         SemDeclarationStorage::Array { array_type, .. } => {
             let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
-            let data_image = declaration.initializer.as_ref().and_then(|initializer| {
-                initializer_data_image(
-                    initializer,
-                    elem_size,
-                    array_type.element.is_real(),
-                    |target| global_data_relocation_target(target, global_ids, routine_ids),
-                )
-            });
+            let data_image = declaration
+                .static_initializer
+                .as_ref()
+                .and_then(|initializer| {
+                    static_initializer_data_image(initializer, |target| {
+                        global_data_relocation_target(target, global_ids, routine_ids)
+                    })
+                })
+                .or_else(|| {
+                    declaration.initializer.as_ref().and_then(|initializer| {
+                        initializer_data_image(
+                            initializer,
+                            elem_size,
+                            array_type.element.is_real(),
+                            |target| {
+                                global_data_relocation_target(target, global_ids, routine_ids)
+                            },
+                        )
+                    })
+                });
             if let Some(address) = address_initializer
                 && declaration_array_address_initializer_uses_pointer_storage(
                     declaration,
@@ -3507,12 +3520,11 @@ fn declaration_local_init(
         }
         SemDeclarationStorage::Array { array_type, .. } => {
             let elem_size = array_element_width(array_type, record_storage_sizes).unwrap_or(1);
-            let data_image = declaration.initializer.as_ref().and_then(|initializer| {
-                initializer_data_image(
-                    initializer,
-                    elem_size,
-                    array_type.element.is_real(),
-                    |target| {
+            let data_image = declaration
+                .static_initializer
+                .as_ref()
+                .and_then(|initializer| {
+                    static_initializer_data_image(initializer, |target| {
                         local_data_relocation_target(
                             target,
                             global_ids,
@@ -3520,9 +3532,26 @@ fn declaration_local_init(
                             param_ids,
                             local_ids,
                         )
-                    },
-                )
-            });
+                    })
+                })
+                .or_else(|| {
+                    declaration.initializer.as_ref().and_then(|initializer| {
+                        initializer_data_image(
+                            initializer,
+                            elem_size,
+                            array_type.element.is_real(),
+                            |target| {
+                                local_data_relocation_target(
+                                    target,
+                                    global_ids,
+                                    routine_ids,
+                                    param_ids,
+                                    local_ids,
+                                )
+                            },
+                        )
+                    })
+                });
             if elem_size > 1
                 && let Some(image) = data_image.clone()
             {
@@ -3726,7 +3755,67 @@ fn initializer_data_image(
     Some(image)
 }
 
+fn static_initializer_data_image(
+    initializer: &SemStaticInitializer,
+    mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataRelocationTarget>,
+) -> Option<NirDataImage> {
+    let mut image = NirDataImage::literal(vec![
+        0;
+        usize::from(initializer.initialized_extent)
+    ]);
+    for write in &initializer.writes {
+        let offset = usize::from(write.offset);
+        let end = offset.checked_add(usize::from(write.width))?;
+        let destination = image.bytes.get_mut(offset..end)?;
+        match &write.value {
+            SemStaticInitializerValue::Literal { .. } if write.destination.is_real() => {
+                let bytes = sem_static_initializer_real_value(&write.value)?.to_bytes();
+                if destination.len() != bytes.len() {
+                    return None;
+                }
+                destination.copy_from_slice(&bytes);
+            }
+            SemStaticInitializerValue::Literal { .. } => {
+                let value = sem_static_initializer_literal_value(&write.value)?;
+                match destination {
+                    [low] => *low = value as u8,
+                    [low, high] => {
+                        *low = value as u8;
+                        *high = (value >> 8) as u8;
+                    }
+                    _ => return None,
+                }
+            }
+            SemStaticInitializerValue::Address {
+                selector,
+                target,
+                addend,
+            } => {
+                let kind = match selector {
+                    Some(AddressByteSelector::Low) => NirDataRelocationKind::Low8,
+                    Some(AddressByteSelector::High) => NirDataRelocationKind::High8,
+                    None => NirDataRelocationKind::Word16,
+                };
+                if kind.width() != write.width {
+                    return None;
+                }
+                image.relocations.push(NirDataRelocation {
+                    offset: write.offset,
+                    kind,
+                    target: resolve_target(target)?,
+                    addend: *addend,
+                    span: write.span,
+                });
+            }
+        }
+    }
+    Some(image)
+}
+
 fn array_initializer_byte_len(declaration: &SemDeclaration, elem_size: u16) -> Option<usize> {
+    if let Some(initializer) = &declaration.static_initializer {
+        return Some(usize::from(initializer.initialized_extent));
+    }
     let real_elements = matches!(
         &declaration.storage,
         SemDeclarationStorage::Array { array_type, .. } if array_type.element.is_real()
@@ -3845,6 +3934,46 @@ fn sem_initializer_literal_value(element: &SemInitializerElement) -> Option<u16>
     } else {
         value
     })
+}
+
+fn sem_static_initializer_literal_value(value: &SemStaticInitializerValue) -> Option<u16> {
+    let SemStaticInitializerValue::Literal { value, negative } = value else {
+        return None;
+    };
+    let value = match value {
+        SemInitializerLiteral::Number(number) => number.value?,
+        SemInitializerLiteral::Char(ch) => u16::from(source_char_byte(*ch)?),
+        SemInitializerLiteral::True => 1,
+        SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
+    };
+    Some(if *negative {
+        0u16.wrapping_sub(value)
+    } else {
+        value
+    })
+}
+
+fn sem_static_initializer_real_value(
+    value: &SemStaticInitializerValue,
+) -> Option<crate::atari_real::AtariReal> {
+    let SemStaticInitializerValue::Literal { value, negative } = value else {
+        return None;
+    };
+    let magnitude = match value {
+        SemInitializerLiteral::Number(number) if number.kind == crate::lexer::NumberKind::Real => {
+            number.text.clone()
+        }
+        SemInitializerLiteral::Number(number) => number.value?.to_string(),
+        SemInitializerLiteral::Char(ch) => source_char_byte(*ch)?.to_string(),
+        SemInitializerLiteral::True => "1".to_string(),
+        SemInitializerLiteral::False | SemInitializerLiteral::Nil => "0".to_string(),
+    };
+    let text = if *negative {
+        format!("-{magnitude}")
+    } else {
+        magnitude
+    };
+    crate::atari_real::AtariReal::from_decimal(&text).ok()
 }
 
 fn sem_initializer_real_value(

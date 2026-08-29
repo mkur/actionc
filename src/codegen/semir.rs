@@ -4,17 +4,22 @@ use crate::lexer::NumberLiteral;
 use crate::runtime::Runtime;
 use crate::semantic::ir::*;
 use crate::semantic::{SymbolId, ValueType, ValueTypeBase};
-use crate::source::Span;
+use crate::source::{Span, source_char_byte};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use super::native_real::{
     ClassicNativeExpr, ClassicNativeRealFacts, ClassicRealValue, real_address_temp_name,
     real_integer_temp_name, real_sign_temp_name, real_temp_name,
 };
+use super::{
+    ClassicStaticInitializer, ClassicStaticInitializerFacts, StorageInit, StorageRelocationKind,
+    StorageRelocationTarget,
+};
 
 pub(crate) struct ClassicProjection {
     pub(crate) program: Program,
     pub(crate) native_real: ClassicNativeRealFacts,
+    pub(crate) static_initializers: ClassicStaticInitializerFacts,
     pub(crate) storage_display_names: BTreeMap<(String, String), String>,
 }
 
@@ -30,12 +35,14 @@ pub(crate) fn semir_to_projection(
         external_addresses: None,
         native_real: ClassicNativeRealFacts::default(),
         native_real_scope: None,
+        static_initializers: ClassicStaticInitializerFacts::default(),
     };
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
         Ok(ClassicProjection {
             program,
             native_real: lowerer.native_real,
+            static_initializers: lowerer.static_initializers,
             storage_display_names,
         })
     } else {
@@ -56,12 +63,14 @@ pub(crate) fn semir_to_cart_projection(
         external_addresses: Some(&addresses),
         native_real: ClassicNativeRealFacts::default(),
         native_real_scope: None,
+        static_initializers: ClassicStaticInitializerFacts::default(),
     };
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
         Ok(ClassicProjection {
             program,
             native_real: lowerer.native_real,
+            static_initializers: lowerer.static_initializers,
             storage_display_names,
         })
     } else {
@@ -119,6 +128,7 @@ struct SemIrAstLowerer<'a> {
     external_addresses: Option<&'a HashMap<SymbolId, u16>>,
     native_real: ClassicNativeRealFacts,
     native_real_scope: Option<String>,
+    static_initializers: ClassicStaticInitializerFacts,
 }
 
 impl SemIrAstLowerer<'_> {
@@ -282,25 +292,99 @@ impl SemIrAstLowerer<'_> {
             storage,
             entries: decls
                 .iter()
-                .map(|decl| DeclEntry {
-                    name: self.symbol_name(&decl.symbol),
-                    size: match &decl.storage {
-                        SemDeclarationStorage::Array { length, .. } => {
-                            length.as_ref().and_then(|expr| self.expr(expr))
-                        }
-                        SemDeclarationStorage::Scalar => None,
-                        SemDeclarationStorage::Type { .. }
-                        | SemDeclarationStorage::Record { .. } => None,
-                    },
-                    initializer: decl
-                        .initializer
-                        .as_ref()
-                        .and_then(|initializer| self.expr(initializer)),
-                    span: decl.span,
+                .map(|decl| {
+                    self.project_static_initializer(decl);
+                    DeclEntry {
+                        name: self.symbol_name(&decl.symbol),
+                        size: match &decl.storage {
+                            SemDeclarationStorage::Array { length, .. } => {
+                                length.as_ref().and_then(|expr| self.expr(expr))
+                            }
+                            SemDeclarationStorage::Scalar => None,
+                            SemDeclarationStorage::Type { .. }
+                            | SemDeclarationStorage::Record { .. } => None,
+                        },
+                        initializer: decl
+                            .initializer
+                            .as_ref()
+                            .and_then(|initializer| self.expr(initializer)),
+                        span: decl.span,
+                    }
                 })
                 .collect(),
             span: first.group_span,
         }))
+    }
+
+    fn project_static_initializer(&mut self, declaration: &SemDeclaration) {
+        if !declaration.ty.value.is_record() {
+            return;
+        }
+        let Some(plan) = &declaration.static_initializer else {
+            return;
+        };
+        let mut initializers = Vec::new();
+        let mut cursor = 0u16;
+        for write in &plan.writes {
+            if write.offset < cursor {
+                return;
+            }
+            initializers.extend(std::iter::repeat_n(
+                StorageInit::Byte(0),
+                usize::from(write.offset - cursor),
+            ));
+            match &write.value {
+                SemStaticInitializerValue::Literal { .. } if write.destination.is_real() => {
+                    let Some(value) = classic_static_initializer_real_value(&write.value) else {
+                        return;
+                    };
+                    initializers.extend(value.to_bytes().into_iter().map(StorageInit::Byte));
+                }
+                SemStaticInitializerValue::Literal { .. } => {
+                    let Some(value) = classic_static_initializer_literal_value(&write.value) else {
+                        return;
+                    };
+                    initializers.push(StorageInit::Byte(value as u8));
+                    if write.width == 2 {
+                        initializers.push(StorageInit::Byte((value >> 8) as u8));
+                    } else if write.width != 1 {
+                        return;
+                    }
+                }
+                SemStaticInitializerValue::Address {
+                    selector,
+                    target,
+                    addend,
+                } => {
+                    let kind = match selector {
+                        Some(AddressByteSelector::Low) => StorageRelocationKind::Low8,
+                        Some(AddressByteSelector::High) => StorageRelocationKind::High8,
+                        None => StorageRelocationKind::Word16,
+                    };
+                    if kind.width() != write.width {
+                        return;
+                    }
+                    initializers.push(StorageInit::Relocation {
+                        kind,
+                        target: StorageRelocationTarget::Name(self.symbol_name(target)),
+                        addend: *addend,
+                        span: write.span,
+                    });
+                }
+            }
+            cursor = write.offset.saturating_add(write.width);
+        }
+        initializers.extend(std::iter::repeat_n(
+            StorageInit::Byte(0),
+            usize::from(plan.initialized_extent.saturating_sub(cursor)),
+        ));
+        self.static_initializers.insert(
+            declaration.span,
+            ClassicStaticInitializer {
+                initialized_extent: plan.initialized_extent,
+                initializers,
+            },
+        );
     }
 
     fn routine(&mut self, routine: &SemRoutine) -> Option<Routine> {
@@ -1537,6 +1621,46 @@ fn lvalue_expr_node_count(value: &SemLValue) -> usize {
         SemLValueKind::Field { base, .. } => lvalue_expr_node_count(base),
         SemLValueKind::Symbol(_) | SemLValueKind::UnresolvedName(_) => 0,
     }
+}
+
+fn classic_static_initializer_literal_value(value: &SemStaticInitializerValue) -> Option<u16> {
+    let SemStaticInitializerValue::Literal { value, negative } = value else {
+        return None;
+    };
+    let value = match value {
+        SemInitializerLiteral::Number(number) => number.value?,
+        SemInitializerLiteral::Char(ch) => u16::from(source_char_byte(*ch)?),
+        SemInitializerLiteral::True => 1,
+        SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
+    };
+    Some(if *negative {
+        0u16.wrapping_sub(value)
+    } else {
+        value
+    })
+}
+
+fn classic_static_initializer_real_value(
+    value: &SemStaticInitializerValue,
+) -> Option<crate::atari_real::AtariReal> {
+    let SemStaticInitializerValue::Literal { value, negative } = value else {
+        return None;
+    };
+    let magnitude = match value {
+        SemInitializerLiteral::Number(number) if number.kind == crate::lexer::NumberKind::Real => {
+            number.text.clone()
+        }
+        SemInitializerLiteral::Number(number) => number.value?.to_string(),
+        SemInitializerLiteral::Char(ch) => source_char_byte(*ch)?.to_string(),
+        SemInitializerLiteral::True => "1".to_string(),
+        SemInitializerLiteral::False | SemInitializerLiteral::Nil => "0".to_string(),
+    };
+    let text = if *negative {
+        format!("-{magnitude}")
+    } else {
+        magnitude
+    };
+    crate::atari_real::AtariReal::from_decimal(&text).ok()
 }
 
 fn is_var_declaration(decl: &SemDeclaration) -> bool {

@@ -45,6 +45,29 @@ pub(crate) fn generate_profile_at_origin(
     generate_with_options(program, origin, true, profile, RuntimeTarget::Cartridge)
 }
 
+pub(crate) fn generate_profile_with_origin_and_semir_facts(
+    program: &Program,
+    semir: &crate::semantic::ir::SemProgram,
+    origin: u16,
+    profile: CodegenProfile,
+) -> Result<CodegenOutput, Vec<Diagnostic>> {
+    let origin = if origin == CODE_ORIGIN {
+        program_code_origin(program).unwrap_or(origin)
+    } else {
+        origin
+    };
+    let projection = super::semir::semir_to_cart_projection(semir)?;
+    generate_with_options_and_projection_facts(
+        program,
+        &projection.native_real,
+        &projection.static_initializers,
+        origin,
+        true,
+        profile,
+        RuntimeTarget::Cartridge,
+    )
+}
+
 pub fn generate_semir_profile_with_origin(
     program: &crate::semantic::ir::SemProgram,
     origin: u16,
@@ -65,9 +88,10 @@ pub fn generate_semir_profile_with_origin(
     } else {
         origin
     };
-    let mut output = generate_with_options_and_facts(
+    let mut output = generate_with_options_and_projection_facts(
         &projection.program,
         &projection.native_real,
+        &projection.static_initializers,
         origin,
         true,
         profile,
@@ -86,9 +110,10 @@ pub(crate) fn generate_semir_profile_at_origin(
         return super::standalone::generate_semir_cart_profile_at_origin(program, origin, profile);
     }
     let projection = super::semir::semir_to_cart_projection(program)?;
-    let mut output = generate_with_options_and_facts(
+    let mut output = generate_with_options_and_projection_facts(
         &projection.program,
         &projection.native_real,
+        &projection.static_initializers,
         origin,
         true,
         profile,
@@ -115,17 +140,19 @@ pub(super) fn generate_with_options(
     .map(|(output, _)| output)
 }
 
-pub(super) fn generate_with_options_and_facts(
+pub(super) fn generate_with_options_and_projection_facts(
     program: &Program,
     native_real: &super::native_real::ClassicNativeRealFacts,
+    static_initializers: &ClassicStaticInitializerFacts,
     origin: u16,
     segment_storage: bool,
     profile: CodegenProfile,
     runtime_target: RuntimeTarget,
 ) -> Result<CodegenOutput, Vec<Diagnostic>> {
-    generate_with_options_and_requirements_with_facts(
+    generate_with_options_and_requirements_with_projection_facts(
         program,
         native_real,
+        static_initializers,
         origin,
         segment_storage,
         profile,
@@ -154,6 +181,26 @@ pub(super) fn generate_with_options_and_requirements(
 pub(super) fn generate_with_options_and_requirements_with_facts(
     program: &Program,
     native_real: &super::native_real::ClassicNativeRealFacts,
+    origin: u16,
+    segment_storage: bool,
+    profile: CodegenProfile,
+    runtime_target: RuntimeTarget,
+) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
+    generate_with_options_and_requirements_with_projection_facts(
+        program,
+        native_real,
+        &ClassicStaticInitializerFacts::default(),
+        origin,
+        segment_storage,
+        profile,
+        runtime_target,
+    )
+}
+
+pub(super) fn generate_with_options_and_requirements_with_projection_facts(
+    program: &Program,
+    native_real: &super::native_real::ClassicNativeRealFacts,
+    static_initializers: &ClassicStaticInitializerFacts,
     origin: u16,
     segment_storage: bool,
     profile: CodegenProfile,
@@ -230,6 +277,7 @@ pub(super) fn generate_with_options_and_requirements_with_facts(
         suppress_implicit_rts_once: false,
         inline_byte_constant_shift: false,
         native_real: native_real.clone(),
+        static_initializers: static_initializers.clone(),
         native_real_literal_pool: BTreeMap::new(),
         current_native_real_scope: None,
         native_real_fact_suppression: 0,

@@ -7,8 +7,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::codegen::{
-    CODE_ORIGIN, CodegenOutput, CodegenProfile, format_load_file, generate_profile_at_origin,
-    generate_profile_with_origin, generate_semir_profile_at_origin,
+    CODE_ORIGIN, CodegenOutput, CodegenProfile, format_load_file,
+    generate_profile_with_origin_and_semir_facts, generate_semir_profile_at_origin,
     generate_semir_profile_with_origin, generate_semir_standalone_profile_at_origin,
 };
 use crate::includes::{ModuleLoadOptions, load_compilation};
@@ -470,10 +470,12 @@ fn compile_classic(
                 && !uses_lexical_blocks =>
         {
             let materialized = materialize_constants(program, model);
-            match request.origin {
-                Some(origin) => generate_profile_at_origin(&materialized, origin, request.profile),
-                None => generate_profile_with_origin(&materialized, CODE_ORIGIN, request.profile),
-            }
+            generate_profile_with_origin_and_semir_facts(
+                &materialized,
+                semir,
+                request.origin.unwrap_or(CODE_ORIGIN),
+                request.profile,
+            )
         }
         CodegenSource::Ast => match request.origin {
             Some(origin) => generate_semir_profile_at_origin(semir, origin, request.profile),

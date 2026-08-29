@@ -82,8 +82,13 @@ impl Generator {
             .unwrap_or(self.current_absolute_address());
         self.layout.next_address = address;
         let initializer_start = self.layout.initializers.len();
-        self.layout
-            .add_var_decl(decl, true, &self.record_layouts, &self.numeric_defines);
+        self.layout.add_var_decl_with_static_initializers(
+            decl,
+            true,
+            &self.record_layouts,
+            &self.numeric_defines,
+            &self.static_initializers,
+        );
         let new_initializers = self.layout.initializers[initializer_start..].to_vec();
         if self.compatible_address_is_in_output(address)
             && self.sync_compatible_cursor_to_emitter(decl.span)
