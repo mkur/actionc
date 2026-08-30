@@ -71,6 +71,9 @@ CONST BYTE SCREEN_BYTES=40,
 
 CONST CARD SCREEN_SIZE=SCREEN_BYTES*SCREEN_HEIGHT,
            DLIST_SIZE=$400,
+           ; One extra entry covers the fade-out endpoint.  The second keeps
+           ; FADE_SECONDS=0 safe when RunAnimation forces a one-tick fade.
+           FADE_LOOKUP_SIZE=FADE_SECONDS*60+2,
            ; ANTIC's playfield address counter wraps inside each 4 KiB bank.
            ; Starting 16 bytes into the bank leaves $0FF0=4080 bytes, exactly
            ; 102 rows at 40 bytes each.  Row 102 can therefore begin at the
@@ -115,6 +118,11 @@ BYTE ARRAY dlist3(DLIST_SIZE)=DLIST_3_BASE
 CHAR ARRAY statusTemplate(STATUS_WIDTH+1)="\{SCREEN:      Animation #1/4    Bobs: 0000     }"
 
 CARD ARRAY rowOffsets(SCREEN_HEIGHT)
+
+; UpdateFade reads this table inside the frame loop.  It is built for the
+; machine's actual PAL/NTSC fade length before timing starts, replacing the
+; old per-frame multiply and divide with one indexed byte load.
+BYTE ARRAY fadeLuminance(FADE_LOOKUP_SIZE)
 
 ; The buffers are rendered in a strict round-robin cycle and reset together,
 ; so the buffer being published always belongs to the same ten-bob generation.
@@ -216,7 +224,7 @@ CARD savedDList,savedImmediateVbi,savedDliVector
 CARD bobDestination
 BYTE savedDmaControl,savedPriority,savedCharBase,
      savedColor0,savedColor1,savedColor2,savedColor3,savedColor4
-BYTE bobHue,bobSpriteIndex,bobRows
+BYTE bobHue,bobSpriteIndex,bobRows,lastBobLuminance
 
 
 PROC BuildRowOffsets()
@@ -724,21 +732,47 @@ RETURN((CARD(middle) LSH 8)+low)
 
 
 PROC UpdateFade(CARD elapsed,effectTicks,fadeTicks)
-  CARD scaled
+  CARD remaining
   BYTE light
 
   IF elapsed<fadeTicks THEN
-    scaled=elapsed*BOB_LIGHT_LUMA
-    light=BYTE(scaled/fadeTicks)
+    light=fadeLuminance(elapsed)
   ELSEIF elapsed>=effectTicks-fadeTicks THEN
-    scaled=(effectTicks-elapsed)*BOB_LIGHT_LUMA
-    light=BYTE(scaled/fadeTicks)
+    remaining=effectTicks-elapsed
+    light=fadeLuminance(remaining)
   ELSE
     light=BOB_LIGHT_LUMA
   FI
 
-  ; Atari playfield luminance uses the even low-nibble values 0..14.
-  SetBobLuminance(light AND GTIA.COLOR_LUMINANCE_MASK)
+  ; The lookup contains only useful even Atari luminance values.  Avoid
+  ; rewriting the pending palette on all the frames between level changes.
+  IF light#lastBobLuminance THEN
+    lastBobLuminance=light
+    SetBobLuminance(light)
+  FI
+RETURN
+
+
+PROC BuildFadeLookup(CARD fadeTicks)
+  CARD tick,remainder
+  BYTE light
+
+  ; Incremental division computes floor(tick*BOB_LIGHT_LUMA/fadeTicks)
+  ; once, outside the timed frame loop.  Masking to even luminances preserves
+  ; the old fade exactly without invoking the runtime multiply/divide helpers.
+  tick=0
+  remainder=0
+  light=0
+  WHILE tick<fadeTicks DO
+    fadeLuminance(tick)=light AND GTIA.COLOR_LUMINANCE_MASK
+    remainder==+BOB_LIGHT_LUMA
+    WHILE remainder>=fadeTicks DO
+      remainder==-fadeTicks
+      light==+1
+    OD
+    tick==+1
+  OD
+  fadeLuminance(fadeTicks)=BOB_LIGHT_LUMA
 RETURN
 
 
@@ -769,6 +803,8 @@ PROC RunAnimation()
   IF fadeTicks>(effectTicks RSH 1) THEN fadeTicks=effectTicks RSH 1 FI
   IF fadeTicks=0 THEN fadeTicks=1 FI
 
+  BuildFadeLookup(fadeTicks)
+  lastBobLuminance=$FF
   startTick=ReadClock16()
   WHILE OS.CH=OS.NO_KEY DO
     elapsed=ReadClock16()-startTick
