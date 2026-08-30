@@ -1882,8 +1882,9 @@ impl Generator {
         &mut self,
         routine: &Routine,
     ) -> Vec<RoutineParameterCapture> {
-        if !self.profile.enables_modern_optimizations()
-            && let Some((frame_base, arg_bytes)) = self.routine_sargs_frame(routine)
+        if let Some((frame_base, arg_bytes)) = self.routine_sargs_frame(routine)
+            && (!self.profile.enables_modern_optimizations()
+                || arg_bytes > crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES)
         {
             debug_assert_sargs_helper_abi(
                 &self.runtime_helpers.target(RuntimeHelperSlot::SArgs),
@@ -1898,7 +1899,10 @@ impl Generator {
             let _ = self
                 .emitter
                 .emit_output_relative(frame_base, 0, CodegenRelocationKind::Word16);
-            self.emitter.emit_u8(arg_bytes.wrapping_sub(1));
+            self.emitter.emit_u8(
+                u8::try_from(arg_bytes - 1)
+                    .expect("SArgs argument byte count must fit its encoded descriptor"),
+            );
             return Vec::new();
         }
 
@@ -1944,7 +1948,7 @@ impl Generator {
             .collect()
     }
 
-    pub(super) fn routine_sargs_frame(&self, routine: &Routine) -> Option<(u16, u8)> {
+    pub(super) fn routine_sargs_frame(&self, routine: &Routine) -> Option<(u16, u16)> {
         if !self.segment_storage {
             return None;
         }
@@ -1967,7 +1971,7 @@ impl Generator {
             return None;
         }
 
-        Some((frame_base?, arg_bytes as u8))
+        Some((frame_base?, arg_bytes))
     }
 
     pub(super) fn routine_param_slot_size(&self, param: &VarDecl) -> Option<u16> {

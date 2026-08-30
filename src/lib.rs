@@ -1,3 +1,4 @@
+mod action_abi;
 mod analysis;
 
 pub mod asm6502;

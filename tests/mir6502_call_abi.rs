@@ -121,8 +121,9 @@ fn user_calls_may_omit_trailing_declared_params() {
 fn callee_captures_action_abi_params_on_entry() {
     let (_formatted, bytes) = compile_mir6502_fixture("call_card_byte_param_prologue.act");
     let prologue = [
-        0x20, 0xF5, 0xA0, // JSR SArgs
-        0x00, 0x30, 0x02, // frame $3000, three argument bytes
+        0x8D, 0x00, 0x30, // STA x low
+        0x8E, 0x01, 0x30, // STX x high
+        0x8C, 0x02, 0x30, // STY y
     ];
     let call_args = [
         0xA9, 0x0A, // LDA #x low
@@ -130,6 +131,7 @@ fn callee_captures_action_abi_params_on_entry() {
         0xA0, 0x02, // LDY #y
     ];
     assert!(bytes.windows(prologue.len()).any(|bytes| bytes == prologue));
+    assert!(!bytes.windows(3).any(|bytes| bytes == [0x20, 0xF5, 0xA0]));
     assert!(bytes.windows(call_args.len() + 1).any(|bytes| {
         bytes[..call_args.len()] == call_args && matches!(bytes[call_args.len()], 0x20 | 0x4C)
     }));
@@ -151,8 +153,8 @@ fn array_param_string_literal_call_captures_a_x_and_indexes_indirectly() {
 fn runtime_helper_set_redirects_sargs_to_generated_routine() {
     let (_formatted, bytes) = compile_mir6502_fixture("runtime_helper_set_sargs.act");
     let generated_sargs_prologue = [
-        0x20, 0x03, 0x30, // JSR r_Par
-        0x00, 0x30, 0x02, // frame $3000, three argument bytes
+        0x20, 0x05, 0x30, // JSR r_Par
+        0x00, 0x30, 0x04, // frame $3000, five argument bytes
     ];
     assert!(
         bytes
@@ -163,13 +165,17 @@ fn runtime_helper_set_redirects_sargs_to_generated_routine() {
 }
 
 #[test]
-fn sargs_byte_params_are_packed_in_callee_storage() {
+fn four_byte_params_are_captured_directly_into_packed_callee_storage() {
     let (_formatted, bytes) = compile_mir6502_fixture("call_four_byte_params.act");
     let prologue = [
-        0x20, 0xF5, 0xA0, // JSR SArgs
-        0x00, 0x30, 0x03, // frame $3000, four argument bytes
+        0x8D, 0x00, 0x30, // STA a
+        0x8E, 0x01, 0x30, // STX b
+        0x8C, 0x02, 0x30, // STY c
+        0xA5, 0xA3, // LDA $A3
+        0x8D, 0x03, 0x30, // STA d
     ];
     assert!(bytes.windows(prologue.len()).any(|bytes| bytes == prologue));
+    assert!(!bytes.windows(3).any(|bytes| bytes == [0x20, 0xF5, 0xA0]));
     for address in [0x3000u16, 0x3001, 0x3002, 0x3003] {
         let [low, high] = address.to_le_bytes();
         assert!(bytes

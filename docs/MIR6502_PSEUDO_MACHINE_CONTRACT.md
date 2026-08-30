@@ -917,6 +917,8 @@ Rules:
 - Helper declarations provide target addresses, variants, ABI facts, and effects
   when emission needs them.
 - Unknown helper targets are allowed only before pre-emission MIR.
+- Optimized Action entries capture argument frames of up to four bytes directly;
+  larger frames use `SArgs` to bound callee-prologue size.
 
 ### Atari FPP target services
 

@@ -11781,6 +11781,44 @@ fn analyzed_param_reload_removes_same_register_load_when_flags_are_dead() {
 }
 
 #[test]
+fn analyzed_param_reload_keeps_cross_index_register_load() {
+    let param = MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    };
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Store {
+                dst: MirAddr::Direct(param.clone()),
+                src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirAddr::Direct(param),
+                width: MirWidth::Byte,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    let result = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, calls::discover_param_home_reloads)
+        .unwrap();
+
+    assert_eq!(result.applied, 0);
+    assert!(matches!(
+        routine.blocks[0].ops.get(1),
+        Some(MirOp::Load {
+            dst: MirDef::Reg(MirReg::X),
+            ..
+        })
+    ));
+}
+
+#[test]
 fn ssa_lite_scanner_kills_memory_facts_on_non_direct_store() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

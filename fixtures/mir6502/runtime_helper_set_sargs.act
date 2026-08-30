@@ -3,9 +3,9 @@ SET $4EE=r_Par
 PROC r_Par=*()
 [$60]
 
-PROC Take(BYTE a,b,c)
+PROC Take(BYTE a,b,c,d,e)
 RETURN
 
 PROC Main()
-  Take(1,2,3)
+  Take(1,2,3,4,5)
 RETURN

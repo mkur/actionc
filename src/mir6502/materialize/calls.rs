@@ -3578,6 +3578,12 @@ pub(in crate::mir6502) fn discover_param_home_reloads(
             ) else {
                 continue;
             };
+            if matches!(
+                (source, *dst),
+                (MirReg::X, MirReg::Y) | (MirReg::Y, MirReg::X)
+            ) {
+                continue;
+            }
             let (replacement, exit_change) = if source == *dst {
                 (
                     Vec::new(),

@@ -61,10 +61,11 @@ The compiler passes the left operand in `A/X`. For multiply, divide, and
 remainder, the right operand is placed in `$84/$85`. For shifts, the shift count
 is placed in `$84`. Arithmetic helper results return in `A/X`.
 
-`r_Par` is special: it is called from a routine prologue when three or more
-argument bytes must be copied from the caller argument area into the callee's
-local frame. The inline bytes after the `JSR` describe the destination frame and
-byte count.
+`r_Par` is special: it copies argument bytes from the caller argument area into
+the callee's local frame. Compatibility code uses it for frames of three or
+more bytes. Optimized classic and MIR6502 code capture up to four bytes
+directly and use `r_Par` for larger frames. The inline bytes after the `JSR`
+describe the destination frame and byte count.
 
 ## Trusted Runtime Helper Effects
 

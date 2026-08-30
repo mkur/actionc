@@ -403,12 +403,12 @@ fn byte_pointer_param_read_modify_write_preserves_pointer_for_store() {
         compile_materialized_mir6502_fixture("byte_pointer_param_read_modify_write.act");
 
     assert!(formatted.contains("a =.b load param p0+0\n  store.b fixed_zp $AC, a"));
-    assert!(formatted.contains("a =.b load param p0+1\n  store.b fixed_zp $AD, a"));
+    assert!(formatted.contains("store.b fixed_zp $AD, x"));
     assert!(formatted.contains("a =.b a sub #$01 carry_in=set carry_out=ignore"));
     assert!(formatted.contains("a =.b a add #$01 carry_in=clear carry_out=ignore"));
     assert!(formatted.contains("store_indirect (zp$AC),y+0 a"));
     assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0xAC]));
-    assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0xAD]));
+    assert!(bytes.windows(2).any(|bytes| bytes == [0x86, 0xAD]));
     assert!(bytes.windows(2).any(|bytes| bytes == [0x91, 0xAC]));
 }
 
@@ -438,13 +438,13 @@ fn sargs_address_of_byte_param_accounts_for_initialized_local_size() {
 
 fn assert_sargs_address_of_c(formatted: &str, bytes: &[u8], frame_low: u8, c_low: u8) {
     assert!(!formatted.contains("lea param"));
-    assert!(formatted.contains("machine m0 items=[<a >a $03]"));
+    assert!(formatted.contains("machine m0 items=[<a >a $04]"));
     assert!(formatted.contains("a =.b storage_addr_lo param p2+0"));
     assert!(formatted.contains("x =.b storage_addr_hi param p2+0"));
     assert!(
         bytes
             .windows(6)
-            .any(|bytes| bytes == [0x20, 0xF5, 0xA0, frame_low, 0x30, 0x03])
+            .any(|bytes| bytes == [0x20, 0xF5, 0xA0, frame_low, 0x30, 0x04])
     );
     assert!(
         bytes

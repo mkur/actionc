@@ -323,7 +323,7 @@ fn runtime_bindings(
 
 fn runtime_selection_reason(helper: MirRuntimeHelper) -> &'static str {
     match helper {
-        MirRuntimeHelper::SArgs => "call frame exceeds three direct argument bytes",
+        MirRuntimeHelper::SArgs => "call frame exceeds four direct argument bytes",
         MirRuntimeHelper::Mul => "integer multiplication requires a runtime helper",
         MirRuntimeHelper::Div => "integer division requires a runtime helper",
         MirRuntimeHelper::Mod => "integer remainder requires a runtime helper",
@@ -856,7 +856,7 @@ mod tests {
         let materialized = materialize_mir6502_source(
             "
             TYPE CELL=[CARD value]
-            PROC Copy(CELL POINTER destination CARD source)
+            PROC Copy(CELL POINTER destination CARD source BYTE ignored)
               destination.value=source
             RETURN
             ",

@@ -630,7 +630,7 @@ fn standalone_runtime_linking_preserves_the_last_application_proc_as_runad() {
         assert_eq!(compiled.run_address(), start_entry, "{mode:?}");
         assert_eq!(
             listing.contains("proc_syslib_sargs:"),
-            mode != CompileMode::Optimized,
+            mode == CompileMode::Compatibility,
             "{mode:?}: {listing}"
         );
         assert!(

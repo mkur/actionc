@@ -68,7 +68,8 @@ must save it explicitly. TN routines such as `Block` (`STX $A0`) and `Open`
 (`STX $A1`) contain those saves in their handwritten machine blocks. Ordinary
 high-level callees capture the ABI bytes into private parameter cells. The
 compatibility profile uses `SArgs` for frames of three or more bytes; the
-optimized classic profile emits the known direct stores instead.
+optimized classic and MIR6502 backends capture frames of up to four bytes
+directly and use `SArgs` for larger frames.
 
 Local pointer variables use the same two-byte low/high layout as globals.
 

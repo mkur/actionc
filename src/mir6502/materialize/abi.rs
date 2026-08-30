@@ -28,10 +28,10 @@ pub(super) fn prepend_action_abi_param_prologue(
         .iter()
         .filter_map(|param| param.scalar_width.map(width_bytes))
         .sum::<u16>();
-    let prologue = if arg_bytes >= 3 {
-        action_abi_sargs_param_prologue(routine, arg_bytes, machine_blocks, helpers)
-    } else {
+    let prologue = if arg_bytes <= crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES {
         action_abi_direct_param_prologue(routine)
+    } else {
+        action_abi_sargs_param_prologue(routine, arg_bytes, machine_blocks, helpers)
     };
     if prologue.is_empty() {
         return;

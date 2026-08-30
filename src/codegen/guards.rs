@@ -128,7 +128,7 @@ pub(super) fn debug_assert_runtime_helper_abi_shape(
 pub(super) fn debug_assert_sargs_helper_abi(
     target: &RuntimeHelperTarget,
     frame_base: u16,
-    arg_bytes: u8,
+    arg_bytes: u16,
 ) {
     debug_assert_runtime_helper_target(RuntimeHelperSlot::SArgs, target);
     debug_assert!(
@@ -140,7 +140,7 @@ pub(super) fn debug_assert_sargs_helper_abi(
         "SArgs ABI destination frame must be addressable absolute storage"
     );
     debug_assert!(
-        frame_base.checked_add(u16::from(arg_bytes) - 1).is_some(),
+        frame_base.checked_add(arg_bytes - 1).is_some(),
         "SArgs ABI destination frame must not wrap memory"
     );
 }

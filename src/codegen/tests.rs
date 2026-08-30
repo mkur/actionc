@@ -1491,6 +1491,26 @@ fn modern_parameter_prologue_directly_captures_large_argument_frame() {
 }
 
 #[test]
+fn modern_parameter_prologue_uses_sargs_beyond_four_argument_bytes() {
+    let output = generate_profile_source_with_origin(
+        "PROC Take(CARD first,second BYTE last) RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(output.bytes.windows(6).any(|bytes| bytes
+        == [
+            opcode::JSR_ABS,
+            runtime_helper::CARTRIDGE_SARGS.low(),
+            runtime_helper::CARTRIDGE_SARGS.high(),
+            0x00,
+            0x30,
+            0x04,
+        ]));
+}
+
+#[test]
 fn compatible_parameter_prologue_keeps_direct_stores_for_two_argument_bytes() {
     let output = generate_compatible_source_with_origin(
         "BYTE a,b PROC Take(BYTE x,y) a=x b=y RETURN",

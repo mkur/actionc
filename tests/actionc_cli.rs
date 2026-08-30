@@ -679,7 +679,7 @@ fn classic_standalone_appends_runtime_after_source_controlled_layout() {
 }
 
 #[test]
-fn classic_standalone_links_sargs_only_for_the_legacy_profile() {
+fn classic_standalone_links_sargs_for_five_byte_frames() {
     let fixture =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sargs.act");
     for profile in ["legacy", "modern"] {
@@ -703,13 +703,10 @@ fn classic_standalone_links_sargs_only_for_the_legacy_profile() {
         );
         let map = String::from_utf8_lossy(&output.stdout);
         for sargs_dependency in ["ERROR", "BREAK", "SARGS"] {
-            let linked = map.contains(&format!(
-                "M_ACTION_RUNTIME_SYSLIB_{sargs_dependency}_"
-            ));
-            assert_eq!(
+            let linked = map.contains(&format!("M_ACTION_RUNTIME_SYSLIB_{sargs_dependency}_"));
+            assert!(
                 linked,
-                profile == "legacy",
-                "unexpected {sargs_dependency} linkage for {profile}: {map}"
+                "missing {sargs_dependency} linkage for {profile}: {map}"
             );
         }
         for unused in ["LSHIFT", "RSHIFT", "MULTI", "DIVI", "REMI"] {
@@ -769,9 +766,8 @@ fn standalone_source_listings_omit_library_source_annotations() {
         );
         assert!(listing.contains("STA.Z $A0"), "{backend}: {listing}");
         assert!(!listing.contains("PUBLIC EXTERNAL PROC Poke"));
-        assert_eq!(
+        assert!(
             listing.contains("proc_syslib_sargs:"),
-            backend == "mir6502",
             "{backend}: {listing}"
         );
         assert!(
@@ -786,11 +782,7 @@ fn standalone_source_listings_omit_library_source_annotations() {
         );
         assert!(!listing.contains("loc_m_action_runtime_"));
         assert!(!listing.contains("loc_action_runtime_"));
-        assert_eq!(
-            listing.contains("param_syslib_error_err"),
-            backend == "mir6502",
-            "{backend}: {listing}"
-        );
+        assert!(listing.contains("param_syslib_error_err"));
         assert!(!listing.contains("param_m_action_runtime_"));
         assert!(!listing.contains("param_action_runtime_"));
         if backend == "classic" {
@@ -1277,7 +1269,7 @@ fn standalone_sargs_local_override_suppresses_the_embedded_default() {
     let source = temp.path().join("local-sargs.act");
     fs::write(
         &source,
-        "PROC LocalSArgs=*() [$60]\nSET $4EE=LocalSArgs\nPROC Four(BYTE a,b,c,d) RETURN\nPROC Main() Four(1,2,3,4) RETURN\n",
+        "PROC LocalSArgs=*() [$60]\nSET $4EE=LocalSArgs\nPROC Five(BYTE a,b,c,d,e) RETURN\nPROC Main() Five(1,2,3,4,5) RETURN\n",
     )
     .expect("write local SArgs override source");
     let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
@@ -1311,7 +1303,7 @@ fn classic_standalone_honors_a_local_sargs_override() {
     let source = temp.path().join("classic-local-sargs.act");
     fs::write(
         &source,
-        "PROC LocalSArgs=*() [$60]\nSET $4EE=LocalSArgs\nPROC Four(BYTE a,b,c,d) RETURN\nPROC Main() Four(1,2,3,4) RETURN\n",
+        "PROC LocalSArgs=*() [$60]\nSET $4EE=LocalSArgs\nPROC Five(BYTE a,b,c,d,e) RETURN\nPROC Main() Five(1,2,3,4,5) RETURN\n",
     )
     .expect("write classic local SArgs override source");
     let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
