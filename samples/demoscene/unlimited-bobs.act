@@ -228,10 +228,10 @@ EffectParams ARRAY effectTable(EFFECT_COUNT)=[
   ; Two-harmonic orb: a co-rotating 1:2 woven shell.
   $00 $00 $40 $40  $19 $32 $19 $32  $01 $03 $01 $03]
 
-; Runtime path parameters copied from the selected table entry.
-BYTE currentEffect,phaseXA,phaseXB,phaseYA,phaseYB,
-     bobStepXA,bobStepXB,bobStepYA,bobStepYB,
-     frameStepXA,frameStepXB,frameStepYA,frameStepYB
+; The selected table row is copied as one record.  Only the bob positions for
+; the current frame need separate runtime storage.
+EffectParams currentParams
+BYTE currentEffect,bobStepXA,bobStepXB,bobStepYA,bobStepYB
 
 ; Foreground-to-VBI handoff.  pendingDList is written completely before
 ; frameReady becomes nonzero, so the interrupt never sees a partial pointer.
@@ -488,10 +488,10 @@ PROC DrawFrame(BYTE buffer)
   CARD screenBase
 
   screenBase=ScreenAddress(buffer)
-  localXA=phaseXA
-  localXB=phaseXB
-  localYA=phaseYA
-  localYB=phaseYB
+  localXA=currentParams.phaseXA
+  localXB=currentParams.phaseXB
+  localYA=currentParams.phaseYA
+  localYB=currentParams.phaseYB
   bob=0
 
   WHILE bob<BOBS_PER_FRAME DO
@@ -515,10 +515,10 @@ PROC DrawFrame(BYTE buffer)
 
   ; Move the stored starting phases once, shifting the complete trajectory
   ; for the next frame rather than merely moving to its next bob.
-  phaseXA==+frameStepXA
-  phaseXB==+frameStepXB
-  phaseYA==+frameStepYA
-  phaseYB==+frameStepYB
+  currentParams.phaseXA==+currentParams.frameStepXA
+  currentParams.phaseXB==+currentParams.frameStepXB
+  currentParams.phaseYA==+currentParams.frameStepYA
+  currentParams.phaseYB==+currentParams.frameStepYB
 RETURN
 
 
@@ -667,18 +667,11 @@ RETURN
 
 
 PROC SelectEffect(BYTE effect)
-  phaseXA=effectTable(effect).phaseXA
-  phaseXB=effectTable(effect).phaseXB
-  phaseYA=effectTable(effect).phaseYA
-  phaseYB=effectTable(effect).phaseYB
-  bobStepXA=effectTable(effect).bobStepXA
-  bobStepXB=effectTable(effect).bobStepXB
-  bobStepYA=effectTable(effect).bobStepYA
-  bobStepYB=effectTable(effect).bobStepYB
-  frameStepXA=effectTable(effect).frameStepXA
-  frameStepXB=effectTable(effect).frameStepXB
-  frameStepYA=effectTable(effect).frameStepYA
-  frameStepYB=effectTable(effect).frameStepYB
+  currentParams=effectTable(effect)
+  bobStepXA=currentParams.bobStepXA
+  bobStepXB=currentParams.bobStepXB
+  bobStepYA=currentParams.bobStepYA
+  bobStepYB=currentParams.bobStepYB
 RETURN
 
 
