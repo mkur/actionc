@@ -30,10 +30,8 @@ mode-E bitmaps, choosing a random non-grey hue and using palette fades for each
 animation. It uses continuous phase catch-up across its three buffers and a
 bottom text row showing the current animation and displayed bob count. The
 demo declares `ORG $8000`, keeping the program above its three fixed screen
-buffers. The former four-buffer layout remains available as
-`demoscene/unlimited-bobs-4-buffers.act`. Compile with `--runtime standalone`;
-an explicit `--origin` remains available when deliberately overriding the
-source placement.
+buffers. Compile with `--runtime standalone`; an explicit `--origin` remains
+available when deliberately overriding the source placement.
 
 `real-basics.act` is the complete introductory program from the
 [native REAL tutorial](../docs/tutorials/REAL.md).

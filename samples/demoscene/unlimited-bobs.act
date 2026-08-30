@@ -10,8 +10,8 @@
 ; BOBS_PER_FRAME shaded software sprites are added to one bitmap per frame.
 ; The three bitmaps are displayed in rotation, so every bitmap contains one
 ; phase of the same growing trail.  Old bobs are never erased or redrawn.
-; Compared with the four-buffer version, each trail is revisited every third
-; frame instead of every fourth; completed frames are still published at VBI.
+; Each trail is revisited every third frame; completed frames are published at
+; VBI.
 ;
 ; The foreground owns all rendering.  A short immediate-VBI routine only
 ; publishes a completed display list, so a slow frame repeats safely instead
