@@ -5903,6 +5903,24 @@ fn folds_shift_past_scalar_width_to_zero() {
 }
 
 #[test]
+fn classic_oversized_constant_shift_preserves_left_operand_effects() {
+    let source = "BYTE calls,first,second \
+                  BYTE FUNC Next() calls==+1 RETURN(calls) \
+                  PROC Main() first=Next() RSH 8 second=7+(Next() LSH 8) RETURN";
+
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
+        let next = routine_address(&output, "Next").expect("Next address");
+
+        assert_eq!(
+            count_jsr_to(&output.bytes, next),
+            2,
+            "{profile:?} must evaluate both oversized-shift operands"
+        );
+    }
+}
+
+#[test]
 fn generates_if_else_control_flow() {
     let output = generate_source("BYTE x PROC Main() IF x THEN x=1 ELSE x=2 FI RETURN").unwrap();
     assert_eq!(

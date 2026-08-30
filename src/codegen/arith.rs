@@ -618,6 +618,13 @@ impl Generator {
         if let (Some(count), Some(left_size)) = (self.constant_u16(right), self.expr_size(left))
             && count >= left_size * 8
         {
+            // The result is known, but evaluating the left operand may still
+            // perform a call, volatile/absolute read, or pointer read.  Stage
+            // it in compiler workspace before replacing the value with zero.
+            let evaluation = StorageSlot::zero_page(runtime_zp::ARGS.address(), left_size.min(2));
+            if !self.emit_expr_to_slot(left, evaluation) {
+                return false;
+            }
             self.emit_store_constant(slot, 0);
             return true;
         }
@@ -801,19 +808,7 @@ impl Generator {
     }
 
     pub(super) fn expr_is_effective_zero(&self, expr: &Expr) -> bool {
-        if self.constant_u16(expr) == Some(0) {
-            return true;
-        }
-        matches!(
-            &expr.kind,
-            ExprKind::Binary {
-                op: BinaryOp::Lsh | BinaryOp::Rsh,
-                left,
-                right,
-            } if self.constant_u16(right).zip(self.expr_size(left)).is_some_and(
-                |(count, size)| count >= size * 8
-            )
-        )
+        self.constant_u16(expr) == Some(0)
     }
 
     pub(super) fn emit_runtime_binary_expr_to_slot(
