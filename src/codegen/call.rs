@@ -1882,7 +1882,9 @@ impl Generator {
         &mut self,
         routine: &Routine,
     ) -> Vec<RoutineParameterCapture> {
-        if let Some((frame_base, arg_bytes)) = self.routine_sargs_frame(routine) {
+        if !self.profile.enables_modern_optimizations()
+            && let Some((frame_base, arg_bytes)) = self.routine_sargs_frame(routine)
+        {
             debug_assert_sargs_helper_abi(
                 &self.runtime_helpers.target(RuntimeHelperSlot::SArgs),
                 frame_base,

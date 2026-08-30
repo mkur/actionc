@@ -679,7 +679,7 @@ fn classic_standalone_appends_runtime_after_source_controlled_layout() {
 }
 
 #[test]
-fn classic_standalone_links_the_same_sargs_source_closure() {
+fn classic_standalone_links_sargs_only_for_the_legacy_profile() {
     let fixture =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/runtime/standalone_sargs.act");
     for profile in ["legacy", "modern"] {
@@ -702,10 +702,14 @@ fn classic_standalone_links_the_same_sargs_source_closure() {
             String::from_utf8_lossy(&output.stderr)
         );
         let map = String::from_utf8_lossy(&output.stdout);
-        for selected in ["ERROR", "BREAK", "SARGS"] {
-            assert!(
-                map.contains(&format!("M_ACTION_RUNTIME_SYSLIB_{selected}_")),
-                "missing {selected}: {map}"
+        for sargs_dependency in ["ERROR", "BREAK", "SARGS"] {
+            let linked = map.contains(&format!(
+                "M_ACTION_RUNTIME_SYSLIB_{sargs_dependency}_"
+            ));
+            assert_eq!(
+                linked,
+                profile == "legacy",
+                "unexpected {sargs_dependency} linkage for {profile}: {map}"
             );
         }
         for unused in ["LSHIFT", "RSHIFT", "MULTI", "DIVI", "REMI"] {
@@ -765,8 +769,9 @@ fn standalone_source_listings_omit_library_source_annotations() {
         );
         assert!(listing.contains("STA.Z $A0"), "{backend}: {listing}");
         assert!(!listing.contains("PUBLIC EXTERNAL PROC Poke"));
-        assert!(
+        assert_eq!(
             listing.contains("proc_syslib_sargs:"),
+            backend == "mir6502",
             "{backend}: {listing}"
         );
         assert!(
@@ -781,7 +786,11 @@ fn standalone_source_listings_omit_library_source_annotations() {
         );
         assert!(!listing.contains("loc_m_action_runtime_"));
         assert!(!listing.contains("loc_action_runtime_"));
-        assert!(listing.contains("param_syslib_error_err"));
+        assert_eq!(
+            listing.contains("param_syslib_error_err"),
+            backend == "mir6502",
+            "{backend}: {listing}"
+        );
         assert!(!listing.contains("param_m_action_runtime_"));
         assert!(!listing.contains("param_action_runtime_"));
         if backend == "classic" {

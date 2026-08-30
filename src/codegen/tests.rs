@@ -1457,6 +1457,40 @@ fn compatible_parameter_prologue_uses_sargs_for_three_argument_bytes() {
 }
 
 #[test]
+fn modern_parameter_prologue_directly_captures_large_argument_frame() {
+    let output = generate_profile_source_with_origin(
+        "BYTE out PROC Take(CARD pair BYTE x,y) out=y RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    assert!(!output.bytes.windows(3).any(|bytes| bytes
+        == [
+            opcode::JSR_ABS,
+            runtime_helper::CARTRIDGE_SARGS.low(),
+            runtime_helper::CARTRIDGE_SARGS.high(),
+        ]));
+    assert!(output.bytes.windows(14).any(|bytes| bytes
+        == [
+            opcode::STA_ABS,
+            0x01,
+            0x30,
+            opcode::STX_ABS,
+            0x02,
+            0x30,
+            opcode::STY_ABS,
+            0x03,
+            0x30,
+            opcode::LDA_ZP,
+            runtime_zp::ARGS.offset(3).address(),
+            opcode::STA_ABS,
+            0x04,
+            0x30,
+        ]));
+}
+
+#[test]
 fn compatible_parameter_prologue_keeps_direct_stores_for_two_argument_bytes() {
     let output = generate_compatible_source_with_origin(
         "BYTE a,b PROC Take(BYTE x,y) a=x b=y RETURN",
@@ -16750,7 +16784,7 @@ fn modern_parameter_storage_elision_rejects_effect_annotated_entries() {
 }
 
 #[test]
-fn modern_parameter_storage_elision_keeps_sargs_frames() {
+fn modern_parameter_storage_elision_keeps_large_direct_frames() {
     let output = generate_profile_source_with_origin(
         "PROC Keep(BYTE a,b,c) RETURN",
         0x3000,
@@ -16774,7 +16808,7 @@ fn modern_parameter_storage_elision_keeps_sargs_frames() {
         attempt.routine.as_deref() == Some("Keep")
             && attempt.kind == "parameter-storage"
             && !attempt.accepted
-            && attempt.summary.contains("SARGS")
+            && attempt.summary.contains("limited to the A/X ABI frame")
     }));
 }
 

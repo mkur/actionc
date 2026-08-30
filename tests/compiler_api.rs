@@ -628,7 +628,11 @@ fn standalone_runtime_linking_preserves_the_last_application_proc_as_runad() {
             .expect("parse Start entry address");
 
         assert_eq!(compiled.run_address(), start_entry, "{mode:?}");
-        assert!(listing.contains("proc_syslib_sargs:"), "{mode:?}: {listing}");
+        assert_eq!(
+            listing.contains("proc_syslib_sargs:"),
+            mode != CompileMode::Optimized,
+            "{mode:?}: {listing}"
+        );
         assert!(
             listing.contains("ORG $02E2\n        DTA A(proc_start)"),
             "{mode:?}: {listing}"

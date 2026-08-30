@@ -66,8 +66,9 @@ the routine entry address and patchability, not its call ABI.
 A machine routine that needs a register argument after clobbering that register
 must save it explicitly. TN routines such as `Block` (`STX $A0`) and `Open`
 (`STX $A1`) contain those saves in their handwritten machine blocks. Ordinary
-high-level callees instead capture A/X directly into their private parameter
-cells, or use `SArgs` for parameter frames of three or more bytes.
+high-level callees capture the ABI bytes into private parameter cells. The
+compatibility profile uses `SArgs` for frames of three or more bytes; the
+optimized classic profile emits the known direct stores instead.
 
 Local pointer variables use the same two-byte low/high layout as globals.
 
