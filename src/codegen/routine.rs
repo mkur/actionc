@@ -29,7 +29,9 @@ impl Generator {
             std::mem::take(&mut self.current_modern_routine_layout);
         let previous_preserve_modern_routine_layout = self.preserve_modern_routine_layout;
         let previous_native_real_scope = self.current_native_real_scope.take();
+        let previous_record_copy_scope = self.current_record_copy_scope.take();
         self.current_native_real_scope = Some(routine.name.to_ascii_uppercase());
+        self.current_record_copy_scope = Some(routine.name.to_ascii_uppercase());
         self.current_routine_effects = Some(RoutineEffects::known_empty());
         self.current_routine_has_effect_contract = routine_has_effect_contract(routine);
         self.current_inferred_routine_facts = None;
@@ -203,6 +205,7 @@ impl Generator {
         self.current_modern_routine_layout = previous_modern_routine_layout;
         self.preserve_modern_routine_layout = previous_preserve_modern_routine_layout;
         self.current_native_real_scope = previous_native_real_scope;
+        self.current_record_copy_scope = previous_record_copy_scope;
         self.profile = previous_profile;
     }
 

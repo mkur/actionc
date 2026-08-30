@@ -19,6 +19,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     let static_initializers = application_projection.static_initializers;
     let mut application = application_projection.program;
     let mut native_real = application_projection.native_real;
+    let record_copies = application_projection.record_copies;
     reject_absolute_helper_overrides(&application)?;
     let local_helper_overrides = local_helper_overrides(&application);
 
@@ -104,6 +105,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         super::driver::generate_with_options_and_requirements_with_projection_facts(
             &preflight,
             &native_real,
+            &record_copies,
             &static_initializers,
             origin,
             true,
@@ -151,6 +153,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     let mut output = super::driver::generate_with_options_and_projection_facts(
         &application,
         &native_real,
+        &record_copies,
         &static_initializers,
         origin,
         true,
@@ -216,6 +219,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
     let static_initializers = application_projection.static_initializers;
     let mut application = application_projection.program;
     let mut native_real = application_projection.native_real;
+    let record_copies = application_projection.record_copies;
 
     let external_interfaces = external_interfaces(semir);
     let referenced_names = referenced_external_names(&application, &external_interfaces);
@@ -283,6 +287,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
     let mut output = super::driver::generate_with_options_and_projection_facts(
         &application,
         &native_real,
+        &record_copies,
         &static_initializers,
         origin,
         true,

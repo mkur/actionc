@@ -1,0 +1,65 @@
+; Whole-record assignment copies every byte, evaluates record places once, and
+; preserves the source value when absolute record aliases overlap.
+
+TYPE Quad=[BYTE a,b,c,d]
+TYPE Outer=[BYTE prefix Quad value BYTE tail]
+
+Quad source=$0600
+Quad rightOverlap=$0601
+Quad leftOverlap=$0610
+Quad forwardSource=$0611
+Quad indexedResult=$0620
+Quad nestedResult=$0630
+Quad pointerResult=$0640
+BYTE signature=$0650
+BYTE targetCalls=$0651
+BYTE sourceCalls=$0652
+Quad evaluatedResult=$0660
+
+Quad ARRAY values(2)=[10 11 12 13  20 21 22 23]
+Quad ARRAY destinations(2)
+Quad POINTER ptr
+Outer outerSource,outerDestination
+BYTE index
+
+BYTE FUNC TargetIndex()
+  targetCalls==+1
+RETURN (1)
+
+BYTE FUNC SourceIndex()
+  sourceCalls==+1
+RETURN (0)
+
+PROC Main()
+  source.a=1
+  source.b=2
+  source.c=3
+  source.d=4
+  rightOverlap=source
+
+  forwardSource.a=5
+  forwardSource.b=6
+  forwardSource.c=7
+  forwardSource.d=8
+  leftOverlap=forwardSource
+
+  index=1
+  indexedResult=values(index)
+  indexedResult=indexedResult
+
+  outerSource.value=values(0)
+  outerDestination.value=outerSource.value
+  nestedResult=outerDestination.value
+
+  ptr=pointerResult
+  ptr^=values(0)
+
+  targetCalls=0
+  sourceCalls=0
+  destinations(TargetIndex())=values(0)
+  evaluatedResult=values(SourceIndex())
+
+  signature=$A5
+  DO
+  OD
+RETURN

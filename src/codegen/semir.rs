@@ -11,6 +11,7 @@ use super::native_real::{
     ClassicNativeExpr, ClassicNativeRealFacts, ClassicRealValue, real_address_temp_name,
     real_integer_temp_name, real_sign_temp_name, real_temp_name,
 };
+use super::record_copy::{ClassicRecordCopyFacts, RECORD_COPY_ADDRESS_TEMP, RECORD_COPY_TEMP};
 use super::{
     ClassicStaticInitializer, ClassicStaticInitializerFacts, StorageInit, StorageRelocationKind,
     StorageRelocationTarget,
@@ -19,6 +20,7 @@ use super::{
 pub(crate) struct ClassicProjection {
     pub(crate) program: Program,
     pub(crate) native_real: ClassicNativeRealFacts,
+    pub(crate) record_copies: ClassicRecordCopyFacts,
     pub(crate) static_initializers: ClassicStaticInitializerFacts,
     pub(crate) storage_display_names: BTreeMap<(String, String), String>,
 }
@@ -34,6 +36,7 @@ pub(crate) fn semir_to_projection(
         projection_names,
         external_addresses: None,
         native_real: ClassicNativeRealFacts::default(),
+        record_copies: ClassicRecordCopyFacts::default(),
         native_real_scope: None,
         static_initializers: ClassicStaticInitializerFacts::default(),
     };
@@ -42,6 +45,7 @@ pub(crate) fn semir_to_projection(
         Ok(ClassicProjection {
             program,
             native_real: lowerer.native_real,
+            record_copies: lowerer.record_copies,
             static_initializers: lowerer.static_initializers,
             storage_display_names,
         })
@@ -62,6 +66,7 @@ pub(crate) fn semir_to_cart_projection(
         projection_names,
         external_addresses: Some(&addresses),
         native_real: ClassicNativeRealFacts::default(),
+        record_copies: ClassicRecordCopyFacts::default(),
         native_real_scope: None,
         static_initializers: ClassicStaticInitializerFacts::default(),
     };
@@ -70,6 +75,7 @@ pub(crate) fn semir_to_cart_projection(
         Ok(ClassicProjection {
             program,
             native_real: lowerer.native_real,
+            record_copies: lowerer.record_copies,
             static_initializers: lowerer.static_initializers,
             storage_display_names,
         })
@@ -127,18 +133,27 @@ struct SemIrAstLowerer<'a> {
     projection_names: BTreeMap<SymbolId, String>,
     external_addresses: Option<&'a HashMap<SymbolId, u16>>,
     native_real: ClassicNativeRealFacts,
+    record_copies: ClassicRecordCopyFacts,
     native_real_scope: Option<String>,
     static_initializers: ClassicStaticInitializerFacts,
 }
 
 impl SemIrAstLowerer<'_> {
     fn program(&mut self, program: &SemProgram) -> Program {
+        let mut modules = program
+            .modules
+            .iter()
+            .map(|module| self.module(module))
+            .collect::<Vec<_>>();
+        if let Some((record_ty, span)) = program_record_copy_temp_type(program)
+            && let Some(module) = modules.first_mut()
+        {
+            module
+                .items
+                .splice(0..0, self.record_copy_hidden_declarations(&record_ty, span));
+        }
         Program {
-            modules: program
-                .modules
-                .iter()
-                .map(|module| self.module(module))
-                .collect(),
+            modules,
             source_kind: SourceUnitKind::Legacy,
             origin: program.origin.as_ref().map(|origin| OrgDirective {
                 address: Expr {
@@ -185,6 +200,29 @@ impl SemIrAstLowerer<'_> {
         }
 
         Module { items }
+    }
+
+    fn record_copy_hidden_declarations(&self, ty: &ValueType, span: Span) -> Vec<Item> {
+        vec![
+            Item::Declaration(Decl::Var(VarDecl {
+                visibility: Visibility::Private,
+                qualifiers: VarQualifiers::default(),
+                ty: self.type_ref(ty),
+                storage: VarStorage::Plain,
+                entries: vec![DeclEntry {
+                    name: RECORD_COPY_TEMP.to_string(),
+                    size: None,
+                    initializer: None,
+                    span,
+                }],
+                span,
+            })),
+            Item::Declaration(hidden_scalar_decl(
+                FundType::Card,
+                vec![RECORD_COPY_ADDRESS_TEMP],
+                span,
+            )),
+        ]
     }
 
     fn declaration_group_end(&self, items: &[SemItem], start: usize) -> usize {
@@ -569,13 +607,17 @@ impl SemIrAstLowerer<'_> {
             SemStmt::RecordCopy {
                 destination,
                 source,
+                size,
                 span,
-                ..
-            } => Some(Stmt::Assign {
-                target: self.lvalue(destination)?,
-                value: self.lvalue(source)?,
-                span: *span,
-            }),
+            } => {
+                self.record_copies
+                    .insert(self.native_real_scope.as_deref(), *span, *size);
+                Some(Stmt::Assign {
+                    target: self.lvalue(destination)?,
+                    value: self.lvalue(source)?,
+                    span: *span,
+                })
+            }
             SemStmt::CompoundAssign {
                 target,
                 op,
@@ -1408,6 +1450,71 @@ fn module_type_link_names(
         }
     }
     output
+}
+
+fn program_record_copy_temp_type(program: &SemProgram) -> Option<(ValueType, Span)> {
+    let mut largest = None;
+    for item in program.modules.iter().flat_map(|module| &module.items) {
+        match item {
+            SemItem::Routine(routine) => {
+                for stmt in &routine.body {
+                    consider_record_copy_temp(stmt, &mut largest);
+                }
+            }
+            SemItem::Statement(stmt) => consider_record_copy_temp(stmt, &mut largest),
+            _ => {}
+        }
+    }
+    largest.map(|(_, ty, span)| (ty, span))
+}
+
+fn consider_record_copy_temp(stmt: &SemStmt, largest: &mut Option<(u16, ValueType, Span)>) {
+    match stmt {
+        SemStmt::RecordCopy {
+            destination,
+            size,
+            span,
+            ..
+        } => {
+            if largest
+                .as_ref()
+                .is_none_or(|(largest_size, _, _)| size > largest_size)
+            {
+                *largest = Some((*size, destination.ty.clone(), *span));
+            }
+        }
+        SemStmt::LexicalBlock { body, .. }
+        | SemStmt::While { body, .. }
+        | SemStmt::DoUntil { body, .. }
+        | SemStmt::For { body, .. } => {
+            for stmt in body {
+                consider_record_copy_temp(stmt, largest);
+            }
+        }
+        SemStmt::If {
+            branches,
+            else_body,
+            ..
+        } => {
+            for branch in branches {
+                for stmt in &branch.body {
+                    consider_record_copy_temp(stmt, largest);
+                }
+            }
+            for stmt in else_body {
+                consider_record_copy_temp(stmt, largest);
+            }
+        }
+        SemStmt::Define(_)
+        | SemStmt::Return { .. }
+        | SemStmt::Exit { .. }
+        | SemStmt::Assign { .. }
+        | SemStmt::CompoundAssign { .. }
+        | SemStmt::Call { .. }
+        | SemStmt::MachineBlock { .. }
+        | SemStmt::InlineAsm { .. }
+        | SemStmt::Unsupported { .. } => {}
+    }
 }
 
 fn native_real_hidden_declarations(count: usize, span: Span) -> Vec<Decl> {

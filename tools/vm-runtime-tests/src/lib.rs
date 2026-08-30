@@ -774,6 +774,44 @@ mod tests {
     }
 
     #[test]
+    fn record_assignments_execute_in_all_public_modes() {
+        let max_steps = 20_000;
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let outcome =
+                    run_runtime_fixture("record_assignment.act", mode, runtime, true, max_steps);
+                let context = format!("{mode:?}/{runtime:?}: {:?}", outcome.report);
+                assert_eq!(
+                    outcome.stop_reason(),
+                    StopReason::StepLimit { max_steps },
+                    "{context}"
+                );
+                let bytes = |address: u16, count: u16| {
+                    (0..count)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>()
+                };
+                assert_eq!(
+                    bytes(0x0600, 5),
+                    [1, 1, 2, 3, 4],
+                    "right overlap: {context}"
+                );
+                assert_eq!(bytes(0x0610, 5), [5, 6, 7, 8, 8], "left overlap: {context}");
+                assert_eq!(bytes(0x0620, 4), [20, 21, 22, 23], "indexed: {context}");
+                assert_eq!(bytes(0x0630, 4), [10, 11, 12, 13], "nested: {context}");
+                assert_eq!(bytes(0x0640, 4), [10, 11, 12, 13], "pointer: {context}");
+                assert_eq!(outcome.memory().read(0x0650), 0xA5, "completion: {context}");
+                assert_eq!(bytes(0x0651, 2), [1, 1], "single evaluation: {context}");
+                assert_eq!(bytes(0x0660, 4), [10, 11, 12, 13], "evaluated: {context}");
+            }
+        }
+    }
+
+    #[test]
     fn resident_sys_zero_matches_under_both_runtimes_and_backends() {
         let max_steps = 1_000;
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {

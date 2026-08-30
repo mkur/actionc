@@ -403,6 +403,7 @@ use state::*;
 
 mod native_real;
 mod native_state;
+mod record_copy;
 
 pub(crate) mod tracked_emitter;
 
@@ -1180,9 +1181,11 @@ struct Generator {
     suppress_implicit_rts_once: bool,
     inline_byte_constant_shift: bool,
     native_real: native_real::ClassicNativeRealFacts,
+    record_copies: record_copy::ClassicRecordCopyFacts,
     static_initializers: ClassicStaticInitializerFacts,
     native_real_literal_pool: BTreeMap<[u8; 6], (String, Span)>,
     current_native_real_scope: Option<String>,
+    current_record_copy_scope: Option<String>,
     native_real_fact_suppression: usize,
     used_atari_fpp_services: BTreeSet<native_real::ClassicAtariFppService>,
 }

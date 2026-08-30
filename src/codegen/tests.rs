@@ -17260,6 +17260,7 @@ fn classic_codegen_rejects_aggregate_initializers_without_semantic_facts() {
     let diagnostics = driver::generate_with_options_and_requirements_with_projection_facts(
         &program,
         &native_real::ClassicNativeRealFacts::default(),
+        &record_copy::ClassicRecordCopyFacts::default(),
         &ClassicStaticInitializerFacts::default(),
         0x3000,
         true,
@@ -17444,9 +17445,11 @@ fn test_generator(profile: CodegenProfile) -> Generator {
         suppress_implicit_rts_once: false,
         inline_byte_constant_shift: false,
         native_real: native_real::ClassicNativeRealFacts::default(),
+        record_copies: record_copy::ClassicRecordCopyFacts::default(),
         static_initializers: ClassicStaticInitializerFacts::default(),
         native_real_literal_pool: BTreeMap::new(),
         current_native_real_scope: None,
+        current_record_copy_scope: None,
         native_real_fact_suppression: 0,
         used_atari_fpp_services: BTreeSet::new(),
     }

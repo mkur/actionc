@@ -12,6 +12,7 @@ pub fn generate_with_origin(
     generate_with_options_and_projection_facts(
         program,
         &super::native_real::ClassicNativeRealFacts::default(),
+        &super::record_copy::ClassicRecordCopyFacts::default(),
         &static_initializers,
         origin,
         false,
@@ -41,6 +42,7 @@ pub fn generate_profile_with_origin(
     generate_with_options_and_projection_facts(
         program,
         &super::native_real::ClassicNativeRealFacts::default(),
+        &super::record_copy::ClassicRecordCopyFacts::default(),
         &static_initializers,
         origin,
         true,
@@ -58,6 +60,7 @@ pub fn generate_profile_at_origin(
     generate_with_options_and_projection_facts(
         program,
         &super::native_real::ClassicNativeRealFacts::default(),
+        &super::record_copy::ClassicRecordCopyFacts::default(),
         &static_initializers,
         origin,
         true,
@@ -78,9 +81,15 @@ pub(crate) fn generate_profile_with_origin_and_semir_facts(
         origin
     };
     let projection = super::semir::semir_to_cart_projection(semir)?;
+    let codegen_program = if projection.record_copies.is_empty() {
+        program
+    } else {
+        &projection.program
+    };
     generate_with_options_and_projection_facts(
-        program,
+        codegen_program,
         &projection.native_real,
+        &projection.record_copies,
         &projection.static_initializers,
         origin,
         true,
@@ -117,6 +126,7 @@ pub fn generate_semir_profile_with_origin(
     let mut output = generate_with_options_and_projection_facts(
         &projection.program,
         &projection.native_real,
+        &projection.record_copies,
         &projection.static_initializers,
         origin,
         true,
@@ -139,6 +149,7 @@ pub(crate) fn generate_semir_profile_at_origin(
     let mut output = generate_with_options_and_projection_facts(
         &projection.program,
         &projection.native_real,
+        &projection.record_copies,
         &projection.static_initializers,
         origin,
         true,
@@ -152,6 +163,7 @@ pub(crate) fn generate_semir_profile_at_origin(
 pub(super) fn generate_with_options_and_projection_facts(
     program: &Program,
     native_real: &super::native_real::ClassicNativeRealFacts,
+    record_copies: &super::record_copy::ClassicRecordCopyFacts,
     static_initializers: &ClassicStaticInitializerFacts,
     origin: u16,
     segment_storage: bool,
@@ -161,6 +173,7 @@ pub(super) fn generate_with_options_and_projection_facts(
     generate_with_options_and_requirements_with_projection_facts(
         program,
         native_real,
+        record_copies,
         static_initializers,
         origin,
         segment_storage,
@@ -173,6 +186,7 @@ pub(super) fn generate_with_options_and_projection_facts(
 pub(super) fn generate_with_options_and_requirements_with_projection_facts(
     program: &Program,
     native_real: &super::native_real::ClassicNativeRealFacts,
+    record_copies: &super::record_copy::ClassicRecordCopyFacts,
     static_initializers: &ClassicStaticInitializerFacts,
     origin: u16,
     segment_storage: bool,
@@ -252,9 +266,11 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
         suppress_implicit_rts_once: false,
         inline_byte_constant_shift: false,
         native_real: native_real.clone(),
+        record_copies: record_copies.clone(),
         static_initializers: static_initializers.clone(),
         native_real_literal_pool: BTreeMap::new(),
         current_native_real_scope: None,
+        current_record_copy_scope: None,
         native_real_fact_suppression: 0,
         used_atari_fpp_services: BTreeSet::new(),
     };
