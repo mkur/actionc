@@ -804,8 +804,9 @@ pub enum MirCondDest {
 ///
 /// Before emission, `Add` must use `Clear` for the low lane or `FromPrevious`
 /// for a carry chain. `Sub` must use `Set` for the low lane or `FromPrevious`
-/// for a borrow chain. `None` is only valid for operations that do not consume
-/// carry, such as logical byte operations.
+/// for a borrow chain. A byte `Lsh`/`Rsh` uses `FromPrevious` for a rotate
+/// through carry and `None` for a plain shift. `None` is also valid for
+/// operations that do not consume carry, such as logical byte operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirCarryIn {
     Clear,

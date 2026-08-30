@@ -475,6 +475,9 @@ Rules:
 - A high-byte add in the same chain normally uses `carry_in=FromPrevious`.
 - A low-byte subtract normally uses `carry_in=Set` and `carry_out=Produce`,
   matching 6502 borrow convention.
+- A byte `Lsh` or `Rsh` with `carry_in=FromPrevious` is a rotate through the
+  carry produced by the preceding byte-lane shift. With no carry input it is a
+  plain shift. `Clear` and `Set` are not valid shift inputs.
 - The verifier should reject byte-lane add/sub chains whose carry dependency is
   implicit or impossible to preserve across intervening flag-clobbering ops.
 

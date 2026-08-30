@@ -241,6 +241,7 @@ const POINTER_INDEX_SCRATCH_HI: u8 = 0xAF;
 const INDIRECT_CALL_TARGET_LO: u8 = 0xE4;
 const INDIRECT_CALL_TARGET_HI: u8 = 0xE5;
 const DEST_POINTER_SCRATCH_LO: u8 = 0xAA;
+const MAX_INLINE_WORD_CONSTANT_SHIFT: u16 = 2;
 
 const DEFAULT_POINTER_PAIR: MirAddressConsumer =
     MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
@@ -1081,6 +1082,7 @@ pub(super) fn materialize_program(
         run_cfg_group(routine, &layout)?;
         strength_reduce_constant_multiplications(routine, &layout, &mut peephole_stats);
         lower_constant_word_shift_projections(routine, &layout, &mut peephole_stats);
+        lower_small_constant_word_shifts(routine, &layout, &mut peephole_stats);
         let routine_temp_widths = collect_routine_temp_widths(routine);
         run_prehome_canonicalization_group(routine, config, &layout, &mut peephole_stats)?;
         run_prehome_selection_group(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
@@ -1422,6 +1424,18 @@ fn lower_constant_word_shift_projections(
                 });
                 continue;
             };
+            if carry_in.is_some() || carry_out != MirCarryOut::Ignore {
+                out.push(MirOp::Binary {
+                    op: shift_op,
+                    dst,
+                    left,
+                    right,
+                    width: MirWidth::Word,
+                    carry_in,
+                    carry_out,
+                });
+                continue;
+            }
 
             if count == 0 {
                 out.push(MirOp::Move {
@@ -1507,6 +1521,127 @@ fn lower_constant_word_shift_projections(
     }
 
     peephole_stats.record_many(routine.id, "constant-word-shift-projection", lowered);
+}
+
+fn lower_small_constant_word_shifts(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) {
+    let routine_id = routine.id;
+    let temp_widths = collect_routine_temp_widths(routine);
+    let mut fresh = FreshTemps::new(&routine.temps);
+    let (temps, blocks) = (&mut routine.temps, &mut routine.blocks);
+    let mut lowered = 0;
+
+    for block in blocks {
+        let mut out = Vec::with_capacity(block.ops.len());
+        for op in std::mem::take(&mut block.ops) {
+            let MirOp::Binary {
+                op: shift_op @ (MirBinaryOp::Lsh | MirBinaryOp::Rsh),
+                dst,
+                left,
+                right,
+                width: MirWidth::Word,
+                carry_in,
+                carry_out,
+            } = op
+            else {
+                out.push(op);
+                continue;
+            };
+            let Some(count) = constant_value_u16(&right) else {
+                out.push(MirOp::Binary {
+                    op: shift_op,
+                    dst,
+                    left,
+                    right,
+                    width: MirWidth::Word,
+                    carry_in,
+                    carry_out,
+                });
+                continue;
+            };
+            if !(1..=MAX_INLINE_WORD_CONSTANT_SHIFT).contains(&count)
+                || carry_in.is_some()
+                || carry_out != MirCarryOut::Ignore
+                || value_contains_pointer_cell(&left)
+                || split_def(dst.clone()).is_none()
+            {
+                out.push(MirOp::Binary {
+                    op: shift_op,
+                    dst,
+                    left,
+                    right,
+                    width: MirWidth::Word,
+                    carry_in,
+                    carry_out,
+                });
+                continue;
+            }
+
+            let (mut source_lo, mut source_hi) =
+                split_value_with_storage_widths(left, routine_id, layout, &temp_widths);
+            for step in 0..count {
+                let stage_dst = if step + 1 == count {
+                    dst.clone()
+                } else {
+                    MirDef::VTemp(fresh.fresh(temps))
+                };
+                let (stage_lo, stage_hi) =
+                    split_def(stage_dst).expect("word shift destination was validated");
+                match shift_op {
+                    MirBinaryOp::Lsh => {
+                        out.push(MirOp::Binary {
+                            op: MirBinaryOp::Lsh,
+                            dst: stage_lo.clone(),
+                            left: source_lo,
+                            right: MirValue::ConstU8(1),
+                            width: MirWidth::Byte,
+                            carry_in: None,
+                            carry_out: MirCarryOut::Produce,
+                        });
+                        out.push(MirOp::Binary {
+                            op: MirBinaryOp::Add,
+                            dst: stage_hi.clone(),
+                            left: source_hi.clone(),
+                            right: source_hi,
+                            width: MirWidth::Byte,
+                            carry_in: Some(MirCarryIn::FromPrevious),
+                            carry_out: MirCarryOut::Ignore,
+                        });
+                    }
+                    MirBinaryOp::Rsh => {
+                        out.push(MirOp::Binary {
+                            op: MirBinaryOp::Rsh,
+                            dst: stage_hi.clone(),
+                            left: source_hi,
+                            right: MirValue::ConstU8(1),
+                            width: MirWidth::Byte,
+                            carry_in: None,
+                            carry_out: MirCarryOut::Produce,
+                        });
+                        out.push(MirOp::Binary {
+                            op: MirBinaryOp::Rsh,
+                            dst: stage_lo.clone(),
+                            left: source_lo,
+                            right: MirValue::ConstU8(1),
+                            width: MirWidth::Byte,
+                            carry_in: Some(MirCarryIn::FromPrevious),
+                            carry_out: MirCarryOut::Ignore,
+                        });
+                    }
+                    _ => unreachable!(),
+                }
+                source_lo = MirValue::Def(stage_lo);
+                source_hi = MirValue::Def(stage_hi);
+            }
+            lowered += 1;
+        }
+        block.ops = out;
+    }
+
+    peephole_stats.record_many(routine.id, "small-constant-word-shift", lowered);
 }
 
 fn strength_reduce_byte_multiply(

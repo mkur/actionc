@@ -2716,7 +2716,7 @@ fn emit_op(
             }
             emit_carry(*carry_in, *op, emitter);
             if let Some(right) = const_u8(right) {
-                emit_binary_imm(ctx, routine, block, *op, right, emitter);
+                emit_binary_imm(ctx, routine, block, *op, right, *carry_in, emitter);
             } else if let MirValue::PointerCell(mem) = right {
                 match ctx.layout.direct_mem(routine, mem) {
                     Some(mem) => emit_binary_mem(ctx, routine, block, *op, mem, emitter),
@@ -4335,7 +4335,7 @@ fn emit_byte_to_word_mem(
         emitter,
     );
     if let Some(value) = const_u8(value) {
-        emit_binary_imm(ctx, routine, block, op, value, emitter);
+        emit_binary_imm(ctx, routine, block, op, value, None, emitter);
     } else if let MirValue::PointerCell(value_mem) = value {
         match ctx.layout.direct_mem(routine, value_mem) {
             Some(value_mem) => emit_binary_mem(ctx, routine, block, op, value_mem, emitter),
@@ -4817,6 +4817,7 @@ fn emit_binary_imm(
     block: MirBlockId,
     op: MirBinaryOp,
     right: u8,
+    carry_in: Option<MirCarryIn>,
     emitter: &mut TrackedEmitter,
 ) {
     match op {
@@ -4827,12 +4828,20 @@ fn emit_binary_imm(
         MirBinaryOp::Xor => emitter.emit_eor_imm(right),
         MirBinaryOp::Lsh => {
             for _ in 0..right {
-                emitter.emit_asl_a();
+                if matches!(carry_in, Some(MirCarryIn::FromPrevious)) {
+                    emitter.emit_rol_a();
+                } else {
+                    emitter.emit_asl_a();
+                }
             }
         }
         MirBinaryOp::Rsh => {
             for _ in 0..right {
-                emitter.emit_lsr_a();
+                if matches!(carry_in, Some(MirCarryIn::FromPrevious)) {
+                    emitter.emit_ror_a();
+                } else {
+                    emitter.emit_lsr_a();
+                }
             }
         }
         _ => unsupported(ctx, routine, block, "binary op is not emit-ready"),
@@ -5604,6 +5613,49 @@ fn unsupported_message(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn byte_shift_with_previous_carry_emits_accumulator_rotate() {
+        let mir = MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: Vec::new(),
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        };
+        let mut ctx = MirEmitContext::with_layout(
+            &mir,
+            0x3000,
+            MirObjectLayout::default(),
+            MirBranchRelaxationPlan::default(),
+        );
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
+
+        emit_binary_imm(
+            &mut ctx,
+            RoutineId(0),
+            MirBlockId(0),
+            MirBinaryOp::Lsh,
+            1,
+            Some(MirCarryIn::FromPrevious),
+            &mut emitter,
+        );
+        emit_binary_imm(
+            &mut ctx,
+            RoutineId(0),
+            MirBlockId(0),
+            MirBinaryOp::Rsh,
+            1,
+            Some(MirCarryIn::FromPrevious),
+            &mut emitter,
+        );
+
+        assert_eq!(
+            emitter.finish().expect("rotate sequence emits"),
+            [opcode::ROL_A, opcode::ROR_A]
+        );
+        assert!(ctx.diagnostics.is_empty());
+    }
 
     #[test]
     fn packed_real_relation_mapping_covers_all_compare_predicates() {

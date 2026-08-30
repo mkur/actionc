@@ -621,6 +621,11 @@ impl TrackedEmitter {
         self.state.arithmetic_a();
     }
 
+    pub(crate) fn emit_ror_a(&mut self) {
+        self.emitter.emit_ror_a();
+        self.state.arithmetic_a();
+    }
+
     pub(crate) fn emit_iny(&mut self) {
         self.emitter.emit_iny();
         self.state.increment_y();

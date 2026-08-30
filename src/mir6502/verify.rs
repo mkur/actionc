@@ -4,7 +4,7 @@ use super::abi::{action_arg_home, action_arg_width_bytes};
 use super::analysis::effects::{MirHomeByte, classify_op};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCondDest, MirDataImage,
+    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCarryIn, MirCondDest, MirDataImage,
     MirDataRelocationTarget, MirDef, MirEdge, MirFrame, MirGlobal, MirGlobalInit,
     MirMachineBlockId, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
     MirRoutineAbi, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirStorageSlot,
@@ -1326,6 +1326,19 @@ impl MirVerifier {
                         &routine.name,
                         block,
                         "pre-emission add/sub cannot have unspecified carry_in",
+                    ));
+                }
+                if matches!(
+                    self.phase,
+                    MirPhase::PostHome | MirPhase::PostMaterialization | MirPhase::PreEmission
+                ) && matches!(op, MirBinaryOp::Lsh | MirBinaryOp::Rsh)
+                    && matches!(width, super::ir::MirWidth::Byte)
+                    && matches!(carry_in, Some(MirCarryIn::Clear | MirCarryIn::Set))
+                {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "pre-emission byte shifts may only use carry_in=FromPrevious",
                     ));
                 }
             }
@@ -3138,6 +3151,39 @@ mod tests {
                 .message
                 .contains("pre-emission add/sub cannot have unspecified carry_in")
         }));
+    }
+
+    #[test]
+    fn rejects_explicit_clear_or_set_carry_for_byte_shifts() {
+        for carry_in in [MirCarryIn::Clear, MirCarryIn::Set] {
+            let program = program_with_routines(vec![routine(
+                RoutineId(0),
+                "Main",
+                vec![block_with_ops(
+                    MirBlockId(0),
+                    "bb0",
+                    vec![MirOp::Binary {
+                        op: MirBinaryOp::Rsh,
+                        dst: MirDef::Reg(crate::mir6502::MirReg::A),
+                        left: MirValue::Def(MirDef::Reg(crate::mir6502::MirReg::A)),
+                        right: MirValue::ConstU8(1),
+                        width: MirWidth::Byte,
+                        carry_in: Some(carry_in),
+                        carry_out: crate::mir6502::MirCarryOut::Ignore,
+                    }],
+                    MirTerminator::Return,
+                )],
+            )]);
+
+            assert!(verify_program(&program, MirPhase::PreMaterialization).is_ok());
+            let diagnostics = verify_program(&program, MirPhase::PreEmission)
+                .expect_err("clear/set shift carry rejected before emission");
+            assert!(diagnostics.iter().any(|diagnostic| {
+                diagnostic
+                    .message
+                    .contains("byte shifts may only use carry_in=FromPrevious")
+            }));
+        }
     }
 
     #[test]

@@ -52,7 +52,7 @@ fn kalscope_exposes_the_expected_codegen_baseline() {
     );
     assert_eq!(
         formatted.matches("inc.w local l6+0").count(),
-        9,
+        11,
         "{formatted}"
     );
     assert_eq!(
@@ -62,14 +62,9 @@ fn kalscope_exposes_the_expected_codegen_baseline() {
     );
     assert!(!formatted.contains("spill sp78"), "{formatted}");
     assert!(!formatted.contains("spill sp86"), "{formatted}");
-    assert_eq!(
-        formatted
-            .matches(
-                "a =.b #8\n  store.b fixed_zp $84, a\n  a =.b #0\n  \
-                 store.b fixed_zp $85, a",
-            )
-            .count(),
-        2,
+    assert_eq!(formatted.matches("helper rsh").count(), 1, "{formatted}");
+    assert!(
+        !formatted.contains("a =.b #8\n  store.b fixed_zp $84, a"),
         "{formatted}"
     );
 
