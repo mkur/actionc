@@ -566,6 +566,16 @@ impl SemIrAstLowerer<'_> {
                 value: self.expr(value)?,
                 span: *span,
             }),
+            SemStmt::RecordCopy {
+                destination,
+                source,
+                span,
+                ..
+            } => Some(Stmt::Assign {
+                target: self.lvalue(destination)?,
+                value: self.lvalue(source)?,
+                span: *span,
+            }),
             SemStmt::CompoundAssign {
                 target,
                 op,
@@ -1311,6 +1321,7 @@ fn visit_lexical_declarations<'a>(
             | SemStmt::Return { .. }
             | SemStmt::Exit { .. }
             | SemStmt::Assign { .. }
+            | SemStmt::RecordCopy { .. }
             | SemStmt::CompoundAssign { .. }
             | SemStmt::Call { .. }
             | SemStmt::MachineBlock { .. }
@@ -1477,6 +1488,11 @@ fn stmt_uses_native_real(stmt: &SemStmt) -> bool {
         SemStmt::Assign { target, value, .. } | SemStmt::CompoundAssign { target, value, .. } => {
             target.ty.is_real() || expr_uses_native_real(value) || lvalue_uses_native_real(target)
         }
+        SemStmt::RecordCopy {
+            destination,
+            source,
+            ..
+        } => lvalue_uses_native_real(destination) || lvalue_uses_native_real(source),
         SemStmt::Return { value, .. } => value.as_ref().is_some_and(expr_uses_native_real),
         SemStmt::Call { call, .. } => call.args.iter().any(expr_uses_native_real),
         SemStmt::If {
@@ -1574,6 +1590,11 @@ fn stmt_expr_node_count(stmt: &SemStmt) -> usize {
         SemStmt::Assign { target, value, .. } | SemStmt::CompoundAssign { target, value, .. } => {
             lvalue_expr_node_count(target) + expr_node_count(value)
         }
+        SemStmt::RecordCopy {
+            destination,
+            source,
+            ..
+        } => lvalue_expr_node_count(destination) + lvalue_expr_node_count(source),
         SemStmt::Return { value, .. } => value.as_ref().map_or(0, expr_node_count),
         SemStmt::Call { call, .. } => call.args.iter().map(expr_node_count).sum(),
         SemStmt::If {

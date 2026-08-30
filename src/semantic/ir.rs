@@ -429,6 +429,12 @@ pub enum SemStmt {
         value: SemExpr,
         span: Span,
     },
+    RecordCopy {
+        destination: SemLValue,
+        source: SemLValue,
+        size: u16,
+        span: Span,
+    },
     CompoundAssign {
         target: SemLValue,
         op: BinaryOp,
@@ -616,6 +622,7 @@ fn stmt_flow_facts_at_depth(stmt: &SemStmt, loop_depth: usize) -> StmtFlowFacts 
         }
         SemStmt::Define(_)
         | SemStmt::Assign { .. }
+        | SemStmt::RecordCopy { .. }
         | SemStmt::CompoundAssign { .. }
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
@@ -1065,6 +1072,14 @@ fn collect_external_stmt_references(
                 collect_external_lvalue_references(target, external, referenced);
                 collect_external_expr_references(value, external, referenced);
             }
+            SemStmt::RecordCopy {
+                destination,
+                source,
+                ..
+            } => {
+                collect_external_lvalue_references(destination, external, referenced);
+                collect_external_lvalue_references(source, external, referenced);
+            }
             SemStmt::Call { call, .. } => {
                 collect_external_call_references(call, external, referenced);
             }
@@ -1490,6 +1505,16 @@ impl SemIrFormatter {
                 "assign {} = {}",
                 lvalue_summary(target),
                 expr_summary(value)
+            )),
+            SemStmt::RecordCopy {
+                destination,
+                source,
+                size,
+                ..
+            } => self.line(format!(
+                "record-copy {} = {} size={size}",
+                lvalue_summary(destination),
+                lvalue_summary(source)
             )),
             SemStmt::CompoundAssign {
                 target, op, value, ..
@@ -2849,11 +2874,24 @@ impl<'a> IrBuilder<'a> {
                 target,
                 value,
                 span,
-            } => vec![SemStmt::Assign {
-                target: self.lower_lvalue(scope, target),
-                value: self.lower_assignment_value(scope, target, value),
-                span: *span,
-            }],
+            } => {
+                let destination = self.lower_lvalue(scope, target);
+                if destination.ty.is_record() {
+                    let size = self.value_storage_width(&destination.ty).unwrap_or(0);
+                    vec![SemStmt::RecordCopy {
+                        destination,
+                        source: self.lower_lvalue(scope, value),
+                        size,
+                        span: *span,
+                    }]
+                } else {
+                    vec![SemStmt::Assign {
+                        target: destination,
+                        value: self.lower_assignment_value(scope, target, value),
+                        span: *span,
+                    }]
+                }
+            }
             Stmt::CompoundAssign {
                 target,
                 op,

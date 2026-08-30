@@ -1658,7 +1658,6 @@ impl Analyzer {
         span: Span,
     ) {
         let target_place = self.expect_place(scope, target, span);
-        let value = self.lower_expr(scope, value_expr);
         if matches!(
             target_place.access,
             subject::PlaceAccess::ReadOnly | subject::PlaceAccess::Error
@@ -1666,8 +1665,30 @@ impl Analyzer {
             return;
         }
 
-        let (expected, actual) = (&target_place.ty, &value.ty);
-        if expected.is_error() || actual.is_error() {
+        let expected = &target_place.ty;
+        if expected.is_error() {
+            return;
+        }
+        if expected.is_record() {
+            let Some(source_place) = self.record_assignment_source(scope, value_expr) else {
+                return;
+            };
+            let actual = &source_place.ty;
+            if actual.is_error() {
+                return;
+            }
+            if !actual.is_record() || !expected.same_record_family(actual) {
+                self.diagnostics.push(Diagnostic::new(
+                    value_expr.span,
+                    format!("cannot assign record {:?} to {:?}", actual, expected),
+                ));
+            }
+            return;
+        }
+
+        let value = self.lower_expr(scope, value_expr);
+        let actual = &value.ty;
+        if actual.is_error() {
             return;
         }
         if expected.pointer {
@@ -1700,6 +1721,27 @@ impl Analyzer {
         }
     }
 
+    fn record_assignment_source(
+        &mut self,
+        scope: ScopeId,
+        expr: &Expr,
+    ) -> Option<subject::SemPlace> {
+        match self.classify_subject(scope, expr) {
+            subject::SemSubject::Place(place) => Some(place),
+            subject::SemSubject::Error(_) => None,
+            subject::SemSubject::Expr(_)
+            | subject::SemSubject::Callable(_)
+            | subject::SemSubject::TypeRef(_)
+            | subject::SemSubject::Define(_) => {
+                self.diagnostics.push(Diagnostic::new(
+                    expr.span,
+                    "record assignment source must be addressable record storage",
+                ));
+                None
+            }
+        }
+    }
+
     fn validate_compound_assignment(
         &mut self,
         scope: ScopeId,
@@ -1717,6 +1759,14 @@ impl Analyzer {
                     "compound assignment target must be assignable",
                 ));
             }
+            return;
+        }
+
+        if target_place.ty.is_record() {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                "compound assignment is not supported for records",
+            ));
             return;
         }
 
@@ -7163,6 +7213,36 @@ mod tests {
     }
 
     #[test]
+    fn accepts_whole_record_assignment_between_matching_records() {
+        analyze_source(
+            "TYPE Pair=[BYTE tag CARD word] Pair source,destination PROC Main() destination=source RETURN",
+        );
+    }
+
+    #[test]
+    fn rejects_whole_record_assignment_between_distinct_record_families() {
+        let err = analyze_source_err(
+            "TYPE Left=[BYTE value] TYPE Right=[BYTE value] Left destination Right source PROC Main() destination=source RETURN",
+        );
+        assert!(
+            err.iter()
+                .any(|diagnostic| diagnostic.message.contains("cannot assign record"))
+        );
+    }
+
+    #[test]
+    fn rejects_record_compound_assignment() {
+        let err = analyze_source_err(
+            "TYPE Pair=[BYTE value] Pair destination,source PROC Main() destination==+source RETURN",
+        );
+        assert!(err.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("compound assignment is not supported for records")
+        }));
+    }
+
+    #[test]
     fn accepts_record_fields_as_typed_call_arguments() {
         analyze_source(
             "TYPE Pair=[BYTE tag CARD word] Pair rec PROC Take(BYTE b,CARD w) RETURN PROC Main() Take(rec.tag,rec.word) RETURN",
@@ -7745,6 +7825,41 @@ mod tests {
                 pointer: false,
             })
         );
+    }
+
+    #[test]
+    fn semantic_ir_uses_explicit_record_copy_for_array_elements() {
+        let (program, model) = analyze_program_source(
+            "TYPE Pair=[BYTE tag CARD word] Pair ARRAY table(2) Pair current PROC Main() current=table(1) RETURN",
+        );
+        let ir = ir::lower_program(&program, &model);
+        let main = ir.modules[0]
+            .items
+            .iter()
+            .find_map(|item| match item {
+                ir::SemItem::Routine(routine) if routine.symbol.name == "Main" => Some(routine),
+                _ => None,
+            })
+            .expect("Main");
+        let ir::SemStmt::RecordCopy {
+            destination,
+            source,
+            size,
+            ..
+        } = &main.body[0]
+        else {
+            panic!("expected explicit record copy, got {:#?}", main.body[0]);
+        };
+
+        assert!(destination.ty.same_record_family(&source.ty));
+        assert_eq!(*size, 3);
+        assert!(matches!(
+            source.kind,
+            ir::SemLValueKind::Index {
+                syntax: ir::SemIndexSyntax::Call,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -8838,6 +8953,16 @@ mod tests {
             ir::SemStmt::Assign { target, value, .. } => {
                 assert_semir_lvalue_typed(target);
                 assert_semir_value_expr_typed(value);
+            }
+            ir::SemStmt::RecordCopy {
+                destination,
+                source,
+                size,
+                ..
+            } => {
+                assert_semir_lvalue_typed(destination);
+                assert_semir_lvalue_typed(source);
+                assert!(*size > 0);
             }
             ir::SemStmt::CompoundAssign { target, value, .. } => {
                 assert_semir_lvalue_typed(target);

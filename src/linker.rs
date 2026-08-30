@@ -447,6 +447,14 @@ impl SemGraphBuilder {
                 self.lvalue(owner, target, LinkReason::StorageReference);
                 self.expression(owner, value, LinkReason::StorageReference);
             }
+            SemStmt::RecordCopy {
+                destination,
+                source,
+                ..
+            } => {
+                self.lvalue(owner, destination, LinkReason::StorageReference);
+                self.lvalue(owner, source, LinkReason::StorageReference);
+            }
             SemStmt::Call { call, .. } => self.call(owner, call),
             SemStmt::MachineBlock {
                 resolved_symbols, ..

@@ -82,6 +82,14 @@ fn collect_standalone_stmt_diagnostics(statement: &SemStmt, diagnostics: &mut Ve
             collect_standalone_lvalue_diagnostics(target, diagnostics);
             collect_standalone_expr_diagnostics(value, diagnostics);
         }
+        SemStmt::RecordCopy {
+            destination,
+            source,
+            ..
+        } => {
+            collect_standalone_lvalue_diagnostics(destination, diagnostics);
+            collect_standalone_lvalue_diagnostics(source, diagnostics);
+        }
         SemStmt::Call { call, .. } => collect_standalone_call_diagnostics(call, diagnostics),
         SemStmt::MachineBlock {
             resolved_symbols, ..

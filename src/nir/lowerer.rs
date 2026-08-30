@@ -835,6 +835,7 @@ fn collect_nested_declarations<'a>(
             | SemStmt::Return { .. }
             | SemStmt::Exit { .. }
             | SemStmt::Assign { .. }
+            | SemStmt::RecordCopy { .. }
             | SemStmt::CompoundAssign { .. }
             | SemStmt::Call { .. }
             | SemStmt::MachineBlock { .. }
@@ -995,6 +996,9 @@ impl NirBuilder {
                 let value = self.value(value);
                 self.assign_or_store(target, target_ty, value, is_volatile);
             }
+            SemStmt::RecordCopy { .. } => self.push(NirOp::Unsupported {
+                note: "record copy lowering is not implemented yet".to_string(),
+            }),
             SemStmt::CompoundAssign {
                 target, op, value, ..
             } => {
@@ -2855,6 +2859,7 @@ fn collect_machine_define_ids_from_stmt(
         SemStmt::Return { .. }
         | SemStmt::Exit { .. }
         | SemStmt::Assign { .. }
+        | SemStmt::RecordCopy { .. }
         | SemStmt::CompoundAssign { .. }
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
@@ -2909,6 +2914,7 @@ fn collect_machine_define_names_from_stmt(
         SemStmt::Return { .. }
         | SemStmt::Exit { .. }
         | SemStmt::Assign { .. }
+        | SemStmt::RecordCopy { .. }
         | SemStmt::CompoundAssign { .. }
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
@@ -2943,6 +2949,7 @@ fn collect_machine_defines_from_stmt(stmt: &SemStmt, defines: &mut MachineDefine
         SemStmt::Return { .. }
         | SemStmt::Exit { .. }
         | SemStmt::Assign { .. }
+        | SemStmt::RecordCopy { .. }
         | SemStmt::CompoundAssign { .. }
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
