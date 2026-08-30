@@ -1,6 +1,8 @@
 use super::expr::cast_type_size;
 use super::*;
 
+const MAX_INLINE_WORD_CONSTANT_SHIFT: u16 = 2;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum BinaryArithmeticOp {
     Add,
@@ -618,12 +620,15 @@ impl Generator {
         if let (Some(count), Some(left_size)) = (self.constant_u16(right), self.expr_size(left))
             && count >= left_size * 8
         {
-            // The result is known, but evaluating the left operand may still
-            // perform a call, volatile/absolute read, or pointer read.  Stage
-            // it in compiler workspace before replacing the value with zero.
-            let evaluation = StorageSlot::zero_page(runtime_zp::ARGS.address(), left_size.min(2));
-            if !self.emit_expr_to_slot(left, evaluation) {
-                return false;
+            // The result is known, but an effectful left operand must still be
+            // evaluated. Stage calls, volatile reads, and pointer reads in
+            // compiler workspace before replacing the value with zero.
+            if !self.expr_side_effect_facts(left).can_reorder() {
+                let evaluation =
+                    StorageSlot::zero_page(runtime_zp::ARGS.address(), left_size.min(2));
+                if !self.emit_expr_to_slot(left, evaluation) {
+                    return false;
+                }
             }
             self.emit_store_constant(slot, 0);
             return true;
@@ -641,9 +646,30 @@ impl Generator {
         if self.segment_storage
             && let Some(count) = self.constant_u16(right)
             && self.direct_scalar_slot(left) == Some(slot)
+            && (!self.profile.enables_modern_optimizations()
+                || slot.size != 2
+                || (!slot.is_volatile && count <= MAX_INLINE_WORD_CONSTANT_SHIFT))
             && self.emit_in_place_constant_shift(op, slot, count)
         {
             return true;
+        }
+
+        if self.segment_storage
+            && self.profile.enables_modern_optimizations()
+            && let (Some(count), Some(2)) = (self.constant_u16(right), self.expr_size(left))
+            && (1..=MAX_INLINE_WORD_CONSTANT_SHIFT).contains(&count)
+            && slot.size == 2
+            && !slot.is_volatile
+            && !matches!(
+                slot.space,
+                AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY
+            )
+        {
+            return match op {
+                BinaryOp::Lsh => self.emit_lsh_expr_to_slot(left, slot, count),
+                BinaryOp::Rsh => self.emit_rsh_expr_to_slot(left, slot, count),
+                _ => false,
+            };
         }
 
         if self.segment_storage
@@ -891,7 +917,20 @@ impl Generator {
     }
 
     pub(super) fn expr_is_effective_zero(&self, expr: &Expr) -> bool {
-        self.constant_u16(expr) == Some(0)
+        if self.constant_u16(expr) == Some(0) {
+            return true;
+        }
+        matches!(
+            &expr.kind,
+            ExprKind::Binary {
+                op: BinaryOp::Lsh | BinaryOp::Rsh,
+                left,
+                right,
+            } if self.expr_side_effect_facts(left).can_reorder()
+                && self.constant_u16(right).zip(self.expr_size(left)).is_some_and(
+                    |(count, size)| count >= size * 8
+                )
+        )
     }
 
     pub(super) fn emit_runtime_binary_expr_to_slot(

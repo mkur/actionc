@@ -11256,6 +11256,79 @@ fn modern_word_projection_shift_preserves_effectful_operand() {
 }
 
 #[test]
+fn modern_word_constant_shifts_inline_only_small_counts() {
+    let source = "CARD source,target \
+                  CARD FUNC ShiftRight() RETURN(source RSH 1) \
+                  PROC Main() \
+                    target=source RSH 1 \
+                    target=source LSH 2 \
+                    source==RSH 2 \
+                    target=source RSH 3 \
+                    source==LSH 3 \
+                  RETURN";
+    let output =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+    let rshift = [
+        opcode::JSR_ABS,
+        runtime_helper::CARTRIDGE_RSH.low(),
+        runtime_helper::CARTRIDGE_RSH.high(),
+    ];
+    let lshift = [
+        opcode::JSR_ABS,
+        runtime_helper::CARTRIDGE_LSH.low(),
+        runtime_helper::CARTRIDGE_LSH.high(),
+    ];
+
+    assert_eq!(
+        output
+            .bytes
+            .windows(rshift.len())
+            .filter(|bytes| *bytes == rshift)
+            .count(),
+        1,
+        "RSH 1 and RSH 2 should inline, while RSH 3 should use the helper"
+    );
+    assert_eq!(
+        output
+            .bytes
+            .windows(lshift.len())
+            .filter(|bytes| *bytes == lshift)
+            .count(),
+        1,
+        "LSH 2 should inline, while in-place LSH 3 should use the helper"
+    );
+    assert!(
+        output
+            .bytes
+            .windows(6)
+            .any(|bytes| bytes == [opcode::LSR_ABS, 0x01, 0x30, opcode::ROR_ABS, 0x00, 0x30,])
+    );
+}
+
+#[test]
+fn modern_word_constant_shift_keeps_volatile_target_on_helper_path() {
+    let output = generate_profile_source_with_origin(
+        "VOLATILE CARD device=$D000 PROC Main() device=device RSH 2 RETURN",
+        0x3000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+    let rshift = [
+        opcode::JSR_ABS,
+        runtime_helper::CARTRIDGE_RSH.low(),
+        runtime_helper::CARTRIDGE_RSH.high(),
+    ];
+
+    assert!(
+        output
+            .bytes
+            .windows(rshift.len())
+            .any(|bytes| bytes == rshift),
+        "a volatile destination must not receive intermediate shift writes"
+    );
+}
+
+#[test]
 fn compatible_in_place_card_shift_by_constant_uses_memory_shift() {
     let output =
         generate_compatible_source_with_origin("CARD w PROC Main() w=w RSH 1 RETURN", 0x3000)
