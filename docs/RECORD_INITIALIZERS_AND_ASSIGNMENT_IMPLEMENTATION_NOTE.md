@@ -1,0 +1,172 @@
+# Record Initializers and Assignment Implementation Note
+
+## Purpose
+
+This change adds two related aggregate-value features:
+
+- named compile-time constants in aggregate initializer lists; and
+- whole-record assignment with value-copy semantics.
+
+The implementation must preserve the compiler boundary:
+
+```text
+Action source -> AST -> semantic model -> SemIR -> NIR -> MIR6502 -> emission
+```
+
+Initializer names are resolved by semantic analysis. Record compatibility is
+also decided there. NIR sees only resolved initializer bytes and a normalized
+byte-range copy; MIR6502 must not recover record facts from SemIR.
+
+## Source behavior
+
+### Constants in aggregate initializers
+
+A named `CONST` may appear wherever an initializer literal is currently legal:
+
+```action
+CONST BYTE Quarter=$40
+
+TYPE Pair=[BYTE x,y]
+Pair ARRAY points(2)=[0 Quarter  Quarter 0]
+```
+
+The first slice supports integral Action constants represented by `ConstValue`,
+including typed `BYTE`, `CHAR`, `CARD`, and `INT` constants, inferred constants,
+qualified module constants, and unary `+` or `-`. `TRUE`, `FALSE`, and `NIL`
+remain literal initializer elements.
+
+The initializer grammar does not become a general expression grammar. Runtime
+values, routines, records, pointers, and unresolved names remain invalid. A
+constant expression can still be declared once with `CONST` and referenced by
+name from the initializer. `CONST REAL` is a separate follow-up because it has
+an exact six-byte representation outside `ConstValue`.
+
+The AST retains a qualified constant reference long enough for semantic name
+resolution. SemIR and NIR retain only its resolved value; executable IR must
+not depend on the source name.
+
+### Whole-record assignment
+
+For record objects, ordinary assignment copies the complete record value:
+
+```action
+TYPE Pair=[BYTE x,y]
+
+Pair source,destination
+destination=source
+```
+
+The initial contract is:
+
+- source and destination must have the same declared record family;
+- equal layouts with different record declarations are not assignment
+  compatible;
+- both sides must identify addressable record storage;
+- source and destination address expressions are each evaluated exactly once;
+- every byte in the record storage extent is copied;
+- self-assignment is valid;
+- partially overlapping aliases have value semantics, equivalent to `memmove`;
+- record compound assignment remains invalid; and
+- record-pointer assignment remains pointer/address assignment, not a record
+  copy.
+
+Record-valued parameters, return values, comparisons, and general record
+expressions are outside this change.
+
+## SemIR contract
+
+Semantic validation owns the distinction between scalar assignment, pointer
+assignment, and record assignment. A verified record assignment lowers to an
+explicit statement, provisionally:
+
+```text
+SemStmt::RecordCopy {
+    destination: SemLValue,
+    source: SemLValue,
+    size: u16,
+    span: Span,
+}
+```
+
+The statement is emitted only after checking assignability, record-family
+identity, complete layout size, and lvalue legality. A record must never flow
+through the scalar `SemStmt::Assign` path.
+
+Volatile or externally visible record storage remains ordered. The lowering
+must preserve the observable source reads and destination writes rather than
+turning them into removable scalar traffic.
+
+## NIR contract
+
+Verified SemIR record copies lower to a normalized byte-range operation,
+provisionally:
+
+```text
+copy_bytes destination, source, size
+```
+
+The operation contains structured NIR places or evaluated addresses and a
+non-zero constant extent. It contains no source expressions, field names,
+unresolved symbols, or SemIR references.
+
+NIR verification must guarantee:
+
+- both operands are addressable;
+- the extent matches their verified storage width;
+- address-producing expressions have already been evaluated exactly once;
+- reads and writes have conservative structured memory effects; and
+- record-typed scalar `Load` or `Store` cannot be used as a legacy substitute.
+
+Optimizers must treat unknown, absolute, indirect, and volatile copies as
+ordering barriers unless structured region facts prove a narrower effect.
+
+## MIR6502 and classic backend contract
+
+MIR6502 receives the normalized copy operation and selects the target strategy.
+Small, known-disjoint copies may be expanded into direct byte transfers.
+Copies with unknown aliasing require an overlap-safe forward/backward strategy.
+The existing `SYS.MoveBlock` routine is forward-copying, so it is not the
+semantic definition of record assignment when overlap is possible.
+
+Compatibility/classic and modern/classic must implement the same source
+contract from structured SemIR facts. They must not reconstruct record-copy
+meaning from source text.
+
+## Implementation slices
+
+1. Parse named initializer constants, resolve them in semantic analysis, and
+   lower them to the existing literal/data-image representation.
+2. Validate whole-record assignment and introduce explicit SemIR record-copy
+   statements.
+3. Introduce NIR byte-range copy, printer support, verifier rules, storage and
+   effect analysis, and optimizer handling.
+4. Lower and emit overlap-safe copies in MIR6502.
+5. Add the equivalent structured path to compatibility/classic and
+   modern/classic.
+6. Add cross-backend runtime tests, update boundary documentation, and use the
+   bobs effect table as an integration example.
+
+Each slice should preserve existing fixtures and be committed independently.
+
+## Required coverage
+
+Initializer coverage includes flat and nested aggregates, record arrays, local
+and global storage, qualified and signed constants, destination-width checks,
+and rejection of runtime names.
+
+Record-copy coverage includes direct records, record-array elements, nested
+record fields, indirect record lvalues, self-assignment, overlap, incompatible
+named records, pointer assignment, volatile ordering, and single evaluation of
+indexed operands. Runtime checks cover compatibility/classic, modern/classic,
+and MIR6502.
+
+The final validation is:
+
+```sh
+cargo test nir_fixtures_match_snapshots
+cargo run --bin actionc-nir-sweep -- fixtures/nir
+cargo test
+```
+
+Fixture changes must be identified as semantic-contract changes, printer-only
+changes, or bug fixes.
