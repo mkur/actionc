@@ -1429,6 +1429,54 @@ fn lower_ops(
                     lowered.push(volatile_memory_barrier());
                 }
             }
+            NirOpKind::CopyBytes {
+                destination,
+                source,
+                size,
+                destination_volatile,
+                source_volatile,
+            } => {
+                let Some(destination) =
+                    lower_place_addr(routine, block, destination, &addr_defs, diagnostics)
+                else {
+                    continue;
+                };
+                let Some(source) =
+                    lower_place_addr(routine, block, source, &addr_defs, diagnostics)
+                else {
+                    continue;
+                };
+
+                if *source_volatile {
+                    lowered.push(volatile_memory_barrier());
+                }
+                let mut staged = Vec::with_capacity(usize::from(*size));
+                for offset in 0..*size {
+                    let byte = generated_temp(next_generated_temp, generated_temps);
+                    lowered.push(MirOp::Load {
+                        dst: MirDef::VTemp(byte),
+                        src: offset_addr(&source, offset),
+                        width: MirWidth::Byte,
+                    });
+                    staged.push(byte);
+                }
+                if *source_volatile {
+                    lowered.push(volatile_memory_barrier());
+                }
+                if *destination_volatile {
+                    lowered.push(volatile_memory_barrier());
+                }
+                for (offset, byte) in staged.into_iter().enumerate() {
+                    lowered.push(MirOp::Store {
+                        dst: offset_addr(&destination, offset as u16),
+                        src: MirValue::Def(MirDef::VTemp(byte)),
+                        width: MirWidth::Byte,
+                    });
+                }
+                if *destination_volatile {
+                    lowered.push(volatile_memory_barrier());
+                }
+            }
             NirOpKind::Cast {
                 dest,
                 src,
@@ -3992,6 +4040,51 @@ fn lower_edge(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn lower_modern_source(source: &str) -> NirProgram {
+        let tokens = crate::lexer::tokenize(source).expect("tokenize modern source");
+        let program = crate::parser::parse(&tokens).expect("parse modern source");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze modern source");
+        let semir = crate::semantic::ir::lower_program(&program, &model);
+        crate::nir::lower_program(&semir)
+    }
+
+    #[test]
+    fn lowers_record_copy_through_staged_byte_temporaries() {
+        let nir = lower_modern_source(
+            "TYPE Pair=[BYTE tag CARD word] Pair ARRAY table(2) Pair current PROC Main() current=table(1) RETURN",
+        );
+        crate::nir::verify_program(&nir).expect("record-copy NIR verifies");
+
+        let mir = lower_program(&nir).expect("record copy lowers to MIR");
+        crate::mir6502::verify_program(&mir, crate::mir6502::MirPhase::PreMaterialization)
+            .expect("staged record-copy MIR verifies");
+
+        let ops = &mir.routines[0].blocks[0].ops;
+        let memory_ops = ops
+            .iter()
+            .filter(|op| matches!(op, MirOp::Load { .. } | MirOp::Store { .. }))
+            .collect::<Vec<_>>();
+        assert_eq!(memory_ops.len(), 6);
+        assert!(memory_ops[..3].iter().all(|op| matches!(
+            op,
+            MirOp::Load {
+                width: MirWidth::Byte,
+                ..
+            }
+        )));
+        assert!(memory_ops[3..].iter().all(|op| matches!(
+            op,
+            MirOp::Store {
+                width: MirWidth::Byte,
+                ..
+            }
+        )));
+    }
 
     #[test]
     fn lowers_six_byte_real_local_as_address_only_storage() {
