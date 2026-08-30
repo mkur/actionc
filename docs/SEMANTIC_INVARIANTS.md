@@ -221,6 +221,25 @@ Explicit address-of over record fields is typed by the field type:
 - `@rec.word` has type `CARD POINTER` when `word` is `CARD`;
 - assigning either address to the wrong pointer type is rejected.
 
+## Whole-Record Assignment
+
+Assignment between addressable values of the same declared record family copies
+the complete record storage value. Equal-sized or equal-shaped records from
+different declarations are not assignment-compatible. Record compound
+assignment remains invalid, and assigning a record to a matching record pointer
+keeps the implicit-address behavior described above.
+
+The destination place is evaluated first and the source place second, exactly
+once each. The copy has value semantics: all source bytes are observed before
+any destination byte is changed. Self-assignment is valid and partially
+overlapping aliases behave like `memmove`, in either overlap direction.
+
+SemIR represents this operation as `SemStmt::RecordCopy` with typed places and
+the resolved record extent. NIR carries `CopyBytes`; ordinary scalar loads and
+stores reject record types. MIR6502 and classic code generation consume these
+structured facts rather than recognizing record syntax or reconstructing type
+identity from names.
+
 ## Scalar Type Foundation
 
 The canonical scalar semantic model is `ScalarType`:

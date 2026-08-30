@@ -434,8 +434,9 @@ contract change, a printer-only change, or a bug fix.
 - No designated field initializer syntax.
 - No new nested-bracket aggregate syntax in the first implementation.
 - No runtime record-constructor expressions.
-- No record assignment or record-copy semantics; table consumers may read
-  fields directly.
+- Record assignment is specified and implemented separately in
+  `docs/RECORD_INITIALIZERS_AND_ASSIGNMENT_IMPLEMENTATION_NOTE.md`; it is not an
+  initializer-plan responsibility.
 - No arrays or pointer fields inside records unless those declarations become
   independently supported by the semantic language rules.
 - No MIR6502 recovery of record facts from SemIR.
