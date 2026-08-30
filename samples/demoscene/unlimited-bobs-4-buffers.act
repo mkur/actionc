@@ -1,17 +1,13 @@
-; Cycling three-buffer unlimited-bobs showcase with a live bottom status line.
-;
-; Inspired by Top #3/WFMH and Megademo/Dragons
+; Four-buffer comparison variant of the unlimited-bobs showcase.
 ;
 ; Four parameterized paths run in sequence: a broad woven orbit, asymmetric
 ; braid, four-petal clover, and two-harmonic orb.  Before each path starts, the
-; demo selects a new random hue and clears the same three persistent bitmaps.
+; demo selects a new random hue and clears the same four persistent bitmaps.
 ; A fade to black hides that clearing, then the next path fades into view.
 ;
 ; BOBS_PER_FRAME shaded software sprites are added to one bitmap per frame.
-; The three bitmaps are displayed in rotation, so every bitmap contains one
+; The four bitmaps are displayed in rotation, so every bitmap contains one
 ; phase of the same growing trail.  Old bobs are never erased or redrawn.
-; Compared with the four-buffer version, each trail is revisited every third
-; frame instead of every fourth; completed frames are still published at VBI.
 ;
 ; The foreground owns all rendering.  A short immediate-VBI routine only
 ; publishes a completed display list, so a slow frame repeats safely instead
@@ -27,17 +23,19 @@
 ; $1010-$2E0F  screen0  7,680-byte ANTIC mode-E bitmap
 ; $3010-$4E0F  screen1  7,680-byte ANTIC mode-E bitmap
 ; $5010-$6E0F  screen2  7,680-byte ANTIC mode-E bitmap
-; $7000-$73FF  dlist0   1 KiB display-list window
-; $7400-$77FF  dlist1   1 KiB display-list window
-; $7800-$7BFF  dlist2   1 KiB display-list window
-; $8000-...    program data, generated code, and standalone runtime
+; $7010-$8E0F  screen3  7,680-byte ANTIC mode-E bitmap
+; $9000-$93FF  dlist0   1 KiB display-list window
+; $9400-$97FF  dlist1   1 KiB display-list window
+; $9800-$9BFF  dlist2   1 KiB display-list window
+; $9C00-$9FFF  dlist3   1 KiB display-list window
+; $A000-...    program data, generated code, and standalone runtime
 ;
-; Each bitmap sits in its own $2000-byte window.  The three display-list
+; Each bitmap sits in its own $2000-byte window.  The four display-list
 ; windows end immediately below the source-controlled program origin.
 
-ORG $8000
+ORG $A000
 
-MODULE UNLIMITED_BOBS
+MODULE UNLIMITED_BOBS_4_BUFFERS
 
 USE SYS
 USE ATARI.ANTIC
@@ -53,14 +51,12 @@ CONST BYTE SCREEN_BYTES=40,
            BOB_HEIGHT=16,
            ; Each bob drawn per frame occupies one lane of the path, so this
            ; value controls both the lane count and the amount of drawing.
-           BOBS_PER_FRAME=8,
-           BASE_LANE_STEP=$100/BOBS_PER_FRAME,
+           BOBS_PER_FRAME=10,
            ; These are folded at compile time, so changing BOBS_PER_FRAME does
            ; not introduce division or modulo into the rendered frame path.
            BOBS_ONES_INCREMENT=BOBS_PER_FRAME MOD 10,
            BOBS_TENS_INCREMENT=(BOBS_PER_FRAME/10) MOD 10,
            BOBS_HUNDREDS_INCREMENT=(BOBS_PER_FRAME/100) MOD 10,
-           BUFFER_COUNT=3,
            FIRST_RENDER_BUFFER=1,
            STATUS_WIDTH=40,
            STATUS_ANIMATION_DIGIT=17,
@@ -71,7 +67,7 @@ CONST BYTE SCREEN_BYTES=40,
            ANIMATION_SECONDS=20,
            FADE_SECONDS=1,
            EFFECT_COUNT=4,
-           EFFECT_WOVEN_ORBIT=0,
+           EFFECT_ORIGINAL=0,
            EFFECT_ASYMMETRIC_BRAID=1,
            EFFECT_FOUR_PETAL=2,
            EFFECT_TWO_HARMONIC_ORB=3,
@@ -102,15 +98,18 @@ CONST CARD SCREEN_SIZE=SCREEN_BYTES*SCREEN_HEIGHT,
            SCREEN_0_BASE=$1010,
            SCREEN_1_BASE=$3010,
            SCREEN_2_BASE=$5010,
-           DLIST_0_BASE=$7000,
-           DLIST_1_BASE=$7400,
-           DLIST_2_BASE=$7800
+           SCREEN_3_BASE=$7010,
+           DLIST_0_BASE=$9000,
+           DLIST_1_BASE=$9400,
+           DLIST_2_BASE=$9800,
+           DLIST_3_BASE=$9C00
 
-; The three 7,680-byte screens leave the conventional low-memory workspace and
-; the program segment at $8000 untouched.
+; The four 7,680-byte screens leave the conventional low-memory workspace and
+; the program segment at $A000 untouched.
 BYTE ARRAY screen0(SCREEN_SIZE)=SCREEN_0_BASE
 BYTE ARRAY screen1(SCREEN_SIZE)=SCREEN_1_BASE
 BYTE ARRAY screen2(SCREEN_SIZE)=SCREEN_2_BASE
+BYTE ARRAY screen3(SCREEN_SIZE)=SCREEN_3_BASE
 
 ; The status row does not need the bitmaps' 4 KiB layout.  It lives in normal
 ; compiler-managed storage, and every display list loads its actual address.
@@ -128,6 +127,7 @@ VOLATILE BYTE statusAnimationCell=status+STATUS_ANIMATION_DIGIT,
 BYTE ARRAY dlist0(DLIST_SIZE)=DLIST_0_BASE
 BYTE ARRAY dlist1(DLIST_SIZE)=DLIST_1_BASE
 BYTE ARRAY dlist2(DLIST_SIZE)=DLIST_2_BASE
+BYTE ARRAY dlist3(DLIST_SIZE)=DLIST_3_BASE
 
 ; Action strings store their length in element zero.  The following 40 bytes
 ; are emitted as ANTIC screen codes and copied verbatim into the status row.
@@ -147,25 +147,22 @@ BYTE ARRAY fadeLuminance(FADE_LOOKUP_SIZE)
 ; MOD helpers.
 BYTE bobThousands,bobHundreds,bobTens,bobOnes
 
-; The unshifted 12 by 16 bob.  Each byte packs four two-bit pixels.  In
-; bobPixels, values 1, 2, and 3 select the dark, middle, and light shades.
-; After BuildShiftedBobs creates the aligned variants, CompositeBob merges
-; each byte as: (screen AND mask) OR pixels.  A mask pixel of binary 00 clears
-; the old screen pixel before drawing a shade; binary 11 leaves it unchanged,
-; making that position transparent.
-BYTE ARRAY bobPixels(SPRITE_BYTES)=[
-  $01 $40 $00 $06 $90 $00 $1B $E4 $00 $2F $A4 $00 $7E $95 $00 $6E
-  $65 $00 $BA $51 $00 $69 $95 $00 $96 $51 $00 $65 $51 $00 $59 $41
-  $00 $15 $44 $00 $15 $04 $00 $04 $10 $00 $01 $40 $00 $00 $00 $00]
-
+; The unshifted 12 by 16 bob.  Pixel values 1, 2, and 3 select its dark,
+; middle, and light playfield shades.  A mask value of 3 preserves a
+; transparent two-bit pixel.
 BYTE ARRAY bobMask(SPRITE_BYTES)=[
   $FC $3F $FF $F0 $0F $FF $C0 $03 $FF $C0 $03 $FF $00 $00 $FF $00
   $00 $FF $00 $00 $FF $00 $00 $FF $00 $00 $FF $00 $00 $FF $00 $00
   $FF $C0 $03 $FF $C0 $03 $FF $F0 $0F $FF $FC $3F $FF $FF $FF $FF]
 
-; The low pixel-position bits of x select a pre-shifted variant, avoiding
-; shifts in the per-bob compositor.  Each power-of-two slot contains one
-; SPRITE_BYTES image and padding for efficient variant indexing.
+BYTE ARRAY bobPixels(SPRITE_BYTES)=[
+  $01 $40 $00 $06 $90 $00 $1B $E4 $00 $2F $A4 $00 $7E $95 $00 $6E
+  $65 $00 $BA $51 $00 $69 $95 $00 $96 $51 $00 $65 $51 $00 $59 $41
+  $00 $15 $44 $00 $15 $04 $00 $04 $10 $00 $01 $40 $00 $00 $00 $00]
+
+; The effect selects a pre-shifted variant with x AND 3, avoiding shifts in
+; the per-bob compositor.  Each variant occupies a 64-byte slot although only
+; its first 48 bytes contain image data.
 BYTE ARRAY shiftedMasks(SPRITE_VARIANTS*SPRITE_VARIANT_STRIDE)
 BYTE ARRAY shiftedPixels(SPRITE_VARIANTS*SPRITE_VARIANT_STRIDE)
 
@@ -220,43 +217,37 @@ BYTE ARRAY sineY(256)=[
 ;
 ; Each effect record controls those indexes in three different ways:
 ;
-;   phaseXA..phaseYB          starting table indexes when the effect begins
-;   bobHarmonicXA..YB         signed multiples of the base lane spacing
-;   frameStepXA..YB           index advances of the whole path after each frame
+;   phaseXA..phaseYB      starting table indexes when the effect begins
+;   bobStepXA..bobStepYB  index advances between adjacent virtual bob lanes
+;   frameStepXA..YB       index advances of the whole path after each frame
 ;
-; The harmonic multipliers determine the shape of a trajectory.  SelectEffect
-; turns them into bob steps once per animation.  The frame steps move or rotate
-; that trajectory over time.  Values are unsigned bytes but can express
-; backward motion through wraparound: for example, $FE is -2 and $FD is -3.
-;
-; BASE_LANE_STEP derives the common spacing from BOBS_PER_FRAME.  With eight
-; bobs it is $20: 32 is exactly 256/8 and spreads the lanes around one complete
-; sine-table cycle.  Multiplying it by the record's 1, 2, or -3 harmonic keeps
-; every effect synchronized when the bob count changes.
+; The bob steps determine the shape and spacing of a trajectory.  The frame
+; steps move or rotate that trajectory over time.  Values are unsigned bytes
+; but can express backward motion through wraparound: for example, $FE is -2
+; and $B5 is -75 modulo 256.
 ;
 ; One packed record describes all twelve parameters for an effect.  Keeping
 ; the four records in one table makes adding or reordering an effect a data
-; change; SelectEffect copies its phases and frame steps, then expands its
-; harmonic multipliers into the four runtime bob steps.
+; change; SelectEffect only copies the selected record's fields.
 TYPE EffectParams=[
   BYTE phaseXA,phaseXB,phaseYA,phaseYB,
-       bobHarmonicXA,bobHarmonicXB,bobHarmonicYA,bobHarmonicYB,
+       bobStepXA,bobStepXB,bobStepYA,bobStepYB,
        frameStepXA,frameStepXB,frameStepYA,frameStepYB]
 
 EffectParams ARRAY effectTable(EFFECT_COUNT)=[
-  ; Broad woven orbit: independent equal-step phases weave the wide loop.
-  $30 $B2 $F2 $69  $01 $01 $01 $01  $01 $02 $02 $01
+  ; Original: independent equal-step phases make the broad woven orbit.
+  $30 $B2 $F2 $69  $19 $19 $19 $19  $01 $02 $02 $01
   ; Asymmetric braid: a precessing 1:2 pinwheel.
-  $00 $00 $40 $C0  $01 $02 $01 $02  $01 $03 $01 $03
+  $00 $00 $40 $C0  $19 $32 $19 $32  $01 $03 $01 $03
   ; Four-petal: a slowly rotating counter-directional 1:-3 clover.
-  $00 $00 $40 $40  $01 $FD $01 $FD  $01 $FE $01 $FE
+  $00 $00 $40 $40  $19 $B5 $19 $B5  $01 $FE $01 $FE
   ; Two-harmonic orb: a co-rotating 1:2 woven shell.
-  $00 $00 $40 $40  $01 $02 $01 $02  $01 $03 $01 $03]
+  $00 $00 $40 $40  $19 $32 $19 $32  $01 $03 $01 $03]
 
-; The selected table row is copied as one record.  Only the expanded bob steps
-; need separate runtime storage.
-EffectParams currentParams
-BYTE currentEffect,bobStepXA,bobStepXB,bobStepYA,bobStepYB
+; Runtime path parameters copied from the selected table entry.
+BYTE currentEffect,phaseXA,phaseXB,phaseYA,phaseYB,
+     bobStepXA,bobStepXB,bobStepYA,bobStepYB,
+     frameStepXA,frameStepXB,frameStepYA,frameStepYB
 
 ; Foreground-to-VBI handoff.  pendingDList is written completely before
 ; frameReady becomes nonzero, so the interrupt never sees a partial pointer.
@@ -378,6 +369,7 @@ PROC BuildDisplayLists()
   BuildDList(dlist0,SCREEN_0_BASE,DLIST_0_BASE)
   BuildDList(dlist1,SCREEN_1_BASE,DLIST_1_BASE)
   BuildDList(dlist2,SCREEN_2_BASE,DLIST_2_BASE)
+  BuildDList(dlist3,SCREEN_3_BASE,DLIST_3_BASE)
 RETURN
 
 
@@ -385,6 +377,7 @@ PROC ClearScreens()
   SYS.Zero(screen0,SCREEN_SIZE)
   SYS.Zero(screen1,SCREEN_SIZE)
   SYS.Zero(screen2,SCREEN_SIZE)
+  SYS.Zero(screen3,SCREEN_SIZE)
 RETURN
 
 
@@ -408,8 +401,10 @@ CARD FUNC ScreenAddress(BYTE buffer)
     address=SCREEN_0_BASE
   ELSEIF buffer=1 THEN
     address=SCREEN_1_BASE
-  ELSE
+  ELSEIF buffer=2 THEN
     address=SCREEN_2_BASE
+  ELSE
+    address=SCREEN_3_BASE
   FI
 RETURN(address)
 
@@ -461,8 +456,10 @@ CARD FUNC DisplayListAddress(BYTE buffer)
     address=DLIST_0_BASE
   ELSEIF buffer=1 THEN
     address=DLIST_1_BASE
-  ELSE
+  ELSEIF buffer=2 THEN
     address=DLIST_2_BASE
+  ELSE
+    address=DLIST_3_BASE
   FI
 RETURN(address)
 
@@ -482,7 +479,7 @@ ASM
     sta compositeWrite+1
 
     ldx bobSpriteIndex
-    lda #BOB_HEIGHT
+    lda #16
     sta bobRows
 
 compositeRow:
@@ -494,12 +491,12 @@ compositeColumn:
     sta compositeWrite:$FFFF,y
     inx
     iny
-    cpy #BOB_WIDTH_BYTES
+    cpy #3
     bne compositeColumn
 
     clc
     lda compositeRead
-    adc #SCREEN_BYTES
+    adc #40
     sta compositeRead
     sta compositeWrite
     bcc compositeNextRow
@@ -525,10 +522,10 @@ PROC DrawFrame(BYTE buffer)
   CARD screenBase
 
   screenBase=ScreenAddress(buffer)
-  localXA=currentParams.phaseXA
-  localXB=currentParams.phaseXB
-  localYA=currentParams.phaseYA
-  localYB=currentParams.phaseYB
+  localXA=phaseXA
+  localXB=phaseXB
+  localYA=phaseYA
+  localYB=phaseYB
   bob=0
 
   WHILE bob<BOBS_PER_FRAME DO
@@ -545,17 +542,17 @@ PROC DrawFrame(BYTE buffer)
     bob==+1
   OD
 
-  ; FIRST_RENDER_BUFFER begins each three-buffer generation.  Advance the
+  ; FIRST_RENDER_BUFFER begins each four-buffer generation.  Advance the
   ; shared count once, then publish that value with every buffer in the cycle.
   IF buffer=FIRST_RENDER_BUFFER THEN AdvanceBobCount() FI
   PrepareStatusLine(currentEffect)
 
   ; Move the stored starting phases once, shifting the complete trajectory
   ; for the next frame rather than merely moving to its next bob.
-  currentParams.phaseXA==+currentParams.frameStepXA
-  currentParams.phaseXB==+currentParams.frameStepXB
-  currentParams.phaseYA==+currentParams.frameStepYA
-  currentParams.phaseYB==+currentParams.frameStepYB
+  phaseXA==+frameStepXA
+  phaseXB==+frameStepXB
+  phaseYA==+frameStepYA
+  phaseYB==+frameStepYB
 RETURN
 
 
@@ -704,11 +701,18 @@ RETURN
 
 
 PROC SelectEffect(BYTE effect)
-  currentParams=effectTable(effect)
-  bobStepXA=BASE_LANE_STEP*currentParams.bobHarmonicXA
-  bobStepXB=BASE_LANE_STEP*currentParams.bobHarmonicXB
-  bobStepYA=BASE_LANE_STEP*currentParams.bobHarmonicYA
-  bobStepYB=BASE_LANE_STEP*currentParams.bobHarmonicYB
+  phaseXA=effectTable(effect).phaseXA
+  phaseXB=effectTable(effect).phaseXB
+  phaseYA=effectTable(effect).phaseYA
+  phaseYB=effectTable(effect).phaseYB
+  bobStepXA=effectTable(effect).bobStepXA
+  bobStepXB=effectTable(effect).bobStepXB
+  bobStepYA=effectTable(effect).bobStepYA
+  bobStepYB=effectTable(effect).bobStepYB
+  frameStepXA=effectTable(effect).frameStepXA
+  frameStepXB=effectTable(effect).frameStepXB
+  frameStepYA=effectTable(effect).frameStepYA
+  frameStepYB=effectTable(effect).frameStepYB
 RETURN
 
 
@@ -723,14 +727,14 @@ CARD FUNC ReadClock16()
 RETURN((CARD(middle) LSH 8)+low)
 
 
-PROC UpdateFade(CARD elapsed)
+PROC UpdateFade(CARD elapsed,effectTicks,fadeTicks)
   CARD remaining
   BYTE light
 
-  IF elapsed<animationFadeTicks THEN
+  IF elapsed<fadeTicks THEN
     light=fadeLuminance(elapsed)
-  ELSEIF elapsed>=animationTicks-animationFadeTicks THEN
-    remaining=animationTicks-elapsed
+  ELSEIF elapsed>=effectTicks-fadeTicks THEN
+    remaining=effectTicks-elapsed
     light=fadeLuminance(remaining)
   ELSE
     light=BOB_LIGHT_LUMA
@@ -796,7 +800,7 @@ PROC InitBobs()
   ClearScreens()
   WriteStatusLabel()
   ResetBobCount()
-  PrepareStatusLine(EFFECT_WOVEN_ORBIT)
+  PrepareStatusLine(EFFECT_ORIGINAL)
 RETURN
 
 
@@ -811,11 +815,10 @@ PROC RunAnimation()
     elapsed=ReadClock16()-startTick
     IF elapsed>=animationTicks THEN EXIT FI
 
-    UpdateFade(elapsed)
+    UpdateFade(elapsed,animationTicks,animationFadeTicks)
     DrawFrame(buffer)
     PublishFrame(buffer)
-    buffer==+1
-    IF buffer=BUFFER_COUNT THEN buffer=0 FI
+    buffer=(buffer+1) AND 3
   OD
 
   ; Make the final transition fully black before clearing any bitmap.
@@ -827,7 +830,7 @@ RETURN
 PROC RunBobs()
   BYTE effect
 
-  effect=EFFECT_WOVEN_ORBIT
+  effect=EFFECT_ORIGINAL
   DO
     SelectRandomHue()
     currentEffect=effect
@@ -837,7 +840,7 @@ PROC RunBobs()
     RunAnimation()
 
     effect==+1
-    IF effect=EFFECT_COUNT THEN effect=EFFECT_WOVEN_ORBIT FI
+    IF effect=EFFECT_COUNT THEN effect=EFFECT_ORIGINAL FI
   OD
 RETURN
 
