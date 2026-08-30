@@ -8814,6 +8814,34 @@ fn computed_index_assignment_preserves_target_pointer_across_nested_byte_rhs() {
 }
 
 #[test]
+fn classic_array_decay_keeps_pointer_width_through_right_shift() {
+    let source = "BYTE ARRAY status(40),dl(3) \
+                  PROC Main() dl(0)=status dl(1)=status RSH 8 RETURN";
+
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
+
+        assert!(
+            output.bytes.windows(11).any(|bytes| bytes
+                == [
+                    opcode::LDA_IMM,
+                    0x30,
+                    opcode::TAX,
+                    opcode::LDA_IMM,
+                    0x00,
+                    opcode::JSR_ABS,
+                    runtime_helper::CARTRIDGE_RSH.low(),
+                    runtime_helper::CARTRIDGE_RSH.high(),
+                    opcode::STA_ABS,
+                    0x29,
+                    0x30,
+                ]),
+            "{profile:?} must store the high byte of the decayed status-array address"
+        );
+    }
+}
+
+#[test]
 fn modern_indirect_call_assignment_skips_pointer_save_for_known_preserving_callee() {
     let output = generate_profile_source_with_origin(
         "BYTE POINTER p BYTE x BYTE FUNC Id(BYTE v) RETURN(v) \

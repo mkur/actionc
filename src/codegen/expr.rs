@@ -219,7 +219,13 @@ impl Generator {
             return Some(if value > 0xFF { 2 } else { 1 });
         }
         match &expr.kind {
-            ExprKind::Name(name) => self.lookup_slot(name).map(|slot| slot.size),
+            ExprKind::Name(name) => self.lookup_slot(name).map(|slot| {
+                if slot.array.is_some() || slot.pointee_size.is_some() {
+                    2
+                } else {
+                    slot.size
+                }
+            }),
             ExprKind::Index { base, .. } => {
                 let ExprKind::Name(name) = &base.kind else {
                     return None;
