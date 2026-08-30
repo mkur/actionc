@@ -877,6 +877,167 @@ fn word_rsh8_high_projection_keeps_helper_when_flags_are_live() {
     assert!(peepholes::discover_word_rsh8_high_projections(&routine, &context, &layout).is_empty());
 }
 
+#[test]
+fn constant_word_shift_projections_lower_before_helper_selection() {
+    let source = MirDef::VTemp(MirTempId(0));
+    let shift = |op, dst, count, left| MirOp::Binary {
+        op,
+        dst: MirDef::VTemp(MirTempId(dst)),
+        left,
+        right: MirValue::ConstU16(count),
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    };
+    let ops = vec![
+        shift(MirBinaryOp::Rsh, 1, 0, MirValue::Def(source.clone())),
+        shift(MirBinaryOp::Rsh, 2, 8, MirValue::Def(source.clone())),
+        shift(MirBinaryOp::Rsh, 3, 12, MirValue::Def(source.clone())),
+        shift(MirBinaryOp::Lsh, 4, 8, MirValue::Def(source.clone())),
+        shift(MirBinaryOp::Lsh, 5, 12, MirValue::Def(source.clone())),
+        shift(MirBinaryOp::Rsh, 6, 16, MirValue::Def(source)),
+        shift(
+            MirBinaryOp::Rsh,
+            7,
+            8,
+            MirValue::PointerCell(MirMem::Absolute(0x4000)),
+        ),
+    ];
+    let mut routine = MirRoutine {
+        id: RoutineId(0),
+        name: "word_shift_projections".to_string(),
+        abi: MirRoutineAbi::Action,
+        frame: MirFrame::default(),
+        temps: (0..8).map(|id| MirTemp { id: MirTempId(id) }).collect(),
+        blocks: vec![MirBlock {
+            id: MirBlockId(0),
+            label: "bb0".to_string(),
+            params: Vec::new(),
+            ops,
+            terminator: MirTerminator::Return,
+        }],
+        effects: MirEffects::default(),
+    };
+    let program = MirProgram {
+        statics: Vec::new(),
+        globals: Vec::new(),
+        routines: vec![routine.clone()],
+        machine_blocks: Vec::new(),
+        runtime_helpers: Vec::new(),
+    };
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let mut stats = MirPeepholeStats::default();
+
+    lower_constant_word_shift_projections(&mut routine, &layout, &mut stats);
+
+    let ops = &routine.blocks[0].ops;
+    assert_eq!(
+        stats
+            .aggregate_counts()
+            .get("constant-word-shift-projection")
+            .copied(),
+        Some(6)
+    );
+    assert!(matches!(
+        &ops[0],
+        MirOp::Move {
+            dst: MirDef::VTemp(MirTempId(1)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+            width: MirWidth::Word,
+        }
+    ));
+    assert!(matches!(
+        &ops[1..3],
+        [
+            MirOp::Move {
+                dst: MirDef::VTempByte {
+                    id: MirTempId(2),
+                    byte: 0,
+                },
+                src: MirValue::Def(MirDef::VTempByte {
+                    id: MirTempId(0),
+                    byte: 1,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Move {
+                dst: MirDef::VTempByte {
+                    id: MirTempId(2),
+                    byte: 1,
+                },
+                src: MirValue::ConstU8(0),
+                width: MirWidth::Byte,
+            },
+        ]
+    ));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::Rsh,
+            dst: MirDef::VTempByte {
+                id: MirTempId(3),
+                byte: 0,
+            },
+            left: MirValue::Def(MirDef::VTempByte {
+                id: MirTempId(0),
+                byte: 1,
+            }),
+            right: MirValue::ConstU8(4),
+            width: MirWidth::Byte,
+            ..
+        }
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::Move {
+            dst: MirDef::VTempByte {
+                id: MirTempId(4),
+                byte: 1,
+            },
+            src: MirValue::Def(MirDef::VTempByte {
+                id: MirTempId(0),
+                byte: 0,
+            }),
+            width: MirWidth::Byte,
+        }
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::Binary {
+            op: MirBinaryOp::Lsh,
+            dst: MirDef::VTempByte {
+                id: MirTempId(5),
+                byte: 1,
+            },
+            left: MirValue::Def(MirDef::VTempByte {
+                id: MirTempId(0),
+                byte: 0,
+            }),
+            right: MirValue::ConstU8(4),
+            width: MirWidth::Byte,
+            ..
+        }
+    )));
+    assert!(ops.iter().any(|op| matches!(
+        op,
+        MirOp::Move {
+            dst: MirDef::VTemp(MirTempId(6)),
+            src: MirValue::ConstU16(0),
+            width: MirWidth::Word,
+        }
+    )));
+    assert!(matches!(
+        ops.last(),
+        Some(MirOp::Binary {
+            op: MirBinaryOp::Rsh,
+            left: MirValue::PointerCell(MirMem::Absolute(0x4000)),
+            right: MirValue::ConstU16(8),
+            width: MirWidth::Word,
+            ..
+        })
+    ));
+}
+
 fn helper_indexed_store_test_program(helper: MirRuntimeHelper, consumer_lo: u8) -> MirProgram {
     let source = MirMem::Local {
         id: LocalId(5),

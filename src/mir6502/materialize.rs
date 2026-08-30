@@ -1080,6 +1080,7 @@ pub(super) fn materialize_program(
     for routine in &mut program.routines {
         run_cfg_group(routine, &layout)?;
         strength_reduce_constant_multiplications(routine, &layout, &mut peephole_stats);
+        lower_constant_word_shift_projections(routine, &layout, &mut peephole_stats);
         let routine_temp_widths = collect_routine_temp_widths(routine);
         run_prehome_canonicalization_group(routine, config, &layout, &mut peephole_stats)?;
         run_prehome_selection_group(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
@@ -1383,6 +1384,129 @@ fn constant_value_u16(value: &MirValue) -> Option<u16> {
         MirValue::ConstU16(value) => Some(*value),
         _ => None,
     }
+}
+
+fn lower_constant_word_shift_projections(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) {
+    let temp_widths = collect_routine_temp_widths(routine);
+    let mut lowered = 0;
+
+    for block in &mut routine.blocks {
+        let mut out = Vec::with_capacity(block.ops.len());
+        for op in std::mem::take(&mut block.ops) {
+            let MirOp::Binary {
+                op: shift_op @ (MirBinaryOp::Lsh | MirBinaryOp::Rsh),
+                dst,
+                left,
+                right,
+                width: MirWidth::Word,
+                carry_in,
+                carry_out,
+            } = op
+            else {
+                out.push(op);
+                continue;
+            };
+            let Some(count) = constant_value_u16(&right) else {
+                out.push(MirOp::Binary {
+                    op: shift_op,
+                    dst,
+                    left,
+                    right,
+                    width: MirWidth::Word,
+                    carry_in,
+                    carry_out,
+                });
+                continue;
+            };
+
+            if count == 0 {
+                out.push(MirOp::Move {
+                    dst,
+                    src: left,
+                    width: MirWidth::Word,
+                });
+                lowered += 1;
+                continue;
+            }
+
+            // Pointer-cell values still represent a complete word read at
+            // this operation. Keep the helper when a projection or zero
+            // result would otherwise skip one or both source bytes.
+            if value_contains_pointer_cell(&left) || count < 8 {
+                out.push(MirOp::Binary {
+                    op: shift_op,
+                    dst,
+                    left,
+                    right,
+                    width: MirWidth::Word,
+                    carry_in,
+                    carry_out,
+                });
+                continue;
+            }
+
+            if count >= 16 {
+                out.push(MirOp::Move {
+                    dst,
+                    src: MirValue::ConstU16(0),
+                    width: MirWidth::Word,
+                });
+                lowered += 1;
+                continue;
+            }
+
+            let Some((dst_lo, dst_hi)) = split_def(dst.clone()) else {
+                out.push(MirOp::Binary {
+                    op: shift_op,
+                    dst,
+                    left,
+                    right,
+                    width: MirWidth::Word,
+                    carry_in,
+                    carry_out,
+                });
+                continue;
+            };
+            let (left_lo, left_hi) =
+                split_value_with_storage_widths(left, routine.id, layout, &temp_widths);
+            let remaining = (count - 8) as u8;
+            let (zero_dst, projected_dst, projected_src) = match shift_op {
+                MirBinaryOp::Lsh => (dst_lo, dst_hi, left_lo),
+                MirBinaryOp::Rsh => (dst_hi, dst_lo, left_hi),
+                _ => unreachable!(),
+            };
+            if remaining == 0 {
+                out.push(MirOp::Move {
+                    dst: projected_dst,
+                    src: projected_src,
+                    width: MirWidth::Byte,
+                });
+            } else {
+                out.push(MirOp::Binary {
+                    op: shift_op,
+                    dst: projected_dst,
+                    left: projected_src,
+                    right: MirValue::ConstU8(remaining),
+                    width: MirWidth::Byte,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                });
+            }
+            out.push(MirOp::Move {
+                dst: zero_dst,
+                src: MirValue::ConstU8(0),
+                width: MirWidth::Byte,
+            });
+            lowered += 1;
+        }
+        block.ops = out;
+    }
+
+    peephole_stats.record_many(routine.id, "constant-word-shift-projection", lowered);
 }
 
 fn strength_reduce_byte_multiply(
