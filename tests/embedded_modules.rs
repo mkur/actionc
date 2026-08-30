@@ -187,6 +187,37 @@ fn vbxe_gradient_sample_compiles_standalone_with_both_backends() {
 }
 
 #[test]
+fn unlimited_bobs_sample_compiles_at_its_fixed_memory_layout_in_all_modes() {
+    let samples = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/demoscene");
+    let file_name = "unlimited-bobs.act";
+    let sample = samples.join(file_name);
+
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let options = CompileOptions::for_mode(mode)
+            .with_runtime(Runtime::Standalone)
+            .with_origin(0xA000);
+        let compiled = compile_file(&sample, &options)
+            .unwrap_or_else(|error| panic!("compile {file_name} sample in {mode:?}: {error}"));
+        let ranges = load_file_segment_ranges(compiled.object_bytes());
+
+        assert!(
+            ranges.contains(&(0x02E2, 0x02E3)),
+            "{file_name} in {mode:?} must emit the Atari RUNAD vector: {ranges:04X?}"
+        );
+        assert!(
+            ranges
+                .iter()
+                .any(|&(start, end)| start == 0xA000 && end < 0xC000),
+            "{file_name} in {mode:?} must fit between the display lists and the OS ROM: {ranges:04X?}"
+        );
+    }
+}
+
+#[test]
 fn native_real_square_root_compiles_with_both_backends() {
     let temp = TestDir::new();
     let source = temp.source(

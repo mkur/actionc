@@ -25,6 +25,14 @@ instructions.
 displacement landscape using integer arithmetic and draws it in high-resolution
 graphics mode.
 
+`demoscene/unlimited-bobs.act` cycles four paths through persistent ANTIC
+mode-E bitmaps, choosing a random non-grey hue and using palette fades for each
+animation. It uses continuous phase catch-up across its four buffers and a
+bottom text row showing the current animation and displayed bob count. The
+demo declares `ORG $A000`, keeping the program above its four fixed screen
+buffers. Compile with `--runtime standalone`; an explicit `--origin` remains
+available when deliberately overriding the source placement.
+
 `real-basics.act` is the complete introductory program from the
 [native REAL tutorial](../docs/tutorials/REAL.md).
 
