@@ -26,6 +26,94 @@ fn lower_modern_source(source: &str) -> NirProgram {
 }
 
 #[test]
+fn record_assignment_lowers_to_verified_copy_bytes() {
+    let program = lower_modern_source(
+        "TYPE Pair=[BYTE tag CARD word] Pair ARRAY table(2) Pair current PROC Main() current=table(1) RETURN",
+    );
+    verify_program(&program).expect("record copy NIR should verify");
+
+    let copy = program.routines[0]
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            NirOp::CopyBytes {
+                destination,
+                source,
+                size,
+                ..
+            } => Some((destination, source, *size)),
+            _ => None,
+        })
+        .expect("record assignment must produce copy_bytes");
+
+    assert_eq!(copy.2, 3);
+    assert_eq!(copy.0.ty.as_ref().and_then(|ty| ty.width), Some(3));
+    assert_eq!(copy.1.ty.as_ref().and_then(|ty| ty.width), Some(3));
+    assert!(
+        !program.routines[0]
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .any(|op| matches!(op, NirOp::Unsupported { .. }))
+    );
+
+    let optimized = optimize_program(&program).expect("record copy must remain verifier-clean");
+    verify_program(&optimized).expect("optimized record copy NIR should verify");
+}
+
+#[test]
+fn verifier_rejects_invalid_record_copy_extent() {
+    let mut program = lower_modern_source(
+        "TYPE Pair=[BYTE tag CARD word] Pair source,destination PROC Main() destination=source RETURN",
+    );
+    let copy = program.routines[0]
+        .blocks
+        .iter_mut()
+        .flat_map(|block| &mut block.ops)
+        .find(|op| matches!(op, NirOp::CopyBytes { .. }))
+        .expect("record copy");
+    let NirOp::CopyBytes { size, .. } = copy else {
+        unreachable!()
+    };
+    *size = 0;
+
+    let diagnostics = verify_program(&program).expect_err("zero-sized copy must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("copy_bytes extent must be non-zero")
+    }));
+}
+
+#[test]
+fn verifier_rejects_record_storage_in_the_scalar_operation_lane() {
+    let mut program = lower_modern_source(
+        "TYPE Pair=[BYTE tag CARD word] Pair source,destination PROC Main() destination=source RETURN",
+    );
+    let block = &mut program.routines[0].blocks[0];
+    let (destination, ty) = match &block.ops[0] {
+        NirOp::CopyBytes { destination, .. } => (
+            destination.clone(),
+            destination.ty.clone().expect("typed record destination"),
+        ),
+        other => panic!("expected record copy, got {other:?}"),
+    };
+    block.ops[0] = NirOp::Store {
+        place: destination,
+        src: NirValue::ConstU8(0),
+        ty,
+    };
+
+    let diagnostics = verify_program(&program).expect_err("scalar record store must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("cannot use a record in the byte/word scalar lane")
+    }));
+}
+
+#[test]
 fn descending_for_uses_directional_limit_and_underflow_guard() {
     let program = lower_modern_source(
         "BYTE i BYTE count PROC Main() FOR i=1 TO 0 STEP -1 DO count==+1 OD RETURN",

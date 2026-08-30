@@ -468,6 +468,17 @@ pub enum NirOp {
         src: NirValue,
         ty: NirType,
     },
+    /// Copy a complete aggregate value between two addressable places.
+    ///
+    /// Both addresses have already been evaluated according to source order.
+    /// The operation has overlap-safe value semantics.
+    CopyBytes {
+        destination: NirPlace,
+        source: NirPlace,
+        size: u16,
+        destination_volatile: bool,
+        source_volatile: bool,
+    },
     Unary {
         dest: TempId,
         ty: NirType,

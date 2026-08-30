@@ -1,0 +1,8 @@
+TYPE Pair=[BYTE tag CARD word]
+
+Pair ARRAY pairs(2)
+Pair current
+
+PROC Main()
+  current=pairs(1)
+RETURN

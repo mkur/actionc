@@ -155,6 +155,7 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
         NirOp::RuntimeHelperOverride { .. }
         | NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
+        | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
@@ -184,6 +185,14 @@ fn record_op_uses(
         NirOp::Store { place, src, .. } | NirOp::VolatileStore { place, src, .. } => {
             record_place(uses, place, site(NirUseKind::StorePlace));
             record_value(uses, src, site(NirUseKind::StoreSource));
+        }
+        NirOp::CopyBytes {
+            destination,
+            source,
+            ..
+        } => {
+            record_place(uses, destination, site(NirUseKind::StorePlace));
+            record_place(uses, source, site(NirUseKind::LoadPlace));
         }
         NirOp::Unary { src, .. } => record_value(uses, src, site(NirUseKind::UnarySource)),
         NirOp::Cast { src, .. } => record_value(uses, src, site(NirUseKind::CastSource)),

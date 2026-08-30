@@ -1,8 +1,8 @@
 # NIR Target Shape
 
 Snapshot date: 2026-05-31. Updated for the completed TAC-to-NIR naming
-migration, address-based native `REAL` operations, and cartridge-compatible
-integer arithmetic typing on 2026-08-22.
+migration, address-based native `REAL` operations, cartridge-compatible integer
+arithmetic typing, and explicit record copies on 2026-08-30.
 
 This document describes the target shape of NIR, the Normalized Intermediate
 Representation implemented under `src/nir`. It is the contract for hardening,
@@ -304,6 +304,13 @@ pub enum NirOp {
         place: NirPlace,
         src: NirValue,
     },
+    CopyBytes {
+        destination: NirPlace,
+        source: NirPlace,
+        size: u16,
+        destination_volatile: bool,
+        source_volatile: bool,
+    },
     AddrOf {
         dest: TempId,
         place: NirPlace,
@@ -354,6 +361,16 @@ does not need to recover language meaning from SemIR. A volatile load or store
 executes exactly once and is a conservative memory-ordering barrier. It may
 use the same target instruction as an ordinary access; the distinction limits
 legal transformations rather than prescribing an opcode.
+
+Whole-record assignment lowers to `CopyBytes`, not to a scalar load/store or a
+source-shaped field walk. Both operands are typed addressable record places and
+their known storage widths must equal the non-zero copy extent. The operation
+copies the source value as it existed before any destination byte is written,
+so overlapping and self copies are well-defined. Its two volatile flags retain
+the independently resolved source-read and destination-write facts. Ordinary
+`Load`, `VolatileLoad`, `Store`, and `VolatileStore` reject record types; this
+keeps aggregates out of the byte/word scalar lane and gives MIR6502 one explicit
+aggregate-copy contract to lower.
 
 Recommended operator sets:
 

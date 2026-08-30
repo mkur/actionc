@@ -836,6 +836,7 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
         | NirOp::AddrOf { .. }
         | NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
+        | NirOp::CopyBytes { .. }
         | NirOp::Call { .. }
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
@@ -917,6 +918,14 @@ fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
         | NirOp::VolatileLoad { place, .. }
         | NirOp::AddrOf { place, .. } => {
             rewrite_place_values(place, constants);
+        }
+        NirOp::CopyBytes {
+            destination,
+            source,
+            ..
+        } => {
+            rewrite_place_values(destination, constants);
+            rewrite_place_values(source, constants);
         }
         NirOp::Unary { src, .. } | NirOp::Cast { src, .. } => rewrite_value(src, constants),
         NirOp::Binary { left, right, .. } | NirOp::Compare { left, right, .. } => {
@@ -1096,6 +1105,14 @@ fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
         NirOp::Load { place, .. }
         | NirOp::VolatileLoad { place, .. }
         | NirOp::AddrOf { place, .. } => collect_place_uses(place, out),
+        NirOp::CopyBytes {
+            destination,
+            source,
+            ..
+        } => {
+            collect_place_uses(destination, out);
+            collect_place_uses(source, out);
+        }
         NirOp::Unary { src, .. } | NirOp::Cast { src, .. } => collect_value_use(src, out),
         NirOp::Binary { left, right, .. } | NirOp::Compare { left, right, .. } => {
             collect_value_use(left, out);
@@ -1251,6 +1268,7 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         NirOp::RuntimeHelperOverride { .. }
         | NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
+        | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }

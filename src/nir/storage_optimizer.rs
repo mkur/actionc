@@ -198,6 +198,11 @@ fn transfer_op(
         NirOp::VolatileStore { .. } => {
             facts.storage.clear();
         }
+        NirOp::CopyBytes { .. } => {
+            // Aggregate reads and writes can alias tracked scalar homes
+            // through indirect, indexed, field, or absolute places.
+            facts.storage.clear();
+        }
         NirOp::Load {
             dest, ty, place, ..
         } => {
@@ -412,6 +417,14 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
         | NirOp::AddrOf { place, .. } => {
             rewrite_place_values(place, replacements);
         }
+        NirOp::CopyBytes {
+            destination,
+            source,
+            ..
+        } => {
+            rewrite_place_values(destination, replacements);
+            rewrite_place_values(source, replacements);
+        }
         NirOp::Unary { src, .. } | NirOp::Cast { src, .. } => {
             rewrite_value(src, replacements);
         }
@@ -565,6 +578,7 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
         NirOp::RuntimeHelperOverride { .. }
         | NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
+        | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }

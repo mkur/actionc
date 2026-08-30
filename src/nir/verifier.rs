@@ -780,6 +780,8 @@ impl NirVerifier {
                 self.place_type(routine, block, place, "load place");
                 self.reject_real_type(routine, block, ty, "ordinary load result");
                 self.reject_real_place(routine, block, place, "ordinary load place");
+                self.reject_record_type(routine, block, ty, "ordinary load result");
+                self.reject_record_place(routine, block, place, "ordinary load place");
                 self.place_temp_uses(routine, block, place, op_index, temp_facts, "load place");
                 self.temp_def_matches_table(routine, block, *dest, ty, op_index);
                 if !defined_temps.insert(*dest) {
@@ -808,10 +810,39 @@ impl NirVerifier {
                 self.place_type(routine, block, place, "store place");
                 self.reject_real_type(routine, block, ty, "ordinary store type");
                 self.reject_real_place(routine, block, place, "ordinary store place");
+                self.reject_record_type(routine, block, ty, "ordinary store type");
+                self.reject_record_place(routine, block, place, "ordinary store place");
                 self.place_temp_uses(routine, block, place, op_index, temp_facts, "store place");
                 self.value_type(routine, block, src, "store source");
                 self.value_temp_use(routine, block, src, op_index, temp_facts, "store source");
                 self.match_value_widths(routine, block, Some(ty), src, "store");
+            }
+            NirOp::CopyBytes {
+                destination,
+                source,
+                size,
+                ..
+            } => {
+                self.place_type(routine, block, destination, "copy destination");
+                self.place_type(routine, block, source, "copy source");
+                self.place_temp_uses(
+                    routine,
+                    block,
+                    destination,
+                    op_index,
+                    temp_facts,
+                    "copy destination",
+                );
+                self.place_temp_uses(routine, block, source, op_index, temp_facts, "copy source");
+                if *size == 0 {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "copy_bytes extent must be non-zero",
+                    ));
+                }
+                self.record_copy_place(routine, block, destination, *size, "copy destination");
+                self.record_copy_place(routine, block, source, *size, "copy source");
             }
             NirOp::Unary { dest, ty, op, src } => {
                 self.op_type(routine, block, ty, "unary result");
@@ -1428,6 +1459,65 @@ impl NirVerifier {
     ) {
         if let NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } = value {
             self.reject_real_type(routine, block, ty, label);
+        }
+    }
+
+    fn reject_record_type(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        ty: &NirType,
+        label: &str,
+    ) {
+        if matches!(ty.kind, NirTypeKind::Record { .. }) {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("{label} cannot use a record in the byte/word scalar lane"),
+            ));
+        }
+    }
+
+    fn reject_record_place(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        place: &NirPlace,
+        label: &str,
+    ) {
+        if let Some(ty) = &place.ty {
+            self.reject_record_type(routine, block, ty, label);
+        }
+    }
+
+    fn record_copy_place(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        place: &NirPlace,
+        size: u16,
+        label: &str,
+    ) {
+        let Some(ty) = &place.ty else {
+            return;
+        };
+        if !matches!(ty.kind, NirTypeKind::Record { .. }) {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("{label} must have record storage type"),
+            ));
+            return;
+        }
+        if ty.width != Some(size) {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!(
+                    "{label} width {:?} does not match copy_bytes extent {size}",
+                    ty.width
+                ),
+            ));
         }
     }
 

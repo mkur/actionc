@@ -315,6 +315,26 @@ fn analyze_routine_storage(
                     record_direct_access(&mut homes, block.id, place, ty, false);
                     mark_volatile_access(&mut homes, place);
                 }
+                NirOp::CopyBytes {
+                    destination,
+                    source,
+                    destination_volatile,
+                    source_volatile,
+                    ..
+                } => {
+                    if let Some(ty) = &source.ty {
+                        record_direct_access(&mut homes, block.id, source, ty, true);
+                    }
+                    if let Some(ty) = &destination.ty {
+                        record_direct_access(&mut homes, block.id, destination, ty, false);
+                    }
+                    if *source_volatile {
+                        mark_volatile_access(&mut homes, source);
+                    }
+                    if *destination_volatile {
+                        mark_volatile_access(&mut homes, destination);
+                    }
+                }
                 NirOp::AddrOf { place, .. } => {
                     if let Some(id) = root_storage_id(place)
                         && let Some(facts) = homes.get_mut(&id)
@@ -648,6 +668,14 @@ fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
         | NirOp::AddrOf { place, .. }
         | NirOp::Store { place, .. }
         | NirOp::VolatileStore { place, .. } => visit(place),
+        NirOp::CopyBytes {
+            destination,
+            source,
+            ..
+        } => {
+            visit(destination);
+            visit(source);
+        }
         NirOp::Real(real) => for_each_real_place(real, visit),
         NirOp::RuntimeHelperOverride { .. }
         | NirOp::Unary { .. }
@@ -767,6 +795,21 @@ fn mark_read_before_definition(
                 }
                 NirOp::Store { place, .. } | NirOp::VolatileStore { place, .. } => {
                     if let Some(id) = crate::nir::direct_storage_id(place) {
+                        defined.insert(id);
+                    }
+                }
+                NirOp::CopyBytes {
+                    destination,
+                    source,
+                    ..
+                } => {
+                    if let Some(id @ NirStorageId::Local(_)) = crate::nir::direct_storage_id(source)
+                        && !defined.contains(&id)
+                        && let Some(facts) = homes.get_mut(&id)
+                    {
+                        facts.possible_read_before_definition = true;
+                    }
+                    if let Some(id) = crate::nir::direct_storage_id(destination) {
                         defined.insert(id);
                     }
                 }

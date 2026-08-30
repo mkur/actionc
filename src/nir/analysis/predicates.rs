@@ -174,6 +174,18 @@ impl NirDataflowProblem for NirPredicateProblem<'_> {
                 NirOp::VolatileStore { .. } | NirOp::VolatileLoad { .. } => {
                     facts.kill_storage(None);
                 }
+                NirOp::CopyBytes {
+                    destination,
+                    destination_volatile,
+                    source_volatile,
+                    ..
+                } => {
+                    facts.kill_storage(if *destination_volatile || *source_volatile {
+                        None
+                    } else {
+                        direct_storage_id(destination)
+                    });
+                }
                 NirOp::Call { .. }
                 | NirOp::Real(_)
                 | NirOp::MachineBlock { .. }
@@ -375,6 +387,9 @@ fn invalidates_storage(op: &NirOp, storage: NirStorageId) -> bool {
     match op {
         NirOp::Store { place, .. } => direct_storage_id(place).is_none_or(|id| id == storage),
         NirOp::VolatileLoad { .. } | NirOp::VolatileStore { .. } => true,
+        NirOp::CopyBytes { destination, .. } => {
+            direct_storage_id(destination).is_none_or(|id| id == storage)
+        }
         NirOp::Call { .. }
         | NirOp::Real(_)
         | NirOp::MachineBlock { .. }

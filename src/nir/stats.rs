@@ -119,6 +119,14 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                     NirOp::Store { place, .. } | NirOp::VolatileStore { place, .. } => {
                         stats.stores.record(place);
                     }
+                    NirOp::CopyBytes {
+                        destination,
+                        source,
+                        ..
+                    } => {
+                        stats.loads.record(source);
+                        stats.stores.record(destination);
+                    }
                     NirOp::RuntimeHelperOverride { .. }
                     | NirOp::Real(_)
                     | NirOp::AddrOf { .. }
@@ -297,6 +305,7 @@ fn op_kind(op: &NirOp) -> &'static str {
         NirOp::AddrOf { .. } => "addr_of",
         NirOp::Store { .. } => "store",
         NirOp::VolatileStore { .. } => "volatile_store",
+        NirOp::CopyBytes { .. } => "copy_bytes",
         NirOp::Unary { .. } => "unary",
         NirOp::Cast { .. } => "cast",
         NirOp::Binary { .. } => "binary",

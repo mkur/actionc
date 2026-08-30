@@ -315,6 +315,14 @@ fn real_local_accesses(routine: &NirRoutine) -> BTreeMap<LocalId, RealLocalAcces
                 | NirOpKind::VolatileStore { place, .. } => {
                     record_other_real_local(place, &mut accesses);
                 }
+                NirOpKind::CopyBytes {
+                    destination,
+                    source,
+                    ..
+                } => {
+                    record_other_real_local(destination, &mut accesses);
+                    record_other_real_local(source, &mut accesses);
+                }
                 NirOpKind::Real(real) => record_real_local_accesses(real, &mut accesses),
                 NirOpKind::Call { effects, .. } => {
                     record_effect_local_references(&effects.memory, &mut accesses);

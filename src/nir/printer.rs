@@ -366,6 +366,22 @@ fn op_summary(op: &NirOp) -> String {
                 value_summary(src)
             )
         }
+        NirOp::CopyBytes {
+            destination,
+            source,
+            size,
+            destination_volatile,
+            source_volatile,
+        } => format!(
+            "copy_bytes {} = {} size={}{}{}",
+            place_summary(destination),
+            place_summary(source),
+            size,
+            source_volatile.then_some(" source-volatile").unwrap_or(""),
+            destination_volatile
+                .then_some(" destination-volatile")
+                .unwrap_or("")
+        ),
         NirOp::Unary { dest, ty, op, src } => {
             format!(
                 "{}:{} = {} {}",

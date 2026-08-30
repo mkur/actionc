@@ -181,6 +181,18 @@ fn transfer_op_backwards(
             live.extend(candidates.iter().copied());
             add_place_dependencies(place, live, candidates);
         }
+        NirOp::CopyBytes {
+            destination,
+            source,
+            ..
+        } => {
+            // Aggregate copies are conservative memory boundaries. Record
+            // homes are not scalar-promotion candidates, but either address
+            // may still depend on a promoted pointer or index home.
+            live.extend(candidates.iter().copied());
+            add_place_dependencies(destination, live, candidates);
+            add_place_dependencies(source, live, candidates);
+        }
         NirOp::AddrOf { place, .. } => add_place_dependencies(place, live, candidates),
         NirOp::Call {
             callee, effects, ..

@@ -996,9 +996,24 @@ impl NirBuilder {
                 let value = self.value(value);
                 self.assign_or_store(target, target_ty, value, is_volatile);
             }
-            SemStmt::RecordCopy { .. } => self.push(NirOp::Unsupported {
-                note: "record copy lowering is not implemented yet".to_string(),
-            }),
+            SemStmt::RecordCopy {
+                destination,
+                source,
+                size,
+                ..
+            } => {
+                let destination_volatile = destination.is_volatile;
+                let source_volatile = source.is_volatile;
+                let destination = self.lower_place(destination);
+                let source = self.lower_place(source);
+                self.push(NirOp::CopyBytes {
+                    destination,
+                    source,
+                    size: *size,
+                    destination_volatile,
+                    source_volatile,
+                });
+            }
             SemStmt::CompoundAssign {
                 target, op, value, ..
             } => {
@@ -2015,7 +2030,18 @@ impl NirBuilder {
         {
             return Some(ty);
         }
-        Some(NirFacts::type_from_value(&lvalue.ty))
+        Some(self.storage_type_for_value(&lvalue.ty))
+    }
+
+    fn storage_type_for_value(&self, value: &ValueType) -> NirType {
+        let mut ty = NirFacts::type_from_value(value);
+        if let NirTypeKind::Record { name, size } = &mut ty.kind
+            && let Some(storage_size) = self.record_storage_sizes.get(name).copied()
+        {
+            *size = Some(storage_size);
+            ty.width = Some(storage_size);
+        }
+        ty
     }
 
     fn symbol_storage_type(&self, symbol: &SemSymbolRef) -> Option<NirType> {
@@ -3043,6 +3069,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         NirOp::RuntimeHelperOverride { .. }
         | NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
+        | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
         | NirOp::MachineBlock { .. }
