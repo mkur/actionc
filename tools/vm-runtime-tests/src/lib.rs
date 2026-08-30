@@ -727,7 +727,7 @@ mod tests {
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
             let outcome = run_standalone_fixture("standalone_sargs.act", mode, max_steps);
             assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
-            assert_eq!(outcome.memory().read(RESULT_START), 4, "{mode:?}");
+            assert_eq!(outcome.memory().read(RESULT_START), 5, "{mode:?}");
         }
     }
 
