@@ -11306,6 +11306,54 @@ fn modern_word_constant_shifts_inline_only_small_counts() {
 }
 
 #[test]
+fn modern_word_constant_shift_materializes_compound_left_operand() {
+    let source = "CARD low,high,mid \
+                  PROC Main() \
+                    mid=(low+high) RSH 1 \
+                    mid=(low-high) LSH 2 \
+                  RETURN";
+    let output =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+    let rshift = [
+        opcode::JSR_ABS,
+        runtime_helper::CARTRIDGE_RSH.low(),
+        runtime_helper::CARTRIDGE_RSH.high(),
+    ];
+    let lshift = [
+        opcode::JSR_ABS,
+        runtime_helper::CARTRIDGE_LSH.low(),
+        runtime_helper::CARTRIDGE_LSH.high(),
+    ];
+
+    assert!(
+        !output
+            .bytes
+            .windows(rshift.len())
+            .any(|bytes| bytes == rshift),
+        "a compound RSH 1 operand should be staged before an inline shift"
+    );
+    assert!(
+        !output
+            .bytes
+            .windows(lshift.len())
+            .any(|bytes| bytes == lshift),
+        "a compound LSH 2 operand should be staged before an inline shift"
+    );
+    assert!(
+        output
+            .bytes
+            .windows(6)
+            .any(|bytes| bytes == [opcode::LSR_ABS, 0x05, 0x30, opcode::ROR_ABS, 0x04, 0x30,])
+    );
+    assert!(
+        output
+            .bytes
+            .windows(6)
+            .any(|bytes| bytes == [opcode::ASL_ABS, 0x04, 0x30, opcode::ROL_ABS, 0x05, 0x30,])
+    );
+}
+
+#[test]
 fn modern_word_constant_shift_keeps_volatile_target_on_helper_path() {
     let output = generate_profile_source_with_origin(
         "VOLATILE CARD device=$D000 PROC Main() device=device RSH 2 RETURN",

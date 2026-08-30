@@ -665,6 +665,12 @@ impl Generator {
                 AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY
             )
         {
+            if Self::arithmetic_operand_needs_materialization(left) {
+                if !self.emit_expr_to_slot(left, slot) {
+                    return false;
+                }
+                return self.emit_materialized_word_constant_shift(op, slot, count);
+            }
             return match op {
                 BinaryOp::Lsh => self.emit_lsh_expr_to_slot(left, slot, count),
                 BinaryOp::Rsh => self.emit_rsh_expr_to_slot(left, slot, count),
@@ -705,6 +711,43 @@ impl Generator {
             BinaryOp::Rsh => self.emit_rsh_expr_to_slot(left, slot, count),
             _ => false,
         }
+    }
+
+    fn emit_materialized_word_constant_shift(
+        &mut self,
+        op: BinaryOp,
+        slot: StorageSlot,
+        count: u16,
+    ) -> bool {
+        debug_assert_eq!(slot.size, 2);
+        debug_assert!(matches!(op, BinaryOp::Lsh | BinaryOp::Rsh));
+
+        if self.emit_in_place_constant_shift(op, slot, count) {
+            return true;
+        }
+
+        for _ in 0..count {
+            match op {
+                BinaryOp::Lsh => {
+                    self.emit_lda_slot_byte(slot, 0);
+                    self.emit_asl_a();
+                    self.emit_sta_slot_byte(slot, 0);
+                    self.emit_lda_slot_byte(slot, 1);
+                    self.emit_rol_a();
+                    self.emit_sta_slot_byte(slot, 1);
+                }
+                BinaryOp::Rsh => {
+                    self.emit_lda_slot_byte(slot, 1);
+                    self.emit_lsr_a();
+                    self.emit_sta_slot_byte(slot, 1);
+                    self.emit_lda_slot_byte(slot, 0);
+                    self.emit_ror_a();
+                    self.emit_sta_slot_byte(slot, 0);
+                }
+                _ => return false,
+            }
+        }
+        true
     }
 
     pub(super) fn emit_in_place_constant_shift(
