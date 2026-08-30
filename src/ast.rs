@@ -607,6 +607,10 @@ pub enum InitializerElementKind {
         value: InitializerLiteral,
         negative: bool,
     },
+    Constant {
+        target: QualifiedName,
+        negative: bool,
+    },
     Address {
         selector: Option<AddressByteSelector>,
         target: QualifiedName,

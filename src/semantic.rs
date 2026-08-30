@@ -3428,6 +3428,35 @@ impl Analyzer {
                                 ));
                             }
                         }
+                        InitializerElementKind::Constant { target, .. } => {
+                            let Some(symbol_id) =
+                                self.resolve_qualified_symbol(scope, target, element.span)
+                            else {
+                                continue;
+                            };
+                            let symbol = &self.symbols.symbols[symbol_id.0];
+                            if symbol.class != SymbolClass::Const {
+                                self.diagnostics.push(Diagnostic::new(
+                                    element.span,
+                                    format!(
+                                        "initializer element `{}` must name a compile-time CONST",
+                                        element.text
+                                    ),
+                                ));
+                            } else if self.real_constants.contains_key(&symbol_id) {
+                                self.diagnostics.push(Diagnostic::new(
+                                    element.span,
+                                    "CONST REAL is not supported in aggregate initializer lists yet",
+                                ));
+                            } else if !self.constants.contains_key(&symbol_id) {
+                                self.diagnostics.push(Diagnostic::new(
+                                    element.span,
+                                    format!(
+                                        "initializer CONST `{target}` has no resolved scalar value"
+                                    ),
+                                ));
+                            }
+                        }
                         InitializerElementKind::Address {
                             selector, target, ..
                         } => {
@@ -6123,11 +6152,10 @@ mod tests {
     #[test]
     fn rejects_unknown_raw_initializer_name_instead_of_zero_filling() {
         let err = analyze_source_err("BYTE ARRAY data(1)=[missing]");
-        assert!(err.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("unsupported initializer element in `data`")
-        }));
+        assert!(
+            err.iter()
+                .any(|diagnostic| { diagnostic.message.contains("undefined symbol `missing`") })
+        );
     }
 
     #[test]

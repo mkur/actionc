@@ -626,7 +626,9 @@ pub(super) fn scalar_array_initializer_storage(
                     span: element.span,
                 });
             }
-            InitializerElementKind::Invalid => return None,
+            InitializerElementKind::Constant { .. } | InitializerElementKind::Invalid => {
+                return None;
+            }
         }
     }
     Some(initializers)

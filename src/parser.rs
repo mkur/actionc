@@ -2629,6 +2629,21 @@ fn initializer_list_expr(tokens: Vec<Token>, span: Span) -> Expr {
                 index += 1;
                 InitializerElementKind::Literal { value, negative }
             }
+            TokenKind::Ident(target) => {
+                let mut target_components = vec![target.clone()];
+                index += 1;
+                while index + 1 < body.len()
+                    && matches!(body[index].kind, TokenKind::Dot)
+                    && let TokenKind::Ident(component) = &body[index + 1].kind
+                {
+                    target_components.push(component.clone());
+                    index += 2;
+                }
+                InitializerElementKind::Constant {
+                    target: QualifiedName::new(target_components),
+                    negative,
+                }
+            }
             TokenKind::Lt | TokenKind::Gt | TokenKind::At if !negative => {
                 let selector = match body[index].kind {
                     TokenKind::Lt => Some(AddressByteSelector::Low),
@@ -4508,6 +4523,46 @@ mod tests {
                 addend: 0
             } if target == "dlist"
         ));
+    }
+
+    #[test]
+    fn parses_qualified_constants_in_initializer_lists() {
+        let tokens = tokenize("BYTE ARRAY data(3)=[Limit -Palette.Dark +Delta]").unwrap();
+        let program = parse(&tokens).unwrap();
+        let Item::Declaration(Decl::Var(var)) = &program.modules[0].items[0] else {
+            panic!("expected declaration");
+        };
+        let ExprKind::InitializerList(elements) =
+            &var.entries[0].initializer.as_ref().unwrap().kind
+        else {
+            panic!("expected structured initializer list");
+        };
+
+        assert!(matches!(
+            &elements[0].kind,
+            InitializerElementKind::Constant {
+                target,
+                negative: false
+            } if target == "Limit"
+        ));
+        assert!(matches!(
+            &elements[1].kind,
+            InitializerElementKind::Constant {
+                target,
+                negative: true
+            } if target == "Palette.Dark"
+        ));
+        assert!(
+            matches!(
+                &elements[2].kind,
+                InitializerElementKind::Constant {
+                    target,
+                    negative: false
+                } if target == "Delta"
+            ),
+            "third initializer: {:#?}",
+            elements[2]
+        );
     }
 
     #[test]

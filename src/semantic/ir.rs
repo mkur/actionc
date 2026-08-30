@@ -3261,6 +3261,22 @@ impl<'a> IrBuilder<'a> {
                     negative: *negative,
                 }
             }
+            InitializerElementKind::Constant { target, negative } => {
+                match self.model.resolve_name(scope, target) {
+                    SemanticNameResolution::Symbol(id) => self
+                        .model
+                        .constants
+                        .get(&id)
+                        .map(|value| SemInitializerElementKind::Literal {
+                            value: SemInitializerLiteral::Number(value.number_literal()),
+                            negative: *negative,
+                        })
+                        .unwrap_or(SemInitializerElementKind::Invalid),
+                    SemanticNameResolution::PrivateMember { .. }
+                    | SemanticNameResolution::MissingMember { .. }
+                    | SemanticNameResolution::Unknown => SemInitializerElementKind::Invalid,
+                }
+            }
             InitializerElementKind::Address {
                 selector,
                 target,

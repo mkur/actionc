@@ -120,6 +120,44 @@ fn flat_initializer_list_preserves_one_element_per_source_value() {
 }
 
 #[test]
+fn named_constants_initialize_record_array_leaves_in_all_backends() {
+    let source = "CONST BYTE Phase=$30, Delta=1 \
+                  CONST CARD Address=$4567 \
+                  CONST INT Reverse=-3 \
+                  TYPE Params=[BYTE phase,delta CARD address INT reverse] \
+                  Params ARRAY table(2)=[Phase Delta Address Reverse \
+                                         -Phase +Delta Address -Reverse] \
+                  PROC Main() RETURN";
+    let expected = [
+        0x30, 0x01, 0x67, 0x45, 0xFD, 0xFF, 0xD0, 0x01, 0x67, 0x45, 0x03, 0x00,
+    ];
+
+    for (backend, output) in all_backend_outputs(source) {
+        assert_eq!(
+            record_array_backing(&output, "table", expected.len()),
+            expected,
+            "{backend} named CONST initializer"
+        );
+    }
+}
+
+#[test]
+fn aggregate_initializer_rejects_runtime_names_as_constants() {
+    let program = parse(
+        &tokenize("BYTE value TYPE Pair=[BYTE x] Pair pair=[value] PROC Main() RETURN")
+            .expect("tokenize invalid aggregate initializer"),
+    )
+    .expect("parse invalid aggregate initializer");
+    let diagnostics = analyze(&program).expect_err("runtime initializer name must be rejected");
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("must name a compile-time CONST")
+    }));
+}
+
+#[test]
 fn semantic_record_layout_is_packed_in_recursive_declaration_order() {
     let (_, model) = parse_and_analyze(
         "TYPE Inner=[BYTE flag CARD address] \
@@ -554,7 +592,7 @@ fn record_leaf_relocations_resolve_the_own_descriptor_in_all_backends() {
 }
 
 #[test]
-fn qualified_module_relocations_compile_in_every_mode() {
+fn qualified_module_relocations_and_constants_compile_in_every_mode() {
     let unique = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("system clock after Unix epoch")
@@ -570,15 +608,15 @@ fn qualified_module_relocations_compile_in_every_mode() {
         &application,
         "MODULE APP\n\
          USE LIB.TARGET AS DATA\n\
-         TYPE Link=[CARD address]\n\
-         Link ARRAY refs(1)=[@DATA.value]\n\
+         TYPE Link=[CARD address BYTE marker]\n\
+         Link ARRAY refs(1)=[@DATA.value DATA.Marker]\n\
          PROC Main() RETURN\n\
          ENDMODULE\n",
     )
     .expect("write aggregate module application");
     std::fs::write(
         library_dir.join("target.act"),
-        "MODULE LIB.TARGET\nPUBLIC BYTE value=$AA\nENDMODULE\n",
+        "MODULE LIB.TARGET\nPUBLIC CONST BYTE Marker=$5A\nPUBLIC BYTE value=$AA\nENDMODULE\n",
     )
     .expect("write aggregate module library");
 
