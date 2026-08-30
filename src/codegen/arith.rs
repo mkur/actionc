@@ -641,7 +641,9 @@ impl Generator {
             && let Some(count) = self.constant_u16(right)
             && slot.size == 1
             && self.expr_size(left).is_some_and(|size| size == 1)
-            && (slot.space != AddressSpace::ZeroPage || self.inline_byte_constant_shift)
+            && (self.profile.enables_modern_optimizations()
+                || slot.space != AddressSpace::ZeroPage
+                || self.inline_byte_constant_shift)
         {
             return match op {
                 BinaryOp::Lsh => self.emit_lsh_expr_to_slot(left, slot, count),

@@ -11110,6 +11110,52 @@ fn modern_byte_constant_shift_materializes_complex_left_operand() {
 }
 
 #[test]
+fn modern_byte_constant_shifts_inline_through_zero_page_materialization() {
+    let source = "BYTE x=$E0,out,index BYTE ARRAY table(64) CARD base,address \
+                  BYTE FUNC Shift(BYTE value) RETURN(value RSH 2) \
+                  PROC Main() \
+                    x=x RSH 2 \
+                    address=base+(x RSH 2) \
+                    out=table(x RSH 2) \
+                    IF x RSH 2 THEN out=Shift(x) FI \
+                    IF (x RSH 2)=index THEN out=1 FI \
+                  RETURN";
+    let compatible =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Compat).unwrap();
+    let modern =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+    let helper = [
+        opcode::JSR_ABS,
+        runtime_helper::CARTRIDGE_RSH.low(),
+        runtime_helper::CARTRIDGE_RSH.high(),
+    ];
+
+    assert!(
+        compatible
+            .bytes
+            .windows(helper.len())
+            .any(|bytes| bytes == helper),
+        "compatibility mode should retain its established helper lowering"
+    );
+    assert!(
+        !modern
+            .bytes
+            .windows(helper.len())
+            .any(|bytes| bytes == helper),
+        "optimized BYTE constant shifts should never call RShift"
+    );
+    assert!(
+        modern
+            .bytes
+            .iter()
+            .filter(|byte| **byte == opcode::LSR_A)
+            .count()
+            >= 10,
+        "each optimized context should contain direct accumulator shifts"
+    );
+}
+
+#[test]
 fn compatible_in_place_card_shift_by_constant_uses_memory_shift() {
     let output =
         generate_compatible_source_with_origin("CARD w PROC Main() w=w RSH 1 RETURN", 0x3000)
