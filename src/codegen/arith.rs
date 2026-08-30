@@ -629,6 +629,15 @@ impl Generator {
             return true;
         }
 
+        if self.profile.enables_modern_optimizations()
+            && let (Some(count), Some(2)) = (self.constant_u16(right), self.expr_size(left))
+            && matches!(slot.size, 1 | 2)
+            && (count == 0 || count >= 8)
+            && self.emit_modern_word_constant_projection_shift(op, left, slot, count)
+        {
+            return true;
+        }
+
         if self.segment_storage
             && let Some(count) = self.constant_u16(right)
             && self.direct_scalar_slot(left) == Some(slot)
@@ -732,6 +741,78 @@ impl Generator {
         self.processor.invalidate_memory_byte(slot, 1);
         self.processor.invalidate_value_flags();
         self.processor.invalidate_carry();
+        true
+    }
+
+    fn emit_modern_word_constant_projection_shift(
+        &mut self,
+        op: BinaryOp,
+        left: &Expr,
+        slot: StorageSlot,
+        count: u16,
+    ) -> bool {
+        debug_assert!(count == 0 || (8..16).contains(&count));
+
+        if count == 0 {
+            if slot.size == 2 {
+                return self.emit_expr_to_slot(left, slot);
+            }
+            if !self.emit_word_expr_byte_to_acc_preserving_effects(left, 0) {
+                return false;
+            }
+            self.emit_sta_slot_byte(slot, 0);
+            return true;
+        }
+
+        let remaining = count - 8;
+        match op {
+            BinaryOp::Rsh => {
+                if !self.emit_word_expr_byte_to_acc_preserving_effects(left, 1) {
+                    return false;
+                }
+                for _ in 0..remaining {
+                    self.emit_lsr_a();
+                }
+                self.emit_sta_slot_byte(slot, 0);
+                if slot.size == 2 {
+                    self.emit_lda_imm(0);
+                    self.emit_sta_slot_byte(slot, 1);
+                }
+            }
+            BinaryOp::Lsh => {
+                if !self.emit_word_expr_byte_to_acc_preserving_effects(left, 0) {
+                    return false;
+                }
+                if slot.size == 2 {
+                    for _ in 0..remaining {
+                        self.emit_asl_a();
+                    }
+                    self.emit_sta_slot_byte(slot, 1);
+                }
+                self.emit_lda_imm(0);
+                self.emit_sta_slot_byte(slot, 0);
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    fn emit_word_expr_byte_to_acc_preserving_effects(
+        &mut self,
+        expr: &Expr,
+        byte_index: u16,
+    ) -> bool {
+        if self.expr_side_effect_facts(expr).can_reorder()
+            && self.emit_load_simple_byte(expr, byte_index)
+        {
+            return true;
+        }
+
+        let temp = StorageSlot::zero_page(runtime_zp::ARGS.address(), 2);
+        if !self.emit_expr_to_slot(expr, temp) {
+            return false;
+        }
+        self.emit_lda_slot_byte(temp, byte_index);
         true
     }
 

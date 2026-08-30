@@ -8893,23 +8893,32 @@ fn classic_array_decay_keeps_pointer_width_through_right_shift() {
     for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
         let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
 
-        assert!(
-            output.bytes.windows(11).any(|bytes| bytes
-                == [
-                    opcode::LDA_IMM,
-                    0x30,
-                    opcode::TAX,
-                    opcode::LDA_IMM,
-                    0x00,
-                    opcode::JSR_ABS,
-                    runtime_helper::CARTRIDGE_RSH.low(),
-                    runtime_helper::CARTRIDGE_RSH.high(),
-                    opcode::STA_ABS,
-                    0x29,
-                    0x30,
-                ]),
-            "{profile:?} must store the high byte of the decayed status-array address"
-        );
+        match profile {
+            CodegenProfile::Compat => assert!(
+                output.bytes.windows(11).any(|bytes| bytes
+                    == [
+                        opcode::LDA_IMM,
+                        0x30,
+                        opcode::TAX,
+                        opcode::LDA_IMM,
+                        0x00,
+                        opcode::JSR_ABS,
+                        runtime_helper::CARTRIDGE_RSH.low(),
+                        runtime_helper::CARTRIDGE_RSH.high(),
+                        opcode::STA_ABS,
+                        0x29,
+                        0x30,
+                    ]),
+                "compatibility mode must preserve its pointer shift lowering"
+            ),
+            CodegenProfile::Modern => assert!(
+                output
+                    .bytes
+                    .windows(5)
+                    .any(|bytes| bytes == [opcode::LDA_IMM, 0x30, opcode::STA_ABS, 0x29, 0x30,]),
+                "optimized mode must project the address high byte directly"
+            ),
+        }
     }
 }
 
@@ -11152,6 +11161,97 @@ fn modern_byte_constant_shifts_inline_through_zero_page_materialization() {
             .count()
             >= 10,
         "each optimized context should contain direct accumulator shifts"
+    );
+}
+
+#[test]
+fn modern_word_constant_projection_shifts_avoid_runtime_helpers() {
+    let source = "CARD source,target BYTE byteOut \
+                  PROC Main() \
+                    target=source RSH 0 \
+                    target=source RSH 8 \
+                    byteOut=source RSH 8 \
+                    target=source RSH 12 \
+                    target=source LSH 8 \
+                    target=source LSH 12 \
+                    target==RSH 8 \
+                  RETURN";
+    let compatible =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Compat).unwrap();
+    let modern =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+    let rshift = [
+        opcode::JSR_ABS,
+        runtime_helper::CARTRIDGE_RSH.low(),
+        runtime_helper::CARTRIDGE_RSH.high(),
+    ];
+    let lshift = [
+        opcode::JSR_ABS,
+        runtime_helper::CARTRIDGE_LSH.low(),
+        runtime_helper::CARTRIDGE_LSH.high(),
+    ];
+
+    assert!(
+        compatible
+            .bytes
+            .windows(rshift.len())
+            .any(|bytes| bytes == rshift)
+    );
+    assert!(
+        !modern
+            .bytes
+            .windows(rshift.len())
+            .any(|bytes| bytes == rshift),
+        "optimized word projections should not call RShift"
+    );
+    assert!(
+        !modern
+            .bytes
+            .windows(lshift.len())
+            .any(|bytes| bytes == lshift),
+        "optimized word projections should not call LShift"
+    );
+    assert!(
+        modern.bytes.windows(7).any(|bytes| bytes
+            == [
+                opcode::LDA_ABS,
+                0x01,
+                0x30,
+                opcode::STA_ABS,
+                0x02,
+                0x30,
+                opcode::LDA_IMM,
+            ]),
+        "RSH 8 should project the source high byte directly"
+    );
+    assert!(
+        modern.bytes.windows(7).any(|bytes| bytes
+            == [
+                opcode::LDA_ABS,
+                0x00,
+                0x30,
+                opcode::STA_ABS,
+                0x03,
+                0x30,
+                opcode::LDA_IMM,
+            ]),
+        "LSH 8 should project the source low byte directly"
+    );
+}
+
+#[test]
+fn modern_word_projection_shift_preserves_effectful_operand() {
+    let source = "BYTE calls,out \
+                  CARD FUNC Next() calls==+1 RETURN($1234) \
+                  PROC Main() out=Next() LSH 8 out=Next() RSH 8 RETURN";
+    let output =
+        generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
+    let next = routine_address(&output, "Next").expect("Next address");
+
+    assert_eq!(
+        count_jsr_to(&output.bytes, next),
+        2,
+        "word projection shifts must evaluate calls even when the stored byte is known zero"
     );
 }
 
