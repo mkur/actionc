@@ -135,7 +135,13 @@ forwarded as a value, but may never be removed, repeated, or moved across a
 barrier.
 
 Reject multiple uses, A clobbers, calls, machine blocks, unknown effects, and
-effect barriers. Focused volatile tests must count exactly one hardware read.
+additional effect barriers. Focused volatile tests must count exactly one
+hardware read.
+
+Implementation note: the initial selector permits either no intervening
+operation or the single compiler barrier emitted immediately beside a volatile
+access. The barrier is retained, as is the original load; only the private temp
+home and reload are removed. All longer or effectful ranges remain rejected.
 
 ## Slice 3: counted-loop analysis and memory-resident latches
 

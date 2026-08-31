@@ -169,6 +169,42 @@ RETURN
 }
 
 #[test]
+fn mir6502_forwards_each_immediate_volatile_read_without_staging() {
+    let temp = TestDir::default();
+    let source = temp.source(
+        "forward.act",
+        r#"
+VOLATILE BYTE VCOUNT=$D40B, RANDOM=$D20A
+BYTE sink
+
+PROC Main()
+  IF VCOUNT<100 THEN
+    sink=1
+  FI
+  sink=RANDOM&127
+RETURN
+"#,
+    );
+
+    let compiled = compile_file(&source, &CompileOptions::for_mode(CompileMode::Mir6502))
+        .expect("compile immediate volatile consumers");
+    let bytes = compiled.object_bytes();
+
+    assert_eq!(count_instruction(bytes, &[0xAD, 0x0B, 0xD4]), 1);
+    assert_eq!(count_instruction(bytes, &[0xAD, 0x0A, 0xD2]), 1);
+    assert_eq!(
+        count_instruction(bytes, &[0xAD, 0x0B, 0xD4, 0xC9, 100]),
+        1,
+        "VCOUNT must flow directly from LDA to CMP: {bytes:02X?}"
+    );
+    assert_eq!(
+        count_instruction(bytes, &[0xAD, 0x0A, 0xD2, 0x29, 127]),
+        1,
+        "RANDOM must flow directly from LDA to AND: {bytes:02X?}"
+    );
+}
+
+#[test]
 fn plasma_uses_hardware_modules_in_every_public_mode() {
     let sample = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("samples")

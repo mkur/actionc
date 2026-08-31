@@ -355,6 +355,15 @@ There is no general register allocator in the first MIR implementation.
 Materialization may assign A/X/Y locally for concrete sequences. A broader
 allocator, if added later, should be a separate post-materialization pass.
 
+The pre-home demand analysis may forward a uniquely defined, uniquely used byte
+`Load` directly through A to an immediate store, compare, unary operation, or
+byte binary operation. The load stays at its original program point. At most
+one adjacent compiler barrier may remain between the load and consumer; this is
+the volatile-load shape, and the barrier emits no instruction. The rewrite must
+not delete or duplicate the load. Calls, machine blocks, additional barriers,
+intervening operations, cross-block uses, and consumers that cannot accept A
+retain a materialized home.
+
 ## Definitions, Values, Memory, And Addresses
 
 MIR distinguishes definition sites, value operands, and memory/addressing sites.
