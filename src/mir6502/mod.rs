@@ -1076,6 +1076,32 @@ mod tests {
     }
 
     #[test]
+    fn source_generation_stores_widened_byte_shift_without_a_scratch_word() {
+        let output =
+            generate_mir6502_source("BYTE b=[252] CARD n PROC Main() n=CARD(b) LSH 1 RETURN");
+
+        assert!(bytes_contain(
+            &output.bytes,
+            &[
+                crate::codegen::opcode::LDA_ABS,
+                0x00,
+                0x30,
+                crate::codegen::opcode::ASL_A,
+                crate::codegen::opcode::STA_ABS,
+                0x01,
+                0x30,
+                crate::codegen::opcode::LDA_IMM,
+                0x00,
+                crate::codegen::opcode::ADC_IMM,
+                0x00,
+                crate::codegen::opcode::STA_ABS,
+                0x02,
+                0x30,
+            ]
+        ));
+    }
+
+    #[test]
     fn byte_actual_word_call_arg_is_zero_extended() {
         let source = "
             PROC Take(CARD value)

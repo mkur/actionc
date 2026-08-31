@@ -637,6 +637,232 @@ pub(super) fn select_store_expr_producers(
     )
 }
 
+/// Fuses the first destination-aware widened-byte shift shape before generic
+/// word-shift lowering introduces a temporary word home.
+///
+/// Accepted roots are `zext.u8(value) << 1` and that value plus a constant,
+/// with a direct, compiler-owned word destination. Routine-wide use/def proof
+/// is supplied by the pre-home rewrite driver around this local matcher.
+pub(super) fn select_widened_byte_shift_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    select_widened_byte_shift_store_consumer_impl(ops, index, routine_id, layout, out).unwrap_or(0)
+}
+
+fn select_widened_byte_shift_store_consumer_impl(
+    ops: &[MirOp],
+    index: usize,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> Option<usize> {
+    let mut cursor = index;
+    let loaded_source = match ops.get(cursor) {
+        Some(MirOp::Load {
+            dst,
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        }) => {
+            cursor += 1;
+            Some((split_def_as_temp(dst)?, MirValue::PointerCell(mem.clone())))
+        }
+        Some(MirOp::LoadImm {
+            dst,
+            value,
+            width: MirWidth::Byte,
+        }) => {
+            cursor += 1;
+            Some((split_def_as_temp(dst)?, MirValue::ConstU8(*value as u8)))
+        }
+        _ => None,
+    };
+
+    let MirOp::Extend {
+        dst: extend_dst,
+        src: extend_src,
+        from_width: MirWidth::Byte,
+        to_width: MirWidth::Word,
+        signed: false,
+    } = ops.get(cursor)?
+    else {
+        return None;
+    };
+    let extend_temp = split_def_as_temp(extend_dst)?;
+    let source = match (loaded_source, store_expr_value_as_temp(extend_src)) {
+        (Some((loaded_temp, source)), Some(source_temp)) if loaded_temp == source_temp => source,
+        (None, None) if widened_byte_shift_source_is_supported(extend_src) => extend_src.clone(),
+        _ => return None,
+    };
+    cursor += 1;
+
+    let MirOp::Binary {
+        op: MirBinaryOp::Lsh,
+        dst: shift_dst,
+        left: MirValue::Def(MirDef::VTemp(shift_source)),
+        right: shift_count,
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    } = ops.get(cursor)?
+    else {
+        return None;
+    };
+    if *shift_source != extend_temp || constant_value_u16(shift_count) != Some(1) {
+        return None;
+    }
+    let mut result_temp = split_def_as_temp(shift_dst)?;
+    cursor += 1;
+
+    let mut addend = 0;
+    if let Some(MirOp::Binary {
+        op: MirBinaryOp::Add,
+        dst,
+        left,
+        right,
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    }) = ops.get(cursor)
+        && let Some(constant) = shifted_word_constant_addend(result_temp, left, right)
+    {
+        addend = constant;
+        result_temp = split_def_as_temp(dst)?;
+        cursor += 1;
+    }
+
+    let MirOp::Store {
+        dst: MirAddr::Direct(store_dst),
+        src: MirValue::Def(MirDef::VTemp(store_source)),
+        width: MirWidth::Word,
+    } = ops.get(cursor)?
+    else {
+        return None;
+    };
+    let store_hi = offset_mem(store_dst, 1);
+    if *store_source != result_temp
+        || !layout.mem_allows_direct_update(store_dst)
+        || !layout.mem_allows_direct_update(&store_hi)
+        || !widened_byte_shift_source_is_disjoint(&source, store_dst, routine_id, layout)
+    {
+        return None;
+    }
+
+    materialize_widened_byte_shift_to_word_mem(source, store_dst.clone(), addend, out);
+    Some(cursor + 1 - index)
+}
+
+fn widened_byte_shift_source_is_supported(value: &MirValue) -> bool {
+    matches!(value, MirValue::ConstU8(_) | MirValue::PointerCell(_))
+        || matches!(value, MirValue::ConstU16(value) if u8::try_from(*value).is_ok())
+}
+
+fn shifted_word_constant_addend(
+    shifted: MirTempId,
+    left: &MirValue,
+    right: &MirValue,
+) -> Option<u16> {
+    match (store_expr_value_as_temp(left), constant_value_u16(right)) {
+        (Some(temp), Some(constant)) if temp == shifted => Some(constant),
+        _ => match (constant_value_u16(left), store_expr_value_as_temp(right)) {
+            (Some(constant), Some(temp)) if temp == shifted => Some(constant),
+            _ => None,
+        },
+    }
+}
+
+fn widened_byte_shift_source_is_disjoint(
+    source: &MirValue,
+    destination: &MirMem,
+    routine_id: RoutineId,
+    layout: &MaterializeLayout,
+) -> bool {
+    let MirValue::PointerCell(source) = source else {
+        return true;
+    };
+    let Some(source_address) = layout.mem_address(routine_id, source) else {
+        return false;
+    };
+    let Some(destination_address) = layout.mem_address(routine_id, destination) else {
+        return false;
+    };
+    source_address != destination_address
+        && Some(source_address) != destination_address.checked_add(1)
+}
+
+fn materialize_widened_byte_shift_to_word_mem(
+    source: MirValue,
+    destination: MirMem,
+    addend: u16,
+    out: &mut Vec<MirOp>,
+) {
+    out.push(MirOp::Move {
+        dst: MirDef::Reg(MirReg::A),
+        src: source,
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::Binary {
+        op: MirBinaryOp::Lsh,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(1),
+        width: MirWidth::Byte,
+        carry_in: None,
+        carry_out: MirCarryOut::Produce,
+    });
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(destination.clone()),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::LoadImm {
+        dst: MirDef::Reg(MirReg::A),
+        value: addend >> 8,
+        width: MirWidth::Byte,
+    });
+    out.push(MirOp::Binary {
+        op: MirBinaryOp::Add,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(0),
+        width: MirWidth::Byte,
+        carry_in: Some(MirCarryIn::FromPrevious),
+        carry_out: MirCarryOut::Ignore,
+    });
+    out.push(MirOp::Store {
+        dst: MirAddr::Direct(offset_mem(&destination, 1)),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+
+    let addend_lo = addend as u8;
+    if addend_lo == 0 {
+        return;
+    }
+    materialize_byte_binary_store_consumer(
+        MirBinaryOp::Add,
+        destination.clone(),
+        MirValue::PointerCell(destination.clone()),
+        MirValue::ConstU8(addend_lo),
+        Some(MirCarryIn::Clear),
+        MirCarryOut::Produce,
+        out,
+    );
+    let destination_hi = offset_mem(&destination, 1);
+    materialize_byte_binary_store_consumer(
+        MirBinaryOp::Add,
+        destination_hi.clone(),
+        MirValue::PointerCell(destination_hi),
+        MirValue::ConstU8(0),
+        Some(MirCarryIn::FromPrevious),
+        MirCarryOut::Ignore,
+        out,
+    );
+}
+
 fn try_materialize_store_expr_producers_with_deadness(
     ops: &[MirOp],
     index: usize,

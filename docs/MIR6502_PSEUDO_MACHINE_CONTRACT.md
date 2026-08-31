@@ -1,7 +1,7 @@
 # MIR6502 Pseudo-Machine Contract
 
-Snapshot date: 2026-06-01. Updated for staged whole-record copies on
-2026-08-30.
+Snapshot date: 2026-06-01. Updated for destination-aware widened-byte shifts on
+2026-08-31.
 
 This note defines the intended contract for the first MIR6502 layer after
 verifier-clean NIR. It incorporates the review items captured in
@@ -546,6 +546,23 @@ Rules:
   plain shift. `Clear` and `Set` are not valid shift inputs.
 - The verifier should reject byte-lane add/sub chains whose carry dependency is
   implicit or impossible to preserve across intervening flag-clobbering ops.
+
+### Destination-aware widened-byte shifts
+
+Before generic word-shift expansion assigns an intermediate word home,
+MIR6502 may consume a single-use unsigned byte extension shifted left by one
+directly into a word store. The selected form shifts the byte in A, stores the
+low lane, and derives the zero-extended high lane from the produced carry. A
+following constant word add may join the same chain when its byte-lane carries
+remain explicit.
+
+This selection is valid only when routine-wide use/def proves that every
+removed definition has no other consumer. The direct destination must be
+ordinary non-volatile RAM, and a directly loaded source byte must not overlap
+either destination lane. Hardware destinations, ambiguous aliases, signed
+extensions, and unsupported consumers retain the general word path. This is a
+MIR6502 destination strategy; NIR continues to carry the ordinary typed
+`Extend`, `Lsh`, `Add`, and `Store` operations.
 
 ## Operation Families
 

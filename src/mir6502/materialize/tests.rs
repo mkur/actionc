@@ -6621,6 +6621,248 @@ fn word_carry_chain_store_uses_private_accumulator_without_temp_homes() {
     ));
 }
 
+fn widened_byte_shift_store_ops(
+    source: MirMem,
+    destination: MirMem,
+    addend: Option<u16>,
+) -> Vec<MirOp> {
+    let loaded = MirTempId(240);
+    let extended = MirTempId(241);
+    let shifted = MirTempId(242);
+    let result = MirTempId(243);
+    let mut ops = vec![
+        MirOp::Load {
+            dst: MirDef::VTemp(loaded),
+            src: MirAddr::Direct(source),
+            width: MirWidth::Byte,
+        },
+        MirOp::Extend {
+            dst: MirDef::VTemp(extended),
+            src: MirValue::Def(MirDef::VTemp(loaded)),
+            from_width: MirWidth::Byte,
+            to_width: MirWidth::Word,
+            signed: false,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Lsh,
+            dst: MirDef::VTemp(shifted),
+            left: MirValue::Def(MirDef::VTemp(extended)),
+            right: MirValue::ConstU8(1),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+    ];
+    let store_source = if let Some(addend) = addend {
+        ops.push(MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::VTemp(result),
+            left: MirValue::Def(MirDef::VTemp(shifted)),
+            right: MirValue::ConstU16(addend),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        });
+        result
+    } else {
+        shifted
+    };
+    ops.push(MirOp::Store {
+        dst: MirAddr::Direct(destination),
+        src: MirValue::Def(MirDef::VTemp(store_source)),
+        width: MirWidth::Word,
+    });
+    ops
+}
+
+#[test]
+fn widened_byte_shift_store_writes_the_carry_chain_directly() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let source = MirMem::Absolute(0x00e0);
+    let destination = MirMem::Absolute(0x00e2);
+    let ops = widened_byte_shift_store_ops(source.clone(), destination.clone(), None);
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_widened_byte_shift_store_consumer(&ops, 0, RoutineId(0), &layout, &mut replacement,),
+        ops.len()
+    );
+    assert!(matches!(
+        replacement.as_slice(),
+        [
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::PointerCell(load_source),
+                width: MirWidth::Byte,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Lsh,
+                dst: MirDef::Reg(MirReg::A),
+                right: MirValue::ConstU8(1),
+                width: MirWidth::Byte,
+                carry_in: None,
+                carry_out: MirCarryOut::Produce,
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(lo),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 0,
+                width: MirWidth::Byte,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::Reg(MirReg::A),
+                right: MirValue::ConstU8(0),
+                width: MirWidth::Byte,
+                carry_in: Some(MirCarryIn::FromPrevious),
+                carry_out: MirCarryOut::Ignore,
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(hi),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+        ] if load_source == &source
+            && lo == &destination
+            && hi == &offset_mem(&destination, 1)
+    ));
+    assert!(!replacement.iter().any(|op| matches!(
+        op,
+        MirOp::Load {
+            width: MirWidth::Word,
+            ..
+        } | MirOp::Store {
+            width: MirWidth::Word,
+            ..
+        }
+    )));
+}
+
+#[test]
+fn widened_byte_shift_add_store_propagates_both_constant_lanes() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let destination = MirMem::Absolute(0x00e2);
+    let ops =
+        widened_byte_shift_store_ops(MirMem::Absolute(0x00e0), destination.clone(), Some(0x1234));
+    let mut replacement = Vec::new();
+
+    assert_eq!(
+        select_widened_byte_shift_store_consumer(&ops, 0, RoutineId(0), &layout, &mut replacement,),
+        ops.len()
+    );
+    assert_eq!(replacement.len(), 12);
+    assert!(matches!(
+        replacement.get(3),
+        Some(MirOp::LoadImm {
+            dst: MirDef::Reg(MirReg::A),
+            value: 0x12,
+            width: MirWidth::Byte,
+        })
+    ));
+    assert!(matches!(
+        replacement.get(7),
+        Some(MirOp::Binary {
+            op: MirBinaryOp::Add,
+            right: MirValue::ConstU8(0x34),
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Produce,
+            ..
+        })
+    ));
+    assert!(matches!(
+        replacement.get(10),
+        Some(MirOp::Binary {
+            op: MirBinaryOp::Add,
+            right: MirValue::ConstU8(0),
+            carry_in: Some(MirCarryIn::FromPrevious),
+            carry_out: MirCarryOut::Ignore,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn widened_byte_shift_store_rejects_overlap_and_hardware_destination() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    for ops in [
+        widened_byte_shift_store_ops(MirMem::Absolute(0x00e2), MirMem::Absolute(0x00e2), None),
+        widened_byte_shift_store_ops(MirMem::Absolute(0x00e3), MirMem::Absolute(0x00e2), None),
+        widened_byte_shift_store_ops(MirMem::Absolute(0x00e0), MirMem::Absolute(0xd000), None),
+    ] {
+        let mut replacement = Vec::new();
+        assert_eq!(
+            select_widened_byte_shift_store_consumer(
+                &ops,
+                0,
+                RoutineId(0),
+                &layout,
+                &mut replacement,
+            ),
+            0
+        );
+        assert!(replacement.is_empty());
+    }
+}
+
+#[test]
+fn analyzed_widened_byte_shift_store_keeps_a_result_live_in_a_successor() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let shifted = MirTempId(242);
+    let mut routine = ssa_lite_edge_test_routine(vec![
+        MirBlock {
+            id: MirBlockId(0),
+            label: "entry".to_string(),
+            params: Vec::new(),
+            ops: widened_byte_shift_store_ops(
+                MirMem::Absolute(0x00e0),
+                MirMem::Absolute(0x00e2),
+                None,
+            ),
+            terminator: MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+        },
+        MirBlock {
+            id: MirBlockId(1),
+            label: "successor".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Absolute(0x00e4)),
+                src: MirValue::Def(MirDef::VTemp(shifted)),
+                width: MirWidth::Word,
+            }],
+            terminator: MirTerminator::Return,
+        },
+    ]);
+    routine.temps = (240..=242)
+        .map(|id| MirTemp { id: MirTempId(id) })
+        .collect();
+    let before = routine.blocks.clone();
+
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point_by_key(
+            &mut routine,
+            |routine, context| {
+                crate::mir6502::rewrite::pilots::discover_widened_byte_shift_store_consumers(
+                    routine, context, &layout,
+                )
+            },
+            crate::mir6502::rewrite::pilots::store_consumer_rank,
+        )
+        .expect("widened-byte shift analysis succeeds");
+
+    assert_eq!(result.applied, 0);
+    assert_eq!(routine.blocks, before);
+}
+
 #[test]
 fn word_carry_chain_store_reuses_updated_pointer_for_followup_deref() {
     let program = empty_test_program();

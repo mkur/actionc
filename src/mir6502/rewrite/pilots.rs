@@ -822,6 +822,27 @@ pub(in crate::mir6502) fn discover_word_carry_chain_store_consumers(
     plans
 }
 
+pub(in crate::mir6502) fn discover_widened_byte_shift_store_consumers(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (index, candidate) in
+            crate::mir6502::materialize::analyzed_widened_byte_shift_store_candidates(
+                routine.id, block, layout,
+            )
+        {
+            if let Some(plan) = store_consumer_plan(block.id, &block.ops, index, candidate, context)
+            {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
 pub(in crate::mir6502) fn store_consumer_rank(routine: &MirRoutine) -> usize {
     logical_definition_lane_count(routine)
 }

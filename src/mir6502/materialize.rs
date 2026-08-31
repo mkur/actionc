@@ -206,7 +206,7 @@ use store_consumers::{
     materialize_value_to_mem, select_absolute_word_sub_indirect_store_consumer,
     select_abstract_byte_inc_dec_store_consumer, select_byte_mul_add_sub_word_store_consumer,
     select_byte_store_consumer, select_direct_copy_store_consumer, select_store_expr_producers,
-    select_word_arithmetic_dual_indirect_store_consumer,
+    select_widened_byte_shift_store_consumer, select_word_arithmetic_dual_indirect_store_consumer,
     select_word_arithmetic_indirect_store_consumer, select_word_arithmetic_pointer_store_consumer,
     select_word_arithmetic_result_consumer, select_word_carry_chain_store_consumer,
     select_word_helper_store_consumer, select_word_store_consumer,
@@ -489,6 +489,36 @@ pub(in crate::mir6502) fn analyzed_word_carry_chain_store_candidates(
                     replacement,
                     stat: "word-carry-chain-store-consumer",
                     family_priority: 120,
+                },
+            ))
+        })
+        .collect()
+}
+
+pub(in crate::mir6502) fn analyzed_widened_byte_shift_store_candidates(
+    routine_id: RoutineId,
+    block: &super::ir::MirBlock,
+    layout: &MaterializeLayout,
+) -> Vec<(usize, StoreConsumerRewriteCandidate)> {
+    let ops = &block.ops;
+    (0..ops.len())
+        .filter_map(|index| {
+            let mut replacement = Vec::new();
+            let consumed = select_widened_byte_shift_store_consumer(
+                ops,
+                index,
+                routine_id,
+                layout,
+                &mut replacement,
+            );
+            (consumed > 0).then_some((
+                index,
+                StoreConsumerRewriteCandidate {
+                    start: index,
+                    consumed,
+                    replacement,
+                    stat: "widened-byte-shift-store-consumer",
+                    family_priority: 119,
                 },
             ))
         })
@@ -1164,6 +1194,7 @@ pub(super) fn materialize_program(
     for routine in &mut program.routines {
         run_cfg_group(routine, &layout)?;
         strength_reduce_constant_multiplications(routine, &layout, &mut peephole_stats);
+        run_analyzed_widened_byte_shift_store_consumers(routine, &layout, &mut peephole_stats)?;
         lower_constant_word_shift_projections(routine, &layout, &mut peephole_stats);
         lower_small_constant_word_shifts(routine, &layout, &mut peephole_stats);
         let routine_temp_widths = collect_routine_temp_widths(routine);
@@ -3222,6 +3253,32 @@ fn run_analyzed_word_carry_chain_store_consumers(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("word carry-chain store selection failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_widened_byte_shift_store_consumers(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            |routine, context| {
+                super::rewrite::pilots::discover_widened_byte_shift_store_consumers(
+                    routine, context, layout,
+                )
+            },
+            super::rewrite::pilots::store_consumer_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("widened-byte shift store selection failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
