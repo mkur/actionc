@@ -1354,6 +1354,50 @@ impl MirVerifier {
                 self.verify_value(routine, block, left, static_ids, global_ids, routine_ids);
                 self.verify_rhs_value(routine, block, right, static_ids, global_ids, routine_ids);
             }
+            MirOp::CompareDirectIndexedBytes {
+                dst,
+                op,
+                left,
+                right,
+                signed,
+            } => {
+                self.verify_cond_dest(routine, block, dst);
+                self.verify_mem(routine, block, &routine.frame, left, static_ids, global_ids);
+                self.verify_mem(
+                    routine,
+                    block,
+                    &routine.frame,
+                    right,
+                    static_ids,
+                    global_ids,
+                );
+                if *signed {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "direct indexed byte compare only supports unsigned comparisons",
+                    ));
+                }
+                if matches!(
+                    op,
+                    super::ir::MirCompareOp::Le | super::ir::MirCompareOp::Gt
+                ) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "direct indexed byte compare requires a single-test comparison operator",
+                    ));
+                }
+                if matches!(self.phase, MirPhase::PreEmission)
+                    && matches!(dst, MirCondDest::Temp(_))
+                {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "pre-emission direct indexed byte compare must target flags",
+                    ));
+                }
+            }
             MirOp::CompareIndirectBytes {
                 dst,
                 op,

@@ -172,6 +172,18 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
         self.snapshot.routine().point(site)
     }
 
+    pub(in crate::mir6502) fn cfg(&self) -> &MirCfg {
+        self.snapshot.cfg()
+    }
+
+    pub(in crate::mir6502) fn block_dominates(
+        &self,
+        dominator: MirBlockId,
+        block: MirBlockId,
+    ) -> bool {
+        self.snapshot.dominance().block_dominates(dominator, block)
+    }
+
     pub(in crate::mir6502) fn unique_reaching_definition(
         &self,
         usage: MirUseSite,

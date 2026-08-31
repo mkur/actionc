@@ -77,7 +77,7 @@ pub(super) fn op_may_have_unknown_memory_effects(op: &MirOp) -> bool {
     classify_op(op).memory.has_unknown_effects_compat
 }
 
-pub(super) fn op_may_write_mem(op: &MirOp, mem: &MirMem) -> bool {
+pub(in crate::mir6502) fn op_may_write_mem(op: &MirOp, mem: &MirMem) -> bool {
     let effects = classify_op(op);
     if let MirMemoryEffect::Regions(regions) = &effects.memory.structured_writes {
         if effects.memory.opaque

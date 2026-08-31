@@ -596,6 +596,11 @@ impl TrackedEmitter {
         self.state.invalidate_flags();
     }
 
+    pub(crate) fn emit_cmp_abs_y(&mut self, address: impl Into<Absolute>) {
+        self.emitter.emit_cmp_absolute_y(address.into());
+        self.state.invalidate_flags();
+    }
+
     pub(crate) fn emit_cmp_zero_page(&mut self, zero_page: ZeroPage) {
         self.emitter.emit_cmp_zero_page(zero_page);
         self.state.invalidate_flags();

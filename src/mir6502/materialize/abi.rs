@@ -597,6 +597,9 @@ fn op_references_param_storage(op: &MirOp) -> bool {
         MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
             value_references_param_storage(left) || value_references_param_storage(right)
         }
+        MirOp::CompareDirectIndexedBytes { left, right, .. } => {
+            mem_references_param_storage(left) || mem_references_param_storage(right)
+        }
         MirOp::Call { target, args, .. } => {
             call_target_references_param_storage(target)
                 || args

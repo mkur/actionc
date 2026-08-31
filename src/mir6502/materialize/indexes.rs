@@ -73,6 +73,29 @@ pub(super) struct IndexedAddrParts {
     pub(super) offset: u16,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct ByteIndexUpperBound {
+    pub mem: MirMem,
+    pub max: u8,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct CanonicalStaticByteIndex {
+    pub base: MirMem,
+    pub indexed_base: MirMem,
+    pub root: MirValue,
+    pub index_delta: u8,
+    pub producer_ops: BTreeSet<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct AdjacentStaticIndexedByteCopyCandidate {
+    pub consumed: usize,
+    pub replacement: Vec<MirOp>,
+    pub producer_ops: BTreeSet<usize>,
+    pub required_upper_bound: ByteIndexUpperBound,
+}
+
 pub(super) fn narrow_known_byte_index(
     mut parts: IndexedAddrParts,
     temp_widths: &BTreeMap<MirTempId, MirWidth>,
@@ -141,6 +164,169 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
         exprs,
         producer_ops_by_temp,
     }
+}
+
+pub(super) fn canonical_static_byte_index(
+    ops: &[MirOp],
+    use_index: usize,
+    addr: &MirAddr,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+) -> Option<CanonicalStaticByteIndex> {
+    let parts = indexed_addr_parts(addr)?;
+    if parts.elem_size != 1 {
+        return None;
+    }
+
+    let resolved_base = resolve_indexed_base_producer(ops, use_index, parts.base.clone());
+    let base = address_value_mem(&resolved_base)?;
+    let mut producer_ops = BTreeSet::new();
+    if resolved_base != parts.base
+        && let MirValue::Def(MirDef::VTemp(temp)) = parts.base
+        && let Some((producer_index, _)) = find_temp_producer(ops, use_index, temp)
+    {
+        producer_ops.insert(producer_index);
+    }
+
+    let index_expr = if let Some(expr) = delayed_byte_indexes.expr_for_value(&parts.index) {
+        producer_ops.extend(
+            delayed_byte_indexes
+                .producer_ops_for_value(&parts.index)
+                .into_iter()
+                .flatten()
+                .copied(),
+        );
+        expr.clone()
+    } else {
+        DelayedByteIndexExpr::Value(resolve_indexed_byte_index_producer(
+            ops,
+            use_index,
+            parts.index,
+        ))
+    };
+    let (root, index_delta) = canonical_byte_index_expr(&index_expr)?;
+    let address_offset = parts.offset.checked_add(u16::from(index_delta))?;
+    let indexed_base = checked_offset_mem(&base, address_offset)?;
+    Some(CanonicalStaticByteIndex {
+        base,
+        indexed_base,
+        root,
+        index_delta,
+        producer_ops,
+    })
+}
+
+fn checked_offset_mem(mem: &MirMem, delta: u16) -> Option<MirMem> {
+    match mem {
+        MirMem::Absolute(address) => Some(MirMem::Absolute(address.checked_add(delta)?)),
+        MirMem::Static { id, offset } => Some(MirMem::Static {
+            id: *id,
+            offset: offset.checked_add(delta)?,
+        }),
+        MirMem::Global { id, offset } => Some(MirMem::Global {
+            id: *id,
+            offset: offset.checked_add(delta)?,
+        }),
+        MirMem::Local { id, offset } => Some(MirMem::Local {
+            id: *id,
+            offset: offset.checked_add(delta)?,
+        }),
+        MirMem::Param { id, offset } => Some(MirMem::Param {
+            id: *id,
+            offset: offset.checked_add(delta)?,
+        }),
+        MirMem::Spill { id, offset } => Some(MirMem::Spill {
+            id: *id,
+            offset: offset.checked_add(delta)?,
+        }),
+        MirMem::FixedZeroPage(slot) => Some(MirMem::FixedZeroPage(MirFixedZpSlot(
+            slot.0.checked_add(u8::try_from(delta).ok()?)?,
+        ))),
+        // MirZpSlot identifies an allocated scalar home and has no structured
+        // byte offset. Directly allocated locals remain Local/Param/Spill here.
+        MirMem::ZeroPage(_) => (delta == 0).then(|| mem.clone()),
+    }
+}
+
+fn canonical_byte_index_expr(expr: &DelayedByteIndexExpr) -> Option<(MirValue, u8)> {
+    match expr {
+        DelayedByteIndexExpr::Value(root @ MirValue::PointerCell(_)) => Some((root.clone(), 0)),
+        DelayedByteIndexExpr::Binary {
+            op: MirBinaryOp::Add,
+            left,
+            right: MirValue::ConstU8(delta),
+            carry_in: None | Some(MirCarryIn::Clear),
+        } => {
+            let (root, prior_delta) = canonical_byte_index_expr(left)?;
+            Some((root, prior_delta.checked_add(*delta)?))
+        }
+        _ => None,
+    }
+}
+
+pub(super) fn adjacent_static_indexed_byte_copy_candidate(
+    ops: &[MirOp],
+    index: usize,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+) -> Option<AdjacentStaticIndexedByteCopyCandidate> {
+    let MirOp::Load {
+        dst: load_dst,
+        src,
+        width: MirWidth::Byte,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let MirOp::Store {
+        dst,
+        src: MirValue::Def(store_src),
+        width: MirWidth::Byte,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    if store_src != load_dst {
+        return None;
+    }
+
+    let source = canonical_static_byte_index(ops, index, src, delayed_byte_indexes)?;
+    let destination = canonical_static_byte_index(ops, index + 1, dst, delayed_byte_indexes)?;
+    if source.base != destination.base
+        || source.root != destination.root
+        || source.index_delta.abs_diff(destination.index_delta) != 1
+    {
+        return None;
+    }
+    let MirValue::PointerCell(index_mem) = &source.root else {
+        return None;
+    };
+    let max_delta = source.index_delta.max(destination.index_delta);
+    let mut replacement = Vec::new();
+    materialize_index_to_y(source.root.clone(), &mut replacement);
+    replacement.push(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::AbsoluteIndexedY {
+            base: source.indexed_base,
+        },
+        width: MirWidth::Byte,
+    });
+    replacement.push(MirOp::Store {
+        dst: MirAddr::AbsoluteIndexedY {
+            base: destination.indexed_base,
+        },
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    let mut producer_ops = source.producer_ops;
+    producer_ops.extend(destination.producer_ops);
+    Some(AdjacentStaticIndexedByteCopyCandidate {
+        consumed: 2,
+        replacement,
+        producer_ops,
+        required_upper_bound: ByteIndexUpperBound {
+            mem: index_mem.clone(),
+            max: u8::MAX - max_delta,
+        },
+    })
 }
 
 pub(super) fn materialize_delayed_byte_indexed_read(

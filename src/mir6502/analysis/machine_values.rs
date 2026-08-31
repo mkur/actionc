@@ -664,6 +664,7 @@ fn update_fixed_zero_page_values(
         | MirOp::Unary { .. }
         | MirOp::Binary { .. }
         | MirOp::Compare { .. }
+        | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
         | MirOp::PackedRealCompare { .. }

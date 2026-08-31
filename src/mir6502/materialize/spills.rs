@@ -797,6 +797,7 @@ pub(super) fn can_remove_spill_reload_at(
     match ops.get(index + 1) {
         Some(MirOp::Store { .. })
         | Some(MirOp::Compare { .. })
+        | Some(MirOp::CompareDirectIndexedBytes { .. })
         | Some(MirOp::CompareIndirectBytes { .. })
         | Some(MirOp::CompareIndirectWords { .. })
         | Some(MirOp::PackedRealCompare { .. })
@@ -943,6 +944,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
             ..
         }
         | MirOp::Compare { .. }
+        | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
         | MirOp::PackedRealCompare { .. }
@@ -2231,6 +2233,7 @@ fn op_direct_write_spills(op: &MirOp) -> BTreeSet<MirSpillId> {
     if matches!(
         op,
         MirOp::Compare { .. }
+            | MirOp::CompareDirectIndexedBytes { .. }
             | MirOp::CompareIndirectBytes { .. }
             | MirOp::CompareIndirectWords { .. }
             | MirOp::Call { .. }
@@ -2284,6 +2287,10 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
         MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
             remap_value_spills(left, remap);
             remap_value_spills(right, remap);
+        }
+        MirOp::CompareDirectIndexedBytes { left, right, .. } => {
+            remap_mem_spills(left, remap);
+            remap_mem_spills(right, remap);
         }
         MirOp::Call { target, args, .. } => {
             remap_call_target_spills(target, remap);
@@ -2416,6 +2423,10 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
         MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
             remap_value_spills_to_zero_page(left, remap);
             remap_value_spills_to_zero_page(right, remap);
+        }
+        MirOp::CompareDirectIndexedBytes { left, right, .. } => {
+            remap_mem_spills_to_zero_page(left, remap);
+            remap_mem_spills_to_zero_page(right, remap);
         }
         MirOp::Call { target, args, .. } => {
             remap_call_target_spills_to_zero_page(target, remap);
@@ -2551,6 +2562,10 @@ where
             visit_value_mems(left, visitor);
             visit_value_mems(right, visitor);
         }
+        MirOp::CompareDirectIndexedBytes { left, right, .. } => {
+            visitor(left);
+            visitor(right);
+        }
         MirOp::Call { target, args, .. } => {
             if let MirCallTarget::Indirect { target, .. } = target {
                 visit_value_mems(target, visitor);
@@ -2682,6 +2697,15 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
             }
             collect_value_spills(left, spills);
             collect_value_spills(right, spills);
+        }
+        MirOp::CompareDirectIndexedBytes {
+            dst, left, right, ..
+        } => {
+            if let MirCondDest::Temp(id) = dst {
+                collect_spill(MirSpillId(id.0.saturating_mul(2)), spills);
+            }
+            collect_mem_spills(left, spills);
+            collect_mem_spills(right, spills);
         }
         MirOp::Call { target, args, .. } => {
             collect_call_target_spills(target, spills);

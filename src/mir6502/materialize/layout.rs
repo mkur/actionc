@@ -84,7 +84,11 @@ impl MaterializeLayout {
         }
     }
 
-    pub(super) fn mem_address(&self, routine_id: RoutineId, mem: &MirMem) -> Option<u16> {
+    pub(in crate::mir6502) fn mem_address(
+        &self,
+        routine_id: RoutineId,
+        mem: &MirMem,
+    ) -> Option<u16> {
         match mem {
             MirMem::Absolute(address) => Some(*address),
             MirMem::Global { id, offset } => self.global_address(*id).map(|addr| addr + *offset),
@@ -201,7 +205,7 @@ impl MaterializeLayout {
     /// Reading compiler-owned storage or zero-page RAM out of source order has
     /// no externally observable effect. Higher absolute addresses remain
     /// excluded, including when reached through an absolute-backed global.
-    pub(super) fn mem_allows_pure_read_reordering(&self, mem: &MirMem) -> bool {
+    pub(in crate::mir6502) fn mem_allows_pure_read_reordering(&self, mem: &MirMem) -> bool {
         match mem {
             MirMem::Local { .. }
             | MirMem::Param { .. }

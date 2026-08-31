@@ -1,5 +1,8 @@
 use super::defs::split_def_as_temp;
-use super::indexes::indexed_addr_parts;
+use super::indexes::{
+    ByteIndexUpperBound, canonical_static_byte_index, collect_delayed_byte_index_plan,
+    indexed_addr_parts, materialize_index_to_y,
+};
 use super::layout::MaterializeLayout;
 use super::pointers::pointer_value_from_mem;
 #[cfg(test)]
@@ -1583,6 +1586,122 @@ pub(in crate::mir6502) struct DualIndirectCompareCandidate {
     pub stat: &'static str,
     pub estimated_byte_saving: u16,
     pub estimated_cycle_saving: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct DirectIndexedByteCompareCandidate {
+    pub start: usize,
+    pub consumed: usize,
+    pub replacement: Vec<MirOp>,
+    pub required_upper_bound: ByteIndexUpperBound,
+    pub estimated_byte_saving: u16,
+    pub estimated_cycle_saving: u16,
+}
+
+pub(in crate::mir6502) fn direct_indexed_byte_compare_candidate(
+    block: &MirBlock,
+) -> Option<DirectIndexedByteCompareCandidate> {
+    let compare_index = block.ops.len().checked_sub(1)?;
+    let MirOp::Compare {
+        dst: MirCondDest::Temp(compare_temp),
+        op,
+        left,
+        right,
+        width: MirWidth::Byte,
+        signed: false,
+    } = block.ops.get(compare_index)?
+    else {
+        return None;
+    };
+    let MirTerminator::Branch {
+        cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(branch_temp))),
+        ..
+    } = &block.terminator
+    else {
+        return None;
+    };
+    if compare_temp != branch_temp {
+        return None;
+    }
+
+    let (left_load, left_addr) = indexed_byte_load_for_compare(&block.ops, compare_index, left)?;
+    let (right_load, right_addr) = indexed_byte_load_for_compare(&block.ops, compare_index, right)?;
+    if left_load == right_load {
+        return None;
+    }
+    let delayed = collect_delayed_byte_index_plan(&block.ops);
+    let left = canonical_static_byte_index(&block.ops, left_load, left_addr, &delayed)?;
+    let right = canonical_static_byte_index(&block.ops, right_load, right_addr, &delayed)?;
+    if left.base != right.base
+        || left.root != right.root
+        || left.index_delta.abs_diff(right.index_delta) != 1
+    {
+        return None;
+    }
+    let MirValue::PointerCell(index_mem) = &left.root else {
+        return None;
+    };
+    let index_mem = index_mem.clone();
+
+    let (op, left, right) = match op {
+        MirCompareOp::Eq | MirCompareOp::Ne | MirCompareOp::Lt | MirCompareOp::Ge => {
+            (*op, left, right)
+        }
+        MirCompareOp::Gt => (MirCompareOp::Lt, right, left),
+        MirCompareOp::Le => (MirCompareOp::Ge, right, left),
+    };
+    let max_delta = left.index_delta.max(right.index_delta);
+    let mut producer_ops = left.producer_ops;
+    producer_ops.extend(right.producer_ops);
+    let mut selected_ops = producer_ops.clone();
+    selected_ops.extend([left_load, right_load, compare_index]);
+    let start = selected_ops.iter().copied().min()?;
+    if (start..=compare_index).any(|index| !selected_ops.contains(&index)) {
+        return None;
+    }
+
+    let mut replacement = Vec::new();
+    materialize_index_to_y(left.root, &mut replacement);
+    replacement.push(MirOp::CompareDirectIndexedBytes {
+        dst: MirCondDest::Temp(*compare_temp),
+        op,
+        left: left.indexed_base,
+        right: right.indexed_base,
+        signed: false,
+    });
+    Some(DirectIndexedByteCompareCandidate {
+        start,
+        consumed: compare_index + 1 - start,
+        replacement,
+        required_upper_bound: ByteIndexUpperBound {
+            mem: index_mem,
+            max: u8::MAX - max_delta,
+        },
+        estimated_byte_saving: 15,
+        estimated_cycle_saving: 17,
+    })
+}
+
+fn indexed_byte_load_for_compare<'a>(
+    ops: &'a [MirOp],
+    before: usize,
+    value: &MirValue,
+) -> Option<(usize, &'a MirAddr)> {
+    let MirValue::Def(MirDef::VTemp(temp) | MirDef::VTempByte { id: temp, byte: 0 }) = value else {
+        return None;
+    };
+    ops[..before]
+        .iter()
+        .enumerate()
+        .rev()
+        .find_map(|(index, op)| match op {
+            MirOp::Load {
+                dst: MirDef::VTemp(dst) | MirDef::VTempByte { id: dst, byte: 0 },
+                src: addr @ (MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. }),
+                width: MirWidth::Byte,
+            } if dst == temp => Some((index, addr)),
+            _ => None,
+        })
 }
 
 pub(in crate::mir6502) fn dual_indirect_compare_candidate(

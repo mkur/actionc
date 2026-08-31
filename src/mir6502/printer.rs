@@ -614,6 +614,20 @@ fn op_summary(op: &MirOp) -> String {
             address_consumer_summary(right),
             offset
         ),
+        MirOp::CompareDirectIndexedBytes {
+            dst,
+            op,
+            left,
+            right,
+            signed,
+        } => format!(
+            "{} = cmp_direct_indexed.b{} {}[y] {} {}[y]",
+            cond_dest_summary(dst),
+            if *signed { ".signed" } else { "" },
+            mem_summary(left),
+            compare_summary(*op),
+            mem_summary(right),
+        ),
         MirOp::CompareIndirectWords {
             dst,
             op,

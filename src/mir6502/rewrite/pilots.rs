@@ -1,10 +1,12 @@
 #![allow(dead_code)] // Families become live incrementally during Slice 6.
 
+use std::collections::BTreeSet;
+
 use crate::mir6502::analysis::effects::{MirTempAccess, classify_op, classify_terminator};
 use crate::mir6502::analysis::prehome::PreHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 use crate::mir6502::analysis::use_def::MirTempLane;
-use crate::mir6502::ir::{MirDef, MirOp, MirRoutine};
+use crate::mir6502::ir::{MirDef, MirOp, MirRoutine, MirValue};
 use crate::mir6502::rewrite::context::{MirProof, PreHomeRewriteContext};
 use crate::mir6502::rewrite::plan::{
     MirChangeSet, MirEffectDelta, MirRemovedDefinition, MirRewritePlan,
@@ -129,8 +131,66 @@ pub(in crate::mir6502) fn discover_dual_indirect_compares(
     routine: &MirRoutine,
     context: &PreHomeRewriteContext<'_, '_>,
 ) -> Vec<MirRewritePlan> {
+    discover_dual_indirect_compares_impl(routine, context, None)
+}
+
+pub(in crate::mir6502) fn discover_dual_indirect_compares_with_layout(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> Vec<MirRewritePlan> {
+    discover_dual_indirect_compares_impl(routine, context, Some(layout))
+}
+
+fn discover_dual_indirect_compares_impl(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    layout: Option<&crate::mir6502::materialize::MaterializeLayout>,
+) -> Vec<MirRewritePlan> {
     let mut plans = Vec::new();
     for block in &routine.blocks {
+        if let Some(candidate) =
+            crate::mir6502::materialize::direct_indexed_byte_compare_candidate(block)
+            && layout.is_some_and(|layout| {
+                layout.mem_allows_pure_read_reordering(&candidate.required_upper_bound.mem)
+            })
+            && byte_index_upper_bound_is_proven(
+                routine,
+                context,
+                block.id,
+                candidate.start,
+                &candidate.required_upper_bound,
+                layout.expect("direct candidate requires a materialization layout"),
+            )
+        {
+            let end = candidate.start + candidate.consumed;
+            if let Some(definitions) = prove_removed_window_definitions(
+                block.id,
+                &block.ops,
+                candidate.start,
+                end,
+                &candidate.replacement,
+                context,
+            ) {
+                plans.push(MirRewritePlan {
+                    generation: context.generation(),
+                    block: block.id,
+                    range: candidate.start..end,
+                    replacement: candidate.replacement,
+                    removed_defs: definitions
+                        .into_iter()
+                        .map(|definition| MirRemovedDefinition { definition })
+                        .collect(),
+                    exit_effect_delta: MirEffectDelta::MaterializedIndexConsumer,
+                    change_set: MirChangeSet::prehome_operation_change(),
+                    stat: "direct-indexed-byte-compare",
+                    observations: Vec::new(),
+                    family_priority: 35,
+                    estimated_byte_saving: candidate.estimated_byte_saving,
+                    estimated_cycle_saving: candidate.estimated_cycle_saving,
+                });
+            }
+        }
         for index in 0..block.ops.len() {
             let Some(candidate) =
                 crate::mir6502::materialize::dual_indirect_compare_candidate(block, index)
@@ -837,11 +897,27 @@ pub(in crate::mir6502) fn discover_index_rewrites(
         for (index, candidate) in crate::mir6502::materialize::analyzed_index_rewrite_candidates(
             routine.id, block, layout,
         ) {
+            if candidate
+                .required_upper_bound
+                .as_ref()
+                .is_some_and(|bound| {
+                    !byte_index_upper_bound_is_proven(
+                        routine,
+                        context,
+                        block.id,
+                        candidate.start,
+                        bound,
+                        layout,
+                    )
+                })
+            {
+                continue;
+            }
             let plan = match candidate.stat {
                 "delayed-byte-index-consumer" => {
                     delayed_byte_index_plan(block.id, &block.ops, index, candidate, context)
                 }
-                "indexed-byte-copy" => {
+                "indexed-byte-copy" | "adjacent-static-indexed-byte-copy" => {
                     indexed_byte_copy_plan(block.id, &block.ops, index, candidate, context)
                 }
                 "indexed-word-copy" => {
@@ -867,6 +943,357 @@ pub(in crate::mir6502) fn discover_index_rewrites(
         }
     }
     plans
+}
+
+fn byte_index_upper_bound_is_proven(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    target: crate::mir6502::ir::MirBlockId,
+    target_start: usize,
+    requirement: &crate::mir6502::materialize::ByteIndexUpperBound,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> bool {
+    if !layout.mem_allows_pure_read_reordering(&requirement.mem) {
+        return false;
+    }
+    if layout.mem_address(routine.id, &requirement.mem).is_none() {
+        return false;
+    }
+    routine.blocks.iter().any(|guard| {
+        context.block_dominates(guard.id, target)
+            && guard_proves_byte_index_upper_bound(
+                routine,
+                context,
+                guard,
+                target,
+                target_start,
+                requirement,
+                layout,
+            )
+    })
+}
+
+fn guard_proves_byte_index_upper_bound(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    guard: &crate::mir6502::ir::MirBlock,
+    target: crate::mir6502::ir::MirBlockId,
+    target_start: usize,
+    requirement: &crate::mir6502::materialize::ByteIndexUpperBound,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> bool {
+    let crate::mir6502::ir::MirTerminator::Branch {
+        cond,
+        then_edge,
+        else_edge,
+    } = &guard.terminator
+    else {
+        return false;
+    };
+    let then_path = then_edge.target == target || context.block_dominates(then_edge.target, target);
+    let else_path = else_edge.target == target || context.block_dominates(else_edge.target, target);
+    let selected_then = match (then_path, else_path) {
+        (true, false) => true,
+        (false, true) => false,
+        _ => return false,
+    };
+    let selected_successor = if selected_then {
+        then_edge.target
+    } else {
+        else_edge.target
+    };
+
+    let (compare_index, op, left, right, condition_is_true) = match cond {
+        crate::mir6502::ir::MirCond::BoolValue(MirValue::Def(
+            MirDef::VTemp(condition)
+            | MirDef::VTempByte {
+                id: condition,
+                byte: 0,
+            },
+        )) => {
+            let Some((index, op, left, right)) =
+                guard.ops.iter().enumerate().find_map(|(index, operation)| {
+                    let MirOp::Compare {
+                        dst: crate::mir6502::ir::MirCondDest::Temp(dst),
+                        op,
+                        left,
+                        right,
+                        width: crate::mir6502::ir::MirWidth::Byte,
+                        signed: false,
+                    } = operation
+                    else {
+                        return None;
+                    };
+                    (*dst == *condition).then_some((index, *op, left, right))
+                })
+            else {
+                return false;
+            };
+            (index, op, left, right, selected_then)
+        }
+        crate::mir6502::ir::MirCond::FusedCompare {
+            producer,
+            flag_test,
+        } if producer.block == guard.id => {
+            let Some(producer_op) = guard.ops.get(producer.op_index) else {
+                return false;
+            };
+            let MirOp::Compare {
+                op,
+                left,
+                right,
+                width: crate::mir6502::ir::MirWidth::Byte,
+                signed: false,
+                ..
+            } = producer_op
+            else {
+                return false;
+            };
+            let relation_when_flag_is_true =
+                byte_compare_flag_test(*op).is_some_and(|expected| expected == *flag_test);
+            if !relation_when_flag_is_true {
+                return false;
+            }
+            (producer.op_index, *op, left, right, selected_then)
+        }
+        crate::mir6502::ir::MirCond::FlagTest(flag_test) => {
+            let Some((index, op, left, right)) =
+                guard
+                    .ops
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .find_map(|(index, operation)| {
+                        let MirOp::Compare {
+                            dst: crate::mir6502::ir::MirCondDest::Flags,
+                            op,
+                            left,
+                            right,
+                            width: crate::mir6502::ir::MirWidth::Byte,
+                            signed: false,
+                        } = operation
+                        else {
+                            return None;
+                        };
+                        (byte_compare_flag_test(*op) == Some(flag_test.clone()))
+                            .then_some((index, *op, left, right))
+                    })
+            else {
+                return false;
+            };
+            (index, op, left, right, selected_then)
+        }
+        _ => return false,
+    };
+    // A plain flag-test branch refers to the machine flags at block exit. This
+    // also keeps all three accepted condition shapes on one conservative rule.
+    if compare_index + 1 != guard.ops.len() {
+        return false;
+    }
+
+    let (op, constant, load_index) =
+        if let Some((load_index, mem)) = byte_compare_loaded_mem(&guard.ops, compare_index, left) {
+            if mem != requirement.mem {
+                return false;
+            }
+            let Some(constant) = byte_compare_constant(right) else {
+                return false;
+            };
+            (op, constant, load_index)
+        } else if let Some((load_index, mem)) =
+            byte_compare_loaded_mem(&guard.ops, compare_index, right)
+        {
+            if mem != requirement.mem {
+                return false;
+            }
+            let Some(constant) = byte_compare_constant(left) else {
+                return false;
+            };
+            (reverse_compare_operands_for_bound(op), constant, load_index)
+        } else {
+            return false;
+        };
+    let Some(proven_max) = comparison_upper_bound(op, constant, condition_is_true) else {
+        return false;
+    };
+    if proven_max > requirement.max
+        || guard.ops[load_index + 1..]
+            .iter()
+            .any(|op| op_may_write_byte_index_mem(op, routine.id, &requirement.mem, layout))
+    {
+        return false;
+    }
+
+    byte_index_mem_is_stable_to_target(
+        routine,
+        context,
+        guard.id,
+        selected_successor,
+        target,
+        target_start,
+        &requirement.mem,
+        layout,
+    )
+}
+
+fn op_may_write_byte_index_mem(
+    op: &MirOp,
+    routine: crate::mir6502::ir::RoutineId,
+    mem: &crate::mir6502::ir::MirMem,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> bool {
+    if crate::mir6502::materialize::op_may_write_mem(op, mem) {
+        return true;
+    }
+    let Some(index_address) = layout.mem_address(routine, mem).map(u32::from) else {
+        return true;
+    };
+    classify_op(op).memory.direct_writes.iter().any(|write| {
+        let Some(start) = layout.mem_address(routine, &write.base).map(u32::from) else {
+            return true;
+        };
+        index_address >= start && index_address < start + u32::from(write.bytes)
+    })
+}
+
+fn byte_compare_flag_test(
+    op: crate::mir6502::ir::MirCompareOp,
+) -> Option<crate::mir6502::ir::MirFlagTest> {
+    use crate::mir6502::ir::{MirCompareOp, MirFlagTest};
+    match op {
+        MirCompareOp::Eq => Some(MirFlagTest::ZSet),
+        MirCompareOp::Ne => Some(MirFlagTest::ZClear),
+        MirCompareOp::Lt => Some(MirFlagTest::CClear),
+        MirCompareOp::Ge => Some(MirFlagTest::CSet),
+        MirCompareOp::Le | MirCompareOp::Gt => None,
+    }
+}
+
+fn byte_compare_loaded_mem(
+    ops: &[MirOp],
+    before: usize,
+    value: &crate::mir6502::ir::MirValue,
+) -> Option<(usize, crate::mir6502::ir::MirMem)> {
+    if let MirValue::PointerCell(mem) = value {
+        return Some((before, mem.clone()));
+    }
+    let temp = match value {
+        MirValue::Def(MirDef::VTemp(temp) | MirDef::VTempByte { id: temp, byte: 0 }) => *temp,
+        _ => return None,
+    };
+    for (index, op) in ops[..before].iter().enumerate().rev() {
+        match op {
+            MirOp::Load {
+                dst: MirDef::VTemp(dst) | MirDef::VTempByte { id: dst, byte: 0 },
+                src: crate::mir6502::ir::MirAddr::Direct(mem),
+                width: crate::mir6502::ir::MirWidth::Byte,
+            } if *dst == temp => return Some((index, mem.clone())),
+            _ if classify_op(op)
+                .logical
+                .temp_defs
+                .iter()
+                .any(|definition| definition.temp() == temp) =>
+            {
+                return None;
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn byte_compare_constant(value: &crate::mir6502::ir::MirValue) -> Option<u8> {
+    match value {
+        MirValue::ConstU8(value) => Some(*value),
+        MirValue::ConstU16(value) => u8::try_from(*value).ok(),
+        _ => None,
+    }
+}
+
+fn reverse_compare_operands_for_bound(
+    op: crate::mir6502::ir::MirCompareOp,
+) -> crate::mir6502::ir::MirCompareOp {
+    use crate::mir6502::ir::MirCompareOp;
+    match op {
+        MirCompareOp::Eq => MirCompareOp::Eq,
+        MirCompareOp::Ne => MirCompareOp::Ne,
+        MirCompareOp::Lt => MirCompareOp::Gt,
+        MirCompareOp::Le => MirCompareOp::Ge,
+        MirCompareOp::Gt => MirCompareOp::Lt,
+        MirCompareOp::Ge => MirCompareOp::Le,
+    }
+}
+
+fn comparison_upper_bound(
+    op: crate::mir6502::ir::MirCompareOp,
+    constant: u8,
+    condition_is_true: bool,
+) -> Option<u8> {
+    use crate::mir6502::ir::MirCompareOp;
+    match (op, condition_is_true) {
+        (MirCompareOp::Lt, true) | (MirCompareOp::Ge, false) => constant.checked_sub(1),
+        (MirCompareOp::Le, true) | (MirCompareOp::Gt, false) => Some(constant),
+        (MirCompareOp::Eq, true) | (MirCompareOp::Ne, false) => Some(constant),
+        _ => None,
+    }
+}
+
+fn byte_index_mem_is_stable_to_target(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    guard: crate::mir6502::ir::MirBlockId,
+    selected_successor: crate::mir6502::ir::MirBlockId,
+    target: crate::mir6502::ir::MirBlockId,
+    target_start: usize,
+    mem: &crate::mir6502::ir::MirMem,
+    layout: &crate::mir6502::materialize::MaterializeLayout,
+) -> bool {
+    let cfg = context.cfg();
+    let mut can_reach_target_without_guard = BTreeSet::from([target]);
+    let mut work = vec![target];
+    while let Some(block) = work.pop() {
+        for predecessor in cfg.predecessors(block) {
+            if *predecessor != guard && can_reach_target_without_guard.insert(*predecessor) {
+                work.push(*predecessor);
+            }
+        }
+    }
+    if !can_reach_target_without_guard.contains(&selected_successor) {
+        return false;
+    }
+
+    let mut visited = BTreeSet::new();
+    let mut work = vec![selected_successor];
+    while let Some(block_id) = work.pop() {
+        if block_id == guard
+            || !can_reach_target_without_guard.contains(&block_id)
+            || !visited.insert(block_id)
+        {
+            continue;
+        }
+        let Some(block_index) = cfg.block_index(block_id) else {
+            return false;
+        };
+        let block = &routine.blocks[block_index];
+        let ops = if block_id == target {
+            let Some(prefix) = block.ops.get(..target_start) else {
+                return false;
+            };
+            prefix
+        } else {
+            &block.ops
+        };
+        if ops
+            .iter()
+            .any(|op| op_may_write_byte_index_mem(op, routine.id, mem, layout))
+        {
+            return false;
+        }
+        if block_id != target {
+            work.extend(cfg.successors(block_id).iter().copied());
+        }
+    }
+    visited.contains(&target)
 }
 
 pub(in crate::mir6502) fn discover_indexed_to_indirect_word_copies(
@@ -2076,8 +2503,9 @@ mod tests {
     use super::*;
     use crate::mir6502::analysis::sites::MirRoutineGeneration;
     use crate::mir6502::ir::{
-        MirAddr, MirArgHome, MirBlock, MirCallAbi, MirCallArg, MirCallResult, MirCallTarget,
-        MirCompareOp, MirCond, MirCondDest, MirEdge, MirEdgeArg, MirEffects, MirFrame, MirMem,
+        MirAddr, MirArgHome, MirBinaryOp, MirBlock, MirCallAbi, MirCallArg, MirCallResult,
+        MirCallTarget, MirCarryIn, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirEdge,
+        MirEdgeArg, MirEffects, MirFlagTest, MirFrame, MirGlobal, MirGlobalBacking, MirMem,
         MirProgram, MirRegisterSet, MirResultHome, MirRoutineAbi, MirTemp, MirTempId,
         MirTerminator, MirValue, MirWidth, RoutineId,
     };
@@ -3846,6 +4274,390 @@ mod tests {
                 .unwrap_or_else(|error| panic!("{stat}: {error:?}"));
             assert_eq!(result.applied_by_stat.get(stat), Some(&1), "{stat}");
         }
+    }
+
+    fn adjacent_static_copy_ops(
+        array: crate::nir::SymbolId,
+        index: crate::nir::SymbolId,
+    ) -> Vec<MirOp> {
+        vec![
+            MirOp::LeaAddr {
+                dst: MirDef::VTemp(MirTempId(1)),
+                target: MirMem::Global {
+                    id: array,
+                    offset: 0,
+                },
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(2)),
+                src: MirAddr::Direct(MirMem::Global {
+                    id: index,
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::VTemp(MirTempId(3)),
+                left: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                right: MirValue::ConstU8(1),
+                width: MirWidth::Byte,
+                carry_in: Some(MirCarryIn::Clear),
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(4)),
+                src: MirAddr::Direct(MirMem::Global {
+                    id: index,
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(5)),
+                src: MirAddr::ComputedIndex {
+                    base: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    index: MirValue::Def(MirDef::VTemp(MirTempId(4))),
+                    elem_size: 1,
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::ComputedIndex {
+                    base: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    index: MirValue::Def(MirDef::VTemp(MirTempId(3))),
+                    elem_size: 1,
+                    offset: 0,
+                },
+                src: MirValue::Def(MirDef::VTemp(MirTempId(5))),
+                width: MirWidth::Byte,
+            },
+        ]
+    }
+
+    fn adjacent_static_compare_ops(
+        array: crate::nir::SymbolId,
+        index: crate::nir::SymbolId,
+    ) -> Vec<MirOp> {
+        vec![
+            MirOp::LeaAddr {
+                dst: MirDef::VTemp(MirTempId(1)),
+                target: MirMem::Global {
+                    id: array,
+                    offset: 0,
+                },
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(2)),
+                src: MirAddr::Direct(MirMem::Global {
+                    id: index,
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::VTemp(MirTempId(3)),
+                left: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                right: MirValue::ConstU8(1),
+                width: MirWidth::Byte,
+                carry_in: Some(MirCarryIn::Clear),
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(4)),
+                src: MirAddr::ComputedIndex {
+                    base: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    index: MirValue::Def(MirDef::VTemp(MirTempId(3))),
+                    elem_size: 1,
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+            MirOp::LeaAddr {
+                dst: MirDef::VTemp(MirTempId(5)),
+                target: MirMem::Global {
+                    id: array,
+                    offset: 0,
+                },
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(6)),
+                src: MirAddr::Direct(MirMem::Global {
+                    id: index,
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(7)),
+                src: MirAddr::ComputedIndex {
+                    base: MirValue::Def(MirDef::VTemp(MirTempId(5))),
+                    index: MirValue::Def(MirDef::VTemp(MirTempId(6))),
+                    elem_size: 1,
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+            MirOp::Compare {
+                dst: MirCondDest::Temp(MirTempId(8)),
+                op: MirCompareOp::Lt,
+                left: MirValue::Def(MirDef::VTemp(MirTempId(4))),
+                right: MirValue::Def(MirDef::VTemp(MirTempId(7))),
+                width: MirWidth::Byte,
+                signed: false,
+            },
+        ]
+    }
+
+    fn empty_layout_program() -> MirProgram {
+        MirProgram {
+            statics: Vec::new(),
+            globals: Vec::new(),
+            routines: Vec::new(),
+            machine_blocks: Vec::new(),
+            runtime_helpers: Vec::new(),
+        }
+    }
+
+    fn direct_index_layout_program(
+        array: crate::nir::SymbolId,
+        index: crate::nir::SymbolId,
+    ) -> MirProgram {
+        MirProgram {
+            globals: vec![
+                MirGlobal {
+                    id: array,
+                    name: "array".to_string(),
+                    kind: "array".to_string(),
+                    width: None,
+                    storage_size: 256,
+                    backing: MirGlobalBacking::Ordinary { offset: 0 },
+                    init: None,
+                },
+                MirGlobal {
+                    id: index,
+                    name: "index".to_string(),
+                    kind: "byte".to_string(),
+                    width: Some(MirWidth::Byte),
+                    storage_size: 1,
+                    backing: MirGlobalBacking::Ordinary { offset: 256 },
+                    init: None,
+                },
+            ],
+            ..empty_layout_program()
+        }
+    }
+
+    #[test]
+    fn adjacent_static_indexed_copy_uses_shared_y_when_guard_proves_no_wrap() {
+        let array = crate::nir::SymbolId(10);
+        let index = crate::nir::SymbolId(11);
+        let guard = block(
+            0,
+            vec![MirOp::Compare {
+                dst: MirCondDest::Flags,
+                op: MirCompareOp::Lt,
+                left: MirValue::PointerCell(MirMem::Global {
+                    id: index,
+                    offset: 0,
+                }),
+                right: MirValue::ConstU8(0xFE),
+                width: MirWidth::Byte,
+                signed: false,
+            }],
+            MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::CClear),
+                then_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(1)),
+                else_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(2)),
+            },
+        );
+        let mut candidate = routine(vec![
+            guard,
+            block(
+                1,
+                adjacent_static_copy_ops(array, index),
+                MirTerminator::Return,
+            ),
+            block(2, Vec::new(), MirTerminator::Return),
+        ]);
+        let program = direct_index_layout_program(array, index);
+        let layout = crate::mir6502::materialize::MaterializeLayout::new(&program, 0x3000);
+
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point_by_key(
+                &mut candidate,
+                |routine, context| discover_index_rewrites(routine, context, &layout),
+                index_rewrite_rank,
+            )
+            .expect("adjacent direct copy selection succeeds");
+
+        assert_eq!(
+            result.applied_by_stat["adjacent-static-indexed-byte-copy"],
+            1
+        );
+        assert!(matches!(
+            candidate.blocks[1].ops.as_slice(),
+            [
+                MirOp::Load {
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::Y),
+                    ..
+                },
+                MirOp::Load {
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::A),
+                    src: MirAddr::AbsoluteIndexedY {
+                        base: MirMem::Global { offset: 0, .. }
+                    },
+                    ..
+                },
+                MirOp::Store {
+                    dst: MirAddr::AbsoluteIndexedY {
+                        base: MirMem::Global { offset: 1, .. }
+                    },
+                    ..
+                }
+            ]
+        ));
+    }
+
+    #[test]
+    fn adjacent_static_indexed_copy_keeps_wrapping_fallback_without_bound() {
+        let array = crate::nir::SymbolId(10);
+        let index = crate::nir::SymbolId(11);
+        let mut candidate = routine(vec![block(
+            0,
+            adjacent_static_copy_ops(array, index),
+            MirTerminator::Return,
+        )]);
+        let program = direct_index_layout_program(array, index);
+        let layout = crate::mir6502::materialize::MaterializeLayout::new(&program, 0x3000);
+
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point_by_key(
+                &mut candidate,
+                |routine, context| discover_index_rewrites(routine, context, &layout),
+                index_rewrite_rank,
+            )
+            .expect("wrapping fallback selection succeeds");
+
+        assert_eq!(result.applied_by_stat["indexed-byte-copy"], 1);
+        assert!(
+            !result
+                .applied_by_stat
+                .contains_key("adjacent-static-indexed-byte-copy")
+        );
+        assert!(
+            candidate.blocks[0]
+                .ops
+                .iter()
+                .any(|op| matches!(op, MirOp::LoadIndirect { .. }))
+        );
+    }
+
+    #[test]
+    fn adjacent_static_indexed_compare_uses_one_y_when_guard_proves_no_wrap() {
+        let array = crate::nir::SymbolId(20);
+        let index = crate::nir::SymbolId(21);
+        let guard = block(
+            0,
+            vec![MirOp::Compare {
+                dst: MirCondDest::Flags,
+                op: MirCompareOp::Lt,
+                left: MirValue::PointerCell(MirMem::Global {
+                    id: index,
+                    offset: 0,
+                }),
+                right: MirValue::ConstU8(0xFF),
+                width: MirWidth::Byte,
+                signed: false,
+            }],
+            MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::CClear),
+                then_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(1)),
+                else_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(3)),
+            },
+        );
+        let mut candidate = routine(vec![
+            guard,
+            block(
+                1,
+                adjacent_static_compare_ops(array, index),
+                MirTerminator::Branch {
+                    cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(8)))),
+                    then_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(2)),
+                    else_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(3)),
+                },
+            ),
+            block(2, Vec::new(), MirTerminator::Return),
+            block(3, Vec::new(), MirTerminator::Return),
+        ]);
+        let program = direct_index_layout_program(array, index);
+        let layout = crate::mir6502::materialize::MaterializeLayout::new(&program, 0x3000);
+
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point(&mut candidate, |routine, context| {
+                discover_dual_indirect_compares_with_layout(routine, context, &layout)
+            })
+            .expect("adjacent direct compare selection succeeds");
+
+        assert_eq!(result.applied_by_stat["direct-indexed-byte-compare"], 1);
+        assert!(matches!(
+            candidate.blocks[1].ops.as_slice(),
+            [
+                MirOp::Load {
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::Y),
+                    ..
+                },
+                MirOp::CompareDirectIndexedBytes {
+                    left: MirMem::Global { offset: 1, .. },
+                    right: MirMem::Global { offset: 0, .. },
+                    ..
+                }
+            ]
+        ));
+    }
+
+    #[test]
+    fn adjacent_static_indexed_compare_is_not_direct_without_no_wrap_proof() {
+        let array = crate::nir::SymbolId(20);
+        let index = crate::nir::SymbolId(21);
+        let mut candidate = routine(vec![
+            block(
+                0,
+                adjacent_static_compare_ops(array, index),
+                MirTerminator::Branch {
+                    cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(8)))),
+                    then_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(1)),
+                    else_edge: MirEdge::plain(crate::mir6502::ir::MirBlockId(2)),
+                },
+            ),
+            block(1, Vec::new(), MirTerminator::Return),
+            block(2, Vec::new(), MirTerminator::Return),
+        ]);
+        let program = direct_index_layout_program(array, index);
+        let layout = crate::mir6502::materialize::MaterializeLayout::new(&program, 0x3000);
+
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point(&mut candidate, |routine, context| {
+                discover_dual_indirect_compares_with_layout(routine, context, &layout)
+            })
+            .expect("wrapping compare fallback selection succeeds");
+
+        assert!(
+            !result
+                .applied_by_stat
+                .contains_key("direct-indexed-byte-compare")
+        );
+        assert!(
+            !candidate.blocks[0]
+                .ops
+                .iter()
+                .any(|op| matches!(op, MirOp::CompareDirectIndexedBytes { .. }))
+        );
     }
 
     #[test]

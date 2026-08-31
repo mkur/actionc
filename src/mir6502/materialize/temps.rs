@@ -254,6 +254,7 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::Compare { .. }
+        | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
         | MirOp::PackedRealCompare { .. }
@@ -476,7 +477,9 @@ pub(in crate::mir6502) fn replace_op_temp_values(
             *left = replace_temp_value(left.clone(), temp, replacement);
             *right = replace_temp_value(right.clone(), temp, replacement);
         }
-        MirOp::CompareIndirectBytes { .. } | MirOp::CompareIndirectWords { .. } => {}
+        MirOp::CompareDirectIndexedBytes { .. }
+        | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. } => {}
         MirOp::OffsetPointerByIndirectByte { .. } => {}
         MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
@@ -926,6 +929,7 @@ fn invalidate_staged_address_for_op(
         | MirOp::Extend { dst, .. }
         | MirOp::Truncate { dst, .. } => matches!(dst, MirDef::Reg(_)),
         MirOp::Compare { .. }
+        | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
         | MirOp::LoadIndirect { .. }
@@ -1222,6 +1226,14 @@ pub(super) fn materialize_fused_compare_dest(
         *dst = MirCondDest::Flags;
     } else if let Some(op) = ops.get_mut(producer.op_index) {
         match op {
+            MirOp::CompareDirectIndexedBytes {
+                dst,
+                op,
+                signed: false,
+                ..
+            } if indirect_compare_flag_test(*op).is_some() => {
+                *dst = MirCondDest::Flags;
+            }
             MirOp::CompareIndirectBytes {
                 dst,
                 op,
@@ -1254,6 +1266,12 @@ fn compare_temp_flag_test(op: &MirOp, expected: MirTempId) -> Option<MirFlagTest
             ..
         } if *actual == expected => compare_branch_plan(*op, right).map(|(test, _)| test),
         MirOp::CompareIndirectBytes {
+            dst: MirCondDest::Temp(actual),
+            op,
+            signed: false,
+            ..
+        } if *actual == expected => indirect_compare_flag_test(*op),
+        MirOp::CompareDirectIndexedBytes {
             dst: MirCondDest::Temp(actual),
             op,
             signed: false,

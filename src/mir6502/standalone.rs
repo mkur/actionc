@@ -393,6 +393,10 @@ fn visit_op_storage(
             visit_value_storage(left, globals, statics);
             visit_value_storage(right, globals, statics);
         }
+        MirOp::CompareDirectIndexedBytes { left, right, .. } => {
+            record_mem_storage(left, globals, statics);
+            record_mem_storage(right, globals, statics);
+        }
         MirOp::Call {
             target,
             args,
@@ -622,6 +626,10 @@ fn rebase_op(
         MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
             rebase_value(left, routines, globals, statics)?;
             rebase_value(right, routines, globals, statics)?;
+        }
+        MirOp::CompareDirectIndexedBytes { left, right, .. } => {
+            rebase_mem(left, globals, statics)?;
+            rebase_mem(right, globals, statics)?;
         }
         MirOp::Call {
             target,
@@ -1578,6 +1586,7 @@ fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<RoutineId>) {
         | MirOp::MachineBlock { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
+        | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
         | MirOp::PackedRealCompare { .. }

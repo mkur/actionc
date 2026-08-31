@@ -337,9 +337,9 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::CopyIndirectBytesToFixedZp { .. } => MirOpKind::CopyIndirectBytesToFixedZp,
         MirOp::AbsoluteWordSubToIndirect { .. } => MirOpKind::AbsoluteWordSubToIndirect,
         MirOp::Compare { .. } => MirOpKind::Compare,
-        MirOp::CompareIndirectBytes { .. } | MirOp::CompareIndirectWords { .. } => {
-            MirOpKind::CompareIndirectBytes
-        }
+        MirOp::CompareDirectIndexedBytes { .. }
+        | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. } => MirOpKind::CompareIndirectBytes,
         MirOp::PackedRealCompare { .. } => MirOpKind::PackedRealCompare,
         MirOp::PackedRealCopy { .. } => MirOpKind::PackedRealCopy,
         MirOp::Call { .. } => MirOpKind::Call,
@@ -598,6 +598,37 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_indirect_y_access(*left, *offset, &mut summary);
             summary.memory.indirect_reads = true;
             summary.memory.has_unknown_effects = true;
+            set_register(&mut summary.machine.register_writes, MirReg::A);
+            match dst {
+                MirCondDest::Temp(temp) => {
+                    summary.logical.temp_defs.push(MirTempAccess::Exact {
+                        temp: *temp,
+                        byte: 0,
+                    });
+                    summary
+                        .projected_spill_writes
+                        .insert(projected_temp_spill(*temp, 0));
+                    summary.projected_spill_byte_writes.insert(MirSpillByte {
+                        id: projected_temp_spill(*temp, 0),
+                        offset: 0,
+                    });
+                }
+                MirCondDest::Flags => {
+                    summary.machine.definitely_overwrites_carry = true;
+                }
+            }
+            summary.machine.flag_writes.c = true;
+            write_zn(&mut summary.machine.flag_writes);
+            summary.machine.writes_any_flags_compat = true;
+            summary.removable_when_results_dead = matches!(dst, MirCondDest::Temp(_));
+        }
+        MirOp::CompareDirectIndexedBytes {
+            dst, left, right, ..
+        } => {
+            record_memory_read(left, &mut summary);
+            record_memory_read(right, &mut summary);
+            summary.memory.indirect_reads = true;
+            set_register(&mut summary.machine.register_reads, MirReg::Y);
             set_register(&mut summary.machine.register_writes, MirReg::A);
             match dst {
                 MirCondDest::Temp(temp) => {

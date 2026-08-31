@@ -1038,6 +1038,10 @@ fn store_materialization_address_keys(ops: &[MirOp]) -> (BTreeSet<String>, BTree
             MirOp::Load { src, .. } | MirOp::Store { dst: src, .. } => {
                 collect_addr_carrier_reads(src, &mut reads);
             }
+            MirOp::CompareDirectIndexedBytes { left, right, .. } => {
+                reads.insert(memory_byte_key(left, 0));
+                reads.insert(memory_byte_key(right, 0));
+            }
             MirOp::MaterializeAddress { consumer, value } => {
                 collect_value_pointer_reads(value, &mut reads);
                 collect_consumer_keys(*consumer, &mut writes);

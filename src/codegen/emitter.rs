@@ -585,6 +585,11 @@ impl Emitter {
         self.emit_absolute_operand(absolute);
     }
 
+    pub fn emit_cmp_absolute_y(&mut self, absolute: Absolute) {
+        self.emit_u8(opcode::CMP_ABS_Y);
+        self.emit_absolute_operand(absolute);
+    }
+
     pub fn emit_cmp_zp(&mut self, address: u8) {
         self.emit_u8(opcode::CMP_ZP);
         self.emit_u8(address);
@@ -2245,6 +2250,7 @@ pub mod opcode {
     pub const CMP_IMM: u8 = 0xC9;
     pub const CMP_ZP: u8 = 0xC5;
     pub const CMP_ABS: u8 = 0xCD;
+    pub const CMP_ABS_Y: u8 = 0xD9;
     pub const CMP_IZY: u8 = 0xD1;
     pub const SBC_IMM: u8 = 0xE9;
     pub const SBC_ZP: u8 = 0xE5;

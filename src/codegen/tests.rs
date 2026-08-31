@@ -4643,12 +4643,18 @@ fn emitter_outputs_indexed_addressing_helpers() {
     let mut emitter = Emitter::new();
     emitter.emit_lda_absolute_x(AbsoluteX::new(0x1234));
     emitter.emit_sta_absolute_x(AbsoluteX::new(0x1235));
+    emitter.emit_lda_absolute_y(Absolute::new(0x1236));
+    emitter.emit_sta_absolute_y(Absolute::new(0x1237));
+    emitter.emit_cmp_absolute_y(Absolute::new(0x1238));
     emitter.emit_lda_zero_page_x(ZeroPageX::new(0x80));
     emitter.emit_sta_zero_page_x(ZeroPageX::new(0x81));
 
     assert_eq!(
         emitter.finish().unwrap(),
-        vec![0xBD, 0x34, 0x12, 0x9D, 0x35, 0x12, 0xB5, 0x80, 0x95, 0x81,]
+        vec![
+            0xBD, 0x34, 0x12, 0x9D, 0x35, 0x12, 0xB9, 0x36, 0x12, 0x99, 0x37, 0x12, 0xD9, 0x38,
+            0x12, 0xB5, 0x80, 0x95, 0x81,
+        ]
     );
 }
 

@@ -770,7 +770,11 @@ impl MirObjectLayout {
                 ResolvedMem::OutputRelative(address) => {
                     Some(ResolvedIndexedMem::OutputRelativeY(address))
                 }
-                ResolvedMem::ZeroPage(_) => None,
+                // The 6502 has no zero-page,Y form. A direct object that happens
+                // to be placed in zero page is still addressable with absolute,Y.
+                ResolvedMem::ZeroPage(address) => {
+                    Some(ResolvedIndexedMem::AbsoluteY(u16::from(address)))
+                }
             },
             MirAddr::ZeroPageIndexedX { base } => Some(ResolvedIndexedMem::ZeroPageX(
                 self.zero_page_slot(routine, *base)?,
@@ -2735,6 +2739,33 @@ fn emit_op(
             signed,
         } => {
             emit_compare(ctx, routine, block, dst, *op, left, right, *signed, emitter);
+        }
+        MirOp::CompareDirectIndexedBytes {
+            dst: MirCondDest::Flags,
+            left,
+            right,
+            signed: false,
+            ..
+        } => {
+            let Some(left) = ctx.layout.direct_mem(routine, left) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "left direct indexed compare operand is not placed",
+                );
+                return;
+            };
+            let Some(right) = ctx.layout.direct_mem(routine, right) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "right direct indexed compare operand is not placed",
+                );
+                return;
+            };
+            emit_direct_indexed_byte_compare(left, right, emitter);
         }
         MirOp::CompareIndirectBytes {
             dst: MirCondDest::Flags,
@@ -4763,6 +4794,27 @@ fn emit_indirect_byte_compare(
     emitter.emit_ldy_imm(offset as u8);
     emitter.emit_lda_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(left_slot)));
     emitter.emit_cmp_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(right_slot)));
+}
+
+fn emit_direct_indexed_byte_compare(
+    left: ResolvedMem,
+    right: ResolvedMem,
+    emitter: &mut TrackedEmitter,
+) {
+    match left {
+        ResolvedMem::Absolute(address) => emitter.emit_lda_abs_y(Absolute::new(address)),
+        ResolvedMem::OutputRelative(address) => {
+            emitter.emit_lda_abs_y(Absolute::output_relative(address))
+        }
+        ResolvedMem::ZeroPage(address) => emitter.emit_lda_abs_y(Absolute::new(u16::from(address))),
+    }
+    match right {
+        ResolvedMem::Absolute(address) => emitter.emit_cmp_abs_y(Absolute::new(address)),
+        ResolvedMem::OutputRelative(address) => {
+            emitter.emit_cmp_abs_y(Absolute::output_relative(address))
+        }
+        ResolvedMem::ZeroPage(address) => emitter.emit_cmp_abs_y(Absolute::new(u16::from(address))),
+    }
 }
 
 fn emit_indirect_word_compare(

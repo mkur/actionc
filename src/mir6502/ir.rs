@@ -524,6 +524,18 @@ pub enum MirOp {
         offset: u16,
         signed: bool,
     },
+    /// Compare two directly addressable byte bases through the shared Y index.
+    ///
+    /// Selection must prove that any byte-index displacement folded into the
+    /// bases cannot wrap. Y is an implicit input and A is the compare
+    /// accumulator.
+    CompareDirectIndexedBytes {
+        dst: MirCondDest,
+        op: MirCompareOp,
+        left: MirMem,
+        right: MirMem,
+        signed: bool,
+    },
     CompareIndirectWords {
         dst: MirCondDest,
         op: MirCompareOp,

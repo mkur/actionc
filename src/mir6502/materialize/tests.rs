@@ -3077,6 +3077,114 @@ fn analyzed_dual_indirect_ordering_selection_swaps_strict_greater_operands() {
 }
 
 #[test]
+fn adjacent_static_indexed_byte_compare_candidate_canonicalizes_index_plus_one() {
+    let array = SymbolId(10);
+    let index = SymbolId(11);
+    let block = MirBlock {
+        id: MirBlockId(0),
+        label: "compare".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::LeaAddr {
+                dst: MirDef::VTemp(MirTempId(12)),
+                target: MirMem::Global {
+                    id: array,
+                    offset: 0,
+                },
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(13)),
+                src: MirAddr::Direct(MirMem::Global {
+                    id: index,
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::VTemp(MirTempId(14)),
+                left: MirValue::Def(MirDef::VTemp(MirTempId(13))),
+                right: MirValue::ConstU8(1),
+                width: MirWidth::Byte,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(15)),
+                src: MirAddr::ComputedIndex {
+                    base: MirValue::Def(MirDef::VTemp(MirTempId(12))),
+                    index: MirValue::Def(MirDef::VTemp(MirTempId(14))),
+                    elem_size: 1,
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+            MirOp::LeaAddr {
+                dst: MirDef::VTemp(MirTempId(16)),
+                target: MirMem::Global {
+                    id: array,
+                    offset: 0,
+                },
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(17)),
+                src: MirAddr::Direct(MirMem::Global {
+                    id: index,
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(18)),
+                src: MirAddr::ComputedIndex {
+                    base: MirValue::Def(MirDef::VTemp(MirTempId(16))),
+                    index: MirValue::Def(MirDef::VTemp(MirTempId(17))),
+                    elem_size: 1,
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+            MirOp::Compare {
+                dst: MirCondDest::Temp(MirTempId(19)),
+                op: MirCompareOp::Lt,
+                left: MirValue::Def(MirDef::VTemp(MirTempId(15))),
+                right: MirValue::Def(MirDef::VTemp(MirTempId(18))),
+                width: MirWidth::Byte,
+                signed: false,
+            },
+        ],
+        terminator: MirTerminator::Branch {
+            cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(19)))),
+            then_edge: MirEdge::plain(MirBlockId(1)),
+            else_edge: MirEdge::plain(MirBlockId(2)),
+        },
+    };
+
+    let candidate = direct_indexed_byte_compare_candidate(&block)
+        .expect("adjacent static indexed comparison is canonical");
+    assert_eq!(candidate.start, 0);
+    assert_eq!(candidate.consumed, 8);
+    assert_eq!(candidate.required_upper_bound.max, 254);
+    assert!(matches!(
+        candidate.replacement.as_slice(),
+        [
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirAddr::Direct(MirMem::Global { id, offset: 0 }),
+                width: MirWidth::Byte,
+            },
+            MirOp::CompareDirectIndexedBytes {
+                left: MirMem::Global { offset: 1, .. },
+                right: MirMem::Global { offset: 0, .. },
+                ..
+            }
+        ] if *id == index
+    ));
+}
+
+#[test]
 fn analyzed_dual_indirect_selection_rejects_absolute_pointer_sources() {
     let mut routine = dual_indirect_compare_routine(MirCompareOp::Eq, false);
     let MirOp::Load { src, .. } = &mut routine.blocks[0].ops[0] else {

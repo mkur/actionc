@@ -631,6 +631,37 @@ Rules:
 - Add a new pseudo-op only when it represents a stable target-level decision that
   NIR should not know about and emission should not rediscover.
 
+### Adjacent direct byte indexing
+
+MIR6502 may canonicalize `base[index + delta]` to
+`(base + delta)[index]` for byte arrays in directly allocated storage. The
+canonical form uses one Y index for adjacent accesses. A selected comparison is
+represented explicitly:
+
+```rust
+CompareDirectIndexedBytes {
+    dst: MirCondDest,
+    op: MirCompareOp,
+    left: MirMem,
+    right: MirMem,
+    signed: bool,
+}
+```
+
+The selector must require all of the following:
+
+- both operands have the same direct storage base and byte index root;
+- folded index additions are unsigned byte additions with known clear carry;
+- address displacement arithmetic is checked rather than wrapping;
+- a dominating unsigned guard proves `index <= 255 - max(delta)` and the index
+  storage is unchanged on every path from that guard to the selected access;
+- comparisons are unsigned, use a single flag test, and preserve operand order.
+
+Emission lowers a selected comparison to `LDA base1,Y` / `CMP base2,Y` and an
+adjacent same-array copy to ordinary `LDA base1,Y` / `STA base2,Y`. If the
+no-wrap proof is unavailable, materialization must retain the independent index
+computations so byte-index modulo behavior is unchanged.
+
 ### Destination-aware indirect word arithmetic
 
 `IndirectWordCompound` is a post-selection MIR6502 operation for an alias-safe

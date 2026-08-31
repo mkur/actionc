@@ -51,11 +51,14 @@ mod zp;
 use super::rewrite::driver::{
     MirPostHomeRewriteDriver, MirPreHomeRewriteDriver, MirRewriteRunResult,
 };
+#[cfg(test)]
+use super::rewrite::pilots::discover_dual_indirect_compares;
 use super::rewrite::pilots::{
     byte_binary_compare_consumer_rank, compare_narrowing_rank,
     discover_byte_binary_compare_consumers, discover_compare_narrowing, discover_compare_producers,
-    discover_dual_indirect_compares, discover_inclusive_compare_reversals, discover_index_rewrites,
-    discover_pointer_rewrites, discover_unused_lea_addrs, inclusive_compare_reversal_rank,
+    discover_dual_indirect_compares_with_layout, discover_inclusive_compare_reversals,
+    discover_index_rewrites, discover_pointer_rewrites, discover_unused_lea_addrs,
+    inclusive_compare_reversal_rank,
 };
 use abi::{
     coalesce_leaf_word_param_with_result_home, elide_write_only_param_homes,
@@ -101,7 +104,8 @@ use compare_branch::{
     word_arithmetic_compare_candidate,
 };
 pub(in crate::mir6502) use compare_branch::{
-    addressed_byte_compare_candidate, dual_indirect_compare_candidate,
+    addressed_byte_compare_candidate, direct_indexed_byte_compare_candidate,
+    dual_indirect_compare_candidate,
 };
 #[cfg(test)]
 use compare_branch::{
@@ -118,6 +122,7 @@ use home_census::{
     HomeFateTracker, apply_register_home_plan, record_final_home_allocations,
     record_home_demand_census,
 };
+pub(in crate::mir6502) use indexes::ByteIndexUpperBound;
 #[cfg(test)]
 use indexes::{
     DelayedByteIndexExpr, materialize_computed_index_read, materialize_computed_index_write,
@@ -138,9 +143,10 @@ use indexes::{
 pub(super) use layout::MaterializeLayout;
 use lea::{lower_address_to_def, lower_lea_addrs_with_final_layout};
 use machine_value_census::fold_redundant_xy_reloads;
+pub(in crate::mir6502) use memory::op_may_write_mem;
 #[cfg(test)]
 use memory::{mem_is_read_after, op_definitely_writes_mem};
-use memory::{op_may_have_unknown_memory_effects, op_may_write_mem, op_reads_mem};
+use memory::{op_may_have_unknown_memory_effects, op_reads_mem};
 #[cfg(test)]
 use peepholes::{
     dead_private_scratch_store_at, fixed_pointer_consumer, fold_dead_private_scratch_stores,
@@ -401,6 +407,7 @@ pub(in crate::mir6502) struct IndexRewriteCandidate {
     pub stat: &'static str,
     pub observations: Vec<(&'static str, usize)>,
     pub family_priority: u16,
+    pub required_upper_bound: Option<indexes::ByteIndexUpperBound>,
 }
 
 pub(in crate::mir6502) fn analyzed_direct_pointer_temp_rematerialization_candidate(
@@ -489,15 +496,33 @@ pub(in crate::mir6502) fn analyzed_index_rewrite_candidates(
     let ops = &block.ops;
     let delayed_byte_indexes = collect_delayed_byte_index_plan(ops);
     (0..ops.len())
-        .filter_map(|index| {
-            analyzed_index_rewrite_candidate_at(
+        .flat_map(|index| {
+            let primary = analyzed_index_rewrite_candidate_at(
                 routine_id,
                 ops,
                 index,
                 layout,
                 &delayed_byte_indexes,
-            )
-            .map(|candidate| (candidate.start, candidate))
+                true,
+            );
+            let fallback = primary
+                .as_ref()
+                .is_some_and(|candidate| candidate.stat == "adjacent-static-indexed-byte-copy")
+                .then(|| {
+                    analyzed_index_rewrite_candidate_at(
+                        routine_id,
+                        ops,
+                        index,
+                        layout,
+                        &delayed_byte_indexes,
+                        false,
+                    )
+                })
+                .flatten();
+            [primary, fallback]
+                .into_iter()
+                .flatten()
+                .map(|candidate| (candidate.start, candidate))
         })
         .collect()
 }
@@ -522,6 +547,7 @@ pub(in crate::mir6502) fn analyzed_indexed_to_indirect_word_copy_candidates(
                 stat: "indexed-to-indirect-word-copy",
                 observations: Vec::new(),
                 family_priority: 111,
+                required_upper_bound: None,
             };
             let candidate = expand_index_rewrite_window_with_producers(
                 ops,
@@ -554,6 +580,7 @@ pub(in crate::mir6502) fn analyzed_indirect_to_indexed_word_copy_candidates(
                 stat: "indirect-to-indexed-word-copy",
                 observations: Vec::new(),
                 family_priority: 112,
+                required_upper_bound: None,
             };
             let candidate = expand_index_rewrite_window_with_producers(
                 ops,
@@ -586,6 +613,7 @@ pub(in crate::mir6502) fn analyzed_private_indirect_word_copy_candidates(
                 stat: "private-indirect-word-copy",
                 observations: Vec::new(),
                 family_priority: 113,
+                required_upper_bound: None,
             };
             let candidate = expand_index_rewrite_window_with_producers(
                 ops,
@@ -604,6 +632,7 @@ fn analyzed_index_rewrite_candidate_at(
     index: usize,
     layout: &MaterializeLayout,
     delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
+    allow_adjacent_direct_copy: bool,
 ) -> Option<IndexRewriteCandidate> {
     let selected =
         |consumed: usize, replacement: Vec<MirOp>, stat: &'static str, family_priority: u16| {
@@ -614,8 +643,36 @@ fn analyzed_index_rewrite_candidate_at(
                 stat,
                 observations: Vec::new(),
                 family_priority,
+                required_upper_bound: None,
             })
         };
+
+    if allow_adjacent_direct_copy
+        && let Some(direct) =
+            indexes::adjacent_static_indexed_byte_copy_candidate(ops, index, delayed_byte_indexes)
+    {
+        let producer_count = direct.producer_ops.len();
+        let mut candidate = expand_index_rewrite_window_with_producers(
+            ops,
+            index,
+            IndexRewriteCandidate {
+                start: index,
+                consumed: direct.consumed,
+                replacement: direct.replacement,
+                stat: "adjacent-static-indexed-byte-copy",
+                observations: Vec::new(),
+                family_priority: 90,
+                required_upper_bound: Some(direct.required_upper_bound),
+            },
+            direct.producer_ops,
+        );
+        if producer_count != 0 {
+            candidate
+                .observations
+                .push(("delayed-byte-index-producer", producer_count));
+        }
+        return Some(candidate);
+    }
 
     let mut replacement = Vec::new();
     let consumed =
@@ -631,6 +688,7 @@ fn analyzed_index_rewrite_candidate_at(
                 stat: "indexed-byte-copy",
                 observations: Vec::new(),
                 family_priority: 100,
+                required_upper_bound: None,
             },
             delayed_byte_indexes,
         ));
@@ -724,6 +782,7 @@ fn delayed_byte_index_rewrite_candidate_at(
                 stat: "delayed-byte-index-consumer",
                 observations: Vec::new(),
                 family_priority: 150,
+                required_upper_bound: None,
             },
             delayed_byte_indexes,
         )
@@ -2054,7 +2113,7 @@ fn run_prehome_canonicalization_group(
     run_analyzed_inclusive_compare_reversals(routine, layout, peephole_stats)?;
     run_analyzed_compare_narrowing(routine, peephole_stats)?;
     run_analyzed_byte_binary_compare_consumers(routine, peephole_stats)?;
-    run_analyzed_dual_indirect_compares(routine, peephole_stats)?;
+    run_analyzed_dual_indirect_compares(routine, layout, peephole_stats)?;
     let signed_word_zero_sites = super::rewrite::pilots::proven_signed_word_zero_compare_branches(
         routine,
     )
@@ -2889,11 +2948,14 @@ fn run_analyzed_compare_narrowing(
 
 fn run_analyzed_dual_indirect_compares(
     routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let mut driver = MirPreHomeRewriteDriver::default();
     let result = driver
-        .run_fixed_point(routine, discover_dual_indirect_compares)
+        .run_fixed_point(routine, |routine, context| {
+            discover_dual_indirect_compares_with_layout(routine, context, layout)
+        })
         .map_err(|error| {
             vec![MirDiagnostic::routine(
                 &routine.name,
