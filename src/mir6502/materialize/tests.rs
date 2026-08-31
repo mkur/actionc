@@ -9168,7 +9168,7 @@ fn indirect_to_indexed_word_copy_rematerializes_both_pointer_sides() {
 }
 
 #[test]
-fn byte_read_with_word_index_materializes_full_address() {
+fn static_byte_read_with_word_index_uses_paged_y_address() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
     let mut out = Vec::new();
@@ -9188,12 +9188,13 @@ fn byte_read_with_word_index_materializes_full_address() {
         out.as_slice(),
         [
             MirOp::MaterializeIndexedAddress {
+                consumer: DEFAULT_PAGED_Y_POINTER_PAIR,
                 index: MirValue::Def(MirDef::VTemp(MirTempId(0))),
                 scale: 1,
                 ..
             },
             MirOp::LoadIndirect {
-                consumer: DEFAULT_POINTER_PAIR,
+                consumer: DEFAULT_PAGED_Y_POINTER_PAIR,
                 dst: MirDef::Reg(MirReg::A),
                 offset: 0,
             }
@@ -9209,7 +9210,7 @@ fn byte_read_with_word_index_materializes_full_address() {
 }
 
 #[test]
-fn byte_write_with_word_index_materializes_full_address() {
+fn static_byte_write_with_word_index_uses_paged_y_address() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
     let mut out = Vec::new();
@@ -9229,6 +9230,7 @@ fn byte_write_with_word_index_materializes_full_address() {
         out.as_slice(),
         [
             MirOp::MaterializeIndexedAddress {
+                consumer: DEFAULT_PAGED_Y_POINTER_PAIR,
                 index: MirValue::Def(MirDef::VTemp(MirTempId(0))),
                 scale: 1,
                 ..
@@ -9239,7 +9241,7 @@ fn byte_write_with_word_index_materializes_full_address() {
                 width: MirWidth::Byte,
             },
             MirOp::StoreIndirect {
-                consumer: DEFAULT_POINTER_PAIR,
+                consumer: DEFAULT_PAGED_Y_POINTER_PAIR,
                 src: MirValue::Def(MirDef::Reg(MirReg::A)),
                 offset: 0,
             }
@@ -20050,6 +20052,57 @@ fn unique_word_load_forwards_as_whole_indexed_address() {
 }
 
 #[test]
+fn adjacent_absolute_word_load_forwards_into_static_byte_index() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let index_temp = MirTempId(0);
+    let result_temp = MirTempId(1);
+    let source = MirMem::Absolute(0x00E2);
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(index_temp),
+                src: MirAddr::Direct(source.clone()),
+                width: MirWidth::Word,
+            },
+            MirOp::Load {
+                dst: MirDef::VTemp(result_temp),
+                src: MirAddr::ComputedIndex {
+                    base: MirValue::ConstU16(0x6081),
+                    index: MirValue::Def(MirDef::VTemp(index_temp)),
+                    elem_size: 1,
+                    offset: 0,
+                },
+                width: MirWidth::Byte,
+            },
+        ],
+        terminator: MirTerminator::Return,
+    }]);
+    routine.temps = vec![MirTemp { id: index_temp }, MirTemp { id: result_temp }];
+
+    let count = forward_unique_word_load_address_consumers(&mut routine, &layout);
+
+    assert_eq!(count, 1);
+    assert!(matches!(
+        &routine.blocks[0].ops[0],
+        MirOp::Load {
+            src:
+                MirAddr::ComputedIndex {
+                    base: MirValue::ConstU16(0x6081),
+                    index,
+                    elem_size: 1,
+                    offset: 0,
+                },
+            width: MirWidth::Byte,
+            ..
+        } if *index == pointer_value_from_mem(&source)
+    ));
+}
+
+#[test]
 fn unique_word_load_address_forward_stops_at_intervening_store() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
@@ -21796,6 +21849,11 @@ fn call_arg_expr_places_indexed_bytes_directly_in_fixed_action_homes() {
                     dst: MirDef::Reg(MirReg::A),
                     offset,
                 } if *consumer == DEFAULT_POINTER_PAIR => Some(*offset),
+                MirOp::LoadIndirect {
+                    consumer,
+                    dst: MirDef::Reg(MirReg::A),
+                    offset: 0,
+                } if *consumer == DEFAULT_PAGED_Y_POINTER_PAIR => Some(0),
                 _ => None,
             })
             .collect::<Vec<_>>();

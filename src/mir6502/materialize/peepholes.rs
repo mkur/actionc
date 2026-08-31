@@ -597,7 +597,7 @@ fn indirect_call_field_staging_at(
         else {
             return None;
         };
-        if consumer.uses_scaled_y()
+        if consumer.preserves_index_in_y()
             || !matches!(consumer.pointer_pair(), MirPointerPair::Fixed { .. })
         {
             return None;
@@ -773,7 +773,7 @@ fn direct_word_to_indirect_copy_at(
         MirPointerPair::Virtual(_) => return None,
     };
     if destination != high_destination
-        || destination.uses_scaled_y()
+        || destination.preserves_index_in_y()
         || destination_offset > u16::from(u8::MAX - 1)
         || high_offset != destination_offset + 1
     {

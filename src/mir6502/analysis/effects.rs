@@ -756,7 +756,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_value_as(base, MirTempUseKind::Address, &mut summary);
             record_value_as(index, MirTempUseKind::Address, &mut summary);
             summary.machine.conservative_register_clobbers.a = true;
-            if consumer.uses_scaled_y() {
+            if consumer.preserves_index_in_y() {
                 set_register(&mut summary.machine.register_writes, MirReg::Y);
                 summary.machine.conservative_register_clobbers.y = true;
             }
@@ -1363,7 +1363,7 @@ fn record_indirect_y_access(
     offset: u16,
     summary: &mut MirOpEffectSummary,
 ) {
-    if !consumer.uses_scaled_y() {
+    if !consumer.preserves_index_in_y() {
         set_register(&mut summary.machine.register_writes, MirReg::Y);
         write_zn(&mut summary.machine.flag_writes);
         summary.machine.writes_any_flags_compat = true;

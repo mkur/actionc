@@ -450,6 +450,27 @@ Rules:
   Scale 1/2 retain their compact paths; larger aggregate strides stage the
   index and add it to the address the required number of times.
 
+### Index-preserving indirect-Y consumers
+
+MIR6502 owns two target-specific address consumers that retain an index in Y
+between address materialization and the indirect access:
+
+- `PagedIndirectIndexedY` is valid only for a scale-one word-sized index (the
+  CARD-indexed case) into a statically addressable byte array. The pointer pair
+  contains the effective address page, with a zero low byte, and Y contains the
+  effective address low byte. Materialization must propagate any carry from an
+  unaligned static base into the pointer high byte. Only access offset zero is
+  valid because changing Y could wrap without carrying into the pointer page.
+- `ScaledIndirectIndexedY` is valid only for a scale-two index. The pointer pair
+  contains the base with the scale carry folded into its high byte, while Y
+  contains the scaled low-byte index. It supports only byte offsets zero and
+  one under the verifier's ordered-access protocol.
+
+Both forms are MIR6502 addressing decisions. NIR continues to describe the
+typed base, index, element size, and byte offset without encoding A/X/Y or a
+6502 pointer-pair strategy. Pointer-backed and otherwise dynamic bases do not
+qualify for the paged form and retain ordinary full-address materialization.
+
 ## Carry And Borrow Model
 
 Post-materialization byte-lane arithmetic must make carry behavior explicit.

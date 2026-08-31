@@ -2106,12 +2106,12 @@ fn emit_op(
                 );
                 return;
             };
-            if source.uses_scaled_y() {
+            if source.preserves_index_in_y() {
                 unsupported(
                     ctx,
                     routine,
                     block,
-                    "pointer indirect-byte offset cannot use scaled Y",
+                    "pointer indirect-byte offset cannot preserve an index in Y",
                 );
                 return;
             }
@@ -2142,7 +2142,8 @@ fn emit_op(
                 );
                 return;
             };
-            if destination.uses_scaled_y()
+            if source.uses_paged_y()
+                || destination.preserves_index_in_y()
                 || !emit_copy_indirect_word(
                     ctx,
                     *source,
@@ -2185,12 +2186,12 @@ fn emit_op(
                 );
                 return;
             };
-            if destination.uses_scaled_y() {
+            if destination.preserves_index_in_y() {
                 unsupported(
                     ctx,
                     routine,
                     block,
-                    "direct-to-indirect word-copy cannot use scaled Y",
+                    "direct-to-indirect word-copy cannot preserve an index in Y",
                 );
                 return;
             }
@@ -2215,12 +2216,12 @@ fn emit_op(
                 );
                 return;
             };
-            if source.uses_scaled_y() {
+            if source.preserves_index_in_y() {
                 unsupported(
                     ctx,
                     routine,
                     block,
-                    "indirect-to-fixed-ZP byte-copy cannot use scaled Y",
+                    "indirect-to-fixed-ZP byte-copy cannot preserve an index in Y",
                 );
                 return;
             }
@@ -2265,12 +2266,12 @@ fn emit_op(
                 );
                 return;
             };
-            if destination.uses_scaled_y() {
+            if destination.preserves_index_in_y() {
                 unsupported(
                     ctx,
                     routine,
                     block,
-                    "absolute word subtraction cannot use scaled Y",
+                    "absolute word subtraction cannot preserve an index in Y",
                 );
                 return;
             }
@@ -2283,12 +2284,12 @@ fn emit_op(
             );
         }
         MirOp::MaterializeAddress { consumer, value } => {
-            if consumer.uses_scaled_y() {
+            if consumer.preserves_index_in_y() {
                 unsupported(
                     ctx,
                     routine,
                     block,
-                    "plain address materialization cannot use scaled Y",
+                    "plain address materialization cannot preserve an index in Y",
                 );
                 return;
             }
@@ -2367,6 +2368,28 @@ fn emit_op(
                 );
                 return;
             }
+            if consumer.uses_paged_y() {
+                if *scale != 1
+                    || !emit_paged_y_index_plus_base_to_pointer(
+                        ctx,
+                        routine,
+                        block,
+                        index,
+                        &base_lo,
+                        &base_hi,
+                        pointer_slot,
+                        emitter,
+                    )
+                {
+                    unsupported(
+                        ctx,
+                        routine,
+                        block,
+                        "paged-Y byte address is not emit-ready",
+                    );
+                }
+                return;
+            }
             if consumer.uses_scaled_y() {
                 if *scale != 2
                     || !emit_scaled_y_index_plus_base_to_pointer(
@@ -2443,8 +2466,13 @@ fn emit_op(
             index,
             scale,
         } => {
-            if consumer.uses_scaled_y() {
-                unsupported(ctx, routine, block, "address advance cannot use scaled Y");
+            if consumer.preserves_index_in_y() {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "address advance cannot preserve an index in Y",
+                );
                 return;
             }
             let Some(pointer_slot) = resolve_pointer_consumer_slot(ctx, routine, consumer) else {
@@ -2501,7 +2529,12 @@ fn emit_op(
                 return;
             };
             if !emit_lda_indirect(ctx, *consumer, pointer_slot, *offset, emitter) {
-                unsupported(ctx, routine, block, "scaled-Y load lost its index state");
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect load lost its retained Y-index state",
+                );
             }
         }
         MirOp::LoadIndirect {
@@ -2535,7 +2568,12 @@ fn emit_op(
                 return;
             }
             if !emit_sta_indirect(ctx, *consumer, pointer_slot, *offset, emitter) {
-                unsupported(ctx, routine, block, "scaled-Y store lost its index state");
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect store lost its retained Y-index state",
+                );
             }
         }
         MirOp::IndirectByteCompound {
@@ -2544,8 +2582,13 @@ fn emit_op(
             source,
             offset,
         } => {
-            if target.uses_scaled_y() || source.uses_scaled_y() {
-                unsupported(ctx, routine, block, "indirect compound cannot use scaled Y");
+            if target.preserves_index_in_y() || source.preserves_index_in_y() {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "indirect compound cannot preserve an index in Y",
+                );
                 return;
             }
             let Some(target_slot) = resolve_pointer_consumer_slot(ctx, routine, target) else {
@@ -2574,12 +2617,12 @@ fn emit_op(
             source,
             offset,
         } => {
-            if target.uses_scaled_y() || source.uses_scaled_y() {
+            if target.preserves_index_in_y() || source.preserves_index_in_y() {
                 unsupported(
                     ctx,
                     routine,
                     block,
-                    "indirect word compound cannot use scaled Y",
+                    "indirect word compound cannot preserve an index in Y",
                 );
                 return;
             }
@@ -2775,12 +2818,12 @@ fn emit_op(
             signed: false,
             ..
         } => {
-            if left.uses_scaled_y() || right.uses_scaled_y() {
+            if left.preserves_index_in_y() || right.preserves_index_in_y() {
                 unsupported(
                     ctx,
                     routine,
                     block,
-                    "indirect byte compare cannot use scaled Y",
+                    "indirect byte compare cannot preserve an index in Y",
                 );
                 return;
             }
@@ -2812,12 +2855,12 @@ fn emit_op(
             signed: false,
             ..
         } => {
-            if left.uses_scaled_y() || right.uses_scaled_y() {
+            if left.preserves_index_in_y() || right.preserves_index_in_y() {
                 unsupported(
                     ctx,
                     routine,
                     block,
-                    "indirect word compare cannot use scaled Y",
+                    "indirect word compare cannot preserve an index in Y",
                 );
                 return;
             }
@@ -4032,6 +4075,57 @@ fn emit_scaled_index_plus_base_to_pointer(
     true
 }
 
+fn emit_paged_y_index_plus_base_to_pointer(
+    ctx: &mut MirEmitContext<'_>,
+    routine: RoutineId,
+    block: MirBlockId,
+    index: &MirValue,
+    base_lo: &MirValue,
+    base_hi: &MirValue,
+    pointer_slot: u8,
+    emitter: &mut TrackedEmitter,
+) -> bool {
+    let Some((index_lo, index_hi)) = split_index_value_as_word(ctx, index) else {
+        return false;
+    };
+
+    if matches!(base_lo, MirValue::ConstU8(0) | MirValue::ConstU16(0)) {
+        if !can_emit_value_to_y(ctx, routine, &index_lo)
+            || !can_emit_value_to_a(ctx, routine, base_hi)
+            || !can_emit_adc_value_to_a(ctx, routine, &index_hi)
+        {
+            return false;
+        }
+        emit_value_to_y(ctx, routine, block, &index_lo, emitter);
+        emit_value_to_a(ctx, routine, block, base_hi, emitter);
+        emitter.emit_clc();
+        emit_adc_value_to_a(ctx, routine, block, &index_hi, emitter);
+    } else {
+        if !can_emit_value_to_a(ctx, routine, base_lo)
+            || !can_emit_adc_value_to_a(ctx, routine, &index_lo)
+            || !can_emit_value_to_a(ctx, routine, base_hi)
+            || !can_emit_adc_value_to_a(ctx, routine, &index_hi)
+        {
+            return false;
+        }
+        emit_value_to_a(ctx, routine, block, base_lo, emitter);
+        emitter.emit_clc();
+        emit_adc_value_to_a(ctx, routine, block, &index_lo, emitter);
+        emitter.emit_tay();
+        emit_value_to_a(ctx, routine, block, base_hi, emitter);
+        emit_adc_value_to_a(ctx, routine, block, &index_hi, emitter);
+    }
+
+    emit_sta_mem(
+        ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
+        emitter,
+    );
+    emitter.emit_lda_imm(0);
+    emit_sta_mem(ResolvedMem::ZeroPage(pointer_slot), emitter);
+    ctx.scaled_y_offset = Some(0);
+    true
+}
+
 fn emit_scaled_y_index_plus_base_to_pointer(
     ctx: &mut MirEmitContext<'_>,
     routine: RoutineId,
@@ -4075,6 +4169,82 @@ fn can_emit_scaled_y_base_byte(
 ) -> bool {
     !matches!(value, MirValue::Def(MirDef::Reg(MirReg::A | MirReg::Y)))
         && can_emit_value_to_a(ctx, routine, value)
+}
+
+fn emit_value_to_y(
+    ctx: &mut MirEmitContext<'_>,
+    routine: RoutineId,
+    block: MirBlockId,
+    value: &MirValue,
+    emitter: &mut TrackedEmitter,
+) -> bool {
+    match value {
+        MirValue::ConstU8(value) => {
+            emitter.emit_ldy_imm(*value);
+            true
+        }
+        MirValue::ConstU16(value) if *value <= 0x00FF => {
+            emitter.emit_ldy_imm(*value as u8);
+            true
+        }
+        MirValue::RoutineAddrByte { id, byte } if *byte <= 1 => {
+            let label = ctx.layout.routine_label(*id);
+            emitter.emit_u8(opcode::LDY_IMM);
+            if *byte == 0 {
+                emitter.emit_u8_label_low(label, SYNTHETIC_SPAN);
+            } else {
+                emitter.emit_u8_label_high(label, SYNTHETIC_SPAN);
+            }
+            true
+        }
+        MirValue::StorageAddrByte { mem, byte } if *byte <= 1 => {
+            let Some(address) = ctx
+                .layout
+                .direct_mem(routine, mem)
+                .map(resolved_mem_absolute)
+            else {
+                unsupported(ctx, routine, block, "storage address value is not placed");
+                return false;
+            };
+            emitter.emit_ldy_immediate(Immediate::from_absolute(address), u16::from(*byte));
+            true
+        }
+        MirValue::Def(MirDef::Reg(MirReg::A)) => {
+            emitter.emit_tay();
+            true
+        }
+        MirValue::Def(MirDef::Reg(MirReg::X)) => {
+            emitter.emit_txa();
+            emitter.emit_tay();
+            true
+        }
+        MirValue::Def(MirDef::Reg(MirReg::Y)) => true,
+        MirValue::PointerCell(mem) => match ctx.layout.direct_mem(routine, mem) {
+            Some(mem) => {
+                emit_ldy_mem(mem, emitter);
+                true
+            }
+            None => {
+                unsupported(ctx, routine, block, "value memory source is not placed");
+                false
+            }
+        },
+        _ => false,
+    }
+}
+
+fn can_emit_value_to_y(ctx: &MirEmitContext<'_>, routine: RoutineId, value: &MirValue) -> bool {
+    match value {
+        MirValue::ConstU8(_) | MirValue::ConstU16(0..=0x00FF) | MirValue::Def(MirDef::Reg(_)) => {
+            true
+        }
+        MirValue::RoutineAddrByte { byte, .. } => *byte <= 1,
+        MirValue::StorageAddrByte { mem, byte } => {
+            *byte <= 1 && ctx.layout.direct_mem(routine, mem).is_some()
+        }
+        MirValue::PointerCell(mem) => ctx.layout.direct_mem(routine, mem).is_some(),
+        _ => false,
+    }
 }
 
 fn emit_scaled_index_advance_pointer(
@@ -4722,6 +4892,10 @@ fn prepare_indirect_y(
             }
         }
         ctx.scaled_y_offset = Some(offset);
+    } else if consumer.uses_paged_y() {
+        if ctx.scaled_y_offset != Some(0) || offset != 0 {
+            return false;
+        }
     } else {
         emitter.emit_ldy_imm(offset as u8);
         ctx.scaled_y_offset = None;

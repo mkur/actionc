@@ -3064,8 +3064,7 @@ pub(super) fn materialize_computed_index_read(
         }
         return;
     }
-    if width == MirWidth::Byte && elem_size == 1 && offset == 0 && index_value_is_byte_sized(&index)
-    {
+    if width == MirWidth::Byte && elem_size == 1 && offset == 0 {
         materialize_byte_indexed_read(dst, base, index, layout, out);
         return;
     }
@@ -3207,8 +3206,7 @@ pub(super) fn materialize_computed_index_write(
         }
         return;
     }
-    if width == MirWidth::Byte && elem_size == 1 && offset == 0 && index_value_is_byte_sized(&index)
-    {
+    if width == MirWidth::Byte && elem_size == 1 && offset == 0 {
         materialize_byte_indexed_write(base, index, src, layout, out);
         return;
     }
@@ -3269,9 +3267,14 @@ fn materialize_byte_indexed_read(
         return;
     }
     if !index_value_is_byte_sized(&index) {
-        materialize_indexed_address(base, index, 1, layout, out);
+        let consumer = if address_value_mem(&base).is_some() {
+            DEFAULT_PAGED_Y_POINTER_PAIR
+        } else {
+            DEFAULT_POINTER_PAIR
+        };
+        materialize_indexed_address_to_consumer(base, index, 1, consumer, layout, out);
         out.push(MirOp::LoadIndirect {
-            consumer: DEFAULT_POINTER_PAIR,
+            consumer,
             dst,
             offset: 0,
         });
@@ -3299,10 +3302,15 @@ fn materialize_byte_indexed_write(
         return;
     }
     if !index_value_is_byte_sized(&index) {
-        materialize_indexed_address(base, index, 1, layout, out);
+        let consumer = if address_value_mem(&base).is_some() {
+            DEFAULT_PAGED_Y_POINTER_PAIR
+        } else {
+            DEFAULT_POINTER_PAIR
+        };
+        materialize_indexed_address_to_consumer(base, index, 1, consumer, layout, out);
         let src = materialize_byte_value_to_a(src, out);
         out.push(MirOp::StoreIndirect {
-            consumer: DEFAULT_POINTER_PAIR,
+            consumer,
             src,
             offset: 0,
         });

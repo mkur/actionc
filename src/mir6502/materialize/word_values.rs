@@ -40,10 +40,7 @@ fn forward_unique_word_load_address_consumers_in_block(
         else {
             continue;
         };
-        if !layout.mem_allows_deferred_direct_read(source)
-            || temp_live_out(live_out, *temp)
-            || terminator_uses_temp(terminator, *temp)
-        {
+        if temp_live_out(live_out, *temp) || terminator_uses_temp(terminator, *temp) {
             continue;
         }
         let uses = ops[producer_index + 1..]
@@ -57,7 +54,10 @@ fn forward_unique_word_load_address_consumers_in_block(
             continue;
         };
         let consumer = &ops[consumer_index];
-        if op_uses_temp_more_than_once(consumer, *temp)
+        let direct_static_index_use = consumer_index == producer_index + 1
+            && op_is_static_byte_word_index_consumer(consumer, *temp);
+        if (!layout.mem_allows_deferred_direct_read(source) && !direct_static_index_use)
+            || op_uses_temp_more_than_once(consumer, *temp)
             || !op_address_uses_temp(consumer, *temp)
             || ops[producer_index + 1..consumer_index]
                 .iter()
@@ -87,6 +87,38 @@ fn forward_unique_word_load_address_consumers_in_block(
         out.push(op);
     }
     (out, forwarded)
+}
+
+fn op_is_static_byte_word_index_consumer(op: &MirOp, temp: MirTempId) -> bool {
+    let (addr, width) = match op {
+        MirOp::Load { src, width, .. } => (src, width),
+        MirOp::Store { dst, width, .. } => (dst, width),
+        _ => return false,
+    };
+    let MirAddr::ComputedIndex {
+        base,
+        index,
+        elem_size: 1,
+        offset: 0,
+    } = addr
+    else {
+        return false;
+    };
+    *width == MirWidth::Byte && value_uses_specific_temp(index, temp) && static_address_value(base)
+}
+
+fn static_address_value(value: &MirValue) -> bool {
+    match value {
+        MirValue::ConstU16(_) | MirValue::StaticAddr(_) | MirValue::GlobalAddr(_) => true,
+        MirValue::Word { lo, hi } => matches!(
+            (lo.as_ref(), hi.as_ref()),
+            (
+                MirValue::StorageAddrByte { mem: lo_mem, byte: 0 },
+                MirValue::StorageAddrByte { mem: hi_mem, byte: 1 }
+            ) if lo_mem == hi_mem
+        ),
+        _ => false,
+    }
 }
 
 fn temp_live_out(live_out: &MirTempLiveSet, temp: MirTempId) -> bool {

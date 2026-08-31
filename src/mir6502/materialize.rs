@@ -253,6 +253,10 @@ const DEFAULT_POINTER_PAIR: MirAddressConsumer =
     MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
         lo: MirFixedZpSlot(POINTER_SCRATCH_LO),
     });
+const DEFAULT_PAGED_Y_POINTER_PAIR: MirAddressConsumer =
+    MirAddressConsumer::PagedIndirectIndexedY(MirPointerPair::Fixed {
+        lo: MirFixedZpSlot(POINTER_SCRATCH_LO),
+    });
 const DEFAULT_SCALED_Y_POINTER_PAIR: MirAddressConsumer =
     MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed {
         lo: MirFixedZpSlot(POINTER_SCRATCH_LO),

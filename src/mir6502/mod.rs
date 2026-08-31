@@ -9747,6 +9747,75 @@ mod tests {
     }
 
     #[test]
+    fn card_indexed_page_aligned_static_byte_array_uses_paged_indirect_y() {
+        let output = generate_mir6502_source_with_origin(
+            "BYTE ARRAY data(512)=$6000 CARD i=$E0 BYTE out=$E2 PROC Main() out=data(i) RETURN",
+            0x3000,
+        );
+
+        assert!(
+            bytes_contain(
+                &output.bytes,
+                &[
+                    crate::codegen::opcode::LDY_ZP,
+                    0xE0,
+                    crate::codegen::opcode::LDA_IMM,
+                    0x60,
+                    crate::codegen::opcode::CLC,
+                    crate::codegen::opcode::ADC_ZP,
+                    0xE1,
+                    crate::codegen::opcode::STA_ZP,
+                    0xAD,
+                    crate::codegen::opcode::LDA_IMM,
+                    0x00,
+                    crate::codegen::opcode::STA_ZP,
+                    0xAC,
+                    crate::codegen::opcode::LDA_IZY,
+                    0xAC,
+                ],
+            ),
+            "CARD-indexed aligned static byte load did not use paged indirect-Y: {:02X?}",
+            output.bytes
+        );
+    }
+
+    #[test]
+    fn card_indexed_unaligned_static_byte_array_carries_low_sum_into_page() {
+        let output = generate_mir6502_source_with_origin(
+            "BYTE ARRAY data(512)=$6081 CARD i=$E0 BYTE out=$E2 PROC Main() out=data(i) RETURN",
+            0x3000,
+        );
+
+        assert!(
+            bytes_contain(
+                &output.bytes,
+                &[
+                    crate::codegen::opcode::LDA_IMM,
+                    0x81,
+                    crate::codegen::opcode::CLC,
+                    crate::codegen::opcode::ADC_ZP,
+                    0xE0,
+                    crate::codegen::opcode::TAY,
+                    crate::codegen::opcode::LDA_IMM,
+                    0x60,
+                    crate::codegen::opcode::ADC_ZP,
+                    0xE1,
+                    crate::codegen::opcode::STA_ZP,
+                    0xAD,
+                    crate::codegen::opcode::LDA_IMM,
+                    0x00,
+                    crate::codegen::opcode::STA_ZP,
+                    0xAC,
+                    crate::codegen::opcode::LDA_IZY,
+                    0xAC,
+                ],
+            ),
+            "CARD-indexed unaligned static byte load lost the low-byte carry path: {:02X?}",
+            output.bytes
+        );
+    }
+
+    #[test]
     fn global_inline_byte_array_computed_index_uses_absolute_y() {
         let output = generate_mir6502_source_with_origin(
             "BYTE ARRAY colors(0)=[$68 $0C $96 $38] BYTE i,j,out PROC Main() out=colors((i+j)&3) RETURN",
@@ -10626,13 +10695,11 @@ mod tests {
         invalid_effects.memory_writes = MirMemoryEffect::None;
         let diagnostics = verify_program(&invalid, MirPhase::PreMaterialization)
             .expect_err("the verifier must reject weakened FPP effects");
-        assert!(
-            diagnostics.iter().any(|diagnostic| {
-                diagnostic.message.contains(
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.message.contains(
             "Atari FPP service call effects must match the audited register and workspace contract"
         )
-            })
-        );
+        }));
     }
 
     #[test]

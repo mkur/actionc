@@ -742,7 +742,9 @@ fn address_consumer_summary(consumer: &MirAddressConsumer) -> String {
         MirPointerPair::Fixed { lo } => format!("zp${:02X}", lo.0),
         MirPointerPair::Virtual(slot) => format!("vzp{}", slot.0),
     };
-    if consumer.uses_scaled_y() {
+    if consumer.uses_paged_y() {
+        format!("({pointer}),paged_y")
+    } else if consumer.uses_scaled_y() {
         format!("({pointer}),scaled_y")
     } else {
         format!("({pointer}),y")

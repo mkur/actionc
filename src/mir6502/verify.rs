@@ -1083,6 +1083,13 @@ impl MirVerifier {
                 self.verify_address_consumer(routine, block, source);
                 self.verify_address_consumer(routine, block, destination);
                 self.verify_scaled_y_offset(routine, block, source, *source_offset);
+                if source.uses_paged_y() {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "indirect word-copy source cannot use a paged-Y address consumer",
+                    ));
+                }
                 self.reject_scaled_y_consumer(
                     routine,
                     block,
@@ -1648,6 +1655,13 @@ impl MirVerifier {
                 scale,
             } => {
                 self.verify_address_consumer(routine, block, consumer);
+                if consumer.uses_paged_y() && *scale != 1 {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "paged-Y address materialization requires scale one",
+                    ));
+                }
                 if consumer.uses_scaled_y() && *scale != 2 {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,
@@ -1863,6 +1877,63 @@ impl MirVerifier {
         for (op_index, op) in ops.iter().enumerate() {
             match op {
                 MirOp::MaterializeIndexedAddress {
+                    consumer: MirAddressConsumer::PagedIndirectIndexedY(pair),
+                    index,
+                    ..
+                } => {
+                    prepared.retain(|(candidate, _)| candidate != pair);
+                    prepared.push((*pair, index.clone()));
+                    active_index = Some(index.clone());
+                    active_offset = 0;
+                    continue;
+                }
+                MirOp::LoadIndirect {
+                    consumer: MirAddressConsumer::PagedIndirectIndexedY(pair),
+                    offset,
+                    ..
+                }
+                | MirOp::StoreIndirect {
+                    consumer: MirAddressConsumer::PagedIndirectIndexedY(pair),
+                    offset,
+                    ..
+                } => {
+                    let prepared_index = prepared
+                        .iter()
+                        .find_map(|(candidate, index)| (candidate == pair).then_some(index));
+                    if prepared_index.is_none() || prepared_index != active_index.as_ref() {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            format!(
+                                "paged-Y access at op #{op_index} has no active matching index"
+                            ),
+                        ));
+                    }
+                    if *offset != 0 {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            format!(
+                                "paged-Y access at op #{op_index} uses unsupported byte offset {offset}"
+                            ),
+                        ));
+                    }
+                    if matches!(
+                        op,
+                        MirOp::StoreIndirect {
+                            src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                            ..
+                        }
+                    ) {
+                        self.diagnostics.push(MirDiagnostic::block(
+                            &routine.name,
+                            block,
+                            format!("paged-Y store at op #{op_index} cannot source Y"),
+                        ));
+                    }
+                    continue;
+                }
+                MirOp::MaterializeIndexedAddress {
                     consumer: MirAddressConsumer::ScaledIndirectIndexedY(pair),
                     index,
                     ..
@@ -1983,11 +2054,18 @@ impl MirVerifier {
         consumer: &MirAddressConsumer,
         operation: &str,
     ) {
-        if consumer.uses_scaled_y() {
+        let consumer_kind = if consumer.uses_paged_y() {
+            Some("paged-Y")
+        } else if consumer.uses_scaled_y() {
+            Some("scaled-Y")
+        } else {
+            None
+        };
+        if let Some(consumer_kind) = consumer_kind {
             self.diagnostics.push(MirDiagnostic::block(
                 &routine.name,
                 block,
-                format!("{operation} cannot use a scaled-Y address consumer"),
+                format!("{operation} cannot use a {consumer_kind} address consumer"),
             ));
         }
     }
@@ -1999,7 +2077,13 @@ impl MirVerifier {
         consumer: &MirAddressConsumer,
         offset: u16,
     ) {
-        if consumer.uses_scaled_y() && offset > 1 {
+        if consumer.uses_paged_y() && offset != 0 {
+            self.diagnostics.push(MirDiagnostic::block(
+                &routine.name,
+                block,
+                "paged-Y indirect access only supports offset zero",
+            ));
+        } else if consumer.uses_scaled_y() && offset > 1 {
             self.diagnostics.push(MirDiagnostic::block(
                 &routine.name,
                 block,
@@ -3310,6 +3394,74 @@ mod tests {
             diagnostic
                 .message
                 .contains("scaled-Y access at op #0 has no active matching index")
+        }));
+    }
+
+    #[test]
+    fn rejects_paged_y_access_beyond_selected_byte() {
+        let pair = MirPointerPair::Fixed {
+            lo: crate::mir6502::MirFixedZpSlot(0xac),
+        };
+        let consumer = MirAddressConsumer::PagedIndirectIndexedY(pair);
+        let program = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![
+                    MirOp::MaterializeIndexedAddress {
+                        consumer,
+                        base: MirValue::ConstU16(0x4081),
+                        index: MirValue::ConstU16(0x0102),
+                        scale: 1,
+                    },
+                    MirOp::LoadIndirect {
+                        dst: MirDef::Reg(MirReg::A),
+                        consumer,
+                        offset: 1,
+                    },
+                ],
+                MirTerminator::Return,
+            )],
+        )]);
+
+        let diagnostics = verify_program(&program, MirPhase::PreEmission)
+            .expect_err("paged-Y offsets beyond the selected byte are rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("paged-Y access at op #1 uses unsupported byte offset 1")
+        }));
+    }
+
+    #[test]
+    fn rejects_scaled_paged_y_materialization() {
+        let consumer = MirAddressConsumer::PagedIndirectIndexedY(MirPointerPair::Fixed {
+            lo: crate::mir6502::MirFixedZpSlot(0xac),
+        });
+        let program = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![MirOp::MaterializeIndexedAddress {
+                    consumer,
+                    base: MirValue::ConstU16(0x4000),
+                    index: MirValue::ConstU16(3),
+                    scale: 2,
+                }],
+                MirTerminator::Return,
+            )],
+        )]);
+
+        let diagnostics = verify_program(&program, MirPhase::PreEmission)
+            .expect_err("paged-Y materialization is restricted to byte indexing");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("paged-Y address materialization requires scale one")
         }));
     }
 

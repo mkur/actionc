@@ -339,7 +339,7 @@ impl SsaLiteValueEnv {
             }
             MirOp::MaterializeIndexedAddress { consumer, .. } => {
                 self.kill_reg(MirReg::A);
-                if consumer.uses_scaled_y() {
+                if consumer.preserves_index_in_y() {
                     self.kill_reg(MirReg::Y);
                 }
             }
@@ -641,7 +641,7 @@ impl SsaLiteV2ObserveEnv {
                 };
                 let reusable = self.address_is_reusable(&fact, layout);
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
-                if consumer.uses_scaled_y() {
+                if consumer.preserves_index_in_y() {
                     self.kill_def(&MirDef::Reg(MirReg::Y), SsaLiteV2KillReason::Unknown);
                 }
                 self.kill_address_consumer_dependencies(
@@ -827,7 +827,7 @@ impl SsaLiteV2ObserveEnv {
     }
 
     fn address_is_reusable(&self, fact: &SsaLiteV2AddressFact, layout: &MaterializeLayout) -> bool {
-        !fact.consumer.uses_scaled_y()
+        !fact.consumer.preserves_index_in_y()
             && address_key_is_reuse_stable(&fact.key, layout)
             && self.addresses.contains(fact)
     }
@@ -840,7 +840,7 @@ impl SsaLiteV2ObserveEnv {
     ) {
         self.addresses
             .retain(|candidate| candidate.consumer.pointer_pair() != fact.consumer.pointer_pair());
-        if fact.consumer.uses_scaled_y() || !address_key_is_reuse_stable(&fact.key, layout) {
+        if fact.consumer.preserves_index_in_y() || !address_key_is_reuse_stable(&fact.key, layout) {
             return;
         }
         if reusable {
@@ -2524,7 +2524,7 @@ pub(in crate::mir6502) fn discover_redundant_indexed_address_materializations(
                     base,
                     index,
                     scale,
-                } if !consumer.uses_scaled_y() => Some(SsaLiteV2AddressFact {
+                } if !consumer.preserves_index_in_y() => Some(SsaLiteV2AddressFact {
                     consumer: *consumer,
                     key: SsaLiteV2AddressKey::Indexed {
                         base: base.clone(),
