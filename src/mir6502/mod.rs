@@ -11179,6 +11179,60 @@ mod tests {
         );
     }
 
+    #[test]
+    fn source_nested_step_minus_one_loops_select_direct_dec_latches() {
+        let materialized = materialize_mir6502_source(
+            "
+            BYTE outer,inner=$E0,sample=$D20A,result
+            PROC Main()
+              FOR outer=2 TO 0 STEP -1 DO
+                FOR inner=2 TO 0 STEP -1 DO
+                  result=sample
+                OD
+              OD
+            RETURN
+            ",
+        );
+        let main = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        let dec_mems = main
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .filter_map(|op| match op {
+                MirOp::UpdateMem {
+                    op: MirUpdateOp::Dec,
+                    mem,
+                    width: MirWidth::Byte,
+                } => Some(mem),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let outer = materialized
+            .globals
+            .iter()
+            .find(|global| global.name == "outer")
+            .expect("outer global");
+        let inner = materialized
+            .globals
+            .iter()
+            .find(|global| global.name == "inner")
+            .expect("inner global");
+
+        assert_eq!(dec_mems.len(), 2, "{}", format_program(&materialized));
+        assert_eq!(inner.backing, MirGlobalBacking::Absolute(0x00e0));
+        for expected in [outer.id, inner.id] {
+            assert!(
+                dec_mems.iter().any(|mem| {
+                    matches!(mem, MirMem::Global { id, offset: 0 } if *id == expected)
+                })
+            );
+        }
+    }
+
     fn generate_mir6502_source(source: &str) -> crate::codegen::CodegenOutput {
         generate_mir6502_source_with_origin(source, crate::codegen::CODE_ORIGIN)
     }

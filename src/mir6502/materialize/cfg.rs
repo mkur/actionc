@@ -6,8 +6,8 @@ use crate::mir6502::analysis::effects::{MirFlagSet, classify_op, classify_termin
 use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
-    MirAddr, MirBlock, MirBlockId, MirCallTarget, MirCond, MirDef, MirEdge, MirFlagTest, MirMem,
-    MirOp, MirReg, MirRoutine, MirTerminator, MirUpdateOp, MirValue, MirWidth,
+    MirAddr, MirBlock, MirBlockId, MirCallTarget, MirCond, MirDef, MirEdge, MirFlag, MirFlagTest,
+    MirMem, MirOp, MirReg, MirRoutine, MirTerminator, MirUpdateOp, MirValue, MirWidth,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -889,6 +889,7 @@ struct BottomGuardedByteCountdownPlan {
     header: MirBlockId,
     body: MirBlockId,
     latch: MirBlockId,
+    remove_entry_header: bool,
     reload_accumulator: bool,
 }
 
@@ -902,9 +903,7 @@ fn counted_loop_latch_plan(
         if counted.width != MirWidth::Byte
             || counted.signed
             || counted.step != 1
-            || counted.initial_guard_required
             || !counted_loop_mem_allows_rmw(&counted, layout)
-            || !machine_state_dead_on_entry(&liveness, counted.exit)
         {
             continue;
         }
@@ -912,7 +911,10 @@ fn counted_loop_latch_plan(
             MirCountedLoopShape::HeadTested
                 if counted.direction == MirCountDirection::Descending && counted.bound == 1 =>
             {
-                if !machine_state_dead_on_entry(&liveness, counted.body) {
+                if counted.initial_guard_required
+                    || !machine_state_dead_on_entry(&liveness, counted.body)
+                    || !machine_state_dead_on_entry(&liveness, counted.exit)
+                {
                     continue;
                 }
                 let header_index = routine
@@ -949,7 +951,10 @@ fn counted_loop_latch_plan(
                 }
             }
             MirCountedLoopShape::HeadTested => {
-                if !machine_state_dead_on_entry(&liveness, counted.body) {
+                if counted.initial_guard_required
+                    || !machine_state_dead_on_entry(&liveness, counted.body)
+                    || !machine_state_dead_on_entry(&liveness, counted.exit)
+                {
                     continue;
                 }
                 let plan = RotatedHeadTestedPlan {
@@ -968,7 +973,13 @@ fn counted_loop_latch_plan(
             }
             MirCountedLoopShape::BottomGuarded { guard } if counted.bound == 0 => {
                 if !routine.blocks.iter().any(|block| block.id == guard)
-                    || !machine_flags_dead_on_entry(&liveness, counted.body)
+                    || !machine_flag_unobserved_before_redefinition(
+                        routine,
+                        &cfg,
+                        counted.body,
+                        counted.latch,
+                        MirFlag::V,
+                    )
                 {
                     continue;
                 }
@@ -977,6 +988,8 @@ fn counted_loop_latch_plan(
                     header: counted.header,
                     body: counted.body,
                     latch: counted.latch,
+                    remove_entry_header: !counted.initial_guard_required
+                        && machine_flags_dead_on_entry(&liveness, counted.body),
                     reload_accumulator: machine_accumulator_live_on_entry(&liveness, counted.body),
                 };
                 let mut candidate = routine.blocks.clone();
@@ -1045,7 +1058,9 @@ fn apply_bottom_guarded_countdown_plan(
     let Some(induction) = bottom_guarded_latch_mem(&blocks[latch_index], plan.header) else {
         return false;
     };
-    blocks[preheader_index].terminator = MirTerminator::Jump(MirEdge::plain(plan.body));
+    if plan.remove_entry_header {
+        blocks[preheader_index].terminator = MirTerminator::Jump(MirEdge::plain(plan.body));
+    }
     blocks[latch_index].ops = vec![MirOp::UpdateMem {
         op: MirUpdateOp::Dec,
         mem: induction.clone(),
@@ -1059,7 +1074,9 @@ fn apply_bottom_guarded_countdown_plan(
         });
     }
     blocks[latch_index].terminator = MirTerminator::Jump(MirEdge::plain(plan.body));
-    blocks.remove(header_index);
+    if plan.remove_entry_header {
+        blocks.remove(header_index);
+    }
     true
 }
 
@@ -1115,8 +1132,75 @@ fn bottom_guarded_latch_mem(block: &MirBlock, header: MirBlockId) -> Option<MirM
                 width: MirWidth::Byte,
             },
         ] => Some(mem.clone()),
+        [
+            MirOp::Binary {
+                op: crate::mir6502::ir::MirBinaryOp::Sub,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::ConstU8(1),
+                width: MirWidth::Byte,
+                carry_in: None | Some(crate::mir6502::ir::MirCarryIn::Set),
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(mem),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+        ] => Some(mem.clone()),
         _ => None,
     }
+}
+
+/// Proves that a changed machine flag cannot be observed after a selected
+/// latch before an ordinary MIR operation definitely replaces it. Compiler
+/// barriers emit no machine instruction, so their deliberately opaque memory
+/// effects do not make an incoming flag value observable here.
+fn machine_flag_unobserved_before_redefinition(
+    routine: &MirRoutine,
+    cfg: &MirCfg,
+    start: MirBlockId,
+    redefining_latch: MirBlockId,
+    flag: MirFlag,
+) -> bool {
+    let mut pending = vec![start];
+    let mut visited = BTreeSet::new();
+    while let Some(block_id) = pending.pop() {
+        if block_id == redefining_latch || !visited.insert(block_id) {
+            continue;
+        }
+        let Some(block) = routine.blocks.iter().find(|block| block.id == block_id) else {
+            return false;
+        };
+        let mut redefined = false;
+        for op in &block.ops {
+            if matches!(op, MirOp::Barrier { .. }) {
+                continue;
+            }
+            let effects = classify_op(op);
+            if effects.machine.flag_reads.contains(flag)
+                || matches!(op, MirOp::MachineBlock { .. })
+                    && effects.machine.opaque_flag_or_a_effects
+            {
+                return false;
+            }
+            if effects.machine.flag_writes.contains(flag)
+                || effects.machine.flag_clobbers.contains(flag)
+            {
+                redefined = true;
+                break;
+            }
+        }
+        if redefined {
+            continue;
+        }
+        let terminator = classify_terminator(&block.terminator);
+        if terminator.machine.flag_reads.contains(flag) {
+            return false;
+        }
+        pending.extend(cfg.successors(block_id).iter().copied());
+    }
+    true
 }
 
 fn machine_state_dead_on_entry(liveness: &MirMachineLiveness, block: MirBlockId) -> bool {
@@ -1874,8 +1958,20 @@ mod tests {
         let mut routine = bottom_guarded_countdown(MirValue::Def(MirDef::Reg(MirReg::X)), true);
         let layout = layout_for(&routine);
 
-        assert_eq!(select_counted_loop_latches(&mut routine, &layout), 0);
+        assert_eq!(select_counted_loop_latches(&mut routine, &layout), 1);
         assert!(routine.blocks.iter().any(|block| block.id == MirBlockId(1)));
+        assert!(matches!(
+            routine
+                .blocks
+                .iter()
+                .find(|block| block.id == MirBlockId(4))
+                .map(|block| block.ops.as_slice()),
+            Some([MirOp::UpdateMem {
+                op: MirUpdateOp::Dec,
+                width: MirWidth::Byte,
+                ..
+            }])
+        ));
     }
 
     fn ascending_head_tested_loop(initial: u8, exclusive_bound: u8) -> MirRoutine {

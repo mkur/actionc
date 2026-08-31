@@ -354,6 +354,22 @@ fn decrement_latch_mem(block: &MirBlock, header: MirBlockId) -> Option<MirMem> {
                 width: MirWidth::Byte,
             },
         ] => Some(mem.clone()),
+        [
+            MirOp::Binary {
+                op: MirBinaryOp::Sub,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::ConstU8(1),
+                width: MirWidth::Byte,
+                carry_in: None | Some(MirCarryIn::Set),
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(mem),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+        ] => Some(mem.clone()),
         _ => None,
     }
 }
