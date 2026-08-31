@@ -1,4 +1,5 @@
 use crate::mir6502::analysis::cfg::MirCfg;
+use crate::mir6502::analysis::effects::classify_op;
 use crate::mir6502::ir::{
     MirAddr, MirBinaryOp, MirBlock, MirBlockId, MirCarryIn, MirCompareOp, MirCond, MirDef,
     MirFlagTest, MirMem, MirOp, MirReg, MirRoutine, MirTerminator, MirUpdateOp, MirValue, MirWidth,
@@ -114,11 +115,12 @@ fn analyze_bottom_guarded_loop(
     if compare.op != MirCompareOp::Ge
         || compare.signed
         || compare.width != MirWidth::Byte
-        || compare.right != &MirValue::ConstU8(0)
         || compare.left != &MirValue::Def(MirDef::Reg(MirReg::A))
     {
         return None;
     }
+    let bound = byte_constant(compare.right)?;
+    let guard_limit = u8::try_from(bound.checked_add(1)?).ok()?;
     let MirTerminator::Branch {
         cond,
         then_edge,
@@ -151,7 +153,8 @@ fn analyze_bottom_guarded_loop(
         {
             continue;
         }
-        let Some((guard, guard_exit)) = bottom_zero_guard(routine, cfg, latch.id, &induction)
+        let Some((guard, guard_exit)) =
+            bottom_decrement_guard(routine, cfg, latch.id, &induction, guard_limit)
         else {
             continue;
         };
@@ -169,7 +172,13 @@ fn analyze_bottom_guarded_loop(
         else {
             continue;
         };
-        let initial_guard_required = !matches!(initial_value, MirValue::ConstU8(_));
+        let initial_guard_required = !initial_value_satisfies_guard(
+            &initial_value,
+            MirCountDirection::Descending,
+            MirCompareOp::Ge,
+            bound,
+            false,
+        );
         return Some(MirCountedLoop {
             preheader: preheader_id,
             header: header.id,
@@ -179,7 +188,7 @@ fn analyze_bottom_guarded_loop(
             induction: induction.clone(),
             width: MirWidth::Byte,
             initial_value,
-            bound: 0,
+            bound,
             direction: MirCountDirection::Descending,
             step: 1,
             signed: false,
@@ -374,45 +383,56 @@ fn decrement_latch_mem(block: &MirBlock, header: MirBlockId) -> Option<MirMem> {
     }
 }
 
-fn bottom_zero_guard(
+fn bottom_decrement_guard(
     routine: &MirRoutine,
     cfg: &MirCfg,
     latch: MirBlockId,
     induction: &MirMem,
+    guard_limit: u8,
 ) -> Option<(MirBlockId, MirBlockId)> {
     let predecessors = cfg.predecessors(latch);
     if predecessors.len() != 1 {
         return None;
     }
     let guard = block_by_id(routine, *predecessors.first()?)?;
-    let compare_index = match guard.ops.as_slice() {
-        [
-            MirOp::Load {
-                dst: MirDef::Reg(MirReg::A),
-                src: MirAddr::Direct(guard_mem),
-                width: MirWidth::Byte,
-            },
-            MirOp::Compare {
-                op: MirCompareOp::Lt,
-                left: MirValue::Def(MirDef::Reg(MirReg::A)),
-                right: MirValue::ConstU8(1),
-                width: MirWidth::Byte,
-                signed: false,
-                ..
-            },
-        ] if guard_mem == induction => 1,
-        [
-            MirOp::Compare {
-                op: MirCompareOp::Lt,
-                left: MirValue::Def(MirDef::Reg(MirReg::A)),
-                right: MirValue::ConstU8(1),
-                width: MirWidth::Byte,
-                signed: false,
-                ..
-            },
-        ] => 0,
-        _ => return None,
+    let compare_index = guard.ops.len().checked_sub(1)?;
+    let MirOp::Compare {
+        op: MirCompareOp::Lt,
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::ConstU8(limit),
+        width: MirWidth::Byte,
+        signed: false,
+        ..
+    } = &guard.ops[compare_index]
+    else {
+        return None;
     };
+    if *limit != guard_limit {
+        return None;
+    }
+    let guard_prefix_end = if let Some(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(guard_mem),
+        width: MirWidth::Byte,
+    }) = compare_index
+        .checked_sub(1)
+        .and_then(|index| guard.ops.get(index))
+    {
+        if guard_mem != induction {
+            return None;
+        }
+        compare_index - 1
+    } else {
+        compare_index
+    };
+    if guard.ops[..guard_prefix_end].iter().any(|op| {
+        let machine = &classify_op(op).machine;
+        machine.register_writes.a
+            || machine.register_clobbers.a
+            || machine.conservative_register_clobbers.a
+    }) {
+        return None;
+    }
     let MirTerminator::Branch {
         cond,
         then_edge,
@@ -429,6 +449,14 @@ fn bottom_zero_guard(
         return None;
     }
     Some((guard.id, then_edge.target))
+}
+
+fn byte_constant(value: &MirValue) -> Option<u16> {
+    match value {
+        MirValue::ConstU8(value) => Some(u16::from(*value)),
+        MirValue::ConstU16(value) if *value <= u16::from(u8::MAX) => Some(*value),
+        _ => None,
+    }
 }
 
 fn branch_flag_test(block: &MirBlock, cond: &MirCond, producer_op: usize) -> Option<MirFlagTest> {

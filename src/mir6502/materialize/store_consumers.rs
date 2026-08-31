@@ -4277,8 +4277,14 @@ fn inc_dec_update_shape_at(
     layout: &MaterializeLayout,
     allow_produced_carry: bool,
 ) -> Option<(usize, Vec<MirOp>)> {
-    direct_inc_dec_update_shape_at(ops, index, allow_produced_carry)
-        .or_else(|| indexed_inc_dec_update_shape_at(ops, index, layout, allow_produced_carry))
+    if let Some((consumed, replacement)) =
+        direct_inc_dec_update_shape_at(ops, index, allow_produced_carry)
+        && let [MirOp::UpdateMem { mem, .. }] = replacement.as_slice()
+        && layout.mem_allows_direct_update(mem)
+    {
+        return Some((consumed, replacement));
+    }
+    indexed_inc_dec_update_shape_at(ops, index, layout, allow_produced_carry)
 }
 
 fn direct_inc_dec_update_shape_at(

@@ -386,12 +386,23 @@ labels or source syntax.
 
 The first target selector accepts unit-step byte loops over compiler-controlled
 RAM. A proven-entered head-tested loop may rotate its `INC`/`DEC` latch behind
-the body. A descending inclusive loop ending at zero may bypass its redundant
-unsigned `>= 0` header and replace the guarded `ADC #$FF`/store update with a
-direct `DEC`; it reloads A only when machine liveness proves the body consumes
-that value. The original guard remains for dynamic initial values. Absolute
-hardware storage, volatile barrier shapes, signed loops, non-unit steps, and
-live machine flags retain the general CFG.
+the body. A descending inclusive loop with a representable `bound + 1` guard
+may bypass its repeated header and replace the guarded `ADC #$FF`/store or
+`SBC #1`/store update with a direct `DEC`; it reloads A only when machine
+liveness proves the body consumes that value. Dynamic initial values retain
+their entry header. The bottom-guarded form rejects a `$FF` lower bound because
+its next guard constant is not representable in a byte. Absolute hardware
+storage, volatile induction homes, signed loops, non-unit steps, and observable
+machine flags retain the general CFG.
+
+For an ending-at-zero loop whose constant initial value is at most `$7F`, a
+stronger range proof may select `DEC/BPL`. Every body path must leave the
+induction home untouched and free of unproved aliases. The terminal `DEC`
+temporarily wraps zero to `$FF`; a compiler-created restoration block then uses
+`INC` or stores zero when A must also be restored before routing through the
+original guard. This preserves both the source-visible final zero and the exit
+machine state. Countdown-to-one head-tested loops use the corresponding
+`DEC/BNE` form when entry and liveness proofs permit it.
 
 A later target-home selector may carry a proven-entered, head-tested byte
 induction value in X or Y. The selected form uses `UpdateReg { Inc|Dec, X|Y }`

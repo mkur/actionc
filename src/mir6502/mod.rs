@@ -11181,8 +11181,7 @@ mod tests {
 
     #[test]
     fn source_nested_step_minus_one_loops_select_direct_dec_latches() {
-        let materialized = materialize_mir6502_source(
-            "
+        let source = "
             BYTE outer,inner=$E0,sample=$D20A,result
             PROC Main()
               FOR outer=2 TO 0 STEP -1 DO
@@ -11191,8 +11190,8 @@ mod tests {
                 OD
               OD
             RETURN
-            ",
-        );
+            ";
+        let materialized = materialize_mir6502_source(source);
         let main = materialized
             .routines
             .iter()
@@ -11231,6 +11230,151 @@ mod tests {
                 })
             );
         }
+
+        let output = generate_mir6502_source(source);
+        let outer_address = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|symbol| symbol.name == "outer")
+            .expect("outer storage symbol")
+            .address;
+        assert!(bytes_contain(
+            &output.bytes,
+            &[crate::codegen::opcode::DEC_ZP, 0xe0]
+        ));
+        assert!(bytes_contain(
+            &output.bytes,
+            &[
+                crate::codegen::opcode::DEC_ABS,
+                outer_address as u8,
+                (outer_address >> 8) as u8,
+            ]
+        ));
+    }
+
+    #[test]
+    fn source_range_proven_countdown_uses_bpl_and_restores_final_zero() {
+        let materialized = materialize_mir6502_source(
+            "
+            BYTE counter,total
+            PROC Main()
+              FOR counter=3 TO 0 STEP -1 DO
+                total==+1
+              OD
+            RETURN
+            ",
+        );
+        let main = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        let counter = materialized
+            .globals
+            .iter()
+            .find(|global| global.name == "counter")
+            .expect("counter global");
+        let is_counter =
+            |mem: &MirMem| matches!(mem, MirMem::Global { id, offset: 0 } if *id == counter.id);
+
+        assert!(
+            main.blocks.iter().any(|block| {
+                matches!(
+                    block.ops.as_slice(),
+                    [MirOp::UpdateMem {
+                        op: MirUpdateOp::Dec,
+                        mem,
+                        width: MirWidth::Byte,
+                    }] if is_counter(mem)
+                ) && matches!(
+                    block.terminator,
+                    MirTerminator::Branch {
+                        cond: MirCond::FlagTest(MirFlagTest::NClear),
+                        ..
+                    }
+                )
+            }),
+            "{}",
+            format_program(&materialized)
+        );
+        assert!(
+            main.blocks.iter().any(|block| {
+                matches!(
+                    block.ops.as_slice(),
+                    [
+                        MirOp::LoadImm {
+                            dst: MirDef::Reg(MirReg::A),
+                            value: 0,
+                            width: MirWidth::Byte,
+                        },
+                        MirOp::Store {
+                            dst: MirAddr::Direct(mem),
+                            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                            width: MirWidth::Byte,
+                        }
+                    ] if is_counter(mem)
+                )
+            }),
+            "{}",
+            format_program(&materialized)
+        );
+    }
+
+    #[test]
+    fn source_step_minus_one_constant_bound_uses_dec_but_hardware_counter_does_not() {
+        let materialized = materialize_mir6502_source(
+            "
+            BYTE counter,hardware=$D000,total
+            PROC Main()
+              FOR counter=9 TO 3 STEP -1 DO
+                total==+counter
+              OD
+              FOR hardware=2 TO 0 STEP -1 DO
+                total==+hardware
+              OD
+            RETURN
+            ",
+        );
+        let main = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        let counter = materialized
+            .globals
+            .iter()
+            .find(|global| global.name == "counter")
+            .expect("counter global");
+        let hardware = materialized
+            .globals
+            .iter()
+            .find(|global| global.name == "hardware")
+            .expect("hardware global");
+        let dec_mems = main
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .filter_map(|op| match op {
+                MirOp::UpdateMem {
+                    op: MirUpdateOp::Dec,
+                    mem: MirMem::Global { id, offset: 0 },
+                    width: MirWidth::Byte,
+                } => Some(*id),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            dec_mems.contains(&counter.id),
+            "{}",
+            format_program(&materialized)
+        );
+        assert!(
+            !dec_mems.contains(&hardware.id),
+            "{}",
+            format_program(&materialized)
+        );
     }
 
     fn generate_mir6502_source(source: &str) -> crate::codegen::CodegenOutput {
