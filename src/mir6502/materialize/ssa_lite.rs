@@ -3387,10 +3387,11 @@ fn ssa_lite_loaded_reg_key(
     }
 }
 
-fn ssa_lite_machine_value_key(value: MirMachineValue) -> SsaLiteValueKey {
+fn ssa_lite_machine_value_key(value: MirMachineValue) -> Option<SsaLiteValueKey> {
     match value {
-        MirMachineValue::ConstU8(value) => SsaLiteValueKey::ConstU8(value),
-        MirMachineValue::DirectMem(mem) => SsaLiteValueKey::DirectMem(mem),
+        MirMachineValue::ConstU8(value) => Some(SsaLiteValueKey::ConstU8(value)),
+        MirMachineValue::DirectMem(mem) => Some(SsaLiteValueKey::DirectMem(mem)),
+        MirMachineValue::IndexedMem { .. } => None,
     }
 }
 
@@ -3451,7 +3452,7 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
                 context.accumulator_value_at(context.point(MirSite::BlockEntry { block: block.id }))
             })
             .and_then(|proof| match proof {
-                MirProof::Proven(value) => Some(ssa_lite_machine_value_key(value)),
+                MirProof::Proven(value) => ssa_lite_machine_value_key(value),
                 MirProof::Blocked(_) => None,
             })
             .filter(|value| match value {
@@ -3489,7 +3490,8 @@ pub(in crate::mir6502) fn discover_ssa_lite_byte_rewrites(
                 let reload_preserves_zn = loaded_reg_key.as_ref().is_some_and(|(_, key)| {
                     matches!(
                         context.zn_value_at(point),
-                        MirProof::Proven(value) if ssa_lite_machine_value_key(value.clone()) == *key
+                        MirProof::Proven(value)
+                            if ssa_lite_machine_value_key(value.clone()).as_ref() == Some(key)
                     )
                 });
                 let edge_accumulator_reload = accumulator_still_from_edge
@@ -3701,7 +3703,7 @@ fn known_callee_result_reload_key(
     let MirProof::Proven(value) = context.accumulator_value_at(point) else {
         return None;
     };
-    let value = ssa_lite_machine_value_key(value);
+    let value = ssa_lite_machine_value_key(value)?;
     (value == SsaLiteValueKey::DirectMem(mem.clone())).then_some(value)
 }
 

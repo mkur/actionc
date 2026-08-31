@@ -15,6 +15,14 @@ use crate::mir6502::ir::{
 pub(in crate::mir6502) enum MirMachineValue {
     ConstU8(u8),
     DirectMem(MirMem),
+    /// A byte read from `base[index]` while the index had an exact value.
+    ///
+    /// The index value, rather than only the physical register, makes this a
+    /// stable value identity across CFG edges and harmless register reloads.
+    IndexedMem {
+        base: MirMem,
+        index: Box<MirMachineValue>,
+    },
 }
 
 /// Optional final-layout addresses used to disambiguate memory writes.
@@ -406,41 +414,42 @@ fn apply_op(
 
     let effects = classify_op(op);
     for reg in [MirReg::A, MirReg::X, MirReg::Y] {
-        let Some(MirMachineValue::DirectMem(mem)) = state.register(reg) else {
+        let Some(value) = state.register(reg) else {
             continue;
         };
-        if operation_may_write_mem(op, mem, &effects, memory_map) {
+        if operation_may_invalidate_value(op, value, &effects, memory_map) {
             state.set_register(reg, None);
         }
     }
-    if let Some(MirMachineValue::DirectMem(mem)) = &state.zn
-        && operation_may_write_mem(op, mem, &effects, memory_map)
+    if let Some(value) = &state.zn
+        && operation_may_invalidate_value(op, value, &effects, memory_map)
     {
         state.zn = None;
     }
 
     if let MirOp::Call { target, .. } = op {
         for reg in [MirReg::X, MirReg::Y] {
-            let Some(MirMachineValue::DirectMem(mem)) = state.register(reg) else {
+            let Some(value) = state.register(reg) else {
                 continue;
             };
-            let invalidated = known_callees
-                .for_target(target)
-                .is_none_or(|summary| summary.writes().may_write_mem(mem));
+            let invalidated = known_callees.for_target(target).map_or_else(
+                || !matches!(value, MirMachineValue::ConstU8(_)),
+                |summary| known_call_may_invalidate_value(summary, value),
+            );
             if invalidated {
                 state.set_register(reg, None);
             }
         }
-        if let Some(MirMachineValue::DirectMem(mem)) = &state.zn
+        if let Some(value) = &state.zn
             && known_callees
                 .for_target(target)
-                .is_none_or(|summary| summary.writes().may_write_mem(mem))
+                .is_none_or(|summary| known_call_may_invalidate_value(summary, value))
         {
             state.zn = None;
         }
     }
 
-    if let Some(value) = explicit_accumulator_result(op, known_callees) {
+    if let Some(value) = explicit_accumulator_result(op, &before, known_callees) {
         state.a = Some(value);
     } else if !operation_preserves_accumulator(op) {
         state.a = None;
@@ -488,6 +497,106 @@ fn apply_op(
             state.zn = Some(MirMachineValue::DirectMem(mem.clone()));
             state.zn_register = Some(*reg);
         }
+    }
+}
+
+fn operation_may_invalidate_value(
+    op: &MirOp,
+    value: &MirMachineValue,
+    effects: &crate::mir6502::analysis::effects::MirOpEffectSummary,
+    memory_map: &MirMachineMemoryMap,
+) -> bool {
+    match value {
+        MirMachineValue::ConstU8(_) => false,
+        MirMachineValue::DirectMem(mem) => operation_may_write_mem(op, mem, effects, memory_map),
+        MirMachineValue::IndexedMem { base, index } => {
+            operation_may_write_indexed_mem(base, index, effects, memory_map)
+                || operation_may_invalidate_value(op, index, effects, memory_map)
+        }
+    }
+}
+
+fn operation_may_write_indexed_mem(
+    base: &MirMem,
+    index: &MirMachineValue,
+    effects: &crate::mir6502::analysis::effects::MirOpEffectSummary,
+    memory_map: &MirMachineMemoryMap,
+) -> bool {
+    let writes_memory = !effects.memory.direct_writes.is_empty()
+        || effects.memory.indirect_writes
+        || effects.memory.opaque
+        || effects.memory.may_write_any
+        || effects.memory.has_unknown_effects
+        || !matches!(&effects.memory.structured_writes, MirMemoryEffect::None);
+    if !writes_memory {
+        return false;
+    }
+    if effects.memory.indirect_writes
+        || effects.memory.opaque
+        || effects.memory.may_write_any
+        || effects.memory.has_unknown_effects
+        || !matches!(&effects.memory.structured_writes, MirMemoryEffect::None)
+    {
+        return true;
+    }
+
+    let (indexed_offset, indexed_bytes) = match index {
+        MirMachineValue::ConstU8(value) => (u16::from(*value), 1),
+        MirMachineValue::DirectMem(_) | MirMachineValue::IndexedMem { .. } => (0, 256),
+    };
+    effects.memory.direct_writes.iter().any(|write| {
+        memory_ranges_may_overlap(
+            base,
+            indexed_offset,
+            indexed_bytes,
+            &write.base,
+            0,
+            write.bytes,
+            memory_map,
+        )
+    })
+}
+
+fn memory_ranges_may_overlap(
+    left: &MirMem,
+    left_offset: u16,
+    left_bytes: u16,
+    right: &MirMem,
+    right_offset: u16,
+    right_bytes: u16,
+    memory_map: &MirMachineMemoryMap,
+) -> bool {
+    let Some(left_address) = memory_map
+        .address(left)
+        .and_then(|address| address.checked_add(left_offset))
+    else {
+        return true;
+    };
+    let Some(right_address) = memory_map
+        .address(right)
+        .and_then(|address| address.checked_add(right_offset))
+    else {
+        return true;
+    };
+    let Some(left_end) = left_address.checked_add(left_bytes.saturating_sub(1)) else {
+        return true;
+    };
+    let Some(right_end) = right_address.checked_add(right_bytes.saturating_sub(1)) else {
+        return true;
+    };
+    left_address <= right_end && right_address <= left_end
+}
+
+fn known_call_may_invalidate_value(
+    summary: &crate::mir6502::analysis::known_callees::MirKnownCalleeExitSummary,
+    value: &MirMachineValue,
+) -> bool {
+    match value {
+        MirMachineValue::ConstU8(_) => false,
+        MirMachineValue::DirectMem(mem) => summary.writes().may_write_mem(mem),
+        // Callee summaries currently describe named bytes, not indexed
+        // regions. Preserve correctness until their write ranges are exposed.
+        MirMachineValue::IndexedMem { .. } => true,
     }
 }
 
@@ -641,6 +750,7 @@ fn update_fixed_zero_page_values(
                         MirMachineValue::DirectMem(source) => {
                             !summary.writes().may_write_mem(source)
                         }
+                        MirMachineValue::IndexedMem { .. } => false,
                     }
             });
         }
@@ -785,6 +895,11 @@ fn operation_preserves_accumulator(op: &MirOp) -> bool {
             width: MirWidth::Byte,
             ..
         }
+        | MirOp::Move {
+            dst: MirDef::Reg(MirReg::X | MirReg::Y),
+            width: MirWidth::Byte,
+            ..
+        }
         | MirOp::Store {
             dst: MirAddr::Direct(_),
             src: MirValue::Def(MirDef::Reg(MirReg::A | MirReg::X | MirReg::Y)),
@@ -806,6 +921,7 @@ fn operation_preserves_accumulator(op: &MirOp) -> bool {
 
 fn explicit_accumulator_result(
     op: &MirOp,
+    before: &MirMachineValueState,
     known_callees: &MirKnownCalleeSummaries,
 ) -> Option<MirMachineValue> {
     match op {
@@ -816,24 +932,17 @@ fn explicit_accumulator_result(
         } => u8::try_from(*value).ok().map(MirMachineValue::ConstU8),
         MirOp::Load {
             dst: MirDef::Reg(MirReg::A),
-            src: MirAddr::Direct(mem),
+            src,
             width: MirWidth::Byte,
-        } => Some(MirMachineValue::DirectMem(mem.clone())),
+        } => machine_value_for_load(src, before),
         MirOp::Move {
             dst: MirDef::Reg(MirReg::A),
-            src: MirValue::ConstU8(value),
+            src,
             width: MirWidth::Byte,
-        } => Some(MirMachineValue::ConstU8(*value)),
-        MirOp::Move {
-            dst: MirDef::Reg(MirReg::A),
-            src: MirValue::ConstU16(value),
-            width: MirWidth::Byte,
-        } => u8::try_from(*value).ok().map(MirMachineValue::ConstU8),
-        MirOp::Move {
-            dst: MirDef::Reg(MirReg::A),
-            src: MirValue::PointerCell(mem),
-            width: MirWidth::Byte,
-        } => Some(MirMachineValue::DirectMem(mem.clone())),
+        } => machine_value_for_value(src, before),
+        MirOp::CompareDirectIndexedBytes { left, .. } => {
+            indexed_machine_value(left, before.register(MirReg::Y)?.clone())
+        }
         MirOp::Call { target, .. } => known_callees
             .for_target(target)
             .and_then(|summary| summary.accumulator().cloned()),
@@ -855,9 +964,9 @@ fn explicit_index_register_result(
         } if *dst == reg => u8::try_from(*value).ok().map(MirMachineValue::ConstU8),
         MirOp::Load {
             dst: MirDef::Reg(dst),
-            src: MirAddr::Direct(mem),
+            src,
             width: MirWidth::Byte,
-        } if *dst == reg => Some(MirMachineValue::DirectMem(mem.clone())),
+        } if *dst == reg => machine_value_for_load(src, before),
         MirOp::Move {
             dst: MirDef::Reg(dst),
             src,
@@ -880,9 +989,9 @@ fn explicit_zn_result(
         } => u8::try_from(*value).ok().map(MirMachineValue::ConstU8),
         MirOp::Load {
             dst: MirDef::Reg(_),
-            src: MirAddr::Direct(mem),
+            src,
             width: MirWidth::Byte,
-        } => Some(MirMachineValue::DirectMem(mem.clone())),
+        } => machine_value_for_load(src, before),
         MirOp::Move {
             dst: MirDef::Reg(_),
             src,
@@ -893,6 +1002,39 @@ fn explicit_zn_result(
             .and_then(|summary| summary.zn().cloned()),
         _ => None,
     }
+}
+
+fn machine_value_for_load(
+    source: &MirAddr,
+    before: &MirMachineValueState,
+) -> Option<MirMachineValue> {
+    match source {
+        MirAddr::Direct(mem) => Some(MirMachineValue::DirectMem(mem.clone())),
+        MirAddr::ZeroPageIndexedX { base } => indexed_machine_value(
+            &MirMem::ZeroPage(*base),
+            before.register(MirReg::X)?.clone(),
+        ),
+        MirAddr::AbsoluteIndexedX { base } => {
+            indexed_machine_value(base, before.register(MirReg::X)?.clone())
+        }
+        MirAddr::AbsoluteIndexedY { base } => {
+            indexed_machine_value(base, before.register(MirReg::Y)?.clone())
+        }
+        MirAddr::Label(_)
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. }
+        | MirAddr::ComputedIndex { .. }
+        | MirAddr::PointerCell { .. }
+        | MirAddr::PointerIndex { .. }
+        | MirAddr::Deref { .. } => None,
+    }
+}
+
+fn indexed_machine_value(base: &MirMem, index: MirMachineValue) -> Option<MirMachineValue> {
+    Some(MirMachineValue::IndexedMem {
+        base: base.clone(),
+        index: Box::new(index),
+    })
 }
 
 fn explicit_zn_register_result(

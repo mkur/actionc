@@ -142,7 +142,7 @@ use indexes::{
 };
 pub(super) use layout::MaterializeLayout;
 use lea::{lower_address_to_def, lower_lea_addrs_with_final_layout};
-use machine_value_census::fold_redundant_xy_reloads;
+use machine_value_census::fold_redundant_register_reloads;
 pub(in crate::mir6502) use memory::op_may_write_mem;
 #[cfg(test)]
 use memory::{mem_is_read_after, op_definitely_writes_mem};
@@ -1331,7 +1331,7 @@ pub(super) fn materialize_program(
         }
     }
     materialize_remaining_pointer_cell_values(&mut program);
-    fold_redundant_xy_reloads(&mut program, &final_layout, &mut peephole_stats);
+    fold_redundant_register_reloads(&mut program, &final_layout, &mut peephole_stats);
     // Late exact-Z/N and register-value folding can leave an earlier pure
     // register write dead across a CFG edge. Rebuild machine liveness before
     // the final home-definition cleanup so both exposed register writes and

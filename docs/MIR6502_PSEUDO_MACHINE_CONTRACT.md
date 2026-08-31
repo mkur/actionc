@@ -364,6 +364,17 @@ not delete or duplicate the load. Calls, machine blocks, additional barriers,
 intervening operations, cross-block uses, and consumers that cannot accept A
 retain a materialized home.
 
+Post-home machine-value analysis carries must-agree exact byte identities for
+A, X, and Y across ordinary CFG edges. Identities include constants, direct
+memory bytes, and directly indexed bytes paired with the exact index value that
+was present at the read. `CompareDirectIndexedBytes` establishes its left
+indexed operand in A because that is the value left by the emitted `LDA`/`CMP`
+sequence. A late rewrite may remove a matching A/X/Y load only when its N/Z
+result is dead and the source is safe to reread. Absolute hardware reads still
+have a value identity so register-to-register copies can share the value, but
+the reads themselves are never removed. Aliasing writes, unknown calls,
+machine blocks, barriers, or disagreement at a CFG join invalidate the fact.
+
 ### Counted-loop facts and latch selection
 
 `mir6502::analysis::counted_loops` recognizes typed byte induction cycles from

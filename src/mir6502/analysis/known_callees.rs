@@ -467,7 +467,8 @@ fn caller_visible_exit_value(value: MirMachineValue) -> Option<MirMachineValue> 
             | MirMem::Param { .. }
             | MirMem::Spill { .. }
             | MirMem::ZeroPage(_),
-        ) => None,
+        )
+        | MirMachineValue::IndexedMem { .. } => None,
     }
 }
 
@@ -1495,13 +1496,19 @@ fn record_machine_register_store(
 }
 
 fn invalidate_accumulator_after_unknown_write(accumulator: &mut Option<MirMachineValue>) {
-    if matches!(accumulator, Some(MirMachineValue::DirectMem(_))) {
+    if matches!(
+        accumulator,
+        Some(MirMachineValue::DirectMem(_) | MirMachineValue::IndexedMem { .. })
+    ) {
         *accumulator = None;
     }
 }
 
 fn invalidate_zn_after_unknown_write(zn: &mut Option<MirMachineValue>) {
-    if matches!(zn, Some(MirMachineValue::DirectMem(_))) {
+    if matches!(
+        zn,
+        Some(MirMachineValue::DirectMem(_) | MirMachineValue::IndexedMem { .. })
+    ) {
         *zn = None;
     }
 }
