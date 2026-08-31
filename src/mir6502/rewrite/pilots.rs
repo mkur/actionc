@@ -721,6 +721,9 @@ pub(in crate::mir6502) fn discover_store_consumers(
                 "direct-copy-store-consumer" => {
                     direct_copy_store_consumer_plan(block.id, &block.ops, index, candidate, context)
                 }
+                "abstract-byte-inc-dec-store-consumer" => {
+                    byte_store_consumer_plan(block.id, &block.ops, index, candidate, context)
+                }
                 "byte-store-consumer" => {
                     byte_store_consumer_plan(block.id, &block.ops, index, candidate, context)
                 }

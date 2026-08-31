@@ -1,0 +1,8 @@
+BYTE a=$CF
+
+PROC Main()
+  a==+1
+  IF a=10 THEN
+    a=0
+  FI
+RETURN

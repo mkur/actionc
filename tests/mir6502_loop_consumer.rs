@@ -23,6 +23,24 @@ fn while_loop_condition_and_increment_avoid_spills() {
 }
 
 #[test]
+fn byte_compound_increment_reloads_for_a_following_compare() {
+    let (formatted, bytes) =
+        compile_materialized_mir6502_fixture("byte_compound_increment_compare.act");
+
+    assert!(
+        formatted.contains("inc.b global g0+0"),
+        "expected direct increment:\n{formatted}"
+    );
+    assert!(!formatted.contains(" add #$01"));
+    assert!(
+        bytes
+            .windows(6)
+            .any(|bytes| bytes == [0xE6, 0xCF, 0xA5, 0xCF, 0xC9, 0x0A]),
+        "expected INC/LDA/CMP for a==+1 followed by a=10: {bytes:02X?}"
+    );
+}
+
+#[test]
 fn byte_for_loop_bound_and_body_consumers_avoid_spills() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("for_loop_byte.act");
 

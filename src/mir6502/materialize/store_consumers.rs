@@ -2896,14 +2896,20 @@ fn select_byte_store_consumer_with_deadness(
         index,
         terminator,
         require_local_deadness,
+        true,
         out,
     ) {
         return consumed;
     }
 
-    if let Some(consumed) =
-        try_fuse_byte_update_store_consumer(ops, index, terminator, require_local_deadness, out)
-    {
+    if let Some(consumed) = try_fuse_byte_update_store_consumer(
+        ops,
+        index,
+        terminator,
+        require_local_deadness,
+        true,
+        out,
+    ) {
         return consumed;
     }
 
@@ -3686,6 +3692,7 @@ fn try_fuse_byte_update_store_consumer(
     index: usize,
     terminator: &MirTerminator,
     require_local_deadness: bool,
+    require_machine_exit_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
     let MirOp::Binary {
@@ -3715,7 +3722,7 @@ fn try_fuse_byte_update_store_consumer(
         return None;
     }
     let update = byte_mem_inc_dec_update(*op, left, right, store_dst, *carry_in)?;
-    if !tail_allows_inc_dec_update(ops, index + 2, terminator) {
+    if require_machine_exit_deadness && !tail_allows_inc_dec_update(ops, index + 2, terminator) {
         return None;
     }
     out.push(MirOp::UpdateMem {
@@ -3731,6 +3738,7 @@ fn try_fuse_loaded_byte_update_store_consumer(
     index: usize,
     terminator: &MirTerminator,
     require_local_deadness: bool,
+    require_machine_exit_deadness: bool,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
     let MirOp::Load {
@@ -3777,7 +3785,7 @@ fn try_fuse_loaded_byte_update_store_consumer(
         return None;
     }
     let update = byte_mem_inc_dec_update(*op, &left, &right, store_dst, *carry_in)?;
-    if !tail_allows_inc_dec_update(ops, index + 3, terminator) {
+    if require_machine_exit_deadness && !tail_allows_inc_dec_update(ops, index + 3, terminator) {
         return None;
     }
     out.push(MirOp::UpdateMem {
@@ -3786,6 +3794,53 @@ fn try_fuse_loaded_byte_update_store_consumer(
         width: MirWidth::Byte,
     });
     Some(3)
+}
+
+/// Select a logical-temp update before register homes make incidental 6502
+/// flags observable to the rewrite analysis. `carry_out=ignore` belongs to the
+/// matched shape, while the pre-home driver proves that the removed temp result
+/// has no use outside the rewritten window.
+pub(super) fn select_abstract_byte_inc_dec_store_consumer(
+    ops: &[MirOp],
+    index: usize,
+    terminator: &MirTerminator,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let loaded_abstract_defs = matches!(
+        (ops.get(index), ops.get(index + 1)),
+        (
+            Some(MirOp::Load {
+                dst: MirDef::VTemp(_),
+                ..
+            }),
+            Some(MirOp::Binary {
+                dst: MirDef::VTemp(_),
+                ..
+            })
+        )
+    );
+    if loaded_abstract_defs
+        && let Some(consumed) =
+            try_fuse_loaded_byte_update_store_consumer(ops, index, terminator, false, false, out)
+    {
+        return consumed;
+    }
+
+    let abstract_def = matches!(
+        ops.get(index),
+        Some(MirOp::Binary {
+            dst: MirDef::VTemp(_),
+            ..
+        })
+    );
+    if abstract_def
+        && let Some(consumed) =
+            try_fuse_byte_update_store_consumer(ops, index, terminator, false, false, out)
+    {
+        return consumed;
+    }
+
+    0
 }
 
 fn byte_mem_inc_dec_update(
