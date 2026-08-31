@@ -1324,8 +1324,11 @@ pub(super) fn materialize_program(
         if layout_blocks_in_reverse_postorder(routine) {
             peephole_stats.record(routine.id, "cfg-cost-aware-layout");
         }
-        let rotated = cfg::rotate_initialized_byte_countdowns(routine, &final_layout);
-        peephole_stats.record_many(routine.id, "initialized-byte-countdown-rotation", rotated);
+        let selected = cfg::select_counted_loop_latches(routine, &final_layout);
+        peephole_stats.record_many(routine.id, "counted-loop-latch-selected", selected);
+        if selected > 0 && layout_blocks_in_reverse_postorder(routine) {
+            peephole_stats.record(routine.id, "counted-loop-post-selection-layout");
+        }
     }
     materialize_remaining_pointer_cell_values(&mut program);
     fold_redundant_xy_reloads(&mut program, &final_layout, &mut peephole_stats);

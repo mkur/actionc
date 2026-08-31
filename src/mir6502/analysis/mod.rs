@@ -1,4 +1,5 @@
 pub(super) mod cfg;
+pub(super) mod counted_loops;
 pub(super) mod dominance;
 pub(super) mod effects;
 pub(super) mod home_definitions;

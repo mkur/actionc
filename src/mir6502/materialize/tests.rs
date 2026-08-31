@@ -5699,6 +5699,55 @@ fn byte_memory_update_commuted_add_one_uses_inc() {
 }
 
 #[test]
+fn byte_memory_update_add_ff_uses_dec() {
+    let update_mem = MirMem::Local {
+        id: LocalId(19),
+        offset: 0,
+    };
+    let ops = vec![
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(update_mem.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::Reg(MirReg::A),
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right: MirValue::ConstU8(0xff),
+            width: MirWidth::Byte,
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(update_mem.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ];
+    let mut folded = Vec::new();
+
+    assert_eq!(
+        store_consumers::try_fold_direct_inc_dec_update(
+            &ops,
+            0,
+            &MirTerminator::Return,
+            &mut folded,
+        ),
+        Some(3)
+    );
+
+    assert!(matches!(
+        folded.as_slice(),
+        [MirOp::UpdateMem {
+            op: MirUpdateOp::Dec,
+            mem,
+            width: MirWidth::Byte,
+        }] if mem == &update_mem
+    ));
+}
+
+#[test]
 fn byte_memory_update_sub_const_uses_add_sub_store_materialization() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

@@ -364,6 +364,24 @@ not delete or duplicate the load. Calls, machine blocks, additional barriers,
 intervening operations, cross-block uses, and consumers that cannot accept A
 retain a materialized home.
 
+### Counted-loop facts and latch selection
+
+`mir6502::analysis::counted_loops` recognizes typed byte induction cycles from
+stable MIR block and storage identities. Its result records the preheader,
+header, body, latch, exit, induction home, initial value, normalized bound,
+direction, step, signedness, entry-guard requirement, and whether the final
+home may be read after exit. MIR6502 does not recover these facts from printed
+labels or source syntax.
+
+The first target selector accepts unit-step byte loops over compiler-controlled
+RAM. A proven-entered head-tested loop may rotate its `INC`/`DEC` latch behind
+the body. A descending inclusive loop ending at zero may bypass its redundant
+unsigned `>= 0` header and replace the guarded `ADC #$FF`/store update with a
+direct `DEC`; it reloads A only when machine liveness proves the body consumes
+that value. The original guard remains for dynamic initial values. Absolute
+hardware storage, volatile barrier shapes, signed loops, non-unit steps, and
+live machine flags retain the general CFG.
+
 ## Definitions, Values, Memory, And Addresses
 
 MIR distinguishes definition sites, value operands, and memory/addressing sites.

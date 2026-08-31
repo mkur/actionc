@@ -172,6 +172,14 @@ steps, ambiguous backedges, or side effects that invalidate the proof.
 Boundary coverage includes 0, 1, 127, 128, and 255, zero/one iteration,
 overflow/underflow, `EXIT`, nested loops, and signed `INT` loops.
 
+Implementation note: the initial analysis recognizes both conventional
+head-tested byte loops and Action!'s bottom-guarded inclusive descending loop.
+The selector rotates proven-entered `INC`/`DEC` head latches and selects a
+direct `DEC` for descending-to-zero bottom latches. Dynamic entries, signed or
+non-unit loops, hardware-backed storage outside zero-page RAM, and live flags
+remain on the general path. The old initialized-countdown scanner is removed;
+its `DEC/BNE` case is now selected from the shared counted-loop facts.
+
 ## Slice 4: exact A/X/Y facts across simple CFG edges
 
 Extend machine-value availability with exact byte identities for:

@@ -186,6 +186,22 @@ impl MaterializeLayout {
         }
     }
 
+    /// NMOS read/modify/write instructions are safe for compiler-owned scalar
+    /// RAM. Source-declared zero-page absolute variables also denote RAM unless
+    /// volatility inserted explicit barriers around the access.
+    pub(super) fn mem_allows_direct_update(&self, mem: &MirMem) -> bool {
+        match mem {
+            MirMem::Local { .. }
+            | MirMem::Param { .. }
+            | MirMem::Static { .. }
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_) => true,
+            MirMem::Global { id, .. } => self.global_allows_idempotent_store_removal(*id),
+            MirMem::Absolute(address) => *address < 0x0100,
+            MirMem::FixedZeroPage(_) => false,
+        }
+    }
+
     /// Reordering the two byte stores of a word is only valid for
     /// compiler-owned, non-volatile storage. In particular, absolute-backed
     /// globals retain source order because their writes may be observable by

@@ -4064,7 +4064,7 @@ fn direct_inc_dec_update_shape_at(
         op,
         dst: MirDef::Reg(MirReg::A),
         left: MirValue::Def(MirDef::Reg(MirReg::A)),
-        right: MirValue::ConstU8(1),
+        right,
         width: MirWidth::Byte,
         carry_in,
         carry_out,
@@ -4086,11 +4086,7 @@ fn direct_inc_dec_update_shape_at(
     if store_dst != &mem || !inc_dec_mem_is_safe(store_dst) {
         return None;
     }
-    let update = match (op, carry_in) {
-        (MirBinaryOp::Add, None | Some(MirCarryIn::Clear)) => MirUpdateOp::Inc,
-        (MirBinaryOp::Sub, None | Some(MirCarryIn::Set)) => MirUpdateOp::Dec,
-        _ => return None,
-    };
+    let update = inc_dec_update_for_binary(*op, right, *carry_in)?;
     Some((
         3,
         vec![MirOp::UpdateMem {
@@ -4119,7 +4115,7 @@ fn indexed_inc_dec_update_shape_at(
         op,
         dst: MirDef::Reg(MirReg::A),
         left: MirValue::Def(MirDef::Reg(MirReg::A)),
-        right: MirValue::ConstU8(1),
+        right,
         width: MirWidth::Byte,
         carry_in,
         carry_out,
@@ -4141,11 +4137,7 @@ fn indexed_inc_dec_update_shape_at(
     if store_base != base || !layout.mem_allows_direct_indexed_update(base) {
         return None;
     }
-    let update = match (op, carry_in) {
-        (MirBinaryOp::Add, None | Some(MirCarryIn::Clear)) => MirUpdateOp::Inc,
-        (MirBinaryOp::Sub, None | Some(MirCarryIn::Set)) => MirUpdateOp::Dec,
-        _ => return None,
-    };
+    let update = inc_dec_update_for_binary(*op, right, *carry_in)?;
     Some((
         3,
         vec![MirOp::UpdateIndexedMem {
@@ -4153,6 +4145,23 @@ fn indexed_inc_dec_update_shape_at(
             base: base.clone(),
         }],
     ))
+}
+
+fn inc_dec_update_for_binary(
+    op: MirBinaryOp,
+    right: &MirValue,
+    carry_in: Option<MirCarryIn>,
+) -> Option<MirUpdateOp> {
+    match (op, right, carry_in) {
+        (MirBinaryOp::Add, MirValue::ConstU8(1), None | Some(MirCarryIn::Clear)) => {
+            Some(MirUpdateOp::Inc)
+        }
+        (MirBinaryOp::Add, MirValue::ConstU8(0xff), None | Some(MirCarryIn::Clear))
+        | (MirBinaryOp::Sub, MirValue::ConstU8(1), None | Some(MirCarryIn::Set)) => {
+            Some(MirUpdateOp::Dec)
+        }
+        _ => None,
+    }
 }
 
 fn inc_dec_exit_change() -> MirExitStateChange {
