@@ -8,7 +8,7 @@ use actionc::diagnostic::Diagnostic;
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502;
 use actionc::nir;
-use actionc::semantic::{analyze, ir};
+use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
 
 #[derive(Debug)]
 struct Config {
@@ -155,7 +155,7 @@ fn sweep_file(path: &Path, mode: SweepMode) -> SweepResult {
         }
     };
 
-    let model = match analyze(&loaded.program) {
+    let model = match analyze_with_options(&loaded.program, SemanticOptions::modern()) {
         Ok(model) => model,
         Err(diagnostics) => {
             return SweepResult {
