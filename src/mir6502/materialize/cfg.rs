@@ -12,6 +12,7 @@ use crate::mir6502::ir::{
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::layout::MaterializeLayout;
+use super::memory::op_may_write_mem;
 use super::spills::visit_op_mems;
 
 pub(super) fn collapse_empty_jump_blocks(routine: &mut MirRoutine) {
@@ -114,6 +115,9 @@ pub(super) fn select_counted_loop_latches(
             }
             CountedLoopLatchPlan::RotatedHeadTested(plan) => {
                 apply_rotated_head_tested_plan(&mut routine.blocks, plan)
+            }
+            CountedLoopLatchPlan::BottomFast(plan) => {
+                apply_bottom_fast_countdown_plan(&mut routine.blocks, plan)
             }
             CountedLoopLatchPlan::BottomGuarded(plan) => {
                 apply_bottom_guarded_countdown_plan(&mut routine.blocks, plan)
@@ -862,6 +866,7 @@ fn width_bytes(width: MirWidth) -> u8 {
 enum CountedLoopLatchPlan {
     HeadTested(InitializedByteCountdownPlan),
     RotatedHeadTested(RotatedHeadTestedPlan),
+    BottomFast(BottomFastByteCountdownPlan),
     BottomGuarded(BottomGuardedByteCountdownPlan),
 }
 
@@ -889,6 +894,18 @@ struct BottomGuardedByteCountdownPlan {
     header: MirBlockId,
     body: MirBlockId,
     latch: MirBlockId,
+    remove_entry_header: bool,
+    reload_accumulator: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct BottomFastByteCountdownPlan {
+    preheader: MirBlockId,
+    header: MirBlockId,
+    body: MirBlockId,
+    guard: MirBlockId,
+    latch: MirBlockId,
+    restore: MirBlockId,
     remove_entry_header: bool,
     reload_accumulator: bool,
 }
@@ -983,14 +1000,37 @@ fn counted_loop_latch_plan(
                 {
                     continue;
                 }
+                let remove_entry_header = !counted.initial_guard_required
+                    && machine_flags_dead_on_entry(&liveness, counted.body);
+                let reload_accumulator = machine_accumulator_live_on_entry(&liveness, counted.body);
+                if bottom_fast_countdown_is_safe(routine, &cfg, &counted, guard)
+                    && let Some(restore) = fresh_block_id(routine)
+                {
+                    let plan = BottomFastByteCountdownPlan {
+                        preheader: counted.preheader,
+                        header: counted.header,
+                        body: counted.body,
+                        guard,
+                        latch: counted.latch,
+                        restore,
+                        remove_entry_header,
+                        reload_accumulator,
+                    };
+                    let mut candidate = routine.blocks.clone();
+                    if apply_bottom_fast_countdown_plan(&mut candidate, plan)
+                        && estimated_routine_layout_bytes(&candidate)
+                            < estimated_routine_layout_bytes(&routine.blocks)
+                    {
+                        return Some(CountedLoopLatchPlan::BottomFast(plan));
+                    }
+                }
                 let plan = BottomGuardedByteCountdownPlan {
                     preheader: counted.preheader,
                     header: counted.header,
                     body: counted.body,
                     latch: counted.latch,
-                    remove_entry_header: !counted.initial_guard_required
-                        && machine_flags_dead_on_entry(&liveness, counted.body),
-                    reload_accumulator: machine_accumulator_live_on_entry(&liveness, counted.body),
+                    remove_entry_header,
+                    reload_accumulator,
                 };
                 let mut candidate = routine.blocks.clone();
                 if apply_bottom_guarded_countdown_plan(&mut candidate, plan)
@@ -1008,6 +1048,79 @@ fn counted_loop_latch_plan(
 
 fn counted_loop_mem_allows_rmw(counted: &MirCountedLoop, layout: &MaterializeLayout) -> bool {
     layout.mem_allows_direct_update(&counted.induction)
+}
+
+fn bottom_fast_countdown_is_safe(
+    routine: &MirRoutine,
+    cfg: &MirCfg,
+    counted: &MirCountedLoop,
+    guard: MirBlockId,
+) -> bool {
+    let initial = match counted.initial_value {
+        MirValue::ConstU8(value) => value,
+        MirValue::ConstU16(value) if value <= u16::from(u8::MAX) => value as u8,
+        _ => return false,
+    };
+    if initial > i8::MAX as u8 || counted.body == guard || counted.body == counted.latch {
+        return false;
+    }
+    let Some(body_blocks) = bottom_guarded_body_blocks(routine, cfg, counted, guard) else {
+        return false;
+    };
+    body_blocks.iter().all(|block_id| {
+        routine
+            .blocks
+            .iter()
+            .find(|block| block.id == *block_id)
+            .is_some_and(|block| {
+                block
+                    .ops
+                    .iter()
+                    .all(|op| !op_may_write_mem(op, &counted.induction))
+            })
+    })
+}
+
+fn bottom_guarded_body_blocks(
+    routine: &MirRoutine,
+    cfg: &MirCfg,
+    counted: &MirCountedLoop,
+    guard: MirBlockId,
+) -> Option<BTreeSet<MirBlockId>> {
+    let boundaries = BTreeSet::from([counted.header, guard, counted.latch, counted.exit]);
+    let mut blocks = BTreeSet::new();
+    let mut pending = vec![counted.body];
+    while let Some(block) = pending.pop() {
+        if boundaries.contains(&block) || !blocks.insert(block) {
+            continue;
+        }
+        if !routine.blocks.iter().any(|candidate| candidate.id == block) {
+            return None;
+        }
+        pending.extend(cfg.successors(block).iter().copied());
+    }
+    if blocks.is_empty()
+        || cfg
+            .predecessors(guard)
+            .iter()
+            .any(|predecessor| !blocks.contains(predecessor))
+    {
+        return None;
+    }
+    for block in &blocks {
+        if cfg.predecessors(*block).iter().any(|predecessor| {
+            !blocks.contains(predecessor)
+                && !(*block == counted.body && *predecessor == counted.header)
+        }) {
+            return None;
+        }
+        if cfg.successors(*block).iter().any(|successor| {
+            !blocks.contains(successor) && *successor != guard && *successor != counted.exit
+        }) {
+            return None;
+        }
+    }
+    Some(blocks)
 }
 
 fn apply_initialized_byte_countdown_plan(
@@ -1069,7 +1182,7 @@ fn apply_bottom_guarded_countdown_plan(
     if plan.reload_accumulator {
         blocks[latch_index].ops.push(MirOp::Load {
             dst: MirDef::Reg(MirReg::A),
-            src: MirAddr::Direct(induction),
+            src: MirAddr::Direct(induction.clone()),
             width: MirWidth::Byte,
         });
     }
@@ -1078,6 +1191,111 @@ fn apply_bottom_guarded_countdown_plan(
         blocks.remove(header_index);
     }
     true
+}
+
+fn apply_bottom_fast_countdown_plan(
+    blocks: &mut Vec<MirBlock>,
+    plan: BottomFastByteCountdownPlan,
+) -> bool {
+    let Some(preheader_index) = blocks.iter().position(|block| block.id == plan.preheader) else {
+        return false;
+    };
+    let Some(header_index) = blocks.iter().position(|block| block.id == plan.header) else {
+        return false;
+    };
+    if blocks.iter().any(|block| block.id == plan.restore) {
+        return false;
+    }
+    let Some(latch_index) = blocks.iter().position(|block| block.id == plan.latch) else {
+        return false;
+    };
+    let Some(induction) = bottom_guarded_latch_mem(&blocks[latch_index], plan.header) else {
+        return false;
+    };
+    if plan.remove_entry_header {
+        blocks[preheader_index].terminator = MirTerminator::Jump(MirEdge::plain(plan.body));
+    }
+    for block in blocks.iter_mut() {
+        redirect_block_target(&mut block.terminator, plan.guard, plan.latch);
+    }
+    blocks[latch_index].ops = vec![MirOp::UpdateMem {
+        op: MirUpdateOp::Dec,
+        mem: induction.clone(),
+        width: MirWidth::Byte,
+    }];
+    if plan.reload_accumulator {
+        blocks[latch_index].ops.push(MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(induction.clone()),
+            width: MirWidth::Byte,
+        });
+    }
+    blocks[latch_index].terminator = MirTerminator::Branch {
+        cond: MirCond::FlagTest(MirFlagTest::NClear),
+        then_edge: MirEdge::plain(plan.body),
+        else_edge: MirEdge::plain(plan.restore),
+    };
+    blocks.insert(
+        latch_index + 1,
+        MirBlock {
+            id: plan.restore,
+            label: "countdown.restore".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::UpdateMem {
+                op: MirUpdateOp::Inc,
+                mem: induction,
+                width: MirWidth::Byte,
+            }],
+            terminator: MirTerminator::Jump(MirEdge::plain(plan.guard)),
+        },
+    );
+    let mut remove = Vec::new();
+    if plan.remove_entry_header {
+        remove.push(header_index);
+    }
+    remove.sort_unstable_by(|left, right| right.cmp(left));
+    for index in remove {
+        blocks.remove(index);
+    }
+    true
+}
+
+fn fresh_block_id(routine: &MirRoutine) -> Option<MirBlockId> {
+    routine
+        .blocks
+        .iter()
+        .map(|block| block.id.0)
+        .max()
+        .unwrap_or(0)
+        .checked_add(1)
+        .map(MirBlockId)
+}
+
+fn redirect_block_target(
+    terminator: &mut MirTerminator,
+    original: MirBlockId,
+    replacement: MirBlockId,
+) {
+    match terminator {
+        MirTerminator::Jump(edge) => {
+            if edge.target == original {
+                edge.target = replacement;
+            }
+        }
+        MirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } => {
+            if then_edge.target == original {
+                then_edge.target = replacement;
+            }
+            if else_edge.target == original {
+                else_edge.target = replacement;
+            }
+        }
+        MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => {}
+    }
 }
 
 fn apply_rotated_head_tested_plan(blocks: &mut Vec<MirBlock>, plan: RotatedHeadTestedPlan) -> bool {
@@ -1921,18 +2139,45 @@ mod tests {
 
             assert_eq!(select_counted_loop_latches(&mut routine, &layout), 1);
             assert!(!routine.blocks.iter().any(|block| block.id == MirBlockId(1)));
+            let latch = routine
+                .blocks
+                .iter()
+                .find(|block| block.id == MirBlockId(4))
+                .expect("countdown latch");
             assert!(matches!(
-                routine
-                    .blocks
-                    .iter()
-                    .find(|block| block.id == MirBlockId(4))
-                    .map(|block| block.ops.as_slice()),
-                Some([MirOp::UpdateMem {
+                latch.ops.as_slice(),
+                [MirOp::UpdateMem {
                     op: MirUpdateOp::Dec,
                     width: MirWidth::Byte,
                     ..
-                }])
+                }]
             ));
+            if initial <= 127 {
+                assert!(routine.blocks.iter().any(|block| block.id == MirBlockId(3)));
+                assert!(matches!(
+                    latch.terminator,
+                    MirTerminator::Branch {
+                        cond: MirCond::FlagTest(MirFlagTest::NClear),
+                        ..
+                    }
+                ));
+                assert!(routine.blocks.iter().any(|block| {
+                    matches!(
+                        block.ops.as_slice(),
+                        [MirOp::UpdateMem {
+                            op: MirUpdateOp::Inc,
+                            width: MirWidth::Byte,
+                            ..
+                        }]
+                    ) && matches!(
+                        block.terminator,
+                        MirTerminator::Jump(ref edge) if edge.target == MirBlockId(3)
+                    )
+                }));
+            } else {
+                assert!(routine.blocks.iter().any(|block| block.id == MirBlockId(3)));
+                assert!(matches!(latch.terminator, MirTerminator::Jump(_)));
+            }
         }
     }
 
@@ -1972,6 +2217,96 @@ mod tests {
                 ..
             }])
         ));
+    }
+
+    #[test]
+    fn fast_bottom_countdown_restores_observable_final_value_and_rejects_mutation() {
+        let counter = MirMem::Local {
+            id: crate::nir::LocalId(0),
+            offset: 0,
+        };
+
+        let mut observable = bottom_guarded_countdown(MirValue::ConstU8(9), true);
+        observable
+            .blocks
+            .iter_mut()
+            .find(|block| block.id == MirBlockId(5))
+            .expect("countdown exit")
+            .ops
+            .push(MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(counter.clone()),
+                width: MirWidth::Byte,
+            });
+        let layout = layout_for(&observable);
+        assert_eq!(select_counted_loop_latches(&mut observable, &layout), 1);
+        let latch = observable
+            .blocks
+            .iter()
+            .find(|block| block.id == MirBlockId(4))
+            .expect("countdown latch");
+        assert!(matches!(
+            latch.terminator,
+            MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::NClear),
+                ..
+            }
+        ));
+        assert!(observable.blocks.iter().any(|block| {
+            matches!(
+                block.ops.as_slice(),
+                [MirOp::UpdateMem {
+                    op: MirUpdateOp::Inc,
+                    ..
+                }]
+            )
+        }));
+
+        let mut mutated = bottom_guarded_countdown(MirValue::ConstU8(9), true);
+        mutated
+            .blocks
+            .iter_mut()
+            .find(|block| block.id == MirBlockId(2))
+            .expect("countdown body")
+            .ops
+            .push(MirOp::Store {
+                dst: MirAddr::Direct(counter),
+                src: MirValue::ConstU8(0),
+                width: MirWidth::Byte,
+            });
+        let layout = layout_for(&mutated);
+        assert_eq!(select_counted_loop_latches(&mut mutated, &layout), 1);
+        assert!(mutated.blocks.iter().any(|block| block.id == MirBlockId(3)));
+    }
+
+    #[test]
+    fn fast_bottom_countdown_rejects_an_unproven_aliasing_barrier() {
+        let mut routine = bottom_guarded_countdown(MirValue::ConstU8(9), true);
+        routine
+            .blocks
+            .iter_mut()
+            .find(|block| block.id == MirBlockId(2))
+            .expect("countdown body")
+            .ops
+            .push(MirOp::Barrier {
+                effects: crate::mir6502::ir::MirEffects {
+                    opaque: true,
+                    ..Default::default()
+                },
+            });
+        let layout = layout_for(&routine);
+
+        assert!(select_counted_loop_latches(&mut routine, &layout) <= 1);
+        assert!(routine.blocks.iter().any(|block| block.id == MirBlockId(3)));
+        assert!(routine.blocks.iter().all(|block| {
+            !matches!(
+                block.terminator,
+                MirTerminator::Branch {
+                    cond: MirCond::FlagTest(MirFlagTest::NClear),
+                    ..
+                }
+            )
+        }));
     }
 
     fn ascending_head_tested_loop(initial: u8, exclusive_bound: u8) -> MirRoutine {
