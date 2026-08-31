@@ -947,6 +947,7 @@ fn result_home_summary(home: &MirResultHome) -> String {
 
 fn helper_summary(helper: &MirRuntimeHelper) -> &'static str {
     match helper {
+        MirRuntimeHelper::MulByte => "mulb",
         MirRuntimeHelper::Mul => "mul",
         MirRuntimeHelper::Div => "div",
         MirRuntimeHelper::Mod => "mod",

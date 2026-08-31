@@ -1,6 +1,8 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir6502Config {
     pub select_runtime_helpers: bool,
+    #[doc(hidden)]
+    pub select_widening_byte_multiply: bool,
     pub enable_peepholes: bool,
     pub enable_word_inc_update: bool,
     pub enable_direct_byte_word_update: bool,
@@ -19,6 +21,7 @@ impl Default for Mir6502Config {
     fn default() -> Self {
         Self {
             select_runtime_helpers: true,
+            select_widening_byte_multiply: false,
             enable_peepholes: true,
             enable_word_inc_update: true,
             enable_direct_byte_word_update: false,

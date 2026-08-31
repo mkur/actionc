@@ -47,6 +47,7 @@ pub(in crate::mir6502) fn helper_abi() -> MirCallAbi {
 pub(in crate::mir6502) fn helper_args(helper: &MirRuntimeHelper) -> Vec<MirArgHome> {
     let mut args = vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)];
     match helper {
+        MirRuntimeHelper::MulByte => {}
         MirRuntimeHelper::Mul | MirRuntimeHelper::Div | MirRuntimeHelper::Mod => {
             args.extend([
                 MirArgHome::FixedZeroPage(MirFixedZpSlot(0x84)),
@@ -68,6 +69,10 @@ pub(in crate::mir6502) fn helper_effects(helper: &MirRuntimeHelper) -> MirEffect
         MirRuntimeHelper::Lsh | MirRuntimeHelper::Rsh => (
             zero_page_effect(&[(0x84, 1)]),
             zero_page_effect(&[(0x85, 1)]),
+        ),
+        MirRuntimeHelper::MulByte => (
+            zero_page_effect(&[(0x82, 6)]),
+            zero_page_effect(&[(0x82, 6)]),
         ),
         MirRuntimeHelper::Mul => (
             zero_page_effect(&[(0x82, 6), (0xc0, 3)]),
@@ -125,6 +130,58 @@ pub(in crate::mir6502) fn helper_for_binary(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::mir6502) struct MirRuntimeBinarySelection {
+    pub helper: MirRuntimeHelper,
+    pub operand_width: MirWidth,
+    pub result_width: MirWidth,
+}
+
+pub(in crate::mir6502) fn helper_for_typed_binary(
+    op: MirBinaryOp,
+    width: MirWidth,
+    left: &MirValue,
+    right: &MirValue,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+    allow_widening_byte_multiply: bool,
+) -> Option<MirRuntimeBinarySelection> {
+    if allow_widening_byte_multiply
+        && op == MirBinaryOp::Mul
+        && width == MirWidth::Word
+        && value_is_known_byte(left, temp_widths)
+        && value_is_known_byte(right, temp_widths)
+    {
+        return Some(MirRuntimeBinarySelection {
+            helper: MirRuntimeHelper::MulByte,
+            operand_width: MirWidth::Byte,
+            result_width: MirWidth::Word,
+        });
+    }
+    let helper = helper_for_binary(op, width)?;
+    Some(MirRuntimeBinarySelection {
+        helper,
+        operand_width: width,
+        result_width: width,
+    })
+}
+
+fn value_is_known_byte(value: &MirValue, temp_widths: &BTreeMap<MirTempId, MirWidth>) -> bool {
+    match value {
+        MirValue::ConstU8(_) => true,
+        MirValue::ConstU16(value) => u8::try_from(*value).is_ok(),
+        MirValue::Def(MirDef::VTemp(id)) => temp_widths.get(id) == Some(&MirWidth::Byte),
+        MirValue::Def(MirDef::VTempByte { .. }) => true,
+        MirValue::Def(MirDef::Reg(_))
+        | MirValue::Word { .. }
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. }
+        | MirValue::PointerCell(_) => false,
+    }
+}
+
 pub(super) fn materialize_runtime_helper_binary(
     helper: MirRuntimeHelper,
     dst: Option<MirDef>,
@@ -140,9 +197,10 @@ pub(super) fn materialize_runtime_helper_binary(
     let (right_lo, right_hi) = split_value_for_width(right, operand_width, layout, temp_widths);
 
     match helper {
+        MirRuntimeHelper::MulByte => {}
         MirRuntimeHelper::Mul | MirRuntimeHelper::Div | MirRuntimeHelper::Mod => {
             materialize_helper_arg_to_mem(
-                right_lo,
+                right_lo.clone(),
                 MirMem::FixedZeroPage(MirFixedZpSlot(0x84)),
                 out,
             );
@@ -154,7 +212,7 @@ pub(super) fn materialize_runtime_helper_binary(
         }
         MirRuntimeHelper::Lsh | MirRuntimeHelper::Rsh => {
             materialize_helper_arg_to_mem(
-                right_lo,
+                right_lo.clone(),
                 MirMem::FixedZeroPage(MirFixedZpSlot(0x84)),
                 out,
             );
@@ -163,7 +221,11 @@ pub(super) fn materialize_runtime_helper_binary(
     }
 
     materialize_helper_arg_to_reg(left_lo, MirReg::A, out);
-    materialize_helper_arg_to_reg(left_hi, MirReg::X, out);
+    if helper == MirRuntimeHelper::MulByte {
+        materialize_helper_arg_to_reg(right_lo, MirReg::X, out);
+    } else {
+        materialize_helper_arg_to_reg(left_hi, MirReg::X, out);
+    }
     let effects = helper_effects(&helper);
     let args = helper_args(&helper);
     out.push(MirOp::RuntimeHelper {
@@ -229,6 +291,7 @@ pub(super) fn runtime_helper_result_width(
     dst: &MirDef,
 ) -> MirWidth {
     match (helper, width) {
+        (MirRuntimeHelper::MulByte, _) => MirWidth::Word,
         (MirRuntimeHelper::Mul, MirWidth::Byte) if split_def(dst.clone()).is_some() => {
             MirWidth::Word
         }

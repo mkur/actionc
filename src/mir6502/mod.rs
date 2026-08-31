@@ -81,8 +81,12 @@ pub fn materialize_program_with_origin_and_runtime(
         .map_err(|diagnostics| phase_diagnostics("runtime interface resolution", diagnostics))?;
     verify::verify_program(&program, MirPhase::PreMaterialization)
         .map_err(|diagnostics| phase_diagnostics("resolved pre-materialization", diagnostics))?;
-    let mut materialized = materialize::materialize_program(program, config, origin)
-        .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
+    let mut materialize_config = config.clone();
+    materialize_config.select_widening_byte_multiply =
+        runtime == crate::runtime::Runtime::Standalone;
+    let mut materialized =
+        materialize::materialize_program(program, &materialize_config, origin)
+            .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
     verify::verify_program(&materialized, MirPhase::PostMaterialization)
         .map_err(|diagnostics| phase_diagnostics("post-materialization", diagnostics))?;
     runtime::resolve_helpers(&mut materialized, runtime)
@@ -250,7 +254,16 @@ fn runtime_bindings(
                             .iter()
                             .find(|routine| routine.name == name)
                             .map(|routine| routine.address);
-                        if name.starts_with("ACTION.RUNTIME.SYSLIB::") {
+                        if name.starts_with("ACTION.RUNTIME.ACTIONC::") {
+                            (
+                                name,
+                                address,
+                                "compiler-generated runtime".to_string(),
+                                None,
+                                crate::codegen::CodegenRuntimeBindingKind::CompilerHelper,
+                                None,
+                            )
+                        } else if name.starts_with("ACTION.RUNTIME.SYSLIB::") {
                             (
                                 name,
                                 address,
@@ -324,6 +337,7 @@ fn runtime_bindings(
 fn runtime_selection_reason(helper: MirRuntimeHelper) -> &'static str {
     match helper {
         MirRuntimeHelper::SArgs => "call frame exceeds four direct argument bytes",
+        MirRuntimeHelper::MulByte => "unsigned byte multiplication produces a word result",
         MirRuntimeHelper::Mul => "integer multiplication requires a runtime helper",
         MirRuntimeHelper::Div => "integer division requires a runtime helper",
         MirRuntimeHelper::Mod => "integer remainder requires a runtime helper",

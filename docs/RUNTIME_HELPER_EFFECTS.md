@@ -48,6 +48,7 @@ as the behavioral reference for both cartridge and standalone helper calls.
 
 | Helper | Standalone slot | Cartridge address | Purpose |
 | --- | --- | --- | --- |
+| compiler `MultB` | generated | not selected | unsigned byte operands, word result |
 | `r_Lsh` | `$04E4` | `$B5C0` | left shift |
 | `r_Rsh` | `$04E6` | `$A0E6` | right shift |
 | `r_Mul` | `$04E8` | `$A000` | multiply |
@@ -61,6 +62,13 @@ The compiler passes the left operand in `A/X`. For multiply, divide, and
 remainder, the right operand is placed in `$84/$85`. For shifts, the shift count
 is placed in `$84`. Arithmetic helper results return in `A/X`.
 
+MIR6502 also owns a compact unsigned byte multiply helper. It accepts its two
+byte operands in `A/X` and returns the complete word product in `A/X`.
+Standalone output generates this target-owned helper instead of linking the
+larger general multiply closure. Cartridge output continues to use resident
+`MultI`; embedding a separate helper is not profitable for an isolated call
+and the cartridge's internal multiply entry points are not public contracts.
+
 `r_Par` is special: it copies argument bytes from the caller argument area into
 the callee's local frame. Compatibility code uses it for frames of three or
 more bytes. Optimized classic and MIR6502 code capture up to four bytes
@@ -73,6 +81,7 @@ The state tracker treats these calls as known-effect barriers:
 
 | Helper | Preserved registers | Zero-page writes | Absolute writes |
 | --- | --- | --- | --- |
+| compiler `MultB` | none | `$82-$87` | none |
 | `r_Lsh` / `r_Rsh` | none | `$85` | none |
 | `r_Mul` | none | `$82-$87`, `$C0-$C2` | none |
 | `r_Div` / `r_Mod` | none | `$82-$87`, `$C2` | none |

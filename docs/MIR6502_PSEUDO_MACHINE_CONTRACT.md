@@ -134,6 +134,12 @@ either a `Compare` op result or a lowered flag-producing sequence.
 Post-materialization MIR is closer to legal 6502 work, but it is still MIR, not
 emitted assembly.
 
+Runtime-helper selection may distinguish operand width from result width. In
+particular, an unsigned byte multiply with a word consumer uses the target-owned
+`MultB` contract: byte operands in A/X and the complete word result in A/X.
+This decision is derived from typed MIR values, not from source syntax, and is
+selected only when the chosen runtime makes the additional helper profitable.
+
 It should contain:
 
 - byte-expanded word operations;

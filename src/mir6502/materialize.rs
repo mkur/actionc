@@ -168,7 +168,10 @@ use pointers::{rematerialize_direct_pointer_temp_derefs, try_fuse_pointer_temp_d
 use regs::value_reads_reg;
 use regs::{op_reads_reg, op_writes_reg};
 pub(in crate::mir6502) use runtime::helper_for_binary;
-use runtime::{ensure_helper_decl, materialize_runtime_helper_binary, runtime_helper_result_width};
+use runtime::{
+    ensure_helper_decl, helper_for_typed_binary, materialize_runtime_helper_binary,
+    runtime_helper_result_width,
+};
 pub(super) use runtime::{helper_abi, helper_args, helper_effects};
 #[cfg(test)]
 use spills::op_may_clobber_reg;
@@ -1008,11 +1011,16 @@ fn analyzed_store_consumer_candidate_at(
         &mut replacement,
     );
     if consumed > 0 {
+        let stat = if selected_helpers.contains(&MirRuntimeHelper::MulByte) {
+            "widening-byte-multiply-selected"
+        } else {
+            "word-helper-store-consumer"
+        };
         return Some(StoreConsumerRewriteCandidate {
             start: index,
             consumed,
             replacement,
-            stat: "word-helper-store-consumer",
+            stat,
             family_priority: 145,
         });
     }
@@ -4902,16 +4910,40 @@ fn materialize_ops_impl(
                 right,
                 width,
                 ..
-            } if config.select_runtime_helpers && helper_for_binary(op, width).is_some() => {
-                let helper = helper_for_binary(op, width).expect("helper exists");
-                let result_width = runtime_helper_result_width(&helper, width, &dst);
+            } if config.select_runtime_helpers
+                && helper_for_typed_binary(
+                    op,
+                    width,
+                    &left,
+                    &right,
+                    &temp_widths,
+                    config.select_widening_byte_multiply,
+                )
+                .is_some() =>
+            {
+                let selection = helper_for_typed_binary(
+                    op,
+                    width,
+                    &left,
+                    &right,
+                    &temp_widths,
+                    config.select_widening_byte_multiply,
+                )
+                .expect("helper selection exists");
+                let helper = selection.helper;
+                let result_width = if helper == MirRuntimeHelper::MulByte {
+                    peephole_stats.record(routine_id, "widening-byte-multiply-selected");
+                    selection.result_width
+                } else {
+                    runtime_helper_result_width(&helper, width, &dst)
+                };
                 helpers.push(helper.clone());
                 materialize_runtime_helper_binary(
                     helper,
                     Some(dst),
                     left,
                     right,
-                    width,
+                    selection.operand_width,
                     result_width,
                     layout,
                     &temp_widths,

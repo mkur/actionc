@@ -4,6 +4,7 @@ use actionc::codegen::CODE_ORIGIN;
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502;
 use actionc::nir;
+use actionc::runtime::Runtime;
 use actionc::semantic::{analyze, ir};
 
 #[test]
@@ -330,24 +331,41 @@ fn static_string_literals_are_length_prefixed_for_call_abi() {
 
 #[test]
 fn byte_multiply_into_word_store_keeps_runtime_high_result() {
-    let (formatted, bytes) =
-        compile_materialized_mir6502_fixture("dynamic_byte_multiply_card_result.act");
+    let (formatted, bytes) = compile_materialized_mir6502_fixture_with_runtime(
+        "dynamic_byte_multiply_card_result.act",
+        Runtime::Standalone,
+    );
 
-    assert!(formatted.contains("store.b fixed_zp $84, a"));
-    assert!(formatted.contains("store.b fixed_zp $85, a"));
-    assert!(formatted.contains("helper mul args=[a, x, fixed_zp $84, fixed_zp $85]"));
+    assert!(formatted.contains("helper mulb args=[a, x]"));
+    assert!(formatted.contains("routine r1 ACTION.RUNTIME.ACTIONC::MultB"));
+    assert!(!formatted.contains("store.b fixed_zp $84"));
+    assert!(!formatted.contains("store.b fixed_zp $85"));
     assert!(formatted.contains("store.b global g2+0, a"));
     assert_spilled_x_is_reloaded_into_a(&formatted);
     assert!(formatted.contains("store.b global g2+1, a"));
-    assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0x84]));
+    assert!(bytes.windows(2).any(|bytes| bytes == [0x86, 0x84]));
+}
+
+#[test]
+fn cartridge_byte_multiply_keeps_resident_general_helper() {
+    let (formatted, _) = compile_materialized_mir6502_fixture_with_runtime(
+        "dynamic_byte_multiply_card_result.act",
+        Runtime::ActionCart,
+    );
+
+    assert!(formatted.contains("helper mul args=[a, x, fixed_zp $84, fixed_zp $85]"));
+    assert!(!formatted.contains("helper mulb"));
+    assert!(!formatted.contains("ACTION.RUNTIME.ACTIONC::MultB"));
 }
 
 #[test]
 fn byte_multiply_subtract_into_word_store_keeps_runtime_high_result() {
-    let (formatted, bytes) =
-        compile_materialized_mir6502_fixture("dynamic_byte_multiply_card_sub_result.act");
+    let (formatted, bytes) = compile_materialized_mir6502_fixture_with_runtime(
+        "dynamic_byte_multiply_card_sub_result.act",
+        Runtime::Standalone,
+    );
 
-    assert!(formatted.contains("helper mul args=[a, x, fixed_zp $84, fixed_zp $85]"));
+    assert!(formatted.contains("helper mulb args=[a, x]"));
     assert_spilled_x_is_reloaded_into_a(&formatted);
     assert!(formatted.contains("a =.b a sub #$00 carry_in=previous"));
     assert!(formatted.contains("store.b global g2+0, a"));
@@ -362,25 +380,22 @@ fn byte_multiply_subtract_into_word_store_keeps_runtime_high_result() {
 
 #[test]
 fn byte_multiply_word_call_arg_keeps_runtime_high_result() {
-    let (formatted, bytes) =
-        compile_materialized_mir6502_fixture("dynamic_byte_multiply_card_arg.act");
+    let (formatted, bytes) = compile_materialized_mir6502_fixture_with_runtime(
+        "dynamic_byte_multiply_card_arg.act",
+        Runtime::Standalone,
+    );
 
-    assert!(formatted.contains("helper mul args=[a, x, fixed_zp $84, fixed_zp $85]"));
+    assert!(formatted.contains("helper mulb args=[a, x]"));
     assert!(formatted.contains("call r0 args=[a.b -> a, x.b -> x]"));
     assert!(
-        !formatted.contains(
-            "helper mul args=[a, x, fixed_zp $84, fixed_zp $85] result=- \
-             effects=stack=0,reads=zeropage+130:6|zeropage+192:3,\
-             writes=zeropage+130:6|zeropage+192:3,clobbers=a|x|y|flags\n  \
-             x =.b #0\n  call r0"
-        ),
+        !formatted.contains("x =.b #0"),
         "CARD multiply high byte must not be replaced with a zero before the word argument call:\n{formatted}"
     );
     assert!(formatted.contains("store.b fixed_zp $A0, a"));
     assert!(formatted.contains("store.b fixed_zp $A1, x"));
     assert!(formatted.contains("store.b global g3+0, a"));
     assert!(formatted.contains("store.b global g3+1, a"));
-    assert!(bytes.windows(2).any(|bytes| bytes == [0x85, 0x84]));
+    assert!(bytes.windows(2).any(|bytes| bytes == [0x86, 0x84]));
 }
 
 #[test]
@@ -962,6 +977,13 @@ fn stress_control_flow_word_compare_temps_materialize() {
 }
 
 fn compile_materialized_mir6502_fixture(name: &str) -> (String, Vec<u8>) {
+    compile_materialized_mir6502_fixture_with_runtime(name, Runtime::ActionCart)
+}
+
+fn compile_materialized_mir6502_fixture_with_runtime(
+    name: &str,
+    runtime: Runtime,
+) -> (String, Vec<u8>) {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")
         .join("mir6502")
@@ -977,8 +999,13 @@ fn compile_materialized_mir6502_fixture(name: &str) -> (String, Vec<u8>) {
 
     let mir = mir6502::lower_program(&nir_program)
         .unwrap_or_else(|err| panic!("lower MIR6502 for {}: {err:?}", fixture.display()));
-    let materialized = mir6502::materialize_program(mir, &mir6502::Mir6502Config::default())
-        .unwrap_or_else(|err| panic!("materialize MIR6502 for {}: {err:?}", fixture.display()));
+    let materialized = mir6502::materialize_program_with_origin_and_runtime(
+        mir,
+        &mir6502::Mir6502Config::default(),
+        CODE_ORIGIN,
+        runtime,
+    )
+    .unwrap_or_else(|err| panic!("materialize MIR6502 for {}: {err:?}", fixture.display()));
     mir6502::verify_program(&materialized, mir6502::MirPhase::PreEmission).unwrap_or_else(|err| {
         panic!(
             "verify materialized MIR6502 for {}: {err:?}",
@@ -987,8 +1014,13 @@ fn compile_materialized_mir6502_fixture(name: &str) -> (String, Vec<u8>) {
     });
 
     let formatted = mir6502::format_program(&materialized);
-    let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
-        .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
+    let output = mir6502::generate_output_with_config_and_runtime(
+        &nir_program,
+        CODE_ORIGIN,
+        &mir6502::Mir6502Config::default(),
+        runtime,
+    )
+    .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     (formatted, output.bytes)
 }
 

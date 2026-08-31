@@ -95,6 +95,11 @@ result. The result continues through the ordinary word destination, so the
 optimization is independent of whether the consumer is a store, call
 argument, comparison, or later arithmetic.
 
+The first implementation selects the target-owned helper for standalone
+output. Cartridge output retains resident `MultI`, because embedding a new
+helper for an isolated call loses size; a future whole-program cost model may
+select it when enough cartridge call sites amortize that cost.
+
 Do not add a new NIR operation or persistent MIR operation. Remove extension
 producers only when shared use/def proves them dead. Reject signed extension,
 duplicated evaluation, unsupported definitions, and any case where the full

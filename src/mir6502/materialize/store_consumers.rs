@@ -1743,9 +1743,17 @@ pub(super) fn select_word_helper_store_consumer(
     else {
         return 0;
     };
-    let Some(helper) = helper_for_binary(*op, MirWidth::Word) else {
+    let Some(selection) = helper_for_typed_binary(
+        *op,
+        MirWidth::Word,
+        left,
+        right,
+        temp_widths,
+        config.select_widening_byte_multiply,
+    ) else {
         return 0;
     };
+    let helper = selection.helper;
     let Some(MirOp::Store {
         dst: MirAddr::Direct(store_dst),
         src: MirValue::Def(store_src),
@@ -1767,8 +1775,8 @@ pub(super) fn select_word_helper_store_consumer(
         None,
         left.clone(),
         right.clone(),
-        MirWidth::Word,
-        MirWidth::Word,
+        selection.operand_width,
+        selection.result_width,
         layout,
         temp_widths,
         out,
