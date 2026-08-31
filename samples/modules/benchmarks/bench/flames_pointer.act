@@ -5,9 +5,9 @@ USE ATARI.OS
 USE ATARI.POKEY
 USE BENCH.SUPPORT
 
-CONST CARD FIRE_SCREEN=$A400
+CONST CARD FIRE_SCREEN=$8400
 
-BYTE ARRAY workspace=$A000
+BYTE ARRAY workspace=$8000
 BYTE POINTER first=$F0,second=$F2,third=$F4
 BYTE index=$E0
 BYTE tenThousands=$CB,thousands=$CC,hundreds=$CD,tens=$CE,ones=$CF

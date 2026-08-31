@@ -42,6 +42,12 @@ intact. The harness reports standard kernels in Atari RTC ticks and preserves
 the original time-window/iteration scoring for the four frame-rate kernels and
 `yoshplus`.
 
+All suite roots load generated code at `$2000` and reserve `$8000-$9FFF` as a
+shared benchmark workspace. The sieve, bubble-sort, and flame kernels reuse
+that workspace because they run sequentially. This keeps writable benchmark
+state outside the Action! cartridge window at `$A000-$BFFF` under the cartridge
+runtime while leaving enough room for the complete standalone MIR6502 image.
+
 Mad Pascal `SINGLE` is a four-byte IEEE-style binary value. Native Action 2027
 `REAL` is Atari OS six-byte packed decimal, so the two floating-point results
 measure the corresponding Action! implementation rather than identical

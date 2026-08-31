@@ -1,5 +1,7 @@
 ;@actionc profile modern
 ; Non-graphics subset of the Action! benchmark suite.
+; Keep generated code below the shared $8000-$9FFF benchmark workspace.
+ORG $2000
 MODULE ACTION_BENCH_SUITE_NONGRAPHICS
 
 USE SYS

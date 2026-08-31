@@ -218,6 +218,36 @@ fn unlimited_bobs_sample_compiles_at_its_fixed_memory_layout_in_all_modes() {
 }
 
 #[test]
+fn benchmark_suites_compile_below_their_shared_workspace() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/modules/benchmarks");
+
+    for (file_name, mode) in [
+        ("suite.act", CompileMode::Optimized),
+        ("suite.act", CompileMode::Mir6502),
+        ("suite-nongraphics.act", CompileMode::Optimized),
+        ("suite-nongraphics.act", CompileMode::Mir6502),
+        ("suite-compat.act", CompileMode::Compatibility),
+    ] {
+        let sample = root.join(file_name);
+        let options = CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone);
+        let compiled = compile_file(&sample, &options)
+            .unwrap_or_else(|error| panic!("compile {file_name} in {mode:?}: {error}"));
+        let ranges = load_file_segment_ranges(compiled.object_bytes());
+
+        assert!(
+            ranges.iter().any(|&(start, _)| start == 0x2000),
+            "{file_name} in {mode:?} must honor its source ORG: {ranges:04X?}"
+        );
+        for (start, end) in ranges {
+            assert!(
+                end < 0x8000 || start > 0x9FFF,
+                "{file_name} in {mode:?} segment ${start:04X}-${end:04X} overlaps the benchmark workspace"
+            );
+        }
+    }
+}
+
+#[test]
 fn native_real_square_root_compiles_with_both_backends() {
     let temp = TestDir::new();
     let source = temp.source(

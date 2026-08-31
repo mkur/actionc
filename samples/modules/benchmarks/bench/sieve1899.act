@@ -2,7 +2,7 @@ MODULE BENCH.SIEVE1899
 
 USE SYS
 
-BYTE ARRAY flags(8192)=$A000
+BYTE ARRAY flags(8192)=$8000
 BYTE pass=$E8
 CARD count=$E0,index=$E2,multiple=$E4,prime=$E6
 

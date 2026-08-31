@@ -1,4 +1,6 @@
 ; Integer/pointer subset of the suite, usable with the compatibility profile.
+; Keep generated code below the shared $8000-$9FFF benchmark workspace.
+ORG $2000
 MODULE ACTION_BENCH_SUITE_COMPAT
 
 USE SYS

@@ -1,6 +1,8 @@
 ;@actionc profile modern
 ; Action! port of the supported a8-mad-pascal-bench-suite kernels.
 ; This complete runner requires the modern profile for native REAL.
+; Keep generated code below the shared $8000-$9FFF benchmark workspace.
+ORG $2000
 MODULE ACTION_BENCH_SUITE
 
 USE SYS

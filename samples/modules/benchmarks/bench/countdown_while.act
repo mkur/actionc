@@ -1,38 +1,38 @@
 MODULE BENCH.COUNTDOWN_WHILE
 
-BYTE za=$CB,zb=$CC,zc=$CD,zd=$CE,ze=$CF,zf=$D0,zg=$D1,
-     underflow
+CONST BYTE UNDERFLOW=$FF
+
+BYTE za=$CB,zb=$CC,zc=$CD,zd=$CE,ze=$CF,zf=$D0,zg=$D1
 
 PUBLIC PROC Run()
-  underflow=$FF
   za=1
-  DO
+  WHILE za#UNDERFLOW DO
     zb=9
-    DO
+    WHILE zb#UNDERFLOW DO
       zc=9
-      DO
+      WHILE zc#UNDERFLOW DO
         zd=9
-        DO
+        WHILE zd#UNDERFLOW DO
           ze=9
-          DO
+          WHILE ze#UNDERFLOW DO
             zf=9
-            DO
+            WHILE zf#UNDERFLOW DO
               zg=9
-              DO
+              WHILE zg#UNDERFLOW DO
                 zg==-1
-              UNTIL zg=underflow OD
+              OD
               zf==-1
-            UNTIL zf=underflow OD
+            OD
             ze==-1
-          UNTIL ze=underflow OD
+          OD
           zd==-1
-        UNTIL zd=underflow OD
+        OD
         zc==-1
-      UNTIL zc=underflow OD
+      OD
       zb==-1
-    UNTIL zb=underflow OD
+    OD
     za==-1
-  UNTIL za=underflow OD
+  OD
 RETURN
 
 ENDMODULE
