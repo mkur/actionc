@@ -773,6 +773,7 @@ fn update_fixed_zero_page_values(
         | MirOp::Truncate { .. }
         | MirOp::Unary { .. }
         | MirOp::Binary { .. }
+        | MirOp::UpdateReg { .. }
         | MirOp::Compare { .. }
         | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::CompareIndirectBytes { .. }
@@ -940,8 +941,8 @@ fn explicit_accumulator_result(
             src,
             width: MirWidth::Byte,
         } => machine_value_for_value(src, before),
-        MirOp::CompareDirectIndexedBytes { left, .. } => {
-            indexed_machine_value(left, before.register(MirReg::Y)?.clone())
+        MirOp::CompareDirectIndexedBytes { left, index, .. } => {
+            indexed_machine_value(left, before.register(*index)?.clone())
         }
         MirOp::Call { target, .. } => known_callees
             .for_target(target)

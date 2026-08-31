@@ -393,6 +393,18 @@ that value. The original guard remains for dynamic initial values. Absolute
 hardware storage, volatile barrier shapes, signed loops, non-unit steps, and
 live machine flags retain the general CFG.
 
+A later target-home selector may carry a proven-entered, head-tested byte
+induction value in X or Y. The selected form uses `UpdateReg { Inc|Dec, X|Y }`
+for the latch and compares the carrier directly against the constant bound.
+The carrier must be dead on loop entry, remain unmodified on every loop path,
+and win the MIR6502 size model after any required final writeback. Loads of the
+induction home become register transfers; a directly indexed Y access may
+become X-indexed only when a dominating load proves Y held that induction
+value. The selector rejects noncanonical entries or exits, calls, barriers,
+machine blocks, address-taken homes, unproved aliases, hardware-backed homes,
+and conflicting register uses. When the final induction value may be read
+after the loop, the canonical exit writes the carrier back before that read.
+
 ## Definitions, Values, Memory, And Addresses
 
 MIR distinguishes definition sites, value operands, and memory/addressing sites.
@@ -726,6 +738,7 @@ CompareDirectIndexedBytes {
     op: MirCompareOp,
     left: MirMem,
     right: MirMem,
+    index: MirReg,
     signed: bool,
 }
 ```
@@ -739,10 +752,12 @@ The selector must require all of the following:
   storage is unchanged on every path from that guard to the selected access;
 - comparisons are unsigned, use a single flag test, and preserve operand order.
 
-Emission lowers a selected comparison to `LDA base1,Y` / `CMP base2,Y` and an
-adjacent same-array copy to ordinary `LDA base1,Y` / `STA base2,Y`. If the
-no-wrap proof is unavailable, materialization must retain the independent index
-computations so byte-index modulo behavior is unchanged.
+Emission lowers a selected comparison to the matching X- or Y-indexed
+`LDA`/`CMP` pair. An adjacent same-array copy uses ordinary indexed `LDA`/`STA`.
+The initial selector chooses Y; a later proven induction-carrier decision may
+change it to X. If the no-wrap proof is unavailable, materialization must
+retain the independent index computations so byte-index modulo behavior is
+unchanged.
 
 ### Destination-aware indirect word arithmetic
 

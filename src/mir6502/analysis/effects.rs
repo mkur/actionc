@@ -99,6 +99,7 @@ pub(in crate::mir6502) enum MirOpKind {
     Unary,
     Binary,
     UpdateMem,
+    UpdateReg,
     UpdateIndexedMem,
     AddByteToWordMem,
     SubByteFromWordMem,
@@ -328,6 +329,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::Unary { .. } => MirOpKind::Unary,
         MirOp::Binary { .. } => MirOpKind::Binary,
         MirOp::UpdateMem { .. } => MirOpKind::UpdateMem,
+        MirOp::UpdateReg { .. } => MirOpKind::UpdateReg,
         MirOp::UpdateIndexedMem { .. } => MirOpKind::UpdateIndexedMem,
         MirOp::AddByteToWordMem { .. } => MirOpKind::AddByteToWordMem,
         MirOp::SubByteFromWordMem { .. } => MirOpKind::SubByteFromWordMem,
@@ -425,6 +427,12 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::UpdateMem { mem, width, .. } => {
             record_memory_range_read(mem, *width, &mut summary);
             record_definite_memory_range_write(mem, *width, &mut summary);
+            write_zn(&mut summary.machine.flag_writes);
+            summary.machine.writes_any_flags_compat = true;
+        }
+        MirOp::UpdateReg { reg, .. } => {
+            set_register(&mut summary.machine.register_reads, *reg);
+            set_register(&mut summary.machine.register_writes, *reg);
             write_zn(&mut summary.machine.flag_writes);
             summary.machine.writes_any_flags_compat = true;
         }
@@ -623,12 +631,16 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             summary.removable_when_results_dead = matches!(dst, MirCondDest::Temp(_));
         }
         MirOp::CompareDirectIndexedBytes {
-            dst, left, right, ..
+            dst,
+            left,
+            right,
+            index,
+            ..
         } => {
             record_memory_read(left, &mut summary);
             record_memory_read(right, &mut summary);
             summary.memory.indirect_reads = true;
-            set_register(&mut summary.machine.register_reads, MirReg::Y);
+            set_register(&mut summary.machine.register_reads, *index);
             set_register(&mut summary.machine.register_writes, MirReg::A);
             match dst {
                 MirCondDest::Temp(temp) => {

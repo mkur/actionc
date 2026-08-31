@@ -331,6 +331,10 @@ impl Emitter {
         self.emit_u8(opcode::TAY);
     }
 
+    pub fn emit_inx(&mut self) {
+        self.emit_u8(opcode::INX);
+    }
+
     pub fn emit_iny(&mut self) {
         self.emit_u8(opcode::INY);
     }
@@ -571,6 +575,11 @@ impl Emitter {
         self.emit_u8(value);
     }
 
+    pub fn emit_cpx_imm(&mut self, value: u8) {
+        self.emit_u8(opcode::CPX_IMM);
+        self.emit_u8(value);
+    }
+
     pub fn emit_cmp_immediate(&mut self, immediate: Immediate, byte_index: u16) {
         self.emit_cmp_imm(immediate.byte(byte_index));
     }
@@ -587,6 +596,11 @@ impl Emitter {
 
     pub fn emit_cmp_absolute_y(&mut self, absolute: Absolute) {
         self.emit_u8(opcode::CMP_ABS_Y);
+        self.emit_absolute_operand(absolute);
+    }
+
+    pub fn emit_cmp_absolute_x(&mut self, absolute: Absolute) {
+        self.emit_u8(opcode::CMP_ABS_X);
         self.emit_absolute_operand(absolute);
     }
 
@@ -2209,6 +2223,7 @@ pub mod opcode {
     pub const TAX: u8 = 0xAA;
     pub const TAY: u8 = 0xA8;
     pub const DEY: u8 = 0x88;
+    pub const INX: u8 = 0xE8;
     pub const INY: u8 = 0xC8;
     pub const TXA: u8 = 0x8A;
     pub const TYA: u8 = 0x98;
@@ -2251,7 +2266,9 @@ pub mod opcode {
     pub const CMP_ZP: u8 = 0xC5;
     pub const CMP_ABS: u8 = 0xCD;
     pub const CMP_ABS_Y: u8 = 0xD9;
+    pub const CMP_ABS_X: u8 = 0xDD;
     pub const CMP_IZY: u8 = 0xD1;
+    pub const CPX_IMM: u8 = 0xE0;
     pub const SBC_IMM: u8 = 0xE9;
     pub const SBC_ZP: u8 = 0xE5;
     pub const SBC_IZX: u8 = 0xE1;

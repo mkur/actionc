@@ -511,6 +511,7 @@ mod tests {
                                 op: MirCompareOp::Lt,
                                 left: array(1),
                                 right: array(0),
+                                index: MirReg::Y,
                                 signed: false,
                             },
                         ],

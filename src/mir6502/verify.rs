@@ -998,6 +998,15 @@ impl MirVerifier {
                     ));
                 }
             }
+            MirOp::UpdateReg { reg, .. } => {
+                if !matches!(reg, MirReg::X | MirReg::Y) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "register update requires X or Y",
+                    ));
+                }
+            }
             MirOp::UpdateIndexedMem { base, .. } => {
                 self.verify_mem(routine, block, &routine.frame, base, static_ids, global_ids);
                 if matches!(base, MirMem::ZeroPage(_) | MirMem::FixedZeroPage(_)) {
@@ -1366,6 +1375,7 @@ impl MirVerifier {
                 op,
                 left,
                 right,
+                index,
                 signed,
             } => {
                 self.verify_cond_dest(routine, block, dst);
@@ -1378,6 +1388,13 @@ impl MirVerifier {
                     static_ids,
                     global_ids,
                 );
+                if !matches!(index, MirReg::X | MirReg::Y) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "direct indexed byte compare requires X or Y",
+                    ));
+                }
                 if *signed {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,

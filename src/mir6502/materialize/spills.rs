@@ -818,6 +818,7 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::Extend { .. })
         | Some(MirOp::Truncate { .. })
         | Some(MirOp::UpdateMem { .. })
+        | Some(MirOp::UpdateReg { .. })
         | Some(MirOp::UpdateIndexedMem { .. })
         | Some(MirOp::AddByteToWordMem { .. })
         | Some(MirOp::SubByteFromWordMem { .. })
@@ -978,7 +979,8 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::Binary { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::Store { .. }
-        | MirOp::UpdateMem { .. } => {}
+        | MirOp::UpdateMem { .. }
+        | MirOp::UpdateReg { .. } => {}
     }
 }
 
@@ -2303,6 +2305,7 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
         }
         MirOp::LoadImm { .. }
         | MirOp::LeaAddr { .. }
+        | MirOp::UpdateReg { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
@@ -2439,6 +2442,7 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
         }
         MirOp::LoadImm { .. }
         | MirOp::LeaAddr { .. }
+        | MirOp::UpdateReg { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
@@ -2523,7 +2527,7 @@ fn remap_mem_spills_to_zero_page(mem: &mut MirMem, remap: &BTreeMap<MirSpillId, 
     }
 }
 
-fn visit_op_mems<F>(op: &MirOp, visitor: &mut F)
+pub(super) fn visit_op_mems<F>(op: &MirOp, visitor: &mut F)
 where
     F: FnMut(&MirMem),
 {
@@ -2579,6 +2583,7 @@ where
         }
         MirOp::LoadImm { .. }
         | MirOp::LeaAddr { .. }
+        | MirOp::UpdateReg { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }
         | MirOp::CompareIndirectBytes { .. }
@@ -2717,7 +2722,10 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
             collect_value_spills(index, spills);
         }
         MirOp::LoadIndirect { dst, .. } => collect_def_spills(dst, spills),
-        MirOp::RuntimeHelper { .. } | MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => {}
+        MirOp::UpdateReg { .. }
+        | MirOp::RuntimeHelper { .. }
+        | MirOp::Barrier { .. }
+        | MirOp::MachineBlock { .. } => {}
         MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
         | MirOp::CopyIndirectWord { .. }

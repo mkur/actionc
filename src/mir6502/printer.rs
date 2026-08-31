@@ -504,6 +504,9 @@ fn op_summary(op: &MirOp) -> String {
                 mem_summary(mem)
             )
         }
+        MirOp::UpdateReg { op, reg } => {
+            format!("{} {}", update_summary(*op), reg_summary(*reg))
+        }
         MirOp::UpdateIndexedMem { op, base } => {
             format!("{}.b {},x", update_summary(*op), mem_summary(base))
         }
@@ -619,14 +622,17 @@ fn op_summary(op: &MirOp) -> String {
             op,
             left,
             right,
+            index,
             signed,
         } => format!(
-            "{} = cmp_direct_indexed.b{} {}[y] {} {}[y]",
+            "{} = cmp_direct_indexed.b{} {}[{}] {} {}[{}]",
             cond_dest_summary(dst),
             if *signed { ".signed" } else { "" },
             mem_summary(left),
+            reg_summary(*index),
             compare_summary(*op),
             mem_summary(right),
+            reg_summary(*index),
         ),
         MirOp::CompareIndirectWords {
             dst,

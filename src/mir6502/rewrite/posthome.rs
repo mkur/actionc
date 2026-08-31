@@ -109,6 +109,7 @@ fn estimated_op_cost(op: &MirOp) -> (u16, u16) {
                 (MirWidth::Word, false) => (8, 12),
             }
         }
+        MirOp::UpdateReg { .. } => (1, 2),
         MirOp::UpdateIndexedMem { .. } => (3, 7),
         MirOp::AddByteToWordMem { .. } | MirOp::SubByteFromWordMem { .. } => (8, 12),
         MirOp::OffsetPointerByIndirectByte { .. } => (15, 24),

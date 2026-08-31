@@ -55,7 +55,9 @@ fn warpdem_exposes_the_expected_codegen_baseline() {
     assert!(
         formatted
             .lines()
-            .filter(|line| line.contains("global g") && line.contains("[y]"))
+            .filter(|line| {
+                line.contains("global g") && (line.contains("[x]") || line.contains("[y]"))
+            })
             .count()
             >= 42,
         "{formatted}"

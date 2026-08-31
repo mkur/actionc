@@ -1352,6 +1352,11 @@ pub(super) fn materialize_program(
         // the analyzed selector here so countdown latches become DEC/BNE (or
         // INC/BNE) without changing live A/carry/overflow state.
         run_analyzed_direct_inc_dec_updates(routine, &final_layout, &mut peephole_stats)?;
+        let carried = cfg::select_counted_loop_register_carriers(routine, &final_layout);
+        peephole_stats.record_many(routine.id, "register-carried-induction-selected", carried);
+        if carried > 0 && layout_blocks_in_reverse_postorder(routine) {
+            peephole_stats.record(routine.id, "register-carried-induction-layout");
+        }
         if layout_blocks_in_reverse_postorder(routine) {
             peephole_stats.record(routine.id, "cfg-cost-aware-layout");
         }

@@ -2015,6 +2015,13 @@ fn emit_op(
                 "memory update target is not emit-ready",
             ),
         },
+        MirOp::UpdateReg { op, reg } => match (op, reg) {
+            (MirUpdateOp::Inc, MirReg::X) => emitter.emit_inx(),
+            (MirUpdateOp::Dec, MirReg::X) => emitter.emit_dex(),
+            (MirUpdateOp::Inc, MirReg::Y) => emitter.emit_iny(),
+            (MirUpdateOp::Dec, MirReg::Y) => emitter.emit_dey(),
+            (_, MirReg::A) => unsupported(ctx, routine, block, "register update requires X or Y"),
+        },
         MirOp::UpdateIndexedMem { op, base } => match ctx.layout.direct_mem(routine, base) {
             Some(ResolvedMem::Absolute(address)) => match op {
                 MirUpdateOp::Inc => emitter.emit_inc_absolute_x(AbsoluteX::new(address)),
@@ -2787,6 +2794,7 @@ fn emit_op(
             dst: MirCondDest::Flags,
             left,
             right,
+            index,
             signed: false,
             ..
         } => {
@@ -2808,7 +2816,7 @@ fn emit_op(
                 );
                 return;
             };
-            emit_direct_indexed_byte_compare(left, right, emitter);
+            emit_direct_indexed_byte_compare(left, right, *index, emitter);
         }
         MirOp::CompareIndirectBytes {
             dst: MirCondDest::Flags,
@@ -4973,21 +4981,24 @@ fn emit_indirect_byte_compare(
 fn emit_direct_indexed_byte_compare(
     left: ResolvedMem,
     right: ResolvedMem,
+    index: MirReg,
     emitter: &mut TrackedEmitter,
 ) {
-    match left {
-        ResolvedMem::Absolute(address) => emitter.emit_lda_abs_y(Absolute::new(address)),
-        ResolvedMem::OutputRelative(address) => {
-            emitter.emit_lda_abs_y(Absolute::output_relative(address))
+    let absolute = |mem| match mem {
+        ResolvedMem::Absolute(address) => Absolute::new(address),
+        ResolvedMem::OutputRelative(address) => Absolute::output_relative(address),
+        ResolvedMem::ZeroPage(address) => Absolute::new(u16::from(address)),
+    };
+    match index {
+        MirReg::X => {
+            emitter.emit_lda_abs_x(AbsoluteX::from_absolute(absolute(left)));
+            emitter.emit_cmp_abs_x(absolute(right));
         }
-        ResolvedMem::ZeroPage(address) => emitter.emit_lda_abs_y(Absolute::new(u16::from(address))),
-    }
-    match right {
-        ResolvedMem::Absolute(address) => emitter.emit_cmp_abs_y(Absolute::new(address)),
-        ResolvedMem::OutputRelative(address) => {
-            emitter.emit_cmp_abs_y(Absolute::output_relative(address))
+        MirReg::Y => {
+            emitter.emit_lda_abs_y(absolute(left));
+            emitter.emit_cmp_abs_y(absolute(right));
         }
-        ResolvedMem::ZeroPage(address) => emitter.emit_cmp_abs_y(Absolute::new(u16::from(address))),
+        MirReg::A => unreachable!("direct indexed compare requires X or Y"),
     }
 }
 
@@ -5544,6 +5555,19 @@ fn emit_compare_flags(
     right: &MirValue,
     emitter: &mut TrackedEmitter,
 ) -> bool {
+    if let Some(right) = const_u8(right) {
+        match left {
+            MirValue::Def(MirDef::Reg(MirReg::X)) => {
+                emitter.emit_cpx_imm(right);
+                return true;
+            }
+            MirValue::Def(MirDef::Reg(MirReg::Y)) => {
+                emitter.emit_cpy_imm(right);
+                return true;
+            }
+            _ => {}
+        }
+    }
     if !emit_value_to_a(ctx, routine, block, left, emitter) {
         unsupported(ctx, routine, block, "compare left source is not emit-ready");
         return false;
@@ -5839,6 +5863,27 @@ fn unsupported_message(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn induction_carrier_primitives_emit_native_x_opcodes() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
+
+        emitter.emit_inx();
+        emitter.emit_cpx_imm(0xfe);
+        emitter.emit_cmp_abs_x(Absolute::new(0x4000));
+
+        assert_eq!(
+            emitter.finish().expect("carrier sequence emits"),
+            [
+                opcode::INX,
+                opcode::CPX_IMM,
+                0xfe,
+                opcode::CMP_ABS_X,
+                0x00,
+                0x40
+            ]
+        );
+    }
 
     #[test]
     fn byte_shift_with_previous_carry_emits_accumulator_rotate() {

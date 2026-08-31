@@ -2,15 +2,17 @@ use crate::mir6502::analysis::cfg::MirCfg;
 use crate::mir6502::analysis::counted_loops::{
     MirCountDirection, MirCountedLoop, MirCountedLoopShape, analyze_counted_loops,
 };
-use crate::mir6502::analysis::effects::MirFlagSet;
+use crate::mir6502::analysis::effects::{MirFlagSet, classify_op, classify_terminator};
 use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
+use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
-    MirAddr, MirBlock, MirBlockId, MirCond, MirDef, MirEdge, MirFlagTest, MirMem, MirOp, MirReg,
-    MirRoutine, MirTerminator, MirUpdateOp, MirValue, MirWidth,
+    MirAddr, MirBlock, MirBlockId, MirCallTarget, MirCond, MirDef, MirEdge, MirFlagTest, MirMem,
+    MirOp, MirReg, MirRoutine, MirTerminator, MirUpdateOp, MirValue, MirWidth,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::layout::MaterializeLayout;
+use super::spills::visit_op_mems;
 
 pub(super) fn collapse_empty_jump_blocks(routine: &mut MirRoutine) {
     let Some(entry) = routine.blocks.first().map(|block| block.id) else {
@@ -123,6 +125,737 @@ pub(super) fn select_counted_loop_latches(
         selected += 1;
     }
     selected
+}
+
+/// Carries a canonical byte induction value in X or Y across a loop backedge.
+///
+/// This is deliberately a late, target-owned home decision. It runs only
+/// after ordinary homes and direct updates have been selected, and accepts a
+/// loop only when the existing machine liveness, memory layout, and counted
+/// loop facts prove that the carrier and delayed final writeback are safe.
+pub(super) fn select_counted_loop_register_carriers(
+    routine: &mut MirRoutine,
+    layout: &MaterializeLayout,
+) -> usize {
+    let mut selected = 0;
+    loop {
+        let Some(blocks) = counted_loop_register_carrier_candidate(routine, layout) else {
+            break;
+        };
+        routine.blocks = blocks;
+        selected += 1;
+    }
+    selected
+}
+
+fn counted_loop_register_carrier_candidate(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+) -> Option<Vec<MirBlock>> {
+    let cfg = MirCfg::from_routine(routine).ok()?;
+    let liveness = MirMachineLiveness::analyze(routine, &cfg);
+    let original_cost = estimated_routine_layout_bytes(&routine.blocks);
+
+    for counted in analyze_counted_loops(routine) {
+        if counted.shape != MirCountedLoopShape::HeadTested
+            || counted.width != MirWidth::Byte
+            || counted.signed
+            || counted.step != 1
+            || counted.initial_guard_required
+            || !layout.mem_allows_direct_update(&counted.induction)
+            || !machine_accumulator_dead_on_entry(&liveness, counted.body)
+            || !machine_accumulator_dead_on_entry(&liveness, counted.exit)
+            || induction_address_is_taken(routine, layout, &counted.induction)
+        {
+            continue;
+        }
+        let Some(loop_nodes) = canonical_natural_loop(&cfg, &counted) else {
+            continue;
+        };
+
+        let mut best: Option<(usize, Vec<MirBlock>)> = None;
+        for carrier in [MirReg::X, MirReg::Y] {
+            if !machine_register_dead_on_entry(&liveness, counted.header, carrier) {
+                continue;
+            }
+            let mut candidate = routine.blocks.clone();
+            if !apply_counted_loop_register_carrier(
+                routine,
+                &mut candidate,
+                layout,
+                &liveness,
+                &counted,
+                &loop_nodes,
+                carrier,
+            ) {
+                continue;
+            }
+            let cost = estimated_routine_layout_bytes(&candidate);
+            if cost >= original_cost {
+                continue;
+            }
+            if best.as_ref().is_none_or(|(best_cost, _)| cost < *best_cost) {
+                best = Some((cost, candidate));
+            }
+        }
+        if let Some((_, blocks)) = best {
+            return Some(blocks);
+        }
+    }
+    None
+}
+
+fn canonical_natural_loop(cfg: &MirCfg, counted: &MirCountedLoop) -> Option<BTreeSet<MirBlockId>> {
+    if cfg.predecessors(counted.exit) != &BTreeSet::from([counted.header]) {
+        return None;
+    }
+
+    let mut nodes = BTreeSet::from([counted.header, counted.latch]);
+    let mut pending = vec![counted.latch];
+    while let Some(block) = pending.pop() {
+        for predecessor in cfg.predecessors(block) {
+            if *predecessor != counted.header && nodes.insert(*predecessor) {
+                pending.push(*predecessor);
+            }
+        }
+    }
+    if !nodes.contains(&counted.body) || nodes.contains(&counted.preheader) {
+        return None;
+    }
+    if nodes.iter().any(|block| {
+        cfg.predecessors(*block)
+            .iter()
+            .any(|predecessor| *block != counted.header && !nodes.contains(predecessor))
+    }) {
+        return None;
+    }
+    for block in &nodes {
+        for successor in cfg.successors(*block) {
+            if !nodes.contains(successor)
+                && !(*block == counted.header && *successor == counted.exit)
+            {
+                return None;
+            }
+        }
+    }
+    Some(nodes)
+}
+
+fn apply_counted_loop_register_carrier(
+    routine: &MirRoutine,
+    blocks: &mut [MirBlock],
+    layout: &MaterializeLayout,
+    liveness: &MirMachineLiveness,
+    counted: &MirCountedLoop,
+    loop_nodes: &BTreeSet<MirBlockId>,
+    carrier: MirReg,
+) -> bool {
+    let Some(initial) = const_byte(&counted.initial_value) else {
+        return false;
+    };
+    let Some(preheader) = blocks
+        .iter_mut()
+        .find(|block| block.id == counted.preheader)
+    else {
+        return false;
+    };
+    if !replace_induction_initialization(preheader, &counted.induction, carrier, initial) {
+        return false;
+    }
+
+    for block in blocks.iter_mut() {
+        if !loop_nodes.contains(&block.id) {
+            continue;
+        }
+        if !block.params.is_empty() || terminator_conflicts_with_carrier(&block.terminator, carrier)
+        {
+            return false;
+        }
+        if block.id == counted.header {
+            if !replace_induction_header(block, &counted.induction, carrier) {
+                return false;
+            }
+            continue;
+        }
+        if !rewrite_induction_loop_block(routine, block, layout, liveness, counted, carrier) {
+            return false;
+        }
+    }
+
+    if counted.final_value_observable {
+        let Some(exit) = blocks.iter_mut().find(|block| block.id == counted.exit) else {
+            return false;
+        };
+        shift_fused_producer_after_insert(&mut exit.terminator, exit.id, 0, 1);
+        exit.ops.insert(
+            0,
+            MirOp::Store {
+                dst: MirAddr::Direct(counted.induction.clone()),
+                src: MirValue::Def(MirDef::Reg(carrier)),
+                width: MirWidth::Byte,
+            },
+        );
+    }
+    true
+}
+
+fn replace_induction_initialization(
+    block: &mut MirBlock,
+    induction: &MirMem,
+    carrier: MirReg,
+    initial: u8,
+) -> bool {
+    let Some(store_index) = block.ops.len().checked_sub(1) else {
+        return false;
+    };
+    let MirOp::Store {
+        dst: MirAddr::Direct(mem),
+        src,
+        width: MirWidth::Byte,
+    } = &block.ops[store_index]
+    else {
+        return false;
+    };
+    if mem != induction {
+        return false;
+    }
+    let first_removed = if src == &MirValue::ConstU8(initial) {
+        store_index
+    } else if src == &MirValue::Def(MirDef::Reg(MirReg::A)) && store_index > 0 {
+        match &block.ops[store_index - 1] {
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::ConstU8(value),
+                width: MirWidth::Byte,
+            } if *value == initial => store_index - 1,
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value,
+                width: MirWidth::Byte,
+            } if *value == u16::from(initial) => store_index - 1,
+            _ => return false,
+        }
+    } else {
+        return false;
+    };
+
+    block.ops.truncate(first_removed);
+    block.ops.push(MirOp::LoadImm {
+        dst: MirDef::Reg(carrier),
+        value: u16::from(initial),
+        width: MirWidth::Byte,
+    });
+    true
+}
+
+fn replace_induction_header(block: &mut MirBlock, induction: &MirMem, carrier: MirReg) -> bool {
+    let [
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        },
+        MirOp::Compare {
+            dst,
+            op,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            right,
+            width: MirWidth::Byte,
+            signed,
+        },
+    ] = block.ops.as_slice()
+    else {
+        return false;
+    };
+    if mem != induction {
+        return false;
+    }
+    block.ops = vec![MirOp::Compare {
+        dst: dst.clone(),
+        op: *op,
+        left: MirValue::Def(MirDef::Reg(carrier)),
+        right: right.clone(),
+        width: MirWidth::Byte,
+        signed: *signed,
+    }];
+    shift_fused_producer(&mut block.terminator, block.id, 1, 0);
+    true
+}
+
+fn rewrite_induction_loop_block(
+    routine: &MirRoutine,
+    block: &mut MirBlock,
+    layout: &MaterializeLayout,
+    liveness: &MirMachineLiveness,
+    counted: &MirCountedLoop,
+    carrier: MirReg,
+) -> bool {
+    let original = block.ops.clone();
+    let mut replacement = Vec::with_capacity(original.len());
+    let mut old_to_new = vec![None; original.len()];
+    let mut y_holds_induction = false;
+
+    for (op_index, op) in original.iter().enumerate() {
+        if let MirOp::Load {
+            dst: MirDef::Reg(reg),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } = op
+            && mem == &counted.induction
+        {
+            match (*reg, carrier) {
+                (MirReg::A, _) => {
+                    old_to_new[op_index] = Some(replacement.len());
+                    replacement.push(MirOp::Move {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirValue::Def(MirDef::Reg(carrier)),
+                        width: MirWidth::Byte,
+                    });
+                }
+                (MirReg::Y, MirReg::X) | (MirReg::Y, MirReg::Y) => {
+                    if !load_result_flags_are_dead(liveness, block.id, op_index) {
+                        return false;
+                    }
+                    y_holds_induction = true;
+                }
+                (reg, selected) if reg == selected => {
+                    if !load_result_flags_are_dead(liveness, block.id, op_index) {
+                        return false;
+                    }
+                }
+                _ => return false,
+            }
+            continue;
+        }
+        if let MirOp::UpdateMem {
+            op: update,
+            mem,
+            width: MirWidth::Byte,
+        } = op
+            && block.id == counted.latch
+            && op_index + 1 == original.len()
+            && mem == &counted.induction
+        {
+            old_to_new[op_index] = Some(replacement.len());
+            replacement.push(MirOp::UpdateReg {
+                op: *update,
+                reg: carrier,
+            });
+            continue;
+        }
+        if operation_references_induction(routine, op, layout, &counted.induction)
+            || operation_has_unproven_indirect_alias(routine, op, layout, &counted.induction)
+            || matches!(
+                op,
+                MirOp::Call { .. }
+                    | MirOp::RuntimeHelper { .. }
+                    | MirOp::Barrier { .. }
+                    | MirOp::MachineBlock { .. }
+            )
+        {
+            return false;
+        }
+
+        let original_effects = classify_op(op);
+        if register_written_or_clobbered(&original_effects.machine, carrier)
+            || (register_read(&original_effects.machine.register_reads, carrier)
+                && !(carrier == MirReg::Y && y_holds_induction))
+        {
+            return false;
+        }
+
+        let mut rewritten = op.clone();
+        if carrier == MirReg::X && y_holds_induction {
+            replace_y_index_with_x(&mut rewritten);
+            if register_read(&classify_op(&rewritten).machine.register_reads, MirReg::Y) {
+                return false;
+            }
+        }
+        let rewritten_effects = classify_op(&rewritten);
+        if register_written_or_clobbered(&rewritten_effects.machine, carrier) {
+            return false;
+        }
+        if register_written_or_clobbered(&original_effects.machine, MirReg::Y) {
+            y_holds_induction = false;
+        }
+        old_to_new[op_index] = Some(replacement.len());
+        replacement.push(rewritten);
+    }
+
+    if block.id == counted.latch
+        && !replacement
+            .last()
+            .is_some_and(|op| matches!(op, MirOp::UpdateReg { reg, .. } if *reg == carrier))
+    {
+        return false;
+    }
+    if carrier == MirReg::X
+        && y_holds_induction
+        && (register_read(
+            &classify_terminator(&block.terminator)
+                .machine
+                .register_reads,
+            MirReg::Y,
+        ) || liveness
+            .live_out(block.id)
+            .is_none_or(|live| live.register_live(MirReg::Y)))
+    {
+        return false;
+    }
+    if !remap_fused_producer(&mut block.terminator, block.id, &old_to_new) {
+        return false;
+    }
+    block.ops = replacement;
+    true
+}
+
+fn operation_references_induction(
+    routine: &MirRoutine,
+    op: &MirOp,
+    layout: &MaterializeLayout,
+    induction: &MirMem,
+) -> bool {
+    let mut aliases = false;
+    visit_op_mems(op, &mut |mem| {
+        aliases |= same_physical_byte(routine, layout, mem, induction);
+    });
+    aliases
+}
+
+fn operation_has_unproven_indirect_alias(
+    routine: &MirRoutine,
+    op: &MirOp,
+    layout: &MaterializeLayout,
+    induction: &MirMem,
+) -> bool {
+    let effects = classify_op(op);
+    if !effects.memory.indirect_reads && !effects.memory.indirect_writes {
+        return false;
+    }
+    !match op {
+        MirOp::Load { src, width, .. }
+        | MirOp::Store {
+            dst: src, width, ..
+        } => indexed_addr_disjoint(routine, layout, src, *width, induction),
+        MirOp::CompareDirectIndexedBytes { left, right, .. } => {
+            indexed_base_disjoint(routine, layout, left, MirWidth::Byte, induction)
+                && indexed_base_disjoint(routine, layout, right, MirWidth::Byte, induction)
+        }
+        MirOp::UpdateIndexedMem { base, .. } => {
+            indexed_base_disjoint(routine, layout, base, MirWidth::Byte, induction)
+        }
+        _ => false,
+    }
+}
+
+fn indexed_addr_disjoint(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+    addr: &MirAddr,
+    width: MirWidth,
+    induction: &MirMem,
+) -> bool {
+    match addr {
+        MirAddr::AbsoluteIndexedX { base } | MirAddr::AbsoluteIndexedY { base } => {
+            indexed_base_disjoint(routine, layout, base, width, induction)
+        }
+        _ => false,
+    }
+}
+
+fn indexed_base_disjoint(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+    base: &MirMem,
+    width: MirWidth,
+    induction: &MirMem,
+) -> bool {
+    let Some(base) = layout.mem_address(routine.id, base) else {
+        return false;
+    };
+    let Some(induction) = layout.mem_address(routine.id, induction) else {
+        return false;
+    };
+    let last = u32::from(base)
+        .saturating_add(255)
+        .saturating_add(u32::from(width_bytes(width)).saturating_sub(1));
+    if last > u32::from(u16::MAX) {
+        return false;
+    }
+    let induction = u32::from(induction);
+    induction < u32::from(base) || induction > last
+}
+
+fn same_physical_byte(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+    left: &MirMem,
+    right: &MirMem,
+) -> bool {
+    left == right
+        || layout
+            .mem_address(routine.id, left)
+            .zip(layout.mem_address(routine.id, right))
+            .is_some_and(|(left, right)| left == right)
+}
+
+fn induction_address_is_taken(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+    induction: &MirMem,
+) -> bool {
+    routine.blocks.iter().any(|block| {
+        block
+            .ops
+            .iter()
+            .any(|op| operation_takes_induction_address(routine, layout, op, induction))
+    })
+}
+
+fn operation_takes_induction_address(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+    op: &MirOp,
+    induction: &MirMem,
+) -> bool {
+    let value = |value| value_takes_induction_address(routine, layout, value, induction);
+    let addr = |addr| addr_takes_induction_address(routine, layout, addr, induction);
+    match op {
+        MirOp::Load { src, .. } => addr(src),
+        MirOp::Store { dst, src, .. } => addr(dst) || value(src),
+        MirOp::Move { src, .. }
+        | MirOp::Extend { src, .. }
+        | MirOp::Truncate { src, .. }
+        | MirOp::Unary { src, .. }
+        | MirOp::MaterializeAddress { value: src, .. }
+        | MirOp::AdvanceAddress { index: src, .. }
+        | MirOp::StoreIndirect { src, .. } => value(src),
+        MirOp::LeaAddr { target, .. } => same_physical_byte(routine, layout, target, induction),
+        MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
+            value(left) || value(right)
+        }
+        MirOp::AddByteToWordMem { value: rhs, .. }
+        | MirOp::SubByteFromWordMem { value: rhs, .. } => value(rhs),
+        MirOp::PackedRealCopy {
+            source,
+            destination,
+            ..
+        } => addr(source) || addr(destination),
+        MirOp::Call { target, args, .. } => {
+            let target_takes_address = match target {
+                MirCallTarget::Indirect { target, .. } => value(target),
+                _ => false,
+            };
+            target_takes_address || args.iter().any(|arg| value(&arg.value))
+        }
+        MirOp::MaterializeIndexedAddress { base, index, .. } => value(base) || value(index),
+        MirOp::LoadImm { .. }
+        | MirOp::UpdateMem { .. }
+        | MirOp::UpdateReg { .. }
+        | MirOp::UpdateIndexedMem { .. }
+        | MirOp::OffsetPointerByIndirectByte { .. }
+        | MirOp::CopyIndirectWord { .. }
+        | MirOp::CopyDirectWordToIndirect { .. }
+        | MirOp::CopyIndirectBytesToFixedZp { .. }
+        | MirOp::AbsoluteWordSubToIndirect { .. }
+        | MirOp::CompareDirectIndexedBytes { .. }
+        | MirOp::CompareIndirectBytes { .. }
+        | MirOp::CompareIndirectWords { .. }
+        | MirOp::PackedRealCompare { .. }
+        | MirOp::RuntimeHelper { .. }
+        | MirOp::LoadIndirect { .. }
+        | MirOp::IndirectByteCompound { .. }
+        | MirOp::IndirectWordCompound { .. }
+        | MirOp::Barrier { .. }
+        | MirOp::MachineBlock { .. } => false,
+    }
+}
+
+fn addr_takes_induction_address(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+    addr: &MirAddr,
+    induction: &MirMem,
+) -> bool {
+    match addr {
+        MirAddr::ComputedIndex { base, index, .. } => {
+            value_takes_induction_address(routine, layout, base, induction)
+                || value_takes_induction_address(routine, layout, index, induction)
+        }
+        MirAddr::PointerIndex { index, .. } => {
+            value_takes_induction_address(routine, layout, index, induction)
+        }
+        MirAddr::Deref { ptr, .. } => {
+            value_takes_induction_address(routine, layout, ptr, induction)
+        }
+        MirAddr::Direct(_)
+        | MirAddr::Label(_)
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::AbsoluteIndexedX { .. }
+        | MirAddr::AbsoluteIndexedY { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. }
+        | MirAddr::PointerCell { .. } => false,
+    }
+}
+
+fn value_takes_induction_address(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+    value: &MirValue,
+    induction: &MirMem,
+) -> bool {
+    match value {
+        MirValue::StorageAddrByte { mem, .. } => {
+            same_physical_byte(routine, layout, mem, induction)
+        }
+        MirValue::GlobalAddr(id) => same_physical_byte(
+            routine,
+            layout,
+            &MirMem::Global { id: *id, offset: 0 },
+            induction,
+        ),
+        MirValue::StaticAddr(id) => same_physical_byte(
+            routine,
+            layout,
+            &MirMem::Static { id: *id, offset: 0 },
+            induction,
+        ),
+        MirValue::Word { lo, hi } => {
+            value_takes_induction_address(routine, layout, lo, induction)
+                || value_takes_induction_address(routine, layout, hi, induction)
+        }
+        MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::Def(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::PointerCell(_) => false,
+    }
+}
+
+fn replace_y_index_with_x(op: &mut MirOp) {
+    fn addr(addr: &mut MirAddr) {
+        if let MirAddr::AbsoluteIndexedY { base } = addr {
+            *addr = MirAddr::AbsoluteIndexedX { base: base.clone() };
+        }
+    }
+    match op {
+        MirOp::Load { src, .. } => addr(src),
+        MirOp::Store { dst, .. } => addr(dst),
+        MirOp::CompareDirectIndexedBytes { index, .. } if *index == MirReg::Y => {
+            *index = MirReg::X;
+        }
+        _ => {}
+    }
+}
+
+fn terminator_conflicts_with_carrier(terminator: &MirTerminator, carrier: MirReg) -> bool {
+    let effects = classify_terminator(terminator);
+    register_read(&effects.machine.register_reads, carrier)
+        || register_written_or_clobbered(&effects.machine, carrier)
+}
+
+fn register_read(registers: &crate::mir6502::ir::MirRegisterSet, reg: MirReg) -> bool {
+    match reg {
+        MirReg::A => registers.a,
+        MirReg::X => registers.x,
+        MirReg::Y => registers.y,
+    }
+}
+
+fn register_written_or_clobbered(
+    effects: &crate::mir6502::analysis::effects::MirMachineEffects,
+    reg: MirReg,
+) -> bool {
+    register_read(&effects.register_writes, reg)
+        || register_read(&effects.register_clobbers, reg)
+        || register_read(&effects.conservative_register_clobbers, reg)
+}
+
+fn load_result_flags_are_dead(
+    liveness: &MirMachineLiveness,
+    block: MirBlockId,
+    op_index: usize,
+) -> bool {
+    liveness
+        .flags_dead_after(
+            MirFlagSet {
+                z: true,
+                n: true,
+                ..MirFlagSet::default()
+            },
+            MirSite::Op { block, op_index },
+        )
+        .unwrap_or(false)
+}
+
+fn remap_fused_producer(
+    terminator: &mut MirTerminator,
+    block: MirBlockId,
+    old_to_new: &[Option<usize>],
+) -> bool {
+    if let MirTerminator::Branch {
+        cond: MirCond::FusedCompare { producer, .. },
+        ..
+    } = terminator
+        && producer.block == block
+    {
+        let Some(Some(new_index)) = old_to_new.get(producer.op_index) else {
+            return false;
+        };
+        producer.op_index = *new_index;
+    }
+    true
+}
+
+fn shift_fused_producer(
+    terminator: &mut MirTerminator,
+    block: MirBlockId,
+    old_index: usize,
+    new_index: usize,
+) {
+    if let MirTerminator::Branch {
+        cond: MirCond::FusedCompare { producer, .. },
+        ..
+    } = terminator
+        && producer.block == block
+        && producer.op_index == old_index
+    {
+        producer.op_index = new_index;
+    }
+}
+
+fn shift_fused_producer_after_insert(
+    terminator: &mut MirTerminator,
+    block: MirBlockId,
+    inserted_at: usize,
+    amount: usize,
+) {
+    if let MirTerminator::Branch {
+        cond: MirCond::FusedCompare { producer, .. },
+        ..
+    } = terminator
+        && producer.block == block
+        && producer.op_index >= inserted_at
+    {
+        producer.op_index = producer.op_index.saturating_add(amount);
+    }
+}
+
+fn const_byte(value: &MirValue) -> Option<u8> {
+    match value {
+        MirValue::ConstU8(value) => Some(*value),
+        MirValue::ConstU16(value) => u8::try_from(*value).ok(),
+        _ => None,
+    }
+}
+
+fn width_bytes(width: MirWidth) -> u8 {
+    match width {
+        MirWidth::Byte => 1,
+        MirWidth::Word => 2,
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -395,6 +1128,20 @@ fn machine_accumulator_live_on_entry(liveness: &MirMachineLiveness, block: MirBl
     liveness
         .live_in(block)
         .is_none_or(|live| live.register_live(MirReg::A))
+}
+
+fn machine_accumulator_dead_on_entry(liveness: &MirMachineLiveness, block: MirBlockId) -> bool {
+    !machine_accumulator_live_on_entry(liveness, block)
+}
+
+fn machine_register_dead_on_entry(
+    liveness: &MirMachineLiveness,
+    block: MirBlockId,
+    reg: MirReg,
+) -> bool {
+    liveness
+        .live_in(block)
+        .is_some_and(|live| !live.register_live(reg))
 }
 
 fn machine_flags_dead_on_entry(liveness: &MirMachineLiveness, block: MirBlockId) -> bool {
@@ -1132,10 +1879,7 @@ mod tests {
     }
 
     fn ascending_head_tested_loop(initial: u8, exclusive_bound: u8) -> MirRoutine {
-        let counter = MirMem::Local {
-            id: crate::nir::LocalId(0),
-            offset: 0,
-        };
+        let counter = MirMem::Absolute(0x0080);
         MirRoutine {
             id: crate::mir6502::ir::RoutineId(0),
             name: "ascending_counted_loop".to_string(),
@@ -1213,5 +1957,163 @@ mod tests {
                 MirTerminator::Jump(ref edge) if edge.target == MirBlockId(2)
             ));
         }
+    }
+
+    #[test]
+    fn counted_loop_carrier_rewrites_induction_loads_and_direct_indexes() {
+        let counter = MirMem::Absolute(0x0080);
+        let mut routine = ascending_head_tested_loop(0, 8);
+        routine.blocks[2].ops = vec![
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirAddr::Direct(counter.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::AbsoluteIndexedY {
+                    base: MirMem::Absolute(0x4000),
+                },
+                width: MirWidth::Byte,
+            },
+            MirOp::UpdateMem {
+                op: MirUpdateOp::Inc,
+                mem: counter,
+                width: MirWidth::Byte,
+            },
+        ];
+        let layout = layout_for(&routine);
+
+        assert_eq!(
+            select_counted_loop_register_carriers(&mut routine, &layout),
+            1
+        );
+        assert!(matches!(
+            routine.blocks[0].ops.as_slice(),
+            [MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::X),
+                value: 0,
+                width: MirWidth::Byte,
+            }]
+        ));
+        assert!(matches!(
+            routine.blocks[1].ops.as_slice(),
+            [MirOp::Compare {
+                left: MirValue::Def(MirDef::Reg(MirReg::X)),
+                ..
+            }]
+        ));
+        assert!(matches!(
+            routine.blocks[2].ops.as_slice(),
+            [
+                MirOp::Load {
+                    src: MirAddr::AbsoluteIndexedX { .. },
+                    ..
+                },
+                MirOp::UpdateReg {
+                    op: MirUpdateOp::Inc,
+                    reg: MirReg::X,
+                }
+            ]
+        ));
+    }
+
+    #[test]
+    fn counted_loop_carrier_writes_back_an_observable_final_value() {
+        let counter = MirMem::Absolute(0x0080);
+        let mut routine = ascending_head_tested_loop(0, 8);
+        routine.blocks[3].ops.push(MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(counter.clone()),
+            width: MirWidth::Byte,
+        });
+        let layout = layout_for(&routine);
+
+        assert_eq!(
+            select_counted_loop_register_carriers(&mut routine, &layout),
+            1
+        );
+        assert!(matches!(
+            routine.blocks[3].ops.first(),
+            Some(MirOp::Store {
+                dst: MirAddr::Direct(mem),
+                src: MirValue::Def(MirDef::Reg(MirReg::X)),
+                width: MirWidth::Byte,
+            }) if mem == &counter
+        ));
+    }
+
+    #[test]
+    fn counted_loop_carrier_rejects_effect_barriers() {
+        let mut routine = ascending_head_tested_loop(0, 8);
+        routine.blocks[2].ops.insert(
+            0,
+            MirOp::Barrier {
+                effects: Default::default(),
+            },
+        );
+        let original = routine.blocks.clone();
+        let layout = layout_for(&routine);
+
+        assert_eq!(
+            select_counted_loop_register_carriers(&mut routine, &layout),
+            0
+        );
+        assert_eq!(routine.blocks, original);
+    }
+
+    #[test]
+    fn counted_loop_carrier_rejects_an_address_taken_induction_home() {
+        let counter = MirMem::Absolute(0x0080);
+        let mut routine = ascending_head_tested_loop(0, 8);
+        routine.blocks[3].ops.push(MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::StorageAddrByte {
+                mem: counter,
+                byte: 0,
+            },
+            width: MirWidth::Byte,
+        });
+        let original = routine.blocks.clone();
+        let layout = layout_for(&routine);
+
+        assert_eq!(
+            select_counted_loop_register_carriers(&mut routine, &layout),
+            0
+        );
+        assert_eq!(routine.blocks, original);
+    }
+
+    #[test]
+    fn counted_loop_carrier_rejects_a_wrapping_index_alias() {
+        let counter = MirMem::Absolute(0x0080);
+        let mut routine = ascending_head_tested_loop(0, 8);
+        routine.blocks[2].ops = vec![
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirAddr::Direct(counter.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::AbsoluteIndexedY {
+                    base: MirMem::Absolute(0xff80),
+                },
+                width: MirWidth::Byte,
+            },
+            MirOp::UpdateMem {
+                op: MirUpdateOp::Inc,
+                mem: counter,
+                width: MirWidth::Byte,
+            },
+        ];
+        let original = routine.blocks.clone();
+        let layout = layout_for(&routine);
+
+        assert_eq!(
+            select_counted_loop_register_carriers(&mut routine, &layout),
+            0
+        );
+        assert_eq!(routine.blocks, original);
     }
 }

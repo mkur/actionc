@@ -437,6 +437,14 @@ pub enum MirOp {
         mem: MirMem,
         width: MirWidth,
     },
+    /// Native byte increment/decrement of an index-register carrier.
+    ///
+    /// This is selected only after homes and counted-loop structure are known;
+    /// unlike byte `Add`/`Sub`, it preserves carry and overflow.
+    UpdateReg {
+        op: MirUpdateOp,
+        reg: MirReg,
+    },
     /// Native byte read/modify/write through an absolute base indexed by X.
     /// This is a post-home 6502 operation; X is an implicit input.
     UpdateIndexedMem {
@@ -524,16 +532,17 @@ pub enum MirOp {
         offset: u16,
         signed: bool,
     },
-    /// Compare two directly addressable byte bases through the shared Y index.
+    /// Compare two directly addressable byte bases through a shared index.
     ///
     /// Selection must prove that any byte-index displacement folded into the
-    /// bases cannot wrap. Y is an implicit input and A is the compare
+    /// bases cannot wrap. X or Y is an implicit input and A is the compare
     /// accumulator.
     CompareDirectIndexedBytes {
         dst: MirCondDest,
         op: MirCompareOp,
         left: MirMem,
         right: MirMem,
+        index: MirReg,
         signed: bool,
     },
     CompareIndirectWords {

@@ -566,7 +566,10 @@ fn block_references_param_storage(block: &MirBlock) -> bool {
 
 fn op_references_param_storage(op: &MirOp) -> bool {
     match op {
-        MirOp::LoadImm { .. } | MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => false,
+        MirOp::LoadImm { .. }
+        | MirOp::UpdateReg { .. }
+        | MirOp::Barrier { .. }
+        | MirOp::MachineBlock { .. } => false,
         MirOp::Load { src, .. } => addr_references_param_storage(src),
         MirOp::PackedRealCopy {
             source,

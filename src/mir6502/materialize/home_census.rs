@@ -706,6 +706,7 @@ fn op_kind(op: &MirOp) -> &'static str {
         MirOp::IndirectByteCompound { .. } => "indirect-byte-compound",
         MirOp::IndirectWordCompound { .. } => "indirect-word-compound",
         MirOp::UpdateMem { .. } => "update-mem",
+        MirOp::UpdateReg { .. } => "update-reg",
         MirOp::UpdateIndexedMem { .. } => "update-indexed-mem",
         MirOp::AddByteToWordMem { .. } => "add-byte-to-word",
         MirOp::SubByteFromWordMem { .. } => "sub-byte-from-word",
@@ -1527,6 +1528,7 @@ fn record_op_uses(
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateMem { .. }
+        | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::LoadIndirect { .. }

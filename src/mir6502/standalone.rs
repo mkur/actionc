@@ -419,6 +419,7 @@ fn visit_op_storage(
             visit_value_storage(index, globals, statics);
         }
         MirOp::LoadImm { .. }
+        | MirOp::UpdateReg { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::CompareIndirectBytes { .. }
@@ -659,6 +660,7 @@ fn rebase_op(
             rebase_value(index, routines, globals, statics)?;
         }
         MirOp::LoadImm { .. }
+        | MirOp::UpdateReg { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::CompareIndirectBytes { .. }
@@ -1577,6 +1579,7 @@ fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<RoutineId>) {
         MirOp::LoadImm { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateMem { .. }
+        | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::CopyDirectWordToIndirect { .. }

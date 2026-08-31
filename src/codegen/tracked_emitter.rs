@@ -577,6 +577,11 @@ impl TrackedEmitter {
         self.state.invalidate_flags();
     }
 
+    pub(crate) fn emit_cpx_imm(&mut self, value: u8) {
+        self.emitter.emit_cpx_imm(value);
+        self.state.invalidate_flags();
+    }
+
     pub(crate) fn emit_cmp_imm_for_z_branch(&mut self, value: u8) {
         if value == 0 && self.state.flags_match_a_value() {
             return;
@@ -598,6 +603,11 @@ impl TrackedEmitter {
 
     pub(crate) fn emit_cmp_abs_y(&mut self, address: impl Into<Absolute>) {
         self.emitter.emit_cmp_absolute_y(address.into());
+        self.state.invalidate_flags();
+    }
+
+    pub(crate) fn emit_cmp_abs_x(&mut self, address: impl Into<Absolute>) {
+        self.emitter.emit_cmp_absolute_x(address.into());
         self.state.invalidate_flags();
     }
 
@@ -634,6 +644,12 @@ impl TrackedEmitter {
     pub(crate) fn emit_iny(&mut self) {
         self.emitter.emit_iny();
         self.state.increment_y();
+    }
+
+    pub(crate) fn emit_inx(&mut self) {
+        self.emitter.emit_inx();
+        self.state.load_x_unknown();
+        self.state.invalidate_flags();
     }
 
     pub(crate) fn emit_dey(&mut self) {

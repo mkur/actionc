@@ -1667,6 +1667,7 @@ pub(in crate::mir6502) fn direct_indexed_byte_compare_candidate(
         op,
         left: left.indexed_base,
         right: right.indexed_base,
+        index: MirReg::Y,
         signed: false,
     });
     Some(DirectIndexedByteCompareCandidate {

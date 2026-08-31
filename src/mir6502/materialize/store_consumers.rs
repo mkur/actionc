@@ -3863,6 +3863,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         ),
         MirOp::Store { .. }
         | MirOp::UpdateMem { .. }
+        | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }

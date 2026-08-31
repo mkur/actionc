@@ -92,6 +92,7 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             | MirOp::Barrier { .. }
             | MirOp::LeaAddr { .. }
             | MirOp::UpdateMem { .. }
+            | MirOp::UpdateReg { .. }
             | MirOp::UpdateIndexedMem { .. }
             | MirOp::AddByteToWordMem { .. }
             | MirOp::SubByteFromWordMem { .. }

@@ -240,6 +240,16 @@ Reject calls without a preservation proof, conflicting register demands,
 address-taken or volatile induction homes, machine blocks, and loops whose
 observable post-loop value cannot be reproduced exactly.
 
+Implementation note: the first selector is a post-home target-home decision,
+not a general register allocator. It consumes the existing counted-loop,
+machine-liveness, structured-effect, and final-layout facts, tries X and Y, and
+accepts only a lower-cost canonical head-tested byte loop. It introduces the
+explicit post-home `UpdateReg` latch and lets `CompareDirectIndexedBytes` name X
+or Y. A Y-indexed access is converted to X only after an exact induction load
+in the same block; all ambiguous indirect accesses, aliases, calls, barriers,
+machine blocks, carrier conflicts, and noncanonical exits are rejected. A
+possibly read final induction value is written back at the canonical exit.
+
 ## Delivery order and expected signals
 
 The commit order is Slice 0 through Slice 6. Slices 1, 2, and 5 are locally
