@@ -1,6 +1,8 @@
 # MIR6502 Fixed-Zero-Page Pointer Index Plan
 
-Status: planned. Created 2026-09-01.
+Status: implemented through Slice 4. Created 2026-09-01. The optional exact
+pointer-region proof in Slice 3 was deferred after the actual blocker proved
+to be bottom-guard recognition rather than alias rejection.
 
 This plan continues
 [`MIR6502_STATIC_ARRAY_AFFINE_INDEX_PLAN.md`](MIR6502_STATIC_ARRAY_AFFINE_INDEX_PLAN.md)
@@ -66,9 +68,8 @@ sequence. They are not part of this work.
   6502 `($zp),Y` consumer.
 - Keep single-use byte addition chains in A and emit `ADC ($zp),Y` without
   materializing private RHS or partial-sum homes.
-- Prove exact indirect-write regions where a canonical constant pointer
-  induction makes that possible, and use the proof to unblock existing loop
-  selection.
+- Investigate whether exact indirect-write regions are needed to unblock loop
+  selection, without weakening conservative pointer effects.
 - Select a source-exact full-range descending byte latch when the existing
   counted-loop forms cannot express it compactly.
 - Improve ordinary pointer-heavy programs, not only the benchmark.
@@ -391,7 +392,7 @@ select the equivalent shape:
 ```asm
         jmp body
 latch: dec counter
-body:  ; body leaves counter unchanged and non-aliased
+body:
         ...
         lda counter
         bne latch
@@ -408,20 +409,29 @@ comparisons. Require:
 
 - byte width, unsigned direction, step one, initial 255, and bound zero;
 - a proven first entry and canonical single latch/backedge;
-- no unsupported exit, counter mutation, or unproved alias in the body;
+- no unsupported exit or direct counter mutation in the body, plus an exact
+  counter reload immediately before the bottom comparison;
 - dead or explicitly preserved machine flags and accumulator state;
 - a source-visible final counter value of zero on the normal exit;
 - a strict size win over the guarded form.
 
-Reuse the region proof from Slice 3 for indirect writes. Calls, barriers,
-machine blocks, dynamic starts, other bounds, and noncanonical CFGs reject the
-shape.
+Implementation finding: the selected form requires the existing bottom guard
+to reload the induction byte immediately before `CMP #1`. Replacing that
+compare with the zero flag from the same `LDA` therefore observes every prior
+body write, including a conservatively aliasing indirect write; no pointer
+region assumption is needed. Direct counter mutation, calls, barriers, machine
+blocks, early exits, and nested body cycles still reject the specialized form.
+The selector requires A and all flags dead at body entry, C/Z/N dead at normal
+exit, and a strict byte-size win. V need not be dead at exit because both the
+removed `CMP` and retained `LDA` preserve it. The latch block is placed before
+the body so the hot path emits `DEC`, falls through into the body, and branches
+back with `BNE`.
 
 ### Tests and acceptance criteria
 
 - The transformed loop visits 255, 254, 1, and 0 exactly once.
-- Empty, one-iteration, dynamic-start, early-exit, nested, and aliasing cases
-  retain their supported general forms.
+- Empty, one-iteration, dynamic-start, early-exit, nested, opaque-effect, and
+  direct-counter-mutation cases retain their supported general forms.
 - The selected latch has one `DEC`, no per-iteration top comparison, and no
   terminal restoration block.
 - Counter and machine-state observations after the loop match the original

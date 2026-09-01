@@ -5,7 +5,7 @@ use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502;
 use actionc::nir;
 use actionc::runtime::Runtime;
-use actionc::semantic::{analyze, ir};
+use actionc::semantic::{SemanticOptions, analyze, analyze_with_options, ir};
 
 #[test]
 fn cast_store_consumers_materialize_without_virtual_temps_or_cast_pseudos() {
@@ -309,6 +309,23 @@ fn fixed_zero_page_pointer_sum_accumulates_indirect_reads_in_a() {
             .count(),
         3
     );
+}
+
+#[test]
+fn full_range_descending_pointer_loop_uses_a_compare_free_dec_latch() {
+    let (formatted, bytes) = compile_materialized_mir6502_source_with_config(
+        "BYTE POINTER p=$F0 BYTE i=$E0 \
+         PROC Main() \
+           FOR i=255 TO 0 STEP -1 DO p^=p(1) p==+1 OD \
+         RETURN",
+        &mir6502::Mir6502Config::optimized(),
+    );
+
+    assert!(formatted.contains("dec.b global g1+0"), "{formatted}");
+    assert!(!formatted.contains("cmp.lt.u.b a, #1"), "{formatted}");
+    assert!(bytes.windows(2).any(|window| window == [0xC6, 0xE0]));
+    assert!(bytes.windows(3).any(|window| window == [0xA5, 0xE0, 0xD0]));
+    assert!(!bytes.windows(2).any(|window| window == [0xC9, 0x01]));
 }
 
 #[test]
@@ -1041,16 +1058,40 @@ fn compile_materialized_mir6502_fixture(name: &str) -> (String, Vec<u8>) {
 }
 
 fn compile_materialized_mir6502_source(source: &str) -> (String, Vec<u8>) {
+    compile_materialized_mir6502_source_impl(source, &mir6502::Mir6502Config::default(), false)
+}
+
+fn compile_materialized_mir6502_source_with_config(
+    source: &str,
+    config: &mir6502::Mir6502Config,
+) -> (String, Vec<u8>) {
+    compile_materialized_mir6502_source_impl(source, config, true)
+}
+
+fn compile_materialized_mir6502_source_impl(
+    source: &str,
+    config: &mir6502::Mir6502Config,
+    modern_semantics: bool,
+) -> (String, Vec<u8>) {
     let tokens = actionc::lexer::tokenize(source).expect("tokenize source");
     let program = actionc::parser::parse(&tokens).expect("parse source");
-    let model = analyze(&program).expect("analyze source");
+    let model = if modern_semantics {
+        analyze_with_options(&program, SemanticOptions::modern()).expect("analyze modern source")
+    } else {
+        analyze(&program).expect("analyze source")
+    };
     let semir = ir::lower_program(&program, &model);
     let nir_program = nir::lower_program(&semir);
+    let nir_program = if modern_semantics {
+        nir::optimize_program(&nir_program).expect("optimize modern source NIR")
+    } else {
+        nir_program
+    };
     nir::verify_program(&nir_program).expect("verify source NIR");
     let mir = mir6502::lower_program(&nir_program).expect("lower source MIR6502");
     let materialized = mir6502::materialize_program_with_origin_and_runtime(
         mir,
-        &mir6502::Mir6502Config::default(),
+        config,
         CODE_ORIGIN,
         Runtime::ActionCart,
     )
@@ -1061,7 +1102,7 @@ fn compile_materialized_mir6502_source(source: &str) -> (String, Vec<u8>) {
     let output = mir6502::generate_output_with_config_and_runtime(
         &nir_program,
         CODE_ORIGIN,
-        &mir6502::Mir6502Config::default(),
+        config,
         Runtime::ActionCart,
     )
     .expect("emit source MIR6502");

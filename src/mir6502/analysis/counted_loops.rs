@@ -16,6 +16,7 @@ pub(in crate::mir6502) enum MirCountDirection {
 pub(in crate::mir6502) enum MirCountedLoopShape {
     HeadTested,
     FullRangeAscending { guard: MirBlockId },
+    FullRangeDescending { guard: MirBlockId },
     BottomGuarded { guard: MirBlockId },
 }
 
@@ -308,6 +309,14 @@ fn analyze_bottom_guarded_loop(
             bound,
             false,
         );
+        let shape = if bound == 0
+            && !initial_guard_required
+            && byte_constant(&initial_value) == Some(u16::from(u8::MAX))
+        {
+            MirCountedLoopShape::FullRangeDescending { guard }
+        } else {
+            MirCountedLoopShape::BottomGuarded { guard }
+        };
         return Some(MirCountedLoop {
             preheader: preheader_id,
             header: header.id,
@@ -323,7 +332,7 @@ fn analyze_bottom_guarded_loop(
             signed: false,
             initial_guard_required,
             final_value_observable: mem_may_be_read_from(routine, cfg, exit, &induction),
-            shape: MirCountedLoopShape::BottomGuarded { guard },
+            shape,
         });
     }
     None

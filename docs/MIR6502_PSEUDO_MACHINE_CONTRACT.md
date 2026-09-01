@@ -419,6 +419,24 @@ original guard. This preserves both the source-visible final zero and the exit
 machine state. Countdown-to-one head-tested loops use the corresponding
 `DEC/BNE` form when entry and liveness proofs permit it.
 
+The analysis also names the proven-entered inclusive unsigned range `255 TO
+0 STEP -1` as a full-range descending byte shape. When its bottom guard
+reloads the exact induction home immediately before `CMP #1`, the target may
+remove both the repeated entry header and the comparison, place a direct
+`DEC` latch immediately before the body, and branch back to it with `BNE` from
+the zero flag produced by that reload. This executes the body for zero and
+exits without decrementing zero, so an observable final induction value stays
+zero and no restoration block is needed.
+
+Selection requires byte/unsigned/unit-step facts, constant initial 255 and
+bound zero, a canonical acyclic body without early exits, calls, barriers,
+machine blocks, runtime helpers, or direct induction writes, and a strict
+size win. A and all flags must be dead at body entry; C/Z/N must be dead at
+normal exit. V may remain live there because both the removed `CMP` and the
+retained `LDA` preserve it. The exact post-body reload observes any preceding
+indirect write, so this rewrite does not weaken the global conservative alias
+contract or assume that a pointer cannot name the induction home.
+
 A later target-home selector may carry a proven-entered, head-tested byte
 induction value in X or Y. The selected form uses `UpdateReg { Inc|Dec, X|Y }`
 for the latch and compares the carrier directly against the constant bound.

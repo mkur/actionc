@@ -117,6 +117,9 @@ pub(super) fn select_counted_loop_latches(
             CountedLoopLatchPlan::RotatedHeadTested(plan) => {
                 apply_rotated_head_tested_plan(&mut routine.blocks, plan)
             }
+            CountedLoopLatchPlan::FullRangeDescending(plan) => {
+                apply_full_range_descending_plan(&mut routine.blocks, plan)
+            }
             CountedLoopLatchPlan::BottomFast(plan) => {
                 apply_bottom_fast_countdown_plan(&mut routine.blocks, plan)
             }
@@ -1542,6 +1545,7 @@ fn width_bytes(width: MirWidth) -> u8 {
 enum CountedLoopLatchPlan {
     HeadTested(InitializedByteCountdownPlan),
     RotatedHeadTested(RotatedHeadTestedPlan),
+    FullRangeDescending(FullRangeDescendingByteCountdownPlan),
     BottomFast(BottomFastByteCountdownPlan),
     BottomGuarded(BottomGuardedByteCountdownPlan),
 }
@@ -1562,6 +1566,17 @@ struct RotatedHeadTestedPlan {
     header: MirBlockId,
     body: MirBlockId,
     latch: MirBlockId,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FullRangeDescendingByteCountdownPlan {
+    preheader: MirBlockId,
+    header: MirBlockId,
+    body: MirBlockId,
+    guard: MirBlockId,
+    latch: MirBlockId,
+    exit: MirBlockId,
+    guard_prefix_len: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1673,6 +1688,74 @@ fn counted_loop_latch_plan(
                 }
             }
             MirCountedLoopShape::FullRangeAscending { .. } => {}
+            MirCountedLoopShape::FullRangeDescending { guard } => {
+                if routine.blocks.iter().any(|block| block.id == guard)
+                    && counted.direction == MirCountDirection::Descending
+                    && counted.bound == 0
+                    && const_byte(&counted.initial_value) == Some(u8::MAX)
+                    && !counted.initial_guard_required
+                    && machine_state_dead_on_entry(&liveness, counted.body)
+                    && machine_compare_flags_dead_on_entry(&liveness, counted.exit)
+                    && let Some(guard_block) = routine.blocks.iter().find(|block| block.id == guard)
+                    && bottom_guard_reloads_counter(guard_block, &counted.induction)
+                    && let Some(guard_prefix_len) =
+                        bottom_guard_prefix_len(guard_block, &counted.induction, counted.bound)
+                    && full_range_descending_body_is_supported(
+                        routine,
+                        &cfg,
+                        &counted,
+                        guard,
+                        guard_prefix_len,
+                    )
+                {
+                    let plan = FullRangeDescendingByteCountdownPlan {
+                        preheader: counted.preheader,
+                        header: counted.header,
+                        body: counted.body,
+                        guard,
+                        latch: counted.latch,
+                        exit: counted.exit,
+                        guard_prefix_len,
+                    };
+                    let mut candidate = routine.blocks.clone();
+                    if apply_full_range_descending_plan(&mut candidate, plan)
+                        && estimated_routine_layout_bytes(&candidate)
+                            < estimated_routine_layout_bytes(&routine.blocks)
+                    {
+                        return Some(CountedLoopLatchPlan::FullRangeDescending(plan));
+                    }
+                }
+
+                // Preserve the existing guarded DEC selection when the
+                // stronger compare-free form cannot prove its flag or body
+                // requirements.
+                if !routine.blocks.iter().any(|block| block.id == guard)
+                    || !machine_flag_unobserved_before_redefinition(
+                        routine,
+                        &cfg,
+                        counted.body,
+                        counted.latch,
+                        MirFlag::V,
+                    )
+                {
+                    continue;
+                }
+                let plan = BottomGuardedByteCountdownPlan {
+                    preheader: counted.preheader,
+                    header: counted.header,
+                    body: counted.body,
+                    latch: counted.latch,
+                    remove_entry_header: machine_flags_dead_on_entry(&liveness, counted.body),
+                    reload_accumulator: machine_accumulator_live_on_entry(&liveness, counted.body),
+                };
+                let mut candidate = routine.blocks.clone();
+                if apply_bottom_guarded_countdown_plan(&mut candidate, plan)
+                    && estimated_routine_layout_bytes(&candidate)
+                        < estimated_routine_layout_bytes(&routine.blocks)
+                {
+                    return Some(CountedLoopLatchPlan::BottomGuarded(plan));
+                }
+            }
             MirCountedLoopShape::BottomGuarded { guard } => {
                 if !routine.blocks.iter().any(|block| block.id == guard)
                     || counted.bound > 0 && !machine_flags_dead_on_entry(&liveness, counted.body)
@@ -1941,6 +2024,92 @@ fn bottom_guarded_body_blocks(
     Some(blocks)
 }
 
+fn full_range_descending_body_is_supported(
+    routine: &MirRoutine,
+    cfg: &MirCfg,
+    counted: &MirCountedLoop,
+    guard: MirBlockId,
+    guard_prefix_len: usize,
+) -> bool {
+    let Some(guard_block) = routine.blocks.iter().find(|block| block.id == guard) else {
+        return false;
+    };
+    if guard_prefix_len > guard_block.ops.len()
+        || !full_range_descending_ops_are_supported(
+            &guard_block.ops[..guard_prefix_len],
+            &counted.induction,
+        )
+    {
+        return false;
+    }
+
+    let body_blocks = if counted.body == guard {
+        BTreeSet::new()
+    } else {
+        let Some(blocks) = bottom_guarded_body_blocks(routine, cfg, counted, guard) else {
+            return false;
+        };
+        blocks
+    };
+    if body_blocks.iter().any(|block_id| {
+        cfg.successors(*block_id).contains(&counted.exit)
+            || routine
+                .blocks
+                .iter()
+                .find(|block| block.id == *block_id)
+                .is_none_or(|block| {
+                    !full_range_descending_ops_are_supported(&block.ops, &counted.induction)
+                })
+    }) {
+        return false;
+    }
+    body_subgraph_is_acyclic(cfg, &body_blocks)
+}
+
+fn full_range_descending_ops_are_supported(ops: &[MirOp], induction: &MirMem) -> bool {
+    ops.iter().all(|op| {
+        !matches!(
+            op,
+            MirOp::Call { .. }
+                | MirOp::RuntimeHelper { .. }
+                | MirOp::Barrier { .. }
+                | MirOp::MachineBlock { .. }
+        ) && !classify_op(op).memory.definitely_writes(induction)
+    })
+}
+
+fn body_subgraph_is_acyclic(cfg: &MirCfg, blocks: &BTreeSet<MirBlockId>) -> bool {
+    let mut remaining_predecessors = blocks
+        .iter()
+        .map(|block| {
+            let count = cfg
+                .predecessors(*block)
+                .iter()
+                .filter(|predecessor| blocks.contains(predecessor))
+                .count();
+            (*block, count)
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut ready = remaining_predecessors
+        .iter()
+        .filter_map(|(block, count)| (*count == 0).then_some(*block))
+        .collect::<Vec<_>>();
+    let mut visited = 0usize;
+    while let Some(block) = ready.pop() {
+        visited += 1;
+        for successor in cfg.successors(block) {
+            let Some(count) = remaining_predecessors.get_mut(successor) else {
+                continue;
+            };
+            *count = count.saturating_sub(1);
+            if *count == 0 {
+                ready.push(*successor);
+            }
+        }
+    }
+    visited == blocks.len()
+}
+
 fn apply_initialized_byte_countdown_plan(
     blocks: &mut Vec<MirBlock>,
     plan: InitializedByteCountdownPlan,
@@ -1970,6 +2139,56 @@ fn apply_initialized_byte_countdown_plan(
     reordered.extend_from_slice(&original[plan.body_index..]);
     reordered.extend_from_slice(&original[plan.header_index + 1..plan.body_index]);
     *blocks = reordered;
+    true
+}
+
+fn apply_full_range_descending_plan(
+    blocks: &mut Vec<MirBlock>,
+    plan: FullRangeDescendingByteCountdownPlan,
+) -> bool {
+    let Some(preheader_index) = blocks.iter().position(|block| block.id == plan.preheader) else {
+        return false;
+    };
+    let Some(header_index) = blocks.iter().position(|block| block.id == plan.header) else {
+        return false;
+    };
+    let Some(guard_index) = blocks.iter().position(|block| block.id == plan.guard) else {
+        return false;
+    };
+    let Some(latch_index) = blocks.iter().position(|block| block.id == plan.latch) else {
+        return false;
+    };
+    let Some(induction) = bottom_guarded_latch_mem(&blocks[latch_index], plan.header) else {
+        return false;
+    };
+    if plan.guard_prefix_len + 2 != blocks[guard_index].ops.len()
+        || !bottom_guard_reloads_counter(&blocks[guard_index], &induction)
+    {
+        return false;
+    }
+
+    blocks[preheader_index].terminator = MirTerminator::Jump(MirEdge::plain(plan.body));
+    blocks[guard_index].ops.truncate(plan.guard_prefix_len + 1);
+    blocks[guard_index].terminator = MirTerminator::Branch {
+        cond: MirCond::FlagTest(MirFlagTest::ZClear),
+        then_edge: MirEdge::plain(plan.latch),
+        else_edge: MirEdge::plain(plan.exit),
+    };
+    blocks[latch_index].ops = vec![MirOp::UpdateMem {
+        op: MirUpdateOp::Dec,
+        mem: induction,
+        width: MirWidth::Byte,
+    }];
+    blocks[latch_index].terminator = MirTerminator::Jump(MirEdge::plain(plan.body));
+    blocks.remove(header_index);
+    let Some(latch_index) = blocks.iter().position(|block| block.id == plan.latch) else {
+        return false;
+    };
+    let latch = blocks.remove(latch_index);
+    let Some(body_index) = blocks.iter().position(|block| block.id == plan.body) else {
+        return false;
+    };
+    blocks.insert(body_index, latch);
     true
 }
 
@@ -2347,6 +2566,12 @@ fn machine_flags_dead_on_entry(liveness: &MirMachineLiveness, block: MirBlockId)
             v: true,
         })
     })
+}
+
+fn machine_compare_flags_dead_on_entry(liveness: &MirMachineLiveness, block: MirBlockId) -> bool {
+    [MirFlag::C, MirFlag::Z, MirFlag::N]
+        .into_iter()
+        .all(|flag| machine_flag_dead_on_entry(liveness, block, flag))
 }
 
 fn machine_flag_dead_on_entry(
@@ -3080,7 +3305,7 @@ mod tests {
         assert_eq!(counted.len(), 1);
         assert!(matches!(
             counted[0].shape,
-            MirCountedLoopShape::BottomGuarded {
+            MirCountedLoopShape::FullRangeDescending {
                 guard: MirBlockId(3)
             }
         ));
@@ -3100,6 +3325,170 @@ mod tests {
                     }]
                 )
         }));
+        let guard = routine
+            .blocks
+            .iter()
+            .find(|block| block.id == MirBlockId(3))
+            .expect("merged countdown guard");
+        assert!(matches!(guard.ops.last(), Some(MirOp::Load { .. })));
+        assert!(
+            guard
+                .ops
+                .iter()
+                .all(|op| !matches!(op, MirOp::Compare { .. }))
+        );
+        assert!(matches!(
+            guard.terminator,
+            MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZClear),
+                ref then_edge,
+                ref else_edge,
+            } if then_edge.target == MirBlockId(4) && else_edge.target == MirBlockId(5)
+        ));
+    }
+
+    #[test]
+    fn full_range_descending_uses_counter_zero_as_the_bottom_guard() {
+        let mut routine = bottom_guarded_countdown(MirValue::ConstU8(u8::MAX), true);
+        let counted = analyze_counted_loops(&routine);
+        assert_eq!(counted.len(), 1);
+        assert!(matches!(
+            counted[0].shape,
+            MirCountedLoopShape::FullRangeDescending {
+                guard: MirBlockId(3)
+            }
+        ));
+        assert!(!counted[0].initial_guard_required);
+        assert_eq!(counted[0].bound, 0);
+
+        let layout = layout_for(&routine);
+        assert_eq!(select_counted_loop_latches(&mut routine, &layout), 1);
+        assert!(!routine.blocks.iter().any(|block| block.id == MirBlockId(1)));
+        let guard = routine
+            .blocks
+            .iter()
+            .find(|block| block.id == MirBlockId(3))
+            .expect("full-range bottom guard");
+        assert!(matches!(
+            guard.ops.as_slice(),
+            [MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                width: MirWidth::Byte,
+                ..
+            }]
+        ));
+        assert!(matches!(
+            guard.terminator,
+            MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZClear),
+                ref then_edge,
+                ref else_edge,
+            } if then_edge.target == MirBlockId(4) && else_edge.target == MirBlockId(5)
+        ));
+        let latch = routine
+            .blocks
+            .iter()
+            .find(|block| block.id == MirBlockId(4))
+            .expect("full-range latch");
+        assert!(matches!(
+            latch.ops.as_slice(),
+            [MirOp::UpdateMem {
+                op: MirUpdateOp::Dec,
+                width: MirWidth::Byte,
+                ..
+            }]
+        ));
+        assert!(matches!(
+            latch.terminator,
+            MirTerminator::Jump(ref edge) if edge.target == MirBlockId(2)
+        ));
+        assert_eq!(
+            block_id_order(&routine.blocks),
+            vec![
+                MirBlockId(0),
+                MirBlockId(4),
+                MirBlockId(2),
+                MirBlockId(3),
+                MirBlockId(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn full_range_descending_keeps_the_general_guard_for_unsupported_bodies() {
+        let counter = MirMem::Local {
+            id: crate::nir::LocalId(0),
+            offset: 0,
+        };
+        let cases = [
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(counter),
+                src: MirValue::ConstU8(17),
+                width: MirWidth::Byte,
+            },
+            MirOp::Barrier {
+                effects: crate::mir6502::ir::MirEffects {
+                    opaque: true,
+                    ..Default::default()
+                },
+            },
+        ];
+
+        for unsupported in cases {
+            let mut routine = bottom_guarded_countdown(MirValue::ConstU8(u8::MAX), true);
+            routine
+                .blocks
+                .iter_mut()
+                .find(|block| block.id == MirBlockId(2))
+                .expect("full-range body")
+                .ops
+                .push(unsupported);
+            let layout = layout_for(&routine);
+
+            assert!(select_counted_loop_latches(&mut routine, &layout) <= 1);
+            let guard = routine
+                .blocks
+                .iter()
+                .find(|block| block.id == MirBlockId(3))
+                .expect("general bottom guard");
+            assert!(
+                guard
+                    .ops
+                    .iter()
+                    .any(|op| matches!(op, MirOp::Compare { .. }))
+            );
+        }
+    }
+
+    #[test]
+    fn full_range_descending_requires_an_exact_counter_reload() {
+        let mut routine = bottom_guarded_countdown(MirValue::ConstU8(u8::MAX), false);
+        assert!(matches!(
+            analyze_counted_loops(&routine).as_slice(),
+            [MirCountedLoop {
+                shape: MirCountedLoopShape::FullRangeDescending { .. },
+                ..
+            }]
+        ));
+        let layout = layout_for(&routine);
+
+        assert_eq!(select_counted_loop_latches(&mut routine, &layout), 1);
+        let guard = routine
+            .blocks
+            .iter()
+            .find(|block| block.id == MirBlockId(3))
+            .expect("general bottom guard");
+        assert!(
+            guard
+                .ops
+                .iter()
+                .any(|op| matches!(op, MirOp::Compare { .. }))
+        );
     }
 
     #[test]
