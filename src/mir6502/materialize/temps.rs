@@ -251,6 +251,7 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::UpdateMem { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }
+        | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
@@ -479,6 +480,7 @@ pub(in crate::mir6502) fn replace_op_temp_values(
             *right = replace_temp_value(right.clone(), temp, replacement);
         }
         MirOp::CompareDirectIndexedBytes { .. }
+        | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. } => {}
         MirOp::OffsetPointerByIndirectByte { .. } => {}
@@ -911,6 +913,7 @@ fn invalidate_staged_address_for_op(
             direct_mem_writes_consumer(*consumer, mem) || value_depends_on_mem(value, mem)
         }
         MirOp::UpdateIndexedMem { .. } => true,
+        MirOp::BinaryDirectIndexedByte { .. } => true,
         MirOp::UpdateReg { .. } => true,
         MirOp::AddByteToWordMem { mem, .. } | MirOp::SubByteFromWordMem { mem, .. } => {
             direct_mem_writes_consumer(*consumer, mem)

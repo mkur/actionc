@@ -23,6 +23,7 @@ pub(super) fn op_def(op: &MirOp) -> Option<&MirDef> {
         | MirOp::UpdateMem { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }
+        | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }

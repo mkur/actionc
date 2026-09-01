@@ -679,6 +679,7 @@ fn op_kind(op: &MirOp) -> &'static str {
         MirOp::Truncate { .. } => "truncate",
         MirOp::Unary { .. } => "unary",
         MirOp::Binary { .. } => "binary",
+        MirOp::BinaryDirectIndexedByte { .. } => "binary-direct-indexed-byte",
         MirOp::Store { .. } => "store",
         MirOp::Compare { .. } => "compare",
         MirOp::CompareDirectIndexedBytes { .. } => "compare-direct-indexed-bytes",
@@ -1521,6 +1522,7 @@ fn record_op_uses(
             record_op_value_use(src, MirWidth::Byte, true, block, op_index, facts)
         }
         MirOp::LoadImm { .. }
+        | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }

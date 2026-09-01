@@ -394,6 +394,11 @@ impl Emitter {
         self.emit_absolute_operand(absolute_x.absolute());
     }
 
+    pub fn emit_adc_absolute_y(&mut self, absolute: Absolute) {
+        self.emit_u8(opcode::ADC_ABS_Y);
+        self.emit_absolute_operand(absolute);
+    }
+
     pub fn emit_adc_zp(&mut self, address: u8) {
         self.emit_u8(opcode::ADC_ZP);
         self.emit_u8(address);
@@ -2233,6 +2238,7 @@ pub mod opcode {
     pub const ADC_IZY: u8 = 0x71;
     pub const ADC_ABS: u8 = 0x6D;
     pub const ADC_ABS_X: u8 = 0x7D;
+    pub const ADC_ABS_Y: u8 = 0x79;
     pub const LDX_IMM: u8 = 0xA2;
     pub const LDY_IMM: u8 = 0xA0;
     pub const LDA_IMM: u8 = 0xA9;

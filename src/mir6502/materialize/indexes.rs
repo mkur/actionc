@@ -3770,3 +3770,157 @@ pub(super) fn materialize_index_to_y(value: MirValue, out: &mut Vec<MirOp>) {
         }),
     }
 }
+
+pub(super) fn discover_direct_indexed_byte_binaries(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let Some(replacement) =
+                direct_indexed_byte_binary_replacement(routine, &block.ops, index, layout)
+            else {
+                continue;
+            };
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                index..index + 5,
+                replacement,
+                MirExitStateChange::default(),
+                "direct-indexed-byte-binary-selected",
+                94,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+fn direct_indexed_byte_binary_replacement(
+    routine: &MirRoutine,
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+) -> Option<Vec<MirOp>> {
+    let MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src,
+        width: MirWidth::Byte,
+    } = ops.get(index)?
+    else {
+        return None;
+    };
+    let (source, index_reg) = match src {
+        MirAddr::AbsoluteIndexedX { base } => (base, MirReg::X),
+        MirAddr::AbsoluteIndexedY { base } => (base, MirReg::Y),
+        _ => return None,
+    };
+    let MirOp::Store {
+        dst: MirAddr::Direct(rhs_home),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    } = ops.get(index + 1)?
+    else {
+        return None;
+    };
+    let MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(accumulator_home),
+        width: MirWidth::Byte,
+    } = ops.get(index + 2)?
+    else {
+        return None;
+    };
+    let MirOp::Binary {
+        op: MirBinaryOp::Add,
+        dst: MirDef::Reg(MirReg::A),
+        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+        right: MirValue::PointerCell(binary_rhs),
+        width: MirWidth::Byte,
+        carry_in: Some(MirCarryIn::Clear),
+        carry_out: MirCarryOut::Ignore,
+    } = ops.get(index + 3)?
+    else {
+        return None;
+    };
+    let MirOp::Store {
+        dst: MirAddr::Direct(result_home),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    } = ops.get(index + 4)?
+    else {
+        return None;
+    };
+    if rhs_home != binary_rhs
+        || rhs_home == accumulator_home
+        || !matches!(rhs_home, MirMem::Spill { .. } | MirMem::ZeroPage(_))
+        || !matches!(accumulator_home, MirMem::Spill { .. } | MirMem::ZeroPage(_))
+        || !indexed_byte_range_is_disjoint_from_home(routine, layout, source, rhs_home)
+        || !indexed_byte_range_is_disjoint_from_home(routine, layout, source, accumulator_home)
+    {
+        return None;
+    }
+
+    Some(vec![
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(accumulator_home.clone()),
+            width: MirWidth::Byte,
+        },
+        MirOp::BinaryDirectIndexedByte {
+            op: MirBinaryOp::Add,
+            source: source.clone(),
+            index: index_reg,
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Ignore,
+        },
+        MirOp::Store {
+            dst: MirAddr::Direct(result_home.clone()),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ])
+}
+
+fn indexed_byte_range_is_disjoint_from_home(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+    source: &MirMem,
+    home: &MirMem,
+) -> bool {
+    let Some(source_start) = posthome_mem_address(routine, layout, source) else {
+        return false;
+    };
+    let Some(source_end) = source_start.checked_add(u16::from(u8::MAX)) else {
+        return false;
+    };
+    let Some(home_address) = posthome_mem_address(routine, layout, home) else {
+        return false;
+    };
+    home_address < source_start || home_address > source_end
+}
+
+fn posthome_mem_address(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+    mem: &MirMem,
+) -> Option<u16> {
+    match mem {
+        MirMem::FixedZeroPage(slot) => Some(u16::from(slot.0)),
+        MirMem::ZeroPage(slot) => {
+            routine
+                .frame
+                .zero_page_allocations
+                .iter()
+                .find_map(|allocation| {
+                    (allocation.slot == *slot).then_some(u16::from(allocation.start.0))
+                })
+        }
+        _ => layout.mem_address(routine.id, mem),
+    }
+}

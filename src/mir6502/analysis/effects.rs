@@ -327,7 +327,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::Extend { .. } => MirOpKind::Extend,
         MirOp::Truncate { .. } => MirOpKind::Truncate,
         MirOp::Unary { .. } => MirOpKind::Unary,
-        MirOp::Binary { .. } => MirOpKind::Binary,
+        MirOp::Binary { .. } | MirOp::BinaryDirectIndexedByte { .. } => MirOpKind::Binary,
         MirOp::UpdateMem { .. } => MirOpKind::UpdateMem,
         MirOp::UpdateReg { .. } => MirOpKind::UpdateReg,
         MirOp::UpdateIndexedMem { .. } => MirOpKind::UpdateIndexedMem,
@@ -423,6 +423,28 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_binary_flags(*op, &mut summary.machine.flag_writes);
             mark_register_result_flags(dst, &mut summary);
             summary.removable_when_results_dead = true;
+        }
+        MirOp::BinaryDirectIndexedByte {
+            op,
+            source,
+            index,
+            carry_in,
+            ..
+        } => {
+            record_memory_read(source, &mut summary);
+            set_register(&mut summary.machine.register_reads, MirReg::A);
+            set_register(&mut summary.machine.register_reads, *index);
+            set_register(&mut summary.machine.register_writes, MirReg::A);
+            summary.machine.uses_previous_carry =
+                matches!(carry_in, Some(MirCarryIn::FromPrevious));
+            let initializes_carry =
+                matches!(carry_in, None | Some(MirCarryIn::Clear | MirCarryIn::Set));
+            if matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub) && initializes_carry {
+                summary.machine.definitely_overwrites_carry = true;
+                summary.machine.definitely_overwrites_overflow = true;
+            }
+            record_binary_flags(*op, &mut summary.machine.flag_writes);
+            summary.machine.writes_any_flags_compat = summary.machine.flag_writes.any();
         }
         MirOp::UpdateMem { mem, width, .. } => {
             record_memory_range_read(mem, *width, &mut summary);
@@ -2010,6 +2032,36 @@ mod tests {
         for (expected, operation) in operations {
             assert_eq!(classify_op(&operation).kind, expected, "{operation:?}");
         }
+    }
+
+    #[test]
+    fn direct_indexed_byte_binary_reads_a_index_and_memory_and_writes_a_and_flags() {
+        let source = MirMem::Global {
+            id: crate::nir::SymbolId(3),
+            offset: 31,
+        };
+        let effects = classify_op(&MirOp::BinaryDirectIndexedByte {
+            op: MirBinaryOp::Add,
+            source: source.clone(),
+            index: MirReg::Y,
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Ignore,
+        });
+
+        assert!(
+            effects
+                .memory
+                .direct_reads
+                .iter()
+                .any(|range| { range.base == source && range.bytes == 1 })
+        );
+        assert!(effects.machine.register_reads.a);
+        assert!(effects.machine.register_reads.y);
+        assert!(effects.machine.register_writes.a);
+        assert!(effects.machine.flag_writes.c);
+        assert!(effects.machine.flag_writes.z);
+        assert!(effects.machine.flag_writes.n);
+        assert!(effects.machine.flag_writes.v);
     }
 
     #[test]

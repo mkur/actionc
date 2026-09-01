@@ -657,6 +657,7 @@ fn operation_takes_induction_address(
         | MirOp::UpdateMem { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }
+        | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }

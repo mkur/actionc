@@ -443,6 +443,16 @@ impl TrackedEmitter {
         self.state.arithmetic_a();
     }
 
+    pub(crate) fn emit_adc_abs_x(&mut self, address: AbsoluteX) {
+        self.emitter.emit_adc_absolute_x(address);
+        self.state.arithmetic_a();
+    }
+
+    pub(crate) fn emit_adc_abs_y(&mut self, address: Absolute) {
+        self.emitter.emit_adc_absolute_y(address);
+        self.state.arithmetic_a();
+    }
+
     pub(crate) fn emit_adc_zero_page(&mut self, zero_page: ZeroPage) {
         self.emitter.emit_adc_zero_page(zero_page);
         self.state.arithmetic_a();
@@ -759,6 +769,19 @@ mod tests {
                 opcode::DEC_ZP,
                 0xE5,
             ]
+        );
+    }
+
+    #[test]
+    fn tracked_emitter_emits_absolute_indexed_adc_for_both_index_registers() {
+        let mut emitter = TrackedEmitter::with_origin(0x3000);
+
+        emitter.emit_adc_abs_x(AbsoluteX::new(0x4123));
+        emitter.emit_adc_abs_y(Absolute::new(0x4567));
+
+        assert_eq!(
+            emitter.finish().unwrap(),
+            [opcode::ADC_ABS_X, 0x23, 0x41, opcode::ADC_ABS_Y, 0x67, 0x45,]
         );
     }
 

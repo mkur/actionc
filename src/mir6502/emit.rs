@@ -2780,6 +2780,25 @@ fn emit_op(
                 unsupported(ctx, routine, block, "binary right source is not emit-ready");
             }
         }
+        MirOp::BinaryDirectIndexedByte {
+            op,
+            source,
+            index,
+            carry_in,
+            ..
+        } => {
+            emit_carry(*carry_in, *op, emitter);
+            let Some(source) = ctx.layout.direct_mem(routine, source) else {
+                unsupported(
+                    ctx,
+                    routine,
+                    block,
+                    "direct indexed binary source is not placed",
+                );
+                return;
+            };
+            emit_binary_direct_indexed_byte(ctx, routine, block, *op, source, *index, emitter);
+        }
         MirOp::Compare {
             dst,
             op,
@@ -4999,6 +5018,32 @@ fn emit_direct_indexed_byte_compare(
             emitter.emit_cmp_abs_y(absolute(right));
         }
         MirReg::A => unreachable!("direct indexed compare requires X or Y"),
+    }
+}
+
+fn emit_binary_direct_indexed_byte(
+    ctx: &mut MirEmitContext<'_>,
+    routine: RoutineId,
+    block: MirBlockId,
+    op: MirBinaryOp,
+    source: ResolvedMem,
+    index: MirReg,
+    emitter: &mut TrackedEmitter,
+) {
+    if op != MirBinaryOp::Add {
+        unsupported(
+            ctx,
+            routine,
+            block,
+            "direct indexed byte binary only supports addition",
+        );
+        return;
+    }
+    let absolute = resolved_mem_absolute(source);
+    match index {
+        MirReg::X => emitter.emit_adc_abs_x(AbsoluteX::from_absolute(absolute)),
+        MirReg::Y => emitter.emit_adc_abs_y(absolute),
+        MirReg::A => unreachable!("direct indexed byte binary requires X or Y"),
     }
 }
 

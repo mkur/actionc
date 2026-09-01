@@ -1,0 +1,18 @@
+; Runtime proof for direct indexed byte accumulation across page boundaries.
+
+BYTE ARRAY data(512)=$4000
+BYTE ARRAY result(1)=$0600
+BYTE index=$E0
+
+PROC Main()
+  data(255)=20
+  data(256)=30
+  data(257)=7
+  data(288)=9
+
+  index=225
+  result(0)=data(CARD(index)+30)+data(CARD(index)+31)+data(CARD(index)+32)+data(CARD(index)+63)
+
+  DO
+  OD
+RETURN

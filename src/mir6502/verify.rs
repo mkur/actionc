@@ -1358,6 +1358,49 @@ impl MirVerifier {
                     ));
                 }
             }
+            MirOp::BinaryDirectIndexedByte {
+                op,
+                source,
+                index,
+                carry_in,
+                carry_out,
+            } => {
+                self.verify_mem(
+                    routine,
+                    block,
+                    &routine.frame,
+                    source,
+                    static_ids,
+                    global_ids,
+                );
+                if !matches!(index, MirReg::X | MirReg::Y) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "direct indexed byte binary requires X or Y",
+                    ));
+                }
+                if *op != MirBinaryOp::Add
+                    || !matches!(carry_in, Some(MirCarryIn::Clear))
+                    || *carry_out != super::ir::MirCarryOut::Ignore
+                {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "direct indexed byte binary requires add, clear carry input, and ignored carry output",
+                    ));
+                }
+                if !matches!(
+                    self.phase,
+                    MirPhase::PostHome | MirPhase::PostMaterialization | MirPhase::PreEmission
+                ) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "direct indexed byte binary is only valid after home assignment",
+                    ));
+                }
+            }
             MirOp::Compare {
                 dst,
                 left,
@@ -2664,10 +2707,10 @@ fn has_local_slot(frame: &MirFrame, id: crate::nir::LocalId) -> bool {
 mod tests {
     use super::*;
     use crate::mir6502::{
-        MirArgHome, MirBlock, MirCallAbi, MirCallArg, MirCallTarget, MirCompareOp, MirEffects,
-        MirFixedZpSlot, MirFrame, MirGlobal, MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi,
-        MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic, MirTemp,
-        MirTempId, MirWidth, RoutineId,
+        MirArgHome, MirBlock, MirCallAbi, MirCallArg, MirCallTarget, MirCarryOut, MirCompareOp,
+        MirEffects, MirFixedZpSlot, MirFrame, MirGlobal, MirProgram, MirRegisterSet, MirRoutine,
+        MirRoutineAbi, MirRuntimeHelper, MirRuntimeHelperDecl, MirRuntimeHelperTarget, MirStatic,
+        MirTemp, MirTempId, MirWidth, RoutineId,
     };
     use crate::nir::SymbolId;
 
@@ -2680,6 +2723,43 @@ mod tests {
         )]);
 
         assert!(verify_program(&program, MirPhase::PreMaterialization).is_ok());
+    }
+
+    #[test]
+    fn direct_indexed_byte_binary_requires_its_posthome_add_contract() {
+        let operation = |carry_in| MirOp::BinaryDirectIndexedByte {
+            op: MirBinaryOp::Add,
+            source: MirMem::Absolute(0x4000),
+            index: MirReg::Y,
+            carry_in,
+            carry_out: MirCarryOut::Ignore,
+        };
+        let program_for = |op| {
+            program_with_routines(vec![routine(
+                RoutineId(0),
+                "Main",
+                vec![block_with_ops(
+                    MirBlockId(0),
+                    "bb0",
+                    vec![op],
+                    MirTerminator::Return,
+                )],
+            )])
+        };
+
+        verify_program(
+            &program_for(operation(Some(MirCarryIn::Clear))),
+            MirPhase::PostHome,
+        )
+        .expect("verified post-home indexed add");
+
+        let diagnostics = verify_program(&program_for(operation(None)), MirPhase::PostHome)
+            .expect_err("unspecified carry rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("requires add, clear carry input, and ignored carry output")
+        }));
     }
 
     #[test]

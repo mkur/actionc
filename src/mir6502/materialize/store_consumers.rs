@@ -3865,6 +3865,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         | MirOp::UpdateMem { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }
+        | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::AddByteToWordMem { .. }
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }

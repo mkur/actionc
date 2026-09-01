@@ -82,6 +82,7 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             | MirOp::Truncate { .. }
             | MirOp::Unary { .. }
             | MirOp::Binary { .. }
+            | MirOp::BinaryDirectIndexedByte { .. }
             | MirOp::Compare { .. }
             | MirOp::CompareDirectIndexedBytes { .. }
             | MirOp::CompareIndirectBytes { .. }

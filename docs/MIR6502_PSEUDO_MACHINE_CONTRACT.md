@@ -1,7 +1,7 @@
 # MIR6502 Pseudo-Machine Contract
 
-Snapshot date: 2026-06-01. Updated for destination-aware widened-byte shifts on
-2026-08-31.
+Snapshot date: 2026-06-01. Updated for direct indexed byte arithmetic on
+2026-09-01.
 
 This note defines the intended contract for the first MIR6502 layer after
 verifier-clean NIR. It incorporates the review items captured in
@@ -174,6 +174,15 @@ offset, increments it for the high lane, and therefore requires both
 `offset` and `offset+1` to fit in Y. The operation cannot use scaled-Y
 consumers: scale-two address construction must already have been incorporated
 into each prepared pointer.
+
+`BinaryDirectIndexedByte` is a post-home target operation for byte arithmetic
+whose left operand and result are the accumulator and whose right operand is an
+absolute memory byte indexed by X or Y. Its selection must preserve the source
+read's ordering and prove that any compiler home crossed by the rewrite cannot
+alias the indexed byte range. The initial contract permits only addition with
+clear carry and ignored carry-out, corresponding to `CLC` followed by
+`ADC absolute,X` or `ADC absolute,Y`; other arithmetic and carry contracts stay
+in the ordinary MIR form until they have their own verified lowering.
 
 ### Pre-emission MIR
 

@@ -773,6 +773,7 @@ fn update_fixed_zero_page_values(
         | MirOp::Truncate { .. }
         | MirOp::Unary { .. }
         | MirOp::Binary { .. }
+        | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::Compare { .. }
         | MirOp::CompareDirectIndexedBytes { .. }

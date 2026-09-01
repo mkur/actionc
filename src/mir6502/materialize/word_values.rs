@@ -213,6 +213,7 @@ fn op_blocks_deferred_direct_read(op: &MirOp) -> bool {
         | MirOp::Truncate { .. }
         | MirOp::Unary { .. }
         | MirOp::Binary { .. }
+        | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::Compare { .. }
         | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::PackedRealCompare { .. }

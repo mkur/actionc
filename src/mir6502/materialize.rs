@@ -2474,6 +2474,7 @@ fn run_posthome_structural_group(
         block.ops =
             fold_structural_before_cleanup_migrations(ops, routine.id, layout, peephole_stats);
     }
+    run_analyzed_direct_indexed_byte_binaries(routine, layout, peephole_stats)?;
     run_analyzed_rhs_and_adjacent_reloads(routine, layout, peephole_stats)?;
     run_analyzed_known_callee_word_result_placements(
         routine,
@@ -2523,6 +2524,26 @@ fn run_posthome_signed_word_relations(
         "posthome-signed-overflow-correction",
         overflow_corrections,
     );
+    Ok(())
+}
+
+fn run_analyzed_direct_indexed_byte_binaries(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            indexes::discover_direct_indexed_byte_binaries(routine, context, layout)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home direct indexed byte binary selection failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
     Ok(())
 }
 

@@ -100,6 +100,7 @@ fn estimated_op_cost(op: &MirOp) -> (u16, u16) {
         MirOp::Extend { .. } | MirOp::Truncate { .. } => (3, 4),
         MirOp::Unary { width, .. } => width_cost(*width, (1, 2), (4, 6)),
         MirOp::Binary { width, .. } => width_cost(*width, (2, 2), (8, 12)),
+        MirOp::BinaryDirectIndexedByte { .. } => (3, 4),
         MirOp::UpdateMem { mem, width, .. } => {
             let zp = mem_is_zero_page(mem);
             match (width, zp) {

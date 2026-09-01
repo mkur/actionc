@@ -451,6 +451,17 @@ pub enum MirOp {
         op: MirUpdateOp,
         base: MirMem,
     },
+    /// Native byte arithmetic with A as both the left operand and result and
+    /// a directly addressable byte selected through X or Y as the right
+    /// operand. Selection currently admits only addition with ignored output
+    /// carry; the explicit fields keep flag behavior verifier-visible.
+    BinaryDirectIndexedByte {
+        op: MirBinaryOp,
+        source: MirMem,
+        index: MirReg,
+        carry_in: Option<MirCarryIn>,
+        carry_out: MirCarryOut,
+    },
     AddByteToWordMem {
         mem: MirMem,
         value: MirValue,

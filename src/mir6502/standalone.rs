@@ -373,7 +373,8 @@ fn visit_op_storage(
         | MirOp::StoreIndirect { src, .. } => visit_value_storage(src, globals, statics),
         MirOp::LeaAddr { target, .. }
         | MirOp::UpdateMem { mem: target, .. }
-        | MirOp::UpdateIndexedMem { base: target, .. } => {
+        | MirOp::UpdateIndexedMem { base: target, .. }
+        | MirOp::BinaryDirectIndexedByte { source: target, .. } => {
             record_mem_storage(target, globals, statics)
         }
         MirOp::AddByteToWordMem { mem: target, value }
@@ -613,7 +614,10 @@ fn rebase_op(
         | MirOp::StoreIndirect { src, .. } => rebase_value(src, routines, globals, statics)?,
         MirOp::LeaAddr { target, .. }
         | MirOp::UpdateMem { mem: target, .. }
-        | MirOp::UpdateIndexedMem { base: target, .. } => rebase_mem(target, globals, statics)?,
+        | MirOp::UpdateIndexedMem { base: target, .. }
+        | MirOp::BinaryDirectIndexedByte { source: target, .. } => {
+            rebase_mem(target, globals, statics)?
+        }
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             rebase_mem(mem, globals, statics)?;
             rebase_value(value, routines, globals, statics)?;
@@ -1581,6 +1585,7 @@ fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<RoutineId>) {
         | MirOp::UpdateMem { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }
+        | MirOp::BinaryDirectIndexedByte { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
         | MirOp::AbsoluteWordSubToIndirect { .. }

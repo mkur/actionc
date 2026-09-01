@@ -9936,6 +9936,162 @@ fn signed_or_shared_widened_index_keeps_general_addressing() {
     }
 }
 
+fn direct_indexed_binary_program(source: MirMem) -> MirProgram {
+    let rhs = MirMem::Spill {
+        id: MirSpillId(1),
+        offset: 0,
+    };
+    let accumulator = MirMem::Spill {
+        id: MirSpillId(2),
+        offset: 0,
+    };
+    MirProgram {
+        statics: Vec::new(),
+        globals: vec![MirGlobal {
+            id: SymbolId(0),
+            name: "array".to_string(),
+            kind: "byte array".to_string(),
+            width: None,
+            storage_size: 512,
+            backing: MirGlobalBacking::Absolute(0x4000),
+            init: None,
+        }],
+        routines: vec![MirRoutine {
+            id: RoutineId(0),
+            name: "Accumulate".to_string(),
+            abi: MirRoutineAbi::Action,
+            frame: MirFrame {
+                spills: vec![MirSpillId(1), MirSpillId(2)],
+                ..MirFrame::default()
+            },
+            temps: Vec::new(),
+            blocks: vec![MirBlock {
+                id: MirBlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: vec![
+                    MirOp::Load {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirAddr::AbsoluteIndexedY { base: source },
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Store {
+                        dst: MirAddr::Direct(rhs.clone()),
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Load {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirAddr::Direct(accumulator.clone()),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Binary {
+                        op: MirBinaryOp::Add,
+                        dst: MirDef::Reg(MirReg::A),
+                        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        right: MirValue::PointerCell(rhs),
+                        width: MirWidth::Byte,
+                        carry_in: Some(MirCarryIn::Clear),
+                        carry_out: MirCarryOut::Ignore,
+                    },
+                    MirOp::Store {
+                        dst: MirAddr::Direct(accumulator),
+                        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                    },
+                ],
+                terminator: MirTerminator::Return,
+            }],
+            effects: MirEffects::default(),
+        }],
+        machine_blocks: Vec::new(),
+        runtime_helpers: Vec::new(),
+    }
+}
+
+#[test]
+fn direct_indexed_byte_binary_rewrite_consumes_loaded_rhs_in_place() {
+    let program = direct_indexed_binary_program(MirMem::Global {
+        id: SymbolId(0),
+        offset: 31,
+    });
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let routine = &program.routines[0];
+    let snapshot = PostHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
+        .expect("valid post-home routine");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    let plans = indexes::discover_direct_indexed_byte_binaries(routine, &context, &layout);
+
+    assert_eq!(plans.len(), 1);
+    assert_eq!(plans[0].stat, "direct-indexed-byte-binary-selected");
+    assert!(matches!(
+        plans[0].replacement.as_slice(),
+        [
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(MirMem::Spill {
+                    id: MirSpillId(2),
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::BinaryDirectIndexedByte {
+                op: MirBinaryOp::Add,
+                source: MirMem::Global {
+                    id: SymbolId(0),
+                    offset: 31,
+                },
+                index: MirReg::Y,
+                carry_in: Some(MirCarryIn::Clear),
+                carry_out: MirCarryOut::Ignore,
+            },
+            MirOp::Store { .. }
+        ]
+    ));
+}
+
+#[test]
+fn direct_indexed_byte_binary_rewrite_preserves_a_distinct_result_home() {
+    let mut program = direct_indexed_binary_program(MirMem::Global {
+        id: SymbolId(0),
+        offset: 31,
+    });
+    program.routines[0].blocks[0].ops[4] = MirOp::Store {
+        dst: MirAddr::Direct(MirMem::Absolute(0x0600)),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    };
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let routine = &program.routines[0];
+    let snapshot = PostHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
+        .expect("valid post-home routine");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    let plans = indexes::discover_direct_indexed_byte_binaries(routine, &context, &layout);
+
+    assert_eq!(plans.len(), 1);
+    assert!(matches!(
+        plans[0].replacement.last(),
+        Some(MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x0600)),
+            ..
+        })
+    ));
+}
+
+#[test]
+fn direct_indexed_byte_binary_rewrite_rejects_a_source_that_can_alias_its_home() {
+    let program = direct_indexed_binary_program(MirMem::Absolute(0x2F80));
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let routine = &program.routines[0];
+    let snapshot = PostHomeAnalysisSnapshot::new(routine, MirRoutineGeneration::initial())
+        .expect("valid post-home routine");
+    let context = PostHomeRewriteContext::new(&snapshot);
+
+    assert!(indexes::discover_direct_indexed_byte_binaries(routine, &context, &layout).is_empty());
+}
+
 #[test]
 fn indirect_const_store_skips_private_pointer_slots() {
     let lo = MirMem::Local {

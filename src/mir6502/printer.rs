@@ -496,6 +496,20 @@ fn op_summary(op: &MirOp) -> String {
             carry_in_summary(*carry_in),
             carry_out_summary(*carry_out)
         ),
+        MirOp::BinaryDirectIndexedByte {
+            op,
+            source,
+            index,
+            carry_in,
+            carry_out,
+        } => format!(
+            "a =.b a {} {}[{}] carry_in={} carry_out={}",
+            binary_summary(*op),
+            mem_summary(source),
+            reg_summary(*index),
+            carry_in_summary(*carry_in),
+            carry_out_summary(*carry_out),
+        ),
         MirOp::UpdateMem { op, mem, width } => {
             format!(
                 "{}{} {}",
