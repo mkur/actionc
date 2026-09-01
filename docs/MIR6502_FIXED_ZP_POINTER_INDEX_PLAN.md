@@ -495,3 +495,20 @@ sta ($f0),y
 The exact register schedule may differ when a cost-equivalent form preserves
 stronger liveness facts. Correctness, verifier strictness, and generality take
 precedence over matching one compiler's listing byte for byte.
+
+## Final validation result
+
+The completed implementation was measured with the same standalone suite,
+NTSC Atari800 setup, and 250-frame window used for the baseline:
+
+| Measurement | Baseline actionc | Final actionc | Attached Mad Pascal |
+|---|---:|---:|---:|
+| completed outer iterations | 54 | 110 | 105 |
+| hot-loop code | about 240 bytes | 93 bytes | about 105 bytes |
+
+The final loop uses all three declared fixed pointer pairs directly, keeps all
+three four-byte sums in A, and emits the full-range latch as an entry `JMP`, a
+fall-through `DEC`, and a backward `LDA/BNE`. A static 6502 estimate is about
+176 CPU cycles per hot inner iteration after averaging page crossings; this
+excludes ANTIC DMA, interrupts, and the random-seed/status work outside the
+loop. These figures are comparison signals rather than test assertions.
