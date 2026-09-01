@@ -219,7 +219,7 @@ fn unlimited_bobs_sample_compiles_at_its_fixed_memory_layout_in_all_modes() {
 
 #[test]
 fn benchmark_suites_compile_below_their_shared_workspace() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/modules/benchmarks");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/benchmarks");
 
     for (file_name, mode) in [
         ("suite.act", CompileMode::Optimized),

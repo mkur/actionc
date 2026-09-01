@@ -5,6 +5,7 @@ examples.
 
 ```text
 *.act       small standalone Action! examples
+benchmarks/ compiler benchmark suite and its benchmark modules
 graphics/   graphics demonstrations
 toolkit/    maintained modernized ACTION! Toolkit programs
 tn/         maintained TOMS Navigator sources
@@ -39,6 +40,10 @@ available when deliberately overriding the source placement.
 `graphics/fedora.act` translates an Atari BASIC 3D sine-surface plot whose
 rendered shape resembles a fedora. It uses the portable `MATH.Sqr` and
 `MATH.Sin` native REAL procedures.
+
+[`benchmarks/`](benchmarks/README.md) contains the Action! port of the Atari
+Mad Pascal benchmark suite, including complete, compatibility, and
+non-graphics runners.
 
 Archived disk images, byte-exact extractions, raw ATASCII sidecars, and original
 compiler outputs live under `corpora/`. Survey scripts and generated comparison

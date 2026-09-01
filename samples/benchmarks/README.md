@@ -70,31 +70,31 @@ Build the complete suite with either maintained modern backend:
 ```sh
 # Compile from the repository root without an Action! cartridge dependency.
 cargo run --bin actionc -- --mode optimized --runtime standalone \
-  samples/modules/benchmarks/suite.act
+  samples/benchmarks/suite.act
 
 cargo run --bin actionc -- --mode mir6502 --runtime standalone \
-  samples/modules/benchmarks/suite.act
+  samples/benchmarks/suite.act
 ```
 
 Build the non-`REAL` subset with the compatibility profile:
 
 ```sh
 cargo run --bin actionc -- --mode compatibility --runtime standalone \
-  samples/modules/benchmarks/suite-compat.act
+  samples/benchmarks/suite-compat.act
 ```
 
 To launch it directly through the repository runner:
 
 ```sh
 cargo run --bin actionc-run -- --mode mir6502 --no-cart \
-  samples/modules/benchmarks/suite.act
+  samples/benchmarks/suite.act
 ```
 
 Run only the non-graphics benchmarks with:
 
 ```sh
 cargo run --bin actionc-run -- --mode optimized --no-cart \
-  samples/modules/benchmarks/suite-nongraphics.act
+  samples/benchmarks/suite-nongraphics.act
 ```
 
 Plain `actionc suite.act` still defaults to the cartridge runtime. Such an

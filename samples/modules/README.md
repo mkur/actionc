@@ -20,8 +20,6 @@ For a guided introduction that builds up to these examples, see the
   [native REAL tutorial](../../docs/tutorials/REAL.md) builds up to this API.
 - `project/` is a multi-file program whose `DEMO.COLOR` module exports a public
   procedure to `main.act`.
-- `benchmarks/` ports the language-supported kernels from the Atari Mad Pascal
-  benchmark suite, with complete modern and non-`REAL` compatibility runners.
 
 Compile a single-file example without the Action! cartridge:
 
