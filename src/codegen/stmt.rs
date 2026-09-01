@@ -41,12 +41,32 @@ fn descending_for_wrap_threshold(slot: StorageSlot, amount: u16) -> Option<u16> 
     }
 }
 
+fn ascending_for_wrap_threshold(slot: StorageSlot, amount: u16) -> Option<u16> {
+    match (slot.size, slot.signed) {
+        (1, false) if amount <= u16::from(u8::MAX) => Some(u16::from(u8::MAX) - amount),
+        (1, true) if amount <= 0x80 => Some(0x007F_u16.wrapping_sub(amount)),
+        (2, false) => Some(u16::MAX - amount),
+        (2, true) if amount <= 0x8000 => Some(0x7FFF_u16.wrapping_sub(amount)),
+        _ => None,
+    }
+}
+
 fn for_bound_is_at_or_above(slot: StorageSlot, bound: u16, threshold: u16) -> bool {
     match (slot.size, slot.signed) {
         (1, false) => (bound as u8) >= threshold as u8,
         (1, true) => (bound as u8 as i8) >= threshold as u8 as i8,
         (2, false) => bound >= threshold,
         (2, true) => (bound as i16) >= threshold as i16,
+        _ => false,
+    }
+}
+
+fn for_bound_is_at_or_below(slot: StorageSlot, bound: u16, threshold: u16) -> bool {
+    match (slot.size, slot.signed) {
+        (1, false) => (bound as u8) <= threshold as u8,
+        (1, true) => (bound as u8 as i8) <= threshold as u8 as i8,
+        (2, false) => bound <= threshold,
+        (2, true) => (bound as i16) <= threshold as i16,
         _ => false,
     }
 }
@@ -791,18 +811,30 @@ impl Generator {
         self.exit_labels.push(end_label.clone());
         self.generate_stmt_list(body);
         self.exit_labels.pop();
-        if let ForStep::Down(amount) = step
-            && let Some(threshold) = descending_for_wrap_threshold(slot, amount)
-            && !self
-                .constant_u16(end)
-                .is_some_and(|bound| for_bound_is_at_or_above(slot, bound, threshold))
-        {
+        let wrap_guard = match step {
+            ForStep::Up(amount) => {
+                ascending_for_wrap_threshold(slot, amount).and_then(|threshold| {
+                    let guard_is_unnecessary = self
+                        .constant_u16(end)
+                        .is_some_and(|bound| for_bound_is_at_or_below(slot, bound, threshold));
+                    (!guard_is_unnecessary).then_some((BinaryOp::Gt, threshold, "overflow"))
+                })
+            }
+            ForStep::Down(amount) => {
+                descending_for_wrap_threshold(slot, amount).and_then(|threshold| {
+                    let guard_is_unnecessary = self
+                        .constant_u16(end)
+                        .is_some_and(|bound| for_bound_is_at_or_above(slot, bound, threshold));
+                    (!guard_is_unnecessary).then_some((BinaryOp::Lt, threshold, "underflow"))
+                })
+            }
+        };
+        if let Some((compare, threshold, failure)) = wrap_guard {
             let threshold = for_guard_constant(threshold, slot.size, span);
-            if !self.emit_branch_if_true_compare(BinaryOp::Lt, target, &threshold, &end_label, span)
-            {
+            if !self.emit_branch_if_true_compare(compare, target, &threshold, &end_label, span) {
                 self.diagnostics.push(Diagnostic::new(
                     span,
-                    "codegen could not guard a descending FOR step against underflow",
+                    format!("codegen could not guard a FOR step against {failure}"),
                 ));
                 return;
             }

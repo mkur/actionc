@@ -150,6 +150,41 @@ fn descending_for_uses_directional_limit_and_underflow_guard() {
 }
 
 #[test]
+fn ascending_for_uses_directional_limit_and_overflow_guard() {
+    let program =
+        lower_modern_source("BYTE i BYTE count PROC Main() FOR i=0 TO 255 DO count==+1 OD RETURN");
+    verify_program(&program).expect("ascending FOR NIR should verify");
+
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let comparisons = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .filter_map(|op| match op {
+            NirOp::Compare { op, right, .. } => Some((*op, right)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        comparisons
+            .iter()
+            .any(|(op, right)| *op == NirCompareOp::Le && **right == NirValue::ConstU8(255)),
+        "ascending limit must compare the counter <= the end: {comparisons:?}"
+    );
+    assert!(
+        comparisons
+            .iter()
+            .any(|(op, right)| *op == NirCompareOp::Gt && **right == NirValue::ConstU8(254)),
+        "ascending byte loop must exit before adding one to 255: {comparisons:?}"
+    );
+}
+
+#[test]
 fn pointer_null_comparisons_use_pointer_width_operands() {
     let program = lower_modern_source(
         "BYTE POINTER p BYTE leftResult,rightResult PROC Main() leftResult=p<>0 rightResult=0<>p RETURN",

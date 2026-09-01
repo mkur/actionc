@@ -774,6 +774,32 @@ mod tests {
     }
 
     #[test]
+    fn ascending_for_steps_execute_in_all_public_modes() {
+        let max_steps = 20_000;
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            let outcome = run_standalone_fixture("ascending_for_steps.act", mode, max_steps);
+            assert_eq!(
+                outcome.stop_reason(),
+                StopReason::StepLimit { max_steps },
+                "{mode:?}: {:?}",
+                outcome.report
+            );
+            assert_eq!(
+                (0..8)
+                    .map(|offset| outcome.memory().read(RESULT_START + offset))
+                    .collect::<Vec<_>>(),
+                [0, 1, 2, 3, 2, 3, 2, 0xA5],
+                "{mode:?}: {:?}",
+                outcome.report
+            );
+        }
+    }
+
+    #[test]
     fn byte_underflow_while_boundaries_execute_in_mir6502() {
         let max_steps = 50_000;
         let outcome =

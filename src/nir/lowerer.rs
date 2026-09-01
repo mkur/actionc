@@ -1163,16 +1163,24 @@ impl NirBuilder {
             } => {
                 let is_volatile = target.is_volatile;
                 let target_ty = NirFacts::type_from_value(&target.ty);
-                let descending_wrap_threshold = match step_control {
+                let wrap_guard = match step_control {
+                    SemForStep::Up(amount) => ascending_for_wrap_threshold(&target_ty, *amount)
+                        .and_then(|threshold| {
+                            let guard_is_unnecessary =
+                                lowering.const_u16_expr(end).is_some_and(|bound| {
+                                    for_bound_is_at_or_below(&target_ty, bound, threshold)
+                                });
+                            (!guard_is_unnecessary).then_some((NirCompareOp::Gt, threshold))
+                        }),
                     SemForStep::Down(amount) => descending_for_wrap_threshold(&target_ty, *amount)
                         .and_then(|threshold| {
                             let guard_is_unnecessary =
                                 lowering.const_u16_expr(end).is_some_and(|bound| {
                                     for_bound_is_at_or_above(&target_ty, bound, threshold)
                                 });
-                            (!guard_is_unnecessary).then_some(threshold)
+                            (!guard_is_unnecessary).then_some((NirCompareOp::Lt, threshold))
                         }),
-                    SemForStep::Up(_) | SemForStep::Unknown => None,
+                    SemForStep::Unknown => None,
                 };
                 let target = self.lower_place(target);
                 let test_label = lowering.next_block_label();
@@ -1191,12 +1199,12 @@ impl NirBuilder {
                 self.loop_exits.push(after_label.clone());
                 self.start_block(body_label);
                 self.stmt_list(body, lowering);
-                if let Some(threshold) = descending_wrap_threshold
+                if let Some((op, threshold)) = wrap_guard
                     && self.current_is_open()
                 {
                     let step_label = lowering.next_block_label();
                     let condition =
-                        self.for_wrap_condition(&target, &target_ty, threshold, is_volatile);
+                        self.for_wrap_condition(&target, &target_ty, op, threshold, is_volatile);
                     self.terminate_branch(condition, &after_label, &step_label);
                     self.start_block(step_label);
                 }
@@ -2317,6 +2325,7 @@ impl NirBuilder {
         &mut self,
         target: &NirPlace,
         target_ty: &NirType,
+        op: NirCompareOp,
         threshold: u16,
         is_volatile: bool,
     ) -> NirValue {
@@ -2328,7 +2337,7 @@ impl NirBuilder {
             dest,
             ty: ty.clone(),
             operand_ty: target_ty.clone(),
-            op: NirCompareOp::Lt,
+            op,
             left: NirValue::Temp {
                 id: left_temp,
                 ty: target_ty.clone(),
@@ -4149,12 +4158,32 @@ fn descending_for_wrap_threshold(ty: &NirType, amount: u16) -> Option<u16> {
     }
 }
 
+fn ascending_for_wrap_threshold(ty: &NirType, amount: u16) -> Option<u16> {
+    match ty.kind {
+        NirTypeKind::U8 if amount <= u16::from(u8::MAX) => Some(u16::from(u8::MAX) - amount),
+        NirTypeKind::I8 if amount <= 0x80 => Some(0x007F_u16.wrapping_sub(amount)),
+        NirTypeKind::U16 => Some(u16::MAX - amount),
+        NirTypeKind::I16 if amount <= 0x8000 => Some(0x7FFF_u16.wrapping_sub(amount)),
+        _ => None,
+    }
+}
+
 fn for_bound_is_at_or_above(ty: &NirType, bound: u16, threshold: u16) -> bool {
     match ty.kind {
         NirTypeKind::U8 => (bound as u8) >= threshold as u8,
         NirTypeKind::I8 => (bound as u8 as i8) >= threshold as u8 as i8,
         NirTypeKind::U16 => bound >= threshold,
         NirTypeKind::I16 => (bound as i16) >= threshold as i16,
+        _ => false,
+    }
+}
+
+fn for_bound_is_at_or_below(ty: &NirType, bound: u16, threshold: u16) -> bool {
+    match ty.kind {
+        NirTypeKind::U8 => (bound as u8) <= threshold as u8,
+        NirTypeKind::I8 => (bound as u8 as i8) <= threshold as u8 as i8,
+        NirTypeKind::U16 => bound <= threshold,
+        NirTypeKind::I16 => (bound as i16) <= threshold as i16,
         _ => false,
     }
 }

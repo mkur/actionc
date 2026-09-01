@@ -1,0 +1,55 @@
+; Ascending FOR loops are inclusive and must stop before the counter wraps.
+
+CARD fullByteRange=$0600
+BYTE byteBoundary=$0602
+BYTE byteStride=$0603
+BYTE cardBoundary=$0604
+BYTE intRange=$0605
+BYTE intBoundary=$0606
+BYTE signature=$0607
+
+BYTE byteCounter
+CARD cardCounter
+INT intCounter
+
+PROC Main()
+  fullByteRange=0
+  FOR byteCounter=0 TO 255
+  DO
+    fullByteRange==+1
+  OD
+
+  byteBoundary=0
+  FOR byteCounter=254 TO 255
+  DO
+    byteBoundary==+1
+  OD
+
+  byteStride=0
+  FOR byteCounter=250 TO 255 STEP 2
+  DO
+    byteStride==+1
+  OD
+
+  cardBoundary=0
+  FOR cardCounter=65534 TO 65535
+  DO
+    cardBoundary==+1
+  OD
+
+  intRange=0
+  FOR intCounter=-1 TO 1
+  DO
+    intRange==+1
+  OD
+
+  intBoundary=0
+  FOR intCounter=32766 TO 32767
+  DO
+    intBoundary==+1
+  OD
+
+  signature=$A5
+  DO
+  OD
+RETURN
