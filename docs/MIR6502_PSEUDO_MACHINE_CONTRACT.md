@@ -1,7 +1,7 @@
 # MIR6502 Pseudo-Machine Contract
 
-Snapshot date: 2026-06-01. Updated for direct indexed byte arithmetic on
-2026-09-01.
+Snapshot date: 2026-06-01. Updated for direct indexed byte arithmetic and
+full-range byte-loop carriers on 2026-09-01.
 
 This note defines the intended contract for the first MIR6502 layer after
 verifier-clean NIR. It incorporates the review items captured in
@@ -424,6 +424,25 @@ value. The selector rejects noncanonical entries or exits, calls, barriers,
 machine blocks, address-taken homes, unproved aliases, hardware-backed homes,
 and conflicting register uses. When the final induction value may be read
 after the loop, the canonical exit writes the carrier back before that read.
+
+The same target-owned analysis recognizes the otherwise overflow-sensitive
+inclusive unsigned range `0 TO 255` as a distinct full-range shape. When all
+loop paths preserve a free index register, MIR6502 may remove the always-true
+header and memory latch and select `LDY #0` with `INY/BNE` (or the equivalent
+X carrier when it wins the size model). The zero flag written by the register
+increment is then the sole backedge condition. A normal exit writes `255` to
+the induction home when its source-visible final value is observable; every
+early `EXIT` edge writes the current carrier value before joining the original
+exit. A staged store to an exact, disjoint static byte range may become direct
+indexed storage, with required compiler scratch-pair state restored on a cold
+normal-exit block rather than in the hot loop.
+
+This full-range form requires stable direct storage, exact byte/unsigned/unit
+step facts, a proven zero initial value, dead incoming body flags, and proofs
+that the induction home is neither address-taken nor ambiguously aliased.
+Calls, barriers, machine blocks, volatile or hardware storage, opaque indirect
+accesses, conflicting carrier use, and noncanonical CFG edges retain the
+overflow-safe general loop.
 
 ## Definitions, Values, Memory, And Addresses
 

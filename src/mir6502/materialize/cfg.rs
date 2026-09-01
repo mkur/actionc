@@ -6,8 +6,9 @@ use crate::mir6502::analysis::effects::{MirFlagSet, classify_op, classify_termin
 use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
-    MirAddr, MirBlock, MirBlockId, MirCallTarget, MirCond, MirDef, MirEdge, MirFlag, MirFlagTest,
-    MirMem, MirOp, MirReg, MirRoutine, MirTerminator, MirUpdateOp, MirValue, MirWidth,
+    MirAddr, MirBlock, MirBlockId, MirCallTarget, MirCond, MirDef, MirEdge, MirFixedZpSlot,
+    MirFlag, MirFlagTest, MirMem, MirOp, MirPointerPair, MirReg, MirRoutine, MirTerminator,
+    MirUpdateOp, MirValue, MirWidth,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -161,6 +162,69 @@ fn counted_loop_register_carrier_candidate(
     let original_cost = estimated_routine_layout_bytes(&routine.blocks);
 
     for counted in analyze_counted_loops(routine) {
+        if let MirCountedLoopShape::FullRangeAscending { guard } = &counted.shape {
+            if counted.width != MirWidth::Byte
+                || counted.direction != MirCountDirection::Ascending
+                || counted.signed
+                || counted.step != 1
+                || counted.bound != u16::from(u8::MAX)
+                || counted.initial_guard_required
+                || const_byte(&counted.initial_value) != Some(0)
+                || !layout.mem_allows_direct_update(&counted.induction)
+                || !machine_flags_dead_on_entry(&liveness, counted.body)
+                || !machine_accumulator_dead_on_entry(&liveness, counted.exit)
+                || !machine_flag_dead_on_entry(&liveness, counted.exit, MirFlag::C)
+                || induction_address_is_taken(routine, layout, &counted.induction)
+            {
+                continue;
+            }
+            let Some(loop_nodes) = full_range_natural_loop(&cfg, &counted, *guard) else {
+                continue;
+            };
+            let mut best: Option<(usize, Vec<MirBlock>)> = None;
+            for carrier in [MirReg::Y, MirReg::X] {
+                if !machine_register_unobserved_before_redefinition(
+                    routine,
+                    &cfg,
+                    counted.exit,
+                    carrier,
+                ) {
+                    continue;
+                }
+                let mut candidate = routine.blocks.clone();
+                if !apply_full_range_register_carrier(
+                    routine,
+                    &cfg,
+                    &mut candidate,
+                    layout,
+                    &liveness,
+                    &counted,
+                    &loop_nodes,
+                    *guard,
+                    carrier,
+                ) {
+                    continue;
+                }
+                let cost = estimated_routine_layout_bytes(&candidate);
+                if cost >= original_cost {
+                    continue;
+                }
+                // Y is the native byte-index carrier for both absolute and
+                // indirect consumers. A small target preference also reflects
+                // reload/store cleanup exposed only after carrier selection.
+                let selection_cost = cost.saturating_add(usize::from(carrier == MirReg::X) * 2);
+                if best
+                    .as_ref()
+                    .is_none_or(|(best_cost, _)| selection_cost < *best_cost)
+                {
+                    best = Some((selection_cost, candidate));
+                }
+            }
+            if let Some((_, blocks)) = best {
+                return Some(blocks);
+            }
+            continue;
+        }
         if counted.shape != MirCountedLoopShape::HeadTested
             || counted.width != MirWidth::Byte
             || counted.signed
@@ -209,6 +273,48 @@ fn counted_loop_register_carrier_candidate(
     None
 }
 
+fn full_range_natural_loop(
+    cfg: &MirCfg,
+    counted: &MirCountedLoop,
+    guard: MirBlockId,
+) -> Option<BTreeSet<MirBlockId>> {
+    let mut nodes = BTreeSet::from([counted.header, counted.latch]);
+    let mut pending = vec![counted.latch];
+    while let Some(block) = pending.pop() {
+        for predecessor in cfg.predecessors(block) {
+            if *predecessor != counted.header && nodes.insert(*predecessor) {
+                pending.push(*predecessor);
+            }
+        }
+    }
+    if !nodes.contains(&counted.body)
+        || !nodes.contains(&guard)
+        || nodes.contains(&counted.preheader)
+        || nodes.contains(&counted.exit)
+    {
+        return None;
+    }
+    if nodes.iter().any(|block| {
+        cfg.predecessors(*block).iter().any(|predecessor| {
+            if *block == counted.header {
+                !nodes.contains(predecessor) && *predecessor != counted.preheader
+            } else {
+                !nodes.contains(predecessor)
+            }
+        })
+    }) {
+        return None;
+    }
+    for block in &nodes {
+        for successor in cfg.successors(*block) {
+            if !nodes.contains(successor) && *successor != counted.exit {
+                return None;
+            }
+        }
+    }
+    Some(nodes)
+}
+
 fn canonical_natural_loop(cfg: &MirCfg, counted: &MirCountedLoop) -> Option<BTreeSet<MirBlockId>> {
     if cfg.predecessors(counted.exit) != &BTreeSet::from([counted.header]) {
         return None;
@@ -243,6 +349,569 @@ fn canonical_natural_loop(cfg: &MirCfg, counted: &MirCountedLoop) -> Option<BTre
         }
     }
     Some(nodes)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn apply_full_range_register_carrier(
+    routine: &MirRoutine,
+    cfg: &MirCfg,
+    blocks: &mut Vec<MirBlock>,
+    layout: &MaterializeLayout,
+    liveness: &MirMachineLiveness,
+    counted: &MirCountedLoop,
+    loop_nodes: &BTreeSet<MirBlockId>,
+    guard: MirBlockId,
+    carrier: MirReg,
+) -> bool {
+    let Some(latch) = blocks.iter().find(|block| block.id == counted.latch) else {
+        return false;
+    };
+    if !matches!(
+        latch.ops.as_slice(),
+        [MirOp::UpdateMem {
+            op: MirUpdateOp::Inc,
+            mem,
+            width: MirWidth::Byte,
+        }] if mem == &counted.induction
+    ) || !matches!(
+        &latch.terminator,
+        MirTerminator::Jump(edge)
+            if edge.target == counted.header && edge.args.is_empty()
+    ) {
+        return false;
+    }
+
+    let early_exit_sources = loop_nodes
+        .iter()
+        .copied()
+        .filter(|block| *block != counted.header && *block != guard)
+        .filter(|block| cfg_successor_is(blocks, *block, counted.exit))
+        .collect::<Vec<_>>();
+    let deferred_pair_restore = if carrier == MirReg::Y && early_exit_sources.is_empty() {
+        let Some(guard_block) = blocks.iter().find(|block| block.id == guard) else {
+            return false;
+        };
+        full_range_terminal_pair_restore(routine, guard_block, layout, &counted.induction)
+    } else {
+        None
+    };
+    if deferred_pair_restore.is_some()
+        && [MirFlag::C, MirFlag::Z, MirFlag::N, MirFlag::V]
+            .into_iter()
+            .any(|flag| {
+                !machine_flag_unobserved_before_redefinition(
+                    routine,
+                    cfg,
+                    counted.exit,
+                    guard,
+                    flag,
+                )
+            })
+    {
+        return false;
+    }
+    let mut next_block = blocks
+        .iter()
+        .map(|block| block.id.0)
+        .max()
+        .unwrap_or(0)
+        .checked_add(1);
+    let normal_restore = if counted.final_value_observable || deferred_pair_restore.is_some() {
+        let Some(id) = next_block.map(MirBlockId) else {
+            return false;
+        };
+        next_block = id.0.checked_add(1);
+        Some(id)
+    } else {
+        None
+    };
+    let early_restore = if counted.final_value_observable && !early_exit_sources.is_empty() {
+        let Some(id) = next_block.map(MirBlockId) else {
+            return false;
+        };
+        Some(id)
+    } else {
+        None
+    };
+
+    let Some(preheader) = blocks
+        .iter_mut()
+        .find(|block| block.id == counted.preheader)
+    else {
+        return false;
+    };
+    if !replace_induction_initialization(preheader, &counted.induction, carrier, 0) {
+        return false;
+    }
+    preheader.terminator = MirTerminator::Jump(MirEdge::plain(counted.body));
+
+    for block in blocks.iter_mut() {
+        if !loop_nodes.contains(&block.id)
+            || block.id == counted.header
+            || block.id == counted.latch
+        {
+            continue;
+        }
+        if !block.params.is_empty()
+            || !rewrite_full_range_loop_block(
+                routine,
+                block,
+                layout,
+                liveness,
+                counted,
+                carrier,
+                block.id == counted.body,
+                block.id == guard,
+                deferred_pair_restore.is_some(),
+            )
+        {
+            return false;
+        }
+    }
+
+    let normal_target = normal_restore.unwrap_or(counted.exit);
+    let Some(guard_block) = blocks.iter_mut().find(|block| block.id == guard) else {
+        return false;
+    };
+    guard_block.ops.push(MirOp::UpdateReg {
+        op: MirUpdateOp::Inc,
+        reg: carrier,
+    });
+    guard_block.terminator = MirTerminator::Branch {
+        cond: MirCond::FlagTest(MirFlagTest::ZClear),
+        then_edge: MirEdge::plain(counted.body),
+        else_edge: MirEdge::plain(normal_target),
+    };
+
+    if let Some(early_restore) = early_restore {
+        for source in &early_exit_sources {
+            let Some(block) = blocks.iter_mut().find(|block| block.id == *source) else {
+                return false;
+            };
+            redirect_block_target(&mut block.terminator, counted.exit, early_restore);
+        }
+    }
+
+    blocks.retain(|block| block.id != counted.header && block.id != counted.latch);
+    let Some(exit_index) = blocks.iter().position(|block| block.id == counted.exit) else {
+        return false;
+    };
+    let mut restore_blocks = Vec::new();
+    if let Some(id) = normal_restore {
+        let mut ops = Vec::new();
+        if let Some(pair_restore) = &deferred_pair_restore {
+            ops.extend(pair_restore.prefix.iter().cloned());
+            ops.push(MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: u16::from(u8::MAX),
+                width: MirWidth::Byte,
+            });
+            ops.push(pair_restore.advance.clone());
+        }
+        if counted.final_value_observable {
+            ops.extend([
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: u16::from(u8::MAX),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(counted.induction.clone()),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            ]);
+        }
+        restore_blocks.push(MirBlock {
+            id,
+            label: "full_range.restore_normal".to_string(),
+            params: Vec::new(),
+            ops,
+            terminator: MirTerminator::Jump(MirEdge::plain(counted.exit)),
+        });
+    }
+    if let Some(id) = early_restore {
+        restore_blocks.push(MirBlock {
+            id,
+            label: "full_range.restore_exit".to_string(),
+            params: Vec::new(),
+            ops: vec![MirOp::Store {
+                dst: MirAddr::Direct(counted.induction.clone()),
+                src: MirValue::Def(MirDef::Reg(carrier)),
+                width: MirWidth::Byte,
+            }],
+            terminator: MirTerminator::Jump(MirEdge::plain(counted.exit)),
+        });
+    }
+    blocks.splice(exit_index..exit_index, restore_blocks);
+    true
+}
+
+fn cfg_successor_is(blocks: &[MirBlock], block: MirBlockId, target: MirBlockId) -> bool {
+    blocks
+        .iter()
+        .find(|candidate| candidate.id == block)
+        .is_some_and(|block| match &block.terminator {
+            MirTerminator::Jump(edge) => edge.target == target,
+            MirTerminator::Branch {
+                then_edge,
+                else_edge,
+                ..
+            } => then_edge.target == target || else_edge.target == target,
+            MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => false,
+        })
+}
+
+#[derive(Debug, Clone)]
+struct FullRangePairRestore {
+    prefix: Vec<MirOp>,
+    advance: MirOp,
+}
+
+fn full_range_terminal_pair_restore(
+    routine: &MirRoutine,
+    guard: &MirBlock,
+    layout: &MaterializeLayout,
+    induction: &MirMem,
+) -> Option<FullRangePairRestore> {
+    let store_index = guard.ops.len().checked_sub(3)?;
+    let (stage_start, base, pair_lo) =
+        staged_static_store_target(routine, &guard.ops, store_index, layout, induction)?;
+    if !indexed_base_disjoint_from_fixed_pair(routine, layout, &base, pair_lo) {
+        return None;
+    }
+    Some(FullRangePairRestore {
+        prefix: guard.ops[stage_start..stage_start + 4].to_vec(),
+        advance: guard.ops.get(stage_start + 5)?.clone(),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn rewrite_full_range_loop_block(
+    routine: &MirRoutine,
+    block: &mut MirBlock,
+    layout: &MaterializeLayout,
+    liveness: &MirMachineLiveness,
+    counted: &MirCountedLoop,
+    carrier: MirReg,
+    body_entry: bool,
+    guard: bool,
+    defer_terminal_pair_restore: bool,
+) -> bool {
+    let original = block.ops.clone();
+    let end = if guard {
+        let Some(end) = original.len().checked_sub(2) else {
+            return false;
+        };
+        end
+    } else {
+        original.len()
+    };
+    let mut replacement = Vec::with_capacity(original.len());
+    if body_entry {
+        replacement.push(MirOp::Move {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::Def(MirDef::Reg(carrier)),
+            width: MirWidth::Byte,
+        });
+    }
+    let mut old_to_new = vec![None; original.len()];
+    let mut a_holds_induction = body_entry;
+    let mut y_holds_induction = carrier == MirReg::Y;
+    let mut skip_next = false;
+    let terminal_store = (guard && carrier == MirReg::Y)
+        .then(|| {
+            let store_index = end.checked_sub(1)?;
+            let (stage_start, base, pair_lo) = staged_static_store_target(
+                routine,
+                &original,
+                store_index,
+                layout,
+                &counted.induction,
+            )?;
+            indexed_base_disjoint_from_fixed_pair(routine, layout, &base, pair_lo).then_some((
+                stage_start,
+                store_index,
+                base,
+            ))
+        })
+        .flatten();
+
+    for (op_index, op) in original[..end].iter().enumerate() {
+        if let Some((stage_start, store_index, base)) = &terminal_store {
+            if (*stage_start..*stage_start + 6).contains(&op_index) {
+                continue;
+            }
+            if op_index == *store_index {
+                old_to_new[op_index] = Some(replacement.len());
+                replacement.push(MirOp::Store {
+                    dst: MirAddr::AbsoluteIndexedY { base: base.clone() },
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                });
+                if !defer_terminal_pair_restore {
+                    replacement.extend_from_slice(&original[*stage_start..*stage_start + 4]);
+                    replacement.push(MirOp::Move {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                        width: MirWidth::Byte,
+                    });
+                    replacement.push(original[*stage_start + 5].clone());
+                    a_holds_induction = false;
+                }
+                y_holds_induction = true;
+                continue;
+            }
+        }
+        if skip_next {
+            skip_next = false;
+            continue;
+        }
+        if matches!(
+            op,
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(mem),
+                width: MirWidth::Byte,
+            } if mem == &counted.induction
+        ) && matches!(
+            original.get(op_index + 1),
+            Some(MirOp::Move {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            })
+        ) {
+            if !load_result_flags_are_dead(liveness, block.id, op_index + 1) {
+                return false;
+            }
+            y_holds_induction = true;
+            skip_next = true;
+            continue;
+        }
+        if let MirOp::Load {
+            dst: MirDef::Reg(reg),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        } = op
+            && mem == &counted.induction
+        {
+            if *reg == carrier {
+                if !load_result_flags_are_dead(liveness, block.id, op_index) {
+                    return false;
+                }
+                if carrier == MirReg::Y {
+                    y_holds_induction = true;
+                }
+            } else {
+                old_to_new[op_index] = Some(replacement.len());
+                replacement.push(MirOp::Move {
+                    dst: MirDef::Reg(*reg),
+                    src: MirValue::Def(MirDef::Reg(carrier)),
+                    width: MirWidth::Byte,
+                });
+                if *reg == MirReg::A {
+                    a_holds_induction = true;
+                }
+                if *reg == MirReg::Y {
+                    y_holds_induction = true;
+                }
+            }
+            continue;
+        }
+        if let MirOp::Move {
+            dst: MirDef::Reg(reg),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        } = op
+            && a_holds_induction
+            && (*reg == carrier || carrier == MirReg::X && *reg == MirReg::Y)
+        {
+            if *reg == MirReg::Y {
+                y_holds_induction = true;
+            }
+            continue;
+        }
+        if operation_references_induction(routine, op, layout, &counted.induction)
+            || operation_has_unproven_indirect_alias(routine, op, layout, &counted.induction)
+                && !staged_static_store_is_disjoint_from_induction(
+                    routine,
+                    &original,
+                    op_index,
+                    layout,
+                    &counted.induction,
+                )
+            || matches!(
+                op,
+                MirOp::Call { .. }
+                    | MirOp::RuntimeHelper { .. }
+                    | MirOp::Barrier { .. }
+                    | MirOp::MachineBlock { .. }
+            )
+        {
+            return false;
+        }
+
+        let original_effects = classify_op(op);
+        if register_written_or_clobbered(&original_effects.machine, carrier) {
+            return false;
+        }
+        let mut rewritten = op.clone();
+        if carrier == MirReg::X && y_holds_induction {
+            replace_y_index_with_x(&mut rewritten);
+            if register_read(&classify_op(&rewritten).machine.register_reads, MirReg::Y) {
+                return false;
+            }
+        }
+        let rewritten_effects = classify_op(&rewritten);
+        if register_written_or_clobbered(&rewritten_effects.machine, carrier) {
+            return false;
+        }
+        if register_written_or_clobbered(&rewritten_effects.machine, MirReg::A) {
+            a_holds_induction = false;
+        }
+        if register_written_or_clobbered(&rewritten_effects.machine, MirReg::Y) {
+            y_holds_induction = false;
+        }
+        old_to_new[op_index] = Some(replacement.len());
+        replacement.push(rewritten);
+    }
+
+    if !guard {
+        if terminator_conflicts_with_carrier(&block.terminator, carrier)
+            || !remap_fused_producer(&mut block.terminator, block.id, &old_to_new)
+        {
+            return false;
+        }
+    }
+    block.ops = replacement;
+    true
+}
+
+fn staged_static_store_is_disjoint_from_induction(
+    routine: &MirRoutine,
+    ops: &[MirOp],
+    store_index: usize,
+    layout: &MaterializeLayout,
+    induction: &MirMem,
+) -> bool {
+    staged_static_store_target(routine, ops, store_index, layout, induction).is_some()
+}
+
+fn staged_static_store_target(
+    routine: &MirRoutine,
+    ops: &[MirOp],
+    store_index: usize,
+    layout: &MaterializeLayout,
+    induction: &MirMem,
+) -> Option<(usize, MirMem, MirFixedZpSlot)> {
+    let Some(MirOp::StoreIndirect {
+        consumer,
+        offset: 0,
+        ..
+    }) = ops.get(store_index)
+    else {
+        return None;
+    };
+    let MirPointerPair::Fixed { lo: pair_lo } = consumer.pointer_pair() else {
+        return None;
+    };
+    let pair_hi = MirFixedZpSlot(pair_lo.0.saturating_add(1));
+    let pair_homes = [
+        crate::mir6502::analysis::effects::MirHomeByte::FixedZeroPage(pair_lo),
+        crate::mir6502::analysis::effects::MirHomeByte::FixedZeroPage(pair_hi),
+    ];
+    if [pair_lo, pair_hi]
+        .into_iter()
+        .any(|slot| same_physical_byte(routine, layout, &MirMem::FixedZeroPage(slot), induction))
+    {
+        return None;
+    }
+
+    for start in 0..store_index.saturating_sub(5) {
+        let Some(base) = cfg_storage_address_byte_to_a(ops.get(start), 0) else {
+            continue;
+        };
+        if cfg_store_a_to_fixed_zp(ops.get(start + 1)) != Some(pair_lo)
+            || cfg_storage_address_byte_to_a(ops.get(start + 2), 1).as_ref() != Some(&base)
+            || cfg_store_a_to_fixed_zp(ops.get(start + 3)) != Some(pair_hi)
+            || !matches!(
+                ops.get(start + 4),
+                Some(MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(mem),
+                    width: MirWidth::Byte,
+                }) if same_physical_byte(routine, layout, mem, induction)
+            )
+            || !matches!(
+                ops.get(start + 5),
+                Some(MirOp::AdvanceAddress {
+                    consumer: advance_consumer,
+                    index: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    scale: 1,
+                }) if advance_consumer.pointer_pair() == consumer.pointer_pair()
+            )
+            || !indexed_base_disjoint(routine, layout, &base, MirWidth::Byte, induction)
+        {
+            continue;
+        }
+        let pair_untouched = ops[start + 6..store_index].iter().all(|op| {
+            let effects = classify_op(op);
+            !pair_homes.iter().any(|home| {
+                effects.homes.reads.contains(home)
+                    || effects.homes.writes.contains(home)
+                    || effects.addresses.pair_reads.contains(home)
+                    || effects.addresses.pair_writes.contains(home)
+            })
+        });
+        if pair_untouched {
+            return Some((start, base, pair_lo));
+        }
+    }
+    None
+}
+
+fn indexed_base_disjoint_from_fixed_pair(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+    base: &MirMem,
+    pair_lo: MirFixedZpSlot,
+) -> bool {
+    let Some(start) = layout.mem_address(routine.id, base).map(u32::from) else {
+        return false;
+    };
+    let last = start.saturating_add(u32::from(u8::MAX));
+    [pair_lo.0, pair_lo.0.saturating_add(1)]
+        .into_iter()
+        .map(u32::from)
+        .all(|address| address < start || address > last)
+}
+
+fn cfg_storage_address_byte_to_a(op: Option<&MirOp>, byte: u8) -> Option<MirMem> {
+    let MirOp::Move {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirValue::StorageAddrByte {
+            mem,
+            byte: source_byte,
+        },
+        width: MirWidth::Byte,
+    } = op?
+    else {
+        return None;
+    };
+    (*source_byte == byte).then(|| mem.clone())
+}
+
+fn cfg_store_a_to_fixed_zp(op: Option<&MirOp>) -> Option<MirFixedZpSlot> {
+    let MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    } = op?
+    else {
+        return None;
+    };
+    Some(*slot)
 }
 
 fn apply_counted_loop_register_carrier(
@@ -751,6 +1420,9 @@ fn replace_y_index_with_x(op: &mut MirOp) {
         MirOp::CompareDirectIndexedBytes { index, .. } if *index == MirReg::Y => {
             *index = MirReg::X;
         }
+        MirOp::BinaryDirectIndexedByte { index, .. } if *index == MirReg::Y => {
+            *index = MirReg::X;
+        }
         _ => {}
     }
 }
@@ -997,6 +1669,7 @@ fn counted_loop_latch_plan(
                     return Some(CountedLoopLatchPlan::RotatedHeadTested(plan));
                 }
             }
+            MirCountedLoopShape::FullRangeAscending { .. } => {}
             MirCountedLoopShape::BottomGuarded { guard } => {
                 if !routine.blocks.iter().any(|block| block.id == guard)
                     || counted.bound > 0 && !machine_flags_dead_on_entry(&liveness, counted.body)
@@ -1591,6 +2264,52 @@ fn machine_flag_unobserved_before_redefinition(
     true
 }
 
+fn machine_register_unobserved_before_redefinition(
+    routine: &MirRoutine,
+    cfg: &MirCfg,
+    start: MirBlockId,
+    register: MirReg,
+) -> bool {
+    let mut pending = vec![start];
+    let mut visited = BTreeSet::new();
+    while let Some(block_id) = pending.pop() {
+        if !visited.insert(block_id) {
+            continue;
+        }
+        let Some(block) = routine.blocks.iter().find(|block| block.id == block_id) else {
+            return false;
+        };
+        let mut redefined = false;
+        for op in &block.ops {
+            if matches!(op, MirOp::Barrier { .. }) {
+                continue;
+            }
+            let effects = classify_op(op);
+            if register_read(&effects.machine.register_reads, register)
+                || matches!(op, MirOp::MachineBlock { .. })
+                    && register_read(&effects.machine.conservative_register_clobbers, register)
+            {
+                return false;
+            }
+            if register_read(&effects.machine.register_writes, register)
+                || register_read(&effects.machine.register_clobbers, register)
+            {
+                redefined = true;
+                break;
+            }
+        }
+        if redefined {
+            continue;
+        }
+        let terminator = classify_terminator(&block.terminator);
+        if register_read(&terminator.machine.register_reads, register) {
+            return false;
+        }
+        pending.extend(cfg.successors(block_id).iter().copied());
+    }
+    true
+}
+
 fn machine_state_dead_on_entry(liveness: &MirMachineLiveness, block: MirBlockId) -> bool {
     !machine_accumulator_live_on_entry(liveness, block)
         && machine_flags_dead_on_entry(liveness, block)
@@ -1625,6 +2344,16 @@ fn machine_flags_dead_on_entry(liveness: &MirMachineLiveness, block: MirBlockId)
             v: true,
         })
     })
+}
+
+fn machine_flag_dead_on_entry(
+    liveness: &MirMachineLiveness,
+    block: MirBlockId,
+    flag: MirFlag,
+) -> bool {
+    liveness
+        .live_in(block)
+        .is_some_and(|live| !live.flag_live(flag))
 }
 
 fn refine_forward_branch_layout(blocks: &mut Vec<MirBlock>) {
@@ -2615,6 +3344,291 @@ mod tests {
             ],
             effects: Default::default(),
         }
+    }
+
+    fn full_range_ascending_loop(body_prefix: Vec<MirOp>, exit_ops: Vec<MirOp>) -> MirRoutine {
+        let counter = MirMem::Absolute(0x0080);
+        let mut body_ops = body_prefix;
+        body_ops.extend([
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(counter.clone()),
+                width: MirWidth::Byte,
+            },
+            MirOp::Compare {
+                dst: MirCondDest::Flags,
+                op: MirCompareOp::Ge,
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::ConstU8(u8::MAX),
+                width: MirWidth::Byte,
+                signed: false,
+            },
+        ]);
+        MirRoutine {
+            id: crate::mir6502::ir::RoutineId(0),
+            name: "full_range_ascending_loop".to_string(),
+            abi: crate::mir6502::ir::MirRoutineAbi::Action,
+            frame: Default::default(),
+            temps: Vec::new(),
+            blocks: vec![
+                block(
+                    0,
+                    vec![MirOp::Store {
+                        dst: MirAddr::Direct(counter.clone()),
+                        src: MirValue::ConstU8(0),
+                        width: MirWidth::Byte,
+                    }],
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+                ),
+                block(
+                    1,
+                    vec![
+                        MirOp::Load {
+                            dst: MirDef::Reg(MirReg::A),
+                            src: MirAddr::Direct(counter.clone()),
+                            width: MirWidth::Byte,
+                        },
+                        MirOp::Compare {
+                            dst: MirCondDest::Flags,
+                            op: MirCompareOp::Le,
+                            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                            right: MirValue::ConstU8(u8::MAX),
+                            width: MirWidth::Byte,
+                            signed: false,
+                        },
+                    ],
+                    MirTerminator::Branch {
+                        cond: MirCond::AnyFlagTest([MirFlagTest::CClear, MirFlagTest::ZSet]),
+                        then_edge: MirEdge::plain(MirBlockId(2)),
+                        else_edge: MirEdge::plain(MirBlockId(4)),
+                    },
+                ),
+                block(
+                    2,
+                    body_ops,
+                    MirTerminator::Branch {
+                        cond: MirCond::FlagTest(MirFlagTest::CSet),
+                        then_edge: MirEdge::plain(MirBlockId(4)),
+                        else_edge: MirEdge::plain(MirBlockId(3)),
+                    },
+                ),
+                block(
+                    3,
+                    vec![MirOp::UpdateMem {
+                        op: MirUpdateOp::Inc,
+                        mem: counter,
+                        width: MirWidth::Byte,
+                    }],
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+                ),
+                block(4, exit_ops, MirTerminator::Return),
+            ],
+            effects: Default::default(),
+        }
+    }
+
+    fn indexed_full_range_body_prefix() -> Vec<MirOp> {
+        vec![
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::AbsoluteIndexedY {
+                    base: MirMem::Absolute(0x4000),
+                },
+                width: MirWidth::Byte,
+            },
+        ]
+    }
+
+    #[test]
+    fn full_range_byte_loop_carrier_selects_y_and_wraps_with_bne() {
+        let mut routine = full_range_ascending_loop(indexed_full_range_body_prefix(), Vec::new());
+        let layout = layout_for(&routine);
+
+        assert_eq!(
+            select_counted_loop_register_carriers(&mut routine, &layout),
+            1
+        );
+        assert!(!routine.blocks.iter().any(|block| block.id == MirBlockId(1)));
+        assert!(!routine.blocks.iter().any(|block| block.id == MirBlockId(3)));
+        assert!(matches!(
+            routine.blocks[0].ops.last(),
+            Some(MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::Y),
+                value: 0,
+                width: MirWidth::Byte,
+            })
+        ));
+        let body = routine
+            .blocks
+            .iter()
+            .find(|block| block.id == MirBlockId(2))
+            .expect("full-range body");
+        assert!(body.ops.iter().all(|op| {
+            !matches!(
+                op,
+                MirOp::Load {
+                    src: MirAddr::Direct(MirMem::Absolute(0x0080)),
+                    ..
+                } | MirOp::UpdateMem {
+                    mem: MirMem::Absolute(0x0080),
+                    ..
+                }
+            )
+        }));
+        assert!(matches!(
+            body.ops.last(),
+            Some(MirOp::UpdateReg {
+                op: MirUpdateOp::Inc,
+                reg: MirReg::Y,
+            })
+        ));
+        assert!(matches!(
+            body.terminator,
+            MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::ZClear),
+                ref then_edge,
+                ref else_edge,
+            } if then_edge.target == MirBlockId(2) && else_edge.target == MirBlockId(4)
+        ));
+    }
+
+    #[test]
+    fn full_range_byte_loop_restores_an_observable_final_255() {
+        let counter = MirMem::Absolute(0x0080);
+        let mut routine = full_range_ascending_loop(
+            indexed_full_range_body_prefix(),
+            vec![MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(counter.clone()),
+                width: MirWidth::Byte,
+            }],
+        );
+        let layout = layout_for(&routine);
+
+        assert_eq!(
+            select_counted_loop_register_carriers(&mut routine, &layout),
+            1
+        );
+        assert!(routine.blocks.iter().any(|block| {
+            matches!(
+                block.ops.as_slice(),
+                [
+                    MirOp::LoadImm {
+                        dst: MirDef::Reg(MirReg::A),
+                        value: 255,
+                        ..
+                    },
+                    MirOp::Store {
+                        dst: MirAddr::Direct(mem),
+                        ..
+                    }
+                ] if mem == &counter
+            )
+        }));
+    }
+
+    #[test]
+    fn full_range_byte_loop_restores_current_value_on_early_exit() {
+        let counter = MirMem::Absolute(0x0080);
+        let mut routine = full_range_ascending_loop(
+            indexed_full_range_body_prefix(),
+            vec![MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(counter.clone()),
+                width: MirWidth::Byte,
+            }],
+        );
+        let body = routine
+            .blocks
+            .iter_mut()
+            .find(|block| block.id == MirBlockId(2))
+            .expect("full-range body");
+        let guard_ops = body.ops.split_off(body.ops.len() - 2);
+        body.ops.extend([
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 200,
+                width: MirWidth::Byte,
+            },
+            MirOp::Compare {
+                dst: MirCondDest::Flags,
+                op: MirCompareOp::Eq,
+                left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                right: MirValue::ConstU8(200),
+                width: MirWidth::Byte,
+                signed: false,
+            },
+        ]);
+        body.terminator = MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::ZSet),
+            then_edge: MirEdge::plain(MirBlockId(4)),
+            else_edge: MirEdge::plain(MirBlockId(5)),
+        };
+        routine.blocks.push(block(
+            5,
+            guard_ops,
+            MirTerminator::Branch {
+                cond: MirCond::FlagTest(MirFlagTest::CSet),
+                then_edge: MirEdge::plain(MirBlockId(4)),
+                else_edge: MirEdge::plain(MirBlockId(3)),
+            },
+        ));
+        let layout = layout_for(&routine);
+
+        assert_eq!(
+            select_counted_loop_register_carriers(&mut routine, &layout),
+            1
+        );
+        assert!(routine.blocks.iter().any(|block| {
+            block.label == "full_range.restore_normal"
+                && matches!(
+                    block.ops.as_slice(),
+                    [
+                        MirOp::LoadImm {
+                            dst: MirDef::Reg(MirReg::A),
+                            value: 255,
+                            ..
+                        },
+                        MirOp::Store {
+                            dst: MirAddr::Direct(mem),
+                            ..
+                        }
+                    ] if mem == &counter
+                )
+        }));
+        assert!(routine.blocks.iter().any(|block| {
+            block.label == "full_range.restore_exit"
+                && matches!(
+                    block.ops.as_slice(),
+                    [MirOp::Store {
+                        dst: MirAddr::Direct(mem),
+                        src: MirValue::Def(MirDef::Reg(MirReg::Y)),
+                        ..
+                    }] if mem == &counter
+                )
+        }));
+    }
+
+    #[test]
+    fn full_range_byte_loop_rejects_an_effect_barrier() {
+        let mut prefix = indexed_full_range_body_prefix();
+        prefix.push(MirOp::Barrier {
+            effects: Default::default(),
+        });
+        let mut routine = full_range_ascending_loop(prefix, Vec::new());
+        let original = routine.blocks.clone();
+        let layout = layout_for(&routine);
+
+        assert_eq!(
+            select_counted_loop_register_carriers(&mut routine, &layout),
+            0
+        );
+        assert_eq!(routine.blocks, original);
     }
 
     #[test]

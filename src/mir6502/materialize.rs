@@ -2474,6 +2474,7 @@ fn run_posthome_structural_group(
         block.ops =
             fold_structural_before_cleanup_migrations(ops, routine.id, layout, peephole_stats);
     }
+    run_analyzed_static_indexed_byte_stores(routine, layout, peephole_stats)?;
     run_analyzed_direct_indexed_byte_binaries(routine, layout, peephole_stats)?;
     run_analyzed_rhs_and_adjacent_reloads(routine, layout, peephole_stats)?;
     run_analyzed_known_callee_word_result_placements(
@@ -2499,6 +2500,26 @@ fn run_posthome_structural_group(
     run_analyzed_indexed_base_pointer_staging(routine, peephole_stats)?;
     run_analyzed_scaled_y_word_reads(routine, layout, peephole_stats)?;
     run_analyzed_scaled_y_word_stores(routine, layout, peephole_stats)
+}
+
+fn run_analyzed_static_indexed_byte_stores(
+    routine: &mut super::ir::MirRoutine,
+    layout: &MaterializeLayout,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPostHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point(routine, |routine, context| {
+            indexes::discover_static_indexed_byte_stores(routine, context, layout)
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("post-home static indexed byte store recovery failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
 }
 
 fn run_posthome_signed_word_relations(

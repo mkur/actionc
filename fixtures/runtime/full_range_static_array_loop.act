@@ -1,0 +1,31 @@
+; Generic full-range BYTE-loop proof with static array access and an early exit.
+
+BYTE ARRAY source(256)=$8000
+BYTE ARRAY target(256)=$9000
+BYTE ARRAY result(5)=$0600
+BYTE index=$E0
+
+PROC Main()
+  source(CARD(0))=8
+  source(CARD(225))=12
+  source(CARD(255))=20
+
+  FOR index=0 TO 255 DO
+    target(index)=source(index)
+  OD
+
+  result(0)=target(0)
+  result(1)=target(225)
+  result(2)=target(255)
+  result(3)=index
+
+  FOR index=0 TO 255 DO
+    IF index=200 THEN
+      EXIT
+    FI
+  OD
+  result(4)=index
+
+  DO
+  OD
+RETURN

@@ -58,6 +58,41 @@ fn byte_for_loop_bound_and_body_consumers_avoid_spills() {
 }
 
 #[test]
+fn full_range_static_byte_sum_uses_one_y_carrier_and_no_hot_loop_spills() {
+    let (formatted, bytes) = compile_materialized_mir6502_path(Path::new(
+        "fixtures/runtime/full_range_static_array_sum.act",
+    ));
+
+    assert!(formatted.contains("y =.b #0"), "{formatted}");
+    assert!(formatted.contains("a =.b load $801E[y]"), "{formatted}");
+    for base in ["$801F", "$8020", "$803F"] {
+        assert!(
+            formatted.contains(&format!("a =.b a add {base}[y]")),
+            "missing indexed accumulation from {base}:\n{formatted}"
+        );
+    }
+    assert!(
+        formatted.contains("store.b global g1+0[y], a"),
+        "{formatted}"
+    );
+    assert!(formatted.contains("inc y"), "{formatted}");
+    assert!(formatted.contains("branch flag z_clear"), "{formatted}");
+    assert!(!formatted.contains("spill sp"), "{formatted}");
+    assert!(!formatted.contains("load global g2+0"), "{formatted}");
+    assert!(
+        bytes.windows(2).any(|window| window == [0xC8, 0xD0]),
+        "expected INY/BNE latch: {bytes:02X?}"
+    );
+    assert!(bytes.contains(&0xB9), "expected absolute,Y LDA");
+    assert_eq!(
+        bytes.iter().filter(|byte| **byte == 0x79).count(),
+        3,
+        "expected three absolute,Y ADCs: {bytes:02X?}"
+    );
+    assert!(bytes.contains(&0x99), "expected absolute,Y STA");
+}
+
+#[test]
 fn complex_while_and_until_conditions_use_short_circuit_cfg() {
     for fixture in [
         "while_complex_bool_array_func.act",
@@ -108,10 +143,11 @@ fn complex_while_and_until_conditions_use_short_circuit_cfg() {
 }
 
 fn compile_materialized_mir6502_fixture(name: &str) -> (String, Vec<u8>) {
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("fixtures")
-        .join("mir6502")
-        .join(name);
+    compile_materialized_mir6502_path(&Path::new("fixtures").join("mir6502").join(name))
+}
+
+fn compile_materialized_mir6502_path(relative: &Path) -> (String, Vec<u8>) {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join(relative);
     let loaded = load_program_with_expanded_source(&fixture)
         .unwrap_or_else(|err| panic!("load {}: {err:?}", fixture.display()));
     let model = analyze(&loaded.program)

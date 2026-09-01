@@ -3801,6 +3801,169 @@ pub(super) fn discover_direct_indexed_byte_binaries(
     plans
 }
 
+pub(super) fn discover_static_indexed_byte_stores(
+    routine: &MirRoutine,
+    context: &PostHomeRewriteContext<'_, '_>,
+    layout: &MaterializeLayout,
+) -> Vec<MirPostHomeRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for index in 0..block.ops.len() {
+            let Some((consumed, replacement, exit_state_change)) =
+                static_indexed_byte_store_replacement(routine, &block.ops, index, layout)
+            else {
+                continue;
+            };
+            if let Some(plan) = structural_plan(
+                routine,
+                context,
+                block.id,
+                index..index + consumed,
+                replacement,
+                exit_state_change,
+                "static-indexed-byte-store-recovered",
+                95,
+            ) {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+fn static_indexed_byte_store_replacement(
+    routine: &MirRoutine,
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+) -> Option<(usize, Vec<MirOp>, MirExitStateChange)> {
+    let base = storage_address_byte_to_a(ops.get(index)?, 0)?;
+    let pair_lo = store_a_to_fixed_zp(ops.get(index + 1)?)?;
+    let high_base = storage_address_byte_to_a(ops.get(index + 2)?, 1)?;
+    let pair_hi = store_a_to_fixed_zp(ops.get(index + 3)?)?;
+    if base != high_base || pair_hi.0 != pair_lo.0.checked_add(1)? {
+        return None;
+    }
+    let index_load = ops.get(index + 4)?;
+    let MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(index_home),
+        width: MirWidth::Byte,
+    } = index_load
+    else {
+        return None;
+    };
+    let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: pair_lo });
+    if !matches!(
+        ops.get(index + 5)?,
+        MirOp::AdvanceAddress {
+            consumer: op_consumer,
+            index: MirValue::Def(MirDef::Reg(MirReg::A)),
+            scale: 1,
+        } if op_consumer.pointer_pair() == consumer.pointer_pair()
+    ) {
+        return None;
+    }
+    let start = layout.mem_address(routine.id, &base)?;
+    let end = start.checked_add(u16::from(u8::MAX))?;
+    let index_address = posthome_mem_address(routine, layout, index_home)?;
+    if [pair_lo.0, pair_hi.0].into_iter().any(|address| {
+        let address = u16::from(address);
+        address == index_address || (start..=end).contains(&address)
+    }) {
+        return None;
+    }
+    let pair_homes = [
+        MirHomeByte::FixedZeroPage(pair_lo),
+        MirHomeByte::FixedZeroPage(pair_hi),
+    ];
+
+    let mut store_index = None;
+    for (candidate, op) in ops.iter().enumerate().skip(index + 6) {
+        if matches!(
+            op,
+            MirOp::StoreIndirect {
+                consumer: op_consumer,
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                offset: 0,
+            } if op_consumer.pointer_pair() == consumer.pointer_pair()
+        ) {
+            store_index = Some(candidate);
+            break;
+        }
+        let effects = classify_op(op);
+        if effects.reads_reg(MirReg::Y)
+            || effects.may_clobber_reg_compat(MirReg::Y)
+            || pair_homes.iter().any(|home| {
+                effects.homes.reads.contains(home)
+                    || effects.homes.writes.contains(home)
+                    || effects.addresses.pair_reads.contains(home)
+                    || effects.addresses.pair_writes.contains(home)
+            })
+        {
+            return None;
+        }
+    }
+    let store_index = store_index?;
+    let mut replacement = vec![
+        index_load.clone(),
+        MirOp::Move {
+            dst: MirDef::Reg(MirReg::Y),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        },
+    ];
+    replacement.extend_from_slice(&ops[index + 6..store_index]);
+    replacement.push(MirOp::Store {
+        dst: MirAddr::AbsoluteIndexedY { base },
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    Some((
+        store_index + 1 - index,
+        replacement,
+        MirExitStateChange {
+            registers: MirRegisterSet {
+                y: true,
+                ..MirRegisterSet::default()
+            },
+            flags: MirFlagSet {
+                z: true,
+                n: true,
+                ..MirFlagSet::default()
+            },
+            homes: BTreeSet::from(pair_homes),
+        },
+    ))
+}
+
+fn storage_address_byte_to_a(op: &MirOp, byte: u8) -> Option<MirMem> {
+    let MirOp::Move {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirValue::StorageAddrByte {
+            mem,
+            byte: source_byte,
+        },
+        width: MirWidth::Byte,
+    } = op
+    else {
+        return None;
+    };
+    (*source_byte == byte).then(|| mem.clone())
+}
+
+fn store_a_to_fixed_zp(op: &MirOp) -> Option<MirFixedZpSlot> {
+    let MirOp::Store {
+        dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    } = op
+    else {
+        return None;
+    };
+    Some(*slot)
+}
+
 fn direct_indexed_byte_binary_replacement(
     routine: &MirRoutine,
     ops: &[MirOp],

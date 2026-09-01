@@ -1,0 +1,15 @@
+; Structural MIR6502 fixture for a page-crossing indexed accumulation loop.
+
+BYTE ARRAY source(512)=$8000
+BYTE ARRAY target(256)=$9000
+BYTE index=$E0
+
+PROC Main()
+  FOR index=0 TO 255 DO
+    target(index)=BYTE(source(CARD(index)+30)+source(CARD(index)+31)+
+                       source(CARD(index)+32)+source(CARD(index)+63)) RSH 2
+  OD
+
+  DO
+  OD
+RETURN
