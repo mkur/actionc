@@ -3,10 +3,10 @@
 use std::collections::BTreeSet;
 
 use crate::mir6502::ir::{
-    MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirCallTarget, MirCarryIn, MirCond,
-    MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlag, MirFlagTest, MirMem, MirMemoryEffect,
-    MirMemoryRegionKind, MirOp, MirPointerPair, MirReg, MirRegisterSet, MirResultHome, MirSpillId,
-    MirTempId, MirTerminator, MirValue, MirWidth, MirZpSlot,
+    MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirByteIndexedSource, MirCallTarget,
+    MirCarryIn, MirCond, MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlag, MirFlagTest,
+    MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirPointerPair, MirReg, MirRegisterSet,
+    MirResultHome, MirSpillId, MirTempId, MirTerminator, MirValue, MirWidth, MirZpSlot,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -427,13 +427,24 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::BinaryDirectIndexedByte {
             op,
             source,
-            index,
             carry_in,
             ..
         } => {
-            record_memory_read(source, &mut summary);
             set_register(&mut summary.machine.register_reads, MirReg::A);
-            set_register(&mut summary.machine.register_reads, *index);
+            match source {
+                MirByteIndexedSource::Absolute { base, index } => {
+                    record_memory_read(base, &mut summary);
+                    set_register(&mut summary.machine.register_reads, *index);
+                }
+                MirByteIndexedSource::FixedIndirectY { zp } => {
+                    record_consumer_read(
+                        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *zp }),
+                        &mut summary,
+                    );
+                    set_register(&mut summary.machine.register_reads, MirReg::Y);
+                    summary.memory.indirect_reads = true;
+                }
+            }
             set_register(&mut summary.machine.register_writes, MirReg::A);
             summary.machine.uses_previous_carry =
                 matches!(carry_in, Some(MirCarryIn::FromPrevious));
@@ -2042,8 +2053,10 @@ mod tests {
         };
         let effects = classify_op(&MirOp::BinaryDirectIndexedByte {
             op: MirBinaryOp::Add,
-            source: source.clone(),
-            index: MirReg::Y,
+            source: MirByteIndexedSource::Absolute {
+                base: source.clone(),
+                index: MirReg::Y,
+            },
             carry_in: Some(MirCarryIn::Clear),
             carry_out: MirCarryOut::Ignore,
         });
@@ -2062,6 +2075,31 @@ mod tests {
         assert!(effects.machine.flag_writes.z);
         assert!(effects.machine.flag_writes.n);
         assert!(effects.machine.flag_writes.v);
+    }
+
+    #[test]
+    fn fixed_indirect_byte_binary_reads_pointer_pair_y_and_unknown_memory() {
+        let effects = classify_op(&MirOp::BinaryDirectIndexedByte {
+            op: MirBinaryOp::Add,
+            source: MirByteIndexedSource::FixedIndirectY {
+                zp: MirFixedZpSlot(0xF0),
+            },
+            carry_in: Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Ignore,
+        });
+
+        for slot in 0xF0..=0xF1 {
+            assert!(
+                effects
+                    .addresses
+                    .pair_reads
+                    .contains(&MirHomeByte::FixedZeroPage(MirFixedZpSlot(slot)))
+            );
+        }
+        assert!(effects.memory.indirect_reads);
+        assert!(effects.machine.register_reads.a);
+        assert!(effects.machine.register_reads.y);
+        assert!(effects.machine.register_writes.a);
     }
 
     #[test]

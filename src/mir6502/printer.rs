@@ -1,11 +1,11 @@
 use std::fmt::Write as _;
 
 use super::ir::{
-    MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirCallTarget, MirCarryIn, MirCarryOut,
-    MirCompareOp, MirCond, MirCondDest, MirDataImage, MirDataRelocationKind,
-    MirDataRelocationTarget, MirDef, MirEdge, MirFlagTest, MirGlobalBacking, MirGlobalInit, MirMem,
-    MirMemoryEffect, MirOp, MirPointerPair, MirProgram, MirReg, MirResultHome, MirRuntimeHelper,
-    MirStorageInit, MirTerminator, MirUnaryOp, MirValue, MirWidth,
+    MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirByteIndexedSource, MirCallTarget,
+    MirCarryIn, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDataImage,
+    MirDataRelocationKind, MirDataRelocationTarget, MirDef, MirEdge, MirFlagTest, MirGlobalBacking,
+    MirGlobalInit, MirMem, MirMemoryEffect, MirOp, MirPointerPair, MirProgram, MirReg,
+    MirResultHome, MirRuntimeHelper, MirStorageInit, MirTerminator, MirUnaryOp, MirValue, MirWidth,
 };
 
 pub(super) fn format_program(program: &MirProgram) -> String {
@@ -499,14 +499,12 @@ fn op_summary(op: &MirOp) -> String {
         MirOp::BinaryDirectIndexedByte {
             op,
             source,
-            index,
             carry_in,
             carry_out,
         } => format!(
-            "a =.b a {} {}[{}] carry_in={} carry_out={}",
+            "a =.b a {} {} carry_in={} carry_out={}",
             binary_summary(*op),
-            mem_summary(source),
-            reg_summary(*index),
+            byte_indexed_source_summary(source),
             carry_in_summary(*carry_in),
             carry_out_summary(*carry_out),
         ),
@@ -819,6 +817,17 @@ fn mem_summary(mem: &MirMem) -> String {
         MirMem::Spill { id, offset } => format!("spill sp{}+{}", id.0, offset),
         MirMem::ZeroPage(slot) => format!("zp{}", slot.0),
         MirMem::FixedZeroPage(slot) => format!("fixed_zp ${:02X}", slot.0),
+    }
+}
+
+fn byte_indexed_source_summary(source: &MirByteIndexedSource) -> String {
+    match source {
+        MirByteIndexedSource::Absolute { base, index } => {
+            format!("{}[{}]", mem_summary(base), reg_summary(*index))
+        }
+        MirByteIndexedSource::FixedIndirectY { zp } => {
+            format!("(fixed_zp ${:02X}),y", zp.0)
+        }
     }
 }
 

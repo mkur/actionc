@@ -4,11 +4,11 @@ use super::abi::{action_arg_home, action_arg_width_bytes};
 use super::analysis::effects::{MirHomeByte, classify_op};
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirCarryIn, MirCondDest, MirDataImage,
-    MirDataRelocationTarget, MirDef, MirEdge, MirFrame, MirGlobal, MirGlobalInit,
-    MirMachineBlockId, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
-    MirRoutineAbi, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirStorageSlot,
-    MirTerminator, MirValue, MirWidth, RoutineId,
+    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirByteIndexedSource, MirCarryIn,
+    MirCondDest, MirDataImage, MirDataRelocationTarget, MirDef, MirEdge, MirFrame, MirGlobal,
+    MirGlobalInit, MirMachineBlockId, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg,
+    MirRoutine, MirRoutineAbi, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit,
+    MirStorageSlot, MirTerminator, MirValue, MirWidth, RoutineId,
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 
@@ -1361,24 +1361,35 @@ impl MirVerifier {
             MirOp::BinaryDirectIndexedByte {
                 op,
                 source,
-                index,
                 carry_in,
                 carry_out,
             } => {
-                self.verify_mem(
-                    routine,
-                    block,
-                    &routine.frame,
-                    source,
-                    static_ids,
-                    global_ids,
-                );
-                if !matches!(index, MirReg::X | MirReg::Y) {
-                    self.diagnostics.push(MirDiagnostic::block(
-                        &routine.name,
+                match source {
+                    MirByteIndexedSource::Absolute { base, index } => {
+                        self.verify_mem(
+                            routine,
+                            block,
+                            &routine.frame,
+                            base,
+                            static_ids,
+                            global_ids,
+                        );
+                        if !matches!(index, MirReg::X | MirReg::Y) {
+                            self.diagnostics.push(MirDiagnostic::block(
+                                &routine.name,
+                                block,
+                                "direct indexed byte binary requires X or Y",
+                            ));
+                        }
+                    }
+                    MirByteIndexedSource::FixedIndirectY { zp } => self.verify_addr(
+                        routine,
                         block,
-                        "direct indexed byte binary requires X or Y",
-                    ));
+                        &MirAddr::FixedIndirectIndexedY { zp: *zp },
+                        static_ids,
+                        global_ids,
+                        routine_ids,
+                    ),
                 }
                 if *op != MirBinaryOp::Add
                     || !matches!(carry_in, Some(MirCarryIn::Clear))
@@ -2729,8 +2740,10 @@ mod tests {
     fn direct_indexed_byte_binary_requires_its_posthome_add_contract() {
         let operation = |carry_in| MirOp::BinaryDirectIndexedByte {
             op: MirBinaryOp::Add,
-            source: MirMem::Absolute(0x4000),
-            index: MirReg::Y,
+            source: MirByteIndexedSource::Absolute {
+                base: MirMem::Absolute(0x4000),
+                index: MirReg::Y,
+            },
             carry_in,
             carry_out: MirCarryOut::Ignore,
         };

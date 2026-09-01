@@ -2,12 +2,13 @@ use super::analysis::cfg::{MirCfg, MirCfgError};
 use super::analysis::known_callees::MirKnownCalleeSummaries;
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirBlockId, MirCallAbi, MirCallArg,
-    MirCallTarget, MirCarryIn, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDef, MirEffects,
-    MirFixedZpSlot, MirFlagTest, MirMachineAtom, MirMachineItem, MirMem, MirMemoryEffect,
-    MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase, MirPointerPair, MirProgram,
-    MirReg, MirResultHome, MirRuntimeHelper, MirSpillId, MirStorageBase, MirStorageInit, MirTemp,
-    MirTempId, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth, RoutineId,
+    MirAddr, MirAddressConsumer, MirArgHome, MirBinaryOp, MirBlockId, MirByteIndexedSource,
+    MirCallAbi, MirCallArg, MirCallTarget, MirCarryIn, MirCarryOut, MirCompareOp, MirCond,
+    MirCondDest, MirDef, MirEffects, MirFixedZpSlot, MirFlagTest, MirMachineAtom, MirMachineItem,
+    MirMem, MirMemoryEffect, MirMemoryRegion, MirMemoryRegionKind, MirOp, MirOpRef, MirPhase,
+    MirPointerPair, MirProgram, MirReg, MirResultHome, MirRuntimeHelper, MirSpillId,
+    MirStorageBase, MirStorageInit, MirTemp, MirTempId, MirTerminator, MirUnaryOp, MirUpdateOp,
+    MirValue, MirWidth, RoutineId,
 };
 use super::passes::Mir6502Config;
 use std::collections::{BTreeMap, BTreeSet};

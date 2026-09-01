@@ -10038,11 +10038,13 @@ fn direct_indexed_byte_binary_rewrite_consumes_loaded_rhs_in_place() {
             },
             MirOp::BinaryDirectIndexedByte {
                 op: MirBinaryOp::Add,
-                source: MirMem::Global {
-                    id: SymbolId(0),
-                    offset: 31,
+                source: MirByteIndexedSource::Absolute {
+                    base: MirMem::Global {
+                        id: SymbolId(0),
+                        offset: 31,
+                    },
+                    index: MirReg::Y,
                 },
-                index: MirReg::Y,
                 carry_in: Some(MirCarryIn::Clear),
                 carry_out: MirCarryOut::Ignore,
             },

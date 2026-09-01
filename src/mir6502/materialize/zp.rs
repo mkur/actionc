@@ -82,7 +82,6 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             | MirOp::Truncate { .. }
             | MirOp::Unary { .. }
             | MirOp::Binary { .. }
-            | MirOp::BinaryDirectIndexedByte { .. }
             | MirOp::Compare { .. }
             | MirOp::CompareDirectIndexedBytes { .. }
             | MirOp::CompareIndirectBytes { .. }
@@ -98,6 +97,11 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             | MirOp::AddByteToWordMem { .. }
             | MirOp::SubByteFromWordMem { .. }
             | MirOp::MachineBlock { .. } => false,
+            MirOp::BinaryDirectIndexedByte {
+                source: crate::mir6502::ir::MirByteIndexedSource::FixedIndirectY { .. },
+                ..
+            } => true,
+            MirOp::BinaryDirectIndexedByte { .. } => false,
         })
     })
 }
@@ -141,6 +145,17 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
         }
         | MirOp::Store {
             dst: MirAddr::FixedIndirectIndexedY { zp },
+            ..
+        } => collect_consumer_fixed_zero_page(
+            MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *zp }),
+            slots,
+        ),
+        MirOp::BinaryDirectIndexedByte {
+            source: crate::mir6502::ir::MirByteIndexedSource::Absolute { base, .. },
+            ..
+        } => collect_mem_fixed_zero_page(base, slots),
+        MirOp::BinaryDirectIndexedByte {
+            source: crate::mir6502::ir::MirByteIndexedSource::FixedIndirectY { zp },
             ..
         } => collect_consumer_fixed_zero_page(
             MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *zp }),

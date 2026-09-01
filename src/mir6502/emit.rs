@@ -13,14 +13,14 @@ use crate::source::{Span, source_char_byte};
 
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCallTarget, MirCarryIn,
-    MirCompareOp, MirCond, MirCondDest, MirDataImage, MirDataRelocation, MirDataRelocationKind,
-    MirDataRelocationTarget, MirDef, MirEdge, MirEffects, MirFixedZpSlot, MirFlagTest,
-    MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom, MirMachineByteSelector,
-    MirMachineItem, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram, MirReg, MirRoutine,
-    MirRuntimeHelperTarget, MirSpillId, MirStorageBase, MirStorageClass, MirStorageId,
-    MirStorageInit, MirStorageSlot, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue, MirWidth,
-    MirZpSlot, RoutineId,
+    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirByteIndexedSource,
+    MirCallTarget, MirCarryIn, MirCompareOp, MirCond, MirCondDest, MirDataImage, MirDataRelocation,
+    MirDataRelocationKind, MirDataRelocationTarget, MirDef, MirEdge, MirEffects, MirFixedZpSlot,
+    MirFlagTest, MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineAtom,
+    MirMachineByteSelector, MirMachineItem, MirMem, MirOp, MirPhase, MirPointerPair, MirProgram,
+    MirReg, MirRoutine, MirRuntimeHelperTarget, MirSpillId, MirStorageBase, MirStorageClass,
+    MirStorageId, MirStorageInit, MirStorageSlot, MirTerminator, MirUnaryOp, MirUpdateOp, MirValue,
+    MirWidth, MirZpSlot, RoutineId,
 };
 use super::verify;
 
@@ -2783,21 +2783,38 @@ fn emit_op(
         MirOp::BinaryDirectIndexedByte {
             op,
             source,
-            index,
             carry_in,
             ..
         } => {
             emit_carry(*carry_in, *op, emitter);
-            let Some(source) = ctx.layout.direct_mem(routine, source) else {
-                unsupported(
-                    ctx,
-                    routine,
-                    block,
-                    "direct indexed binary source is not placed",
-                );
-                return;
-            };
-            emit_binary_direct_indexed_byte(ctx, routine, block, *op, source, *index, emitter);
+            match source {
+                MirByteIndexedSource::Absolute { base, index } => {
+                    let Some(source) = ctx.layout.direct_mem(routine, base) else {
+                        unsupported(
+                            ctx,
+                            routine,
+                            block,
+                            "direct indexed binary source is not placed",
+                        );
+                        return;
+                    };
+                    emit_binary_direct_indexed_byte(
+                        ctx, routine, block, *op, source, *index, emitter,
+                    );
+                }
+                MirByteIndexedSource::FixedIndirectY { zp } => {
+                    if *op != MirBinaryOp::Add {
+                        unsupported(
+                            ctx,
+                            routine,
+                            block,
+                            "fixed indirect indexed byte binary only supports addition",
+                        );
+                        return;
+                    }
+                    emitter.emit_adc_indirect_indexed_y(IndirectIndexedY::new(ZeroPage::new(zp.0)));
+                }
+            }
         }
         MirOp::Compare {
             dst,

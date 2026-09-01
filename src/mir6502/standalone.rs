@@ -4,11 +4,11 @@ use std::sync::OnceLock;
 
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirCallTarget, MirCond, MirDataImage, MirDataRelocationTarget, MirEffects,
-    MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineBlock, MirMachineBlockId,
-    MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram,
-    MirRuntimeHelper, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit, MirTerminator,
-    MirValue, RoutineId,
+    MirAddr, MirByteIndexedSource, MirCallTarget, MirCond, MirDataImage, MirDataRelocationTarget,
+    MirEffects, MirGlobalBacking, MirGlobalInit, MirInlineAsmTarget, MirMachineBlock,
+    MirMachineBlockId, MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp,
+    MirProgram, MirRuntimeHelper, MirRuntimeHelperTarget, MirStorageBase, MirStorageInit,
+    MirTerminator, MirValue, RoutineId,
 };
 use crate::linker::{LinkGraph, LinkReason};
 use crate::nir::SymbolId;
@@ -373,10 +373,17 @@ fn visit_op_storage(
         | MirOp::StoreIndirect { src, .. } => visit_value_storage(src, globals, statics),
         MirOp::LeaAddr { target, .. }
         | MirOp::UpdateMem { mem: target, .. }
-        | MirOp::UpdateIndexedMem { base: target, .. }
-        | MirOp::BinaryDirectIndexedByte { source: target, .. } => {
+        | MirOp::UpdateIndexedMem { base: target, .. } => {
             record_mem_storage(target, globals, statics)
         }
+        MirOp::BinaryDirectIndexedByte {
+            source: MirByteIndexedSource::Absolute { base, .. },
+            ..
+        } => record_mem_storage(base, globals, statics),
+        MirOp::BinaryDirectIndexedByte {
+            source: MirByteIndexedSource::FixedIndirectY { .. },
+            ..
+        } => {}
         MirOp::AddByteToWordMem { mem: target, value }
         | MirOp::SubByteFromWordMem { mem: target, value } => {
             record_mem_storage(target, globals, statics);
@@ -614,10 +621,15 @@ fn rebase_op(
         | MirOp::StoreIndirect { src, .. } => rebase_value(src, routines, globals, statics)?,
         MirOp::LeaAddr { target, .. }
         | MirOp::UpdateMem { mem: target, .. }
-        | MirOp::UpdateIndexedMem { base: target, .. }
-        | MirOp::BinaryDirectIndexedByte { source: target, .. } => {
-            rebase_mem(target, globals, statics)?
-        }
+        | MirOp::UpdateIndexedMem { base: target, .. } => rebase_mem(target, globals, statics)?,
+        MirOp::BinaryDirectIndexedByte {
+            source: MirByteIndexedSource::Absolute { base, .. },
+            ..
+        } => rebase_mem(base, globals, statics)?,
+        MirOp::BinaryDirectIndexedByte {
+            source: MirByteIndexedSource::FixedIndirectY { .. },
+            ..
+        } => {}
         MirOp::AddByteToWordMem { mem, value } | MirOp::SubByteFromWordMem { mem, value } => {
             rebase_mem(mem, globals, statics)?;
             rebase_value(value, routines, globals, statics)?;

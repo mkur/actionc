@@ -176,12 +176,18 @@ consumers: scale-two address construction must already have been incorporated
 into each prepared pointer.
 
 `BinaryDirectIndexedByte` is a post-home target operation for byte arithmetic
-whose left operand and result are the accumulator and whose right operand is an
-absolute memory byte indexed by X or Y. Its selection must preserve the source
-read's ordering and prove that any compiler home crossed by the rewrite cannot
-alias the indexed byte range. The initial contract permits only addition with
-clear carry and ignored carry-out, corresponding to `CLC` followed by
-`ADC absolute,X` or `ADC absolute,Y`; other arithmetic and carry contracts stay
+whose left operand and result are the accumulator. Its structured
+`MirByteIndexedSource` admits only an absolute memory byte indexed by X or Y, or
+a fixed-zero-page pointer pair indexed by Y. The indirect form reads both
+pointer bytes, Y, and one unknown memory byte; it remains a conservative
+indirect memory effect.
+
+Selection must preserve the source read's ordering and prove that any
+source-visible operation crossed by the rewrite is unaffected. Absolute
+sources also prove that removed compiler homes cannot alias the indexed byte
+range. The initial contract permits only addition with clear carry and ignored
+carry-out, corresponding to `CLC` followed by `ADC absolute,X`,
+`ADC absolute,Y`, or `ADC ($zp),Y`; other arithmetic and carry contracts stay
 in the ordinary MIR form until they have their own verified lowering.
 
 ### Pre-emission MIR

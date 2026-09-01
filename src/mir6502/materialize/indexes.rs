@@ -3859,7 +3859,7 @@ pub(super) fn discover_direct_indexed_byte_binaries(
     let mut plans = Vec::new();
     for block in &routine.blocks {
         for index in 0..block.ops.len() {
-            let Some(replacement) =
+            let Some((consumed, replacement)) =
                 direct_indexed_byte_binary_replacement(routine, &block.ops, index, layout)
             else {
                 continue;
@@ -3868,7 +3868,7 @@ pub(super) fn discover_direct_indexed_byte_binaries(
                 routine,
                 context,
                 block.id,
-                index..index + 5,
+                index..index + consumed,
                 replacement,
                 MirExitStateChange::default(),
                 "direct-indexed-byte-binary-selected",
@@ -4049,7 +4049,7 @@ fn direct_indexed_byte_binary_replacement(
     ops: &[MirOp],
     index: usize,
     layout: &MaterializeLayout,
-) -> Option<Vec<MirOp>> {
+) -> Option<(usize, Vec<MirOp>)> {
     let MirOp::Load {
         dst: MirDef::Reg(MirReg::A),
         src,
@@ -4058,9 +4058,24 @@ fn direct_indexed_byte_binary_replacement(
     else {
         return None;
     };
-    let (source, index_reg) = match src {
-        MirAddr::AbsoluteIndexedX { base } => (base, MirReg::X),
-        MirAddr::AbsoluteIndexedY { base } => (base, MirReg::Y),
+    let (source, direct_source) = match src {
+        MirAddr::AbsoluteIndexedX { base } => (
+            Some(base),
+            MirByteIndexedSource::Absolute {
+                base: base.clone(),
+                index: MirReg::X,
+            },
+        ),
+        MirAddr::AbsoluteIndexedY { base } => (
+            Some(base),
+            MirByteIndexedSource::Absolute {
+                base: base.clone(),
+                index: MirReg::Y,
+            },
+        ),
+        MirAddr::FixedIndirectIndexedY { zp } => {
+            (None, MirByteIndexedSource::FixedIndirectY { zp: *zp })
+        }
         _ => return None,
     };
     let MirOp::Store {
@@ -4091,25 +4106,32 @@ fn direct_indexed_byte_binary_replacement(
     else {
         return None;
     };
-    let MirOp::Store {
-        dst: MirAddr::Direct(result_home),
-        src: MirValue::Def(MirDef::Reg(MirReg::A)),
-        width: MirWidth::Byte,
-    } = ops.get(index + 4)?
-    else {
-        return None;
+    let result_home = match ops.get(index + 4) {
+        Some(MirOp::Store {
+            dst: MirAddr::Direct(result_home),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        }) => Some(result_home),
+        _ => None,
     };
     if rhs_home != binary_rhs
         || rhs_home == accumulator_home
         || !matches!(rhs_home, MirMem::Spill { .. } | MirMem::ZeroPage(_))
         || !matches!(accumulator_home, MirMem::Spill { .. } | MirMem::ZeroPage(_))
-        || !indexed_byte_range_is_disjoint_from_home(routine, layout, source, rhs_home)
-        || !indexed_byte_range_is_disjoint_from_home(routine, layout, source, accumulator_home)
+        || source.is_some_and(|source| {
+            !indexed_byte_range_is_disjoint_from_home(routine, layout, source, rhs_home)
+                || !indexed_byte_range_is_disjoint_from_home(
+                    routine,
+                    layout,
+                    source,
+                    accumulator_home,
+                )
+        })
     {
         return None;
     }
 
-    Some(vec![
+    let mut replacement = vec![
         MirOp::Load {
             dst: MirDef::Reg(MirReg::A),
             src: MirAddr::Direct(accumulator_home.clone()),
@@ -4117,17 +4139,20 @@ fn direct_indexed_byte_binary_replacement(
         },
         MirOp::BinaryDirectIndexedByte {
             op: MirBinaryOp::Add,
-            source: source.clone(),
-            index: index_reg,
+            source: direct_source,
             carry_in: Some(MirCarryIn::Clear),
             carry_out: MirCarryOut::Ignore,
         },
-        MirOp::Store {
+    ];
+    let consumed = if result_home.is_some() { 5 } else { 4 };
+    if let Some(result_home) = result_home {
+        replacement.push(MirOp::Store {
             dst: MirAddr::Direct(result_home.clone()),
             src: MirValue::Def(MirDef::Reg(MirReg::A)),
             width: MirWidth::Byte,
-        },
-    ])
+        });
+    }
+    Some((consumed, replacement))
 }
 
 fn indexed_byte_range_is_disjoint_from_home(

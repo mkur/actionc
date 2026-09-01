@@ -288,6 +288,30 @@ fn fixed_pointer_at_end_of_zero_page_retains_the_scratch_pair() {
 }
 
 #[test]
+fn fixed_zero_page_pointer_sum_accumulates_indirect_reads_in_a() {
+    let (formatted, bytes) = compile_materialized_mir6502_source(
+        "BYTE POINTER p=$F0 BYTE x \
+         PROC Main() x=BYTE(p(30)+p(31)+p(32)+p(63)) RETURN",
+    );
+
+    assert_eq!(
+        formatted
+            .matches("a =.b a add (fixed_zp $F0),y carry_in=clear carry_out=ignore")
+            .count(),
+        3,
+        "{formatted}"
+    );
+    assert!(!formatted.contains("spill sp"), "{formatted}");
+    assert_eq!(
+        bytes
+            .windows(2)
+            .filter(|bytes| *bytes == [0x71, 0xF0])
+            .count(),
+        3
+    );
+}
+
+#[test]
 fn address_of_local_materializes_directly_to_word_store_home() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("address_of_local.act");
 

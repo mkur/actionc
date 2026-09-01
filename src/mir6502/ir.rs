@@ -457,8 +457,7 @@ pub enum MirOp {
     /// carry; the explicit fields keep flag behavior verifier-visible.
     BinaryDirectIndexedByte {
         op: MirBinaryOp,
-        source: MirMem,
-        index: MirReg,
+        source: MirByteIndexedSource,
         carry_in: Option<MirCarryIn>,
         carry_out: MirCarryOut,
     },
@@ -652,6 +651,17 @@ pub enum MirOp {
         id: MirMachineBlockId,
         effects: MirEffects,
     },
+}
+
+/// An emitter-ready byte operand for arithmetic with A.
+///
+/// This intentionally lists only the indexed addressing forms admitted by the
+/// post-home selector and verifier. It is target strategy, not source memory
+/// semantics.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MirByteIndexedSource {
+    Absolute { base: MirMem, index: MirReg },
+    FixedIndirectY { zp: MirFixedZpSlot },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

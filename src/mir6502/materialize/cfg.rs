@@ -6,9 +6,9 @@ use crate::mir6502::analysis::effects::{MirFlagSet, classify_op, classify_termin
 use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
-    MirAddr, MirBlock, MirBlockId, MirCallTarget, MirCond, MirDef, MirEdge, MirFixedZpSlot,
-    MirFlag, MirFlagTest, MirMem, MirOp, MirPointerPair, MirReg, MirRoutine, MirTerminator,
-    MirUpdateOp, MirValue, MirWidth,
+    MirAddr, MirBlock, MirBlockId, MirByteIndexedSource, MirCallTarget, MirCond, MirDef, MirEdge,
+    MirFixedZpSlot, MirFlag, MirFlagTest, MirMem, MirOp, MirPointerPair, MirReg, MirRoutine,
+    MirTerminator, MirUpdateOp, MirValue, MirWidth,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -1420,7 +1420,10 @@ fn replace_y_index_with_x(op: &mut MirOp) {
         MirOp::CompareDirectIndexedBytes { index, .. } if *index == MirReg::Y => {
             *index = MirReg::X;
         }
-        MirOp::BinaryDirectIndexedByte { index, .. } if *index == MirReg::Y => {
+        MirOp::BinaryDirectIndexedByte {
+            source: MirByteIndexedSource::Absolute { index, .. },
+            ..
+        } if *index == MirReg::Y => {
             *index = MirReg::X;
         }
         _ => {}
